@@ -59,6 +59,18 @@ const RUSHED_UNDER = 20;
 const at = (state) => STATES.indexOf(state);
 
 /**
+ * How many of the back of house the board asks you to look after.
+ *
+ * There are seven of them between the service door and the curtain — Vinny,
+ * the cellarman, the delivery driver, the porter, the chef, the line cook and
+ * the dishwasher — and this is six, so one missed handshake does not cost the
+ * line. `main.js` owns which Woo events count towards it and this owns the
+ * number, because the board is a view of the mission and the mission does not
+ * know what a Woo is.
+ */
+export const BACK_OF_HOUSE_TOTAL = 6;
+
+/**
  * The evening, as a list on the side of the screen.
  *
  * There were five objectives in the whole mission and four of them were
@@ -85,7 +97,32 @@ const BOARD = [
   { id: 'alley', from: 'arrived', until: 'service-route', text: 'Find the service entrance, round the side' },
   { id: 'front', from: 'arrived', until: 'service-route', optional: true, text: 'Tell her why you are not using the front door', done: (m) => m.flags.askedAboutFront },
   { id: 'cellar', from: 'service-route', until: 'cellar', text: 'In at the service door and down the ramp' },
-  { id: 'staff', from: 'service-route', until: 'performance', optional: true, text: 'Look after the room on the way through', done: (m) => m.flags.backOfHouseTipped >= 6 },
+  /**
+   * The one line on the board a player could work at all evening without ever
+   * being told how close he was.
+   *
+   * "I feel like I take care of everyone on the way in but I'm still missing
+   * the goal." He almost certainly was taking care of people, and almost
+   * certainly missing one: the seven are spread across an alley, a cellar, a
+   * dry store, a walk-in, a prep kitchen, a line and a dish pit, two of them
+   * are on patrol routes rather than standing still, and the script makes a
+   * point of the fact that Hector is behind a wall and you have to go and find
+   * him. Six of seven is a fair ask. Six of seven with no way to know whether
+   * you are at five or at three is not an objective, it is a guess.
+   *
+   * So it carries its own count. Nothing about the requirement changed; the
+   * player can simply see it now, which is the whole fix.
+   */
+  {
+    id: 'staff',
+    from: 'service-route',
+    until: 'performance',
+    optional: true,
+    text: (m) => (m.flags.backOfHouseTipped >= BACK_OF_HOUSE_TOTAL
+      ? 'Look after the room on the way through'
+      : `Look after the room on the way through — ${m.flags.backOfHouseTipped} of ${BACK_OF_HOUSE_TOTAL}`),
+    done: (m) => m.flags.backOfHouseTipped >= BACK_OF_HOUSE_TOTAL,
+  },
   { id: 'kitchen', from: 'cellar', until: 'kitchen', text: 'Through the cellar and up into the kitchen' },
   { id: 'keepup', from: 'cellar', until: 'host', optional: true, text: 'Do not lose her back there', done: (m) => at(m.state) >= at('host') && m.flags.abandonments === 0 },
   { id: 'corridor', from: 'kitchen', until: 'corridor', text: 'Out of the kitchen and down the corridor' },
@@ -98,7 +135,12 @@ const BOARD = [
   { id: 'r-rye', from: 'drink-order', until: 'performance', optional: true, text: 'Remember what she drinks', done: (m) => m.flags.drinkOrdered === 'rye' },
   { id: 'r-family', from: 'family', until: 'personal', text: 'Get through the interruption' },
   { id: 'r-personal', from: 'personal', until: 'performance-cutscene', text: 'Answer the question she actually asked' },
-  { id: 'song', from: 'performance', until: 'ending', optional: true, text: 'Ask the band for something', done: (m) => !!m.flags.songRequested },
+  /* "Lets remove the ask the band for something objective." Gone from the
+   * board — not from the game. The bandleader still comes over, the front
+   * table still gets its one, and `flags.songRequested` still moves the set
+   * queue and still gets its line on the ending card. It is a thing you can
+   * find, which is what the "if you like" list was for; it was the one entry
+   * on it that read as homework. */
   { id: 'sway', from: 'performance', until: 'ending', optional: true, text: 'Dance with her', done: (m) => !!m.flags.swayed },
   { id: 'toast', from: 'performance', until: 'ending', optional: true, text: 'Raise a glass', done: (m) => !!m.flags.toast },
   { id: 'ask', from: 'performance', until: 'ending', text: 'Stay for the third number, then ask her about seeing her again' },
@@ -182,13 +224,17 @@ export class Mission {
     for (const line of BOARD) {
       if (now < at(line.from) && !seen.has(line.id)) continue;
       const done = line.done ? !!line.done(this) : now >= at(line.until);
+      /* A line's text may be a function of where the evening has got to, for
+       * the one that carries a running count. Derived here with everything
+       * else, so it cannot disagree with the flag it is counting. */
+      const text = typeof line.text === 'function' ? line.text(this) : line.text;
       const had = this.objectives.find((o) => o.id === line.id);
       if (!had) {
-        this.objectives.push({ id: line.id, text: line.text, done, optional: !!line.optional });
+        this.objectives.push({ id: line.id, text, done, optional: !!line.optional });
         changed = true;
-      } else if (done && !had.done) {
-        had.done = true;
-        changed = true;
+      } else {
+        if (done && !had.done) { had.done = true; changed = true; }
+        if (had.text !== text) { had.text = text; changed = true; }
       }
     }
     /* Only when it has actually moved. The board is cheap enough to derive

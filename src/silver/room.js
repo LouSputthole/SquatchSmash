@@ -1599,6 +1599,163 @@ export function buildRoom(scene, { renderer } = {}) {
     add(rampLight);
     houseLights.push({ light: rampLight, back: true });
 
+    /* ---- what a kitchen is full of ----
+     *
+     * "More detail in the kitchen." It had a pass, three ranges, a hood, three
+     * bare benches and a dish pit — which is the equipment schedule rather
+     * than the room. What makes a working kitchen read is the stuff ON the
+     * equipment and hanging OVER it: it is the most cluttered room in any
+     * building and the only one where every single object is within arm's
+     * reach of somebody, because everything in here is mid-use.
+     *
+     * She is the one guest in the building who can price this professionally
+     * — "eleven of them on a Tuesday. I have four and I have to beg" — so the
+     * kitchen is the one room in the mission where the dressing is doing
+     * character work rather than set work.
+     *
+     * The route walks x 22.5→23 down the east of the pass, out to the dish at
+     * 27.6→28.4, and back along the south and west at 20→17→16, and the
+     * harness holds every leg of it to 300mm. So: everything here is hanging
+     * above head height, standing on a surface that already has a collider, or
+     * tucked under a bench that does.
+     */
+    {
+      const M_ALLOY = mat({ color: 0xb4bac2, roughness: 0.3, metalness: 0.72 });
+      const M_COPPER = mat({ color: 0xa86a34, roughness: 0.33, metalness: 0.8 });
+      const M_TUB = mat({ color: 0xd8dce0, roughness: 0.62 });
+      const M_CHALK = mat({ color: 0x1c2420, roughness: 0.95 });
+
+      /* The pot rack, over the line and above every head in the room. Copper
+       * and alloy mixed, because no kitchen has ever owned a matching set. */
+      const rack = group('pot-rack');
+      for (const rz of [-9.9, -11.1]) {
+        const bar = cylinder({ r: 0.022, h: 7.4, pos: [20.4, 1.98, rz], mat: M_STEEL, rotZ: Math.PI / 2 });
+        bar.name = 'pot-rack-bar';
+        rack.add(bar);
+      }
+      for (let i = 0; i < 9; i++) {
+        const px = 17.1 + i * 0.82;
+        const copper = i % 3 === 1;
+        const body = cylinder({
+          rTop: 0.15 + (i % 2) * 0.03, rBottom: 0.13, h: 0.20 + (i % 3) * 0.05,
+          pos: [px, 1.83, i % 2 ? -9.9 : -11.1], mat: copper ? M_COPPER : M_ALLOY,
+        });
+        body.name = 'hanging-pot';
+        rack.add(body);
+        rack.add(box({
+          name: 'hanging-pot-handle', size: [0.035, 0.13, 0.035],
+          pos: [px, 1.94, i % 2 ? -9.9 : -11.1], mat: M_STEEL_D,
+        }));
+      }
+      add(rack);
+
+      /* Utensils off the front rail of the hood: ladles, a skimmer, tongs.
+       * These are what a cook reaches up for without looking. */
+      const utensils = group('hood-utensils');
+      const utensilRail = cylinder({ r: 0.016, h: 2.6, pos: [18.4, 2.02, -9.32], mat: M_STEEL, rotZ: Math.PI / 2 });
+      utensilRail.name = 'hood-utensil-rail';
+      utensils.add(utensilRail);
+      for (let i = 0; i < 7; i++) {
+        const ux = 17.25 + i * 0.38;
+        utensils.add(box({
+          name: 'hood-utensil', size: [0.024, 0.30 + (i % 3) * 0.06, 0.024],
+          pos: [ux, 1.85 - (i % 3) * 0.03, -9.32], mat: M_ALLOY,
+        }));
+        const bowl = sphere({ r: 0.055, ry: 0.035, rz: 0.055, pos: [ux, 1.69 - (i % 3) * 0.06, -9.32], mat: M_ALLOY });
+        bowl.name = 'hood-utensil-bowl';
+        utensils.add(bowl);
+      }
+      add(utensils);
+
+      /* On the pass itself: the plates that go out, and the inserts they are
+       * plated from. The pass already carries a collider to 1.05, so anything
+       * standing on it is standing on something solid. */
+      for (let i = 0; i < 3; i++) {
+        const sx = 16.9 + i * 0.55;
+        for (let p = 0; p < 7; p++) {
+          add(box({
+            name: 'pass-plate', size: [0.26, 0.018, 0.26],
+            pos: [sx, 1.01 + p * 0.019, -6.4], mat: mat({ color: 0xf0ece2, roughness: 0.5 }),
+          }));
+        }
+      }
+      for (let i = 0; i < 4; i++) {
+        add(box({
+          name: 'pass-insert', size: [0.30, 0.12, 0.5],
+          pos: [20.2 + i * 0.34, 1.06, -6.72], mat: M_ALLOY,
+        }));
+      }
+
+      /* Over the prep benches, on the east wall of the prep kitchen: a shelf
+       * of lidded tubs, a knife rail, and the board with the day's prep on it.
+       * All above the benches, none of it in anybody's way. */
+      const shelfBoard = box({ name: 'prep-shelf-board', size: [0.34, 0.05, 4.2], pos: [23.98, 1.62, 5.2], mat: M_ALLOY });
+      add(shelfBoard);
+      add(box({ name: 'prep-shelf-board', size: [0.34, 0.05, 4.2], pos: [23.98, 2.06, 5.2], mat: M_ALLOY }));
+      for (let i = 0; i < 9; i++) {
+        add(box({
+          name: 'prep-shelf-tub', size: [0.26, 0.24, 0.30],
+          pos: [23.96, 1.77 + (i % 2 ? 0.44 : 0), 3.35 + i * 0.42], mat: M_TUB,
+        }));
+      }
+      const knifeRail = box({ name: 'knife-rail', size: [0.05, 0.06, 1.1], pos: [24.05, 1.36, 6.9], mat: M_STEEL_D });
+      add(knifeRail);
+      for (let i = 0; i < 5; i++) {
+        add(box({
+          name: 'knife-blade', size: [0.012, 0.26 - i * 0.03, 0.05],
+          pos: [23.99, 1.18, 6.45 + i * 0.22], mat: M_ALLOY,
+        }));
+      }
+      const board = group('prep-board');
+      board.add(box({ name: 'prep-board-slate', size: [0.03, 0.72, 1.0], pos: [0, 0, 0], mat: M_CHALK }));
+      board.add(box({ name: 'prep-board-frame', size: [0.04, 0.80, 1.08], pos: [-0.008, 0, 0], mat: M_DARKWOOD }));
+      for (let i = 0; i < 7; i++) {
+        board.add(box({
+          name: 'prep-board-line', size: [0.004, 0.018, 0.36 + (i % 3) * 0.22],
+          pos: [0.02, 0.26 - i * 0.088, -0.22 + (i % 2) * 0.08],
+          mat: mat({ color: 0xd8dcd4, roughness: 1 }),
+        }));
+      }
+      board.position.set(24.06, 1.85, 1.2);
+      add(board);
+
+      /* Under the benches, which is where the crates live in every kitchen
+       * that has ever existed. Inside the benches' own colliders. */
+      for (const [bx, bz] of [[18.5, 4.6], [22, 4.6], [18.5, 6.8]]) {
+        for (let i = 0; i < 2; i++) {
+          add(box({
+            name: 'produce-crate', size: [0.52, 0.26, 0.4],
+            pos: [bx - 0.6 + i * 1.2, 0.14 + (i % 2) * 0.27, bz], mat: mat({ color: 0x2f5a3a, roughness: 0.85 }),
+          }));
+        }
+      }
+
+      /* Clean plates coming back off the dish pit, racked over it. */
+      const dishRack = group('dish-rack');
+      dishRack.add(box({ name: 'dish-rack-shelf', size: [0.8, 0.04, 4.4], pos: [0, 0, 0], mat: M_ALLOY }));
+      for (let i = 0; i < 8; i++) {
+        for (let p = 0; p < 6; p++) {
+          dishRack.add(box({
+            name: 'dish-rack-plate', size: [0.26, 0.018, 0.26],
+            pos: [-0.16 + (i % 2) * 0.34, 0.04 + p * 0.019, -1.9 + i * 0.54],
+            mat: mat({ color: 0xf0ece2, roughness: 0.5 }),
+          }));
+        }
+      }
+      dishRack.position.set(26.6, 1.72, -13.6);
+      add(dishRack);
+
+      /* Two bins in the corner past the dish pit, and the clock the whole
+       * room works to. */
+      for (let i = 0; i < 2; i++) {
+        const bin = cylinder({ r: 0.29, h: 0.86, pos: [29.05, 0.43, -17.1 + i * 0.68], mat: mat({ color: 0x33383e, roughness: 0.85 }) });
+        bin.name = 'kitchen-bin';
+        add(bin);
+        solid(28.72, -17.42 + i * 0.68, 29.38, -16.78 + i * 0.68, 0, 0.9);
+      }
+      add(makeWallClock(M, { x: 29.42, y: 2.25, z: -12, rotY: -Math.PI / 2 }));
+    }
+
     /* ---- the way out to the floor, painted on the floor ----
      *
      * The playtest note was blunt: coming up out of the cellar into a working
@@ -1661,6 +1818,19 @@ export function buildRoom(scene, { renderer } = {}) {
      * over a three-metre drop into the cellar. */
     wallGap('z', 15, -2, 8, 3.4, 6.2, CEIL_BACK, M_TILE, 0.25);
     wall(15, 8, 15, 26, CEIL_BACK, M_WAINSCOT, 0.25);
+    /* The north end of it, which was not there.
+     *
+     * "The end of the hallway near the coat check is open. It should be closed
+     * off to the exterior." It was exactly that: the corridor runs z −18..26,
+     * the south end has had a cap since it was built, the east and west walls
+     * both run the full length — and the north end, four metres past the coat
+     * check, simply stopped. You walked to the end of the building's back
+     * corridor and out of the building, into the black the dining room's north
+     * wall and the lobby are there to keep out of shot. The lobby is x −9..9
+     * and this is x 10..15, so nothing was ever supposed to be through here.
+     * Wainscot rather than tile: this is the warm, carpeted, front-of-house
+     * end of the corridor, and it matches the wall it now meets. */
+    wall(10, 26.2, 15, 26.2, CEIL_BACK, M_WAINSCOT, 0.25);
 
     anchors.corridorMid = new THREE.Vector3(12.5, 0, 6);
     anchors.serviceBar = new THREE.Vector3(12.4, 0, 10.5);
@@ -1719,6 +1889,175 @@ export function buildRoom(scene, { renderer } = {}) {
     railG.position.set(14.6, 0, 20);      // behind the counter, in front of the wall
     add(railG);
 
+    /* ---- what is on the walls of nine metres of staff corridor ----
+     *
+     * "More detail in the hallway when you walk out of the kitchen." It had
+     * three floor finishes, six lights, a bar and a coat check, and forty-four
+     * metres of bare wall between them — which is why the one genuinely good
+     * idea in here (concrete, then matting, then carpet: the building
+     * explained in nine metres) was not landing. A back corridor is the most
+     * densely dressed part of any restaurant, because it is the only part
+     * nobody is designing: everything that has nowhere else to go ends up in
+     * it, and it gets more front-of-house the closer it gets to the room.
+     *
+     * So the dressing runs the same gradient the floor and the lights already
+     * do — steel and paper and safety yellow at the kitchen end, framed
+     * photographs and a mirror by the curtain. Everything here is on a wall or
+     * hard into a corner, and nothing has a collider except the two things
+     * that stand on the floor, because the route walks straight down the
+     * middle of this and the harness holds every leg of it to 300mm.
+     *
+     * West wall inner face is x=9.925, east is x=14.875.
+     */
+    {
+      const M_CORK = mat({ color: 0x8a6a3e, roughness: 0.98 });
+      const M_PAPER = mat({ color: 0xeae4d2, roughness: 1 });
+      const M_SAFETY = mat({ color: 0xb4331c, roughness: 0.5, metalness: 0.2 });
+      const M_GALV = mat({ color: 0x9aa0a8, roughness: 0.45, metalness: 0.6 });
+      const M_MIRROR = mat({ color: 0xb8c4cc, roughness: 0.08, metalness: 0.95 });
+
+      /* The rota board, at the kitchen end, where the staff actually read it.
+       * Six sheets on cork, one of them hanging off a corner, which is what a
+       * rota board looks like on a Tuesday in service. */
+      const rota = group('rota-board');
+      rota.add(box({ name: 'rota-cork', size: [0.04, 0.9, 1.3], pos: [0, 0, 0], mat: M_CORK }));
+      rota.add(box({ name: 'rota-frame', size: [0.05, 0.98, 1.38], pos: [-0.006, 0, 0], mat: M_DARKWOOD }));
+      for (let i = 0; i < 6; i++) {
+        rota.add(box({
+          name: 'rota-sheet', size: [0.006, 0.28, 0.21],
+          pos: [0.026, 0.24 - (i % 2) * 0.46, -0.48 + Math.floor(i / 2) * 0.44],
+          mat: M_PAPER, rotX: i === 3 ? 0.22 : 0,
+        }));
+      }
+      rota.position.set(9.95, 1.55, -13.4);
+      add(rota);
+
+      /* The clock everybody in the building looks at more often than the one
+       * in the dining room, and the card rack under it. */
+      add(makeWallClock(M, { x: 9.96, y: 2.2, z: -10.4, rotY: Math.PI / 2 }));
+      const cards = group('card-rack');
+      cards.add(box({ name: 'card-rack-body', size: [0.06, 0.34, 0.7], pos: [0, 0, 0], mat: M_GALV }));
+      for (let i = 0; i < 12; i++) {
+        cards.add(box({
+          name: 'card-rack-card', size: [0.004, 0.16, 0.042],
+          pos: [0.036, 0.03, -0.30 + i * 0.055], mat: M_PAPER,
+        }));
+      }
+      cards.position.set(9.955, 1.3, -10.4);
+      add(cards);
+
+      /* Fire kit, on the tiled stretch, because that is where the regulations
+       * and the kitchen both want it. */
+      const fire = group('fire-point');
+      fire.add(cylinder({ r: 0.075, h: 0.52, pos: [0, 0, 0], mat: M_SAFETY }));
+      fire.add(cylinder({ r: 0.028, h: 0.10, pos: [0, 0.30, 0], mat: M_STEEL }));
+      fire.add(box({ name: 'fire-bracket', size: [0.05, 0.30, 0.12], pos: [0.06, 0.02, 0], mat: M_STEEL_D }));
+      fire.position.set(14.79, 0.86, -15.6);
+      add(fire);
+      const reel = group('hose-reel');
+      reel.add(cylinder({ r: 0.30, h: 0.14, pos: [0, 0, 0], mat: M_SAFETY, rotZ: Math.PI / 2 }));
+      reel.add(cylinder({ r: 0.09, h: 0.18, pos: [0, 0, 0], mat: M_STEEL_D, rotZ: Math.PI / 2 }));
+      reel.position.set(14.80, 1.5, -15.6);
+      add(reel);
+
+      /* Conduit and a duct, on the ceiling of the back half. A back-of-house
+       * ceiling with nothing on it is the single clearest tell that a corridor
+       * is scenery rather than a building. */
+      for (const [cz0, cz1, cy, r, cmat] of [
+        [-17.6, 5.5, CEIL_BACK - 0.12, 0.045, M_GALV],
+        [-17.6, 5.5, CEIL_BACK - 0.12, 0.032, M_STEEL_D],
+      ]) {
+        const run = cylinder({
+          r, h: cz1 - cz0, pos: [r > 0.04 ? 10.05 : 10.2, cy, (cz0 + cz1) / 2],
+          mat: cmat, rotX: Math.PI / 2,
+        });
+        run.name = 'corridor-conduit';
+        add(run);
+      }
+      add(box({
+        name: 'corridor-duct', size: [0.5, 0.34, 15.5],
+        pos: [14.625, CEIL_BACK - 0.24, -9.8], mat: M_GALV,
+      }));
+
+      /* Linen: clean cloths and napkins on a shelf by the service bar, which
+       * is where the waiters pick them up. */
+      const linen = group('linen-shelf');
+      linen.add(box({ name: 'linen-shelf-board', size: [0.34, 0.05, 1.6], pos: [0, 0, 0], mat: M_DARKWOOD }));
+      for (const [sx, sz, h] of [[0, -0.5, 5], [0.02, 0.05, 4], [-0.01, 0.58, 6]]) {
+        for (let i = 0; i < h; i++) {
+          linen.add(box({
+            name: 'linen-stack', size: [0.26, 0.035, 0.34],
+            pos: [sx, 0.045 + i * 0.037, sz], mat: mat({ color: 0xe4e0d6, roughness: 0.97 }),
+          }));
+        }
+      }
+      linen.position.set(10.095, 1.42, 6.2);
+      add(linen);
+
+      /* Stacked spare chairs and a mop bucket, in the corner where the
+       * concrete stops. Both of these stand on the floor, so both of them get
+       * a collider — tight into the west wall, four metres clear of the route
+       * line, which runs x 11..14 down the middle. */
+      const spares = group('spare-chairs');
+      for (let i = 0; i < 5; i++) {
+        spares.add(box({
+          name: 'spare-chair-seat', size: [0.42, 0.05, 0.42],
+          pos: [0, 0.44 + i * 0.09, 0], mat: M_DARKWOOD, rotY: 0.04 * i,
+        }));
+        spares.add(box({
+          name: 'spare-chair-back', size: [0.42, 0.46, 0.05],
+          pos: [0, 0.69 + i * 0.09, -0.19], mat: M_DARKWOOD, rotY: 0.04 * i,
+        }));
+      }
+      for (const [lx, lz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) {
+        spares.add(box({ name: 'spare-chair-leg', size: [0.04, 0.44, 0.04], pos: [lx, 0.22, lz], mat: M_DARKWOOD }));
+      }
+      spares.position.set(10.32, 0, 13.1);
+      add(spares);
+      solid(10.05, 12.8, 10.6, 13.42, 0, 1.2);
+
+      const mop = group('mop-bucket');
+      mop.add(box({ name: 'mop-bucket-body', size: [0.42, 0.34, 0.32], pos: [0, 0.17, 0], mat: mat({ color: 0xc8a41c, roughness: 0.7 }) }));
+      mop.add(box({ name: 'mop-wringer', size: [0.30, 0.16, 0.20], pos: [0.03, 0.42, 0], mat: M_GALV }));
+      const handle = cylinder({ r: 0.022, h: 1.3, pos: [-0.10, 0.85, 0.06], mat: M_DARKWOOD, rotZ: 0.20 });
+      handle.name = 'mop-handle';
+      mop.add(handle);
+      mop.position.set(10.34, 0, 14.6);
+      add(mop);
+      solid(10.1, 14.38, 10.6, 14.84, 0, 0.6);
+
+      /* And then it stops being a service corridor. The photographs start
+       * where the carpet does and walk north with it, and the last thing
+       * before the curtain is the mirror every member of staff in this
+       * building checks before they step onto the floor. */
+      for (let i = 0; i < 4; i++) {
+        add(makeFrame(M, {
+          x: 9.96, y: 1.85, z: 15.4 + i * 2.1, rotY: Math.PI / 2, w: 0.42, h: 0.52,
+        }));
+      }
+      const mirror = group('staff-mirror');
+      mirror.add(box({ name: 'staff-mirror-glass', size: [0.03, 1.15, 0.56], pos: [0.018, 0, 0], mat: M_MIRROR }));
+      mirror.add(box({ name: 'staff-mirror-frame', size: [0.04, 1.25, 0.66], pos: [0, 0, 0], mat: M_BRASS }));
+      mirror.position.set(14.855, 1.5, 23.2);
+      add(mirror);
+
+      /* Ninety-one and ninety-two. The coat check's own bark counts them, and
+       * until now there was nothing behind him to count. */
+      const pigeon = group('ticket-board');
+      pigeon.add(box({ name: 'ticket-board-back', size: [0.04, 0.62, 1.1], pos: [0, 0, 0], mat: M_DARKWOOD }));
+      for (let r = 0; r < 4; r++) {
+        pigeon.add(box({ name: 'ticket-board-rail', size: [0.05, 0.02, 1.1], pos: [0.02, -0.28 + r * 0.19, 0], mat: M_BRASS }));
+        for (let c = 0; c < 11; c++) {
+          pigeon.add(box({
+            name: 'ticket-board-ticket', size: [0.006, 0.09, 0.055],
+            pos: [0.03, -0.23 + r * 0.19, -0.49 + c * 0.098], mat: M_PAPER,
+          }));
+        }
+      }
+      pigeon.position.set(14.855, 1.66, 17.6);
+      add(pigeon);
+    }
+
     // The route gets warmer and quieter as it goes north
     for (const [lz, colour, power] of [
       [-14, 0xdce8f4, 2.2], [-6, 0xdce8f4, 2.0], [2, 0xe8dcc0, 1.8],
@@ -1734,14 +2073,79 @@ export function buildRoom(scene, { renderer } = {}) {
 
     /* The curtain: heavy, floor to lintel, and the last thing between you and
      * it. Floor to *lintel*, which is 2.05 — at 3.1 it went 350mm through a
-     * 2.75 ceiling and hung in the corridor above. */
+     * 2.75 ceiling and hung in the corridor above.
+     *
+     * Tied back, which it was not. It used to be six panels drawn flat across
+     * the whole three-metre opening — a red wall, and the note was that it
+     * read as one: "the red cloth door should be half open like it's a red
+     * cloth tied up to the sides so it's clear it's an entrance to the show".
+     * That is right, and it is also what a supper club actually does with the
+     * drape between the back of house and the room: it is gathered to the
+     * reveals on brass hooks before service and it stays there all night,
+     * because the staff go through it forty times an hour.
+     *
+     * So: two bunches, one on each reveal, each of them three folds pinched at
+     * a sash and splaying above and below it — which is the hourglass every
+     * tied-back curtain has and the only reason the shape reads as fabric
+     * being HELD rather than fabric hanging. A metre and a bit of clear air
+     * down the middle, with the dining room's light in it.
+     */
     const curtain = group('curtain');
-    for (let i = 0; i < 6; i++) {
-      curtain.add(box({
-        size: [0.14, DOOR_H, 0.5], pos: [0, DOOR_H / 2, -1.25 + i * 0.5],
-        mat: M_VELVET, rotY: (i % 2 ? 0.14 : -0.14),
-      }));
+    const TIE_Y = 1.12;                    // where the sash goes round
+    const M_CORD = mat({ color: 0xc9a24a, roughness: 0.42, metalness: 0.55 });
+    // Each side: [z of the gathered centre, which way it splays]
+    for (const [holdZ, out] of [[-1.16, -1], [1.16, 1]]) {
+      for (let i = 0; i < 3; i++) {
+        /* The folds fan out from the pinch. The middle one of the three stays
+         * nearly upright and the outer two lean, which is what stops three
+         * boxes reading as three boxes. */
+        const lean = (i - 1) * 0.10;
+        const foldZ = holdZ + (i - 1) * 0.11;
+        // Above the sash: gathered up and back towards the reveal.
+        curtain.add(box({
+          name: 'curtain-fold-upper',
+          size: [0.17, DOOR_H - TIE_Y, 0.30],
+          pos: [0.02 * out, TIE_Y + (DOOR_H - TIE_Y) / 2, foldZ + out * 0.20],
+          mat: M_VELVET, rotY: lean,
+        }));
+        // Below it: falling away to the floor, wider again at the hem.
+        curtain.add(box({
+          name: 'curtain-fold-lower',
+          size: [0.16, TIE_Y, 0.26],
+          pos: [0, TIE_Y / 2, foldZ + out * 0.10],
+          mat: M_VELVET, rotY: -lean * 0.6,
+        }));
+      }
+      /* The sash, and the tassel on the end of it. A gold cord round the waist
+       * of the bunch is the single detail that says "tied" rather than "shoved
+       * to one side", so it is the one thing here that is not velvet. */
+      const sash = box({
+        size: [0.21, 0.075, 0.40], pos: [0, TIE_Y, holdZ + out * 0.13], mat: M_CORD,
+      });
+      sash.name = 'curtain-tieback';
+      curtain.add(sash);
+      const tassel = cylinder({
+        r: 0.028, h: 0.16, pos: [0.085 * out, TIE_Y - 0.11, holdZ + out * 0.13], mat: M_CORD,
+      });
+      tassel.name = 'curtain-tassel';
+      curtain.add(tassel);
+      // The brass hook on the reveal that the cord is actually looped over.
+      const hook = cylinder({
+        r: 0.018, h: 0.10, pos: [0.05 * out, TIE_Y + 0.09, holdZ + out * 0.30],
+        mat: M_BRASS, rotX: Math.PI / 2,
+      });
+      hook.name = 'curtain-hook';
+      curtain.add(hook);
     }
+    /* The pelmet across the head of the opening. With the drape pulled to the
+     * sides there is now a metre of bare lintel on show that the closed
+     * curtain used to cover, and a valance is what is over a doorway like this
+     * in a room like this. */
+    const pelmet = box({
+      size: [0.22, 0.26, 3.02], pos: [0, DOOR_H - 0.13, 0], mat: M_VELVET,
+    });
+    pelmet.name = 'curtain-pelmet';
+    curtain.add(pelmet);
     curtain.position.set(9.9, 0, 24);
     add(curtain);
     anchors.curtainMesh = curtain;
@@ -2097,7 +2501,16 @@ export function buildRoom(scene, { renderer } = {}) {
       add(makeFrame(M, { x: -26 + i * 3.6, y: 2.1, z: 26.01, rotY: Math.PI, w: 0.5, h: 0.62 }));
     }
     add(makeWallClock(M, { x: 9.94, y: 3.2, z: 14, rotY: -Math.PI / 2 }));
-    for (const [px, pz] of [[-28.4, 24], [8.2, 24.6]]) add(makePlant(M, { x: px, y: 0, z: pz }));
+    /* The second one is tucked beside the curtain rather than standing in it.
+     *
+     * It was at (8.2, 24.6). The curtain's opening is z 22.6..25.6 at x=9.8,
+     * so 24.6 is dead in the throat of it and 8.2 is 1.6m into the room —
+     * which is to say the first thing through the curtain walked into a pot
+     * plant, with her behind him. "The plant when you come out of the red
+     * curtains is right in the way, it should be tucked on the side." Moved
+     * south, hard against the east wall and clear of the opening by a metre,
+     * where it does the job a plant by a door is for: marking the corner. */
+    for (const [px, pz] of [[-28.4, 24], [9.3, 21.4]]) add(makePlant(M, { x: px, y: 0, z: pz }));
 
     /* ---- the back corridor, the restrooms and the manager's station ----
      *
