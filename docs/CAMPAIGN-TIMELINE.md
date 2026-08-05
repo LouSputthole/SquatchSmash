@@ -223,7 +223,10 @@ optional gate is the only new mechanism, and the flat already has one.
 has been waiting on. The film everybody is watching is currently missing, and
 the theatre beat needs it.
 
-### 2 · The cartel attack — a new mission
+### 2 · The cartel attack — MANSION UNDER SIEGE
+
+**Now specified in full: `docs/MANSION-SIEGE-NIGHT.md`.** That document is
+authoritative for this beat; what follows is the campaign-level summary.
 
 He wakes in the middle of the night. **The attack is already happening.**
 
@@ -232,14 +235,24 @@ The register is the SCARFACE parody: "say hello to my little friend". Read
 scene, not a wink at the audience, and nobody in the house should notice they
 are in one.
 
-**The design problem, named by the owner and worth solving before anything is
-modelled: the player needs a REASON to go upstairs, so the fight happens from
-the balcony.** Waking in the basement and being told to go up is not a reason.
-Candidates, none chosen: the armory is down there and the guns are not; Lou is
-up there and the radio has stopped answering; the balcony is the only firing
-position that covers the drive; the basement stair is the only way out and it
-goes up. Whatever it is, it has to be something the player works out rather
-than something an objective tells him.
+**The design problem the owner named — the player needs a REASON to go
+upstairs, so the fight happens from the balcony — is solved, and it is solved
+by the building rather than by an objective.** He wakes in the basement with a
+pistol. The armory is at the other end of the cellar corridor, so the first
+move is sideways, not up. Once he is armed, the only route out of the cellar
+is the basement stair, and it comes up into the rear hall at the north end of
+the foyer with the horseshoe on both flanks and the front door twenty-two
+metres away, full of men. Upstairs is where the family is, and the gallery
+rail is the only position in the house that covers the foyer floor and both
+flights at once. Nobody has to be told.
+
+**The technical decision, and it is the one that matters:** the siege is a
+DAMAGE-STATE OVERLAY on the canonical mansion, not a forked copy of it. Same
+two builders, same geometry, six named states (`clean`, `alert`,
+`under_attack`, `damaged`, `post_battle`, `repaired`). The mansion overview
+can keep moving without three maps needing the same repair, and improvements
+the siege exposes go in that document's future-edit table rather than into
+`Mansion_Base` twice.
 
 The house is already staffed — the man on the door, six guards on their posts,
 the bartender, Snow, Gratin, and the Family hanging out in it. **That roster
@@ -272,13 +285,77 @@ the family decides to do the thing — and it should be written the way PROJECT
 SILENT SQUATCH's script was: as data, in one file, before anybody builds a
 scene around it.
 
+### 5 · The wrong city — back at the mansion, clean
+
+The player returns to the mansion in the `repaired` state: **the canonical
+house with a story flag, never the siege damage written back.** That is a
+design rule, not an implementation detail — the wreckage was a mission
+overlay and it comes off.
+
+Lou tells him three things, in this order and played as a scene rather than a
+HUD toast:
+
+1. They bombed the **wrong city**. The intended cartel target is untouched.
+2. While the operation was running, **Sauce was taken**.
+3. The cartel is holding him at **Mark's estate**. There is going to be a
+   final infiltration.
+
+Grim absurdity is the register. Six thousand pounds of Fat Squatch went into
+somebody else's town and the room has to sit with that before it moves on.
+
+### 6 · The cartel palace — the actual final mission
+
+Presented as a rescue. It is not one.
+
+**The truth the player discovers on site:** Sauce was never a prisoner. He
+moves freely, he is armed, he is treated as a guest, and he helped set the
+whole thing up — the attack, the story, the operation. The rescue becomes an
+elimination. **Mark is the cartel boss.** Both of them are targets by the end.
+
+Staged, not announced: documents, radio chatter, photographs, guard
+conversation, his own belongings, security footage, and finally Sauce sitting
+at Mark's table with a weapon on it. Do not spend the twist at the gate.
+
+**Its own map — `Cartel_Palace_Final`.** Not Lou's mansion in a different
+colourway and NOT another damage layer on it. It reuses systems, proportions,
+props, stair modules, guard AI, encounter tooling and every set-dressing
+lesson the mansion taught us; it differs in silhouette, material, plan,
+courtyards, walls and gates, service passages, separate guard housing, a much
+larger dining room, and light. A wealthy criminal compound built for privacy,
+family life, intimidation and defence — not a theme park.
+
+The shape is the 2015 SICARIO estate infiltration as RHYTHM, not shot list:
+quiet approach, perimeter, controlled eliminations, deeper in, the evidence
+about Sauce, rescue becomes betrayal, the dining room, Mark and Sauce, done.
+
+The contrast with the siege is the point and should be protected: the siege
+is loud, chaotic, defensive, ensemble-driven, automatic. The palace is quiet,
+deliberate, predatory, nearly solitary, controlled.
+
+Full direction: `docs/MANSION-SIEGE-NIGHT.md` PARTS X–XIII.
+
+### 7 · Initiation
+
+**Initiation is the ending scene, not the final mission.** The cartel palace
+is the last thing the player fights through; Initiation is what the campaign
+resolves into afterwards. It is already built and it is not to be altered
+before the owner's playtest.
+
 ### What already exists and can be reused
 
 The mansion, inside and out, staffed and dressed. The weapon system and the
-basement armory. The Enola Squatch mission entire. The campaign save, the
-checkpoint machinery, and the scene-to-scene navigation. `src/mansion/cast.js`
-for placing people. This arc is mostly staging and writing, not new systems —
-the one genuinely new thing is the damaged/burning state of the house.
+basement armory. The shared combat framework — `core/combat/*` plus
+`core/weapons/*` — which the siege now drives and the palace will drive
+after it, with `FACTIONS.CARTEL` already in the matrix. The Enola Squatch
+mission entire. The campaign save, the checkpoint machinery, and the
+scene-to-scene navigation. `src/mansion/cast.js` for placing people. The
+siege's own damage-state overlay, wave director and mission model
+(`src/mansion/siege/`), all of which the palace's infiltration can reuse
+wholesale.
+
+This arc is mostly staging and writing, not new systems. The two genuinely new
+things are the damaged/burning state of the house — now built as an overlay —
+and the cartel palace itself, which is a new map.
 
 ## Rhythm
 
