@@ -1778,12 +1778,19 @@ export function makeLaundry(M, { x, z }) {
     const lump = sphere({
       r: 0.13 + (i % 3) * 0.03,
       ry: 0.07 + (i % 2) * 0.02,
-      // High enough that the rotated ellipsoids sit ON the boards — half of
-      // each lump used to be under the floor.
       pos: [Math.sin(a) * r, 0.11 + (i % 2) * 0.05, Math.cos(a) * r],
       mat: mat({ color: cols[i % cols.length], roughness: 1 }),
     });
     lump.rotation.set(0.2, a, 0.3);
+    /* And then sat ON the boards by MEASURING, rather than by picking a lift
+     * and hoping. A tilted ellipsoid stands taller than its own ry -- the roll
+     * and the pitch trade some of the 19cm radius into the vertical -- so the
+     * fixed lift these used to carry (whose comment already claimed they were
+     * on the floor) still left the deepest of them 5.7cm underneath it. The
+     * box is taken before the lump is parented, so it is already measured in
+     * the group's own frame. */
+    lump.updateMatrixWorld(true);
+    lump.position.y += 0.004 - new THREE.Box3().setFromObject(lump).min.y;
     g.add(lump);
   }
   return { group: g };
@@ -2927,6 +2934,16 @@ export function makeCrossingSign(M, { x, z, rotY = 0 }) {
 }
 
 /**
+ * How high the closet rail hangs.
+ *
+ * Exported because it is not only this file's business any more: the suit
+ * carrier is a chapter dressing piece, built long before the closet is, and it
+ * has to hang off the same rail as the shirts rather than off a copy of this
+ * number that can quietly drift away from it.
+ */
+export const CLOSET_RAIL_Y = 1.74;
+
+/**
  * A closet: a shallow alcove with a rail across it and things on the rail.
  *
  * The point of it is what is behind the clothes, so the clothes have to be
@@ -2979,7 +2996,7 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
   }
 
   // Rail, and a shelf over it.
-  const RAIL_Y = 1.74;
+  const RAIL_Y = CLOSET_RAIL_Y;
   g.add(cylinder({ r: 0.016, h: W, pos: [cx, RAIL_Y, z0 + D * 0.5], rotZ: Math.PI / 2, mat: M.chrome }));
   g.add(box({ size: [W, 0.030, D * 0.86], pos: [cx, RAIL_Y + 0.20, z0 + D * 0.5], mat: M.darkWood }));
 
@@ -3045,12 +3062,21 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
         map: item.cut, roughness: 0.92, transparent: true, alphaTest: 0.42,
         side: THREE.DoubleSide,
       }));
-      shirt.position.set(0, RAIL_Y - 0.10 - gh * 0.72, 0);
+      /* Each printed shirt hangs 4mm further back than the one before it.
+       *
+       * Two of these are cut from the same rectangle and hung 20cm apart on a
+       * 56cm rail, so a third of a metre of them overlapped -- with both
+       * front sheets at exactly z 4.950 and both backing sheets at 4.976.
+       * Coplanar alpha-tested planes over a 0.33 x 0.90 patch is a flicker you
+       * cannot miss once the sun comes round, and this closet is the one thing
+       * in the flat the player is asked to stand and stare into. */
+      const depth = i * 0.004;
+      shirt.position.set(0, RAIL_Y - 0.10 - gh * 0.72, depth);
       shirt.rotation.y = Math.PI;
       shirt.castShadow = true;
       hung.add(shirt);
       const back = shirt.clone();
-      back.position.z = 0.026;
+      back.position.z = depth + 0.026;
       hung.add(back);
     } else {
       const body = box({

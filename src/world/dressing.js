@@ -186,14 +186,31 @@ export function persistentDressingForCampaign(state = {}) {
 const NOTE_GREEN = 0x5c7a56;
 const NOTE_PALE = 0xcfd4c2;
 
+/** How tall one banded stack gets before the next one starts beside it. */
+const CASH_PER_STACK = 6;
+/** And how many stacks stand shoulder to shoulder before a row goes behind. */
+const CASH_PER_ROW = 2;
+
 /**
- * Banded bundles of notes. `n` is how many are in the pile.
+ * Banded bundles of notes. `n` is how many are in the pile on this morning,
+ * `max` how many it can ever hold.
  *
  * Cut edges outward and one printed note on top of each bundle, because that
  * is the only bit of a banded stack you actually see -- a solid green brick
  * reads as a green brick and gets ignored in a dim room.
+ *
+ * Every bundle the pile can EVER hold is built here and then shown or hidden,
+ * exactly the way the rest of this file works: what the campaign decides is
+ * only how many of them are on. A pile that rebuilt itself when the money
+ * changed would need somewhere to keep the last count, and nothing in here
+ * keeps state.
+ *
+ * It grows up first and sideways second -- six bundles to a stack, two stacks
+ * shoulder to shoulder, then a row behind. A single column tall enough to hold
+ * a heist's cut is a chimney; a single row wide enough is off the front of the
+ * sideboard and into the radio.
  */
-function cash(M, { x, y, z, rotY = 0, n = 1, wide = false }) {
+function cash(M, { x, y, z, rotY = 0, n = 1, wide = false, max = n }) {
   const g = group('cash');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
@@ -202,17 +219,97 @@ function cash(M, { x, y, z, rotY = 0, n = 1, wide = false }) {
   const edge = mat({ color: NOTE_PALE, roughness: 1 });
   const face = mat({ color: NOTE_GREEN, roughness: 0.9 });
   const band = mat({ color: 0xb8452f, roughness: 0.75 });
-  for (let i = 0; i < n; i++) {
+  const total = Math.max(1, Math.round(max));
+  const stacks = Math.ceil(total / CASH_PER_STACK);
+  const cols = Math.min(CASH_PER_ROW, stacks);
+  const rows = Math.ceil(stacks / CASH_PER_ROW);
+  const stepX = w + 0.013;
+  const stepZ = d + 0.014;
+  const bundles = [];
+  for (let i = 0; i < total; i++) {
+    const stack = Math.floor(i / CASH_PER_STACK);
     const h = 0.022 + (i % 3) * 0.005;
-    const sx = ((i * 31) % 7) / 7 * 0.05 - 0.025;
-    const sz = ((i * 17) % 5) / 5 * 0.04 - 0.02;
-    const y0 = i * 0.028;
+    /* Jitter, because a stack somebody dropped is not a machined block -- and
+     * SMALL jitter, because every pile now lives in a measured pocket between
+     * the radio, the standing photographs and the answering machine, and the
+     * clearances there are counted in centimetres. */
+    const sx = ((stack % CASH_PER_ROW) - (cols - 1) / 2) * stepX
+      + ((i * 31) % 7) / 7 * 0.020 - 0.010;
+    const sz = (Math.floor(stack / CASH_PER_ROW) - (rows - 1) / 2) * stepZ
+      + ((i * 17) % 5) / 5 * 0.014 - 0.007;
+    const y0 = (i % CASH_PER_STACK) * 0.028;
     const spin = ((i * 13) % 9) / 9 * 0.5 - 0.25;
-    g.add(box({ size: [w, h, d], pos: [sx, y0 + h / 2, sz], mat: edge, rotY: spin }));
-    g.add(box({ size: [w * 0.98, 0.0016, d * 0.98], pos: [sx, y0 + h + 0.0008, sz], mat: face, rotY: spin }));
-    g.add(box({ size: [0.016, h * 1.06, d * 1.03], pos: [sx, y0 + h / 2, sz], mat: band, rotY: spin }));
+    const bundle = group(`cash.bundle.${i + 1}`);
+    bundle.add(box({ size: [w, h, d], pos: [sx, y0 + h / 2, sz], mat: edge, rotY: spin }));
+    bundle.add(box({ size: [w * 0.98, 0.0016, d * 0.98], pos: [sx, y0 + h + 0.0008, sz], mat: face, rotY: spin }));
+    bundle.add(box({ size: [0.016, h * 1.06, d * 1.03], pos: [sx, y0 + h / 2, sz], mat: band, rotY: spin }));
+    g.add(bundle);
+    bundles.push(bundle);
   }
-  return g;
+  /** How much of the pile is on show. Clamped, so no save can overfill it. */
+  const setBundles = (count) => {
+    const on = Math.max(0, Math.min(total, Math.round(Number(count) || 0)));
+    bundles.forEach((bundle, i) => { bundle.visible = i < on; });
+    return on;
+  };
+  setBundles(n);
+  return { group: g, setBundles, capacity: total };
+}
+
+/**
+ * The paying work.
+ *
+ * Finishing one of these is the only thing in the campaign that puts money in
+ * this flat, so it is what the piles on the furniture are counted from. Golf
+ * and the Silver Room are not on the list; nobody pays him for those.
+ */
+const PAID_JOBS = Object.freeze([
+  'bada_bing_one', 'squatchfather', 'airstrip_smuggling', 'bada_bing_two',
+  'jerky_motel', 'no_wake', 'silent_squatch', 'bank_heist',
+]);
+
+/** What one banded bundle is worth when the campaign counts in dollars. */
+const CASH_PER_BUNDLE = 25_000;
+
+/**
+ * How big each pile can get, and what it was when it arrived.
+ *
+ * `base` is the pile on the morning it first appears, `since` is how many jobs
+ * were behind him by then, and `max` is as much as its pocket on that surface
+ * will physically take -- measured against the neighbours rather than guessed.
+ * The sideboard pair sit on the front ledge between the radio and the standing
+ * photographs; the table pile sits in the gap between the bong and the pizza
+ * box. Every pile counts the same thing from its own starting point, which is
+ * why there is one rule here and not three.
+ */
+const CASH_PILES = Object.freeze({
+  cashSmall: { base: 1, max: 4, since: 1 },
+  cashMid: { base: 3, max: 6, since: 3 },
+  cashStacks: { base: 6, max: 12, since: 5 },
+});
+
+/**
+ * How many bundles are on show in each pile, folded from campaign truth.
+ *
+ * The point of this is that the money in the flat is a readout of the work,
+ * not a fixed prop that appears on a date: another job done is another bundle
+ * on the sideboard, every time, on every reload.
+ *
+ * @param {object} state campaign state
+ * @returns {Record<string, number>} pile id -> bundles on show
+ */
+export function cashPilesForCampaign(state = {}) {
+  const jobs = PAID_JOBS.filter((id) => state.missions?.[id]?.status === 'complete').length;
+  const piles = {};
+  for (const [id, pile] of Object.entries(CASH_PILES)) {
+    piles[id] = Math.max(pile.base, Math.min(pile.max, pile.base + Math.max(0, jobs - pile.since)));
+  }
+  /* The cut is the one pile the campaign can actually price, so it is counted
+   * in money rather than in jobs. The authored clean take pays a quarter of a
+   * million, which at $25k a bundle is the ten bundles this used to be. */
+  const cut = Math.max(0, Number(state.missions?.bank_heist?.prospectShare) || 0);
+  piles.heistCut = Math.max(1, Math.min(24, Math.round(cut / CASH_PER_BUNDLE)));
+  return piles;
 }
 
 /** Corporate ID on a printed lanyard, hooked over the corner of something. */
@@ -221,18 +318,24 @@ function lanyard(M, { x, y, z, rotY = 0 }) {
   g.position.set(x, y, z);
   g.rotation.y = rotY;
   const tape = mat({ color: 0x2b3f6b, roughness: 0.95 });
-  // A loop of tape, folded rather than hanging: it is lying on a nightstand.
-  for (const [dx, dz, r] of [[-0.05, 0.01, 0.5], [0.03, -0.02, -0.9], [0.06, 0.04, 0.2]]) {
-    g.add(box({ size: [0.16, 0.003, 0.014], pos: [dx, 0.002, dz], mat: tape, rotY: r }));
+  /* A loop of tape, folded rather than hanging: it is lying on a nightstand.
+   * Each fold a millimetre and a half above the last, because three 3mm tapes
+   * all centred on y 0.002 put two pairs of faces in exactly the same plane
+   * where they cross each other, which is a flicker. */
+  for (const [i, [dx, dz, r]] of [
+    [-0.05, 0.01, 0.5], [0.03, -0.02, -0.9], [0.06, 0.04, 0.2],
+  ].entries()) {
+    g.add(box({ size: [0.16, 0.003, 0.014], pos: [dx, 0.002 + i * 0.0045, dz], mat: tape, rotY: r }));
   }
+  // On top of the highest tape (which now tops out at 0.0125), not inside it.
   const card = box({
-    size: [0.055, 0.002, 0.086], pos: [0.02, 0.005, 0.03],
+    size: [0.055, 0.002, 0.086], pos: [0.02, 0.0135, 0.03],
     mat: mat({ color: 0xf1eee4, roughness: 0.85 }), rotY: 0.35,
   });
   g.add(card);
   // The blue band across the top of every corporate badge ever printed.
   g.add(box({
-    size: [0.055, 0.0016, 0.022], pos: [0.02, 0.0072, 0.062],
+    size: [0.055, 0.0016, 0.022], pos: [0.02, 0.0152, 0.062],
     mat: mat({ color: 0x2b6bb0, roughness: 0.8 }), rotY: 0.35,
   }));
   return g;
@@ -248,23 +351,78 @@ function bloodShirt(M, { x, y, z, rotY = 0 }) {
    * blood is dark enough to stay ugly but red enough to read from the bed. */
   const cloth = mat({ color: 0xb9b5ac, roughness: 1 });
   const clothShade = mat({ color: 0x817f7a, roughness: 1 });
+  const clothFold = mat({ color: 0x8a8f9a, roughness: 1 });
   const stain = mat({ color: 0x71151a, roughness: 1 });
-  // A torso and two collapsed sleeves: a discarded shirt, not three boxes.
-  for (const [dx, dz, sx, sz, r] of [
-    [0, 0, 0.40, 0.31, 0.1], [0.20, 0.04, 0.32, 0.13, -0.52], [-0.20, 0.02, 0.31, 0.13, 0.62],
+  const button = M.trim;
+  /*
+   * A torso and two collapsed sleeves: a discarded shirt, not three boxes.
+   *
+   * And not three NINETY-CENTIMETRE boxes either, which is what these were.
+   * `box()` writes the whole size into mesh.scale, so the `m.scale.y = 0.9`
+   * that followed it was not squashing a 5.5cm slab to 90% of itself -- it was
+   * replacing the 0.055 with 0.9 outright. Every panel of the shirt stood
+   * 48cm out of the floorboards with another 42cm underneath them, which from
+   * the bed reads as a stack of pale cartons somebody left by the wall. The
+   * fold factor is applied to the size now, where it was always meant to go.
+   */
+  const FLAT = 0.9;
+  /* The three panels also get three different thicknesses. Cut to one height
+   * they overlapped with their top faces in exactly the same plane over a 9 by
+   * 11cm patch, which is a guaranteed flicker in any light that moves -- and
+   * the light in this flat moves all morning. */
+  let base = 0;
+  for (const [dx, dz, sx, sz, r, lift] of [
+    [0, 0, 0.40, 0.31, 0.1, 1.00], [0.20, 0.04, 0.32, 0.13, -0.52, 0.84],
+    [-0.20, 0.02, 0.31, 0.13, 0.62, 0.72],
   ]) {
-    const m = box({ size: [sx, 0.055, sz], pos: [dx, 0.028, dz], mat: cloth, rotY: r });
-    m.scale.y = 0.9;
-    g.add(m);
+    const panel = 0.055 * FLAT * lift;
+    g.add(box({ size: [sx, panel, sz], pos: [dx, base + panel / 2, dz], mat: cloth, rotY: r }));
+    base += 0.0012;
+  }
+  /* What turns three flat panels into cloth: the ridges where a dropped shirt
+   * bunches up. Thin, low, and laid across the panels rather than along them,
+   * because fabric folds across the way it was pulled off. */
+  for (const [dx, dy, dz, sx, sz, r] of [
+    [-0.06, 0.049, -0.05, 0.26, 0.045, 0.22], [0.07, 0.052, 0.07, 0.22, 0.040, -0.14],
+    [0.19, 0.046, 0.02, 0.17, 0.035, -0.60], [-0.19, 0.046, 0.05, 0.16, 0.035, 0.70],
+  ]) {
+    g.add(box({ size: [sx, 0.022, sz], pos: [dx, dy, dz], mat: clothFold, rotY: r }));
   }
   // Collar and open front keep the heap recognisable as clothing.
   g.add(box({ size: [0.16, 0.025, 0.07], pos: [0.01, 0.061, -0.12], mat: clothShade, rotY: 0.10 }));
-  g.add(box({ size: [0.025, 0.012, 0.25], pos: [0.015, 0.065, 0.01], mat: clothShade, rotY: 0.08 }));
-  // Two dark patches down the front of it. Not discussed.
-  for (const [dx, dz, r] of [[0.02, -0.04, 0.075], [-0.05, 0.05, 0.052], [0.18, 0.04, 0.035]]) {
+  g.add(box({ size: [0.025, 0.012, 0.25], pos: [0.015, 0.0595, 0.01], mat: clothShade, rotY: 0.08 }));
+  /* Two collar wings standing off the heap rather than one tab lying flat, and
+   * the buttons down the placket. At this size they are the whole difference
+   * between a shirt and a dust sheet. */
+  for (const s of [-1, 1]) {
+    const wing = box({
+      size: [0.075, 0.030, 0.022], pos: [0.01 + s * 0.052, 0.072, -0.146],
+      mat: clothShade, rotY: 0.10 + s * 0.42,
+    });
+    wing.rotation.x = -0.42;
+    g.add(wing);
+  }
+  for (const dz of [-0.06, 0.01, 0.08, 0.15]) {
+    g.add(cylinder({ r: 0.008, h: 0.010, pos: [0.019, 0.0645, dz], mat: button, cast: false }));
+  }
+  // Cuffs, at the ends of the two sleeves, turned back the way a cuff turns.
+  for (const [dx, dz, r] of [[0.345, 0.115, -0.52], [-0.345, -0.085, 0.62]]) {
+    g.add(box({ size: [0.075, 0.034, 0.115], pos: [dx, 0.048, dz], mat: clothShade, rotY: r }));
+  }
+  /* Two dark patches down the front of it. Not discussed. Kept clear of the
+   * button placket in X rather than laid across it: a flat disc through a row
+   * of buttons is two surfaces fighting over the same millimetre. */
+  for (const [i, [dx, dz, r]] of [
+    [-0.09, -0.04, 0.075], [-0.05, 0.05, 0.052], [0.18, 0.04, 0.035],
+  ].entries()) {
     const s = new THREE.Mesh(new THREE.CircleGeometry(r, 12), stain);
     s.rotation.x = -Math.PI / 2;
-    s.position.set(dx, 0.067, dz);
+    /* A hair above the highest cloth under them -- the folds top out at 0.063
+     * and the placket at 0.0655 -- so the spatter sits ON the shirt instead of
+     * sharing a plane with it and flickering. And each patch half a millimetre
+     * above the last, because two of them overlap each other by nine
+     * centimetres and that is the same fight one level up. */
+    s.position.set(dx, 0.0672 + i * 0.0006, dz);
     g.add(s);
   }
   return g;
@@ -299,51 +457,136 @@ function motelKey(M, { x, y, z, rotY = 0 }) {
   return g;
 }
 
-/** Tammy's cockpit mug from Beef Run, brought home beside the gaming PC. */
-function tammyDashboardMug(M, { x, y, z, rotY = 0 }) {
+/**
+ * Tammy's cockpit mug from Beef Run, brought home beside the gaming PC.
+ *
+ * `sticker` is the die-cut pin-up from the fridge door -- `sticker.fridge`,
+ * assets/art/sticker-pinup.png. It is the SAME image the Brushrunner carries
+ * on the flying pilot's rail (see src/beefrun/aircraft.js, which sorted this
+ * out on the aeroplane first): Tammy is a sticker somebody peeled off a fridge
+ * and stuck on things, not the word "TAMMY" drawn into a canvas. Printed
+ * lettering is only the fallback for a build with no art in it.
+ */
+function tammyDashboardMug(M, { x, y, z, rotY = 0, sticker = null }) {
   const g = group('dress:tammyDashboardMug');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
   const ceramic = mat({ color: 0xe5dfd2, roughness: 0.58 });
+  const glaze = M.pillow;
   const coffee = mat({ color: 0x2b1810, roughness: 0.72 });
+  const R = 0.052;
 
-  const cup = cylinder({ r: 0.052, h: 0.105, pos: [0, 0.053, 0], mat: ceramic });
+  const cup = cylinder({ r: R, h: 0.105, pos: [0, 0.053, 0], mat: ceramic });
   cup.name = 'tammy-mug';
   g.add(cup);
-  const drink = cylinder({ r: 0.046, h: 0.003, pos: [0, 0.106, 0], mat: coffee, cast: false });
+  // A foot ring and a lip, so it is a thrown mug and not a length of pipe.
+  const foot = cylinder({ r: R * 1.03, h: 0.008, pos: [0, 0.004, 0], mat: glaze });
+  foot.name = 'tammy-mug-foot';
+  g.add(foot);
+  /* A rolled rim rather than a disc: a solid cap here would seal the mug and
+   * put the coffee inside the ceramic. */
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(R - 0.003, 0.004, 6, 20), glaze);
+  lip.name = 'tammy-mug-lip';
+  lip.position.set(0, 0.1045, 0);
+  lip.rotation.x = Math.PI / 2;
+  g.add(lip);
+  const drink = cylinder({ r: 0.0465, h: 0.003, pos: [0, 0.0965, 0], mat: coffee, cast: false });
   drink.name = 'tammy-mug-coffee';
   g.add(drink);
-  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.041, 0.008, 7, 16, Math.PI * 1.65), ceramic);
+
+  /*
+   * A handle you could get a finger through.
+   *
+   * The old one was a 4.1cm ring whose centre sat 5.4cm from the mug's axis,
+   * on a body of radius 5.2cm: the ring's inner edge finished 5mm from the
+   * AXIS, so five sixths of the loop was buried in the ceramic and what stood
+   * proud was a 5mm nub. That is the "squished into the side of it" -- there
+   * was no hole in it at any angle.
+   *
+   * Derived instead of eyed in. Put the ring's centre at `d` from the axis and
+   * draw only the half of it that points outward: the two ends of that arc sit
+   * at radius `d`, which is 6mm INSIDE the wall, so they read as the two
+   * points a handle is joined at; the belly of it reaches d + r + tube, which
+   * is 3.4cm proud of the wall with 1.8cm of daylight between the wall and the
+   * inside of the loop.
+   */
+  const HANDLE_R = 0.032;
+  const HANDLE_TUBE = 0.0075;
+  const HANDLE_D = R - 0.006;
+  const handle = new THREE.Mesh(
+    new THREE.TorusGeometry(HANDLE_R, HANDLE_TUBE, 8, 20, Math.PI), ceramic,
+  );
   handle.name = 'tammy-mug-handle';
-  handle.position.set(0.054, 0.060, 0);
-  handle.rotation.y = Math.PI / 2;
-  handle.rotation.z = -Math.PI * 0.82;
+  handle.position.set(HANDLE_D, 0.053, 0);
+  /* The torus is drawn in its own XY plane from angle 0 round to `arc`, so a
+   * quarter turn back about its normal puts the two ends of the half-arc above
+   * and below the centre and swings its belly out along +x -- which is the
+   * direction "away from the mug". No other rotation: the loop's plane already
+   * contains the mug's axis, which is the plane a handle lives in. */
+  handle.rotation.z = -Math.PI / 2;
   g.add(handle);
 
-  /* Match the cockpit prop's cream-and-burgundy TAMMY mark. At mug scale a
-   * few geometry bars read as a generic badge; the actual name is the visual
-   * continuity players can recognise when the keepsake appears at home. */
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 80;
-  const context = canvas.getContext('2d');
-  context.fillStyle = '#e8e2d4';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = '#7d2432';
-  context.font = '700 44px Georgia, serif';
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.fillText('TAMMY', canvas.width / 2, canvas.height / 2 + 2);
-  const labelTexture = new THREE.CanvasTexture(canvas);
-  labelTexture.colorSpace = THREE.SRGBColorSpace;
-  const label = plane(0.078, 0.026, new THREE.MeshBasicMaterial({ map: labelTexture }));
-  label.name = 'tammy-mug-label';
-  label.position.set(0, 0.064, 0.0525);
-  g.add(label);
+  /*
+   * Tammy, printed round the mug.
+   *
+   * On a CURVE, not on a plane held up in front of it. A flat 7.8cm panel on a
+   * 5.2cm-radius cylinder touches at the middle and stands 1.8cm off the
+   * ceramic at its corners, so the decal floated at both edges. This is an
+   * open cylinder a fifth of a millimetre outside the wall, which is what a
+   * transfer on a mug actually is.
+   */
+  const decalArc = 1.35;
+  const decal = new THREE.Mesh(
+    new THREE.CylinderGeometry(R + 0.0004, R + 0.0004, 0.062, 20, 1, true,
+      -Math.PI / 2 - decalArc / 2, decalArc),
+    sticker
+      ? new THREE.MeshStandardMaterial({
+        map: sticker, roughness: 0.52, transparent: true, alphaTest: 0.18,
+        side: THREE.DoubleSide,
+      })
+      : new THREE.MeshBasicMaterial({
+        map: printedNameTexture('TAMMY'), transparent: true,
+        alphaTest: 0.18, side: THREE.DoubleSide,
+      }),
+  );
+  /* Still called the label: it is the same part of the same prop, and Beef
+   * Run's continuity check knows it by that name. What changed is that it
+   * is now the sticker rather than a picture of the word. */
+  decal.name = 'tammy-mug-label';
+  decal.position.set(0, 0.055, 0);
+  decal.castShadow = false;
+  g.add(decal);
 
   g.userData.label = 'Tammy’s Dashboard Mug';
   g.userData.continuityName = 'tammy-mug';
+  g.userData.stickerSlot = 'sticker.fridge';
   return g;
+}
+
+/**
+ * Lettering that reads as something PRINTED on a curved surface.
+ *
+ * Only used when the die-cut sticker did not resolve. Transparent outside the
+ * ink so it behaves like the real decal -- an opaque cream rectangle wrapped
+ * round a cream mug is a sticker-shaped patch of slightly wrong paint.
+ */
+function printedNameTexture(name) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.font = '700 62px Georgia, serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillStyle = '#7d2432';
+  context.fillText(name, canvas.width / 2, canvas.height / 2);
+  context.lineWidth = 2;
+  context.strokeStyle = '#4a1220';
+  context.strokeText(name, canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 /** A jacket thrown over the back of the desk chair. Casual, as instructed. */
@@ -361,23 +604,115 @@ function casualJacket(M, { x, y, z, rotY = 0 }) {
   return g;
 }
 
-/** A suit carrier hanging off the closet lip. Somebody spent money. */
+/**
+ * A suit carrier, hung on the closet rail with everything else he owns.
+ *
+ * It used to hang off the closet LIP -- centred in the 56cm mouth, 31cm in
+ * front of the rail, 46cm of unbroken 0x1c1f24 from 1.02 up to 2.00 with no
+ * seam, fold or fitting anywhere on it. From the room that is not a suit
+ * carrier, it is a black bar across the whole cupboard, and it stood in front
+ * of the shirts and the thing behind the shirts, which is the one thing in
+ * this flat the closet exists for.
+ *
+ * So: on the rail, on a hanger, with the rest of them -- which also means it
+ * shoves aside when they do (see the closet block in apartment.js). The origin
+ * is the HOOK, at rail height, because that is the part whose position is not
+ * negotiable; everything else hangs off it.
+ */
 function suitBag(M, { x, y, z, rotY = 0 }) {
   const g = group('dress:suitBag');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
-  const bag = mat({ color: 0x1c1f24, roughness: 0.7 });
-  g.add(box({ size: [0.46, 0.98, 0.10], pos: [0, -0.49, 0], mat: bag }));
-  // Shoulder shape at the top, and the zip down the middle.
-  g.add(box({ size: [0.30, 0.10, 0.10], pos: [0, 0.02, 0], mat: bag }));
-  g.add(box({
-    size: [0.012, 0.94, 0.012], pos: [0, -0.49, 0.052],
-    mat: mat({ color: 0xb9a45e, roughness: 0.35, metalness: 0.8 }),
+  const gear = gearPalette();
+  const bag = mat({ color: 0x23262c, roughness: 0.78 });
+  const panel = gear.rib;
+  const strap = gear.cut;
+  const brass = gear.brass;
+  const steel = gear.steel;
+
+  const W = 0.40, H = 0.98, D = 0.105;
+  /*
+   * How far behind the rail the bag itself hangs.
+   *
+   * The hook stays ON the rail; the bag is set back from it, because four
+   * shirts already occupy the 5.5cm of depth directly under that rail and a
+   * garment carrier sharing the band buries its shoulders five centimetres
+   * inside them. The bunch position in the closet block is measured against
+   * this number: turned edge-on, the offset swings from depth into width.
+   */
+  const BACK = 0.09;
+  // The hook over the rail, and the hanger inside the shoulders of the bag.
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.004, 6, 12, Math.PI * 1.5), steel);
+  hook.position.set(0, 0.024, 0);
+  hook.rotation.y = Math.PI / 2;
+  hook.name = 'suitbag.hook';
+  g.add(hook);
+  for (const s of [-1, 1]) {
+    const arm = box({
+      name: `suitbag.hanger.${s < 0 ? 'left' : 'right'}`,
+      size: [W * 0.44, 0.006, 0.006], pos: [s * W * 0.22, -0.062, 0], mat: steel,
+    });
+    arm.rotation.z = s * 0.28;
+    g.add(arm);
+  }
+
+  /* Everything below the hanger hangs BACK from the rail by `BACK`, as one
+   * group, so the hook still sits on the rail while the bag itself clears
+   * the shirts in front of it. */
+  const carrier = group('suitbag.carrier');
+  carrier.position.z = BACK;
+  g.add(carrier);
+  /* The bag itself: a shouldered front and back panel with a gusset between
+   * them, rather than one slab. The taper is what makes it read as something
+   * with a jacket in it -- wide at the shoulders, narrower at the hem. */
+  carrier.add(box({ name: 'suitbag.shoulders', size: [W, 0.16, D], pos: [0, -0.13, 0], mat: bag }));
+  carrier.add(box({ name: 'suitbag.body', size: [W * 0.94, 0.60, D * 0.94], pos: [0, -0.50, 0], mat: bag }));
+  carrier.add(box({ name: 'suitbag.hem', size: [W * 0.84, 0.19, D * 0.86], pos: [0, -0.895, 0], mat: bag }));
+  // Shoulder slopes, so the top corners are not square.
+  for (const s of [-1, 1]) {
+    const slope = box({
+      name: `suitbag.slope.${s < 0 ? 'left' : 'right'}`,
+      size: [W * 0.34, 0.10, D], pos: [s * W * 0.30, -0.070, 0], mat: bag,
+    });
+    slope.rotation.z = s * 0.42;
+    carrier.add(slope);
+  }
+
+  /* The zip runs down the FRONT face, not the centre line of a solid: a puller
+   * on a pull tab, a taped seam either side of it, and the garment-bag window
+   * that is the only reason you can tell one of these from a body bag. */
+  carrier.add(box({
+    name: 'suitbag.zip', size: [0.014, 0.90, 0.008], pos: [0, -0.50, D / 2 + 0.001], mat: brass,
   }));
-  g.add(cylinder({
-    r: 0.006, h: 0.16, pos: [0, 0.10, 0], rotZ: Math.PI / 2,
-    mat: mat({ color: 0xd8dade, roughness: 0.3, metalness: 0.85 }),
+  carrier.add(box({
+    name: 'suitbag.zip.pull', size: [0.016, 0.034, 0.006], pos: [0, -0.20, D / 2 + 0.006], mat: brass,
   }));
+  for (const s of [-1, 1]) {
+    carrier.add(box({
+      name: `suitbag.seam.${s < 0 ? 'left' : 'right'}`,
+      size: [0.010, 0.90, 0.006], pos: [s * 0.019, -0.50, D / 2 + 0.0015], mat: strap,
+    }));
+  }
+  carrier.add(box({
+    name: 'suitbag.window', size: [W * 0.44, 0.26, 0.004],
+    pos: [-W * 0.24, -0.34, D / 2 + 0.0015], mat: panel,
+  }));
+  // Carry handle folded flat against the shoulders, and a luggage tag on it.
+  carrier.add(box({
+    name: 'suitbag.handle', size: [0.13, 0.020, 0.010], pos: [0.055, -0.155, D / 2 + 0.006], mat: strap,
+  }));
+  carrier.add(box({
+    name: 'suitbag.tag', size: [0.044, 0.062, 0.003], pos: [0.115, -0.215, D / 2 + 0.004],
+    mat: M.cardboard, rotY: 0.12,
+  }));
+  // And the two press studs down the gusset that keep the thing shut.
+  for (const [i, dy] of [-0.34, -0.68].entries()) {
+    const stud = cylinder({
+      r: 0.007, h: 0.005, pos: [W * 0.47, dy, 0], rotZ: Math.PI / 2, mat: steel,
+    });
+    stud.name = `suitbag.stud.${i + 1}`;
+    carrier.add(stud);
+  }
   return g;
 }
 
@@ -459,17 +794,702 @@ function laundryHeap(M, { x, y, z, rotY = 0 }) {
     [-0.21, 0, 0.03, 0.40], [0.21, 0, 0.03, 0.40]]) {
     g.add(box({ size: [w, 0.28, d], pos: [dx, 0.14, dz], mat: basket }));
   }
+  /*
+   * The clothes.
+   *
+   * These were nine plain rectangles, and the one on the near side of the pile
+   * is the blue box you see from the bed -- a 25cm slab of 0x3f4650 with no
+   * sleeve, seam or fold anywhere on it, which is a crate, not a shirt. Each
+   * one is a body with two collapsed sleeves and a collar band now: the same
+   * three-part read as the shirt on the floor, at a third of the effort,
+   * because there are nine of them and they are seen from two metres away.
+   */
   const cols = [0x8a8f9a, 0x5e4a3c, 0x9aa08c, 0x3f4650, 0x77675a];
   for (let i = 0; i < 9; i++) {
     const a = (i * 2.399);
-    const r = 0.06 + (i % 4) * 0.045;
+    /* Pulled in from 0.06 + n*0.045. The garments have sleeves, collars and
+     * folds on them now, so each one covers more ground than the plain slab it
+     * replaced; on the old ring the heap spilled 10cm into the pile of laundry
+     * already on the floorboards beside the basket. */
+    const r = 0.05 + (i % 4) * 0.030;
+    const w = 0.20 + (i % 3) * 0.05;
+    const cloth = mat({ color: cols[i % cols.length], roughness: 1 });
+    const shade = mat({ color: cols[(i + 2) % cols.length], roughness: 1 });
+    const item = group(`laundryHeap.item.${i + 1}`);
+    item.position.set(Math.cos(a) * r, 0.24 + i * 0.032, Math.sin(a) * r);
+    item.rotation.y = a;
+    item.add(box({ name: `laundryHeap.item.${i + 1}.body`, size: [w, 0.062, 0.17], pos: [0, 0, 0], mat: cloth }));
+    // Two sleeves, thrown whichever way the garment landed.
+    for (const s of [-1, 1]) {
+      /* Tucked in at 0.38 of the width rather than thrown out at 0.52: the
+       * heap has to stay inside the basket's own footprint, or it walks into
+       * the pile of laundry already on the floor beside it. */
+      const sleeve = box({
+        name: `laundryHeap.item.${i + 1}.sleeve.${s < 0 ? 'left' : 'right'}`,
+        size: [w * 0.34, 0.046, 0.072],
+        pos: [s * w * 0.38, -0.006, ((i + s) % 3) * 0.03 - 0.03], mat: cloth,
+      });
+      sleeve.rotation.y = s * (0.5 + (i % 3) * 0.22);
+      item.add(sleeve);
+    }
+    // A collar or a waistband, in a second colour, so it has a top end.
+    item.add(box({
+      name: `laundryHeap.item.${i + 1}.band`, size: [w * 0.52, 0.024, 0.048],
+      pos: [0, 0.030, -0.062], mat: shade, rotY: 0.16 - (i % 3) * 0.16,
+    }));
+    // And one fold across it, because nothing in this basket was ever folded.
+    item.add(box({
+      name: `laundryHeap.item.${i + 1}.fold`, size: [w * 0.72, 0.020, 0.052],
+      pos: [(i % 2) * 0.03 - 0.015, 0.028, 0.030], mat: shade, rotY: 0.30 - (i % 4) * 0.2,
+    }));
+    g.add(item);
+  }
+  return g;
+}
+
+/* ------------------------------------------------------------------ */
+/* The heist loadout                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Everything Lou sends over for THE TAKE, and everything that is left of it
+ * afterwards.
+ *
+ * All seven pieces used to be one call to a `heistItem` helper that made a
+ * single coloured box, and all seven were laid out ON and AROUND the bed: a
+ * 1.12m bar for a carbine, three black slabs for armour, gloves and a mask,
+ * and -- because the bed ends at x -3.45 -- a sidearm and a box of magazines
+ * hanging in mid-air off the east side of it with nothing underneath. From a
+ * pillow that is a pile of crates on your own duvet.
+ *
+ * They are real objects on the floor by the closet now, which is where a man
+ * stages a job he is about to leave the flat for: you walk past them on the
+ * way to the door and you pick them up in the order you would put them on.
+ *
+ * The pocket they live in is measured. The plant stops at x 4.30 / z 4.14, the
+ * closet mouth opens at z 4.50 between x 4.38 and 4.98, the skirting starts at
+ * z 4.48 and the front door's swing never reaches past x 3.30 -- which leaves
+ * an L of clear floor: the strip along the south wall from x 3.35 to the
+ * closet, and the pocket between the plant and the east wall in front of it.
+ */
+
+/**
+ * One palette for the whole loadout, built once.
+ *
+ * Eleven looks, not thirty. Every one of these props wants roughly the same
+ * five surfaces -- moulded shell, packed foam, cordura, webbing and gunmetal --
+ * and the first pass at them minted a private set inside each builder: 0x1e2126
+ * nylon in the vest, 0x1e2126 nylon in the pistol rug, 0x1e2126 nylon in the
+ * mag pouch, three materials for one look. build.js caches by parameters, so
+ * identical requests already collapse; the cost is in how many DISTINCT ones
+ * exist, because on a software renderer each new one is a shader to compile
+ * before the flat can be walked into. Thirty-seven extra materials put six
+ * seconds on the boot. See the note at the top of build.js.
+ */
+let _gear = null;
+function gearPalette() {
+  if (_gear) return _gear;
+  _gear = {
+    shell: mat({ color: 0x22252a, roughness: 0.52 }),
+    rib: mat({ color: 0x181a1e, roughness: 0.6 }),
+    foam: mat({ color: 0x34373d, roughness: 1 }),
+    cut: mat({ color: 0x101216, roughness: 1 }),
+    steel: mat({ color: 0x585c62, roughness: 0.32, metalness: 0.76 }),
+    gunmetal: mat({ color: 0x4a4d52, roughness: 0.38, metalness: 0.68 }),
+    polymer: mat({ color: 0x25272c, roughness: 0.72 }),
+    dark: mat({ color: 0x131519, roughness: 0.5 }),
+    nylon: mat({ color: 0x1e2126, roughness: 0.95 }),
+    webbing: mat({ color: 0x2c3037, roughness: 1 }),
+    brass: mat({ color: 0xb08a3a, roughness: 0.35, metalness: 0.7 }),
+  };
+  return _gear;
+}
+
+/**
+ * The carbine.
+ *
+ * Muzzle toward local +x with the magwell at the origin, because that is the
+ * one point every other part of a rifle is measured from. Built as the parts a
+ * rifle actually has -- upper, lower, handguard, gas block, barrel, brake,
+ * grip, buffer tube, stock, optic -- rather than as a long box, because a long
+ * box at a metre and a bit is the single least convincing object in a room.
+ *
+ * `magazine` is optional: in the case it travels without one, since the loaded
+ * magazines are a separate thing he has to remember to pick up.
+ */
+function carbine({ magazine = true } = {}) {
+  const g = group('carbine');
+  const { gunmetal: steel, polymer, dark } = gearPalette();
+  // The one look on this weapon the palette does not already carry.
+  const glass = mat({ color: 0x27424a, roughness: 0.18, metalness: 0.3 });
+
+  g.add(box({ name: 'carbine.lower', size: [0.215, 0.055, 0.042], pos: [-0.020, 0, 0], mat: steel }));
+  g.add(box({ name: 'carbine.magwell', size: [0.058, 0.052, 0.040], pos: [0.002, -0.030, 0], mat: steel }));
+  g.add(box({ name: 'carbine.upper', size: [0.255, 0.044, 0.040], pos: [0.030, 0.049, 0], mat: steel }));
+  g.add(box({ name: 'carbine.rail', size: [0.300, 0.008, 0.024], pos: [0.062, 0.075, 0], mat: dark }));
+  g.add(box({ name: 'carbine.port-cover', size: [0.050, 0.022, 0.005], pos: [0.070, 0.049, 0.021], mat: dark }));
+  const assist = cylinder({ r: 0.008, h: 0.020, pos: [-0.058, 0.052, -0.019], rotZ: Math.PI / 2, mat: steel });
+  assist.name = 'carbine.forward-assist';
+  g.add(assist);
+  g.add(box({ name: 'carbine.charging-handle', size: [0.052, 0.012, 0.030], pos: [-0.120, 0.063, 0], mat: dark }));
+
+  // Handguard, with the slots cut into it that say what it is.
+  g.add(box({ name: 'carbine.handguard', size: [0.220, 0.050, 0.046], pos: [0.240, 0.049, 0], mat: polymer }));
+  for (let i = 0; i < 5; i++) {
     g.add(box({
-      size: [0.20 + (i % 3) * 0.05, 0.07, 0.17],
-      pos: [Math.cos(a) * r, 0.24 + i * 0.032, Math.sin(a) * r],
-      mat: mat({ color: cols[i % cols.length], roughness: 1 }),
-      rotY: a,
+      name: `carbine.handguard.slot.${i + 1}`, size: [0.026, 0.010, 0.048],
+      pos: [0.160 + i * 0.038, 0.041, 0], mat: dark, cast: false,
     }));
   }
+  g.add(box({ name: 'carbine.hand-stop', size: [0.020, 0.030, 0.024], pos: [0.300, 0.018, 0], mat: polymer }));
+  g.add(box({ name: 'carbine.gas-block', size: [0.030, 0.034, 0.030], pos: [0.368, 0.049, 0], mat: steel }));
+  const barrel = cylinder({ r: 0.0085, h: 0.130, pos: [0.430, 0.049, 0], rotZ: Math.PI / 2, mat: steel });
+  barrel.name = 'carbine.barrel';
+  g.add(barrel);
+  const brake = cylinder({ r: 0.013, h: 0.046, pos: [0.510, 0.049, 0], rotZ: Math.PI / 2, mat: dark });
+  brake.name = 'carbine.brake';
+  g.add(brake);
+  const bore = cylinder({ r: 0.0055, h: 0.008, pos: [0.531, 0.049, 0], rotZ: Math.PI / 2, mat: dark });
+  bore.name = 'carbine.bore';
+  g.add(bore);
+
+  // Grip, trigger and the guard round it.
+  const grip = box({ name: 'carbine.grip', size: [0.036, 0.098, 0.042], pos: [-0.098, -0.056, 0], mat: polymer });
+  grip.rotation.z = 0.30;
+  g.add(grip);
+  g.add(box({ name: 'carbine.trigger-guard.bow', size: [0.054, 0.008, 0.013], pos: [-0.046, -0.038, 0], mat: steel }));
+  g.add(box({ name: 'carbine.trigger-guard.rear', size: [0.008, 0.026, 0.013], pos: [-0.070, -0.026, 0], mat: steel }));
+  g.add(box({ name: 'carbine.trigger', size: [0.008, 0.020, 0.008], pos: [-0.046, -0.026, 0], mat: dark }));
+  g.add(box({ name: 'carbine.safety', size: [0.020, 0.008, 0.008], pos: [-0.072, -0.004, 0.022], mat: dark }));
+
+  // Buffer tube and a collapsed stock on it.
+  const tube = cylinder({ r: 0.016, h: 0.150, pos: [-0.196, 0.030, 0], rotZ: Math.PI / 2, mat: steel });
+  tube.name = 'carbine.buffer-tube';
+  g.add(tube);
+  g.add(box({ name: 'carbine.stock', size: [0.108, 0.072, 0.048], pos: [-0.212, 0.026, 0], mat: polymer }));
+  g.add(box({ name: 'carbine.stock.cheek', size: [0.086, 0.016, 0.030], pos: [-0.206, 0.066, 0], mat: polymer }));
+  g.add(box({ name: 'carbine.butt-pad', size: [0.020, 0.084, 0.050], pos: [-0.274, 0.024, 0], mat: dark }));
+
+  // Optic, on rings, with a lens in the front of it.
+  g.add(box({ name: 'carbine.optic.mount', size: [0.056, 0.028, 0.026], pos: [0.104, 0.093, 0], mat: dark }));
+  g.add(box({ name: 'carbine.optic.body', size: [0.088, 0.032, 0.032], pos: [0.104, 0.123, 0], mat: dark }));
+  const lens = cylinder({ r: 0.0145, h: 0.004, pos: [0.150, 0.123, 0], rotZ: Math.PI / 2, mat: glass, cast: false });
+  lens.name = 'carbine.optic.lens';
+  g.add(lens);
+
+  if (magazine) {
+    /* Curved, in two lengths at slightly different angles, because a straight
+     * box hanging out of a magwell is the tell that gives every one of these
+     * away. */
+    const upper = box({ name: 'carbine.magazine.upper', size: [0.030, 0.100, 0.052], pos: [0.006, -0.104, 0], mat: polymer });
+    upper.rotation.z = 0.09;
+    g.add(upper);
+    const lower = box({ name: 'carbine.magazine.lower', size: [0.030, 0.076, 0.050], pos: [0.026, -0.186, 0], mat: polymer });
+    lower.rotation.z = 0.24;
+    g.add(lower);
+    g.add(box({ name: 'carbine.magazine.floorplate', size: [0.034, 0.012, 0.054], pos: [0.038, -0.223, 0], mat: dark, rotZ: 0.24 }));
+  }
+  return g;
+}
+
+/**
+ * The hard case the carbine lives in, open on the floor with the rifle in it.
+ *
+ * The lid stands up against the wall rather than folding out into the room:
+ * there is 34cm of floor between this and the plant and a lid laid flat would
+ * be in the middle of it. The hinge is a group of its own at the case's back
+ * lip, so the panel's world position is derived from the angle instead of
+ * being a second number that has to be kept in step with it.
+ *
+ * When he takes the carbine he takes the case with it, which is why they are
+ * one dressing piece: you do not carry a rifle to a job in your hands.
+ */
+function heistRifleCase(M, { x, y, z, rotY = 0, open = true }) {
+  const g = group(open ? 'dress:heistCarbine' : 'dress:heistGearSecured.case');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const {
+    shell, rib, foam, cut, steel,
+  } = gearPalette();
+
+  const L = 0.94, W = 0.28, H = 0.12;
+  g.add(box({ name: 'heistCase.floor', size: [L, 0.020, W], pos: [0, 0.010, 0], mat: shell }));
+  for (const s of [-1, 1]) {
+    g.add(box({
+      name: `heistCase.wall.long.${s < 0 ? 'front' : 'back'}`,
+      size: [L, H, 0.018], pos: [0, H / 2, s * (W / 2 - 0.009)], mat: shell,
+    }));
+    g.add(box({
+      name: `heistCase.wall.short.${s < 0 ? 'left' : 'right'}`,
+      size: [0.018, H, W - 0.036], pos: [s * (L / 2 - 0.009), H / 2, 0], mat: shell,
+    }));
+  }
+  // Moulded ribs down the outside, which is what a case has instead of a face.
+  for (let i = 0; i < 5; i++) {
+    g.add(box({
+      name: `heistCase.rib.${i + 1}`, size: [0.014, H - 0.03, W + 0.004],
+      pos: [-0.36 + i * 0.18, H / 2, 0], mat: rib, cast: false,
+    }));
+  }
+  // Corner bumpers, so it does not stand on its own paintwork.
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      g.add(box({
+        name: 'heistCase.bumper', size: [0.055, 0.026, 0.040],
+        pos: [sx * (L / 2 - 0.026), 0.013, sz * (W / 2 - 0.020)], mat: rib,
+      }));
+    }
+  }
+  // Latches on the front lip, hinges on the back one, handle in the middle.
+  for (const dx of [-0.30, 0, 0.30]) {
+    g.add(box({ name: 'heistCase.latch', size: [0.062, 0.030, 0.016], pos: [dx, H - 0.026, -(W / 2 + 0.004)], mat: steel }));
+  }
+  for (const dx of [-0.28, 0.28]) {
+    g.add(box({ name: 'heistCase.hinge', size: [0.070, 0.020, 0.014], pos: [dx, H - 0.014, W / 2 + 0.004], mat: steel }));
+  }
+  g.add(box({ name: 'heistCase.handle.grip', size: [0.150, 0.024, 0.018], pos: [0, 0.062, -(W / 2 + 0.020)], mat: rib }));
+  for (const dx of [-0.070, 0.070]) {
+    g.add(box({ name: 'heistCase.handle.post', size: [0.016, 0.040, 0.014], pos: [dx, 0.048, -(W / 2 + 0.010)], mat: steel }));
+  }
+
+  if (open) {
+    // Foam, with beds cut in it for the rifle and for the two spare mags.
+    g.add(box({ name: 'heistCase.foam', size: [L - 0.044, 0.035, W - 0.044], pos: [0, 0.0375, 0], mat: foam }));
+    g.add(box({ name: 'heistCase.foam.cut.rifle', size: [0.840, 0.024, 0.086], pos: [-0.020, 0.049, -0.038], mat: cut, cast: false }));
+    g.add(box({ name: 'heistCase.foam.cut.spare', size: [0.180, 0.024, 0.062], pos: [-0.300, 0.049, 0.072], mat: cut, cast: false }));
+
+    /* The rifle, laid on its side in the cut the way a rifle travels. A
+     * quarter turn about its own axis maps its 19cm height across the case's
+     * 24cm of clear width; upright it would not shut. It is in here without a
+     * magazine because the loaded magazines are a separate thing to remember. */
+    const rifle = carbine({ magazine: false });
+    rifle.name = 'heistCase.carbine';
+    rifle.position.set(-0.124, 0.082, -0.040);
+    rifle.rotation.x = Math.PI / 2;
+    g.add(rifle);
+
+    /* Lid, standing up against the wall. Hinged at the case's back lip and
+     * turned past vertical, so it leans on the skirting instead of standing
+     * free -- and the angle is what puts it there: at 95 degrees its top edge
+     * finishes 21cm behind the hinge, which is 1cm short of the wall. */
+    const lid = group('heistCase.lid');
+    lid.position.set(0, H, W / 2);
+    lid.rotation.x = 1.66;
+    lid.add(box({ name: 'heistCase.lid.panel', size: [L, 0.042, W], pos: [0, 0.021, -W / 2], mat: shell }));
+    lid.add(box({ name: 'heistCase.lid.liner', size: [L - 0.048, 0.026, W - 0.048], pos: [0, 0.052, -W / 2], mat: foam }));
+    for (let i = 0; i < 4; i++) {
+      lid.add(box({
+        name: `heistCase.lid.rib.${i + 1}`, size: [0.014, 0.030, W + 0.004],
+        pos: [-0.30 + i * 0.20, 0.005, -W / 2], mat: rib, cast: false,
+      }));
+    }
+    g.add(lid);
+  } else {
+    // Shut: a lid sat on the walls, and nothing to see inside it.
+    g.add(box({ name: 'heistCase.lid.closed', size: [L, 0.042, W], pos: [0, H + 0.021, 0], mat: shell }));
+    for (let i = 0; i < 5; i++) {
+      g.add(box({
+        name: `heistCase.lid.closed.rib.${i + 1}`, size: [0.014, 0.044, W + 0.004],
+        pos: [-0.36 + i * 0.18, H + 0.021, 0], mat: rib, cast: false,
+      }));
+    }
+  }
+  return g;
+}
+
+/**
+ * A plate carrier, laid out flat on the floor with the front toward the room.
+ *
+ * Three pouches, a cummerbund, two shoulder straps and a drag handle -- the
+ * parts you would put your hands on, in the order you would. Flat on the
+ * floor rather than propped, because a vest with nothing in it does not stand.
+ */
+function plateCarrier(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistArmor');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const { nylon: shellMat, webbing, rib: velcro } = gearPalette();
+
+  g.add(box({ name: 'heistArmor.plate', size: [0.300, 0.052, 0.360], pos: [0, 0.026, 0], mat: shellMat }));
+  // Cummerbund wings, folded in over the plate the way they are left.
+  for (const s of [-1, 1]) {
+    const wing = box({
+      name: `heistArmor.cummerbund.${s < 0 ? 'left' : 'right'}`,
+      size: [0.110, 0.038, 0.190], pos: [s * 0.185, 0.019, 0.030], mat: shellMat,
+    });
+    wing.rotation.y = s * 0.14;
+    g.add(wing);
+    g.add(box({
+      name: `heistArmor.buckle.${s < 0 ? 'left' : 'right'}`, size: [0.040, 0.014, 0.032],
+      pos: [s * 0.222, 0.045, 0.030], mat: velcro,
+    }));
+  }
+  /* Shoulder straps, arching over the top of the plate. Lifted to 0.052 rather
+   * than 0.036: tipped 0.34 rad a 19cm strap reaches 4.6cm below its own
+   * centre, and at 0.036 the far end of both of them was under the floor. */
+  for (const s of [-1, 1]) {
+    const strap = box({
+      name: `heistArmor.strap.${s < 0 ? 'left' : 'right'}`,
+      size: [0.058, 0.030, 0.190], pos: [s * 0.108, 0.052, -0.190], mat: webbing,
+    });
+    strap.rotation.x = 0.34;
+    g.add(strap);
+  }
+  // Three rifle pouches across the front, each with its flap and pull tab.
+  for (let i = 0; i < 3; i++) {
+    const dx = -0.086 + i * 0.086;
+    g.add(box({ name: `heistArmor.pouch.${i + 1}`, size: [0.076, 0.046, 0.120], pos: [dx, 0.075, 0.040], mat: shellMat }));
+    const flap = box({ name: `heistArmor.pouch.${i + 1}.flap`, size: [0.078, 0.012, 0.062], pos: [dx, 0.096, -0.006], mat: webbing });
+    flap.rotation.x = -0.22;
+    g.add(flap);
+    g.add(box({ name: `heistArmor.pouch.${i + 1}.tab`, size: [0.016, 0.006, 0.030], pos: [dx, 0.093, 0.098], mat: webbing }));
+  }
+  // Admin pouch up on the chest, and the velcro placard above it.
+  g.add(box({ name: 'heistArmor.admin', size: [0.140, 0.030, 0.086], pos: [0.010, 0.067, -0.104], mat: shellMat }));
+  g.add(box({ name: 'heistArmor.placard', size: [0.100, 0.006, 0.036], pos: [0.010, 0.084, -0.104], mat: velcro }));
+  // Drag handle across the top, laid flat.
+  g.add(box({ name: 'heistArmor.drag-handle', size: [0.130, 0.020, 0.036], pos: [0, 0.062, -0.166], mat: webbing }));
+  // PALS webbing rows, which is the texture of the whole object.
+  for (let i = 0; i < 4; i++) {
+    g.add(box({
+      name: `heistArmor.pals.${i + 1}`, size: [0.280, 0.008, 0.014],
+      pos: [0, 0.054, -0.140 + i * 0.048], mat: webbing, cast: false,
+    }));
+  }
+  return g;
+}
+
+/** A pair of gloves, dropped palm down where they were pulled off. */
+function tacticalGloves(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistGloves');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const { dark: leather, polymer: knuckle, webbing: cuff } = gearPalette();
+  for (const [i, [dx, dz, spin]] of [[-0.055, 0.010, 0.42], [0.058, -0.016, -0.68]].entries()) {
+    const hand = group(`heistGloves.hand.${i + 1}`);
+    hand.position.set(dx, 0, dz);
+    hand.rotation.y = spin;
+    hand.add(box({ name: `heistGloves.hand.${i + 1}.palm`, size: [0.082, 0.024, 0.098], pos: [0, 0.012, 0], mat: leather }));
+    // Four fingers, splayed slightly, and a thumb off the side.
+    for (let f = 0; f < 4; f++) {
+      const finger = box({
+        name: `heistGloves.hand.${i + 1}.finger.${f + 1}`, size: [0.017, 0.017, 0.052],
+        pos: [-0.029 + f * 0.019, 0.009, 0.072], mat: leather,
+      });
+      finger.rotation.y = (f - 1.5) * 0.09;
+      hand.add(finger);
+    }
+    const thumb = box({
+      name: `heistGloves.hand.${i + 1}.thumb`, size: [0.020, 0.018, 0.040],
+      pos: [-0.044, 0.010, 0.030], mat: leather,
+    });
+    thumb.rotation.y = 0.7;
+    hand.add(thumb);
+    hand.add(box({ name: `heistGloves.hand.${i + 1}.knuckles`, size: [0.070, 0.010, 0.030], pos: [0, 0.026, 0.038], mat: knuckle }));
+    hand.add(box({ name: `heistGloves.hand.${i + 1}.cuff`, size: [0.086, 0.030, 0.034], pos: [0, 0.015, -0.058], mat: cuff }));
+    hand.add(box({ name: `heistGloves.hand.${i + 1}.tab`, size: [0.020, 0.008, 0.022], pos: [0.036, 0.031, -0.062], mat: knuckle }));
+    g.add(hand);
+  }
+  return g;
+}
+
+/** A balaclava, rolled up on itself the way one comes out of a bag. */
+function balaclava(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistMask');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const { cut: knit, webbing: knitShade, dark: eyeSlot } = gearPalette();
+  /* The roll: a squat cylinder on its side, with the open end toward the room.
+   * Its centre sits at the HEM's radius rather than its own, or the turned-back
+   * ends of it are 4mm into the floorboards. */
+  const roll = cylinder({ r: 0.062, h: 0.150, pos: [0, 0.067, 0], rotZ: Math.PI / 2, mat: knit });
+  roll.name = 'heistMask.roll';
+  g.add(roll);
+  // The turned-back hem at each end, which is what makes it rolled, not round.
+  for (const s of [-1, 1]) {
+    const hem = cylinder({ r: 0.066, h: 0.020, pos: [s * 0.070, 0.067, 0], rotZ: Math.PI / 2, mat: knitShade });
+    hem.name = `heistMask.hem.${s < 0 ? 'left' : 'right'}`;
+    g.add(hem);
+  }
+  /* The eye port, folded outward on top of the roll rather than drawn on it --
+   * a dark rectangle painted on a dark cylinder is not a feature, it is a
+   * shadow, and this is the one part of a mask you have to be able to see. */
+  const port = box({ name: 'heistMask.eye-port', size: [0.108, 0.016, 0.046], pos: [0, 0.121, 0.020], mat: knitShade });
+  port.rotation.x = -0.18;
+  g.add(port);
+  g.add(box({ name: 'heistMask.eye-port.slot', size: [0.086, 0.006, 0.020], pos: [0, 0.131, 0.024], mat: eyeSlot, cast: false }));
+  // The last fold of the neck, hanging off the front of the roll.
+  const skirt = box({ name: 'heistMask.neck', size: [0.130, 0.030, 0.070], pos: [0.008, 0.026, 0.066], mat: knit });
+  skirt.rotation.x = 0.24;
+  g.add(skirt);
+  return g;
+}
+
+/** The sidearm, in the padded rug it came wrapped in. */
+function sidearmRig(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistSidearm');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const {
+    nylon, foam: liner, gunmetal: steel, polymer, dark, steel: zipper,
+  } = gearPalette();
+
+  // The rug, unrolled: a flat pad with its flap turned back and a zip round it.
+  g.add(box({ name: 'heistSidearm.rug', size: [0.300, 0.016, 0.200], pos: [0, 0.008, 0], mat: nylon }));
+  g.add(box({ name: 'heistSidearm.rug.liner', size: [0.276, 0.012, 0.176], pos: [0, 0.019, 0], mat: liner }));
+  /* Turned back at 0.30 rad a 13cm flap reaches 2.6cm below its own centre,
+   * so it hangs from 0.028 and not from the thickness of the pad. */
+  const flap = box({ name: 'heistSidearm.rug.flap', size: [0.300, 0.014, 0.130], pos: [0, 0.028, -0.150], mat: nylon });
+  flap.rotation.x = 0.30;
+  g.add(flap);
+  for (const s of [-1, 1]) {
+    g.add(box({
+      name: `heistSidearm.rug.zip.${s < 0 ? 'front' : 'back'}`, size: [0.300, 0.006, 0.008],
+      pos: [0, 0.020, s * 0.096], mat: zipper, cast: false,
+    }));
+  }
+
+  /*
+   * The pistol on it, muzzle toward local +x and LYING ON ITS SIDE.
+   *
+   * A pistol built standing on its magazine and then set down at the height of
+   * a padded rug puts 7cm of grip through the rug, the floorboards and the
+   * ceiling of whatever is under this flat. The quarter turn about its own
+   * long axis is what a handgun does on a table: it maps the 2.6cm width up
+   * into height and lays the 10cm grip out flat, which is also the pose that
+   * shows the slide, the port and the checkering from standing height.
+   *
+   * The roll is on the pistol and the yaw is on the group around it, because
+   * an XYZ euler carrying both composes them into a corkscrew.
+   */
+  const laidOut = group('heistSidearm.pistol');
+  laidOut.position.set(-0.010, 0.040, 0.030);
+  laidOut.rotation.y = 0.24;
+  const pistol = group('heistSidearm.pistol.rolled');
+  pistol.rotation.x = Math.PI / 2;
+  laidOut.add(pistol);
+  pistol.add(box({ name: 'heistSidearm.pistol.slide', size: [0.172, 0.030, 0.026], pos: [0.028, 0.014, 0], mat: steel }));
+  pistol.add(box({ name: 'heistSidearm.pistol.slide.serrations', size: [0.044, 0.020, 0.028], pos: [-0.038, 0.014, 0], mat: dark, cast: false }));
+  pistol.add(box({ name: 'heistSidearm.pistol.frame', size: [0.140, 0.022, 0.024], pos: [0.012, -0.007, 0], mat: polymer }));
+  pistol.add(box({ name: 'heistSidearm.pistol.dust-cover', size: [0.070, 0.014, 0.022], pos: [0.070, -0.008, 0], mat: polymer }));
+  const muzzle = cylinder({ r: 0.0055, h: 0.006, pos: [0.116, 0.014, 0], rotZ: Math.PI / 2, mat: mat({ color: 0x08090b, roughness: 1 }) });
+  muzzle.name = 'heistSidearm.pistol.bore';
+  pistol.add(muzzle);
+  const grip = box({ name: 'heistSidearm.pistol.grip', size: [0.032, 0.098, 0.026], pos: [-0.048, -0.056, 0], mat: polymer });
+  grip.rotation.z = 0.26;
+  pistol.add(grip);
+  pistol.add(box({ name: 'heistSidearm.pistol.magazine-base', size: [0.036, 0.010, 0.028], pos: [-0.074, -0.104, 0], mat: dark, rotZ: 0.26 }));
+  pistol.add(box({ name: 'heistSidearm.pistol.trigger-guard.bow', size: [0.044, 0.007, 0.011], pos: [-0.004, -0.026, 0], mat: polymer }));
+  pistol.add(box({ name: 'heistSidearm.pistol.trigger-guard.rear', size: [0.007, 0.022, 0.011], pos: [-0.024, -0.017, 0], mat: polymer }));
+  pistol.add(box({ name: 'heistSidearm.pistol.trigger', size: [0.007, 0.016, 0.007], pos: [-0.004, -0.016, 0], mat: dark }));
+  pistol.add(box({ name: 'heistSidearm.pistol.sight.rear', size: [0.010, 0.008, 0.020], pos: [-0.048, 0.032, 0], mat: dark }));
+  pistol.add(box({ name: 'heistSidearm.pistol.sight.front', size: [0.006, 0.008, 0.006], pos: [0.104, 0.032, 0], mat: dark }));
+  g.add(laidOut);
+
+  // And the spare magazine for it, flat on the rug where it fell out.
+  g.add(box({ name: 'heistSidearm.spare-magazine', size: [0.098, 0.024, 0.026], pos: [0.092, 0.037, 0.058], mat: polymer, rotY: -0.4 }));
+  return g;
+}
+
+/** Loaded magazines, out of the pouch and stood up in a row against it. */
+function magazineRig(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistMagazines');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const {
+    nylon, webbing, polymer, brass, dark,
+  } = gearPalette();
+
+  // The dump pouch they came out of, collapsed flat.
+  g.add(box({ name: 'heistMagazines.pouch', size: [0.190, 0.058, 0.140], pos: [0, 0.029, 0.028], mat: nylon }));
+  g.add(box({ name: 'heistMagazines.pouch.flap', size: [0.190, 0.014, 0.078], pos: [0, 0.062, 0.070], mat: webbing, rotX: 0.20 }));
+  g.add(box({ name: 'heistMagazines.pouch.strap', size: [0.030, 0.010, 0.140], pos: [0.062, 0.060, 0.028], mat: webbing, cast: false }));
+
+  /* Four magazines lying across each other, curved the way a magazine is:
+   * body and a shorter, more steeply angled lower half, plus a floorplate. The
+   * old prop for all of this was one 38x12x24cm box. */
+  for (let i = 0; i < 4; i++) {
+    const magazine = group(`heistMagazines.magazine.${i + 1}`);
+    /* 0.028 up, not 0.014: the quarter turn that lays a magazine down maps its
+     * 5cm width into height, so half of that has to be under the centre or the
+     * bottom of it is in the floorboards. */
+    magazine.position.set(-0.052 + (i % 2) * 0.052, 0.028 + Math.floor(i / 2) * 0.030, -0.070 + (i % 2) * 0.014);
+    magazine.rotation.set(Math.PI / 2, 0, 0.10 - i * 0.16);
+    magazine.add(box({ name: `heistMagazines.magazine.${i + 1}.body`, size: [0.028, 0.098, 0.050], pos: [0, 0.049, 0], mat: polymer }));
+    const toe = box({ name: `heistMagazines.magazine.${i + 1}.toe`, size: [0.028, 0.072, 0.048], pos: [0.016, 0.128, 0], mat: polymer });
+    toe.rotation.z = -0.22;
+    magazine.add(toe);
+    magazine.add(box({ name: `heistMagazines.magazine.${i + 1}.floorplate`, size: [0.032, 0.010, 0.052], pos: [0.030, 0.163, 0], mat: dark, rotZ: -0.22 }));
+    magazine.add(box({ name: `heistMagazines.magazine.${i + 1}.feed-lips`, size: [0.026, 0.012, 0.044], pos: [-0.002, 0.002, 0], mat: dark }));
+    g.add(magazine);
+  }
+  // A handful of loose rounds that never made it into one of them.
+  for (let i = 0; i < 5; i++) {
+    const round = cylinder({
+      r: 0.0055, h: 0.026, pos: [0.062 + (i % 2) * 0.020, 0.006, -0.020 - i * 0.017],
+      rotZ: Math.PI / 2, mat: brass,
+    });
+    round.name = `heistMagazines.round.${i + 1}`;
+    round.rotation.y = i * 0.42;
+    g.add(round);
+  }
+  return g;
+}
+
+/**
+ * The bag the money comes home in.
+ *
+ * `packed` is what it looks like afterwards: shut, on its side, with the sag
+ * of something heavy in it. Empty it is a collapsed tube with the zip open.
+ */
+function heistDuffel(M, { x, y, z, rotY = 0, packed = false }) {
+  const g = group(packed ? 'dress:heistGearSecured.duffel' : 'dress:heistDuffel');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const palette = gearPalette();
+  const canvas = packed ? palette.rib : palette.nylon;
+  const { webbing, steel } = palette;
+
+  const L = packed ? 0.62 : 0.48;
+  const R = packed ? 0.145 : 0.150;
+  /* How much of its own diameter the bag has left standing. Empty it has
+   * collapsed to two thirds; packed it is nearly round.
+   *
+   * MULTIPLIED into the scale rather than assigned over it: cylinder() carries
+   * the radius and the length in mesh.scale, so `scale.set(1, 1, k)` here
+   * would not squash a 15cm bag, it would replace its radius and its length
+   * with 1m -- which is the same trap the shirt on the bedroom floor spent a
+   * long time in. And it is scale.X that matters, because the quarter turn
+   * about Z that lays the tube down maps local x onto world y. */
+  const SQUASH = packed ? 0.94 : 0.68;
+  const centreY = R * SQUASH;
+  const body = cylinder({ r: R, h: L, pos: [0, centreY, 0], rotZ: Math.PI / 2, mat: canvas });
+  body.name = 'heistDuffel.body';
+  body.scale.x *= SQUASH;
+  g.add(body);
+  for (const s of [-1, 1]) {
+    const end = cylinder({ r: R * 0.98, h: 0.020, pos: [s * L / 2, centreY, 0], rotZ: Math.PI / 2, mat: webbing });
+    end.name = `heistDuffel.end.${s < 0 ? 'left' : 'right'}`;
+    end.scale.x *= SQUASH;
+    g.add(end);
+  }
+  // The zip along the top, open on an empty bag and shut on a full one.
+  const top = centreY + R * SQUASH;
+  g.add(box({
+    name: 'heistDuffel.zip', size: [L - 0.06, 0.012, packed ? 0.030 : 0.090],
+    pos: [0, top - 0.004, 0], mat: webbing,
+  }));
+  if (!packed) {
+    g.add(box({
+      name: 'heistDuffel.mouth', size: [L - 0.10, 0.010, 0.070], pos: [0, top - 0.014, 0],
+      mat: palette.cut, cast: false,
+    }));
+  }
+  const pull = cylinder({ r: 0.010, h: 0.006, pos: [L / 2 - 0.06, top + 0.006, 0], mat: steel });
+  pull.name = 'heistDuffel.zip.pull';
+  g.add(pull);
+  // Two grab handles, and a shoulder strap trailing off the near side.
+  for (const dx of [-0.09, 0.09]) {
+    const handle = box({ name: 'heistDuffel.handle', size: [0.024, 0.070, 0.014], pos: [dx, top - 0.030, -R * 0.56], mat: webbing });
+    handle.rotation.x = -0.5;
+    g.add(handle);
+  }
+  g.add(box({ name: 'heistDuffel.strap', size: [0.300, 0.010, 0.034], pos: [0.030, 0.006, -R * 0.92], mat: webbing, rotY: 0.22 }));
+  g.add(box({ name: 'heistDuffel.strap.pad', size: [0.120, 0.016, 0.046], pos: [0.100, 0.010, -R * 0.98], mat: webbing, rotY: 0.22 }));
+  return g;
+}
+
+/**
+ * The gear, secured: the case shut with the packed bag sat on top of it,
+ * in the same corner it was staged in. Same two objects, one morning later.
+ */
+function heistGearSecured(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistGearSecured');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const shut = heistRifleCase(M, { x: 0, y: 0, z: 0, open: false });
+  g.add(shut);
+  // Sat ON the case, which is 16cm of shut case, not floating above it.
+  g.add(heistDuffel(M, { x: 0.04, y: 0.162, z: 0.010, rotY: 0.10, packed: true }));
+  return g;
+}
+
+/** A clean change of clothes, folded on the closet floor where he left them. */
+function foldedClothes(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistChange');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const cols = [0x2f3540, 0xb6b1a4, 0x4a4034];
+  let top = 0;
+  for (let i = 0; i < 3; i++) {
+    const w = 0.300 - i * 0.024;
+    const d = 0.220 - i * 0.018;
+    const h = 0.046 - i * 0.006;
+    const cloth = mat({ color: cols[i], roughness: 1 });
+    const item = group(`heistChange.folded.${i + 1}`);
+    item.position.set((i % 2) * 0.016 - 0.008, top + h / 2, (i % 2) * 0.012 - 0.006);
+    item.rotation.y = 0.10 - i * 0.12;
+    item.add(box({ name: `heistChange.folded.${i + 1}.body`, size: [w, h, d], pos: [0, 0, 0], mat: cloth }));
+    // The fold down the middle, which is the only thing that says "folded".
+    item.add(box({
+      name: `heistChange.folded.${i + 1}.crease`, size: [w * 0.96, h * 0.34, 0.016],
+      pos: [0, h * 0.4, 0], mat: mat({ color: cols[(i + 1) % 3], roughness: 1 }), cast: false,
+    }));
+    item.add(box({
+      name: `heistChange.folded.${i + 1}.sleeve`, size: [w * 0.44, h * 0.5, d * 0.42],
+      pos: [w * 0.18, h * 0.42, -d * 0.20], mat: cloth, rotY: 0.16,
+    }));
+    top += h;
+    g.add(item);
+  }
+  // Clean socks on top, because a man who is burning his clothes buys socks.
+  g.add(box({ name: 'heistChange.socks', size: [0.100, 0.036, 0.076], pos: [0.086, top + 0.018, 0.062], mat: mat({ color: 0xb6b1a4, roughness: 1 }), rotY: -0.3 }));
+  return g;
+}
+
+/**
+ * The towel he uses to wash the night off, over the rim of the bath.
+ *
+ * It used to be a cream slab at (4.30, 0.94, 1.98), which is inside the
+ * fridge -- half of it through the door and half through the beer shelf,
+ * hanging at chest height in the middle of the kitchen. The bathroom is where
+ * washing happens; this hangs on the tub the player actually stands at.
+ */
+function bathTowel(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:heistWash');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const towel = mat({ color: 0xc9c0ad, roughness: 1 });
+  const towelShade = M.sheet;
+  // Over the rim: a fold across the top and a fall down each side of it.
+  g.add(box({ name: 'heistWash.towel.fold', size: [0.116, 0.036, 0.320], pos: [0, 0, 0], mat: towel }));
+  /* The two falls hang either side of a 7cm rim, so they are set 5cm out from
+   * the centre line rather than 4.6: at 4.6 the inner one was two millimetres
+   * inside the porcelain. */
+  for (const s of [-1, 1]) {
+    g.add(box({
+      name: `heistWash.towel.fall.${s < 0 ? 'inner' : 'outer'}`,
+      size: [0.026, 0.190, 0.300], pos: [s * 0.050, -0.108, s * 0.012], mat: towel,
+    }));
+    g.add(box({
+      name: `heistWash.towel.hem.${s < 0 ? 'inner' : 'outer'}`,
+      size: [0.030, 0.026, 0.300], pos: [s * 0.050, -0.196, s * 0.012], mat: towelShade,
+    }));
+  }
+  /* Two woven bands down each fall, which is what stops it reading as a folded
+   * sheet of card. On the FALLS and not across the fold: a band the width of
+   * the whole towel sits where the rim is, which is 1.6cm inside porcelain. */
+  for (const s of [-1, 1]) {
+    for (const [i, dy] of [-0.062, -0.152].entries()) {
+      g.add(box({
+        name: `heistWash.towel.band.${s < 0 ? 'inner' : 'outer'}.${i + 1}`,
+        size: [0.030, 0.016, 0.302], pos: [s * 0.050, dy, s * 0.012 + 0.002],
+        mat: towelShade, cast: false,
+      }));
+    }
+  }
+  // The flannel wrung out over the same rim, further along it.
+  g.add(box({ name: 'heistWash.flannel', size: [0.080, 0.026, 0.096], pos: [0, 0.026, -0.208], mat: towelShade, rotY: 0.2 }));
   return g;
 }
 
@@ -1020,11 +2040,21 @@ export function makeMorningGuest(M) {
  *
  * @returns {Map<string, {group: THREE.Object3D, extra?: object}>}
  */
-export function buildDressing(M, { root, fridgeDoor, at }) {
+export function buildDressing(M, { root, fridgeDoor, at, stickers = {} }) {
   const pieces = new Map();
   const add = (id, object, extra) => {
     (extra?.parent || root).add(object);
     pieces.set(id, { group: object, ...(extra || null) });
+  };
+  /** A cash pile keeps its `setBundles` on the piece, the way rain keeps its
+   * runners: the apartment's dressing pass is the only thing that calls it. */
+  const addCash = (id, options) => {
+    const pile = cash(M, options);
+    /* Named for which pile it is. Four of these are built and they were all
+     * called `cash`, which makes any measurement of one of them a measurement
+     * of the union of the lot. */
+    pile.group.name = `cash:${id}`;
+    add(id, pile.group, { setBundles: pile.setBundles, capacity: pile.capacity });
   };
 
   add('lanyard', lanyard(M, at.lanyard));
@@ -1035,42 +2065,41 @@ export function buildDressing(M, { root, fridgeDoor, at }) {
   }
 
   add('bloodShirt', bloodShirt(M, at.bloodShirt));
-  add('cashSmall', cash(M, { ...at.cashSmall, n: 1 }));
+  addCash('cashSmall', { ...at.cashSmall, n: CASH_PILES.cashSmall.base, max: CASH_PILES.cashSmall.max });
   add('bingMatches', matchbook(M, at.bingMatches));
 
   add('motelKey', motelKey(M, at.motelKey));
-  add('cashMid', cash(M, { ...at.cashMid, n: 3 }));
+  addCash('cashMid', { ...at.cashMid, n: CASH_PILES.cashMid.base, max: CASH_PILES.cashMid.max });
   add('casualJacket', casualJacket(M, at.casualJacket));
-  add('tammyDashboardMug', tammyDashboardMug(M, at.tammyDashboardMug));
-
-  add('cashStacks', cash(M, { ...at.cashStacks, n: 6, wide: true }));
-  add('heistCut', cash(M, {
-    x: -2.78, y: 0.76, z: -2.34, rotY: -0.12, n: 10, wide: true,
+  add('tammyDashboardMug', tammyDashboardMug(M, {
+    ...at.tammyDashboardMug, sticker: stickers.tammy || null,
   }));
+
+  addCash('cashStacks', {
+    ...at.cashStacks, n: CASH_PILES.cashStacks.base, max: CASH_PILES.cashStacks.max, wide: true,
+  });
+  /* Ten bundles is the authored quarter-million; the cap is what a 2x2 block
+   * of stacks measures on the floor at the foot of the bed, which is where it
+   * gets tipped out. It used to hang at y 0.76 at x -2.78 -- 67cm clear of the
+   * east edge of the bed with nothing at all underneath it. */
+  addCash('heistCut', { ...at.heistCut, n: 10, max: 24, wide: true });
   add('suitBag', suitBag(M, at.suitBag));
   add('gunCase', gunCase(M, at.gunCase));
   add('jerkyHaul', jerkyHaul(M, at.jerkyHaul));
   add('silverMatches', matchbook(M, { ...at.silverMatches, colour: 0x2a3a52 }));
   add('laundryHeap', laundryHeap(M, at.laundryHeap));
 
-  const heistItem = (name, size, pos, material = M.black, rotY = 0) => {
-    const g = group(name);
-    g.position.set(...pos);
-    g.rotation.y = rotY;
-    g.add(box({ size, pos: [0, size[1] / 2, 0], mat: material }));
-    return g;
-  };
-  add('heistArmor', heistItem('heistArmor', [0.62, 0.16, 0.52], [-4.18, 0.72, -2.62]));
-  add('heistGloves', heistItem('heistGloves', [0.42, 0.08, 0.22], [-3.74, 0.73, -2.56]));
-  add('heistMask', heistItem('heistMask', [0.34, 0.18, 0.28], [-3.35, 0.73, -2.50]));
-  add('heistCarbine', heistItem('heistCarbine', [1.12, 0.09, 0.14], [-4.02, 0.88, -2.84], M.darkSteel, 0.18));
-  add('heistSidearm', heistItem('heistSidearm', [0.42, 0.10, 0.16], [-3.28, 0.87, -2.76], M.darkSteel, -0.25));
-  add('heistMagazines', heistItem('heistMagazines', [0.38, 0.12, 0.24], [-2.92, 0.73, -2.56], M.darkSteel));
-  add('heistDuffel', heistItem('heistDuffel', [0.86, 0.44, 0.42], [-2.84, 0.01, -2.94], M.black, 0.12));
+  add('heistArmor', plateCarrier(M, at.heistArmor));
+  add('heistGloves', tacticalGloves(M, at.heistGloves));
+  add('heistMask', balaclava(M, at.heistMask));
+  add('heistCarbine', heistRifleCase(M, { ...at.heistCarbine, open: true }));
+  add('heistSidearm', sidearmRig(M, at.heistSidearm));
+  add('heistMagazines', magazineRig(M, at.heistMagazines));
+  add('heistDuffel', heistDuffel(M, at.heistDuffel));
 
-  add('heistWash', heistItem('heistWash', [0.55, 0.06, 0.34], [4.30, 0.94, 1.98], M.sheet));
-  add('heistChange', heistItem('heistChange', [0.72, 0.20, 0.34], [4.60, 0.02, 4.76], M.black, -0.12));
-  add('heistGearSecured', heistItem('heistGearSecured', [0.92, 0.46, 0.50], [-3.78, 0.01, -2.70], M.black, 0.24));
+  add('heistWash', bathTowel(M, at.heistWash));
+  add('heistChange', foldedClothes(M, at.heistChange));
+  add('heistGearSecured', heistGearSecured(M, at.heistGearSecured));
 
   const rain = rainSheet(M, at.rain);
   add('rain', rain.group, { runners: rain.runners });
