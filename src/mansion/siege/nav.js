@@ -217,7 +217,7 @@ export const OPENINGS = Object.freeze([
    * `trophyWestSouth` the west wing's -- the only two openings on any route in
    * this file that have to be broken before anybody comes through. */
   Object.freeze({
-    id: 'bayEastMid', axis: 'x', at: 20.8, u0: 45.8, u1: 49.2, rooms: ['bay', 'lawn_east'], glass: true, ...GROUND_BAND,
+    id: 'bayEastSouth', axis: 'x', at: 20.8, u0: 41.6, u1: 44.4, rooms: ['bay', 'lawn_east'], glass: true, ...GROUND_BAND,
   }),
   Object.freeze({
     id: 'trophyWestSouth', axis: 'x', at: -24.4, u0: 43.0, u1: 46.4, rooms: ['trophy', 'lawn_west'], glass: true, ...GROUND_BAND,
@@ -355,48 +355,58 @@ const G = null;
 export const ANCHORS = Object.freeze([
   /* ---- the drive and the turnaround ------------------------------- */
   /* The drive is 8.9 m of usable lane between kerbs at x +/-6.85, with the
-   * abandoned Lincoln across it at (0, 18.4). This is north of it. */
-  A('drive_head', 'approach', 0, 22.4, G, 'forecourt', 2.4, {
-    neighbors: ['court_side_west', 'court_side_east'], recovery: true,
+   * abandoned Lincoln across it at (0, 18.4) and lamp posts standing IN the
+   * carriageway at x +/-4.6, z 16 and z 21. This is the gap between them. */
+  A('drive_head', 'approach', 0, 21.0, G, 'forecourt', 2.0, {
+    neighbors: ['court_gap_west', 'court_gap_east'], recovery: true,
   }),
-  /* EITHER SIDE OF THE FOUNTAIN, AND THAT IS THE POINT. The basin's collider
-   * is r 3.6 about (0, 27) and the drive comes up at x = 0, so a single
-   * centre anchor would walk every man in the mission through it. Splitting
-   * here is also the reading the brief wants: they come up the drive, spread
-   * round the fountain and the burning cars, and re-form at the steps. */
-  A('court_side_west', 'approach', -6.2, 26.5, G, 'forecourt', 1.9, {
-    neighbors: ['drive_head', 'court_centre', 'steps_west'], recovery: true,
+  /* EITHER SIDE OF THE FOUNTAIN, AND THAT IS THE POINT.
+   *
+   * The basin's collider is a 7.2 m box about (0, 27) and the drive comes up
+   * at x = 0, so a single centre anchor walks every man in the mission
+   * through it. The two burning cars `dressing.js` slews across the
+   * turnaround leave a 1.15 m channel each side, between the wreck's inner
+   * edge at x +/-4.75 and the basin's at +/-3.6 -- measured off the real
+   * colliders by `tools/probe-siege-anchors.mjs`, not by eye. These four
+   * anchors thread it, which is also the reading the brief wants: they come
+   * up the drive and file past the fountain and the burning cars. */
+  A('court_gap_west', 'approach', -4.2, 23.0, G, 'forecourt', 0.25, {
+    neighbors: ['drive_head', 'court_side_west'], recovery: true,
   }),
-  A('court_side_east', 'approach', 6.2, 26.5, G, 'forecourt', 1.9, {
-    neighbors: ['drive_head', 'court_centre', 'steps_east'], recovery: true,
+  A('court_gap_east', 'approach', 4.2, 23.0, G, 'forecourt', 0.25, {
+    neighbors: ['drive_head', 'court_side_east'], recovery: true,
   }),
-  /* The turnaround's north arc. `dressing.js` leaves z 27..34 completely
-   * empty on purpose -- "that is the attackers' walk-in" -- so this is the
-   * one place in the forecourt with nothing standing in it. */
-  A('court_centre', 'approach', 0, 32.2, G, 'forecourt', 2.2, {
-    neighbors: ['court_side_west', 'court_side_east', 'steps_centre'],
+  A('court_side_west', 'approach', -4.3, 28.6, G, 'forecourt', 0.5, {
+    neighbors: ['court_gap_west', 'steps_west'], recovery: true,
+  }),
+  A('court_side_east', 'approach', 4.3, 28.6, G, 'forecourt', 0.5, {
+    neighbors: ['court_gap_east', 'steps_east'], recovery: true,
   }),
 
   /* ---- the six treads and the portico ------------------------------ */
-  A('steps_west', 'porch', -3.4, 34.7, G, 'steps', 1.0, {
+  /* Treads z 34..35.5, then a 0.5 m portico landing to the facade at 36.
+   * The porch row sits at 35.3 rather than against the wall: the entrance
+   * glazing's frame stands from z 35.69 and a man does not walk with his
+   * shoulder inside it. */
+  A('steps_west', 'porch', -4.4, 34.2, G, 'steps', 0.8, {
     neighbors: ['court_side_west', 'steps_centre', 'porch_west'],
   }),
-  A('steps_centre', 'porch', 0, 34.7, G, 'steps', 1.0, {
-    neighbors: ['court_centre', 'steps_west', 'steps_east', 'porch_centre'],
+  A('steps_centre', 'porch', 0, 34.2, G, 'steps', 1.0, {
+    neighbors: ['steps_west', 'steps_east', 'porch_centre'],
   }),
-  A('steps_east', 'porch', 3.4, 34.7, G, 'steps', 1.0, {
+  A('steps_east', 'porch', 4.4, 34.2, G, 'steps', 0.8, {
     neighbors: ['court_side_east', 'steps_centre', 'porch_east'],
   }),
-  A('porch_west', 'porch', -3.2, 35.6, G, 'steps', 0.9, {
+  A('porch_west', 'porch', -3.0, 35.1, G, 'steps', 0.5, {
     neighbors: ['steps_west', 'porch_centre'],
   }),
   /* THE NECK OF THE FUNNEL. Everything that comes in the front comes through
    * this anchor and then through a 3.2 m door, which is why its lane is the
    * tightest in the file. */
-  A('porch_centre', 'porch', 0, 35.6, G, 'steps', 0.55, {
+  A('porch_centre', 'porch', 0, 35.1, G, 'steps', 0.4, {
     neighbors: ['steps_centre', 'porch_west', 'porch_east', 'foyer_door', 'overwatch_door_mouth'],
   }),
-  A('porch_east', 'porch', 3.2, 35.6, G, 'steps', 0.9, {
+  A('porch_east', 'porch', 3.0, 35.1, G, 'steps', 0.5, {
     neighbors: ['steps_east', 'porch_centre'],
   }),
 
@@ -414,7 +424,20 @@ export const ANCHORS = Object.freeze([
     neighbors: ['foyer_door', 'foyer_centre', 'foyer_stair_east'],
   }),
   A('foyer_centre', 'foyer', 0, 41.6, G, 'foyer', 1.5, {
-    neighbors: ['foyer_door', 'foyer_west', 'foyer_east', 'foyer_stair_west', 'foyer_stair_east', 'foyer_under'],
+    neighbors: [
+      'foyer_door', 'foyer_west', 'foyer_east',
+      'foyer_stair_west', 'foyer_stair_east', 'foyer_pass_west', 'foyer_pass_east',
+    ],
+  }),
+  /* ROUND THE WRECKED CENTREPIECE, NOT THROUGH IT. `dressing.js` puts the
+   * broken centrepiece at x +/-1.12, z 43.28..45.52 -- dead on the line from
+   * the middle of the foyer to the back of it, which is exactly where a
+   * straight leg would go. */
+  A('foyer_pass_west', 'foyer', -3.4, 44.4, G, 'foyer', 0.8, {
+    neighbors: ['foyer_centre', 'foyer_under'],
+  }),
+  A('foyer_pass_east', 'foyer', 3.4, 44.4, G, 'foyer', 0.8, {
+    neighbors: ['foyer_centre', 'foyer_under'],
   }),
   /* SOUTH OF THE BOTTOM TREAD, not on it. The flights start at z 42 and the
    * masonry under them is solid, so the anchor a man walks to before he
@@ -429,13 +452,17 @@ export const ANCHORS = Object.freeze([
   }),
   /* Behind the horseshoe, under the gallery slab: the half of the foyer the
    * two wing arches open onto. */
-  A('foyer_under', 'foyer_rear', 0, 50.4, G, 'foyer', 1.6, {
-    neighbors: ['foyer_centre', 'foyer_arch_west', 'foyer_arch_east'],
+  A('foyer_under', 'foyer_rear', 0, 50.4, G, 'foyer', 1.4, {
+    neighbors: ['foyer_pass_west', 'foyer_pass_east', 'foyer_arch_west', 'foyer_arch_east'],
   }),
-  A('foyer_arch_west', 'foyer_rear', -8.3, 50.5, G, 'foyer', 0.9, {
+  /* SOUTH OF THE STAIRWELL MOUTH. `BASEMENT_SHAFT` is a genuine hole cut
+   * through the foyer's slab at x 5.4..9, z 51..58, guarded on three sides.
+   * The east arch runs z 48.5..52.5, so its northern metre and a half stands
+   * over the void -- an anchor at z 51.4 is an anchor over a stairwell. */
+  A('foyer_arch_west', 'foyer_rear', -8.3, 49.6, G, 'foyer', 0.7, {
     neighbors: ['foyer_under', 'living_arch_foyer'],
   }),
-  A('foyer_arch_east', 'foyer_rear', 8.3, 50.5, G, 'foyer', 0.9, {
+  A('foyer_arch_east', 'foyer_rear', 8.3, 49.6, G, 'foyer', 0.7, {
     neighbors: ['foyer_under', 'lounge_arch'],
   }),
 
@@ -447,16 +474,10 @@ export const ANCHORS = Object.freeze([
     neighbors: ['foyer_door', 'overwatch_west', 'overwatch_east', 'overwatch_door_mouth'],
   }),
   A('overwatch_west', 'overwatch', -4.2, 37.9, G, 'foyer', 0.8, {
-    neighbors: ['foyer_door', 'overwatch_centre', 'overwatch_west_far'],
+    neighbors: ['foyer_door', 'overwatch_centre'],
   }),
   A('overwatch_east', 'overwatch', 4.2, 37.9, G, 'foyer', 0.8, {
-    neighbors: ['foyer_door', 'overwatch_centre', 'overwatch_east_far'],
-  }),
-  A('overwatch_west_far', 'overwatch', -6.8, 37.9, G, 'foyer', 0.6, {
-    neighbors: ['overwatch_west'],
-  }),
-  A('overwatch_east_far', 'overwatch', 6.8, 37.9, G, 'foyer', 0.6, {
-    neighbors: ['overwatch_east'],
+    neighbors: ['foyer_door', 'overwatch_centre'],
   }),
   /* IN THE DOOR MOUTH, and inside it rather than on the portico. A hundred
    * rounds in a box is not something you carry up a staircase, so the gunner
@@ -523,40 +544,61 @@ export const ANCHORS = Object.freeze([
   }),
 
   /* ---- the east flank: the lawn, the billiard bay, the lounge ------- */
-  A('lawn_bay', 'flank_east', 23.6, 47.4, G, 'lawn_east', 1.6, {
+  /* THROUGH THE SOUTHERN PANE, not the middle one. The billiard table's
+   * collider runs x 10.98..13.82, z 46.18..51.02 -- the middle of the lounge
+   * -- so a route in at z 47 has to cross it or squeeze between it and the
+   * bay piers. Coming in at z 43 instead lands south of the table and the
+   * run north to the arch stays inside the 1.8 m aisle against the foyer
+   * partition. Both measured off the real colliders by
+   * `tools/probe-siege-anchors.mjs`. */
+  /* LANES ARE TIGHT ON A PANE. `bayEastSouth` is 2.8 m of glass at
+   * z 41.6..44.4 and the bay's own furniture takes the southern metre of it,
+   * so the usable band is 1.3 m wide. A lane wide enough to spread four men
+   * abreast would put the outside one's crossing through the mullion, and a
+   * breach reported at a mullion is a pane the glass owner cannot find. */
+  A('lawn_bay', 'flank_east', 23.6, 43.75, G, 'lawn_east', 0.45, {
     neighbors: ['bay_glass'], recovery: true,
   }),
-  A('bay_glass', 'flank_east', 19.0, 47.4, G, 'bay', 0.9, {
+  A('bay_glass', 'flank_east', 19.2, 43.75, G, 'bay', 0.35, {
     neighbors: ['lawn_bay', 'bay_arch'],
   }),
-  A('bay_arch', 'flank_east', 15.2, 47.4, G, 'lounge', 0.9, {
-    neighbors: ['bay_glass', 'lounge_mid'],
+  A('bay_arch', 'flank_east', 15.2, 43.75, G, 'lounge', 0.6, {
+    neighbors: ['bay_glass', 'lounge_south'],
   }),
-  A('lounge_mid', 'flank_east', 12.4, 49.2, G, 'lounge', 1.1, {
+  A('lounge_south', 'flank_east', 10.4, 45.2, G, 'lounge', 0.6, {
     neighbors: ['bay_arch', 'lounge_arch'],
   }),
-  A('lounge_arch', 'flank_east', 9.9, 50.5, G, 'lounge', 0.8, {
-    neighbors: ['lounge_mid', 'foyer_arch_east'],
+  A('lounge_arch', 'flank_east', 9.9, 49.6, G, 'lounge', 0.6, {
+    neighbors: ['lounge_south', 'foyer_arch_east'],
   }),
 
   /* ---- the west flank: the lawn, the trophy hall, the living room --- */
-  A('lawn_trophy', 'flank_west', -27.4, 44.7, G, 'lawn_west', 1.6, {
+  /* The mirror, and for the mirror reason: the living room's couch stands at
+   * x -13.47..-11.53, z 46.98..48.02 and a sideboard south of it, so the run
+   * north hugs the foyer partition rather than crossing the room. */
+  A('lawn_trophy', 'flank_west', -27.4, 44.4, G, 'lawn_west', 0.8, {
     neighbors: ['trophy_glass'], recovery: true,
   }),
-  A('trophy_glass', 'flank_west', -22.6, 44.7, G, 'trophy', 1.2, {
+  A('trophy_glass', 'flank_west', -22.6, 44.4, G, 'trophy', 0.7, {
     neighbors: ['lawn_trophy', 'trophy_arch'],
   }),
-  A('trophy_arch', 'flank_west', -17.0, 43.9, G, 'trophy', 0.6, {
+  A('trophy_arch', 'flank_west', -17.0, 43.9, G, 'trophy', 0.5, {
     neighbors: ['trophy_glass', 'living_arch_wing'],
   }),
-  A('living_arch_wing', 'flank_west', -15.0, 43.9, G, 'living', 0.6, {
-    neighbors: ['trophy_arch', 'living_mid'],
+  A('living_arch_wing', 'flank_west', -15.0, 43.9, G, 'living', 0.5, {
+    neighbors: ['trophy_arch', 'living_south'],
   }),
-  A('living_mid', 'flank_west', -12.4, 48.0, G, 'living', 1.1, {
-    neighbors: ['living_arch_wing', 'living_arch_foyer'],
+  /* THREADING THE 1.1 m AISLE. The couch stands out to x -11.53 and a
+   * console against the foyer partition comes back to -10.44, so the run
+   * north between them is a metre wide and this is its centre line. */
+  A('living_south', 'flank_west', -10.86, 44.0, G, 'living', 0.4, {
+    neighbors: ['living_arch_wing', 'living_north'],
   }),
-  A('living_arch_foyer', 'flank_west', -9.9, 50.5, G, 'living', 0.8, {
-    neighbors: ['living_mid', 'foyer_arch_west'],
+  A('living_north', 'flank_west', -10.86, 49.8, G, 'living', 0.5, {
+    neighbors: ['living_south', 'living_arch_foyer'],
+  }),
+  A('living_arch_foyer', 'flank_west', -9.9, 49.6, G, 'living', 0.5, {
+    neighbors: ['living_north', 'foyer_arch_west'],
   }),
 
   /* ---- the cellar corridor ----------------------------------------- */

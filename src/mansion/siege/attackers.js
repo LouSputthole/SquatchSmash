@@ -115,8 +115,18 @@ import { COMBAT_BOUNDARY, DEFENCE_POST, ROLES, STAGING } from './waves.js';
 const BUILDING = Object.freeze({ x0: -16, x1: 16, z0: 36, z1: 75 });
 /** `MansionInterior.FOYER_VOID` -- the double-height hole under the landing. */
 const FOYER_VOID = Object.freeze({ x0: -8.85, x1: 8.85, z0: 36, z1: 48 });
-/** The bottom tread of the front steps. Below this the ground is street grade. */
+/**
+ * The front staircase, as `MansionGrounds.buildFrontEntry` really builds it:
+ * six treads from z 34 to z 35.5 climbing 0 to GROUND_Y, and then a level
+ * portico landing from 35.5 to the facade at 36.
+ *
+ * It used to be one 34..36 ramp, which is a metre and a half of stairs
+ * stretched over two metres -- so a man standing on the portico stood 0.24 m
+ * inside its own slab, and the anchor check in the verifier reported the
+ * landing he was standing on as something he was standing IN.
+ */
 const STEP_Z = 34;
+const STEP_TOP_Z = 35.5;
 
 /**
  * The staging zones that are below the house rather than in front of it.
@@ -129,10 +139,10 @@ const STEP_Z = 34;
 const BASEMENT_STAGING = Object.freeze(new Set(['cellar_hall', 'cellar_vault']));
 
 /** Floor height at a point on the ground level. */
-function groundHeightAt(x, z) {
-  if (z >= BUILDING.z0) return GROUND_Y;
+export function groundHeightAt(x, z) {
+  if (z >= STEP_TOP_Z) return GROUND_Y;
   if (z <= STEP_Z) return 0;
-  return GROUND_Y * ((z - STEP_Z) / (BUILDING.z0 - STEP_Z));
+  return GROUND_Y * ((z - STEP_Z) / (STEP_TOP_Z - STEP_Z));
 }
 
 /* ================================================================== */

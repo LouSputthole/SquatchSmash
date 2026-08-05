@@ -437,6 +437,205 @@ try {
     waveOne.spawned.length > 0 && outside.length === waveOne.spawned.length,
     `${outside.length}/${waveOne.spawned.length} outside`);
 
+  /* ---------------------------------------------------------------- */
+  /* 7a. THE FRONT DOOR IS THE WAY IN                                   */
+  /*                                                                     */
+  /* OWNER DIRECTION, 2026-08-05: "everyone should funnel in through the  */
+  /* main door". Asserted on the ROUTES the men are actually carrying,    */
+  /* not on the names of their staging zones -- a zone called             */
+  /* `front_steps` whose route enters through a window would pass the      */
+  /* second check and fail the player.                                    */
+  /* ---------------------------------------------------------------- */
+  const doorway = await evaluate(() => {
+    const s = window.mansionSiege;
+    const waveIds = new Set(s.mission.waves.one.standing);
+    const men = s.attackers.all().filter((e) => waveIds.has(e.id));
+    return men.map((e) => ({
+      id: e.id,
+      staging: e.staging.id,
+      /* Every opening his authored route crosses, in order. */
+      crossings: e.path.filter((p) => p.breaks).map((p) => p.breaks.id),
+      /* And where it ends up. */
+      last: e.path.length ? e.path[e.path.length - 1].anchor : null,
+      dest: e.destination,
+    }));
+  });
+  check('wave one comes up the drive and in the front door, all of it',
+    doorway.length > 0 && doorway.every((m) => m.staging === 'front_steps' || m.staging === 'court_north'),
+    doorway.map((m) => m.staging).join(', '));
+  check('and nobody in wave one breaks a window on the way',
+    doorway.every((m) => m.crossings.length === 0),
+    doorway.flatMap((m) => m.crossings).join(', ') || 'none');
+  check('every one of them is routed onto the landing or the flights',
+    doorway.every((m) => /^(gallery|balcony|stair)/.test(m.dest ?? '')),
+    doorway.map((m) => `${m.id.slice(-4)}:${m.dest}`).join(' '));
+  check('and no two of them are sent to the same place on it',
+    new Set(doorway.map((m) => m.dest)).size === doorway.length,
+    doorway.map((m) => m.dest).join(', '));
+
+  /* THE ROOM TABLE, AGAINST THE REAL BUILDERS.
+   *
+   * `src/mansion/siege/nav.js` writes the house out as numbers rather than
+   * importing MansionGrounds.js, for the reason every other headless module
+   * in this directory gives: that import builds canvas textures at module
+   * scope. The copy is only safe if something compares it to the original,
+   * and the browser is the one place both are loaded at once. */
+  const plan = await evaluate(async () => {
+    const nav = await import('/src/mansion/siege/nav.js');
+    const grounds = await import('/src/mansion/scenes/MansionGrounds.js');
+    const interior = await import('/src/mansion/scenes/MansionInterior.js');
+    const near = (a, b) => Math.abs(a - b) < 0.001;
+    const same = (room, real) => near(room.x0, real.x0) && near(room.x1, real.x1)
+      && near(room.z0, real.z0) && near(room.z1, real.z1);
+    const rows = [
+      ['foyer', interior.FOYER], ['living', interior.LIVING], ['lounge', interior.LOUNGE],
+      ['ballroom', interior.BALLROOM], ['dining', interior.DINING], ['kitchen', interior.KITCHEN],
+      ['gallery', interior.GALLERY], ['trophy', grounds.TROPHY_HALL],
+      ['bay', grounds.LOUNGE_BAY], ['cellar', grounds.CELLAR_HALL],
+      ['guest', grounds.GUEST_ROOM], ['armory', grounds.BASEMENT_ROOM],
+      ['stair_west', interior.STAIR_WEST], ['stair_east', interior.STAIR_EAST],
+    ];
+    const wrong = rows.filter(([id, real]) => !same(nav.ROOMS[id], real)).map(([id]) => id);
+    /* And the front door, which is the whole direction. */
+    const door = nav.OPENINGS.find((o) => o.id === 'frontDoor');
+    const doorOk = near(door.at, grounds.FRONT_DOOR.z)
+      && near(door.u0, grounds.FRONT_DOOR.x0) && near(door.u1, grounds.FRONT_DOOR.x1);
+    /* And the two flights, whose heights the climb waypoints are lerped from. */
+    const flightOk = near(nav.FLIGHT_Z0, interior.STAIR_WEST.z0)
+      && near(nav.FLIGHT_Z1, interior.STAIR_WEST.z1)
+      && near(nav.GROUND_Y, grounds.GROUND_Y) && near(nav.UPPER_Y, grounds.UPPER_Y);
+    return { wrong, doorOk, flightOk, rooms: rows.length };
+  });
+  check("the nav graph's copy of the floor plan matches the house it is a copy of",
+    plan.wrong.length === 0, `${plan.rooms} rooms, wrong: ${plan.wrong.join(', ') || 'none'}`);
+  check('the front door the routes funnel through is the front door the house has',
+    plan.doorOk && plan.flightOk, JSON.stringify(plan));
+
+  /* AND THE ROUTES ARE WALKABLE, measured against the house's own colliders.
+   *
+   * The room table above proves the copy matches the plan. This proves the
+   * plan is walkable, which is a different claim and the one that matters:
+   * an anchor inside a burning car, a stair spandrel or a basement stairwell
+   * is a place the graph will happily send eight men to, and a leg through
+   * the billiard table is a route nobody would author on purpose.
+   *
+   * `tools/probe-siege-anchors.mjs` reports the same thing box by box, which
+   * is how each of these was moved off the thing it was in rather than
+   * nudged until the number went down. Six anchors and eight legs were.
+   *
+   * A box only obstructs when it stands 0.25 m PROUD of the floor he is on:
+   * below that it is a sill, a threshold or a stairwell newel, and
+   * docs/ENGINE-TRAPS.md is explicit that nothing lying on a floor should be
+   * solid. Measured from his feet, not from the box's own height -- the case
+   * that caught this was a four-metre post rising out of the basement whose
+   * top clears the foyer floor by six centimetres. */
+  const stuck = await evaluate(async () => {
+    const nav = await import('/src/mansion/siege/nav.js');
+    const attackers = await import('/src/mansion/siege/attackers.js');
+    const s = window.mansionSiege;
+    /* The SAME ground function the attackers walk on. A check that resolves
+     * height differently from the thing it checks measures its own sums. */
+    const heightAt = (a) => (a.y != null ? a.y : attackers.groundHeightAt(a.x, a.z));
+    const solidTo = (box, y) => box?.min && box.max.y > y + 0.25 && box.min.y < y + 1.75;
+    const anchors = [];
+    for (const anchor of nav.ANCHORS) {
+      const y = heightAt(anchor);
+      for (const box of s.colliders) {
+        if (!solidTo(box, y)) continue;
+        if (anchor.x < box.min.x - 0.3 || anchor.x > box.max.x + 0.3) continue;
+        if (anchor.z < box.min.z - 0.3 || anchor.z > box.max.z + 0.3) continue;
+        anchors.push(anchor.id);
+        break;
+      }
+    }
+    const legs = [];
+    const seen = new Set();
+    for (const anchor of nav.ANCHORS) {
+      for (const id of anchor.neighbors) {
+        const other = nav.anchorById(id);
+        const key = [anchor.id, id].sort().join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        /* A pane he BREAKS is not a pane he walks through: the two flank
+         * routes are supposed to cross glass, and that is the beat. */
+        const crossing = nav.crossingFor(
+          { x: anchor.x, z: anchor.z, y: anchor.y },
+          { x: other.x, z: other.z, y: other.y },
+        );
+        if (crossing?.opening.glass) continue;
+        const floor = Math.min(heightAt(anchor), heightAt(other));
+        const dx = other.x - anchor.x;
+        const dz = other.z - anchor.z;
+        for (const box of s.colliders) {
+          if (!solidTo(box, floor)) continue;
+          let t0 = 0;
+          let t1 = 1;
+          let clear = false;
+          for (const [from, delta, lo, hi] of [
+            [anchor.x, dx, box.min.x - 0.25, box.max.x + 0.25],
+            [anchor.z, dz, box.min.z - 0.25, box.max.z + 0.25],
+          ]) {
+            if (Math.abs(delta) < 1e-6) {
+              if (from < lo || from > hi) { clear = true; break; }
+              continue;
+            }
+            let near = (lo - from) / delta;
+            let far = (hi - from) / delta;
+            if (near > far) { const sw = near; near = far; far = sw; }
+            if (near > t0) t0 = near;
+            if (far < t1) t1 = far;
+            if (t0 > t1) { clear = true; break; }
+          }
+          if (clear) continue;
+          legs.push(`${anchor.id}->${id}`);
+          break;
+        }
+      }
+    }
+    return { anchors, legs, count: nav.ANCHORS.length };
+  });
+  check('no nav anchor is standing inside something solid',
+    stuck.anchors.length === 0,
+    `${stuck.count} anchors, ${stuck.anchors.slice(0, 6).join(', ') || 'all clear'}`);
+  check('and no leg between two of them walks through the furniture',
+    stuck.legs.length === 0, stuck.legs.slice(0, 6).join(', ') || 'all clear');
+
+  /* ---------------------------------------------------------------- */
+  /* 7b. AND THE FIGHT COMES TO THE RAIL                                */
+  /*                                                                     */
+  /* The direction, measured rather than reasoned about: put him on the   */
+  /* firing step, let wave one walk, and see where it ends up. If nobody  */
+  /* climbs, the mission is a shooting gallery pointed at a doorway.      */
+  /* ---------------------------------------------------------------- */
+  await teleport((post.x0 + post.x1) / 2, UPPER_Y, (post.z0 + post.z1) / 2 - 0.4, 180);
+  await settle(0.3);
+  const cameToMe = await evaluate(async () => {
+    const nav = await import('/src/mansion/siege/nav.js');
+    const s = window.mansionSiege;
+    const waveIds = new Set([...s.mission.waves.one.standing]);
+    let onLanding = 0;
+    let closest = Infinity;
+    /* Forty-five seconds is the walk from the turnaround to the gallery with
+     * a fight on the way. Nobody is shot -- this measures where they GO. */
+    for (let t = 0; t < 45; t += 1.5) {
+      s.tick(1.5);
+      const men = s.attackers.all()
+        .filter((e) => waveIds.has(e.id) && e.active && !e.actor.incapacitated);
+      let up = 0;
+      for (const man of men) {
+        const room = nav.roomAt(man.root.position);
+        if (room === 'gallery' || room === 'balcony') up++;
+        closest = Math.min(closest, man.root.position.distanceTo(s.player.position));
+      }
+      onLanding = Math.max(onLanding, up);
+    }
+    return { onLanding, closest: +closest.toFixed(1), of: waveIds.size };
+  });
+  check('the fight comes to the balcony instead of queueing in the doorway',
+    cameToMe.onLanding >= 4, `${cameToMe.onLanding} of ${cameToMe.of} reached the landing`);
+  check('and they get close enough to be a problem at the rail',
+    cameToMe.closest < 6, `nearest ${cameToMe.closest}m`);
+
   const secondGroup = await evaluate(() => {
     const s = window.mansionSiege;
     /* Nobody killed. Twenty-two seconds. 1B comes anyway. */

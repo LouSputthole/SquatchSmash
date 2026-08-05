@@ -600,7 +600,7 @@ test('the two flanks come through glass, and nobody else breaks anything', () =>
   assert.deepEqual([...new Set(breaking.map((b) => b.staging))].sort(),
     ['living_west', 'lounge_bay']);
   assert.deepEqual([...new Set(breaking.map((b) => b.opening))].sort(),
-    ['bayEastMid', 'trophyWestSouth']);
+    ['bayEastSouth', 'trophyWestSouth']);
   /* Both panes, not one twice: the group is supposed to arrive on two flanks
    * at once so the player cannot answer it by turning through ninety degrees. */
   assert.equal(new Set(breaking.map((b) => b.opening)).size, 2);
@@ -654,13 +654,54 @@ test('the lane spreads a group across the leg rather than along it', () => {
    * arrived as a single file of one. The offset is now perpendicular to the
    * leg, which is the difference between five men abreast and five men in a
    * queue. */
-  const from = { x: 26.5, z: 47.4, y: null };
-  const spread = [-1, 0, 1].map((laneT) => laneWaypoints(['lawn_bay', 'bay_glass'], { from, laneT }));
+  const from = { x: -4, z: 50.4, y: null };
+  const spread = [-1, 0, 1].map((laneT) => laneWaypoints(
+    ['foyer_under', 'foyer_arch_east'], { from, laneT },
+  ));
   const [low, mid, high] = spread.map((points) => points[1]);
-  /* The leg runs west, so the spread has to be in z. */
+  /* The leg runs east across the back of the foyer, so the spread is in z. */
   assert.ok(Math.abs(low.z - high.z) > 1.2, `only ${Math.abs(low.z - high.z).toFixed(2)}m apart`);
-  assert.ok(Math.abs(low.x - high.x) < 0.01, 'and not along the leg');
-  assert.ok(Math.abs(mid.z - 47.4) < 0.01, 'the middle lane is the anchor itself');
+  assert.ok(Math.abs(low.x - high.x) < 0.2, 'and not along the leg');
+  const anchor = anchorById('foyer_arch_east');
+  assert.ok(Math.abs(mid.z - anchor.z) < 0.01, 'the middle lane is the anchor itself');
+  assert.ok(Math.abs(mid.x - anchor.x) < 0.01);
+});
+
+test('a laned leg still goes through the doorway the plain one does', () => {
+  /* THE LANE CAN MISS THE DOOR. The offset is perpendicular to the leg, so a
+   * man on the outside lane crosses a wall a metre to one side of where the
+   * centre lane crosses it -- and a metre to one side of a 2.8 m pane is the
+   * mullion. Caught for real: the outermost of the four flank attackers
+   * crossed the billiard bay's east elevation 0.28 m north of the glass, so
+   * three men broke a window and the fourth walked through the frame.
+   *
+   * Checked for every edge that leaves a room, at every lane, because the
+   * front door is 3.2 m wide and the same arithmetic applies to it. */
+  for (const laneT of [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]) {
+    for (const anchor of ANCHORS) {
+      for (const id of anchor.neighbors) {
+        const other = anchorById(id);
+        if (anchor.room === other.room) continue;
+        const plain = crossingFor(
+          { x: anchor.x, z: anchor.z, y: anchor.y },
+          { x: other.x, z: other.z, y: other.y },
+        );
+        if (!plain) continue;
+        /* Approached from the far side, so BOTH ends carry a lane offset --
+         * which is the case that drifts, and the case a real path produces. */
+        const from = {
+          x: anchor.x - (other.x - anchor.x),
+          z: anchor.z - (other.z - anchor.z),
+          y: anchor.y,
+        };
+        const [a, b] = laneWaypoints([anchor.id, id], { from, laneT });
+        const laned = crossingFor(a, b);
+        assert.equal(laned?.opening.id, plain.opening.id,
+          `lane ${laneT} on ${anchor.id} -> ${id} misses ${plain.opening.id}`
+          + ` (it crosses at ${laned?.opening.id ?? 'nothing'})`);
+      }
+    }
+  }
 });
 
 test('a laned waypoint never leaves the room its anchor is in', () => {
