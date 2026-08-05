@@ -388,6 +388,13 @@ async function aimAt(t) {
 
 async function pressE() {
   return page.evaluate(() => {
+    /* Empty the stack first. `pressUntilToast` below retries "until a toast
+     * appears", and a toast from a minute ago is still in the DOM — so a
+     * press that did nothing could return somebody else's message and the
+     * retry loop would stop before it had ever landed. Every press now reads
+     * only what that press said. */
+    const stack = document.getElementById('toast-stack');
+    if (stack) stack.replaceChildren();
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
     window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' }));
     return {
