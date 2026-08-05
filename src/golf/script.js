@@ -1342,11 +1342,11 @@ cue('golf.h3.lou.today_it_matters', LOU,
  * for a fourth man to finish: heckling, mostly warmly.
  */
 cue('golf.h3.booski.there_he_is', BOOSKI,
-  'There he is. Take your time. We’ve only been up here since seven.',
-  { direction: 'Leaning on the balcony rail with a can. Delighted and complaining.', priority: PRIORITY.REACTION, once: true });
+  'There he is. Take your time. We’ve only been stood out here since seven.',
+  { direction: 'Can in hand, not moving an inch. Delighted and complaining.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h3.shubenator.theres_a_bar_up_here', SHUBENATOR,
-  'There is a bar up here, Prospect. There is a bar up here and you are down there.',
-  { direction: 'Genuine sympathy, expressed as gloating.', priority: PRIORITY.REACTION, once: true });
+  'There is a bar thirty feet behind me, Prospect. Thirty feet, and I am out here.',
+  { direction: 'Genuine sympathy, expressed as a grievance about himself.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h3.deathmegatron.two_putt', DEATHMEGATRON,
   'Two-putt it and we all go inside.',
   { direction: 'Around a cigar he is not taking out of his mouth.', priority: PRIORITY.REACTION, once: true });
@@ -1362,14 +1362,18 @@ cue('golf.h3.booski.fourth_mans_in', BOOSKI,
   'Fourth man’s in. That’s the morning.',
   { direction: 'Raising the can about two inches. From him that is a standing ovation.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h3.shubenator.grille_is_open', SHUBENATOR,
-  'Grille’s open. Lou’s buying, which means Eric’s buying.',
-  { direction: 'Already turning toward the doors.', priority: PRIORITY.REACTION, once: true });
+  'Balcony’s open. Lou’s buying, which means Eric’s buying.',
+  { direction: 'Already turning toward the steps.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h3.deathmegatron.cigar_with_your_name', DEATHMEGATRON,
   'I’ve got a cigar with your name on it and I am not giving it to you.',
   { direction: 'The warmest thing he has ever said to anybody.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h3.snow.he_means_come_up', SNOW,
   'He means come up.',
-  { direction: 'Translating, once, and going back to his beer.', priority: PRIORITY.REACTION, once: true });
+  {
+    direction: 'Translating, once, with a nod at the terrace over the green, '
+      + 'and going back to his beer.',
+    priority: PRIORITY.REACTION, once: true,
+  });
 
 export const CUES = Object.freeze(registry);
 

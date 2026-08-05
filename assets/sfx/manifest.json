@@ -17410,8 +17410,8 @@
     {
       "name": "vo.golf.h3.booski.there_he_is",
       "voice": "booski",
-      "say": "There he is. Take your time. We’ve only been up here since seven.",
-      "direction": "Leaning on the balcony rail with a can. Delighted and complaining."
+      "say": "There he is. Take your time. We’ve only been stood out here since seven.",
+      "direction": "Can in hand, not moving an inch. Delighted and complaining."
     },
     {
       "name": "vo.golf.h3.deathmegatron.cigar_with_your_name",
@@ -17709,20 +17709,20 @@
     {
       "name": "vo.golf.h3.shubenator.grille_is_open",
       "voice": "shubenator",
-      "say": "Grille’s open. Lou’s buying, which means Eric’s buying.",
-      "direction": "Already turning toward the doors."
+      "say": "Balcony’s open. Lou’s buying, which means Eric’s buying.",
+      "direction": "Already turning toward the steps."
     },
     {
       "name": "vo.golf.h3.shubenator.theres_a_bar_up_here",
       "voice": "shubenator",
-      "say": "There is a bar up here, Prospect. There is a bar up here and you are down there.",
-      "direction": "Genuine sympathy, expressed as gloating."
+      "say": "There is a bar thirty feet behind me, Prospect. Thirty feet, and I am out here.",
+      "direction": "Genuine sympathy, expressed as a grievance about himself."
     },
     {
       "name": "vo.golf.h3.snow.he_means_come_up",
       "voice": "snow",
       "say": "He means come up.",
-      "direction": "Translating, once, and going back to his beer."
+      "direction": "Translating, once, with a nod at the terrace over the green, and going back to his beer."
     },
     {
       "name": "vo.golf.h3.snow.numbskull",

@@ -414,7 +414,7 @@ Voice profile: `booski`.
 Booskibro. Usually the room's loudest man; deliberately low and precise when family business turns serious.
 
 - `vo.golf.h3.booski.fourth_mans_in.mp3` — "Fourth man’s in. That’s the morning." **Performance:** Raising the can about two inches. From him that is a standing ovation.
-- `vo.golf.h3.booski.there_he_is.mp3` — "There he is. Take your time. We’ve only been up here since seven." **Performance:** Leaning on the balcony rail with a can. Delighted and complaining.
+- `vo.golf.h3.booski.there_he_is.mp3` — "There he is. Take your time. We’ve only been stood out here since seven." **Performance:** Can in hand, not moving an inch. Delighted and complaining.
 
 ### DEATHMEGATRON (2)
 
@@ -506,8 +506,8 @@ Voice profile: `shubenator`.
 
 The Shubenator. Technical specialist with total faith in his own preparation. Precise, mildly offended by improvisation, and never hurried even when the alarm is running.
 
-- `vo.golf.h3.shubenator.grille_is_open.mp3` — "Grille’s open. Lou’s buying, which means Eric’s buying." **Performance:** Already turning toward the doors.
-- `vo.golf.h3.shubenator.theres_a_bar_up_here.mp3` — "There is a bar up here, Prospect. There is a bar up here and you are down there." **Performance:** Genuine sympathy, expressed as gloating.
+- `vo.golf.h3.shubenator.grille_is_open.mp3` — "Balcony’s open. Lou’s buying, which means Eric’s buying." **Performance:** Already turning toward the steps.
+- `vo.golf.h3.shubenator.theres_a_bar_up_here.mp3` — "There is a bar thirty feet behind me, Prospect. Thirty feet, and I am out here." **Performance:** Genuine sympathy, expressed as a grievance about himself.
 
 ### SNOW (2)
 
@@ -515,7 +515,7 @@ Voice profile: `snow`.
 
 Snow. Minimal words and flat authority. He treats every impossible graveyard sound as weather; during THE TAKE he leads without raising his voice and makes the clock sound final.
 
-- `vo.golf.h3.snow.he_means_come_up.mp3` — "He means come up." **Performance:** Translating, once, and going back to his beer.
+- `vo.golf.h3.snow.he_means_come_up.mp3` — "He means come up." **Performance:** Translating, once, with a nod at the terrace over the green, and going back to his beer.
 - `vo.golf.h3.snow.numbskull.mp3` — "Numbskull." **Performance:** One word, flat, without turning round.
 
 ## Voice pickups — THE TAKE (55)

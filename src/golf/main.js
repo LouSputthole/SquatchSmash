@@ -248,13 +248,56 @@ landingPreview.visible = false;
 landingPreview.renderOrder = 4;
 scene.add(landingPreview);
 
-/* Camera-mounted first-person clubs. The golfers use the same silhouettes,
- * so the club selected in the HUD is the club the player sees in his hands. */
+/**
+ * The club in the player's own hands.
+ *
+ * The golfers use the same silhouettes, so the club selected in the HUD is the
+ * club the player sees. What was wrong with it — and what "the clubs are a bit
+ * wonky" is about — is that it was never anywhere near the ball.
+ *
+ * It has to be a stylisation and it is worth being honest about why. The
+ * address camera sits 1.25 m behind the ball with its eye 1.52 m up, looking
+ * out along the target line — so the ball itself is about fifty degrees below
+ * the camera axis and a 66-degree lens simply does not contain it. A club held
+ * where a real club is held is entirely off the bottom of the screen, which
+ * means the spec's requirement that driver, iron and putter be *readable at
+ * address* can only be met by cheating the club up into frame.
+ *
+ * The old cheat put it at 48% scale hanging off a point 0.42 m ABOVE the eye
+ * line, head in the air, shaft across the view, hands as two loose capsules at
+ * the top of the grip: a man holding a driver beside his ear. That is what "the
+ * clubs are still wonky" is looking at.
+ *
+ * This one is aimed rather than dialled in. The head is placed at the bottom
+ * of the frame where the ball would be if the lens reached it, the hands go
+ * up and right where a right-hander's hands are, and the three numbers below
+ * are solved from those two points: `HANDS` is the grip, `SHAFT_PITCH` and
+ * `ADDRESS_LEAN` are the two rotations that lay the shaft along the line
+ * between them, and the scale is the length that line asks for. The rig owns
+ * the Z rotation so it can sweep for the swing; the pitch lives on a child so
+ * the two transforms cannot fight over the same axis.
+ */
+const HANDS = new THREE.Vector3(0.36, -0.12, -0.55);
+const SHAFT_PITCH = 0.65;
 const playerClubRig = new THREE.Group();
 playerClubRig.name = 'player-club-rig';
-playerClubRig.position.set(0.63, 0.42, -1.18);
-playerClubRig.scale.setScalar(0.48);
+playerClubRig.position.copy(HANDS);
 playerClubRig.visible = false;
+/* The forward lean. Rotating the club's own -Y down-and-away by this much
+ * lands an iron's head within a few centimetres of the teed ball. */
+const playerClubTilt = new THREE.Group();
+playerClubTilt.name = 'player-club-tilt';
+playerClubTilt.rotation.x = SHAFT_PITCH;
+playerClubRig.add(playerClubTilt);
+/* One scaled space holding the club AND the hands, so they cannot drift apart:
+ * the hands used to be full size against a shrunken club, which is two mittens
+ * floating beside a shaft. Foreshortened to the length the frame has room for
+ * — see the note on the rig above — and big enough that an iron's grooves and
+ * a driver's crown both still read. */
+const playerClubHold = new THREE.Group();
+playerClubHold.name = 'player-club-hold';
+playerClubHold.scale.setScalar(0.66);
+playerClubTilt.add(playerClubHold);
 for (const kind of CLUB_IDS) {
   const model = makeClub(kind);
   model.userData.kind = kind;
@@ -277,25 +320,47 @@ for (const kind of CLUB_IDS) {
     object.material.depthTest = true;
     object.material.depthWrite = false;
   });
-  playerClubRig.add(model);
+  playerClubHold.add(model);
 }
+/**
+ * Two hands, on the grip, overlapping the way a golf grip overlaps.
+ *
+ * They were two small capsules floating at the top of the shaft above where
+ * anybody's hands could be. These sit on the grip itself — the model's grip
+ * runs from y +0.02 down to -0.23 — with the lower hand under the upper one
+ * and both rolled onto the shaft rather than beside it.
+ */
 const handMaterial = new THREE.MeshStandardMaterial({ color: 0xc8916d, roughness: 0.82 });
 for (const hand of [
-  { x: -0.025, y: -0.20, z: 0.015, rz: -0.18 },
-  { x: 0.035, y: -0.25, z: -0.005, rz: 0.14 },
+  { y: -0.030, rz: -0.18, scale: 1.0 },
+  { y: -0.132, rz: 0.15, scale: 0.94 },
 ]) {
+  /* A fist on a grip is nearly as wide as it is long, so these are short and
+   * fat rather than the long capsules that used to read as two sausages laid
+   * end to end down the shaft. */
   const mesh = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.040, 0.055, 4, 8), handMaterial.clone(),
+    new THREE.CapsuleGeometry(0.040, 0.030, 4, 10), handMaterial.clone(),
   );
   mesh.name = 'player-hand';
-  mesh.position.set(hand.x, hand.y, hand.z);
-  mesh.scale.set(0.82, 1.0, 0.78);
-  mesh.rotation.z = hand.rz;
+  mesh.position.set(0, hand.y, 0);
+  mesh.scale.set(0.94 * hand.scale, 1.0 * hand.scale, 0.88 * hand.scale);
+  mesh.rotation.set(0.10, 0, hand.rz);
   mesh.renderOrder = 1001;
   mesh.material.depthTest = true;
   mesh.material.depthWrite = false;
-  playerClubRig.add(mesh);
+  playerClubHold.add(mesh);
 }
+/* The glove cuff, which is what stops the two fists reading as one shape. */
+const gloveCuff = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.042, 0.038, 0.024, 10),
+  new THREE.MeshBasicMaterial({ color: 0x2a2d34, fog: false }),
+);
+gloveCuff.name = 'player-glove-cuff';
+gloveCuff.position.set(0, -0.082, 0);
+gloveCuff.rotation.z = -0.02;
+gloveCuff.renderOrder = 1002;
+gloveCuff.material.depthWrite = false;
+playerClubHold.add(gloveCuff);
 camera.add(playerClubRig);
 
 /* ------------------------------------------------------------------ */
@@ -585,25 +650,48 @@ function updateItemUse(dt) {
 }
 
 function syncPlayerClub() {
-  for (const object of playerClubRig.children) {
+  /* The models live in the scaled hold group, not on the rig itself. Walking
+   * the wrong list here silently leaves the iron in his hands whichever club
+   * the HUD says he has taken out. */
+  for (const object of playerClubHold.children) {
     if (object.userData.kind) object.visible = object.userData.kind === club;
   }
 }
 
+/**
+ * Take the club back, and bring it down.
+ *
+ * The sweep is a rotation of the whole rig about Z — the hands stay put and
+ * the club arcs around them, which is what a golf swing looks like from
+ * behind your own hands. The address lean lives on `playerClubTilt`, so this
+ * can own the swing without the two transforms arguing.
+ *
+ * `BACKSWING` is a little over a right angle at the top; the club also lifts
+ * and turns as it goes back, because a shaft that only rotates in the screen
+ * plane reads as a windscreen wiper.
+ */
+const ADDRESS_LEAN = -0.77;
+const BACKSWING = 1.70;
 function paintPlayerClub() {
   playerClubRig.visible = camMode === CAM.ADDRESS;
   if (!playerClubRig.visible) return;
   syncPlayerClub();
   let pose = 0;
-  if (swing.phase === SWING_PHASE.POWER) pose = swing.marker * 0.62;
+  if (swing.phase === SWING_PHASE.POWER) pose = swing.marker;
   else if (swing.phase === SWING_PHASE.STRIKE) {
     /* The arms swing from wherever the strike sweep began, which is no longer
      * the chosen power — see STRIKE_START_FLOOR in swing.js. Reading
      * `swing.power` here made a tap-in's downswing start below the ball. */
     const span = Math.max(0.05, swing.strikeStart + 0.30);
-    pose = ((swing.marker + 0.30) / span) * 0.62 - 0.22;
+    pose = Math.max(0, (swing.marker + 0.30) / span);
   }
-  playerClubRig.rotation.set(-0.04, -0.12, -0.34 + pose);
+  playerClubRig.rotation.set(
+    -0.03 + pose * 0.16,
+    -0.10 - pose * 0.34,
+    ADDRESS_LEAN + pose * BACKSWING,
+  );
+  /* The wrists cock as the club goes up and release through the ball. */
+  playerClubTilt.rotation.x = SHAFT_PITCH - pose * 0.30;
 }
 
 function recommendedClubForShot() {

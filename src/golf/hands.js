@@ -98,6 +98,17 @@ export function dressSquatchBeer(cans = []) {
 }
 
 /**
+ * One can of it, on its own, for putting in somebody's hand.
+ *
+ * Same function, same label, same can — `dressSquatchBeer` above rewrites the
+ * cooler's placeholders in place because those already exist at authored
+ * positions; this is for the five men on the last hole, who need a whole one.
+ */
+export function squatchBeerCan() {
+  return makeBeerCan(makeMaterials(), { x: 0, y: 0, z: 0 }).group;
+}
+
+/**
  * The camera-mounted hand rig.
  *
  * Parented to the camera, like the flat's, so it rides the look instead of

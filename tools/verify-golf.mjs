@@ -805,18 +805,46 @@ check('5. the player can address the ball', address.ok && address.mode === 'addr
 
 const playerClubView = await page.evaluate(() => {
   const rig = window.__golf.scene.getObjectByName('player-club-rig');
-  const selected = rig?.children.find((child) => child.userData.kind && child.visible);
+  /* Walked rather than read off `rig.children`, because the rig is a small
+   * hierarchy now — a Z-rotating sweep group holding an X-tilt holding the
+   * scaled hold group with the clubs and the hands in it — and asserting the
+   * child list would be asserting that structure rather than what the player
+   * sees. What must be true is that ONE club is showing, that it is the
+   * selected one, that it hangs off the camera, and that there are two hands
+   * on it. Also assert the head is actually in frame: a first-person rig whose
+   * clubhead is below the bottom of the picture cannot make three clubs
+   * "readable at address", which is what the gameplay spec asks for. */
+  const kinds = [];
+  let hands = 0;
+  let selected = '';
+  rig?.traverse((child) => {
+    if (child.name === 'player-hand') hands++;
+    if (!child.userData.kind) return;
+    kinds.push(child.userData.kind);
+    if (child.visible) selected = child.userData.kind;
+  });
+  const camera = window.__golf.camera;
+  camera.updateMatrixWorld(true);
+  const head = rig?.getObjectByName(`club-head-${selected}`)
+    ?? rig?.getObjectByName(`club-face-${selected}`);
+  const at = head
+    ? head.getWorldPosition(window.__golf.player.position.clone()).project(camera)
+    : null;
   return {
     visible: !!rig?.visible,
-    selected: selected?.userData.kind ?? '',
+    selected,
+    kinds: kinds.length,
     cameraMounted: rig?.parent?.type === 'PerspectiveCamera',
-    hands: rig?.children.filter((child) => child.name === 'player-hand').length ?? 0,
+    hands,
+    headOnScreen: !!at && Math.abs(at.x) < 1 && Math.abs(at.y) < 1 && at.z > -1 && at.z < 1,
+    headScreen: at ? [Number(at.x.toFixed(3)), Number(at.y.toFixed(3))] : null,
     plan: window.__golf.plan(),
   };
 });
-check('5a. address shows the recommended club and hands in first person',
+check('5a. address shows the recommended club, in frame, in his own hands',
   playerClubView.visible && playerClubView.selected === 'iron'
-    && playerClubView.cameraMounted && playerClubView.hands === 2,
+    && playerClubView.kinds === 3 && playerClubView.cameraMounted
+    && playerClubView.hands === 2 && playerClubView.headOnScreen,
   JSON.stringify(playerClubView));
 await page.waitForTimeout(100);
 const landingPreview = await page.evaluate(async () => {
