@@ -527,7 +527,34 @@ function placeEncounter(id) {
  * breaking one would be a pane going out on the far side of a room for no
  * reason anybody in the house can see.
  */
-function shatterNearest({ x, z }) {
+function shatterNearest({ x, z, opening }) {
+  /* THE BREACH KNOWS WHICH WINDOW IT CAME THROUGH, so ask it before guessing.
+   *
+   * `opening` is the id of the opening the attacker's own authored leg
+   * crossed, handed up by `nav.js` — not a proximity guess. Nearest-within-six
+   * metres was picking the wrong pane on the east flank: the men come through
+   * `lounge.bay.east.south` at 0.8 m, and the nearest INTACT pane was
+   * `lounge.bay.south` at 3.6 m — the bay's south window, on a different wall,
+   * which nobody had touched. The player heard glass and turned to a hole with
+   * nobody in it.
+   *
+   * The `return null` when the named pane is already broken is the other half
+   * and it matters as much: he came through a hole somebody else made, so
+   * nothing should break. Glass going is a CUE, and a cue that fires for a man
+   * stepping through an existing hole teaches the player to distrust it. */
+  if (opening) {
+    for (const [id, entry] of glass.panes) {
+      if (entry.window !== opening) continue;
+      if (entry.state === 'broken') return null;
+      if (glass.shatter(id)) {
+        audio.play?.('siege.glass.shatter');
+        ensemble.noteImpact({ x, y: 1.2, z }, 7);
+        return id;
+      }
+      return null;
+    }
+  }
+  /* No named opening — a breach the pool could not attribute. Fall back. */
   let best = null;
   let bestDistance = 6;
   for (const [id, entry] of glass.panes) {

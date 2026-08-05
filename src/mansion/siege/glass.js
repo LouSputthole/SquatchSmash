@@ -95,7 +95,17 @@ export const SIEGE_GLASS = Object.freeze([
   { id: 'lounge.east.north', window: 'loungeEastNorth', room: 'lounge', into: '-x', broken: false },
   { id: 'lounge.bay.south', window: 'baySouth', room: 'loungeBay', into: '+z', broken: false },
   { id: 'lounge.bay.north', window: 'bayNorth', room: 'loungeBay', into: '-z', broken: false },
-  { id: 'lounge.bay.east.south', window: 'bayEastSouth', room: 'loungeBay', into: '-x', broken: true },
+  /* INTACT ON PURPOSE, and it used to be pre-broken.
+   *
+   * This is the pane the east flank group comes through in wave 2B — see
+   * `waves.js`. It is the ONE moment in the night when the fight stops being
+   * the front door, and the sound of that window going is the whole warning
+   * the player gets that his flank is opening. A pane that is already broken
+   * lets four men into the house in silence.
+   *
+   * `bayEastMid`, directly beside it, stays pre-broken and carries the "the
+   * house was hit before you were upright" dressing this block is for. */
+  { id: 'lounge.bay.east.south', window: 'bayEastSouth', room: 'loungeBay', into: '-x', broken: false },
   { id: 'lounge.bay.east.mid', window: 'bayEastMid', room: 'loungeBay', into: '-x', broken: true },
   { id: 'lounge.bay.east.north', window: 'bayEastNorth', room: 'loungeBay', into: '-x', broken: false },
   /* -- The west wing. The living room's own west glazing is no longer an
