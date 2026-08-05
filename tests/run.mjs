@@ -10,6 +10,7 @@ ensureThreeShim();
 ensureDomShim();
 
 const TEST_MODULES = [
+  './build-kit.test.mjs',
   './campaign.test.mjs',
   './heist-campaign.test.mjs',
   './bank-heist-story.test.mjs',

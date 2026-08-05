@@ -130,3 +130,81 @@ success without exercising what the player does.
 **The rule.** Walk it. If the player walks somewhere, the check walks there. If
 the player holds a button, the check holds the button and waits for what the
 button earns.
+
+---
+
+## 6. A test runner that loses tests without failing
+
+**Symptom.** `npm test` reported **806 passing, 0 failing**. It had run 591.
+
+**Mechanism.** `tests/run.mjs` imported its suites in a bare loop:
+
+```js
+for (const modulePath of TEST_MODULES) await import(modulePath);
+```
+
+A module that throws while being *imported* — not while running a test, while
+being imported — rejects that `await`, the loop stops, and every module after it
+in the list never registers a single test. They do not fail. They do not exist.
+The runner then reports a clean pass on whatever got in before the throw.
+
+The trigger was two unrelated correct changes meeting. An outfit pass put a
+photographed Lou in the mansion office; `THREE.TextureLoader` reaches for
+`document.createElementNS`; and the four test files that each declared their own
+`globalThis.document ??= {...}` could only ever elect the *first* one to run, so
+every later file silently inherited a stub that had no `createElementNS`. The
+import threw and took the last twelve suites with it — including the entire
+mansion siege.
+
+**Why it is worse than a red suite.** A red suite gets fixed in ten minutes. A
+suite that quietly shrinks is *trusted*, and everything it was covering is
+uncovered from that moment on with no signal at all. The only clue was a total
+nobody was reading.
+
+**The rules.**
+
+1. **A module that cannot be imported must be a failing test**, named after the
+   file, and the rest of the list must still run. `tests/run.mjs` does this now.
+2. **One shared shim, installed before anything is imported.** `ensureDomShim()`
+   in `tools/three-shim.mjs`. Per-file `??=` stubs cannot fix each other by
+   construction — the first one wins and the rest are decoration.
+3. **Watch the total.** If the number of tests goes down and nobody deleted any,
+   something is being swallowed.
+
+---
+
+## 7. A check that measures the wrong thing and blames the right one
+
+**Symptom.** `verify:enolasquatch`'s *"the autopilot really holds a heading and
+an altitude"* failed intermittently for two sessions — 52.6 m of drift one run,
+92.6 m the next, on an identical deterministic tick. It was written off as
+flaky, and a previous pass had already tried to fix it by clearing the fighters
+and suppressing the flak.
+
+**Mechanism.** The autopilot was never the problem. Sampled second by second in
+still air, the control law holds altitude to **1–5 metres** with a
+predictability of 0.98. Then at about forty-five seconds it disengaged with the
+reason **"on the ground"** — at five hundred metres, undamaged, at cruise speed
+— and the aeroplane nosed over and dived three hundred and fifty metres.
+
+Because it *was* flying into the ground. An autopilot holds an ALTITUDE. The
+eastbound route CLIMBS: over the three kilometres the aeroplane covers in that
+window the terrain rises from 153 m to 481 m. The check was flying a bomber into
+a mountain, and the "drift" it printed was really a measure of how far down the
+resulting dive the forty-fifth second happened to land. That is where the
+variance came from. The gust field being seeded with `Math.random()` in
+`WeatherSystem`'s constructor was a genuine second source, and on its own it
+only moved the heading drift from 0.4° to 0.02°.
+
+**Two rules, and the second is the important one.**
+
+1. **Isolate what you claim to measure.** A control-law check flies in still
+   air, with terrain clearance, and nothing shooting. Anything else is a check
+   on the weather.
+2. **An intermittent check is a message, not a nuisance.** This one had been
+   saying "your aeroplane flies itself into a hill and the only warning is the
+   autopilot leaving" for two sessions, and it was heard as "this check is
+   flaky". Before widening a threshold or writing one off, find out what it is
+   actually measuring — the answer is sometimes a real defect in the game that
+   nobody would otherwise have looked for. The finding is now a row in
+   `FUTURE-EDITS.md`.

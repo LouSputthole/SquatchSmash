@@ -982,6 +982,31 @@ try {
      * every other leg of this script stages the one it means to test. */
     const at = h.physics.position.clone();
     at.y = h.groundHeight(at.x, at.z) + 620;
+    /* AND HIGH ENOUGH NOT TO FLY INTO A HILL.
+     *
+     * This is the one that was actually failing, and it was never the
+     * autopilot. Measured second by second in still air, the control law holds
+     * the altitude to between one and five metres with a predictability of
+     * 0.98 — it is very good. Then, at about forty-five seconds, it disengaged
+     * with the reason "on the ground", at five hundred metres, undamaged, at
+     * cruise speed, and the aeroplane nosed over and dived three hundred and
+     * fifty metres into the deck.
+     *
+     * Because it WAS flying into the ground. An autopilot holds an ALTITUDE;
+     * the eastbound route climbs. Over the three kilometres the aeroplane
+     * covers in this window the terrain goes from 153 m to 481 m, so the
+     * clearance falls from 371 m to 45 m and then the hill arrives. The check
+     * was flying a bomber into a mountain and reporting it as a control law
+     * that could not hold an altitude — and the drift it printed was really a
+     * measure of how far down the dive the forty-fifth second happened to
+     * land, which is why it read 52.6 m one run and 92.6 m the next.
+     *
+     * So it is flown with real terrain clearance now. That is what this check
+     * claims to measure and it is the only thing it measures. The behaviour it
+     * found is real, and it belongs to the mission rather than to this file —
+     * see `docs/FUTURE-EDITS.md`, "the autopilot has no idea the ground is
+     * coming up". */
+    at.y = Math.max(at.y, h.groundHeight(at.x, at.z) + 900);
     h.physics.setPose(at, 90, 66);
     h.physics.omega.set(0, 0, 0);
     h.input.throttle = 0.7;
@@ -998,6 +1023,24 @@ try {
      * checks below still meet a live battlefield. */
     h.interceptors.clear();
     h.defense.suppress();
+    /* AND THE AIR, for the same reason and with more of the blame.
+     *
+     * Clearing the shooting above was the right instinct and it did not fix
+     * this: the check still swung between 52.6 m and 92.6 m on identical
+     * ticks. The remaining source is not the dice the fighters roll, it is
+     * `src/beefrun/weather.js`, which seeds `_gustPhase` with three
+     * `Math.random()` calls IN ITS CONSTRUCTOR — so the gust field is a
+     * different function of time on every page load, and a forty-five-second
+     * altitude hold is measured against different weather every run. The
+     * heading drift stayed at 0.4 degrees throughout, which is the tell: the
+     * control law was never the thing varying.
+     *
+     * So the window is still air. That is what "can it hold an altitude"
+     * means, and holding one in a gust that only exists on some runs is not a
+     * check, it is a coin. Restored immediately after, so everything below
+     * still meets real weather. */
+    const airBefore = { turbulence: h.weather.turbulence, crosswind: h.weather.crosswind };
+    h.weather.setConditions({ turbulence: 0, crosswind: 0 });
     h.tick(1.5);
 
     const heading = h.physics.headingDeg;
@@ -1025,6 +1068,7 @@ try {
       readout: h.autopilot.readout(),
       strip: document.getElementById('enola-autopilot')?.style.display,
     };
+    h.weather.setConditions(airBefore);
     h.defense.intensity = 1;
 
     // And the aeroplane takes itself back when something hits it.
@@ -1250,6 +1294,26 @@ try {
       && (!whistle.audioReady || whistle.whistling),
     JSON.stringify(whistle));
 
+  /* ---- The drop camera ----
+   *
+   * Owner: "Maybe we experiment with moving the camera to the third person
+   * automatically when you drop the bomb."
+   *
+   * The bomb left the mount two blocks ago, so the camera should be in chase
+   * RIGHT NOW and should hand itself back a few seconds later. Both halves are
+   * asserted, because the half that matters is the second one: a cinematic
+   * camera that takes the view and keeps it is the reason people turn these
+   * off.
+   *
+   * Deliberately does NOT tick: the bomb is in the air and the fall is the
+   * next block's business, so this reads the state and leaves the clock alone.
+   * The hand-back is asserted from inside the explosion flight below, which is
+   * flying anyway. */
+  const dropCam = await page.evaluate(() => window.__enolaSquatch.state().camera);
+  check('the camera takes itself to third person the moment the bomb leaves the mount',
+    dropCam.view === 'chase' && dropCam.dropCam > 0,
+    JSON.stringify(dropCam));
+
   /* ---- Let the payload actually fall and detonate for real, then escape.
    * Escape's own gate needs `p.agl > 220`, and the beat is literally "climb,
    * bank, and don't look at it" — hold real climb input throughout, the same
@@ -1265,11 +1329,43 @@ try {
       shockSamples: [], flattened: 0, columnPeak: 0, capPeak: 0,
       wilson: 0, arrived: false, arrivedAt: null,
       wingBefore: h.physics.damage.wing, wingAfter: 0,
+      /* The 2026-08-05 rework, measured in a browser rather than in a unit
+       * test: the bubble the player ends up inside, the sweep across the
+       * screen as the front crosses him, the turbulence spiking and then
+       * going away again, and the camera taking itself to chase on the drop
+       * and handing itself back. */
+      bubblePeak: 0, washPeak: 0, washOverlayPeak: 0, washFrames: 0,
+      turbPeak: 0, viewsSeen: [], dropCamSeen: false,
     };
+    /* The overlay is real DOM: read what the browser actually computed, not
+     * the number the mission published. A sweep that is being written to a
+     * property nobody paints is not a sweep. */
+    const washEl = document.getElementById('enola-shock');
     /* Same duty-cycled climb input as the corridor crossing above (KeyS is
      * this flight model's nose-up — verified empirically) — held while the
      * payload really falls and the whole set-piece plays. Longer than it used
      * to be, because the column does not finish going up for half a minute. */
+    /* Sampled after EVERY tick rather than once a second.
+     *
+     * The sweep as the front crosses the player is about a second wide and at
+     * a short blast distance it is over inside two — a loop that looks once
+     * per second would catch it by luck, and "the check passed on a good run"
+     * is not a check. */
+    const sample = () => {
+      const st = h.state();
+      seen.washPeak = Math.max(seen.washPeak, st.blast.wash);
+      seen.turbPeak = Math.max(seen.turbPeak, st.blast.turbulence);
+      if (st.blast.wash > 0.05) seen.washFrames += 1;
+      if (washEl) {
+        const painted = Number(getComputedStyle(washEl).opacity) || 0;
+        seen.washOverlayPeak = Math.max(seen.washOverlayPeak, painted);
+      }
+      if (!seen.viewsSeen.includes(st.camera.view)) seen.viewsSeen.push(st.camera.view);
+      if (st.camera.dropCam > 0) seen.dropCamSeen = true;
+      const vfx = h.mission._explosionVfx;
+      if (vfx) seen.bubblePeak = Math.max(seen.bubblePeak, vfx.bubble.scale.x);
+    };
+
     for (let i = 0; i < 46; i++) {
       h.input.key('KeyS', true);
       // "Climb, bank, and don't look at it." Flown, not just read: a bomber
@@ -1277,9 +1373,16 @@ try {
       // the map telling the truth rather than a bug.
       if (i > 14 && i < 34) h.input.key('KeyA', true);
       h.tick(0.25);
+      sample();
       h.input.key('KeyS', false);
       h.input.key('KeyA', false);
-      h.tick(0.75);
+      /* Three quarter-second steps rather than one three-quarter step, so
+       * every sample in the whole flight is 0.25 s from the last one. The
+       * sweep is about a second wide and the part of it above half is under
+       * half a second; on the old 0.25/0.75 alternating grid the wide gap
+       * could straddle the peak entirely and the check would pass or fail on
+       * where the bomb happened to land. Same total flight, even sampling. */
+      for (let k = 0; k < 3; k++) { h.tick(0.25); sample(); }
       const vfx = h.mission._explosionVfx;
       const st = h.state();
       if (vfx) {
@@ -1290,6 +1393,7 @@ try {
         seen.columnPeak = Math.max(seen.columnPeak, vfx.stem.scale.y);
         seen.capPeak = Math.max(seen.capPeak, vfx.cap.scale.x);
         seen.wilson = Math.max(seen.wilson, vfx.wilson.material.opacity);
+        seen.bubblePeak = Math.max(seen.bubblePeak, vfx.bubble.scale.x);
         seen.shockSamples.push(st.blast.shockRadius);
         seen.flattened = Math.max(seen.flattened, st.blast.cityFlattened);
         if (st.blast.shockArrived && !seen.arrived) {
@@ -1299,6 +1403,26 @@ try {
         }
       }
     }
+    /* And what is left in the sky at the end of it. `linger` is read AFTER the
+     * flight rather than sampled during it, because the whole claim is about
+     * the state the world is in once the event is over: the player has flown
+     * the escape, he turns round, and the thing he did is still standing
+     * there. Read off the real meshes. */
+    const vfx = h.mission._explosionVfx;
+    const linger = vfx ? {
+      t: +h.mission.detonation.t.toFixed(1),
+      lingering: !!h.mission.detonation.lingering,
+      capOpacity: +vfx.cap.material.opacity.toFixed(3),
+      capRadius: Math.round(vfx.cap.scale.x),
+      capHeight: Math.round(vfx.cap.position.y),
+      stemOpacity: +vfx.stem.material.opacity.toFixed(3),
+      scorch: +vfx.scorch.material.opacity.toFixed(3),
+      // The transient half must be OFF, not merely faded.
+      transientDrawn: [vfx.flash, vfx.wilson, vfx.bubble, vfx.shellRing,
+        vfx.front, vfx.dustRing, vfx.surge, vfx.skirt].filter((o) => o.visible).length,
+      lightsOut: vfx.light.intensity === 0 && vfx.afterglow.intensity === 0,
+    } : null;
+
     return {
       impacted: h.payload.impacted,
       bombAccuracy: h.mission.score.bombAccuracy,
@@ -1307,7 +1431,10 @@ try {
       failed: h.mission.failed,
       whistleStopped: !h.audio.whistling,
       blastDistance: h.mission.score.blastDistance,
+      turbNow: +(h.mission.weather?.turbulence ?? 0).toFixed(3),
+      cameraEnd: h.state().camera,
       seen,
+      linger,
     };
   });
 
@@ -1364,6 +1491,65 @@ try {
     `stem ${Math.round(explosionReal.seen.columnPeak)} m, cap radius `
     + `${Math.round(explosionReal.seen.capPeak)} m, condensation cloud peaked at `
     + `${explosionReal.seen.wilson.toFixed(2)}`);
+
+  /* ---- The 2026-08-05 rework, in a browser ----
+   *
+   * Owner: "I want a shock wave to pass you ... it needs to be visible as it
+   * passes over you that way the player doesn't miss it. Then I want a the
+   * giant bubble explosion and the mushroom cloud and then the shockwave to
+   * pass over you and simulate a brief moment of turbulence."
+   *
+   * Three separate claims, three separate checks, all of them measured off
+   * what the page actually did rather than off the curve. */
+
+  check('the front sweeps the SCREEN as it goes past, and it is really painted there',
+    explosionReal.seen.washPeak > 0.5 && explosionReal.seen.washOverlayPeak > 0.4
+      && explosionReal.seen.washFrames >= 2,
+    JSON.stringify({
+      washPeak: +explosionReal.seen.washPeak.toFixed(3),
+      paintedOnTheOverlay: +explosionReal.seen.washOverlayPeak.toFixed(3),
+      framesVisible: explosionReal.seen.washFrames,
+    }));
+
+  check('the pressure bubble grows past the aeroplane, so the front goes OVER the player rather than near him',
+    explosionReal.seen.bubblePeak > explosionReal.blastDistance,
+    `bubble reached ${Math.round(explosionReal.seen.bubblePeak)} m round a player `
+    + `${Math.round(explosionReal.blastDistance)} m from the hole`);
+
+  check('the buffet is a brief moment of turbulence and then it is over, not weather for the rest of the flight',
+    explosionReal.seen.turbPeak > 0.6 && explosionReal.turbNow < explosionReal.seen.turbPeak * 0.85,
+    `turbulence spiked to ${explosionReal.seen.turbPeak.toFixed(2)} and settled `
+    + `back to ${explosionReal.turbNow.toFixed(2)}`);
+
+  check('the mushroom cloud is STILL STANDING over the crater once the event is over',
+    !!explosionReal.linger && explosionReal.linger.lingering
+      && explosionReal.linger.capOpacity > 0.2 && explosionReal.linger.stemOpacity > 0.15
+      && explosionReal.linger.capRadius > 2000 && explosionReal.linger.capHeight > 3000
+      && explosionReal.linger.scorch > 0.3,
+    JSON.stringify(explosionReal.linger));
+
+  check('and the half of the event that was transient is switched OFF rather than left running',
+    !!explosionReal.linger && explosionReal.linger.transientDrawn === 0
+      && explosionReal.linger.lightsOut,
+    JSON.stringify({
+      stillDrawn: explosionReal.linger?.transientDrawn,
+      lightsOut: explosionReal.linger?.lightsOut,
+    }));
+
+  /* The half of the drop camera that matters. It was proved to TAKE the view
+   * before the fall; this is the one that stops it being the kind of automatic
+   * camera people switch off — it lets go, on its own, and the player is back
+   * where he was long before the escape. */
+  check('the drop camera gives the view back on its own',
+    explosionReal.seen.dropCamSeen === true
+      && explosionReal.seen.viewsSeen.includes('chase')
+      && explosionReal.seen.viewsSeen.includes('cockpit')
+      && explosionReal.cameraEnd.view === 'cockpit'
+      && explosionReal.cameraEnd.dropCam === 0,
+    JSON.stringify({
+      viewsDuringTheFlight: explosionReal.seen.viewsSeen,
+      endedIn: explosionReal.cameraEnd,
+    }));
 
   check('the blast wave catches up with the aeroplane and it costs something',
     explosionReal.seen.arrived

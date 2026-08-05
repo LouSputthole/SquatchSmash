@@ -1641,6 +1641,13 @@ export class MissionController {
     }
     this._dropCam -= dt;
     if (this._dropCam > 0) return;
+    /* Back to zero, not to whatever fraction of a frame it overshot by. It
+     * used to be left at -0.02 for the rest of the mission — harmless, because
+     * the `<= 0` guard above never lets it run again, and wrong in the way
+     * that matters: anything reading the number to ask "is the drop camera
+     * running?" got a value that is neither running nor idle. A timer that has
+     * finished says zero. */
+    this._dropCam = 0;
     if (this._dropCamFrom) this.cameras.setView(this._dropCamFrom);
     this._dropCamFrom = null;
   }
