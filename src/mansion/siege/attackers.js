@@ -111,8 +111,6 @@ import { COMBAT_BOUNDARY, DEFENCE_POST, ROLES, STAGING } from './waves.js';
 /* anchors, it is already in this file's import list, and two copies of    */
 /* GROUND_Y in one directory is one copy too many.                         */
 /* ================================================================== */
-/** `MansionGrounds.BUILDING`. */
-const BUILDING = Object.freeze({ x0: -16, x1: 16, z0: 36, z1: 75 });
 /** `MansionInterior.FOYER_VOID` -- the double-height hole under the landing. */
 const FOYER_VOID = Object.freeze({ x0: -8.85, x1: 8.85, z0: 36, z1: 48 });
 /**
