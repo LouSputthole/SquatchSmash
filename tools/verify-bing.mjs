@@ -969,8 +969,10 @@ check('[Q] unstuck only moves a genuinely blocked walking player',
 /* ---- the Family hangout floor ----
  * The owner's order: everyone in the Family table hangs out here between
  * missions, with their real faces, one identity everywhere. Fresh campaign:
- * fifteen on the floor — Sasole is still at Whispering Pines until the Beef
- * Run is flown, and Big Uncle Lou is upstairs, never duplicated. */
+ * seventeen on the floor — the fifteen, plus Aubbie at the quiet end of the
+ * bar and Sauce at the two-top with the runway in front of it. Sasole is
+ * still at Whispering Pines until the Beef Run is flown, and Big Uncle Lou is
+ * upstairs, never duplicated. */
 await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' })));
 const familyState = await page.evaluate(() => {
   const b = window.__bing;
@@ -1000,10 +1002,10 @@ const familyState = await page.evaluate(() => {
   };
 });
 {
-  const expected = ['ape', 'booski', 'deathmegatron', 'eric', 'gratin', 'hogmama',
-    'irish', 'lag', 'numbskull', 'old_stove', 'rippinflow', 'seff',
-    'shubenator', 'snow', 'willy'];
-  check('the Family holds the floor on a fresh campaign — fifteen, stable ids, no second Lou',
+  const expected = ['ape', 'aubbie', 'booski', 'deathmegatron', 'eric', 'gratin',
+    'hogmama', 'irish', 'lag', 'numbskull', 'old_stove', 'rippinflow', 'sauce',
+    'seff', 'shubenator', 'snow', 'willy'];
+  check('the Family holds the floor on a fresh campaign — seventeen, stable ids, no second Lou',
     familyState.ids.join(',') === expected.join(','),
     familyState.ids.join(','));
   check('Sasole sits out until the Beef Run is flown',
@@ -1011,6 +1013,7 @@ const familyState = await page.evaluate(() => {
   const ledger = {
     lag: 'lag.png', willy: 'willy.png', irish: 'irish.png', ape: 'ape.png',
     old_stove: 'stove.png', seff: 'seff.png', numbskull: 'numbskull.png',
+    aubbie: 'aubbie.png', sauce: 'sauce.png',
   };
   check('real faces where the photos exist; authored heads staged for any faces still to come',
     familyState.members.every((m) => (familyState.faces.includes(m.photo)
@@ -1972,7 +1975,7 @@ if (ended.returnHref === 'index.html') {
 /* ---- one identity, before and after the Beef Run ----
  * Same save, one field changed: the airstrip flown. Reload the club and the
  * Captain is at his table near the stage — same stable id as the cockpit,
- * same face photo, and the sixteenth chair on the floor. */
+ * same face photo, and the eighteenth chair on the floor. */
 const savedBeforeReplay = await page.evaluate(() => {
   const raw = JSON.parse(localStorage.getItem('squatchlife.campaign'));
   raw.missions.airstrip_smuggling.status = 'complete';
@@ -2031,7 +2034,7 @@ const postRun = await page.evaluate(() => {
   };
 });
 check('after the Beef Run the Captain takes his table — same id, his own face',
-  postRun.present && postRun.count === 16 && postRun.hasFace
+  postRun.present && postRun.count === 18 && postRun.hasFace
     && postRun.atHisTable && postRun.seated,
   JSON.stringify(postRun));
 
@@ -2040,7 +2043,7 @@ check('after the Beef Run the Captain takes his table — same id, his own face'
  *
  * Everything below pins something the owner reported by hand after playing
  * the club, in the order he reported it. The page has been reloaded twice by
- * now and the Beef Run is flown in this save, so the floor is sixteen.
+ * now and the Beef Run is flown in this save, so the floor is eighteen.
  * ================================================================== */
 
 /* ---- 1, 6, 7, 8, 9, 10: the people ---- */

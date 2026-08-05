@@ -12062,6 +12062,46 @@
       "say": "I’m going."
     },
     {
+      "name": "vo.bing.full.aubbie.aside.line.yx6t7d",
+      "voice": "aubbie",
+      "say": "Two nights. There is a chair where I work that reclines, if you lean on it and agree not to call it a chair."
+    },
+    {
+      "name": "vo.bing.full.aubbie.asideMore.line.cevhsx",
+      "voice": "aubbie",
+      "say": "My daughter has started describing me to her friends off a photograph. She holds it up. This one, she says. He is very busy."
+    },
+    {
+      "name": "vo.bing.full.aubbie.more.line.gdwsve",
+      "voice": "aubbie",
+      "say": "Twelve hours, and then the telephone at midnight to ask how it is coming along. It is coming along exactly as it was at seven. It is coming along."
+    },
+    {
+      "name": "vo.bing.full.aubbie.more.tony.1sbfst0",
+      "voice": "player",
+      "say": "Get some sleep, Aubbie."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.line.ojzmwc",
+      "voice": "aubbie",
+      "say": "Lou has me working on a big project. He wants it done yesterday. I am one man with one pair of hands — I am only human."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.tony.12ju9v8",
+      "voice": "player",
+      "say": "You look like you haven’t slept."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.tony.8whbeq",
+      "voice": "player",
+      "say": "Everything’s yesterday with Lou."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
       "name": "vo.bing.full.bartender.joke.line.1uqigwu",
       "voice": "bartender",
       "say": "Architecture. Take it up with the architect. He’s dead."
@@ -13533,6 +13573,46 @@
     },
     {
       "name": "vo.bing.full.rippinflow.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.sauce.aside.line.yujbdt",
+      "voice": "sauce",
+      "say": "The runway. She is on at midnight, she is from San Juan, and she says buenas noches to me on the way past like it costs her nothing."
+    },
+    {
+      "name": "vo.bing.full.sauce.asideMore.line.1aa7iwu",
+      "voice": "sauce",
+      "say": "I tip, I sit, and I have nine words of Spanish off a cassette in the van. She laughs at the words. Nine words and a laugh is more than most marriages start with."
+    },
+    {
+      "name": "vo.bing.full.sauce.more.line.xeijn6",
+      "voice": "sauce",
+      "say": "Every night for eleven years. And every year they send me another one of you. Make the A team, then come and talk to me. Until then you are somebody else’s paperwork."
+    },
+    {
+      "name": "vo.bing.full.sauce.more.tony.1ifjdrr",
+      "voice": "player",
+      "say": "Enjoy the corn."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.line.ggzxjv",
+      "voice": "sauce",
+      "say": "That is corn. I bring my own into this place, and that is not an insult to the kitchen, it is a review. Now what do you want."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.tony.1kpphcc",
+      "voice": "player",
+      "say": "You’re sat very close to the stage."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.tony.1wwigel",
+      "voice": "player",
+      "say": "You brought corn to the Bada Bing."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.tony.kay3u1",
       "voice": "player",
       "say": "Another time."
     },
