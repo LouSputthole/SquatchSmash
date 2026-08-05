@@ -2017,6 +2017,73 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t + r(0.05), { dur: r(0.24), type: 'highpass', freq: 3100, q: 0.8, gain: 0.12, sweep: 0.54 });
       break;
 
+    /* -------- the Silver Room's kitchen, and its dining room --------
+     *
+     * The extraction bed (`ambience.kitchen`) is the thing everybody shouts
+     * over; these are the work happening under it. A kitchen reads as a
+     * kitchen because of steel landing on steel at irregular intervals, not
+     * because of a louder hum -- so these are all one-shots, rationed and
+     * positioned by the scene, in the way `kitchen.pan` and `kitchen.plate`
+     * already were and were the only two of.
+     */
+    case 'kitchen.clatter':
+      // A stack of pans finding its own level. Three knocks, none of them even.
+      burst(ctx, dest, t, { dur: r(0.05), type: 'bandpass', freq: 2600, q: 3.4, gain: 0.24, sweep: 0.5 });
+      tone(ctx, dest, t + r(0.004), { freq: 640, to: 300, dur: r(0.13), gain: 0.13, type: 'triangle' });
+      burst(ctx, dest, t + r(0.07), { dur: r(0.06), type: 'bandpass', freq: 1850, q: 2.6, gain: 0.17, sweep: 0.56 });
+      burst(ctx, dest, t + r(0.16), { dur: r(0.09), type: 'bandpass', freq: 3300, q: 2.0, gain: 0.11, sweep: 0.62 });
+      tone(ctx, dest, t + r(0.17), { freq: 880, to: 410, dur: r(0.18), gain: 0.07, type: 'sine' });
+      break;
+    case 'kitchen.chop':
+      // A knife through something soft onto a board: the board is the sound.
+      burst(ctx, dest, t, { dur: r(0.018), type: 'highpass', freq: 3200, q: 0.8, gain: 0.14 });
+      tone(ctx, dest, t + r(0.004), { freq: 196, to: 92, dur: r(0.09), gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + r(0.01), { dur: r(0.07), type: 'lowpass', freq: 700, q: 0.9, gain: 0.12, sweep: 0.45 });
+      break;
+    case 'kitchen.oven':
+      // A heavy door on a sprung hinge, and the latch after it.
+      burst(ctx, dest, t, { dur: r(0.12), type: 'bandpass', freq: 420, q: 1.1, gain: 0.20, sweep: 0.4 });
+      tone(ctx, dest, t + r(0.02), { freq: 128, to: 58, dur: r(0.24), gain: 0.26, type: 'triangle' });
+      burst(ctx, dest, t + r(0.20), { dur: r(0.04), type: 'bandpass', freq: 2400, q: 4.0, gain: 0.13 });
+      break;
+    case 'kitchen.ticket':
+      // The printer at the pass. Two chirps and a tear, which is the whole job.
+      tone(ctx, dest, t, { freq: 1580, dur: r(0.035), gain: 0.10, type: 'square' });
+      tone(ctx, dest, t + r(0.06), { freq: 1860, dur: r(0.035), gain: 0.09, type: 'square' });
+      burst(ctx, dest, t + r(0.13), { dur: r(0.11), type: 'highpass', freq: 3600, q: 0.7, gain: 0.10, sweep: 0.7 });
+      break;
+
+    /* The floor. Under the band and under the conversation, so every one of
+     * these is quiet and short: the note was "not overbearing", and a dining
+     * room that competes with the table it is dressing is worse than a silent
+     * one. */
+    case 'dining.cutlery':
+      // Fork set down on a plate, not dropped on one.
+      burst(ctx, dest, t, { dur: r(0.03), type: 'bandpass', freq: 3400, q: 3.8, gain: 0.10, sweep: 0.6 });
+      tone(ctx, dest, t + r(0.006), { freq: 1240, to: 760, dur: r(0.10), gain: 0.055, type: 'sine' });
+      break;
+    case 'dining.glass.clink':
+      // Two glasses meeting, briefly, somewhere else in the room.
+      tone(ctx, dest, t, { freq: 2350, dur: r(0.20), gain: 0.075, type: 'sine' });
+      tone(ctx, dest, t + r(0.008), { freq: 3520, dur: r(0.13), gain: 0.038, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.02), type: 'highpass', freq: 5200, q: 0.8, gain: 0.05 });
+      break;
+    case 'dining.chair':
+      // A chair taking somebody's weight on carpet. Mostly cloth and frame.
+      burst(ctx, dest, t, { dur: r(0.26), type: 'lowpass', freq: 340, q: 0.7, gain: 0.09, sweep: 0.55 });
+      tone(ctx, dest, t + r(0.03), { freq: 92, to: 62, dur: r(0.20), gain: 0.07, type: 'triangle' });
+      break;
+
+    /* Somebody asleep in the next room, from the doorway. Deliberately at the
+     * bottom of the mix: the note asked for "a low key snore", which is a
+     * person breathing and not a comedy sound effect. One slow intake, one
+     * slower release, both nose rather than throat. */
+    case 'margo.snore':
+      burst(ctx, dest, t, { dur: r(0.62), type: 'bandpass', freq: 176, q: 1.6, gain: 0.085, sweep: 1.28 });
+      tone(ctx, dest, t + r(0.05), { freq: 78, to: 96, dur: r(0.52), gain: 0.045, type: 'triangle' });
+      burst(ctx, dest, t + r(0.86), { dur: r(0.74), type: 'lowpass', freq: 260, q: 0.8, gain: 0.05, sweep: 0.5 });
+      break;
+
     default:
       // Unknown cue: a soft neutral tick rather than silence, which makes
       // missing wiring obvious during development without being ugly.
@@ -2368,6 +2435,32 @@ function synthLoop(engine, name, dest) {
     case 'applause':
       noise('bandpass', 1900, 0.5, 0.30);
       noise('highpass', 4600, 0.4, 0.16);
+      break;
+
+    /* Two beds that sit UNDER ones that already exist rather than replacing
+     * them. `ambience.kitchen` is the extraction fan and nothing else, and
+     * `ambience.diners` is the wash of two hundred people; what neither of
+     * them had was the thing being done in the room. */
+    case 'ambience.kitchen.line':
+      /* Gas under a row of pans: a burner's roar is low broadband, and the
+       * simmer on top of it is a narrow band of bubbling well above it.
+       * Slowly detuned against itself so the two never phase-lock into a
+       * single held note, which is what makes a bed sound like a synthesiser. */
+      noise('lowpass', 210, 0.9, 0.16);
+      noise('bandpass', 640, 1.4, 0.055);
+      noise('bandpass', 3100, 2.4, 0.030);
+      noise('highpass', 6400, 0.9, 0.018);
+      osc('sine', 61.5, 0.020);
+      break;
+    case 'ambience.diners.chatter':
+      /* Conversation heard through other conversation. The band is 200-3000Hz
+       * and the date is sitting in it, so this is deliberately narrower and
+       * lower than `ambience.diners` -- it occupies the vowel range and leaves
+       * the consonants, which is exactly what a room of talking sounds like
+       * from four tables away and is why nothing in it is intelligible. */
+      noise('bandpass', 300, 1.8, 0.105);
+      noise('bandpass', 720, 2.2, 0.052);
+      noise('bandpass', 1650, 1.6, 0.020);
       break;
 
     default:

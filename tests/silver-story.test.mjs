@@ -321,3 +321,91 @@ test('the date cannot end before the featured third number completes across a mi
   assert.equal(restored.flags.mainPerformanceComplete, true);
   assert.equal(restored.invitationReady, true);
 });
+
+/* ------------------------------------------------------------------ *
+ * The owner's audio notes, asserted rather than listened to.
+ * ------------------------------------------------------------------ */
+
+/**
+ * "Then cut the other sounds — I still hear this ohhh ohh singing sound in the
+ * background during banana phone."
+ *
+ * The "ohhh ohh" is `band.vocal`: two bandpassed noise voices with nothing
+ * intelligible in them, which is right underneath a synthesised house band and
+ * wrong underneath a real recording of a real one. It used to be ramped to
+ * zero and left running, so every later caller that touched the mix — the
+ * dialogue duck, the room crossfade, a checkpoint restore — got another go at
+ * deciding what "zero" meant. Stopped is a state; quiet is an opinion.
+ */
+test('the featured number stops the house band stems instead of ducking them', () => {
+  const third = SET.find((number) => number.id === 'third');
+  const STEMS = ['rhythm', 'horns', 'piano', 'vocal'];
+  const calls = [];
+  const featureHandle = { element: { currentTime: 0, paused: true }, released: false };
+  const audio = {
+    ready: true,
+    startLoop: (key) => calls.push(['startLoop', key]),
+    startMusicLoop: (key, url, options) => {
+      calls.push(['startMusicLoop', key, url, options]);
+      return featureHandle;
+    },
+    setLoopVolume: (key, volume) => calls.push(['setLoopVolume', key, volume]),
+    setLoopCutoff: () => null,
+    stopLoop: (key) => calls.push(['stopLoop', key]),
+    play: () => null,
+    busy: () => false,
+  };
+  const performance = new Performance({ audio, band: { members: [] } });
+  performance.begin();
+  for (const stem of STEMS) {
+    assert.equal(calls.some(([kind, key]) => kind === 'startLoop' && key === `band.${stem}`), true,
+      `the house band opens on ${stem}`);
+  }
+
+  performance._next(SET.indexOf(third));
+  for (const stem of STEMS) {
+    assert.equal(calls.some(([kind, key]) => kind === 'stopLoop' && key === `band.${stem}`), true,
+      `${stem} is stopped for the featured number, not turned down`);
+  }
+
+  /* And nothing puts them back while the record is playing — including the
+   * duck, which is the caller that used to. */
+  const afterStop = calls.length;
+  performance.setDucked(true);
+  performance.update(0.5);
+  performance.setDucked(false);
+  performance.update(0.5);
+  const revived = calls.slice(afterStop).filter(
+    ([kind, key]) => kind === 'startLoop' && STEMS.some((s) => key === `band.${s}`),
+  );
+  assert.deepEqual(revived, [], 'nothing may restart a stem underneath the record');
+  const raised = calls.slice(afterStop).filter(
+    ([kind, key, volume]) => kind === 'setLoopVolume'
+      && STEMS.some((s) => key === `band.${s}`) && volume > 0,
+  );
+  assert.deepEqual(raised, [], 'and nothing may raise one either');
+});
+
+/**
+ * "Let's basically [play] all the sounds once for about a quarter of a number
+ * and then just go right into banana phone."
+ *
+ * Both warm-ups still happen, in order, so the third number is still the third
+ * number — which the Ape, the bandleader and the board all promise it will be.
+ * They are simply about a quarter of the length they were.
+ */
+test('the warm-ups are about a quarter of a number and Bananaphone still lands third', () => {
+  assert.deepEqual(SET.map((number) => number.id), ['opener', 'second', 'third', 'slow'],
+    'the featured number is the third one anybody hears');
+  const [opener, second, third] = SET;
+  assert.equal(third.id, 'third');
+  assert.ok(third.dur > 190, 'the featured master is not cut');
+  for (const warmUp of [opener, second]) {
+    assert.ok(warmUp.dur <= 12, `${warmUp.id} is a quarter of a number, not a number`);
+    assert.ok(warmUp.dur >= 8, `${warmUp.id} still has room for its line and its applause`);
+  }
+  /* The gate the owner was waiting through: curtain to Bananaphone, including
+   * the two applause gaps between numbers. It was 84 seconds. */
+  const toBanana = opener.dur + 2.4 + second.dur + 2.4;
+  assert.ok(toBanana < 30, `Bananaphone starts ${toBanana.toFixed(1)}s after the curtain`);
+});

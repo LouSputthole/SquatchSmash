@@ -5047,14 +5047,84 @@
       "say": "Sorry — sorry — sorry —"
     },
     {
+      "name": "vo.silver.room.corridor.4",
+      "voice": "waiter",
+      "say": "It’s a fur. I’m not hanging a fur next to a wet mac, I don’t care whose it is."
+    },
+    {
+      "name": "vo.silver.room.corridor.5",
+      "voice": "waiter",
+      "say": "Who took the front table? Nobody took the front table. The front table walked in."
+    },
+    {
+      "name": "vo.silver.room.corridor.6",
+      "voice": "waiter",
+      "say": "Down the middle. Down the middle! You go wide, you go through the drape."
+    },
+    {
       "name": "vo.silver.room.floor.1",
       "voice": "waiter",
       "say": "He calls it a franchise. It’s a van. I’ve seen the van."
     },
     {
+      "name": "vo.silver.room.floor.10",
+      "voice": "waiter",
+      "say": "Nine wants dessert, eleven is still on the fish, and twelve has not decided anything since they sat down."
+    },
+    {
+      "name": "vo.silver.room.floor.11",
+      "voice": "waiter",
+      "say": "I don’t ask. That is the arrangement. I don’t ask, and I sleep."
+    },
+    {
+      "name": "vo.silver.room.floor.12",
+      "voice": "waiter",
+      "say": "Did you see the coat. Look at the coat. That is not a birthday coat."
+    },
+    {
+      "name": "vo.silver.room.floor.13",
+      "voice": "waiter",
+      "say": "That’s not the good rye. Take it back, and don’t let him see you take it back."
+    },
+    {
+      "name": "vo.silver.room.floor.14",
+      "voice": "waiter",
+      "say": "Everybody’s a cousin. I have cousins I’ve met twice and one of them does my books."
+    },
+    {
+      "name": "vo.silver.room.floor.15",
+      "voice": "waiter",
+      "say": "Six weeks they told me. Six weeks, and we’re sat behind a pillar."
+    },
+    {
+      "name": "vo.silver.room.floor.16",
+      "voice": "waiter",
+      "say": "Two rye, one ice. One. If that comes back with three in it, it’s on you."
+    },
+    {
+      "name": "vo.silver.room.floor.17",
+      "voice": "waiter",
+      "say": "He orders for the whole table. Every time. I have never once eaten what I wanted in this room."
+    },
+    {
+      "name": "vo.silver.room.floor.18",
+      "voice": "waiter",
+      "say": "and the horse was fine! Nobody ever remembers that part!"
+    },
+    {
+      "name": "vo.silver.room.floor.19",
+      "voice": "waiter",
+      "say": "Anything they want, all night, and none of it goes on a bill. Those were the words I was given."
+    },
+    {
       "name": "vo.silver.room.floor.2",
       "voice": "waiter",
       "say": "And they gave him Wednesdays. Wednesdays!"
+    },
+    {
+      "name": "vo.silver.room.floor.20",
+      "voice": "waiter",
+      "say": "Ask me next week. Next week I’ll know, and then I won’t be able to tell you."
     },
     {
       "name": "vo.silver.room.floor.3",
@@ -5080,6 +5150,16 @@
       "name": "vo.silver.room.floor.7",
       "voice": "waiter",
       "say": "Front and center just went out. Somebody find out who that is."
+    },
+    {
+      "name": "vo.silver.room.floor.8",
+      "voice": "waiter",
+      "say": "Thirty-one years on that corner, and the son wants to put a wine list in it."
+    },
+    {
+      "name": "vo.silver.room.floor.9",
+      "voice": "waiter",
+      "say": "He was there. I saw him. He was at the christening."
     },
     {
       "name": "vo.silver.room.kitchen.1",
