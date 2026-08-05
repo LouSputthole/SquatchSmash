@@ -37,6 +37,11 @@ import { weaponDef } from './catalog.js';
 export const READY = 'ready';
 export const RELOAD_OUT = 'reload-out';
 export const RELOAD_IN = 'reload-in';
+/* Shell-by-shell loading, for the tube-fed shotgun: the action opens once
+ * (SHELL_START), then shells go in one at a time (SHELL_LOAD), and stopping
+ * between shells keeps every shell already seated. */
+export const SHELL_START = 'shell-start';
+export const SHELL_LOAD = 'shell-load';
 
 export class Firearm {
   /**
@@ -55,6 +60,10 @@ export class Firearm {
     this.reserve = reserve === null ? def.reserve : Math.max(0, reserve);
     this.state = READY;
     this.timer = 0;
+    /** Shells seated by the current shell-by-shell reload. */
+    this._shellsLoaded = 0;
+    /** Whether the current reload started on an empty gun (costs extra). */
+    this._emptyStart = false;
     /** Rounds fired since the last reload — the revolver's case count. */
     this.spent = 0;
     /** Rounds fired ever, by this instance. Drives the tracer interval. */
@@ -139,6 +148,16 @@ export class Firearm {
     if (this.state !== READY) return false;
     if (this.reserve <= 0) return false;
     if (this.rounds >= this.capacity) return false;
+    if (this.def.loadStyle === 'shells') {
+      this.state = SHELL_START;
+      this.timer = this.def.reloadOut;
+      this._shellsLoaded = 0;
+      return true;
+    }
+    /* A reload that starts on an empty gun costs extra at the END — working
+     * the action to chamber the first round. The catalog's `combat.emptyExtra`
+     * is data the same way `reloadIn` is; a definition without one pays 0. */
+    this._emptyStart = this.rounds <= 0;
     this.state = RELOAD_OUT;
     this.timer = this.def.reloadOut;
     return true;
@@ -147,6 +166,14 @@ export class Firearm {
   /** Cancel a reload in progress — a scene stows the gun mid-reload. */
   cancelReload() {
     if (this.state === READY) return false;
+    /* Shell loading stops between shells and loses nothing: every shell
+     * already seated stays seated. That interruptibility is the pump gun's
+     * one mercy. */
+    if (this.state === SHELL_START || this.state === SHELL_LOAD) {
+      this.state = READY;
+      this.timer = 0;
+      return true;
+    }
     /* Only a reload that has not yet ejected can be taken back. Once the
      * magazine is on the floor it is on the floor. */
     const wasOut = this.state === RELOAD_OUT;
@@ -173,6 +200,34 @@ export class Firearm {
     this.timer -= step;
     if (this.timer > 0) return events;
 
+    if (this.state === SHELL_START) {
+      // The action is open; the first shell starts in.
+      this.state = SHELL_LOAD;
+      this.timer += this.def.reloadIn;
+      if (this.timer < 0) this.timer = 0;
+      return events;
+    }
+
+    if (this.state === SHELL_LOAD) {
+      // One shell seats.
+      this.rounds = Math.min(this.capacity, this.rounds + 1);
+      this.reserve -= 1;
+      this._shellsLoaded = (this._shellsLoaded || 0) + 1;
+      this.spent = Math.max(0, this.spent - 1);
+      events.push({ type: 'shell', rounds: this.rounds });
+      if (this.rounds >= this.capacity || this.reserve <= 0) {
+        this.state = READY;
+        this.timer = 0;
+        this._triggerConsumed = this.triggerHeld;
+        this._clicked = false;
+        events.push({ type: 'loaded', loaded: this._shellsLoaded, rounds: this.rounds });
+      } else {
+        this.timer += this.def.reloadIn;
+        if (this.timer < 0) this.timer = 0;
+      }
+      return events;
+    }
+
     if (this.state === RELOAD_OUT) {
       const carried = this.rounds;
       /* The magazine leaves. On a box-fed gun whatever was in it leaves with
@@ -182,7 +237,9 @@ export class Firearm {
       if (this.def.partialLoss) this.rounds = 0;
       events.push({ type: 'eject', rounds: droppedRounds, kind: this.def.eject });
       this.state = RELOAD_IN;
-      this.timer += this.def.reloadIn;
+      this.timer += this.def.reloadIn
+        + (this._emptyStart ? (this.def.combat?.emptyExtra ?? 0) : 0);
+      this._emptyStart = false;
       if (this.timer < 0) this.timer = 0;
       return events;
     }

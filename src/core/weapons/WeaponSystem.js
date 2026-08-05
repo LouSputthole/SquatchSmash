@@ -44,6 +44,20 @@ const HOLD = {
   rifle: { position: [0.20, -0.20, -0.50], rotation: [0.04, 0.10, 0] },
   lmg: { position: [0.23, -0.24, -0.56], rotation: [0.05, 0.11, 0] },
   sniper: { position: [0.22, -0.20, -0.62], rotation: [0.03, 0.09, 0] },
+  shotgun: { position: [0.20, -0.21, -0.46], rotation: [0.04, 0.09, 0] },
+  smg: { position: [0.18, -0.19, -0.40], rotation: [0.03, 0.09, 0] },
+};
+
+/* Where a gun sits when it is AIMED: pulled to the centreline, up to the
+ * eye, in a touch. One pose per kind, mirrored off HOLD's distances. */
+const ADS_HOLD = {
+  revolver: { position: [0.004, -0.145, -0.34], rotation: [0.005, 0, 0] },
+  pistol: { position: [0.004, -0.140, -0.36], rotation: [0.005, 0, 0] },
+  rifle: { position: [0.004, -0.150, -0.42], rotation: [0.006, 0, 0] },
+  lmg: { position: [0.010, -0.165, -0.48], rotation: [0.01, 0.01, 0] },
+  sniper: { position: [0.004, -0.150, -0.50], rotation: [0.004, 0, 0] },
+  shotgun: { position: [0.004, -0.155, -0.40], rotation: [0.006, 0, 0] },
+  smg: { position: [0.004, -0.145, -0.34], rotation: [0.005, 0, 0] },
 };
 
 const _v = new THREE.Vector3();
@@ -120,6 +134,27 @@ export class WeaponSystem {
     this.swap = 0;
     this.sway = 0;
     this.enabled = true;
+
+    /** Aim-down-sights: `aiming` is the ask, `aim` is where the gun is, 0..1. */
+    this.aiming = false;
+    this.aim = 0;
+    /** The muzzle is against something; the pose compresses and firing waits. */
+    this.obstructed = false;
+    /**
+     * A scene's stance/motion accuracy hook: return a spread multiplier for
+     * the shot about to fire (crouched 0.8, walking 1.7, and so on). The shot
+     * calculation uses it directly, so what the reticle claims and what the
+     * round does cannot drift apart.
+     */
+    this.getSpreadScale = null;
+    /**
+     * When a combat scene sets this, EVERY player ray goes through it instead
+     * of the local raycast: ({origin, dir, def, pellet}) => {end} — the
+     * resolver owns damage, penetration and impact effects, and hands back
+     * where the round stopped so the tracer can draw the truth. One ray, one
+     * answer, shared with every NPC's gun.
+     */
+    this.resolveShot = null;
 
     /** Counters a verifier can read without watching pixels. */
     this.stats = { shots: 0, dryClicks: 0, reloads: 0, ejections: 0, impacts: 0 };
@@ -203,6 +238,11 @@ export class WeaponSystem {
     if (down) this._pullTrigger();
   }
 
+  /** Bring the sights up or drop them. The transition runs in update(). */
+  setAim(down) {
+    this.aiming = down === true && !!this.current;
+  }
+
   /** One deliberate shot — a click, or a verifier asking for exactly one. */
   triggerPress() {
     if (!this.current) return null;
@@ -226,6 +266,13 @@ export class WeaponSystem {
 
   _pullTrigger() {
     if (!this.enabled || !this.current) return null;
+    /* A muzzle pressed into a wall does not fire. The crosshair is told the
+     * same thing through `obstructed`, so it cannot claim a shot is clear
+     * when the gun is physically stopped. */
+    if (this.obstructed) {
+      this._emit({ type: 'obstructed', id: this.current });
+      return { fired: false, reason: 'obstructed' };
+    }
     const f = this.firearm(this.current);
     const shot = f.fire();
     if (shot.fired) { this._onShot(f, shot); return shot; }
@@ -256,38 +303,65 @@ export class WeaponSystem {
     /* The round goes where the camera is looking, not where the held model
      * is pointing — the model sits low and right of the eye so it does not
      * cover the screen, and a player who aims at a light switch expects to
-     * hit the light switch. Spread is applied about that ray. */
+     * hit the light switch. Spread is applied about that ray.
+     *
+     * The RAY starts at the EYE, not the muzzle. A muzzle poked past a
+     * doorframe used to start the round on the far side of the frame; the
+     * eye cannot be inside a wall (the player capsule keeps it out), so the
+     * ray now always crosses whatever the muzzle was pressed against. The
+     * TRACER still draws from the muzzle, because that is where the flash is. */
     this.camera.getWorldDirection(_dir);
     _right.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(_q));
     _up.set(0, 1, 0).applyQuaternion(_q);
-    const spread = shot.spread ?? def.spread;
-    if (spread > 0) {
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * spread;
-      _dir.addScaledVector(_right, Math.cos(a) * r).addScaledVector(_up, Math.sin(a) * r).normalize();
-    }
+    const eye = this.camera.getWorldPosition(_v2).clone();
 
-    // Where it stops.
-    let end = _v2.copy(origin).addScaledVector(_dir, this.range).clone();
-    let hit = null;
-    if (this.hitTargets.length) {
-      this.raycaster.set(origin, _dir);
-      this.raycaster.far = this.range;
-      const hits = this.raycaster.intersectObjects(this.hitTargets, true);
-      if (hits.length) { hit = hits[0]; end = hit.point.clone(); }
-    }
+    /* One cone for the trigger pull: the firearm's own bloom, scaled by what
+     * the body is doing (the scene's getSpreadScale) and by how far into the
+     * sights the gun is. Aimed fire tightens toward the catalog's ads.spread. */
+    let spread = shot.spread ?? def.spread;
+    spread *= this.getSpreadScale ? Math.max(0, this.getSpreadScale()) : 1;
+    const ads = def.combat?.ads;
+    if (ads && this.aim > 0) spread *= 1 + (ads.spread - 1) * this.aim;
 
-    if (shot.tracer) {
-      this.tracers.fire({
-        from: origin,
-        to: end,
-        speed: def.tracer.speed,
-        colour: def.tracer.colour,
-        width: def.tracer.width,
-        onArrive: hit ? () => this._impact(hit, def) : null,
-      });
-    } else if (hit) {
-      this._impact(hit, def);
+    const pellets = Math.max(1, def.combat?.pellets | 0 || 1);
+    const baseDir = _dir.clone();
+    for (let p = 0; p < pellets; p++) {
+      _dir.copy(baseDir);
+      const cone = spread + (pellets > 1 ? (def.combat?.pelletSpread ?? 0) : 0);
+      if (cone > 0) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(Math.random()) * cone;
+        _dir.addScaledVector(_right, Math.cos(a) * r).addScaledVector(_up, Math.sin(a) * r).normalize();
+      }
+
+      // Where it stops.
+      let end = _v2.copy(eye).addScaledVector(_dir, this.range).clone();
+      let hit = null;
+      if (this.resolveShot) {
+        const out = this.resolveShot({ origin: eye.clone(), dir: _dir.clone(), def, pellet: p });
+        if (out?.end) end = out.end;
+      } else if (this.hitTargets.length) {
+        this.raycaster.set(eye, _dir);
+        this.raycaster.far = this.range;
+        const hits = this.raycaster.intersectObjects(this.hitTargets, true);
+        if (hits.length) { hit = hits[0]; end = hit.point.clone(); }
+      }
+
+      /* Buckshot puts one streak up for the swarm, not eight rods. */
+      const showTracer = shot.tracer && (pellets === 1 || p === 0);
+      if (showTracer) {
+        this.tracers.fire({
+          from: origin,
+          to: end,
+          speed: def.tracer.speed,
+          colour: def.tracer.colour,
+          width: def.tracer.width,
+          onArrive: hit ? () => this._impact(hit, def) : null,
+        });
+      } else if (hit) {
+        // One impact NOISE per trigger pull; every pellet still reports.
+        this._impact(hit, def, { quiet: p > 0 });
+      }
     }
 
     // Flash, kick, brass.
@@ -303,12 +377,13 @@ export class WeaponSystem {
     });
   }
 
-  _impact(hit, def) {
+  _impact(hit, def, { quiet = false } = {}) {
     this.stats.impacts++;
     // An existing, recorded cue. Nothing new is asked for here.
-    this.audio?.play('heist.bullet.impact', { volume: 0.32, position: hit.point });
+    if (!quiet) this.audio?.play('heist.bullet.impact', { volume: 0.32, position: hit.point });
     this.onImpact?.({
-      point: hit.point.clone(), normal: hit.face?.normal ?? null, object: hit.object, weapon: def.id,
+      point: hit.point.clone(), normal: hit.face?.normal ?? null, object: hit.object,
+      weapon: def.id, distance: hit.distance,
     });
   }
 
@@ -423,9 +498,36 @@ export class WeaponSystem {
       for (const event of f.update(step)) {
         if (event.type === 'eject') this._onEject(f, event);
         else if (event.type === 'loaded') this._onLoaded(f, event);
+        else if (event.type === 'shell') {
+          // One shell into the tube: the reload.in cue, once per shell.
+          this._cue('reload.in', { volume: 0.5 });
+          this._emit({ type: 'shell', id, rounds: event.rounds });
+        }
       }
       // Automatics keep going while the trigger is held.
       if (f.def.auto && f.triggerHeld) this._pullTrigger();
+
+      // The sights come up (or drop) at the catalog's own pace.
+      const adsTime = Math.max(0.05, f.def.combat?.ads?.time ?? 0.18);
+      const target = this.aiming ? 1 : 0;
+      const k = Math.min(1, step / adsTime);
+      this.aim += (target - this.aim) * k * 2.2;
+      if (Math.abs(this.aim - target) < 0.01) this.aim = target;
+
+      /* Muzzle-against-the-wall probe: a short ray from the eye toward where
+       * the muzzle sits. Blocked inside arm's reach means the gun has nowhere
+       * to be — compress the pose and refuse the trigger. */
+      if (this.hitTargets.length && this.model) {
+        this.camera.getWorldDirection(_dir);
+        this.raycaster.set(this.camera.getWorldPosition(_v), _dir);
+        this.raycaster.far = 0.62;
+        this.obstructed = this.raycaster.intersectObjects(this.hitTargets, true).length > 0;
+      } else {
+        this.obstructed = false;
+      }
+    } else {
+      this.aim = 0;
+      this.obstructed = false;
     }
 
     // Muzzle flash decay.
@@ -446,18 +548,31 @@ export class WeaponSystem {
     const model = this.model;
     if (!model) return;
     const hold = model.userData.hold;
-    const bob = Math.min(1, speed / 4);
+    const def = this.firearm(id).def;
+    const ads = ADS_HOLD[def.kind] || ADS_HOLD.rifle;
+    const a = this.aim;
+    // Sway and bob fade as the sights come up; a cheek-welded gun is planted.
+    const bob = Math.min(1, speed / 4) * (1 - a * 0.85);
     const reloadDip = this.firearm(id).reloading ? 0.09 : 0;
+    // Pressed against a wall: the gun pulls in and drops rather than clip.
+    const press = this.obstructed ? 1 : 0;
+    const kick = this.recoilKick * (def.combat?.recoil?.model ?? 1);
+    const hx = hold.position[0] + (ads.position[0] - hold.position[0]) * a;
+    const hy = hold.position[1] + (ads.position[1] - hold.position[1]) * a;
+    const hz = hold.position[2] + (ads.position[2] - hold.position[2]) * a;
+    const rx = hold.rotation[0] + (ads.rotation[0] - hold.rotation[0]) * a;
+    const ry = hold.rotation[1] + (ads.rotation[1] - hold.rotation[1]) * a;
+    const rz = hold.rotation[2] + (ads.rotation[2] - hold.rotation[2]) * a;
     model.position.set(
-      hold.position[0] + Math.sin(this.sway) * 0.006 * bob,
-      hold.position[1] + Math.abs(Math.cos(this.sway)) * 0.007 * bob
-        - this.swap * 0.18 - reloadDip + this.recoilKick * 0.008,
-      hold.position[2] + this.recoilKick * 0.03,
+      hx + Math.sin(this.sway) * 0.006 * bob,
+      hy + Math.abs(Math.cos(this.sway)) * 0.007 * bob
+        - this.swap * 0.18 - reloadDip + kick * 0.008 - press * 0.10,
+      hz + kick * 0.03 + press * 0.16,
     );
     model.rotation.set(
-      hold.rotation[0] - this.recoilKick * 0.10 + this.swap * 0.32 + reloadDip * 2.4,
-      hold.rotation[1] + Math.sin(this.sway * 0.6) * 0.008 * bob,
-      hold.rotation[2] - this.swap * 0.38,
+      rx - kick * 0.10 + this.swap * 0.32 + reloadDip * 2.4 + press * 0.55,
+      ry + Math.sin(this.sway * 0.6) * 0.008 * bob,
+      rz - this.swap * 0.38,
     );
   }
 

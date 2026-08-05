@@ -77,6 +77,24 @@ export const WEAPON_SFX_STANDINS = Object.freeze({
   'barrett.reload.in': 'heist.weapon.down',
   'barrett.empty': 'gun.dry',
   'barrett.mag.floor': 'heist.guard.weapon.drop',
+
+  'pump12.fire': 'gun.shot',
+  'pump12.reload.out': 'heist.swap.weapons',
+  'pump12.reload.in': 'heist.weapon.check',
+  'pump12.empty': 'gun.dry',
+  'pump12.mag.floor': 'ice.drop',
+
+  'smg9.fire': 'heist.weapon.carbine.indoor',
+  'smg9.reload.out': 'heist.swap.weapons',
+  'smg9.reload.in': 'heist.weapon.check',
+  'smg9.empty': 'heist.weapon.empty',
+  'smg9.mag.floor': 'heist.guard.weapon.drop',
+
+  'br308.fire': 'heist.weapon.carbine',
+  'br308.reload.out': 'heist.weapon.reload',
+  'br308.reload.in': 'heist.weapon.down',
+  'br308.empty': 'heist.weapon.empty',
+  'br308.mag.floor': 'heist.guard.weapon.drop',
 });
 
 /** Cues a scene must preload for the stand-ins to be audible. */
@@ -156,6 +174,31 @@ export function playWeaponCue(audio, id, slot, opts = {}) {
     case 'barrett.reload.in': audio.play('heist.weapon.down', { ...opts, rate: 0.8 }); return true;
     case 'barrett.empty': audio.play('gun.dry', { ...opts, rate: 0.72 }); return true;
     case 'barrett.mag.floor': audio.play('heist.guard.weapon.drop', { ...opts, rate: 0.75 }); return true;
+
+    /* ---- the pump gun. The revolver's recording slowed to a boom; the
+     * reload.in slot is one SHELL going in, so it plays once per shell. ---- */
+    case 'pump12.fire': audio.play('gun.shot', { ...opts, rate: 0.82 }); return true;
+    case 'pump12.reload.out': audio.play('heist.swap.weapons', { ...opts, rate: 0.9 }); return true;
+    case 'pump12.reload.in': audio.play('heist.weapon.check', { ...opts, rate: 1.1 }); return true;
+    case 'pump12.empty': audio.play('gun.dry', { ...opts, rate: 0.9 }); return true;
+    // A plastic hull on concrete: light, bright, small.
+    case 'pump12.mag.floor': audio.play('ice.drop', { ...opts, rate: 1.3 }); return true;
+
+    /* ---- the SMG: the carbine's indoor report pitched up, because a 9mm
+     * blowback gun is a smaller, snappier room than a 5.56. ---- */
+    case 'smg9.fire': audio.play('heist.weapon.carbine.indoor', { ...opts, rate: 1.25 }); return true;
+    case 'smg9.reload.out': audio.play('heist.swap.weapons', { ...opts, rate: 1.1 }); return true;
+    case 'smg9.reload.in': audio.play('heist.weapon.check', { ...opts, rate: 1.05 }); return true;
+    case 'smg9.empty': audio.play('heist.weapon.empty', { ...opts, rate: 1.1 }); return true;
+    case 'smg9.mag.floor': audio.play('heist.guard.weapon.drop', { ...opts, rate: 1.15 }); return true;
+
+    /* ---- the battle rifle: the AK family recording, down a step — .308 out
+     * of a long barrel carries more chest than 7.62x39. ---- */
+    case 'br308.fire': audio.play('heist.weapon.carbine', { ...opts, rate: 0.8 }); return true;
+    case 'br308.reload.out': audio.play('heist.weapon.reload', { ...opts, rate: 0.92 }); return true;
+    case 'br308.reload.in': audio.play('heist.weapon.down', { ...opts, rate: 0.95 }); return true;
+    case 'br308.empty': audio.play('heist.weapon.empty', { ...opts, rate: 0.9 }); return true;
+    case 'br308.mag.floor': audio.play('heist.guard.weapon.drop', { ...opts, rate: 0.9 }); return true;
 
     default: return false;
   }

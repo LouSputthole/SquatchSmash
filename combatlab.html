@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>The Combat Lab — SquatchSmash</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+<style>
+  :root {
+    --range: #8fc088;
+    --range-bright: #c8ffb8;
+    --steel: #b7c0cf;
+    --night: #07090a;
+    --panel: rgba(10, 14, 10, .78);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--night); }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none; color: #eef2ea;
+  }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+
+  .boot-failure {
+    position: fixed; inset: 0; z-index: 100; display: grid; place-content: center;
+    gap: 14px; padding: 32px; text-align: center; background: rgba(5, 8, 6, .97);
+  }
+  .boot-failure[hidden] { display: none; }
+  .boot-failure strong { font-size: 30px; color: var(--range-bright); }
+  .boot-failure span { max-width: 620px; line-height: 1.55; color: var(--steel); }
+  .boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+  .boot-failure button, .boot-failure a {
+    border: 1px solid var(--range); border-radius: 6px; padding: 10px 16px;
+    background: #0c140c; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+  }
+
+  #prompt {
+    position: fixed; bottom: 108px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; padding: 9px 18px 9px 12px;
+    background: var(--panel); border: 1px solid rgba(143, 192, 136, .38); border-radius: 10px;
+    backdrop-filter: blur(2px); z-index: 5; max-width: min(64vw, 560px);
+  }
+  #promptKey {
+    flex: 0 0 auto; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px;
+    background: rgba(143, 192, 136, .16); border: 1px solid var(--range);
+    display: grid; place-items: center; font-size: 13px; font-weight: 900; color: var(--range-bright);
+  }
+  #promptLabel { font-size: 15px; line-height: 1.35; color: #eef2ea; }
+  #promptLabel b { color: var(--range-bright); }
+  #promptHoldBar {
+    position: absolute; left: 12px; right: 12px; bottom: -6px; height: 4px; border-radius: 2px;
+    background: rgba(255, 255, 255, .12); overflow: hidden;
+  }
+  #promptHold { height: 100%; width: 0%; background: linear-gradient(90deg, var(--range), var(--range-bright)); }
+
+  #toast {
+    position: fixed; top: 68px; left: 50%; transform: translateX(-50%); z-index: 6;
+    padding: 8px 20px; background: var(--panel); border: 1px solid rgba(143, 192, 136, .4);
+    border-radius: 8px; font-size: 14px; letter-spacing: 1px; opacity: 0;
+    transition: opacity 200ms linear; pointer-events: none;
+  }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; overflow-y: auto;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(40, 70, 34, .4), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(16, 28, 40, .55), transparent 55%),
+      var(--night);
+    padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  .kicker { font-size: 13px; letter-spacing: 8px; color: var(--steel); font-weight: 800; }
+  .title {
+    font-size: clamp(38px, 8vw, 78px); font-weight: 900; letter-spacing: 1px;
+    color: var(--range-bright);
+    text-shadow: 0 0 30px rgba(143, 192, 136, .4), 0 6px 0 #12200e;
+    margin: 6px 0 10px;
+  }
+  .sub { font-size: 16px; color: #d2dcc9; margin-bottom: 18px; max-width: 660px; }
+  .panel {
+    background: rgba(255, 255, 255, .05); border: 1px solid rgba(143, 192, 136, .3); border-radius: 12px;
+    padding: 14px 22px; font-size: 13px; line-height: 1.8; text-align: left; color: #dde6d4;
+    max-width: 520px; margin-bottom: 20px;
+  }
+  .panel h3 { font-size: 12px; letter-spacing: 3px; color: var(--range-bright); margin-bottom: 6px; }
+  .panel b { color: var(--range); display: inline-block; min-width: 88px; }
+  .btn {
+    font-size: 20px; font-weight: 900; letter-spacing: 1px; padding: 13px 40px; border-radius: 12px;
+    border: none; cursor: pointer; color: #0c1408; font-family: inherit;
+    background: linear-gradient(180deg, var(--range-bright), var(--range));
+    box-shadow: 0 5px 0 #3c6034, 0 8px 20px rgba(0, 0, 0, .55); transition: transform .08s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #3c6034; }
+  .btn.alt {
+    background: linear-gradient(180deg, #d7dce6, var(--steel));
+    box-shadow: 0 5px 0 #5c6472, 0 8px 20px rgba(0, 0, 0, .55);
+  }
+  .btn.small { font-size: 15px; padding: 9px 22px; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div id="prompt" class="hidden">
+    <span id="promptKey">E</span>
+    <span id="promptLabel"></span>
+    <div id="promptHoldBar"><div id="promptHold"></div></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="menu" class="overlay">
+    <div class="kicker">SQUATCH LIFE · PROVING GROUND</div>
+    <div class="title">THE COMBAT LAB</div>
+    <div class="sub">
+      The framework's own firing range: six lanes and movers, a material wall, the two-storey
+      killhouse with its balcony, a cover yard, a hundred-metre lane, and an armory holding one
+      of everything. Nothing here is a mission &mdash; it is where the missions' combat is proven.
+    </div>
+    <div class="panel">
+      <h3>CONTROLS</h3>
+      <div><b>WASD</b> Move · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>C</b> Crouch · <b>Space</b> Jump</div>
+      <div><b>Left mouse</b> Fire · <b>Right mouse</b> Aim · <b>R</b> Reload · <b>E</b> Take / use · <b>Q</b> Rack weapon</div>
+      <div><b>1</b> Yard fight · <b>2</b> Killhouse fight · <b>3</b> Stress wave · <b>4</b> Spawn ally · <b>5</b> Armor demo</div>
+      <div><b>F5</b> Save checkpoint · <b>F9</b> Restore checkpoint · <b>Tab</b> Pause</div>
+      <div>Add <b>?debug=1</b> to the URL for the combat debug drawer.</div>
+    </div>
+    <button id="startBtn" class="btn">WALK THE RANGE</button>
+    <a href="./index.html" class="btn alt small" style="text-decoration:none; display:inline-block;">APARTMENT</a>
+  </div>
+
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong>
+    <span data-boot-detail></span>
+    <div class="actions">
+      <button type="button" data-boot-reload>RELOAD</button>
+      <a href="./index.html">APARTMENT</a>
+    </div>
+  </div>
+
+  <script src="./src/core/boot-guard.js"
+    data-target="bootFailure"
+    data-ready="combatlab"
+    data-scene="The Combat Lab"></script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+  <script type="module" src="./src/combatlab/main.js"
+    onerror="window.__squatchSceneFail('Could not load the scene', 'src/combatlab/main.js failed to load.')"></script>
+</body>
+</html>

@@ -22,8 +22,8 @@
  * `assets/sfx/manifest.json` is not edited by any of these. See `audio.js`.
  */
 export {
-  WEAPON_CATALOG, WEAPON_CUE_SLOTS, WEAPON_IDS, WEAPON_ORDER,
-  allWeaponCueNames, weaponCue, weaponDef, weaponList,
+  COMBAT_WEAPON_ORDER, WEAPON_CATALOG, WEAPON_CUE_SLOTS, WEAPON_IDS, WEAPON_ORDER,
+  allWeaponCueNames, combatWeaponList, weaponCue, weaponDef, weaponList,
 } from './catalog.js';
 export {
   WEAPON_SFX, WEAPON_SFX_STANDINS,
