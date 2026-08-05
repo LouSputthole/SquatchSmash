@@ -96,7 +96,7 @@ import { FatSquatch } from './payload/FatSquatch.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
-import { blastLuminance, shockRadiusAt } from './vfx/Detonation.js';
+import { blastLuminance, blastWhiteout, shockRadiusAt } from './vfx/Detonation.js';
 import { EnolaPreflight } from './preflight.js';
 import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
@@ -1348,6 +1348,8 @@ window.__enolaSquatch = {
    * double flash and the shock expansion rather than trying to catch a
    * quarter-second peak by sampling. */
   blastLuminance,
+  /** What the SCREEN does -- the 0.4 s blind. Not the device's own curve. */
+  blastWhiteout,
   shockRadiusAt,
   /** The crater's own profile, so a caller can hold the ground against it. */
   craterOffsetAt: (d) => craterOffset(d, CRATER),

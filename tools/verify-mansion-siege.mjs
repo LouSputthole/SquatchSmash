@@ -234,6 +234,28 @@ try {
     afterWake.state === 'under_attack', afterWake.state);
   check('the wake checkpoint was taken', await evaluate(() => window.mansionSiege.checkpoint) === 'wake');
 
+  /* THE ROUTE CHECKS ARE ABOUT GEOMETRY, NOT SURVIVAL.
+   *
+   * With the corridor pair and the foyer three actually standing in the house
+   * -- which they now are -- a verifier that walks the route slowly gets shot
+   * on it, the checkpoint correctly puts him back in the armory, and the next
+   * check measures a player at BASEMENT_Y and reports the horseshoe
+   * unclimbable. That is the mission working, reported as the house broken.
+   * Dying is proven on purpose in section 7, with this switched off again. */
+  await evaluate(() => window.mansionSiege.setInvulnerable(true));
+
+  /* The corridor pair are in the house before he is on his feet -- they are
+   * why the guard on the settee is dead. Nothing released them; they were
+   * authored, and for a while nothing PLACED them either, which is the
+   * quietest way an encounter can be missing. */
+  const corridorMen = await evaluate(() => ({
+    placed: window.mansionSiege.placed(),
+    standing: window.mansionSiege.encounterStanding('corridor'),
+    foyer: window.mansionSiege.encounterStanding('foyer'),
+  }));
+  check('two men are already in the cellar corridor when he wakes',
+    corridorMen.standing === 2 && corridorMen.foyer === 0, JSON.stringify(corridorMen));
+
   /* ---------------------------------------------------------------- */
   /* 3. The route to the armory, on foot                                */
   /*                                                                     */
@@ -280,6 +302,12 @@ try {
   check('reaching the armory completes the first objective',
     reachedArmory.beat === 'ARM' && reachedArmory.objective === 'Arm yourself',
     JSON.stringify(reachedArmory));
+
+  /* Placed while he is in the armory -- two rooms and a storey away -- so he
+   * does not watch them arrive, he comes up the stair into them. */
+  const foyerMen = await evaluate(() => window.mansionSiege.encounterStanding('foyer'));
+  check('three men are in the foyer before he ever sees the foyer', foyerMen === 3,
+    `${foyerMen} standing`);
 
   /* ---------------------------------------------------------------- */
   /* 4. Arming, and the heavy not being optional                        */
@@ -364,6 +392,7 @@ try {
   /* ---------------------------------------------------------------- */
   const died = await evaluate(() => {
     const s = window.mansionSiege;
+    s.setInvulnerable(false);
     const before = s.beat;
     const after = s.killPlayer();
     return { before, after, hp: s.playerHealth, down: s.playerDown, cp: s.checkpoint };
@@ -385,12 +414,17 @@ try {
 
   const waveOne = await evaluate(() => {
     const s = window.mansionSiege;
+    /* WAVE attackers only. The corridor pair and the foyer three are inside
+     * the house on purpose -- they were already in it when he woke up -- so
+     * counting them here would report the authored encounters as men
+     * appearing in the room with you. */
+    const waveIds = new Set(s.mission.waves.one.standing);
     return {
       standing: s.mission.waves.one.standing.size,
       released: [...s.mission.waves.one.released],
-      spawned: s.attackers.living().map((r) => ({
-        x: +r.position.x.toFixed(2), z: +r.position.z.toFixed(2),
-      })),
+      spawned: s.attackers.all()
+        .filter((e) => waveIds.has(e.id))
+        .map((e) => ({ x: +e.root.position.x.toFixed(2), z: +e.root.position.z.toFixed(2) })),
     };
   });
   check('wave one opens with four men, not eight', waveOne.standing === 4,

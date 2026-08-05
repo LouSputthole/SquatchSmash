@@ -29,7 +29,9 @@ import { AC_ENOLA } from '../src/enolasquatch/config.js';
 import { Autopilot, ROLL_LIMIT, HARD_LIMIT, REENGAGE_DELAY } from '../src/enolasquatch/systems/Autopilot.js';
 import { Interceptors, MAX_ENGAGED, FIGHTER_HEALTH } from '../src/enolasquatch/combat/Interceptors.js';
 import { Defense } from '../src/enolasquatch/combat/Defense.js';
-import { blastLuminance, shockRadiusAt, BLAST } from '../src/enolasquatch/vfx/Detonation.js';
+import {
+  blastLuminance, blastWhiteout, shockRadiusAt, BLAST,
+} from '../src/enolasquatch/vfx/Detonation.js';
 import { BEATS, BARKS, OBJECTIVES } from '../src/enolasquatch/dialogue/script.js';
 
 /* ------------------------------------------------------------------ */
@@ -144,6 +146,43 @@ test('the blast flashes TWICE, which is the whole point of the curve', () => {
   assert.ok(second > 0.9, 'the second pulse is the bright one and it is not bright');
   assert.equal(blastLuminance(0), 0);
   assert.ok(blastLuminance(8) < 0.05, 'it never gets dark again');
+});
+
+test('the screen goes completely white and STAYS white, with no flicker in it', () => {
+  /* Owner, 2026-08-05: "the flash from the explosion should completely blind
+   * you for a brief moment .4 or something screen all white."
+   *
+   * The device's own curve dips at 0.19 s -- that is the hydrodynamic
+   * minimum and it is real -- and painting it straight onto the screen gave
+   * full white for twenty milliseconds, a drop to 0.59, and full white again
+   * half a second later. What that reads as is a flicker. The eye does not
+   * un-bleach in eighty milliseconds to catch the dip, so the SCREEN holds. */
+  assert.equal(blastWhiteout(0), 0, 'nothing before the bomb goes off');
+  for (let t = 0.001; t < BLAST.blindSeconds; t += 0.002) {
+    assert.equal(blastWhiteout(t), 1,
+      `the blind broke at ${t.toFixed(3)}s -- that is the flicker, back again`);
+  }
+  assert.ok(BLAST.blindSeconds >= 0.3 && BLAST.blindSeconds <= 0.6,
+    'the brief moment stopped being brief');
+  /* And then it lets go -- monotonically, so the afterimage cannot pulse. */
+  let previous = 1;
+  for (let t = BLAST.blindSeconds; t <= 4; t += 0.01) {
+    const now = blastWhiteout(t);
+    assert.ok(now <= previous + 1e-9, `the afterimage brightened again at ${t.toFixed(2)}s`);
+    previous = now;
+  }
+  assert.ok(blastWhiteout(BLAST.blindSeconds + 1.6) < 0.25, 'it never gets out of the way');
+  assert.ok(blastWhiteout(6) < 0.02, 'the whiteout outlives the mission');
+});
+
+test('the device still flashes twice even though the screen no longer does', () => {
+  /* The two are deliberately different curves now. `blastLuminance` drives
+   * the world -- the fireball and both real lights -- and keeps the double
+   * pulse; `blastWhiteout` drives the overlay and does not. A change that
+   * quietly collapses one into the other loses the most recognisable thing
+   * about a detonation from the LANDSCAPE, where it still reads. */
+  assert.ok(blastLuminance(0.19) < blastLuminance(0.022) * 0.75);
+  assert.ok(blastWhiteout(0.19) === blastWhiteout(0.022));
 });
 
 test('the shock front leaves supersonic and settles at the speed of sound', () => {

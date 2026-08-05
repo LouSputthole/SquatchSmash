@@ -364,6 +364,22 @@ const mission = new SiegeMission({
   onBeat: (beat) => {
     ensemble.stage(beat);
     waveDirty = true;
+    /* THE TWO FIGHTS THAT ARE NOT WAVES.
+     *
+     * `ENCOUNTERS` in waves.js authors the corridor's two men and the foyer's
+     * three by hand -- no director releases them, so nothing was putting them
+     * in the house. The mission tracked their ids and `noteDown` routed to
+     * them; they simply were not there, which is the quietest possible way for
+     * an encounter to be missing.
+     *
+     * WHEN each one is placed is the design, not a detail. The corridor pair
+     * exist from the frame he opens his eyes -- they are why the guard on the
+     * settee is dead. The foyer three go in while he is still in the ARMORY,
+     * two rooms and a storey away, which is what waves.js means by "already
+     * past the door when the player comes up": he does not see them arrive,
+     * he comes up the stair into them. */
+    if (beat === B.WAKE) placeEncounter('corridor');
+    if (beat === B.ARM) placeEncounter('foyer');
   },
   onSpawn: (order) => attackers.spawn(order),
   onCheckpoint: (id) => {
@@ -432,6 +448,24 @@ mission
     capture: () => ({ littleFriend: mission.littleFriendSaid }),
     restore: () => { /* mission.js owns the flag; nothing scene-side to undo. */ },
   });
+
+/**
+ * Put an authored encounter in the house.
+ *
+ * The pool takes both order shapes -- a director's resolved objects and these
+ * hand-authored strings -- so the corridor's two men and the twenty-two on
+ * the stairs arrive down one code path. Idempotent: a checkpoint restore
+ * re-enters the beat, and spawning a man who is already standing there must
+ * not produce a second one.
+ */
+const placedEncounters = new Set();
+function placeEncounter(id) {
+  const encounter = ENCOUNTERS[id];
+  if (!encounter || placedEncounters.has(id)) return 0;
+  placedEncounters.add(id);
+  for (const member of encounter.members) attackers.spawn(member);
+  return encounter.members.length;
+}
 
 /**
  * Break whichever pane a man just came through.
@@ -900,6 +934,10 @@ window.mansionSiege = {
     building: BUILDING,
   },
   encounters: ENCOUNTERS,
+  /** Which authored encounters are standing in the house right now. */
+  placed: () => [...placedEncounters],
+  encounterStanding: (id) => (ENCOUNTERS[id]?.members ?? [])
+    .filter((m) => attackers.entry(m.id) && !attackers.entry(m.id).actor.incapacitated).length,
   anchors,
   teleport,
   start: () => beginSiege(),

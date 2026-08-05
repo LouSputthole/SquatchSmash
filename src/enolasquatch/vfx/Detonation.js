@@ -74,6 +74,17 @@ export const BLAST = Object.freeze({
   capThickness: 0.46,       // as a fraction of the cap radius
   /** How long the whole thing runs before the phase moves on. */
   duration: 30,
+  /**
+   * THE BLIND. Owner, 2026-08-05: "the flash from the explosion should
+   * completely blind you for a brief moment .4 or something screen all white."
+   *
+   * Seconds of TOTAL white, from the instant of the flash. Not "bright" --
+   * nothing on screen at all, the HUD included. See `blastWhiteout()` for why
+   * this is not simply the luminance curve turned up.
+   */
+  blindSeconds: 0.4,
+  /** Seconds the afterimage takes to bleed off the far side of the blind. */
+  blindFade: 0.95,
 });
 
 /* ------------------------------------------------------------------ */
@@ -95,6 +106,35 @@ export function blastLuminance(t) {
   const second = 1.06 * Math.exp(-((t - 0.78) ** 2) / (2 * 0.62 ** 2));
   const tail = 0.5 * Math.exp(-t * 0.42);
   return clamp(Math.max(first * dip, second, tail), 0, 1);
+}
+
+/**
+ * What the SCREEN does, 0..1, `t` seconds in. Not the same thing as the
+ * luminance above, and the difference is the whole point.
+ *
+ * `blastLuminance` is what the DEVICE emits, and it is right: two humps with
+ * a hydrodynamic minimum between them. Painted straight onto the screen it
+ * measured as full white for 20 ms, a drop to 0.59, a slow climb, and full
+ * white again around 0.5 s -- so what the player actually saw at the moment
+ * of the drop was a FLICKER. Physically faithful, and completely wrong as an
+ * experience: nobody in that cockpit gets a good look at anything between
+ * those humps, because a bleached retina does not un-bleach in eighty
+ * milliseconds to catch the dip.
+ *
+ * So the screen is the EYE, not the device. Total white for
+ * `BLAST.blindSeconds`, then an afterimage bleeding off over `blindFade` --
+ * which `Detonation` runs through amber rather than clear, because that is
+ * what an eye does. The device's own curve still drives the two real lights
+ * and the fireball; only the overlay is on this one.
+ *
+ * Exported so a test can assert the blind is unbroken rather than a
+ * screenshot catching it on a good frame.
+ */
+export function blastWhiteout(t) {
+  if (t <= 0) return 0;
+  if (t < BLAST.blindSeconds) return 1;
+  const since = (t - BLAST.blindSeconds) / BLAST.blindFade;
+  return clamp(Math.exp(-(since ** 1.5)), 0, 1);
 }
 
 /** Where the shock front is, `t` seconds in. Fast, then sonic. */
@@ -436,8 +476,14 @@ export class Detonation {
      * recovering, which is why it goes through amber rather than straight to
      * clear. Anybody in that cockpit is seeing purple for a minute. */
     const lum = blastLuminance(t);
-    this.screenFlash = clamp(lum * 1.12, 0, 1);
-    const cool = clamp(t / 3.4, 0, 1);
+    /* `lum` still drives the world -- the two lights and the fireball's own
+     * brightness below -- because that is the device. The SCREEN is the eye,
+     * and the eye stays blind through the dip. See `blastWhiteout()`. */
+    this.screenFlash = blastWhiteout(t);
+    /* No colour while he is properly blind: an amber tint on a white-out is a
+     * player who can still tell it is amber. The cooling starts on the far
+     * side of the blind, which is where an afterimage starts anyway. */
+    const cool = clamp((t - BLAST.blindSeconds) / 3.4, 0, 1);
     this.flashColour = {
       r: 1,
       g: lerp(1, 0.62, cool),
