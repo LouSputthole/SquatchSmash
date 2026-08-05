@@ -146,6 +146,89 @@ title. Let the player breathe, talk to everyone, hear callbacks, drink. Final
 image: Lou raises a glass, the family cheers, the camera pulls back from the
 club, a television quietly reports the search for the heist crew, credits.
 
+## THE MANSION ARC — planned 2026-08-05, not built
+
+Owner's direction. This is design, not a build order: nothing below exists
+yet, and the point of writing it down now is that PROJECT SILENT SQUATCH is
+already in the game and currently just ends.
+
+**Where it hangs.** PROJECT SILENT SQUATCH is built and playable — the
+Prospect carries the case to Lou, the lab finishes the weapon, Booski has the
+scientists gassed, and the Prospect walks back up the stairs. What happens
+next is presently nothing. This arc is what happens next.
+
+### 1 · The night at the mansion — the seam, not a mission
+
+Booski tells the Prospect he is staying the night, and he can have the room
+downstairs in the basement. The Prospect goes to sleep. **That completes
+SILENT SQUATCH.**
+
+The sleep is doing real work and it is worth being explicit about why: it is a
+LOAD SEAM. It ends one mission cleanly and gives us the chance to bring up a
+second, different version of the mansion — the same house, on fire. Without
+it we would be trying to mutate a twelve-thousand-mesh building live.
+
+The basement room is also the right place to be sleeping. It is one floor
+above a laboratory full of dead men he watched die a few hours earlier, and
+nobody remarks on that.
+
+### 2 · The cartel attack — a new mission
+
+He wakes in the middle of the night. **The attack is already happening.**
+
+The register is the SCARFACE parody: "say hello to my little friend". Read
+`docs/TONE-AND-PARODY.md` before writing a line of it — the reference is the
+scene, not a wink at the audience, and nobody in the house should notice they
+are in one.
+
+**The design problem, named by the owner and worth solving before anything is
+modelled: the player needs a REASON to go upstairs, so the fight happens from
+the balcony.** Waking in the basement and being told to go up is not a reason.
+Candidates, none chosen: the armory is down there and the guns are not; Lou is
+up there and the radio has stopped answering; the balcony is the only firing
+position that covers the drive; the basement stair is the only way out and it
+goes up. Whatever it is, it has to be something the player works out rather
+than something an objective tells him.
+
+The house is already staffed — the man on the door, six guards on their posts,
+the bartender, Snow, Gratin, and the Family hanging out in it. **That roster
+is the cast of this attack.** Everyone the player has met in that building for
+an evening is now in a firefight in it, which is worth more than any set piece
+we could build cold.
+
+### 3 · The retaliation — the Enola Squatch
+
+After the attack, **Lou expedites the attack plan**, and that plan is the
+Enola Squatch mission — which is already built. The bomber, the crew, the
+target city, the Fat Squatch. It currently sits in the campaign with no
+argument for why anybody would do it. This gives it one: they came to his
+house in the night.
+
+Silver Pines already seeds this — Lou, on the second green, mentions a thing
+after the thing that "needs an aeroplane", six thousand pounds of it, and a
+captain who is another Lou with a clipboard. That seed pays off here rather
+than out of nowhere.
+
+### 4 · The talk going in
+
+Owner: *"i'll want to plan the voice lines for this because the talk going
+into this one is going to be epic."*
+
+So: **the writing for the Enola briefing is a deliberate, separate piece of
+work, planned with the owner, and it is not to be improvised alongside the
+level.** It is the emotional payoff of the whole mansion arc — the room where
+the family decides to do the thing — and it should be written the way PROJECT
+SILENT SQUATCH's script was: as data, in one file, before anybody builds a
+scene around it.
+
+### What already exists and can be reused
+
+The mansion, inside and out, staffed and dressed. The weapon system and the
+basement armory. The Enola Squatch mission entire. The campaign save, the
+checkpoint machinery, and the scene-to-scene navigation. `src/mansion/cast.js`
+for placing people. This arc is mostly staging and writing, not new systems —
+the one genuinely new thing is the damaged/burning state of the house.
+
 ## Rhythm
 
 Day 1 introduction and first blood · Day 2 trust, competence, expanding work ·
