@@ -721,7 +721,19 @@ window.mansionSiege = {
   anchors,
   teleport,
   start: () => beginSiege(),
-  setRender: (on) => { renderEnabled = on !== false; },
-  get frames() { return framesRendered; },
+  /**
+   * Step the simulation on the scene's own clock rather than on real
+   * animation frames. Every verify-*.mjs in this repo drives scenes this
+   * way: swiftshader's frame rate says nothing about how far a held key
+   * should have moved you, so the keys are real and the clock is ours.
+   */
+  tick(seconds = 1, step = 1 / 60) {
+    for (let elapsed = 0; elapsed < seconds; elapsed += step) {
+      updateGame(Math.min(step, seconds - elapsed));
+    }
+  },
+  setRendering(on) { renderEnabled = !!on; },
+  get framesRendered() { return framesRendered; },
   get running() { return running; },
+  get paused() { return pauseMenu.isPaused(); },
 };
