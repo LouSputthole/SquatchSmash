@@ -1349,8 +1349,22 @@ class ApartmentStory {
    */
   margoWakeOwed() {
     const state = this.campaign.state;
-    return ['golf_morning', 'heist_day', 'big_night'].includes(state.story.chapter)
-      && !state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE);
+    if (!['golf_morning', 'heist_day', 'big_night'].includes(state.story.chapter)) return false;
+    if (state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE)) return false;
+    /* And only if she actually came back with him.
+     *
+     * `cameHome` is the Silver Room's own verdict on the evening and it now
+     * survives the seam (see `SilverStory.complete`). Before this it was
+     * computed, thrown away, and the chapter alone decided -- so a man who had
+     * an awkward night, or who never played the date at all and arrived here
+     * by a checkpoint, woke up next to her regardless.
+     *
+     * A save written before this landed has no `cameHome` at all, and the old
+     * behaviour is what that player has already seen; `!== false` keeps their
+     * morning rather than deleting a character out of their bed on load. */
+    const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    if (silver?.status === 'complete' && silver.cameHome === false) return false;
+    return true;
   }
 
   /** She got dressed and went. The zero-minute cutscene marker prevents replay. */

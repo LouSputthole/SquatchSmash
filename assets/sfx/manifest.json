@@ -18598,6 +18598,54 @@
       "name": "vo.initiation.ambient.lou.1ckii4g.1",
       "voice": "lou",
       "say": "Humor me."
+    },
+    {
+      "name": "kitchen.clatter",
+      "_note": "Steel landing on steel behind the pass. A kitchen reads as a kitchen because of irregular metal at irregular intervals, not because of a louder hum."
+    },
+    {
+      "name": "kitchen.chop",
+      "_note": "A blade through something firm onto a board. Rationed: the line is busy, not frantic."
+    },
+    {
+      "name": "kitchen.oven",
+      "_note": "An oven door and a tray going in. Heavy, and only once in a while."
+    },
+    {
+      "name": "kitchen.ticket",
+      "_note": "The printer at the pass. Short, and it means somebody out in the room ordered."
+    },
+    {
+      "name": "dining.cutlery",
+      "_note": "A fork set down on a plate at another table. Never intelligible, never a punchline."
+    },
+    {
+      "name": "dining.glass.clink",
+      "_note": "Glass on glass across the room. The Silver Room is full and should sound full."
+    },
+    {
+      "name": "dining.chair",
+      "_note": "A chair moved on carpet. Somebody is leaving, and it is not about you."
+    },
+    {
+      "name": "margo.snore",
+      "_note": "Margo asleep beside him, before she sits up. Owner: \"lets add a low key snore sound\" -- low key is the whole direction. She is sixty centimetres from his ear so it plays dry rather than positioned, and it stops the moment she moves."
+    },
+    {
+      "name": "enolasquatch.gun.rear",
+      "_note": "The Enola Squatch tail gun, close. Owner: \"better bigger machine guns sounds for the rear gun\" -- it had been playing the apartment REVOLVER at eleven shots a second."
+    },
+    {
+      "name": "enolasquatch.gun.rear.cabin",
+      "_note": "The same gun heard from the cabin: the airframe between you and it, not the muzzle."
+    },
+    {
+      "name": "ambience.kitchen.line",
+      "_note": "The Silver Room kitchen bed: gas and a simmer under the extraction fan. The thing everybody in there shouts over."
+    },
+    {
+      "name": "ambience.diners.chatter",
+      "_note": "The main room, full. Vowel-range and nothing intelligible, and it thins to under half while anybody is talking or the featured number is playing."
     }
   ]
 }

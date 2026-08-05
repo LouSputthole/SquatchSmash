@@ -4005,6 +4005,18 @@ function updateMargoWake(dt) {
    * without them. */
   if (scene.t > MARGO_HELP_DEADLINE) openMargoDressBeat();
 
+  /* SHE IS STILL ASLEEP, and you can hear it.
+   *
+   * Owner: "lets add a low key snore sound". Beat 0 is `lying` and she does
+   * not sit up until 6.4 s, so this is the whole of the window in which the
+   * player is awake and she is not. Low, slow, and not comic -- she is
+   * sixty centimetres from his ear, so it plays dry rather than positioned,
+   * and it stops the moment she moves. */
+  if (scene.beat === 0 && scene.t >= (scene.nextSnore ?? 0.9)) {
+    audio.play('margo.snore', { volume: 0.17 });
+    scene.nextSnore = scene.t + 2.9 + Math.random() * 1.3;
+  }
+
   // Beats.
   for (let i = MARGO_BEATS.length - 1; i > scene.beat; i--) {
     if (scene.t < MARGO_BEATS[i].at) continue;
