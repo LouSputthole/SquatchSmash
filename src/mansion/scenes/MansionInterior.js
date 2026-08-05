@@ -4762,7 +4762,19 @@ export function buildMansionInterior(shell = null) {
     }));
     recordArt(`${name}-mirror`, mirrorX, UY + 1.85, dresserZ,
       dresserSide > 0 ? Math.PI / 2 : -Math.PI / 2, 1.2, 1.5);
-    const wx = dresserSide > 0 ? r.x1 - 0.4 : r.x0 + 0.4;
+    /* 0.52 off the partition, not 0.4. Owner playtest, verbatim: "dresser in
+     * wall". The tall press is the piece that was in it, in ALL FOUR rooms --
+     * it is 0.7 m deep with an 0.8 m cornice, and every theme lines its inner
+     * wall with bands that stand proud of the plaster: 0.07 m of boarding and
+     * 0.10 m of chair rail in the lake and old-timey rooms, 0.07 m of slab
+     * lining and 0.09 m of lit cove in the modern one. At 0.4 the carcass ran
+     * 50 mm inside the chair rail and the cornice 10 mm inside the cove.
+     *
+     * The offset is sized off the WORST case rather than the nearest: cornice
+     * half-width 0.40 + the modern room's 0.09 cove + 0.02 clearance = 0.51,
+     * rounded to 0.52. Measured after, the carcass clears the chair rail by
+     * 30 mm and the cornice clears the cove by 30 mm. */
+    const wx = dresserSide > 0 ? r.x1 - 0.52 : r.x0 + 0.52;
     root.add(box({
       size: [0.7, 2.3, 2.2], pos: [wx, UY + 1.15, cz + 1.4], mat: palette.wardrobe ?? M_WOOD_DK, name: `${name}-wardrobe`,
     }));
@@ -5024,34 +5036,63 @@ export function buildMansionInterior(shell = null) {
             }));
           }
 
-          // Stained glass in the arcade, lit from behind.
+          /* Stained glass in the arcade, lit from behind.
+           *
+           * IN THE BAY AT 38.3, NOT 43.3. Owner playtest: "bed and furniture
+           * clipping" / "wall decorations clipping". This was the biggest
+           * interpenetration in the room and it was both notes at once -- the
+           * window sat at z 42.7..43.9 on the inner wall and the WARDROBE
+           * stands at z 42.2..44.4 against that same wall, so measured, the
+           * wardrobe carcass ran through the window's iron frame over
+           * 55 x 1250 x 1200 mm. The room's own comment already knew the
+           * wardrobe's extent -- it is quoted three lines further down, as the
+           * reason the television was put where it is -- and the glass was
+           * dropped in the middle of it anyway.
+           *
+           * The arcade's lancets stand at z 37.4, 39.2, 41.0, 45.6 and 47.0.
+           * Of the bays between them, 41.0..45.6 holds the wardrobe and
+           * 39.2..41.0 holds the television, 45.6..47.0 is only 0.56 m of
+           * clear stone -- too narrow for a 1.0 m window. 37.4..39.2 is empty
+           * and 0.96 m clear, so the glass goes there. */
+          const roseZ = 38.3;
           const rose = flatArt('gothic-rose-window', {
             x: innerX - 0.12,
             y: UY + 2.0,
-            z: 43.3,
+            z: roseZ,
             rotY: -Math.PI / 2,
-            w: 1.0,
+            /* 0.72 wide inside an 0.82 frame, because the bay's CLEAR stone is
+             * 37.875..38.725 -- between the colonnettes, not between the
+             * lancet centres. At the old 1.0/1.2 the frame would have sat
+             * 50 mm inside both shafts. */
+            w: 0.72,
             h: 1.7,
             material: M_GLASS_RUBY,
           });
           rose.name = 'gothic-stained-glass';
           for (const oy of [-0.5, 0.1, 0.7]) {
             root.add(box({
-              size: [0.03, 0.36, 0.7], pos: [innerX - 0.13, UY + 2.0 + oy, 43.3], mat: M_GLASS_SAPPHIRE, cast: false,
+              size: [0.03, 0.36, 0.62], pos: [innerX - 0.13, UY + 2.0 + oy, roseZ], mat: M_GLASS_SAPPHIRE, cast: false, name: 'gothic-glass-band',
             }));
           }
           root.add(box({
-            size: [0.05, 1.9, 1.2], pos: [innerX - 0.08, UY + 2.0, 43.3], mat: M_GOTHIC_IRON, cast: false,
+            size: [0.05, 1.9, 0.82], pos: [innerX - 0.08, UY + 2.0, roseZ], mat: M_GOTHIC_IRON, cast: false, name: 'gothic-glass-frame',
           }));
           const glow = new THREE.PointLight(0xc85a78, 2.2, 6, 2);
-          glow.position.set(innerX - 0.6, UY + 2.0, 43.3);
+          glow.position.set(innerX - 0.6, UY + 2.0, roseZ);
           root.add(glow);
 
           /* The set, standing inside the arcade under its own pointed arch --
            * an iron cabinet on the inner wall at z 40.2, which is the bay
            * between the third and fourth lancets and clear of the wardrobe
            * (z 42.2..44.4). Handed back as `screen` for the composition root. */
-          const tvX = innerX - 0.36;
+          /* 0.45 off the wall, not 0.36. The cabinet is 1.7 m long and the bay
+           * it stands in is 0.96 m of clear stone, so it necessarily overlaps
+           * the colonnettes either side of it -- and at 0.36 it did so in the
+           * SOLID, measured 55 mm of cabinet inside the two stone shafts at
+           * z 39.62 and 40.58. Set forward far enough to stand against the
+           * arcade rather than inside it: cabinet front now -9.29 against
+           * colonnettes reaching -9.255, a 35 mm clearance. */
+          const tvX = innerX - 0.45;
           const tvZ = 40.2;
           root.add(box({
             size: [0.62, 0.8, 1.7], pos: [tvX, UY + 0.4, tvZ], mat: M_GOTHIC_PANEL, name: 'gothic-tv-cabinet',
@@ -5231,22 +5272,36 @@ export function buildMansionInterior(shell = null) {
           }));
 
           /* The bedstead: turned brass posts with knobs at head and foot, and
-           * a patchwork quilt folded across the shared bed. */
+           * a patchwork quilt folded across the shared bed.
+           *
+           * THE BRASS HEAD STANDS IN FRONT OF THE PADDED ONE, NOT INSIDE IT.
+           * Owner playtest, verbatim: "Workout bench and everything by bed is
+           * overlapping". This room gets two headboards -- `buildBedroom`'s
+           * upholstered panel, which every room gets, and the brass bedstead
+           * this theme brings -- and they were built in the same 20 cm of
+           * floor. Measured, the posts sat at z 47.425..47.515 against a
+           * padded headboard whose front face is 47.46, so 55 mm of every
+           * post, rail and spindle was buried in the upholstery.
+           *
+           * Moved 60 mm south to hbZ - 0.14: the brass now stops at 47.455,
+           * 5 mm clear of the padding, and its posts at x 10.48..10.57 and
+           * 12.48..12.57 still miss the mattress at 10.575..12.475. */
+          const brassZ = hbZ - 0.14;
           for (const px of [bedX - 1.0, bedX + 1.0]) {
-            root.add(named(cylinder({ r: 0.045, h: 1.5, pos: [px, UY + 0.75, hbZ - 0.08], mat: M_BRASS }), 'oldtime-bedpost'));
-            root.add(sphere({ r: 0.09, pos: [px, UY + 1.54, hbZ - 0.08], mat: M_BRASS }));
-            root.add(cylinder({ r: 0.04, h: 0.85, pos: [px, UY + 0.42, bedZ - 1.2], mat: M_BRASS }));
-            root.add(sphere({ r: 0.075, pos: [px, UY + 0.88, bedZ - 1.2], mat: M_BRASS }));
+            root.add(named(cylinder({ r: 0.045, h: 1.5, pos: [px, UY + 0.75, brassZ], mat: M_BRASS }), 'oldtime-bedpost'));
+            root.add(named(sphere({ r: 0.09, pos: [px, UY + 1.54, brassZ], mat: M_BRASS }), 'oldtime-bedpost-knob'));
+            root.add(named(cylinder({ r: 0.04, h: 0.85, pos: [px, UY + 0.42, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost'));
+            root.add(named(sphere({ r: 0.075, pos: [px, UY + 0.88, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost-knob'));
           }
           for (const ry of [UY + 1.02, UY + 1.42]) {
-            root.add(cylinder({
-              r: 0.03, h: 2.0, pos: [bedX, ry, hbZ - 0.08], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
-            }));
+            root.add(named(cylinder({
+              r: 0.03, h: 2.0, pos: [bedX, ry, brassZ], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
+            }), 'oldtime-head-rail'));
           }
           for (let i = 0; i < 7; i++) {
-            root.add(cylinder({
-              r: 0.018, h: 0.4, pos: [bedX - 0.75 + i * 0.25, UY + 1.22, hbZ - 0.08], mat: M_BRASS, cast: false,
-            }));
+            root.add(named(cylinder({
+              r: 0.018, h: 0.4, pos: [bedX - 0.75 + i * 0.25, UY + 1.22, brassZ], mat: M_BRASS, cast: false,
+            }), 'oldtime-head-spindle'));
           }
           root.add(cylinder({
             r: 0.028, h: 2.0, pos: [bedX, UY + 0.86, bedZ - 1.2], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
@@ -5353,20 +5408,43 @@ export function buildMansionInterior(shell = null) {
         },
       },
       extra: ({ cx }) => {
-        // A weights bench nobody has used since it arrived.
-        root.add(box({ size: [0.4, 0.12, 1.3], pos: [cx - 2.0, UY + 0.44, 43.6], mat: M_LEATHER_DK }));
+        /* A weights bench nobody has used since it arrived -- WITH THE RACK
+         * THAT HOLDS ITS BAR UP. The other half of "Workout bench and
+         * everything by bed is overlapping": the loaded barbell hung at
+         * y 6.92..6.98 with nothing beneath it but the bench top at 6.50, so
+         * 0.42 m of clear air and a bar floating over it. A bench press is a
+         * bench AND two uprights; only the bench had been built. */
+        /* cx - 1.8, not cx - 2.0: the press moved 120 mm into the room (see
+         * `wx` in buildBedroom) and at 2.0 the rack's foot would have stood
+         * 20 mm off its door handles. At 1.8 there is 220 mm between them. */
+        const bx = cx - 1.8;
+        root.add(box({ size: [0.4, 0.12, 1.3], pos: [bx, UY + 0.44, 43.6], mat: M_LEATHER_DK, name: 'oldtime-bench-pad' }));
         for (const bz of [43.1, 44.1]) {
-          root.add(box({ size: [0.3, 0.38, 0.1], pos: [cx - 2.0, UY + 0.19, bz], mat: M_RACK }));
+          root.add(box({ size: [0.3, 0.38, 0.1], pos: [bx, UY + 0.19, bz], mat: M_RACK, name: 'oldtime-bench-leg' }));
         }
-        root.add(cylinder({
-          r: 0.03, h: 1.5, pos: [cx - 2.0, UY + 0.95, 43.2], mat: M_CHROME, rotZ: Math.PI / 2,
-        }));
-        for (const ox of [-0.6, 0.6]) {
-          root.add(cylinder({
-            r: 0.2, h: 0.1, pos: [cx - 2.0 + ox, UY + 0.95, 43.2], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
+        for (const ox of [-0.32, 0.32]) {
+          root.add(box({
+            size: [0.08, 1.0, 0.08], pos: [bx + ox, UY + 0.5, 43.2], mat: M_RACK, name: 'oldtime-rack-upright',
+          }));
+          root.add(box({
+            size: [0.34, 0.05, 0.34], pos: [bx + ox, UY + 0.025, 43.2], mat: M_RACK, cast: false, name: 'oldtime-rack-foot',
+          }));
+          // The J-hook the bar actually rests in, at bar height.
+          root.add(box({
+            size: [0.1, 0.07, 0.17], pos: [bx + ox, UY + 0.955, 43.26], mat: M_RACK, cast: false, name: 'oldtime-rack-hook',
           }));
         }
-        solid(cx - 2.4, cx - 1.6, UY, UY + 0.6, 43.0, 44.3);
+        root.add(named(cylinder({
+          r: 0.03, h: 1.5, pos: [bx, UY + 0.95, 43.2], mat: M_CHROME, rotZ: Math.PI / 2,
+        }), 'oldtime-barbell'));
+        for (const ox of [-0.6, 0.6]) {
+          root.add(named(cylinder({
+            r: 0.2, h: 0.1, pos: [bx + ox, UY + 0.95, 43.2], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
+          }), 'oldtime-barbell-plate'));
+        }
+        // Collider takes the rack's full height -- it is 1 m of steel, not a
+        // 0.6 m bench you can walk over the top of.
+        solid(cx - 2.4, cx - 1.6, UY, UY + 1.0, 43.0, 44.3);
       },
     }),
     westRear: buildBedroom({
@@ -5413,7 +5491,7 @@ export function buildMansionInterior(shell = null) {
         },
         dress: (c) => {
           const {
-            r, cz, bedX, bedZ, hbZ, outerX,
+            r, cz, bedX, bedZ, hbZ, outerX, inward,
           } = c;
           /* Shiplap: horizontal boards to the chair rail, right round the
            * room, notched for BOTH doorways -- the gallery door in the south
@@ -5463,7 +5541,14 @@ export function buildMansionInterior(shell = null) {
            * y 8.13..9.07 on the bed's centre line, and a 1.9 m paddle crossed
            * over that lands squarely through it), and both east of the
            * doorway this wall carries at x -14.9..-13.1. */
-          const paddleX = bedX + 1.4;
+          /* 1.22 off the bed's centre line, not 1.4. Owner: "wall decorations
+           * clipping". A paddle crossed at 0.62 rad measures 0.2225 m each
+           * side of its own blade centre, so the east blade reached
+           * x = paddleX + 1.0025 -- at 1.4 that was -9.122, which is 98 mm
+           * through the shiplap band faced at -9.22 and 28 mm inside the
+           * structural partition at -9.15. Pulled back so the blade stops at
+           * -9.3025: 82 mm clear of the boarding, 152 mm clear of the wall. */
+          const paddleX = bedX + 1.22;
           for (const s of [-1, 1]) {
             root.add(box({
               size: [0.1, 1.9, 0.05], pos: [paddleX + s * 0.02, UY + 2.4, hbZ + 0.2 + s * 0.03], mat: M_LAKE_BOARD, rotZ: s * 0.62, name: 'lake-paddle',
@@ -5529,15 +5614,67 @@ export function buildMansionInterior(shell = null) {
           root.add(screen);
           c.screen = screen;
 
-          // A rod, a creel and a pair of decoys.
-          const rodX = outerX + 0.4;
+          /* ---- THE ROD, LEANT ON THE WALL AND ACTUALLY BUILT.
+           *
+           * Owner playtest, verbatim: "fishing rod needs to be a bit more
+           * detailed and leaning against the wall instead of in the air".
+           * Both halves measured. It was ONE bare cylinder -- no grip, no
+           * reel, no guides, no taper, nothing that makes a rod a rod -- and
+           * it leant the WRONG WAY: `rotZ: -0.12` tips the top toward +x, so
+           * the tip finished at x -15.474, half a metre out into the room,
+           * while the butt sat nearer the wall at -15.726. A rod stood on its
+           * tip leaning away from the wall. The only other piece, a chrome
+           * disc meant to be the reel, hung 100 mm off the blank's own axis.
+           *
+           * Rebuilt along a single measured axis so every part is ON the rod:
+           * `rodAt(t)` returns the point t metres up from the butt, and the
+           * grip, reel seat, reel, guides and tip section are all placed
+           * through it. Leant at 0.216 rad the other way, which puts the butt
+           * on the floor at x -15.500 and the tip at -15.950 -- 50 mm off the
+           * plaster, i.e. against the wall. */
           const rodZ = r.z1 - 1.4;
-          root.add(cylinder({
-            r: 0.018, h: 2.1, pos: [rodX, UY + 1.05, rodZ], mat: M_WOOD, rotZ: -0.12, name: 'lake-rod',
-          }));
-          root.add(cylinder({
-            r: 0.06, h: 0.05, pos: [rodX + 0.08, UY + 0.55, rodZ], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
-          }));
+          const rodX = outerX + inward * 0.275;
+          const rodA = inward * 0.216;
+          const rodDX = -Math.sin(rodA);
+          const rodDY = Math.cos(rodA);
+          const rodAt = (t) => [rodX - 1.05 * rodDX + t * rodDX, UY + t * rodDY, rodZ];
+          root.add(named(cylinder({
+            r: 0.018, h: 2.1, pos: [rodX, UY + 1.05 * rodDY, rodZ], mat: M_WOOD, rotZ: rodA,
+          }), 'lake-rod'));
+          // Cork grip, winding check, reel seat and the reel itself.
+          root.add(named(cylinder({
+            r: 0.033, h: 0.30, pos: rodAt(0.20), mat: mat({ color: 0xc9a877, roughness: 0.95 }), rotZ: rodA,
+          }), 'lake-rod-grip'));
+          root.add(named(cylinder({
+            r: 0.026, h: 0.03, pos: rodAt(0.36), mat: M_CHROME, rotZ: rodA, cast: false,
+          }), 'lake-rod-check'));
+          root.add(named(cylinder({
+            r: 0.028, h: 0.13, pos: rodAt(0.45), mat: M_CHROME, rotZ: rodA,
+          }), 'lake-rod-reel-seat'));
+          {
+            const [rx, ry] = rodAt(0.45);
+            root.add(named(cylinder({
+              r: 0.055, h: 0.045, pos: [rx, ry - 0.075, rodZ + 0.055], mat: M_CHROME, rotX: Math.PI / 2,
+            }), 'lake-rod-reel'));
+            root.add(named(cylinder({
+              r: 0.028, h: 0.05, pos: [rx, ry - 0.075, rodZ + 0.085], mat: M_LAKE_BLUE, rotX: Math.PI / 2, cast: false,
+            }), 'lake-rod-spool'));
+            root.add(named(cylinder({
+              r: 0.006, h: 0.05, pos: [rx + 0.035, ry - 0.075, rodZ + 0.10], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
+            }), 'lake-rod-reel-handle'));
+            root.add(box({
+              size: [0.02, 0.05, 0.02], pos: [rx, ry - 0.04, rodZ + 0.03], mat: M_CHROME, cast: false, name: 'lake-rod-reel-foot',
+            }));
+          }
+          // Line guides up the blank, and a whipped-on tip section.
+          for (const t of [0.72, 1.02, 1.32, 1.58, 1.80]) {
+            root.add(named(cylinder({
+              r: 0.014, h: 0.012, pos: rodAt(t), mat: M_CHROME, rotZ: rodA, cast: false,
+            }), 'lake-rod-guide'));
+          }
+          root.add(named(cylinder({
+            rTop: 0.006, rBottom: 0.014, h: 0.30, pos: rodAt(1.95), mat: M_WOOD, rotZ: rodA, cast: false,
+          }), 'lake-rod-tip'));
           root.add(box({
             size: [0.36, 0.3, 0.26], pos: [rodX + 0.16, UY + 0.15, rodZ + 0.3], mat: M_LAKE_ROPE, name: 'lake-creel',
           }));
@@ -5724,13 +5861,30 @@ export function buildMansionInterior(shell = null) {
 
           /* A moulded lounge chair and its ottoman, in place of the shared
            * armchair (`chairKind: 'none'` above), on a chrome base. */
-          const lx = c.chairX;
-          const lz = cz + 2.4;
+          /* OUT OF THE WARDROBE'S FACE, AND OFF THE SIDE TABLE.
+           *
+           * Owner playtest, verbatim: "Chair clipping closet". Measured, the
+           * lounge chair's near arm stood at x 10.055 with the wardrobe's door
+           * handles at 9.95 -- 105 mm, which is not a gap you could open that
+           * door into, and reads as contact from anywhere in the room. Worse
+           * and unreported: its ottoman at x 11.15..11.75, z 62.15..62.65 ran
+           * straight through the shared side table's pedestal at 11.67..11.83,
+           * z 62.32..62.48. Chair, ottoman and table were all crammed into the
+           * same 1.2 m of the room's south-west corner.
+           *
+           * The corner is unpacked rather than nudged: the lounge chair and
+           * its ottoman move to the empty stretch of floor between the bed and
+           * the east window, which no other piece in this room uses. That also
+           * leaves the wardrobe corner clear for somebody to stand in. */
+          const lx = cx + 1.5;
+          const lz = cz + 1.1;
           root.add(box({
             size: [0.86, 0.2, 0.8], pos: [lx, UY + 0.42, lz], mat: M_LEATHER_DK, rotX: -0.06, name: 'modern-lounge-seat',
           }));
+          /* Set 0.44 back, not 0.34: at 0.34 the tilted back drove 297 mm into
+           * an 800 mm seat, so more than a third of the seat was inside it. */
           root.add(box({
-            size: [0.86, 0.86, 0.22], pos: [lx, UY + 0.82, lz - 0.34], mat: M_LEATHER_DK, rotX: -0.3, name: 'modern-lounge-back',
+            size: [0.86, 0.86, 0.22], pos: [lx, UY + 0.84, lz - 0.44], mat: M_LEATHER_DK, rotX: -0.3, name: 'modern-lounge-back',
           }));
           for (const s of [-1, 1]) {
             root.add(box({
