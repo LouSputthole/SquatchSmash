@@ -148,7 +148,12 @@ const playerProxy = {
   npc: null,
   get x() { return player.position.x; },
   get z() { return player.position.z; },
-  get y() { return player.position.y; },
+  /* CHEST height, not the eye. `player.position.y` is where he LOOKS from;
+   * every combatant's own `y` is `npc.position.y + 1.3`, and both the NPC
+   * firing line and the near-miss test read this as "where the body is".
+   * Handing them the eye made every enemy aim a rifle at an unhelmeted head
+   * from the first round, and the first round that landed always killed. */
+  get y() { return player.position.y - player.eyeHeight + 1.3; },
   noteShotResult(record) {
     if (!record?.applied) return;
     playerCombat.takeHit(record);
@@ -516,7 +521,13 @@ checkpoints.register('roster', {
 checkpoints.register('encounter', {
   capture: () => activeEncounter?.capture() ?? null,
   restore: (s) => { if (s) activeEncounter?.restore(s); },
-  reset: () => { activeEncounter = null; },
+  /* CheckpointDirector resets EVERY system before it restores any of them,
+   * so the controller has to survive its own reset -- dropping the reference
+   * here (`activeEncounter = null`) threw the snapshot away one line later
+   * and every restored fight came back as "no encounter". `reset()` already
+   * returns the controller to idle with nothing spawned, which is what the
+   * teardown wanted; `restore()` then puts the whole fight back. */
+  reset: () => { activeEncounter?.reset(); },
 });
 
 /* ================================================================== */
@@ -684,7 +695,10 @@ function updateGame(dt) {
     player: {
       x: player.position.x,
       z: player.position.z,
-      y: player.position.y,
+      // Chest, for the same reason playerProxy.y is chest — this is the
+      // point NPC fire is laid on, and a rifle aimed at the eye is a
+      // guaranteed headshot rather than a firefight.
+      y: playerProxy.y,
       moving: player.velocity.lengthSq() > 0.3,
       crouched: player.crouching,
       dead: playerCombat.vitals.dead,
@@ -782,7 +796,18 @@ window.combatlab = {
   tick(seconds = 1, step = 1 / 60) {
     const wasRunning = running;
     running = true;
-    for (let t = 0; t < seconds; t += step) updateGame(step);
+    for (let t = 0; t < seconds; t += step) {
+      updateGame(step);
+      /* `renderer.render()` is what normally refreshes the scene graph's
+       * world matrices, and EVERY combat ray is cast against matrixWorld —
+       * hit volumes ride the animated rig, and the player's own two boxes
+       * are moved here each step. Ticking with rendering off and skipping
+       * this leaves every body frozen wherever it stood at the last drawn
+       * frame: enemy fire passes through the player, bodies stop stopping
+       * rounds, and a headless check measures a scene nobody is standing in.
+       * One update per step is exactly what the render would have done. */
+      scene.updateMatrixWorld();
+    }
     running = wasRunning || true;
   },
   report() {

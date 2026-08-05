@@ -252,6 +252,16 @@ never a hidden health hack.
 - **The lab's AI LOS raycasts** test the full 414-mesh list per query at
   15 Hz per NPC. Fine at 16 NPCs in verification; a mission with much
   larger casts should pass a reduced occluder list (walls only).
+- **NPCs in cover sometimes shoot their own cover.** The brain has a
+  `peeking` intent but the firing muzzle is not yet offset out of the
+  cover volume while peeking, so a share of rounds from a barrier land in
+  the barrier. It reads as poor marksmanship, not a bug, but a muzzle
+  offset during peeks is the next brain/cover refinement — along with
+  raising cover-fire cadence if missions want busier-sounding fights.
+- **Headless combat requires `scene.updateMatrixWorld()` per simulated
+  step** (the render normally does it). The lab's `tick()` does this; any
+  future scene driving combat under a suspended renderer must too, or
+  every ray is cast against frozen bodies.
 
 ## 11. Recommendations: the mansion siege first
 
@@ -292,6 +302,10 @@ InstancedMesh (160), chips one InstancedMesh (96), decals rotating
 `BulletHoles` pools (48), casings capped by `EjectaPool` (24), ragdolls
 zero-cost after settling (the collapse tween frees itself), AI on a 15 Hz
 budget with per-frame movement, gunfire audio rate-limited (14 starts/s).
-The stress encounter (16 spawned, 12-cap active) runs in the verifier with
-per-simulated-second wall times recorded in its output; see
-`npm run verify:combatlab`.
+Measured by `npm run verify:combatlab` (33 checks, headless swiftshader):
+six simulated seconds of the seven-man yard fight cost ~294 ms of wall
+clock; five simulated seconds of 13 combatants at 1/30 steps cost
+~180–210 ms — about **1.2–1.4 ms per simulated step** with all AI,
+raycasts and effects running. The verifier also proved the fights bite:
+standing still in the open yard costs the player all 100 health inside
+six seconds.

@@ -56,6 +56,7 @@ export class ShotResolver {
    * }}
    */
   resolve({ origin, dir, weapon, attacker, targets, scale = 1, distanceOffset = 0 }) {
+    this.log?.shot({ shooter: attacker.id, weapon: weapon.id });
     this.raycaster.set(origin, dir);
     this.raycaster.far = this.range;
     const hits = this.raycaster.intersectObjects(targets, true);
