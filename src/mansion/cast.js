@@ -178,6 +178,32 @@ const FACES = Object.freeze({
   hogmama: 'assets/faces/hogmama.png',
 });
 
+/**
+ * Wear a photo, if there is anything to paint it with.
+ *
+ * `makePerson`'s `face` goes straight into a `THREE.TextureLoader`, which
+ * builds an `<img>` — so a figure with a face on it CANNOT BE CONSTRUCTED
+ * WITHOUT A DOM, and mounting this module in `node --test` threw on the first
+ * man placed. That is the same trap the height-fallbacks at the top of this
+ * file are written against: a module that only owns where people stand should
+ * not be the thing that cannot run headless.
+ *
+ * So the photo is the one part of a figure that is conditional. Everything
+ * else about him — his wardrobe entry, his post, his job, his lines — is
+ * identical in both worlds, and the headless harness gets the authored head
+ * that `makePerson` builds for anybody whose photo has not landed.
+ *
+ * THE TEST IS `createElementNS`, NOT `typeof document`, and that is not
+ * pedantry: `tests/bing-dialogue-lock.test.mjs` installs a small `document`
+ * stub on globalThis, and `npm test` runs every file in one process — so in
+ * the suite `document` exists, is not a DOM, and a bare `typeof` check sends
+ * nine figures into an image loader that then dies on the first one. Ask for
+ * the one call `THREE.ImageLoader` actually makes.
+ */
+const CAN_PAINT_FACES = typeof document !== 'undefined'
+  && typeof document.createElementNS === 'function';
+const withFace = (model, face) => (CAN_PAINT_FACES && face ? { ...model, face } : model);
+
 /* ================================================================== */
 /* SITTING DOWN ON THIS HOUSE'S FURNITURE                               */
 /*                                                                       */
@@ -669,7 +695,7 @@ export function mountMansionCast(scene, world = {}, {
   const louAt = { x: desk.x + 1.05, y: desk.y, z: desk.z + 2.55 };
   post('lou', {
     name: 'Big Uncle Lou',
-    model: { ...BIG_UNCLE_LOU, face: FACES.lou },
+    model: withFace(BIG_UNCLE_LOU, FACES.lou),
     x: louAt.x,
     y: louAt.y,
     z: louAt.z,
@@ -689,7 +715,7 @@ export function mountMansionCast(scene, world = {}, {
   const rippinAt = { x: lounge.x - 2.05, y: lounge.y, z: lounge.z + 2.1 };
   post('rippin', {
     name: 'Rippinflow',
-    model: { ...RIPPINFLOW, face: FACES.rippinflow },
+    model: withFace(RIPPINFLOW, FACES.rippinflow),
     job: 'lean',
     x: rippinAt.x,
     y: rippinAt.y,
@@ -707,7 +733,7 @@ export function mountMansionCast(scene, world = {}, {
   const ericAt = { x: dining.x + 1.5, y: seatBase(dining.y, CUSHION.chair), z: dining.z };
   post('eric', {
     name: 'Eric',
-    model: { ...ERIC, face: FACES.erican },
+    model: withFace(ERIC, FACES.erican),
     job: 'sit',
     x: ericAt.x,
     y: ericAt.y,
@@ -729,7 +755,7 @@ export function mountMansionCast(scene, world = {}, {
   ];
   post('shubes', {
     name: 'The Shubenator',
-    model: { ...SHUBENATOR, face: FACES.shubes },
+    model: withFace(SHUBENATOR, FACES.shubes),
     job: 'patrol',
     x: shubesRoute[0].x,
     y: gallery.y,
@@ -763,7 +789,7 @@ export function mountMansionCast(scene, world = {}, {
   };
   post('sasole', {
     name: 'Captain Lou Sasole',
-    model: { ...CAPTAIN_LOU_SASOLE, face: FACES.sasole },
+    model: withFace(CAPTAIN_LOU_SASOLE, FACES.sasole),
     job: 'drink',
     x: sasoleAt.x,
     y: sasoleAt.y,
@@ -784,7 +810,7 @@ export function mountMansionCast(scene, world = {}, {
   };
   post('hogmama', {
     name: 'Hog Mama',
-    model: { ...HOG_MAMA, face: FACES.hogmama },
+    model: withFace(HOG_MAMA, FACES.hogmama),
     job: 'drink',
     x: hogAt.x,
     y: hogAt.y,
@@ -866,7 +892,7 @@ export function mountMansionCast(scene, world = {}, {
       const irishAt = { x: foot.x - 0.55, y: foot.y, z: foot.z - 1.5 };
       post('irish', {
         name: 'Irish',
-        model: { ...IRISH, face: FACES.irish },
+        model: withFace(IRISH, FACES.irish),
         job: 'work',
         x: irishAt.x,
         y: irishAt.y,
@@ -892,7 +918,7 @@ export function mountMansionCast(scene, world = {}, {
       const booskiAt = { x: table.x + 1.6, y: table.y, z: table.z - 0.9 };
       post('booski', {
         name: 'Booski',
-        model: { ...BOOSKI, face: FACES.booski },
+        model: withFace(BOOSKI, FACES.booski),
         x: booskiAt.x,
         y: booskiAt.y,
         z: booskiAt.z,
@@ -916,7 +942,7 @@ export function mountMansionCast(scene, world = {}, {
       const dmtAt = { x: glassDoor.x - 1.8, y: glassDoor.y, z: glassDoor.z - 0.35 };
       post('deathmegatron', {
         name: 'DeathMegatron',
-        model: { ...DEATHMEGATRON, face: FACES.deathmegatron },
+        model: withFace(DEATHMEGATRON, FACES.deathmegatron),
         x: dmtAt.x,
         y: dmtAt.y,
         z: dmtAt.z,
@@ -943,78 +969,307 @@ export function mountMansionCast(scene, world = {}, {
       onArrive: () => offerTheSwing(),
       onLeave: () => declineTheSwing(),
       idle: SEQUENCES.tortureIdle,
-      look: () => (torture.swung
+      /* CLICKING GRATIN IS A HANDOVER, NOT A SWING. */
+      look: () => (torture.handed
         ? 'He has gone back to what he was doing.'
-        : 'Take a <b>swing</b>'),
-      onUse: () => takeSwing(),
+        : 'Take the <b>cord</b>'),
+      onUse: () => handTheCordOver(),
     });
     torture = {
       npc: gratin,
-      /** Has he made the offer yet, and has the player used it. */
+      /** Has he made the offer yet, and did the player walk past it. */
       offered: false,
       declined: false,
-      swung: false,
+      /** Has the cord been put in the player's hand. The house rule is on
+       * THIS, not on the number of times it has been used. */
+      handed: false,
+      /** How many times it has landed. Picks which thing xXx says. */
+      swings: 0,
       /** −1 when the cord is not moving; 0→1 across one swing. */
       swing: -1,
       landed: false,
       cord: null,
     };
+
+    /* ---- the man on the rope is the only thing the cord can reach ------
+     *
+     * THIS REGISTRATION IS THE WHOLE SAFETY ARGUMENT. The swing is not a ray,
+     * a hitscan or a "whatever is under the crosshair" resolver — it is one
+     * interaction handler on ONE mesh, `lab.xxx.aim`, which is the body
+     * already hanging from the ceiling. There is no list of targets to add
+     * anybody to and no damage model to point anywhere, so SNOW CANNOT BE
+     * TARGETED BY CONSTRUCTION rather than by a filter somebody could later
+     * relax. Standing owner rule.
+     *
+     * Registered ONCE, and on a mesh nothing else owns: `interaction.register`
+     * writes `userData.interact`, so a second registration REPLACES the first.
+     * `lab.targets.xxx` is published for aiming and the crosshair readout and
+     * is not registered by mission/mount.js or by main.js — checked before
+     * this was written, and it is the only reason this is allowed to be here.
+     */
+    const hangingMesh = lab?.xxx?.aim ?? null;
+    if (interaction && hangingMesh?.isObject3D) {
+      interaction.register(hangingMesh, {
+        label: () => {
+          if (!torture.handed) return 'xXx, who is still talking';
+          return 'Swing the <b>cord</b>';
+        },
+        enabled: () => enabled(),
+        onUse: () => swingAtHim(),
+      });
+      torture.target = hangingMesh;
+    }
   }
 
   /* ---------------------------------------------------------------- */
   /* The swing                                                         */
   /*                                                                    */
-  /* One. The mechanic is the club's, imported whole: the same cord     */
-  /* geometry, the same `poseCord` lag-and-pay-out, the same 0.72 s and */
-  /* the same four cues. What is different is the economy — LICENSE TO  */
-  /* GRILL is a whole interrogation you swing your way through, and     */
-  /* this is a man at work offering you a go on the way past.           */
+  /* Owner playtest, 2026-08-05, verbatim: "I could only whip Xxx once  */
+  /* and it was when I clicked on gratin, gratin should give me the     */
+  /* whip then I can just click on XXX to do it. Need an ouch or a      */
+  /* scream reaction then the voice line and a blood and impact effect  */
+  /* as well."                                                          */
+  /*                                                                     */
+  /* It used to be ONE press on ONE man that did everything: the         */
+  /* handover, the swing and the house rule were all `takeSwing()` on    */
+  /* Gratin, so the second press got "One each. House rule." and the     */
+  /* cord you were holding stopped working. Two verbs now, on the two    */
+  /* men they belong to:                                                 */
+  /*                                                                      */
+  /*   press GRATIN -> he hands it to you. Once. The house rule is the    */
+  /*                   answer to asking for a SECOND handover.            */
+  /*   press xXx    -> you swing it. As often as you like, forever.        */
+  /*                                                                       */
+  /* The mechanic underneath is still the club's, imported whole: the same  */
+  /* cord geometry, the same `poseCord` lag-and-pay-out, the same 0.72 s    */
+  /* and the same four cues.                                                */
   /* ---------------------------------------------------------------- */
 
-  /** Gratin puts it in your hand. */
-  function handCordOver() {
-    if (!camera || torture.cord) return;
-    torture.cord = makeCord();
-    camera.add(torture.cord.root);
-    poseCord(torture.cord, -1);
+  /** Gratin puts it in your hand, and it stays there. */
+  function handTheCordOver() {
+    if (!torture) return false;
+    /* THE HOUSE RULE. One cord each — he is not fetching you another. Note
+     * what this does NOT gate: how many times you use the one you have. */
+    if (torture.handed) { dialogue.interject(SEQUENCES.tortureOneEach); return true; }
+    torture.handed = true;
+    torture.declined = false;
+    if (camera && !torture.cord) {
+      torture.cord = makeCord();
+      camera.add(torture.cord.root);
+      poseCord(torture.cord, -1);
+    }
     audio?.play('bing.grill.cord.handoff', { volume: 0.7 });
+    dialogue.interject(SEQUENCES.tortureHandover);
+    screen?.setInstruction?.(INSTRUCTIONS.SWING_THE_CORD);
+    return true;
   }
 
-  /** And takes it back, because it is his. */
+  /** And takes it back, because it is his — on the way out, not mid-evening. */
   function takeCordBack() {
-    if (!torture.cord) return;
+    if (!torture?.cord) return;
     camera?.remove?.(torture.cord.root);
     torture.cord = null;
   }
 
+  /** What he says on the first swing, and on every one after it. */
+  const SWING_LINES = [
+    SEQUENCES.tortureSwing,
+    SEQUENCES.tortureSwingTwo,
+    SEQUENCES.tortureSwingThree,
+    SEQUENCES.tortureSwingFour,
+  ];
+
   /**
-   * Take the swing. The player's decision, at the moment he makes it.
+   * Swing it at him. The player's decision, at the moment he makes it, and he
+   * can make it as many times as he likes.
    *
-   * It cannot miss and it cannot hit anybody else: there is no ray, no target
-   * list and no damage model anywhere in this module. The swing is authored,
-   * it lands on the man who is already hanging from the ceiling, and xXx —
-   * who survives the night, per `lab.xxx.alive` — has something to say about
-   * family afterwards.
+   * IT CANNOT MISS AND IT CANNOT REACH ANYBODY ELSE, and not because it is
+   * filtered: this function is only ever reached from the interaction handler
+   * registered on `lab.xxx.aim`, and there is no ray, no target list and no
+   * damage model in this module for it to reach anything else through. xXx
+   * survives the night regardless — `lab.xxx.alive` is a hard true — so the
+   * cord costs him something to say and nothing else.
    */
-  function takeSwing() {
+  function swingAtHim() {
     if (!torture) return false;
+    /* Not holding it yet: he has to ask Gratin first, and the prompt on
+     * Gratin already says so. Consume nothing. */
+    if (!torture.handed) return false;
+    /* Mid-swing. Pressing again does not queue a second one. */
     if (torture.swing >= 0) return true;
-    if (torture.swung) { dialogue.interject(SEQUENCES.tortureOneEach); return true; }
-    torture.swung = true;
     torture.swing = 0;
     torture.landed = false;
-    handCordOver();
     screen?.setInstruction?.('');
     audio?.play('bing.grill.cord.swing', { volume: 0.62 });
     return true;
   }
 
-  /** The frame the cord arrives. Once per swing, from `update`. */
+  /**
+   * The frame the cord arrives. Once per swing, from `update`.
+   *
+   * THE ORDER IS THE POINT. The crack, the blood and the noise he makes are
+   * one event on one frame — they are what happens TO him, and he has no say
+   * in any of it. The sentence comes after, because the sentence is him
+   * deciding to speak, and the sequences in script.js are authored with the
+   * involuntary noise as their first line so that order cannot be lost at a
+   * call site.
+   */
   function resolveSwing() {
     torture.landed = true;
+    torture.swings += 1;
+    /* 1. the impact. */
     audio?.play('bing.grill.cord.whip', { volume: 0.8 });
-    lab?.xxx?.say?.(null, { seconds: 2.6 });
-    dialogue.interject(SEQUENCES.tortureSwing);
+    /* 2. the blood and the impact effect, at the body's measured middle. */
+    burstAtHim();
+    /* 3. the noise, then the line — both inside the sequence, in that order.
+     *
+     * `play`, NOT `interject`. Interjecting only jumps the QUEUE; it waits for
+     * whatever is mid-sentence to finish, so swinging while Gratin was still
+     * explaining the cord put the crack and the blood on screen now and the
+     * noise xXx made four seconds later, attached to nothing. A man being hit
+     * cuts the room off, so this cuts the room off. Only ever this module's
+     * own lines are interrupted — the mission runs its own controller. */
+    dialogue.play(SWING_LINES[Math.min(torture.swings, SWING_LINES.length) - 1]);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* THE IMPACT                                                        */
+  /*                                                                    */
+  /* Owner: "a blood and impact effect as well."                       */
+  /*                                                                    */
+  /* BUILT HERE, ON PURPOSE. `scenes/SilentSquatch.js` owns xXx, his    */
+  /* chain, his figure and the pool of blood already under him, and it  */
+  /* is not edited by this pass — so this reads what it needs off the   */
+  /* published `lab.xxx` handle and adds its own meshes to the scene    */
+  /* beside them. It never writes to anything the environment owns.     */
+  /*                                                                     */
+  /* WHERE the cord lands is MEASURED rather than authored: the world     */
+  /* box of `lab.xxx.aim` is the body as it is actually built and hung,   */
+  /* so the spray comes off his back at whatever height he is at, and it  */
+  /* cannot drift if the rig is re-hung.                                   */
+  /* ---------------------------------------------------------------- */
+  const M_BLOOD = mat({ color: 0x5e0d0d, roughness: 0.32, metalness: 0.02 });
+  const M_BLOOD_WET = mat({ color: 0x3a0707, roughness: 0.18, metalness: 0.04 });
+  /* `unique`, because this one's opacity is animated and a shared material
+   * would fade whatever else happened to be built from the same parameters. */
+  const M_IMPACT = mat({
+    color: 0xffd9b0,
+    emissive: 0xff9a5a,
+    emissiveIntensity: 2.4,
+    roughness: 1,
+    transparent: true,
+    opacity: 1,
+    unique: true,
+  });
+  /** Droplets in flight, floor marks that have landed, and the flash. */
+  const spray = [];
+  const marks = [];
+  let flash = null;
+  /** Floor marks are permanent, so they are capped and recycled. */
+  const MAX_MARKS = 28;
+  const strike = new THREE.Vector3();
+  const bodyBox = new THREE.Box3();
+
+  /** The middle of the man, in world space, this frame. */
+  function strikePoint() {
+    const aim = torture?.target ?? lab?.xxx?.aim ?? null;
+    if (aim?.isObject3D) {
+      aim.updateMatrixWorld(true);
+      bodyBox.setFromObject(aim);
+      if (!bodyBox.isEmpty()) return bodyBox.getCenter(strike);
+    }
+    /* No aim mesh in this build: fall back to the hanging anchor, a metre
+     * under the ankles, which is where a man on a hook has a back. */
+    const a = lab?.xxx?.at ?? { x: 0, y: BASEMENT_Y, z: 0 };
+    return strike.set(a.x, (lab?.xxx?.rig?.ankleY ?? (a.y + 1.6)) - 0.95, a.z);
+  }
+
+  /** The floor he is hanging over, for the marks to land on. */
+  function floorUnderHim() {
+    return (lab?.xxx?.at?.y ?? BASEMENT_Y) + 0.012;
+  }
+
+  /**
+   * One hit: a flash of contact, and blood off it.
+   *
+   * The droplets are thrown with real velocity and fall under gravity, so
+   * they land where the physics puts them rather than where somebody decided
+   * a spatter looks good — and each one that reaches the floor leaves a mark
+   * that stays for the rest of the night. Six swings and the floor tells you
+   * how many, which is the same job Snow's cart is foreshadowing.
+   */
+  function burstAtHim() {
+    const at = strikePoint();
+
+    /* The contact itself: one bright, brief, tiny sphere. It is gone in an
+     * eighth of a second — long enough to see the cord ARRIVE somewhere. */
+    if (!flash) {
+      flash = cylinder({ r: 0.09, h: 0.02, pos: [0, 0, 0], mat: M_IMPACT, cast: false });
+      flash.name = 'mansion.whipImpact';
+      scene.add(flash);
+    }
+    flash.position.copy(at);
+    flash.visible = true;
+    flash.userData.life = 0.14;
+
+    /* And the blood. Away from the body, mostly along the swing, and down. */
+    for (let i = 0; i < 9; i++) {
+      const drop = box({
+        size: [0.035, 0.035, 0.035], pos: [at.x, at.y, at.z], mat: M_BLOOD, cast: false,
+      });
+      drop.name = 'mansion.whipBlood';
+      const a = Math.random() * Math.PI * 2;
+      const speed = 1.1 + Math.random() * 2.2;
+      drop.userData.vel = new THREE.Vector3(
+        Math.cos(a) * speed * 0.55,
+        0.7 + Math.random() * 1.5,
+        Math.sin(a) * speed * 0.55,
+      );
+      drop.userData.life = 1.6;
+      scene.add(drop);
+      spray.push(drop);
+    }
+  }
+
+  /** Blood in the air, and the flash. Called every frame the scene runs. */
+  function updateImpact(dt) {
+    if (flash?.visible) {
+      flash.userData.life -= dt;
+      const k = Math.max(0, flash.userData.life / 0.14);
+      /* Opens out and thins away, which is how a struck surface reads. */
+      flash.scale.setScalar(0.6 + (1 - k) * 2.6);
+      M_IMPACT.opacity = k;
+      if (flash.userData.life <= 0) flash.visible = false;
+    }
+    if (!spray.length) return;
+    const floorY = floorUnderHim();
+    for (let i = spray.length - 1; i >= 0; i--) {
+      const drop = spray[i];
+      const v = drop.userData.vel;
+      v.y -= 9.81 * dt;
+      drop.position.addScaledVector(v, dt);
+      drop.userData.life -= dt;
+      const landed = drop.position.y <= floorY;
+      if (!landed && drop.userData.life > 0) continue;
+      spray.splice(i, 1);
+      drop.parent?.remove(drop);
+      if (!landed) continue;
+      /* It hit the floor. Leave something behind. */
+      const mark = cylinder({
+        r: 0.05 + Math.random() * 0.11,
+        h: 0.006,
+        pos: [drop.position.x, floorY, drop.position.z],
+        mat: M_BLOOD_WET,
+        cast: false,
+      });
+      mark.name = 'mansion.whipBloodMark';
+      scene.add(mark);
+      marks.push(mark);
+      while (marks.length > MAX_MARKS) {
+        const oldest = marks.shift();
+        oldest?.parent?.remove(oldest);
+      }
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -1044,9 +1299,23 @@ export function mountMansionCast(scene, world = {}, {
    *
    * Everybody not standing in this house resolves to null and is simply a
    * subtitle: the six scientists are the laboratory's own figures and it
-   * speaks them itself (`lab.scientists[i].say`), xXx is `lab.xxx`, and the
-   * Prospect is the player, who has no body to animate.
+   * speaks them itself (`lab.scientists[i].say`), and the Prospect is the
+   * player, who has no body to animate.
    */
+  /**
+   * xXx's mouth, behind an adapter.
+   *
+   * `lab.xxx.say(cue, opts)` takes a cue name, not a duration — it is the
+   * laboratory's own positional-audio path. Everything else here is an `Npc`
+   * whose `say(seconds)` just runs the talk animation, so his is wrapped to
+   * that shape rather than special-cased in the wrapper. Passing a null cue
+   * moves the head without playing a second copy of a line the dialogue
+   * controller is already playing.
+   */
+  const xxxMouth = lab?.xxx
+    ? { say: (seconds) => lab.xxx.say?.(null, { seconds }) }
+    : null;
+
   function speakerFor(speakerKey) {
     switch (speakerKey) {
       /* the house's own staff */
@@ -1073,6 +1342,9 @@ export function mountMansionCast(scene, world = {}, {
       case 'NUMBSKULL': return people.numbskull;
       case 'HOGMAMA': return people.hogmama;
       case 'WILLY': return people.willy;
+      /* The man on the rope, so every noise and every sentence he has moves
+       * his head — the swing's, and the mission's two barks as well. */
+      case 'XXX': return xxxMouth;
       default: return null;
     }
   }
@@ -1145,13 +1417,19 @@ export function mountMansionCast(scene, world = {}, {
       ...SEQUENCES.tortureAlwaysYou,
       ...SEQUENCES.tortureOffer,
     ], {
-      onDone: () => { if (!torture.swung) screen?.setInstruction?.(INSTRUCTIONS.TAKE_A_SWING); },
+      onDone: () => {
+        /* Which button, and it names the man it is about — the old single
+         * instruction said "take your swing" while the only thing you could
+         * press was Gratin, which taught the player that Gratin IS the swing.
+         * That is the misunderstanding the whole rework is fixing. */
+        if (!torture.handed) screen?.setInstruction?.(INSTRUCTIONS.TAKE_THE_CORD);
+      },
     });
   }
 
   /** You looked at it and kept walking. He is not offended. */
   function declineTheSwing() {
-    if (!torture || !torture.offered || torture.swung || torture.declined) return;
+    if (!torture || !torture.offered || torture.handed || torture.declined) return;
     torture.declined = true;
     screen?.setInstruction?.('');
     dialogue.interject(SEQUENCES.tortureDeclined);
@@ -1219,8 +1497,10 @@ export function mountMansionCast(scene, world = {}, {
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
     get snow() { return people.snow; },
-    /** Gratin's offer, for a caller that wants to drive it without a mouse. */
-    swing: () => takeSwing(),
+    /** The two verbs, for a caller that wants to drive them without a mouse.
+     * `takeCord` is Gratin; `swing` is xXx, and it works every time. */
+    takeCord: () => handTheCordOver(),
+    swing: () => swingAtHim(),
 
     update(dt) {
       if (!enabled()) return;
@@ -1234,11 +1514,16 @@ export function mountMansionCast(scene, world = {}, {
         if (!torture.landed && torture.swing >= SWING_LANDS_AT) resolveSwing();
         if (torture.swing >= 1) {
           torture.swing = -1;
-          takeCordBack();
+          /* The cord is NOT taken back at the end of the swing any more. It
+           * was, which is the other half of why the whip felt like it worked
+           * once: the arm went down and the thing left your hand. It is yours
+           * now, and it rests until you use it again. */
+          if (torture.cord) poseCord(torture.cord, -1);
         } else if (torture.cord) {
           poseCord(torture.cord, torture.swing);
         }
       }
+      updateImpact(dt);
     },
 
     /** The headless surface, the same shape the mission's `debug` has. */
@@ -1259,15 +1544,31 @@ export function mountMansionCast(scene, world = {}, {
         if (!torture) return null;
         return {
           offered: torture.offered,
-          swung: torture.swung,
+          /** The cord has been handed over. The house rule is on this. */
+          handed: torture.handed,
+          /** How many times it has actually landed. Not capped at one. */
+          swings: torture.swings,
           swinging: torture.swing >= 0,
           landed: torture.landed,
           hasCord: Boolean(torture.cord),
+          /** Blood on the floor under him, one mark per droplet that got
+           * there — the effect proved by its result rather than by a flag. */
+          bloodMarks: marks.length,
         };
       },
-      /** Proof, in code, of the standing rule. */
+      /**
+       * Proof, in code, of the standing rule.
+       *
+       * `whipTargets` is the whole list of things the cord can be pointed at
+       * and it has exactly one entry, which is the mesh of the man already
+       * hanging from the ceiling. Snow is not in it, cannot be added to it by
+       * any code path in this module, and there is no resolver that would
+       * consult it if he were.
+       */
       snowIsATarget: false,
-      swing: () => takeSwing(),
+      get whipTargets() { return torture?.target ? ['lab.xxx.aim'] : []; },
+      takeCord: () => handTheCordOver(),
+      swing: () => swingAtHim(),
       hud: () => screen?.text?.() ?? null,
     },
 
@@ -1282,7 +1583,16 @@ export function mountMansionCast(scene, world = {}, {
         interaction?.unregister?.(npc.group);
         npc.group.parent?.remove(npc.group);
       }
+      /* The one mesh this module registered that is not one of its own
+       * bodies. It belongs to the laboratory and is only borrowed. */
+      if (torture?.target) interaction?.unregister?.(torture.target);
       cart.parent?.remove(cart);
+      /* The blood, in the air and on the floor, and the flash. */
+      for (const drop of spray.splice(0)) drop.parent?.remove(drop);
+      for (const mark of marks.splice(0)) mark.parent?.remove(mark);
+      flash?.parent?.remove(flash);
+      flash = null;
+      M_IMPACT.dispose?.();
     },
   };
 }
