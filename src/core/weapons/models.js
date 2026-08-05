@@ -41,6 +41,26 @@
  *   moving          {slide, bolt, hammer, cylinder, charging, bipod…} — the
  *                   parts a scene may want to animate. Every key optional.
  *   length          metres, muzzle to buttplate, for rack spacing.
+ *
+ * ---------------------------------------------------------------- THE GRIP
+ *
+ * Owner, on the mansion's gun wall, verbatim: *"On the guns the grip appears
+ * to be going the wrong way its going inverted instead of outward."*
+ *
+ * Measured, and he is right about all six. Because every model points down
+ * local **-Z**, a grip rakes correctly when its own DOWN axis carries a
+ * POSITIVE z — the butt falls back, away from the muzzle, into the web of the
+ * hand. Every grip here was built with `rotation.x = +θ`, which rotates that
+ * down axis toward **-Z**: the butt leaned forward over the trigger by 11.5°
+ * (the 9mm) to 24.1° (the revolver and the carbine). That is a grip pointing
+ * at the target, which is the inversion he saw, and it read worst on a rack
+ * where you look at a gun side-on for as long as you like.
+ *
+ * The sign is now NEGATIVE on all six and nothing else moved — same pivot,
+ * same offsets, same rake ANGLE, mirrored about the vertical. Two of them
+ * were also intersecting their own trigger guards on the old sign (the 9mm's
+ * grip spanned z 0.014..0.061 across a guard at 0.009..0.047; the carbine's
+ * spanned 0.024..0.060 across a guard at 0.009..0.047) and both now clear it.
  */
 import * as THREE from 'three';
 import { box, cylinder, group, GUARD_ROT, mat, sphere, torus } from './build.js';
@@ -155,7 +175,7 @@ export function buildRevolver() {
   const grip = new THREE.Group();
   grip.name = 'revolver-grip';
   grip.position.set(0, 0.012, 0.055);
-  grip.rotation.x = 0.42;
+  grip.rotation.x = -0.42;   // rakes BACK off the frame -- see "THE GRIP" above
   g.add(grip);
   grip.add(box({ size: [0.026, 0.078, 0.030], pos: [0, -0.030, 0], mat: M.wood }));
   grip.add(box({ size: [0.030, 0.070, 0.012], pos: [0, -0.028, -0.012], mat: M.dark }));
@@ -221,7 +241,7 @@ export function buildNineMillimeter() {
   const grip = new THREE.Group();
   grip.name = 'pistol9-grip';
   grip.position.set(0, 0.003, 0.025);
-  grip.rotation.x = 0.20;
+  grip.rotation.x = -0.20;   // rakes BACK off the frame -- see "THE GRIP" above
   grip.add(box({ size: [0.033, 0.098, 0.047], pos: [0, -0.046, 0.022], mat: M.polymerLight }));
   for (const sx of [-1, 1]) {
     grip.add(box({ size: [0.0035, 0.068, 0.034], pos: [sx * 0.018, -0.044, 0.022], mat: M.inset }));
@@ -341,7 +361,7 @@ export function buildCarbine({ sling = false } = {}) {
   g.add(trigger);
   const grip = new THREE.Group();
   grip.position.set(0, -0.038, 0.062);
-  grip.rotation.x = 0.42;
+  grip.rotation.x = -0.42;   // rakes BACK off the receiver -- see "THE GRIP" above
   grip.add(box({ size: [0.03, 0.098, 0.036], pos: [0, -0.048, 0], mat: M.polymer, name: 'carbine-grip' }));
   for (let i = 0; i < 3; i++) grip.add(box({ size: [0.034, 0.006, 0.006], pos: [0, -0.03 - i * 0.02, 0.017], mat: M.parkerized }));
   g.add(grip);
@@ -472,7 +492,7 @@ export function buildSaw() {
   const grip = new THREE.Group();
   grip.name = 'saw-grip';
   grip.position.set(0, -0.012, 0.06);
-  grip.rotation.x = 0.34;
+  grip.rotation.x = -0.34;   // rakes BACK off the receiver -- see "THE GRIP" above
   grip.add(box({ size: [0.034, 0.11, 0.042], pos: [0, -0.055, 0], mat: M.polymer }));
   for (let i = 0; i < 4; i++) grip.add(box({ size: [0.038, 0.006, 0.006], pos: [0, -0.03 - i * 0.02, 0.02], mat: M.parkerized }));
   g.add(grip);
@@ -610,7 +630,7 @@ export function buildBarrett() {
   const grip = new THREE.Group();
   grip.name = 'barrett-grip';
   grip.position.set(0, -0.05, 0.164);
-  grip.rotation.x = 0.36;
+  grip.rotation.x = -0.36;   // rakes BACK off the lower -- see "THE GRIP" above
   grip.add(box({ size: [0.034, 0.108, 0.042], pos: [0, -0.054, 0], mat: M.polymer }));
   g.add(grip);
   const stock = group('barrett-stock',
@@ -739,7 +759,7 @@ export function buildAk47() {
   const grip = new THREE.Group();
   grip.name = 'ak-grip';
   grip.position.set(0, -0.026, 0.056);
-  grip.rotation.x = 0.40;
+  grip.rotation.x = -0.40;   // rakes BACK off the receiver -- see "THE GRIP" above
   grip.add(box({ size: [0.032, 0.100, 0.040], pos: [0, -0.050, 0], mat: M.bakelite }));
   grip.add(box({ size: [0.036, 0.010, 0.044], pos: [0, -0.102, 0], mat: M.parkerized }));
   g.add(grip);
