@@ -768,6 +768,369 @@ export function buildAk47() {
 }
 
 /* ================================================================== */
+/* 7. The pump shotgun — a tube-fed 12-gauge                           */
+/* ================================================================== */
+/**
+ * One spent 12-gauge shotshell: a red plastic hull with a brass head band,
+ * shorter and fatter than a rifle case because a shotshell is not a rifle
+ * case.
+ */
+function makeShotshell(r = 0.0095, h = 0.058) {
+  const g = group('spent-case');
+  const hull = mat({ color: 0xa32a1c, roughness: 0.55 });
+  g.add(cylinder({ r, h, pos: [0, 0, 0], mat: hull, seg: 10, name: 'pump-shell-hull' }));
+  g.add(cylinder({ r: r * 1.1, h: h * 0.16, pos: [0, -h / 2, 0], mat: M.brass, seg: 10, name: 'pump-shell-head' }));
+  return g;
+}
+
+/**
+ * The pump-action 12-gauge. Tube-fed, so there is no detachable magazine to
+ * hand back on a reload — `userData.magazine` is null and `makeMagazine`
+ * returns null, the same as the revolver. What a reload actually does here is
+ * feed shells one at a time through the loading port on the receiver's
+ * belly, which stands in for `magWell`.
+ *
+ * A vented rib runs the length of the barrel, the pump forend rides the
+ * magazine tube (`moving.pump`), and two action bars tie the forend to the
+ * bolt inside the receiver — the three things that make a pump gun read as a
+ * pump gun and not a break-action.
+ */
+export function buildPumpShotgun() {
+  const g = group('pump12');
+
+  // Barrel with a vented rib on top, and the muzzle.
+  const barrel = cylinder({ r: 0.0105, h: 0.58, pos: [0, 0.03, -0.34], rotX: Math.PI / 2, mat: M.steel, name: 'pump-barrel', seg: 12 });
+  g.add(barrel);
+  for (let i = 0; i < 8; i++) {
+    g.add(box({ size: [0.005, 0.006, 0.010], pos: [0, 0.043, -0.10 - i * 0.065], mat: M.dark, cast: false }));
+  }
+  g.add(box({ size: [0.010, 0.005, 0.56], pos: [0, 0.040, -0.34], mat: M.dark, name: 'pump-vent-rib' }));
+  g.add(cylinder({ r: 0.0075, h: 0.010, pos: [0, 0.03, -0.635], rotX: Math.PI / 2, mat: M.bore, name: 'pump-muzzle', seg: 12 }));
+  // Bead front sight, on a short post.
+  g.add(cylinder({ r: 0.0018, h: 0.014, pos: [0, 0.038, -0.615], mat: M.dark, seg: 6 }));
+  g.add(sphere({ r: 0.0032, pos: [0, 0.046, -0.615], mat: mat({ color: 0xcabf8a, roughness: 0.4, metalness: 0.3 }), name: 'pump-bead-sight' }));
+
+  // Magazine tube under the barrel, with its follower cap up front.
+  g.add(cylinder({ r: 0.0085, h: 0.50, pos: [0, 0.005, -0.32], rotX: Math.PI / 2, mat: M.parkerized, name: 'pump-mag-tube', seg: 10 }));
+  g.add(cylinder({ r: 0.0105, h: 0.016, pos: [0, 0.005, -0.575], rotX: Math.PI / 2, mat: M.dark, name: 'pump-mag-cap', seg: 10 }));
+
+  // Receiver, ejection port, loading port, shell carrier, action bars.
+  g.add(box({ size: [0.044, 0.075, 0.24], pos: [0, 0.02, -0.02], mat: M.steel, name: 'pump-receiver' }));
+  const port = box({ size: [0.008, 0.032, 0.070], pos: [0.024, 0.038, -0.03], mat: M.bore, name: 'pump-ejection-port' });
+  g.add(port);
+  const loadingPort = box({ size: [0.038, 0.010, 0.070], pos: [0, -0.018, 0.02], mat: M.inset, name: 'pump-loading-port' });
+  g.add(loadingPort);
+  g.add(box({ size: [0.006, 0.006, 0.060], pos: [-0.023, 0.030, -0.01], mat: M.parkerized, name: 'pump-shell-carrier' }));
+  for (let i = 0; i < 3; i++) {
+    g.add(box({ size: [0.004, 0.004, 0.010], pos: [-0.023, 0.030, -0.03 + i * 0.02], mat: M.dark, cast: false }));
+  }
+  for (const sx of [-1, 1]) {
+    g.add(cylinder({ r: 0.004, h: 0.20, pos: [sx * 0.014, 0.014, -0.15], rotX: Math.PI / 2, mat: M.dark, name: 'pump-action-bar', seg: 8 }));
+  }
+
+  // The pump: forend body and five grip grooves. Slides on the magazine
+  // tube — `moving.pump` is the group.
+  const pump = new THREE.Group();
+  pump.name = 'pump-forend';
+  pump.position.set(0, 0.005, -0.25);
+  pump.add(cylinder({ r: 0.020, h: 0.16, rotX: Math.PI / 2, mat: M.furniture, seg: 12 }));
+  for (let i = 0; i < 5; i++) {
+    pump.add(box({ size: [0.044, 0.004, 0.006], pos: [0, 0, -0.06 + i * 0.03], mat: M.dark, cast: false }));
+  }
+  g.add(pump);
+
+  // Trigger, guard, and the shell-carrier release button.
+  const trigger = box({ size: [0.006, 0.018, 0.006], pos: [0, -0.012, 0.03], mat: M.dark, rotX: 0.2, name: 'pump-trigger' });
+  g.add(trigger);
+  g.add(torus({
+    r: 0.019, tube: 0.0035, seg: 6, ring: 12, arc: Math.PI, mat: M.steel,
+    pos: [0, -0.020, 0.032], ...GUARD_ROT,
+  }));
+  g.add(box({ size: [0.010, 0.010, 0.006], pos: [-0.023, -0.010, 0.04], mat: M.dark, name: 'pump-shell-release' }));
+
+  // Wrist, buttstock, cheekpiece, recoil pad, and a couple of stock screws.
+  const wrist = new THREE.Group();
+  wrist.name = 'pump-wrist';
+  wrist.position.set(0, -0.002, 0.095);
+  wrist.rotation.x = 0.30;
+  wrist.add(box({ size: [0.030, 0.052, 0.060], pos: [0, -0.026, 0], mat: M.wood }));
+  g.add(wrist);
+  const stock = group('pump-stock');
+  stock.position.set(0, 0.024, 0.26);
+  stock.add(box({ size: [0.040, 0.072, 0.30], pos: [0, 0, 0], mat: M.wood }));
+  stock.add(box({ size: [0.048, 0.086, 0.016], pos: [0, -0.006, 0.155], mat: mat({ color: 0x18191a, roughness: 0.9 }), name: 'pump-buttplate' }));
+  stock.add(box({ size: [0.044, 0.014, 0.12], pos: [0, 0.040, -0.05], mat: M.wood, name: 'pump-cheek' }));
+  for (const sx of [-1, 1]) {
+    stock.add(cylinder({ r: 0.0025, h: 0.006, pos: [sx * 0.017, -0.006, 0.10], rotZ: Math.PI / 2, mat: M.dark, seg: 6 }));
+  }
+  g.add(stock);
+
+  // Sling swivels, front and rear.
+  g.add(torus({ r: 0.011, tube: 0.0025, seg: 5, ring: 10, arc: Math.PI * 2, mat: M.dark, pos: [0, -0.006, -0.44], rot: [0, Math.PI / 2, 0] }));
+  g.add(torus({ r: 0.011, tube: 0.0025, seg: 5, ring: 10, arc: Math.PI * 2, mat: M.dark, pos: [0, -0.01, 0.30], rot: [0, Math.PI / 2, 0] }));
+
+  g.userData.muzzle = new THREE.Vector3(0, 0.03, -0.64);
+  g.userData.ejectPort = new THREE.Vector3(0.024, 0.038, -0.03);
+  g.userData.magWell = new THREE.Vector3(0, -0.018, 0.02);
+  g.userData.magazine = null;
+  g.userData.magazineRest = null;
+  g.userData.makeMagazine = () => null;
+  g.userData.makeCase = () => makeShotshell();
+  g.userData.moving = { pump, trigger, port };
+  g.userData.length = 1.05;
+  g.traverse((o) => { if (o.isMesh) o.receiveShadow = false; });
+  return g;
+}
+
+/* ================================================================== */
+/* 8. The 9mm submachine gun — a compact, roller-delayed-flavoured SMG  */
+/* ================================================================== */
+/** The SMG's curved 32-round stick magazine, fitted in its well. */
+function makeSmgMagazine() {
+  const g = group('smg-magazine');
+  /* Four stacked slabs on a gentle arc — a 9mm stick mag curves far less
+   * than a rifle mag, but a dead-straight box still reads as the wrong gun. */
+  for (let i = 0; i < 4; i++) {
+    const t = i / 3;
+    const a = t * 0.14;
+    g.add(box({
+      size: [0.026, 0.052, 0.034 - t * 0.002],
+      pos: [0, -t * 0.135, Math.sin(a) * 0.018],
+      mat: M.slideDark,
+      rotX: -a,
+      name: i === 0 ? 'smg-mag-top' : '',
+    }));
+  }
+  g.add(box({ size: [0.030, 0.010, 0.038], pos: [0, -0.142, 0.018], mat: M.parkerized, rotX: -0.14, name: 'smg-mag-floorplate' }));
+  g.add(box({ size: [0.018, 0.010, 0.016], pos: [0, 0.024, -0.002], mat: M.brass, name: 'smg-mag-top-round' }));
+  g.add(box({ size: [0.024, 0.012, 0.008], pos: [0, 0.012, -0.016], mat: M.parkerized, name: 'smg-mag-catch-lug' }));
+  return g;
+}
+
+/**
+ * The 9mm submachine gun. Compact, a rounded receiver, a tri-lug muzzle
+ * under a slim handguard, and a real fitted 32-round stick magazine hanging
+ * out of a slightly forward-raked well — a generic roller-delayed-blowback
+ * silhouette, not any one trademarked gun.
+ *
+ * The charging handle does not reciprocate (`moving.charging` is a fixed
+ * side handle, the way a roller-delayed gun's is), and the rear sight is a
+ * rotating drum rather than a flip aperture, because that is the detail that
+ * keeps this from reading as a shrunken carbine.
+ */
+export function buildSmg9() {
+  const g = group('smg9');
+
+  // Barrel and tri-lug muzzle.
+  const barrel = cylinder({ r: 0.0095, h: 0.20, pos: [0, 0.03, -0.235], rotX: Math.PI / 2, mat: M.steel, name: 'smg-barrel', seg: 12 });
+  g.add(barrel);
+  g.add(cylinder({ r: 0.0115, h: 0.018, pos: [0, 0.03, -0.335], rotX: Math.PI / 2, mat: M.slideDark, name: 'smg-tri-lug', seg: 12 }));
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    g.add(box({
+      size: [0.006, 0.008, 0.014], pos: [Math.cos(a) * 0.012, 0.03 + Math.sin(a) * 0.012, -0.335], mat: M.slideDark,
+    }));
+  }
+  g.add(cylinder({ r: 0.0055, h: 0.008, pos: [0, 0.03, -0.345], rotX: Math.PI / 2, mat: M.bore, name: 'smg-muzzle', seg: 12 }));
+  g.add(box({ size: [0.004, 0.010, 0.004], pos: [0, 0.045, -0.325], mat: M.dark, name: 'smg-front-sight' }));
+
+  // Slim handguard around the front of the barrel, with cooling slots.
+  g.add(cylinder({ r: 0.017, h: 0.115, pos: [0, 0.03, -0.185], rotX: Math.PI / 2, mat: M.polymer, name: 'smg-handguard', seg: 10 }));
+  for (let i = 0; i < 4; i++) {
+    g.add(box({ size: [0.006, 0.020, 0.010], pos: [0, 0.03, -0.15 - i * 0.02], mat: M.bore, cast: false }));
+  }
+
+  // Rounded receiver, ejection port, non-reciprocating charging handle.
+  g.add(cylinder({ r: 0.021, h: 0.28, pos: [0, 0.03, -0.06], rotX: Math.PI / 2, mat: M.slideSteel, name: 'smg-receiver', seg: 10 }));
+  g.add(box({ size: [0.030, 0.030, 0.20], pos: [0, 0.03, -0.06], mat: M.slideSteel }));
+  const port = box({ size: [0.007, 0.020, 0.05], pos: [0.019, 0.036, -0.05], mat: M.bore, name: 'smg-ejection-port' });
+  g.add(port);
+  const charging = box({ size: [0.020, 0.010, 0.030], pos: [-0.021, 0.040, -0.08], mat: M.slideDark, name: 'smg-charging-handle' });
+  g.add(charging);
+  g.add(cylinder({ r: 0.003, h: 0.014, pos: [-0.024, 0.040, -0.08], rotZ: Math.PI / 2, mat: M.dark, seg: 6 }));
+
+  // Drum-style rear sight and front post, both on the receiver's spine.
+  g.add(cylinder({ r: 0.011, h: 0.016, pos: [0, 0.052, 0.03], rotX: Math.PI / 2, mat: M.slideDark, name: 'smg-rear-sight-drum', seg: 10 }));
+  for (let i = 0; i < 2; i++) {
+    g.add(box({ size: [0.003, 0.006, 0.003], pos: [0, 0.058, 0.026 + i * 0.008], mat: M.bore, cast: false }));
+  }
+
+  // Magazine well, angled slightly forward, and the fitted magazine.
+  g.add(box({ size: [0.032, 0.024, 0.044], pos: [0, -0.006, -0.02], mat: M.slideSteel, rotX: -0.10, name: 'smg-magwell' }));
+  const magRest = { position: new THREE.Vector3(0, -0.030, -0.024), rotation: new THREE.Euler(-0.10, 0, 0) };
+  const magazine = makeSmgMagazine();
+  magazine.position.copy(magRest.position);
+  magazine.rotation.copy(magRest.rotation);
+  g.add(magazine);
+
+  // Trigger, guard, pistol grip.
+  const trigger = box({ size: [0.006, 0.016, 0.006], pos: [0, -0.006, 0.010], mat: M.slideDark, rotX: 0.24, name: 'smg-trigger' });
+  g.add(trigger);
+  g.add(torus({
+    r: 0.017, tube: 0.0032, seg: 6, ring: 12, arc: Math.PI, mat: M.slideSteel,
+    pos: [0, -0.010, 0.012], ...GUARD_ROT,
+  }));
+  const grip = new THREE.Group();
+  grip.name = 'smg-grip';
+  grip.position.set(0, -0.014, 0.045);
+  grip.rotation.x = 0.36;
+  grip.add(box({ size: [0.028, 0.082, 0.032], pos: [0, -0.040, 0], mat: M.polymer }));
+  for (let i = 0; i < 3; i++) grip.add(box({ size: [0.031, 0.005, 0.005], pos: [0, -0.024 - i * 0.017, 0.014], mat: M.slideDark }));
+  g.add(grip);
+
+  // Retractable stock, collapsed against the receiver: two struts and a
+  // shoulder plate riding on them.
+  const stock = new THREE.Group();
+  stock.name = 'smg-stock';
+  stock.position.set(0, 0.024, 0.11);
+  for (const sy of [-1, 1]) {
+    stock.add(cylinder({ r: 0.0035, h: 0.23, pos: [0, sy * 0.014, 0.115], rotX: Math.PI / 2, mat: M.dark, seg: 6 }));
+  }
+  stock.add(box({ size: [0.030, 0.06, 0.012], pos: [0, 0, 0.23], mat: M.slideDark, name: 'smg-buttplate' }));
+  g.add(stock);
+
+  g.userData.muzzle = new THREE.Vector3(0, 0.03, -0.345);
+  g.userData.ejectPort = new THREE.Vector3(0.019, 0.036, -0.05);
+  g.userData.magWell = new THREE.Vector3(0, -0.18, -0.024);
+  g.userData.magazine = magazine;
+  g.userData.magazineRest = magRest;
+  g.userData.makeMagazine = makeSmgMagazine;
+  g.userData.makeCase = () => makeCase(0.0045, 0.019);
+  g.userData.moving = { charging, trigger, port };
+  g.userData.length = 0.68;
+  g.traverse((o) => { if (o.isMesh) o.receiveShadow = false; });
+  return g;
+}
+
+/* ================================================================== */
+/* 9. The battle rifle — a full-size 7.62                              */
+/* ================================================================== */
+/**
+ * The battle rifle's 20-round box, curved just enough for a full-power
+ * rimless cartridge to feed reliably — nowhere near an AK's arc.
+ */
+function makeBrMagazine() {
+  const g = group('br-magazine');
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4;
+    const a = t * 0.18;
+    g.add(box({
+      size: [0.030, 0.040, 0.052 - t * 0.002],
+      pos: [0, -t * 0.165, Math.sin(a) * 0.030],
+      mat: M.parkerized,
+      rotX: -a,
+      name: i === 0 ? 'br-mag-top' : '',
+    }));
+  }
+  g.add(box({ size: [0.034, 0.012, 0.056], pos: [0, -0.185, 0.030], mat: M.dark, rotX: -0.18, name: 'br-mag-floorplate' }));
+  g.add(box({ size: [0.022, 0.014, 0.024], pos: [0, 0.022, -0.006], mat: M.brass, name: 'br-mag-top-round' }));
+  g.add(box({ size: [0.030, 0.014, 0.010], pos: [0, 0.010, -0.028], mat: M.parkerized, name: 'br-mag-catch-lug' }));
+  return g;
+}
+
+/**
+ * The battle rifle. Full-size, wood furniture, and a fixed 20-round 7.62 box
+ * rather than a curved AK-length one — the owner's "not a carbine" gun.
+ *
+ * The op-rod handle rides exposed on the right of the receiver
+ * (`moving.bolt`), the way a rifle with a rotating bolt and an operating rod
+ * shows its action off, and the flash hider is slotted rather than a
+ * birdcage because that is the silhouette that says "battle rifle" rather
+ * than "carbine".
+ */
+export function buildBattleRifle() {
+  const g = group('br308');
+
+  // Barrel and slotted flash hider.
+  g.add(cylinder({ r: 0.0115, h: 0.40, pos: [0, 0.03, -0.355], rotX: Math.PI / 2, mat: M.steel, name: 'br-barrel', seg: 12 }));
+  const hider = cylinder({ r: 0.0155, h: 0.065, pos: [0, 0.03, -0.588], rotX: Math.PI / 2, mat: M.steel, name: 'br-flash-hider', seg: 12 });
+  g.add(hider);
+  for (let i = 0; i < 4; i++) {
+    hider.add(box({ size: [0.005, 0.030, 0.030], pos: [0, 0.006, -0.008], mat: M.bore, rotZ: (i / 4) * Math.PI }));
+  }
+  g.add(cylinder({ r: 0.0068, h: 0.012, pos: [0, 0.03, -0.630], rotX: Math.PI / 2, mat: M.bore, name: 'br-muzzle', seg: 12 }));
+
+  // Front sight block with protective ears, and the gas cylinder below the
+  // barrel that feeds the op-rod.
+  const frontSight = group('br-front-sight-block',
+    box({ size: [0.030, 0.050, 0.030], pos: [0, 0.014, 0], mat: M.steel }),
+    box({ size: [0.005, 0.020, 0.005], pos: [0, 0.044, 0], mat: M.bore, name: 'br-front-sight-post' }));
+  for (const sx of [-1, 1]) {
+    frontSight.add(box({ size: [0.006, 0.022, 0.010], pos: [sx * 0.011, 0.046, 0], mat: M.steel }));
+  }
+  frontSight.position.set(0, 0.03, -0.50);
+  g.add(frontSight);
+  g.add(cylinder({ r: 0.007, h: 0.25, pos: [0, 0.010, -0.40], rotX: Math.PI / 2, mat: M.parkerized, name: 'br-gas-cylinder', seg: 10 }));
+
+  // Wood handguard, ribbed, over the gas cylinder.
+  g.add(box({ size: [0.040, 0.034, 0.20], pos: [0, 0.006, -0.40], mat: M.wood, name: 'br-handguard' }));
+  for (let i = 0; i < 5; i++) {
+    g.add(box({ size: [0.044, 0.005, 0.008], pos: [0, -0.006, -0.49 + i * 0.045], mat: M.dark, cast: false }));
+  }
+
+  // Receiver, rear aperture sight, ejection port, and the op-rod / charging
+  // handle exposed on the right.
+  g.add(box({ size: [0.040, 0.058, 0.28], pos: [0, 0.020, -0.02], mat: M.steel, name: 'br-receiver' }));
+  const port = box({ size: [0.008, 0.026, 0.070], pos: [0.021, 0.036, -0.03], mat: M.bore, name: 'br-ejection-port' });
+  g.add(port);
+  const bolt = group('br-op-rod-handle',
+    cylinder({ r: 0.006, h: 0.05, pos: [0.020, 0, 0], rotZ: Math.PI / 2, mat: M.parkerized, seg: 8 }),
+    sphere({ r: 0.009, pos: [0.045, 0, 0], mat: M.parkerized }));
+  bolt.position.set(0, 0.024, -0.05);
+  g.add(bolt);
+  g.add(box({ size: [0.026, 0.034, 0.026], pos: [0, 0.062, 0.05], mat: M.parkerized, name: 'br-rear-sight' }));
+  g.add(cylinder({ r: 0.006, h: 0.006, pos: [0, 0.062, 0.05], rotX: Math.PI / 2, mat: M.bore, seg: 10 }));
+
+  // Magazine well, angled forward slightly, and the fitted 20-round box.
+  g.add(box({ size: [0.036, 0.026, 0.056], pos: [0, -0.020, -0.06], mat: M.steel, rotX: -0.10, name: 'br-magwell' }));
+  const magRest = { position: new THREE.Vector3(0, -0.048, -0.065), rotation: new THREE.Euler(-0.14, 0, 0) };
+  const magazine = makeBrMagazine();
+  magazine.position.copy(magRest.position);
+  magazine.rotation.copy(magRest.rotation);
+  g.add(magazine);
+
+  // Trigger, guard, wrist.
+  const trigger = box({ size: [0.007, 0.020, 0.007], pos: [0, -0.028, 0.06], mat: M.parkerized, name: 'br-trigger' });
+  g.add(trigger);
+  g.add(torus({
+    r: 0.020, tube: 0.004, seg: 6, ring: 12, arc: Math.PI, mat: M.steel,
+    pos: [0, -0.036, 0.062], ...GUARD_ROT,
+  }));
+  const wrist = new THREE.Group();
+  wrist.name = 'br-wrist';
+  wrist.position.set(0, -0.010, 0.11);
+  wrist.rotation.x = 0.28;
+  wrist.add(box({ size: [0.034, 0.070, 0.050], pos: [0, -0.032, 0], mat: M.wood }));
+  g.add(wrist);
+
+  // Full wood stock, cheekpiece, hinged metal buttplate, sling loops.
+  const stock = group('br-stock');
+  stock.position.set(0, 0.018, 0.32);
+  stock.add(box({ size: [0.044, 0.076, 0.34], pos: [0, 0, 0], mat: M.wood }));
+  stock.add(box({ size: [0.050, 0.090, 0.018], pos: [0, -0.006, 0.165], mat: M.dark, name: 'br-buttplate' }));
+  stock.add(box({ size: [0.010, 0.014, 0.014], pos: [0, -0.006, 0.160], mat: M.parkerized, name: 'br-buttplate-trapdoor' }));
+  stock.add(box({ size: [0.046, 0.016, 0.13], pos: [0, 0.044, -0.05], mat: M.wood, name: 'br-cheek' }));
+  for (const sx of [-1, 1]) {
+    stock.add(cylinder({ r: 0.0028, h: 0.006, pos: [sx * 0.019, -0.006, 0.11], rotZ: Math.PI / 2, mat: M.dark, seg: 6 }));
+  }
+  g.add(stock);
+  g.add(torus({ r: 0.012, tube: 0.0028, seg: 5, ring: 10, arc: Math.PI * 2, mat: M.parkerized, pos: [0, -0.012, -0.46], rot: [0, Math.PI / 2, 0] }));
+  g.add(torus({ r: 0.012, tube: 0.0028, seg: 5, ring: 10, arc: Math.PI * 2, mat: M.parkerized, pos: [0, -0.02, 0.38], rot: [0, Math.PI / 2, 0] }));
+
+  g.userData.muzzle = new THREE.Vector3(0, 0.03, -0.636);
+  g.userData.ejectPort = new THREE.Vector3(0.021, 0.036, -0.03);
+  g.userData.magWell = new THREE.Vector3(0, -0.24, -0.065);
+  g.userData.magazine = magazine;
+  g.userData.magazineRest = magRest;
+  g.userData.makeMagazine = makeBrMagazine;
+  g.userData.makeCase = () => makeCase(0.0062, 0.051);
+  g.userData.moving = { bolt, trigger, port };
+  g.userData.length = 1.12;
+  g.traverse((o) => { if (o.isMesh) o.receiveShadow = false; });
+  return g;
+}
+
+/* ================================================================== */
 /* Speedloader — the revolver's "magazine", on the armory shelf         */
 /* ================================================================== */
 /** Six rounds in a moon clip with a knurled knob, for the heavy frame. */
@@ -793,6 +1156,9 @@ export const WEAPON_MODEL_BUILDERS = Object.freeze({
   saw: buildSaw,
   barrett: buildBarrett,
   ak47: buildAk47,
+  pump12: buildPumpShotgun,
+  smg9: buildSmg9,
+  br308: buildBattleRifle,
 });
 
 /** Build the model for a catalog id. Throws on an id nobody registered. */

@@ -44,9 +44,16 @@ export const WEAPON_IDS = Object.freeze({
   SAW: 'saw',
   BARRETT: 'barrett',
   AK47: 'ak47',
+  PUMP12: 'pump12',
+  SMG9: 'smg9',
+  BR308: 'br308',
 });
 
-/** Rack order, left to right along the armory wall. */
+/** Rack order, left to right along the armory wall.
+ *
+ * DELIBERATELY still the original six. Lou's basement wall and THE TAKE's
+ * loadout were built and verified against exactly these, in this order, and
+ * a test pins it. The combat framework's additions rack separately. */
 export const WEAPON_ORDER = Object.freeze([
   WEAPON_IDS.REVOLVER,
   WEAPON_IDS.PISTOL9,
@@ -56,6 +63,14 @@ export const WEAPON_ORDER = Object.freeze([
   WEAPON_IDS.BARRETT,
 ]);
 
+/** Every weapon the combat framework knows, including the newer three. */
+export const COMBAT_WEAPON_ORDER = Object.freeze([
+  ...WEAPON_ORDER,
+  WEAPON_IDS.PUMP12,
+  WEAPON_IDS.SMG9,
+  WEAPON_IDS.BR308,
+]);
+
 /** Cue names this system wants recorded, per weapon. */
 export function weaponCue(id, slot) { return `weapon.${id}.${slot}`; }
 
@@ -63,6 +78,55 @@ export function weaponCue(id, slot) { return `weapon.${id}.${slot}`; }
 export const WEAPON_CUE_SLOTS = Object.freeze([
   'fire', 'reload.out', 'reload.in', 'empty', 'mag.floor',
 ]);
+
+/* The `combat` block is what the combat framework reads and nothing else
+ * does. Every field is data — the catalog still resolves no hits and damages
+ * nobody (see the standing-rule test in tests/weapons-core.test.mjs).
+ *
+ *   headshot        damage multiplier on the head hit region.
+ *   pellets         rays per trigger pull. 1 for everything but the shotgun.
+ *   pelletSpread    extra per-pellet cone, radians, on top of `spread`.
+ *   falloff         {start, end, floor} metres and the damage fraction left
+ *                   past `end`. Inside `start` the round does full damage.
+ *   ads             {spread, zoom, time} — spread multiplier when aimed,
+ *                   camera zoom factor, seconds to settle into the sights.
+ *   moveSpread     spread multiplier while walking; sprinting blocks fire.
+ *   crouchSpread   spread multiplier while crouched.
+ *   recoil          {pitch, yaw, firstShot, recovery, climb, model} — camera
+ *                   kick per shot (radians), horizontal jitter, first-shot
+ *                   multiplier, recovery rate (rad/s toward the pre-recoil
+ *                   aim), per-shot climb compounding in a burst, view-model
+ *                   kick scale. Learnable, not random shake.
+ *   emptyExtra      extra seconds on a reload that started on an empty gun
+ *                   (working the action / bolt release). Tactical reloads
+ *                   skip it.
+ *   suppression     how frightening a near miss from this gun is, 0..1+.
+ *   noise           metres at which an unsuppressed shot alerts NPCs.
+ *   npc             {burst:{min,max,pause}, spread} — how an NPC runs the
+ *                   same gun: burst cadence and a skill-neutral spread scale.
+ */
+const combatDef = (o = {}) => Object.freeze({
+  headshot: 2.6,
+  pellets: 1,
+  pelletSpread: 0,
+  moveSpread: 1.7,
+  crouchSpread: 0.8,
+  emptyExtra: 0,
+  suppression: 0.5,
+  noise: 80,
+  ...o,
+  falloff: Object.freeze({ start: 20, end: 60, floor: 0.5, ...(o.falloff || {}) }),
+  ads: Object.freeze({ spread: 0.35, zoom: 1.3, time: 0.18, ...(o.ads || {}) }),
+  recoil: Object.freeze({
+    pitch: 0.016, yaw: 0.005, firstShot: 1.35, recovery: 5.5, climb: 1.12, model: 1,
+    ...(o.recoil || {}),
+  }),
+  npc: Object.freeze({
+    spread: 1.0,
+    ...(o.npc || {}),
+    burst: Object.freeze({ min: 2, max: 4, pause: 0.7, ...(o.npc?.burst || {}) }),
+  }),
+});
 
 const def = (o) => Object.freeze({
   auto: false,
@@ -75,6 +139,7 @@ const def = (o) => Object.freeze({
   ...o,
   tracer: Object.freeze({ colour: 0xfff0a0, width: 0.012, speed: 620, every: 1, ...(o.tracer || {}) }),
   rack: Object.freeze({ copies: 3, spacing: 0.34, mount: 'vertical', ...(o.rack || {}) }),
+  combat: combatDef(o.combat),
 });
 
 export const WEAPON_CATALOG = Object.freeze({
@@ -101,6 +166,15 @@ export const WEAPON_CATALOG = Object.freeze({
     penetration: 0.30,
     tracer: { colour: 0xffd27a, width: 0.014, speed: 400, every: 1 },
     rack: { copies: 4, spacing: 0.30, mount: 'horizontal' },
+    combat: {
+      headshot: 3.0,
+      falloff: { start: 14, end: 40, floor: 0.45 },
+      ads: { spread: 0.4, zoom: 1.18, time: 0.14 },
+      recoil: { pitch: 0.05, yaw: 0.008, firstShot: 1.0, recovery: 7.5, climb: 1.0 },
+      suppression: 0.7,
+      noise: 90,
+      npc: { burst: { min: 1, max: 2, pause: 1.0 } },
+    },
     note: 'A Colt-pattern .45 on a long frame. Six, slow, and it settles arguments.',
   }),
   /* --------------------------------------------------------------- */
@@ -121,6 +195,16 @@ export const WEAPON_CATALOG = Object.freeze({
     penetration: 0.16,
     tracer: { colour: 0xfff2b0, width: 0.010, speed: 520, every: 1 },
     rack: { copies: 4, spacing: 0.30, mount: 'horizontal' },
+    combat: {
+      headshot: 2.8,
+      falloff: { start: 12, end: 35, floor: 0.4 },
+      ads: { spread: 0.38, zoom: 1.2, time: 0.14 },
+      emptyExtra: 0.25,
+      recoil: { pitch: 0.022, yaw: 0.006, firstShot: 1.1, recovery: 8.0, climb: 1.04 },
+      suppression: 0.4,
+      noise: 75,
+      npc: { burst: { min: 1, max: 3, pause: 0.8 } },
+    },
     note: 'The double-stack Lou and Booski carry. Fifteen, and it never argues.',
   }),
   /* --------------------------------------------------------------- */
@@ -141,6 +225,16 @@ export const WEAPON_CATALOG = Object.freeze({
     penetration: 0.38,
     tracer: { colour: 0xfff0a0, width: 0.012, speed: 780, every: 3 },
     rack: { copies: 3, spacing: 0.34, mount: 'vertical' },
+    combat: {
+      headshot: 2.4,
+      falloff: { start: 28, end: 80, floor: 0.55 },
+      ads: { spread: 0.3, zoom: 1.35, time: 0.18 },
+      emptyExtra: 0.4,
+      recoil: { pitch: 0.012, yaw: 0.005, firstShot: 1.5, recovery: 6.0, climb: 1.16 },
+      suppression: 0.55,
+      noise: 90,
+      npc: { burst: { min: 2, max: 5, pause: 0.6 } },
+    },
     note: 'THE TAKE’s gun. Thirty, fast, and it goes through a car door.',
   }),
   /* --------------------------------------------------------------- */
@@ -163,6 +257,16 @@ export const WEAPON_CATALOG = Object.freeze({
     penetration: 0.42,
     tracer: { colour: 0xffb060, width: 0.013, speed: 715, every: 3 },
     rack: { copies: 3, spacing: 0.34, mount: 'vertical' },
+    combat: {
+      headshot: 2.4,
+      falloff: { start: 25, end: 70, floor: 0.6 },
+      ads: { spread: 0.32, zoom: 1.3, time: 0.2 },
+      emptyExtra: 0.45,
+      recoil: { pitch: 0.017, yaw: 0.008, firstShot: 1.5, recovery: 5.2, climb: 1.2 },
+      suppression: 0.65,
+      noise: 95,
+      npc: { burst: { min: 2, max: 4, pause: 0.7 } },
+    },
     note: 'Stamped, curved thirty, and it will run wet, dirty or dropped.',
   }),
   /* --------------------------------------------------------------- */
@@ -186,6 +290,20 @@ export const WEAPON_CATALOG = Object.freeze({
     penetration: 0.36,
     tracer: { colour: 0xff4c3a, width: 0.016, speed: 850, every: 4 },
     rack: { copies: 2, spacing: 0.46, mount: 'vertical' },
+    combat: {
+      headshot: 2.0,
+      falloff: { start: 30, end: 90, floor: 0.6 },
+      ads: { spread: 0.45, zoom: 1.2, time: 0.28 },
+      moveSpread: 2.2,
+      /* Strong initial movement that settles somewhat during sustained fire:
+       * climb below 1 means each successive shot in a burst kicks a little
+       * LESS than the one before, once the first few have walked the muzzle
+       * up. The gun starts wild and beds in. */
+      recoil: { pitch: 0.015, yaw: 0.011, firstShot: 1.7, recovery: 4.2, climb: 0.94 },
+      suppression: 0.95,
+      noise: 100,
+      npc: { burst: { min: 5, max: 9, pause: 0.9 } },
+    },
     note: 'Belt-fed, bipod, hundred-round box. Every fourth round is tracer.',
   }),
   /* --------------------------------------------------------------- */
@@ -206,13 +324,132 @@ export const WEAPON_CATALOG = Object.freeze({
     penetration: 0.95,
     tracer: { colour: 0xffffff, width: 0.022, speed: 900, every: 1 },
     rack: { copies: 2, spacing: 0.46, mount: 'vertical' },
+    combat: {
+      headshot: 1.6,
+      falloff: { start: 80, end: 300, floor: 0.8 },
+      ads: { spread: 0.06, zoom: 3.6, time: 0.32 },
+      moveSpread: 3.0,
+      emptyExtra: 0.5,
+      recoil: { pitch: 0.09, yaw: 0.006, firstShot: 1.0, recovery: 3.4, climb: 1.0 },
+      suppression: 1.0,
+      noise: 140,
+      npc: { burst: { min: 1, max: 1, pause: 1.6 } },
+    },
     note: 'Semi-automatic, ten rounds, and the muzzle brake is half the noise.',
+  }),
+  /* --------------------------------------------------------------- */
+  [WEAPON_IDS.PUMP12]: def({
+    id: WEAPON_IDS.PUMP12,
+    name: 'Pump twelve-gauge',
+    short: 'PUMP',
+    kind: 'shotgun',
+    /* Seven in the tube, loaded one shell at a time. `reloadOut` is the
+     * action coming open, `reloadIn` is seconds PER SHELL, and a reload can
+     * be interrupted between shells keeping everything already loaded —
+     * that is what `loadStyle: 'shells'` means to Firearm.js. */
+    capacity: 7,
+    reserve: 42,
+    rps: 1.05,
+    auto: false,
+    loadStyle: 'shells',
+    reloadOut: 0.45,
+    reloadIn: 0.6,
+    eject: 'shells',
+    partialLoss: false,
+    recoil: 0.11,
+    spread: 0.012,
+    damage: 11,
+    penetration: 0.08,
+    tracer: { colour: 0xffc880, width: 0.010, speed: 380, every: 1 },
+    rack: { copies: 2, spacing: 0.36, mount: 'vertical' },
+    combat: {
+      headshot: 1.8,
+      pellets: 8,
+      pelletSpread: 0.035,
+      falloff: { start: 8, end: 24, floor: 0.25 },
+      ads: { spread: 0.7, zoom: 1.12, time: 0.16 },
+      recoil: { pitch: 0.06, yaw: 0.009, firstShot: 1.0, recovery: 4.6, climb: 1.0 },
+      suppression: 0.85,
+      noise: 95,
+      npc: { burst: { min: 1, max: 2, pause: 1.1 } },
+    },
+    note: 'Eight pellets of buck. Inside a room there is no second question.',
+  }),
+  /* --------------------------------------------------------------- */
+  [WEAPON_IDS.SMG9]: def({
+    id: WEAPON_IDS.SMG9,
+    name: '9mm submachine gun',
+    short: 'SMG',
+    kind: 'smg',
+    capacity: 32,
+    reserve: 160,
+    rps: 13.5,
+    auto: true,
+    reloadOut: 0.5,
+    reloadIn: 1.15,
+    recoil: 0.014,
+    spread: 0.02,
+    damage: 24,
+    penetration: 0.14,
+    tracer: { colour: 0xfff2b0, width: 0.010, speed: 540, every: 4 },
+    rack: { copies: 3, spacing: 0.30, mount: 'horizontal' },
+    combat: {
+      headshot: 2.5,
+      falloff: { start: 14, end: 42, floor: 0.4 },
+      ads: { spread: 0.4, zoom: 1.22, time: 0.14 },
+      moveSpread: 1.35,
+      emptyExtra: 0.3,
+      /* Mild kick, but the cone opens the longer the trigger stays down:
+       * high climb, quick recovery. Burst it and it laser-beams; hose it
+       * and the last ten rounds are wallpaper. */
+      recoil: { pitch: 0.008, yaw: 0.006, firstShot: 1.2, recovery: 7.5, climb: 1.22 },
+      suppression: 0.45,
+      noise: 70,
+      npc: { burst: { min: 3, max: 6, pause: 0.55 } },
+    },
+    note: 'Thirty-two of the same 9mm, four times as fast. A hallway gun.',
+  }),
+  /* --------------------------------------------------------------- */
+  [WEAPON_IDS.BR308]: def({
+    id: WEAPON_IDS.BR308,
+    name: '.308 battle rifle',
+    short: 'BR',
+    kind: 'rifle',
+    capacity: 20,
+    reserve: 100,
+    rps: 5.2,
+    auto: false,
+    reloadOut: 0.7,
+    reloadIn: 1.6,
+    recoil: 0.042,
+    spread: 0.008,
+    damage: 58,
+    penetration: 0.55,
+    tracer: { colour: 0xffe090, width: 0.014, speed: 830, every: 2 },
+    rack: { copies: 2, spacing: 0.40, mount: 'vertical' },
+    combat: {
+      headshot: 2.2,
+      falloff: { start: 45, end: 140, floor: 0.65 },
+      ads: { spread: 0.25, zoom: 1.8, time: 0.22 },
+      moveSpread: 2.0,
+      emptyExtra: 0.45,
+      recoil: { pitch: 0.03, yaw: 0.007, firstShot: 1.15, recovery: 5.8, climb: 1.08 },
+      suppression: 0.8,
+      noise: 110,
+      npc: { burst: { min: 1, max: 2, pause: 0.9 } },
+    },
+    note: 'Twenty rounds of .308, aimed. It reaches across the yard and wins.',
   }),
 });
 
 /** Every weapon definition, in rack order. */
 export function weaponList() {
   return WEAPON_ORDER.map((id) => WEAPON_CATALOG[id]);
+}
+
+/** Every weapon the combat framework fields, including the newer three. */
+export function combatWeaponList() {
+  return COMBAT_WEAPON_ORDER.map((id) => WEAPON_CATALOG[id]);
 }
 
 /** One definition, or null. */

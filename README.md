@@ -16,6 +16,7 @@ Twelve playable or preserved experiences live in this repo.
 | **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | Day Four's three-hole round with Big Uncle Lou, Rippinflow, and Eric: a quiet status reward before THE TAKE. |
 | **THE TAKE** ([`heist.html`](./heist.html)) | Day Four’s complete bank-job climax: briefing, bank and vault, street withdrawal, garage, vehicle swap, escape, and safehouse settlement. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved terminal scene, routed from the apartment after THE TAKE and its cleanup. Its authored ceremony and outcome remain frozen pending the owner's playtest; it uses the shared inventory bar. |
+| **The Combat Lab** ([`combatlab.html`](./combatlab.html)) | The combat framework's proving ground: nine-weapon armory, firing range with movers, material wall, two-storey killhouse, cover yard, long lane, configurable encounters, and the debug drawer. Not a mission — see [`docs/COMBAT-FRAMEWORK.md`](./docs/COMBAT-FRAMEWORK.md). |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
