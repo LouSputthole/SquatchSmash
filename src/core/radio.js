@@ -55,7 +55,8 @@ const PHONE_CALL_RADIO_SCALE = 0.34;
 
 export class Radio {
   /**
-   * @param {{ venue?: string, state?: object, canPlayNotice?: Function, fullSongs?: boolean }} options
+   * @param {{ venue?: string, state?: object, canPlayNotice?: Function, fullSongs?: boolean,
+   *   output?: number }} options
    * `venue` is deliberately separate from the station: a record can belong
    * to the radio rotation without leaking into a different in-world music
    * system such as the Bada Bing DJ.
@@ -65,6 +66,7 @@ export class Radio {
     state = null,
     canPlayNotice = () => true,
     fullSongs = false,
+    output = 1,
   } = {}) {
     this.audio = audio;
     this.hud = hud;
@@ -77,6 +79,13 @@ export class Radio {
      * song from its opening through the media element's natural `ended`
      * event. Other scenes keep their thirty-second pacing unchanged. */
     this.fullSongs = fullSongs === true;
+    /* How loud this particular set is, separate from the volume knob. The knob
+     * is one shared saved number across every receiver in the campaign, so a
+     * scene whose radio sits at arm's length on an open deck cannot turn itself
+     * up without turning the bedroom radio up too. This is the physical set,
+     * fixed by the scene that built it and never persisted. Default 1 leaves
+     * every existing receiver exactly where it was. */
+    this.output = Number.isFinite(output) ? THREE.MathUtils.clamp(output, 0, 4) : 1;
     const saved = this.state?.load?.() ?? {};
     this.tracks = [];
     /** Each station keeps its own place in its own playlist. */
@@ -253,7 +262,7 @@ export class Radio {
   }
 
   _level(base) {
-    return base * this.volume * this.mixScale;
+    return base * this.volume * this.mixScale * this.output;
   }
 
   _setTalkVolume(base, ramp = 0.3) {

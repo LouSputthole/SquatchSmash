@@ -20,7 +20,7 @@ import {
   NO_WAKE_START_LINES,
   buildNoWakeConfrontation,
 } from './dialogue.js';
-import { noWakeAudioLoadOptions } from './audio.js';
+import { NoWakeEngineAudio, noWakeAudioLoadOptions } from './audio.js';
 import { NoWakeCameraDirector } from './camera-director.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
@@ -62,6 +62,7 @@ const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 const player = new Player(camera, world);
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
+const engineAudio = new NoWakeEngineAudio(audio);
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
 if (postfx.bloom) {
@@ -102,6 +103,8 @@ const state = {
 };
 
 const DRIVE_SECONDS = 90;
+/** How long the cruiser takes to come about at the head of the ride home. */
+const COME_ABOUT_SECONDS = 4.5;
 const boat = world.boat;
 const cameraDirector = new NoWakeCameraDirector(camera, boat);
 const radioClock = new AuthoredClock(12.75);
@@ -113,6 +116,11 @@ const radio = new Radio(audio, hud, radioClock, {
     defaultPower: false,
   }),
   canPlayNotice: () => false,
+  /* A cockpit stereo on an open deck with two diesels running under it, not a
+   * bedside receiver: this one physical set is louder than the shared volume
+   * knob alone would make it. `output` is not saved, so turning the boat up
+   * cannot turn the apartment up with it. */
+  output: 1.45,
 });
 const radioPosition = new THREE.Vector3();
 boat.targets.radio.getWorldPosition(radioPosition);
@@ -182,7 +190,12 @@ function advanceDialogue() {
     return;
   }
   const line = d.lines[d.at];
-  d.left = line.seconds ?? Math.max(2.6, Math.min(6.2, line.text.length / 15));
+  /* Queue the line behind the one before it. The authored reading beat is a
+   * guess at how long a take will run, and some of them run longer: Irish's
+   * "He was asked" is 6.2 s of subtitle over an 8.0 s recording, so the next
+   * line -- Willy asking for the head -- used to start on top of it and cut
+   * him off, because `audio.say` allows one voice at a time. */
+  d.left = voiceWindow(line, line.seconds ?? Math.max(2.6, Math.min(6.2, line.text.length / 15)));
   showSpeaker(line.who, line.text);
   playDialogueCue(`nowake.${line.cue}`);
   audio.hold(d.left);
@@ -240,8 +253,9 @@ function registerInteractions() {
       physics.running = true;
       audio.stopLoop('bilge', .25);
       audio.play('switch.click', { volume: .7 });
-      audio.play('boat.engine.start', { volume: .9 });
-      audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .17, fade: .55 });
+      audio.play('boat.engine.start', { volume: 1 });
+      audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .34, fade: .55 });
+      engineAudio.start();
       setObjective('Release the mooring lines', 'Bow and stern · then take the helm');
       hud.toast('Twin diesels alive', 'good');
     },
@@ -351,6 +365,7 @@ function enterHelm() {
   player.position.copy(boat.root.localToWorld(new THREE.Vector3(.14, 2.43, .24)));
   physics.throttle = 0;
   physics.steer = 0;
+  physics.helmAttended = true;
   lastHeading = physics.heading;
   boat.controls.throttle.setValue(0);
   helmHud.classList.remove('hidden');
@@ -412,7 +427,12 @@ function updateHarborWildlife() {
   }
 }
 
-function aftermathVoiceWindow(line, authoredSeconds) {
+/**
+ * How long a line owns the voice channel. Used by every spoken beat in the
+ * mission: the blocking confrontation, the below-decks pair and the queued
+ * aftermath all measure a line the same way.
+ */
+function voiceWindow(line, authoredSeconds) {
   const prefix = `vo.nowake.${line.cue}`;
   let decodedSeconds = 0;
   for (const name of audio.buffers.keys()) {
@@ -452,7 +472,7 @@ function scheduleAftermathVoice() {
 function queueAftermathLine(line, authoredSeconds, { delay = 0 } = {}) {
   const requestedAt = performance.now() / 1000;
   const notBefore = requestedAt + delay;
-  const windowSeconds = aftermathVoiceWindow(line, authoredSeconds);
+  const windowSeconds = voiceWindow(line, authoredSeconds);
   const predecessor = state.aftermathCueLog.at(-1);
   const startAt = Math.max(notBefore, predecessor?.endAt ?? notBefore);
   const entry = {
@@ -485,10 +505,12 @@ function beginConfrontation() {
   if (state.phase !== 'coast') return;
   phase('confrontation');
   physics.throttle = 0;
+  physics.helmAttended = false;
   audio.stopLoop('engine-idle', .65);
   audio.stopLoop('underway', .65);
   audio.stopLoop('wake', .65);
-  audio.play('boat.engine.shutdown', { volume: .82 });
+  engineAudio.stop(.55);
+  audio.play('boat.engine.shutdown', { volume: .95 });
   state.atHelm = false;
   helmHud.classList.add('hidden');
   player.mode = 'frozen';
@@ -599,7 +621,10 @@ function fireExecution() {
   const playerMuzzle = state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone());
   blood.muzzle(playerMuzzle);
   showShotTracer(playerMuzzle, impact, 0xffe2a3);
-  blood.punch(impact, normal);
+  /* On the man, not in the air where he was standing. A wound written into
+   * world space hangs at chest height while he falls, and then the cruiser
+   * drives home and leaves it four hundred metres offshore. */
+  blood.punchAttached(boat.cast.willy.group, impact, normal);
   state.executionShots = 1;
   state.playerGun.rotation.x = .32;
   setTimeout(() => npcShot(boat.cast.lou, state.louGun), 210);
@@ -617,7 +642,9 @@ function npcShot(npc, gun) {
     (Math.random() - .5) * .18, 1.2 + Math.random() * .35, .18,
   ));
   showShotTracer(muzzle, impact, 0xffc86b);
-  blood.punch(impact, camera.position.clone().sub(impact).normalize());
+  blood.punchAttached(
+    boat.cast.willy.group, impact, camera.position.clone().sub(impact).normalize(),
+  );
   state.executionShots++;
   gun.userData.recoil = 1;
   npc.speaking = .2;
@@ -652,6 +679,19 @@ function poseExecutionShooter(npc, gun, dt) {
   gun.rotation.x -= kick * .34;
 }
 
+/**
+ * What lands on the deck stays on the deck. Laid flat in the boat's own frame
+ * against the deck plane, so it sits on the boards under the body instead of
+ * floating, keeps its place while the hull heaves, and is still there on the
+ * ride home after the man himself has gone over the side.
+ */
+function spatterDeck(x, z) {
+  boat.root.updateMatrixWorld(true);
+  const at = boat.root.localToWorld(new THREE.Vector3(x, boat.deck.height, z));
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(boat.root.quaternion).normalize();
+  blood.punchAttached(boat.root, at, up);
+}
+
 function dropWilly() {
   if (state.phase !== 'execution') return;
   phase('body');
@@ -659,6 +699,9 @@ function dropWilly() {
   // Npc origins sit at the feet. Once rotated onto his side the old .48 pivot
   // buried nearly all of Willy below the deck, leaving only a leg visible.
   boat.cast.willy.group.position.y = 1.06;
+  spatterDeck(-.14, 4.26);
+  spatterDeck(.32, 4.58);
+  spatterDeck(.04, 4.88);
   state.playerGun.visible = false;
   state.focus = null;
   cameraDirector.frameCollapse();
@@ -830,8 +873,12 @@ function beginReturn() {
   boat.cast.irish.group.rotation.y = -Math.PI / 2;
   setObjective('Ride back', 'Nobody speaks');
   document.body.classList.add('cinematic');
-  audio.startLoop('underway', { name: 'boat.engine.underway', volume: .13, fade: .75 });
-  audio.startLoop('wake', { name: 'boat.hull.wake', volume: .09, fade: .9 });
+  audio.startLoop('underway', { name: 'boat.engine.underway', volume: .30, fade: .75 });
+  audio.startLoop('wake', { name: 'boat.hull.wake', volume: .17, fade: .9 });
+  // Lou has both levers up for the run in; the engines are the only thing
+  // anybody on this boat is going to hear.
+  engineAudio.start();
+  engineAudio.setDrive({ rpm: 2950, throttle: .74, speed: 7.6 });
   cameraDirector.frameReturn(0);
   hud.say('Lou takes the helm. Booski watches the water close.', 4800);
   queueAftermathLine(NO_WAKE_AFTERMATH_LINES.lesson, 5.0, { delay: .72 });
@@ -843,6 +890,7 @@ function completeMission() {
   state.leaving = true;
   audio.stopLoop('underway', .8);
   audio.stopLoop('wake', .8);
+  engineAudio.stop(.8);
   phase('complete');
   document.body.classList.add('cinematic');
   setObjective('NO WAKE', 'South Harbor · 4:40 PM');
@@ -880,9 +928,29 @@ function updateReturn(dt) {
       + 2 * ease * (state.returnTo.z - state.returnControl.z),
   );
   if (returnTangent.lengthSq() > .001) {
-    boat.root.rotation.y = Math.atan2(returnTangent.x, returnTangent.z);
+    /* Bow first, after coming about.
+     *
+     * `atan2(x, z)` puts the hull's own +Z -- the transom, where the wake comes
+     * off -- along the direction of travel, so the whole ride home was made
+     * stern first. Aiming the bow instead is `atan2(-x, -z)`, but flipping to
+     * it on the first frame would snap the cruiser through 180 degrees on the
+     * spot. She holds the heading she was lying on and swings onto the
+     * homeward track across COME_ABOUT_SECONDS, taking the shortest way round,
+     * which is the turn Lou would actually make. */
+    const homeward = Math.atan2(-returnTangent.x, -returnTangent.z);
+    const turn = Math.min(1, state.phaseTime / COME_ABOUT_SECONDS);
+    const eased = turn * turn * (3 - 2 * turn);
+    let swing = (homeward - state.returnHeading) % (Math.PI * 2);
+    if (swing > Math.PI) swing -= Math.PI * 2;
+    if (swing < -Math.PI) swing += Math.PI * 2;
+    boat.root.rotation.y = state.returnHeading + swing * eased;
   }
   boat.root.position.y = boat.floatY + Math.sin(state.phaseTime * 1.2) * .05;
+  // Both levers stay up the whole way in, and the engine room steps back the
+  // same way it does underway for the two lines anybody speaks on the ride.
+  engineAudio.setDrive({
+    rpm: 2950, throttle: .74, speed: 7.6, duck: audio.busy() ? .58 : 1,
+  });
   cameraDirector.frameReturn(state.phaseTime);
   if (k >= 1) completeMission();
 }
@@ -896,7 +964,10 @@ function leaveHelm({ force = false } = {}) {
   state.atHelm = false;
   physics.throttle = 0;
   physics.steer = 0;
+  // She settles from the moment he stands up, not from the next frame.
+  physics.helmAttended = false;
   boat.controls.throttle.setValue(0);
+  boat.wheel.rotation.z = 0;
   player.clearKeys();
   player.mode = 'walk';
   player.eyeHeight = 1.66;
@@ -934,6 +1005,7 @@ function updateBoat(dt) {
     physics.throttle += (requestedThrottle - physics.throttle)
       * (1 - Math.exp(-dt * throttleRate));
     physics.steer += (requestedSteer - physics.steer) * (1 - Math.exp(-dt * 4.2));
+    physics.helmAttended = state.atHelm;
     if (!state.atHelm) {
       physics.throttle = 0;
       physics.steer *= Math.exp(-dt * 8);
@@ -943,7 +1015,16 @@ function updateBoat(dt) {
     const motion = physics.motion();
     boat.root.position.set(physics.position.x, boat.floatY + motion.heave, physics.position.y);
     boat.root.rotation.set(motion.pitch, physics.heading, motion.roll, 'YXZ');
-    boat.wheel.rotation.z = physics.steer * .7;
+    /* The rim turns the way the hull does. The helmsman looks forward along
+     * -Z, so from his seat +X is starboard and a starboard turn winds the top
+     * of the wheel that way -- which is `rotation.z` NEGATIVE, since a point
+     * at the top of the rim, (0, r, 0), maps to (-r sin z, r cos z, 0).
+     * Positive steer is starboard and used to be fed in unnegated: the boat
+     * came right while the wheel in front of the player wound left. Measured
+     * with a full starboard helm the rim top moved 0.219 m to port against a
+     * -0.121 rad/s (starboard) yaw rate; it now moves the same distance the
+     * other way. */
+    boat.wheel.rotation.z = -physics.steer * .7;
     boat.controls.throttle.setValue(physics.throttle);
     boat.controls.gaugeNeedles.rpm.rotation.z = -.95 + Math.abs(physics.throttle) * 1.9;
     boat.controls.gaugeNeedles.speed.rotation.z = -.95 + Math.min(1, Math.abs(physics.speed) / 8.5) * 1.9;
@@ -952,12 +1033,21 @@ function updateBoat(dt) {
     world.wake.emit(wakeAt, physics.heading, Math.abs(physics.speed), dt);
     const propulsion = Math.min(1, Math.abs(physics.speed) / 8.5);
     if (Math.abs(physics.speed) > .25) {
-      audio.startLoop('underway', { name: 'boat.engine.underway', volume: .03, fade: .45 });
-      audio.startLoop('wake', { name: 'boat.hull.wake', volume: .015, fade: .55 });
+      audio.startLoop('underway', { name: 'boat.engine.underway', volume: .06, fade: .45 });
+      audio.startLoop('wake', { name: 'boat.hull.wake', volume: .02, fade: .55 });
     }
-    audio.setLoopVolume('engine-idle', .10 + Math.abs(physics.throttle) * .09, .12);
-    audio.setLoopVolume('underway', .025 + propulsion * .20, .12);
-    audio.setLoopVolume('wake', .01 + propulsion * .17, .12);
+    /* Twin diesels the player is standing on top of, not a distant outboard.
+     * The recorded stems carry roughly twice the level they used to and the
+     * live engine graph answers the throttle underneath them. The whole engine
+     * room steps back while anybody is speaking, because every ambient line on
+     * the way out is delivered over it at cruising revs. */
+    const underVoice = audio.busy() ? .58 : 1;
+    audio.setLoopVolume('engine-idle', (.21 + Math.abs(physics.throttle) * .15) * underVoice, .18);
+    audio.setLoopVolume('underway', (.05 + propulsion * .38) * underVoice, .18);
+    audio.setLoopVolume('wake', (.02 + propulsion * .22) * underVoice, .18);
+    engineAudio.setDrive({
+      rpm: physics.rpm, throttle: physics.throttle, speed: physics.speed, duck: underVoice,
+    });
 
     if (carryDeckPlayer) {
       world.fromBoatLocal(carriedLocal, carriedWorld);
@@ -1067,7 +1157,7 @@ const runtime = {
   get phase() { return state.phase; }, set phase(v) { state.phase = v; },
   get campaignState() { return campaign.state; },
   state, physics, world, boat, player, interaction, story, postfx, audio, radio, radioReady,
-  cameraDirector,
+  cameraDirector, blood, engineAudio,
   dialogueLog: state.dialogueLog,
   startUnderway() {
     Object.assign(state, {
@@ -1129,6 +1219,11 @@ startButton.addEventListener('click', async () => {
   canvas.requestPointerLock?.();
   resumeCheckpoint();
   await audio.init();
+  engineAudio.init();
+  /* The only music on this page is the boat's own stereo, a metre from the
+   * helmsman's ear on an open deck. The shared 0.7 music bus is set for a
+   * receiver across an apartment. */
+  if (audio.busMusic) audio.busMusic.gain.value = 1;
   await radioReady;
   // NO WAKE crosses three authored shows. Decode those exact station banks
   // plus this mission rather than the entire 100+ MiB campaign library.
@@ -1138,6 +1233,12 @@ startButton.addEventListener('click', async () => {
     manifestTotal: audio.manifest.sfx.length,
     selected: loadedAudio.total,
   };
+  // A resumed checkpoint arrives with the engines already running. They were
+  // silent until the player restarted the mission from the dock.
+  if (state.engine) {
+    audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .34, fade: .8 });
+    engineAudio.start();
+  }
   if (audio.buffers.has('ambience.harbor')) {
     audio.startLoop('harbor', { name: 'ambience.harbor', volume: .11, ambience: true });
   } else {

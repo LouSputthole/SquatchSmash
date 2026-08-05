@@ -89,6 +89,13 @@ export const CAPSULE_RADIUS = 0.30;
  *  - **Helm console tightened to its mesh in z.** 0.62 m between the console
  *    and the windshield frame was technically passable and practically a pinch;
  *    it is 0.68 now.
+ *  - **Helm console widened to its rebuilt mesh in x, -.50/.78 -> -.74/1.26.**
+ *    The pedestal used to end halfway along its own instrument face, leaving
+ *    the start panel, stereo, VHF and throttle hanging off it in open air with
+ *    no solid under them. The pedestal now carries them, so the collider has to
+ *    cover the same volume or the player walks through a console he can see.
+ *    It still leaves 1.06 m to the starboard rail run and 1.58 m to the port
+ *    one, and its z span is unchanged, so no channel narrows.
  */
 export const DECK_COLLIDERS = [
   { name: 'starboard rail · forward run', min: [2.32, .96, -5.70], max: [2.70, 1.92, 2.85] },
@@ -99,7 +106,7 @@ export const DECK_COLLIDERS = [
   { name: 'bow pulpit · port', min: [-2.42, .96, -6.75], max: [.06, 1.92, -5.42] },
   { name: 'bow pulpit · starboard', min: [-.06, .96, -6.75], max: [2.42, 1.92, -5.42] },
   { name: 'windshield frame', min: [-1.36, .98, -2.82], max: [1.36, 2.95, -2.54] },
-  { name: 'helm console', min: [-.50, .98, -1.86], max: [.78, 2.38, -.98] },
+  { name: 'helm console', min: [-.74, .98, -1.86], max: [1.26, 2.38, -.98] },
   { name: 'helm seat block', min: [-.26, .98, -.12], max: [1.66, 2.14, .78] },
   { name: 'cabin trunk', min: [-1.26, .98, -5.82], max: [1.26, 1.72, -2.78] },
   { name: 'aft bench', min: [-2.10, .98, 4.95], max: [2.10, 2.00, 5.65] },
