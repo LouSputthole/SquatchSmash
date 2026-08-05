@@ -123,7 +123,17 @@ const STAIR_EAST = Object.freeze({ x0: 5.5, x1: 8.85, z0: 42, z1: 48 });
 export const KEEP_CLEAR = Object.freeze([
   Object.freeze({ ...STAIR_WEST, label: 'the west flight' }),
   Object.freeze({ ...STAIR_EAST, label: 'the east flight' }),
-  Object.freeze({ x0: -3.6, x1: 3.6, z0: 44.6, z1: 49.4, label: 'the balcony bay and its approach' }),
+  /* DERIVED from BALCONY rather than typed, so the day the future-edit list's
+   * "widen the gallery landing at the stair heads" lands, the zone the
+   * friendlies stay out of moves with the bay instead of being a stale pair
+   * of numbers somebody has to remember. */
+  Object.freeze({
+    x0: BALCONY.x0 - 0.6,
+    x1: BALCONY.x1 + 0.6,
+    z0: BALCONY.z0 - 0.6,
+    z1: BALCONY.z1 + 1.4,
+    label: 'the balcony bay and its approach',
+  }),
 ]);
 
 /**
@@ -774,8 +784,11 @@ function poseFor(figure, pose) {
  *           `under_attack`, `damaged` and `post_battle` and gone for the
  *           walking tour -- without the mission having to remember.
  *   matrix  the shared `FactionMatrix`.
+ *   audio   an `AudioEngine`, optional here or per frame in `update`'s
+ *           context. Every friendly shot and reload goes through
+ *           `playWeaponCue`, so the family's guns are the catalog's guns.
  */
-export function buildSiegeEnsemble({ scene, damage, matrix } = {}) {
+export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {}) {
   const factionMatrix = matrix ?? DEFAULT_FACTION_MATRIX;
   const root = new THREE.Group();
   root.name = 'siege.ensemble';
@@ -1131,9 +1144,27 @@ export function buildSiegeEnsemble({ scene, damage, matrix } = {}) {
     return key;
   }
 
+  /**
+   * The frame.
+   *
+   * @param {number} dt
+   * @param {object} ctx
+   *   player      anything with a `.position`. Read only so that nobody
+   *               stands in his line or inside him.
+   *   colliders   the scene's live collider array, for line of sight.
+   *   hostiles    the cartel. An array of roots or entries, a function, or
+   *               pass the attacker pool itself as `attackers` and its
+   *               `living()` is used.
+   *   onHostileDown(attackerId, memberId)  one of ours finished one of
+   *               theirs. The pool is told separately through the attacker
+   *               root's own `userData.onDown`, so the wave director learns
+   *               either way; this is for the scene's kill feed.
+   *   onFriendlyDown(memberId)  one of ours is down. Fired once per man.
+   *   audio, onBark  optional.
+   */
   function update(dt, ctx = {}) {
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
-    context = { audio: ctx.audio ?? null, onBark: ctx.onBark ?? null };
+    context = { audio: ctx.audio ?? audio, onBark: ctx.onBark ?? null };
     const frame = {
       audio: context.audio,
       colliders: ctx.colliders ?? [],

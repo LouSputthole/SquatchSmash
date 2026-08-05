@@ -452,6 +452,33 @@ test('a wave uses both stair flights and more than one route', () => {
     'and pushes both flights of the horseshoe');
 });
 
+test('no leg of any route is a straight line through a room he is not in', () => {
+  /* There is no nav mesh: a man walks a straight line between two authored
+   * waypoints, which is only correct while consecutive waypoints are in the
+   * same room or either side of one opening. The service door was the one
+   * zone where that was false -- twenty-six metres from the kitchen to the
+   * foyer through two partitions on a single diagonal. */
+  const { pool } = harness();
+  const orders = releaseWave(pool, 'two');
+  const fromService = orders.filter((order) => order.staging.id === 'rear_service');
+  assert.ok(fromService.length > 0, 'somebody does come the long way round');
+  for (const order of fromService) {
+    const entry = pool.entry(order.id);
+    assert.ok(entry.path.some((point) => point.kind === 'entry'),
+      `${order.id} has no leg between the service door and the foyer`);
+  }
+  /* And no single leg of anybody's route is longer than the house is wide. */
+  for (const order of orders) {
+    const entry = pool.entry(order.id);
+    let previous = { x: order.staging.x, z: order.staging.z };
+    for (const point of entry.path) {
+      const leg = Math.hypot(point.x - previous.x, point.z - previous.z);
+      assert.ok(leg < 14, `${order.id} walks ${leg.toFixed(1)}m in one straight line`);
+      previous = point;
+    }
+  }
+});
+
 test('nobody on a route shares a waypoint with anybody else', () => {
   /* The failure the probe caught: eight men standing inside each other on
    * one tread, because every man on a route got the identical waypoint
@@ -837,6 +864,24 @@ test('the named cast survives and the guards do not have to', () => {
   assert.equal(ensemble.survives('guard_wounded'), false);
 });
 
+test('the foyer fight on the way up stays the player\'s', () => {
+  /* The family is already on the landing when the player crosses the foyer,
+   * which is what "the house is fighting on the way past" means. They must
+   * not clear his encounter for him from six metres above it: outside the
+   * two wave beats the kill budget is zero, so their fire wounds and
+   * suppresses and never finishes anybody. */
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  for (const beat of ['TO_OFFICE', 'BRIEFING', 'LULL', 'AFTERMATH', 'TO_SASOLE']) {
+    ensemble.stage(beat);
+    assert.equal(ensemble.killBudget, 0, `${beat} handed out kills`);
+  }
+  ensemble.stage('WAVE_ONE');
+  assert.equal(ensemble.killBudget, KILL_BUDGET.WAVE_ONE);
+  ensemble.stage('WAVE_TWO');
+  assert.equal(ensemble.killBudget, KILL_BUDGET.WAVE_TWO);
+});
+
 test('every beat from the mission model stages somebody', () => {
   const { scene, damage, matrix } = harness();
   const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
@@ -956,6 +1001,48 @@ test('the pool and the ensemble are damage-state layers, not a mission chore', (
   assert.equal(pool.root.visible, false);
   assert.equal(ensemble.root.visible, false);
   assert.equal(colliders.length, 0, 'and neither of them ever added a collider');
+});
+
+test('the guns are audible and the rounds leave marks -- through the scene', () => {
+  /* Neither pool owns a decal or an AudioEngine: `world/bullets.js` wants a
+   * canvas and an AudioEngine wants a browser, and a module that only owns
+   * where people stand must still run headless. So both are reported, and
+   * the scene may wire them at construction OR per frame. */
+  const scene = new THREE.Scene();
+  const colliders = [new THREE.Box3(
+    new THREE.Vector3(-9, 0, 43.8), new THREE.Vector3(9, 4, 44.2),
+  )];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const played = [];
+  const impacts = [];
+  const audio = {
+    hasSample: () => true,
+    play: (cue) => played.push(cue),
+  };
+  const pool = createAttackerPool({
+    scene, damage, matrix: new FactionMatrix(), onDown: () => {},
+    audio, onImpact: (hit) => impacts.push(hit),
+  });
+  releaseWave(pool, 'one');
+  const player = makePlayer(0, 7.66, 46.5);
+  for (let i = 0; i < 60 * 20; i++) {
+    pool.update(1 / 60, { player, colliders, alive: [] });
+    if (player.actor.health <= 10) {
+      player.actor.health = 100;
+      player.actor.incapacitated = false;
+    }
+  }
+  assert.ok(played.length > 20, `only ${played.length} cues`);
+  /* Real catalog cue names, not invented ones. */
+  assert.ok(played.every((cue) => /^weapon\.(revolver|pistol9|carbine|ak47|saw|barrett)\./.test(cue)),
+    `a cue outside the catalog: ${played.find((c) => !c.startsWith('weapon.'))}`);
+  assert.ok(played.some((cue) => cue.endsWith('.fire')));
+  assert.ok(impacts.length > 20, `only ${impacts.length} impacts`);
+  for (const hit of impacts) {
+    assert.ok(Number.isFinite(hit.point.x) && Number.isFinite(hit.point.y));
+    assert.ok(Math.abs(hit.normal.length() - 1) < 1e-6, 'the normal is a normal');
+    assert.equal(typeof hit.material, 'string');
+  }
 });
 
 test('the staging zones every wave names really exist', () => {

@@ -382,6 +382,26 @@ const HOLD_POSTS = Object.freeze({
 });
 
 /**
+ * Room-to-room legs between a staging zone's approach and the push route.
+ *
+ * THERE IS NO NAV MESH HERE and there should not be one: everything else in
+ * this module walks a straight line between two authored waypoints, which is
+ * correct as long as the two waypoints are in the same room or either side of
+ * an opening. The service door is the one zone where that is not true --
+ * `rear_service` lands a man at (12, 62) in the KITCHEN and the nearest push
+ * waypoint is twenty-six metres away in the foyer, so the straight line
+ * crosses the kitchen's south partition at z 58 AND the lounge/foyer
+ * partition at x 9.15 in one diagonal, and he walks through both walls.
+ *
+ * Two legs fix it: south through the kitchen door into the lounge, then down
+ * the lounge to the arch. Both are inside rooms the house actually has, and
+ * the arch is the same one `ENCOUNTERS.foyer` already names as cover.
+ */
+const ENTRY_ROUTES = Object.freeze({
+  rear_service: Object.freeze([[12.5, 56.5], [10.5, 46.0]]),
+});
+
+/**
  * The staging zones an attacker arrives through GLASS rather than through a
  * doorway.
  *
@@ -602,9 +622,23 @@ const CAN_PAINT = typeof document !== 'undefined'
  *   registerLight(light)  the scene's light budget. One muzzle-flash light is
  *                 offered for the whole pool; a scene that says no simply
  *                 gets no flash.
+ *
+ * Two more the scene may hand over here OR per frame in `update`'s context,
+ * whichever it finds easier to wire. Both are optional and the pool is
+ * complete without either -- silent, and leaving no marks:
+ *
+ *   audio         an `AudioEngine`. Every shot, every reload and every empty
+ *                 magazine goes through `playWeaponCue`, so the cartel's guns
+ *                 sound like the guns on the armory wall because they ARE the
+ *                 guns on the armory wall.
+ *   onImpact(hit) `{ point, normal, material, actor }` -- where a round
+ *                 stopped. The scene owns the decal pools (`world/bullets.js`
+ *                 needs a canvas and therefore a DOM); this module reports
+ *                 the hit and never punches the hole itself.
  */
 export function createAttackerPool({
   scene, damage, matrix, onDown = null, registerLight = null,
+  audio = null, onImpact = null,
 } = {}) {
   const factionMatrix = matrix ?? DEFAULT_FACTION_MATRIX;
   const root = new THREE.Group();
@@ -636,6 +670,8 @@ export function createAttackerPool({
   /** id -> entry. Ids are unique for a playthrough, so this is also the
    * checkpoint's index: restoring a wave re-spawns the same men. */
   const entries = new Map();
+  /** root Object3D -> entry, so a hit does not scan twenty-seven people. */
+  const byRoot = new Map();
   /** Ids `onDown` has already been called for. Nobody is reported twice. */
   const reported = new Set();
   const barkCursor = new Map();
@@ -871,6 +907,22 @@ export function createAttackerPool({
     if (result?.fatal && !target.isPlayer && target.node?.userData?.onDown) {
       target.node.userData.onDown(result);
     }
+
+    /* Where it stopped, for whoever owns the decals. The point is on the
+     * line at the distance the resolver stopped at, and the normal is the
+     * way the round came -- which is what a hole in a wall wants. */
+    if (ctx.onImpact) {
+      const stopped = resolved[resolved.length - 1];
+      const reach = blocker ? blocker.distance : distance;
+      const point = _to.clone().sub(_from).normalize();
+      ctx.onImpact({
+        point: _from.clone().addScaledVector(point, Math.max(0.1, reach)),
+        normal: point.clone().negate(),
+        material: stopped?.material ?? 'concrete',
+        actor: stopped?.actor ?? null,
+      });
+    }
+
     entry.lastShot = { distance, blocked: !!blocker, onTarget, damage: result?.damage ?? 0 };
     return entry.lastShot;
   }
@@ -908,6 +960,10 @@ export function createAttackerPool({
     const path = [];
     for (const point of staging.approach ?? []) {
       path.push({ x: point[0] + lane * 0.5, z: point[1] + depth * 0.4, y: null, kind: 'approach' });
+    }
+    /* The one zone whose approach does not end beside the push route. */
+    for (const point of ENTRY_ROUTES[staging.id] ?? []) {
+      path.push({ x: point[0] + lane * 0.4, z: point[1] + depth * 0.4, y: null, kind: 'entry' });
     }
     /* The two who never advance stop at a post instead of getting a route
      * they would then have to be interrupted out of. */
@@ -1200,8 +1256,7 @@ export function createAttackerPool({
   }
 
   function entryForRoot(node) {
-    for (const entry of entries.values()) if (entry.root === node) return entry;
-    return null;
+    return byRoot.get(node) ?? null;
   }
 
   /**
@@ -1283,6 +1338,7 @@ export function createAttackerPool({
        * so this is the fast path rather than the only one. */
       entry.root.userData.onDown = () => markDown(entry);
       entries.set(order.id, entry);
+      byRoot.set(entry.root, entry);
       root.add(entry.root);
     }
 
@@ -1421,10 +1477,27 @@ export function createAttackerPool({
 
   const THINK_INTERVAL = 1 / 9;
 
+  /**
+   * The frame.
+   *
+   * @param {number} dt
+   * @param {object} ctx
+   *   player     anything with a `.position`. If it also carries `.actor` (or
+   *              `.combatActor`) the rounds that reach him are applied to it
+   *              through the shared resolver; if it carries `.suppression`,
+   *              near misses go into it. With neither he is still a man to
+   *              shoot at and the fight still reads.
+   *   colliders  the scene's live collider array. This is the line-of-sight
+   *              model: no colliders means every shot is a clean shot.
+   *   alive      the crew the cartel may engage -- pass `ensemble.targets()`,
+   *              which never contains Snow. An array or a function.
+   *   audio, onImpact, onBark, onBreach, onPlayerHit, playerDamageScale
+   *              all optional; see `createAttackerPool`.
+   */
   function update(dt, ctx = {}) {
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
     context = {
-      audio: ctx.audio ?? null,
+      audio: ctx.audio ?? audio,
       onBark: ctx.onBark ?? null,
       onBreach: ctx.onBreach ?? null,
       onPlayerHit: ctx.onPlayerHit ?? null,
@@ -1435,6 +1508,7 @@ export function createAttackerPool({
       player: ctx.player ?? null,
       onBreach: context.onBreach,
       onPlayerHit: context.onPlayerHit,
+      onImpact: ctx.onImpact ?? onImpact,
       /* The mission's difficulty knob, and the only one. A scene that wants
        * the raw catalog numbers passes 1. */
       playerDamageScale: Number.isFinite(ctx.playerDamageScale)
