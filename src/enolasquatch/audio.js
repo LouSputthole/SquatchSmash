@@ -99,6 +99,44 @@ export class EnolaMissionAudio extends MissionAudio {
     this._whistle = null;
   }
 
+  /**
+   * Play one line of dialogue and say how long it runs.
+   *
+   * THIS METHOD DID NOT EXIST, and eighty-seven recorded takes were
+   * unreachable because of it. `DialogueSystem.next()` calls
+   * `this.audio?.line(line)` and uses the answer as the subtitle hold. The
+   * optional chain meant the missing method was not an error: it returned
+   * `undefined`, the hold fell back to the authored `line.hold`, the subtitle
+   * appeared exactly as designed, and the mission ran mute over a folder of
+   * finished audio. The comment two lines below the call even says "a cue with
+   * no recording simply does not play audio, and the subtitle still reads" --
+   * which described the symptom perfectly while the cause was that nothing
+   * ever tried to play anything.
+   *
+   * Same shape as the Beef Run's, which is what `DialogueSystem`'s own
+   * docstring points at: find the bank, start it, and return its real length
+   * so the subtitle holds for as long as the man is actually talking rather
+   * than for a number somebody guessed while writing the line.
+   *
+   * @returns {number} seconds of recording started, or 0 when there is none
+   */
+  line(line) {
+    if (!this.engine || !line?.cue) return 0;
+    /* A new subtitle owns the intercom even when this particular take is
+     * still missing -- otherwise the previous line keeps talking underneath
+     * the new one. */
+    this.engine._vo?.stop?.();
+    this.engine._vo = null;
+    const prefix = `vo.${line.cue}.`;
+    const duration = Math.max(0, ...[...this.engine.buffers.entries()]
+      .filter(([name]) => name.startsWith(prefix))
+      .flatMap(([, bank]) => bank.map((buffer) => buffer.duration || 0)));
+    /* Everyone on this aeroplane is on the intercom except the man beside
+     * you, and the headset ducks the airframe rather than the voice. */
+    const started = this.engine.say(line.cue, { chance: 1, volume: 0.95 });
+    return started ? duration : 0;
+  }
+
   /* ---------------------------------------------------------------- */
   /* The pheeeeeew                                                     */
   /* ---------------------------------------------------------------- */
