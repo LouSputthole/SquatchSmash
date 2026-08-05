@@ -960,15 +960,34 @@ test('every spoken Prospect reply is an exact stable Silver Pines voice cue', ()
   const spoken = options.filter((option) => /[\p{L}\p{N}]/u.test(option.text));
   const silent = options.filter((option) => !/[\p{L}\p{N}]/u.test(option.text));
 
-  assert.equal(spoken.length, 14);
+  /* Twenty-two now rather than fourteen: the second and third tees stopped
+   * re-asking the first tee's invitation and got four replies each of their
+   * own. Every one still has to be a real registered cue with real recording
+   * direction, which is what this test is actually for. */
+  assert.equal(spoken.length, 22);
   assert.equal(silent.length, 2);
   for (const option of spoken) {
-    assert.match(option.cue, /^golf\.h1\.prospect\.[a-z0-9_]+$/, option.text);
+    assert.match(option.cue, /^golf\.h[123]\.prospect\.[a-z0-9_]+$/, option.text);
     assert.equal(CUES[option.cue]?.speaker, CHARACTER_IDS.PROSPECT, option.cue);
     assert.equal(CUES[option.cue]?.text, option.text, option.cue);
     assert.ok(CUES[option.cue]?.direction, `${option.cue} needs recording direction`);
   }
   for (const option of silent) assert.equal(option.cue, undefined, option.tone);
+
+  /* And a tee's replies belong to that tee. The bug this whole pass is about
+   * was Hole 1's conversation being served on Hole 3, so a tree carrying
+   * another hole's cue ids is the exact shape of the regression. */
+  const holeOf = { firstTee: 1, secondTee: 2, thirdTee: 3 };
+  for (const [name, hole] of Object.entries(holeOf)) {
+    const replies = Object.values(trees[name])
+      .flatMap((node) => node.options || [])
+      .filter((option) => option.cue);
+    assert.equal(replies.length, 4, `${name} should offer four spoken replies`);
+    for (const option of replies) {
+      assert.match(option.cue, new RegExp(`^golf\\.h${hole}\\.prospect\\.`),
+        `${name} must speak with hole ${hole}'s own lines, got ${option.cue}`);
+    }
+  }
 });
 
 test('selecting every spoken Prospect reply requests its exact recorded cue', () => {

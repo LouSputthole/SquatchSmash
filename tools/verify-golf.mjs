@@ -476,16 +476,67 @@ const coolerTarget = await page.evaluate(() => {
 await page.evaluate((p) => window.__golf.teleport(p.x, p.z + p.standoff), coolerTarget);
 await page.waitForTimeout(150);
 const coolerGrab = await pressUntilToast(coolerTarget);
-const coolerAfterGrab = await page.evaluate(() => (
-  window.__golf.course.sideCooler.cans.filter((c) => c.visible).length
-));
-check('4f. walking up to the trailside cooler takes a real, visible can out of it',
-  coolerAfterGrab === 5 && /cold one|left in this cooler/i.test(coolerGrab.toast),
-  JSON.stringify({ ...coolerGrab, remaining: coolerAfterGrab }));
+const coolerAfterGrab = await page.evaluate(() => ({
+  remaining: window.__golf.course.sideCooler.cans.filter((c) => c.visible).length,
+  carrying: window.__golf.inventory.items.filter((slot) => slot === 'beer').length,
+  held: window.__golf.inventory.held,
+  hand: document.querySelector('#hand-item .name')?.textContent?.trim() ?? '',
+}));
+check('4f. walking up to the trailside cooler puts a real can in his inventory',
+  coolerAfterGrab.remaining === 5
+    && coolerAfterGrab.carrying === 1
+    && coolerAfterGrab.held === 'beer'
+    && /beer/i.test(coolerAfterGrab.hand)
+    && /cold one|left in this cooler/i.test(coolerGrab.toast),
+  JSON.stringify({ ...coolerGrab, ...coolerAfterGrab }));
 
-// Drain the rest, one authored can at a time -- five more presses empties
-// the six the cooler started with.
-for (let i = 0; i < 5; i++) await pressUntilToast(coolerTarget);
+/* Drink it, and the slot comes back. This is the playtest's other half — a can
+ * that goes into a slot and can never leave it is a worse bug than one that
+ * never arrived. Holding [F] runs the shared apartment drink pose. */
+const drank = await page.evaluate(async () => {
+  const g = window.__golf;
+  const before = g.inventory.items.filter((slot) => slot === 'beer').length;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+  g.player.keys.add('KeyF');
+  let lifted = 0;
+  for (let t = 0; t < 3.0; t += 1 / 60) {
+    g.step(1 / 60);
+    lifted = Math.max(lifted, g.heldProps.drinks.can.position.y);
+  }
+  g.player.keys.delete('KeyF');
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' }));
+  return {
+    before,
+    after: g.inventory.items.filter((slot) => slot === 'beer').length,
+    lifted,
+    canRest: g.heldProps.drinks.can.position.y,
+  };
+});
+check('4f1. holding F drinks the beer with the shared held-can animation and frees the slot',
+  drank.before === 1 && drank.after === 0 && drank.lifted > -0.15,
+  JSON.stringify(drank));
+
+/* Drain the rest, one authored can at a time, drinking whenever his hands are
+ * full -- six cans through five slots that already hold three clubs. */
+for (let i = 0; i < 10; i++) {
+  const left = await page.evaluate(() => {
+    const g = window.__golf;
+    /* Empty his hands of beer before reaching for another. Each pass is a
+     * real keydown, three seconds of held [F] and a keyup, so it goes through
+     * the same `beginItemUse`/`updateItemUse` path a player's finger does. */
+    for (let n = 0; n < 4 && g.inventory.has('beer'); n++) {
+      g.inventory.select(g.inventory.items.indexOf('beer'));
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+      g.player.keys.add('KeyF');
+      for (let t = 0; t < 3.0; t += 1 / 60) g.step(1 / 60);
+      g.player.keys.delete('KeyF');
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' }));
+    }
+    return g.course.sideCooler.cans.filter((c) => c.visible).length;
+  });
+  if (left === 0) break;
+  await pressUntilToast(coolerTarget);
+}
 const coolerAfterAll = await page.evaluate(() => (
   window.__golf.course.sideCooler.cans.filter((c) => c.visible).length
 ));

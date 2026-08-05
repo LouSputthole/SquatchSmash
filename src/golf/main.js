@@ -24,6 +24,7 @@ import {
 } from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
 import { Radio } from '../core/radio.js';
+import { Inventory } from '../core/inventory.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 
@@ -43,12 +44,16 @@ import {
 } from './course.js';
 import { heightAt, surfaceAt } from './field.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { getCharacter } from '../core/characters.js';
 import { HOLE, builtHoles } from './hole.js';
 import {
   CourseAudio, GOLF_LATER_AUDIO_SCOPES, GOLF_START_AUDIO_SCOPE,
   playRecordedGolfChoice, playRecordedGolfCue, recordedGolfClip,
 } from './audio.js';
 import { completedRoundAction, connectGolfFootsteps } from './runtime.js';
+import {
+  USE_TIME, createHeldProps, dressSquatchBeer, loadSquatchBeerLabel,
+} from './hands.js';
 
 /* ------------------------------------------------------------------ */
 /* Campaign                                                            */
@@ -331,18 +336,39 @@ const interaction = new InteractionSystem(camera, hud);
 let courseAudio = null;
 connectGolfFootsteps(player, () => courseAudio);
 let activeVoice = null;
+
+/**
+ * Who is speaking, and from where.
+ *
+ * Four of them are Golfers with scorecard lines. The five on the grille
+ * balcony are not — they are `course.gallery` figures — and until they were
+ * given lines nothing here had to know that. A cue from one of them used to
+ * resolve to an empty name and a null position, which is a subtitle with no
+ * speaker on it, played flat in the middle of the player's head.
+ */
+function speakerFor(id) {
+  if (golfers[id]) return golfers[id];
+  return course.gallery?.find((npc) => npc.characterId === id) ?? null;
+}
+
+function speakerName(id) {
+  if (id === CHARACTER_IDS.PROSPECT) return 'Prospect';
+  return golfers[id]?.name ?? getCharacter(id)?.subtitleName ?? '';
+}
+
 const cues = new CueQueue({
   say: (cue, secs) => {
-    const who = cue.speaker === CHARACTER_IDS.PROSPECT ? 'Prospect'
-      : golfers[cue.speaker]?.name ?? '';
-    hud.say(`<em>${who}</em> ${cue.text}`, secs * 1000);
-    golfers[cue.speaker]?.say(secs);
+    const speaker = speakerFor(cue.speaker);
+    hud.say(`<em>${speakerName(cue.speaker)}</em> ${cue.text}`, secs * 1000);
+    speaker?.say?.(secs);
     activeVoice?.stop?.();
     activeVoice = playRecordedGolfCue(audio, cue.id, {
       volume: 0.88,
-      position: golfers[cue.speaker]?.position ?? null,
+      position: speaker?.position ?? null,
       ref: 2.2,
-      maxDist: 34,
+      /* The balcony is across the green and up a storey, so heckling has to
+       * carry further than a man standing next to you reading a putt. */
+      maxDist: golfers[cue.speaker] ? 34 : 58,
     });
     courseAudio?.duck(true);
     cartRadio.setPhoneDucked(true);
@@ -385,12 +411,12 @@ const round = new Round({
   hooks: {
     onToast: (text) => hud.toast(text),
     onStroke: () => paintCard(),
-    onBag: () => syncGolfInventory(),
+    onBag: () => stockBag(),
     onBallEvent: (kind, data) => {
       if (kind === 'stop' && data.id === CHARACTER_IDS.PROSPECT) paintCard();
     },
     onHoleComplete: (summary, next) => showHoleCard(summary, next),
-    onLoadHole: (n) => { course.load(n); wireSideCooler(); },
+    onLoadHole: (n) => { course.load(n); wireSideCooler(); restockSquatchBeer(); },
     onRoundComplete: (summary) => showEndCard(summary),
   },
 });
@@ -415,19 +441,74 @@ const shotTracerPoints = [];
 const _v = new THREE.Vector3();
 const _look = new THREE.Vector3();
 
+/**
+ * What he is carrying, on the shared five slots.
+ *
+ * The bottom box was a read-only picture of the bag: three clubs, drawn from
+ * `CLUB_IDS`, and nothing else could ever be in it. So taking a beer out of
+ * the cooler played a sound and hid a can, and the Zyn tin and the cigarettes
+ * printed a line and were gone — *"I take zyns or smoke from the cart and they
+ * don't go into my inventory, I can only change through the clubs."*
+ *
+ * It is `core/inventory.js` now, the same object the flat and the Bing carry,
+ * feeding the same `SceneInventoryBar`. Clubs occupy slots like everything
+ * else, which is the whole point: the number keys select a slot rather than
+ * indexing a hard-coded club list, so a Zyn can sit in slot four and be
+ * selected exactly the way the putter is.
+ */
+const GOLF_ITEMS = Object.freeze({
+  driver: { icon: 'D', name: 'Driver', hint: 'Long, low, and hard to aim' },
+  iron: { icon: 'I', name: 'Iron', hint: 'Everything from a chip to a hundred and ninety' },
+  putter: { icon: 'P', name: 'Putter', hint: 'Roll it. Do not hit it' },
+  beer: { icon: '🍺', name: 'Cold beer', hint: 'Hold [F] to drink' },
+  cigs: { icon: '🚬', name: 'Smokes', hint: 'Hold [F] to light one' },
+  zyn: { icon: '⬤', name: 'Zyn — wintergreen', hint: 'Hold [F] to pack one' },
+});
+/** Which of those are consumed by holding [F] rather than swung. */
+const CONSUMABLES = Object.freeze(['beer', 'cigs', 'zyn']);
+
+const inventory = new Inventory(5);
 const sceneInventory = new SceneInventoryBar({
   slots: 5,
   visible: false,
-  catalog: {
-    driver: { icon: 'D', name: 'Driver' },
-    iron: { icon: 'I', name: 'Iron' },
-    putter: { icon: 'P', name: 'Putter' },
-  },
+  catalog: GOLF_ITEMS,
 });
 
+const heldProps = createHeldProps(camera);
+/* Seconds of [F] held so far on the selected consumable, and which one it was
+ * when he started — so letting go, or changing slot, abandons it. */
+let usingItem = null;
+let useProgress = 0;
+
 function syncGolfInventory() {
-  const selected = Math.max(0, CLUB_IDS.indexOf(club));
-  sceneInventory.set(round.hasBag ? CLUB_IDS : [], selected);
+  sceneInventory.set(inventory.items, inventory.selected);
+  const held = inventory.held;
+  heldProps.show(CONSUMABLES.includes(held) ? held : null);
+  if (usingItem && usingItem !== held) cancelItemUse();
+  /* The club already has the whole `#shot` panel; the hand card is for the
+   * things that panel says nothing about. */
+  hud.setHand?.(CONSUMABLES.includes(held) ? GOLF_ITEMS[held] : null);
+}
+inventory.onChange = syncGolfInventory;
+
+/** The bag arrives as three real items rather than as a boolean. */
+function stockBag() {
+  for (const id of CLUB_IDS) if (!inventory.has(id)) inventory.add(id);
+  selectClub('iron');
+}
+
+/** Put something in a slot, or say why not. Returns true if he took it. */
+function pickUp(id, { taken = '', full = 'Your hands are full.' } = {}) {
+  if (!inventory.add(id)) {
+    hud.toast(full, 'hint', 1800);
+    return false;
+  }
+  if (taken) hud.toast(taken, 'good', 1900);
+  return true;
+}
+
+function slotOf(id) {
+  return inventory.items.indexOf(id);
 }
 
 function selectClub(id, { sound = false } = {}) {
@@ -435,10 +516,72 @@ function selectClub(id, { sound = false } = {}) {
   club = id;
   swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
   syncPlayerClub();
-  syncGolfInventory();
+  /* Selecting a club selects its slot, so the bar and the hands never disagree
+   * about what he is holding. `select` is a no-op when it is already there. */
+  const at = slotOf(id);
+  if (at >= 0) inventory.select(at);
+  else syncGolfInventory();
   if (sound) audio.play('golf.bag', { volume: 0.4 });
   paintShot();
   return true;
+}
+
+/**
+ * Hold [F] to drink it, smoke it, or pack it.
+ *
+ * The same contract as the flat: a hold, not a tap, with the prop coming up to
+ * his mouth as the hold fills. Releasing early puts it back down with nothing
+ * consumed, which is what makes it a decision rather than a misclick.
+ */
+function beginItemUse() {
+  const held = inventory.held;
+  if (!CONSUMABLES.includes(held)) return false;
+  if (camMode !== CAM.WALK) return false;
+  usingItem = held;
+  useProgress = 0;
+  if (held === 'beer') audio.play('can.crack', { volume: 0.72, position: player.position });
+  if (held === 'cigs') audio.play('cig.pack', { volume: 0.5, position: player.position });
+  if (held === 'zyn') audio.play('zyn.tin', { volume: 0.55, position: player.position });
+  return true;
+}
+
+function cancelItemUse() {
+  usingItem = null;
+  useProgress = 0;
+  heldProps.poseDrink(0);
+  heldProps.poseTin(0);
+  heldProps.poseSmoke(0, 0);
+}
+
+function updateItemUse(dt) {
+  if (!usingItem) {
+    if (heldProps.showing === 'cigs') heldProps.poseSmoke(0, clock.elapsedTime ?? 0);
+    return;
+  }
+  if (!player.keys.has('KeyF') || camMode !== CAM.WALK) {
+    cancelItemUse();
+    return;
+  }
+  useProgress += dt;
+  const k = Math.min(1, useProgress / (USE_TIME[usingItem] ?? 2));
+  if (usingItem === 'beer') heldProps.poseDrink(k);
+  else if (usingItem === 'zyn') heldProps.poseTin(k);
+  else heldProps.poseSmoke(k, useProgress);
+  if (k < 1) return;
+
+  const finished = usingItem;
+  cancelItemUse();
+  inventory.remove(finished);
+  if (finished === 'beer') {
+    audio.play('can.crush', { volume: 0.72, position: player.position });
+    hud.toast('Cold. Free. Eight in the morning.', 'good', 2200);
+  } else if (finished === 'cigs') {
+    audio.play('cig.pack', { volume: 0.4, position: player.position });
+    hud.toast('Lou packed for eighteen holes.', 'hint', 2200);
+  } else {
+    audio.play('zyn.tin', { volume: 0.45, position: player.position });
+    hud.toast('Wintergreen. Naturally.', 'hint', 2200);
+  }
 }
 
 function syncPlayerClub() {
@@ -910,6 +1053,39 @@ function guideState() {
         task: 'Stay with the group', detail: 'Follow the current golf card',
         pause: 'Stay with Lou, Eric and Rippin and follow the current golf card.',
       };
+  }
+}
+
+/**
+ * Lift the spoken subtitle clear of whatever the reply box is currently.
+ *
+ * The CSS floor in golf.css handles the common case; this handles the real
+ * one, because `#dialogue` is anchored at its bottom and grows upward by
+ * however many options a node has and however long their text wraps. Measured
+ * rather than guessed: a four-reply node at 1280x720 is 188 px tall, and no
+ * fixed offset can be right for that and for a bare line at the same time.
+ *
+ * Written only when the value actually changes, so the frame loop is not
+ * invalidating layout on every tick to set a property to what it already is.
+ */
+const subtitleEl = document.getElementById('subtitle');
+const SUBTITLE_CLEARANCE = 16;
+let subtitleBottom = '';
+
+function layoutSubtitle() {
+  if (!subtitleEl) return;
+  const box = ui.dialogue.root;
+  const showing = box && !box.classList.contains('hidden');
+  let want = '';
+  if (showing) {
+    const rect = box.getBoundingClientRect();
+    if (rect.height > 0) {
+      want = `${Math.round(window.innerHeight - rect.top + SUBTITLE_CLEARANCE)}px`;
+    }
+  }
+  if (want !== subtitleBottom) {
+    subtitleBottom = want;
+    subtitleEl.style.bottom = want;
   }
 }
 
@@ -1440,14 +1616,28 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       return;
     }
+    /* A slot, not a club index. The bag puts three clubs in the first three
+     * slots so 1/2/3 still take out the driver, the iron and the putter — but
+     * a beer in slot four is now reachable by pressing 4, which is the whole
+     * of the playtest note. */
     const idx = Number(e.code.slice(5)) - 1;
-    if (idx < CLUB_IDS.length && round.hasBag) {
+    const inSlot = inventory.items[idx] ?? null;
+    if (inSlot) {
       if (camMode === CAM.ADDRESS && swing.phase !== SWING_PHASE.IDLE) {
         hud.toast('Club is locked once the swing starts. Press Q to reset.', 'hint');
         return;
       }
-      selectClub(CLUB_IDS[idx], { sound: true });
-      if (club === 'driver' && round.beat === BEAT.PLAYER_TEE) {
+      if (!CLUB_IDS.includes(inSlot)) {
+        inventory.select(idx);
+        hud.toast(`${GOLF_ITEMS[inSlot].name} — ${GOLF_ITEMS[inSlot].hint}`, 'hint', 2200);
+        return;
+      }
+      selectClub(inSlot, { sound: true });
+      /* Eric's "that is a lot of club" only means anything on a tee that does
+       * not want a driver. It used to fire on every tee, including the two
+       * that open on a driver by design — the same misfire as Lou's
+       * wrong-club line, from the other direction. */
+      if (club === 'driver' && round.beat === BEAT.PLAYER_TEE && !round.wantsDriver()) {
         cues.playSequence('bark.driver_on_par_three');
       }
     }
@@ -1509,7 +1699,13 @@ window.addEventListener('keydown', (e) => {
       break;
     }
     case 'KeyF':
+      /* Skipping an NPC tee shot is only a thing during the tee beat, and
+       * `requestSkip` says so itself. Everywhere else F is the hold that
+       * drinks the beer — the same key the flat and the Bing use for it. */
       if (round.requestSkip()) hud.toast('Skipping ahead.');
+      else if (!beginItemUse() && CONSUMABLES.includes(inventory.held)) {
+        hud.toast('Not while you are over the ball.', 'hint', 1600);
+      }
       break;
     case 'KeyM':
       audio.setMasterVolume(audio.muted ? 1 : 0);
@@ -1524,6 +1720,7 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
   if (e.code === 'KeyE') interaction.release();
+  if (e.code === 'KeyF') cancelItemUse();
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) cartRadio.pause();
@@ -1545,10 +1742,18 @@ interaction.register(bag, {
   onUse: () => round.takeBag(),
 });
 
+/**
+ * Everything on the cart you can actually take.
+ *
+ * All three of these used to be flavour: a sound, a line in the corner, and a
+ * can that vanished. They are pickups now — the beer goes in a slot and comes
+ * out again when he holds [F], the smokes and the tin do the same — which is
+ * the difference between an amenity and a prop of one.
+ */
 let cartBeersRemaining = carts.lead.amenities?.beers?.length ?? 0;
 interaction.register(carts.lead.amenities.cooler, {
   label: () => cartBeersRemaining > 0
-    ? `Crush a <b>cart beer</b> · ${cartBeersRemaining} cold`
+    ? `Take a <b>cart beer</b> · ${cartBeersRemaining} cold`
     : 'The <b>cooler</b> is empty',
   enabled: () => camMode === CAM.WALK,
   onUse: () => {
@@ -1556,34 +1761,41 @@ interaction.register(carts.lead.amenities.cooler, {
       hud.toast('Cooler is empty.', 'hint', 1400);
       return;
     }
-    const can = carts.lead.amenities.beers[cartBeersRemaining - 1];
-    can.visible = false;
-    cartBeersRemaining--;
     const at = carts.lead.amenities.cooler.getWorldPosition(new THREE.Vector3());
-    audio.play('can.crack', { volume: 0.72, position: at });
-    window.setTimeout(() => audio.play('can.sip', { volume: 0.62, position: at }), 380);
-    window.setTimeout(() => audio.play('can.crush', { volume: 0.72, position: at }), 980);
-    hud.toast(cartBeersRemaining ? `${cartBeersRemaining} beers left in the cart.` : 'Last cart beer.', 'good', 1900);
+    if (!pickUp('beer', {
+      taken: cartBeersRemaining > 1
+        ? `Cold one. ${cartBeersRemaining - 1} left in the cart.`
+        : 'Last cart beer. Hold F when you want it.',
+    })) return;
+    carts.lead.amenities.beers[cartBeersRemaining - 1].visible = false;
+    cartBeersRemaining--;
+    audio.play('golf.pickup', { volume: 0.5, position: at });
   },
 });
 
 interaction.register(carts.lead.amenities.cigarettes, {
-  label: 'Check the <b>cigarettes</b>',
-  enabled: () => camMode === CAM.WALK,
+  label: () => (inventory.has('cigs')
+    ? 'You already have the <b>smokes</b>'
+    : 'Take the <b>cigarettes</b>'),
+  enabled: () => camMode === CAM.WALK && !inventory.has('cigs'),
   onUse: () => {
     const at = carts.lead.amenities.cigarettes.getWorldPosition(new THREE.Vector3());
+    if (!pickUp('cigs', { taken: 'Smokes. Lou packed for eighteen holes.' })) return;
+    carts.lead.amenities.cigarettes.visible = false;
     audio.play('cig.pack', { volume: 0.5, position: at });
-    hud.toast('Cigarettes. Lou packed for eighteen holes.', 'hint', 1900);
   },
 });
 
 interaction.register(carts.lead.amenities.zyn, {
-  label: 'Tap the <b>Zyn tin</b>',
-  enabled: () => camMode === CAM.WALK,
+  label: () => (inventory.has('zyn')
+    ? 'The <b>tin</b> is already in your pocket'
+    : 'Take the <b>Zyn tin</b>'),
+  enabled: () => camMode === CAM.WALK && !inventory.has('zyn'),
   onUse: () => {
     const at = carts.lead.amenities.zyn.getWorldPosition(new THREE.Vector3());
+    if (!pickUp('zyn', { taken: 'Wintergreen. Naturally.' })) return;
+    carts.lead.amenities.zyn.visible = false;
     audio.play('zyn.tin', { volume: 0.55, position: at });
-    hud.toast('Wintergreen. Naturally.', 'hint', 1600);
   },
 });
 
@@ -1597,6 +1809,19 @@ interaction.register(carts.lead.amenities.zyn, {
  */
 let sideCoolerTarget = null;
 let sideCoolerRemaining = 0;
+/**
+ * Dress every can on the course, wherever it currently lives.
+ *
+ * The cart keeps its cans for the whole round; the trailside cooler is rebuilt
+ * with each hole, so this runs again on every load. Cheap and idempotent —
+ * `dressSquatchBeer` only ever swaps a geometry and a material.
+ */
+function restockSquatchBeer() {
+  dressSquatchBeer(carts.lead.amenities?.beers ?? []);
+  dressSquatchBeer(carts.follow.amenities?.beers ?? []);
+  dressSquatchBeer(course.sideCooler?.cans ?? []);
+}
+
 function wireSideCooler() {
   if (sideCoolerTarget) interaction.unregister(sideCoolerTarget);
   sideCoolerTarget = null;
@@ -1615,16 +1840,15 @@ function wireSideCooler() {
         hud.toast('Empty. Somebody beat you to it.', 'hint', 1400);
         return;
       }
-      const can = cooler.cans[sideCoolerRemaining - 1];
-      can.visible = false;
-      sideCoolerRemaining--;
       const at = cooler.group.getWorldPosition(new THREE.Vector3());
-      audio.play('can.crack', { volume: 0.72, position: at });
-      window.setTimeout(() => audio.play('can.sip', { volume: 0.62, position: at }), 380);
-      window.setTimeout(() => audio.play('can.crush', { volume: 0.72, position: at }), 980);
-      hud.toast(sideCoolerRemaining
-        ? `${sideCoolerRemaining} left in this cooler.`
-        : 'Last one out of this cooler.', 'good', 1900);
+      if (!pickUp('beer', {
+        taken: sideCoolerRemaining > 1
+          ? `Cold one. ${sideCoolerRemaining - 1} left in this cooler.`
+          : 'Last one out of this cooler.',
+      })) return;
+      cooler.cans[sideCoolerRemaining - 1].visible = false;
+      sideCoolerRemaining--;
+      audio.play('golf.pickup', { volume: 0.5, position: at });
     },
   });
 }
@@ -1639,9 +1863,17 @@ interaction.register(course.marker, {
   },
   onUse: () => {
     const hole = getHole(HOLE.number);
-    hud.say(hole
+    const text = hole
       ? `<em>Silver Pines</em> Hole ${hole.number}. ${hole.yards} yards. ${hole.blurb}`
-      : '<em>Silver Pines</em>');
+      : '<em>Silver Pines</em>';
+    /* One subtitle line at a time, always. `CueQueue` already guarantees that
+     * for everything anybody says; this is the one place in the scene that
+     * writes to the same element without going through it, and reading the
+     * tee marker mid-sentence used to erase whatever Lou was saying and take
+     * its timer with it. Reading a sign is not urgent enough to interrupt a
+     * man, so it waits its turn as a toast instead. */
+    if (cues.busy) hud.toast(text.replace(/<[^>]+>/g, ''), 'hint', 4200);
+    else hud.say(text);
   },
 });
 
@@ -1808,7 +2040,9 @@ const pauseMenu = createPauseMenu({
     'While addressing: mouse or A/D — aim; W/S — planned distance; click or Space — start, set power, then hit the strike band.',
     'Orange power overswings: early fades/slices right; late draws/hooks left.',
     'During dialogue: number keys — answer.',
-    'R — take a drop. G — pick up a tap-in. F — skip an NPC tee shot. M — mute.',
+    '1-5 — pick a slot: three clubs, plus whatever you took off the cart.',
+    'Hold F — drink the beer, light a smoke, pack a Zyn. (F skips an NPC tee shot on the tee.)',
+    'R — take a drop. G — pick up a tap-in. M — mute.',
     'Tab — pause or resume.',
   ],
   onPause: () => {
@@ -1843,6 +2077,7 @@ function frame() {
   dialogue.update(dt, player.position);
   round.update(dt, player.position);
   courseAudio?.update(dt);
+  updateItemUse(dt);
 
   // --- camera ---
   if (camMode === CAM.ADDRESS) {
@@ -1918,6 +2153,7 @@ function frame() {
   audio.updateListener(camera);
   paintCard();
   paintGuide();
+  layoutSubtitle();
   paintBallFinder();
   renderer.render(scene, camera);
 }
@@ -2018,6 +2254,12 @@ async function boot() {
   courseAudio = new CourseAudio(audio);
   round.audio = courseAudio;
   courseAudio.start();
+  /* The owner-supplied beer artwork, on every can the course stocks. Awaited
+   * here rather than fired and forgotten so the first cooler he walks up to
+   * already has the real label on it; `resolveGear` never rejects and a
+   * missing file leaves the plain can, so this cannot hold the round up. */
+  await loadSquatchBeerLabel();
+  restockSquatchBeer();
   carts.lead.radioWorld(cartRadioPosition);
   cartRadio.setPosition(cartRadioPosition);
   carts.lead.setRadioOn(false);
@@ -2077,7 +2319,7 @@ frame();
  */
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
-  interaction,
+  interaction, inventory, heldProps,
   cartRadio, landingPreview, npcBallMarkers,
   cartRadioAudioPlan,
   waitForCartRadioAudio: () => cartRadioAudioReady,
@@ -2116,6 +2358,7 @@ window.__golf = {
     carts.update(dt);
     for (const g of Object.values(golfers)) g.update(dt, player.position);
     courseAudio?.update(dt);
+    updateItemUse(dt);
     updateShotPresentation(dt);
     updateFrozenMeter(dt);
     /* Keep the verifier's synchronous simulation equivalent to one rendered

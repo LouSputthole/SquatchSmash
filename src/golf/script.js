@@ -21,6 +21,17 @@ export const RIPPIN = CHARACTER_IDS.RIPPINFLOW;
 export const ERIC = CHARACTER_IDS.ERIC;
 export const PROSPECT = CHARACTER_IDS.PROSPECT;
 
+/* The five men waiting out the last hole on the grille balcony. They are not
+ * playing, they have no scorecard line and nobody hands them a club — but they
+ * talk, so they need ids here like anybody else who talks. `LOU` above is Big
+ * Uncle Lou and is voiced `lou1`; Captain Lou Sasole is a different man with a
+ * different voice and does not appear at Silver Pines. */
+export const BOOSKI = CHARACTER_IDS.BOOSKI;
+export const SHUBENATOR = CHARACTER_IDS.SHUBENATOR;
+export const DEATHMEGATRON = CHARACTER_IDS.DEATHMEGATRON;
+export const NUMBSKULL = CHARACTER_IDS.NUMBSKULL;
+export const SNOW = CHARACTER_IDS.SNOW;
+
 /**
  * How hard a line pushes.
  *
@@ -1139,6 +1150,227 @@ cue('golf.h1.prospect.understood', PROSPECT,
   'Understood.',
   { direction: 'Accepting the instruction without asking Lou to soften it.', priority: PRIORITY.STORY, once: true, interruptible: false });
 
+
+/* ================================================================== */
+/* TEE RESULTS THAT ARE NOT HOLE ONE                                   */
+/* ================================================================== */
+
+/* Two branches the round never had, because for a long time the round was one
+ * par 3. A tee shot that finished on short grass fell through to
+ * `tee.result.rough` ("you have a shot" / "several trees first"), and a big
+ * drive on a hole that WANTS a driver was answered with Lou telling him he had
+ * brought the wrong club. Neither of these is `once`: they are the ordinary
+ * outcome and they have to be available on all three tees. */
+
+cue('golf.h1.eric.short_grass', ERIC,
+  'Short grass. That is the whole job off a tee.',
+  { direction: 'Plain approval. Eric does not gild anything.', priority: PRIORITY.REACTION, cooldown: 60 });
+cue('golf.h1.rippin.not_the_whole_job', RIPPIN,
+  'It is not the whole job.',
+  { direction: 'Cannot let a compliment stand unsupervised.', priority: PRIORITY.REACTION, cooldown: 60 });
+cue('golf.h1.lou.it_is_today', LOU,
+  'It is today.',
+  { direction: 'Closing it. Three words and Rippin has nowhere to go.', priority: PRIORITY.REACTION, cooldown: 60 });
+
+cue('golf.h1.lou.thats_what_its_for', LOU,
+  'That is what the thing is for.',
+  { direction: 'Nodding at the driver. Mild, and it is praise.', priority: PRIORITY.REACTION, cooldown: 60 });
+cue('golf.h1.rippin.finally_somebody_hits_it', RIPPIN,
+  'Finally. Somebody out here hits it.',
+  { direction: 'As though he has been waiting years.', priority: PRIORITY.REACTION, cooldown: 60 });
+cue('golf.h1.eric.hes_been_hitting_it_all_morning', ERIC,
+  'He has been hitting it all morning.',
+  { direction: 'Correcting the record, gently, as always.', priority: PRIORITY.REACTION, cooldown: 60 });
+
+/* ================================================================== */
+/* HOLE 2 — THE TEE, AND THE CORNER                                    */
+/* ================================================================== */
+
+/* The second tee used to open the first tee's conversation again: "So why am
+ * I here?", and the same four answers, on a hole where he already knows. The
+ * question a par 5 dogleg actually asks a man is which side of the pines he is
+ * playing, so that is what gets asked. */
+
+cue('golf.h2.rippin.which_side', RIPPIN,
+  'Right. Corner’s out there somewhere behind those pines. Which side are you playing, Prospect?',
+  {
+    direction: 'Genuinely wants to know, and is going to have an opinion either way.',
+    priority: PRIORITY.STORY, once: true,
+  });
+
+cue('golf.h2.prospect.cut_the_corner', PROSPECT,
+  'I’m cutting the corner.',
+  { direction: 'Committing out loud before he can talk himself out of it.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h2.prospect.wide_and_safe', PROSPECT,
+  'Wide. I’ll take the extra shot.',
+  { direction: 'Unglamorous and completely deliberate.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h2.prospect.whatever_lou_hits', PROSPECT,
+  'Whatever Lou hits.',
+  { direction: 'Half a joke. Only half.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h2.prospect.know_when_im_over_it', PROSPECT,
+  'I’ll know when I’m stood over it.',
+  { direction: 'The truth, offered without decoration.', priority: PRIORITY.STORY, once: true, interruptible: false });
+
+cue('golf.h2.rippin.thats_my_boy', RIPPIN, 'That is my boy.',
+  { direction: 'Enormous. He has been waiting all morning for somebody to be reckless.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.eric.sand_is_on_that_line', ERIC, 'The sand is on that line.',
+  { direction: 'A fact, delivered to nobody in particular.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.sand_is_everywhere', RIPPIN, 'The sand is everywhere, Eric.',
+  { direction: 'Waving it away. He is not wrong and it does not help.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h2.lou.nobody_lost_a_hole_wide', LOU,
+  'Nobody ever lost a hole from the wide side. They just took longer getting home.',
+  { direction: 'Approval that sounds like a shrug.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.eric.that_was_a_compliment', ERIC, 'That was a compliment.',
+  { direction: 'Translating, because somebody has to.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h2.lou.dont_copy_me', LOU,
+  'Don’t copy me. I’m playing this for a five and I’m happy about it.',
+  { direction: 'Entirely at peace with his own game.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.hes_playing_for_a_six', RIPPIN, 'He’s playing for a six.',
+  { direction: 'Instantly.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.im_playing_for_a_five', LOU, 'I’m playing for a five.',
+  { direction: 'Not looking up. He will be proved right and they both know it.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h2.eric.first_honest_thing', ERIC,
+  'That is the first honest thing anybody has said on a tee this morning.',
+  { direction: 'Warm. It is the closest Eric comes to liking somebody out loud.', priority: PRIORITY.STORY, once: true });
+
+/* ================================================================== */
+/* HOLE 2 — SOMETHING AFTER THE THING                                  */
+/* ================================================================== */
+
+/**
+ * Lou seeds the next job.
+ *
+ * The rule the tone doctrine sets is that the scene never points at itself, so
+ * none of this is a trailer. It is a man on a putting green mentioning a
+ * practical difficulty with a piece of work: there is a hangar, there is
+ * something in it that weighs six thousand pounds, and there is already a
+ * captain for it who is a different Lou entirely. Nobody names the target,
+ * nobody says what the load is, and nobody remarks that any of it is unusual —
+ * which is the whole register of this family.
+ *
+ * Placed at the end of the long walk's green conversation, straight after Lou
+ * has said "one thing at a time", because the joke is that he then does not do
+ * one thing at a time.
+ */
+cue('golf.h2.lou.thing_after_the_thing', LOU,
+  'One thing at a time. Although — there’s a thing after the thing, and it needs an aeroplane.',
+  {
+    direction: 'Reading a putt while he says it. The aside is not an aside and '
+      + 'he knows exactly how it lands.',
+    priority: PRIORITY.STORY, once: true, hold: 1.4,
+  });
+cue('golf.h2.prospect.an_aeroplane', PROSPECT, 'An aeroplane.',
+  { direction: 'Repeating the word to see whether it changes.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.six_thousand_pounds_of_it', LOU,
+  'Six thousand pounds of it. It doesn’t go in a van and it doesn’t go in this conversation.',
+  {
+    direction: 'Cheerful. He is telling him the weight and nothing else, and '
+      + 'the weight is the most frightening part.',
+    priority: PRIORITY.STORY, once: true, hold: 1.2,
+  });
+cue('golf.h2.eric.lou', ERIC, 'Lou.',
+  { direction: 'One syllable. Not a rebuke — a check.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.hes_going_to_find_out', LOU,
+  'He finds out in a couple of weeks either way. He can find out now with a putter in his hand.',
+  { direction: 'To Eric, about the Prospect, in front of the Prospect.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.another_lou', LOU,
+  'There’s a captain for it already. Not me. Another Lou. You’ll know him when you see him — he’s the one holding a clipboard and looking at the weather.',
+  {
+    direction: 'Fond and faintly exasperated, the way you talk about a cousin '
+      + 'who is very good at one thing. Then straight back to the putt.',
+    priority: PRIORITY.STORY, once: true, hold: 2.0,
+  });
+
+/* ================================================================== */
+/* HOLE 3 — THE TEE, AND WHO KNOWS                                     */
+/* ================================================================== */
+
+/* Third verse of the same song, and it was the same song: the last tee opened
+ * the first tee's invitation for the third time. What the last tee of this
+ * morning wants to ask is a crime question asked as a courtesy. */
+
+cue('golf.h3.lou.anybody_know_youre_here', LOU,
+  'Before you hit. Does anybody know you’re out here this morning?',
+  {
+    direction: 'Conversational. He asks it the way he would ask about traffic, '
+      + 'and it is the most serious question of the round.',
+    priority: PRIORITY.STORY, once: true, hold: 1.2,
+  });
+
+cue('golf.h3.prospect.nobody_knows', PROSPECT, 'Nobody.',
+  { direction: 'Immediate, and he hears how that sounds after he says it.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h3.prospect.told_margo', PROSPECT,
+  'I told Margo I was playing golf.',
+  { direction: 'Careful. He is watching Lou’s face for the answer.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h3.prospect.who_would_i_tell', PROSPECT, 'Who would I tell?',
+  { direction: 'Blunt, and sadder than he means it.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h3.prospect.does_it_matter', PROSPECT, 'Does it matter?',
+  { direction: 'Testing whether he is allowed to ask that yet.', priority: PRIORITY.STORY, once: true, interruptible: false });
+
+cue('golf.h3.lou.right_answer_wrong_life', LOU,
+  'That’s the right answer. I didn’t want it to be.',
+  { direction: 'A flicker of something, gone before you can name it.', priority: PRIORITY.STORY, once: true, hold: 1.4 });
+cue('golf.h3.lou.golf_is_the_true_half', LOU,
+  'Golf is the true half. Tell people the true half and stop there.',
+  { direction: 'Practical instruction, given like a club recommendation.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.eric.most_useful_thing_all_day', ERIC,
+  'That is the most useful thing he has said all day.',
+  { direction: 'And he means the whole day, golf included.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.sad_or_professional', LOU,
+  'That’s either very sad or very professional.',
+  { direction: 'Not unkind. He has met both.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.rippin.can_be_both', RIPPIN, 'It can be both.',
+  { direction: 'From the next tee marker, and for once he is being serious.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.today_it_matters', LOU,
+  'Today it does. Tomorrow it won’t. Hit your ball.',
+  { direction: 'And the subject is closed by the man who opened it.', priority: PRIORITY.STORY, once: true, hold: 1.2 });
+
+/* ================================================================== */
+/* THE GRILLE — THE CREW WAITING OUT THE LAST HOLE                     */
+/* ================================================================== */
+
+/**
+ * The gallery, given something to say.
+ *
+ * They were built as scenery with a pulse and they stayed silent, which made
+ * five men standing between the last green and the clubhouse read as a
+ * screenshot. They are on the grille balcony now with beers in their hands,
+ * and they behave the way a crew behaves when it has been waiting two hours
+ * for a fourth man to finish: heckling, mostly warmly.
+ */
+cue('golf.h3.booski.there_he_is', BOOSKI,
+  'There he is. Take your time. We’ve only been up here since seven.',
+  { direction: 'Leaning on the balcony rail with a can. Delighted and complaining.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.shubenator.theres_a_bar_up_here', SHUBENATOR,
+  'There is a bar up here, Prospect. There is a bar up here and you are down there.',
+  { direction: 'Genuine sympathy, expressed as gloating.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.deathmegatron.two_putt', DEATHMEGATRON,
+  'Two-putt it and we all go inside.',
+  { direction: 'Around a cigar he is not taking out of his mouth.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.numbskull.three_putt_is_funnier', NUMBSKULL,
+  'Three-putt’s funnier.',
+  { direction: 'Immediately, and he means it kindly.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.snow.numbskull', SNOW, 'Numbskull.',
+  { direction: 'One word, flat, without turning round.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.numbskull.it_is_though', NUMBSKULL, 'It is, though.',
+  { direction: 'Standing by it.', priority: PRIORITY.REACTION, once: true });
+
+cue('golf.h3.booski.fourth_mans_in', BOOSKI,
+  'Fourth man’s in. That’s the morning.',
+  { direction: 'Raising the can about two inches. From him that is a standing ovation.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.shubenator.grille_is_open', SHUBENATOR,
+  'Grille’s open. Lou’s buying, which means Eric’s buying.',
+  { direction: 'Already turning toward the doors.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.deathmegatron.cigar_with_your_name', DEATHMEGATRON,
+  'I’ve got a cigar with your name on it and I am not giving it to you.',
+  { direction: 'The warmest thing he has ever said to anybody.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.snow.he_means_come_up', SNOW,
+  'He means come up.',
+  { direction: 'Translating, once, and going back to his beer.', priority: PRIORITY.REACTION, once: true });
+
 export const CUES = Object.freeze(registry);
 
 /* ================================================================== */
@@ -1207,6 +1439,22 @@ export const SEQUENCES = Object.freeze({
     'golf.h1.rippin.welcome', 'golf.h1.prospect.you_wanted_information', 'golf.h1.rippin.ill_brief_you',
   ],
   'tee.result.rough': ['golf.h1.eric.you_have_a_shot', 'golf.h1.rippin.several_trees_first'],
+  /* Short grass, on any hole. Hole 1 is a par 3 with a mown corridor and the
+   * other two have real fairways, so this is the commonest tee result in the
+   * round and until now it had no lines at all — it fell through to `rough`,
+   * and the group told a man who had just split the fairway that there were
+   * several trees in his way. */
+  'tee.result.fairway': [
+    'golf.h1.eric.short_grass', 'golf.h1.rippin.not_the_whole_job',
+    'golf.h1.lou.it_is_today',
+  ],
+  /* A big drive on a hole that asked for a big drive. `driver_long` below is
+   * the opposite case and is Lou telling him off; the two must never be
+   * reachable from the same tee. See `wantsDriver()` in mission.js. */
+  'tee.result.driver_good': [
+    'golf.h1.lou.thats_what_its_for', 'golf.h1.rippin.finally_somebody_hits_it',
+    'golf.h1.eric.hes_been_hitting_it_all_morning',
+  ],
   'tee.result.water': [
     'golf.h1.rippin.aim_for_the_bushes', 'golf.h1.eric.bushes_do_not_float',
     'golf.h1.rippin.more_than_that_ball', 'golf.h1.lou.take_the_drop',
@@ -1360,6 +1608,11 @@ export const SEQUENCES = Object.freeze({
     'golf.h2.lou.i_know_they_are',
     'golf.h2.prospect.ten_drunk_cigarettes', 'golf.h2.rippin.oh_hes_heard',
     'golf.h2.eric.thats_after_the_job', 'golf.h2.lou.one_thing_at_a_time',
+    /* And then he does not do one thing at a time. The hangar, the weight and
+     * the other Lou, dropped into a putting conversation and never explained. */
+    'golf.h2.lou.thing_after_the_thing', 'golf.h2.prospect.an_aeroplane',
+    'golf.h2.lou.six_thousand_pounds_of_it', 'golf.h2.eric.lou',
+    'golf.h2.lou.hes_going_to_find_out', 'golf.h2.lou.another_lou',
   ],
 
   'h2.end.scorecard': [
@@ -1407,6 +1660,18 @@ export const SEQUENCES = Object.freeze({
     'golf.h3.lou.thats_the_round', 'golf.h3.eric.good_morning_for_it',
     'golf.h3.rippin.same_time_next_week', 'golf.h3.prospect.ill_be_here',
     'golf.h3.lou.seven_oclock',
+  ],
+
+  /* The grille balcony, on the last hole only. Two sets: one when he walks
+   * onto the green and finds five men watching him, one when the putt drops. */
+  'h3.gallery.arrival': [
+    'golf.h3.booski.there_he_is', 'golf.h3.shubenator.theres_a_bar_up_here',
+    'golf.h3.deathmegatron.two_putt', 'golf.h3.numbskull.three_putt_is_funnier',
+    'golf.h3.snow.numbskull', 'golf.h3.numbskull.it_is_though',
+  ],
+  'h3.gallery.holed': [
+    'golf.h3.booski.fourth_mans_in', 'golf.h3.shubenator.grille_is_open',
+    'golf.h3.deathmegatron.cigar_with_your_name', 'golf.h3.snow.he_means_come_up',
   ],
 
   'bark.driver_on_par_three': ['golf.h1.eric.thats_a_lot_of_club'],
@@ -1651,6 +1916,117 @@ export function buildScripts(ctx) {
     ], null),
   };
 
+  /**
+   * The second tee, which is not the first tee again.
+   *
+   * `_updateTeeTalk` used to open `firstTee` on every hole, so "So why am I
+   * here?" and the same four answers arrived on the second tee and again on
+   * the third — to a man who had been told why he was there an hour earlier,
+   * by the same people, on camera. The invitation is a Hole 1 beat and the
+   * gameplay spec says so in as many words; the other two tees get their own
+   * question. This one is the question a 520-yard dogleg actually poses.
+   */
+  const secondTee = {
+    open: {
+      who: null,
+      line: null,
+      __cues: ['golf.h2.rippin.which_side'],
+      enter: () => ctx.play('golf.h2.rippin.which_side'),
+      hold: 2.6,
+      next: 'answer',
+    },
+    answer: {
+      who: 'Prospect',
+      line: null,
+      options: [
+        reply('golf.h2.prospect.cut_the_corner', {
+          tone: 'Bold',
+          next: 'bold',
+          effect: () => ctx.remember('h2.corner.cut'),
+        }),
+        reply('golf.h2.prospect.wide_and_safe', {
+          tone: 'Safe',
+          next: 'safe',
+          effect: () => ctx.remember('h2.corner.wide'),
+        }),
+        reply('golf.h2.prospect.whatever_lou_hits', {
+          tone: 'Deferring',
+          next: 'copy',
+          effect: () => ctx.remember('h2.corner.copy'),
+        }),
+        reply('golf.h2.prospect.know_when_im_over_it', {
+          tone: 'Honest',
+          next: 'honest',
+          effect: () => ctx.remember('h2.corner.honest'),
+        }),
+      ],
+    },
+    bold: beat([
+      'golf.h2.rippin.thats_my_boy', 'golf.h2.eric.sand_is_on_that_line',
+      'golf.h2.rippin.sand_is_everywhere',
+    ], null),
+    safe: beat([
+      'golf.h2.lou.nobody_lost_a_hole_wide', 'golf.h2.eric.that_was_a_compliment',
+    ], null),
+    copy: beat([
+      'golf.h2.lou.dont_copy_me', 'golf.h2.rippin.hes_playing_for_a_six',
+      'golf.h2.lou.im_playing_for_a_five',
+    ], null),
+    honest: beat(['golf.h2.eric.first_honest_thing'], null),
+  };
+
+  /**
+   * The last tee.
+   *
+   * A courtesy question with a body under it, asked while the clubhouse stands
+   * behind the green and seven o'clock is four hours away. Nobody says what it
+   * is for. Every answer gets an answer, because Lou always answers.
+   */
+  const thirdTee = {
+    open: {
+      who: null,
+      line: null,
+      __cues: ['golf.h3.lou.anybody_know_youre_here'],
+      enter: () => ctx.play('golf.h3.lou.anybody_know_youre_here'),
+      hold: 3.0,
+      next: 'answer',
+    },
+    answer: {
+      who: 'Prospect',
+      line: null,
+      options: [
+        reply('golf.h3.prospect.nobody_knows', {
+          tone: 'Careful',
+          next: 'nobody',
+          effect: () => ctx.remember('h3.known.nobody'),
+        }),
+        reply('golf.h3.prospect.told_margo', {
+          tone: 'Honest',
+          next: 'margo',
+          effect: () => ctx.remember('h3.known.margo'),
+        }),
+        reply('golf.h3.prospect.who_would_i_tell', {
+          tone: 'Blunt',
+          next: 'alone',
+          effect: () => ctx.remember('h3.known.alone'),
+        }),
+        reply('golf.h3.prospect.does_it_matter', {
+          tone: 'Testing',
+          next: 'matter',
+          effect: () => ctx.remember('h3.known.matter'),
+        }),
+      ],
+    },
+    nobody: beat(['golf.h3.lou.right_answer_wrong_life'], null),
+    margo: beat([
+      'golf.h3.lou.golf_is_the_true_half', 'golf.h3.eric.most_useful_thing_all_day',
+    ], null),
+    alone: beat([
+      'golf.h3.lou.sad_or_professional', 'golf.h3.rippin.can_be_both',
+    ], null),
+    matter: beat(['golf.h3.lou.today_it_matters'], null),
+  };
+
   const cartRide = {
     open: {
       who: null,
@@ -1725,7 +2101,7 @@ export function buildScripts(ctx) {
     closing: beat(['golf.h1.lou.nobody_invited_you_to_audition'], null, 6),
   };
 
-  return { arrival, firstTee, cartRide };
+  return { arrival, firstTee, secondTee, thirdTee, cartRide };
 }
 
 /** Every cue id, for the verifier and for anyone generating a VO manifest. */
