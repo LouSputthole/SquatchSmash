@@ -121,8 +121,24 @@ export const ROOMS = Object.freeze({
   gallery: Object.freeze({ x0: -16, x1: 16, z0: 48.15, z1: 52.85, y0: 5.4, y1: 10.2 }),
   /* `MansionInterior.BALCONY` -- the firing step, cantilevered south. */
   balcony: Object.freeze({ x0: -3, x1: 3, z0: 45.2, z1: 48.15, y0: 5.4, y1: 10.2 }),
-  /* `MansionGrounds.CELLAR_HALL` -- the basement spine, nine metres down. */
+  /* ---- the lower level -------------------------------------------- *
+   * The nav graph deliberately does NOT join any of these to the ground
+   * floor: the corridor pair fight the opening encounter and must never be
+   * able to walk up into the staircase defence. They are in the room table
+   * anyway, because `roomAt` is also what the cover filter and the probe
+   * read, and a man standing in the guest room reported as being in no room
+   * at all is a diagnosis nobody can act on.
+   *
+   * `MansionGrounds.CELLAR_HALL` -- the basement spine, nine metres down. */
   cellar: Object.freeze({ x0: -15.6, x1: 15.6, z0: 64.3, z1: 67.4, y0: -3.6, y1: -0.4 }),
+  /** `GUEST_ROOM` -- where he wakes up. */
+  guest: Object.freeze({ x0: -15.6, x1: -7.9, z0: 67.7, z1: 74.6, y0: -3.6, y1: -0.4 }),
+  /** `THEATRE`, `LAN_ROOM`, `VAULT` -- the reveals off the corridor. */
+  theatre: Object.freeze({ x0: -7.6, x1: 1.9, z0: 67.7, z1: 74.6, y0: -3.6, y1: 0.1 }),
+  lan: Object.freeze({ x0: 2.2, x1: 10.9, z0: 67.7, z1: 74.6, y0: -3.6, y1: -0.4 }),
+  vault: Object.freeze({ x0: 11.2, x1: 15.6, z0: 67.7, z1: 74.6, y0: -3.6, y1: -0.4 }),
+  /** `BASEMENT_ROOM` -- the armory, and `BASEMENT_SHAFT` inside its east end. */
+  armory: Object.freeze({ x0: -9, x1: 9, z0: 50, z1: 64, y0: -3.6, y1: -0.4 }),
 });
 
 /**
@@ -447,7 +463,7 @@ export const ANCHORS = Object.freeze([
    * sets up on the threshold and stays there -- but on the threshold, not
    * behind it: a hold post outside the house is a man the player fights
    * through two storeys of entrance glazing instead of a man in his hall. */
-  A('overwatch_door_mouth', 'overwatch', 0, 36.8, G, 'foyer', 0.5, {
+  A('overwatch_door_mouth', 'overwatch', 0, 37.0, G, 'foyer', 0.5, {
     neighbors: ['porch_centre', 'foyer_door', 'overwatch_centre'],
   }),
 

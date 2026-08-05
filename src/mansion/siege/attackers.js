@@ -1116,14 +1116,39 @@ export function createAttackerPool({
         entry.id, climbGap > 0 ? DESTINATION_ZONES.default : DESTINATION_ZONES.direct,
         { role: entry.side },
       );
-      if (again?.path.length) {
+      /* A RE-PLAN THAT ARRIVES AT THE SAME PLACE IS NOT A RE-PLAN. With the
+       * landing full -- twenty-four men alive at once, which the probe can
+       * do and the mission cannot -- the graph honestly answers "the foyer
+       * floor" every four seconds, and a man who accepts that answer walks
+       * the same eight metres twenty-one times. He only takes a new route
+       * if it goes somewhere new. */
+      if (again?.path.length && again.destination !== entry.destination) {
         entry.path = laneWaypoints([here, ...again.path], {
           from: entry.root.position, laneT: entry.laneT, kindFor: kindForAnchor,
         }).slice(1);
+        entry.destination = again.destination;
         entry.replans++;
         const next = entry.path[0];
         if (next) { aimGoalAt(entry, next.x, next.z); return; }
       }
+    }
+
+    /* AND IF THERE IS NO ROUTE, HE SHOOTS FROM HERE.
+     *
+     * The probe caught the two men in the cellar corridor walking SOUTH out
+     * of the basement, through its wall, toward a Prospect nine metres over
+     * their heads on the balcony -- because every tactic below ends in "walk
+     * at the man you are shooting at", and a bearing is not a route. The
+     * corridor is a disconnected component of the graph on purpose: they can
+     * see him at forty metres and they cannot get to him, and a man who
+     * cannot get to you stands and fires rather than grinding on a wall.
+     *
+     * It catches the general case too: anybody left on the foyer floor when
+     * the landing is full now shoots up through the void instead of walking
+     * into the masonry under the flight. */
+    if (Math.abs(climbGap) > 2 && !entry.path.length) {
+      aimGoalAt(entry, entry.root.position.x, entry.root.position.z);
+      return;
     }
 
     const tactic = entry.plan.tactic;
@@ -1210,7 +1235,17 @@ export function createAttackerPool({
     /* --- waypoints --- */
     const next = entry.path[0];
     if (next) {
-      const reached = Math.hypot(next.x - position.x, next.z - position.z) < 1.1;
+      /* TIGHTER ON THE LAST ONE, AND THE DOOR IS WHY.
+       *
+       * 1.1 m is a good arrival radius for a transit waypoint -- it keeps a
+       * man walking instead of creeping the last handspan onto a mark. It is
+       * a terrible one for the place he STOPS: the probe found the wave-two
+       * suppressor holding at z 35.7, which is 1.1 m short of the anchor
+       * inside the front door and therefore out on the portico, shooting at
+       * the landing through two storeys of entrance glazing. Half a metre on
+       * the final waypoint puts him in the hall he was sent to. */
+      const slack = entry.path.length > 1 ? 1.1 : 0.5;
+      const reached = Math.hypot(next.x - position.x, next.z - position.z) < slack;
       if (reached) {
         entry.path.shift();
         entry.sinceMove = 0;
