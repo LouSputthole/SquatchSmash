@@ -108,11 +108,18 @@ export function applyCrest(meshes, texture) {
   let n = 0;
   for (const m of meshes) {
     if (!m?.material) continue;
-    // The drawn crest is this badge's own canvas — dispose it, or a scene
-    // that reloads the aeroplane leaks one 512x512 texture per badge.
-    m.material.map?.dispose?.();
-    m.material.map = texture;
-    m.material.needsUpdate = true;
+    /* The equality guard makes this idempotent, which `applyNoseArt()` promises
+     * and the old code could not keep: without it, a second call with the SAME
+     * texture disposes that texture and then assigns the disposed one back. The
+     * badges never hit it because the composition root calls once, but the nose
+     * art is reachable from the console helper too. */
+    if (m.material.map !== texture) {
+      // The drawn crest is this badge's own canvas — dispose it, or a scene
+      // that reloads the aeroplane leaks one 512x512 texture per badge.
+      m.material.map?.dispose?.();
+      m.material.map = texture;
+      m.material.needsUpdate = true;
+    }
     n++;
   }
   return n;
@@ -210,14 +217,6 @@ export function noseArtTexture(which) {
   return _artCache.get(file);
 }
 
-/** Drop the cache — for tests and for a scene that tears the aeroplane down. */
-export function disposeNoseArt() {
-  for (const pending of _artCache.values()) {
-    pending.then((art) => art?.texture?.dispose?.()).catch(() => {});
-  }
-  _artCache.clear();
-}
-
 async function loadArt(file, which) {
   const image = await loadImage(ART_DIR + file);
   if (!image) return null;
@@ -242,12 +241,16 @@ function loadImage(url) {
 }
 
 /**
- * Canvas → matte → glow → bleed → trim → texture. Exported for the validation
- * harness, which feeds it a deliberately flattened copy of each painting to
- * prove the keying branch still works on artwork that arrives opaque.
+ * Canvas → matte → glow → bleed → trim → texture.
+ *
+ * Exported for `tests/enolasquatch-nose-art.test.mjs`, which drives it over a
+ * real pixel buffer: a delivered-style matte to prove the ink is trimmed to,
+ * a flattened lettering to prove the key still works, and a flattened pin-up
+ * to prove it is refused rather than mangled.
  *
  * @param {CanvasImageSource & {width:number, height:number}} image
  * @param {'pinup'|'name'} which
+ * @returns {?{texture: THREE.CanvasTexture, aspect: number, keyed: boolean}}
  */
 export function prepareArt(image, which) {
   const w = image.naturalWidth || image.width;

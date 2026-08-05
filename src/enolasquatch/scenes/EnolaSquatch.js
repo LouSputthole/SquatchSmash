@@ -742,8 +742,8 @@ export class EnolaSquatch {
     const NAME_H = L.nameH;
     const NAME_W = NAME_H * 2.024;
 
-    const pinupZ = L.pinupZ;                  // spans z 2.77 .. 3.87
-    const nameZ = pinupZ + PINUP_W / 2 + L.gap + NAME_W / 2;   // 4.95
+    const pinupZ = L.pinupZ;                  // spans z 2.72 .. 4.08
+    const nameZ = pinupZ + PINUP_W / 2 + L.gap + NAME_W / 2;   // 5.13: z 4.42 .. 5.84
 
     /* The pin-up starts hidden and is shown the moment its painting lands.
      * There is no drawn stand-in for it, deliberately: a hand-drawn pin-up
@@ -755,6 +755,7 @@ export class EnolaSquatch {
     pinup.visible = false;
     const namePlate = artPlate('enola-squatch-nose-name', NAME_W, NAME_H, ART_TOP - NAME_H / 2, nameZ);
     namePlate.material.map = noseNamePlaceholderTexture();
+    namePlate.material.needsUpdate = true;
 
     this.parts.noseArtPlate = pinup;
     this.parts.noseNamePlate = namePlate;
@@ -1185,9 +1186,11 @@ export class EnolaSquatch {
    * Each plate is RESIZED to the painting it receives rather than the painting
    * being squeezed onto the plate. Both files are 2:3 portrait sheets and
    * neither piece of ink is 2:3, so trusting the file's shape would stretch
-   * both. Height is what is held fixed — the two are top-aligned at y 1.05 and
-   * that alignment is the thing worth keeping — and width follows the measured
-   * aspect. The geometry is replaced rather than scaled: `box()`-style scale
+   * both. Height is what is held fixed — the two are top-aligned on
+   * `noseArtLayout.top`, and that alignment is the thing worth keeping — while
+   * width follows the measured aspect and the gap is then re-struck off the
+   * finished widths, so "not touching" survives a re-export at a different
+   * crop. The geometry is replaced rather than scaled: `box()`-style scale
    * writes are the trap this codebase already keeps a note about, and a
    * negative one would turn the plate inside out.
    *
