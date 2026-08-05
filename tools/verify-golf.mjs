@@ -388,6 +388,13 @@ async function aimAt(t) {
 
 async function pressE() {
   return page.evaluate(() => {
+    /* Empty the stack first. `pressUntilToast` below retries "until a toast
+     * appears", and a toast from a minute ago is still in the DOM — so a
+     * press that did nothing could return somebody else's message and the
+     * retry loop would stop before it had ever landed. Every press now reads
+     * only what that press said. */
+    const stack = document.getElementById('toast-stack');
+    if (stack) stack.replaceChildren();
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
     window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' }));
     return {
@@ -476,16 +483,67 @@ const coolerTarget = await page.evaluate(() => {
 await page.evaluate((p) => window.__golf.teleport(p.x, p.z + p.standoff), coolerTarget);
 await page.waitForTimeout(150);
 const coolerGrab = await pressUntilToast(coolerTarget);
-const coolerAfterGrab = await page.evaluate(() => (
-  window.__golf.course.sideCooler.cans.filter((c) => c.visible).length
-));
-check('4f. walking up to the trailside cooler takes a real, visible can out of it',
-  coolerAfterGrab === 5 && /cold one|left in this cooler/i.test(coolerGrab.toast),
-  JSON.stringify({ ...coolerGrab, remaining: coolerAfterGrab }));
+const coolerAfterGrab = await page.evaluate(() => ({
+  remaining: window.__golf.course.sideCooler.cans.filter((c) => c.visible).length,
+  carrying: window.__golf.inventory.items.filter((slot) => slot === 'beer').length,
+  held: window.__golf.inventory.held,
+  hand: document.querySelector('#hand-item .name')?.textContent?.trim() ?? '',
+}));
+check('4f. walking up to the trailside cooler puts a real can in his inventory',
+  coolerAfterGrab.remaining === 5
+    && coolerAfterGrab.carrying === 1
+    && coolerAfterGrab.held === 'beer'
+    && /beer/i.test(coolerAfterGrab.hand)
+    && /cold one|left in this cooler/i.test(coolerGrab.toast),
+  JSON.stringify({ ...coolerGrab, ...coolerAfterGrab }));
 
-// Drain the rest, one authored can at a time -- five more presses empties
-// the six the cooler started with.
-for (let i = 0; i < 5; i++) await pressUntilToast(coolerTarget);
+/* Drink it, and the slot comes back. This is the playtest's other half — a can
+ * that goes into a slot and can never leave it is a worse bug than one that
+ * never arrived. Holding [F] runs the shared apartment drink pose. */
+const drank = await page.evaluate(async () => {
+  const g = window.__golf;
+  const before = g.inventory.items.filter((slot) => slot === 'beer').length;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+  g.player.keys.add('KeyF');
+  let lifted = 0;
+  for (let t = 0; t < 3.0; t += 1 / 60) {
+    g.step(1 / 60);
+    lifted = Math.max(lifted, g.heldProps.drinks.can.position.y);
+  }
+  g.player.keys.delete('KeyF');
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' }));
+  return {
+    before,
+    after: g.inventory.items.filter((slot) => slot === 'beer').length,
+    lifted,
+    canRest: g.heldProps.drinks.can.position.y,
+  };
+});
+check('4f1. holding F drinks the beer with the shared held-can animation and frees the slot',
+  drank.before === 1 && drank.after === 0 && drank.lifted > -0.15,
+  JSON.stringify(drank));
+
+/* Drain the rest, one authored can at a time, drinking whenever his hands are
+ * full -- six cans through five slots that already hold three clubs. */
+for (let i = 0; i < 10; i++) {
+  const left = await page.evaluate(() => {
+    const g = window.__golf;
+    /* Empty his hands of beer before reaching for another. Each pass is a
+     * real keydown, three seconds of held [F] and a keyup, so it goes through
+     * the same `beginItemUse`/`updateItemUse` path a player's finger does. */
+    for (let n = 0; n < 4 && g.inventory.has('beer'); n++) {
+      g.inventory.select(g.inventory.items.indexOf('beer'));
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+      g.player.keys.add('KeyF');
+      for (let t = 0; t < 3.0; t += 1 / 60) g.step(1 / 60);
+      g.player.keys.delete('KeyF');
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' }));
+    }
+    return g.course.sideCooler.cans.filter((c) => c.visible).length;
+  });
+  if (left === 0) break;
+  await pressUntilToast(coolerTarget);
+}
 const coolerAfterAll = await page.evaluate(() => (
   window.__golf.course.sideCooler.cans.filter((c) => c.visible).length
 ));
@@ -754,38 +812,81 @@ check('5. the player can address the ball', address.ok && address.mode === 'addr
 
 const playerClubView = await page.evaluate(() => {
   const rig = window.__golf.scene.getObjectByName('player-club-rig');
-  const selected = rig?.children.find((child) => child.userData.kind && child.visible);
+  /* Walked rather than read off `rig.children`, because the rig is a small
+   * hierarchy now — a Z-rotating sweep group holding an X-tilt holding the
+   * scaled hold group with the clubs and the hands in it — and asserting the
+   * child list would be asserting that structure rather than what the player
+   * sees. What must be true is that ONE club is showing, that it is the
+   * selected one, that it hangs off the camera, and that there are two hands
+   * on it. Also assert the head is actually in frame: a first-person rig whose
+   * clubhead is below the bottom of the picture cannot make three clubs
+   * "readable at address", which is what the gameplay spec asks for. */
+  const kinds = [];
+  let hands = 0;
+  let selected = '';
+  rig?.traverse((child) => {
+    if (child.name === 'player-hand') hands++;
+    if (!child.userData.kind) return;
+    kinds.push(child.userData.kind);
+    if (child.visible) selected = child.userData.kind;
+  });
+  const camera = window.__golf.camera;
+  camera.updateMatrixWorld(true);
+  const head = rig?.getObjectByName(`club-head-${selected}`)
+    ?? rig?.getObjectByName(`club-face-${selected}`);
+  const at = head
+    ? head.getWorldPosition(window.__golf.player.position.clone()).project(camera)
+    : null;
   return {
     visible: !!rig?.visible,
-    selected: selected?.userData.kind ?? '',
+    selected,
+    kinds: kinds.length,
     cameraMounted: rig?.parent?.type === 'PerspectiveCamera',
-    hands: rig?.children.filter((child) => child.name === 'player-hand').length ?? 0,
+    hands,
+    headOnScreen: !!at && Math.abs(at.x) < 1 && Math.abs(at.y) < 1 && at.z > -1 && at.z < 1,
+    headScreen: at ? [Number(at.x.toFixed(3)), Number(at.y.toFixed(3))] : null,
     plan: window.__golf.plan(),
   };
 });
-check('5a. address shows the recommended club and hands in first person',
+check('5a. address shows the recommended club, in frame, in his own hands',
   playerClubView.visible && playerClubView.selected === 'iron'
-    && playerClubView.cameraMounted && playerClubView.hands === 2,
+    && playerClubView.kinds === 3 && playerClubView.cameraMounted
+    && playerClubView.hands === 2 && playerClubView.headOnScreen,
   JSON.stringify(playerClubView));
 await page.waitForTimeout(100);
-const landingPreview = await page.evaluate(() => {
+const landingPreview = await page.evaluate(async () => {
   const g = window.__golf;
   const marker = g.scene.getObjectByName('golf-landing-preview');
   const ring = marker?.getObjectByName('golf-landing-preview-ring');
+  /* What the ball ACTUALLY carries with the swing the ring is drawn for.
+   * The ring is a promise about where it lands, so the only honest check is
+   * against the integrator — a fixed metre threshold here is what let a
+   * planning model that over-read a full iron by 28% pass for months. */
+  const { simulate } = await import('/src/golf/ball.js');
+  const { launchFor, powerForDistance } = await import('/src/golf/clubs.js');
+  const ball = g.round.playerBall.position;
+  const lie = g.surfaceProps(g.round.playerSurface());
+  const power = powerForDistance(g.club, g.plan().distance, lie);
+  const flown = simulate(
+    { x: ball.x, z: ball.z }, g.aimYaw,
+    launchFor(g.club, { power, accuracy: 0, lie }),
+  );
   return {
     visible: !!marker?.visible,
     distance: marker?.userData.distance ?? 0,
     radius: marker?.userData.radius ?? 0,
     club: marker?.userData.club ?? '',
+    actualCarry: flown.carry,
     yellow: ring?.material?.color?.getHex?.() ?? 0,
     label: document.querySelector('#aim .distance')?.textContent?.trim() ?? '',
     reticleVisible: !document.getElementById('landing-reticle')?.classList.contains('hidden'),
     reticleWidth: parseFloat(document.querySelector('#landing-reticle .ring')?.style.width || '0'),
   };
 });
-check('5a1. addressing shows a yellow, distance-driven landing area in the world',
+check('5a1. addressing shows a yellow landing area that agrees with the real carry',
   landingPreview.visible && landingPreview.club === 'iron'
-    && landingPreview.distance > 140 && landingPreview.radius > 2
+    && landingPreview.distance > 90 && landingPreview.radius > 2
+    && Math.abs(landingPreview.distance / landingPreview.actualCarry - 1) < 0.10
     && landingPreview.yellow === 0xffdf57 && /yd landing area/i.test(landingPreview.label)
     && landingPreview.reticleVisible && landingPreview.reticleWidth >= 54,
   JSON.stringify(landingPreview));

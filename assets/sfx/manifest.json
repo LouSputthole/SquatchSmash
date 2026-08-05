@@ -9352,6 +9352,54 @@
       "promptInfluence": 0.56
     },
     {
+      "name": "kitchen.clatter",
+      "_note": "Steel landing on steel behind the pass. A kitchen reads as a kitchen because of irregular metal at irregular intervals, not because of a louder hum."
+    },
+    {
+      "name": "kitchen.chop",
+      "_note": "A blade through something firm onto a board. Rationed: the line is busy, not frantic."
+    },
+    {
+      "name": "kitchen.oven",
+      "_note": "An oven door and a tray going in. Heavy, and only once in a while."
+    },
+    {
+      "name": "kitchen.ticket",
+      "_note": "The printer at the pass. Short, and it means somebody out in the room ordered."
+    },
+    {
+      "name": "dining.cutlery",
+      "_note": "A fork set down on a plate at another table. Never intelligible, never a punchline."
+    },
+    {
+      "name": "dining.glass.clink",
+      "_note": "Glass on glass across the room. The Silver Room is full and should sound full."
+    },
+    {
+      "name": "dining.chair",
+      "_note": "A chair moved on carpet. Somebody is leaving, and it is not about you."
+    },
+    {
+      "name": "margo.snore",
+      "_note": "Margo asleep beside him, before she sits up. Owner: \"lets add a low key snore sound\" -- low key is the whole direction. She is sixty centimetres from his ear so it plays dry rather than positioned, and it stops the moment she moves."
+    },
+    {
+      "name": "enolasquatch.gun.rear",
+      "_note": "The Enola Squatch tail gun, close. Owner: \"better bigger machine guns sounds for the rear gun\" -- it had been playing the apartment REVOLVER at eleven shots a second."
+    },
+    {
+      "name": "enolasquatch.gun.rear.cabin",
+      "_note": "The same gun heard from the cabin: the airframe between you and it, not the muzzle."
+    },
+    {
+      "name": "ambience.kitchen.line",
+      "_note": "The Silver Room kitchen bed: gas and a simmer under the extraction fan. The thing everybody in there shouts over."
+    },
+    {
+      "name": "ambience.diners.chatter",
+      "_note": "The main room, full. Vowel-range and nothing intelligible, and it thins to under half while anybody is talking or the featured number is playing."
+    },
+    {
       "name": "vo.bing2.shubenator.intro",
       "voice": "shubenator",
       "say": "Club is closed, glasses are full. Hog Mama, save us from one another."
@@ -15071,6 +15119,12 @@
       "direction": "Confirming a fact, not agreeing with a joke."
     },
     {
+      "name": "vo.golf.h1.eric.hes_been_hitting_it_all_morning",
+      "voice": "eric",
+      "say": "He has been hitting it all morning.",
+      "direction": "Correcting the record, gently, as always."
+    },
+    {
       "name": "vo.golf.h1.eric.it_was_a_bunker",
       "voice": "eric",
       "say": "It was a bunker.",
@@ -15177,6 +15231,12 @@
       "voice": "eric",
       "say": "You have selected a driver.",
       "direction": "Perfectly level. This is how Eric roasts people."
+    },
+    {
+      "name": "vo.golf.h1.eric.short_grass",
+      "voice": "eric",
+      "say": "Short grass. That is the whole job off a tee.",
+      "direction": "Plain approval. Eric does not gild anything."
     },
     {
       "name": "vo.golf.h1.eric.take_your_time",
@@ -15482,6 +15542,12 @@
       "direction": "Final and slightly amused."
     },
     {
+      "name": "vo.golf.h1.lou.it_is_today",
+      "voice": "lou1",
+      "say": "It is today.",
+      "direction": "Closing it. Three words and Rippin has nowhere to go."
+    },
+    {
       "name": "vo.golf.h1.lou.job_and_night",
       "voice": "lou1",
       "say": "You’ve got a big job and a big night coming.",
@@ -15643,6 +15709,12 @@
       "voice": "lou1",
       "say": "Take the drop. Forget the shot.",
       "direction": "The most useful thing anybody says to him all day."
+    },
+    {
+      "name": "vo.golf.h1.lou.thats_what_its_for",
+      "voice": "lou1",
+      "say": "That is what the thing is for.",
+      "direction": "Nodding at the driver. Mild, and it is praise."
     },
     {
       "name": "vo.golf.h1.lou.thats_why_we_came",
@@ -15990,6 +16062,12 @@
       "direction": "Instantly, before the sand has settled."
     },
     {
+      "name": "vo.golf.h1.rippin.finally_somebody_hits_it",
+      "voice": "rippinflow",
+      "say": "Finally. Somebody out here hits it.",
+      "direction": "As though he has been waiting years."
+    },
+    {
       "name": "vo.golf.h1.rippin.first_hole_ace",
       "voice": "rippinflow",
       "say": "First hole with us and he gets an ace?",
@@ -16150,6 +16228,12 @@
       "voice": "rippinflow",
       "say": "Not on the scorecard.",
       "direction": "Warmly."
+    },
+    {
+      "name": "vo.golf.h1.rippin.not_the_whole_job",
+      "voice": "rippinflow",
+      "say": "It is not the whole job.",
+      "direction": "Cannot let a compliment stand unsupervised."
     },
     {
       "name": "vo.golf.h1.rippin.now_its_a_meeting",
@@ -16326,6 +16410,12 @@
       "direction": "Information, offered before anybody asks for it."
     },
     {
+      "name": "vo.golf.h2.eric.first_honest_thing",
+      "voice": "eric",
+      "say": "That is the first honest thing anybody has said on a tee this morning.",
+      "direction": "Warm. It is the closest Eric comes to liking somebody out loud."
+    },
+    {
       "name": "vo.golf.h2.eric.gratin_butter_chicken",
       "voice": "eric",
       "say": "Gratin still owes me a proper butter chicken. He has been to India. He has *seen* it done.",
@@ -16368,6 +16458,18 @@
       "direction": "Quiet."
     },
     {
+      "name": "vo.golf.h2.eric.lou",
+      "voice": "eric",
+      "say": "Lou.",
+      "direction": "One syllable. Not a rebuke — a check."
+    },
+    {
+      "name": "vo.golf.h2.eric.sand_is_on_that_line",
+      "voice": "eric",
+      "say": "The sand is on that line.",
+      "direction": "A fact, delivered to nobody in particular."
+    },
+    {
       "name": "vo.golf.h2.eric.six",
       "voice": "eric",
       "say": "Six.",
@@ -16392,6 +16494,12 @@
       "direction": "Not gloating. Reporting."
     },
     {
+      "name": "vo.golf.h2.eric.that_was_a_compliment",
+      "voice": "eric",
+      "say": "That was a compliment.",
+      "direction": "Translating, because somebody has to."
+    },
+    {
       "name": "vo.golf.h2.eric.thats_after_the_job",
       "voice": "eric",
       "say": "That’s after the job, yes.",
@@ -16404,10 +16512,23 @@
       "direction": "Flat."
     },
     {
+      "name": "vo.golf.h2.lou.another_lou",
+      "voice": "lou1",
+      "say": "There’s a captain for it already. Not me. Another Lou. You’ll know him when you see him — he’s the one holding a clipboard and looking at the weather.",
+      "direction": "Fond and faintly exasperated, the way you talk about a cousin who is very good at one thing. Then straight back to the putt.",
+      "postLineHold": 2
+    },
+    {
       "name": "vo.golf.h2.lou.dont",
       "voice": "lou1",
       "say": "Don’t.",
       "direction": "Too late."
+    },
+    {
+      "name": "vo.golf.h2.lou.dont_copy_me",
+      "voice": "lou1",
+      "say": "Don’t copy me. I’m playing this for a five and I’m happy about it.",
+      "direction": "Entirely at peace with his own game."
     },
     {
       "name": "vo.golf.h2.lou.driver",
@@ -16429,6 +16550,12 @@
       "direction": "Protective, barely."
     },
     {
+      "name": "vo.golf.h2.lou.hes_going_to_find_out",
+      "voice": "lou1",
+      "say": "He finds out in a couple of weeks either way. He can find out now with a putter in his hand.",
+      "direction": "To Eric, about the Prospect, in front of the Prospect."
+    },
+    {
       "name": "vo.golf.h2.lou.hes_right_about_the_weather",
       "voice": "lou1",
       "say": "He’s right about the weather.",
@@ -16446,6 +16573,12 @@
       "voice": "lou1",
       "say": "I’m in the fairway. They’re in a conversation about sand.",
       "direction": "Dry, and it is the whole philosophy of the man."
+    },
+    {
+      "name": "vo.golf.h2.lou.im_playing_for_a_five",
+      "voice": "lou1",
+      "say": "I’m playing for a five.",
+      "direction": "Not looking up. He will be proved right and they both know it."
     },
     {
       "name": "vo.golf.h2.lou.its_a_golf_course",
@@ -16468,6 +16601,12 @@
       "direction": "Under his breath. Not for anybody."
     },
     {
+      "name": "vo.golf.h2.lou.nobody_lost_a_hole_wide",
+      "voice": "lou1",
+      "say": "Nobody ever lost a hole from the wide side. They just took longer getting home.",
+      "direction": "Approval that sounds like a shrug."
+    },
+    {
       "name": "vo.golf.h2.lou.one_thing_at_a_time",
       "voice": "lou1",
       "say": "One thing at a time.",
@@ -16486,6 +16625,20 @@
       "direction": "Identical to the last time he did this."
     },
     {
+      "name": "vo.golf.h2.lou.six_thousand_pounds_of_it",
+      "voice": "lou1",
+      "say": "Six thousand pounds of it. It doesn’t go in a van and it doesn’t go in this conversation.",
+      "direction": "Cheerful. He is telling him the weight and nothing else, and the weight is the most frightening part.",
+      "postLineHold": 1.2
+    },
+    {
+      "name": "vo.golf.h2.lou.thing_after_the_thing",
+      "voice": "lou1",
+      "say": "One thing at a time. Although — there’s a thing after the thing, and it needs an aeroplane.",
+      "direction": "Reading a putt while he says it. The aside is not an aside and he knows exactly how it lands.",
+      "postLineHold": 1.4
+    },
+    {
       "name": "vo.golf.h2.lou.three_shots_to_get_there",
       "voice": "lou1",
       "say": "Three shots to get there. You have got room to be wrong twice.",
@@ -16498,6 +16651,24 @@
       "direction": "Closing the card."
     },
     {
+      "name": "vo.golf.h2.prospect.an_aeroplane",
+      "voice": "player",
+      "say": "An aeroplane.",
+      "direction": "Repeating the word to see whether it changes."
+    },
+    {
+      "name": "vo.golf.h2.prospect.cut_the_corner",
+      "voice": "player",
+      "say": "I’m cutting the corner.",
+      "direction": "Committing out loud before he can talk himself out of it."
+    },
+    {
+      "name": "vo.golf.h2.prospect.know_when_im_over_it",
+      "voice": "player",
+      "say": "I’ll know when I’m stood over it.",
+      "direction": "The truth, offered without decoration."
+    },
+    {
       "name": "vo.golf.h2.prospect.ten_drunk_cigarettes",
       "voice": "player",
       "say": "Somebody said something about ten drunk cigarettes.",
@@ -16508,6 +16679,18 @@
       "voice": "player",
       "say": "What eggs?",
       "direction": "He has learned that asking is usually a mistake and asks anyway."
+    },
+    {
+      "name": "vo.golf.h2.prospect.whatever_lou_hits",
+      "voice": "player",
+      "say": "Whatever Lou hits.",
+      "direction": "Half a joke. Only half."
+    },
+    {
+      "name": "vo.golf.h2.prospect.wide_and_safe",
+      "voice": "player",
+      "say": "Wide. I’ll take the extra shot.",
+      "direction": "Unglamorous and completely deliberate."
     },
     {
       "name": "vo.golf.h2.prospect.you_hit_it_short",
@@ -16556,6 +16739,12 @@
       "voice": "rippinflow",
       "say": "He uses a jar.",
       "direction": "Betraying a friend without hesitating."
+    },
+    {
+      "name": "vo.golf.h2.rippin.hes_playing_for_a_six",
+      "voice": "rippinflow",
+      "say": "He’s playing for a six.",
+      "direction": "Instantly."
     },
     {
       "name": "vo.golf.h2.rippin.his_eyes_were_wet",
@@ -16618,6 +16807,12 @@
       "direction": "Looking off into the trees."
     },
     {
+      "name": "vo.golf.h2.rippin.sand_is_everywhere",
+      "voice": "rippinflow",
+      "say": "The sand is everywhere, Eric.",
+      "direction": "Waving it away. He is not wrong and it does not help."
+    },
+    {
       "name": "vo.golf.h2.rippin.shubes_cried",
       "voice": "rippinflow",
       "say": "Shubes cried on the ninth at Ridgemont. Openly.",
@@ -16642,6 +16837,12 @@
       "direction": "Unmovable."
     },
     {
+      "name": "vo.golf.h2.rippin.thats_my_boy",
+      "voice": "rippinflow",
+      "say": "That is my boy.",
+      "direction": "Enormous. He has been waiting all morning for somebody to be reckless."
+    },
+    {
       "name": "vo.golf.h2.rippin.theyre_still_going",
       "voice": "rippinflow",
       "say": "They’re still going, Lou.",
@@ -16660,6 +16861,36 @@
       "direction": "Announcing a plan nobody asked to hear."
     },
     {
+      "name": "vo.golf.h2.rippin.which_side",
+      "voice": "rippinflow",
+      "say": "Right. Corner’s out there somewhere behind those pines. Which side are you playing, Prospect?",
+      "direction": "Genuinely wants to know, and is going to have an opinion either way."
+    },
+    {
+      "name": "vo.golf.h3.booski.fourth_mans_in",
+      "voice": "booski",
+      "say": "Fourth man’s in. That’s the morning.",
+      "direction": "Raising the can about two inches. From him that is a standing ovation."
+    },
+    {
+      "name": "vo.golf.h3.booski.there_he_is",
+      "voice": "booski",
+      "say": "There he is. Take your time. We’ve only been stood out here since seven.",
+      "direction": "Can in hand, not moving an inch. Delighted and complaining."
+    },
+    {
+      "name": "vo.golf.h3.deathmegatron.cigar_with_your_name",
+      "voice": "deathmegatron",
+      "say": "I’ve got a cigar with your name on it and I am not giving it to you.",
+      "direction": "The warmest thing he has ever said to anybody."
+    },
+    {
+      "name": "vo.golf.h3.deathmegatron.two_putt",
+      "voice": "deathmegatron",
+      "say": "Two-putt it and we all go inside.",
+      "direction": "Around a cigar he is not taking out of his mouth."
+    },
+    {
       "name": "vo.golf.h3.eric.good_morning_for_it",
       "voice": "eric",
       "say": "Good morning for it.",
@@ -16676,6 +16907,12 @@
       "voice": "eric",
       "say": "Leave it, Rip.",
       "direction": "And Rippin does, which tells you he understood."
+    },
+    {
+      "name": "vo.golf.h3.eric.most_useful_thing_all_day",
+      "voice": "eric",
+      "say": "That is the most useful thing he has said all day.",
+      "direction": "And he means the whole day, golf included."
     },
     {
       "name": "vo.golf.h3.eric.provisionally",
@@ -16702,6 +16939,13 @@
       "direction": "Watching it come down."
     },
     {
+      "name": "vo.golf.h3.lou.anybody_know_youre_here",
+      "voice": "lou1",
+      "say": "Before you hit. Does anybody know you’re out here this morning?",
+      "direction": "Conversational. He asks it the way he would ask about traffic, and it is the most serious question of the round.",
+      "postLineHold": 1.2
+    },
+    {
       "name": "vo.golf.h3.lou.breaks_toward_the_building",
       "voice": "lou1",
       "say": "Breaks toward the building. Everything here does.",
@@ -16719,6 +16963,12 @@
       "voice": "lou1",
       "say": "Golf.",
       "direction": "Flat."
+    },
+    {
+      "name": "vo.golf.h3.lou.golf_is_the_true_half",
+      "voice": "lou1",
+      "say": "Golf is the true half. Tell people the true half and stop there.",
+      "direction": "Practical instruction, given like a club recommendation."
     },
     {
       "name": "vo.golf.h3.lou.he_did_hear_you",
@@ -16744,6 +16994,19 @@
       "voice": "lou1",
       "say": "No.",
       "direction": "Not looking up."
+    },
+    {
+      "name": "vo.golf.h3.lou.right_answer_wrong_life",
+      "voice": "lou1",
+      "say": "That’s the right answer. I didn’t want it to be.",
+      "direction": "A flicker of something, gone before you can name it.",
+      "postLineHold": 1.4
+    },
+    {
+      "name": "vo.golf.h3.lou.sad_or_professional",
+      "voice": "lou1",
+      "say": "That’s either very sad or very professional.",
+      "direction": "Not unkind. He has met both."
     },
     {
       "name": "vo.golf.h3.lou.seven_oclock",
@@ -16773,11 +17036,36 @@
       "direction": "Reading the hole, and the last sentence is the one that matters."
     },
     {
+      "name": "vo.golf.h3.lou.today_it_matters",
+      "voice": "lou1",
+      "say": "Today it does. Tomorrow it won’t. Hit your ball.",
+      "direction": "And the subject is closed by the man who opened it.",
+      "postLineHold": 1.2
+    },
+    {
       "name": "vo.golf.h3.lou.you_know_whats_at_seven",
       "voice": "lou1",
       "say": "You know what’s at seven.",
       "direction": "Not a question. First time either of them has said the hour out loud, and he says it while looking down the fairway.",
       "postLineHold": 2
+    },
+    {
+      "name": "vo.golf.h3.numbskull.it_is_though",
+      "voice": "numbskull",
+      "say": "It is, though.",
+      "direction": "Standing by it."
+    },
+    {
+      "name": "vo.golf.h3.numbskull.three_putt_is_funnier",
+      "voice": "numbskull",
+      "say": "Three-putt’s funnier.",
+      "direction": "Immediately, and he means it kindly."
+    },
+    {
+      "name": "vo.golf.h3.prospect.does_it_matter",
+      "voice": "player",
+      "say": "Does it matter?",
+      "direction": "Testing whether he is allowed to ask that yet."
     },
     {
       "name": "vo.golf.h3.prospect.i_know",
@@ -16793,10 +17081,34 @@
       "postLineHold": 1.6
     },
     {
+      "name": "vo.golf.h3.prospect.nobody_knows",
+      "voice": "player",
+      "say": "Nobody.",
+      "direction": "Immediate, and he hears how that sounds after he says it."
+    },
+    {
+      "name": "vo.golf.h3.prospect.told_margo",
+      "voice": "player",
+      "say": "I told Margo I was playing golf.",
+      "direction": "Careful. He is watching Lou’s face for the answer."
+    },
+    {
       "name": "vo.golf.h3.prospect.what_if_they_say_no",
       "voice": "player",
       "say": "What if they say no?",
       "direction": "Quiet. The question he has been carrying since the car park."
+    },
+    {
+      "name": "vo.golf.h3.prospect.who_would_i_tell",
+      "voice": "player",
+      "say": "Who would I tell?",
+      "direction": "Blunt, and sadder than he means it."
+    },
+    {
+      "name": "vo.golf.h3.rippin.can_be_both",
+      "voice": "rippinflow",
+      "say": "It can be both.",
+      "direction": "From the next tee marker, and for once he is being serious."
     },
     {
       "name": "vo.golf.h3.rippin.didnt_even_think",
@@ -16858,6 +17170,30 @@
       "voice": "rippinflow",
       "say": "What are we talking about over there?",
       "direction": "From forty yards away, because he cannot bear it."
+    },
+    {
+      "name": "vo.golf.h3.shubenator.grille_is_open",
+      "voice": "shubenator",
+      "say": "Balcony’s open. Lou’s buying, which means Eric’s buying.",
+      "direction": "Already turning toward the steps."
+    },
+    {
+      "name": "vo.golf.h3.shubenator.theres_a_bar_up_here",
+      "voice": "shubenator",
+      "say": "There is a bar thirty feet behind me, Prospect. Thirty feet, and I am out here.",
+      "direction": "Genuine sympathy, expressed as a grievance about himself."
+    },
+    {
+      "name": "vo.golf.h3.snow.he_means_come_up",
+      "voice": "snow",
+      "say": "He means come up.",
+      "direction": "Translating, once, with a nod at the terrace over the green, and going back to his beer."
+    },
+    {
+      "name": "vo.golf.h3.snow.numbskull",
+      "voice": "snow",
+      "say": "Numbskull.",
+      "direction": "One word, flat, without turning round."
     },
     {
       "name": "vo.machine.lou.golf_morning.0",
@@ -18598,54 +18934,6 @@
       "name": "vo.initiation.ambient.lou.1ckii4g.1",
       "voice": "lou",
       "say": "Humor me."
-    },
-    {
-      "name": "kitchen.clatter",
-      "_note": "Steel landing on steel behind the pass. A kitchen reads as a kitchen because of irregular metal at irregular intervals, not because of a louder hum."
-    },
-    {
-      "name": "kitchen.chop",
-      "_note": "A blade through something firm onto a board. Rationed: the line is busy, not frantic."
-    },
-    {
-      "name": "kitchen.oven",
-      "_note": "An oven door and a tray going in. Heavy, and only once in a while."
-    },
-    {
-      "name": "kitchen.ticket",
-      "_note": "The printer at the pass. Short, and it means somebody out in the room ordered."
-    },
-    {
-      "name": "dining.cutlery",
-      "_note": "A fork set down on a plate at another table. Never intelligible, never a punchline."
-    },
-    {
-      "name": "dining.glass.clink",
-      "_note": "Glass on glass across the room. The Silver Room is full and should sound full."
-    },
-    {
-      "name": "dining.chair",
-      "_note": "A chair moved on carpet. Somebody is leaving, and it is not about you."
-    },
-    {
-      "name": "margo.snore",
-      "_note": "Margo asleep beside him, before she sits up. Owner: \"lets add a low key snore sound\" -- low key is the whole direction. She is sixty centimetres from his ear so it plays dry rather than positioned, and it stops the moment she moves."
-    },
-    {
-      "name": "enolasquatch.gun.rear",
-      "_note": "The Enola Squatch tail gun, close. Owner: \"better bigger machine guns sounds for the rear gun\" -- it had been playing the apartment REVOLVER at eleven shots a second."
-    },
-    {
-      "name": "enolasquatch.gun.rear.cabin",
-      "_note": "The same gun heard from the cabin: the airframe between you and it, not the muzzle."
-    },
-    {
-      "name": "ambience.kitchen.line",
-      "_note": "The Silver Room kitchen bed: gas and a simmer under the extraction fan. The thing everybody in there shouts over."
-    },
-    {
-      "name": "ambience.diners.chatter",
-      "_note": "The main room, full. Vowel-range and nothing intelligible, and it thins to under half while anybody is talking or the featured number is playing."
     }
   ]
 }

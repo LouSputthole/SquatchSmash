@@ -19,6 +19,7 @@ import { heightAt, surfaceAt } from './field.js';
 import { HOLE, setActiveHole } from './hole.js';
 import { Npc } from '../bing/cast.js';
 import { FAMILY, loadFaceIndex } from '../bing/family.js';
+import { squatchBeerCan } from './hands.js';
 
 /* Late morning after overnight rain: the light is warm and low-ish, the air
  * still has mist in it, and everything is a shade wetter than it will be by
@@ -628,9 +629,73 @@ function buildGallery(scene, marks, faces = new Set()) {
     npc.group.userData.npc.characterId = member.id;
     npc.group.userData.npc.family = true;
     npc.group.userData.galleryMark = mark;
+    /* Everybody has a beer, and DeathMegatron has a cigar. Two hours of
+     * standing about waiting for a fourth man to hole out is exactly the
+     * amount of time it takes to be on your third one. */
+    npc.gallery = dressWaitingMan(npc, mark);
     built.push(npc);
   }
   return built;
+}
+
+/**
+ * Put something in a waiting man's hand.
+ *
+ * Hung off the forearm, so it inherits whatever the arm is doing rather than
+ * needing its own animation — the same trick the golfers' clubs use. The can
+ * is the fridge's own `makeBeerCan`, with the owner-supplied `label.beer`
+ * artwork on it if `hands.js` has resolved it by now, so the beers on the
+ * balcony are the same beers as the beers in the cooler.
+ *
+ * Returns the handles `poseWaitingMan` needs and a per-man phase, so five men
+ * do not raise five cans on the same frame like a chorus line.
+ */
+function dressWaitingMan(npc, mark) {
+  const fore = npc.parts?.foreR;
+  if (!fore) return null;
+
+  const can = squatchBeerCan();
+  can.name = `gallery-beer-${mark.id}`;
+  /* Down the forearm and turned upright: the forearm's own axis is +Y, and a
+   * can held at rest sits just past the wrist. */
+  can.position.set(0.02, -0.30, 0.07);
+  can.scale.setScalar(0.92);
+  fore.add(can);
+
+  let cigar = null;
+  if (mark.id === 'deathmegatron') {
+    cigar = new THREE.Group();
+    cigar.name = 'gallery-cigar';
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0115, 0.0135, 0.135, 8),
+      mat({ color: 0x4b3220, roughness: 0.86 }),
+    );
+    body.name = 'gallery-cigar-body';
+    cigar.add(body);
+    const band = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0138, 0.0138, 0.020, 8),
+      mat({ color: 0xb8912f, roughness: 0.52, metalness: 0.28 }),
+    );
+    band.name = 'gallery-cigar-band';
+    band.position.y = -0.038;
+    cigar.add(band);
+    const ember = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0112, 0.0112, 0.012, 8),
+      new THREE.MeshStandardMaterial({
+        color: 0x1a0a04, emissive: 0xff5a1e, emissiveIntensity: 1.8, roughness: 1,
+      }),
+    );
+    ember.name = 'gallery-cigar-ember';
+    ember.position.y = 0.072;
+    cigar.add(ember);
+    /* In the left hand, so it is not fighting the beer. Angled up toward the
+     * corner of his mouth, which is where it spends the whole hole. */
+    cigar.position.set(-0.02, -0.30, 0.06);
+    cigar.rotation.set(-0.55, 0, 0.22);
+    npc.parts.foreL?.add(cigar);
+  }
+
+  return { can, cigar, phase: Math.random() * 9 };
 }
 
 /**
@@ -707,13 +772,26 @@ function buildClubhouse(scene, colliders) {
   roof.castShadow = true;
   g.add(roof);
 
+  /* Two rows of glass rather than one, because there are two rooms in here
+   * now: the ground floor, under the terrace, and the Grille itself behind
+   * it. The old single row sat at exactly the height the terrace deck now
+   * occupies and would have been bricked up by it. */
   const glass = mat({ color: 0xa9c6d6, roughness: 0.25, metalness: 0.1 });
   for (let i = 0; i < 6; i++) {
-    const w = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.8, 0.14), glass);
-    w.position.set(-8.6 + i * 3.5, 3.6, 6.06);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.5, 0.14), glass);
+    w.name = 'clubhouse-window';
+    w.position.set(-8.6 + i * 3.5, 1.95, 6.06);
+    g.add(w);
+  }
+  /* Upstairs, either side of the doors out onto the deck. */
+  for (const wx of [-8.6, -5.1, 5.1, 8.6]) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.6, 0.14), glass);
+    w.name = 'clubhouse-grille-window';
+    w.position.set(wx, 5.3, 6.06);
     g.add(w);
   }
   const door = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.6, 0.16), timber);
+  door.name = 'clubhouse-door';
   door.position.set(0, 1.3, 6.08);
   g.add(door);
 
@@ -729,12 +807,236 @@ function buildClubhouse(scene, colliders) {
   sign.position.set(0, 7.4, 6.21);
   g.add(sign);
 
+  buildGrilleBalcony(g);
+
   scene.add(g);
   colliders.push(new THREE.Box3(
     new THREE.Vector3(HOLE.clubhouse.x - 13, y, HOLE.clubhouse.z - 8),
     new THREE.Vector3(HOLE.clubhouse.x + 13, y + 11, HOLE.clubhouse.z + 8),
   ));
   return g;
+}
+
+/**
+ * The Squatch Family Grille, from the outside.
+ *
+ * The sign over the door has said there is a room in there since the last
+ * pass, and the building had nothing to show for it: a brick box with six
+ * windows, which is a name on a wall rather than a place. So the room gets its
+ * terrace — a first-floor deck across the front of the building looking
+ * straight down the last fairway, with a proper service bar on it, bottles on
+ * a back shelf, three taps, stools, and umbrellas over the tables.
+ *
+ * It is scenery and it is deliberately unreachable: the clubhouse collider
+ * already refuses the whole footprint and nothing here adds a route in. What
+ * it is for is the last four hundred yards of the round, where the building is
+ * the backstop of the green — and for the five men stood below it who spend
+ * the hole telling the Prospect exactly what is thirty feet behind them.
+ *
+ * Built in the clubhouse's own local space: +Z is the face with the door and
+ * the windows on it, which is the side the green is on.
+ */
+function buildGrilleBalcony(house) {
+  const deckMat = mat({ color: 0x3b2c20, roughness: 0.94 });
+  const railMat = mat({ color: 0x9aa2ad, roughness: 0.44, metalness: 0.52 });
+  const barMat = mat({ color: 0x4a3323, roughness: 0.72 });
+  const topMat = mat({ color: 0x1e2228, roughness: 0.3, metalness: 0.22 });
+
+  /* Height matters and is not arbitrary. The roof is a very steep triangular
+   * prism whose underside sits at y 6.35 — the eaves come down to the top of
+   * the brick — so a terrace at first-floor-ceiling height ends up jammed into
+   * the rafters with no sky above it and the club's own sign behind it. This
+   * sits at 3.4, which is a storey up, clear of the door below and with three
+   * metres of open air between the umbrellas and the eave. */
+  const balcony = new THREE.Group();
+  balcony.name = 'clubhouse-balcony';
+  balcony.position.set(0, 3.40, 6.0);
+  house.add(balcony);
+
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(19.0, 0.22, 3.6), deckMat);
+  deck.name = 'clubhouse-balcony-deck';
+  deck.position.set(0, 0, 1.7);
+  deck.castShadow = true;
+  deck.receiveShadow = true;
+  balcony.add(deck);
+
+  /* Brackets under it, so nineteen metres of deck is not floating. Slim, and
+   * angled back into the wall — fat ones read as gun ports from the green. */
+  for (let i = -4; i <= 4; i++) {
+    const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.62, 1.30), deckMat);
+    bracket.name = 'clubhouse-balcony-bracket';
+    bracket.position.set(i * 2.2, -0.42, 0.78);
+    bracket.rotation.x = 0.48;
+    balcony.add(bracket);
+  }
+
+  /* Railing: a top rail, a mid rail and uprights along the front and returns
+   * down both ends. */
+  const railTop = new THREE.Mesh(new THREE.BoxGeometry(19.0, 0.09, 0.09), railMat);
+  railTop.name = 'clubhouse-balcony-rail';
+  railTop.position.set(0, 1.02, 3.44);
+  balcony.add(railTop);
+  const railMid = new THREE.Mesh(new THREE.BoxGeometry(19.0, 0.05, 0.05), railMat);
+  railMid.name = 'clubhouse-balcony-rail-mid';
+  railMid.position.set(0, 0.56, 3.44);
+  balcony.add(railMid);
+  for (let i = -9; i <= 9; i++) {
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.028, 0.028, 1.02, 6), railMat,
+    );
+    post.name = 'clubhouse-balcony-post';
+    post.position.set(i * 1.0, 0.51, 3.44);
+    balcony.add(post);
+  }
+  for (const sx of [-1, 1]) {
+    const end = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 3.5), railMat);
+    end.name = 'clubhouse-balcony-rail-end';
+    end.position.set(sx * 9.45, 1.02, 1.72);
+    balcony.add(end);
+  }
+
+  /* The bar itself, against the wall so it faces out over the fairway. */
+  const bar = new THREE.Group();
+  bar.name = 'clubhouse-balcony-bar';
+  bar.position.set(-4.6, 0.11, 0.85);
+  balcony.add(bar);
+
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(6.4, 1.02, 0.66), barMat);
+  counter.name = 'clubhouse-bar-counter';
+  counter.position.y = 0.51;
+  counter.castShadow = true;
+  bar.add(counter);
+  const counterTop = new THREE.Mesh(new THREE.BoxGeometry(6.7, 0.08, 0.86), topMat);
+  counterTop.name = 'clubhouse-bar-top';
+  counterTop.position.y = 1.06;
+  bar.add(counterTop);
+
+  const backShelf = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.07, 0.30), barMat);
+  backShelf.name = 'clubhouse-bar-shelf';
+  backShelf.position.set(0, 1.55, -0.55);
+  bar.add(backShelf);
+
+  /* A back shelf with nothing on it is a plank. Bottles, in the two colours
+   * every bar in this game already stocks. */
+  for (let i = 0; i < 16; i++) {
+    const bottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.045, 0.28, 7),
+      mat({
+        color: i % 3 === 0 ? 0x3c2412 : i % 3 === 1 ? 0x1f3a2a : 0x6b5a2e,
+        roughness: 0.28, metalness: 0.06,
+      }),
+    );
+    bottle.name = `clubhouse-bar-bottle-${i + 1}`;
+    bottle.position.set(-2.72 + i * 0.36, 1.73, -0.55);
+    bar.add(bottle);
+  }
+
+  /* Three taps. The one detail that says this is a bar and not a desk. */
+  for (let i = 0; i < 3; i++) {
+    const tap = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.022, 0.022, 0.30, 8),
+      mat({ color: 0xc9ccd1, roughness: 0.24, metalness: 0.82 }),
+    );
+    tap.name = `clubhouse-bar-tap-${i + 1}`;
+    tap.position.set(1.9 + i * 0.28, 1.24, -0.10);
+    bar.add(tap);
+    const spout = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.016, 0.016, 0.16, 8),
+      mat({ color: 0xc9ccd1, roughness: 0.24, metalness: 0.82 }),
+    );
+    spout.name = `clubhouse-bar-tap-spout-${i + 1}`;
+    spout.position.set(1.9 + i * 0.28, 1.34, 0.06);
+    spout.rotation.x = Math.PI / 2;
+    bar.add(spout);
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const stool = new THREE.Group();
+    stool.name = `clubhouse-bar-stool-${i + 1}`;
+    stool.position.set(-2.6 + i * 1.3, 0.11, 1.85);
+    const seat = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.20, 0.20, 0.08, 12),
+      mat({ color: 0x5b4432, roughness: 0.8 }),
+    );
+    seat.position.y = 0.74;
+    stool.add(seat);
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.045, 0.74, 8),
+      mat({ color: 0x7c828c, roughness: 0.42, metalness: 0.5 }),
+    );
+    post.position.y = 0.37;
+    stool.add(post);
+    balcony.add(stool);
+  }
+
+  /* Two tables at the far end with umbrellas, because the other half of a
+   * terrace is people who are not at the bar. */
+  for (let i = 0; i < 2; i++) {
+    const table = new THREE.Group();
+    table.name = `clubhouse-balcony-table-${i + 1}`;
+    table.position.set(4.6 + i * 3.2, 0.11, 1.75);
+    const top = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.62, 0.62, 0.06, 14),
+      mat({ color: 0x2f3238, roughness: 0.6 }),
+    );
+    top.position.y = 0.76;
+    table.add(top);
+    const stem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.09, 0.76, 8),
+      mat({ color: 0x7c828c, roughness: 0.45, metalness: 0.45 }),
+    );
+    stem.position.y = 0.38;
+    table.add(stem);
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.030, 0.030, 2.1, 8),
+      mat({ color: 0x8f959e, roughness: 0.45, metalness: 0.4 }),
+    );
+    pole.position.y = 1.05;
+    table.add(pole);
+    const canopy = new THREE.Mesh(
+      new THREE.ConeGeometry(1.28, 0.46, 12),
+      mat({ color: 0x6f4bb0, roughness: 0.9 }),
+    );
+    canopy.name = `clubhouse-balcony-umbrella-${i + 1}`;
+    canopy.position.y = 2.16;
+    canopy.castShadow = true;
+    table.add(canopy);
+    balcony.add(table);
+  }
+
+  /* Doors back into the room, so the terrace comes from somewhere. */
+  for (const sx of [-1.35, 1.35]) {
+    const door = new THREE.Mesh(
+      new THREE.BoxGeometry(1.15, 2.15, 0.10),
+      mat({ color: 0x9db6c4, roughness: 0.24, metalness: 0.08 }),
+    );
+    door.name = 'clubhouse-grille-door';
+    door.position.set(sx, 1.18, 0.06);
+    balcony.add(door);
+  }
+
+  /* An outside stair up the right-hand end. Snow's whole line at the end of
+   * the round is "he means come up", and a terrace with no visible way onto
+   * it makes that a joke about a wall. */
+  const stair = new THREE.Group();
+  stair.name = 'clubhouse-balcony-stair';
+  stair.position.set(8.9, 0, 2.6);
+  balcony.add(stair);
+  for (let i = 0; i < 11; i++) {
+    const tread = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.10, 0.30), deckMat);
+    tread.name = 'clubhouse-balcony-tread';
+    tread.position.set(0, -0.16 - i * 0.30, i * 0.30);
+    stair.add(tread);
+  }
+  for (const sx of [-0.62, 0.62]) {
+    const stringer = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 4.6), railMat);
+    stringer.name = 'clubhouse-balcony-stair-rail';
+    stringer.position.set(sx, -0.62, 1.5);
+    stringer.rotation.x = -0.78;
+    stair.add(stringer);
+  }
+
+  return balcony;
 }
 
 /**
@@ -789,6 +1091,54 @@ function buildSideCooler(scene) {
 
   scene.add(g);
   return { group: g, lid, cans };
+}
+
+/**
+ * Five men waiting, with something in their hands.
+ *
+ * `Npc`'s own `drink` job sits down — it was written for the Bing, where
+ * everybody drinking is at a table — and these five are stood in a line on
+ * their feet watching a golf hole. So the pose is driven here, after
+ * `npc.update` has laid down its `stand` cycle, which is the only order that
+ * works: the job writes arm rotations every frame and would otherwise put the
+ * beer back down again immediately.
+ *
+ * A slow raise about every nine seconds, out of phase with each other, with
+ * the elbow doing the work and the shoulder barely moving — which is how a man
+ * drinks standing up, and the same reading `Npc`'s seated version is built on.
+ * The cigar burns brighter on the draw and is otherwise left alone.
+ */
+function poseWaitingMan(npc, t) {
+  const kit = npc.gallery;
+  if (!kit) return;
+  const parts = npc.parts;
+  const cycle = (t + kit.phase) % 9;
+  const lift = cycle < 1.9 ? Math.sin((cycle / 1.9) * Math.PI) : 0;
+
+  /* Right arm: the beer. At rest it hangs a little forward with the elbow
+   * bent, which is a man holding a can rather than a man at attention. */
+  parts.armR.rotation.x = -0.16 - lift * 0.30;
+  parts.armR.rotation.z = 0.10;
+  parts.foreR.rotation.x = -1.05 - lift * 1.05;
+
+  /* Left arm: folded across, or holding the cigar up if he has one. */
+  if (kit.cigar) {
+    const draw = cycle > 4.4 && cycle < 5.8
+      ? Math.sin(((cycle - 4.4) / 1.4) * Math.PI)
+      : 0;
+    parts.armL.rotation.x = -0.30 - draw * 0.34;
+    parts.armL.rotation.z = -0.14;
+    parts.foreL.rotation.x = -1.18 - draw * 0.95;
+    const ember = kit.cigar.getObjectByName('gallery-cigar-ember');
+    if (ember) ember.material.emissiveIntensity = 1.8 + draw * 2.8;
+    if (draw > 0.6) parts.head.rotation.x = -0.06;
+  } else {
+    parts.armL.rotation.x = -0.24;
+    parts.armL.rotation.z = -0.12;
+    parts.foreL.rotation.x = -0.92;
+  }
+
+  if (lift > 0.62) parts.head.rotation.x = -0.13;
 }
 
 /** The next tee, over the trees. Scenery, and a promise about the round. */
@@ -1039,7 +1389,11 @@ export class Course {
     // The gallery breathes and shifts its weight, and looks at whoever is on
     // the green. They belong to the hole, so they update with it.
     if (this.gallery?.length) {
-      for (const npc of this.gallery) npc.update(dt, playerPos);
+      for (const npc of this.gallery) {
+        npc.update(dt, playerPos);
+        /* After the job, never before — see poseWaitingMan. */
+        poseWaitingMan(npc, this._t);
+      }
     }
 
     // The flag moves in the same light wind the ball flies through.

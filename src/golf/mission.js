@@ -25,6 +25,24 @@ const RIPPIN = CHARACTER_IDS.RIPPINFLOW;
 const ERIC = CHARACTER_IDS.ERIC;
 const PROSPECT = CHARACTER_IDS.PROSPECT;
 const CART_RETRIEVAL_DISTANCE = 38;
+
+/**
+ * How the other three get around between shots.
+ *
+ * `NPC_WALK` is the unhurried club walk they use near the green. `NPC_HUSTLE`
+ * is what they do when the next lie is a long way off — on a 395-yard par 4 a
+ * man whose drive finished a hundred and thirty metres short of the pin was
+ * covering that at 1.65 m/s, which is eighty seconds of watching Eric walk,
+ * once per shot, on the hole where the player is finished and waiting. Their
+ * carts are on the hole with them; this is the pace of a man travelling with
+ * one, and the gait cadence in `cast.js` already scales with speed so it reads
+ * as a hustle rather than a glide.
+ */
+const NPC_WALK = 1.65;
+const NPC_HUSTLE = 3.7;
+const NPC_HUSTLE_FROM = 38;
+/** How much quicker the group plays once the Prospect is already in. */
+const CATCH_UP_PACE = 1.3;
 const NPC_TEE_SOLUTION_CACHE = new Map();
 
 /**
@@ -167,6 +185,8 @@ export class Round {
     this._resultPlayed = false;
     this._teeLunchPlayed = false;
     this._greenTalked = false;
+    this._galleryTalked = false;
+    this._galleryCheered = false;
     this._bunkerTalked = false;
     this._holeOutPlayed = false;
     this._npcApproachJobs = new Map();
@@ -355,6 +375,60 @@ export class Round {
     return SEQUENCES[own] ? own : name;
   }
 
+  /**
+   * Is a driver the club this tee is for?
+   *
+   * Answered from the layout's own authored tee shot rather than from the
+   * yardage, because that is the same number `shotPlan()` uses to put a
+   * recommendation on screen. Anything that wants to say something about the
+   * player's club choice has to ask this, or the scene ends up recommending a
+   * driver and then complaining about the driver — which is exactly what it
+   * was doing on both long holes.
+   */
+  /**
+   * Which tee conversation this hole owns.
+   *
+   * All three tees used to open `firstTee` — the invitation, "So why am I
+   * here?", and the same four replies including "You needed a fourth" — which
+   * meant the scene's one irreplaceable exchange was asked and answered three
+   * times in one round, twice of them to a man who already had the answer. The
+   * gameplay spec makes the invitation a Hole 1 gate specifically; the other
+   * two tees now ask their own question and gate on their own branch.
+   */
+  teeScript() {
+    if (HOLE.number === 2 && this.scripts.secondTee) return this.scripts.secondTee;
+    if (HOLE.number === 3 && this.scripts.thirdTee) return this.scripts.thirdTee;
+    return this.scripts.firstTee;
+  }
+
+  wantsDriver() {
+    const authored = HOLE.npcTeeShots?.[ERIC]?.club;
+    if (authored) return authored === 'driver';
+    return (HOLE.par ?? 3) >= 4;
+  }
+
+  /**
+   * How hard the rest of the group is working right now.
+   *
+   * Once the Prospect's ball is in the cup the only thing left on the hole is
+   * three men finishing, and the player is stood by the flag watching them do
+   * it. So they get a thirty per cent move on — faster between shots and less
+   * time stood over them — which is exactly what a group does when the man who
+   * has holed out is waiting on them.
+   */
+  _groupPace() {
+    return this.card.finished(PROSPECT, HOLE.number) ? CATCH_UP_PACE : 1;
+  }
+
+  /** Walking pace for one leg of an NPC's journey, and a hustle if it is far. */
+  _travelSpeed(from, to) {
+    const distance = from && to
+      ? Math.hypot(to.x - from.x, to.z - from.z)
+      : 0;
+    const base = distance > NPC_HUSTLE_FROM ? NPC_HUSTLE : NPC_WALK;
+    return base * this._groupPace();
+  }
+
   /* ---------------------------------------------------------------- */
   /* Conditional callbacks                                             */
   /* ---------------------------------------------------------------- */
@@ -531,11 +605,11 @@ export class Round {
     if (this._wait > 0 || this.cues.busy) return;
     if (this.dialogue.active) return;
     if (this._step === 0) {
-      // "So why am I here?" — the centre of the scene.
+      // "So why am I here?" — the centre of the scene, on the tee that owns it.
       this._step = 1;
       this.cues.suppressBanter(true);
       this.dialogue.start(
-        this.scripts.firstTee,
+        this.teeScript(),
         'open',
         this.golfers[LOU]?.npc ?? null,
         { resume: true },
@@ -550,7 +624,7 @@ export class Round {
       if (playerPos && lou && Math.hypot(playerPos.x - lou.x, playerPos.z - lou.z) < 5.5) {
         this.cues.suppressBanter(true);
         this.dialogue.start(
-          this.scripts.firstTee,
+          this.teeScript(),
           'open',
           this.golfers[LOU]?.npc ?? null,
           { resume: true },
@@ -746,15 +820,38 @@ export class Round {
     const surface = ball.surface;
     const { pin } = this._recordPlayerShotResult();
 
+    /**
+     * Which reaction the tee shot earns.
+     *
+     * The order is the priority order and every line of it is load-bearing.
+     * `driver_long` is Lou's "You brought the wrong club", and it used to be
+     * reached by `club === 'driver' && travelled > 175` with nothing else in
+     * the test — which is a correct description of Hole 1, a 167-yard par 3
+     * where a driver genuinely is too much club, and a completely wrong
+     * description of the other two. Measured: Hole 2 is a 520-yard par 5 and a
+     * driver carries 250 m / 273 yds; Hole 3 is a 395-yard par 4 and it goes
+     * 219 m / 239 yds. Both cleared 175, both fired the line, and both holes
+     * open on `driver` as their own authored safe club — so the scene told the
+     * player he had brought the wrong club for playing exactly the shot the
+     * hole had just recommended.
+     *
+     * `wantsDriver()` reads that authored answer rather than guessing from the
+     * yardage, so the predicate and the tee's own suggestion can never
+     * disagree again. On a hole that does want a driver, a big one off the tee
+     * now gets its own reaction instead of an insult.
+     */
     let sequence = 'tee.result.rough';
+    const bigDrive = ctx.club === 'driver' && ball.travelled > 175;
     if (ball.state === BALL_STATE.HOLED) sequence = 'tee.result.ace';
     else if (ball.state === BALL_STATE.WATER) sequence = 'tee.result.water';
     else if (ctx.club === 'putter' && ctx.wasTeeShot) sequence = 'tee.result.putter';
-    else if (ctx.club === 'driver' && ball.travelled > 175) sequence = 'tee.result.driver_long';
+    else if (bigDrive && !this.wantsDriver()) sequence = 'tee.result.driver_long';
     else if (surface === SURFACE.BUNKER) sequence = 'tee.result.bunker';
     else if (surface === SURFACE.GREEN) {
       sequence = toFeet(pin) <= 15 ? 'tee.result.great' : 'tee.result.green';
     } else if (surface === SURFACE.FRINGE) sequence = 'tee.result.fringe';
+    else if (bigDrive && this.wantsDriver()) sequence = 'tee.result.driver_good';
+    else if (surface === SURFACE.FAIRWAY) sequence = 'tee.result.fairway';
 
     /* The ace gets two full seconds of nobody saying anything first. The
      * silence is the joke and it is also the moment. */
@@ -763,7 +860,10 @@ export class Round {
       this.cues.suppressBanter(true);
       this._after(2.0, () => this.cues.playSequence(this.seq('tee.result.ace')));
     } else {
-      this.cues.playSequence(sequence);
+      /* Through `seq()`, so a hole can answer its own tee shot. This was a
+       * bare `playSequence(sequence)`, which meant every `hN.tee.result.*`
+       * override written from here on would have been silently ignored. */
+      this.cues.playSequence(this.seq(sequence));
       this._wait = 0.4;
     }
     this.hooks.onBallEvent?.('tee_result', { sequence, surface, pin });
@@ -904,11 +1004,11 @@ export class Round {
       const dx = HOLE.pin.x - b.position.x;
       const dz = HOLE.pin.z - b.position.z;
       const len = Math.hypot(dx, dz) || 1;
-      g.walkTo(
-        b.position.x - (dx / len) * 1.1,
-        b.position.z - (dz / len) * 1.1,
-        { speed: 1.5 },
-      );
+      const to = {
+        x: b.position.x - (dx / len) * 1.1,
+        z: b.position.z - (dz / len) * 1.1,
+      };
+      g.walkTo(to.x, to.z, { speed: this._travelSpeed(g.position, to) });
     }
   }
 
@@ -949,6 +1049,18 @@ export class Round {
       this._bunkerTalked = true;
       this.cues.playSequence(this.seq('bunker.together'));
     }
+    /* The crew on the grille balcony notice him arriving. Only the last hole
+     * has a gallery, and they only get one go at it. */
+    if (!this._galleryTalked && playerPos && HOLE.gallery?.length) {
+      const near = HOLE.gallery.some((mark) => (
+        Math.hypot(playerPos.x - mark.x, playerPos.z - mark.z) < 34
+      ));
+      if (near) {
+        this._galleryTalked = true;
+        this.cues.playSequence(this.seq('gallery.arrival'));
+      }
+    }
+
     if (!this._greenTalked && playerPos
       && Math.hypot(playerPos.x - HOLE.green.x, playerPos.z - HOLE.green.z) < HOLE.green.rx + 4) {
       this._greenTalked = true;
@@ -971,6 +1083,12 @@ export class Round {
       };
       this.audio?.pickup(cup);
       this.audio?.flag(cup);
+      /* And the balcony says so, which is the only reason five men were built
+       * standing between the last green and the building. */
+      if (HOLE.gallery?.length && !this._galleryCheered) {
+        this._galleryCheered = true;
+        this.cues.playSequence(this.seq('gallery.holed'));
+      }
       this._go(BEAT.HOLE_OUT);
     }
   }
@@ -995,7 +1113,7 @@ export class Round {
     for (const [id, job] of [...this._npcApproachJobs]) {
       if (this._updateNpcApproachJob(job, dt)) {
         this._npcApproachJobs.delete(id);
-        this._npcApproachDelay.set(id, 1.6 + Math.random() * 1.4);
+        this._npcApproachDelay.set(id, (1.6 + Math.random() * 1.4) / this._groupPace());
       }
     }
 
@@ -1025,7 +1143,9 @@ export class Round {
       const stance = golfStanceFor(from, HOLE.pin);
       const golfer = this.golfers[id];
       golfer?.setClub(club);
-      golfer?.walkTo(stance.x, stance.z, { speed: 1.65 });
+      golfer?.walkTo(stance.x, stance.z, {
+        speed: this._travelSpeed(golfer?.position, stance),
+      });
       this._npcApproachJobs.set(id, {
         id,
         phase: 'walk',
@@ -1226,6 +1346,8 @@ export class Round {
     this._resultPlayed = false;
     this._teeLunchPlayed = false;
     this._greenTalked = false;
+    this._galleryTalked = false;
+    this._galleryCheered = false;
     this._bunkerTalked = false;
     this._holeOutPlayed = false;
     this._afterGreenTalk = 0;

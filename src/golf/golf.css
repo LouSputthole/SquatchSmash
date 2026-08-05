@@ -343,6 +343,29 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
 
 /* ---------------- conversation ---------------- */
 
+/**
+ * The spoken subtitle sits above the conversation box, never across it.
+ *
+ * `src/style.css` parks `#subtitle` at `bottom: 13%` and `#dialogue` below is
+ * anchored at `bottom: 118px` and grows *upward* with its options. At
+ * 1280x720 that put a two-line subtitle from 580 px to 626 px down the screen
+ * and the reply box from 414 px to 602 px — twenty-two pixels of one printed
+ * over the other, which is the "golf subtitle text overlapping" in the
+ * playtest notes and which the gameplay spec forbids in as many words.
+ *
+ * The floor here keeps the subtitle clear of the reply box even before
+ * `layoutSubtitle()` in main.js measures the live box and lifts it the exact
+ * amount its current contents need. Two mechanisms on purpose: the CSS is
+ * what protects the first frame and any frame the script does not reach, the
+ * measurement is what handles a four-option node growing taller than a
+ * hard-coded number could predict.
+ */
+body.golf #subtitle {
+  bottom: max(13%, 132px);
+  max-width: min(620px, 72vw);
+  z-index: 11;
+}
+
 #dialogue {
   position: absolute; left: 50%; bottom: 118px;
   transform: translateX(-50%);

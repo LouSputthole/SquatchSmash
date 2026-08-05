@@ -242,8 +242,22 @@ export class Radio {
     return [...cues];
   }
 
+  /**
+   * Move the receiver.
+   *
+   * This has to push the new position into the live PannerNode, not just
+   * remember it. The one-shot cues below all read `this.position` at the
+   * moment they fire, so clicks, idents and station stings always came from
+   * the right place — but the *music* runs through a persistent graph whose
+   * panner was positioned once, in `_ensureGraph`, and never again. Power the
+   * cart radio on at the tee and drive to the green and the song stayed at the
+   * tee: measured on Hole 1, seventy-two metres behind the cart and directly
+   * astern of it along its own heading. Which is precisely what the playtest
+   * heard — "radio sounds are playing behind the golf cart".
+   */
   setPosition(v) {
     this.position.copy(v);
+    this._applyPannerPosition();
   }
 
   setVolume(value) {
@@ -330,6 +344,17 @@ export class Radio {
     this.panner.connect(this.audio.busMusic);
   }
 
+  /**
+   * Push `this.position` into the panner.
+   *
+   * Written straight to `.value` rather than ramped. A receiver bolted to a
+   * golf cart moves a few centimetres a frame, so there is no step to smooth,
+   * and the two places it *does* jump — staging the carts at a tee, parking
+   * them in the lot — are cuts where a 25 ms glide would be an audible swoop
+   * across the course rather than a fix. Direct assignment is also the only
+   * form a caller can read back synchronously, which is what lets a verifier
+   * assert that the music is coming out of the radio.
+   */
   _applyPannerPosition() {
     if (!this.panner) return;
     const p = this.position;
