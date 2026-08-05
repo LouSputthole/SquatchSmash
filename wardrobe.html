@@ -402,7 +402,7 @@ function paint() {
     specEl.innerHTML = paintFlags(cast) + paintRoster(cast);
   } else if (view === 'character' && !solo) {
     const cast = appearancesOf(subject);
-    titleEl.textContent = 'THE SAME MAN, EVERY SCENE';
+    titleEl.textContent = 'THE SAME PERSON, EVERY SCENE';
     whoEl.innerHTML = `${cast[0].name}<span class="badge ${faces.has(faceOf(subject)) ? 'photo' : 'authored'}">`
       + `${cast.length} appearance${cast.length === 1 ? '' : 's'}</span>`;
     noteEl.textContent = 'Every scene this person is in, side by side under one light. '
