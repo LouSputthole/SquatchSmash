@@ -446,6 +446,38 @@
       "stability": 0.5,
       "similarity": 0.82,
       "style": 0.36
+    },
+    "mansion-guard-stairs": {
+      "id": "bwCXcoVxWNYMlC6Esa8u",
+      "_note": "Lou's man at the top of the stairs, looking out over the front doors. He can see the gate from up there and he says so. The one post with a view, so he is the least bored of them. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-basement": {
+      "id": "KTPVrSVAEUSJRClDzBw7",
+      "_note": "Lou's man in the cellar, near the armory. Nothing down there belongs to you and he will say that once. Flat, close, and in a room with no daylight. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-vault": {
+      "id": "AocjYzHzWRalprWmBG9m",
+      "_note": "Lou's man on the vault. The door stays open, he stays here, that is the arrangement. The most static post in the house and the least interested in conversation. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-perimeter": {
+      "id": "ICwKbPHDHAM3eal5tHEZ",
+      "_note": "One of the men walking the perimeter outside, working with `mansion-guard` so the patrol is not one throat twice. Outdoors, on the move, eleven laps a night. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
     }
   },
   "sfx": [
