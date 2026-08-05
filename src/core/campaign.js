@@ -94,6 +94,38 @@ export const MISSION_IDS = Object.freeze({
   SILENT_SQUATCH: 'silent_squatch',
 });
 
+/**
+ * How the Beef Run's last landing went, in the ONE vocabulary its readers use.
+ *
+ * `pastMissionBanter()` in the golf script treats `clean`, `greased` and
+ * `perfect` as the good ones and everything else as a man who brought most of
+ * the plane back. The Beef Run used to persist its RANK here instead — "Gas
+ * Station Amateur", "Certified Meat Aviator" and so on — and the two sets do
+ * not intersect, so the good callback was unreachable for anybody who actually
+ * flew the mission. Anything not on this list is normalised to `unknown` on
+ * the way in, so a scene cannot quietly write a string nobody reads again.
+ */
+export const LANDING_QUALITIES = Object.freeze([
+  'perfect', 'greased', 'clean', 'rough', 'hard', 'unknown',
+]);
+
+/**
+ * Everything the Beef Run can send home with you.
+ *
+ * Ids rather than the end card's prose, because these are campaign facts other
+ * scenes read; the words on the card are presentation. The card promised six
+ * trophies out of a hard-coded array that reached no save at all — this is the
+ * list that actually gets written, and only the ones that were earned.
+ */
+export const AIRSTRIP_UNLOCKS = Object.freeze([
+  'prospectFlightJacket',      // always: you flew the run
+  'brushrunnerAccess',         // always: you brought it back
+  'tammyDashboardMug',         // always: it was on the dash and he let you keep it
+  'stoveBusinessCard',         // Old Stove's three crates delivered
+  'silverbackOrnament',        // the jerky arrived in a state Cecilio would accept
+  'elHuesoFreeFlight',         // you put it down on the mountain strip properly
+]);
+
 export const EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'lou_first_call',
   /* The one call that asks nothing of him. Lou rings the night the
@@ -535,7 +567,20 @@ function initialState() {
         checkpoint: null,
         cargoLoaded: false,
         detected: false,
+        /* How the landing went, in the vocabulary the readers use — see
+         * LANDING_QUALITIES in airstrip-story.js. `rank` is the end card's
+         * display string and is presentation only; nothing branches on it. */
         landingQuality: null,
+        rank: null,
+        /* What the run actually sent home with you. The end card used to
+         * promise six trophies out of a hard-coded array that reached no save
+         * at all, which is the owner's question — "do we actually get all the
+         * things rewards from this back in the apartment after?" These are the
+         * ones that were earned, kept as facts the way PROJECT SILENT SQUATCH
+         * keeps its trophy, so the flat can fold a shelf out of them. */
+        unlocks: [],
+        packagesDelivered: 0,
+        gunsDelivered: 0,
       },
       [MISSION_IDS.BADA_BING_TWO]: {
         status: 'locked',
@@ -1265,6 +1310,17 @@ function normalize(saved) {
         detected: airstrip.detected === true,
         landingQuality: typeof airstrip.landingQuality === 'string'
           ? airstrip.landingQuality : null,
+        rank: typeof airstrip.rank === 'string' ? airstrip.rank : null,
+        /* Rewards survive a reload the same way the rest of the record does,
+         * and an unrecognised id from an older or hand-edited save is dropped
+         * rather than trusted. */
+        unlocks: Array.isArray(airstrip.unlocks)
+          ? [...new Set(airstrip.unlocks.filter((id) => AIRSTRIP_UNLOCKS.includes(id)))]
+          : [],
+        packagesDelivered: Number.isFinite(airstrip.packagesDelivered)
+          ? Math.max(0, Math.round(airstrip.packagesDelivered)) : 0,
+        gunsDelivered: Number.isFinite(airstrip.gunsDelivered)
+          ? Math.max(0, Math.round(airstrip.gunsDelivered)) : 0,
       },
       [MISSION_IDS.BADA_BING_TWO]: {
         status: bingTwoStatus,
@@ -1898,7 +1954,15 @@ function seedApartmentPreviewCampaign(state, variant) {
     airstrip.checkpoint = 'landed_home';
     airstrip.cargoLoaded = true;
     airstrip.detected = false;
-    airstrip.landingQuality = 'smooth';
+    /* `'smooth'` was a fifth vocabulary nobody reads: the golf callback tests
+     * `clean | greased | perfect`, so the preview's own good run was scored as
+     * a bad one. `greased` is the token that means what this seed meant. */
+    airstrip.landingQuality = 'greased';
+    airstrip.rank = 'Certified Meat Aviator';
+    airstrip.unlocks = ['prospectFlightJacket', 'brushrunnerAccess', 'tammyDashboardMug',
+      'stoveBusinessCard', 'silverbackOrnament', 'elHuesoFreeFlight'];
+    airstrip.packagesDelivered = 27;
+    airstrip.gunsDelivered = 3;
     markTime(
       TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL,
       TIME_EVENT_IDS.DEPART_AIRSTRIP,

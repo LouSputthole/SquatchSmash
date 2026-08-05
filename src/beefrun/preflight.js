@@ -27,6 +27,7 @@ import * as THREE from 'three';
 import {
   solid, mat, boxGeo, cylGeo, mesh, flatMesh, group, clamp, damp,
 } from './util.js';
+import { terrainHeight } from './terrain.js';
 
 const CHOCK_COLOUR = 0x8a6a42;
 
@@ -36,6 +37,7 @@ const ORDER = ['chocks', 'caps', 'props', 'sample', 'door', 'surfaces'];
 
 const _markerPos = new THREE.Vector3();
 const _markerOff = new THREE.Vector3();
+const _chockOff = new THREE.Vector3();
 
 /* Where the highlight belongs on each part, in aeroplane-local metres from the
  * object the interaction is registered on.
@@ -126,6 +128,11 @@ export class Preflight {
       ac.group.add(g);
       this.chocks.push(g);
     }
+    /* Which way the wedges point, kept for `stowGroundKit()` — once a chock is
+     * out on the tarmac it is no longer a child of the aeroplane, so "which
+     * side was it on" has to be remembered rather than read off its parent. */
+    this.chocks[0].userData.side = -1;
+    this.chocks[1].userData.side = 1;
 
     // The sampling cup, and the fuel in it. Hidden until it is being used.
     this.cup = group('sample-cup');
@@ -390,12 +397,11 @@ export class Preflight {
         onLook: () => this.dialogue.play('preflight.chocks', { once: true }),
         onUse: () => {
           // Dropped beside the wheel rather than deleted, because you can see
-          // that you did it.
+          // that you did it — and left ON THE TARMAC rather than inside the
+          // aeroplane's own frame, which is what used to fly them to El Hueso.
           chock.userData.pulled = true;
-          chock.position.x += i === 0 ? -1.1 : 1.1;
-          chock.position.z += 0.4;
-          chock.rotation.z = i === 0 ? 1.4 : -1.4;
           this.interaction.unregister(chock);
+          this.dropChock(chock, i === 0 ? -1.1 : 1.1);
           this.audio?.play('frame.adjust', { volume: 0.6 });
           this.finish('chocks');
           if (this.tasks.chocks.count === 1) this.dialogue.play('preflight.chocks.done', { once: true });
@@ -586,14 +592,81 @@ export class Preflight {
     } else {
       this.marker.visible = false;
     }
-    if (physics?.groundSpeed > 1.5) {
-      for (const c of this.chocks) c.visible = false;
-    }
+    /* Backstop only. The real rule lives in `stowGroundKit()`, which the
+     * mission calls whenever the aeroplane is handed over to a pilot; this
+     * catches an aeroplane that starts rolling while the walkaround is still
+     * armed, which is a thing a player can do at any moment. */
+    if (physics?.groundSpeed > 1.5) this.stowGroundKit();
     void damp;
+  }
+
+  /**
+   * Take one chock out of the aeroplane and put it down on the ground.
+   *
+   * `scene.attach()` rather than `scene.add()`: attach preserves the object's
+   * WORLD transform through the reparent, so the wedge does not jump when it
+   * stops being a child of a rotated aeroplane. Then it is set flat on the
+   * terrain, kicked `outboard` metres clear of the wheel, and tipped onto its
+   * side, which is what a pulled chock looks like.
+   *
+   * @param {THREE.Object3D} chock
+   * @param {number} outboard metres to kick it, in the aeroplane's own frame
+   */
+  dropChock(chock, outboard) {
+    if (chock.userData.stowed) return false;
+    const ac = this.aircraft.group;
+    ac.updateWorldMatrix(true, false);
+    // Where it ends up, decided in the aeroplane's frame and then frozen.
+    _chockOff.set(chock.position.x + outboard, chock.position.y, chock.position.z + 0.4);
+    _chockOff.applyMatrix4(ac.matrixWorld);
+    this.scene.attach(chock);
+    chock.position.copy(_chockOff);
+    chock.position.y = terrainHeight(chock.position.x, chock.position.z);
+    // Flat on the ground, tipped over, and keeping the heading it was pulled on.
+    chock.rotation.set(0, ac.rotation.y, outboard < 0 ? 1.4 : -1.4);
+    chock.userData.stowed = true;
+    chock.visible = true;
+    return true;
+  }
+
+  /**
+   * Leave the ground kit on the ground.
+   *
+   * The chocks are BUILT as children of `aircraft.group`, which is right while
+   * the aeroplane is parked: they sit correctly under the mains whatever
+   * heading it was left on. It stops being right the moment it moves, and that
+   * is the owner's note — *"wheel cholks come with the plane"*. Pulling one
+   * only slid it 1.1 m inside the aeroplane's own frame, and both wedges then
+   * flew the entire mission bolted to the airframe: measured at world y 1498.38
+   * with the aeroplane at 1500 m over El Hueso.
+   *
+   * The old defence was one line in `update()` that hid them above walking
+   * pace — and `update()` is only called during the `preflight` phase, so by
+   * the time the aeroplane was rolling nothing was calling it at all.
+   *
+   * This is the real answer, and it is not phase-dependent: every chock still
+   * attached to the aeroplane is re-parented to the scene, on the tarmac,
+   * where it was. Safe to call as often as you like.
+   *
+   * @returns {number} how many were still aboard when it was called
+   */
+  stowGroundKit() {
+    let moved = 0;
+    for (const chock of this.chocks) {
+      if (chock.userData.stowed) continue;
+      this.dropChock(chock, (chock.userData.side ?? 1) * 1.1);
+      moved++;
+    }
+    return moved;
   }
 
   /** True when the chocks are still under the wheels — Lou will mention it. */
   get chocksIn() {
     return !this.tasks.chocks.done;
+  }
+
+  /** True when nothing the walkaround put on the tarmac is still riding along. */
+  get groundKitStowed() {
+    return this.chocks.every((c) => c.userData.stowed);
   }
 }

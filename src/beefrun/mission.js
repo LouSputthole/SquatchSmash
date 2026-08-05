@@ -24,9 +24,38 @@ import { evaluateLineupGate } from './lineup-gate.js';
 import { stageRunwayStartup } from './runway-start.js';
 import { selectApproachCall } from './approach-coaching.js';
 import { stageRemoteDeparture } from './remote-departure.js';
+import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 
 /** The four places the mission will put you back. */
 const CHECKPOINT_ORDER = ['takeoff', 'approach', 'departure', 'return'];
+
+/* Ground recovery at Whispering Pines. Which phases have the aeroplane on the
+ * home field with a pilot in it, how far off the pavement counts as lost, and
+ * how long it has to sit there before Sasole goes and gets a rope. */
+const HOME_GROUND_PHASES = new Set(['taxi', 'runup', 'lineup', 'shutdown']);
+const FIELD_HALF_WIDTH = 150;      // metres either side of the centreline
+const FIELD_OVERRUN = 60;          // metres past either threshold
+const STRANDED_SECONDS = 4;
+
+/* Where "Can't You Hear Me Knocking" comes in: the owner's number, thirteen
+ * knots before Sasole calls rotation, so the call lands on top of the record. */
+const KNOCKING_AT_KNOTS = 45;
+
+/* The ending. How long the yard is left to itself after the last crate is
+ * stacked, before the report card comes up over it. */
+const ENDING_CARD_DELAY = 4.5;
+const _endCarry = new THREE.Vector3();
+
+/* What the end card calls each reward id. The ids are the campaign's; these
+ * words are presentation, and live here with the card that prints them. */
+const UNLOCK_LABELS = Object.freeze({
+  prospectFlightJacket: 'Squatch Prospect Flight Jacket',
+  brushrunnerAccess: 'Brushrunner Aircraft Access',
+  tammyDashboardMug: 'Tammy’s Dashboard Mug',
+  stoveBusinessCard: 'Old Stove’s business card (blank)',
+  silverbackOrnament: 'Silverback Reserve Dashboard Ornament',
+  elHuesoFreeFlight: 'El Hueso Airstrip in Free Flight',
+});
 
 /** Scratch, for putting the destination on the glass every frame. */
 const _navPos = new THREE.Vector3();
@@ -79,6 +108,10 @@ export class MissionController {
       runwayStaged: false,
       lineupReady: false,
       rotateCalled: false,
+      /* Deliberately NOT reset on a checkpoint restore, unlike `rotateCalled`:
+       * the record is once per playthrough, and a restart of the same roll is
+       * the same departure. */
+      knockingCued: false,
       clearCalled: false,
       landmarksSeen: new Set(),
       turbStarted: false,
@@ -157,6 +190,64 @@ export class MissionController {
     this.weather.setConditions({ turbulence: 0.22, crosswind: 0.4 * d.crosswind, rain: 0, cloudDensity: 0.35, dusk: 0 });
     this.audio.setPhase('airport');
     this.setPhase('arrival');
+  }
+
+  /**
+   * Start the takeoff record.
+   *
+   * Owner's note: *"I also didn't hear the cant you hear me knocking."* He
+   * could not: the cue had a settled brief in `assets/music/README.md` and no
+   * implementation anywhere, so nothing on the page ever asked for it. It goes
+   * through `playSignatureTrack`, which is the same path Sensi Lou and Baby
+   * Snakes use — so it plays the real recording the day
+   * `assets/music/cant-you-hear-me-knocking.mp3` lands in the repo, and plays
+   * the stand-in until then, with no code change either way.
+   *
+   * @returns {Promise<object|null>} the loop handle, once the engine has it
+   */
+  playTakeoffRecord() {
+    const engine = this.audio?.engine;
+    if (!engine) return Promise.resolve(null);
+    return playSignatureTrack(engine, SIGNATURE_TRACKS.cantYouHearMeKnocking, {
+      // A record, not a sting: it runs its two minutes and stops. `ambience`
+      // keeps it on the music bus, under the headset and under the dialogue.
+      loop: false,
+      ambience: true,
+    }).catch(() => null);
+  }
+
+  /**
+   * Put the Bureau up, using what this run actually did.
+   *
+   * The interception used to be three constants and therefore happened in the
+   * same place, at the volcano, on every playthrough. What the search should
+   * be built out of is the departure that provoked it: the track the aeroplane
+   * leaves the strip on, and how much attention the outbound leg finished on
+   * plus whatever the campaign already records about being seen.
+   */
+  deployBureau() {
+    const seenAlready = this.story?.campaign?.state
+      ?.missions?.airstrip_smuggling?.detected === true;
+    const alert = clamp(
+      Math.max(this.score.patrolPeak, this.detection.attention) * 0.7
+      + (seenAlready ? 0.35 : 0),
+      0, 1,
+    );
+    return this.detection.deploy(EH.zHigh, {
+      alert,
+      corridorX: this.physics.position.x,
+    });
+  }
+
+  /**
+   * Fold the loading ramp away.
+   *
+   * Called from everything that hands the aeroplane to a pilot. The ramp is
+   * walkable ground while it is down, and walkable ground attached to a
+   * departing aeroplane is the chocks problem again in a different shape.
+   */
+  stowCargoRamp() {
+    this.aircraft.setCargoRamp(false);
   }
 
   /** Whichever cargo sequence currently owns the cargo door. */
@@ -289,13 +380,21 @@ export class MissionController {
       case 'departure':
         this.setObjective(OBJECTIVES.depart);
         this.dialogue.play('depart.engine', { urgent: true });
-        this.detection.deploy(EH.zHigh);
+        this.deployBureau();
         this.saveCheckpoint('departure');
         break;
 
       case 'boarding2':
         this.setObjective(OBJECTIVES.board);
-        this.armBoardingTarget();
+        /* He got out at El Hueso and stood in the dust while the crates were
+         * swapped, so he has to climb back in before anybody leaves. Same
+         * animation as the first departure; `updateBoarding` exposes the
+         * player's own seat only once he is in his. */
+        if (!this.flags.louAboard) {
+          this.louBoarding = { t: 0, from: this.lou.group.position.clone() };
+        } else {
+          this.armBoardingTarget();
+        }
         this.dialogue.play('depart.lou', { delay: 1.4 });
         break;
 
@@ -368,8 +467,14 @@ export class MissionController {
   }
 
   enterCockpit() {
-    if (this.phase === 'boarding' && !this.flags.louAboard) return;
+    // Nobody leaves without the Captain, on either departure.
+    if ((this.phase === 'boarding' || this.phase === 'boarding2') && !this.flags.louAboard) return;
     this.disarmBoardingTarget();
+    /* Whatever the walkaround left lying against the wheels stays on the
+     * tarmac. The chocks are children of the aeroplane so they park correctly;
+     * from the moment somebody is in the seat, that parenting is a bug. */
+    this.preflight.stowGroundKit();
+    this.stowCargoRamp();
     this.flags.inCockpit = true;
     this.player.enabled = false;
     this.player.mode = 'frozen';
@@ -443,12 +548,53 @@ export class MissionController {
     this.player.velocity.set(0, 0, 0);
   }
 
+  /**
+   * Captain Sasole gets out too.
+   *
+   * Owner's note: *"Sasole should get out of the plane with you when you land
+   * and just stand there."* He never did — the mission moved the player and
+   * left Sasole parented to `aircraft.group`, sitting in the right seat of a
+   * shut-down aeroplane for the whole of El Hueso and the whole of the ending.
+   *
+   * Called from the two places that mean "we have landed and this is over for
+   * now" — the El Hueso shutdown and the ending at Whispering Pines — rather
+   * than from `exitCockpit()`, which is a camera and HUD transition and also
+   * runs on a checkpoint restore.
+   *
+   * He climbs out on his own side (the aeroplane's right, -X, where the cargo
+   * door is), stands a couple of metres clear of the wing, and turns to face
+   * whoever he was just flying with. He is unwell and he has been for an hour,
+   * so he keeps the stoop; `updateFigure` gives him the rest.
+   *
+   * @returns {boolean} whether he was aboard to get out of
+   */
+  disembarkLou() {
+    if (!this.flags.louAboard) return false;
+    const p = this.physics.position;
+    const q = this.physics.quat;
+    // Two metres off the right wing root, and a stride forward of the door.
+    const off = new THREE.Vector3(-3.0, 0, -0.4).applyQuaternion(q);
+    const x = p.x + off.x, z = p.z + off.z;
+    this.scene.add(this.lou.group);
+    this.lou.group.position.set(x, terrainHeight(x, z), z);
+    this.lou.group.rotation.set(0, 0, 0);
+    setPose(this.lou, 'gut');
+    this.lou.faceToward(this.player.position.x, this.player.position.z);
+    this.lou.lookAt = null;                 // updateFigure tracks whoever is near
+    this.flags.louAboard = false;
+    return true;
+  }
+
   /* ---------------------------------------------------------------- */
   /* Per-frame                                                         */
   /* ---------------------------------------------------------------- */
 
   update(dt) {
-    if (this.paused || this.finished) return;
+    if (this.paused) return;
+    /* The ending owns the last minute of the scene. Everything else is over —
+     * no phases, no flight model, no grading — but the yard is still a place
+     * with people working in it until the card comes up. */
+    if (this.finished) { this.updateEnding(dt); return; }
     this.phaseTime += dt;
     this.missionTime += dt;
     if (this.flags.inCockpit) this.score.flightTime += dt;
@@ -463,6 +609,11 @@ export class MissionController {
 
     // Lou: increasingly unwell, and reacting to the flying.
     this.updateLou(dt);
+
+    /* Before the phase gets a say: is the aeroplane sitting somewhere it can
+     * never get out of? Kept here rather than in `updateFlightCommon` because
+     * being stranded on the ground is not a flight concern. */
+    if (this.flags.inCockpit) this.updateGroundRecovery(dt);
 
     switch (this.phase) {
       case 'arrival': this.updateArrival(dt); break;
@@ -777,6 +928,16 @@ export class MissionController {
         return;
       }
     }
+    /* The record comes in under the roll, thirteen knots before Sasole calls
+     * rotation, so the call lands on top of it. Gated on the PHASE and not on
+     * a flag: `lineup` is the Whispering Pines departure and `heavyTakeoff` is
+     * El Hueso, and the owner asked for this once, on the first one. A roll
+     * that runs out of runway restores the `takeoff` checkpoint back into this
+     * same phase, so a player who blows the first departure still gets it. */
+    if (!this.flags.knockingCued && p.onGround && p.ias * KT > KNOCKING_AT_KNOTS) {
+      this.flags.knockingCued = true;
+      this.playTakeoffRecord();
+    }
     // Rotation call, and the trees at the end.
     if (!this.flags.rotateCalled && p.ias * KT > 58 && p.onGround) {
       this.flags.rotateCalled = true;
@@ -786,11 +947,23 @@ export class MissionController {
       this.gradeTakeoff();
       this.setPhase('climbout');
     }
-    // Ran out of runway: soft failure, put back at the threshold.
-    if (p.onGround && p.position.z < WP.z - WP.rwyHalf + 20 && p.groundSpeed > 4) {
+    /* Off either end of the runway.
+     *
+     * Owner's note: *"I crashed plane behind runway."* Only the far end was
+     * ever handled — `z < WP.z - rwyHalf + 20`, the south overrun on the
+     * takeoff roll. Runway 18 departs southbound from z +400, so everything
+     * NORTH of the threshold was a two-and-a-half-kilometre dead zone: no soft
+     * restore, no failure, no line, nothing until z +3000 finally reported
+     * leaving the map. An aeroplane reversed off the back end sat in the pines
+     * with the objective still reading "take off" and no way out of it.
+     *
+     * Both ends are the same embarrassment now, and both are recoverable. */
+    const offSouth = p.position.z < WP.z - WP.rwyHalf + 20;
+    const offNorth = p.position.z > WP.z + WP.rwyHalf - 20;
+    if (p.onGround && (offSouth || offNorth) && p.groundSpeed > 4) {
       this.flags.grassOffs++;
       this.score.patience = clamp(this.score.patience - 0.12, 0, 1);
-      this.dialogue.play('takeoff.grass', { urgent: true });
+      this.dialogue.play(offNorth ? 'takeoff.behind' : 'takeoff.grass', { urgent: true });
       this.restoreCheckpoint('takeoff', { soft: true });
     }
   }
@@ -884,6 +1057,8 @@ export class MissionController {
     this.setObjective(this.engines.anyRunning ? 'Shut the engines down — press 1 and 2' : 'Get out');
     if (!this.engines.anyRunning && p.groundSpeed < 1.0) {
       this.exitCockpit();
+      // The Captain gets out with you and stands by the wing.
+      this.disembarkLou();
       this.setPhase(this.cargo.crateCount > 0 ? 'unloadGuns' : 'onfoot-strip');
     }
   }
@@ -1154,6 +1329,41 @@ export class MissionController {
       label: nav.label,
       nm,
     };
+  }
+
+  /**
+   * Get an aeroplane that has ended up somewhere impossible back onto a runway.
+   *
+   * Owner's note: *"I crashed plane behind runway."* Anywhere off the paved
+   * airfield, stopped, is a state the mission had no answer for at all before
+   * the first checkpoint is written — and the first checkpoint is not written
+   * until the aeroplane reaches the runway, so the whole apron, taxi and run-up
+   * had no way out. Four seconds stationary outside the field and Sasole tows
+   * it back to the numbers himself. `soft` so the score and the dialogue
+   * history survive: this is embarrassing, not fatal.
+   *
+   * The El Hueso legs are deliberately not covered — the strip has its own
+   * "into the trees" rule, which is meant to be terminal.
+   */
+  updateGroundRecovery(dt) {
+    const p = this.physics;
+    if (!HOME_GROUND_PHASES.has(this.phase) || !p.onGround || this.failed) {
+      this._strandedFor = 0;
+      return;
+    }
+    const offField = Math.abs(p.position.x - WP.x) > FIELD_HALF_WIDTH
+      || Math.abs(p.position.z - WP.z) > WP.rwyHalf + FIELD_OVERRUN;
+    if (!offField || p.groundSpeed > 0.6) {
+      this._strandedFor = 0;
+      return;
+    }
+    this._strandedFor = (this._strandedFor || 0) + dt;
+    if (this._strandedFor < STRANDED_SECONDS) return;
+    this._strandedFor = 0;
+    this.flags.grassOffs++;
+    this.score.patience = clamp(this.score.patience - 0.1, 0, 1);
+    this.dialogue.play('takeoff.stranded', { urgent: true });
+    this.restoreCheckpoint('takeoff', { soft: true });
   }
 
   updateFlightCommon(dt) {
@@ -1587,8 +1797,12 @@ export class MissionController {
     this.detection.clear();
     this.flightHud.hideComplete();
     // Every checkpoint restore lands in the cockpit, so the walkaround's
-    // marker and checklist must not survive a checkpoint restore.
+    // marker and checklist must not survive a checkpoint restore — and neither
+    // may its chocks, which would otherwise be reparented to an aeroplane that
+    // is about to be teleported onto a runway.
     this.preflight.disarm();
+    this.preflight.stowGroundKit();
+    this.stowCargoRamp();
     this.flightHud.showChecklist(false);
     this._touchdowns.length = 0;
 
@@ -1625,7 +1839,7 @@ export class MissionController {
         // The crates are aboard and strapped, wherever they were put.
         this.restoreCargo(data?.cargo);
         this.weather.setConditions({ dusk: 0.15, rain: 0.1, turbulence: 0.7, cloudDensity: 0.7 });
-        this.detection.deploy(EH.zHigh);
+        this.deployBureau();
         this.audio.setPhase('ret');
         this.setPhase('heavyTakeoff');
       },
@@ -1722,8 +1936,7 @@ export class MissionController {
       }
       i++;
     }
-    this.jerkyLoad.doorOpen = false;
-    this.jerkyLoad.doorLatched = true;
+    this.jerkyLoad.setDoor(false);
     this.jerkyLoad.disarm();
     this.gunLoad?.disarm();
   }
@@ -1738,37 +1951,237 @@ export class MissionController {
     this.audio.setPhase('silent');
     this.audio.setStallHorn(false);
     this.dialogue.clear();
-    this.hud.say(`<em>${reason}</em> Open the <b>Tab menu</b> and choose <b>Restart from checkpoint</b> to return to the ${this.checkpoint} checkpoint.`, 12000);
-    this.flightHud.showCheckpoint('TAB MENU — RESTART FROM CHECKPOINT');
+    /* There is not always a checkpoint. Everything before the runway — the
+     * apron, the walkaround, the taxi, the run-up — happens before
+     * `saveCheckpoint('takeoff')`, and an aeroplane put into the trees back
+     * there used to be told to "return to the null checkpoint" by a button
+     * that was actually labelled Restart scene. Say the thing the button says. */
+    this.hud.say(this.checkpoint
+      ? `<em>${reason}</em> Open the <b>Tab menu</b> and choose <b>Restart from checkpoint</b> to return to the ${this.checkpoint} checkpoint.`
+      : `<em>${reason}</em> Open the <b>Tab menu</b> and choose <b>Restart scene</b> to start the morning again.`,
+    12000);
+    this.flightHud.showCheckpoint(this.checkpoint
+      ? 'TAB MENU — RESTART FROM CHECKPOINT'
+      : 'TAB MENU — RESTART SCENE');
   }
 
+  /**
+   * The end of the night at Whispering Pines.
+   *
+   * Owner's note: *"Ending scene could be a bit better."* What it used to be:
+   * the player stayed strapped into the left seat of a shut-down aeroplane,
+   * Captain Sasole stayed in the right seat facing the windshield, four
+   * associates appeared fully formed at the hangar door and stood still, three
+   * lines of dialogue played over the top of that on `setTimeout`, and then a
+   * report card covered the whole thing. Nobody ever got out and the crates
+   * never moved, so the words "they're unloading it" described nothing on
+   * screen.
+   *
+   * What it is now is the same three beats with the scene underneath them
+   * actually happening: you get out, the Captain gets out with you, the crew
+   * walks over from the hangar, the ramp comes down, and they carry the real
+   * crates out of the real hold and stack them by the door. The card waits
+   * until the aeroplane is empty.
+   */
   runEnding() {
     this.finished = true;
     this.setObjective('');
     this.audio.setPhase('silent');
     this.audio.setStallHorn(false);
     // Durable completion first, so the end card never promises a save that
-    // did not happen. The rank is the persisted landing quality.
-    if (this.story && !this.story.complete({ landingQuality: this.report().rank })) {
+    // did not happen — including the rewards it lists.
+    const card = this.report();
+    if (this.story && !this.story.complete({
+      landingQuality: this.landingQualityToken(),
+      rank: card.rank,
+      unlocks: card.unlockIds,
+      packagesDelivered: this.cargo.packagesDelivered,
+      gunsDelivered: this.score.gunsDelivered,
+    })) {
       console.warn('[beefrun] mission completion could not be recorded');
     }
-    // Squatch associates come out of the shadows and unload the crates.
+
+    // Out of the aeroplane, both of you. This is the scene, not a view of it.
+    this.exitCockpit();
+    this.disembarkLou();
+    this.cameras.setView('chase');
+
+    /* The crew comes out of the hangar rather than materialising beside it,
+     * and the hold is opened for them. */
     const hangar = this.airfield.anchors.hangarDoor;
     for (let i = 0; i < 4; i++) {
       const f = makeAssociate(i);
       f.group.position.set(hangar.x - 6 + i * 3.2, WP.elev, hangar.z - 4 - (i % 2) * 2);
       f.group.rotation.y = Math.PI;
-      setPose(f, i < 2 ? 'carry' : 'idle');
+      setPose(f, 'idle');
       this.scene.add(f.group);
       this.associates.push(f);
     }
+    this.jerkyLoad?.setDoor(true);
+    this.aircraft.setCargoRamp(true);
+
+    /* Where each man works: a spot beside the ramp to collect from, and a spot
+     * by the hangar door to stack at. Two carriers and two who supervise,
+     * because there are always two who supervise. */
+    const ac = this.physics.position;
+    const q = this.physics.quat;
+    const rampFoot = new THREE.Vector3(-4.0, 0, -1.05).applyQuaternion(q).add(ac);
+    this.unloadCrew = {
+      t: 0,
+      stage: 'walking',
+      rampFoot,
+      stackAt: { x: hangar.x + 2.5, z: hangar.z - 3 },
+      carried: [],
+      done: 0,
+    };
+    for (let i = 0; i < 2; i++) {
+      const f = this.associates[i];
+      walkTo(f, rampFoot.x + (i ? 2.2 : -2.2), rampFoot.z + (i ? 1.4 : -1.4), { speed: 1.5, pose: 'carry' });
+    }
+
     this.dialogue.play('end.bucket', { delay: 2.2 });
-    setTimeout(() => this.dialogue.play('end.bite'), 9000);
-    setTimeout(() => this.dialogue.play('end.envelope'), 14000);
-    setTimeout(() => {
+    this.dialogue.play('end.crew', { delay: 8.5 });
+    this.dialogue.play('end.bite', { delay: 14 });
+    this.dialogue.play('end.envelope', { delay: 20 });
+  }
+
+  /**
+   * The ending, running.
+   *
+   * `update()` stops at the top once `finished` is set, so this is the only
+   * thing ticking: the Captain standing beside the wing, and the crew emptying
+   * the hold. When the last crate is out, the sting plays and the card comes
+   * up — the card is the end of the scene rather than an interruption of it.
+   */
+  updateEnding(dt) {
+    // main.js ticks the associates and everybody else; Sasole is this class's.
+    updateFigure(this.lou, dt, this.player.position);
+    const crew = this.unloadCrew;
+    if (!crew || crew.stage === 'over') return;
+    crew.t += dt;
+
+    // Each carrier holds his crate against his chest while he walks.
+    for (const held of crew.carried) {
+      if (!held.crate || !held.man) continue;
+      held.man.group.updateWorldMatrix(true, false);
+      _endCarry.set(0, 0.62, 0.62).applyQuaternion(held.man.group.quaternion);
+      held.crate.group.position.set(
+        held.man.group.position.x + _endCarry.x,
+        held.man.group.position.y + _endCarry.y,
+        held.man.group.position.z + _endCarry.z,
+      );
+      held.crate.group.rotation.y = held.man.group.rotation.y;
+    }
+
+    if (crew.stage === 'walking') {
+      // Wait until both carriers are at the ramp, then give each one a crate.
+      if (this.associates[0]?.walk || this.associates[1]?.walk) return;
+      if (crew.t < 1) return;
+      crew.stage = 'carrying';
+      this.takeCrateToHangar(0);
+      this.takeCrateToHangar(1);
+      return;
+    }
+
+    if (crew.stage === 'carrying') {
+      for (let i = 0; i < 2; i++) {
+        const man = this.associates[i];
+        if (!man || man.walk) continue;
+        const held = crew.carried.find((h) => h.man === man);
+        if (held) {
+          // He has arrived at the stack. Put it down and go back for another.
+          const drop = crew.stackAt;
+          const n = crew.done;
+          const cx = drop.x + (n % 2) * 1.5;
+          const cz = drop.z + Math.floor(n / 2) * 1.3;
+          this.scene.add(held.crate.group);
+          held.crate.group.position.set(cx, terrainHeight(cx, cz), cz);
+          held.crate.group.rotation.set(0, 0.25 - n * 0.2, 0);
+          crew.done++;
+          crew.carried.splice(crew.carried.indexOf(held), 1);
+          this.audio.play('can.set', { volume: 0.85 });
+          if (this.cargo.crateCount > 0) {
+            walkTo(man, crew.rampFoot.x + (i ? 2.2 : -2.2), crew.rampFoot.z + (i ? 1.4 : -1.4),
+              { speed: 1.5, pose: 'carry' });
+          } else {
+            setPose(man, 'idle');
+          }
+        } else if (this.cargo.crateCount > 0) {
+          this.takeCrateToHangar(i);
+        }
+      }
+      if (this.cargo.crateCount === 0 && crew.carried.length === 0) {
+        crew.stage = 'settling';
+        crew.t = 0;
+        this.jerkyLoad?.setDoor(false);
+      }
+      return;
+    }
+
+    if (crew.stage === 'settling' && crew.t > ENDING_CARD_DELAY) {
+      crew.stage = 'over';
       this.audio.sting();
       this.flightHud.showComplete(this.report());
-    }, 19000);
+    }
+  }
+
+  /** Hand associate `i` the next crate out of the hold and send him with it. */
+  takeCrateToHangar(i) {
+    const crew = this.unloadCrew;
+    const man = this.associates[i];
+    if (!crew || !man) return false;
+    const name = Object.keys(this.cargo.zones).find((z) => this.cargo.zones[z].crate);
+    if (!name) return false;
+    const crate = this.cargo.unload(name);
+    if (!crate) return false;
+    if (crate.straps) {
+      for (const s of crate.straps) s.parent?.remove(s);
+      crate.straps = null;
+    }
+    this.scene.add(crate.group);
+    crate.slip = 0;
+    crew.carried.push({ man, crate });
+    setPose(man, 'carry');
+    walkTo(man, crew.stackAt.x + (i ? 1.8 : -1.8), crew.stackAt.z + (i ? 1.2 : -1.2),
+      { speed: 1.15, pose: 'carry' });
+    return true;
+  }
+
+  /**
+   * The landing, as one of the tokens the campaign's readers understand.
+   *
+   * `report().rank` is a display string ("Airborne Butcher"); persisting it as
+   * `landingQuality` is the seam bug this replaces. The token is taken off the
+   * thing the word is actually about — the final landing's own grade — with the
+   * airframe's condition able to pull it down, because greasing it on with a
+   * bent wing is not a greaser.
+   */
+  landingQualityToken() {
+    const q = this.score.finalLanding;
+    if (q === null || q === undefined || !Number.isFinite(q)) return 'unknown';
+    const hurt = this.score.damage > 0.35 || this.physics.damage.tireBurst;
+    if (hurt) return q > 0.7 ? 'rough' : 'hard';
+    if (q > 0.92) return 'perfect';
+    if (q > 0.78) return 'greased';
+    if (q > 0.55) return 'clean';
+    if (q > 0.3) return 'rough';
+    return 'hard';
+  }
+
+  /**
+   * Which trophies this run actually earned.
+   *
+   * The end card used to list six of these unconditionally out of a literal
+   * array, and none of them reached the save. Each one is now a fact about
+   * something that happened, and the same list is what gets written.
+   */
+  earnedUnlocks() {
+    const s = this.score;
+    const out = ['prospectFlightJacket', 'brushrunnerAccess', 'tammyDashboardMug'];
+    if (s.gunsDelivered >= 3) out.push('stoveBusinessCard');
+    if (s.cargoDamage < 0.25 && this.cargo.packagesDelivered >= 18) out.push('silverbackOrnament');
+    if (Number.isFinite(s.mountainLanding) && s.mountainLanding > 0.5) out.push('elHuesoFreeFlight');
+    return out;
   }
 
   /** The end card's contents. */
@@ -1832,16 +2245,19 @@ export class MissionController {
     ];
     const tier = total > 0.88 ? 4 : total > 0.72 ? 3 : total > 0.54 ? 2 : total > 0.34 ? 1 : 0;
 
-    const unlocks = [
-      'Squatch Prospect Flight Jacket',
-      'Old Stove’s business card (blank)',
-      'Silverback Reserve Dashboard Ornament',
-      'Brushrunner Aircraft Access',
-      'El Hueso Airstrip in Free Flight',
-      'Tammy’s Dashboard Mug',
-    ];
+    /* What you are actually taking home.
+     *
+     * These used to be six fixed strings printed whatever happened, and
+     * written nowhere — the owner's question, *"Do we actually get all the
+     * things rewards from this back in the apartment after?"*, had the answer
+     * "no, and the card was never telling the truth about them either". The
+     * card now prints what `earnedUnlocks()` says was earned, and `runEnding()`
+     * persists that exact list through `story.complete()`, so the words on the
+     * card and the facts in the save are one thing. */
+    const unlockIds = this.earnedUnlocks();
+    const unlocks = unlockIds.map((id) => UNLOCK_LABELS[id] ?? id);
 
-    return { stats, rank: ranks[tier], tier, total, unlocks };
+    return { stats, rank: ranks[tier], tier, total, unlocks, unlockIds };
   }
 
   /* ---------------------------------------------------------------- */

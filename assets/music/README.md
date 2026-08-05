@@ -36,14 +36,26 @@ is waiting on both, by request.
 |---|---|---|---|---|
 | **Sensi Lou** | `sensi-lou.mp3` | Tony entering Big Uncle Lou's office at the Bing | `good-ole-days.mp3` | yes |
 | **Baby Snakes** | `baby-snakes.mp3` | Booskibro's first significant appearance — at the Bing, the shot beat where he takes the floor and yells for it | `booskibro.mp3` | yes |
-| **Can't You Hear Me Knocking** | `cant-you-hear-me-knocking.mp3` | **Beef Run initial takeoff roll, at 45 knots** | — | **not yet — owner is supplying the file** |
+| **Can't You Hear Me Knocking** | `cant-you-hear-me-knocking.mp3` | **Beef Run initial takeoff roll, at 45 knots** | `10-drunk-cigarettes.mp3` | yes |
 | **Store room spy jazz** | `spy-jazz.mp3` | The portable radio during *License to Grill* | `cosmic-drift.mp3` | yes |
 
-### Can't You Hear Me Knocking — the note, not the implementation
+### Can't You Hear Me Knocking — wired 2026-08-05
 
 Owner's request, 2026-08-03: it comes in on the takeoff roll as the Brushrunner
-passes **45** on the runway. Deliberately left unimplemented until the file
-lands, so nothing is guessing at a mix for a song nobody has heard in place.
+passes **45** on the runway. It was then deliberately left unimplemented until
+the file landed — which is why the 2026-08-05 playtest note reads *"I also
+didn't hear the cant you hear me knocking."* Nothing on the page was asking for
+it, so there was no sound to miss.
+
+It is wired now, on the same `playSignatureTrack` path as Sensi Lou and Baby
+Snakes: `SIGNATURE_TRACKS.cantYouHearMeKnocking` in `src/core/signature-music.js`,
+fired from `updateLineup` in `src/beefrun/mission.js` off `KNOCKING_AT_KNOTS`.
+Drop `cant-you-hear-me-knocking.mp3` into this folder and add the usual one-line
+entry to `manifest.json` and it plays, with no code change. Until then it plays
+`10-drunk-cigarettes.mp3` in the same mix slot, so the moment has a record under
+it rather than silence.
+
+**Still owed:** the recording itself, and the mix pass against it.
 
 **Settled with the owner:**
 

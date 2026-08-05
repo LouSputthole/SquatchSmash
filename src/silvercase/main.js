@@ -10,6 +10,7 @@ import { ImpactKit, ShotResolver } from './combat/Shooting.js';
 import { DialogueController } from './dialogue/DialogueController.js';
 import {
   SEQUENCES, CHOICES, OBJECTIVES, INSTRUCTIONS, TARGET_CALLOUTS,
+  silverCaseCueNames,
 } from './dialogue/script.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
@@ -313,9 +314,23 @@ carriedCase.group.visible = false;
 camera.add(carriedCase.group);
 
 const dialogue = new DialogueController({
-  // No playCue hook: no vo.silvercase.* cues have been recorded yet, and per
-  // the game's own established convention a missing cue is silence plus
-  // subtitle, never synthesized. Every line here is text-only.
+  /* THE TAKES LANDED AND NOTHING PLAYED THEM.
+   *
+   * This used to read "no vo.silvercase.* cues have been recorded yet ...
+   * every line here is text-only", and it was true when it was written. Sixty
+   * of the mission's seventy-six lines have since been recorded, and the
+   * comment kept the hook out — so the whole mission ran silent with
+   * subtitles over a folder full of finished audio, and nothing anywhere
+   * reported it. A note about the state of the world is a fact with a
+   * shelf life; this one outlived its subject by weeks.
+   *
+   * `hasSample` is the gate rather than a list of names, so the sixteen that
+   * are still unrecorded stay silence-plus-subtitle — the game's own
+   * convention — and start playing the day they are delivered, with no
+   * further code change. */
+  playCue(cue) {
+    if (cue && audio?.hasSample?.(cue)) audio.play(cue, { volume: 0.9 });
+  },
   onLine(line) {
     ui.subsWho.textContent = line.speakerName || '';
     ui.subsLine.textContent = line.text;
@@ -1351,6 +1366,24 @@ ui.playAgainBtn.addEventListener('click', () => {
 
 function beginScene() {
   audio.init();
+  /* PRELOAD, which this scene never did.
+   *
+   * `audio.init()` builds the graph; it does not fetch a single sample. With
+   * no `loadManifest` the engine's buffer table stayed empty for the whole
+   * mission, so every `audio.play()` fell through to the procedural synth --
+   * which is why the guns and the doors sounded right and nobody noticed that
+   * SIXTY RECORDED VOICE TAKES could never be reached. Silence with a
+   * subtitle over a folder full of finished audio.
+   *
+   * Named rather than wholesale: the shared manifest is thousands of cues and
+   * this mission needs its own words plus the handful of effects it fires. */
+  audio.loadManifest({
+    names: [
+      ...silverCaseCueNames(),
+      'door.creak', 'door.locked', 'door.knob', 'gun.shot', 'gun.impact',
+      'gun.pickup', 'heist.shubes_case', 'heist.player.hit',
+    ],
+  }).catch(() => {});
   running = true;
   sceneInventory.show();
   syncInventory();

@@ -360,3 +360,29 @@ export const TARGET_CALLOUTS = Object.freeze({
   BATHROOM_AMBUSH: 'PRUITT — FIRE',
   EXECUTE_WINSTON: 'WINSTON — FIRE',
 });
+
+/**
+ * Every cue name this mission can ask for.
+ *
+ * Exported so the scene can PRELOAD them. `src/silvercase/main.js` called
+ * `audio.init()` and never `audio.loadManifest()`, so the engine held no
+ * samples at all and every `audio.play()` in the mission fell through to the
+ * procedural synth. The gunshots and doors sounded fine -- they are
+ * synthesised anyway -- which is exactly why nobody noticed that sixty
+ * recorded voice takes could never be reached.
+ *
+ * Walks the same structures the DialogueController plays, so a line added
+ * above is preloaded without anybody remembering to list it here.
+ */
+export function silverCaseCueNames() {
+  const names = new Set();
+  const take = (line) => { if (line?.cue) names.add(line.cue); };
+  for (const sequence of Object.values(SEQUENCES)) {
+    if (Array.isArray(sequence)) sequence.forEach(take);
+    else for (const branch of Object.values(sequence)) branch.forEach(take);
+  }
+  for (const choice of Object.values(CHOICES)) {
+    for (const option of choice.options ?? []) take(option);
+  }
+  return [...names];
+}

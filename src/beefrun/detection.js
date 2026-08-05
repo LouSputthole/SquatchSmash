@@ -15,13 +15,28 @@
 import * as THREE from 'three';
 import {
   solid, unlit, mat, boxGeo, cylGeo, coneGeo, sphereGeo,
-  mesh, flatMesh, group, clamp, lerp, damp, smoothstep,
+  mesh, flatMesh, group, clamp, lerp, damp, smoothstep, rng,
 } from './util.js';
 import { terrainHeight } from './terrain.js';
 import { caibBadgeTexture } from './landmarks.js';
+import { LANDMARKS } from './config.js';
 
 const SEARCHING_AT = 0.34;
 const LOCATED_AT = 0.86;
+
+/* How the Bureau lays a search across the valley. See `deploy()` — these used
+ * to be three hard-coded pairs, which is why every run ended up located in the
+ * same place. */
+const LANE_FIRST = 1700;           // metres up the route to the first screen
+const LANE_SPACING = 1650;         // metres between screens
+const LANE_CLOSE_IN = 700;         // how much sooner they start if they know
+const LANE_SPREAD_COLD = 900;      // metres either side of the track, guessing
+const LANE_SPREAD_HOT = 320;       // metres either side when they are sure
+/* No lane may sit this close along the route to a navigation landmark. 800 m
+ * rather than 900: the tightest pair on the route is the volcano and the red
+ * cliff at 1650 m apart, so anything above 825 leaves a stretch of the valley
+ * that cannot satisfy the rule at all. */
+const LANE_KEEPOUT = 800;
 
 /** The Bureau's aeroplane: bigger, cleaner, and much better maintained. */
 function makePatrolAircraft() {
@@ -100,31 +115,125 @@ export class DetectionSystem {
     scene.add(this.root);
   }
 
-  /** Put the Bureau in the air. Called when the heavy departure begins. */
-  deploy(originZ) {
+  /**
+   * Put the Bureau in the air. Called when the heavy departure begins.
+   *
+   * ## Why this used to be three numbers, and why it is not any more
+   *
+   * Owner's note: *"I am always located near the volcano no matter what how
+   * does that work?"* This is how: the three lanes were literal constants —
+   * `originZ + 1400`, `+2900`, `+4600` — off a constant origin (`EH.zHigh`),
+   * with constant x. Measured over six deploys the lane homes came out at
+   * (-700, -8840), (850, -7340) and (-260, -5640) every single time, and the
+   * nearest one sat 468.7 m from the smoking volcano on every run, with zero
+   * variance. The route is a corridor along -Z, so the player had to fly
+   * through that one spot, and the meter tipped over in the same place every
+   * time regardless of altitude, speed, weather or how the leg had gone.
+   *
+   * Now the deployment reflects the run:
+   *
+   *  - **Where you actually are.** `corridorX` is the aeroplane's own track off
+   *    the strip. A search starts where the thing being searched for was last
+   *    seen, so the lanes are laid across that, not across x = 0.
+   *  - **How much they already knew.** `alert` is the attention the leg
+   *    finished on and whether the Bureau got a look at El Hueso. High, and
+   *    they come in close and tight; clean, and they are strung out and much
+   *    further up the valley.
+   *  - **Nothing on a landmark.** No lane home may sit within `LANE_KEEPOUT`
+   *    of a navigation landmark. The volcano is the thing Sasole tells you to
+   *    steer by — it must not also be the thing that always catches you.
+   *  - **A different night each time.** Everything is jittered off a per-run
+   *    seed, so a restart is a fresh search rather than a rerun of the same
+   *    interception.
+   *
+   * @param {number} originZ where the departure begins
+   * @param {object} [options]
+   * @param {number} [options.seed] per-run seed; omit for a fresh one
+   * @param {number} [options.alert] 0..1, how much they already knew
+   * @param {number} [options.corridorX] the track the aeroplane actually left on
+   */
+  deploy(originZ, options = {}) {
     this.clear();
     this.active = true;
-    const lanes = [
-      { x: -700, z: originZ + 1400, hdg: 90 },
-      { x: 850, z: originZ + 2900, hdg: 270 },
-      { x: -260, z: originZ + 4600, hdg: 75 },
-    ];
-    for (const lane of lanes) {
+    const {
+      seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
+      alert = 0,
+      corridorX = 0,
+    } = options;
+    const rand = rng(seed);
+    const heat = clamp(alert, 0, 1);
+
+    const lanes = [];
+    for (let i = 0; i < 3; i++) {
+      /* Along the route: the first screen is closer the more they know, and
+       * every screen is jittered by up to a third of the gap between them. */
+      const reach = LANE_FIRST - heat * LANE_CLOSE_IN + i * LANE_SPACING;
+      let z = originZ + reach + (rand() - 0.5) * LANE_SPACING * 0.66;
+      z = this.clearOfLandmarks(z, originZ + LANE_KEEPOUT);
+      /* Across it: they sweep the track the aeroplane actually left on. The
+       * more certain they are, the tighter they sit to it; a clean departure
+       * has them guessing across a much wider band, alternating sides so the
+       * three screens are not stacked on one wing. */
+      const side = i % 2 ? 1 : -1;
+      const spread = lerp(LANE_SPREAD_COLD, LANE_SPREAD_HOT, heat);
+      const x = clamp(corridorX + side * spread * (0.55 + rand() * 0.9), -1400, 1400);
+      // Heading: crossing the corridor, from whichever side they are on.
+      const hdg = side > 0 ? 250 + rand() * 40 : 70 + rand() * 40;
+
       const p = makePatrolAircraft();
-      const y = terrainHeight(lane.x, lane.z) + 420 + Math.random() * 260;
-      p.group.position.set(lane.x, y, lane.z);
-      p.group.rotation.y = THREE.MathUtils.degToRad(lane.hdg);
+      const y = terrainHeight(x, z) + 420 + rand() * 260;
+      p.group.position.set(x, y, z);
+      p.group.rotation.y = THREE.MathUtils.degToRad(hdg);
       this.root.add(p.group);
-      this.patrols.push({
+      const lane = {
         ...p,
-        home: new THREE.Vector3(lane.x, y, lane.z),
-        heading: lane.hdg,
-        speed: 62,
-        sweep: Math.random() * Math.PI * 2,
+        home: new THREE.Vector3(x, y, z),
+        heading: hdg,
+        // They fly faster when they think they have something to catch.
+        speed: 58 + heat * 14,
+        sweep: rand() * Math.PI * 2,
         mode: 'patrol',
         t: 0,
-      });
+      };
+      this.patrols.push(lane);
+      lanes.push({ x, z });
     }
+    /* What this deployment was, so the end card and a verifier can both say
+     * where the Bureau actually was rather than where it always is. */
+    this.deployment = { seed, alert: heat, corridorX, lanes };
+    return this.deployment;
+  }
+
+  /**
+   * Nudge a lane along the route until it is clear of every navigation
+   * landmark.
+   *
+   * Pushed off whichever side it was already nearer to, so the shove leaves a
+   * spread rather than stacking every displaced lane on the same edge of the
+   * same landmark — which would just be the old fixed interception with a
+   * bigger radius. `floorZ` is the closest to the strip a lane may be pushed,
+   * so a downhill shove can never park one on the runway the player just left.
+   */
+  clearOfLandmarks(z, floorZ) {
+    const clearance = (v) => Math.min(...LANDMARKS.map((lm) => Math.abs(v - lm.z)));
+    let out = z;
+    let best = out;
+    let bestGap = clearance(out);
+    for (let guard = 0; guard < 12; guard++) {
+      if (bestGap >= LANE_KEEPOUT) return best;
+      const clash = LANDMARKS.find((lm) => Math.abs(out - lm.z) < LANE_KEEPOUT);
+      if (!clash) return out;
+      const below = clash.z - LANE_KEEPOUT - 40;
+      const above = clash.z + LANE_KEEPOUT + 40;
+      out = (out < clash.z && below >= floorZ) ? below : above;
+      const gap = clearance(out);
+      if (gap > bestGap) { bestGap = gap; best = out; }
+    }
+    /* Two landmarks closer together than twice the keepout leave a gap that
+     * cannot satisfy it — the volcano and the red cliff are 1650 m apart. Take
+     * the roomiest spot found rather than looping, so a lane in that stretch
+     * sits as far from both as the valley allows instead of on one of them. */
+    return best;
   }
 
   clear() {
