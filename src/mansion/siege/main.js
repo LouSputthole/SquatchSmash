@@ -42,6 +42,7 @@ import { createPauseMenu } from '../../core/pause-menu.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
 import { weaponCueNames } from '../../core/weapons/audio.js';
+import { WEAPON_IDS } from '../../core/weapons/catalog.js';
 import { FACTIONS, FactionMatrix } from '../../core/combat/factions.js';
 import { CombatActor } from '../../core/combat/actors.js';
 import { SuppressionModel } from '../../core/combat/suppression.js';
@@ -206,13 +207,33 @@ world.groundAt = (x, z) => {
   return interior.floorAt(x, z, feetY) ?? exteriorGroundAt(x, z);
 };
 
-/** The bed in the basement guest room. He goes to sleep here and wakes here. */
+/**
+ * Beside the bed in the basement guest room, and BESIDE is the operative
+ * word.
+ *
+ * The first version of this spawned him at the room's centre, which is where
+ * the bed is: measured, its collider runs x -13.32..-11.38, z 71.68..74.12,
+ * and the room's centre line at x -11.75 is inside it. He woke up standing in
+ * the mattress, the resolver shoved him half a metre clear over seven seconds,
+ * and the whole opening read as a man who could not walk.
+ *
+ * So: a metre east of the bed's east face, and facing SOUTH -- the corridor is
+ * at z 64.3..67.4, which is on the far side of the room's south wall, so the
+ * door and the noise are both in front of him when his eyes open. Yaw 0 faces
+ * -Z, which is the same convention `grounds.anchors.spawnYaw` uses.
+ */
+const GUEST_BED = Object.freeze({ x0: -13.32, x1: -11.38, z0: 71.68, z1: 74.12 });
+/* The doorway out, measured off the colliders rather than guessed: the one
+ * gap in the guest room's south wall runs x -12.6..-11.5. Standing a metre
+ * east of the bed put him a metre and a half EAST of that gap, so walking
+ * straight ahead out of bed walked him into the wall beside his own door. */
+const GUEST_DOOR_X = -12.05;
 const BEDSIDE = Object.freeze({
-  x: (GUEST_ROOM.x0 + GUEST_ROOM.x1) / 2,
-  z: GUEST_ROOM.z1 - 2.2,
+  /* On the door's centre line, at the foot of the bed, facing the door. */
+  x: GUEST_DOOR_X,
+  z: GUEST_BED.z0 - 1.2,
   y: BASEMENT_Y,
-  /* Facing the door, which is east, toward the corridor and the noise. */
-  yaw: Math.PI / 2,
+  yaw: 0,
 });
 
 player.mode = 'walk';
@@ -254,20 +275,52 @@ const attackers = createAttackerPool({
   scene,
   damage,
   matrix,
+  audio,
   registerLight: registerLocalLight,
   onDown: (id) => {
     mission.noteDown(id);
     waveDirty = true;
   },
+  /* Where a cartel round landed. The dressing owns the mark; the ensemble
+   * owns the flinch. Nothing else can see it happen. */
+  onImpact: ({ point, radius = 5 } = {}) => {
+    if (point) ensemble.noteImpact(point, radius);
+  },
 });
 
-const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+const ensemble = buildSiegeEnsemble({ scene, damage, matrix, audio });
+
+/**
+ * The player, in the shape the attackers' target list wants.
+ *
+ * `asTarget` reads `.position`, `.actor` and `.suppression` off whatever it
+ * is handed. Handing it the raw Player gives it a position and no actor, so
+ * every round would resolve against nothing and the player would be
+ * unkillable -- a bug that looks exactly like good luck for the first minute.
+ */
+const playerTarget = {
+  get position() { return player.position; },
+  actor: playerActor,
+  suppression,
+};
 
 /* ================================================================== */
 /* The armory                                                            */
 /* ================================================================== */
-/** What he must leave the armory holding: a primary AND the little friend. */
-const HEAVY_IDS = new Set(['m60', 'minigun', 'lmg', 'rpk', 'saw']);
+/**
+ * What he must leave the armory holding: a primary AND the little friend.
+ *
+ * Ids come from `core/weapons/catalog.js` WEAPON_IDS and nowhere else. The
+ * first version of this listed five plausible machine-gun ids -- m60, minigun,
+ * lmg, rpk, saw -- of which exactly one exists. Four of them were a set that
+ * could never match, which is the quietest kind of wrong: the gate simply
+ * never opened and the line never fired, with nothing anywhere to say why.
+ *
+ * The belt-fed SAW is the little friend. The Barrett is an anti-materiel
+ * rifle -- a fine thing to hold a staircase with and not what the line is
+ * about, so it counts as a primary.
+ */
+const HEAVY_IDS = new Set([WEAPON_IDS.SAW]);
 const PRIMARY_TAKEN = new Set();
 let heavyTaken = false;
 
@@ -380,6 +433,82 @@ mission
     restore: () => { /* mission.js owns the flag; nothing scene-side to undo. */ },
   });
 
+/**
+ * Break whichever pane a man just came through.
+ *
+ * Nearest-in-plan, not nearest-in-3D: an attacker crosses a sill at about
+ * 1.2 m and a bay's panes are stacked, so including height would pick the
+ * transom above his head as often as the light he actually stepped through.
+ * Six metres is the cut-off -- past that he did not come through a window and
+ * breaking one would be a pane going out on the far side of a room for no
+ * reason anybody in the house can see.
+ */
+function shatterNearest({ x, z }) {
+  let best = null;
+  let bestDistance = 6;
+  for (const [id, entry] of glass.panes) {
+    if (entry.state === 'broken') continue;
+    /* `centre` is authored; `box` is the collider the shell built and is
+     * absent on any pane whose box could not be matched unambiguously. Take
+     * the authored one first so an unmatched pane is still breakable. */
+    const cx = entry.centre?.x ?? (entry.box ? (entry.box.min.x + entry.box.max.x) / 2 : null);
+    const cz = entry.centre?.z ?? (entry.box ? (entry.box.min.z + entry.box.max.z) / 2 : null);
+    if (cx === null || cz === null) continue;
+    const distance = Math.hypot(cx - x, cz - z);
+    if (distance < bestDistance) { bestDistance = distance; best = id; }
+  }
+  if (best && glass.shatter(best)) {
+    audio.play?.('siege.glass.shatter');
+    ensemble.noteImpact({ x, y: 1.2, z }, 7);
+    return best;
+  }
+  return null;
+}
+
+/**
+ * He went down.
+ *
+ * The checkpoint is the failure state -- there is no death screen and no
+ * retry menu, because the four checkpoints are placed so that the longest
+ * thing a death can cost is one wave. `restoreCheckpoint()` puts the beat,
+ * the wave rosters, the damage state, the broken glass and the player back
+ * where the checkpoint had them; all this has to add is standing him up.
+ */
+let reviving = false;
+/**
+ * Headless-verification only.
+ *
+ * A verifier testing WAVE STRUCTURE stands the player on the landing and
+ * ticks. Four men then shoot him, the checkpoint restores him to the beat
+ * before the line, and every wave assertion after that measures a mission
+ * that correctly went back in time -- which is the mission working, reported
+ * as the mission broken. Those are two different claims and they need two
+ * different runs. Never set from gameplay; there is no key for it.
+ */
+let invulnerable = false;
+function onPlayerDown() {
+  if (invulnerable) {
+    playerActor.health = playerActor.maxHealth;
+    playerActor.incapacitated = false;
+    playerActor.injury = 'none';
+    return;
+  }
+  if (reviving || !mission.checkpoint) return;
+  reviving = true;
+  weaponSystem.setTrigger(false);
+  player.clearKeys?.();
+  attackers.despawnAll();
+  mission.restoreCheckpoint();
+  playerActor.health = playerActor.maxHealth;
+  playerActor.armor = 0;
+  playerActor.incapacitated = false;
+  playerActor.injury = 'none';
+  suppression.value = 0;
+  ammoDirty = true;
+  waveDirty = true;
+  reviving = false;
+}
+
 /* ================================================================== */
 /* Room triggers                                                         */
 /*                                                                       */
@@ -437,16 +566,45 @@ function fire() {
   attackers.registerHit(first.object, shot.damage, shot.penetration);
 }
 
-window.addEventListener('mousedown', (e) => {
-  if (!running || e.button !== 0) return;
-  if (document.pointerLockElement) fire();
-});
-
+/* ================================================================== */
+/* Input                                                                 */
+/*                                                                       */
+/* `Player` DOES NOT LISTEN FOR ITS OWN KEYS. It exposes setKey/clearKeys */
+/* and every scene wires its own handlers -- see the identical block in    */
+/* src/mansion/main.js and src/heist/main.js. Leaving this out is a scene  */
+/* that boots, renders, locks the pointer and simply never moves, with no  */
+/* error anywhere to say why. It cost this file one verifier run.          */
+/* ================================================================== */
 window.addEventListener('keydown', (e) => {
   if (!running) return;
-  if (e.code === 'KeyR') { weaponSystem.reload(); ammoDirty = true; }
+  if (e.code === 'Space') e.preventDefault();
+  player.setKey(e.code, true);
+  if (e.code === 'KeyE' && !e.repeat) interaction.press();
+  if (e.code === 'KeyR' && !e.repeat) { weaponSystem.reload(); ammoDirty = true; }
+  if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) armory.put();
   /* The line. Once, ever, and only with the heavy up on the landing. */
-  if (e.code === 'KeyF') tryTheLine();
+  if (e.code === 'KeyF' && !e.repeat) tryTheLine();
+});
+window.addEventListener('keyup', (e) => {
+  player.setKey(e.code, false);
+  if (e.code === 'KeyE') interaction.release();
+});
+window.addEventListener('blur', () => {
+  player.clearKeys();
+  interaction.release();
+  weaponSystem.setTrigger(false);
+});
+window.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement !== renderer.domElement) return;
+  player.handleMouseMove(e.movementX, e.movementY);
+});
+renderer.domElement.addEventListener('mousedown', (e) => {
+  if (!running) return;
+  if (document.pointerLockElement !== renderer.domElement) {
+    renderer.domElement.requestPointerLock?.();
+    return;
+  }
+  if (e.button === 0) fire();
 });
 
 /**
@@ -568,10 +726,11 @@ async function beginSiege() {
   menuEl.classList.add('hidden');
   await audio.init();
   audio.loadManifest({ names: [...weaponCueNames(), ...siegeCueNames()] }).catch(() => {});
-  /* The pistol on the nightstand. He wakes up with it, one magazine in and
-   * one spare -- enough to survive a corridor if he aims, nowhere near
-   * enough to make the armory optional. */
-  weaponSystem.equip('silverback');
+  /* The pistol on the nightstand: the Heavy-frame .45, which is the sidearm
+   * this campaign has put in his hands before. One magazine in and one spare
+   * -- enough to survive a corridor if he aims, nowhere near enough to make
+   * the armory optional. */
+  weaponSystem.equip(WEAPON_IDS.REVOLVER);
   ammoDirty = true;
   mission.start(B.WAKE);
   startWaking();
@@ -611,8 +770,28 @@ function updateGame(dt) {
   night.update(dt);
   dressing.update(dt);
   glass.update(dt);
-  attackers.update(dt, { player, colliders, alive: !playerActor.incapacitated });
-  ensemble.update(dt, { player, mission });
+  /* `alive` is the crew the cartel may engage, and it is deliberately
+   * `ensemble.targets()` rather than `ensemble.members` -- that call is the
+   * Snow-free list, and it is the first of the two locks keeping him out of
+   * hostile targeting. The second is `userData.neverTargeted` on his own
+   * root, which the pool checks before it ever reaches the faction matrix. */
+  attackers.update(dt, {
+    player: playerTarget,
+    colliders,
+    alive: () => ensemble.targets(),
+    onPlayerHit: ({ fatal }) => { if (fatal) onPlayerDown(); },
+    /* A man came through a window: break it for real, so the hole he used is
+     * a hole the player can shoot back through. The pool reports WHERE he
+     * crossed rather than which pane, because it does not own the glass --
+     * so the nearest pane to the crossing is the one that went. */
+    onBreach: (breach) => { if (breach) shatterNearest(breach); },
+  });
+  ensemble.update(dt, {
+    player: playerTarget,
+    colliders,
+    attackers,
+    onHostileDown: (id) => { mission.noteDown(id); waveDirty = true; },
+  });
   grounds.update?.(dt);
   interior.update?.(dt);
 
@@ -682,6 +861,9 @@ window.mansionSiege = {
   get state() { return damage.state; },
   setState: (name) => damage.apply(name),
   liveNames: () => damage.liveNames(),
+  /** Only what the siege ADDED -- the list a clean house must return empty. */
+  addedNames: () => damage.addedNames(),
+  suppressedNames: () => damage.suppressedNames(),
   /** The mission, so a verifier can walk the beats without playing them. */
   mission,
   get beat() { return mission.beat; },
@@ -721,6 +903,20 @@ window.mansionSiege = {
   anchors,
   teleport,
   start: () => beginSiege(),
+  /** What is in his hands, and putting something there. For the verifier. */
+  get equipped() { return weaponSystem.equipped ?? null; },
+  get playerHealth() { return playerActor.health; },
+  get playerDown() { return playerActor.incapacitated; },
+  /** Headless only -- see the note on `invulnerable`. */
+  setInvulnerable(on) { invulnerable = on !== false; return invulnerable; },
+  /** Put him on the floor, to prove the checkpoint catches him. */
+  killPlayer() {
+    playerActor.health = 0;
+    playerActor.incapacitated = true;
+    onPlayerDown();
+    return mission.beat;
+  },
+  equip: (id) => { weaponSystem.equip(id); ammoDirty = true; return weaponSystem.equipped ?? null; },
   /**
    * Step the simulation on the scene's own clock rather than on real
    * animation frames. Every verify-*.mjs in this repo drives scenes this

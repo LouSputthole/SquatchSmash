@@ -46,7 +46,15 @@ export const STAGING = Object.freeze({
    * the lawn beyond it and comes through the glass. */
   lounge_bay: Object.freeze({
     id: 'lounge_bay', x: 24, z: 47, indoor: false,
-    approach: [[20, 47], [17, 46], [12, 45]], label: 'the lounge bay glass',
+    /* Four legs, not two. Moving the zone out onto the lawn added five and a
+     * half metres to the front of this route, and the LAST waypoint is the
+     * one that matters: it is the lounge arch, and the leg from it to a
+     * support gunner's post in the foyer is already thirteen metres. Ending
+     * the approach two metres short of the arch pushed that leg over the
+     * house's own width, which is the length at which a straight line stops
+     * being a walk and starts being a wall to pass through. */
+    approach: [[20, 47], [16.5, 46.5], [12, 45.5], [10, 45]],
+    label: 'the lounge bay glass',
   }),
   /* The west flank, and it is NOT the west living room's windows.
    *

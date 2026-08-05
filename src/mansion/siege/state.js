@@ -211,6 +211,28 @@ export class MansionDamageState {
   }
 
   /**
+   * Only what the SIEGE put there -- `group` entries that are live.
+   *
+   * This is the list to check a clean house against, and the distinction is
+   * not pedantry. A `suppress` entry is live in `clean` BY DESIGN: the intact
+   * window pane it names is standing, because the house is not broken yet. So
+   * `liveNames()` in `clean` is correctly non-empty, and a verifier that reads
+   * it as "things the siege added" reports twenty-two intact windows as a
+   * leak. Ask this instead. Empty is the only correct answer in `clean` and
+   * in `repaired`.
+   */
+  addedNames() {
+    return [...this.entries.values()]
+      .filter((e) => e.live && e.mode === 'show').map((e) => e.name).sort();
+  }
+
+  /** Base-mansion content the siege is currently taking away. */
+  suppressedNames() {
+    return [...this.entries.values()]
+      .filter((e) => !e.live && e.mode === 'hide').map((e) => e.name).sort();
+  }
+
+  /**
    * A checkpoint stores the state name and nothing else, because the state
    * name reproduces every toggle deterministically. What a checkpoint must
    * store separately is what the FIGHT changed inside a state -- which

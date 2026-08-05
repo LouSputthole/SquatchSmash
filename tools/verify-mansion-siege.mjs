@@ -113,6 +113,32 @@ async function walk(seconds, keys = ['KeyW']) {
 }
 const inRect = (p, r) => p.x >= r.x0 && p.x <= r.x1 && p.z >= r.z0 && p.z <= r.z1;
 
+/**
+ * Hold a key until a condition is true, in one-second bites, still walking.
+ *
+ * A fixed walk duration has to be re-tuned every time a doorway or a body
+ * moves -- and worse, it fails in the direction that looks like broken
+ * geometry rather than a stale number. This keeps the walk real and lets the
+ * DESTINATION be the assertion. `cap` is the honest failure: if he has not
+ * arrived in twenty seconds of held W, the way is genuinely blocked.
+ */
+async function walkUntil(done, keys = ['KeyW'], cap = 20, bite = 0.35) {
+  for (const k of keys) await page.keyboard.down(k);
+  let elapsed = 0;
+  let where = await at();
+  while (elapsed < cap && !done(where)) {
+    await settle(bite);
+    elapsed += bite;
+    const next = await at();
+    /* Stopped dead against something with the condition still false. */
+    if (Math.hypot(next.x - where.x, next.z - where.z) < 0.02) { where = next; break; }
+    where = next;
+  }
+  for (const k of keys) await page.keyboard.up(k);
+  await settle(0.2);
+  return { ...(await at()), seconds: Number(elapsed.toFixed(2)) };
+}
+
 try {
   console.log('\nMANSION UNDER SIEGE\n');
 
@@ -126,17 +152,24 @@ try {
   const clean = await evaluate(() => {
     window.mansionSiege.setState('clean');
     return {
-      live: window.mansionSiege.liveNames(),
+      /* `addedNames`, not `liveNames`. A suppressed entry is LIVE in a clean
+       * house on purpose -- the intact pane it names is standing, because
+       * nothing is broken yet. Reading liveNames() here reported twenty-two
+       * unbroken windows as a leak. */
+      live: window.mansionSiege.addedNames(),
+      suppressed: window.mansionSiege.suppressedNames(),
       colliders: window.mansionSiege.collidersCount,
     };
   });
   check('the house boots clean, with nothing the siege added standing in it',
     clean.live.length === 0, `${clean.live.length} live: ${clean.live.slice(0, 6).join(', ')}`);
+  check('and with nothing of the house taken away',
+    clean.suppressed.length === 0, `${clean.suppressed.length} withdrawn`);
 
   const attacked = await evaluate(() => {
     window.mansionSiege.setState('under_attack');
     return {
-      live: window.mansionSiege.liveNames(),
+      live: window.mansionSiege.addedNames(),
       colliders: window.mansionSiege.collidersCount,
     };
   });
@@ -157,7 +190,7 @@ try {
     const out = {};
     for (const s of ['clean', 'alert', 'under_attack', 'damaged', 'post_battle', 'repaired']) {
       window.mansionSiege.setState(s);
-      out[s] = window.mansionSiege.liveNames().length;
+      out[s] = window.mansionSiege.addedNames().length;
     }
     window.mansionSiege.setState('clean');
     return out;
@@ -203,29 +236,47 @@ try {
 
   /* ---------------------------------------------------------------- */
   /* 3. The route to the armory, on foot                                */
+  /*                                                                     */
+  /* HEADINGS, measured rather than assumed. Yaw 0 walks -Z (toward the   */
+  /* front of the house), 90 walks -X (west), 180 walks +Z, 270 walks +X  */
+  /* (east). The guest room is at z 67.7..74.6 and the corridor at        */
+  /* z 64.3..67.4, so the way OUT of the bedroom is yaw 0, and the way    */
+  /* along the corridor to the armory door (CELLAR_DOOR, x 5.35..7.05) is */
+  /* yaw 270. The first version of this walked him into the west wall and */
+  /* reported the corridor unwalkable.                                    */
   /* ---------------------------------------------------------------- */
-  /* Out of the guest room, east down the corridor. The corridor is the
-   * mission's first fight, so this also proves two attackers standing in it
-   * do not wall it off. */
-  await faceDeg(90);
-  await walk(7);
+  await faceDeg(0);
+  await walk(6);
   const corridor = await at();
   check('he can walk out of the guest room into the cellar corridor on foot',
     inRect(corridor, route.cellarHall), `(${corridor.x}, ${corridor.z})`);
 
-  await walk(9);
-  const eastEnd = await at();
-  check('the corridor is walkable end to end with the fight standing in it',
-    eastEnd.x > corridor.x + 6, `x ${corridor.x} -> ${eastEnd.x}`);
+  /* Off the south wall first. Coming out of the bedroom door carries him to
+   * within a third of a metre of the corridor's far side, and a player
+   * pressed into a wall walks at a fifth of his own speed -- which measures
+   * as a blocked corridor rather than as a bad line. Back up to the centre
+   * line, and back up BY DESTINATION: a fixed 1.2 s overshot to z 67.45,
+   * which is the corridor's NORTH wall, and pinned him there instead. */
+  await walkUntil((p) => p.z >= 65.6, ['KeyS'], 4);
+  await faceDeg(270);
+  /* CELLAR_DOOR -- the one gap in the armory's north wall -- measures
+   * x 5.7..6.8 on the colliders. Walk east until he is under it. */
+  const eastEnd = await walkUntil((p) => p.x >= 5.9);
+  check('the corridor is walkable east with the fight standing in it',
+    eastEnd.x > corridor.x + 8, `x ${corridor.x} -> ${eastEnd.x} in ${eastEnd.seconds}s`);
 
-  const reachedArmory = await evaluate(() => {
-    /* South out of the corridor into the armory. Walked, not teleported --
-     * the door between them is the one the brief calls long under fire. */
-    const s = window.mansionSiege;
-    s.player.yaw = Math.PI;
-    s.tick(6);
-    return { beat: s.beat, objective: s.objective, pos: { x: s.player.position.x, z: s.player.position.z } };
-  });
+  /* South through the armory door. Walked, not teleported -- that door is
+   * the one the brief calls a long way under fire. */
+  await faceDeg(0);
+  await walkUntil((p) => p.z <= 62.5, ['KeyW'], 12);
+  const reachedArmory = await evaluate(() => ({
+    beat: window.mansionSiege.beat,
+    objective: window.mansionSiege.objective,
+    pos: {
+      x: +window.mansionSiege.player.position.x.toFixed(2),
+      z: +window.mansionSiege.player.position.z.toFixed(2),
+    },
+  }));
   check('reaching the armory completes the first objective',
     reachedArmory.beat === 'ARM' && reachedArmory.objective === 'Arm yourself',
     JSON.stringify(reachedArmory));
@@ -246,18 +297,20 @@ try {
   /* ---------------------------------------------------------------- */
   /* 5. Foyer to the office, on foot up the horseshoe                   */
   /* ---------------------------------------------------------------- */
-  await teleport(0, GROUND_Y, 40, 0);
+  /* The east flight of the horseshoe runs z 42..48 at x 5.5..8.85, so the
+   * climb is +Z from the foyer floor -- yaw 180. */
+  await teleport(7, GROUND_Y, 41, 180);
   await settle(0.4);
-  await faceDeg(0);
-  await walk(9);
+  await walk(10);
   const upstairs = await at();
   check('the horseshoe can be climbed on foot with the foyer fight standing in it',
     upstairs.ground > UPPER_Y - 0.6, `ground ${upstairs.ground}`);
 
-  await teleport(0, UPPER_Y, 60, 0);
+  /* The office is z 63.2..75 upstairs and the conference room is south of
+   * it, so the walk in is +Z -- yaw 180. */
+  await teleport(0, UPPER_Y, 60, 180);
   await settle(0.4);
-  await faceDeg(0);
-  await walk(6);
+  await walk(7);
   const office = await evaluate(() => ({
     beat: window.mansionSiege.beat,
     pos: { x: window.mansionSiege.player.position.x, z: window.mansionSiege.player.position.z },
@@ -273,20 +326,25 @@ try {
   /* 6. The line. Once, from the step, with the heavy up.               */
   /* ---------------------------------------------------------------- */
   await evaluate(() => window.mansionSiege.beats.briefed());
-  const wrongPlace = await evaluate(() => window.mansionSiege.beats.line());
-  check('the line does not fire from wherever you happen to be standing',
+  const wrongPlace = await evaluate(() => {
+    window.mansionSiege.equip('saw');
+    return window.mansionSiege.beats.line();
+  });
+  check('the line does not fire from wherever you happen to be standing, even with the heavy up',
     wrongPlace === false);
 
   const post = await evaluate(() => window.mansionSiege.route.defencePost);
   await teleport((post.x0 + post.x1) / 2, UPPER_Y, (post.z0 + post.z1) / 2 - 0.4, 180);
   await settle(0.3);
   const said = await evaluate(() => {
-    /* The heavy has to actually be up. Whichever id the armory calls it, the
-     * scene's own gate is the one being tested. */
+    /* The heavy has to actually be IN HIS HANDS, not merely ticked off the
+     * armory's list -- that is the gate being tested. */
     const s = window.mansionSiege;
+    s.equip('saw');
+    const equipped = s.equipped;
     const first = s.beats.line();
     const second = s.beats.line();
-    return { first, second, beat: s.beat };
+    return { first, second, equipped, beat: s.beat };
   });
   check('with the heavy up on the firing step, the line fires and starts wave one',
     said.first === true && said.beat === 'WAVE_ONE', JSON.stringify(said));
@@ -294,7 +352,37 @@ try {
 
   /* ---------------------------------------------------------------- */
   /* 7. Waves: shape, staging, and nobody out of thin air               */
+  /*                                                                     */
+  /* DYING IS TESTED FIRST, AND THEN SWITCHED OFF. Standing on the        */
+  /* landing while four men shoot at you is a fine thing for a player to  */
+  /* do and a terrible thing for a verifier to do: the checkpoint         */
+  /* correctly rewinds the mission to the beat before the line, and every */
+  /* wave assertion after that then measures a mission that went back in  */
+  /* time. That is the mission WORKING, reported as the mission broken.   */
+  /* So: prove the death path once, on purpose, then take it out of the   */
+  /* way of the structural checks.                                        */
   /* ---------------------------------------------------------------- */
+  const died = await evaluate(() => {
+    const s = window.mansionSiege;
+    const before = s.beat;
+    const after = s.killPlayer();
+    return { before, after, hp: s.playerHealth, down: s.playerDown, cp: s.checkpoint };
+  });
+  check('going down in wave one rewinds to the last checkpoint rather than ending the run',
+    died.before === 'WAVE_ONE' && died.after === 'LITTLE_FRIEND' && died.hp === 100
+      && died.down === false,
+    JSON.stringify(died));
+
+  /* Back to the top of the stairs, say it again, and this time do not die. */
+  await teleport((post.x0 + post.x1) / 2, UPPER_Y, (post.z0 + post.z1) / 2 - 0.4, 180);
+  await settle(0.3);
+  await evaluate(() => {
+    const s = window.mansionSiege;
+    s.setInvulnerable(true);
+    s.equip('saw');
+    s.beats.line();
+  });
+
   const waveOne = await evaluate(() => {
     const s = window.mansionSiege;
     return {
@@ -352,8 +440,15 @@ try {
 
   const waveTwo = await evaluate(() => {
     const s = window.mansionSiege;
-    s.tick(12);
-    return { beat: s.beat, standing: s.mission.waves.two.standing.size, total: s.mission.waves.two.totalCount };
+    s.tick(14);
+    return {
+      beat: s.beat,
+      standing: s.mission.waves.two.standing.size,
+      total: s.mission.waves.two.totalCount,
+      /* The beats actually walked, in order. A mission that quietly rewound
+       * on a death shows up here as a repeat rather than as a mystery. */
+      history: s.mission.history.join('>'),
+    };
   });
   check('the lull ends and wave two opens with five', waveTwo.beat === 'WAVE_TWO'
     && waveTwo.standing === 5, JSON.stringify(waveTwo));
@@ -390,16 +485,19 @@ try {
   /* ---------------------------------------------------------------- */
   /* 9. The bodies do not stand in the corridor                         */
   /* ---------------------------------------------------------------- */
-  const nav = await evaluate(() => {
-    const s = window.mansionSiege;
-    const hall = s.route.cellarHall;
-    const mid = (hall.z0 + hall.z1) / 2;
-    s.teleport(hall.x0 + 1.5, -2.8, mid, 90);
-    s.tick(0.3);
-    const start = s.player.position.x;
-    s.tick(10);
-    return { start: +start.toFixed(2), end: +s.player.position.x.toFixed(2) };
-  });
+  /* Held keys, not a bare tick. The first version of this ran the whole walk
+   * inside page.evaluate(), where there is no keyboard -- so it ticked ten
+   * seconds with no input, measured zero metres, and reported the corridor
+   * blocked. A verifier that cannot tell "nobody pressed anything" from "the
+   * way is walled up" is worse than no verifier. */
+  const hall = route.cellarHall;
+  const hallMid = (hall.z0 + hall.z1) / 2;
+  await teleport(hall.x0 + 1.5, BASEMENT_Y, hallMid, 270);
+  await settle(0.3);
+  const navStart = await at();
+  await walk(10);
+  const navEnd = await at();
+  const nav = { start: navStart.x, end: navEnd.x };
   check('nothing the siege put in the cellar corridor blocks it',
     nav.end - nav.start > 8, `x ${nav.start} -> ${nav.end}`);
 
@@ -408,18 +506,23 @@ try {
   /* ---------------------------------------------------------------- */
   const bounded = await evaluate(() => {
     const s = window.mansionSiege;
-    s.teleport(0, 0, 22, 180);
-    s.tick(6);
+    /* Yaw 0 walks him AWAY from the house, at the boundary. Walking back
+     * toward it would pass whatever he was standing on and prove nothing. */
+    s.teleport(0, 0, 22, 0);
+    s.tick(8);
     return { z: +s.player.position.z.toFixed(2), min: s.route.boundary.z0 };
   });
   check('the player cannot walk out of the fight', bounded.z >= bounded.min - 0.1,
     `z ${bounded.z}, boundary ${bounded.min}`);
 
-  await teleport(0, GROUND_Y, 44, 180);
+  await teleport(0, GROUND_Y, 44, 0);
   await evaluate(() => window.mansionSiege.setRendering(true));
   await settle(0.5);
-  await page.waitForTimeout(600);
-  const shot = await page.screenshot({ type: 'png', timeout: 120000 });
+  await page.waitForTimeout(1200);
+  /* Long, and deliberately so. Swiftshader is drawing a burning forecourt,
+   * thirty-nine people and three smoke layers with no GPU; every other long
+   * wait in this repo's verify scripts exists for the same reason. */
+  const shot = await page.screenshot({ type: 'png', timeout: 300000 });
   const nonBlack = shot.some((b, i) => i > 64 && b > 24);
   check('the burning foyer renders a non-black frame', nonBlack, `${shot.length} bytes`);
 
