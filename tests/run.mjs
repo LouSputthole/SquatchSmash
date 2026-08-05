@@ -73,6 +73,7 @@ const TEST_MODULES = [
   './new-scene-voice-manifest.test.mjs',
   './enolasquatch-combat.test.mjs',
   './enolasquatch-detonation.test.mjs',
+  './enolasquatch-nose-art.test.mjs',
   './bing-audio.test.mjs',
   './no-wake-story.test.mjs',
   './no-wake-irish.test.mjs',

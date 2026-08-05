@@ -27,7 +27,9 @@ import {
   mesh, flatMesh, group, clamp, damp, signTexture,
 } from '../../beefrun/util.js';
 import { Instruments } from '../../beefrun/instruments.js';
-import { crestPlaceholderTexture, applyCrest } from '../livery.js';
+import {
+  crestPlaceholderTexture, applyCrest, noseArtTexture, noseNamePlaceholderTexture,
+} from '../livery.js';
 import { AC_ENOLA } from '../config.js';
 
 const SKIN = 0x9aa0ac;          // bare-metal grey, unlike the Brushrunner's cream
@@ -634,9 +636,17 @@ export class EnolaSquatch {
        * otherwise be inside the stripe box: the waist blister at z -5.4 on
        * both sides, and on the port side the crew door and the nose art. Runs
        * shorter than 0.25 m are dropped by `runs()`, so touching gaps merge on
-       * their own. */
+       * their own.
+       *
+       * The forward gap was [3.2, 5.4] — sized for the club badge that used to
+       * be the only thing on this flank. It now runs from the wing leading edge
+       * to the nose, because the whole of that skin is the nose-art bay: the
+       * pin-up, the name plate and the badge all stand on it (see the nose-art
+       * block below). The last run comes out zero-length and `runs()` drops it,
+       * so the stripe simply stops aft of the artwork, which is what a paint
+       * shop masking off a nose-art bay actually leaves behind. */
       const gaps = sx < 0
-        ? [[-6.2, -4.6], [-4.4, -2.4], [3.2, 5.4]]
+        ? [[-6.2, -4.6], [-4.4, -2.4], [2.6, FUSE_LEN / 2 - 0.7]]
         : [[-6.2, -4.6]];
       for (const [a, b] of runs(gaps)) {
         const len = b - a;
@@ -647,43 +657,118 @@ export class EnolaSquatch {
     // Fin flash, same colour, so the livery reads from behind too.
     g.add(mesh(boxGeo(0.05, 3.9, 0.6), purple, 0.16, 2.8, -FUSE_LEN / 2 - 4.35));
 
-    /* ---- "ENOLA SQUATCH" nose art — the owner's own artwork lands here ----
+    /* ---- The nose art: the owner's pin-up and his name plate ----
      *
-     * Owner, 2026-08-04: "Enola Squatch — I'll generate a design for this."
-     * Until that arrives this carries the drawn stencil below, so the flank is
-     * never blank — the same contract `../livery.js`'s crest placeholder keeps
-     * for the club badges.
+     * Owner, 2026-08-05, delivering both paintings: "I want both of these on
+     * the Enola Squatch. They should be close together but not touching."
      *
-     * TO DROP THE REAL ARTWORK IN, two steps and no code change:
-     *   1. save the image as `assets/art/enola-squatch-nose-art.png`
-     *      (roughly 3.6:1 — the plane below is 3.4 x 0.94 m — transparent
-     *      background is fine, the material is set up for it);
-     *   2. add one row to `assets/art/manifest.json`:
-     *        { "slot": "enolasquatch.noseart",
-     *          "file": "enola-squatch-nose-art.png",
-     *          "title": "…", "caption": "…" }
-     * `./main.js` already resolves that slot at boot and calls
-     * `applyNoseArt()` with whatever comes back, and it only repaints when the
-     * file is really there — a missing slot leaves the stencil alone rather
-     * than replacing it with a generic poster.
+     * `../livery.js` does the image work — matte, glow, bleed, trim — and hands
+     * back each painting's REAL aspect ratio, which is the number the two
+     * planes below are sized from. Neither sheet fills itself: the pin-up's ink
+     * is 0.73:1 and the name's is 2.03:1 inside identical 2:3 portrait files.
      *
-     * Painted just under the cockpit window, port side only: the same
-     * placement real heavy-bomber nose art used, since only one side of the
-     * aeroplane is ever framed for the photo. */
-    const titleTex = signTexture(['ENOLA SQUATCH', 'Peace Through Superior Foot Size'], {
-      w: 768, h: 220, bg: '#c9c2d4', fg: '#241a3a', border: '#4a2f8f', rough: true,
-    });
-    const noseArtPlate = flatMesh(
-      planeGeo(3.4, 0.94),
-      mat({ map: titleTex, roughness: 0.85, transparent: true, alphaTest: 0.02, unique: true }),
-      -DECAL_X, 0.42, 1.4,
-    );
-    noseArtPlate.rotation.y = -Math.PI / 2;
-    noseArtPlate.name = 'enola-squatch-nose-art';
-    g.add(noseArtPlate);
-    this.parts.noseArtPlate = noseArtPlate;
+     * WHICH SIDE. This one flank, and no mirror of it. Heavy-bomber nose art
+     * was painted on the side the photographer stood, and this is that side:
+     * the crew door is on it, `../main.js`'s `standAtNextCheck()` walks the
+     * player down it for every centreline check, and both club badges and the
+     * old stencil were already here. Copying it to the far flank would also
+     * have meant a second plane whose UVs run the other way, and doing THAT
+     * with a negative scale is the trap that turns a mesh inside out and makes
+     * it vanish. There is no mirror here and no negative scale anywhere below.
+     *
+     * WHERE, ALONG THE FUSELAGE. Forward of the wing and under the flight
+     * deck, which is both the authentic station and the only clear skin: the
+     * wing box runs z -1.9 to +2.5 across the whole span at y 0.79..1.41, so
+     * anything aft of z 2.5 lives in permanent shadow under thirty-three metres
+     * of wing — which is exactly where the old placeholder plate sat, at z 1.4.
+     * Forward, the pilot's side window starts at z 6.40. That leaves z 2.6..6.4
+     * of open aluminium, and the racing stripe is masked off across all of it
+     * (see the `gaps` table above) the way a paint shop masks a nose-art bay.
+     *
+     * WHICH SITS WHERE, AND THE GAP. The name goes FORWARD of the figure and
+     * the figure aft of it, reading nose-to-tail the way an aeroplane's name
+     * is read — the arrangement the Enola Gay herself carried, her name painted
+     * forward under the pilot's window. Stacking them instead was measured and
+     * does not fit: the name is 0.77 m tall at this width and the figure 1.50,
+     * and 2.5 m of stack does not go into a fuselage 3.4 m deep once the
+     * chamfered corners, the wing root and the stripe have taken their share.
+     * They are TOP-ALIGNED at y 0.95 so the pairing reads as one piece of
+     * signwriting, and the gap between them is 0.34 m — 18% of the pin-up's
+     * height, mid-range of the "close together but not touching" the owner
+     * asked for, and wide enough to survive being seen from an angle.
+     *
+     * The sizes came off the first set of walkaround photographs rather than
+     * off a ruler. At 1.50 m the figure was the smaller half of the pair and
+     * the block floated high on a flank 3.4 m deep with a metre and a quarter
+     * of bare aluminium under it. She is 1.85 m now — the name deliberately did
+     * NOT grow with her, because on a real aeroplane the figure is the picture
+     * and the name is the caption — and the whole block came down 0.10 m, which
+     * also brings it nearer the eyeline of a man standing on the tarmac looking
+     * up at a bomber on three metres of undercarriage. */
+    this.parts.noseArt = [];
+    const artPlate = (name, w, h, y, z) => {
+      const plate = flatMesh(
+        new THREE.PlaneGeometry(w, h),
+        mat({ roughness: 0.82, metalness: 0.05, transparent: true, alphaTest: 0.04, unique: true }),
+        -DECAL_X, y, z,
+      );
+      /* Faces -X. A plane's +X runs to +Z under this rotation, so the painting
+       * reads left-to-right for somebody standing off this flank — no UV work
+       * and, critically, no negative scale. */
+      plate.rotation.y = -Math.PI / 2;
+      plate.name = name;
+      g.add(plate);
+      this.parts.noseArt.push(plate);
+      return plate;
+    };
+
+    /* The layout, kept on the instance because `applyNoseArt()` re-runs it once
+     * the real ink has been measured. Only the two HEIGHTS and the gap are
+     * given; every width comes from the painting's own aspect, and the name is
+     * then pushed forward off the pin-up's finished edge. So "close together
+     * but not touching" is arithmetic rather than a pair of hand-tuned numbers
+     * that a re-export at a different crop would quietly break. */
+    this.noseArtLayout = {
+      top: 0.95,          // both plates' upper edge — the alignment that reads
+      pinupH: 1.85,       // about what a real B-29 pin-up stood
+      nameH: 1.42 / 2.024,  // 1.42 m wide at the delivered 2.03:1
+      gap: 0.34,          // 18% of the pin-up's height: the owner's "not touching"
+      pinupZ: 3.40,       // clear of the wing leading edge at z 2.50
+    };
+    const L = this.noseArtLayout;
+    const PINUP_H = L.pinupH;
+    const PINUP_W = PINUP_H * 0.731;          // livery.js's measured ink aspect
+    const ART_TOP = L.top;
+    const NAME_H = L.nameH;
+    const NAME_W = NAME_H * 2.024;
+
+    const pinupZ = L.pinupZ;                  // spans z 2.72 .. 4.08
+    const nameZ = pinupZ + PINUP_W / 2 + L.gap + NAME_W / 2;   // 5.13: z 4.42 .. 5.84
+
+    /* The pin-up starts hidden and is shown the moment its painting lands.
+     * There is no drawn stand-in for it, deliberately: a hand-drawn pin-up
+     * standing in for the owner's own would be worse than bare aluminium, and
+     * bare aluminium is what an aeroplane waiting for its nose art looks like.
+     * The NAME plate does carry a stand-in, so the aeroplane is never anonymous
+     * — the same contract `../livery.js`'s crest placeholder keeps. */
+    const pinup = artPlate('enola-squatch-nose-art', PINUP_W, PINUP_H, ART_TOP - PINUP_H / 2, pinupZ);
+    pinup.visible = false;
+    const namePlate = artPlate('enola-squatch-nose-name', NAME_W, NAME_H, ART_TOP - NAME_H / 2, nameZ);
+    namePlate.material.map = noseNamePlaceholderTexture();
+    namePlate.material.needsUpdate = true;
+
+    this.parts.noseArtPlate = pinup;
+    this.parts.noseNamePlate = namePlate;
     /** Kept under its old name too — the plate IS the nose art now. */
-    this.parts.titlePlate = noseArtPlate;
+    this.parts.titlePlate = namePlate;
+
+    /* Fire-and-forget, exactly like the club crest: the aeroplane is built
+     * synchronously at boot and the paintings decode whenever they decode.
+     * `applyNoseArt()` is what actually repaints, and it is idempotent, so the
+     * console helper in `../main.js` may call it again without harm. */
+    this.artReady = Promise.all([noseArtTexture('pinup'), noseArtTexture('name')])
+      .then(([pin, nom]) => this.applyNoseArt(pin, nom))
+      .catch(() => 0);
 
     /* ---- The Silver Sasquatches crest ----
      *
@@ -701,9 +786,17 @@ export class EnolaSquatch {
      * towards the front of the plane — lets use the Squatch logo." That head
      * was a drawn-from-scratch Sasquatch face on its own canvas, a second
      * piece of club artwork living next to the real one for no reason; it is
-     * gone, and the club's actual crest stands in its place at the same
-     * station on the same flank. It is the larger of the two because it is the
-     * one the walkaround starts in front of.
+     * gone, and the club's actual crest stands in its place on the same flank.
+     *
+     * 2026-08-05: it moved forward, from z 4.3 to z 6.6, and came down from
+     * 1.75 m to 1.30. It used to be the largest thing on this flank because it
+     * was the only thing on it; the flank now carries the aeroplane's own name
+     * and her pin-up, and z 4.3 is where the name plate goes. Under the
+     * pilot's window, forward of the artwork and a size with the starboard one,
+     * is where a squadron badge belongs anyway — it is a badge again instead of
+     * the headline act. It sits at y 0.10 so its top clears the cockpit side
+     * glazing (y 0.80, z 6.40..7.90), which is inboard of it and would show
+     * through.
      *
      * Until the texture resolves they carry the drawn placeholder
      * `resolveGear` falls back to, so no surface is ever blank. */
@@ -723,14 +816,12 @@ export class EnolaSquatch {
     noseBadge.name = 'club-crest-nose';
     g.add(noseBadge);
     this.parts.clubLogo.push(noseBadge);
-    // Port side, where the drawn Sasquatch head used to be.
-    const noseBadgePort = flatMesh(planeGeo(1.75, 1.75), logoMat(), -DECAL_X, 0.5, 4.3);
+    // Port side, forward of the nose art, under the pilot's window.
+    const noseBadgePort = flatMesh(planeGeo(1.30, 1.30), logoMat(), -DECAL_X, 0.05, 6.75);
     noseBadgePort.rotation.y = -Math.PI / 2;
     noseBadgePort.name = 'club-crest-nose';
     g.add(noseBadgePort);
     this.parts.clubLogo.push(noseBadgePort);
-    /** Kept under its old name: the crest IS the nose art on that flank now. */
-    this.parts.noseArt = noseBadgePort;
 
     /* ---- Landing gear: fixed tricycle, scaled up ----
      *
@@ -1082,20 +1173,63 @@ export class EnolaSquatch {
   }
 
   /**
-   * Put the owner's own "Enola Squatch" artwork on the flank.
+   * Put the owner's own artwork on the flank.
    *
-   * Owner, 2026-08-04: "Enola Squatch — I'll generate a design for this." The
-   * plate is built carrying the drawn stencil (see `build()`), so this is an
-   * upgrade and never a requirement — `../main.js` only calls it when
-   * `resolveGear` reports the slot resolved to a REAL file, so a missing
-   * `enolasquatch.noseart` row leaves the stencil exactly where it is instead
-   * of swapping it for a generic placeholder poster.
+   * Called from `build()` when `../livery.js` finishes decoding, and safe to
+   * call again — `../main.js` still resolves the old `enolasquatch.noseart`
+   * gear slot and hands whatever it gets to this, which is a no-op while that
+   * slot is absent from `assets/art/manifest.json`. The paintings do not come
+   * through the gear resolver: they need their matte read, their glow put back
+   * and their ink measured before they can be sized onto a plane at all, and
+   * `resolveGear` hands back a texture with none of that done.
    *
-   * @param {?THREE.Texture} texture
-   * @returns {number} plates repainted (0 or 1)
+   * Each plate is RESIZED to the painting it receives rather than the painting
+   * being squeezed onto the plate. Both files are 2:3 portrait sheets and
+   * neither piece of ink is 2:3, so trusting the file's shape would stretch
+   * both. Height is what is held fixed — the two are top-aligned on
+   * `noseArtLayout.top`, and that alignment is the thing worth keeping — while
+   * width follows the measured aspect and the gap is then re-struck off the
+   * finished widths, so "not touching" survives a re-export at a different
+   * crop. The geometry is replaced rather than scaled: `box()`-style scale
+   * writes are the trap this codebase already keeps a note about, and a
+   * negative one would turn the plate inside out.
+   *
+   * @param {?{texture: THREE.Texture, aspect: number}} pinup
+   * @param {?{texture: THREE.Texture, aspect: number}} name
+   * @returns {number} plates repainted (0-2)
    */
-  applyNoseArt(texture) {
-    return applyCrest([this.parts.noseArtPlate], texture);
+  applyNoseArt(pinup, name = null) {
+    const L = this.noseArtLayout;
+    let n = 0;
+    /* `pinup` may arrive as a bare texture from the old gear-slot route; the
+     * measured aspect is the whole point, so fall back to the plate's own. */
+    const asArt = (v, plate) => (v?.texture ? v
+      : v?.isTexture ? { texture: v, aspect: plate.geometry.parameters.width / plate.geometry.parameters.height }
+        : null);
+    const fit = (plate, art, height) => {
+      if (!plate || !art?.texture) return plate?.geometry.parameters.width ?? 0;
+      const width = height * art.aspect;
+      const geo = plate.geometry;
+      if (Math.abs(geo.parameters.width - width) > 1e-4) {
+        plate.geometry = new THREE.PlaneGeometry(width, height);
+        geo.dispose();
+      }
+      applyCrest([plate], art.texture);
+      // Top-aligned, whatever height each one ended up at.
+      plate.position.y = L.top - height / 2;
+      plate.visible = true;
+      n++;
+      return width;
+    };
+
+    const pinupW = fit(this.parts.noseArtPlate, asArt(pinup, this.parts.noseArtPlate), L.pinupH);
+    const nameW = fit(this.parts.noseNamePlate, asArt(name, this.parts.noseNamePlate), L.nameH);
+    /* Re-strike the gap off the finished widths. Forward is +Z: the name goes
+     * ahead of the figure, one gap clear of her leading edge. */
+    if (this.parts.noseNamePlate) {
+      this.parts.noseNamePlate.position.z = L.pinupZ + pinupW / 2 + L.gap + nameW / 2;
+    }
+    return n;
   }
 
   /* ---------------------------------------------------------------- */
