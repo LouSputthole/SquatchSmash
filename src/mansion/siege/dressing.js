@@ -24,6 +24,16 @@
  * -- and puts its own rubble on the `siege.centrepiece` anchor. When the
  * overview settles the centrepiece, nothing here needs editing.
  *
+ * ONE NOTE FOR WHOEVER WIRES THE COMPOSITION ROOT. Every practical light here
+ * is parented INSIDE its own toggled group, so a fire that is not burning
+ * cannot light the room -- but that also means the renderer stops counting it
+ * when the group hides, and `main.js`'s light rig holds its visible count
+ * CONSTANT precisely so three.js does not recompile every material. The two
+ * only disagree in a state where the `battle` layer is dark, which the siege
+ * scene never enters (the mission applies `under_attack` on its first frame).
+ * If some future scene does run this dressing in `clean`, expect one shader
+ * recompile per state change and decide there, not here.
+ *
  * THE THREE THINGS THIS FILE IS NOT ALLOWED TO DO
  *   1. block the walk from the front door to either stair flight (FOYER_ROUTE)
  *   2. block the cellar corridor's walking lane (CORRIDOR_NAV)
@@ -1310,7 +1320,13 @@ export function buildSiegeDressing({
       x: 7.1, z: 46.9, floorY: GY, w: 1.9, h: 0.58, d: 1.0, yaw: -0.36, material: M_UPHOLSTERY,
     });
     g.add(settle.group);
-    /* Two chairs on their backs and a torn rug rucked up. */
+    /* Chairs on their backs. NO COLLIDERS, and that is deliberate: this engine
+     * has no step-over. `Player._resolve` skips a box only when its top is
+     * below the feet, so a 0.5 m chair on the floor of a firefight is a 0.5 m
+     * wall you cannot see over and cannot walk round in a hurry. Everything
+     * this module puts on a floor -- chairs, casings, litter, bodies, the
+     * dropped rifle -- is walk-over dressing. The only solids it adds are the
+     * things it MEANS as cover, and each of those is chest height. */
     for (const [cx, cz, cy] of [[-3.4, 41.2, 0.9], [3.9, 42.4, -1.3], [1.4, 48.6, 2.4]]) {
       const chair = group('siege.debris.foyer.chair');
       chair.add(box({
