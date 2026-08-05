@@ -675,7 +675,9 @@ export async function buildApartment(ctx) {
   root.add(P.makeBeerCan(M, {
     x: tableCanA.x, y: tableCanA.y, z: tableCanA.z, rotY: coffeeRotation + 1.1,
   }).group);
-  const tableCanB = coffeeAt(-0.40, -0.18, table.top);
+  /* Further down the table than it was: at dz -0.18 this can stood 5cm inside
+   * the raised lid of the pizza box beside it. */
+  const tableCanB = coffeeAt(-0.47, -0.18, table.top);
   root.add(P.makeBeerCan(M, {
     x: tableCanB.x, y: tableCanB.y, z: tableCanB.z, rotY: coffeeRotation - 0.4,
   }).group);
@@ -733,7 +735,22 @@ export async function buildApartment(ctx) {
   root.add(sideboard.group);
   addCollider(sideboard.bounds);
 
-  const radio = P.makeRadio(M, { x: -1.10, y: sideboard.top, z: 4.16, rotY: Math.PI });
+  /*
+   * The radio, against the BACK of the sideboard rather than the middle of it.
+   *
+   * It used to sit at z 4.16, which put its front face at 4.05 on a sideboard
+   * whose front edge is 4.00 -- five centimetres of ledge in front of it. The
+   * money is supposed to live on that ledge (see the dressing table below) and
+   * a pile of banded notes is thirteen deep, so both piles were parked with
+   * four to nine centimetres of themselves inside the radio's cabinet.
+   *
+   * Back to 4.30 leaves its cabinet at 4.19..4.41 on a top that ends at 4.44,
+   * and turns the front of the sideboard into a clear 19cm ledge the money can
+   * grow along. Nothing about the radio itself changes -- the knobs are still
+   * the nearest thing on it to the room, which is what you aim at.
+   */
+  const RADIO_Z = 4.30;
+  const radio = P.makeRadio(M, { x: -1.10, y: sideboard.top, z: RADIO_Z, rotY: Math.PI });
   root.add(radio.group);
 
   /* The answering machine, beside the radio. It is in the flat on every
@@ -931,7 +948,13 @@ export async function buildApartment(ctx) {
    * package. The prop still exists while locked so its later placement and
    * interaction stay identical; both the mesh and pickup gate begin disabled.
    */
-  const gunPos = coffeeAt(0.40, -0.10, table.top);
+  /* Up 5.8cm and 4cm nearer the front edge than it used to sit.
+   *
+   * The revolver's origin is the weapon's own -- shared with the hands and the
+   * view-model -- and its grip hangs 5.8cm BELOW that, so dropping the origin
+   * on `table.top` buried the whole butt of it in the tabletop. And at
+   * dx 0.40 the barrel finished 2.2cm inside the base of the bong. */
+  const gunPos = coffeeAt(0.44, -0.10, table.top + 0.058);
   const revolver = P.makeRevolver(M, {
     x: gunPos.x, y: gunPos.y, z: gunPos.z, rotY: coffeeRotation + 2.35,
   });
@@ -1023,25 +1046,96 @@ export async function buildApartment(ctx) {
   const dressing = buildDressing(M, {
     root,
     fridgeDoor: fridge.door,
+    /* The pin-up off the fridge door, which is the same die-cut sticker the
+     * Brushrunner carries in its cockpit. See tammyDashboardMug(). */
+    stickers: { tammy: propTex('sticker.fridge') },
     at: {
-      lanyard: { x: -0.80, y: sideboard.top, z: 4.30, rotY: 0.5 },
+      /* Behind the radio's new footprint rather than beside its old one: the
+       * lanyard and the room key both used to sit in the band the cabinet has
+       * moved back into. */
+      lanyard: { x: -0.62, y: sideboard.top, z: 4.34, rotY: 0.5 },
       willy: { y: 1.12, z: -0.52 },
-      bloodShirt: { x: -1.62, y: 0.001, z: -3.62, rotY: 0.5 },
-      /* The money lands where he drops it as he comes in, so it lives at the
+      /* East a touch from -1.62. The shirt has cuffs, folds and a collar on it
+       * now, so it covers 81cm rather than 65, and at the old x its sleeve
+       * reached -2.03 and went through the side of the laundry basket. */
+      bloodShirt: { x: -1.46, y: 0.001, z: -3.62, rotY: 0.5 },
+      /*
+       * The money lands where he drops it as he comes in, so it lives at the
        * FRONT of the sideboard rather than behind the photographs -- a stack
-       * of notes nobody can see is not a stack of notes. */
-      cashSmall: { x: -0.80, y: sideboard.top, z: 4.06, rotY: -0.3 },
-      bingMatches: { x: -3.44, y: table.top, z: 0.52, rotY: 0.9 },
-      motelKey: { x: -1.36, y: sideboard.top, z: 4.32, rotY: 0.4 },
-      cashMid: { x: -1.36, y: sideboard.top, z: 4.06, rotY: 0.5 },
+       * of notes nobody can see is not a stack of notes.
+       *
+       * Both piles sit on the clear ledge the radio's move opened up, in the
+       * 81cm between the two standing photographs (which come forward to
+       * z 4.09 at x -1.482 and -0.640). At their full height they measure
+       * 0.19 x 0.16 each and the radio's cabinet starts at z 4.19, so there is
+       * about 2.5cm of daylight between the tallest either pile can get and
+       * anything else on this piece of furniture.
+       */
+      cashSmall: { x: -0.78, y: sideboard.top, z: 4.085, rotY: -0.3 },
+      /* West of the bong rather than under it -- at x -3.44 / z 0.52 the
+       * matchbook had 6mm of itself inside the bong's base. */
+      bingMatches: { x: -3.52, y: table.top, z: 0.44, rotY: 0.9 },
+      motelKey: { x: -1.62, y: sideboard.top, z: 4.36, rotY: 0.4 },
+      cashMid: { x: -1.06, y: sideboard.top, z: 4.085, rotY: 0.30 },
       casualJacket: { x: 1.70, y: 1.00, z: -2.96, rotY: Math.PI + 0.12 },
-      tammyDashboardMug: { x: 2.62, y: desk.top, z: -3.78, rotY: -0.32 },
-      cashStacks: { x: -3.24, y: table.top, z: 0.48, rotY: 0.2 },
-      suitBag: { x: (CLOSET.x0 + CLOSET.x1) / 2, y: CLOSET.h - 0.05, z: 4.64, rotY: 0.06 },
+      /* Off the desk-right cluster. At its old x 2.62 / z -3.78 the mug's body
+       * ran 3cm into the beer can behind it and it was crowding the mouse end
+       * of the mat; this is the clear corner past both, with the handle turned
+       * out toward the room where a handle goes. */
+      tammyDashboardMug: { x: 2.90, y: desk.top, z: -3.83, rotY: -0.52 },
+      /* Was at x -3.24 / z 0.48, which is 5cm inside the bong and 3cm inside
+       * the mushroom tray. This is the one clear pocket left on that table --
+       * between the matchbook and the pizza box, 41cm by 14cm. */
+      cashStacks: { x: -3.375, y: table.top, z: 0.603, rotY: 0 },
+      /* Tipped out on the floor at the foot of the bed, where the duffel is on
+       * the morning before. It used to hang at y 0.76 out at x -2.78, which is
+       * 67cm east of the edge of the bed with nothing whatever underneath it.
+       * The bed frame stops at x -3.45 and the laundry basket at -2.29. */
+      heistCut: { x: -3.02, y: 0.002, z: -2.62, rotY: -0.12 },
+      /* On the rail with the shirts, not across the mouth of the cupboard.
+       * The rail runs at CLOSET_RAIL_Y down the middle of the alcove's depth,
+       * and the closet block below hangs this off it as a fifth hanger so it
+       * shoves aside with the rest of them. */
+      suitBag: {
+        x: (CLOSET.x0 + CLOSET.x1) / 2, y: P.CLOSET_RAIL_Y, z: (z1 + CLOSET.back) / 2, rotY: 0,
+      },
       gunCase: { x: -4.15, y: 0.73, z: -2.70, rotY: 0.35 },
-      jerkyHaul: { x: 4.72, y: kitchen.top, z: -0.62, rotY: 0.4 },
-      silverMatches: { x: -3.02, y: nightstand.top, z: -4.24, rotY: -0.5 },
-      laundryHeap: { x: -2.20, y: 0, z: -3.06, rotY: 0.3 },
+      /* East along the counter. At x 4.72 the top two bags of it were 3.5cm
+       * inside the canister standing behind them. */
+      jerkyHaul: { x: 4.86, y: kitchen.top, z: -0.66, rotY: 0.4 },
+      /* 4mm clear of the standing photograph beside it, which it used to be
+       * 4mm inside. */
+      silverMatches: { x: -3.06, y: nightstand.top, z: -4.30, rotY: -0.5 },
+      /* Out from the wall and away from the pile of laundry already on the
+       * floor: that pile sprawls to x -2.06 / z -3.16 and the basket used to
+       * have a whole lump of it 10cm through its side. */
+      laundryHeap: { x: -2.02, y: 0, z: -2.86, rotY: 0.3 },
+      /*
+       * THE TAKE's loadout, staged on the floor by the closet.
+       *
+       * The plant's foliage reaches x 4.30 / z 4.14, the skirting starts at
+       * z 4.48, the closet mouth opens at z 4.50 between x 4.38 and 4.98, and
+       * the front door never swings past x 3.30. That leaves an L of clear
+       * floor, and these are laid out along it in the order he picks them up:
+       * the long case against the wall, the vest and the small stuff in the
+       * pocket in front of the cupboard, the empty bag at its mouth.
+       */
+      heistCarbine: { x: 3.86, y: 0, z: 4.24, rotY: 0 },
+      heistArmor: { x: 4.64, y: 0, z: 4.16, rotY: 0.06 },
+      heistGloves: { x: 4.46, y: 0, z: 3.72, rotY: -0.40 },
+      heistMask: { x: 4.78, y: 0, z: 3.74, rotY: 0.30 },
+      heistSidearm: { x: 4.52, y: 0, z: 3.46, rotY: 0.22 },
+      heistMagazines: { x: 4.84, y: 0, z: 3.42, rotY: -0.20 },
+      /* In the mouth of the closet, short of the box of rounds that lives on
+       * its floor at z 4.88. */
+      heistDuffel: { x: 4.68, y: 0, z: 4.60, rotY: 0.08 },
+      /* Afterwards. The towel goes over the east rim of the bath, which is the
+       * side you reach it from; the clean clothes go on the closet floor short
+       * of the candles at z 4.95; the gear goes back in the corner it came
+       * out of. */
+      heistWash: { x: -1.935, y: 0.578, z: -6.20, rotY: 0 },
+      heistChange: { x: 4.66, y: 0, z: 4.70, rotY: -0.12 },
+      heistGearSecured: { x: 3.86, y: 0, z: 4.24, rotY: 0 },
       rain: { x: x1 - 0.02, y: (wy0 + wy1) / 2, z: (wz0 + wz1) / 2, w: wz1 - wz0, h: wy1 - wy0 },
     },
   });
@@ -1069,7 +1163,7 @@ export async function buildApartment(ctx) {
    * reload, a checkpoint restore and a night's sleep all arrive here with the
    * same argument and leave the same room behind.
    */
-  const applyChapterDressing = (chapter, { messages = null } = {}) => {
+  const applyChapterDressing = (chapter, { messages = null, cash = null } = {}) => {
     const plan = dressingFor(chapter);
     dressedChapter = chapter;
     dressAir = plan.air;
@@ -1078,6 +1172,22 @@ export async function buildApartment(ctx) {
       piece.group.visible = plan.shown.has(id) || persistentDressing.has(id);
     }
     dressing.get('rain').group.visible = plan.air.rain > 0;
+    /*
+     * And how much money is in each of those piles.
+     *
+     * The chapter says a pile is THERE; the campaign says how big it is. Every
+     * pile is built at full capacity and shows the count it is given, so this
+     * is a fold over campaign truth exactly like the visible set above -- one
+     * more job done is one more bundle on the sideboard, on every reload, on
+     * every checkpoint restore. `cashPiles` is asked for each time rather than
+     * captured at build, because the cut is not known until after the job.
+     */
+    const piles = cash ?? ctx.cashPiles?.() ?? null;
+    if (piles) {
+      for (const [id, count] of Object.entries(piles)) {
+        dressing.get(id)?.setBundles?.(count);
+      }
+    }
     /* NO WAKE and the date share one Day 3 tape. Returning from the harbor
      * changes Tony, not the number on the machine. */
     const authoredMessageCount = {
@@ -1216,6 +1326,41 @@ export async function buildApartment(ctx) {
     ],
   });
   root.add(closet.group);
+
+  /*
+   * The suit carrier goes on that rail too, and shoves with it.
+   *
+   * It used to hang off the closet LIP: 46cm of flat 0x1c1f24 centred in a
+   * 56cm mouth, 98cm tall, 31cm in FRONT of the rail. From the room that is
+   * not a garment bag, it is a black bar filling the entire cupboard -- and it
+   * stood between the player and the shirts, the shrine and the thing behind
+   * the shirts, which is the only reason this closet exists.
+   *
+   * Registering it as a fifth hanger is what makes it belong to the rail
+   * rather than to the doorway: the tick below drives its x and its yaw with
+   * the shirts, so shoving the clothes aside genuinely clears the opening. Its
+   * home is the rail's centre (which is where `at.suitBag` already puts it, so
+   * nothing slides on the first frame) and it bunches to the same jamb they
+   * do, turned edge-on -- 11cm in, because a 40cm bag on its edge is 5cm
+   * thick and the alcove's east wall is at CLOSET.x1.
+   */
+  const suitCarrier = dressing.get('suitBag');
+  if (suitCarrier) {
+    closet.hangers.push({
+      mesh: suitCarrier.group,
+      home: (CLOSET.x0 + CLOSET.x1) / 2,
+      homeYaw: 0,
+      /* It bunches to the jamb with the shirts -- same end, same 5cm spread,
+       * same edge-on turn -- but the OTHER way round, and that sign is load
+       * bearing. The bag hangs 9cm behind the rail (see suitBag()), and a
+       * quarter turn maps that depth straight into width: turned the way the
+       * shirts turn it would carry the carrier 9cm past its own hook and 6cm
+       * into the alcove's east wall. Turned the other way it swings inboard,
+       * which is also what a bag hanging behind a rail of shirts would do. */
+      bunch: CLOSET.x1 - 0.05,
+      bunchYaw: -(Math.PI / 2 - 0.03),
+    });
+  }
 
   /* A closet is a box with one open side, so nothing in it catches the ceiling
    * spot and the whole interior renders as a silhouette -- the shirts came out
@@ -1618,7 +1763,7 @@ export async function buildApartment(ctx) {
   });
 
   /* ---- radio ---- */
-  const radioPos = new THREE.Vector3(-1.10, sideboard.top + 0.12, 4.16);
+  const radioPos = new THREE.Vector3(-1.10, sideboard.top + 0.12, RADIO_Z);
   interaction.register(radio.group, {
     label: () => (state.radioOn
       ? 'Turn off the <b>radio</b> &middot; hold to <b>tune</b> &nbsp;<span style="opacity:.6">[R] skip</span>'

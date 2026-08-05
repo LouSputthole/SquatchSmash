@@ -17,7 +17,7 @@ import { Radio } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
-import { persistentDressingForCampaign } from './world/dressing.js';
+import { cashPilesForCampaign, persistentDressingForCampaign } from './world/dressing.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
@@ -572,6 +572,11 @@ async function boot() {
      * first day". It comes from the campaign, never from a flag of its own. */
     chapter: campaign.state.story.chapter,
     persistentDressing: persistentDressingForCampaign(campaign.state),
+    /* How much money is in each pile in the flat. A function rather than a
+     * value because the flat re-dresses itself on every sleep and on every
+     * return from a job, and the heist's cut is not a number anybody knows
+     * until the job is over. */
+    cashPiles: () => cashPilesForCampaign(campaign.state),
     onNote: (what) => narrator.note(what),
     /* The phone is campaign state, not apartment state: it has to still be on
      * him at the Bing and at the airstrip, and still be on him tomorrow. */
