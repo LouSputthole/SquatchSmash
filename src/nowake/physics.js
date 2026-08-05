@@ -19,6 +19,8 @@ export class BoatPhysics {
     this.time = 0;
     this.running = false;
     this.mooringReleased = false;
+    /** False once nobody is standing at the wheel. See `step`. */
+    this.helmAttended = true;
     this._acc = 0;
   }
 
@@ -34,6 +36,7 @@ export class BoatPhysics {
     this.time = 0;
     this.running = false;
     this.mooringReleased = false;
+    this.helmAttended = true;
     this._acc = 0;
   }
 
@@ -56,16 +59,31 @@ export class BoatPhysics {
     // instead of applying an invisible brake, while reverse builds sooner.
     const thrustResponse = requested === 0 ? 3.4 : requested > 0 ? 2.35 : 1.75;
     this.speed += (targetSpeed - this.speed) * (1 - Math.exp(-dt / thrustResponse));
-    this.speed *= Math.exp(-dt * (0.032 + Math.abs(this.steer) * 0.022));
+    /* A helm nobody is standing at settles. Neutral already stops the thrust,
+     * but a 42-foot hull carries its way for the best part of a minute, and
+     * from the deck that reads as a boat that has taken itself out of the
+     * player's hands -- "when I get out it just starts drifting". Once the
+     * wheel is unattended the shafts are stopped rather than freewheeling and
+     * the rudder is amidships, so she comes off the way in a few seconds and
+     * then holds her heading instead of rounding up on her own. */
+    const unattended = !this.helmAttended;
+    this.speed *= Math.exp(-dt * (0.032 + Math.abs(this.steer) * 0.022 + (unattended ? 0.42 : 0)));
 
     // Rudder authority grows with flow, but a turning hull carries inertia.
     const authority = clamp(Math.abs(this.speed) / 5.2, 0.035, 1);
-    const desiredYaw = -this.steer * authority * 0.31 * Math.sign(this.speed || 1);
-    this.yawRate += (desiredYaw - this.yawRate) * (1 - Math.exp(-dt / .92));
-    this.yawRate *= Math.exp(-dt * .42);
+    const desiredYaw = unattended
+      ? 0 : -this.steer * authority * 0.31 * Math.sign(this.speed || 1);
+    this.yawRate += (desiredYaw - this.yawRate) * (1 - Math.exp(-dt / (unattended ? .34 : .92)));
+    this.yawRate *= Math.exp(-dt * (unattended ? 1.8 : .42));
     this.heading += this.yawRate * dt;
 
-    const dx = Math.sin(this.heading) * this.speed * dt;
+    /* She travels where her bow points. `heading` is the hull's yaw in the same
+     * sense the scene writes to `boat.root.rotation.y`, so forward is the
+     * mesh's own -Z axis rotated by it: (-sin, -cos). The x term used to be
+     * +sin, which is the mirror of that -- press starboard and the cruiser
+     * swung her nose right and then crabbed away to port. The turn itself is
+     * unchanged; only the direction of travel now agrees with it. */
+    const dx = -Math.sin(this.heading) * this.speed * dt;
     const dz = -Math.cos(this.heading) * this.speed * dt;
     this.position.x += dx;
     this.position.y += dz;

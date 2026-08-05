@@ -32,13 +32,20 @@ whiskey migration and then follow the same v3-to-v4 inference.
 3. Reverse out and drive the marked channel for at least 90 seconds. Fixed-step
    handling models forward/reverse thrust, speed-dependent rudder authority,
    drag, turning inertia, RPM, heave, roll, pitch, bow lift and a pooled wake.
-   Releasing the controls springs the throttle toward neutral, leaving the
-   helm cancels propulsion, and the player remains in the cruiser's moving
-   local frame while walking on deck.
+   The hull tracks where her bow points and the wheel mesh turns the way she
+   turns. Releasing the controls springs the throttle toward neutral, and
+   leaving the helm both cancels propulsion and settles her: an unattended
+   wheel stops the shafts and centres the rudder, so from cruising speed she
+   comes to rest inside ten metres and two degrees of swing instead of
+   carrying twenty-two metres and nearly seven degrees across the anchorage.
+   The player remains in the cruiser's moving local frame while walking on
+   deck.
 4. Idle in open water. The reveal cites the campaign's Beef Run and Motel state.
 5. Willy goes below; Lou and Booski prepare; Willy returns.
 6. The scene waits for Tony's click. Lou and Booski fire only after him.
-7. Hold the body interaction, then ride back in silence.
+7. Hold the body interaction, then ride back in silence. The cruiser comes
+   about over four and a half seconds at the head of the return and runs home
+   bow first; she used to make the whole passage stern first.
 
 The cruiser now carries an authored wheelhouse, instrument cluster,
 chartplotter, VHF, interactive marine stereo, compass, twin throttle, seating, engine hatches, safety
@@ -47,7 +54,12 @@ helm, seats and deck equipment have boat-local collision so their blockers
 move and rotate with the vessel. The marina adds individual dock planks,
 pilings, bumpers, shore power, hose and safety equipment. Its neighboring
 craft are detailed tapered-hull runabouts rather than floating box stand-ins.
-The startup controls occupy one compact, non-overlapping fascia, while layered
+The helm is one console rather than a plane of instruments growing through each
+other. Its pedestal runs the full width of the fascia it carries, the gauges
+and stereo sit along the dash face, the chartplotter and VHF at seated eye
+level, and the engine-start panel and side-mounted twin throttle at hand
+height; the wheel stands 0.42 m proud of all of it on its own column. Nothing
+on the station intersects anything else it is not bolted to. Layered
 wave, fresnel, ripple and glint shading provides the denser water surface. Its
 resting hull is lowered 14 cm from the prototype pose, producing a measured
 0.94 m draft, 0.81 m side freeboard and 1.06 m deck freeboard instead of
@@ -83,19 +95,35 @@ stanchion line (2.32) and the cabin trunk pulled back to its own mesh (1.26),
 giving 1.06 m of clear forward side deck against the old 0.92; the bow pulpit
 rails now meet at the stem instead of leaving a 0.12 m slot; the two helm
 chairs became one solid block; and the starboard chair moved 0.22 m inboard so
-the starboard side deck keeps a 0.66 m route forward.
+the starboard side deck keeps a 0.66 m route forward. The helm console solid
+then widened with its rebuilt pedestal (-0.74 to 1.26) so the console the
+player can see is the console he walks around; that still leaves 1.06 m to the
+starboard rail and 0.98 m of usable capsule clearance on the port route.
 
 Willy, Lou and Booski use stable campaign identities and the canonical Bing
 figure rig. NO WAKE deliberately leaves the shared cast anatomy unchanged.
 Tony's execution view-model reuses the canonical six-shot revolver carried
 forward from the Motel. Lou and Booski use a reusable detailed 9mm
 semi-automatic model with a separate slide, frame, barrel, sights, controls,
-trigger, guard, grip, magazine base and authoritative muzzle point.
+trigger, guard, grip, magazine base and authoritative muzzle point. Wounds are
+attached to the man, so they ride his fall and go over the side with him rather
+than hanging in the air where he was standing; what lands on the deck is
+attached to the boat and is still on the boards for the ride home.
 
 Dialogue currently ships subtitle-first. The runtime will play a future exact
 `vo.<beat>` recording when present, or choose from a `vo.<beat>.*` variant bank,
-without changing the mission script. Ambient and action sound uses canonical
-manifest cues plus the authored `boat.engine.idle` and `water.splash` cues.
+without changing the mission script. Every spoken beat — the blocking
+confrontation as well as the queued aftermath — holds the floor for the longer
+of its authored reading beat and its delivered take, so a line that runs past
+its subtitle is never cut off by the next one. Ambient and action sound uses
+canonical manifest cues plus the authored `boat.engine.idle` and `water.splash`
+cues. `NoWakeEngineAudio` in `src/nowake/audio.js` adds the twin diesels
+themselves as a live graph on the shared AudioEngine bus — two firing rates a
+couple of Hz apart, block rumble, wet exhaust and a sole filter, all driven by
+rpm, throttle and hull speed — because a recorded stem plays at one rpm forever
+and cannot answer the levers. It adds no manifest cue. The boat stereo is a
+cockpit set on an open deck, so it carries a fixed `output` scale of its own
+rather than moving the shared, saved volume knob every other receiver reads.
 
 ## Verification
 

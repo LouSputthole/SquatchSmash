@@ -510,12 +510,28 @@ function buildBoat(scene, marina) {
   // Pale non-slip side decks make the now-walkable bow routes legible.
   for (const sx of [-1, 1]) root.add(box([.42, .025, 8.15], ivory, sx * 1.72, 1.08, -1.10));
 
-  // Helm console and a compact, visibly modeled control station.
-  // Shift the helm furniture toward the centreline.  The former port-biased
-  // console and chair left only centimetres of capsule clearance between the
-  // boarding gap and the controls.
-  root.add(box([1.24, 1.16, .82], navy, .14, 1.63, -1.43));
+  /* Helm console and a compact, visibly modeled control station.
+   *
+   * The furniture stays off the port boarding route -- the former port-biased
+   * console and chair left only centimetres of capsule clearance between the
+   * boarding gap and the controls -- and the pedestal now runs far enough
+   * outboard to actually carry the instrument face bolted to it. It used to
+   * stop at x = .76 while the start panel, stereo, VHF and throttle hung on
+   * past 1.2 in open air, and the wheel was sunk into the same plane as all of
+   * them: measured on that build the rim alone intersected the dash, all three
+   * gauges, the chartplotter, the start panel, the battery rocker, the stereo
+   * and the throttle, the stereo grew through the fuel gauge, both gauges grew
+   * through the chartplotter and the VHF through the starboard canopy post.
+   *
+   * Everything now sits in one of three rows on the one fascia -- gauges and
+   * stereo along the dash face, chartplotter and VHF at seated eye level,
+   * engine-start panel and twin throttle at hand height -- and the wheel
+   * stands proud of all of it on its own column. */
+  const consoleBody = box([1.96, 1.16, .82], navy, .26, 1.63, -1.43);
+  consoleBody.name = 'helm console pedestal';
+  root.add(consoleBody);
   const dash = box([2.55, .18, .70], black, 0, 2.18, -1.40);
+  dash.name = 'helm dash panel';
   dash.rotation.x = -.20;
   root.add(dash);
   const wheel = new THREE.Group();
@@ -530,9 +546,18 @@ function buildBoat(scene, marina) {
       new THREE.Vector3(Math.cos(a) * .30, Math.sin(a) * .30, 0), .014, chrome, 7,
     ));
   }
-  wheel.position.set(.14, 2.02, -1.00);
-  wheel.rotation.x = .16;
+  /* The wheel stands 0.42 m proud of the fascia on a raked column instead of
+   * turning inside it. Its rim is 0.68 m across and swept the whole panel from
+   * the old flush position; out here nothing on the console reaches aft of
+   * z = -.77 and the rim never touches any of it. */
+  wheel.position.set(.14, 2.02, -.60);
+  wheel.rotation.x = .18;
   root.add(wheel);
+  const column = beamBetween(
+    new THREE.Vector3(.14, 1.90, -1.02), new THREE.Vector3(.14, 2.01, -.66), .05, chrome, 10,
+  );
+  column.name = 'helm steering column';
+  root.add(column);
   const helmTarget = box([1.62, 1.30, .76], new THREE.MeshBasicMaterial({
     transparent: true, opacity: 0, depthWrite: false, colorWrite: false,
   }), .14, 2.02, -.62);
@@ -558,17 +583,23 @@ function buildBoat(scene, marina) {
   const gaugeNeedles = {
     rpm: gauge('RPM', -.19, 2.34), speed: gauge('KNOTS', .14, 2.35), fuel: gauge('FUEL', .47, 2.34),
   };
-  const plotter = box([.48, .31, .055], mat(0x101719), -.10, 2.15, -1.02);
+  // Chartplotter, on the fascia beside the wheel rather than behind the rpm
+  // gauge -- the two used to occupy the same 0.05 m of panel depth.
+  const plotter = box([.48, .31, .055], mat(0x101719), .50, 1.98, -1.02);
+  plotter.name = 'helm chartplotter';
   root.add(plotter);
   const plotterScreen = textPlate('DEPTH 18.4', .41, .22, { foreground: '#83d9d4', background: '#0c242a', border: '#253a3c', font: 28 });
-  plotterScreen.position.set(-.10, 2.15, -.985);
+  plotterScreen.position.set(.50, 1.98, -.985);
   root.add(plotterScreen);
 
-  // Startup panel: guarded battery rocker, blower push-button and a real ignition key.
-  const startPanel = box([1.10, .54, .11], black, .68, 1.78, -1.00);
+  // Startup panel: guarded battery rocker, blower push-button and a real
+  // ignition key. It owns the port half of the hand-height row; the twin
+  // throttle owns the starboard half, so neither is inside the other.
+  const startPanel = box([1.16, .54, .11], black, -.10, 1.52, -1.00);
+  startPanel.name = 'engine start panel';
   root.add(startPanel);
-  const startTitle = textPlate('ENGINE START', .92, .11, { foreground: '#e7dec0', background: '#171d1f', border: '#555e5f', font: 29 });
-  startTitle.position.set(.68, 2.01, -.935);
+  const startTitle = textPlate('ENGINE START', .72, .11, { foreground: '#e7dec0', background: '#171d1f', border: '#555e5f', font: 29 });
+  startTitle.position.set(-.24, 1.735, -.935);
   root.add(startTitle);
 
   const battery = new THREE.Group();
@@ -579,7 +610,7 @@ function buildBoat(scene, marina) {
   const batteryLabel = textPlate('BATTERY', .29, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 25 });
   batteryLabel.position.set(0, -.17, .075);
   battery.add(batteryLabel);
-  battery.position.set(.36, 1.79, -.91);
+  battery.position.set(-.42, 1.53, -.91);
   root.add(battery);
 
   const blower = new THREE.Group();
@@ -591,7 +622,7 @@ function buildBoat(scene, marina) {
   const blowerLabel = textPlate('BLOWER', .29, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 25 });
   blowerLabel.position.set(0, -.17, .075);
   blower.add(blowerBezel, blowerButton, blowerLabel);
-  blower.position.set(.68, 1.79, -.91);
+  blower.position.set(-.10, 1.53, -.91);
   root.add(blower);
 
   const ignition = new THREE.Group();
@@ -606,14 +637,18 @@ function buildBoat(scene, marina) {
   const ignitionLabel = textPlate('IGNITION', .30, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 24 });
   ignitionLabel.position.set(0, -.31, .075);
   ignition.add(ignitionLabel);
-  ignition.position.set(1.00, 1.82, -.91);
+  ignition.position.set(.22, 1.61, -.91);
   root.add(ignition);
 
   const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x25312d, emissive: 0x000000, emissiveIntensity: 0 });
-  const indicator = cylinder(.035, .035, indicatorMat, 1.01, 1.99, -.90, 16);
+  // Seated in the panel rather than hovering a couple of centimetres off it.
+  const indicator = cylinder(.035, .035, indicatorMat, .22, 1.75, -.93, 16);
   indicator.rotation.x = Math.PI / 2;
   root.add(indicator);
 
+  /* Twin levers, side-mounted on the console at the helmsman's right hand.
+   * The plate used to lie flat in mid-air directly in front of the seat, with
+   * the wheel rim passing through it and nothing underneath holding it up. */
   const throttle = new THREE.Group();
   throttle.name = 'twin engine throttle';
   throttle.add(box([.34, .12, .46], chrome, 0, 0, 0));
@@ -622,14 +657,15 @@ function buildBoat(scene, marina) {
   throttlePivot.add(box([.17, .13, .13], black, 0, .43, 0));
   throttlePivot.position.set(0, .02, 0);
   throttle.add(throttlePivot);
-  throttle.position.set(.05, 1.53, -.74);
+  throttle.position.set(1.06, 1.55, -.92);
+  throttle.rotation.x = 1.15;
   root.add(throttle);
 
-  const vhf = box([.46, .26, .18], black, 1.04, 2.40, -.88);
+  const vhf = box([.46, .26, .18], black, 1.00, 2.02, -.95);
   vhf.name = 'marine VHF radio';
   root.add(vhf);
   const radioFace = textPlate('VHF 16', .43, .15, { foreground: '#78c8b7', background: '#0b1719', border: '#273234', font: 30 });
-  radioFace.position.set(1.04, 2.41, -.785);
+  radioFace.position.set(1.00, 2.03, -.855);
   root.add(radioFace);
 
   // Entertainment stereo beside the VHF. It drives the same station and
@@ -652,9 +688,14 @@ function buildBoat(scene, marina) {
   const stereoLed = cylinder(.016, .018, stereoLedMat, .195, -.072, .104, 14);
   stereoLed.rotation.x = Math.PI / 2;
   stereo.add(stereoLed);
-  stereo.position.set(.54, 2.40, -.88);
+  // Down onto the dash face proper: at 2.40 it stood clear above the panel's
+  // aft edge with nothing behind it.
+  stereo.position.set(.90, 2.30, -1.00);
   root.add(stereo);
-  const compass = mesh(new THREE.SphereGeometry(.16, 22, 14, 0, Math.PI * 2, 0, Math.PI / 2), glass, .20, 2.46, -1.32);
+  // Seated on the dash at its own rake. It used to hover 0.17 m above it.
+  const compass = mesh(new THREE.SphereGeometry(.16, 22, 14, 0, Math.PI * 2, 0, Math.PI / 2), glass, .20, 2.284, -1.34);
+  compass.name = 'helm compass';
+  compass.rotation.x = -.20;
   root.add(compass);
 
   // Two proper pedestal seats and aft-deck furniture.
@@ -1003,10 +1044,14 @@ class WakePool {
     this.timer = .11;
     for (const side of [-1, 1]) {
       const p = this.pool[this.cursor++ % this.pool.length];
-      const lateral = new THREE.Vector3(Math.cos(heading) * side, 0, Math.sin(heading) * side);
+      /* Abeam of the hull's own heading. Forward is the boat mesh's -Z rotated
+       * by `heading`, so the beam is (cos, -sin) and the quad's long axis lies
+       * along (-sin, -cos); both terms used to be mirrored, so off the world
+       * axes the two rows of wake crossed the hull instead of trailing it. */
+      const lateral = new THREE.Vector3(Math.cos(heading) * side, 0, -Math.sin(heading) * side);
       p.position.copy(at).addScaledVector(lateral, 1.52);
       p.position.y = -.12;
-      p.rotation.z = -heading + side * .48;
+      p.rotation.z = heading + side * .48;
       p.scale.set(1, 1, 1);
       p.material.opacity = .36;
       p.userData.life = 1;
