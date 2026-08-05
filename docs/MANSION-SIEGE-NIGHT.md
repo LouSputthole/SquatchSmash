@@ -277,10 +277,10 @@ systems. It is powerful, not a turret, and this is not on rails.
 | Wave | Group | Count | Entry | Composition |
 | --- | --- | --- | --- | --- |
 | One | 1A | 4 | front door + forecourt | 3 rifle, 1 SMG |
-| One | 1B | 4 | east lounge bay + broken glass | 2 rifle, 1 SMG, 1 flanker |
+| One | 1B | 4 | east lounge bay glass | 2 rifle, 1 SMG, 1 flanker |
 | — | *lull* | — | — | reload, reposition, callouts |
 | Two | 2A | 5 | frontal, front door + court | 3 rifle, 1 suppressor, 1 SMG |
-| Two | 2B | 4 | west living room + windows | 1 shotgun rusher, 2 rifle, 1 flanker |
+| Two | 2B | 4 | trophy hall glass, then the living room | 1 shotgun rusher, 2 rifle, 1 flanker |
 | Two | 2C | 5 | mixed, final push | 1 leader, 1 armored, 1 MG, 2 rifle |
 | | | **22** | | |
 
@@ -293,8 +293,8 @@ zone out of the player's view and walks in:
 
 - `court_north` — behind the fountain and the burning cars, (0, 30) r 12
 - `front_steps` — the porch, straight in through `FRONT_DOOR`
-- `lounge_bay` — the east bay's glass, x 16–20.6, z 41–54
-- `living_west` — the west living room's windows
+- `lounge_bay` — the lawn beyond the east bay, in through its glass
+- `living_west` — the trophy hall's own glazing, then across it
 - `rear_service` — the rear door at (16, 66), the long way round
 - `veranda` — the south terrace
 

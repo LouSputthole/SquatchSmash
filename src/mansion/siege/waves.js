@@ -40,15 +40,31 @@ export const STAGING = Object.freeze({
     id: 'front_steps', x: 0, z: 34, indoor: false,
     approach: [[0, 36.5], [0, 40]], label: 'the front steps',
   }),
-  /* The east bay's glass. LOUNGE_BAY x 16..20.6, z 41..54. */
+  /* Outside the east bay, not in it. LOUNGE_BAY (x 16..20.6, z 41..54) is a
+   * roofed glazed bay -- a room, not a terrace -- so staging at its centre
+   * would put a man inside the house he is about to break into. He stands on
+   * the lawn beyond it and comes through the glass. */
   lounge_bay: Object.freeze({
-    id: 'lounge_bay', x: 18.5, z: 47, indoor: false,
-    approach: [[14, 47], [10, 45]], label: 'the lounge bay',
+    id: 'lounge_bay', x: 24, z: 47, indoor: false,
+    approach: [[20, 47], [17, 46], [12, 45]], label: 'the lounge bay glass',
   }),
-  /* The west living room's windows. LIVING x -16..-9.15, z 36..57.85. */
+  /* The west flank, and it is NOT the west living room's windows.
+   *
+   * The brief staged wave 2B on "a side entrance, broken window, or adjoining
+   * room" and the obvious read was the living room's own west glazing. It is
+   * not reachable: the WEST WING was later hung off that whole elevation
+   * (x -24.6..-16, z 40.6..74.4), so those windows now look into the trophy
+   * hall rather than onto the lawn. An attacker staged at x -18 would arrive
+   * inside the trophy hall having walked through its roof.
+   *
+   * So the flank comes in one room further out -- through the trophy hall's
+   * OWN glazing, across the hall, and into the living room from inside. That
+   * is a longer route and a better one: the flanker arrives behind the
+   * player's shoulder instead of through a wall he was already watching. */
   living_west: Object.freeze({
-    id: 'living_west', x: -18, z: 46, indoor: false,
-    approach: [[-13, 46], [-9.5, 44]], label: 'the west windows',
+    id: 'living_west', x: -28, z: 47, indoor: false,
+    approach: [[-24, 47], [-19, 47], [-14, 46], [-10.5, 45]],
+    label: 'the trophy hall glass',
   }),
   /* The rear service door at (16, 66) -- the long way round the house. */
   rear_service: Object.freeze({

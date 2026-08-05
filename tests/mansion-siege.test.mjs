@@ -209,6 +209,27 @@ test('every attacker walks in from a staging zone that has an approach', () => {
   }
 });
 
+test('no outdoor staging zone is standing inside a building', () => {
+  /* The fault this catches, found for real: `living_west` was staged at
+   * x -18 on the strength of the living room's west windows, and the WEST
+   * WING was later hung off that entire elevation. Those windows look into
+   * the trophy hall now, so the "outdoor" zone was inside a room and the
+   * attacker arrived through its roof. Bounds are the builders' own. */
+  const BUILDING = { x0: -16, x1: 16, z0: 36, z1: 75 };
+  const WEST_WING = { x0: -24.6, x1: -16, z0: 40.6, z1: 74.4 };
+  const LOUNGE_BAY = { x0: 16, x1: 20.6, z0: 41, z1: 54 };
+  const inside = (r, p) => p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1;
+  for (const zone of Object.values(STAGING)) {
+    if (zone.indoor) continue;
+    assert.ok(!inside(BUILDING, zone), `${zone.id} is inside the house`);
+    assert.ok(!inside(WEST_WING, zone), `${zone.id} is inside the west wing`);
+    /* The lounge bay is roofed and glazed on three sides -- a room, not a
+     * terrace. Standing beside it is the point; standing IN it is arriving
+     * through the glass you were about to break. */
+    assert.ok(!inside(LOUNGE_BAY, zone), `${zone.id} is inside the lounge bay`);
+  }
+});
+
 test('the second group does not wait for the first to die', () => {
   const spawns = [];
   const wave = new WaveDirector({ wave: 'one', onSpawn: (o) => spawns.push(o) });
