@@ -1134,19 +1134,47 @@ The man on Lou's front door. Deadly serious and does not want any funny business
 - `vo.silentsquatch.gate.doorman.staysinyourhand.mp3` — "That stays in your hand. You don’t set it down, you don’t open it, and you don’t hand it to me."
 - `vo.silentsquatch.gate.doorman.straightthrough.mp3` — "Straight through. Don’t wander, don’t touch anything, and don’t talk to the help."
 
-### MANSION GUARD (9)
+### MANSION GUARD (2)
 
 Voice profile: `mansion-guard`.
 
 Lou's loyal henchmen -- the four to six on the property. One voice across all of them on purpose: they are the same job, not the same man, so keep the readings short and flat and let position do the characterisation. Owner-cast 2026-08-04.
 
+- `vo.silentsquatch.guards.perimeter.camera.mp3` — "You’ve been on camera since the gate."
+- `vo.silentsquatch.guards.perimeter.path.mp3` — "Keep on the path."
+
+### MANSION GUARD BASEMENT (2)
+
+Voice profile: `mansion-guard-basement`.
+
+Lou's man in the cellar, near the armory. Nothing down there belongs to you and he will say that once. Flat, close, and in a room with no daylight. Owner-cast 2026-08-05.
+
 - `vo.silentsquatch.guards.basement.keepwalking.mp3` — "Keep walking."
 - `vo.silentsquatch.guards.basement.nothingyours.mp3` — "Nothing down here belongs to you."
-- `vo.silentsquatch.guards.perimeter.camera.mp3` — "You’ve been on camera since the gate."
+
+### MANSION GUARD PERIMETER (1)
+
+Voice profile: `mansion-guard-perimeter`.
+
+One of the men walking the perimeter outside, working with `mansion-guard` so the patrol is not one throat twice. Outdoors, on the move, eleven laps a night. Owner-cast 2026-08-05.
+
 - `vo.silentsquatch.guards.perimeter.elevenlaps.mp3` — "Long walk, this. I do it eleven times a night."
-- `vo.silentsquatch.guards.perimeter.path.mp3` — "Keep on the path."
+
+### MANSION GUARD STAIRS (2)
+
+Voice profile: `mansion-guard-stairs`.
+
+Lou's man at the top of the stairs, looking out over the front doors. He can see the gate from up there and he says so. The one post with a view, so he is the least bored of them. Owner-cast 2026-08-05.
+
 - `vo.silentsquatch.guards.stairs.nobodycomesup.mp3` — "Nobody comes up these unless he says so."
 - `vo.silentsquatch.guards.stairs.seethegate.mp3` — "I can see the gate from up here."
+
+### MANSION GUARD VAULT (2)
+
+Voice profile: `mansion-guard-vault`.
+
+Lou's man on the vault. The door stays open, he stays here, that is the arrangement. The most static post in the house and the least interested in conversation. Owner-cast 2026-08-05.
+
 - `vo.silentsquatch.guards.vault.arrangement.mp3` — "The door stays open. I stay here. That’s the arrangement."
 - `vo.silentsquatch.guards.vault.backup.mp3` — "Back up."
 

@@ -61,7 +61,9 @@ import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
 } from '../bing/license-to-grill-runtime.js';
 import {
-  BADA_BING_BARTENDER, GRATIN, MANSION_DOOR_MAN, MANSION_GUARDS, SNOW,
+  BADA_BING_BARTENDER, BIG_UNCLE_LOU, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
+  ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL,
+  RIPPINFLOW, SHUBENATOR, SNOW, WILLY,
 } from '../core/wardrobe.js';
 import { box, cylinder, group, mat } from '../world/build.js';
 import { DialogueController } from './mission/DialogueController.js';

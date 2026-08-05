@@ -438,6 +438,38 @@
       "stability": 0.62,
       "similarity": 0.84,
       "style": 0.22
+    },
+    "mansion-guard-stairs": {
+      "id": "bwCXcoVxWNYMlC6Esa8u",
+      "_note": "Lou's man at the top of the stairs, looking out over the front doors. He can see the gate from up there and he says so. The one post with a view, so he is the least bored of them. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-basement": {
+      "id": "KTPVrSVAEUSJRClDzBw7",
+      "_note": "Lou's man in the cellar, near the armory. Nothing down there belongs to you and he will say that once. Flat, close, and in a room with no daylight. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-vault": {
+      "id": "AocjYzHzWRalprWmBG9m",
+      "_note": "Lou's man on the vault. The door stays open, he stays here, that is the arrangement. The most static post in the house and the least interested in conversation. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-perimeter": {
+      "id": "ICwKbPHDHAM3eal5tHEZ",
+      "_note": "One of the men walking the perimeter outside, working with `mansion-guard` so the patrol is not one throat twice. Outdoors, on the move, eleven laps a night. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
     }
   },
   "sfx": [
@@ -18837,37 +18869,37 @@
     },
     {
       "name": "vo.silentsquatch.guards.perimeter.elevenlaps",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-perimeter",
       "say": "Long walk, this. I do it eleven times a night."
     },
     {
       "name": "vo.silentsquatch.guards.stairs.seethegate",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-stairs",
       "say": "I can see the gate from up here."
     },
     {
       "name": "vo.silentsquatch.guards.stairs.nobodycomesup",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-stairs",
       "say": "Nobody comes up these unless he says so."
     },
     {
       "name": "vo.silentsquatch.guards.basement.nothingyours",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-basement",
       "say": "Nothing down here belongs to you."
     },
     {
       "name": "vo.silentsquatch.guards.basement.keepwalking",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-basement",
       "say": "Keep walking."
     },
     {
       "name": "vo.silentsquatch.guards.vault.arrangement",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-vault",
       "say": "The door stays open. I stay here. That’s the arrangement."
     },
     {
       "name": "vo.silentsquatch.guards.vault.backup",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-vault",
       "say": "Back up."
     },
     {
