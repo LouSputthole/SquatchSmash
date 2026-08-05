@@ -79,7 +79,14 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   gate: 6, // the man on the front door
   guards: 9, // perimeter, stairs, basement, vault
   bar: 3, // the Bada Bing's bartender, working Lou's bar
-  torture: 10, // Gratin, the swing, and what xXx says about family
+  /* 2026-08-05: the whip became a HANDOVER and a repeatable swing rather than
+   * one press on Gratin, so this scope gained the handover line, four
+   * involuntary reactions and the lines xXx chooses to say after them. */
+  torture: 19, // Gratin, the cord, four swings, and what xXx says about family
+
+  /* The rest of the Family, using the house. Owner, 2026-08-05: "Everyone
+   * should be there for the most part utilizing the house hanging out." */
+  house: 8, // Sasole at the bar, Numbskull on the terrace, Hog Mama, Willy
 });
 
 const TOTAL_AWAITING = Object.values(CUES_AWAITING_VO_SYNC)
