@@ -119,6 +119,26 @@ export const MANSION_ART_SLOTS = [
   'mansion.lan.chairs',
   'mansion.guest.art',
   'mansion.vault.mark',
+  /* ================================================================== */
+  /* Fourth pass: the owner's own pictures, ten of them, one per room.    */
+  /*                                                                      */
+  /* These are not more copies of the crest -- they are the artwork the   */
+  /* team actually has: the Austin Major run, the five-year mark, Denver  */
+  /* 2026, the roster with every name on it, and three photographs that   */
+  /* belong to the house rather than to the brand. Each one hangs in the  */
+  /* room it belongs in and nowhere else, so walking the house is a way   */
+  /* of seeing all of them rather than the same badge sixteen times.      */
+  /* ================================================================== */
+  'mansion.gallery.roster',
+  'mansion.ballroom.major',
+  'mansion.lounge.cowboy',
+  'mansion.conference.stacks',
+  'mansion.office.boss',
+  'mansion.winter.almighty',
+  'mansion.cellar.bus',
+  'mansion.guest.dog',
+  'mansion.theatre.lockup',
+  'mansion.lan.denver',
 ];
 
 /* ================================================================== */
@@ -939,6 +959,11 @@ export function buildMansionInterior(shell = null) {
     root.add(f.group);
     recordArt(id, x, y, z, rotY, w + 0.14, h + 0.14);
     f.slotId = id;
+    /* Tagged so the sightline gate in tools/verify-mansion.mjs can find the
+     * picture plane itself, not just the box `recordArt` filed. A box cannot
+     * tell you which way a picture faces or what is standing in front of it,
+     * and both of those have been real faults down here. */
+    f.art.userData.artPiece = id;
     return f;
   }
 
@@ -953,6 +978,7 @@ export function buildMansionInterior(shell = null) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
     m.position.set(x, y, z);
     m.rotation.y = rotY;
+    m.userData.artPiece = id;
     root.add(m);
     recordArt(id, x, y, z, rotY, w, h, depth);
     return m;
@@ -1616,10 +1642,18 @@ export function buildMansionInterior(shell = null) {
       mat: M_GOLD,
       cast: false,
     }));
+    /* rotY PI. It had no rotation at all, which means it faced +Z -- north,
+     * into the balcony apron 2 cm behind it -- while the thing it is for is
+     * the view from the front door, which is south of it. Single-sided
+     * material, so from the whole of the foyer this crest was its own dark
+     * backing board. Everything else in the assembly (the gold surround, the
+     * scrollwork) was already built for a viewer on the south side; only the
+     * picture was turned round. */
     const crestMesh = flatArt('mansion.foyer.crest', {
       x: 0,
       y: UY - 0.68,
       z: BALCONY.z0 - 0.16,
+      rotY: Math.PI,
       w: 1.05,
       h: 1.29,
       material: mat({ map: crest, roughness: 0.85, unique: true }),
@@ -2063,10 +2097,15 @@ export function buildMansionInterior(shell = null) {
       }));
     }
     solid(r.x1 - 0.34, r.x1, GY, GY + 2.2, 49.45, 50.35);
-    root.add(box({ size: [0.1, 0.62, 0.86], pos: [r.x1 - 0.13, GY + 2.6, 45.1], mat: M_WOOD_DK }));
+    /* The scoreboard sits UNDER the banner, not on top of it. Both were on
+     * the same pier at z=45.1, the banner spanning y:3.3..4.9 and the board
+     * y:3.49..4.11 -- so the bottom half of the championship banner was
+     * behind a slab of walnut. Dropped to y:2.49..3.11, which is where a
+     * scoreboard belongs anyway: at the height of the man keeping score. */
+    root.add(box({ size: [0.1, 0.62, 0.86], pos: [r.x1 - 0.13, GY + 1.6, 45.1], mat: M_WOOD_DK }));
     for (let i = 0; i < 4; i++) {
       root.add(box({
-        size: [0.03, 0.34, 0.05], pos: [r.x1 - 0.2, GY + 2.6, 44.78 + i * 0.2], mat: M_GOLD, cast: false,
+        size: [0.03, 0.34, 0.05], pos: [r.x1 - 0.2, GY + 1.6, 44.78 + i * 0.2], mat: M_GOLD, cast: false,
       }));
     }
     // Low pendant over the table -- the whole point of a billiard room.
@@ -2122,6 +2161,19 @@ export function buildMansionInterior(shell = null) {
     root.add(cylinder({
       r: 0.03, h: 0.95, pos: [r.x1 - 0.12, GY + 3.72, 45.1], mat: M_GOLD, rotZ: Math.PI / 2,
     }));
+
+    /* The Major print, framed, on the inner wall at the south end.
+     *
+     * The trophy cases stand along this wall at z:42.55..47.25 and 54.75..56.45
+     * and the foyer door is at z:48.5..52.5, which leaves the first six metres
+     * of it -- the bit you see walking in from the front hall -- and nothing
+     * else. Square frame because the file is square: a print stretched to fit
+     * a frame drawn for something else is worse than no print. */
+    const loungeCowboy = wallArt('mansion.lounge.cowboy', r.x0 + 0.14, GY + 2.4, 40.0, Math.PI / 2, 1.2, 1.2,
+      squatchArt('mansion-lounge-cowboy', {
+        title: ['AUSTIN'], footer: 'MAJOR', ink: '#d8b23a', bg: '#1c1420',
+      }));
+    sconce(r.x0 + 0.2, GY + 3.25, 40.0, Math.PI / 2, 1.9);
 
     /* ================================================================ */
     /* THE BILLIARD BAY (owner playtest 2026-08-04, verbatim):           */
@@ -2372,6 +2424,7 @@ export function buildMansionInterior(shell = null) {
       cases,
       banner,
       bayShield,
+      cowboy: loungeCowboy,
       jackDaniels,
       radio: loungeRadio,
       tv: loungeTvSet,
@@ -2675,7 +2728,35 @@ export function buildMansionInterior(shell = null) {
         }));
       }
     }
-    return { stageLight, stageStack, backdrop: stageBackdrop };
+    /* The Major banner, high on the west wall beside the stage.
+     *
+     * A 3:1 banner wants a long wall and nothing under it, and this is the
+     * only stretch of the ballroom that is both: the pier glasses stop at
+     * z=70.85 and the dining doorway is away south at z:64..67.5. Hung at
+     * 4.5 m so it clears the heads of a room full of people, which is the
+     * condition this room is furnished for. */
+    const majorBanner = flatArt('mansion.ballroom.major', {
+      x: r.x0 + 0.16,
+      y: GY + 3.3,
+      z: 72.9,
+      rotY: Math.PI / 2,
+      w: 3.4,
+      h: 1.14,
+      material: mat({
+        map: squatchArt('mansion-ballroom-major', {
+          title: ['AUSTIN MAJOR'], footer: 'THE HOUSE WENT', ink: '#c9a2ff', bg: '#1a1226',
+        }),
+        roughness: 0.9,
+        unique: true,
+      }),
+    });
+    root.add(cylinder({
+      r: 0.03, h: 3.6, pos: [r.x0 + 0.12, GY + 3.92, 72.9], mat: M_GOLD, rotX: Math.PI / 2,
+    }));
+
+    return {
+      stageLight, stageStack, backdrop: stageBackdrop, major: majorBanner,
+    };
   }
   const ballroomProps = buildBallroom();
 
@@ -3159,11 +3240,39 @@ export function buildMansionInterior(shell = null) {
     }));
     sconce(-11.4, UY + 3.0, Z_GALLERY_S + 0.2, 0, 1.9);
 
+    /* THE ROSTER, on the gallery's east half.
+     *
+     * A 2.5:1 banner with every name on it, and the gallery is where it goes:
+     * the founders' portraits are already down the opposite wall, so a man
+     * walking the run reads four faces on one side and the whole team on the
+     * other. The x is picked, not chosen for looks -- the balcony opens
+     * through this wall between x:-3..3 and the west-front bedroom door is at
+     * x:-14.9..-13.1, so x=7.4 is the middle of the only clear pier. */
+    const galleryRoster = flatArt('mansion.gallery.roster', {
+      x: 7.4,
+      y: UY + 2.05,
+      z: Z_GALLERY_S + 0.18,
+      rotY: 0,
+      w: 3.2,
+      h: 1.28,
+      material: mat({
+        map: squatchArt('mansion-gallery-roster', {
+          title: ['THE ROSTER'], footer: 'EVERY NAME ON IT', ink: '#e8c268', bg: '#191322',
+        }),
+        roughness: 0.85,
+        unique: true,
+      }),
+    });
+    root.add(box({
+      size: [3.4, 1.46, 0.05], pos: [7.4, UY + 2.05, Z_GALLERY_S + 0.14], mat: M_GOLD, cast: false,
+    }));
+    sconce(7.4, UY + 3.05, Z_GALLERY_S + 0.2, 0, 1.9);
+
     const lights = [];
     for (const px of [-12, -4, 4, 12]) {
       lights.push(ceilingLight(px, 50.5, UCY - 0.3, 0xffdca0, 5.2, 15));
     }
-    return { lights, pride: galleryPride };
+    return { lights, pride: galleryPride, roster: galleryRoster };
   }
   const galleryProps = buildGallery();
 
@@ -3264,6 +3373,14 @@ export function buildMansionInterior(shell = null) {
         title: ['SILVER', 'SASQUATCHES'], footer: 'EST. THE OLD DAYS', ink: '#d8b23a', bg: '#141018',
       }));
 
+    /* Five years, on the same wall, north of the sideboard. The room where
+     * the business is done is the room the anniversary belongs in. Kept south
+     * of z=62.5 so it is clear of the office door in the north wall. */
+    const conferenceStacks = wallArt('mansion.conference.stacks', r.x1 - 0.14, UY + 2.4, 59.9, -Math.PI / 2, 1.15, 1.15,
+      squatchArt('mansion-conference-stacks', {
+        title: ['FIVE YEARS'], footer: 'OF STACKS', ink: '#c9a2ff', bg: '#1a1226',
+      }));
+
     // Lighting: a long fixture over the table plus corner uplight.
     const lights = [];
     for (const lz of [56.4, 59.6]) {
@@ -3282,7 +3399,13 @@ export function buildMansionInterior(shell = null) {
       lights.push(l);
     }
     return {
-      table: { x: 0, z0: tableZ0, z1: tableZ1 }, chairs, podium, screen, lights, crest: conferenceCrest,
+      table: { x: 0, z0: tableZ0, z1: tableZ1 },
+      chairs,
+      podium,
+      screen,
+      lights,
+      crest: conferenceCrest,
+      stacks: conferenceStacks,
     };
   }
   const conferenceProps = buildConference();
@@ -3405,6 +3528,11 @@ export function buildMansionInterior(shell = null) {
     curtains('z', r.z1 - 0.22, 4.0, UY + 0.6, 5.4, 3.4, M_CURTAIN_RED);
     wallArt('office-lou', -4.6, UY + 2.4, r.z0 + 0.2, 0, 1.2, 1.5,
       makePortraitTexture('lou-office', 'BIG UNCLE LOU', '#2a1c14'));
+    /* The photograph, west of the painted portrait: the man as he actually
+     * turned up, next to the man as he was painted. West of x=-6 keeps it off
+     * the conference door (x:-1.6..1.6) with the portrait between them. */
+    const officeBoss = wallArt('mansion.office.boss', -6.9, UY + 2.4, r.z0 + 0.2, 0, 0.86, 1.03,
+      makePortraitTexture('lou-photo', 'THE SHIRT', '#241a16'));
     /* The shield behind the desk. Lou's own wall in his own office is the
      * one place in the house the family badge has to be. Kept east of the
      * office door (x:-1.6..1.6) so it is not another picture over a doorway. */
@@ -3436,7 +3564,7 @@ export function buildMansionInterior(shell = null) {
     const ceil = ceilingLight(0, 69, UCY - 0.35, 0xffdca0, 6, 18);
     ceilingLight(0, 74, UCY - 0.35, 0xffdca0, 4.2, 13);
     return {
-      desk, deskLight, ceilingLight: ceil, shield: officeShield, lou,
+      desk, deskLight, ceilingLight: ceil, shield: officeShield, boss: officeBoss, lou,
     };
   }
   const officeProps = buildOffice();
@@ -3951,11 +4079,19 @@ export function buildMansionInterior(shell = null) {
      * under the flight (see buildBasementStair's spandrel note). Now that it
      * is closed off it is dressed as what it should always have been: the
      * armory's own noticeboard wall, under the house shield. */
+    /* ON the south wall, facing north into the alcove -- not floating half a
+     * metre off it facing the concrete.
+     *
+     * The whole assembly was dimensioned off BASEMENT_STAIR.z0 (the front of
+     * the stair mass) rather than off the wall it is fixed to, which put the
+     * board at z=50.68 with its face turned toward the south lining 0.5 m
+     * away. There is nowhere to stand in that half-metre; everybody who ever
+     * looked at this noticeboard was looking at the back of it. */
     const basementShield = flatArt('mansion.basement.shield', {
       x: 7.2,
       y: BY + 1.75,
-      z: BASEMENT_STAIR.z0 - 0.32,
-      rotY: Math.PI,
+      z: r.z0 + 0.24,
+      rotY: 0,
       w: 1.15,
       h: 0.84,
       material: mat({
@@ -3966,14 +4102,15 @@ export function buildMansionInterior(shell = null) {
         unique: true,
       }),
     });
+    // Backing board behind it, shelf below and proud of it, light in front.
     root.add(box({
-      size: [1.3, 0.99, 0.04], pos: [7.2, BY + 1.75, BASEMENT_STAIR.z0 - 0.29], mat: M_RACK, cast: false,
+      size: [1.3, 0.99, 0.04], pos: [7.2, BY + 1.75, r.z0 + 0.21], mat: M_RACK, cast: false,
     }));
     root.add(box({
-      size: [1.9, 0.06, 0.16], pos: [7.2, BY + 0.9, BASEMENT_STAIR.z0 - 0.34], mat: M_RACK, cast: false,
+      size: [1.9, 0.06, 0.16], pos: [7.2, BY + 0.9, r.z0 + 0.3], mat: M_RACK, cast: false,
     }));
     const alcoveLight = new THREE.PointLight(0xffe3b0, 3.4, 7, 2);
-    alcoveLight.position.set(7.2, BY + 2.1, BASEMENT_STAIR.z0 - 0.9);
+    alcoveLight.position.set(7.2, BY + 2.1, r.z0 + 0.8);
     root.add(alcoveLight);
     // A locker and a couple of jerrycans in the alcove, so it reads as used.
     root.add(box({
@@ -4335,13 +4472,23 @@ const M_GOLD_BAR = mat({
         unique: true,
       }),
     });
-    wallArt('trophy-founder-west', r.x0 + 0.14, GY + 2.7, 48.4, Math.PI / 2, 1.1, 1.5,
+    /* z=47.4, not 48.4. The order down this wall stands engaged columns at
+     * z=42.4, 48.4 and 54.4, and this portrait was hung at 48.4 -- on the
+     * face of the middle one, a 0.68 m drum of marble between it and the
+     * room. 47.4 is the middle of the clear bay: 1.0 m off that column's
+     * centre line, and clear of the glazing that ends at 46.4 and the curtain
+     * that ends at 46.7. */
+    wallArt('trophy-founder-west', r.x0 + 0.14, GY + 2.7, 47.4, Math.PI / 2, 1.1, 1.5,
       makePortraitTexture('includer-booski', 'BOOSKIBRO', '#171c22'));
     /* z=52.0, not 48.4: the hall's east wall IS the house's west wall, and the
      * living room's own glazing runs z:47.6..50.8 through it. A portrait at
      * 48.4 would be hung across a window from the far side -- caught by the
      * art sweep, which does not care which room a piece thinks it is in. */
-    wallArt('trophy-founder-east', r.x1 - 0.14, GY + 2.7, 52.0, -Math.PI / 2, 1.1, 1.5,
+    /* x1 - 0.48, not x1 - 0.14. See the note on the winter garden's inner
+     * wall: this room's x1 is the CENTRE LINE of the main block's west wall,
+     * not the face of it, so this portrait spent its life 26 cm inside the
+     * masonry. */
+    wallArt('trophy-founder-east', r.x1 - 0.48, GY + 2.7, 52.0, -Math.PI / 2, 1.1, 1.5,
       makePortraitTexture('includer-shubes', 'THE SHUBENATOR', '#221a18'));
 
     /* Display cases down the long walls: the silverware that is not the point
@@ -4530,10 +4677,33 @@ const M_GOLD_BAR = mat({
     root.add(cylinder({ rTop: 0.06, rBottom: 0.36, h: 0.34, pos: [r.x0 + 1.8, GY + 2.55, r.z1 - 5.0], mat: M_GOLD, cast: false }));
     solid(r.x0 + 1.5, r.x0 + 2.1, GY, GY + 2.4, r.z1 - 5.3, r.z1 - 4.7);
 
+    /* THE INNER WALL: WHERE ITS FACE ACTUALLY IS, AND THE TWO HOLES IN IT.
+     *
+     * `r.x1` is -16, which is the main block's footprint line -- and the west
+     * wall is 0.4 m thick, built from -16.4 to -16, so it stands 40 cm INSIDE
+     * this room. Everything hung here therefore wants x1 - 0.46 or further,
+     * not the x1 - 0.12 the rest of the house uses against its own
+     * partitions. The shield was at x1 - 0.12 and was inside the masonry:
+     * present in the scene, correct in every check, and not visible from
+     * anywhere in the room. tools/verify-mansion.mjs now tests every hung
+     * piece against the shell's own wall boxes, so this cannot come back.
+     *
+     * This wall is the main block's own west wall, so it is not blank: the
+     * dining room's west glazing is z:60.4..63.8 and the french doors from
+     * the dining room are z:68.8..71.8. That leaves two clear piers, z:64.2
+     * to 68.4 and z:72.2 north of the doors, and both things hung here are in
+     * one of them.
+     *
+     * The shield used to be at z=71.6, which is squarely across the top of
+     * those french doors -- the exact fault the owner reported ("a lot of the
+     * art is over doorways"), passing the doorway sweep because the sweep had
+     * never been told about unglazed openings in exterior walls. It has been
+     * told now (see `doorways` in MansionGrounds.js), and the shield has moved
+     * 1.45 m north onto the pier beyond the doors. */
     const winterShield = flatArt('mansion.winter.shield', {
-      x: r.x1 - 0.12,
+      x: r.x1 - 0.46,
       y: GY + 3.2,
-      z: r.z1 - 2.4,
+      z: r.z1 - 0.95,
       rotY: -Math.PI / 2,
       w: 1.2,
       h: 1.5,
@@ -4546,12 +4716,22 @@ const M_GOLD_BAR = mat({
       }),
     });
 
+    /* The big canvas, on the other pier, facing the pool across the room.
+     * Gilt frame, sconce over it, hung at eye level rather than up in the
+     * lantern -- it is a painting, and the winter garden is the only room in
+     * the house with the wall height and the quiet to give one. */
+    const winterAlmighty = wallArt('mansion.winter.almighty', r.x1 - 0.48, GY + 2.7, 66.2, -Math.PI / 2, 1.15, 1.44,
+      makePortraitTexture('winter-almighty', 'THE ALMIGHTY', '#16241c'));
+    sconce(r.x1 - 0.54, GY + 3.75, 66.2, -Math.PI / 2, 2.0);
+
     const lights = [
       ceilingLight(cx, r.z0 + 4.0, CEIL - 0.45, 0xdff0e4, 5.2, 14),
       ceilingLight(cx, cz, CEIL - 0.45, 0xdff0e4, 5.6, 15),
       ceilingLight(cx, r.z1 - 4.0, CEIL - 0.45, 0xdff0e4, 5.2, 14),
     ];
-    return { shield: winterShield, pool: { x: cx, z: cz, r: poolR }, lights };
+    return {
+      shield: winterShield, almighty: winterAlmighty, pool: { x: cx, z: cz, r: poolR }, lights,
+    };
   }
 
   /* ================================================================== */
@@ -4713,6 +4893,12 @@ const M_GOLD_BAR = mat({
         }),
       );
       sign.position.set(sx, BY + 2.3, r.z1 - 0.08);
+      /* Turned to face the corridor. A PlaneGeometry faces +Z, and this wall
+       * is the corridor's NORTH side -- so unrotated, every one of these
+       * signs was pointing into the wall it is fixed to and being backface
+       * culled. Four unmarked doors underground was the fault this sign was
+       * added to fix, and it had quietly reintroduced it. */
+      sign.rotation.y = Math.PI;
       root.add(sign);
     }
     // Framed photographs of the house being built, between the doors.
@@ -4721,8 +4907,13 @@ const M_GOLD_BAR = mat({
       [-0.6, 'cellar-pour', 'THE POUR'],
       [11.0, 'cellar-topping', 'TOPPING OUT'],
     ];
+    /* Facing PI for the same reason the signs do: hung on the corridor's
+     * north wall at rotY 0, all three of these rendered as blank dark
+     * rectangles -- the back of the frame, with the photograph culled away on
+     * the far side of it. Screenshotted from where a player stands, which is
+     * the only way this class of fault ever shows up. */
     for (const [sx, id, label] of shots) {
-      wallArt(id, sx, BY + 1.75, r.z1 - 0.1, 0, 0.8, 0.6,
+      wallArt(id, sx, BY + 1.75, r.z1 - 0.1, Math.PI, 0.8, 0.6,
         makePortraitTexture(id, label, '#1b1712'));
     }
     /* The house crest goes on the SOUTH wall, beside the armory door.
@@ -4748,6 +4939,17 @@ const M_GOLD_BAR = mat({
         unique: true,
       }),
     });
+    /* A fourth photograph, with the other three -- except on the south wall,
+     * where the crest is, because that is the wall down here that faces the
+     * way you walk.
+     *
+     * x=-10.5 is the middle of the bay between the brick piers at -14.8 and
+     * -8.5. It was at -8.4 first, which is 10 cm inside the second of them:
+     * a picture hung on a pier's own face, i.e. a picture nobody sees. Above
+     * the dado (BY+1.125) as well, for the same reason the others are. */
+    const cellarBus = wallArt('mansion.cellar.bus', -10.5, BY + 1.75, r.z0 + 0.08, 0, 0.72, 0.96,
+      makePortraitTexture('cellar-bus', 'THE BUS', '#181418'));
+
     // A bench, a fire point and a service panel -- the things a corridor has.
     root.add(box({ size: [1.9, 0.09, 0.44], pos: [-4.4, BY + 0.46, r.z0 + 0.34], mat: M_WOOD_DK }));
     for (const lx of [-5.2, -3.6]) {
@@ -4765,7 +4967,7 @@ const M_GOLD_BAR = mat({
         size: [0.08, 0.14, 0.04], pos: [1.36 + (i % 3) * 0.24, BY + 1.72 - Math.floor(i / 3) * 0.28, r.z0 + 0.2], mat: M_CHROME, cast: false,
       }));
     }
-    return { crest: cellarCrest, lights };
+    return { crest: cellarCrest, bus: cellarBus, lights };
   }
   const cellarHallProps = buildCellarHall();
 
@@ -4872,8 +5074,15 @@ const M_GOLD_BAR = mat({
         unique: true,
       }),
     });
+    /* A small framed photograph on the east wall, level with the bed. The
+     * wardrobe stands at z:68.65..70.55, so this goes north of it -- the one
+     * thing in the guest room that is not house branding, which is rather the
+     * point of it. */
+    const guestDog = wallArt('mansion.guest.dog', r.x1 - 0.14, BY + 1.7, 72.6, -Math.PI / 2, 0.62, 0.83,
+      makePortraitTexture('guest-dog', 'THE DOG', '#1c1a16'));
+
     const light = ceilingLight(cx, cz, -0.4, 0xffdca0, 6.6, 15);
-    return { art: guestArt, light };
+    return { art: guestArt, dog: guestDog, light };
   }
   const guestProps = buildGuestRoom();
 
@@ -5024,8 +5233,27 @@ const M_GOLD_BAR = mat({
       root.add(l);
       lights.push(l);
     }
+    /* The lockup, on the opposite wall from the house banner and behind the
+     * back row -- where a cinema puts the poster for what is on. North of the
+     * popcorn cart (z:67.9..68.6) and clear of both rows of recliners. */
+    const theatreLockup = flatArt('mansion.theatre.lockup', {
+      x: r.x1 - 0.14,
+      y: BY + 1.7,
+      z: 73.5,
+      rotY: -Math.PI / 2,
+      w: 0.95,
+      h: 0.95,
+      material: mat({
+        map: squatchArt('mansion-theatre-lockup', {
+          title: ['AUSTIN'], footer: 'MAJOR', ink: '#c9a2ff', bg: '#0f0b16',
+        }),
+        roughness: 0.9,
+        unique: true,
+      }),
+    });
+
     return {
-      screen, banner: theatreBanner, seats, lights,
+      screen, banner: theatreBanner, lockup: theatreLockup, seats, lights,
     };
   }
   const theatreProps = buildTheatre();
@@ -5245,8 +5473,28 @@ const M_GOLD_BAR = mat({
     rgbGlow.position.set(cx, BY + 1.1, cz);
     root.add(rgbGlow);
     lights.push(rgbGlow);
+    /* Denver, on the east wall between the rack (z:70.65..71.65) and the
+     * corner. Hung at 1.5 m rather than up under the cove: the cove bands run
+     * round this room at BY+0.32 and BY+2.14, and a picture through one of
+     * them is a picture with a light strip across it. */
+    const lanDenver = flatArt('mansion.lan.denver', {
+      x: r.x1 - 0.14,
+      y: BY + 1.5,
+      z: 73.2,
+      rotY: -Math.PI / 2,
+      w: 0.9,
+      h: 0.9,
+      material: mat({
+        map: squatchArt('mansion-lan-denver', {
+          title: ['DENVER'], footer: '2026', ink: '#7fd0ff', bg: '#101625',
+        }),
+        roughness: 0.9,
+        unique: true,
+      }),
+    });
+
     return {
-      stations, chairBacks, banner: lanBanner, lights,
+      stations, chairBacks, banner: lanBanner, denver: lanDenver, lights,
     };
   }
   const lanProps = buildLanRoom();
@@ -5684,6 +5932,19 @@ const M_GOLD_BAR = mat({
      * logo on the chairs, plural, and five chairs pointed at five slots would
      * be five manifest entries for one image. */
     { slot: 'mansion.lan.chairs', meshes: lanProps.chairBacks, w: 0.34 },
+    /* The owner's own ten. Each `w` is the width the frame or the banner was
+     * actually built at, so a file that arrives at the aspect it was hung for
+     * fills its frame exactly instead of floating inside it. */
+    { slot: 'mansion.gallery.roster', mesh: galleryProps.roster, w: 3.2 },
+    { slot: 'mansion.ballroom.major', mesh: ballroomProps.major, w: 3.4 },
+    { slot: 'mansion.lounge.cowboy', mesh: loungeProps.cowboy?.art, w: 1.2 },
+    { slot: 'mansion.conference.stacks', mesh: conferenceProps.stacks?.art, w: 1.15 },
+    { slot: 'mansion.office.boss', mesh: officeProps.boss?.art, w: 0.86 },
+    { slot: 'mansion.winter.almighty', mesh: winterProps.almighty?.art, w: 1.15 },
+    { slot: 'mansion.cellar.bus', mesh: cellarHallProps.bus?.art, w: 0.72 },
+    { slot: 'mansion.guest.dog', mesh: guestProps.dog?.art, w: 0.62 },
+    { slot: 'mansion.theatre.lockup', mesh: theatreProps.lockup, w: 0.95 },
+    { slot: 'mansion.lan.denver', mesh: lanProps.denver, w: 0.9 },
   ];
   const artReady = resolveGear(MANSION_ART_SLOTS).then((gear) => {
     const dressed = [];

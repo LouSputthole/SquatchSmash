@@ -1396,7 +1396,7 @@ try {
     openings: window.mansion.openings,
   }));
   check('every picture in the house registered itself with the art sweep',
-    Array.isArray(artSweep.art) && artSweep.art.length >= 24,
+    Array.isArray(artSweep.art) && artSweep.art.length >= 34,
     `${artSweep.art?.length ?? 0} pieces, ${artSweep.openings?.length ?? 0} openings`);
 
   /* THE OPENING IS GROWN OUT OF ITS OWN WALL BEFORE INTERSECTING.
@@ -1435,6 +1435,84 @@ try {
   }
   check('no picture, banner or mirror is hung across a doorway or a window',
     clashes.length === 0, clashes.join(' | '));
+
+  /* ================================================================ */
+  /* ...AND NONE OF THEM IS INSIDE THE WALL EITHER                     */
+  /*                                                                    */
+  /* The other half of the same fault. A room rect's x1 is a centre     */
+  /* line, not a wall face, and the west wing's rooms run right up to   */
+  /* the main block's own 40 cm exterior wall -- so a picture hung at   */
+  /* "x1 minus a few centimetres" there is buried in the masonry. Three */
+  /* were: the trophy hall's east founder portrait, the winter garden's */
+  /* shield, and (on its first pass) the winter garden's canvas.        */
+  /*                                                                    */
+  /* Invisible to every check the house had, because they all ask WHERE */
+  /* a picture is and none of them asked what is standing in front of   */
+  /* it. This one takes each piece's centre and asks whether it is      */
+  /* inside a solid box of the shell -- cheap, and it names the wall.   */
+  /* ================================================================ */
+  const buried = await page.evaluate(() => {
+    const out = [];
+    for (const p of window.mansion.art) {
+      const c = {
+        x: (p.x0 + p.x1) / 2, y: (p.y0 + p.y1) / 2, z: (p.z0 + p.z1) / 2,
+      };
+      for (const w of window.mansion.grounds.shell.walls) {
+        if (c.x > w.x0 && c.x < w.x1 && c.y > w.y0 && c.y < w.y1 && c.z > w.z0 && c.z < w.z1) {
+          out.push(`${p.id} inside ${w.tag}`);
+          break;
+        }
+      }
+    }
+    return out;
+  });
+  check('no picture is hung inside a wall rather than on the face of one',
+    buried.length === 0, buried.join(' | '));
+
+  /* ================================================================ */
+  /* AND EVERY ONE OF THEM CAN ACTUALLY BE SEEN                        */
+  /*                                                                    */
+  /* The strongest of the three, and the one that would have caught all */
+  /* of this on its own: stand 60 cm off each picture's OWN FACE and    */
+  /* cast a ray back at it. The first thing the ray meets has to be the */
+  /* picture.                                                           */
+  /*                                                                    */
+  /* Three distinct faults fail this and nothing else in the suite:     */
+  /*   - hung backwards (a PlaneGeometry faces +Z and the material is   */
+  /*     single-sided, so the ray starts inside the wall and hits the   */
+  /*     wall) -- four room signs and three photographs downstairs;     */
+  /*   - buried in masonry -- the west wing's inner wall;               */
+  /*   - hung on a pier, a bookcase or a wardrobe rather than on the    */
+  /*     wall behind it -- the lower-level corridor's brick piers.      */
+  /*                                                                    */
+  /* Frame parts within 5 cm of the picture (the glass sheen, the mount */
+  /* board) are its own, not an obstruction.                            */
+  /* ================================================================ */
+  const blocked = await page.evaluate(() => {
+    const { THREE, scene } = window.mansion;
+    const ray = new THREE.Raycaster();
+    const out = [];
+    const pieces = [];
+    scene.traverse((o) => { if (o.userData?.artPiece) pieces.push(o); });
+    for (const mesh of pieces) {
+      mesh.updateWorldMatrix(true, false);
+      const pos = new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld);
+      const normal = new THREE.Vector3(0, 0, 1)
+        .applyQuaternion(mesh.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      ray.set(pos.clone().addScaledVector(normal, 0.6), normal.clone().negate());
+      const hits = ray.intersectObjects(scene.children, true).filter((h) => h.object.visible);
+      const mine = hits.find((h) => h.object === mesh);
+      if (!mine) { out.push(`${mesh.userData.artPiece}: no line of sight to its own face`); continue; }
+      const blocker = hits.find((h) => h.object !== mesh && h.distance < mine.distance - 0.05);
+      if (blocker) {
+        out.push(`${mesh.userData.artPiece} behind ${blocker.object.name || blocker.object.geometry.type}`);
+      }
+    }
+    return { out, count: pieces.length };
+  });
+  check('every picture in the house can be seen from in front of it',
+    blocked.out.length === 0 && blocked.count >= 34,
+    blocked.out.length ? blocked.out.join(' | ') : `${blocked.count} pieces checked`);
 
   /* ================================================================ */
   /* Working sets, and the working sink                                 */
@@ -1480,7 +1558,54 @@ try {
     JSON.stringify(sinkRun));
 
   check('the Squatch logo art slots are declared for the apartment gear pipeline',
-    media.slots >= 16, `${media.slots} slots`);
+    media.slots >= 26, `${media.slots} slots`);
+
+  /* ================================================================ */
+  /* THE OWNER'S OWN PICTURES ARE ON THE WALLS                         */
+  /*                                                                    */
+  /* Ten images, one per room, and this proves the whole chain rather   */
+  /* than any one link of it: the slot is declared, the manifest names  */
+  /* a file, the file loaded, and `dressArtSlots` actually swapped the  */
+  /* drawn placeholder for it. A manifest row pointing at a filename    */
+  /* nobody shipped fails here instead of hanging a blank frame -- and  */
+  /* so does a slot that was declared and then never wired to a mesh,   */
+  /* which is the easier of the two mistakes to make.                   */
+  /* ================================================================ */
+  const OWNER_PICTURES = [
+    'mansion.gallery.roster', 'mansion.ballroom.major', 'mansion.lounge.cowboy',
+    'mansion.conference.stacks', 'mansion.office.boss', 'mansion.winter.almighty',
+    'mansion.cellar.bus', 'mansion.guest.dog', 'mansion.theatre.lockup',
+    'mansion.lan.denver',
+  ];
+  /* Polled, not read once: the art pipeline is deliberately off the critical
+   * path (the house is walkable before the textures land), so a single read
+   * is a race against the decoder rather than a test of the wiring. */
+  const readDressed = () => page.evaluate(() => {
+    const out = {};
+    window.mansion.scene.traverse((o) => {
+      const a = o.userData?.art;
+      if (a?.real) out[a.slot] = a.file;
+    });
+    return out;
+  });
+  let dressed = await readDressed();
+  for (let i = 0; i < 20 && OWNER_PICTURES.some((s) => !dressed[s]); i++) {
+    await page.waitForTimeout(500);
+    dressed = await readDressed();
+  }
+  const undressed = OWNER_PICTURES.filter((s) => !dressed[s]);
+  check("every one of the owner's ten pictures is hung with its real image file",
+    undressed.length === 0,
+    undressed.length ? `not dressed: ${undressed.join(', ')}`
+      : OWNER_PICTURES.map((s) => dressed[s]).join(', '));
+
+  /* And no two of them are the same file: ten slots pointed at one image is
+   * the failure mode this pass exists to end, and it is invisible in a
+   * screenshot of any single room. */
+  const files = OWNER_PICTURES.map((s) => dressed[s]).filter(Boolean);
+  check("the owner's ten pictures are ten different images",
+    new Set(files).size === files.length && files.length === OWNER_PICTURES.length,
+    `${new Set(files).size} distinct of ${files.length}`);
 
   /* ================================================================ */
   /* THE WEST WING, AND THE GREAT INCLUDER                             */

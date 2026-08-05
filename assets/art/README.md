@@ -49,6 +49,16 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 | `bing.hallway.eric` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
 | `bing.hallway.irish` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
 | `bing.hallway.seff` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `mansion.gallery.roster` | Lou's mansion, the roster banner on the upstairs gallery, opposite the founders |
+| `mansion.ballroom.major` | Lou's mansion, wide banner high on the ballroom's west wall, beside the stage |
+| `mansion.lounge.cowboy` | Lou's mansion, framed square print at the south end of the billiard room |
+| `mansion.conference.stacks` | Lou's mansion, framed square print in the conference room, north of the coffee service |
+| `mansion.office.boss` | Lou's mansion, framed photograph in Lou's office beside the painted portrait |
+| `mansion.winter.almighty` | Lou's mansion, the big gilt-framed canvas in the winter garden, facing the pool |
+| `mansion.cellar.bus` | Lou's mansion, framed photograph on the lower level with the building shots |
+| `mansion.guest.dog` | Lou's mansion, small framed photograph by the bed in the guest room |
+| `mansion.theatre.lockup` | Lou's mansion, poster behind the back row of the screening room |
+| `mansion.lan.denver` | Lou's mansion, square print on the LAN room's east wall |
 | `squatchfather.dining.coast` | Squatchfather, large framed dining-room print |
 | `squatchfather.portrait.uncle_lou` | Squatchfather, Family portrait replacing dining-room filler art |
 | `squatchfather.portrait.rippinflow` | Squatchfather, Family portrait replacing dining-room filler art |

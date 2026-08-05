@@ -1860,6 +1860,17 @@ export function buildMansionGrounds(scene = null) {
     const xE1 = BUILDING.x1 + WALL_T; // east wall band
 
     const windows = [];
+    /* The openings in these walls you WALK through -- the arcade into the
+     * trophy hall, the french doors into the winter garden, the terrace doors.
+     *
+     * Recorded for the same reason `windows` is: tools/verify-mansion.mjs
+     * sweeps every hung picture against every opening the house declares, and
+     * until this list existed it only ever saw the glazed ones. A doorway the
+     * sweep cannot see is a doorway art can be hung across -- which is exactly
+     * what had happened to the winter garden's shield, hung over the top of
+     * the french doors from the dining room and passing the check.
+     */
+    const doorways = [];
 
     /**
      * One exterior wall plane, built as the COMPLEMENT of its openings.
@@ -1910,7 +1921,16 @@ export function buildMansionGrounds(scene = null) {
         seg(ua, ub, cursor, y1, `${tag}-solid`);
       }
       for (const o of openings) {
-        if (!o.glass) continue;
+        if (!o.glass) {
+          doorways.push(axis === 'z'
+            ? {
+              id: o.id, x0: o.u0, x1: o.u1, y0: o.y0, y1: o.y1, z0: lo, z1: hi,
+            }
+            : {
+              id: o.id, x0: lo, x1: hi, y0: o.y0, y1: o.y1, z0: o.u0, z1: o.u1,
+            });
+          continue;
+        }
         seg(o.u0, o.u1, o.y0, o.y1, `${tag}-${o.id}`, o.frosted ? M_GLASS_FROST : M_GLASS_TINT, 0.11);
         // Mullions: a bare 7 m sheet of tinted glass reads as a hole in the
         // wall. Vertical bars every ~2.4 m (plus a transom on anything over
@@ -2453,6 +2473,7 @@ export function buildMansionGrounds(scene = null) {
     return {
       wallRects,
       windows,
+      doorways,
       slabs: {
         podium: podiumSegs.map((s) => ({ ...s, y0: 0, y1: GROUND_Y })),
         upperFloor: upperSegs.map((s) => ({ ...s, y0: UPPER_Y - 0.28, y1: UPPER_Y })),
@@ -3786,6 +3807,8 @@ export function buildMansionGrounds(scene = null) {
     atrium: { ...ATRIUM },
     walls: shellMeta.wallRects,
     windows: shellMeta.windows,
+    /** The unglazed openings in those same walls -- see the note by `doorways`. */
+    doorways: shellMeta.doorways,
     doors,
     slabs: shellMeta.slabs,
   };

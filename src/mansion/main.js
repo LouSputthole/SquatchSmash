@@ -1212,6 +1212,12 @@ window.mansion = {
     ...Object.values(interior.doors).map((d) => ({ id: d.id, ...d })),
     ...Object.values(grounds.doors).map((d) => ({ ...d })),
     ...grounds.shell.windows.map((w) => ({ ...w })),
+    /* The shell's unglazed openings -- the arcade into the trophy hall, the
+     * french doors into the winter garden, the terrace doors. They used to be
+     * missing here, which meant the sweep judged pictures against the windows
+     * and the interior partitions only, and a picture hung across a doorway
+     * cut through an EXTERIOR wall passed. One did. */
+    ...grounds.shell.doorways.map((d) => ({ ...d })),
   ],
   /** The working sets, so a verifier can prove they are wired rather than modelled. */
   media: {

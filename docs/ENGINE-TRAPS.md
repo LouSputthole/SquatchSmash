@@ -130,3 +130,48 @@ success without exercising what the player does.
 **The rule.** Walk it. If the player walks somewhere, the check walks there. If
 the player holds a button, the check holds the button and waits for what the
 button earns.
+
+---
+
+## 6. Three ways a picture can be in the scene and not on the wall
+
+**Symptom.** Framed art that is present, correctly textured, in the right room,
+passing every check the house has -- and invisible in play. Found three
+different causes of it in one pass through Lou's mansion:
+
+1. **Hung backwards.** `PlaneGeometry` faces `+Z` and materials are
+   single-sided, so a picture on a *north* wall at `rotY: 0` faces into the
+   masonry and is backface-culled. Three photographs and four room signs on the
+   lower level. What is left facing the room is the frame's tint bezel -- a
+   box, visible from every side -- so the wall looks like it has framed art on
+   it right up until you try to read the art.
+2. **Buried in the wall.** A room rect's `x1` is a *centre line*, not a wall
+   face. The west wing's rooms run up to the main block's own 0.4 m exterior
+   wall, so `r.x1 - 0.14` there is 26 cm inside the masonry. Two pictures.
+3. **Hung on the thing in front of the wall.** A brick pier, a wardrobe, a
+   bookcase. The corridor downstairs has piers every few metres and one photo
+   landed on the face of one.
+
+The mansion's axes, for the first of those: a piece on a **south** wall faces
+`rotY: 0`, on a **north** wall `Math.PI`, on a **west** wall `Math.PI / 2`, on
+an **east** wall `-Math.PI / 2`.
+
+**Why every check passed.** Every geometric assertion this house had was about
+*where* a piece is: its world box against the doorways, its slot against the
+manifest, its texture against the file that loaded. A world box is identical
+whichever way the plane faces and whatever is standing in front of it. The
+photographs even passed the check proving the real image file was swapped in --
+it was swapped in, onto a plane pointing at brick.
+
+**The fix, and the gate.** `tools/verify-mansion.mjs` now stands 60 cm off each
+picture's own face, along its own normal, and casts a ray back at it; the first
+thing the ray meets has to be the picture. That single check fails all three
+faults above, and it needs the picture *plane* rather than its bounding box --
+hence `userData.artPiece`, set by `wallArt`/`flatArt` in
+`src/mansion/scenes/MansionInterior.js`.
+
+**The rule.** A bounding box cannot see orientation and cannot see occlusion.
+Where a check cannot look, look yourself: `page.screenshot()` after a
+`teleport()` in front of each new piece is thirty seconds of work, and it is
+what turned up all three of these. Anything you have not looked at, you have
+not verified.
