@@ -18179,37 +18179,37 @@
     },
     {
       "name": "vo.silentsquatch.guards.perimeter.elevenlaps",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-perimeter",
       "say": "Long walk, this. I do it eleven times a night."
     },
     {
       "name": "vo.silentsquatch.guards.stairs.seethegate",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-stairs",
       "say": "I can see the gate from up here."
     },
     {
       "name": "vo.silentsquatch.guards.stairs.nobodycomesup",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-stairs",
       "say": "Nobody comes up these unless he says so."
     },
     {
       "name": "vo.silentsquatch.guards.basement.nothingyours",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-basement",
       "say": "Nothing down here belongs to you."
     },
     {
       "name": "vo.silentsquatch.guards.basement.keepwalking",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-basement",
       "say": "Keep walking."
     },
     {
       "name": "vo.silentsquatch.guards.vault.arrangement",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-vault",
       "say": "The door stays open. I stay here. That’s the arrangement."
     },
     {
       "name": "vo.silentsquatch.guards.vault.backup",
-      "voice": "mansion-guard",
+      "voice": "mansion-guard-vault",
       "say": "Back up."
     },
     {
@@ -18248,6 +18248,11 @@
       "say": "You want a go? Everybody gets one. It keeps him talking."
     },
     {
+      "name": "vo.silentsquatch.torture.gratin.letthetenddoit",
+      "voice": "gratin",
+      "say": "Here. It’s a cord, not a bat — let the end of it do the work."
+    },
+    {
       "name": "vo.silentsquatch.torture.gratin.panonupstairs",
       "voice": "gratin",
       "say": "I’ve got a pan on upstairs. Take your turn or don’t."
@@ -18256,6 +18261,11 @@
       "name": "vo.silentsquatch.torture.gratin.suityourself",
       "voice": "gratin",
       "say": "Suit yourself. He’s not going anywhere."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchone",
+      "voice": "xxx",
+      "say": "Hn — GHK—"
     },
     {
       "name": "vo.silentsquatch.torture.xxx.hitlikefamily",
@@ -18273,9 +18283,84 @@
       "say": "See? He’s fine."
     },
     {
+      "name": "vo.silentsquatch.torture.xxx.ouchtwo",
+      "voice": "xxx",
+      "say": "Agh — Christ—"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.theelbow",
+      "voice": "xxx",
+      "say": "There it is. You’ve got the elbow into it now."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchthree",
+      "voice": "xxx",
+      "say": "Hhh—!"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.stoppedatone",
+      "voice": "xxx",
+      "say": "Go on. Nobody in this house has ever stopped at one."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchfour",
+      "voice": "xxx",
+      "say": "Nn—! …Ah."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.inthemorning",
+      "voice": "xxx",
+      "say": "That one’s going to be there in the morning."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.hecounts",
+      "voice": "gratin",
+      "say": "He’s counting. He always counts."
+    },
+    {
       "name": "vo.silentsquatch.torture.gratin.oneeach",
       "voice": "gratin",
       "say": "One each. House rule."
+    },
+    {
+      "name": "vo.silentsquatch.house.sasole.notflying",
+      "voice": "lou2",
+      "say": "I’m not flying anything tonight, so don’t look at me like that."
+    },
+    {
+      "name": "vo.silentsquatch.house.sasole.didntseeit",
+      "voice": "lou2",
+      "say": "Whatever’s in the case, I didn’t carry it and I didn’t see it."
+    },
+    {
+      "name": "vo.silentsquatch.house.numbskull.nobodyswims",
+      "voice": "numbskull",
+      "say": "Nobody swims. It’s heated and nobody swims."
+    },
+    {
+      "name": "vo.silentsquatch.house.numbskull.hearthegate",
+      "voice": "numbskull",
+      "say": "I like it out here. You can hear the gate."
+    },
+    {
+      "name": "vo.silentsquatch.house.hogmama.theresfood",
+      "voice": "hogmama",
+      "say": "There’s food. Nobody in this house eats, but there’s food."
+    },
+    {
+      "name": "vo.silentsquatch.house.hogmama.leftapanon",
+      "voice": "hogmama",
+      "say": "Gratin left a pan on and went downstairs. Again."
+    },
+    {
+      "name": "vo.silentsquatch.house.willy.goodchair",
+      "voice": "willy",
+      "say": "Meeting’s at eleven. I got here at nine so I’d get the good chair."
+    },
+    {
+      "name": "vo.silentsquatch.house.willy.headofthetable",
+      "voice": "willy",
+      "say": "Don’t sit at the head. That one’s got a name on it."
     },
     {
       "name": "vo.door.refusal.heist_cleanup.1",

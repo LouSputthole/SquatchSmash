@@ -984,6 +984,23 @@ const cast = mountMansionCast(scene, world, {
   hasCase: () => loadout.hasCase(),
   enabled: () => running,
 });
+/* The guard in the cellar is watching television, which was the owner's note
+ * and is also the only thing on his post worth looking at.
+ *
+ * Mounted HERE rather than beside the other three sets because the cast does
+ * not exist until this point, and given a late arrival the glow-light loop
+ * above has already run -- so this repeats what that loop does rather than
+ * leaving `_glowLight` undefined for a render loop that dereferences it every
+ * frame. Pushed into `houseTvs` too, or it would never be updated and the
+ * debug surface would not see it. */
+const cellarTv = cast?.tv?.screen ? mountTv(cast.tv.screen, { channel: 1 }) : null;
+if (cellarTv && !cellarTv._glowLight) {
+  const glow = new THREE.PointLight(0x9fb4cc, 0, 5, 2);
+  glow.position.copy(cellarTv.position);
+  scene.add(glow);
+  cellarTv._glowLight = glow;
+}
+
 /* Snow's cart is solid. Pushed here rather than inside the cast because
  * `verify-mansion` asserts the merged collider total adds up from named
  * contributors, and a third one that appears from nowhere makes the sum a
