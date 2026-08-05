@@ -112,6 +112,28 @@ export const CHARACTER_REGISTRY = Object.freeze({
     role: 'family_member',
   }),
   /**
+   * Sauce, who is in this club every night and is not in the Circle.
+   *
+   * `associate` rather than `family_member`: he is around the crew, he is on
+   * the hallway wall, and he has a plot held for him at the graveyard, but
+   * nobody made him — which is the entire content of his opinion of a
+   * prospect. It is also not `outsider`, which is the word this registry
+   * keeps for James Blond, who is from outside altogether.
+   *
+   * No voice id yet. The profile NAME is staged so a line of his resolves to
+   * `sauce` and lands in VOICE-LINES-NEEDED.md's uncast block on the next
+   * generation; the id gets pasted into the manifest's `voices` and nothing
+   * else has to move. Same staging Numbskull sat in.
+   */
+  [CHARACTER_IDS.SAUCE]: character({
+    id: CHARACTER_IDS.SAUCE,
+    canonicalName: 'Sauce',
+    subtitleName: 'Sauce',
+    voiceProfile: 'sauce',
+    species: 'human',
+    role: 'associate',
+  }),
+  /**
    * The date, and the only named person in the campaign with no stake in it.
    *
    * She is deliberately not family and deliberately not on the family's radio

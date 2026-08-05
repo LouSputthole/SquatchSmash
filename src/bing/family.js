@@ -12,8 +12,8 @@
  *
  * Faces come through the same photo pipeline the club already uses for Big
  * Uncle Lou: one image on the front of a box skull (`makePerson`'s `face`).
- * Which photos exist is read from assets/faces/index.json, so the seven
- * members whose photos have not landed yet wear authored heads in the shared
+ * Which photos exist is read from assets/faces/index.json, so the members
+ * whose photos have not landed yet wear authored heads in the shared
  * style — and the moment `lag.png` (or any of the others) is dropped into
  * assets/faces/ and the index rebuilt (`node tools/faces-index.mjs`), the
  * photo lands on the same skull with no code changes.
@@ -180,6 +180,28 @@ export const FAMILY = [
     spot: { x: 2.2, z: 6.6, yaw: 0.46, job: 'stand' },
     model: WARDROBE.numbskull,
   },
+  {
+    /* The lead scientist, off the clock. He is in the building in a later
+     * mission and he is the same man here: one id, one face, one voice, and
+     * the canonical body spread rather than restated. */
+    id: CHARACTER_IDS.AUBBIE, name: 'Aubbie', slug: 'aubbie', photo: 'aubbie.png',
+    /* The south end of the bar -- stool zero, the quiet one, furthest from
+     * the service station and from anybody who wants a conversation. A man
+     * who has come out for one drink and has not taken his coat off. */
+    spot: { x: -18.7, z: -2.6, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    model: WARDROBE.aubbie,
+  },
+  {
+    /* Not Family. A man who is always in this bar, which is a different thing
+     * and the whole of his opinion of a prospect. */
+    id: CHARACTER_IDS.SAUCE, name: 'Sauce', slug: 'sauce', photo: 'sauce.png',
+    /* The east chair of the two-top at (-9.6, -1.6) -- the club builds two
+     * chairs per two-top at (+-0.85, -+0.2) and the floor's own regular has
+     * the west one. This is the seat with the runway in front of it, which is
+     * the only reason he sits in it. */
+    spot: { x: -8.75, z: -1.8, yaw: -1.34, job: 'drink' },
+    model: WARDROBE.sauce,
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -276,6 +298,16 @@ export function buildFamilyScripts({
   /**
    * A hangout: line one, a reply, line two, maybe a last word.
    *
+   * `slug` names the two beats of the main thread `vo.bing.hang.<slug>.1/.2`,
+   * and it is only for the members who predate the generator, because
+   * tools/verify-bing.mjs asserts that exact list. Pass `null` for anybody
+   * added since: the nodes then leave here with no `cue` at all,
+   * `applyBingVoiceCues` mints them a `vo.bing.full.*` name from their own
+   * words, and `npm run vo:bing` writes the manifest rows. Hand-naming a cue
+   * on any other prefix puts a line on the floor that no generator owns and
+   * no recording sheet ever hears about — which is what
+   * `checkBingTreeCoverage()` exists to refuse.
+   *
    * `aside` adds a second thing to ask this member about, on its own branch off
    * the opening line. It is the difference between a member who says one thing
    * at you and a member you can actually stand and talk to — Eric had one from
@@ -300,13 +332,13 @@ export function buildFamilyScripts({
       open: {
         who: name,
         line: line1,
-        cue: `vo.bing.hang.${slug}.1`,
+        ...(slug ? { cue: `vo.bing.hang.${slug}.1` } : {}),
         options,
       },
       more: {
         who: name,
         line: line2,
-        cue: `vo.bing.hang.${slug}.2`,
+        ...(slug ? { cue: `vo.bing.hang.${slug}.2` } : {}),
       },
     };
     if (aside) {
@@ -631,6 +663,48 @@ export function buildFamilyScripts({
     },
   });
 
+  /* Aubbie, off the clock.
+   *
+   * A tired employee complaining about his hours in a bar, and that is all of
+   * it. He never says what the project is — he does not discuss work in here,
+   * and nobody in this room knows what it is, the player included. That is
+   * the joke and it only works if the scene refuses to point at itself
+   * (docs/TONE-AND-PARODY.md); the recognition is not available yet, and it
+   * is not this conversation's to hand over. So: no material, no programme,
+   * no wink. A man, a drink, and a manager who says "and when will it be
+   * ready" as though that were a contribution. */
+  const aubbie = hangout('Aubbie', null, {
+    line1: 'Lou has me working on a big project. He wants it done yesterday. I am one man with one pair of hands — I am only human.',
+    reply: { text: 'Everything’s yesterday with Lou.' },
+    line2: 'Twelve hours, and then the telephone at midnight to ask how it is coming along. It is coming along exactly as it was at seven. It is coming along.',
+    aside: {
+      tone: 'Ask', ask: 'You look like you haven’t slept.',
+      line1: 'Two nights. There is a chair where I work that reclines, if you lean on it and agree not to call it a chair.',
+      line2: 'My daughter has started describing me to her friends off a photograph. She holds it up. This one, she says. He is very busy.',
+    },
+    last: 'Get some sleep, Aubbie.',
+  });
+
+  /* Sauce, who is not Family and is in here every night anyway.
+   *
+   * Three things, all the owner's: the corn, the woman on the runway, and his
+   * flat opinion of prospects. The A team line is a brush-off and nothing
+   * else — it sets no objective, unlocks nothing, and is not a hint dressed
+   * as rudeness. The runway is handled the way this club handles its
+   * performers: she is a person with a home town and a night off, the
+   * interest is entirely his problem, and the laugh is at him. */
+  const sauce = hangout('Sauce', null, {
+    line1: 'That is corn. I bring my own into this place, and that is not an insult to the kitchen, it is a review. Now what do you want.',
+    reply: { text: 'You brought corn to the Bada Bing.' },
+    line2: 'Every night for eleven years. And every year they send me another one of you. Make the A team, then come and talk to me. Until then you are somebody else’s paperwork.',
+    aside: {
+      tone: 'Ask', ask: 'You’re sat very close to the stage.',
+      line1: 'The runway. She is on at midnight, she is from San Juan, and she says buenas noches to me on the way past like it costs her nothing.',
+      line2: 'I tip, I sit, and I have nine words of Spanish off a cassette in the van. She laughs at the words. Nine words and a laugh is more than most marriages start with.',
+    },
+    last: 'Enjoy the corn.',
+  });
+
   return applyBingVoiceCues({
     [CHARACTER_IDS.LAG]: lag,
     [CHARACTER_IDS.GRATIN]: gratin,
@@ -648,6 +722,8 @@ export function buildFamilyScripts({
     [CHARACTER_IDS.SEFF]: seff,
     [CHARACTER_IDS.SHUBENATOR]: shubenator,
     [CHARACTER_IDS.NUMBSKULL]: numbskull,
+    [CHARACTER_IDS.AUBBIE]: aubbie,
+    [CHARACTER_IDS.SAUCE]: sauce,
     booskiShot,
   });
 }

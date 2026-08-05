@@ -33,6 +33,12 @@ export const CHARACTER_IDS = Object.freeze({
   SHUBENATOR: 'shubenator',
   NUMBSKULL: 'numbskull',
   AUBBIE: 'aubbie',
+  /* Not Family, and he was already all over this world before he had an id:
+   * a portrait on the Bing's hallway wall, a portrait in the Squatchfather's
+   * dining room, an open plot at the graveyard with his name cut into the
+   * marker, and a man in chef's whites working the buffet at the closed
+   * party. One id, so all of those are the same person. */
+  SAUCE: 'sauce',
   BILLY_HOTDOG: 'billy_hotdog',
   /* Not Family, and not local. A foreign intelligence officer the Family
    * caught and tied to a chair in their own store room, who has a stable id

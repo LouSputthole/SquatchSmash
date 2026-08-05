@@ -233,6 +233,25 @@ export const IRISH = Object.freeze({
   belt: 'leather',
 });
 
+/**
+ * Sauce, who is in the whites wherever you find him.
+ *
+ * The body is not new — it is the man already working the buffet at the
+ * closed party in `src/bing/hotdog-party.js`, moved here verbatim so the
+ * floor of the club and the party are the same person rather than two men
+ * with one nickname. `chef` is the wardrobe's whole argument about him: he
+ * brings his own food into a nightclub, and he does not change to come out.
+ */
+export const SAUCE = Object.freeze({
+  height: 1.72,
+  build: 1.08,
+  dress: 'chef',
+  shirt: 0xe7e2d6,
+  hair: 'short',
+  hairColour: 0x241913,
+  skin: 0xe8c39c,
+});
+
 export const AUBBIE = Object.freeze({
   height: 1.77,
   build: 1.05,
@@ -343,6 +362,7 @@ export const WARDROBE = Object.freeze({
   gratin: GRATIN,
   irish: IRISH,
   aubbie: AUBBIE,
+  sauce: SAUCE,
 });
 
 /** The canonical model for a character id, or null for anyone not on it. */
