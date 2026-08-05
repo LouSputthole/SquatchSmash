@@ -59,7 +59,7 @@ import { tiled, squatchArt, printed } from '../../bing/kit.js';
 import { makeMaterials } from '../../world/materials.js';
 import {
   makeBed, makeNightstand, makePlant, makeFloorLamp, makeFrame,
-  makeToilet, makeBathSink, makeTub, makeWhiskeyBottle, makeShotGlass,
+  makeToilet, makeTub, makeWhiskeyBottle, makeShotGlass,
   makeAshtray, makeBooks, makeWallClock, makeDesk, makeChair, makeBeerCan,
   makePizzaBox,
 } from '../../world/props.js';
@@ -5892,25 +5892,29 @@ export function buildMansionInterior(shell = null) {
     });
     wrap.add(tub.group);
     solid(tubX0, tubX0 + 1.8, UY, UY + 0.56, cz + 0.6, cz + 3.0);
+    /* THE LOO GOES BACK AGAINST ITS DUCT. Owner playtest, verbatim: "toilet
+     * away from wall". Measured: the pan stood at 0.8 m off the partition and
+     * `makeToilet` puts the cistern's back 0.385 m behind its centre, so the
+     * cistern's back face was at x 9.555 against a tiled wall faced at 9.20 --
+     * a 355 mm gap with the pipework of a close-coupled suite hanging in it.
+     * Seated on the duct below instead: 0.66 m off the partition, which puts
+     * the cistern 5 mm INTO the duct's 0.28 m face rather than short of it.
+     * (5 mm into, not exactly on: two faces at the same depth is the flicker,
+     * and a cistern that touches its wall has never shown a seam.) */
+    const looX = inward > 0 ? r.x1 - 0.66 : r.x0 + 0.66;
     const loo = makeToilet(M, {
-      x: inward > 0 ? r.x1 - 0.8 : r.x0 + 0.8, z: cz + 2.4, rotY: inward > 0 ? -Math.PI / 2 : Math.PI / 2,
+      x: looX, z: cz + 2.4, rotY: inward > 0 ? -Math.PI / 2 : Math.PI / 2,
     });
     wrap.add(loo.group);
-    solid(
-      (inward > 0 ? r.x1 - 0.8 : r.x0 + 0.8) - 0.4,
-      (inward > 0 ? r.x1 - 0.8 : r.x0 + 0.8) + 0.4,
-      UY, UY + 0.84, cz + 2.1, cz + 2.7,
-    );
-    const basin = makeBathSink(M, {
-      x: inward > 0 ? r.x1 - 0.7 : r.x0 + 0.7, z: cz - 0.6, rotY: inward > 0 ? -Math.PI / 2 : Math.PI / 2,
-    });
-    wrap.add(basin.group);
-    solid(
-      (inward > 0 ? r.x1 - 0.7 : r.x0 + 0.7) - 0.32,
-      (inward > 0 ? r.x1 - 0.7 : r.x0 + 0.7) + 0.32,
-      UY, UY + 0.86, cz - 0.9, cz - 0.3,
-    );
+    solid(looX - 0.4, looX + 0.4, UY, UY + 0.84, cz + 2.1, cz + 2.7);
     root.add(wrap);
+    /* THE OLD SINK IS GONE. Owner, twice -- of this room, "two sinks, get rid
+     * of the old sink, fix new sink", and of the modern one, "same thing with
+     * the old sink". Both ensuites carried the shared apartment pedestal basin
+     * AND the marble vanity the luxury pass added, standing 1.7 m apart down
+     * the same wall with a mirror over each. The pedestal basin and its mirror
+     * are deleted here; the vanity below is the one sink these rooms have, and
+     * it is reworked rather than merely left. */
     /* ---- Everything from here is the luxury pass. `outerX` is the exterior
      * wall (the one with the frosted window in it), `innerX` the partition
      * side, and `into` moves a piece off a wall toward the middle of the
@@ -5930,6 +5934,64 @@ export function buildMansionInterior(shell = null) {
     ]) topping(bx0, bx1, UY + 0.02, bz0, bz1, M_MARBLE_DK, `${name}-floor-border`);
     topping(cx - 1.1, cx + 1.1, UY + 0.018, cz - 1.3, cz + 0.1, M_MOSAIC, `${name}-floor-mosaic`);
 
+    /* ---- THE WC DUCT, WHICH IS WHAT BOTH LOO NOTES WERE ASKING FOR.
+     *
+     * Owner: "toilet away from wall" and "toilet paper floating". They are one
+     * missing object. `makeToilet` is drawn for a wall it never had in here:
+     * its cistern wants a face to stand on, and its paper holder is a 0.14 m
+     * rod cantilevered 0.34 m out to the side, which needs a return to be
+     * screwed to. Measured, the roll hung at x 9.85 with the nearest wall at
+     * 9.20 -- 650 mm of nothing under it.
+     *
+     * So the room gets the thing a WC in a house like this actually has: a
+     * tiled duct boxed along the partition with a marble cap, and a short
+     * return pier at each end. The cistern sits on the duct and the roll hangs
+     * off a pier. Both returns are built in both ensuites on purpose -- the
+     * two rooms are mirrored, so the holder falls on the SOUTH pier in the
+     * west room and the NORTH pier in the east one, and a pair is symmetrical
+     * anyway. The piers are 0.86 m deep to reach the rod's fixing at 0.70,
+     * and they sit at z cz+1.95 and cz+2.85, which is 200 mm clear of the pan
+     * at cz+2.21..cz+2.59 on both sides. */
+    /* Every one of these boxes starts 30 mm INSIDE the partition rather than
+     * on its face. A duct whose back plane is exactly the wall's own front
+     * plane is a 1 m^2 coplanar pair -- the flicker -- and burying the hidden
+     * face costs nothing because nobody can see behind a duct. */
+    const ductBack = into(innerX, -0.03);
+    const boxFace = (depth) => [Math.min(ductBack, into(innerX, depth)), Math.max(ductBack, into(innerX, depth))];
+    const [ductX0, ductX1] = boxFace(0.28);
+    root.add(box({
+      size: [ductX1 - ductX0, 1.02, 1.02], pos: [(ductX0 + ductX1) / 2, UY + 0.51, cz + 2.4], mat: tileWall, name: `${name}-wc-duct`,
+    }));
+    root.add(box({
+      size: [ductX1 - ductX0 + 0.02, 0.05, 1.06], pos: [(ductX0 + ductX1) / 2 - inward * 0.01, UY + 1.045, cz + 2.4], mat: M_MARBLE, cast: false, name: `${name}-wc-duct-cap`,
+    }));
+    const [pierX0, pierX1] = boxFace(0.86);
+    for (const pz of [cz + 1.95, cz + 2.85]) {
+      root.add(box({
+        size: [pierX1 - pierX0, 1.02, 0.12], pos: [(pierX0 + pierX1) / 2, UY + 0.51, pz], mat: tileWall, name: `${name}-wc-pier`,
+      }));
+      root.add(box({
+        size: [pierX1 - pierX0 + 0.02, 0.05, 0.16], pos: [(pierX0 + pierX1) / 2 - inward * 0.01, UY + 1.045, pz], mat: M_MARBLE, cast: false, name: `${name}-wc-pier-cap`,
+      }));
+    }
+    solid(pierX0, pierX1, UY, UY + 1.07, cz + 1.89, cz + 2.91);
+    /* A brush in the corner between the duct and the south pier. Placed off
+     * the pan (which runs cz+2.21..cz+2.59) and off the pier (which ends at
+     * cz+2.01) rather than under the roll: the roll falls on the south pier
+     * in the west room and the north one in the east, so the only spot clear
+     * in BOTH is the gap between pier and pan. */
+    const brushX = into(innerX, 0.42);
+    const brushZ = cz + 2.10;
+    root.add(named(cylinder({
+      rTop: 0.055, rBottom: 0.07, h: 0.26, pos: [brushX, UY + 0.13, brushZ], mat: M_CHROME,
+    }), `${name}-wc-brush-pot`));
+    root.add(named(cylinder({
+      r: 0.011, h: 0.34, pos: [brushX, UY + 0.34, brushZ], mat: M_CHROME, cast: false,
+    }), `${name}-wc-brush-stem`));
+    root.add(named(sphere({
+      r: 0.055, ry: 0.04, pos: [brushX, UY + 0.5, brushZ], mat: mat({ color: 0xe8e4d8, roughness: 1 }), cast: false,
+    }), `${name}-wc-brush-head`));
+
     /* ---- The walk-in shower, along the north wall between the tub (which
      * ends at 1.8 m off the outer wall) and the loo (0.4..1.2 m off the inner
      * one). Marble kerb and slab, a glass screen and a return, a rain head on
@@ -5937,65 +5999,99 @@ export function buildMansionInterior(shell = null) {
     /* 2.3 m off the outer wall, not 2.1: the tub is 1.8 m of it from 0.35, so
      * its far edge is at 2.15 and a tray starting at 2.1 measured as lapping
      * the tub by 5 cm. */
-    const shX0 = into(outerX, 2.3);
-    const shX1 = into(innerX, 1.5);
+    /* EVERY PIECE IS PLACED BY ITS ROLE, NOT BY min/max. Owner playtest:
+     * "shower and bathtub lot of floating and misaligned geometry". A good
+     * part of it came from this block mixing two frames of reference. The
+     * glass return went at `shMinX`, which is the TUB end of the shower in
+     * the west ensuite and the LOO end in the east one -- so the two mirrored
+     * rooms had their shower entrance on opposite sides -- while the bench and
+     * mixer went at `into(outerX, ...)`, which is always the tub end. In the
+     * east room that put the bench squarely in the shower's own doorway, and
+     * in the west one it drove the bench 20 mm through the return glass.
+     *
+     * `shOuter` is the tub end and `shInner` the loo end in BOTH rooms, and
+     * `toIn` steps from one toward the other, so a single set of numbers
+     * builds the room and its mirror image identically. */
+    const shOuter = into(outerX, 2.3);
+    const shInner = into(innerX, 1.5);
+    const shW = Math.abs(shInner - shOuter);
+    const toIn = Math.sign(shInner - shOuter);
     const shZ0 = r.z1 - 1.7;
     const shZ1 = r.z1 - 0.06;
-    const shMinX = Math.min(shX0, shX1);
-    const shMaxX = Math.max(shX0, shX1);
+    const shMinX = Math.min(shOuter, shInner);
+    const shMaxX = Math.max(shOuter, shInner);
     root.add(box({
-      size: [shMaxX - shMinX, 0.12, shZ1 - shZ0], pos: [(shMinX + shMaxX) / 2, UY + 0.06, (shZ0 + shZ1) / 2], mat: M_MARBLE, cast: false, name: `${name}-shower-tray`,
+      size: [shW, 0.12, shZ1 - shZ0], pos: [(shMinX + shMaxX) / 2, UY + 0.06, (shZ0 + shZ1) / 2], mat: M_MARBLE, cast: false, name: `${name}-shower-tray`,
     }));
     root.add(box({
-      size: [shMaxX - shMinX, 0.14, 0.12], pos: [(shMinX + shMaxX) / 2, UY + 0.07, shZ0], mat: M_MARBLE_DK, cast: false, name: `${name}-shower-kerb`,
+      size: [shW, 0.14, 0.12], pos: [(shMinX + shMaxX) / 2, UY + 0.07, shZ0], mat: M_MARBLE_DK, cast: false, name: `${name}-shower-kerb`,
     }));
-    root.add(cylinder({
+    root.add(named(cylinder({
       r: 0.09, h: 0.02, pos: [(shMinX + shMaxX) / 2, UY + 0.13, (shZ0 + shZ1) / 2], mat: M_CHROME, cast: false,
-    }));
-    // Glass: a fixed screen across two thirds of the front, and a return.
+    }), `${name}-shower-waste`));
+    /* Glass: a fixed screen across two thirds of the front from the TUB end,
+     * and a return down that same end -- an L, with the way in at the loo end
+     * where the door is, in both rooms. */
     root.add(box({
-      size: [(shMaxX - shMinX) * 0.62, 2.1, 0.04], pos: [shMinX + (shMaxX - shMinX) * 0.31, UY + 1.19, shZ0], mat: M_GLASS_CASE, name: `${name}-shower-glass`,
+      size: [shW * 0.62, 2.1, 0.04], pos: [shOuter + toIn * shW * 0.31, UY + 1.19, shZ0], mat: M_GLASS_CASE, name: `${name}-shower-glass`,
     }));
     root.add(box({
-      size: [(shMaxX - shMinX) * 0.62 + 0.06, 0.06, 0.07], pos: [shMinX + (shMaxX - shMinX) * 0.31, UY + 2.26, shZ0], mat: M_CHROME, cast: false,
+      size: [shW * 0.62 + 0.06, 0.06, 0.07], pos: [shOuter + toIn * shW * 0.31, UY + 2.26, shZ0], mat: M_CHROME, cast: false, name: `${name}-shower-glass-rail`,
     }));
     root.add(box({
-      size: [0.04, 2.1, shZ1 - shZ0], pos: [shMinX, UY + 1.19, (shZ0 + shZ1) / 2], mat: M_GLASS_CASE,
+      size: [0.04, 2.1, shZ1 - shZ0], pos: [shOuter, UY + 1.19, (shZ0 + shZ1) / 2], mat: M_GLASS_CASE, name: `${name}-shower-return`,
     }));
-    solid(shMinX - 0.03, shMinX + 0.03, UY, UY + 2.1, shZ0, shZ1);
-    solid(shMinX, shMinX + (shMaxX - shMinX) * 0.62, UY, UY + 2.1, shZ0 - 0.03, shZ0 + 0.03);
-    // Rain head on its arm, a hand shower on a rail, and the mixer.
-    const headX = shMinX + (shMaxX - shMinX) * 0.5;
-    root.add(cylinder({
-      r: 0.024, h: 0.55, pos: [headX, UY + 2.3, shZ1 - 0.3], mat: M_CHROME, rotZ: Math.PI / 2, rotY: Math.PI / 2,
-    }));
+    solid(shOuter - 0.03, shOuter + 0.03, UY, UY + 2.1, shZ0, shZ1);
+    solid(
+      Math.min(shOuter, shOuter + toIn * shW * 0.62), Math.max(shOuter, shOuter + toIn * shW * 0.62),
+      UY, UY + 2.1, shZ0 - 0.03, shZ0 + 0.03,
+    );
+    /* Rain head on its arm. THE ARM HAS TO REACH THE WALL: it was 0.55 m long
+     * centred at shZ1-0.30, so it stopped at z 74.915 with the tiled face at
+     * 74.95 -- a 35 mm gap, and a shower arm hanging off nothing. Lengthened
+     * to 0.60 and pushed back so it ends 30 mm INSIDE the tiling, with a
+     * flange where it enters. */
+    const headX = (shMinX + shMaxX) / 2;
+    root.add(named(cylinder({
+      r: 0.024, h: 0.60, pos: [headX, UY + 2.3, shZ1 - 0.26], mat: M_CHROME, rotZ: Math.PI / 2, rotY: Math.PI / 2,
+    }), `${name}-rain-arm`));
+    root.add(named(cylinder({
+      r: 0.055, h: 0.02, pos: [headX, UY + 2.3, shZ1 - 0.02], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
+    }), `${name}-rain-flange`));
     root.add(named(cylinder({
       r: 0.16, h: 0.04, pos: [headX, UY + 2.28, shZ1 - 0.58], mat: M_CHROME,
     }), `${name}-rain-head`));
-    root.add(cylinder({
-      r: 0.018, h: 0.9, pos: [into(innerX, 1.75), UY + 1.5, shZ1 - 0.08], mat: M_CHROME,
-    }));
-    root.add(cylinder({
-      r: 0.05, h: 0.12, pos: [into(innerX, 1.75), UY + 1.5, shZ1 - 0.14], mat: M_CHROME, rotX: 0.6, cast: false,
-    }));
+    root.add(named(cylinder({
+      r: 0.018, h: 0.9, pos: [shInner - toIn * 0.25, UY + 1.5, shZ1 - 0.08], mat: M_CHROME,
+    }), `${name}-shower-riser`));
+    root.add(named(cylinder({
+      r: 0.05, h: 0.12, pos: [shInner - toIn * 0.25, UY + 1.5, shZ1 - 0.14], mat: M_CHROME, rotX: 0.6, cast: false,
+    }), `${name}-hand-shower`));
     root.add(box({
-      size: [0.16, 0.24, 0.06], pos: [into(outerX, 2.62), UY + 1.15, shZ1 - 0.08], mat: M_CHROME, cast: false, name: `${name}-shower-mixer`,
+      size: [0.16, 0.24, 0.06], pos: [shInner - toIn * 0.55, UY + 1.15, shZ1 - 0.08], mat: M_CHROME, cast: false, name: `${name}-shower-mixer`,
     }));
     // Niche in the tiled wall, with the bottles in it, and a marble bench.
     root.add(box({
       size: [0.7, 0.5, 0.1], pos: [headX, UY + 1.35, shZ1 - 0.03], mat: M_MARBLE_DK, cast: false, name: `${name}-shower-niche`,
     }));
     for (let i = 0; i < 3; i++) {
-      root.add(cylinder({
+      root.add(named(cylinder({
         rTop: 0.035, rBottom: 0.045, h: 0.18, pos: [headX - 0.2 + i * 0.2, UY + 1.24, shZ1 - 0.12], mat: i % 2 ? M_GLASS_CASE : M_SILVER, cast: false,
-      }));
+      }), `${name}-shower-bottle`));
     }
+    /* The bench, in the L's corner at the tub end -- 50 mm clear of the return
+     * glass rather than 20 mm through it. ITS LEGS STAND ON THE TRAY: they ran
+     * y 6.06..6.48 against a tray topping out at 6.12 and a bench slab
+     * starting at 6.455, so they were 60 mm sunk into the floor of the shower
+     * and 25 mm out through the seat. They now run 6.10..6.48: 20 mm into the
+     * tray, which is a fixing, and up under the slab, which is a joint. */
+    const benchX = shOuter + toIn * 0.40;
     root.add(box({
-      size: [0.7, 0.09, 0.4], pos: [into(outerX, 2.65), UY + 0.5, shZ1 - 0.28], mat: M_MARBLE, name: `${name}-shower-bench`,
+      size: [0.7, 0.09, 0.4], pos: [benchX, UY + 0.5, shZ1 - 0.28], mat: M_MARBLE, name: `${name}-shower-bench`,
     }));
     for (const bx of [-0.28, 0.28]) {
       root.add(box({
-        size: [0.08, 0.42, 0.34], pos: [into(outerX, 2.65) + bx, UY + 0.27, shZ1 - 0.28], mat: M_MARBLE, cast: false,
+        size: [0.08, 0.38, 0.34], pos: [benchX + bx, UY + 0.29, shZ1 - 0.28], mat: M_MARBLE, cast: false, name: `${name}-shower-bench-leg`,
       }));
     }
 
@@ -6029,14 +6125,80 @@ export function buildMansionInterior(shell = null) {
       Math.min(vanX, into(innerX, 0.72)) - 0.04, Math.max(vanX, into(innerX, 0.72)) + 0.04,
       UY, UY + 0.9, vanZ - 0.9, vanZ + 0.9,
     );
+    /* ---- THE ONE SINK THIS ROOM HAS, MADE WORTH KEEPING.
+     *
+     * Owner: "fix new sink", and of the modern room's, refine it "just a tad".
+     * The vessel bowl was a SOLID tapered cylinder -- a lump of marble with no
+     * hollow in it, the same fault `makeToilet` was fixed for upstream ("no
+     * actual bowl"). It is now built the way every basin in this project that
+     * reads right is built: an open-ended outer shell, a rolled rim closing
+     * the top edge, an inner cone falling to a waste, and standing water in
+     * it. Plus the fittings a basin like this has and had none of -- a proper
+     * arched spout, two lever handles, a splashback and a soap dish. */
+    const bowlX = into(innerX, 0.48);
+    const bowlY = UY + 0.86;
+    const bowlShell = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.21, 0.15, 0.16, 28, 1, true),
+      M_MARBLE,
+    );
+    bowlShell.position.set(bowlX, bowlY + 0.08, vanZ);
+    bowlShell.castShadow = true;
+    bowlShell.receiveShadow = true;
+    bowlShell.name = `${name}-vessel-bowl`;
+    root.add(bowlShell);
+    const bowlRim = new THREE.Mesh(new THREE.TorusGeometry(0.203, 0.014, 10, 28), M_MARBLE);
+    bowlRim.rotation.x = -Math.PI / 2;
+    bowlRim.position.set(bowlX, bowlY + 0.158, vanZ);
+    bowlRim.castShadow = true;
+    bowlRim.name = `${name}-vessel-rim`;
+    root.add(bowlRim);
+    const bowlInner = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.192, 0.045, 0.145, 28, 1, true),
+      mat({ color: 0xf0ece0, roughness: 0.16, side: THREE.DoubleSide }),
+    );
+    bowlInner.position.set(bowlX, bowlY + 0.083, vanZ);
+    bowlInner.name = `${name}-vessel-inner`;
+    root.add(bowlInner);
     root.add(named(cylinder({
-      rTop: 0.21, rBottom: 0.15, h: 0.16, pos: [into(innerX, 0.48), UY + 0.94, vanZ], mat: M_MARBLE,
-    }), `${name}-vessel-bowl`));
-    root.add(cylinder({
-      r: 0.02, h: 0.3, pos: [into(innerX, 0.22), UY + 1.01, vanZ], mat: M_GOLD,
+      r: 0.032, h: 0.012, pos: [bowlX, bowlY + 0.016, vanZ], mat: M_CHROME, cast: false,
+    }), `${name}-vessel-waste`));
+    const bowlWater = new THREE.Mesh(
+      new THREE.CircleGeometry(0.085, 24),
+      mat({
+        color: 0x9fc4cf, roughness: 0.06, transparent: true, opacity: 0.6, unique: true,
+      }),
+    );
+    bowlWater.rotation.x = -Math.PI / 2;
+    bowlWater.position.set(bowlX, bowlY + 0.028, vanZ);
+    bowlWater.name = `${name}-vessel-water`;
+    root.add(bowlWater);
+    // A tall mixer with an arched spout that actually overhangs the bowl.
+    root.add(named(cylinder({
+      r: 0.024, h: 0.34, pos: [into(innerX, 0.20), UY + 1.07, vanZ], mat: M_GOLD,
+    }), `${name}-basin-tap`));
+    root.add(named(cylinder({
+      r: 0.019, h: 0.30, pos: [into(innerX, 0.32), UY + 1.235, vanZ], mat: M_GOLD, rotZ: Math.PI / 2,
+    }), `${name}-basin-spout`));
+    root.add(named(cylinder({
+      r: 0.017, h: 0.09, pos: [into(innerX, 0.455), UY + 1.19, vanZ], mat: M_GOLD, cast: false,
+    }), `${name}-basin-spout-drop`));
+    for (const oz of [-0.16, 0.16]) {
+      root.add(named(cylinder({
+        r: 0.016, h: 0.05, pos: [into(innerX, 0.20), UY + 0.9, vanZ + oz], mat: M_GOLD, cast: false,
+      }), `${name}-basin-lever-boss`));
+      root.add(named(cylinder({
+        r: 0.011, h: 0.11, pos: [into(innerX, 0.26), UY + 0.94, vanZ + oz], mat: M_GOLD, rotZ: Math.PI / 2 - 0.5, cast: false,
+      }), `${name}-basin-lever`));
+    }
+    // Splashback, and a soap dish on the counter.
+    root.add(box({
+      size: [0.06, 0.14, 1.8], pos: [into(innerX, 0.07), UY + 0.93, vanZ], mat: M_MARBLE, cast: false, name: `${name}-vanity-splashback`,
     }));
-    root.add(cylinder({
-      r: 0.018, h: 0.18, pos: [into(innerX, 0.32), UY + 1.15, vanZ], mat: M_GOLD, rotZ: Math.PI / 2,
+    root.add(named(cylinder({
+      rTop: 0.075, rBottom: 0.055, h: 0.03, pos: [into(innerX, 0.42), UY + 0.875, vanZ - 0.6], mat: M_MARBLE_DK, cast: false,
+    }), `${name}-soap-dish`));
+    root.add(box({
+      size: [0.07, 0.04, 0.1], pos: [into(innerX, 0.42), UY + 0.905, vanZ - 0.6], mat: mat({ color: 0xe8dcc8, roughness: 0.6 }), cast: false, name: `${name}-soap`,
     }));
     root.add(box({
       size: [0.05, 1.3, 1.5], pos: [into(innerX, 0.105), UY + 1.85, vanZ], mat: mat({ color: 0xdce6ee, roughness: 0.06, metalness: 0.9 }), name: `${name}-vanity-mirror`,
@@ -6047,27 +6209,84 @@ export function buildMansionInterior(shell = null) {
     recordArt(`${name}-vanity-mirror`, into(innerX, 0.105), UY + 1.85, vanZ, Math.PI / 2, 1.62, 1.42);
     sconce(into(innerX, 0.085), UY + 2.15, vanZ - 1.0, inward > 0 ? -Math.PI / 2 : Math.PI / 2, 1.6);
     sconce(into(innerX, 0.085), UY + 2.15, vanZ + 1.0, inward > 0 ? -Math.PI / 2 : Math.PI / 2, 1.6);
-    // A mirror over the basin the room already had, too.
+    /* Where the deleted pedestal basin and its mirror stood: a linen tower.
+     * The wall would otherwise be 1.5 m of bare tile between the vanity and
+     * the towel rail, and a bathroom this size keeps its linen somewhere. Only
+     * 0.34 m deep, so it takes no walking room. */
+    const towerX = into(innerX, 0.20);
     root.add(box({
-      size: [0.05, 1.0, 0.9], pos: [into(innerX, 0.105), UY + 1.8, cz - 0.6], mat: mat({ color: 0xdce6ee, roughness: 0.06, metalness: 0.9 }), name: `${name}-basin-mirror`,
+      size: [0.34, 1.9, 0.75], pos: [towerX, UY + 0.95, cz - 0.6], mat: M_WOOD_DK, name: `${name}-linen-tower`,
     }));
     root.add(box({
-      size: [0.04, 1.1, 1.0], pos: [into(innerX, 0.075), UY + 1.8, cz - 0.6], mat: M_GOLD, cast: false,
+      size: [0.38, 0.06, 0.79], pos: [towerX, UY + 1.92, cz - 0.6], mat: M_MARBLE, cast: false, name: `${name}-linen-tower-cap`,
     }));
-    recordArt(`${name}-basin-mirror`, into(innerX, 0.105), UY + 1.8, cz - 0.6, Math.PI / 2, 1.0, 1.1);
+    for (const dy of [0.35, 0.78, 1.21, 1.64]) {
+      root.add(box({
+        size: [0.03, 0.36, 0.66], pos: [into(innerX, 0.35), UY + dy, cz - 0.6], mat: M_WOOD, cast: false, name: `${name}-linen-door`,
+      }));
+      root.add(named(cylinder({
+        r: 0.012, h: 0.16, pos: [into(innerX, 0.37), UY + dy, cz - 0.78], mat: M_GOLD, rotZ: Math.PI / 2, cast: false,
+      }), `${name}-linen-handle`));
+    }
+    solid(Math.min(towerX, into(innerX, 0.37)) - 0.03, Math.max(towerX, into(innerX, 0.37)) + 0.03,
+      UY, UY + 1.95, cz - 0.98, cz - 0.22);
 
+    /* ---- THE TUB'S ALCOVE, WHICH IT HAD BEEN BUILT WITHOUT.
+     *
+     * The other half of "shower and bathtub lot of floating and misaligned
+     * geometry". `makeTub` is the shared apartment bath and it is drawn for a
+     * RECESS: it hangs a shower riser up to y 2.06 off its own short end, and
+     * a curtain rail at y 2.05 down its open side. In the apartment those
+     * meet tiled walls. In here the tub stands in open floor, so measured,
+     * the riser ran from 0.62 to 2.06 m with nothing behind it above 0.56,
+     * and the rail spanned 2.4 m at head height held up at neither end.
+     *
+     * The fix is the missing walls, not the removal of a working prop: a
+     * tiled return across the tub's foot that the riser mounts on and the
+     * rail's south end dies into, and a boxed pier from the tub's head to the
+     * north wall that takes the other end -- which also fills the dead pocket
+     * between the tub and the shower's return glass. */
+    const tubZ0 = cz + 0.6;
+    const tubZ1 = cz + 3.0;
+    /* Measured from the OUTER WALL, not from the tub's own x1. `makeTub`
+     * always hangs its curtain rail on x1, which is the room side in the west
+     * ensuite and the wall side in the east one -- the two rooms are mirrored
+     * but the prop is not. Sizing the alcove off `tubRailX` therefore built a
+     * 2.18 m return in the west room and a 0.32 m stub in the east one, which
+     * did not reach the riser at all. 2.21 m from the outer wall clears the
+     * tub's far edge and the rail in BOTH rooms, and still leaves 90 mm
+     * between the pier and the shower tray. */
+    const alcFar = outerX + inward * 2.21;
+    const alcX0 = Math.min(outerX, alcFar);
+    const alcX1 = Math.max(outerX, alcFar);
+    root.add(box({
+      size: [alcX1 - alcX0, 2.2, 0.18], pos: [(alcX0 + alcX1) / 2, UY + 1.1, tubZ0 - 0.005], mat: tileWall, name: `${name}-tub-return`,
+    }));
+    solid(alcX0, alcX1, UY, UY + 2.2, tubZ0 - 0.095, tubZ0 + 0.085);
+    root.add(box({
+      size: [alcX1 - alcX0, 2.2, (r.z1 - 0.05) - (tubZ1 - 0.09)],
+      pos: [(alcX0 + alcX1) / 2, UY + 1.1, ((r.z1 - 0.05) + (tubZ1 - 0.09)) / 2],
+      mat: tileWall,
+      name: `${name}-tub-pier`,
+    }));
+    solid(alcX0, alcX1, UY, UY + 2.2, tubZ1 - 0.09, r.z1 - 0.05);
     /* ---- The tub, dressed: a floor-standing filler with a hand shower, a
-     * tray across it, and the mat beside it. */
+     * tray across it, and the mat beside it.
+     *
+     * The filler stood at z cz+0.42 and the tub starts at cz+0.6, so its
+     * spout was pouring 180 mm short of the bath, onto the floor. Moved to
+     * cz+0.95, which is inside the tub's own 2.4 m run. */
     const tubMidX = tubX0 + 0.9;
+    const fillerZ = cz + 0.95;
     root.add(named(cylinder({
-      r: 0.05, h: 1.1, pos: [into(outerX, 0.34), UY + 0.55, cz + 0.42], mat: M_GOLD,
+      r: 0.05, h: 1.1, pos: [into(outerX, 0.34), UY + 0.55, fillerZ], mat: M_GOLD,
     }), `${name}-tub-filler`));
-    root.add(cylinder({
-      r: 0.032, h: 0.34, pos: [into(outerX, 0.5), UY + 1.08, cz + 0.42], mat: M_GOLD, rotZ: Math.PI / 2,
-    }));
-    root.add(cylinder({
-      r: 0.028, h: 0.12, pos: [into(outerX, 0.66), UY + 1.0, cz + 0.42], mat: M_GOLD,
-    }));
+    root.add(named(cylinder({
+      r: 0.032, h: 0.34, pos: [into(outerX, 0.5), UY + 1.08, fillerZ], mat: M_GOLD, rotZ: Math.PI / 2,
+    }), `${name}-tub-filler-arm`));
+    root.add(named(cylinder({
+      r: 0.028, h: 0.12, pos: [into(outerX, 0.66), UY + 1.0, fillerZ], mat: M_GOLD,
+    }), `${name}-tub-filler-spout`));
     root.add(box({
       size: [1.9, 0.05, 0.28], pos: [tubMidX, UY + 0.58, cz + 1.5], mat: M_WOOD_DK, cast: false, name: `${name}-bath-tray`,
     }));
@@ -6077,10 +6296,17 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [0.16, 0.03, 0.22], pos: [tubMidX + 0.35, UY + 0.62, cz + 1.5], mat: M_CARD, rotY: 0.2, cast: false,
     }));
-    // Candles on the tub's rim, because this is that kind of house.
+    /* Candles ON the tub's rim, not beside it. They stood at 0.28 m off the
+     * outer wall and the tub's near rim runs 0.35..0.42 m off it, so both
+     * candles were floating in the 0.35 m gap between the wall and the bath
+     * with nothing under them. 0.385 is the middle of that rim. */
     for (const oz of [cz + 2.6, cz + 2.8]) {
-      root.add(cylinder({ r: 0.045, h: 0.12, pos: [into(outerX, 0.28), UY + 0.62, oz], mat: M_CARD, cast: false }));
-      root.add(sphere({ r: 0.028, pos: [into(outerX, 0.28), UY + 0.7, oz], mat: M_BULB_WARM, cast: false }));
+      root.add(named(cylinder({
+        r: 0.045, h: 0.12, pos: [into(outerX, 0.385), UY + 0.62, oz], mat: M_CARD, cast: false,
+      }), `${name}-tub-candle`));
+      root.add(named(sphere({
+        r: 0.028, pos: [into(outerX, 0.385), UY + 0.7, oz], mat: M_BULB_WARM, cast: false,
+      }), `${name}-tub-candle-flame`));
     }
 
     // Towel rail and a heap of towels, plus a bathmat.
