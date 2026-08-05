@@ -80,6 +80,9 @@ const ammoMagEl = $('ammoMag');
 const ammoReserveEl = $('ammoReserve');
 const ammoStateEl = $('ammoState');
 const reticleEl = $('reticle');
+const helpingEl = $('helping');
+const helpingNameEl = $('helpingName');
+const helpingBarEl = $('helpingBar');
 
 /** The InteractionSystem's HUD contract: showPrompt / hidePrompt / setHold. */
 const tinyHud = {
@@ -449,6 +452,53 @@ mission
     restore: () => { /* mission.js owns the flag; nothing scene-side to undo. */ },
   });
 
+/* ================================================================== */
+/* PICKING PEOPLE BACK UP                                               */
+/*                                                                       */
+/* Owner, 2026-08-05: "let's do the 1hp option for now and the bleeding   */
+/* out mechanic. No deaths."                                              */
+/*                                                                        */
+/* So a name never dies -- but at 1 HP he goes on the floor, out of the    */
+/* fight, asking for help, and he stays there until somebody crosses the   */
+/* landing under fire and gets him. He comes back on a third of his        */
+/* health. That is the whole cost: no branching ending, no dead cast, and  */
+/* the player still has something to lose by ignoring it.                  */
+/*                                                                        */
+/* Deliberately NOT on `InteractionSystem`: that system raycasts against   */
+/* REGISTERED MESHES, and these men move between eight postings a mission. */
+/* Registering a moving figure once and hoping is how you get a prompt on   */
+/* a man who walked away four beats ago. Proximity plus a held key is the   */
+/* honest version.                                                         */
+/* ================================================================== */
+const REVIVE_RADIUS = 2.4;
+const REVIVE_SECONDS = 1.6;
+let reviveHeld = 0;
+let reviveTarget = null;
+
+function updateRevive(dt) {
+  const near = ensemble.nearestDowned?.(player.position, REVIVE_RADIUS) ?? null;
+  if (!near) {
+    reviveHeld = 0;
+    reviveTarget = null;
+    if (helpingEl && !helpingEl.hidden) helpingEl.hidden = true;
+    return;
+  }
+  if (near.id !== reviveTarget) { reviveTarget = near.id; reviveHeld = 0; }
+  if (helpingEl) {
+    helpingEl.hidden = false;
+    helpingNameEl.textContent = near.name;
+    helpingBarEl.style.width = `${Math.round((reviveHeld / REVIVE_SECONDS) * 100)}%`;
+  }
+  /* E, not F. F is the little friend and it is said exactly once in a
+   * playthrough; binding "pick your uncle up off the floor" to the same key
+   * would put the two most dramatic verbs in the mission on one button. */
+  if (!player.keys.has('KeyE')) { reviveHeld = 0; return; }
+  reviveHeld += dt;
+  if (reviveHeld < REVIVE_SECONDS) return;
+  reviveHeld = 0;
+  if (ensemble.revive?.(near.id)) audio.play?.('siege.friendly.revived', { volume: 0.8 });
+}
+
 /**
  * Put an authored encounter in the house.
  *
@@ -735,6 +785,7 @@ const pauseMenu = createPauseMenu({
     'W A S D -- move. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'Left mouse fires. R reloads. E takes a weapon off the rack, Q puts it back.',
     'F -- say it, once, from the top of the stairs with the heavy in your hands.',
+    'E -- held, next to somebody on the floor, gets them back on their feet.',
     'Tab pauses and resumes. Escape releases the mouse, which also pauses.',
   ],
   onPause: () => {
@@ -820,6 +871,7 @@ function updateGame(dt) {
      * so the nearest pane to the crossing is the one that went. */
     onBreach: (breach) => { if (breach) shatterNearest(breach); },
   });
+  updateRevive(dt);
   ensemble.update(dt, {
     player: playerTarget,
     colliders,
@@ -916,6 +968,9 @@ window.mansionSiege = {
   /** The people. */
   attackers,
   ensemble,
+  /** Who is on the floor, and picking one up. Nobody in here ever dies. */
+  downed: () => ensemble.downed(),
+  revive: (id) => ensemble.revive(id),
   get living() { return attackers.living().length; },
   /** The glass, which is the one damage state the player writes to. */
   glass,

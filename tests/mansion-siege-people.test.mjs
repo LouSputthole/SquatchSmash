@@ -412,6 +412,97 @@ test('the ensemble reports a friendly going down exactly once', () => {
 /* 5. EIGHT ROLES, EIGHT BEHAVIOURS                                     */
 /* ================================================================== */
 
+/* ------------------------------------------------------------------ */
+/* Down and bleeding, and never dead                                    */
+/* ------------------------------------------------------------------ */
+
+test('a name driven to nothing goes on the floor instead of dying', () => {
+  /* Owner, 2026-08-05: "let's do the 1hp option for now and the bleeding out
+   * mechanic. No deaths. I don't want to have to have multiple endings
+   * depending on who died."
+   *
+   * Before this, `core: true` floored a protected man at 1 HP and left him
+   * standing there shooting -- a magazine into Booski changed nothing you
+   * could see. */
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  const booski = ensemble.members.get('booski');
+  assert.ok(booski, 'booski is not in the house');
+  booski.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  assert.equal(booski.actor.health, 1, 'the core protection stopped being the floor');
+  assert.equal(booski.actor.incapacitated, false, 'a name died');
+  ensemble.update(0.1, {});
+  const down = ensemble.downed();
+  assert.equal(down.length, 1, `${down.length} on the floor, expected one`);
+  assert.equal(down[0].id, 'booski');
+  assert.equal(ensemble.targets().some((m) => m.id === 'booski'), false,
+    'a man face down is still being offered to the cartel as a target');
+});
+
+test('he bleeds, he asks for help, and he is still alive four minutes later', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_TWO');
+  const eric = ensemble.members.get('eric');
+  eric.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  for (let i = 0; i < 2400; i++) ensemble.update(0.1, {});
+  const down = ensemble.downed().find((m) => m.id === 'eric');
+  assert.ok(down, 'he got up on his own, which nothing in the mission does');
+  assert.ok(down.seconds > 200, `only ${down.seconds.toFixed(0)}s of bleeding`);
+  assert.equal(eric.actor.incapacitated, false,
+    'four minutes on the floor killed him -- there are no deaths in this mission');
+});
+
+test('picking him up costs him most of his health and can happen twice', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  const rippin = ensemble.members.get('rippinflow');
+  rippin.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  ensemble.update(0.1, {});
+  assert.equal(ensemble.revive('rippinflow'), true);
+  assert.equal(ensemble.downed().length, 0);
+  assert.ok(rippin.actor.health > 1 && rippin.actor.health < rippin.actor.maxHealth * 0.5,
+    `back up on ${rippin.actor.health} of ${rippin.actor.maxHealth} -- that is not a cost`);
+  assert.equal(ensemble.revive('rippinflow'), false, 'revived a man who is standing');
+  /* And he can go down again. */
+  rippin.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  ensemble.update(0.1, {});
+  assert.equal(ensemble.downed().length, 1);
+  ensemble.revive('rippinflow');
+  assert.equal(rippin.revivedCount, 2);
+});
+
+test('a checkpoint does not stand a bleeding man up', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  const shubes = ensemble.members.get('shubenator');
+  shubes.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  /* `update` clamps a step to 0.1 s, so four seconds is forty calls and not
+   * one -- passing 4 advances the world by a tenth of a second. */
+  for (let i = 0; i < 40; i++) ensemble.update(0.1, {});
+  const snap = ensemble.snapshot();
+  ensemble.revive('shubenator');
+  assert.equal(ensemble.downed().length, 0);
+  ensemble.restore(snap);
+  const back = ensemble.downed();
+  assert.equal(back.length, 1, 'the restore left him on his feet');
+  assert.equal(back[0].id, 'shubenator');
+  assert.ok(back[0].seconds >= 3.9, 'the bleed clock restarted');
+});
+
+test('nobody who died before the mansion is standing in it', () => {
+  /* Willy is executed on the boat in NO WAKE, which is Day 3; the mansion arc
+   * is after it. He held the office door in this file until 2026-08-05. */
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('BRIEFING');
+  assert.equal(ensemble.members.has('willy'), false, 'Willy is in the mansion again');
+  assert.equal(SURVIVES_THE_SIEGE.includes('willy'), false);
+});
+
 test('every role in waves.js has a behaviour plan', () => {
   assert.deepEqual(Object.keys(ROLE_PLAN).sort(), Object.keys(ROLES).sort());
 });

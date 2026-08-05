@@ -86,7 +86,11 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
 
   /* The rest of the Family, using the house. Owner, 2026-08-05: "Everyone
    * should be there for the most part utilizing the house hanging out." */
-  house: 8, // Sasole at the bar, Numbskull on the terrace, Hog Mama, Willy
+  /* 6, not 8. Willy's two -- the good chair and the head of the table -- came
+   * out on 2026-08-05: he is executed on the boat in NO WAKE, which is Day 3,
+   * and the mansion arc is after it. Neither line had a recorded take, so
+   * nothing delivered was thrown away. */
+  house: 6, // Sasole at the bar, Numbskull on the terrace, Hog Mama
 });
 
 const TOTAL_AWAITING = Object.values(CUES_AWAITING_VO_SYNC)

@@ -135,7 +135,6 @@ export const SPEAKERS = Object.freeze({
   SASOLE: Object.freeze({ name: 'Captain Lou Sasole', voice: 'lou2' }),
   NUMBSKULL: Object.freeze({ name: 'Numbskull', voice: 'numbskull' }),
   HOGMAMA: Object.freeze({ name: 'Hog Mama', voice: 'hogmama' }),
-  WILLY: Object.freeze({ name: 'Willy', voice: 'willy' }),
 
   /* ---- the six scientists. Index order matches `lab.scientists`. ---- */
   /** 0 — lead. Brilliant, exhausted, arrogant, proud of the weapon. */
@@ -861,12 +860,6 @@ export const SEQUENCES = Object.freeze({
 
   /* The conference room, in a chair he was not invited into, at a table
    * nobody is sitting at. */
-  willyBoardroom: Object.freeze([
-    { speaker: 'WILLY', text: 'Meeting’s at eleven. I got here at nine so I’d get the good chair.', cue: cue('house', 'willy.goodchair'), hold: 5.0 },
-  ]),
-  willyIdle: Object.freeze([
-    { speaker: 'WILLY', text: 'Don’t sit at the head. That one’s got a name on it.', cue: cue('house', 'willy.headofthetable'), hold: 3.8 },
-  ]),
 });
 
 /**

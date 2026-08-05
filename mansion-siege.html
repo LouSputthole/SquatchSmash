@@ -181,6 +181,23 @@
       rgba(255, 45, 24, 0) 42%, rgba(255, 45, 24, .34) 100%);
   }
 
+  /* Somebody on the floor within reach, and the hold that picks him up. */
+  #helping {
+    position: fixed; bottom: 210px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 9px 20px; background: rgba(10, 10, 16, .74);
+    border: 1px solid rgba(255, 90, 70, .55); border-radius: 10px; z-index: 6;
+    pointer-events: none; text-align: center;
+  }
+  #helping[hidden] { display: none; }
+  #helping .who { font-size: 15px; font-weight: 700; color: #ffb4a0; }
+  #helping .who b { color: #fff; }
+  #helping .track {
+    width: 190px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .16);
+    overflow: hidden;
+  }
+  #helpingBar { height: 100%; width: 0%; background: #ff8a72; }
+
   #damageWash {
     position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
     background: radial-gradient(ellipse at center,
@@ -202,6 +219,11 @@
   <div id="waveCount" hidden><b id="waveRemaining">0</b> <span id="waveLabel">ATTACKERS</span></div>
 
   <div id="checkpoint">CHECKPOINT</div>
+
+  <div id="helping" hidden>
+    <span class="who">Hold <b>E</b> &mdash; get <b id="helpingName"></b> off the floor</span>
+    <span class="track"><span id="helpingBar"></span></span>
+  </div>
 
   <div id="prompt" class="hidden">
     <span id="promptKey">E</span>
@@ -232,7 +254,7 @@
       <div><b>Shift</b> Sprint &nbsp;&middot;&nbsp; <b>C</b> Crouch &nbsp;&middot;&nbsp; <b>Space</b> Jump</div>
       <div><b>Left mouse</b> Fire &nbsp;&middot;&nbsp; <b>R</b> Reload &nbsp;&middot;&nbsp; <b>1&ndash;5</b> Weapon</div>
       <div><b>E</b> Take a weapon off the rack &nbsp;&middot;&nbsp; <b>Q</b> Put it back</div>
-      <div><b>E / Click</b> Talk, use, interact</div>
+      <div><b>E / Click</b> Talk, use, interact &nbsp;&middot;&nbsp; <b>Hold E</b> Pick somebody up</div>
       <div><b>Tab</b> Pause &nbsp;&middot;&nbsp; <b>Esc</b> Release mouse</div>
     </div>
     <button id="startBtn" class="btn">WAKE UP</button>

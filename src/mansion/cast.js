@@ -43,7 +43,7 @@
  *
  * Four more of the roster use rooms the house built and nobody was ever in:
  * Captain Lou Sasole on a stool at the bar, Numbskull on the pool terrace,
- * Hog Mama in the kitchen, Willy in the conference room.
+ * Hog Mama in the kitchen.
  *
  * ## What this file does NOT own
  *
@@ -108,7 +108,7 @@ import {
 import {
   BADA_BING_BARTENDER, BIG_UNCLE_LOU, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
   ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL,
-  RIPPINFLOW, SHUBENATOR, SNOW, WILLY,
+  RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../core/wardrobe.js';
 import { box, cylinder, group, mat } from '../world/build.js';
 import { DialogueController } from './mission/DialogueController.js';
@@ -937,25 +937,23 @@ export function mountMansionCast(scene, world = {}, {
     look: 'Hog Mama, in the one room in this house anybody actually sits in.',
   });
 
-  /* ---- Willy, in the conference room -----------------------------------
-   * In a chair down the north side of the boardroom table, three hours early
-   * for a meeting, not at the head of it. */
-  const boardroom = at('conferenceTable', { x: 0, y: UPPER_Y, z: 58 });
-  const willyAt = {
-    x: boardroom.x - 1.1, y: seatBase(boardroom.y, CUSHION.chair), z: boardroom.z + 1.7,
-  };
-  post('willy', {
-    name: 'Willy',
-    model: WILLY,
-    job: 'sit',
-    x: willyAt.x,
-    y: willyAt.y,
-    z: willyAt.z,
-    yaw: yawToward(willyAt.x, willyAt.z, boardroom.x, boardroom.z),
-    bark: SEQUENCES.willyBoardroom,
-    idle: SEQUENCES.willyIdle,
-    look: 'Willy, early, in a room with nothing booked in it.',
-  });
+  /* ---- The conference room is empty, and that is the continuity ---------
+   *
+   * Willy sat here: in a chair down the north side of the boardroom table,
+   * three hours early for a meeting, not at the head of it, saying he came at
+   * nine to get the good chair.
+   *
+   * He cannot. NO WAKE is Day 3 and the mansion arc is after it, and NO WAKE
+   * is the mission where Lou has him executed in the cabin of a boat. A dead
+   * man sitting in the boardroom is not a small wardrobe error -- it is the
+   * player meeting somebody he watched die.
+   *
+   * Owner, 2026-08-05: "Willy should not be in any mansion scene because he
+   * died on the boat same with billy hotdog both died before hand."
+   *
+   * Nobody has been moved into the chair. An empty boardroom three hours
+   * before a meeting is a room, and putting a replacement in it to fill a
+   * hole would be inventing a character to cover a corpse. */
 
   /* ---- Numbskull, on the terrace ---------------------------------------
    * Outside the pool doors, on the deck, looking at water nobody is in. The
@@ -1457,7 +1455,6 @@ export function mountMansionCast(scene, world = {}, {
       case 'SASOLE': return people.sasole;
       case 'NUMBSKULL': return people.numbskull;
       case 'HOGMAMA': return people.hogmama;
-      case 'WILLY': return people.willy;
       /* The man on the rope, so every noise and every sentence he has moves
        * his head — the swing's, and the mission's two barks as well. */
       case 'XXX': return xxxMouth;

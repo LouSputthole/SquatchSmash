@@ -283,9 +283,21 @@ test('the Family is in the house, each with a wardrobe body and nothing typed in
   const ids = Object.keys(r.cast.people);
   for (const who of [
     'lou', 'booski', 'deathmegatron', 'irish', 'rippin', 'eric', 'shubes',
-    'sasole', 'numbskull', 'hogmama', 'willy',
+    'sasole', 'numbskull', 'hogmama',
   ]) {
     assert.ok(ids.includes(who), `${who} is not in the house`);
+  }
+  /* THE DEAD ARE NOT IN THE HOUSE.
+   *
+   * Willy sat in the boardroom until 2026-08-05, three hours early for a
+   * meeting, saying he came at nine to get the good chair. NO WAKE is Day 3
+   * and the mansion arc is after it, and NO WAKE is the mission where Lou has
+   * him executed in the cabin of a boat -- so the player was meeting somebody
+   * he had watched die. Billy HotDog is the same problem one scene earlier.
+   *
+   * This assertion is the reason it cannot come back by accident. */
+  for (const ghost of ['willy', 'billy', 'billyhotdog', 'hotdog']) {
+    assert.ok(!ids.includes(ghost), `${ghost} died before this scene and is standing in it`);
   }
   /* The two Lous are two men, on two floors, in two bodies. */
   const lou = r.cast.people.lou;

@@ -89,8 +89,12 @@ import { buildWeaponModel } from '../../core/weapons/models.js';
 import {
   AUBBIE, BIG_UNCLE_LOU, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
   HOG_MAMA, IRISH, MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
-  WILLY,
 } from '../../core/wardrobe.js';
+/* WILLY is deliberately not imported. He held the office door in an earlier
+ * version of this file and he cannot: NO WAKE is Day 3, the mansion arc is
+ * after it, and NO WAKE is the mission where Lou has him executed in the
+ * cabin of a boat. The wardrobe entry stays -- he is still a character, in
+ * the scenes that come before the one he dies in. */
 import { HeistFigure } from '../../heist/people.js';
 import { segmentBlocked } from './attackers.js';
 
@@ -153,7 +157,7 @@ export const HOUSE_BOUNDS = Object.freeze({
 /* Only photographs that have landed -- assets/faces/index.json is the    */
 /* ledger and every path below is in it. A path to a photo that has not   */
 /* landed is a 404 in the console and `npm run verify:mansion` fails on   */
-/* exactly that. Snow, Aubbie, Numbskull, Willy and the security keep the */
+/* exactly that. Snow, Aubbie, Numbskull and the security keep the      */
 /* authored heads they already have in `src/mansion/cast.js`; they are    */
 /* not being redressed by this pass.                                     */
 /* ================================================================== */
@@ -198,7 +202,7 @@ const withFace = (model, face) => (CAN_PAINT_FACES && face ? { ...model, face } 
 /* ================================================================== */
 export const SURVIVES_THE_SIEGE = Object.freeze([
   'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'aubbie',
-  'irish', 'deathmegatron', 'numbskull', 'hogmama', 'willy',
+  'irish', 'deathmegatron', 'numbskull', 'hogmama',
   'captain_lou_sasole',
 ]);
 
@@ -221,7 +225,6 @@ const ARMS = Object.freeze({
   deathmegatron: 'saw',
   numbskull: 'ak47',
   hogmama: 'revolver',
-  willy: 'pistol9',
   captain_lou_sasole: 'pistol9',
   guard_0: 'carbine',
   guard_1: 'carbine',
@@ -286,6 +289,25 @@ const BARKS = Object.freeze({
     'Hold still. Hold still.',
     'Keep pressure on that.',
     'You are not dying in this house.',
+  ]),
+  /* Owner, 2026-08-05: "let's have the system where they get down and bloody
+   * with 1 hp ... the bleeding out mechanic. No deaths."
+   *
+   * A man on the floor with a hand on the hole in him. He is not dying --
+   * nothing in this mission kills a name -- but he is out of the fight until
+   * somebody comes and gets him, and he is not quiet about it. */
+  downed: Object.freeze([
+    'I\u2019m hit \u2014 I\u2019m hit, I\u2019m down!',
+    'Somebody get over here!',
+    'I can\u2019t \u2014 I can\u2019t get up.',
+    'Ah \u2014 ah, that\u2019s bad. That\u2019s bad.',
+    'Don\u2019t leave me on this floor.',
+  ]),
+  revived: Object.freeze([
+    'I\u2019m up. I\u2019m up.',
+    'Owe you one, kid.',
+    'Give me the wall. I got the wall.',
+    'Still here. Still shooting.',
   ]),
   ammo: Object.freeze([
     'Magazines here!',
@@ -549,25 +571,6 @@ const ROSTER = Object.freeze([
       AFTERMATH: P(2.0, 53.4, 2.0, 50),
       TO_SASOLE: P(2.0, 53.4, 0, 51),
       COMPLETE: P(2.0, 53.4, 0, 51),
-    }),
-  }),
-
-  /* ---- Willy, the office door ------------------------------------------- */
-  Object.freeze({
-    id: 'willy',
-    name: 'Willy',
-    model: () => WILLY,
-    routine: Object.freeze(['scan', 'reload', 'window']),
-    posts: Object.freeze({
-      TO_OFFICE: P(2.0, 58.5, 2.0, 55),
-      BRIEFING: P(2.6, 64.0, 0, 60),
-      LITTLE_FRIEND: P(1.6, 63.9, 1.6, 60),
-      WAVE_ONE: P(1.6, 63.9, 1.6, 60),
-      LULL: P(1.6, 62.6, 1.6, 59),
-      WAVE_TWO: P(1.6, 63.9, 1.6, 60),
-      AFTERMATH: P(1.2, 57.6, 1.2, 54),
-      TO_SASOLE: P(1.2, 57.6, 0, 52),
-      COMPLETE: P(1.2, 57.6, 0, 52),
     }),
   }),
 
@@ -904,6 +907,22 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       businessClock: (index * 0.83) % 3.4,
       businessKey: null,
       businessLeft: 0,
+      /* BLEEDING OUT, WITHOUT DYING.
+       *
+       * `core: true` floors a protected man's health at 1 and never sets
+       * `incapacitated`, so before this he took a magazine, stayed on 1 HP,
+       * and kept shooting -- which reads as nothing happening. Now 1 HP puts
+       * him on the floor: out of the fight, bleeding, calling for help, and
+       * still alive at the end of the night whatever the player does.
+       *
+       * `downSeconds` is how long he has been there. It is a number the scene
+       * can show and the aftermath can use; it is NOT a timer to a death,
+       * because there is no death at the end of it. The owner was explicit:
+       * the one man who dies in this campaign will be scripted, chosen, and
+       * written -- not lost to an AI's arithmetic on a staircase. */
+      downed: false,
+      downSeconds: 0,
+      revivedCount: 0,
       routineAt: index % Math.max(1, definition.routine.length),
       index,
       wounded: definition.wounded === true,
@@ -1184,6 +1203,32 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     for (const member of members.values()) {
       if (!member.staged || !member.post) continue;
 
+      /* --- 1 HP is the floor, and the floor is where he goes --- */
+      if (!member.downed && !member.actor.incapacitated
+          && member.actor.core && member.actor.health <= 1) {
+        member.downed = true;
+        member.downSeconds = 0;
+        member.actor.setInjury('severe');
+        poseFor(member.figure, 'down');
+        bark(member, 'downed');
+        ctx.onFriendlyDown?.(member.id);
+      }
+
+      if (member.downed) {
+        member.downSeconds += step;
+        /* He keeps talking. A man face down and silent for four minutes is
+         * scenery; a man asking for help is the reason to cross the landing.
+         * Every eleven seconds, staggered off his own clock so sixteen people
+         * never call out together. */
+        member.businessClock -= step;
+        if (member.businessClock <= 0) {
+          member.businessClock = 11 + (member.downSeconds % 3);
+          bark(member, 'downed');
+        }
+        member.figure.update(step, { fear: 0.8 });
+        continue;
+      }
+
       if (member.actor.incapacitated) {
         /* One report per man, whoever killed him -- the mission counts
          * `guardsDown` for its checkpoint and a double count is a
@@ -1299,6 +1344,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
    */
   function targets() {
     return [...members.values()]
+      .filter((member) => !member.downed)
       .filter((member) => member.id !== 'snow'
         && member.staged
         && member.root.visible
@@ -1329,6 +1375,11 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         kills: member.kills,
         shotsFired: member.shotsFired,
         reportedDown: member.reportedDown,
+        /* A checkpoint that stands a bleeding man up is the same class of
+         * fault as one that stands a dead one up. */
+        downed: member.downed,
+        downSeconds: member.downSeconds,
+        revivedCount: member.revivedCount,
       })),
     };
   }
@@ -1366,7 +1417,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
        * is why the pose is applied AFTER the actor is restored rather than
        * by `stage()` before it. */
       member.reportedDown = record.reportedDown === true || member.actor.incapacitated;
-      if (member.actor.incapacitated) poseFor(member.figure, 'down');
+      member.downed = record.downed === true;
+      member.downSeconds = Number(record.downSeconds) || 0;
+      member.revivedCount = Math.max(0, Math.round(record.revivedCount ?? 0));
+      if (member.actor.incapacitated || member.downed) poseFor(member.figure, 'down');
       else poseFor(member.figure, member.wounded ? 'wounded' : 'stand');
     }
     return true;
@@ -1405,6 +1459,59 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
      * the flinch radius moves a man without pinning him, which is correct and
      * is the shared model saying so rather than a number invented here.
      */
+    /**
+     * Everyone on the floor right now, nearest last is nobody's business --
+     * the scene sorts. Each entry carries how long he has been down, which is
+     * what a HUD wants to show and what the aftermath wants to read.
+     */
+    downed() {
+      return [...members.values()]
+        .filter((member) => member.downed)
+        .map((member) => ({
+          id: member.id,
+          name: member.name,
+          seconds: member.downSeconds,
+          position: member.root.position,
+          revivedCount: member.revivedCount,
+        }));
+    },
+
+    /**
+     * Pick a man up.
+     *
+     * He comes back at a THIRD of his health, not full: the point of crossing
+     * the landing under fire is that it costs something and that he is fragile
+     * afterwards, not that the last two minutes are undone. He can go down
+     * again -- `revivedCount` counts it, so a scene that wants to make the
+     * third time harder has the number.
+     */
+    revive(id) {
+      const member = members.get(id);
+      if (!member?.downed) return false;
+      member.downed = false;
+      member.downSeconds = 0;
+      member.revivedCount += 1;
+      member.actor.health = Math.max(2, Math.round(member.actor.maxHealth / 3));
+      member.actor.armor = 0;
+      member.actor.setInjury('moderate');
+      member.reportedDown = false;
+      poseFor(member.figure, 'stand');
+      bark(member, 'revived');
+      return true;
+    },
+
+    /** The nearest downed man within `radius` of a point, or null. */
+    nearestDowned(position, radius = 2.4) {
+      let best = null;
+      let bestDistance = radius;
+      for (const member of members.values()) {
+        if (!member.downed) continue;
+        const d = member.root.position.distanceTo(position);
+        if (d < bestDistance) { bestDistance = d; best = member; }
+      }
+      return best ? { id: best.id, name: best.name, distance: bestDistance } : null;
+    },
+
     noteImpact(point, radius = 6) {
       let touched = 0;
       for (const member of members.values()) {
