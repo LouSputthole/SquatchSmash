@@ -113,9 +113,9 @@ export const PROFILE_OF = {
   player: 'player',
   ape: 'ape',
   host: 'waiter',
-  // Recast after playtest: a distinct scene-local audition voice, not another
-  // waiter. Its ten existing waiter takes are retired until this bank is rerun.
-  manager: 'npc-male',
+  // Recast after playtest: a distinct voice, not another waiter.
+  // Owner-cast 2026-08-04, split off the shared npc-male id.
+  manager: 'manager',
   waiter: 'waiter',
   bandleader: 'waiter',
   driver: 'doorman',
