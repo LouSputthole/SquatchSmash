@@ -13,20 +13,12 @@ For the full production picture — coverage, delivery workflow, the legacy queu
 Record each line and deliver it under **the exact filename shown**. Drop the files in `assets/sfx/`,
 then run `npm run sfx:listen` to rebuild the index and `npm run voice:needed` to see what is left.
 
-## ⚠ Blocked — no voice id
-
-These profiles have lines waiting and **no ElevenLabs id in the manifest**, so nothing can be
-rendered for them. The owner supplies the id, then these unblock.
-
-- `squatch-associate` — 1 line waiting
-
 ## Same voice, different setting
 
 These profiles share one voice id — the same performer, recorded differently.
 They are listed separately below because the delivery differs, not the person.
 
 - `lou1` and `lou` — one voice
-- `heist-customer` and `heist-manager` and `npc-male` — one voice
 
 ## ♻ Recast — re-record everything for these
 
@@ -1339,7 +1331,7 @@ They are listed separately below because the delivery differs, not the person.
 
 ### HEIST CUSTOMER — 12 lines
 
-*THE TAKE frightened bank customer. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.*
+*THE TAKE — the frightened bank customer. Owner-cast 2026-08-05, replacing a provisional reuse of the shared male audition id. Somebody who came in to pay a cheque; every line is said from the floor.*
 
 **THE TAKE** (12)
 
@@ -1747,7 +1739,7 @@ They are listed separately below because the delivery differs, not the person.
 
 ### SQUATCH ASSOCIATE — 1 line
 
-> **No voice id yet.** These cannot be rendered until the owner supplies one.
+*The Squatch associate. Owner-cast 2026-08-05. This profile had NO ENTRY AT ALL until now — its line was in the game and could never be rendered, which is what VOICE-LINES-NEEDED.md surfaced on its first run.*
 
 **The Beef Run** (1)
 
@@ -1765,7 +1757,7 @@ They are listed separately below because the delivery differs, not the person.
 
 ### HEIST MANAGER — 1 line
 
-*THE TAKE bank manager. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.*
+*THE TAKE — the bank manager. Owner-cast 2026-08-05, replacing a provisional reuse of the shared male audition id. He is the one who knows the drill and is trying to be the adult in the room.*
 
 **THE TAKE** (1)
 
@@ -1774,7 +1766,7 @@ They are listed separately below because the delivery differs, not the person.
 
 ### NPC MALE — 1 line
 
-*Scene-local male NPC pool for roles that are not recurring Family members. PROVISIONAL audition casting from the owner's old-man NPC row; voice lead must approve or replace this id before locking the final cast.*
+*Scene-local male NPC pool, for roles that are not recurring Family. Owner-cast 2026-08-05, off the shared audition id it used to borrow. Neutral by design — this voice has to sit behind a dozen different faces without becoming a character.*
 
 **The Silver Case** (1)
 

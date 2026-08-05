@@ -155,8 +155,8 @@
       "style": 0.42
     },
     "npc-male": {
-      "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "Scene-local male NPC pool for roles that are not recurring Family members. PROVISIONAL audition casting from the owner's old-man NPC row; voice lead must approve or replace this id before locking the final cast.",
+      "id": "THy3prVIjAFnT9vQVvCB",
+      "_note": "Scene-local male NPC pool, for roles that are not recurring Family. Owner-cast 2026-08-05, off the shared audition id it used to borrow. Neutral by design — this voice has to sit behind a dozen different faces without becoming a character.",
       "model": "eleven_multilingual_v2",
       "stability": 0.5,
       "similarity": 0.8,
@@ -164,23 +164,23 @@
     },
     "heist-guard": {
       "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "THE TAKE bank security guard. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "_note": "THE TAKE — the bank security guard. Sole owner of this id since 2026-08-05: the customer, the manager and the npc-male pool were all recast off it, so it is no longer shared. Not itself recast; say so if it should be.",
       "model": "eleven_multilingual_v2",
       "stability": 0.56,
       "similarity": 0.8,
       "style": 0.3
     },
     "heist-customer": {
-      "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "THE TAKE frightened bank customer. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "id": "8Nfp0JhQpkjJB35HObeq",
+      "_note": "THE TAKE — the frightened bank customer. Owner-cast 2026-08-05, replacing a provisional reuse of the shared male audition id. Somebody who came in to pay a cheque; every line is said from the floor.",
       "model": "eleven_multilingual_v2",
       "stability": 0.38,
       "similarity": 0.8,
       "style": 0.5
     },
     "heist-manager": {
-      "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "THE TAKE bank manager. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "id": "lE5ZJB6jGeeuvSNxOvs2",
+      "_note": "THE TAKE — the bank manager. Owner-cast 2026-08-05, replacing a provisional reuse of the shared male audition id. He is the one who knows the drill and is trying to be the adult in the room.",
       "model": "eleven_multilingual_v2",
       "stability": 0.62,
       "similarity": 0.8,
@@ -438,6 +438,14 @@
       "stability": 0.62,
       "similarity": 0.84,
       "style": 0.22
+    },
+    "squatch-associate": {
+      "id": "mSOmKHC6GZcZbSTGlqHO",
+      "_note": "The Squatch associate. Owner-cast 2026-08-05. This profile had NO ENTRY AT ALL until now — its line was in the game and could never be rendered, which is what VOICE-LINES-NEEDED.md surfaced on its first run.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.36
     }
   },
   "sfx": [
