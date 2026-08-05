@@ -59,7 +59,7 @@ import { tiled, squatchArt, printed } from '../../bing/kit.js';
 import { makeMaterials } from '../../world/materials.js';
 import {
   makeBed, makeNightstand, makePlant, makeFloorLamp, makeFrame,
-  makeToilet, makeBathSink, makeTub, makeWhiskeyBottle, makeShotGlass,
+  makeToilet, makeTub, makeWhiskeyBottle, makeShotGlass,
   makeAshtray, makeBooks, makeWallClock, makeDesk, makeChair, makeBeerCan,
   makePizzaBox,
 } from '../../world/props.js';
@@ -99,6 +99,16 @@ export const MANSION_ART_SLOTS = [
   'mansion.gallery.pride',
   'mansion.ballroom.backdrop',
   'mansion.office.shield',
+  /* Owner, on walking his own house: "we had another commit or a pass which
+   * should have added a bunch of art to the mansion I did not see." The pass
+   * had run -- all sixteen slots were filled -- but every one of them pointed
+   * at one of seven LOGO files, so he passed the same club crest seven times
+   * and correctly read the walls as empty. The slots now carry photographs
+   * (see assets/art/manifest.json); a crest is kept only where a crest is the
+   * right object -- over the front doors, behind Lou's own desk, and printed
+   * on the LAN chairs. This is the one picture in assets/art/ that was named
+   * for a room in this house and had never been hung in it. */
+  'mansion.office.hogmama',
   'mansion.basement.shield',
   // Third pass: the west wing and the lower level.
   'mansion.trophy.crest',
@@ -2114,25 +2124,97 @@ export function buildMansionInterior(shell = null) {
       size: [0.3, 0.04, 0.22], pos: [-13.0, GY + 0.52, 47.4], mat: M_LEATHER_RED, rotY: -0.1, cast: false,
     }));
 
-    // A proper fireplace on the west wall, between the two windows.
+    /* A proper fireplace on the west wall, between the two windows.
+     *
+     * Owner playtest, verbatim: "Fireplace downstairs is messewd up its black
+     * box with the logs just slightly poking thro". Measured exactly as he
+     * describes it, and the numbers name both halves of the fault: the
+     * surround was ONE solid slab from x -15.95 to -15.45 with no opening in
+     * it at all; the dark firebox was a box hung on the FRONT of that slab at
+     * -15.70..-15.36, standing 90 mm proud of the marble; and the logs at
+     * -15.56..-15.44 crossed the marble face by 10 mm, which is the "slightly
+     * poking thro". Nothing was recessed because there was nothing to recess
+     * into.
+     *
+     * Rebuilt the same way as Lou's upstairs: pilasters and a frieze with a
+     * real 1.5 x 1.30 m opening between them, a five-sided recess behind it,
+     * and the fire standing INSIDE that recess at x -15.71..-15.59 -- 140 mm
+     * behind the surround's face instead of 10 mm through it. */
     const fx = r.x0 + 0.05;
-    root.add(box({ size: [0.5, 2.3, 2.6], pos: [fx + 0.25, GY + 1.15, 52.6], mat: M_MARBLE_DK, name: 'fireplace' }));
+    const fireOpZ0 = 51.85;
+    const fireOpZ1 = 53.35;
+    const fireOpTop = GY + 1.30;
+    for (const [pz0, pz1] of [[51.3, fireOpZ0], [fireOpZ1, 53.9]]) {
+      root.add(box({
+        size: [0.5, 1.30, pz1 - pz0], pos: [fx + 0.25, GY + 0.65, (pz0 + pz1) / 2], mat: M_MARBLE_DK, name: 'fireplace',
+      }));
+      root.add(box({
+        size: [0.56, 0.09, pz1 - pz0 + 0.05], pos: [fx + 0.28, fireOpTop - 0.045, (pz0 + pz1) / 2], mat: M_MARBLE, cast: false, name: 'fireplace-capital',
+      }));
+    }
+    root.add(box({
+      size: [0.5, 0.13, 2.6], pos: [fx + 0.25, fireOpTop + 0.065, 52.6], mat: M_MARBLE_DK, name: 'fireplace-frieze',
+    }));
+    root.add(box({
+      size: [0.54, 0.1, 0.7], pos: [fx + 0.27, fireOpTop + 0.065, 52.6], mat: M_MARBLE, cast: false, name: 'fireplace-tablet',
+    }));
+    root.add(box({
+      size: [0.5, 0.73, 2.6], pos: [fx + 0.25, GY + 1.935, 52.6], mat: M_MARBLE_DK, name: 'fireplace-breast',
+    }));
     root.add(box({ size: [0.72, 0.14, 3.0], pos: [fx + 0.36, GY + 1.5, 52.6], mat: M_MARBLE, name: 'mantel' }));
-    root.add(box({ size: [0.34, 1.1, 1.5], pos: [fx + 0.42, GY + 0.55, 52.6], mat: M_SILHOUETTE }));
+    // The recess: five faces of firebrick, open to the room.
+    root.add(box({
+      size: [0.06, 1.30, 1.5], pos: [fx + 0.03, GY + 0.65, 52.6], mat: M_SILHOUETTE, cast: false, name: 'fireplace-firebox-back',
+    }));
+    for (const cz of [fireOpZ0 + 0.03, fireOpZ1 - 0.03]) {
+      root.add(box({
+        size: [0.44, 1.30, 0.06], pos: [fx + 0.28, GY + 0.65, cz], mat: M_SILHOUETTE, cast: false, name: 'fireplace-firebox-cheek',
+      }));
+    }
+    root.add(box({
+      size: [0.44, 0.06, 1.5], pos: [fx + 0.28, GY + 1.27, 52.6], mat: M_SILHOUETTE, cast: false, name: 'fireplace-firebox-top',
+    }));
+    root.add(box({
+      size: [0.44, 0.05, 1.44], pos: [fx + 0.28, GY + 0.025, 52.6], mat: M_MARBLE_DK, cast: false, name: 'fireplace-firebox-floor',
+    }));
+    root.add(box({
+      size: [0.45, 0.08, 2.0], pos: [fx + 0.725, GY + 0.04, 52.6], mat: M_MARBLE_DK, cast: false, name: 'fireplace-hearth',
+    }));
     solid(fx, fx + 0.6, GY, GY + 2.3, 51.2, 54.0);
     const fireGlow = new THREE.PointLight(0xff7a2a, 4.2, 9, 2);
     fireGlow.position.set(fx + 0.9, GY + 0.6, 52.6);
     root.add(fireGlow);
-    for (let i = 0; i < 5; i++) {
-      root.add(cylinder({
-        r: 0.06,
-        h: 0.9,
-        pos: [fx + 0.45, GY + 0.2 + i * 0.06, 52.6 + (i - 2) * 0.16],
-        mat: M_WOOD,
-        rotX: Math.PI / 2,
-        rotZ: 0.2 * (i - 2),
+    // A cast grate with front bars, and the logs burning on it.
+    for (const gz of [52.6 - 0.44, 52.6 + 0.44]) {
+      root.add(box({
+        size: [0.34, 0.3, 0.05], pos: [fx + 0.3, GY + 0.17, gz], mat: M_RACK, cast: false, name: 'fireplace-grate-cheek',
       }));
     }
+    for (let i = 0; i < 7; i++) {
+      root.add(named(cylinder({
+        r: 0.014, h: 0.88, pos: [fx + 0.45, GY + 0.09 + i * 0.045, 52.6], mat: M_RACK, rotZ: Math.PI / 2, rotY: Math.PI / 2, cast: false,
+      }), 'fireplace-grate-bar'));
+    }
+    root.add(box({
+      size: [0.32, 0.04, 0.86], pos: [fx + 0.3, GY + 0.08, 52.6], mat: M_RACK, cast: false, name: 'fireplace-grate-floor',
+    }));
+    /* Tilt and depth chosen together -- see the note on Lou's grate upstairs.
+     * At 0.24 rad a 0.9 m log measures 0.33 m across; centred at -15.70 that
+     * is -15.87..-15.54, clear of the recess back at -15.89 and 90 mm behind
+     * the surround's face at -15.45. */
+    for (let i = 0; i < 5; i++) {
+      root.add(named(cylinder({
+        r: 0.06,
+        h: 0.9,
+        pos: [fx + 0.25, GY + 0.2 + i * 0.06, 52.6 + (i - 2) * 0.16],
+        mat: M_WOOD,
+        rotX: Math.PI / 2,
+        rotZ: 0.12 * (i - 2),
+      }), 'fireplace-fire-log'));
+    }
+    root.add(box({
+      size: [0.28, 0.05, 0.95], pos: [fx + 0.3, GY + 0.14, 52.6], mat: mat({ color: 0x140a06, emissive: 0xff5a1e, emissiveIntensity: 1.7, roughness: 0.9 }), cast: false, name: 'fireplace-embers',
+    }));
     // Mantelpiece: a clock and two candlesticks.
     const clock = makeWallClock(M, {
       x: fx + 0.4, y: GY + 2.05, z: 52.6, rotY: Math.PI / 2, r: 0.24,
@@ -3591,8 +3673,23 @@ export function buildMansionInterior(shell = null) {
       root.add(box({
         size: [0.09, 0.12, r.z1 - r.z0], pos: [side * (r.x1 - 0.05), UY + 2.78, (r.z0 + r.z1) / 2], mat: M_GOLD, cast: false, name: 'conference-dado',
       }));
-      sconce(side * (r.x1 - 0.05), UY + 2.2, 55.3, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
-      sconce(side * (r.x1 - 0.05), UY + 2.2, 60.7, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
+      /* THE SCONCES WERE BEHIND THE PROJECTOR SCREEN, AND CAME OUT THROUGH IT.
+       *
+       * Owner playtest, verbatim: "lamps going thro screen". Measured: these
+       * two sat at z 55.3 and 60.7 -- both inside the screen's own 55..61 --
+       * and a sconce projects 0.30 m off the wall it is on, so on the WEST
+       * wall the arm and shade ran from x -8.83 out to -8.52, straight
+       * through the bezel at -8.805..-8.735 and out the front of the picture
+       * at -8.71. Two lamps growing out of the middle of the screen.
+       *
+       * They sit in the joints between the wall's panels, so they cannot go
+       * just anywhere: the joints are at z 53.4, 55.3, 57.1, 58.9, 60.7 and
+       * 62.6, and only the outer two clear the bezel's 54.85..61.15. Moved
+       * there -- 1.30 m clear of the screen at each end, still in a panel
+       * joint, still a matched pair, and on the east wall as well so the two
+       * long walls stay symmetrical. */
+      sconce(side * (r.x1 - 0.05), UY + 2.2, 53.4, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
+      sconce(side * (r.x1 - 0.05), UY + 2.2, 62.6, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
     }
 
     /* ================================================================ */
@@ -3725,11 +3822,16 @@ export function buildMansionInterior(shell = null) {
     const screenMat = mat({
       map: screenTex, roughness: 0.7, emissive: 0xffffff, emissiveMap: screenTex, emissiveIntensity: 0.55, unique: true,
     });
+    /* Screen and bezel stand OFF the panelling rather than in it. The bezel
+     * used to run x -8.805..-8.735, and the wall's own panel beads front at
+     * exactly -8.805 -- a shared plane over four panels, which is the flicker
+     * class. Both moved forward 55 mm: bezel -8.75..-8.68, beads -8.755, a
+     * 5 mm gap; screen 5 mm in front of the bezel's face. */
     const screen = flatArt('conference-screen', {
-      x: r.x0 + 0.14, y: UY + 2.3, z: 58, rotY: Math.PI / 2, w: 6, h: 3.2, material: screenMat,
+      x: r.x0 + 0.175, y: UY + 2.3, z: 58, rotY: Math.PI / 2, w: 6, h: 3.2, material: screenMat,
     });
     root.add(box({
-      size: [0.07, 3.5, 6.3], pos: [r.x0 + 0.08, UY + 2.3, 58], mat: M_WOOD_DK, name: 'screen-bezel',
+      size: [0.07, 3.5, 6.3], pos: [r.x0 + 0.135, UY + 2.3, 58], mat: M_WOOD_DK, name: 'screen-bezel',
     }));
     const podium = group('podium',
       box({ size: [0.5, 1.1, 0.7], pos: [0, 0.55, 0], mat: M_WOOD_DK }),
@@ -3739,12 +3841,53 @@ export function buildMansionInterior(shell = null) {
     podium.position.set(r.x0 + 1.5, UY, 61.4);
     root.add(podium);
     solid(r.x0 + 1.2, r.x0 + 1.8, UY, UY + 1.15, 61.05, 61.75);
-    root.add(cylinder({
-      r: 0.022, h: 0.3, pos: [r.x0 + 1.5, UY + 1.2, 60.9], mat: M_CHROME, rotX: Math.PI / 2,
-    }));
-    root.add(cylinder({
-      r: 0.05, h: 0.16, pos: [r.x0 + 1.5, UY + 1.2, 60.72], mat: M_SILVER, rotX: Math.PI / 2,
-    }));
+    /* THE LECTERN MICROPHONE. Owner playtest, verbatim: "microphone fucked
+     * up" -- and it was not a microphone at all. What stood here was a
+     * horizontal chrome rod at z 60.75..61.05 with a fat silver puck on the
+     * end of it, starting at the podium's front edge (61.025) and sticking
+     * straight out into the air: no base, no stem, no neck, nothing holding
+     * it up and nothing to speak into.
+     *
+     * Built properly now, as the thing it is: a weighted base standing ON the
+     * sloped reading top, a short rise out of it, a five-segment gooseneck
+     * that curves up and back over the front edge, and a capsule in a foam
+     * windscreen angled at where a speaker's mouth would be. The neck is
+     * generated rather than posed so each joint continues the last one's
+     * angle -- a gooseneck bent by hand is where the kinks come from. */
+    const micX = r.x0 + 1.5;
+    const micZ = 61.4;
+    root.add(named(cylinder({
+      r: 0.075, h: 0.03, pos: [micX, UY + 1.16, micZ], mat: M_STOVE_BLACK,
+    }), 'conference-mic-base'));
+    root.add(named(cylinder({
+      rTop: 0.03, rBottom: 0.055, h: 0.05, pos: [micX, UY + 1.2, micZ], mat: M_CHROME, cast: false,
+    }), 'conference-mic-collar'));
+    root.add(named(cylinder({
+      r: 0.014, h: 0.22, pos: [micX, UY + 1.33, micZ], mat: M_CHROME,
+    }), 'conference-mic-stem'));
+    let gx = micX;
+    let gy = UY + 1.44;
+    let gA = 0;
+    for (let i = 0; i < 5; i++) {
+      const a = 0.28 + i * 0.28;
+      const seg = 0.075;
+      const nx = gx - Math.sin(a) * seg;
+      const ny = gy + Math.cos(a) * seg;
+      root.add(named(cylinder({
+        r: 0.011, h: seg + 0.014, pos: [(gx + nx) / 2, (gy + ny) / 2, micZ], mat: M_CHROME, rotZ: a, cast: false,
+      }), 'conference-mic-neck'));
+      gx = nx; gy = ny; gA = a;
+    }
+    root.add(named(cylinder({
+      r: 0.022, h: 0.08, pos: [gx - Math.sin(gA) * 0.04, gy + Math.cos(gA) * 0.04, micZ], mat: M_STOVE_BLACK, rotZ: gA,
+    }), 'conference-mic-capsule'));
+    root.add(named(sphere({
+      r: 0.032, pos: [gx - Math.sin(gA) * 0.09, gy + Math.cos(gA) * 0.09, micZ], mat: mat({ color: 0x20232a, roughness: 1 }), cast: false,
+    }), 'conference-mic-windscreen'));
+    // The live light on the base, so the lectern reads as wired to something.
+    root.add(named(sphere({
+      r: 0.011, pos: [micX + 0.05, UY + 1.18, micZ - 0.04], mat: mat({ color: 0x300808, emissive: 0xe02020, emissiveIntensity: 2.2, roughness: 0.6 }), cast: false,
+    }), 'conference-mic-live'));
 
     // Ceiling projector, aimed at the screen.
     root.add(box({ size: [0.34, 0.16, 0.42], pos: [1.4, UCY - 0.5, 58], mat: M_STOVE_BLACK }));
@@ -4124,37 +4267,106 @@ export function buildMansionInterior(shell = null) {
      * of irons on the hearth. */
     const fireZ = 70.4;
     const fireX = r.x1 - 0.02;
+    /* A FIREPLACE IS A VOID WITH A SURROUND ROUND IT, NOT A DARK BOX ON A SLAB.
+     *
+     * Owner playtest, verbatim: "fireplace needs work" -- and of the one
+     * downstairs, "its black box with the logs just slightly poking thro".
+     * Both fireplaces in this house were built the same wrong way and both
+     * measure it. Here the chimneypiece was ONE solid marble box spanning
+     * x 8.23..8.83, and the firebox behind it at 8.33..8.79 with all five
+     * logs at 8.31..8.71 -- so every part of the fire was buried inside the
+     * surround's own front face at 8.23 and NONE of it had ever been visible.
+     * The room had a marble slab where its fire was meant to be.
+     *
+     * So the surround is now what a surround is: two pilasters and a frieze
+     * with a real 1.5 x 1.35 m HOLE between them, and the firebox is a
+     * five-sided recess behind that hole -- back, two cheeks, a top and a
+     * firebrick floor -- with the grate, the logs and the embers standing
+     * inside it where the opening lets you see them.
+     */
+    const opZ0 = fireZ - 0.75;
+    const opZ1 = fireZ + 0.75;
+    const opTopY = UY + 1.35;
+    /* Pilasters either side of the opening, breast over it, both stopping on
+     * the same front plane the old slab had so the mantel still fits. */
+    for (const [pz0, pz1] of [[fireZ - 1.5, opZ0], [opZ1, fireZ + 1.5]]) {
+      root.add(box({
+        size: [0.6, 1.35, pz1 - pz0], pos: [fireX - 0.3, UY + 0.675, (pz0 + pz1) / 2], mat: M_MARBLE, name: 'office-chimneypiece',
+      }));
+      // A moulded capital where each pilaster meets the frieze.
+      root.add(box({
+        size: [0.66, 0.1, pz1 - pz0 + 0.06], pos: [fireX - 0.33, opTopY - 0.05, (pz0 + pz1) / 2], mat: M_MARBLE, cast: false, name: 'office-chimney-capital',
+      }));
+    }
     root.add(box({
-      size: [0.6, 2.5, 2.7], pos: [fireX - 0.3, UY + 1.25, fireZ], mat: M_MARBLE, name: 'office-chimneypiece',
+      size: [0.6, 0.17, 3.0], pos: [fireX - 0.3, opTopY + 0.085, fireZ], mat: M_MARBLE, name: 'office-chimney-frieze',
+    }));
+    // A carved tablet in the middle of the frieze, and the breast above.
+    root.add(box({
+      size: [0.64, 0.13, 0.8], pos: [fireX - 0.32, opTopY + 0.085, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-chimney-tablet',
     }));
     root.add(box({
-      size: [0.46, 1.35, 1.5], pos: [fireX - 0.27, UY + 0.68, fireZ], mat: M_WALL_DEEP, cast: false, name: 'office-firebox',
+      size: [0.6, 0.82, 2.7], pos: [fireX - 0.3, UY + 2.09, fireZ], mat: M_MARBLE, name: 'office-chimney-breast',
     }));
     root.add(box({
       size: [0.78, 0.16, 3.0], pos: [fireX - 0.39, UY + 1.6, fireZ], mat: M_MARBLE, name: 'office-mantel',
     }));
-    for (const oz of [-0.86, 0.86]) {
+    /* The recess itself: five faces of firebrick, open to the room. */
+    root.add(box({
+      size: [0.08, 1.35, 1.5], pos: [fireX - 0.04, UY + 0.675, fireZ], mat: M_WALL_DEEP, cast: false, name: 'office-firebox-back',
+    }));
+    for (const cz of [opZ0 + 0.03, opZ1 - 0.03]) {
       root.add(box({
-        size: [0.66, 1.5, 0.28], pos: [fireX - 0.33, UY + 0.75, fireZ + oz], mat: M_MARBLE, cast: false,
+        size: [0.54, 1.35, 0.06], pos: [fireX - 0.33, UY + 0.675, cz], mat: M_WALL_DEEP, cast: false, name: 'office-firebox-cheek',
       }));
     }
     root.add(box({
-      size: [0.68, 0.1, 2.0], pos: [fireX - 0.34, UY + 0.05, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-hearth',
+      size: [0.54, 0.06, 1.5], pos: [fireX - 0.33, UY + 1.32, fireZ], mat: M_WALL_DEEP, cast: false, name: 'office-firebox-top',
+    }));
+    root.add(box({
+      size: [0.54, 0.05, 1.44], pos: [fireX - 0.33, UY + 0.025, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-firebox-floor',
+    }));
+    // The hearth slab, projecting into the room from the opening's face.
+    root.add(box({
+      size: [0.45, 0.1, 2.0], pos: [fireX - 0.825, UY + 0.05, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-hearth',
     }));
     solid(fireX - 0.7, fireX, UY, UY + 2.5, fireZ - 1.5, fireZ + 1.5);
-    // The fire: logs, embers and a warm light that only reaches the hearth.
-    for (let i = 0; i < 5; i++) {
-      root.add(cylinder({
-        r: 0.06,
-        h: 0.8,
-        pos: [fireX - 0.32, UY + 0.16 + i * 0.06, fireZ + (i - 2) * 0.15],
-        mat: M_WOOD,
-        rotX: Math.PI / 2,
-        rotZ: 0.18 * (i - 2),
+    /* The fire, standing IN the opening: a cast basket with front bars, logs
+     * across it and embers under them.
+     *
+     * THE TILT IS WHAT DECIDES HOW DEEP THESE GO. A log is a cylinder laid on
+     * its side and then rolled by `rotZ`, and rolling it swings its ends out
+     * along x: at the 0.36 rad the first pass used, a 0.8 m log measures
+     * 0.39 m across instead of its 0.12 m diameter, which put the outer two
+     * logs at x 8.19 -- back through the surround's face at 8.23 and into the
+     * room, which is the very fault being fixed. Tilt and depth are therefore
+     * chosen together: 0.22 rad measures 0.29 m across, and centred at 8.47 it
+     * lands at 8.32..8.62 -- 94 mm behind the face, 130 mm clear of the back. */
+    for (const gz of [fireZ - 0.42, fireZ + 0.42]) {
+      root.add(box({
+        size: [0.36, 0.28, 0.05], pos: [fireX - 0.40, UY + 0.16, gz], mat: M_RACK, cast: false, name: 'office-grate-cheek',
       }));
     }
+    for (let i = 0; i < 7; i++) {
+      root.add(named(cylinder({
+        r: 0.014, h: 0.86, pos: [fireX - 0.56, UY + 0.09 + i * 0.042, fireZ], mat: M_RACK, rotZ: Math.PI / 2, rotY: Math.PI / 2, cast: false,
+      }), 'office-grate-bar'));
+    }
     root.add(box({
-      size: [0.3, 0.05, 0.9], pos: [fireX - 0.32, UY + 0.12, fireZ], mat: mat({ color: 0x140a06, emissive: 0xff5a1e, emissiveIntensity: 1.8, roughness: 0.9 }), cast: false, name: 'office-embers',
+      size: [0.34, 0.04, 0.84], pos: [fireX - 0.40, UY + 0.08, fireZ], mat: M_RACK, cast: false, name: 'office-grate-floor',
+    }));
+    for (let i = 0; i < 5; i++) {
+      root.add(named(cylinder({
+        r: 0.06,
+        h: 0.8,
+        pos: [fireX - 0.36, UY + 0.16 + i * 0.06, fireZ + (i - 2) * 0.15],
+        mat: M_WOOD,
+        rotX: Math.PI / 2,
+        rotZ: 0.11 * (i - 2),
+      }), 'office-fire-log'));
+    }
+    root.add(box({
+      size: [0.3, 0.05, 0.9], pos: [fireX - 0.38, UY + 0.12, fireZ], mat: mat({ color: 0x140a06, emissive: 0xff5a1e, emissiveIntensity: 1.8, roughness: 0.9 }), cast: false, name: 'office-embers',
     }));
     const fireGlow = new THREE.PointLight(0xff8a3c, 4.0, 9, 2);
     fireGlow.position.set(fireX - 0.9, UY + 0.55, fireZ);
@@ -4204,8 +4416,23 @@ export function buildMansionInterior(shell = null) {
     for (const [gx, gz] of [[4.4, 68.44], [4.78, 68.46]]) {
       root.add(cylinder({ r: 0.04, h: 0.1, pos: [gx, UY + 0.83, gz], mat: M_GLASS_CASE }));
     }
-    makeFancyChair(3.4, UY, 67.8, -0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
-    makeFancyChair(5.8, UY, 67.8, 0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
+    /* THE YAWS ARE THE WAY ROUND THEY LOOK, AND THAT IS WHY THEY WERE WRONG.
+     *
+     * Owner playtest, verbatim: "Chairs by the couch backwards". Measured off
+     * the built scene rather than the literals -- `makeFancyChair` puts the
+     * chair's BACK on its local -z, so a chair faces (sin yaw, cos yaw), and
+     * all four loose chairs in this room were pointing outward:
+     *
+     *   fireside, x 3.4  faced (-0.78, +0.62) -- away from the drinks table
+     *   fireside, x 5.8  faced (+0.78, +0.62) -- away from the drinks table
+     *   wing,     x -7.0 faced (-0.96, +0.07) -- away from the chesterfield
+     *   wing,     x -2.8 faced (+0.96, +0.07) -- away from the chesterfield
+     *
+     * Each pair had simply been given the other one's angle: a chair on the
+     * WEST of a table has to turn east to face it. Swapping the two values in
+     * each pair turns all four in, which is the whole fix. */
+    makeFancyChair(3.4, UY, 67.8, 0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
+    makeFancyChair(5.8, UY, 67.8, -0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
 
     /* ---- The seating group in the north-west quarter: a buttoned
      * chesterfield, two wing chairs and a marble table on their own rug. Clear
@@ -4246,8 +4473,10 @@ export function buildMansionInterior(shell = null) {
       root.add(box({
         size: [0.34, 0.03, 0.26], pos: [sx - 0.36, UY + 0.5, sz - 1.46], mat: M_CARD, rotY: 0.16, cast: false,
       }));
-      makeFancyChair(sx - 2.1, UY, sz - 1.5, -Math.PI / 2 + 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
-      makeFancyChair(sx + 2.1, UY, sz - 1.5, Math.PI / 2 - 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
+      // ...and the two wing chairs, turned in on the chesterfield -- see the
+      // note on the fireside pair above; this is the same swap.
+      makeFancyChair(sx - 2.1, UY, sz - 1.5, Math.PI / 2 - 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
+      makeFancyChair(sx + 2.1, UY, sz - 1.5, -Math.PI / 2 + 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
     }
 
     /* ---- A globe on its own stand, and a grandfather clock in the corner
@@ -4271,11 +4500,25 @@ export function buildMansionInterior(shell = null) {
       solid(gx - 0.36, gx + 0.36, UY, UY + 1.4, gz - 0.36, gz + 0.36);
     }
     {
-      const kx = r.x0 + 0.42;
-      const kz = r.z0 + 0.62;
+      /* THE CLOCK WAS IN THE WALL. Owner playtest, verbatim: "Grandfather
+       * clock in the wall". Measured on the built scene: the case stood at
+       * x -8.74..-8.12 against panelling whose front face is at -8.78, which
+       * looks clear -- but a longcase clock's PLINTH and CORNICE are wider
+       * than its trunk, and those measured -8.79..-8.07 and -8.78..-8.08. So
+       * the plinth was 10 mm inside the panelling and the cornice was exactly
+       * ON its face: an interpenetration and a coplanar pair, which is the
+       * flicker. The trunk was never the thing sticking through.
+       *
+       * Set off the wall by the PLINTH's half-width plus clearance rather than
+       * the trunk's, and pulled south off the bookcase (whose front is at
+       * z 64.1) so the dial is not buried in it either. Measured after:
+       * plinth x -8.72, 60 mm clear of the panelling; dial reaches z 64.00,
+       * 100 mm clear of the bookcase. */
+      const kx = r.x0 + 0.49;
+      const kz = r.z0 + 0.52;
       root.add(box({ size: [0.62, 2.3, 0.5], pos: [kx, UY + 1.15, kz], mat: M_WOOD_DK, name: 'office-longcase-clock' }));
-      root.add(box({ size: [0.7, 0.2, 0.58], pos: [kx, UY + 2.36, kz], mat: M_WOOD_DK, cast: false }));
-      root.add(box({ size: [0.72, 0.14, 0.6], pos: [kx, UY + 0.07, kz], mat: M_WOOD_DK, cast: false }));
+      root.add(box({ size: [0.7, 0.2, 0.58], pos: [kx, UY + 2.36, kz], mat: M_WOOD_DK, cast: false, name: 'office-longcase-cornice' }));
+      root.add(box({ size: [0.72, 0.14, 0.6], pos: [kx, UY + 0.07, kz], mat: M_WOOD_DK, cast: false, name: 'office-longcase-plinth' }));
       root.add(box({
         size: [0.44, 0.9, 0.03], pos: [kx, UY + 1.15, kz + 0.26], mat: M_GLASS_CASE, cast: false,
       }));
@@ -4315,6 +4558,18 @@ export function buildMansionInterior(shell = null) {
       size: [1.63, 1.24, 0.05], pos: [4.4, UY + 2.45, r.z0 + 0.16], mat: M_GOLD, cast: false,
     }));
     sconce(4.4, UY + 3.3, r.z0 + 0.06, 0, 1.8);
+    /* Hog Mama, on the north pier. `assets/art/lou-office-hog-mama.png` was
+     * named for this room and made for it and had never been hung anywhere in
+     * the project -- one of only three files in assets/art/ placed nowhere at
+     * all. It goes on the 3.2 m of solid wall between the office's two north
+     * windows (the shell glazes x -6.4..-1.6 and 1.6..6.4, so x 0 is the one
+     * unbroken pier on that wall), facing back down the room at the desk.
+     * 0.9 x 1.35 because the file is 2000 x 3000 and `dressArtSlots` rebuilds
+     * the plate to the image's own aspect -- declaring it square here would
+     * make the swap visibly resize the picture. */
+    const officeHogMama = wallArt('mansion.office.hogmama', 0, UY + 2.25, r.z1 - 0.12, Math.PI, 0.9, 1.35,
+      makePortraitTexture('lou-hogmama', 'HOG MAMA', '#2a1a1e'));
+    sconce(0, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
     // Lou, again, over his own safe -- the east wall has no opening in it
     // anywhere, so this one is as far from a doorway as art gets in here.
     wallArt('office-safe-portrait', r.x1 - 0.11, UY + 2.15, safeZ + 0.15, -Math.PI / 2, 0.9, 1.1,
@@ -4371,7 +4626,7 @@ export function buildMansionInterior(shell = null) {
     root.add(ceil);
     ceilingLight(0, 74.2, UCY - 0.4, 0xffdca0, 4.2, 13);
     return {
-      desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
+      desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield, hogMama: officeHogMama,
     };
   }
   const officeProps = buildOffice();
@@ -4529,7 +4784,19 @@ export function buildMansionInterior(shell = null) {
     }));
     recordArt(`${name}-mirror`, mirrorX, UY + 1.85, dresserZ,
       dresserSide > 0 ? Math.PI / 2 : -Math.PI / 2, 1.2, 1.5);
-    const wx = dresserSide > 0 ? r.x1 - 0.4 : r.x0 + 0.4;
+    /* 0.52 off the partition, not 0.4. Owner playtest, verbatim: "dresser in
+     * wall". The tall press is the piece that was in it, in ALL FOUR rooms --
+     * it is 0.7 m deep with an 0.8 m cornice, and every theme lines its inner
+     * wall with bands that stand proud of the plaster: 0.07 m of boarding and
+     * 0.10 m of chair rail in the lake and old-timey rooms, 0.07 m of slab
+     * lining and 0.09 m of lit cove in the modern one. At 0.4 the carcass ran
+     * 50 mm inside the chair rail and the cornice 10 mm inside the cove.
+     *
+     * The offset is sized off the WORST case rather than the nearest: cornice
+     * half-width 0.40 + the modern room's 0.09 cove + 0.02 clearance = 0.51,
+     * rounded to 0.52. Measured after, the carcass clears the chair rail by
+     * 30 mm and the cornice clears the cove by 30 mm. */
+    const wx = dresserSide > 0 ? r.x1 - 0.52 : r.x0 + 0.52;
     root.add(box({
       size: [0.7, 2.3, 2.2], pos: [wx, UY + 1.15, cz + 1.4], mat: palette.wardrobe ?? M_WOOD_DK, name: `${name}-wardrobe`,
     }));
@@ -4791,34 +5058,63 @@ export function buildMansionInterior(shell = null) {
             }));
           }
 
-          // Stained glass in the arcade, lit from behind.
+          /* Stained glass in the arcade, lit from behind.
+           *
+           * IN THE BAY AT 38.3, NOT 43.3. Owner playtest: "bed and furniture
+           * clipping" / "wall decorations clipping". This was the biggest
+           * interpenetration in the room and it was both notes at once -- the
+           * window sat at z 42.7..43.9 on the inner wall and the WARDROBE
+           * stands at z 42.2..44.4 against that same wall, so measured, the
+           * wardrobe carcass ran through the window's iron frame over
+           * 55 x 1250 x 1200 mm. The room's own comment already knew the
+           * wardrobe's extent -- it is quoted three lines further down, as the
+           * reason the television was put where it is -- and the glass was
+           * dropped in the middle of it anyway.
+           *
+           * The arcade's lancets stand at z 37.4, 39.2, 41.0, 45.6 and 47.0.
+           * Of the bays between them, 41.0..45.6 holds the wardrobe and
+           * 39.2..41.0 holds the television, 45.6..47.0 is only 0.56 m of
+           * clear stone -- too narrow for a 1.0 m window. 37.4..39.2 is empty
+           * and 0.96 m clear, so the glass goes there. */
+          const roseZ = 38.3;
           const rose = flatArt('gothic-rose-window', {
             x: innerX - 0.12,
             y: UY + 2.0,
-            z: 43.3,
+            z: roseZ,
             rotY: -Math.PI / 2,
-            w: 1.0,
+            /* 0.72 wide inside an 0.82 frame, because the bay's CLEAR stone is
+             * 37.875..38.725 -- between the colonnettes, not between the
+             * lancet centres. At the old 1.0/1.2 the frame would have sat
+             * 50 mm inside both shafts. */
+            w: 0.72,
             h: 1.7,
             material: M_GLASS_RUBY,
           });
           rose.name = 'gothic-stained-glass';
           for (const oy of [-0.5, 0.1, 0.7]) {
             root.add(box({
-              size: [0.03, 0.36, 0.7], pos: [innerX - 0.13, UY + 2.0 + oy, 43.3], mat: M_GLASS_SAPPHIRE, cast: false,
+              size: [0.03, 0.36, 0.62], pos: [innerX - 0.13, UY + 2.0 + oy, roseZ], mat: M_GLASS_SAPPHIRE, cast: false, name: 'gothic-glass-band',
             }));
           }
           root.add(box({
-            size: [0.05, 1.9, 1.2], pos: [innerX - 0.08, UY + 2.0, 43.3], mat: M_GOTHIC_IRON, cast: false,
+            size: [0.05, 1.9, 0.82], pos: [innerX - 0.08, UY + 2.0, roseZ], mat: M_GOTHIC_IRON, cast: false, name: 'gothic-glass-frame',
           }));
           const glow = new THREE.PointLight(0xc85a78, 2.2, 6, 2);
-          glow.position.set(innerX - 0.6, UY + 2.0, 43.3);
+          glow.position.set(innerX - 0.6, UY + 2.0, roseZ);
           root.add(glow);
 
           /* The set, standing inside the arcade under its own pointed arch --
            * an iron cabinet on the inner wall at z 40.2, which is the bay
            * between the third and fourth lancets and clear of the wardrobe
            * (z 42.2..44.4). Handed back as `screen` for the composition root. */
-          const tvX = innerX - 0.36;
+          /* 0.45 off the wall, not 0.36. The cabinet is 1.7 m long and the bay
+           * it stands in is 0.96 m of clear stone, so it necessarily overlaps
+           * the colonnettes either side of it -- and at 0.36 it did so in the
+           * SOLID, measured 55 mm of cabinet inside the two stone shafts at
+           * z 39.62 and 40.58. Set forward far enough to stand against the
+           * arcade rather than inside it: cabinet front now -9.29 against
+           * colonnettes reaching -9.255, a 35 mm clearance. */
+          const tvX = innerX - 0.45;
           const tvZ = 40.2;
           root.add(box({
             size: [0.62, 0.8, 1.7], pos: [tvX, UY + 0.4, tvZ], mat: M_GOTHIC_PANEL, name: 'gothic-tv-cabinet',
@@ -4998,22 +5294,36 @@ export function buildMansionInterior(shell = null) {
           }));
 
           /* The bedstead: turned brass posts with knobs at head and foot, and
-           * a patchwork quilt folded across the shared bed. */
+           * a patchwork quilt folded across the shared bed.
+           *
+           * THE BRASS HEAD STANDS IN FRONT OF THE PADDED ONE, NOT INSIDE IT.
+           * Owner playtest, verbatim: "Workout bench and everything by bed is
+           * overlapping". This room gets two headboards -- `buildBedroom`'s
+           * upholstered panel, which every room gets, and the brass bedstead
+           * this theme brings -- and they were built in the same 20 cm of
+           * floor. Measured, the posts sat at z 47.425..47.515 against a
+           * padded headboard whose front face is 47.46, so 55 mm of every
+           * post, rail and spindle was buried in the upholstery.
+           *
+           * Moved 60 mm south to hbZ - 0.14: the brass now stops at 47.455,
+           * 5 mm clear of the padding, and its posts at x 10.48..10.57 and
+           * 12.48..12.57 still miss the mattress at 10.575..12.475. */
+          const brassZ = hbZ - 0.14;
           for (const px of [bedX - 1.0, bedX + 1.0]) {
-            root.add(named(cylinder({ r: 0.045, h: 1.5, pos: [px, UY + 0.75, hbZ - 0.08], mat: M_BRASS }), 'oldtime-bedpost'));
-            root.add(sphere({ r: 0.09, pos: [px, UY + 1.54, hbZ - 0.08], mat: M_BRASS }));
-            root.add(cylinder({ r: 0.04, h: 0.85, pos: [px, UY + 0.42, bedZ - 1.2], mat: M_BRASS }));
-            root.add(sphere({ r: 0.075, pos: [px, UY + 0.88, bedZ - 1.2], mat: M_BRASS }));
+            root.add(named(cylinder({ r: 0.045, h: 1.5, pos: [px, UY + 0.75, brassZ], mat: M_BRASS }), 'oldtime-bedpost'));
+            root.add(named(sphere({ r: 0.09, pos: [px, UY + 1.54, brassZ], mat: M_BRASS }), 'oldtime-bedpost-knob'));
+            root.add(named(cylinder({ r: 0.04, h: 0.85, pos: [px, UY + 0.42, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost'));
+            root.add(named(sphere({ r: 0.075, pos: [px, UY + 0.88, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost-knob'));
           }
           for (const ry of [UY + 1.02, UY + 1.42]) {
-            root.add(cylinder({
-              r: 0.03, h: 2.0, pos: [bedX, ry, hbZ - 0.08], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
-            }));
+            root.add(named(cylinder({
+              r: 0.03, h: 2.0, pos: [bedX, ry, brassZ], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
+            }), 'oldtime-head-rail'));
           }
           for (let i = 0; i < 7; i++) {
-            root.add(cylinder({
-              r: 0.018, h: 0.4, pos: [bedX - 0.75 + i * 0.25, UY + 1.22, hbZ - 0.08], mat: M_BRASS, cast: false,
-            }));
+            root.add(named(cylinder({
+              r: 0.018, h: 0.4, pos: [bedX - 0.75 + i * 0.25, UY + 1.22, brassZ], mat: M_BRASS, cast: false,
+            }), 'oldtime-head-spindle'));
           }
           root.add(cylinder({
             r: 0.028, h: 2.0, pos: [bedX, UY + 0.86, bedZ - 1.2], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
@@ -5120,20 +5430,43 @@ export function buildMansionInterior(shell = null) {
         },
       },
       extra: ({ cx }) => {
-        // A weights bench nobody has used since it arrived.
-        root.add(box({ size: [0.4, 0.12, 1.3], pos: [cx - 2.0, UY + 0.44, 43.6], mat: M_LEATHER_DK }));
+        /* A weights bench nobody has used since it arrived -- WITH THE RACK
+         * THAT HOLDS ITS BAR UP. The other half of "Workout bench and
+         * everything by bed is overlapping": the loaded barbell hung at
+         * y 6.92..6.98 with nothing beneath it but the bench top at 6.50, so
+         * 0.42 m of clear air and a bar floating over it. A bench press is a
+         * bench AND two uprights; only the bench had been built. */
+        /* cx - 1.8, not cx - 2.0: the press moved 120 mm into the room (see
+         * `wx` in buildBedroom) and at 2.0 the rack's foot would have stood
+         * 20 mm off its door handles. At 1.8 there is 220 mm between them. */
+        const bx = cx - 1.8;
+        root.add(box({ size: [0.4, 0.12, 1.3], pos: [bx, UY + 0.44, 43.6], mat: M_LEATHER_DK, name: 'oldtime-bench-pad' }));
         for (const bz of [43.1, 44.1]) {
-          root.add(box({ size: [0.3, 0.38, 0.1], pos: [cx - 2.0, UY + 0.19, bz], mat: M_RACK }));
+          root.add(box({ size: [0.3, 0.38, 0.1], pos: [bx, UY + 0.19, bz], mat: M_RACK, name: 'oldtime-bench-leg' }));
         }
-        root.add(cylinder({
-          r: 0.03, h: 1.5, pos: [cx - 2.0, UY + 0.95, 43.2], mat: M_CHROME, rotZ: Math.PI / 2,
-        }));
-        for (const ox of [-0.6, 0.6]) {
-          root.add(cylinder({
-            r: 0.2, h: 0.1, pos: [cx - 2.0 + ox, UY + 0.95, 43.2], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
+        for (const ox of [-0.32, 0.32]) {
+          root.add(box({
+            size: [0.08, 1.0, 0.08], pos: [bx + ox, UY + 0.5, 43.2], mat: M_RACK, name: 'oldtime-rack-upright',
+          }));
+          root.add(box({
+            size: [0.34, 0.05, 0.34], pos: [bx + ox, UY + 0.025, 43.2], mat: M_RACK, cast: false, name: 'oldtime-rack-foot',
+          }));
+          // The J-hook the bar actually rests in, at bar height.
+          root.add(box({
+            size: [0.1, 0.07, 0.17], pos: [bx + ox, UY + 0.955, 43.26], mat: M_RACK, cast: false, name: 'oldtime-rack-hook',
           }));
         }
-        solid(cx - 2.4, cx - 1.6, UY, UY + 0.6, 43.0, 44.3);
+        root.add(named(cylinder({
+          r: 0.03, h: 1.5, pos: [bx, UY + 0.95, 43.2], mat: M_CHROME, rotZ: Math.PI / 2,
+        }), 'oldtime-barbell'));
+        for (const ox of [-0.6, 0.6]) {
+          root.add(named(cylinder({
+            r: 0.2, h: 0.1, pos: [bx + ox, UY + 0.95, 43.2], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
+          }), 'oldtime-barbell-plate'));
+        }
+        // Collider takes the rack's full height -- it is 1 m of steel, not a
+        // 0.6 m bench you can walk over the top of.
+        solid(cx - 2.4, cx - 1.6, UY, UY + 1.0, 43.0, 44.3);
       },
     }),
     westRear: buildBedroom({
@@ -5180,7 +5513,7 @@ export function buildMansionInterior(shell = null) {
         },
         dress: (c) => {
           const {
-            r, cz, bedX, bedZ, hbZ, outerX,
+            r, cz, bedX, bedZ, hbZ, outerX, inward,
           } = c;
           /* Shiplap: horizontal boards to the chair rail, right round the
            * room, notched for BOTH doorways -- the gallery door in the south
@@ -5230,7 +5563,14 @@ export function buildMansionInterior(shell = null) {
            * y 8.13..9.07 on the bed's centre line, and a 1.9 m paddle crossed
            * over that lands squarely through it), and both east of the
            * doorway this wall carries at x -14.9..-13.1. */
-          const paddleX = bedX + 1.4;
+          /* 1.22 off the bed's centre line, not 1.4. Owner: "wall decorations
+           * clipping". A paddle crossed at 0.62 rad measures 0.2225 m each
+           * side of its own blade centre, so the east blade reached
+           * x = paddleX + 1.0025 -- at 1.4 that was -9.122, which is 98 mm
+           * through the shiplap band faced at -9.22 and 28 mm inside the
+           * structural partition at -9.15. Pulled back so the blade stops at
+           * -9.3025: 82 mm clear of the boarding, 152 mm clear of the wall. */
+          const paddleX = bedX + 1.22;
           for (const s of [-1, 1]) {
             root.add(box({
               size: [0.1, 1.9, 0.05], pos: [paddleX + s * 0.02, UY + 2.4, hbZ + 0.2 + s * 0.03], mat: M_LAKE_BOARD, rotZ: s * 0.62, name: 'lake-paddle',
@@ -5296,15 +5636,67 @@ export function buildMansionInterior(shell = null) {
           root.add(screen);
           c.screen = screen;
 
-          // A rod, a creel and a pair of decoys.
-          const rodX = outerX + 0.4;
+          /* ---- THE ROD, LEANT ON THE WALL AND ACTUALLY BUILT.
+           *
+           * Owner playtest, verbatim: "fishing rod needs to be a bit more
+           * detailed and leaning against the wall instead of in the air".
+           * Both halves measured. It was ONE bare cylinder -- no grip, no
+           * reel, no guides, no taper, nothing that makes a rod a rod -- and
+           * it leant the WRONG WAY: `rotZ: -0.12` tips the top toward +x, so
+           * the tip finished at x -15.474, half a metre out into the room,
+           * while the butt sat nearer the wall at -15.726. A rod stood on its
+           * tip leaning away from the wall. The only other piece, a chrome
+           * disc meant to be the reel, hung 100 mm off the blank's own axis.
+           *
+           * Rebuilt along a single measured axis so every part is ON the rod:
+           * `rodAt(t)` returns the point t metres up from the butt, and the
+           * grip, reel seat, reel, guides and tip section are all placed
+           * through it. Leant at 0.216 rad the other way, which puts the butt
+           * on the floor at x -15.500 and the tip at -15.950 -- 50 mm off the
+           * plaster, i.e. against the wall. */
           const rodZ = r.z1 - 1.4;
-          root.add(cylinder({
-            r: 0.018, h: 2.1, pos: [rodX, UY + 1.05, rodZ], mat: M_WOOD, rotZ: -0.12, name: 'lake-rod',
-          }));
-          root.add(cylinder({
-            r: 0.06, h: 0.05, pos: [rodX + 0.08, UY + 0.55, rodZ], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
-          }));
+          const rodX = outerX + inward * 0.275;
+          const rodA = inward * 0.216;
+          const rodDX = -Math.sin(rodA);
+          const rodDY = Math.cos(rodA);
+          const rodAt = (t) => [rodX - 1.05 * rodDX + t * rodDX, UY + t * rodDY, rodZ];
+          root.add(named(cylinder({
+            r: 0.018, h: 2.1, pos: [rodX, UY + 1.05 * rodDY, rodZ], mat: M_WOOD, rotZ: rodA,
+          }), 'lake-rod'));
+          // Cork grip, winding check, reel seat and the reel itself.
+          root.add(named(cylinder({
+            r: 0.033, h: 0.30, pos: rodAt(0.20), mat: mat({ color: 0xc9a877, roughness: 0.95 }), rotZ: rodA,
+          }), 'lake-rod-grip'));
+          root.add(named(cylinder({
+            r: 0.026, h: 0.03, pos: rodAt(0.36), mat: M_CHROME, rotZ: rodA, cast: false,
+          }), 'lake-rod-check'));
+          root.add(named(cylinder({
+            r: 0.028, h: 0.13, pos: rodAt(0.45), mat: M_CHROME, rotZ: rodA,
+          }), 'lake-rod-reel-seat'));
+          {
+            const [rx, ry] = rodAt(0.45);
+            root.add(named(cylinder({
+              r: 0.055, h: 0.045, pos: [rx, ry - 0.075, rodZ + 0.055], mat: M_CHROME, rotX: Math.PI / 2,
+            }), 'lake-rod-reel'));
+            root.add(named(cylinder({
+              r: 0.028, h: 0.05, pos: [rx, ry - 0.075, rodZ + 0.085], mat: M_LAKE_BLUE, rotX: Math.PI / 2, cast: false,
+            }), 'lake-rod-spool'));
+            root.add(named(cylinder({
+              r: 0.006, h: 0.05, pos: [rx + 0.035, ry - 0.075, rodZ + 0.10], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
+            }), 'lake-rod-reel-handle'));
+            root.add(box({
+              size: [0.02, 0.05, 0.02], pos: [rx, ry - 0.04, rodZ + 0.03], mat: M_CHROME, cast: false, name: 'lake-rod-reel-foot',
+            }));
+          }
+          // Line guides up the blank, and a whipped-on tip section.
+          for (const t of [0.72, 1.02, 1.32, 1.58, 1.80]) {
+            root.add(named(cylinder({
+              r: 0.014, h: 0.012, pos: rodAt(t), mat: M_CHROME, rotZ: rodA, cast: false,
+            }), 'lake-rod-guide'));
+          }
+          root.add(named(cylinder({
+            rTop: 0.006, rBottom: 0.014, h: 0.30, pos: rodAt(1.95), mat: M_WOOD, rotZ: rodA, cast: false,
+          }), 'lake-rod-tip'));
           root.add(box({
             size: [0.36, 0.3, 0.26], pos: [rodX + 0.16, UY + 0.15, rodZ + 0.3], mat: M_LAKE_ROPE, name: 'lake-creel',
           }));
@@ -5491,13 +5883,38 @@ export function buildMansionInterior(shell = null) {
 
           /* A moulded lounge chair and its ottoman, in place of the shared
            * armchair (`chairKind: 'none'` above), on a chrome base. */
-          const lx = c.chairX;
-          const lz = cz + 2.4;
+          /* OUT OF THE WARDROBE'S FACE, AND OFF THE SIDE TABLE.
+           *
+           * Owner playtest, verbatim: "Chair clipping closet". Measured, the
+           * lounge chair's near arm stood at x 10.055 with the wardrobe's door
+           * handles at 9.95 -- 105 mm, which is not a gap you could open that
+           * door into, and reads as contact from anywhere in the room. Worse
+           * and unreported: its ottoman at x 11.15..11.75, z 62.15..62.65 ran
+           * straight through the shared side table's pedestal at 11.67..11.83,
+           * z 62.32..62.48. Chair, ottoman and table were all crammed into the
+           * same 1.2 m of the room's south-west corner.
+           *
+           * The corner is unpacked rather than nudged: the lounge chair and
+           * its ottoman move to the empty pocket between the bed's foot and
+           * the side table, which no other piece in this room uses. That also
+           * leaves the wardrobe corner clear for somebody to stand in.
+           *
+           * NOT to the east window, which was the first place they went and
+           * which the walking test refused: this room's gallery door and its
+           * ensuite door are BOTH at x 13.1..14.9, so that strip is a lane
+           * running the full depth of the room and nothing may stand in it.
+           * The chair at x 13.575..14.575 blocked it and the tour stuck at
+           * (13.985, 59.78). The pocket below is west of the lane, east of
+           * the wardrobe, north of the bed and south of the side table. */
+          const lx = innerX + (innerX < cx ? 2.25 : -2.25);
+          const lz = cz - 0.9;
           root.add(box({
             size: [0.86, 0.2, 0.8], pos: [lx, UY + 0.42, lz], mat: M_LEATHER_DK, rotX: -0.06, name: 'modern-lounge-seat',
           }));
+          /* Set 0.44 back, not 0.34: at 0.34 the tilted back drove 297 mm into
+           * an 800 mm seat, so more than a third of the seat was inside it. */
           root.add(box({
-            size: [0.86, 0.86, 0.22], pos: [lx, UY + 0.82, lz - 0.34], mat: M_LEATHER_DK, rotX: -0.3, name: 'modern-lounge-back',
+            size: [0.86, 0.86, 0.22], pos: [lx, UY + 0.84, lz - 0.44], mat: M_LEATHER_DK, rotX: -0.3, name: 'modern-lounge-back',
           }));
           for (const s of [-1, 1]) {
             root.add(box({
@@ -5659,25 +6076,29 @@ export function buildMansionInterior(shell = null) {
     });
     wrap.add(tub.group);
     solid(tubX0, tubX0 + 1.8, UY, UY + 0.56, cz + 0.6, cz + 3.0);
+    /* THE LOO GOES BACK AGAINST ITS DUCT. Owner playtest, verbatim: "toilet
+     * away from wall". Measured: the pan stood at 0.8 m off the partition and
+     * `makeToilet` puts the cistern's back 0.385 m behind its centre, so the
+     * cistern's back face was at x 9.555 against a tiled wall faced at 9.20 --
+     * a 355 mm gap with the pipework of a close-coupled suite hanging in it.
+     * Seated on the duct below instead: 0.66 m off the partition, which puts
+     * the cistern 5 mm INTO the duct's 0.28 m face rather than short of it.
+     * (5 mm into, not exactly on: two faces at the same depth is the flicker,
+     * and a cistern that touches its wall has never shown a seam.) */
+    const looX = inward > 0 ? r.x1 - 0.66 : r.x0 + 0.66;
     const loo = makeToilet(M, {
-      x: inward > 0 ? r.x1 - 0.8 : r.x0 + 0.8, z: cz + 2.4, rotY: inward > 0 ? -Math.PI / 2 : Math.PI / 2,
+      x: looX, z: cz + 2.4, rotY: inward > 0 ? -Math.PI / 2 : Math.PI / 2,
     });
     wrap.add(loo.group);
-    solid(
-      (inward > 0 ? r.x1 - 0.8 : r.x0 + 0.8) - 0.4,
-      (inward > 0 ? r.x1 - 0.8 : r.x0 + 0.8) + 0.4,
-      UY, UY + 0.84, cz + 2.1, cz + 2.7,
-    );
-    const basin = makeBathSink(M, {
-      x: inward > 0 ? r.x1 - 0.7 : r.x0 + 0.7, z: cz - 0.6, rotY: inward > 0 ? -Math.PI / 2 : Math.PI / 2,
-    });
-    wrap.add(basin.group);
-    solid(
-      (inward > 0 ? r.x1 - 0.7 : r.x0 + 0.7) - 0.32,
-      (inward > 0 ? r.x1 - 0.7 : r.x0 + 0.7) + 0.32,
-      UY, UY + 0.86, cz - 0.9, cz - 0.3,
-    );
+    solid(looX - 0.4, looX + 0.4, UY, UY + 0.84, cz + 2.1, cz + 2.7);
     root.add(wrap);
+    /* THE OLD SINK IS GONE. Owner, twice -- of this room, "two sinks, get rid
+     * of the old sink, fix new sink", and of the modern one, "same thing with
+     * the old sink". Both ensuites carried the shared apartment pedestal basin
+     * AND the marble vanity the luxury pass added, standing 1.7 m apart down
+     * the same wall with a mirror over each. The pedestal basin and its mirror
+     * are deleted here; the vanity below is the one sink these rooms have, and
+     * it is reworked rather than merely left. */
     /* ---- Everything from here is the luxury pass. `outerX` is the exterior
      * wall (the one with the frosted window in it), `innerX` the partition
      * side, and `into` moves a piece off a wall toward the middle of the
@@ -5697,6 +6118,64 @@ export function buildMansionInterior(shell = null) {
     ]) topping(bx0, bx1, UY + 0.02, bz0, bz1, M_MARBLE_DK, `${name}-floor-border`);
     topping(cx - 1.1, cx + 1.1, UY + 0.018, cz - 1.3, cz + 0.1, M_MOSAIC, `${name}-floor-mosaic`);
 
+    /* ---- THE WC DUCT, WHICH IS WHAT BOTH LOO NOTES WERE ASKING FOR.
+     *
+     * Owner: "toilet away from wall" and "toilet paper floating". They are one
+     * missing object. `makeToilet` is drawn for a wall it never had in here:
+     * its cistern wants a face to stand on, and its paper holder is a 0.14 m
+     * rod cantilevered 0.34 m out to the side, which needs a return to be
+     * screwed to. Measured, the roll hung at x 9.85 with the nearest wall at
+     * 9.20 -- 650 mm of nothing under it.
+     *
+     * So the room gets the thing a WC in a house like this actually has: a
+     * tiled duct boxed along the partition with a marble cap, and a short
+     * return pier at each end. The cistern sits on the duct and the roll hangs
+     * off a pier. Both returns are built in both ensuites on purpose -- the
+     * two rooms are mirrored, so the holder falls on the SOUTH pier in the
+     * west room and the NORTH pier in the east one, and a pair is symmetrical
+     * anyway. The piers are 0.86 m deep to reach the rod's fixing at 0.70,
+     * and they sit at z cz+1.95 and cz+2.85, which is 200 mm clear of the pan
+     * at cz+2.21..cz+2.59 on both sides. */
+    /* Every one of these boxes starts 30 mm INSIDE the partition rather than
+     * on its face. A duct whose back plane is exactly the wall's own front
+     * plane is a 1 m^2 coplanar pair -- the flicker -- and burying the hidden
+     * face costs nothing because nobody can see behind a duct. */
+    const ductBack = into(innerX, -0.03);
+    const boxFace = (depth) => [Math.min(ductBack, into(innerX, depth)), Math.max(ductBack, into(innerX, depth))];
+    const [ductX0, ductX1] = boxFace(0.28);
+    root.add(box({
+      size: [ductX1 - ductX0, 1.02, 1.02], pos: [(ductX0 + ductX1) / 2, UY + 0.51, cz + 2.4], mat: tileWall, name: `${name}-wc-duct`,
+    }));
+    root.add(box({
+      size: [ductX1 - ductX0 + 0.02, 0.05, 1.06], pos: [(ductX0 + ductX1) / 2 - inward * 0.01, UY + 1.045, cz + 2.4], mat: M_MARBLE, cast: false, name: `${name}-wc-duct-cap`,
+    }));
+    const [pierX0, pierX1] = boxFace(0.86);
+    for (const pz of [cz + 1.95, cz + 2.85]) {
+      root.add(box({
+        size: [pierX1 - pierX0, 1.02, 0.12], pos: [(pierX0 + pierX1) / 2, UY + 0.51, pz], mat: tileWall, name: `${name}-wc-pier`,
+      }));
+      root.add(box({
+        size: [pierX1 - pierX0 + 0.02, 0.05, 0.16], pos: [(pierX0 + pierX1) / 2 - inward * 0.01, UY + 1.045, pz], mat: M_MARBLE, cast: false, name: `${name}-wc-pier-cap`,
+      }));
+    }
+    solid(pierX0, pierX1, UY, UY + 1.07, cz + 1.89, cz + 2.91);
+    /* A brush in the corner between the duct and the south pier. Placed off
+     * the pan (which runs cz+2.21..cz+2.59) and off the pier (which ends at
+     * cz+2.01) rather than under the roll: the roll falls on the south pier
+     * in the west room and the north one in the east, so the only spot clear
+     * in BOTH is the gap between pier and pan. */
+    const brushX = into(innerX, 0.42);
+    const brushZ = cz + 2.10;
+    root.add(named(cylinder({
+      rTop: 0.055, rBottom: 0.07, h: 0.26, pos: [brushX, UY + 0.13, brushZ], mat: M_CHROME,
+    }), `${name}-wc-brush-pot`));
+    root.add(named(cylinder({
+      r: 0.011, h: 0.34, pos: [brushX, UY + 0.34, brushZ], mat: M_CHROME, cast: false,
+    }), `${name}-wc-brush-stem`));
+    root.add(named(sphere({
+      r: 0.055, ry: 0.04, pos: [brushX, UY + 0.5, brushZ], mat: mat({ color: 0xe8e4d8, roughness: 1 }), cast: false,
+    }), `${name}-wc-brush-head`));
+
     /* ---- The walk-in shower, along the north wall between the tub (which
      * ends at 1.8 m off the outer wall) and the loo (0.4..1.2 m off the inner
      * one). Marble kerb and slab, a glass screen and a return, a rain head on
@@ -5704,65 +6183,99 @@ export function buildMansionInterior(shell = null) {
     /* 2.3 m off the outer wall, not 2.1: the tub is 1.8 m of it from 0.35, so
      * its far edge is at 2.15 and a tray starting at 2.1 measured as lapping
      * the tub by 5 cm. */
-    const shX0 = into(outerX, 2.3);
-    const shX1 = into(innerX, 1.5);
+    /* EVERY PIECE IS PLACED BY ITS ROLE, NOT BY min/max. Owner playtest:
+     * "shower and bathtub lot of floating and misaligned geometry". A good
+     * part of it came from this block mixing two frames of reference. The
+     * glass return went at `shMinX`, which is the TUB end of the shower in
+     * the west ensuite and the LOO end in the east one -- so the two mirrored
+     * rooms had their shower entrance on opposite sides -- while the bench and
+     * mixer went at `into(outerX, ...)`, which is always the tub end. In the
+     * east room that put the bench squarely in the shower's own doorway, and
+     * in the west one it drove the bench 20 mm through the return glass.
+     *
+     * `shOuter` is the tub end and `shInner` the loo end in BOTH rooms, and
+     * `toIn` steps from one toward the other, so a single set of numbers
+     * builds the room and its mirror image identically. */
+    const shOuter = into(outerX, 2.3);
+    const shInner = into(innerX, 1.5);
+    const shW = Math.abs(shInner - shOuter);
+    const toIn = Math.sign(shInner - shOuter);
     const shZ0 = r.z1 - 1.7;
     const shZ1 = r.z1 - 0.06;
-    const shMinX = Math.min(shX0, shX1);
-    const shMaxX = Math.max(shX0, shX1);
+    const shMinX = Math.min(shOuter, shInner);
+    const shMaxX = Math.max(shOuter, shInner);
     root.add(box({
-      size: [shMaxX - shMinX, 0.12, shZ1 - shZ0], pos: [(shMinX + shMaxX) / 2, UY + 0.06, (shZ0 + shZ1) / 2], mat: M_MARBLE, cast: false, name: `${name}-shower-tray`,
+      size: [shW, 0.12, shZ1 - shZ0], pos: [(shMinX + shMaxX) / 2, UY + 0.06, (shZ0 + shZ1) / 2], mat: M_MARBLE, cast: false, name: `${name}-shower-tray`,
     }));
     root.add(box({
-      size: [shMaxX - shMinX, 0.14, 0.12], pos: [(shMinX + shMaxX) / 2, UY + 0.07, shZ0], mat: M_MARBLE_DK, cast: false, name: `${name}-shower-kerb`,
+      size: [shW, 0.14, 0.12], pos: [(shMinX + shMaxX) / 2, UY + 0.07, shZ0], mat: M_MARBLE_DK, cast: false, name: `${name}-shower-kerb`,
     }));
-    root.add(cylinder({
+    root.add(named(cylinder({
       r: 0.09, h: 0.02, pos: [(shMinX + shMaxX) / 2, UY + 0.13, (shZ0 + shZ1) / 2], mat: M_CHROME, cast: false,
-    }));
-    // Glass: a fixed screen across two thirds of the front, and a return.
+    }), `${name}-shower-waste`));
+    /* Glass: a fixed screen across two thirds of the front from the TUB end,
+     * and a return down that same end -- an L, with the way in at the loo end
+     * where the door is, in both rooms. */
     root.add(box({
-      size: [(shMaxX - shMinX) * 0.62, 2.1, 0.04], pos: [shMinX + (shMaxX - shMinX) * 0.31, UY + 1.19, shZ0], mat: M_GLASS_CASE, name: `${name}-shower-glass`,
+      size: [shW * 0.62, 2.1, 0.04], pos: [shOuter + toIn * shW * 0.31, UY + 1.19, shZ0], mat: M_GLASS_CASE, name: `${name}-shower-glass`,
     }));
     root.add(box({
-      size: [(shMaxX - shMinX) * 0.62 + 0.06, 0.06, 0.07], pos: [shMinX + (shMaxX - shMinX) * 0.31, UY + 2.26, shZ0], mat: M_CHROME, cast: false,
+      size: [shW * 0.62 + 0.06, 0.06, 0.07], pos: [shOuter + toIn * shW * 0.31, UY + 2.26, shZ0], mat: M_CHROME, cast: false, name: `${name}-shower-glass-rail`,
     }));
     root.add(box({
-      size: [0.04, 2.1, shZ1 - shZ0], pos: [shMinX, UY + 1.19, (shZ0 + shZ1) / 2], mat: M_GLASS_CASE,
+      size: [0.04, 2.1, shZ1 - shZ0], pos: [shOuter, UY + 1.19, (shZ0 + shZ1) / 2], mat: M_GLASS_CASE, name: `${name}-shower-return`,
     }));
-    solid(shMinX - 0.03, shMinX + 0.03, UY, UY + 2.1, shZ0, shZ1);
-    solid(shMinX, shMinX + (shMaxX - shMinX) * 0.62, UY, UY + 2.1, shZ0 - 0.03, shZ0 + 0.03);
-    // Rain head on its arm, a hand shower on a rail, and the mixer.
-    const headX = shMinX + (shMaxX - shMinX) * 0.5;
-    root.add(cylinder({
-      r: 0.024, h: 0.55, pos: [headX, UY + 2.3, shZ1 - 0.3], mat: M_CHROME, rotZ: Math.PI / 2, rotY: Math.PI / 2,
-    }));
+    solid(shOuter - 0.03, shOuter + 0.03, UY, UY + 2.1, shZ0, shZ1);
+    solid(
+      Math.min(shOuter, shOuter + toIn * shW * 0.62), Math.max(shOuter, shOuter + toIn * shW * 0.62),
+      UY, UY + 2.1, shZ0 - 0.03, shZ0 + 0.03,
+    );
+    /* Rain head on its arm. THE ARM HAS TO REACH THE WALL: it was 0.55 m long
+     * centred at shZ1-0.30, so it stopped at z 74.915 with the tiled face at
+     * 74.95 -- a 35 mm gap, and a shower arm hanging off nothing. Lengthened
+     * to 0.60 and pushed back so it ends 30 mm INSIDE the tiling, with a
+     * flange where it enters. */
+    const headX = (shMinX + shMaxX) / 2;
+    root.add(named(cylinder({
+      r: 0.024, h: 0.60, pos: [headX, UY + 2.3, shZ1 - 0.26], mat: M_CHROME, rotZ: Math.PI / 2, rotY: Math.PI / 2,
+    }), `${name}-rain-arm`));
+    root.add(named(cylinder({
+      r: 0.055, h: 0.02, pos: [headX, UY + 2.3, shZ1 - 0.02], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
+    }), `${name}-rain-flange`));
     root.add(named(cylinder({
       r: 0.16, h: 0.04, pos: [headX, UY + 2.28, shZ1 - 0.58], mat: M_CHROME,
     }), `${name}-rain-head`));
-    root.add(cylinder({
-      r: 0.018, h: 0.9, pos: [into(innerX, 1.75), UY + 1.5, shZ1 - 0.08], mat: M_CHROME,
-    }));
-    root.add(cylinder({
-      r: 0.05, h: 0.12, pos: [into(innerX, 1.75), UY + 1.5, shZ1 - 0.14], mat: M_CHROME, rotX: 0.6, cast: false,
-    }));
+    root.add(named(cylinder({
+      r: 0.018, h: 0.9, pos: [shInner - toIn * 0.25, UY + 1.5, shZ1 - 0.08], mat: M_CHROME,
+    }), `${name}-shower-riser`));
+    root.add(named(cylinder({
+      r: 0.05, h: 0.12, pos: [shInner - toIn * 0.25, UY + 1.5, shZ1 - 0.14], mat: M_CHROME, rotX: 0.6, cast: false,
+    }), `${name}-hand-shower`));
     root.add(box({
-      size: [0.16, 0.24, 0.06], pos: [into(outerX, 2.62), UY + 1.15, shZ1 - 0.08], mat: M_CHROME, cast: false, name: `${name}-shower-mixer`,
+      size: [0.16, 0.24, 0.06], pos: [shInner - toIn * 0.55, UY + 1.15, shZ1 - 0.08], mat: M_CHROME, cast: false, name: `${name}-shower-mixer`,
     }));
     // Niche in the tiled wall, with the bottles in it, and a marble bench.
     root.add(box({
       size: [0.7, 0.5, 0.1], pos: [headX, UY + 1.35, shZ1 - 0.03], mat: M_MARBLE_DK, cast: false, name: `${name}-shower-niche`,
     }));
     for (let i = 0; i < 3; i++) {
-      root.add(cylinder({
+      root.add(named(cylinder({
         rTop: 0.035, rBottom: 0.045, h: 0.18, pos: [headX - 0.2 + i * 0.2, UY + 1.24, shZ1 - 0.12], mat: i % 2 ? M_GLASS_CASE : M_SILVER, cast: false,
-      }));
+      }), `${name}-shower-bottle`));
     }
+    /* The bench, in the L's corner at the tub end -- 50 mm clear of the return
+     * glass rather than 20 mm through it. ITS LEGS STAND ON THE TRAY: they ran
+     * y 6.06..6.48 against a tray topping out at 6.12 and a bench slab
+     * starting at 6.455, so they were 60 mm sunk into the floor of the shower
+     * and 25 mm out through the seat. They now run 6.10..6.48: 20 mm into the
+     * tray, which is a fixing, and up under the slab, which is a joint. */
+    const benchX = shOuter + toIn * 0.40;
     root.add(box({
-      size: [0.7, 0.09, 0.4], pos: [into(outerX, 2.65), UY + 0.5, shZ1 - 0.28], mat: M_MARBLE, name: `${name}-shower-bench`,
+      size: [0.7, 0.09, 0.4], pos: [benchX, UY + 0.5, shZ1 - 0.28], mat: M_MARBLE, name: `${name}-shower-bench`,
     }));
     for (const bx of [-0.28, 0.28]) {
       root.add(box({
-        size: [0.08, 0.42, 0.34], pos: [into(outerX, 2.65) + bx, UY + 0.27, shZ1 - 0.28], mat: M_MARBLE, cast: false,
+        size: [0.08, 0.38, 0.34], pos: [benchX + bx, UY + 0.29, shZ1 - 0.28], mat: M_MARBLE, cast: false, name: `${name}-shower-bench-leg`,
       }));
     }
 
@@ -5796,14 +6309,80 @@ export function buildMansionInterior(shell = null) {
       Math.min(vanX, into(innerX, 0.72)) - 0.04, Math.max(vanX, into(innerX, 0.72)) + 0.04,
       UY, UY + 0.9, vanZ - 0.9, vanZ + 0.9,
     );
+    /* ---- THE ONE SINK THIS ROOM HAS, MADE WORTH KEEPING.
+     *
+     * Owner: "fix new sink", and of the modern room's, refine it "just a tad".
+     * The vessel bowl was a SOLID tapered cylinder -- a lump of marble with no
+     * hollow in it, the same fault `makeToilet` was fixed for upstream ("no
+     * actual bowl"). It is now built the way every basin in this project that
+     * reads right is built: an open-ended outer shell, a rolled rim closing
+     * the top edge, an inner cone falling to a waste, and standing water in
+     * it. Plus the fittings a basin like this has and had none of -- a proper
+     * arched spout, two lever handles, a splashback and a soap dish. */
+    const bowlX = into(innerX, 0.48);
+    const bowlY = UY + 0.86;
+    const bowlShell = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.21, 0.15, 0.16, 28, 1, true),
+      M_MARBLE,
+    );
+    bowlShell.position.set(bowlX, bowlY + 0.08, vanZ);
+    bowlShell.castShadow = true;
+    bowlShell.receiveShadow = true;
+    bowlShell.name = `${name}-vessel-bowl`;
+    root.add(bowlShell);
+    const bowlRim = new THREE.Mesh(new THREE.TorusGeometry(0.203, 0.014, 10, 28), M_MARBLE);
+    bowlRim.rotation.x = -Math.PI / 2;
+    bowlRim.position.set(bowlX, bowlY + 0.158, vanZ);
+    bowlRim.castShadow = true;
+    bowlRim.name = `${name}-vessel-rim`;
+    root.add(bowlRim);
+    const bowlInner = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.192, 0.045, 0.145, 28, 1, true),
+      mat({ color: 0xf0ece0, roughness: 0.16, side: THREE.DoubleSide }),
+    );
+    bowlInner.position.set(bowlX, bowlY + 0.083, vanZ);
+    bowlInner.name = `${name}-vessel-inner`;
+    root.add(bowlInner);
     root.add(named(cylinder({
-      rTop: 0.21, rBottom: 0.15, h: 0.16, pos: [into(innerX, 0.48), UY + 0.94, vanZ], mat: M_MARBLE,
-    }), `${name}-vessel-bowl`));
-    root.add(cylinder({
-      r: 0.02, h: 0.3, pos: [into(innerX, 0.22), UY + 1.01, vanZ], mat: M_GOLD,
+      r: 0.032, h: 0.012, pos: [bowlX, bowlY + 0.016, vanZ], mat: M_CHROME, cast: false,
+    }), `${name}-vessel-waste`));
+    const bowlWater = new THREE.Mesh(
+      new THREE.CircleGeometry(0.085, 24),
+      mat({
+        color: 0x9fc4cf, roughness: 0.06, transparent: true, opacity: 0.6, unique: true,
+      }),
+    );
+    bowlWater.rotation.x = -Math.PI / 2;
+    bowlWater.position.set(bowlX, bowlY + 0.028, vanZ);
+    bowlWater.name = `${name}-vessel-water`;
+    root.add(bowlWater);
+    // A tall mixer with an arched spout that actually overhangs the bowl.
+    root.add(named(cylinder({
+      r: 0.024, h: 0.34, pos: [into(innerX, 0.20), UY + 1.07, vanZ], mat: M_GOLD,
+    }), `${name}-basin-tap`));
+    root.add(named(cylinder({
+      r: 0.019, h: 0.30, pos: [into(innerX, 0.32), UY + 1.235, vanZ], mat: M_GOLD, rotZ: Math.PI / 2,
+    }), `${name}-basin-spout`));
+    root.add(named(cylinder({
+      r: 0.017, h: 0.09, pos: [into(innerX, 0.455), UY + 1.19, vanZ], mat: M_GOLD, cast: false,
+    }), `${name}-basin-spout-drop`));
+    for (const oz of [-0.16, 0.16]) {
+      root.add(named(cylinder({
+        r: 0.016, h: 0.05, pos: [into(innerX, 0.20), UY + 0.9, vanZ + oz], mat: M_GOLD, cast: false,
+      }), `${name}-basin-lever-boss`));
+      root.add(named(cylinder({
+        r: 0.011, h: 0.11, pos: [into(innerX, 0.26), UY + 0.94, vanZ + oz], mat: M_GOLD, rotZ: Math.PI / 2 - 0.5, cast: false,
+      }), `${name}-basin-lever`));
+    }
+    // Splashback, and a soap dish on the counter.
+    root.add(box({
+      size: [0.06, 0.14, 1.8], pos: [into(innerX, 0.07), UY + 0.93, vanZ], mat: M_MARBLE, cast: false, name: `${name}-vanity-splashback`,
     }));
-    root.add(cylinder({
-      r: 0.018, h: 0.18, pos: [into(innerX, 0.32), UY + 1.15, vanZ], mat: M_GOLD, rotZ: Math.PI / 2,
+    root.add(named(cylinder({
+      rTop: 0.075, rBottom: 0.055, h: 0.03, pos: [into(innerX, 0.42), UY + 0.875, vanZ - 0.6], mat: M_MARBLE_DK, cast: false,
+    }), `${name}-soap-dish`));
+    root.add(box({
+      size: [0.07, 0.04, 0.1], pos: [into(innerX, 0.42), UY + 0.905, vanZ - 0.6], mat: mat({ color: 0xe8dcc8, roughness: 0.6 }), cast: false, name: `${name}-soap`,
     }));
     root.add(box({
       size: [0.05, 1.3, 1.5], pos: [into(innerX, 0.105), UY + 1.85, vanZ], mat: mat({ color: 0xdce6ee, roughness: 0.06, metalness: 0.9 }), name: `${name}-vanity-mirror`,
@@ -5814,27 +6393,84 @@ export function buildMansionInterior(shell = null) {
     recordArt(`${name}-vanity-mirror`, into(innerX, 0.105), UY + 1.85, vanZ, Math.PI / 2, 1.62, 1.42);
     sconce(into(innerX, 0.085), UY + 2.15, vanZ - 1.0, inward > 0 ? -Math.PI / 2 : Math.PI / 2, 1.6);
     sconce(into(innerX, 0.085), UY + 2.15, vanZ + 1.0, inward > 0 ? -Math.PI / 2 : Math.PI / 2, 1.6);
-    // A mirror over the basin the room already had, too.
+    /* Where the deleted pedestal basin and its mirror stood: a linen tower.
+     * The wall would otherwise be 1.5 m of bare tile between the vanity and
+     * the towel rail, and a bathroom this size keeps its linen somewhere. Only
+     * 0.34 m deep, so it takes no walking room. */
+    const towerX = into(innerX, 0.20);
     root.add(box({
-      size: [0.05, 1.0, 0.9], pos: [into(innerX, 0.105), UY + 1.8, cz - 0.6], mat: mat({ color: 0xdce6ee, roughness: 0.06, metalness: 0.9 }), name: `${name}-basin-mirror`,
+      size: [0.34, 1.9, 0.75], pos: [towerX, UY + 0.95, cz - 0.6], mat: M_WOOD_DK, name: `${name}-linen-tower`,
     }));
     root.add(box({
-      size: [0.04, 1.1, 1.0], pos: [into(innerX, 0.075), UY + 1.8, cz - 0.6], mat: M_GOLD, cast: false,
+      size: [0.38, 0.06, 0.79], pos: [towerX, UY + 1.92, cz - 0.6], mat: M_MARBLE, cast: false, name: `${name}-linen-tower-cap`,
     }));
-    recordArt(`${name}-basin-mirror`, into(innerX, 0.105), UY + 1.8, cz - 0.6, Math.PI / 2, 1.0, 1.1);
+    for (const dy of [0.35, 0.78, 1.21, 1.64]) {
+      root.add(box({
+        size: [0.03, 0.36, 0.66], pos: [into(innerX, 0.35), UY + dy, cz - 0.6], mat: M_WOOD, cast: false, name: `${name}-linen-door`,
+      }));
+      root.add(named(cylinder({
+        r: 0.012, h: 0.16, pos: [into(innerX, 0.37), UY + dy, cz - 0.78], mat: M_GOLD, rotZ: Math.PI / 2, cast: false,
+      }), `${name}-linen-handle`));
+    }
+    solid(Math.min(towerX, into(innerX, 0.37)) - 0.03, Math.max(towerX, into(innerX, 0.37)) + 0.03,
+      UY, UY + 1.95, cz - 0.98, cz - 0.22);
 
+    /* ---- THE TUB'S ALCOVE, WHICH IT HAD BEEN BUILT WITHOUT.
+     *
+     * The other half of "shower and bathtub lot of floating and misaligned
+     * geometry". `makeTub` is the shared apartment bath and it is drawn for a
+     * RECESS: it hangs a shower riser up to y 2.06 off its own short end, and
+     * a curtain rail at y 2.05 down its open side. In the apartment those
+     * meet tiled walls. In here the tub stands in open floor, so measured,
+     * the riser ran from 0.62 to 2.06 m with nothing behind it above 0.56,
+     * and the rail spanned 2.4 m at head height held up at neither end.
+     *
+     * The fix is the missing walls, not the removal of a working prop: a
+     * tiled return across the tub's foot that the riser mounts on and the
+     * rail's south end dies into, and a boxed pier from the tub's head to the
+     * north wall that takes the other end -- which also fills the dead pocket
+     * between the tub and the shower's return glass. */
+    const tubZ0 = cz + 0.6;
+    const tubZ1 = cz + 3.0;
+    /* Measured from the OUTER WALL, not from the tub's own x1. `makeTub`
+     * always hangs its curtain rail on x1, which is the room side in the west
+     * ensuite and the wall side in the east one -- the two rooms are mirrored
+     * but the prop is not. Sizing the alcove off `tubRailX` therefore built a
+     * 2.18 m return in the west room and a 0.32 m stub in the east one, which
+     * did not reach the riser at all. 2.21 m from the outer wall clears the
+     * tub's far edge and the rail in BOTH rooms, and still leaves 90 mm
+     * between the pier and the shower tray. */
+    const alcFar = outerX + inward * 2.21;
+    const alcX0 = Math.min(outerX, alcFar);
+    const alcX1 = Math.max(outerX, alcFar);
+    root.add(box({
+      size: [alcX1 - alcX0, 2.2, 0.18], pos: [(alcX0 + alcX1) / 2, UY + 1.1, tubZ0 - 0.005], mat: tileWall, name: `${name}-tub-return`,
+    }));
+    solid(alcX0, alcX1, UY, UY + 2.2, tubZ0 - 0.095, tubZ0 + 0.085);
+    root.add(box({
+      size: [alcX1 - alcX0, 2.2, (r.z1 - 0.05) - (tubZ1 - 0.09)],
+      pos: [(alcX0 + alcX1) / 2, UY + 1.1, ((r.z1 - 0.05) + (tubZ1 - 0.09)) / 2],
+      mat: tileWall,
+      name: `${name}-tub-pier`,
+    }));
+    solid(alcX0, alcX1, UY, UY + 2.2, tubZ1 - 0.09, r.z1 - 0.05);
     /* ---- The tub, dressed: a floor-standing filler with a hand shower, a
-     * tray across it, and the mat beside it. */
+     * tray across it, and the mat beside it.
+     *
+     * The filler stood at z cz+0.42 and the tub starts at cz+0.6, so its
+     * spout was pouring 180 mm short of the bath, onto the floor. Moved to
+     * cz+0.95, which is inside the tub's own 2.4 m run. */
     const tubMidX = tubX0 + 0.9;
+    const fillerZ = cz + 0.95;
     root.add(named(cylinder({
-      r: 0.05, h: 1.1, pos: [into(outerX, 0.34), UY + 0.55, cz + 0.42], mat: M_GOLD,
+      r: 0.05, h: 1.1, pos: [into(outerX, 0.34), UY + 0.55, fillerZ], mat: M_GOLD,
     }), `${name}-tub-filler`));
-    root.add(cylinder({
-      r: 0.032, h: 0.34, pos: [into(outerX, 0.5), UY + 1.08, cz + 0.42], mat: M_GOLD, rotZ: Math.PI / 2,
-    }));
-    root.add(cylinder({
-      r: 0.028, h: 0.12, pos: [into(outerX, 0.66), UY + 1.0, cz + 0.42], mat: M_GOLD,
-    }));
+    root.add(named(cylinder({
+      r: 0.032, h: 0.34, pos: [into(outerX, 0.5), UY + 1.08, fillerZ], mat: M_GOLD, rotZ: Math.PI / 2,
+    }), `${name}-tub-filler-arm`));
+    root.add(named(cylinder({
+      r: 0.028, h: 0.12, pos: [into(outerX, 0.66), UY + 1.0, fillerZ], mat: M_GOLD,
+    }), `${name}-tub-filler-spout`));
     root.add(box({
       size: [1.9, 0.05, 0.28], pos: [tubMidX, UY + 0.58, cz + 1.5], mat: M_WOOD_DK, cast: false, name: `${name}-bath-tray`,
     }));
@@ -5844,10 +6480,17 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [0.16, 0.03, 0.22], pos: [tubMidX + 0.35, UY + 0.62, cz + 1.5], mat: M_CARD, rotY: 0.2, cast: false,
     }));
-    // Candles on the tub's rim, because this is that kind of house.
+    /* Candles ON the tub's rim, not beside it. They stood at 0.28 m off the
+     * outer wall and the tub's near rim runs 0.35..0.42 m off it, so both
+     * candles were floating in the 0.35 m gap between the wall and the bath
+     * with nothing under them. 0.385 is the middle of that rim. */
     for (const oz of [cz + 2.6, cz + 2.8]) {
-      root.add(cylinder({ r: 0.045, h: 0.12, pos: [into(outerX, 0.28), UY + 0.62, oz], mat: M_CARD, cast: false }));
-      root.add(sphere({ r: 0.028, pos: [into(outerX, 0.28), UY + 0.7, oz], mat: M_BULB_WARM, cast: false }));
+      root.add(named(cylinder({
+        r: 0.045, h: 0.12, pos: [into(outerX, 0.385), UY + 0.62, oz], mat: M_CARD, cast: false,
+      }), `${name}-tub-candle`));
+      root.add(named(sphere({
+        r: 0.028, pos: [into(outerX, 0.385), UY + 0.7, oz], mat: M_BULB_WARM, cast: false,
+      }), `${name}-tub-candle-flame`));
     }
 
     // Towel rail and a heap of towels, plus a bathmat.
@@ -7905,6 +8548,7 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.gallery.pride', mesh: galleryProps.pride, w: 1.5 },
     { slot: 'mansion.ballroom.backdrop', mesh: ballroomProps.backdrop, w: 2.4 },
     { slot: 'mansion.office.shield', mesh: officeProps.shield, w: 1.45 },
+    { slot: 'mansion.office.hogmama', mesh: officeProps.hogMama?.art, w: 0.9 },
     { slot: 'mansion.basement.shield', mesh: basementProps.shield, w: 1.15 },
     { slot: 'mansion.trophy.crest', mesh: trophyProps.crest, w: 1.5 },
     { slot: 'mansion.winter.shield', mesh: winterProps.shield, w: 1.2 },
