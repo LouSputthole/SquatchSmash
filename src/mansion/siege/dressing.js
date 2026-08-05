@@ -126,7 +126,7 @@ export const SIEGE_ANCHORS = Object.freeze({
   centrepiece: Object.freeze({ x: 0, y: GY, z: CHANDELIER_POS.z }),
   foyerFire: Object.freeze({ x: 7.85, y: GY, z: 37.9 }),
   cellarBody: Object.freeze({ x: -0.81, y: BY, z: 66.945 }),
-  foyerBody: Object.freeze({ x: -7.25, y: GY, z: 39.2 }),
+  foyerBody: Object.freeze({ x: -7.25, y: GY, z: 38.6 }),
 });
 
 /** How far out from the centrepiece anchor counts as "standing on it". */
@@ -1056,21 +1056,27 @@ export function buildSiegeDressing({
     nameSubtree(guard.root, 'siege.body.guard.figure');
     g.add(guard.root);
 
-    /* His weapon, dropped where his hand let go of it. */
+    /* His weapon, dropped where his hand let go of it. Built LYING DOWN, every
+     * part above its own origin: the first version stood the grip and the
+     * magazine below the receiver and then laid the whole thing on the floor,
+     * which put 11 cm of magazine through the concrete. */
     const gun = group('siege.body.guard.weapon');
     gun.add(box({
-      name: 'siege.body.guard.weapon.body', size: [0.62, 0.07, 0.09], pos: [0, 0.035, 0], mat: M_STEEL,
+      name: 'siege.body.guard.weapon.body', size: [0.62, 0.06, 0.08], pos: [0, 0.03, 0], mat: M_STEEL,
     }));
     gun.add(box({
-      name: 'siege.body.guard.weapon.grip', size: [0.09, 0.16, 0.07], pos: [-0.16, -0.02, 0], mat: M_SOOT, rotZ: 0.25,
+      name: 'siege.body.guard.weapon.grip', size: [0.10, 0.055, 0.15], pos: [-0.17, 0.028, 0.08], mat: M_SOOT, rotY: 0.18,
     }));
     gun.add(box({
-      name: 'siege.body.guard.weapon.mag', size: [0.07, 0.2, 0.05], pos: [0.02, -0.06, 0], mat: M_SOOT, rotZ: 0.1,
+      name: 'siege.body.guard.weapon.mag', size: [0.06, 0.05, 0.19], pos: [0.03, 0.025, -0.11], mat: M_SOOT, rotY: -0.12,
+    }));
+    gun.add(box({
+      name: 'siege.body.guard.weapon.sight', size: [0.05, 0.04, 0.03], pos: [0.2, 0.08, 0], mat: M_STEEL,
     }));
     /* On the floor at the foot of the settee, still north of CORRIDOR_NAV --
      * everything in this tableau is, litter included, so the walking lane is
      * genuinely clear rather than clear-of-the-big-bits. */
-    gun.position.set(CX1 - 0.45, BY + 0.05, CZ0 + 0.16);
+    gun.position.set(CX1 - 0.45, BY + 0.012, CZ0 + 0.16);
     gun.rotation.y = 0.62;
     g.add(gun);
 
@@ -1126,7 +1132,10 @@ export function buildSiegeDressing({
     cellarBody.figure = guard;
     cellarBody.group = g;
     cellarBody.couch = { x0: CX0, x1: CX1, z0: CZ0, z1: CZ1, seatY: SEAT_Y };
+    /** The whole tableau -- settee, man, weapon, radio, blood. */
     cellarBody.bounds = new THREE.Box3().setFromObject(g);
+    /** Just the man, for anything asking where the BODY is. */
+    cellarBody.figureBounds = new THREE.Box3().setFromObject(guard.root);
   }
 
   /* ================================================================== */
@@ -1199,14 +1208,15 @@ export function buildSiegeDressing({
       mat: M_BLOOD_DRY,
       cast: false,
     }));
-    /* One shoe, off, a metre away. Nobody ever dies with both on. */
+    /* One shoe, off, a metre away, lying on its side. Rolled about y rather
+     * than z: a rotZ of 1.4 on a 9 cm heel swings 5 cm of it under the
+     * marble, which is the same arithmetic that buried the guard's magazine. */
     g.add(box({
       name: 'siege.body.performer.shoe',
-      size: [0.09, 0.06, 0.23],
-      pos: [a.x - 0.9, GY + 0.03, a.z - 0.72],
+      size: [0.23, 0.07, 0.09],
+      pos: [a.x - 0.9, GY + 0.037, a.z - 0.72],
       mat: M_SOOT,
       rotY: 0.9,
-      rotZ: 1.4,
     }));
 
     enrol('siege.body.performer', g);
@@ -1214,6 +1224,7 @@ export function buildSiegeDressing({
     foyerBody.figure = her;
     foyerBody.group = g;
     foyerBody.bounds = new THREE.Box3().setFromObject(g);
+    foyerBody.figureBounds = new THREE.Box3().setFromObject(her.root);
   }
 
   /* ================================================================== */
