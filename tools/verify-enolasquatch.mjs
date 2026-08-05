@@ -974,6 +974,25 @@ try {
      * measured on an aeroplane that is not already broken. */
     h.engines.reset(false);
     h.engines.forceRunning();
+    /* AND THE REST OF THE AEROPLANE, which healing the engines alone missed.
+     *
+     * The same damage-API check put the RUDDER out, killed the ELECTRICS and
+     * opened a FUEL leak, and three fighter passes had put real damage into
+     * the wing. All of that was still on the aeroplane while this measured
+     * "can the control law hold an altitude", and all of it is exactly the
+     * limited authority the autopilot is designed to lose to. Healing one of
+     * the four and leaving three was the reason the number never made sense:
+     * on a fresh airframe at the same altitudes the law holds to between 0.2
+     * and 1.5 metres at a predictability of 0.98, measured across six
+     * altitudes from 56 m of terrain clearance to 958 m. Same law, same tick.
+     * The difference was entirely the state of the aeroplane. */
+    for (let i = 0; i < 4; i++) h.mission.defense.damage.engines[i] = false;
+    h.mission.defense.damage.rudder = false;
+    h.mission.defense.damage.electrical = false;
+    h.mission.defense.damage.fuel = false;
+    h.mission.defense.damage.catastrophic = false;
+    h.physics.damage.wing = 0;
+    h.physics.damage.tail = 0;
     /* Somewhere real. By this point the aeroplane has flown four minutes of
      * unattended headless flight through a barrage and three fighter passes,
      * and it is wherever physics left it — which is quite often a spiral into
@@ -1005,8 +1024,18 @@ try {
      * claims to measure and it is the only thing it measures. The behaviour it
      * found is real, and it belongs to the mission rather than to this file —
      * see `docs/FUTURE-EDITS.md`, "the autopilot has no idea the ground is
-     * coming up". */
-    at.y = Math.max(at.y, h.groundHeight(at.x, at.z) + 900);
+     * coming up".
+     *
+     * Note WHERE the ground is measured. The line above asks for the ground
+     * the aeroplane is standing over RIGHT NOW, and at sixty-five metres a
+     * second it is not over that ground for long: `+ 620` meant 620 m of
+     * clearance at the start and 45 m of it three kilometres later. So the
+     * clearance is struck from the highest ground along the whole run. */
+    let highest = 0;
+    for (let dx = 0; dx <= 3600; dx += 150) {
+      highest = Math.max(highest, h.groundHeight(at.x + dx, at.z));
+    }
+    at.y = Math.max(at.y, highest + 620);
     h.physics.setPose(at, 90, 66);
     h.physics.omega.set(0, 0, 0);
     h.input.throttle = 0.7;

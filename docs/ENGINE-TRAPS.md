@@ -181,30 +181,64 @@ an altitude"* failed intermittently for two sessions — 52.6 m of drift one run
 flaky, and a previous pass had already tried to fix it by clearing the fighters
 and suppressing the flak.
 
-**Mechanism.** The autopilot was never the problem. Sampled second by second in
-still air, the control law holds altitude to **1–5 metres** with a
-predictability of 0.98. Then at about forty-five seconds it disengaged with the
-reason **"on the ground"** — at five hundred metres, undamaged, at cruise speed
-— and the aeroplane nosed over and dived three hundred and fifty metres.
+**Mechanism.** The autopilot was never the problem. On a clean airframe in
+still air the control law holds altitude to **0.2–1.5 metres** at a
+predictability of 0.98 — measured across six altitudes from 56 m of terrain
+clearance to 958 m, same law, same tick. It is very good.
 
-Because it *was* flying into the ground. An autopilot holds an ALTITUDE. The
-eastbound route CLIMBS: over the three kilometres the aeroplane covers in that
-window the terrain rises from 153 m to 481 m. The check was flying a bomber into
-a mountain, and the "drift" it printed was really a measure of how far down the
-resulting dive the forty-fifth second happened to land. That is where the
-variance came from. The gust field being seeded with `Math.random()` in
-`WeatherSystem`'s constructor was a genuine second source, and on its own it
-only moved the heading drift from 0.4° to 0.02°.
+**There were three causes and none of them was the control law.** They are
+listed in the order they were found, which is also the order of how much they
+mattered — and the first two were each mistaken, briefly, for the whole answer.
 
-**Two rules, and the second is the important one.**
+1. **Unseeded weather.** `WeatherSystem` seeds `_gustPhase` with three
+   `Math.random()` calls *in its constructor*, so the gust field is a different
+   function of time on every page load and a forty-five-second altitude hold is
+   flown through different air every run. Real, and worth 0.4° of heading drift.
+   Not worth 40 m of altitude.
 
-1. **Isolate what you claim to measure.** A control-law check flies in still
-   air, with terrain clearance, and nothing shooting. Anything else is a check
-   on the weather.
-2. **An intermittent check is a message, not a nuisance.** This one had been
-   saying "your aeroplane flies itself into a hill and the only warning is the
-   autopilot leaving" for two sessions, and it was heard as "this check is
+2. **It was flying into a hill.** Sampled second by second, the autopilot
+   disengaged at about forty-five seconds with the reason **"on the ground"** —
+   at five hundred metres, undamaged, at cruise speed — and the aeroplane nosed
+   over and dived three hundred and fifty metres. Because it *was* flying into
+   the ground: an autopilot holds an ALTITUDE and the eastbound route CLIMBS,
+   153 m to 481 m across the three kilometres covered in that window. The
+   "drift" was partly a measure of how far down that dive the forty-fifth
+   second landed. **This one is a real defect in the game** and is now a
+   high-priority row in `FUTURE-EDITS.md` — see rule 2 below.
+
+   The clearance was staged as `groundHeight(at.x, at.z) + 620`: 620 m of
+   clearance *at the start point*, and 45 m of it three kilometres later. At
+   sixty-five metres a second, where you measure the ground matters.
+
+3. **The aeroplane was broken.** And this was the biggest one. The check runs
+   after the damage-API check, which puts the **rudder** out, kills the
+   **electrics** and opens a **fuel leak** — and three fighter passes had put
+   real damage into the wing. The check healed the **engines**, with a good
+   comment explaining exactly why an autopilot cannot hold an altitude on a
+   bomber that is down an engine, and left the other four kinds of damage on
+   the aeroplane. So it measured a control law on a wreck and reported the
+   result as the control law.
+
+**Three rules, and the last is the important one.**
+
+1. **Isolate what you claim to measure — all of it.** Healing one of four kinds
+   of damage is not isolation, and the comment explaining why you healed that
+   one makes it *read* as though it were. If a check stages a clean aeroplane,
+   it stages a clean aeroplane.
+2. **A shared page carries state between checks.** Every check after the
+   damage-API check inherits a damaged aeroplane. That is usually what you
+   want — later checks should meet a real battlefield — but any check that
+   means "in isolation" has to say so explicitly and completely.
+3. **An intermittent check is a message, not a nuisance.** This one had been
+   saying *"your aeroplane flies itself into a hill and the only warning is the
+   autopilot leaving"* for two sessions, and it was heard as "this check is
    flaky". Before widening a threshold or writing one off, find out what it is
-   actually measuring — the answer is sometimes a real defect in the game that
-   nobody would otherwise have looked for. The finding is now a row in
-   `FUTURE-EDITS.md`.
+   actually measuring. The answer here was a real defect nobody would otherwise
+   have gone looking for — in a beat where the game specifically invites the
+   player to leave the seat.
+
+**And one about being wrong.** The first two causes each looked complete when
+found, and the write-up of this entry had to be corrected twice. A check that
+starts passing is not proof you understood it; it is proof you changed
+something. The evidence that closed this was six altitudes measured on a fresh
+page, not the check going green.
