@@ -72,6 +72,7 @@ const TEST_MODULES = [
   './beefrun-voice-manifest.test.mjs',
   './new-scene-voice-manifest.test.mjs',
   './enolasquatch-combat.test.mjs',
+  './enolasquatch-detonation.test.mjs',
   './bing-audio.test.mjs',
   './no-wake-story.test.mjs',
   './no-wake-irish.test.mjs',

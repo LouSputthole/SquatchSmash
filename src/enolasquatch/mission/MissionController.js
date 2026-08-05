@@ -85,6 +85,26 @@ const CLOUDBANK = LANDMARKS_EAST.find((l) => l.id === 'cloudbank');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;   // 270 — back the way we came
 
+/* The buffet. Owner: "the shockwave to pass over you and simulate a brief
+ * moment of turbulence." `BLAST_TURB_SECONDS` is how long the air stays rough
+ * afterwards, decaying back to `BASE_TURB` — the ordinary night air of the
+ * escape leg, and the same number the escape phase resets to at +8 s. */
+const BLAST_TURB_SECONDS = 5.5;
+const BASE_TURB = 0.4;
+
+/* THE DROP CAMERA. Owner: "Maybe we experiment with moving the camera to the
+ * third person automatically when you drop the bomb."
+ *
+ * An experiment, so it is one constant and a flag rather than a system: when
+ * the payload leaves the mount the view goes to `chase` for this long and then
+ * goes back to exactly the view the player had. It does NOT hold through the
+ * detonation — the flash is a cockpit shot and the break turn is flown on
+ * instruments, so it hands the aeroplane back well before either. Anybody who
+ * touches the camera key during it keeps what they chose (see
+ * `updateDropCamera`), because a player who has taken the camera has said what
+ * he wants and the experiment should not argue. */
+const DROP_CAM_SECONDS = 4.2;
+
 /**
  * A flat, provisional ground height for anywhere east of the turn point.
  *
@@ -174,8 +194,20 @@ export class MissionController {
      * colour it cools through as the eye comes back. */
     this.blastFlash = 0;
     this.blastTint = { r: 1, g: 1, b: 1 };
+    /* And `blastWash` is the front itself crossing the camera — a second,
+     * dirtier overlay that sweeps once as the shock goes past. Separate from
+     * the flash on purpose: the flash is light and arrives instantly, the wash
+     * is pressure and arrives when it gets there. */
+    this.blastWash = 0;
     this._shockArrived = false;
     this._blastSoundFired = false;
+    this._blastTurb = 0;
+    this._blastTurbPeak = BASE_TURB;
+    /* The drop camera experiment — see `DROP_CAM_SECONDS`. Public and
+     * writable: set it false and the camera never moves itself. */
+    this.cinematicDrop = true;
+    this._dropCam = 0;
+    this._dropCamFrom = null;
 
     /* How hard the aeroplane is being thrown about this frame, 0..1. Computed
      * once and handed to BOTH the flak and the fighters, so evading means the
@@ -891,6 +923,9 @@ export class MissionController {
      * going up and the escape has to be flyable while it does. The phase is
      * over long before the shot is. */
     if (this.detonation.live) this.updateDetonation(dt);
+    // For the same reason: the drop camera outlives the `release` phase by
+    // design, because the phase ends the instant the bomb leaves the mount.
+    this.updateDropCamera(dt);
 
     // Any instruction waiting for the crew to stop talking.
     this._drainInstruction();
@@ -1556,9 +1591,58 @@ export class MissionController {
          * instruction after. */
         this._breakFrom = this.physics.headingDeg;
         this.dialogue.play('bomb.breakTurn', { once: true, delay: 1.2 });
+        this.startDropCamera();
         this.setPhase('explosion');
       }
     }
+  }
+
+  /* ---- The drop camera ----
+   *
+   * Owner: "Maybe we experiment with moving the camera to the third person
+   * automatically when you drop the bomb."
+   *
+   * A four-second look at your own aeroplane as the thing falls out of it, and
+   * then back to whatever you were in. Three rules keep it from being the kind
+   * of automatic camera people hate:
+   *
+   *   IT GIVES THE VIEW BACK. Not "to cockpit" — to the view the player had
+   *     when it took it, whichever that was. A player flying in chase view
+   *     notices nothing at all.
+   *   IT LOSES ARGUMENTS. If the camera key is touched while it is running it
+   *     stops immediately and does not restore anything. `CameraManager.view`
+   *     is the only state it watches, so this works no matter how the player
+   *     changed it.
+   *   IT IS OFF IN THE TURRET. A player in the tail is already looking at
+   *     something, and yanking him out of the gun is not a camera move.
+   *
+   * `cinematicDrop` is public and can simply be set false. It is an experiment
+   * and it should be trivially switchable off.
+   */
+
+  startDropCamera() {
+    if (!this.cinematicDrop || !this.cameras || this.gunner?.manned) return false;
+    if (typeof this.cameras.setView !== 'function') return false;
+    this._dropCamFrom = this.cameras.view;
+    if (this._dropCamFrom === 'chase') { this._dropCamFrom = null; return false; }
+    this.cameras.setView('chase');
+    this._dropCam = DROP_CAM_SECONDS;
+    this.hud?.toast?.('C — TAKE THE CAMERA');
+    return true;
+  }
+
+  updateDropCamera(dt) {
+    if (this._dropCam <= 0) return;
+    // The player took it. Leave him alone.
+    if (this.cameras?.view !== 'chase' || this.gunner?.manned) {
+      this._dropCam = 0;
+      this._dropCamFrom = null;
+      return;
+    }
+    this._dropCam -= dt;
+    if (this._dropCam > 0) return;
+    if (this._dropCamFrom) this.cameras.setView(this._dropCamFrom);
+    this._dropCamFrom = null;
   }
 
   /* ---- Explosion ----
@@ -1653,7 +1737,25 @@ export class MissionController {
     this._explosionT = det.t;
     this.blastFlash = det.screenFlash;
     this.blastTint = det.flashColour;
+    /* The front sweeping the CAMERA — a separate overlay from the flash, and a
+     * separate colour, because it is dust and pressure rather than light. See
+     * `Detonation.shockWash`. `../main.js` paints it. */
+    this.blastWash = det.shockWash;
     const t = det.t;
+
+    /* The buffet dying away.
+     *
+     * `onShockWave` used to raise the turbulence and leave it raised, and the
+     * only thing that ever put it back was a hard reset eight seconds into the
+     * escape phase — so a player who lingered flew the whole way to the coast
+     * through weather that was actually a blast wave from four minutes ago.
+     * Owner: "simulate a BRIEF moment of turbulence." This is the brief. */
+    if (this._blastTurb > 0) {
+      this._blastTurb = Math.max(0, this._blastTurb - dt / BLAST_TURB_SECONDS);
+      this.weather.setConditions({
+        turbulence: lerp(BASE_TURB, this._blastTurbPeak, this._blastTurb),
+      });
+    }
 
     /* The crew, on their own clock rather than on `play(delay)` — that option
      * delays the whole QUEUE rather than one beat, so four beats queued at
@@ -1743,7 +1845,14 @@ export class MissionController {
 
     // Nobody's autopilot holds through that.
     this.autopilot.disengage('blast wave');
-    this.weather.setConditions({ turbulence: clamp(0.6 + severity * 0.5, 0, 1.4) });
+    /* Rough air, and then not. `_blastTurb` runs 1 -> 0 over
+     * `BLAST_TURB_SECONDS` in `updateDetonation`, easing the turbulence back
+     * to `BASE_TURB` — so the aeroplane is thrown about while the front is
+     * actually going past and flies normally afterwards. Setting the level and
+     * walking away is what made the whole run home feel like a storm. */
+    this._blastTurbPeak = clamp(0.6 + severity * 0.5, 0, 1.4);
+    this._blastTurb = 1;
+    this.weather.setConditions({ turbulence: this._blastTurbPeak });
     this.dialogue.play('explosion.shockwave', { urgent: true });
   }
 
@@ -2148,6 +2257,14 @@ export class MissionController {
     this.rearmPayload();
     this._shockArrived = false;
     this._blastSoundFired = false;
+    /* And nothing the blast did to the air, the screen or the camera outlives
+     * it either — a restored flight that keeps the last attempt's turbulence
+     * is a player being thrown about by an explosion that has not happened. */
+    this.blastWash = 0;
+    this._blastTurb = 0;
+    this._blastTurbPeak = BASE_TURB;
+    this._dropCam = 0;
+    this._dropCamFrom = null;
     /* The air battle does not survive a restart either — a wave of fighters
      * left over from the attempt before is a wave the player never earned. */
     this.interceptors.clear();

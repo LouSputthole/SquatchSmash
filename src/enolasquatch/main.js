@@ -96,7 +96,9 @@ import { FatSquatch } from './payload/FatSquatch.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
-import { blastLuminance, blastWhiteout, shockRadiusAt } from './vfx/Detonation.js';
+import {
+  blastLuminance, blastWhiteout, shockRadiusAt, shellOpacity, shockPass,
+} from './vfx/Detonation.js';
 import { EnolaPreflight } from './preflight.js';
 import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
@@ -858,6 +860,30 @@ blastscreen.style.cssText = [
 ].join(';');
 document.body.appendChild(blastscreen);
 
+/* THE FRONT GOING PAST. Owner: "I want a shock wave to pass you ... it needs
+ * to be visible as it passes over you that way the player doesn't miss it."
+ *
+ * A second overlay, and it has to be a second one. The flash is LIGHT: white,
+ * `screen`-blended, and it arrives the instant the bomb goes off. This is
+ * PRESSURE — dust and compressed air, arriving several seconds later depending
+ * entirely on how far the player got — so it is dirty rather than white, it is
+ * `overlay`-blended so it dulls the picture instead of bleaching it, and it
+ * comes and goes in about a second.
+ *
+ * `Detonation` draws the front in the world as well (the bubble the aeroplane
+ * ends up inside, and the bright ring on its silhouette), and that is the real
+ * effect. This exists because a player can be looking anywhere at all when the
+ * front arrives, and the one thing the owner asked for is that he does not
+ * miss it. A full-screen sweep is true from every heading. */
+const washscreen = document.createElement('div');
+washscreen.id = 'enola-shock';
+washscreen.style.cssText = [
+  'position:fixed', 'inset:0', 'pointer-events:none', 'z-index:44',
+  'opacity:0', 'mix-blend-mode:overlay',
+  'background:radial-gradient(circle at 50% 50%,rgba(230,236,246,0.15) 0%,rgba(206,196,176,0.72) 62%,rgba(150,140,124,0.95) 100%)',
+].join(';');
+document.body.appendChild(washscreen);
+
 const combatHud = document.createElement('div');
 combatHud.id = 'enola-combat';
 combatHud.style.cssText = [
@@ -985,6 +1011,16 @@ function paintCombat() {
     blastscreen.style.opacity = String(Math.min(1, flash));
   } else if (blastscreen.style.opacity !== '0') {
     blastscreen.style.opacity = '0';
+  }
+
+  /* The front crossing the camera. Capped below 1 on purpose: this is meant to
+   * be something sweeping ACROSS the view, and a view it can black out is a
+   * view the player cannot see it sweep across. */
+  const wash = mission.blastWash || 0;
+  if (wash > 0.001) {
+    washscreen.style.opacity = String(Math.min(0.88, wash));
+  } else if (washscreen.style.opacity !== '0') {
+    washscreen.style.opacity = '0';
   }
 
   const gun = mission.gunner;
@@ -1348,9 +1384,15 @@ window.__enolaSquatch = {
    * double flash and the shock expansion rather than trying to catch a
    * quarter-second peak by sampling. */
   blastLuminance,
-  /** What the SCREEN does -- the 0.4 s blind. Not the device's own curve. */
+  /** What the SCREEN does — a short bleach onto a wash you can see through.
+   * Not the device's own curve; see `blastWhiteout`'s note for the difference
+   * and for why the four-tenths-of-a-second blind is gone. */
   blastWhiteout,
   shockRadiusAt,
+  /** How solid the pressure shell is at a given radius. */
+  shellOpacity,
+  /** How hard the front is crossing a viewer at a given range. */
+  shockPass,
   /** The crater's own profile, so a caller can hold the ground against it. */
   craterOffsetAt: (d) => craterOffset(d, CRATER),
   go,
@@ -1502,9 +1544,18 @@ window.__enolaSquatch = {
         flash: +(mission.blastFlash || 0).toFixed(3),
         shockRadius: Math.round(mission.detonation.shockRadius),
         shockArrived: mission._shockArrived,
+        /* The front as the PLAYER meets it — how hard it is crossing him this
+         * frame, how far he is from the hole, whether it has gone past, and
+         * whether the column has settled into standing over the crater. */
+        wash: +(mission.blastWash || 0).toFixed(3),
+        viewRange: Math.round(mission.detonation.viewRange || 0),
+        shockPassed: !!mission.detonation.shockPassed,
+        lingering: !!mission.detonation.lingering,
+        turbulence: +(mission.weather?.turbulence ?? 0).toFixed(3),
         cityFlattened: city.flattened,
         cityShock: Math.round(city.shockRadius || 0),
       },
+      camera: { view: cameras.view, dropCam: +(mission._dropCam || 0).toFixed(2) },
       evasion: +mission.evasion.toFixed(3),
       phaseTime: +mission.phaseTime.toFixed(2),
       missionTime: +mission.missionTime.toFixed(2),
