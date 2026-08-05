@@ -22,39 +22,78 @@
  * NOBODY APPEARS FROM THIN AIR. Every attacker is assigned a staging zone
  * outside the player's view and walks in from it. `release()` returns spawn
  * orders carrying the zone, not a position under the player's feet.
+ *
+ * ## THE FRONT DOOR IS THE WAY IN
+ *
+ * OWNER DIRECTION, 2026-08-05, verbatim:
+ *
+ *   "I want the main fight to take place from the balcony as they come up the
+ *    stairs or come in the front door. for the mansion siege."
+ *   "everyone should funnel in through the main door"
+ *
+ * This file used to stage twenty-two men across six zones -- the forecourt,
+ * the porch, the east bay's glass, the trophy hall's glass, the rear service
+ * door and the south terrace -- which made the defence a 360-degree problem
+ * fought from a balcony that can only see one of those six. The fight was not
+ * legible and it was not at the rail.
+ *
+ * THE SPLIT, AND WHY: eighteen of twenty-two (82%) come up the drive and
+ * through `FRONT_DOOR`. The other four are ONE group, 2B, arriving late in
+ * the second wave through two panes on opposite flanks. That is deliberately
+ * not zero: the brief's other standing instruction is that "twenty-two
+ * identical riflemen walking through the same doorway is not an encounter",
+ * and a defence with no reason ever to turn round is a shooting gallery. Four
+ * men, once, in the middle of the last wave, is the amount of "look away from
+ * the stairs" the position can take without stopping being a staircase fight.
+ *
+ * Wave one is therefore ALL front door: it teaches the shape -- drive, steps,
+ * door, foyer, one of the two flights, the rail. Wave two breaks it once and
+ * then goes back to the door for its final push.
+ *
+ * The two removed zones, and why they are not merely unused:
+ *
+ *   `veranda`      staged at (-6, 33) and walked in at x -6, which is the
+ *                  foyer's own two-storey entrance GLAZING, not a terrace
+ *                  door. It read as a second front door that is not a door.
+ *   `rear_service` the kitchen door at (16, 66) is thirty metres of house
+ *                  from the foyer. With real nav he now walks kitchen ->
+ *                  lounge -> the arch -> the foyer's rear, which is a fine
+ *                  route and a two-minute one; he arrives after the group he
+ *                  was released with is dead. Kept in PART XIV as a future
+ *                  vehicle for a third wave, not in this one.
  */
 
 /**
- * Where attackers come from. Coordinates are the mansion's own -- the
+ * Where attackers come from.
+ *
+ * `entry` names the anchor in `./nav.js` he walks to first, and everything
+ * after it is the graph's business. Coordinates are the mansion's own -- the
  * verifier checks each one lies in the region its comment names, so a zone
  * cannot quietly drift inside a wall.
  */
 export const STAGING = Object.freeze({
-  /* Behind the fountain and the burning cars. COURT_CENTRE (0, 30) r 12. */
+  /* Up the drive, north of the abandoned Lincoln at (0, 18.4) and clear of
+   * the lamp posts standing in the carriageway at x +/-4.6. He walks past the
+   * fountain and the burning cars to the steps. */
   court_north: Object.freeze({
-    id: 'court_north', x: 0, z: 26, indoor: false,
-    approach: [[0, 33], [0, 36.5]], label: 'the forecourt',
+    id: 'court_north', x: 0, z: 20.5, indoor: false,
+    entry: 'drive_head', label: 'the drive',
   }),
-  /* The porch, straight in through FRONT_DOOR at (0, 36). */
+  /* The bottom of the front steps (z 34..35.5), straight up and in through
+   * FRONT_DOOR at (0, 36). The turnaround's north arc, z 27..34, is left
+   * empty by `dressing.js` precisely so this walk-in reads. */
   front_steps: Object.freeze({
-    id: 'front_steps', x: 0, z: 34, indoor: false,
-    approach: [[0, 36.5], [0, 40]], label: 'the front steps',
+    id: 'front_steps', x: 0, z: 33.0, indoor: false,
+    entry: 'steps_centre', label: 'the front steps',
   }),
-  /* Outside the east bay, not in it. LOUNGE_BAY (x 16..20.6, z 41..54) is a
-   * roofed glazed bay -- a room, not a terrace -- so staging at its centre
-   * would put a man inside the house he is about to break into. He stands on
-   * the lawn beyond it and comes through the glass. */
+  /* THE EAST FLANK, and it is one group in one wave. Outside the east bay,
+   * not in it: LOUNGE_BAY (x 16..20.6, z 41..54) is a roofed glazed bay -- a
+   * room, not a terrace -- so staging at its centre would put a man inside
+   * the house he is about to break into. He stands on the service-road verge
+   * beyond it and comes through `bayEastMid`. */
   lounge_bay: Object.freeze({
-    id: 'lounge_bay', x: 24, z: 47, indoor: false,
-    /* Four legs, not two. Moving the zone out onto the lawn added five and a
-     * half metres to the front of this route, and the LAST waypoint is the
-     * one that matters: it is the lounge arch, and the leg from it to a
-     * support gunner's post in the foyer is already thirteen metres. Ending
-     * the approach two metres short of the arch pushed that leg over the
-     * house's own width, which is the length at which a straight line stops
-     * being a walk and starts being a wall to pass through. */
-    approach: [[20, 47], [16.5, 46.5], [12, 45.5], [10, 45]],
-    label: 'the lounge bay glass',
+    id: 'lounge_bay', x: 26.5, z: 47.4, indoor: false,
+    entry: 'lawn_bay', label: 'the lounge bay glass',
   }),
   /* The west flank, and it is NOT the west living room's windows.
    *
@@ -66,38 +105,41 @@ export const STAGING = Object.freeze({
    * inside the trophy hall having walked through its roof.
    *
    * So the flank comes in one room further out -- through the trophy hall's
-   * OWN glazing, across the hall, and into the living room from inside. That
-   * is a longer route and a better one: the flanker arrives behind the
-   * player's shoulder instead of through a wall he was already watching. */
+   * OWN glazing at z 43.0..46.4, across the hall, through the arcade into the
+   * living room and out of its arch into the back of the foyer. That is a
+   * longer route and a better one: the flanker arrives behind the player's
+   * shoulder instead of through a wall he was already watching. */
   living_west: Object.freeze({
-    id: 'living_west', x: -28, z: 47, indoor: false,
-    approach: [[-24, 47], [-19, 47], [-14, 46], [-10.5, 45]],
-    label: 'the trophy hall glass',
-  }),
-  /* The rear service door at (16, 66) -- the long way round the house. */
-  rear_service: Object.freeze({
-    id: 'rear_service', x: 20, z: 66, indoor: false,
-    approach: [[16.5, 66], [12, 62]], label: 'the service door',
-  }),
-  /* The south terrace, under the balcony. */
-  veranda: Object.freeze({
-    id: 'veranda', x: -6, z: 33, indoor: false,
-    approach: [[-6, 36.5], [-5, 41]], label: 'the veranda',
+    id: 'living_west', x: -28.5, z: 44.7, indoor: false,
+    entry: 'lawn_trophy', label: 'the trophy hall glass',
   }),
   /* The cellar corridor itself -- the two men already in the house. */
   cellar_hall: Object.freeze({
     id: 'cellar_hall', x: -4, z: 65.8, indoor: true,
-    approach: [[0, 65.8]], label: 'the cellar corridor',
+    entry: 'cellar_west', label: 'the cellar corridor',
   }),
   /* The vault end of the same corridor. */
   cellar_vault: Object.freeze({
-    id: 'cellar_vault', x: 8, z: 65.8, indoor: true,
-    approach: [[4, 65.8]], label: 'the vault door',
+    id: 'cellar_vault', x: 9.4, z: 65.8, indoor: true,
+    entry: 'cellar_vault_door', label: 'the vault door',
   }),
   /* Inside the foyer, already past the door when the player comes up. */
   foyer_floor: Object.freeze({
-    id: 'foyer_floor', x: 0, z: 44, indoor: true,
-    approach: [[0, 48]], label: 'the foyer floor',
+    id: 'foyer_floor', x: 0, z: 41.6, indoor: true,
+    entry: 'foyer_centre', label: 'the foyer floor',
+  }),
+  /* The foyer's own door line -- the man holding the entrance when the
+   * player comes up the basement stair behind him. */
+  foyer_door_line: Object.freeze({
+    id: 'foyer_door_line', x: 0, z: 37.3, indoor: true,
+    entry: 'foyer_door', label: 'the front doors',
+  }),
+  /* And one in the lounge, coming through its arch. The foyer three are all
+   * indoors because the brief says they are: "already past the door when the
+   * player comes up". */
+  lounge_inside: Object.freeze({
+    id: 'lounge_inside', x: 12.4, z: 49.2, indoor: true,
+    entry: 'lounge_mid', label: 'the lounge arch',
   }),
 });
 
@@ -134,11 +176,16 @@ export const ENCOUNTERS = Object.freeze({
     id: 'foyer',
     label: 'the foyer',
     /* Louder than the corridor, shorter than a wave. The player should not
-     * be able to fight it from one doorway. */
+     * be able to fight it from one doorway.
+     *
+     * All three stage INDOORS. They were in the house before he came up the
+     * basement stair -- that is what the brief means by "already past the
+     * door" -- and staging the third of them on the far lawn made him arrive
+     * ninety seconds into a fight that is supposed to be over in twenty. */
     members: Object.freeze([
       Object.freeze({ id: 'foyer_1', role: 'rifle', staging: 'foyer_floor', cover: 'centrepiece' }),
-      Object.freeze({ id: 'foyer_2', role: 'smg', staging: 'front_steps', cover: 'front_door' }),
-      Object.freeze({ id: 'foyer_3', role: 'flanker', staging: 'lounge_bay', cover: 'lounge_arch' }),
+      Object.freeze({ id: 'foyer_2', role: 'smg', staging: 'foyer_door_line', cover: 'front_door' }),
+      Object.freeze({ id: 'foyer_3', role: 'flanker', staging: 'lounge_inside', cover: 'lounge_arch' }),
     ]),
   }),
 });
@@ -149,20 +196,30 @@ export const ENCOUNTERS = Object.freeze({
  * `after` is seconds since the previous group released. `whenRemaining` is
  * how many of everything already released must still be standing before the
  * next group is held back -- drop to that number or below and it comes early.
+ *
+ * `flank: true` marks the one group that does not come through the front
+ * door. There is exactly one, `frontDoorShare()` asserts the proportion, and
+ * a test holds it above four fifths.
  */
 export const WAVES = Object.freeze([
   Object.freeze({
     id: 'one',
     label: 'Wave one',
     groups: Object.freeze([
+      /* Straight up the drive and in. Two already on the steps, two walking
+       * up from the turnaround, so the first contact is immediate and the
+       * second arrives while he is dealing with it. */
       Object.freeze({
         id: '1A', count: 4, after: 0, whenRemaining: null,
         staging: Object.freeze(['front_steps', 'court_north', 'front_steps', 'court_north']),
         roles: Object.freeze(['rifle', 'rifle', 'rifle', 'smg']),
       }),
+      /* Same door. The flanker in this group flanks INSIDE -- he takes the
+       * other flight of the horseshoe, which is the split the house was built
+       * to offer and the reason the player cannot hold one arc. */
       Object.freeze({
         id: '1B', count: 4, after: 22, whenRemaining: 2,
-        staging: Object.freeze(['lounge_bay', 'lounge_bay', 'veranda', 'court_north']),
+        staging: Object.freeze(['court_north', 'front_steps', 'court_north', 'front_steps']),
         roles: Object.freeze(['rifle', 'rifle', 'smg', 'flanker']),
       }),
     ]),
@@ -171,24 +228,58 @@ export const WAVES = Object.freeze([
     id: 'two',
     label: 'Wave two',
     groups: Object.freeze([
+      /* Front door again, with the suppressor who sets up on the door line
+       * and pins the rail rather than climbing. */
       Object.freeze({
         id: '2A', count: 5, after: 0, whenRemaining: null,
-        staging: Object.freeze(['front_steps', 'front_steps', 'court_north', 'court_north', 'veranda']),
+        staging: Object.freeze(['front_steps', 'front_steps', 'court_north', 'court_north', 'court_north']),
         roles: Object.freeze(['rifle', 'rifle', 'rifle', 'suppressor', 'smg']),
       }),
+      /* THE ONE TIME HE HAS TO LOOK AWAY FROM THE STAIRS. Two panes go at
+       * once on opposite flanks -- the trophy hall's west glazing and the
+       * billiard bay's east -- and four men come through the wings into the
+       * BACK of the foyer, behind the horseshoe. They are the only four of
+       * twenty-two who are not on the drive. */
       Object.freeze({
-        id: '2B', count: 4, after: 18, whenRemaining: 3,
-        staging: Object.freeze(['living_west', 'living_west', 'rear_service', 'lounge_bay']),
+        id: '2B', count: 4, after: 18, whenRemaining: 3, flank: true,
+        staging: Object.freeze(['living_west', 'living_west', 'lounge_bay', 'lounge_bay']),
         roles: Object.freeze(['shotgun', 'rifle', 'rifle', 'flanker']),
       }),
+      /* And back to the door for the last push, with the three men who make
+       * 2C the hardest group rather than merely the longest. */
       Object.freeze({
         id: '2C', count: 5, after: 20, whenRemaining: 3,
-        staging: Object.freeze(['front_steps', 'court_north', 'lounge_bay', 'front_steps', 'court_north']),
+        staging: Object.freeze(['front_steps', 'court_north', 'front_steps', 'court_north', 'court_north']),
         roles: Object.freeze(['leader', 'armored', 'gunner', 'rifle', 'rifle']),
       }),
     ]),
   }),
 ]);
+
+/** Staging zones that funnel through `FRONT_DOOR`. */
+export const FRONT_DOOR_STAGING = Object.freeze(new Set(['court_north', 'front_steps']));
+
+/**
+ * How much of the staircase defence comes in the front door.
+ *
+ * Exported because it is the direction, not a statistic: the owner asked for
+ * everybody to funnel through the main door and the brief asks for the fight
+ * not to be one queue, and this is the single number that says whether both
+ * are still true.
+ */
+export function frontDoorShare() {
+  let front = 0;
+  let total = 0;
+  for (const wave of WAVES) {
+    for (const group of wave.groups) {
+      for (let i = 0; i < group.count; i++) {
+        total++;
+        if (FRONT_DOOR_STAGING.has(group.staging[i % group.staging.length])) front++;
+      }
+    }
+  }
+  return { front, total, share: total ? front / total : 0 };
+}
 
 /**
  * The volume the defence is fought in. An attacker who leaves it is pulled

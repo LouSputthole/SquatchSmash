@@ -33,30 +33,42 @@
  * `HIT_ZONES` below -- and even that is a multiplier applied BEFORE the shared
  * resolver, not a second damage model beside it.
  *
- * ## NOBODY APPEARS FROM THIN AIR
+ * ## NOBODY APPEARS FROM THIN AIR, AND THEY COME IN THE FRONT DOOR
  *
- * The brief again: *"Every attacker activates in a staging zone out of the
- * player's view and walks in."* So `spawn(order)` puts a man at
- * `order.staging.x/z` -- the forecourt, the porch, the east bay's glass, the
- * west windows, the service door, the terrace -- gives him his gun, and sets
- * him walking `order.staging.approach` and then his role's own push route. He
- * is an active `CombatActor` from the instant he is placed, so by the time the
- * player can see him he has already been fighting for several seconds.
+ * The brief: *"Every attacker activates in a staging zone out of the player's
+ * view and walks in."* The owner, 2026-08-05: *"everyone should funnel in
+ * through the main door."* So `spawn(order)` puts a man at `order.staging.x/z`
+ * -- for eighteen of the twenty-two that is the drive or the bottom of the
+ * front steps -- gives him his gun, and hands him to the nav graph, which
+ * walks him up the treads, through `FRONT_DOOR`, across the foyer, up one of
+ * the two flights of the horseshoe and onto the gallery. He is an active
+ * `CombatActor` from the instant he is placed, so by the time the player can
+ * see him he has already been fighting for several seconds.
  *
  * `spawnedInsideView()` on the returned pool is the check that says so: no
  * attacker's spawn position is ever inside the foyer or on the landing.
  *
+ * ## THE ROUTES ARE A GRAPH, NOT A LIST OF POINTS
+ *
+ * `./nav.js` authors the anchors -- the forecourt, the steps, the portico,
+ * the door mouth, the foyer floor, the two flights, the gallery, the balcony
+ * step, and the two flank routes through the wings -- and hands them to the
+ * `AuthoredNavigationGraph` the heist's crew already walk on. This module
+ * decides WHICH zone a man is trying to reach and WHICH flight he takes; the
+ * graph decides how he gets there and `occupy()` decides that no two men
+ * stand in the same place when they arrive.
+ *
  * ## TWENTY-TWO IDENTICAL RIFLEMEN IS NOT AN ENCOUNTER
  *
  * `ROLE_PLAN` gives each of the eight roles a different tactic, a different
- * gun, a different standoff, a different route into the house, a different
+ * gun, a different standoff, a different flight up the horseshoe, a different
  * trigger discipline and a different appetite for cover. The shotgun rusher
  * closes to nine metres and does not stop for cover on the way. The suppressor
  * plants himself at thirty and puts sustained fire on the rail without ever
- * trying to climb. The flanker takes the far side of the house. The armoured
- * one walks through what kills the others. A test asserts no two roles share
- * the whole tuple, because "they have different health values" is not the
- * same sentence as "they behave differently".
+ * trying to climb. The flanker takes the other flight. The armoured one walks
+ * through what kills the others. A test asserts no two roles share the whole
+ * tuple, because "they have different health values" is not the same sentence
+ * as "they behave differently".
  *
  * ## THE RAIL IS COVER, NOT IMMUNITY
  *
@@ -78,6 +90,9 @@ import { playWeaponCue } from '../../core/weapons/audio.js';
 import { WEAPON_CATALOG } from '../../core/weapons/catalog.js';
 import { buildWeaponModel } from '../../core/weapons/models.js';
 import { HeistFigure } from '../../heist/people.js';
+import {
+  BASEMENT_Y, GROUND_Y, SiegeNavigator, UPPER_Y, anchorById, laneWaypoints, roomAt,
+} from './nav.js';
 import { COMBAT_BOUNDARY, DEFENCE_POST, ROLES, STAGING } from './waves.js';
 
 /* ================================================================== */
@@ -90,13 +105,12 @@ import { COMBAT_BOUNDARY, DEFENCE_POST, ROLES, STAGING } from './waves.js';
 /* tests included. Every figure below is the constant the two scene files */
 /* already export, and the base mansion is not edited to produce any of   */
 /* them.                                                                  */
+/*                                                                        */
+/* The three FLOOR HEIGHTS are imported from `./nav.js` rather than        */
+/* written out a third time: that module has to know them to place its     */
+/* anchors, it is already in this file's import list, and two copies of    */
+/* GROUND_Y in one directory is one copy too many.                         */
 /* ================================================================== */
-/** `MansionGrounds.GROUND_Y` -- the podium the house stands on. */
-const GROUND_Y = 1.2;
-/** `MansionGrounds.UPPER_Y` -- the gallery, the office, the landing. */
-const UPPER_Y = 6.0;
-/** `MansionGrounds.BASEMENT_Y` -- the cellar corridor and the armory. */
-const BASEMENT_Y = -2.8;
 /** `MansionGrounds.BUILDING`. */
 const BUILDING = Object.freeze({ x0: -16, x1: 16, z0: 36, z1: 75 });
 /** `MansionInterior.FOYER_VOID` -- the double-height hole under the landing. */
@@ -332,87 +346,53 @@ export const ROLE_PLAN = Object.freeze({
 });
 
 /**
- * Which way in. `flanker` and `gunner` take the east side, `shotgun` the
- * west, everybody else the middle -- so a wave with a flanker in it is a wave
- * arriving from two places, which is what "1B ... east lounge bay" means on
- * the wave table.
+ * Which way in, now that "in" is one door.
  *
- * Every waypoint is inside `COMBAT_BOUNDARY` and clear of the stair
- * footprints, which is checked in the tests rather than by eye.
+ * `route` is no longer which side of the HOUSE a man walks round -- everybody
+ * except wave 2B comes through `FRONT_DOOR` -- it is which flight of the
+ * horseshoe he takes once he is inside, and it goes straight into the nav
+ * graph's own role filter as the tag on the west and east anchors. A wave
+ * with a flanker in it is still a wave arriving at the rail from two places;
+ * the split happens in the foyer rather than on the lawn.
+ *
+ * `centre` men alternate flights by index, which is what stops eight men
+ * defending one staircase in a house that was built with two.
  */
-const PUSH_ROUTES = Object.freeze({
-  /* Straight up the middle of the foyer, under the chandelier, to the foot of
-   * the horseshoe. */
-  centre: Object.freeze([[0, 39.5], [0, 43.0], [0, 45.5]]),
-  /* Along the east wall past the lounge arch, to the foot of STAIR_EAST. */
-  east: Object.freeze([[6.4, 38.6], [7.4, 42.5], [7.0, 45.8]]),
-  /* The mirror, past the living-room arch to the foot of STAIR_WEST. */
-  west: Object.freeze([[-6.4, 38.6], [-7.4, 42.5], [-7.0, 45.8]]),
-});
+const FLIGHT_FOR_ROUTE = Object.freeze({ east: 'east', west: 'west' });
+
+function flightSideFor(plan, index) {
+  return FLIGHT_FOR_ROUTE[plan.route] ?? (index % 2 ? 'east' : 'west');
+}
 
 /**
- * The two flights, as the last leg of a route for anyone who climbs.
+ * Where each tactic is trying to end up, in order of preference.
  *
- * STAIR_EAST is x 5.5..8.85 and STAIR_WEST x -8.85..-5.5, both z 42..48; the
- * gallery edge is at z 48.15 and UPPER_Y. A man on the flight is between the
- * two, so the middle waypoint is deliberately half a floor up.
+ * A preference LIST rather than one zone, because the nav graph reserves a
+ * destination with `occupy()` and there are more climbers in a wave than
+ * there are places to stand on the gallery. A man told "the landing, or the
+ * flight, or the foyer floor" ends up somewhere; a man told only "the
+ * landing" stands in the doorway for the rest of the wave when the landing is
+ * full, which is the queue the brief refuses.
  */
-const CLIMB_ROUTES = Object.freeze({
-  east: Object.freeze([[7.2, 46.5, GROUND_Y + 2.4], [7.2, 48.6, UPPER_Y]]),
-  west: Object.freeze([[-7.2, 46.5, GROUND_Y + 2.4], [-7.2, 48.6, UPPER_Y]]),
+const DESTINATION_ZONES = Object.freeze({
+  /* The two who never advance. Both posts have a real line up through the
+   * double-height void at the gallery rail, and both are somewhere the player
+   * can shoot back at -- the difference between a suppressor and a weather
+   * system. */
+  pin: Object.freeze(['overwatch', 'foyer']),
+  support: Object.freeze(['overwatch', 'foyer']),
+  /* The leader holds the doorway he came through. */
+  direct: Object.freeze(['foyer', 'overwatch']),
+  /* Everybody else: the landing, and the landing is the point. */
+  default: Object.freeze(['gallery', 'stair', 'stair_foot', 'foyer']),
+  /* The two men in the cellar corridor never join the staircase defence. */
+  basement: Object.freeze(['basement']),
 });
 
-/**
- * Where the two men who never advance set up instead.
- *
- * The suppressor and the belt-fed gunner do not get a push route at all --
- * giving them one and then interrupting it is how a "he holds position" role
- * ends up eight metres further into the room every wave. Both posts have a
- * real line up into the foyer void at the landing, and both are somewhere the
- * player can shoot back at, which is the difference between a suppressor and
- * a weather system.
- */
-const HOLD_POSTS = Object.freeze({
-  /* The door line and the porch: as far back as a man can be and still see
-   * the gallery rail through the double-height void. */
-  pin: Object.freeze([[0, 37.4], [-4.2, 37.8], [4.2, 37.8], [0, 35.2]]),
-  /* A hundred rounds in a box is not something you carry up a staircase, so
-   * he sets up in a door mouth and stays in it. */
-  support: Object.freeze([[6.8, 37.8], [-6.8, 37.8], [0, 36.6]]),
-});
-
-/**
- * Room-to-room legs between a staging zone's approach and the push route.
- *
- * THERE IS NO NAV MESH HERE and there should not be one: everything else in
- * this module walks a straight line between two authored waypoints, which is
- * correct as long as the two waypoints are in the same room or either side of
- * an opening. The service door is the one zone where that is not true --
- * `rear_service` lands a man at (12, 62) in the KITCHEN and the nearest push
- * waypoint is twenty-six metres away in the foyer, so the straight line
- * crosses the kitchen's south partition at z 58 AND the lounge/foyer
- * partition at x 9.15 in one diagonal, and he walks through both walls.
- *
- * Two legs fix it: south through the kitchen door into the lounge, then down
- * the lounge to the arch. Both are inside rooms the house actually has, and
- * the arch is the same one `ENCOUNTERS.foyer` already names as cover.
- */
-const ENTRY_ROUTES = Object.freeze({
-  rear_service: Object.freeze([[12.5, 56.5], [10.5, 46.0]]),
-});
-
-/**
- * The staging zones an attacker arrives through GLASS rather than through a
- * doorway.
- *
- * Declared rather than inferred. The first version of this guessed from the
- * approach geometry -- "he crossed the building line more than four metres
- * off centre, so he must have come through a window" -- and reported the rear
- * SERVICE DOOR at (16, 66) and the south terrace as broken windows, which
- * would have had the glass owner shattering a door. Two zones come through
- * glass and they are both named in the brief.
- */
-const GLASS_ENTRY = Object.freeze(new Set(['lounge_bay', 'living_west']));
+function destinationZonesFor(plan, staging) {
+  if (BASEMENT_STAGING.has(staging.id)) return DESTINATION_ZONES.basement;
+  return DESTINATION_ZONES[plan.tactic] ?? DESTINATION_ZONES.default;
+}
 
 /**
  * How much of a cartel round the player actually takes.
@@ -436,26 +416,52 @@ const GLASS_ENTRY = Object.freeze(new Set(['lounge_bay', 'living_west']));
 const PLAYER_DAMAGE_SCALE = 0.45;
 
 /**
- * Cover on the ground floor, and who each piece belongs to.
+ * Cover, and the ROOM each piece is in.
  *
- * `faces` is the direction the cover protects FROM, in the only sense that
- * matters here: a man behind the wrecked centrepiece is covered from the
- * landing and exposed to the lounge. The cover pass in the future-edit list
- * (docs/MANSION-SIEGE-NIGHT.md PART XIV, "Cover placement pass in the foyer")
- * is what eventually replaces these with real objects; until then they are
- * positions, and the men who use them stand behind them.
+ * The room is what makes this a cover list rather than a list of places. A
+ * man on the gallery used to be offered the fountain, twenty metres away and
+ * six metres down, because the filter was "his role's side of the house" and
+ * the fountain is on everybody's side of the house -- so a rifleman who had
+ * just fought his way to the landing would turn round and walk back out of
+ * the front door to get behind it. He is now only ever offered cover in the
+ * room he is standing in.
+ *
+ * The cover pass in the future-edit list (docs/MANSION-SIEGE-NIGHT.md PART
+ * XIV, "Cover placement pass in the foyer") is what eventually replaces these
+ * with real objects; until then they are positions, and the men who use them
+ * stand behind them.
  */
 const COVER_POINTS = Object.freeze([
-  Object.freeze({ x: -3.2, z: 41.4, side: 'centre', label: 'the wrecked centrepiece' }),
-  Object.freeze({ x: 3.2, z: 41.4, side: 'centre', label: 'the wrecked centrepiece' }),
-  Object.freeze({ x: 0, z: 37.4, side: 'centre', label: 'the front doors' }),
-  Object.freeze({ x: -7.6, z: 39.2, side: 'west', label: 'the living-room arch' }),
-  Object.freeze({ x: -7.9, z: 43.6, side: 'west', label: 'the west stair foot' }),
-  Object.freeze({ x: 7.6, z: 39.2, side: 'east', label: 'the lounge arch' }),
-  Object.freeze({ x: 7.9, z: 43.6, side: 'east', label: 'the east stair foot' }),
-  Object.freeze({ x: 0, z: 30, side: 'centre', label: 'the fountain', outdoor: true }),
-  Object.freeze({ x: -5.5, z: 32.5, side: 'west', label: 'a burning car', outdoor: true }),
-  Object.freeze({ x: 5.5, z: 32.5, side: 'east', label: 'a burning car', outdoor: true }),
+  /* The foyer, which is where the fight is. */
+  Object.freeze({ x: -3.2, z: 41.4, room: 'foyer', label: 'the wrecked centrepiece' }),
+  Object.freeze({ x: 3.2, z: 41.4, room: 'foyer', label: 'the wrecked centrepiece' }),
+  Object.freeze({ x: 0, z: 37.4, room: 'foyer', label: 'the front doors' }),
+  Object.freeze({ x: -7.6, z: 39.2, room: 'foyer', label: 'the west stair mass' }),
+  Object.freeze({ x: 7.6, z: 39.2, room: 'foyer', label: 'the east stair mass' }),
+  Object.freeze({ x: -7.9, z: 40.8, room: 'foyer', label: 'the west stair foot' }),
+  Object.freeze({ x: 7.9, z: 40.8, room: 'foyer', label: 'the east stair foot' }),
+  Object.freeze({ x: -8.2, z: 50.6, room: 'foyer', label: 'the living-room arch' }),
+  Object.freeze({ x: 8.2, z: 50.6, room: 'foyer', label: 'the lounge arch' }),
+  /* THE LANDING HAS COVER TOO, which is what stops a man who reaches it
+   * standing in the open forever because the only cover in the file is
+   * downstairs. */
+  Object.freeze({ x: -4.6, z: 49.4, room: 'gallery', y: UPPER_Y, label: 'the gallery rail' }),
+  Object.freeze({ x: 4.6, z: 49.4, room: 'gallery', y: UPPER_Y, label: 'the gallery rail' }),
+  Object.freeze({ x: -9.6, z: 50.4, room: 'gallery', y: UPPER_Y, label: 'the gallery pier' }),
+  Object.freeze({ x: 9.6, z: 50.4, room: 'gallery', y: UPPER_Y, label: 'the gallery pier' }),
+  /* Outdoors, for the men still walking up. */
+  Object.freeze({ x: -4.4, z: 34.8, room: 'steps', label: 'the step parapet' }),
+  Object.freeze({ x: 4.4, z: 34.8, room: 'steps', label: 'the step parapet' }),
+  Object.freeze({ x: -6.2, z: 26.5, room: 'forecourt', label: 'a burning car' }),
+  Object.freeze({ x: 6.2, z: 26.5, room: 'forecourt', label: 'a burnt-out car' }),
+  Object.freeze({ x: 0, z: 31.4, room: 'forecourt', label: 'the fountain' }),
+  /* The two wings, for the four men of 2B. */
+  Object.freeze({ x: 12.4, z: 45.2, room: 'lounge', label: 'the billiard table' }),
+  Object.freeze({ x: 11.6, z: 52.4, room: 'lounge', label: 'the bar' }),
+  Object.freeze({ x: -12.4, z: 45.2, room: 'living', label: 'a shoved couch' }),
+  Object.freeze({ x: -12.0, z: 52.4, room: 'living', label: 'the fireplace' }),
+  Object.freeze({ x: -19.6, z: 48.4, room: 'trophy', label: 'the trophy plinth' }),
+  Object.freeze({ x: 18.4, z: 44.0, room: 'bay', label: 'a bay pier' }),
 ]);
 
 /* ================================================================== */
@@ -666,6 +672,15 @@ export function createAttackerPool({
   const lightAllowed = registerLight ? registerLight(flash) !== false : true;
   if (lightAllowed) root.add(flash);
   let flashTimer = 0;
+
+  /**
+   * The house, as a graph he can be told to walk.
+   *
+   * One per pool, because the occupancy on it IS playthrough state: which
+   * gallery anchor is taken decides where the next man to reach the landing
+   * is sent, and it has to snapshot and restore with everything else.
+   */
+  const navigator = new SiegeNavigator();
 
   /** id -> entry. Ids are unique for a playthrough, so this is also the
    * checkpoint's index: restoring a wave re-spawns the same men. */
@@ -932,71 +947,87 @@ export function createAttackerPool({
   /* ---------------------------------------------------------------- */
 
   /**
-   * The waypoint list a freshly spawned man walks, staging first.
+   * What kind of leg this waypoint is, for the scene, the HUD and the tests.
+   *
+   * Derived from the anchor's own room rather than declared per route, so a
+   * waypoint cannot claim to be a climb while standing on the marble.
+   */
+  function kindForAnchor(anchor) {
+    if (anchor.room === 'stair_west' || anchor.room === 'stair_east') return 'climb';
+    if (anchor.room === 'gallery' || anchor.room === 'balcony') return 'climb';
+    if (anchor.zone === 'overwatch') return 'hold';
+    if (anchor.room === 'forecourt' || anchor.room === 'steps') return 'approach';
+    if (anchor.zone === 'flank_east' || anchor.zone === 'flank_west') return 'entry';
+    return 'push';
+  }
+
+  /**
+   * The waypoint list a freshly spawned man walks.
+   *
+   * ## THIS IS THE NAV GRAPH, NOT A HAND-WRITTEN ROUTE
+   *
+   * It was a hand-written route, and three of its legs went through walls.
+   * `./nav.js` authors the anchor set, `AuthoredNavigationGraph` does the BFS
+   * and holds the occupancy, and this function does the two things that are
+   * genuinely this module's: pick the destination zone from the man's tactic,
+   * and pick the flight from his route and his index.
    *
    * ## THE LANE, AND WHY IT IS NOT DECORATION
    *
-   * The first version of this handed every man on a route the identical
-   * waypoint list, and the probe showed exactly what the brief warned about:
-   * eight of the fourteen attackers in wave two ended the fight standing
-   * inside each other at (6.8, 6.0, 47.8), because that is where the east
-   * flight's last waypoint is. A queue, and a queue on one tread.
+   * The first version handed every man on a route the identical waypoint
+   * list, and the probe showed exactly what the brief warned about: eight of
+   * the fourteen attackers in wave two ended the fight standing inside each
+   * other at (6.8, 6.0, 47.8), because that is where the east flight's last
+   * waypoint is. A queue, and a queue on one tread.
    *
-   * So each man carries a deterministic lateral lane off his own index --
-   * five lanes 0.9 m apart in the open, narrowed to 0.4 m on the stair
-   * flights, which are only 3.35 m wide -- plus a small depth offset. Nobody
-   * shares a waypoint with anybody, and it costs one multiply.
-   *
-   * ## AND WHY BOTH FLIGHTS GET USED
-   *
-   * `climbs` used to send every centre-route man up the east flight, because
-   * the side was `route === 'west' ? 'west' : 'east'`. That is one staircase
-   * defended, which is half the fight the horseshoe was built for. Men on the
-   * middle route now alternate flights by index.
+   * Two things fix it and they fix different halves. `occupy()` reserves the
+   * DESTINATION, so no two men stop in the same place. The lane spreads the
+   * TRANSIT, perpendicular to each leg, by an amount the anchor itself
+   * declares -- 0.45 m at a 3.2 m front door, 1.2 m on a 32 m gallery.
    */
   function buildPath(order, plan, staging, index) {
-    const lane = ((index % 5) - 2) * 0.9;
-    const depth = ((index % 3) - 1) * 0.8;
-    const path = [];
-    for (const point of staging.approach ?? []) {
-      path.push({ x: point[0] + lane * 0.5, z: point[1] + depth * 0.4, y: null, kind: 'approach' });
+    const side = flightSideFor(plan, index);
+    const anchorId = staging.entry;
+    if (!anchorById(anchorId)) {
+      throw new Error(`Staging zone "${staging.id}" names unknown nav anchor "${anchorId}"`);
     }
-    /* The one zone whose approach does not end beside the push route. */
-    for (const point of ENTRY_ROUTES[staging.id] ?? []) {
-      path.push({ x: point[0] + lane * 0.4, z: point[1] + depth * 0.4, y: null, kind: 'entry' });
-    }
-    /* The two who never advance stop at a post instead of getting a route
-     * they would then have to be interrupted out of. */
-    const posts = HOLD_POSTS[plan.tactic];
-    if (posts) {
-      const post = posts[index % posts.length];
-      path.push({ x: post[0] + lane * 0.3, z: post[1], y: null, kind: 'hold' });
-      return path;
-    }
-    for (const point of PUSH_ROUTES[plan.route] ?? PUSH_ROUTES.centre) {
-      path.push({ x: point[0] + lane, z: point[1] + depth, y: null, kind: 'push' });
-    }
-    if (plan.climbs) {
-      const side = plan.route === 'west' ? 'west'
-        : plan.route === 'east' ? 'east'
-          : (index % 2 ? 'east' : 'west');
-      for (const point of CLIMB_ROUTES[side]) {
-        path.push({
-          x: point[0] + lane * 0.4, z: point[1] + depth * 0.35, y: point[2], kind: 'climb',
-        });
-      }
-    }
-    return path;
+    navigator.enter(order.id, anchorId, side);
+    const zones = destinationZonesFor(plan, staging);
+    const planned = navigator.plan(order.id, zones, { role: side });
+    /* Five lanes, -1..1, off his own index. Deterministic, so a checkpoint
+     * restore puts the same man back on the same line. */
+    const laneT = ((index % 5) - 2) / 2;
+    const from = { x: staging.x, z: staging.z, y: null };
+    const anchors = planned ? [anchorId, ...planned.path] : [anchorId];
+    const path = laneWaypoints(anchors, { from, laneT, kindFor: kindForAnchor });
+    /* `laneWaypoints` keeps the anchor he is standing on so the lane maths
+     * has something to be perpendicular to; he does not walk to his own
+     * feet. */
+    return {
+      path: path.slice(1),
+      destination: planned?.destination ?? anchorId,
+      side,
+      /* True when the graph had no free anchor left and he was sent to one
+       * somebody else is already holding. Never true in the mission as it is
+       * staged, and a test says so -- it is here as the diagnosis, so a
+       * future group that overflows the landing reports itself. */
+      shared: planned?.shared === true,
+    };
   }
 
-  /** The cover point this man would rather be at than open floor. */
+  /**
+   * The cover point this man would rather be at than open floor.
+   *
+   * FILTERED BY THE ROOM HE IS IN, which is the fix rather than a detail: the
+   * old filter was his role's side of the house, and "centre" cover was
+   * offered to everybody, so a rifleman who had fought his way onto the
+   * gallery would be offered the fountain and walk back out of the front door
+   * to get behind it.
+   */
   function pickCover(entry) {
-    const wanted = entry.plan.route;
-    const outdoor = entry.plan.tactic === 'pin' || entry.plan.tactic === 'support';
-    const options = COVER_POINTS.filter((point) => (
-      (point.side === wanted || point.side === 'centre')
-      && (outdoor ? point.outdoor === true : point.outdoor !== true)
-    ));
+    const here = roomAt(entry.root.position);
+    if (!here) return null;
+    const options = COVER_POINTS.filter((point) => point.room === here);
     if (!options.length) return null;
     return options[Math.floor(Math.random() * options.length)];
   }
@@ -1062,6 +1093,37 @@ export function createAttackerPool({
     if (!entry.target) {
       aimGoalAt(entry, entry.root.position.x, entry.root.position.z);
       return;
+    }
+
+    /* THE ONE CASE THAT MUST NOT BE A STRAIGHT LINE.
+     *
+     * Every tactic below walks at the man it is shooting at. That is right in
+     * a room and wrong through a floor: the player is on the balcony six
+     * metres up, and a rifleman on the marble who walks at him walks into the
+     * spandrel under the flight and stands there grinding for the rest of the
+     * wave. When the man he wants is more than two metres above or below him,
+     * he asks the graph for a route instead of taking a bearing.
+     *
+     * `sinceReplan` is what stops it thrashing: one request every four
+     * seconds is a man deciding to take the stairs, not a man reconsidering
+     * sixty times a second. */
+    const climbGap = entry.target.position.y - entry.root.position.y;
+    if (entry.plan.climbs && Math.abs(climbGap) > 2 && entry.sinceReplan > 4) {
+      entry.sinceReplan = 0;
+      const here = navigator.nearestAnchor(entry.root.position, entry.anchor);
+      navigator.enter(entry.id, here, entry.side);
+      const again = navigator.plan(
+        entry.id, climbGap > 0 ? DESTINATION_ZONES.default : DESTINATION_ZONES.direct,
+        { role: entry.side },
+      );
+      if (again?.path.length) {
+        entry.path = laneWaypoints([here, ...again.path], {
+          from: entry.root.position, laneT: entry.laneT, kindFor: kindForAnchor,
+        }).slice(1);
+        entry.replans++;
+        const next = entry.path[0];
+        if (next) { aimGoalAt(entry, next.x, next.z); return; }
+      }
     }
 
     const tactic = entry.plan.tactic;
@@ -1152,19 +1214,33 @@ export function createAttackerPool({
       if (reached) {
         entry.path.shift();
         entry.sinceMove = 0;
-        if (next.y != null) entry.floorY = next.y;
+        entry.anchor = next.anchor ?? entry.anchor;
+        /* HEIGHT IS AUTHORED, AND IT IS AUTHORED BOTH WAYS.
+         *
+         * A climb waypoint carries its own y and pins him to that floor. A
+         * ground-level waypoint carries null and has to UNPIN him again --
+         * without that line a man who reached the gallery and was then sent
+         * back down to the foyer floor kept `floorY` at 6.0 and walked the
+         * length of the entrance hall in mid-air. */
+        entry.floorY = next.y == null ? null : next.y;
         /* Coming through glass rather than through a door is an event the
          * scene's glass owner wants; it is reported, never performed here --
-         * `glass.js` is somebody else's file and a pane belongs to it. */
-        if (next.kind === 'approach' && !entry.breached
-          && GLASS_ENTRY.has(entry.staging.id)) {
+         * `glass.js` is somebody else's file and a pane belongs to it.
+         *
+         * WHICH pane comes off the nav graph's own opening table rather than
+         * off a guess about the geometry: the guess once reported the rear
+         * service DOOR as a broken window, and the glass owner would have
+         * shattered a door. `breaks` is set on a waypoint only when the leg
+         * that reached it crossed an opening declared `glass: true`. */
+        if (next.breaks && !entry.breached) {
           entry.breached = true;
           const breach = {
             id: entry.id,
             staging: entry.staging.id,
-            x: position.x,
+            opening: next.breaks.id,
+            x: next.breaks.x,
             y: position.y,
-            z: position.z,
+            z: next.breaks.z,
           };
           breaches.push(breach);
           ctx.onBreach?.(breach);
@@ -1186,6 +1262,23 @@ export function createAttackerPool({
     }
     entry.suppression.update(dt);
     entry.sinceMove += dt;
+    entry.sinceReplan += dt;
+
+    /* --- stuck --- *
+     * A man on a route who is not moving is either shooting from where he is
+     * or grinding against something. `SquadDirector.noteBlocked` is the
+     * heist's own 2.5 s patience and its own offscreen-only rule, reused
+     * rather than re-timed here; it hands back an anchor outside the house
+     * for the one case a route cannot recover from itself. */
+    if (entry.path.length && !entry.moving) {
+      const recovery = navigator.blocked(entry.id, dt);
+      if (recovery.recover && recovery.anchor) {
+        const point = laneWaypoints([entry.anchor ?? recovery.anchor, recovery.anchor], {
+          from: position, laneT: entry.laneT, kindFor: kindForAnchor,
+        }).slice(1);
+        if (point.length) { entry.path = point; entry.recovered++; }
+      }
+    }
 
     /* --- fire --- */
     if (!entry.target || entry.awareness < 0.7) return;
@@ -1232,6 +1325,10 @@ export function createAttackerPool({
     entry.root.userData.down = true;
     entry.target = null;
     entry.path.length = 0;
+    /* HIS PLACE ON THE LANDING GOES BACK IN THE POOL. Without this the man
+     * behind him is told the gallery is full and stops on the flight, and by
+     * the end of wave two the whole landing is reserved by corpses. */
+    navigator.release(entry.id);
     if (reported.has(entry.id)) return false;
     reported.add(entry.id);
     if (!silent) {
@@ -1321,6 +1418,15 @@ export function createAttackerPool({
         holding: false,
         sinceMove: 0,
         sinceThink: Math.random() * 0.12,
+        sinceReplan: 0,
+        replans: 0,
+        recovered: 0,
+        /** The nav anchor he last reached, and the flight he was given. */
+        anchor: null,
+        side: 'east',
+        laneT: 0,
+        destination: null,
+        sharedDestination: false,
         roundsFired: 0,
         pulledBack: 0,
         breached: false,
@@ -1363,7 +1469,7 @@ export function createAttackerPool({
     entry.actor.incapacitated = false;
     entry.actor.suppression = 0;
     entry.actor.role = order.role.id;
-    entry.actor.anchor = order.staging.id;
+    entry.actor.anchor = order.staging.entry;
     entry.suppression.value = 0;
     /* The gun is the shared controller with the catalog's own numbers on it.
      * Nothing about it is a siege weapon. */
@@ -1381,9 +1487,18 @@ export function createAttackerPool({
       penetration: catalogue.penetration,
     });
     entry.burst = new BurstController({ ...plan.burst });
-    entry.path = buildPath(order, plan, order.staging, entry.index);
+    const routed = buildPath(order, plan, order.staging, entry.index);
+    entry.path = routed.path;
+    entry.destination = routed.destination;
+    entry.side = routed.side;
+    entry.sharedDestination = routed.shared;
+    entry.anchor = order.staging.entry;
+    entry.laneT = ((entry.index % 5) - 2) / 2;
     entry.awareness = 0.55;
     entry.sinceMove = 0;
+    entry.sinceReplan = 0;
+    entry.replans = 0;
+    entry.recovered = 0;
     entry.roundsFired = 0;
     entry.pulledBack = 0;
     entry.breached = false;
@@ -1434,6 +1549,7 @@ export function createAttackerPool({
       entry.path.length = 0;
       entry.root.visible = false;
     }
+    navigator.reset();
     tracers.clear();
     flash.visible = false;
     return entries.size;
@@ -1595,10 +1711,18 @@ export function createAttackerPool({
         roundsFired: entry.roundsFired,
         breached: entry.breached,
         floorY: entry.floorY,
+        anchor: entry.anchor,
+        side: entry.side,
+        destination: entry.destination,
         reported: reported.has(entry.id),
         down: entry.actor.incapacitated,
       })),
       breaches: breaches.map((b) => ({ ...b })),
+      /* WHO HAS RESERVED WHAT. Restoring the men without the occupancy puts
+       * every survivor back on his feet and every anchor back in the pool, so
+       * the next man to reach the landing is sent to a spot somebody is
+       * already standing on. */
+      nav: navigator.capture(),
     };
   }
 
@@ -1629,6 +1753,9 @@ export function createAttackerPool({
       entry.roundsFired = Math.max(0, Math.round(record.roundsFired ?? 0));
       entry.breached = record.breached === true;
       entry.floorY = record.floorY == null ? null : Number(record.floorY);
+      entry.anchor = record.anchor ?? entry.anchor;
+      entry.side = record.side ?? entry.side;
+      entry.destination = record.destination ?? entry.destination;
       entry.goal.copy(entry.root.position);
       entry.root.visible = entry.active;
       if (record.reported) reported.add(entry.id);
@@ -1638,6 +1765,10 @@ export function createAttackerPool({
         markDown(entry, { silent: true });
       }
     }
+    /* AFTER the spawns, not before. Every `spawn` above re-plans and re-takes
+     * an anchor, so applying the stored occupancy first would be applying it
+     * to a graph that is about to be rewritten twenty-two times. */
+    if (snap.nav) navigator.restore(snap.nav);
     return true;
   }
 
@@ -1651,6 +1782,13 @@ export function createAttackerPool({
     living,
     snapshot,
     restore,
+
+    /**
+     * The house as the cartel walk it. Exposed so the scene can draw the
+     * anchors when somebody is tuning a route, and so a test can ask the
+     * graph a question rather than re-deriving one.
+     */
+    navigator,
 
     /* ---- everything below is diagnostics, not the contract ---- */
     /** The entry behind an id, for the scene's own HUD and for tests. */

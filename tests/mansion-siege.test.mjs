@@ -6,7 +6,9 @@ import { CombatActor } from '../src/core/combat/actors.js';
 import { MansionDamageState, DAMAGE_STATES, STATE_LAYERS } from '../src/mansion/siege/state.js';
 import {
   WaveDirector, WAVES, ENCOUNTERS, STAGING, ROLES, totalAttackers, COMBAT_BOUNDARY, DEFENCE_POST,
+  FRONT_DOOR_STAGING, frontDoorShare, waveById,
 } from '../src/mansion/siege/waves.js';
+import { anchorById } from '../src/mansion/siege/nav.js';
 import {
   SiegeMission, BEATS, B, CHECKPOINT_FIELDS, CHECKPOINTS, LULL_SECONDS,
 } from '../src/mansion/siege/mission.js';
@@ -202,11 +204,48 @@ test('nobody in wave two is the same twenty-two riflemen', () => {
   assert.ok(final.roles.includes('gunner'));
 });
 
-test('every attacker walks in from a staging zone that has an approach', () => {
+test('every attacker walks in from a staging zone that has a way in', () => {
   for (const zone of Object.values(STAGING)) {
-    assert.ok(Array.isArray(zone.approach) && zone.approach.length > 0,
-      `${zone.id} has no way in -- attackers would appear out of thin air`);
+    assert.ok(typeof zone.entry === 'string' && zone.entry.length > 0,
+      `${zone.id} names no nav anchor -- attackers would appear out of thin air`);
+    assert.ok(anchorById(zone.entry),
+      `${zone.id} names nav anchor "${zone.entry}", which does not exist`);
   }
+});
+
+test('the way in is beside the man, not across the property from him', () => {
+  /* A staging zone and its entry anchor are two different things -- he stands
+   * on the first and walks to the second -- but if they are twenty metres
+   * apart the first leg of his route is a straight line nobody authored. */
+  for (const zone of Object.values(STAGING)) {
+    const anchor = anchorById(zone.entry);
+    const leg = Math.hypot(anchor.x - zone.x, anchor.z - zone.z);
+    assert.ok(leg < 6, `${zone.id} is ${leg.toFixed(1)}m from its own entry anchor`);
+  }
+});
+
+test('the front door is the way in: four fifths of the siege comes through it', () => {
+  /* OWNER DIRECTION, 2026-08-05: "everyone should funnel in through the main
+   * door". The brief's standing counter-instruction is that twenty-two
+   * identical riflemen through one doorway is not an encounter, so this is
+   * both halves of it: overwhelmingly the front door, and not ONLY the front
+   * door. Both bounds, because a future pass that quietly re-opens four more
+   * flanks and a future pass that deletes the last one are the same mistake
+   * in opposite directions. */
+  const share = frontDoorShare();
+  assert.equal(share.total, 22);
+  assert.ok(share.share >= 0.8, `only ${share.front}/${share.total} come in the front`);
+  assert.ok(share.share < 1, 'nobody ever breaks a window, which is a shooting gallery');
+
+  /* And the ones who do not are ONE group, so the player looks away from the
+   * stairs once rather than continuously. */
+  const flankGroups = WAVES.flatMap((wave) => wave.groups)
+    .filter((group) => group.staging.some((id) => !FRONT_DOOR_STAGING.has(id)));
+  assert.equal(flankGroups.length, 1, `${flankGroups.map((g) => g.id).join('+')} come off the door`);
+  assert.equal(flankGroups[0].flank, true, 'and the group says so on the tin');
+  /* Late, not early: wave one is all door, so the shape is taught before it
+   * is broken. */
+  assert.equal(waveById('one').groups.some((g) => g.flank), false);
 });
 
 test('no outdoor staging zone is standing inside a building', () => {

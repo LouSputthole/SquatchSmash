@@ -38,8 +38,11 @@ const { CombatActor } = await import('../src/core/combat/actors.js');
 const { FACTIONS, FactionMatrix } = await import('../src/core/combat/factions.js');
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const {
-  COMBAT_BOUNDARY, ROLES, STAGING, WaveDirector,
+  COMBAT_BOUNDARY, ENCOUNTERS, ROLES, STAGING, WaveDirector,
 } = await import('../src/mansion/siege/waves.js');
+const {
+  ANCHORS, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
+} = await import('../src/mansion/siege/nav.js');
 const {
   createAttackerPool, segmentBlocked, HIT_ZONES, ROLE_PLAN,
 } = await import('../src/mansion/siege/attackers.js');
@@ -171,17 +174,45 @@ test('every wave staging zone is outside the foyer the player is looking at', ()
   assert.deepEqual(pool.spawnedInsideView(), []);
 });
 
-test('he walks in: an approach path, and he is fighting before he arrives', () => {
+test('he walks in: a route off the graph, and he is fighting before he arrives', () => {
   const { pool } = harness();
   const orders = releaseWave(pool, 'one');
   for (const order of orders) {
     const entry = pool.entry(order.id);
-    assert.ok(entry.path.length >= order.staging.approach.length,
-      `${order.id} carries at least his zone's approach`);
+    /* Six legs is the drive, the fountain, the steps, the portico, the door
+     * and the foyer -- the shortest honest walk from the turnaround to the
+     * bottom of a flight. A man handed fewer than that has been given a
+     * shortcut through something. */
+    assert.ok(entry.path.length >= 4,
+      `${order.id} has only ${entry.path.length} legs from ${order.staging.id}`);
+    assert.ok(entry.path.every((point) => anchorById(point.anchor)),
+      `${order.id} carries a waypoint that is not on the graph`);
     /* Active from the instant he is placed -- an awareness above the firing
      * threshold, a loaded gun and a live actor. */
     assert.equal(entry.actor.incapacitated, false);
     assert.ok(entry.weapon.magazine > 0);
+  }
+});
+
+test('wave one comes in the front door, every man of it', () => {
+  /* OWNER DIRECTION: "everyone should funnel in through the main door." Wave
+   * one is where that is taught, so it is all door and no exceptions -- and
+   * "through the door" is asserted as the leg that crosses `frontDoor`
+   * rather than as the name of a staging zone. */
+  const { pool } = harness();
+  for (const order of releaseWave(pool, 'one')) {
+    const entry = pool.entry(order.id);
+    let previous = { x: order.staging.x, z: order.staging.z, y: null };
+    const crossed = [];
+    for (const point of entry.path) {
+      const crossing = crossingFor(previous, point);
+      if (crossing) crossed.push(crossing.opening.id);
+      previous = point;
+    }
+    assert.ok(crossed.includes('frontDoor'),
+      `${order.id} got inside through ${crossed.join(', ') || 'nothing'}`);
+    assert.equal(crossed.filter((id) => OPENINGS.find((o) => o.id === id)?.glass).length, 0,
+      `${order.id} broke a window in wave one`);
   }
 });
 
@@ -476,48 +507,177 @@ test('a wave uses both stair flights and more than one route', () => {
     'and pushes both flights of the horseshoe');
 });
 
-test('no leg of any route is a straight line through a room he is not in', () => {
-  /* There is no nav mesh: a man walks a straight line between two authored
-   * waypoints, which is only correct while consecutive waypoints are in the
-   * same room or either side of one opening. The service door was the one
-   * zone where that was false -- twenty-six metres from the kitchen to the
-   * foyer through two partitions on a single diagonal. */
-  const { pool } = harness();
-  const orders = releaseWave(pool, 'two');
-  const fromService = orders.filter((order) => order.staging.id === 'rear_service');
-  assert.ok(fromService.length > 0, 'somebody does come the long way round');
-  for (const order of fromService) {
-    const entry = pool.entry(order.id);
-    assert.ok(entry.path.some((point) => point.kind === 'entry'),
-      `${order.id} has no leg between the service door and the foyer`);
+/**
+ * Every leg of a route, checked against the floor plan.
+ *
+ * THE OLD VERSION OF THIS TEST MEASURED LENGTHS. It asserted that no single
+ * leg was longer than the house is wide, which is a proxy for "he did not
+ * walk through a wall" and a bad one: the two legs that actually went through
+ * walls were 7.3 m and 5.4 m and both passed. This walks the rooms instead.
+ *
+ * The rule, and it is the whole rule: consecutive waypoints are either in the
+ * same room, or the segment between them passes through exactly one opening
+ * the house really has, and that opening joins those two rooms.
+ */
+function assertRouteIsWalkable(id, points, from) {
+  let previous = { x: from.x, z: from.z, y: from.y ?? null };
+  let previousRoom = roomAt(previous);
+  assert.ok(previousRoom, `${id} starts at (${previous.x}, ${previous.z}) which is in no room`);
+  for (const point of points) {
+    const room = roomAt(point);
+    assert.ok(room,
+      `${id} walks to (${point.x.toFixed(1)}, ${point.z.toFixed(1)}) which is in no room`);
+    const crossing = crossingFor(previous, point);
+    if (room === previousRoom) {
+      assert.equal(crossing, null,
+        `${id} stays in ${room} but crosses ${crossing?.opening.id}`);
+    } else {
+      assert.ok(crossing,
+        `${id} goes ${previousRoom} -> ${room} through solid wall`
+        + ` at (${point.x.toFixed(1)}, ${point.z.toFixed(1)})`);
+      assert.ok(crossing.opening.rooms.includes(previousRoom)
+        && crossing.opening.rooms.includes(room),
+      `${id} goes ${previousRoom} -> ${room} through ${crossing.opening.id},`
+        + ` which joins ${crossing.opening.rooms.join(' and ')}`);
+    }
+    previous = point;
+    previousRoom = room;
   }
-  /* And no single leg of anybody's route is longer than the house is wide. */
-  for (const order of orders) {
-    const entry = pool.entry(order.id);
-    let previous = { x: order.staging.x, z: order.staging.z };
-    for (const point of entry.path) {
-      const leg = Math.hypot(point.x - previous.x, point.z - previous.z);
-      assert.ok(leg < 14, `${order.id} walks ${leg.toFixed(1)}m in one straight line`);
-      previous = point;
+}
+
+test('no leg of any route is a straight line through a room he is not in', () => {
+  const { pool } = harness();
+  for (const wave of ['one', 'two']) {
+    for (const order of releaseWave(pool, wave)) {
+      const entry = pool.entry(order.id);
+      assertRouteIsWalkable(order.id, entry.path, order.staging);
     }
   }
+  /* And the two authored encounters, which are routed by the same graph. */
+  for (const encounter of Object.values(ENCOUNTERS)) {
+    for (const member of encounter.members) {
+      const entry = pool.spawn(member);
+      assertRouteIsWalkable(member.id, entry.path, STAGING[member.staging]);
+    }
+  }
+});
+
+test('every route ends up where the player is standing, or holding the room under him', () => {
+  /* THE DIRECTION, AS AN ASSERTION. "I want the main fight to take place from
+   * the balcony as they come up the stairs or come in the front door." A man
+   * whose route stops in the forecourt is a man the player never fights. */
+  const { pool } = harness();
+  const orders = [...releaseWave(pool, 'one'), ...releaseWave(pool, 'two')];
+  const ends = new Map();
+  for (const order of orders) {
+    const entry = pool.entry(order.id);
+    const last = entry.path[entry.path.length - 1];
+    assert.ok(last, `${order.id} has no route at all`);
+    const room = roomAt(last);
+    ends.set(room, (ends.get(room) ?? 0) + 1);
+    assert.ok(['gallery', 'balcony', 'stair_west', 'stair_east', 'foyer'].includes(room),
+      `${order.id} (${order.role.id}) stops in ${room}`);
+  }
+  const onTheLanding = (ends.get('gallery') ?? 0) + (ends.get('balcony') ?? 0);
+  assert.ok(onTheLanding >= 8,
+    `only ${onTheLanding} of ${orders.length} get all the way onto the landing`);
+});
+
+test('the two flanks come through glass, and nobody else breaks anything', () => {
+  /* Derived from the nav graph's own opening table rather than from a guess
+   * about the geometry -- the guess once reported the rear service DOOR as a
+   * broken window, and the glass owner would have shattered a door. */
+  const { pool } = harness();
+  const orders = [...releaseWave(pool, 'one'), ...releaseWave(pool, 'two')];
+  const breaking = [];
+  for (const order of orders) {
+    const entry = pool.entry(order.id);
+    for (const point of entry.path) {
+      if (point.breaks) breaking.push({ id: order.id, staging: order.staging.id, opening: point.breaks.id });
+    }
+  }
+  assert.equal(breaking.length, 4, 'four men break in, and it is the flank group');
+  assert.deepEqual([...new Set(breaking.map((b) => b.staging))].sort(),
+    ['living_west', 'lounge_bay']);
+  assert.deepEqual([...new Set(breaking.map((b) => b.opening))].sort(),
+    ['bayEastMid', 'trophyWestSouth']);
+  /* Both panes, not one twice: the group is supposed to arrive on two flanks
+   * at once so the player cannot answer it by turning through ninety degrees. */
+  assert.equal(new Set(breaking.map((b) => b.opening)).size, 2);
 });
 
 test('nobody on a route shares a waypoint with anybody else', () => {
   /* The failure the probe caught: eight men standing inside each other on
    * one tread, because every man on a route got the identical waypoint
-   * list. Lanes are what fixed it and this is what keeps them. */
+   * list. TWO things fix it and they fix different halves -- `occupy()`
+   * reserves the destination so no two men STOP in the same place, and the
+   * lane spreads the transit so no two men WALK the same line. This is the
+   * first half; `laneWaypoints` is asserted separately below. */
   const { pool } = harness();
-  const orders = releaseWave(pool, 'two');
-  const seen = new Set();
+  const orders = [...releaseWave(pool, 'one'), ...releaseWave(pool, 'two')];
+  const seen = new Map();
   for (const order of orders) {
     const entry = pool.entry(order.id);
     const last = entry.path[entry.path.length - 1];
     if (!last) continue;
+    assert.equal(seen.has(last.anchor), false,
+      `${order.id} was sent to ${last.anchor}, which ${seen.get(last.anchor)} already holds`);
+    seen.set(last.anchor, order.id);
     const key = `${last.x.toFixed(2)},${last.z.toFixed(2)}`;
-    assert.equal(seen.has(key), false,
+    assert.equal([...seen.keys()].filter((k) => k === key).length, 0,
       `${order.id} ends on the same spot as somebody else`);
-    seen.add(key);
+    /* And the graph did not have to fall back to sharing a spot: the house
+     * has more places to stand than the whole staircase defence has men,
+     * even with both waves alive at once, which the mission never does. */
+    assert.equal(entry.sharedDestination, false,
+      `${order.id} was doubled up on ${last.anchor} -- the landing has run out of anchors`);
+  }
+});
+
+test('a man who dies gives his place on the landing back', () => {
+  /* Without this the whole gallery ends up reserved by corpses and the second
+   * half of wave two stops on the flights. */
+  const { pool } = harness();
+  const orders = releaseWave(pool, 'two');
+  const first = pool.entry(orders[0].id);
+  const held = first.destination;
+  assert.ok(held, 'he reserved somewhere');
+  assert.equal(pool.navigator.graph.capture()[held], first.id);
+  pool.registerHit(first.figure.parts.head, 9999, 0.4);
+  assert.equal(pool.navigator.graph.capture()[held], undefined,
+    'and gave it up when he went down');
+});
+
+test('the lane spreads a group across the leg rather than along it', () => {
+  /* The old lane offset was applied to x, always. A group walking east down
+   * the lounge therefore spread along its own direction of travel and
+   * arrived as a single file of one. The offset is now perpendicular to the
+   * leg, which is the difference between five men abreast and five men in a
+   * queue. */
+  const from = { x: 26.5, z: 47.4, y: null };
+  const spread = [-1, 0, 1].map((laneT) => laneWaypoints(['lawn_bay', 'bay_glass'], { from, laneT }));
+  const [low, mid, high] = spread.map((points) => points[1]);
+  /* The leg runs west, so the spread has to be in z. */
+  assert.ok(Math.abs(low.z - high.z) > 1.2, `only ${Math.abs(low.z - high.z).toFixed(2)}m apart`);
+  assert.ok(Math.abs(low.x - high.x) < 0.01, 'and not along the leg');
+  assert.ok(Math.abs(mid.z - 47.4) < 0.01, 'the middle lane is the anchor itself');
+});
+
+test('a laned waypoint never leaves the room its anchor is in', () => {
+  /* The lane is what stops eight men standing inside each other and it is
+   * also the one thing that can push a waypoint out of the room it was
+   * authored in -- 0.55 m of spread on the portico is 0.55 m toward a wall
+   * 0.4 m away. */
+  for (const laneT of [-1, -0.5, 0, 0.5, 1]) {
+    for (const anchor of ANCHORS) {
+      for (const neighbour of anchor.neighbors) {
+        const [point] = laneWaypoints([neighbour], {
+          from: { x: anchor.x, z: anchor.z, y: anchor.y }, laneT,
+        });
+        assert.equal(roomAt(point), point.room,
+          `lane ${laneT} on ${anchor.id} -> ${neighbour} lands in ${roomAt(point)}`);
+      }
+    }
   }
 });
 
@@ -1073,7 +1233,80 @@ test('the staging zones every wave names really exist', () => {
   for (const [id, zone] of Object.entries(STAGING)) {
     assert.equal(zone.id, id);
     assert.ok(Number.isFinite(zone.x) && Number.isFinite(zone.z));
-    assert.ok(Array.isArray(zone.approach) && zone.approach.length > 0,
-      `${id} has no approach path, so somebody would appear from thin air`);
+    assert.ok(anchorById(zone.entry),
+      `${id} names nav anchor "${zone.entry}", which does not exist`);
+    /* And he is standing somewhere, not in the void between two rooms. */
+    const room = roomAt({ x: zone.x, z: zone.z, y: zone.indoor ? undefined : null });
+    assert.ok(room, `${id} at (${zone.x}, ${zone.z}) is in no room at all`);
+  }
+});
+
+/* ================================================================== */
+/* THE NAV GRAPH ITSELF                                                 */
+/* ================================================================== */
+
+test('every anchor is in the room it claims, and every edge is two-way', () => {
+  for (const anchor of ANCHORS) {
+    assert.ok(ROOMS[anchor.room], `${anchor.id} claims room "${anchor.room}"`);
+    assert.equal(roomAt({ x: anchor.x, z: anchor.z, y: anchor.y }), anchor.room,
+      `${anchor.id} says ${anchor.room} and stands in something else`);
+    for (const neighbour of anchor.neighbors) {
+      const other = anchorById(neighbour);
+      assert.ok(other, `${anchor.id} names missing neighbour ${neighbour}`);
+      assert.ok(other.neighbors.includes(anchor.id),
+        `${anchor.id} -> ${neighbour} is one-way, so a BFS can walk into a dead end`);
+    }
+  }
+});
+
+test('every edge of the graph is a leg somebody could actually walk', () => {
+  /* The same rule the routes are held to, applied to the graph rather than
+   * to one wave's worth of paths -- so an edge that nobody happens to use
+   * this week cannot be quietly wrong until somebody re-stages a group. */
+  for (const anchor of ANCHORS) {
+    for (const neighbour of anchor.neighbors) {
+      const other = anchorById(neighbour);
+      const a = { x: anchor.x, z: anchor.z, y: anchor.y };
+      const b = { x: other.x, z: other.z, y: other.y };
+      const crossing = crossingFor(a, b);
+      if (anchor.room === other.room) {
+        assert.equal(crossing, null,
+          `${anchor.id}-${neighbour} stays in ${anchor.room} but crosses ${crossing?.opening.id}`);
+      } else {
+        assert.ok(crossing,
+          `${anchor.id}-${neighbour} goes ${anchor.room} -> ${other.room} through solid wall`);
+        assert.ok(crossing.opening.rooms.includes(anchor.room)
+          && crossing.opening.rooms.includes(other.room),
+        `${anchor.id}-${neighbour} crosses ${crossing.opening.id}`);
+      }
+      const length = Math.hypot(other.x - anchor.x, other.z - anchor.z);
+      assert.ok(length < 13, `${anchor.id}-${neighbour} is ${length.toFixed(1)}m in one line`);
+    }
+  }
+});
+
+test('the landing is reachable from every way into the house, on both flights', () => {
+  const { pool } = harness();
+  const graph = pool.navigator.graph;
+  for (const zone of Object.values(STAGING)) {
+    if (zone.entry.startsWith('cellar')) continue;
+    for (const side of ['east', 'west']) {
+      const path = graph.findPath(zone.entry, (anchor) => anchor.zone === 'gallery'
+        && (anchor.roles.size === 0 || anchor.roles.has(side)));
+      assert.ok(path, `no route from ${zone.id} to the ${side} side of the landing`);
+    }
+  }
+});
+
+test('the cellar pair cannot walk up to the staircase defence', () => {
+  /* The corridor encounter happens nine metres under the fight and is over
+   * before it starts. A basement anchor joined to the ground floor would let
+   * a BFS from the corridor find the gallery, and the two men who are meant
+   * to be the opening beat would arrive in the middle of wave one. */
+  const { pool } = harness();
+  const graph = pool.navigator.graph;
+  for (const start of ['cellar_west', 'cellar_vault_door']) {
+    assert.equal(graph.findPath(start, (anchor) => anchor.zone === 'gallery'), null);
+    assert.equal(graph.findPath(start, (anchor) => anchor.zone === 'foyer'), null);
   }
 });

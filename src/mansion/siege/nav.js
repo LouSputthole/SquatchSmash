@@ -366,7 +366,7 @@ export const ANCHORS = Object.freeze([
     neighbors: ['court_side_west', 'steps_centre', 'porch_west'],
   }),
   A('steps_centre', 'porch', 0, 34.7, G, 'steps', 1.0, {
-    neighbors: ['court_centre', 'steps_west', 'steps_east', 'porch_centre', 'overwatch_porch'],
+    neighbors: ['court_centre', 'steps_west', 'steps_east', 'porch_centre'],
   }),
   A('steps_east', 'porch', 3.4, 34.7, G, 'steps', 1.0, {
     neighbors: ['court_side_east', 'steps_centre', 'porch_east'],
@@ -378,7 +378,7 @@ export const ANCHORS = Object.freeze([
    * this anchor and then through a 3.2 m door, which is why its lane is the
    * tightest in the file. */
   A('porch_centre', 'porch', 0, 35.6, G, 'steps', 0.55, {
-    neighbors: ['steps_centre', 'porch_west', 'porch_east', 'foyer_door', 'overwatch_porch'],
+    neighbors: ['steps_centre', 'porch_west', 'porch_east', 'foyer_door', 'overwatch_door_mouth'],
   }),
   A('porch_east', 'porch', 3.2, 35.6, G, 'steps', 0.9, {
     neighbors: ['steps_east', 'porch_centre'],
@@ -388,7 +388,7 @@ export const ANCHORS = Object.freeze([
   A('foyer_door', 'foyer', 0, 37.3, G, 'foyer', 0.45, {
     neighbors: [
       'porch_centre', 'foyer_west', 'foyer_east', 'foyer_centre',
-      'overwatch_centre', 'overwatch_west', 'overwatch_east',
+      'overwatch_centre', 'overwatch_west', 'overwatch_east', 'overwatch_door_mouth',
     ],
   }),
   A('foyer_west', 'foyer', -4.2, 39.6, G, 'foyer', 1.3, {
@@ -428,7 +428,7 @@ export const ANCHORS = Object.freeze([
    * gallery rail, and all six are somewhere the player can shoot back at --
    * which is the difference between a suppressor and a weather system. */
   A('overwatch_centre', 'overwatch', 0, 37.4, G, 'foyer', 0.5, {
-    neighbors: ['foyer_door', 'overwatch_west', 'overwatch_east'],
+    neighbors: ['foyer_door', 'overwatch_west', 'overwatch_east', 'overwatch_door_mouth'],
   }),
   A('overwatch_west', 'overwatch', -4.2, 37.9, G, 'foyer', 0.8, {
     neighbors: ['foyer_door', 'overwatch_centre', 'overwatch_west_far'],
@@ -442,10 +442,13 @@ export const ANCHORS = Object.freeze([
   A('overwatch_east_far', 'overwatch', 6.8, 37.9, G, 'foyer', 0.6, {
     neighbors: ['overwatch_east'],
   }),
-  /* On the portico, shooting in through the doorway he has not gone through.
-   * A hundred rounds in a box is not something you carry up a staircase. */
-  A('overwatch_porch', 'overwatch', 0, 35.2, G, 'steps', 0.8, {
-    neighbors: ['steps_centre', 'porch_centre'],
+  /* IN THE DOOR MOUTH, and inside it rather than on the portico. A hundred
+   * rounds in a box is not something you carry up a staircase, so the gunner
+   * sets up on the threshold and stays there -- but on the threshold, not
+   * behind it: a hold post outside the house is a man the player fights
+   * through two storeys of entrance glazing instead of a man in his hall. */
+  A('overwatch_door_mouth', 'overwatch', 0, 36.8, G, 'foyer', 0.5, {
+    neighbors: ['porch_centre', 'foyer_door', 'overwatch_centre'],
   }),
 
   /* ---- the two flights --------------------------------------------- */
@@ -472,10 +475,10 @@ export const ANCHORS = Object.freeze([
     neighbors: ['stair_east_high', 'gallery_east', 'gallery_far_east'],
   }),
   A('gallery_west', 'gallery', -4.4, 50.2, UPPER_Y, 'gallery', 1.0, {
-    roles: ['west'], neighbors: ['gallery_head_west', 'gallery_centre'],
+    roles: ['west'], neighbors: ['gallery_head_west', 'gallery_centre', 'gallery_rail_west'],
   }),
   A('gallery_east', 'gallery', 4.4, 50.2, UPPER_Y, 'gallery', 1.0, {
-    roles: ['east'], neighbors: ['gallery_head_east', 'gallery_centre'],
+    roles: ['east'], neighbors: ['gallery_head_east', 'gallery_centre', 'gallery_rail_east'],
   }),
   A('gallery_far_west', 'gallery', -11.5, 50.4, UPPER_Y, 'gallery', 1.2, {
     roles: ['west'], neighbors: ['gallery_head_west'],
@@ -484,7 +487,16 @@ export const ANCHORS = Object.freeze([
     roles: ['east'], neighbors: ['gallery_head_east'],
   }),
   A('gallery_centre', 'gallery', 0, 49.6, UPPER_Y, 'gallery', 1.0, {
-    neighbors: ['gallery_west', 'gallery_east', 'balcony_step'],
+    neighbors: ['gallery_west', 'gallery_east', 'balcony_step', 'gallery_rail_west', 'gallery_rail_east'],
+  }),
+  /* Hard against the rail either side of the balcony's mouth -- the two
+   * places a man can stand and shoot at somebody ON the balcony without
+   * being on it. */
+  A('gallery_rail_west', 'gallery', -2.0, 48.8, UPPER_Y, 'gallery', 0.7, {
+    roles: ['west'], neighbors: ['gallery_west', 'gallery_centre'],
+  }),
+  A('gallery_rail_east', 'gallery', 2.0, 48.8, UPPER_Y, 'gallery', 0.7, {
+    roles: ['east'], neighbors: ['gallery_east', 'gallery_centre'],
   }),
   /* ON THE PLAYER'S OWN STEP. `MansionInterior.BALCONY` is x -3..3,
    * z 45.2..48 and the mission's DEFENCE_POST is the bay behind it, so a man
@@ -628,13 +640,11 @@ export class SiegeNavigator {
     const actor = this.actors.get(actorId);
     if (!actor) return null;
     const wanted = Array.isArray(zones) ? zones : [zones];
+    const matches = (zone) => (anchor) => anchor.zone === zone
+      && (!role || anchor.roles.size === 0 || anchor.roles.has(role));
+
     for (const zone of wanted) {
-      const path = this.graph.findPath(
-        actor.anchor,
-        (anchor) => anchor.zone === zone
-          && (!role || anchor.roles.size === 0 || anchor.roles.has(role)),
-        actorId,
-      );
+      const path = this.graph.findPath(actor.anchor, matches(zone), actorId);
       if (!path?.length) continue;
       const destination = path[path.length - 1];
       if (!this.graph.occupy(destination, actorId)) continue;
@@ -642,14 +652,68 @@ export class SiegeNavigator {
       /* The FIRST id is where he already is. A waypoint on top of his own
        * feet is a waypoint he reaches instantly and a lane offset applied to
        * nothing, so it is dropped. */
-      return { zone, destination, path: path.slice(1), anchors: path };
+      return { zone, destination, path: path.slice(1), anchors: path, shared: false };
     }
-    return null;
+
+    /* THE HOUSE IS FULLER THAN IT HAS ANCHORS.
+     *
+     * Occupancy is what stops men standing inside each other, and it is a
+     * preference, not a law. Twenty-two attackers plus the foyer three, all
+     * alive at once -- which the mission never does, because wave one is
+     * cleared before wave two opens, but a checkpoint tool or a test can --
+     * wants more places to stand than the landing, the flights and the foyer
+     * floor have between them. A man with nowhere to go would stop dead at
+     * his staging zone OUTSIDE THE HOUSE and the wave would never clear.
+     *
+     * So the last resort asks the graph the same question with the house
+     * empty and sends him there without reserving it. Two men close together
+     * on the gallery is a worse frame than one; a man standing on the drive
+     * for four minutes is a broken mission.
+     */
+    const held = this.graph.capture();
+    this.graph.reset();
+    let shared = null;
+    for (const zone of wanted) {
+      const path = this.graph.findPath(actor.anchor, matches(zone), actorId);
+      if (path?.length) {
+        shared = { zone, destination: path[path.length - 1], path: path.slice(1), anchors: path, shared: true };
+        break;
+      }
+    }
+    this.graph.restore(held);
+    if (shared) actor.anchor = shared.destination;
+    return shared;
   }
 
   /** He has not moved for a while. Somewhere else to be, or nothing. */
   blocked(actorId, dt) {
     return this.director.noteBlocked(actorId, dt);
+  }
+
+  /**
+   * The anchor a man standing HERE should be treated as being on.
+   *
+   * Needed because a fight moves people: an attacker chases, takes cover,
+   * gets driven off a position, and by the time he asks the graph for a new
+   * route he is nowhere near the anchor he last reserved. Re-planning from a
+   * stale anchor is how a man on the gallery gets handed a route that starts
+   * at the front door.
+   *
+   * Anchors in the room he is actually in win outright, whatever the
+   * distance -- a man three metres from a gallery anchor and two metres from
+   * a foyer one, six metres below him, belongs to the gallery.
+   */
+  nearestAnchor(position, fallback = null) {
+    const here = roomAt(position);
+    let best = fallback;
+    let bestScore = Infinity;
+    for (const anchor of ANCHORS) {
+      const dy = (anchor.y == null ? GROUND_Y : anchor.y) - position.y;
+      const score = Math.hypot(anchor.x - position.x, anchor.z - position.z, dy)
+        + (here && anchor.room !== here ? 1000 : 0);
+      if (score < bestScore) { bestScore = score; best = anchor.id; }
+    }
+    return best;
   }
 
   capture() {
