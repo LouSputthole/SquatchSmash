@@ -1,29 +1,49 @@
 /**
- * The fitting room.
+ * The fitting room, and the workshop it grew into.
  *
- * `src/core/wardrobe.js` is the ledger of what the Family wears; this is the
- * mirror. It builds every canonical model with the club's own `makePerson`,
- * under the club's own light, so that a note about a cuff or a chain can be
- * made against the actual geometry rather than against a description of it.
+ * `src/core/wardrobe.js` is the ledger of what the Family wears and
+ * `src/core/appearances.js` is the ledger of who is in what while wearing it;
+ * this is the mirror for both. It builds every model with the club's own
+ * `makePerson`, under the club's own light, so that a note about a cuff or a
+ * chain can be made against the actual geometry rather than against a
+ * description of it.
  *
  * Three rules it follows, and they are the reason it is worth having:
  *
- *  1. **It reads the ledger, it does not restate it.** Every figure here is
- *     the frozen model object imported from `src/core/wardrobe.js`. If the
- *     preview and the game ever disagree, the preview is wrong by
- *     construction, which is the only way a fitting room stays honest.
+ *  1. **It reads the ledgers, it does not restate them.** Every figure here is
+ *     a frozen model object imported from `src/core/wardrobe.js` or handed
+ *     over by `src/core/appearances.js`. If the preview and the game ever
+ *     disagree, the preview is wrong by construction, which is the only way a
+ *     fitting room stays honest.
  *  2. **It shows the light the scene shows.** A gold chain under a studio
  *     key is jewellery; under one warm bulb at the Bing it is a smear. Both
- *     are real, so both are here, plus daylight for the boat and the golf.
+ *     are real, so both are here, plus daylight for the boat and the golf —
+ *     and picking a scene picks that scene's own rig, because a garment
+ *     judged under the wrong room is a garment nobody has looked at.
  *  3. **It says what it is showing.** The caption is generated from the model
  *     object's own keys, so it cannot describe a watch the figure does not
- *     have.
+ *     have. The same rule makes the across-scenes comparison honest: the
+ *     differences it highlights are computed from the two models, never typed.
+ *
+ * ## The three views
+ *
+ * - **Canonical** — the original rail. One person, one model, the wardrobe's
+ *   own answer with no scene's opinion on top.
+ * - **By scene** — everybody in one scene, side by side, under that scene's
+ *   rig. "Who is in this room and what have they got on."
+ * - **By character** — one person in every scene they are in, side by side.
+ *   This is the view the owner asked for and the one the appearance ledger
+ *   was written to make possible: Big Uncle Lou's four outfits in one frame,
+ *   which is a thing nobody in this project has ever been able to look at.
  */
 import * as THREE from 'three';
 import { makePerson } from '../bing/cast.js';
 import { WARDROBE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { APE_FAMILY_MEMBER } from '../bing/family-ape.js';
+import {
+  PHOTOS, SCENES, appearancesInScene, appearancesOf, isShowable,
+} from '../core/appearances.js';
 
 /* Who is on the rail, in the order the player meets them. `photo` is the file
  * the face WILL come from -- present or not; the index decides. */
@@ -173,6 +193,48 @@ export const MARKS = {
 export const MARK_ORDER = ['full', 'face', 'chest', 'wrist', 'waist', 'feet'];
 
 /* ------------------------------------------------------------------ */
+/* The comparison, computed rather than written                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One person's outfits across several scenes, as a table you can read down.
+ *
+ * The whole value of the by-character view is spotting that Numbskull is
+ * 1.95 in five scenes and 1.72 in the sixth, so the difference has to be
+ * COMPUTED. A hand-written "note the height change" is stale the moment
+ * somebody edits the heist, and a hand-written one that was never true is
+ * worse — this is the same argument `describe()` already makes about the
+ * spec panel, applied to a row of people instead of one.
+ *
+ * Returns `{ columns, rows }`, where a row is
+ * `{ key, values, differs }` — `values` in column order, `differs` true when
+ * they are not all the same. Rows that are the same everywhere sort to the
+ * bottom, because they are the ones nobody is looking for.
+ */
+export function compare(appearances) {
+  const shown = appearances.filter(isShowable);
+  const columns = shown.map((a) => ({
+    scene: a.scene,
+    label: SCENES[a.scene]?.label ?? a.scene,
+    where: a.where,
+    appearance: a,
+  }));
+  const keys = [];
+  for (const a of shown) {
+    for (const [key] of describe(a.model)) if (!keys.includes(key)) keys.push(key);
+  }
+  const rows = keys.map((key) => {
+    const values = shown.map((a) => {
+      const found = describe(a.model).find(([k]) => k === key);
+      return found ? String(found[1]) : '—';
+    });
+    return { key, values, differs: new Set(values).size > 1 };
+  });
+  rows.sort((a, b) => Number(b.differs) - Number(a.differs));
+  return { columns, rows };
+}
+
+/* ------------------------------------------------------------------ */
 /* The room                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -244,10 +306,31 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
     dist: 3.15,
     target: new THREE.Vector3(0, 0.95, 0),
     height: 1.8,
+    /* Which of the three views is up: 'canonical' (the rail), 'scene'
+     * (everybody in one room) or 'character' (one person across the
+     * campaign). `subject` is the scene id or the character id. */
+    view: 'canonical',
+    subject: null,
+    /* What is on the stand right now, left to right: `{ label, sub, model,
+     * person, x }`. The page draws its own captions off this rather than the
+     * room drawing 3D text, because a caption that is HTML can be selected,
+     * wrapped and read, and a caption that is geometry is another eighty
+     * meshes in a room built for looking at eighty meshes. */
+    row: [],
+    /* Rows the ledger has but this room cannot build — a scene that uses the
+     * Beef Run's block rig. Carried so the page can still say the person is
+     * in that scene instead of silently dropping him. */
+    unshown: [],
   };
 
   function faceUrl(entry) {
     return faces.has(entry.photo) ? `assets/faces/${entry.photo}` : null;
+  }
+
+  /** The photo a ledger row's person wears, if that photo has landed. */
+  function faceForCharacter(characterId) {
+    const photo = PHOTOS[characterId];
+    return photo && faces.has(photo) ? `assets/faces/${photo}` : null;
   }
 
   function clearStand() {
@@ -269,15 +352,62 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
   function showSolo(index) {
     state.index = ((index % RAIL.length) + RAIL.length) % RAIL.length;
     state.lineup = false;
+    state.view = 'canonical';
+    state.subject = null;
+    state.unshown = [];
     clearStand();
     const entry = RAIL[state.index];
     const person = buildOne(entry);
     stand.add(person.group);
     state.height = entry.model.height ?? 1.78;
+    state.row = [{ label: entry.name, sub: 'the canonical model', model: entry.model, person, x: 0 }];
     disc.visible = true;
     disc.scale.setScalar(1);
     applyMark(state.mark);
     return entry;
+  }
+
+  /**
+   * Stand a list of people in a row and frame them.
+   *
+   * The one place a line-up is built, whether it is the canonical rail, a
+   * scene or one man across the campaign. It was three copies of this loop
+   * for about ten minutes and the spacing had already drifted between two of
+   * them, which is the same failure the wardrobe itself exists to stop, one
+   * level up.
+   *
+   * @param {{label:string, sub:string, model:object, face:?string}[]} items
+   */
+  function layOut(items) {
+    clearStand();
+    /* Spacing is by shoulder, not by name: a 1.45-build Numbskull beside a
+     * 0.95-build Snow at a fixed pitch either overlaps or leaves a hole. */
+    let x = 0;
+    const placed = [];
+    for (const item of items) {
+      const person = makePerson({ ...item.model, face: item.face ?? null, castShadow: true });
+      person.group.name = `fitting.${item.key ?? 'figure'}`;
+      const halfWidth = 0.30 + (item.model.build ?? 1) * 0.16;
+      x += halfWidth;
+      person.group.position.x = x;
+      stand.add(person.group);
+      placed.push({ ...item, person, x });
+      x += halfWidth + 0.10;
+    }
+    const width = x;
+    for (const entry of placed) {
+      entry.person.group.position.x -= width / 2;
+      entry.x -= width / 2;
+    }
+    state.row = placed;
+    state.lineup = true;
+    disc.visible = false;
+    state.target.set(0, 1.0, 0);
+    state.lineupWidth = width;
+    frameLineup();
+    state.pitch = -0.03;
+    state.yaw = 0;
+    return width;
   }
 
   /**
@@ -288,32 +418,101 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
    * enough to check anything else. Half a rail at a time is twice the man.
    */
   function showLineup(from = 0, count = RAIL.length) {
-    state.lineup = true;
+    state.view = 'canonical';
+    state.subject = null;
     state.lineupFrom = from;
     state.lineupCount = count;
+    state.unshown = [];
+    return layOut(RAIL.slice(from, from + count).map((entry) => ({
+      key: entry.key,
+      label: entry.name,
+      sub: entry.key,
+      model: entry.model,
+      face: faceUrl(entry),
+    })));
+  }
+
+  /** One ledger row on its own stand, with the detail cameras available. */
+  function showAppearance(appearance) {
+    if (!isShowable(appearance)) return null;
+    state.view = state.view === 'canonical' ? 'scene' : state.view;
+    state.lineup = false;
+    state.unshown = [];
     clearStand();
-    /* Spacing is by shoulder, not by name: a 1.45-build Numbskull beside a
-     * 0.95-build Snow at a fixed pitch either overlaps or leaves a hole. */
-    let x = 0;
-    const placed = [];
-    for (const entry of RAIL.slice(from, from + count)) {
-      const person = buildOne(entry);
-      const halfWidth = 0.30 + (entry.model.build ?? 1) * 0.16;
-      x += halfWidth;
-      person.group.position.x = x;
-      stand.add(person.group);
-      placed.push(person);
-      x += halfWidth + 0.10;
-    }
-    const width = x;
-    for (const person of placed) person.group.position.x -= width / 2;
-    disc.visible = false;
-    state.target.set(0, 1.0, 0);
-    state.lineupWidth = width;
-    frameLineup();
-    state.pitch = -0.03;
-    state.yaw = 0;
-    return width;
+    const person = makePerson({
+      ...appearance.model,
+      face: faceForCharacter(appearance.character),
+      castShadow: true,
+    });
+    person.group.name = `fitting.${appearance.character}`;
+    stand.add(person.group);
+    state.height = appearance.model.height ?? 1.78;
+    state.row = [{
+      key: appearance.character,
+      label: appearance.name,
+      sub: appearance.where,
+      model: appearance.model,
+      appearance,
+      person,
+      x: 0,
+    }];
+    disc.visible = true;
+    disc.scale.setScalar(1);
+    applyMark(state.mark);
+    return appearance;
+  }
+
+  /**
+   * Everybody in one scene, under that scene's own light.
+   *
+   * The rig follows the scene by default and that is not a nicety: the club's
+   * gold is the thing most likely to be wrong and it is only wrong under one
+   * warm bulb. Judging the Bing's people under a studio key is how a smear
+   * gets signed off as jewellery.
+   */
+  function showScene(sceneId, { keepRig = false } = {}) {
+    const scene = SCENES[sceneId];
+    if (!scene) return null;
+    state.view = 'scene';
+    state.subject = sceneId;
+    if (!keepRig) applyRig(scene.rig);
+    const cast = appearancesInScene(sceneId);
+    state.unshown = cast.filter((a) => !isShowable(a));
+    layOut(cast.filter(isShowable).map((a) => ({
+      key: a.character,
+      label: a.name,
+      sub: a.where,
+      model: a.model,
+      appearance: a,
+      face: faceForCharacter(a.character),
+    })));
+    return scene;
+  }
+
+  /**
+   * One person, in every scene they are in, side by side.
+   *
+   * Left to right in ledger order, which is campaign order, so the row reads
+   * as the character's own progress through the game. The rig is left alone
+   * here on purpose: a man compared across six rooms has to be compared under
+   * ONE light, or every difference is a lighting difference.
+   */
+  function showCharacter(characterId) {
+    const cast = appearancesOf(characterId);
+    if (cast.length === 0) return null;
+    state.view = 'character';
+    state.subject = characterId;
+    state.unshown = cast.filter((a) => !isShowable(a));
+    const face = faceForCharacter(characterId);
+    layOut(cast.filter(isShowable).map((a) => ({
+      key: `${a.character}.${a.scene}`,
+      label: SCENES[a.scene]?.label ?? a.scene,
+      sub: a.where,
+      model: a.model,
+      appearance: a,
+      face,
+    })));
+    return cast;
   }
 
   /* Pull back until the rail fits the frame HORIZONTALLY. A fixed multiple of
@@ -408,13 +607,35 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
     renderer.render(scene, camera);
   }
 
+  /**
+   * Where each figure on the stand lands across the frame, 0..1.
+   *
+   * The page hangs its captions off this rather than off an even split,
+   * because the row is spaced by shoulder and an even split puts Numbskull's
+   * name under Snow. Projected through the same camera that just drew them,
+   * so it is right at every aspect ratio and after every dolly.
+   */
+  function labelPositions() {
+    stand.updateMatrixWorld(true);
+    const point = new THREE.Vector3();
+    return state.row.map((entry) => {
+      point.set(entry.x, (entry.model.height ?? 1.78) * 0.5, 0);
+      stand.localToWorld(point);
+      point.project(camera);
+      return { ...entry, at: (point.x + 1) / 2 };
+    });
+  }
+
   applyRig('bing');
   showSolo(0);
 
   return {
     scene, camera, renderer, state, stand,
-    showSolo, showLineup, applyMark, applyRig, resize, render,
+    showSolo, showLineup, showScene, showCharacter, showAppearance,
+    applyMark, applyRig, resize, render, labelPositions,
     current: () => RAIL[state.index],
     keys: () => RAIL.map((entry) => entry.key),
+    /* What is on the stand, whatever put it there. */
+    row: () => state.row,
   };
 }

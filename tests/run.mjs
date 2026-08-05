@@ -59,6 +59,7 @@ const TEST_MODULES = [
   './graveyard-controls.test.mjs',
   './gut-presentation.test.mjs',
   './outfits.test.mjs',
+  './appearances.test.mjs',
   './wrapped-body.test.mjs',
   './graveyard-mission.test.mjs',
   './hotdog-graveyard-story.test.mjs',
