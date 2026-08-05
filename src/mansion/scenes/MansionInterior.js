@@ -2114,25 +2114,97 @@ export function buildMansionInterior(shell = null) {
       size: [0.3, 0.04, 0.22], pos: [-13.0, GY + 0.52, 47.4], mat: M_LEATHER_RED, rotY: -0.1, cast: false,
     }));
 
-    // A proper fireplace on the west wall, between the two windows.
+    /* A proper fireplace on the west wall, between the two windows.
+     *
+     * Owner playtest, verbatim: "Fireplace downstairs is messewd up its black
+     * box with the logs just slightly poking thro". Measured exactly as he
+     * describes it, and the numbers name both halves of the fault: the
+     * surround was ONE solid slab from x -15.95 to -15.45 with no opening in
+     * it at all; the dark firebox was a box hung on the FRONT of that slab at
+     * -15.70..-15.36, standing 90 mm proud of the marble; and the logs at
+     * -15.56..-15.44 crossed the marble face by 10 mm, which is the "slightly
+     * poking thro". Nothing was recessed because there was nothing to recess
+     * into.
+     *
+     * Rebuilt the same way as Lou's upstairs: pilasters and a frieze with a
+     * real 1.5 x 1.30 m opening between them, a five-sided recess behind it,
+     * and the fire standing INSIDE that recess at x -15.71..-15.59 -- 140 mm
+     * behind the surround's face instead of 10 mm through it. */
     const fx = r.x0 + 0.05;
-    root.add(box({ size: [0.5, 2.3, 2.6], pos: [fx + 0.25, GY + 1.15, 52.6], mat: M_MARBLE_DK, name: 'fireplace' }));
+    const fireOpZ0 = 51.85;
+    const fireOpZ1 = 53.35;
+    const fireOpTop = GY + 1.30;
+    for (const [pz0, pz1] of [[51.3, fireOpZ0], [fireOpZ1, 53.9]]) {
+      root.add(box({
+        size: [0.5, 1.30, pz1 - pz0], pos: [fx + 0.25, GY + 0.65, (pz0 + pz1) / 2], mat: M_MARBLE_DK, name: 'fireplace',
+      }));
+      root.add(box({
+        size: [0.56, 0.09, pz1 - pz0 + 0.05], pos: [fx + 0.28, fireOpTop - 0.045, (pz0 + pz1) / 2], mat: M_MARBLE, cast: false, name: 'fireplace-capital',
+      }));
+    }
+    root.add(box({
+      size: [0.5, 0.13, 2.6], pos: [fx + 0.25, fireOpTop + 0.065, 52.6], mat: M_MARBLE_DK, name: 'fireplace-frieze',
+    }));
+    root.add(box({
+      size: [0.54, 0.1, 0.7], pos: [fx + 0.27, fireOpTop + 0.065, 52.6], mat: M_MARBLE, cast: false, name: 'fireplace-tablet',
+    }));
+    root.add(box({
+      size: [0.5, 0.73, 2.6], pos: [fx + 0.25, GY + 1.935, 52.6], mat: M_MARBLE_DK, name: 'fireplace-breast',
+    }));
     root.add(box({ size: [0.72, 0.14, 3.0], pos: [fx + 0.36, GY + 1.5, 52.6], mat: M_MARBLE, name: 'mantel' }));
-    root.add(box({ size: [0.34, 1.1, 1.5], pos: [fx + 0.42, GY + 0.55, 52.6], mat: M_SILHOUETTE }));
+    // The recess: five faces of firebrick, open to the room.
+    root.add(box({
+      size: [0.06, 1.30, 1.5], pos: [fx + 0.03, GY + 0.65, 52.6], mat: M_SILHOUETTE, cast: false, name: 'fireplace-firebox-back',
+    }));
+    for (const cz of [fireOpZ0 + 0.03, fireOpZ1 - 0.03]) {
+      root.add(box({
+        size: [0.44, 1.30, 0.06], pos: [fx + 0.28, GY + 0.65, cz], mat: M_SILHOUETTE, cast: false, name: 'fireplace-firebox-cheek',
+      }));
+    }
+    root.add(box({
+      size: [0.44, 0.06, 1.5], pos: [fx + 0.28, GY + 1.27, 52.6], mat: M_SILHOUETTE, cast: false, name: 'fireplace-firebox-top',
+    }));
+    root.add(box({
+      size: [0.44, 0.05, 1.44], pos: [fx + 0.28, GY + 0.025, 52.6], mat: M_MARBLE_DK, cast: false, name: 'fireplace-firebox-floor',
+    }));
+    root.add(box({
+      size: [0.45, 0.08, 2.0], pos: [fx + 0.725, GY + 0.04, 52.6], mat: M_MARBLE_DK, cast: false, name: 'fireplace-hearth',
+    }));
     solid(fx, fx + 0.6, GY, GY + 2.3, 51.2, 54.0);
     const fireGlow = new THREE.PointLight(0xff7a2a, 4.2, 9, 2);
     fireGlow.position.set(fx + 0.9, GY + 0.6, 52.6);
     root.add(fireGlow);
-    for (let i = 0; i < 5; i++) {
-      root.add(cylinder({
-        r: 0.06,
-        h: 0.9,
-        pos: [fx + 0.45, GY + 0.2 + i * 0.06, 52.6 + (i - 2) * 0.16],
-        mat: M_WOOD,
-        rotX: Math.PI / 2,
-        rotZ: 0.2 * (i - 2),
+    // A cast grate with front bars, and the logs burning on it.
+    for (const gz of [52.6 - 0.44, 52.6 + 0.44]) {
+      root.add(box({
+        size: [0.34, 0.3, 0.05], pos: [fx + 0.3, GY + 0.17, gz], mat: M_RACK, cast: false, name: 'fireplace-grate-cheek',
       }));
     }
+    for (let i = 0; i < 7; i++) {
+      root.add(named(cylinder({
+        r: 0.014, h: 0.88, pos: [fx + 0.45, GY + 0.09 + i * 0.045, 52.6], mat: M_RACK, rotZ: Math.PI / 2, rotY: Math.PI / 2, cast: false,
+      }), 'fireplace-grate-bar'));
+    }
+    root.add(box({
+      size: [0.32, 0.04, 0.86], pos: [fx + 0.3, GY + 0.08, 52.6], mat: M_RACK, cast: false, name: 'fireplace-grate-floor',
+    }));
+    /* Tilt and depth chosen together -- see the note on Lou's grate upstairs.
+     * At 0.24 rad a 0.9 m log measures 0.33 m across; centred at -15.70 that
+     * is -15.87..-15.54, clear of the recess back at -15.89 and 90 mm behind
+     * the surround's face at -15.45. */
+    for (let i = 0; i < 5; i++) {
+      root.add(named(cylinder({
+        r: 0.06,
+        h: 0.9,
+        pos: [fx + 0.25, GY + 0.2 + i * 0.06, 52.6 + (i - 2) * 0.16],
+        mat: M_WOOD,
+        rotX: Math.PI / 2,
+        rotZ: 0.12 * (i - 2),
+      }), 'fireplace-fire-log'));
+    }
+    root.add(box({
+      size: [0.28, 0.05, 0.95], pos: [fx + 0.3, GY + 0.14, 52.6], mat: mat({ color: 0x140a06, emissive: 0xff5a1e, emissiveIntensity: 1.7, roughness: 0.9 }), cast: false, name: 'fireplace-embers',
+    }));
     // Mantelpiece: a clock and two candlesticks.
     const clock = makeWallClock(M, {
       x: fx + 0.4, y: GY + 2.05, z: 52.6, rotY: Math.PI / 2, r: 0.24,
@@ -4124,37 +4196,106 @@ export function buildMansionInterior(shell = null) {
      * of irons on the hearth. */
     const fireZ = 70.4;
     const fireX = r.x1 - 0.02;
+    /* A FIREPLACE IS A VOID WITH A SURROUND ROUND IT, NOT A DARK BOX ON A SLAB.
+     *
+     * Owner playtest, verbatim: "fireplace needs work" -- and of the one
+     * downstairs, "its black box with the logs just slightly poking thro".
+     * Both fireplaces in this house were built the same wrong way and both
+     * measure it. Here the chimneypiece was ONE solid marble box spanning
+     * x 8.23..8.83, and the firebox behind it at 8.33..8.79 with all five
+     * logs at 8.31..8.71 -- so every part of the fire was buried inside the
+     * surround's own front face at 8.23 and NONE of it had ever been visible.
+     * The room had a marble slab where its fire was meant to be.
+     *
+     * So the surround is now what a surround is: two pilasters and a frieze
+     * with a real 1.5 x 1.35 m HOLE between them, and the firebox is a
+     * five-sided recess behind that hole -- back, two cheeks, a top and a
+     * firebrick floor -- with the grate, the logs and the embers standing
+     * inside it where the opening lets you see them.
+     */
+    const opZ0 = fireZ - 0.75;
+    const opZ1 = fireZ + 0.75;
+    const opTopY = UY + 1.35;
+    /* Pilasters either side of the opening, breast over it, both stopping on
+     * the same front plane the old slab had so the mantel still fits. */
+    for (const [pz0, pz1] of [[fireZ - 1.5, opZ0], [opZ1, fireZ + 1.5]]) {
+      root.add(box({
+        size: [0.6, 1.35, pz1 - pz0], pos: [fireX - 0.3, UY + 0.675, (pz0 + pz1) / 2], mat: M_MARBLE, name: 'office-chimneypiece',
+      }));
+      // A moulded capital where each pilaster meets the frieze.
+      root.add(box({
+        size: [0.66, 0.1, pz1 - pz0 + 0.06], pos: [fireX - 0.33, opTopY - 0.05, (pz0 + pz1) / 2], mat: M_MARBLE, cast: false, name: 'office-chimney-capital',
+      }));
+    }
     root.add(box({
-      size: [0.6, 2.5, 2.7], pos: [fireX - 0.3, UY + 1.25, fireZ], mat: M_MARBLE, name: 'office-chimneypiece',
+      size: [0.6, 0.17, 3.0], pos: [fireX - 0.3, opTopY + 0.085, fireZ], mat: M_MARBLE, name: 'office-chimney-frieze',
+    }));
+    // A carved tablet in the middle of the frieze, and the breast above.
+    root.add(box({
+      size: [0.64, 0.13, 0.8], pos: [fireX - 0.32, opTopY + 0.085, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-chimney-tablet',
     }));
     root.add(box({
-      size: [0.46, 1.35, 1.5], pos: [fireX - 0.27, UY + 0.68, fireZ], mat: M_WALL_DEEP, cast: false, name: 'office-firebox',
+      size: [0.6, 0.82, 2.7], pos: [fireX - 0.3, UY + 2.09, fireZ], mat: M_MARBLE, name: 'office-chimney-breast',
     }));
     root.add(box({
       size: [0.78, 0.16, 3.0], pos: [fireX - 0.39, UY + 1.6, fireZ], mat: M_MARBLE, name: 'office-mantel',
     }));
-    for (const oz of [-0.86, 0.86]) {
+    /* The recess itself: five faces of firebrick, open to the room. */
+    root.add(box({
+      size: [0.08, 1.35, 1.5], pos: [fireX - 0.04, UY + 0.675, fireZ], mat: M_WALL_DEEP, cast: false, name: 'office-firebox-back',
+    }));
+    for (const cz of [opZ0 + 0.03, opZ1 - 0.03]) {
       root.add(box({
-        size: [0.66, 1.5, 0.28], pos: [fireX - 0.33, UY + 0.75, fireZ + oz], mat: M_MARBLE, cast: false,
+        size: [0.54, 1.35, 0.06], pos: [fireX - 0.33, UY + 0.675, cz], mat: M_WALL_DEEP, cast: false, name: 'office-firebox-cheek',
       }));
     }
     root.add(box({
-      size: [0.68, 0.1, 2.0], pos: [fireX - 0.34, UY + 0.05, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-hearth',
+      size: [0.54, 0.06, 1.5], pos: [fireX - 0.33, UY + 1.32, fireZ], mat: M_WALL_DEEP, cast: false, name: 'office-firebox-top',
+    }));
+    root.add(box({
+      size: [0.54, 0.05, 1.44], pos: [fireX - 0.33, UY + 0.025, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-firebox-floor',
+    }));
+    // The hearth slab, projecting into the room from the opening's face.
+    root.add(box({
+      size: [0.45, 0.1, 2.0], pos: [fireX - 0.825, UY + 0.05, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-hearth',
     }));
     solid(fireX - 0.7, fireX, UY, UY + 2.5, fireZ - 1.5, fireZ + 1.5);
-    // The fire: logs, embers and a warm light that only reaches the hearth.
-    for (let i = 0; i < 5; i++) {
-      root.add(cylinder({
-        r: 0.06,
-        h: 0.8,
-        pos: [fireX - 0.32, UY + 0.16 + i * 0.06, fireZ + (i - 2) * 0.15],
-        mat: M_WOOD,
-        rotX: Math.PI / 2,
-        rotZ: 0.18 * (i - 2),
+    /* The fire, standing IN the opening: a cast basket with front bars, logs
+     * across it and embers under them.
+     *
+     * THE TILT IS WHAT DECIDES HOW DEEP THESE GO. A log is a cylinder laid on
+     * its side and then rolled by `rotZ`, and rolling it swings its ends out
+     * along x: at the 0.36 rad the first pass used, a 0.8 m log measures
+     * 0.39 m across instead of its 0.12 m diameter, which put the outer two
+     * logs at x 8.19 -- back through the surround's face at 8.23 and into the
+     * room, which is the very fault being fixed. Tilt and depth are therefore
+     * chosen together: 0.22 rad measures 0.29 m across, and centred at 8.47 it
+     * lands at 8.32..8.62 -- 94 mm behind the face, 130 mm clear of the back. */
+    for (const gz of [fireZ - 0.42, fireZ + 0.42]) {
+      root.add(box({
+        size: [0.36, 0.28, 0.05], pos: [fireX - 0.40, UY + 0.16, gz], mat: M_RACK, cast: false, name: 'office-grate-cheek',
       }));
     }
+    for (let i = 0; i < 7; i++) {
+      root.add(named(cylinder({
+        r: 0.014, h: 0.86, pos: [fireX - 0.56, UY + 0.09 + i * 0.042, fireZ], mat: M_RACK, rotZ: Math.PI / 2, rotY: Math.PI / 2, cast: false,
+      }), 'office-grate-bar'));
+    }
     root.add(box({
-      size: [0.3, 0.05, 0.9], pos: [fireX - 0.32, UY + 0.12, fireZ], mat: mat({ color: 0x140a06, emissive: 0xff5a1e, emissiveIntensity: 1.8, roughness: 0.9 }), cast: false, name: 'office-embers',
+      size: [0.34, 0.04, 0.84], pos: [fireX - 0.40, UY + 0.08, fireZ], mat: M_RACK, cast: false, name: 'office-grate-floor',
+    }));
+    for (let i = 0; i < 5; i++) {
+      root.add(named(cylinder({
+        r: 0.06,
+        h: 0.8,
+        pos: [fireX - 0.36, UY + 0.16 + i * 0.06, fireZ + (i - 2) * 0.15],
+        mat: M_WOOD,
+        rotX: Math.PI / 2,
+        rotZ: 0.11 * (i - 2),
+      }), 'office-fire-log'));
+    }
+    root.add(box({
+      size: [0.3, 0.05, 0.9], pos: [fireX - 0.38, UY + 0.12, fireZ], mat: mat({ color: 0x140a06, emissive: 0xff5a1e, emissiveIntensity: 1.8, roughness: 0.9 }), cast: false, name: 'office-embers',
     }));
     const fireGlow = new THREE.PointLight(0xff8a3c, 4.0, 9, 2);
     fireGlow.position.set(fireX - 0.9, UY + 0.55, fireZ);
@@ -4204,8 +4345,23 @@ export function buildMansionInterior(shell = null) {
     for (const [gx, gz] of [[4.4, 68.44], [4.78, 68.46]]) {
       root.add(cylinder({ r: 0.04, h: 0.1, pos: [gx, UY + 0.83, gz], mat: M_GLASS_CASE }));
     }
-    makeFancyChair(3.4, UY, 67.8, -0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
-    makeFancyChair(5.8, UY, 67.8, 0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
+    /* THE YAWS ARE THE WAY ROUND THEY LOOK, AND THAT IS WHY THEY WERE WRONG.
+     *
+     * Owner playtest, verbatim: "Chairs by the couch backwards". Measured off
+     * the built scene rather than the literals -- `makeFancyChair` puts the
+     * chair's BACK on its local -z, so a chair faces (sin yaw, cos yaw), and
+     * all four loose chairs in this room were pointing outward:
+     *
+     *   fireside, x 3.4  faced (-0.78, +0.62) -- away from the drinks table
+     *   fireside, x 5.8  faced (+0.78, +0.62) -- away from the drinks table
+     *   wing,     x -7.0 faced (-0.96, +0.07) -- away from the chesterfield
+     *   wing,     x -2.8 faced (+0.96, +0.07) -- away from the chesterfield
+     *
+     * Each pair had simply been given the other one's angle: a chair on the
+     * WEST of a table has to turn east to face it. Swapping the two values in
+     * each pair turns all four in, which is the whole fix. */
+    makeFancyChair(3.4, UY, 67.8, 0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
+    makeFancyChair(5.8, UY, 67.8, -0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
 
     /* ---- The seating group in the north-west quarter: a buttoned
      * chesterfield, two wing chairs and a marble table on their own rug. Clear
@@ -4246,8 +4402,10 @@ export function buildMansionInterior(shell = null) {
       root.add(box({
         size: [0.34, 0.03, 0.26], pos: [sx - 0.36, UY + 0.5, sz - 1.46], mat: M_CARD, rotY: 0.16, cast: false,
       }));
-      makeFancyChair(sx - 2.1, UY, sz - 1.5, -Math.PI / 2 + 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
-      makeFancyChair(sx + 2.1, UY, sz - 1.5, Math.PI / 2 - 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
+      // ...and the two wing chairs, turned in on the chesterfield -- see the
+      // note on the fireside pair above; this is the same swap.
+      makeFancyChair(sx - 2.1, UY, sz - 1.5, Math.PI / 2 - 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
+      makeFancyChair(sx + 2.1, UY, sz - 1.5, -Math.PI / 2 + 0.3, M_LEATHER_RED, { backH: 0.9, tag: 'office-wing-chair' });
     }
 
     /* ---- A globe on its own stand, and a grandfather clock in the corner
@@ -4271,11 +4429,25 @@ export function buildMansionInterior(shell = null) {
       solid(gx - 0.36, gx + 0.36, UY, UY + 1.4, gz - 0.36, gz + 0.36);
     }
     {
-      const kx = r.x0 + 0.42;
-      const kz = r.z0 + 0.62;
+      /* THE CLOCK WAS IN THE WALL. Owner playtest, verbatim: "Grandfather
+       * clock in the wall". Measured on the built scene: the case stood at
+       * x -8.74..-8.12 against panelling whose front face is at -8.78, which
+       * looks clear -- but a longcase clock's PLINTH and CORNICE are wider
+       * than its trunk, and those measured -8.79..-8.07 and -8.78..-8.08. So
+       * the plinth was 10 mm inside the panelling and the cornice was exactly
+       * ON its face: an interpenetration and a coplanar pair, which is the
+       * flicker. The trunk was never the thing sticking through.
+       *
+       * Set off the wall by the PLINTH's half-width plus clearance rather than
+       * the trunk's, and pulled south off the bookcase (whose front is at
+       * z 64.1) so the dial is not buried in it either. Measured after:
+       * plinth x -8.72, 60 mm clear of the panelling; dial reaches z 64.00,
+       * 100 mm clear of the bookcase. */
+      const kx = r.x0 + 0.49;
+      const kz = r.z0 + 0.52;
       root.add(box({ size: [0.62, 2.3, 0.5], pos: [kx, UY + 1.15, kz], mat: M_WOOD_DK, name: 'office-longcase-clock' }));
-      root.add(box({ size: [0.7, 0.2, 0.58], pos: [kx, UY + 2.36, kz], mat: M_WOOD_DK, cast: false }));
-      root.add(box({ size: [0.72, 0.14, 0.6], pos: [kx, UY + 0.07, kz], mat: M_WOOD_DK, cast: false }));
+      root.add(box({ size: [0.7, 0.2, 0.58], pos: [kx, UY + 2.36, kz], mat: M_WOOD_DK, cast: false, name: 'office-longcase-cornice' }));
+      root.add(box({ size: [0.72, 0.14, 0.6], pos: [kx, UY + 0.07, kz], mat: M_WOOD_DK, cast: false, name: 'office-longcase-plinth' }));
       root.add(box({
         size: [0.44, 0.9, 0.03], pos: [kx, UY + 1.15, kz + 0.26], mat: M_GLASS_CASE, cast: false,
       }));
