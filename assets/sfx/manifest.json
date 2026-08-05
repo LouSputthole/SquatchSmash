@@ -20,7 +20,7 @@
     },
     "lou1": {
       "id": "M9UAxraM2w5tCjpOaIB0",
-      "_note": "Lou, of Lou & Lou. Breakfast show. Chattier of the two.",
+      "_note": "BIG UNCLE LOU SPUTTHOLE, in the room. The boss. Same performer as `lou`, which is him on the phone. NOT `lou2` -- that is Captain Lou Sasole, a different man, and the two must never merge. (This profile began life as one half of the radio show Lou & Lou; the id was reused for the boss and the old note described the wrong character.)",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
@@ -28,7 +28,7 @@
     },
     "lou2": {
       "id": "QzTKubutNn9TjrB7Xb2Q",
-      "_note": "The other Lou. Two Lous is the whole premise, so they have to be tellable apart or the joke does not land.",
+      "_note": "CAPTAIN LOU SASOLE, the pilot. The OTHER Lou. Two Lous is the whole premise, so they have to be tellable apart in one line -- he is the one with the clipboard looking at the weather. Never Big Uncle Lou, who is `lou1`/`lou`.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
@@ -100,7 +100,7 @@
     },
     "lou": {
       "id": "M9UAxraM2w5tCjpOaIB0",
-      "_note": "Big Uncle Lou on the phone — same man as lou1, phone cadence.",
+      "_note": "BIG UNCLE LOU SPUTTHOLE, on the phone. Same performer and same id as `lou1`; the difference is cadence and the handset, not the man.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,

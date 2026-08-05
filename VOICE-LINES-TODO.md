@@ -72,7 +72,7 @@ Unknown caller and eerie broadcast interruption. PROVISIONAL casting — review 
 
 Voice profile: `lou1`.
 
-Lou, of Lou & Lou. Breakfast show. Chattier of the two.
+BIG UNCLE LOU SPUTTHOLE, in the room. The boss. Same performer as `lou`, which is him on the phone. NOT `lou2` -- that is Captain Lou Sasole, a different man, and the two must never merge. (This profile began life as one half of the radio show Lou & Lou; the id was reused for the boss and the old note described the wrong character.)
 
 - `vo.call.lou.bing_second.2.mp3` — "Billy HotDog is home. Closed party. Family only." **RE-RECORD: the indexed take contains retired wording. Replace it, then remove `needsRerecord` from the manifest.**
 - `vo.call.lou.bing_second.3.mp3` — "Bring nothing. Come through the front and keep your phone in your pocket." **RE-RECORD: the indexed take contains retired wording. Replace it, then remove `needsRerecord` from the manifest.**
@@ -515,7 +515,7 @@ Eric, of What's Happening in India. Tries to run a real news segment.
 
 Voice profile: `lou1`.
 
-Lou, of Lou & Lou. Breakfast show. Chattier of the two.
+BIG UNCLE LOU SPUTTHOLE, in the room. The boss. Same performer as `lou`, which is him on the phone. NOT `lou2` -- that is Captain Lou Sasole, a different man, and the two must never merge. (This profile began life as one half of the radio show Lou & Lou; the id was reused for the boss and the old note described the wrong character.)
 
 - `vo.golf.h1.lou.it_is_today.mp3` — "It is today." **Performance:** Closing it. Three words and Rippin has nowhere to go.
 - `vo.golf.h1.lou.thats_what_its_for.mp3` — "That is what the thing is for." **Performance:** Nodding at the driver. Mild, and it is praise.
@@ -848,7 +848,7 @@ Lag — Family. LOCKED from the owner's Voice_Ids sheet (2026-07-30). Esports-br
 
 Voice profile: `lou1`.
 
-Lou, of Lou & Lou. Breakfast show. Chattier of the two.
+BIG UNCLE LOU SPUTTHOLE, in the room. The boss. Same performer as `lou`, which is him on the phone. NOT `lou2` -- that is Captain Lou Sasole, a different man, and the two must never merge. (This profile began life as one half of the radio show Lou & Lou; the id was reused for the boss and the old note described the wrong character.)
 
 - `vo.bing2.lou.briefing.mp3` — "Prospect. Both bathrooms, Aubbie's kit, and every piece of him that came off. Then me." **Performance:** Turning panic into departments. Flat, fast, and completely unbothered.
 - `vo.bing2.lou.closed_not_clean.mp3` — "It looks closed. That is not the same as clean, and closed is what I asked for."
@@ -1121,7 +1121,7 @@ LABORATORY annunciator — PROJECT SILENT SQUATCH, 2 lines and both terrible new
 
 Voice profile: `lou1`.
 
-Lou, of Lou & Lou. Breakfast show. Chattier of the two.
+BIG UNCLE LOU SPUTTHOLE, in the room. The boss. Same performer as `lou`, which is him on the phone. NOT `lou2` -- that is Captain Lou Sasole, a different man, and the two must never merge. (This profile began life as one half of the radio show Lou & Lou; the id was reused for the boss and the old note described the wrong character.)
 
 - `vo.silentsquatch.office.lou.deliverittobooski.mp3` — "Go deliver it to Booski. He’s in the basement."
 - `vo.silentsquatch.office.lou.dontaskanything.mp3` — "Now don’t fuck around, and don’t ask anything you don’t wanna know."

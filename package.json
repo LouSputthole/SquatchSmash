@@ -47,6 +47,8 @@
     "radio:cues": "node tools/radio-cues.mjs",
     "check:radio-vo": "node tools/radio-cues.mjs --check",
     "audio:todo": "node tools/audio-todo.mjs",
+    "voice:needed": "node tools/voice-needed.mjs",
+    "voice:needed:check": "node tools/voice-needed.mjs --check",
     "audio:todo:check": "node tools/audio-todo.mjs --check",
     "audio:legacy": "node tools/sound-queue.mjs",
     "audio:legacy:check": "node tools/sound-queue.mjs --check",
