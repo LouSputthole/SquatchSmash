@@ -36,6 +36,8 @@
     "verify:silvercase": "node tools/verify-silvercase.mjs",
     "verify:mansion": "node tools/verify-mansion.mjs",
     "verify:mansion-siege": "node tools/verify-mansion-siege.mjs",
+    "probe:siege": "node tools/probe-siege-balcony.mjs",
+    "probe:siege-anchors": "node tools/probe-siege-anchors.mjs",
     "verify:enolasquatch": "node tools/verify-enolasquatch.mjs",
     "preverify:bundle": "node tools/bundle-preview.mjs",
     "verify:bundle": "node tools/verify-bundle.mjs",
