@@ -63,6 +63,14 @@ recast — his voice stands.
    Boston, Southern, and old-man NPC rows respectively so their lines can be
    auditioned without borrowing Cecilio or the Bing doorman. The voice lead
    must approve or replace those three ids before locking the final cast.
+5. **Two ids reserved, no character built yet (2026-08-05).** The owner
+   supplied ElevenLabs ids ahead of the NPCs they're for — not bound to a
+   profile in `assets/sfx/manifest.json` because no `voiceProfile:` in code
+   references them yet. Bind whichever name lands (matching the `sauce`
+   staging pattern: name the profile in `src/core/characters.js`, then paste
+   the id into `voices.<name>.id`) and drop this row.
+   - `8vdIucMc14HcML5KYpFx` — a female NPC in Lou's room.
+   - `wRLtZBD4lymiso8Hiwws` — a male NPC.
 
 ### HotDog incident casting gaps
 

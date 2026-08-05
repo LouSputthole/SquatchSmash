@@ -473,6 +473,14 @@
       "stability": 0.62,
       "similarity": 0.84,
       "style": 0.2
+    },
+    "sauce": {
+      "id": "hU1ratPhBTZNviWitzAh",
+      "_note": "Sauce - owner-cast 2026-08-05. In this club every night, not in the Circle. Around the crew but never made.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.3
     }
   },
   "sfx": [
