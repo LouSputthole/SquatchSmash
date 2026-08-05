@@ -135,7 +135,14 @@ export const AC_ENOLA = {
   flapCL: 0.38,
   flapCD: 0.065,
   airBrakeCD: 0.20,
-  thrustMax: 11300,     // N per engine, static — see the engine-count note above
+  /* 2026-08-04, second pass — owner: "Lets turn up the power of the plane a
+   * little bit more its pretty rough to fly. Like 10%." Exactly ten per cent:
+   * 11300 -> 12430 N per engine. Loaded thrust-to-weight goes 0.297 -> 0.327,
+   * which is still WORSE than the Brushrunner's 0.388, so "difficult to climb
+   * while loaded" survives — it just stops being a fight. Nothing else in this
+   * table moves: the mass, the inertias, the wing and the stall margin are what
+   * make the aeroplane feel heavy, and the note was about power, not weight. */
+  thrustMax: 12430,     // N per engine, static — see the engine-count note above
   vThrustFade: 140,     // m/s where static thrust has bled off — bigger engines, holds on longer
   Ixx: 130000, Iyy: 190000, Izz: 170000,  // roll / pitch / yaw
   gearY: 3.0,           // wheel contact below CG

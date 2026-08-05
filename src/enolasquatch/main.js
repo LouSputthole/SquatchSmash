@@ -437,11 +437,25 @@ aircraft.anchors.payloadMount.add(payload.group);
  * and no manifest change; if the file ever goes missing, `resolveGear` hands
  * back its own drawn placeholder and the badges simply keep the drawn crest
  * they were built with. Fire-and-forget on purpose — nothing waits for it. */
+/* The second slot, `enolasquatch.noseart`, is the owner's own "Enola Squatch"
+ * artwork — see the block above `this.parts.noseArtPlate` in
+ * `scenes/EnolaSquatch.js` for the two-step drop-in. It is resolved the same
+ * way and applied ONLY when `resolveGear` reports the slot resolved to a real
+ * file (`real`): the slot does not exist in `assets/art/manifest.json` yet, and
+ * without that guard the resolver's own generic poster fallback would land on
+ * the aeroplane's flank in place of the drawn "ENOLA SQUATCH" stencil the
+ * plate is built with, which would be a downgrade rather than a placeholder.
+ * Asking for a slot that is not in the manifest costs one map lookup and
+ * fetches nothing, so there is no 404 in the console for artwork that has not
+ * been made yet — the same reason `assets/faces/index.json` exists. */
 let clubLogoBadges = 0;
-resolveGear(['crest.round'])
+let noseArtApplied = 0;
+resolveGear(['crest.round', 'enolasquatch.noseart'])
   .then((gear) => {
     const tex = gear.get('crest.round')?.texture;
     clubLogoBadges = aircraft.applyClubLogo(tex) + payload.applyClubLogo(tex);
+    const art = gear.get('enolasquatch.noseart');
+    if (art?.real) noseArtApplied = aircraft.applyNoseArt(art.texture);
   })
   .catch(() => { /* the drawn crest is already on every badge */ });
 
@@ -879,6 +893,90 @@ autoStrip.style.cssText = [
 ].join(';');
 document.body.appendChild(autoStrip);
 
+/* ------------------------------------------------------------------ */
+/* The camera tooltip                                                  */
+/*
+ * Owner, 2026-08-04: "After take off and like 20 seconds of flying I would
+ * like to a flashing tool tip to hit C to change the camera view."
+ *
+ * So: nothing on the glass during the takeoff itself — the player has enough
+ * to read — then twenty seconds of real flying later, a slow pulse in the
+ * bottom middle saying which key changes the view. It goes away the instant C
+ * is pressed and never comes back for the rest of the flight; if it is
+ * ignored it gives up on its own after half a minute rather than blinking at
+ * the player for the whole raid.
+ *
+ * `cameraTip.flying` starts counting the moment the mission leaves the
+ * `takeoff` phase with the wheels up — the same edge `updateTakeoff()` uses to
+ * call the aeroplane airborne — so "twenty seconds of flying" means twenty
+ * seconds of flying and not twenty seconds of sitting on the runway.
+ *
+ * The pulse is driven from `paintCombat()` rather than a CSS keyframe for the
+ * same reason `blastscreen`'s opacity is: this page builds its overlays in JS
+ * with inline styles and has no stylesheet of its own to hang an @keyframes
+ * on, and the frame loop is already painting every frame anyway.
+ */
+/* ------------------------------------------------------------------ */
+
+const cameraTip = document.createElement('div');
+cameraTip.id = 'enola-camera-tip';
+cameraTip.style.cssText = [
+  'position:fixed', 'left:50%', 'bottom:22%', 'transform:translateX(-50%)',
+  'pointer-events:none', 'z-index:31', 'display:none', 'white-space:nowrap',
+  'padding:8px 18px', 'border:1px solid rgba(232,200,106,0.55)', 'border-radius:6px',
+  'background:rgba(12,10,20,0.72)',
+  'font:700 14px/1.3 "Trebuchet MS",system-ui,sans-serif', 'letter-spacing:0.14em',
+  'color:#e8c86a', 'text-shadow:0 2px 8px #000',
+].join(';');
+cameraTip.innerHTML = 'PRESS <span style="'
+  + 'display:inline-block;min-width:18px;padding:1px 6px;margin:0 4px;'
+  + 'border:2px solid rgba(255,255,255,0.8);border-radius:4px;color:#fff'
+  + '">C</span> TO CHANGE THE CAMERA VIEW';
+document.body.appendChild(cameraTip);
+
+const cameraTipState = {
+  /** Seconds of real flight since the wheels left the runway. */
+  flying: 0,
+  /** Seconds the tip has been on screen. */
+  shown: 0,
+  /** True once the player has pressed C, or the tip has timed out. */
+  done: false,
+  delay: 20,
+  linger: 30,
+};
+
+/** Called from the keydown handler the first time C is pressed. */
+function dismissCameraTip() {
+  cameraTipState.done = true;
+  cameraTip.style.display = 'none';
+}
+
+function updateCameraTip(dt) {
+  const s = cameraTipState;
+  if (s.done) return;
+  /* Only counts while the aeroplane is genuinely flying itself somewhere. The
+   * phase list is every phase that is NOT after takeoff, so a checkpoint
+   * restart into the middle of the flight still gets the hint — which a
+   * `flags.rotateCalled` test would not, since nothing sets that flag on a
+   * restore. */
+  const flying = mission.inCockpit && !physics.onGround
+    && !['idle', 'walkaround', 'nightfall', 'preflight', 'taxi', 'takeoff'].includes(mission.phase);
+  if (!flying) return;
+  s.flying += dt;
+  if (s.flying < s.delay) return;
+  s.shown += dt;
+  if (s.shown > s.linger) { dismissCameraTip(); return; }
+  // Never over the top of the tail-gun HUD or a choice panel.
+  if (mission.gunner.manned || currentChoice()) {
+    cameraTip.style.display = 'none';
+    return;
+  }
+  cameraTip.style.display = 'block';
+  // A slow, unmistakable pulse — about one flash a second.
+  const pulse = 0.55 + 0.45 * Math.sin(s.shown * 6.0);
+  cameraTip.style.opacity = String(pulse);
+}
+
 function paintCombat() {
   const flash = mission.blastFlash || 0;
   if (flash > 0.001) {
@@ -1026,6 +1124,7 @@ function simulateFrame(dt) {
   }
   audio.updateListener?.(camera);
 
+  updateCameraTip(dt);
   paintHud();
 }
 
@@ -1347,6 +1446,22 @@ window.__enolaSquatch = {
         onPayload: payload.parts.clubLogo?.length ?? 0,
         realArtworkApplied: clubLogoBadges,
       },
+      /* The owner's own "Enola Squatch" artwork: whether the placeholder plate
+       * is up (always) and whether a real file has replaced it (only once
+       * `enolasquatch.noseart` is in `assets/art/manifest.json`). */
+      noseArt: {
+        placeholderUp: !!aircraft.parts.noseArtPlate,
+        name: aircraft.parts.noseArtPlate?.name ?? null,
+        realArtworkApplied: noseArtApplied,
+      },
+      /* The flashing camera hint — see `updateCameraTip()`. */
+      cameraTip: {
+        flying: +cameraTipState.flying.toFixed(1),
+        shown: +cameraTipState.shown.toFixed(1),
+        done: cameraTipState.done,
+        visible: cameraTip.style.display === 'block',
+        opacity: Number(cameraTip.style.opacity || 0),
+      },
       scenery: { trees: airfieldScenery.trees, tufts: airfieldScenery.tufts },
       cityDestroyed: city.destroyed,
       city: city.stats(),
@@ -1499,6 +1614,10 @@ const pauseMenu = createPauseMenu({
     'On the apron: W A S D — walk. E — check the thing the marker is on. E at the crew door — get in.',
     'In the aircraft: W/S — pitch. A/D — bank. Q/E — rudder. Shift/Z — throttle.',
     'P — autopilot (holds heading and height, and nothing else). T — take the tail gun.',
+    /* Both keys refuse on the ground and in an attitude the gyro will not
+     * take, and a player who does not know that reads the refusal as a dead
+     * key — see the toast note in the keydown handler. Say the condition. */
+    'P and T both need you airborne, wings level and out of the stall — on the runway they will say no.',
     'On the gun: mouse traverses the turret, left button fires. Nobody is flying while you are back there.',
     'F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop your two engines (three and four).',
@@ -1570,16 +1689,35 @@ document.addEventListener('keydown', (e) => {
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
   player.setKey(e.code, true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
+  // The flashing camera hint goes away the first time the player uses the key
+  // it is pointing at. `KeyC` itself is `FlightInput`'s own 'camera' action,
+  // handled through `input.onAction` — this only dismisses the tip.
+  if (e.code === 'KeyC') dismissCameraTip();
   /* P and T. Neither is in `FlightInput`'s action map and neither should be:
    * that file is shared with the Beef Run, which has no autopilot and no
-   * turret. Handled here, on this page only. */
+   * turret. Handled here, on this page only.
+   *
+   * THE TOASTS USED TO LIE (owner playtest, 2026-08-04: "not sure if P and T
+   * for tail gun work"). Both keys have always worked — dispatched as real
+   * keyboard events in a browser they engage the autopilot and take the
+   * turret, verified by reading the state back. What they did NOT do was tell
+   * the truth when they refused: `toggleAutopilot()` returns false both when
+   * it has just switched the gyro OFF and when it would not take the
+   * aeroplane at all, and both came up as "AUTOPILOT OFF"; `toggleGun()` did
+   * the same with "BACK IN THE SEAT" for a player who had never left it. A key
+   * that answers with the opposite of what it did reads exactly like a key
+   * that does nothing. So the toast is now raised off the CHANGE OF STATE, and
+   * a refusal says why (in `MissionController`, on the glass, where the
+   * character's own line already goes). */
   if (mission.inCockpit && e.code === 'KeyP') {
+    const was = mission.autopilot.engaged;
     const on = mission.toggleAutopilot();
-    hud.toast(on ? 'AUTOPILOT ENGAGED' : 'AUTOPILOT OFF');
+    if (on !== was) hud.toast(on ? 'AUTOPILOT ENGAGED' : 'AUTOPILOT OFF');
   }
   if (mission.inCockpit && e.code === 'KeyT') {
+    const was = mission.gunner.manned;
     const on = mission.toggleGun();
-    hud.toast(on ? 'TAIL GUN — LEFT BUTTON TO FIRE' : 'BACK IN THE SEAT');
+    if (on !== was) hud.toast(on ? 'TAIL GUN — LEFT BUTTON TO FIRE' : 'BACK IN THE SEAT');
   }
   // The nightfall cut is skippable — see `MissionController.skipCutscene()`.
   if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {

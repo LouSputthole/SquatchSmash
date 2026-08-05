@@ -2017,6 +2017,49 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t + r(0.05), { dur: r(0.24), type: 'highpass', freq: 3100, q: 0.8, gain: 0.12, sweep: 0.54 });
       break;
 
+    /* -------- The Enola Squatch's tail gun --------
+     *
+     * Owner playtest, 2026-08-04: "better bigger machine guns sounds for the
+     * rear gun." The rear turret was playing `gun.shot` — the apartment's
+     * REVOLVER, a single indoor pistol crack with a room slap on it — eleven
+     * times a second out of a pair of half-inch belt-fed guns at four thousand
+     * feet. It sounded like somebody shooting a pistol into a bathroom.
+     *
+     * A heavy aircraft gun is a different animal and is three things a
+     * revolver is not: an enormous low thump you feel before you hear it, a
+     * hard supersonic crack riding on top, and — the part that actually makes
+     * it read as a MACHINE gun — the mechanism, a big reciprocating bolt
+     * slamming in a steel receiver a foot from the gunner's head. There is no
+     * room tail, because there is no room; what comes back instead is the
+     * slipstream, which is the wide, short noise wash at the end.
+     */
+    case 'enolasquatch.gun.rear':
+      // The thump. Two low sines an octave apart so it has weight without mud.
+      tone(ctx, dest, t, { freq: 88, to: 34, dur: r(0.20), gain: 0.62, type: 'sine' });
+      tone(ctx, dest, t + r(0.004), { freq: 172, to: 62, dur: r(0.13), gain: 0.34, type: 'triangle' });
+      // The crack, off the muzzle: brief, bright, and much louder than a pistol.
+      burst(ctx, dest, t, { dur: r(0.026), type: 'highpass', freq: 2400, gain: 1.0 });
+      burst(ctx, dest, t + r(0.003), { dur: r(0.16), type: 'lowpass', freq: 280, gain: 0.92, sweep: 0.30 });
+      // The receiver: bolt back, bolt home. This is the machine part.
+      burst(ctx, dest, t + r(0.030), { dur: r(0.05), type: 'bandpass', freq: 640, q: 3.4, gain: 0.30, sweep: 0.5 });
+      burst(ctx, dest, t + r(0.062), { dur: r(0.04), type: 'bandpass', freq: 1250, q: 5.0, gain: 0.22 });
+      // Brass on the chute, because the chute is right there.
+      burst(ctx, dest, t + r(0.09), { dur: r(0.05), type: 'bandpass', freq: 3400, q: 4.5, gain: 0.09 });
+      // Slipstream wash rather than a room tail.
+      burst(ctx, dest, t + r(0.02), { dur: r(0.34), type: 'bandpass', freq: 760, q: 0.5, gain: 0.16, sweep: 0.55 });
+      break;
+    /* The same guns heard from the flight deck, thirteen metres up the
+     * fuselage with the Shubenator working them: all the low end, none of the
+     * mechanism, and a duller crack. Played instead of the close cue whenever
+     * the player is NOT in the turret, so the gun sounds like it is somewhere
+     * else in the aeroplane — which it is. */
+    case 'enolasquatch.gun.rear.cabin':
+      tone(ctx, dest, t, { freq: 76, to: 30, dur: r(0.26), gain: 0.44, type: 'sine' });
+      burst(ctx, dest, t + r(0.004), { dur: r(0.20), type: 'lowpass', freq: 210, gain: 0.50, sweep: 0.26 });
+      burst(ctx, dest, t + r(0.01), { dur: r(0.09), type: 'bandpass', freq: 520, q: 1.1, gain: 0.16, sweep: 0.4 });
+      burst(ctx, dest, t + r(0.05), { dur: r(0.30), type: 'lowpass', freq: 900, q: 0.5, gain: 0.07, sweep: 0.5 });
+      break;
+
     default:
       // Unknown cue: a soft neutral tick rather than silence, which makes
       // missing wiring obvious during development without being ugly.

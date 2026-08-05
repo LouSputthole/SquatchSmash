@@ -157,10 +157,15 @@ try {
       }),
     };
   });
-  check('the Silver Sasquatches crest is on the aeroplane (fin both sides, nose) and on the Fat Squatch',
-    logo.onAircraft === 3 && logo.onFin === 2 && logo.onNose === 1 && logo.onPayload === 2
+  /* FOUR on the aeroplane since 2026-08-04, not three. Owner: "The squatch
+   * head on towards the front of the plane — lets use the Squatch logo." The
+   * drawn Sasquatch-face nose art on the port flank is gone and the club's
+   * real crest stands at that station, so the nose carries a badge on both
+   * sides and the total that has to resolve to real artwork is six. */
+  check('the Silver Sasquatches crest is on the aeroplane (fin both sides, nose both sides) and on the Fat Squatch',
+    logo.onAircraft === 4 && logo.onFin === 2 && logo.onNose === 2 && logo.onPayload === 2
       && logo.allTextured && logo.inAircraftGroup && logo.onBombBody
-      && logo.realArtworkApplied === 5,
+      && logo.realArtworkApplied === 6,
     JSON.stringify(logo));
 
   /* ---- Whispering Pines has grass and a treeline ----

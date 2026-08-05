@@ -166,6 +166,8 @@ export class MissionController {
     this.gunAim = new THREE.Vector3();
     this._gunBurst = 0;
     this._gunRest = 0;
+    /** Counts down between rounds of the Shubenator's burst — see `updateRearGunner()`. */
+    this._gunSoundT = 0;
 
     /* The blast, as the rest of the page sees it. `blastFlash` is the 0..1
      * whiteout `../main.js` paints over the whole screen; `blastTint` is the
@@ -302,8 +304,18 @@ export class MissionController {
       this.interceptors.setPredictability(0);
     };
 
-    /* The player's gun. */
-    this.gunner.onShot = () => this.audio?.play?.('gun.shot', { volume: 0.4 });
+    /* The player's gun.
+     *
+     * Owner playtest, 2026-08-04: "better bigger machine guns sounds for the
+     * rear gun." This was firing `gun.shot` — the apartment's revolver — at
+     * eleven rounds a second. `enolasquatch.gun.rear` is a twin heavy aircraft
+     * gun heard from inside the turret (see the case at the end of the cue
+     * switch in `src/core/audio.js` for what is in it), and the rate is high
+     * enough that the volume comes down and a little rate jitter goes in, or
+     * eleven identical hits a second turn into a buzz rather than a gun. */
+    this.gunner.onShot = () => this.audio?.play?.('enolasquatch.gun.rear', {
+      volume: 0.5, rate: 0.94 + Math.random() * 0.12,
+    });
     this.gunner.onJam = () => this.dialogue.bark('gunJam');
     this.gunner.onDry = () => this.dialogue.play('gun.dry', { once: true });
 
@@ -350,9 +362,27 @@ export class MissionController {
    */
   toggleGun() {
     if (this.gunner.manned) { this.leaveGun(); return false; }
-    if (this.physics.onGround) { this.dialogue.bark('gunRefused'); return false; }
+    /* A REFUSAL HAS TO SAY SO (owner playtest, 2026-08-04: "not sure if P and
+     * T for tail gun work").
+     *
+     * They work — driven as real key events in a browser, P engages and
+     * disengages the autopilot and T takes and gives back the gun. What they
+     * did not do was ANSWER. `toggleAutopilot()` already put its refusal on
+     * the glass; this one refused with a bark alone, and a bark is a pooled
+     * line on a cooldown that is very often dropped. So on the ground, or
+     * anywhere the autopilot will not take the aeroplane, T did nothing
+     * visible at all — and `../main.js` then toasted "BACK IN THE SEAT" over
+     * the top of it, which says the opposite of what happened. Both halves are
+     * fixed: the reason is said here, and the toast is only raised on a real
+     * change of state there. */
+    if (this.physics.onGround) {
+      this.dialogue.bark('gunRefused');
+      this.hud?.say?.('<em>Not on the ground.</em> The tail gun is for when somebody else can fly her.', 3200);
+      return false;
+    }
     if (!this.autopilot.engaged && !this.autopilot.engage({})) {
       this.dialogue.bark('autoRefused');
+      this.hud?.say?.('<em>Not from here.</em> Nobody can leave the seat until the gyro will hold her — wings level, out of the stall, above the deck.', 3600);
       return false;
     }
     this.gunner.take();
@@ -360,6 +390,49 @@ export class MissionController {
     this.dialogue.play('gun.take', { once: true });
     this.cameras?.setView?.('cockpit');
     return true;
+  }
+
+  /**
+   * Hang a Fat Squatch back on the mount.
+   *
+   * THE UNWINNABLE RESTART — owner playtest, 2026-08-04: "I had to restart
+   * after I dropped the bomb and the area was already dentonated and the bomb
+   * was gone."
+   *
+   * Exactly that. Restoring the `preRelease` checkpoint after a drop reset the
+   * MISSION's `payloadReleased` flag but never the PAYLOAD: `FatSquatch` was
+   * still detached in the scene, still `released`, still `impacted`, and
+   * `release()` is a deliberate one-way door. So the second attempt ran the
+   * whole release sequence, `payload.release()` returned on its first line,
+   * nothing fell, `onPayloadImpact` never fired, and `updateExplosion` sat in
+   * its "still falling" branch for the rest of the session with an empty bay
+   * over a target that already had a crater in it. No way forward, no way
+   * back, and no bomb.
+   *
+   * `rearmPayload()` is the one call that makes it recoverable. It puts the
+   * prop back on `payloadMount`, clears the fall state and the straps, and
+   * resets this controller's own release bookkeeping so the beat can run
+   * again from the top. Called from `restoreCheckpoint()` whenever the state
+   * being restored still has the bomb aboard, and defensively from the
+   * release itself so that no route can reach the drop with an empty mount.
+   *
+   * The target being already flattened is fine and is left alone: the crater
+   * stays, `TargetCity.destroy()` is a no-op the second time, and
+   * `onPayloadImpact` fires a fresh detonation because `restoreCheckpoint`
+   * clears `explosionPoint`. You get to drop it again on what is left.
+   *
+   * @returns {boolean} whether a bomb actually had to be put back
+   */
+  rearmPayload() {
+    const mount = this.aircraft?.anchors?.payloadMount ?? null;
+    const wasGone = this.payload.rearm(mount);
+    this.payloadReleased = false;
+    this.explosionPoint = null;
+    this._releaseStep = null;
+    this._releaseTimer = 0;
+    this._fallSeconds = 0;
+    this.bombBayOpen = false;
+    return wasGone;
   }
 
   leaveGun() {
@@ -551,6 +624,11 @@ export class MissionController {
     this.player && (this.player.mode = 'frozen');
     this.interaction?.setPaused?.(true);
     this.crew?.takeSeats?.(this.aircraft);
+    /* The boarding ladder comes off with the last man up it. It hangs on the
+     * sill as a child of the airframe (see `EnolaSquatch.build()`), so leaving
+     * it drawn is the same fault as the chocks the owner watched fly to
+     * Squatchbourg — a ground fitting riding along at three thousand feet. */
+    if (this.aircraft.parts.ladder) this.aircraft.parts.ladder.visible = false;
     this.cameras?.setView?.('cockpit');
     if (this.cameras) { this.cameras.lookYaw = 0; this.cameras.lookPitch = -0.08; }
     this.audio?.setHeadset?.(true);
@@ -1251,7 +1329,24 @@ export class MissionController {
         } else {
           this.dialogue.bark('gunnerFiring');
         }
-        this.audio?.play?.('gun.shot', { volume: 0.35 });
+        this._gunSoundT = 0;
+      }
+    }
+    /* THE SHUBENATOR IS AUDIBLE NOW.
+     *
+     * His whole burst used to be one revolver shot fired at the moment it
+     * started — a second and a half of muzzle flash on the mesh with nothing
+     * coming out of it. It runs at the real cadence instead, on the far cue
+     * (`enolasquatch.gun.rear.cabin`) because he is thirteen metres behind the
+     * flight deck and the difference between his gun and the player's gun
+     * should be audible. Same guns, different seat. */
+    if (this.gunFiring) {
+      this._gunSoundT = (this._gunSoundT ?? 0) - dt;
+      if (this._gunSoundT <= 0) {
+        this._gunSoundT = 1 / 9;
+        this.audio?.play?.('enolasquatch.gun.rear.cabin', {
+          volume: 0.34, rate: 0.92 + Math.random() * 0.16,
+        });
       }
     }
   }
@@ -1426,6 +1521,12 @@ export class MissionController {
     } else if (this._releaseStep === 'kick') {
       this._releaseTimer -= dt;
       if (this._releaseTimer <= 0) {
+        /* Never reach the drop with an empty mount. `release()` returns on its
+         * first line if the prop has already been released once, which is how
+         * a restarted mission ended up with no bomb and no way to finish — see
+         * `rearmPayload()`. If anything at all has left this in that state,
+         * hang a fresh one up before pulling the handle. */
+        if (this.payload.released) this.rearmPayload();
         this.payload.release(this.scene, this.physics.velocity.clone());
         this.payloadReleased = true;
 
@@ -1653,7 +1754,25 @@ export class MissionController {
     void dt;
     const p = this.physics;
     if (!this.explosionPoint) {
-      // Still falling. This is the break turn — see `updateRelease`.
+      /* Still falling. This is the break turn — see `updateRelease`.
+       *
+       * Unless nothing is falling, in which case this phase can never end.
+       * The bomb is `released` and not yet `impacted` for the eight or nine
+       * seconds of the drop and no longer; if we are here without an impact
+       * point and without a bomb in the air, the fall that was supposed to
+       * produce one is not happening and waiting is waiting forever. That was
+       * the shape of the owner's dead end. Go round again instead: put a Fat
+       * Squatch back on the mount, say so, and hand the player back to the
+       * bombing approach with a target that still has a city round the edge of
+       * it. Recoverable, and it costs a circuit rather than a session. */
+      const falling = this.payload.released && !this.payload.impacted;
+      if (!falling && this.phaseTime > 6) {
+        this.rearmPayload();
+        this.dialogue.play('bomb.doorsFixed', { once: false });
+        this.hud?.say?.('<em>It never left the mount.</em> Straps back on, doors reset — take her round again.', 6000);
+        this.setPhase('bombApproach');
+        return;
+      }
       this.setObjective(OBJECTIVES.BREAK_TURN);
       this.updateRearGunner(dt, false);
       return;
@@ -2021,6 +2140,12 @@ export class MissionController {
     this.detonation.dispose();
     this.explosionPoint = null;
     this.blastFlash = 0;
+    /* AND IT MUST HAVE SOMETHING TO DETONATE. Everything above already
+     * un-did the explosion; nothing put the bomb back. See `rearmPayload()`
+     * for the whole of that bug — this is the line that fixes it, and it runs
+     * before `setup[name]()` so the restore's own `payloadReleased` (the
+     * `return` checkpoint deliberately sets it true) has the last word. */
+    this.rearmPayload();
     this._shockArrived = false;
     this._blastSoundFired = false;
     /* The air battle does not survive a restart either — a wave of fighters
@@ -2101,6 +2226,16 @@ export class MissionController {
 
     this.flags.enginesEverStarted = true;
     setup[name]();
+    /* Reconcile the prop with the flag the restore just settled on. Every
+     * checkpoint but one comes back with the bomb aboard and `rearmPayload()`
+     * above has already hung it up; `return` is the exception — it is the leg
+     * after the drop, so the bay has to be empty there or the aeroplane flies
+     * home with a Fat Squatch it has already delivered. */
+    if (this.payloadReleased && !this.payload.released) {
+      this.payload.released = true;
+      this.payload.impacted = true;
+      this.payload.group.visible = false;
+    }
     this.aircraft.syncTo(this.physics);
     return true;
   }
