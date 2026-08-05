@@ -172,6 +172,57 @@ The basement room is also the right place to be sleeping. It is one floor
 above a laboratory full of dead men he watched die a few hours earlier, and
 nobody remarks on that.
 
+#### The evening before bed — a hub, not a corridor
+
+Owner, 2026-08-05: *"I'll want a bunch of optional objectives in the mansion —
+before going to bed. Some may be mandatory. You can go flirt with the girls by
+the pool. Almost the whole cast will have a thing you can talk to them about
+and do. Go watch movies in the home theater with X and Y and we'll wire in
+lines depending on what you are watching, maybe we can play pool."*
+
+This turns the seam into the last quiet evening of the campaign, and it is the
+mirror of Initiation night: the player has just helped murder six people, and
+the house responds by offering him a drink and a film. Nobody in it mentions
+the basement.
+
+**Shape.** A short list of things to do before sleeping. **Some mandatory,
+most optional** — the mandatory ones gate the bed the way the flat's chores
+gate the front door (`DEPARTURE_REQUIREMENTS` in `src/core/apartment-story.js`
+is the working precedent, including its refusal lines and its hint-on-second-
+attempt rule). The optional ones are the reason to walk the house.
+
+**Almost every member of the cast has ONE thing.** Not a conversation tree per
+person — one thing you can talk to them about and one thing you can do with
+them. `src/bing/family.js` already implements exactly this and should be the
+model rather than a new system: a roster row, a spot, a walk-up conversation,
+and a `vo.` cue per line.
+
+**Named so far:**
+
+- **The girls by the pool** — flirting, in the club's register, and the player
+  can be turned down. Same performer-form constraints as the Bing.
+- **The home theatre with two of the cast** — and the interesting part is the
+  owner's: *"we'll wire in lines depending on what you are watching."* So the
+  dialogue keys off the CHANNEL. `src/core/tv.js` already has `videoChannel()`
+  and the mansion already mounts real sets, so the machinery exists; what is
+  needed is a line bank per film per companion. This is the cheapest big win
+  on the list — two men on a sofa reacting to what is on screen is a lot of
+  character for very little geometry.
+- **Pool, in the billiard bay** — owner: *"maybe we can play pool i'll see if
+  that's doable."* FLAGGED AS UNDECIDED. Real pool is a physics minigame and
+  a genuine piece of work; a two-shot scripted version with banter over it is
+  a fraction of the cost and probably reads the same at this point in the
+  night. Decide before building, not during.
+
+**What already exists:** the theatre, the billiard bay and its bar, the pool
+and its patio, the walk-up conversation system, the objective HUD, and — after
+the cast pass — the people themselves standing in those rooms. The mandatory/
+optional gate is the only new mechanism, and the flat already has one.
+
+**Still owed by the owner:** `assets/video/the-feature.mp4`, which the theatre
+has been waiting on. The film everybody is watching is currently missing, and
+the theatre beat needs it.
+
 ### 2 · The cartel attack — a new mission
 
 He wakes in the middle of the night. **The attack is already happening.**
