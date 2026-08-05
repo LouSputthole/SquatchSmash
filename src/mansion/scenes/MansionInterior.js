@@ -64,6 +64,13 @@ import {
   makePizzaBox,
 } from '../../world/props.js';
 import { resolveGear } from '../../world/gear.js';
+/* The club's figure builder and the canonical wardrobe. The house has had
+ * Lou's name on four things in it and Lou in none of them; the man himself is
+ * behind the desk in his own office now, and he is dressed out of
+ * core/wardrobe.js like he is everywhere else so that the Bing, the boat and
+ * the mansion cannot drift into three different men. */
+import { Npc } from '../../bing/cast.js';
+import { BIG_UNCLE_LOU_MANSION } from '../../core/wardrobe.js';
 /* The Squatch Smash player rig, cast in gold as the trophy's finial -- the
  * same import MansionGrounds.js makes for the fountain monument and the
  * garden bronze. One model, three statues; this file adds no new sculpt. */
@@ -4133,6 +4140,25 @@ export function buildMansionInterior(shell = null) {
     makeFancyChair(-0.95, UY, deskZ - 1.5, 0, M_LEATHER_TAN, { backH: 0.72, tag: 'office-chair' });
     makeFancyChair(0.95, UY, deskZ - 1.5, 0, M_LEATHER_TAN, { backH: 0.72, tag: 'office-chair' });
 
+    /* ---- and the man in the red chair ----
+     *
+     * `Npc.sit()` folds the figure and drops it 0.42, and that 0.42 is
+     * measured against the club's chairs, whose cushions sit at 0.53. This
+     * one's is at 0.495 -- seat slab at 0.46, seventy millimetres thick -- so
+     * the base goes down by the difference or he hovers three centimetres
+     * over his own furniture.
+     *
+     * Facing PI, which is the way the chair faces: down the desk at whoever
+     * has just been told to shut the door.
+     */
+    const lou = new Npc(root, {
+      name: 'Big Uncle Lou',
+      tier: 'hero',
+      job: 'sit',
+      x: 0, y: UY - 0.035, z: deskZ + 1.15, yaw: Math.PI,
+      model: { ...BIG_UNCLE_LOU_MANSION, face: 'assets/faces/lou.png' },
+    });
+
     // The locked case behind the desk with something in it nobody has seen.
     makeDisplayCase(r.x0 + 0.45, UY, 70.4, Math.PI / 2, 1.9, 2.2, 0.5, (g, w, h) => {
       g.add(box({ size: [w * 0.35, h * 0.55, 0.18], pos: [0, h * 0.32, 0], mat: M_SILHOUETTE }));
@@ -4626,7 +4652,8 @@ export function buildMansionInterior(shell = null) {
     root.add(ceil);
     ceilingLight(0, 74.2, UCY - 0.4, 0xffdca0, 4.2, 13);
     return {
-      desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield, hogMama: officeHogMama,
+      desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
+      hogMama: officeHogMama, lou,
     };
   }
   const officeProps = buildOffice();
@@ -8507,11 +8534,15 @@ const M_GOLD_BAR = mat({
   /* Per-frame update: the bare basement bulb flickers gently.           */
   /* ================================================================== */
   let time = 0;
-  function update(dt) {
+  function update(dt, playerPos = null) {
     time += dt;
     const flick = 0.85 + 0.15 * Math.sin(time * 11) * (Math.sin(time * 2.3) > -0.6 ? 1 : 0.2);
     basementProps.bulbLight.intensity = 3.4 * flick;
     kitchenProps.updateSink(dt);
+    /* Lou breathes and looks up when somebody comes in. Cheap -- one hero NPC
+     * in a house of three thousand static meshes -- and the difference
+     * between an office with a man in it and an office with a mannequin. */
+    officeProps.lou?.update(dt, playerPos);
   }
 
   /* ================================================================== */

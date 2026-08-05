@@ -15,22 +15,14 @@ import test from 'node:test';
 
 import * as THREE from 'three';
 
-globalThis.document ??= {
-  createElement: () => ({
-    width: 0,
-    height: 0,
-    getContext: () => new Proxy({}, {
-      get: (_t, key) => (key === 'createLinearGradient' || key === 'createRadialGradient'
-        ? () => ({ addColorStop() {} })
-        : key === 'getImageData'
-          ? () => ({ data: new Uint8ClampedArray(4) })
-          : key === 'measureText'
-            ? () => ({ width: 10 })
-            : () => {}),
-      set: () => true,
-    }),
-  }),
-};
+import { ensureDomShim } from '../tools/three-shim.mjs';
+
+/* One shared stub rather than this file's own. It used to declare its own with
+ * `??=`, which meant that under `tests/run.mjs` it got whichever stub an
+ * earlier file had already installed -- and when the mansion office grew a
+ * photographed Lou, the earlier stub had no `createElementNS` and the import
+ * threw. See `ensureDomShim`. */
+ensureDomShim();
 
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const {

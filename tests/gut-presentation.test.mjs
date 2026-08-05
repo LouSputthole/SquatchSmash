@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from 'three';
 
+import { ensureDomShim } from '../tools/three-shim.mjs';
+
+/* The cast builds photographed faces through `THREE.TextureLoader`, which
+ * reaches for `document.createElementNS`. See `ensureDomShim`. */
+ensureDomShim();
+
 import { Npc } from '../src/bing/cast.js';
 
 function gutBounds(npc) {

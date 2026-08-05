@@ -29,9 +29,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ensureThreeShim } from '../tools/three-shim.mjs';
+import { ensureThreeShim, ensureDomShim } from '../tools/three-shim.mjs';
 
 ensureThreeShim();
+ensureDomShim();
 
 const THREE = await import('three');
 const { CombatActor } = await import('../src/core/combat/actors.js');

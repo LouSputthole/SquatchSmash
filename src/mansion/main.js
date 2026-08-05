@@ -1158,7 +1158,8 @@ function updateGame(dt) {
   player.update(dt);
   interaction.update(dt);
   grounds.update(dt);
-  interior.update(dt);
+  // The camera position is what Lou's gaze tracks in his office upstairs.
+  interior.update(dt, camera.position);
   silent.update(dt);
   updateLightRig(dt);
   /* The sets. A television repaints its canvas and re-uploads the texture,

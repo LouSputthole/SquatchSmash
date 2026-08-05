@@ -1,6 +1,13 @@
-import { ensureThreeShim } from '../tools/three-shim.mjs';
+import test from 'node:test';
+
+import { ensureThreeShim, ensureDomShim } from '../tools/three-shim.mjs';
 
 ensureThreeShim();
+/* Before ANY module is imported. Scene modules bake textures at module load
+ * and the per-file `globalThis.document ??=` stubs cannot fix that between
+ * themselves -- see `ensureDomShim`'s own note for the run this silently
+ * truncated. */
+ensureDomShim();
 
 const TEST_MODULES = [
   './campaign.test.mjs',
@@ -50,6 +57,7 @@ const TEST_MODULES = [
   './hotdog-attack.test.mjs',
   './graveyard-controls.test.mjs',
   './gut-presentation.test.mjs',
+  './outfits.test.mjs',
   './wrapped-body.test.mjs',
   './graveyard-mission.test.mjs',
   './hotdog-graveyard-story.test.mjs',
@@ -97,4 +105,16 @@ const TEST_MODULES = [
   './player.test.mjs',
 ];
 
-for (const modulePath of TEST_MODULES) await import(modulePath);
+/* A module that throws while being IMPORTED used to end the run silently.
+ * `await import()` in a bare loop rejects, the loop stops, and every module
+ * after it never registers a single test -- so the suite that should have
+ * shouted came back "0 fail" with two hundred tests quietly missing, and the
+ * only clue was a total nobody was reading. Now the broken import IS a failing
+ * test, named after the file, and the rest of the list still runs. */
+for (const modulePath of TEST_MODULES) {
+  try {
+    await import(modulePath);
+  } catch (err) {
+    test(`${modulePath} — the module could not even be imported`, () => { throw err; });
+  }
+}

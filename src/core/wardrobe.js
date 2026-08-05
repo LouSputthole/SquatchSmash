@@ -20,7 +20,10 @@
  *
  * - **Lou** is the only man on the roster wearing every expensive thing at
  *   once: pressed suit, gold buckle, gold watch, gold rope, pocket square.
- *   None of it is subtle and none of it is meant to be.
+ *   None of it is subtle and none of it is meant to be. The corno on the end
+ *   of the rope is his and nobody else's — Booski and DeathMegatron wear the
+ *   crest, which is the Family's, and Lou wears the thing his grandmother gave
+ *   him. It goes with him into every scene he is in.
  * - **Booski** is old money by comparison — the same gold, but on a knit
  *   rather than a suit, and the chain is layered rather than loud.
  * - **Captain Lou Sasole** is a working pilot, so the good thing he owns is
@@ -48,8 +51,9 @@ export const BIG_UNCLE_LOU = Object.freeze({
   build: 1.38,
   gut: 0.42,
   dress: 'suit',
-  shirt: 0x20242c,
+  shirt: 0x2f3038,
   shirtAccent: 0xe8e2d2,
+  jacketColour: 0x2f3038,
   hairColour: 0x17110d,
   skin: 0xd7a67e,
   luxury: true,
@@ -57,9 +61,54 @@ export const BIG_UNCLE_LOU = Object.freeze({
   belt: 'gold',
   trouserFit: 'creased',
   watch: 'gold',
-  chain: true,
+  chain: 'gold',
+  chainStyle: 'layered',
   pendant: true,
-  pendantStyle: 'crest',
+  pendantStyle: 'horn',
+});
+
+/**
+ * The Bing, where he is the man who owns the building.
+ *
+ * The owner's reference is a chalk-stripe three-piece with the jacket open on
+ * the waistcoat, a dark tie, and a hat — so that is what this is, plus the
+ * corno out over the waistcoat where it can be seen. The jacket has to be OPEN
+ * for that last part to be true at all: a chain worn over a buttoned jacket is
+ * a chain nobody in the club will ever look at.
+ */
+export const BIG_UNCLE_LOU_BING = Object.freeze({
+  ...BIG_UNCLE_LOU,
+  pinstripe: true,
+  threePiece: true,
+  hat: 'fedora',
+  hatColour: 0x4a3c2c,
+});
+
+/**
+ * The mansion, where he is at home and not working.
+ *
+ * Open short-sleeve camp shirt over a white tee, slacks, the corno on show
+ * because there is no jacket in the way of it, the watch on one wrist and a
+ * gold bracelet on the other. Same man, same jewellery, none of the armour —
+ * which is the point of dressing him differently here at all.
+ */
+export const BIG_UNCLE_LOU_MANSION = Object.freeze({
+  ...BIG_UNCLE_LOU,
+  dress: 'camp',
+  shirt: 0x191a20,
+  shirtAccent: 0xd8cbb2,
+  trouserColour: 0x2b2c34,
+  pattern: true,
+  hair: 'receding',
+  bracelet: 'gold',
+  belt: 'leather',
+  luxury: false,
+  trim: false,
+  /* No hat and no chalk stripe indoors. `trim` off as well: its shirt cuff and
+   * cufflink belong to a long sleeve, and this shirt has not got one. */
+  hat: false,
+  pinstripe: false,
+  threePiece: false,
 });
 
 export const CAPTAIN_LOU_SASOLE = Object.freeze({
@@ -347,6 +396,10 @@ export const MANSION_GUARDS = Object.freeze([
  * Everyone above, by the `CHARACTER_IDS` key the campaign uses, so a scene can
  * dress a roster it is iterating rather than naming each import.
  */
+/* Keyed by CHARACTER id, so the scene variants above are deliberately NOT in
+ * here -- `lou` is a person and `lou_bing` is an outfit, and a map that mixed
+ * the two would be the drift this file exists to stop. A scene that wants the
+ * variant imports it by name. */
 export const WARDROBE = Object.freeze({
   lou: BIG_UNCLE_LOU,
   captain_lou_sasole: CAPTAIN_LOU_SASOLE,
