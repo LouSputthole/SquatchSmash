@@ -3663,8 +3663,23 @@ export function buildMansionInterior(shell = null) {
       root.add(box({
         size: [0.09, 0.12, r.z1 - r.z0], pos: [side * (r.x1 - 0.05), UY + 2.78, (r.z0 + r.z1) / 2], mat: M_GOLD, cast: false, name: 'conference-dado',
       }));
-      sconce(side * (r.x1 - 0.05), UY + 2.2, 55.3, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
-      sconce(side * (r.x1 - 0.05), UY + 2.2, 60.7, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
+      /* THE SCONCES WERE BEHIND THE PROJECTOR SCREEN, AND CAME OUT THROUGH IT.
+       *
+       * Owner playtest, verbatim: "lamps going thro screen". Measured: these
+       * two sat at z 55.3 and 60.7 -- both inside the screen's own 55..61 --
+       * and a sconce projects 0.30 m off the wall it is on, so on the WEST
+       * wall the arm and shade ran from x -8.83 out to -8.52, straight
+       * through the bezel at -8.805..-8.735 and out the front of the picture
+       * at -8.71. Two lamps growing out of the middle of the screen.
+       *
+       * They sit in the joints between the wall's panels, so they cannot go
+       * just anywhere: the joints are at z 53.4, 55.3, 57.1, 58.9, 60.7 and
+       * 62.6, and only the outer two clear the bezel's 54.85..61.15. Moved
+       * there -- 1.30 m clear of the screen at each end, still in a panel
+       * joint, still a matched pair, and on the east wall as well so the two
+       * long walls stay symmetrical. */
+      sconce(side * (r.x1 - 0.05), UY + 2.2, 53.4, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
+      sconce(side * (r.x1 - 0.05), UY + 2.2, 62.6, side < 0 ? Math.PI / 2 : -Math.PI / 2, 2.0);
     }
 
     /* ================================================================ */
@@ -3797,11 +3812,16 @@ export function buildMansionInterior(shell = null) {
     const screenMat = mat({
       map: screenTex, roughness: 0.7, emissive: 0xffffff, emissiveMap: screenTex, emissiveIntensity: 0.55, unique: true,
     });
+    /* Screen and bezel stand OFF the panelling rather than in it. The bezel
+     * used to run x -8.805..-8.735, and the wall's own panel beads front at
+     * exactly -8.805 -- a shared plane over four panels, which is the flicker
+     * class. Both moved forward 55 mm: bezel -8.75..-8.68, beads -8.755, a
+     * 5 mm gap; screen 5 mm in front of the bezel's face. */
     const screen = flatArt('conference-screen', {
-      x: r.x0 + 0.14, y: UY + 2.3, z: 58, rotY: Math.PI / 2, w: 6, h: 3.2, material: screenMat,
+      x: r.x0 + 0.175, y: UY + 2.3, z: 58, rotY: Math.PI / 2, w: 6, h: 3.2, material: screenMat,
     });
     root.add(box({
-      size: [0.07, 3.5, 6.3], pos: [r.x0 + 0.08, UY + 2.3, 58], mat: M_WOOD_DK, name: 'screen-bezel',
+      size: [0.07, 3.5, 6.3], pos: [r.x0 + 0.135, UY + 2.3, 58], mat: M_WOOD_DK, name: 'screen-bezel',
     }));
     const podium = group('podium',
       box({ size: [0.5, 1.1, 0.7], pos: [0, 0.55, 0], mat: M_WOOD_DK }),
@@ -3811,12 +3831,53 @@ export function buildMansionInterior(shell = null) {
     podium.position.set(r.x0 + 1.5, UY, 61.4);
     root.add(podium);
     solid(r.x0 + 1.2, r.x0 + 1.8, UY, UY + 1.15, 61.05, 61.75);
-    root.add(cylinder({
-      r: 0.022, h: 0.3, pos: [r.x0 + 1.5, UY + 1.2, 60.9], mat: M_CHROME, rotX: Math.PI / 2,
-    }));
-    root.add(cylinder({
-      r: 0.05, h: 0.16, pos: [r.x0 + 1.5, UY + 1.2, 60.72], mat: M_SILVER, rotX: Math.PI / 2,
-    }));
+    /* THE LECTERN MICROPHONE. Owner playtest, verbatim: "microphone fucked
+     * up" -- and it was not a microphone at all. What stood here was a
+     * horizontal chrome rod at z 60.75..61.05 with a fat silver puck on the
+     * end of it, starting at the podium's front edge (61.025) and sticking
+     * straight out into the air: no base, no stem, no neck, nothing holding
+     * it up and nothing to speak into.
+     *
+     * Built properly now, as the thing it is: a weighted base standing ON the
+     * sloped reading top, a short rise out of it, a five-segment gooseneck
+     * that curves up and back over the front edge, and a capsule in a foam
+     * windscreen angled at where a speaker's mouth would be. The neck is
+     * generated rather than posed so each joint continues the last one's
+     * angle -- a gooseneck bent by hand is where the kinks come from. */
+    const micX = r.x0 + 1.5;
+    const micZ = 61.4;
+    root.add(named(cylinder({
+      r: 0.075, h: 0.03, pos: [micX, UY + 1.16, micZ], mat: M_STOVE_BLACK,
+    }), 'conference-mic-base'));
+    root.add(named(cylinder({
+      rTop: 0.03, rBottom: 0.055, h: 0.05, pos: [micX, UY + 1.2, micZ], mat: M_CHROME, cast: false,
+    }), 'conference-mic-collar'));
+    root.add(named(cylinder({
+      r: 0.014, h: 0.22, pos: [micX, UY + 1.33, micZ], mat: M_CHROME,
+    }), 'conference-mic-stem'));
+    let gx = micX;
+    let gy = UY + 1.44;
+    let gA = 0;
+    for (let i = 0; i < 5; i++) {
+      const a = 0.28 + i * 0.28;
+      const seg = 0.075;
+      const nx = gx - Math.sin(a) * seg;
+      const ny = gy + Math.cos(a) * seg;
+      root.add(named(cylinder({
+        r: 0.011, h: seg + 0.014, pos: [(gx + nx) / 2, (gy + ny) / 2, micZ], mat: M_CHROME, rotZ: a, cast: false,
+      }), 'conference-mic-neck'));
+      gx = nx; gy = ny; gA = a;
+    }
+    root.add(named(cylinder({
+      r: 0.022, h: 0.08, pos: [gx - Math.sin(gA) * 0.04, gy + Math.cos(gA) * 0.04, micZ], mat: M_STOVE_BLACK, rotZ: gA,
+    }), 'conference-mic-capsule'));
+    root.add(named(sphere({
+      r: 0.032, pos: [gx - Math.sin(gA) * 0.09, gy + Math.cos(gA) * 0.09, micZ], mat: mat({ color: 0x20232a, roughness: 1 }), cast: false,
+    }), 'conference-mic-windscreen'));
+    // The live light on the base, so the lectern reads as wired to something.
+    root.add(named(sphere({
+      r: 0.011, pos: [micX + 0.05, UY + 1.18, micZ - 0.04], mat: mat({ color: 0x300808, emissive: 0xe02020, emissiveIntensity: 2.2, roughness: 0.6 }), cast: false,
+    }), 'conference-mic-live'));
 
     // Ceiling projector, aimed at the screen.
     root.add(box({ size: [0.34, 0.16, 0.42], pos: [1.4, UCY - 0.5, 58], mat: M_STOVE_BLACK }));
