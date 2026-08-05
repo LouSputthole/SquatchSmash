@@ -99,6 +99,16 @@ export const MANSION_ART_SLOTS = [
   'mansion.gallery.pride',
   'mansion.ballroom.backdrop',
   'mansion.office.shield',
+  /* Owner, on walking his own house: "we had another commit or a pass which
+   * should have added a bunch of art to the mansion I did not see." The pass
+   * had run -- all sixteen slots were filled -- but every one of them pointed
+   * at one of seven LOGO files, so he passed the same club crest seven times
+   * and correctly read the walls as empty. The slots now carry photographs
+   * (see assets/art/manifest.json); a crest is kept only where a crest is the
+   * right object -- over the front doors, behind Lou's own desk, and printed
+   * on the LAN chairs. This is the one picture in assets/art/ that was named
+   * for a room in this house and had never been hung in it. */
+  'mansion.office.hogmama',
   'mansion.basement.shield',
   // Third pass: the west wing and the lower level.
   'mansion.trophy.crest',
@@ -4548,6 +4558,18 @@ export function buildMansionInterior(shell = null) {
       size: [1.63, 1.24, 0.05], pos: [4.4, UY + 2.45, r.z0 + 0.16], mat: M_GOLD, cast: false,
     }));
     sconce(4.4, UY + 3.3, r.z0 + 0.06, 0, 1.8);
+    /* Hog Mama, on the north pier. `assets/art/lou-office-hog-mama.png` was
+     * named for this room and made for it and had never been hung anywhere in
+     * the project -- one of only three files in assets/art/ placed nowhere at
+     * all. It goes on the 3.2 m of solid wall between the office's two north
+     * windows (the shell glazes x -6.4..-1.6 and 1.6..6.4, so x 0 is the one
+     * unbroken pier on that wall), facing back down the room at the desk.
+     * 0.9 x 1.35 because the file is 2000 x 3000 and `dressArtSlots` rebuilds
+     * the plate to the image's own aspect -- declaring it square here would
+     * make the swap visibly resize the picture. */
+    const officeHogMama = wallArt('mansion.office.hogmama', 0, UY + 2.25, r.z1 - 0.12, Math.PI, 0.9, 1.35,
+      makePortraitTexture('lou-hogmama', 'HOG MAMA', '#2a1a1e'));
+    sconce(0, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
     // Lou, again, over his own safe -- the east wall has no opening in it
     // anywhere, so this one is as far from a doorway as art gets in here.
     wallArt('office-safe-portrait', r.x1 - 0.11, UY + 2.15, safeZ + 0.15, -Math.PI / 2, 0.9, 1.1,
@@ -4604,7 +4626,7 @@ export function buildMansionInterior(shell = null) {
     root.add(ceil);
     ceilingLight(0, 74.2, UCY - 0.4, 0xffdca0, 4.2, 13);
     return {
-      desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
+      desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield, hogMama: officeHogMama,
     };
   }
   const officeProps = buildOffice();
@@ -5873,11 +5895,19 @@ export function buildMansionInterior(shell = null) {
            * same 1.2 m of the room's south-west corner.
            *
            * The corner is unpacked rather than nudged: the lounge chair and
-           * its ottoman move to the empty stretch of floor between the bed and
-           * the east window, which no other piece in this room uses. That also
-           * leaves the wardrobe corner clear for somebody to stand in. */
-          const lx = cx + 1.5;
-          const lz = cz + 1.1;
+           * its ottoman move to the empty pocket between the bed's foot and
+           * the side table, which no other piece in this room uses. That also
+           * leaves the wardrobe corner clear for somebody to stand in.
+           *
+           * NOT to the east window, which was the first place they went and
+           * which the walking test refused: this room's gallery door and its
+           * ensuite door are BOTH at x 13.1..14.9, so that strip is a lane
+           * running the full depth of the room and nothing may stand in it.
+           * The chair at x 13.575..14.575 blocked it and the tour stuck at
+           * (13.985, 59.78). The pocket below is west of the lane, east of
+           * the wardrobe, north of the bed and south of the side table. */
+          const lx = innerX + (innerX < cx ? 2.25 : -2.25);
+          const lz = cz - 0.9;
           root.add(box({
             size: [0.86, 0.2, 0.8], pos: [lx, UY + 0.42, lz], mat: M_LEATHER_DK, rotX: -0.06, name: 'modern-lounge-seat',
           }));
@@ -8518,6 +8548,7 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.gallery.pride', mesh: galleryProps.pride, w: 1.5 },
     { slot: 'mansion.ballroom.backdrop', mesh: ballroomProps.backdrop, w: 2.4 },
     { slot: 'mansion.office.shield', mesh: officeProps.shield, w: 1.45 },
+    { slot: 'mansion.office.hogmama', mesh: officeProps.hogMama?.art, w: 0.9 },
     { slot: 'mansion.basement.shield', mesh: basementProps.shield, w: 1.15 },
     { slot: 'mansion.trophy.crest', mesh: trophyProps.crest, w: 1.5 },
     { slot: 'mansion.winter.shield', mesh: winterProps.shield, w: 1.2 },
