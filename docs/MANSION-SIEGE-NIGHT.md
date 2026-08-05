@@ -105,7 +105,10 @@ horseshoe stair is on your flanks. Lou's office is directly above your head.
 The staircase defence position is the **gallery edge and the balcony bay** at
 x −3..3, z 45.2–48, six metres above the foyer floor, with the chandelier at
 (0, 8.6, 44.4) between you and the front door. Both stair flights are open
-routes an attacker can climb. That is the fight.
+routes an attacker can climb. That is the fight, and after the 2026-08-05
+direction it is the *whole* fight: they come up the drive, through the front
+door, across the foyer and up one of the two flights, and the player holds the
+rail. See PART VII.
 
 ### Objective chain
 
@@ -274,15 +277,29 @@ systems. It is powerful, not a turret, and this is not on rails.
 
 ## PART VII — WAVES
 
+> **OWNER DIRECTION, 2026-08-05, verbatim:** *"I want the main fight to take
+> place from the balcony as they come up the stairs or come in the front door.
+> for the mansion siege."* · *"everyone should funnel in through the main
+> door"* · *"Let's have proper nav mesh or whatever even if we have to
+> manually tweak their routes." / "I want semi real nav paths."*
+
 | Wave | Group | Count | Entry | Composition |
 | --- | --- | --- | --- | --- |
-| One | 1A | 4 | front door + forecourt | 3 rifle, 1 SMG |
-| One | 1B | 4 | east lounge bay glass | 2 rifle, 1 SMG, 1 flanker |
+| One | 1A | 4 | the drive and the front steps, in through `FRONT_DOOR` | 3 rifle, 1 SMG |
+| One | 1B | 4 | the same door, splitting to the other flight inside | 2 rifle, 1 SMG, 1 flanker |
 | — | *lull* | — | — | reload, reposition, callouts |
-| Two | 2A | 5 | frontal, front door + court | 3 rifle, 1 suppressor, 1 SMG |
-| Two | 2B | 4 | trophy hall glass, then the living room | 1 shotgun rusher, 2 rifle, 1 flanker |
-| Two | 2C | 5 | mixed, final push | 1 leader, 1 armored, 1 MG, 2 rifle |
-| | | **22** | | |
+| Two | 2A | 5 | the door again, plus a suppressor who holds the door line | 3 rifle, 1 suppressor, 1 SMG |
+| Two | 2B | 4 | **the flanks, once**: trophy-hall glass west, bay glass east | 1 shotgun rusher, 2 rifle, 1 flanker |
+| Two | 2C | 5 | back to the door for the final push | 1 leader, 1 armored, 1 MG, 2 rifle |
+| | | **22** | **18 front door / 4 flank** | |
+
+**Eighteen of twenty-two come in the front door.** The split is 82 %, it is
+asserted by `frontDoorShare()` and by a test with bounds in both directions,
+and the four who do not are ONE group arriving late in the second wave. Zero
+flankers would make the defence a shooting gallery pointed at a doorway;
+six staging zones made it a 360-degree problem fought from a balcony that can
+see one of them. Wave one is all door, so the shape is taught before it is
+broken once.
 
 **1B does not wait for 1A to die.** It activates on a timer or on 1A's
 half-strength, whichever comes first, so the player can never grind the room
@@ -291,15 +308,47 @@ clean at leisure. Same rule for 2B against 2A and 2C against 2B.
 **Nothing appears out of thin air.** Every attacker activates in a staging
 zone out of the player's view and walks in:
 
-- `court_north` — behind the fountain and the burning cars, (0, 30) r 12
-- `front_steps` — the porch, straight in through `FRONT_DOOR`
-- `lounge_bay` — the lawn beyond the east bay, in through its glass
-- `living_west` — the trophy hall's own glazing, then across it
-- `rear_service` — the rear door at (16, 66), the long way round
-- `veranda` — the south terrace
+- `court_north` — the drive at (0, 20.5), north of the abandoned Lincoln
+- `front_steps` — the bottom of the treads at (0, 33), straight up and in
+- `lounge_bay` — the service-road verge, in through the bay's south pane
+- `living_west` — the west lawn, in through the trophy hall's south pane
 
 An enemy becomes an active `CombatActor` the moment its staging zone opens,
 which is before it is visible, so it arrives already fighting.
+
+`veranda` and `rear_service` are gone. The first walked in at x −6, which is
+the foyer's two-storey entrance glazing rather than a terrace door; the
+second is thirty metres of house from the fight, and with real routing its
+occupant arrives after the group he was released with is dead. The service
+door survives as a future third-wave entry in PART XIV, not as one of these.
+
+### Semi-real routing
+
+`src/mansion/siege/nav.js` authors the anchor set and hands it to the
+`AuthoredNavigationGraph` in `src/heist/navigation.js` — the same zones,
+roles, neighbours, occupancy, BFS and blocked-recovery the heist's crew walk
+on. There is no second navigation system and no nav mesh.
+
+The route is: the drive → past the fountain and the burning cars → the six
+treads → the portico → `FRONT_DOOR` → the foyer floor → the foot of one of
+the two flights → the flight → the gallery, and for eight of them the balcony
+step itself. Every leg crosses either nothing or exactly one opening the house
+really has, checked against a room table with height bands; every anchor and
+every leg is checked against the house's live colliders in the verifier and
+reported box by box by `tools/probe-siege-anchors.mjs`.
+
+`occupy()` reserves where a man STOPS, so no two of them stand in the same
+place on the landing; the lane spreads where he WALKS, perpendicular to each
+leg and by an amount the anchor declares — 0.4 m at a 3.2 m front door, 1.2 m
+on a 32 m gallery.
+
+**Measured, not reasoned about.** `npm run probe:siege` stands the Prospect on
+the firing step and runs both waves with a player who shoots at a settable
+rate. At one man down every six seconds the defence takes about three minutes,
+seventeen of the twenty-four die on the gallery and six in the foyer below,
+and the nearest attacker sits at three to seven metres for most of it. Left
+standing still he has nine of them on the landing inside forty seconds. The
+player never has to leave the rail.
 
 ### Friendlies
 
@@ -454,6 +503,10 @@ overview to be approved so the house gets designed right once.
 | Give the gallery a window onto the forecourt | The only upper glazing over the drive is the two front bedrooms' and the top half of the foyer's entrance glass; the gallery — where the whole climax is fought — is an internal room over the void with no exterior wall at all | The staircase defence cannot see, or shoot at, what is coming up the drive. Sharper than the sightlines row above, which assumes the windows exist | Base, Siege | yes | no | no | med | med | with the overview |
 | Clear a run of the cellar corridor's north wall | Brick piers stand every few metres on BOTH long walls (0.44 m deep) and four doorways open off the north side, leaving 2.09 m — between the theatre reveal at x −1.87 and the pier at x 0.25 — as the only place a piece of furniture fits. The dead guard's settee is 2.06 m and only just clears it | Anything the mission wants to stand in that corridor, now or later, has one slot | Base, Siege | yes | yes | no | low | low | with the overview |
 | Move the driveway lamp posts out of the carriageway | Four of them stand at x ±4.6, z 16 and z 21 — inside the drive's own kerbs at x ±6.85 — so the usable lane is 8.9 m and a vehicle abandoned anywhere near either pair intersects one | Vehicle placement, wreck staging, and anything that ever drives up this drive | Base, Siege | no | no | yes | low | low | now, cheap |
+| Widen the way past the fountain, or move the basin off the drive's centre line | The basin's collider is a 7.2 m box on (0, 27) and the drive comes up at x = 0, so **there is no straight walk from the gate to the front door**. With the siege's two burning cars slewed across the turnaround the remaining channel each side is 1.15 m — between the wreck's inner edge at x ±4.75 and the basin's at ±3.6. Four nav anchors thread it and they have about 0.2 m of margin | Every attacker in the mission now walks this, and so does the player on the way out. A 1.15 m gap is a file, not an approach | Base, Siege | no | yes | no | med | low | with the overview |
+| Give the front portico some depth | The landing is 0.5 m deep (z 35.5..36) and the facade's own wall band takes z 35.69..35.91 of it, so the usable portico outside the door is about 0.19 m. The porch anchors sit on the top tread instead | Eighteen of twenty-two attackers now come through this door; a porch that cannot hold two men makes the funnel a queue | Base, Siege | yes | yes | no | med | med | with the overview |
+| Guard or re-site the basement stairwell mouth in the foyer | `BASEMENT_SHAFT` is a real hole in the foyer slab at x 5.4..9, z 51..58, and `foyerToLounge` runs z 48.5..52.5 — so the northern metre and a half of the lounge arch opens onto a void. The siege's east flank route had to be moved south of it | Anything routed between the foyer's rear and the east wing, for either side | Base, Siege | yes | yes | no | med | low | with the overview |
+| Bring the service door back as a third-wave entry | `rear_service` was cut from the wave table this pass: the kitchen door at (16, 66) is thirty metres of house from the foyer, and with real routing its occupant arrives after the group he was released with is dead | A long flank is a good beat for a wave that is released a minute early, not for one released with a frontal group. The route (kitchen → lounge → the arch → the foyer's rear) is authored and walkable; only the timing is wrong | Siege | no | no | no | low | low | with the overview |
 
 **Rule:** anything in this table that is marked "with the overview" stays in
 this table. Items marked "now, cheap" are art-only or anchor-only and can
@@ -474,6 +527,7 @@ land in `Mansion_Base` without risking rework.
 | 7 | Player start | `src/mansion/siege/mission.js` |
 | 8 | Armory route | `src/mansion/siege/mission.js` |
 | 9 | Corridor encounter, 2 | `src/mansion/siege/waves.js` |
+| 9a | Attacker routing | `src/mansion/siege/nav.js` on `src/heist/navigation.js` |
 | 10 | Foyer encounter, 3 | `src/mansion/siege/waves.js` |
 | 11 | Office objective trigger | `src/mansion/siege/mission.js` |
 | 12 | Ensemble staging | `src/mansion/siege/ensemble.js` |
