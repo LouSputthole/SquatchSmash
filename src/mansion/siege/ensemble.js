@@ -1353,9 +1353,18 @@ export function buildSiegeEnsemble({ scene, damage, matrix } = {}) {
     get friendlyKills() { return friendlyKills; },
     /**
      * The house was hit near somebody. Everyone within `radius` ducks.
+     *
      * Called by the scene when glass goes or a round comes through a wall --
      * "flinching when rounds strike near", which is on the brief's list and
      * is not something this module can observe on its own.
+     *
+     * THE DUCK AND THE SUPPRESSION ARE TWO DIFFERENT RADII, and the second
+     * one is not this module's to choose. Everybody inside `radius` flinches,
+     * because a round through a window six metres away is something you
+     * react to. Whether it also PINS you is `SuppressionModel.noteNearMiss`'s
+     * decision, and its own band is four metres -- so a hit at the edge of
+     * the flinch radius moves a man without pinning him, which is correct and
+     * is the shared model saying so rather than a number invented here.
      */
     noteImpact(point, radius = 6) {
       let touched = 0;
