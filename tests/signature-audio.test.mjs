@@ -219,11 +219,37 @@ test('neither track is in the music manifest until its file lands', () => {
 });
 
 test('the outstanding signature recordings are reportable', () => {
+  const owed = ['baby-snakes.mp3', 'cant-you-hear-me-knocking.mp3', 'sensi-lou.mp3', 'spy-jazz.mp3'];
   const pending = pendingSignatureTracks(new Set()).map((track) => track.file);
-  assert.deepEqual(pending.sort(), ['baby-snakes.mp3', 'sensi-lou.mp3', 'spy-jazz.mp3']);
-  assert.deepEqual(
-    pendingSignatureTracks(new Set(['sensi-lou.mp3', 'baby-snakes.mp3', 'spy-jazz.mp3'])), [],
+  assert.deepEqual(pending.sort(), owed);
+  assert.deepEqual(pendingSignatureTracks(new Set(owed)), []);
+});
+
+/* ---------------- Can't You Hear Me Knocking ---------------- */
+
+test('the takeoff record is wired to the Beef Run’s first roll, at the owner’s speed', () => {
+  /* The owner asked for this on 2026-08-03 and then reported not hearing it,
+   * because it had a brief in assets/music/README.md and no implementation.
+   * These are the terms he settled, asserted against the code that plays it. */
+  const track = SIGNATURE_TRACKS.cantYouHearMeKnocking;
+  assert.equal(track.file, 'cant-you-hear-me-knocking.mp3');
+  assert.equal(track.fallbackFile, '10-drunk-cigarettes.mp3', 'it must sound like something before the file lands');
+  assert.equal(track.loopKey, 'music.knocking', 'its own mix slot, so the rotation call can duck it');
+  assert.equal(track.cutAt, 120, 'about two minutes of it, not the whole record');
+
+  const beefMission = fs.readFileSync(
+    new URL('../src/beefrun/mission.js', import.meta.url), 'utf8',
   );
+  assert.match(beefMission, /const KNOCKING_AT_KNOTS = 45;/, 'it comes in at 45 knots');
+  assert.match(beefMission, /SIGNATURE_TRACKS\.cantYouHearMeKnocking/);
+  assert.match(beefMission, /flags\.knockingCued/, 'once per run');
+  /* Fired from exactly one place. The El Hueso departure runs through a
+   * different phase and must not play it a second time. */
+  assert.equal(
+    beefMission.split('SIGNATURE_TRACKS.cantYouHearMeKnocking').length - 1, 1,
+    'the takeoff record is fired from exactly one place',
+  );
+  assert.match(beefMission, /loop: false/, 'a record plays through, it does not loop');
 });
 
 /* ---------------- Shubenator ---------------- */

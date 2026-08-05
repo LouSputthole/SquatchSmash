@@ -110,6 +110,45 @@ export const SIGNATURE_TRACKS = Object.freeze({
     cutAt: 22.6,
   }),
   /**
+   * The Beef Run's initial takeoff roll, at 45 knots.
+   *
+   * Owner's request, 2026-08-03, then the playtest note *"I also didn't hear
+   * the cant you hear me knocking"* — because it had never been wired. The
+   * settled brief lived in `assets/music/README.md` under a heading that said
+   * "the note, not the implementation", and the recording is still owed, so
+   * the moment was silent and nothing on the page had a hook to hang it on.
+   *
+   * This is the hook. Terms as agreed with the owner:
+   *
+   *  - **Once, on the INITIAL takeoff only.** Whispering Pines outbound. Not
+   *    on the loaded El Hueso departure — which is why the trigger tests the
+   *    mission PHASE rather than a one-shot flag: `rotateCalled` is
+   *    deliberately reset for the second departure, and anything hung off that
+   *    pattern would play the record twice.
+   *  - **About two minutes**, not the whole record: `cutAt` at 120 seconds
+   *    from the top.
+   *  - **Its own loop key**, so the mix ducks it against Sasole's rotation
+   *    call and the departure barks instead of it joining the ambient bed.
+   *
+   * Until the file lands it plays the fallback, exactly as Sensi Lou and Baby
+   * Snakes have been doing — the moment sounds like something rather than
+   * sounding like nothing.
+   */
+  cantYouHearMeKnocking: cue({
+    id: 'cant_you_hear_me_knocking',
+    title: 'Can’t You Hear Me Knocking',
+    file: 'cant-you-hear-me-knocking.mp3',
+    fallbackFile: '10-drunk-cigarettes.mp3',
+    trigger: 'the Beef Run’s initial takeoff roll, passing 45 knots',
+    loopKey: 'music.knocking',
+    /* Under a headset, two piston engines and a man talking. Low enough that
+     * the rotation call still wins, high enough to be the thing that just
+     * started. Wants a mix pass once the real recording is audible in place. */
+    volume: 0.30,
+    start: 0,
+    cutAt: 120,
+  }),
+  /**
    * The portable radio in the Bing's store room, during License to Grill.
    *
    * Smooth spy-movie jazz, played low. It is the only thing in that room

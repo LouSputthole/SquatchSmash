@@ -30,6 +30,7 @@ const P = (text, hold) => ({ who: 'PROSPECT', text, hold });
 const C = (text, hold) => ({ who: 'CECILIO', text, hold });
 const S = (text, hold) => ({ who: 'STOVE', text, hold });
 const R = (text, hold) => ({ who: 'CAIB', text, hold });
+const A = (text, hold) => ({ who: 'ASSOCIATE', text, hold });
 
 export const BEATS = {
   /* ---------------- Whispering Pines ---------------- */
@@ -204,6 +205,20 @@ export const BEATS = {
   'takeoff.grass': [
     L('That’s the grass. The grass is not the runway.', 3.2),
     L('Bring her back round and do it with more conviction.', 3.4),
+  ],
+  /* Off the wrong end. The runway has two of them and only one of them is
+   * ahead of you, which turns out to be worth saying out loud. */
+  'takeoff.behind': [
+    L('You have gone backwards off the end of a runway.', 3.4),
+    L('The pines behind us are not a taxiway. Nothing back there is.', 3.8),
+    L('Round the front. Same runway. Other direction.', 3.4),
+  ],
+  /* Stopped somewhere that is not the airfield, before there is any checkpoint
+   * to fall back on. He walks it back rather than leaving anybody stranded. */
+  'takeoff.stranded': [
+    P('We’re in the trees.', 1.9),
+    L('We are. And the tow is me and a rope and my whole afternoon.', 4.0),
+    L('Sit still. I will put us back on the numbers and we will never speak of it.', 4.4),
   ],
 
   /* ---------------- Southbound ---------------- */
@@ -389,12 +404,22 @@ export const BEATS = {
     P('So that was the job?', 2.2),
     L('That was the interview.', 2.6),
   ],
+  /* Over the crew emptying the hold. He is standing in the dark beside a
+   * cooling engine watching other men carry his cargo, which is the first time
+   * all night he has not had anything to do. */
+  'end.crew': [
+    A('Sasole. You’re green.', 2.2),
+    L('I have been green since the mountains. Take the middle one first.', 4.0),
+    P('Should I help?', 1.8),
+    L('You flew it here. That was your half.', 3.2),
+  ],
   'end.bite': [
     L('Worth it.', 2.4),
   ],
   'end.envelope': [
     P('This is my cut?', 2.0),
     L('You’re still a prospect.', 2.6),
+    L('Same time tomorrow. Bring a bag for me and nothing for you.', 4.0),
   ],
 };
 

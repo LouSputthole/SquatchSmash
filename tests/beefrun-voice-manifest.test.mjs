@@ -11,7 +11,11 @@ import {
 
 test('the Beef Run ledger contains every exact delivery with words and casting', () => {
   const cues = collectBeefRunVoiceCues();
-  assert.equal(cues.length, 237);
+  /* 237 -> 248 on the 2026-08-05 playtest pass: the north-end overrun and the
+   * stranded tow (`takeoff.behind`, `takeoff.stranded`) that make crashing
+   * behind the runway recoverable, the crew beat over the ending's unloading,
+   * and Sasole's last word on the envelope. */
+  assert.equal(cues.length, 248);
   assert.equal(new Set(cues.map((cue) => cue.name)).size, cues.length);
   assert.equal(cues.every((cue) => cue.name.startsWith('vo.beefrun.') && cue.voice && cue.say), true);
 });

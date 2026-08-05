@@ -5647,6 +5647,36 @@
       "say": "Bring her back round and do it with more conviction."
     },
     {
+      "name": "vo.beefrun.sasole.takeoff.behind-1.1",
+      "voice": "lou2",
+      "say": "You have gone backwards off the end of a runway."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.behind-2.1",
+      "voice": "lou2",
+      "say": "The pines behind us are not a taxiway. Nothing back there is."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.behind-3.1",
+      "voice": "lou2",
+      "say": "Round the front. Same runway. Other direction."
+    },
+    {
+      "name": "vo.beefrun.prospect.takeoff.stranded-1.1",
+      "voice": "player",
+      "say": "We’re in the trees."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.stranded-2.1",
+      "voice": "lou2",
+      "say": "We are. And the tow is me and a rope and my whole afternoon."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.stranded-3.1",
+      "voice": "lou2",
+      "say": "Sit still. I will put us back on the numbers and we will never speak of it."
+    },
+    {
       "name": "vo.beefrun.prospect.cruise.what-1.1",
       "voice": "player",
       "say": "What exactly are we picking up?"
@@ -6112,6 +6142,26 @@
       "say": "That was the interview."
     },
     {
+      "name": "vo.beefrun.associate.end.crew-1.1",
+      "voice": "squatch-associate",
+      "say": "Sasole. You’re green."
+    },
+    {
+      "name": "vo.beefrun.sasole.end.crew-2.1",
+      "voice": "lou2",
+      "say": "I have been green since the mountains. Take the middle one first."
+    },
+    {
+      "name": "vo.beefrun.prospect.end.crew-3.1",
+      "voice": "player",
+      "say": "Should I help?"
+    },
+    {
+      "name": "vo.beefrun.sasole.end.crew-4.1",
+      "voice": "lou2",
+      "say": "You flew it here. That was your half."
+    },
+    {
       "name": "vo.beefrun.sasole.end.bite-1.1",
       "voice": "lou2",
       "say": "Worth it."
@@ -6125,6 +6175,11 @@
       "name": "vo.beefrun.sasole.end.envelope-2.1",
       "voice": "lou2",
       "say": "You’re still a prospect."
+    },
+    {
+      "name": "vo.beefrun.sasole.end.envelope-3.1",
+      "voice": "lou2",
+      "say": "Same time tomorrow. Bring a bag for me and nothing for you."
     },
     {
       "name": "vo.beefrun.sasole.bark-stall-1.1",

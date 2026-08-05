@@ -1,5 +1,7 @@
 import {
+  AIRSTRIP_UNLOCKS,
   EVENT_IDS,
+  LANDING_QUALITIES,
   MISSION_IDS,
   TIME_EVENT_IDS,
 } from './campaign.js';
@@ -18,6 +20,12 @@ const PREVIEW_FLIGHT_CHECKPOINTS = Object.freeze([
   'return',
   'landing',
 ]);
+
+/* The two vocabularies this file writes into the save live in campaign.js,
+ * beside the record they belong to and the sanitiser that has to police them
+ * on the way back in. Re-exported here because this is the module a scene
+ * talks to. */
+export { LANDING_QUALITIES, AIRSTRIP_UNLOCKS };
 
 class AirstripStory {
   constructor({ campaign }) {
@@ -109,7 +117,43 @@ class AirstripStory {
     return true;
   }
 
-  complete({ landingQuality } = {}) {
+  /**
+   * Close the mission out, and record what was actually earned.
+   *
+   * ## The seam this fixes
+   *
+   * `landingQuality` used to be handed the Beef Run's RANK — one of "Gas
+   * Station Amateur", "Cargo Curious", "Certified Meat Aviator", "Airborne
+   * Butcher", "Silverback Smuggler". The only reader in the game is
+   * `pastMissionBanter()` in the golf script, and it asks
+   * `['clean', 'greased', 'perfect'].includes(air.landingQuality)`. Those two
+   * sets do not intersect, so for every player who actually flew the mission
+   * the good callback was unreachable and Lou always said the "most of the
+   * plane came back" line — including after a perfect landing. (The apartment
+   * preview seeded a fourth vocabulary, `'smooth'`, which also misses.)
+   *
+   * So the two facts are now recorded as two fields: `landingQuality` is a
+   * token in the vocabulary the readers actually use, and `rank` is the
+   * display string the end card shows. Nothing has to guess which it is
+   * holding.
+   *
+   * `unlocks` is the other half of the owner's question — *"Do we actually get
+   * all the things rewards from this back in the apartment after?"* The end
+   * card lists six trophies and, until now, listed them out of a hard-coded
+   * array that was never written anywhere. Only one of the six (Tammy's
+   * dashboard mug) appeared in the flat, and it appeared off `status ===
+   * 'complete'` rather than off having earned it. They are campaign facts now,
+   * in the same shape PROJECT SILENT SQUATCH uses for its trophy, so the
+   * apartment can fold a shelf out of what happened instead of out of a guess.
+   *
+   * @param {object} [outcome]
+   * @param {string} [outcome.landingQuality] one of LANDING_QUALITIES
+   * @param {string} [outcome.rank] the end card's display rank
+   * @param {string[]} [outcome.unlocks] reward ids actually earned
+   * @param {number} [outcome.packagesDelivered]
+   * @param {number} [outcome.gunsDelivered]
+   */
+  complete({ landingQuality, rank, unlocks, packagesDelivered, gunsDelivered } = {}) {
     const mission = this.campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
     if (mission.status !== 'in_progress'
       || mission.checkpoint !== 'landed_home'
@@ -117,8 +161,16 @@ class AirstripStory {
     this.campaign.update((state) => {
       const completed = state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
       completed.status = 'complete';
-      completed.landingQuality = typeof landingQuality === 'string'
+      completed.landingQuality = LANDING_QUALITIES.includes(landingQuality)
         ? landingQuality : 'unknown';
+      completed.rank = typeof rank === 'string' ? rank : null;
+      completed.unlocks = Array.isArray(unlocks)
+        ? [...new Set(unlocks.filter((id) => AIRSTRIP_UNLOCKS.includes(id)))]
+        : [];
+      completed.packagesDelivered = Number.isFinite(packagesDelivered)
+        ? Math.max(0, Math.round(packagesDelivered)) : 0;
+      completed.gunsDelivered = Number.isFinite(gunsDelivered)
+        ? Math.max(0, Math.round(gunsDelivered)) : 0;
     });
     this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_AIRSTRIP);
     return true;

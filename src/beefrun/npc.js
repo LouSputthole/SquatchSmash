@@ -11,8 +11,64 @@ import * as THREE from 'three';
 import {
   solid, boxGeo, cylGeo, coneGeo, sphereGeo, mesh, group, clamp, lerp, damp,
 } from './util.js';
+import { CAPTAIN_LOU_SASOLE } from '../core/wardrobe.js';
 
 const SKIN = [0xd9a878, 0xb07a4e, 0x8a5a38, 0xe8c49a];
+
+/**
+ * Read a canonical `src/core/wardrobe.js` record with this scene's block rig.
+ *
+ * The wardrobe is the campaign's one description of what a person wears, in
+ * the vocabulary the Family's own figure builder uses: `dress`, `jacketColour`,
+ * `hairColour`, `belt`, `watch`, `trouserFit`, `trim`. Beef Run's rig is older
+ * and speaks in plain part colours. Rather than copying the numbers across by
+ * hand — which is exactly how the Family ended up with two different Big Uncle
+ * Lous, and how Captain Sasole ended up on this airfield in a brown leather
+ * jacket and khakis he does not own — this translates the record once, and the
+ * scene spreads the result and adds only what is local to it.
+ *
+ * Nothing is invented here: every colour comes from the record. What the record
+ * does not carry (boots, and the trousers under a bomber jacket) is derived
+ * from what it does, so a wardrobe edit still moves this airfield.
+ */
+export function fromWardrobe(spec) {
+  if (!spec) return {};
+  const jacket = spec.dress === 'bomber' || spec.dress === 'suit' ? spec.jacketColour ?? null : null;
+  return {
+    skin: spec.skin,
+    shirt: spec.shirt,
+    jacket,
+    // Flight trousers: the record's own jacket sage taken down to a service
+    // grey-green, so the two garments belong to one man rather than two.
+    trousers: spec.trousers ?? shadeOf(jacket ?? spec.shirt, 0.62),
+    boots: spec.boots ?? shadeOf(jacket ?? spec.shirt, 0.34),
+    hair: spec.hairColour,
+    /* The rig's build is 0 (narrow) to 1 (wide); the wardrobe's runs on the
+     * Family's own scale, where Captain Sasole is 1.10 and Big Uncle Lou is
+     * 1.38. Map the one onto the other rather than leaving a 1.10 to be read
+     * as "wider than the widest man in the game". */
+    build: clamp(0.55 + (spec.build - 1.10) * 1.5, 0, 1),
+    dress: spec.dress,
+    patches: spec.patches === true,
+    trim: spec.trim === true,
+    belt: spec.belt ?? null,
+    watch: spec.watch ?? null,
+    trouserFit: spec.trouserFit ?? null,
+  };
+}
+
+/** A darker or lighter relation of a packed colour, kept in the same hue. */
+function shadeOf(colour, k) {
+  const c = new THREE.Color(colour ?? 0x8a8f7a);
+  c.multiplyScalar(k);
+  return c.getHex();
+}
+
+/** Name a garment mesh on this file's convention: `<figure>-<part>`. */
+function named2(m, o, n) {
+  m.name = `${o.name || 'figure'}-${n}`;
+  return m;
+}
 
 /* Name tags. Readable while you are close enough to be talking to somebody,
  * and gone a few strides later — an airfield with two men on it should not
@@ -23,6 +79,15 @@ const TAG_CAP = 0.13;             // metres: how tall the letters stand
 const TAG_Y = 2.16;               // metres: clear of the tallest hat
 
 const _tagPos = new THREE.Vector3();
+const _lookLocal = new THREE.Vector3();
+const _lookMat = new THREE.Matrix4();
+
+/* How far a head turns. A standing figure gets the old 1.1 rad; a man strapped
+ * into a seat gets more, because turning to face the left seat from the right
+ * one is most of a right angle and stopping short of it reads as ignoring you.
+ * Anything past the neck's own travel is taken up by the torso. */
+const SEATED_NECK_SWEEP = 1.35;
+const SEATED_TORSO_TWIST = 0.5;
 
 /* Photo faces, the way the Bing's cast and the Initiation do them: the picture
  * on the front of a box skull and plain colour on the other five sides.
@@ -111,11 +176,48 @@ export function makeFigure(o = {}) {
   g.add(hips);
 
   const torso = mesh(boxGeo(w, 0.62, 0.28), o.jacket ? solid(o.jacket, { roughness: 0.85 }) : shirt, 0, 0.31, 0);
+  torso.name = `${o.name || 'figure'}-torso`;
   hips.add(torso);
   if (o.jacket) {
     // Collar and open front, so the stained shirt shows.
     hips.add(mesh(boxGeo(w * 0.42, 0.5, 0.06), shirt, 0, 0.32, 0.15));
   }
+
+  /* Tailoring, for the people the player stands in front of.
+   *
+   * These are the canonical wardrobe's own words made physical — `dress`,
+   * `trim`, `patches`, `belt`, `watch`, `trouserFit`. A figure that passes none
+   * of them is built exactly as it was, so the guards, the associates, Stove
+   * and Cecilio are untouched. */
+  const jacketMat = o.jacket ? solid(o.jacket, { roughness: 0.85 }) : shirt;
+  const named = (m, n) => { m.name = `${o.name || 'figure'}-${n}`; return m; };
+  if (o.dress === 'bomber' && o.jacket) {
+    /* A flight jacket is knitted at the three places it closes: collar, cuffs,
+     * waistband. Without them the torso box is a box. */
+    const knit = solid(shadeOf(o.jacket, 0.74), { roughness: 1 });
+    hips.add(named(mesh(boxGeo(w * 0.98, 0.1, 0.32), knit, 0, 0.02, 0), 'jacket-waistband'));
+    hips.add(named(mesh(boxGeo(w * 0.62, 0.09, 0.31), knit, 0, 0.605, 0.01), 'jacket-collar'));
+    // Zip placket, off centre because he never does it up straight.
+    hips.add(named(mesh(boxGeo(0.035, 0.5, 0.03), solid(0xb8bcc2, { roughness: 0.4, metalness: 0.7 }), 0.02, 0.32, 0.15), 'jacket-zip'));
+  }
+  if (o.patches && o.jacket) {
+    // Squadron patch on one shoulder, a name tape over the heart. Neither is
+    // legible at the distance anybody stands at, and both read as a pilot.
+    hips.add(named(mesh(boxGeo(0.1, 0.1, 0.02), solid(0xc0392b, { roughness: 0.9 }), -w * 0.34, 0.5, 0.145), 'jacket-patch-shoulder'));
+    hips.add(named(mesh(boxGeo(0.16, 0.055, 0.02), solid(0x6b5432, { roughness: 0.95 }), w * 0.2, 0.44, 0.145), 'jacket-name-tape'));
+  }
+  if (o.trim && !o.jacket) {
+    // A collar and a placket on a plain shirt.
+    hips.add(named(mesh(boxGeo(w * 0.5, 0.07, 0.3), shirt, 0, 0.6, 0.01), 'shirt-collar'));
+  }
+  if (o.belt) {
+    const buckle = o.belt === 'gold'
+      ? solid(0xe8c04a, { roughness: 0.25, metalness: 0.9 })
+      : solid(0x8a8578, { roughness: 0.45, metalness: 0.5 });
+    hips.add(named(mesh(boxGeo(w * 0.96, 0.065, 0.3), solid(o.belt === 'gold' ? 0x3a2f22 : 0x2e241a, { roughness: 0.85 }), 0, -0.005, 0), 'belt'));
+    hips.add(named(mesh(boxGeo(0.075, 0.06, 0.05), buckle, 0, -0.005, 0.15), 'belt-buckle'));
+  }
+  void jacketMat;
 
   const neck = new THREE.Group();
   neck.position.set(0, 0.66, 0);
@@ -167,6 +269,18 @@ export function makeFigure(o = {}) {
     elbow.add(fore);
     const hand = mesh(boxGeo(0.11, 0.12, 0.11), skin, 0, -0.32, 0);
     elbow.add(hand);
+    if (o.dress === 'bomber' && o.jacket) {
+      // Knitted cuff where the sleeve stops.
+      elbow.add(named2(mesh(boxGeo(0.12, 0.07, 0.13), solid(shadeOf(o.jacket, 0.74), { roughness: 1 }), 0, -0.26, 0), o, `cuff-${side < 0 ? 'right' : 'left'}`));
+    }
+    /* The watch goes on his left wrist. The figure faces +Z, so with +Y up his
+     * left is +X — the `side === 1` arm. */
+    if (o.watch && side === 1) {
+      const band = o.watch === 'gold'
+        ? solid(0xe8c04a, { roughness: 0.25, metalness: 0.9 })
+        : solid(0xc8ccd2, { roughness: 0.3, metalness: 0.85 });
+      elbow.add(named2(mesh(boxGeo(0.085, 0.038, 0.085), band, 0, -0.245, 0), o, 'watch'));
+    }
     shoulder.add(elbow);
     hips.add(shoulder);
     arms.push({ shoulder, elbow, hand });
@@ -182,6 +296,14 @@ export function makeFigure(o = {}) {
     knee.position.y = -0.44;
     knee.add(mesh(boxGeo(0.14, 0.4, 0.16), trousers, 0, -0.2, 0));
     knee.add(mesh(boxGeo(0.16, 0.12, 0.26), boots, 0, -0.44, 0.04));
+    if (o.trouserFit === 'creased') {
+      // A pressed crease down the front and a turn-up at the boot. Two thin
+      // slabs, and the difference between trousers and a pair of tubes.
+      const pressed = solid(shadeOf(o.trousers ?? 0x4a4a52, 0.84), { roughness: 1 });
+      hip.add(named2(mesh(boxGeo(0.022, 0.44, 0.02), pressed, 0, -0.22, 0.092), o, `trouser-crease-${side < 0 ? 'right' : 'left'}`));
+      knee.add(named2(mesh(boxGeo(0.022, 0.4, 0.02), pressed, 0, -0.2, 0.082), o, `trouser-crease-lower-${side < 0 ? 'right' : 'left'}`));
+      knee.add(named2(mesh(boxGeo(0.152, 0.05, 0.172), pressed, 0, -0.375, 0), o, `trouser-turnup-${side < 0 ? 'right' : 'left'}`));
+    }
     hip.add(knee);
     hips.add(hip);
     legs.push({ hip, knee });
@@ -500,13 +622,48 @@ export function updateFigure(f, dt, camPos = null) {
     f.hips.rotation.z = Math.sin(f.t * 0.7) * 0.05 * f.sick;
   }
 
+  /* Look at whoever is being talked to — including from a seat.
+   *
+   * This used to be gated `f.pose !== 'sit'`, which meant the one man the
+   * player spends the whole flight sitting next to never turned his head. The
+   * Brushrunner's nose is +Z and an authored figure faces +Z, so a co-pilot
+   * dropped into the right seat at rotation zero is aimed at the windshield
+   * and the left seat only ever sees the back-right of his skull: measured at
+   * 146.2 degrees off the pilot's eye. Nothing was wrong with his face texture.
+   *
+   * A seated man turns his neck rather than his hips, so `sit` gets a wider
+   * sweep than a standing figure's and no body rotation at all.
+   *
+   * The frame conversion matters too: once he is parented to the aeroplane his
+   * `group.position` is in aircraft space while `camPos` is in world space, so
+   * the target has to be brought into the parent's frame before the bearing
+   * means anything. */
   const target = f.lookAt || camPos;
-  if (target && f.pose !== 'sit') {
-    const dx = target.x - f.group.position.x;
-    const dz = target.z - f.group.position.z;
+  if (target) {
+    const parent = f.group.parent;
+    let tx = target.x, tz = target.z;
+    if (parent && parent.matrixWorld) {
+      parent.updateWorldMatrix(true, false);
+      _lookLocal.set(target.x, target.y ?? 0, target.z);
+      _lookMat.copy(parent.matrixWorld).invert();
+      _lookLocal.applyMatrix4(_lookMat);
+      tx = _lookLocal.x;
+      tz = _lookLocal.z;
+    }
+    const dx = tx - f.group.position.x;
+    const dz = tz - f.group.position.z;
     const want = Math.atan2(dx, dz) - f.group.rotation.y;
-    const clamped = clamp(((want + Math.PI) % (Math.PI * 2)) - Math.PI, -1.1, 1.1);
+    const sweep = f.pose === 'sit' ? SEATED_NECK_SWEEP : 1.1;
+    const clamped = clamp(((want + Math.PI) % (Math.PI * 2)) - Math.PI, -sweep, sweep);
     f.neck.rotation.y = damp(f.neck.rotation.y, clamped, 4, dt);
+    /* Over the shoulder, a seated man leans his upper body round too — a neck
+     * alone cannot get a face to somebody sitting behind and beside him. */
+    if (f.pose === 'sit') {
+      const spill = clamp(
+        ((want + Math.PI) % (Math.PI * 2)) - Math.PI - clamped, -SEATED_TORSO_TWIST, SEATED_TORSO_TWIST,
+      );
+      f.hips.rotation.y = damp(f.hips.rotation.y, spill, 3, dt);
+    }
   }
 
   /* The name tag rides in the group, so walking carries it. All that is left
@@ -530,18 +687,32 @@ export function speak(f, seconds = 1.6) {
 /* The cast                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Captain Lou Sasole, dressed out of the campaign's one wardrobe.
+ *
+ * ## He is not Big Uncle Lou Sputthole, and the two must never merge
+ *
+ * `captain_lou_sasole` / `lou2` is the pilot: a working man whose one good
+ * possession is a sage flight jacket. `lou` / `lou1` is Big Uncle Lou
+ * Sputthole, who wears a pressed suit and every gold thing he owns at the same
+ * time. They share a first name and nothing else — not a height, not a build,
+ * not a garment, not a voice id, not a name tag. This function reads
+ * `CAPTAIN_LOU_SASOLE` and only `CAPTAIN_LOU_SASOLE`; importing or spreading
+ * `BIG_UNCLE_LOU` here would be a character error, not a styling choice.
+ *
+ * Everything below the spread is LOCAL to this airfield: his headset round his
+ * neck, the coffee he carries until he gets in, his photographed face and its
+ * crop, and the gold his subtitles come up in. His clothes are not local, and
+ * used to be — an inline literal put him in a brown leather jacket over
+ * wrinkled khaki, which is a different man's outfit and drifted the moment the
+ * wardrobe was written.
+ */
 export function makeLou() {
   const f = makeFigure({
+    ...fromWardrobe(CAPTAIN_LOU_SASOLE),
     name: 'captain_lou_sasole',
-    skin: 0xd8b48c,          // pale, and getting paler
-    shirt: 0xd8d2c0,
-    jacket: 0x5a3a22,        // old leather flight jacket
-    trousers: 0xa89878,      // wrinkled khaki
-    boots: 0x4a3320,
-    hair: 0x4a4038,
-    shades: true,            // in the photograph, where they belong
+    // Local to the airfield: the headset lives round his neck, never on his ears.
     hat: 'headset',
-    build: 0.55,
     /* His actual face. The crop keeps the backwards cap, headset mic and
      * moustache while leaving the shirt and the transparent edge out of the
      * square face plate. */
