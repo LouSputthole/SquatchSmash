@@ -20,13 +20,19 @@
  *                          painted once into one canvas (districts, roads,
  *                          rail, park, docks, river)
  *   1  river              one strip following the carved channel
- *   1  tower blocks       InstancedMesh — downtown, mid-rise, warehouses and
- *                          factory sheds, one shared night-window texture
+ *   6  tower blocks       ONE InstancedMesh — downtown, mid-rise, warehouses
+ *                          and factory sheds — drawn once per box face group,
+ *                          because the four walls carry the shared
+ *                          night-window texture and the roof and the underside
+ *                          deliberately do not. See `buildBlocks()`: a box's
+ *                          six faces share one UV square, so a single material
+ *                          put lit windows on every rooftop in the city.
  *   1  houses             InstancedMesh — terraces and the outskirts
  *   1  roofs              InstancedMesh — pitched roofs on the houses
  *   1  rooftop clutter    InstancedMesh — tanks, stair huts, vents
  *   1  chimneys           InstancedMesh
- *   1  street lights      InstancedMesh
+ *   1  street lights      InstancedMesh — the lamp heads
+ *   1  lamp columns       InstancedMesh — what the lamp heads stand on
  *   1  trees              InstancedMesh — the park, the avenues, the allotments
  *   1  rolling stock      InstancedMesh — the marshalling yard and the sidings
  *   1  river craft        InstancedMesh — barges and lighters at the quays
@@ -37,9 +43,9 @@
  *                          shape and finish. Twenty landmarks for six draw
  *                          calls instead of two hundred and fifty.
  *
- * Roughly twenty draw calls for the entire target. `stats()` reports the real
- * numbers and `tools/verify-enolasquatch.mjs` measures the whole frame with a
- * real render rather than trusting this comment.
+ * Roughly twenty-five draw calls for the entire target. `stats()` reports the
+ * real numbers and `tools/verify-enolasquatch.mjs` measures the whole frame
+ * with a real render rather than trusting this comment.
  *
  * ---------------------------------------------------------------------------
  * THE END OF IT
@@ -570,7 +576,7 @@ export class TargetCity {
       map,
       emissiveMap: emissive,
       emissive: 0xffffff,
-      emissiveIntensity: 0.9,
+      emissiveIntensity: 0.72,
       roughness: 0.92,
       metalness: 0.02,
     });
@@ -579,7 +585,39 @@ export class TargetCity {
     map.repeat.set(2.2, 3.4);
     emissive.repeat.set(2.2, 3.4);
 
-    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), material, Math.max(records.length, 1));
+    /* ---- THE GLOWING ROOFTOPS ----
+     *
+     * Owner playtest, 2026-08-04: "the city looks pretty funky. Theres light
+     * all over the top of the buildings."
+     *
+     * There was, and this is where it came from. A `BoxGeometry` gives every
+     * one of its six faces the same 0..1 UV square, so the night-window map —
+     * and, worse, its emissive twin — was painted onto the TOP of each
+     * building as well as onto its walls. From the only angle this city is
+     * ever seen, which is three thousand feet directly above it, every
+     * warehouse and every tower wore a glowing grid of lit windows on its
+     * roof. Several thousand of them. That is the "funky", and it is why a
+     * night city read as a field of illuminated waffles.
+     *
+     * The fix is a material per face rather than a material per mesh. A
+     * `BoxGeometry` already carries one group per face in the order
+     * +X, -X, +Y, -Y, +Z, -Z, and three.js honours that for an `InstancedMesh`
+     * exactly as it does for a `Mesh`, so slots 2 and 3 — the roof and the
+     * underside — take plain dark asphalt with no map and no emissive map at
+     * all, and the four walls keep the windows. It costs five extra draw calls
+     * across the entire city (see the budget note at the top of this file) and
+     * no extra geometry: the cached unit box is shared and untouched.
+     *
+     * `instanceColor` still tints all six slots, which is what we want — a
+     * building's roof is the same weathered colour as the building. */
+    const roofMaterial = new THREE.MeshStandardMaterial({
+      color: 0x55565c, roughness: 0.98, metalness: 0,
+    });
+    this.parts.buildingWallMat = material;
+    this.parts.buildingRoofMat = roofMaterial;
+    const faces = [material, material, roofMaterial, roofMaterial, material, material];
+
+    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), faces, Math.max(records.length, 1));
     im.name = 'squatchbourg-buildings';
     im.castShadow = false;
     im.receiveShadow = false;
@@ -701,11 +739,30 @@ export class TargetCity {
     this.parts.chimneys = im;
   }
 
+  /**
+   * Street lighting.
+   *
+   * Part of the same refinement pass as the rooftops (owner: "the city looks
+   * pretty funky… lets do a refinement of the city"). These were 1.6 m cubes
+   * of pure unlit yellow floating 7.5 m up with nothing under them — six
+   * hundred of them, and at the size and brightness they were set to, a
+   * significant share of the "light all over" the city was theirs. They are
+   * now a lamp head a third of the size on a real column, which is what makes
+   * a street read as a street from the air: the LINES matter, the individual
+   * blobs do not.
+   */
   buildStreetLights(rand) {
     const cfg = this.cfg;
     const want = 620;
     const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), unlit(0xffdc9a), want);
     im.name = 'squatchbourg-streetlights';
+    // The columns. One extra draw call for six hundred lamp posts.
+    const poles = new THREE.InstancedMesh(
+      cylGeo(0.16, 0.2, 1, 5),
+      new THREE.MeshStandardMaterial({ color: 0x2e3038, roughness: 0.95, metalness: 0.1 }),
+      want,
+    );
+    poles.name = 'squatchbourg-streetlight-poles';
     this.lightPos = [];
     let placed = 0;
     for (let guard = 0; guard < want * 8 && placed < want; guard++) {
@@ -720,18 +777,27 @@ export class TargetCity {
       const onX = Math.abs(lx - sx) < Math.abs(lz - sz);
       const px = onX ? sx : lx;
       const pz = onX ? lz : sz;
-      _dummy.position.set(px, this.groundAt(px, pz) + 7.5, pz);
+      const ground = this.groundAt(px, pz);
+      const h = 7.2;
+      _dummy.position.set(px, ground + h, pz);
       _dummy.rotation.set(0, 0, 0);
-      _dummy.scale.set(1.6, 1.6, 1.6);
+      _dummy.scale.set(0.95, 0.42, 0.95);
       _dummy.updateMatrix();
       im.setMatrixAt(placed, _dummy.matrix);
+      _dummy.position.set(px, ground + h / 2, pz);
+      _dummy.scale.set(1, h, 1);
+      _dummy.updateMatrix();
+      poles.setMatrixAt(placed, _dummy.matrix);
       this.lightPos.push({ x: px, z: pz });
       placed++;
     }
     im.count = placed;
+    poles.count = placed;
     im.instanceMatrix.needsUpdate = true;
-    this.group.add(im);
+    poles.instanceMatrix.needsUpdate = true;
+    this.group.add(im, poles);
     this.parts.lights = im;
+    this.parts.lightPoles = poles;
   }
 
   /** The park, the avenues and the allotments out past the terraces. */
@@ -1219,7 +1285,11 @@ export class TargetCity {
     };
     sweep(this.rooftopOwner, this.parts.clutter, 'instance');
     sweep(this.chimneyOwner, this.parts.chimneys, 'instance');
+    // Lamp heads and their columns share `lightPos`, so they go together —
+    // a street of poles standing under lamps that are no longer there would
+    // be a strange thing to leave behind.
     sweep(this.lightPos, this.parts.lights, 'instance');
+    sweep(this.lightPos, this.parts.lightPoles, 'instance');
     sweep(this.treePos, this.parts.trees, 'instance');
     sweep(this.railPos, this.parts.railStock, 'instance');
     sweep(this.craftPos, this.parts.riverCraft, 'instance');
@@ -1238,8 +1308,11 @@ export class TargetCity {
     if (this.parts.buildings.instanceColor) this.parts.buildings.instanceColor.needsUpdate = true;
     this.parts.houses.instanceMatrix.needsUpdate = true;
     this.parts.roofs.instanceMatrix.needsUpdate = true;
-    // The lit windows are out — the town has no power and no windows.
-    this.parts.buildings.material.emissiveIntensity = 0.04;
+    /* The lit windows are out — the town has no power and no windows. Off the
+     * stored WALL material rather than off `parts.buildings.material`, which
+     * is an array of six face slots now (see `buildBlocks()`); writing
+     * `emissiveIntensity` onto an array quietly does nothing. */
+    this.parts.buildingWallMat.emissiveIntensity = 0.04;
     /* The ground plate and the river go with the middle: both run right across
      * ground zero, and leaving them drawn puts a street map and a flat blue
      * ribbon lying across the floor of a hundred-metre hole. */

@@ -94,37 +94,91 @@ function faceTexture() {
   return tex;
 }
 
-/** The main side placard: three lines, painted like a stencil. */
+/**
+ * The main side placard.
+ *
+ * Owner playtest, 2026-08-04: "Lets shrink the sign of the This way towards
+ * Ops banner on the fat Squatch and make it look like a sticker attached to
+ * it."
+ *
+ * It was a banner. A 2.2 x 0.92 m opaque slab hung on a casing 1.9 m across —
+ * so it wrapped most of the side of the bomb, its square corners stood proud
+ * of a round object, and the purple girth band came straight through the
+ * middle of it because the band sits at 1.02 of the body radius and the
+ * placard sat at 0.99.
+ *
+ * Now it is drawn like the little `stickerTexture()` labels beside it, only
+ * bigger and printed properly: a rounded, die-cut label on a transparent
+ * canvas with a peeled corner and a purple keyline. Everything outside the
+ * label is clear, so the casing shows through and the thing reads as
+ * something the depot stuck on rather than a hoarding bolted to the side.
+ */
 function mainPlacardTexture() {
+  const W = 640;
+  const H = 320;
   const c = document.createElement('canvas');
-  c.width = 768; c.height = 320;
+  c.width = W; c.height = H;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#d8d2de';
-  ctx.fillRect(0, 0, 768, 320);
-  for (let i = 0; i < 240; i++) {
+  ctx.clearRect(0, 0, W, H);
+
+  // The die-cut label itself: rounded corners, inset from the canvas edge so
+  // the alpha has somewhere to be transparent.
+  const m = 26;
+  ctx.fillStyle = '#e6e0ee';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(m, m, W - m * 2, H - m * 2, 34);
+  else ctx.rect(m, m, W - m * 2, H - m * 2);
+  ctx.fill();
+  // Print wear, clipped to the label.
+  ctx.save();
+  ctx.clip();
+  for (let i = 0; i < 200; i++) {
     ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.05})`;
-    ctx.fillRect(Math.random() * 768, Math.random() * 320, Math.random() * 30, Math.random() * 4);
+    ctx.fillRect(Math.random() * W, Math.random() * H, Math.random() * 26, Math.random() * 4);
   }
+  ctx.restore();
+  // Keyline, inside the die cut, the way a printed label has one.
   ctx.strokeStyle = '#4a2f8f';
-  ctx.lineWidth = 10;
-  ctx.strokeRect(10, 10, 748, 300);
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(m + 12, m + 12, W - m * 2 - 24, H - m * 2 - 24, 24);
+  else ctx.rect(m + 12, m + 12, W - m * 2 - 24, H - m * 2 - 24);
+  ctx.stroke();
+
   ctx.fillStyle = '#241a3a';
   ctx.textAlign = 'center';
-  ctx.font = '900 74px Trebuchet MS, sans-serif';
-  ctx.fillText('FAT SQUATCH', 384, 110);
-  ctx.font = '700 38px Trebuchet MS, sans-serif';
-  ctx.fillStyle = '#8a2020';
-  ctx.fillText('HANDLE WITH RESPECT', 384, 190);
-  ctx.fillStyle = '#241a3a';
+  ctx.font = '900 68px Trebuchet MS, sans-serif';
+  ctx.fillText('FAT SQUATCH', W / 2, 128);
   ctx.font = '700 34px Trebuchet MS, sans-serif';
-  ctx.fillText('THIS SIDE TOWARD THE OPS', 384, 250);
+  ctx.fillStyle = '#8a2020';
+  ctx.fillText('HANDLE WITH RESPECT', W / 2, 184);
+  ctx.fillStyle = '#241a3a';
+  ctx.font = '700 30px Trebuchet MS, sans-serif';
+  ctx.fillText('THIS SIDE TOWARD THE OPS', W / 2, 232);
   // An arrow, so the instruction is unambiguous even if the reading is not.
   ctx.strokeStyle = '#241a3a';
-  ctx.lineWidth = 8;
+  ctx.lineWidth = 7;
   ctx.beginPath();
-  ctx.moveTo(230, 268); ctx.lineTo(538, 268);
-  ctx.moveTo(500, 250); ctx.lineTo(538, 268); ctx.lineTo(500, 286);
+  ctx.moveTo(196, 252); ctx.lineTo(444, 252);
+  ctx.moveTo(412, 236); ctx.lineTo(444, 252); ctx.lineTo(412, 268);
   ctx.stroke();
+
+  // One corner lifting, which is the whole difference between a sticker and
+  // a sign. Drawn as a lighter triangle of backing paper folded up.
+  ctx.fillStyle = '#f4f1f8';
+  ctx.beginPath();
+  ctx.moveTo(W - m - 62, H - m);
+  ctx.lineTo(W - m, H - m);
+  ctx.lineTo(W - m, H - m - 62);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(36,26,58,0.4)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(W - m - 62, H - m);
+  ctx.lineTo(W - m, H - m - 62);
+  ctx.stroke();
+
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -246,10 +300,23 @@ export class FatSquatch {
     g.add(face);
     this.parts.face = face;
 
-    // ---- Main placard, opposite the face ----
-    const placardMat = mat({ map: mainPlacardTexture(), roughness: 0.75, unique: true });
-    const placard = flatMesh(planeGeo(2.2, 0.92), placardMat, -BODY_R * 0.99, 0, 0.3);
+    /* ---- Main placard, opposite the face ----
+     *
+     * Half the size it was (2.2 x 0.92 m down to 1.15 x 0.58) and stuck on
+     * rather than bolted on: transparent surround, `alphaTest` so the clear
+     * corners really are clear, and a couple of degrees of roll because
+     * nobody at the depot lines a label up with anything.
+     *
+     * Moved forward to z 0.95 as well, clear of the purple girth band at
+     * z 0.4 — the band stands 1.02 of the body radius out and the placard sat
+     * at 0.99, so the band used to run straight through the middle of it. */
+    const placardMat = mat({
+      map: mainPlacardTexture(), roughness: 0.75, transparent: true, alphaTest: 0.05, unique: true,
+    });
+    const placard = flatMesh(planeGeo(1.15, 0.58), placardMat, -BODY_R * 1.01, 0.06, 0.95);
     placard.rotation.y = -Math.PI / 2;
+    placard.rotation.z = 0.06;
+    placard.name = 'fat-squatch-ops-sticker';
     g.add(placard);
     this.parts.placard = placard;
 
@@ -375,6 +442,46 @@ export class FatSquatch {
     this.fallTime = 0;
     this.impacted = false;
     this.impactPoint = null;
+  }
+
+  /**
+   * Put it back on the mount. The undo for `release()`.
+   *
+   * THE UNWINNABLE RESTART (owner playtest, 2026-08-04: "I had to restart
+   * after I dropped the bomb and the area was already dentonated and the bomb
+   * was gone.")
+   *
+   * `release()` is a one-way door — `if (this.released) return;` — which is
+   * correct for a bomb and wrong for a checkpoint. Restoring the `preRelease`
+   * checkpoint put `payloadReleased` back to false on the MISSION, but the
+   * prop itself was still detached, still flagged `released` and `impacted`,
+   * and still lying in the crater where it went off. The second run's release
+   * sequence therefore called `release()`, got the early return, and nothing
+   * ever left the aeroplane: no fall, no `onImpact`, no detonation, and a
+   * mission parked in its `explosion` phase forever with an empty bomb bay.
+   *
+   * This is the honest inverse: back onto the mount at the local pose it was
+   * built with, straps done up again, every fall-state field cleared. Called
+   * by `MissionController.rearmPayload()`.
+   *
+   * @param {THREE.Object3D} mount normally `aircraft.anchors.payloadMount`
+   * @returns {boolean} whether anything had to be put back
+   */
+  rearm(mount) {
+    const wasGone = this.released;
+    this.released = false;
+    this.impacted = false;
+    this.impactPoint = null;
+    this.fallTime = 0;
+    this.velocity.set(0, 0, 0);
+    // The straps `open()` hid, done up again.
+    for (const strap of this.parts.strapMeshes) strap.visible = true;
+    if (mount && this.group.parent !== mount) mount.add(this.group);
+    this.group.position.set(0, 0, 0);
+    this.group.rotation.set(0, 0, 0);
+    this.group.quaternion.identity();
+    this.group.visible = true;
+    return wasGone;
   }
 
   /**

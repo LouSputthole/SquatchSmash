@@ -60,6 +60,33 @@ const COLOUR = {
 const SEAT_DROP = 0.45;
 const SEAT_FORWARD = -0.1;
 
+/**
+ * How far a seated man turns his head toward the man next to him.
+ *
+ * THE MISSING FACE (owner playtest, 2026-08-04: "I am much higher than capt
+ * sasole. Thats okay, but his face is also missing.")
+ *
+ * The photograph was never missing. `makeFigure` puts `assets/faces/sasole.png`
+ * on material index 4 of the head box — the +Z face — because "the figure
+ * faces +z" (see the head block in `../beefrun/npc.js`), and it loads
+ * correctly: read back off the live scene it is a 715x1462 texture on the
+ * right slot. The problem is geometry, not art. Sasole sat bolt upright
+ * facing the windshield, 1.1 m to the pilot's right and half a metre BELOW
+ * his eye line, so the only faces of that box the player could ever see from
+ * the left seat were the ±X sides — and those are `wrap`, plain hair colour.
+ * A man with a photograph for a face, pointed at the glass, is a man with no
+ * face for everybody in the aeroplane.
+ *
+ * So the two men in the front seats turn their heads toward each other, which
+ * is what two people flying an aeroplane together do anyway. `updateFigure`
+ * only writes `neck.rotation.y` for figures whose pose is NOT 'sit' (see its
+ * `lookAt` block), so a yaw set here on a seated figure stays put for the rest
+ * of the flight and nothing has to run per frame to hold it.
+ *
+ * Positive yaw turns the head toward +X, which is the pilot's side.
+ */
+const HEAD_TURN_INBOARD = 0.92;
+
 export function createCrew() {
   const sasole = makeFigure({
     name: 'captain_lou_sasole',
@@ -196,26 +223,47 @@ export function createCrew() {
     if (crew.aboard) return;
     crew.aboard = true;
     const seats = aircraft.anchors.seats || {};
-    const sit = (f, parent, x, y, z, facing = 0) => {
+    const sit = (f, parent, x, y, z, facing = 0, headYaw = 0) => {
       setPose(f, 'sit');
       f.walk = null;
       f.lookAt = null;
       parent.add(f.group);
       f.group.position.set(x, y, z);
       f.group.rotation.set(0, facing, 0);
+      /* See `HEAD_TURN_INBOARD`: `updateFigure` leaves a seated figure's neck
+       * yaw alone, so this survives the whole flight without a per-frame hook
+       * and without a second animation system. */
+      f.neck.rotation.y = headYaw;
       // Nobody wants a floating name tag inside the cabin they are sitting in.
       if (f.tag) f.tag.visible = false;
     };
-    if (seats.copilot) sit(sasole, seats.copilot, 0, -SEAT_DROP, SEAT_FORWARD);
-    if (seats.navigator) sit(irish, seats.navigator, 0, -SEAT_DROP, SEAT_FORWARD);
+    /* Sasole, in the right-hand seat, turned toward the man flying — which is
+     * the whole fix for "his face is missing". He also sits 0.12 m higher than
+     * the pan drop the others use: the owner is happy to be taller than his
+     * captain ("Thats okay"), but half a metre of it made Sasole read as sunk
+     * into the floor rather than as a shorter man in the next seat. */
+    if (seats.copilot) sit(sasole, seats.copilot, 0.04, -SEAT_DROP + 0.12, SEAT_FORWARD, 0.16, HEAD_TURN_INBOARD);
+    /* Irish faces his chart table, which the seat itself is already turned
+     * toward — so his head only needs a nudge back up the cabin toward the
+     * flight deck he is calling headings to. */
+    if (seats.navigator) sit(irish, seats.navigator, 0, -SEAT_DROP, SEAT_FORWARD, 0, 0.5);
     /* Numbskull rides the bombardier's station in the nose glazing: prone
      * behind the sight rather than in a seat, which is why he is placed off
-     * the anchor directly instead of off a seat group. */
+     * the anchor directly instead of off a seat group.
+     *
+     * Owner: "a lot of clipping and intersecting." He was one of them — sat
+     * upright inside a nose cone that had tapered to about a metre across by
+     * then, so his shoulders and the crown of his head stood out through the
+     * skin. The cone now stops at the collar and the glasshouse in front of it
+     * is a real, hollow, 1.25 m bubble (see `EnolaSquatch.build()`), so he
+     * drops into it: crown just under the glass, boots just inside it. */
     const bomb = aircraft.anchors.bombardierStation;
-    sit(numbskull, aircraft.group, bomb.x, bomb.y - 0.34, bomb.z - 0.5, 0);
-    // The Shubenator, in the tail turret, facing aft.
+    sit(numbskull, aircraft.group, bomb.x, bomb.y - 1.12, bomb.z - 0.1, 0);
+    /* The Shubenator, in the tail turret, facing aft. Dropped 0.2 m for the
+     * same reason: the turret dome is 0.86 m of radius about y 0.05, and his
+     * head was crowning out through the top of it. */
     const gun = aircraft.anchors.rearGunSeat;
-    sit(shubes, aircraft.group, gun.x, gun.y - 0.42, gun.z - 0.1, Math.PI);
+    sit(shubes, aircraft.group, gun.x, gun.y - 0.62, gun.z - 0.1, Math.PI);
   };
 
   /**
