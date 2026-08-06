@@ -1001,6 +1001,42 @@ try {
       && hudVisible === false,
     JSON.stringify({ complete, sceneCompleteOverlay, hudVisible }));
 
+  // ---- Preview checkpoint links (?checkpoint=...) ------------------------
+  // Standalone scene, no `?preview=1` gate needed (see the doc comment above
+  // `jumpToPreviewCheckpoint` in src/silvercase/main.js). Each of the six
+  // owner-facing waypoints gets its own fresh page so `previewCheckpoint` is
+  // parsed from that page's own URL at load time, exactly the way an owner
+  // clicking a preview.html link would load it.
+  for (const [id, expectBeat] of [
+    ['car', 'CAR_RIDE'],
+    ['hallway', 'ARRIVE_HALLWAY'],
+    ['room', 'ESTABLISH_CONTROL'],
+    ['prayer', 'SQUATCH_PRAYER'],
+    ['bathroom', 'BATHROOM_AMBUSH'],
+    ['aftermath', 'AFTERMATH'],
+  ]) {
+    const cpPage = await browser.newPage({ viewport: { width: 960, height: 540 } });
+    const cpProblems = [];
+    cpPage.on('pageerror', (error) => cpProblems.push(error.message));
+    cpPage.on('console', (message) => {
+      if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
+    });
+    await cpPage.goto(`http://localhost:${PORT}/silvercase.html?checkpoint=${id}`, { waitUntil: 'load' });
+    await cpPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
+    const chip = await cpPage.evaluate(() => document.querySelector('#menu .subtitle')?.textContent ?? '');
+    const result = await cpPage.evaluate(() => {
+      window.silvercase.begin();
+      window.silvercase.tick(0.2);
+      return window.silvercase.state();
+    });
+    check(`?checkpoint=${id} loads staged and lands on ${expectBeat}`,
+      result.beat === expectBeat
+        && chip.startsWith('Preview checkpoint:')
+        && cpProblems.length === 0,
+      JSON.stringify({ beat: result.beat, chip, problems: cpProblems }));
+    await cpPage.close();
+  }
+
   check('no runtime console errors or page errors occurred', problems.length === 0,
     problems.join(' | ').slice(0, 800));
 } finally {

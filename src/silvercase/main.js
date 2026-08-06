@@ -130,6 +130,60 @@ function setObjective(text) {
   ui.objective.classList.add('show');
 }
 
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?checkpoint=...)                      */
+/*
+ * LOCAL support only, deliberately -- mirrors src/enolasquatch/main.js's own
+ * CHECKPOINT_ALIASES rather than routing through src/core/preview-mode.js,
+ * whose checkpoint parsers are each a different campaign scene's own
+ * vocabulary. Standalone scene, same as src/mansion/siege/main.js -- no
+ * import of core/campaign.js anywhere in this file, no saved progress to
+ * protect -- so this needs no `?preview=1` gate either, matching the siege's
+ * own `?checkpoint=` support.
+ *
+ * The mission's own one authored checkpoint is `SQUATCH_PRAYER` (see
+ * `CHECKPOINT` in state/SilverCaseStateMachine.js, and `restoreCheckpoint()`
+ * below, which already stages everything a retry from it needs). The other
+ * five waypoints below are not saveable checkpoints -- there is only one --
+ * so each one is staged by hand and then handed to the SAME `fsm.go()` the
+ * mission's own beats use, so the target beat's own `enter()` still runs for
+ * real (its dialogue, its positioning) exactly as a played run would reach
+ * it. `jumpToPreviewCheckpoint()`, near the bottom of this file, is where
+ * that staging happens.
+ */
+const SILVERCASE_CHECKPOINTS = Object.freeze({
+  car: 'car',
+  hallway: 'hallway',
+  room: 'room',
+  prayer: 'prayer',
+  bathroom: 'bathroom',
+  aftermath: 'aftermath',
+});
+const SILVERCASE_CHECKPOINT_LABELS = Object.freeze({
+  car: 'THE CAR RIDE',
+  hallway: 'THE HALLWAY',
+  room: 'CONTROL ESTABLISHED',
+  prayer: 'THE SQUATCH PRAYER',
+  bathroom: 'THE BATHROOM AMBUSH',
+  aftermath: 'THE AFTERMATH',
+});
+function previewCheckpointForLocation(locationLike = window.location) {
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(SILVERCASE_CHECKPOINTS, value)
+    ? SILVERCASE_CHECKPOINTS[value]
+    : null;
+}
+/** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = SILVERCASE_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+  const subtitle = document.querySelector('#menu .subtitle');
+  if (subtitle) subtitle.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  if (ui.beginBtn) ui.beginBtn.textContent = `START AT ${label}`;
+}
+
 /**
  * The on-screen game instruction — the owner's "pop up to kill the guy on the
  * couch", in the hub's own register rather than a character's.
@@ -751,6 +805,86 @@ function restoreCheckpoint() {
   clock.getDelta();
   lockPointer();
   fsm.go(CHECKPOINT);
+}
+
+/**
+ * Preview-only checkpoint jump.
+ *
+ * `car` and `hallway` need no staging at all: `CAR_RIDE.enter()` and
+ * `ARRIVE_HALLWAY.enter()` each fully rebuild the world visibility, the
+ * player's pose and Ape's position from nothing, exactly as they do when
+ * reached at the top of a fresh MENU boot -- so this only has to call
+ * `fsm.go()` and let the beat's own real `enter()` do the rest.
+ *
+ * `room` and everything after it happen inside the apartment, which nothing
+ * upstream of `ESTABLISH_CONTROL` sets on its own (the walk down the hallway
+ * normally does it), so the world visibility, the player's pose and the front
+ * door are staged here. `prayer` and everything after it additionally need
+ * the case found and closed, Deke shot on the couch, and both guns drawn --
+ * the same baseline `restoreCheckpoint()`, above, stages for the mission's
+ * one real, saveable checkpoint (`SQUATCH_PRAYER`) -- so this reuses that
+ * exact shape rather than a second, drifting copy of it. `bathroom` and
+ * `aftermath` layer Chester's own chair shooting and (for `aftermath`) a
+ * resolved bathroom ambush on top, the same persistent facts the mission
+ * itself leaves behind once those beats have actually played. Every waypoint
+ * ends by calling `fsm.go()` on the real target state, so that state's own
+ * `enter()` -- its dialogue, its instruction text -- still runs for real.
+ */
+function jumpToPreviewCheckpoint(id) {
+  if (id === 'car') { fsm.go(S.CAR_RIDE); return; }
+  if (id === 'hallway') { fsm.go(S.ARRIVE_HALLWAY); return; }
+
+  // Everything from here on has already walked in the (open) front door.
+  car.root.visible = false;
+  apartment.root.visible = true;
+  player.mode = 'walk';
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.pitchMin = -Math.PI / 2 + 0.05;
+  player.pitchMax = Math.PI / 2 - 0.05;
+  player.yawCenter = null;
+  player.velocity.set(0, 0, 0);
+  apartment.doors.frontDoor.group.rotation.y = apartment.doors.frontDoor.openRotationY;
+  setDoorColliderOpen(apartment.doors.frontDoor.collider, true);
+  // Just inside the door, where Ape is walking from -- ESTABLISH_CONTROL's
+  // own enter() lerps him the rest of the way to 'start' over about a second.
+  cast.ape.snapTo('door');
+
+  if (id === 'room') {
+    player.position.set(ANCHORS.frontDoorInside.x, 1.66, ANCHORS.frontDoorInside.z);
+    player.yaw = ANCHORS.frontDoorInside.yaw;
+    player.pitch = 0;
+    fsm.go(S.ESTABLISH_CONTROL);
+    return;
+  }
+
+  // prayer and later: control established, the case found and closed, Deke
+  // shot on the couch, both guns out -- restoreCheckpoint()'s own baseline
+  // for the mission's one real checkpoint.
+  apartment.props.caseOcclusion.visible = false;
+  apartment.props.case.close({ instant: true });
+  cast.deke.kill();
+  drawWeapon();
+  cast.ape.drawWeapon();
+  cast.ape.snapTo('chair');
+  player.position.set(RETRY_SPOT.x, 1.66, RETRY_SPOT.z);
+  player.yaw = yawToward(RETRY_SPOT, { x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z });
+  player.pitch = 0;
+
+  if (id === 'prayer') { fsm.go(S.SQUATCH_PRAYER); return; }
+
+  // bathroom and later: the man in the chair is down too, Ape's gun back at
+  // his side.
+  cast.chester.kill();
+  cast.ape.aimWeapon(false);
+
+  if (id === 'bathroom') { fsm.go(S.BATHROOM_AMBUSH); return; }
+
+  // aftermath: the bathroom ambush is already won.
+  cast.pruitt.reveal();
+  cast.pruitt.kill();
+  apartment.doors.bathroomDoor.group.rotation.y = apartment.doors.bathroomDoor.openRotationY;
+  fsm.go(S.AFTERMATH);
 }
 
 // ---------------------------------------------------------------- interactables
@@ -1499,7 +1633,8 @@ function beginScene() {
   running = true;
   sceneInventory.show();
   syncInventory();
-  fsm.go(S.CAR_RIDE);
+  if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
+  else fsm.go(S.CAR_RIDE);
   lockPointer();
 }
 
