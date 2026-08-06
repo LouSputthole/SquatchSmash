@@ -78,15 +78,17 @@ const speakerEl = document.getElementById('speaker');
  * `isPreviewMode()` the same way Enola's is -- a bare `?checkpoint=` on an
  * ordinary link must do nothing.
  *
- * Only `dock`/`underway`/`open_water`/`execution` are the mission's real,
- * saveable checkpoints (see `CHECKPOINTS` in src/core/no-wake-story.js). The
- * owner's waypoints below map onto that vocabulary where one exists
- * (`underway`, `inlet` -> `open_water`) and pose the later beats directly
- * where it doesn't -- `confrontation`/`body`/`return` replay the mission's own
- * progression functions (`beginConfrontation`, `prepareGuns`/`willyReturns`,
- * `fireExecution`, `disposeBody`) in order, the same way
- * src/mansion/siege/main.js's `jumpToCheckpoint` walks its own beat chain
- * instead of assigning `state.phase` by hand.
+ * `dock`/`underway`/`open_water`/`execution`/`weighted` are the mission's
+ * real, saveable checkpoints (see `CHECKPOINTS` in
+ * src/core/no-wake-story.js). The owner's waypoints below map onto that
+ * vocabulary where one exists (`underway`, `inlet` -> `open_water`,
+ * `weighted` -> `weighted`) and pose the later beats directly where it
+ * doesn't -- `confrontation`/`body`/`weighted`/`return` replay the mission's
+ * own progression functions (`beginCabinScene`, `readyToFire`/
+ * `fireExecution`, the same `bodyRig` calls `resumeCheckpoint()` makes for a
+ * resumed `weighted` save, `beginExit`/`restartEngine`) in order, the same
+ * way src/mansion/siege/main.js's `jumpToCheckpoint` walks its own beat
+ * chain instead of assigning `state.phase` by hand.
  */
 const NO_WAKE_CHECKPOINT_ALIASES = Object.freeze({
   dock: 'dock',
@@ -94,7 +96,7 @@ const NO_WAKE_CHECKPOINT_ALIASES = Object.freeze({
   inlet: 'inlet',
   confrontation: 'confrontation',
   body: 'body',
-  weighted: 'body',
+  weighted: 'weighted',
   return: 'return',
 });
 const NO_WAKE_CHECKPOINT_LABELS = Object.freeze({
@@ -103,6 +105,7 @@ const NO_WAKE_CHECKPOINT_LABELS = Object.freeze({
   inlet: 'THE INLET — OPEN WATER, IDLE',
   confrontation: 'THE CONFRONTATION',
   body: 'THE BODY',
+  weighted: 'THE WEIGHTS — WRAPPED AND BALLASTED',
   return: 'THE RIDE HOME',
 });
 function previewCheckpointForLocation(locationLike = window.location) {
@@ -1695,67 +1698,144 @@ function resumeCheckpoint() {
  * chain. `dock` reproduces what `beginBoarding()`'s own completion callback
  * does (see above), minus the animated walk across the boarding platform.
  * `underway`/`inlet` route straight through the console-debug handles this
- * file already exposes (`runtime.startUnderway()`/`runtime.skipDrive()`).
- * `confrontation`/`body`/`return` pose the later beats directly -- calling
- * `beginConfrontation()`, `fireExecution()` and `disposeBody()`, the exact
- * functions a played run calls -- because none of those three is one of the
- * mission's four saveable checkpoints (dock/underway/open_water/execution),
- * so there is no earlier real checkpoint to route them through the way
- * `resumeCheckpoint()`, above, routes `underway`/`open_water`. Each of these
- * is real, live state: `confrontation` leaves the confrontation dialogue and
- * the beats after it (below decks, the guns, the return leg) to keep
- * advancing on the page's own timers exactly as they would in a played run,
- * and `return` will genuinely finish the mission and navigate home after the
- * same ride-in that a real playthrough takes.
+ * file already exposes on `window.NO_WAKE`
+ * (`runtime.startUnderway()`/`runtime.skipDrive()`). `confrontation` stages
+ * the same real state `killEngines()` and `goBelow()` reach by the time they
+ * hand the mission off to the cabin, then calls `beginCabinScene()` directly
+ * so the confrontation dialogue plays out for real from the top on the
+ * page's own timers. `body`/`weighted`/`return` pose the beats after it
+ * directly -- none of those three is one of the mission's five saveable
+ * checkpoints (dock/underway/open_water/execution/weighted) reachable from
+ * an earlier one still ahead of it, so there is no earlier real checkpoint
+ * to route them through the way `resumeCheckpoint()`, above, routes
+ * `underway`/`open_water`/past-execution resumes. `body` calls
+ * `readyToFire()` then `fireExecution()`, the exact functions a played run
+ * calls, and lets `fireExecution()`'s own real (non-frame-bound) timers drop
+ * Willy on their own schedule. `weighted` mirrors `resumeCheckpoint()`'s own
+ * `checkpoint === 'weighted'` branch exactly: the body wrapped and
+ * ballasted without sitting through the shooting. `return` continues past
+ * that into the same real state `updateDisposal()` reaches right before it
+ * calls `beginExit()`, then restarts both engines for real -- the same
+ * functions the ignition switches call -- so the ride home is genuinely
+ * drivable rather than merely posed.
  */
 function jumpToPreviewCheckpoint(id) {
+  state.boarding = false;
   state.boarded = true;
-  boat.boardingBridge.visible = false;
+  boat.gangway.visible = false;
   boat.targets.board.visible = false;
   player.mode = 'walk';
   player.enabled = true;
-  player.ground = boat.root.position.y + boat.deck.height;
+  player.ground = boat.root.position.y + DECK_H;
   player.eyeHeight = 1.66;
   player.targetEye = 1.66;
   player.yawCenter = null;
   player.yawRange = Math.PI;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72)));
+  player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.60, DECK_H + 1.66, 3.10)));
+  player.yaw = boat.root.rotation.y + Math.PI;
+  player.pitch = -.06;
   player.velocity.set(0, 0, 0);
   interaction.setPaused(false);
   hud.toast('Aboard · Gate C', 'good');
-  setObjective('Start the boat', 'Battery · blower · ignition');
   story.checkpoint('dock');
+  phase('startup');
+  refreshStartupObjective();
   if (id === 'dock') return;
 
   runtime.startUnderway();
   if (id === 'underway') return;
 
-  runtime.skipDrive();
-  // A played run reaches `coast` with the cruiser still doing real way
+  // A played run reaches the inlet with the cruiser still doing real way
   // through the water -- this jump never actually drove it, so `speed` is
   // still zero, and `updateBoat()`'s own idle check would read that as
-  // "already at rest" and fire the confrontation on the very next frame,
-  // leaving no real inlet to preview. Give it the same cruising speed the
+  // "already at rest" and kill the engines on the very next frame, leaving
+  // no real coast-down to preview. Give it the same cruising speed the
   // real drive ends at (see the "released cruiser accelerates" checkpoint
   // check in tools/verify-no-wake.mjs) so it coasts down for real before
   // the same real trigger fires -- not held open artificially, just not
   // starting already past it.
+  runtime.skipDrive();
   physics.speed = 4.9;
   if (id === 'inlet') return;
 
+  // confrontation/body/weighted/return: the same real state killEngines()
+  // and goBelow() reach by the time they hand the mission off to the cabin.
+  leaveHelm({ force: true });
+  physics.anchored = true;
+  physics.running = false;
+  physics.speed = 0;
+  state.enginesKilled = true;
+  boat.controls.running.setOn(false);
+  boat.controls.ignitionPort.setOn(false);
+  boat.controls.ignitionStarboard.setOn(false);
+  state.ignitionPort = false;
+  state.ignitionStarboard = false;
+  world.setBelow(true);
+  state.below = true;
+  player.mode = 'walk';
+  player.enabled = true;
+  player.ground = boat.root.position.y + CABIN_H;
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.yawCenter = null;
+  player.yawRange = Math.PI;
+  player.pitchMin = -Math.PI / 2 + .05;
+  player.pitchMax = Math.PI / 2 - .05;
+  player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.06, CABIN_H + 1.66, -2.52)));
+  player.velocity.set(0, 0, 0);
+  interaction.setPaused(false);
+  enterEnclosure();
+
   if (id === 'confrontation') {
-    beginConfrontation();
+    beginCabinScene();
     return;
   }
 
-  // body/return pose the execution directly rather than sitting through the
-  // confrontation dialogue -- see the doc comment above.
-  prepareGuns();
-  willyReturns();
-  fireExecution();
-  if (id === 'body') return;
+  cabin.setLampLevel(1);
+  cabin.setDoorsClosed(true);
+  placeCabinCast();
 
-  disposeBody();
+  if (id === 'body') {
+    readyToFire();
+    fireExecution();
+    // fireExecution()'s own volley timers (real setTimeout, not frame-bound)
+    // call dropWilly() about a second later, landing `state.phase` on
+    // 'body' exactly as a played run reaches it.
+    return;
+  }
+
+  // weighted/return skip the shooting entirely and stage the body already
+  // wrapped and ballasted -- the same real state resumeCheckpoint()'s own
+  // `checkpoint === 'weighted'` branch reaches for a resumed campaign run.
+  prepareGuns();
+  story.checkpoint('execution');
+  bodyRig.swapToWrapped(boat.cast.willy);
+  bodyRig.foldSide('port');
+  bodyRig.foldSide('starboard');
+  bodyRig.fastenStraps();
+  bodyRig.closeBag();
+  bodyRig.attachBallast(boat.ballast);
+  story.checkpoint('weighted');
+
+  if (id === 'weighted') {
+    beginCarry();
+    return;
+  }
+
+  // return: the same real state `updateDisposal()`'s own chain reaches
+  // right before it calls `beginExit()`, then restart both engines for
+  // real -- the same functions the ignition switches call -- so the ride
+  // home is genuinely drivable rather than merely posed.
+  state.bodyDisposed = true;
+  bodyRig.disposeTo(1);
+  state.below = false;
+  world.setBelow(false);
+  cabin.setDoorsClosed(false);
+  boat.bodyMarker.visible = false;
+  sayThenObjective(NO_WAKE_BODY_LINES.startHer, 'LEAVE THE INLET', 'Both engines · then the helm');
+  beginExit();
+  restartEngine('port');
+  restartEngine('starboard');
 }
 
 function showEntryAvailability() {
