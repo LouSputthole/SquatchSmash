@@ -1114,8 +1114,15 @@ try {
     });
     return counts;
   });
+  /* The counts are structural, not pinned: the third-floor suite added its
+   * own sconces and stair balusters to the same instanced pools (38/127 the
+   * day it landed), and a legitimate build change must not fail this check.
+   * What CAN'T drift is the consistency between an instanced fixture's own
+   * parts -- a shade without an arm is the instancing bug this guards. */
   check('the siege inherits the tour\'s instanced sconces, balusters, gold bars and fence',
-    siegeInstancing['sconce-shade'] === 30
+    siegeInstancing['sconce-shade'] >= 30
+      && siegeInstancing['sconce-shade'] === siegeInstancing['sconce-arm']
+      && siegeInstancing['sconce-shade'] === siegeInstancing['sconce-backplate']
       && siegeInstancing['baluster-shaft'] > 0
       && siegeInstancing['baluster-shaft'] === siegeInstancing['baluster-collar-top']
       && siegeInstancing['vault-gold-bar'] === 171

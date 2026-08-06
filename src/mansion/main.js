@@ -877,43 +877,9 @@ interaction.register(interior.props.kitchen.sinkTarget, {
   onUse: () => setSink(!sinkRunning),
 });
 
-/* ---- THE BOOK THAT OPENS THE BOOKCASE.
- *
- * Owner playtest: the concealed door in Lou's office was a comment in a brief
- * and nothing else, and he went looking for the secret area behind it. It is
- * real now (`MansionInterior.buildOfficeSecretDoor`) and this is the only way
- * a player learns that.
- *
- * SUBTLE, WHICH MEANS: the prompt is on ONE BOOK, not on the bookcase, so it
- * only appears when the crosshair is on a single 130 mm volume; the label is
- * flat prose until it has been used once, so the room does not announce
- * itself; and there is no HUD objective, no marker and no bark. Everything
- * else in this house that does something says what it does. This one does
- * not, and that is the whole design of it. */
-const secretDoor = interior.props.office.secretDoor;
-let secretFound = false;
-interaction.register(secretDoor.latch, {
-  label: () => {
-    if (!secretFound) return 'A volume in a different binding, standing proud of the shelf';
-    return secretDoor.isOpen ? 'Swing the <b>bookcase</b> back' : 'Pull the <b>book</b>';
-  },
-  enabled: () => running,
-  onUse: () => {
-    secretFound = true;
-    const opening = secretDoor.toggle();
-    /* ITS OWN CUES, and not the cellar's. The first draft of this played
-     * `silent.bust.switch` / `silent.wall.mechanism`, which is wrong twice
-     * over: those describe two tonnes of masonry on hydraulic rails taking
-     * six seconds, and this is a piece of furniture on a pivot -- and they
-     * are not in `assets/sfx/manifest.json` at all (SilentSquatch.js authors
-     * them locally and lets them fall through to the synth), so `npm run
-     * check` was reporting a cue that could never be given a recording. See
-     * docs/ENGINE-TRAPS.md #3: the manifest is the truth. */
-    audio.play('mansion.bookcase.latch', { volume: 0.55 });
-    audio.play(opening ? 'mansion.bookcase.swing' : 'mansion.bookcase.seat', { volume: 0.4, delay: 0.25 });
-    return true;
-  },
-});
+/* The old same-floor closet secret and its book latch are gone: the suite's
+ * private stair superseded them, and its bookcase registers its own
+ * interaction above ("One of these is not a bookcase"). */
 
 /** Either radio set: switch it on, or move the station over to it. */
 for (const [set, where] of [
