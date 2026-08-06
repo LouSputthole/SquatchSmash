@@ -38,6 +38,7 @@ import { buildMansionInterior, FOYER, OFFICE, GALLERY } from '../scenes/MansionI
 import { Player } from '../../core/player.js';
 import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
+import { PostFX } from '../../core/postfx.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
@@ -116,10 +117,32 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.08, 260);
 scene.add(camera);
 
+/*
+ * PostFX -- the same bloom pass the tour mounts (src/mansion/main.js), tuned
+ * a shade hotter for a night that is lit by the moon, three lamps and
+ * whatever is on fire. The siege runs through the same rooms the tour does
+ * (same sconces, same chandeliers, same television sets) plus its own
+ * emissive dressing -- `dressing.js`'s breathing fire and LED strips, muzzle
+ * flashes, the alarm's emergency posts -- so a strength/threshold pair tuned
+ * for a quiet walkthrough would either miss the fire or, raised to catch it,
+ * blow the sconces out. Threshold stays close to the tour's (this is still
+ * the same house, lit the same way, most of the time); strength is a touch
+ * higher so the fire and the muzzle flashes read as light sources rather
+ * than as flat bright shapes. The `#alarmWash`/`#damageWash` overlays are
+ * plain CSS elements outside the canvas and never touch this pass.
+ */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.1;
+  postfx.bloom.strength = 0.34;
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* ================================================================== */
@@ -695,6 +718,8 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) armory.put();
   /* The line. Once, ever, and only with the heavy up on the landing. */
   if (e.code === 'KeyF' && !e.repeat) tryTheLine();
+  // B — the same bloom toggle every PostFX-mounted scene answers to.
+  if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
@@ -942,7 +967,7 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !pauseMenu.isPaused()) updateGame(dt);
-  if (renderEnabled) { renderer.render(scene, camera); framesRendered++; }
+  if (renderEnabled) { postfx.render(); postfx.sample(dt); framesRendered++; }
 }
 requestAnimationFrame(frame);
 
@@ -973,6 +998,7 @@ window.mansionSiege = {
   scene,
   camera,
   renderer,
+  postfx,
   player,
   audio,
   interaction,
