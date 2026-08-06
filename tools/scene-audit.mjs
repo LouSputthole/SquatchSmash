@@ -127,7 +127,15 @@ const AUDIT = `(() => {
     root.updateMatrixWorld(true);
     root.traverse((n) => {
       if (!n.isMesh || !n.geometry) return;
-      if (n.visible === false) return;
+      /* AN INVISIBLE PARENT HIDES ITS CHILDREN. Three draws nothing under a
+       * group with visible=false, so a mesh inside one is exactly as unseeable
+       * as a mesh with its own flag cleared -- and this audit already skips the
+       * latter, on the stated grounds that every class it reports is a VISUAL
+       * fault. Testing only the mesh's own flag made the difference concrete:
+       * NO WAKE's ballast bundle is built inside the closed forward locker with
+       * the group hidden until the player takes it, and the audit reported a
+       * cast-iron pig hanging in the air in a place no camera can ever be. */
+      for (let p = n; p; p = p.parent) if (p.visible === false) return;
       /* Skip things that are legitimately unbounded or per-frame: sky domes,
        * water planes, particle sprites and instanced crowds. */
       /* "flame" joined this list with the mansion siege. A flame lump is

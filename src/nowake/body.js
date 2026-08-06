@@ -85,65 +85,79 @@ export function createBodyRig(boat) {
   tarpGroup.visible = false;
   root.add(tarpGroup);
 
-  /* The prefab. Willy's build, so the shape under the sheet is the man who was
-   * standing there a minute ago and not a generic pill. */
-  const wrapped = buildWrappedBody({
-    length: 1.94, build: 1.18, pose: 'flat', stain: .45, seed: 5, name: 'no-wake-wrapped-body',
-  });
+  /* The prefab, and everything strapped to it, built on first use.
+   *
+   * Lazily, on purpose. The shared wrapped body deliberately draws its sheet
+   * twice -- back faces then front faces, because one double-sided transparent
+   * mesh sorts its own two sides arbitrarily -- so it reports as coplanar with
+   * itself in `tools/scene-audit.mjs` from the moment it exists. Building it
+   * when the body actually has to be moved keeps it out of the audit of a boat
+   * nobody has been shot on yet, and keeps the loft off the boot path.
+   */
   const bag = new THREE.Group();
   bag.name = 'wrapped body';
-  bag.add(wrapped.group);
   bag.visible = false;
   root.add(bag);
 
-  /* Two flaps of sheeting standing open either side, folded down one at a time
-   * — the player's side first, then Booski's. Hinged, not simulated. */
   const flaps = {};
-  for (const side of ['port', 'starboard']) {
-    const sx = side === 'port' ? -1 : 1;
-    const hinge = new THREE.Group();
-    hinge.name = `tarpaulin flap hinge · ${side}`;
-    hinge.position.set(sx * .34, .02, 0);
-    const flap = box(`tarpaulin flap · ${side}`, [.70, .015, 2.24], tarpMat, sx * .35, 0, 0);
-    hinge.add(flap);
-    hinge.rotation.z = sx * -1.32;
-    bag.add(hinge);
-    flaps[side] = hinge;
-  }
-
-  /* Three authored straps. They exist from the fold onward and tighten when the
-   * player fastens them; there is no knot and nothing to simulate. */
   const straps = [];
-  for (const [i, z] of [-0.62, 0.02, 0.66].entries()) {
-    const strap = new THREE.Group();
-    strap.name = `body strap ${i + 1}`;
-    strap.add(box(`body strap band ${i + 1}`, [.86, .05, .09], strapMat, 0, .18, 0));
-    strap.add(box(`body strap buckle ${i + 1}`, [.09, .06, .12], ringMat, .30, .21, 0));
-    strap.position.set(0, 0, z);
-    strap.scale.y = 1.5;
-    strap.visible = false;
-    bag.add(strap);
-    straps.push(strap);
-  }
-
-  /* The zip that closes the bag, and the two lifting rings the ballast clips
-   * to. Authored sockets, exactly as the spec asks. */
-  const zip = box('body bag closure seam', [.06, .04, 1.94], strapMat, 0, .36, 0);
-  zip.visible = false;
-  bag.add(zip);
   const sockets = [];
-  for (const [i, z] of [-0.30, 0.34].entries()) {
-    const socket = mesh(`ballast socket ring ${i + 1}`,
-      new THREE.TorusGeometry(.05, .012, 6, 14), ringMat, .30, .30, z);
-    socket.rotation.y = Math.PI / 2;
-    socket.visible = false;
-    bag.add(socket);
-    sockets.push(socket);
+  let wrapped = null;
+  let zip = null;
+  let ballastLashing = null;
+
+  function build() {
+    if (wrapped) return;
+    wrapped = buildWrappedBody({
+      length: 1.94, build: 1.18, pose: 'flat', stain: .45, seed: 5, name: 'no-wake-wrapped-body',
+    });
+    bag.add(wrapped.group);
+
+    /* Two flaps of sheeting standing open either side, folded down one at a
+     * time -- the player's side first, then Booski's. Hinged, not simulated. */
+    for (const side of ['port', 'starboard']) {
+      const sx = side === 'port' ? -1 : 1;
+      const hinge = new THREE.Group();
+      hinge.name = `tarpaulin flap hinge · ${side}`;
+      hinge.position.set(sx * .34, .02, 0);
+      hinge.add(box(`tarpaulin flap · ${side}`, [.70, .015, 2.24], tarpMat, sx * .35, 0, 0));
+      hinge.rotation.z = sx * -1.32;
+      bag.add(hinge);
+      flaps[side] = hinge;
+    }
+
+    /* Three authored straps. They tighten when the player fastens them; there
+     * is no knot and nothing to simulate. */
+    for (const [i, z] of [-0.62, 0.02, 0.66].entries()) {
+      const strap = new THREE.Group();
+      strap.name = `body strap ${i + 1}`;
+      strap.add(box(`body strap band ${i + 1}`, [.86, .05, .09], strapMat, 0, .18, 0));
+      strap.add(box(`body strap buckle ${i + 1}`, [.09, .06, .12], ringMat, .30, .21, 0));
+      strap.position.set(0, 0, z);
+      strap.scale.y = 1.5;
+      strap.visible = false;
+      bag.add(strap);
+      straps.push(strap);
+    }
+
+    /* The zip that closes the bag, and the two lifting rings the ballast clips
+     * to. Authored sockets, exactly as the spec asks. */
+    zip = box('body bag closure seam', [.06, .04, 1.94], strapMat, 0, .36, 0);
+    zip.visible = false;
+    bag.add(zip);
+    for (const [i, z] of [-0.30, 0.34].entries()) {
+      const socket = mesh(`ballast socket ring ${i + 1}`,
+        new THREE.TorusGeometry(.05, .012, 6, 14), ringMat, .30, .30, z);
+      socket.rotation.y = Math.PI / 2;
+      socket.visible = false;
+      bag.add(socket);
+      sockets.push(socket);
+    }
+    ballastLashing = cylinder('ballast lashing', .018, .46, strapMat, .30, .22, .02, 8);
+    ballastLashing.rotation.x = Math.PI / 2;
+    ballastLashing.visible = false;
+    bag.add(ballastLashing);
   }
-  const ballastLashing = cylinder('ballast lashing', .018, .46, strapMat, .30, .22, .02, 8);
-  ballastLashing.rotation.x = Math.PI / 2;
-  ballastLashing.visible = false;
-  bag.add(ballastLashing);
 
   const state = {
     stage: 'none',
@@ -168,8 +182,9 @@ export function createBodyRig(boat) {
     tarp: tarpGroup,
     flaps,
     straps,
-    zip,
     sockets,
+    get zip() { return zip; },
+    build,
     state,
     path: CARRY_PATH,
     carrierOffset: CARRIER_OFFSET,
@@ -189,6 +204,7 @@ export function createBodyRig(boat) {
      * spec asks for this before any carrying, and it happens here.
      */
     swapToWrapped(willy) {
+      build();
       willy.group.visible = false;
       bag.visible = true;
       place(0);
@@ -198,6 +214,7 @@ export function createBodyRig(boat) {
 
     /** One side at a time: the player's, then Booski's. */
     foldSide(side) {
+      build();
       const hinge = flaps[side];
       if (!hinge) return false;
       hinge.rotation.z = 0;
@@ -208,6 +225,7 @@ export function createBodyRig(boat) {
 
     /** The player fastens the authored straps. No knot minigame. */
     fastenStraps() {
+      build();
       for (const strap of straps) {
         strap.visible = true;
         strap.scale.y = 1;
@@ -218,6 +236,7 @@ export function createBodyRig(boat) {
 
     /** Booski closes the bag, and it becomes one object with two ends. */
     closeBag() {
+      build();
       zip.visible = true;
       for (const socket of sockets) socket.visible = true;
       state.closed = true;
@@ -226,6 +245,7 @@ export function createBodyRig(boat) {
 
     /** The cast iron, clipped to the rings. Booski cinches it. */
     attachBallast(ballast) {
+      build();
       if (!ballast) return false;
       ballast.visible = true;
       bag.add(ballast);

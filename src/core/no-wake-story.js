@@ -1,6 +1,7 @@
 import {
   EVENT_IDS,
   MISSION_IDS,
+  NO_WAKE_CHECKPOINT_IDS,
   SCENE_IDS,
   TIME_EVENT_IDS,
 } from './campaign.js';
@@ -14,10 +15,14 @@ import {
  * everything between the shot and the ballast is a chain of authored holds — a
  * player who stops after clipping the iron on should not have to sit through
  * the confrontation again to get back to the carry.
+ *
+ * THE LIST LIVES IN `campaign.js`, not here. Persisted campaign state is
+ * normalised against its own whitelist on every read, so a checkpoint this file
+ * banks and that file does not recognise is written and then silently thrown
+ * away. Adding `weighted` to one and not the other did exactly that, and the
+ * only symptom was a checkpoint that read back as null.
  */
-const CHECKPOINTS = Object.freeze([
-  'dock', 'underway', 'open_water', 'execution', 'weighted', 'returned',
-]);
+const CHECKPOINTS = NO_WAKE_CHECKPOINT_IDS;
 
 /** Campaign boundary for NO WAKE. Runtime detail stays in the scene. */
 class NoWakeStory {

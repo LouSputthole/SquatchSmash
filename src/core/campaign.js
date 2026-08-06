@@ -367,6 +367,26 @@ export const SILENT_SQUATCH_CHECKPOINT_IDS = Object.freeze([
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
+/**
+ * Which beat of the boat a NO WAKE save resumes at.
+ *
+ * Exported because `src/core/no-wake-story.js` has to use exactly this list and
+ * cannot be the one that owns it (it imports this module). The persisted state
+ * is normalised against this whitelist on every read, so a checkpoint the
+ * scene banks but this list does not know is silently discarded -- which is
+ * what happened when `weighted` was added to the story and not to here: the
+ * mission wrote it, the next read turned it into null, and a player who
+ * stopped after clipping the ballast on would have resumed from nothing.
+ */
+export const NO_WAKE_CHECKPOINT_IDS = Object.freeze([
+  'dock',
+  'underway',
+  'open_water',
+  'execution',
+  'weighted',
+  'returned',
+]);
+
 export const BANK_HEIST_CHECKPOINT_IDS = Object.freeze([
   'safehouse_ready',
   'bank_secured',
@@ -1365,8 +1385,8 @@ function normalize(saved) {
       },
       [MISSION_IDS.NO_WAKE]: {
         status: noWakeStatus,
-        checkpoint: ['dock', 'underway', 'open_water', 'execution', 'returned']
-          .includes(noWake.checkpoint) ? noWake.checkpoint : null,
+        checkpoint: NO_WAKE_CHECKPOINT_IDS.includes(noWake.checkpoint)
+          ? noWake.checkpoint : null,
         betrayalConfirmed: noWake.betrayalConfirmed === true,
         playerFired: noWake.playerFired === true,
         bodyDisposed: noWake.bodyDisposed === true,
