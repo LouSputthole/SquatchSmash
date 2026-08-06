@@ -1210,7 +1210,20 @@ export function makePerson(o = {}) {
         }));
       }
     }
-    /* ---- the waistcoat ----
+    /* ---- the waistcoat, the lapels and the business tie ----
+     *
+     * All of it gated on `!tuxedo`. A tuxedo builds its own complete front a
+     * few lines up in this same function -- bib, studs, cummerbund, satin
+     * lapels, and (in the script) a bow tie -- on exactly this plane, and
+     * until this gate existed this block ran anyway: Blond got a maroon
+     * business necktie hidden behind his own shirt front (harmless, it lost
+     * the z-fight) and, not harmless, a second pair of plain jacket-coloured
+     * lapels drawn inside his satin ones at a different x and a different
+     * lean, so a dark sliver of the wrong lapel showed past the satin one
+     * right next to the bow tie on every figure that wore both. Blond is the
+     * only tuxedo on the roster, which is the entire reason nobody had ever
+     * put the two together — until the owner did, as *"we fucked up his
+     * bowtie."*
      *
      * The rule the tuxedo wrote down applies again and in the same order:
      * build what is underneath first, then lay the outer garment over it. So
@@ -1224,127 +1237,129 @@ export function makePerson(o = {}) {
      * looks like a man wearing a suit.
      */
     const vestTop = 1.432;
-    body.add(box({
-      size: [0.075, 0.36, 0.02],
-      pos: [0, 1.36, D * 1.06],
-      mat: mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.9 }),
-    }));
-    if (threePiece) {
-      const vestMat = mat({
-        color: new THREE.Color(jacketColour).lerp(new THREE.Color(0x000000), 0.24).getHex(),
-        roughness: 0.84,
-      });
-      const vestHalf = 0.112 * Math.min(t, 1.25);
-      const vest = frontPanel({
-        name: 'suit.waistcoat',
-        width: vestHalf * 2, yTop: vestTop, yBottom: 1.152,
-        thickness: 0.022, mat: vestMat, lift: 0.008,
-      });
-      body.add(vest);
-      const face = vest.userData.faceZ;
-      /* The point. A waistcoat finishes in a V below the last button, and
-       * without it the garment ends in a straight hem that reads as a bib. */
-      const point = box({
-        name: 'suit.waistcoat.point',
-        size: [vestHalf * 1.05, vestHalf * 1.05, 0.021],
-        pos: [0, -vest.userData.halfHeight + 0.012, 0], mat: vestMat,
-      });
-      point.rotation.z = Math.PI / 4;
-      vest.add(point);
-      if (pinstripe) {
-        for (const sx of [-0.062, 0, 0.062]) {
-          vest.add(box({
-            name: 'suit.waistcoat.pinstripe',
-            size: [0.007, vest.userData.halfHeight * 1.88, 0.008],
-            pos: [sx * Math.min(t, 1.25), 0, face + 0.003], mat: stripeMat,
+    if (!tuxedo) {
+      body.add(box({
+        size: [0.075, 0.36, 0.02],
+        pos: [0, 1.36, D * 1.06],
+        mat: mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.9 }),
+      }));
+      if (threePiece) {
+        const vestMat = mat({
+          color: new THREE.Color(jacketColour).lerp(new THREE.Color(0x000000), 0.24).getHex(),
+          roughness: 0.84,
+        });
+        const vestHalf = 0.112 * Math.min(t, 1.25);
+        const vest = frontPanel({
+          name: 'suit.waistcoat',
+          width: vestHalf * 2, yTop: vestTop, yBottom: 1.152,
+          thickness: 0.022, mat: vestMat, lift: 0.008,
+        });
+        body.add(vest);
+        const face = vest.userData.faceZ;
+        /* The point. A waistcoat finishes in a V below the last button, and
+         * without it the garment ends in a straight hem that reads as a bib. */
+        const point = box({
+          name: 'suit.waistcoat.point',
+          size: [vestHalf * 1.05, vestHalf * 1.05, 0.021],
+          pos: [0, -vest.userData.halfHeight + 0.012, 0], mat: vestMat,
+        });
+        point.rotation.z = Math.PI / 4;
+        vest.add(point);
+        if (pinstripe) {
+          for (const sx of [-0.062, 0, 0.062]) {
+            vest.add(box({
+              name: 'suit.waistcoat.pinstripe',
+              size: [0.007, vest.userData.halfHeight * 1.88, 0.008],
+              pos: [sx * Math.min(t, 1.25), 0, face + 0.003], mat: stripeMat,
+            }));
+          }
+        }
+        /* Buttons down the middle, in the panel's own space so they stay on the
+         * cloth however far the belly under it tips the garment. */
+        for (let i = 0; i < 4; i++) {
+          vest.add(cylinder({
+            r: 0.0085, h: 0.005, seg: 8,
+            pos: [0, 0.096 - i * 0.062, face + 0.004], rotX: Math.PI / 2,
+            mat: mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 }),
           }));
         }
       }
-      /* Buttons down the middle, in the panel's own space so they stay on the
-       * cloth however far the belly under it tips the garment. */
-      for (let i = 0; i < 4; i++) {
-        vest.add(cylinder({
-          r: 0.0085, h: 0.005, seg: 8,
-          pos: [0, 0.096 - i * 0.062, face + 0.004], rotX: Math.PI / 2,
-          mat: mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 }),
-        }));
+      for (const sx of [-1, 1]) {
+        /* An open jacket wears its lapels further out and leaning harder, which
+         * is what opens the gap the waistcoat shows through -- and a jacket
+         * front hangs on the man, so it slopes with him like everything else. */
+        const lap = threePiece
+          ? frontPanel({
+            name: `suit.lapel.${sx < 0 ? 'left' : 'right'}`,
+            width: 0.086, yTop: 1.500, yBottom: 1.190, thickness: 0.021,
+            x: sx * 0.126 * Math.min(t, 1.25), mat: jacket,
+            lift: 0.014, splay: sx * 0.26,
+          })
+          : box({
+            name: `suit.lapel.${sx < 0 ? 'left' : 'right'}`,
+            size: [0.07, 0.26, 0.02],
+            pos: [sx * 0.06 * Math.min(t, 1.2), 1.352, D * 1.10], mat: jacket,
+            rotZ: sx * 0.22,
+          });
+        body.add(lap);
       }
-    }
-    for (const sx of [-1, 1]) {
-      /* An open jacket wears its lapels further out and leaning harder, which
-       * is what opens the gap the waistcoat shows through -- and a jacket
-       * front hangs on the man, so it slopes with him like everything else. */
-      const lap = threePiece
-        ? frontPanel({
-          name: `suit.lapel.${sx < 0 ? 'left' : 'right'}`,
-          width: 0.086, yTop: 1.500, yBottom: 1.190, thickness: 0.021,
-          x: sx * 0.126 * Math.min(t, 1.25), mat: jacket,
-          lift: 0.014, splay: sx * 0.26,
-        })
-        : box({
-          name: `suit.lapel.${sx < 0 ? 'left' : 'right'}`,
-          size: [0.07, 0.26, 0.02],
-          pos: [sx * 0.06 * Math.min(t, 1.2), 1.352, D * 1.10], mat: jacket,
-          rotZ: sx * 0.22,
-        });
-      body.add(lap);
-    }
-    body.add(box({
-      name: 'suit.tie',
-      /* Stops AT the waistcoat rather than in front of it: on a three-piece
-       * the tie disappears at the top button and everything below that is
-       * waistcoat. This is also what leaves the sternum free for the chain. */
-      size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
-      pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
-      mat: mat({ color: 0x6a1a24, roughness: 0.7 }),
-    }));
-    if (trim) {
-      /* What separates a suit from a dark rectangle: a knot at the top of the
-       * tie, two buttons where a jacket actually closes, a pocket square, and
-       * a collar with points. All of it in front of the chest, none of it
-       * cutting into the figure. */
-      const tieMat = mat({ color: 0x6a1a24, roughness: 0.7 });
-      const knot = box({
-        name: 'suit.tie.knot',
-        size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
-      });
-      body.add(knot);
-      // The tip, wider than the neck of the tie, hanging below the last
-      // button -- unless a waistcoat has already swallowed it.
-      if (!threePiece) {
-        body.add(box({
-          name: 'suit.tie.tip',
-          size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
-        }));
-      }
-      const shirtMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
-      for (const side of [-1, 1]) {
-        const point = box({
-          name: 'suit.collar.point',
-          size: [0.052, 0.062, 0.014],
-          pos: [side * 0.052, 1.455, D * 1.075], mat: shirtMat,
-        });
-        point.rotation.z = side * 0.34;
-        body.add(point);
-      }
-      const buttonMat = mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 });
-      /* An open jacket's buttons are on its own edge, out where the front
-       * hangs -- not closed across a waistcoat it is not fastened over. */
-      const buttonX = threePiece ? -0.152 : -0.052;
-      for (const by of [1.268, 1.192]) {
-        body.add(cylinder({
-          r: 0.0105, h: 0.005, seg: 8,
-          pos: [buttonX * t, by, D * 1.10], rotX: Math.PI / 2, mat: buttonMat,
-        }));
-      }
-      // Breast pocket square, on his left -- the figure faces +Z.
       body.add(box({
-        name: 'suit.pocket-square',
-        size: [0.05, 0.022, 0.010],
-        pos: [0.152 * t, 1.392, D * 1.115],
-        mat: mat({ color: 0xb8a05a, roughness: 0.68 }),
+        name: 'suit.tie',
+        /* Stops AT the waistcoat rather than in front of it: on a three-piece
+         * the tie disappears at the top button and everything below that is
+         * waistcoat. This is also what leaves the sternum free for the chain. */
+        size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
+        pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
+        mat: mat({ color: 0x6a1a24, roughness: 0.7 }),
       }));
-    }
+      if (trim) {
+        /* What separates a suit from a dark rectangle: a knot at the top of the
+         * tie, two buttons where a jacket actually closes, a pocket square, and
+         * a collar with points. All of it in front of the chest, none of it
+         * cutting into the figure. */
+        const tieMat = mat({ color: 0x6a1a24, roughness: 0.7 });
+        const knot = box({
+          name: 'suit.tie.knot',
+          size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
+        });
+        body.add(knot);
+        // The tip, wider than the neck of the tie, hanging below the last
+        // button -- unless a waistcoat has already swallowed it.
+        if (!threePiece) {
+          body.add(box({
+            name: 'suit.tie.tip',
+            size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
+          }));
+        }
+        const shirtMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
+        for (const side of [-1, 1]) {
+          const point = box({
+            name: 'suit.collar.point',
+            size: [0.052, 0.062, 0.014],
+            pos: [side * 0.052, 1.455, D * 1.075], mat: shirtMat,
+          });
+          point.rotation.z = side * 0.34;
+          body.add(point);
+        }
+        const buttonMat = mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 });
+        /* An open jacket's buttons are on its own edge, out where the front
+         * hangs -- not closed across a waistcoat it is not fastened over. */
+        const buttonX = threePiece ? -0.152 : -0.052;
+        for (const by of [1.268, 1.192]) {
+          body.add(cylinder({
+            r: 0.0105, h: 0.005, seg: 8,
+            pos: [buttonX * t, by, D * 1.10], rotX: Math.PI / 2, mat: buttonMat,
+          }));
+        }
+        // Breast pocket square, on his left -- the figure faces +Z.
+        body.add(box({
+          name: 'suit.pocket-square',
+          size: [0.05, 0.022, 0.010],
+          pos: [0.152 * t, 1.392, D * 1.115],
+          mat: mat({ color: 0xb8a05a, roughness: 0.68 }),
+        }));
+      }
+    }               // !tuxedo
   }
   if (trim && (dress === 'shirt' || dress === 'tee') && !performanceWear && !neckline && !tuxedo) {
     /* A shirt with a front. A placket down the middle with buttons on it and

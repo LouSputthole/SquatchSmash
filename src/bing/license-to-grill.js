@@ -144,6 +144,37 @@ export const BELONGINGS = Object.freeze([
   }),
 ]);
 
+/**
+ * The cart, the same way the table works.
+ *
+ * Owner's playtest note: he picked the meat tenderiser off the cart menu and
+ * nothing showed up in his hands, and there was no way to use it on Blond —
+ * the old `cart` options fired `apply()` the instant they were chosen, off a
+ * line in a menu, which is the exact interface problem the table's own note
+ * describes: *"each one you pick up triggers the voice dialogue and then you
+ * have the option to smash it,"* except the cart never got the "pick up"
+ * half at all. So a cart tool works exactly like the cord now: choosing one
+ * puts it in Tony's hands (`takeTool`), and using it on Blond — standing over
+ * him, the same reach the cord swings at — is what fires `node`, which is the
+ * exchange that already existed for it. `sauce` is worth the most precisely
+ * because it is the one thing on this cart he does not have a joke ready
+ * for; see `PRESSURE`.
+ */
+export const CART_TOOLS = Object.freeze([
+  Object.freeze({
+    id: 'tenderizer', label: 'The meat tenderiser', hand: 'The meat tenderiser', icon: '🔨', node: 'useTenderizer',
+  }),
+  Object.freeze({
+    id: 'ice', label: 'The ice bucket', hand: 'The ice bucket', icon: '🧊', node: 'useIce',
+  }),
+  Object.freeze({
+    id: 'tongs', label: 'The tongs', hand: 'The tongs', icon: '🍴', node: 'useTongs',
+  }),
+  Object.freeze({
+    id: 'sauce', label: 'The bottle with no label', hand: 'The unlabelled bottle', icon: '🧴', node: 'useSauce',
+  }),
+]);
+
 /** How many landed swings of the cord before Gratin points at the table. */
 export const SWINGS_BEFORE_THE_TABLE = 3;
 
@@ -306,12 +337,15 @@ const PROSPECT = 'Prospect';
 /**
  * @param {object} hooks
  *   takeCord()       put the cord in Tony's hands as a carried item
+ *   takeTool(id)     put a cart tool (`CART_TOOLS`) in Tony's hands
  *   apply(kind)      register an interrogation method
  *   ask(id)          register a question
  *   carAvailable()   has he had his things gone through
  *   threatenCar()    break him
  *   shubesDue()      is it bad enough for the mozzarella sticks
- *   markShubes()     the door has opened
+ *   markShubes()     the door has opened — this is where he physically
+ *                    walks in, not just where the flag is set
+ *   shubesLeaves()   the floor has the room back; he is not in it any more
  *   answerCounter()  respond to his pitch
  *   finish(ending)   end the scene
  *   broken()         has he given the name up yet
@@ -321,12 +355,14 @@ const PROSPECT = 'Prospect';
  */
 export function buildLicenseToGrillScript({
   takeCord = () => {},
+  takeTool = () => {},
   apply = () => ({ gain: 0, repeat: false }),
   ask = () => 0,
   carAvailable = () => false,
   threatenCar = () => false,
   shubesDue = () => false,
   markShubes = () => {},
+  shubesLeaves = () => {},
   answerCounter = () => 0,
   finish = () => {},
   broken = () => false,
@@ -507,6 +543,13 @@ export function buildLicenseToGrillScript({
     /* ---------------- the floor: everything else hangs off here ---------------- */
     floor: {
       who: GRATIN,
+      /* Reached constantly, for reasons that have nothing to do with
+       * Shubes — every cart use and every gratinTurn lands back here. So
+       * this is the one place that can safely say "he is not in the room
+       * any more" no matter which of those brought the player back to it:
+       * `shubesLeaves` only does anything the one time in twenty he was
+       * actually standing at the door. */
+      enter: () => { shubesLeaves(); },
       line: () => (carAvailable()
         ? 'He’s got a whole life in that jacket. Keep pulling.'
         : 'Well? He’s not going to volunteer.'),
@@ -632,19 +675,29 @@ export function buildLicenseToGrillScript({
       next: 'floor',
     },
 
-    /* ---------------- the cart ---------------- */
+    /* ---------------- the cart ----------------
+     *
+     * The two cord entries are gone from here — the cord is in Tony's hands
+     * already and swinging it is a mouse button, not a line on a menu.
+     *
+     * Owner's playtest note: he picked the meat tenderiser and nothing
+     * showed up in his hands, and there was no way to use it on Blond.
+     * Choosing one of these used to fire `apply()` off the menu line itself,
+     * which is the exact wrong interface the table's own belongings used to
+     * have — see `CART_TOOLS`. So picking one now puts it in Tony's hands
+     * (`takeTool`) and ends the thread rather than narrating the hit: what
+     * happens next is a mouse button, aimed the same way the cord is, and
+     * the node this used to jump straight to is what plays when it actually
+     * lands. See `useTool` in the runtime. */
     cart: {
       who: GRATIN,
       line: 'Help yourself. It’s a kitchen.',
-      /* The two cord entries are gone from here. The cord is in Tony's hands
-       * now and swinging it is a mouse button, not a line on a menu — leaving
-       * them would have offered the player a worse version of a thing they
-       * were already holding. */
-      options: [
-        { tone: 'Tool', text: 'The meat tenderiser.', next: 'useTenderizer' },
-        { tone: 'Tool', text: 'The ice bucket.', next: 'useIce' },
-        { tone: 'Tool', text: 'The tongs.', next: 'useTongs' },
-        { tone: 'Tool', text: 'The bottle with no label.', next: 'useSauce' },
+      options: () => [
+        ...CART_TOOLS.map((tool) => ({
+          tone: 'Tool',
+          text: `${tool.label}.`,
+          next: () => { takeTool(tool.id); return null; },
+        })),
         { tone: 'Back', text: 'Leave the cart alone.', next: 'floor' },
       ],
     },
@@ -659,7 +712,6 @@ export function buildLicenseToGrillScript({
       who: GRATIN,
       line: 'This is Tennessee. We got our own conventions.',
       hold: 3.2,
-      // He slams it on the cart. Nobody in this room actually uses it on him.
       next: () => backToWork(),
     },
     useIce: {
