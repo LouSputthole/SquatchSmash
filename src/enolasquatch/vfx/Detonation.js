@@ -43,7 +43,7 @@
  * owns the physics and reads `shockRadius` to decide when the front reaches
  * the aircraft. This file is scene dressing with a clock.
  *
- * Cost: one group, about thirty meshes and two lights, all unlit or basic
+ * Cost: one group, about fifty meshes and two lights, all unlit or basic
  * except the debris. Everything sets `fog: false` — see the note in
  * `_build()`.
  */
@@ -58,20 +58,27 @@ export const BLAST = Object.freeze({
    * is a browser game whose bombing run is flown at four hundred metres, so
    * the ball is deliberately smaller than life and the COLUMN carries the
    * scale instead — a fireball the aeroplane is standing inside is not a shot,
-   * it is a white screen. */
-  fireballRadius: 900,
+   * it is a white screen.
+   *
+   * Owner, 2026-08-06, on seeing the previous pass: "the mushroom cloud is
+   * good but needs to be more defined and more extreme." The whole BLAST
+   * table below is bigger as a set — not just the fireball, the column and
+   * the cap that carry the silhouette a player actually reads from three
+   * thousand feet — so the proportions this file's other comments describe
+   * (cap over stem, skirt at the foot, roll at the join) all still hold. */
+  fireballRadius: 1150,
   fireballGrow: 1.9,        // seconds to reach it
   /** The shock front. `shockSpeed` is the asymptote; `shockOvershoot` is how
    * many times faster than sound it leaves the fireball. */
   shockSpeed: 336,
   shockOvershoot: 3.4,
   shockDecay: 0.85,         // 1/s the overshoot bleeds off
-  shockMax: 7600,
+  shockMax: 9200,
   /** The column. */
-  stemTop: 4300,
+  stemTop: 5600,
   stemRise: 11.5,           // seconds for the head to reach the top
-  capRadius: 2700,
-  capThickness: 0.46,       // as a fraction of the cap radius
+  capRadius: 3400,
+  capThickness: 0.50,       // as a fraction of the cap radius — a heavier, more overhung head
   /** How long the ACTIVE event runs — the flash, the front, the column going
    * up. The phase timing hangs off this. What happens after it is the linger,
    * below, which is a different thing and a much longer one. */
@@ -378,7 +385,7 @@ export class Detonation {
      * of. */
 
     /* ---- The flash: a bare, enormous, additive ball of white ---- */
-    const flash = flatMesh(sphereGeo(1, 16, 12), ownMaterial(0xfffaf0, {
+    const flash = flatMesh(sphereGeo(1, 20, 14), ownMaterial(0xfffaf0, {
       blending: THREE.AdditiveBlending,
     }), 0, 40, 0);
     flash.renderOrder = 40;
@@ -402,15 +409,23 @@ export class Detonation {
      * against this route's pale night sky brightens the sky slightly and is
      * otherwise invisible. The outer shells are ordinary transparent geometry,
      * which is opaque enough to be a SHAPE, and the core stays additive so the
-     * middle still blows out to white. */
+     * middle still blows out to white.
+     *
+     * Owner, 2026-08-06: "more defined and more extreme." Peaks pushed up and
+     * `to` spread out further apart (0.42/0.62/0.80/0.94/1.00 unchanged in
+     * shape, bigger in absolute metres now that `fireballRadius` is) so each
+     * ring of colour reads as its own band rather than blurring into its
+     * neighbour, and every shell is a sphere with half again the resolution it
+     * had, since a shape this close to the screen for a second and a half is
+     * worth the extra facets. */
     const fire = [
       { colour: 0xffffff, to: 0.42, at: 0.30, fade: 1.5, add: true, peak: 1.0 },
-      { colour: 0xfff0b4, to: 0.62, at: 0.60, fade: 2.6, add: true, peak: 0.96 },
-      { colour: 0xffc23a, to: 0.80, at: 1.00, fade: 4.2, add: false, peak: 0.92 },
-      { colour: 0xff6a12, to: 0.94, at: 1.45, fade: 6.4, add: false, peak: 0.88 },
-      { colour: 0x8e1c0e, to: 1.00, at: 1.90, fade: 9.5, add: false, peak: 0.82 },
+      { colour: 0xfff0b4, to: 0.63, at: 0.60, fade: 2.6, add: true, peak: 1.0 },
+      { colour: 0xffb020, to: 0.81, at: 1.00, fade: 4.2, add: false, peak: 0.97 },
+      { colour: 0xff5a08, to: 0.95, at: 1.45, fade: 6.4, add: false, peak: 0.94 },
+      { colour: 0x7a1608, to: 1.00, at: 1.90, fade: 9.5, add: false, peak: 0.88 },
     ].map((spec, i) => {
-      const ball = flatMesh(sphereGeo(1, 24, 16), ownMaterial(spec.colour, {
+      const ball = flatMesh(sphereGeo(1, 32, 20), ownMaterial(spec.colour, {
         ...(spec.add ? { blending: THREE.AdditiveBlending } : {}),
       }), 0, 0, 0);
       ball.userData.spec = spec;
@@ -539,12 +554,15 @@ export class Detonation {
 
     /* The cap, and the roll inside it. A squashed sphere gives the silhouette;
      * a torus threaded through its equator gives the thing a real mushroom has
-     * and a lollipop does not — smoke curling under and back up into itself. */
-    const cap = flatMesh(sphereGeo(1, 28, 18), ownMaterial(0xa08262, {}), 0, 0, 0);
+     * and a lollipop does not — smoke curling under and back up into itself.
+     * Higher-resolution sphere than the previous pass ("more defined") — this
+     * is the shape a player looks back at for the rest of the mission, not a
+     * one-second flash, so the facets matter. */
+    const cap = flatMesh(sphereGeo(1, 36, 22), ownMaterial(0xa08262, {}), 0, 0, 0);
     cap.renderOrder = 9;
     g.add(cap);
     const capRoll = new THREE.Mesh(
-      new THREE.TorusGeometry(1, 0.34, 12, 40),
+      new THREE.TorusGeometry(1, 0.34, 12, 44),
       ownMaterial(0x6b5442, { side: THREE.DoubleSide }),
     );
     capRoll.geometry.userData.detonationOwned = true;
@@ -552,31 +570,54 @@ export class Detonation {
     capRoll.renderOrder = 9;
     g.add(capRoll);
 
+    /* The rim: a crisp, dark billboarded edge right at the cap's outer lip.
+     * A squashed sphere alone reads soft — nothing shades across an unlit
+     * mesh — and a real mushroom cloud's cap has a hard, turbulent rim where
+     * moisture is still condensing out of the rising air. That hard edge is
+     * most of what makes the silhouette read as a MUSHROOM at three thousand
+     * feet rather than a blob with a stick under it. Same billboard trick as
+     * `shellRing`: a sphere of radius R has a circular outline of radius R,
+     * so an annulus scaled to the cap radius traces it for free. Part of the
+     * PERMANENT cloud (not switched off in `_settle()`), because the edge is
+     * exactly what still reads once everything transient is gone. */
+    const capRim = new THREE.Mesh(
+      new THREE.RingGeometry(0.85, 1.0, 96),
+      ownMaterial(0x241a10, { side: THREE.DoubleSide, depthTest: false }),
+    );
+    capRim.geometry.userData.detonationOwned = true;
+    capRim.renderOrder = 9;
+    g.add(capRim);
+
     /* Puffs riding the cap. A squashed sphere on its own renders as one flat
-     * ellipse — nothing shades across it, because it is unlit — so eighteen of
-     * these break the silhouette into lumps and give the middle some contrast. */
+     * ellipse — nothing shades across it, because it is unlit — so
+     * twenty-six of these break the silhouette into lumps and give the
+     * middle some contrast (eighteen previously; more definition wanted
+     * more lumps). */
     const smoke = [];
-    for (let i = 0; i < 18; i++) {
-      const a = (i / 18) * Math.PI * 2;
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2;
       const puff = flatMesh(sphereGeo(1, 10, 7), ownMaterial(
         i % 3 === 0 ? 0x4a4038 : i % 3 === 1 ? 0x6b5a44 : 0x8a7358,
       ), 0, 0, 0);
       puff.userData.ang = a;
-      puff.userData.ring = 0.70 + (i % 5) * 0.08;
-      puff.userData.lift = 0.80 + (i % 4) * 0.13;
-      puff.userData.size = 0.26 + (i % 3) * 0.10;
+      puff.userData.ring = 0.68 + (i % 5) * 0.08;
+      puff.userData.lift = 0.78 + (i % 4) * 0.14;
+      puff.userData.size = 0.24 + (i % 3) * 0.11;
       puff.renderOrder = 9;
       g.add(puff);
       smoke.push(puff);
     }
 
-    /* Puffs riding the stem, so the column is a churn rather than a pipe. */
+    /* Puffs riding the stem, so the column is a churn rather than a pipe.
+     * Twenty now (fourteen previously) — a taller column (`stemTop` up 30%)
+     * needs more of them spaced along it or the churn thins out near the
+     * top. */
     const stemPuffs = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 20; i++) {
       const puff = flatMesh(sphereGeo(1, 8, 6), ownMaterial(i % 2 ? 0x6b5138 : 0x4a3a2a), 0, 0, 0);
-      puff.userData.at = 0.08 + (i / 14) * 0.86;
+      puff.userData.at = 0.06 + (i / 20) * 0.90;
       puff.userData.ang = i * 2.399;
-      puff.userData.size = 240 + (i % 4) * 90;
+      puff.userData.size = 260 + (i % 4) * 100;
       puff.renderOrder = 8;
       g.add(puff);
       stemPuffs.push(puff);
@@ -593,18 +634,20 @@ export class Detonation {
     gag.renderOrder = 30;
     g.add(gag);
 
-    /* Sixty pieces of what used to be Squatchbourg, on real ballistic arcs,
-     * trailing smoke. */
+    /* Eighty-four pieces of what used to be Squatchbourg (sixty previously),
+     * on real ballistic arcs, trailing smoke, thrown faster and higher — the
+     * owner's "more extreme" note applies to the violence of the moment as
+     * much as to the cloud it leaves behind. */
     const debris = [];
-    for (let i = 0; i < 60; i++) {
-      const a = (i / 60) * Math.PI * 2 + Math.random() * 0.4;
-      const size = 7 + Math.random() * 26;
+    for (let i = 0; i < 84; i++) {
+      const a = (i / 84) * Math.PI * 2 + Math.random() * 0.4;
+      const size = 7 + Math.random() * 30;
       const bit = mesh(boxGeo(size, size * (0.4 + Math.random()), size),
         solid(i % 3 ? 0x3a3428 : 0x5a5248, { roughness: 1 }), 0, 30, 0);
-      const speed = 150 + Math.random() * 380;
+      const speed = 180 + Math.random() * 460;
       bit.userData.vel = new THREE.Vector3(
         Math.cos(a) * speed,
-        220 + Math.random() * 420,
+        260 + Math.random() * 500,
         Math.sin(a) * speed,
       );
       bit.userData.spin = new THREE.Vector3(Math.random() * 4, Math.random() * 3, Math.random() * 5);
@@ -615,7 +658,7 @@ export class Detonation {
     this.scene.add(g);
     this.vfx = {
       group: g, flash, light, afterglow, fire, wilson, bubble, shellRing,
-      front, dustRing, scorch, surge, stem, skirt, cap, capRoll,
+      front, dustRing, scorch, surge, stem, skirt, cap, capRoll, capRim,
       smoke, stemPuffs, gag, debris,
     };
     return this.vfx;
@@ -701,19 +744,21 @@ export class Detonation {
       return !this.done;
     }
 
-    /* ---- The bare flash sphere ---- */
+    /* ---- The bare flash sphere ----
+     * Owner, 2026-08-06: "more extreme." 1500 -> 1900 m of peak flash radius,
+     * on the same curve. */
     const flashK = clamp(t / 0.42, 0, 1);
     v.flash.material.opacity = lum;
-    v.flash.scale.setScalar(lerp(8, 1500, Math.sqrt(flashK)));
+    v.flash.scale.setScalar(lerp(8, 1900, Math.sqrt(flashK)));
     v.flash.position.y = 40 + t * 20;
 
     /* ---- The lights ---- */
-    v.light.intensity = lum * 1.4e7;
+    v.light.intensity = lum * 1.7e7;
     v.light.color.setHex(t < 0.9 ? 0xffe8c0 : t < 3 ? 0xffa54a : 0xff6a24);
     v.light.position.y = 120 + this._headHeight(t) * 0.4;
     /* Comes up as the flash goes down and then takes half a minute to die —
      * the ground stays lit long after anybody can see the ball. */
-    v.afterglow.intensity = 2.4e6 * clamp(smoothstep(0.2, 1.6, t), 0, 1) * Math.exp(-t * 0.11);
+    v.afterglow.intensity = 2.9e6 * clamp(smoothstep(0.2, 1.6, t), 0, 1) * Math.exp(-t * 0.11);
     v.afterglow.position.y = 400 + this._headHeight(t) * 0.6;
 
     /* ---- The fireball, and its climb ---- */
@@ -779,8 +824,9 @@ export class Detonation {
     v.scorch.material.opacity = clamp(smoothstep(0.2, 1.4, t), 0, 1) * 0.7;
 
     /* The base surge: shorter than the front and much more opaque, because it
-     * is the part made of the ground rather than of the air. */
-    const surgeR = Math.min(R * 0.72, 2300);
+     * is the part made of the ground rather than of the air. Cap scaled up
+     * with the rest of the event (2300 -> 2900, the same ~26% the cap grew). */
+    const surgeR = Math.min(R * 0.72, 2900);
     v.surge.scale.set(surgeR, lerp(60, 560, clamp(t / 7, 0, 1)), surgeR);
     v.surge.position.y = lerp(40, 300, clamp(t / 7, 0, 1));
     v.surge.material.opacity = clamp(smoothstep(0.15, 0.9, t), 0, 1) * clamp(1 - (t - 9) / 11, 0, 1) * 0.5;
@@ -794,9 +840,9 @@ export class Detonation {
      * is still there when the player looks back from the coast. */
     v.stem.material.opacity = clamp(stemK * 2.2, 0, 0.7) * settle(t);
 
-    const skirtR = lerp(300, 1350, clamp(t / 9, 0, 1));
-    v.skirt.scale.set(skirtR, lerp(120, 900, clamp(t / 9, 0, 1)), skirtR);
-    v.skirt.position.y = lerp(60, 430, clamp(t / 9, 0, 1));
+    const skirtR = lerp(300, 1700, clamp(t / 9, 0, 1));
+    v.skirt.scale.set(skirtR, lerp(120, 1130, clamp(t / 9, 0, 1)), skirtR);
+    v.skirt.position.y = lerp(60, 540, clamp(t / 9, 0, 1));
     v.skirt.material.opacity = clamp(smoothstep(0.8, 2.4, t), 0, 1) * clamp(1 - (t - 16) / 12, 0, 1) * 0.4;
 
     /* ---- The cap. It only starts to unroll once the head is well up ---- */
@@ -811,6 +857,15 @@ export class Detonation {
     v.capRoll.position.y = capY - capR * 0.16;
     v.capRoll.material.opacity = capFade * 0.6;
     v.capRoll.rotation.z += dt * 0.24;
+
+    /* The rim — see its own note at construction. Billboarded exactly like
+     * `shellRing`, but sitting on the cap's own radius rather than the shock
+     * front's, so it grows and settles with the cloud instead of with the
+     * blast. */
+    if (this.camera) v.capRim.quaternion.copy(this.camera.quaternion);
+    v.capRim.position.y = capY;
+    v.capRim.scale.setScalar(capR * 1.02);
+    v.capRim.material.opacity = capFade * 0.7;
 
     for (const puff of v.smoke) {
       const u = puff.userData;
@@ -888,9 +943,9 @@ export class Detonation {
    * Owner: "I also want a giant classic mushroom cloud to linger over the
    * crater."
    *
-   * Deliberately slow and deliberately cheap — about thirty-five objects
-   * getting a position and an opacity, and no trigonometry that was not
-   * already there. The cap keeps spreading, because a real one does for a very
+   * Deliberately slow and deliberately cheap — about fifty objects getting a
+   * position and an opacity, and no trigonometry that was not already there.
+   * The cap keeps spreading, because a real one does for a very
    * long time; the whole column leans downwind and thins; the roll keeps
    * turning, at a quarter of the speed it turned while it was hot. It never
    * reaches zero inside `BLAST.lingerSeconds`, which is longer than the flight
@@ -919,6 +974,15 @@ export class Detonation {
     v.capRoll.position.set(drift, capY - capR * 0.16, 0);
     v.capRoll.material.opacity = SETTLE * 0.6 * life;
     v.capRoll.rotation.z += dt * 0.06;
+
+    /* The rim keeps riding the cloud's own drift and spread, and stays
+     * billboarded — a player who flies a lazy circle to look back at it
+     * should still see a crisp edge, not one frozen face-on to wherever the
+     * camera was when the active event ended. */
+    if (this.camera) v.capRim.quaternion.copy(this.camera.quaternion);
+    v.capRim.position.set(drift, capY, 0);
+    v.capRim.scale.setScalar(capR * 1.02);
+    v.capRim.material.opacity = SETTLE * 0.7 * life;
 
     /* The stem leans: its foot is still on the crater, its head has been
      * carried downwind with the cap. A cylinder cannot bend, so it tilts. */
