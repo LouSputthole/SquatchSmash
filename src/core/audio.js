@@ -849,6 +849,63 @@ export class AudioEngine {
     this._rampParam(h.filter.frequency, hz, ramp);
   }
 
+  /**
+   * Re-pitch a running loop — whichever of the two things is playing it.
+   *
+   * A vehicle engine is the case this exists for. THE TAKE's escape car ran
+   * one bed at one pitch and only moved its VOLUME with speed, which is an
+   * engine getting NEARER rather than an engine working — the owner's
+   * *"engine sounds are bad"*. Pitch is what an ear reads as revs, and the
+   * Beef Run proves the point the expensive way: its two piston engines are a
+   * live oscillator graph precisely because *"pitch is an RPM readout"*.
+   *
+   * THE TRAP THIS ALMOST FELL INTO. A first cut moved `node.playbackRate` and
+   * gave up otherwise, on the assumption that a loop is a decoded sample. Two
+   * of the three loops it was written for — `heist.vehicle.engine.load` and
+   * `heist.vehicle.tires.road` — have no recording on disk and are served by
+   * `synthLoop`, whose "node" is a `{ stop() }` façade over a handful of
+   * oscillators. `playbackRate` was `undefined` on all of them, so the whole
+   * gearbox would have been a silent no-op that still passed every test.
+   *
+   * So both paths are real:
+   *
+   * - **A recorded loop** moves `playbackRate`, which shifts the whole
+   *   recording together the way a tape does.
+   * - **A synthesised loop** moves every voice off its authored frequency.
+   *   Oscillators track the rate exactly, because an oscillator *is* the note.
+   *   Noise bands travel half as far: the filter corner is the texture around
+   *   the note, and dragging it the whole way turns road roar into a kettle.
+   *
+   * Ramped through `_rampParam` like every other loop parameter, so a rate
+   * change arriving inside `startLoop`'s fade cannot stack behind it
+   * (`docs/ENGINE-TRAPS.md` entry 1).
+   *
+   * @param {string} key
+   * @param {number} rate 1 is the loop's authored pitch. Clamped to a range a
+   *   sample survives — past about 4× a loop is a whistle, not an engine.
+   * @param {number} [ramp] seconds
+   * @returns {boolean} whether anything was actually re-pitched
+   */
+  setLoopRate(key, rate, ramp = 0.12) {
+    const h = this.loops.get(key);
+    if (!h?.node) return false;
+    const sample = h.node.playbackRate;
+    const voices = h.node.voices;
+    if (!sample && !voices?.length) return false;
+    const value = Math.max(0.25, Math.min(4, rate));
+    if (h.rate === value) return true;
+    h.rate = value;
+    if (sample) {
+      this._rampParam(sample, value, ramp);
+      return true;
+    }
+    for (const voice of voices) {
+      const scale = voice.kind === 'osc' ? value : 1 + (value - 1) * 0.5;
+      this._rampParam(voice.param, Math.max(20, Math.min(18000, voice.base * scale)), ramp);
+    }
+    return true;
+  }
+
   /* ---------------------------------------------------------------- */
   /* Listener + global shaping                                         */
   /* ---------------------------------------------------------------- */
@@ -2210,10 +2267,20 @@ function synth(engine, name, dest, t, rate = 1) {
   }
 }
 
-/** Looping fallback beds. Returns a node (or array of nodes) with stop(). */
+/**
+ * Looping fallback beds. Returns a node-shaped façade with `stop()`.
+ *
+ * It also carries `voices`: every oscillator frequency and every filter corner
+ * this bed was authored with, paired with the value it was authored AT. That
+ * list is the only way `AudioEngine.setLoopRate` can re-pitch a bed that has
+ * no recording behind it — a synth loop has no `playbackRate`, and a vehicle
+ * engine that cannot change pitch is a volume knob pretending to be an engine.
+ * Every bed gets the list; only the ones somebody calls `setLoopRate` on move.
+ */
 function synthLoop(engine, name, dest) {
   const ctx = engine.ctx;
   const nodes = [];
+  const voices = [];
 
   const noise = (filterType, freq, q, gain) => {
     const src = ctx.createBufferSource();
@@ -2230,6 +2297,7 @@ function synthLoop(engine, name, dest) {
     g.connect(dest);
     src.start();
     nodes.push(src);
+    voices.push({ kind: 'noise', param: f.frequency, base: freq });
     return { f, g };
   };
 
@@ -2243,6 +2311,7 @@ function synthLoop(engine, name, dest) {
     g.connect(dest);
     o.start();
     nodes.push(o);
+    voices.push({ kind: 'osc', param: o.frequency, base: freq });
     return o;
   };
 
@@ -2587,6 +2656,7 @@ function synthLoop(engine, name, dest) {
   }
 
   return {
+    voices,
     stop() {
       for (const n of nodes) {
         try { n.stop(); } catch { /* already stopped */ }

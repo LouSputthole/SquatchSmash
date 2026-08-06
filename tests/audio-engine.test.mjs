@@ -478,3 +478,72 @@ test('a loop cutoff change discards the automation it interrupts', () => {
     'a door opening must not slowly re-close itself',
   );
 });
+
+test('a synthesised engine bed has revs, not just a volume knob', () => {
+  /* Owner, on THE TAKE's escape drive: "engine sounds are bad." They were one
+   * bed at one pitch whose GAIN rose with speed, which reads as an engine
+   * getting nearer rather than an engine working.
+   *
+   * The trap underneath the fix: `heist.vehicle.engine.load` has no recording
+   * on disk, so it is served by `synthLoop` and has no `playbackRate` at all.
+   * A re-pitch that only knew about decoded samples would have been a silent
+   * no-op that still passed every other test in this file. */
+  const { engine } = loopMixHarness();
+  /* Oscillator frequencies in this harness are plain params; filter corners
+   * are the timeline kind, which reports the value it holds AT A TIME. Read
+   * both once the ramp has landed. */
+  const settled = (param) => (param.at ? param.at(10) : param.value);
+
+  const bed = engine.startLoop('heist.vehicle.engine.load', {
+    name: 'heist.vehicle.engine.load', volume: 0.14, ambience: true, fade: 0.2,
+  });
+  assert.equal(bed.node.playbackRate, undefined, 'this bed is synthesised, not sampled');
+  const voices = bed.node.voices;
+  assert.ok(voices.length >= 3, `expected an oscillator bank, saw ${voices.length}`);
+  const idle = voices.map((voice) => settled(voice.param));
+  assert.deepEqual(idle, voices.map((voice) => voice.base),
+    'a fresh bed sits at the frequencies it was authored with');
+
+  assert.equal(engine.setLoopRate('heist.vehicle.engine.load', 1.8), true);
+  for (const [index, voice] of voices.entries()) {
+    assert.ok(settled(voice.param) > idle[index],
+      `voice ${index} (${voice.kind}) did not move when the revs did`);
+  }
+  // The oscillators ARE the note and track the rate exactly; the noise bands
+  // are the texture around it and travel half as far, or road roar becomes a
+  // kettle.
+  const [fundamental] = voices.filter((voice) => voice.kind === 'osc');
+  const [wash] = voices.filter((voice) => voice.kind === 'noise');
+  assert.ok(Math.abs(settled(fundamental.param) - fundamental.base * 1.8) < 1e-6);
+  assert.ok(Math.abs(settled(wash.param) - wash.base * 1.4) < 1e-6);
+
+  // Shifting up drops the revs; a gear change is the one thing a gain curve
+  // can never produce.
+  engine.setLoopRate('heist.vehicle.engine.load', 0.9);
+  assert.ok(settled(fundamental.param) < fundamental.base * 1.8);
+
+  // Clamped rather than allowed to become a whistle or a subsonic thud.
+  engine.setLoopRate('heist.vehicle.engine.load', 40);
+  assert.ok(Math.abs(settled(fundamental.param) - fundamental.base * 4) < 1e-6);
+  engine.setLoopRate('heist.vehicle.engine.load', 0);
+  assert.ok(settled(fundamental.param) <= fundamental.base * 0.35,
+    'a rate below the clamp still lands at the bottom of the range');
+  assert.ok(settled(fundamental.param) >= 20,
+    'and never below something a speaker can move');
+});
+
+test('a recorded loop is re-pitched by its playback rate, and an absent one refuses', () => {
+  const { engine } = loopMixHarness();
+  engine.buffers.set('heist.vehicle.tires.road', [{ duration: 3 }]);
+
+  const tyres = engine.startLoop('heist.vehicle.tires.road', {
+    name: 'heist.vehicle.tires.road', volume: 0.08, ambience: true, fade: 0.25,
+  });
+  assert.equal(engine.setLoopRate('heist.vehicle.tires.road', 1.35), true);
+  assert.ok(Math.abs(tyres.node.playbackRate.value - 1.35) < 1e-6);
+  assert.equal(tyres.node.voices, undefined, 'a decoded loop has no voice bank');
+
+  // A loop that is not running is not an error; the drive calls this every
+  // frame and the beds are only alive during the escape.
+  assert.equal(engine.setLoopRate('heist.vehicle.engine.load', 2), false);
+});

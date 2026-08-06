@@ -432,6 +432,10 @@ let handbrake = 0;
 let pursuitCount = 1;
 let copsLost = false;
 let pursuitWarned = false;
+/* How hard the pursuit is leaning on a car that has stopped running. */
+let pursuitPressure = 0;
+let ramCooldown = 0;
+let ramBarkAt = 0;
 let weaponsDown = false;
 const crewIntroduced = new Set();
 const SCREEN_CENTER = new THREE.Vector2(0, 0);
@@ -485,7 +489,16 @@ function syncHeistInventory(force = false) {
   inventorySignature = signature;
   sceneInventory.set(loadout.items, loadout.selected);
   weapon = loadout.activeWeapon ?? loadout.weapons.carbine;
-  viewModel.show(loadout.selectedItem);
+  /* NOT WHILE DRIVING.
+   *
+   * Owner: *"third-person camera shows the player's gun floating behind the
+   * car"*. The view model is parented to the CAMERA — which is correct and is
+   * what puts it at the bottom of a first-person frame — and the escape drive
+   * swings that same camera eleven metres behind the car. So the carbine went
+   * with it: a rifle and a pair of gloved hands hanging in the air over the
+   * road, in shot, for the whole chase. Nothing is in Tony's hands while they
+   * are on a steering wheel. */
+  viewModel.show(driving ? null : loadout.selectedItem);
   refreshAmmoReadout();
 }
 
@@ -1772,6 +1785,8 @@ function beginDriving() {
   routeIndex = 0;
   copsLost = false;
   pursuitWarned = false;
+  pursuitPressure = 0;
+  ramCooldown = 0;
   chaseInitialised = false;
   vehicle.x = escapeStart.x;
   vehicle.z = escapeStart.z;
@@ -1783,6 +1798,8 @@ function beginDriving() {
   }
   interaction.setPaused(true);
   player.mode = 'frozen';
+  // The hands leave the frame before the camera does -- see syncHeistInventory.
+  syncHeistInventory(true);
   hud.setDriving(true, 0, level.phases.driving.route[0].label);
   refreshObjective();
   audio.startLoop('heist.vehicle.engine.load', { volume: 0.14, ambience: true, fade: 0.2 });
@@ -1805,6 +1822,7 @@ function reachSwap() {
   camera.updateProjectionMatrix();
   camera.rotation.z = 0;
   interaction.setPaused(false);
+  syncHeistInventory(true);
   hud.setDriving(false);
   refreshObjective();
   say('shubes_swap');
@@ -3258,6 +3276,13 @@ let chaseInitialised = false;
 function updatePursuit(dt, forwardX, forwardZ) {
   const drivePhase = level.phases.driving;
   const speedRatio = Math.min(1, Math.abs(vehicle.speed) / HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed);
+  /* Pressure builds while the car is slow and bleeds off once it is moving.
+   * Deliberately slow to build and quick to shed: a driver who lifts for a
+   * corner is not being punished, a driver who has parked is. */
+  if (copsLost) pursuitPressure = 0;
+  else if (speedRatio < 0.22) pursuitPressure = Math.min(1, pursuitPressure + dt * 0.42);
+  else pursuitPressure = Math.max(0, pursuitPressure - dt * 0.85);
+  ramCooldown = Math.max(0, ramCooldown - dt);
   // A second and third car join as the job gets louder, and they all quit at
   // the swap — which is the owner's "if you make it to the end you lose them".
   pursuitCount = copsLost ? 0 : Math.min(3, 1 + (routeIndex >= 2 ? 1 : 0) + (routeIndex >= 3 ? 1 : 0));
@@ -3267,9 +3292,19 @@ function updatePursuit(dt, forwardX, forwardZ) {
     if (!active) continue;
     /* Each car holds its own gap and its own side of the lane, and the gap
      * grows with your speed rather than being a constant: outrunning them is
-     * something the throttle can actually do. */
-    const gap = 7.5 + index * 6.5 + speedRatio * (9 + index * 4);
-    const lateral = (index % 2 ? 1 : -1) * (2.4 + index * 0.5);
+     * something the throttle can actually do.
+     *
+     * THE OTHER HALF OF THAT, WHICH WAS MISSING. Owner: *"cops stop when the
+     * player stops"*, and they did — the gap is `speedRatio` times a
+     * distance, so a stationary car got a stationary escort parked seven and
+     * a half metres back with its lights on, indefinitely. `pursuitPressure`
+     * is what a police driver does about a stopped suspect vehicle: it builds
+     * while you are slow and it eats the gap, so standing still brings them
+     * onto the bumper and then through it. Outrunning them still works.
+     * Waiting them out does not. */
+    const gap = (7.5 + index * 6.5 + speedRatio * (9 + index * 4))
+      * (1 - pursuitPressure * (index === 0 ? 0.94 : 0.6));
+    const lateral = (index % 2 ? 1 : -1) * (2.4 + index * 0.5) * (1 - pursuitPressure * 0.7);
     pursuitTarget.set(
       vehicle.x - forwardX * gap + forwardZ * lateral,
       0,
@@ -3290,6 +3325,29 @@ function updatePursuit(dt, forwardX, forwardZ) {
   }
   const lead = drivePhase.pursuers[0];
   const distance = lead.position.distanceTo(drivePhase.car.position);
+
+  /* THE RAM.
+   *
+   * Once the pressure has closed the gap, the lead car is not tailing any
+   * more — it is trying to stop the vehicle, which is what a pursuit does to
+   * something that has given up running. Contact costs real damage on the
+   * shared `GroundVehicle` model (the same damage the roadblock deals, which
+   * the verifier already carries through to the swap), shoves the car
+   * forward, and kicks the camera. It also breaks the deadlock: being shunted
+   * makes you move, moving sheds the pressure, and the chase restarts. */
+  if (!copsLost && distance < 4.6 && pursuitPressure > 0.45 && ramCooldown <= 0) {
+    ramCooldown = 1.35;
+    const shove = 3.4 + pursuitPressure * 4.2;
+    vehicle.speed += Math.sign(vehicle.speed || 1) * shove;
+    vehicle.applyCollision({ severity: 0.22 + pursuitPressure * 0.16, windshield: false });
+    audio.play('heist.vehicle.impact', { volume: 0.85, rate: 0.94 });
+    suppression.noteNearMiss(0.4, 1);
+    camera.rotation.z += (Math.random() - 0.5) * 0.09;
+    pursuitPressure = Math.max(0, pursuitPressure - 0.45);
+    const now = performance.now() / 1000;
+    if (now > ramBarkAt) { ramBarkAt = now + 7; say('rippin_pursuit_close'); }
+  }
+
   if (!copsLost && distance < 9 && !pursuitWarned) {
     pursuitWarned = true;
     say('rippin_pursuit_close');
@@ -3309,6 +3367,64 @@ function loseThePolice() {
   // was reading as "not sure what this is".
   if (driving) hud.setDriving(true, Math.abs(vehicle.speed) * 2.237, 'NOTHING BEHIND US');
   sayInTurn('snow_lost_them');
+}
+
+/* ------------------------------------------------------------------ */
+/* The engine                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Four ratios, so the car has revs instead of a volume knob.
+ *
+ * Owner: *"engine sounds are bad"*. They were one recording at one pitch
+ * whose GAIN rose with speed — an engine getting closer to you, not an engine
+ * doing anything. The Beef Run had already answered this in the hardest
+ * possible form, with two piston engines built as a live oscillator graph
+ * *"whose pitch is an RPM readout"*; a road car does not need that much, it
+ * needs the same idea applied to the sample it already has.
+ *
+ * So: a gearbox. Speed picks a gear, the gear maps speed to revs, revs pick
+ * the playback rate. The rate falls off a cliff and climbs again at every
+ * change, which is the shift — the single most recognisable thing an engine
+ * does and the thing a gain curve can never produce.
+ */
+const DRIVE_GEARS = Object.freeze([
+  { top: 6.5, ratio: 3.4 },
+  { top: 12.5, ratio: 1.95 },
+  { top: 19, ratio: 1.32 },
+  { top: Infinity, ratio: 0.98 },
+]);
+let engineRevs = 0.2;
+let engineGear = 0;
+
+function updateDriveAudio(dt, speedRatio, throttle) {
+  const speed = Math.abs(vehicle.speed);
+  const gear = DRIVE_GEARS.findIndex((entry) => speed < entry.top);
+  engineGear = gear < 0 ? DRIVE_GEARS.length - 1 : gear;
+  const ratio = DRIVE_GEARS[engineGear].ratio;
+  const floor = engineGear === 0 ? 0 : DRIVE_GEARS[engineGear - 1].top;
+  const span = Math.max(1, DRIVE_GEARS[engineGear].top === Infinity
+    ? 12 : DRIVE_GEARS[engineGear].top - floor);
+  /* Revs inside the gear, plus a lift for a driver standing on it against the
+   * car's own inertia — a stalled-out engine under full throttle is loud. */
+  const inGear = Math.min(1.15, (speed - floor) / span);
+  const target = 0.18 + inGear * 0.82 + (throttle > 0 ? 0.12 : 0) - (throttle < 0 ? 0.06 : 0);
+  engineRevs += (target - engineRevs) * Math.min(1, dt * 7);
+
+  audio.setLoopRate('heist.vehicle.engine.load',
+    0.62 + engineRevs * 0.95 * (0.72 + ratio * 0.12), 0.08);
+  audio.setLoopVolume('heist.vehicle.engine.load',
+    0.13 + engineRevs * 0.3 + (throttle > 0 ? 0.05 : 0), 0.12);
+  /* Off the throttle the exhaust note closes down. On it, it opens. This is
+   * the difference between coasting and driving, and it costs one filter. */
+  audio.setLoopCutoff('heist.vehicle.engine.load',
+    throttle > 0 ? 6200 : 2400, 0.22);
+
+  // Tyres: speed for the roar, slip angle for the scrub, handbrake for squeal.
+  audio.setLoopVolume('heist.vehicle.tires.road',
+    0.04 + speedRatio * 0.24 + Math.abs(vehicle.lateralSlip) * 0.16 + handbrake * 0.12, 0.14);
+  audio.setLoopRate('heist.vehicle.tires.road',
+    0.9 + speedRatio * 0.5 + Math.abs(vehicle.lateralSlip) * 0.35, 0.1);
 }
 
 function updateDriving(dt) {
@@ -3380,9 +3496,7 @@ function updateDriving(dt) {
   camera.updateProjectionMatrix();
 
   hud.setDriving(true, Math.abs(vehicle.speed) * 2.237);
-  audio.setLoopVolume('heist.vehicle.engine.load', 0.12 + speedRatio * 0.34, 0.18);
-  audio.setLoopVolume('heist.vehicle.tires.road',
-    0.04 + speedRatio * 0.26 + Math.abs(vehicle.lateralSlip) * 0.06, 0.18);
+  updateDriveAudio(dt, speedRatio, throttle);
 
   if (machine.state === 'PLAYER_TAKES_WHEEL'
     && Math.hypot(vehicle.x - escapeStart.x, vehicle.z - escapeStart.z) > 24) {
