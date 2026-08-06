@@ -3621,6 +3621,13 @@ export function buildSilentSquatch({
   const GLASS_INSIDE_Z = GLASS_WALL.z0 - 0.55; // where you stand to hit it
   const handprints = [];
 
+  /**
+   * What working at a bench looks like, cycled per man. See the work loop in
+   * `update`. `gap` is a deliberate entry: the pauses are what stop six
+   * people at six benches reading as six people miming.
+   */
+  const WORK_GESTURES = Object.freeze(['reach', 'gap', 'point', 'gap', 'hands', 'gap', 'reach', 'gap']);
+
   function buildScientist(i) {
     const spec = SCIENTIST_SPECS[i];
     const fig = new Figure({
@@ -3654,11 +3661,27 @@ export function buildSilentSquatch({
       target: null,
       speed: 1.25,
       _t: Math.random() * 6,
+      /** Seconds until this man's next move at his bench. See the work loop. */
+      _work: 0.4 + Math.random() * 3.2,
+      _workN: 0,
       _cough: 0,
       _fall: 0,
       _printed: false,
+      /** Set by `stepOut`: where to walk once he is through the doorway. */
+      queued: null,
 
       get position() { return fig.group.position; },
+      /**
+       * SOMETHING TO SHOOT AT.
+       *
+       * `mission/mount.js` asks the lab for `aubbieTarget`, then for
+       * `body.object`, `body.group` or `body.mesh`, and only if it finds NONE
+       * of them does it fall back to a five-degree cone around
+       * `body.position` — which is this man's FEET. This object published
+       * `position` and nothing else, so the execution was always the cone,
+       * and the cone was around a pair of shoes. See `stepOut`.
+       */
+      get object() { return fig.group; },
 
       /** The sibling supplies the cue; this supplies the mouth and the path. */
       say(cue, opts = {}) {
@@ -3718,13 +3741,28 @@ export function buildSilentSquatch({
         self.goTo(fig.group.position.x, GLASS_INSIDE_Z - 1.2, 0.9);
         return self;
       },
-      /** Beat 8: he tries the handle and finds out. */
-      tryDoor() {
+      /**
+       * Beat 8: he tries the handle and finds out.
+       *
+       * `tryHandle` IS THE NAME. `mission/contract-lab.js` publishes the API
+       * the mission speaks — `stepOut`, `tryHandle`, `slam` — and this file
+       * had called the same three things `leaveLab`, `tryDoor` and `pound`.
+       * The mission calls them through `?.()`, so all three were silent
+       * no-ops in the real lab while passing every test against the double.
+       * The descriptive names are kept as aliases; the contract name is the
+       * one the mission uses. See the note at `stepOut` for what that cost.
+       */
+      tryHandle() {
         if (!self.alive) return self;
         self.stage = 'confused';
         self.goTo((GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, GLASS_INSIDE_Z, 1.35);
+        /* SILENT, and that is the direction. Bezmenov is the one who saw this
+         * coming in March; he does not shout, he walks to the door and puts
+         * his hand on a handle that does not move, and then he turns round. */
+        fig.playGesture('reach', 1.6);
         return self;
       },
+      tryDoor() { return self.tryHandle(); },
       /** Beat 9: he stops pounding and simply stares, having expected it. */
       stare() {
         if (!self.alive) return self;
@@ -3780,6 +3818,8 @@ export function buildSilentSquatch({
         }
         return self;
       },
+      /** The contract's name for it. See `tryHandle`. */
+      slam(times = 1) { return self.pound(times); },
       /** Beat 9: a metal chair into the glass. The chair bends. It does not. */
       chairStrike() {
         if (!self.alive) return self;
@@ -3847,12 +3887,47 @@ export function buildSilentSquatch({
         paintLifeSigns();
         return self;
       },
-      /** Beat 7: Aubbie comes through the door into the observation area. */
-      leaveLab(x = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, z = GLASS_WALL.z1 + 1.5) {
+      /**
+       * Beat 7: Aubbie comes through the door into the observation area.
+       *
+       * THE SOFTLOCK WAS HERE, and it was a spelling mistake with teeth.
+       * `SilentSquatchMission.#stage('door.open')` calls
+       * `scientists[0].stepOut?.()`; this object was called `leaveLab`; the
+       * optional call swallowed it. So the mission set `aubbieOutside = true`
+       * and told the player to eliminate a man who was still standing at the
+       * core on the far side of twelve centimetres of glass, twelve metres
+       * away, with his feet at LAB_Y.
+       *
+       * `mount.js` resolves the shot by raycast if the lab hands it a mesh
+       * and by a FIVE DEGREE CONE on `body.position` if it does not — and
+       * `position` here is `fig.group.position`, which is his FEET. A player
+       * standing at the SILENT NIGHT pedestal with the order "Eliminate
+       * Aubbie" had to put the crosshair within five degrees of a pair of
+       * shoes behind a wall of glass, and every miss counted as a miss. Two
+       * of the three ways out of Beat 8 were therefore shut, and the third
+       * was luck.
+       *
+       * Two halves to the fix and they are independent, which is the point:
+       * he WALKS OUT (this method, under the name the mission calls), and
+       * there is a BODY TO AIM AT whether he does or not (`object` above,
+       * plus `lab.aubbieTarget`). Either alone would have hidden the other.
+       *
+       * `z = GLASS_WALL.z1 + 1.5` is a metre and a half clear of the pane on
+       * the observation side, in the open, in front of Booski — which is
+       * where the brief wants him to fall: "in full view of the scientists
+       * through the glass".
+       */
+      stepOut(x = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, z = GLASS_WALL.z1 + 1.5) {
         self.inside = false;
-        self.goTo(x, z, 1.3);
+        self.stage = 'walking';
+        /* Through the doorway first, then out. One straight line from the
+         * core to the observation area clips the door jamb and he arrives
+         * walking through the glass. */
+        self.goTo((GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, GLASS_INSIDE_Z, 1.3);
+        self.queued = { x, z, speed: 1.3, stage: 'outside' };
         return self;
       },
+      leaveLab(x, z) { return self.stepOut(x, z); },
       setInside(v) { self.inside = !!v; return self; },
       /** Beat 8: he is killed in the observation area, in full view. */
       kill() {
@@ -4630,7 +4705,19 @@ export function buildSilentSquatch({
       }
       if (s.target) {
         const done = f.walkTo(s.target.x, s.target.z, dt, s.speed, true);
-        if (done) s.target = null;
+        if (done) {
+          s.target = null;
+          /* The second leg of Aubbie's exit. He walks to the DOORWAY and then
+           * out into the observation area, because one straight line from the
+           * core clips the jamb and puts him through the glass. */
+          if (s.queued) {
+            const next = s.queued;
+            s.queued = null;
+            s.stage = next.stage ?? s.stage;
+            s.goTo(next.x, next.z, next.speed ?? 1.3);
+            if (next.stage === 'outside') f.lookAt({ x: next.x, z: next.z + 3 });
+          }
+        }
       }
       if (s.stage === 'crawling') {
         // Down on the knees, torso forward, head up at the door.
@@ -4657,6 +4744,34 @@ export function buildSilentSquatch({
         f.armR.shoulder.rotation.x = -1.6 + Math.sin(time * 9 + s.index + 1.4) * 0.5;
         f.armL.elbow.rotation.x = -0.5;
         f.armR.elbow.rotation.x = -0.5;
+      }
+      /* ---- THE WORK LOOP.
+       *
+       * Owner playtest: the six of them stood at their benches doing
+       * absolutely nothing until the gas arrived, which is a strange thing to
+       * watch for the ten minutes of Beats 5 to 7 — the brief's whole picture
+       * is a laboratory that is BUSY right up to the moment it is sealed.
+       *
+       * Not an animation and not a state machine: a slow cycle of the
+       * gestures the Figure already has, on each man's own clock, at his own
+       * bench. `_work` is his phase and it is seeded off `_t` (already
+       * randomised per man in the constructor) so the six are never in step —
+       * six identical people moving together is worse than six still ones.
+       *
+       * `reach` for something on the bench, `point` at a readout, `hands` for
+       * a two-handed adjustment, and gaps of NOTHING in between, which is the
+       * half that makes it read as work: a man who gestures continuously is a
+       * man having an argument. Aubbie (index 0) is at the core rather than a
+       * bench and gets the longer, slower version — he supervises. */
+      if (s.stage === 'work' && s.alive && !s.target) {
+        s._work -= dt;
+        if (s._work <= 0) {
+          const lead = s.index === 0;
+          /* Half the cycles are a pause. `gap` is what a bench looks like. */
+          const move = WORK_GESTURES[(s._workN++ + s.index) % WORK_GESTURES.length];
+          s._work = (lead ? 2.6 : 1.7) + Math.random() * (lead ? 3.4 : 2.6);
+          if (move !== 'gap') f.playGesture(move, s._work * 0.62);
+        }
       }
     }
 
@@ -4896,6 +5011,15 @@ export function buildSilentSquatch({
     scientists,
     /** Index 0, by name, because the mission says his name constantly. */
     get aubbie() { return scientists[0]; },
+    /**
+     * What the execution's trigger pull is aimed at.
+     *
+     * `mission/mount.js` looks for this FIRST, and only falls back to a
+     * five-degree cone round a position when the lab offers nothing. His
+     * whole figure, so a shot at his chest, his head or his coat all count,
+     * and the crosshair reads him the way it reads every other body.
+     */
+    get aubbieTarget() { return scientists[0]?.object ?? null; },
     get lifeSigns() { return lifeSigns; },
     /** True from the moment the door locks. The spec's own word. */
     get muffled() { return glassAudio.engaged; },

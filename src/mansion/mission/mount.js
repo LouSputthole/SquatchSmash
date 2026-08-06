@@ -324,7 +324,14 @@ export function mountSilentSquatch({
     const point = body?.position ?? lab.anchors?.aubbie ?? null;
     if (point && Number.isFinite(point.x)) {
       aimResolved = 'position';
-      const to = new THREE.Vector3(point.x, point.y ?? camera.position.y, point.z)
+      /* PLUS 1.4, because `body.position` is a figure's ORIGIN, which is the
+       * floor between his feet. Aiming the cone there asked the player to put
+       * the crosshair on a pair of shoes to carry out an execution. This
+       * branch is now the fallback of a fallback — the lab publishes
+       * `aubbieTarget` — but a fallback that is wrong is worse than no
+       * fallback, because it is the one that runs when everything else has
+       * already failed. */
+      const to = new THREE.Vector3(point.x, (point.y ?? camera.position.y) + 1.4, point.z)
         .sub(camera.position).normalize();
       const forward = camera.getWorldDirection(new THREE.Vector3());
       return forward.dot(to) > 0.985; // about five degrees
