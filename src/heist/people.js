@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makePerson } from '../bing/cast.js';
 import { Mouth } from '../core/mouth.js';
+import { makePlateCarrier } from './weapons.js';
 
 /**
  * Everybody in THE TAKE, on the campaign's own frame.
@@ -243,6 +244,25 @@ export class HeistFigure {
     this.parts.head.rotation.x = -0.3;
     this.tilt.position.y = -0.3 * this.scale;
     this.pose = 'alarm';
+    return this;
+  }
+
+  /**
+   * Braced two-handed, which is how a man behind a car door stands.
+   *
+   * Extracted from `makePoliceFigure`, which used to write these five
+   * rotations inline — so an officer who had been knocked down had no way
+   * back to the pose he was built in, and a later wave could not put him on
+   * his feet again. `spawnPolice`'s recycling calls this.
+   */
+  aiming() {
+    this._clear();
+    this.parts.armR.rotation.set(-1.28, 0, 0.16);
+    this.parts.foreR.rotation.set(-0.16, 0, 0);
+    this.parts.armL.rotation.set(-1.2, 0, -0.34);
+    this.parts.foreL.rotation.set(-0.3, 0.3, 0);
+    this.pose = 'aiming';
+    this._poseFrom = null;
     return this;
   }
 
@@ -621,8 +641,12 @@ export function makePoliceFigure({ name, x, z, yaw, index = 0 }) {
     },
   });
   const vestMat = new THREE.MeshStandardMaterial({ color: 0x13161a, roughness: 0.92 });
-  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.44, 0.3), vestMat);
-  vest.position.set(0, 1.26, 0);
+  /* The same modelled carrier the crew and the safehouse stand use, in police
+   * navy. It was the identical 0.44 m box the crew wore, which is the vest
+   * the owner called bad — and there is no reason for the men shooting at you
+   * to be wearing the one piece of gear that was replaced everywhere else. */
+  const vest = makePlateCarrier({ colour: 0x151a22, loaded: true });
+  vest.position.set(0, 1.24, 0.015);
   vest.name = `${name}-vest`;
   figure.parts.body.add(vest);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.106, 0.114, 0.07, 12), vestMat);
@@ -647,12 +671,7 @@ export function makePoliceFigure({ name, x, z, yaw, index = 0 }) {
   gun.rotation.x = -Math.PI / 2;
   figure.parts.foreR.add(gun);
 
-  // Braced two-handed, which is how a man behind a car door stands.
-  figure.parts.armR.rotation.set(-1.28, 0, 0.16);
-  figure.parts.foreR.rotation.set(-0.16, 0, 0);
-  figure.parts.armL.rotation.set(-1.2, 0, -0.34);
-  figure.parts.foreL.rotation.set(-0.3, 0.3, 0);
-  figure.pose = 'aiming';
+  figure.aiming();
   figure.root.userData.weapon = gun;
   return figure;
 }

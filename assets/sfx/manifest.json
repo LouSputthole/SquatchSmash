@@ -19039,6 +19039,16 @@
       "say": "Muzzle. Off me. Now."
     },
     {
+      "name": "heist.snow_friendly_fire_two",
+      "voice": "snow",
+      "say": "That is twice you have put that barrel across me. Pick a direction."
+    },
+    {
+      "name": "heist.death_friendly_fire",
+      "voice": "deathmegatron",
+      "say": "Hey. I am on your side and I am standing right here."
+    },
+    {
       "name": "heist.prospect_reassure_one",
       "voice": "player",
       "say": "Nobody here wants your money. It is the bank’s, it is insured, and it is not worth your life."

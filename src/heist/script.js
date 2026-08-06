@@ -229,8 +229,22 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   snow_casualty: line('snow_casualty', CHARACTER_IDS.SNOW,
     'That was a customer. That is the one thing we do not do.',
     P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  /* ---- pointing a gun at your own crew ----
+   *
+   * Owner, on the street: *"Snow repeats 'Muzzle off me'"*. `FactionMatrix`
+   * refuses crew-on-crew damage, so every round that finds a crew member came
+   * through the one line below — twenty rounds, twenty identical sentences.
+   * `main.js` puts a nine-second cooldown on it; these are the three it picks
+   * from, and they escalate, because the third time somebody has swept you
+   * with a rifle you do not say it the same way. */
   snow_friendly_fire: line('snow_friendly_fire', CHARACTER_IDS.SNOW,
     'Muzzle. Off me. Now.', P.TACTICAL,
+    ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'STREET_BLOCK_ONE', 'STREET_BLOCK_TWO']),
+  snow_friendly_fire_two: line('snow_friendly_fire_two', CHARACTER_IDS.SNOW,
+    'That is twice you have put that barrel across me. Pick a direction.', P.TACTICAL,
+    ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'STREET_BLOCK_ONE', 'STREET_BLOCK_TWO']),
+  death_friendly_fire: line('death_friendly_fire', CHARACTER_IDS.DEATHMEGATRON,
+    'Hey. I am on your side and I am standing right here.', P.TACTICAL,
     ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'STREET_BLOCK_ONE', 'STREET_BLOCK_TWO']),
 
   /* ---- Tony working the room ---- */
@@ -465,6 +479,18 @@ export const HOSTAGE_BARKS = Object.freeze({
   tied: Object.freeze(['hostage_tied', 'hostage_tied_two', 'hostage_tied_three']),
   caught: Object.freeze(['hostage_caught', 'hostage_caught_two']),
   witness: Object.freeze(['hostage_witness', 'hostage_witness_two']),
+});
+
+/**
+ * What the crew say when the player sweeps them with a muzzle.
+ *
+ * Pooled and cooled down in `main.js`, because the refusal that raises it
+ * fires once per ROUND — see `snow_friendly_fire` above.
+ */
+export const CREW_FRIENDLY_FIRE_LINES = Object.freeze({
+  muzzle: Object.freeze([
+    'snow_friendly_fire', 'snow_friendly_fire_two', 'death_friendly_fire',
+  ]),
 });
 
 /** Tony's own verbs, in rotation for the same reason. */

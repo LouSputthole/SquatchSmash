@@ -48,7 +48,7 @@ import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
 import { makeHeistViewModel } from './weapons.js';
 import {
-  HOSTAGE_BARKS, PROSPECT_VERB_LINES, dialogueLine,
+  CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES, dialogueLine,
   pendingHeistCues, recordedHeistCues,
 } from './script.js';
 
@@ -108,10 +108,27 @@ const viewModel = makeHeistViewModel(camera);
 let weapon = loadout.weapons.carbine;
 const suppression = new SuppressionModel();
 const loot = new LootLedger(createHeistBags());
+/**
+ * How many officers each contact can ever produce, and where they come in.
+ *
+ * Owner, on the street: *"no direction on what to do — implement the
+ * escape-to-garage objective plus WAVES OF COPS ... so the street withdrawal
+ * is an actual fight"*. It was not a fight: the whole withdrawal spawned
+ * five officers once, four more at the second contact, and if you put two
+ * down the street was empty and stayed empty while you walked the length of
+ * it. Nine men, once, is an encounter; the beat is written as a running
+ * gunfight down a street with a dead van in it.
+ *
+ * The budgets are the TOTAL each block can ever field, spent a wave at a
+ * time by `updatePoliceWaves`. The number alive at once is bounded
+ * separately by `PERFORMANCE_BUDGET`, and downed officers are recycled into
+ * later waves rather than each wave building new figures — so a fourteen-man
+ * contact costs the frame what a six-man one does.
+ */
 const police = new PoliceDirector({
-  bank_avenue: { budget: 8, gates: ['north', 'east', 'cruisers'] },
-  market_street: { budget: 7, gates: ['alley', 'scaffold', 'loading'] },
-  mercer_garage: { budget: 6, gates: ['ramp', 'stairs'] },
+  bank_avenue: { budget: 14, gates: ['north', 'east', 'cruisers'] },
+  market_street: { budget: 12, gates: ['alley', 'scaffold', 'loading'] },
+  mercer_garage: { budget: 10, gates: ['ramp', 'stairs'] },
 });
 const hostages = new HostageDirector(createLobbyHostages());
 const objective = new HeistObjectiveLedger({
@@ -295,9 +312,58 @@ let activeDialogueSource = null;
  * current one, and on a slow machine several lines can come and go between two
  * checks — so "did this beat speak" has to be asked of a history, not a div. */
 const spokenLines = [];
-/** Shut every crew mouth. Called wherever the take itself is cut. */
+/** Shut every mouth in the scene. Called wherever the take itself is cut. */
 function hushCrew() {
   for (const actor of crew.values()) actor.figure.hush();
+  for (const figure of Object.values(level.phases.bank.figures)) figure.hush();
+  for (const root of level.phases.bank.civilians) root.userData.figure?.hush();
+}
+
+/**
+ * Which hostage is about to speak.
+ *
+ * `sayPooled` is handed a POOL and a response key; it has no idea which of
+ * the twenty-two people in the room the line belongs to. The two places that
+ * do know — a verb applied to somebody, and somebody pleading under the
+ * crosshair — set this immediately before pushing, and `onStart` consumes it.
+ * One frame's worth of state, cleared on use, because a stale one would move
+ * the wrong mouth.
+ */
+let pendingBarkSpeaker = null;
+
+/**
+ * The figure that is actually saying a line, whoever it belongs to.
+ *
+ * THE VAULT MOUTHS. Owner: *"mouths don't animate"* in the vault, and this
+ * was why — the line below used to be `crew.get(line.speakerId)` and nothing
+ * else. `crew` holds five people. Every OTHER speaker in this bank — the
+ * manager who stalls at the vault door for the whole beat, the two guards,
+ * and all twenty-two customers — is an `npcLine` with a speakerId that is not
+ * a campaign character id, so `crew.get()` returned undefined and their
+ * mouths were never told a line had started.
+ *
+ * Every one of them is a `HeistFigure` with a working `Mouth` on it already
+ * (`people.js` builds one for everybody, deliberately, because everybody in
+ * this bank can talk). Nothing needed building; the lookup needed widening.
+ */
+function figureForLine(line) {
+  const actor = line.speakerId ? crew.get(line.speakerId) : null;
+  if (actor?.figure) return actor.figure;
+  const bank = level.phases.bank;
+  if (line.subtitleName === 'Bank Manager') return bank.figures.manager;
+  if (line.subtitleName === 'Security Guard') {
+    return rearGuardSecured ? bank.figures.guard : bank.figures.rearGuard;
+  }
+  if (line.subtitleName === 'Bank Customer' || line.subtitleName === 'Teller') {
+    const id = pendingBarkSpeaker;
+    pendingBarkSpeaker = null;
+    const root = id
+      ? bank.civilians.find((figure) => figure.userData.hostageId === id)
+      : null;
+    return root?.userData.figure ?? null;
+  }
+  // Lou is on a radio and Tony is behind the camera. Neither has a face here.
+  return null;
 }
 
 const dialogue = new DialogueArbiter({
@@ -317,10 +383,14 @@ const dialogue = new DialogueArbiter({
     activeDialogueSource = audio.hasSample(line.cue)
       ? audio.play(line.cue, { volume: 0.85, analyse: true })
       : null;
-    /* The man who is saying it says it. `speakerId` is his campaign character
-     * id, which is exactly the key `buildHeistCrew` files him under. */
-    const actor = line.speakerId ? crew.get(line.speakerId) : null;
-    actor?.figure?.say(
+    /* The person who is saying it says it — crew, manager, guard or the
+     * customer on the floor. See `figureForLine`; it used to be `crew.get()`
+     * alone, which is why nothing in the vault or the lobby moved a mouth.
+     *
+     * `Mouth` reads the RMS off the take's own analyser, so this is the sound
+     * driving the face rather than a timer next to it (ENGINE-TRAPS entry 8).
+     * The `fallback` envelope is reached only where there is no recording. */
+    figureForLine(line)?.say(
       duration,
       activeDialogueSource ? { audio, source: activeDialogueSource } : null,
     );
@@ -355,6 +425,8 @@ let lootSyncAt = 0;
 let runnerBarkAt = 0;
 let alarmBarkAt = 0;
 let controlBarkAt = 0;
+let waveBarkAt = 0;
+let friendlyFireBarkAt = 0;
 let policeFigures = [];
 let handbrake = 0;
 let pursuitCount = 1;
@@ -1079,6 +1151,29 @@ function actorFor(object) {
  *   rebuild puts twenty-two people into their saved poses at once and should
  *   not play twenty-two takedowns at the player.
  */
+/**
+ * Whoever is standing closest to a body and can still speak.
+ *
+ * @param {string} id the hostage who was hit
+ * @returns {string|null} a hostage id, or null if the room is empty of anyone
+ *   who could witness it
+ */
+function nearestLivingHostageTo(id) {
+  const roots = level.phases.bank.civilians;
+  const source = roots.find((figure) => figure.userData.hostageId === id);
+  if (!source) return null;
+  let best = null;
+  let bestDistance = Infinity;
+  for (const root of roots) {
+    const other = root.userData.hostageId;
+    if (other === id) continue;
+    if (hostages.get(other)?.down) continue;
+    const distance = root.position.distanceToSquared(source.position);
+    if (distance < bestDistance) { bestDistance = distance; best = other; }
+  }
+  return best;
+}
+
 function syncHostageFigure(person, options) {
   const root = level.phases.bank.civilians
     .find((figure) => figure.userData.hostageId === person.id);
@@ -1111,6 +1206,7 @@ function applyHostageVerb(root, verb) {
   if (verb === 'reassure') {
     const result = person.reassure();
     sayPooled(PROSPECT_VERB_LINES, 'reassure');
+    pendingBarkSpeaker = person.id;
     sayPooled(HOSTAGE_BARKS, result.response);
     syncHostageFigure(person);
     return { ok: result.ok, response: result.response, state: person.state };
@@ -1118,6 +1214,7 @@ function applyHostageVerb(root, verb) {
   if (verb === 'demand') {
     const result = hostages.demand(person.id);
     sayPooled(PROSPECT_VERB_LINES, 'demand');
+    pendingBarkSpeaker = person.id;
     sayPooled(HOSTAGE_BARKS, result.response);
     if (result.ok) {
       /* Personal cash rides in the ledger as its own compromised bag. The
@@ -1147,6 +1244,7 @@ function applyHostageVerb(root, verb) {
     if (!result.ok) return { ok: false, reason: result.reason };
     zipTies--;
     sayPooled(PROSPECT_VERB_LINES, 'restrain');
+    pendingBarkSpeaker = person.id;
     sayPooled(HOSTAGE_BARKS, 'tied');
     audio.play('heist.swap.fabric', { volume: 0.6, rate: 1.35 });
     syncHostageFigure(person);
@@ -1178,6 +1276,7 @@ function updateHostageAim(dt) {
         distance: hit.distance, aimedDownSights: loadout.activeWeapon?.aimed === true,
       });
       if (event === 'plead') {
+        pendingBarkSpeaker = person.id;
         sayPooled(HOSTAGE_BARKS, person.role === 'teller' ? 'plead_teller' : 'plead');
         syncHostageFigure(person);
       } else if (person.state === 'pleading' && root.userData.visualState !== 'pleading') {
@@ -1201,6 +1300,7 @@ function updateHostageAim(dt) {
       if (now > alarmBarkAt) {
         alarmBarkAt = now + 12;
         say('numb_alarm_reached');
+        pendingBarkSpeaker = id;
         sayPooled(HOSTAGE_BARKS, 'caught');
       }
     } else if (event === 'bolting') {
@@ -1253,7 +1353,20 @@ function registerActorHit(ownerNode, actor, damage, penetration = 0.3) {
     // Refused: the matrix protects crew from crew. Still worth saying out loud.
     if (actor.faction === FACTIONS.CREW) {
       objective.noteFriendlyFire();
-      say('snow_friendly_fire');
+      /* SNOW SAYING "MUZZLE OFF ME" ON A LOOP.
+       *
+       * Owner, on the street: *"Snow repeats 'Muzzle off me'"*. `FactionMatrix`
+       * refuses crew-on-crew damage, so every single round that finds a crew
+       * member lands here — and this said the same sentence for each one. Hold
+       * the trigger on Snow with a twenty-round magazine and he said it twenty
+       * times. It is still counted every time, because the discipline score is
+       * about rounds and not about how often he complains; he is just told
+       * about it once, out of three lines, and then not again for a while. */
+      const now = performance.now() / 1000;
+      if (now > friendlyFireBarkAt) {
+        friendlyFireBarkAt = now + 9;
+        sayPooled(CREW_FRIENDLY_FIRE_LINES, 'muzzle');
+      }
     }
     return { applied: false };
   }
@@ -1265,6 +1378,9 @@ function registerActorHit(ownerNode, actor, damage, penetration = 0.3) {
       syncHostageFigure(person);
       for (const other of hostages.hostages) syncHostageFigure(other);
       say('snow_casualty');
+      /* The witness is not the person who was shot — it is whoever is nearest
+       * and still alive, and it is their mouth that has to move. */
+      pendingBarkSpeaker = nearestLivingHostageTo(person.id);
       sayPooled(HOSTAGE_BARKS, 'witness');
       policeHeat = Math.min(100, policeHeat + 18);
     } else if (result.fatal) {
@@ -2269,20 +2385,102 @@ function showDebriefBoard() {
   board.classList.remove('hidden');
 }
 
-function spawnPolice(block, count) {
+function spawnPolice(block, count, { wave = false } = {}) {
   const gates = police.request(block, { count, visibleGates: [] });
   const baseZ = activePhase === 'street' ? 20 - policeFigures.length * 6 : 5;
+  const entries = WAVE_ENTRY[block] ?? [];
   for (let i = 0; i < gates.length; i++) {
+    /* A wave comes in through an authored entry point — up the street behind
+     * the player, out of an alley, up the garage ramp — rather than at the
+     * arithmetic position the opening contact staged itself at. Reinforcements
+     * appearing out of open road in front of you is what makes them read as
+     * spawned rather than as arriving. */
+    const entry = wave ? entries[(waveIndex * 2 + i) % Math.max(1, entries.length)] : null;
     addPoliceFigure({
-      id: `${block}_${policeFigures.length}`,
+      id: `${block}_${policeFigures.length}_${waveIndex}`,
       block,
       phaseId: activePhase,
-      position: [(i % 2 ? -1 : 1) * (4 + i), 0, baseZ - i * 5],
+      position: entry
+        ? [entry[0] + (Math.random() - 0.5) * 1.6, 0, entry[1] + (Math.random() - 0.5) * 2.4]
+        : [(i % 2 ? -1 : 1) * (4 + i), 0, baseZ - i * 5],
+      recycle: wave,
     });
   }
   window.__heistDebug.policeActive = activePoliceMeshes().length;
   window.__heistDebug.policeSpawned += gates.length;
   window.__heistDebug.poolUsage.police = policeFigures.length;
+  return gates.length;
+}
+
+/* ------------------------------------------------------------------ */
+/* Waves                                                               */
+/* ------------------------------------------------------------------ */
+
+/** Which block is feeding the contact the player is standing in. */
+function activePoliceBlock() {
+  if (activePhase === 'garage') return 'mercer_garage';
+  if (activePhase !== 'street') return null;
+  return ['STREET_BLOCK_TWO', 'DROPPED_BAG_DECISION', 'FALLBACK_ROUTE']
+    .includes(machine.state) ? 'market_street' : 'bank_avenue';
+}
+
+/** Where a wave comes in from, per block. Behind and beside, never in front. */
+const WAVE_ENTRY = Object.freeze({
+  bank_avenue: [[-6.4, 26], [6.4, 24], [-5.2, 30], [5.6, 29], [0, 32]],
+  market_street: [[-6.6, -6], [6.6, -9], [-5.4, -14], [5.8, -16], [0, -19]],
+  mercer_garage: [[-7.2, 11], [7.2, 10], [-6.4, 13.5], [6.4, 13], [0, 14]],
+});
+
+let waveClock = 4.5;
+let waveIndex = 0;
+
+/**
+ * Keep the contact fed until the block is spent.
+ *
+ * The rule is deliberately about PRESSURE rather than about a timer: a wave
+ * arrives when the street has thinned out, so a player who is winning gets
+ * the next one and a player who is pinned does not get piled on. `budget` is
+ * what ends it — every block runs dry, and when it does the street goes quiet
+ * for good and the objective says to move.
+ */
+function updatePoliceWaves(dt) {
+  const block = activePoliceBlock();
+  if (!block || machine.state === 'FAILED' || missionCompleted) return;
+  const cap = activePhase === 'garage'
+    ? Math.min(5, PERFORMANCE_BUDGET.maxActivePoliceGarage)
+    : Math.min(6, PERFORMANCE_BUDGET.maxActivePoliceStreet);
+  const live = activePoliceMeshes().length;
+  if (live >= cap) { waveClock = Math.max(waveClock, 2.5); return; }
+  // Thinner street, faster reinforcement — but never instantly.
+  waveClock -= dt * (live <= 1 ? 1.9 : 1);
+  if (waveClock > 0) return;
+  waveClock = 6.5 + Math.random() * 3;
+  const wanted = Math.min(cap - live, live <= 1 ? 3 : 2);
+  const spawned = spawnPolice(block, wanted, { wave: true });
+  if (!spawned) return;
+  waveIndex++;
+  audio.play('heist.police.sirens', { volume: 0.3, rate: 1.04 });
+  /* One call per wave, cooled down hard, so a running fight does not become
+   * Snow narrating every officer who steps out of an alley. */
+  const now = performance.now() / 1000;
+  if (now > waveBarkAt) {
+    waveBarkAt = now + 11;
+    say(activePhase === 'garage' ? 'shubes_defend' : 'snow_contact');
+  }
+}
+
+/**
+ * An officer who is already down, ready to be somebody else.
+ *
+ * A fourteen-man contact that builds fourteen `makePerson` figures is
+ * fourteen rigs in a scene that already has twenty-two civilians and six
+ * crew in it. A wave takes a body that has stopped being looked at, puts it
+ * back on its feet somewhere the player is not, and gives it a fresh actor.
+ */
+function recycleDownedOfficer(phaseId) {
+  return policeFigures.find((entry) => entry.actor.incapacitated
+    && entry.root.userData.phaseId === phaseId
+    && entry.root.position.distanceToSquared(player.position) > 400) ?? null;
 }
 
 function activePoliceMeshes() {
@@ -2301,9 +2499,26 @@ function activePoliceMeshes() {
  * figures now, braced two-handed behind cover, and when one goes down he goes
  * down where he was standing and stays there.
  */
-function addPoliceFigure({ id, block, phaseId, position, actorSnapshot = null, visible = true }) {
+function addPoliceFigure({
+  id, block, phaseId, position, actorSnapshot = null, visible = true, recycle = false,
+}) {
   const actor = new CombatActor({ id, faction: FACTIONS.POLICE, maxHealth: 80, armor: 12 });
   if (actorSnapshot) actor.restore(actorSnapshot);
+  /* A later wave puts a body that has stopped being looked at back on its
+   * feet rather than building another rig. See `recycleDownedOfficer`. */
+  const spare = recycle ? recycleDownedOfficer(phaseId) : null;
+  if (spare) {
+    spare.actor = actor;
+    spare.root.userData.combatActor = actor;
+    spare.root.userData.block = block;
+    spare.root.userData.down = false;
+    spare.root.visible = visible;
+    spare.root.position.set(position[0], 0, position[2]);
+    spare.root.rotation.y = Math.PI;
+    spare.figure.braced?.();
+    window.__heistDebug.policeActive = activePoliceMeshes().length;
+    return spare.root;
+  }
   const index = policeFigures.length;
   const figure = makePoliceFigure({
     name: `police-${id}`, x: position[0], z: position[2], yaw: Math.PI, index,
@@ -3288,6 +3503,7 @@ function animate() {
       updateBankSequence(dt);
       updateHostageAim(dt);
       updateLobbyFigures(dt);
+      updatePoliceWaves(dt);
       updatePoliceCombat(dt);
       if (camera.fov !== 72) { camera.fov = 72; camera.updateProjectionMatrix(); }
     }

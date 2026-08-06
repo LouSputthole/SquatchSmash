@@ -1103,8 +1103,22 @@ function buildGarage() {
   for (const [x, z] of [[-10, -6], [9.6, 4]]) {
     for (let i = 0; i < 4; i++) box(group, [0.9, 0.9, 0.9], [x, 0.45 + i * 0.9, z], MAT.darkConcrete);
   }
+  /* The ramp down from the street, and the thing the player used to spawn
+   * inside of.
+   *
+   * Owner: *"garage spawn faces/intersects a big wall"*. The spawn was
+   * (0, 1.66, 12) and this slab runs z 9 to 17 at a metre off the floor, so
+   * the player arrived standing in the middle of it, three metres off the
+   * back wall, looking at concrete. It was also not a collider, so the ramp
+   * you can see was a thing you walked through.
+   *
+   * The ramp keeps its place — it is where the crew came in from — and is a
+   * solid now. The spawn moved to the clear floor in front of it. */
   const ramp = box(group, [7, 0.3, 8], [0, 0.9, 13], MAT.concrete, 'garage-ramp');
   ramp.rotation.x = 0.22;
+  for (const side of [-1, 1]) {
+    box(group, [0.3, 1.6, 8], [side * 3.5, 1.5, 13], MAT.darkConcrete, `garage-ramp-wall-${side}`);
+  }
   const hold = box(group, [8, 0.1, 3], [0, 0.05, 8], MAT.invisible, 'garage-hold');
   hold.castShadow = false;
   const sedan = makeVehicleBody(group, [0, 0, -8], 0x34393d, 'escape-sedan');
@@ -1117,7 +1131,10 @@ function buildGarage() {
   }
   return {
     group,
-    spawn: new THREE.Vector3(0, 1.66, 12),
+    /* On the floor in front of the ramp, facing the sedan at z −8. `player.yaw
+     * = 0` looks down −Z, so the first thing in frame is the car the objective
+     * is about instead of the back wall the spawn used to be pressed into. */
+    spawn: new THREE.Vector3(0, 1.66, 6.4),
     interactables: { hold, load, drive },
     sedan,
     colliders: [
@@ -1125,6 +1142,14 @@ function buildGarage() {
       ...[-8, -3, 3, 8].flatMap((x) => [-10, 0, 10]
         .map((z) => bounds([0.8, 4.4, 0.8], [x, 2.2, z]))),
       bounds([4.1, 1.9, 2.2], [0, 0.95, -8]),
+      // The ramp and its side walls, which were drawn but not solid.
+      bounds([7, 2.6, 8], [0, 1.3, 13]),
+      ...[-1, 1].map((side) => bounds([0.3, 1.6, 8], [side * 3.5, 1.5, 13])),
+      // The stacked crates in the two corners.
+      ...[[-10, -6], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
+      // The five parked cars down the side walls.
+      ...Array.from({ length: 5 }, (_, i) => bounds([2.2, 1.9, 4.1],
+        [i % 2 ? -9.4 : 9.4, 0.95, -11 + i * 5.5])),
     ],
     floorZones: [floorZone(24, 30, 'concrete')],
   };
