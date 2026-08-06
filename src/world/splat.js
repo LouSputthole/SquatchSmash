@@ -17,8 +17,20 @@ const MAX = 26;
 
 let _tex = null;
 
-/** A blob with a soft edge and a drip hanging off the bottom of it. */
-function blobTexture() {
+/** How far down the texture the round head sits, 0 top to 1 bottom. */
+export const BLOB_HEAD_Y = 0.38;
+
+/**
+ * A blob with a soft edge and a drip hanging off the bottom of it.
+ *
+ * Exported so anything else in the flat that needs glue on it -- not just the
+ * wall -- paints from the same canvas rather than growing its own idea of
+ * what a blob looks like. Margo's dress used to fake this with a squashed
+ * sphere and a box; two different-looking messes from the same bottle in the
+ * same scene is the kind of thing a player notices even if they cannot say
+ * why.
+ */
+export function blobTexture() {
   if (_tex) return _tex;
   const S = 128;
   const c = document.createElement('canvas');
@@ -26,25 +38,26 @@ function blobTexture() {
   const g = c.getContext('2d');
 
   // Head.
-  const grad = g.createRadialGradient(S / 2, S * 0.38, S * 0.04, S / 2, S * 0.38, S * 0.30);
+  const headY = S * BLOB_HEAD_Y;
+  const grad = g.createRadialGradient(S / 2, headY, S * 0.04, S / 2, headY, S * 0.30);
   grad.addColorStop(0, 'rgba(255,255,255,0.98)');
   grad.addColorStop(0.6, 'rgba(250,250,246,0.88)');
   grad.addColorStop(1, 'rgba(248,248,242,0)');
   g.fillStyle = grad;
   g.beginPath();
-  g.arc(S / 2, S * 0.38, S * 0.30, 0, 7);
+  g.arc(S / 2, headY, S * 0.30, 0, 7);
   g.fill();
 
   // The run. Tapers as it goes, the way something viscous does.
-  const run = g.createLinearGradient(0, S * 0.38, 0, S);
+  const run = g.createLinearGradient(0, headY, 0, S);
   run.addColorStop(0, 'rgba(252,252,248,0.92)');
   run.addColorStop(0.75, 'rgba(250,250,244,0.42)');
   run.addColorStop(1, 'rgba(250,250,244,0)');
   g.fillStyle = run;
   g.beginPath();
-  g.moveTo(S * 0.44, S * 0.38);
+  g.moveTo(S * 0.44, headY);
   g.quadraticCurveTo(S * 0.48, S * 0.72, S * 0.50, S * 0.98);
-  g.quadraticCurveTo(S * 0.52, S * 0.72, S * 0.56, S * 0.38);
+  g.quadraticCurveTo(S * 0.52, S * 0.72, S * 0.56, headY);
   g.closePath();
   g.fill();
 
@@ -54,13 +67,30 @@ function blobTexture() {
     const a = Math.random() * Math.PI * 2;
     const r = (0.24 + Math.random() * 0.10) * S;
     g.beginPath();
-    g.arc(S / 2 + Math.cos(a) * r, S * 0.38 + Math.sin(a) * r, S * (0.06 + Math.random() * 0.08), 0, 7);
+    g.arc(S / 2 + Math.cos(a) * r, headY + Math.sin(a) * r, S * (0.06 + Math.random() * 0.08), 0, 7);
     g.fill();
   }
 
   _tex = new THREE.CanvasTexture(c);
   _tex.colorSpace = THREE.SRGBColorSpace;
   return _tex;
+}
+
+/**
+ * The one material recipe every glued blob in the flat shares, wall or
+ * dress. Each caller clones its own instance so opacity can be driven
+ * independently per blob, the same way the wall's pool does.
+ */
+export function createGlueBlobMaterial() {
+  return new THREE.MeshStandardMaterial({
+    map: blobTexture(),
+    transparent: true,
+    roughness: 0.28,          // wet, so it catches the light
+    metalness: 0,
+    depthWrite: false,
+    opacity: 0,
+    side: THREE.DoubleSide,
+  });
 }
 
 export class SplatSystem {
@@ -73,15 +103,7 @@ export class SplatSystem {
     this.pool = [];
     this.next = 0;
 
-    const mat = new THREE.MeshStandardMaterial({
-      map: blobTexture(),
-      transparent: true,
-      roughness: 0.28,          // wet, so it catches the light
-      metalness: 0,
-      depthWrite: false,
-      opacity: 0,
-      side: THREE.DoubleSide,
-    });
+    const mat = createGlueBlobMaterial();
 
     const geo = new THREE.PlaneGeometry(1, 1);
     for (let i = 0; i < MAX; i++) {
