@@ -87,6 +87,10 @@
  */
 
 const TAU = Math.PI * 2;
+/* The most irrational fraction of a turn: consecutive multiples land as far
+ * from every earlier one as an increment can manage, which is what spreads
+ * fallback mouth phases without bookkeeping. */
+const GOLDEN_ANGLE = TAU * (1 - 1 / 1.6180339887);
 
 /* Below this RMS the take is silent — the gap between two words, or a line
  * that has finished. Deliberately just above the noise floor of an mp3
@@ -142,6 +146,8 @@ function smoothstep(edge0, edge1, x) {
  * @param {object} options see DEFAULTS.
  */
 export class Mouth {
+  /** Mouths built this session — drives the golden-angle phase walk above. */
+  static _built = 0;
   constructor(parts = {}, options = {}) {
     const opts = { ...DEFAULTS, ...options };
     this.openScale = opts.openScale;
@@ -162,8 +168,17 @@ export class Mouth {
     this._t = 0;
     this._seconds = 0;
     /* Every fallback mouth in a room must not open on the same beat, or four
-     * people mouthing a subtitle look like a chorus line. */
-    this._seed = Math.random() * TAU;
+     * people mouthing a subtitle look like a chorus line. A random seed alone
+     * cannot promise that — two mouths can draw the same phase and chorus for
+     * a whole subtitle, which is exactly how tests/mouth.test.mjs flaked on
+     * CI. So the phase walks the golden angle per mouth built (any two recent
+     * mouths sit a large, irrational fraction of a turn apart) with a little
+     * random jitter kept for feel, and each mouth also speaks at its own
+     * slightly different RATE — two oscillators at different frequencies
+     * cannot hold unison no matter what phases they started on. */
+    this._seed = (Mouth._built * GOLDEN_ANGLE + Math.random() * 0.5) % TAU;
+    this._rate = 1 + (((Mouth._built * 0.618) % 1) - 0.5) * 0.14;
+    Mouth._built += 1;
     this._silentFor = 0;
     this._settled = true;
     this._onEnded = null;
@@ -371,8 +386,8 @@ export class Mouth {
       return 0;
     }
     const t = this._t;
-    const syllable = 0.5 - 0.5 * Math.cos(t * SYLLABLE_HZ * TAU + this._seed);
-    const word = 0.5 + 0.5 * Math.sin(t * WORD_HZ * TAU + this._seed * 1.7);
+    const syllable = 0.5 - 0.5 * Math.cos(t * SYLLABLE_HZ * this._rate * TAU + this._seed);
+    const word = 0.5 + 0.5 * Math.sin(t * WORD_HZ * this._rate * TAU + this._seed * 1.7);
     const gate = smoothstep(0.16, 0.46, word);
     return syllable * gate * Math.min(1, left / FALLBACK_TAIL) * 0.9;
   }
