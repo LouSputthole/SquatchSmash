@@ -851,7 +851,17 @@ async function beginSiege() {
 }
 startBtn.addEventListener('click', beginSiege);
 
-/** Cue names this scene wants preloaded. Kept beside the mission it serves. */
+/**
+ * Cue names this scene wants preloaded. Kept beside the mission it serves.
+ *
+ * `siege.friendly.revived` (played by `updateRevive()` above, on a
+ * successful pickup) was missing from this list -- the same class of audio-
+ * selector drift a mansion voice-line pass found and fixed elsewhere in this
+ * scene family, just caught here before a recording existed to lose. None of
+ * these seven are recorded yet, so today this changes nothing audible; it
+ * costs nothing either, since `loadManifest` drops any name with no manifest
+ * entry before it ever requests a file, and it means the day `siege.friendly.
+ * revived` IS recorded, this list does not need to be remembered too. */
 function siegeCueNames() {
   return [
     'siege.alarm.tone',
@@ -860,6 +870,7 @@ function siegeCueNames() {
     'siege.fire.crackle',
     'siege.wave.incoming',
     'siege.checkpoint',
+    'siege.friendly.revived',
   ];
 }
 
