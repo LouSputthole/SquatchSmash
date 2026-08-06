@@ -13817,8 +13817,7 @@
     {
       "name": "vo.silvercase.arrival.chester.whoisit",
       "voice": "chester",
-      "say": "Who is it?",
-      "needsRerecord": true
+      "say": "Who is it?"
     },
     {
       "name": "vo.silvercase.arrival.ape.committee",
@@ -13858,8 +13857,7 @@
     {
       "name": "vo.silvercase.control.chester.whatcase",
       "voice": "chester",
-      "say": "…Case? What case?",
-      "needsRerecord": true
+      "say": "…Case? What case?"
     },
     {
       "name": "vo.silvercase.control.deke.dontknow",
@@ -13874,8 +13872,7 @@
     {
       "name": "vo.silvercase.control.chester.misunderstanding",
       "voice": "chester",
-      "say": "That was — that was a misunderstanding.",
-      "needsRerecord": true
+      "say": "That was — that was a misunderstanding."
     },
     {
       "name": "vo.silvercase.control.ape.alwaysmisunderstanding",
@@ -13905,8 +13902,7 @@
     {
       "name": "vo.silvercase.control.chester.drink",
       "voice": "chester",
-      "say": "You, uh — you want a drink or somethin’?",
-      "needsRerecord": true
+      "say": "You, uh — you want a drink or somethin’?"
     },
     {
       "name": "vo.silvercase.case.ape.thereitis",
@@ -13971,8 +13967,7 @@
     {
       "name": "vo.silvercase.lou.chester.notpersonal",
       "voice": "chester",
-      "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —",
-      "needsRerecord": true
+      "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —"
     },
     {
       "name": "vo.silvercase.lou.ape.evermeet",
@@ -13982,8 +13977,7 @@
     {
       "name": "vo.silvercase.lou.chester.no",
       "voice": "chester",
-      "say": "No.",
-      "needsRerecord": true
+      "say": "No."
     },
     {
       "name": "vo.silvercase.lou.ape.whatlookslike",
@@ -13993,8 +13987,7 @@
     {
       "name": "vo.silvercase.lou.chester.heardofhim",
       "voice": "chester",
-      "say": "I mean — I’ve heard of him, everybody’s heard of —",
-      "needsRerecord": true
+      "say": "I mean — I’ve heard of him, everybody’s heard of —"
     },
     {
       "name": "vo.silvercase.lou.ape.lookslikeabitch",
