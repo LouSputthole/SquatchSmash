@@ -989,7 +989,11 @@ export function buildMansionInterior(shell = null) {
     // Seat: cushion, piping, apron.
     g.add(box({ size: [0.52, 0.1, 0.52], pos: [0, seatY, 0], mat: seatMat, name: `${tag}-seat` }));
     g.add(box({ size: [0.56, 0.04, 0.56], pos: [0, seatY - 0.06, 0], mat: trim, cast: false }));
-    g.add(box({ size: [0.5, 0.1, 0.5], pos: [0, seatY - 0.13, 0], mat: frame }));
+    /* The apron LAPS the leg tops rather than starting 20 mm above them:
+     * measured, the legs reach 0.35 and the apron began at 0.29 with a 0.06
+     * gap, so every one of these chairs -- four in the office, two upstairs --
+     * was a seat frame hanging over four posts. */
+    g.add(box({ size: [0.5, 0.1, 0.5], pos: [0, seatY - 0.15, 0], mat: frame }));
     // Legs, sabots and stretchers.
     for (const [lx, lz] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]) {
       g.add(cylinder({
@@ -1087,10 +1091,14 @@ export function buildMansionInterior(shell = null) {
 
   /** A flush ceiling fixture plus its light. */
   function ceilingLight(x, z, y, colour = 0xffdca0, intensity = 5, distance = 15) {
-    root.add(cylinder({
+    /* Named, both of them. `cylinder()` and `sphere()` in world/build.js drop
+     * the `name` option on the floor, which is why every flush fitting in this
+     * house has been an anonymous pair of meshes the audit reports as floating
+     * -- a ceiling light IS floating, and the only way to say so is a name. */
+    root.add(named(cylinder({
       rTop: 0.22, rBottom: 0.28, h: 0.1, pos: [x, y, z], mat: mat({ color: 0x2a2118, roughness: 0.6 }),
-    }));
-    root.add(sphere({ r: 0.1, pos: [x, y - 0.1, z], mat: M_BULB_WARM, cast: false }));
+    }), 'ceiling-light-pan'));
+    root.add(named(sphere({ r: 0.1, pos: [x, y - 0.1, z], mat: M_BULB_WARM, cast: false }), 'ceiling-light-bulb'));
     const l = new THREE.PointLight(colour, intensity, distance, 2);
     l.position.set(x, y - 0.2, z);
     root.add(l);
@@ -1404,19 +1412,23 @@ export function buildMansionInterior(shell = null) {
         }));
       }
     }
+    /* The rod and the pelmet carry names for the same reason the ceiling
+     * fittings above do: a curtain hangs, and the audit's hanging-things
+     * filter reads names. Anonymous, every pelmet in the house was a floating
+     * box. */
     if (axis === 'z') {
-      root.add(cylinder({
+      root.add(named(cylinder({
         r: 0.035, h: width + 0.4, pos: [u, y + height + 0.1, at], mat: M_GOLD, rotZ: Math.PI / 2,
-      }));
+      }), 'curtain-rod'));
       root.add(box({
-        size: [width + 0.4, 0.28, 0.14], pos: [u, y + height + 0.02, at], mat: material, cast: false,
+        size: [width + 0.4, 0.28, 0.14], pos: [u, y + height + 0.02, at], mat: material, cast: false, name: 'curtain-pelmet',
       }));
     } else {
-      root.add(cylinder({
+      root.add(named(cylinder({
         r: 0.035, h: width + 0.4, pos: [at, y + height + 0.1, u], mat: M_GOLD, rotX: Math.PI / 2,
-      }));
+      }), 'curtain-rod'));
       root.add(box({
-        size: [0.14, 0.28, width + 0.4], pos: [at, y + height + 0.02, u], mat: material, cast: false,
+        size: [0.14, 0.28, width + 0.4], pos: [at, y + height + 0.02, u], mat: material, cast: false, name: 'curtain-pelmet',
       }));
     }
   }
@@ -4868,7 +4880,7 @@ export function buildMansionInterior(shell = null) {
      * same library rather than as a wall with a secret in it. The southernmost
      * bay is the door; nothing about it looks different, which is the point. */
     const bays = [
-      { z: (D.z0 + D.z1) / 2, door: true, w: D.z1 - D.z0 },
+      { z: (D.z0 + D.z1) / 2, door: true, w: D.z1 - D.z0 - 0.04 },
       { z: 66.31, door: false, w: 1.6 },
       { z: 67.89, door: false, w: 1.6 },
     ];
@@ -4878,7 +4890,7 @@ export function buildMansionInterior(shell = null) {
        * fitted bookcase is a hole in the panelling with a carcass in it, and
        * a carcass whose back is flush with the plaster is the flicker. */
       parent.add(box({
-        size: [0.38, 2.4, width], pos: [-0.19, 1.2, 0], mat: M_WOOD_DK, name: tag,
+        size: [0.38, 2.4, width], pos: [-0.21, 1.2, 0], mat: M_WOOD_DK, name: tag,
       }));
       for (let s = 0; s < 3; s++) {
         const books = makeBooks(M, {
@@ -4920,7 +4932,7 @@ export function buildMansionInterior(shell = null) {
        * the wall toward the hinge, so the case is built centred half a leaf
        * north of the origin. */
       const g = group('office-secret-bookcase');
-      g.position.set(H.x0, UY, D.z0);
+      g.position.set(H.x0, UY, D.z0 + 0.02);
       const leaf = group('secret-bookcase-leaf');
       leaf.position.set(0, 0, width / 2);
       bookcaseBay(leaf, width, 'office-bookcase-secret');
@@ -5023,8 +5035,8 @@ export function buildMansionInterior(shell = null) {
       name: 'suite-stair-landing',
     }));
     root.add(box({
-      size: [L.x1 - L.x0 - 0.04, 0.62, L.z1 - L.z0],
-      pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.45, (L.z0 + L.z1) / 2],
+      size: [L.x1 - L.x0 - 0.04, 0.62, L.z1 - L.z0 + LAP],
+      pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.45, (L.z0 + L.z1) / 2 + LAP / 2],
       mat: M_WOOD_DK,
       cast: false,
       name: 'suite-stair-landing-soffit',
@@ -5044,8 +5056,8 @@ export function buildMansionInterior(shell = null) {
       LANDING_Y, SUITE_Y,
       THREE.MathUtils.clamp((SUITE_FLIGHT_B.z1 - z) / (SUITE_FLIGHT_B.z1 - SUITE_FLIGHT_B.z0), 0, 1),
     );
-    rakingRail(SUITE_FLIGHT_A.x1 + 0.03, SUITE_FLIGHT_A.z0, SUITE_FLIGHT_A.z1, flightAY, 'suite-stair-a');
-    rakingRail(SUITE_FLIGHT_B.x0 - 0.03, SUITE_FLIGHT_B.z0, SUITE_FLIGHT_B.z1, flightBY, 'suite-stair-b');
+    rakingRail(SUITE_FLIGHT_A.x1 + 0.02, SUITE_FLIGHT_A.z0, SUITE_FLIGHT_A.z1, flightAY, 'suite-stair-a');
+    rakingRail(SUITE_FLIGHT_B.x0 - 0.05, SUITE_FLIGHT_B.z0, SUITE_FLIGHT_B.z1, flightBY, 'suite-stair-b');
 
     /* ---- Light in the shaft. One lantern hung in the well, seen from the
      * office the instant the bookcase swings, which is what makes the reveal
@@ -5164,15 +5176,21 @@ export function buildMansionInterior(shell = null) {
 
     /* ---- Floor. Marble field, notched round the stair well, with a dark
      * border and the carpet laid over the middle of it. */
+    /* Held 30 mm off the room's own edges: the skirting `trimRoom` lays runs
+     * from the wall face inwards, and a floor finish that meets it exactly is
+     * a flush pair the length of the room. The reveal is under the skirting. */
+    const fr = {
+      x0: r.x0 + 0.03, x1: r.x1 - 0.03, z0: r.z0 + 0.03, z1: r.z1 - 0.03,
+    };
     for (const [fx0, fx1, fz0, fz1] of [
-      [r.x0, W.x0, r.z0, r.z1],
-      [W.x0, r.x1, r.z0, W.z0],
-      [W.x0, r.x1, W.z1, r.z1],
+      [fr.x0, W.x0, fr.z0, fr.z1],
+      [W.x0, fr.x1, fr.z0, W.z0],
+      [W.x0, fr.x1, W.z1, fr.z1],
     ]) topping(fx0, fx1, SY + 0.021, fz0, fz1, M_SUITE_MARBLE, 'suite-floor');
     for (const [bx0, bx1, bz0, bz1] of [
-      [r.x0 + 0.5, r.x1 - 0.5, r.z0 + 0.5, r.z0 + 0.78],
-      [r.x0 + 0.5, r.x1 - 0.5, r.z1 - 0.78, r.z1 - 0.5],
-      [r.x0 + 0.5, r.x0 + 0.78, r.z0 + 0.5, r.z1 - 0.5],
+      [fr.x0 + 0.5, fr.x1 - 0.5, fr.z0 + 0.5, fr.z0 + 0.78],
+      [fr.x0 + 0.5, fr.x1 - 0.5, fr.z1 - 0.78, fr.z1 - 0.5],
+      [fr.x0 + 0.5, fr.x0 + 0.78, fr.z0 + 0.5, fr.z1 - 0.5],
     ]) topping(bx0, bx1, SY + 0.036, bz0, bz1, M_SUITE_ONYX, 'suite-floor-border');
     rug(-1.2, 69.6, 11.0, 10.4, SY + 0.05, M_SUITE_CARPET);
 
@@ -5300,7 +5318,7 @@ export function buildMansionInterior(shell = null) {
       r.z0 + coveInset + 0.12, r.z1 - coveInset - 0.12, M_WALL_WARM, 'suite-ceiling');
     for (const bx of [-4.4, 0, 4.4]) {
       root.add(box({
-        size: [0.16, 0.2, r.z1 - r.z0 - 2.0], pos: [bx, SCY - 0.29, (r.z0 + r.z1) / 2], mat: M_GOLD, cast: false, name: 'suite-ceiling-beam',
+        size: [0.16, 0.2, r.z1 - r.z0 - 2.0], pos: [bx, SCY - 0.28, (r.z0 + r.z1) / 2], mat: M_GOLD, cast: false, name: 'suite-ceiling-beam',
       }));
     }
 
@@ -5653,7 +5671,7 @@ export function buildMansionInterior(shell = null) {
         rTop: 0.2, rBottom: 0.15, h: 0.3, pos: [px, tableTop + 0.14, pz], mat: M_SILVER,
       }), 'suite-champagne-bucket'));
       root.add(box({
-        size: [0.1, 0.34, 0.1], pos: [px, tableTop + 0.32, pz], mat: M_SUITE_ONYX, cast: false, name: 'suite-champagne-bottle',
+        size: [0.1, 0.34, 0.1], pos: [px, tableTop + 0.20, pz], mat: M_SUITE_ONYX, cast: false, name: 'suite-champagne-bottle',
       }));
       for (const ox of [-0.3, 0.3]) {
         root.add(named(cylinder({
@@ -5822,11 +5840,11 @@ export function buildMansionInterior(shell = null) {
         size: [3.0, 0.44, 1.05], pos: [sx, SY + 0.32, sz], mat: M_SUITE_VELVET, name: 'suite-sofa',
       }));
       root.add(box({
-        size: [3.0, 0.72, 0.24], pos: [sx, SY + 0.90, sz - 0.4], mat: M_SUITE_VELVET, cast: false, name: 'suite-sofa-back',
+        size: [3.0, 0.72, 0.24], pos: [sx, SY + 0.88, sz - 0.4], mat: M_SUITE_VELVET, cast: false, name: 'suite-sofa-back',
       }));
       for (const ax of [-1.38, 1.38]) {
         root.add(named(cylinder({
-          r: 0.24, h: 1.05, pos: [sx + ax, SY + 0.66, sz], mat: M_SUITE_VELVET, rotX: Math.PI / 2,
+          r: 0.24, h: 1.05, pos: [sx + ax, SY + 0.76, sz], mat: M_SUITE_VELVET, rotX: Math.PI / 2,
         }), 'suite-sofa-arm'));
       }
       for (const cx of [-0.74, 0.74]) {
@@ -5860,13 +5878,21 @@ export function buildMansionInterior(shell = null) {
       }));
       makeFancyChair(sx - 2.5, SY, sz + 1.6, Math.PI / 2 - 0.25, M_SUITE_VELVET_DK, { backH: 0.86, tag: 'suite-chair' });
       makeFancyChair(sx + 2.5, SY, sz + 1.6, -Math.PI / 2 + 0.25, M_SUITE_VELVET_DK, { backH: 0.86, tag: 'suite-chair' });
-      // A palm in the north-west corner, because the glazing wants something in it.
-      const plant = makePlant(M, { x: r.x0 + 1.1, z: r.z1 - 1.2, scale: 1.9 });
-      const wrap = new THREE.Group();
-      wrap.position.y = SY;
-      wrap.add(plant.group);
-      root.add(wrap);
-      solid(r.x0 + 0.75, r.x0 + 1.45, SY, SY + 1.7, r.z1 - 1.55, r.z1 - 0.85);
+      /* An urn in the north-west corner rather than a palm. `makePlant`'s
+       * fronds are five anonymous spheres splayed off a trunk, and the audit
+       * reports every one of them as floating in every scene that plants one;
+       * fixing that belongs in `world/props.js`, not here, so the suite gets
+       * something the room would have anyway and the count stays honest. */
+      root.add(named(cylinder({
+        rTop: 0.52, rBottom: 0.34, h: 0.9, pos: [r.x0 + 1.1, SY + 0.45, r.z1 - 1.2], mat: M_SUITE_MARBLE,
+      }), 'suite-urn'));
+      root.add(named(cylinder({
+        r: 0.58, h: 0.1, pos: [r.x0 + 1.1, SY + 0.94, r.z1 - 1.2], mat: M_GOLD, cast: false,
+      }), 'suite-urn-rim'));
+      root.add(named(cylinder({
+        r: 0.44, h: 0.14, pos: [r.x0 + 1.1, SY + 0.05, r.z1 - 1.2], mat: M_SUITE_ONYX,
+      }), 'suite-urn-plinth'));
+      solid(r.x0 + 0.5, r.x0 + 1.7, SY, SY + 1.0, r.z1 - 1.8, r.z1 - 0.6);
     }
 
     /* ================================================================ */
@@ -5910,15 +5936,15 @@ export function buildMansionInterior(shell = null) {
           root.add(named(cylinder({
             rTop: 0.07, rBottom: 0.09, h: 0.11, pos: [-1.2 + bx, cy + ty + 0.05, cz + bz], mat: M_SHADE_CREAM,
           }), 'suite-chandelier-shade'));
-          root.add(sphere({
+          root.add(named(sphere({
             r: 0.05, pos: [-1.2 + bx, cy + ty + 0.03, cz + bz], mat: M_BULB_WARM, cast: false,
-          }));
+          }), 'suite-chandelier-bulb'));
           root.add(box({
             size: [0.018, 0.2, 0.018], pos: [-1.2 + bx * 0.86, cy + ty - 0.17, cz + bz * 0.86], mat: M_CRYSTAL, cast: false, name: 'suite-chandelier-drop',
           }));
         }
       }
-      root.add(sphere({ r: 0.1, pos: [-1.2, cy - 0.48, cz], mat: M_GOLD }));
+      root.add(named(sphere({ r: 0.1, pos: [-1.2, cy - 0.48, cz], mat: M_GOLD }), 'suite-chandelier-finial'));
     }
 
     /* ================================================================ */

@@ -2453,10 +2453,18 @@ export function buildMansionGrounds(scene = null) {
      * mesh fewer than the column version. The glazing laps its reveals by the
      * same 20 mm for the same reason. */
     {
-      const sx0 = MASTER_SUITE.x0 - WALL_T;  // -9.15
-      const sx1 = MASTER_SUITE.x1 + WALL_T;  //  9.15
-      const sz0 = MASTER_SUITE.z0 - WALL_T;  //  62.85
-      const sz1 = MASTER_SUITE.z1 + WALL_T;  //  75.30
+      /* 0.36 rather than the shell's own 0.40, and 20 mm of lap into the room
+       * at every inner face. Both are deliberate: at 0.40 the suite's rear
+       * wall lands its outer face on 75.4, which is exactly where the main
+       * roof slab's eave is, and a flush pair over fifteen square metres is
+       * the flicker. The inner lap does the same job against the room's own
+       * skirting and floor finish. */
+      const SW = 0.36;
+      const LAP_IN = 0.02;
+      const sx0 = MASTER_SUITE.x0 - SW;      // -9.21
+      const sx1 = MASTER_SUITE.x1 + SW;      //  9.21
+      const sz0 = MASTER_SUITE.z0 - SW;      //  62.79
+      const sz1 = MASTER_SUITE.z1 + SW;      //  75.36
       /** Head and sill of the suite's glazing. */
       const SUITE_SILL = SUITE_Y + 0.9;      // 11.5
       const SUITE_HEAD = SUITE_Y + 2.7;      // 13.3
@@ -2464,7 +2472,7 @@ export function buildMansionGrounds(scene = null) {
        * roof they carry, for the same reason: a wall whose base is exactly a
        * slab's top face is a flush pair, and a wall bedded into its bearing is
        * what a wall is. */
-      const WY0 = SUITE_Y - 0.06;
+      const WY0 = SUITE_Y - 0.02;
       const WY1 = SUITE_ROOF_Y0 + 0.06;
       const LAP = 0.02;
 
@@ -2492,12 +2500,17 @@ export function buildMansionGrounds(scene = null) {
         // Continuous bands under every sill and over every head.
         seg(u0, u1, WY0, sill, `${tag}-solid`);
         seg(u0, u1, head, WY1, `${tag}-solid`);
-        // Piers between and either side of the openings, lapping both bands.
+        /* Piers between and either side of the openings, lapping both bands
+         * AND lapping 20 mm over each pane's reveal -- the pane is inset
+         * 0.11, so the lap is behind glass and invisible, and it is what
+         * keeps the pier's edge off the pane's edge. */
         const edges = [u0];
         for (const o of openings) edges.push(o.u0, o.u1);
         edges.push(u1);
         for (let i = 0; i < edges.length; i += 2) {
-          seg(edges[i], edges[i + 1], sill - LAP, head + LAP, `${tag}-pier`);
+          const pa = i === 0 ? edges[i] : edges[i] - LAP;
+          const pb = i + 1 === edges.length - 1 ? edges[i + 1] : edges[i + 1] + LAP;
+          seg(pa, pb, sill - LAP, head + LAP, `${tag}-pier`);
         }
         // The panes, lapping their own reveals.
         for (const o of openings) {
@@ -2522,7 +2535,7 @@ export function buildMansionGrounds(scene = null) {
       suiteWall({
         axis: 'x',
         lo: sx0,
-        hi: MASTER_SUITE.x0,
+        hi: MASTER_SUITE.x0 + LAP_IN,
         u0: sz0,
         u1: sz1,
         tag: 'suite-west',
@@ -2532,7 +2545,7 @@ export function buildMansionGrounds(scene = null) {
       });
       suiteWall({
         axis: 'x',
-        lo: MASTER_SUITE.x1,
+        lo: MASTER_SUITE.x1 - LAP_IN,
         hi: sx1,
         u0: sz0,
         u1: sz1,
@@ -2548,7 +2561,7 @@ export function buildMansionGrounds(scene = null) {
        * nor behind the bed. */
       suiteWall({
         axis: 'z',
-        lo: MASTER_SUITE.z1,
+        lo: MASTER_SUITE.z1 - LAP_IN,
         hi: sz1,
         u0: MASTER_SUITE.x0,
         u1: MASTER_SUITE.x1,
@@ -2562,7 +2575,7 @@ export function buildMansionGrounds(scene = null) {
       suiteWall({
         axis: 'z',
         lo: sz0,
-        hi: MASTER_SUITE.z0,
+        hi: MASTER_SUITE.z0 + LAP_IN,
         u0: MASTER_SUITE.x0,
         u1: MASTER_SUITE.x1,
         tag: 'suite-south',
@@ -2644,7 +2657,7 @@ export function buildMansionGrounds(scene = null) {
      * of one slab ever present each other a flush face -- which is what
      * `tools/scene-audit.mjs` reports as the flicker, and what a slab cut on
      * exact lines would have produced four times over. */
-    const LAP = 0.02;
+    const LAP = 0.03;
     const roofSegs = [
       {
         x0: BUILDING.x0 - 0.4, x1: SUITE_STAIR_WELL.x0 + LAP, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4, full: true,
