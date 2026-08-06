@@ -249,8 +249,17 @@ function buildSafehouse() {
    * 12 cm of support gap, because that tolerance is what stops it reporting
    * every chair leg in the mansion. This one is measured by
    * `heist-level-presentation.test.mjs` instead, against this constant, so
-   * the next thing put on this table has a number to sit on. */
-  const PLAN_TOP = 0.99 + 0.035 / 2;
+   * the next thing put on this table has a number to sit on.
+   *
+   * The 0.8 mm is not decoration. Seating a face EXACTLY on another face is
+   * the other half of the same problem — two surfaces at one depth fighting
+   * for the pixel, which is `scene-audit`'s COPLANAR class and the owner's
+   * "black bar, non-stop flicker" everywhere else it has turned up. Seating
+   * the plan on 1.0075 put the route line's underside on the paper's top face
+   * and the audit reported it over 0.39 m². Less than a millimetre is under
+   * the eye and over the depth buffer. */
+  const SHEET_TOP = 0.99 + 0.035 / 2;
+  const PLAN_TOP = SHEET_TOP + 0.0008;
   for (const [w, d, z] of [[4.55, 0.02, -0.84], [4.55, 0.02, 0.84]]) {
     flat(briefing, [w, 0.006, d], [0, 1.009, z], MAT.ink);
   }

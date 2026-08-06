@@ -494,7 +494,21 @@ export function buildEscapeCity(group, vehicleFactory) {
   const obstacles = [];
 
   for (const [index, road] of ROUTE_ROADS.entries()) {
-    box(group, [road.w, 0.2, road.d], [road.x, -0.1, road.z], MAT.asphalt, `route-road-${road.id}`);
+    /* A MILLIMETRE OF STAGGER, AND IT MATTERS.
+     *
+     * Consecutive roads meet at a junction, and a junction is where two 24 m
+     * slabs cross — 576 m² of two asphalt surfaces at exactly y 0, fighting
+     * for every pixel of it. `scene-audit` calls that COPLANAR and the owner
+     * calls it *"black bar ... non stop flicker"*; there are four of them on
+     * the escape route, one at every turn the drive is built around, which is
+     * the worst possible place to put a shimmering square.
+     *
+     * Each road sits 1.2 mm below the one before it, so at a junction the
+     * earlier road's surface simply wins. The step is a tenth of the lane
+     * paint's thickness and nothing in the drive reads road height: the car
+     * runs on a fixed y and `intersectsDrivingObstacle` is flat. */
+    box(group, [road.w, 0.2, road.d], [road.x, -0.1 - index * 0.0012, road.z],
+      MAT.asphalt, `route-road-${road.id}`);
     buildLaneMarkings(group, road);
     buildSidewalks(group, road, index);
     buildStreetFurniture(group, road, index);

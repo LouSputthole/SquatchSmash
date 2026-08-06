@@ -648,6 +648,12 @@ const bloodDecals = Array.from({ length: Math.min(24, PERFORMANCE_BUDGET.maxDeca
 });
 
 window.__heistDebug = {
+  /* The scene graph itself, for tooling that has to walk it.
+   * `tools/scene-audit.mjs` finds a scene by looking for `isScene` on a global
+   * or on a global's `scene`/`root`; THE TAKE was the one mission it could not
+   * audit at all — it reported "no THREE.Scene reachable" and moved on, which
+   * is worse than a page of findings because it looks like a clean bill. */
+  scene,
   state: machine.state,
   phase: null,
   preview: isPreviewMode(),
