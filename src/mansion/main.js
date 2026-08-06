@@ -1069,7 +1069,27 @@ async function beginTour() {
    * cost nothing to name) and the recordings standing in for them tonight,
    * which are real files and have to be decoded before a trigger is pulled.
    * Same shape the Bada Bing uses for `bing.grill.*`. */
-  audio.loadManifest({ names: [...weaponCueNames(), ...silentSquatchCueNames()] }).catch(() => {});
+  /* AND THE VOICE. Owner playtest, 2026-08-06: "Still no voicelines on mansion
+   * that are playing."
+   *
+   * They were not playing because they were never LOADED. This call named two
+   * cue lists and both of them are sound effects — `weaponCueNames()` is the
+   * armoury and `silentSquatchCueNames()` is the laboratory's doors, keypads
+   * and fluorescents. Neither has ever contained a line of dialogue.
+   *
+   * `AudioEngine.play()` only plays what is already decoded; it does not
+   * lazily fetch an unknown cue. So every one of the 175 RECORDED mansion
+   * takes sitting in `assets/sfx` was skipped at boot, `play()` returned null,
+   * and the scene subtitled the whole night in silence. Nothing was missing,
+   * nothing 404'd, and no console error was ever raised — the engine did
+   * exactly what it was asked to do, which was to load the sound effects.
+   *
+   * `vo.silentsquatch.` is the whole mansion script — see `./script.js`'s
+   * `cue()`, which builds every name in the scene from that prefix. */
+  audio.loadManifest({
+    names: [...weaponCueNames(), ...silentSquatchCueNames()],
+    prefixes: ['vo.silentsquatch.'],
+  }).catch(() => {});
   player.enabled = true;
   lockPointer();
   clock.getDelta();

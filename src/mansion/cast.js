@@ -176,6 +176,20 @@ const FACES = Object.freeze({
   erican: 'assets/faces/erican.png',
   shubes: 'assets/faces/shubes.png',
   hogmama: 'assets/faces/hogmama.png',
+  /* Owner playtest, 2026-08-06: "snow doesnt have his face."
+   *
+   * He did not, and neither did Gratin. Both photographs have been sitting in
+   * `assets/faces/` and listed in its index the whole time — this table simply
+   * never named them, so `post()` built both men with the authored head that
+   * `makePerson` falls back to. Nothing 404'd and nothing warned: a face is
+   * the one part of a figure that is allowed to be absent (see `withFace`
+   * below), so a missing entry here looks exactly like a photo that has not
+   * been delivered yet.
+   *
+   * Everyone with a photo on disk is now in this table. Numbskull and the
+   * uniformed guards are still faceless because there is no photo of them. */
+  snow: 'assets/faces/snow.png',
+  gratin: 'assets/faces/gratin.png',
 });
 
 /**
@@ -738,7 +752,7 @@ export function mountMansionCast(scene, world = {}, {
   const snowAt = { x: foyer.x - 2.4, y: foyer.y, z: foyer.z - 1.2 };
   post('snow', {
     name: 'Snow',
-    model: SNOW,
+    model: withFace(SNOW, FACES.snow),
     job: 'work',
     x: snowAt.x,
     y: snowAt.y,
@@ -1073,7 +1087,7 @@ export function mountMansionCast(scene, world = {}, {
     const gz = hangingAt.z - 1.15;
     const gratin = post('gratin', {
       name: 'Gratin',
-      model: GRATIN,
+      model: withFace(GRATIN, FACES.gratin),
       x: gx,
       y: hangingAt.y ?? BASEMENT_Y,
       z: gz,

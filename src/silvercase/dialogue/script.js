@@ -25,7 +25,13 @@ export const SPEAKERS = Object.freeze({
   PROSPECT: Object.freeze({ name: 'Prospect', voice: 'player' }),
   DEKE: Object.freeze({ name: 'Deke', voice: 'npc-male' }),
   WINSTON: Object.freeze({ name: 'Winston', voice: 'npc-male' }),
-  CHESTER: Object.freeze({ name: 'Chester', voice: 'npc-male' }),
+  /* HIS OWN VOICE, owner-cast 2026-08-06. He is the man in the chair — the one
+   * the whole night is spent talking to — and he was sharing `npc-male` with
+   * Deke, Winston and Pruitt, which is three other men in the same room in the
+   * same throat. Splitting him out is one id here and a re-render of his seven
+   * takes; see the profile's own note in `assets/sfx/manifest.json`, including
+   * the length question on the id. */
+  CHESTER: Object.freeze({ name: 'Chester', voice: 'chester' }),
   PRUITT: Object.freeze({ name: 'Pruitt', voice: 'npc-male' }),
   HUD: Object.freeze({ name: '', voice: null }),
 });

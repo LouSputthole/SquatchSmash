@@ -162,6 +162,14 @@
       "similarity": 0.8,
       "style": 0.35
     },
+    "chester": {
+      "id": "tgfcQY9SGvn3GfmnNWIito",
+      "_note": "Chester — the man in the chair in THE SILVER CASE, and the man the whole scene is spent talking to. Owner-cast 2026-08-06, split out of `npc-male`, which he had been sharing with Deke and Winston in his own scene: three men in one room in one voice. NOTE FOR THE OWNER: every other id in this file is 20 characters and this one is 22, exactly as it was given. Nothing has been rendered against it yet, so a paste slip costs nothing to correct — confirm it before running: npm run sfx -- --force --cast chester",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.45
+    },
     "heist-guard": {
       "id": "NOpBlnGInO9m6vDvFkFC",
       "_note": "THE TAKE — the bank security guard. Sole owner of this id since 2026-08-05: the customer, the manager and the npc-male pool were all recast off it, so it is no longer shared. Not itself recast; say so if it should be.",
@@ -13808,8 +13816,9 @@
     },
     {
       "name": "vo.silvercase.arrival.chester.whoisit",
-      "voice": "npc-male",
-      "say": "Who is it?"
+      "voice": "chester",
+      "say": "Who is it?",
+      "needsRerecord": true
     },
     {
       "name": "vo.silvercase.arrival.ape.committee",
@@ -13848,8 +13857,9 @@
     },
     {
       "name": "vo.silvercase.control.chester.whatcase",
-      "voice": "npc-male",
-      "say": "…Case? What case?"
+      "voice": "chester",
+      "say": "…Case? What case?",
+      "needsRerecord": true
     },
     {
       "name": "vo.silvercase.control.deke.dontknow",
@@ -13863,8 +13873,9 @@
     },
     {
       "name": "vo.silvercase.control.chester.misunderstanding",
-      "voice": "npc-male",
-      "say": "That was — that was a misunderstanding."
+      "voice": "chester",
+      "say": "That was — that was a misunderstanding.",
+      "needsRerecord": true
     },
     {
       "name": "vo.silvercase.control.ape.alwaysmisunderstanding",
@@ -13893,8 +13904,9 @@
     },
     {
       "name": "vo.silvercase.control.chester.drink",
-      "voice": "npc-male",
-      "say": "You, uh — you want a drink or somethin’?"
+      "voice": "chester",
+      "say": "You, uh — you want a drink or somethin’?",
+      "needsRerecord": true
     },
     {
       "name": "vo.silvercase.case.ape.thereitis",
@@ -13958,8 +13970,9 @@
     },
     {
       "name": "vo.silvercase.lou.chester.notpersonal",
-      "voice": "npc-male",
-      "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —"
+      "voice": "chester",
+      "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —",
+      "needsRerecord": true
     },
     {
       "name": "vo.silvercase.lou.ape.evermeet",
@@ -13968,8 +13981,9 @@
     },
     {
       "name": "vo.silvercase.lou.chester.no",
-      "voice": "npc-male",
-      "say": "No."
+      "voice": "chester",
+      "say": "No.",
+      "needsRerecord": true
     },
     {
       "name": "vo.silvercase.lou.ape.whatlookslike",
@@ -13978,8 +13992,9 @@
     },
     {
       "name": "vo.silvercase.lou.chester.heardofhim",
-      "voice": "npc-male",
-      "say": "I mean — I’ve heard of him, everybody’s heard of —"
+      "voice": "chester",
+      "say": "I mean — I’ve heard of him, everybody’s heard of —",
+      "needsRerecord": true
     },
     {
       "name": "vo.silvercase.lou.ape.lookslikeabitch",

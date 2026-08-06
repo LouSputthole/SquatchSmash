@@ -328,8 +328,19 @@ const dialogue = new DialogueController({
    * are still unrecorded stay silence-plus-subtitle — the game's own
    * convention — and start playing the day they are delivered, with no
    * further code change. */
+  /* Returns the take's real length so the controller can hold the line for
+   * it rather than for an authored guess. See DialogueController._advance. */
   playCue(cue) {
-    if (cue && audio?.hasSample?.(cue)) audio.play(cue, { volume: 0.9 });
+    if (!cue || !audio?.hasSample?.(cue)) return 0;
+    voiceSource = audio.play(cue, { volume: 0.9 });
+    return audio.sampleDuration?.(cue) ?? 0;
+  },
+  stopVoice() {
+    if (!voiceSource) return;
+    /* `stop()` throws on a source that has already ended, which is the normal
+     * case — the line finished on its own and we are only tidying up. */
+    try { voiceSource.stop(); } catch { /* already done */ }
+    voiceSource = null;
   },
   onLine(line) {
     ui.subsWho.textContent = line.speakerName || '';

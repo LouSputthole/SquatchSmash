@@ -1139,7 +1139,11 @@ export const APPEARANCES = Object.freeze([
     model: SNOW,
     from: { wardrobe: 'SNOW' },
     module: 'src/mansion/cast.js',
-    evidence: 'model: SNOW,',
+    evidence: 'model: withFace(SNOW, FACES.snow),',
+    /* He was built WITHOUT his photograph until 2026-08-06 — owner playtest,
+     * "snow doesnt have his face". `snow.png` had been on disk and in the
+     * faces index the whole time; the mansion's own FACES table simply never
+     * named it, so he got the authored fallback head. Same for Gratin. */
   }),
   row({
     character: CHARACTER_IDS.RIPPINFLOW,
@@ -1232,7 +1236,7 @@ export const APPEARANCES = Object.freeze([
     model: GRATIN,
     from: { wardrobe: 'GRATIN' },
     module: 'src/mansion/cast.js',
-    evidence: 'model: GRATIN,',
+    evidence: 'model: withFace(GRATIN, FACES.gratin),',
   }),
 
   /* ================================================================== *
