@@ -758,6 +758,12 @@ window.__heistDebug = {
     vehicle.heading = heading;
     vehicle.speed = 0;
     vehicle.lateralSlip = 0;
+    /* "Put the car here and start clean" has to include the recovery flag. It
+     * did not, so a recovery that fired during the previous probe stayed armed
+     * across this call and ate the next 650 ms of driving — which is most of a
+     * scripted route run. The pending `setTimeout` clearing it again is
+     * harmless. */
+    drivingRecovery = false;
     driveInvalidFor = 0;
     driveStuckFor = 0;
     if (options.resetRoute) { routeIndex = 0; roadblockHit = false; }
@@ -933,6 +939,12 @@ function debugNeutralizePolice() {
 
 function debugDriveToNextNode() {
   if (!driving) return { ok: false, reason: 'not_driving' };
+  /* `updateDriving` returns at its first line during a route recovery, so a
+   * call made inside that 650 ms window moves the car and advances nothing —
+   * silently, while still reporting ok. Six of those in a row is how a wrecked
+   * engine turned into a thirty-second timeout with no clue attached. Say so
+   * instead: a caller that sees `recovering` knows what it is looking at. */
+  if (drivingRecovery) return { ok: false, reason: 'recovering', routeIndex };
   const target = level.phases.driving.route[routeIndex];
   if (!target) return { ok: false, reason: 'route_complete' };
   vehicle.x = target.x + (target.id === 'roadblock' ? 4.5 : 0);
@@ -3377,16 +3389,40 @@ function updatePursuit(dt, forwardX, forwardZ) {
    *
    * Once the pressure has closed the gap, the lead car is not tailing any
    * more — it is trying to stop the vehicle, which is what a pursuit does to
-   * something that has given up running. Contact costs real damage on the
-   * shared `GroundVehicle` model (the same damage the roadblock deals, which
-   * the verifier already carries through to the swap), shoves the car
-   * forward, and kicks the camera. It also breaks the deadlock: being shunted
-   * makes you move, moving sheds the pressure, and the chase restarts. */
+   * something that has given up running. It shoves the car, kicks the camera,
+   * costs a little paint, and breaks the deadlock: being shunted makes you
+   * move, moving sheds the pressure, and the chase restarts.
+   *
+   * IT IS NOT ALLOWED TO END THE DRIVE, and the first version was. It dealt
+   * 0.22–0.38 severity, which is 7.5–13 points of damage a hit and about 8 off
+   * `engineHealth`, on a 1.35-second cooldown, forever, at a car nobody is
+   * driving. `updateDriving` calls `recoverDrivingRoute` the moment
+   * `engineHealth` hits zero — fade to black, teleport to the last stable turn
+   * — so a parked car got a recovery every twenty-odd seconds, on a loop.
+   *
+   * It also PUT A STATIONARY CAR IN MOTION at up to 7.6 m/s, which is what
+   * made it expensive: a shoved car leaves the road, and off-road costs
+   * another 0.16 every 0.8 s. `tools/verify-heist.mjs` proved it the hard way.
+   * Its five barrier probes park the car at a junction pointing the wrong way
+   * and simulate 3.2 s with no throttle — before the ram existed the car did
+   * not move and took nothing; with it, each probe cost two rams and three
+   * curb strikes, and the engine was through zero by the fifth. The recovery
+   * that fired then was still armed when the authored drive started, and
+   * `updateDriving` returns early during a recovery, so all six
+   * `driveToNextNode` calls no-opped, the route never advanced, and the run
+   * timed out waiting for the swap.
+   *
+   * So: a shunt, not a wrecking ball. `applyCollision` spends 22.1 engine
+   * points per unit of severity, and the ram may only spend what keeps the
+   * engine above 30 — the roadblock and the walls are what wreck this car,
+   * because those are authored and this is ambient. */
   if (!copsLost && distance < 4.6 && pursuitPressure > 0.45 && ramCooldown <= 0) {
     ramCooldown = 1.35;
-    const shove = 3.4 + pursuitPressure * 4.2;
+    const shove = 2.4 + pursuitPressure * 2.6;
     vehicle.speed += Math.sign(vehicle.speed || 1) * shove;
-    vehicle.applyCollision({ severity: 0.22 + pursuitPressure * 0.16, windshield: false });
+    const headroom = Math.max(0, vehicle.engineHealth - 30) / 22.1;
+    const severity = Math.min(0.05 + pursuitPressure * 0.05, headroom);
+    if (severity > 0.002) vehicle.applyCollision({ severity, windshield: false });
     audio.play('heist.vehicle.impact', { volume: 0.85, rate: 0.94 });
     suppression.noteNearMiss(0.4, 1);
     camera.rotation.z += (Math.random() - 0.5) * 0.09;
