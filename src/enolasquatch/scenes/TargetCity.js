@@ -119,6 +119,16 @@ export function riverCarve(lx, lz, cfg = TARGET_CITY) {
  * Returned as a pair — the colour map and a matching emissive map with ONLY
  * the lit windows on it — so the lit ones actually glow at night instead of
  * being pale grey squares.
+ *
+ * Owner playtest, 2026-08-06: "building lights too dense." At 24% lit and a
+ * pale amber-white (`#ffe6b0`/`#ffc86a`, both close enough to white that a
+ * whole tower reads as one bright slab rather than individual windows), a
+ * 130 m tower shows on the order of two hundred windows at once through the
+ * texture's 2.2x3.4 repeat — from three thousand feet that is a lit wall, not
+ * a lit CITY. Down to 13% and warmed toward orange (`#ffa542`/`#ff8a2e`,
+ * pushed further from white than the old pair), which is sparser and reads
+ * as individual points of light rather than a glowing slab, and warmer in the
+ * literal colour-temperature sense the owner asked for.
  */
 function windowTextures(seed) {
   const rand = rng(seed);
@@ -149,11 +159,11 @@ function windowTextures(seed) {
       const y = row * ch + ch * 0.22;
       const w = cw * 0.56;
       const h = ch * 0.5;
-      const lit = rand() < 0.24;
-      c.fillStyle = lit ? '#ffd894' : '#20222c';
+      const lit = rand() < 0.13;
+      c.fillStyle = lit ? '#e69454' : '#20222c';
       c.fillRect(x, y, w, h);
       if (lit) {
-        e.fillStyle = rand() < 0.3 ? '#ffe6b0' : '#ffc86a';
+        e.fillStyle = rand() < 0.3 ? '#ffa542' : '#ff8a2e';
         e.fillRect(x, y, w, h);
       }
     }
@@ -344,8 +354,13 @@ const _scorched = new THREE.Color(0x1a1512);
  * it, and `restore()`, which has to put it back after `destroy()` knocked it
  * down to `DEAD_WINDOW_GLOW`. It was a bare literal in one place and a second
  * bare literal in the other, which is exactly how a restored city ends up dark.
+ *
+ * 0.72 -> 0.5, alongside `windowTextures()`'s sparser, warmer palette (owner
+ * playtest, 2026-08-06: "building lights too dense"): fewer lit windows at
+ * full brightness still reads as a wall of light, so both numbers had to move
+ * together — density in the texture, brightness here.
  */
-export const WINDOW_GLOW = 0.72;
+export const WINDOW_GLOW = 0.5;
 /** And what it is turned down to once the town has no power and no windows. */
 export const DEAD_WINDOW_GLOW = 0.04;
 
@@ -542,8 +557,17 @@ export class TargetCity {
         for (let li = 0; li < div; li++) {
           for (let lj = 0; lj < div; lj++) {
             if (rand() < vacancy) continue;
-            const px = bx - inner / 2 + lot * (li + 0.5);
-            const pz = bz - inner / 2 + lot * (lj + 0.5);
+            /* A little jitter off the perfect lot centre — real streets are
+             * not a rigid grid of identical setbacks, and a lot snapped dead
+             * centre every time is part of what a playtest called "buildings
+             * look bad": correct shapes in a placement too regular to read as
+             * a place. Downtown stays close to the line (a business district
+             * IS built to the property line); everywhere else gets more play,
+             * capped well inside the lot so nothing crosses into its
+             * neighbour's or the street's. */
+            const jitter = district === 'downtown' ? 0.04 : district === 'midrise' ? 0.08 : 0.12;
+            const px = bx - inner / 2 + lot * (li + 0.5) + (rand() - 0.5) * lot * jitter;
+            const pz = bz - inner / 2 + lot * (lj + 0.5) + (rand() - 0.5) * lot * jitter;
             const pr = Math.hypot(px, pz);
             if (pr > cfg.radius) continue;
             if (this.districtAt(px, pz) === 'water') continue;
@@ -568,6 +592,33 @@ export class TargetCity {
                 district,
               };
               blocks.push(record);
+
+              /* THE WEDDING CAKE. Owner playtest, 2026-08-06: "buildings look
+               * bad" — every one of them a single flat-topped box was a real
+               * part of that, on the towers most of all, since those are the
+               * ones close enough to the camera on a bombing run to actually
+               * read as a shape. A second, smaller box set back on top of the
+               * taller ones is the classic real-world setback silhouette, and
+               * it costs nothing extra: it is one more instance in the SAME
+               * `blocks` InstancedMesh (still `squatchbourg-buildings`, still
+               * one draw call for the walls and one for the roofs), not a new
+               * mesh or a new material. Only the taller buildings get one —
+               * a two-storey terrace with a wedding-cake top would read as a
+               * mistake, not a variety. */
+              if (record.h > cfg.maxHeight * 0.42 && rand() < (district === 'downtown' ? 0.4 : 0.2)) {
+                const step = {
+                  x: px, z: pz, y: y + record.h,
+                  w: record.w * (0.48 + rand() * 0.22),
+                  d: record.d * (0.48 + rand() * 0.22),
+                  h: record.h * (0.24 + rand() * 0.3),
+                  rot: record.rot + (rand() - 0.5) * 0.08,
+                  tint: record.tint,
+                  warm: record.warm,
+                  district,
+                };
+                blocks.push(step);
+                this.lots.push(step);
+              }
             } else if (district === 'industry' || district === 'docks' || district === 'rail') {
               /* Long, low, wide — sheds and warehouses, not offices. */
               const long = rand() < 0.5;

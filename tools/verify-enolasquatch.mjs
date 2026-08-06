@@ -1891,7 +1891,11 @@ try {
       && restarted.standingLots === restarted.totalLots && restarted.totalLots > 800
       && restarted.landmarksAlive > 15
       && restarted.streetsVisible && restarted.riverVisible
-      && restarted.windowGlow > 0.5 && restarted.flattened === 0,
+      /* Not a pin on the exact live brightness (`TargetCity.js`'s own
+       * `WINDOW_GLOW`, tuned down from 0.72 to 0.5 on 2026-08-06 for sparser,
+       * warmer windows — see that file) — just clearly "lit" rather than
+       * `DEAD_WINDOW_GLOW`'s 0.04, with headroom either way. */
+      && restarted.windowGlow > 0.3 && restarted.flattened === 0,
     JSON.stringify({
       standing: `${restarted.standingLots}/${restarted.totalLots}`,
       landmarks: restarted.landmarksAlive,
