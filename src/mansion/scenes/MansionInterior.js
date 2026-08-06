@@ -61,7 +61,7 @@ import {
   makeBed, makeNightstand, makePlant, makeFloorLamp, makeFrame,
   makeToilet, makeTub, makeWhiskeyBottle, makeShotGlass,
   makeAshtray, makeBooks, makeWallClock, makeDesk, makeChair, makeBeerCan,
-  makePizzaBox,
+  makePizzaBox, makeBong,
 } from '../../world/props.js';
 import { resolveGear } from '../../world/gear.js';
 /* NO PEOPLE ARE BUILT IN THIS FILE. It used to import the club's figure
@@ -8373,14 +8373,27 @@ const M_GOLD_BAR = mat({
       /* Owner brief: "for the gamer chairs add the squatch logo to the chairs
        * in this gamer room". On the back of the shell, where a team chair
        * carries one, drawn now and swapped for the real logo file by
-       * `dressArtSlots` below. */
+       * `dressArtSlots` below.
+       *
+       * TRANSPARENT, which is the whole difference between a logo and a
+       * placard. Owner playtest, 2026-08-06: the chairs were carrying the
+       * logo on a `bg: '#16121a'` plate with `MeshStandardMaterial` and no
+       * alpha — a 340 mm dark card floating a centimetre off the back of
+       * every chair in the room. `bg: null` leaves the canvas transparent
+       * (see `squatchArt`), and `alphaTest` rather than plain blending so it
+       * still writes depth and cannot sort behind the shell it is printed on.
+       * The swap in `dressArtSlots` uses the same treatment, which is what
+       * makes the real transparent PNG land as a print rather than as a
+       * rectangle. */
       const backLogo = new THREE.Mesh(
         new THREE.PlaneGeometry(0.34, 0.34),
         mat({
           map: squatchArt(`mansion-chair-${seat}`, {
-            title: [], footer: null, ink: '#c8a24a', bg: '#16121a', rule: false, w: 256, h: 256,
+            title: [], footer: null, ink: '#c8a24a', bg: null, rule: false, w: 256, h: 256,
           }),
           roughness: 0.75,
+          transparent: true,
+          alphaTest: 0.35,
           unique: true,
         }),
       );
@@ -8458,6 +8471,23 @@ const M_GOLD_BAR = mat({
       x: tableX + 0.1, y: BY + 0.8, z: cz - 0.02, rotY: 0.3,
     });
     root.add(pizza.group);
+    /* THE BONG ON THE TABLE (owner brief for this room, 2026-08-06).
+     *
+     * `makeBong` is the flat's, unchanged — the same glass, the same water
+     * that has been in there too long, the same lighter beside it. This room
+     * is five men who play until four in the morning under a blue cove
+     * light, and the snack table already had beer and a pizza box on it; the
+     * bong is the third thing on that table in every house this game has
+     * been in, and it is the one that was missing.
+     *
+     * At the EAST end of the top, clear of the pizza box (which occupies
+     * about 400 mm round `tableX + 0.1`) and of the four cans, on a table
+     * whose own collider already stops anyone walking through it. Its height
+     * is 355 mm and the top is at BY + 0.80, so nothing above it. */
+    const bong = makeBong(M, {
+      x: tableX + 0.78, y: BY + 0.8, z: cz - 0.18, rotY: -0.5,
+    });
+    root.add(bong.group);
 
     // The bracket board and the house banner, on the wall behind the rack.
     /* x=9.4 and x=3.6, not cx+/-1.2: this wall has the room's door in it at
@@ -8950,7 +8980,14 @@ const M_GOLD_BAR = mat({
     /* One slot, every gamer chair in the LAN room. The owner asked for the
      * logo on the chairs, plural, and five chairs pointed at five slots would
      * be five manifest entries for one image. */
-    { slot: 'mansion.lan.chairs', meshes: lanProps.chairBacks, w: 0.34 },
+    /* `alpha`, and this is the one target that needs it: the file is a
+     * transparent PNG of the mark and it goes onto the BACK OF A CHAIR, not
+     * into a frame. Dressed with the wall-picture material it came out as an
+     * opaque square of whatever the PNG's empty pixels are, which is the
+     * defect the owner reported. */
+    {
+      slot: 'mansion.lan.chairs', meshes: lanProps.chairBacks, w: 0.34, alpha: true,
+    },
   ];
   const artReady = resolveGear(MANSION_ART_SLOTS).then((gear) => {
     const dressed = [];
@@ -8962,7 +8999,14 @@ const M_GOLD_BAR = mat({
       for (const mesh of meshes) {
         mesh.geometry.dispose();
         mesh.geometry = new THREE.PlaneGeometry(target.w, h);
-        mesh.material = new THREE.MeshStandardMaterial({ map: supplied.texture, roughness: 0.65 });
+        mesh.material = new THREE.MeshStandardMaterial({
+          map: supplied.texture,
+          roughness: 0.65,
+          /* A framed picture is opaque; a logo printed on an object is not.
+           * `alphaTest` rather than plain blending, so it still writes depth
+           * and cannot sort behind the thing it is printed on. */
+          ...(target.alpha ? { transparent: true, alphaTest: 0.35 } : {}),
+        });
         mesh.userData.art = { slot: target.slot, real: true, file: supplied.file };
       }
       dressed.push(target.slot);
