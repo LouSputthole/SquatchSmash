@@ -103,6 +103,7 @@ import { EnolaPreflight } from './preflight.js';
 import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
 import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
@@ -116,6 +117,74 @@ const canvas = $('scene');
 const overlay = $('overlay');
 const startBtn = $('start-btn');
 const loading = $('loading');
+
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?checkpoint=...)                      */
+/*
+ * LOCAL support only, deliberately — this does not go through
+ * `src/core/preview-mode.js`. That module's `previewCheckpointForLocation`
+ * is Heist's own vocabulary (`safehouse`/`bank_lobby`/…) with no idea this
+ * page exists, and its sibling `previewBeefRunCheckpointForLocation` is
+ * hard-scoped to `beefrun.html` by pathname — neither can be taught a third
+ * scene's checkpoints without changing a file both other scenes depend on.
+ * `src/beefrun/main.js` shows the pattern this mirrors: a page-local const
+ * computed once at boot, consulted by the Start handler below.
+ *
+ * The mission's REAL, SAVEABLE checkpoints are the four in `CHECKPOINTS`
+ * (./config.js) — `takeoff` / `turnOnCourse` / `preRelease` / `return` — the
+ * only points `MissionController.restoreCheckpoint()` can stage without a
+ * prior playthrough. This page's own `go(phase)` helper (below — built for
+ * `tools/verify-enolasquatch.mjs` and for driving the mission from the
+ * console) already knows how to reach every phase of the mission this way,
+ * three of which route straight through those four checkpoints
+ * (`go('cruise')` -> `restoreCheckpoint('turnOnCourse')`,
+ * `go('bombApproach')` -> `restoreCheckpoint('preRelease')`, `go('return')`
+ * -> `restoreCheckpoint('return')`) and the rest of which pose the airframe
+ * directly. `CHECKPOINT_ALIASES` below is the shareable-link vocabulary —
+ * the owner's six named waypoints, mapped onto the mission's real phase
+ * names rather than inventing a second one.
+ */
+const CHECKPOINT_ALIASES = Object.freeze({
+  preflight: 'preflight',       // in the seat, engines not yet started
+  takeoff: 'takeoff',           // lined up on the runway — a real CHECKPOINTS entry
+  flak: 'defense',              // over the corridor, into the flak/fighter stretch
+  bombrun: 'bombApproach',      // final approach on Squatchbourg — a real CHECKPOINTS entry
+  detonation: 'explosion',      // the Fat Squatch has just gone off
+  return: 'return',             // outbound of the crater, flying home — a real CHECKPOINTS entry
+});
+
+const PREVIEW_CHECKPOINT_LABELS = Object.freeze({
+  preflight: 'PREFLIGHT — ENGINE START',
+  takeoff: 'TAKEOFF ROLL',
+  defense: 'FLAK & FIGHTERS',
+  bombApproach: 'BOMB RUN',
+  explosion: 'DETONATION',
+  return: 'RETURN LEG',
+});
+
+function previewCheckpointForLocation(locationLike = window.location) {
+  // Same gate as `src/core/preview-mode.js`'s own two checkpoint parsers
+  // (`previewCheckpointForLocation` for Heist, `previewBeefRunCheckpointForLocation`
+  // for the Beef Run): a bare `?checkpoint=` on an ordinary link does nothing,
+  // it takes `?preview=1` alongside it, so a shared preview link cannot be
+  // mistaken for (or fired off from) a normal campaign entry.
+  if (!isPreviewMode(locationLike)) return null;
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(CHECKPOINT_ALIASES, value)
+    ? CHECKPOINT_ALIASES[value]
+    : null;
+}
+
+/** Resolved once at boot — a real `go()` phase name, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+  const tag = overlay?.querySelector('.tag');
+  if (tag) tag.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  if (startBtn) startBtn.textContent = `Start at ${label.toLowerCase()}`;
+}
 
 window.__squatchStage?.('Building the Enola Squatch…');
 
@@ -1742,10 +1811,18 @@ function startAudio() {
 
 startBtn.addEventListener('click', () => {
   if (!game.started) {
-    game.started = true;
-    mission.begin();
-    // Daylight on the apron, dark by the runway — see the `nightfall` phase.
-    hud.say('<em>Whispering Pines Municipal, the last of the afternoon.</em> Walk her with the Captain before you get in.', 6000);
+    if (previewCheckpoint) {
+      // `go()` sets `game.started`/`game.paused`/`mission.paused` itself —
+      // see its own doc comment below.
+      go(previewCheckpoint);
+      const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+      hud.say(`<em>Preview checkpoint:</em> ${label}.`, 4200);
+    } else {
+      game.started = true;
+      mission.begin();
+      // Daylight on the apron, dark by the runway — see the `nightfall` phase.
+      hud.say('<em>Whispering Pines Municipal, the last of the afternoon.</em> Walk her with the Captain before you get in.', 6000);
+    }
   }
   startAudio();
   overlay.classList.add('hidden');
