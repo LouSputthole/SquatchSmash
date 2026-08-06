@@ -154,6 +154,29 @@ async function shot(name, { openBody = null, minOpen = 0.45 } = {}) {
   await page.screenshot({ path: path.join(SHOT_DIR, `${name}.png`) });
 }
 
+/**
+ * Stand the player in front of somebody's face and look at it.
+ *
+ * The pictures are the point of this half of the script and a mouth is four
+ * centimetres wide on a 1.78 m figure — from across the room it is two pixels
+ * and a screenshot of it proves nothing to anybody. This walks the camera to
+ * conversational distance on the side the man is facing and aims at his head,
+ * which is where the player stands for every one of these lines anyway.
+ */
+async function frameOn(body, distance = 0.95) {
+  await page.evaluate(([b, d]) => {
+    const sc = window.silvercase;
+    const actor = sc.cast[b];
+    const at = actor.parts.head.getWorldPosition(sc.camera.position.clone());
+    // The figures face +Z of their own group; stand out in front of that.
+    const yaw = actor.group.rotation.y;
+    sc.player.position.x = at.x + Math.sin(yaw) * d;
+    sc.player.position.z = at.z + Math.cos(yaw) * d;
+    sc.player.update(0);
+    sc.aimAt(b);
+  }, [body, distance]);
+}
+
 /* ------------------------------------------------------------------ */
 /* The in-page sampler                                                 */
 /* ------------------------------------------------------------------ */
@@ -512,27 +535,33 @@ const TAKE = await page.evaluate(
  * ================================================================== */
 {
   await settle();
+  await frameOn(RECORDED.body);
   await shot('b-silent-room');
 
   await speak({ ...RECORDED, hold: 0.5 });
   await shot('a1-recorded-line-mid-word', { openBody: RECORDED.body });
   await settle();
+  await frameOn(RECORDED.body);
   await shot('a2-recorded-line-ended');
 
+  await frameOn(PHOTO.body);
   await speak({ ...PHOTO, hold: 0.5 });
   await shot('e-photo-face-ape', { openBody: PHOTO.body });
   await settle();
 
+  await frameOn(RECORDED.body);
   await speak({ ...RECORDED, hold: 8 });
   await shot('c1-before-the-cut', { openBody: RECORDED.body });
   await page.evaluate(() => window.silvercase.dialogue.play([]));
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(1200);
   await shot('c2-after-the-cut');
 
   await settle();
-  await speak({ ...UNRECORDED, hold: 6.0 });
+  await frameOn(UNRECORDED.body);
+  await speak({ ...UNRECORDED, hold: 8.0 });
   await shot('d1-text-only-line', { openBody: UNRECORDED.body });
   await settle();
+  await frameOn(UNRECORDED.body);
   await shot('d2-text-only-ended');
 }
 
