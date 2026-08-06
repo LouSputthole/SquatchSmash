@@ -239,6 +239,9 @@ try {
     'galleryCenter', 'galleryWest', 'galleryEast', 'conferenceTable', 'conferenceHead',
     'officeDesk', 'bedWestFront', 'bedEastFront', 'bedWestRear', 'bedEastRear',
     'bathWest', 'bathEast', 'chandelier',
+    // interior -- the third floor
+    'secretBookcase', 'suiteStairFoot', 'suiteStairHead', 'masterSuiteCenter',
+    'masterSuiteBed', 'masterSuiteTub', 'masterSuiteBar',
   ];
   const missingAnchors = EXPECTED_ANCHORS.filter((k) => !(k in rooms));
   const extraAnchors = Object.keys(rooms).filter((k) => !EXPECTED_ANCHORS.includes(k));
@@ -600,7 +603,19 @@ try {
 
   // Every room in the scene must have a walk test. A verifier that quietly
   // stops covering the geometry is exactly what shipped the last build green.
-  const covered = new Set(WALKS.map((w) => w.room));
+  /* THE THIRD FLOOR IS NOT IN `WALKS`, AND CANNOT BE.
+   *
+   * Every leg above teleports to a spot squared up outside a room's door and
+   * holds W for the last metre and a half, which is the right shape for a
+   * doorway and no shape at all for a concealed bookcase at the foot of a
+   * half-turn stair. The master suite is proved by "THE THIRD FLOOR" below,
+   * which is a strictly stronger claim than a WALKS leg makes: it presses the
+   * real interaction with the real crosshair and then climbs twenty-four
+   * risers without a single teleport. Naming it here rather than dropping it
+   * from the table is the point -- a room with no check at all is exactly what
+   * this assertion exists to catch. */
+  const STAIRED_ROOMS = ['masterSuite'];
+  const covered = new Set([...WALKS.map((w) => w.room), ...STAIRED_ROOMS]);
   const uncovered = Object.keys(roomTable).filter((k) => !covered.has(k));
   check('every room the interior declares has an on-foot walk test in this script',
     uncovered.length === 0, `uncovered: ${uncovered.join(', ')}`);
@@ -697,6 +712,282 @@ try {
   check('no collider in the house tops out exactly on a floor somebody stands on',
     floorTraps.length === 0,
     floorTraps.length ? `${floorTraps.length} floor-level collider tops: ${JSON.stringify(floorTraps.slice(0, 4))}` : '');
+
+  /* ================================================================ */
+  /* THE THIRD FLOOR — LOU'S MASTER SUITE                              */
+  /*                                                                    */
+  /* Owner: "It was supposed to be on the third floor -- ultra          */
+  /* over-the-top luxury bedroom, hot tub with girls, the dog, and      */
+  /* everything. Canopy bed. Big TV. Cool lighting."                    */
+  /*                                                                     */
+  /* THE WHOLE REVEAL IS WALKED. From in front of Lou's desk, across the  */
+  /* office, aim at the bookcase with the real crosshair, press the real   */
+  /* E, and then climb both flights on held keys. No teleport after the     */
+  /* office floor, because the entire point of this build is a route the     */
+  /* player takes and every one of this project's worst gates was a check     */
+  /* that hopped over the thing it was meant to prove.                        */
+  /* ================================================================ */
+  const suite = await page.evaluate(() => {
+    const q = window.mansion.suite;
+    return {
+      room: q.room, bed: q.bed, tub: q.tub, tubSeats: q.tubSeats,
+      dogCushion: q.dogCushion, stair: q.stair,
+    };
+  });
+  const SUITE_Y = suite.room.floor;
+  /* HIS GATE IS THE DOOR, SO THIS READING HAS TO HAPPEN FIRST. Lil Tom Cruze
+   * holds on his cushion while the bookcase is shut and walks the moment it is
+   * not; taken after the press, "he is on his cushion" measures how fast the
+   * check ran rather than where the dog lives. */
+  const dogAtRest = await page.evaluate(() => window.mansion.suite.dog);
+
+  /* ---- 1. The bookcase is a bookcase until you use it. Squared up in the
+   * office alcove, hold W east and be stopped by it. */
+  await teleport(5.2, UPPER_Y, 65.0, EAST);
+  await settle(0.4);
+  await walk(5);
+  await settle(0.5);
+  s = await state();
+  check('with the bookcase shut, the office alcove just ends -- it is a wall of books',
+    s.x < suite.stair.hall.x0 - 0.05 && Math.abs(s.ground - UPPER_Y) < 0.25,
+    JSON.stringify(s));
+
+  /* ---- 2. Walked to it from Lou's own desk, then aimed at and pressed. */
+  await teleport(0, UPPER_Y, 70.0, SOUTH);
+  await settle(0.4);
+  const toBookcase = [
+    { at: [2.2, 66.4], note: 'south-east across the office, round the fireside chairs' },
+    { at: [5.3, 65.2], note: 'to the alcove between the safe and the chimneypiece' },
+  ];
+  const approachFails = [];
+  for (const leg of toBookcase) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 26, tol: 0.8 });
+    if (!got.ok) { approachFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+  }
+  const bookcaseAim = await page.evaluate(() => {
+    const target = window.mansion.interior.props.masterSuite.secretStair.target;
+    const at = target.getWorldPosition(new window.mansion.THREE.Vector3());
+    const pl = window.mansion.player;
+    const dx = at.x - pl.position.x;
+    const dz = at.z - pl.position.z;
+    const dy = at.y - pl.position.y;
+    pl.yaw = Math.atan2(-dx, -dz);
+    pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+    window.mansion.tick(0.2);
+    return {
+      onIt: window.mansion.interaction.current === target,
+      prompt: document.getElementById('prompt').classList.contains('hidden')
+        ? null : document.getElementById('promptLabel').textContent,
+      distance: +Math.hypot(dx, dz, dy).toFixed(2),
+    };
+  });
+  check('the bookcase is reached on foot from Lou\'s desk and is aimable, and it says what E does',
+    approachFails.length === 0 && bookcaseAim.onIt && !!bookcaseAim.prompt,
+    approachFails.join(' | ') || JSON.stringify(bookcaseAim));
+
+  await page.evaluate(() => { window.mansion.interaction.press(); });
+  await page.evaluate(() => { window.mansion.interaction.release(); });
+  await settle(1.6);
+  const doorOpen = await page.evaluate(() => window.mansion.suite.stair.open);
+  check('pressing E swings the bookcase out of the wall', doorOpen === true, String(doorOpen));
+
+  /* ---- 3. Up. Twenty-four risers, on held keys, with the height read at
+   * every turn -- so a flight whose floorAt disagrees with its treads is a
+   * failure here rather than a surprise under somebody's feet. */
+  const climb = [
+    { at: [7.6, 65.05], y: UPPER_Y, note: 'through the bookcase into the lobby at the foot' },
+    { at: [7.17, 67.0], note: 'up the first flight' },
+    { at: [7.2, 68.45], y: suite.stair.landingY, note: 'onto the half-landing' },
+    /* ROUND THE BALUSTRADE, NOT THROUGH IT. The two flights are 70 mm apart
+     * with a guard between them, so the turn happens at the landing's east
+     * end -- and a leg that cut the corner would be a check asserting you can
+     * walk through a handrail. */
+    { at: [8.35, 68.45], y: suite.stair.landingY, note: 'east across the half-landing' },
+    { at: [8.26, 66.6], note: 'round onto the second flight' },
+    { at: [8.0, 64.3], y: SUITE_Y, tol: 0.6, note: 'up it, onto the suite floor' },
+  ];
+  const climbFails = [];
+  for (const leg of climb) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 34, tol: leg.tol ?? 0.75 });
+    if (!got.ok) { climbFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+    if (leg.y !== undefined && Math.abs(got.s.ground - leg.y) > 0.35) {
+      climbFails.push(`${leg.note} — wrong height: ground ${got.s.ground}, wanted ${leg.y}`);
+      break;
+    }
+  }
+  s = await state();
+  const arrived = climbFails.length === 0
+    && inside(suite.room, s, 0.2) && Math.abs(s.ground - SUITE_Y) < 0.3;
+  check('bookcase -> hidden stair -> the suite, on foot, with no teleport after the office floor',
+    arrived, climbFails.join(' | ') || JSON.stringify(s));
+
+  /* ---- 4. ...and the room is a room: walked across it to the bed, the tub
+   * and the bar without a teleport, which is what proves the balustrade round
+   * the stair well is a balustrade and not a hole. */
+  const suiteTour = [
+    { at: [6.2, 64.7], note: 'west off the stair head, south of the balustrade' },
+    { at: [5.0, 65.9], note: 'past the dressing run and its cheval glass' },
+    { at: [suite.dogCushion.x, suite.dogCushion.z + 1.0], note: 'to the dog on his cushion' },
+    { at: [0, 68.2], note: 'round the foot of the bed' },
+    { at: [-4.6, 71.6], note: 'across the room, north of the seating group' },
+    { at: [-6.1, 71.6], note: 'up to the wet bar' },
+    { at: [0, 71.6], note: 'back east down the middle' },
+    { at: [2.0, 69.0], note: 'south of the champagne pedestal' },
+    { at: [suite.tub.x - 1.0, suite.tub.z - 3.3], note: 'to the steps at the south side of the hot tub' },
+  ];
+  const tourFails2 = [];
+  for (const leg of suiteTour) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 30, tol: 0.85 });
+    if (!got.ok) { tourFails2.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+    if (Math.abs(got.s.ground - SUITE_Y) > 0.3) {
+      tourFails2.push(`${leg.note} — off the suite floor: ${JSON.stringify(got.s)}`);
+      break;
+    }
+  }
+  check('the suite is one continuous walk -- bed, dog, seating, bar and tub, all on the third floor',
+    tourFails2.length === 0, tourFails2.join(' | ') || `${suiteTour.length} legs walked at ${SUITE_Y} m`);
+
+  /* ---- 5. THE THINGS THE OWNER ASKED FOR ARE ACTUALLY THERE, measured off
+   * the built world boxes rather than off the numbers that built them. */
+  const built = await page.evaluate(() => {
+    const THREE = window.mansion.THREE;
+    const box = new THREE.Box3();
+    const scene = window.mansion.scene;
+    scene.updateMatrixWorld(true);
+    const want = {
+      mattress: 'suite-bed-mattress',
+      tester: 'suite-tester',
+      posts: 'suite-bedpost',
+      tub: 'suite-tub-drum',
+      water: 'suite-tub-water',
+      bubbles: 'suite-tub-bubbles',
+      tv: 'suite-tv-screen',
+      cushion: 'suite-dog-cushion',
+      bar: 'suite-bar-counter',
+      cove: 'suite-cove-led',
+    };
+    const found = {};
+    const union = {};
+    scene.traverse((o) => {
+      if (!o.isMesh && !o.isPoints) return;
+      for (const [key, name] of Object.entries(want)) {
+        if (o.name !== name) continue;
+        found[key] = (found[key] || 0) + 1;
+        box.setFromObject(o);
+        const u = union[key];
+        if (!u) {
+          union[key] = {
+            x0: box.min.x, x1: box.max.x, y0: box.min.y, y1: box.max.y, z0: box.min.z, z1: box.max.z,
+          };
+        } else {
+          u.x0 = Math.min(u.x0, box.min.x); u.x1 = Math.max(u.x1, box.max.x);
+          u.y0 = Math.min(u.y0, box.min.y); u.y1 = Math.max(u.y1, box.max.y);
+          u.z0 = Math.min(u.z0, box.min.z); u.z1 = Math.max(u.z1, box.max.z);
+        }
+      }
+    });
+    return { found, union };
+  });
+  const missingProps = Object.entries({
+    mattress: 1, tester: 1, posts: 4, tub: 1, water: 1, bubbles: 1, tv: 1, cushion: 1, bar: 1,
+  }).filter(([k, n]) => (built.found[k] ?? 0) < n).map(([k]) => k);
+  check('the suite holds the bed, the four posts and its tester, the hot tub and its water, the dog\'s cushion, the wet bar and the television',
+    missingProps.length === 0,
+    missingProps.length ? `missing: ${missingProps.join(', ')}` : JSON.stringify(built.found));
+
+  /* THE CANOPY. The gothic bedroom downstairs is why this is measured rather
+   * than eyeballed: a tester sized off the BED instead of off the POSTS leaves
+   * the bed standing beside its own canopy. Both containments, off the real
+   * boxes, in plan. */
+  const bedU = built.union.mattress;
+  const postU = built.union.posts;
+  const testU = built.union.tester;
+  const contains = (outer, inner) => outer && inner
+    && outer.x0 <= inner.x0 + 1e-6 && outer.x1 >= inner.x1 - 1e-6
+    && outer.z0 <= inner.z0 + 1e-6 && outer.z1 >= inner.z1 - 1e-6;
+  check('the canopy hangs over the bed: the posts enclose the mattress and the tester encloses the posts',
+    contains(postU, bedU) && contains(testU, postU) && testU.y0 > bedU.y1 + 1.0,
+    JSON.stringify({
+      mattress: bedU && [+bedU.x0.toFixed(2), +bedU.x1.toFixed(2), +bedU.z0.toFixed(2), +bedU.z1.toFixed(2)],
+      posts: postU && [+postU.x0.toFixed(2), +postU.x1.toFixed(2), +postU.z0.toFixed(2), +postU.z1.toFixed(2)],
+      tester: testU && [+testU.x0.toFixed(2), +testU.x1.toFixed(2), +testU.z0.toFixed(2), +testU.z1.toFixed(2)],
+      testerY: testU && +testU.y0.toFixed(2),
+    }));
+
+  /* THE WATER MOVES. Not "a water mesh exists" -- the shader's own clock, read
+   * before and after a real tick, because a still pool with a blue plane in it
+   * is exactly what the rear garden's jets were before somebody ticked them. */
+  const waterA = await page.evaluate(() => window.mansion.suite.waterTime);
+  await settle(1.0);
+  const waterB = await page.evaluate(() => window.mansion.suite.waterTime);
+  check('the hot tub is running: its water shader advances with the scene clock',
+    waterB - waterA > 0.5 && waterB - waterA < 1.6,
+    `uTime ${waterA.toFixed(3)} -> ${waterB.toFixed(3)}`);
+
+  /* THE TWO IN IT are the Bada Bing's own performers, sitting in the water
+   * rather than beside it or under it. */
+  const inTheTub = await page.evaluate(() => {
+    const people = window.mansion.cast.people;
+    const t = window.mansion.suite.tub;
+    return Object.entries(people)
+      .filter(([id]) => id.startsWith('suitePerformer'))
+      .map(([id, p]) => ({
+        id,
+        radius: +Math.hypot(p.x - t.x, p.z - t.z).toFixed(2),
+        underWater: +(t.waterY - p.y).toFixed(2),
+      }));
+  });
+  check('two of the Bada Bing\'s performers are sitting in the hot tub, in the water',
+    inTheTub.length === 2
+      && inTheTub.every((p) => p.radius < 1.6 && p.underWater > 0.4 && p.underWater < 1.4),
+    JSON.stringify(inTheTub));
+
+  /* LIL TOM CRUZE. He exists, he is on his cushion, he WALKS his route, and he
+   * can be petted -- which is the whole of what `src/mansion/dog.js` promises
+   * and what nothing had ever called. */
+  const dogMoved = await page.evaluate(() => {
+    const before = window.mansion.suite.dog;
+    /* 26 simulated seconds: his first waypoint holds for 16, so anything less
+     * measures the wait rather than the walk. */
+    const after = window.mansion.suite.stepDog(1 / 30, 780);
+    return {
+      before, after, moved: +Math.hypot(after.x - before.x, after.z - before.z).toFixed(2),
+    };
+  });
+  const dogPet = await page.evaluate(() => {
+    const ok = window.mansion.suite.petDog();
+    return { ok, state: window.mansion.suite.dog.state, pets: window.mansion.suite.dog.pets };
+  });
+  check('Lil Tom Cruze is in the suite, on his cushion, and he is a real dog',
+    dogAtRest && dogAtRest.meshes > 60
+      && Math.hypot(dogAtRest.x - suite.dogCushion.x, dogAtRest.z - suite.dogCushion.z) < 0.4
+      && dogAtRest.registered === true,
+    JSON.stringify(dogAtRest));
+  check('...he walks his route once the bookcase is open, and he sits down to be petted',
+    dogMoved.moved > 1.5 && dogPet.ok === true && dogPet.state === 'pet' && dogPet.pets === 1,
+    JSON.stringify({ moved: dogMoved.moved, after: dogMoved.after, pet: dogPet }));
+
+  /* THE SET. Wired through core/tv.js like every other television in the
+   * house, so it repaints and changes channel rather than being a black plate. */
+  const suiteSet = await page.evaluate(() => {
+    const before = window.mansion.suite.tvOn;
+    const names = window.mansion.media.tvs.map((t) => t.channel);
+    return { on: before, sets: window.mansion.media.tvs.length, names };
+  });
+  check('the suite\'s television is a working set, not a black plate',
+    suiteSet.on === true && suiteSet.sets >= 5,
+    JSON.stringify(suiteSet));
+
+  /* THE STAIR WELL IS GUARDED. Walk hard at the opening from the suite side
+   * and be stopped by the balustrade rather than falling 4.6 m onto a flight. */
+  await teleport(5.6, SUITE_Y, 67.0, EAST);
+  await settle(0.4);
+  await walk(5);
+  await settle(0.6);
+  s = await state();
+  check('the stair well has a balustrade round it -- you cannot walk off the third floor',
+    s.x < suite.stair.hall.x0 && Math.abs(s.ground - SUITE_Y) < 0.3,
+    JSON.stringify(s));
 
   /* The same treatment for the other two storeys. One walk each, no teleports
    * inside it, every room entered through its own door from the room next to

@@ -721,6 +721,10 @@ flavor(
 /* quiet is the silent-failure class this project has paid for three times.    */
 /* ================================================================== */
 const secretBookcase = interior.props.masterSuite.secretStair;
+/* THE MERGED LIST IS THE ONE THE PLAYER READS. `colliders` above is a COPY of
+ * the interior's array, so the bookcase has to be told about it or it opens on
+ * screen and stays shut under your feet. See the note where it is built. */
+secretBookcase?.bindColliders?.(colliders);
 if (secretBookcase?.target) {
   interaction.register(secretBookcase.target, {
     label: () => (secretBookcase.isOpen()

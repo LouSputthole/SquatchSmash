@@ -89,6 +89,7 @@ const TEST_MODULES = [
   './silent-squatch-mission.test.mjs',
   './silent-squatch-voice.test.mjs',
   './mansion-cast-whip.test.mjs',
+  './mansion-suite-dog.test.mjs',
   './mansion-siege.test.mjs',
   './mansion-siege-dressing.test.mjs',
   './mansion-siege-people.test.mjs',

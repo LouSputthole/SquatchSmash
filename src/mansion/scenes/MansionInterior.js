@@ -4952,14 +4952,32 @@ export function buildMansionInterior(shell = null) {
       g.add(secretDoorTarget);
     }
 
-    /* The door's own collider, spliced into the shared array when it is shut
-     * and taken out when it is open — the same live-splice contract the
-     * house's other openings use, so the Player reads it on the next frame. */
+    /* TWO COLLIDERS, ONE AT A TIME, AND THEY LIVE IN MORE THAN ONE LIST.
+     *
+     * Shut, the leaf fills the opening. Open, it is a quarter of a tonne of
+     * oak standing out in the office, which is also solid -- a door you can
+     * walk through when it is open is only half a door.
+     *
+     * THE LIST IS THE TRAP. This module owns `colliders`, and the composition
+     * root MERGES it into a new array (`[...grounds.colliders,
+     * ...interior.colliders]`); it is that COPY the Player reads every frame.
+     * Splicing only this module's array is therefore a bookcase that opens on
+     * screen and stays shut under your feet -- which is exactly what the first
+     * build of this did, and what the verifier's on-foot climb caught two
+     * minutes later. `bindColliders` is how the root joins the splice. */
     const shutCollider = collider(
       [H.x0 - 0.5, UY, D.z0], [H.x0, D.y1, D.z1],
     );
+    /* The leaf where it comes to rest, measured off OPEN_ANGLE rather than
+     * guessed: at -1.45 rad the carcass lies from x 5.65 to the wall face and
+     * from z 64.15 to 64.67, which leaves 0.78 m of clear opening -- a player
+     * is 0.60 m across. */
+    const openCollider = collider(
+      [H.x0 - 0.90, UY, 64.15], [H.x0, D.y1, 64.67],
+    );
     let doorOpen = false;
     let doorT = 0;                      // 0 shut, 1 open — smoothed
+    const colliderLists = [colliders];
     colliders.push(shutCollider);
     doors.officeSecretBookcase = {
       id: 'officeSecretBookcase',
@@ -5084,14 +5102,38 @@ export function buildMansionInterior(shell = null) {
     /* ================================================================ */
     /* The leaf's behaviour                                             */
     /* ================================================================ */
-    const OPEN_ANGLE = -1.28;   // ~73 degrees, swinging out into the office
+    const OPEN_ANGLE = -1.45;   // ~83 degrees, swinging out into the office
+    /** Take `box` out of every bound list; put it into every one it is not in. */
+    function setBox(box, present) {
+      for (const list of colliderLists) {
+        const at = list.indexOf(box);
+        if (present && at < 0) list.push(box);
+        if (!present && at >= 0) list.splice(at, 1);
+      }
+    }
     function setSecretDoor(open) {
       if (open === doorOpen) return doorOpen;
       doorOpen = open;
-      const at = colliders.indexOf(shutCollider);
-      if (open && at >= 0) colliders.splice(at, 1);
-      if (!open && at < 0) colliders.push(shutCollider);
+      setBox(shutCollider, !open);
+      setBox(openCollider, open);
       return doorOpen;
+    }
+    /**
+     * Join a second collider array to the splice.
+     *
+     * Syncs on the way in, so a list handed over while the leaf is already
+     * open does not inherit the shut box -- a copy taken at build time always
+     * has it.
+     */
+    function bindColliders(list) {
+      if (!Array.isArray(list) || colliderLists.includes(list)) return;
+      colliderLists.push(list);
+      const shutAt = list.indexOf(shutCollider);
+      if (doorOpen && shutAt >= 0) list.splice(shutAt, 1);
+      if (!doorOpen && shutAt < 0) list.push(shutCollider);
+      const openAt = list.indexOf(openCollider);
+      if (doorOpen && openAt < 0) list.push(openCollider);
+      if (!doorOpen && openAt >= 0) list.splice(openAt, 1);
     }
     function updateSecretDoor(dt) {
       const want = doorOpen ? 1 : 0;
@@ -5114,6 +5156,7 @@ export function buildMansionInterior(shell = null) {
       setOpen: setSecretDoor,
       toggle: () => setSecretDoor(!doorOpen),
       update: updateSecretDoor,
+      bindColliders,
       /** Where the flights actually land, for a verifier that walks them. */
       geometry: {
         lobby: { x: (H.x0 + H.x1) / 2, y: UY, z: (H.z0 + SUITE_FLIGHT_A.z0) / 2 },
@@ -5670,8 +5713,9 @@ export function buildMansionInterior(shell = null) {
      * the coping — a bucket standing on a curved marble rim is a bucket
      * standing on nothing, which is what the audit says about it too. */
     {
-      const px = tubX - 2.9;
-      const pz = tubZ - 1.9;
+      /* North-west of the tub, off the lane between the bar and the water. */
+      const px = tubX - 2.8;
+      const pz = tubZ + 1.9;
       const tableTop = SY + 0.62;
       root.add(named(cylinder({
         r: 0.42, h: 0.06, pos: [px, tableTop - 0.03, pz], mat: M_SUITE_MARBLE,
@@ -5830,12 +5874,18 @@ export function buildMansionInterior(shell = null) {
     }
     solid(drX0, drX1, SY, SY + 2.5, r.z0, r.z0 + 0.68);
     // A cheval mirror and a velvet bench in front of it.
+    /* In the corner at the end of the run, NOT in the middle of the floor:
+     * the walk off the stair head runs down this side of the room, and a
+     * cheval glass standing in it is a thing the player bumps into on the way
+     * out of his own bedroom. It is solid, too -- 1.9 m of mirror you can walk
+     * through is not a mirror. */
     root.add(box({
-      size: [0.9, 1.9, 0.06], pos: [drX1 + 0.42, SY + 1.15, r.z0 + 1.5], mat: M_SUITE_MIRROR, rotY: -0.6, name: 'suite-cheval-mirror',
+      size: [0.9, 1.9, 0.06], pos: [6.35, SY + 1.15, r.z0 + 0.62], mat: M_SUITE_MIRROR, rotY: -0.9, name: 'suite-cheval-mirror',
     }));
     root.add(box({
-      size: [1.02, 0.08, 0.16], pos: [drX1 + 0.42, SY + 0.17, r.z0 + 1.5], mat: M_GOLD, rotY: -0.6, cast: false,
+      size: [1.02, 0.08, 0.16], pos: [6.35, SY + 0.17, r.z0 + 0.62], mat: M_GOLD, rotY: -0.9, cast: false,
     }));
+    solid(5.95, 6.75, SY, SY + 2.1, r.z0 + 0.28, r.z0 + 0.96);
     root.add(box({
       size: [1.5, 0.16, 0.5], pos: [(drX0 + drX1) / 2, SY + 0.44, r.z0 + 1.3], mat: M_SUITE_VELVET, name: 'suite-dressing-bench',
     }));
