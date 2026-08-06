@@ -23,6 +23,10 @@ export class Dialogue {
   /**
    * @param {object} ui { line, name, options } DOM nodes
    * @param {object} hooks { onLine, onChoice, onEnd, onActive, onPaint, cueSeconds }
+   *   `onLine(text, who, node)` starts the line's recording and may RETURN THE
+   *   TAKE — `{ audio, source }` from `AudioEngine.play()` — which is handed
+   *   straight to the speaker's `say()` so his mouth runs on the sound rather
+   *   than on a guess. Returning nothing is still valid.
    */
   constructor(ui, hooks = {}) {
     this.ui = ui;
@@ -110,8 +114,19 @@ export class Dialogue {
       this.ui.name.textContent = who.toUpperCase();
       this.ui.line.innerHTML = text;
       this.ui.root.classList.remove('hidden');
-      this.speaker?.say?.(Math.max(1.6, text.length / 22));
-      this.hooks.onLine?.(text, who, node);
+      /* The line is PLAYED first and the speaker is told about it second.
+       *
+       * It used to be the other way round, which was fine while a mouth ran
+       * on a timer and is not now: the mouth is driven by the take
+       * (src/core/mouth.js), so `say()` has to be handed the thing that is
+       * making the sound, and `onLine` is what starts it. Scenes whose
+       * `onLine` returns nothing lose nothing — the mouth falls back to a
+       * synthesised envelope for the same number of seconds it always had. */
+      const take = this.hooks.onLine?.(text, who, node) || null;
+      this.speaker?.say?.(
+        this._cueHold(node, Math.max(1.6, text.length / 22)),
+        take,
+      );
     }
 
     // Options may be a function so they can depend on what has happened

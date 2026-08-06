@@ -365,7 +365,7 @@ const mission = new MissionType({
  * wiring fires before a single mp3 has been generated.
  * ------------------------------------------------------------------ */
 function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
-  if (!name) return false;
+  if (!name) return null;
   game.voLog.push(name);
   if (game.voLog.length > 60) game.voLog.shift();
   /* A new subtitle owns the floor even when its take is still a pickup. If
@@ -375,14 +375,19 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
     audio._vo?.stop?.();
     audio._vo = null;
   }
-  if (!audio.ready) return false;
+  if (!audio.ready) return null;
   const bank = audio.buffers?.get(name);
-  if (!bank?.length) return false;
+  if (!bank?.length) return null;
   const src = audio.play(name, { volume, delay });
   if (solo) audio._vo = src;
   const secs = src?.buffer ? src.buffer.duration : 1.6;
   audio.hold(delay + secs + 0.25);
-  return true;
+  /* The TAKE, not a boolean. Truthy in exactly the places the old boolean
+   * was, and it carries what a mouth needs to run on the sound rather than on
+   * a guessed duration -- see src/core/mouth.js. A delayed cue is handled for
+   * free: the analyser reads silence until the take starts, so the mouth is
+   * shut for the pickup and opens when he does. */
+  return { audio, source: src, seconds: delay + secs };
 }
 
 /** How long a recorded cue runs, or 0 when it has no recording yet. */
@@ -423,8 +428,10 @@ function layoutTalk(force = false) {
 const dialogue = new Dialogue(ui.dialogue, {
   onLine: (text, who, node) => {
     audio.play('radio.talk', { volume: 0.0 });
-    voiceCue(nodeCue(node));
+    const take = voiceCue(nodeCue(node));
     layoutTalk(true);
+    /* Handed back so Dialogue can give it to the speaker's mouth. */
+    return take;
   },
   onChoice: (opt) => { voiceCue(nodeCue(opt)); layoutTalk(true); },
   onPaint: () => layoutTalk(true),
@@ -2606,10 +2613,11 @@ function startShotBeat() {
     hud.say('<em>Bartender:</em> House rye. If he asks, it was twenty-nine seconds.', 3600);
     const bartenderCue = 'vo.bing.bartender.booski-shot.pour';
     const cueTime = Math.max(3.6, cueSeconds(bartenderCue) + 0.4);
-    voiceCue(bartenderCue, { volume: 0.86 });
+    const take = voiceCue(bartenderCue, { volume: 0.86 });
     /* The dedicated tray pose keeps both hands stable while this gives the
-     * bartender a living face for the line. */
-    bartender.say(Math.max(1.5, cueTime - 0.4));
+     * bartender a living face for the line -- and the face runs on the take,
+     * so it stops when he does. */
+    bartender.say(Math.max(1.5, cueTime - 0.4), take);
     bartenderVoiceUntil = beatTime + cueTime;
     game.shotBeat.bartenderVoiceUntil = bartenderVoiceUntil;
   };

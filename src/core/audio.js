@@ -312,6 +312,7 @@ export class AudioEngine {
         src.connect(analyser);
         analyser.connect(out);
         this.playbackAnalysers.set(src, analyser);
+        this._lastVoice = { name, source: src, analyser, at: when };
       } else {
         src.connect(out);
       }
@@ -364,6 +365,28 @@ export class AudioEngine {
    */
   analyserFor(source) {
     return source ? this.playbackAnalysers.get(source) ?? null : null;
+  }
+
+  /**
+   * The voice playback that started within the last `within` seconds, if any.
+   *
+   * For the awkward but real case where the code that PLAYS a line and the
+   * code that MOVES the speaker's mouth are in different modules and cannot
+   * hand a take between them. The mansion is the one: two DialogueControllers
+   * (the cast's and PROJECT SILENT SQUATCH's) share one subtitle bar, and the
+   * mouths are driven by a wrapper on that bar rather than by either
+   * controller — see "THE MOUTHS THE MISSION MOVES" in src/mansion/cast.js.
+   *
+   * The window is what keeps it honest. Both of those calls happen in the same
+   * JS turn as the `play()` they belong to, so a quarter of a second is
+   * enormous slack; a line with no recording finds nothing here rather than
+   * inheriting the previous speaker's take. Prefer passing the take directly
+   * wherever the call sites can see each other.
+   */
+  lastVoicePlayback(within = 0.25) {
+    const last = this._lastVoice;
+    if (!last || !this.ctx) return null;
+    return this.ctx.currentTime - last.at <= within ? last : null;
   }
 
   /** Clear only transient playback evidence; never samples or active sound. */

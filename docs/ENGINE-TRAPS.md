@@ -242,3 +242,48 @@ found, and the write-up of this entry had to be corrected twice. A check that
 starts passing is not proof you understood it; it is proof you changed
 something. The evidence that closed this was six altitudes measured on a fresh
 page, not the check going green.
+
+---
+
+## 8. An animation on a clock is not connected to anything
+
+**Symptom.** Every mouth in the game flapping at a fixed rate for a guessed
+number of seconds — carrying on after the recording had finished, stopping
+while it was still running, and never once shutting between two words.
+
+**Mechanism.** Six rigs, six copies of the same idea: `Math.sin(t * 11)` in the
+Bing, `Math.sin(t * 16)` in the Squatchfather, `Math.sin(w * 11)` in the Motel,
+two sines in the Beef Run "so it never loops". Each held open for `hold` —
+which `DialogueController` itself describes as *an authored guess written
+before any of these lines were recorded*.
+
+The obvious half is the timing. The other half is worse: **a constant flap has
+no syllables in it.** A real mouth is mostly shut; it opens on vowels and
+closes between words, and no timer can invent those gaps because they belong to
+the take. Two sines beating against each other does not fix that — it only
+makes the flap harder to recognise as a flap.
+
+**The rule.** Anything that is supposed to be caused by a sound must READ that
+sound. `AudioEngine.play()` puts an `AnalyserNode` inline on every `vo.*` cue
+and `src/core/mouth.js` opens the mouth on its RMS; the synthetic envelope is
+reached only when there is no recording at all, and reports `mode ===
+'fallback'` so nothing can mistake one for the other.
+
+**How to tell them apart in a check.** Not by watching it move — a timer moves
+too. Play the take with a **pickup**: `audio.play(cue, { delay: 2.4 })`. The
+line is under way, the mouth is in `audio` mode, and nothing is audible. A
+mouth on a clock flaps through that silence; a mouth on the sound does not.
+That is the one assertion in `tools/verify-mouths.mjs` a fixed cadence cannot
+pass, and it holds at any frame rate — which matters, because swiftshader draws
+these scenes at two or three frames a second and every claim about *shape*
+measured at that rate is a claim about the rasteriser (see entries 2 and 7).
+
+**And one small one found on the way.** `src/silvercase/main.js` assigned to an
+undeclared `voiceSource`. Modules are strict mode, so that is a
+`ReferenceError` — thrown out of `playCue`, out of
+`DialogueController._advance`, on the first line of the mission that had a
+recording, which is sixty of its seventy-six. It survived review because the
+statement sits behind a `hasSample()` guard: the branch is not taken until the
+audio lands, so the file "worked" for as long as the folder was empty. Grep for
+assignments to names that are never declared; there is no linter in this repo
+that will do it for you.

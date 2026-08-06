@@ -274,10 +274,17 @@ export function createCrew() {
     for (const f of crew.all) updateFigure(f, dt, crew.aboard ? null : camPos);
   };
 
-  /** Make the right man's head bob when a line of his plays. */
-  crew.speak = (who, seconds) => {
+  /**
+   * Make the right man's head bob when a line of his plays -- and his mouth
+   * move with it, on the take rather than on a clock (src/core/mouth.js).
+   *
+   * Most of this crew wear their real photographs on the front of the skull,
+   * and a photograph cannot open its mouth; for them the head is the whole
+   * read, exactly as before. Anyone with an authored face gets the mouth too.
+   */
+  crew.speak = (who, seconds, take = null) => {
     const f = crew.bySpeaker[who];
-    if (f) speak(f, seconds);
+    if (f) speak(f, seconds, take);
   };
 
   /** Everybody looks at Tony while he is doing the walkaround. */

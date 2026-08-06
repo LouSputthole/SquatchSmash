@@ -161,13 +161,21 @@ function hideSpeaker() {
  * variant bank (`vo.nowake.lou.1.*`). Until those recordings exist the
  * authored subtitle and reading beat remain the complete delivery.
  */
-function playDialogueCue(group) {
+function playDialogueCue(group, speaker = null, seconds = 0) {
   const exact = `vo.${group}`;
+  let source = null;
   if (audio.buffers.has(exact)) {
-    audio.play(exact, { volume: .85 });
-    return true;
+    source = audio.play(exact, { volume: .85 });
+  } else if (audio.say(group)) {
+    source = audio.spokenSource();
   }
-  return audio.say(group);
+  /* And the man on the deck says it. `line.voice` is his key in `boat.cast`,
+   * so the mouth that moves is the one the subtitle names, and it runs on the
+   * take rather than on the reading beat -- see src/core/mouth.js. Lines
+   * without a recording still animate, on the fallback, for `seconds`. */
+  const npc = speaker ? boat.cast?.[speaker] : null;
+  npc?.say?.(Math.max(1.4, seconds || 2.4), source ? { audio, source } : null);
+  return Boolean(source);
 }
 
 function dialogue(lines, done) {
@@ -197,7 +205,7 @@ function advanceDialogue() {
    * him off, because `audio.say` allows one voice at a time. */
   d.left = voiceWindow(line, line.seconds ?? Math.max(2.6, Math.min(6.2, line.text.length / 15)));
   showSpeaker(line.who, line.text);
-  playDialogueCue(`nowake.${line.cue}`);
+  playDialogueCue(`nowake.${line.cue}`, line.voice, d.left);
   audio.hold(d.left);
   if (line.focus) {
     state.focus = line.focus;
@@ -388,7 +396,7 @@ function setStartupCompleteVisuals() {
 
 function driveLine(line) {
   showSpeaker(line.who, line.text);
-  playDialogueCue(`nowake.${line.cue}`);
+  playDialogueCue(`nowake.${line.cue}`, line.voice, 4.6);
   audio.hold(4.6);
   setTimeout(() => {
     if (!state.dialogue && ['drive', 'coast'].includes(state.phase)) hideSpeaker();
@@ -399,7 +407,7 @@ function nonBlockingLine(line, seconds = 3.2) {
   const token = {};
   state.nonBlockingLine = token;
   showSpeaker(line.who, line.text);
-  playDialogueCue(`nowake.${line.cue}`);
+  playDialogueCue(`nowake.${line.cue}`, line.voice, seconds);
   audio.hold(seconds);
   setTimeout(() => {
     if (state.nonBlockingLine === token && !state.dialogue) hideSpeaker();
@@ -903,7 +911,11 @@ function completeMission() {
     return;
   }
   showSpeaker(NO_WAKE_EPILOGUE_LINE.who, NO_WAKE_EPILOGUE_LINE.text);
-  playDialogueCue(`nowake.${NO_WAKE_EPILOGUE_LINE.cue}`);
+  playDialogueCue(
+    `nowake.${NO_WAKE_EPILOGUE_LINE.cue}`,
+    NO_WAKE_EPILOGUE_LINE.voice,
+    3.6,
+  );
   setTimeout(() => {
     navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
   }, 3600);

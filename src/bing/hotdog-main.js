@@ -188,14 +188,19 @@ function cueSeconds(name) {
   return bank?.length ? bank[0].duration : 0;
 }
 
+/**
+ * Play one line and hand the TAKE back, so the speaker's mouth can run on it
+ * (src/core/mouth.js) rather than on a guessed duration. Null when the cue has
+ * no recording, which is what the fallback envelope is for.
+ */
 function playCue(name) {
-  if (!name || !audio.ready) return false;
+  if (!name || !audio.ready) return null;
   const bank = audio.buffers?.get(name);
-  if (!bank?.length) return false;
+  if (!bank?.length) return null;
   audio._vo?.stop?.();
   const source = audio.play(name, { volume: 0.9 });
   audio._vo = source;
-  return true;
+  return { audio, source, seconds: bank[0].duration };
 }
 
 /* How far off the authored framing the player may look. Wide enough to watch
@@ -342,7 +347,7 @@ function showLine(beat) {
   dialogueRoot.classList.remove('hidden');
   state.lineHistory.push({ who, line: beat.line, cue: beat.cue });
   const actor = actorFor(who);
-  actor?.say(Math.max(1.5, beat.seconds ?? 2.5));
+  const seconds = Math.max(1.5, beat.seconds ?? 2.5);
   const ape = party.byId.ape;
   const hotdog = party.extra.hotdog;
   if (actor === ape) actor.faceToward(hotdog.position.x, hotdog.position.z, true);
@@ -353,7 +358,8 @@ function showLine(beat) {
   } else if (actor === party.extra.lou) actor.faceToward(hotdog.position.x, hotdog.position.z, true);
   else actor?.faceToward(player.position.x, player.position.z);
   directBeatCamera(beat);
-  playCue(beat.cue);
+  /* Started AFTER the cue, because the mouth is driven by the take. */
+  actor?.say(seconds, playCue(beat.cue));
 }
 
 function hideLine() {

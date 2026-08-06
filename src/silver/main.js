@@ -364,11 +364,18 @@ function deferVoice(job, { expires = 11000 } = {}) {
  * every eleven to twenty-eight seconds already, are never addressed to the
  * player, and are the one thing in here that is better dropped than delayed.
  */
-function narrate(text, ms = 4200, { cue = null, volume = 0.9, expires = 14000 } = {}) {
+function narrate(text, ms = 4200, {
+  cue = null, volume = 0.9, expires = 14000, speaker = null,
+} = {}) {
   deferVoice(() => {
     hud.say(text, ms);
     narrationGapAt = performance.now() + ms + NARRATION_GAP;
-    if (cue) voiceCue(cue, { volume });
+    const take = cue ? voiceCue(cue, { volume }) : null;
+    /* `speaker` is somebody in the room rather than the narrator, and this is
+     * the moment his or her line actually leaves them — which is the whole
+     * reason the mouth is started HERE and not where the beat was queued.
+     * A deferred bark can sit in that queue for seconds. */
+    speaker?.say?.(Math.max(1.6, ms / 1000), take || { seconds: ms / 1000 });
   }, { expires });
   flushVoice();
 }
@@ -390,16 +397,16 @@ function flushVoice() {
 }
 
 function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
-  if (!name) return false;
+  if (!name) return null;
   game.voLog.push(name);
   if (game.voLog.length > 256) game.voLog.shift();
   if (solo) {
     audio._vo?.stop?.();
     audio._vo = null;
   }
-  if (!audio.ready) return false;
+  if (!audio.ready) return null;
   const bank = audio.buffers?.get(name);
-  if (!bank?.length) return false;
+  if (!bank?.length) return null;
   const src = audio.play(name, { volume, delay });
   if (solo) audio._vo = src;
   const seconds = delay + (src?.buffer ? src.buffer.duration : 1.6);
@@ -407,7 +414,10 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   /* Only a solo line holds the floor. The room's own overheard voices are
    * played `solo: false` on purpose and must not make a bark wait. */
   if (solo) voiceFreeAt = performance.now() + seconds * 1000;
-  return true;
+  /* The TAKE rather than a boolean — truthy in exactly the places the old
+   * boolean was, and it is what a speaker's mouth runs on. See
+   * src/core/mouth.js. */
+  return { audio, source: src, seconds };
 }
 
 /** A node's or a reply's cue: a string, or a function when the line is one. */
@@ -417,7 +427,8 @@ const cueSeconds = (name) => audio.buffers?.get(name)?.[0]?.duration ?? 0;
 const dialogue = new Dialogue(ui.dialogue, {
   onLine: (text, who, node) => {
     performance_.setDucked(true);
-    voiceCue(nodeCue(node));
+    /* Returned so `Dialogue` can hand the take to the speaker's mouth. */
+    return voiceCue(nodeCue(node));
   },
   /* The replies are Prospect's and he has never had a voice in this scene;
    * the hook is here so that when he gets one it is a `cue` on the option and
@@ -438,9 +449,17 @@ const date = new Date_(scene, room, {
   /* Deferred, not dropped, and subtitle-with-take. She is reacting to
    * something somebody has just said, so she says it when he has finished
    * saying it — which is also what a person does. */
-  onBark: (line, key, i) => narrate(`<em>${DATE.name}:</em> ${line}`, 4600, {
-    cue: `vo.silver.margo.bark.${key}.${i + 1}`, volume: 0.85,
-  }),
+  onBark: (line, key, i) => {
+    narrate(`<em>${DATE.name}:</em> ${line}`, 4600, {
+      cue: `vo.silver.margo.bark.${key}.${i + 1}`,
+      volume: 0.85,
+      /* Her own mouth, started when the deferred line is actually said —
+       * `true` back to `Date_.bark()` is what tells it not to start her early.
+       * `date` is not built yet on this line; it is by the time this runs. */
+      speaker: { say: (secs, take) => date.npc.say(secs, take) },
+    });
+    return true;
+  },
   onLeftBehind: () => {
     const n = mission.leftBehind();
     woo.fire('Woo.DateLeftBehind');
@@ -1134,7 +1153,13 @@ class Cutscene {
         /* The timeline owns the pacing here, so a cue that runs long must not
          * hold the floor past its beat — `solo` still cuts the previous line
          * off, which is what a scene shot on one camera does anyway. */
-        voiceCue(b.cue);
+        const take = voiceCue(b.cue);
+        /* And she says it. She is the only person on screen with a name in
+         * these beats — the driver is off camera and the rest are stage
+         * directions — so this is one comparison rather than a table. The
+         * mouth runs on the take (src/core/mouth.js); a beat with no recording
+         * still animates for its own hold. */
+        if (b.who === DATE.name) date.npc.say(Math.max(1.4, b.hold ?? 3), take);
       }
       b.run?.();
     }

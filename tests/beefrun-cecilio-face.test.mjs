@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  buildCecilioFace, makeFigure, speak, updateFigure,
+  buildCecilioFace, hush, makeFigure, speak, updateFigure,
 } from '../src/beefrun/npc.js';
 
 function cecilioTestFigure() {
@@ -41,12 +41,31 @@ test('Cecilio opens his mouth and jaw for his own voice turn, then settles', () 
   const cecilio = cecilioTestFigure();
   const { mouth, jaw } = cecilio.faceRig;
 
-  speak(cecilio, 1);
-  updateFigure(cecilio, 0.05);
-  assert.ok(mouth.scale.y > cecilio.faceRig.mouthRest, 'speech did not open Cecilio’s mouth');
-  assert.ok(jaw.position.y < jaw.userData.baseY, 'speech did not lower Cecilio’s jaw');
+  /* A TIMER ALONE NO LONGER OPENS HIS MOUTH. `talk` is the head bob; the mouth
+   * is driven by the voice through the shared driver (src/core/mouth.js), and
+   * `speak()` is what starts both. If this ever starts passing, somebody has
+   * reconnected a jaw to a clock. */
+  cecilio.talk = 1;
+  for (let i = 0; i < 6; i += 1) updateFigure(cecilio, 0.05);
+  assert.ok(
+    Math.abs(mouth.scale.y - cecilio.faceRig.mouthRest) < 0.001,
+    'a bare talk timer must not drive the mouth',
+  );
 
-  cecilio.talk = 0;
+  /* Said properly. Several frames and the peak, because the envelope has
+   * syllables in it -- a mouth open on every frame is a hinge, not speech. */
+  speak(cecilio, 1);
+  let peak = 0;
+  let jawLow = jaw.userData.baseY;
+  for (let i = 0; i < 12; i += 1) {
+    updateFigure(cecilio, 0.05);
+    peak = Math.max(peak, mouth.scale.y);
+    jawLow = Math.min(jawLow, jaw.position.y);
+  }
+  assert.ok(peak > cecilio.faceRig.mouthRest, 'speech did not open Cecilio’s mouth');
+  assert.ok(jawLow < jaw.userData.baseY, 'speech did not lower Cecilio’s jaw');
+
+  hush(cecilio);
   for (let i = 0; i < 20; i += 1) updateFigure(cecilio, 0.05);
   assert.ok(Math.abs(mouth.scale.y - cecilio.faceRig.mouthRest) < 0.001);
   assert.ok(Math.abs(jaw.position.y - jaw.userData.baseY) < 0.001);

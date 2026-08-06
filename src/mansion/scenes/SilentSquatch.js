@@ -2184,6 +2184,13 @@ export function buildSilentSquatch({
       lipTone: 0x8a5346,
     });
 
+    /* His lip opens a shade less wide than the rest of the roster's, and did
+     * before this: the bespoke talk block that drives him (he is upside down
+     * and never goes through `Figure.update`) used 2.2 where the shared one
+     * uses 2.4. Kept to the number, because moving it would be restyling a
+     * character to tidy a constant. */
+    fig.voiceMouth.openScale = 2.2;
+
     /* Bald. Remove rather than hide, so nothing can turn it back on. */
     const doomed = [];
     fig.head.traverse((o) => { if (o.name?.startsWith('sf.hair.')) doomed.push(o); });
@@ -3668,14 +3675,23 @@ export function buildSilentSquatch({
          * hand it to the dialogue controller. `0` means nothing was spoken. */
         const recorded = cue ? (audio?.sampleDuration?.(cue) ?? 0) : 0;
         const secs = opts.seconds ?? (recorded > 0 ? recorded : 1.7);
-        fig.speak(secs);
-        if (!cue) return secs;
+        if (!cue) {
+          fig.speak(secs);
+          return secs;
+        }
         const at = fig.group.position.clone();
         at.y = LAB_Y + 1.55;
         const route = self.inside ? glassAudio.say.bind(glassAudio) : plainSay;
-        route(cue, {
+        const source = route(cue, {
           volume: opts.volume ?? 0.9, position: at, ref: 2.2, maxDist: 26, ...opts,
         });
+        /* The line PLAYS and then the mouth is started on it, in that order.
+         * Behind the glass or not, it is the same `AudioEngine.play()` at the
+         * end of the route, so the amplitude tap is on it either way and the
+         * jaw runs on the take rather than on `secs` (src/core/mouth.js).
+         * Fifteen of this scene's lines are still unrecorded, and those get
+         * the fallback envelope for the same `secs` they always had. */
+        fig.speak(secs, source ? { audio, source } : null);
         return secs;
       },
       /** Face a world point (the glass, Booski, the core). */
@@ -4512,17 +4528,13 @@ export function buildSilentSquatch({
       const br = Math.sin(time * 0.9);
       f.chest.scale.set(1, 1 + br * 0.02, 1 + br * 0.012);
       f.torso.rotation.x = 0.1 + br * 0.02;
-      // Talking, when the mission gives him a line.
-      if (f.talkT > 0) {
-        f.talkT -= dt;
-        const j = Math.abs(Math.sin(time * 14)) * 0.7 + Math.abs(Math.sin(time * 8.6)) * 0.3;
-        f.jaw.position.y = f.jaw.userData.baseY - j * 0.038;
-        f.mouth.scale.y = 1 + j * 2.2;
-      } else {
-        const k = Math.min(1, dt * 10);
-        f.jaw.position.y += (f.jaw.userData.baseY - f.jaw.position.y) * k;
-        f.mouth.scale.y += (1 - f.mouth.scale.y) * k;
-      }
+      /* Talking, when the mission gives him a line. The jaw and the lip are
+       * `Figure`'s own shared mouth driver, run from here because this block
+       * replaces `Figure.update()` entirely for him -- what used to be here
+       * was that method's old `|sin(t*14)|` flap, copied, held for a guessed
+       * number of seconds. It is the take now (src/core/mouth.js). */
+      if (f.talkT > 0) f.talkT -= dt;
+      f.voiceMouth.update(dt);
       // The drip. Falls off his head, lands in the pool, restarts. Its top is
       // his hairline (LAB_Y + 0.51) and its bottom is the pool's own surface.
       const fall = (time * 0.32) % 1;
@@ -4963,15 +4975,20 @@ export function buildSilentSquatch({
       pool: xxx.pool,
       /** He is barely conscious, so this is a rasp, not a delivery. */
       say: (cue, opts = {}) => {
-        xxx.fig.speak(opts.seconds ?? 2.2);
-        if (!cue) return true;
-        plainSay(cue, {
+        const secs = opts.seconds ?? 2.2;
+        if (!cue) {
+          xxx.fig.speak(secs);
+          return true;
+        }
+        const source = plainSay(cue, {
           volume: opts.volume ?? 0.8,
           position: new THREE.Vector3(XXX_AT.x, LAB_Y + 0.7, XXX_AT.z),
           ref: 2,
           maxDist: 18,
           ...opts,
         });
+        /* Play, then move the mouth on what is playing (src/core/mouth.js). */
+        xxx.fig.speak(secs, source ? { audio, source } : null);
         return true;
       },
       cough: () => {

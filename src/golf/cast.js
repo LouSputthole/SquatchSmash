@@ -584,7 +584,8 @@ export class Golfer {
     this.club.rotation.set(0, 0, 0);
   }
 
-  say(secs = 2) { this.npc.say(secs); }
+  say(secs = 2, take = null) { this.npc.say(secs, take); }
+  hush() { this.npc.hush(); }
 
   faceToward(x, z, snap = false) { this.npc.faceToward(x, z, snap); }
 

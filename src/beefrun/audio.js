@@ -287,7 +287,19 @@ export class MissionAudio {
       .filter(([name]) => name.startsWith(prefix))
       .flatMap(([, bank]) => bank.map((buffer) => buffer.duration || 0)));
     const started = this.engine.say(cue, { chance: 1, volume: this.headset ? 0.9 : 1 });
+    /* The take that just started, for the speaker's mouth. `say()` is the
+     * engine's one-voice-at-a-time channel, so this is the line being spoken
+     * and not a list. Null when nothing was recorded, which is what the
+     * fallback envelope is for -- see src/core/mouth.js. */
+    this.lastTake = started
+      ? { audio: this.engine, source: this.engine.spokenSource() }
+      : null;
     return started ? duration : 0;
+  }
+
+  /** The take of the line most recently started by `line()`, or null. */
+  voiceTake() {
+    return this.lastTake ?? null;
   }
 
   /* ---------------------------------------------------------------- */

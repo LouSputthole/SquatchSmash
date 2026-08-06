@@ -159,9 +159,16 @@ const input = new FlightInput();
 const dialogue = new DialogueSystem(hud, {
   audio: missionAudio,
   onLine: (line) => {
-    if (line.who === 'SASOLE') speak(lou, (line.hold ?? 2) * 0.8);
-    else if (line.who === 'CECILIO') speak(airstrip.cecilio, (line.hold ?? 2) * 0.8);
-    else if (line.who === 'STOVE') speak(stove, (line.hold ?? 2) * 0.8);
+    /* `DialogueSystem.update` plays the take and THEN calls this, so the take
+     * is already under way and the mouth can be driven by it rather than by
+     * the authored hold (src/core/mouth.js). Every one of these men is heard
+     * over a headset or across a hangar; the mouth is what says which of them
+     * is talking. */
+    const take = missionAudio.voiceTake();
+    const secs = (line.hold ?? 2) * 0.8;
+    if (line.who === 'SASOLE') speak(lou, secs, take);
+    else if (line.who === 'CECILIO') speak(airstrip.cecilio, secs, take);
+    else if (line.who === 'STOVE') speak(stove, secs, take);
   },
 });
 

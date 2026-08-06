@@ -57,7 +57,8 @@ export class McClawskyController {
     return new THREE.Vector3(POS.mcSeat.x - 0.04, 1.5, POS.mcSeat.z);
   }
 
-  speak(dur) { this.fig.speak(dur); }
+  speak(dur, take = null) { this.fig.speak(dur, take); }
+  hush() { this.fig.hush(); }
   gesture(name, dur) { this.fig.playGesture(name, dur); }
   lookAt(p) { this.fig.lookAt(p); }
 

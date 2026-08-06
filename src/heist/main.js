@@ -236,16 +236,35 @@ let activeDialogueSource = null;
  * current one, and on a slow machine several lines can come and go between two
  * checks — so "did this beat speak" has to be asked of a history, not a div. */
 const spokenLines = [];
+/** Shut every crew mouth. Called wherever the take itself is cut. */
+function hushCrew() {
+  for (const actor of crew.values()) actor.figure.hush();
+}
+
 const dialogue = new DialogueArbiter({
   onStart(line) {
     spokenLines.push(line.id);
     if (spokenLines.length > 200) spokenLines.shift();
     try { activeDialogueSource?.stop?.(); } catch { /* already ended */ }
+    /* Whatever the last speaker was still saying, he has stopped -- the source
+     * above was just cut, and a mouth left running would carry on without it. */
+    hushCrew();
     const duration = audio.sampleDuration(line.cue) ?? line.fallbackDuration;
     hud.say(line, duration);
+    /* `analyse` explicitly, because THE TAKE's dialogue is on the `heist.`
+     * prefix rather than `vo.` -- the same prefix its forty-six sound effects
+     * use (ENGINE-TRAPS.md entry 4). The engine's automatic tap keys off `vo.`
+     * and would never fire here. */
     activeDialogueSource = audio.hasSample(line.cue)
-      ? audio.play(line.cue, { volume: 0.85 })
+      ? audio.play(line.cue, { volume: 0.85, analyse: true })
       : null;
+    /* The man who is saying it says it. `speakerId` is his campaign character
+     * id, which is exactly the key `buildHeistCrew` files him under. */
+    const actor = line.speakerId ? crew.get(line.speakerId) : null;
+    actor?.figure?.say(
+      duration,
+      activeDialogueSource ? { audio, source: activeDialogueSource } : null,
+    );
     dialogueEndAt = performance.now() / 1000 + duration;
   },
 });

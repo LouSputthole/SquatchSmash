@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makePerson } from '../bing/cast.js';
+import { Mouth } from '../core/mouth.js';
 
 /**
  * Everybody in THE TAKE, on the campaign's own frame.
@@ -83,6 +84,14 @@ export class HeistFigure {
     this.pose = 'stand';
     this.phase = Math.random() * 6.28;
     this.tremble = 0;
+    /* Everybody in this bank can talk, so everybody in it has a working mouth.
+     * `makePerson` already builds one (and hides it behind a photographed
+     * face); this is the shared driver that opens it on the take rather than
+     * on a timer -- src/core/mouth.js. `openScale` is the Bing's, because it
+     * is the Bing's figure. */
+    this.voiceMouth = new Mouth(this.parts, { openScale: 2.6 });
+    /** The head pitch a pose left, so a photo face can nod without erasing it. */
+    this._poseHeadX = 0;
     this.root.userData.figure = this;
     this.stand();
   }
@@ -272,8 +281,27 @@ export class HeistFigure {
     return this.pose;
   }
 
-  /** Breathing, and the shake that says a person is frightened. */
+  /**
+   * Say a line.
+   *
+   * @param {number} seconds how long the subtitle is up — the fallback's
+   *   length when the cue has no recording.
+   * @param {object} [take] `{ audio, source }` from `AudioEngine.play()`.
+   */
+  say(seconds = 2, take = null) {
+    this.voiceMouth.speak({ seconds, ...(take || {}) });
+    return this;
+  }
+
+  /** Cut the line: the mouth shuts whatever the subtitle is still doing. */
+  hush() {
+    this.voiceMouth.stop();
+    return this;
+  }
+
+  /** Breathing, the shake that says a person is frightened, and the mouth. */
   update(dt, { fear = 0 } = {}) {
+    const talk = this.voiceMouth.update(dt);
     this.phase += dt * (2.1 + fear * 5);
     this.tremble += (fear - this.tremble) * Math.min(1, dt * 4);
     const breath = Math.sin(this.phase) * (0.006 + this.tremble * 0.012);
@@ -282,6 +310,20 @@ export class HeistFigure {
     const shake = still ? 0 : Math.sin(this.phase * 5.5) * this.tremble * 0.035;
     this.parts.body.rotation.z = shake;
     this.parts.head.rotation.z = -shake * 1.4;
+    /* A PHOTOGRAPH CANNOT OPEN ITS MOUTH.
+     *
+     * The crew wear their real faces on the front of the skull, so there is no
+     * geometry to move and drawing a lip over the picture would deface the
+     * likeness. Their syllables go into the head instead -- the same envelope,
+     * spent where it can be seen.
+     *
+     * The pitch is an OFFSET from whatever the pose left, captured while the
+     * man is quiet. The poses in this file set `head.rotation.x` directly
+     * (pleading tips it 0.18 forward, startled tips it back), and a nod that
+     * wrote an absolute angle would quietly flatten every one of them. */
+    if (!this.voiceMouth.photo) return;
+    if (talk === 0) this._poseHeadX = this.parts.head.rotation.x;
+    else this.parts.head.rotation.x = (this._poseHeadX ?? 0) - talk * 0.085;
   }
 
   dispose() {

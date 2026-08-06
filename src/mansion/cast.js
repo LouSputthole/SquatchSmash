@@ -1517,9 +1517,23 @@ export function mountMansionCast(scene, world = {}, {
       delete screen.__castSpeaks;
     };
     screen.showLine = (line) => {
-      /* `hold` is the authored reading time; a mouth that stops before the
-       * subtitle does reads as a man who gave up halfway through. */
-      speakerFor(line?.speaker)?.say?.(Math.max(1.2, line?.hold ?? 2));
+      /* `hold` is the authored reading time and is now only the FALLBACK: a
+       * mouth runs on the take when there is one (src/core/mouth.js), so a
+       * recording that is longer or shorter than the guess no longer leaves a
+       * man chewing after he has stopped talking.
+       *
+       * The take is fetched from the engine rather than handed in, because the
+       * two controllers that reach this bar play their cues in two different
+       * modules and neither of them knows a body exists — which is the whole
+       * point of wrapping the one method they share. `lastVoicePlayback`'s
+       * window is what makes that safe: the `play()` happened in this same JS
+       * turn, and an unrecorded line finds nothing rather than borrowing the
+       * previous speaker's voice. */
+      const take = audio?.lastVoicePlayback?.() ?? null;
+      speakerFor(line?.speaker)?.say?.(
+        Math.max(1.2, line?.hold ?? 2),
+        take ? { source: take.source, analyser: take.analyser } : null,
+      );
       return inner(line);
     };
     screen.__castSpeaks = true;

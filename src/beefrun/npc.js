@@ -12,6 +12,7 @@ import {
   solid, boxGeo, cylGeo, coneGeo, sphereGeo, mesh, group, clamp, lerp, damp,
 } from './util.js';
 import { CAPTAIN_LOU_SASOLE } from '../core/wardrobe.js';
+import { Mouth } from '../core/mouth.js';
 
 const SKIN = [0xd9a878, 0xb07a4e, 0x8a5a38, 0xe8c49a];
 
@@ -320,6 +321,13 @@ export function makeFigure(o = {}) {
     pose: 'idle',
     t: Math.random() * 10,
     talk: 0,
+    /* The mouth ENVELOPE, driven by the take rather than by a clock
+     * (src/core/mouth.js). Built with no parts on purpose: this rig applies
+     * the opening itself, through its own damping and with the brows moving
+     * with it, so what it wants from the shared module is the number and not
+     * the geometry. Figures without an authored face carry it anyway and it
+     * costs one comparison a frame while nobody is talking. */
+    voiceMouth: new Mouth(),
     lookAt: null,
     walk: null,     // set by walkTo(); updateFigure carries him there
     sick: 0,        // Lou only: how bad it is right now
@@ -427,8 +435,14 @@ export function buildCecilioFace(f) {
   return f;
 }
 
-/** Animate an authored face without changing anybody else's block figure. */
-function updateAuthoredFace(f, dt, talking) {
+/**
+ * Animate an authored face without changing anybody else's block figure.
+ *
+ * `syllable` is the mouth's opening, 0..1, from the shared driver — it used to
+ * be `|sin(t*15.7)|*0.68 + |sin(t*8.9)|*0.32`, a fixed flap on a clock, held
+ * for whatever number of seconds somebody guessed the line would run.
+ */
+function updateAuthoredFace(f, dt, syllable) {
   const face = f.faceRig;
   if (!face) return;
 
@@ -453,13 +467,10 @@ function updateAuthoredFace(f, dt, talking) {
     eye.position.x = damp(eye.position.x, eye.userData.baseX + eyeShift, 7, dt);
   }
 
-  const syllable = talking
-    ? Math.abs(Math.sin(f.t * 15.7)) * 0.68 + Math.abs(Math.sin(f.t * 8.9 + 0.4)) * 0.32
-    : 0;
   face.mouth.scale.y = damp(face.mouth.scale.y, face.mouthRest + syllable * 1.05, 18, dt);
   face.jaw.position.y = damp(face.jaw.position.y, face.jaw.userData.baseY - syllable * 0.022, 16, dt);
   for (const [i, brow] of face.brows.entries()) {
-    const emphasis = talking ? syllable * (i ? 0.014 : -0.01) : 0;
+    const emphasis = syllable * (i ? 0.014 : -0.01);
     brow.rotation.z = damp(brow.rotation.z, (i ? -0.08 : 0.08) + emphasis, 10, dt);
   }
 }
@@ -607,14 +618,16 @@ export function updateFigure(f, dt, camPos = null) {
     }
   }
 
-  const talking = f.talk > 0;
-  if (talking) {
+  /* The mouth, on the take. Advanced every frame whether or not he is
+   * talking, because that is what closes it again when the line stops. */
+  const syllable = f.voiceMouth.update(dt);
+  if (f.talk > 0) {
     f.talk -= dt;
     f.neck.rotation.x = Math.sin(f.t * 13) * 0.045 - 0.02;
   } else {
     f.neck.rotation.x = damp(f.neck.rotation.x, 0, 6, dt);
   }
-  updateAuthoredFace(f, dt, talking);
+  updateAuthoredFace(f, dt, syllable);
 
   if (f.sick > 0) {
     // Weight shifting, a hand toward the stomach, and a slow forward lean.
@@ -678,9 +691,26 @@ export function updateFigure(f, dt, camPos = null) {
   }
 }
 
-/** Make a figure say something: the head bobs for `seconds`. */
-export function speak(f, seconds = 1.6) {
-  if (f) f.talk = seconds;
+/**
+ * Make a figure say something: the head bobs for `seconds` and the mouth runs
+ * on the take.
+ *
+ * @param {object} f       the figure
+ * @param {number} seconds how long the head bob holds — and, with no
+ *   recording, how long the mouth keeps working
+ * @param {object} [take]  `{ audio, source }` from `AudioEngine.play()`/`say()`
+ */
+export function speak(f, seconds = 1.6, take = null) {
+  if (!f) return;
+  f.talk = seconds;
+  f.voiceMouth.speak({ seconds, ...(take || {}) });
+}
+
+/** Cut the line: the mouth shuts whatever the subtitle is still doing. */
+export function hush(f) {
+  if (!f) return;
+  f.talk = 0;
+  f.voiceMouth.stop();
 }
 
 /* ------------------------------------------------------------------ */

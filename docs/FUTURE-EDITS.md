@@ -116,6 +116,18 @@ ledger is not brought forward with it.
 
 ---
 
+## Found by the mouth pass, 2026-08-06
+
+Written down rather than fixed, because none of them is a mouth.
+
+| Edit | Problem | Why | Scenes | Geom | Nav | Art only | Priority | Dup risk | When |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Play Silver Pines' conversation-tree cues | `new Dialogue(...)` in `src/golf/main.js` has **no `onLine` hook**, so every `cue` authored on a conversation node is looked up for its LENGTH (`cueSeconds`) and then never played. The banter cues go through `CueQueue.say` and are fine; the trees — which is the whole Lou conversation — are subtitle-only over recordings that exist. Exactly the shape of ENGINE-TRAPS.md entry 3, one layer further in: the generator ran, the manifest has the cue, the file is on disk, and nothing calls `play()` | 353 golf cues are recorded and an unknown share of them have never been audible | Silver Pines | no | no | no | **high** | low — one hook | next golf pass; check `verify:golf` does not assert the silence |
+| A `hush()` for the Bing's `Dialogue` | `Dialogue.end()` clears the subtitle and leaves the speaker's mouth running to the end of its take. Correct while a mouth was a timer nobody could see; now that it is the take, a conversation the player walks out of leaves a man finishing his sentence at a wall. Arguably right, arguably not — it is a direction call | Reads as a bug or as good manners depending on the beat | Bing, Silver Room, Silver Pines | no | no | no | low | low | when somebody watches it happen |
+| NO WAKE's execution flinch no longer twitches a lip | `npc.speaking = .2` on each shot used to flap the shooter's mouth for a fifth of a second, because `speaking` drove the mouth as well as the head. It now drives only the head and hands, which is what it was for. Nobody has looked at the beat since | A man firing a revolver is not talking, so this is probably an improvement — but it is a change and it has not been seen | NO WAKE | no | no | yes | low | low | with the NO WAKE playtest |
+
+---
+
 ## Known and deliberately not fixed
 
 | Thing | Why it is left |

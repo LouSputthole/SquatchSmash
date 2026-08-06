@@ -10,6 +10,7 @@ import {
   prepareVoice as prepareMotelVoice,
   primeVoice as primeMotelVoice,
   stopVoice as stopMotelVoice,
+  voiceTap as motelVoiceTap,
 } from './audio.js';
 import {
   NODES, STYLES, STYLE_LABEL, SELLER_BARKS, PROSPECT_BARKS, SNOW_BARKS,
@@ -594,7 +595,11 @@ function say(who, line, seconds = 3.4, cue = null) {
     const spoken = prepared.play();
     if (spoken <= 0) sfx.blip();
     const actor = actors.find((candidate) => candidate.name === who);
-    if (actor) actor.talkT = slot.holdSeconds;
+    /* And the mouth, on the take rather than on the hold -- the take is the
+     * thing making the sound, so it is the thing that decides when the jaw
+     * stops (src/core/mouth.js). An uncatalogued or unrecorded line still
+     * animates, on the fallback, for the length of its subtitle. */
+    if (actor) actor.say(slot.holdSeconds, spoken > 0 ? motelVoiceTap() : null);
   };
   if (slot.delaySeconds > 0) {
     const timer = setTimeout(() => {
@@ -1224,7 +1229,7 @@ addInteract({
     addRead(8);
     const countHold = say('Prospect', `Eight packages. Numbered labels. ${shipment.grade === 'genuine' ? 'Seals all intact.' : 'Two of these seals have been opened and re-pressed.'}`, 4.6);
     if (shipment.grade !== 'genuine') inspection.evidence -= 0.15;
-    if (chino) chino.talkT = 1.6;
+    if (chino) chino.say(1.6);
     completeObjective('count');
     afterLine(countHold, () => {
       if (phase !== 'room' || S.betrayed) return;
@@ -1700,7 +1705,7 @@ function openTheDoor() {
   rico = spawnActor({ ...CAST.rico(), x: 0, z: -4.9, state: 'deal' });
   rico.anchor = { x: 0, z: -4.9 };
   rico.faceAt(0, 16);          // out through his own doorway, at Tony
-  rico.talkT = 2;
+  rico.say(2);
   return rico;
 }
 
@@ -3780,8 +3785,8 @@ function updateAmbient(dt) {
       const i = Math.floor(Math.random() * SELLER_BARKS.length);
       const [who, line] = SELLER_BARKS[i];
       say(who, line, 3.2, cueFor(who, `sell.${i}`));
-      if (who === 'Rico' && rico) rico.talkT = 1.6;
-      if (who === 'Chino' && chino) chino.talkT = 1.6;
+      if (who === 'Rico' && rico) rico.say(1.6);
+      if (who === 'Chino' && chino) chino.say(1.6);
     } else if (phase === 'lot' && Math.random() < 0.5) {
       const i = Math.floor(Math.random() * SNOW_BARKS.length);
       say(ALLY, SNOW_BARKS[i], 3.2, cueFor(ALLY, `bark.${i}`));

@@ -442,7 +442,7 @@ const dialogue = new DialogueController({
  */
 function mouthState() {
   return Object.fromEntries(cast.all.map((actor) => {
-    const m = actor.npc.mouth;
+    const m = actor.npc.voiceMouth;
     return [actor.name.toLowerCase(), {
       open: +m.open.toFixed(4),
       mode: m.mode,

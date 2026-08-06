@@ -127,11 +127,19 @@ export class Date_ {
     if (!fresh.length) return false;
     const line = fresh[0];
     this.said.add(line);
-    this.npc.say(Math.max(1.8, line.length / 20));
     /* The index in the list she was handed, not in `fresh`: it is what names
      * the recording, so it has to be the line's own place in the script and
      * not its place in whatever is left tonight. */
-    this.hooks.onBark?.(line, key, lines.indexOf(line));
+    const spoke = this.hooks.onBark?.(line, key, lines.indexOf(line));
+    /* Her MOUTH is the hook's business when the hook took it on.
+     *
+     * This used to open her mouth right here, and the scene DEFERS her barks
+     * -- she waits for the floor rather than talking over whoever has it (see
+     * `deferVoice` in silver/main.js) -- so she mouthed the line silently at
+     * the moment it was queued and then said it out loud, mouth shut, several
+     * seconds later. A hook that returns true has undertaken to start her when
+     * the words actually leave her. */
+    if (spoke !== true) this.npc.say(Math.max(1.8, line.length / 20));
     return true;
   }
 

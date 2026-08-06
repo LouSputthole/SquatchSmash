@@ -1036,20 +1036,35 @@ function setRoomMuffle(v) {
   audio.setVoiceMuffle(v);
 }
 
+/* The tap on the line currently being spoken, handed from `onVoice` to
+ * `onSpeak` -- the controller calls them in that order for the same line, and
+ * the mouth needs the take rather than the authored duration. */
+let voiceTake = null;
+
 function wire(data, voCues) {
   dialogue = new DialogueController(data, {
     root: ui.subs, who: ui.subsWho, line: ui.subsLine,
   }, {
     onVoice(line) {
       const cue = voiceCueFor(voCues, line);
-      return cue ? audio.playVoice(cue) : 0;
+      const secs = cue ? audio.playVoice(cue) : 0;
+      /* The tap on the take that just started, kept for `onSpeak` below —
+       * which the controller calls next, on the same line. The mouth runs on
+       * it (src/core/mouth.js) instead of on the authored `dur`. */
+      voiceTake = secs > 0 ? audio.voiceTap() : null;
+      return secs;
     },
     onVoiceStop() {
       audio.stopVoice();
+      voiceTake = null;
+      /* The mouth goes with the voice, including when the line is CUT — a
+       * checkpoint restore or an interrupting bark leaves a man mid-word. */
+      sal.hush();
+      mcclawsky.hush();
     },
     onSpeak(id, line, dur) {
-      if (id === 'SAL') { sal.speak(dur); sal.lookAt(prospect.eye); }
-      if (id === 'MCCLAWSKY') { mcclawsky.speak(dur); mcclawsky.lookAt(prospect.eye); }
+      if (id === 'SAL') { sal.speak(dur, voiceTake); sal.lookAt(prospect.eye); }
+      if (id === 'MCCLAWSKY') { mcclawsky.speak(dur, voiceTake); mcclawsky.lookAt(prospect.eye); }
     },
     onLook(target) {
       seated.lookCue(target);

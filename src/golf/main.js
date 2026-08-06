@@ -425,7 +425,6 @@ const cues = new CueQueue({
   say: (cue, secs) => {
     const speaker = speakerFor(cue.speaker);
     hud.say(`<em>${speakerName(cue.speaker)}</em> ${cue.text}`, secs * 1000);
-    speaker?.say?.(secs);
     activeVoice?.stop?.();
     activeVoice = playRecordedGolfCue(audio, cue.id, {
       volume: 0.88,
@@ -435,6 +434,11 @@ const cues = new CueQueue({
        * carry further than a man standing next to you reading a putt. */
       maxDist: golfers[cue.speaker] ? 34 : 58,
     });
+    /* The mouth goes on AFTER the take has started, because it is driven by
+     * the take (src/core/mouth.js) rather than by `secs`. A heckler on the
+     * balcony is fifty metres away and his jaw is two pixels; the four men in
+     * the group are standing next to you. */
+    speaker?.say?.(secs, activeVoice ? { audio, source: activeVoice } : null);
     courseAudio?.duck(true);
     cartRadio.setPhoneDucked(true);
   },

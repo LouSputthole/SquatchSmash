@@ -2536,7 +2536,7 @@ export class Npc {
      * implementation for the whole cast (src/core/mouth.js). `openScale`
      * reproduces the old `1 + |sin| * 2.6` opening exactly, so nobody's face
      * changes shape; only what decides WHEN it opens has moved. */
-    this.mouth = new Mouth(this.parts, { openScale: 2.6 });
+    this.voiceMouth = new Mouth(this.parts, { openScale: 2.6 });
     this.folded = false;
     this.targetYaw = undefined;
     this._acc = 0;
@@ -2646,13 +2646,13 @@ export class Npc {
    */
   say(secs = 2, take = null) {
     this.speaking = secs;
-    this.mouth.speak({ seconds: secs, ...(take || {}) });
+    this.voiceMouth.speak({ seconds: secs, ...(take || {}) });
   }
 
   /** Cut the line: the mouth shuts, whatever the subtitle is still doing. */
   hush() {
     this.speaking = 0;
-    this.mouth.stop();
+    this.voiceMouth.stop();
   }
 
   faceToward(x, z, snap = false) {
@@ -2668,7 +2668,7 @@ export class Npc {
      * has to notice rather than keep animating a mesh that left the scene.
      * One reference comparison a frame, and it is self-healing for any future
      * restyle rather than a line somebody has to remember to add. */
-    if (this.mouth.mouth !== this.parts.mouth) this.mouth.bind(this.parts);
+    if (this.voiceMouth.mouth !== this.parts.mouth) this.voiceMouth.bind(this.parts);
     this._syncJob();
     if (this._every > 0) {
       this._acc += dt;
@@ -3001,15 +3001,15 @@ export class Npc {
      * closes when the take does, including when the line is cut mid-word.
      * The hand turns OUT while it explains -- swung inward it crossed the
      * sternum and the forearm ran through the speaker's own chest. */
-    const talk = this.mouth.update(dt);
-    if (this.speaking > 0 || this.mouth.speaking) {
+    const talk = this.voiceMouth.update(dt);
+    if (this.speaking > 0 || this.voiceMouth.speaking) {
       this.parts.head.rotation.x = Math.sin(t * 6) * 0.05;
       /* A PHOTOGRAPH CANNOT OPEN ITS MOUTH. Big Uncle Lou and the rest of the
        * photographed cast have a real face on the front of the skull and a
        * hidden placeholder behind it, so their syllables go into the head
        * instead -- which is what actually reads on a photo at conversational
        * distance, and it is the SAME envelope everybody else's jaw is on. */
-      if (this.mouth.photo) this.parts.head.rotation.x -= talk * 0.085;
+      if (this.voiceMouth.photo) this.parts.head.rotation.x -= talk * 0.085;
       /* During Booski's delivery the bartender talks while his two hands are
        * committed to the tray. Keep the lips and head alive but do not let a
        * generic talking gesture pull his hand through the glass. */

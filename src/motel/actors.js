@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { lambert } from '../../game/src/world.js';
+import { Mouth } from '../core/mouth.js';
 
 // ---------------------------------------------------------------------------
 // Everybody in the motel who is not Prospect.
@@ -589,6 +590,15 @@ export class Actor {
     this.carryingCase = false;
     this.grappleT = 0;
     this.talkT = 0;
+    /* The mouth, driven by the voice rather than by a clock -- one shared
+     * implementation for the whole game (src/core/mouth.js). `openScale`
+     * reproduces the old `1.35 + |sin| * 1.1` opening from a rest of 1, so
+     * nobody's face changes shape; only what decides WHEN it opens has moved.
+     * Photographed faces (the Family) get no mouth mesh at all in this
+     * builder -- `mouth` stays null -- and `Mouth` is built for that: it still
+     * produces an envelope, and there is simply nothing to move, because a
+     * photograph cannot open its mouth. */
+    this.voiceMouth = new Mouth({ mouth: this.rig.mouth }, { openScale: 1.45 });
     this.barkCd = 2 + Math.random() * 4;
     this._hostile = false;
     Object.defineProperty(this, 'hostile', {
@@ -683,6 +693,28 @@ export class Actor {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Say something: the gesture holds for `seconds` and the mouth runs on the
+   * take.
+   *
+   * @param {number} seconds how long the subtitle is up — and, with no
+   *   recording, how long the mouth keeps working.
+   * @param {object} [take] `{ source, analyser }` from `voiceTap()` in
+   *   src/motel/audio.js, so the mouth is driven by the sound.
+   */
+  say(seconds = 1.6, take = null) {
+    this.talkT = seconds;
+    this.voiceMouth.speak({ seconds, ...(take || {}) });
+    return this;
+  }
+
+  /** Cut the line: the mouth shuts whatever the subtitle is still doing. */
+  hush() {
+    this.talkT = 0;
+    this.voiceMouth.stop();
+    return this;
   }
 
   update(dt, ctx) {
@@ -882,11 +914,10 @@ export class Actor {
       this.rig.armR.rotation.x = -gait * 0.7;
     }
     this.rig.body.position.y = moving ? Math.abs(Math.sin(this.walkT)) * 0.06 : 0;
-    if (this.rig.mouth) {
-      this.rig.mouth.scale.y = this.talkT > 0
-        ? 1.35 + Math.abs(Math.sin((this.walkT + this.talkT) * 11)) * 1.1
-        : 1;
-    }
+    /* The mouth. It used to be `1.35 + |sin((walk + talk) * 11)| * 1.1` for
+     * however many seconds the subtitle was up -- a fixed flap, on a clock,
+     * with no syllables in it. It runs on the take now. */
+    this.voiceMouth.update(dt);
 
     // Hit flash
     if (this.hitFlash > 0) {
