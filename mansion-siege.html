@@ -160,6 +160,13 @@
     line-height: 1.35; max-width: 52ch;
   }
   #objectiveHint[hidden] { display: none; }
+  /* THE NUDGE. The same line, borrowed for a few seconds to answer a key the
+   * player just pressed that did nothing. It has to out-shout its own quiet
+   * default -- the whole point is that something visibly happened -- so it
+   * goes warm, bold and full brightness for as long as it is up. */
+  #objectiveHint.nudge {
+    color: #ffd08a; font-weight: 800; font-size: 14px;
+  }
   #objective.done #objectiveKicker { color: #9fe08a; }
   #objective.done { border-color: rgba(159, 224, 138, .5); }
 

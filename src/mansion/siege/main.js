@@ -414,6 +414,11 @@ const mission = new SiegeMission({
   damage,
   onObjective: (text, hint, done) => {
     if (!objectiveEl) return;
+    /* A new objective outranks a nudge that is still counting down: the
+     * nudge corrects the OLD hint, and leaving it up would have it correcting
+     * a sentence that is no longer on the screen. */
+    nudgeTimer = 0;
+    objectiveHintEl?.classList.remove('nudge');
     objectiveEl.hidden = !text;
     objectiveEl.classList.toggle('done', done === true);
     if (objectiveKickerEl) objectiveKickerEl.textContent = done ? 'COMPLETE' : 'OBJECTIVE';
@@ -830,6 +835,58 @@ renderer.domElement.addEventListener('mousedown', (e) => {
   if (e.button === 0) fire();
 });
 
+/* ================================================================== */
+/* THE NUDGE -- why the key you just pressed did nothing                 */
+/*                                                                       */
+/* `tryTheLine()` has three conditions and used to fail all three in      */
+/* SILENCE. Standing on the landing with the objective up, the hint       */
+/* underneath it saying "press F", and F doing nothing at all -- no       */
+/* sound, no text, no flicker -- a first-time player has no way to tell a */
+/* mission that is waiting for him from a mission that is broken. The     */
+/* sentence on his HUD is the one he has just decided is lying to him,    */
+/* and the gun he is holding is the reason, and nothing anywhere says so. */
+/*                                                                       */
+/* The reachable version of that is not exotic. `mountArmory` swaps       */
+/* rather than stacks -- `take()` puts the equipped weapon back before it */
+/* hands over the next -- so the player carries ONE long gun, and the     */
+/* mission's own gate is "took a primary AND the heavy" without caring    */
+/* which of the two he walked out with. Take them in the other order and  */
+/* the belt-fed is on the rack, two floors down, and F is dead.           */
+/*                                                                       */
+/* So a failed press answers. It borrows the hint line rather than adding */
+/* a fourth HUD element: that line is the sentence being corrected, the   */
+/* player's eye is already on it, and it goes back to the beat's own hint */
+/* when the nudge expires.                                                */
+/* ================================================================== */
+let nudgeTimer = 0;
+
+function nudge(text, seconds = 4) {
+  if (!objectiveHintEl) return false;
+  objectiveEl.hidden = false;
+  objectiveHintEl.hidden = false;
+  objectiveHintEl.textContent = text;
+  objectiveHintEl.classList.add('nudge');
+  nudgeTimer = seconds;
+  return true;
+}
+
+/** Put the beat's own hint back. Also called when the beat changes under it. */
+function clearNudge() {
+  if (nudgeTimer <= 0) return;
+  nudgeTimer = 0;
+  objectiveHintEl?.classList.remove('nudge');
+  if (!objectiveHintEl) return;
+  const hint = mission.hint;
+  objectiveHintEl.hidden = !hint;
+  objectiveHintEl.textContent = hint ?? '';
+}
+
+function updateNudge(dt) {
+  if (nudgeTimer <= 0) return;
+  nudgeTimer -= dt;
+  if (nudgeTimer <= 0) clearNudge();
+}
+
 /**
  * "Say hello to my little friend."
  *
@@ -841,11 +898,17 @@ renderer.domElement.addEventListener('mousedown', (e) => {
  */
 function tryTheLine() {
   if (mission.beat !== B.LITTLE_FRIEND) return false;
-  if (!HEAVY_IDS.has(weaponSystem.equipped ?? '')) return false;
+  if (!HEAVY_IDS.has(weaponSystem.equipped ?? '')) {
+    nudge('Not that gun — the belt-fed. It is still on the armory rack, down the cellar stair.');
+    return false;
+  }
   const { x, z } = player.position;
   const onTheStep = x >= DEFENCE_POST.x0 && x <= DEFENCE_POST.x1
     && z >= DEFENCE_POST.z0 && z <= DEFENCE_POST.z1;
-  if (!onTheStep) return false;
+  if (!onTheStep) {
+    nudge('Not from here — the lit step at the rail, between the sandbags, over the front door.');
+    return false;
+  }
   if (!mission.sayHello()) return false;
   /* Through the dialogue runner, not a bare `audio.play`, so the line gets a
    * subtitle like every other line in the mission -- and so it is one of the
@@ -1246,6 +1309,7 @@ function updateGame(dt) {
     checkpointToast -= dt;
     if (checkpointToast <= 0) checkpointEl.classList.remove('show');
   }
+  updateNudge(dt);
   refreshAmmo();
   refreshWaveCount();
 }
@@ -1332,6 +1396,11 @@ window.mansionSiege = {
   hud: () => ({
     objective: objectiveEl?.hidden ? null : objectiveTextEl?.textContent ?? null,
     hint: objectiveHintEl?.hidden ? null : objectiveHintEl?.textContent ?? null,
+    /* The correction, when one is up. Separate from `hint` so a verifier can
+     * tell "the mission is telling him where to go" from "the mission is
+     * telling him why the key he pressed did nothing". */
+    nudge: objectiveHintEl?.classList.contains('nudge')
+      ? objectiveHintEl?.textContent ?? null : null,
     subtitle: subtitleEl?.hidden ? null : subtitleTextEl?.textContent ?? null,
     counter: waveCountEl?.hidden ? null
       : `${waveRemainingEl?.textContent ?? ''} ${waveLabelEl?.textContent ?? ''}`.trim(),

@@ -459,14 +459,37 @@ try {
   const wrongPlace = await evaluate(() => {
     const s = window.mansionSiege;
     s.equip('saw');
-    return { fired: s.beats.line(), z: +s.player.position.z.toFixed(2), beat: s.beat };
+    return {
+      fired: s.beats.line(), z: +s.player.position.z.toFixed(2), beat: s.beat,
+      nudge: s.hud().nudge,
+    };
   });
   check('the line does not fire from wherever you happen to be standing, even with the heavy up',
     wrongPlace.fired === false && wrongPlace.beat === 'LITTLE_FRIEND',
     `z ${wrongPlace.z}, post ends at ${post.z1}`);
+  /* A REFUSED KEY HAS TO SAY SO. All three of this gate's conditions used to
+   * fail in silence, which leaves a first-time player pressing the key his own
+   * HUD told him to press and watching nothing happen -- indistinguishable
+   * from a broken mission, and the commonest way this scene stalled. */
+  check('and it says why, instead of eating the key press',
+    /step|rail|sandbag/i.test(wrongPlace.nudge ?? ''), wrongPlace.nudge ?? 'nothing said');
 
   await teleport((post.x0 + post.x1) / 2, UPPER_Y, (post.z0 + post.z1) / 2 - 0.4, 180);
   await settle(0.3);
+
+  /* THE WRONG GUN ON THE RIGHT STEP, which is the reachable version of this:
+   * `mountArmory` SWAPS rather than stacks, so a player who takes the belt-fed
+   * before the rifle walks out carrying the rifle, and the belt-fed is two
+   * floors below him when the mission asks for it. */
+  const wrongGun = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.equip('carbine');
+    const fired = s.beats.line();
+    return { fired, equipped: s.equipped, beat: s.beat, nudge: s.hud().nudge };
+  });
+  check('the wrong gun on the right step says WHICH gun, and where it was left',
+    wrongGun.fired === false && wrongGun.beat === 'LITTLE_FRIEND'
+      && /belt-fed/i.test(wrongGun.nudge ?? ''), JSON.stringify(wrongGun));
   const said = await evaluate(() => {
     /* The heavy has to actually be IN HIS HANDS, not merely ticked off the
      * armory's list -- that is the gate being tested. */
