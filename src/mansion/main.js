@@ -1873,6 +1873,17 @@ window.mansion = {
   },
   /** Headless-verification only: suspend/resume the render loop. */
   setRendering(on) { renderEnabled = !!on; },
+  /**
+   * Headless-verification only: suspend/resume the SIMULATION as well.
+   *
+   * `setRendering(false)` stops the draw and leaves `updateGame` running, which
+   * is right for a walking tour and wrong for a script that opens a second
+   * page: this scene is fifteen thousand meshes simulating itself, and leaving
+   * it doing that while another copy builds doubles the cost of the build.
+   * `verify:mansion` pauses across its `?checkpoint=` loads for exactly that.
+   */
+  pause() { sharedPauseMenu.pause(); },
+  resume() { sharedPauseMenu.resume?.(); },
   get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return sharedPauseMenu.isPaused(); },

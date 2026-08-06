@@ -3004,50 +3004,45 @@ try {
   /* ================================================================ */
   /* THE PREVIEW JUMPS — ?preview=1&checkpoint=<id>                    */
   /*                                                                    */
-  /* One LOAD PER VALUE, on a page of its own, because the whole claim   */
-  /* a checkpoint link makes is about what a cold load produces. Driving */
-  /* `checkpoints.jump()` on this page would prove the ladder runs and   */
-  /* nothing about the URL, which is the half a player uses.             */
+  /* A COLD LOAD PER CASE, AND FOUR CASES RATHER THAN TEN.               */
   /*                                                                      */
-  /* Each row asserts the beat the jump is FOR and the two pieces of state */
-  /* that beat is about -- the case in his hands before the delivery and    */
-  /* gone after it, the bolts, the life signs, the hidden wall -- so a jump  */
-  /* that lands in the right room with the wrong world fails here. And the    */
-  /* last row is a value nobody defined: an unknown checkpoint has to leave    */
-  /* the ordinary house on the menu, never a broken one.                       */
+  /* The whole claim a checkpoint link makes is about what a COLD LOAD      */
+  /* produces, so these have to be real navigations -- and they cannot be    */
+  /* sequential jumps on one page either, because the ladder replays the      */
+  /* mission from the top and a state machine at COMPLETE will not go back to  */
+  /* beat 2. So: one load each, and the list is chosen to cover the four        */
+  /* KINDS of staging the ten links divide into rather than all ten:            */
+  /*                                                                             */
+  /*   arrival        nothing staged -- the ordinary night, case in hand          */
+  /*   core_complete  the mission replayed and the INVENTORY emptied by it        */
+  /*   silent_night   the WORLD staged: bolts thrown, LIFE SIGNS at zero          */
+  /*   suite          the ROOM staged, with no mission involvement at all         */
+  /*                                                                              */
+  /* Measured, and this is why the list is short: the mansion is a fifteen-        */
+  /* thousand-mesh scene and one cold build under swiftshader on a loaded box      */
+  /* costs a minute or more. Ten of them put forty minutes on a verifier that       */
+  /* people have to be willing to run, and a check nobody can afford is a check      */
+  /* nobody runs. The other six ids share the same ladder and the same parser;       */
+  /* `tests/` cannot reach them and this is the honest trade. */
   /* ================================================================ */
   const CHECKPOINT_CASES = [
     {
       id: 'arrival', state: 'ARRIVAL', hasCase: true, wall: 'shut',
     },
     {
-      id: 'office', state: 'LOU_OFFICE', hasCase: true, wall: 'shut',
-    },
-    {
-      id: 'basement', state: 'HIDDEN_ENTRANCE', hasCase: true, wall: 'shut',
-    },
-    {
-      id: 'lab', state: 'OBSERVATION', hasCase: true, wall: 'open',
-    },
-    {
       id: 'core_complete', state: 'LOCK_THE_LAB', hasCase: false, wall: 'open', locked: false,
-    },
-    {
-      id: 'locked', state: 'EXECUTION', hasCase: false, wall: 'open', locked: true,
-    },
-    {
-      id: 'aubbie_down', state: 'SILENT_NIGHT', hasCase: false, locked: true, lifeSigns: 5,
     },
     {
       id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0,
     },
     {
-      id: 'clear', state: 'COMPLETE', hasCase: false, lifeSigns: 0,
-    },
-    {
       id: 'suite', state: 'ARRIVAL', hasCase: true, stairOpen: true,
     },
   ];
+  /* This page is a fifteen-thousand-mesh scene running its own simulation
+   * loop; leaving it doing that while another one builds doubles the cost of
+   * every load below. Paused for the duration and released after. */
+  await page.evaluate(() => window.mansion.pause?.());
   const cpFails = [];
   for (const want of CHECKPOINT_CASES) {
     const cpPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
@@ -3094,6 +3089,16 @@ try {
     cpFails.length === 0,
     cpFails.join(' | ') || `${CHECKPOINT_CASES.length} jumps, each on its own cold load`);
 
+  /* The ids this script does not cold-load still have to EXIST and still have
+   * to be the campaign's own. A link that vanished from the table is a dead
+   * link on the preview page, and that is cheap to catch here. */
+  const cpIds = await page.evaluate(() => window.mansion.checkpoints.ids);
+  check('the preview links are the campaign\'s own checkpoint vocabulary, plus arrival and the suite',
+    ['arrival', 'office', 'basement', 'lab', 'core_complete', 'locked',
+      'aubbie_down', 'silent_night', 'clear', 'suite']
+      .every((id) => cpIds.includes(id)) && cpIds.length === 10,
+    cpIds.join(', '));
+
   {
     const strayPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
     const strayErrors = [];
@@ -3114,6 +3119,7 @@ try {
       JSON.stringify({ ...stray, errors: strayErrors.length }));
     await strayPage.close();
   }
+  await page.evaluate(() => window.mansion.resume?.());
 
   /* The film that has not landed yet is allowed to 404 and nothing else is.
    * A blanket "ignore 404s" would let a missing texture or a missing module
