@@ -1542,10 +1542,14 @@ try {
   // real from that same function, so `return`'s own staging is covered by
   // construction; it was checked manually instead (see the final report).
   for (const [id, expectPhase, timeoutMs] of [
-    ['dock', 'dock', 120000],
+    // 'dock' boards him and hands off into the startup checklist -- the
+    // same real `phase('startup')` `beginBoarding()`'s own completion
+    // callback calls; the bare 'dock' phase string is only ever the
+    // pre-boarding default.
+    ['dock', 'startup', 120000],
     ['underway', 'drive', 120000],
-    ['inlet', 'coast', 120000],
-    ['confrontation', 'confrontation', 120000],
+    ['inlet', 'inlet', 120000],
+    ['confrontation', 'cabin', 120000],
     ['body', 'body', 130000],
   ]) {
     const cpPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
@@ -1577,7 +1581,7 @@ try {
     const result = await cpPage.evaluate(() => ({
       phase: window.NO_WAKE.state.phase,
       boarded: window.NO_WAKE.state.boarded,
-      engine: window.NO_WAKE.state.engine,
+      ignitionPort: window.NO_WAKE.state.ignitionPort,
       checkpoint: window.NO_WAKE.campaignState.missions.no_wake.checkpoint,
     }));
     check(`?preview=1&checkpoint=${id} loads staged and lands on phase "${expectPhase}"`,
