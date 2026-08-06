@@ -800,10 +800,16 @@ interaction.register(secretDoor.latch, {
   onUse: () => {
     secretFound = true;
     const opening = secretDoor.toggle();
-    /* The house's own latch, then two tonnes of oak on a pivot. Both cues are
-     * already in the manifest -- the cellar's hidden wall uses them. */
-    audio.play('silent.bust.switch', { volume: 0.55 });
-    audio.play(opening ? 'silent.wall.mechanism' : 'silent.wall.seat', { volume: 0.4, delay: 0.25 });
+    /* ITS OWN CUES, and not the cellar's. The first draft of this played
+     * `silent.bust.switch` / `silent.wall.mechanism`, which is wrong twice
+     * over: those describe two tonnes of masonry on hydraulic rails taking
+     * six seconds, and this is a piece of furniture on a pivot -- and they
+     * are not in `assets/sfx/manifest.json` at all (SilentSquatch.js authors
+     * them locally and lets them fall through to the synth), so `npm run
+     * check` was reporting a cue that could never be given a recording. See
+     * docs/ENGINE-TRAPS.md #3: the manifest is the truth. */
+    audio.play('mansion.bookcase.latch', { volume: 0.55 });
+    audio.play(opening ? 'mansion.bookcase.swing' : 'mansion.bookcase.seat', { volume: 0.4, delay: 0.25 });
     return true;
   },
 });

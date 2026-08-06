@@ -701,6 +701,26 @@
       "prompt": "an interior door swinging slowly a few inches on a dry hinge, one long quiet creak, close, no footsteps, no music, no voice"
     },
     {
+      "_comment": "Lou's office. The latch behind the book, and the case swinging. NOT the cellar's hidden wall — that one is two tonnes of masonry on hydraulic rails and takes six seconds; this is a piece of furniture on a pivot and has to sound like one, or the office reads as a second lift lobby.",
+      "name": "mansion.bookcase.latch",
+      "duration": 1.2,
+      "promptInfluence": 0.6,
+      "prompt": "a book pulled out of a bookshelf and stopping against a hidden mechanism, a dry paper and cloth slide followed by a firm brass catch releasing inside the woodwork, close, no voice, no music"
+    },
+    {
+      "name": "mansion.bookcase.swing",
+      "duration": 3.4,
+      "promptInfluence": 0.6,
+      "prompt": "a tall loaded oak bookcase swinging open on a concealed floor pivot, a heavy low wooden groan under real weight, books shifting slightly on their shelves, and a soft rumble through the floorboards, close interior, no voice, no music",
+      "_note": "It is carrying its books. The shelf noise is the tell that this is furniture and not a door."
+    },
+    {
+      "name": "mansion.bookcase.seat",
+      "duration": 2.6,
+      "promptInfluence": 0.6,
+      "prompt": "the same loaded bookcase swinging closed and seating against its frame, the pivot rumble reversed, a dull wooden knock as it meets the jamb and the catch dropping home, close interior, no voice, no music"
+    },
+    {
       "name": "light.dip",
       "duration": 1.5,
       "promptInfluence": 0.5,
