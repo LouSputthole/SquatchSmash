@@ -18469,14 +18469,14 @@
       "say": "Go on down. He doesn’t like waiting and I don’t like watching him wait."
     },
     {
-      "name": "vo.silentsquatch.corridor.xxx.takethecar",
+      "name": "vo.silentsquatch.corridor.xxx.comehere",
       "voice": "xxx",
-      "say": "You can take the car… you can take the mission…"
+      "say": "…Who’s that. Come here where I can see you."
     },
     {
-      "name": "vo.silentsquatch.corridor.xxx.turnyourback",
+      "name": "vo.silentsquatch.corridor.xxx.thenewkid",
       "voice": "xxx",
-      "say": "But you don’t turn your back on family."
+      "say": "Ah. The new kid. Course it is."
     },
     {
       "name": "vo.silentsquatch.corridor.booski.decorations",
@@ -19234,14 +19234,14 @@
       "say": "Hn — GHK—"
     },
     {
-      "name": "vo.silentsquatch.torture.xxx.hitlikefamily",
+      "name": "vo.silentsquatch.corridor.xxx.takethecar",
       "voice": "xxx",
-      "say": "You hit like family."
+      "say": "You can take the car… you can take the mission…"
     },
     {
-      "name": "vo.silentsquatch.torture.xxx.notacompliment",
+      "name": "vo.silentsquatch.corridor.xxx.turnyourback",
       "voice": "xxx",
-      "say": "That’s not a compliment. That’s just what they do."
+      "say": "But you don’t turn your back on family."
     },
     {
       "name": "vo.silentsquatch.torture.gratin.hesfine",
@@ -19252,6 +19252,16 @@
       "name": "vo.silentsquatch.torture.xxx.ouchtwo",
       "voice": "xxx",
       "say": "Agh — Christ—"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.hitlikefamily",
+      "voice": "xxx",
+      "say": "You hit like family."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.notacompliment",
+      "voice": "xxx",
+      "say": "That’s not a compliment. That’s just what they do."
     },
     {
       "name": "vo.silentsquatch.torture.xxx.theelbow",

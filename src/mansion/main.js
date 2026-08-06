@@ -951,6 +951,11 @@ const loadout = createMansionLoadout({
   weapons: weaponSystem,
   weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
   onCaseInHand: (on) => silentSquatch?.setCaseInHand(on),
+  /* `cast` is declared below this point -- it needs the loadout -- so this is
+   * read at call time rather than captured. The bar cannot select a slot
+   * before the cast exists, so the optional chain is never the answer in
+   * play; it is the answer during construction. */
+  onCordInHand: (on) => cast?.setCordInHand?.(on),
 });
 
 /* The ammunition counter. Repainted only when something changed — a DOM write
@@ -1134,6 +1139,10 @@ const cast = mountMansionCast(scene, world, {
   lab,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
+  /* Gratin's cord is a thing he is carrying, so it is a slot. Owner
+   * playtest: it used to be welded to the camera from the handover to the
+   * end of the mission. */
+  onCordOwned: (owned) => { if (owned) loadout.giveCord(); else loadout.takeCord(); },
   enabled: () => running,
 });
 /* The guard in the cellar is watching television, which was the owner's note

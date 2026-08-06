@@ -194,10 +194,60 @@ test('the reaction is involuntary and comes before he chooses to speak', () => {
   assert.ok(line >= 0, 'he never said his line');
   assert.ok(ouch < line, 'he made his point before he made a noise');
 
-  /* And his own lines survived the rework, word for word. */
+  /* THE SPEC'S LINE IS ON THE FIRST HIT (owner playtest). It used to be a
+   * proximity bark for walking down the corridor, which spent the two best
+   * lines in the beat on having arrived. Word for word, both of them, off
+   * ONE swing. */
+  const texts = r.lines.map((l) => l.text);
+  assert.ok(
+    texts.includes('You can take the car… you can take the mission…'),
+    'the first hit did not get the spec line',
+  );
+  assert.ok(texts.includes('But you don’t turn your back on family.'));
+});
+
+test('the second hit is the reply, not a competing thesis', () => {
+  const r = mount();
+  r.pressGratin();
+  r.pressXxx();
+  r.settle(14);
+  r.pressXxx();
+  r.settle(16);
+
   const texts = r.lines.map((l) => l.text);
   assert.ok(texts.includes('You hit like family.'));
   assert.ok(texts.includes('That’s not a compliment. That’s just what they do.'));
+});
+
+test('THE STOW: the cord can be put away, and a put-away cord does not swing', () => {
+  const r = mount();
+  r.pressGratin();
+  assert.equal(r.cast.debug.gratin.hasCord, true);
+  assert.equal(r.cast.debug.gratin.cordInHand, true, 'it did not arrive in his hand');
+
+  /* The inventory left its slot. Owner playtest: this used to be impossible
+   * — the cord was parented to the camera at the handover and stayed in shot
+   * for the rest of the mission. */
+  r.cast.setCordInHand(false);
+  assert.equal(r.cast.debug.gratin.cordInHand, false);
+  assert.equal(r.cast.debug.gratin.cordVisible, false, 'a stowed cord is still on screen');
+
+  /* And it cannot be swung while it is away, WITHOUT being conjured back:
+   * the slot is the player's, and a swing that un-stows it takes his
+   * selection off him. */
+  const before = r.cast.debug.gratin.swings;
+  assert.equal(r.pressXxx(), false, 'he swung a cord that is in his pocket');
+  r.settle();
+  assert.equal(r.cast.debug.gratin.swings, before);
+  assert.equal(r.cast.debug.gratin.cordInHand, false, 'the swing un-stowed it');
+
+  /* Back in hand, and it works again. He still HAS it throughout — the house
+   * rule is on the handover, not on the slot. */
+  r.cast.setCordInHand(true);
+  assert.equal(r.cast.debug.gratin.cordVisible, true);
+  assert.equal(r.pressXxx(), true);
+  r.settle();
+  assert.equal(r.cast.debug.gratin.swings, before + 1);
 });
 
 test('every swing lands blood, and it collects on the floor under him', () => {

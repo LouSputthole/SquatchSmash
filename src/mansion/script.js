@@ -301,12 +301,21 @@ export const SEQUENCES = Object.freeze({
   irishIdle: Object.freeze([
     { speaker: 'IRISH', text: 'Go on down. He doesn’t like waiting and I don’t like watching him wait.', cue: cue('corridor', 'irish.goondown'), hold: 4.2 },
   ]),
+  /* WALKING PAST HIM IS NOT THE SAME AS HITTING HIM.
+   *
+   * Owner playtest: *"the xXx family line should be on the first hit"*. It
+   * was on the approach — the spec's two best lines, spent on a proximity
+   * bark for walking down a corridor, before the player had done anything at
+   * all. They are the payoff of picking the cord up, and they are in
+   * `tortureSwing` now, on the same two cues, so the recorded takes carry
+   * across unchanged.
+   *
+   * What is left here is a man who has been hanging upside down for some
+   * hours noticing that somebody has come in. He does not make a speech. */
   xxxHanging: Object.freeze([
-    // spec
-    { speaker: 'XXX', text: 'You can take the car… you can take the mission…', cue: cue('corridor', 'xxx.takethecar'), hold: 3.4 },
+    { speaker: 'XXX', text: '…Who’s that. Come here where I can see you.', cue: cue('corridor', 'xxx.comehere'), hold: 3.6 },
     { speaker: 'HUD', stage: 'xxx.cough', hold: 1.2 },
-    // spec
-    { speaker: 'XXX', text: 'But you don’t turn your back on family.', cue: cue('corridor', 'xxx.turnyourback'), hold: 3.0 },
+    { speaker: 'XXX', text: 'Ah. The new kid. Course it is.', cue: cue('corridor', 'xxx.thenewkid'), hold: 3.0 },
   ]),
   booskiShouts: Object.freeze([
     // spec
@@ -841,11 +850,26 @@ export const SEQUENCES = Object.freeze({
    * The stage direction is where the cord actually moves; the cast module
    * drives it and nothing here decides how a whip works.
    */
+  /* THE FIRST HIT IS THE SPEC'S LINE.
+   *
+   * Owner playtest: *"the xXx family line should be on the first hit"*. The
+   * brief's two quoted lines used to be a proximity bark you got for walking
+   * down the corridor (`xxxHanging`), which spent them on nothing — and they
+   * are the entire reason this character is hanging in this basement. Now
+   * they are what he says the first time somebody in this family hits him,
+   * and the involuntary noise still comes first because being hit is not a
+   * decision. Same two cues, so the recorded takes carry across.
+   *
+   * "You hit like family" moved to the SECOND hit, where it is a reply
+   * rather than a competing thesis. */
   tortureSwing: Object.freeze([
     { speaker: 'HUD', stage: 'cord.swing', hold: 0.8 },
     { speaker: 'XXX', text: 'Hn — GHK—', cue: cue('torture', 'xxx.ouchone'), hold: 1.2 },
-    { speaker: 'XXX', text: 'You hit like family.', cue: cue('torture', 'xxx.hitlikefamily'), hold: 2.4 },
-    { speaker: 'XXX', text: 'That’s not a compliment. That’s just what they do.', cue: cue('torture', 'xxx.notacompliment'), hold: 4.0 },
+    // spec
+    { speaker: 'XXX', text: 'You can take the car… you can take the mission…', cue: cue('corridor', 'xxx.takethecar'), hold: 3.4 },
+    { speaker: 'HUD', stage: 'xxx.cough', hold: 1.2 },
+    // spec
+    { speaker: 'XXX', text: 'But you don’t turn your back on family.', cue: cue('corridor', 'xxx.turnyourback'), hold: 3.0 },
     { speaker: 'GRATIN', text: 'See? He’s fine.', cue: cue('torture', 'gratin.hesfine'), hold: 2.0 },
   ]),
   /* The second, the third and the fourth, cycled from the fourth onward. He
@@ -854,6 +878,8 @@ export const SEQUENCES = Object.freeze({
   tortureSwingTwo: Object.freeze([
     { speaker: 'HUD', stage: 'cord.swing', hold: 0.8 },
     { speaker: 'XXX', text: 'Agh — Christ—', cue: cue('torture', 'xxx.ouchtwo'), hold: 1.4 },
+    { speaker: 'XXX', text: 'You hit like family.', cue: cue('torture', 'xxx.hitlikefamily'), hold: 2.4 },
+    { speaker: 'XXX', text: 'That’s not a compliment. That’s just what they do.', cue: cue('torture', 'xxx.notacompliment'), hold: 4.0 },
     { speaker: 'XXX', text: 'There it is. You’ve got the elbow into it now.', cue: cue('torture', 'xxx.theelbow'), hold: 3.6 },
   ]),
   tortureSwingThree: Object.freeze([

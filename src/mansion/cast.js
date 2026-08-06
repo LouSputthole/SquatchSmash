@@ -477,6 +477,22 @@ export function mountMansionCast(scene, world = {}, {
   lab = null,
   hud = null,
   hasCase = null,
+  /**
+   * Told when Gratin hands the cord over, and when it goes back.
+   *
+   * Owner playtest: *"I should be able to put the whip away"*. He could not
+   * — the cord was parented to the camera the moment Gratin let go of it and
+   * stayed in shot for the rest of the night, including through the delivery,
+   * the execution and the walk back upstairs. Everything else the player
+   * carries in this house is an inventory slot (`../loadout.js`); this was
+   * the one thing that was not.
+   *
+   * Same split as the case, for the same reason: OWNING it is this module's
+   * business and HOLDING it is the player's, and collapsing the two is how
+   * you get a cord that jumps back into shot every time a beat fires. See
+   * `setCordInHand` on the returned object.
+   */
+  onCordOwned = () => {},
   enabled = () => true,
 } = {}) {
   if (!scene) return null;
@@ -1233,6 +1249,8 @@ export function mountMansionCast(scene, world = {}, {
       camera.add(torture.cord.root);
       poseCord(torture.cord, -1);
     }
+    applyCordVisibility();
+    onCordOwned(true);
     audio?.play('bing.grill.cord.handoff', { volume: 0.7 });
     dialogue.interject(SEQUENCES.tortureHandover);
     screen?.setInstruction?.(INSTRUCTIONS.SWING_THE_CORD);
@@ -1244,6 +1262,21 @@ export function mountMansionCast(scene, world = {}, {
     if (!torture?.cord) return;
     camera?.remove?.(torture.cord.root);
     torture.cord = null;
+    onCordOwned(false);
+  }
+
+  /**
+   * Is the cord actually in shot.
+   *
+   * TWO FACTS, and the model is visible only when both hold — the same rule
+   * `mission/mount.js` keeps for the case:
+   *
+   *   torture.handed  -- Gratin gave it to him (this module's business)
+   *   cordInHand      -- its slot is selected  (the player's business)
+   */
+  let cordInHand = true;
+  function applyCordVisibility() {
+    if (torture?.cord?.root) torture.cord.root.visible = Boolean(torture.handed && cordInHand);
   }
 
   /** What he says on the first swing, and on every one after it. */
@@ -1270,6 +1303,11 @@ export function mountMansionCast(scene, world = {}, {
     /* Not holding it yet: he has to ask Gratin first, and the prompt on
      * Gratin already says so. Consume nothing. */
     if (!torture.handed) return false;
+    /* PUT AWAY. He owns it, it is in his inventory, and it is not in his
+     * hand — so there is nothing to swing. Refused rather than silently
+     * conjured back into shot, because the slot is the player's and a swing
+     * that un-stows the cord is the mission taking his selection off him. */
+    if (!cordInHand) return false;
     /* Mid-swing. Pressing again does not queue a second one. */
     if (torture.swing >= 0) return true;
     torture.swing = 0;
@@ -1327,11 +1365,23 @@ export function mountMansionCast(scene, world = {}, {
   const M_BLOOD_WET = mat({ color: 0x3a0707, roughness: 0.18, metalness: 0.04 });
   /* `unique`, because this one's opacity is animated and a shared material
    * would fade whatever else happened to be built from the same parameters. */
+  /* NOT A WHITE FLASH (owner playtest: *"the white flash when I hit him — it
+   * should be blood and impact, not a light"*).
+   *
+   * It was `color: 0xffd9b0, emissive: 0xff9a5a, emissiveIntensity: 2.4` — a
+   * warm, self-lit, near-white disc that grew to three times its size. That
+   * is a muzzle flash or a spark, and it is what you build when the note says
+   * "impact effect" and you reach for the effect you have already got. A
+   * leather cord across a man's back does not emit light. It bruises,
+   * splits, and throws what is already on him.
+   *
+   * So: no emissive at all, the same dark arterial red as the droplets, and
+   * it OPENS AND FADES rather than flaring — a welt appearing, not a lamp
+   * coming on. Kept `unique` because its opacity is animated per hit. */
   const M_IMPACT = mat({
-    color: 0xffd9b0,
-    emissive: 0xff9a5a,
-    emissiveIntensity: 2.4,
-    roughness: 1,
+    color: 0x6b0f0f,
+    roughness: 0.5,
+    metalness: 0.02,
     transparent: true,
     opacity: 1,
     unique: true,
@@ -1376,8 +1426,10 @@ export function mountMansionCast(scene, world = {}, {
   function burstAtHim() {
     const at = strikePoint();
 
-    /* The contact itself: one bright, brief, tiny sphere. It is gone in an
-     * eighth of a second — long enough to see the cord ARRIVE somewhere. */
+    /* The contact itself: a wet dark mark that opens where the cord landed
+     * and is gone in a quarter of a second. Longer than the old 0.14 s
+     * because it is no longer a flash — a flash has to be brief or it reads
+     * as a lamp, and this has to be legible or it reads as nothing. */
     if (!flash) {
       flash = cylinder({ r: 0.09, h: 0.02, pos: [0, 0, 0], mat: M_IMPACT, cast: false });
       flash.name = 'mansion.whipImpact';
@@ -1385,7 +1437,7 @@ export function mountMansionCast(scene, world = {}, {
     }
     flash.position.copy(at);
     flash.visible = true;
-    flash.userData.life = 0.14;
+    flash.userData.life = 0.26;
 
     /* And the blood. Away from the body, mostly along the swing, and down. */
     for (let i = 0; i < 9; i++) {
@@ -1410,10 +1462,12 @@ export function mountMansionCast(scene, world = {}, {
   function updateImpact(dt) {
     if (flash?.visible) {
       flash.userData.life -= dt;
-      const k = Math.max(0, flash.userData.life / 0.14);
-      /* Opens out and thins away, which is how a struck surface reads. */
-      flash.scale.setScalar(0.6 + (1 - k) * 2.6);
-      M_IMPACT.opacity = k;
+      const k = Math.max(0, flash.userData.life / 0.26);
+      /* Opens out and thins away, which is how a struck surface reads. Half
+       * the old growth: 2.6x on a 90 mm disc was a 700 mm halo round a man's
+       * back, which is part of why it read as a light rather than a hit. */
+      flash.scale.setScalar(0.7 + (1 - k) * 1.3);
+      M_IMPACT.opacity = k * 0.92;
       if (flash.userData.life <= 0) flash.visible = false;
     }
     if (!spray.length) return;
@@ -1736,6 +1790,21 @@ export function mountMansionCast(scene, world = {}, {
       updateImpact(dt);
     },
 
+    /**
+     * The player's half of "is the cord in his hand".
+     *
+     * Called by the inventory when its slot is selected or left, exactly the
+     * way `mission/mount.js`'s `setCaseInHand` is. It cannot make him HAVE a
+     * cord Gratin has not handed over — that is `torture.handed`, and it
+     * stays this module's.
+     */
+    setCordInHand(on) {
+      cordInHand = Boolean(on);
+      applyCordVisibility();
+    },
+    /** True while Gratin has given it to him, stowed or not. */
+    get hasCord() { return Boolean(torture?.handed); },
+
     /** The headless surface, the same shape the mission's `debug` has. */
     debug: {
       get roster() {
@@ -1761,6 +1830,9 @@ export function mountMansionCast(scene, world = {}, {
           swinging: torture.swing >= 0,
           landed: torture.landed,
           hasCord: Boolean(torture.cord),
+          /** In shot, as opposed to owned. The stow the owner asked for. */
+          cordInHand,
+          cordVisible: Boolean(torture.cord?.root?.visible),
           /** Blood on the floor under him, one mark per droplet that got
            * there — the effect proved by its result rather than by a flag. */
           bloodMarks: marks.length,

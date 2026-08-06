@@ -60,7 +60,13 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   arrival: 10, // Rippin, Eric, Shubes, Snow, and the Prospect on the way in
   office: 10, // Lou, and the case on his desk
   cellar: 6, // the wine cellar and the bust
-  corridor: 7, // Irish, xXx, and Booski shouting from deeper in
+  /* 9, not 7. Owner playtest: *"the xXx family line should be on the first
+   * hit"*. The brief's two quoted lines moved out of the walk-past bark and
+   * into `tortureSwing`, KEEPING THEIR CUE NAMES — both are recorded, and a
+   * rename would have thrown two delivered takes away to make a prefix
+   * tidier. So two lines with `corridor.` ids are now spoken during the
+   * torture beat, and xXx gained two new ones for the approach. */
+  corridor: 9, // Irish, xXx, and Booski shouting from deeper in
   lab: 3, // DeathMegatron at the glass
   /* 11, not 8. Owner playtest: *"Booski should hand me a pistol when I give
    * him the case"*. He does, and he says three lines doing it — the whole
