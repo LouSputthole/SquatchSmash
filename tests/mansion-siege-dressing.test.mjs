@@ -357,6 +357,40 @@ test('the dead performer is clear of the foyer fight, not in the middle of it', 
   assert.ok(names.some((n) => n.includes('performer.glass')), 'no dropped glass');
 });
 
+/**
+ * THE FAULT: three chairs hovering 0.19 m over the foyer marble.
+ *
+ * They were authored upright and then tipped with a `rotZ` on every PIECE,
+ * which spins each box about its own centre and moves none of them -- so the
+ * assembly came apart into a vertical seat, four horizontal legs and a flat
+ * back, all still at the heights the upright chair had put them, and the whole
+ * arrangement floated. `tools/scene-audit.mjs` reported all three as FLOATING,
+ * "1.39 m up with nothing under it".
+ *
+ * The check is on the ASSEMBLY rather than on any one piece, because the bug
+ * was in the relationship between the pieces and every piece was individually
+ * exactly where its own literal said. A chair the player fights past on the
+ * foyer floor either touches that floor or it does not.
+ */
+test('the overturned foyer chairs rest on the marble instead of hovering over it', () => {
+  const { dressing } = WORLD;
+  const chairs = [];
+  dressing.props.debris.foyer.group.traverse((o) => {
+    if (o.name === 'siege.debris.foyer.chair') chairs.push(o);
+  });
+  assert.equal(chairs.length, 3, 'the foyer lost its overturned chairs');
+  for (const chair of chairs) {
+    const b = worldBox(chair);
+    assert.ok(b.min.y >= GROUND_Y - 0.001,
+      `a chair is ${(GROUND_Y - b.min.y).toFixed(3)} m through the floor`);
+    assert.ok(b.min.y <= GROUND_Y + 0.02,
+      `a chair is hovering ${(b.min.y - GROUND_Y).toFixed(3)} m over the floor`);
+    /* And it is still a chair: on its side, wider than it is tall. */
+    assert.ok(b.max.y - b.min.y < 0.6,
+      'the chair is standing up again rather than lying on its back');
+  }
+});
+
 test('smoke never comes down to where a man is standing', () => {
   const { dressing } = WORLD;
   dressing.update(0.5);

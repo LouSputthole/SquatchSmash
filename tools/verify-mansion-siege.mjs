@@ -351,19 +351,145 @@ try {
     `${briefingStaged} staged`);
 
   /* ---------------------------------------------------------------- */
-  /* 6. The line. Once, from the step, with the heavy up.               */
+  /* 5a. THE BRIEFING ENDS BY ITSELF                                    */
+  /*                                                                     */
+  /* THE CHECK THIS SCRIPT WAS MISSING, and the reason it reported a      */
+  /* healthy mission that could not be finished. Every beat below this    */
+  /* line used to be reached by calling `beats.briefed()` from the         */
+  /* verifier -- a method that existed, worked, and that NOTHING IN THE    */
+  /* SCENE EVER CALLED. Walking into Lou's office put the player in        */
+  /* BRIEFING with a blank objective card and left him there permanently.  */
+  /*                                                                       */
+  /* docs/ENGINE-TRAPS.md #5: "a check that asks a different question than */
+  /* the one that matters". "Does briefingEnded() advance the beat" is not */
+  /* the question. "Can a player who walks into this room ever leave it"   */
+  /* is, and it is asked here, on the clock, with nothing pressed.         */
   /* ---------------------------------------------------------------- */
-  await evaluate(() => window.mansionSiege.beats.briefed());
+  const briefingTalks = await evaluate(() => ({
+    speaking: window.mansionSiege.speaking,
+    sequence: window.mansionSiege.speakingSequence,
+    subtitle: window.mansionSiege.hud().subtitle,
+  }));
+  check('walking in starts Lou talking, with a subtitle, not silence',
+    briefingTalks.sequence === 'briefing' && !!briefingTalks.speaking
+      && briefingTalks.subtitle === briefingTalks.speaking,
+    JSON.stringify(briefingTalks));
+
+  const briefingEnds = await evaluate(() => {
+    const s = window.mansionSiege;
+    /* Nothing pressed. Ninety simulated seconds is far longer than the seven
+     * authored lines need and far shorter than forever, which is what the
+     * beat used to take. */
+    for (let t = 0; t < 90 && s.beat === 'BRIEFING'; t += 0.5) s.tick(0.5);
+    return {
+      beat: s.beat, objective: s.objective, hint: s.hint,
+      subtitle: s.hud().subtitle,
+    };
+  });
+  check('the briefing ends on its own and puts him on the stairs',
+    briefingEnds.beat === 'LITTLE_FRIEND' && briefingEnds.objective === 'Hold the house',
+    JSON.stringify(briefingEnds));
+  check('and the objective says WHERE to stand and WHAT to press',
+    /rail|step|gallery/i.test(briefingEnds.hint ?? '') && /\bF\b/.test(briefingEnds.hint ?? ''),
+    briefingEnds.hint ?? 'no hint');
+  check('the subtitle bar clears when nobody is talking',
+    briefingEnds.subtitle === null, String(briefingEnds.subtitle));
+
+  /* ---------------------------------------------------------------- */
+  /* 5b. THE FIRING STEP IS FINDABLE                                    */
+  /*                                                                     */
+  /* PART VI asks for "partial cover at the rail, an ammunition point".   */
+  /* Neither existed, so the one bay of a 32 m landing that the mission   */
+  /* is waiting for looked exactly like the other twenty-six metres.      */
+  /* ---------------------------------------------------------------- */
+  const step = await evaluate(() => {
+    const s = window.mansionSiege;
+    const bay = s.route.defencePost;
+    const dressing = s.dressing.props.firingStep;
+    const solid = s.colliders.filter((b) => b.min.y >= 5.9 && b.max.y <= 7.2
+      && b.min.z >= 45.0 && b.max.z <= 46.4 && Math.abs(b.min.x) < 4);
+    return {
+      lit: !!dressing?.lamp,
+      warm: dressing?.lamp ? dressing.lamp.color.getHex() : 0,
+      cover: solid.length,
+      stand: dressing?.stand ?? null,
+      bay,
+    };
+  });
+  check('the firing step is lit, so it is the brightest thing on the landing',
+    step.lit === true, `lamp 0x${step.warm.toString(16)}`);
+  check('and it has real cover at the rail to fight from',
+    step.cover >= 2, `${step.cover} chest-high volumes on the bay's rail line`);
+  check('and the place it wants him standing is inside the defence post',
+    step.stand && step.stand.x >= step.bay.x0 && step.stand.x <= step.bay.x1
+      && step.stand.z >= step.bay.z0 && step.stand.z <= step.bay.z1,
+    JSON.stringify(step.stand));
+
+  /* The step has to be WALKABLE, not merely dressed. Sandbags either side of
+   * the middle are cover; sandbags across the middle are a wall between the
+   * player and his own firing position. Walked, from the gallery, on foot. */
+  /* Yaw 0, not 180. The balcony bay hangs SOUTH off the gallery's edge --
+   * gallery z 48.2..52.8, bay z 45.2..48 -- so the walk onto the step is -Z,
+   * and the first version of this check walked him six metres north into the
+   * conference room and reported the step unreachable. Same heading
+   * convention as section 3: 0 is -Z, 180 is +Z. */
+  await teleport(0, UPPER_Y, 50.4, 0);
+  await settle(0.3);
+  const ontoStep = await walkUntil((p) => p.z <= 46.5, ['KeyW'], 10);
+  check('and he can walk onto it from the gallery without going round anything',
+    ontoStep.z <= 46.6, `z 50.4 -> ${ontoStep.z} in ${ontoStep.seconds}s`);
+
+  /* ---------------------------------------------------------------- */
+  /* 6. The line. Once, from the step, with the heavy up.               */
+  /*                                                                     */
+  /* THE WRONG PLACE HAS TO BE PUT THERE ON PURPOSE. This check used to   */
+  /* fire from wherever the walk above finished -- which is the middle of  */
+  /* the firing step, the one place in the house where the line SHOULD     */
+  /* work. So it asserted the gate was shut while standing on the far side */
+  /* of it, said the line, started wave one, and then failed the next two   */
+  /* checks because the line had already been spent. Two red lines, one     */
+  /* missing teleport, and nothing wrong with the game at all.              */
+  /*                                                                        */
+  /* Two metres north of the bay's mouth is the sharpest wrong place there   */
+  /* is: same floor, same room, in sight of the sandbags, outside the post.  */
+  /* ---------------------------------------------------------------- */
+  const post = await evaluate(() => window.mansionSiege.route.defencePost);
+  await teleport(0, UPPER_Y, post.z1 + 2, 180);
+  await settle(0.3);
   const wrongPlace = await evaluate(() => {
-    window.mansionSiege.equip('saw');
-    return window.mansionSiege.beats.line();
+    const s = window.mansionSiege;
+    s.equip('saw');
+    return {
+      fired: s.beats.line(), z: +s.player.position.z.toFixed(2), beat: s.beat,
+      nudge: s.hud().nudge,
+    };
   });
   check('the line does not fire from wherever you happen to be standing, even with the heavy up',
-    wrongPlace === false);
+    wrongPlace.fired === false && wrongPlace.beat === 'LITTLE_FRIEND',
+    `z ${wrongPlace.z}, post ends at ${post.z1}`);
+  /* A REFUSED KEY HAS TO SAY SO. All three of this gate's conditions used to
+   * fail in silence, which leaves a first-time player pressing the key his own
+   * HUD told him to press and watching nothing happen -- indistinguishable
+   * from a broken mission, and the commonest way this scene stalled. */
+  check('and it says why, instead of eating the key press',
+    /step|rail|sandbag/i.test(wrongPlace.nudge ?? ''), wrongPlace.nudge ?? 'nothing said');
 
-  const post = await evaluate(() => window.mansionSiege.route.defencePost);
   await teleport((post.x0 + post.x1) / 2, UPPER_Y, (post.z0 + post.z1) / 2 - 0.4, 180);
   await settle(0.3);
+
+  /* THE WRONG GUN ON THE RIGHT STEP, which is the reachable version of this:
+   * `mountArmory` SWAPS rather than stacks, so a player who takes the belt-fed
+   * before the rifle walks out carrying the rifle, and the belt-fed is two
+   * floors below him when the mission asks for it. */
+  const wrongGun = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.equip('carbine');
+    const fired = s.beats.line();
+    return { fired, equipped: s.equipped, beat: s.beat, nudge: s.hud().nudge };
+  });
+  check('the wrong gun on the right step says WHICH gun, and where it was left',
+    wrongGun.fired === false && wrongGun.beat === 'LITTLE_FRIEND'
+      && /belt-fed/i.test(wrongGun.nudge ?? ''), JSON.stringify(wrongGun));
   const said = await evaluate(() => {
     /* The heavy has to actually be IN HIS HANDS, not merely ticked off the
      * armory's list -- that is the gate being tested. */
@@ -663,6 +789,29 @@ try {
   check('clearing wave one drops into the lull and takes the fourth checkpoint',
     cleared.beat === 'LULL' && cleared.checkpoint === 'wave_one', JSON.stringify(cleared));
 
+  /* ---------------------------------------------------------------- */
+  /* 7b. THE LULL READS AS A LULL, NOT AS THE END OF THE MISSION        */
+  /*                                                                     */
+  /* Nine seconds after three minutes of shooting, with the attacker      */
+  /* counter gone and a stale "Hold the house" the only thing left on     */
+  /* screen. That is indistinguishable from a mission that has finished,  */
+  /* and a player who believes it has finished walks off the firing step  */
+  /* and is downstairs when 2A comes through the door. Two signals: the   */
+  /* counter counts the lull DOWN, and somebody says it out loud.         */
+  /* ---------------------------------------------------------------- */
+  const lull = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.tick(0.2);
+    return {
+      hud: s.hud(), remaining: s.mission.lullRemaining, sequence: s.speakingSequence,
+    };
+  });
+  check('the counter counts the lull down instead of going blank',
+    /UNTIL THE NEXT/i.test(lull.hud.counter ?? ''), String(lull.hud.counter));
+  check('and somebody says the next lot are forming up',
+    lull.sequence === 'lull' && /reload|forming/i.test(lull.hud.subtitle ?? ''),
+    JSON.stringify({ sequence: lull.sequence, said: lull.hud.subtitle }));
+
   const restored = await evaluate(() => {
     const s = window.mansionSiege;
     const spawnedBefore = s.mission.waves.one.down.size;
@@ -695,6 +844,154 @@ try {
   check('the lull ends and wave two opens with five', waveTwo.beat === 'WAVE_TWO'
     && waveTwo.standing === 5, JSON.stringify(waveTwo));
   check('wave two is fourteen men in three groups', waveTwo.total === 14, `${waveTwo.total}`);
+
+  /* ---------------------------------------------------------------- */
+  /* 7c. THE MISSION CAN ACTUALLY BE FINISHED                           */
+  /*                                                                     */
+  /* Everything from here used to be reachable only by a verifier calling */
+  /* `beats.aftermath()` and `beats.sasole()` by hand. In the game, wave   */
+  /* two clearing put the player in AFTERMATH with a blank objective card  */
+  /* on a landing full of bodies, and that was the last thing that ever    */
+  /* happened. The whole of PART IX -- Lou coming to the landing, the      */
+  /* cartel being bigger than anyone thought, the handoff to Sasole -- was */
+  /* authored in the brief, staged in `ensemble.js` (he has three postings */
+  /* in this house) and unreachable.                                       */
+  /*                                                                       */
+  /* So this walks it: clear wave two, let Lou talk on the clock, WALK to  */
+  /* Sasole, and require the card. Nothing is pressed and nothing is       */
+  /* called on the mission object.                                         */
+  /* ---------------------------------------------------------------- */
+  const aftermath = await evaluate(() => {
+    const s = window.mansionSiege;
+    /* Fight wave two out. Release everything, then put it all down. */
+    for (let t = 0; t < 200 && s.beat === 'WAVE_TWO'; t += 0.5) {
+      for (const id of [...s.mission.waves.two.standing]) s.mission.noteDown(id);
+      s.tick(0.5);
+    }
+    return {
+      beat: s.beat, state: s.state, objective: s.objective,
+      hud: s.hud(), sequence: s.speakingSequence,
+    };
+  });
+  check('clearing wave two drops into the aftermath with the fires still burning',
+    aftermath.beat === 'AFTERMATH' && aftermath.state === 'damaged', JSON.stringify({
+      beat: aftermath.beat, state: aftermath.state,
+    }));
+  check('and the objective reads as HELD rather than going blank',
+    aftermath.objective === 'The house is held' && aftermath.hud.objective === 'The house is held',
+    JSON.stringify(aftermath.hud));
+  check('Lou comes to the landing and talks, unprompted',
+    aftermath.sequence === 'aftermath' && !!aftermath.hud.subtitle,
+    JSON.stringify({ sequence: aftermath.sequence, said: aftermath.hud.subtitle }));
+
+  const toSasole = await evaluate(() => {
+    const s = window.mansionSiege;
+    for (let t = 0; t < 120 && s.beat === 'AFTERMATH'; t += 0.5) s.tick(0.5);
+    const man = s.ensemble.members.get('captain_lou_sasole');
+    return {
+      beat: s.beat, objective: s.objective, hint: s.hint, state: s.state,
+      here: !!man && man.root.visible,
+      at: man ? { x: +man.root.position.x.toFixed(2), z: +man.root.position.z.toFixed(2) } : null,
+    };
+  });
+  check("Lou's conversation ends on its own and sets the last objective",
+    toSasole.beat === 'TO_SASOLE' && toSasole.objective === 'Meet Captain Sasole'
+      && toSasole.state === 'post_battle',
+    JSON.stringify({ beat: toSasole.beat, objective: toSasole.objective, state: toSasole.state }));
+  check('and Captain Sasole is standing where the objective says he is',
+    toSasole.here === true && toSasole.at !== null, JSON.stringify(toSasole.at));
+
+  /* ON FOOT. The whole point of the last objective is that the player walks
+   * across his own wrecked landing to a man he has never met; a teleport
+   * onto his toes would prove the trigger and nothing about the walk. */
+  await teleport(toSasole.at.x - 4.4, UPPER_Y, toSasole.at.z, 270);
+  await settle(0.3);
+  const walkedToHim = await walkUntil(
+    (p) => Math.hypot(p.x - toSasole.at.x, p.z - toSasole.at.z) < 2.2, ['KeyW'], 12,
+  );
+  const met = await evaluate(() => {
+    const s = window.mansionSiege;
+    return { beat: s.beat, sequence: s.speakingSequence, said: s.hud().subtitle };
+  });
+  check('walking up to him starts the handoff',
+    met.sequence === 'sasole' && !!met.said,
+    JSON.stringify({ ...met, arrivedAt: `${walkedToHim.x}, ${walkedToHim.z}` }));
+
+  const finished = await evaluate(() => {
+    const s = window.mansionSiege;
+    for (let t = 0; t < 120 && s.beat !== 'COMPLETE'; t += 0.5) s.tick(0.5);
+    return {
+      beat: s.beat, complete: s.mission.complete, hud: s.hud(),
+      running: s.running, locked: document.pointerLockElement !== null,
+    };
+  });
+  check('the handoff completes the mission', finished.complete === true
+    && finished.beat === 'COMPLETE', JSON.stringify({ beat: finished.beat }));
+  /* THE CARD IS THE END OF THE PREVIEW AND IT HAS TO BE HONEST AND CLICKABLE.
+   * Enola Squatch is not wired to this mission -- the card says so in as many
+   * words rather than fading to black, which reads as a crash. And the
+   * pointer goes back to the player, because a card full of links behind a
+   * locked pointer is a softlock with better typography. */
+  check('and puts up a mission-complete card with the mouse handed back',
+    finished.hud.complete === true && finished.running === false && finished.locked === false,
+    JSON.stringify({ card: finished.hud.complete, running: finished.running }));
+
+  const card = await evaluate(() => {
+    const el = document.getElementById('missionCard');
+    const links = [...el.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    const text = (id) => document.getElementById(id)?.textContent ?? '';
+    return {
+      note: el.querySelector('.note')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      links,
+      tally: {
+        attackers: text('tallyAttackers'),
+        attackersOf: text('tallyAttackersOf'),
+        family: text('tallyFamily'),
+        familyOf: text('tallyFamilyOf'),
+      },
+      /* What the mission and the roster actually hold, to check the card
+       * against something other than itself. */
+      truth: {
+        down: window.mansionSiege.mission.attackersDown,
+        roll: window.mansionSiege.attackerRoll().total,
+        census: window.mansionSiege.ensemble.census(),
+      },
+      replay: !!document.getElementById('replayBtn'),
+    };
+  });
+  check('the card links home rather than dead-ending',
+    card.links.includes('./index.html') && card.replay === true, card.links.join(' '));
+  check('and says out loud that the Enola Squatch handoff is not wired yet',
+    /not been written|not wired|separate page/i.test(card.note),
+    card.note.slice(0, 90));
+  /* ## THIS CHECK IS AGAINST THE LEDGER, NOT AGAINST "MORE THAN NOUGHT"
+   *
+   * It used to assert `attackers > 0 && family > 0` and it caught a card that
+   * said 2 and 0 at the end of a run that had put down twenty-seven men --
+   * caught the family half, missed the attacker half, because 2 is more than
+   * nought. Both numbers now have to EQUAL what the mission and the roster
+   * hold, so a card that drifts from the fight it is summarising is red the
+   * next time this runs rather than plausible forever.
+   *
+   * The family count is deliberately ALIVE and not STANDING. Headless, with
+   * nobody shooting back for three minutes, every friendly in the house is on
+   * the floor at the end -- correctly, and `SURVIVES_THE_SIEGE` is why they
+   * are down rather than dead. "Still up" would be nought here and would be a
+   * true statement about a fight the player did not fight. */
+  check('and counts what he actually did, off the mission ledger',
+    Number(card.tally.attackers) === card.truth.down
+      && Number(card.tally.family) === card.truth.census.alive
+      && card.truth.down > 0,
+    JSON.stringify({ ...card.tally, ledger: card.truth.down, alive: card.truth.census.alive }));
+  check('and says what those numbers are out of, so they mean something',
+    card.tally.attackersOf === `OF ${card.truth.roll} ATTACKERS DOWN`
+      && card.tally.familyOf === `OF ${card.truth.census.total} FAMILY ALIVE`,
+    `${card.tally.attackersOf} / ${card.tally.familyOf}`);
+
+  /* The card is a full-screen overlay and the checks below take a photograph
+   * of the burning foyer. Put it away before measuring anything else -- see
+   * ENGINE-TRAPS #7 rule 2 on a shared page carrying state between checks. */
+  await evaluate(() => document.getElementById('missionCard')?.classList.add('hidden'));
 
   /* ---------------------------------------------------------------- */
   /* 8. Glass that breaks and stops being solid                         */
@@ -767,6 +1064,93 @@ try {
   const shot = await page.screenshot({ type: 'png', timeout: 300000 });
   const nonBlack = shot.some((b, i) => i > 64 && b > 24);
   check('the burning foyer renders a non-black frame', nonBlack, `${shot.length} bytes`);
+  /* AND PUT THE RENDERER BACK DOWN. This page stays open for the rest of the
+   * run, and section 11 below opens four MORE pages on the same browser. Left
+   * drawing a burning forecourt on swiftshader it eats the whole CPU, and the
+   * symptom is not "the screenshot is slow" -- it is the fourth checkpoint
+   * page timing out in `goto` thirty seconds later, which reads as a broken
+   * checkpoint entry. One line, and it is the difference between section 11
+   * measuring the mission and section 11 measuring the software renderer. */
+  await evaluate(() => window.mansionSiege.setRendering(false));
+
+  /* ---------------------------------------------------------------- */
+  /* 11. ?checkpoint= -- the four phases, each on its own fresh page     */
+  /*                                                                     */
+  /* The siege is reachable only by URL, so the owner's first look at it  */
+  /* is four separate sittings unless he can jump. Each of these opens a  */
+  /* NEW PAGE, presses the scene's own start button, and asks the mission */
+  /* where it ended up -- because a checkpoint entry that only works on a  */
+  /* page that has already played the mission is not an entry.            */
+  /*                                                                      */
+  /* AND IT REPLAYS THE BEATS RATHER THAN WRITING THEM. `history` is the   */
+  /* assertion that matters: a jump that produced beat=LULL by assignment  */
+  /* would pass a beat check and leave a house with no foyer encounter in  */
+  /* it and no wave-one roster. The chain has to be walked.                */
+  /* ---------------------------------------------------------------- */
+  const CHECKPOINT_EXPECTATIONS = [
+    { id: 'wake', beat: 'WAKE', label: null },
+    { id: 'armed', beat: 'TO_OFFICE', label: 'ARMED', weapon: 'carbine' },
+    { id: 'briefed', beat: 'LITTLE_FRIEND', label: 'BRIEFED', weapon: 'saw' },
+    { id: 'wave_one', beat: 'LULL', label: 'WAVE ONE HELD', weapon: 'saw' },
+  ];
+  for (const want of CHECKPOINT_EXPECTATIONS) {
+    const jump = await browser.newPage({ viewport: { width: 400, height: 260 } });
+    const jumpErrors = [];
+    jump.on('pageerror', (e) => jumpErrors.push(e.message));
+    /* `domcontentloaded`, not `load`, and with a timeout of its own.
+     * `load` waits for every texture the mansion generates, on a browser that
+     * already has this scene open once; playwright's default 30 s is not
+     * enough for that on swiftshader and the failure it produces is a
+     * navigation timeout, which looks nothing like what it is. The real
+     * readiness signal is the next line, and it has always had 90 s. */
+    await jump.goto(`http://localhost:${PORT}/mansion-siege.html?checkpoint=${want.id}`,
+      { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await jump.waitForFunction(() => window.mansionSiege?.scene, null, { timeout: 120000 });
+    /* Before anything else: this page is a fresh scene and its render loop is
+     * on. Nothing here needs a picture. */
+    await jump.evaluate(() => window.mansionSiege.setRendering(false));
+    const tag = await jump.evaluate(() => ({
+      button: document.getElementById('startBtn')?.textContent?.trim() ?? '',
+      tag: document.getElementById('checkpointTag')?.hidden === false,
+      requested: window.mansionSiege.startCheckpoint,
+    }));
+    await jump.click('#startBtn');
+    await jump.waitForFunction(() => window.mansionSiege.running, null, { timeout: 20000 });
+    await jump.evaluate(() => window.mansionSiege.tick(0.4));
+    const landed = await jump.evaluate(() => {
+      const s = window.mansionSiege;
+      return {
+        beat: s.beat,
+        history: s.mission.history.join('>'),
+        equipped: s.equipped,
+        placed: s.placed(),
+        waveOneDown: s.mission.waves.one.down.size,
+        littleFriend: s.mission.littleFriendSaid,
+        at: { x: +s.player.position.x.toFixed(1), z: +s.player.position.z.toFixed(1) },
+        objective: s.objective,
+      };
+    });
+    check(`?checkpoint=${want.id} starts the mission at ${want.beat}`,
+      landed.beat === want.beat && tag.requested === want.id,
+      JSON.stringify({ beat: landed.beat, at: landed.at, objective: landed.objective }));
+    if (want.label) {
+      check(`  and says so on the menu before you press start`,
+        tag.tag === true && tag.button.includes(want.label), `"${tag.button}"`);
+      check(`  and puts the right gun in his hands`,
+        landed.equipped === want.weapon, String(landed.equipped));
+      check(`  and it got there by walking the beat chain, not by assignment`,
+        landed.history.startsWith('WAKE>TO_ARMORY>ARM>TO_OFFICE')
+          && landed.placed.includes('corridor') && landed.placed.includes('foyer'),
+        `${landed.history} | placed ${landed.placed.join('+')}`);
+    }
+    if (want.id === 'wave_one') {
+      check('  and wave one is HELD rather than skipped',
+        landed.waveOneDown === 8 && landed.littleFriend === true,
+        `${landed.waveOneDown} of 8 down, line said ${landed.littleFriend}`);
+    }
+    for (const message of jumpErrors) problems.push(`[${want.id}] ${message}`);
+    await jump.close();
+  }
 
   const strayNotFound = notFound.filter((p) => !p.endsWith('/the-feature.mp4'));
   check('nothing the scene asks for is missing except the film nobody delivered',

@@ -37,6 +37,7 @@ const OUT = path.join(ROOT, 'VOICE-LINES-NEEDED.md');
 /** Which scene a cue belongs to, for the note beside each line. */
 const SCENES = [
   ['PROJECT SILENT SQUATCH', (n) => n.startsWith('vo.silentsquatch.')],
+  ['MANSION UNDER SIEGE', (n) => n.startsWith('vo.siege.')],
   ['The HotDog Incident', (n) => n.startsWith('vo.bing2.')],
   ['The Enola Squatch', (n) => n.startsWith('vo.enolasquatch.')],
   ['THE TAKE', (n) => n.startsWith('heist.')],

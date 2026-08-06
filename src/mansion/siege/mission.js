@@ -17,28 +17,100 @@
  */
 import { WaveDirector, WAVES, ENCOUNTERS } from './waves.js';
 
-/** Every beat, in authored order, with the objective it puts on the HUD. */
+/**
+ * Every beat, in authored order, with the objective it puts on the HUD.
+ *
+ * ## THE `hint` FIELD, AND THE PLAYTEST THAT PUT IT THERE
+ *
+ * `objective` is what the mission wants; `hint` is which way that is. They
+ * are two fields because they are two sentences with two jobs, and because
+ * the objective strings are asserted verbatim by `verify:mansion-siege` --
+ * folding directions into them would make every route check a string-length
+ * test on prose.
+ *
+ * Driven end to end as a first-time player, the mission was legible from the
+ * bed to the corridor and then stopped being legible three times:
+ *
+ *   TO_ARMORY   "Reach the armory" in a 31 m basement corridor with four
+ *               doorways off it and no sign of which one.
+ *   TO_OFFICE   "Reach Lou's office" from a basement, when the office is two
+ *               storeys up at the far end of a house he has never walked.
+ *   LITTLE_FRIEND  "Hold the house" -- with no way to know that the mission
+ *               is waiting on him to stand in one specific six-metre bay
+ *               holding one specific gun and press one specific key.
+ *
+ * The hint is one of three channels carrying each of those; the other two are
+ * a line of Booski's in `./script.js` and, for the firing step, a lit
+ * ammunition point you can see from the office door.
+ */
 export const BEATS = Object.freeze({
   /** Eyes open on the guest-room ceiling. The fight started without him. */
-  WAKE: Object.freeze({ objective: null, state: 'under_attack', checkpoint: 'wake' }),
+  WAKE: Object.freeze({
+    objective: null, hint: null, state: 'under_attack', checkpoint: 'wake',
+  }),
   /** Out of the room, down the corridor, past two men. */
-  TO_ARMORY: Object.freeze({ objective: 'Reach the armory', state: 'under_attack' }),
+  TO_ARMORY: Object.freeze({
+    objective: 'Reach the armory',
+    hint: 'East along the cellar hall, then south through the last door',
+    state: 'under_attack',
+  }),
   /** At the rack. A primary, a heavy, and ammunition for both. */
-  ARM: Object.freeze({ objective: 'Arm yourself', state: 'under_attack' }),
+  ARM: Object.freeze({
+    objective: 'Arm yourself',
+    hint: 'E takes a weapon off the rack. Take a primary AND the belt-fed.',
+    state: 'under_attack',
+  }),
   /** Up the cellar stair, through the foyer, up the horseshoe. */
-  TO_OFFICE: Object.freeze({ objective: "Reach Lou's office", state: 'under_attack' }),
+  TO_OFFICE: Object.freeze({
+    objective: "Reach Lou's office",
+    hint: 'Up the cellar stair, across the foyer, up the horseshoe — top floor, far end',
+    state: 'under_attack',
+  }),
   /** The whole family, armed, still shooting while they talk. */
-  BRIEFING: Object.freeze({ objective: null, state: 'under_attack', checkpoint: 'briefed' }),
+  BRIEFING: Object.freeze({
+    objective: null, hint: null, state: 'under_attack', checkpoint: 'briefed',
+  }),
   /** The heavy comes up at the top of the stairs. The line. Once. */
-  LITTLE_FRIEND: Object.freeze({ objective: 'Hold the house', state: 'under_attack' }),
-  WAVE_ONE: Object.freeze({ objective: 'Hold the house', state: 'under_attack' }),
+  LITTLE_FRIEND: Object.freeze({
+    objective: 'Hold the house',
+    hint: 'Take the lit firing step on the gallery rail. Belt-fed up, then press F.',
+    state: 'under_attack',
+  }),
+  WAVE_ONE: Object.freeze({
+    objective: 'Hold the house',
+    hint: 'They come up the drive, through the front door and up both flights',
+    state: 'under_attack',
+  }),
   /** A breath, not a tea ceremony. */
-  LULL: Object.freeze({ objective: 'Hold the house', state: 'under_attack', checkpoint: 'wave_one' }),
-  WAVE_TWO: Object.freeze({ objective: 'Hold the house', state: 'under_attack' }),
+  LULL: Object.freeze({
+    objective: 'Hold the house',
+    hint: 'Reload. The next lot are forming up on the drive.',
+    state: 'under_attack',
+    checkpoint: 'wave_one',
+  }),
+  WAVE_TWO: Object.freeze({
+    objective: 'Hold the house',
+    hint: 'Front door again — and once, both wings at the same time',
+    state: 'under_attack',
+  }),
   /** Smoke, bodies, glass, and the alarm still going for a while yet. */
-  AFTERMATH: Object.freeze({ objective: null, state: 'damaged' }),
-  TO_SASOLE: Object.freeze({ objective: 'Meet Captain Sasole', state: 'post_battle' }),
-  COMPLETE: Object.freeze({ objective: null, state: 'post_battle' }),
+  /* The objective reads as ACHIEVED rather than as nothing. A HUD that goes
+   * blank the instant the last man drops is how a player learns the mission
+   * ended when in fact Lou is still walking to the landing to talk to him. */
+  AFTERMATH: Object.freeze({
+    objective: 'The house is held',
+    hint: 'Lou is coming to the landing',
+    state: 'damaged',
+    done: true,
+  }),
+  TO_SASOLE: Object.freeze({
+    objective: 'Meet Captain Sasole',
+    hint: 'The flight jacket, on the gallery landing east of the balcony',
+    state: 'post_battle',
+  }),
+  COMPLETE: Object.freeze({
+    objective: 'Mission complete', hint: null, state: 'post_battle', done: true,
+  }),
 });
 
 export const BEAT_NAMES = Object.freeze(Object.keys(BEATS));
@@ -124,10 +196,53 @@ export class SiegeMission {
   /* ---------------------------------------------------------------- */
 
   get objective() { return this.beat ? BEATS[this.beat].objective : null; }
+  /** The directional half of the objective. See the note on BEATS. */
+  get hint() { return this.beat ? BEATS[this.beat].hint ?? null : null; }
+  /** Whether this beat's objective is a thing achieved rather than pending. */
+  get objectiveDone() { return this.beat ? BEATS[this.beat].done === true : false; }
+  /**
+   * Seconds left in the lull, or null when the mission is not in one.
+   *
+   * Exposed because the HUD needs it. A balcony that has gone quiet with an
+   * empty wave counter is indistinguishable from a mission that has ended,
+   * and a player who thinks the mission has ended leaves the firing step --
+   * so the counter counts the lull down instead of hiding.
+   */
+  get lullRemaining() {
+    return this.beat === B.LULL ? Math.max(0, this._lull) : null;
+  }
+
   get activeWave() {
     if (this.beat === B.WAVE_ONE) return this.waves.one;
     if (this.beat === B.WAVE_TWO) return this.waves.two;
     return null;
+  }
+
+  /**
+   * How many attackers this mission has been told are down. All twenty-seven
+   * of them: the corridor's two, the foyer's three, and both waves.
+   *
+   * ## WHY THE MISSION COUNTS AND NOT THE SCENE
+   *
+   * The mission-complete card used to read this off `attackers.all()` and
+   * count `actor.incapacitated`, and it reported 2 at the end of a run that
+   * had put down all twenty-seven. Two different reasons, both structural:
+   * `despawnAll()` clears the board between phases without incapacitating
+   * anybody, and a checkpoint restore rebuilds the roster from a snapshot. So
+   * the scene's live actor list is a picture of who is standing NOW, which is
+   * a different question from what the player did over three minutes.
+   *
+   * `noteDown()` is the one call every death of every kind already funnels
+   * through -- encounters and both waves -- so the tally belongs beside it and
+   * survives despawn, restore and beat changes for free.
+   */
+  get attackersDown() {
+    let encountersDown = 0;
+    for (const encounter of Object.values(ENCOUNTERS)) {
+      const standing = this.encounters.get(encounter.id)?.size ?? encounter.members.length;
+      encountersDown += encounter.members.length - standing;
+    }
+    return encountersDown + this.waves.one.down.size + this.waves.two.down.size;
   }
 
   start(beat = B.WAKE) { this._enter(beat); return this; }
@@ -143,7 +258,7 @@ export class SiegeMission {
      * step with the fiction the way a manually-called apply() would. */
     if (this.damage.state !== definition.state) this.damage.apply(definition.state);
     this.onBeat?.(name, prev);
-    this.onObjective?.(definition.objective);
+    this.onObjective?.(definition.objective, definition.hint ?? null, definition.done === true);
     if (definition.checkpoint) this.saveCheckpoint(definition.checkpoint);
     if (name === B.WAVE_ONE) this.waves.one.begin();
     if (name === B.WAVE_TWO) this.waves.two.begin();
@@ -327,7 +442,7 @@ export class SiegeMission {
     this.history.push(snapshot.beat);
     if (this.damage.state !== definition.state) this.damage.apply(definition.state);
     this.onBeat?.(snapshot.beat, prev);
-    this.onObjective?.(definition.objective);
+    this.onObjective?.(definition.objective, definition.hint ?? null, definition.done === true);
     if (snapshot.beat === B.LULL) this._lull = LULL_SECONDS;
     for (const [field, provider] of this.providers) {
       provider.restore(snapshot.scene[field]);

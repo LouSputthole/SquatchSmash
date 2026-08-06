@@ -49,7 +49,10 @@ import { SuppressionModel } from '../../core/combat/suppression.js';
 
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
-import { COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS } from './waves.js';
+import { SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeVoiceCueNames } from './script.js';
+import {
+  COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS, totalAttackers,
+} from './waves.js';
 import { buildSiegeNight } from './night.js';
 import { buildSiegeDressing } from './dressing.js';
 import { buildSiegeGlass } from './glass.js';
@@ -69,9 +72,16 @@ const promptHoldEl = $('promptHold');
 const objectiveEl = $('objective');
 const objectiveTextEl = $('objectiveText');
 const objectiveKickerEl = $('objectiveKicker');
+const objectiveHintEl = $('objectiveHint');
 const waveCountEl = $('waveCount');
 const waveRemainingEl = $('waveRemaining');
+const waveLabelEl = $('waveLabel');
 const checkpointEl = $('checkpoint');
+const subtitleEl = $('subtitle');
+const subtitleWhoEl = $('subtitleWho');
+const subtitleTextEl = $('subtitleText');
+const missionCardEl = $('missionCard');
+const checkpointTagEl = $('checkpointTag');
 const alarmWashEl = $('alarmWash');
 const damageWashEl = $('damageWash');
 const ammoEl = $('ammo');
@@ -345,7 +355,18 @@ const armory = mountArmory({
     if (event?.type !== 'taken' || !event.id) return;
     if (HEAVY_IDS.has(event.id)) heavyTaken = true;
     else PRIMARY_TAKEN.add(event.id);
-    mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
+    const done = mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
+    /* HALF-ARMED IS THE QUIET FAILURE. The beat needs BOTH, and a player who
+     * takes one gun and walks gets no refusal at all -- the objective simply
+     * does not advance. He can be on the top floor, at Lou's door, before
+     * anything tells him why the office is not reacting to him, and the rack
+     * he needs is two storeys behind him by then. So the rack says it while
+     * he is still standing at it. */
+    if (!done && mission.beat === B.ARM) {
+      nudge(heavyTaken
+        ? 'That is the belt-fed. Take a rifle off the rack as well — the swap is what the rack is for.'
+        : 'That is your primary. Now the belt-fed, the big one — you are not holding a staircase with that.');
+    }
   },
 });
 
@@ -357,16 +378,73 @@ let ammoDirty = true;
 let waveDirty = true;
 let checkpointToast = 0;
 
+/* ================================================================== */
+/* WHAT PEOPLE SAY                                                       */
+/*                                                                       */
+/* See ./script.js for why this exists. The short version: three of the   */
+/* mission's beats could only be LEFT by calling a method nothing called,  */
+/* so a real playthrough stopped dead in Lou's office, and again on the    */
+/* landing after wave two. A sequence finishing is what moves the mission  */
+/* on now, which makes an unleavable beat a thing you cannot build.        */
+/* ================================================================== */
+const dialogue = new SiegeDialogue({
+  audio,
+  onLine: (line) => {
+    if (!subtitleEl) return;
+    subtitleEl.hidden = false;
+    subtitleWhoEl.textContent = (SIEGE_SPEAKER_NAMES[line.speaker] ?? line.speaker).toUpperCase();
+    subtitleTextEl.textContent = line.say;
+  },
+  onDone: (sequence) => {
+    if (subtitleEl) subtitleEl.hidden = true;
+    /* THE THREE HANDOFFS. Each of these is a mission method that existed
+     * from the first commit and that nothing in the scene ever called. */
+    if (sequence === 'briefing') mission.briefingEnded();
+    if (sequence === 'aftermath') mission.aftermathEnded();
+    if (sequence === 'sasole') mission.metSasole();
+  },
+});
+
+/**
+ * Which sequence a beat opens with.
+ *
+ * `briefing`, `aftermath` and `sasole` are load-bearing -- the mission cannot
+ * leave those beats any other way. The rest are guidance and colour, and they
+ * are keyed off the beat rather than off a room trigger so a checkpoint jump
+ * lands the player in a house where somebody has already told him where to go.
+ */
+const BEAT_SEQUENCE = Object.freeze({
+  [B.TO_ARMORY]: 'wake',
+  [B.TO_OFFICE]: 'guide_office',
+  [B.BRIEFING]: 'briefing',
+  [B.LULL]: 'lull',
+  [B.AFTERMATH]: 'aftermath',
+});
+
 const mission = new SiegeMission({
   damage,
-  onObjective: (text) => {
+  onObjective: (text, hint, done) => {
     if (!objectiveEl) return;
+    /* A new objective outranks a nudge that is still counting down: the
+     * nudge corrects the OLD hint, and leaving it up would have it correcting
+     * a sentence that is no longer on the screen. */
+    nudgeTimer = 0;
+    objectiveHintEl?.classList.remove('nudge');
     objectiveEl.hidden = !text;
+    objectiveEl.classList.toggle('done', done === true);
+    if (objectiveKickerEl) objectiveKickerEl.textContent = done ? 'COMPLETE' : 'OBJECTIVE';
     if (text) objectiveTextEl.textContent = text;
+    if (objectiveHintEl) {
+      objectiveHintEl.hidden = !hint;
+      objectiveHintEl.textContent = hint ?? '';
+    }
   },
   onBeat: (beat) => {
     ensemble.stage(beat);
     waveDirty = true;
+    const sequence = BEAT_SEQUENCE[beat];
+    if (sequence) dialogue.play(sequence);
+    if (beat === B.COMPLETE) showMissionCard();
     /* THE TWO FIGHTS THAT ARE NOT WAVES.
      *
      * `ENCOUNTERS` in waves.js authors the corridor's two men and the foyer's
@@ -384,7 +462,15 @@ const mission = new SiegeMission({
     if (beat === B.WAKE) placeEncounter('corridor');
     if (beat === B.ARM) placeEncounter('foyer');
   },
-  onSpawn: (order) => attackers.spawn(order),
+  onSpawn: (order) => {
+    attackers.spawn(order);
+    /* 2B is the one group in twenty-two that does not come through the front
+     * door, and the whole point of it is that the player has to turn round.
+     * A man appearing behind you with no warning is a cheap shot; a man
+     * appearing behind you a second after somebody shouted "glass" is the
+     * beat the brief asked for. */
+    if (order?.group === '2B') dialogue.play('flank');
+  },
   onCheckpoint: (id) => {
     checkpointEl.textContent = (CHECKPOINTS[id]?.label ?? 'CHECKPOINT').toUpperCase();
     checkpointEl.classList.add('show');
@@ -448,8 +534,15 @@ mission
     restore: (beat) => { if (beat) ensemble.stage(beat); },
   })
   .provide('dialogue', {
-    capture: () => ({ littleFriend: mission.littleFriendSaid }),
-    restore: () => { /* mission.js owns the flag; nothing scene-side to undo. */ },
+    /* `littleFriend` is mission.js's flag and it restores itself. What the
+     * SCENE owns is which conversations have already been heard -- without
+     * that, a checkpoint restore after wave one replays Booski's lull line
+     * every single time the player goes down on the landing. */
+    capture: () => ({ littleFriend: mission.littleFriendSaid, ...dialogue.snapshot() }),
+    restore: (value) => {
+      dialogue.restore(value);
+      if (subtitleEl) subtitleEl.hidden = true;
+    },
   });
 
 /* ================================================================== */
@@ -630,18 +723,45 @@ function onPlayerDown() {
 const inRect = (r, x, z) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
 let triggerTimer = 0;
 
+/**
+ * How close to Captain Sasole counts as meeting him.
+ *
+ * Proximity, not `InteractionSystem`, and for the same reason the revive is:
+ * that system raycasts REGISTERED MESHES and this man walks between three
+ * postings. A prompt bolted to where he was standing in the aftermath is a
+ * prompt on empty air by the time the player gets to him.
+ */
+const SASOLE_RADIUS = 2.6;
+
 function updateTriggers(dt) {
   triggerTimer -= dt;
   if (triggerTimer > 0) return;
   triggerTimer = 0.12;
   const { x, z } = player.position;
   const feet = player.position.y - player.eyeHeight;
-  if (mission.beat === B.TO_ARMORY && inRect(BASEMENT_ROOM, x, z) && feet < GROUND_Y - 1) {
-    mission.enteredArmory();
+  if (mission.beat === B.TO_ARMORY) {
+    if (inRect(BASEMENT_ROOM, x, z) && feet < GROUND_Y - 1) {
+      mission.enteredArmory();
+      return;
+    }
+    /* Out of the bedroom and into the corridor: Booski, on the house radio,
+     * says which end of it the armory is. The objective card says WHAT and
+     * this says WHICH WAY, and it fires here rather than on the beat so it
+     * arrives when the player is actually looking down the corridor. */
+    if (inRect(CELLAR_HALL, x, z) && feet < GROUND_Y - 1) dialogue.play('guide_armory');
     return;
   }
   if (mission.beat === B.TO_OFFICE && inRect(OFFICE, x, z) && feet > UPPER_Y - 1) {
     mission.enteredOffice();
+    return;
+  }
+  /* The handoff. He is standing on the landing in a flight jacket; walk up to
+   * him and the mission ends. */
+  if (mission.beat === B.TO_SASOLE && !dialogue.active) {
+    const sasole = ensemble.members?.get?.('captain_lou_sasole') ?? null;
+    if (sasole && sasole.root.position.distanceTo(player.position) < SASOLE_RADIUS) {
+      dialogue.play('sasole');
+    }
   }
 }
 
@@ -695,6 +815,14 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) armory.put();
   /* The line. Once, ever, and only with the heavy up on the landing. */
   if (e.code === 'KeyF' && !e.repeat) tryTheLine();
+  /* Skip the rest of whoever is talking. Enter, deliberately: Space is jump,
+   * and putting "skip the briefing" on the jump key means a first-time player
+   * who hops on the spot in Lou's office never hears the mission explained.
+   *
+   * NOT a cancel -- `finish()` runs the sequence's `onDone`, so skipping the
+   * briefing still ENDS the briefing. A skip that quietly left the mission in
+   * the beat it was skipping is the softlock this whole pass removed. */
+  if (e.code === 'Enter' && !e.repeat && dialogue.active) dialogue.finish();
 });
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
@@ -718,6 +846,58 @@ renderer.domElement.addEventListener('mousedown', (e) => {
   if (e.button === 0) fire();
 });
 
+/* ================================================================== */
+/* THE NUDGE -- why the key you just pressed did nothing                 */
+/*                                                                       */
+/* `tryTheLine()` has three conditions and used to fail all three in      */
+/* SILENCE. Standing on the landing with the objective up, the hint       */
+/* underneath it saying "press F", and F doing nothing at all -- no       */
+/* sound, no text, no flicker -- a first-time player has no way to tell a */
+/* mission that is waiting for him from a mission that is broken. The     */
+/* sentence on his HUD is the one he has just decided is lying to him,    */
+/* and the gun he is holding is the reason, and nothing anywhere says so. */
+/*                                                                       */
+/* The reachable version of that is not exotic. `mountArmory` swaps       */
+/* rather than stacks -- `take()` puts the equipped weapon back before it */
+/* hands over the next -- so the player carries ONE long gun, and the     */
+/* mission's own gate is "took a primary AND the heavy" without caring    */
+/* which of the two he walked out with. Take them in the other order and  */
+/* the belt-fed is on the rack, two floors down, and F is dead.           */
+/*                                                                       */
+/* So a failed press answers. It borrows the hint line rather than adding */
+/* a fourth HUD element: that line is the sentence being corrected, the   */
+/* player's eye is already on it, and it goes back to the beat's own hint */
+/* when the nudge expires.                                                */
+/* ================================================================== */
+let nudgeTimer = 0;
+
+function nudge(text, seconds = 4) {
+  if (!objectiveHintEl) return false;
+  objectiveEl.hidden = false;
+  objectiveHintEl.hidden = false;
+  objectiveHintEl.textContent = text;
+  objectiveHintEl.classList.add('nudge');
+  nudgeTimer = seconds;
+  return true;
+}
+
+/** Put the beat's own hint back. Also called when the beat changes under it. */
+function clearNudge() {
+  if (nudgeTimer <= 0) return;
+  nudgeTimer = 0;
+  objectiveHintEl?.classList.remove('nudge');
+  if (!objectiveHintEl) return;
+  const hint = mission.hint;
+  objectiveHintEl.hidden = !hint;
+  objectiveHintEl.textContent = hint ?? '';
+}
+
+function updateNudge(dt) {
+  if (nudgeTimer <= 0) return;
+  nudgeTimer -= dt;
+  if (nudgeTimer <= 0) clearNudge();
+}
+
 /**
  * "Say hello to my little friend."
  *
@@ -729,13 +909,25 @@ renderer.domElement.addEventListener('mousedown', (e) => {
  */
 function tryTheLine() {
   if (mission.beat !== B.LITTLE_FRIEND) return false;
-  if (!HEAVY_IDS.has(weaponSystem.equipped ?? '')) return false;
+  if (!HEAVY_IDS.has(weaponSystem.equipped ?? '')) {
+    nudge('Not that gun — the belt-fed. It is still on the armory rack, down the cellar stair.');
+    return false;
+  }
   const { x, z } = player.position;
   const onTheStep = x >= DEFENCE_POST.x0 && x <= DEFENCE_POST.x1
     && z >= DEFENCE_POST.z0 && z <= DEFENCE_POST.z1;
-  if (!onTheStep) return false;
+  if (!onTheStep) {
+    nudge('Not from here — the lit step at the rail, between the sandbags, over the front door.');
+    return false;
+  }
   if (!mission.sayHello()) return false;
-  audio.play?.('siege.prospect.little_friend', { volume: 1 });
+  /* Through the dialogue runner, not a bare `audio.play`, so the line gets a
+   * subtitle like every other line in the mission -- and so it is one of the
+   * `vo.siege.*` cues the recording sheet knows about. It used to be a lone
+   * `siege.prospect.little_friend` with no subtitle and no manifest entry:
+   * silent, unrecorded, unrecordable, and nothing anywhere reporting it.
+   * docs/ENGINE-TRAPS.md #3, and #8 on why the `vo.` prefix is load-bearing. */
+  dialogue.play('little_friend');
   return true;
 }
 
@@ -755,15 +947,91 @@ function refreshAmmo() {
   ammoStateEl.textContent = hud.state ?? '';
 }
 
+/**
+ * The counter in the top right.
+ *
+ * IT DOES NOT GO BLANK IN THE LULL, and that is the point of the second
+ * branch. Played through, the nine seconds between the waves read exactly
+ * like the end of the mission: the shooting stops, the last attacker count
+ * disappears, and the only thing on screen still says "Hold the house" --
+ * which a player who has just held it for three minutes reads as stale HUD.
+ * Two of the three people who would walk off the firing step there would be
+ * downstairs when 2A came through the door. So the counter counts the lull
+ * down instead of hiding, and Booski says the same thing out loud.
+ *
+ * `waveDirty` cannot gate the countdown -- a number that changes every second
+ * needs a tick every second -- so the lull refreshes unconditionally.
+ */
+let lullShown = -1;
 function refreshWaveCount() {
-  if (!waveDirty || !waveCountEl) return;
+  if (!waveCountEl) return;
+  const lull = mission.lullRemaining;
+  if (lull !== null) {
+    const seconds = Math.max(0, Math.ceil(lull));
+    if (seconds !== lullShown) {
+      lullShown = seconds;
+      waveCountEl.hidden = false;
+      waveRemainingEl.textContent = String(seconds);
+      if (waveLabelEl) waveLabelEl.textContent = 'UNTIL THE NEXT LOT';
+    }
+    waveDirty = false;
+    return;
+  }
+  lullShown = -1;
+  if (!waveDirty) return;
   waveDirty = false;
+  if (waveLabelEl) waveLabelEl.textContent = 'ATTACKERS';
   const wave = mission.activeWave;
   if (!wave) { waveCountEl.hidden = true; return; }
   waveCountEl.hidden = false;
   const left = wave.totalCount - wave.down.size;
   waveRemainingEl.textContent = String(left);
 }
+
+/* ================================================================== */
+/* THE END OF THE MISSION                                                */
+/*                                                                       */
+/* The brief's last objective is "Meet Captain Sasole", and meeting him    */
+/* used to do nothing observable at all: the beat advanced to COMPLETE and  */
+/* the player stood on a landing in a burnt house with an objective card    */
+/* that had gone blank, forever. There is no Enola Squatch handoff to make  */
+/* here -- the campaign wiring between the two missions does not exist and  */
+/* this file is not the place to invent it -- so what the card does instead */
+/* is TELL THE TRUTH: the mission is over, here is what you did, here is    */
+/* the way out, and here is why the aeroplane is a separate link.          */
+/* ================================================================== */
+let missionCardShown = false;
+function showMissionCard() {
+  if (missionCardShown || !missionCardEl) return;
+  missionCardShown = true;
+  /* EVERY NUMBER HERE COMES OFF A LEDGER RATHER THAN OFF THE LIVE SCENE, and
+   * the first version of this card came off the live scene and lied twice.
+   * It reported 2 attackers down at the end of a run that had put down all
+   * twenty-seven, because `attackers.all()` is who is on the board now and
+   * `despawnAll()` empties the board between phases; and it reported 0 family
+   * left because `ensemble.targets()` is a shooting-permission list, not a
+   * census. See `SiegeMission.attackersDown` and `ensemble.census()` for the
+   * long version of both. A summary screen that quietly reports the wrong
+   * number is worse than no summary screen: it is the only thing the player
+   * takes away from the mission. */
+  const roll = totalAttackers();
+  const family = ensemble.census();
+  const set = (id, value) => { const el = $(id); if (el) el.textContent = String(value); };
+  set('tallyAttackers', mission.attackersDown);
+  set('tallyAttackersOf', `OF ${roll.total} ATTACKERS DOWN`);
+  set('tallyFamily', family.alive);
+  set('tallyFamilyOf', `OF ${family.total} FAMILY ALIVE`);
+  set('tallyGlass', glass.brokenIds().length);
+  missionCardEl.classList.remove('hidden');
+  /* Hand the mouse back. A card with links on it behind a locked pointer is
+   * a card nobody can click, which is how a "clean ending" becomes a
+   * softlock with better typography. */
+  document.exitPointerLock?.();
+  player.clearKeys?.();
+  weaponSystem.setTrigger(false);
+  running = false;
+}
+$('replayBtn')?.addEventListener('click', () => window.location.reload());
 
 /* ================================================================== */
 /* The wake-up                                                           */
@@ -813,7 +1081,8 @@ const pauseMenu = createPauseMenu({
     'Left mouse fires. R reloads. E takes a weapon off the rack, Q puts it back.',
     'F -- say it, once, from the top of the stairs with the heavy in your hands.',
     'E -- held, next to somebody on the floor, gets them back on their feet.',
-    'Tab pauses and resumes. Escape releases the mouse, which also pauses.',
+    'Enter skips the rest of a line. Tab pauses and resumes.',
+    'Escape releases the mouse, which also pauses.',
   ],
   onPause: () => {
     interaction.setPaused(true);
@@ -828,6 +1097,110 @@ const pauseMenu = createPauseMenu({
     renderer.domElement.requestPointerLock?.();
   },
 });
+
+/* ================================================================== */
+/* CHECKPOINT ENTRY -- ?checkpoint=wake|armed|briefed|wave_one            */
+/*                                                                       */
+/* WHY THIS IS PARSED HERE AND NOT IN `src/core/preview-mode.js`.        */
+/*                                                                       */
+/* That module owns the CAMPAIGN's preview routing: which scene a page    */
+/* seeds, which apartment variant it dresses, and which saved progress a  */
+/* `?preview=1` session is allowed to invent. The siege has no campaign    */
+/* entry at all yet -- it is reachable only by typing its URL -- so it has */
+/* nothing to seed and no saved progress to protect, and a row in the      */
+/* shared parser would be a promise about campaign state that this scene   */
+/* cannot currently keep. `previewBeefRunCheckpointForLocation()` carries   */
+/* the same warning in its own docblock for the same reason. So the list    */
+/* lives beside the mission it belongs to and the shared module is left     */
+/* alone; the day the siege joins the campaign, this is one function to     */
+/* move rather than a fork to unpick.                                      */
+/*                                                                        */
+/* IT REPLAYS THE BEATS RATHER THAN FAKING THEM. Every jump below walks    */
+/* the real `mission` methods in the real order -- wokeUp, enteredArmory,  */
+/* armed, enteredOffice, briefingEnded -- so a checkpoint start cannot     */
+/* produce a mission state a played run never could. The alternative,      */
+/* writing `mission.beat` directly, is how you get a preview where the      */
+/* foyer three were never placed and the gallery is quiet.                 */
+/* ================================================================== */
+const CHECKPOINT_ENTRIES = Object.freeze({
+  wake: Object.freeze({
+    label: 'WAKE UP', blurb: 'The guest room, from the top. The whole mission.',
+  }),
+  armed: Object.freeze({
+    label: 'ARMED',
+    blurb: 'Out of the armory with a primary and the belt-fed, on the way up to Lou.',
+    /* At the foot of the basement stair, facing the way up. */
+    at: Object.freeze({ x: 7.2, y: BASEMENT_Y, z: 55.5, yaw: 0 }),
+  }),
+  briefed: Object.freeze({
+    label: 'BRIEFED',
+    blurb: 'Lou has put you on the stairs. Take the firing step and say it.',
+    /* On the gallery, north of the balcony mouth, looking south at it. */
+    at: Object.freeze({ x: 0, y: UPPER_Y, z: 50.6, yaw: 180 }),
+  }),
+  wave_one: Object.freeze({
+    label: 'WAVE ONE HELD',
+    blurb: 'The lull. Reload; wave two is nine seconds out.',
+    at: Object.freeze({ x: 0, y: UPPER_Y, z: 46.6, yaw: 0 }),
+  }),
+});
+
+/** The requested checkpoint, or null. Unknown values are ignored, not guessed. */
+function requestedCheckpoint() {
+  let value = null;
+  try { value = new URLSearchParams(window.location.search).get('checkpoint'); } catch { value = null; }
+  return value && Object.hasOwn(CHECKPOINT_ENTRIES, value) ? value : null;
+}
+const startCheckpoint = requestedCheckpoint();
+
+if (startCheckpoint && startCheckpoint !== 'wake') {
+  const entry = CHECKPOINT_ENTRIES[startCheckpoint];
+  startBtn.textContent = `START AT: ${entry.label}`;
+  if (checkpointTagEl) {
+    checkpointTagEl.hidden = false;
+    checkpointTagEl.innerHTML = `<h3>CHECKPOINT</h3><div><b>${entry.label}</b> ${entry.blurb}</div>`;
+  }
+}
+
+/**
+ * Fast-forward the mission to a checkpoint, through its own beat chain.
+ *
+ * The one place this does something a played run does not is wave one: the
+ * `wave_one` checkpoint means "wave one is held", and holding it for real
+ * takes three minutes. So the director is run out on its own clock with every
+ * man it releases marked down, which is the same arithmetic a real fight
+ * performs, and then the bodies are cleared off the landing.
+ */
+function jumpToCheckpoint(id) {
+  if (id === 'wake' || !CHECKPOINT_ENTRIES[id]) return false;
+  mission.wokeUp();
+  mission.enteredArmory();
+  weaponSystem.equip(WEAPON_IDS.CARBINE);
+  PRIMARY_TAKEN.add(WEAPON_IDS.CARBINE);
+  heavyTaken = true;
+  mission.armed({ primary: true, heavy: true });
+  if (id === 'armed') return true;
+
+  mission.enteredOffice();
+  dialogue.play('briefing');
+  dialogue.finish();
+  weaponSystem.equip(WEAPON_IDS.SAW);
+  if (id === 'briefed') return true;
+
+  /* Wave one, fought and won on the clock. `sayHello()` is the real gate --
+   * beat, line flag and wave director all move exactly as they do when the
+   * player presses F on the step. */
+  if (!mission.sayHello()) return false;
+  dialogue.finish();
+  for (let guard = 0; guard < 400 && mission.beat === B.WAVE_ONE; guard++) {
+    for (const attackerId of [...mission.waves.one.standing]) mission.noteDown(attackerId);
+    mission.update(0.5);
+  }
+  attackers.despawnAll();
+  ammoDirty = true;
+  waveDirty = true;
+  return mission.beat === B.LULL;
+}
 
 /* ================================================================== */
 /* Boot                                                                  */
@@ -845,21 +1218,41 @@ async function beginSiege() {
   weaponSystem.equip(WEAPON_IDS.REVOLVER);
   ammoDirty = true;
   mission.start(B.WAKE);
-  startWaking();
+  if (startCheckpoint && startCheckpoint !== 'wake') {
+    jumpToCheckpoint(startCheckpoint);
+    const at = CHECKPOINT_ENTRIES[startCheckpoint].at;
+    if (at) teleport(at.x, at.y, at.z, at.yaw);
+    /* A checkpoint start has already had its wake-up. Skipping it also skips
+     * `mission.wokeUp()`, which `jumpToCheckpoint` has already called. */
+    waking = 0;
+    player.enabled = true;
+  } else {
+    startWaking();
+  }
   renderer.domElement.requestPointerLock?.();
   clock.getDelta();
 }
 startBtn.addEventListener('click', beginSiege);
 
-/** Cue names this scene wants preloaded. Kept beside the mission it serves. */
+/**
+ * Cue names this scene wants preloaded.
+ *
+ * The effects are still unregistered in `assets/sfx/manifest.json` and are
+ * therefore synthesised or silent -- a known gap, reported rather than
+ * papered over. The SPOKEN lines are a different matter: they come off
+ * `./script.js`, `tools/siege-vo.mjs` puts every one of them in the manifest,
+ * and the recording sheet has carried them since. See ENGINE-TRAPS #3 for the
+ * three previous times a scene shipped without that and nobody found out.
+ */
 function siegeCueNames() {
   return [
     'siege.alarm.tone',
-    'siege.prospect.little_friend',
     'siege.glass.shatter',
     'siege.fire.crackle',
     'siege.wave.incoming',
     'siege.checkpoint',
+    'siege.friendly.revived',
+    ...siegeVoiceCueNames(),
   ];
 }
 
@@ -879,6 +1272,10 @@ function updateGame(dt) {
   weaponSystem.update(dt, { speed: player.velocity?.length?.() ?? 0 });
   suppression.update(dt);
   mission.update(dt);
+  /* AFTER the mission, not before: a sequence's `onDone` advances the beat,
+   * and a beat advanced before `mission.update()` has run its wave director
+   * spends one frame with the new beat and the old wave. */
+  dialogue.update(dt);
   night.update(dt);
   dressing.update(dt);
   glass.update(dt);
@@ -923,6 +1320,7 @@ function updateGame(dt) {
     checkpointToast -= dt;
     if (checkpointToast <= 0) checkpointEl.classList.remove('show');
   }
+  updateNudge(dt);
   refreshAmmo();
   refreshWaveCount();
 }
@@ -981,6 +1379,7 @@ window.mansionSiege = {
   mission,
   get beat() { return mission.beat; },
   get objective() { return mission.objective; },
+  get hint() { return mission.hint; },
   get checkpoint() { return mission.checkpoint?.id ?? null; },
   beats: {
     wake: () => mission.wokeUp(),
@@ -992,6 +1391,36 @@ window.mansionSiege = {
     aftermath: () => mission.aftermathEnded(),
     sasole: () => mission.metSasole(),
   },
+  /**
+   * The conversations, so a verifier can play the mission to its end rather
+   * than reach into `mission` and pretend it did. `beats.briefed()` above
+   * asks "does the method work"; `dialogue.finish()` asks "does the beat the
+   * player is standing in actually end", which is the different and more
+   * important question -- and the one nothing was asking when the briefing
+   * had no way out at all.
+   */
+  dialogue,
+  get speaking() { return dialogue.line?.say ?? null; },
+  get speakingSequence() { return dialogue.sequence; },
+  skipDialogue: () => dialogue.finish(),
+  /** The HUD's own words, read off the DOM the player is looking at. */
+  hud: () => ({
+    objective: objectiveEl?.hidden ? null : objectiveTextEl?.textContent ?? null,
+    hint: objectiveHintEl?.hidden ? null : objectiveHintEl?.textContent ?? null,
+    /* The correction, when one is up. Separate from `hint` so a verifier can
+     * tell "the mission is telling him where to go" from "the mission is
+     * telling him why the key he pressed did nothing". */
+    nudge: objectiveHintEl?.classList.contains('nudge')
+      ? objectiveHintEl?.textContent ?? null : null,
+    subtitle: subtitleEl?.hidden ? null : subtitleTextEl?.textContent ?? null,
+    counter: waveCountEl?.hidden ? null
+      : `${waveRemainingEl?.textContent ?? ''} ${waveLabelEl?.textContent ?? ''}`.trim(),
+    complete: missionCardEl ? !missionCardEl.classList.contains('hidden') : false,
+  }),
+  /** Checkpoint entry, as the ?checkpoint= URLs drive it. */
+  checkpointEntries: () => Object.keys(CHECKPOINT_ENTRIES),
+  get startCheckpoint() { return startCheckpoint; },
+  jumpToCheckpoint: (id) => jumpToCheckpoint(id),
   /** The people. */
   attackers,
   ensemble,
@@ -1016,6 +1445,8 @@ window.mansionSiege = {
     building: BUILDING,
   },
   encounters: ENCOUNTERS,
+  /** Everyone the mission ever sends at the player: encounters + both waves. */
+  attackerRoll: () => totalAttackers(),
   /** Which authored encounters are standing in the house right now. */
   placed: () => [...placedEncounters],
   encounterStanding: (id) => (ENCOUNTERS[id]?.members ?? [])

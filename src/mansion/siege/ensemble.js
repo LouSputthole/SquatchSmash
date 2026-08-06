@@ -1438,6 +1438,37 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     /** Crew a hostile may engage. Snow is never on it. */
     targets,
     living,
+    /**
+     * How the family came out of it. For the mission-complete card.
+     *
+     * ## THIS IS NOT `targets()` AND THE CARD USED TO GET IT WRONG
+     *
+     * The card counted survivors with `targets().length`, which reported
+     * ZERO at the end of a full run. `targets()` is a PERMISSION LIST -- who
+     * a hostile is allowed to shoot at right now -- so it excludes Snow by
+     * standing constraint, excludes anybody the current beat has no posting
+     * for, and excludes everyone on the floor. Three exclusions, none of
+     * which mean "dead", and asking it a census question got a census answer
+     * of nobody.
+     *
+     * The distinction that matters at the end of this mission is ALIVE vs
+     * DEAD, not standing vs prone: the twelve names in `SURVIVES_THE_SIEGE`
+     * go DOWN and stay revivable, and a man Aubbie is working on is a man who
+     * made it. So `alive` counts everyone not incapacitated, `up` counts the
+     * ones on their feet, and the card can say both without either being a
+     * lie about the other.
+     */
+    census() {
+      let alive = 0;
+      let up = 0;
+      let down = 0;
+      for (const member of members.values()) {
+        if (member.actor.incapacitated) continue;
+        alive++;
+        if (member.downed) down++; else up++;
+      }
+      return { total: members.size, alive, up, down };
+    },
     /** The current beat, or null before `stage()` has been called. */
     get beat() { return beat; },
     /** How many attackers the friendlies still have permission to finish. */

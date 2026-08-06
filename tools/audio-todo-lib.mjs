@@ -34,6 +34,10 @@ const VOICE_SCENES = [
   ['THE TAKE', (name) => name.startsWith('heist.')],
   ['The HotDog Incident', (name) => name.startsWith('vo.bing2.')],
   ['PROJECT SILENT SQUATCH', (name) => name.startsWith('vo.silentsquatch.')],
+  /* The same house, the night the finale starts. Its own section rather than
+   * a corner of SILENT SQUATCH's: different mission, different cast list, and
+   * the two Lous are cast separately in each. */
+  ['MANSION UNDER SIEGE', (name) => name.startsWith('vo.siege.')],
   ['Squatch Graveyard', (name) => name.startsWith('vo.graveyard.')],
   ['Initiation', (name) => name.startsWith('vo.initiation.')],
   ['Radio', (name) => name.startsWith('radio.')],

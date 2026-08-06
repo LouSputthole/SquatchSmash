@@ -142,6 +142,27 @@ export const SIEGE_ANCHORS = Object.freeze({
 /** How far out from the centrepiece anchor counts as "standing on it". */
 const CENTREPIECE_RADIUS = 1.5;
 
+/**
+ * Where the bottom of a box ends up once you tip it about Z.
+ *
+ * THE FAULT THIS EXISTS TO STOP, found by `tools/scene-audit.mjs`: seven
+ * centrepiece fragments and two console legs were placed at
+ * `y = floor + height / 2` and then given a `rotZ`, which is the position of
+ * an UNROTATED box. Tipping it swings a corner down, so the piece ends up 5
+ * to 13 cm under the marble -- rubble half-buried in a floor it was supposed
+ * to have been thrown across. Every one of them read as FLOATING to the audit
+ * for the same reason it read as wrong on screen: nothing was holding it up,
+ * because the floor was above its lowest point rather than under it.
+ *
+ * A box of width `w` and height `h` tipped by `a` about Z has a half-height of
+ * `(|w sin a| + |h cos a|) / 2`. Put the centre that far above the floor and
+ * the lowest corner lands exactly on it.
+ */
+export function tippedRestY(floorY, w, h, angle) {
+  const half = (Math.abs(w * Math.sin(angle)) + Math.abs(h * Math.cos(angle))) / 2;
+  return floorY + half;
+}
+
 /* ================================================================== */
 /* Palette                                                              */
 /* ================================================================== */
@@ -785,11 +806,14 @@ export function buildSiegeDressing({
       rotZ: Math.PI / 2,
       rotY: 0.22,
     }));
+    /* Two snapped legs, lying where they went. `tippedRestY` puts the low
+     * corner of each ON the marble; the authored `GY + 0.16` put it 13 cm
+     * UNDER it, which is a table leg growing out of the floor. */
     for (const [lx, lz, tip] of [[-0.3, 0.5, 0.5], [0.34, -0.44, -0.7]]) {
       foyerFireGroup.add(box({
         name: 'siege.fire.foyer.leg',
         size: [0.07, 0.62, 0.07],
-        pos: [a.x + lx, GY + 0.16, a.z + lz],
+        pos: [a.x + lx, tippedRestY(GY, 0.07, 0.62, tip), a.z + lz],
         mat: M_WOOD_SPLIT,
         rotZ: tip,
       }));
@@ -919,13 +943,18 @@ export function buildSiegeDressing({
       [5.96, 1.72, 0.66, 0.19, 0.28],
     ];
     FRAG.forEach(([ang, dist, w, h, d], i) => {
+      const tip = i % 2 ? 0.22 : -0.16;
       g.add(box({
         name: `siege.centrepiece.fragment.${i}`,
         size: [w, h, d],
-        pos: [a.x + Math.cos(ang) * dist, GY + h / 2, a.z + Math.sin(ang) * dist],
+        /* On the marble, not in it. See `tippedRestY`: `GY + h / 2` is where
+         * an UNTIPPED fragment's centre goes, and every one of these is
+         * tipped, so all seven were sitting 4 to 7 cm below the floor of the
+         * room the player fights his whole first firefight in. */
+        pos: [a.x + Math.cos(ang) * dist, tippedRestY(GY, w, h, tip), a.z + Math.sin(ang) * dist],
         mat: i % 3 === 0 ? M_MARBLE_BROKEN : M_WOOD_SPLIT,
         rotY: ang * 1.3,
-        rotZ: (i % 2 ? 0.22 : -0.16),
+        rotZ: tip,
       }));
     });
     /* Gilt trim, torn off and lying flat. */
@@ -1008,9 +1037,16 @@ export function buildSiegeDressing({
     /* No arms. A settee in a service corridor does not have them, and more to
      * the point a body settled to the seat has its lowest point AT the seat --
      * so an arm block would be a box with a head inside it. */
+    /* THE SEAT BITES 1 CM INTO THE BASE, and the back bites into the seat.
+     * `scene-audit` had the base's top face and the seat's underside sharing
+     * y = BY+0.34 over 1.23 m², which is a square metre of z-fight in the one
+     * piece of furniture the mission asks the player to LOOK at -- the dead
+     * guard is the sentence "they were in the house before you woke up", and
+     * he is lying on a flickering settee. Upholstery is stapled to a frame; a
+     * centimetre of overlap is the truthful version as well as the stable one. */
     g.add(boxFrom(CX0, BY, CZ0 + 0.06, CX1, BY + 0.34, CZ1 - 0.06, M_WOOD_SPLIT, { name: 'siege.body.guard.couch.base' }));
-    g.add(boxFrom(CX0, BY + 0.34, CZ0, CX1, SEAT_Y, CZ1 - 0.14, M_UPHOLSTERY, { name: 'siege.body.guard.couch.seat' }));
-    g.add(boxFrom(CX0, BY + 0.34, CZ1 - 0.14, CX1, BY + 0.94, CZ1, M_UPHOLSTERY, { name: 'siege.body.guard.couch.back' }));
+    g.add(boxFrom(CX0, BY + 0.33, CZ0, CX1, SEAT_Y, CZ1 - 0.14, M_UPHOLSTERY, { name: 'siege.body.guard.couch.seat' }));
+    g.add(boxFrom(CX0, BY + 0.33, CZ1 - 0.15, CX1, BY + 0.94, CZ1, M_UPHOLSTERY, { name: 'siege.body.guard.couch.back' }));
     /* Two cushions, one of them under his head. */
     for (const [cx, cy] of [[CX0 + 0.34, 0.06], [CX0 + 1.34, 0.05]]) {
       g.add(boxFrom(cx - 0.28, SEAT_Y, CZ0 + 0.1, cx + 0.28, SEAT_Y + cy, CZ1 - 0.22, M_UPHOLSTERY, {
@@ -1281,9 +1317,17 @@ export function buildSiegeDressing({
     g.add(box({
       name: `${name}.carcass`, size: [w, d, h], pos: [0, d / 2, 0], mat: material,
     }));
-    /* The back panel, now the top face, split away at one corner. */
+    /* The back panel, now the top face, split away at one corner.
+     *
+     * IT OVERLAPS THE CARCASS BY 8 MM RATHER THAN SITTING EXACTLY ON IT.
+     * `scene-audit` found all three of these as COPLANAR over two to three
+     * square metres apiece -- the panel's underside was at y = d and the
+     * carcass's top face was at y = d, which is two surfaces in one plane and
+     * the definition of z-fighting. Overlapping solids do not fight; only
+     * coincident faces do. The panel is 4 cm thick, so 8 mm of bite costs
+     * nothing anybody can see and removes the flicker outright. */
     g.add(box({
-      name: `${name}.panel`, size: [w * 0.94, 0.04, h * 0.9], pos: [0, d + 0.02, 0.02], mat: material, cast: false,
+      name: `${name}.panel`, size: [w * 0.94, 0.04, h * 0.9], pos: [0, d + 0.012, 0.02], mat: material, cast: false,
     }));
     for (const sx of [-1, 1]) {
       g.add(box({
@@ -1327,20 +1371,48 @@ export function buildSiegeDressing({
      * this module puts on a floor -- chairs, casings, litter, bodies, the
      * dropped rifle -- is walk-over dressing. The only solids it adds are the
      * things it MEANS as cover, and each of those is chest height. */
+    /* TIPPED AS AN ASSEMBLY, NOT PART BY PART, and the difference is the
+     * whole of `tippedRestY`'s docblock said a second time.
+     *
+     * These three chairs used to be built upright and then given `rotZ` on
+     * EVERY PIECE. Rotating a box about its own centre does not move that
+     * centre, so the pieces span but the joint does not: the seat turned on
+     * the spot into a vertical panel 0.42 m up, the legs turned into
+     * horizontal sticks at the same height, and the back turned flat and
+     * stayed where the backrest had been. What stood in the foyer was not a
+     * chair on its back -- it was four sticks, a panel and a plank sharing a
+     * yaw, with 0.19 m of air under the seat. `tools/scene-audit.mjs` called
+     * all three FLOATING, "1.39 m up with nothing under it", which is the
+     * fault reading its own symptom back.
+     *
+     * So the parts are authored around the assembly's OWN CENTRE, an inner
+     * group tips the whole chair once, and `tippedRestY` puts the outer group
+     * at the height that lands the lowest corner exactly on the marble --
+     * the same call the centrepiece rubble and the console legs already make
+     * eleven lines and four hundred lines above. Yaw stays on the outer group
+     * so it is still a yaw in the room and not a roll in the chair's frame. */
+    const CHAIR_W = 0.46; // x extent upright, which is the tipped height
+    const CHAIR_H = 0.99; // floor to the top of the backrest
+    const CHAIR_TIP = Math.PI / 2;
     for (const [cx, cz, cy] of [[-3.4, 41.2, 0.9], [3.9, 42.4, -1.3], [1.4, 48.6, 2.4]]) {
       const chair = group('siege.debris.foyer.chair');
-      chair.add(box({
-        name: 'siege.debris.foyer.chair.seat', size: [0.46, 0.07, 0.46], pos: [0, 0.42, 0], mat: M_WOOD_SPLIT, rotZ: Math.PI / 2,
+      const tip = group('siege.debris.foyer.chair.tip');
+      /* Upright, measured from the assembly's centre: seat just below it, the
+       * backrest above and behind, the legs hanging under. */
+      tip.add(box({
+        name: 'siege.debris.foyer.chair.seat', size: [0.46, 0.07, 0.46], pos: [0, -0.04, 0], mat: M_WOOD_SPLIT,
       }));
-      chair.add(box({
-        name: 'siege.debris.foyer.chair.back', size: [0.44, 0.5, 0.06], pos: [0.24, 0.22, 0], mat: M_WOOD_SPLIT, rotZ: Math.PI / 2,
+      tip.add(box({
+        name: 'siege.debris.foyer.chair.back', size: [0.44, 0.5, 0.06], pos: [0, 0.245, -0.2], mat: M_WOOD_SPLIT,
       }));
       for (const [lx, lz] of [[-0.19, -0.19], [-0.19, 0.19], [0.19, -0.19], [0.19, 0.19]]) {
-        chair.add(box({
-          name: 'siege.debris.foyer.chair.leg', size: [0.05, 0.42, 0.05], pos: [lx, 0.42, lz], mat: M_WOOD_SPLIT, rotZ: Math.PI / 2,
+        tip.add(box({
+          name: 'siege.debris.foyer.chair.leg', size: [0.05, 0.42, 0.05], pos: [lx, -0.285, lz], mat: M_WOOD_SPLIT,
         }));
       }
-      chair.position.set(cx, GY, cz);
+      tip.rotation.z = CHAIR_TIP;
+      chair.add(tip);
+      chair.position.set(cx, tippedRestY(GY, CHAIR_W, CHAIR_H, CHAIR_TIP), cz);
       chair.rotation.y = cy;
       g.add(chair);
     }
@@ -1441,6 +1513,164 @@ export function buildSiegeDressing({
   }
 
   /* ================================================================== */
+  /* 6. THE FIRING STEP                                                   */
+  /*                                                                       */
+  /* PART VI: "The landing gives a commanding view, partial cover at the     */
+  /* rail, an ammunition point, friendly positions to either side."          */
+  /*                                                                        */
+  /* The ammunition point had never been built and the "partial cover at the */
+  /* rail" was the house's own balustrade, which is in every other bay of     */
+  /* this gallery as well. So a first-time player arriving on the upper floor  */
+  /* with LITTLE_FRIEND on the HUD sees thirty-two metres of identical         */
+  /* landing and no reason to believe that one six-metre bay of it is the      */
+  /* thing the mission is waiting for. He wanders. Twice, driven headless, the */
+  /* run stalled here with the objective up and nothing happening.             */
+  /*                                                                          */
+  /* Three signals, because one is a guess and two is a coincidence:           */
+  /*   1. an AMMUNITION POINT -- crates, open boxes, loose belt -- which is     */
+  /*      the brief's own furniture and reads as "somebody set this up for you" */
+  /*   2. SANDBAGS at the rail either side of centre: partial cover, 0.95 m,    */
+  /*      which is the one thing on this landing that is a fighting position    */
+  /*   3. a WORK LAMP over it, warm against nine red emergency fittings, so the */
+  /*      bay is the brightest thing on the floor from the office door onward   */
+  /*                                                                           */
+  /* WHAT IT MUST NOT DO is stand in the attackers' way. `balcony_step` in      */
+  /* nav.js is at (0, 47.4) with a 0.8 m spread and the leg feeding it runs     */
+  /* straight down x = 0 from the gallery's centre; everything below is at      */
+  /* |x| >= 1.35 or z <= 46.6, and `verify:mansion-siege` walks every anchor    */
+  /* and every leg against the live colliders to prove it.                     */
+  /* ================================================================== */
+  /** MansionInterior.BALCONY -- the bay the mission calls the firing step. */
+  const BALCONY = Object.freeze({ x0: -3, x1: 3, z0: 45.2, z1: 48 });
+  const firingStep = {};
+  {
+    const UY = 6.0; // UPPER_Y
+    const g = group('siege.step');
+    const boxes = [];
+
+    /* -- Sandbags at the rail, one stack either side of the middle. ------
+     * 0.95 m: chest height on a crouching man and shin height on a standing
+     * one, so it is cover you use rather than a wall you are behind. The
+     * 2.7 m gap between them is the bit of rail you actually shoot from. */
+    for (const sx of [-1, 1]) {
+      const stack = group('siege.step.sandbags');
+      const rows = [
+        [0.00, 5, 0.92], [0.19, 4, 0.80], [0.38, 3, 0.62],
+      ];
+      rows.forEach(([dy, count, width], row) => {
+        for (let i = 0; i < count; i++) {
+          const t = count === 1 ? 0.5 : i / (count - 1);
+          stack.add(box({
+            name: `siege.step.sandbag.${row}.${i}`,
+            size: [width / count + 0.03, 0.185, 0.34],
+            pos: [(t - 0.5) * width, dy + 0.0925, ((i + row) % 2) * 0.03 - 0.015],
+            mat: M_FABRIC_BURNT,
+            rotY: (((i * 37 + row * 11) % 20) - 10) / 140,
+          }));
+        }
+      });
+      /* A rifle case up-ended against the outer end of the stack, so the
+       * silhouette is not two identical bricks. */
+      stack.add(box({
+        name: 'siege.step.case',
+        size: [0.24, 0.96, 0.14],
+        pos: [sx * 0.62, 0.48, 0.16],
+        mat: M_STEEL,
+        rotZ: sx * 0.11,
+      }));
+      stack.position.set(sx * 1.9, UY, 45.72);
+      g.add(stack);
+      boxes.push(hull(sx * 1.9 - 0.56, UY, 45.5, sx * 1.9 + 0.56, UY + 0.95, 45.96));
+    }
+
+    /* -- The ammunition point, at the bay's north-west shoulder. ---------
+     * Two crates, one open with belts hanging out of it, one closed and used
+     * as a table. It is the thing Aubbie has been handing magazines out of. */
+    const ammo = group('siege.step.ammo');
+    ammo.add(box({
+      name: 'siege.step.ammo.crate.low',
+      size: [0.86, 0.44, 0.58], pos: [0, 0.22, 0], mat: M_WOOD_SPLIT,
+    }));
+    /* Stacked, and biting 1 cm into the crate under it. Two crates whose
+     * faces meet exactly is the same square metre of z-fight `overturned()`
+     * had; the audit caught this one within a minute of it being written. */
+    ammo.add(box({
+      name: 'siege.step.ammo.crate.high',
+      size: [0.74, 0.4, 0.5], pos: [0.06, 0.63, 0.04], mat: M_WOOD_SPLIT, rotY: 0.14,
+    }));
+    /* The open lid, leaning against the top crate with its low edge ON the
+     * lower crate's lid line -- not hovering above it. A 0.74 m board tipped
+     * 0.92 rad drops its corner 0.31 m, so the centre goes there and not at
+     * the height the board would have been flat. Same arithmetic as
+     * `tippedRestY`, against a crate rather than against the floor. */
+    ammo.add(box({
+      name: 'siege.step.ammo.lid',
+      size: [0.74, 0.04, 0.5], pos: [-0.28, 0.747, 0.04], mat: M_WOOD_SPLIT, rotZ: -0.92, cast: false,
+    }));
+    /* Loose belt, over the lip and onto the floor. Three links, falling. */
+    [[0.30, 0.80, 0.24, 0.5], [0.40, 0.52, 0.30, 0.9], [0.46, 0.16, 0.34, 1.3]]
+      .forEach(([bx, by, bz, roll], i) => {
+        ammo.add(box({
+          name: `siege.step.ammo.belt.${i}`,
+          size: [0.07, 0.05, 0.3], pos: [bx, by, bz], mat: M_BRASS, rotZ: roll, rotY: 0.4, cast: false,
+        }));
+      });
+    ammo.position.set(-2.25, UY, 46.3);
+    ammo.rotation.y = 0.42;
+    g.add(ammo);
+    boxes.push(hull(-2.85, UY, 45.9, -1.65, UY + 1.05, 46.75));
+
+    /* -- The work lamp. -------------------------------------------------
+     * Warm, and the only warm light on this floor once the alarm is going:
+     * nine red fittings and one yellow one, and the yellow one is standing
+     * over the place the mission wants you. It is clamped to the gallery
+     * rail rather than free-standing, which is both how a work lamp gets
+     * onto a balcony and why nothing is under it. */
+    const lampGroup = group('siege.step.worklamp');
+    lampGroup.add(named(cylinder({
+      r: 0.035, h: 1.45, pos: [0, 0.72, 0], mat: M_STEEL,
+    }), 'siege.step.worklamp.post'));
+    lampGroup.add(named(cylinder({
+      r: 0.06, h: 0.14, pos: [0, 0.07, 0], mat: M_STEEL,
+    }), 'siege.step.worklamp.clamp'));
+    lampGroup.add(named(cylinder({
+      rTop: 0.2, rBottom: 0.11, h: 0.22, pos: [0.12, 1.42, 0], mat: M_STEEL, rotZ: -0.55,
+    }), 'siege.step.worklamp.shade'));
+    lampGroup.add(named(sphere({
+      r: 0.07, pos: [0.19, 1.36, 0],
+      mat: mat({
+        color: 0x000000, emissive: 0xffd27a, emissiveIntensity: 3.2, roughness: 1,
+      }),
+      cast: false,
+    }), 'siege.step.worklamp.bulb'));
+    const worklamp = addLight(new THREE.PointLight(0xffd08a, 5.2, 9.5, 2));
+    worklamp.position.set(0.22, 1.34, 0);
+    lampGroup.add(worklamp);
+    lampGroup.position.set(2.62, UY, 45.62);
+    g.add(lampGroup);
+
+    /* Casings, so the step reads as somewhere that has been used rather than
+     * somewhere that has been laid out.
+     *
+     * SPREAD 1.15, NOT 2.2, AND THE CENTRE IS 46.9 RATHER THAN 46.4. The bay
+     * is only 2.8 m deep and its south edge at z 45.2 is a six-metre drop
+     * into the foyer: a 2.2 m scatter threw four of the thirty over the rail,
+     * where they hung in the air above the front door. `scene-audit` had them
+     * within a minute of the step being written, which is the entire argument
+     * for running it on a scene the same day you dress it. */
+    g.add(casings('siege.step.casings', 0, 46.9, UY, 30, 1.15));
+
+    enrol('siege.step', g, { boxes });
+    firingStep.group = g;
+    firingStep.lamp = worklamp;
+    firingStep.colliders = boxes;
+    firingStep.bay = BALCONY;
+    /* Where the HUD and the verifier should say "stand here". Centre of the
+     * gap between the two sandbag stacks, a step back off the rail. */
+    firingStep.stand = Object.freeze({ x: 0, y: UY, z: 46.4 });
+  }
+
+  /* ================================================================== */
   /* Per-frame                                                            */
   /* ================================================================== */
   function update(dt) {
@@ -1460,6 +1690,7 @@ export function buildSiegeDressing({
     bodies: { guard: cellarBody, performer: foyerBody },
     debris,
     centrepiece,
+    firingStep,
     smoke: {
       columns: smokes,
       floorClearance: SMOKE_FLOOR_CLEARANCE,

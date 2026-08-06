@@ -86,7 +86,12 @@ const SCENES = [
   { id: 'silvercase', url: 'silvercase.html', start: '#start-btn, #startBtn' },
   { id: 'squatchfather', url: 'squatchfather.html', start: '#start-btn, #startBtn' },
   { id: 'initiation', url: 'initiation.html', start: '#start-btn, #startBtn' },
-  { id: 'mansion-siege', url: 'mansion-siege.html', start: '#start-btn, #startBtn' },
+  /* The same house on the worst night it ever has. Audited SEPARATELY from
+   * `mansion` and not instead of it: the siege's overlay is only standing once
+   * the mission has applied `under_attack`, which happens on the first frame
+   * after WAKE UP -- so a clean-house audit can never see a wreck, a fire, a
+   * body or a shattered pane, and those are exactly the meshes this scene owns. */
+  { id: 'mansion-siege', url: 'mansion-siege.html', start: '#startBtn', ready: () => Boolean(globalThis.mansionSiege) },
 ];
 
 const TYPES = {
@@ -125,7 +130,11 @@ const AUDIT = `(() => {
       if (n.visible === false) return;
       /* Skip things that are legitimately unbounded or per-frame: sky domes,
        * water planes, particle sprites and instanced crowds. */
-      if (/sky|water|ocean|fog|particle|spray|smoke|tracer|muzzle/i.test(n.name)) return;
+      /* "flame" joined this list with the mansion siege. A flame lump is
+       * scaled and re-emissived every frame and sits in the air above the
+       * thing that is burning, which is what fire looks like -- the same
+       * class of object as the "smoke" puffs already skipped here. */
+      if (/sky|water|ocean|fog|particle|spray|smoke|flame|tracer|muzzle/i.test(n.name)) return;
       /* AND SKIP WHAT NOBODY CAN SEE. An interaction proxy -- colorWrite
        * false, kept visible only because Three refuses to raycast anything
        * invisible -- draws no pixel at all. Every class this audit reports is
