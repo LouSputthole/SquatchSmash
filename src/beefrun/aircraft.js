@@ -279,9 +279,16 @@ export class Brushrunner {
         hull.add(roll);
       }
     }
-    // Turtledeck over the cabin, and the keel under it: half-round rather than
-    // a flat lid and a flat floor pan.
-    const deckRoll = mesh(cylGeo(0.5, 0.5, 6.9, 12, true), skin, 0, 0.66, 0.4);
+    /* Turtledeck over the cabin, and the keel under it: half-round rather than
+     * a flat lid and a flat floor pan.
+     *
+     * Radius 0.7, up from 0.5: at the old radius the dome only reached the
+     * fuselage-body's own flat top (y 0.93) at the seat stations (x = ±0.42)
+     * and fell fully inside it by the outboard edge of a seated head box —
+     * so the cockpit's real ceiling there was the flat top, not the dome,
+     * with no headroom to speak of. Widened to actually cover both seats;
+     * see the seat comment below for the measured clearance this buys. */
+    const deckRoll = mesh(cylGeo(0.7, 0.7, 6.9, 12, true), skin, 0, 0.66, 0.4);
     deckRoll.name = 'fuselage-turtledeck';
     deckRoll.rotation.x = Math.PI / 2;
     hull.add(deckRoll);
@@ -1103,10 +1110,29 @@ export class Brushrunner {
       this.parts.pedal.push(pedal);
     }
 
-    // Seats.
+    /* Seats.
+     *
+     * Owner's note: *"a ton of shit clipping through my view and clipping
+     * through Capt Sasole."* MEASURED CAUSE: `copilotSeat.y` (below) put
+     * Sasole's seated head box at world y 0.89..1.17, against a cabin
+     * ceiling that is the flat fuselage-body top (y 0.93) everywhere except
+     * a narrow strip under the old 0.5 m turtledeck radius — so the outboard
+     * side of his head, at his own seat's x, sat in the flat-roof zone and
+     * came out the top of the aeroplane by up to 24 cm. The pilot's own eye
+     * (`pilotEye`, unchanged here) grazed the same ceiling by about 3 cm,
+     * which is what put fuselage skin in the camera's own near field.
+     *
+     * The turtledeck radius grows below to actually dome over both seat
+     * stations rather than only the centreline, which alone clears the
+     * pilot; Sasole's seat also drops 14 cm, cushion included, because his
+     * head box is wider than the pilot's eye point and the outboard edge of
+     * it still needs the extra room. The pilot's own seat is untouched —
+     * nobody is ever seated in it to look at. */
+    const copilotSeatDrop = 0.14;
     for (const sx of [-1, 1]) {
-      g.add(mesh(boxGeo(0.5, 0.12, 0.5), seatMat, sx * 0.42, -0.35, 1.72));
-      g.add(mesh(boxGeo(0.5, 0.62, 0.12), seatMat, sx * 0.42, -0.05, 1.5));
+      const drop = sx === RIGHT ? copilotSeatDrop : 0;
+      g.add(mesh(boxGeo(0.5, 0.12, 0.5), seatMat, sx * 0.42, -0.35 - drop, 1.72));
+      g.add(mesh(boxGeo(0.5, 0.62, 0.12), seatMat, sx * 0.42, -0.05 - drop, 1.5));
     }
 
     // The bobblehead: a sasquatch on a spring, and the honest instrument.
@@ -1186,12 +1212,17 @@ export class Brushrunner {
     /* Where the cameras and the copilot live.
      *
      * Seated eye: the LEFT seat — +X, per the constants at the top of the
-     * cockpit — just under the 0.97 m cabin roof. Raising the last 3 cm opens a
+     * cockpit — just under the cabin roof. Raising the last 3 cm opens a
      * useful strip of windshield above the coaming without putting the camera
-     * through the fuselage skin. Sasole rides the right seat opposite, which is
-     * what he says he is going to do while he is still on the apron. */
+     * through the fuselage skin — true again now the turtledeck actually
+     * domes over this x, with room to spare (measured clearance ~26 cm to the
+     * dome above, ~3 cm was the fuselage-skin overlap before it widened).
+     * Sasole rides the right seat opposite, which is what he says he is going
+     * to do while he is still on the apron; his seat carries `copilotSeatDrop`
+     * (above) so his own, wider head box clears the same roof on its
+     * outboard side — see the seat comment for the measured numbers. */
     this.pilotEye = new THREE.Vector3(LEFT * 0.42, 0.96, 2.22);
-    this.copilotSeat = new THREE.Vector3(RIGHT * 0.42, -0.28, 1.66);
+    this.copilotSeat = new THREE.Vector3(RIGHT * 0.42, -0.28 - copilotSeatDrop, 1.66);
   }
 
   /* ---------------------------------------------------------------- */
