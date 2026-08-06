@@ -31,6 +31,12 @@ body { font-family: "Arial Narrow", "Segoe UI", sans-serif; color: #f3efe6; }
 #health { position: absolute; right: 24px; bottom: 65px; width: 190px; }
 #health span { font-size: 10px; letter-spacing: .16em; }
 #health i { display: block; height: 5px; margin-top: 4px; background: linear-gradient(90deg, #8fa391 100%, rgba(255,255,255,.12) 0); }
+/* The plate carrier, under the health bar and only present while it is on.
+   A vest the player cannot see he is wearing is a vest he thinks did not
+   get picked up -- which is exactly what the owner reported. */
+#armor { position: absolute; right: 24px; bottom: 47px; width: 190px; }
+#armor span { font-size: 10px; letter-spacing: .16em; color: #9fb2c6; }
+#armor i { display: block; height: 4px; margin-top: 3px; background: linear-gradient(90deg, #7d97b4 100%, rgba(255,255,255,.10) 0); }
 #ammo { position: absolute; right: 24px; bottom: 20px; text-align: right; }
 #ammo b { font-size: 28px; }
 #ammo span { color: #afb4b6; }

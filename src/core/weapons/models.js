@@ -87,6 +87,14 @@ const M = {
   webbing: mat({ color: 0x3d4238, roughness: 1 }),
   glass: mat({ color: 0x101a20, roughness: 0.12, metalness: 0.4 }),
   desert: mat({ color: 0x4b4438, roughness: 0.7, metalness: 0.35 }),
+  /* Optic glass, which is not gun glass: coated, and it goes green-blue
+   * against the light rather than staying black. */
+  glassTint: mat({ color: 0x1b3a3f, roughness: 0.08, metalness: 0.55 }),
+  /* The dot and the lamp face. `toneMapped: false` so a 2 mm mesh stays
+   * legible through the scene's ACES curve instead of going grey. */
+  emissiveDot: mat({
+    color: 0xff5a48, emissive: 0xff5a48, emissiveIntensity: 2.4, roughness: 1,
+  }),
 };
 
 /** One spent pistol/rifle case, for the guns that throw brass. */
@@ -310,7 +318,53 @@ function makeCarbineMagazine() {
  * dust cover, magazine with a floorplate, pistol grip, buffer tube and a
  * collapsed stock.
  */
-export function buildCarbine({ sling = false } = {}) {
+/**
+ * The optic, the foregrip and the light — the three things the bare receiver
+ * was missing.
+ *
+ * Owner, on THE TAKE's loadout bench: *"carbine model not great"*. The gun
+ * itself was right; what it looked like was a parts-list rather than a
+ * working carbine, because everything on it was flush. A real one has
+ * something standing PROUD of the top rail and something under the handguard,
+ * and those two silhouette breaks are most of what the eye reads at a glance.
+ *
+ * Kept optional and defaulted ON so the six-gun rack, the crew's slung
+ * carbines and the player's hands all get it, and so a caller that wants the
+ * bare iron-sighted gun can still ask for one.
+ */
+function addCarbineFurniture(g) {
+  /* Red-dot on a riser over the flat top: mount, tube, glass, and the dot. */
+  const mount = box({ size: [0.03, 0.036, 0.072], pos: [0, 0.077, -0.012], mat: M.parkerized, name: 'carbine-optic-mount' });
+  g.add(mount);
+  g.add(box({ size: [0.038, 0.012, 0.02], pos: [0, 0.061, -0.012], mat: M.steel }));
+  const tube = cylinder({
+    r: 0.019, h: 0.062, pos: [0, 0.104, -0.014], rotX: Math.PI / 2,
+    mat: M.parkerized, name: 'carbine-optic', seg: 12,
+  });
+  g.add(tube);
+  // The lens, and the dot burning in the middle of it.
+  g.add(cylinder({ r: 0.0165, h: 0.005, pos: [0, 0.104, -0.045], rotX: Math.PI / 2, mat: M.glassTint, seg: 12, name: 'carbine-optic-lens' }));
+  g.add(cylinder({ r: 0.0165, h: 0.004, pos: [0, 0.104, 0.017], rotX: Math.PI / 2, mat: M.glassTint, seg: 12 }));
+  g.add(cylinder({ r: 0.0035, h: 0.003, pos: [0, 0.104, -0.047], rotX: Math.PI / 2, mat: M.emissiveDot, seg: 8, cast: false, name: 'carbine-optic-dot' }));
+  // Windage and elevation turrets, because a sight you cannot zero is a prop.
+  g.add(cylinder({ r: 0.007, h: 0.014, pos: [0.021, 0.104, 0.002], rotZ: Math.PI / 2, mat: M.parkerized, seg: 8 }));
+  g.add(cylinder({ r: 0.007, h: 0.014, pos: [0, 0.125, 0.002], mat: M.parkerized, seg: 8 }));
+
+  /* Angled foregrip under the handguard: where the support hand actually is,
+   * and the part that stops the underside reading as a pipe. */
+  const foregrip = box({ size: [0.026, 0.072, 0.034], pos: [0, -0.018, -0.208], mat: M.polymer, rotX: -0.34, name: 'carbine-foregrip' });
+  g.add(foregrip);
+  g.add(box({ size: [0.03, 0.012, 0.038], pos: [0, 0.008, -0.202], mat: M.parkerized }));
+
+  /* Weapon light clamped to the left rail at the muzzle end. A bank job at
+   * night carries one and it breaks the barrel line. */
+  g.add(cylinder({ r: 0.014, h: 0.062, pos: [-0.032, 0.022, -0.246], rotX: Math.PI / 2, mat: M.parkerized, seg: 10, name: 'carbine-light' }));
+  g.add(cylinder({ r: 0.0115, h: 0.005, pos: [-0.032, 0.022, -0.279], rotX: Math.PI / 2, mat: M.emissiveDot, seg: 10, cast: false }));
+  g.add(box({ size: [0.026, 0.02, 0.016], pos: [-0.019, 0.022, -0.212], mat: M.steel }));
+  return g;
+}
+
+export function buildCarbine({ sling = false, furniture = true } = {}) {
   const g = group('heist-carbine');
 
   // Barrel group: bore, flash hider, gas block, front sight tower.
@@ -382,6 +436,7 @@ export function buildCarbine({ sling = false } = {}) {
       pos: [0, -0.06, -0.09], rot: [0, Math.PI / 2, 0.5], name: 'carbine-sling',
     }));
   }
+  if (furniture) addCarbineFurniture(g);
 
   g.userData.muzzle = new THREE.Vector3(0, 0.028, -0.43);
   g.userData.ejectPort = new THREE.Vector3(0.02, 0.028, -0.03);

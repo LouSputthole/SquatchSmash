@@ -3,7 +3,9 @@ import { buildEscapeCity, ESCAPE_START } from './city.js';
 import {
   HeistFigure, makeBankGuardFigure, makeBankManagerFigure, makeHostageFigure,
 } from './people.js';
-import { makeCashBag, makeHeistCarbine, makeHeistSidearm, makeBalaclava, makeZipTies } from './weapons.js';
+import {
+  makeCashBag, makeHeistCarbine, makeHeistSidearm, makeBalaclava, makePlateCarrier, makeZipTies,
+} from './weapons.js';
 
 const MAT = {
   concrete: new THREE.MeshStandardMaterial({ color: 0x5a5b58, roughness: 0.92 }),
@@ -197,54 +199,181 @@ function buildSafehouse() {
   }
   group.add(evidence);
 
+  /* ---------------------------------------------------------------- *
+   * The briefing table.
+   *
+   * Owner: *"the briefing tabletop needs a rework — it's unclear what to
+   * do"*. He was looking at a blank sheet of paper with four red dashes and
+   * five brass discs on it, plus one white card block. Nothing on that table
+   * said what the four dashes were, which end of them the job started at, or
+   * that the white block was the bank — so the plan the whole mission is
+   * about was a decoration.
+   *
+   * It is a PLAN now, and it reads left to right in the order the night
+   * happens, because that is the only ordering a player can pick up without
+   * being told:
+   *
+   *   1 THE BANK       west end, in white card with its columns and steps
+   *   2 MERCER STREET  the asphalt strip out of its doors
+   *   3 THE GARAGE     the concrete box with its ramp
+   *   4 THE SWAP YARD  the shed on the canal, east end
+   *
+   * Each site stands on a coloured base — green where the crew is meant to
+   * be, red where it goes wrong — and each carries a pip block counting its
+   * number, which is the only way to number something on a table without
+   * putting a font in the scene. The route between them is one continuous
+   * bright line rather than four floating dashes, with an arrow head on it,
+   * so which way you travel is visible rather than inferred.
+   * ---------------------------------------------------------------- */
   const briefing = new THREE.Group();
   briefing.name = 'briefing-map';
   briefing.position.set(0, 0, 0.2);
-  box(briefing, [5.8, 0.18, 2.4], [0, 0.88, 0], MAT.wood);
+  box(briefing, [5.8, 0.18, 2.4], [0, 0.88, 0], MAT.wood, 'briefing-table-top');
   for (const x of [-2.45, 2.45]) {
     for (const z of [-0.85, 0.85]) box(briefing, [0.24, 0.88, 0.24], [x, 0.43, z], MAT.steel);
   }
-  box(briefing, [4.75, 0.035, 1.78], [0, 0.99, 0], MAT.paper);
+  // The plan sheet, with a printed border and a survey grid on it.
+  box(briefing, [4.75, 0.035, 1.78], [0, 0.99, 0], MAT.paper, 'briefing-plan-sheet');
+  for (const [w, d, z] of [[4.55, 0.02, -0.84], [4.55, 0.02, 0.84]]) {
+    flat(briefing, [w, 0.006, d], [0, 1.009, z], MAT.ink);
+  }
+  for (const x of [-2.28, 2.28]) flat(briefing, [0.02, 0.006, 1.7], [x, 1.009, 0], MAT.ink);
+  for (let i = -5; i <= 5; i++) flat(briefing, [0.008, 0.004, 1.62], [i * 0.4, 1.008, 0], MAT.marbleDark);
+  for (let i = -2; i <= 2; i++) flat(briefing, [4.4, 0.004, 0.008], [0, 1.008, i * 0.34], MAT.marbleDark);
+  // A title block along the top edge: the red band a plan always has.
+  flat(briefing, [1.5, 0.006, 0.16], [-1.55, 1.009, -0.7], MAT.warning, 'briefing-title-block');
+  for (let i = 0; i < 5; i++) flat(briefing, [0.22, 0.005, 0.03], [-2.1 + i * 0.26, 1.013, -0.7], MAT.paper);
+
+  /* The route: one continuous line through the four sites, with an arrow head
+   * at the far end. Four disconnected dashes are a pattern; a line with a
+   * point on it is a direction. */
   const route = new THREE.Group();
   route.name = 'blueprint-route';
   route.position.y = 1.035;
-  for (const [x, z, w, d, angle = 0] of [
-    [-1.35, 0.42, 1.55, 0.055, -0.18], [-0.2, 0.05, 1.2, 0.055, -0.35],
-    [0.78, -0.32, 1.15, 0.055, -0.14], [1.65, -0.62, 0.82, 0.055, 0.18],
-  ]) {
-    const segment = box(route, [w, 0.025, d], [x, 0, z], MAT.warning);
-    segment.rotation.y = angle;
+  const legs = [
+    [-1.62, 0.5, -0.62, 0.16], [-0.62, 0.16, 0.34, -0.2],
+    [0.34, -0.2, 1.24, -0.44], [1.24, -0.44, 2.02, -0.56],
+  ];
+  for (const [ax, az, bx, bz] of legs) {
+    const length = Math.hypot(bx - ax, bz - az);
+    const leg = box(route, [length, 0.02, 0.05],
+      [(ax + bx) / 2, 0, (az + bz) / 2], MAT.warning);
+    leg.rotation.y = -Math.atan2(bz - az, bx - ax);
+    leg.castShadow = false;
   }
-  for (const [x, z] of [[-2, 0.65], [-0.85, 0.28], [0.35, -0.12], [1.3, -0.48], [2, -0.6]]) {
-    mesh(route, new THREE.CylinderGeometry(0.085, 0.085, 0.035, 12), MAT.brass, [x, 0.02, z]);
+  const head = mesh(route, new THREE.ConeGeometry(0.09, 0.2, 4), MAT.warning, [2.12, 0.02, -0.58]);
+  head.rotation.set(Math.PI / 2, 0, -Math.PI / 2 - 0.15);
+  head.castShadow = false;
+  head.name = 'blueprint-route-arrow';
+  briefing.add(route);
+
+  /* The four sites. `pips` is the site's number, counted in blocks, because
+   * a numeral on a tabletop needs a font and a font needs a canvas. */
+  const SITES = [
+    { id: 'bank', x: -1.62, z: 0.5, pips: 1, good: true },
+    { id: 'street', x: -0.62, z: 0.16, pips: 2, good: false },
+    { id: 'garage', x: 0.34, z: -0.2, pips: 3, good: false },
+    { id: 'swap', x: 1.24, z: -0.44, pips: 4, good: true },
+  ];
+  for (const site of SITES) {
+    const marker = new THREE.Group();
+    marker.name = `briefing-site-${site.id}`;
+    marker.position.set(site.x, 1.02, site.z);
+    // The base pad: green where the crew is meant to be, red where it is not.
+    flat(marker, [0.46, 0.012, 0.36], [0, 0.005, 0],
+      site.good ? new THREE.MeshStandardMaterial({ color: 0x3f6b46, roughness: 0.9 }) : MAT.warning);
+    // The pip strip along the front edge: one block per step of the plan.
+    for (let i = 0; i < site.pips; i++) {
+      flat(marker, [0.035, 0.014, 0.035], [-0.16 + i * 0.055, 0.014, 0.15], MAT.ink);
+    }
+    briefing.add(marker);
   }
-  // The bank itself, in card, standing on the plan.
-  const model = new THREE.Group();
-  model.name = 'briefing-bank-model';
-  model.position.set(-1.7, 1.02, -0.5);
-  box(model, [0.72, 0.3, 0.5], [0, 0.15, 0], MAT.paper);
-  for (let i = 0; i < 4; i++) box(model, [0.05, 0.24, 0.05], [-0.26 + i * 0.17, 0.14, 0.28], MAT.paper);
-  briefing.add(model, route);
-  // The things on a table people have been sitting at for two hours.
+
+  /* 1 — THE BANK, in card: the facade, its four columns, and the steps. */
+  const bankCard = new THREE.Group();
+  bankCard.name = 'briefing-bank-model';
+  bankCard.position.set(-1.62, 1.03, 0.5);
+  box(bankCard, [0.62, 0.3, 0.34], [0, 0.15, -0.04], MAT.paper);
+  for (let i = 0; i < 4; i++) box(bankCard, [0.045, 0.24, 0.045], [-0.2 + i * 0.135, 0.12, 0.14], MAT.paper);
+  box(bankCard, [0.66, 0.06, 0.06], [0, 0.31, 0.02], MAT.paper);
+  for (let i = 0; i < 3; i++) flat(bankCard, [0.5, 0.014, 0.05], [0, 0.012 + i * 0.014, 0.18 + i * 0.045], MAT.marbleDark);
+  briefing.add(bankCard);
+
+  /* 2 — MERCER STREET: the strip of road, its kerbs, and the dead van. */
+  const streetCard = new THREE.Group();
+  streetCard.name = 'briefing-street-model';
+  streetCard.position.set(-0.62, 1.03, 0.16);
+  flat(streetCard, [0.16, 0.014, 0.42], [0, 0.008, 0], MAT.asphalt);
+  for (const side of [-1, 1]) flat(streetCard, [0.03, 0.02, 0.42], [side * 0.095, 0.012, 0], MAT.marbleDark);
+  for (let i = -1; i <= 1; i++) flat(streetCard, [0.014, 0.004, 0.06], [0, 0.017, i * 0.12], MAT.paper);
+  box(streetCard, [0.07, 0.05, 0.12], [0.02, 0.04, -0.1], MAT.darkConcrete, 'briefing-street-van');
+  briefing.add(streetCard);
+
+  /* 3 — THE GARAGE: a concrete box with its mouth open and its ramp out. */
+  const garageCard = new THREE.Group();
+  garageCard.name = 'briefing-garage-model';
+  garageCard.position.set(0.34, 1.03, -0.2);
+  for (const side of [-1, 1]) box(garageCard, [0.05, 0.22, 0.3], [side * 0.16, 0.11, 0], MAT.darkConcrete);
+  box(garageCard, [0.37, 0.22, 0.05], [0, 0.11, -0.175], MAT.darkConcrete);
+  box(garageCard, [0.37, 0.04, 0.3], [0, 0.24, 0], MAT.darkConcrete);
+  const gRamp = flat(garageCard, [0.2, 0.014, 0.2], [0, 0.05, 0.2], MAT.concrete);
+  gRamp.rotation.x = 0.4;
+  box(garageCard, [0.09, 0.05, 0.16], [0, 0.04, -0.02], MAT.steel, 'briefing-garage-sedan');
+  briefing.add(garageCard);
+
+  /* 4 — THE SWAP YARD: the shed, the fence, and the clean car under it. */
+  const swapCard = new THREE.Group();
+  swapCard.name = 'briefing-swap-model';
+  swapCard.position.set(1.24, 1.03, -0.44);
+  box(swapCard, [0.34, 0.16, 0.24], [0, 0.08, -0.03], MAT.steel);
+  const roof = box(swapCard, [0.38, 0.02, 0.28], [0, 0.17, -0.03], MAT.darkConcrete);
+  roof.rotation.z = 0.08;
+  for (let i = 0; i < 5; i++) box(swapCard, [0.008, 0.09, 0.008], [-0.16 + i * 0.08, 0.045, 0.14], MAT.brass);
+  box(swapCard, [0.1, 0.045, 0.16], [0.02, 0.03, 0.06], MAT.marbleDark, 'briefing-swap-car');
+  briefing.add(swapCard);
+
+  /* The things on a table people have been sitting at for two hours: an
+   * ashtray, two mugs, a scale rule, a pack of photographs weighed down. */
   box(briefing, [0.3, 0.09, 0.22], [2.05, 1.02, 0.62], MAT.darkConcrete);
   mesh(briefing, new THREE.CylinderGeometry(0.06, 0.05, 0.11, 10), MAT.paper, [1.7, 1.04, 0.5]);
   mesh(briefing, new THREE.CylinderGeometry(0.06, 0.05, 0.11, 10), MAT.paper, [-1.95, 1.04, 0.72]);
   box(briefing, [0.19, 0.04, 0.12], [-2.1, 1.01, -0.6], MAT.warning);
+  const rule = box(briefing, [0.62, 0.012, 0.05], [-1.1, 1.015, 0.78], MAT.brass, 'briefing-scale-rule');
+  rule.rotation.y = 0.14;
+  for (let i = 0; i < 4; i++) {
+    const photo = box(briefing, [0.24, 0.006, 0.18], [0.75 + i * 0.02, 1.012 + i * 0.006, 0.72], MAT.paper);
+    photo.rotation.y = -0.1 + i * 0.07;
+  }
   group.add(briefing);
 
+  /* The vest, on a stand, facing the room.
+   *
+   * Owner, twice: *"vest model still looks bad"*. It was six boxes — a slab
+   * for the body, two for the shoulders, three pouches — at nearly a metre
+   * across, which is a wardrobe rather than a plate carrier. It is the
+   * modelled `makePlateCarrier` now, at the size a carrier actually is
+   * (34 cm across the plate), hanging on a mannequin torso so it reads as
+   * something a person takes off a stand and puts on.
+   */
   const armor = new THREE.Group();
   armor.name = 'safehouse-armor';
   armor.position.set(-5.5, 0, 2.8);
-  box(armor, [0.1, 1.8, 0.1], [0, 0.9, -0.18], MAT.steel, 'armor-stand');
-  box(armor, [0.7, 0.08, 0.45], [0, 0.06, -0.18], MAT.steel);
+  box(armor, [0.09, 1.35, 0.09], [0, 0.68, -0.16], MAT.steel, 'armor-stand');
+  box(armor, [0.62, 0.07, 0.42], [0, 0.05, -0.16], MAT.steel);
+  mesh(armor, new THREE.CylinderGeometry(0.15, 0.19, 0.5, 10), MAT.darkConcrete, [0, 1.3, -0.16])
+    .name = 'armor-mannequin';
+  box(armor, [0.34, 0.1, 0.26], [0, 1.6, -0.16], MAT.darkConcrete);
   const armorParts = [];
-  armorParts.push(box(armor, [0.9, 0.78, 0.24], [0, 1.14, 0], MAT.tactical, 'armor-vest-body'));
-  armorParts.push(box(armor, [0.22, 0.34, 0.25], [-0.54, 1.4, 0], MAT.webbing, 'armor-shoulder-left'));
-  armorParts.push(box(armor, [0.22, 0.34, 0.25], [0.54, 1.4, 0], MAT.webbing, 'armor-shoulder-right'));
-  for (let i = -1; i <= 1; i++) {
-    armorParts.push(box(armor, [0.25, 0.2, 0.12], [i * 0.29, 0.92, 0.18], MAT.webbing, `armor-pouch-${i + 2}`));
-  }
-  armorParts.push(box(armor, [0.62, 0.06, 0.2], [0, 0.74, 0.05], MAT.webbing, 'armor-cummerbund'));
+  const vest = makePlateCarrier({ colour: 0x1d2224, loaded: true });
+  vest.name = 'armor-vest-body';
+  vest.position.set(0, 1.32, -0.1);
+  vest.scale.setScalar(1.15);
+  armor.add(vest);
+  armorParts.push(vest);
+  // A spare set of gloves and a plate bag under the stand, so the corner is a
+  // place gear lives rather than a plinth with one object on it.
+  const gloves = box(armor, [0.3, 0.06, 0.18], [0.34, 0.09, 0.1], MAT.tactical, 'armor-gloves');
+  armorParts.push(gloves);
   armor.userData.setEquipped = (value) => armorParts.forEach((part) => { part.visible = !value; });
   group.add(armor);
 

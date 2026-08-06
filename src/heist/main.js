@@ -32,7 +32,7 @@ import { HeistHud } from './hud.js';
 import { intersectsDrivingObstacle } from './geometry.js';
 import { buildHeistLevel } from './level.js';
 import { createLobbyHostages, HostageDirector } from './hostages.js';
-import { HEIST_ITEM_CATALOG, HeistLoadout } from './loadout.js';
+import { HEIST_ITEM_CATALOG, HEIST_SLOT_ORDER, HeistLoadout } from './loadout.js';
 import { createHeistBags, LootLedger } from './loot.js';
 import { HeistMissionMachine } from './mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from './navigation.js';
@@ -92,7 +92,10 @@ const playerActor = new CombatActor({
   id: CHARACTER_IDS.PROSPECT,
   faction: FACTIONS.CREW,
   maxHealth: 100,
-  armor: 35,
+  /* ZERO until the carrier is off the stand. It was 35 from construction, so
+   * the vest's only mechanical effect was already in force before the player
+   * had touched it — see `syncPlayerArmor`. */
+  armor: 0,
 });
 const loadout = new HeistLoadout();
 const viewModel = makeHeistViewModel(camera);
@@ -386,7 +389,19 @@ function syncHeistInventory(force = false) {
     armed: preparation.loadoutReady,
     mask: preparation.loadoutReady,
     bag: carryingBag ? 'cash_bag' : (preparation.loadoutReady ? 'duffel' : null),
-    keys: driving || machine.state === 'SECONDARY_CAR_LOAD',
+    /* SLOT FIVE, WHICH COULD NOT BE SELECTED.
+     *
+     * The owner's note was *"inventory slot 5 cannot be selected"* and the
+     * cause was a contradiction between two lines. The keys only existed
+     * while `driving || state === 'SECONDARY_CAR_LOAD'` — and `selectSlot`
+     * refuses every press while `driving`. So slot five was empty for the
+     * whole mission except one state, and in the one state it was filled the
+     * player could not press it.
+     *
+     * Shubenator hands the garage car's keys out at the briefing, which is
+     * where they would be handed out, so they are in Tony's pocket from the
+     * moment he takes his kit off the bench. Five slots, five things. */
+    keys: preparation.loadoutReady,
   });
   const signature = `${loadout.items.join('|')}#${loadout.selected}`;
   if (!force && !changed && signature === inventorySignature) return;
@@ -408,6 +423,39 @@ function refreshAmmoReadout() {
   hud.setAmmo(active.magazine,
     `/ ${active.reserveMagazines * active.definition.magazineSize}`,
     active.definition.name ?? 'CONTROLLED');
+}
+
+/**
+ * Taking your kit off the bench moves the briefing along.
+ *
+ * The gear used to be gated behind reaching `LOADOUT`, which you reach by
+ * pressing E on the briefing table twice — so a player who walked to the vest
+ * first found a prop with no prompt on it. The mission follows the player
+ * instead: pick anything up and the crew have finished talking about the plan.
+ */
+function readyBriefing() {
+  if (machine.state === 'CREW_INTRO') {
+    advanceTo('BRIEFING');
+    sayInTurn('snow_plan', 'snow_rules', 'rippin_route');
+  }
+  if (machine.state === 'BRIEFING') {
+    advanceTo('LOADOUT');
+    sayInTurn('shubes_case', 'death_bags', 'numb_alarm');
+  }
+}
+
+/**
+ * The vest, made real.
+ *
+ * `playerActor` was built with 35 points of armour permanently, whether or not
+ * the player had picked a carrier up — so the one mechanical consequence of
+ * the vest was already applied before he touched it, which is the other half
+ * of "picking up the vest appears to do nothing". Armour is the carrier now,
+ * and the HUD band shows it.
+ */
+function syncPlayerArmor() {
+  playerActor.armor = preparation.armorReady ? 35 : 0;
+  hud.setArmor(playerActor.armor / 35);
 }
 
 /** `1`–`5`, the wheel, and `Tab`-free: a slot the player can actually pick. */
@@ -1306,6 +1354,10 @@ function use(mesh, label, onUse, options = {}) {
 function syncSafehousePresentation() {
   level.phases.safehouse.interactables.armor.userData.setEquipped?.(preparation.armorReady);
   level.phases.safehouse.interactables.loadout.userData.setEquipped?.(preparation.loadoutReady);
+  /* The armour value and its HUD band follow the carrier wherever the
+   * preparation state came from — a pickup, a checkpoint resume, a preview
+   * entry, or the debrief putting the guns back down. */
+  syncPlayerArmor();
 }
 
 function registerCrewIntroductions() {
@@ -1628,33 +1680,73 @@ function refreshInteractions() {
   if (activePhase === 'safehouse' && stateIndex(state) < stateIndex('BOARD_VAN')) {
     syncSafehousePresentation();
     registerCrewIntroductions();
-    use(p.safehouse.interactables.briefing,
-      state === 'CREW_INTRO' ? 'Gather for Snow’s briefing' : 'Review the route with Snow', () => {
-        if (state === 'CREW_INTRO') {
-          audio.play('heist.map.paper', { volume: 0.65 });
-          advanceTo('BRIEFING');
-          sayInTurn('snow_plan', 'snow_rules', 'rippin_route');
-          refreshObjective();
-        } else if (machine.state === 'BRIEFING') {
-          audio.play('heist.map.paper', { volume: 0.65 });
-          advanceTo('LOADOUT');
-          sayInTurn('shubes_case', 'death_bags', 'numb_alarm');
-          refreshObjective();
+    /* The prompt names the four things on the plan, in the order they are
+     * laid out on it. "Review the route with Snow" told the player nothing
+     * about what he was about to look at. */
+    use(p.safehouse.interactables.briefing, () => {
+      if (machine.state === 'CREW_INTRO') return 'The plan: bank, Mercer, the garage, the swap';
+      if (machine.state === 'BRIEFING') return 'Hear the rest: the case, the bags, the alarm';
+      return 'The plan: 1 bank · 2 Mercer Street · 3 garage · 4 swap yard';
+    }, () => {
+      audio.play('heist.map.paper', { volume: 0.65 });
+      readyBriefing();
+    }, { enabled: () => stateIndex(machine.state) <= stateIndex('LOADOUT') });
+    /* PICK IT UP AND YOU ARE WEARING IT.
+     *
+     * Owner: *"picking up vest/carbine appears to do nothing"* and *"make it
+     * simple: walking E-pickup equips/stows, no separate equip concept"*.
+     * Three things were wrong and all three are gone:
+     *
+     *   1. Both props were gated on `machine.state === 'LOADOUT'`, a state you
+     *      only reach by pressing E on the briefing table TWICE. Walk to the
+     *      vest first — which is what a player does — and there was no prompt
+     *      on it at all. Nothing to press, nothing happened, exactly as
+     *      reported. Taking gear now ADVANCES the briefing rather than being
+     *      gated by it: the mission follows the player.
+     *   2. Once taken, `enabled` went false and the prompt vanished, so there
+     *      was no confirmation and no way to put anything back.
+     *   3. Nothing visible changed. The carbine now goes straight into the
+     *      hands (`selectSlot` to the carbine slot, so the view model draws
+     *      it), the vest turns the player's armour on and the HUD armour band
+     *      with it, and both props leave the bench.
+     *
+     * No hold on either. A hold is for a thing you can do wrongly; picking up
+     * your own kit off a table in your own safehouse is not one of those.
+     */
+    use(p.safehouse.interactables.armor,
+      () => (preparation.armorReady ? 'Vest on · E to take it off' : 'Take the plate carrier'), () => {
+        if (preparation.armorReady) {
+          preparation.armorReady = false;
+          p.safehouse.interactables.armor.userData.setEquipped?.(false);
+          audio.play('heist.weapon.down', { volume: 0.5 });
+        } else {
+          preparation.equipArmor();
+          p.safehouse.interactables.armor.userData.setEquipped?.(true);
+          audio.play('heist.gear.armor.pickup');
+          readyBriefing();
         }
+        syncPlayerArmor();
+        syncHeistInventory(true);
+        refreshInteractions();
       });
-    use(p.safehouse.interactables.armor, preparation.armorReady ? 'Armor secured' : 'Equip the armor vest', () => {
-      if (!preparation.equipArmor().changed) return;
-      p.safehouse.interactables.armor.userData.setEquipped?.(true);
-      audio.play('heist.gear.armor.pickup');
-      refreshInteractions();
-    }, { enabled: () => machine.state === 'LOADOUT' && !preparation.armorReady, hold: 0.65 });
-    use(p.safehouse.interactables.loadout, preparation.loadoutReady ? 'Weapons ready' : 'Lift and check the carbine', () => {
-      if (!preparation.readyWeapons().changed) return;
-      p.safehouse.interactables.loadout.userData.setEquipped?.(true);
-      audio.play('heist.gear.carbine.pickup');
-      syncHeistInventory(true);
-      refreshInteractions();
-    }, { enabled: () => machine.state === 'LOADOUT' && !preparation.loadoutReady, hold: 0.65 });
+    use(p.safehouse.interactables.loadout,
+      () => (preparation.loadoutReady ? 'Carbine in hand · E to put it back' : 'Take the carbine and the sidearm'), () => {
+        if (preparation.loadoutReady) {
+          preparation.loadoutReady = false;
+          p.safehouse.interactables.loadout.userData.setEquipped?.(false);
+          audio.play('heist.weapon.down', { volume: 0.5 });
+        } else {
+          preparation.readyWeapons();
+          p.safehouse.interactables.loadout.userData.setEquipped?.(true);
+          audio.play('heist.gear.carbine.pickup');
+          readyBriefing();
+        }
+        syncHeistInventory(true);
+        // Straight into the hands. Picking a gun up and not holding it is the
+        // whole of "appears to do nothing".
+        if (preparation.loadoutReady) selectSlot(HEIST_SLOT_ORDER.indexOf('carbine'));
+        refreshInteractions();
+      });
     use(p.safehouse.interactables.van, 'Board the primary van', () => {
       if (!preparation.ready || machine.state !== 'LOADOUT') return;
       advanceTo('BOARD_VAN');
