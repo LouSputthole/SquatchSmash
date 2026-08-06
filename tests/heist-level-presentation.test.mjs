@@ -249,3 +249,46 @@ test('the debrief bags do not swallow the mugs the crew is still drinking from',
     }
   }
 });
+
+test('the garage puts the player on clear floor looking at the car, not inside the ramp', () => {
+  /* Owner: "garage spawn faces/intersects a big wall." The spawn was
+   * (0, 1.66, 12) and the entry ramp is a slab running z 9 to 17 a metre off
+   * the floor, so the player arrived standing inside it three metres off the
+   * back wall with a face full of concrete. The ramp was not a collider
+   * either, so it was a wall you could walk through.
+   *
+   * Both halves are asserted here, because "it is fixed" is a claim about two
+   * numbers that anybody can move again: nothing solid within reach of where
+   * the player is put down, and nothing solid between him and the car the
+   * objective is about. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const garage = level.phases.garage;
+  const { spawn } = garage;
+  const RADIUS = 0.3;   // the player capsule `_resolve` pushes out of a box
+
+  const touching = [];
+  for (const box of garage.colliders) {
+    if (box.min.y > 1.8 || box.max.y < 0.1) continue;
+    const dx = Math.max(box.min.x - spawn.x, 0, spawn.x - box.max.x);
+    const dz = Math.max(box.min.z - spawn.z, 0, spawn.z - box.max.z);
+    const gap = Math.hypot(dx, dz);
+    if (gap < RADIUS) touching.push(`[${box.min.x},${box.min.z}]..[${box.max.x},${box.max.z}] at ${gap.toFixed(2)} m`);
+  }
+  assert.deepEqual(touching, [], `the garage spawn is inside something: ${touching.join('; ')}`);
+
+  /* Facing. `player.yaw = 0` looks down −Z, so the first solid the player sees
+   * is whatever this ray meets — and it has to be the sedan, far enough off
+   * that the frame opens on a room rather than on a surface. */
+  let nearest = Infinity;
+  for (const box of garage.colliders) {
+    if (box.min.y > 1.8 || box.max.y < 0.1) continue;
+    if (box.min.x > spawn.x || box.max.x < spawn.x) continue;
+    if (box.max.z >= spawn.z) continue;
+    nearest = Math.min(nearest, spawn.z - box.max.z);
+  }
+  assert.ok(nearest > 8, `the first thing straight ahead of the garage spawn is ${nearest.toFixed(1)} m away`);
+  const sedan = new THREE.Box3().setFromObject(garage.sedan);
+  assert.ok(sedan.max.z < spawn.z, 'the escape car is behind the player');
+  assert.ok(Math.abs(spawn.z - sedan.max.z - nearest) < 1.5,
+    'the first thing straight ahead of the garage spawn is not the car');
+});

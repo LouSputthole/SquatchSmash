@@ -117,6 +117,71 @@ const KNIT = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.97 }
 const KNIT_RIB = new THREE.MeshStandardMaterial({ color: 0x0d0f12, roughness: 1 });
 /** The inside of an opening is not the same colour as the wool over it. */
 const PORT_SHADOW = new THREE.MeshStandardMaterial({ color: 0x05060a, roughness: 1 });
+const EYE_WHITE = new THREE.MeshStandardMaterial({ color: 0xd6dade, roughness: 0.42 });
+const EYE_IRIS = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.3 });
+
+/* The mask's head is an ellipsoid — a 0.118 sphere stretched 1.13 tall and
+ * 1.05 deep — and EVERY marking on the face has to lie on that surface rather
+ * than near it. See `facePatch`. */
+const FACE_R = 0.118;
+const FACE_Y = 1.13;
+const FACE_Z = 1.05;
+
+/**
+ * A marking that lies ON the mask instead of inside it.
+ *
+ * THIS IS THE FIX, AND IT IS WORTH THE PARAGRAPH. The pass before this one
+ * answered *"balaclava model is bad"* by adding fourteen meshes to a plain
+ * dark egg: two eye ports, a bridge, two rolled lids, a mouth vent, a brow
+ * seam and two eyes. Then it placed all of them with hand-picked flat
+ * z values in the 0.098–0.104 range — and the shell's own surface at the
+ * middle of the face is at z 0.1239. So the eyes and the bridge were *fully
+ * inside the sphere*, and the ports and the vent had six of their twenty-four
+ * corners out. The mask still rendered as a featureless egg with two dark
+ * nubs at the outer corners of where its eyes should be. The complaint was
+ * repeated because the fix was invisible, not because it was wrong.
+ *
+ * A feature on a curved head has to be curved with it. So a marking is a
+ * PATCH OF THE SAME ELLIPSOID, a couple of millimetres larger: it hugs the
+ * shell across its whole width instead of standing off in the middle and
+ * sinking at the edges, which is what a flat slab on a sphere does.
+ *
+ * Angles, because three.js's sphere is not obvious: a vertex sits at
+ * `x = −r·cos φ·sin θ`, `z = r·sin φ·sin θ`, so dead ahead (+Z) is φ = π/2 and
+ * `alpha` here is the angle round from there. Height is `y = FACE_Y·r·cos θ`,
+ * so a wanted mask-local y inverts straight into θ.
+ *
+ * @param {THREE.Object3D} parent
+ * @param {THREE.Material} material
+ * @param {object} spec
+ * @param {number} spec.yTop     mask-local y of the marking's top edge
+ * @param {number} spec.yBottom  and its bottom edge
+ * @param {number} spec.alpha    centre angle from dead ahead, +ve toward +X
+ * @param {number} spec.half     half-width, radians
+ * @param {number} [spec.lift]   metres proud of the shell
+ * @param {string} [spec.name]
+ */
+function facePatch(parent, material, {
+  yTop, yBottom, alpha, half, lift = 0.0015, name,
+}) {
+  const r = FACE_R + lift;
+  const theta = (y) => Math.acos(Math.max(-1, Math.min(1, y / (FACE_Y * r))));
+  const start = theta(yTop);
+  const span = theta(yBottom) - start;
+  // Segments by arc rather than a flat count: these are small patches and five
+  // people wear eight of them each.
+  const steps = (arc) => Math.max(3, Math.round(arc / 0.08));
+  const patch = new THREE.Mesh(
+    new THREE.SphereGeometry(r, steps(half * 2), steps(span),
+      Math.PI / 2 + alpha - half, half * 2, start, span),
+    material,
+  );
+  patch.scale.set(1, FACE_Y, FACE_Z);
+  patch.castShadow = false;
+  if (name) patch.name = name;
+  parent.add(patch);
+  return patch;
+}
 
 /**
  * A balaclava — the worn one and the rolled one.
@@ -128,10 +193,15 @@ const PORT_SHADOW = new THREE.MeshStandardMaterial({ color: 0x05060a, roughness:
  *
  * What makes a balaclava legible is the OPENING and the KNIT, in that order.
  * So: a two-hole eye port with a wool bridge down the middle of it, the
- * shadow inside the port darker than the wool around it, a nose the knit is
- * stretched over, a mouth vent, a brow seam, and a ribbed neck skirt that
- * disappears into the collar. Fourteen small meshes, only five people ever
- * wear one, and it is the difference between a mask and a smudge.
+ * shadow inside the port darker than the wool around it, a pale eye looking
+ * out of each hole, a nose the knit is stretched over, a mouth vent, a brow
+ * hem and a cheek hem rolled round the opening, seams down the panels, and a
+ * ribbed neck skirt that disappears into the collar.
+ *
+ * All of it is built with `facePatch`, which is the difference between this
+ * pass and the last one: the markings are patches of the mask's own surface,
+ * so they are actually on the outside of it. `tests/heist-presentation` walks
+ * every vertex of every named feature and fails if it is inside the shell.
  *
  * Local origin is the SKULL CENTRE — `cast.js` parents it to `parts.head` at
  * y 0.17, which is where that centre sits, with the face out along +Z.
@@ -156,18 +226,27 @@ export function makeBalaclava({ rolled = true } = {}) {
     crown.position.y = 0.014;
     crown.scale.set(1, 0.92, 1);
     g.add(crown);
-    // The eye port, folded flat across the front of the roll — the one detail
-    // that says this pile of wool is a mask and not a hat.
-    const port = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.02, 0.012), PORT_SHADOW);
-    port.position.set(0, 0.006, 0.088);
+    /* The eye port, folded flat across the front of the roll — the one detail
+     * that says this pile of wool is a mask and not a hat, and the same
+     * mistake the worn version made: at z 0.088 it was 16 mm inside a torus
+     * whose front surface is at 0.111, so the detail that carries the whole
+     * model was not drawn. It straddles that surface now, with a lip of rib
+     * above it so the fold reads. */
+    const port = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.02, 0.014), PORT_SHADOW);
+    port.position.set(0, 0.006, 0.113);
+    port.name = 'balaclava-rolled-port';
     g.add(port);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.094, 0.012, 0.016), KNIT_RIB);
+    lip.position.set(0, 0.021, 0.111);
+    lip.rotation.x = -0.3;
+    g.add(lip);
     g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     return g;
   }
 
   // ---- worn ----
-  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.118, 16, 12), KNIT);
-  shell.scale.set(1.0, 1.13, 1.05);
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(FACE_R, 20, 14), KNIT);
+  shell.scale.set(1.0, FACE_Y, FACE_Z);
   shell.name = 'balaclava-shell';
   g.add(shell);
 
@@ -184,42 +263,59 @@ export function makeBalaclava({ rolled = true } = {}) {
   g.add(chin);
 
   /* THE EYE PORT. Two holes with a bridge of wool between them, which is the
-   * silhouette everyone recognises. The port itself is the dark inside of the
-   * opening; the lids above and below are the wool edges rolled around it. */
+   * silhouette everyone recognises. The port is the dark inside of the
+   * opening; the hems above and below are the wool edges rolled around it.
+   *
+   * The opening reaches 0.6 rad round from dead ahead, which puts its outer
+   * corner at x 0.062 once the mask is scaled onto a head 0.081 wide — wide
+   * enough to read from across the lobby, narrow enough that the hole never
+   * runs off the side of the skull and shows daylight through the man. */
+  const brow = facePatch(g, KNIT_RIB, {
+    yTop: 0.058, yBottom: 0.036, alpha: 0, half: 0.86, name: 'balaclava-brow-hem',
+  });
+  brow.castShadow = true;
   for (const side of [-1, 1]) {
-    const port = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.036, 0.02), PORT_SHADOW);
-    port.position.set(side * 0.041, 0.014, 0.1);
-    port.rotation.z = -side * 0.06;
-    port.name = `balaclava-eye-port-${side < 0 ? 'left' : 'right'}`;
-    g.add(port);
-    // The eye inside it, just visible and just catching light.
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6),
-      new THREE.MeshStandardMaterial({ color: 0xcfd4d8, roughness: 0.5 }));
-    eye.position.set(side * 0.041, 0.014, 0.104);
+    facePatch(g, PORT_SHADOW, {
+      yTop: 0.034, yBottom: -0.008, alpha: side * 0.35, half: 0.25, lift: 0.0026,
+      name: `balaclava-eye-port-${side < 0 ? 'left' : 'right'}`,
+    });
+    /* The eye in the hole, sitting 2 mm proud of the shadow it sits in. A
+     * mask with eyes in it is looking at you; a mask without them is a bag. */
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.0105, 12, 8), EYE_WHITE);
+    eye.scale.set(1, 0.86, 0.42);
+    eye.position.set(side * 0.0411, 0.0132, 0.1178);
     eye.castShadow = false;
+    eye.name = `balaclava-eye-${side < 0 ? 'left' : 'right'}`;
     g.add(eye);
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.0044, 8, 6), EYE_IRIS);
+    iris.scale.set(1, 1, 0.4);
+    iris.position.set(side * 0.0411, 0.0128, 0.1212);
+    iris.castShadow = false;
+    g.add(iris);
   }
-  // The bridge of knit down the middle, and the rolled edges above and below.
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.042, 0.026), KNIT);
-  bridge.position.set(0, 0.014, 0.101);
-  bridge.name = 'balaclava-bridge';
-  g.add(bridge);
-  for (const [y, h] of [[0.04, 0.016], [-0.012, 0.014]]) {
-    const lid = new THREE.Mesh(new THREE.BoxGeometry(0.126, h, 0.022), KNIT_RIB);
-    lid.position.set(0, y, 0.099);
-    g.add(lid);
+  // The bridge of knit down the middle, standing proud of both ports.
+  facePatch(g, KNIT, {
+    yTop: 0.034, yBottom: -0.008, alpha: 0, half: 0.095, lift: 0.0032,
+    name: 'balaclava-bridge',
+  });
+  // The rolled hem under the opening, across both cheeks.
+  facePatch(g, KNIT_RIB, {
+    yTop: -0.011, yBottom: -0.03, alpha: 0, half: 0.74, name: 'balaclava-cheek-hem',
+  });
+  // The mouth vent, over where the mouth is.
+  facePatch(g, PORT_SHADOW, {
+    yTop: -0.05, yBottom: -0.069, alpha: 0, half: 0.25, lift: 0.0026,
+    name: 'balaclava-mouth-vent',
+  });
+  /* Two panel seams down the sides. Knit is made of panels sewn together, and
+   * a seam is the cheapest thing in the world that says wool rather than
+   * latex — one strip of darker rib each side, over the ear. */
+  for (const side of [-1, 1]) {
+    facePatch(g, KNIT_RIB, {
+      yTop: 0.09, yBottom: -0.052, alpha: side * 1.24, half: 0.045,
+      name: `balaclava-seam-${side < 0 ? 'left' : 'right'}`,
+    });
   }
-
-  // The mouth vent, and the brow seam above the port.
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.018, 0.016), PORT_SHADOW);
-  mouth.position.set(0, -0.056, 0.098);
-  mouth.name = 'balaclava-mouth-vent';
-  g.add(mouth);
-  const brow = new THREE.Mesh(new THREE.TorusGeometry(0.113, 0.008, 6, 20), KNIT_RIB);
-  brow.rotation.x = Math.PI / 2;
-  brow.position.y = 0.056;
-  brow.scale.set(1, 1, 1.04);
-  g.add(brow);
 
   /* The neck skirt, ribbed, going down inside the collar. Without it the mask
    * stops at the jaw and the head looks decapitated from the side. */
