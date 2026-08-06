@@ -1129,7 +1129,16 @@ const chain = await page.evaluate(() => {
       score: { gunsDelivered: 0 },
       setObjective(text) { this.objective = text; },
       setPhase(name) { this.phase = name; },
-      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null } },
+      /* `voiceMouth` is a stub of `core/mouth.js`'s `Mouth`, not an
+       * omission: `speak()` in `npc.js` has called `f.voiceMouth.speak(...)`
+       * since the mouth-on-the-take pass (00bab88), and this fixture (and
+       * the two below built the same way) predate that -- MEASURED, without
+       * it `updateGunUnload`'s `speak(cecilio, 2.2)` crashed the whole
+       * verifier with "Cannot read properties of undefined (reading
+       * 'speak')" the moment the proximity gate opened. Nothing here calls
+       * `.update()` on this mock, only `.speak()`, so that is the only
+       * method that has to exist. */
+      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null, voiceMouth: { speak() {}, stop() {} } } },
       player: { position: new Vector3(30, 0, 0) },
       dialogue: {
         get busy() { return busy; },
@@ -1165,7 +1174,7 @@ const chain = await page.evaluate(() => {
     const fake = {
       objective: '', started: false,
       setObjective(text) { this.objective = text; },
-      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null } },
+      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null, voiceMouth: { speak() {}, stop() {} } } },
       player: { position: new Vector3(30, 0, 0), yaw: 0 },
       cargo: { crateCount: 3 },
       gunLoad: { armed: false, update() {} },
@@ -1210,7 +1219,7 @@ const chain = await page.evaluate(() => {
     const played = new Set();
     const fake = {
       phase: 'onfoot-strip', score: { gunsDelivered: 3 },
-      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null } },
+      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null, voiceMouth: { speak() {}, stop() {} } } },
       player: { position: new Vector3(2, 0, 0) },
       dialogue: {
         busy: false,
