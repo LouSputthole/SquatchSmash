@@ -1796,6 +1796,65 @@ check('29b. reloading an in-progress round resumes at the first unfinished tee',
   JSON.stringify(resumedRound));
 
 /* ------------------------------------------------------------------ */
+/* Preview checkpoint links (?preview=1&checkpoint=...)                 */
+/*
+ * Each waypoint gets its own fresh page/preview campaign, the way an owner
+ * clicking a preview.html link would load it. `__golf.step()` is used
+ * elsewhere in this file specifically because software rendering runs at
+ * about a frame a second (see the file header) -- these checks lean on the
+ * same fact: the checkpoint's own staging in src/golf/main.js is entirely
+ * synchronous (`story.recordHole()` / `round.restoreProgress()` /
+ * `round.startHole()`), so no waiting on real frames is needed here either.
+ */
+for (const [id, expect] of [
+  ['hole1', { hole: 1, staged: 0 }],
+  ['hole2', { hole: 2, staged: 1 }],
+  ['hole3', { hole: 3, staged: 2 }],
+  ['grille', { hole: null, staged: 3 }],
+]) {
+  const cpPage = await browser.newPage({ viewport: { width: 1024, height: 640 } });
+  const cpProblems = [];
+  cpPage.on('pageerror', (error) => cpProblems.push(error.message));
+  cpPage.on('console', (message) => {
+    if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
+  });
+  await cpPage.goto(`http://localhost:${PORT}/golf.html?preview=1&checkpoint=${id}`, { waitUntil: 'load' });
+  await cpPage.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+  const chip = await cpPage.evaluate(() => document.querySelector('#overlay .tag')?.textContent ?? '');
+  // Coordinates, not a locator click -- same reasoning as 1a's own start
+  // click above: a locator's stable-frame wait can outlast any reasonable
+  // ceiling on this software rasteriser's continuous redraw.
+  const startBox = await cpPage.evaluate(() => {
+    const r = document.getElementById('start-btn').getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await cpPage.mouse.click(startBox.x, startBox.y);
+  // `window.__golf` (and its round.beat) exists from module load, before
+  // Start is ever clicked, so waiting on it alone would resolve before
+  // `boot()` has staged anything. `body.playing` is only added inside boot().
+  await cpPage.waitForFunction(() => document.body.classList.contains('playing'), null, { timeout: 60000 });
+  const result = await cpPage.evaluate(() => {
+    const g = window.__golf;
+    const mission = g.campaign.state.missions.silver_pines;
+    return {
+      holeNumber: g.HOLE.number,
+      beat: g.round.beat,
+      missionStatus: mission.status,
+      holesStaged: mission.holes.length,
+      endcardHidden: document.getElementById('endcard')?.classList.contains('hidden'),
+    };
+  });
+  const holeOk = expect.hole === null
+    ? result.missionStatus === 'complete' && result.endcardHidden === false
+    : result.holeNumber === expect.hole && result.endcardHidden !== false;
+  check(`?preview=1&checkpoint=${id} loads staged and lands on the right hole`,
+    holeOk && result.holesStaged === expect.staged
+      && chip.startsWith('Preview checkpoint:') && cpProblems.length === 0,
+    JSON.stringify({ ...result, chip, problems: cpProblems }));
+  await cpPage.close();
+}
+
+/* ------------------------------------------------------------------ */
 /* Script integrity                                                    */
 /* ------------------------------------------------------------------ */
 
