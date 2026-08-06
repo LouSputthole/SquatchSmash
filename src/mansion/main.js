@@ -46,6 +46,7 @@ import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { mountSilentSquatch } from './mission/mount.js';
+import { INSTRUCTIONS } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast } from './cast.js';
 /* Importing these constructs nothing: a Campaign is only built when
@@ -1351,6 +1352,197 @@ function teleport(x, y, z, yawDeg = 0) {
   player.update(1 / 60);
 }
 
+
+/* ================================================================== */
+/* PREVIEW CHECKPOINTS — ?preview=1&checkpoint=<id>                     */
+/*                                                                       */
+/* Owner's rule, via RIGHT-FIRST-TIME's definition of done: anything      */
+/* longer than five minutes gets `?checkpoint=` jumps off the preview     */
+/* page, on the pattern THE TAKE and the BEEF RUN already use. PROJECT    */
+/* SILENT SQUATCH is eleven beats through three storeys and a hidden      */
+/* laboratory, so getting to the gassing to look at one thing is four     */
+/* minutes of walking every time.                                         */
+/*                                                                        */
+/* THE VOCABULARY IS THE CAMPAIGN'S OWN. `SILENT_SQUATCH_CHECKPOINT_IDS`   */
+/* in `src/core/campaign.js` lists the eight the save file understands —    */
+/* office, basement, lab, core_complete, locked, aubbie_down,              */
+/* silent_night, clear — and the ids below are those eight verbatim, plus   */
+/* `arrival` for the front gate and `suite` for the third floor, which is    */
+/* not part of the mission at all. Inventing a parallel set of names for a   */
+/* preview link is how a link stops meaning anything.                        */
+/*                                                                            */
+/* A JUMP REPLAYS THE MISSION, IT DOES NOT ASSERT ITS STATE. Each row runs     */
+/* the real verbs `src/mansion/mission/` exposes — `arrive`, `placeCase`,      */
+/* `takeCase`, `bustSwitch`, `deliver`, `enterCode`, `shoot`, `silentNight`,   */
+/* `leave` — through the real state machine, pumping the real lab between      */
+/* them. So the inventory is staged because the mission's own `onCaseOwned`     */
+/* fired, the bodies are where the beat put them, the hidden wall is open        */
+/* because the switch was pressed, and there is no second code path that can      */
+/* disagree with the played one. It is the beefrun/heist contract: the jump       */
+/* is a fast-forward, not a stub.                                                  */
+/*                                                                                  */
+/* UNKNOWN VALUES ARE IGNORED. `?checkpoint=banana` loads the ordinary house,        */
+/* because a preview link is a convenience and must never be a way to break a        */
+/* scene for somebody who mistyped one.                                              */
+/* ================================================================== */
+const CHECKPOINT_ORDER = [
+  'arrival', 'office', 'basement', 'lab', 'core_complete',
+  'locked', 'aubbie_down', 'silent_night', 'clear',
+];
+const CHECKPOINTS = {
+  arrival: {
+    label: 'ARRIVAL — THE FRONT GATE',
+    where: () => anchors.frontDoorOutside,
+    yaw: 180,
+  },
+  office: {
+    label: "BEAT 2 — LOU'S OFFICE",
+    where: () => anchors.officeDesk,
+    yaw: 180,
+    play: (m) => { m.arrive('office'); },
+  },
+  basement: {
+    label: 'BEAT 3 — THE HIDDEN ENTRANCE',
+    /* At the marble bust, which is the thing beat 3 is about, rather than at
+     * the cellar door thirty metres of corridor away from it. */
+    where: () => lab?.anchors?.bust ?? anchors.cellarDoor,
+    yaw: 90,
+    play: (m, pump) => {
+      m.arrive('office');
+      pump(() => m.instruction === INSTRUCTIONS.PLACE_CASE);
+      m.placeCase();
+      pump(() => m.instruction === INSTRUCTIONS.TAKE_CASE);
+      m.takeCase();
+      pump(() => m.instruction === INSTRUCTIONS.BUST_SWITCH);
+    },
+  },
+  lab: {
+    label: 'BEAT 5 — BEHIND THE GLASS',
+    where: () => lab?.anchors?.transferTable ?? anchors.armoryCenter,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.basement.play(m, pump);
+      m.bustSwitch();
+      pump(() => m.instruction === INSTRUCTIONS.DELIVER_CASE, 200);
+    },
+  },
+  core_complete: {
+    label: 'BEATS 7–8 — THE CORE IS BUILT',
+    where: () => lab?.anchors?.keypad ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.lab.play(m, pump);
+      m.deliver();
+      pump(() => m.instruction === INSTRUCTIONS.KEYPAD, 400);
+    },
+  },
+  locked: {
+    label: 'BEAT 8 — THE LAB IS LOCKED',
+    where: () => lab?.anchors?.keypad ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.core_complete.play(m, pump);
+      m.enterCode('6969');
+      pump(() => m.instruction === INSTRUCTIONS.ELIMINATE_AUBBIE, 100);
+    },
+  },
+  aubbie_down: {
+    label: 'BEAT 8 — AUBBIE IS DOWN',
+    where: () => lab?.anchors?.silentNight ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.locked.play(m, pump);
+      m.shoot(true);
+      pump(() => m.instruction === INSTRUCTIONS.SILENT_NIGHT, 200);
+    },
+  },
+  silent_night: {
+    label: 'BEAT 10 — SILENT NIGHT',
+    where: () => lab?.anchors?.silentNight ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.aubbie_down.play(m, pump);
+      m.silentNight();
+      pump(() => m.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 400);
+    },
+  },
+  clear: {
+    label: 'BEAT 11 — RETURN UPSTAIRS',
+    where: () => lab?.anchors?.stairFoot ?? anchors.basementLanding,
+    yaw: 180,
+    play: (m, pump) => {
+      CHECKPOINTS.silent_night.play(m, pump);
+      m.leave();
+      pump(() => m.state === 'COMPLETE', 60);
+    },
+  },
+  /* NOT A MISSION BEAT. The third floor is somewhere the player finds rather
+   * than somewhere the night sends him, so this stages the ROOM instead of the
+   * mission: at the bookcase, with the stair already open, which is the one
+   * piece of state the suite has. */
+  suite: {
+    label: "THE THIRD FLOOR — LOU'S SUITE",
+    where: () => anchors.secretBookcase,
+    yaw: 270,
+    stage: () => { secretBookcase?.setOpen(true); },
+  },
+};
+
+/** Show the jump's own name for a couple of seconds, the way the siege does. */
+function announceCheckpoint(label) {
+  const el = document.getElementById('checkpoint');
+  if (!el) return;
+  el.textContent = label;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+let checkpointJumped = null;
+
+/**
+ * Jump to a named checkpoint. Returns the id it actually reached, or null.
+ *
+ * Safe to call from the console and from a verifier; the URL parser below is
+ * one caller of it rather than the implementation.
+ */
+function jumpToCheckpoint(id) {
+  const cp = CHECKPOINTS[id];
+  if (!cp) return null;
+  if (!running) beginTour();
+  const mission = silentSquatch?.debug ?? null;
+  if (cp.play && mission) {
+    const DT = 1 / 30;
+    const pump = (pred, limit = 400) => {
+      for (let t = 0; t < limit; t += DT) {
+        if (pred()) return true;
+        silent.update(DT);
+        silentSquatch.update(DT);
+      }
+      return pred();
+    };
+    try { cp.play(mission, pump); } catch { /* a preview link never breaks the scene */ }
+  }
+  try { cp.stage?.(); } catch { /* ditto */ }
+  const at = cp.where?.();
+  if (at && Number.isFinite(at.x)) teleport(at.x, at.y, at.z, cp.yaw ?? 180);
+  checkpointJumped = id;
+  announceCheckpoint(cp.label);
+  return id;
+}
+
+/* The URL. `?checkpoint=<id>` on its own is enough; `?preview=1` is accepted
+ * beside it because that is what preview.html's links carry. */
+{
+  const params = new URLSearchParams(window.location.search);
+  const wanted = params.get('checkpoint');
+  if (wanted && CHECKPOINTS[wanted]) {
+    /* After a frame, so the scene has finished building and the mission has
+     * mounted; before that, `silentSquatch` is null and the ladder would run
+     * against nothing. */
+    requestAnimationFrame(() => jumpToCheckpoint(wanted));
+  }
+}
+
 window.mansion = {
   /* Handed out so a verifier can do real geometry (Box3 of a mesh, say)
    * against the same THREE instance the scene was built with rather than
@@ -1664,6 +1856,14 @@ window.mansion = {
    * Every beat of the mission is reachable from here, which is how a verifier
    * plays it without a mouse. */
   mission: silentSquatch?.debug ?? null,
+  /** The preview jumps, for the page that links to them and the check that walks them. */
+  checkpoints: {
+    ids: [...CHECKPOINT_ORDER, 'suite'],
+    order: [...CHECKPOINT_ORDER],
+    labels: Object.fromEntries(Object.entries(CHECKPOINTS).map(([k, v]) => [k, v.label])),
+    get jumped() { return checkpointJumped; },
+    jump: (id) => jumpToCheckpoint(id),
+  },
   teleport,
   /** Step the simulation without a real animation frame -- for headless verification. */
   tick(seconds = 1, step = 1 / 60) {

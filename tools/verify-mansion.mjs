@@ -3001,6 +3001,120 @@ try {
   check('the foyer renders a non-black frame from inside the house', nonBlack,
     `${shot.length} bytes`);
 
+  /* ================================================================ */
+  /* THE PREVIEW JUMPS — ?preview=1&checkpoint=<id>                    */
+  /*                                                                    */
+  /* One LOAD PER VALUE, on a page of its own, because the whole claim   */
+  /* a checkpoint link makes is about what a cold load produces. Driving */
+  /* `checkpoints.jump()` on this page would prove the ladder runs and   */
+  /* nothing about the URL, which is the half a player uses.             */
+  /*                                                                      */
+  /* Each row asserts the beat the jump is FOR and the two pieces of state */
+  /* that beat is about -- the case in his hands before the delivery and    */
+  /* gone after it, the bolts, the life signs, the hidden wall -- so a jump  */
+  /* that lands in the right room with the wrong world fails here. And the    */
+  /* last row is a value nobody defined: an unknown checkpoint has to leave    */
+  /* the ordinary house on the menu, never a broken one.                       */
+  /* ================================================================ */
+  const CHECKPOINT_CASES = [
+    {
+      id: 'arrival', state: 'ARRIVAL', hasCase: true, wall: 'shut',
+    },
+    {
+      id: 'office', state: 'LOU_OFFICE', hasCase: true, wall: 'shut',
+    },
+    {
+      id: 'basement', state: 'HIDDEN_ENTRANCE', hasCase: true, wall: 'shut',
+    },
+    {
+      id: 'lab', state: 'OBSERVATION', hasCase: true, wall: 'open',
+    },
+    {
+      id: 'core_complete', state: 'LOCK_THE_LAB', hasCase: false, wall: 'open', locked: false,
+    },
+    {
+      id: 'locked', state: 'EXECUTION', hasCase: false, wall: 'open', locked: true,
+    },
+    {
+      id: 'aubbie_down', state: 'SILENT_NIGHT', hasCase: false, locked: true, lifeSigns: 5,
+    },
+    {
+      id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0,
+    },
+    {
+      id: 'clear', state: 'COMPLETE', hasCase: false, lifeSigns: 0,
+    },
+    {
+      id: 'suite', state: 'ARRIVAL', hasCase: true, stairOpen: true,
+    },
+  ];
+  const cpFails = [];
+  for (const want of CHECKPOINT_CASES) {
+    const cpPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
+    const cpErrors = [];
+    cpPage.on('pageerror', (e) => cpErrors.push(e.message));
+    try {
+      await cpPage.goto(
+        `http://localhost:${PORT}/mansion.html?preview=1&checkpoint=${want.id}`,
+        { waitUntil: 'load', timeout: 120000 },
+      );
+      await cpPage.waitForFunction(() => window.mansion?.checkpoints?.jumped, null, { timeout: 180000 });
+      const got = await cpPage.evaluate(() => {
+        const m = window.mansion;
+        return {
+          jumped: m.checkpoints.jumped,
+          running: m.running,
+          state: m.mission?.state ?? null,
+          hasCase: m.loadout.hasCase,
+          locked: m.lab?.doorLocked ?? null,
+          lifeSigns: m.lab?.lifeSigns ?? null,
+          wall: m.lab?.hiddenWall?.phase ?? null,
+          stairOpen: m.suite.stair.open,
+          chip: document.getElementById('checkpoint')?.textContent || null,
+        };
+      });
+      const bad = [];
+      if (got.jumped !== want.id) bad.push(`jumped=${got.jumped}`);
+      if (!got.running) bad.push('not running');
+      if (!got.chip) bad.push('no label chip');
+      if (got.state !== want.state) bad.push(`state=${got.state} want ${want.state}`);
+      if (got.hasCase !== want.hasCase) bad.push(`hasCase=${got.hasCase}`);
+      if (want.locked !== undefined && got.locked !== want.locked) bad.push(`locked=${got.locked}`);
+      if (want.lifeSigns !== undefined && got.lifeSigns !== want.lifeSigns) bad.push(`lifeSigns=${got.lifeSigns}`);
+      if (want.wall !== undefined && got.wall !== want.wall) bad.push(`wall=${got.wall}`);
+      if (want.stairOpen !== undefined && got.stairOpen !== want.stairOpen) bad.push(`stairOpen=${got.stairOpen}`);
+      if (cpErrors.length) bad.push(`errors: ${cpErrors[0]}`);
+      if (bad.length) cpFails.push(`${want.id}: ${bad.join(', ')}`);
+    } catch (error) {
+      cpFails.push(`${want.id}: ${String(error).slice(0, 120)}`);
+    }
+    await cpPage.close();
+  }
+  check('every ?checkpoint= link loads the beat it names, with the mission, the inventory and the world staged',
+    cpFails.length === 0,
+    cpFails.join(' | ') || `${CHECKPOINT_CASES.length} jumps, each on its own cold load`);
+
+  {
+    const strayPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
+    const strayErrors = [];
+    strayPage.on('pageerror', (e) => strayErrors.push(e.message));
+    await strayPage.goto(
+      `http://localhost:${PORT}/mansion.html?preview=1&checkpoint=not_a_checkpoint`,
+      { waitUntil: 'load', timeout: 120000 },
+    );
+    await strayPage.waitForFunction(() => window.mansion?.player, null, { timeout: 180000 });
+    const stray = await strayPage.evaluate(() => ({
+      jumped: window.mansion.checkpoints.jumped,
+      running: window.mansion.running,
+      menu: !document.getElementById('menu').classList.contains('hidden'),
+    }));
+    check('an unknown ?checkpoint= value is ignored and the house loads on its own menu',
+      stray.jumped === null && stray.running === false && stray.menu === true
+        && strayErrors.length === 0,
+      JSON.stringify({ ...stray, errors: strayErrors.length }));
+    await strayPage.close();
+  }
+
   /* The film that has not landed yet is allowed to 404 and nothing else is.
    * A blanket "ignore 404s" would let a missing texture or a missing module
    * through; naming the file keeps the seam honest in both directions. */
