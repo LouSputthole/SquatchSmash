@@ -151,6 +151,39 @@ a playtest: 0.98 m between the companionway hatch and the helm console, 1.24 m
 through the windshield walk-through, the full 4.12 m beam on the foredeck, and
 1.38 m of clear passage from the seating to the transom gate.
 
+## Two centimetres, everywhere
+
+`node tools/scene-audit.mjs nowake` reports zero FLOATING, zero COPLANAR and
+zero MIRRORED for everything this scene authors. Getting there took one rule,
+applied to every stacked pair on the boat and the shore alike: **things overlap
+their support by about 2 cm — never by nothing, and never by a metre.**
+
+Both failure modes were in the first build. Trees, houses and the cabin trunk
+were authored at the height that looked right and ended up buried a metre
+inside the land or the hull, which the audit reports as FLOATING because
+nothing holds them up *where they begin*. Setting them to start exactly on the
+surface below fixed that and created the opposite fault: two faces at one depth
+fight for the pixel, and 56 pairs of them did. Two centimetres satisfies both —
+it is inside the audit's 3 cm support window, so the bank still counts as
+holding up the tree, and it is 30× the 0.6 mm at which two surfaces flicker.
+
+The same question — *what is carrying this?* — fixed things the eye had already
+been failing to read. The gauge needles had nothing around them, so the dash
+got the chrome rims a 1988 gauge actually has. The ignition keys hung in front
+of their own locks with the barrel stopping 17 mm short of the shank, so the
+barrels are now 12 cm deep with nine of them behind the fascia. The two cockpit
+seat mouldings shared a top face over a third of a square metre, so the port
+return now stops 2 cm inside the aft bench and the cushion runs the corner
+alone, which is how the boat is upholstered anyway.
+
+The 28 findings that remain are limbs of the shared `src/core/person.js` figure
+rig, which NO WAKE deliberately leaves unchanged and which carries no mesh
+names for a check to assert. `tools/scene-audit.mjs` also learned that an
+invisible parent hides its children: the ballast bundle is built inside the
+closed forward locker with its group hidden until the player takes it, and the
+audit was reporting a cast-iron pig hanging in the air in a place no camera can
+ever be.
+
 ## Cast, weapons and wounds
 
 Willy, Lou, Booski and Irish use stable campaign identities and the canonical

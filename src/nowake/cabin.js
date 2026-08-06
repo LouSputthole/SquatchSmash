@@ -103,7 +103,9 @@ export function buildCabin(root) {
   const galley = new THREE.Group();
   galley.name = 'galley and wet bar';
   group.add(galley);
-  galley.add(box('galley cabinet carcass', [.96, .94, 1.12], veneerDark, -1.22, SOLE + .48, -3.30));
+  /* 2 cm taller than the counter needs, so the counter beds into the carcass
+   * instead of balancing on its top face over a square metre of shared plane. */
+  galley.add(box('galley cabinet carcass', [.96, .96, 1.12], veneerDark, -1.22, SOLE + .49, -3.30));
   galley.add(box('galley counter top', [1.00, .06, 1.14], veneer, -1.22, COUNTER_TOP, -3.30));
   galley.add(box('galley counter fiddle rail', [.04, .05, 1.14], brass, -.74, COUNTER_TOP + .05, -3.30));
   const sink = mesh('galley stainless sink basin',
@@ -218,7 +220,9 @@ export function buildCabin(root) {
   const berth = new THREE.Group();
   berth.name = 'forward V-berth';
   group.add(berth);
-  berth.add(box('V-berth base', [3.10, .52, 1.24], veneerDark, 0, SOLE + .27, -4.52));
+  /* Its foot is 2 cm below the sole, not level with it: the tarpaulin gets
+   * laid on that sole and the two bottoms were fighting for the same plane. */
+  berth.add(box('V-berth base', [3.10, .54, 1.24], veneerDark, 0, SOLE + .26, -4.52));
   berth.add(box('V-berth mattress', [2.90, .16, 1.16], vinyl, 0, .14, -4.52));
   berth.add(box('V-berth rumpled bedding', [2.10, .13, .78], mat(0x8a8272, .95), -.14, .26, -4.62));
   berth.add(box('V-berth pillow port', [.52, .13, .30], mat(0xc9c3b2, .92), -.78, .28, -4.94));

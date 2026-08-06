@@ -247,7 +247,7 @@ function buildMarina(scene) {
     const neighborHull = mesh('tapered neighboring hull', marinaHullGeometry(length, beam), mat(color), 0, 0, 0);
     other.add(neighborHull);
     other.add(box('neighbor deck sole', [3.12, .12, 7.65], mat(0x5f4a36), 0, .61, .20));
-    other.add(box('neighbor gunwale cap', [3.32, .10, 8.25], mat(0xbdb9ad), 0, .59, .12));
+    other.add(box('neighbor gunwale cap', [3.32, .10, 8.25], mat(0xbdb9ad), 0, .57, .12));
     for (const sx of [-1, 1]) {
       other.add(box(`neighbor sheer stripe ${sx < 0 ? 'port' : 'starboard'}`, [.08, .18, 7.9], mat(accent), sx * 1.64, .22, .18));
     }
@@ -272,7 +272,7 @@ function buildMarina(scene) {
       }
     }
     other.add(box('neighbor transom platform', [2.42, .18, .72], mat(0xb0aca1), 0, .88, 3.17));
-    other.add(box('neighbor transom face', [2.24, .45, .14], mat(0x9a978d), 0, 1.195, 3.48));
+    other.add(box('neighbor transom face', [2.24, .45, .14], mat(0x9a978d), 0, 1.175, 3.48));
     other.add(cylinder('neighbor radar mast', .045, 1.08, steel, 0, 2.25, -1.12, 8));
     const radar = mesh('neighbor radar dome', new THREE.SphereGeometry(.25, 16, 10), mat(0xc0bbae), 0, 2.885, -1.12);
     radar.scale.y = .38;
@@ -289,14 +289,19 @@ function buildMarina(scene) {
   const shoreline = box('harbor shoreline bank', [360, 7, 36], mat(0x1e2a24), 0, 1.2, 80);
   shoreline.receiveShadow = true;
   scene.add(shoreline);
-  /* Trees stand ON the bank. Authored at the height that looked right, they
-   * were buried in it -- their bases a metre below its top -- which the
-   * geometry audit reports as floating because nothing is holding them up
-   * where they begin. The bank's top is 4.70; every trunk starts there. */
+  /* Trees stand ON the bank, bedded 2 cm into it. Authored at the height that
+   * looked right, they were buried in it -- their bases a metre below its top
+   * -- which the geometry audit reports as floating because nothing is holding
+   * them up where they begin. Then they were set to start EXACTLY at the
+   * bank's top, which is the other fault: two faces at one depth fight for the
+   * pixel. Two centimetres of overlap is the whole answer to both -- it is
+   * inside the audit's 3 cm support window, so the bank still counts as
+   * holding the tree up, and it is 30x the 0.6 mm at which the two surfaces
+   * would flicker. Every stacked pair in this scene is built to that rule. */
   const BANK_TOP = 1.2 + 3.5;
   for (let i = 0; i < 30; i++) {
-    const trunk = cylinder(`harbor tree trunk ${i + 1}`, .18 + (i % 3) * .04, 3.8, mat(0x2c241b), -170 + i * 11, BANK_TOP + 1.9, 69 + (i % 4) * 4, 7);
-    const crown = mesh(`harbor tree crown ${i + 1}`, new THREE.ConeGeometry(1.6 + (i % 4) * .22, 5.5, 8), mat(0x18241d), trunk.position.x, BANK_TOP + 3.8 + 2.75, trunk.position.z);
+    const trunk = cylinder(`harbor tree trunk ${i + 1}`, .18 + (i % 3) * .04, 3.8, mat(0x2c241b), -170 + i * 11, BANK_TOP + 1.88, 69 + (i % 4) * 4, 7);
+    const crown = mesh(`harbor tree crown ${i + 1}`, new THREE.ConeGeometry(1.6 + (i % 4) * .22, 5.5, 8), mat(0x18241d), trunk.position.x, BANK_TOP + 3.76 + 2.75, trunk.position.z);
     scene.add(trunk, crown);
   }
 
@@ -352,8 +357,8 @@ function buildChannel(scene) {
     const x = side * (86 + (i % 3) * 22 + i * 3.5);
     const house = new THREE.Group();
     house.name = `shoreline house ${i + 1}`;
-    house.add(box(`shoreline house walls ${i + 1}`, [9, 5, 7], stucco, 0, 2.5, 0));
-    // walls run 0 to 5 in the house's own frame, so they begin exactly on the bank.
+    house.add(box(`shoreline house walls ${i + 1}`, [9, 5, 7], stucco, 0, 2.48, 0));
+    // walls run -0.02 to 4.98 in the house's own frame: 2 cm into the bank.
     const roof = mesh(`shoreline house roof ${i + 1}`, new THREE.ConeGeometry(7.4, 3.1, 4), mat(0x33291f), 0, 6.5, 0);
     roof.rotation.y = Math.PI / 4;
     house.add(roof);
@@ -386,8 +391,8 @@ function buildChannel(scene) {
   for (let i = 0; i < 26; i++) {
     const tx = -44 + (i % 13) * 7.2 + (i > 12 ? 3.4 : 0);
     const tz = (i > 12 ? 12 : -8) + ((i * 5) % 17);
-    point.add(cylinder(`point tree trunk ${i + 1}`, .22, 5.2, timber, tx, POINT_TOP + 2.6, tz, 7));
-    point.add(mesh(`point tree crown ${i + 1}`, new THREE.ConeGeometry(2.2 + (i % 3) * .4, 7.6, 8), foliage, tx, POINT_TOP + 5.2 + 3.8, tz));
+    point.add(cylinder(`point tree trunk ${i + 1}`, .22, 5.2, timber, tx, POINT_TOP + 2.58, tz, 7));
+    point.add(mesh(`point tree crown ${i + 1}`, new THREE.ConeGeometry(2.2 + (i % 3) * .4, 7.6, 8), foliage, tx, POINT_TOP + 5.16 + 3.8, tz));
   }
   point.position.set(-62, 0, INLET.z - 6);
   channel.add(point);
@@ -396,7 +401,9 @@ function buildChannel(scene) {
   quarry.name = 'quarry wall';
   quarry.add(box('quarry wall face', [70, 26, 40], rock, 0, 10, 0));
   for (let i = 0; i < 9; i++) {
-    quarry.add(box(`quarry bench ${i + 1}`, [66 - i * 4, 2.2, 3.6], rockPale, -i * 1.2, 2.4 + i * 2.2, -17 + i * .9));
+    /* 2.18 of rise for 2.2 of bench: each terrace beds into the one below it
+     * rather than balancing exactly on its top face. */
+    quarry.add(box(`quarry bench ${i + 1}`, [66 - i * 4, 2.2, 3.6], rockPale, -i * 1.2, 2.4 + i * 2.18, -17 + i * .9));
   }
   quarry.add(box('quarry spoil heap', [30, 4, 12], rockPale, 12, 1.4, -22));
   quarry.position.set(56, 0, INLET.z + 10);
@@ -408,8 +415,8 @@ function buildChannel(scene) {
   for (let i = 0; i < 18; i++) {
     const tx = -78 + i * 9;
     const tz = INLET.z - 52 + (i % 3) * 5;
-    channel.add(cylinder(`inlet head tree trunk ${i + 1}`, .24, 5.6, timber, tx, HEAD_TOP + 2.8, tz, 7));
-    channel.add(mesh(`inlet head tree crown ${i + 1}`, new THREE.ConeGeometry(2.4, 8.2, 8), foliage, tx, HEAD_TOP + 5.6 + 4.1, tz));
+    channel.add(cylinder(`inlet head tree trunk ${i + 1}`, .24, 5.6, timber, tx, HEAD_TOP + 2.78, tz, 7));
+    channel.add(mesh(`inlet head tree crown ${i + 1}`, new THREE.ConeGeometry(2.4, 8.2, 8), foliage, tx, HEAD_TOP + 5.56 + 4.1, tz));
   }
   return { root: channel, sign: signPost, point, quarry };
 }
@@ -517,11 +524,15 @@ function buildBoat(scene, marina) {
   root.add(box('cabin trunk roof nonslip', [3.70, .02, 3.10], cream, 0, 1.705, -3.60));
   /* The trunk stands on the sheer (0.76) and carries the foredeck (1.56), so
    * the thing the player walks on forward has something under it. Authored
-   * taller and lower, it hung in the hull with its base in mid-air. */
+   * taller and lower, it hung in the hull with its base in mid-air; authored
+   * to exactly 0.76 and exactly 1.56, it stopped hanging and started
+   * flickering against both. 0.83 tall about the same centre buries 15 mm in
+   * the hull and pushes 15 mm into the foredeck, which is what a moulding
+   * actually does. */
   for (const sx of [-1, 1]) {
-    root.add(box(`cabin trunk side ${sx < 0 ? 'port' : 'starboard'}`, [.14, .80, 3.30], cream, sx * 2.00, 1.16, -3.60));
+    root.add(box(`cabin trunk side ${sx < 0 ? 'port' : 'starboard'}`, [.14, .83, 3.30], cream, sx * 2.00, 1.16, -3.60));
   }
-  root.add(box('cabin trunk forward face', [3.10, .80, .14], cream, 0, 1.16, -5.22));
+  root.add(box('cabin trunk forward face', [3.10, .83, .14], cream, 0, 1.16, -5.22));
   root.add(box('forward bulkhead', [4.02, .70, .16], cream, 0, 1.36, -2.00));
 
   /* ---- stern: swim platform, ladder, transom gate ---- */
@@ -566,7 +577,13 @@ function buildBoat(scene, marina) {
   // route from the companionway to the transom gate is never blocked.
   const seating = new THREE.Group();
   seating.name = 'aft cockpit seating';
-  seating.add(box('cockpit seat base · port return', [.86, .46, 1.78], creamDeep, -1.55, 1.23, 3.46));
+  /* The port return stops 2 cm INTO the aft bench rather than running past it.
+   * Overlapping the full corner made two seat tops share one plane over a
+   * third of a square metre, which is a flicker you would see every time the
+   * camera moved; butting them exactly would have traded it for the same fight
+   * on their end faces. The cushion still runs the whole corner -- it is one
+   * piece of vinyl over two mouldings, which is how the boat is built. */
+  seating.add(box('cockpit seat base · port return', [.86, .46, 1.43], creamDeep, -1.55, 1.23, 3.285));
   seating.add(box('cockpit seat cushion · port return', [.80, .13, 1.70], vinyl, -1.55, 1.52, 3.46));
   seating.add(box('cockpit seat seam · port return', [.82, .03, .04], vinylSeam, -1.55, 1.59, 3.46));
   seating.add(box('cockpit seat back · port return', [.16, .48, 1.78], vinyl, -1.94, 1.80, 3.46));
@@ -668,7 +685,11 @@ function buildBoat(scene, marina) {
   locker.name = 'forward ballast locker';
   const lockerLid = box('forward locker lid', [1.20, .06, .90], creamDeep, -.02, 1.74, -3.72);
   locker.add(lockerLid);
-  locker.add(box('forward locker seam', [1.26, .02, .96], teakDark, -.02, 1.715, -3.72));
+  /* The seam sits at the lid's waist, not under its lip. Flush with the lid's
+   * underside it shared a plane with the sun pad's base over 0.39 m²; the deck
+   * stack here (roof 1.70, nonslip 1.695-1.715, lid 1.71-1.77, pad from 1.705)
+   * has no 2 cm gap below the lid to put it in, and there is one above. */
+  locker.add(box('forward locker seam', [1.26, .02, .96], teakDark, -.02, 1.7525, -3.72));
   locker.add(mesh('forward locker lift ring', new THREE.TorusGeometry(.07, .012, 6, 16), brass, -.02, 1.77, -3.42)
     .rotateX(-Math.PI / 2));
   const ballast = new THREE.Group();
@@ -749,11 +770,18 @@ function buildBoat(scene, marina) {
     const face = mesh(`${label} gauge face`, new THREE.CircleGeometry(.12, 26), mat(0x07100f), 0, 0, .032);
     const needle = box(`${label} gauge needle`, [.016, .10, .010], mat(0xe2c95d), 0, .022, .046);
     needle.geometry.translate(0, .032, 0);
+    /* A chrome rim standing proud of the glass, which is what a 1988 gauge
+     * looks like -- and the only thing on this dash that is actually AROUND
+     * the needle. The can behind the dial ends 7 mm short of the needle's
+     * face, so before this ring every needle but DEPTH was a bright sliver
+     * with nothing near it in any direction: the geometry audit read four of
+     * them as hanging in the air, and it was reading the model correctly. */
+    const rim = mesh(`${label} gauge rim`, new THREE.TorusGeometry(.132, .016, 8, 24), chrome, 0, 0, .048);
     const title = textPlate(`${label} gauge label`, label, .20, .05, {
       foreground: '#d7e3df', background: '#07100f', border: '#07100f', font: 26,
     });
     title.position.set(0, -.086, .052);
-    g.add(bezel, face, needle, title);
+    g.add(bezel, face, needle, rim, title);
     g.position.set(x, y, z);
     helm.add(g);
     return needle;
@@ -829,11 +857,21 @@ function buildBoat(scene, marina) {
   for (const [i, side] of ['port', 'starboard'].entries()) {
     const ignition = new THREE.Group();
     ignition.name = `${side} engine ignition key`;
-    ignition.add(cylinder(`${side} ignition barrel`, .062, .05, chrome, 0, 0, 0, 20).rotateX(Math.PI / 2));
+    /* 12 cm of barrel, nine of them behind the fascia, so the shank is inside
+     * something. At 5 cm the barrel stopped 17 mm short of where the key
+     * began and the two never met in plan at all -- a key floating in front of
+     * its own lock. */
+    ignition.add(cylinder(`${side} ignition barrel`, .062, .12, chrome, 0, 0, .03, 20).rotateX(Math.PI / 2));
     const keyTurn = new THREE.Group();
     keyTurn.name = `${side} ignition key turn`;
-    keyTurn.add(box(`${side} ignition key blade`, [.035, .15, .025], mat(0xc6b67c, .34, .55), 0, -.05, .055));
-    keyTurn.add(box(`${side} ignition key fob`, [.08, .07, .03], rubber, 0, -.14, .055));
+    /* Barrel holds shank, shank holds fob. Authored as three things that each
+     * began where the last one ended, the chain had a gap at every link: the
+     * shank started below the barrel's mouth and the fob hung under the shank
+     * with air between them, which is how a key looks when nobody has asked
+     * what is carrying it. The shank now sits INSIDE the barrel and the fob is
+     * threaded onto its lower half. */
+    keyTurn.add(box(`${side} ignition key blade`, [.035, .12, .025], mat(0xc6b67c, .34, .55), 0, -.03, .055));
+    keyTurn.add(box(`${side} ignition key fob`, [.08, .07, .03], rubber, 0, -.075, .055));
     ignition.add(keyTurn);
     ignition.position.set(1.34 + i * .22, 1.62, -.22);
     helm.add(ignition);
