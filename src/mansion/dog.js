@@ -46,9 +46,10 @@
  * needing to consult the house's floor resolver at all. Give him points with
  * honest heights and he never floats and never sinks.
  *
- * `LIL_TOM_ROUTE` below is the default and matches the stair
- * `MasterSuite.js` builds; it is exported from there as well so the two can
- * never drift.
+ * `LIL_TOM_ROUTE` below is the default and is measured off the stair
+ * `buildMasterSuite()` in `scenes/MansionInterior.js` actually builds;
+ * `tests/mansion-suite-dog.test.mjs` re-derives it from that file's exported
+ * rects so the two can never drift.
  *
  * ------------------------------------------------------------------- THE LOOK
  *
@@ -495,20 +496,40 @@ export function buildLilTomCruze() {
 /* The route                                                           */
 /* ================================================================== */
 /**
- * Office -> the stair -> the master suite -> back.
+ * His cushion -> the stair -> Lou's office -> back.
  *
- * Heights are the real floor heights along the way: the office slab is at
- * UPPER_Y = 6.0, the stair's half-landing at 8.3, and the suite at 10.6 (the
- * top of the house's own roof slab, which `MasterSuite.js` finishes as its
- * floor). `MasterSuite.js` re-exports this list so the two cannot drift.
+ * MEASURED OFF THE BUILT STAIR, not sketched. When this module was written the
+ * suite did not exist and these were six plausible numbers with a note saying
+ * a `MasterSuite.js` would re-export them; the suite exists now, it is
+ * `buildMasterSuite()` in `scenes/MansionInterior.js`, and every waypoint below
+ * is taken from the geometry that file exports:
+ *
+ *   y = 10.60  SUITE_Y                  the third floor
+ *   y =  8.30  SUITE_STAIR_LANDING_Y    the half-turn
+ *   y =  6.00  UPPER_Y                  the office
+ *
+ * The four legs on the flights carry the flight's OWN end z values
+ * (SUITE_FLIGHT_A/B.z0/z1), because `update()` lerps y linearly between
+ * consecutive points: a waypoint 0.4 m short of the top tread puts him 0.35 m
+ * under the stone for the whole leg. `tests/mansion-suite-dog.test.mjs` asserts
+ * every one of these against the exported rects, so the two cannot drift.
+ *
+ * He starts on the CUSHION, with the longest wait in the list, because that is
+ * where the owner asked for him to be and it is where the player meets him.
  */
 export const LIL_TOM_ROUTE = Object.freeze([
-  Object.freeze({ x: -0.2, y: 6.0, z: 68.4, wait: 5.0 }),   // by Lou's desk
-  Object.freeze({ x: 3.9, y: 6.0, z: 73.4, wait: 1.2 }),    // the foot of the stair
-  Object.freeze({ x: 7.4, y: 8.3, z: 73.4, wait: 0.4 }),    // the half-landing
-  Object.freeze({ x: 7.4, y: 8.3, z: 71.6, wait: 0.4 }),    // across the landing
-  Object.freeze({ x: 3.9, y: 10.6, z: 71.6, wait: 1.2 }),   // out onto the suite
-  Object.freeze({ x: 0.4, y: 10.6, z: 69.2, wait: 7.0 }),   // the foot of the bed
+  Object.freeze({ x: 2.85, y: 10.60, z: 65.90, wait: 16.0 }),  // his cushion, by the bed
+  Object.freeze({ x: 6.00, y: 10.60, z: 64.60, wait: 0.4 }),   // across the suite
+  Object.freeze({ x: 8.26, y: 10.60, z: 64.95, wait: 0.0 }),   // the arrival pad
+  Object.freeze({ x: 8.26, y: 10.60, z: 65.25, wait: 0.0 }),   // top of the upper flight
+  Object.freeze({ x: 8.26, y: 8.30, z: 67.89, wait: 0.0 }),    // foot of it
+  Object.freeze({ x: 7.20, y: 8.30, z: 68.40, wait: 0.3 }),    // across the half-landing
+  Object.freeze({ x: 7.17, y: 8.30, z: 67.89, wait: 0.0 }),    // top of the lower flight
+  Object.freeze({ x: 7.17, y: 6.00, z: 65.25, wait: 0.0 }),    // foot of it
+  Object.freeze({ x: 7.20, y: 6.00, z: 64.90, wait: 0.3 }),    // the lobby
+  Object.freeze({ x: 5.40, y: 6.00, z: 65.20, wait: 0.3 }),    // out through the bookcase
+  Object.freeze({ x: 2.20, y: 6.00, z: 66.40, wait: 0.0 }),    // round the fireside chairs
+  Object.freeze({ x: 0.00, y: 6.00, z: 70.00, wait: 12.0 }),   // at Lou's desk
 ]);
 
 /* ================================================================== */

@@ -5643,13 +5643,29 @@ export function buildMansionInterior(shell = null) {
     // inscribed on the coping is what you actually bump into walking past.
     solid(tubX - TUB_R, tubX + TUB_R, SY, TUB_RIM, tubZ - TUB_R, tubZ + TUB_R);
 
-    /* Where the two performers sit. Published rather than restated at the
-     * call site, so the composition root cannot seat them at the wrong
-     * height in a tub whose numbers move. Facing the middle of the water. */
-    props.tubSeats = [
-      { x: tubX - 0.86, z: tubZ + 0.5, y: TUB_BENCH, yaw: Math.atan2(0.86, -0.5) },
-      { x: tubX + 0.72, z: tubZ + 0.72, y: TUB_BENCH, yaw: Math.atan2(-0.72, -0.72) },
-    ];
+    /* WHERE THE TWO PERFORMERS SIT, AND WHAT `y` MEANS HERE.
+     *
+     * `Npc.sit()` drops the figure by 0.42 x its own height scale and folds
+     * the legs, so the number it wants is the floor the SEATED FEET rest on --
+     * not the seat. Publishing the bench height instead would have put both of
+     * them 0.82 m up, sitting on the water with their feet in the air, and it
+     * is the kind of thing that reads as "the tub is wrong" rather than as
+     * "the seat number is wrong". So this is TUB_FLOOR, and the bench is
+     * exactly the 0.42 above it that `sit()` assumes.
+     *
+     * Placed on the bench ring at 1.22 m out, in the two arcs facing the room,
+     * and turned to face the middle of the water. Yaw is `atan2(-dx, -dz)`
+     * because every figure in this project points down its own local -Z. */
+    props.tubSeats = [-2.5, -0.55].map((a) => {
+      const sxx = tubX + Math.cos(a) * 1.22;
+      const szz = tubZ + Math.sin(a) * 1.22;
+      return {
+        x: sxx,
+        z: szz,
+        y: TUB_FLOOR,
+        yaw: Math.atan2(-(tubX - sxx), -(tubZ - szz)),
+      };
+    });
     /* Champagne, on its own pedestal beside the tub rather than balanced on
      * the coping — a bucket standing on a curved marble rim is a bucket
      * standing on nothing, which is what the audit says about it too. */

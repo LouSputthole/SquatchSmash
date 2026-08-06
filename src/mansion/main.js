@@ -360,6 +360,36 @@ function startAmbience() {
   audio.startLoop('distantMusic', {
     name: 'ambience.club', volume: 0.022, ambience: true, fade: 3,
   });
+  /* The third floor. Two beds, both positional, both quiet:
+   *   - a room tone, so the suite is not the one silent room in a house that
+   *     hums everywhere else;
+   *   - the tub, which is the only thing up there making a noise.
+   * Neither has a recording yet. `AudioEngine.startLoop` falls through to
+   * `synthLoop` when the manifest cue has no sample, and both cues have a
+   * case there -- filtered noise for the room, and a bubbling bed built from
+   * two bandpassed noise sources and a slow LFO for the water. They are in
+   * the manifest so `npm run sfx` can render them the day somebody records
+   * them, and they cost nothing at runtime until then. */
+  const suiteMid = interior.rooms.masterSuite.anchor;
+  audio.startLoop('suiteTone', {
+    name: 'mansion.suite.tone',
+    volume: 0.05,
+    position: new THREE.Vector3(suiteMid.x, suiteMid.y + 1.2, suiteMid.z),
+    ref: 6,
+    maxDist: 26,
+    ambience: true,
+    fade: 2.4,
+  });
+  const tub = interior.props.masterSuite.tub;
+  audio.startLoop('suiteHotTub', {
+    name: 'mansion.suite.hottub',
+    volume: 0.3,
+    position: new THREE.Vector3(tub.x, tub.waterY, tub.z),
+    ref: 2.2,
+    maxDist: 14,
+    ambience: true,
+    fade: 2.0,
+  });
 }
 
 /* ================================================================== */
@@ -411,6 +441,11 @@ function mountTv(screenMesh, { channel = 0, on = true } = {}) {
 
 const loungeTv = mountTv(interior.props.lounge.tv?.screen, { channel: 0 });
 const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { channel: 2 });
+/* The third floor's set: 2.6 m of it on the north pier, facing the bed down
+ * nine metres of room. Same `Tv` as every other set in the house, so it
+ * repaints, it changes channel, it lights the wall in front of it, and the
+ * debug surface counts it with the rest. */
+const suiteTv = mountTv(interior.props.masterSuite.tv?.screen, { channel: 1 });
 
 /* ================================================================== */
 /* THE HOME THEATRE, AND THE SEAM A FILM DROPS INTO                     */
@@ -667,6 +702,41 @@ flavor(
 /* ================================================================== */
 /* Things that actually do something                                    */
 /* ================================================================== */
+
+/* ================================================================== */
+/* THE BOOKCASE IN LOU'S OFFICE                                         */
+/*                                                                       */
+/* The one interaction on the third floor's route, and the reveal itself. */
+/* Registered here rather than in the interior for the same reason the    */
+/* kitchen tap is: `MansionInterior.js` builds the house and knows nothing */
+/* about the interaction system. It publishes a target and a verb; this    */
+/* calls them.                                                              */
+/*                                                                          */
+/* ONE registration, on the invisible slab standing proud of the books --    */
+/* `interaction.register` writes `userData.interact`, so registering twice    */
+/* replaces the first descriptor and leaves a stale row in its target list.   */
+/*                                                                            */
+/* The refusal speaks. There is nothing to refuse here yet, but the label      */
+/* always says what pressing E will do, because a gated interaction that goes  */
+/* quiet is the silent-failure class this project has paid for three times.    */
+/* ================================================================== */
+const secretBookcase = interior.props.masterSuite.secretStair;
+if (secretBookcase?.target) {
+  interaction.register(secretBookcase.target, {
+    label: () => (secretBookcase.isOpen()
+      ? 'Swing the <b>bookcase</b> shut'
+      : 'One of these is not a bookcase'),
+    key: 'E',
+    enabled: () => running,
+    onUse: () => {
+      const open = secretBookcase.toggle();
+      audio.play(open ? 'mansion.suite.bookcase.open' : 'mansion.suite.bookcase.shut', {
+        volume: 0.55,
+        position: secretBookcase.target.getWorldPosition(new THREE.Vector3()),
+      });
+    },
+  });
+}
 
 /** The kitchen tap. Hold E to run it; let go and it stops. */
 let sinkRunning = false;
@@ -980,6 +1050,7 @@ const cast = mountMansionCast(scene, world, {
   audio,
   anchors,
   lab,
+  suite: interior.props.masterSuite,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
   enabled: () => running,
@@ -1335,6 +1406,38 @@ window.mansion = {
     ...Object.values(grounds.doors).map((d) => ({ ...d })),
     ...grounds.shell.windows.map((w) => ({ ...w })),
   ],
+  /**
+   * THE THIRD FLOOR, for the verifier that walks it.
+   *
+   * Everything here is a live read off the built world rather than a copy of
+   * the numbers that built it: `waterTime` is the hot tub's own shader clock,
+   * `dog` is `report()` off the walking dog, and the three bed plans are
+   * measured with the same THREE instance the scene was built with.
+   */
+  suite: {
+    room: { ...interior.rooms.masterSuite.rect, floor: interior.rooms.masterSuite.floor },
+    bed: interior.props.masterSuite.bed,
+    tub: interior.props.masterSuite.tub,
+    tubSeats: interior.props.masterSuite.tubSeats,
+    dogCushion: interior.props.masterSuite.dogCushion,
+    get waterTime() {
+      return interior.props.masterSuite.tubWaterMaterial.uniforms.uTime.value;
+    },
+    get tvOn() { return suiteTv?.on ?? false; },
+    stair: {
+      hall: { ...secretBookcase.hall },
+      ...secretBookcase.geometry,
+      get open() { return secretBookcase.isOpen(); },
+    },
+    openBookcase: (open = true) => secretBookcase.setOpen(open),
+    get dog() { return cast?.dog?.report?.() ?? null; },
+    petDog: () => cast?.dog?.pet?.() ?? false,
+    /** Tick the dog on his own, for a check that must not wait on the door. */
+    stepDog: (dt = 1 / 60, steps = 1) => {
+      for (let i = 0; i < steps; i++) cast?.dog?.update?.(dt);
+      return cast?.dog?.report?.() ?? null;
+    },
+  },
   /** The working sets, so a verifier can prove they are wired rather than modelled. */
   media: {
     tvs: houseTvs.map((tv) => ({
@@ -1393,6 +1496,12 @@ window.mansion = {
       for (const [id, npc] of Object.entries(cast?.people ?? {})) {
         const p = npc.group?.position;
         if (!p) continue;
+        /* Somebody deliberately inside a fixture is not somebody stuck in the
+         * furniture. Exactly two bodies carry this -- the pair in the third
+         * floor's hot tub, which is a solid marble drum by construction -- and
+         * they carry it on themselves rather than the check carrying a list of
+         * names. */
+        if (npc.inFixture) continue;
         for (const box of colliders) {
           /* Waist height: a floor plate the feet stand on is not a fault, a
            * counter through the middle of a man is. */
