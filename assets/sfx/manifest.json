@@ -11329,156 +11329,6 @@
       "say": "Blue lights. We leave now."
     },
     {
-      "name": "vo.nowake.start.lou.platform.1",
-      "voice": "lou",
-      "say": "Prospect. The platform is down. Walk it onto the port deck and do not make me come back for you."
-    },
-    {
-      "name": "vo.nowake.start.booski.sequence.1",
-      "voice": "booski",
-      "say": "Battery, blower, ignition. Then both lines. The helm is through the open port side."
-    },
-    {
-      "name": "vo.nowake.cruise.willy.cigars.1",
-      "voice": "willy",
-      "say": "This old girl still smells like Lou’s cigars. He sold the ashtrays but kept the smell."
-    },
-    {
-      "name": "vo.nowake.cruise.booski.markers.1",
-      "voice": "booski",
-      "say": "Red markers to starboard, Tony. Unless you want the Harbor Patrol in the conversation."
-    },
-    {
-      "name": "vo.nowake.cruise.willy.motel.1",
-      "voice": "willy",
-      "say": "Nice to get out. Everybody has been looking at me funny since the Motel."
-    },
-    {
-      "name": "vo.nowake.cruise.lou.water.1",
-      "voice": "lou",
-      "say": "Nobody is looking at anybody, Willy. Enjoy the water."
-    },
-    {
-      "name": "vo.nowake.cruise.irish.egg.1",
-      "voice": "irish",
-      "say": "I’ll do the back half of the egg story on the way in. There is a back half. Nobody ever gets to it."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.quiet.1",
-      "voice": "lou",
-      "say": "Kill the engines in your head for a minute, kid. We need the quiet."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.sandwiches.1",
-      "voice": "willy",
-      "say": "What is this, Lou? You said a ride. I brought sandwiches."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.beef-detected.1",
-      "voice": "lou",
-      "say": "The Beef Run drew eyes because somebody gave them a tail number and a day."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.beef-clean.1",
-      "voice": "lou",
-      "say": "The Beef Run was clean. Then a Bureau report named the strip, the cargo, and all four crates."
-    },
-    {
-      "name": "vo.nowake.reveal.booski.pickup.1",
-      "voice": "booski",
-      "say": "Four people knew the reserve pickup. Lou, me, Tony, and the man who asked twice which room."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.questions.1",
-      "voice": "willy",
-      "say": "I ask things. I am interested. That is a crime now?"
-    },
-    {
-      "name": "vo.nowake.reveal.lou.motel-hot.1",
-      "voice": "lou",
-      "say": "The Bureau was on the Motel road before the first siren. That did not happen by luck."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.motel-clean.1",
-      "voice": "lou",
-      "say": "The Bureau knew the Motel, the room, and what was in the cases before Cecilio opened the door."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.bureau.1",
-      "voice": "willy",
-      "say": "You think I talked to the Bureau? After all these years?"
-    },
-    {
-      "name": "vo.nowake.reveal.lou.confirmed.1",
-      "voice": "lou",
-      "say": "We know you did. The only question left is whether you make us hear you deny it again."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.head-v2.1",
-      "voice": "willy",
-      "say": "I need the head. Too much coffee on the ride down. Everybody relax."
-    },
-    {
-      "name": "vo.nowake.reveal.irish.counted.1",
-      "voice": "irish",
-      "say": "Four. I counted it on my fingers, twice, sitting in my own kitchen, hoping I’d get five."
-    },
-    {
-      "name": "vo.nowake.reveal.irish.asked.1",
-      "voice": "irish",
-      "say": "He was asked. Asked, asked again, and now. That is the whole of it and I’ll say so to anybody who asks me."
-    },
-    {
-      "name": "vo.nowake.below.booski.look.1",
-      "voice": "booski",
-      "say": "When he comes back, do not look at Lou. Look at Willy."
-    },
-    {
-      "name": "vo.nowake.below.lou.fire.1",
-      "voice": "lou",
-      "say": "You fire with us. Not after us."
-    },
-    {
-      "name": "vo.nowake.below.irish.hands.1",
-      "voice": "irish",
-      "say": "My hands stay empty, kid. Somebody on this boat has to be able to say what happened out here."
-    },
-    {
-      "name": "vo.nowake.execution.lou.move.1",
-      "voice": "lou",
-      "say": "That’s done. Help Booski get him over the side."
-    },
-    {
-      "name": "vo.nowake.execution.irish.rail.1",
-      "voice": "irish",
-      "say": "Rail’s clear on this side. Take him wide of the propellers and mind your footing."
-    },
-    {
-      "name": "vo.nowake.execution.booski.lift.1",
-      "voice": "booski",
-      "say": "Shoulders, Prospect. I’ve got his legs."
-    },
-    {
-      "name": "vo.nowake.execution.prospect.lift.1",
-      "voice": "player",
-      "say": "I’ve got him."
-    },
-    {
-      "name": "vo.nowake.return.lou.lesson.1",
-      "voice": "lou",
-      "say": "You did what you were told. Leave the rest of it out here."
-    },
-    {
-      "name": "vo.nowake.return.irish.no-back-half.1",
-      "voice": "irish",
-      "say": "I’m not doing the back half. Not today. Ask me at the club sometime."
-    },
-    {
-      "name": "vo.nowake.epilogue.tony.phone.1",
-      "voice": "player",
-      "say": "The phone will ring when it rings."
-    },
-    {
       "name": "vo.call.lou.no_wake.1",
       "voice": "lou1",
       "say": "Kid. South Harbor. Gate C. Quarter to one."
@@ -19457,6 +19307,243 @@
       "name": "heist.rippin_pursuit_ram",
       "voice": "rippinflow",
       "say": "That was on purpose! He is trying to put us into a wall — go, go, do not let him line it up again."
+    },
+    {
+      "_comment": "NO WAKE inlet bed. The pocket behind the wooded point, engines off.",
+      "name": "ambience.ocean.night",
+      "duration": 12,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "sheltered saltwater inlet after dark with the engines off, small swell slapping a fiberglass hull, water moving against rock and trees on both shores, very distant open water, seamless loop, no engine, no birds, no voices, no music"
+    },
+    {
+      "_comment": "NO WAKE throttle answer. Layered over the live engine graph when the levers move.",
+      "name": "boat.engine.rev",
+      "duration": 3.6,
+      "promptInfluence": 0.52,
+      "prompt": "twin late 1980s marine gasoline inboards blipped up from idle and settling back, exhaust note rising and falling through a transom, heard from the cockpit of a fiberglass express cruiser, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE cabin bed. What the confrontation is heard over, below deck.",
+      "name": "water.lap.hull",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "water tapping and slapping against a fiberglass hull heard from inside a small boat cabin, close and enclosed, occasional slow hull flex creak, seamless loop, no engine, no wind, no voices, no music"
+    },
+    {
+      "_comment": "NO WAKE wrapping beat. Booski closes the bag.",
+      "name": "boat.bag.zip",
+      "duration": 2.6,
+      "promptInfluence": 0.55,
+      "prompt": "one long heavy-gauge zipper pulled closed along a thick vinyl body bag, coarse teeth engaging in a single steady run, close interior, no fabric rustle afterwards, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE ballast beat. Cast iron set on the deck and shackled to the bag.",
+      "name": "boat.ballast.chain",
+      "duration": 2.8,
+      "promptInfluence": 0.55,
+      "prompt": "two heavy cast iron ballast pigs set down on a boat deck and a shackle pulled tight through a steel ring, dense low metal weight, short chain rattle, close exterior, no music, no voice"
+    },
+    {
+      "name": "vo.bing2.party.mirage.willy.1",
+      "voice": "willy",
+      "say": "Ask anybody. I was on Mirage all night. Sat B with the Negev like an asshole."
+    },
+    {
+      "name": "vo.bing2.party.mirage.numbskull",
+      "voice": "numbskull",
+      "say": "What is a Negev."
+    },
+    {
+      "name": "vo.bing2.party.mirage.willy.2",
+      "voice": "willy",
+      "say": "It is a gun, Numbskull. It is a very large gun."
+    },
+    {
+      "name": "vo.nowake.dock.willy.nice-night.1",
+      "voice": "willy",
+      "say": "Nice night for it."
+    },
+    {
+      "name": "vo.nowake.dock.lou.get-her-started.1",
+      "voice": "lou",
+      "say": "Get her started."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.quiet.1",
+      "voice": "willy",
+      "say": "Quiet tonight."
+    },
+    {
+      "name": "vo.nowake.cruise.booski.yeah.1",
+      "voice": "booski",
+      "say": "Yeah."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.strip.1",
+      "voice": "willy",
+      "say": "Nobody has said one word to me about the strip. Not one."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.sideways.1",
+      "voice": "willy",
+      "say": "Everybody has been looking at me sideways since the Motel."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.clean.1",
+      "voice": "willy",
+      "say": "Feels like nobody has been talking to me this week."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.where.1",
+      "voice": "willy",
+      "say": "Where exactly are we headed?"
+    },
+    {
+      "name": "vo.nowake.cruise.lou.away.1",
+      "voice": "lou",
+      "say": "Away from the dock."
+    },
+    {
+      "name": "vo.nowake.inlet.lou.bring-her-down.1",
+      "voice": "lou",
+      "say": "Bring her down."
+    },
+    {
+      "name": "vo.nowake.inlet.lou.kill-them.1",
+      "voice": "lou",
+      "say": "Kill them."
+    },
+    {
+      "name": "vo.nowake.inlet.irish.channel-clear.1",
+      "voice": "irish",
+      "say": "Channel’s clear."
+    },
+    {
+      "name": "vo.nowake.inlet.lou.out-of-the-wind.1",
+      "voice": "lou",
+      "say": "Let’s get out of the wind."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.mirage.1",
+      "voice": "willy",
+      "say": "You remember that Mirage match? We were down fourteen-twelve. Everybody was broke. I bought the Negev, went B, and held the whole site by myself."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.three-through-apartments.1",
+      "voice": "willy",
+      "say": "Three through apartments. One coming out market. Saved the whole damn round."
+    },
+    {
+      "name": "vo.nowake.cabin.lou.willy.1",
+      "voice": "lou",
+      "say": "Willy."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.yeah.1",
+      "voice": "willy",
+      "say": "Yeah?"
+    },
+    {
+      "name": "vo.nowake.cabin.lou.negev.1",
+      "voice": "lou",
+      "say": "Was there ever even a Negev on B?"
+    },
+    {
+      "name": "vo.nowake.cabin.willy.lou.1",
+      "voice": "willy",
+      "say": "Lou…"
+    },
+    {
+      "name": "vo.nowake.cabin.lou.answer.1",
+      "voice": "lou",
+      "say": "Answer the question."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.dont-remember.1",
+      "voice": "willy",
+      "say": "I don’t remember every gun from every round."
+    },
+    {
+      "name": "vo.nowake.cabin.booski.brother.1",
+      "voice": "booski",
+      "say": "You were like a brother to me."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.boosk.1",
+      "voice": "willy",
+      "say": "Boosk, come on. You know me."
+    },
+    {
+      "name": "vo.nowake.cabin.lou.we-do-now.1",
+      "voice": "lou",
+      "say": "Yeah. We do now."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.take-a-seat.1",
+      "voice": "willy",
+      "say": "Can I take a seat?"
+    },
+    {
+      "name": "vo.nowake.cabin.booski.sit-down.1",
+      "voice": "booski",
+      "say": "Sit down."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.all-right.1",
+      "voice": "willy",
+      "say": "All right."
+    },
+    {
+      "name": "vo.nowake.body.lou.finish-it.1",
+      "voice": "lou",
+      "say": "Finish it."
+    },
+    {
+      "name": "vo.nowake.body.booski.your-side.1",
+      "voice": "booski",
+      "say": "Your side. Fold it over and hold it down."
+    },
+    {
+      "name": "vo.nowake.body.booski.straps.1",
+      "voice": "booski",
+      "say": "Straps now. Pull them tight and I’ll close him up."
+    },
+    {
+      "name": "vo.nowake.body.lou.needs-weight.1",
+      "voice": "lou",
+      "say": "Needs weight."
+    },
+    {
+      "name": "vo.nowake.body.booski.bow-locker.1",
+      "voice": "booski",
+      "say": "Bow locker."
+    },
+    {
+      "name": "vo.nowake.body.irish.nothing-behind-us.1",
+      "voice": "irish",
+      "say": "Nothing behind us."
+    },
+    {
+      "name": "vo.nowake.body.booski.sockets.1",
+      "voice": "booski",
+      "say": "Clip it to the rings. I’ll cinch it down."
+    },
+    {
+      "name": "vo.nowake.body.lou.move-him.1",
+      "voice": "lou",
+      "say": "Move him."
+    },
+    {
+      "name": "vo.nowake.body.irish.still-clear.1",
+      "voice": "irish",
+      "say": "Still clear."
+    },
+    {
+      "name": "vo.nowake.body.lou.start-her.1",
+      "voice": "lou",
+      "say": "Start her."
     }
   ]
 }

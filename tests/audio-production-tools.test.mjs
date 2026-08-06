@@ -238,8 +238,40 @@ test('NO WAKE and THE TAKE production briefs have delivered indexed recordings',
     ],
   };
 
+  /* Effects authored since the last generation run.
+   *
+   * The NO WAKE redesign asked for real beds under every leg of the trip --
+   * the owner's complaint was that the engines and the water were thin -- so
+   * five new cues were authored with it and none of them is recorded yet.
+   * Naming them here keeps the handoff honest in both directions: a delivered
+   * effect that goes missing still fails, and a NEW effect nobody declared
+   * still fails. EMPTY THIS ONCE THEY ARE DELIVERED. */
+  const awaitingDelivery = {
+    'NO WAKE': [
+      'ambience.ocean.night',
+      'boat.bag.zip',
+      'boat.ballast.chain',
+      'boat.engine.rev',
+      'water.lap.hull',
+    ],
+    'THE TAKE': [],
+  };
+
   for (const [scene, names] of Object.entries(expected)) {
-    assert.doesNotMatch(handoff, new RegExp(`^## Manifest effect pickups .* ${scene}`, 'm'));
+    const pending = awaitingDelivery[scene] ?? [];
+    if (!pending.length) {
+      assert.doesNotMatch(handoff, new RegExp(`^## Manifest effect pickups .* ${scene}`, 'm'));
+    } else {
+      assert.match(handoff, new RegExp(`^## Manifest effect pickups .* ${scene} \\(${pending.length}\\)$`, 'm'),
+        `${scene} has effects awaiting delivery that the handoff does not list`);
+      for (const name of pending) {
+        const cue = cues.get(name);
+        assert.ok(cue, `${name} must have a manifest production brief`);
+        assert.ok((cue.prompt ?? '').length >= 40, `${name} prompt must be production-ready`);
+        assert.equal(indexed.has(`${name}.mp3`), false,
+          `${name} has been delivered — take it out of awaitingDelivery`);
+      }
+    }
     for (const name of names) {
       const cue = cues.get(name);
       assert.ok(cue, `${name} must have a manifest production brief`);

@@ -54,7 +54,8 @@ const EFFECT_SCENES = [
     || name === 'sprinkler.tick' || name === 'cart.motor'
     || name === 'bird' || name.startsWith('golf.')],
   ['NO WAKE', (name) => name.startsWith('boat.') || name === 'water.splash'
-    || name === 'ambience.harbor' || name === 'seagull.distant'],
+    || name === 'water.lap.hull' || name === 'ambience.harbor'
+    || name === 'ambience.ocean.night' || name === 'seagull.distant'],
   ['THE TAKE', (name) => name.startsWith('heist.')],
   ['Bada Bing', (name) => name.startsWith('ambience.rain')
     || name.startsWith('ambience.club') || name.startsWith('ambience.crowd')

@@ -68,7 +68,16 @@ const SCENES = [
   { id: 'mansion', url: 'mansion.html', start: '#startBtn', ready: () => Boolean(globalThis.mansion) },
   { id: 'golf', url: 'golf.html', start: '#start-btn, #startBtn' },
   { id: 'silver', url: 'silver.html', start: '#start-btn, #startBtn' },
-  { id: 'nowake', url: 'nowake.html', start: '#start-btn, #startBtn' },
+  /* `?preview=1`, and it matters.
+   *
+   * NO WAKE is a campaign mission: on a fresh save `story.canBegin()` is false,
+   * so Start does not start it -- it navigates back to the apartment. This
+   * audit then measured the APARTMENT and filed the results under "nowake",
+   * which is why its findings used to include `heistCase.floor`. A gate that
+   * quietly measures a different scene is worse than no gate (see
+   * `docs/ENGINE-TRAPS.md` #5). Preview seeds the campaign so the boat is
+   * really entered and the meshes counted are really this boat's. */
+  { id: 'nowake', url: 'nowake.html?preview=1', start: '#start-btn, #startBtn' },
   { id: 'enolasquatch', url: 'enolasquatch.html', start: '#start-btn, #startBtn' },
   { id: 'heist', url: 'heist.html', start: '#start-btn, #startBtn' },
   { id: 'motel', url: 'motel.html', start: '#start-btn, #startBtn' },
@@ -117,6 +126,17 @@ const AUDIT = `(() => {
       /* Skip things that are legitimately unbounded or per-frame: sky domes,
        * water planes, particle sprites and instanced crowds. */
       if (/sky|water|ocean|fog|particle|spray|smoke|tracer|muzzle/i.test(n.name)) return;
+      /* AND SKIP WHAT NOBODY CAN SEE. An interaction proxy -- colorWrite
+       * false, kept visible only because Three refuses to raycast anything
+       * invisible -- draws no pixel at all. Every class this audit reports is
+       * a VISUAL fault: a flicker between two surfaces, a thing hanging in the
+       * air, a mesh culled inside out. A volume that writes no colour cannot
+       * have any of them, so reporting one is a finding nobody can act on and
+       * a place nobody can look. NO WAKE's boat carries eleven of these -- the
+       * broad helm proxy, the startup panel, the companionway, the bag -- and
+       * every one of them was a floating box in this report. */
+      const materials = Array.isArray(n.material) ? n.material : [n.material];
+      if (materials.length && materials.every((m) => m && m.colorWrite === false)) return;
       n.matrixWorld.decompose(pos, quat, scale);
       try { box.setFromObject(n); } catch { return; }
       if (!Number.isFinite(box.min.y) || !Number.isFinite(box.max.y)) return;
@@ -164,7 +184,12 @@ const AUDIT = `(() => {
    * bottom AND their footprints overlap. Anything hanging from above is
    * excluded by the name filter below rather than by geometry, because a
    * chandelier and a floating crate look identical from underneath. */
-  const HANGS = /lamp|light|chandelier|sconce|pendant|sign|banner|bulb|cable|wire|duct|pipe|vent|fan|screen|monitor|tv|picture|art|frame|mirror|shelf|rail|curtain|drape|cornice|beam|soffit|ceil|roof|hook|chain|hang|balloon|cloud|bird|star|moon|sun|glow|halo|decal|handprint|stain|shadow/i;
+  /* fender, lanyard, binocular, watch and cuff joined the list when
+   * the first boat scene ran through it. A fender hangs over a rail on its
+   * lanyard by definition, and a wristwatch and a cuff link are worn on a man
+   * -- all five are the same statement the rest of this list makes: "this one
+   * has nothing under it because that is what it is". */
+  const HANGS = /lamp|light|chandelier|sconce|pendant|sign|banner|bulb|cable|wire|duct|pipe|vent|fan|screen|monitor|tv|picture|art|frame|mirror|shelf|rail|curtain|drape|cornice|beam|soffit|ceil|roof|hook|chain|hang|balloon|cloud|bird|star|moon|sun|glow|halo|decal|handprint|stain|shadow|fender|lanyard|binocular|watch|cuff/i;
   const GROUND = 0.06;
   for (const it of items) {
     if (HANGS.test(it.name)) continue;
@@ -224,6 +249,12 @@ const AUDIT = `(() => {
       for (let i = 0; i < group.length; i++) {
         for (let j = i + 1; j < group.length; j++) {
           const a = group[i]; const b = group[j];
+          /* A zero-thickness plate -- a sign face, a decal, a text plate --
+           * indexes its min and its max into the SAME plane bucket, so it used
+           * to be reported as coplanar with itself. Every such finding named
+           * one mesh twice ("harbor office sign x harbor office sign"), which
+           * is not a flicker: it is one surface. */
+          if (a === b) continue;
           const ou = Math.min(a.max[u], b.max[u]) - Math.max(a.min[u], b.min[u]);
           const ov = Math.min(a.max[v], b.max[v]) - Math.max(a.min[v], b.min[v]);
           if (ou <= 0 || ov <= 0 || ou * ov < AREA) continue;
