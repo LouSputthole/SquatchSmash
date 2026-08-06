@@ -1188,6 +1188,58 @@ try {
   check('the rejected router entry reports no runtime errors',
     blockedProblems.length === 0, blockedProblems.join(' | '));
   await blockedContext.close();
+
+  // ---- Preview checkpoint links (?preview=1&checkpoint=...) ------------
+  // A fresh context per waypoint, the way an owner clicking a preview.html
+  // link would load it -- distinct from the localStorage-seeded campaign
+  // `context` above, since `?preview=1` runs an entirely separate in-memory
+  // campaign (src/core/preview-mode.js). `party`/`attack`/`cleanup` are
+  // staged synchronously in src/bing/hotdog-main.js's
+  // `jumpToPreviewCheckpoint`, so they resolve as soon as the async Start
+  // handler's own audio loading does; `graveyard` leaves the party director
+  // running for real, so it is given the same SIM_WAIT budget every other
+  // director-driven wait in this file uses.
+  for (const [id, expectMissionState, timeout] of [
+    ['party', 'party', 90000],
+    ['attack', 'attack', 90000],
+    ['cleanup', 'cleanup', 90000],
+    ['graveyard', 'done', SIM_WAIT],
+  ]) {
+    const cpContext = await browser.newContext({ viewport: { width: 960, height: 540 } });
+    const cpPage = await cpContext.newPage();
+    cpPage.setDefaultTimeout(SIM_WAIT);
+    const cpProblems = watchProblems(cpPage);
+    await cpPage.goto(`http://localhost:${PORT}/bing.html?visit=2&preview=1&checkpoint=${id}`, { waitUntil: 'load' });
+    await cpPage.waitForFunction(() => window.HOTDOG_INCIDENT?.story, null, { timeout: 90000 });
+    const chip = await cpPage.evaluate(() => document.querySelector('#overlay .tag')?.textContent ?? '');
+    await cpPage.evaluate(() => document.getElementById('start-btn').click());
+    await cpPage.waitForFunction(
+      (expected) => window.HOTDOG_INCIDENT?.mission?.state === expected,
+      expectMissionState,
+      { timeout },
+    );
+    const result = await cpPage.evaluate(() => {
+      const incident = window.HOTDOG_INCIDENT;
+      return {
+        missionState: incident.mission.state,
+        gamePhase: incident.game.phase,
+        campaignCheckpoint: incident.campaignState.missions.bada_bing_two.checkpoint,
+        campaignAttackResolved: incident.campaignState.missions.bada_bing_two.attackResolved,
+      };
+    });
+    // Only `graveyard` calls `story.completeClub()` -- see the doc comment
+    // above `jumpToPreviewCheckpoint` in src/bing/hotdog-main.js for why a
+    // checkpoint short of it must never bank `'body_loaded'`, the one value
+    // that trips the production resume path into an auto-redirect.
+    const checkpointOk = id === 'graveyard'
+      ? result.campaignCheckpoint === 'body_loaded'
+      : result.campaignCheckpoint !== 'body_loaded';
+    check(`?preview=1&checkpoint=${id} loads staged and lands on the right beat`,
+      result.missionState === expectMissionState && checkpointOk
+        && chip.startsWith('Preview checkpoint:') && cpProblems.length === 0,
+      JSON.stringify({ ...result, chip, problems: cpProblems }));
+    await cpContext.close();
+  }
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));
