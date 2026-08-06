@@ -538,14 +538,25 @@ test('the ledger answers the two questions the workshop asks it', () => {
   assert.ok(bing.every((a) => a.scene === 'bada_bing'));
 
   /* One person across every scene. Lou is the case the whole ledger was
-   * written for: four outfits, five modules, and they have to come back in
-   * one list or the workshop cannot put them side by side. */
+   * written for: several outfits over several modules, and they have to come
+   * back in one list or the workshop cannot put them side by side.
+   *
+   * THIS USED TO ASSERT FOUR OUTFITS and it is three, which is a real change
+   * rather than a loosened bound. The fourth was `BIG_UNCLE_LOU_MANSION`, worn
+   * by a Big Uncle Lou sitting in the office carver — and the ledger's whole
+   * reason for existing is that it revealed there was a SECOND Big Uncle Lou
+   * standing 1.7 m away in the plain suit, both mounted unconditionally. The
+   * seated one was removed, so that outfit is now worn by nobody.
+   *
+   * It is deliberately still an `>=`: if somebody seats him again in
+   * `cast.js` and dresses him properly, this goes back to four and the test
+   * should not have to be edited to allow it. */
   const lou = appearancesOf(CHARACTER_IDS.LOU);
   assert.ok(lou.length >= 5, `Big Uncle Lou is in ${lou.length} places`);
   const outfits = new Set(lou.map((a) => a.model));
-  assert.ok(outfits.size >= 4,
+  assert.ok(outfits.size >= 3,
     `Big Uncle Lou wears ${outfits.size} distinct outfits across the campaign; `
-    + 'the club, the mansion, the course and the plain suit are four');
+    + 'the club, the course and the plain suit are three');
 
   const characters = ledgerCharacters();
   assert.equal(characters.length, new Set(characters.map((c) => c.id)).size);

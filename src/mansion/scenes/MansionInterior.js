@@ -64,13 +64,13 @@ import {
   makePizzaBox,
 } from '../../world/props.js';
 import { resolveGear } from '../../world/gear.js';
-/* The club's figure builder and the canonical wardrobe. The house has had
- * Lou's name on four things in it and Lou in none of them; the man himself is
- * behind the desk in his own office now, and he is dressed out of
- * core/wardrobe.js like he is everywhere else so that the Bing, the boat and
- * the mansion cannot drift into three different men. */
-import { Npc } from '../../bing/cast.js';
-import { BIG_UNCLE_LOU_MANSION } from '../../core/wardrobe.js';
+/* NO PEOPLE ARE BUILT IN THIS FILE. It used to import the club's figure
+ * builder and the wardrobe to sit a Big Uncle Lou in the office carver, on the
+ * grounds that the house had "Lou's name on four things in it and Lou in none
+ * of them" -- which was true when it was written and stopped being true one
+ * pass later, when `../cast.js` posted him behind the same desk. Both mounted,
+ * 1.7 m apart, and the player met the same man twice. This file is the
+ * BUILDING; `../cast.js` is the PEOPLE. See `buildOffice()`. */
 /* The Squatch Smash player rig, cast in gold as the trophy's finial -- the
  * same import MansionGrounds.js makes for the fountain monument and the
  * garden bronze. One model, three statues; this file adds no new sculpt. */
@@ -4140,24 +4140,29 @@ export function buildMansionInterior(shell = null) {
     makeFancyChair(-0.95, UY, deskZ - 1.5, 0, M_LEATHER_TAN, { backH: 0.72, tag: 'office-chair' });
     makeFancyChair(0.95, UY, deskZ - 1.5, 0, M_LEATHER_TAN, { backH: 0.72, tag: 'office-chair' });
 
-    /* ---- and the man in the red chair ----
+    /* ---- and the red chair, which is now EMPTY ----
      *
-     * `Npc.sit()` folds the figure and drops it 0.42, and that 0.42 is
-     * measured against the club's chairs, whose cushions sit at 0.53. This
-     * one's is at 0.495 -- seat slab at 0.46, seventy millimetres thick -- so
-     * the base goes down by the difference or he hovers three centimetres
-     * over his own furniture.
+     * There used to be a Big Uncle Lou sitting in it. There is a second one
+     * standing 1.7 m away, at (1.05, 72.75), posted by `../cast.js` — same
+     * name, same `lou.png`, different outfit — and both files mount
+     * unconditionally, so the player walked into the office and met the same
+     * man twice.
      *
-     * Facing PI, which is the way the chair faces: down the desk at whoever
-     * has just been told to shut the door.
+     * Nobody did anything wrong. This file's own note says the house "has had
+     * Lou's name on four things in it and Lou in none of them", which was true
+     * when it was written; `cast.js` posted him a pass later, answering the
+     * owner's "none of the characters are here". Neither pass could see the
+     * other, and a duplicate is invisible in a diff and obvious in a doorway.
+     *
+     * The seated one goes, because the line this project draws is that
+     * `MansionInterior.js` is the BUILDING and `cast.js` is the PEOPLE — and
+     * the one in `cast.js` is the one the mission talks to and the one with a
+     * `look` description. Found by the wardrobe workshop, which puts the same
+     * character's scenes side by side; it is the first thing that could see it.
+     *
+     * If he reads better seated — and he probably does — seat him in
+     * `cast.js`, which supports `job: 'sit'`. Do not put him back here.
      */
-    const lou = new Npc(root, {
-      name: 'Big Uncle Lou',
-      tier: 'hero',
-      job: 'sit',
-      x: 0, y: UY - 0.035, z: deskZ + 1.15, yaw: Math.PI,
-      model: { ...BIG_UNCLE_LOU_MANSION, face: 'assets/faces/lou.png' },
-    });
 
     // The locked case behind the desk with something in it nobody has seen.
     makeDisplayCase(r.x0 + 0.45, UY, 70.4, Math.PI / 2, 1.9, 2.2, 0.5, (g, w, h) => {
@@ -4653,7 +4658,7 @@ export function buildMansionInterior(shell = null) {
     ceilingLight(0, 74.2, UCY - 0.4, 0xffdca0, 4.2, 13);
     return {
       desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
-      hogMama: officeHogMama, lou,
+      hogMama: officeHogMama,
     };
   }
   const officeProps = buildOffice();
@@ -8539,10 +8544,10 @@ const M_GOLD_BAR = mat({
     const flick = 0.85 + 0.15 * Math.sin(time * 11) * (Math.sin(time * 2.3) > -0.6 ? 1 : 0.2);
     basementProps.bulbLight.intensity = 3.4 * flick;
     kitchenProps.updateSink(dt);
-    /* Lou breathes and looks up when somebody comes in. Cheap -- one hero NPC
-     * in a house of three thousand static meshes -- and the difference
-     * between an office with a man in it and an office with a mannequin. */
-    officeProps.lou?.update(dt, playerPos);
+    /* The office's own Lou used to be ticked here so he breathed and looked
+     * up when somebody came in. He is gone — he was the second of two — and
+     * the one in `../cast.js` gets his own update from there. See the note in
+     * `buildOffice()`. */
   }
 
   /* ================================================================== */

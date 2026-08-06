@@ -578,34 +578,40 @@ export const APPEARANCES = Object.freeze([
       + 'against 1.38), so the man on the course is measurably a smaller man '
       + 'than the man in the club. The jewellery is right and is his.',
   }),
+  /* THE SECOND LOU IN THIS OFFICE IS GONE, and finding him is what this whole
+   * ledger was for.
+   *
+   * There were two. `MansionInterior.js` sat one in the red carver in
+   * `BIG_UNCLE_LOU_MANSION`; `cast.js` stood another behind the same desk in
+   * the plain suit; `main.js` mounted both unconditionally, 1.7 m apart, with
+   * one face photo between them. Neither pass could see the other — the
+   * building file's own note says the house "has had Lou's name on four things
+   * in it and Lou in none of them", which was true when it was written, and
+   * `cast.js` posted him a pass later answering "none of the characters are
+   * here". A duplicate is invisible in a diff and obvious in a doorway.
+   *
+   * The seated one was removed, because this project's line is that
+   * `MansionInterior.js` is the building and `cast.js` is the people, and the
+   * survivor is the one the mission talks to. `BIG_UNCLE_LOU_MANSION` is now
+   * unused by any scene and is kept in `wardrobe.js` on purpose: it is the
+   * right outfit for him at home, and whoever seats him in `cast.js` should
+   * reach for it. See `docs/FUTURE-EDITS.md`.
+   */
   row({
     character: CHARACTER_IDS.LOU,
     name: 'Big Uncle Lou',
     scene: 'mansion_house',
-    where: 'his office, IN the red carver behind the desk',
-    model: BIG_UNCLE_LOU_MANSION,
-    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
-    module: 'src/mansion/scenes/MansionInterior.js',
-    evidence: 'model: { ...BIG_UNCLE_LOU_MANSION, face: \'assets/faces/lou.png\' },',
-    /* At home and not working: open camp shirt over a white tee, the corno on
-     * show because there is no jacket in the way of it, no hat and no chalk
-     * stripe. Same jewellery, none of the armour. */
-  }),
-  row({
-    character: CHARACTER_IDS.LOU,
-    name: 'Big Uncle Lou',
-    scene: 'mansion_house',
-    where: 'his office, STANDING behind the same desk, 1.4 m north of the chair',
+    where: 'his office, standing behind the desk, facing the door',
     model: BIG_UNCLE_LOU,
     from: { wardrobe: 'BIG_UNCLE_LOU' },
     module: 'src/mansion/cast.js',
     evidence: 'model: withFace(BIG_UNCLE_LOU, FACES.lou),',
-    divergence: 'THERE ARE TWO BIG UNCLE LOUS IN THIS OFFICE. '
-      + '`MansionInterior.js` sits one in the carver in BIG_UNCLE_LOU_MANSION '
-      + 'and `cast.js` stands another behind the desk in the plain suit; '
-      + 'src/mansion/main.js mounts both, unconditionally, about a metre and a '
-      + 'half apart. Two men, one face photo, two outfits. Reported, not '
-      + 'fixed — deciding which one survives is a scene decision.',
+    divergence: 'He is in the WORKING suit at home, because he is the Lou that '
+      + 'survived the duplicate above and that one was always the suit. '
+      + 'BIG_UNCLE_LOU_MANSION — open camp shirt, the corno on show, no hat, no '
+      + 'chalk stripe — is the better read for a man in his own house at night '
+      + 'and is now worn by nobody. Reported, not fixed: seating him and '
+      + 'dressing him is a scene decision.',
   }),
   row({
     character: CHARACTER_IDS.LOU,
