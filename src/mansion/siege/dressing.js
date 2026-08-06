@@ -1371,20 +1371,48 @@ export function buildSiegeDressing({
      * this module puts on a floor -- chairs, casings, litter, bodies, the
      * dropped rifle -- is walk-over dressing. The only solids it adds are the
      * things it MEANS as cover, and each of those is chest height. */
+    /* TIPPED AS AN ASSEMBLY, NOT PART BY PART, and the difference is the
+     * whole of `tippedRestY`'s docblock said a second time.
+     *
+     * These three chairs used to be built upright and then given `rotZ` on
+     * EVERY PIECE. Rotating a box about its own centre does not move that
+     * centre, so the pieces span but the joint does not: the seat turned on
+     * the spot into a vertical panel 0.42 m up, the legs turned into
+     * horizontal sticks at the same height, and the back turned flat and
+     * stayed where the backrest had been. What stood in the foyer was not a
+     * chair on its back -- it was four sticks, a panel and a plank sharing a
+     * yaw, with 0.19 m of air under the seat. `tools/scene-audit.mjs` called
+     * all three FLOATING, "1.39 m up with nothing under it", which is the
+     * fault reading its own symptom back.
+     *
+     * So the parts are authored around the assembly's OWN CENTRE, an inner
+     * group tips the whole chair once, and `tippedRestY` puts the outer group
+     * at the height that lands the lowest corner exactly on the marble --
+     * the same call the centrepiece rubble and the console legs already make
+     * eleven lines and four hundred lines above. Yaw stays on the outer group
+     * so it is still a yaw in the room and not a roll in the chair's frame. */
+    const CHAIR_W = 0.46; // x extent upright, which is the tipped height
+    const CHAIR_H = 0.99; // floor to the top of the backrest
+    const CHAIR_TIP = Math.PI / 2;
     for (const [cx, cz, cy] of [[-3.4, 41.2, 0.9], [3.9, 42.4, -1.3], [1.4, 48.6, 2.4]]) {
       const chair = group('siege.debris.foyer.chair');
-      chair.add(box({
-        name: 'siege.debris.foyer.chair.seat', size: [0.46, 0.07, 0.46], pos: [0, 0.42, 0], mat: M_WOOD_SPLIT, rotZ: Math.PI / 2,
+      const tip = group('siege.debris.foyer.chair.tip');
+      /* Upright, measured from the assembly's centre: seat just below it, the
+       * backrest above and behind, the legs hanging under. */
+      tip.add(box({
+        name: 'siege.debris.foyer.chair.seat', size: [0.46, 0.07, 0.46], pos: [0, -0.04, 0], mat: M_WOOD_SPLIT,
       }));
-      chair.add(box({
-        name: 'siege.debris.foyer.chair.back', size: [0.44, 0.5, 0.06], pos: [0.24, 0.22, 0], mat: M_WOOD_SPLIT, rotZ: Math.PI / 2,
+      tip.add(box({
+        name: 'siege.debris.foyer.chair.back', size: [0.44, 0.5, 0.06], pos: [0, 0.245, -0.2], mat: M_WOOD_SPLIT,
       }));
       for (const [lx, lz] of [[-0.19, -0.19], [-0.19, 0.19], [0.19, -0.19], [0.19, 0.19]]) {
-        chair.add(box({
-          name: 'siege.debris.foyer.chair.leg', size: [0.05, 0.42, 0.05], pos: [lx, 0.42, lz], mat: M_WOOD_SPLIT, rotZ: Math.PI / 2,
+        tip.add(box({
+          name: 'siege.debris.foyer.chair.leg', size: [0.05, 0.42, 0.05], pos: [lx, -0.285, lz], mat: M_WOOD_SPLIT,
         }));
       }
-      chair.position.set(cx, GY, cz);
+      tip.rotation.z = CHAIR_TIP;
+      chair.add(tip);
+      chair.position.set(cx, tippedRestY(GY, CHAIR_W, CHAIR_H, CHAIR_TIP), cz);
       chair.rotation.y = cy;
       g.add(chair);
     }
