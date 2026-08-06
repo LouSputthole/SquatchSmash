@@ -216,6 +216,13 @@ export class EnolaSquatch {
     };
     /** Set by the mission during the defence phase; read in `update()`. */
     this.rearGunFiring = false;
+    /** True once `explode()` has replaced the airframe with a fireball. See
+     * `explode()` / `updateExplosion()` / `resetDestruction()` at the bottom
+     * of this class — ported from `src/beefrun/aircraft.js`'s `Brushrunner`,
+     * which is where this mission's own crash had nothing at all: `fail()`
+     * put a HUD message up over an aeroplane that just kept flying. */
+    this.destroyed = false;
+    this.explosion = null;
     this.build();
     if (withCockpit) this.buildCockpit();
     this.instruments = withCockpit ? new Instruments(this.parts.panelCanvas, { ac: AC_ENOLA }) : null;
@@ -1679,6 +1686,13 @@ export class EnolaSquatch {
    *   gunFiring, gunManned }
    */
   update(dt, phys, engines, state = {}) {
+    /* Nothing on the animation rig means anything once the aeroplane is a
+     * fireball — see `Brushrunner.update()` in `src/beefrun/aircraft.js`,
+     * whose guard this one matches exactly. */
+    if (this.destroyed) {
+      this.updateExplosion(dt);
+      return;
+    }
     const a = this.anim;
     const c = phys.controls;
     const engList = engines?.engines;
@@ -1809,5 +1823,114 @@ export class EnolaSquatch {
   syncTo(phys) {
     this.group.position.copy(phys.position);
     this.group.quaternion.copy(phys.quat);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The crash                                                         */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Replace the intact airframe with a short-lived fireball and debris fan.
+   *
+   * Ported from `src/beefrun/aircraft.js`'s `Brushrunner.explode()` — same
+   * three-part shape (fireballs, smoke, debris), same "hide the children,
+   * don't rebuild them" trick that makes a checkpoint restore free — scaled
+   * up for an airframe about twice the Brushrunner's span (33.5 m vs 17.2 m):
+   * bigger fireballs, one more smoke puff, more debris thrown further, same
+   * timing. `src/enolasquatch/mission/MissionController.js`'s `onImpact()`
+   * is what calls this, on the same severity gate Beef Run's `onImpact` uses.
+   *
+   * Hiding the direct children rather than emptying the group is what makes
+   * `resetDestruction` cheap and lossless: the aeroplane is still built, still
+   * has every part and canvas it had, and a checkpoint restore just turns it
+   * back on. Nothing here is rebuilt.
+   *
+   * @returns {boolean} false if it was already destroyed
+   */
+  explode() {
+    if (this.destroyed) return false;
+    this.destroyed = true;
+    for (const child of this.group.children) child.visible = false;
+
+    const fx = group('enola-squatch-explosion');
+    fx.userData.age = 0;
+    const fire = [
+      [0xffe06a, 2.7, 0, 0.3, 0.3],
+      [0xff7a24, 4.0, -1.3, 0.0, 0.5],
+      [0xd92e18, 5.1, 1.5, -0.3, -0.4],
+    ];
+    for (const [colour, radius, x, y, z] of fire) {
+      const material = new THREE.MeshBasicMaterial({
+        color: colour, transparent: true, opacity: 0.96,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      const ball = mesh(sphereGeo(radius, 14, 9), material, x, y, z);
+      ball.userData.fireball = true;
+      fx.add(ball);
+    }
+    for (let i = 0; i < 9; i++) {
+      const smoke = mesh(
+        sphereGeo(1.6 + (i % 3) * 0.6, 9, 6),
+        new THREE.MeshBasicMaterial({ color: 0x2a2522, transparent: true, opacity: 0.76, depthWrite: false }),
+        (i - 4) * 1.05, 1.1 + (i % 2) * 0.9, (i % 3) * 1.15 - 0.9,
+      );
+      smoke.userData.smoke = true;
+      fx.add(smoke);
+    }
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const debris = mesh(
+        boxGeo(0.28 + (i % 3) * 0.18, 0.14, 0.65 + (i % 2) * 0.36),
+        solid(i % 2 ? 0x7a5230 : METAL, { roughness: 0.8, metalness: i % 2 ? 0 : 0.5 }),
+        Math.cos(a) * 2.2, (i % 4) * 0.42 - 0.35, Math.sin(a) * 2.2,
+      );
+      debris.userData.debris = true;
+      debris.userData.velocity = new THREE.Vector3(
+        Math.cos(a) * (7 + (i % 3) * 1.8), 5 + (i % 5) * 1.4, Math.sin(a) * (7 + (i % 3) * 1.8),
+      );
+      fx.add(debris);
+    }
+    /* Added after the hide loop, so it is the one thing still visible. */
+    this.group.add(fx);
+    this.explosion = fx;
+    return true;
+  }
+
+  updateExplosion(dt) {
+    const fx = this.explosion;
+    if (!fx) return;
+    fx.userData.age += dt;
+    const age = fx.userData.age;
+    for (const child of fx.children) {
+      if (child.userData.fireball) {
+        child.scale.setScalar(1 + age * 2.8);
+        child.material.opacity = clamp(1 - age / 1.15, 0, 1);
+      } else if (child.userData.smoke) {
+        child.position.y += dt * 2.6;
+        child.scale.addScalar(dt * 1.0);
+        child.material.opacity = clamp(0.76 - age * 0.16, 0.12, 0.76);
+      } else if (child.userData.debris) {
+        child.position.addScaledVector(child.userData.velocity, dt);
+        child.userData.velocity.y -= 9.8 * dt;
+        child.rotation.x += dt * 5;
+        child.rotation.z += dt * 3;
+      }
+    }
+  }
+
+  /** Put the aeroplane back, for a checkpoint restore. */
+  resetDestruction() {
+    if (this.explosion) {
+      this.group.remove(this.explosion);
+      /* Every material here is made fresh in `explode`, so nothing shared is
+       * being disposed and a second crash builds its own. */
+      this.explosion.traverse((o) => o.material?.dispose?.());
+    }
+    this.explosion = null;
+    this.destroyed = false;
+    /* Safe to turn everything back on: the only conditional visibility on
+     * this model is the prop discs and the front props themselves, both
+     * reassigned every frame by `update()`. */
+    for (const child of this.group.children) child.visible = true;
   }
 }

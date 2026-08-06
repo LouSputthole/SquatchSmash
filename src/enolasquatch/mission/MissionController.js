@@ -78,12 +78,50 @@ import { Detonation, BLAST } from '../vfx/Detonation.js';
 import { WP, KT, FT } from '../../beefrun/config.js';
 import { evaluateLineupGate } from '../../beefrun/lineup-gate.js';
 import { clamp, lerp, headingDelta, unlit } from '../../beefrun/util.js';
+import { SmokeSystem } from '../../world/smoke.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const TOWN = LANDMARKS_EAST.find((l) => l.id === 'town');
 const CLOUDBANK = LANDMARKS_EAST.find((l) => l.id === 'cloudbank');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;   // 270 — back the way we came
+
+/* THE ONE AUTHORED ENGINE PROBLEM.
+ *
+ * Owner, via the 2026-08-06 for-show pass (`LIVE_FIRE`, ../config.js): the
+ * flak and the fighters no longer cost the aeroplane anything, on purpose —
+ * "there's really no targets to shoot out... Lets just have all the flak
+ * and fighters for show." A barrage that can never touch you is honest
+ * spectacle, but it leaves the whole run-in with zero consequence, and this
+ * is the one exception: not random, not enemy fire, a heavy four-engine
+ * aeroplane that has been at high power through a long climb and a longer
+ * gauntlet finally telling on itself, right at the end of the stretch.
+ *
+ * `ENGINE_OUT_INDEX` is 2 — 'innerRight' in the `engineNames` order
+ * `main.js` builds the `EngineSystem` with (`['outerLeft', 'innerLeft',
+ * 'innerRight', 'outerRight']`), aviation's "number three" on a four-engine
+ * heavy numbered left to right. Deliberately not "number two": that number
+ * already belongs to `emergency.overheat` (../dialogue/script.js), the
+ * unrelated, later, combat-damage-only engine-trouble beat that can still
+ * fire during the escape leg — see `updateEscape()`. A player who reaches
+ * both in one flight should not hear the same engine named twice for two
+ * different reasons.
+ *
+ * `ENGINE_OUT_TRIGGER_X` sits 1000 m short of where `updateDefensePhase`
+ * hands off to `bombApproach` (`TARGET_X - 1400`) — inside the flak/fighter
+ * stretch (which runs from the corridor exit, `ZONES_EAST`'s `corridor.to`
+ * at x 4200, through to that handoff), toward its end rather than at a
+ * random point in it, per the brief. */
+const ENGINE_OUT_INDEX = 2;
+const ENGINE_OUT_TRIGGER_X = TARGET_X - 2400;
+/** How much of the engine's own thrust the derate costs it. One of four
+ * equal engines is normally a quarter of total thrust, so knocking this one
+ * down by 28% of ITS OWN output costs the aeroplane 0.28 * 25% = 7% of its
+ * TOTAL power — "knocking total power down ~7%", not a kill. `EngineSystem
+ * .damage()`'s `floor` argument is the same number: the derate is permanent
+ * for the rest of the attempt, but never gets worse from this alone. */
+const ENGINE_OUT_HEALTH_LOSS = 0.28;
+const ENGINE_OUT_HEALTH_FLOOR = 0.72;
 
 /* The buffet. Owner: "the shockwave to pass over you and simulate a brief
  * moment of turbulence." `BLAST_TURB_SECONDS` is how long the air stays rough
@@ -354,6 +392,12 @@ export class MissionController {
     this._navCallTimer = 2;
     this._smoothPraised = false;
     this._t = 0;
+
+    /* THE ONE AUTHORED ENGINE PROBLEM — see `triggerEngineOut()`. */
+    this._engineOutFired = false;
+    this._engineOutIndex = null;
+    this._engineSmoke = null;
+    this._engineSmokeT = 0;
 
     this.physics.onTouchdown = (vs, g, wheel) => this.onTouchdown(vs, g, wheel);
     this.physics.onImpact = (sev, what) => this.onImpact(sev, what);
@@ -1624,10 +1668,63 @@ export class MissionController {
     if (!this.defense.damage.catastrophic && this.defense.hitCount >= 6 && enginesDown >= 3) {
       this.defense.triggerCatastrophic('overwhelmed');
     }
+    /* THE ONE AUTHORED ENGINE PROBLEM — see the constants at the top of the
+     * file. Toward the end of the flak/fighter stretch, not the start of it. */
+    if (!this._engineOutFired && p.position.x > ENGINE_OUT_TRIGGER_X) this.triggerEngineOut();
     if (p.position.x > TARGET_X - 1400) {
       this.defense.suppress();
       this.setPhase('bombApproach');
     }
+  }
+
+  /**
+   * See the `ENGINE_OUT_*` constants for the whole of the reasoning. A
+   * derate, not a kill: `EngineSystem.damage()` takes `ENGINE_OUT_INDEX`'s
+   * health down to `ENGINE_OUT_HEALTH_FLOOR` and leaves it running — rougher,
+   * a little slower on the tach, trailing smoke — which is what "engine goes
+   * out" reads as here without touching `defense.damage.engines` (that array
+   * is reserved for real combat/blast damage and is what later arms the
+   * separate `updateEscape()` / `updateEmergency()` engine-emergency choice;
+   * setting it here would make this ONE authored beat silently spawn a
+   * second one on the way home).
+   */
+  triggerEngineOut() {
+    if (this._engineOutFired) return;
+    this._engineOutFired = true;
+    this._engineOutIndex = ENGINE_OUT_INDEX;
+    this.engines.damage(ENGINE_OUT_INDEX, ENGINE_OUT_HEALTH_LOSS, ENGINE_OUT_HEALTH_FLOOR);
+    this.cameras?.addShake?.(0.45);
+    this.dialogue.play('defense.engineStrain', { once: true });
+  }
+
+  /**
+   * The visible half of `triggerEngineOut()`: a thin, steady trail off the
+   * derated engine's exhaust for the rest of the attempt — the "prop" half of
+   * "visible engine-out (smoke/prop)" is already free (a damaged engine's
+   * lower `health` already pulls its RPM, and therefore its visual prop
+   * speed, down in `EnolaSquatch.update()`; nothing here needs to touch it).
+   *
+   * Reuses `src/world/smoke.js`'s `SmokeSystem` — the same pooled billboard
+   * sprites the apartment's cigarette uses — at aeroplane scale instead of
+   * cigarette scale, rather than building a second particle system for one
+   * prop. Built lazily so a flight that never reaches the trigger never pays
+   * for the pool.
+   */
+  updateEngineOutSmoke(dt) {
+    if (this._engineOutIndex === null || !this.aircraft || !this.scene) return;
+    if (!this._engineSmoke) this._engineSmoke = new SmokeSystem(this.scene);
+    this._engineSmokeT += dt;
+    if (this._engineSmokeT < 0.10) return;   // ~10 puffs/second — a trail, not a firehose
+    this._engineSmokeT = 0;
+    if (!this._engineSmokeOrigin) this._engineSmokeOrigin = new THREE.Vector3();
+    if (!this._engineSmokeDir) this._engineSmokeDir = new THREE.Vector3();
+    const origin = this.aircraft.exhaustPoint(this._engineOutIndex, this._engineSmokeOrigin);
+    // Trails aft and slightly down off the nacelle regardless of airspeed —
+    // the aeroplane's own -Z (tail-ward), not the (possibly near-zero) velocity.
+    const back = this._engineSmokeDir.set(0, -0.08, -1).applyQuaternion(this.physics.quat).normalize();
+    this._engineSmoke.emit(origin, back, {
+      count: 2, speed: 4.5, spread: 1.6, size0: 1.4, size1: 6, life: 3.4, peak: 0.5, rise: 0.25,
+    });
   }
 
   onDefenseHit(kind, detail) {
@@ -2371,6 +2468,8 @@ export class MissionController {
     this.updateAirBattle(dt);
     // The diamond on the city, or the one on the field, or neither.
     this.updateNavMarker();
+    // The visible half of the one authored engine problem — see triggerEngineOut().
+    this.updateEngineOutSmoke(dt);
 
     this.weather.sampleAir(p.position, p.agl, { wind: p.wind, gust: p.gust });
     const rough = p.gust.length();
@@ -2443,13 +2542,28 @@ export class MissionController {
   }
 
   onImpact(severity, what) {
-    if (severity <= 0) return;
+    if (severity <= 0 || this.aircraft?.destroyed) return;
     const p = this.physics;
     if (severity > 2.4) {
       p.damage.wing = clamp(p.damage.wing + severity * 0.06, 0, 1);
       this.cameras?.addShake?.(0.6);
     }
     if (severity > 6.5 || p.damage.wing >= 1) {
+      /* Presentation, layered on the failure rule rather than replacing it —
+       * ported from `src/beefrun/mission.js`'s `onImpact`, which is where
+       * this crash effect was built and proven: read `src/beefrun/aircraft.js`
+       * for the shape being reused rather than reinvented. A high-energy hit
+       * gets the fireball; a wing ground down to 1.0 over a long scrape still
+       * ends the flight, but quietly, because there is no detonation in it.
+       * Both still fail — the gate above is unchanged. */
+      if (severity >= 7.6 && this.aircraft?.explode?.()) {
+        this.audio?.explosion?.();
+        this.cameras?.addShake?.(1.6);
+        for (let i = 0; i < this.engines.engines.length; i++) this.engines.kill(i, 'destroyed');
+        p.controls.throttleL = p.controls.throttleR = 0;
+        p.velocity.multiplyScalar(0.04);
+        p.omega.set(0, 0, 0);
+      }
       this.fail(what === 'terrain' ? 'You flew it into the ground.' : 'The aeroplane is finished.');
     }
   }
@@ -2525,6 +2639,11 @@ export class MissionController {
     const data = this.checkpointData?.name === name ? this.checkpointData : null;
     this.checkpoint = name;
     this.failed = null;
+    /* Put the airframe back if the last attempt ended in a fireball. Without
+     * this the restore flies a hidden aeroplane trailing somebody else's
+     * debris — same fix, same reasoning, as `src/beefrun/mission.js`'s own
+     * `restoreCheckpoint`. */
+    this.aircraft?.resetDestruction?.();
     this.dialogue.clear();
     /* `clear()` empties the QUEUE; this empties the memory. Without it the
      * second attempt at a leg is flown in silence — see `REPLAYED_BEATS`. */
@@ -2590,6 +2709,12 @@ export class MissionController {
     this.gunner.reset();
     this.autopilot.disengage(null);
     this.autopilot.lockout = 0;
+    /* Nor the one authored engine problem — `engines.reset(false)` below (when
+     * `data` exists) already rebuilds every engine at full health, and a
+     * restart before the trigger point must be able to earn it again. */
+    this._engineOutFired = false;
+    this._engineOutIndex = null;
+    this._engineSmokeT = 0;
     this.preflight?.disarm?.();
     this.disarmBoardingTarget();
     this.crew?.takeSeats?.(this.aircraft);

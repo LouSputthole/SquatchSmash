@@ -1313,6 +1313,45 @@ try {
     instruction.whileTalking.busy && instruction.whileTalking.pending && instruction.drained,
     JSON.stringify(instruction));
 
+  /* ---- The one authored engine problem (owner: "for show", 2026-08-06) ----
+   *
+   * `LIVE_FIRE` is off, so the barrage above cost the aeroplane nothing — the
+   * flak and fighter checks proved exactly that. This is the mission's one
+   * deliberate, non-random consequence of flying through it: an engine
+   * derated, not killed, toward the end of the flak/fighter stretch. Reset to
+   * a clean, fully-healed airframe first (`restoreCheckpoint('turnOnCourse')`
+   * — real saved data by this point, from the organic `cruise` phase entry
+   * above) so this reads the TRIGGER, not residual damage from the stress
+   * test just run. */
+  const engineOut = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.mission.restoreCheckpoint('turnOnCourse');
+    const beforeFired = h.mission._engineOutFired;
+    const beforeHealth = h.engines.engines.map((e) => +e.health.toFixed(3));
+    // `go('defense')` poses at TARGET_X - 1600 (7400), already past
+    // ENGINE_OUT_TRIGGER_X (TARGET_X - 2400 = 6600) — see MissionController.js.
+    h.go('defense');
+    h.tick(0.1);
+    const idx = h.mission._engineOutIndex;
+    return {
+      beforeFired, beforeHealth,
+      fired: h.mission._engineOutFired,
+      index: idx,
+      health: idx === null || idx === undefined ? null : +h.engines.engines[idx].health.toFixed(3),
+      otherEnginesFull: h.engines.engines.every((e, i) => i === idx || e.health === 1),
+      combatDamageUntouched: h.defense.damage.engines.every((v) => v === false),
+      dialoguePlayed: h.dialogue.seen('defense.engineStrain'),
+      smokeCreated: !!h.mission._engineSmoke,
+    };
+  });
+  check('the one authored engine problem fires toward the end of the flak/fighter stretch: a derate, not a kill, ~7% of total power, one crew line',
+    engineOut.beforeFired === false
+      && engineOut.fired && engineOut.index === 2
+      && engineOut.health >= 0.71 && engineOut.health <= 0.73
+      && engineOut.otherEnginesFull && engineOut.combatDamageUntouched
+      && engineOut.dialoguePlayed && engineOut.smokeCreated,
+    JSON.stringify(engineOut));
+
   /* Shortcut: the rest of the run to the target is straight, undamaging
    * flight already proven above (corridor crossing) — jump to the approach. */
   const bombApproachEntry = await page.evaluate(() => {
