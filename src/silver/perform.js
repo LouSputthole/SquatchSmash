@@ -542,13 +542,30 @@ export class Performance {
            * the whole man leaning in on the piano stem rather than the horn
            * one. Shoulders stay down: a keyboard player's arms come from the
            * elbow, and driving this from the shoulder made him look like he
-           * was pushing a wheelbarrow. */
+           * was pushing a wheelbarrow.
+           *
+           * `hComp` is a height correction. The keyboard is deliberately
+           * true-size regardless of who is behind it (`keys.scale.setScalar(1
+           * / heightScale)` in cast.js, "a keyboard is a keyboard whether the
+           * man behind it is 1.68 or 1.86") but the ARM that reaches for it
+           * scales with the player, so a fixed rotation put a short player's
+           * hands 5cm into the keys and a tall player's hands 12cm above
+           * them -- measured across a few hundred fresh page loads (`height`
+           * is `rand(1.68, 1.86)`, unseeded, for everybody but the leader),
+           * this failed the "hands are on the keys" check on close to half of
+           * them. The correction is a shoulder lift on both upper arms: a
+           * flat term plus one proportional to how far this player's
+           * `heightScale` sits from 1, both coefficients found the same way
+           * the neck and the bow were -- swept against that random range
+           * rather than eyeballed -- until keyDrop stayed clear of both the
+           * floor and the ceiling across the whole thing. */
           const hitR = Math.max(0, Math.sin(beat * 2 + ph));
           const hitL = Math.max(0, Math.sin(beat * 2 + ph + Math.PI * 0.5));
           const into = n.stems.piano * (1 - this.duck * 0.3);
-          P.armL.rotation.set(-0.46 - hitL * 0.06, -0.20, -0.16);
+          const hComp = (P.heightScale - 1) * 3.3 - 0.13;
+          P.armL.rotation.set(-0.46 - hitL * 0.06 + hComp, -0.20, -0.16);
           P.foreL.rotation.set(-1.06 - hitL * 0.10, 0, 0.10);
-          P.armR.rotation.set(-0.46 - hitR * 0.06, 0.20, 0.16);
+          P.armR.rotation.set(-0.46 - hitR * 0.06 + hComp, 0.20, 0.16);
           P.foreR.rotation.set(-1.06 - hitR * 0.10, 0, -0.10);
           P.body.rotation.x = 0.10 + into * 0.10;
           P.body.rotation.z = Math.sin(this.t * 1.1 + ph) * 0.03;
