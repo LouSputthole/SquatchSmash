@@ -768,6 +768,20 @@ export function makeLou() {
  * turns up anywhere without them, a red parachute rig over his shoulders and a
  * green headset round his neck. He is a pilot first and an Agency employee
  * second, and he dresses like the first one.
+ *
+ * Owner's note: *"Old Stove's face is still not there."* MEASURED CAUSE:
+ * `assets/faces/stove.png` has been on disk (and in `assets/faces/index.json`)
+ * the whole time, but nothing here ever passed `face:` to `makeFigure()` — his
+ * head has always been a plain skin-coloured box with a procedural shades bar
+ * and beard slab stuck to it, exactly like a cast member with no photograph.
+ * Wired the same way Sasole's is: `face` plus the shared square-photo default
+ * crop, which is what every OTHER 256x256 face in this folder already uses —
+ * `sasole.png` is the one portrait-shaped exception with its own crop, and
+ * `stove.png` is 256x256 like the rest. `makeFigure()` turns off the
+ * procedural hair box and shades bar itself once `o.face` is set (`!o.face` on
+ * both), which is also why the standalone beard slab below is gone: the photo
+ * already has one and a floating box on top of a real jaw is worse than either
+ * alone.
  */
 export function makeOldStove() {
   const f = makeFigure({
@@ -776,15 +790,12 @@ export function makeOldStove() {
     shirt: 0x4a5260,          // dark grey-blue tee
     trousers: 0xbfa878,       // khakis
     boots: 0x8a7a52,          // tan boots
-    hair: 0x6b5340,           // cropped, and going
-    shades: true,
+    hair: 0x6b5340,           // cropped, and going -- still used on the head
+    // cube's other five faces once a photo is on the sixth.
     build: 0.36,              // narrow
+    face: 'assets/faces/stove.png',
   });
   setPose(f, 'idle');
-
-  // Close beard, on the jaw rather than off it.
-  const beard = mesh(boxGeo(0.2, 0.11, 0.2), solid(0x6b5340, { roughness: 1 }), 0, 0.05, 0.02);
-  f.neck.add(beard);
 
   // Headset round the neck: green cups, exactly where Lou's black ones sit.
   const cupMat = solid(0x5f6b3a, { roughness: 0.8 });

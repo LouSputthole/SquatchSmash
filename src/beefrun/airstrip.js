@@ -375,10 +375,17 @@ export function buildAirstrip(scene) {
   const palmFrond = boxGeo(0.28, 0.1, 4.4);
   const trunkMat = solid(0x4a3a24, { roughness: 1 });
   const frondMat = solid(0x2f6b34, { roughness: 1 });
+  /* The z-span used to run 90 m past `zHigh - 30`, which put its far tail
+   * 60 m past `zLow` -- past the runway's low end and onto the cliff
+   * `terrainHeight`'s `elHuesoShape` drops there (down toward `elevLow - 300`
+   * for anything more than ten metres past `zLow`). A palm rooted at its own
+   * true ground height in that zone lands thirty-odd storeys under the ones
+   * either side of it: not floating, planted in a canyon nobody flies into.
+   * `+15` keeps the whole run short of `zLow` instead of over it. */
   for (let i = 0; i < 90; i++) {
     const side = rand() < 0.5 ? -1 : 1;
     const x = EH.x + side * (EH.rwyWidth + 4 + rand() * 26);
-    const z = EH.zHigh - 30 + rand() * (stripLen + 90);
+    const z = EH.zHigh - 30 + rand() * (stripLen + 15);
     if (side < 0 && x > EH.x - 46 && z < EH.zHigh + 130 && z > EH.zHigh + 10) continue;  // keep the camp clear
     const y = terrainHeight(x, z);
     const t = mesh(palmTrunk, trunkMat, x, y + 4.5, z);
@@ -411,13 +418,17 @@ export function buildAirstrip(scene) {
     jungleCount,
   );
   jungleCrowns.name = 'el-hueso-jungle-canopy';
+  /* Same cliff bug as the palms above, worse: this loop's tail used to reach
+   * 100 m past `zLow`, deep enough into `elHuesoShape`'s ramp
+   * (`smoothstep(zLow+10, zLow+120, z)`) to plant trees within a hair of the
+   * full 300 m drop. `+45` stops the range short of `zLow` instead. */
   const tree = new THREE.Object3D();
   for (let i = 0; i < jungleCount; i++) {
     let side; let x; let z; let tries = 0;
     do {
       side = rand() < 0.5 ? -1 : 1;
       x = EH.x + side * (EH.rwyWidth + 34 + rand() * 44);
-      z = EH.zHigh - 60 + rand() * (stripLen + 160);
+      z = EH.zHigh - 60 + rand() * (stripLen + 45);
       tries++;
     } while (side < 0 && x > EH.x - 78 && z < EH.zHigh + 145 && z > EH.zHigh && tries < 12);
     const y = terrainHeight(x, z);

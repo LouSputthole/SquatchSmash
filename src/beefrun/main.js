@@ -191,6 +191,14 @@ const mission = new MissionController({
 // receive a click, which made the direct preview look frozen.
 
 window.__beefrun = {
+  /* Handed out at the top level, unlike everything else here, so a
+   * generic verifier can find the built world the same way it does on
+   * every other scene (`window.mansion.scene`, `window.__bing.scene`, …)
+   * without knowing this page's shape in particular. Before this,
+   * `tools/scene-audit.mjs` reported "no THREE.Scene reachable from a
+   * global" for the Beef Run specifically, because the only scene graph on
+   * the page lived two hops down at `mission.scene`. */
+  THREE, scene, camera, renderer,
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
   player, cameras, dialogue, interaction, input, audio: missionAudio, hud, flightHud,
   sceneInventory,
