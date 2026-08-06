@@ -11,8 +11,15 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureThreeShim } from './three-shim.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/* The runtime modules imported below reach the bare `three` specifier, which
+ * only resolves through the generated node_modules/three shim — and `npm i`
+ * prunes that shim, because it is not a dependency. Regenerate it up front so
+ * check does not fail on a freshly installed tree. */
+ensureThreeShim();
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
