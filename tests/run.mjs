@@ -54,6 +54,7 @@ const TEST_MODULES = [
   './beefrun-cecilio-face.test.mjs',
   './beefrun-runway-start.test.mjs',
   './beefrun-playtest-fixes.test.mjs',
+  './beefrun-takeoff-anthem.test.mjs',
   './post-airstrip-story.test.mjs',
   './bada-bing-two-mission.test.mjs',
   './hotdog-attack.test.mjs',

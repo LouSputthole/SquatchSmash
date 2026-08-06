@@ -439,6 +439,7 @@ const flightHud = new FlightHud();
 
 const audio = new EnolaAudioEngine();
 const missionAudio = new EnolaMissionAudio(audio);
+missionAudio.takeoffAnthemFile = 'fortunate-son.mp3';
 
 const airfield = buildAirfield(scene, {});
 
