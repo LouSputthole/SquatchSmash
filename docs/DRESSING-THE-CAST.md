@@ -137,6 +137,11 @@ model under three lighting rigs, with detail cameras that aim at the named part
 rather than at a guessed height. Rule 7 below is what a verifier can check; the
 fitting room is for everything a verifier cannot.
 
+It also browses `src/core/appearances.js`, which is the other half of this
+document: what somebody wears is decided at the SCENE, and the room will show
+you one scene's whole cast, or one person in every scene they are in with the
+differences computed rather than described.
+
 ## Where the options live
 
 `makePerson` in `src/bing/cast.js` — see the option block at the top of the file.
@@ -160,8 +165,17 @@ fitting room is for everything a verifier cannot.
   is what makes Lou's corno visible in the Bing at all.
 
 Lou's three looks — the club, the mansion and the course — are outfits on one
-man, and they live in `src/core/wardrobe.js` beside him rather than being typed
-out in each scene. The jewellery is the same in all three, because it is his.
+man, and the jewellery is the same in all three, because it is his.
+
+**Two of the three live in `src/core/wardrobe.js` beside him. The course does
+not**, and this paragraph claimed otherwise until the appearance ledger put the
+three side by side and the claim stopped being true: golf keeps its own private
+`const WARDROBE` in `src/golf/cast.js`, which also gives Lou a different height
+and build from the man in the club. That is a row in `docs/FUTURE-EDITS.md` and
+a quarantined copy with a source-parity test on it in
+`src/core/appearances.js`; it is not fixed here, because fixing it is a golf
+edit. Left written down rather than quietly corrected, because a doc that was
+wrong once is worth knowing about.
 
 `neckline: 'v'` is still correct for what it was written for — an open knit
 collar. It is simply not black tie, and the two must not be confused again.
