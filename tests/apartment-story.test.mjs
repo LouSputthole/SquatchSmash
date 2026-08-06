@@ -12,6 +12,7 @@ import {
 } from '../src/core/campaign.js';
 import {
   BIG_NIGHT_BOOSKI_CALL,
+  BIG_NIGHT_MARGO_WAKE,
   DATE_MARGO_CALL,
   DAY_FOUR_LOU_GOLF_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
@@ -21,6 +22,7 @@ import {
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
   NO_WAKE_LOU_CALL,
+  SILVER_ROOM_COME_HOME,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createNoWakeStory } from '../src/core/no-wake-story.js';
@@ -899,6 +901,66 @@ function afterTheDate(storage) {
   });
   return campaign;
 }
+
+test('SCENE 9 is owed only the night she actually came home with him', () => {
+  const campaign = afterTheDate();
+  const story = createApartmentStory({ campaign, ring: () => true });
+
+  // 'strong' outcome, but `SilverStory.complete` never ran here, so there is
+  // no `cameHome` at all yet -- and unlike `margoWakeOwed`, there is no
+  // pre-existing save to be lenient toward: this scene never shipped before.
+  assert.equal(story.margoComeHomeOwed(), false, 'no cameHome verdict yet');
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].cameHome = true;
+  });
+  assert.equal(story.margoComeHomeOwed(), true);
+  assert.equal(story.margoHomeForTheNight(), false, 'owed is not yet done');
+
+  assert.equal(story.margoComeHomeDone(), true);
+  assert.equal(story.margoComeHomeOwed(), false, 'the one-shot marker prevents replay');
+  assert.equal(story.margoHomeForTheNight(), true, 'she is in bed for the rest of the night');
+
+  // A second call is a no-op, same shape as `margoWakeDone`.
+  assert.equal(story.margoComeHomeDone(), false);
+});
+
+test('SCENE 9 never fires on a bad night, and never past the night it happened', () => {
+  const badNight = afterTheDate();
+  setSilverOutcome(badNight, 'awkward', false);
+  const badStory = createApartmentStory({ campaign: badNight, ring: () => true });
+  assert.equal(badStory.margoComeHomeOwed(), false, 'she did not come home');
+  assert.equal(badStory.margoHomeForTheNight(), false);
+
+  const goodNight = afterTheDate();
+  setSilverOutcome(goodNight, 'strong', true);
+  const goodStory = createApartmentStory({ campaign: goodNight, ring: () => true });
+  assert.equal(goodStory.margoComeHomeOwed(), true);
+
+  // Sleeping off the date turns the chapter; the come-home beat belongs to
+  // the night before, not to the morning that follows it.
+  goodStory.margoComeHomeDone();
+  assert.equal(goodStory.sleep().chapter, 'golf_morning');
+  assert.equal(goodStory.margoComeHomeOwed(), false);
+  assert.equal(goodStory.margoHomeForTheNight(), false, 'the night is over');
+});
+
+/** Set the Silver Room's outcome and cameHome verdict directly, mid-test. */
+function setSilverOutcome(campaign, outcome, cameHome) {
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].outcome = outcome;
+    state.missions[MISSION_IDS.SILVER_ROOM].cameHome = cameHome;
+  });
+}
+
+test('the come-home dialogue is cast as Margo and shares no cue names with the wake', () => {
+  assert.equal(SILVER_ROOM_COME_HOME.characterId, CHARACTER_IDS.MARGO);
+  assert.equal(SILVER_ROOM_COME_HOME.from, 'Margo');
+  assert.equal(SILVER_ROOM_COME_HOME.voiceProfile, 'margo');
+  assert.ok(SILVER_ROOM_COME_HOME.lines.length >= 1);
+  assert.equal(SILVER_ROOM_COME_HOME.lines.length, SILVER_ROOM_COME_HOME.replies.length);
+  assert.notEqual(SILVER_ROOM_COME_HOME.vo, BIG_NIGHT_MARGO_WAKE.vo);
+});
 
 test('Lou rings once on the Day 4 wake and unlocks Silver Pines', () => {
   const storage = new MemoryStorage();

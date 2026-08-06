@@ -20,6 +20,7 @@
 import * as THREE from 'three';
 import { box, cylinder, group, mat, plane, sphere } from './build.js';
 import { restyleMargoHead } from '../silver/margo.js';
+import { BLOB_HEAD_Y, createGlueBlobMaterial } from './splat.js';
 
 /** The campaign's chapters, in the order sleeping walks through them. */
 export const CHAPTER_ORDER = Object.freeze([
@@ -1618,6 +1619,22 @@ export function makeAnswerMachine(M, { x, y, z, rotY = 0 }) {
 const KNEEL_TORSO = 1.45;
 
 /**
+ * The seam's own authored length, in metres, at full fasten.
+ *
+ * `setDressHelpProgress` used to write straight into `dressClosure.scale.y`
+ * -- 0.18 to 1.0 -- which is not a fraction of anything, it is a mesh built
+ * on a unit box, so that IS the mesh's height in metres. At full progress the
+ * seam stood a metre tall: floor of her shoulder blades to well above her
+ * scalp, and once `completeMargoDressHelp` stands her up straight the thing
+ * reads exactly as reported -- a grey bar running up her back, because for a
+ * few seconds coming out of the kneel it is one. Bent double over the bed the
+ * same metre mostly lies along the horizontal instead, which is why it read
+ * as merely wrong there rather than as a bar. The fix is the one the size
+ * argument already implied: scale is a FRACTION of this, not a length of its
+ * own. */
+export const DRESS_CLOSURE_LENGTH = 0.31;
+
+/**
  * Where the mess lands on the dress, and how big each bit of it is.
  *
  * Down her BACK, which is where the fastening is and therefore where his
@@ -1678,7 +1695,7 @@ export function makeMorningGuest(M) {
   /* A visible centre seam gives the interaction a real garment to finish,
    * rather than asking the player to hold E against an undifferentiated box. */
   const dressClosure = box({
-    name: 'margo.outfit.dress-closure', size: [0.018, 0.31, 0.014],
+    name: 'margo.outfit.dress-closure', size: [0.018, DRESS_CLOSURE_LENGTH, 0.014],
     pos: [0, 0.265, -0.108], mat: shirtShade,
   });
   upper.add(dressClosure);
@@ -1766,8 +1783,14 @@ export function makeMorningGuest(M) {
   /* Stable, generous hit volume over the fastening. Parented to the TORSO
    * rather than to the root: bent over on all fours the two are half a metre
    * and eighty degrees apart, and a hit box left at her hips is a prompt that
-   * appears somewhere she is not. It stays invisible; the garment seam above
-   * is the visual target. */
+   * appears somewhere she is not. Riding the torso also means it tracks her
+   * correctly BEFORE she kneels -- standing and offering, the same local
+   * offset lands on her upper back rather than her hips, which is what makes
+   * it reachable at the one pose she is actually in when the player is meant
+   * to find it. Its own material is invisible; the garment seam above is the
+   * visual target. Left permanently interactable rather than toggled with the
+   * pose -- gating on `enabled` in the interaction descriptor is the one gate
+   * that has ever done anything here; see the registration in `boot()`. */
   const helpTarget = box({
     name: 'margo-dress-help', size: [0.48, 0.58, 0.38], pos: [0, 0.32, -0.12],
     mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
@@ -1780,29 +1803,30 @@ export function makeMorningGuest(M) {
    * Parented to the blouse rather than sprayed at a wall plane the way the
    * picture frame's mess is: hers has to travel with her, because she stands
    * up in it, walks the length of the flat in it and leaves the building in
-   * it, and that is the entire joke. A blob is a squashed head with a run
-   * hanging off it -- anything viscous on a vertical surface sags, and a
-   * circle on its own reads as a sticker.
+   * it, and that is the entire joke. THE BLOBS THEMSELVES ARE THE SAME
+   * ASSET THE WALL USES -- `createGlueBlobMaterial` paints from the exact
+   * canvas `SplatSystem` sprays at the picture frame, so the two fixing games
+   * land on the same-looking mess rather than two different ideas of glue.
+   * This used to fake the shape by hand with a squashed sphere and a
+   * flat-shaded box, which is why it never quite looked like the same
+   * bottle.
    *
    * Laid out by hand down the closure and across the shoulder blades rather
    * than scattered at random, so the same frame comes out of a run twice.
    */
-  const glueMat = mat({
-    unique: true, color: 0xf6f4ea, roughness: 0.16, metalness: 0,
-    transparent: true, opacity: 0,
-  });
   const dressGlue = group('margo.dress.glue');
   upper.add(dressGlue);
   const glueBlobs = GLUE_BLOBS.map(([bx, by, r, run], i) => {
-    const blob = group(`margo.dress.glue.${i + 1}`);
-    blob.position.set(bx, by, -0.114);
-    blob.add(sphere({ r, ry: r * 0.88, rz: r * 0.42, pos: [0, 0, 0], mat: glueMat, cast: false }));
-    blob.add(box({
-      size: [r * 0.58, run, r * 0.44], pos: [0, -(run / 2 + r * 0.3), 0],
-      mat: glueMat, cast: false, receive: false,
-    }));
+    // Head and run are one baked texture now, so one plane is the whole blob.
+    const w = r * 2.6;
+    const h = (run + r * 1.3) * 1.08;
+    const blob = plane(w, h, createGlueBlobMaterial());
+    blob.name = `margo.dress.glue.${i + 1}`;
+    /* The texture's own head sits BLOB_HEAD_Y down from its top edge rather
+     * than at the plane's centre, so the plane is nudged to compensate --
+     * otherwise every blob lands visibly low of the point it was aimed at. */
+    blob.position.set(bx, by - h * (0.5 - BLOB_HEAD_Y), -0.114);
     blob.visible = false;
-    blob.scale.setScalar(0);
     dressGlue.add(blob);
     return blob;
   });
@@ -1853,7 +1877,6 @@ export function makeMorningGuest(M) {
   const setPose = (pose) => {
     resetLimbs();
     rig.pose = pose;
-    helpTarget.visible = pose === 'kneeling';
     if (pose === 'lying') {
       /*
        * On her side beside him, and -- the part this got wrong for a long
@@ -1988,7 +2011,9 @@ export function makeMorningGuest(M) {
   const setDressHelpProgress = (progress) => {
     const p = Math.max(0, Math.min(1, Number(progress) || 0));
     rig.dressHelpProgress = p;
-    dressClosure.scale.y = 0.18 + p * 0.82;
+    // 0.18..1.0 of DRESS_CLOSURE_LENGTH, not 0.18..1.0 metres -- see the
+    // constant's own comment for the bar this was putting up her back.
+    dressClosure.scale.y = (0.18 + p * 0.82) * DRESS_CLOSURE_LENGTH;
     dressClosure.position.y = 0.16 + p * 0.105;
     /* She braces a little lower as the fastening closes. Slight on purpose --
      * enough that the bar has something to move, not so much that it becomes a
@@ -2003,20 +2028,21 @@ export function makeMorningGuest(M) {
    *
    * Ramped rather than switched, and staggered across the blobs, because the
    * bottle gives all at once and then keeps going for a second afterwards.
-   * One shared material carries the fade in and each blob carries its own
-   * arrival, so the spread reads as a spray with a source.
+   * Each blob carries its own opacity rather than a shared material's, and
+   * fades in at full size rather than growing from nothing -- the same
+   * arrival `SplatSystem.update` gives the wall -- so the spread reads as a
+   * spray with a source landing wet, not as a row of stickers inflating.
    *
    * @param {number} amount 0 clean, 1 the whole bottle
    */
   const setDressGlue = (amount) => {
     const p = Math.max(0, Math.min(1, Number(amount) || 0));
     rig.dressGlue = p;
-    glueMat.opacity = 0.94 * Math.min(1, p * 3.5);
     glueBlobs.forEach((blob, i) => {
       const at = (i / Math.max(1, glueBlobs.length - 1)) * 0.70;
       const k = Math.max(0, Math.min(1, (p - at) / 0.30));
       blob.visible = k > 0;
-      blob.scale.setScalar(k);
+      blob.material.opacity = 0.94 * k;
     });
   };
 

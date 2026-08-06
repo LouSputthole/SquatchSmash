@@ -115,6 +115,7 @@ test('Apartment runtime literals and connected voice banks all remain resident',
     'vo.radio.',
     'vo.mail.',
     'vo.margo.wake.',
+    'vo.margo.comehome.',
   ];
   const connectedBankCues = recorded
     .map((cue) => cue.name)

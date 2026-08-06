@@ -178,6 +178,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   PHONE_READ_MUM: 'phone.read.mum',
   /** Margo waking up beside him on the fourth morning, and leaving. */
   MARGO_WAKE: 'scene.margo_wake',
+  /** Margo coming home with him the night of the Silver Room, and staying. */
+  MARGO_COME_HOME: 'scene.margo_come_home',
   LOU_FIRST_CALL: 'call.lou_first',
   LOU_ATTABOY_CALL: 'call.lou_attaboy',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
@@ -234,6 +236,11 @@ const TIME_EVENTS = Object.freeze({
    * an errand: Day 4 already opens at the authored seven-o'clock checkpoint,
    * and Margo leaving should not move the Golf call or either departure. */
   [TIME_EVENT_IDS.MARGO_WAKE]: Object.freeze({ minutes: 0 }),
+  /* Also costs nothing on the clock -- `DEPART_SILVER_ROOM` and
+   * `COMPLETE_SILVER_ROOM` already staged the walk home and the hour it
+   * lands at; this only marks that the two of them went through it rather
+   * than the door swinging shut on a toast. */
+  [TIME_EVENT_IDS.MARGO_COME_HOME]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
   // Shorter than the rest. Lou is not asking for anything, so it is short.
   [TIME_EVENT_IDS.LOU_ATTABOY_CALL]: Object.freeze({ minutes: 2 }),
@@ -629,6 +636,7 @@ function initialState() {
         rememberedDrink: false,
         seeingHerAgain: false,
         knowsWhatHeDoes: false,
+        cameHome: false,
       },
       /* The durable card, plus the two moments later scenes can reasonably
        * remember: Lou explaining the invitation and Tony taking the ride. */
@@ -1376,6 +1384,20 @@ function normalize(saved) {
         rememberedDrink: silver.rememberedDrink === true,
         seeingHerAgain: silver.seeingHerAgain === true,
         knowsWhatHeDoes: silver.knowsWhatHeDoes === true,
+        /* SHE CAME BACK WITH HIM, or she did not -- `SilverStory.complete`
+         * writes this the moment the mission ends, and every `update()` after
+         * that runs the whole state back through this function. Without a
+         * field here to carry it, `normalize` silently rebuilt the mission
+         * from the six lines above and the verdict was gone on the very next
+         * `campaign.update()` call -- which is every one of them, including
+         * the `advanceTime` inside `SilverStory.complete` itself. Nothing
+         * downstream noticed because `margoWakeOwed`'s `!== false` fallback
+         * reads a lost verdict the same as a pre-existing save with no
+         * verdict at all, and defaults to "yes". A stricter reader would not
+         * be so lucky -- and `margoComeHomeOwed` (SCENE 9's own gate) is
+         * exactly that reader: it requires an explicit `true`, which could
+         * never have survived to be read. */
+        cameHome: silver.cameHome === true,
       },
       [MISSION_IDS.SILVER_PINES]: {
         status: golfStatus,
@@ -2026,6 +2048,14 @@ function seedApartmentPreviewCampaign(state, variant) {
     silver.rememberedDrink = true;
     silver.seeingHerAgain = true;
     silver.knowsWhatHeDoes = true;
+    /* Matches what `src/silver/mission.js` itself derives for this outcome --
+     * `['perfect', 'strong'].includes(outcome)` -- so a seeded preview save
+     * agrees with a played one about whether she came home. Left off before,
+     * this field defaulted to `undefined`, which `margoWakeOwed` treats as
+     * "yes" (a pre-existing-save shim) but `margoComeHomeOwed` does not: a
+     * preview seeded straight to `date`/`front_door` would have reported the
+     * outcome that earns her coming home while quietly deciding she had not. */
+    silver.cameHome = true;
     markTime(
       TIME_EVENT_IDS.MARGO_DATE_CALL,
       TIME_EVENT_IDS.DEPART_SILVER_ROOM,
@@ -2037,6 +2067,7 @@ function seedApartmentPreviewCampaign(state, variant) {
     state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
     seedCompletedGolfRound(golf);
     markTime(
+      TIME_EVENT_IDS.MARGO_COME_HOME,
       TIME_EVENT_IDS.MARGO_WAKE,
       TIME_EVENT_IDS.LOU_GOLF_CALL,
       TIME_EVENT_IDS.DEPART_SILVER_PINES,
