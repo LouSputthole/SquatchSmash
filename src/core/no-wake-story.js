@@ -5,8 +5,18 @@ import {
   TIME_EVENT_IDS,
 } from './campaign.js';
 
+/**
+ * Where a NO WAKE run can be picked up again.
+ *
+ * `docs/NO-WAKE-REDESIGN.md` asks for "checkpoints after the inlet, after the
+ * execution, and after the weights". The first two already existed as
+ * `open_water` and `execution`; `weighted` is the third, and it matters because
+ * everything between the shot and the ballast is a chain of authored holds — a
+ * player who stops after clipping the iron on should not have to sit through
+ * the confrontation again to get back to the carry.
+ */
 const CHECKPOINTS = Object.freeze([
-  'dock', 'underway', 'open_water', 'execution', 'returned',
+  'dock', 'underway', 'open_water', 'execution', 'weighted', 'returned',
 ]);
 
 /** Campaign boundary for NO WAKE. Runtime detail stays in the scene. */

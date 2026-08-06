@@ -1,55 +1,47 @@
 import * as THREE from 'three';
 
-const SPEAKER_SHOTS = Object.freeze({
-  lou: {
-    position: [0, 2.58, 1.55],
-    targetNpc: 'lou',
-    targetOffset: [0, 1.48, 0],
-    fov: 57,
-  },
-  willy: {
-    position: [0, 2.50, 2.32],
-    targetNpc: 'willy',
-    targetOffset: [0, 1.42, 0],
-    fov: 57,
-  },
-  booski: {
-    position: [0, 2.58, 1.50],
-    targetNpc: 'booski',
-    targetOffset: [0, 1.46, 0],
-    fov: 58,
-  },
-  /* Irish stands to port and one pace back, so his shot comes in from the
-   * starboard side of the group and reads as somebody speaking across the
-   * deck rather than another face in the same line-up. */
-  irish: {
-    position: [1.28, 2.54, 1.72],
-    targetNpc: 'irish',
-    targetOffset: [0, 1.46, 0],
-    fov: 56,
-  },
-});
-
-const RETURN_SHOTS = Object.freeze([
-  {
-    id: 'return-wake-wide', until: 5.35,
-    position: [-5.6, 3.45, 8.6], target: [0, 1.35, 1.4], fov: 63,
-  },
-  {
-    id: 'return-silent-deck', until: 10.7,
-    position: [-4.20, 3.25, 6.70], target: [1.0, 1.25, 3.45], fov: 62,
-  },
-  {
-    id: 'return-harbor-ahead', until: Infinity,
-    position: [-.8, 3.25, -8.2], target: [0, 1.28, -.35], fov: 61,
-  },
-]);
+/**
+ * NO WAKE's authored camera.
+ *
+ * Every shot is written in the BOAT's local frame and resolved through
+ * `boat.root.localToWorld` every update, which is the spec's "one stable local
+ * coordinate system while aboard" applied to the camera as well as to the
+ * player. A shot authored in world space would slide off the boat the moment
+ * she moved, and she is moving for most of this mission.
+ *
+ * The scene deliberately owns very little of the camera. The player keeps it
+ * for the dock, the run out, the cabin confrontation and the shot itself —
+ * "movement locked, aim free, no countdown". The director takes over only for
+ * the beats the spec stages: the collapse, the wrapping, the weights, the
+ * carry, the disposal, the hold on the water, and one look astern.
+ */
 
 /**
- * NO WAKE owns its authored camera independently of Player.  Player updates
- * first; this director writes the final render pose afterwards, so a frozen
- * player's normal yaw/pitch application cannot reset a cinematic blend.
+ * THERE ARE NO SPEAKER SHOTS BELOW DECK, AND THAT IS THE POINT.
+ *
+ * The old scene cut to whoever was talking on every line. The redesign says
+ * "the player keeps camera control but cannot leave, and movement is limited to
+ * a small staging area so the composition holds" — so the composition is held
+ * by where the four men are standing, not by the camera taking over. Willy is
+ * between the bar and the booth with nothing in front of him; Lou is at the far
+ * end of the dinette over a low back; Booski is behind the bar. From the mark at
+ * the foot of the stairs all three are in frame at once and none of them is
+ * behind anything, which is the owner's "spawning behind a wall" complaint
+ * answered with staging instead of with a cut.
+ *
+ * Every shot below is a beat the spec explicitly stages, and the player is
+ * `frozen` for all of them.
  */
+
+/** The last thing the mission shows: the wake spreading and smoothing over. */
+const ASTERN_SHOT = Object.freeze({
+  id: 'exit-astern-wake',
+  position: [0, 2.95, 6.40],
+  target: [0, -0.10, 16.0],
+  fov: 62,
+  rate: 6.0,
+});
+
 export class NoWakeCameraDirector {
   constructor(camera, boat) {
     this.camera = camera;
@@ -80,43 +72,76 @@ export class NoWakeCameraDirector {
     if (snap) this.update(1);
   }
 
-  frameSpeaker(id) {
-    const shot = SPEAKER_SHOTS[id];
-    if (!shot) return;
-    this.setShot(`reveal-${id}`, shot, { snap: true });
-  }
-
-  frameExecution() {
-    this.setShot('execution-over-shoulder', {
-      position: [0, 2.76, .82],
-      target: [0, 2.08, 4.34],
-      fov: 68,
+  /** The slump: a low side profile, not a stare down at deck fragments. */
+  frameCollapse() {
+    this.setShot('execution-collapse-profile', {
+      position: [-0.34, 0.58, -2.06],
+      targetNpc: 'willy',
+      targetOffset: [0, 0.55, 0],
+      fov: 58,
       rate: 8.5,
     }, { snap: true });
   }
 
-  frameCollapse() {
-    this.setShot('execution-collapse-profile', {
-      position: [-1.92, 2.38, 3.65],
-      targetNpc: 'willy',
-      targetOffset: [0, .92, 0],
-      fov: 61,
-      rate: 9,
+  /** The tarp, the roll, the fold and the straps. */
+  frameWrap() {
+    this.setShot('body-wrap-cabin', {
+      position: [-0.34, 0.94, -2.14],
+      target: [0.50, 0.02, -3.06],
+      fov: 60,
+      rate: 8,
     }, { snap: true });
   }
 
-  frameDisposal() {
-    this.setShot('disposal-transom-side', {
-      position: [4.45, 3.58, 6.50],
-      target: [1.32, 1.04, 4.32],
+  /** The bow locker, in open air, with Irish's back to the whole thing. */
+  frameBallast() {
+    this.setShot('ballast-bow-locker', {
+      position: [-1.16, 2.58, -2.06],
+      target: [-0.02, 1.76, -3.86],
+      fov: 58,
+      rate: 8,
+    }, { snap: true });
+  }
+
+  /** Two men lifting, in the room they have to get him out of. */
+  frameCarryLift() {
+    this.setShot('carry-lift-cabin', {
+      position: [-0.06, 1.14, -3.94],
+      target: [0.14, 0.40, -2.52],
       fov: 62,
-      rate: 9,
+      rate: 7,
     }, { snap: true });
   }
 
-  frameReturn(time) {
-    const shot = RETURN_SHOTS.find((candidate) => time < candidate.until) ?? RETURN_SHOTS.at(-1);
-    this.setShot(shot.id, shot, { snap: true });
+  /** Off the starboard quarter, low, with the water inches under the bag. */
+  frameDisposal() {
+    this.setShot('disposal-swim-platform', {
+      position: [3.55, 0.88, 6.15],
+      target: [0.55, 0.28, 5.66],
+      fov: 58,
+      rate: 7,
+    }, { snap: true });
+  }
+
+  /**
+   * The hold.
+   *
+   * "One strike on the water, it sinks, it is gone... Hold on the water for
+   * several seconds. Nothing comes back up." This shot exists so that holding
+   * on nothing is a decision the scene made rather than a frame it happened to
+   * be on.
+   */
+  frameWaterHold() {
+    this.setShot('disposal-water-hold', {
+      position: [0.30, 1.55, 6.80],
+      target: [0.30, -0.18, 8.40],
+      fov: 54,
+      rate: 3.2,
+    }, { snap: true });
+  }
+
+  frameAstern() {
+    this.setShot(ASTERN_SHOT.id, ASTERN_SHOT, { snap: true });
   }
 
   clear() {
@@ -160,3 +185,14 @@ export class NoWakeCameraDirector {
     }
   }
 }
+
+/** The authored beats, in the order the mission plays them. */
+export const NO_WAKE_SHOT_ORDER = Object.freeze([
+  'execution-collapse-profile',
+  'body-wrap-cabin',
+  'ballast-bow-locker',
+  'carry-lift-cabin',
+  'disposal-swim-platform',
+  'disposal-water-hold',
+  'exit-astern-wake',
+]);

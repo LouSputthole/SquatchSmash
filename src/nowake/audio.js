@@ -1,15 +1,38 @@
-/** Recorded one-shots and beds requested directly by the NO WAKE runtime. */
+/**
+ * Recorded one-shots and beds requested directly by the NO WAKE runtime.
+ *
+ * The owner's complaint about the old scene was that the engines and the water
+ * were thin, so the redesign asks for real beds under every leg of the trip:
+ * marina ambience at the dock, gulls over it, an ocean bed at the inlet, a
+ * start, an idle and a rev on the levers, and water tapping the fiberglass from
+ * inside the cabin. Five of those are new cues and are listed in
+ * `VOICE-LINES-TODO.md` until somebody records them; everything else on this
+ * list is already on disk.
+ */
 export const NO_WAKE_AUDIO_CUE_NAMES = Object.freeze([
   'ambience.harbor',
+  'ambience.ocean.night',
   'seagull.distant',
   'boat.hull.creak',
+  'water.lap.hull',
   'bird',
+  'chair.scrape.wood',
+  'boat.ballast.chain',
+  'cloth.snap',
   'cloth.suit.movement',
+  'dish.clink',
+  'door.creak',
   'drunk.collapse',
+  'glass.set',
   'gun.shot',
+  'hotdog.body.floor',
+  'boat.bag.zip',
   'pc.fan',
+  'pour',
+  'radio.click',
   'switch.click',
   'water.splash',
+  'whiskey.pour',
 ]);
 
 /** Dialogue, boat systems, and walking surfaces owned by the NO WAKE page. */
@@ -76,6 +99,23 @@ export class NoWakeEngineAudio {
     this.ready = false;
     this.running = false;
     this.nodes = null;
+    /**
+     * How much of the engine room reaches the ear.
+     *
+     * "The companionway drops into a warm enclosed cabin. Engines go muffled
+     * and physical." One number rather than a second graph: below decks the
+     * sole filter closes down and the level drops, and when Booski shuts the
+     * companionway doors it closes further still, which is the moment the room
+     * stops being outdoors. 1 is on deck.
+     */
+    this.enclosure = 1;
+  }
+
+  /**
+   * @param {number} value 1 on deck, ~0.45 below, ~0.2 with the doors shut.
+   */
+  setEnclosure(value) {
+    this.enclosure = Math.max(0, Math.min(1, value));
   }
 
   get ctx() { return this.engine?.ctx; }
@@ -160,7 +200,7 @@ export class NoWakeEngineAudio {
     if (!this.ready || this.running) return;
     this.running = true;
     // Up to the idle level; `setDrive` owns it from the next frame on.
-    this.nodes.out.gain.setTargetAtTime(.34, this.ctx.currentTime, .5);
+    this.nodes.out.gain.setTargetAtTime(.46, this.ctx.currentTime, .5);
   }
 
   /** Shut down: the graph keeps running silently rather than being rebuilt. */
@@ -196,9 +236,16 @@ export class NoWakeEngineAudio {
       e.exhaustGain.gain.setTargetAtTime(.24 + load * .34, t, .12);
       e.side.gain.setTargetAtTime(.42 + turning * .30, t, .10);
     }
-    // Hatches and sole let more of the top end through the harder they work.
-    this.nodes.sole.frequency.setTargetAtTime(300 + turning * 1150 + way * 260, t, .14);
-    const level = (.34 + load * .26 + way * .12) * clamp(duck, 0, 1);
+    /* Hatches and sole let more of the top end through the harder they work,
+     * and a closed companionway takes almost all of it away again. The engines
+     * are louder than they were: this is the thing the player is standing on,
+     * and the old mix had it behind the seagulls. */
+    const enclosed = .28 + this.enclosure * .72;
+    this.nodes.sole.frequency.setTargetAtTime(
+      (320 + turning * 1320 + way * 300) * enclosed, t, .14,
+    );
+    const level = (.46 + load * .34 + way * .16)
+      * (.24 + this.enclosure * .76) * clamp(duck, 0, 1);
     this.nodes.out.gain.setTargetAtTime(level, t, .18);
   }
 }

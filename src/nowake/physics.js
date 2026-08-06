@@ -21,6 +21,16 @@ export class BoatPhysics {
     this.mooringReleased = false;
     /** False once nobody is standing at the wheel. See `step`. */
     this.helmAttended = true;
+    /**
+     * Kinematically locked.
+     *
+     * "Anchor or kinematically lock the boat during the confrontation." From
+     * the moment the engines are killed in the inlet until the player restarts
+     * them to leave, the hull does not move at all -- not a heave, not a roll.
+     * A cinematic interior with a moving floor is an invitation to the physics
+     * engine, and this is the one beat in the mission that cannot afford it.
+     */
+    this.anchored = false;
     this._acc = 0;
   }
 
@@ -37,10 +47,12 @@ export class BoatPhysics {
     this.running = false;
     this.mooringReleased = false;
     this.helmAttended = true;
+    this.anchored = false;
     this._acc = 0;
   }
 
   advance(dt) {
+    if (this.anchored) return;
     this._acc += Math.min(0.25, Math.max(0, dt));
     let steps = 0;
     while (this._acc >= FIXED_STEP && steps < MAX_STEPS) {

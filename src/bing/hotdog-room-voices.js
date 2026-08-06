@@ -217,6 +217,24 @@ export const HOTDOG_PARTY_CHATTER = Object.freeze([
   exchange('ears', [
     ['Willy', 'I would tell you where I have been, but this room has ears and two of them came home tonight.'],
   ]),
+  /* THE FORESHADOW.
+   *
+   * `docs/NO-WAKE-REDESIGN.md`: "The Negev lands harder if it has been heard
+   * once before. Earlier in the campaign, during the window when the family
+   * believes the leak happened, Willy says casually: 'Ask anybody. I was on
+   * Mirage all night. Sat B with the Negev like an asshole.'"
+   *
+   * This party is that window — it is the first room the family is in together
+   * after the Beef Run drew eyes — and this is disposable Squatch chatter at
+   * the time. Nobody reacts to it and nothing in the game marks it. Lou has
+   * since checked the match. On the boat, the player needs no technical
+   * explanation: Willy understands the question immediately, and his reaction
+   * tells the audience everything. */
+  exchange('mirage', [
+    ['Willy', 'Ask anybody. I was on Mirage all night. Sat B with the Negev like an asshole.'],
+    ['Numbskull', 'What is a Negev.'],
+    ['Willy', 'It is a gun, Numbskull. It is a very large gun.'],
+  ]),
   exchange('utensils', [
     ['Gratin', 'He has touched every serving utensil on that table. I have re-laid it twice.'],
   ]),
