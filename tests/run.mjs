@@ -76,6 +76,7 @@ const TEST_MODULES = [
   './enolasquatch-combat.test.mjs',
   './enolasquatch-detonation.test.mjs',
   './enolasquatch-nose-art.test.mjs',
+  './enolasquatch-bomb-audio.test.mjs',
   './bing-audio.test.mjs',
   './no-wake-story.test.mjs',
   './no-wake-irish.test.mjs',

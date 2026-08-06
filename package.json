@@ -39,6 +39,7 @@
     "probe:siege": "node tools/probe-siege-balcony.mjs",
     "probe:siege-anchors": "node tools/probe-siege-anchors.mjs",
     "verify:enolasquatch": "node tools/verify-enolasquatch.mjs",
+    "verify:enola-bomb-audio": "node tools/verify-enola-bomb-audio.mjs",
     "preverify:bundle": "node tools/bundle-preview.mjs",
     "verify:bundle": "node tools/verify-bundle.mjs",
     "shots:wardrobe": "node tools/shots-wardrobe.mjs",

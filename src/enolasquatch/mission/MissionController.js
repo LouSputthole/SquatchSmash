@@ -1404,6 +1404,55 @@ export class MissionController {
     return this.getHeight ? this.getHeight(x, z) : approxGroundHeight(x);
   }
 
+  /**
+   * How long the Fat Squatch will be in the air.
+   *
+   * `FatSquatch.update()` integrates a bare ballistic arc — gravity, no drag,
+   * nothing to hit — so the closed form is exact: from `h` metres up with an
+   * initial vertical velocity `vy` (up positive), the time to the ground is
+   * `(vy + sqrt(vy^2 + 2gh)) / g`.
+   *
+   * IT WAS WRONG IN TWO WAYS, and the whistle being a synthesised sweep with a
+   * soft bottom to it is why nobody could hear either. A recording scheduled to
+   * END on the impact hears both immediately. Measured on the real route by
+   * `tools/verify-enola-bomb-audio.mjs`, which is where these numbers are from:
+   *
+   *   THE SIGN. It computed `v0 = max(0, -velocity.y)` — the DESCENT rate as a
+   *     positive number — and then added it, which is the arc of something
+   *     thrown UPWARD at that speed. A bomb let go from an aeroplane already
+   *     going down arrives SOONER, not later, and the error is 2·v0/g: on this
+   *     route, with the aeroplane trimmed 2.2 m/s down on the run in, 0.44 s.
+   *     The clamp hid the other half of it — an aeroplane in a climb really
+   *     does throw the bomb up, and that case was being thrown away.
+   *
+   *   WHICH GROUND. `h` was measured from the terrain directly under the
+   *     AEROPLANE, and the bomb does not land there: it keeps the aeroplane's
+   *     sixty metres a second and comes down half a kilometre downrange, where
+   *     the ground is twenty-one metres higher. Worth another 0.26 s.
+   *
+   * Two correction passes settle the second one — a first guess to find out
+   * where the thing is going, the height there, then the same again. It
+   * converges immediately (fourth pass moves it by 0.07 ms) because the
+   * correction is small compared with the fall.
+   *
+   * Measured from the PAYLOAD once it is off the mount, which is where it
+   * actually is: two metres below the aeroplane's datum, with the aeroplane's
+   * velocity. Before that — nothing else calls this today — from the aeroplane.
+   *
+   * @returns {number} seconds
+   */
+  predictFall() {
+    const off = this.payload?.released && !this.payload.impacted;
+    const from = off ? this.payload.group.position : this.physics.position;
+    const vel = off ? this.payload.velocity : this.physics.velocity;
+    const timeFrom = (h) => (vel.y + Math.sqrt(vel.y * vel.y + 2 * 9.81 * Math.max(1, h))) / 9.81;
+    let fall = timeFrom(from.y - this.groundAt(from.x, from.z));
+    for (let i = 0; i < 2; i++) {
+      fall = timeFrom(from.y - this.groundAt(from.x + vel.x * fall, from.z + vel.z * fall));
+    }
+    return fall;
+  }
+
   updateDefensePhase(dt) {
     const p = this.physics;
     /* DENSITY THAT MEANS SOMETHING. The battery works harder the closer the
@@ -1568,14 +1617,11 @@ export class MissionController {
         /* The pheeeeeew. Started here rather than inside `FatSquatch` because
          * the payload is a passive prop and knows nothing about audio, and
          * because the length of the fall is a physics question the mission can
-         * answer and the prop cannot: from `h` metres up with an initial
-         * vertical rate `v0`, ballistic time to the ground is
-         * (v0 + sqrt(v0^2 + 2gh)) / g. Handing that to the whistle means the
-         * sweep bottoms out as the bomb arrives instead of before or after it.
-         * `onPayloadImpact` cuts it, and so does `restoreCheckpoint`. */
-        const h = Math.max(20, this.physics.position.y - this.groundAt(this.physics.position.x, this.physics.position.z));
-        const v0 = Math.max(0, -this.physics.velocity.y);
-        const fall = (v0 + Math.sqrt(v0 * v0 + 2 * 9.81 * h)) / 9.81;
+         * answer and the prop cannot — see `predictFall()`. Handing that to the
+         * whistle means the sweep bottoms out, and the recorded clip ENDS, as
+         * the bomb arrives instead of before or after it. `onPayloadImpact`
+         * cuts it, and so does `restoreCheckpoint`. */
+        const fall = this.predictFall();
         this.audio?.fallingWhistle?.(fall);
         this._fallSeconds = fall;
         this.dialogue.play('bomb.packageAway', { once: true, delay: 0.3 });
@@ -2251,6 +2297,12 @@ export class MissionController {
      * restored flight that leaves the on-foot systems armed puts an
      * interaction prompt on the glass at four thousand feet. */
     this.audio?.endFallingWhistle?.(0.05);
+    /* And the explosion itself, which is the one sound on this page that can
+     * outlive the attempt that made it: the delivered blast recordings run for
+     * forty-four seconds on purpose (see `EnolaMissionAudio._sampledDetonation`)
+     * and a restart is the mission saying that detonation did not happen. Same
+     * reasoning as the turbulence and the screen wash below. */
+    this.audio?.stopBlast?.(0.5);
     this.gunFiring = false;
     // See `onPayloadImpact`: a restart before the drop must be able to detonate.
     this.detonation.dispose();

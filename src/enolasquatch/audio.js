@@ -24,13 +24,18 @@
  *       fallingWhistle()  the falling-bomb whistle
  *       detonation()      the blast
  *
- * BOTH OF THOSE ARE SYNTHESISED, ON PURPOSE. `assets/sfx/manifest.json` and
- * `assets/sfx/index.json` are owner-generated and off limits to this work, so
- * a new recorded cue is not something this change is allowed to mint. A live
- * WebAudio graph on the engine's own context needs no manifest entry, no file,
- * and no voice run — and for a descending whistle and a very large bang it is
- * genuinely the right tool anyway, because both are a frequency sweep and an
- * envelope rather than a performance.
+ * BOTH OF THOSE WERE SYNTHESISED, and both of them still are whenever the
+ * recordings are not on the machine. On 2026-08-06 the owner delivered four
+ * clips — one falling bomb and three separate blasts — and asked for the three
+ * blasts to go off together: "the falling sound should line up with the bomb
+ * fallling then I want the boom on all three of those to hit at the same time
+ * and play at the same time then let the full clips play". So the two methods
+ * above are now dispatchers: sample if the sample is decoded, synth if it is
+ * not. Nothing procedural was deleted — a page that has not loaded the mp3s
+ * (the bundle, a cold cache, a failed decode) still gets the whole event.
+ *
+ * See BLAST_LAYERS below for where the boom is in each clip and why that
+ * number has to exist at all.
  */
 import { AudioEngine } from '../core/audio.js';
 import { isBundled, loadJson } from '../core/assets.js';
@@ -61,11 +66,75 @@ export function isEnolaPreloadCue(cue) {
   return !!name && (
     name.startsWith('vo.enolasquatch.')
     || name.startsWith('enolasquatch.')
+    /* `enola.` — the bomb bank. NOT covered by `enolasquatch.` above:
+     * 'enola.blast.a'.startsWith('enolasquatch.') is false, so the owner's
+     * four delivered clips were in the manifest, on disk, in the index, and
+     * filtered out of the decode list by one dot. Nothing would have said so;
+     * `detonation()` would simply have gone on synthesising. */
+    || name.startsWith('enola.')
     || name.startsWith('footstep.')
     || name.startsWith('ambience.')
     || ENOLA_SHARED_CUES.has(name)
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* The owner's bomb recordings                                         */
+/* ------------------------------------------------------------------ */
+
+/** The Fat Squatch on its way down. 4.5 s; the fall is eight or nine. */
+export const FALLING_CUE = 'enola.bomb.falling';
+
+/**
+ * The three blast layers, and WHERE THE BOOM IS IN EACH ONE.
+ *
+ * Owner: "I want the boom on all three of those to hit at the same time and
+ * play at the same time." Those are two different requirements and only the
+ * second is free. Starting three files at the same instant does NOT make
+ * their transients coincide, because each clip carries its own lead-in:
+ *
+ *   enola.blast.a  44.00 s   silent to 0.3 s, then a rising rumble, BOOM at 1.68 s
+ *   enola.blast.b   8.06 s   BOOM at 0.15 s — it opens on the bang
+ *   enola.blast.c  22.31 s   digital silence to 0.9 s, BOOM at 1.03 s
+ *
+ * `onset` is measured, not guessed: each clip decoded through an
+ * `OfflineAudioContext`, summed to mono, 10 ms RMS windows, and the onset is
+ * the first window within 6 dB of the clip's peak window. Cross-checked at
+ * 3 dB and 10 dB (which agree to a window) and against the loudest window,
+ * which is much later in every clip and is the body of the roar rather than
+ * the transient. Measured 2026-08-06 by `tools/verify-enola-bomb-audio.mjs`,
+ * which re-measures on every run and fails if these numbers have drifted from
+ * the files — so a re-delivered clip cannot silently smear the boom.
+ *
+ * Alignment is done by SKIPPING INTO each buffer (`start(when, offset)`)
+ * rather than by delaying the ones that bang early. A delay would push the
+ * whole event 1.68 s later than the moment the mission computed for it, which
+ * is the moment the pressure front reaches the aeroplane — the bang has to
+ * arrive with the buffet, not a second and a half after it. What is skipped
+ * is 1.53 s of a −35 dB rumble in `a` and 0.88 s of literal silence in `c`.
+ */
+export const BLAST_LAYERS = Object.freeze([
+  Object.freeze({ name: 'enola.blast.a', onset: 1.68, level: 1.00 }),
+  Object.freeze({ name: 'enola.blast.b', onset: 0.15, level: 0.72 }),
+  Object.freeze({ name: 'enola.blast.c', onset: 1.03, level: 0.85 }),
+]);
+
+/**
+ * How much air is kept in front of the transient, in seconds.
+ *
+ * The alignment point is `BOOM_LEAD` after the three sources start, so the
+ * earliest-banging clip (`b`, at 0.15 s) plays from its first sample and
+ * nothing has to be delayed. Raising this keeps more of `a`'s lead-in rumble
+ * at the cost of delaying the bang by the same amount.
+ */
+export const BOOM_LEAD = 0.15;
+
+/** A bed of wind that keeps going, and the city's sirens. Neither is recorded
+ *  yet; both have manifest briefs and both are silent until they are. */
+export const WIND_CUE = 'enola.wind.high';
+export const SIREN_CUE = 'enola.siren.airraid';
+/** Beyond this the sirens are not in the mix at all. */
+export const SIREN_RANGE = 9000;
 
 export class EnolaAudioEngine extends AudioEngine {
   loadManifest() {
@@ -97,6 +166,17 @@ export class EnolaMissionAudio extends MissionAudio {
   constructor(engine) {
     super(engine);
     this._whistle = null;
+    /* Live handles on the three blast layers, and a plain-numbers record of
+     * how they were scheduled. The record is diagnostics in the same spirit as
+     * `AudioEngine.playbacks`: a browser cannot be asked whether the booms
+     * landed together, but it can be asked what time each source was told to
+     * start, how far into its buffer it started, and when it ended. */
+    this._blast = null;
+    this.lastBlast = null;
+    this.lastFall = null;
+    this._wind = false;
+    this._windLevel = -1;
+    this._siren = false;
   }
 
   /**
@@ -134,7 +214,18 @@ export class EnolaMissionAudio extends MissionAudio {
     /* Everyone on this aeroplane is on the intercom except the man beside
      * you, and the headset ducks the airframe rather than the voice. */
     const started = this.engine.say(line.cue, { chance: 1, volume: 0.95 });
+    /* The take that just started, for the speaker's mouth -- see
+     * src/core/mouth.js. `say()` is the engine's one-voice-at-a-time channel,
+     * so this is the line being spoken and not a list. */
+    this.lastTake = started
+      ? { audio: this.engine, source: this.engine.spokenSource() }
+      : null;
     return started ? duration : 0;
+  }
+
+  /** The take of the line most recently started by `line()`, or null. */
+  voiceTake() {
+    return this.lastTake ?? null;
   }
 
   /* ---------------------------------------------------------------- */
@@ -142,8 +233,70 @@ export class EnolaMissionAudio extends MissionAudio {
   /* ---------------------------------------------------------------- */
 
   /**
-   * The classic falling whistle, started the instant the Fat Squatch leaves
-   * the mount and stopped by `endFallingWhistle()` at impact.
+   * The Fat Squatch on its way down.
+   *
+   * Owner: "The falling sound should line up with the bomb fallling."
+   *
+   * The recording is 4.5 s and the fall the mission computes is eight or nine,
+   * so the clip is scheduled TO END ON IMPACT rather than to start at release
+   * — the whistle arriving with the bomb is the whole point of it, and a clip
+   * started at the mount would finish four seconds of empty sky early. If the
+   * fall is SHORTER than the clip (a low release, or a checkpoint that puts
+   * the aeroplane on the deck) it starts immediately and the front of it is
+   * simply cut off by the impact, which is the right way round: the end of the
+   * clip is the part that has to be in the right place.
+   *
+   * Falls back to the synthesised sweep below when the recording is not
+   * decoded — which is also the only version a bundled build has.
+   *
+   * @param {number} seconds ballistic time to the ground, from `updateRelease`
+   */
+  fallingWhistle(seconds = 8) {
+    if (!this.ctx || !this.ready) return false;
+    this.endFallingWhistle(0.02);
+    return this._sampledFall(seconds) || this._syntheticWhistle(seconds);
+  }
+
+  /** The delivered clip, landing on the impact. @returns {boolean} started */
+  _sampledFall(seconds) {
+    const ctx = this.ctx;
+    const buffer = this.engine?.buffers?.get(FALLING_CUE)?.[0];
+    if (!ctx || !buffer || !this.engine.busSfx) return false;
+    const t = ctx.currentTime;
+    const dur = buffer.duration;
+    const fall = Math.max(0, seconds);
+    // End on impact. A fall shorter than the clip starts now and overlaps.
+    const startAt = t + Math.max(0, fall - dur);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const out = ctx.createGain();
+    out.gain.value = 0.9;
+    src.connect(out).connect(this.engine.busSfx);
+    src.start(startAt);
+    this._whistle = { out, sources: [src], startedAt: startAt, sampled: true };
+    this.lastFall = {
+      sampled: true,
+      cue: FALLING_CUE,
+      plannedFall: fall,
+      duration: dur,
+      startAt,
+      endsAt: startAt + dur,
+      scheduledAt: t,
+      cutAt: null,
+      /* Filled in by `endFallingWhistle`: how much of the clip was still to
+       * run when the bomb actually arrived. Zero is a clip that landed on the
+       * impact; negative means it had already finished. This is the number the
+       * browser check reads. */
+      remainingAtCut: null,
+    };
+    return true;
+  }
+
+  /**
+   * The classic falling whistle, SYNTHESISED — the fallback for a page that
+   * has not decoded `enola.bomb.falling`, and the only version a bundled
+   * build has. Started the instant the Fat Squatch leaves the mount and
+   * stopped by `endFallingWhistle()` at impact.
    *
    * Three layers, because one swept sine is a theremin and not a bomb:
    *
@@ -162,10 +315,9 @@ export class EnolaMissionAudio extends MissionAudio {
    *   bomb arrives early `endFallingWhistle()` simply cuts it there, which is
    *   the right behaviour and not an error.
    */
-  fallingWhistle(seconds = 8) {
+  _syntheticWhistle(seconds = 8) {
     const ctx = this.ctx;
     if (!ctx || !this.ready) return false;
-    this.endFallingWhistle(0.02);
     const t = ctx.currentTime;
     const dur = clamp(seconds, 1.2, 20);
     const bus = this.engine.busSfx;
@@ -216,7 +368,8 @@ export class EnolaMissionAudio extends MissionAudio {
     noise.start(t);
 
     vibrato.start(t);
-    this._whistle = { out, tones, noise, vibrato, startedAt: t };
+    this._whistle = { out, sources: [...tones, noise, vibrato], startedAt: t, sampled: false };
+    this.lastFall = { sampled: false, plannedFall: dur, startAt: t, endsAt: t + dur, cutAt: null, remainingAtCut: null };
     return true;
   }
 
@@ -228,15 +381,17 @@ export class EnolaMissionAudio extends MissionAudio {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
+    if (this.lastFall && this.lastFall.cutAt === null) {
+      this.lastFall.cutAt = t;
+      this.lastFall.remainingAtCut = this.lastFall.endsAt - t;
+    }
     try {
       w.out.gain.cancelScheduledValues(t);
       w.out.gain.setValueAtTime(Math.max(w.out.gain.value, 0.0001), t);
       w.out.gain.exponentialRampToValueAtTime(0.0001, t + fade);
     } catch { /* a context that has gone away is not an error worth throwing */ }
     const stopAt = t + fade + 0.05;
-    for (const osc of w.tones) { try { osc.stop(stopAt); } catch { /* already stopped */ } }
-    try { w.noise.stop(stopAt); } catch { /* already stopped */ }
-    try { w.vibrato.stop(stopAt); } catch { /* already stopped */ }
+    for (const node of w.sources) { try { node.stop(stopAt); } catch { /* already stopped, or never started */ } }
   }
 
   get whistling() { return !!this._whistle; }
@@ -246,9 +401,120 @@ export class EnolaMissionAudio extends MissionAudio {
   /* ---------------------------------------------------------------- */
 
   /**
+   * The Fat Squatch going off, as the aeroplane hears it.
+   *
+   * Three delivered recordings if they are decoded, the synthesised event
+   * below if they are not. Fired by `MissionController.updateDetonation()` at
+   * the moment the pressure front is nearly at the aeroplane, which is why
+   * neither version may be delayed to suit itself.
+   *
+   * @param {number} scale 0..1.5 — how big. 1 is the Fat Squatch.
+   * @returns {boolean}
+   */
+  detonation(scale = 1) {
+    if (!this.ctx || !this.ready) return false;
+    return this._sampledDetonation(scale) || this._syntheticDetonation(scale);
+  }
+
+  /**
+   * The owner's three blasts, banging together.
+   *
+   * Each layer starts at the same instant and is skipped into by
+   * `onset - BOOM_LEAD`, so every transient lands `BOOM_LEAD` after that
+   * instant however different the three lead-ins are. See `BLAST_LAYERS`.
+   *
+   * NOTHING IS SCHEDULED TO STOP. Owner: "let the full clips play and well see
+   * if we get the power we want." The longest is 44 s against a 30 s
+   * `Detonation` timeline, and that mismatch is deliberate — the column is
+   * still going up when the picture's own clock has run out, and the sound
+   * outliving the set-piece is the reason it reads as enormous. The sources
+   * are held on `this._blast` only so that a checkpoint restart can take the
+   * previous attempt's explosion away; nothing else stops them.
+   */
+  _sampledDetonation(scale = 1) {
+    const ctx = this.ctx;
+    const engine = this.engine;
+    if (!ctx || !engine?.busSfx) return false;
+    const layers = BLAST_LAYERS
+      .map((layer) => ({ ...layer, buffer: engine.buffers.get(layer.name)?.[0] ?? null }))
+      .filter((layer) => !!layer.buffer);
+    if (!layers.length) return false;
+
+    /* The mission asks for 1.45 and these are finished recordings at full
+     * scale, so `scale` shapes them gently rather than multiplying them: three
+     * clips at 1.45 would be three clips into the limiter and a quieter,
+     * flatter bang than one. */
+    const k = clamp(scale, 0.2, 1.5);
+    const level = lerp(0.55, 1, clamp((k - 0.2) / 1.3, 0, 1));
+    const startAt = ctx.currentTime + 0.02;   // one buffer of scheduling slack
+    const boomAt = startAt + BOOM_LEAD;
+
+    this.stopBlast(0.25);
+    const live = [];
+    const record = [];
+    for (const layer of layers) {
+      const offset = Math.max(0, layer.onset - BOOM_LEAD);
+      const src = ctx.createBufferSource();
+      src.buffer = layer.buffer;
+      const gain = ctx.createGain();
+      gain.gain.value = layer.level * level;
+      src.connect(gain).connect(engine.busSfx);
+      const entry = {
+        name: layer.name,
+        onset: layer.onset,
+        offset,
+        startAt,
+        boomAt,
+        duration: layer.buffer.duration,
+        endsAt: startAt + (layer.buffer.duration - offset),
+        endedAt: null,
+        naturalEnd: false,
+      };
+      src.onended = () => {
+        entry.endedAt = ctx.currentTime;
+        entry.naturalEnd = entry.endedAt >= entry.endsAt - 0.12;
+      };
+      src.start(startAt, offset);
+      live.push({ ...entry, src, gain });
+      record.push(entry);
+    }
+    this._blast = { layers: live, boomAt };
+    this.lastBlast = { sampled: true, scale: k, startAt, boomAt, layers: record };
+    return true;
+  }
+
+  /**
+   * Take the blast away — only for a checkpoint restart, which un-does the
+   * whole attempt. `MissionController.restoreCheckpoint()` already puts the
+   * turbulence, the screen wash and the crater's camera shake back; a
+   * forty-four-second explosion still roaring over the aeroplane on the way
+   * back in to the target it has not dropped on yet belongs in that list.
+   */
+  stopBlast(fade = 0.4) {
+    const b = this._blast;
+    this._blast = null;
+    const ctx = this.ctx;
+    if (!b || !ctx) return false;
+    const t = ctx.currentTime;
+    for (const layer of b.layers) {
+      try {
+        layer.gain.gain.cancelScheduledValues(t);
+        layer.gain.gain.setValueAtTime(Math.max(layer.gain.gain.value, 0.0001), t);
+        layer.gain.gain.exponentialRampToValueAtTime(0.0001, t + fade);
+      } catch { /* a context that has gone away is not worth throwing over */ }
+      try { layer.src.stop(t + fade + 0.05); } catch { /* already finished */ }
+    }
+    return true;
+  }
+
+  /** Whether the sampled blast is still running. */
+  get blasting() { return !!this._blast; }
+
+  /**
    * "I want the explosion to be absolutely earth shattering and massive."
    *
-   * Not `MissionAudio.explosion()` — that one is the Brushrunner hitting a
+   * SYNTHESISED — the fallback, and what the page did before the recordings
+   * arrived. Not `MissionAudio.explosion()` — that one is the Brushrunner hitting a
    * hillside, three short cues stacked, about a second long. This is a
    * different order of event and is built as one:
    *
@@ -263,12 +529,13 @@ export class EnolaMissionAudio extends MissionAudio {
    *
    * @param {number} scale 0..1.5 — how big. 1 is the Fat Squatch.
    */
-  detonation(scale = 1) {
+  _syntheticDetonation(scale = 1) {
     const ctx = this.ctx;
     if (!ctx || !this.ready) return false;
     const bus = this.engine.busSfx;
     const t = ctx.currentTime;
     const k = clamp(scale, 0.2, 1.5);
+    this.lastBlast = { sampled: false, scale: k, startAt: t, boomAt: t, layers: [] };
 
     const noiseBuffer = (seconds) => {
       const n = Math.ceil(ctx.sampleRate * seconds);
@@ -500,8 +767,115 @@ export class EnolaMissionAudio extends MissionAudio {
     return true;
   }
 
+  /* ---------------------------------------------------------------- */
+  /* Wind that keeps going, and the city's sirens                       */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Airframe wind, plus a recorded bed under it.
+   *
+   * Owner: "A nice wind sound to continue playing." `MissionAudio.setAirspeed`
+   * (the Beef Run's, unchanged) is a synthesised bandpass that IS the airspeed
+   * readout — it has to move with the aeroplane and it is thin on purpose. The
+   * bed is the other half: a recorded roar that comes up once and then simply
+   * keeps going, through the release, through the detonation and all the way
+   * home. Nothing stops it — not the drop, not the blast, not a checkpoint
+   * restart, which leaves the aeroplane flying and therefore leaves the wind
+   * where it was. Only `dispose()` takes it away.
+   *
+   * Silent until `enola.wind.high` is recorded — see the manifest brief. This
+   * deliberately does NOT go through `AudioEngine.startLoop`'s synth fallback,
+   * which would put a generic noise bed under an aeroplane that already has a
+   * good synthesised wind: two synth winds is worse than one.
+   */
+  setAirspeed(tas) {
+    super.setAirspeed(tas);
+    this._updateWindBed(tas);
+  }
+
+  _updateWindBed(tas) {
+    const engine = this.engine;
+    if (!this.ready || !engine?.hasSample?.(WIND_CUE)) return false;
+    if (!this._wind) {
+      if (!(tas > 20)) return false;
+      engine.startLoop(WIND_CUE, { name: WIND_CUE, volume: 0.0001, fade: 0.05, ambience: true });
+      this._wind = true;
+      this._windLevel = -1;
+    }
+    /* Same shape as the synth wind above it, and quieter: this is the body,
+     * not the readout. Down to nothing on the ground — a parked aeroplane with
+     * a slipstream over it is a bed nobody turned off. */
+    const v = clamp(tas / 90, 0, 1.2);
+    const level = tas < 12 ? 0 : clamp(0.05 + v * v * 0.2, 0, 0.3);
+    // Only when it has actually moved. `setLoopVolume` anchors its ramp (see
+    // ENGINE-TRAPS.md 1), but a fresh automation event every frame is still
+    // work nobody asked for.
+    if (Math.abs(level - this._windLevel) > 0.012) {
+      this._windLevel = level;
+      engine.setLoopVolume(WIND_CUE, level, 0.5);
+    }
+    return true;
+  }
+
+  /**
+   * The city's air-raid sirens, on the run in.
+   *
+   * Owner: "maybe an air raid siren as we approach would be good as wlel."
+   * THEY ARE THE CITY'S, not the cockpit's — Squatchbourg has heard the
+   * engines and is winding its sirens up, and what the crew get is that sound
+   * arriving from out there, across several kilometres of night air. So the
+   * loop is positioned AT the city with a real panner: it comes from the
+   * direction of the target, it gets louder as the run closes, and it swings
+   * across the aeroplane on the break turn because the listener turns with the
+   * camera. The lowpass closes with distance on top of that, because distance
+   * takes the top off a sound as well as the level, and a bright siren is a
+   * siren in the room with you.
+   *
+   * Silent until `enola.siren.airraid` is recorded. No synth fallback on
+   * purpose: this page's convention is that an unrecorded cue is silent rather
+   * than approximated, and two oscillators sweeping past each other would be a
+   * police car, not a raid.
+   *
+   * @param {?{x:number,y:number,z:number}} at where the sirens are, or null to
+   *   let them fall away — the target has been hit, or is behind you.
+   * @param {number} range metres from the aeroplane to it
+   */
+  setAirRaidSiren(at, range = Infinity) {
+    const engine = this.engine;
+    if (!this.ready || !engine?.hasSample?.(SIREN_CUE)) return false;
+    if (!at || !(range < SIREN_RANGE)) {
+      if (this._siren) {
+        engine.stopLoop(SIREN_CUE, 3.5);
+        this._siren = false;
+      }
+      return false;
+    }
+    if (!this._siren) {
+      engine.startLoop(SIREN_CUE, {
+        name: SIREN_CUE,
+        volume: 0.85,
+        fade: 4,
+        ambience: true,
+        position: at,
+        // Metres, not the apartment's furniture distances: the falloff has to
+        // still be doing something five kilometres out.
+        ref: 600,
+        maxDist: SIREN_RANGE * 1.4,
+      });
+      this._siren = true;
+    }
+    const near = clamp(1 - range / SIREN_RANGE, 0, 1);
+    engine.setLoopCutoff(SIREN_CUE, Math.round(lerp(420, 3200, near * near)), 1.2);
+    return true;
+  }
+
   dispose() {
     this.endFallingWhistle(0.02);
+    this.stopBlast(0.2);
+    this.engine?.stopLoop?.(WIND_CUE, 0.3);
+    this.engine?.stopLoop?.(SIREN_CUE, 0.3);
+    this._wind = false;
+    this._siren = false;
     super.dispose();
   }
 }

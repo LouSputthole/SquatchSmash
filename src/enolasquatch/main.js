@@ -1003,6 +1003,31 @@ function updateCameraTip(dt) {
   cameraTip.style.opacity = String(pulse);
 }
 
+/**
+ * The city's air-raid sirens, wound up as the raid comes in.
+ *
+ * Owner: "maybe an air raid siren as we approach would be good as wlel."
+ *
+ * Here rather than in `MissionController` because it is a mix decision made
+ * from a position and a range, not mission state: the sirens are a fixed thing
+ * in the world at the middle of Squatchbourg, and how loud they are is simply
+ * how far away the aeroplane is. `EnolaMissionAudio.setAirRaidSiren()` owns
+ * the falloff and does nothing at all until the cue is recorded.
+ *
+ * They stop at the flash. Nobody is winding a siren after that, and the three
+ * blast clips own the mix for the next forty-four seconds anyway.
+ */
+const SIREN_AT = { x: TARGET_X, y: 0, z: COMPOUND.z };
+function updateAirRaidSiren() {
+  if (!mission.inCockpit || mission.explosionPoint || mission.finished) {
+    missionAudio.setAirRaidSiren(null);
+    return;
+  }
+  SIREN_AT.y = groundHeightCombined(TARGET_X, COMPOUND.z) + 30;
+  const p = physics.position;
+  missionAudio.setAirRaidSiren(SIREN_AT, Math.hypot(p.x - SIREN_AT.x, p.z - SIREN_AT.z));
+}
+
 function paintCombat() {
   const flash = mission.blastFlash || 0;
   if (flash > 0.001) {
@@ -1137,6 +1162,7 @@ function simulateFrame(dt) {
   }
   missionAudio.setAirspeed(inCockpit ? physics.tas : 0);
   missionAudio.setRain(weather.rain);
+  updateAirRaidSiren();
 
   const focus = inCockpit ? physics.position : player.position;
   weather.update(dt, focus);
