@@ -38,6 +38,7 @@ import { buildMansionInterior, FOYER, OFFICE, GALLERY } from '../scenes/MansionI
 import { Player } from '../../core/player.js';
 import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
+import { PostFX } from '../../core/postfx.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
@@ -126,10 +127,32 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.08, 260);
 scene.add(camera);
 
+/*
+ * PostFX -- the same bloom pass the tour mounts (src/mansion/main.js), tuned
+ * a shade hotter for a night that is lit by the moon, three lamps and
+ * whatever is on fire. The siege runs through the same rooms the tour does
+ * (same sconces, same chandeliers, same television sets) plus its own
+ * emissive dressing -- `dressing.js`'s breathing fire and LED strips, muzzle
+ * flashes, the alarm's emergency posts -- so a strength/threshold pair tuned
+ * for a quiet walkthrough would either miss the fire or, raised to catch it,
+ * blow the sconces out. Threshold stays close to the tour's (this is still
+ * the same house, lit the same way, most of the time); strength is a touch
+ * higher so the fire and the muzzle flashes read as light sources rather
+ * than as flat bright shapes. The `#alarmWash`/`#damageWash` overlays are
+ * plain CSS elements outside the canvas and never touch this pass.
+ */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.1;
+  postfx.bloom.strength = 0.34;
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* ================================================================== */
@@ -823,6 +846,8 @@ window.addEventListener('keydown', (e) => {
    * briefing still ENDS the briefing. A skip that quietly left the mission in
    * the beat it was skipping is the softlock this whole pass removed. */
   if (e.code === 'Enter' && !e.repeat && dialogue.active) dialogue.finish();
+  // B — the same bloom toggle every PostFX-mounted scene answers to.
+  if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
@@ -1235,16 +1260,22 @@ async function beginSiege() {
 startBtn.addEventListener('click', beginSiege);
 
 /**
- * Cue names this scene wants preloaded.
+ * Cue names this scene wants preloaded. Kept beside the mission it serves.
  *
- * The effects are still unregistered in `assets/sfx/manifest.json` and are
- * therefore synthesised or silent -- a known gap, reported rather than
- * papered over. The SPOKEN lines are a different matter: they come off
- * `./script.js`, `tools/siege-vo.mjs` puts every one of them in the manifest,
- * and the recording sheet has carried them since. See ENGINE-TRAPS #3 for the
- * three previous times a scene shipped without that and nobody found out.
- */
-function siegeCueNames() {
+ * The effect cues are still unregistered in `assets/sfx/manifest.json` and
+ * are therefore synthesised or silent -- a known gap, reported rather than
+ * papered over; `loadManifest` drops any name with no manifest entry before
+ * it ever requests a file, so listing them costs nothing and means the day
+ * one IS recorded this list does not need to be remembered too. The SPOKEN
+ * lines are a different matter: they come off `./script.js`,
+ * `tools/siege-vo.mjs` puts every one of them in the manifest, and the
+ * recording sheet has carried them since. See ENGINE-TRAPS #3 for the three
+ * previous times a scene shipped without that and nobody found out.
+ *
+ * Exported so tools/verify-mansion-siege.mjs can recompute the scene's own
+ * selector rather than retyping it -- the same reason
+ * src/mansion/scenes/SilentSquatch.js exports `silentSquatchCueNames()`. */
+export function siegeCueNames() {
   return [
     'siege.alarm.tone',
     'siege.glass.shatter',
@@ -1329,7 +1360,7 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !pauseMenu.isPaused()) updateGame(dt);
-  if (renderEnabled) { renderer.render(scene, camera); framesRendered++; }
+  if (renderEnabled) { postfx.render(); postfx.sample(dt); framesRendered++; }
 }
 requestAnimationFrame(frame);
 
@@ -1360,6 +1391,7 @@ window.mansionSiege = {
   scene,
   camera,
   renderer,
+  postfx,
   player,
   audio,
   interaction,

@@ -684,17 +684,22 @@ export function buildMansionInterior(shell = null) {
   /* ================================================================== */
   const RAIL_H = 0.98;
 
+  /*
+   * INSTANCED, 2026-08-06. `baluster()` is called once per bay of every
+   * railing/rakingRail run in the house -- measured at 97 calls, 3 meshes
+   * each, 291 draw calls for a shaft and two collars repeated end to end
+   * down every stair and balcony. Only `height` (and therefore the top
+   * collar's Y) actually varies between calls; the shapes never do. So this
+   * records placements instead of building geometry, and
+   * `buildBalusterInstances()` -- called once, alongside the sconce batch --
+   * turns whatever it collected into three `THREE.InstancedMesh` batches: a
+   * unit shaft scaled per instance (radius is fixed, height is not) and two
+   * fixed-shape collars translated per instance. 291 meshes become 3.
+   */
+  const balusterPlacements = [];
   /** One turned baluster: a shaft with a collar top and bottom. */
   function baluster(x, yBase, z, height) {
-    root.add(cylinder({
-      r: 0.026, h: height, pos: [x, yBase + height / 2, z], mat: M_CHROME,
-    }));
-    root.add(cylinder({
-      rTop: 0.05, rBottom: 0.038, h: 0.09, pos: [x, yBase + 0.06, z], mat: M_GOLD, cast: false,
-    }));
-    root.add(cylinder({
-      rTop: 0.038, rBottom: 0.05, h: 0.09, pos: [x, yBase + height - 0.06, z], mat: M_GOLD, cast: false,
-    }));
+    balusterPlacements.push({ x, yBase, z, height });
   }
 
   /** A newel post with a ball finial -- what makes a run read as ending. */
@@ -1066,40 +1071,143 @@ export function buildMansionInterior(shell = null) {
   /* it would have been a bracket hanging in mid-air beside the wall.           */
   /* ================================================================== */
   const M_SHADE_CREAM = mat({ color: 0xe8d9a8, roughness: 0.7 });
+  /*
+   * INSTANCED, 2026-08-06. Every one of the ten parts below is a fixed size
+   * and a fixed material at every call site -- only the fitting's position,
+   * yaw and light intensity ever change -- which is exactly what the doctrine
+   * in docs/WEB-PERFORMANCE-AND-PWA.md means by "genuinely repeated meshes".
+   * Measured before touching anything: 30 fixtures x 10 parts = 300 Mesh
+   * objects (300 draw calls) for something that is one fitting repeated.
+   *
+   * So `sconce()` no longer builds geometry at all. It records where a
+   * fixture goes and returns its light immediately, unchanged, because two
+   * call sites read the light back (`lights.push(sconce(...))`) and the
+   * house's light rig (main.js's `registerLocalLight`/ACTIVE_LIGHTS) only
+   * ever sees `root.traverse(isPointLight)` -- neither cares how the shade
+   * around the bulb got built. `buildSconceInstances()`, called once after
+   * every room has had its turn, replaces the 300 meshes with ten
+   * `THREE.InstancedMesh` batches (one per part) sized to the fixture count
+   * actually placed -- 300 meshes / 300 draw calls become 10 meshes / 10
+   * draw calls, with the same ten shapes, the same two materials and the
+   * same taper the 2026-08-04 fix put the right way up.
+   */
+  const sconcePlacements = [];
   function sconce(x, y, z, rotY, intensity = 2.4) {
-    const g = group('sconce',
-      /* Backplate, with a moulded bead top and bottom. It straddles the
-       * group's own origin (local z -0.03..0.02) because every call site
-       * below mounts the fitting 0.05..0.09 m off the face it hangs on: the
-       * plate then lands ON the plaster instead of hovering in front of it,
-       * which is what the old bare bracket did anywhere it was mounted more
-       * than 0.04 m proud. */
-      box({ size: [0.14, 0.4, 0.05], pos: [0, 0, -0.005], mat: M_GOLD, name: 'sconce-backplate' }),
-      box({ size: [0.18, 0.05, 0.06], pos: [0, 0.2, 0], mat: M_GOLD, cast: false }),
-      box({ size: [0.18, 0.05, 0.06], pos: [0, -0.2, 0], mat: M_GOLD, cast: false }),
-      // Scrolled arm: out of the plate, then up to the candle.
-      named(cylinder({
-        r: 0.019, h: 0.14, pos: [0, -0.02, 0.09], mat: M_GOLD, rotX: Math.PI / 2,
-      }), 'sconce-arm'),
-      cylinder({ r: 0.019, h: 0.14, pos: [0, 0.05, 0.13], mat: M_GOLD }),
-      sphere({ r: 0.032, pos: [0, -0.02, 0.13], mat: M_GOLD, cast: false }),
-      // Candle tube on a drip pan.
-      cylinder({
-        rTop: 0.07, rBottom: 0.045, h: 0.025, pos: [0, 0.125, 0.13], mat: M_GOLD, cast: false,
-      }),
-      cylinder({ r: 0.026, h: 0.11, pos: [0, 0.19, 0.13], mat: M_CARD }),
-      /* The shade. rTop < rBottom -- see the note above. */
-      named(cylinder({
-        rTop: 0.115, rBottom: 0.15, h: 0.19, pos: [0, 0.28, 0.13], mat: M_SHADE_CREAM,
-      }), 'sconce-shade'),
-      sphere({ r: 0.045, pos: [0, 0.26, 0.13], mat: M_BULB_WARM, cast: false }));
-    g.position.set(x, y, z);
-    g.rotation.y = rotY;
-    root.add(g);
+    sconcePlacements.push({ x, y, z, rotY });
     const l = new THREE.PointLight(0xffd9a0, intensity, 8, 2);
     l.position.set(x + Math.sin(rotY) * 0.16, y + 0.26, z + Math.cos(rotY) * 0.16);
     root.add(l);
     return l;
+  }
+
+  /** The ten fixed parts one sconce is built from -- see `sconce()` above. */
+  function buildSconceInstances() {
+    const n = sconcePlacements.length;
+    if (n === 0) return;
+    const parts = [
+      {
+        geo: new THREE.BoxGeometry(0.14, 0.4, 0.05), mat: M_GOLD, pos: [0, 0, -0.005], name: 'sconce-backplate',
+      },
+      {
+        geo: new THREE.BoxGeometry(0.18, 0.05, 0.06), mat: M_GOLD, pos: [0, 0.2, 0], cast: false,
+      },
+      {
+        geo: new THREE.BoxGeometry(0.18, 0.05, 0.06), mat: M_GOLD, pos: [0, -0.2, 0], cast: false,
+      },
+      // Scrolled arm: out of the plate, then up to the candle.
+      {
+        geo: new THREE.CylinderGeometry(0.019, 0.019, 0.14, 20),
+        mat: M_GOLD,
+        pos: [0, -0.02, 0.09],
+        rotX: Math.PI / 2,
+        name: 'sconce-arm',
+      },
+      {
+        geo: new THREE.CylinderGeometry(0.019, 0.019, 0.14, 20), mat: M_GOLD, pos: [0, 0.05, 0.13],
+      },
+      {
+        geo: new THREE.SphereGeometry(0.032, 20, 14), mat: M_GOLD, pos: [0, -0.02, 0.13], cast: false,
+      },
+      // Candle tube on a drip pan.
+      {
+        geo: new THREE.CylinderGeometry(0.07, 0.045, 0.025, 20), mat: M_GOLD, pos: [0, 0.125, 0.13], cast: false,
+      },
+      {
+        geo: new THREE.CylinderGeometry(0.026, 0.026, 0.11, 20), mat: M_CARD, pos: [0, 0.19, 0.13],
+      },
+      /* The shade. rTop < rBottom -- see the note above. */
+      {
+        geo: new THREE.CylinderGeometry(0.115, 0.15, 0.19, 20),
+        mat: M_SHADE_CREAM,
+        pos: [0, 0.28, 0.13],
+        name: 'sconce-shade',
+      },
+      {
+        geo: new THREE.SphereGeometry(0.045, 20, 14), mat: M_BULB_WARM, pos: [0, 0.26, 0.13], cast: false,
+      },
+    ];
+    const worldM = new THREE.Matrix4();
+    const groupM = new THREE.Matrix4();
+    const localM = new THREE.Matrix4();
+    const groupQ = new THREE.Quaternion();
+    const localQ = new THREE.Quaternion();
+    const ONE = new THREE.Vector3(1, 1, 1);
+    const Y_AXIS = new THREE.Vector3(0, 1, 0);
+    const X_AXIS = new THREE.Vector3(1, 0, 0);
+    for (const part of parts) {
+      const im = new THREE.InstancedMesh(part.geo, part.mat, n);
+      im.castShadow = part.cast !== false;
+      im.receiveShadow = true;
+      if (part.name) im.name = part.name;
+      localQ.identity();
+      if (part.rotX) localQ.setFromAxisAngle(X_AXIS, part.rotX);
+      localM.compose(new THREE.Vector3(part.pos[0], part.pos[1], part.pos[2]), localQ, ONE);
+      for (let i = 0; i < n; i++) {
+        const p = sconcePlacements[i];
+        groupQ.setFromAxisAngle(Y_AXIS, p.rotY);
+        groupM.compose(new THREE.Vector3(p.x, p.y, p.z), groupQ, ONE);
+        worldM.multiplyMatrices(groupM, localM);
+        im.setMatrixAt(i, worldM);
+      }
+      im.instanceMatrix.needsUpdate = true;
+      root.add(im);
+    }
+  }
+
+  /** The shaft and two collars every baluster is built from -- see `baluster()`. */
+  function buildBalusterInstances() {
+    const n = balusterPlacements.length;
+    if (n === 0) return;
+    const shaft = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 20), M_CHROME, n);
+    shaft.name = 'baluster-shaft';
+    shaft.receiveShadow = true;
+    const collarBottom = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.038, 0.09, 20), M_GOLD, n);
+    collarBottom.name = 'baluster-collar-bottom';
+    collarBottom.castShadow = false;
+    collarBottom.receiveShadow = true;
+    const collarTop = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.038, 0.05, 0.09, 20), M_GOLD, n);
+    collarTop.name = 'baluster-collar-top';
+    collarTop.castShadow = false;
+    collarTop.receiveShadow = true;
+    const m4 = new THREE.Matrix4();
+    const identityQuat = new THREE.Quaternion();
+    for (let i = 0; i < n; i++) {
+      const p = balusterPlacements[i];
+      m4.compose(
+        new THREE.Vector3(p.x, p.yBase + p.height / 2, p.z),
+        identityQuat,
+        new THREE.Vector3(0.026, p.height, 0.026),
+      );
+      shaft.setMatrixAt(i, m4);
+      m4.makeTranslation(p.x, p.yBase + 0.06, p.z);
+      collarBottom.setMatrixAt(i, m4);
+      m4.makeTranslation(p.x, p.yBase + p.height - 0.06, p.z);
+      collarTop.setMatrixAt(i, m4);
+    }
+    shaft.instanceMatrix.needsUpdate = true;
+    collarBottom.instanceMatrix.needsUpdate = true;
+    collarTop.instanceMatrix.needsUpdate = true;
+    root.add(shaft, collarBottom, collarTop);
   }
 
   /* ================================================================== */
@@ -8678,22 +8786,26 @@ const M_GOLD_BAR = mat({
 
     /* ---- "a bunch of treasure and shit." ---- */
     // Gold, on pallets, stacked in courses like it is stock rather than loot.
+    /* INSTANCED, 2026-08-06: every bar on every pallet is the same 0.24 x
+     * 0.1 x 0.12 box in the same M_GOLD_BAR material -- only its position
+     * changes -- so the three stacks below fill `goldBarPositions` instead of
+     * calling `box()` per bar, and one `THREE.InstancedMesh` is built once,
+     * after the last stack, from whatever it collected (measured: 171 bars,
+     * 171 draw calls, collapsing to exactly 1). The pallet under each stack
+     * stays a real box -- there is one of those per stack, not per bar, so
+     * instancing it would not save anything. */
+    const goldBarPositions = [];
     function goldStack(gx, gz, rows) {
       root.add(box({ size: [1.1, 0.12, 0.9], pos: [gx, BY + 0.06, gz], mat: M_WOOD_DK, cast: false }));
       for (let ry = 0; ry < rows; ry++) {
         const perRow = 4 - (ry % 2);
         for (let i = 0; i < perRow; i++) {
           for (let j = 0; j < 3; j++) {
-            root.add(box({
-              size: [0.24, 0.1, 0.12],
-              pos: [
-                gx - 0.42 + i * 0.26 + (ry % 2) * 0.13,
-                BY + 0.17 + ry * 0.1,
-                gz - 0.28 + j * 0.28,
-              ],
-              mat: M_GOLD_BAR,
-              cast: false,
-            }));
+            goldBarPositions.push([
+              gx - 0.42 + i * 0.26 + (ry % 2) * 0.13,
+              BY + 0.17 + ry * 0.1,
+              gz - 0.28 + j * 0.28,
+            ]);
           }
         }
       }
@@ -8702,6 +8814,22 @@ const M_GOLD_BAR = mat({
     goldStack(r.x0 + 1.0, r.z1 - 1.1, 7);
     goldStack(r.x1 - 1.0, r.z1 - 1.1, 5);
     goldStack(cx, r.z1 - 0.7, 4);
+    if (goldBarPositions.length) {
+      const bars = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(0.24, 0.1, 0.12), M_GOLD_BAR, goldBarPositions.length,
+      );
+      bars.name = 'vault-gold-bar';
+      bars.castShadow = false;
+      bars.receiveShadow = true;
+      const m4 = new THREE.Matrix4();
+      for (let i = 0; i < goldBarPositions.length; i++) {
+        const [bx, by, bz] = goldBarPositions[i];
+        m4.makeTranslation(bx, by, bz);
+        bars.setMatrixAt(i, m4);
+      }
+      bars.instanceMatrix.needsUpdate = true;
+      root.add(bars);
+    }
 
     // Cash, banded, on open shelving down the west wall.
     for (let s = 0; s < 3; s++) {
@@ -9013,6 +9141,9 @@ const M_GOLD_BAR = mat({
   /* switched on, which is invisible in play because every one of these   */
   /* carries a `distance` of 4-26 m and contributes nothing past it.      */
   /* ================================================================== */
+  buildSconceInstances();
+  buildBalusterInstances();
+
   const lights = [];
   root.traverse((o) => { if (o.isPointLight) lights.push(o); });
 

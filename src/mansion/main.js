@@ -39,6 +39,7 @@ import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatc
 import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
+import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
 import { Tv, CHANNELS, videoChannel } from '../core/tv.js';
@@ -48,7 +49,7 @@ import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { mountSilentSquatch } from './mission/mount.js';
 import { createMansionLoadout } from './loadout.js';
-import { mountMansionCast } from './cast.js';
+import { mountMansionCast, MANSION_CAST_CUE_NAMES } from './cast.js';
 /* Importing these constructs nothing: a Campaign is only built when
  * createCampaign() is CALLED, which happens below and only when there is a
  * laboratory in the house to play the mission in. Opening the house to walk
@@ -113,10 +114,35 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.08, 260);
 scene.add(camera);
 
+/*
+ * PostFX -- a restrained bloom, tuned for a house rather than a flat.
+ *
+ * `core/postfx.js`'s own default (threshold 0.82) was picked for the
+ * apartment: a handful of small emissive things in an otherwise dim room.
+ * This house has thirty wall sconces, several chandeliers, three working
+ * television sets (drawn `toneMapped: false`, so their canvas texture never
+ * gets compressed back under 1) and the vault's own case light -- measurably
+ * more and brighter emissive surfaces than the apartment ever had. Left at
+ * the apartment's threshold, testing this in the browser bloomed the whole
+ * house into a haze; raised to interior-appropriate values (matching the
+ * range src/nowake/main.js and src/silver/main.js already use for their own
+ * brighter scenes) only the bulbs, the screens and the case glow themselves
+ * pick up a glow, exactly as a sconce or a screen actually looks in a room.
+ * `PostFX.sample()` still owns giving it up if this machine cannot afford it
+ * -- see the render loop below.
+ */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.15;
+  postfx.bloom.strength = 0.3;
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* ================================================================== */
@@ -1273,9 +1299,14 @@ async function beginTour() {
    * exactly what it was asked to do, which was to load the sound effects.
    *
    * `vo.silentsquatch.` is the whole mansion script — see `./script.js`'s
-   * `cue()`, which builds every name in the scene from that prefix. */
+   * `cue()`, which builds every name in the scene from that prefix.
+   *
+   * `MANSION_CAST_CUE_NAMES` (./cast.js) is the third gap of the same kind:
+   * Gratin's cord handoff/swing and xXx's impact are recorded but were never
+   * in this list, so a torture session ran on the procedural synth even
+   * though the real take was sitting in assets/sfx. */
   audio.loadManifest({
-    names: [...weaponCueNames(), ...silentSquatchCueNames()],
+    names: [...weaponCueNames(), ...silentSquatchCueNames(), ...MANSION_CAST_CUE_NAMES],
     prefixes: ['vo.silentsquatch.'],
   }).catch(() => {});
   player.enabled = true;
@@ -1311,6 +1342,8 @@ window.addEventListener('keydown', (e) => {
     loadout.select(Number(e.code.slice(5)) - 1);
     e.preventDefault();
   }
+  // B — the same bloom toggle every PostFX-mounted scene answers to.
+  if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
 window.addEventListener('wheel', (e) => {
   if (!running) return;
@@ -1416,7 +1449,8 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !sharedPauseMenu.isPaused()) updateGame(dt);
   if (renderEnabled) {
-    renderer.render(scene, camera);
+    postfx.render();
+    postfx.sample(dt);
     framesRendered++;
   }
 }
@@ -1472,6 +1506,7 @@ window.mansion = {
   scene,
   camera,
   renderer,
+  postfx,
   player,
   interaction,
   audio,

@@ -1015,18 +1015,31 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   /* Perimeter fence -- Motel fence-line technique: post row + one long  */
   /* collider per straight run. Street run breaks for the gate opening.  */
+  /*                                                                      */
+  /* INSTANCED, 2026-08-06. Measured before touching it: four runs round a  */
+  /* 30x90 m property, a post every 3 m, produced 80 posts, 80 cone caps     */
+  /* and about 180 rails -- 340 draw calls for a fence, which is the kind    */
+  /* of "genuinely repeated" the doctrine in docs/WEB-PERFORMANCE-AND-       */
+  /* PWA.md means. Posts and caps are the same size everywhere (only x/z     */
+  /* move), so they collect placements and get a fixed-size InstancedMesh    */
+  /* each. Rails are not the same size -- each span is however far its two   */
+  /* posts are apart, and a run along x lies flat the other way round from   */
+  /* a run along z -- so they collect a per-instance SCALE too and go on a    */
+  /* single unit-box InstancedMesh, the same "build once at 1x1x1, carry      */
+  /* real size on the transform" trick `box()` itself already uses (see       */
+  /* src/world/build.js). Collision is untouched: `solid()` below still       */
+  /* emits exactly one box per straight run, same as before this pass.        */
   /* ---------------------------------------------------------------- */
   const FENCE_H = 1.4;
   const FENCE_RAIL_YS = [0.35, 0.75, 1.15];
+  const fencePostPlacements = [];
+  const fenceRailPlacements = [];
   function fenceRun(axis, fixed, from, to) {
     let prevP = null;
     for (let p = from; p <= to + 0.01; p += 3) {
       const x = axis === 'x' ? p : fixed;
       const z = axis === 'x' ? fixed : p;
-      root.add(box({ size: [0.12, FENCE_H, 0.12], pos: [x, FENCE_H / 2, z], mat: M_FENCE }));
-      root.add(cylinder({
-        rTop: 0, rBottom: 0.09, h: 0.18, pos: [x, FENCE_H + 0.09, z], mat: M_FENCE,
-      }));
+      fencePostPlacements.push({ x, z });
       // Horizontal pickets/rails back to the previous post -- bare posts and
       // cone caps alone read as a property-line/construction fence; a real
       // estate perimeter fence has rails strung between the posts.
@@ -1035,9 +1048,13 @@ export function buildMansionGrounds(scene = null) {
         const mid = prevP + span / 2;
         for (const ry of FENCE_RAIL_YS) {
           if (axis === 'x') {
-            root.add(box({ size: [span - 0.12, 0.05, 0.05], pos: [mid, ry, fixed], mat: M_FENCE }));
+            fenceRailPlacements.push({
+              x: mid, y: ry, z: fixed, sx: span - 0.12, sy: 0.05, sz: 0.05,
+            });
           } else {
-            root.add(box({ size: [0.05, 0.05, span - 0.12], pos: [fixed, ry, mid], mat: M_FENCE }));
+            fenceRailPlacements.push({
+              x: fixed, y: ry, z: mid, sx: 0.05, sy: 0.05, sz: span - 0.12,
+            });
           }
         }
       }
@@ -1050,6 +1067,47 @@ export function buildMansionGrounds(scene = null) {
   fenceRun('x', 0, 4, 30);     // street, east of the gate
   fenceRun('z', -30, 0, 90);   // west boundary
   fenceRun('z', 30, 0, 90);    // east boundary
+
+  if (fencePostPlacements.length) {
+    const n = fencePostPlacements.length;
+    const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, FENCE_H, 0.12), M_FENCE, n);
+    posts.name = 'fence-post';
+    posts.castShadow = true;
+    posts.receiveShadow = true;
+    const caps = new THREE.InstancedMesh(new THREE.CylinderGeometry(0, 0.09, 0.18, 20), M_FENCE, n);
+    caps.name = 'fence-post-cap';
+    caps.castShadow = true;
+    caps.receiveShadow = true;
+    const m4 = new THREE.Matrix4();
+    for (let i = 0; i < n; i++) {
+      const p = fencePostPlacements[i];
+      m4.makeTranslation(p.x, FENCE_H / 2, p.z);
+      posts.setMatrixAt(i, m4);
+      m4.makeTranslation(p.x, FENCE_H + 0.09, p.z);
+      caps.setMatrixAt(i, m4);
+    }
+    posts.instanceMatrix.needsUpdate = true;
+    caps.instanceMatrix.needsUpdate = true;
+    root.add(posts, caps);
+  }
+  if (fenceRailPlacements.length) {
+    const n = fenceRailPlacements.length;
+    const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), M_FENCE, n);
+    rails.name = 'fence-rail';
+    rails.castShadow = true;
+    rails.receiveShadow = true;
+    const m4 = new THREE.Matrix4();
+    const identityQuat = new THREE.Quaternion();
+    for (let i = 0; i < n; i++) {
+      const r = fenceRailPlacements[i];
+      m4.compose(
+        new THREE.Vector3(r.x, r.y, r.z), identityQuat, new THREE.Vector3(r.sx, r.sy, r.sz),
+      );
+      rails.setMatrixAt(i, m4);
+    }
+    rails.instanceMatrix.needsUpdate = true;
+    root.add(rails);
+  }
 
   /* ---------------------------------------------------------------- */
   /* Driveway, turnaround, side spur, curbs                             */

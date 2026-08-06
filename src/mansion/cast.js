@@ -127,6 +127,24 @@ import { INSTRUCTIONS, SEQUENCES } from './script.js';
 /* centimetres off a floor he is standing on; an import that cannot run    */
 /* headless takes the whole module with it.                               */
 /* ================================================================== */
+/**
+ * Sound effects this module plays that are not dialogue and not the
+ * armoury's -- the torture cord's handoff, swing and impact. `main.js`'s
+ * `audio.loadManifest()` call scopes to `vo.silentsquatch.` plus
+ * `weaponCueNames()`/`silentSquatchCueNames()`, which is every OTHER sound
+ * this scene makes but not these three: they are recorded (see
+ * assets/sfx/manifest.json) and were falling through to the procedural synth
+ * because nothing ever asked for them by name, the same class of gap the
+ * mansion's voice lines had before the 2026-08-06 fix above. Named here,
+ * beside the three `audio.play()` call sites that use them, rather than
+ * typed a second time at the loader.
+ */
+export const MANSION_CAST_CUE_NAMES = Object.freeze([
+  'bing.grill.cord.handoff',
+  'bing.grill.cord.swing',
+  'bing.grill.cord.whip',
+]);
+
 /** The podium the house stands on. */
 const GROUND_Y = 1.2;
 /** The gallery, the bedrooms and Lou's office. */
