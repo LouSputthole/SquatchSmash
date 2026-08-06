@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Mouth } from '../../core/mouth.js';
 
 // Shared blocky humanoid for everyone in the scene. Built from primitives with
 // named joints so the controllers can pose it: standing, walking, seated,
@@ -257,6 +258,15 @@ export class Figure {
     Object.assign(this, buildFigure(opts));
     this.t = Math.random() * 10;
     this.talkT = 0;
+    /* The mouth, driven by the voice rather than by a clock -- one shared
+     * implementation for the whole game (src/core/mouth.js). The numbers
+     * reproduce the old `1 + j * 2.4` lip and `baseY - j * 0.038` jaw drop
+     * exactly, so nobody's face changes shape; only what decides WHEN it
+     * opens has moved. */
+    this.voiceMouth = new Mouth(
+      { mouth: this.mouth, jaw: this.jaw },
+      { openScale: 2.4, jawDrop: 0.038, sink: 0.007 },
+    );
     this.lean = 0;
     this.leanTarget = 0;
     this.gesture = null;
@@ -297,7 +307,23 @@ export class Figure {
     }
   }
 
-  speak(dur) { this.talkT = dur; }
+  /**
+   * @param {number} dur how long the head/gesture beat holds — and, with no
+   *   recording, how long the mouth keeps working.
+   * @param {object} [take] `{ source, analyser }` from the scene's own voice
+   *   chain (squatchfather/audio/core.js `voiceTap()`), so the mouth runs on
+   *   the take and stops when it stops, cut or finished.
+   */
+  speak(dur, take = null) {
+    this.talkT = dur;
+    this.voiceMouth.speak({ seconds: dur, ...(take || {}) });
+  }
+
+  /** Cut the line: the mouth shuts whatever the subtitle is still doing. */
+  hush() {
+    this.talkT = 0;
+    this.voiceMouth.stop();
+  }
   leanForward(on) { this.leanTarget = on ? 0.3 : 0; }
   playGesture(name, dur = 1.8) { this.gesture = name; this.gestureT = dur; }
   hit() { this.hitT = 0.22; this.gestureT = 0; this.talkT = 0; }
@@ -402,21 +428,16 @@ export class Figure {
       return;
     }
 
+    /* A shaped mouth, not a slab on a hinge: the jaw (chin + lower lip) drops
+     * and the lower lip opens tall against its base. It used to be
+     * `|sin(t*16)|*0.7 + |sin(t*9.3)|*0.3` held for a guessed number of
+     * seconds — two sines so the flap never looped, which is the tell that it
+     * was never connected to anything. It runs on the take now. */
+    this.voiceMouth.update(dt);
     if (this.talkT > 0) {
       this.talkT -= dt;
-      // A shaped mouth, not a slab on a hinge: the jaw (chin + lower lip)
-      // drops and the lower lip opens tall against its base — the same talk
-      // read the Bing's Npcs use, syncopated on two sines so it never loops.
-      const j = Math.abs(Math.sin(this.t * 16)) * 0.7 + Math.abs(Math.sin(this.t * 9.3)) * 0.3;
-      this.jaw.position.y = this.jaw.userData.baseY - j * 0.038;
-      this.mouth.scale.y = 1 + j * 2.4;
-      this.mouth.position.y = this.mouth.userData.base.y - (this.mouth.scale.y - 1) * 0.007;
       this.neck.rotation.x = Math.sin(this.t * 3.1) * 0.05;
     } else {
-      const k = Math.min(1, dt * 12);
-      this.jaw.position.y += (this.jaw.userData.baseY - this.jaw.position.y) * k;
-      this.mouth.scale.y += (1 - this.mouth.scale.y) * k;
-      this.mouth.position.y += (this.mouth.userData.base.y - this.mouth.position.y) * k;
       this.neck.rotation.x += (0 - this.neck.rotation.x) * Math.min(1, dt * 6);
     }
     this.neck.rotation.y += (this.neckTarget - this.neck.rotation.y) * Math.min(1, dt * 4);

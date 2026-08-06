@@ -20,9 +20,21 @@ import { fileURLToPath } from 'node:url';
 
 import { APE_FAMILY_MEMBER } from '../src/bing/family-ape.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { isSilverCasePreloadCue } from '../src/silvercase/audio.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5223;
+
+// The residency contract this mission is held to — see src/silvercase/audio.js.
+const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+const indexedFiles = new Set(soundIndex.files || []);
+const selectedSilverCaseCues = soundManifest.sfx.filter((cue) => isSilverCasePreloadCue(cue));
+const expectedSilverCaseResidentNames = selectedSilverCaseCues
+  .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+  .map((cue) => cue.name)
+  .sort();
+
 const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -247,6 +259,28 @@ try {
       && state.actors.pruitt.alive,
     JSON.stringify(state));
 
+  // ---- Bloom mounts at its unmodified, subtle defaults with the
+  // self-measuring frame-time fallback armed — same contract every other
+  // PostFX-mounted scene is held to (see src/core/postfx.js). ---------------
+  const postfxBoot = await page.evaluate(() => {
+    const fx = window.silvercase.postfx;
+    return {
+      present: Boolean(fx),
+      enabled: fx?.enabled,
+      hasComposer: Boolean(fx?.composer),
+      hasBloom: Boolean(fx?.bloom),
+      strength: fx?.bloom?.strength ?? null,
+      radius: fx?.bloom?.radius ?? null,
+      threshold: fx?.bloom?.threshold ?? null,
+      manual: fx?._manual,
+    };
+  });
+  check('PostFX mounts enabled, unmodified (subtle default bloom) with the auto-fallback still armed',
+    postfxBoot.present && postfxBoot.enabled && postfxBoot.hasComposer && postfxBoot.hasBloom
+      && postfxBoot.strength === 0.42 && postfxBoot.radius === 0.34 && postfxBoot.threshold === 0.82
+      && postfxBoot.manual === false,
+    JSON.stringify(postfxBoot));
+
   // ---- MENU -> CAR_RIDE (begin(), the same call the Begin button makes) -
   let carRide = await page.evaluate(() => {
     window.silvercase.begin();
@@ -259,6 +293,43 @@ try {
       && carRide.mode === 'seated'
       && carRide.cueLog[0] === 'vo.silvercase.car.ape.pitch',
     JSON.stringify(carRide));
+
+  // ---- Audio residency: begin() fires audio.loadManifest(...) without
+  // awaiting it (see main.js's own comment on why), so wait for that same
+  // promise here before reading what actually got decoded. ------------------
+  await page.evaluate(async () => {
+    const audio = window.silvercase.audio;
+    if (audio._manifestLoadPromise) await audio._manifestLoadPromise;
+  });
+  const silverCaseAudioResidency = await page.evaluate(() => {
+    const audio = window.silvercase.audio;
+    return {
+      plan: audio.preloadStats ?? null,
+      loaded: audio.loadedCount,
+      resident: [...audio.buffers.keys()].sort(),
+    };
+  });
+  const missingSilverCaseNames = expectedSilverCaseResidentNames
+    .filter((name) => !silverCaseAudioResidency.resident.includes(name));
+  const unexpectedSilverCaseNames = silverCaseAudioResidency.resident
+    .filter((name) => !expectedSilverCaseResidentNames.includes(name));
+  check('The Silver Case decodes exactly its own vo.silvercase.* dialogue plus its named effect cues',
+    silverCaseAudioResidency.plan?.manifestTotal === soundManifest.sfx.length
+      && silverCaseAudioResidency.plan?.selected === expectedSilverCaseResidentNames.length
+      && silverCaseAudioResidency.loaded === expectedSilverCaseResidentNames.length
+      && silverCaseAudioResidency.resident.length === expectedSilverCaseResidentNames.length
+      && missingSilverCaseNames.length === 0
+      && unexpectedSilverCaseNames.length === 0,
+    JSON.stringify({
+      plan: silverCaseAudioResidency.plan,
+      loaded: silverCaseAudioResidency.loaded,
+      expected: expectedSilverCaseResidentNames.length,
+      missing: missingSilverCaseNames.slice(0, 5),
+      unexpected: unexpectedSilverCaseNames.slice(0, 5),
+    }));
+  check('the resident bank is a small slice of the shared manifest, not the whole bank',
+    expectedSilverCaseResidentNames.length < soundManifest.sfx.length * 0.05,
+    JSON.stringify({ resident: expectedSilverCaseResidentNames.length, manifest: soundManifest.sfx.length }));
 
   // ---- The car ride is a picture, not a black screen. ------------------
   const carLight = await screenLuminance();
@@ -1000,6 +1071,42 @@ try {
       && sceneCompleteOverlay.present && sceneCompleteOverlay.hidden === false
       && hudVisible === false,
     JSON.stringify({ complete, sceneCompleteOverlay, hudVisible }));
+
+  // ---- Preview checkpoint links (?checkpoint=...) ------------------------
+  // Standalone scene, no `?preview=1` gate needed (see the doc comment above
+  // `jumpToPreviewCheckpoint` in src/silvercase/main.js). Each of the six
+  // owner-facing waypoints gets its own fresh page so `previewCheckpoint` is
+  // parsed from that page's own URL at load time, exactly the way an owner
+  // clicking a preview.html link would load it.
+  for (const [id, expectBeat] of [
+    ['car', 'CAR_RIDE'],
+    ['hallway', 'ARRIVE_HALLWAY'],
+    ['room', 'ESTABLISH_CONTROL'],
+    ['prayer', 'SQUATCH_PRAYER'],
+    ['bathroom', 'BATHROOM_AMBUSH'],
+    ['aftermath', 'AFTERMATH'],
+  ]) {
+    const cpPage = await browser.newPage({ viewport: { width: 960, height: 540 } });
+    const cpProblems = [];
+    cpPage.on('pageerror', (error) => cpProblems.push(error.message));
+    cpPage.on('console', (message) => {
+      if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
+    });
+    await cpPage.goto(`http://localhost:${PORT}/silvercase.html?checkpoint=${id}`, { waitUntil: 'load' });
+    await cpPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
+    const chip = await cpPage.evaluate(() => document.querySelector('#menu .subtitle')?.textContent ?? '');
+    const result = await cpPage.evaluate(() => {
+      window.silvercase.begin();
+      window.silvercase.tick(0.2);
+      return window.silvercase.state();
+    });
+    check(`?checkpoint=${id} loads staged and lands on ${expectBeat}`,
+      result.beat === expectBeat
+        && chip.startsWith('Preview checkpoint:')
+        && cpProblems.length === 0,
+      JSON.stringify({ beat: result.beat, chip, problems: cpProblems }));
+    await cpPage.close();
+  }
 
   check('no runtime console errors or page errors occurred', problems.length === 0,
     problems.join(' | ').slice(0, 800));

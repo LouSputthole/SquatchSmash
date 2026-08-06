@@ -36,6 +36,7 @@ import {
   SecondVisitMission,
   buildHotDogPartySequence,
 } from './second-visit.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -59,6 +60,59 @@ overlay.querySelector('.controls').innerHTML = [
   '<li>The room handles its own jobs. Prospect has one short cleanup spine.</li>',
 ].join('');
 assetStatus.textContent = 'Closed party · Hog Mama set · sudden attack · cleanup · body transfer';
+
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?preview=1&checkpoint=...)            */
+/*
+ * LOCAL support only, deliberately -- mirrors src/enolasquatch/main.js's own
+ * CHECKPOINT_ALIASES rather than routing through src/core/preview-mode.js,
+ * whose checkpoint parsers are each a different scene's own vocabulary. The
+ * Hotdog Incident is campaign-owned, so this is gated on the shared,
+ * scene-agnostic `isPreviewMode()` the same way Enola's is -- a bare
+ * `?checkpoint=` on an ordinary link must do nothing.
+ *
+ * `party` needs no staging: it is the ordinary opening. `attack`/`cleanup`/
+ * `graveyard` replay the mission's own real progression functions in order --
+ * `mission.enteredClub()`/`startPerformance()`/`finishPerformance()`,
+ * `stageAttack()` (a live, player-driven knife fight for `attack` itself) or
+ * `resolveAttack()` (posed directly for `cleanup`/`graveyard`, the same
+ * function a landed final hit calls), `completeCleanupTask()`,
+ * `mission.wrapBody()`/`assign()` and `story.completeClub()` -- the same
+ * functions the party director and the cleanup interactions already call
+ * during a played run, exactly the contract
+ * src/mansion/siege/main.js's `jumpToCheckpoint` documents for its own beat
+ * chain, rather than assigning `mission.state` by hand. See
+ * `jumpToPreviewCheckpoint()`, near the bottom of this file, for where that
+ * staging happens. Only `graveyard` calls `story.completeClub()` -- the one
+ * call that banks the campaign checkpoint as `'body_loaded'` -- so a preview
+ * short of it can never trip the production resume path
+ * (`begun.checkpoint === 'body_loaded'`, in the Start handler below) into
+ * redirecting a later reload straight to the graveyard. `graveyard` itself
+ * leaves the party director running afterward so the real handoff dialogue
+ * and the real ending card play out on the next few real frames.
+ */
+const HOTDOG_CHECKPOINTS = Object.freeze(['party', 'attack', 'cleanup', 'graveyard']);
+const HOTDOG_CHECKPOINT_LABELS = Object.freeze({
+  party: 'THE PARTY',
+  attack: 'THE ATTACK',
+  cleanup: 'CLEANUP',
+  graveyard: 'THE GRAVEYARD HANDOFF',
+});
+function previewCheckpointForLocation(locationLike = window.location) {
+  if (!isPreviewMode(locationLike)) return null;
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && HOTDOG_CHECKPOINTS.includes(value) ? value : null;
+}
+/** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = HOTDOG_CHECKPOINT_LABELS[previewCheckpoint];
+  overlay.querySelector('.tag').textContent =
+    `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  startButton.textContent = `Start at ${label.toLowerCase()}`;
+}
 
 const campaign = createCampaign();
 const story = createBadaBingTwoStory({ campaign });
@@ -188,14 +242,19 @@ function cueSeconds(name) {
   return bank?.length ? bank[0].duration : 0;
 }
 
+/**
+ * Play one line and hand the TAKE back, so the speaker's mouth can run on it
+ * (src/core/mouth.js) rather than on a guessed duration. Null when the cue has
+ * no recording, which is what the fallback envelope is for.
+ */
 function playCue(name) {
-  if (!name || !audio.ready) return false;
+  if (!name || !audio.ready) return null;
   const bank = audio.buffers?.get(name);
-  if (!bank?.length) return false;
+  if (!bank?.length) return null;
   audio._vo?.stop?.();
   const source = audio.play(name, { volume: 0.9 });
   audio._vo = source;
-  return true;
+  return { audio, source, seconds: bank[0].duration };
 }
 
 /* How far off the authored framing the player may look. Wide enough to watch
@@ -342,7 +401,7 @@ function showLine(beat) {
   dialogueRoot.classList.remove('hidden');
   state.lineHistory.push({ who, line: beat.line, cue: beat.cue });
   const actor = actorFor(who);
-  actor?.say(Math.max(1.5, beat.seconds ?? 2.5));
+  const seconds = Math.max(1.5, beat.seconds ?? 2.5);
   const ape = party.byId.ape;
   const hotdog = party.extra.hotdog;
   if (actor === ape) actor.faceToward(hotdog.position.x, hotdog.position.z, true);
@@ -353,7 +412,8 @@ function showLine(beat) {
   } else if (actor === party.extra.lou) actor.faceToward(hotdog.position.x, hotdog.position.z, true);
   else actor?.faceToward(player.position.x, player.position.z);
   directBeatCamera(beat);
-  playCue(beat.cue);
+  /* Started AFTER the cue, because the mouth is driven by the take. */
+  actor?.say(seconds, playCue(beat.cue));
 }
 
 function hideLine() {
@@ -928,6 +988,77 @@ function restoreFromCampaign() {
   repaintObjectives();
 }
 
+/**
+ * Preview-only checkpoint jump.
+ *
+ * Walks the mission's own real progression functions in order --
+ * `mission.enteredClub()`/`startPerformance()`/`finishPerformance()`,
+ * `stageAttack()`, `resolveAttack()`, `completeCleanupTask()`,
+ * `mission.wrapBody()`/`assign()`, `story.completeClub()` -- exactly the
+ * functions the party director and the cleanup interactions already call
+ * during a played run. `attack` lands inside the live, player-driven knife
+ * fight (`stageAttack()`'s own controller), genuinely testable rather than
+ * pre-resolved. `cleanup` and `graveyard` reuse `restoreFromCampaign()`'s own
+ * shape for "opens after the aftermath" -- forcing `state.shubesArrived`
+ * rather than waiting on his real walk-in, which is exactly what that
+ * function already does for an actually-resumed save (see its own comment,
+ * above). `graveyard` leaves the director running with `handoffReady` set,
+ * so Lou/Prospect/Snow's handoff lines and the real ending card play out for
+ * real on the next few real frames, the same way they would after a player
+ * actually loads the body.
+ */
+function jumpToPreviewCheckpoint(id) {
+  if (id === 'party') return;
+
+  mission.enteredClub();
+  mission.startPerformance();
+  mission.finishPerformance();
+
+  if (id === 'attack') {
+    stageAttack();
+    return;
+  }
+
+  mission.startAttack();
+  resolveAttack();
+  state.director.index = sequence.findIndex((beat) => beat.action === 'cleanup-start') + 1;
+  state.director.waitingForAttack = false;
+  state.director.running = false;
+  state.shubesArrived = true;
+  assignCleanupRoles();
+  // The beat this skips past (Aubbie's "The bar, yes...") is the one that
+  // hands the camera back -- `restoreFromCampaign()` instead leaves the
+  // director running so a real animate() frame plays that beat for real.
+  // Staying deterministic here calls its own action directly.
+  releaseCinematic({ x: -9.4, z: 2.4, lookAt: { x: -15.5, z: -0.4 } });
+  revealEvidenceCircles();
+  repaintObjectives();
+
+  if (id === 'cleanup') return;
+
+  // graveyard: every cleanup task done, the body wrapped and loaded -- the
+  // same three interactions a player fires from Lou/HotDog/the load pad.
+  for (const task of SECOND_VISIT_CLEANUP_TASKS) completeCleanupTask(task);
+  restoreHotDogCleanupPresentation(party, mission.cleanup);
+  if (!mission.wrapBody()) return;
+  state.wrapped = true;
+  party.extra.hotdog.group.visible = false;
+  party.cleanup.wrap.visible = true;
+  party.cleanup.serviceGuide.visible = true;
+  if (!mission.assign('reserve_pickup')) return;
+  state.loaded = true;
+  party.cleanup.wrap.visible = false;
+  party.cleanup.serviceGuide.visible = false;
+  story.completeClub({
+    assignment: mission.assignment,
+    bodyWrapped: mission.flags.bodyWrapped,
+    bodyLoaded: mission.flags.bodyLoaded,
+  });
+  state.director.handoffReady = true;
+  state.director.running = true;
+  repaintObjectives();
+}
+
 function finishParty() {
   if (state.endingShown) return;
   state.endingShown = true;
@@ -1095,8 +1226,13 @@ startButton.addEventListener('click', async () => {
   // and stage controls immediately.
   teleport(club.anchors.frontDoor.x, club.anchors.frontDoor.z - 7.1, 0);
   restoreFromCampaign();
+  if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
   requestGamePointerLock();
-  hud.say('<em>11:00 PM.</em> Closed party. Hog Mama is waiting for somebody to work the stage controls.', 6000);
+  // The opening line narrates a party that has not happened yet; a jump past
+  // it has nothing for this line to introduce.
+  if (!previewCheckpoint || previewCheckpoint === 'party') {
+    hud.say('<em>11:00 PM.</em> Closed party. Hog Mama is waiting for somebody to work the stage controls.', 6000);
+  }
 });
 
 document.addEventListener('pointerlockchange', () => {

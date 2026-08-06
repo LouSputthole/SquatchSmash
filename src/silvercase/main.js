@@ -11,12 +11,14 @@ import { DialogueController } from './dialogue/DialogueController.js';
 import {
   SEQUENCES, CHOICES, OBJECTIVES, INSTRUCTIONS, TARGET_CALLOUTS,
 } from './dialogue/script.js';
+import { silverCaseAudioLoadOptions } from './audio.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { PostFX } from '../core/postfx.js';
 import { yawToward } from '../world/build.js';
 import { roomEnvironment } from '../world/textures.js';
 
@@ -51,10 +53,29 @@ const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerH
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 
+/*
+ * Bloom, at its unmodified defaults.
+ *
+ * This mission is the same genre `core/postfx.js` was written for — see that
+ * file's own header: "a dark flat full of small bright things". The living
+ * room here has the identical shape (a standard lamp, a flickering TV, an
+ * exit sign, a city-window glow) and the car ride adds a lit dashboard and
+ * passing streetlights, nothing brighter. `src/main.js` (the apartment this
+ * scene shares a floor plan with) mounts `PostFX` with no threshold/strength
+ * override for exactly this reason; NO WAKE and Silver Pines retune it
+ * because they are lit exteriors, a different problem. Leaving the defaults
+ * alone here is the conservative choice: subtle bloom on the emissive
+ * fixtures, the self-measuring frame-time fallback armed exactly as shipped,
+ * nothing added that this scene's own look did not already call for.
+ */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 {
@@ -127,6 +148,60 @@ function setObjective(text) {
   if (!text) { ui.objective.classList.remove('show'); return; }
   ui.objectiveText.textContent = text;
   ui.objective.classList.add('show');
+}
+
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?checkpoint=...)                      */
+/*
+ * LOCAL support only, deliberately -- mirrors src/enolasquatch/main.js's own
+ * CHECKPOINT_ALIASES rather than routing through src/core/preview-mode.js,
+ * whose checkpoint parsers are each a different campaign scene's own
+ * vocabulary. Standalone scene, same as src/mansion/siege/main.js -- no
+ * import of core/campaign.js anywhere in this file, no saved progress to
+ * protect -- so this needs no `?preview=1` gate either, matching the siege's
+ * own `?checkpoint=` support.
+ *
+ * The mission's own one authored checkpoint is `SQUATCH_PRAYER` (see
+ * `CHECKPOINT` in state/SilverCaseStateMachine.js, and `restoreCheckpoint()`
+ * below, which already stages everything a retry from it needs). The other
+ * five waypoints below are not saveable checkpoints -- there is only one --
+ * so each one is staged by hand and then handed to the SAME `fsm.go()` the
+ * mission's own beats use, so the target beat's own `enter()` still runs for
+ * real (its dialogue, its positioning) exactly as a played run would reach
+ * it. `jumpToPreviewCheckpoint()`, near the bottom of this file, is where
+ * that staging happens.
+ */
+const SILVERCASE_CHECKPOINTS = Object.freeze({
+  car: 'car',
+  hallway: 'hallway',
+  room: 'room',
+  prayer: 'prayer',
+  bathroom: 'bathroom',
+  aftermath: 'aftermath',
+});
+const SILVERCASE_CHECKPOINT_LABELS = Object.freeze({
+  car: 'THE CAR RIDE',
+  hallway: 'THE HALLWAY',
+  room: 'CONTROL ESTABLISHED',
+  prayer: 'THE SQUATCH PRAYER',
+  bathroom: 'THE BATHROOM AMBUSH',
+  aftermath: 'THE AFTERMATH',
+});
+function previewCheckpointForLocation(locationLike = window.location) {
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(SILVERCASE_CHECKPOINTS, value)
+    ? SILVERCASE_CHECKPOINTS[value]
+    : null;
+}
+/** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = SILVERCASE_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+  const subtitle = document.querySelector('#menu .subtitle');
+  if (subtitle) subtitle.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  if (ui.beginBtn) ui.beginBtn.textContent = `START AT ${label}`;
 }
 
 /**
@@ -312,17 +387,104 @@ carriedCase.group.rotation.set(0.12, 0.5, 0.28);
 carriedCase.group.visible = false;
 camera.add(carriedCase.group);
 
+/**
+ * The take currently in somebody's mouth.
+ *
+ * `source` was previously assigned without ever being declared, and an ES
+ * module is strict mode: `voiceSource = audio.play(...)` threw a
+ * ReferenceError out of `playCue` the first time a line with a recording came
+ * up — which is sixty of this mission's seventy-six. The throw propagated out
+ * of `DialogueController._advance`, so the mission stopped advancing on its
+ * first recorded line rather than failing anywhere visible.
+ *
+ * `seconds` rides along because `onLine` is what starts the speaker's mouth
+ * and it needs to know how long an UNRECORDED line is going to be on screen.
+ */
+let voiceSource = null;
+let voiceSeconds = 0;
+
+/**
+ * Which body in the room each script speaker is.
+ *
+ * PROSPECT is the player — first person, no head to animate — and HUD is
+ * nobody at all, so neither has an entry. Anyone missing from this table is
+ * simply a line nothing in the room mouths, which is the correct outcome for
+ * a voice with no body behind it.
+ */
+const SPEAKER_BODY = Object.freeze({
+  APE: 'ape',
+  DEKE: 'deke',
+  CHESTER: 'chester',
+  WINSTON: 'winston',
+  PRUITT: 'pruitt',
+});
+
+/** Cut every mouth in the room. Called wherever the voice itself is cut. */
+function hushCast() {
+  for (const actor of cast.all) actor.npc.hush?.();
+}
+
+/**
+ * Put the line in the right man's mouth.
+ *
+ * The take is handed over rather than a duration, so the mouth runs on the
+ * amplitude of the recording (src/core/mouth.js) and stops when it stops. The
+ * seconds are the fallback's length only — what an unrecorded line's subtitle
+ * is up for.
+ */
+function speakLine(line) {
+  hushCast();
+  const actor = cast[SPEAKER_BODY[line.speaker]];
+  if (!actor?.alive) return;
+  const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
+  actor.npc.say(Math.max(authored, voiceSeconds), { audio, source: voiceSource });
+}
+
 const dialogue = new DialogueController({
-  // No playCue hook: no vo.silvercase.* cues have been recorded yet, and per
-  // the game's own established convention a missing cue is silence plus
-  // subtitle, never synthesized. Every line here is text-only.
+  /* THE TAKES LANDED AND NOTHING PLAYED THEM.
+   *
+   * This used to read "no vo.silvercase.* cues have been recorded yet ...
+   * every line here is text-only", and it was true when it was written. Sixty
+   * of the mission's seventy-six lines have since been recorded, and the
+   * comment kept the hook out — so the whole mission ran silent with
+   * subtitles over a folder full of finished audio, and nothing anywhere
+   * reported it. A note about the state of the world is a fact with a
+   * shelf life; this one outlived its subject by weeks.
+   *
+   * `hasSample` is the gate rather than a list of names, so the sixteen that
+   * are still unrecorded stay silence-plus-subtitle — the game's own
+   * convention — and start playing the day they are delivered, with no
+   * further code change. */
+  /* Returns the take's real length so the controller can hold the line for
+   * it rather than for an authored guess. See DialogueController._advance. */
+  playCue(cue) {
+    voiceSource = null;
+    voiceSeconds = 0;
+    if (!cue || !audio?.hasSample?.(cue)) return 0;
+    voiceSource = audio.play(cue, { volume: 0.9 });
+    voiceSeconds = audio.sampleDuration?.(cue) ?? 0;
+    return voiceSeconds;
+  },
+  stopVoice() {
+    /* The mouth goes with the voice, always — including when the line is CUT
+     * rather than finished, which is what this hook is for. */
+    hushCast();
+    if (!voiceSource) return;
+    /* `stop()` throws on a source that has already ended, which is the normal
+     * case — the line finished on its own and we are only tidying up. */
+    try { voiceSource.stop(); } catch { /* already done */ }
+    voiceSource = null;
+    voiceSeconds = 0;
+  },
   onLine(line) {
     ui.subsWho.textContent = line.speakerName || '';
     ui.subsLine.textContent = line.text;
     ui.subs.classList.add('show');
+    speakLine(line);
   },
   onLineEnd() {
     ui.subs.classList.remove('show');
+    hushCast();
   },
   onLook() {
     // DialogueController's own doc: "a soft suggestion, never a lock." This
@@ -338,6 +500,45 @@ const dialogue = new DialogueController({
     ui.choiceHoldBar.classList.remove('show');
   },
 });
+
+/**
+ * Every mouth in the room, and what is driving it.
+ *
+ * `open` is the smoothed 0..1 opening, `mode` is null / 'audio' / 'fallback',
+ * and `scaleY` is what the mesh is ACTUALLY at — measured off the object
+ * rather than recomputed, so a check cannot pass on a number the renderer
+ * never saw. `photo` marks the faces that have no mouth to move (see
+ * src/core/mouth.js).
+ *
+ * Kept out of `state()` and reachable on its own, because the mouth check
+ * samples it once a frame and building the whole state object — which walks
+ * three decal pools and every actor — at that rate would measure the sampler.
+ */
+function mouthState() {
+  return Object.fromEntries(cast.all.map((actor) => {
+    const m = actor.npc.voiceMouth;
+    return [actor.name.toLowerCase(), {
+      open: +m.open.toFixed(4),
+      mode: m.mode,
+      level: +m.level.toFixed(4),
+      photo: m.photo,
+      scaleY: +(actor.npc.parts.mouth?.scale.y ?? 0).toFixed(5),
+      restY: +(m.rest?.y ?? 0).toFixed(5),
+    }];
+  }));
+}
+
+/** What the voice channel is doing, so silence can be told from a bug. */
+function voiceState() {
+  return {
+    cue: dialogue.cueLog[dialogue.cueLog.length - 1] ?? null,
+    playing: Boolean(voiceSource),
+    seconds: +voiceSeconds.toFixed(3),
+    talking: dialogue.busy,
+    recorded: dialogue.cueLog.filter((c) => c && audio.hasSample(c)).length,
+    attempted: dialogue.cueLog.length,
+  };
+}
 
 const pauseMenu = createPauseMenu({
   title: 'The Silver Case',
@@ -624,6 +825,86 @@ function restoreCheckpoint() {
   clock.getDelta();
   lockPointer();
   fsm.go(CHECKPOINT);
+}
+
+/**
+ * Preview-only checkpoint jump.
+ *
+ * `car` and `hallway` need no staging at all: `CAR_RIDE.enter()` and
+ * `ARRIVE_HALLWAY.enter()` each fully rebuild the world visibility, the
+ * player's pose and Ape's position from nothing, exactly as they do when
+ * reached at the top of a fresh MENU boot -- so this only has to call
+ * `fsm.go()` and let the beat's own real `enter()` do the rest.
+ *
+ * `room` and everything after it happen inside the apartment, which nothing
+ * upstream of `ESTABLISH_CONTROL` sets on its own (the walk down the hallway
+ * normally does it), so the world visibility, the player's pose and the front
+ * door are staged here. `prayer` and everything after it additionally need
+ * the case found and closed, Deke shot on the couch, and both guns drawn --
+ * the same baseline `restoreCheckpoint()`, above, stages for the mission's
+ * one real, saveable checkpoint (`SQUATCH_PRAYER`) -- so this reuses that
+ * exact shape rather than a second, drifting copy of it. `bathroom` and
+ * `aftermath` layer Chester's own chair shooting and (for `aftermath`) a
+ * resolved bathroom ambush on top, the same persistent facts the mission
+ * itself leaves behind once those beats have actually played. Every waypoint
+ * ends by calling `fsm.go()` on the real target state, so that state's own
+ * `enter()` -- its dialogue, its instruction text -- still runs for real.
+ */
+function jumpToPreviewCheckpoint(id) {
+  if (id === 'car') { fsm.go(S.CAR_RIDE); return; }
+  if (id === 'hallway') { fsm.go(S.ARRIVE_HALLWAY); return; }
+
+  // Everything from here on has already walked in the (open) front door.
+  car.root.visible = false;
+  apartment.root.visible = true;
+  player.mode = 'walk';
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.pitchMin = -Math.PI / 2 + 0.05;
+  player.pitchMax = Math.PI / 2 - 0.05;
+  player.yawCenter = null;
+  player.velocity.set(0, 0, 0);
+  apartment.doors.frontDoor.group.rotation.y = apartment.doors.frontDoor.openRotationY;
+  setDoorColliderOpen(apartment.doors.frontDoor.collider, true);
+  // Just inside the door, where Ape is walking from -- ESTABLISH_CONTROL's
+  // own enter() lerps him the rest of the way to 'start' over about a second.
+  cast.ape.snapTo('door');
+
+  if (id === 'room') {
+    player.position.set(ANCHORS.frontDoorInside.x, 1.66, ANCHORS.frontDoorInside.z);
+    player.yaw = ANCHORS.frontDoorInside.yaw;
+    player.pitch = 0;
+    fsm.go(S.ESTABLISH_CONTROL);
+    return;
+  }
+
+  // prayer and later: control established, the case found and closed, Deke
+  // shot on the couch, both guns out -- restoreCheckpoint()'s own baseline
+  // for the mission's one real checkpoint.
+  apartment.props.caseOcclusion.visible = false;
+  apartment.props.case.close({ instant: true });
+  cast.deke.kill();
+  drawWeapon();
+  cast.ape.drawWeapon();
+  cast.ape.snapTo('chair');
+  player.position.set(RETRY_SPOT.x, 1.66, RETRY_SPOT.z);
+  player.yaw = yawToward(RETRY_SPOT, { x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z });
+  player.pitch = 0;
+
+  if (id === 'prayer') { fsm.go(S.SQUATCH_PRAYER); return; }
+
+  // bathroom and later: the man in the chair is down too, Ape's gun back at
+  // his side.
+  cast.chester.kill();
+  cast.ape.aimWeapon(false);
+
+  if (id === 'bathroom') { fsm.go(S.BATHROOM_AMBUSH); return; }
+
+  // aftermath: the bathroom ambush is already won.
+  cast.pruitt.reveal();
+  cast.pruitt.kill();
+  apartment.doors.bathroomDoor.group.rotation.y = apartment.doors.bathroomDoor.openRotationY;
+  fsm.go(S.AFTERMATH);
 }
 
 // ---------------------------------------------------------------- interactables
@@ -1351,10 +1632,30 @@ ui.playAgainBtn.addEventListener('click', () => {
 
 function beginScene() {
   audio.init();
+  /* PRELOAD, which this scene never did.
+   *
+   * `audio.init()` builds the graph; it does not fetch a single sample. With
+   * no `loadManifest` the engine's buffer table stayed empty for the whole
+   * mission, so every `audio.play()` fell through to the procedural synth --
+   * which is why the guns and the doors sounded right and nobody noticed that
+   * SIXTY RECORDED VOICE TAKES could never be reached. Silence with a
+   * subtitle over a folder full of finished audio.
+   *
+   * Named rather than wholesale: the shared manifest is thousands of cues and
+   * this mission needs its own words plus the handful of effects it fires --
+   * see ./audio.js's `isSilverCasePreloadCue`/`silverCaseAudioLoadOptions` for
+   * the named selector `tools/verify-silvercase.mjs` checks residency against. */
+  audio.loadManifest(silverCaseAudioLoadOptions()).then((result) => {
+    // Diagnostics only, same shape every other scoped scene exposes
+    // (src/nowake/main.js, src/bing/main.js): what the full shared manifest
+    // holds versus what this mission actually asked for and got.
+    audio.preloadStats = { manifestTotal: audio.manifest.sfx.length, selected: result.total };
+  }).catch(() => {});
   running = true;
   sceneInventory.show();
   syncInventory();
-  fsm.go(S.CAR_RIDE);
+  if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
+  else fsm.go(S.CAR_RIDE);
   lockPointer();
 }
 
@@ -1388,7 +1689,8 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !paused) updateGame(dt);
-  renderer.render(scene, camera);
+  postfx.render();
+  postfx.sample(dt);
 }
 
 fsm.start(S.MENU);
@@ -1455,6 +1757,8 @@ window.silvercase = {
         armed: Boolean(actor.weapon),
       },
     ])),
+    mouths: mouthState(),
+    voice: voiceState(),
     /** Ape's cross-scene identity, exactly as the campaign registry has it. */
     ape: {
       characterId: cast.ape.npc.characterId,
@@ -1524,6 +1828,9 @@ window.silvercase = {
   },
   shots,
   impacts,
+  /** Cheap enough to poll every frame — see mouthState(). */
+  mouths: () => mouthState(),
+  voice: () => voiceState(),
   chooseKey: (key) => dialogue.chooseKey(key),
   dialogue,
   cast,
@@ -1539,4 +1846,5 @@ window.silvercase = {
   camera,
   scene,
   renderer,
+  postfx,
 };

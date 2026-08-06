@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { getCharacter } from '../core/characters.js';
 import { HeistFigure } from './people.js';
-import { makeBalaclava, makeHeistCarbine, makeHeistSidearm } from './weapons.js';
+import {
+  makeBalaclava, makeHeistCarbine, makeHeistSidearm, makePlateCarrier,
+} from './weapons.js';
 
 /**
  * The five people Tony goes in with.
@@ -117,23 +119,20 @@ function slingWeapon(figure, heavy) {
   return weapon;
 }
 
-/** A plate carrier over the work shirt: this crew is dressed for the job. */
+/**
+ * A plate carrier over the work shirt: this crew is dressed for the job.
+ *
+ * The modelled one out of `./weapons.js` — the same carrier the player takes
+ * off the safehouse stand, so the thing he puts on is visibly the thing the
+ * other five are wearing. It used to be a 0.44 m box with three pouches on it.
+ */
 function addPlateCarrier(figure, colour) {
-  const vest = new THREE.Mesh(
-    new THREE.BoxGeometry(0.44, 0.44, 0.3),
-    new THREE.MeshStandardMaterial({ color: colour, roughness: 0.9 }),
-  );
+  const vest = makePlateCarrier({ colour, loaded: true });
   vest.name = 'crew-plate-carrier';
-  vest.position.set(0, 1.26, 0);
+  vest.position.set(0, 1.24, 0.015);
+  vest.scale.setScalar(1.02);
   figure.parts.body.add(vest);
-  for (let i = -1; i <= 1; i++) {
-    const pouch = new THREE.Mesh(
-      new THREE.BoxGeometry(0.11, 0.14, 0.07),
-      new THREE.MeshStandardMaterial({ color: 0x4e5548, roughness: 1 }),
-    );
-    pouch.position.set(i * 0.13, 1.12, 0.17);
-    figure.parts.body.add(pouch);
-  }
+  return vest;
 }
 
 export function buildHeistCrew(scene) {

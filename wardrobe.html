@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squatch Life — The Fitting Room</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128087;</text></svg>" />
+<style>
+  :root { color-scheme: dark; --ink:#f2efe4; --muted:#9a9688; --gold:#e8c86a; --line:#2c2c36; --warn:#ff9a6a; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid;
+    grid-template-columns: 260px 1fr 360px;
+    /* An explicit single row of exactly the viewport. Without it the row is
+     * sized to the tallest item -- the scrolling rail -- and the canvas, which
+     * asks for 100% of a cell whose height depends on the canvas, resolves to
+     * whatever the rail happened to be. It rendered into the top two thirds of
+     * the page and left a black band under it. */
+    grid-template-rows: 100vh;
+    background: #0c0d11; color: var(--ink);
+    font: 14px/1.5 "Trebuchet MS", "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+  body > * { min-height: 0; }
+  /* Contact-sheet mode: the figure and nothing else. */
+  body.bare { grid-template-columns: 1fr; }
+  body.bare aside, body.bare .hud, body.bare .strip { display: none; }
+  aside { overflow-y: auto; border-right: 1px solid var(--line); padding: 14px 0 28px; }
+  aside.right { border-right: 0; border-left: 1px solid var(--line); padding: 16px 16px 28px; }
+  h1 { margin: 0 16px 2px; font-size: 15px; letter-spacing: .12em; color: var(--gold); }
+  .sub { margin: 0 16px 12px; color: var(--muted); font-size: 12px; }
+
+  /* ---- the three views ---- */
+  .tabs { display: flex; gap: 4px; margin: 0 14px 12px; }
+  .tabs button {
+    flex: 1; background: #14151b; border: 1px solid #282a34; color: var(--muted);
+    font: inherit; font-size: 11.5px; letter-spacing: .06em; padding: 5px 0;
+    border-radius: 4px; cursor: pointer; text-transform: uppercase;
+  }
+  .tabs button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: #1b1c25; }
+
+  .rail button {
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    border-left: 3px solid transparent; color: var(--ink); font: inherit;
+    padding: 7px 14px; cursor: pointer;
+  }
+  .rail button:hover { background: #16171e; }
+  .rail button[aria-current="true"] { background: #191b24; border-left-color: var(--gold); color: var(--gold); font-weight: 700; }
+  .rail .k { display: block; font-size: 11px; color: var(--muted); font-weight: 400; font-family: ui-monospace, Consolas, monospace; }
+  .rail .n { float: right; color: var(--muted); font-size: 11px; font-weight: 400; font-family: ui-monospace, Consolas, monospace; }
+
+  main { position: relative; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---- who is who, under the line-up ----
+   * Staggered on two lines by index parity. At eight figures the widest
+   * names still touch on one line, and a caption under the wrong man is
+   * worse than no caption. */
+  .strip { position: absolute; left: 0; right: 0; bottom: 48px; height: 96px; pointer-events: none; }
+  .strip .chip {
+    position: absolute; transform: translateX(-50%); text-align: center;
+    width: 148px; pointer-events: auto; cursor: pointer;
+    background: #0e0f14e0; border: 1px solid #2b2d38; border-radius: 4px;
+    padding: 3px 6px;
+  }
+  .strip .chip:nth-child(odd) { top: 0; }
+  .strip .chip:nth-child(even) { top: 48px; }
+  .strip .chip b { display: block; font-size: 11px; font-weight: 700; line-height: 1.2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .strip .chip span { display: block; font-size: 9.5px; color: var(--muted); line-height: 1.2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .strip .chip:hover { border-color: var(--gold); z-index: 5; }
+  .strip .chip.flag { border-color: var(--warn); }
+  #page { display: none; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
+  #page.on { display: flex; }
+
+  .hud {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 10px 14px; background: linear-gradient(transparent, #0c0d11ee 45%);
+  }
+  .hud button, .hud select {
+    background: #191b24; color: var(--ink); border: 1px solid #333743;
+    border-radius: 4px; padding: 4px 10px; font: inherit; font-size: 12.5px; cursor: pointer;
+  }
+  .hud button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+  .hud .spacer { flex: 1; }
+  .name { position: absolute; top: 16px; left: 18px; max-width: 44%; }
+  .name h2 { margin: 0; font-size: 22px; letter-spacing: .02em; }
+  .name p { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; }
+  .badge { display:inline-block; margin-left:8px; padding:0 7px; border-radius:9px; font-size:11px; font-weight:700; vertical-align:2px; }
+  .badge.photo { background:#24422e; color:#8fd9a8; }
+  .badge.authored { background:#4a3a14; color:#ffd23a; }
+  .badge.block { background:#3a2430; color:#f0a0c0; }
+
+  aside.right h3 { margin: 2px 0 8px; font-size: 12px; letter-spacing: .14em; color: var(--gold); }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  td, th { padding: 3px 0; border-bottom: 1px solid #1b1c23; vertical-align: top; text-align: left; }
+  td.k, th.k { color: var(--muted); width: 92px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; font-weight: 400; }
+  td.v { font-family: ui-monospace, Consolas, monospace; color: #8fc4a8; font-size: 11.5px; word-break: break-word; }
+  /* The comparison table. `differs` is COMPUTED from the models, never typed:
+   * see compare() in src/wardrobe/preview.js.
+   *
+   * IT SCROLLS SIDEWAYS RATHER THAN WRAPPING, and that is the whole of its
+   * layout. Seven columns squeezed into a 340px panel came back from the
+   * first contact sheet as seven columns one character wide -- "1.83 m" down
+   * the page as "1.8 / 3 m" -- which is a comparison nobody can read. So:
+   * intrinsic width, nowrap cells, and an overflow container round it. */
+  .scroller { overflow-x: auto; margin: 0 -4px; }
+  table.cmp { width: max-content; min-width: 100%; }
+  table.cmp th, table.cmp td { white-space: nowrap; padding-right: 10px; }
+  table.cmp th { font-size: 10px; color: var(--muted); letter-spacing: .04em; font-weight: 700; }
+  table.cmp td.v { font-size: 11px; }
+  table.cmp td.k, table.cmp th.k {
+    position: sticky; left: 0; background: #0c0d11; padding-right: 10px; width: auto;
+  }
+  tr.differs td.k { background: #201814; }
+  tr.differs td.k { color: var(--warn); }
+  tr.differs td.v { color: #ffd8a8; }
+  tr.differs { background: #201814; }
+  .swatch { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; border:1px solid #0006; vertical-align:-1px; }
+  .flagbox { border: 1px solid #4a3020; background: #1d1512; border-radius: 4px; padding: 8px 10px; margin: 10px 0; font-size: 11.5px; color: #f0c8a8; }
+  .flagbox b { color: var(--warn); display: block; margin-bottom: 3px; font-size: 11px; letter-spacing: .06em; }
+  .keys { margin-top: 18px; color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+  .keys kbd { background:#191b24; border:1px solid #333743; border-radius:3px; padding:0 5px; font-family: ui-monospace, Consolas, monospace; color: var(--ink); }
+  .source { margin-top: 14px; color: #6f6c62; font-size: 11px; }
+  .source code { color: #8fc4a8; }
+  @media (max-width: 1080px) { body { grid-template-columns: 220px 1fr; } aside.right { display: none; } }
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body>
+
+<aside class="rail">
+  <h1>THE FITTING ROOM</h1>
+  <p class="sub">Every model, built by the game's own <code>makePerson</code>.</p>
+  <div class="tabs">
+    <button id="tab-scene" aria-pressed="false" title="Everybody in one scene">Scenes</button>
+    <button id="tab-character" aria-pressed="false" title="One person across every scene">People</button>
+    <button id="tab-canonical" aria-pressed="true" title="The wardrobe's own answer">Canon</button>
+  </div>
+  <div id="rail"></div>
+</aside>
+
+<main>
+  <canvas id="view"></canvas>
+  <div class="name">
+    <h2 id="who">—</h2>
+    <p id="note"></p>
+  </div>
+  <div class="strip" id="strip"></div>
+  <div class="hud">
+    <button id="prev" title="Previous (←)">◀</button>
+    <button id="next" title="Next (→)">▶</button>
+    <button id="lineup" aria-pressed="false" title="The whole rail together (A)">Line-up</button>
+    <button id="spin" aria-pressed="true" title="Turntable (T)">Turntable</button>
+    <span id="page"><button id="pagePrev" title="Previous eight">◁</button><span id="pageAt"></span><button id="pageNext" title="Next eight">▷</button></span>
+    <span class="spacer"></span>
+    <span id="marks"></span>
+    <select id="rig" title="Lighting rig (L)"></select>
+  </div>
+</main>
+
+<aside class="right">
+  <h3 id="specTitle">WHAT THEY ARE WEARING</h3>
+  <div id="spec"></div>
+  <div class="keys">
+    <kbd>←</kbd> <kbd>→</kbd> change &middot; <kbd>drag</kbd> orbit &middot; <kbd>wheel</kbd> dolly<br>
+    <kbd>1</kbd>–<kbd>6</kbd> full, head, chain, watch, belt, shoes<br>
+    <kbd>L</kbd> lighting &middot; <kbd>T</kbd> turntable &middot; <kbd>A</kbd> line-up &middot; <kbd>R</kbd> reset view
+  </div>
+  <p class="source">Read live from <code>src/core/wardrobe.js</code> and
+     <code>src/core/appearances.js</code>. Nothing here is restated, and
+     <code>tests/appearances.test.mjs</code> fails the moment a scene and the
+     ledger disagree.</p>
+</aside>
+
+<script type="module">
+import {
+  createFittingRoom, RAIL, RIGS, MARKS, MARK_ORDER, describe, compare,
+} from './src/wardrobe/preview.js';
+import {
+  PHOTOS, SCENES, appearancesInScene, appearancesOf, isShowable, ledgerCharacters,
+} from './src/core/appearances.js';
+
+const canvas = document.getElementById('view');
+
+/* Only wear a photo that exists -- a probe for a face that has not landed is
+ * a 404 in the console on every single figure. */
+let faces = new Set();
+try {
+  const index = await fetch('assets/faces/index.json').then((r) => r.json());
+  faces = new Set(index.files ?? []);
+} catch { /* authored heads for everybody, which is a legitimate look */ }
+
+const room = createFittingRoom(canvas, { faces });
+
+/* ------------------------------------------------------------------ */
+/* The left rail, which is three rails wearing one coat                */
+/* ------------------------------------------------------------------ */
+
+const SCENE_LIST = Object.values(SCENES);
+const PEOPLE = ledgerCharacters();
+const railEl = document.getElementById('rail');
+
+/* The rail follows the ROOM, not a variable of its own. The shot tool drives
+ * `room.showScene(...)` directly and never touches a tab, and a sidebar that
+ * disagreed with the picture beside it was the first thing the contact sheet
+ * showed. */
+const tabOf = () => room.state.view;
+
+function buildRail() {
+  const tab = tabOf();
+  railEl.innerHTML = '';
+  const add = (title, sub, count, onClick, current) => {
+    const b = document.createElement('button');
+    b.innerHTML = `${count === null ? '' : `<span class="n">${count}</span>`}`
+      + `${title}<span class="k">${sub}</span>`;
+    b.dataset.current = String(current);
+    b.addEventListener('click', onClick);
+    railEl.appendChild(b);
+    return b;
+  };
+  if (tab === 'scene') {
+    for (const scene of SCENE_LIST) {
+      const cast = appearancesInScene(scene.id);
+      add(scene.label, `${scene.rig} rig`, cast.length,
+        () => selectScene(scene.id), room.state.subject === scene.id);
+    }
+  } else if (tab === 'character') {
+    for (const person of PEOPLE) {
+      add(person.name, person.id, person.scenes.length,
+        () => selectCharacter(person.id), room.state.subject === person.id);
+    }
+  } else {
+    RAIL.forEach((entry, i) => {
+      add(entry.name, entry.key, null, () => selectCanonical(i),
+        !room.state.lineup && room.state.index === i);
+    });
+  }
+}
+
+function setTab(next) {
+  if (next === 'scene') selectScene(room.state.view === 'scene' ? room.state.subject : SCENE_LIST[0].id);
+  else if (next === 'character') selectCharacter(room.state.view === 'character' ? room.state.subject : PEOPLE[0].id);
+  else selectCanonical(room.state.index);
+}
+document.getElementById('tab-scene').addEventListener('click', () => setTab('scene'));
+document.getElementById('tab-character').addEventListener('click', () => setTab('character'));
+document.getElementById('tab-canonical').addEventListener('click', () => setTab('canonical'));
+
+/* ---- the marks ---- */
+const marksEl = document.getElementById('marks');
+for (const name of MARK_ORDER) {
+  const b = document.createElement('button');
+  b.textContent = MARKS[name].label;
+  b.dataset.mark = name;
+  b.addEventListener('click', () => { room.applyMark(name); paint(); });
+  marksEl.appendChild(b);
+}
+
+/* ---- the rigs ---- */
+const rigEl = document.getElementById('rig');
+for (const [key, rig] of Object.entries(RIGS)) {
+  const o = document.createElement('option');
+  o.value = key; o.textContent = rig.label;
+  rigEl.appendChild(o);
+}
+rigEl.addEventListener('change', () => { room.applyRig(rigEl.value); paint(); });
+
+/* ------------------------------------------------------------------ */
+/* The right-hand panel                                                */
+/* ------------------------------------------------------------------ */
+
+const swatchFor = (v) => (typeof v === 'string' && v.startsWith('#')
+  ? `<span class="swatch" style="background:${v}"></span>` : '');
+
+/** One figure: the model's own keys, straight out of describe(). */
+function paintOne(model) {
+  const rows = describe(model)
+    .map(([k, v]) => `<tr><td class="k">${k}</td><td class="v">${swatchFor(v)}${v}</td></tr>`)
+    .join('');
+  return `<table><tbody>${rows}</tbody></table>`;
+}
+
+/**
+ * Several figures: one column each, differences highlighted.
+ *
+ * `compare()` decides what differs by comparing the model objects, so this
+ * cannot highlight a change that is not there or miss one that is. It is the
+ * same rule the single-figure panel already followed, which is why there is
+ * no hand-written "note that he is shorter here" anywhere on this page.
+ */
+function paintCompare(appearances) {
+  const { columns, rows } = compare(appearances);
+  if (columns.length < 2) return columns.length ? paintOne(columns[0].appearance.model) : '';
+  const head = columns.map((c) => `<th class="v" title="${c.full} — ${c.where}">${c.label}</th>`).join('');
+  const body = rows.map((r) => `<tr class="${r.differs ? 'differs' : ''}">`
+    + `<td class="k">${r.key}</td>`
+    + r.values.map((v) => `<td class="v">${swatchFor(v)}${v}</td>`).join('')
+    + '</tr>').join('');
+  const differing = rows.filter((r) => r.differs).length;
+  /* Its own scroller. Six columns of hex in a 300px panel is a table that
+   * wraps to one character per line, which is how the first version of this
+   * came back from the screenshot. */
+  return `<p class="sub" style="margin:0 0 8px">${differing} of ${rows.length} `
+    + 'properties differ across these scenes.</p>'
+    + `<div class="scroller"><table class="cmp"><thead><tr><th class="k"></th>${head}</tr></thead>`
+    + `<tbody>${body}</tbody></table></div>`;
+}
+
+/**
+ * A scene's roster, one line each, generated from the models.
+ *
+ * The full spec of seventeen people is four thousand pixels of scrolling and
+ * nobody reads it. What a scene view is for is "who is in this room and what
+ * have they broadly got on", so each row is the person, where he is, and the
+ * handful of `describe()` keys that separate one man from another.
+ */
+const AT_A_GLANCE = ['dress', 'height', 'shirt', 'belt', 'watch', 'chain'];
+function paintRoster(appearances) {
+  const rows = appearances.filter(isShowable).map((a) => {
+    const spec = new Map(describe(a.model));
+    const bits = AT_A_GLANCE
+      .filter((k) => spec.has(k))
+      .map((k) => `${swatchFor(spec.get(k))}${spec.get(k)}`)
+      .join(' · ');
+    return `<tr><td class="k" style="width:auto">${a.name}`
+      + `<span style="display:block;font-size:10px;color:#6f6c62">${a.where}</span></td>`
+      + `<td class="v">${bits}</td></tr>`;
+  }).join('');
+  return `<table><tbody>${rows}</tbody></table>`;
+}
+
+/** Anything the ledger flags, printed rather than summarised. */
+function paintFlags(appearances) {
+  const out = [];
+  for (const a of appearances) {
+    if (a.divergence) {
+      out.push(`<div class="flagbox"><b>${(SCENES[a.scene]?.label ?? a.scene).toUpperCase()}</b>${a.divergence}</div>`);
+    }
+    if (!isShowable(a)) {
+      out.push(`<div class="flagbox"><b>${(SCENES[a.scene]?.label ?? a.scene).toUpperCase()} — NOT SHOWN</b>`
+        + `${a.name} is in this scene, at ${a.where}. ${a.from.unshown}</div>`);
+    }
+  }
+  return out.join('');
+}
+
+/* ------------------------------------------------------------------ */
+/* The captions under the row                                          */
+/* ------------------------------------------------------------------ */
+
+const stripEl = document.getElementById('strip');
+let chips = [];
+
+function buildStrip() {
+  stripEl.innerHTML = '';
+  chips = room.state.row.length > 1 ? room.state.row.map((entry) => {
+    const el = document.createElement('div');
+    el.className = `chip${entry.appearance?.divergence ? ' flag' : ''}`;
+    el.innerHTML = `<b>${entry.label}</b><span>${entry.sub ?? ''}</span>`;
+    if (entry.appearance) {
+      el.title = 'Click to stand him on his own';
+      el.addEventListener('click', () => { room.showAppearance(entry.appearance); paint(); });
+    }
+    stripEl.appendChild(el);
+    return el;
+  }) : [];
+}
+
+function moveStrip() {
+  if (chips.length === 0) return;
+  const places = room.labelPositions();
+  const width = stripEl.clientWidth || 1;
+  places.forEach((place, i) => {
+    if (chips[i]) chips[i].style.left = `${Math.max(4, Math.min(width - 4, place.at * width))}px`;
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Painting                                                            */
+/* ------------------------------------------------------------------ */
+
+function paint() {
+  const { view, subject, row } = room.state;
+  const whoEl = document.getElementById('who');
+  const noteEl = document.getElementById('note');
+  const specEl = document.getElementById('spec');
+  const titleEl = document.getElementById('specTitle');
+  const solo = row.length === 1;
+  const only = solo ? row[0] : null;
+  const appearance = only?.appearance ?? null;
+
+  if (view === 'scene' && !solo) {
+    const scene = SCENES[subject];
+    const cast = appearancesInScene(subject);
+    titleEl.textContent = 'WHO IS IN THIS ROOM';
+    whoEl.innerHTML = `${scene.label}<span class="badge photo">${cast.length}</span>`;
+    noteEl.textContent = scene.note;
+    specEl.innerHTML = paintFlags(cast) + paintRoster(cast);
+  } else if (view === 'character' && !solo) {
+    const cast = appearancesOf(subject);
+    titleEl.textContent = 'THE SAME PERSON, EVERY SCENE';
+    whoEl.innerHTML = `${cast[0].name}<span class="badge ${faces.has(faceOf(subject)) ? 'photo' : 'authored'}">`
+      + `${cast.length} appearance${cast.length === 1 ? '' : 's'}</span>`;
+    noteEl.textContent = 'Every scene this person is in, side by side under one light. '
+      + 'Rows the panel marks in orange are things the models actually disagree about.';
+    specEl.innerHTML = paintCompare(cast) + paintFlags(cast);
+  } else if (appearance) {
+    titleEl.textContent = 'WHAT THEY ARE WEARING';
+    const worn = faces.has(faceOf(appearance.character));
+    whoEl.innerHTML = `${appearance.name}`
+      + `<span class="badge ${worn ? 'photo' : 'authored'}">${worn ? 'photo face' : 'authored head'}</span>`
+      + (appearance.rig === 'block' ? '<span class="badge block">block rig</span>' : '');
+    noteEl.textContent = `${SCENES[appearance.scene]?.label} — ${appearance.where}`;
+    specEl.innerHTML = paintOne(appearance.model)
+      + `<p class="source">Dressed by <code>${appearance.module}</code>.</p>`
+      + paintFlags([appearance]);
+  } else if (solo) {
+    const entry = RAIL[room.state.index];
+    titleEl.textContent = 'WHAT THEY ARE WEARING';
+    const worn = faces.has(entry.photo);
+    whoEl.innerHTML = `${entry.name}<span class="badge ${worn ? 'photo' : 'authored'}">`
+      + `${worn ? 'photo face' : 'authored head'}</span>`;
+    noteEl.textContent = entry.note;
+    specEl.innerHTML = paintOne(entry.model) + paintScenesOf(entry.key);
+  } else {
+    titleEl.textContent = 'WHAT THEY ARE WEARING';
+    whoEl.textContent = 'The whole rail';
+    noteEl.textContent = 'Everyone together under one light, which is the only way '
+      + 'to see whether they read as one family.';
+    specEl.innerHTML = '';
+  }
+
+  buildRail();
+  for (const b of railEl.children) b.setAttribute('aria-current', b.dataset.current);
+  for (const [id, key] of [['tab-scene', 'scene'], ['tab-character', 'character'], ['tab-canonical', 'canonical']]) {
+    document.getElementById(id).setAttribute('aria-pressed', String(tabOf() === key));
+  }
+  const pager = document.getElementById('page');
+  pager.classList.toggle('on', room.state.pages > 1);
+  document.getElementById('pageAt').textContent = `${room.state.page + 1}/${room.state.pages}`;
+  for (const b of marksEl.children) {
+    b.setAttribute('aria-pressed', String(solo && b.dataset.mark === room.state.mark));
+  }
+  document.getElementById('lineup').setAttribute('aria-pressed', String(!solo));
+  document.getElementById('spin').setAttribute('aria-pressed', String(room.state.turntable));
+  rigEl.value = room.state.rig;
+  buildStrip();
+  moveStrip();
+}
+
+/* The photo a person wears is the ledger's answer, never this page's -- the
+ * uniformed staff have no photograph and must not be given one by a guess at
+ * `${id}.png`. */
+const faceOf = (characterId) => PHOTOS[characterId] ?? '';
+
+/** On a canonical figure: where else in the campaign this person turns up. */
+function paintScenesOf(key) {
+  const cast = appearancesOf(key);
+  if (cast.length === 0) return '';
+  const rows = cast.map((a) => `<tr><td class="k">${SCENES[a.scene]?.label ?? a.scene}</td>`
+    + `<td class="v">${a.where}</td></tr>`).join('');
+  return `<h3 style="margin-top:16px">WHERE HE TURNS UP</h3><table><tbody>${rows}</tbody></table>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Selection                                                           */
+/* ------------------------------------------------------------------ */
+
+function selectCanonical(i) { room.showSolo(i); paint(); }
+function selectScene(id) { room.showScene(id); paint(); }
+function selectCharacter(id) { room.showCharacter(id); paint(); }
+
+function step(delta) {
+  if (room.state.view === 'scene') {
+    const ids = SCENE_LIST.map((s) => s.id);
+    const at = ids.indexOf(room.state.subject);
+    selectScene(ids[(at + delta + ids.length) % ids.length]);
+  } else if (room.state.view === 'character') {
+    const ids = PEOPLE.map((p) => p.id);
+    const at = ids.indexOf(room.state.subject);
+    selectCharacter(ids[(at + delta + ids.length) % ids.length]);
+  } else {
+    selectCanonical(room.state.index + delta);
+  }
+}
+
+function turnPage(delta) {
+  const page = room.state.page + delta;
+  if (page < 0 || page >= room.state.pages) return;
+  if (room.state.view === 'scene') room.showScene(room.state.subject, { keepRig: true, page });
+  else if (room.state.view === 'character') room.showCharacter(room.state.subject, { page });
+  paint();
+}
+
+document.getElementById('prev').addEventListener('click', () => step(-1));
+document.getElementById('next').addEventListener('click', () => step(1));
+document.getElementById('pagePrev').addEventListener('click', () => turnPage(-1));
+document.getElementById('pageNext').addEventListener('click', () => turnPage(1));
+document.getElementById('lineup').addEventListener('click', () => {
+  if (room.state.row.length > 1) {
+    if (room.state.view === 'scene') room.showAppearance(appearancesInScene(room.state.subject).filter(isShowable)[0]);
+    else if (room.state.view === 'character') room.showAppearance(appearancesOf(room.state.subject).filter(isShowable)[0]);
+    else room.showSolo(room.state.index);
+  } else if (room.state.view === 'scene') room.showScene(room.state.subject);
+  else if (room.state.view === 'character') room.showCharacter(room.state.subject);
+  else room.showLineup();
+  paint();
+});
+document.getElementById('spin').addEventListener('click', () => {
+  room.state.turntable = !room.state.turntable; paint();
+});
+
+/* ---- mouse ---- */
+let dragging = false, lastX = 0, lastY = 0;
+canvas.addEventListener('pointerdown', (e) => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointerup', (e) => { dragging = false; canvas.releasePointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  room.state.yaw -= (e.clientX - lastX) * 0.007;
+  room.state.pitch = Math.max(-0.9, Math.min(1.1, room.state.pitch + (e.clientY - lastY) * 0.005));
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  room.state.dist = Math.max(0.32, Math.min(24, room.state.dist * (1 + Math.sign(e.deltaY) * 0.11)));
+}, { passive: false });
+
+/* ---- keys ---- */
+const RIG_KEYS = Object.keys(RIGS);
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key.toLowerCase() === 't') { room.state.turntable = !room.state.turntable; paint(); }
+  else if (e.key.toLowerCase() === 'a') { document.getElementById('lineup').click(); }
+  else if (e.key.toLowerCase() === 'r') { room.applyMark(room.state.mark); room.state.yaw = 0; paint(); }
+  else if (e.key === '[') turnPage(-1);
+  else if (e.key === ']') turnPage(1);
+  else if (e.key.toLowerCase() === 'l') {
+    const next = RIG_KEYS[(RIG_KEYS.indexOf(room.state.rig) + 1) % RIG_KEYS.length];
+    room.applyRig(next); paint();
+  } else if (e.key >= '1' && e.key <= String(MARK_ORDER.length)) {
+    room.applyMark(MARK_ORDER[Number(e.key) - 1]); paint();
+  } else return;
+  e.preventDefault();
+});
+
+/* ---- loop ---- */
+function fit() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  room.resize(Math.max(1, Math.floor(r.width)), Math.max(1, Math.floor(r.height)));
+}
+addEventListener('resize', () => { fit(); moveStrip(); });
+fit();
+paint();
+
+let last = performance.now();
+(function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  room.render(dt);
+  moveStrip();
+  requestAnimationFrame(frame);
+})(last);
+
+/* The shot tool waits on this rather than on a timer, and drives the room
+ * directly, so a slow software render cannot capture a half-built figure. */
+globalThis.fittingRoom = room;
+globalThis.fittingRoomPaint = paint;
+globalThis.fittingRoomFit = fit;
+</script>
+</body>
+</html>

@@ -50,6 +50,20 @@ export function cylinder(o) {
   if (o.rotY) m.rotation.y = o.rotY;
   m.castShadow = o.cast !== false;
   m.receiveShadow = o.receive !== false;
+  /* SILENTLY DROPPED UNTIL 2026-08-05, and `sphere()` did the same.
+   *
+   * Only `box()` kept `name`, so a hundred and twenty-four call sites across
+   * the game were passing one — `ak-barrel`, `barrett-scope-glass`,
+   * `basement-boiler`, names nobody types by accident — into a function that
+   * threw it away. Every verifier that identifies geometry by name was blind
+   * to all of it, and the failure mode was the worst kind: the author writes
+   * the name, the check that looks for it finds nothing, and the honest
+   * conclusion "that mesh is not there" is wrong.
+   *
+   * Checked before changing it: no `getObjectByName` call anywhere in the
+   * project asks for a name that only a cylinder or a sphere supplies, so
+   * nothing that works today starts resolving to something different. */
+  if (o.name) m.name = o.name;
   return m;
 }
 
@@ -60,6 +74,7 @@ export function sphere(o) {
   m.position.set(o.pos[0], o.pos[1], o.pos[2]);
   m.castShadow = o.cast !== false;
   m.receiveShadow = o.receive !== false;
+  if (o.name) m.name = o.name;      // see the note in `cylinder()`
   return m;
 }
 

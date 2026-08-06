@@ -112,6 +112,8 @@ export const voiceRequested = new Set();
 export const voicePlayed = [];
 let voiceIndexPromise = null;
 let currentVoice = null;
+/** The amplitude tap on whatever line is sounding — see prepareVoice/voiceTap. */
+let currentVoiceAnalyser = null;
 let voiceUntil = 0;
 
 /** Every file on disk whose name is a take of `cue`. */
@@ -210,7 +212,19 @@ export function prepareVoice(cue, { volume = 0.95 } = {}) {
     src.buffer = buf;
     const g = ctx.createGain();
     g.gain.value = volume;
-    src.connect(g).connect(master);
+    /* An AnalyserNode INLINE in the voice path, so the speaker's mouth opens
+     * on the amplitude that is really reaching the speakers rather than on a
+     * timer -- src/core/mouth.js. The Motel has its own audio stack rather
+     * than the shared AudioEngine, so it grows its own tap; one node, on the
+     * one line that can be sounding at a time. */
+    currentVoiceAnalyser = ctx.createAnalyser ? ctx.createAnalyser() : null;
+    if (currentVoiceAnalyser) {
+      currentVoiceAnalyser.fftSize = 256;
+      currentVoiceAnalyser.smoothingTimeConstant = 0;
+      src.connect(g).connect(currentVoiceAnalyser).connect(master);
+    } else {
+      src.connect(g).connect(master);
+    }
     src.start();
     currentVoice = src;
     voiceUntil = ctx.currentTime + buf.duration;
@@ -246,7 +260,16 @@ export function stopVoice() {
     try { currentVoice.stop(); } catch { /* already finished */ }
   }
   currentVoice = null;
+  currentVoiceAnalyser = null;
   if (ctx) voiceUntil = ctx.currentTime;
+}
+
+/**
+ * The tap on the line currently being spoken, or null when nothing is.
+ * `Mouth.speak({ source, analyser })` is what reads it.
+ */
+export function voiceTap() {
+  return currentVoice ? { source: currentVoice, analyser: currentVoiceAnalyser } : null;
 }
 
 /** True while somebody is still mid-sentence. */

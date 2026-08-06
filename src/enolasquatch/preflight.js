@@ -334,12 +334,39 @@ export class EnolaPreflight {
         enabled: () => !this.tasks.chocks.done && chock.visible,
         onLook: () => this.dialogue.play('preflight.chocks', { once: true }),
         onUse: () => {
-          // Dropped beside the wheel rather than deleted, because you can see
-          // that you did it.
+          /* Dropped beside the wheel rather than deleted, because you can see
+           * that you did it — and dropped ONTO THE APRON rather than onto the
+           * aeroplane.
+           *
+           * THE FLYING RUNWAY BLOCKS (owner playtest, 2026-08-04: "the blocks
+           * form the runway are next to the wheels flying with me in the air").
+           * These are the blocks. The chocks are built as children of
+           * `aircraft.group` so they sit right whatever heading the aeroplane
+           * was parked on (see `build()` above, and that reasoning still holds
+           * while they are under the wheels) — but pulling one only ever moved
+           * it 1.4 m sideways WITHIN that group. It stayed bolted to the
+           * airframe: through the night cut, down the runway, and out over the
+           * mountains at three thousand feet, a tan wedge riding beside each
+           * main wheel for the whole mission.
+           *
+           * A pulled chock belongs to the ground, so it is handed to the
+           * ground: reparented into the scene at the world pose it currently
+           * has, then nudged clear of the wheel in world space. It stays on
+           * the apron at Whispering Pines, where the player left it. */
           chock.userData.pulled = true;
+          const world = new THREE.Vector3();
+          const quat = new THREE.Quaternion();
+          const scale = new THREE.Vector3();
+          chock.updateWorldMatrix(true, false);
+          chock.matrixWorld.decompose(world, quat, scale);
+          this.scene.add(chock);
+          chock.position.copy(world);
+          chock.quaternion.copy(quat);
+          chock.scale.copy(scale);
+          // Kicked aside, flat on the tarmac, roughly where a boot would put it.
           chock.position.x += i === 0 ? -1.4 : 1.4;
           chock.position.z += 0.5;
-          chock.rotation.z = i === 0 ? 1.4 : -1.4;
+          chock.rotateZ(i === 0 ? 1.4 : -1.4);
           this.interaction.unregister(chock);
           this.audio?.play?.('frame.adjust', { volume: 0.6 });
           /* Sasole's reaction half — see the "walkaround patter" block in
@@ -456,6 +483,35 @@ export class EnolaPreflight {
     this.armed = false;
     this.boardAnchor = null;
     this.marker.visible = false;
+    this.stowGroundKit();
+  }
+
+  /**
+   * Make certain no piece of ground equipment is still bolted to the
+   * aeroplane when it leaves.
+   *
+   * The chocks come off in `arm()`'s own `onUse`, which is the route a player
+   * takes. This is the belt to that pair of braces, for every route that is
+   * not a player: `../main.js`'s `go(phase)` console/verification helper and
+   * `MissionController.restoreCheckpoint()` both put the crew in the seats
+   * without anybody having touched a chock, and a chock nobody pulled is a
+   * chock that flies to Squatchbourg. Called from `disarm()`, which every one
+   * of those routes already goes through.
+   */
+  stowGroundKit() {
+    for (const chock of this.chocks) {
+      if (chock.userData.pulled || chock.parent === this.scene) continue;
+      chock.userData.pulled = true;
+      chock.updateWorldMatrix(true, false);
+      const world = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      chock.matrixWorld.decompose(world, quat, scale);
+      this.scene.add(chock);
+      chock.position.copy(world);
+      chock.quaternion.copy(quat);
+      chock.scale.copy(scale);
+    }
   }
 
   /** Chocks vanish once the aeroplane starts moving; the elevator springs back. */

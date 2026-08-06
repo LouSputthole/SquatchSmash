@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 
 import { CHARACTER_IDS } from '../core/campaign.js';
-import { AUBBIE, BIG_UNCLE_LOU } from '../core/wardrobe.js';
+import { AUBBIE, BIG_UNCLE_LOU, SAUCE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { Npc } from './cast.js';
 import { STAGE_H } from './club.js';
-import { loadFaceIndex, populateFamily } from './family.js';
+import { FAMILY, loadFaceIndex, populateFamily } from './family.js';
 import { printed, sign } from './kit.js';
 import { createPartyCollider } from './party-collision.js';
 
@@ -486,7 +486,16 @@ export async function buildHotDogParty(scene, club) {
   // Ape, Snow, Hog Mama, Shubenator and the rest to generic heads.
   const faces = await loadFaceIndex();
   window.__squatchStage?.('Bringing the Family to the main bar...');
-  const family = populateFamily(scene, club, { faces });
+  /* Aubbie and Sauce are on the Bing roster for the ordinary floor, and this
+   * party builds both of them itself, below, as hero figures with their own
+   * business -- Aubbie's tool pouch, Sauce at the buffet. Seating them here as
+   * well would put two of each man in one room, which is the exact fault the
+   * one-identity rule exists to prevent. Same body, same id, built once. */
+  const family = populateFamily(scene, club, {
+    faces,
+    present: FAMILY.filter((member) => member.id !== CHARACTER_IDS.AUBBIE
+      && member.id !== CHARACTER_IDS.SAUCE),
+  });
   const byId = family.byId;
   window.__squatchStage?.('Setting the party floor...');
 
@@ -547,9 +556,13 @@ export async function buildHotDogParty(scene, club) {
     lawnmower.group.userData.aliases = ['Lawnmower'];
     lawnmower.aliases = ['Lawnmower'];
   }
+  /* The same man who sits at the two-top east of the runway on an ordinary
+   * night, in the same whites: one id, one body, spread rather than typed out
+   * again here. He is working the food because the food is the whole of him. */
   const sauce = makeNpc(scene, club, {
-    name: 'Sauce', x: -1.4, z: 4.9, yaw: -2.8, job: 'work',
-    model: { height: 1.72, build: 1.08, dress: 'chef', shirt: 0xe7e2d6, hair: 'short', hairColour: 0x241913, skin: 0xe8c39c },
+    name: 'Sauce', characterId: CHARACTER_IDS.SAUCE,
+    x: -1.4, z: 4.9, yaw: -2.8, job: 'work',
+    model: SAUCE,
   });
 
   window.__squatchStage?.('Dressing the closed party...');

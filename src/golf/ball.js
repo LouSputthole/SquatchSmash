@@ -43,6 +43,22 @@ const SIDE_LIFT = 0.00036;
 const windX = () => HOLE.wind.dirX * HOLE.wind.speed;
 const windZ = () => HOLE.wind.dirZ * HOLE.wind.speed;
 
+/**
+ * How much of gravity a *rolling* ball actually feels along a slope.
+ *
+ * A sliding block on a grade accelerates at `g·sin θ`. A ball that is rolling
+ * without slipping does not: some of the energy goes into spinning it up, and
+ * for a solid sphere the answer is exactly 5/7 of that. Applying the whole of
+ * gravity — which this did — made every green break about forty per cent more
+ * than its authored grade said it should, and dropped the steepest grade a
+ * ball could come to rest on from 8.8% to 6.3%, which is how a putt on a
+ * legal-looking green ended up trickling into the pond.
+ *
+ * It is applied to the stop test as well as the acceleration, because "will
+ * this ball stay here" is the same physics as "is it still speeding up".
+ */
+const ROLL_SLOPE = 5 / 7;
+
 /** Below this vertical speed on contact, the ball stops bouncing and rolls. */
 const BOUNCE_FLOOR = 1.35;
 /** Rolling slower than this on ground that will not move it: stopped. */
@@ -192,8 +208,16 @@ export class Ball {
     fy += lift * ly;
     fz += lift * lz;
 
-    /* Signed side spin bends around the vertical axis. Positive is the open
-     * face: fade/slice to the player's right; negative draws/hooks left. */
+    /* Signed side spin bends around the vertical axis. The force below runs
+     * along `(u_z, −u_x)` relative to the horizontal flight direction, and
+     * that vector is the LEFT of travel for every heading — so a positive
+     * `sideSpin` curves the ball left and a negative one curves it right.
+     *
+     * `launchFor()` is what owns the player-facing convention: it negates the
+     * swing's accuracy on its way in, so an early click and an open face
+     * arrive here as negative spin and finish right, which is what the HUD
+     * has been calling a fade the whole time. Do not "tidy" the sign at
+     * either end without moving the other. */
     if (Math.abs(this.sideSpin) > 1e-5) {
       const side = SIDE_LIFT * this.sideSpin * air * air;
       fx += side * (az / horiz);
@@ -297,8 +321,8 @@ export class Ball {
      * toward the front and the extra tilt toward the pond are exactly what
      * make a straight putt not go straight. */
     const g = slopeAt(p.x, p.z);
-    let ax = GRAVITY * g.x;
-    let az = GRAVITY * g.z;
+    let ax = GRAVITY * ROLL_SLOPE * g.x;
+    let az = GRAVITY * ROLL_SLOPE * g.z;
 
     const speed = Math.hypot(v.x, v.z);
     const friction = surfaceProps(surface).roll;
@@ -326,7 +350,7 @@ export class Ball {
       /* Stop only where it would actually stay. On a slope steep enough to
        * beat friction the ball keeps trickling, which is how a putt that dies
        * above the hole ends up below it. */
-      const slopePull = GRAVITY * Math.hypot(g.x, g.z);
+      const slopePull = GRAVITY * ROLL_SLOPE * Math.hypot(g.x, g.z);
       if (slopePull <= friction) {
         v.x = v.z = 0;
         this._stop(surface);

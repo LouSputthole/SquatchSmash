@@ -298,13 +298,13 @@
     {
       "slot": "closet.shirt.a",
       "file": "shirt-austin-front.jpg",
-      "title": "Austin jersey — front",
+      "title": "Austin jersey \u2014 front",
       "caption": "On the rail. Worn once."
     },
     {
       "slot": "closet.shirt.b",
       "file": "shirt-austin-back.jpg",
-      "title": "Austin jersey — back",
+      "title": "Austin jersey \u2014 back",
       "caption": "On the rail next to its own front."
     },
     {
@@ -591,93 +591,105 @@
     },
     {
       "slot": "mansion.lounge.banner",
-      "file": "logo-banner-wide.jpg",
-      "title": "The banner, in the billiard room",
-      "caption": "On the pier between the bay arches, where the trophy cases can see it."
+      "file": "golf-foursome.jpg",
+      "title": "The foursome, in the billiard room",
+      "caption": "On the pier between the bay arches, where the trophy cases can see it. Portrait, because the pier is 0.8 m wide and a wide photo on it measures 0.48 m tall."
     },
     {
       "slot": "mansion.bay.shield",
-      "file": "logo-shield-wide.jpg",
-      "title": "The shield, over the bar",
-      "caption": "Behind the Jack And Daniels, which is where a house badge belongs."
+      "file": "bar-americana.jpg",
+      "title": "Americana, over the bar",
+      "caption": "Behind the Jack And Daniels, which is where bar art belongs."
     },
     {
       "slot": "mansion.conference.crest",
-      "file": "logo-crest.png",
-      "title": "The crest, in the conference room",
-      "caption": "Over the coffee service, facing the long table."
+      "file": "lan-jerseys-group.jpg",
+      "title": "The jerseys, in the conference room",
+      "caption": "Over the coffee service, facing the long table. The people the meeting is about."
     },
     {
       "slot": "mansion.gallery.pride",
-      "file": "logo-pride.jpg",
-      "title": "Pride, on the gallery",
+      "file": "dreamhack-crowd.jpg",
+      "title": "The crowd, on the gallery",
       "caption": "At the west end of the run, between the founders' portraits and the bedrooms."
     },
     {
       "slot": "mansion.ballroom.backdrop",
-      "file": "logo-2023-square.jpg",
-      "title": "The stage backdrop",
-      "caption": "Hung on the swag behind the drum riser. The band plays under the crest."
+      "file": "iem-dallas-2024-arena.jpg",
+      "title": "The arena, behind the stage",
+      "caption": "Hung on the swag behind the drum riser. The band plays under a full house."
     },
     {
       "slot": "mansion.office.shield",
       "file": "logo-shield.jpg",
       "title": "The shield, in Lou's office",
-      "caption": "On the wall behind the desk, east of his own door."
+      "caption": "On the wall behind the desk, east of his own door. A man's badge goes over his own chair."
+    },
+    {
+      "slot": "mansion.office.hogmama",
+      "file": "lou-office-hog-mama.png",
+      "title": "Hog Mama, in Lou's office",
+      "caption": "On the north pier between the two windows, facing the desk."
     },
     {
       "slot": "mansion.basement.shield",
-      "file": "logo-shield-2022.jpg",
-      "title": "The shield, in the armory",
+      "file": "basement-squad.jpg",
+      "title": "The squad, in the armory",
       "caption": "Over the noticeboard in the alcove behind the cellar stair."
     },
     {
       "slot": "mansion.trophy.crest",
-      "file": "logo-crest.png",
-      "title": "The crest, over the Great Includer",
+      "file": "shrine-booski-podium.jpg",
+      "title": "The podium, over the Great Includer",
       "caption": "High on the apse wall in the west wing, above the trophy itself."
     },
     {
       "slot": "mansion.winter.shield",
-      "file": "logo-shield.jpg",
-      "title": "The shield, in the winter garden",
+      "file": "cave-selfie.jpg",
+      "title": "The cave, in the winter garden",
       "caption": "On the inner wall at the far end, facing the lily pool."
     },
     {
       "slot": "mansion.cellar.crest",
-      "file": "logo-shield-wide.jpg",
-      "title": "The crest, on the lower level",
+      "file": "casabonita.webp",
+      "title": "Casa Bonita, on the lower level",
       "caption": "Beside the armory door, at the head of the cellar corridor."
     },
     {
       "slot": "mansion.theatre.banner",
-      "file": "logo-banner-wide.jpg",
-      "title": "The banner, in the screening room",
+      "file": "major-austin-stands.jpg",
+      "title": "The stands, in the screening room",
       "caption": "On the side wall between the sconces, where the house lights catch it."
     },
     {
       "slot": "mansion.lan.banner",
-      "file": "logo-pride.jpg",
-      "title": "The banner, in the LAN room",
+      "file": "team-lan-center.jpg",
+      "title": "The team, in the LAN room",
       "caption": "Over the five stations, next to the house ladder."
     },
     {
       "slot": "mansion.lan.chairs",
       "file": "logo-crest.png",
       "title": "The crest, on the gamer chairs",
-      "caption": "On the back of every chair in the LAN room -- one slot dresses all five."
+      "caption": "On the back of every chair in the LAN room -- one slot dresses all five. A crest is what you print on a chair."
     },
     {
       "slot": "mansion.guest.art",
-      "file": "logo-2023-square.jpg",
-      "title": "The crest, in the guest room",
-      "caption": "Over the bed in the guest bedroom on the lower level."
+      "file": "bing-office-nephews.jpg",
+      "title": "The Nephews, in the guest room",
+      "caption": "Over the bed in the guest bedroom on the lower level. Family, where a guest sleeps."
     },
     {
       "slot": "mansion.vault.mark",
-      "file": "logo-shield.jpg",
-      "title": "The mark, in the vault",
+      "file": "stacks-5-years.jpg",
+      "title": "Five years of stacks, in the vault",
       "caption": "On the steel beside the vault door, where the count is written up."
+    },
+    {
+      "slot": "mansion.suite.crest",
+      "file": "logo-crest.png",
+      "title": "The crest, over the suite's bar",
+      "caption": "Third floor, behind the bottles in Lou's own bar. The only badge hung up there; the other one is set in the marble at the head of the stair."
     }
   ]
 }

@@ -25,6 +25,25 @@ const BROWN = 0x7a5230;
 const BROWN_DARK = 0x4f351f;
 const METAL = 0x9aa0a6;
 
+/* The hold, in aeroplane-local metres.
+ *
+ * `DECK_Y` is the surface the crates have always sat on: `CargoWeightSystem`
+ * puts a loaded crate at local y -0.86 and a crate's own origin is its base.
+ * The aeroplane group rides `AC.gearY` above the tarmac, so the deck stands
+ * 1.62 - 0.86 = 0.76 m above the ground a man walks on, which is exactly the
+ * step the owner could not climb. `RAMP_DROP` is that step; `RAMP_ANGLE` is
+ * the angle two `RAMP_LEAF` boards make covering it. */
+const DECK_Y = -0.86;
+const HOLD_Z_AFT = -2.7;
+const HOLD_Z_FWD = 2.34;
+const RAMP_Z = -1.05;              // the cargo doorway's centreline
+const RAMP_LEAF = 1.08;
+const RAMP_DROP = 0.76;
+const RAMP_ANGLE = Math.asin(Math.min(1, RAMP_DROP / (RAMP_LEAF * 2)));
+
+const _deckPoint = new THREE.Vector3();
+const _deckMat = new THREE.Matrix4();
+
 /**
  * The Squatch Family emblem, painted on both sides of the fuselage. The real
  * squatch — the shared silhouette off the flat's posters, the arcade cabinet
@@ -70,27 +89,98 @@ function tammyStickerTexture() {
   return tex;
 }
 
-/** Mission tally: little footprints under the completed-run markings. */
+/**
+ * Mission tally: completed runs, marked beside the cargo door.
+ *
+ * Owner's note: *"Pawprints on the side kind of weird."* They were — nine
+ * identical purple blobs the size of a hand, spaced evenly across a bare cream
+ * strip with no heading, no frame and no wear, stretched over a metre of
+ * fuselage. Read at any distance it was a row of bruises.
+ *
+ * A mission tally on a real aeroplane is a small stencilled block under a
+ * hand-painted heading, and it is DENSE: the marks are little, they run in
+ * rows, they are struck with the same worn plate every time so the ink is
+ * uneven, and the last one is always half done because the run is not finished
+ * yet. That is what this draws — and the mark is a proper sasquatch print,
+ * a heel pad with five separate toes above it, rather than an oval with three
+ * dots over it.
+ */
 function tallyTexture() {
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 64;
+  c.width = 512; c.height = 160;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#d9cfb4';
-  ctx.fillRect(0, 0, 256, 64);
+
+  // Painted panel: the crew scrubbed a rectangle of the skin and worked in it.
+  ctx.fillStyle = '#cfc4a6';
+  ctx.fillRect(0, 0, 512, 160);
+  ctx.fillStyle = '#c6b998';
+  ctx.fillRect(6, 6, 500, 148);
+  ctx.strokeStyle = 'rgba(58,47,95,0.55)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(10, 10, 492, 140);
+
   ctx.fillStyle = '#3a2f5f';
-  for (let i = 0; i < 9; i++) {
-    const x = 18 + i * 26;
+  ctx.font = '900 30px Trebuchet MS, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('RUNS', 22, 44);
+  ctx.font = '700 17px Trebuchet MS, sans-serif';
+  ctx.fillStyle = 'rgba(58,47,95,0.72)';
+  ctx.fillText('EL HUESO', 22, 66);
+  ctx.beginPath();
+  ctx.moveTo(22, 76); ctx.lineTo(126, 76);
+  ctx.strokeStyle = 'rgba(58,47,95,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  /* One print: a heel pad and five toes, struck small. `ink` carries the
+   * unevenness — the plate is old and the paint is not. */
+  const print = (x, y, s, ink) => {
+    ctx.fillStyle = ink;
     ctx.beginPath();
-    ctx.ellipse(x, 38, 6, 9, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, 4.6 * s, 6.4 * s, 0, 0, Math.PI * 2);
     ctx.fill();
-    for (let t = 0; t < 3; t++) {
+    const toes = [[-4.4, -8.2, 1.5], [-2.1, -10.4, 1.7], [0.4, -11.0, 1.8], [2.8, -10.1, 1.6], [4.7, -8.0, 1.4]];
+    for (const [tx, ty, tr] of toes) {
       ctx.beginPath();
-      ctx.ellipse(x - 5 + t * 5, 24, 2, 3, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + tx * s, y + ty * s, tr * s, (tr + 0.5) * s, 0, 0, Math.PI * 2);
       ctx.fill();
     }
+  };
+
+  // Fourteen struck, in two rows of seven, and a fifteenth only half inked.
+  const x0 = 152, y0 = 58, dx = 25, dy = 52;
+  for (let i = 0; i < 14; i++) {
+    const col = i % 7, row = (i / 7) | 0;
+    // Alternating strength plus a slow drift: no two strikes came out the same.
+    const wear = 0.62 + ((i * 37) % 11) / 11 * 0.33;
+    print(x0 + col * dx + row * 3, y0 + row * dy + ((i * 13) % 5) - 2, 1.05, `rgba(58,47,95,${wear.toFixed(2)})`);
   }
+  ctx.save();
+  ctx.globalAlpha = 0.34;
+  print(x0 + 7 * dx + 3, y0 + dy, 1.05, '#3a2f5f');
+  ctx.restore();
+
+  // Two runs paid for in aeroplane: the crew crossed those out.
+  ctx.strokeStyle = 'rgba(140,40,36,0.8)';
+  ctx.lineWidth = 3;
+  for (const i of [4, 9]) {
+    const col = i % 7, row = (i / 7) | 0;
+    const x = x0 + col * dx + row * 3, y = y0 + row * dy;
+    ctx.beginPath();
+    ctx.moveTo(x - 9, y - 13); ctx.lineTo(x + 9, y + 7);
+    ctx.moveTo(x + 9, y - 13); ctx.lineTo(x - 9, y + 7);
+    ctx.stroke();
+  }
+
+  // Exhaust and rain have been over all of it for years.
+  for (let i = 0; i < 90; i++) {
+    ctx.fillStyle = `rgba(70,58,40,${Math.random() * 0.06})`;
+    ctx.fillRect(Math.random() * 512, Math.random() * 160, Math.random() * 46, Math.random() * 2.5);
+  }
+
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
   return tex;
 }
 
@@ -161,24 +251,86 @@ export class Brushrunner {
 
     const g = this.group;
 
-    // ---- Fuselage: slab-sided box with a rounded nose and a tapered boom ----
-    const body = mesh(boxGeo(1.86, 1.94, 7.4), skin, 0, 0, 0.4);
+    /* ---- Fuselage ----
+     *
+     * Owner's note: *"A little less square for the main hull."* It was a plain
+     * 1.86 x 1.94 box, and from three-quarters on it read as a shipping
+     * container with wings. A utility aeroplane of this vintage is slab-SIDED,
+     * which is not the same as slab-cornered: the sides are flat panels, and
+     * the four longitudinal corners are rolled, with a curved turtledeck over
+     * the cabin and a rounded keel underneath.
+     *
+     * The box stays — it is the silhouette everything else is placed against,
+     * and nothing dimensional changes — but it is narrowed a little at the
+     * corners and the corners themselves are filled with rolled sections, so
+     * the shape reads as sheet metal bent round a frame. */
+    const body = mesh(boxGeo(1.78, 1.86, 7.4), skin, 0, 0, 0.4);
+    body.name = 'fuselage-body';
     g.add(body);
+
+    const hull = group('fuselage-shell');
+    // Four rolled corner sections running the length of the cabin. Each is a
+    // long cylinder set into the corner it fills.
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        const roll = mesh(cylGeo(0.19, 0.19, 7.4, 10), skin, sx * 0.795, sy * 0.835, 0.4);
+        roll.name = `fuselage-corner-${sy > 0 ? 'upper' : 'lower'}-${sx < 0 ? 'starboard' : 'port'}`;
+        roll.rotation.x = Math.PI / 2;
+        hull.add(roll);
+      }
+    }
+    /* Turtledeck over the cabin, and the keel under it: half-round rather than
+     * a flat lid and a flat floor pan.
+     *
+     * Radius 0.7, up from 0.5: at the old radius the dome only reached the
+     * fuselage-body's own flat top (y 0.93) at the seat stations (x = ±0.42)
+     * and fell fully inside it by the outboard edge of a seated head box —
+     * so the cockpit's real ceiling there was the flat top, not the dome,
+     * with no headroom to speak of. Widened to actually cover both seats;
+     * see the seat comment below for the measured clearance this buys. */
+    const deckRoll = mesh(cylGeo(0.7, 0.7, 6.9, 12, true), skin, 0, 0.66, 0.4);
+    deckRoll.name = 'fuselage-turtledeck';
+    deckRoll.rotation.x = Math.PI / 2;
+    hull.add(deckRoll);
+    const keel = mesh(cylGeo(0.62, 0.62, 7.0, 12, true), skin, 0, -0.5, 0.4);
+    keel.name = 'fuselage-keel';
+    keel.rotation.x = Math.PI / 2;
+    hull.add(keel);
+    g.add(hull);
+    this.parts.hull = hull;
+
     // Mismatched replacement panels. Nobody has ever repainted this aeroplane.
-    g.add(mesh(boxGeo(1.9, 0.62, 1.5), patch, 0, 0.34, -1.2));
-    g.add(mesh(boxGeo(1.9, 0.44, 0.9), patch, 0, -0.5, 1.9));
+    g.add(mesh(boxGeo(1.82, 0.62, 1.5), patch, 0, 0.34, -1.2));
+    g.add(mesh(boxGeo(1.82, 0.44, 0.9), patch, 0, -0.5, 1.9));
     // Riveted belly strake.
     g.add(mesh(boxGeo(1.5, 0.1, 6.8), metal, 0, -0.99, 0.4));
 
-    const nose = mesh(cylGeo(0.42, 0.94, 1.5, 12), skin, 0, 0.05, 4.6);
+    const nose = mesh(cylGeo(0.42, 0.9, 1.5, 14), skin, 0, 0.05, 4.6);
+    nose.name = 'nose-cone';
     nose.rotation.x = Math.PI / 2;
     g.add(nose);
-    g.add(mesh(boxGeo(1.7, 1.6, 0.9), skin, 0, 0.05, 3.9));
+    g.add(mesh(boxGeo(1.62, 1.52, 0.9), skin, 0, 0.05, 3.9));
+    // The shoulder between the nose cone and the cabin, so the join is a
+    // fairing rather than a step.
+    const noseFairing = mesh(cylGeo(0.9, 1.02, 0.7, 14), skin, 0, 0.05, 3.62);
+    noseFairing.name = 'nose-fairing';
+    noseFairing.rotation.x = Math.PI / 2;
+    g.add(noseFairing);
 
-    // Tail boom.
-    const boom = mesh(cylGeo(0.42, 0.92, 4.6, 10), skin, 0, 0.16, -4.6);
+    /* Tail boom. Owner's note: *"Tail can be a bit thinner the tail rod
+     * connecting it."* It was 0.92 m across at the root and 0.42 at the fin,
+     * which is nearly the width of the cabin carried all the way aft — the
+     * aeroplane had no waist. Taken in to 0.66 / 0.28 and given one more radial
+     * segment, so it tapers away from the cabin the way a boom should. */
+    const boom = mesh(cylGeo(0.28, 0.66, 4.8, 14), skin, 0, 0.16, -4.65);
+    boom.name = 'tail-boom';
     boom.rotation.x = Math.PI / 2;
     g.add(boom);
+    // Where the boom leaves the cabin, faired rather than butted.
+    const boomRoot = mesh(cylGeo(0.66, 0.86, 0.8, 14), skin, 0, 0.16, -2.15);
+    boomRoot.name = 'tail-boom-fairing';
+    boomRoot.rotation.x = Math.PI / 2;
+    g.add(boomRoot);
 
     // ---- Wing: high-mounted, with a slab spar and lift struts ----
     const wing = mesh(boxGeo(AC.span, 0.3, AC.chord), skin, 0, 1.16, 0.5);
@@ -286,21 +438,32 @@ export class Brushrunner {
       this.parts.exhaust.push(new THREE.Vector3(nx + sx * 0.36, 0.5, 1.2));
     }
 
-    // ---- Tail ----
-    const fin = mesh(boxGeo(0.18, 2.5, 1.9), skin, 0, 1.6, -6.1);
+    /* ---- Tail ----
+     *
+     * Thinner across the board on the same note. Aerofoils this size are a
+     * hand's width thick, not a fist; the fin, rudder, tailplane and elevator
+     * all come in, and the fin gains a leading-edge fillet running forward into
+     * the boom so it grows out of the aeroplane instead of being stuck on it. */
+    const fin = mesh(boxGeo(0.13, 2.5, 1.9), skin, 0, 1.6, -6.1);
+    fin.name = 'fin';
     g.add(fin);
-    g.add(mesh(boxGeo(0.2, 0.7, 1.0), trim, 0, 2.6, -6.3));
+    const finFillet = mesh(boxGeo(0.12, 0.9, 1.5), skin, 0, 0.6, -5.05);
+    finFillet.name = 'fin-dorsal-fillet';
+    finFillet.rotation.x = -0.42;
+    g.add(finFillet);
+    g.add(mesh(boxGeo(0.15, 0.7, 1.0), trim, 0, 2.6, -6.3));
     const rudderPivot = new THREE.Group();
     rudderPivot.position.set(0, 1.5, -6.9);
-    rudderPivot.add(mesh(boxGeo(0.16, 2.3, 0.9), patch, 0, 0, -0.45));
+    rudderPivot.add(mesh(boxGeo(0.115, 2.3, 0.9), patch, 0, 0, -0.45));
     g.add(rudderPivot);
     this.parts.rudder = rudderPivot;
 
-    const stab = mesh(boxGeo(5.4, 0.16, 1.2), skin, 0, 0.66, -5.9);
+    const stab = mesh(boxGeo(5.4, 0.12, 1.2), skin, 0, 0.66, -5.9);
+    stab.name = 'tailplane';
     g.add(stab);
     const elevPivot = new THREE.Group();
     elevPivot.position.set(0, 0.66, -6.5);
-    elevPivot.add(mesh(boxGeo(5.4, 0.14, 0.7), patch, 0, 0, -0.35));
+    elevPivot.add(mesh(boxGeo(5.4, 0.105, 0.7), patch, 0, 0, -0.35));
     g.add(elevPivot);
     this.parts.elevator = elevPivot;
 
@@ -350,6 +513,96 @@ export class Brushrunner {
     exteriorDetails.add(aerial);
     g.add(exteriorDetails);
     this.parts.exteriorDetails = exteriorDetails;
+
+    /* ---- Hull detail ----
+     *
+     * Owner's note: *"Just some more detail."* Everything here is skin: frame
+     * stations, stringers, a door frame, the boarding step, static wicks, a
+     * pitot mast, aerials, and the two stains an old aeroplane always has.
+     * Nothing is registered with the interaction system and nothing moves, so
+     * this is silhouette and read only. Kept in its own named group so the
+     * exterior checks that count nacelle bands keep counting four. */
+    const detail = group('aircraft-hull-detail');
+    const rivet = solid(0xb2a88c, { roughness: 0.75, metalness: 0.25 });
+    const shadowLine = solid(0xa79b7f, { roughness: 0.9 });
+
+    // Frame stations: raised bands round the cabin, at the pitch a real
+    // airframe puts its bulkheads.
+    for (const [n, fz] of [[0, 3.1], [1, 1.9], [2, 0.7], [3, -0.5], [4, -1.7], [5, -2.7]]) {
+      const band = mesh(boxGeo(1.83, 1.9, 0.045), rivet, 0, 0, fz);
+      band.name = `fuselage-frame-${n}`;
+      detail.add(band);
+    }
+    // Stringers: two long shallow lines down each side, the seams of the skin.
+    for (const sx of [-1, 1]) {
+      for (const [n, sy] of [[0, 0.44], [1, -0.36]]) {
+        const line = mesh(boxGeo(0.035, 0.05, 6.9), shadowLine, sx * 0.905, sy, 0.4);
+        line.name = `fuselage-stringer-${n}-${sx < 0 ? 'starboard' : 'port'}`;
+        detail.add(line);
+      }
+    }
+    // The cargo doorway, framed. A hole in a slab is a hole; a hole with a
+    // frame round it is a door.
+    for (const [n, dy] of [[0, 0.66], [1, -0.86]]) {
+      const rail = mesh(boxGeo(0.05, 0.07, 1.78), rivet, -0.925, dy, -1.05);
+      rail.name = `cargo-door-frame-${n === 0 ? 'head' : 'sill'}`;
+      detail.add(rail);
+    }
+    for (const [n, dz] of [[0, -0.15], [1, -1.95]]) {
+      const jamb = mesh(boxGeo(0.05, 1.6, 0.07), rivet, -0.925, -0.1, dz);
+      jamb.name = `cargo-door-jamb-${n}`;
+      detail.add(jamb);
+    }
+    // The step under the cabin door, which is how everybody but the cargo gets in.
+    const step = mesh(boxGeo(0.34, 0.06, 0.5), metal, 1.0, -1.02, 1.55);
+    step.name = 'boarding-step';
+    detail.add(step);
+    detail.add(memberBetween(
+      new THREE.Vector3(0.94, -0.62, 1.55),
+      new THREE.Vector3(1.0, -1.0, 1.55),
+      0.05, 0.05, metal,
+    ));
+    // Pitot mast under the left wing root, and a static port each side.
+    const pitot = mesh(cylGeo(0.028, 0.028, 0.42, 6), metal, 1.62, 1.02, 0.92);
+    pitot.name = 'pitot-mast';
+    pitot.rotation.x = Math.PI / 2;
+    detail.add(pitot);
+    for (const sx of [-1, 1]) {
+      const portDisc = flatMesh(cylGeo(0.05, 0.05, 0.01, 8), metal, sx * 0.9, -0.1, 2.75);
+      portDisc.name = `static-port-${sx < 0 ? 'starboard' : 'port'}`;
+      portDisc.rotation.z = Math.PI / 2;
+      detail.add(portDisc);
+    }
+    // Static wicks off the trailing edges, the little wire whiskers.
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const wick = mesh(cylGeo(0.012, 0.012, 0.24, 4), solid(0x2a2a2e, { roughness: 0.9 }), sx * (4.6 + i * 1.6), 1.16, -0.78);
+        wick.name = `static-wick-${sx < 0 ? 'starboard' : 'port'}-${i}`;
+        wick.rotation.x = Math.PI / 2;
+        wick.rotation.z = 0.2;
+        detail.add(wick);
+      }
+    }
+    // A second, shorter aerial on the belly, and the rotating-beacon plinth.
+    const belly = mesh(boxGeo(0.05, 0.3, 0.18), solid(0x2a2a2e, { roughness: 0.85 }), 0, -1.16, -0.9);
+    belly.name = 'belly-aerial';
+    detail.add(belly);
+    // Exhaust staining aft of each stack, and an oil weep under each nacelle.
+    const soot = mat({ color: 0x3a332b, roughness: 1, transparent: true, opacity: 0.34 });
+    for (const sx of [-1, 1]) {
+      const streak = flatMesh(new THREE.PlaneGeometry(0.9, 2.6), soot, sx * 3.05, 0.52, -0.4);
+      streak.name = `exhaust-stain-${sx < 0 ? 'starboard' : 'port'}`;
+      streak.rotation.x = Math.PI / 2;
+      detail.add(streak);
+      const weep = flatMesh(new THREE.PlaneGeometry(0.22, 1.1), soot, sx * 3.4, 0.53, 0.6);
+      weep.name = `oil-weep-${sx < 0 ? 'starboard' : 'port'}`;
+      weep.rotation.y = sx * Math.PI / 2;
+      detail.add(weep);
+    }
+    g.add(detail);
+    this.parts.hullDetail = detail;
+
+    this.buildCargoRamp(metal, patch);
 
     // ---- Landing gear: fixed, rugged, and slightly bent ----
     this.parts.gear = [];
@@ -426,7 +679,10 @@ export class Brushrunner {
       emblem.rotation.y = sx * Math.PI / 2;
       g.add(emblem);
     }
-    const tally = flatMesh(new THREE.PlaneGeometry(1.1, 0.28), mat({ map: tallyTexture(), roughness: 0.9 }), -0.945, -0.35, 1.35);
+    // Smaller than it was, because a run tally is a stencilled block on the
+    // skin rather than a second piece of livery competing with the crest.
+    const tally = flatMesh(new THREE.PlaneGeometry(0.78, 0.244), mat({ map: tallyTexture(), roughness: 0.9 }), -0.945, -0.37, 1.32);
+    tally.name = 'run-tally';
     tally.rotation.y = -Math.PI / 2;
     g.add(tally);
 
@@ -486,6 +742,202 @@ export class Brushrunner {
       g.add(d);
       this.parts.drain.push(d);
     }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The hold, and how a man gets into it                              */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * A cabin floor and a fold-out loading ramp.
+   *
+   * Owner's note: *"When you open the cargo door the only way to get to the
+   * crates is by clipping into the plane."* He is exactly right, and it was not
+   * a collision bug — there was no route at all. The cabin floor sits 0.70 m
+   * above the tarmac (measured: deck at world y 42.70, apron at 42.00), the
+   * three loading bays are registered on markers parented INSIDE the fuselage,
+   * and `world.groundAt` returned flat terrain everywhere including under the
+   * door and inside the skin. So the only way to put the crosshair on a bay was
+   * to walk through the side of the aeroplane.
+   *
+   * Two halves to the fix, and both are here:
+   *
+   *  - **Something to walk on.** A visible plank floor through the hold, and a
+   *    two-leaf ramp hinged on the door sill. Stowed, the leaves fold back on
+   *    each other and stand in the doorway behind the closed door; deployed,
+   *    they straighten into one 2.1 m run at about 20 degrees.
+   *  - **Somewhere to stand.** `deckHeightAt()` below answers the walk height
+   *    at any world point over the ramp or the hold, and `src/beefrun/main.js`
+   *    hands it to the player's `groundAt`, so he actually climbs.
+   */
+  buildCargoRamp(metal, patch) {
+    const g = this.group;
+    const plank = solid(0x6b5432, { roughness: 1 });
+    const tread = solid(0x4f4634, { roughness: 1 });
+
+    /* The hold floor. The crates already sit at local y -0.86, so this is the
+     * surface they have been standing on all along, finally drawn. */
+    const floor = group('cargo-floor');
+    floor.position.set(0, DECK_Y, 0);
+    for (let i = 0; i < 7; i++) {
+      const board = mesh(boxGeo(1.66, 0.05, 0.68), i % 2 ? plank : tread, 0, -0.025, HOLD_Z_AFT + 0.34 + i * 0.72);
+      board.name = `cargo-floor-board-${i}`;
+      floor.add(board);
+    }
+    // Tie-down rails down each side of the floor, which is what the straps
+    // would actually be hooked to.
+    for (const sx of [-1, 1]) {
+      const rail = mesh(boxGeo(0.07, 0.05, HOLD_Z_FWD - HOLD_Z_AFT), metal, sx * 0.74, 0.01, (HOLD_Z_FWD + HOLD_Z_AFT) / 2);
+      rail.name = `cargo-tiedown-rail-${sx < 0 ? 'starboard' : 'port'}`;
+      floor.add(rail);
+    }
+    g.add(floor);
+    this.parts.cargoFloor = floor;
+
+    /* The ramp. Leaf A hinges on the sill, leaf B on the end of A. */
+    const hinge = new THREE.Group();
+    hinge.name = 'cargo-ramp';
+    hinge.position.set(-0.9, DECK_Y, RAMP_Z);
+    const leafA = mesh(boxGeo(RAMP_LEAF, 0.06, 1.34), plank, -RAMP_LEAF / 2, 0, 0);
+    leafA.name = 'cargo-ramp-leaf-inner';
+    hinge.add(leafA);
+    for (const sx of [-1, 1]) {
+      const kerb = mesh(boxGeo(RAMP_LEAF, 0.09, 0.06), metal, -RAMP_LEAF / 2, 0.05, sx * 0.66);
+      kerb.name = `cargo-ramp-kerb-inner-${sx < 0 ? 'aft' : 'forward'}`;
+      hinge.add(kerb);
+    }
+    const knuckle = new THREE.Group();
+    knuckle.name = 'cargo-ramp-knuckle';
+    knuckle.position.set(-RAMP_LEAF, 0, 0);
+    const leafB = mesh(boxGeo(RAMP_LEAF, 0.06, 1.34), tread, -RAMP_LEAF / 2, 0, 0);
+    leafB.name = 'cargo-ramp-leaf-outer';
+    knuckle.add(leafB);
+    for (const sx of [-1, 1]) {
+      const kerb = mesh(boxGeo(RAMP_LEAF, 0.09, 0.06), metal, -RAMP_LEAF / 2, 0.05, sx * 0.66);
+      kerb.name = `cargo-ramp-kerb-outer-${sx < 0 ? 'aft' : 'forward'}`;
+      knuckle.add(kerb);
+    }
+    // Cross cleats, so it reads as something you can get a grip on.
+    for (let i = 0; i < 4; i++) {
+      const cleat = mesh(boxGeo(0.07, 0.035, 1.2), patch, -0.16 - i * 0.24, 0.045, 0);
+      cleat.name = `cargo-ramp-cleat-${i}`;
+      knuckle.add(cleat);
+    }
+    hinge.add(knuckle);
+    g.add(hinge);
+    this.parts.cargoRamp = hinge;
+    this.parts.cargoRampKnuckle = knuckle;
+
+    /* 0 stowed, 1 down. Driven by `setCargoRamp()` from the mission, animated
+     * in `update()`, and read by `deckHeightAt()`. */
+    this.rampT = 0;
+    this.rampWanted = 0;
+    this.applyRampPose();
+  }
+
+  /** Put the two leaves where `rampT` says they are. */
+  applyRampPose() {
+    const t = clamp(this.rampT, 0, 1);
+    const hinge = this.parts.cargoRamp;
+    const knuckle = this.parts.cargoRampKnuckle;
+    if (!hinge || !knuckle) return;
+    // Stowed: leaf A straight up the door frame, leaf B folded back onto it.
+    // Down: A at the ramp angle, B a straight continuation of it.
+    hinge.rotation.z = lerp(-Math.PI / 2, RAMP_ANGLE, t);
+    knuckle.rotation.z = lerp(-Math.PI, 0, t);
+    hinge.visible = t > 0.001;
+    this.parts.cargoFloor.visible = true;
+  }
+
+  /**
+   * Ask for the ramp down (`true`) or stowed (`false`).
+   * The mission calls this from the cargo door, and unconditionally before the
+   * aeroplane is handed to a pilot.
+   */
+  setCargoRamp(down) {
+    this.rampWanted = down ? 1 : 0;
+    return this.rampWanted;
+  }
+
+  /** True while there is a route between the tarmac and the hold. */
+  get cargoRampDown() {
+    return this.rampT > 0.92;
+  }
+
+  /**
+   * The height a walking man stands at over this aeroplane, or `null` if he is
+   * not over it at all.
+   *
+   * Answered in the aeroplane's OWN frame, so it is still correct on the far
+   * strip where the aeroplane is parked on a different heading and a slope.
+   * `null` means "ask the terrain", which is what `main.js` then does.
+   *
+   * @param {number} x world metres
+   * @param {number} z world metres
+   * @returns {number|null} world height of the walking surface
+   */
+  deckHeightAt(x, z) {
+    if (!this.cargoRampDown) return null;
+    const g = this.group;
+    g.updateWorldMatrix(true, false);
+    _deckPoint.set(x, 0, z);
+    _deckMat.copy(g.matrixWorld).invert();
+    _deckPoint.applyMatrix4(_deckMat);
+    const lx = _deckPoint.x, lz = _deckPoint.z;
+
+    // Inside the hold: flat floor.
+    if (lx > -0.86 && lx < 0.86 && lz > HOLD_Z_AFT && lz < HOLD_Z_FWD) {
+      return this.deckWorldY(lx, DECK_Y, lz);
+    }
+    // On the ramp: a straight run outboard of the sill, over the door's width.
+    const run = RAMP_LEAF * 2;
+    if (lx <= -0.86 && lx > -0.9 - run && lz > RAMP_Z - 0.67 && lz < RAMP_Z + 0.67) {
+      const along = clamp((-0.9 - lx) / run, 0, 1);
+      // The far end of the ramp is on the ground; the near end is the sill.
+      return this.deckWorldY(lx, DECK_Y - along * RAMP_DROP, lz);
+    }
+    return null;
+  }
+
+  /** Local deck point to world height. */
+  deckWorldY(lx, ly, lz) {
+    _deckPoint.set(lx, ly, lz).applyMatrix4(this.group.matrixWorld);
+    return _deckPoint.y;
+  }
+
+  /**
+   * Keep a man standing in the hold from walking out through the skin.
+   *
+   * The player's own collider list is world-axis-aligned boxes, which cannot
+   * describe a rotated aeroplane. `Player._resolve` already leaves a hook for
+   * exactly this case — "moving/rotated scenes resolve the capsule in their
+   * own local frame" — so the cabin sides are resolved here, in aeroplane
+   * space, and only while the man is actually up on the deck.
+   */
+  resolveOnDeck(player, axis, radius) {
+    if (!this.cargoRampDown) return;
+    const g = this.group;
+    g.updateWorldMatrix(true, false);
+    _deckMat.copy(g.matrixWorld).invert();
+    _deckPoint.set(player.position.x, 0, player.position.z).applyMatrix4(_deckMat);
+    const lx = _deckPoint.x, lz = _deckPoint.z;
+    // Only inside the hold's own footprint, and only when he is up at deck
+    // height rather than walking past underneath.
+    if (lz <= HOLD_Z_AFT - radius || lz >= HOLD_Z_FWD + radius) return;
+    if (lx < -0.9) return;                       // outboard of the door: the ramp
+    const wall = 0.86 - radius;
+    let pushed = false;
+    if (lx > wall) { _deckPoint.x = wall; pushed = true; }
+    if (lx < -wall && lz > RAMP_Z + 0.6) { _deckPoint.x = -wall; pushed = true; }
+    if (lx < -wall && lz < RAMP_Z - 0.6) { _deckPoint.x = -wall; pushed = true; }
+    // The forward bulkhead: the cockpit is not part of the hold.
+    if (lz > HOLD_Z_FWD - radius) { _deckPoint.z = HOLD_Z_FWD - radius; pushed = true; }
+    if (lz < HOLD_Z_AFT + radius) { _deckPoint.z = HOLD_Z_AFT + radius; pushed = true; }
+    if (!pushed) return;
+    _deckPoint.y = 0;
+    _deckPoint.applyMatrix4(g.matrixWorld);
+    if (axis === 'x') { player.position.x = _deckPoint.x; player.velocity.x = 0; }
+    else { player.position.z = _deckPoint.z; player.velocity.z = 0; }
   }
 
   /* ---------------------------------------------------------------- */
@@ -658,10 +1110,29 @@ export class Brushrunner {
       this.parts.pedal.push(pedal);
     }
 
-    // Seats.
+    /* Seats.
+     *
+     * Owner's note: *"a ton of shit clipping through my view and clipping
+     * through Capt Sasole."* MEASURED CAUSE: `copilotSeat.y` (below) put
+     * Sasole's seated head box at world y 0.89..1.17, against a cabin
+     * ceiling that is the flat fuselage-body top (y 0.93) everywhere except
+     * a narrow strip under the old 0.5 m turtledeck radius — so the outboard
+     * side of his head, at his own seat's x, sat in the flat-roof zone and
+     * came out the top of the aeroplane by up to 24 cm. The pilot's own eye
+     * (`pilotEye`, unchanged here) grazed the same ceiling by about 3 cm,
+     * which is what put fuselage skin in the camera's own near field.
+     *
+     * The turtledeck radius grows below to actually dome over both seat
+     * stations rather than only the centreline, which alone clears the
+     * pilot; Sasole's seat also drops 14 cm, cushion included, because his
+     * head box is wider than the pilot's eye point and the outboard edge of
+     * it still needs the extra room. The pilot's own seat is untouched —
+     * nobody is ever seated in it to look at. */
+    const copilotSeatDrop = 0.14;
     for (const sx of [-1, 1]) {
-      g.add(mesh(boxGeo(0.5, 0.12, 0.5), seatMat, sx * 0.42, -0.35, 1.72));
-      g.add(mesh(boxGeo(0.5, 0.62, 0.12), seatMat, sx * 0.42, -0.05, 1.5));
+      const drop = sx === RIGHT ? copilotSeatDrop : 0;
+      g.add(mesh(boxGeo(0.5, 0.12, 0.5), seatMat, sx * 0.42, -0.35 - drop, 1.72));
+      g.add(mesh(boxGeo(0.5, 0.62, 0.12), seatMat, sx * 0.42, -0.05 - drop, 1.5));
     }
 
     // The bobblehead: a sasquatch on a spring, and the honest instrument.
@@ -741,12 +1212,17 @@ export class Brushrunner {
     /* Where the cameras and the copilot live.
      *
      * Seated eye: the LEFT seat — +X, per the constants at the top of the
-     * cockpit — just under the 0.97 m cabin roof. Raising the last 3 cm opens a
+     * cockpit — just under the cabin roof. Raising the last 3 cm opens a
      * useful strip of windshield above the coaming without putting the camera
-     * through the fuselage skin. Sasole rides the right seat opposite, which is
-     * what he says he is going to do while he is still on the apron. */
+     * through the fuselage skin — true again now the turtledeck actually
+     * domes over this x, with room to spare (measured clearance ~26 cm to the
+     * dome above, ~3 cm was the fuselage-skin overlap before it widened).
+     * Sasole rides the right seat opposite, which is what he says he is going
+     * to do while he is still on the apron; his seat carries `copilotSeatDrop`
+     * (above) so his own, wider head box clears the same roof on its
+     * outboard side — see the seat comment for the measured numbers. */
     this.pilotEye = new THREE.Vector3(LEFT * 0.42, 0.96, 2.22);
-    this.copilotSeat = new THREE.Vector3(RIGHT * 0.42, -0.28, 1.66);
+    this.copilotSeat = new THREE.Vector3(RIGHT * 0.42, -0.28 - copilotSeatDrop, 1.66);
   }
 
   /* ---------------------------------------------------------------- */
@@ -823,6 +1299,24 @@ export class Brushrunner {
     // Cargo door.
     a.cargoDoor = damp(a.cargoDoor, state.cargoDoorOpen ? 1 : 0, 3.5, dt);
     this.parts.cargoDoor.rotation.z = -a.cargoDoor * 1.25;
+
+    /* The loading ramp. It follows the door by default — the point of the door
+     * is the hold, and the point of the hold is being able to get into it —
+     * but the mission can pin it stowed, and does before anybody takes the
+     * aeroplane anywhere. It also folds itself up the moment the wheels start
+     * turning, on the same rule the chocks now obey. */
+    if (this.parts.cargoRamp) {
+      /* "Moving" has to be read off speed and height, not off `onGround`:
+       * `physics.advance()` only runs while somebody is in the seat, so a
+       * parked aeroplane the player is walking around still reports
+       * `onGround === false` from its constructor and would fold the ramp the
+       * player is standing on. */
+      const rolling = phys.groundSpeed > 1.2 || phys.agl > 2;
+      const want = rolling ? 0 : clamp(this.rampWanted, 0, 1);
+      this.rampT = damp(this.rampT, want, 3, dt);
+      if (Math.abs(this.rampT - want) < 0.004) this.rampT = want;
+      this.applyRampPose();
+    }
 
     // Beacon and nav lights: the beacon still turns in daylight because nobody
     // has ever found the switch.

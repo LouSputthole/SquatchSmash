@@ -77,7 +77,8 @@ export class DialogueController {
       return;
     }
     this.active = line;
-    this.timer = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
+    const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
+    this.timer = authored;
 
     if (line.stage) {
       this.stageLog.push(line.stage);
@@ -86,8 +87,24 @@ export class DialogueController {
     }
     const speaker = SPEAKERS[line.speaker] || { name: line.speaker, voice: null };
     if (line.cue) this.cueLog.push(line.cue);
-    this.playCue?.(line.cue ?? null, speaker.voice, line);
+    const spoken = this.playCue?.(line.cue ?? null, speaker.voice, line);
     this.onLine?.({ ...line, speakerName: speaker.name });
+
+    /* HOLD FOR THE RECORDING, not for the guess.
+     *
+     * `hold` was authored when this scene had no audio at all — the comment in
+     * `mount.js` still said "none of this mission's cues have been generated
+     * yet" — so it is a reading time for a subtitle, measured against nothing.
+     * A hundred and seventy-five of these lines are now recorded, and any take
+     * longer than its guess was talked over by the next line.
+     *
+     * The authored number still wins when it is the longer of the two: some
+     * beats want a beat of silence after the words, and it is the only number
+     * there is for a line nobody has recorded. `playCue` returns the take's
+     * real length through `SilentSquatchMission.#speak`, for the muffled route
+     * behind the glass as well as the dry one. */
+    const real = typeof spoken === 'number' && spoken > 0 ? spoken + 0.35 : 0;
+    this.timer = Math.max(authored, real);
   }
 
   update(dt) {

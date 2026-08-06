@@ -135,7 +135,25 @@ export const AC_ENOLA = {
   flapCL: 0.38,
   flapCD: 0.065,
   airBrakeCD: 0.20,
-  thrustMax: 11300,     // N per engine, static — see the engine-count note above
+  /* 2026-08-04, second pass — owner: "Lets turn up the power of the plane a
+   * little bit more its pretty rough to fly. Like 10%." Exactly ten per cent:
+   * 11300 -> 12430 N per engine. Loaded thrust-to-weight goes 0.297 -> 0.327,
+   * which is still WORSE than the Brushrunner's 0.388, so "difficult to climb
+   * while loaded" survives — it just stops being a fight. Nothing else in this
+   * table moves: the mass, the inertias, the wing and the stall margin are what
+   * make the aeroplane feel heavy, and the note was about power, not weight.
+   *
+   * 2026-08-06, third pass — owner: "maybe like 10% more power for the plane
+   * too it alwayas is coming in way too low." Ten per cent again, on the same
+   * one number and for the same reason: 12430 -> 13673 N per engine. Loaded
+   * T/W goes 0.327 -> 0.360 (4 x 13673 = 54692 N against 15500 kg x 9.81 =
+   * 152055 N), still short of the Brushrunner's 0.388, so a loaded climb is
+   * still work — it just holds the altitude the bombing run is flown at
+   * instead of sagging out of it. This value is read through `ac.thrustMax` by
+   * `EngineSystem.thrust()` and `AircraftPhysics.step()`, both of which take
+   * their `ac` as a constructor argument; the Brushrunner's own `AC` in
+   * `src/beefrun/config.js` is untouched and its flight model is unchanged. */
+  thrustMax: 13673,     // N per engine, static — see the engine-count note above
   vThrustFade: 140,     // m/s where static thrust has bled off — bigger engines, holds on longer
   Ixx: 130000, Iyy: 190000, Izz: 170000,  // roll / pitch / yaw
   gearY: 3.0,           // wheel contact below CG
@@ -367,6 +385,49 @@ export const LANDMARKS_EAST = [
  */
 
 export const CHECKPOINTS = ['takeoff', 'turnOnCourse', 'preRelease', 'return'];
+
+/**
+ * FOR SHOW — whether the guns over Squatchbourg are firing live.
+ *
+ * Owner, 2026-08-06: "I take too much of a beating on the fly in, theres really
+ * no targets to shoot out. Lets just have all the flak and fighters for show."
+ *
+ * Both flags are OFF, and off means exactly one thing: the aeroplane stops
+ * taking damage. NOTHING about the spectacle changes. The batteries still
+ * track, elevate, flash and fire real salvos with real fuse times; the shells
+ * still burst where the predictor sent them and the puffs still hang in the
+ * sky; the searchlights still find you and the light guns still put tracer up.
+ * The night fighters still set up, commit, make firing passes, get called out
+ * on the intercom and can still be shot down from the tail. The camera still
+ * shakes, the shrapnel still rattles the skin audibly, and Sasole still says
+ * what he says. What does NOT happen is the wing tearing, the engines quitting,
+ * the instruments failing, the autopilot being knocked out and the
+ * `Defense.hitCount` climb that eventually triggers the catastrophic-damage
+ * failure. Read: the barrage is scenery you fly through, not a fight you lose.
+ *
+ * Deliberately not frozen, and deliberately two flags rather than one:
+ *
+ *   - the damage code is all still there and none of it was deleted — every
+ *     path is one boolean away from being live again, which is what the owner
+ *     will want if he ever asks for the beating back;
+ *   - `../mission/MissionController.js` copies `flak` onto its `Defense`
+ *     instance at construction (`defense.liveFire`), so a console can flip
+ *     either the flag or that field: `__enolaSquatch.liveFire.fighters = true`;
+ *   - the mansion siege and any later campaign mission that reuses
+ *     `combat/Defense.js` get the honest default (live) unless they say
+ *     otherwise, because `Defense`'s own `liveFire` option defaults to true.
+ *
+ * The bomb is NOT covered by this. `onShockWave()` still damages the aeroplane
+ * that lingered too close to its own detonation, because that is the one thing
+ * on this route the player has complete control over and the break turn has to
+ * be worth flying.
+ */
+export const LIVE_FIRE = {
+  /** Ground fire: flak bursts, splinters and the light guns' tracer. */
+  flak: false,
+  /** The night fighters' cannon. */
+  fighters: false,
+};
 
 /**
  * New HUD warning entries this mission needs, in the exact shape of

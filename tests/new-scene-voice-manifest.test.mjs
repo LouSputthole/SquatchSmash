@@ -33,6 +33,7 @@ import { ALL_HEIST_DIALOGUE, HEIST_PENDING_DIALOGUE } from '../src/heist/script.
 import {
   RELEASE_LINES, releaseCueOf, allEnolaSquatchLines,
 } from '../src/enolasquatch/dialogue/script.js';
+import { isEnolaPreloadCue } from '../src/enolasquatch/audio.js';
 import { buildAudioTodo } from '../tools/audio-todo-lib.mjs';
 
 /**
@@ -182,6 +183,35 @@ test('Enola Squatch sync is pure and its check catches drift', () => {
   assert.match(failures, /missing cue/);
   assert.match(failures, /drifted cue/);
   assert.match(failures, /stale cue/);
+});
+
+/**
+ * The audio ENGINE's decode selector (`src/enolasquatch/audio.js`'s
+ * `isEnolaPreloadCue`) has to agree with the VOICE LEDGER generator
+ * (`collectEnolaSquatchVoiceCues`, above) about every cue name it mints —
+ * otherwise a line can be fully authored, recorded and sitting in the
+ * manifest, and still never decode because the runtime never asked for it.
+ * That gap is exactly how `EnolaMissionAudio.line()` went unreachable before
+ * (this file's own header) and how `enola.` vs `enolasquatch.` nearly did the
+ * same to the bomb clips (see `isEnolaPreloadCue`'s own comment and
+ * `tests/enolasquatch-bomb-audio.test.mjs`).
+ *
+ * Written generically — walking whatever `collectEnolaSquatchVoiceCues()`
+ * currently mints — rather than against a fixed line count, so it also covers
+ * any beat/bark/release line authored after this test was written, including
+ * ones from a sibling branch not yet merged here (e.g. the engine-out crew
+ * line added elsewhere as `vo.enolasquatch.irish.defense-engineStrain-1.1` /
+ * `vo.enolasquatch.sasole.defense-engineStrain-2.1` — both already match the
+ * `vo.enolasquatch.` prefix `isEnolaPreloadCue` checks, so no selector change
+ * is needed once that work lands, but nothing here depended on hardcoding
+ * those two names to prove it).
+ */
+test('every cue the Enola Squatch voice ledger mints is inside the runtime\'s own decode selector', () => {
+  const cues = collectEnolaSquatchVoiceCues();
+  assert.ok(cues.length >= 87, 'the script has lost lines rather than gained them');
+  for (const cue of cues) {
+    assert.ok(isEnolaPreloadCue(cue.name), `${cue.name} is in the voice ledger but isEnolaPreloadCue rejects it`);
+  }
 });
 
 /* ---------------- THE TAKE ---------------- */

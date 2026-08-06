@@ -19,6 +19,8 @@ let ringGain = null;
 let voiceFilter = null;
 let voiceGain = null;
 let voiceSrc = null;
+/** The amplitude tap on whatever line is sounding — see playVoice/voiceTap. */
+let voiceAnalyserNode = null;
 
 // The 27 recorded dialogue clips, named for their beat in dialogue.json.
 const VO_CUES = [
@@ -197,11 +199,31 @@ export function playVoice(name, { volume = 0.9 } = {}) {
   src.buffer = buf;
   const g = ctx.createGain();
   g.gain.value = volume;
-  src.connect(g).connect(voiceFilter);
+  /* An AnalyserNode INLINE in the voice chain, so the man at the table opens
+   * his mouth on the amplitude that is really reaching the speakers rather
+   * than on a timer -- see src/core/mouth.js. This scene has its own audio
+   * stack rather than the shared AudioEngine, so it grows its own tap; one
+   * node, on the one line that can be sounding at a time. */
+  voiceAnalyserNode = ctx.createAnalyser ? ctx.createAnalyser() : null;
+  if (voiceAnalyserNode) {
+    voiceAnalyserNode.fftSize = 256;
+    voiceAnalyserNode.smoothingTimeConstant = 0;
+    src.connect(g).connect(voiceAnalyserNode).connect(voiceFilter);
+  } else {
+    src.connect(g).connect(voiceFilter);
+  }
   src.start();
   voiceSrc = src;
   voLogList.push({ name, sample: true, duration: buf.duration });
   return buf.duration;
+}
+
+/**
+ * The tap on the line currently being spoken, or null when nothing is.
+ * `Mouth.speak({ analyser, source })` is what reads it.
+ */
+export function voiceTap() {
+  return voiceSrc ? { source: voiceSrc, analyser: voiceAnalyserNode } : null;
 }
 
 /** Cut whatever line is playing (checkpoint restore, an interrupting bark). */
@@ -209,6 +231,7 @@ export function stopVoice() {
   if (!voiceSrc) return;
   try { voiceSrc.stop(); } catch { /* already ended */ }
   voiceSrc = null;
+  voiceAnalyserNode = null;
 }
 
 /**

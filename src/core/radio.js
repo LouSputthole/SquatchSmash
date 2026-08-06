@@ -55,7 +55,8 @@ const PHONE_CALL_RADIO_SCALE = 0.34;
 
 export class Radio {
   /**
-   * @param {{ venue?: string, state?: object, canPlayNotice?: Function, fullSongs?: boolean }} options
+   * @param {{ venue?: string, state?: object, canPlayNotice?: Function, fullSongs?: boolean,
+   *   output?: number }} options
    * `venue` is deliberately separate from the station: a record can belong
    * to the radio rotation without leaking into a different in-world music
    * system such as the Bada Bing DJ.
@@ -65,6 +66,7 @@ export class Radio {
     state = null,
     canPlayNotice = () => true,
     fullSongs = false,
+    output = 1,
   } = {}) {
     this.audio = audio;
     this.hud = hud;
@@ -77,6 +79,13 @@ export class Radio {
      * song from its opening through the media element's natural `ended`
      * event. Other scenes keep their thirty-second pacing unchanged. */
     this.fullSongs = fullSongs === true;
+    /* How loud this particular set is, separate from the volume knob. The knob
+     * is one shared saved number across every receiver in the campaign, so a
+     * scene whose radio sits at arm's length on an open deck cannot turn itself
+     * up without turning the bedroom radio up too. This is the physical set,
+     * fixed by the scene that built it and never persisted. Default 1 leaves
+     * every existing receiver exactly where it was. */
+    this.output = Number.isFinite(output) ? THREE.MathUtils.clamp(output, 0, 4) : 1;
     const saved = this.state?.load?.() ?? {};
     this.tracks = [];
     /** Each station keeps its own place in its own playlist. */
@@ -233,8 +242,22 @@ export class Radio {
     return [...cues];
   }
 
+  /**
+   * Move the receiver.
+   *
+   * This has to push the new position into the live PannerNode, not just
+   * remember it. The one-shot cues below all read `this.position` at the
+   * moment they fire, so clicks, idents and station stings always came from
+   * the right place — but the *music* runs through a persistent graph whose
+   * panner was positioned once, in `_ensureGraph`, and never again. Power the
+   * cart radio on at the tee and drive to the green and the song stayed at the
+   * tee: measured on Hole 1, seventy-two metres behind the cart and directly
+   * astern of it along its own heading. Which is precisely what the playtest
+   * heard — "radio sounds are playing behind the golf cart".
+   */
   setPosition(v) {
     this.position.copy(v);
+    this._applyPannerPosition();
   }
 
   setVolume(value) {
@@ -253,7 +276,7 @@ export class Radio {
   }
 
   _level(base) {
-    return base * this.volume * this.mixScale;
+    return base * this.volume * this.mixScale * this.output;
   }
 
   _setTalkVolume(base, ramp = 0.3) {
@@ -321,6 +344,17 @@ export class Radio {
     this.panner.connect(this.audio.busMusic);
   }
 
+  /**
+   * Push `this.position` into the panner.
+   *
+   * Written straight to `.value` rather than ramped. A receiver bolted to a
+   * golf cart moves a few centimetres a frame, so there is no step to smooth,
+   * and the two places it *does* jump — staging the carts at a tee, parking
+   * them in the lot — are cuts where a 25 ms glide would be an audible swoop
+   * across the course rather than a fix. Direct assignment is also the only
+   * form a caller can read back synchronously, which is what lets a verifier
+   * assert that the music is coming out of the radio.
+   */
   _applyPannerPosition() {
     if (!this.panner) return;
     const p = this.position;

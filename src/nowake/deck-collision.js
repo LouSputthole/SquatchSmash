@@ -1,109 +1,178 @@
 /**
- * NO WAKE deck collision: the cruiser's solid volumes and the capsule resolver
- * that works in the boat's own frame.
+ * NO WAKE collision: the cruiser's solid volumes — on deck and below — and the
+ * capsule resolver that works in the boat's own frame.
  *
  * This lives outside `world.js` on purpose. `buildBoat` needs a WebGL context
- * and a document to make its meshes, so nothing in Node can import it; the deck
+ * and a document to make its meshes, so nothing in Node can import it; the
  * geometry and the resolver are plain arithmetic and have to be testable
- * without a browser. `tests/no-wake-deck.test.mjs` sweeps the whole walkable
- * deck through `resolveOnDeck` and `tools/verify-no-wake.mjs` sweeps the same
- * grid again through the real `Player`, so a trap anywhere on this deck fails
- * both gates.
+ * without a browser. `tests/no-wake-deck.test.mjs` sweeps every walkable square
+ * of both spaces through `resolveOnDeck` and `tools/verify-no-wake.mjs` sweeps
+ * the same grids again through the real `Player`, so a trap anywhere on this
+ * boat fails both gates.
  *
  * ## The class of bug this file exists to stop
  *
- * The deck is small, the props are close together, and the player is a 0.30 m
- * radius capsule -- 0.60 m across. Two failure modes kept shipping:
+ * The player is a 0.30 m radius capsule -- 0.60 m across. Two failure modes
+ * kept shipping on the old boat:
  *
  *  1. **Gaps narrower than the capsule.** Any channel under 0.60 m wide leaves
- *     the capsule overlapping both sides at once. The old resolver walked the
- *     collider list in order and applied each push immediately, so ejecting off
- *     one wall shoved the player into the other and back again, every frame,
- *     forever. There is no position that satisfies both boxes, and the old code
- *     had no way to say so.
- *  2. **Losing the ability to move.** The old resolver zeroed *both* velocity
- *     components whenever any collider pushed at all -- including a push of
- *     ~1e-16 from merely touching. Standing against a rail therefore cancelled
- *     the player's motion along the rail too, so he could not slide out of a
- *     corner: he could only back straight off the wall he was touching. In the
- *     forward side deck, where the clear band for the capsule centre was 0.32 m
- *     wide, "touching a wall" is the normal state, and the player was pinned at
- *     the bow the moment he stepped up to the mooring cleat. That is the
- *     reported "I get stuck after I undo the line at the front of the boat".
+ *     the capsule overlapping both sides at once. There is no position that
+ *     satisfies both boxes.
+ *  2. **Losing the ability to move.** Cancelling *both* velocity components on
+ *     any contact means standing against a rail cancels motion along the rail,
+ *     so the player cannot slide out of a corner.
  *
- * The fixes below are structural, not per-instance:
+ * Both are handled structurally below, and `narrowChannels()` fails the build
+ * over (1) rather than waiting for a playtest to find it.
  *
- *  - Every overlapping box is measured against the *same* position and the
- *    pushes are combined before anything moves, so the result does not depend
- *    on collider order. Opposing pushes on an axis cancel toward the middle of
- *    the channel and settle there in one step instead of ping-ponging.
- *  - A capsule centre strictly inside a box leaves by the shortest face that
- *    actually lands somewhere free and still on the walkable deck, rather than
- *    the shortest face full stop. The old rule threw anyone who ended up inside
- *    the cabin trunk forward off the bow and into the pulpit rails, which is
- *    unrecoverable.
- *  - Only the velocity driving *into* the surface is cancelled. Sliding along a
- *    rail is preserved, so no amount of narrowness can immobilise the player.
+ * ## The redesign's shape, and why the numbers are what they are
  *
- * Geometry still has to be honest -- see DECK_COLLIDERS -- but the resolver no
- * longer depends on it being perfect.
+ * `docs/NO-WAKE-REDESIGN.md` replaces the old 42-footer with a 35-36 ft
+ * late-1980s express cruiser and moves the confrontation below deck. That
+ * gives this file two jobs instead of one, and one new rule from the owner:
+ * **the deck paths are wide.** Reaching the bow and reaching the helm were the
+ * two things that read as tight, so the routes to both are authored at a metre
+ * or better rather than at the capsule's own width.
+ *
+ *  - **Two levels on deck.** The foredeck is the cabin trunk's roof at 1.70 and
+ *    the cockpit sole is at 1.02, joined by a ramp under the windshield's
+ *    centre walk-through. `DECK.heightAt(z)` is the single source of that, and
+ *    `world.groundAt` and both sweeps read it, so there is no second copy to
+ *    drift.
+ *  - **Forward of the windshield the whole beam is walkable.** A raised
+ *    foredeck over a full-width trunk is what this hull actually is, and it
+ *    means the bow — where the mooring line and the ballast locker are — is
+ *    4.1 m across instead of a 1 m side deck.
+ *  - **One route between the cockpit and the foredeck**, up the centre: 0.98 m
+ *    between the companionway hatch and the helm console, then 1.24 m through
+ *    the windshield walk-through. Wide, legible, and impossible to get wedged
+ *    in.
+ *  - **The cockpit seating is a U that opens to starboard**, so the passage
+ *    from the companionway aft to the transom gate — the route the body takes
+ *    — is clear the whole way, which the spec asks for by name.
+ *  - **Below deck is deliberately small.** The confrontation wants the player
+ *    on his mark; the cabin's clear floor is a corridor about 0.76 m wide
+ *    between the galley counter and the dinette. That is the staging area, not
+ *    an accident, and it still passes the escape sweep.
  */
 
-/** Walkable extent of the deck in boat space. */
-export const DECK = { halfBeam: 2.25, bow: -5.75, stern: 5.70, height: 1.02 };
+/** Walkable extent of the main deck in boat space. */
+export const DECK = {
+  halfBeam: 2.02,
+  bow: -5.15,
+  stern: 4.90,
+  /** The cockpit sole. Everything that says "the deck height" means this one. */
+  height: 1.02,
+  /** The cabin trunk roof the player walks on forward of the windshield. */
+  foredeckHeight: 1.70,
+  /** The ramp under the windshield walk-through, forward edge and aft edge. */
+  rampBow: -2.05,
+  rampStern: -1.05,
+  /**
+   * Deck height at a point along the boat. One function, read by the ground
+   * query, the boarding pose, both sweeps and the verifier, so the level the
+   * player stands on is the level every check measures.
+   */
+  heightAt(z) {
+    if (z <= this.rampBow) return this.foredeckHeight;
+    if (z >= this.rampStern) return this.height;
+    const k = (z - this.rampBow) / (this.rampStern - this.rampBow);
+    const eased = k * k * (3 - 2 * k);
+    return this.foredeckHeight + (this.height - this.foredeckHeight) * eased;
+  },
+};
+
+/** Walkable extent of the cabin sole, below deck. */
+export const CABIN = {
+  halfBeam: 1.58,
+  bow: -5.00,
+  stern: -2.20,
+  height: -0.20,
+  /** Underside of the foredeck. The cabin is 1.82 m in the clear. */
+  ceiling: 1.62,
+  heightAt() { return this.height; },
+};
+
+/**
+ * Where the confrontation holds the player.
+ *
+ * "The player keeps camera control but cannot leave, and movement is limited to
+ * a small staging area so the composition holds." A clamp rather than more
+ * geometry, because geometry that exists only to pen somebody in is geometry
+ * the sweep then has to prove is not a trap.
+ */
+export const CABIN_STAGING = Object.freeze({
+  minX: -0.42, maxX: -0.02, minZ: -3.30, maxZ: -2.46,
+});
 
 /** Player capsule radius (`RADIUS` in src/core/player.js). Its diameter is the
- * number every channel on this deck has to clear. */
+ * number every channel on this boat has to clear. */
 export const CAPSULE_RADIUS = 0.30;
 
 /**
- * Solid volumes in boat space.
+ * Solid volumes on the main deck, in boat space.
  *
  * Rule for this table: no two boxes may leave a channel between them narrower
  * than 2 * CAPSULE_RADIUS. Either they overlap (one solid mass the player walks
  * around) or they leave a real 0.60 m-plus gap he can walk through. Anything in
- * between is a trap, and `assertNoNarrowChannels` fails the build over it.
+ * between is a trap, and `narrowChannels()` fails the unit suite over it.
  *
- * Notes on the numbers that moved, so the next pass does not undo them:
- *
- *  - **Forward rail runs, inner edge 2.20 -> 2.32.** The rail stanchions stand
- *    at x = +/-2.35 with a 0.029 radius, so 2.32 is their inner face: this is as
- *    wide as the side deck physically goes. With the cabin trunk trimmed to its
- *    own mesh the forward side deck is now 1.06 m of clear walkway (it was
- *    0.92, and 0.80 before that), which is a 0.46 m band for the capsule centre
- *    where there used to be 0.32.
- *  - **Cabin trunk, +/-1.28 -> +/-1.26.** The trunk mesh is 2.50 m across
- *    (+/-1.25); the collider no longer claims 3 cm of side deck that is not
- *    there.
- *  - **Bow pulpit rails now overlap at the stem.** They used to stop 0.06 short
- *    of the centreline each, leaving a 0.12 m slot between them -- far narrower
- *    than the capsule, unreachable on foot but reachable by being ejected
- *    forward out of the cabin trunk, which dropped the player off the bow with
- *    no way back.
- *  - **One helm seat block instead of two chairs.** The two pedestal seats left
- *    a 0.54 m channel between them and the starboard chair left 0.32 m between
- *    itself and the starboard rail. Both are open at each end, so the player
- *    walked in and stopped dead. They are now a single solid block he walks
- *    around, and the starboard chair moved 0.22 m inboard (x 1.48 -> 1.26, in
- *    `world.js`) so the starboard side deck keeps a real 0.66 m route forward.
- *  - **Helm console tightened to its mesh in z.** 0.62 m between the console
- *    and the windshield frame was technically passable and practically a pinch;
- *    it is 0.68 now.
+ * Rails carry two runs a side because the deck they guard is at two heights:
+ * the foredeck run stands from 1.60 up, the side-deck and cockpit runs from
+ * 0.98, and the ramp between them is covered by both.
  */
 export const DECK_COLLIDERS = [
-  { name: 'starboard rail · forward run', min: [2.32, .96, -5.70], max: [2.70, 1.92, 2.85] },
-  { name: 'starboard rail · aft run', min: [2.08, .96, 2.75], max: [2.60, 1.92, 5.65] },
-  { name: 'port rail · forward run', min: [-2.60, .96, -5.70], max: [-2.32, 1.92, 2.82] },
-  { name: 'port rail · aft run', min: [-2.60, .96, 4.60], max: [-2.08, 1.92, 5.65] },
-  { name: 'transom rail', min: [-2.48, .96, 5.52], max: [2.48, 1.92, 6.00] },
-  { name: 'bow pulpit · port', min: [-2.42, .96, -6.75], max: [.06, 1.92, -5.42] },
-  { name: 'bow pulpit · starboard', min: [-.06, .96, -6.75], max: [2.42, 1.92, -5.42] },
-  { name: 'windshield frame', min: [-1.36, .98, -2.82], max: [1.36, 2.95, -2.54] },
-  { name: 'helm console', min: [-.50, .98, -1.86], max: [.78, 2.38, -.98] },
-  { name: 'helm seat block', min: [-.26, .98, -.12], max: [1.66, 2.14, .78] },
-  { name: 'cabin trunk', min: [-1.26, .98, -5.82], max: [1.26, 1.72, -2.78] },
-  { name: 'aft bench', min: [-2.10, .98, 4.95], max: [2.10, 2.00, 5.65] },
-  { name: 'starboard cockpit locker', min: [1.02, .98, 3.28], max: [2.12, 2.04, 4.12] },
+  { name: 'starboard rail · foredeck run', min: [2.06, 1.60, -5.25], max: [2.50, 2.86, -1.40] },
+  { name: 'starboard rail · side deck', min: [2.06, 0.98, -1.80], max: [2.50, 2.86, 0.66] },
+  { name: 'starboard coaming · cockpit', min: [2.00, 0.98, 0.00], max: [2.50, 2.08, 4.70] },
+  { name: 'starboard transom gate', min: [2.00, 0.98, 4.20], max: [2.50, 2.08, 5.05] },
+  { name: 'port rail · foredeck run', min: [-2.50, 1.60, -5.25], max: [-2.06, 2.86, -1.40] },
+  { name: 'port rail · side deck', min: [-2.50, 0.98, -1.80], max: [-2.06, 2.86, 0.66] },
+  { name: 'port coaming · cockpit', min: [-2.50, 0.98, 0.00], max: [-2.00, 2.08, 5.05] },
+  { name: 'stern rail', min: [-2.00, 0.98, 4.62], max: [2.00, 2.08, 5.10] },
+  /* The two pulpit rails overlap at the stem on purpose. Stopping each of them
+   * short of the centreline leaves a slot narrower than the capsule that is
+   * unreachable on foot and reachable by being ejected forward -- which drops
+   * the player off the bow with no way back. */
+  { name: 'bow pulpit · port', min: [-2.40, 1.60, -6.20], max: [0.06, 2.60, -4.90] },
+  { name: 'bow pulpit · starboard', min: [-0.06, 1.60, -6.20], max: [2.40, 2.60, -4.90] },
+  /* Smoked wraparound windshield in two wings with a 1.24 m centre
+   * walk-through. This is the only way between the cockpit and the foredeck,
+   * and it is deliberately twice the capsule's width. */
+  { name: 'windshield · port wing', min: [-2.10, 0.98, -2.02], max: [-0.62, 3.20, -1.40] },
+  { name: 'windshield · starboard wing', min: [0.62, 0.98, -2.02], max: [2.10, 3.20, -1.40] },
+  /* The helm is to starboard. Console and bench are one mass from the
+   * windshield aft, so the route forward is the centre and only the centre. */
+  { name: 'helm console', min: [0.34, 0.98, -1.40], max: [2.10, 2.40, 0.02] },
+  { name: 'helm bench', min: [0.46, 0.98, 0.72], max: [2.04, 2.16, 1.66] },
+  /* The companionway hatch is a hole in the deck. Solid, because a hole the
+   * player can walk into is a fall, and going below is an authored move. */
+  { name: 'companionway hatch', min: [-2.20, 0.98, -1.40], max: [-0.64, 1.44, 0.00] },
+  { name: 'cockpit seating · port return', min: [-2.00, 0.98, 2.30], max: [-1.10, 2.06, 4.62] },
+  { name: 'cockpit seating · forward leg', min: [-2.00, 0.98, 2.30], max: [-0.55, 2.06, 2.86] },
+  { name: 'cockpit seating · aft bench', min: [-2.00, 0.98, 3.95], max: [0.62, 2.06, 4.62] },
+];
+
+/**
+ * Solid volumes below deck, in boat space.
+ *
+ * The cabin is bar to port, dinette to starboard, V-berth forward, and a
+ * closed head and a mid-cabin berth in the aft bulkhead either side of a
+ * 1.40 m companionway doorway. The doorway carries a knee-high sill box: the
+ * player can see up the steps and cannot walk into them, because going up is
+ * an authored move for the same reason going down is.
+ */
+export const CABIN_COLLIDERS = [
+  { name: 'cabin · port hull side', min: [-2.30, -0.28, -5.20], max: [-1.62, 1.62, -2.00] },
+  { name: 'cabin · starboard hull side', min: [1.62, -0.28, -5.20], max: [2.30, 1.62, -2.00] },
+  { name: 'cabin · V-berth', min: [-1.72, -0.28, -5.30], max: [1.72, 0.62, -3.86] },
+  { name: 'cabin · galley counter', min: [-1.72, -0.28, -3.86], max: [-0.74, 0.78, -2.74] },
+  /* Seat and low back only. The dinette has to be something the player shoots
+   * over, not a wall the composition hides Willy behind. */
+  { name: 'cabin · dinette booth', min: [0.62, -0.28, -3.86], max: [1.72, 0.72, -2.60] },
+  { name: 'cabin · aft bulkhead · mid-berth', min: [-1.72, -0.28, -2.74], max: [-1.10, 1.62, -2.00] },
+  { name: 'cabin · aft bulkhead · head', min: [0.30, -0.28, -2.60], max: [1.72, 1.62, -2.00] },
+  { name: 'cabin · companionway sill', min: [-1.78, -0.28, -2.12], max: [0.36, 0.26, -2.00] },
 ];
 
 /** Plain `{min,max}` boxes with `.x/.y/.z` members -- the same shape as a
@@ -114,6 +183,11 @@ export function deckColliderBoxes(list = DECK_COLLIDERS) {
     min: { x: entry.min[0], y: entry.min[1], z: entry.min[2] },
     max: { x: entry.max[0], y: entry.max[1], z: entry.max[2] },
   }));
+}
+
+/** The cabin's solids in the same plain form. */
+export function cabinColliderBoxes() {
+  return deckColliderBoxes(CABIN_COLLIDERS);
 }
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -137,14 +211,11 @@ function onWalkableDeck(x, z, deck) {
  * Shortest way out of a box the capsule centre is *inside*, preferring an exit
  * that lands clear of every other solid and still on the deck.
  *
- * The old rule was "leave by the nearest face" with no further thought. On this
- * boat the nearest face of the cabin trunk, for anyone standing near its front,
- * is the forward one -- and forward of the cabin trunk is the foredeck, which
- * is entirely filled by the pulpit rails and ends 0.07 m later at the stem. The
- * player was teleported to z = -6.12, outside `DECK.bow`, buried 0.30 m inside
- * a rail, with his velocity zeroed every frame. Preferring a *free* exit sends
- * him onto the side deck instead, which is where a person climbing off a cabin
- * roof would actually end up.
+ * "Leave by the nearest face" with no further thought is how the old boat threw
+ * anyone standing on the cabin roof forward off the bow, into the pulpit rails,
+ * with his velocity zeroed every frame. Preferring a *free* exit sends him onto
+ * the deck instead, which is where a person climbing off a cabin roof would
+ * actually end up.
  */
 function ejectFromInside(box, x, z, radius, boxes, eyeY, eyeHeight, deck) {
   const candidates = [
@@ -263,7 +334,8 @@ export function resolveOnDeck(boxes, x, z, radius, eyeY, eyeHeight, deck = DECK,
  * Every pair of solids that leaves a channel too narrow for the capsule.
  *
  * Reported as `{ axis, gap, a, b, span }`. An empty result is the contract this
- * deck ships under; `tests/no-wake-deck.test.mjs` asserts it.
+ * boat ships under, on deck and below; `tests/no-wake-deck.test.mjs` asserts it
+ * for both tables.
  */
 export function narrowChannels(list = DECK_COLLIDERS, clearance = CAPSULE_RADIUS * 2) {
   const boxes = deckColliderBoxes(list);

@@ -27,7 +27,9 @@ import {
   mesh, flatMesh, group, clamp, damp, signTexture,
 } from '../../beefrun/util.js';
 import { Instruments } from '../../beefrun/instruments.js';
-import { crestPlaceholderTexture, applyCrest } from '../livery.js';
+import {
+  crestPlaceholderTexture, applyCrest, noseArtTexture, noseNamePlaceholderTexture,
+} from '../livery.js';
 import { AC_ENOLA } from '../config.js';
 
 const SKIN = 0x9aa0ac;          // bare-metal grey, unlike the Brushrunner's cream
@@ -156,82 +158,39 @@ function rivetRun(material, count, spacing, axis = 'z') {
 }
 
 /**
- * The stylized painted nose art: a flat, hand-painted-looking Sasquatch
- * face rather than the Squatch Family's full walking silhouette (that emblem
- * lives on the Brushrunner; this crew wanted something that reads at a
- * glance from the hangar floor). One canvas, drawn once.
+ * A strut that actually joins two points.
+ *
+ * Every brace on this aeroplane used to be a cylinder placed at a guessed
+ * midpoint with a guessed Euler angle, which is how the tailplane ended up
+ * braced against thin air (owner playtest, 2026-08-04: "Thres two struts on
+ * the back rudder benath the rudder and the tailwing and I think there
+ * supposed to be above it connecting it to the tailwing") and how the main
+ * gear legs ended up hanging off nothing. Give this the two ends and it
+ * cannot be wrong: the length is the distance between them and the direction
+ * is `quaternion.setFromUnitVectors` off the cylinder's own +Y axis.
+ *
+ * @param {THREE.Material} material
+ * @param {number[]} from  [x, y, z] in the aeroplane's frame
+ * @param {number[]} to    [x, y, z]
+ * @param {number} [r]     radius
+ * @param {string} [name]
+ * @returns {THREE.Mesh}
  */
-function noseArtTexture() {
-  const c = document.createElement('canvas');
-  c.width = 384; c.height = 384;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = SKIN_HEX(SKIN_PATCH);
-  ctx.fillRect(0, 0, 384, 384);
-  // A rough painted disc backdrop — nobody masked this off cleanly.
-  ctx.fillStyle = '#2a2438';
-  ctx.beginPath();
-  ctx.arc(192, 200, 156, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = PURPLE_HEX();
-  ctx.beginPath();
-  ctx.arc(192, 200, 150, 0, Math.PI * 2);
-  ctx.fill();
-
-  const fur = '#c9c2d4';
-  ctx.fillStyle = fur;
-  // Head silhouette, front-on.
-  ctx.beginPath();
-  ctx.ellipse(192, 210, 118, 132, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Brow ridge.
-  ctx.fillStyle = '#a9a0b8';
-  ctx.beginPath();
-  ctx.ellipse(192, 148, 108, 30, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Eyes: friendly, a little cross-eyed, which is the joke.
-  ctx.fillStyle = '#1a1620';
-  for (const ex of [-42, 42]) {
-    ctx.beginPath();
-    ctx.ellipse(192 + ex, 176, 20, 24, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#eee6d8';
-  for (const ex of [-46, 38]) {
-    ctx.beginPath();
-    ctx.arc(192 + ex, 170, 6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // Snout and grin, wide enough to see from the ramp.
-  ctx.fillStyle = '#e6d9b8';
-  ctx.beginPath();
-  ctx.ellipse(192, 254, 62, 46, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#241c14';
-  ctx.beginPath();
-  ctx.ellipse(178, 240, 7, 5, 0, 0, Math.PI * 2);
-  ctx.ellipse(206, 240, 7, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#2a2018';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(140, 268);
-  ctx.quadraticCurveTo(192, 300, 244, 268);
-  ctx.stroke();
-  // A drip run, because the paint job was rattle-canned in the hangar at 2am.
-  ctx.strokeStyle = 'rgba(74,47,143,0.55)';
-  ctx.lineWidth = 4;
-  for (const dx of [-70, 20, 88]) {
-    ctx.beginPath();
-    ctx.moveTo(192 + dx, 330);
-    ctx.lineTo(192 + dx + 4, 372);
-    ctx.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+const _sA = new THREE.Vector3();
+const _sB = new THREE.Vector3();
+const _sDir = new THREE.Vector3();
+const _sUp = new THREE.Vector3(0, 1, 0);
+function strutBetween(material, from, to, r = 0.07, name = 'strut') {
+  _sA.set(from[0], from[1], from[2]);
+  _sB.set(to[0], to[1], to[2]);
+  _sDir.subVectors(_sB, _sA);
+  const len = _sDir.length();
+  const bar = mesh(cylGeo(r, r, len, 8), material,
+    (from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2);
+  bar.quaternion.setFromUnitVectors(_sUp, _sDir.normalize());
+  bar.name = name;
+  return bar;
 }
-function SKIN_HEX(n) { return `#${n.toString(16).padStart(6, '0')}`; }
-function PURPLE_HEX() { return `#${PURPLE.toString(16).padStart(6, '0')}`; }
 
 /** Scratch vector for the rear gun's aim conversion — one, not one a frame. */
 const _aim = new THREE.Vector3();
@@ -257,6 +216,13 @@ export class EnolaSquatch {
     };
     /** Set by the mission during the defence phase; read in `update()`. */
     this.rearGunFiring = false;
+    /** True once `explode()` has replaced the airframe with a fireball. See
+     * `explode()` / `updateExplosion()` / `resetDestruction()` at the bottom
+     * of this class — ported from `src/beefrun/aircraft.js`'s `Brushrunner`,
+     * which is where this mission's own crash had nothing at all: `fail()`
+     * put a HUD message up over an aeroplane that just kept flying. */
+    this.destroyed = false;
+    this.explosion = null;
     this.build();
     if (withCockpit) this.buildCockpit();
     this.instruments = withCockpit ? new Instruments(this.parts.panelCanvas, { ac: AC_ENOLA }) : null;
@@ -351,23 +317,62 @@ export class EnolaSquatch {
     spine.scale.set(2.6, 1, 1);
     g.add(spine);
 
-    // Nose cone, tapered, with a glazed bombardier bubble. The bubble is where
-    // Numbskull actually sits — see `buildCrewStations()`.
-    const nose = mesh(cylGeo(0.42, FUSE_W / 2, 4.0, 16), skin, 0, 0.1, FUSE_LEN / 2 + 1.9);
+    /* Nose cone, tapered, with a glazed bombardier bubble in front of it. The
+     * bubble is where Numbskull actually sits.
+     *
+     * The cone used to run 4.0 m from z 7.65 all the way to z 11.65 — THROUGH
+     * the glazing, whose centre is at 11.25 — tapering to 0.42 m of radius at
+     * the tip. So the "bombardier's bubble" enclosed nothing but the pointed
+     * end of an opaque cone, there was no volume inside it for a man, and
+     * Numbskull was consequently placed half in the skin (owner: "a lot of
+     * clipping and intersecting"). The cone now STOPS at the collar ring — the
+     * frame that was always drawn at z 10.7 — at the diameter the glazing
+     * starts at, and the glasshouse forward of it is hollow and real. */
+    const NOSE_JOIN = FUSE_LEN / 2 + 2.95;    // 10.70 — where cone meets glass
+    const GLASS_Z = FUSE_LEN / 2 + 3.55;      // 11.30 — glasshouse centre
+    const GLASS_Y = -0.35;
+    const GLASS_R = 1.25;
+    const nose = mesh(cylGeo(1.06, FUSE_W / 2, NOSE_JOIN - (FUSE_LEN / 2 - 0.1), 16), skin,
+      0, 0.1, (NOSE_JOIN + FUSE_LEN / 2 - 0.1) / 2);
     nose.rotation.x = Math.PI / 2;
+    nose.name = 'nose-cone';
     g.add(nose);
-    const noseGlass = mesh(sphereGeo(1.05, 14, 10), glassMat, 0, -0.2, FUSE_LEN / 2 + 3.5);
+    /* The bubble grew with the volume it now has to hold: a seated man is
+     * about 1.3 m from heel to crown, and a 1.05 m sphere could not take one
+     * however he was posed. */
+    const noseGlass = mesh(sphereGeo(GLASS_R, 16, 12), glassMat, 0, GLASS_Y, GLASS_Z);
     noseGlass.castShadow = false;
+    noseGlass.name = 'bombardier-glazing';
     g.add(noseGlass);
-    // Framing on the bombardier glazing, so it reads as a glasshouse rather
-    // than a soap bubble.
-    for (const ang of [0, 0.7, -0.7]) {
-      const rib = mesh(cylGeo(0.035, 0.035, 2.1, 6), trim, 0, -0.2, FUSE_LEN / 2 + 3.5);
-      rib.rotation.z = Math.PI / 2;
-      rib.rotation.y = ang;
+    /* Framing on the bombardier glazing, so it reads as a glasshouse rather
+     * than a soap bubble.
+     *
+     * Owner playtest, 2026-08-04: "Nose of Aircraft — not sure if that
+     * propeller or what that is, is rotated incorrectly and should be
+     * vertical?" It was, functionally, a propeller. `cylGeo` stands on +Y;
+     * `rotation.z = PI/2` laid each rib flat along X, and the fan was then
+     * applied about Y — which keeps a horizontal bar horizontal however far
+     * you spin it. The result was three 2.1 m bars sticking a metre out of
+     * either side of the nose in ONE plane: a three-bladed prop bolted to the
+     * front of the aeroplane, exactly as reported.
+     *
+     * A glasshouse's frames are meridians. They stand UP the nose and fan
+     * about the fore-aft axis, which is `rotation.z = ang` on its own — one
+     * upright centre rib and two raked either side of it. */
+    for (const ang of [0, 0.72, -0.72]) {
+      const rib = mesh(cylGeo(0.035, 0.035, GLASS_R * 1.9, 6), trim, 0, GLASS_Y, GLASS_Z);
+      rib.rotation.z = ang;
+      rib.name = 'nose-glazing-rib';
       g.add(rib);
     }
-    g.add(mesh(cylGeo(1.06, 1.06, 0.05, 16), trim, 0, -0.2, FUSE_LEN / 2 + 2.95));
+    /* The collar where the glazing meets the nose cone. Also mis-rolled: with
+     * no rotation a `cylGeo` disc lies FLAT, so this was a 2.2 m pancake
+     * skewered through the nose at eye height rather than a ring standing
+     * across the fuselage axis. */
+    const noseCollar = mesh(cylGeo(1.1, 1.1, 0.06, 16), trim, 0, -0.16, NOSE_JOIN);
+    noseCollar.rotation.x = Math.PI / 2;
+    noseCollar.name = 'nose-glazing-collar';
+    g.add(noseCollar);
 
     // Tail boom, tapering back to the fin.
     const boom = mesh(cylGeo(FUSE_W / 2, 0.62, 5.8, 14), skin, 0, 0.05, -FUSE_LEN / 2 - 2.9);
@@ -554,11 +559,42 @@ export class EnolaSquatch {
     elevPivot.add(mesh(boxGeo(11.6, 0.26, 1.3), patch, 0, 0, -0.65));
     g.add(elevPivot);
     this.parts.elevator = elevPivot;
-    // Tailplane bracing struts.
+
+    /* ---- Tailplane bracing struts ----
+     *
+     * Owner playtest, 2026-08-04: "Thres two struts on the back rudder benath
+     * the rudder and the tailwing and I think there supposed to be above it
+     * connecting it to the tailwing."
+     *
+     * He was right on both counts. They were a pair of 2.6 m bars centred at
+     * y 0.4 and rolled 0.75 rad, which put their lower ends at about y -0.55
+     * outboard of the tail boom — hanging BELOW the stabiliser with nothing
+     * under them to be braced against. The stabiliser sits at y 1.0 and the
+     * fin stands above it, so the load path a braced tailplane actually has
+     * runs from a point up the FIN, down and outboard, to the stabiliser
+     * spar. That is what these are now, and `strutBetween()` puts the ends
+     * exactly on the two parts rather than near them.
+     *
+     * The fin spans y 0.3 .. 5.3 at z -FUSE_LEN/2-4.4 and the stabiliser is
+     * 11.6 m across at y 1.0, z -FUSE_LEN/2-4.7 — so the root is on the fin's
+     * side at y 3.5 and the tip lands on the stabiliser's top skin, half way
+     * out each side. */
+    const FIN_Z = -FUSE_LEN / 2 - 4.4;
+    const STAB_Z = -FUSE_LEN / 2 - 4.7;
+    this.parts.tailBrace = [];
     for (const sx of [-1, 1]) {
-      const strut = mesh(cylGeo(0.07, 0.07, 2.6, 6), metal, sx * 2.4, 0.4, -FUSE_LEN / 2 - 4.6);
-      strut.rotation.z = sx * 0.75;
-      g.add(strut);
+      const brace = strutBetween(metal,
+        [sx * 0.15, 3.5, FIN_Z], [sx * 3.6, 1.16, STAB_Z], 0.065, 'tailplane-brace');
+      g.add(brace);
+      this.parts.tailBrace.push(brace);
+      // A shorter jury strut inboard of it, the way a real braced tail has two.
+      const jury = strutBetween(metal,
+        [sx * 0.15, 2.2, FIN_Z], [sx * 2.0, 1.16, STAB_Z], 0.05, 'tailplane-jury-strut');
+      g.add(jury);
+      this.parts.tailBrace.push(jury);
+      // Fittings, so the struts land on something rather than into the skin.
+      g.add(mesh(boxGeo(0.16, 0.14, 0.3), metal, sx * 3.6, 1.2, STAB_Z));
+      g.add(mesh(boxGeo(0.16, 0.14, 0.3), metal, sx * 2.0, 1.2, STAB_Z));
     }
 
     // ---- Bomb bay: two hinged panel groups on the ventral centreline ----
@@ -605,12 +641,25 @@ export class EnolaSquatch {
     for (const sx of [-1, 1]) {
       /* Ascending, non-overlapping. Every gap is a real object that would
        * otherwise be inside the stripe box: the waist blister at z -5.4 on
-       * both sides, and on the port side the crew door and the nose art. Runs
-       * shorter than 0.25 m are dropped by `runs()`, so touching gaps merge on
-       * their own. */
+       * both sides, the crew door on the -X side only, and the nose-art bay,
+       * which since 2026-08-06 is on BOTH. Runs shorter than 0.25 m are
+       * dropped by `runs()`, so touching gaps merge on their own.
+       *
+       * The forward gap was [3.2, 5.4] — sized for the club badge that used to
+       * be the only thing on this flank. It now runs from the wing leading edge
+       * to the nose, because the whole of that skin is the nose-art bay: the
+       * pin-up, the name plate and the badge all stand on it (see the nose-art
+       * block below). The last run comes out zero-length and `runs()` drops it,
+       * so the stripe simply stops aft of the artwork, which is what a paint
+       * shop masking off a nose-art bay actually leaves behind.
+       *
+       * The +X flank got the same forward gap on 2026-08-06, when the artwork
+       * was copied to it: the pin-up's ink runs down to y -0.90 and the stripe
+       * band is y -0.80..-0.30, so leaving the stripe on would have drawn a
+       * 0.5 m purple bar across her legs on that side only. */
       const gaps = sx < 0
-        ? [[-6.2, -4.6], [-4.4, -2.4], [3.2, 5.4]]
-        : [[-6.2, -4.6]];
+        ? [[-6.2, -4.6], [-4.4, -2.4], [2.6, FUSE_LEN / 2 - 0.7]]
+        : [[-6.2, -4.6], [2.6, FUSE_LEN / 2 - 0.7]];
       for (const [a, b] of runs(gaps)) {
         const len = b - a;
         g.add(mesh(boxGeo(0.036, 0.5, len), purple, sx * LIVERY_X, STRIPE_Y, (a + b) / 2));
@@ -620,30 +669,148 @@ export class EnolaSquatch {
     // Fin flash, same colour, so the livery reads from behind too.
     g.add(mesh(boxGeo(0.05, 3.9, 0.6), purple, 0.16, 2.8, -FUSE_LEN / 2 - 4.35));
 
-    // ---- Nose art (port side, under the cockpit's eyeline) ----
-    const noseArtMat = mat({ map: noseArtTexture(), roughness: 0.85, transparent: true, alphaTest: 0.03, unique: true });
-    const noseArt = flatMesh(planeGeo(1.9, 1.9), noseArtMat, -DECAL_X, 0.5, 4.3);
-    noseArt.rotation.y = -Math.PI / 2;
-    g.add(noseArt);
-    this.parts.noseArt = noseArt;
+    /* ---- The nose art: the owner's pin-up and his name plate ----
+     *
+     * Owner, 2026-08-05, delivering both paintings: "I want both of these on
+     * the Enola Squatch. They should be close together but not touching."
+     *
+     * `../livery.js` does the image work — matte, glow, bleed, trim — and hands
+     * back each painting's REAL aspect ratio, which is the number the two
+     * planes below are sized from. Neither sheet fills itself: the pin-up's ink
+     * is 0.73:1 and the name's is 2.03:1 inside identical 2:3 portrait files.
+     *
+     * WHICH SIDE. Owner, 2026-08-06: "put the enola squatch logo on both sides
+     * with the pinup girl as well." Both, then — one pair of plates per flank,
+     * at the same stations, sized off the same measured aspects.
+     *
+     * This block used to argue for one flank on the grounds that the far side
+     * would need "a second plane whose UVs run the other way", and that doing
+     * that with a negative scale is the trap that turns a mesh inside out.
+     * The second half of that is true and still is. The first half was wrong,
+     * and `artPlate()` below is why: a plane's own +X axis runs to +Z when it
+     * is turned -90 degrees about Y and to -Z when it is turned +90. A viewer
+     * stood off the -X flank has +Z on his right; a viewer off the +X flank
+     * has -Z on his right. So the SAME texture on the SAME geometry reads
+     * left-to-right from either side with nothing flipped — no mirrored UVs,
+     * no `scale.x = -1`, and nothing for `tools/scene-audit.mjs`'s MIRRORED
+     * rule to find. What the two flanks do NOT share is a position, and that
+     * is the whole difference between the two plates.
+     *
+     * Nose-to-tail still reads nose-to-tail on both sides, because both pairs
+     * keep the same z stations: the name is forward of the figure in the
+     * aeroplane's own frame, so it is on the viewer's right from one flank and
+     * his left from the other, exactly as a real aeroplane's two sides do it.
+     *
+     * WHERE, ALONG THE FUSELAGE. Forward of the wing and under the flight
+     * deck, which is both the authentic station and the only clear skin: the
+     * wing box runs z -1.9 to +2.5 across the whole span at y 0.79..1.41, so
+     * anything aft of z 2.5 lives in permanent shadow under thirty-three metres
+     * of wing — which is exactly where the old placeholder plate sat, at z 1.4.
+     * Forward, the pilot's side window starts at z 6.40. That leaves z 2.6..6.4
+     * of open aluminium, and the racing stripe is masked off across all of it
+     * (see the `gaps` table above) the way a paint shop masks a nose-art bay.
+     *
+     * WHICH SITS WHERE, AND THE GAP. The name goes FORWARD of the figure and
+     * the figure aft of it, reading nose-to-tail the way an aeroplane's name
+     * is read — the arrangement the Enola Gay herself carried, her name painted
+     * forward under the pilot's window. Stacking them instead was measured and
+     * does not fit: the name is 0.77 m tall at this width and the figure 1.50,
+     * and 2.5 m of stack does not go into a fuselage 3.4 m deep once the
+     * chamfered corners, the wing root and the stripe have taken their share.
+     * They are TOP-ALIGNED at y 0.95 so the pairing reads as one piece of
+     * signwriting, and the gap between them is 0.34 m — 18% of the pin-up's
+     * height, mid-range of the "close together but not touching" the owner
+     * asked for, and wide enough to survive being seen from an angle.
+     *
+     * The sizes came off the first set of walkaround photographs rather than
+     * off a ruler. At 1.50 m the figure was the smaller half of the pair and
+     * the block floated high on a flank 3.4 m deep with a metre and a quarter
+     * of bare aluminium under it. She is 1.85 m now — the name deliberately did
+     * NOT grow with her, because on a real aeroplane the figure is the picture
+     * and the name is the caption — and the whole block came down 0.10 m, which
+     * also brings it nearer the eyeline of a man standing on the tarmac looking
+     * up at a bomber on three metres of undercarriage. */
+    this.parts.noseArt = [];
+    /**
+     * One painting, on one flank.
+     *
+     * `sx` is the only thing that differs between the two copies, and it moves
+     * the plate and turns it — it never scales it. At `sx * DECAL_X` turned
+     * `sx * PI/2` the plate faces outboard and its own +X (the texture's u)
+     * runs to the viewer's right on either side; see the WHICH SIDE note above
+     * for the derivation. Both plates are built from `new PlaneGeometry` per
+     * plate rather than the cached `planeGeo()`, because `applyNoseArt()`
+     * replaces each one's geometry when the real ink is measured.
+     */
+    const artPlate = (name, w, h, y, z, sx) => {
+      const plate = flatMesh(
+        new THREE.PlaneGeometry(w, h),
+        mat({ roughness: 0.82, metalness: 0.05, transparent: true, alphaTest: 0.04, unique: true }),
+        sx * DECAL_X, y, z,
+      );
+      plate.rotation.y = sx * (Math.PI / 2);
+      plate.name = name;
+      g.add(plate);
+      this.parts.noseArt.push(plate);
+      return plate;
+    };
 
-    // ---- "ENOLA SQUATCH / Peace Through Superior Foot Size" ----
-    // Painted just under the cockpit window, one side only — the same
-    // placement real heavy-bomber nose art used, since only one side of the
-    // aeroplane is ever framed for the photo. On DECAL_X, forward of the
-    // stripe's y band, and moved forward to z 1.4 so it no longer shares any
-    // skin with the nose art.
-    const titleTex = signTexture(['ENOLA SQUATCH', 'Peace Through Superior Foot Size'], {
-      w: 768, h: 220, bg: '#c9c2d4', fg: '#241a3a', border: '#4a2f8f', rough: true,
-    });
-    const titlePlate = flatMesh(
-      planeGeo(3.4, 0.94),
-      mat({ map: titleTex, roughness: 0.85, transparent: true, unique: true }),
-      -DECAL_X, 0.42, 1.4,
-    );
-    titlePlate.rotation.y = -Math.PI / 2;
-    g.add(titlePlate);
-    this.parts.titlePlate = titlePlate;
+    /* The layout, kept on the instance because `applyNoseArt()` re-runs it once
+     * the real ink has been measured. Only the two HEIGHTS and the gap are
+     * given; every width comes from the painting's own aspect, and the name is
+     * then pushed forward off the pin-up's finished edge. So "close together
+     * but not touching" is arithmetic rather than a pair of hand-tuned numbers
+     * that a re-export at a different crop would quietly break. */
+    this.noseArtLayout = {
+      top: 0.95,          // both plates' upper edge — the alignment that reads
+      pinupH: 1.85,       // about what a real B-29 pin-up stood
+      nameH: 1.42 / 2.024,  // 1.42 m wide at the delivered 2.03:1
+      gap: 0.34,          // 18% of the pin-up's height: the owner's "not touching"
+      pinupZ: 3.40,       // clear of the wing leading edge at z 2.50
+    };
+    const L = this.noseArtLayout;
+    const PINUP_H = L.pinupH;
+    const PINUP_W = PINUP_H * 0.731;          // livery.js's measured ink aspect
+    const ART_TOP = L.top;
+    const NAME_H = L.nameH;
+    const NAME_W = NAME_H * 2.024;
+
+    const pinupZ = L.pinupZ;                  // spans z 2.72 .. 4.08
+    const nameZ = pinupZ + PINUP_W / 2 + L.gap + NAME_W / 2;   // 5.13: z 4.42 .. 5.84
+
+    /* The pin-up starts hidden and is shown the moment its painting lands.
+     * There is no drawn stand-in for it, deliberately: a hand-drawn pin-up
+     * standing in for the owner's own would be worse than bare aluminium, and
+     * bare aluminium is what an aeroplane waiting for its nose art looks like.
+     * The NAME plate does carry a stand-in, so the aeroplane is never anonymous
+     * — the same contract `../livery.js`'s crest placeholder keeps. Each plate
+     * gets its OWN stand-in canvas, because each has its own material and
+     * `applyCrest()` disposes the map it replaces. */
+    this.parts.noseArtPlates = [];
+    this.parts.noseNamePlates = [];
+    for (const sx of [-1, 1]) {
+      const pinup = artPlate('enola-squatch-nose-art', PINUP_W, PINUP_H, ART_TOP - PINUP_H / 2, pinupZ, sx);
+      pinup.visible = false;
+      const namePlate = artPlate('enola-squatch-nose-name', NAME_W, NAME_H, ART_TOP - NAME_H / 2, nameZ, sx);
+      namePlate.material.map = noseNamePlaceholderTexture();
+      namePlate.material.needsUpdate = true;
+      this.parts.noseArtPlates.push(pinup);
+      this.parts.noseNamePlates.push(namePlate);
+    }
+
+    /** The -X pair, under the singular names the rest of the code still uses. */
+    [this.parts.noseArtPlate] = this.parts.noseArtPlates;
+    [this.parts.noseNamePlate] = this.parts.noseNamePlates;
+    /** Kept under its old name too — the plate IS the nose art now. */
+    this.parts.titlePlate = this.parts.noseNamePlate;
+
+    /* Fire-and-forget, exactly like the club crest: the aeroplane is built
+     * synchronously at boot and the paintings decode whenever they decode.
+     * `applyNoseArt()` is what actually repaints, and it is idempotent, so the
+     * console helper in `../main.js` may call it again without harm. */
+    this.artReady = Promise.all([noseArtTexture('pinup'), noseArtTexture('name')])
+      .then(([pin, nom]) => this.applyNoseArt(pin, nom))
+      .catch(() => 0);
 
     /* ---- The Silver Sasquatches crest ----
      *
@@ -654,10 +821,32 @@ export class EnolaSquatch {
      * manifest slot: the composition root resolves that slot and hands the
      * texture to `applyClubLogo()` below.
      *
-     * Three places, which is where a squadron actually puts its badge: both
-     * faces of the fin, and under the cockpit on the starboard side — the
-     * side the nose art is NOT on, so neither has to share skin with the
-     * other. Until the texture resolves they carry the drawn placeholder
+     * FOUR places, which is where a squadron actually puts its badge: both
+     * faces of the fin, and under the cockpit on BOTH sides of the nose.
+     *
+     * The -X nose badge replaced a drawing. Owner playtest, 2026-08-04: "The
+     * squatch head on towards the front of the plane — lets use the Squatch
+     * logo." That head was a drawn-from-scratch Sasquatch face on its own
+     * canvas, a second piece of club artwork living next to the real one for
+     * no reason; it is gone, and the club's actual crest stands in its place.
+     *
+     * 2026-08-05: it moved forward, from z 4.3 to z 6.6, and came down from
+     * 1.75 m to 1.30. It used to be the largest thing on this flank because it
+     * was the only thing on it; the flank now carries the aeroplane's own name
+     * and her pin-up, and z 4.3 is where the name plate goes. Under the
+     * pilot's window, forward of the artwork, is where a squadron badge belongs
+     * anyway — it is a badge again instead of the headline act.
+     *
+     * 2026-08-06: the OTHER nose badge made the same move, for the same
+     * reason. It was still at z 4.0 at 1.35 m, sized and placed for a flank
+     * that had nothing else on it; the artwork now on that flank runs
+     * z 2.72..5.84, straight through it. Both are 1.30 m at z 6.75 now, which
+     * also makes the nose symmetrical — the pair are one badge on two sides
+     * rather than two different badges. y 0.05 keeps each one's top edge
+     * (y 0.70) under the cockpit side glazing, which spans y 0.80..1.50 at
+     * z 6.40..7.90 on BOTH sides and would otherwise show through it.
+     *
+     * Until the texture resolves they carry the drawn placeholder
      * `resolveGear` falls back to, so no surface is ever blank. */
     this.parts.clubLogo = [];
     const logoMat = () => mat({
@@ -665,35 +854,95 @@ export class EnolaSquatch {
     });
     for (const sx of [-1, 1]) {
       const finBadge = flatMesh(planeGeo(1.5, 1.5), logoMat(), sx * 0.2, 3.1, -FUSE_LEN / 2 - 4.3);
-      finBadge.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      finBadge.rotation.y = sx * (Math.PI / 2);
       finBadge.name = 'club-crest-fin';
       g.add(finBadge);
       this.parts.clubLogo.push(finBadge);
     }
-    const noseBadge = flatMesh(planeGeo(1.35, 1.35), logoMat(), DECAL_X, 0.45, 4.0);
-    noseBadge.rotation.y = Math.PI / 2;
-    noseBadge.name = 'club-crest-nose';
-    g.add(noseBadge);
-    this.parts.clubLogo.push(noseBadge);
+    // Forward of the nose art, under the pilot's window, on both sides.
+    for (const sx of [-1, 1]) {
+      const noseBadge = flatMesh(planeGeo(1.30, 1.30), logoMat(), sx * DECAL_X, 0.05, 6.75);
+      noseBadge.rotation.y = sx * (Math.PI / 2);
+      noseBadge.name = 'club-crest-nose';
+      g.add(noseBadge);
+      this.parts.clubLogo.push(noseBadge);
+    }
 
-    // ---- Landing gear: fixed tricycle, scaled up ----
+    /* ---- Landing gear: fixed tricycle, scaled up ----
+     *
+     * Owner playtest, 2026-08-04: "the wheels aren't attached thro struts or
+     * anything." They were not. Each leg was a 1.2 m box hung at
+     * `-(gearY - 1.2 - r)`, which for the mains put the TOP of the strut at
+     * y -0.74 — a metre and a half of clear air between it and the underside
+     * of the wing at y 0.79, with nothing in between. The wheels genuinely
+     * were floating below the aeroplane.
+     *
+     * The fix is the structure that was missing, not a longer box: a gear bay
+     * fairing on the wing (or the nose skin) that the leg comes OUT of, a
+     * trunnion at the top of the leg, and a drag brace and a side brace from
+     * the bay down to the axle — the three members that hold a fixed leg on a
+     * real aeroplane. `attachY` is the underside of whatever each leg hangs
+     * from, so the bay and the braces are derived from the airframe rather
+     * than typed in twice.
+     *
+     * The leg group still compresses on the oleo (`update()` writes
+     * `leg.position.y`), so everything inside it moves with the squash and
+     * everything bolted to the airframe — the bay, the fairing — does not,
+     * which is exactly the right split. */
     this.parts.gear = [];
+    const WING_UNDER = 1.1 - 0.31;          // wing box centre 1.1, 0.62 thick
+    /* The nose tyre came down from 0.72 m to 0.60 m of radius on the way past.
+     * The belly is only `gearY - FUSE_H/2` = 1.3 m off the tarmac at that
+     * station, so a 1.44 m tyre could not physically fit under it — the old
+     * one stood 0.14 m THROUGH the fuselage floor, which is the nose end of
+     * the same "clipping and intersecting" the owner called out inside. At
+     * 0.60 the tyre's crown sits at y -1.80, a clear 0.10 m below the skin. */
     const legSpecs = [
-      { x: 0, z: FUSE_LEN / 2 - 1.3, r: 0.72, steer: true },
-      { x: -AC_ENOLA.track / 2, z: -1.2, r: 1.06, steer: false },
-      { x: AC_ENOLA.track / 2, z: -1.2, r: 1.06, steer: false },
+      { x: 0, z: FUSE_LEN / 2 - 1.3, r: 0.6, steer: true, attachY: BELLY_Y + 0.25 },
+      { x: -AC_ENOLA.track / 2, z: -1.2, r: 1.06, steer: false, attachY: WING_UNDER },
+      { x: AC_ENOLA.track / 2, z: -1.2, r: 1.06, steer: false, attachY: WING_UNDER },
     ];
     legSpecs.forEach((spec, i) => {
       const leg = new THREE.Group();
-      leg.position.set(spec.x, -(AC_ENOLA.gearY - 1.2 - spec.r), spec.z);
-      const strutLen = 1.2;
+      leg.name = `gear-leg-${spec.steer ? 'nose' : spec.x > 0 ? 'port' : 'starboard'}`;
+      /* The axle sits `gearY - r` below the aeroplane's origin; the strut runs
+       * from there up to the trunnion just inside the bay. Both numbers come
+       * off `attachY` now instead of the old fixed 1.2 m. */
+      const axleY = -(AC_ENOLA.gearY - spec.r);
+      const trunnionY = spec.attachY - 0.18;
+      leg.position.set(spec.x, trunnionY, spec.z);
+      const strutLen = trunnionY - axleY;    // 2.55 m on the mains, 0.77 on the nose
+
+      /* Gear bay: a shallow fairing bolted to the airframe, so the leg comes
+       * out of a hole in a structure instead of out of thin air. Not in the
+       * leg group — it does not move when the oleo compresses. */
+      const bay = mesh(boxGeo(0.86, 0.4, 1.5), skin, spec.x, spec.attachY - 0.16, spec.z);
+      bay.name = `gear-bay-${spec.steer ? 'nose' : spec.x > 0 ? 'port' : 'starboard'}`;
+      g.add(bay);
+      g.add(mesh(cylGeo(0.44, 0.44, 1.5, 12, true), skin, spec.x, spec.attachY - 0.16, spec.z)
+        .rotateX(Math.PI / 2));
+      // The trunnion the leg pivots on, at the mouth of the bay.
+      leg.add(mesh(cylGeo(0.13, 0.13, 0.62, 10), metal, 0, 0, 0).rotateZ(Math.PI / 2));
+
+      // The main strut, and the polished oleo sliding inside its lower half.
       leg.add(mesh(boxGeo(0.3, strutLen, 0.3), metal, 0, -strutLen / 2, 0));
-      // Oleo, scissor link and a drag brace — the parts you can see from the
-      // ground during a walkaround, which is now a thing that happens.
-      leg.add(mesh(cylGeo(0.16, 0.16, strutLen * 0.55, 10), solid(0xc8ccd2, { roughness: 0.25, metalness: 0.85 }), 0, -strutLen * 0.72, 0));
-      const brace = mesh(cylGeo(0.07, 0.07, 1.1, 6), metal, 0, -strutLen * 0.5, spec.steer ? -0.45 : 0.45);
-      brace.rotation.x = spec.steer ? -0.7 : 0.7;
-      leg.add(brace);
+      leg.add(mesh(cylGeo(0.16, 0.16, strutLen * 0.45, 10), solid(0xc8ccd2, { roughness: 0.25, metalness: 0.85 }), 0, -strutLen * 0.76, 0));
+      // Scissor link across the sliding joint.
+      leg.add(mesh(boxGeo(0.05, 0.42, 0.08), metal, 0, -strutLen * 0.5, 0.2).rotateX(0.5));
+      leg.add(mesh(boxGeo(0.05, 0.42, 0.08), metal, 0, -strutLen * 0.72, 0.2).rotateX(-0.5));
+
+      /* Drag brace, fore-and-aft, and — on the mains — a side brace out to the
+       * wing. These are what "attached through struts" means: both ends land
+       * on something, one on the bay and one on the axle. */
+      const dragZ = spec.steer ? -0.62 : 0.62;
+      leg.add(strutBetween(metal, [0, 0.02, dragZ], [0, -strutLen + 0.1, 0], 0.065, 'gear-drag-brace'));
+      if (!spec.steer) {
+        const out = spec.x > 0 ? 1 : -1;
+        leg.add(strutBetween(metal, [out * 0.75, 0.02, 0], [0, -strutLen + 0.1, 0], 0.06, 'gear-side-brace'));
+        // Torque link back up into the bay, visible from directly abeam.
+        leg.add(strutBetween(metal, [0, 0.02, -0.55], [0, -strutLen * 0.55, -0.16], 0.045, 'gear-torque-link'));
+      }
+
       const wheel = mesh(cylGeo(spec.r, spec.r, 0.46, 16), rubber, 0, -strutLen, 0);
       wheel.rotation.z = Math.PI / 2;
       leg.add(wheel);
@@ -705,6 +954,8 @@ export class EnolaSquatch {
         const outer = mesh(cylGeo(spec.r, spec.r, 0.46, 16), rubber, spec.x > 0 ? 0.52 : -0.52, -strutLen, 0);
         outer.rotation.z = Math.PI / 2;
         leg.add(outer);
+        // The axle beam the pair share.
+        leg.add(mesh(cylGeo(0.09, 0.09, 1.1, 8), metal, spec.x > 0 ? 0.26 : -0.26, -strutLen, 0).rotateZ(Math.PI / 2));
       }
       g.add(leg);
       this.parts.gear.push({ leg, wheel, rest: leg.position.y, base: leg.position.y, steer: !!spec.steer });
@@ -740,17 +991,50 @@ export class EnolaSquatch {
     this.parts.crewDoor = doorPanel;
     this.anchors.crewDoor = new THREE.Vector3(-FUSE_W / 2 - 0.6, -0.6, -3.4);
     this.anchors.stepDown = new THREE.Vector3(-FUSE_W / 2 - 3.4, 0, -3.4);
-    // Boarding ladder, hooked under the sill.
+    /* ---- Boarding ladder, hooked over the sill ----
+     *
+     * Owner playtest, 2026-08-04: "Crew entry ladder a little funky." Three
+     * separate things were wrong with it and all three are geometry:
+     *
+     *  - It did not reach the ground. The rails were 2.2 m long centred at
+     *    y -1.1, so the feet stopped at y -2.2 — and the tarmac is at
+     *    `-AC_ENOLA.gearY`, i.e. y -3.0. It hung 0.8 m in the air.
+     *  - It overshot the door. The top ended at y 0.0, a metre above the
+     *    door panel's own top edge at y 0.40, standing past the frame.
+     *  - It leaned the wrong way. `rotation.z = +0.16` on a +Y cylinder takes
+     *    the TOP outboard and tucks the FOOT under the fuselage; a ladder
+     *    leans the other way round or you cannot stand on it.
+     *
+     * Rebuilt off the two heights it actually has to join: the door sill
+     * (y -1.15, the bottom of `doorPanel`) and the tarmac. The whole assembly
+     * is one group raked out at the bottom, so the rails, the treads and the
+     * feet cannot drift out of line with each other. */
+    const SILL_Y = -1.15;
+    const LADDER_RAKE = -0.22;           // rad; negative takes the FOOT outboard
+    const LADDER_LEN = (SILL_Y - (-AC_ENOLA.gearY)) / Math.cos(LADDER_RAKE);
     const ladder = group('boarding-ladder');
-    ladder.position.set(-PANEL_X - 0.25, -1.1, -3.4);
-    for (const sx of [-0.28, 0.28]) {
-      const rail = mesh(cylGeo(0.05, 0.05, 2.2, 6), metal, 0, 0, sx);
-      rail.rotation.z = 0.16;
+    ladder.position.set(-PANEL_X - 0.16, SILL_Y, -3.4);
+    ladder.rotation.z = LADDER_RAKE;
+    for (const sz of [-0.26, 0.26]) {
+      const rail = mesh(cylGeo(0.045, 0.045, LADDER_LEN, 7), metal, 0, -LADDER_LEN / 2, sz);
+      rail.name = 'boarding-ladder-rail';
       ladder.add(rail);
+      // A rubber foot, so it stands ON the tarmac rather than in it.
+      ladder.add(mesh(cylGeo(0.075, 0.09, 0.06, 8), solid(0x1e2024, { roughness: 0.95 }), 0, -LADDER_LEN + 0.03, sz));
     }
-    for (const ry of [-0.75, -0.25, 0.25, 0.75]) {
-      ladder.add(mesh(boxGeo(0.06, 0.05, 0.6), metal, -ry * 0.16, ry, 0));
+    // Treads: flat rungs you could put a boot on, evenly up the whole rail.
+    for (let i = 1; i <= 6; i++) {
+      const ry = -LADDER_LEN * (i / 7);
+      const tread = mesh(boxGeo(0.1, 0.045, 0.58), metal, 0, ry, 0);
+      tread.name = 'boarding-ladder-tread';
+      ladder.add(tread);
     }
+    // The hooks that hold it on the sill, and the handrail above them.
+    for (const sz of [-0.26, 0.26]) {
+      ladder.add(mesh(boxGeo(0.24, 0.05, 0.06), metal, 0.09, 0.02, sz));
+      ladder.add(mesh(cylGeo(0.035, 0.035, 0.5, 6), metal, 0, 0.25, sz));
+    }
+    ladder.add(mesh(boxGeo(0.05, 0.05, 0.58), metal, 0, 0.48, 0));
     g.add(ladder);
     this.parts.ladder = ladder;
 
@@ -779,15 +1063,20 @@ export class EnolaSquatch {
     const wire = mesh(cylGeo(0.016, 0.016, 9.4, 4), solid(0x1a1a1c, { roughness: 1 }), 0, FUSE_H / 2 + 1.1, -1.2);
     wire.rotation.x = Math.PI / 2 - 0.22;
     g.add(wire);
-    const pitot = mesh(cylGeo(0.03, 0.03, 0.9, 5), metal, -1.1, -0.4, FUSE_LEN / 2 + 3.2);
+    // Moved outboard and aft onto the cone's flank: at its old station it stood
+    // inside the (now bigger) glasshouse instead of out in the airflow.
+    const pitot = mesh(cylGeo(0.03, 0.03, 0.9, 5), metal, -1.45, -0.75, FUSE_LEN / 2 + 2.0);
     pitot.rotation.x = Math.PI / 2;
+    pitot.name = 'pitot-mast';
     g.add(pitot);
     const astrodome = mesh(sphereGeo(0.34, 10, 7), glassMat, 0, FUSE_H / 2 + 0.05, 2.4);
     astrodome.scale.y = 0.7;
     astrodome.castShadow = false;
     g.add(astrodome);
 
-    this.anchors.bombardierStation = new THREE.Vector3(0, -0.5, FUSE_LEN / 2 + 2.4);
+    /* Inside the glasshouse now that there is an inside — see the nose-cone
+     * note above. `crew.js` sits Numbskull off this, so the two cannot drift. */
+    this.anchors.bombardierStation = new THREE.Vector3(0, -0.5, FUSE_LEN / 2 + 3.4);
 
     // Navigation lights.
     this.parts.navLights = [];
@@ -914,7 +1203,8 @@ export class EnolaSquatch {
   }
 
   /**
-   * Paint the club's real crest onto the three badges.
+   * Paint the club's real crest onto the four badges — both fin faces and
+   * both sides of the nose.
    *
    * Called by the composition root once `resolveGear('crest.round')` settles —
    * see `../livery.js`. Until then the badges wear the drawn crest, so this is
@@ -927,9 +1217,315 @@ export class EnolaSquatch {
     return applyCrest(this.parts.clubLogo, texture);
   }
 
+  /**
+   * Put the owner's own artwork on the flank.
+   *
+   * Called from `build()` when `../livery.js` finishes decoding, and safe to
+   * call again — `../main.js` still resolves the old `enolasquatch.noseart`
+   * gear slot and hands whatever it gets to this, which is a no-op while that
+   * slot is absent from `assets/art/manifest.json`. The paintings do not come
+   * through the gear resolver: they need their matte read, their glow put back
+   * and their ink measured before they can be sized onto a plane at all, and
+   * `resolveGear` hands back a texture with none of that done.
+   *
+   * Each plate is RESIZED to the painting it receives rather than the painting
+   * being squeezed onto the plate. Both files are 2:3 portrait sheets and
+   * neither piece of ink is 2:3, so trusting the file's shape would stretch
+   * both. Height is what is held fixed — the two are top-aligned on
+   * `noseArtLayout.top`, and that alignment is the thing worth keeping — while
+   * width follows the measured aspect and the gap is then re-struck off the
+   * finished widths, so "not touching" survives a re-export at a different
+   * crop. The geometry is replaced rather than scaled: `box()`-style scale
+   * writes are the trap this codebase already keeps a note about, and a
+   * negative one would turn the plate inside out.
+   *
+   * BOTH FLANKS, since 2026-08-06. Each painting goes onto its two plates from
+   * one prepared texture — the same `CanvasTexture`, shared, since the two
+   * plates differ only in where they hang. The layout is struck ONCE off the
+   * finished widths and written to both, so the two sides cannot drift apart
+   * if a re-export ever changes a crop.
+   *
+   * @param {?{texture: THREE.Texture, aspect: number}} pinup
+   * @param {?{texture: THREE.Texture, aspect: number}} name
+   * @returns {number} plates repainted (0-4)
+   */
+  applyNoseArt(pinup, name = null) {
+    const L = this.noseArtLayout;
+    let n = 0;
+    /* `pinup` may arrive as a bare texture from the old gear-slot route; the
+     * measured aspect is the whole point, so fall back to the plate's own. */
+    const asArt = (v, plate) => (v?.texture ? v
+      : v?.isTexture ? { texture: v, aspect: plate.geometry.parameters.width / plate.geometry.parameters.height }
+        : null);
+    const fit = (plates, art, height) => {
+      const first = plates?.[0];
+      if (!first) return 0;
+      if (!art?.texture) return first.geometry.parameters.width;
+      const width = height * art.aspect;
+      for (const plate of plates) {
+        const geo = plate.geometry;
+        if (Math.abs(geo.parameters.width - width) > 1e-4) {
+          plate.geometry = new THREE.PlaneGeometry(width, height);
+          geo.dispose();
+        }
+        applyCrest([plate], art.texture);
+        // Top-aligned, whatever height each one ended up at.
+        plate.position.y = L.top - height / 2;
+        plate.visible = true;
+        n++;
+      }
+      return width;
+    };
+
+    const pinups = this.parts.noseArtPlates ?? [];
+    const names = this.parts.noseNamePlates ?? [];
+    const pinupW = fit(pinups, asArt(pinup, pinups[0] ?? this.parts.noseArtPlate), L.pinupH);
+    const nameW = fit(names, asArt(name, names[0] ?? this.parts.noseNamePlate), L.nameH);
+    /* Re-strike the gap off the finished widths. Forward is +Z: the name goes
+     * ahead of the figure, one gap clear of her leading edge — on both flanks,
+     * because both pairs sit at the same stations. */
+    for (const plate of names) {
+      plate.position.z = L.pinupZ + pinupW / 2 + L.gap + nameW / 2;
+    }
+    return n;
+  }
+
   /* ---------------------------------------------------------------- */
   /* Cockpit                                                           */
   /* ---------------------------------------------------------------- */
+
+  /**
+   * The inside of the aeroplane: a roof, a floor, wall liners, a rear
+   * bulkhead, and the crew compartment aft of the flight deck.
+   *
+   * Owner playtest, 2026-08-04, two notes that are the same note:
+   *   "There should be a roof. on it."
+   *   "Interior could be outfitted a bit better for the guys behind you as
+   *    well. One seat is working, but a lot of clipping and intersecting."
+   *
+   * There genuinely was no interior. The fuselage is one `boxGeo` with
+   * front-facing materials, so from a seat inside it every wall, the floor and
+   * the ceiling are back faces and get culled: looking up gave you open sky,
+   * looking aft gave you the wing, the nacelles and both main wheels seen
+   * straight through the side of the aeroplane you are sitting in. The four
+   * seats and the nav table were furniture floating in a hole.
+   *
+   * So this builds the pressure-vessel side of the same box — a liner set
+   * INSIDE the skin — plus the things a heavy bomber's crew compartment
+   * actually has aft of the pilots. Cheap boxes, the same register as the rest
+   * of the file, and every one of them named.
+   *
+   * Openings are deliberate and are why the ceiling is three panels rather
+   * than one: the astrodome (z 2.4) and the dorsal turret (z -0.9) are holes
+   * in the roof on the outside, so they are holes in the roof on the inside
+   * too. The crew door (z -3.4, starboard) is a gap in that wall liner for the
+   * same reason.
+   *
+   * @param {THREE.Group} g the cockpit group
+   */
+  buildCabin(g) {
+    /* Interior green, dull and dark, the way the inside of one of these
+     * actually was — and deliberately much darker than the skin outside. The
+     * scene carries a warm `roomEnvironment` IBL on top of a dimmed night sun,
+     * and a mid-grey liner picks up so much of it that a night bomber's cabin
+     * comes out the colour of a kitchen. This does not. */
+    const liner = solid(0x333c31, { roughness: 0.95, metalness: 0.06 });
+    const linerDark = solid(0x23291f, { roughness: 1, metalness: 0.04 });
+    const former = solid(0x4a5148, { roughness: 0.8, metalness: 0.2 });
+    const deck = solid(0x191c18, { roughness: 1 });
+
+    /* The habitable run. Forward is the windshield header, aft is a bulkhead
+     * behind the crew door — past that is tail-boom structure nobody stands
+     * in. `IN_X` is the liner's inner face, 6 cm inboard of the skin. */
+    const FWD = FUSE_LEN / 2 + 0.5;      // 8.25 — under the windshield
+    const AFT = -4.6;
+    const IN_X = FUSE_W / 2 - 0.06;      // 1.54
+    const FLOOR_Y = -0.12;
+    const ROOF_Y = 1.66;
+    const cabinLen = FWD - AFT;
+    const cabinMid = (FWD + AFT) / 2;
+    this.parts.cabin = group('cabin-liner');
+    g.add(this.parts.cabin);
+    const c = this.parts.cabin;
+
+    /* ---- Floor. A raised deck over the bomb bay, which is where it has to
+     * be: the bay runs z -2.8 .. 3.6 at the belly and the seats sit at y 0.05,
+     * so the crew walk on top of the bay, not through it. ---- */
+    const floor = mesh(boxGeo(FUSE_W - 0.14, 0.06, cabinLen), liner, 0, FLOOR_Y, cabinMid);
+    floor.name = 'cabin-floor';
+    c.add(floor);
+    // The walkway strip down the middle, worn darker than the rest.
+    const walkway = mesh(boxGeo(0.72, 0.02, cabinLen - 0.2), deck, 0, FLOOR_Y + 0.04, cabinMid);
+    walkway.name = 'cabin-walkway';
+    c.add(walkway);
+    // Floor beams, so the deck reads as built rather than as a plane.
+    for (let z = AFT + 0.7; z < FWD; z += 1.35) {
+      c.add(mesh(boxGeo(FUSE_W - 0.16, 0.05, 0.08), linerDark, 0, FLOOR_Y + 0.035, z));
+    }
+
+    /* ---- Roof. Three panels: the flight deck, the bay section between the
+     * astrodome and the dorsal turret, and the aft section behind the turret.
+     * The two gaps are the two things that are genuinely holes. ---- */
+    const roofRuns = [[2.78, FWD], [-0.30, 2.02], [AFT, -1.55]];
+    this.parts.cabinRoof = [];
+    for (const [a, b] of roofRuns) {
+      const panel = mesh(boxGeo(FUSE_W - 0.14, 0.05, b - a), liner, 0, ROOF_Y, (a + b) / 2);
+      panel.name = 'cabin-roof';
+      c.add(panel);
+      this.parts.cabinRoof.push(panel);
+    }
+    /* Formers: the hoop frames the skin is riveted to, showing on the inside
+     * the way they do in an aeroplane nobody bothered to line properly. Kept
+     * at x ±1.0 and above y 0.9 so nothing hangs over a seated head — the
+     * pilot's eye is at y 1.42 and the roof's underside is at 1.635. */
+    for (let z = AFT + 0.9; z < FWD - 0.4; z += 1.3) {
+      for (const sx of [-1, 1]) {
+        const rib = mesh(boxGeo(0.05, 0.9, 0.07), former, sx * (IN_X - 0.03), 1.15, z);
+        rib.name = 'cabin-former';
+        c.add(rib);
+      }
+      c.add(mesh(boxGeo(1.5, 0.05, 0.07), former, 0, ROOF_Y - 0.05, z));
+    }
+
+    /* ---- Wall liners. Below the window line everywhere; full height only aft
+     * of the flight deck, where there are no side windows to cover. The
+     * starboard run is broken either side of the crew door. ---- */
+    const wall = (sx, zA, zB, yLo, yHi) => {
+      const w = mesh(boxGeo(0.05, yHi - yLo, zB - zA), liner,
+        sx * IN_X, (yLo + yHi) / 2, (zA + zB) / 2);
+      w.name = 'cabin-wall-liner';
+      c.add(w);
+    };
+    for (const sx of [-1, 1]) {
+      // Under the windows, the length of the flight deck.
+      wall(sx, 6.2, FWD, FLOOR_Y, 0.74);
+      // Full height from the back of the flight deck aft…
+      if (sx > 0) {
+        wall(sx, AFT, 6.2, FLOOR_Y, ROOF_Y);
+      } else {
+        // …except on the starboard side, where the crew door is.
+        wall(sx, -2.75, 6.2, FLOOR_Y, ROOF_Y);
+        wall(sx, AFT, -4.05, FLOOR_Y, ROOF_Y);
+        // Above and below the doorway itself.
+        wall(sx, -4.05, -2.75, FLOOR_Y, -1.05);
+        wall(sx, -4.05, -2.75, 0.52, ROOF_Y);
+      }
+    }
+
+    /* ---- Rear bulkhead, with a doorway through it. Three panels rather than
+     * one, because a wall you cannot walk through in an aeroplane whose tail
+     * gunner has to get past it is the wrong wall. ---- */
+    const bulk = (w, h, x, y) => {
+      const b = mesh(boxGeo(w, h, 0.07), linerDark, x, y, AFT);
+      b.name = 'cabin-rear-bulkhead';
+      c.add(b);
+    };
+    bulk(0.95, ROOF_Y - FLOOR_Y, 0.98, (FLOOR_Y + ROOF_Y) / 2);
+    bulk(0.95, ROOF_Y - FLOOR_Y, -0.98, (FLOOR_Y + ROOF_Y) / 2);
+    bulk(1.02, 0.5, 0, ROOF_Y - 0.25);
+
+    /* ---- Overhead panel, between the two front seats. Deliberately NOT over
+     * either of them: the seats are at x ±0.55 and this spans ±0.34. ---- */
+    const overhead = mesh(boxGeo(0.68, 0.1, 1.1), linerDark, 0, ROOF_Y - 0.09, FUSE_LEN / 2 - 0.2);
+    overhead.name = 'cockpit-overhead-panel';
+    c.add(overhead);
+    for (let i = 0; i < 6; i++) {
+      overhead.add(mesh(boxGeo(0.05, 0.05, 0.07), former, -0.22 + (i % 3) * 0.22, -0.06, i < 3 ? -0.22 : 0.22));
+    }
+    // Escape-hatch outline in the flight-deck roof, forward of the astrodome.
+    const hatch = mesh(boxGeo(0.78, 0.03, 0.78), linerDark, 0, ROOF_Y - 0.04, 4.6);
+    hatch.name = 'cabin-escape-hatch';
+    c.add(hatch);
+
+    /* ---------------------------------------------------------------- */
+    /* The crew compartment — "the guys behind you"                       */
+    /* ---------------------------------------------------------------- */
+
+    /* Radio rack against the starboard liner, opposite the navigator, with
+     * the dials the set actually has. Nobody is sitting at it — Irish works
+     * the set from his own table — but an empty rack is what the compartment
+     * of an aeroplane this size looks like. */
+    const rack = group('radio-rack');
+    rack.position.set(-(IN_X - 0.24), 0.45, 3.9);
+    rack.add(mesh(boxGeo(0.4, 1.05, 1.15), linerDark, 0, 0, 0));
+    for (const [ry, rz] of [[0.32, -0.28], [0.32, 0.28], [-0.02, 0]]) {
+      rack.add(mesh(boxGeo(0.06, 0.26, 0.44), solid(0x24262a, { roughness: 0.6 }), 0.21, ry, rz));
+      rack.add(mesh(cylGeo(0.05, 0.05, 0.05, 10), solid(0xd8c07a, { roughness: 0.5 }), 0.25, ry, rz)
+        .rotateZ(Math.PI / 2));
+    }
+    rack.add(flatMesh(sphereGeo(0.045, 8, 6), unlit(0x37ff6a), 0.23, -0.34, -0.3));
+    c.add(rack);
+    this.parts.radioRack = rack;
+
+    /* A folding jump seat on the port liner, aft of the navigator — where a
+     * spare man rides, and where the Shubenator was supposed to be sitting
+     * before he talked his way into the tail. */
+    const jump = group('jump-seat');
+    jump.position.set(IN_X - 0.2, 0.34, 1.5);
+    jump.add(mesh(boxGeo(0.32, 0.07, 0.5), solid(0x3a3228, { roughness: 0.95 }), 0, 0, 0));
+    jump.add(mesh(boxGeo(0.07, 0.55, 0.5), solid(0x3a3228, { roughness: 0.95 }), 0.14, 0.3, 0));
+    jump.add(strutBetween(former, [0.16, -0.02, -0.22], [-0.1, -0.44, -0.22], 0.025, 'jump-seat-leg'));
+    jump.add(strutBetween(former, [0.16, -0.02, 0.22], [-0.1, -0.44, 0.22], 0.025, 'jump-seat-leg'));
+    c.add(jump);
+    this.parts.jumpSeat = jump;
+
+    /* Oxygen bottles in a rack on the starboard wall, ammunition cans for the
+     * tail gun stacked against the port one, and a fire extinguisher by the
+     * door. Everything is clipped to a liner, so nothing floats and nothing
+     * shares a cubic metre with a man. */
+    const bottles = group('oxygen-bottles');
+    bottles.position.set(-(IN_X - 0.18), 0.28, 1.1);
+    for (let i = 0; i < 3; i++) {
+      bottles.add(mesh(cylGeo(0.1, 0.1, 0.72, 10), solid(0x2f6a4a, { roughness: 0.6, metalness: 0.3 }), 0, 0, -0.26 + i * 0.26));
+      bottles.add(mesh(cylGeo(0.04, 0.04, 0.1, 8), former, 0, 0.4, -0.26 + i * 0.26));
+    }
+    bottles.add(mesh(boxGeo(0.24, 0.06, 0.86), former, 0.02, 0.22, 0));
+    c.add(bottles);
+    this.parts.oxygenBottles = bottles;
+
+    const ammo = group('cabin-ammo-cans');
+    ammo.position.set(IN_X - 0.26, FLOOR_Y + 0.19, -0.4);
+    for (let i = 0; i < 3; i++) {
+      const can = mesh(boxGeo(0.34, 0.26, 0.5), solid(0x4a5240, { roughness: 0.95 }),
+        i === 2 ? -0.02 : 0, i === 2 ? 0.28 : 0, -0.3 + (i % 2) * 0.6);
+      ammo.add(can);
+      can.add(mesh(boxGeo(0.1, 0.04, 0.16), former, 0, 0.15, 0));
+    }
+    c.add(ammo);
+    this.parts.ammoCans = ammo;
+
+    const extinguisher = mesh(cylGeo(0.08, 0.08, 0.42, 10), solid(0xb8402a, { roughness: 0.7 }),
+      -(IN_X - 0.16), 0.4, -2.4);
+    extinguisher.name = 'cabin-extinguisher';
+    c.add(extinguisher);
+
+    /* The catwalk aft, over the bomb bay's rear half, and the two handrails
+     * that go with it — the walk the owner's crew would take to the tail. */
+    for (const sx of [-1, 1]) {
+      const rail = mesh(cylGeo(0.03, 0.03, 4.2, 6), former, sx * 0.48, 0.62, -1.6);
+      rail.rotation.x = Math.PI / 2;
+      rail.name = 'cabin-handrail';
+      c.add(rail);
+      for (const z of [-3.4, -1.6, 0.2]) {
+        c.add(mesh(cylGeo(0.026, 0.026, 0.74, 6), former, sx * 0.48, 0.27, z));
+      }
+    }
+
+    /* Three dim dome lamps down the ceiling. The whole mission after the cut
+     * is flown at night with the sun turned down to a fifth, so without these
+     * the compartment this method just built is a black tube nobody can see
+     * any of. Unlit spheres, the same trick `navLamp` and the beacon use, so
+     * they cost nothing and cast nothing. */
+    this.parts.cabinLamps = [];
+    for (const z of [5.6, 1.8, -3.2]) {
+      const lamp = flatMesh(sphereGeo(0.075, 8, 6), unlit(0xffcf8a), 0, ROOF_Y - 0.11, z);
+      lamp.name = 'cabin-lamp';
+      lamp.scale.y = 0.55;
+      c.add(lamp);
+      c.add(mesh(cylGeo(0.1, 0.1, 0.05, 8), linerDark, 0, ROOF_Y - 0.06, z));
+      this.parts.cabinLamps.push(lamp);
+    }
+  }
 
   buildCockpit() {
     const g = new THREE.Group();
@@ -959,6 +1555,10 @@ export class EnolaSquatch {
       side.castShadow = false;
       g.add(side);
     }
+
+    // The inside of the aeroplane — see `buildCabin()`. Built before the
+    // furniture so the furniture stands on a floor rather than over a hole.
+    this.buildCabin(g);
 
     // Instrument panel — reuses `Instruments` from `src/beefrun/instruments.js`
     // unmodified, the same way `Brushrunner.buildCockpit` does, just fed
@@ -1022,15 +1622,39 @@ export class EnolaSquatch {
      * first screenshot taken of this scene from the seat. */
     const pilotSeat = buildSeat(0.55, 0.05, FUSE_LEN / 2 - 0.35);
     const copilotSeat = buildSeat(-0.55, 0.05, FUSE_LEN / 2 - 0.35);
-    // Irish's navigator station: side table behind the flight deck, facing
-    // inboard across the cabin.
-    const navSeat = buildSeat(0.62, 0.05, FUSE_LEN / 2 - 2.9, -Math.PI / 2);
-    const navTable = mesh(boxGeo(0.9, 0.08, 0.7), solid(0x4a4238, { roughness: 0.9 }), -0.2, 0.31, FUSE_LEN / 2 - 2.9);
+    /* Irish's navigator station: a chart table behind the flight deck, with
+     * him sitting against the port liner facing inboard across the cabin.
+     *
+     * Owner playtest: "a lot of clipping and intersecting." The table used to
+     * be a 0.9 m slab centred at x -0.2 with the seat at x 0.62 — 0.82 m
+     * apart, which is less than a seated man's thigh, so Irish's knees came
+     * out through the far edge of his own desk and the desk had no legs under
+     * it. Both are measured now: the seat pan's top face lands at y 0.12 and
+     * so do his thighs, the table top sits 0.28 m clear above them, and the
+     * near edge is at x 0.45 — outboard of his knees at roughly x 0.5. */
+    const navSeat = buildSeat(0.78, 0.05, FUSE_LEN / 2 - 2.9, -Math.PI / 2);
+    const navTable = mesh(boxGeo(0.72, 0.07, 0.86), solid(0x4a4238, { roughness: 0.9 }), 0.1, 0.4, FUSE_LEN / 2 - 2.9);
+    navTable.name = 'nav-table';
     g.add(navTable);
-    navTable.add(mesh(boxGeo(0.5, 0.02, 0.4), solid(0xd8d2c0, { roughness: 0.95 }), 0.05, 0.05, 0));
-    const navLamp = flatMesh(sphereGeo(0.07, 8, 6), unlit(0xffd27a), -0.2, 0.81, FUSE_LEN / 2 - 2.9);
+    // The chart, a rule, and the lip that stops both sliding off in a bank.
+    navTable.add(mesh(boxGeo(0.52, 0.02, 0.6), solid(0xd8d2c0, { roughness: 0.95 }), 0, 0.045, 0));
+    navTable.add(mesh(boxGeo(0.04, 0.015, 0.5), solid(0xc8a24a, { roughness: 0.6, metalness: 0.4 }), -0.2, 0.05, 0.06));
+    navTable.add(mesh(boxGeo(0.72, 0.05, 0.03), solid(0x3a322a, { roughness: 0.95 }), 0, 0.04, -0.43));
+    navTable.add(mesh(boxGeo(0.72, 0.05, 0.03), solid(0x3a322a, { roughness: 0.95 }), 0, 0.04, 0.43));
+    // Legs down to the deck, and a stay back to the wall liner.
+    for (const sz of [-0.36, 0.36]) {
+      navTable.add(mesh(boxGeo(0.05, 0.49, 0.05), solid(0x3a322a, { roughness: 0.95 }), -0.3, -0.28, sz));
+      navTable.add(mesh(boxGeo(0.62, 0.04, 0.04), solid(0x3a322a, { roughness: 0.95 }), 0.32, -0.16, sz));
+    }
+    // A stowage bin under the table, for the bags of charts nobody filed.
+    navTable.add(mesh(boxGeo(0.5, 0.24, 0.7), solid(0x40483c, { roughness: 0.95 }), -0.06, -0.2, 0));
+    const navLamp = flatMesh(sphereGeo(0.07, 8, 6), unlit(0xffd27a), 0.1, 0.86, FUSE_LEN / 2 - 2.9);
     g.add(navLamp);
     this.parts.navLamp = navLamp;
+    // The lamp's gooseneck, so it is a lamp and not a floating bulb.
+    g.add(mesh(cylGeo(0.02, 0.02, 0.42, 6), solid(0x2a2c30, { roughness: 0.8 }), 0.32, 0.62, FUSE_LEN / 2 - 2.9));
+    g.add(mesh(cylGeo(0.02, 0.02, 0.24, 6), solid(0x2a2c30, { roughness: 0.8 }), 0.21, 0.84, FUSE_LEN / 2 - 2.9)
+      .rotateZ(Math.PI / 2));
 
     this.anchors.seats = {
       pilot: pilotSeat,
@@ -1062,6 +1686,13 @@ export class EnolaSquatch {
    *   gunFiring, gunManned }
    */
   update(dt, phys, engines, state = {}) {
+    /* Nothing on the animation rig means anything once the aeroplane is a
+     * fireball — see `Brushrunner.update()` in `src/beefrun/aircraft.js`,
+     * whose guard this one matches exactly. */
+    if (this.destroyed) {
+      this.updateExplosion(dt);
+      return;
+    }
     const a = this.anim;
     const c = phys.controls;
     const engList = engines?.engines;
@@ -1192,5 +1823,114 @@ export class EnolaSquatch {
   syncTo(phys) {
     this.group.position.copy(phys.position);
     this.group.quaternion.copy(phys.quat);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The crash                                                         */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Replace the intact airframe with a short-lived fireball and debris fan.
+   *
+   * Ported from `src/beefrun/aircraft.js`'s `Brushrunner.explode()` — same
+   * three-part shape (fireballs, smoke, debris), same "hide the children,
+   * don't rebuild them" trick that makes a checkpoint restore free — scaled
+   * up for an airframe about twice the Brushrunner's span (33.5 m vs 17.2 m):
+   * bigger fireballs, one more smoke puff, more debris thrown further, same
+   * timing. `src/enolasquatch/mission/MissionController.js`'s `onImpact()`
+   * is what calls this, on the same severity gate Beef Run's `onImpact` uses.
+   *
+   * Hiding the direct children rather than emptying the group is what makes
+   * `resetDestruction` cheap and lossless: the aeroplane is still built, still
+   * has every part and canvas it had, and a checkpoint restore just turns it
+   * back on. Nothing here is rebuilt.
+   *
+   * @returns {boolean} false if it was already destroyed
+   */
+  explode() {
+    if (this.destroyed) return false;
+    this.destroyed = true;
+    for (const child of this.group.children) child.visible = false;
+
+    const fx = group('enola-squatch-explosion');
+    fx.userData.age = 0;
+    const fire = [
+      [0xffe06a, 2.7, 0, 0.3, 0.3],
+      [0xff7a24, 4.0, -1.3, 0.0, 0.5],
+      [0xd92e18, 5.1, 1.5, -0.3, -0.4],
+    ];
+    for (const [colour, radius, x, y, z] of fire) {
+      const material = new THREE.MeshBasicMaterial({
+        color: colour, transparent: true, opacity: 0.96,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      const ball = mesh(sphereGeo(radius, 14, 9), material, x, y, z);
+      ball.userData.fireball = true;
+      fx.add(ball);
+    }
+    for (let i = 0; i < 9; i++) {
+      const smoke = mesh(
+        sphereGeo(1.6 + (i % 3) * 0.6, 9, 6),
+        new THREE.MeshBasicMaterial({ color: 0x2a2522, transparent: true, opacity: 0.76, depthWrite: false }),
+        (i - 4) * 1.05, 1.1 + (i % 2) * 0.9, (i % 3) * 1.15 - 0.9,
+      );
+      smoke.userData.smoke = true;
+      fx.add(smoke);
+    }
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const debris = mesh(
+        boxGeo(0.28 + (i % 3) * 0.18, 0.14, 0.65 + (i % 2) * 0.36),
+        solid(i % 2 ? 0x7a5230 : METAL, { roughness: 0.8, metalness: i % 2 ? 0 : 0.5 }),
+        Math.cos(a) * 2.2, (i % 4) * 0.42 - 0.35, Math.sin(a) * 2.2,
+      );
+      debris.userData.debris = true;
+      debris.userData.velocity = new THREE.Vector3(
+        Math.cos(a) * (7 + (i % 3) * 1.8), 5 + (i % 5) * 1.4, Math.sin(a) * (7 + (i % 3) * 1.8),
+      );
+      fx.add(debris);
+    }
+    /* Added after the hide loop, so it is the one thing still visible. */
+    this.group.add(fx);
+    this.explosion = fx;
+    return true;
+  }
+
+  updateExplosion(dt) {
+    const fx = this.explosion;
+    if (!fx) return;
+    fx.userData.age += dt;
+    const age = fx.userData.age;
+    for (const child of fx.children) {
+      if (child.userData.fireball) {
+        child.scale.setScalar(1 + age * 2.8);
+        child.material.opacity = clamp(1 - age / 1.15, 0, 1);
+      } else if (child.userData.smoke) {
+        child.position.y += dt * 2.6;
+        child.scale.addScalar(dt * 1.0);
+        child.material.opacity = clamp(0.76 - age * 0.16, 0.12, 0.76);
+      } else if (child.userData.debris) {
+        child.position.addScaledVector(child.userData.velocity, dt);
+        child.userData.velocity.y -= 9.8 * dt;
+        child.rotation.x += dt * 5;
+        child.rotation.z += dt * 3;
+      }
+    }
+  }
+
+  /** Put the aeroplane back, for a checkpoint restore. */
+  resetDestruction() {
+    if (this.explosion) {
+      this.group.remove(this.explosion);
+      /* Every material here is made fresh in `explode`, so nothing shared is
+       * being disposed and a second crash builds its own. */
+      this.explosion.traverse((o) => o.material?.dispose?.());
+    }
+    this.explosion = null;
+    this.destroyed = false;
+    /* Safe to turn everything back on: the only conditional visibility on
+     * this model is the prop discs and the front props themselves, both
+     * reassigned every frame by `update()`. */
+    for (const child of this.group.children) child.visible = true;
   }
 }

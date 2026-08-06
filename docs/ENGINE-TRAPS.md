@@ -130,3 +130,160 @@ success without exercising what the player does.
 **The rule.** Walk it. If the player walks somewhere, the check walks there. If
 the player holds a button, the check holds the button and waits for what the
 button earns.
+
+---
+
+## 6. A test runner that loses tests without failing
+
+**Symptom.** `npm test` reported **806 passing, 0 failing**. It had run 591.
+
+**Mechanism.** `tests/run.mjs` imported its suites in a bare loop:
+
+```js
+for (const modulePath of TEST_MODULES) await import(modulePath);
+```
+
+A module that throws while being *imported* — not while running a test, while
+being imported — rejects that `await`, the loop stops, and every module after it
+in the list never registers a single test. They do not fail. They do not exist.
+The runner then reports a clean pass on whatever got in before the throw.
+
+The trigger was two unrelated correct changes meeting. An outfit pass put a
+photographed Lou in the mansion office; `THREE.TextureLoader` reaches for
+`document.createElementNS`; and the four test files that each declared their own
+`globalThis.document ??= {...}` could only ever elect the *first* one to run, so
+every later file silently inherited a stub that had no `createElementNS`. The
+import threw and took the last twelve suites with it — including the entire
+mansion siege.
+
+**Why it is worse than a red suite.** A red suite gets fixed in ten minutes. A
+suite that quietly shrinks is *trusted*, and everything it was covering is
+uncovered from that moment on with no signal at all. The only clue was a total
+nobody was reading.
+
+**The rules.**
+
+1. **A module that cannot be imported must be a failing test**, named after the
+   file, and the rest of the list must still run. `tests/run.mjs` does this now.
+2. **One shared shim, installed before anything is imported.** `ensureDomShim()`
+   in `tools/three-shim.mjs`. Per-file `??=` stubs cannot fix each other by
+   construction — the first one wins and the rest are decoration.
+3. **Watch the total.** If the number of tests goes down and nobody deleted any,
+   something is being swallowed.
+
+---
+
+## 7. A check that measures the wrong thing and blames the right one
+
+**Symptom.** `verify:enolasquatch`'s *"the autopilot really holds a heading and
+an altitude"* failed intermittently for two sessions — 52.6 m of drift one run,
+92.6 m the next, on an identical deterministic tick. It was written off as
+flaky, and a previous pass had already tried to fix it by clearing the fighters
+and suppressing the flak.
+
+**Mechanism.** The autopilot was never the problem. On a clean airframe in
+still air the control law holds altitude to **0.2–1.5 metres** at a
+predictability of 0.98 — measured across six altitudes from 56 m of terrain
+clearance to 958 m, same law, same tick. It is very good.
+
+**There were three causes and none of them was the control law.** They are
+listed in the order they were found, which is also the order of how much they
+mattered — and the first two were each mistaken, briefly, for the whole answer.
+
+1. **Unseeded weather.** `WeatherSystem` seeds `_gustPhase` with three
+   `Math.random()` calls *in its constructor*, so the gust field is a different
+   function of time on every page load and a forty-five-second altitude hold is
+   flown through different air every run. Real, and worth 0.4° of heading drift.
+   Not worth 40 m of altitude.
+
+2. **It was flying into a hill.** Sampled second by second, the autopilot
+   disengaged at about forty-five seconds with the reason **"on the ground"** —
+   at five hundred metres, undamaged, at cruise speed — and the aeroplane nosed
+   over and dived three hundred and fifty metres. Because it *was* flying into
+   the ground: an autopilot holds an ALTITUDE and the eastbound route CLIMBS,
+   153 m to 481 m across the three kilometres covered in that window. The
+   "drift" was partly a measure of how far down that dive the forty-fifth
+   second landed. **This one is a real defect in the game** and is now a
+   high-priority row in `FUTURE-EDITS.md` — see rule 2 below.
+
+   The clearance was staged as `groundHeight(at.x, at.z) + 620`: 620 m of
+   clearance *at the start point*, and 45 m of it three kilometres later. At
+   sixty-five metres a second, where you measure the ground matters.
+
+3. **The aeroplane was broken.** And this was the biggest one. The check runs
+   after the damage-API check, which puts the **rudder** out, kills the
+   **electrics** and opens a **fuel leak** — and three fighter passes had put
+   real damage into the wing. The check healed the **engines**, with a good
+   comment explaining exactly why an autopilot cannot hold an altitude on a
+   bomber that is down an engine, and left the other four kinds of damage on
+   the aeroplane. So it measured a control law on a wreck and reported the
+   result as the control law.
+
+**Three rules, and the last is the important one.**
+
+1. **Isolate what you claim to measure — all of it.** Healing one of four kinds
+   of damage is not isolation, and the comment explaining why you healed that
+   one makes it *read* as though it were. If a check stages a clean aeroplane,
+   it stages a clean aeroplane.
+2. **A shared page carries state between checks.** Every check after the
+   damage-API check inherits a damaged aeroplane. That is usually what you
+   want — later checks should meet a real battlefield — but any check that
+   means "in isolation" has to say so explicitly and completely.
+3. **An intermittent check is a message, not a nuisance.** This one had been
+   saying *"your aeroplane flies itself into a hill and the only warning is the
+   autopilot leaving"* for two sessions, and it was heard as "this check is
+   flaky". Before widening a threshold or writing one off, find out what it is
+   actually measuring. The answer here was a real defect nobody would otherwise
+   have gone looking for — in a beat where the game specifically invites the
+   player to leave the seat.
+
+**And one about being wrong.** The first two causes each looked complete when
+found, and the write-up of this entry had to be corrected twice. A check that
+starts passing is not proof you understood it; it is proof you changed
+something. The evidence that closed this was six altitudes measured on a fresh
+page, not the check going green.
+
+---
+
+## 8. An animation on a clock is not connected to anything
+
+**Symptom.** Every mouth in the game flapping at a fixed rate for a guessed
+number of seconds — carrying on after the recording had finished, stopping
+while it was still running, and never once shutting between two words.
+
+**Mechanism.** Six rigs, six copies of the same idea: `Math.sin(t * 11)` in the
+Bing, `Math.sin(t * 16)` in the Squatchfather, `Math.sin(w * 11)` in the Motel,
+two sines in the Beef Run "so it never loops". Each held open for `hold` —
+which `DialogueController` itself describes as *an authored guess written
+before any of these lines were recorded*.
+
+The obvious half is the timing. The other half is worse: **a constant flap has
+no syllables in it.** A real mouth is mostly shut; it opens on vowels and
+closes between words, and no timer can invent those gaps because they belong to
+the take. Two sines beating against each other does not fix that — it only
+makes the flap harder to recognise as a flap.
+
+**The rule.** Anything that is supposed to be caused by a sound must READ that
+sound. `AudioEngine.play()` puts an `AnalyserNode` inline on every `vo.*` cue
+and `src/core/mouth.js` opens the mouth on its RMS; the synthetic envelope is
+reached only when there is no recording at all, and reports `mode ===
+'fallback'` so nothing can mistake one for the other.
+
+**How to tell them apart in a check.** Not by watching it move — a timer moves
+too. Play the take with a **pickup**: `audio.play(cue, { delay: 2.4 })`. The
+line is under way, the mouth is in `audio` mode, and nothing is audible. A
+mouth on a clock flaps through that silence; a mouth on the sound does not.
+That is the one assertion in `tools/verify-mouths.mjs` a fixed cadence cannot
+pass, and it holds at any frame rate — which matters, because swiftshader draws
+these scenes at two or three frames a second and every claim about *shape*
+measured at that rate is a claim about the rasteriser (see entries 2 and 7).
+
+**And one small one found on the way.** `src/silvercase/main.js` assigned to an
+undeclared `voiceSource`. Modules are strict mode, so that is a
+`ReferenceError` — thrown out of `playCue`, out of
+`DialogueController._advance`, on the first line of the mission that had a
+recording, which is sixty of its seventy-six. It survived review because the
+statement sits behind a `hasSample()` guard: the branch is not taken until the
+audio lands, so the file "worked" for as long as the folder was empty. Grep for
+assignments to names that are never declared; there is no linter in this repo
+that will do it for you.

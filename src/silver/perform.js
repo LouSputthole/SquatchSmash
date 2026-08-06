@@ -22,24 +22,62 @@ export const SET = [
     lead: 'the bandleader',
     say: 'Good evening. We are the Midnight Pines and we are contractually obliged to be here.',
     cue: 'vo.silver.bandleader.set.opener',
-    /* Shorter than it was, and the reason is arithmetic rather than taste.
-     * The third number is the one everybody has been told about and it is a
-     * 192-second master that cannot be cut; dessert is gated on it finishing;
-     * and at 52 and 58 the two warm-ups pushed that gate to nine and a
-     * quarter minutes after sitting down. "Scene kind of drags on — dessert
-     * could come a bit quicker." Both warm-ups still open, establish the
-     * band, and get their applause; they no longer cost ninety seconds of an
-     * evening that has nothing else in it while they play. */
-    dur: 38,
+    /* Shorter than it was, twice, and the reason is arithmetic rather than
+     * taste. The third number is the one everybody has been told about and it
+     * is a 192-second master that cannot be cut; dessert is gated on it
+     * finishing; and at 52 and 58 the two warm-ups pushed that gate to nine
+     * and a quarter minutes after sitting down. Cutting them to 38 and 42 was
+     * not enough — "let's basically [play] all the sounds once for about a
+     * quarter of a number and then just go right into banana phone".
+     *
+     * So a warm-up is now about a quarter of what it was: long enough for the
+     * curtain, the bandleader's line, the section to be seen playing and the
+     * applause at the end of it, and no longer. Both numbers still happen, in
+     * order, so the third number is still literally the third number — which
+     * three separate people in the script promise it will be. */
+    dur: 10,
     stems: { rhythm: 0.5, horns: 0.22, piano: 0.34, vocal: 0 },
   },
   {
+    /* The owner's note: "the band is much better, BUT the 'lady singing
+     * thing' must GO." This used to be Ashland Line, a warm-up number led by
+     * `the singer` — which is `band.vocal`, the synthesised "ohhh ohh"
+     * ENGINE-TRAPS.md #8 already had to fight loose from the featured number
+     * once. It is not a recording of anybody; there is no singer built for
+     * this stage at all. Replaced with the violinist opening like a
+     * comedian, in his own voice, before the band goes straight into the
+     * third number.
+     *
+     * Same `id`, same slot: Bananaphone is still literally the third number,
+     * which the mission promises out loud in half a dozen places — the
+     * waiter's tip line, Ape's goodbye, the toast's own option text. Losing a
+     * slot here would make the callback a lie. */
     id: 'second',
-    title: 'Ashland Line',
-    lead: 'the singer',
-    say: null,
-    dur: 42,
-    stems: { rhythm: 0.46, horns: 0.18, piano: 0.3, vocal: 0.34 },
+    title: 'A Word From The Violinist',
+    lead: 'the bandleader',
+    say: 'How are ya? Glad to be here!',
+    cue: 'vo.silver.bandleader.set.second',
+    /* The rest of the bit, on the number's own clock rather than a raw
+     * `setTimeout` — see `Performance.defer`, which `onNumber` schedules
+     * these through so a paused tab holds the joke exactly where it left it.
+     * `sfx` beats are crowd reactions; `say`/`cue` beats are the violinist's
+     * second line. */
+    bits: [
+      { at: 2.6, sfx: ['applause', 'crowd.whistle'] },
+      {
+        at: 5.6,
+        lead: 'the bandleader',
+        say: 'Take my wife, please! I take my wife everywhere… but she finds her way home!',
+        cue: 'vo.silver.bandleader.set.second-wife',
+      },
+      { at: 9.8, sfx: ['crowd.laughter', 'band.rimshot'] },
+    ],
+    // Room for the rimshot to land before the standard end-of-number
+    // applause and the 2.4s transition carry the set straight into Bananaphone.
+    dur: 12,
+    // Near silent: this is patter, not a number. A hair of rhythm so the
+    // room does not go dead while he talks.
+    stems: { rhythm: 0.04, horns: 0, piano: 0, vocal: 0 },
   },
   {
     /* The one everybody warned you about: a house violinist playing the
@@ -109,6 +147,8 @@ export class Performance {
     this._transition = null;
     this._paused = false;
     this._deferred = [];
+    /** Whether the four synthesised stems are in the loop table at all. */
+    this._stemsUp = false;
   }
 
   get current() { return this.index >= 0 ? SET[this.index] : null; }
@@ -121,10 +161,39 @@ export class Performance {
     for (const m of this.band.members) m.group.visible = true;
     this.audio?.play('stage.clunk', { volume: 0.5 });
     this.audio?.play('curtain.draw', { volume: 0.45 });
+    this._startStems();
+    this._next(0);
+  }
+
+  /**
+   * The four synthesised stems, up or gone. Not up or turned down.
+   *
+   * They used to be started once in `begin()` and left running for the whole
+   * set, with `_applyMix` ramping them to zero underneath the featured number.
+   * Zero gain is not silence you can rely on: the oscillators and noise
+   * sources are still in the graph, still summing, and every caller that
+   * touches the mix — the duck, the room crossfade in `updateZones`, a
+   * checkpoint restore — re-ramps them from wherever they had got to. The
+   * reported symptom was exact: "I still hear this ohhh ohh singing sound in
+   * the background during banana phone", which is `band.vocal`, a pair of
+   * bandpassed noise voices that has no business existing at all while a real
+   * recording of a real band is playing.
+   *
+   * So the stems are a thing that is either running or stopped, the featured
+   * number stops them, and the house band starting again starts them again.
+   */
+  _startStems() {
+    if (this._stemsUp) return;
+    this._stemsUp = true;
     for (const s of STEMS) {
       this.audio?.startLoop(`band.${s}`, { volume: 0, ambience: true, fade: 0.5 });
     }
-    this._next(0);
+  }
+
+  _stopStems(fade = 0.6) {
+    if (!this._stemsUp) return;
+    this._stemsUp = false;
+    for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, fade);
   }
 
   /**
@@ -172,8 +241,8 @@ export class Performance {
     this.numbersPlayed.push(n.id);
     this._stopFeatured(0.35);
     this._featureFallback = false;
+    if (!n.track) this._startStems();
     if (n.track) {
-      for (const s of STEMS) this.audio?.setLoopVolume(`band.${s}`, 0, 0.8);
       const handle = this.audio?.startMusicLoop('band.feature', n.track, {
         volume: 0,
         fade: 0.7,
@@ -198,6 +267,12 @@ export class Performance {
       } else if ((handle.released || handle.failed) && !this._featureFallback) {
         this._handleFeatureError(n, handle, new Error(handle.lastError || 'featured recording failed'));
       }
+      /* And only now, once the record is known to be running, does the house
+       * band stop — see `_stopStems`. Stopping them first and letting the
+       * fallback start them again would silence the four stems for a beat on
+       * exactly the run where they are the only thing left playing, which is
+       * the run that already has a problem. */
+      if (!this._featureFallback) this._stopStems(0.6);
     }
     this._applyMix(1.4);
     this.onNumber?.(n, i);
@@ -223,6 +298,9 @@ export class Performance {
     this._featureHandle = null;
     this._resumeFeature = false;
     this._featureFallback = true;
+    /* "The Midnight Pines do not. They carry the number live." They cannot
+     * carry it on stems that the featured number stopped on its way in. */
+    this._startStems();
     this._applyMix(0.45);
     this.onNumberError?.(expected, error);
     return true;
@@ -233,7 +311,8 @@ export class Performance {
     const n = this.current;
     if (!n) return;
     if (n.track && !this._featureFallback) {
-      for (const s of STEMS) this.audio?.setLoopVolume(`band.${s}`, 0, ramp);
+      /* No stem pass at all: `_next` stopped them, and re-ramping keys that
+       * are no longer in the loop table is how they used to creep back. */
       const duck = 1 - this.duck * (1 - (n.trackDuck ?? 0.2));
       this.audio?.setLoopVolume('band.feature', (n.trackVolume ?? 0.42) * this.roomMix * duck, ramp);
       this.audio?.setLoopCutoff?.('band.feature', this.duck > 0.05 ? 3200 : 20000, ramp);
@@ -318,7 +397,7 @@ export class Performance {
     this._deferred = [];
     this._stopFeatured(0.6);
     this._featureFallback = false;
-    for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 2.2);
+    this._stopStems(2.2);
   }
 
   /**
@@ -340,7 +419,7 @@ export class Performance {
     this._featureFallback = false;
     for (const member of this.band?.members ?? []) member.group.visible = true;
     this.room?.openStageCurtain?.(1);
-    for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 0.8);
+    this._stopStems(0.8);
     return true;
   }
 
@@ -364,7 +443,7 @@ export class Performance {
     this._deferred = [];
     this._stopFeatured(0.6);
     this._featureFallback = false;
-    for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 6);
+    this._stopStems(6);
     this.onSetEnd?.(this.numbersPlayed.slice());
   }
 
@@ -440,6 +519,59 @@ export class Performance {
           P.legR.rotation.x = -Math.sin(beat + ph) * 0.08;
           break;
         }
+        case 'sax': {
+          /* Both hands on the tube, the horn swinging with the phrase and the
+           * knees going with it. He rides the same `horns` stem the section
+           * does — a saxophone that does not get louder when the horns do is
+           * a man holding a saxophone. */
+          const swell = n.stems.horns * (1 - this.duck * 0.62);
+          const lift = Math.sin(beat + ph) * 0.05 + swell * 0.30;
+          P.armL.rotation.set(-0.30 - lift * 0.30, 0, 0.50);
+          P.foreL.rotation.set(-1.45, 0, -0.15);
+          P.armR.rotation.set(-0.10 - lift * 0.20, 0, -0.42);
+          P.foreR.rotation.set(-1.25, 0, 0.15);
+          // The horn goes where the body goes, which is most of playing one.
+          P.body.rotation.z = Math.sin(this.t * 1.5 + ph) * 0.07 + swell * 0.05;
+          P.body.rotation.x = -0.05 - swell * 0.07;
+          P.legL.rotation.x = Math.sin(beat + ph) * 0.09;
+          P.legR.rotation.x = -Math.sin(beat + ph) * 0.06;
+          break;
+        }
+        case 'keys': {
+          /* Forearms out over the keyboard, hands trading on the eighths, and
+           * the whole man leaning in on the piano stem rather than the horn
+           * one. Shoulders stay down: a keyboard player's arms come from the
+           * elbow, and driving this from the shoulder made him look like he
+           * was pushing a wheelbarrow.
+           *
+           * `hComp` is a height correction. The keyboard is deliberately
+           * true-size regardless of who is behind it (`keys.scale.setScalar(1
+           * / heightScale)` in cast.js, "a keyboard is a keyboard whether the
+           * man behind it is 1.68 or 1.86") but the ARM that reaches for it
+           * scales with the player, so a fixed rotation put a short player's
+           * hands 5cm into the keys and a tall player's hands 12cm above
+           * them -- measured across a few hundred fresh page loads (`height`
+           * is `rand(1.68, 1.86)`, unseeded, for everybody but the leader),
+           * this failed the "hands are on the keys" check on close to half of
+           * them. The correction is a shoulder lift on both upper arms: a
+           * flat term plus one proportional to how far this player's
+           * `heightScale` sits from 1, both coefficients found the same way
+           * the neck and the bow were -- swept against that random range
+           * rather than eyeballed -- until keyDrop stayed clear of both the
+           * floor and the ceiling across the whole thing. */
+          const hitR = Math.max(0, Math.sin(beat * 2 + ph));
+          const hitL = Math.max(0, Math.sin(beat * 2 + ph + Math.PI * 0.5));
+          const into = n.stems.piano * (1 - this.duck * 0.3);
+          const hComp = (P.heightScale - 1) * 3.3 - 0.13;
+          P.armL.rotation.set(-0.46 - hitL * 0.06 + hComp, -0.20, -0.16);
+          P.foreL.rotation.set(-1.06 - hitL * 0.10, 0, 0.10);
+          P.armR.rotation.set(-0.46 - hitR * 0.06 + hComp, 0.20, 0.16);
+          P.foreR.rotation.set(-1.06 - hitR * 0.10, 0, -0.10);
+          P.body.rotation.x = 0.10 + into * 0.10;
+          P.body.rotation.z = Math.sin(this.t * 1.1 + ph) * 0.03;
+          P.head.rotation.x = 0.14 + Math.sin(beat) * 0.04;
+          break;
+        }
         case 'bass': {
           // One hand up the neck, the other walking the strings
           P.armL.rotation.x = -1.0;
@@ -468,26 +600,45 @@ export class Performance {
           /* The leader works a narrow strip at the lip with the violin under
            * his chin. Left hand holds the neck; the right drives a visible bow
            * across the strings. The gaze tracker still owns his head so he is
-           * the one who finds the new front table. */
+           * the one who finds the new front table.
+           *
+           * "Violinist should be holding the violin handle." He was not: the
+           * authored arm angles put his left hand 340mm from the neck — out in
+           * the air beside the instrument, in front of his own hip. Measured
+           * in the browser rather than eyeballed, and these five numbers are
+           * the ones that put the hand ON the neck, 3mm from the middle of the
+           * 340mm the left hand is supposed to be wrapped round. The upper arm
+           * hangs and rotates in under the instrument and the elbow closes to
+           * about 130 degrees, which is what a violinist's left arm does and
+           * why it is the tiring one.
+           *
+           * The right (bow) arm had the same complaint and a worse cause: "his
+           * bow hand is wrong -- hand must be ON the bow". The bow used to be
+           * animated on its own, independent of this arm entirely (see the note
+           * in `makeViolin`), so no rotation chosen here could put the hand on
+           * it — the target itself was moving on an unrelated clock. The bow is
+           * now parented to `foreR` with a fixed local offset solved to sit at
+           * this hand, so the pose below only has to look like a bow arm: the
+           * shoulder rolled OUT so the elbow clears the ribs (`armR.z`, up from
+           * the 0.42 that read as tucked in) and the forearm brought back IN
+           * toward the strings rather than out past them (`foreR.z`, negative
+           * now rather than positive) — "arm more inward, elbow out". Wherever
+           * this swings, the bow swings with it and the hand is on it.
+           *
+           * `build` is fixed for this figure in cast.js for exactly this
+           * reason — see the note there. */
           const roam = Math.sin(this.t * 0.4);
           m.group.position.x = m.homeX + roam * 0.45;
           m.group.position.z = m.homeZ;
           m.group.rotation.y = roam * -0.12;
           const stroke = Math.sin(beat * 1.35 + ph);
-          P.armL.rotation.set(-1.02, -0.12, -0.72);
-          P.foreL.rotation.set(-1.10, 0, -0.18);
-          P.armR.rotation.set(-0.72 - stroke * 0.08, 0.08, 0.42);
-          P.foreR.rotation.set(-1.0 + stroke * 0.28, 0, 0.12);
+          // Vibrato: a few millimetres along the string, not a wave.
+          const vib = Math.sin(this.t * 11.5) * 0.015;
+          P.armL.rotation.set(-0.21, -0.28, -0.29);
+          P.foreL.rotation.set(-2.30 + vib, 0, 0.06);
+          P.armR.rotation.set(-0.62 - stroke * 0.08, 0.05, 0.65);
+          P.foreR.rotation.set(-1.05 + stroke * 0.28, 0, -0.30);
           P.body.rotation.z = Math.sin(this.t * 1.3) * 0.035;
-          if (m.violin?.bow) {
-            const rest = m.violin.bow.userData.restPosition;
-            m.violin.bow.position.set(
-              rest.x + stroke * 0.025,
-              rest.y + stroke * 0.12,
-              rest.z,
-            );
-            m.violin.bow.rotation.z = m.violin.bow.userData.restZ + stroke * 0.08;
-          }
           break;
         }
         default: break;
@@ -527,7 +678,18 @@ export class Performance {
  * Four prompts, on the beat, using the existing timing bar.
  */
 export class Sway {
-  constructor({ bpm = 118, beats = 4 } = {}) {
+  /* "The dancing minigame is completely fucked" — measured, this was 118 BPM,
+   * a beat every 508ms, judged against a 62% window: 315ms by default and
+   * 437ms with assist turned on. That is a fast-song rhythm-game reaction
+   * window landing on a couple swaying at a supper club, after twenty minutes
+   * of walking and talking, with no warning it was about to become a timing
+   * test. 60 BPM — one second a beat — roughly doubles both windows (620ms
+   * default, 860ms assisted) without touching the judging logic itself: `hits
+   * >= half the beats` still wins it. Slower here, not more forgiving there,
+   * is the whole fix — the bar now gives a distracted player time to read it
+   * and land on it, which is what "we want the player to succeed" means for a
+   * beat that only exists to be a nice moment. */
+  constructor({ bpm = 60, beats = 4 } = {}) {
     this.bpm = bpm;
     this.beats = beats;
     this.active = false;

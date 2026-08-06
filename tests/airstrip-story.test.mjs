@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AIRSTRIP_UNLOCKS,
   EVENT_IDS,
+  LANDING_QUALITIES,
   MISSION_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
@@ -86,7 +88,13 @@ test('cargo, detection, landing, and completion survive a reload', () => {
   assert.equal(story.checkpoint('returning'), true);
   assert.equal(story.complete({ landingQuality: 'clean' }), false);
   assert.equal(story.checkpoint('landed_home'), true);
-  assert.equal(story.complete({ landingQuality: 'clean' }), true);
+  assert.equal(story.complete({
+    landingQuality: 'clean',
+    rank: 'Certified Meat Aviator',
+    unlocks: ['prospectFlightJacket', 'brushrunnerAccess', 'tammyDashboardMug'],
+    packagesDelivered: 24,
+    gunsDelivered: 3,
+  }), true);
 
   const saved = createCampaign({ storage }).state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
   assert.deepEqual(saved, {
@@ -95,7 +103,70 @@ test('cargo, detection, landing, and completion survive a reload', () => {
     cargoLoaded: true,
     detected: true,
     landingQuality: 'clean',
+    rank: 'Certified Meat Aviator',
+    unlocks: ['prospectFlightJacket', 'brushrunnerAccess', 'tammyDashboardMug'],
+    packagesDelivered: 24,
+    gunsDelivered: 3,
   });
+});
+
+/* The seam the owner asked about: "Do we actually get all the things rewards
+ * from this back in the apartment after?" These three tests are the answer
+ * being kept honest. */
+
+test('the landing quality persisted is a token the readers understand', () => {
+  /* `pastMissionBanter()` in the golf script asks
+   * `['clean','greased','perfect'].includes(air.landingQuality)`. The Beef Run
+   * used to persist its RANK here — "Certified Meat Aviator" and friends — so
+   * the good callback was unreachable for anybody who flew the mission. Any
+   * string off the canonical list is now normalised rather than stored. */
+  const good = ['perfect', 'greased', 'clean'];
+  for (const token of good) assert.equal(LANDING_QUALITIES.includes(token), true);
+
+  const storage = new MemoryStorage();
+  const story = createAirstripStory({ campaign: campaignReadyForAirstrip(storage) });
+  story.begin();
+  story.checkpoint('remote_strip');
+  story.loadCargo();
+  story.checkpoint('returning');
+  story.checkpoint('landed_home');
+  assert.equal(story.complete({ landingQuality: 'Certified Meat Aviator' }), true);
+
+  const saved = createCampaign({ storage }).state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+  assert.equal(saved.landingQuality, 'unknown', 'a rank string is not a landing quality');
+  assert.equal(LANDING_QUALITIES.includes(saved.landingQuality), true);
+});
+
+test('every reward the end card lists is written into the save', () => {
+  const storage = new MemoryStorage();
+  const story = createAirstripStory({ campaign: campaignReadyForAirstrip(storage) });
+  story.begin();
+  story.checkpoint('remote_strip');
+  story.loadCargo();
+  story.checkpoint('returning');
+  story.checkpoint('landed_home');
+  story.complete({ landingQuality: 'perfect', unlocks: [...AIRSTRIP_UNLOCKS] });
+
+  const saved = createCampaign({ storage }).state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+  assert.deepEqual(saved.unlocks.sort(), [...AIRSTRIP_UNLOCKS].sort(),
+    'a trophy promised on the card must exist in the campaign record');
+});
+
+test('a reward id nobody recognises never reaches the save', () => {
+  const storage = new MemoryStorage();
+  const story = createAirstripStory({ campaign: campaignReadyForAirstrip(storage) });
+  story.begin();
+  story.checkpoint('remote_strip');
+  story.loadCargo();
+  story.checkpoint('returning');
+  story.checkpoint('landed_home');
+  story.complete({
+    landingQuality: 'clean',
+    unlocks: ['brushrunnerAccess', 'aFreeAeroplane', 'brushrunnerAccess'],
+  });
+
+  const saved = createCampaign({ storage }).state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+  assert.deepEqual(saved.unlocks, ['brushrunnerAccess']);
 });
 
 test('preview flight starts prime only the campaign facts their leg needs', () => {

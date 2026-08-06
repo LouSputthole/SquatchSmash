@@ -183,8 +183,19 @@ function baseHeight(x, z) {
 
   /* Past the green the ground lifts into the treeline and the next hole —
    * but well beyond the green rather than immediately behind it, so the
-   * flagstick has sky behind it from the tee instead of a wall of pine. */
-  h += 2.6 * smootherstep(clamp01((-z - 186) / 34));
+   * flagstick has sky behind it from the tee instead of a wall of pine.
+   *
+   * Measured from the green, not from a number. This was `-z - 186`, which is
+   * "thirty-three metres past the green" for Hole 1 and nothing at all for
+   * the other two: their greens sit at z −422 and z −361, hundreds of metres
+   * *inside* the lift, so the full 2.6 m was applied underneath them while
+   * the putting surface itself was pinned at zero. Both greens were therefore
+   * sitting in a three-metre pit, and the whole of that step was crammed into
+   * the collar blend in `heightAt` — 82% grade across green-classified turf
+   * at the right edge of Hole 3, which is a wall, not a slope. Hole 1's
+   * behaviour is unchanged: -152.5 - 33.5 is -186. */
+  const treeline = HOLE.green.z - 33.5;
+  h += 2.6 * smootherstep(clamp01((treeline - z) / 34));
 
   /* Long roll, then finer texture — but damped to nothing down the middle.
    * The rough keeps its lumps, which is where lumps are interesting; the

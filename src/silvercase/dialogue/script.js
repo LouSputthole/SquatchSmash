@@ -25,7 +25,13 @@ export const SPEAKERS = Object.freeze({
   PROSPECT: Object.freeze({ name: 'Prospect', voice: 'player' }),
   DEKE: Object.freeze({ name: 'Deke', voice: 'npc-male' }),
   WINSTON: Object.freeze({ name: 'Winston', voice: 'npc-male' }),
-  CHESTER: Object.freeze({ name: 'Chester', voice: 'npc-male' }),
+  /* HIS OWN VOICE, owner-cast 2026-08-06. He is the man in the chair — the one
+   * the whole night is spent talking to — and he was sharing `npc-male` with
+   * Deke, Winston and Pruitt, which is three other men in the same room in the
+   * same throat. Splitting him out is one id here and a re-render of his seven
+   * takes; see the profile's own note in `assets/sfx/manifest.json`, including
+   * the length question on the id. */
+  CHESTER: Object.freeze({ name: 'Chester', voice: 'chester' }),
   PRUITT: Object.freeze({ name: 'Pruitt', voice: 'npc-male' }),
   HUD: Object.freeze({ name: '', voice: null }),
 });
@@ -360,3 +366,29 @@ export const TARGET_CALLOUTS = Object.freeze({
   BATHROOM_AMBUSH: 'PRUITT — FIRE',
   EXECUTE_WINSTON: 'WINSTON — FIRE',
 });
+
+/**
+ * Every cue name this mission can ask for.
+ *
+ * Exported so the scene can PRELOAD them. `src/silvercase/main.js` called
+ * `audio.init()` and never `audio.loadManifest()`, so the engine held no
+ * samples at all and every `audio.play()` in the mission fell through to the
+ * procedural synth. The gunshots and doors sounded fine -- they are
+ * synthesised anyway -- which is exactly why nobody noticed that sixty
+ * recorded voice takes could never be reached.
+ *
+ * Walks the same structures the DialogueController plays, so a line added
+ * above is preloaded without anybody remembering to list it here.
+ */
+export function silverCaseCueNames() {
+  const names = new Set();
+  const take = (line) => { if (line?.cue) names.add(line.cue); };
+  for (const sequence of Object.values(SEQUENCES)) {
+    if (Array.isArray(sequence)) sequence.forEach(take);
+    else for (const branch of Object.values(sequence)) branch.forEach(take);
+  }
+  for (const choice of Object.values(CHOICES)) {
+    for (const option of choice.options ?? []) take(option);
+  }
+  return [...names];
+}

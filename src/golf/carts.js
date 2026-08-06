@@ -164,13 +164,155 @@ function buildCart(scene) {
     }
   }
 
-  const wheelRim = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.02, 0.02, 0.36, 8),
-    mat({ color: 0x2a2a32, roughness: 0.6 }),
+  /* An actual steering wheel.
+   *
+   * There was a single 36 cm cylinder here standing in for the whole steering
+   * assembly, which from the driver's own first-person seat is a grey stick
+   * poking out of the dashboard — the playtest note is exactly "golf cart no
+   * steering wheel". A cart wheel is a small rim, three spokes and a fat
+   * centre boss on a raked column, and the driver spends the longest twenty
+   * seconds of the scene looking straight at it.
+   *
+   * `steer` is returned so the rim can be turned with the front wheels; the
+   * whole assembly is raked back 0.52 rad, which is a golf cart, not a bus. */
+  const steering = new THREE.Group();
+  steering.name = 'golf-cart-steering';
+  steering.position.set(-0.34, 0.82, 0.82);
+  steering.rotation.x = -0.52;
+
+  const column = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.026, 0.032, 0.42, 10),
+    mat({ color: 0x2a2a32, roughness: 0.62, metalness: 0.28 }),
   );
-  wheelRim.position.set(0, 1.00, 0.78);
-  wheelRim.rotation.x = -0.5;
-  g.add(wheelRim);
+  column.name = 'golf-cart-steering-column';
+  column.position.y = 0.21;
+  steering.add(column);
+
+  const steer = new THREE.Group();
+  steer.name = 'golf-cart-steering-wheel';
+  steer.position.y = 0.44;
+  steering.add(steer);
+
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.150, 0.020, 8, 26),
+    mat({ color: 0x1b1c22, roughness: 0.78 }),
+  );
+  rim.name = 'golf-cart-steering-rim';
+  rim.rotation.x = Math.PI / 2;
+  steer.add(rim);
+
+  /* Three spokes at the classic cart angles, so the wheel reads as a wheel
+   * from above as well as head on. */
+  for (const angle of [Math.PI / 2, Math.PI * 7 / 6, Math.PI * 11 / 6]) {
+    const spoke = new THREE.Mesh(
+      new THREE.BoxGeometry(0.130, 0.015, 0.028),
+      mat({ color: 0x24262c, roughness: 0.7, metalness: 0.2 }),
+    );
+    spoke.name = 'golf-cart-steering-spoke';
+    spoke.position.set(Math.cos(angle) * 0.074, 0, -Math.sin(angle) * 0.074);
+    spoke.rotation.y = angle;
+    steer.add(spoke);
+  }
+
+  const boss = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.052, 0.058, 0.036, 14),
+    mat({ color: 0x3a3d45, roughness: 0.52, metalness: 0.42 }),
+  );
+  boss.name = 'golf-cart-steering-boss';
+  steer.add(boss);
+  const bossCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.030, 0.030, 0.008, 12),
+    mat({ color: 0x8f7ad4, roughness: 0.46, metalness: 0.3 }),
+  );
+  bossCap.name = 'golf-cart-steering-badge';
+  bossCap.position.y = 0.021;
+  steer.add(bossCap);
+  g.add(steering);
+
+  /* Dash, pedals and a floor to rest his feet on. All of it is inside the
+   * driver's own view and none of it existed: he was sitting on a bench in
+   * front of an empty beige box. */
+  const dash = new THREE.Mesh(
+    new THREE.BoxGeometry(1.10, 0.30, 0.10),
+    mat({ color: 0xc9c3af, roughness: 0.86 }),
+  );
+  dash.name = 'golf-cart-dash';
+  dash.position.set(0, 1.04, 0.64);
+  dash.rotation.x = -0.18;
+  g.add(dash);
+
+  const floor = new THREE.Mesh(
+    new THREE.BoxGeometry(1.12, 0.04, 0.72),
+    mat({ color: 0x36383f, roughness: 0.95 }),
+  );
+  floor.name = 'golf-cart-floor';
+  floor.position.set(0, 0.58, 0.44);
+  g.add(floor);
+
+  for (const [px, name] of [[-0.46, 'golf-cart-pedal-brake'], [-0.20, 'golf-cart-pedal-throttle']]) {
+    const pedal = new THREE.Mesh(
+      new THREE.BoxGeometry(0.13, 0.026, 0.19),
+      mat({ color: 0x1d1f25, roughness: 0.9 }),
+    );
+    pedal.name = name;
+    pedal.position.set(px, 0.62, 0.50);
+    pedal.rotation.x = -0.24;
+    g.add(pedal);
+  }
+
+  /* Two seat cushions and a squab, because a bench with nothing on it reads
+   * as a shelf. */
+  for (const sx of [-0.34, 0.34]) {
+    const cushion = new THREE.Mesh(
+      new THREE.BoxGeometry(0.52, 0.10, 0.54),
+      mat({ color: 0x5b6070, roughness: 0.94 }),
+    );
+    cushion.name = 'golf-cart-seat-cushion';
+    cushion.position.set(sx, 0.78, -0.16);
+    g.add(cushion);
+    const squab = new THREE.Mesh(
+      new THREE.BoxGeometry(0.52, 0.44, 0.09),
+      mat({ color: 0x5b6070, roughness: 0.94 }),
+    );
+    squab.name = 'golf-cart-seat-back';
+    squab.position.set(sx, 1.00, -0.44);
+    g.add(squab);
+  }
+
+  /* Grab handle on the passenger side — the thing Lou is actually holding on
+   * the ride out, and the reason the passenger seat looks like a seat. */
+  const grab = new THREE.Mesh(
+    new THREE.TorusGeometry(0.075, 0.017, 6, 14, Math.PI),
+    mat({ color: 0x9aa0aa, roughness: 0.42, metalness: 0.55 }),
+  );
+  grab.name = 'golf-cart-grab-handle';
+  grab.position.set(0.52, 1.03, 0.62);
+  grab.rotation.set(Math.PI / 2, 0, 0);
+  g.add(grab);
+
+  /* Two lamps and a strip of windscreen. The screen is a thin, very
+   * transparent pane so it catches the morning without hiding the hole. */
+  for (const sx of [-0.38, 0.38]) {
+    const lamp = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.062, 0.062, 0.05, 12),
+      mat({ color: 0xf2eddc, roughness: 0.3, metalness: 0.1 }),
+    );
+    lamp.name = 'golf-cart-headlamp';
+    lamp.position.set(sx, 0.74, 1.22);
+    lamp.rotation.x = Math.PI / 2;
+    g.add(lamp);
+  }
+  const screen = new THREE.Mesh(
+    new THREE.BoxGeometry(1.20, 0.66, 0.018),
+    mat({
+      color: 0xbcd3dc, roughness: 0.12, metalness: 0.05,
+      transparent: true, opacity: 0.24,
+    }),
+  );
+  screen.name = 'golf-cart-windscreen';
+  screen.position.set(0, 1.33, 1.06);
+  screen.rotation.x = -0.24;
+  g.add(screen);
 
   /* A real receiver in the dash, not just music following the camera. The
    * face sits between the seats and nose where it remains visible from the
@@ -218,7 +360,7 @@ function buildCart(scene) {
   const amenities = buildAmenities(g);
 
   scene.add(g);
-  return { group: g, wheels, radio, radioPower: power, amenities };
+  return { group: g, wheels, radio, radioPower: power, steering: steer, amenities };
 }
 
 /** Distance along the path, in metres, to a world point and a heading. */
@@ -261,6 +403,10 @@ export class Cart {
     this.wheels = built.wheels;
     this.radio = built.radio;
     this.radioPower = built.radioPower;
+    /* The rim itself, so it can be turned. Nothing else in the cart moves
+     * with the steering input, and a wheel that stays dead straight through a
+     * full-lock turn is worse than no wheel at all. */
+    this.steeringWheel = built.steering;
     this.amenities = built.amenities;
     this.distance = startDistance;
     this.speed = speed;
@@ -335,7 +481,9 @@ export class Cart {
 
     const speedRatio = Math.min(1, Math.abs(this.velocity) / 3.5);
     const direction = this.velocity < 0 ? -1 : 1;
-    this.group.rotation.y += (input.steer ?? 0) * direction * speedRatio * 1.28 * dt;
+    const steer = input.steer ?? 0;
+    this.group.rotation.y += steer * direction * speedRatio * 1.28 * dt;
+    this._turnWheel(steer, dt);
 
     const travel = this.velocity * dt;
     this.group.position.x += Math.sin(this.group.rotation.y) * travel;
@@ -428,6 +576,20 @@ export class Cart {
   _spinWheels(travel) {
     const spin = travel / 0.28;
     for (const w of this.wheels) w.rotation.y += spin;
+  }
+
+  /**
+   * Turn the rim toward where the driver is pointing.
+   *
+   * Eased rather than snapped, and about two thirds of a turn at full lock,
+   * which is roughly what a cart's rack gives you. Its own local +Y is the
+   * column axis, so this is a plain twist about Y.
+   */
+  _turnWheel(steer, dt) {
+    const wheel = this.steeringWheel;
+    if (!wheel) return;
+    const want = Math.max(-1, Math.min(1, steer)) * 2.1;
+    wheel.rotation.y += (want - wheel.rotation.y) * Math.min(1, dt * 7);
   }
 
   get position() { return this.group.position; }

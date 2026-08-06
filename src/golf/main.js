@@ -23,7 +23,9 @@ import {
   SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
 } from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 import { Radio } from '../core/radio.js';
+import { Inventory } from '../core/inventory.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 
@@ -34,7 +36,8 @@ import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
 import { Swing, SWING_PHASE, controlWindow } from './swing.js';
 import {
-  CLUB_IDS, getClub, estimateCarry, landingPreviewFor, powerForCarry,
+  CLUB_IDS, getClub, estimateCarry, estimateTotal, landingPreviewFor,
+  powerForDistance,
 } from './clubs.js';
 import { BALL_STATE, solveShot } from './ball.js';
 import {
@@ -42,12 +45,16 @@ import {
 } from './course.js';
 import { heightAt, surfaceAt } from './field.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { getCharacter } from '../core/characters.js';
 import { HOLE, builtHoles } from './hole.js';
 import {
   CourseAudio, GOLF_LATER_AUDIO_SCOPES, GOLF_START_AUDIO_SCOPE,
   playRecordedGolfChoice, playRecordedGolfCue, recordedGolfClip,
 } from './audio.js';
 import { completedRoundAction, connectGolfFootsteps } from './runtime.js';
+import {
+  USE_TIME, createHeldProps, dressSquatchBeer, loadSquatchBeerLabel,
+} from './hands.js';
 
 /* ------------------------------------------------------------------ */
 /* Campaign                                                            */
@@ -111,6 +118,71 @@ const ui = {
   },
   endcard: document.getElementById('endcard'),
 };
+
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?preview=1&checkpoint=...)            */
+/*
+ * LOCAL support only, deliberately -- mirrors src/enolasquatch/main.js's own
+ * CHECKPOINT_ALIASES rather than routing through src/core/preview-mode.js,
+ * whose checkpoint parsers are each a different scene's own vocabulary.
+ * Silver Pines is campaign-owned, so this is gated on the shared,
+ * scene-agnostic `isPreviewMode()` the same way Enola's is -- a bare
+ * `?checkpoint=` on an ordinary link must do nothing.
+ *
+ * The round has no per-hole "checkpoint" concept of its own (see
+ * src/core/golf-story.js -- `recordHole()` just keeps a running card); a
+ * hole2/hole3/grille link stages plausible completed-hole scores through
+ * that SAME real `recordHole()`/`round.restoreProgress()` machinery a
+ * resumed save already uses in `boot()`, below, so the round opens on state
+ * that is genuinely that far along rather than a teleport.
+ */
+const GOLF_CHECKPOINTS = Object.freeze({
+  hole1: 1, hole2: 2, hole3: 3, grille: 'grille',
+});
+const GOLF_CHECKPOINT_LABELS = Object.freeze({
+  hole1: 'HOLE 1 · THE INVITATION',
+  hole2: 'HOLE 2 · THE LONG WALK',
+  hole3: 'HOLE 3 · THE BIG NIGHT',
+  grille: 'THE GRILLE · ROUND COMPLETE',
+});
+/**
+ * Plausible completed-hole cards for the holes a jump skips, in the same
+ * shape `story.recordHole()` expects. These are the exact values
+ * `seedCompletedGolfRound()` in src/core/campaign.js already uses for a
+ * preview'd fully-completed round -- reused here rather than invented twice.
+ */
+const GOLF_PREVIEW_HOLE_CARDS = Object.freeze({
+  1: Object.freeze({ hole: 1, par: 3, strokes: 4, penalties: 0 }),
+  2: Object.freeze({ hole: 2, par: 5, strokes: 5, penalties: 0 }),
+  3: Object.freeze({ hole: 3, par: 4, strokes: 5, penalties: 0 }),
+});
+function previewCheckpointForLocation(locationLike = window.location) {
+  if (!isPreviewMode(locationLike)) return null;
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(GOLF_CHECKPOINTS, value) ? value : null;
+}
+/** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = GOLF_CHECKPOINT_LABELS[previewCheckpoint];
+  const tag = overlay?.querySelector('.tag');
+  if (tag) tag.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  const fine = overlay?.querySelector('.fine');
+  if (fine && previewCheckpoint !== 'hole1') {
+    fine.textContent = 'Earlier holes are staged with plausible preview scores, not a played round.';
+  }
+  if (startBtn) startBtn.textContent = `Start at ${label.toLowerCase()}`;
+}
+/** Stage one skipped hole's plausible card through the real, saveable record. */
+function stagePreviewHoleScore(n) {
+  const card = GOLF_PREVIEW_HOLE_CARDS[n];
+  if (!card) return;
+  story.recordHole({
+    ...card, heardInvitation: true, rodeWithLou: true, hitGreenInRegulation: true,
+  });
+}
 
 const stage = (t) => window.__squatchStage?.(t);
 
@@ -242,13 +314,56 @@ landingPreview.visible = false;
 landingPreview.renderOrder = 4;
 scene.add(landingPreview);
 
-/* Camera-mounted first-person clubs. The golfers use the same silhouettes,
- * so the club selected in the HUD is the club the player sees in his hands. */
+/**
+ * The club in the player's own hands.
+ *
+ * The golfers use the same silhouettes, so the club selected in the HUD is the
+ * club the player sees. What was wrong with it — and what "the clubs are a bit
+ * wonky" is about — is that it was never anywhere near the ball.
+ *
+ * It has to be a stylisation and it is worth being honest about why. The
+ * address camera sits 1.25 m behind the ball with its eye 1.52 m up, looking
+ * out along the target line — so the ball itself is about fifty degrees below
+ * the camera axis and a 66-degree lens simply does not contain it. A club held
+ * where a real club is held is entirely off the bottom of the screen, which
+ * means the spec's requirement that driver, iron and putter be *readable at
+ * address* can only be met by cheating the club up into frame.
+ *
+ * The old cheat put it at 48% scale hanging off a point 0.42 m ABOVE the eye
+ * line, head in the air, shaft across the view, hands as two loose capsules at
+ * the top of the grip: a man holding a driver beside his ear. That is what "the
+ * clubs are still wonky" is looking at.
+ *
+ * This one is aimed rather than dialled in. The head is placed at the bottom
+ * of the frame where the ball would be if the lens reached it, the hands go
+ * up and right where a right-hander's hands are, and the three numbers below
+ * are solved from those two points: `HANDS` is the grip, `SHAFT_PITCH` and
+ * `ADDRESS_LEAN` are the two rotations that lay the shaft along the line
+ * between them, and the scale is the length that line asks for. The rig owns
+ * the Z rotation so it can sweep for the swing; the pitch lives on a child so
+ * the two transforms cannot fight over the same axis.
+ */
+const HANDS = new THREE.Vector3(0.36, -0.12, -0.55);
+const SHAFT_PITCH = 0.65;
 const playerClubRig = new THREE.Group();
 playerClubRig.name = 'player-club-rig';
-playerClubRig.position.set(0.63, 0.42, -1.18);
-playerClubRig.scale.setScalar(0.48);
+playerClubRig.position.copy(HANDS);
 playerClubRig.visible = false;
+/* The forward lean. Rotating the club's own -Y down-and-away by this much
+ * lands an iron's head within a few centimetres of the teed ball. */
+const playerClubTilt = new THREE.Group();
+playerClubTilt.name = 'player-club-tilt';
+playerClubTilt.rotation.x = SHAFT_PITCH;
+playerClubRig.add(playerClubTilt);
+/* One scaled space holding the club AND the hands, so they cannot drift apart:
+ * the hands used to be full size against a shrunken club, which is two mittens
+ * floating beside a shaft. Foreshortened to the length the frame has room for
+ * — see the note on the rig above — and big enough that an iron's grooves and
+ * a driver's crown both still read. */
+const playerClubHold = new THREE.Group();
+playerClubHold.name = 'player-club-hold';
+playerClubHold.scale.setScalar(0.66);
+playerClubTilt.add(playerClubHold);
 for (const kind of CLUB_IDS) {
   const model = makeClub(kind);
   model.userData.kind = kind;
@@ -271,25 +386,47 @@ for (const kind of CLUB_IDS) {
     object.material.depthTest = true;
     object.material.depthWrite = false;
   });
-  playerClubRig.add(model);
+  playerClubHold.add(model);
 }
+/**
+ * Two hands, on the grip, overlapping the way a golf grip overlaps.
+ *
+ * They were two small capsules floating at the top of the shaft above where
+ * anybody's hands could be. These sit on the grip itself — the model's grip
+ * runs from y +0.02 down to -0.23 — with the lower hand under the upper one
+ * and both rolled onto the shaft rather than beside it.
+ */
 const handMaterial = new THREE.MeshStandardMaterial({ color: 0xc8916d, roughness: 0.82 });
 for (const hand of [
-  { x: -0.025, y: -0.20, z: 0.015, rz: -0.18 },
-  { x: 0.035, y: -0.25, z: -0.005, rz: 0.14 },
+  { y: -0.030, rz: -0.18, scale: 1.0 },
+  { y: -0.132, rz: 0.15, scale: 0.94 },
 ]) {
+  /* A fist on a grip is nearly as wide as it is long, so these are short and
+   * fat rather than the long capsules that used to read as two sausages laid
+   * end to end down the shaft. */
   const mesh = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.040, 0.055, 4, 8), handMaterial.clone(),
+    new THREE.CapsuleGeometry(0.040, 0.030, 4, 10), handMaterial.clone(),
   );
   mesh.name = 'player-hand';
-  mesh.position.set(hand.x, hand.y, hand.z);
-  mesh.scale.set(0.82, 1.0, 0.78);
-  mesh.rotation.z = hand.rz;
+  mesh.position.set(0, hand.y, 0);
+  mesh.scale.set(0.94 * hand.scale, 1.0 * hand.scale, 0.88 * hand.scale);
+  mesh.rotation.set(0.10, 0, hand.rz);
   mesh.renderOrder = 1001;
   mesh.material.depthTest = true;
   mesh.material.depthWrite = false;
-  playerClubRig.add(mesh);
+  playerClubHold.add(mesh);
 }
+/* The glove cuff, which is what stops the two fists reading as one shape. */
+const gloveCuff = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.042, 0.038, 0.024, 10),
+  new THREE.MeshBasicMaterial({ color: 0x2a2d34, fog: false }),
+);
+gloveCuff.name = 'player-glove-cuff';
+gloveCuff.position.set(0, -0.082, 0);
+gloveCuff.rotation.z = -0.02;
+gloveCuff.renderOrder = 1002;
+gloveCuff.material.depthWrite = false;
+playerClubHold.add(gloveCuff);
 camera.add(playerClubRig);
 
 /* ------------------------------------------------------------------ */
@@ -330,19 +467,44 @@ const interaction = new InteractionSystem(camera, hud);
 let courseAudio = null;
 connectGolfFootsteps(player, () => courseAudio);
 let activeVoice = null;
+
+/**
+ * Who is speaking, and from where.
+ *
+ * Four of them are Golfers with scorecard lines. The five on the grille
+ * balcony are not — they are `course.gallery` figures — and until they were
+ * given lines nothing here had to know that. A cue from one of them used to
+ * resolve to an empty name and a null position, which is a subtitle with no
+ * speaker on it, played flat in the middle of the player's head.
+ */
+function speakerFor(id) {
+  if (golfers[id]) return golfers[id];
+  return course.gallery?.find((npc) => npc.characterId === id) ?? null;
+}
+
+function speakerName(id) {
+  if (id === CHARACTER_IDS.PROSPECT) return 'Prospect';
+  return golfers[id]?.name ?? getCharacter(id)?.subtitleName ?? '';
+}
+
 const cues = new CueQueue({
   say: (cue, secs) => {
-    const who = cue.speaker === CHARACTER_IDS.PROSPECT ? 'Prospect'
-      : golfers[cue.speaker]?.name ?? '';
-    hud.say(`<em>${who}</em> ${cue.text}`, secs * 1000);
-    golfers[cue.speaker]?.say(secs);
+    const speaker = speakerFor(cue.speaker);
+    hud.say(`<em>${speakerName(cue.speaker)}</em> ${cue.text}`, secs * 1000);
     activeVoice?.stop?.();
     activeVoice = playRecordedGolfCue(audio, cue.id, {
       volume: 0.88,
-      position: golfers[cue.speaker]?.position ?? null,
+      position: speaker?.position ?? null,
       ref: 2.2,
-      maxDist: 34,
+      /* The balcony is across the green and up a storey, so heckling has to
+       * carry further than a man standing next to you reading a putt. */
+      maxDist: golfers[cue.speaker] ? 34 : 58,
     });
+    /* The mouth goes on AFTER the take has started, because it is driven by
+     * the take (src/core/mouth.js) rather than by `secs`. A heckler on the
+     * balcony is fifty metres away and his jaw is two pixels; the four men in
+     * the group are standing next to you. */
+    speaker?.say?.(secs, activeVoice ? { audio, source: activeVoice } : null);
     courseAudio?.duck(true);
     cartRadio.setPhoneDucked(true);
   },
@@ -384,12 +546,12 @@ const round = new Round({
   hooks: {
     onToast: (text) => hud.toast(text),
     onStroke: () => paintCard(),
-    onBag: () => syncGolfInventory(),
+    onBag: () => stockBag(),
     onBallEvent: (kind, data) => {
       if (kind === 'stop' && data.id === CHARACTER_IDS.PROSPECT) paintCard();
     },
     onHoleComplete: (summary, next) => showHoleCard(summary, next),
-    onLoadHole: (n) => { course.load(n); wireSideCooler(); },
+    onLoadHole: (n) => { course.load(n); wireSideCooler(); restockSquatchBeer(); },
     onRoundComplete: (summary) => showEndCard(summary),
   },
 });
@@ -414,19 +576,74 @@ const shotTracerPoints = [];
 const _v = new THREE.Vector3();
 const _look = new THREE.Vector3();
 
+/**
+ * What he is carrying, on the shared five slots.
+ *
+ * The bottom box was a read-only picture of the bag: three clubs, drawn from
+ * `CLUB_IDS`, and nothing else could ever be in it. So taking a beer out of
+ * the cooler played a sound and hid a can, and the Zyn tin and the cigarettes
+ * printed a line and were gone — *"I take zyns or smoke from the cart and they
+ * don't go into my inventory, I can only change through the clubs."*
+ *
+ * It is `core/inventory.js` now, the same object the flat and the Bing carry,
+ * feeding the same `SceneInventoryBar`. Clubs occupy slots like everything
+ * else, which is the whole point: the number keys select a slot rather than
+ * indexing a hard-coded club list, so a Zyn can sit in slot four and be
+ * selected exactly the way the putter is.
+ */
+const GOLF_ITEMS = Object.freeze({
+  driver: { icon: 'D', name: 'Driver', hint: 'Long, low, and hard to aim' },
+  iron: { icon: 'I', name: 'Iron', hint: 'Everything from a chip to a hundred and ninety' },
+  putter: { icon: 'P', name: 'Putter', hint: 'Roll it. Do not hit it' },
+  beer: { icon: '🍺', name: 'Cold beer', hint: 'Hold [F] to drink' },
+  cigs: { icon: '🚬', name: 'Smokes', hint: 'Hold [F] to light one' },
+  zyn: { icon: '⬤', name: 'Zyn — wintergreen', hint: 'Hold [F] to pack one' },
+});
+/** Which of those are consumed by holding [F] rather than swung. */
+const CONSUMABLES = Object.freeze(['beer', 'cigs', 'zyn']);
+
+const inventory = new Inventory(5);
 const sceneInventory = new SceneInventoryBar({
   slots: 5,
   visible: false,
-  catalog: {
-    driver: { icon: 'D', name: 'Driver' },
-    iron: { icon: 'I', name: 'Iron' },
-    putter: { icon: 'P', name: 'Putter' },
-  },
+  catalog: GOLF_ITEMS,
 });
 
+const heldProps = createHeldProps(camera);
+/* Seconds of [F] held so far on the selected consumable, and which one it was
+ * when he started — so letting go, or changing slot, abandons it. */
+let usingItem = null;
+let useProgress = 0;
+
 function syncGolfInventory() {
-  const selected = Math.max(0, CLUB_IDS.indexOf(club));
-  sceneInventory.set(round.hasBag ? CLUB_IDS : [], selected);
+  sceneInventory.set(inventory.items, inventory.selected);
+  const held = inventory.held;
+  heldProps.show(CONSUMABLES.includes(held) ? held : null);
+  if (usingItem && usingItem !== held) cancelItemUse();
+  /* The club already has the whole `#shot` panel; the hand card is for the
+   * things that panel says nothing about. */
+  hud.setHand?.(CONSUMABLES.includes(held) ? GOLF_ITEMS[held] : null);
+}
+inventory.onChange = syncGolfInventory;
+
+/** The bag arrives as three real items rather than as a boolean. */
+function stockBag() {
+  for (const id of CLUB_IDS) if (!inventory.has(id)) inventory.add(id);
+  selectClub('iron');
+}
+
+/** Put something in a slot, or say why not. Returns true if he took it. */
+function pickUp(id, { taken = '', full = 'Your hands are full.' } = {}) {
+  if (!inventory.add(id)) {
+    hud.toast(full, 'hint', 1800);
+    return false;
+  }
+  if (taken) hud.toast(taken, 'good', 1900);
+  return true;
+}
+
+function slotOf(id) {
+  return inventory.items.indexOf(id);
 }
 
 function selectClub(id, { sound = false } = {}) {
@@ -434,29 +651,117 @@ function selectClub(id, { sound = false } = {}) {
   club = id;
   swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
   syncPlayerClub();
-  syncGolfInventory();
+  /* Selecting a club selects its slot, so the bar and the hands never disagree
+   * about what he is holding. `select` is a no-op when it is already there. */
+  const at = slotOf(id);
+  if (at >= 0) inventory.select(at);
+  else syncGolfInventory();
   if (sound) audio.play('golf.bag', { volume: 0.4 });
   paintShot();
   return true;
 }
 
+/**
+ * Hold [F] to drink it, smoke it, or pack it.
+ *
+ * The same contract as the flat: a hold, not a tap, with the prop coming up to
+ * his mouth as the hold fills. Releasing early puts it back down with nothing
+ * consumed, which is what makes it a decision rather than a misclick.
+ */
+function beginItemUse() {
+  const held = inventory.held;
+  if (!CONSUMABLES.includes(held)) return false;
+  if (camMode !== CAM.WALK) return false;
+  usingItem = held;
+  useProgress = 0;
+  if (held === 'beer') audio.play('can.crack', { volume: 0.72, position: player.position });
+  if (held === 'cigs') audio.play('cig.pack', { volume: 0.5, position: player.position });
+  if (held === 'zyn') audio.play('zyn.tin', { volume: 0.55, position: player.position });
+  return true;
+}
+
+function cancelItemUse() {
+  usingItem = null;
+  useProgress = 0;
+  heldProps.poseDrink(0);
+  heldProps.poseTin(0);
+  heldProps.poseSmoke(0, 0);
+}
+
+function updateItemUse(dt) {
+  if (!usingItem) {
+    if (heldProps.showing === 'cigs') heldProps.poseSmoke(0, clock.elapsedTime ?? 0);
+    return;
+  }
+  if (!player.keys.has('KeyF') || camMode !== CAM.WALK) {
+    cancelItemUse();
+    return;
+  }
+  useProgress += dt;
+  const k = Math.min(1, useProgress / (USE_TIME[usingItem] ?? 2));
+  if (usingItem === 'beer') heldProps.poseDrink(k);
+  else if (usingItem === 'zyn') heldProps.poseTin(k);
+  else heldProps.poseSmoke(k, useProgress);
+  if (k < 1) return;
+
+  const finished = usingItem;
+  cancelItemUse();
+  inventory.remove(finished);
+  if (finished === 'beer') {
+    audio.play('can.crush', { volume: 0.72, position: player.position });
+    hud.toast('Cold. Free. Eight in the morning.', 'good', 2200);
+  } else if (finished === 'cigs') {
+    audio.play('cig.pack', { volume: 0.4, position: player.position });
+    hud.toast('Lou packed for eighteen holes.', 'hint', 2200);
+  } else {
+    audio.play('zyn.tin', { volume: 0.45, position: player.position });
+    hud.toast('Wintergreen. Naturally.', 'hint', 2200);
+  }
+}
+
 function syncPlayerClub() {
-  for (const object of playerClubRig.children) {
+  /* The models live in the scaled hold group, not on the rig itself. Walking
+   * the wrong list here silently leaves the iron in his hands whichever club
+   * the HUD says he has taken out. */
+  for (const object of playerClubHold.children) {
     if (object.userData.kind) object.visible = object.userData.kind === club;
   }
 }
 
+/**
+ * Take the club back, and bring it down.
+ *
+ * The sweep is a rotation of the whole rig about Z — the hands stay put and
+ * the club arcs around them, which is what a golf swing looks like from
+ * behind your own hands. The address lean lives on `playerClubTilt`, so this
+ * can own the swing without the two transforms arguing.
+ *
+ * `BACKSWING` is a little over a right angle at the top; the club also lifts
+ * and turns as it goes back, because a shaft that only rotates in the screen
+ * plane reads as a windscreen wiper.
+ */
+const ADDRESS_LEAN = -0.77;
+const BACKSWING = 1.70;
 function paintPlayerClub() {
   playerClubRig.visible = camMode === CAM.ADDRESS;
   if (!playerClubRig.visible) return;
   syncPlayerClub();
   let pose = 0;
-  if (swing.phase === SWING_PHASE.POWER) pose = swing.marker * 0.62;
+  if (swing.phase === SWING_PHASE.POWER) pose = swing.marker;
   else if (swing.phase === SWING_PHASE.STRIKE) {
-    const span = Math.max(0.05, swing.power + 0.30);
-    pose = ((swing.marker + 0.30) / span) * 0.62 - 0.22;
+    /* The arms swing from wherever the strike sweep began, which is no longer
+     * the chosen power — see STRIKE_START_FLOOR in swing.js. Reading
+     * `swing.power` here made a tap-in's downswing start below the ball. */
+    const span = Math.max(0.05, swing.strikeStart + 0.30);
+    pose = Math.max(0, (swing.marker + 0.30) / span);
   }
-  playerClubRig.rotation.set(-0.04, -0.12, -0.34 + pose);
+  playerClubRig.rotation.set(
+    -0.03 + pose * 0.16,
+    -0.10 - pose * 0.34,
+    ADDRESS_LEAN + pose * BACKSWING,
+  );
+  /* The wrists cock as the club goes up and release through the ball. */
+  playerClubTilt.rotation.x = SHAFT_PITCH - pose * 0.30;
 }
 
 function recommendedClubForShot() {
@@ -524,7 +829,9 @@ function adjustPlannedDistance(direction) {
   const plan = shotPlan();
   const step = selected.grounded ? 1.524 : 9.144; // five feet or ten yards
   const minimum = selected.grounded ? 0.61 : 9.144;
-  const maximum = Math.max(minimum, estimateCarry(club, 1, lie));
+  /* The planned number is where he wants it to FINISH, so the ceiling is the
+   * club's total and not its carry. */
+  const maximum = Math.max(minimum, estimateTotal(club, 1, lie));
   const current = Number.isFinite(plannedDistance) ? plannedDistance : plan.distance;
   plannedDistance = THREE.MathUtils.clamp(current + direction * step, minimum, maximum);
   const copy = selected.grounded
@@ -609,6 +916,7 @@ function enterAddress() {
   camMode = CAM.ADDRESS;
   player.enabled = false;
   player.mode = 'frozen';
+  frozenMeter = null;
   selectClub(recommendedClubForShot());
   swing.reset();
   swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
@@ -631,6 +939,7 @@ function leaveAddress() {
   player.enabled = true;
   player.mode = 'walk';
   swing.reset();
+  frozenMeter = null;
   ui.shot.classList.add('hidden');
   ui.meter.classList.add('hidden');
   ui.aim.classList.add('hidden');
@@ -716,7 +1025,7 @@ function paintCard() {
 function guideState() {
   if (camMode === CAM.ADDRESS) {
     const plan = shotPlan();
-    const target = powerForCarry(club, plan.distance, surfaceProps(round.playerSurface()));
+    const target = powerForDistance(club, plan.distance, surfaceProps(round.playerSurface()));
     const targetPct = Math.round(target * 100);
     if (swing.phase === SWING_PHASE.POWER) {
       return {
@@ -902,6 +1211,39 @@ function guideState() {
         task: 'Stay with the group', detail: 'Follow the current golf card',
         pause: 'Stay with Lou, Eric and Rippin and follow the current golf card.',
       };
+  }
+}
+
+/**
+ * Lift the spoken subtitle clear of whatever the reply box is currently.
+ *
+ * The CSS floor in golf.css handles the common case; this handles the real
+ * one, because `#dialogue` is anchored at its bottom and grows upward by
+ * however many options a node has and however long their text wraps. Measured
+ * rather than guessed: a four-reply node at 1280x720 is 188 px tall, and no
+ * fixed offset can be right for that and for a bare line at the same time.
+ *
+ * Written only when the value actually changes, so the frame loop is not
+ * invalidating layout on every tick to set a property to what it already is.
+ */
+const subtitleEl = document.getElementById('subtitle');
+const SUBTITLE_CLEARANCE = 16;
+let subtitleBottom = '';
+
+function layoutSubtitle() {
+  if (!subtitleEl) return;
+  const box = ui.dialogue.root;
+  const showing = box && !box.classList.contains('hidden');
+  let want = '';
+  if (showing) {
+    const rect = box.getBoundingClientRect();
+    if (rect.height > 0) {
+      want = `${Math.round(window.innerHeight - rect.top + SUBTITLE_CLEARANCE)}px`;
+    }
+  }
+  if (want !== subtitleBottom) {
+    subtitleBottom = want;
+    subtitleEl.style.bottom = want;
   }
 }
 
@@ -1114,14 +1456,17 @@ function paintShot() {
   ui.lie.textContent = lie.label;
   ui.wind.textContent = `${HOLE.wind.mph} MPH ${HOLE.wind.label}`;
   const plan = shotPlan();
-  const targetPower = powerForCarry(club, plan.distance, lie);
+  const targetPower = powerForDistance(club, plan.distance, lie);
   const power = swing.phase === SWING_PHASE.IDLE
     ? targetPower
     : swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power;
+  /* Carry, said out loud as carry. The yellow ring on the ground is the same
+   * number, and the plan percentage beside it is a finish distance — three
+   * readouts that used to be two different things wearing one label. */
   const est = estimateCarry(club, power, lie);
   const carry = c.grounded
     ? `≈ ${Math.round(toFeet(est))} ft`
-    : `≈ ${Math.round(toYards(est))} yds`;
+    : `≈ ${Math.round(toYards(est))} yds carry`;
   ui.carry.textContent = `${carry} · plan ${Math.round(targetPower * 100)}%`;
 }
 
@@ -1156,7 +1501,7 @@ function paintLandingPreview() {
   }
   const lie = surfaceProps(round.playerSurface());
   const plan = shotPlan();
-  const targetPower = powerForCarry(club, plan.distance, lie);
+  const targetPower = powerForDistance(club, plan.distance, lie);
   const power = swing.phase === SWING_PHASE.IDLE
     ? targetPower
     : swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power;
@@ -1216,47 +1561,96 @@ const meterValue = (v) => Math.max(0, Math.min(100,
   ((v - METER_FLOOR) / (1 - METER_FLOOR)) * 100));
 const meterPct = (v) => `${meterValue(v)}%`;
 
+/**
+ * Everything the meter draws, as plain numbers.
+ *
+ * Pulled out of `paintMeter` so the resolved swing can be *frozen* and drawn
+ * again after the ball has gone. `paintMeter` used to have a DONE branch —
+ * the mark parked where he actually hit it, and `strikeLabel()` under it —
+ * that no player has ever seen: `fireSwing` called `swing.reset()` and hid the
+ * meter on the same frame the third click landed, and the camera left for the
+ * flight immediately after, so the one frame of feedback that tells a player
+ * *why* the ball is doing that was written, styled and unreachable.
+ */
+function meterState() {
+  const striking = swing.phase !== SWING_PHASE.POWER;
+  const livePower = striking ? swing.power : swing.marker;
+  const lie = surfaceProps(round.playerSurface());
+  return {
+    phase: swing.phase,
+    marker: swing.marker,
+    power: livePower,
+    deadZone: swing.deadZone,
+    safePower: swing.safePower,
+    risk: swing.risk,
+    liveRisk: controlWindow({ club, power: livePower, lieSpread: lie.spread }).risk,
+    targetPower: powerForDistance(club, shotPlan().distance, lie),
+    label: swing.strikeLabel(),
+  };
+}
+
+function paintMeterFrom(state) {
+  ui.meter.classList.remove('hidden');
+  const striking = state.phase !== SWING_PHASE.POWER;
+  const zero = meterValue(0);
+  const fillEnd = meterValue(state.power);
+  ui.meterFill.style.left = `${Math.min(zero, fillEnd)}%`;
+  ui.meterFill.style.width = `${Math.abs(fillEnd - zero)}%`;
+  ui.meterMark.style.left = meterPct(state.marker);
+  ui.meterLate.style.width = `${zero}%`;
+  ui.meterRisk.style.left = meterPct(state.safePower);
+  ui.meterRisk.style.width = `${100 - meterValue(state.safePower)}%`;
+  ui.meterTarget.style.left = meterPct(state.targetPower);
+  ui.meterIdeal.textContent = striking
+    ? 'late · draw / hook'
+    : `ideal ${Math.round(state.targetPower * 100)}%`;
+  ui.meterRiskCopy.textContent = striking
+    ? 'early · fade / slice'
+    : `overswing ${Math.round(state.safePower * 100)}%+`;
+
+  /* The forgiving middle, drawn where it actually is, so a player can see the
+   * size of the target he is being given rather than having to infer it. */
+  ui.meterLine.style.left = meterPct(-state.deadZone);
+  ui.meterLine.style.width =
+    `${((state.deadZone * 2) / (1 - METER_FLOOR)) * 100}%`;
+
+  ui.meterHint.textContent = state.phase === SWING_PHASE.POWER
+    ? state.liveRisk > 0.05 ? 'OVERSWING · CLICK TO RISK IT' : 'CLICK: SET POWER'
+    : state.phase === SWING_PHASE.STRIKE
+      ? state.risk > 0.05 ? 'CLICK: SMALLER SWEET SPOT' : 'CLICK: STRIKE'
+      : state.label;
+  ui.meter.classList.toggle('strike', state.phase === SWING_PHASE.STRIKE);
+  ui.meter.classList.toggle('overswing', state.liveRisk > 0.05);
+}
+
 function paintMeter() {
   if (!swing.active && swing.phase !== SWING_PHASE.DONE) {
     ui.meter.classList.add('hidden');
     return;
   }
-  ui.meter.classList.remove('hidden');
+  paintMeterFrom(meterState());
+}
 
-  const striking = swing.phase !== SWING_PHASE.POWER;
-  const livePower = striking ? swing.power : swing.marker;
-  const lie = surfaceProps(round.playerSurface());
-  const liveControl = controlWindow({ club, power: livePower, lieSpread: lie.spread });
-  const targetPower = powerForCarry(club, shotPlan().distance, lie);
-  const zero = meterValue(0);
-  const fillEnd = meterValue(livePower);
-  ui.meterFill.style.left = `${Math.min(zero, fillEnd)}%`;
-  ui.meterFill.style.width = `${Math.abs(fillEnd - zero)}%`;
-  ui.meterMark.style.left = meterPct(swing.marker);
-  ui.meterLate.style.width = `${zero}%`;
-  ui.meterRisk.style.left = meterPct(swing.safePower);
-  ui.meterRisk.style.width = `${100 - meterValue(swing.safePower)}%`;
-  ui.meterTarget.style.left = meterPct(targetPower);
-  ui.meterIdeal.textContent = striking
-    ? 'late · draw / hook'
-    : `ideal ${Math.round(targetPower * 100)}%`;
-  ui.meterRiskCopy.textContent = striking
-    ? 'early · fade / slice'
-    : `overswing ${Math.round(swing.safePower * 100)}%+`;
+/**
+ * The struck meter, held on screen while the ball is in the air.
+ *
+ * Nine hundred milliseconds is about as long as a player looks at the bar
+ * before his eye follows the ball, and it is long enough to read a mark
+ * sitting outside the pale band next to the word SLICED.
+ */
+const STRIKE_FEEDBACK_TIME = 0.9;
+let frozenMeter = null;
+let frozenMeterTimer = 0;
 
-  /* The forgiving middle, drawn where it actually is, so a player can see the
-   * size of the target he is being given rather than having to infer it. */
-  ui.meterLine.style.left = meterPct(-swing.deadZone);
-  ui.meterLine.style.width =
-    `${((swing.deadZone * 2) / (1 - METER_FLOOR)) * 100}%`;
-
-  ui.meterHint.textContent = swing.phase === SWING_PHASE.POWER
-    ? liveControl.risk > 0.05 ? 'OVERSWING · CLICK TO RISK IT' : 'CLICK: SET POWER'
-    : swing.phase === SWING_PHASE.STRIKE
-      ? swing.risk > 0.05 ? 'CLICK: SMALLER SWEET SPOT' : 'CLICK: STRIKE'
-      : swing.strikeLabel();
-  ui.meter.classList.toggle('strike', swing.phase === SWING_PHASE.STRIKE);
-  ui.meter.classList.toggle('overswing', liveControl.risk > 0.05);
+function updateFrozenMeter(dt) {
+  if (!frozenMeter) return;
+  frozenMeterTimer -= dt;
+  if (frozenMeterTimer <= 0) {
+    frozenMeter = null;
+    ui.meter.classList.add('hidden');
+    return;
+  }
+  paintMeterFrom(frozenMeter);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1268,12 +1662,22 @@ player.yawOffset = 0;
 function fireSwing() {
   const result = swing.result;
   const strikeLabel = swing.strikeLabel();
+  /* Snapshot the resolved bar BEFORE the reset, so the mark he actually hit
+   * stays on screen for a beat while the ball is in the air. See
+   * `updateFrozenMeter`. The ball still launches on this frame — the meter is
+   * feedback, never a delay. */
+  const struck = meterState();
   swing.reset();
-  ui.meter.classList.add('hidden');
   const shot = round.playerSwing({
     club, power: result.power, accuracy: result.accuracy, aim: aimYaw,
   });
-  if (!shot) return;
+  if (!shot) {
+    ui.meter.classList.add('hidden');
+    return;
+  }
+  frozenMeter = struck;
+  frozenMeterTimer = STRIKE_FEEDBACK_TIME;
+  paintMeterFrom(struck);
   camMode = CAM.FLIGHT;
   flightTimer = 0;
   ui.shot.classList.add('hidden');
@@ -1370,14 +1774,28 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       return;
     }
+    /* A slot, not a club index. The bag puts three clubs in the first three
+     * slots so 1/2/3 still take out the driver, the iron and the putter — but
+     * a beer in slot four is now reachable by pressing 4, which is the whole
+     * of the playtest note. */
     const idx = Number(e.code.slice(5)) - 1;
-    if (idx < CLUB_IDS.length && round.hasBag) {
+    const inSlot = inventory.items[idx] ?? null;
+    if (inSlot) {
       if (camMode === CAM.ADDRESS && swing.phase !== SWING_PHASE.IDLE) {
         hud.toast('Club is locked once the swing starts. Press Q to reset.', 'hint');
         return;
       }
-      selectClub(CLUB_IDS[idx], { sound: true });
-      if (club === 'driver' && round.beat === BEAT.PLAYER_TEE) {
+      if (!CLUB_IDS.includes(inSlot)) {
+        inventory.select(idx);
+        hud.toast(`${GOLF_ITEMS[inSlot].name} — ${GOLF_ITEMS[inSlot].hint}`, 'hint', 2200);
+        return;
+      }
+      selectClub(inSlot, { sound: true });
+      /* Eric's "that is a lot of club" only means anything on a tee that does
+       * not want a driver. It used to fire on every tee, including the two
+       * that open on a driver by design — the same misfire as Lou's
+       * wrong-club line, from the other direction. */
+      if (club === 'driver' && round.beat === BEAT.PLAYER_TEE && !round.wantsDriver()) {
         cues.playSequence('bark.driver_on_par_three');
       }
     }
@@ -1439,7 +1857,13 @@ window.addEventListener('keydown', (e) => {
       break;
     }
     case 'KeyF':
+      /* Skipping an NPC tee shot is only a thing during the tee beat, and
+       * `requestSkip` says so itself. Everywhere else F is the hold that
+       * drinks the beer — the same key the flat and the Bing use for it. */
       if (round.requestSkip()) hud.toast('Skipping ahead.');
+      else if (!beginItemUse() && CONSUMABLES.includes(inventory.held)) {
+        hud.toast('Not while you are over the ball.', 'hint', 1600);
+      }
       break;
     case 'KeyM':
       audio.setMasterVolume(audio.muted ? 1 : 0);
@@ -1454,6 +1878,7 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
   if (e.code === 'KeyE') interaction.release();
+  if (e.code === 'KeyF') cancelItemUse();
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) cartRadio.pause();
@@ -1475,10 +1900,18 @@ interaction.register(bag, {
   onUse: () => round.takeBag(),
 });
 
+/**
+ * Everything on the cart you can actually take.
+ *
+ * All three of these used to be flavour: a sound, a line in the corner, and a
+ * can that vanished. They are pickups now — the beer goes in a slot and comes
+ * out again when he holds [F], the smokes and the tin do the same — which is
+ * the difference between an amenity and a prop of one.
+ */
 let cartBeersRemaining = carts.lead.amenities?.beers?.length ?? 0;
 interaction.register(carts.lead.amenities.cooler, {
   label: () => cartBeersRemaining > 0
-    ? `Crush a <b>cart beer</b> · ${cartBeersRemaining} cold`
+    ? `Take a <b>cart beer</b> · ${cartBeersRemaining} cold`
     : 'The <b>cooler</b> is empty',
   enabled: () => camMode === CAM.WALK,
   onUse: () => {
@@ -1486,34 +1919,41 @@ interaction.register(carts.lead.amenities.cooler, {
       hud.toast('Cooler is empty.', 'hint', 1400);
       return;
     }
-    const can = carts.lead.amenities.beers[cartBeersRemaining - 1];
-    can.visible = false;
-    cartBeersRemaining--;
     const at = carts.lead.amenities.cooler.getWorldPosition(new THREE.Vector3());
-    audio.play('can.crack', { volume: 0.72, position: at });
-    window.setTimeout(() => audio.play('can.sip', { volume: 0.62, position: at }), 380);
-    window.setTimeout(() => audio.play('can.crush', { volume: 0.72, position: at }), 980);
-    hud.toast(cartBeersRemaining ? `${cartBeersRemaining} beers left in the cart.` : 'Last cart beer.', 'good', 1900);
+    if (!pickUp('beer', {
+      taken: cartBeersRemaining > 1
+        ? `Cold one. ${cartBeersRemaining - 1} left in the cart.`
+        : 'Last cart beer. Hold F when you want it.',
+    })) return;
+    carts.lead.amenities.beers[cartBeersRemaining - 1].visible = false;
+    cartBeersRemaining--;
+    audio.play('golf.pickup', { volume: 0.5, position: at });
   },
 });
 
 interaction.register(carts.lead.amenities.cigarettes, {
-  label: 'Check the <b>cigarettes</b>',
-  enabled: () => camMode === CAM.WALK,
+  label: () => (inventory.has('cigs')
+    ? 'You already have the <b>smokes</b>'
+    : 'Take the <b>cigarettes</b>'),
+  enabled: () => camMode === CAM.WALK && !inventory.has('cigs'),
   onUse: () => {
     const at = carts.lead.amenities.cigarettes.getWorldPosition(new THREE.Vector3());
+    if (!pickUp('cigs', { taken: 'Smokes. Lou packed for eighteen holes.' })) return;
+    carts.lead.amenities.cigarettes.visible = false;
     audio.play('cig.pack', { volume: 0.5, position: at });
-    hud.toast('Cigarettes. Lou packed for eighteen holes.', 'hint', 1900);
   },
 });
 
 interaction.register(carts.lead.amenities.zyn, {
-  label: 'Tap the <b>Zyn tin</b>',
-  enabled: () => camMode === CAM.WALK,
+  label: () => (inventory.has('zyn')
+    ? 'The <b>tin</b> is already in your pocket'
+    : 'Take the <b>Zyn tin</b>'),
+  enabled: () => camMode === CAM.WALK && !inventory.has('zyn'),
   onUse: () => {
     const at = carts.lead.amenities.zyn.getWorldPosition(new THREE.Vector3());
+    if (!pickUp('zyn', { taken: 'Wintergreen. Naturally.' })) return;
+    carts.lead.amenities.zyn.visible = false;
     audio.play('zyn.tin', { volume: 0.55, position: at });
-    hud.toast('Wintergreen. Naturally.', 'hint', 1600);
   },
 });
 
@@ -1527,6 +1967,19 @@ interaction.register(carts.lead.amenities.zyn, {
  */
 let sideCoolerTarget = null;
 let sideCoolerRemaining = 0;
+/**
+ * Dress every can on the course, wherever it currently lives.
+ *
+ * The cart keeps its cans for the whole round; the trailside cooler is rebuilt
+ * with each hole, so this runs again on every load. Cheap and idempotent —
+ * `dressSquatchBeer` only ever swaps a geometry and a material.
+ */
+function restockSquatchBeer() {
+  dressSquatchBeer(carts.lead.amenities?.beers ?? []);
+  dressSquatchBeer(carts.follow.amenities?.beers ?? []);
+  dressSquatchBeer(course.sideCooler?.cans ?? []);
+}
+
 function wireSideCooler() {
   if (sideCoolerTarget) interaction.unregister(sideCoolerTarget);
   sideCoolerTarget = null;
@@ -1545,16 +1998,15 @@ function wireSideCooler() {
         hud.toast('Empty. Somebody beat you to it.', 'hint', 1400);
         return;
       }
-      const can = cooler.cans[sideCoolerRemaining - 1];
-      can.visible = false;
-      sideCoolerRemaining--;
       const at = cooler.group.getWorldPosition(new THREE.Vector3());
-      audio.play('can.crack', { volume: 0.72, position: at });
-      window.setTimeout(() => audio.play('can.sip', { volume: 0.62, position: at }), 380);
-      window.setTimeout(() => audio.play('can.crush', { volume: 0.72, position: at }), 980);
-      hud.toast(sideCoolerRemaining
-        ? `${sideCoolerRemaining} left in this cooler.`
-        : 'Last one out of this cooler.', 'good', 1900);
+      if (!pickUp('beer', {
+        taken: sideCoolerRemaining > 1
+          ? `Cold one. ${sideCoolerRemaining - 1} left in this cooler.`
+          : 'Last one out of this cooler.',
+      })) return;
+      cooler.cans[sideCoolerRemaining - 1].visible = false;
+      sideCoolerRemaining--;
+      audio.play('golf.pickup', { volume: 0.5, position: at });
     },
   });
 }
@@ -1569,9 +2021,17 @@ interaction.register(course.marker, {
   },
   onUse: () => {
     const hole = getHole(HOLE.number);
-    hud.say(hole
+    const text = hole
       ? `<em>Silver Pines</em> Hole ${hole.number}. ${hole.yards} yards. ${hole.blurb}`
-      : '<em>Silver Pines</em>');
+      : '<em>Silver Pines</em>';
+    /* One subtitle line at a time, always. `CueQueue` already guarantees that
+     * for everything anybody says; this is the one place in the scene that
+     * writes to the same element without going through it, and reading the
+     * tee marker mid-sentence used to erase whatever Lou was saying and take
+     * its timer with it. Reading a sign is not urgent enough to interrupt a
+     * man, so it waits its turn as a toast instead. */
+    if (cues.busy) hud.toast(text.replace(/<[^>]+>/g, ''), 'hint', 4200);
+    else hud.say(text);
   },
 });
 
@@ -1738,7 +2198,9 @@ const pauseMenu = createPauseMenu({
     'While addressing: mouse or A/D — aim; W/S — planned distance; click or Space — start, set power, then hit the strike band.',
     'Orange power overswings: early fades/slices right; late draws/hooks left.',
     'During dialogue: number keys — answer.',
-    'R — take a drop. G — pick up a tap-in. F — skip an NPC tee shot. M — mute.',
+    '1-5 — pick a slot: three clubs, plus whatever you took off the cart.',
+    'Hold F — drink the beer, light a smoke, pack a Zyn. (F skips an NPC tee shot on the tee.)',
+    'R — take a drop. G — pick up a tap-in. M — mute.',
     'Tab — pause or resume.',
   ],
   onPause: () => {
@@ -1773,6 +2235,7 @@ function frame() {
   dialogue.update(dt, player.position);
   round.update(dt, player.position);
   courseAudio?.update(dt);
+  updateItemUse(dt);
 
   // --- camera ---
   if (camMode === CAM.ADDRESS) {
@@ -1786,6 +2249,10 @@ function frame() {
     paintPlayerClub();
   } else if (camMode === CAM.FLIGHT) {
     flightTimer += dt;
+    /* The struck bar stays up for a beat after the third click, so the player
+     * can see where his mark landed against the pale band while the ball is
+     * still climbing. */
+    updateFrozenMeter(dt);
     applyFlightCamera(dt);
     /* Back to him once the ball has stopped and the eye has had a moment to
      * register where it finished. */
@@ -1844,6 +2311,7 @@ function frame() {
   audio.updateListener(camera);
   paintCard();
   paintGuide();
+  layoutSubtitle();
   paintBallFinder();
   renderer.render(scene, camera);
 }
@@ -1925,7 +2393,21 @@ async function boot() {
     campaign.enter(SCENE_IDS.SILVER_PINES, { spawn: 'car_park' });
   }
 
-  const resumeHole = begun.resumed ? round.restoreProgress(story.mission) : 1;
+  /* Preview checkpoint: stage plausible completed-hole scores through the
+   * real, saveable `story.recordHole()` for every hole before the requested
+   * waypoint, so a hole2/hole3/grille link opens on a round that is
+   * genuinely that far along. Only reachable on a fresh preview boot
+   * (`begun.resumed` is false the first time `story.begin()` claims the
+   * round), so it can never collide with an actually-resumed save. */
+  if (previewCheckpoint && !begun.resumed) {
+    const target = GOLF_CHECKPOINTS[previewCheckpoint];
+    const throughHole = target === 'grille' ? 3 : target - 1;
+    for (let n = 1; n <= throughHole; n++) stagePreviewHoleScore(n);
+  }
+
+  const resumeHole = begun.resumed || previewCheckpoint
+    ? round.restoreProgress(story.mission)
+    : 1;
   if (begun.resumed && resumeHole === null) {
     story.complete({ holes: story.mission.holes });
     return showStartBlocked({ reason: 'already_complete' });
@@ -1944,11 +2426,17 @@ async function boot() {
   courseAudio = new CourseAudio(audio);
   round.audio = courseAudio;
   courseAudio.start();
+  /* The owner-supplied beer artwork, on every can the course stocks. Awaited
+   * here rather than fired and forgotten so the first cooler he walks up to
+   * already has the real label on it; `resolveGear` never rejects and a
+   * missing file leaves the plain can, so this cannot hold the round up. */
+  await loadSquatchBeerLabel();
+  restockSquatchBeer();
   carts.lead.radioWorld(cartRadioPosition);
   cartRadio.setPosition(cartRadioPosition);
   carts.lead.setRadioOn(false);
 
-  if (begun.resumed && resumeHole > 1) {
+  if ((begun.resumed || previewCheckpoint) && resumeHole > 1) {
     await audio.loadAdditional?.({ prefixes: [`vo.golf.h${resumeHole}.`] }).catch?.(() => {});
   }
 
@@ -1965,7 +2453,12 @@ async function boot() {
 
   requestMouseCapture();
   player.enabled = true;
-  if (begun.resumed && resumeHole > 1) {
+  if (previewCheckpoint === 'grille') {
+    // The full round, staged and closed out for real: `showEndCard()` is the
+    // exact function `round`'s own `onRoundComplete` hook calls, and it
+    // banks the last hole and calls `story.complete()` itself.
+    showEndCard(round.roundSummary());
+  } else if ((begun.resumed || previewCheckpoint) && resumeHole > 1) {
     round.startHole(resumeHole);
     const t = HOLE.teeMarks.ball;
     player.position.set(t.x, HOLE.tee.y + 1.66, t.z + 4);
@@ -2003,7 +2496,7 @@ frame();
  */
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
-  interaction,
+  interaction, inventory, heldProps,
   cartRadio, landingPreview, npcBallMarkers,
   cartRadioAudioPlan,
   waitForCartRadioAudio: () => cartRadioAudioReady,
@@ -2042,7 +2535,9 @@ window.__golf = {
     carts.update(dt);
     for (const g of Object.values(golfers)) g.update(dt, player.position);
     courseAudio?.update(dt);
+    updateItemUse(dt);
     updateShotPresentation(dt);
+    updateFrozenMeter(dt);
     /* Keep the verifier's synchronous simulation equivalent to one rendered
      * frame. Browser animation normally applies this camera every RAF, but a
      * tight page-evaluate loop intentionally does not yield to RAF. */

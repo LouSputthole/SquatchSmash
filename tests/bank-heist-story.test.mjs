@@ -69,6 +69,7 @@ test('Lou gates THE TAKE until every required apartment item is physically colle
     kind: 'call',
     id: EVENT_IDS.LOU_HEIST_CALL,
     line: 'Lou said he would call. Today is not a day to guess.',
+    vo: 'door.refusal.heist_call',
   });
   assert.equal(apartment.callAnswered(DAY_FOUR_LOU_HEIST_CALL), true);
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].status, 'available');

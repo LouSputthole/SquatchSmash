@@ -69,6 +69,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { PostFX } from '../core/postfx.js';
 import { roomEnvironment } from '../world/textures.js';
 import { resolveGear } from '../world/gear.js';
 
@@ -88,7 +89,7 @@ import {
 
 import {
   AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, ENOLA_PARKING, CRATER,
-  TARGET_CITY,
+  TARGET_CITY, LIVE_FIRE,
 } from './config.js';
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
 import { TargetCity, craterOffset, riverCarve } from './scenes/TargetCity.js';
@@ -96,11 +97,14 @@ import { FatSquatch } from './payload/FatSquatch.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
-import { blastLuminance, shockRadiusAt } from './vfx/Detonation.js';
+import {
+  blastLuminance, blastWhiteout, shockRadiusAt, shellOpacity, shockPass,
+} from './vfx/Detonation.js';
 import { EnolaPreflight } from './preflight.js';
 import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
 import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
@@ -114,6 +118,74 @@ const canvas = $('scene');
 const overlay = $('overlay');
 const startBtn = $('start-btn');
 const loading = $('loading');
+
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?checkpoint=...)                      */
+/*
+ * LOCAL support only, deliberately — this does not go through
+ * `src/core/preview-mode.js`. That module's `previewCheckpointForLocation`
+ * is Heist's own vocabulary (`safehouse`/`bank_lobby`/…) with no idea this
+ * page exists, and its sibling `previewBeefRunCheckpointForLocation` is
+ * hard-scoped to `beefrun.html` by pathname — neither can be taught a third
+ * scene's checkpoints without changing a file both other scenes depend on.
+ * `src/beefrun/main.js` shows the pattern this mirrors: a page-local const
+ * computed once at boot, consulted by the Start handler below.
+ *
+ * The mission's REAL, SAVEABLE checkpoints are the four in `CHECKPOINTS`
+ * (./config.js) — `takeoff` / `turnOnCourse` / `preRelease` / `return` — the
+ * only points `MissionController.restoreCheckpoint()` can stage without a
+ * prior playthrough. This page's own `go(phase)` helper (below — built for
+ * `tools/verify-enolasquatch.mjs` and for driving the mission from the
+ * console) already knows how to reach every phase of the mission this way,
+ * three of which route straight through those four checkpoints
+ * (`go('cruise')` -> `restoreCheckpoint('turnOnCourse')`,
+ * `go('bombApproach')` -> `restoreCheckpoint('preRelease')`, `go('return')`
+ * -> `restoreCheckpoint('return')`) and the rest of which pose the airframe
+ * directly. `CHECKPOINT_ALIASES` below is the shareable-link vocabulary —
+ * the owner's six named waypoints, mapped onto the mission's real phase
+ * names rather than inventing a second one.
+ */
+const CHECKPOINT_ALIASES = Object.freeze({
+  preflight: 'preflight',       // in the seat, engines not yet started
+  takeoff: 'takeoff',           // lined up on the runway — a real CHECKPOINTS entry
+  flak: 'defense',              // over the corridor, into the flak/fighter stretch
+  bombrun: 'bombApproach',      // final approach on Squatchbourg — a real CHECKPOINTS entry
+  detonation: 'explosion',      // the Fat Squatch has just gone off
+  return: 'return',             // outbound of the crater, flying home — a real CHECKPOINTS entry
+});
+
+const PREVIEW_CHECKPOINT_LABELS = Object.freeze({
+  preflight: 'PREFLIGHT — ENGINE START',
+  takeoff: 'TAKEOFF ROLL',
+  defense: 'FLAK & FIGHTERS',
+  bombApproach: 'BOMB RUN',
+  explosion: 'DETONATION',
+  return: 'RETURN LEG',
+});
+
+function previewCheckpointForLocation(locationLike = window.location) {
+  // Same gate as `src/core/preview-mode.js`'s own two checkpoint parsers
+  // (`previewCheckpointForLocation` for Heist, `previewBeefRunCheckpointForLocation`
+  // for the Beef Run): a bare `?checkpoint=` on an ordinary link does nothing,
+  // it takes `?preview=1` alongside it, so a shared preview link cannot be
+  // mistaken for (or fired off from) a normal campaign entry.
+  if (!isPreviewMode(locationLike)) return null;
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(CHECKPOINT_ALIASES, value)
+    ? CHECKPOINT_ALIASES[value]
+    : null;
+}
+
+/** Resolved once at boot — a real `go()` phase name, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+  const tag = overlay?.querySelector('.tag');
+  if (tag) tag.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  if (startBtn) startBtn.textContent = `Start at ${label.toLowerCase()}`;
+}
 
 window.__squatchStage?.('Building the Enola Squatch…');
 
@@ -150,10 +222,36 @@ const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.1, 15000);
 
+/*
+ * Bloom, tuned down from the apartment's defaults for the same reason NO WAKE
+ * tunes it down (`src/nowake/main.js`): this is a wide-open night exterior,
+ * not a small dark room. The unmodified defaults in `core/postfx.js` were set
+ * against 151 emissive meshes crammed into one flat; out here the emissive
+ * surfaces are Squatchbourg's lit windows and streets seen from altitude, the
+ * tracer fire, the muzzle flashes and the engine-out smoke glow, and they are
+ * both far more numerous and far more likely to sit above the default 0.82
+ * threshold than a lamp in a room. A higher threshold and lower strength keep
+ * the same restrained "just the genuinely bright things" read this scene's
+ * flight already has rather than washing the whole city out. The nuclear
+ * flash/shock is unaffected either way — `blastWhiteout`/`blastLuminance`
+ * (./vfx/Detonation.js) are a separate CSS filter chain over the finished
+ * frame, exactly as postfx.js's own header describes for the drink/mushroom
+ * filters; bloom and that wash do not interact and neither replaces the
+ * other. Same two knobs NO WAKE turns, same values, for the same class of
+ * scene (open-air, night, distant lights) rather than an untested guess.
+ */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.18;
+  postfx.bloom.strength = .25;
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* ------------------------------------------------------------------ */
@@ -343,6 +441,17 @@ const eastGround = buildEastGround(scene);
 window.__squatchStage?.('Painting the desert corridor…');
 
 /**
+ * What `depressGroundForCrater()` overwrote, so a checkpoint restart before the
+ * drop can put it back — `null` while there is no hole. Every entry is one
+ * vertex of the coarse east ground: its index, the height it stood at and the
+ * colour it was painted, taken BEFORE the crater profile was folded in.
+ * Restoring from the recorded values rather than by re-running the height
+ * function is what makes the undo exact: the mesh was built by sampling
+ * `groundHeightCombined`, which now answers with the hole in it.
+ */
+let craterGroundEdits = null;
+
+/**
  * Sink the coarse ground under the crater.
  *
  * The east ground is one static mesh at 50 m per cell — plenty for a route
@@ -355,6 +464,8 @@ window.__squatchStage?.('Painting the desert corridor…');
  * fine mesh be the surface the player actually looks at.
  *
  * Only the ~1,200 vertices inside the footprint are touched, out of 24,465.
+ * Every one of them is recorded into `craterGroundEdits` on the way past, which
+ * is what makes `raiseGroundAfterCrater()` below possible.
  */
 function depressGroundForCrater(craterRecord) {
   const geo = eastGround.geometry;
@@ -365,12 +476,20 @@ function depressGroundForCrater(craterRecord) {
   const outer = CRATER.radius + CRATER.rimWidth;
   const scorch = new THREE.Color(0x241d18);
   const c = new THREE.Color();
+  const edits = [];
   let touched = 0;
   for (let i = 0; i < pos.count; i++) {
     const wx = ox + pos.getX(i);
     const wz = oz + pos.getZ(i);
     const d = Math.hypot(wx - craterRecord.x, wz - craterRecord.z);
     if (d >= outer) continue;
+    edits.push({
+      i,
+      y: pos.getY(i),
+      r: colours ? colours.getX(i) : 0,
+      g: colours ? colours.getY(i) : 0,
+      b: colours ? colours.getZ(i) : 0,
+    });
     // 8 m of clearance in the middle, closing to nothing at the lip, so the
     // fine crater mesh always wins the depth test where it exists.
     const clearance = 8 * smoothstep(outer, outer - 140, d);
@@ -382,10 +501,29 @@ function depressGroundForCrater(craterRecord) {
     }
     touched++;
   }
+  craterGroundEdits = edits;
   pos.needsUpdate = true;
   if (colours) colours.needsUpdate = true;
   geo.computeVertexNormals();
   return touched;
+}
+
+/** Fill the hole in again — the undo for `depressGroundForCrater()`. */
+function raiseGroundAfterCrater() {
+  const edits = craterGroundEdits;
+  craterGroundEdits = null;
+  if (!edits?.length) return 0;
+  const geo = eastGround.geometry;
+  const pos = geo.attributes.position;
+  const colours = geo.attributes.color;
+  for (const e of edits) {
+    pos.setY(e.i, e.y);
+    if (colours) colours.setXYZ(e.i, e.r, e.g, e.b);
+  }
+  pos.needsUpdate = true;
+  if (colours) colours.needsUpdate = true;
+  geo.computeVertexNormals();
+  return edits.length;
 }
 
 /* ------------------------------------------------------------------ */
@@ -437,11 +575,25 @@ aircraft.anchors.payloadMount.add(payload.group);
  * and no manifest change; if the file ever goes missing, `resolveGear` hands
  * back its own drawn placeholder and the badges simply keep the drawn crest
  * they were built with. Fire-and-forget on purpose — nothing waits for it. */
+/* The second slot, `enolasquatch.noseart`, is the owner's own "Enola Squatch"
+ * artwork — see the block above `this.parts.noseArtPlate` in
+ * `scenes/EnolaSquatch.js` for the two-step drop-in. It is resolved the same
+ * way and applied ONLY when `resolveGear` reports the slot resolved to a real
+ * file (`real`): the slot does not exist in `assets/art/manifest.json` yet, and
+ * without that guard the resolver's own generic poster fallback would land on
+ * the aeroplane's flank in place of the drawn "ENOLA SQUATCH" stencil the
+ * plate is built with, which would be a downgrade rather than a placeholder.
+ * Asking for a slot that is not in the manifest costs one map lookup and
+ * fetches nothing, so there is no 404 in the console for artwork that has not
+ * been made yet — the same reason `assets/faces/index.json` exists. */
 let clubLogoBadges = 0;
-resolveGear(['crest.round'])
+let noseArtApplied = 0;
+resolveGear(['crest.round', 'enolasquatch.noseart'])
   .then((gear) => {
     const tex = gear.get('crest.round')?.texture;
     clubLogoBadges = aircraft.applyClubLogo(tex) + payload.applyClubLogo(tex);
+    const art = gear.get('enolasquatch.noseart');
+    if (art?.real) noseArtApplied = aircraft.applyNoseArt(art.texture);
   })
   .catch(() => { /* the drawn crest is already on every badge */ });
 
@@ -574,7 +726,9 @@ const dialogue = new DialogueSystem(hud, {
   audio: missionAudio,
   // The right man's head bobs when his line plays — the same hook Beef Run
   // uses for Lou and Cecilio, just with four people on the circuit.
-  onLine: (line) => crew.speak(line.who, (line.hold ?? 2) * 0.8),
+  /* `DialogueSystem.update` plays the take and THEN calls this, so the take is
+   * already under way and the mouth can run on it rather than on the hold. */
+  onLine: (line) => crew.speak(line.who, (line.hold ?? 2) * 0.8, missionAudio.voiceTake()),
 });
 
 const preflight = new EnolaPreflight({
@@ -595,11 +749,24 @@ const mission = new MissionController({
 
 /* The one wire that keeps the crater honest: the mission tells us the hole
  * exists, we fold it into the ground function every other system already holds
- * a reference to, and we sink the coarse ground mesh under the fine one. */
+ * a reference to, and we sink the coarse ground mesh under the fine one.
+ *
+ * It runs in BOTH directions now. `MissionController.restoreCheckpoint()` calls
+ * it with `null` when a restart before the drop puts Squatchbourg back
+ * (`TargetCity.restore()`), because the city is only two thirds of the hole:
+ * the rest is this module's `activeCrater` — which `groundHeightCombined` folds
+ * into every height query physics, the payload, the defense props and the
+ * targeting all make — and the sunken, scorched vertices in the coarse east
+ * ground mesh. Rebuilding the city without undoing those two would stand a
+ * restored Squatchbourg in the air over a hundred-metre pit. */
 mission.onCrater = (crater) => {
-  if (!crater) return;
-  activeCrater = crater;
-  depressGroundForCrater(crater);
+  if (crater) {
+    activeCrater = crater;
+    depressGroundForCrater(crater);
+  } else {
+    activeCrater = null;
+    raiseGroundAfterCrater();
+  }
 };
 
 mission.onComplete = (report) => {
@@ -844,6 +1011,30 @@ blastscreen.style.cssText = [
 ].join(';');
 document.body.appendChild(blastscreen);
 
+/* THE FRONT GOING PAST. Owner: "I want a shock wave to pass you ... it needs
+ * to be visible as it passes over you that way the player doesn't miss it."
+ *
+ * A second overlay, and it has to be a second one. The flash is LIGHT: white,
+ * `screen`-blended, and it arrives the instant the bomb goes off. This is
+ * PRESSURE — dust and compressed air, arriving several seconds later depending
+ * entirely on how far the player got — so it is dirty rather than white, it is
+ * `overlay`-blended so it dulls the picture instead of bleaching it, and it
+ * comes and goes in about a second.
+ *
+ * `Detonation` draws the front in the world as well (the bubble the aeroplane
+ * ends up inside, and the bright ring on its silhouette), and that is the real
+ * effect. This exists because a player can be looking anywhere at all when the
+ * front arrives, and the one thing the owner asked for is that he does not
+ * miss it. A full-screen sweep is true from every heading. */
+const washscreen = document.createElement('div');
+washscreen.id = 'enola-shock';
+washscreen.style.cssText = [
+  'position:fixed', 'inset:0', 'pointer-events:none', 'z-index:44',
+  'opacity:0', 'mix-blend-mode:overlay',
+  'background:radial-gradient(circle at 50% 50%,rgba(230,236,246,0.15) 0%,rgba(206,196,176,0.72) 62%,rgba(150,140,124,0.95) 100%)',
+].join(';');
+document.body.appendChild(washscreen);
+
 const combatHud = document.createElement('div');
 combatHud.id = 'enola-combat';
 combatHud.style.cssText = [
@@ -879,6 +1070,115 @@ autoStrip.style.cssText = [
 ].join(';');
 document.body.appendChild(autoStrip);
 
+/* ------------------------------------------------------------------ */
+/* The camera tooltip                                                  */
+/*
+ * Owner, 2026-08-04: "After take off and like 20 seconds of flying I would
+ * like to a flashing tool tip to hit C to change the camera view."
+ *
+ * So: nothing on the glass during the takeoff itself — the player has enough
+ * to read — then twenty seconds of real flying later, a slow pulse in the
+ * bottom middle saying which key changes the view. It goes away the instant C
+ * is pressed and never comes back for the rest of the flight; if it is
+ * ignored it gives up on its own after half a minute rather than blinking at
+ * the player for the whole raid.
+ *
+ * `cameraTip.flying` starts counting the moment the mission leaves the
+ * `takeoff` phase with the wheels up — the same edge `updateTakeoff()` uses to
+ * call the aeroplane airborne — so "twenty seconds of flying" means twenty
+ * seconds of flying and not twenty seconds of sitting on the runway.
+ *
+ * The pulse is driven from `paintCombat()` rather than a CSS keyframe for the
+ * same reason `blastscreen`'s opacity is: this page builds its overlays in JS
+ * with inline styles and has no stylesheet of its own to hang an @keyframes
+ * on, and the frame loop is already painting every frame anyway.
+ */
+/* ------------------------------------------------------------------ */
+
+const cameraTip = document.createElement('div');
+cameraTip.id = 'enola-camera-tip';
+cameraTip.style.cssText = [
+  'position:fixed', 'left:50%', 'bottom:22%', 'transform:translateX(-50%)',
+  'pointer-events:none', 'z-index:31', 'display:none', 'white-space:nowrap',
+  'padding:8px 18px', 'border:1px solid rgba(232,200,106,0.55)', 'border-radius:6px',
+  'background:rgba(12,10,20,0.72)',
+  'font:700 14px/1.3 "Trebuchet MS",system-ui,sans-serif', 'letter-spacing:0.14em',
+  'color:#e8c86a', 'text-shadow:0 2px 8px #000',
+].join(';');
+cameraTip.innerHTML = 'PRESS <span style="'
+  + 'display:inline-block;min-width:18px;padding:1px 6px;margin:0 4px;'
+  + 'border:2px solid rgba(255,255,255,0.8);border-radius:4px;color:#fff'
+  + '">C</span> TO CHANGE THE CAMERA VIEW';
+document.body.appendChild(cameraTip);
+
+const cameraTipState = {
+  /** Seconds of real flight since the wheels left the runway. */
+  flying: 0,
+  /** Seconds the tip has been on screen. */
+  shown: 0,
+  /** True once the player has pressed C, or the tip has timed out. */
+  done: false,
+  delay: 20,
+  linger: 30,
+};
+
+/** Called from the keydown handler the first time C is pressed. */
+function dismissCameraTip() {
+  cameraTipState.done = true;
+  cameraTip.style.display = 'none';
+}
+
+function updateCameraTip(dt) {
+  const s = cameraTipState;
+  if (s.done) return;
+  /* Only counts while the aeroplane is genuinely flying itself somewhere. The
+   * phase list is every phase that is NOT after takeoff, so a checkpoint
+   * restart into the middle of the flight still gets the hint — which a
+   * `flags.rotateCalled` test would not, since nothing sets that flag on a
+   * restore. */
+  const flying = mission.inCockpit && !physics.onGround
+    && !['idle', 'walkaround', 'nightfall', 'preflight', 'taxi', 'takeoff'].includes(mission.phase);
+  if (!flying) return;
+  s.flying += dt;
+  if (s.flying < s.delay) return;
+  s.shown += dt;
+  if (s.shown > s.linger) { dismissCameraTip(); return; }
+  // Never over the top of the tail-gun HUD or a choice panel.
+  if (mission.gunner.manned || currentChoice()) {
+    cameraTip.style.display = 'none';
+    return;
+  }
+  cameraTip.style.display = 'block';
+  // A slow, unmistakable pulse — about one flash a second.
+  const pulse = 0.55 + 0.45 * Math.sin(s.shown * 6.0);
+  cameraTip.style.opacity = String(pulse);
+}
+
+/**
+ * The city's air-raid sirens, wound up as the raid comes in.
+ *
+ * Owner: "maybe an air raid siren as we approach would be good as wlel."
+ *
+ * Here rather than in `MissionController` because it is a mix decision made
+ * from a position and a range, not mission state: the sirens are a fixed thing
+ * in the world at the middle of Squatchbourg, and how loud they are is simply
+ * how far away the aeroplane is. `EnolaMissionAudio.setAirRaidSiren()` owns
+ * the falloff and does nothing at all until the cue is recorded.
+ *
+ * They stop at the flash. Nobody is winding a siren after that, and the three
+ * blast clips own the mix for the next forty-four seconds anyway.
+ */
+const SIREN_AT = { x: TARGET_X, y: 0, z: COMPOUND.z };
+function updateAirRaidSiren() {
+  if (!mission.inCockpit || mission.explosionPoint || mission.finished) {
+    missionAudio.setAirRaidSiren(null);
+    return;
+  }
+  SIREN_AT.y = groundHeightCombined(TARGET_X, COMPOUND.z) + 30;
+  const p = physics.position;
+  missionAudio.setAirRaidSiren(SIREN_AT, Math.hypot(p.x - SIREN_AT.x, p.z - SIREN_AT.z));
+}
+
 function paintCombat() {
   const flash = mission.blastFlash || 0;
   if (flash > 0.001) {
@@ -887,6 +1187,16 @@ function paintCombat() {
     blastscreen.style.opacity = String(Math.min(1, flash));
   } else if (blastscreen.style.opacity !== '0') {
     blastscreen.style.opacity = '0';
+  }
+
+  /* The front crossing the camera. Capped below 1 on purpose: this is meant to
+   * be something sweeping ACROSS the view, and a view it can black out is a
+   * view the player cannot see it sweep across. */
+  const wash = mission.blastWash || 0;
+  if (wash > 0.001) {
+    washscreen.style.opacity = String(Math.min(0.88, wash));
+  } else if (washscreen.style.opacity !== '0') {
+    washscreen.style.opacity = '0';
   }
 
   const gun = mission.gunner;
@@ -1003,6 +1313,7 @@ function simulateFrame(dt) {
   }
   missionAudio.setAirspeed(inCockpit ? physics.tas : 0);
   missionAudio.setRain(weather.rain);
+  updateAirRaidSiren();
 
   const focus = inCockpit ? physics.position : player.position;
   weather.update(dt, focus);
@@ -1026,6 +1337,7 @@ function simulateFrame(dt) {
   }
   audio.updateListener?.(camera);
 
+  updateCameraTip(dt);
   paintHud();
 }
 
@@ -1207,7 +1519,7 @@ window.__squatch.enolaSquatch = true;
 
 window.__enolaSquatch = {
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
-  cameras, input, hud, flightHud, scene, camera, renderer, airfield,
+  cameras, input, hud, flightHud, scene, camera, renderer, airfield, postfx,
   player, interaction, preflight, crew, city, audio: missionAudio,
   get defense() { return mission.defense; },
   get targeting() { return mission.targeting; },
@@ -1245,11 +1557,24 @@ window.__enolaSquatch = {
     return { inArc, yaw: mission.gunner.yaw, pitch: mission.gunner.pitch };
   },
   groundHeight: groundHeightCombined,
+  /* The for-show switch itself, so a console can put the beating back on:
+   *   __enolaSquatch.liveFire.fighters = true;
+   *   __enolaSquatch.defense.liveFire = true;   // the flak reads its own copy
+   * See `LIVE_FIRE` in ./config.js for what each one covers. */
+  liveFire: LIVE_FIRE,
   /* The detonation's own maths, so a verifier can assert the SHAPE of the
    * double flash and the shock expansion rather than trying to catch a
    * quarter-second peak by sampling. */
   blastLuminance,
+  /** What the SCREEN does — a short bleach onto a wash you can see through.
+   * Not the device's own curve; see `blastWhiteout`'s note for the difference
+   * and for why the four-tenths-of-a-second blind is gone. */
+  blastWhiteout,
   shockRadiusAt,
+  /** How solid the pressure shell is at a given radius. */
+  shellOpacity,
+  /** How hard the front is crossing a viewer at a given range. */
+  shockPass,
   /** The crater's own profile, so a caller can hold the ground against it. */
   craterOffsetAt: (d) => craterOffset(d, CRATER),
   go,
@@ -1347,9 +1672,77 @@ window.__enolaSquatch = {
         onPayload: payload.parts.clubLogo?.length ?? 0,
         realArtworkApplied: clubLogoBadges,
       },
+      /* The owner's own "Enola Squatch" artwork: whether the placeholder plate
+       * is up (always) and whether a real file has replaced it (only once
+       * `enolasquatch.noseart` is in `assets/art/manifest.json`). */
+      noseArt: {
+        placeholderUp: !!aircraft.parts.noseArtPlate,
+        name: aircraft.parts.noseArtPlate?.name ?? null,
+        realArtworkApplied: noseArtApplied,
+      },
+      /* The flashing camera hint — see `updateCameraTip()`. */
+      cameraTip: {
+        flying: +cameraTipState.flying.toFixed(1),
+        shown: +cameraTipState.shown.toFixed(1),
+        done: cameraTipState.done,
+        visible: cameraTip.style.display === 'block',
+        opacity: Number(cameraTip.style.opacity || 0),
+      },
       scenery: { trees: airfieldScenery.trees, tufts: airfieldScenery.tufts },
       cityDestroyed: city.destroyed,
       city: city.stats(),
+      /* Squatchbourg as a restart sees it: whether the hole exists in the
+       * MISSION's ground (not just in the mesh), whether the street plate and
+       * the river are drawn, whether the lights are on, and how many lots are
+       * still standing rather than flattened or vaporised. This is the readout
+       * `restoreCheckpoint()` has to be able to put back — see
+       * `TargetCity.restore()`. */
+      target: {
+        destroyed: city.destroyed,
+        crater: !!activeCrater,
+        craterMesh: !!city.crater,
+        /* Two readings of the same hole, because they answer different
+         * questions. `groundHole` is how far the ground has dropped at the
+         * MIDDLE OF TOWN, which is where the restored city has to stand and
+         * which therefore has to come back to exactly zero; how deep it gets in
+         * the first place depends on where the bomb actually fell, since the
+         * Fat Squatch carries the aeroplane's speed downrange. `holeAtCrater`
+         * is the depth at ground zero itself, which is always the full
+         * `CRATER.depth` while a crater exists and is the honest way to ask
+         * "is there a hole at all". */
+        groundHole: +(groundHeightCombined(TARGET_X, COMPOUND.z)
+          - rawEastHeight(TARGET_X, COMPOUND.z)).toFixed(1),
+        holeAtCrater: activeCrater
+          ? +(groundHeightCombined(activeCrater.x, activeCrater.z)
+            - rawEastHeight(activeCrater.x, activeCrater.z)).toFixed(1)
+          : 0,
+        standingLots: city.lots.filter((l) => !l.gone).length,
+        totalLots: city.lots.length,
+        landmarksAlive: city.landmarks.filter((l) => l.alive).length,
+        streetsVisible: !!city.parts.streets?.visible,
+        riverVisible: !!city.parts.river?.visible,
+        windowGlow: +(city.parts.buildingWallMat?.emissiveIntensity ?? 0).toFixed(3),
+        flattened: city.flattened,
+      },
+      /* The two diamonds — see `NAV_BY_PHASE` in mission/MissionController.js.
+       * `onScreen` is what the HUD is actually doing with it this frame: the
+       * diamond on the place, or the arrowhead pinned to the edge. */
+      marker: (() => {
+        const nav = mission.navTarget();
+        if (!nav) return { shown: false, label: null };
+        const dir = mission.projectNav(nav, mission.navRange ?? 0);
+        return {
+          shown: !document.getElementById('br-dir')?.classList.contains('hidden'),
+          label: nav.label,
+          nm: +(mission.navRange ?? 0).toFixed(2),
+          onScreen: dir ? dir.onScreen : null,
+          x: dir ? +dir.x.toFixed(1) : null,
+          y: dir ? +dir.y.toFixed(1) : null,
+          tag: document.getElementById('br-dir')?.querySelector('.tag')?.textContent ?? null,
+        };
+      })(),
+      /* For show, or for real. See `LIVE_FIRE` in ./config.js. */
+      liveFire: { flak: mission.defense.liveFire, fighters: LIVE_FIRE.fighters },
       /* The 2026-08-04 escalation pass: the air battle, the box that flies for
        * you, the gun you fly it to work, and the blast. All read-only. */
       fighters: {
@@ -1385,9 +1778,18 @@ window.__enolaSquatch = {
         flash: +(mission.blastFlash || 0).toFixed(3),
         shockRadius: Math.round(mission.detonation.shockRadius),
         shockArrived: mission._shockArrived,
+        /* The front as the PLAYER meets it — how hard it is crossing him this
+         * frame, how far he is from the hole, whether it has gone past, and
+         * whether the column has settled into standing over the crater. */
+        wash: +(mission.blastWash || 0).toFixed(3),
+        viewRange: Math.round(mission.detonation.viewRange || 0),
+        shockPassed: !!mission.detonation.shockPassed,
+        lingering: !!mission.detonation.lingering,
+        turbulence: +(mission.weather?.turbulence ?? 0).toFixed(3),
         cityFlattened: city.flattened,
         cityShock: Math.round(city.shockRadius || 0),
       },
+      camera: { view: cameras.view, dropCam: +(mission._dropCam || 0).toFixed(2) },
       evasion: +mission.evasion.toFixed(3),
       phaseTime: +mission.phaseTime.toFixed(2),
       missionTime: +mission.missionTime.toFixed(2),
@@ -1436,10 +1838,18 @@ function startAudio() {
 
 startBtn.addEventListener('click', () => {
   if (!game.started) {
-    game.started = true;
-    mission.begin();
-    // Daylight on the apron, dark by the runway — see the `nightfall` phase.
-    hud.say('<em>Whispering Pines Municipal, the last of the afternoon.</em> Walk her with the Captain before you get in.', 6000);
+    if (previewCheckpoint) {
+      // `go()` sets `game.started`/`game.paused`/`mission.paused` itself —
+      // see its own doc comment below.
+      go(previewCheckpoint);
+      const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+      hud.say(`<em>Preview checkpoint:</em> ${label}.`, 4200);
+    } else {
+      game.started = true;
+      mission.begin();
+      // Daylight on the apron, dark by the runway — see the `nightfall` phase.
+      hud.say('<em>Whispering Pines Municipal, the last of the afternoon.</em> Walk her with the Captain before you get in.', 6000);
+    }
   }
   startAudio();
   overlay.classList.add('hidden');
@@ -1499,6 +1909,10 @@ const pauseMenu = createPauseMenu({
     'On the apron: W A S D — walk. E — check the thing the marker is on. E at the crew door — get in.',
     'In the aircraft: W/S — pitch. A/D — bank. Q/E — rudder. Shift/Z — throttle.',
     'P — autopilot (holds heading and height, and nothing else). T — take the tail gun.',
+    /* Both keys refuse on the ground and in an attitude the gyro will not
+     * take, and a player who does not know that reads the refusal as a dead
+     * key — see the toast note in the keydown handler. Say the condition. */
+    'P and T both need you airborne, wings level and out of the stall — on the runway they will say no.',
     'On the gun: mouse traverses the turret, left button fires. Nobody is flying while you are back there.',
     'F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop your two engines (three and four).',
@@ -1570,16 +1984,35 @@ document.addEventListener('keydown', (e) => {
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
   player.setKey(e.code, true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
+  // The flashing camera hint goes away the first time the player uses the key
+  // it is pointing at. `KeyC` itself is `FlightInput`'s own 'camera' action,
+  // handled through `input.onAction` — this only dismisses the tip.
+  if (e.code === 'KeyC') dismissCameraTip();
   /* P and T. Neither is in `FlightInput`'s action map and neither should be:
    * that file is shared with the Beef Run, which has no autopilot and no
-   * turret. Handled here, on this page only. */
+   * turret. Handled here, on this page only.
+   *
+   * THE TOASTS USED TO LIE (owner playtest, 2026-08-04: "not sure if P and T
+   * for tail gun work"). Both keys have always worked — dispatched as real
+   * keyboard events in a browser they engage the autopilot and take the
+   * turret, verified by reading the state back. What they did NOT do was tell
+   * the truth when they refused: `toggleAutopilot()` returns false both when
+   * it has just switched the gyro OFF and when it would not take the
+   * aeroplane at all, and both came up as "AUTOPILOT OFF"; `toggleGun()` did
+   * the same with "BACK IN THE SEAT" for a player who had never left it. A key
+   * that answers with the opposite of what it did reads exactly like a key
+   * that does nothing. So the toast is now raised off the CHANGE OF STATE, and
+   * a refusal says why (in `MissionController`, on the glass, where the
+   * character's own line already goes). */
   if (mission.inCockpit && e.code === 'KeyP') {
+    const was = mission.autopilot.engaged;
     const on = mission.toggleAutopilot();
-    hud.toast(on ? 'AUTOPILOT ENGAGED' : 'AUTOPILOT OFF');
+    if (on !== was) hud.toast(on ? 'AUTOPILOT ENGAGED' : 'AUTOPILOT OFF');
   }
   if (mission.inCockpit && e.code === 'KeyT') {
+    const was = mission.gunner.manned;
     const on = mission.toggleGun();
-    hud.toast(on ? 'TAIL GUN — LEFT BUTTON TO FIRE' : 'BACK IN THE SEAT');
+    if (on !== was) hud.toast(on ? 'TAIL GUN — LEFT BUTTON TO FIRE' : 'BACK IN THE SEAT');
   }
   // The nightfall cut is skippable — see `MissionController.skipCutscene()`.
   if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {
@@ -1668,7 +2101,8 @@ function frame() {
     simulateFrame(dt);
   }
 
-  renderer.render(scene, camera);
+  postfx.render();
+  postfx.sample(dt);
 }
 
 frame();

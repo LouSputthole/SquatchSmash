@@ -16,6 +16,12 @@ export class HeistHud {
     this.weapon = document.querySelector('#ammo small');
     this.bag = document.getElementById('bag-readout');
     this.health = document.querySelector('#health i');
+    /* The armour band sits under the health bar and is only there when the
+     * plate carrier is on. It is the visible half of "the vest does
+     * something": the player can see he picked it up without taking a round
+     * to find out. */
+    this.armor = document.getElementById('armor');
+    this.armorBar = this.armor?.querySelector('i') ?? null;
     this.suppression = document.getElementById('suppression');
     this.damage = document.getElementById('damage-edge');
     this.drive = document.getElementById('drive-hud');
@@ -33,7 +39,21 @@ export class HeistHud {
 
   show() { this.root.classList.remove('hidden'); }
   setPhase(value) { this.phase.textContent = String(value).replaceAll('_', ' '); }
-  setObjective(value) { this.objective.textContent = value; }
+  /**
+   * The standing order.
+   *
+   * Idempotent on purpose: THE TAKE recomputes the objective from the mission
+   * state every frame (see `src/heist/orders.js`), which is what stops it
+   * going stale, and a DOM write per frame for a sentence that has not changed
+   * is a layout the scene does not need.
+   */
+  setObjective(value) {
+    const text = String(value ?? '');
+    if (text === this._objectiveText) return false;
+    this._objectiveText = text;
+    this.objective.textContent = text;
+    return true;
+  }
   setThreat(active, remaining = 0, total = 1) {
     this.threat.classList.toggle('hidden', !active);
     if (!active) return;
@@ -79,6 +99,16 @@ export class HeistHud {
   }
 
   setHealth(value) { this.health.style.background = `linear-gradient(90deg,#8fa391 ${value}%,rgba(255,255,255,.12) ${value}%)`; this.damage.style.opacity = String((100 - value) / 150); }
+
+  /** @param {number} fraction 0 for no carrier, 1 for a fresh one. */
+  setArmor(fraction = 0) {
+    if (!this.armor) return;
+    const value = Math.max(0, Math.min(1, fraction)) * 100;
+    this.armor.classList.toggle('hidden', value <= 0);
+    if (this.armorBar) {
+      this.armorBar.style.background = `linear-gradient(90deg,#7d97b4 ${value}%,rgba(255,255,255,.10) ${value}%)`;
+    }
+  }
   setSuppression(value) { this.suppression.style.opacity = String(value * 0.75); }
   setBag(value, count) { this.bag.classList.toggle('hidden', count <= 0); this.bag.querySelector('span').textContent = `$${value.toLocaleString()}`; }
   setDriving(active, mph = 0, route = '') { this.drive.classList.toggle('hidden', !active); this.speed.textContent = Math.round(mph); if (route) this.route.textContent = route; }

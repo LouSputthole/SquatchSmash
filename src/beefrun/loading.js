@@ -97,8 +97,7 @@ export class Loading {
 
     // The cargo door is opened for this short sequence and closes itself once
     // all three crates are loaded. The only player action is E on a crate.
-    this.doorOpen = true;
-    this.doorLatched = false;
+    this.setDoor(true);
     this.showZones(false);
 
     for (const crate of this.crates) {
@@ -116,6 +115,22 @@ export class Loading {
     this.registered.length = 0;
     this.armed = false;
     this.showZones(false);
+    this.setDoor(false);
+  }
+
+  /**
+   * Open or shut the hold, and put the loading ramp with it.
+   *
+   * The door and the ramp are one fact: a hold you can see into but cannot
+   * reach is the owner's note — *"the only way to get to the crates is by
+   * clipping into the plane"*. Every place that used to set `doorOpen` and
+   * `doorLatched` by hand now goes through here so the two can never disagree.
+   */
+  setDoor(open) {
+    this.doorOpen = open;
+    this.doorLatched = !open;
+    this.aircraft.setCargoRamp?.(open);
+    return open;
   }
 
   showZones(on) {
@@ -135,8 +150,7 @@ export class Loading {
     if (this.briefBeat) this.dialogue.play(this.briefBeat, { once: true });
     this.checkBalance();
     if (this.allAboard) {
-      this.doorOpen = false;
-      this.doorLatched = true;
+      this.setDoor(false);
       this.audio?.play('door.knob', { volume: 0.8 });
       this.dialogue.play('load.done', { once: true });
       this.checkFinished();
@@ -189,8 +203,7 @@ export class Loading {
       hold: 0.6,
       onHoldProgress: (t) => { this.aircraft.parts.doorLever.rotation.x = (this.doorOpen ? 1 - t : t) * Math.PI * 0.5; },
       onUse: () => {
-        this.doorOpen = !this.doorOpen;
-        this.doorLatched = !this.doorOpen;
+        this.setDoor(!this.doorOpen);
         this.audio?.play('door.knob', { volume: 0.8 });
         this.showZones(this.doorOpen);
       },

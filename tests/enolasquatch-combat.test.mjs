@@ -29,7 +29,9 @@ import { AC_ENOLA } from '../src/enolasquatch/config.js';
 import { Autopilot, ROLL_LIMIT, HARD_LIMIT, REENGAGE_DELAY } from '../src/enolasquatch/systems/Autopilot.js';
 import { Interceptors, MAX_ENGAGED, FIGHTER_HEALTH } from '../src/enolasquatch/combat/Interceptors.js';
 import { Defense } from '../src/enolasquatch/combat/Defense.js';
-import { blastLuminance, shockRadiusAt, BLAST } from '../src/enolasquatch/vfx/Detonation.js';
+import {
+  blastLuminance, blastWhiteout, shockRadiusAt, shellOpacity, shockPass, BLAST,
+} from '../src/enolasquatch/vfx/Detonation.js';
 import { BEATS, BARKS, OBJECTIVES } from '../src/enolasquatch/dialogue/script.js';
 
 /* ------------------------------------------------------------------ */
@@ -144,6 +146,91 @@ test('the blast flashes TWICE, which is the whole point of the curve', () => {
   assert.ok(second > 0.9, 'the second pulse is the bright one and it is not bright');
   assert.equal(blastLuminance(0), 0);
   assert.ok(blastLuminance(8) < 0.05, 'it never gets dark again');
+});
+
+test('the screen bleaches, and then gets OUT OF THE WAY so the shot can be seen', () => {
+  /* Owner, 2026-08-05: "the flash from the explosion should completely blind
+   * you for a brief moment .4 or something screen all white."
+   *
+   * Owner, later the same day, walking that back: "maybe I was wrong on it
+   * blinding you but it needs to be visible as it passes over you that way the
+   * player doesn't miss it."
+   *
+   * The four-tenths version was built and it was wrong for a specific,
+   * checkable reason: the fireball reaches full size at 1.9 s, the Wilson
+   * cloud comes and goes between 0.3 and 3, and the first pulse is over in a
+   * twentieth of a second -- so an opaque screen for the first 0.4 s hid the
+   * beginning of the whole event and the player opened his eyes onto the
+   * aftermath. This test is the new instruction, and it is deliberately
+   * two-sided: the bleach must be REAL, and it must be OVER. */
+  assert.equal(blastWhiteout(0), 0, 'nothing before the bomb goes off');
+
+  // Real: total white, unbroken, for as long as the bleach lasts.
+  for (let t = 0.001; t < BLAST.blindSeconds; t += 0.002) {
+    assert.equal(blastWhiteout(t), 1,
+      `the bleach broke at ${t.toFixed(3)}s -- a flicker is worse than either`);
+  }
+  assert.ok(BLAST.blindSeconds > 0 && BLAST.blindSeconds <= 0.2,
+    `the bleach is ${BLAST.blindSeconds}s: long enough again to hide the fireball`);
+
+  // Over: by the time the ball is growing, the world is visible through it.
+  assert.ok(blastWhiteout(0.5) < 0.6, 'still too opaque to see the fireball grow');
+  assert.ok(blastWhiteout(0.5) > 0.15, 'and not so faint that the flash never happened');
+  assert.ok(blastWhiteout(BLAST.fireballGrow) < 0.35,
+    'the fireball reaches full size behind a screen the player cannot see through');
+  assert.ok(BLAST.washCeiling < 1, 'the wash is opaque, which makes it a wall');
+
+  /* And it lets go monotonically, so the afterimage cannot pulse. */
+  let previous = 1;
+  for (let t = BLAST.blindSeconds; t <= 4; t += 0.01) {
+    const now = blastWhiteout(t);
+    assert.ok(now <= previous + 1e-9, `the afterimage brightened again at ${t.toFixed(2)}s`);
+    previous = now;
+  }
+  assert.ok(blastWhiteout(6) < 0.02, 'the whiteout outlives the mission');
+});
+
+test('the device still flashes twice even though the screen no longer does', () => {
+  /* The two are deliberately different curves. `blastLuminance` drives the
+   * world -- the fireball and both real lights -- and keeps the double pulse;
+   * `blastWhiteout` drives the overlay and falls once. A change that quietly
+   * collapses one into the other either loses the most recognisable thing
+   * about a detonation from the LANDSCAPE, or puts the flicker back on the
+   * screen. */
+  assert.ok(blastLuminance(0.19) < blastLuminance(0.022) * 0.75, 'the device stopped dipping');
+  let prev = Infinity;
+  for (let t = BLAST.blindSeconds; t <= 3; t += 0.01) {
+    const now = blastWhiteout(t);
+    assert.ok(now <= prev + 1e-9, `the screen picked up the device's dip at ${t.toFixed(2)}s`);
+    prev = now;
+  }
+});
+
+test('the front is still legible at the ranges a player actually escapes to', () => {
+  /* The shell thins as it grows, because the same compressed air is spread
+   * over a sphere. What matters is that it has not thinned to nothing by the
+   * time it reaches the aeroplane: the escape runs at about 60-70 m/s from
+   * four hundred metres up, so the front crosses the player somewhere around
+   * one to three kilometres out on any flight that is not a suicide. */
+  assert.equal(shellOpacity(0), 0);
+  assert.ok(shellOpacity(1000) > 0.6, 'gone before it has left the city');
+  assert.ok(shellOpacity(3000) > 0.25, 'invisible by the time it catches a good escape');
+  assert.ok(shellOpacity(BLAST.bubbleFade + 1) === 0, 'it never actually goes away');
+});
+
+test('the shockwave passing over you is a sweep, not a state change', () => {
+  /* `shockPass` is what makes the front an EVENT for the player: it peaks
+   * exactly as the front crosses him and falls off either side, so the screen
+   * wash and the world shell both come and go rather than switching on. */
+  assert.equal(shockPass(0, 2000), 0, 'a front that has not left cannot be on top of you');
+  assert.equal(shockPass(2000, 2000), 1, 'dead level with the player and not peaking');
+  assert.ok(shockPass(2000, 2000 + BLAST.passWidth * 0.5) > 0.4, 'the approach is not felt');
+  assert.equal(shockPass(2000, 2000 + BLAST.passWidth * 2), 0, 'it is felt from much too far');
+  // Symmetric: it is as visible going away as it was coming.
+  assert.equal(
+    shockPass(2000, 2000 - 300).toFixed(6),
+    shockPass(2000, 2000 + 300).toFixed(6),
+  );
 });
 
 test('the shock front leaves supersonic and settles at the speed of sound', () => {

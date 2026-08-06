@@ -459,7 +459,25 @@ const geometry = await page.evaluate(() => {
     ['the rear exit', -3, -21.6, 0],
   ].filter(([, x, z, y]) => blocking(x, z, y)).map(([n]) => n);
 
-  return { legs: R.length - 1, fouled, nodes: R.length, mislabelled, unreachable, sealed };
+  /* (e) the corridor is a corridor, not a corridor with one end missing.
+   *
+   * "The end of the hallway near the coat check is open. It should be closed
+   * off to the exterior." It was: the staff corridor runs z −18..26, both side
+   * walls run its full length, the south end has always had a cap, and the
+   * north end — four metres past the coat check — simply stopped, so you
+   * walked out of the back of the building into the void the dining room's
+   * north wall exists to keep out of shot. Nothing is supposed to be through
+   * there; the lobby is x −9..9 and this is x 10..15.
+   *
+   * Tested from inside, walking north: past the end of the floor there must be
+   * something solid, at three points across the width. */
+  const corridorEndOpen = [10.6, 12.5, 14.4]
+    .filter((x) => !blocking(x, 26.6, room.groundAt(x, 25.5, 0)));
+
+  return {
+    legs: R.length - 1, fouled, nodes: R.length, mislabelled, unreachable, sealed,
+    corridorEndOpen,
+  };
 });
 check('every leg of the route is clear of every collider at walking height',
   geometry.fouled.length === 0,
@@ -473,6 +491,32 @@ check('a man who cannot walk through walls can get in at the service door '
   + 'and reach the best table in the building',
   geometry.unreachable.length === 0,
   geometry.unreachable.length ? `cannot reach ${geometry.unreachable.join(', ')}` : 'all eleven rooms');
+check('the staff corridor is closed off at its north end rather than open to the exterior',
+  geometry.corridorEndOpen.length === 0,
+  geometry.corridorEndOpen.length ? `open at x ${geometry.corridorEndOpen.join(', ')}` : 'walled');
+
+/* "The plant when you come out of the red curtains is right in the way, it
+ * should be tucked on the side." It was at (8.2, 24.6): the curtain opening is
+ * z 22.6..25.6 at x=9.8, so it stood in the throat of it, 1.6m into the room,
+ * and the first thing through the drape walked into a pot with her behind
+ * him. Nothing may stand in the doorway or in the two metres of floor the two
+ * of them arrive on. */
+const doorwayClutter = await page.evaluate(() => {
+  const b = window.__silver;
+  const found = [];
+  b.scene.traverse((o) => {
+    if (o.name !== 'plant') return;
+    const { x, z } = o.position;
+    /* The landing: from the drape at x=9.8 back to 7.4, across the full width
+     * of the opening plus half a metre of splay either side. */
+    if (x > 7.4 && x < 10.1 && z > 22.1 && z < 26.1) found.push([+x.toFixed(2), +z.toFixed(2)]);
+  });
+  return found;
+});
+check('nothing is standing in the curtain doorway you come through onto the floor',
+  doorwayClutter.length === 0,
+  doorwayClutter.length ? `in the way at ${JSON.stringify(doorwayClutter)}` : 'the landing is clear');
+
 check('and none of the twelve doorways has a wall standing in it',
   geometry.sealed.length === 0,
   geometry.sealed.length ? `bricked up: ${geometry.sealed.join(', ')}` : 'all twelve open');
@@ -903,6 +947,45 @@ check('she asks about the front entrance, and there are four answers',
   (await state()).options === 4, String((await state()).options));
 await choose(0);
 await tick(5);
+
+/* And answering her is what crosses it off.
+ *
+ * "I'm not sure how to tell her I am not using the front door." This tree has
+ * always BEEN that conversation — her opening line is the question and three
+ * of the four replies answer it — but nothing anywhere in the mission ever set
+ * `flags.askedAboutFront`, which is the only thing the board's optional line
+ * is watching. It could not be completed by answering her, or by anything
+ * else, in any order, ever. */
+const frontDoor = await page.evaluate(() => {
+  const b = window.__silver;
+  b.mission.refreshBoard();
+  const line = b.mission.objectives.find((o) => o.id === 'front');
+  return { flag: b.mission.flags.askedAboutFront === true, shown: !!line, done: !!line?.done };
+});
+check('telling her why you are not using the front door crosses that line off the board',
+  frontDoor.flag && frontDoor.shown && frontDoor.done, JSON.stringify(frontDoor));
+
+/* The two numbers that have to agree about "the way through".
+ *
+ * `main.js` owns which tips count towards the board's optional staff line and
+ * `mission.js` owns how many of them it asks for. If the threshold ever
+ * exceeds the population the line becomes an objective nobody can finish, and
+ * nothing else in the build would notice — it is an optional line on a HUD
+ * list, so it fails silently and forever. Every one of the counted events must
+ * also be a real tip point somebody can actually reach. */
+const backOfHouse = await page.evaluate(() => {
+  const b = window.__silver;
+  return {
+    counted: b.BACK_OF_HOUSE.length,
+    needed: b.BACK_OF_HOUSE_TOTAL,
+    /* And every one of them is a scored event that actually exists. */
+    unknown: b.BACK_OF_HOUSE.filter((id) => !b.EVENTS[id]),
+  };
+});
+check('the board never asks for more of the back of house than there is back of house',
+  backOfHouse.needed > 0 && backOfHouse.needed <= backOfHouse.counted
+    && backOfHouse.unknown.length === 0,
+  JSON.stringify(backOfHouse));
 
 /* ---- the route ----
  * Along the front and in at the alley mouth, which is what ROUTE does. Cutting
@@ -1685,9 +1768,18 @@ const floorChatter = await page.evaluate(() => {
   b.dialogue.active = false;
   b.game.lastBark = -1;
   b.hud.say = (line) => lines.push(String(line));
-  /* 0.75 picks floor line six. Audio may consume random numbers too, so pin
-   * the value rather than relying on a call-count sequence. */
-  Math.random = () => 0.75;
+  /* Aim at floor line six by its INDEX, not at a magic fraction.
+   *
+   * This used to pin Math.random to 0.75, which selects index 5 only while the
+   * floor deck is exactly seven lines long — `(0.75 * 7) | 0`. The deck is
+   * authored content and has since grown, and the moment it did, 0.75 pointed
+   * somewhere else entirely and this check would have started asserting that a
+   * line it never triggered was not repeated. The line is addressed by index
+   * in the runtime too (`barks()` retires floor line six after its first
+   * airing), so address it the same way here and let the deck be any length.
+   * Audio may consume random numbers too, so pin rather than sequence. */
+  const floorPick = 5.5 / b.BARKS.floor.length;
+  Math.random = () => floorPick;
   for (let i = 0; i < 3; i++) {
     b.game.barkAt = 0;
     b.__barks(1);
@@ -1716,6 +1808,37 @@ await tick(6);
 /* Drive the whole seated queue: every round, always taking the first answer.
  * Nothing is skipped and nothing is forced -- this is the queue running at its
  * own pace with somebody pressing 1 every time it stops. */
+/* When the band actually starts, against when the announcement actually ends.
+ *
+ * "Overlapping sounds when performance starts — it starts before the announce
+ * finishes." It did, by construction: the announcer's beat is authored at 5.5s
+ * and `performance_.begin()` was pinned to 8.2, so the introduction had 2.7
+ * seconds to be delivered in and the delivered take is longer than that. Two
+ * numbers chosen separately, and every player heard the curtain, the stage
+ * clunk and the bandleader's own line land on the back of "…the Midnight
+ * Pines".
+ *
+ * Asserted rather than listened to: patch `begin` to record the scene clock at
+ * the moment it is called, and hold it against the announcement's real
+ * decoded length. */
+await page.evaluate(() => {
+  const b = window.__silver;
+  const announcer = b.scripts.scenes.show.find((beat) => beat.who === 'the announcer');
+  window.__showOrder = {
+    announceAt: announcer?.at ?? null,
+    announceSecs: b.audio.buffers?.get(announcer?.cue)?.[0]?.duration ?? 0,
+    cue: announcer?.cue ?? null,
+    bandAt: null,
+  };
+  const wasBegin = b.performance.begin.bind(b.performance);
+  b.performance.begin = function recordingBegin() {
+    if (window.__showOrder.bandAt === null) {
+      window.__showOrder.bandAt = b.game.scene ? +b.game.scene.t.toFixed(2) : -1;
+    }
+    return wasBegin();
+  };
+});
+
 let sawShowScene = false;
 let sawDrinks = false;
 let seatedResume = null;
@@ -1927,6 +2050,33 @@ check('seven of them, on stage, with the house down and the near table lamps sti
   showState.playing && showState.visible === 7 && showState.lampsNear > 0,
   JSON.stringify(showState));
 
+const showOrder = await page.evaluate(() => window.__showOrder);
+check('the band waits for the announcement to finish before it starts',
+  showOrder.bandAt !== null
+    && showOrder.announceAt !== null
+    && showOrder.bandAt >= showOrder.announceAt + showOrder.announceSecs,
+  JSON.stringify({
+    ...showOrder,
+    announceEndsAt: showOrder.announceAt === null
+      ? null : +(showOrder.announceAt + showOrder.announceSecs).toFixed(2),
+  }));
+
+/* And the room comes down with the lights. `updateZones` runs every frame and
+ * used to assign the diners bed its flat zone level with nothing else in it,
+ * which silently overwrote every deliberate duck in the mission within one
+ * frame of it being asked for — so the crowd played at full room volume under
+ * the whole of the featured number. */
+const dinerBed = await page.evaluate(() => {
+  const b = window.__silver;
+  b.__zones();
+  const level = (key) => b.audio.loops.get(key)?.volume ?? null;
+  return { diners: level('ambience.diners'), chatter: level('ambience.diners.chatter') };
+});
+check('the dining room bed stays ducked under the show rather than being reset every frame',
+  dinerBed.diners !== null && dinerBed.diners < 0.28
+    && dinerBed.chatter !== null && dinerBed.chatter < 0.2,
+  JSON.stringify(dinerBed));
+
 /* ---- and they perform ----
  * The wave-2 note: the performers "just shake and face the wrong way". They
  * were built at yaw π — pointed at the back wall — with the bar-wipe idle
@@ -1937,6 +2087,16 @@ check('seven of them, on stage, with the house down and the near table lamps sti
 const stagecraft = await page.evaluate(() => {
   const b = window.__silver;
   const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  /* A number has to be up before anybody's arms mean anything.
+   *
+   * The two warm-ups are about ten seconds each now rather than thirty-eight
+   * and forty-two, so this sampling point can land in the 2.4-second applause
+   * gap between numbers — during which `update()` returns before the pose loop
+   * and nobody's bow moves, because the band is not playing. That is correct
+   * behaviour, and asserting a moving bow across it would be asserting
+   * something false. Step to the next live number and measure that. */
+  for (let i = 0; i < 60 && !b.performance.current; i++) b.performance.update(0.1);
+  b.performance.update(0.05);
   const members = b.band.members.map((m) => ({
     holds: m.holds,
     yaw: +wrap(m.group.rotation.y).toFixed(2),
@@ -1947,8 +2107,46 @@ const stagecraft = await page.evaluate(() => {
   const leader = b.band.members.find((m) => m.holds === 'violin');
   const violin = leader?.group.getObjectByName('lead-violin');
   const bow = leader?.group.getObjectByName('lead-bow');
-  const before = bow?.position.clone();
-  b.performance.update(0.31);
+  /* Drive the show clock by hand and watch the bow follow it.
+   *
+   * Two reasons this cannot be `update(0.31)` and a single before/after.
+   *
+   * The bow is driven by `sin(beat * 1.35 + phase)`, so twice a stroke it is
+   * genuinely stationary and one sample across a turnaround reads zero on a
+   * bow that is working perfectly. And the featured number takes its time from
+   * the media element rather than from `dt` — which is what keeps the stage
+   * locked to the record — so in a headless browser, where that element never
+   * actually plays, `performance.t` sits at zero and every pose on stage is
+   * frozen at bar one. Neither is a fault in the arm. Shortening the warm-ups
+   * to a quarter of a number simply moved this sample onto the featured
+   * number, where it read exactly 0.000 every run.
+   *
+   * So the clock is moved deliberately, the way this harness already
+   * fast-forwards numbers elsewhere, and the bow has to travel with it.
+   *
+   * WORLD position, not local. The bow used to be a sibling of the arm with
+   * its own hand-authored `position.set(...)` every frame, so `.position`
+   * (parent-relative) was the whole of its motion and measuring it was
+   * correct. It is now parented to `parts.foreR` at a fixed local offset —
+   * "hand ON the bow", by construction, wherever the forearm goes — so its
+   * *local* position never changes and would read a false zero here. What
+   * moves is the forearm, and the bow's position in the room right along with
+   * it; that is what a seated table would actually see, and it is what
+   * `getWorldPosition` reads. */
+  const wasT = b.performance.t;
+  let bowTravel = 0;
+  const bowAt = bow?.getWorldPosition(new b.THREE.Vector3());
+  const bowNow = new b.THREE.Vector3();
+  for (let i = 1; i <= 8; i++) {
+    b.performance.t = 1.5 + i * 0.22;
+    b.performance.update(0);
+    if (bow) {
+      bow.getWorldPosition(bowNow);
+      bowTravel += bowAt.distanceTo(bowNow);
+      bowAt.copy(bowNow);
+    }
+  }
+  b.performance.t = wasT;
   const size = violin ? new b.THREE.Box3().setFromObject(violin).getSize(new b.THREE.Vector3()) : null;
   return {
     facing: members.every((m) => Math.abs(m.yaw) < 0.9),
@@ -1959,7 +2157,8 @@ const stagecraft = await page.evaluate(() => {
       return !!l && l.armR < -0.2;
     })(),
     violinVisible: !!violin && violin.visible && size.x > 0.45 && size.y > 0.15,
-    bowVisible: !!bow && bow.visible && before.distanceTo(bow.position) > 0.01,
+    bowVisible: !!bow && bow.visible && bowTravel > 0.08,
+    bowTravel: +bowTravel.toFixed(3),
     violinSize: size ? size.toArray().map((n) => +n.toFixed(2)) : null,
     members,
   };
@@ -1969,7 +2168,81 @@ check('the band faces the audience and plays its instruments rather than shaking
     && stagecraft.violinVisible && stagecraft.bowVisible,
   JSON.stringify({ facing: stagecraft.facing, noWipers: stagecraft.noWipers,
     hornsUp: stagecraft.hornsUp, lead: stagecraft.leadWorking,
-    violin: stagecraft.violinVisible, bow: stagecraft.bowVisible, size: stagecraft.violinSize }));
+    violin: stagecraft.violinVisible, bow: stagecraft.bowVisible,
+    bowTravel: stagecraft.bowTravel, size: stagecraft.violinSize }));
+
+/* The three things the owner could see wrong from the front table.
+ *
+ *  - "The violinist should be front and center. He's kind of behind the
+ *    curtains." He was at 2.6m off the centre line and 1.2m UPSTAGE of the
+ *    curtain, which hangs at z = -9.4.
+ *  - "Violinist should be holding the violin handle." His left hand was 340mm
+ *    from the neck, out in the air beside the instrument.
+ *  - "Add a saxophone to one of the guys on the stage", "maybe put one of them
+ *    behind a keyboard" — and both have to be in somebody's hands, not
+ *    floating next to them.
+ */
+const stageDressing = await page.evaluate(() => {
+  const b = window.__silver;
+  const THREE = b.THREE;
+  const handOf = (fore) => fore.localToWorld(new THREE.Vector3(0, -0.3, 0.005));
+  const near = (a, c) => +a.distanceTo(c).toFixed(3);
+  b.scene.updateMatrixWorld(true);
+
+  const lead = b.band.members.find((m) => m.holds === 'violin');
+  const violin = lead?.group.getObjectByName('lead-violin');
+  const neck = violin?.localToWorld(new THREE.Vector3(-0.30, 0, 0.02));
+  const frog = lead?.group.getObjectByName('lead-bow-frog');
+  const frogPos = frog ? frog.getWorldPosition(new THREE.Vector3()) : null;
+  const centre = b.room.anchors.stageCentre;
+
+  const saxMan = b.band.members.find((m) => m.holds === 'sax');
+  const saxBody = saxMan?.group.getObjectByName('sax-body');
+  const keysMan = b.band.members.find((m) => m.holds === 'keys');
+  const keyTop = keysMan?.group.getObjectByName('keys-natural');
+  const kTop = keyTop ? keyTop.getWorldPosition(new THREE.Vector3()) : null;
+
+  return {
+    /* Downstage of the curtain (which hangs at z = -9.4; the audience is at
+     * greater z) and on the centre line. He roams ±0.45m in x by design. */
+    leadZ: +lead.group.position.z.toFixed(2),
+    leadOffCentre: +Math.abs(lead.group.position.x - centre.x).toFixed(2),
+    handToNeck: neck ? near(handOf(lead.parts.foreL), neck) : null,
+    /* "His bow hand is wrong -- hand must be ON the bow." Same shape of check
+     * as the neck, on the other hand: the bow is now parented to `foreR` at a
+     * fixed local offset (see `makeViolin`), so this should read a few
+     * millimetres at any pose the performance puts the arm in, not just the
+     * one frame it happened to be sampled at. */
+    handToBow: frogPos ? near(handOf(lead.parts.foreR), frogPos) : null,
+    sax: !!saxBody && saxMan.group.visible,
+    saxHands: saxBody ? [
+      near(handOf(saxMan.parts.foreL), saxBody.getWorldPosition(new THREE.Vector3())),
+      near(handOf(saxMan.parts.foreR), saxBody.getWorldPosition(new THREE.Vector3())),
+    ] : null,
+    keys: !!kTop && keysMan.group.visible,
+    /* Hands over the keys: above them, and not by much. */
+    keyDrop: kTop ? [
+      +(handOf(keysMan.parts.foreL).y - kTop.y).toFixed(3),
+      +(handOf(keysMan.parts.foreR).y - kTop.y).toFixed(3),
+    ] : null,
+    players: b.band.members.length,
+    holds: b.band.members.map((m) => m.holds).sort(),
+  };
+});
+check('the leader is downstage of the curtain, on the centre line, with his hand on the neck',
+  stageDressing.leadZ > -9.4 && stageDressing.leadOffCentre <= 0.5
+    && stageDressing.handToNeck !== null && stageDressing.handToNeck < 0.06,
+  JSON.stringify({ leadZ: stageDressing.leadZ, offCentre: stageDressing.leadOffCentre,
+    handToNeck: stageDressing.handToNeck }));
+check('and his bow hand is on the bow',
+  stageDressing.handToBow !== null && stageDressing.handToBow < 0.06,
+  JSON.stringify({ handToBow: stageDressing.handToBow }));
+check('there is a saxophone and a keyboard on the stage, in the hands of two of the seven',
+  stageDressing.players === 7 && stageDressing.sax && stageDressing.keys
+    && stageDressing.saxHands.every((d) => d < 0.26)
+    && stageDressing.keyDrop.every((d) => d > 0 && d < 0.18),
+  JSON.stringify({ players: stageDressing.players, holds: stageDressing.holds,
+    saxHands: stageDressing.saxHands, keyDrop: stageDressing.keyDrop }));
 
 /* A cutscene takes her over, and the end of one used to hand her back to
  * `follow` unconditionally — so the champagne stood her up out of her chair for
@@ -2108,7 +2381,20 @@ check('four beats on the beat is a dance, and it pays',
     && !swayPlay.active && swayPlay.swayed === 'good' && swayPlay.completed,
   JSON.stringify(swayPlay));
 
-await page.waitForTimeout(3500);
+/* `finishSway()` reseats both of them off a REAL `setTimeout(…, 3200)`, not a
+ * simulated one -- it is wall-clock time deliberately, the same three
+ * seconds a player waits watching them sit back down. A fixed
+ * `page.waitForTimeout(3500)` raced that timer with a 300ms margin and nothing
+ * else: any GC pause or a slow paint eats the margin and the check samples a
+ * frame where the browser's own timer simply has not fired yet, which is
+ * entry 2 in ENGINE-TRAPS.md under a different name -- a wall-clock wait
+ * standing in for a predicate. Poll the predicate instead, with a budget that
+ * is generous rather than tight; it costs nothing when the timer fires on
+ * schedule and only changes how long a genuine stall takes to report. */
+await page.waitForFunction(() => {
+  const b = window.__silver;
+  return b.mission.state === 'performance' && b.game.seated && !b.game.swayRunning;
+}, null, { timeout: 10000 });
 await tick(1, 0.25);
 const backAtTable = await page.evaluate(() => {
   const b = window.__silver;
@@ -2926,7 +3212,15 @@ const board = await page.evaluate(() => {
   m.roundDone('entrance'); m.roundDone('drinks'); m.roundDone('family'); m.roundDone('personal');
   m.showCutscene(); m.showStarted(); trail.push(seen('performance'));
   const beforeTick = m.objectives.filter((o) => o.done).length;
-  m.flags.songRequested = 'horns';
+  /* Raising a glass rather than asking the band for something.
+   *
+   * This has always tested one thing — an optional line crossing itself off on
+   * a flag alone, with no state change under it — and it used `songRequested`
+   * to do it. "Lets remove the ask the band for something objective", so that
+   * line is off the board and the same assertion needs a line that is still on
+   * it. `toast` is the same shape: optional, live from `performance`, and
+   * `done` is a predicate over a flag. */
+  m.flags.toast = 'to the room';
   m.update(0.016, {});
   return { trail, beforeTick, afterTick: m.objectives.filter((o) => o.done).length,
     texts: m.objectives.map((o) => o.text) };

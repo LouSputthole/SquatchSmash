@@ -381,32 +381,175 @@ function makeViolin() {
     box({ name: 'lead-bow-hair', size: [0.006, 0.67, 0.007], pos: [0.022, -0.01, 0], mat: string, cast: false }),
     box({ name: 'lead-bow-frog', size: [0.045, 0.075, 0.028], pos: [0.012, -0.31, 0], mat: ebony }),
   );
-  bow.position.set(0.045, 1.34, 0.305);
+  /* "His bow hand is wrong -- hand must be ON the bow." It never could be: the
+   * bow used to be a sibling of the arm, parented to `parts.body` and animated
+   * on its own fixed little arc (`rest + stroke * ...`) that had no relationship
+   * to wherever `perform.js` happened to be pointing the forearm that frame. Two
+   * independent animations, numerically about half a metre apart at any given
+   * instant -- the hand could not be "fixed" onto a target that was itself
+   * moving on an unrelated clock.
+   *
+   * So the bow is not positioned here at all in world or body space. It is
+   * parented to the forearm bone below (`parts.foreR`, in `makeBand`) and given
+   * a LOCAL offset computed once, algebraically, from the same hand point
+   * `verify-silver.mjs` already uses for the left hand: `fore.localToWorld(new
+   * THREE.Vector3(0, -0.3, 0.005))`. Solve `bow.position` so that the frog's own
+   * local point (0.012, -0.31, 0), rotated by this bow.rotation.z, lands exactly
+   * on that hand point:
+   *
+   *   bowPos = handLocal - Rz(rotZ) * frogLocal = (-0.0612, 0.0041, 0.005)
+   *
+   * Wherever the forearm goes -- rest pose, mid-stroke, whatever `perform.js`
+   * asks of it next -- the bow is rigidly attached to it, so the hand is on the
+   * bow by construction rather than by a number that happens to land close this
+   * frame. */
+  bow.position.set(-0.0612, 0.0041, 0.005);
   bow.rotation.z = 0.16;
-  bow.userData.restPosition = bow.position.clone();
-  bow.userData.restZ = bow.rotation.z;
 
   return { group: violin, bow };
+}
+
+/**
+ * A tenor saxophone, held across the front of the player.
+ *
+ * Built to the same rule as the violin: a little over strict scale, because
+ * everything on this stage is seen from a table four metres away in a room
+ * lit to a quarter. The shape a saxophone is recognised by is three things in
+ * order — the bell flaring up and out, the long body tube with keywork down
+ * it, and the crook doubling back to the mouth — so those are what is here and
+ * the rest is left off.
+ */
+function makeSax() {
+  const brass = mat({ color: 0xc8963c, roughness: 0.28, metalness: 0.85 });
+  const bright = mat({ color: 0xe0b24e, roughness: 0.2, metalness: 0.9 });
+  const dark = mat({ color: 0x1d1a16, roughness: 0.5 });
+
+  const sax = group('sax');
+  // The body tube, leaning back from the bow at the bottom to the crook.
+  const tube = cylinder({ r: 0.048, h: 0.44, pos: [0, 0.02, 0], mat: brass, rotX: -0.17 });
+  tube.name = 'sax-body';
+  // The bow: the U-turn at the bottom, read as a fat elbow rather than a torus.
+  const bow = sphere({ r: 0.062, ry: 0.05, rz: 0.062, pos: [0, -0.21, 0.012], mat: brass });
+  bow.name = 'sax-bow';
+  // The bell, flaring up and towards the room.
+  const bell = cylinder({
+    rTop: 0.115, rBottom: 0.052, h: 0.20, pos: [0.006, -0.155, 0.118], mat: bright, rotX: 1.02,
+  });
+  bell.name = 'sax-bell';
+  sax.add(tube, bow, bell);
+  // The crook and the mouthpiece, doubling back to where a mouth is.
+  const crook = cylinder({ r: 0.026, h: 0.16, pos: [-0.012, 0.265, -0.032], mat: brass, rotX: 0.62 });
+  crook.name = 'sax-crook';
+  const mouthpiece = cylinder({
+    rTop: 0.022, rBottom: 0.030, h: 0.075, pos: [-0.018, 0.325, -0.086], mat: dark, rotX: 0.95,
+  });
+  mouthpiece.name = 'sax-mouthpiece';
+  sax.add(crook, mouthpiece);
+  /* Keywork: pearls down the front of the tube, which is the detail that
+   * reads. `cylinder()` does not take a name — only `box()` does — so these
+   * are stamped after the fact, the same way the violin's scroll is. */
+  for (let i = 0; i < 6; i++) {
+    const key = cylinder({
+      r: 0.017, h: 0.012,
+      pos: [0.030, 0.155 - i * 0.058, 0.046 + i * 0.010], mat: bright, rotX: Math.PI / 2 - 0.17,
+    });
+    key.name = 'sax-key';
+    sax.add(key);
+  }
+  /* Hung where a tenor on a neck strap hangs: in front of the chest, just
+   * right of the sternum, leaning out and away. Measured against the two hands
+   * rather than guessed — see the pose in `perform.js`, which reaches for the
+   * tube at this offset and lands on it. */
+  sax.position.set(0.02, 1.15, 0.33);
+  sax.rotation.set(0, 0.10, -0.06);
+  return sax;
+}
+
+/**
+ * A stage keyboard on a stand, in front of whoever is playing it.
+ *
+ * This one stands on the deck rather than being held, so it is parented to the
+ * figure's group and has the figure's height scaling divided back out of it —
+ * a keyboard is a keyboard whether the man behind it is 1.68 or 1.86, and a
+ * five per cent instrument is a five per cent mistake nobody can name but
+ * everybody can see.
+ */
+function makeKeyboard() {
+  const shell = mat({ color: 0x14151a, roughness: 0.42, metalness: 0.25 });
+  const white = mat({ color: 0xe8e6de, roughness: 0.34 });
+  const black = mat({ color: 0x111014, roughness: 0.3 });
+  const steel = mat({ color: 0x6e737a, roughness: 0.35, metalness: 0.7 });
+
+  const keys = group('stage-keyboard');
+  const shellBox = box({ size: [1.06, 0.085, 0.34], pos: [0, 1.026, 0], mat: shell });
+  shellBox.name = 'keys-shell';
+  keys.add(shellBox);
+  // The back panel standing up behind the keys, where the controls live.
+  keys.add(box({ name: 'keys-panel', size: [1.06, 0.075, 0.05], pos: [0, 1.091, -0.145], mat: shell }));
+  for (let i = 0; i < 5; i++) {
+    const knob = cylinder({
+      r: 0.014, h: 0.014, pos: [-0.42 + i * 0.075, 1.132, -0.145], mat: steel, rotX: Math.PI / 2,
+    });
+    knob.name = 'keys-knob';
+    keys.add(knob);
+  }
+  /* Two octaves and a bit of visible key, which at this distance is a
+   * keyboard. Naturals first, then the sharps sitting on top of them in the
+   * 2-3 grouping that is the only thing that makes a keyboard read as one. */
+  for (let i = 0; i < 21; i++) {
+    keys.add(box({
+      name: 'keys-natural', size: [0.043, 0.016, 0.24],
+      pos: [-0.48 + i * 0.048, 1.074, 0.038], mat: white,
+    }));
+  }
+  const SHARPS = [0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19];
+  for (const i of SHARPS) {
+    keys.add(box({
+      name: 'keys-sharp', size: [0.026, 0.020, 0.145],
+      pos: [-0.456 + i * 0.048, 1.088, -0.010], mat: black,
+    }));
+  }
+  // An X stand under it, which is what everybody's keyboard is actually on.
+  for (const lean of [0.34, -0.34]) {
+    const leg = cylinder({ r: 0.020, h: 1.15, pos: [0, 0.565, 0], mat: steel, rotZ: lean });
+    leg.name = 'keys-stand-leg';
+    keys.add(leg);
+  }
+  keys.add(box({ name: 'keys-stand-foot', size: [0.66, 0.03, 0.05], pos: [0, 0.015, 0], mat: steel }));
+  keys.position.set(0, 0, 0.38);
+  return keys;
 }
 
 /**
  * The band. They are behind a closed curtain until they are not, so they are
  * built with the room and made visible by the second cutscene.
  *
- * Seven of them, which is what she counts.
+ * Seven of them, which is what she counts — and it stays seven. The owner
+ * asked for "a saxophone to one of the guys on the stage" and for "one of them
+ * behind a keyboard", so two of the four horns take the sax and the keys
+ * rather than an eighth and a ninth musician arriving and making a liar out of
+ * the one line she has about the size of this band.
+ *
+ * The leader is at the front of the stage and in the middle of it. He used to
+ * be at (-2.6, +0.4) from the stage centre, which is 1.2m UPSTAGE of the
+ * curtain line at z=-9.4 and two and a half metres off the centre — "the
+ * violinist should be front and center, he's kind of behind the curtains",
+ * which was exactly true. He is now dead on the centre line and 400mm
+ * downstage of the curtain, which puts him in front of it, on the axis the
+ * front table looks straight down.
  */
 export function makeBand(scene, room) {
   const a = room.anchors;
   const members = [];
   const layout = [
     // [x offset, z offset, dress, what they are holding]
-    [-4.2, -1.6, 0x1b1b22, 'horn'],
-    [-2.1, -1.9, 0x1b1b22, 'horn'],
-    [0.0, -2.1, 0x1b1b22, 'horn'],
-    [2.1, -1.9, 0x1b1b22, 'horn'],
-    [4.2, -1.2, 0x1b1b22, 'bass'],
-    [1.6, -3.0, 0x1b1b22, 'drums'],
-    [-2.6, 0.4, 0x2a2028, 'violin'],
+    [-4.6, -2.0, 0x1b1b22, 'horn'],
+    [-2.8, -1.5, 0x1b1b22, 'sax'],
+    [-1.1, -2.1, 0x1b1b22, 'horn'],
+    [4.4, -1.5, 0x1b1b22, 'keys'],
+    [2.4, -1.3, 0x1b1b22, 'bass'],
+    [1.0, -3.0, 0x1b1b22, 'drums'],
+    [0.0, 2.0, 0x2a2028, 'violin'],
   ];
   layout.forEach(([ox, oz, shirt, holds], i) => {
     const npc = new Npc(scene, {
@@ -419,14 +562,45 @@ export function makeBand(scene, room) {
       x: a.stageCentre.x + ox, y: a.stageCentre.y, z: a.stageCentre.z + oz,
       yaw: 0,
       model: {
-        height: rand(1.68, 1.86), build: rand(0.95, 1.2), dress: 'suit', shirt,
+        height: rand(1.68, 1.86),
+        /* The leader's build is fixed and everybody else's is not.
+         *
+         * `build` moves the shoulder socket sideways by up to 8mm, and the
+         * violin is pinned to the chest at a fixed offset — so a random build
+         * moves his hand off the neck of an instrument that did not move with
+         * it. Every other figure up here is a silhouette at the back of a dark
+         * stage; he is the one the front table is four metres from and looking
+         * at, and his left hand is on a specific 340mm of wood. Height is
+         * still random: the whole rig scales with it, so the hold does not
+         * care. */
+        build: i === 6 ? 1.05 : rand(0.95, 1.2),
+        dress: 'suit',
+        shirt,
         hair: pick(['short', 'crop', 'receding', 'tied']),
+        /* The leader is cast white, on the owner's note. Everybody else in
+         * the section still gets a skin tone off `SKINS` at random — leaving
+         * this `undefined` for i !== 6 hits `makePerson`'s own default,
+         * `pick(SKINS)`, the same as it always has. */
+        skin: i === 6 ? 0xf0cba6 : undefined,
       },
     });
     npc.holds = holds;
     if (holds === 'violin') {
       npc.violin = makeViolin();
-      npc.parts.body.add(npc.violin.group, npc.violin.bow);
+      npc.parts.body.add(npc.violin.group);
+      /* The bow is held IN the hand: parented to the forearm, not the body --
+       * see the note on `bow.position` in `makeViolin` for why. */
+      npc.parts.foreR.add(npc.violin.bow);
+    }
+    if (holds === 'sax') {
+      npc.sax = makeSax();
+      npc.parts.body.add(npc.sax);
+    }
+    if (holds === 'keys') {
+      npc.keyboard = makeKeyboard();
+      // On the deck at true size, under a figure that is not.
+      npc.keyboard.scale.setScalar(1 / npc.parts.heightScale);
+      npc.group.add(npc.keyboard);
     }
     npc.group.visible = false;
     members.push(npc);

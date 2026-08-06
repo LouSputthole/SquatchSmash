@@ -22,6 +22,71 @@ const FIRST_RING_DELAY = 6;
  * gap into a caller who rings back before he has stopped ringing.
  */
 const RETRY_GAP = 10;
+
+/**
+ * Everything Tony says at the front door when he is not going anywhere.
+ *
+ * These used to be seventeen string literals scattered through the branches
+ * of `tryLeave()`, which made them unreachable to anything except the branch
+ * that returned them. That mattered more than it looks: `main.js` puts the
+ * line on screen with `hud.say()` and then plays `vo.door.wait.*` underneath
+ * it -- a bank of three GENERIC lines -- so the player read "Booskibro said
+ * he would call about tonight. I am not turning up unasked." and heard "I am
+ * not guessing. I have never once guessed right." Seventeen specific,
+ * chapter-aware refusals were on screen and none of them had ever been
+ * offered for recording, because no tool could enumerate them.
+ *
+ * As a table they are data: `tools/apartment-vo.mjs` walks it, so every line
+ * here reaches VOICE-LINES-TODO.md, and the runtime plays the real line the
+ * moment a take for it lands (see `refusal()` below and `tryLeave` in
+ * src/main.js -- it falls back to the generic bank until then, so nothing
+ * goes quiet in the meantime).
+ *
+ * KEYS ARE CUE NAMES. Renaming one renames a recording; adding one adds a
+ * line to the sheet. Keep them stable.
+ */
+export const DEPARTURE_REFUSALS = Object.freeze({
+  heist_cleanup: 'Not walking into the Bing wearing the bank. Clean up first.',
+  initiation_locked: 'Lou said seven. The invitation still has to land.',
+  golf_call: 'Lou said he would call about this morning. I am not guessing where.',
+  golf_return: 'Three holes done. Whatever comes next, Lou will call for it.',
+  heist_call: 'Lou said he would call. Today is not a day to guess.',
+  heist_kit: 'Everything Lou named goes with me. Nothing else does.',
+  big_night_call: 'Booskibro said he would call about tonight. I am not turning up unasked.',
+  no_wake_call: 'Lou said he would call when he knew. I am not chasing him today.',
+  date_call: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+  sleep_after_date: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
+  day_two_call: 'Booskibro said he would call with the next job.',
+  second_bing_call: 'Lou said he would call when he wanted you back at the Bing.',
+  sleep_after_motel: 'It is not even light out. Whatever is next can wait until I have slept.',
+  first_call: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
+  sleep_after_squatchfather: 'That is enough going out for one night.',
+  lou_package: 'I am not going anywhere until I find Lou’s package.',
+  whiskey: 'Take one pull of whiskey. You earned the nerves.',
+});
+
+/**
+ * The line and the cue group that goes with it, spread into a refusal.
+ *
+ * `vo` is the group name `audio.say()` takes, so the take on disk is
+ * `vo.door.refusal.<key>.1.mp3` -- `say()` matches a bank by prefix, which is
+ * why the cue carries a take number the way the Beef Run's do.
+ */
+function refusal(key) {
+  return { line: DEPARTURE_REFUSALS[key], vo: `door.refusal.${key}` };
+}
+
+/** Every refusal as a recordable cue. Used by tools/apartment-vo.mjs. */
+export function departureRefusalCues() {
+  return Object.entries(DEPARTURE_REFUSALS).map(([key, line]) => ({
+    name: `vo.door.refusal.${key}.1`,
+    voice: 'player',
+    /* The subtitle carries markup for emphasis; a voice actor should be
+     * reading words, not tags. */
+    say: line.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
+  }));
+}
+
 const DEPARTURE_REQUIREMENTS = Object.freeze([
   {
     id: 'eaten',
@@ -755,6 +820,31 @@ export const BIG_NIGHT_MARGO_WAKE = Object.freeze({
   ]),
 });
 
+/**
+ * The night the Silver Room ends with both of them coming back here.
+ *
+ * `SilverStory.complete` folds the mission's own verdict -- `cameHome`,
+ * `['perfect', 'strong'].includes(outcome)` -- down into the campaign, so
+ * this only ever plays for the two best outcomes. Short on purpose: this is
+ * the walk from the front door to the bed, not the whole evening, which the
+ * Silver Room mission has already had. Same shape as `BIG_NIGHT_MARGO_WAKE`
+ * for the same reason -- `lines` is her, `replies[i]` answers `lines[i]`.
+ */
+export const SILVER_ROOM_COME_HOME = Object.freeze({
+  characterId: CHARACTER_IDS.MARGO,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'margo.comehome',
+  lines: Object.freeze([
+    'Well. You clean up all right, for a man who eats standing over the sink.',
+    'I am not staying because of the tie. I want that on the record.',
+  ]),
+  replies: Object.freeze([
+    'I own exactly one.',
+    'Noted.',
+  ]),
+});
+
 class ApartmentStory {
   constructor({ campaign, ring }) {
     this.campaign = campaign;
@@ -1031,14 +1121,14 @@ class ApartmentStory {
         return {
           kind: 'activity',
           ...missing,
-          line: 'Not walking into the Bing wearing the bank. Clean up first.',
+          ...refusal('heist_cleanup'),
         };
       }
       if (state.missions[MISSION_IDS.INITIATION].status === 'locked') {
         return {
           kind: 'stay',
           id: 'initiation_locked',
-          line: 'Lou said seven. The invitation still has to land.',
+          ...refusal('initiation_locked'),
         };
       }
       return { kind: 'go', destination: SCENE_IDS.INITIATION };
@@ -1048,7 +1138,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_GOLF_CALL,
-          line: 'Lou said he would call about this morning. I am not guessing where.',
+          ...refusal('golf_call'),
         };
       }
       if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
@@ -1057,7 +1147,7 @@ class ApartmentStory {
       return {
         kind: 'stay',
         id: 'golf_return_pending',
-        line: 'Three holes done. Whatever comes next, Lou will call for it.',
+        ...refusal('golf_return'),
       };
     }
     if (state.story.chapter === 'heist_day') {
@@ -1065,7 +1155,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_HEIST_CALL,
-          line: 'Lou said he would call. Today is not a day to guess.',
+          ...refusal('heist_call'),
         };
       }
       const missing = HEIST_PREPARATION_ITEMS.find(
@@ -1075,7 +1165,7 @@ class ApartmentStory {
         return {
           kind: 'activity',
           ...missing,
-          line: 'Everything Lou named goes with me. Nothing else does.',
+          ...refusal('heist_kit'),
         };
       }
       return { kind: 'go', destination: SCENE_IDS.BANK_HEIST };
@@ -1085,7 +1175,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
-          line: 'Booskibro said he would call about tonight. I am not turning up unasked.',
+          ...refusal('big_night_call'),
         };
       }
       return {
@@ -1098,7 +1188,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_NO_WAKE_CALL,
-          line: 'Lou said he would call when he knew. I am not chasing him today.',
+          ...refusal('no_wake_call'),
         };
       }
       if (state.missions[MISSION_IDS.NO_WAKE].status !== 'complete') {
@@ -1112,7 +1202,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.MARGO_DATE_CALL,
-          line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+          ...refusal('date_call'),
         };
       }
       if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
@@ -1126,7 +1216,7 @@ class ApartmentStory {
       return {
         kind: 'stay',
         id: 'sleep_before_big_night',
-        line: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
+        ...refusal('sleep_after_date'),
       };
     }
     if (state.story.chapter === 'day_two'
@@ -1135,7 +1225,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
-          line: 'Booskibro said he would call with the next job.',
+          ...refusal('day_two_call'),
         };
       }
       if (state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status !== 'complete') {
@@ -1148,7 +1238,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_SECOND_CALL,
-          line: 'Lou said he would call when he wanted you back at the Bing.',
+          ...refusal('second_bing_call'),
         };
       }
       if (state.missions[MISSION_IDS.BADA_BING_TWO].status !== 'complete') {
@@ -1175,14 +1265,14 @@ class ApartmentStory {
       return {
         kind: 'stay',
         id: 'sleep_before_big_night',
-        line: 'It is not even light out. Whatever is next can wait until I have slept.',
+        ...refusal('sleep_after_motel'),
       };
     }
     if (!this.#callAnswered()) {
       return {
         kind: 'call',
         id: EVENT_IDS.LOU_FIRST_CALL,
-          line: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
+          ...refusal('first_call'),
       };
     }
     const missions = this.campaign.state.missions;
@@ -1191,7 +1281,7 @@ class ApartmentStory {
         return {
           kind: 'stay',
           id: 'sleep',
-          line: 'That is enough going out for one night.',
+          ...refusal('sleep_after_squatchfather'),
         };
       }
       if (missions[MISSION_IDS.SQUATCHFATHER].status === 'in_progress'
@@ -1205,7 +1295,7 @@ class ApartmentStory {
         return {
           kind: 'item',
           id: ITEM_IDS.LOU_PACKAGE,
-          line: 'I am not going anywhere until I find Lou’s package.',
+          ...refusal('lou_package'),
         };
       }
       if (!activities.whiskeyRelaxed) {
@@ -1213,7 +1303,7 @@ class ApartmentStory {
           kind: 'activity',
           id: 'whiskeyRelaxed',
           label: 'Take a shot of whiskey',
-          line: 'Take one pull of whiskey. You earned the nerves.',
+          ...refusal('whiskey'),
           hint: 'Pick up the whiskey and hold F for a pull.',
         };
       }
@@ -1284,14 +1374,65 @@ class ApartmentStory {
    */
   margoWakeOwed() {
     const state = this.campaign.state;
-    return ['golf_morning', 'heist_day', 'big_night'].includes(state.story.chapter)
-      && !state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE);
+    if (!['golf_morning', 'heist_day', 'big_night'].includes(state.story.chapter)) return false;
+    if (state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE)) return false;
+    /* And only if she actually came back with him.
+     *
+     * `cameHome` is the Silver Room's own verdict on the evening and it now
+     * survives the seam (see `SilverStory.complete`). Before this it was
+     * computed, thrown away, and the chapter alone decided -- so a man who had
+     * an awkward night, or who never played the date at all and arrived here
+     * by a checkpoint, woke up next to her regardless.
+     *
+     * A save written before this landed has no `cameHome` at all, and the old
+     * behaviour is what that player has already seen; `!== false` keeps their
+     * morning rather than deleting a character out of their bed on load. */
+    const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    if (silver?.status === 'complete' && silver.cameHome === false) return false;
+    return true;
   }
 
   /** She got dressed and went. The zero-minute cutscene marker prevents replay. */
   margoWakeDone() {
     if (!this.margoWakeOwed()) return false;
     return this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_WAKE).applied === true;
+  }
+
+  /**
+   * The night of the Silver Room: whether the come-home beat is owed, and
+   * marking it spent.
+   *
+   * Deliberately the same shape as `margoWakeOwed` -- one is the mirror of
+   * the other. `date` is the chapter for exactly as long as it takes to
+   * sleep it off (see `SLEEP_CHAPTERS`), so this window is precise: from the
+   * moment the Silver Room mission completes to the moment he next goes to
+   * bed. Unlike `margoWakeOwed`, there is no pre-existing-save fallback to
+   * honour here -- this scene never shipped before, so `cameHome` has to be
+   * an explicit `true`, not merely not-`false`.
+   */
+  margoComeHomeOwed() {
+    const state = this.campaign.state;
+    if (state.story.chapter !== 'date') return false;
+    if (state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_COME_HOME)) return false;
+    const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    return silver?.status === 'complete' && silver.cameHome === true;
+  }
+
+  /** She is home, helped out of the dress, and in bed. Marker prevents replay. */
+  margoComeHomeDone() {
+    if (!this.margoComeHomeOwed()) return false;
+    return this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_COME_HOME).applied === true;
+  }
+
+  /**
+   * True for the rest of the night once she is in, so a reload before he
+   * sleeps finds her already asleep in bed instead of replaying the walk in
+   * from the door.
+   */
+  margoHomeForTheNight() {
+    const state = this.campaign.state;
+    return state.story.chapter === 'date'
+      && state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_COME_HOME);
   }
 
   #callAnswered() {

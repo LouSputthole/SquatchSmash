@@ -366,11 +366,18 @@ try {
       spoken: state.voice.spoken.slice(-4),
     }));
   const hostagePrompt = await promptText();
-  check('the person under the crosshair advertises all four verbs',
-    /floor/i.test(hostagePrompt ?? '')
-      && /F REASSURE/.test(hostagePrompt ?? '')
-      && /G TAKE/.test(hostagePrompt ?? '')
-      && /ZIP-TIE/.test(hostagePrompt ?? ''),
+  /* Every entry is `KEY — verb`, which is the owner's own wording: *"prompts
+   * must clearly say E — to the ground, hold E — tie up"*. This assertion was
+   * left behind when the prompt was rewritten to satisfy that, and still
+   * demanded the old "F REASSURE · G TAKE · ZIP-TIE" phrasing — so it failed
+   * on a string that is correct. It checks the KEY AND THE VERB of all four
+   * now, which is the thing the note was actually about. */
+  const advertises = (pattern) => pattern.test(hostagePrompt ?? '');
+  check('the person under the crosshair advertises all four verbs, each with its key',
+    advertises(/E — (?:to the ground|keep them down)/)
+      && advertises(/HOLD E — (?:tie up|no ties left)/)
+      && advertises(/F — talk them down/)
+      && advertises(/G — take what they have/),
     String(hostagePrompt));
   await shot('04b-hostage-pleading');
 
@@ -711,10 +718,17 @@ try {
       .map((id) => window.__squatch.apartment.dressing.get(id).group.visible),
     targets: window.__squatch.interaction.targets.map((target) => target.name),
   }));
+  /* The dressing's interaction targets carry a `dress:` prefix on their names
+   * — `src/world/dressing.js` builds every one of them as `group('dress:' +
+   * id)` — while the dressing MAP is still keyed by the bare id. This lookup
+   * only ever knew the bare form, so it failed on a flat that was dressed
+   * correctly, and the follow-up `find()` below returned undefined and threw.
+   * Accepts either spelling rather than pinning one. */
+  const dressed = (id) => apartment.targets.includes(id) || apartment.targets.includes(`dress:${id}`);
   check('post-heist apartment hides packed gear and exposes three physical cleanup stations',
     apartment.prep.every((visible) => !visible)
       && apartment.cleanup.every(Boolean)
-      && ['heistWash', 'heistChange', 'heistGearSecured'].every((id) => apartment.targets.includes(id)),
+      && ['heistWash', 'heistChange', 'heistGearSecured'].every(dressed),
     JSON.stringify(apartment));
   const apartmentStartAt = Date.now();
   await apartmentPage.evaluate(() => document.getElementById('start-btn').click());
@@ -738,7 +752,10 @@ try {
   if (!apartmentAudio.started) throw new Error(`Apartment audio start stalled: ${JSON.stringify(apartmentAudio)}`);
   await apartmentPage.evaluate(() => {
     for (const name of ['heistWash', 'heistChange', 'heistGearSecured']) {
-      const target = window.__squatch.interaction.targets.find((item) => item.name === name);
+      // Either spelling — see the `dress:` note above.
+      const target = window.__squatch.interaction.targets
+        .find((item) => item.name === name || item.name === `dress:${name}`);
+      if (!target) throw new Error(`no cleanup station named ${name} or dress:${name}`);
       target.userData.interact.onUse(target);
     }
   });

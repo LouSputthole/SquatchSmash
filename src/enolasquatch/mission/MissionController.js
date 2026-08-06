@@ -66,7 +66,7 @@
 import * as THREE from 'three';
 import {
   AC_ENOLA, enolaMass, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, CHECKPOINTS,
-  ENOLA_PARKING,
+  ENOLA_PARKING, LIVE_FIRE,
 } from '../config.js';
 import { OBJECTIVES, RELEASE_LINES, releaseCueOf } from '../dialogue/script.js';
 import { Defense } from '../combat/Defense.js';
@@ -78,12 +78,164 @@ import { Detonation, BLAST } from '../vfx/Detonation.js';
 import { WP, KT, FT } from '../../beefrun/config.js';
 import { evaluateLineupGate } from '../../beefrun/lineup-gate.js';
 import { clamp, lerp, headingDelta, unlit } from '../../beefrun/util.js';
+import { SmokeSystem } from '../../world/smoke.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const TOWN = LANDMARKS_EAST.find((l) => l.id === 'town');
 const CLOUDBANK = LANDMARKS_EAST.find((l) => l.id === 'cloudbank');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;   // 270 — back the way we came
+
+/* THE ONE AUTHORED ENGINE PROBLEM.
+ *
+ * Owner, via the 2026-08-06 for-show pass (`LIVE_FIRE`, ../config.js): the
+ * flak and the fighters no longer cost the aeroplane anything, on purpose —
+ * "there's really no targets to shoot out... Lets just have all the flak
+ * and fighters for show." A barrage that can never touch you is honest
+ * spectacle, but it leaves the whole run-in with zero consequence, and this
+ * is the one exception: not random, not enemy fire, a heavy four-engine
+ * aeroplane that has been at high power through a long climb and a longer
+ * gauntlet finally telling on itself, right at the end of the stretch.
+ *
+ * `ENGINE_OUT_INDEX` is 2 — 'innerRight' in the `engineNames` order
+ * `main.js` builds the `EngineSystem` with (`['outerLeft', 'innerLeft',
+ * 'innerRight', 'outerRight']`), aviation's "number three" on a four-engine
+ * heavy numbered left to right. Deliberately not "number two": that number
+ * already belongs to `emergency.overheat` (../dialogue/script.js), the
+ * unrelated, later, combat-damage-only engine-trouble beat that can still
+ * fire during the escape leg — see `updateEscape()`. A player who reaches
+ * both in one flight should not hear the same engine named twice for two
+ * different reasons.
+ *
+ * `ENGINE_OUT_TRIGGER_X` sits 1000 m short of where `updateDefensePhase`
+ * hands off to `bombApproach` (`TARGET_X - 1400`) — inside the flak/fighter
+ * stretch (which runs from the corridor exit, `ZONES_EAST`'s `corridor.to`
+ * at x 4200, through to that handoff), toward its end rather than at a
+ * random point in it, per the brief. */
+const ENGINE_OUT_INDEX = 2;
+const ENGINE_OUT_TRIGGER_X = TARGET_X - 2400;
+/** How much of the engine's own thrust the derate costs it. One of four
+ * equal engines is normally a quarter of total thrust, so knocking this one
+ * down by 28% of ITS OWN output costs the aeroplane 0.28 * 25% = 7% of its
+ * TOTAL power — "knocking total power down ~7%", not a kill. `EngineSystem
+ * .damage()`'s `floor` argument is the same number: the derate is permanent
+ * for the rest of the attempt, but never gets worse from this alone. */
+const ENGINE_OUT_HEALTH_LOSS = 0.28;
+const ENGINE_OUT_HEALTH_FLOOR = 0.72;
+
+/* The buffet. Owner: "the shockwave to pass over you and simulate a brief
+ * moment of turbulence." `BLAST_TURB_SECONDS` is how long the air stays rough
+ * afterwards, decaying back to `BASE_TURB` — the ordinary night air of the
+ * escape leg, and the same number the escape phase resets to at +8 s. */
+const BLAST_TURB_SECONDS = 5.5;
+const BASE_TURB = 0.4;
+
+/* THE DROP CAMERA. Owner: "Maybe we experiment with moving the camera to the
+ * third person automatically when you drop the bomb."
+ *
+ * An experiment, so it is one constant and a flag rather than a system: when
+ * the payload leaves the mount the view goes to `chase` for this long and then
+ * goes back to exactly the view the player had. It does NOT hold through the
+ * detonation — the flash is a cockpit shot and the break turn is flown on
+ * instruments, so it hands the aeroplane back well before either. Anybody who
+ * touches the camera key during it keeps what they chose (see
+ * `updateDropCamera`), because a player who has taken the camera has said what
+ * he wants and the experiment should not argue. */
+const DROP_CAM_SECONDS = 4.2;
+
+/* ------------------------------------------------------------------ */
+/* THE TWO DIAMONDS                                                    */
+/*
+ * Owner, 2026-08-06: "I also want a diamond marker on the city where to drop
+ * the bomb and a diamond marker on the airport for the return."
+ *
+ * Both are the HUD this project already has for exactly this. `FlightHud` (the
+ * unmodified `src/beefrun/hud.js`, driving the identical markup already sitting
+ * in `enolasquatch.html`) carries a pair that are fed from ONE target so they
+ * can never disagree:
+ *
+ *   `setDirection()`  an amber diamond projected onto the place itself, with
+ *                     the range under it — and, the moment the place goes off
+ *                     the glass, an arrowhead pinned to the edge of the frame
+ *                     pointing at it. That is the marker the owner asked for,
+ *                     and it is legible at nine kilometres for the same reason
+ *                     it is legible at two hundred metres: it is drawn on the
+ *                     screen at a fixed size rather than in the world, so it
+ *                     never becomes a speck and never fills the windscreen.
+ *   `setNav()`        a bearing bug on the heading tape and the same range as
+ *                     a number, for flying the intercept rather than eyeballing
+ *                     it. `src/beefrun/mission.js` drives both together from
+ *                     its own `navTarget()`; this is that idiom, on this route.
+ *
+ * Neither had ever been wired on this mission — the elements were in the page
+ * and permanently hidden. `navTarget()` below is the whole of the new logic and
+ * it is a phase lookup, which is what makes "it must not be on screen when it
+ * is not that phase's job" a property of the table rather than a rule somebody
+ * has to keep obeying: no entry, no marker.
+ *
+ * The heights are chosen so each diamond sits ON its subject from the altitudes
+ * this route is actually flown at: 300 m over Squatchbourg clears the 132 m
+ * tower and the smoke and puts the diamond at about eye level on a 400 m
+ * bombing run, and 160 m over Whispering Pines keeps it standing on the field
+ * rather than in the sky above it as the aeroplane comes down final.
+ */
+/* ------------------------------------------------------------------ */
+
+export const NAV_CITY = Object.freeze({ x: TARGET_X, z: COMPOUND.z, up: 300, label: 'SQUATCHBOURG' });
+export const NAV_FIELD = Object.freeze({ x: WP.x, z: WP.z, up: 160, label: 'WHISPERING PINES' });
+
+/**
+ * Which marker is up, by phase. Everything absent is deliberate:
+ *
+ *   walkaround / nightfall / preflight / taxi   there is no flight HUD yet.
+ *   takeoff / climbTurn   the aeroplane is being flown off a runway and turned
+ *     onto a heading; a diamond on a city 9 km east is not the job yet, and the
+ *     turn is called by Irish.
+ *   explosion / escape / emergency   the city has just stopped existing (a
+ *     marker on a crater saying DROP HERE is the wrong sentence) and the job is
+ *     to get clear of it and sort out an engine. The way home is Sasole's line
+ *     and the heading bug picks it up again the moment `return` starts.
+ *   epilogue   it is over.
+ */
+export const NAV_BY_PHASE = Object.freeze({
+  cruise: NAV_CITY,
+  detection: NAV_CITY,
+  defense: NAV_CITY,
+  bombApproach: NAV_CITY,
+  bombMalfunction: NAV_CITY,
+  release: NAV_CITY,
+  return: NAV_FIELD,
+  landing: NAV_FIELD,
+});
+
+const _navPos = new THREE.Vector3();
+const _navView = new THREE.Matrix4();
+
+/**
+ * THE CREW SAY IT AGAIN.
+ *
+ * `DialogueSystem.play(id, { once: true })` never repeats a beat, which is
+ * exactly right the first time through and wrong after a restart: a player who
+ * restored the checkpoint and flew the bombing run a second time did the whole
+ * thing in silence — nobody called the city in sight, nobody said "package
+ * away", nobody reacted to the flash — because every one of those beats was
+ * already in `dialogue.played` from the attempt that killed him. That is not a
+ * separate bug from the empty crater and the missing bomb; it is the same one
+ * seen from the crew's seats, and `DialogueSystem.forget()` exists for it.
+ *
+ * Keyed by checkpoint, listing the `BEATS` id PREFIXES (see
+ * `../dialogue/script.js`) belonging to the legs that checkpoint replays.
+ * Everything BEFORE the restore point is deliberately absent — a restart at the
+ * target should not make the crew do the walkaround banter again.
+ */
+const REPLAYED_BEATS = Object.freeze({
+  takeoff: ['takeoff.', 'climb.', 'cruise.', 'nav.', 'detect.', 'defense.', 'fighters.',
+    'auto.', 'gun.', 'bomb.', 'explosion.', 'escape.', 'emergency.', 'landing.'],
+  turnOnCourse: ['cruise.', 'nav.', 'detect.', 'defense.', 'fighters.',
+    'auto.', 'gun.', 'bomb.', 'explosion.', 'escape.', 'emergency.', 'landing.'],
+  preRelease: ['bomb.', 'explosion.', 'escape.', 'emergency.', 'landing.'],
+  return: ['landing.'],
+});
 
 /**
  * A flat, provisional ground height for anywhere east of the turn point.
@@ -113,6 +265,13 @@ export class MissionController {
 
     const groundAt = (x, z) => (this.getHeight ? this.getHeight(x, z) : approxGroundHeight(x));
     this.defense = this.defense || new Defense(this.scene, { getHeight: groundAt });
+    /* FOR SHOW. One assignment, applied to an injected `Defense` as readily as
+     * to one built here, because the flag is a property of THIS MISSION rather
+     * than of the class — see `LIVE_FIRE` in ../config.js for what it does and
+     * does not switch off, and `Defense._resolveHit()` for the one line it
+     * gates. Set `__enolaSquatch.defense.liveFire = true` to take the beating
+     * back. */
+    this.defense.liveFire = LIVE_FIRE.flak;
     this.targeting = this.targeting || new Targeting({ target: COMPOUND, corridorHeading: TURN_POINT.newHeading });
 
     /* The air threat, the box that flies for you, the gun you fly it to work,
@@ -166,14 +325,28 @@ export class MissionController {
     this.gunAim = new THREE.Vector3();
     this._gunBurst = 0;
     this._gunRest = 0;
+    /** Counts down between rounds of the Shubenator's burst — see `updateRearGunner()`. */
+    this._gunSoundT = 0;
 
     /* The blast, as the rest of the page sees it. `blastFlash` is the 0..1
      * whiteout `../main.js` paints over the whole screen; `blastTint` is the
      * colour it cools through as the eye comes back. */
     this.blastFlash = 0;
     this.blastTint = { r: 1, g: 1, b: 1 };
+    /* And `blastWash` is the front itself crossing the camera — a second,
+     * dirtier overlay that sweeps once as the shock goes past. Separate from
+     * the flash on purpose: the flash is light and arrives instantly, the wash
+     * is pressure and arrives when it gets there. */
+    this.blastWash = 0;
     this._shockArrived = false;
     this._blastSoundFired = false;
+    this._blastTurb = 0;
+    this._blastTurbPeak = BASE_TURB;
+    /* The drop camera experiment — see `DROP_CAM_SECONDS`. Public and
+     * writable: set it false and the camera never moves itself. */
+    this.cinematicDrop = true;
+    this._dropCam = 0;
+    this._dropCamFrom = null;
 
     /* How hard the aeroplane is being thrown about this frame, 0..1. Computed
      * once and handed to BOTH the flak and the fighters, so evading means the
@@ -220,6 +393,12 @@ export class MissionController {
     this._smoothPraised = false;
     this._t = 0;
 
+    /* THE ONE AUTHORED ENGINE PROBLEM — see `triggerEngineOut()`. */
+    this._engineOutFired = false;
+    this._engineOutIndex = null;
+    this._engineSmoke = null;
+    this._engineSmokeT = 0;
+
     this.physics.onTouchdown = (vs, g, wheel) => this.onTouchdown(vs, g, wheel);
     this.physics.onImpact = (sev, what) => this.onImpact(sev, what);
     this.engines.onEvent = (name, i) => this.onEngineEvent(name, i);
@@ -256,7 +435,11 @@ export class MissionController {
       void point;
     };
     this.defense.onShrapnel = (distance) => {
+      /* The splinters are still heard, every time. `LIVE_FIRE.flak` only ever
+       * gates what they COST — see that flag. Note that the sound is outside
+       * the guard on purpose: a near miss you cannot hear is not a near miss. */
       this.audio?.shrapnel?.(clamp(1 - distance / 95, 0, 1));
+      if (!LIVE_FIRE.flak) return;
       this.physics.damage.wing = clamp(this.physics.damage.wing + 0.012, 0, 1);
       // Losing the autopilot to a near miss is the point of having one.
       if (this.autopilot.engaged && Math.random() < 0.28) {
@@ -302,8 +485,18 @@ export class MissionController {
       this.interceptors.setPredictability(0);
     };
 
-    /* The player's gun. */
-    this.gunner.onShot = () => this.audio?.play?.('gun.shot', { volume: 0.4 });
+    /* The player's gun.
+     *
+     * Owner playtest, 2026-08-04: "better bigger machine guns sounds for the
+     * rear gun." This was firing `gun.shot` — the apartment's revolver — at
+     * eleven rounds a second. `enolasquatch.gun.rear` is a twin heavy aircraft
+     * gun heard from inside the turret (see the case at the end of the cue
+     * switch in `src/core/audio.js` for what is in it), and the rate is high
+     * enough that the volume comes down and a little rate jitter goes in, or
+     * eleven identical hits a second turn into a buzz rather than a gun. */
+    this.gunner.onShot = () => this.audio?.play?.('enolasquatch.gun.rear', {
+      volume: 0.5, rate: 0.94 + Math.random() * 0.12,
+    });
     this.gunner.onJam = () => this.dialogue.bark('gunJam');
     this.gunner.onDry = () => this.dialogue.play('gun.dry', { once: true });
 
@@ -350,9 +543,27 @@ export class MissionController {
    */
   toggleGun() {
     if (this.gunner.manned) { this.leaveGun(); return false; }
-    if (this.physics.onGround) { this.dialogue.bark('gunRefused'); return false; }
+    /* A REFUSAL HAS TO SAY SO (owner playtest, 2026-08-04: "not sure if P and
+     * T for tail gun work").
+     *
+     * They work — driven as real key events in a browser, P engages and
+     * disengages the autopilot and T takes and gives back the gun. What they
+     * did not do was ANSWER. `toggleAutopilot()` already put its refusal on
+     * the glass; this one refused with a bark alone, and a bark is a pooled
+     * line on a cooldown that is very often dropped. So on the ground, or
+     * anywhere the autopilot will not take the aeroplane, T did nothing
+     * visible at all — and `../main.js` then toasted "BACK IN THE SEAT" over
+     * the top of it, which says the opposite of what happened. Both halves are
+     * fixed: the reason is said here, and the toast is only raised on a real
+     * change of state there. */
+    if (this.physics.onGround) {
+      this.dialogue.bark('gunRefused');
+      this.hud?.say?.('<em>Not on the ground.</em> The tail gun is for when somebody else can fly her.', 3200);
+      return false;
+    }
     if (!this.autopilot.engaged && !this.autopilot.engage({})) {
       this.dialogue.bark('autoRefused');
+      this.hud?.say?.('<em>Not from here.</em> Nobody can leave the seat until the gyro will hold her — wings level, out of the stall, above the deck.', 3600);
       return false;
     }
     this.gunner.take();
@@ -360,6 +571,59 @@ export class MissionController {
     this.dialogue.play('gun.take', { once: true });
     this.cameras?.setView?.('cockpit');
     return true;
+  }
+
+  /**
+   * Hang a Fat Squatch back on the mount.
+   *
+   * THE UNWINNABLE RESTART — owner playtest, 2026-08-04: "I had to restart
+   * after I dropped the bomb and the area was already dentonated and the bomb
+   * was gone."
+   *
+   * Exactly that. Restoring the `preRelease` checkpoint after a drop reset the
+   * MISSION's `payloadReleased` flag but never the PAYLOAD: `FatSquatch` was
+   * still detached in the scene, still `released`, still `impacted`, and
+   * `release()` is a deliberate one-way door. So the second attempt ran the
+   * whole release sequence, `payload.release()` returned on its first line,
+   * nothing fell, `onPayloadImpact` never fired, and `updateExplosion` sat in
+   * its "still falling" branch for the rest of the session with an empty bay
+   * over a target that already had a crater in it. No way forward, no way
+   * back, and no bomb.
+   *
+   * `rearmPayload()` is the one call that makes it recoverable. It puts the
+   * prop back on `payloadMount`, clears the fall state and the straps, and
+   * resets this controller's own release bookkeeping so the beat can run
+   * again from the top. Called from `restoreCheckpoint()` whenever the state
+   * being restored still has the bomb aboard, and defensively from the
+   * release itself so that no route can reach the drop with an empty mount.
+   *
+   * THE OTHER HALF OF IT — owner, 2026-08-06: "The enola restart from latest
+   * checkpoint bug still happens where everything is already blown up and I
+   * cant redrop the bomb."
+   *
+   * This comment used to say the flattened target was fine and left alone —
+   * "you get to drop it again on what is left". That was wrong, and it was the
+   * bug the owner was still hitting: a bomb back on the mount is no use over a
+   * city that is already a hole, and `TargetCity.destroy()` had no undo at all,
+   * so `destroyed` stayed true forever and the second run was flown at an empty
+   * crater. `restoreCheckpoint()` now calls `TargetCity.restore()` (and
+   * `onCrater(null)`, which fills the hole back in in the composition root's own
+   * ground function and ground mesh) for every checkpoint at or before
+   * `preRelease`. The bomb and the city come back together, because either one
+   * without the other is still an unwinnable restart.
+   *
+   * @returns {boolean} whether a bomb actually had to be put back
+   */
+  rearmPayload() {
+    const mount = this.aircraft?.anchors?.payloadMount ?? null;
+    const wasGone = this.payload.rearm(mount);
+    this.payloadReleased = false;
+    this.explosionPoint = null;
+    this._releaseStep = null;
+    this._releaseTimer = 0;
+    this._fallSeconds = 0;
+    this.bombBayOpen = false;
+    return wasGone;
   }
 
   leaveGun() {
@@ -391,10 +655,20 @@ export class MissionController {
     this.hud?.say?.(html, ms);
   }
 
-  /** A fighter's round connected. */
+  /**
+   * A fighter's round connected.
+   *
+   * Everything above the `LIVE_FIRE.fighters` guard is what the player SEES and
+   * HEARS about being hit — the aeroplane lurching, the rounds striking the
+   * skin, and Sasole saying so — and it happens whether or not the fighters are
+   * shooting live. Everything below it is what being hit COSTS, and that is the
+   * half the owner asked to be turned off; see `LIVE_FIRE` in `../config.js`.
+   */
   onFighterHit(severity) {
     this.cameras?.addShake?.(0.35 + severity * 0.5);
     this.audio?.shrapnel?.(severity);
+    this.dialogue.bark('fighterHitUs');
+    if (!LIVE_FIRE.fighters) return;
     this.physics.damage.wing = clamp(this.physics.damage.wing + severity * 0.05, 0, 1);
     if (Math.random() < 0.34 * severity) {
       const alive = this.defense.damage.engines.map((d, i) => (d ? -1 : i)).filter((i) => i >= 0);
@@ -402,7 +676,6 @@ export class MissionController {
       else this.defense.damageElectrical();
     }
     if (this.autopilot.engaged && Math.random() < 0.45) this.autopilot.disengage('hit');
-    this.dialogue.bark('fighterHitUs');
   }
 
   /* ---------------------------------------------------------------- */
@@ -551,6 +824,11 @@ export class MissionController {
     this.player && (this.player.mode = 'frozen');
     this.interaction?.setPaused?.(true);
     this.crew?.takeSeats?.(this.aircraft);
+    /* The boarding ladder comes off with the last man up it. It hangs on the
+     * sill as a child of the airframe (see `EnolaSquatch.build()`), so leaving
+     * it drawn is the same fault as the chocks the owner watched fly to
+     * Squatchbourg — a ground fitting riding along at three thousand feet. */
+    if (this.aircraft.parts.ladder) this.aircraft.parts.ladder.visible = false;
     this.cameras?.setView?.('cockpit');
     if (this.cameras) { this.cameras.lookYaw = 0; this.cameras.lookPitch = -0.08; }
     this.audio?.setHeadset?.(true);
@@ -572,6 +850,12 @@ export class MissionController {
     this.phase = name;
     this.phaseTime = 0;
     this.onEnterPhase(name);
+    /* Settle the marker on the frame the phase changes rather than on the next
+     * flying frame. `updateFlightCommon()` — where it is driven from — is not
+     * called during the walkaround, the start-up or the epilogue, so a marker
+     * left up by the phase before would simply stay on the glass: land, roll
+     * out, and WHISPERING PINES 0.0 NM would sit over the report card. */
+    this.updateNavMarker();
   }
 
   /**
@@ -813,6 +1097,9 @@ export class MissionController {
      * going up and the escape has to be flyable while it does. The phase is
      * over long before the shot is. */
     if (this.detonation.live) this.updateDetonation(dt);
+    // For the same reason: the drop camera outlives the `release` phase by
+    // design, because the phase ends the instant the bomb leaves the mount.
+    this.updateDropCamera(dt);
 
     // Any instruction waiting for the crew to stop talking.
     this._drainInstruction();
@@ -1251,7 +1538,24 @@ export class MissionController {
         } else {
           this.dialogue.bark('gunnerFiring');
         }
-        this.audio?.play?.('gun.shot', { volume: 0.35 });
+        this._gunSoundT = 0;
+      }
+    }
+    /* THE SHUBENATOR IS AUDIBLE NOW.
+     *
+     * His whole burst used to be one revolver shot fired at the moment it
+     * started — a second and a half of muzzle flash on the mesh with nothing
+     * coming out of it. It runs at the real cadence instead, on the far cue
+     * (`enolasquatch.gun.rear.cabin`) because he is thirteen metres behind the
+     * flight deck and the difference between his gun and the player's gun
+     * should be audible. Same guns, different seat. */
+    if (this.gunFiring) {
+      this._gunSoundT = (this._gunSoundT ?? 0) - dt;
+      if (this._gunSoundT <= 0) {
+        this._gunSoundT = 1 / 9;
+        this.audio?.play?.('enolasquatch.gun.rear.cabin', {
+          volume: 0.34, rate: 0.92 + Math.random() * 0.16,
+        });
       }
     }
   }
@@ -1272,6 +1576,55 @@ export class MissionController {
   /** The ground height under a point, whichever sampler this mission was given. */
   groundAt(x, z) {
     return this.getHeight ? this.getHeight(x, z) : approxGroundHeight(x);
+  }
+
+  /**
+   * How long the Fat Squatch will be in the air.
+   *
+   * `FatSquatch.update()` integrates a bare ballistic arc — gravity, no drag,
+   * nothing to hit — so the closed form is exact: from `h` metres up with an
+   * initial vertical velocity `vy` (up positive), the time to the ground is
+   * `(vy + sqrt(vy^2 + 2gh)) / g`.
+   *
+   * IT WAS WRONG IN TWO WAYS, and the whistle being a synthesised sweep with a
+   * soft bottom to it is why nobody could hear either. A recording scheduled to
+   * END on the impact hears both immediately. Measured on the real route by
+   * `tools/verify-enola-bomb-audio.mjs`, which is where these numbers are from:
+   *
+   *   THE SIGN. It computed `v0 = max(0, -velocity.y)` — the DESCENT rate as a
+   *     positive number — and then added it, which is the arc of something
+   *     thrown UPWARD at that speed. A bomb let go from an aeroplane already
+   *     going down arrives SOONER, not later, and the error is 2·v0/g: on this
+   *     route, with the aeroplane trimmed 2.2 m/s down on the run in, 0.44 s.
+   *     The clamp hid the other half of it — an aeroplane in a climb really
+   *     does throw the bomb up, and that case was being thrown away.
+   *
+   *   WHICH GROUND. `h` was measured from the terrain directly under the
+   *     AEROPLANE, and the bomb does not land there: it keeps the aeroplane's
+   *     sixty metres a second and comes down half a kilometre downrange, where
+   *     the ground is twenty-one metres higher. Worth another 0.26 s.
+   *
+   * Two correction passes settle the second one — a first guess to find out
+   * where the thing is going, the height there, then the same again. It
+   * converges immediately (fourth pass moves it by 0.07 ms) because the
+   * correction is small compared with the fall.
+   *
+   * Measured from the PAYLOAD once it is off the mount, which is where it
+   * actually is: two metres below the aeroplane's datum, with the aeroplane's
+   * velocity. Before that — nothing else calls this today — from the aeroplane.
+   *
+   * @returns {number} seconds
+   */
+  predictFall() {
+    const off = this.payload?.released && !this.payload.impacted;
+    const from = off ? this.payload.group.position : this.physics.position;
+    const vel = off ? this.payload.velocity : this.physics.velocity;
+    const timeFrom = (h) => (vel.y + Math.sqrt(vel.y * vel.y + 2 * 9.81 * Math.max(1, h))) / 9.81;
+    let fall = timeFrom(from.y - this.groundAt(from.x, from.z));
+    for (let i = 0; i < 2; i++) {
+      fall = timeFrom(from.y - this.groundAt(from.x + vel.x * fall, from.z + vel.z * fall));
+    }
+    return fall;
   }
 
   updateDefensePhase(dt) {
@@ -1301,18 +1654,77 @@ export class MissionController {
       this.scrambleFighters(2, 3);
     }
     if (this.defense.caught) this.flightHud?.setPatrol?.('located', 1);
-    // Rare, mission-scripted safety valve — see the class header and
-    // `Defense.js`'s own doc comment: nothing in Defense itself ever calls
-    // `triggerCatastrophic`. Deliberately a high, explicit threshold rather
-    // than a per-frame chance, so it stays a genuinely unlikely outcome.
+    /* Rare, mission-scripted safety valve — see the class header and
+     * `Defense.js`'s own doc comment: nothing in Defense itself ever calls
+     * `triggerCatastrophic`. Deliberately a high, explicit threshold rather
+     * than a per-frame chance, so it stays a genuinely unlikely outcome.
+     *
+     * While the guns are firing blanks (`LIVE_FIRE.flak`, ../config.js) this
+     * can never fire on its own: `hitCount` and `damage.engines` are only
+     * written by the four `damageX()` methods, and the only thing that still
+     * calls those is the blast wave. Left standing rather than deleted — it is
+     * the whole point of the flag that the fight is one boolean away. */
     const enginesDown = this.defense.damage.engines.filter(Boolean).length;
     if (!this.defense.damage.catastrophic && this.defense.hitCount >= 6 && enginesDown >= 3) {
       this.defense.triggerCatastrophic('overwhelmed');
     }
+    /* THE ONE AUTHORED ENGINE PROBLEM — see the constants at the top of the
+     * file. Toward the end of the flak/fighter stretch, not the start of it. */
+    if (!this._engineOutFired && p.position.x > ENGINE_OUT_TRIGGER_X) this.triggerEngineOut();
     if (p.position.x > TARGET_X - 1400) {
       this.defense.suppress();
       this.setPhase('bombApproach');
     }
+  }
+
+  /**
+   * See the `ENGINE_OUT_*` constants for the whole of the reasoning. A
+   * derate, not a kill: `EngineSystem.damage()` takes `ENGINE_OUT_INDEX`'s
+   * health down to `ENGINE_OUT_HEALTH_FLOOR` and leaves it running — rougher,
+   * a little slower on the tach, trailing smoke — which is what "engine goes
+   * out" reads as here without touching `defense.damage.engines` (that array
+   * is reserved for real combat/blast damage and is what later arms the
+   * separate `updateEscape()` / `updateEmergency()` engine-emergency choice;
+   * setting it here would make this ONE authored beat silently spawn a
+   * second one on the way home).
+   */
+  triggerEngineOut() {
+    if (this._engineOutFired) return;
+    this._engineOutFired = true;
+    this._engineOutIndex = ENGINE_OUT_INDEX;
+    this.engines.damage(ENGINE_OUT_INDEX, ENGINE_OUT_HEALTH_LOSS, ENGINE_OUT_HEALTH_FLOOR);
+    this.cameras?.addShake?.(0.45);
+    this.dialogue.play('defense.engineStrain', { once: true });
+  }
+
+  /**
+   * The visible half of `triggerEngineOut()`: a thin, steady trail off the
+   * derated engine's exhaust for the rest of the attempt — the "prop" half of
+   * "visible engine-out (smoke/prop)" is already free (a damaged engine's
+   * lower `health` already pulls its RPM, and therefore its visual prop
+   * speed, down in `EnolaSquatch.update()`; nothing here needs to touch it).
+   *
+   * Reuses `src/world/smoke.js`'s `SmokeSystem` — the same pooled billboard
+   * sprites the apartment's cigarette uses — at aeroplane scale instead of
+   * cigarette scale, rather than building a second particle system for one
+   * prop. Built lazily so a flight that never reaches the trigger never pays
+   * for the pool.
+   */
+  updateEngineOutSmoke(dt) {
+    if (this._engineOutIndex === null || !this.aircraft || !this.scene) return;
+    if (!this._engineSmoke) this._engineSmoke = new SmokeSystem(this.scene);
+    this._engineSmokeT += dt;
+    if (this._engineSmokeT < 0.10) return;   // ~10 puffs/second — a trail, not a firehose
+    this._engineSmokeT = 0;
+    if (!this._engineSmokeOrigin) this._engineSmokeOrigin = new THREE.Vector3();
+    if (!this._engineSmokeDir) this._engineSmokeDir = new THREE.Vector3();
+    const origin = this.aircraft.exhaustPoint(this._engineOutIndex, this._engineSmokeOrigin);
+    // Trails aft and slightly down off the nacelle regardless of airspeed —
+    // the aeroplane's own -Z (tail-ward), not the (possibly near-zero) velocity.
+    const back = this._engineSmokeDir.set(0, -0.08, -1).applyQuaternion(this.physics.quat).normalize();
+    this._engineSmoke.emit(origin, back, {
+      count: 2, speed: 4.5, spread: 1.6, size0: 1.4, size1: 6, life: 3.4, peak: 0.5, rise: 0.25,
+    });
   }
 
   onDefenseHit(kind, detail) {
@@ -1426,20 +1838,23 @@ export class MissionController {
     } else if (this._releaseStep === 'kick') {
       this._releaseTimer -= dt;
       if (this._releaseTimer <= 0) {
+        /* Never reach the drop with an empty mount. `release()` returns on its
+         * first line if the prop has already been released once, which is how
+         * a restarted mission ended up with no bomb and no way to finish — see
+         * `rearmPayload()`. If anything at all has left this in that state,
+         * hang a fresh one up before pulling the handle. */
+        if (this.payload.released) this.rearmPayload();
         this.payload.release(this.scene, this.physics.velocity.clone());
         this.payloadReleased = true;
 
         /* The pheeeeeew. Started here rather than inside `FatSquatch` because
          * the payload is a passive prop and knows nothing about audio, and
          * because the length of the fall is a physics question the mission can
-         * answer and the prop cannot: from `h` metres up with an initial
-         * vertical rate `v0`, ballistic time to the ground is
-         * (v0 + sqrt(v0^2 + 2gh)) / g. Handing that to the whistle means the
-         * sweep bottoms out as the bomb arrives instead of before or after it.
-         * `onPayloadImpact` cuts it, and so does `restoreCheckpoint`. */
-        const h = Math.max(20, this.physics.position.y - this.groundAt(this.physics.position.x, this.physics.position.z));
-        const v0 = Math.max(0, -this.physics.velocity.y);
-        const fall = (v0 + Math.sqrt(v0 * v0 + 2 * 9.81 * h)) / 9.81;
+         * answer and the prop cannot — see `predictFall()`. Handing that to the
+         * whistle means the sweep bottoms out, and the recorded clip ENDS, as
+         * the bomb arrives instead of before or after it. `onPayloadImpact`
+         * cuts it, and so does `restoreCheckpoint`. */
+        const fall = this.predictFall();
         this.audio?.fallingWhistle?.(fall);
         this._fallSeconds = fall;
         this.dialogue.play('bomb.packageAway', { once: true, delay: 0.3 });
@@ -1455,9 +1870,65 @@ export class MissionController {
          * instruction after. */
         this._breakFrom = this.physics.headingDeg;
         this.dialogue.play('bomb.breakTurn', { once: true, delay: 1.2 });
+        this.startDropCamera();
         this.setPhase('explosion');
       }
     }
+  }
+
+  /* ---- The drop camera ----
+   *
+   * Owner: "Maybe we experiment with moving the camera to the third person
+   * automatically when you drop the bomb."
+   *
+   * A four-second look at your own aeroplane as the thing falls out of it, and
+   * then back to whatever you were in. Three rules keep it from being the kind
+   * of automatic camera people hate:
+   *
+   *   IT GIVES THE VIEW BACK. Not "to cockpit" — to the view the player had
+   *     when it took it, whichever that was. A player flying in chase view
+   *     notices nothing at all.
+   *   IT LOSES ARGUMENTS. If the camera key is touched while it is running it
+   *     stops immediately and does not restore anything. `CameraManager.view`
+   *     is the only state it watches, so this works no matter how the player
+   *     changed it.
+   *   IT IS OFF IN THE TURRET. A player in the tail is already looking at
+   *     something, and yanking him out of the gun is not a camera move.
+   *
+   * `cinematicDrop` is public and can simply be set false. It is an experiment
+   * and it should be trivially switchable off.
+   */
+
+  startDropCamera() {
+    if (!this.cinematicDrop || !this.cameras || this.gunner?.manned) return false;
+    if (typeof this.cameras.setView !== 'function') return false;
+    this._dropCamFrom = this.cameras.view;
+    if (this._dropCamFrom === 'chase') { this._dropCamFrom = null; return false; }
+    this.cameras.setView('chase');
+    this._dropCam = DROP_CAM_SECONDS;
+    this.hud?.toast?.('C — TAKE THE CAMERA');
+    return true;
+  }
+
+  updateDropCamera(dt) {
+    if (this._dropCam <= 0) return;
+    // The player took it. Leave him alone.
+    if (this.cameras?.view !== 'chase' || this.gunner?.manned) {
+      this._dropCam = 0;
+      this._dropCamFrom = null;
+      return;
+    }
+    this._dropCam -= dt;
+    if (this._dropCam > 0) return;
+    /* Back to zero, not to whatever fraction of a frame it overshot by. It
+     * used to be left at -0.02 for the rest of the mission — harmless, because
+     * the `<= 0` guard above never lets it run again, and wrong in the way
+     * that matters: anything reading the number to ask "is the drop camera
+     * running?" got a value that is neither running nor idle. A timer that has
+     * finished says zero. */
+    this._dropCam = 0;
+    if (this._dropCamFrom) this.cameras.setView(this._dropCamFrom);
+    this._dropCamFrom = null;
   }
 
   /* ---- Explosion ----
@@ -1552,7 +2023,25 @@ export class MissionController {
     this._explosionT = det.t;
     this.blastFlash = det.screenFlash;
     this.blastTint = det.flashColour;
+    /* The front sweeping the CAMERA — a separate overlay from the flash, and a
+     * separate colour, because it is dust and pressure rather than light. See
+     * `Detonation.shockWash`. `../main.js` paints it. */
+    this.blastWash = det.shockWash;
     const t = det.t;
+
+    /* The buffet dying away.
+     *
+     * `onShockWave` used to raise the turbulence and leave it raised, and the
+     * only thing that ever put it back was a hard reset eight seconds into the
+     * escape phase — so a player who lingered flew the whole way to the coast
+     * through weather that was actually a blast wave from four minutes ago.
+     * Owner: "simulate a BRIEF moment of turbulence." This is the brief. */
+    if (this._blastTurb > 0) {
+      this._blastTurb = Math.max(0, this._blastTurb - dt / BLAST_TURB_SECONDS);
+      this.weather.setConditions({
+        turbulence: lerp(BASE_TURB, this._blastTurbPeak, this._blastTurb),
+      });
+    }
 
     /* The crew, on their own clock rather than on `play(delay)` — that option
      * delays the whole QUEUE rather than one beat, so four beats queued at
@@ -1642,7 +2131,14 @@ export class MissionController {
 
     // Nobody's autopilot holds through that.
     this.autopilot.disengage('blast wave');
-    this.weather.setConditions({ turbulence: clamp(0.6 + severity * 0.5, 0, 1.4) });
+    /* Rough air, and then not. `_blastTurb` runs 1 -> 0 over
+     * `BLAST_TURB_SECONDS` in `updateDetonation`, easing the turbulence back
+     * to `BASE_TURB` — so the aeroplane is thrown about while the front is
+     * actually going past and flies normally afterwards. Setting the level and
+     * walking away is what made the whole run home feel like a storm. */
+    this._blastTurbPeak = clamp(0.6 + severity * 0.5, 0, 1.4);
+    this._blastTurb = 1;
+    this.weather.setConditions({ turbulence: this._blastTurbPeak });
     this.dialogue.play('explosion.shockwave', { urgent: true });
   }
 
@@ -1653,7 +2149,25 @@ export class MissionController {
     void dt;
     const p = this.physics;
     if (!this.explosionPoint) {
-      // Still falling. This is the break turn — see `updateRelease`.
+      /* Still falling. This is the break turn — see `updateRelease`.
+       *
+       * Unless nothing is falling, in which case this phase can never end.
+       * The bomb is `released` and not yet `impacted` for the eight or nine
+       * seconds of the drop and no longer; if we are here without an impact
+       * point and without a bomb in the air, the fall that was supposed to
+       * produce one is not happening and waiting is waiting forever. That was
+       * the shape of the owner's dead end. Go round again instead: put a Fat
+       * Squatch back on the mount, say so, and hand the player back to the
+       * bombing approach with a target that still has a city round the edge of
+       * it. Recoverable, and it costs a circuit rather than a session. */
+      const falling = this.payload.released && !this.payload.impacted;
+      if (!falling && this.phaseTime > 6) {
+        this.rearmPayload();
+        this.dialogue.play('bomb.doorsFixed', { once: false });
+        this.hud?.say?.('<em>It never left the mount.</em> Straps back on, doors reset — take her round again.', 6000);
+        this.setPhase('bombApproach');
+        return;
+      }
       this.setObjective(OBJECTIVES.BREAK_TURN);
       this.updateRearGunner(dt, false);
       return;
@@ -1690,6 +2204,13 @@ export class MissionController {
       this.interceptors.aggression = 1.0;
       this.scrambleFighters(2, 4);
     }
+    /* The engine emergency happens to a player who came home with a damaged
+     * engine, and it still can: with the guns firing blanks (`LIVE_FIRE`,
+     * ../config.js) the flak and the fighters no longer put one out, but
+     * `onShockWave()` does at severity > 1.1 — so the beat now belongs to the
+     * player who lingered inside a kilometre of his own detonation, which is a
+     * consequence he chose, rather than to whoever the barrage happened to
+     * roll against. Everyone else flies home on four. */
     if (!this._emergencyDecided && this._escapeT > 10 && p.agl > 220) {
       this._emergencyDecided = true;
       const engineHit = this.defense.damage.engines.findIndex(Boolean);
@@ -1837,6 +2358,101 @@ export class MissionController {
     if (this.autopilot.engaged) this.score.autopilotSeconds += dt;
   }
 
+  /* ---------------------------------------------------------------- */
+  /* The two diamonds — see NAV_BY_PHASE at the top of this file        */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Where the marker is pointing right now, or null while it is nobody's job.
+   *
+   * @returns {?{x:number, z:number, up:number, label:string}}
+   */
+  navTarget() {
+    return NAV_BY_PHASE[this.phase] || null;
+  }
+
+  /**
+   * Put a nav target on the glass: where the diamond goes, or which way the
+   * edge arrow points when the place is behind you.
+   *
+   * The same projection `src/beefrun/mission.js` uses, with this mission's own
+   * ground sampler and per-target height instead of Beef Run's flat `+260`. The
+   * view matrix is INVERTED here rather than read off `camera.matrixWorldInverse`
+   * for the reason that file gives: the renderer only refreshes that when it
+   * draws, and this runs before the flight camera has been pointed for the
+   * frame, so the cached one belongs to the previous attitude — which on a break
+   * turn is a diamond lagging the aeroplane by most of a turn.
+   *
+   * @param {{x:number, z:number, up:number, label:string}} nav
+   * @param {number} nm range in nautical miles
+   */
+  projectNav(nav, nm) {
+    const cam = this.camera;
+    if (!cam) return null;
+    cam.updateMatrixWorld();
+    _navPos.set(nav.x, this.groundAt(nav.x, nav.z) + nav.up, nav.z);
+    _navView.copy(cam.matrixWorld).invert();
+    _navPos.applyMatrix4(_navView);
+    const camX = _navPos.x;
+    const camY = _navPos.y;
+    const range = Math.abs(_navPos.z) || 1;
+    const ahead = _navPos.z < 0;
+    _navPos.applyMatrix4(cam.projectionMatrix);      // divides by w for us
+
+    const onScreen = ahead && Math.abs(_navPos.x) <= 0.94 && Math.abs(_navPos.y) <= 0.9;
+    let nx = _navPos.x;
+    let ny = _navPos.y;
+    if (!onScreen) {
+      /* Off the glass, the arrow is aimed from the CAMERA-SPACE vector rather
+       * than the projected one: a point behind the camera projects mirrored,
+       * and dead astern it projects to a direction that flips from one edge of
+       * the screen to the other on a metre of drift. Straight behind has no
+       * side to be on at all, so it goes to the bottom — which is where you are
+       * looking when you are turning back. */
+      nx = camX;
+      ny = camY;
+      const len = Math.hypot(nx, ny);
+      if (len < range * 0.02) { nx = 0; ny = -1; } else { nx /= len; ny /= len; }
+      // Push it out until it touches the frame: the nearest border, not a corner.
+      const s = Math.min(0.94 / (Math.abs(nx) || 1e-6), 0.9 / (Math.abs(ny) || 1e-6));
+      nx *= s;
+      ny *= s;
+    }
+    return {
+      onScreen,
+      x: (nx * 0.5 + 0.5) * 100,
+      y: (0.5 - ny * 0.5) * 100,
+      // The clip-path arrowhead points up at zero, and screen y runs down.
+      angle: (Math.atan2(nx, ny) * 180) / Math.PI,
+      label: nav.label,
+      nm,
+    };
+  }
+
+  /** Drive both halves of the marker from one target. Called every flying frame. */
+  updateNavMarker() {
+    const nav = this.navTarget();
+    if (!nav) {
+      this.flightHud?.setNav?.(null);
+      this.flightHud?.setDirection?.(null);
+      this.navRange = null;
+      return null;
+    }
+    const p = this.physics;
+    const dx = nav.x - p.position.x;
+    const dz = nav.z - p.position.z;
+    const bearing = ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
+    const nm = Math.hypot(dx, dz) / 1852;
+    this.navRange = nm;
+    this.flightHud?.setNav?.({
+      label: nav.label,
+      delta: headingDelta(p.headingDeg, bearing),
+      nm,
+    });
+    this.flightHud?.setDirection?.(this.projectNav(nav, nm));
+    return nav;
+  }
+
   /** Launch a wave of night fighters, once. */
   scrambleFighters(count, delay = 0) {
     if (this.interceptors.deployed && this.interceptors._pendingWave > 0) return false;
@@ -1850,6 +2466,10 @@ export class MissionController {
 
     this.updateEvasion(dt);
     this.updateAirBattle(dt);
+    // The diamond on the city, or the one on the field, or neither.
+    this.updateNavMarker();
+    // The visible half of the one authored engine problem — see triggerEngineOut().
+    this.updateEngineOutSmoke(dt);
 
     this.weather.sampleAir(p.position, p.agl, { wind: p.wind, gust: p.gust });
     const rough = p.gust.length();
@@ -1922,13 +2542,28 @@ export class MissionController {
   }
 
   onImpact(severity, what) {
-    if (severity <= 0) return;
+    if (severity <= 0 || this.aircraft?.destroyed) return;
     const p = this.physics;
     if (severity > 2.4) {
       p.damage.wing = clamp(p.damage.wing + severity * 0.06, 0, 1);
       this.cameras?.addShake?.(0.6);
     }
     if (severity > 6.5 || p.damage.wing >= 1) {
+      /* Presentation, layered on the failure rule rather than replacing it —
+       * ported from `src/beefrun/mission.js`'s `onImpact`, which is where
+       * this crash effect was built and proven: read `src/beefrun/aircraft.js`
+       * for the shape being reused rather than reinvented. A high-energy hit
+       * gets the fireball; a wing ground down to 1.0 over a long scrape still
+       * ends the flight, but quietly, because there is no detonation in it.
+       * Both still fail — the gate above is unchanged. */
+      if (severity >= 7.6 && this.aircraft?.explode?.()) {
+        this.audio?.explosion?.();
+        this.cameras?.addShake?.(1.6);
+        for (let i = 0; i < this.engines.engines.length; i++) this.engines.kill(i, 'destroyed');
+        p.controls.throttleL = p.controls.throttleR = 0;
+        p.velocity.multiplyScalar(0.04);
+        p.omega.set(0, 0, 0);
+      }
       this.fail(what === 'terrain' ? 'You flew it into the ground.' : 'The aeroplane is finished.');
     }
   }
@@ -2004,7 +2639,15 @@ export class MissionController {
     const data = this.checkpointData?.name === name ? this.checkpointData : null;
     this.checkpoint = name;
     this.failed = null;
+    /* Put the airframe back if the last attempt ended in a fireball. Without
+     * this the restore flies a hidden aeroplane trailing somebody else's
+     * debris — same fix, same reasoning, as `src/beefrun/mission.js`'s own
+     * `restoreCheckpoint`. */
+    this.aircraft?.resetDestruction?.();
     this.dialogue.clear();
+    /* `clear()` empties the QUEUE; this empties the memory. Without it the
+     * second attempt at a leg is flown in silence — see `REPLAYED_BEATS`. */
+    this.forgetReplayedBeats(name);
     this._touchdowns.length = 0;
     this.flightHud?.hideComplete?.();
 
@@ -2016,19 +2659,62 @@ export class MissionController {
      * restored flight that leaves the on-foot systems armed puts an
      * interaction prompt on the glass at four thousand feet. */
     this.audio?.endFallingWhistle?.(0.05);
+    /* And the explosion itself, which is the one sound on this page that can
+     * outlive the attempt that made it: the delivered blast recordings run for
+     * forty-four seconds on purpose (see `EnolaMissionAudio._sampledDetonation`)
+     * and a restart is the mission saying that detonation did not happen. Same
+     * reasoning as the turbulence and the screen wash below. */
+    this.audio?.stopBlast?.(0.5);
     this.gunFiring = false;
     // See `onPayloadImpact`: a restart before the drop must be able to detonate.
     this.detonation.dispose();
     this.explosionPoint = null;
     this.blastFlash = 0;
+    /* AND IT MUST HAVE SOMETHING TO DETONATE. Everything above already
+     * un-did the explosion; nothing put the bomb back. See `rearmPayload()`
+     * for the whole of that bug — this is the line that fixes it. It runs
+     * unconditionally, and the one checkpoint that is supposed to come back
+     * with an empty bay (`return`) is settled below, just before `setup`, and
+     * reconciled onto the prop at the end. Hanging a bomb up and taking it
+     * down again is cheap; reaching the target without one is not. */
+    this.rearmPayload();
+    /* AND SOMETHING TO DETONATE IT ON.
+     *
+     * Every checkpoint at or before `preRelease` is a point in the mission at
+     * which the Fat Squatch had not gone off yet, so the world it restores to
+     * is one where Squatchbourg is still standing. `return` is the one
+     * exception and it is not an oversight: it is the leg AFTER the drop, the
+     * bomb has been delivered in that timeline, and a player who crashes on
+     * the way home should come back to the crater he made rather than to a
+     * city he has to bomb twice. See `TargetCity.restore()` for what does and
+     * does not come back, and `../main.js`'s `mission.onCrater` for the two
+     * halves of the hole that live out there. */
+    if (this.restoresTheCity(name) && this.city?.destroyed) {
+      this.city.restore();
+      this.onCrater?.(null);
+    }
     this._shockArrived = false;
     this._blastSoundFired = false;
+    /* And nothing the blast did to the air, the screen or the camera outlives
+     * it either — a restored flight that keeps the last attempt's turbulence
+     * is a player being thrown about by an explosion that has not happened. */
+    this.blastWash = 0;
+    this._blastTurb = 0;
+    this._blastTurbPeak = BASE_TURB;
+    this._dropCam = 0;
+    this._dropCamFrom = null;
     /* The air battle does not survive a restart either — a wave of fighters
      * left over from the attempt before is a wave the player never earned. */
     this.interceptors.clear();
     this.gunner.reset();
     this.autopilot.disengage(null);
     this.autopilot.lockout = 0;
+    /* Nor the one authored engine problem — `engines.reset(false)` below (when
+     * `data` exists) already rebuilds every engine at full health, and a
+     * restart before the trigger point must be able to earn it again. */
+    this._engineOutFired = false;
+    this._engineOutIndex = null;
+    this._engineSmokeT = 0;
     this.preflight?.disarm?.();
     this.disarmBoardingTarget();
     this.crew?.takeSeats?.(this.aircraft);
@@ -2066,7 +2752,12 @@ export class MissionController {
         this.engines.forceRunning();
         this.input.throttle = 0.6;
         this.physics.controls.parkingBrake = false;
-        this.payloadReleased = data?.payloadReleased ?? false;
+        /* No `payloadReleased` line here on purpose. It used to read
+         * `data?.payloadReleased ?? false` out of the saved checkpoint, which
+         * was a trapdoor: any route that managed to save `preRelease` with the
+         * bomb already gone came back to the bombing run with an empty bay and
+         * no way to finish. It is settled for every checkpoint in one place
+         * now — see the rule just above `setup[name]()`. */
         /* Put the night back. Every other restore point sets its own
          * conditions and this one did not, so restarting at the target
          * inherited whatever the weather was last told — on a fresh page that
@@ -2096,11 +2787,57 @@ export class MissionController {
       this.physics.damage.tireBurst = data.damage?.tireBurst ?? false;
       this.engines.reset(false);
       this.engines.fuel = data.fuel ?? this.engines.fuel;
-      this.payloadReleased = data.payloadReleased ?? this.payloadReleased;
+      /* `data.payloadReleased` is deliberately NOT restored alongside these.
+       * The saved flag is a photograph of a moment; what a restart needs is the
+       * RULE, which is the single `name !== 'return'` line further down and is
+       * now the only thing that decides whether there is a bomb aboard. */
+
+      /* AND THE BATTLE DAMAGE GOES WITH THE ENGINES.
+       *
+       * `engines.reset(false)` on the line above rebuilds all four engines from
+       * scratch — healthy, alive, cold — but `Defense.damage` is a SECOND,
+       * parallel record of what has been shot off, and nothing ever put it
+       * back. So a restart left the mission believing in damage the aeroplane
+       * no longer had: `score.damage` counted engines that were running,
+       * `updateEscape` offered the engine emergency for an engine that was
+       * fine, `onFighterHit` would not pick those engines again because it
+       * thinks they are already gone, and — the one the player actually sees —
+       * ELECTRICAL FAULT stayed on the glass for the rest of the session with a
+       * dead dial behind it. Reachable on any run at all: `onShockWave()`
+       * damages the electrics at severity 0.55, which is most drops.
+       *
+       * `soft` restores (the takeoff-overrun tow-back) deliberately keep it,
+       * the same way they keep the score and the dialogue history. */
+      this.defense.damage.engines.fill(false);
+      this.defense.damage.rudder = false;
+      this.defense.damage.electrical = false;
+      this.defense.damage.fuel = false;
+      this.defense.damage.catastrophic = false;
+      this.defense.hitCount = 0;
+      const dials = this.aircraft?.instruments;
+      if (dials?.failed?.size) { dials.failed.clear(); dials.dirty = true; }
     }
 
     this.flags.enginesEverStarted = true;
+    /* WHO COMES BACK WITH A BOMB. Exactly one checkpoint does not, and it is
+     * the one after the drop. Settled here, in one line, rather than in each
+     * `setup` and again out of the saved `checkpointData` — those three
+     * disagreed, and a disagreement about this field is an aeroplane over the
+     * target with nothing in the bay, which is half of the unwinnable restart
+     * the owner kept hitting. `setup.return()` sets it true again immediately
+     * below, and that is the whole of the exception. */
+    if (name !== 'return') this.payloadReleased = false;
     setup[name]();
+    /* Reconcile the prop with the flag the restore just settled on. Every
+     * checkpoint but one comes back with the bomb aboard and `rearmPayload()`
+     * above has already hung it up; `return` is the exception — it is the leg
+     * after the drop, so the bay has to be empty there or the aeroplane flies
+     * home with a Fat Squatch it has already delivered. */
+    if (this.payloadReleased && !this.payload.released) {
+      this.payload.released = true;
+      this.payload.impacted = true;
+      this.payload.group.visible = false;
+    }
     this.aircraft.syncTo(this.physics);
     return true;
   }
@@ -2111,6 +2848,39 @@ export class MissionController {
   }
 
   get checkpointList() { return CHECKPOINTS; }
+
+  /**
+   * Does restarting at `name` restore Squatchbourg?
+   *
+   * True for every checkpoint at or before the drop, false for the one after
+   * it. Expressed as a position in `CHECKPOINTS` rather than as a list of names
+   * so that a checkpoint added between `preRelease` and `return` later on gets
+   * the right answer without anybody having to remember this method exists.
+   *
+   * @param {string} name a `CHECKPOINTS` entry
+   */
+  restoresTheCity(name) {
+    const at = CHECKPOINTS.indexOf(name);
+    return at >= 0 && at <= CHECKPOINTS.indexOf('preRelease');
+  }
+
+  /**
+   * Let the crew say the beats belonging to the legs this restart replays.
+   *
+   * Reads `dialogue.played` rather than the `BEATS` table so it cannot fall out
+   * of step with the script: whatever has actually been said, and matches one
+   * of this checkpoint's prefixes, is forgotten. See `REPLAYED_BEATS`.
+   *
+   * @param {string} name a `CHECKPOINTS` entry
+   * @returns {number} how many beats the crew may now say again
+   */
+  forgetReplayedBeats(name) {
+    const prefixes = REPLAYED_BEATS[name];
+    if (!prefixes || !this.dialogue?.played || !this.dialogue.forget) return 0;
+    const again = [...this.dialogue.played].filter((id) => prefixes.some((p) => id.startsWith(p)));
+    if (again.length) this.dialogue.forget(...again);
+    return again.length;
+  }
 
   /* ---------------------------------------------------------------- */
   /* Failure and the end                                               */

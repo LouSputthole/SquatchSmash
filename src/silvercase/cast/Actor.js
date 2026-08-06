@@ -173,6 +173,10 @@ export class Actor {
   _startDeath() {
     this.alive = false;
     this.downT = 0;
+    /* Whatever he was saying, he has stopped. `Npc.update()` is never called
+     * again for this body, so the mouth would otherwise be frozen at whatever
+     * width the last frame left it — mid-word, on a corpse. */
+    this.npc.hush?.();
     this._rest = {
       x: this.group.position.x, y: this.group.position.y, z: this.group.position.z,
     };

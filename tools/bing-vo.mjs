@@ -201,13 +201,82 @@ export function checkBingVoiceManifest(manifest) {
   for (const name of declared.keys()) {
     if (!expected.has(name)) failures.push(`stale cue ${name}`);
   }
+
   return failures;
+}
+
+/**
+ * Tree lines the runtime can play that no manifest row covers.
+ *
+ * THE HOLE THIS CLOSES. `collectTrees` only mints a cue when it starts with
+ * `vo.bing.full.`, so a tree line written on any other prefix --
+ * `vo.bing.bar.*`, `vo.bing.lou.brief.*`, `vo.bing.hang.*`, all of which
+ * exist -- is minted by nobody. The seventy-three that are in the manifest
+ * today are there as legacy static rows; they survive only because
+ * `isGeneratedBingCue()` does not delete them, which is luck rather than
+ * design. The NEXT one authored would be played by the runtime, be absent
+ * from the manifest, appear on no recording sheet, and nothing anywhere would
+ * say so. That is exactly how PROJECT SILENT SQUATCH lost 147 lines.
+ *
+ * Widening the minter is the wrong fix -- it would overwrite hand-authored
+ * static rows with tree text. Widening the CHECK is the right one: whoever
+ * writes the line is told, at the point they write it, that the manifest
+ * needs a row for it.
+ *
+ * Kept separate from `checkBingVoiceManifest` on purpose. That function asks
+ * "is the block I own in sync", and is run against synthetic fixtures
+ * containing only generated cues; this one asks "can the club say something
+ * nobody will ever record", which is only meaningful against the real
+ * manifest.
+ */
+export function checkBingTreeCoverage(manifest) {
+  const inManifest = new Set((manifest.sfx || []).map((cue) => cue.name));
+  return [...allBingTreeCues()]
+    .filter((name) => !inManifest.has(name))
+    .sort()
+    .map((name) => `tree cue ${name} is played by the runtime and is in no manifest row`
+      + ' -- it is off the `vo.bing.full.` prefix the generator mints, so add the row by hand');
+}
+
+/**
+ * Every cue name any Bing dialogue tree can ask for, regardless of prefix.
+ *
+ * Deliberately unfiltered, and deliberately separate from
+ * `collectBingVoiceCues()`: that one is the ledger of what this tool OWNS,
+ * this one is the list of what the runtime PLAYS. The gap between them is the
+ * thing worth reporting.
+ */
+export function allBingTreeCues() {
+  const names = new Set();
+  const walk = (scripts) => {
+    for (const [scope, tree] of Object.entries(scripts)) {
+      if (!tree || scope.startsWith('__')) continue;
+      for (const node of Object.values(tree)) {
+        if (!node?.line) continue;
+        const cue = valueOf(node.cue);
+        if (cue) names.add(cue);
+        for (const option of valueOf(node.options) || []) {
+          const optionCue = valueOf(option?.cue);
+          if (optionCue) names.add(optionCue);
+        }
+      }
+    }
+  };
+  for (const variant of [{}, { gotPackage: true }, { drunk: 0.7 }, { spins: 2 },
+    { secondVisit: true }, { jackpot: true }, { waited: 360 }, { waited: 500 }]) {
+    walk(buildScripts(makeContext(variant)));
+  }
+  for (const shotDone of [false, true]) walk(buildFamilyScripts({ shotDone: () => shotDone }));
+  return names;
 }
 
 function main() {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   if (process.argv.includes('--check')) {
-    const failures = checkBingVoiceManifest(manifest);
+    const failures = [
+      ...checkBingVoiceManifest(manifest),
+      ...checkBingTreeCoverage(manifest),
+    ];
     if (failures.length) {
       for (const failure of failures) console.error(`FAIL ${failure}`);
       console.error(`${failures.length} Bing voice manifest problem(s). Run \`npm run vo:bing\`.`);

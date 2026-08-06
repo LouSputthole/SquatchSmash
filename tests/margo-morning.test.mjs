@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import * as THREE from 'three';
 
-import { makeMorningGuest } from '../src/world/dressing.js';
+import { DRESS_CLOSURE_LENGTH, makeMorningGuest } from '../src/world/dressing.js';
 
 function namesUnder(root) {
   const names = [];
@@ -41,7 +41,20 @@ test('dress help has a composed kneeling pose and articulated silhouette', () =>
 
   margo.setDressHelpProgress(0.6);
   assert.equal(margo.dressHelpProgress, 0.6);
-  assert.ok(margo.dressClosure.scale.y > 0.55);
+  /* A FRACTION of DRESS_CLOSURE_LENGTH, not a length of its own -- the seam
+   * used to write straight into `scale.y` (0.18 to 1.0, which on a unit-box
+   * mesh IS the height in metres), so at full progress it stood a full metre
+   * tall: floor of her shoulder blades to well above her scalp, reading as a
+   * grey bar running up her back once `completeMargoDressHelp` stood her
+   * upright. Bounded here against the authored length so that bug cannot
+   * come back silently. */
+  const expected = (0.18 + 0.6 * 0.82) * DRESS_CLOSURE_LENGTH;
+  assert.ok(
+    Math.abs(margo.dressClosure.scale.y - expected) < 1e-6,
+    `closure scale.y is ${margo.dressClosure.scale.y}, expected ${expected}`,
+  );
+  assert.ok(margo.dressClosure.scale.y <= DRESS_CLOSURE_LENGTH,
+    'the seam must never exceed its own authored length');
   // The fastening progress must not quietly stand her back up.
   assert.ok(margo.upper.rotation.x > 1.3);
 });
@@ -93,6 +106,30 @@ test('standing puts her feet on the floor rather than through it', () => {
   const box = new THREE.Box3().setFromObject(margo.group);
   assert.ok(Math.abs(box.min.y) < 0.02, `she stands at y ${box.min.y.toFixed(3)}`);
   assert.ok(box.max.y > 1.6 && box.max.y < 1.9, `she is ${box.max.y.toFixed(3)} tall`);
+});
+
+/*
+ * The reported bug, reproduced exactly: `completeMargoDressHelp` stands her
+ * up at full fastening progress the instant the bar finishes. At that exact
+ * moment the seam used to be a full metre tall on a rig that is 0.87m of hip
+ * height plus torso and head -- floor of her shoulder blades to well above
+ * her scalp -- which is the "grey vertical bar going up her back" this
+ * asserts can never happen again, in the one pose (upright) where a tall
+ * seam reads as a bar rather than merely as wrong.
+ */
+test('the fastening never grows taller than the garment it is sewn to', () => {
+  const margo = makeMorningGuest({});
+  margo.setPose('standing');
+  margo.setDressHelpProgress(1);
+  margo.group.updateMatrixWorld(true);
+
+  assert.ok(margo.dressClosure.scale.y <= DRESS_CLOSURE_LENGTH + 1e-6,
+    `closure scale.y is ${margo.dressClosure.scale.y}m, the garment is ${DRESS_CLOSURE_LENGTH}m`);
+
+  const box = new THREE.Box3().setFromObject(margo.dressClosure);
+  const height = box.max.y - box.min.y;
+  assert.ok(height <= DRESS_CLOSURE_LENGTH + 0.01,
+    `the seam spans ${height.toFixed(3)}m in world space -- taller than the dress itself`);
 });
 
 /*

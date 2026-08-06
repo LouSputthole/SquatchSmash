@@ -41,6 +41,26 @@
  *   moving          {slide, bolt, hammer, cylinder, charging, bipod…} — the
  *                   parts a scene may want to animate. Every key optional.
  *   length          metres, muzzle to buttplate, for rack spacing.
+ *
+ * ---------------------------------------------------------------- THE GRIP
+ *
+ * Owner, on the mansion's gun wall, verbatim: *"On the guns the grip appears
+ * to be going the wrong way its going inverted instead of outward."*
+ *
+ * Measured, and he is right about all six. Because every model points down
+ * local **-Z**, a grip rakes correctly when its own DOWN axis carries a
+ * POSITIVE z — the butt falls back, away from the muzzle, into the web of the
+ * hand. Every grip here was built with `rotation.x = +θ`, which rotates that
+ * down axis toward **-Z**: the butt leaned forward over the trigger by 11.5°
+ * (the 9mm) to 24.1° (the revolver and the carbine). That is a grip pointing
+ * at the target, which is the inversion he saw, and it read worst on a rack
+ * where you look at a gun side-on for as long as you like.
+ *
+ * The sign is now NEGATIVE on all six and nothing else moved — same pivot,
+ * same offsets, same rake ANGLE, mirrored about the vertical. Two of them
+ * were also intersecting their own trigger guards on the old sign (the 9mm's
+ * grip spanned z 0.014..0.061 across a guard at 0.009..0.047; the carbine's
+ * spanned 0.024..0.060 across a guard at 0.009..0.047) and both now clear it.
  */
 import * as THREE from 'three';
 import { box, cylinder, group, GUARD_ROT, mat, sphere, torus } from './build.js';
@@ -67,6 +87,14 @@ const M = {
   webbing: mat({ color: 0x3d4238, roughness: 1 }),
   glass: mat({ color: 0x101a20, roughness: 0.12, metalness: 0.4 }),
   desert: mat({ color: 0x4b4438, roughness: 0.7, metalness: 0.35 }),
+  /* Optic glass, which is not gun glass: coated, and it goes green-blue
+   * against the light rather than staying black. */
+  glassTint: mat({ color: 0x1b3a3f, roughness: 0.08, metalness: 0.55 }),
+  /* The dot and the lamp face. `toneMapped: false` so a 2 mm mesh stays
+   * legible through the scene's ACES curve instead of going grey. */
+  emissiveDot: mat({
+    color: 0xff5a48, emissive: 0xff5a48, emissiveIntensity: 2.4, roughness: 1,
+  }),
 };
 
 /** One spent pistol/rifle case, for the guns that throw brass. */
@@ -155,7 +183,7 @@ export function buildRevolver() {
   const grip = new THREE.Group();
   grip.name = 'revolver-grip';
   grip.position.set(0, 0.012, 0.055);
-  grip.rotation.x = 0.42;
+  grip.rotation.x = -0.42;   // rakes BACK off the frame -- see "THE GRIP" above
   g.add(grip);
   grip.add(box({ size: [0.026, 0.078, 0.030], pos: [0, -0.030, 0], mat: M.wood }));
   grip.add(box({ size: [0.030, 0.070, 0.012], pos: [0, -0.028, -0.012], mat: M.dark }));
@@ -221,7 +249,7 @@ export function buildNineMillimeter() {
   const grip = new THREE.Group();
   grip.name = 'pistol9-grip';
   grip.position.set(0, 0.003, 0.025);
-  grip.rotation.x = 0.20;
+  grip.rotation.x = -0.20;   // rakes BACK off the frame -- see "THE GRIP" above
   grip.add(box({ size: [0.033, 0.098, 0.047], pos: [0, -0.046, 0.022], mat: M.polymerLight }));
   for (const sx of [-1, 1]) {
     grip.add(box({ size: [0.0035, 0.068, 0.034], pos: [sx * 0.018, -0.044, 0.022], mat: M.inset }));
@@ -290,7 +318,53 @@ function makeCarbineMagazine() {
  * dust cover, magazine with a floorplate, pistol grip, buffer tube and a
  * collapsed stock.
  */
-export function buildCarbine({ sling = false } = {}) {
+/**
+ * The optic, the foregrip and the light — the three things the bare receiver
+ * was missing.
+ *
+ * Owner, on THE TAKE's loadout bench: *"carbine model not great"*. The gun
+ * itself was right; what it looked like was a parts-list rather than a
+ * working carbine, because everything on it was flush. A real one has
+ * something standing PROUD of the top rail and something under the handguard,
+ * and those two silhouette breaks are most of what the eye reads at a glance.
+ *
+ * Kept optional and defaulted ON so the six-gun rack, the crew's slung
+ * carbines and the player's hands all get it, and so a caller that wants the
+ * bare iron-sighted gun can still ask for one.
+ */
+function addCarbineFurniture(g) {
+  /* Red-dot on a riser over the flat top: mount, tube, glass, and the dot. */
+  const mount = box({ size: [0.03, 0.036, 0.072], pos: [0, 0.077, -0.012], mat: M.parkerized, name: 'carbine-optic-mount' });
+  g.add(mount);
+  g.add(box({ size: [0.038, 0.012, 0.02], pos: [0, 0.061, -0.012], mat: M.steel }));
+  const tube = cylinder({
+    r: 0.019, h: 0.062, pos: [0, 0.104, -0.014], rotX: Math.PI / 2,
+    mat: M.parkerized, name: 'carbine-optic', seg: 12,
+  });
+  g.add(tube);
+  // The lens, and the dot burning in the middle of it.
+  g.add(cylinder({ r: 0.0165, h: 0.005, pos: [0, 0.104, -0.045], rotX: Math.PI / 2, mat: M.glassTint, seg: 12, name: 'carbine-optic-lens' }));
+  g.add(cylinder({ r: 0.0165, h: 0.004, pos: [0, 0.104, 0.017], rotX: Math.PI / 2, mat: M.glassTint, seg: 12 }));
+  g.add(cylinder({ r: 0.0035, h: 0.003, pos: [0, 0.104, -0.047], rotX: Math.PI / 2, mat: M.emissiveDot, seg: 8, cast: false, name: 'carbine-optic-dot' }));
+  // Windage and elevation turrets, because a sight you cannot zero is a prop.
+  g.add(cylinder({ r: 0.007, h: 0.014, pos: [0.021, 0.104, 0.002], rotZ: Math.PI / 2, mat: M.parkerized, seg: 8 }));
+  g.add(cylinder({ r: 0.007, h: 0.014, pos: [0, 0.125, 0.002], mat: M.parkerized, seg: 8 }));
+
+  /* Angled foregrip under the handguard: where the support hand actually is,
+   * and the part that stops the underside reading as a pipe. */
+  const foregrip = box({ size: [0.026, 0.072, 0.034], pos: [0, -0.018, -0.208], mat: M.polymer, rotX: -0.34, name: 'carbine-foregrip' });
+  g.add(foregrip);
+  g.add(box({ size: [0.03, 0.012, 0.038], pos: [0, 0.008, -0.202], mat: M.parkerized }));
+
+  /* Weapon light clamped to the left rail at the muzzle end. A bank job at
+   * night carries one and it breaks the barrel line. */
+  g.add(cylinder({ r: 0.014, h: 0.062, pos: [-0.032, 0.022, -0.246], rotX: Math.PI / 2, mat: M.parkerized, seg: 10, name: 'carbine-light' }));
+  g.add(cylinder({ r: 0.0115, h: 0.005, pos: [-0.032, 0.022, -0.279], rotX: Math.PI / 2, mat: M.emissiveDot, seg: 10, cast: false }));
+  g.add(box({ size: [0.026, 0.02, 0.016], pos: [-0.019, 0.022, -0.212], mat: M.steel }));
+  return g;
+}
+
+export function buildCarbine({ sling = false, furniture = true } = {}) {
   const g = group('heist-carbine');
 
   // Barrel group: bore, flash hider, gas block, front sight tower.
@@ -341,7 +415,7 @@ export function buildCarbine({ sling = false } = {}) {
   g.add(trigger);
   const grip = new THREE.Group();
   grip.position.set(0, -0.038, 0.062);
-  grip.rotation.x = 0.42;
+  grip.rotation.x = -0.42;   // rakes BACK off the receiver -- see "THE GRIP" above
   grip.add(box({ size: [0.03, 0.098, 0.036], pos: [0, -0.048, 0], mat: M.polymer, name: 'carbine-grip' }));
   for (let i = 0; i < 3; i++) grip.add(box({ size: [0.034, 0.006, 0.006], pos: [0, -0.03 - i * 0.02, 0.017], mat: M.parkerized }));
   g.add(grip);
@@ -362,6 +436,7 @@ export function buildCarbine({ sling = false } = {}) {
       pos: [0, -0.06, -0.09], rot: [0, Math.PI / 2, 0.5], name: 'carbine-sling',
     }));
   }
+  if (furniture) addCarbineFurniture(g);
 
   g.userData.muzzle = new THREE.Vector3(0, 0.028, -0.43);
   g.userData.ejectPort = new THREE.Vector3(0.02, 0.028, -0.03);
@@ -472,7 +547,7 @@ export function buildSaw() {
   const grip = new THREE.Group();
   grip.name = 'saw-grip';
   grip.position.set(0, -0.012, 0.06);
-  grip.rotation.x = 0.34;
+  grip.rotation.x = -0.34;   // rakes BACK off the receiver -- see "THE GRIP" above
   grip.add(box({ size: [0.034, 0.11, 0.042], pos: [0, -0.055, 0], mat: M.polymer }));
   for (let i = 0; i < 4; i++) grip.add(box({ size: [0.038, 0.006, 0.006], pos: [0, -0.03 - i * 0.02, 0.02], mat: M.parkerized }));
   g.add(grip);
@@ -610,7 +685,7 @@ export function buildBarrett() {
   const grip = new THREE.Group();
   grip.name = 'barrett-grip';
   grip.position.set(0, -0.05, 0.164);
-  grip.rotation.x = 0.36;
+  grip.rotation.x = -0.36;   // rakes BACK off the lower -- see "THE GRIP" above
   grip.add(box({ size: [0.034, 0.108, 0.042], pos: [0, -0.054, 0], mat: M.polymer }));
   g.add(grip);
   const stock = group('barrett-stock',
@@ -739,7 +814,7 @@ export function buildAk47() {
   const grip = new THREE.Group();
   grip.name = 'ak-grip';
   grip.position.set(0, -0.026, 0.056);
-  grip.rotation.x = 0.40;
+  grip.rotation.x = -0.40;   // rakes BACK off the receiver -- see "THE GRIP" above
   grip.add(box({ size: [0.032, 0.100, 0.040], pos: [0, -0.050, 0], mat: M.bakelite }));
   grip.add(box({ size: [0.036, 0.010, 0.044], pos: [0, -0.102, 0], mat: M.parkerized }));
   g.add(grip);

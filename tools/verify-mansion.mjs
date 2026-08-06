@@ -239,6 +239,13 @@ try {
     'galleryCenter', 'galleryWest', 'galleryEast', 'conferenceTable', 'conferenceHead',
     'officeDesk', 'bedWestFront', 'bedEastFront', 'bedWestRear', 'bedEastRear',
     'bathWest', 'bathEast', 'chandelier',
+    /* The gate booth's own two, published by MansionGrounds so `cast.js` can
+     * post the man on the gate without typing his coordinates. */
+    'boothPost', 'boothLook',
+    // interior -- the third floor (the suite's stair superseded the old
+    // same-floor closet run, so officeSecretDoor/officeSecretRun are gone)
+    'secretBookcase', 'suiteStairFoot', 'suiteStairHead', 'masterSuiteCenter',
+    'masterSuiteBed', 'masterSuiteTub', 'masterSuiteBar',
   ];
   const missingAnchors = EXPECTED_ANCHORS.filter((k) => !(k in rooms));
   const extraAnchors = Object.keys(rooms).filter((k) => !EXPECTED_ANCHORS.includes(k));
@@ -257,12 +264,13 @@ try {
     interiorLen: window.mansion.interior.colliders.length,
     armoryLen: window.mansion.weapons.colliders,
     labLen: window.mansion.labColliders,
+    castLen: window.mansion.castColliders ?? 0,
   }));
   check('collidersCount is internally consistent and a sane positive number (geometry actually built)',
     colliderInfo.collidersCount === colliderInfo.actualLength
       && colliderInfo.collidersCount
         === colliderInfo.groundsLen + colliderInfo.interiorLen
-          + colliderInfo.armoryLen + colliderInfo.labLen
+          + colliderInfo.armoryLen + colliderInfo.labLen + colliderInfo.castLen
       && colliderInfo.armoryLen === 6
       && colliderInfo.labLen > 40
       && colliderInfo.collidersCount > 50,
@@ -599,7 +607,19 @@ try {
 
   // Every room in the scene must have a walk test. A verifier that quietly
   // stops covering the geometry is exactly what shipped the last build green.
-  const covered = new Set(WALKS.map((w) => w.room));
+  /* THE THIRD FLOOR IS NOT IN `WALKS`, AND CANNOT BE.
+   *
+   * Every leg above teleports to a spot squared up outside a room's door and
+   * holds W for the last metre and a half, which is the right shape for a
+   * doorway and no shape at all for a concealed bookcase at the foot of a
+   * half-turn stair. The master suite is proved by "THE THIRD FLOOR" below,
+   * which is a strictly stronger claim than a WALKS leg makes: it presses the
+   * real interaction with the real crosshair and then climbs twenty-four
+   * risers without a single teleport. Naming it here rather than dropping it
+   * from the table is the point -- a room with no check at all is exactly what
+   * this assertion exists to catch. */
+  const STAIRED_ROOMS = ['masterSuite'];
+  const covered = new Set([...WALKS.map((w) => w.room), ...STAIRED_ROOMS]);
   const uncovered = Object.keys(roomTable).filter((k) => !covered.has(k));
   check('every room the interior declares has an on-foot walk test in this script',
     uncovered.length === 0, `uncovered: ${uncovered.join(', ')}`);
@@ -696,6 +716,282 @@ try {
   check('no collider in the house tops out exactly on a floor somebody stands on',
     floorTraps.length === 0,
     floorTraps.length ? `${floorTraps.length} floor-level collider tops: ${JSON.stringify(floorTraps.slice(0, 4))}` : '');
+
+  /* ================================================================ */
+  /* THE THIRD FLOOR — LOU'S MASTER SUITE                              */
+  /*                                                                    */
+  /* Owner: "It was supposed to be on the third floor -- ultra          */
+  /* over-the-top luxury bedroom, hot tub with girls, the dog, and      */
+  /* everything. Canopy bed. Big TV. Cool lighting."                    */
+  /*                                                                     */
+  /* THE WHOLE REVEAL IS WALKED. From in front of Lou's desk, across the  */
+  /* office, aim at the bookcase with the real crosshair, press the real   */
+  /* E, and then climb both flights on held keys. No teleport after the     */
+  /* office floor, because the entire point of this build is a route the     */
+  /* player takes and every one of this project's worst gates was a check     */
+  /* that hopped over the thing it was meant to prove.                        */
+  /* ================================================================ */
+  const suite = await page.evaluate(() => {
+    const q = window.mansion.suite;
+    return {
+      room: q.room, bed: q.bed, tub: q.tub, tubSeats: q.tubSeats,
+      dogCushion: q.dogCushion, stair: q.stair,
+    };
+  });
+  const SUITE_Y = suite.room.floor;
+  /* HIS GATE IS THE DOOR, SO THIS READING HAS TO HAPPEN FIRST. Lil Tom Cruze
+   * holds on his cushion while the bookcase is shut and walks the moment it is
+   * not; taken after the press, "he is on his cushion" measures how fast the
+   * check ran rather than where the dog lives. */
+  const dogAtRest = await page.evaluate(() => window.mansion.suite.dog);
+
+  /* ---- 1. The bookcase is a bookcase until you use it. Squared up in the
+   * office alcove, hold W east and be stopped by it. */
+  await teleport(5.2, UPPER_Y, 65.0, EAST);
+  await settle(0.4);
+  await walk(5);
+  await settle(0.5);
+  s = await state();
+  check('with the bookcase shut, the office alcove just ends -- it is a wall of books',
+    s.x < suite.stair.hall.x0 - 0.05 && Math.abs(s.ground - UPPER_Y) < 0.25,
+    JSON.stringify(s));
+
+  /* ---- 2. Walked to it from Lou's own desk, then aimed at and pressed. */
+  await teleport(0, UPPER_Y, 70.0, SOUTH);
+  await settle(0.4);
+  const toBookcase = [
+    { at: [2.2, 66.4], note: 'south-east across the office, round the fireside chairs' },
+    { at: [5.3, 65.2], note: 'to the alcove between the safe and the chimneypiece' },
+  ];
+  const approachFails = [];
+  for (const leg of toBookcase) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 26, tol: 0.8 });
+    if (!got.ok) { approachFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+  }
+  const bookcaseAim = await page.evaluate(() => {
+    const target = window.mansion.interior.props.masterSuite.secretStair.target;
+    const at = target.getWorldPosition(new window.mansion.THREE.Vector3());
+    const pl = window.mansion.player;
+    const dx = at.x - pl.position.x;
+    const dz = at.z - pl.position.z;
+    const dy = at.y - pl.position.y;
+    pl.yaw = Math.atan2(-dx, -dz);
+    pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+    window.mansion.tick(0.2);
+    return {
+      onIt: window.mansion.interaction.current === target,
+      prompt: document.getElementById('prompt').classList.contains('hidden')
+        ? null : document.getElementById('promptLabel').textContent,
+      distance: +Math.hypot(dx, dz, dy).toFixed(2),
+    };
+  });
+  check('the bookcase is reached on foot from Lou\'s desk and is aimable, and it says what E does',
+    approachFails.length === 0 && bookcaseAim.onIt && !!bookcaseAim.prompt,
+    approachFails.join(' | ') || JSON.stringify(bookcaseAim));
+
+  await page.evaluate(() => { window.mansion.interaction.press(); });
+  await page.evaluate(() => { window.mansion.interaction.release(); });
+  await settle(1.6);
+  const doorOpen = await page.evaluate(() => window.mansion.suite.stair.open);
+  check('pressing E swings the bookcase out of the wall', doorOpen === true, String(doorOpen));
+
+  /* ---- 3. Up. Twenty-four risers, on held keys, with the height read at
+   * every turn -- so a flight whose floorAt disagrees with its treads is a
+   * failure here rather than a surprise under somebody's feet. */
+  const climb = [
+    { at: [7.6, 65.05], y: UPPER_Y, note: 'through the bookcase into the lobby at the foot' },
+    { at: [7.17, 67.0], note: 'up the first flight' },
+    { at: [7.2, 68.45], y: suite.stair.landingY, note: 'onto the half-landing' },
+    /* ROUND THE BALUSTRADE, NOT THROUGH IT. The two flights are 70 mm apart
+     * with a guard between them, so the turn happens at the landing's east
+     * end -- and a leg that cut the corner would be a check asserting you can
+     * walk through a handrail. */
+    { at: [8.35, 68.45], y: suite.stair.landingY, note: 'east across the half-landing' },
+    { at: [8.26, 66.6], note: 'round onto the second flight' },
+    { at: [8.0, 64.3], y: SUITE_Y, tol: 0.6, note: 'up it, onto the suite floor' },
+  ];
+  const climbFails = [];
+  for (const leg of climb) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 34, tol: leg.tol ?? 0.75 });
+    if (!got.ok) { climbFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+    if (leg.y !== undefined && Math.abs(got.s.ground - leg.y) > 0.35) {
+      climbFails.push(`${leg.note} — wrong height: ground ${got.s.ground}, wanted ${leg.y}`);
+      break;
+    }
+  }
+  s = await state();
+  const arrived = climbFails.length === 0
+    && inside(suite.room, s, 0.2) && Math.abs(s.ground - SUITE_Y) < 0.3;
+  check('bookcase -> hidden stair -> the suite, on foot, with no teleport after the office floor',
+    arrived, climbFails.join(' | ') || JSON.stringify(s));
+
+  /* ---- 4. ...and the room is a room: walked across it to the bed, the tub
+   * and the bar without a teleport, which is what proves the balustrade round
+   * the stair well is a balustrade and not a hole. */
+  const suiteTour = [
+    { at: [6.2, 64.7], note: 'west off the stair head, south of the balustrade' },
+    { at: [5.0, 65.9], note: 'past the dressing run and its cheval glass' },
+    { at: [suite.dogCushion.x, suite.dogCushion.z + 1.0], note: 'to the dog on his cushion' },
+    { at: [0, 68.2], note: 'round the foot of the bed' },
+    { at: [-4.6, 71.6], note: 'across the room, north of the seating group' },
+    { at: [-6.1, 71.6], note: 'up to the wet bar' },
+    { at: [0, 71.6], note: 'back east down the middle' },
+    { at: [2.0, 69.0], note: 'south of the champagne pedestal' },
+    { at: [suite.tub.x - 1.0, suite.tub.z - 3.3], note: 'to the steps at the south side of the hot tub' },
+  ];
+  const tourFails2 = [];
+  for (const leg of suiteTour) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 30, tol: 0.85 });
+    if (!got.ok) { tourFails2.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+    if (Math.abs(got.s.ground - SUITE_Y) > 0.3) {
+      tourFails2.push(`${leg.note} — off the suite floor: ${JSON.stringify(got.s)}`);
+      break;
+    }
+  }
+  check('the suite is one continuous walk -- bed, dog, seating, bar and tub, all on the third floor',
+    tourFails2.length === 0, tourFails2.join(' | ') || `${suiteTour.length} legs walked at ${SUITE_Y} m`);
+
+  /* ---- 5. THE THINGS THE OWNER ASKED FOR ARE ACTUALLY THERE, measured off
+   * the built world boxes rather than off the numbers that built them. */
+  const built = await page.evaluate(() => {
+    const THREE = window.mansion.THREE;
+    const box = new THREE.Box3();
+    const scene = window.mansion.scene;
+    scene.updateMatrixWorld(true);
+    const want = {
+      mattress: 'suite-bed-mattress',
+      tester: 'suite-tester',
+      posts: 'suite-bedpost',
+      tub: 'suite-tub-drum',
+      water: 'suite-tub-water',
+      bubbles: 'suite-tub-bubbles',
+      tv: 'suite-tv-screen',
+      cushion: 'suite-dog-cushion',
+      bar: 'suite-bar-counter',
+      cove: 'suite-cove-led',
+    };
+    const found = {};
+    const union = {};
+    scene.traverse((o) => {
+      if (!o.isMesh && !o.isPoints) return;
+      for (const [key, name] of Object.entries(want)) {
+        if (o.name !== name) continue;
+        found[key] = (found[key] || 0) + 1;
+        box.setFromObject(o);
+        const u = union[key];
+        if (!u) {
+          union[key] = {
+            x0: box.min.x, x1: box.max.x, y0: box.min.y, y1: box.max.y, z0: box.min.z, z1: box.max.z,
+          };
+        } else {
+          u.x0 = Math.min(u.x0, box.min.x); u.x1 = Math.max(u.x1, box.max.x);
+          u.y0 = Math.min(u.y0, box.min.y); u.y1 = Math.max(u.y1, box.max.y);
+          u.z0 = Math.min(u.z0, box.min.z); u.z1 = Math.max(u.z1, box.max.z);
+        }
+      }
+    });
+    return { found, union };
+  });
+  const missingProps = Object.entries({
+    mattress: 1, tester: 1, posts: 4, tub: 1, water: 1, bubbles: 1, tv: 1, cushion: 1, bar: 1,
+  }).filter(([k, n]) => (built.found[k] ?? 0) < n).map(([k]) => k);
+  check('the suite holds the bed, the four posts and its tester, the hot tub and its water, the dog\'s cushion, the wet bar and the television',
+    missingProps.length === 0,
+    missingProps.length ? `missing: ${missingProps.join(', ')}` : JSON.stringify(built.found));
+
+  /* THE CANOPY. The gothic bedroom downstairs is why this is measured rather
+   * than eyeballed: a tester sized off the BED instead of off the POSTS leaves
+   * the bed standing beside its own canopy. Both containments, off the real
+   * boxes, in plan. */
+  const bedU = built.union.mattress;
+  const postU = built.union.posts;
+  const testU = built.union.tester;
+  const contains = (outer, inner) => outer && inner
+    && outer.x0 <= inner.x0 + 1e-6 && outer.x1 >= inner.x1 - 1e-6
+    && outer.z0 <= inner.z0 + 1e-6 && outer.z1 >= inner.z1 - 1e-6;
+  check('the canopy hangs over the bed: the posts enclose the mattress and the tester encloses the posts',
+    contains(postU, bedU) && contains(testU, postU) && testU.y0 > bedU.y1 + 1.0,
+    JSON.stringify({
+      mattress: bedU && [+bedU.x0.toFixed(2), +bedU.x1.toFixed(2), +bedU.z0.toFixed(2), +bedU.z1.toFixed(2)],
+      posts: postU && [+postU.x0.toFixed(2), +postU.x1.toFixed(2), +postU.z0.toFixed(2), +postU.z1.toFixed(2)],
+      tester: testU && [+testU.x0.toFixed(2), +testU.x1.toFixed(2), +testU.z0.toFixed(2), +testU.z1.toFixed(2)],
+      testerY: testU && +testU.y0.toFixed(2),
+    }));
+
+  /* THE WATER MOVES. Not "a water mesh exists" -- the shader's own clock, read
+   * before and after a real tick, because a still pool with a blue plane in it
+   * is exactly what the rear garden's jets were before somebody ticked them. */
+  const waterA = await page.evaluate(() => window.mansion.suite.waterTime);
+  await settle(1.0);
+  const waterB = await page.evaluate(() => window.mansion.suite.waterTime);
+  check('the hot tub is running: its water shader advances with the scene clock',
+    waterB - waterA > 0.5 && waterB - waterA < 1.6,
+    `uTime ${waterA.toFixed(3)} -> ${waterB.toFixed(3)}`);
+
+  /* THE TWO IN IT are the Bada Bing's own performers, sitting in the water
+   * rather than beside it or under it. */
+  const inTheTub = await page.evaluate(() => {
+    const people = window.mansion.cast.people;
+    const t = window.mansion.suite.tub;
+    return Object.entries(people)
+      .filter(([id]) => id.startsWith('suitePerformer'))
+      .map(([id, p]) => ({
+        id,
+        radius: +Math.hypot(p.x - t.x, p.z - t.z).toFixed(2),
+        underWater: +(t.waterY - p.y).toFixed(2),
+      }));
+  });
+  check('two of the Bada Bing\'s performers are sitting in the hot tub, in the water',
+    inTheTub.length === 2
+      && inTheTub.every((p) => p.radius < 1.6 && p.underWater > 0.4 && p.underWater < 1.4),
+    JSON.stringify(inTheTub));
+
+  /* LIL TOM CRUZE. He exists, he is on his cushion, he WALKS his route, and he
+   * can be petted -- which is the whole of what `src/mansion/dog.js` promises
+   * and what nothing had ever called. */
+  const dogMoved = await page.evaluate(() => {
+    const before = window.mansion.suite.dog;
+    /* 26 simulated seconds: his first waypoint holds for 16, so anything less
+     * measures the wait rather than the walk. */
+    const after = window.mansion.suite.stepDog(1 / 30, 780);
+    return {
+      before, after, moved: +Math.hypot(after.x - before.x, after.z - before.z).toFixed(2),
+    };
+  });
+  const dogPet = await page.evaluate(() => {
+    const ok = window.mansion.suite.petDog();
+    return { ok, state: window.mansion.suite.dog.state, pets: window.mansion.suite.dog.pets };
+  });
+  check('Lil Tom Cruze is in the suite, on his cushion, and he is a real dog',
+    dogAtRest && dogAtRest.meshes > 60
+      && Math.hypot(dogAtRest.x - suite.dogCushion.x, dogAtRest.z - suite.dogCushion.z) < 0.4
+      && dogAtRest.registered === true,
+    JSON.stringify(dogAtRest));
+  check('...he walks his route once the bookcase is open, and he sits down to be petted',
+    dogMoved.moved > 1.5 && dogPet.ok === true && dogPet.state === 'pet' && dogPet.pets === 1,
+    JSON.stringify({ moved: dogMoved.moved, after: dogMoved.after, pet: dogPet }));
+
+  /* THE SET. Wired through core/tv.js like every other television in the
+   * house, so it repaints and changes channel rather than being a black plate. */
+  const suiteSet = await page.evaluate(() => {
+    const before = window.mansion.suite.tvOn;
+    const names = window.mansion.media.tvs.map((t) => t.channel);
+    return { on: before, sets: window.mansion.media.tvs.length, names };
+  });
+  check('the suite\'s television is a working set, not a black plate',
+    suiteSet.on === true && suiteSet.sets >= 5,
+    JSON.stringify(suiteSet));
+
+  /* THE STAIR WELL IS GUARDED. Walk hard at the opening from the suite side
+   * and be stopped by the balustrade rather than falling 4.6 m onto a flight. */
+  await teleport(5.6, SUITE_Y, 67.0, EAST);
+  await settle(0.4);
+  await walk(5);
+  await settle(0.6);
+  s = await state();
+  check('the stair well has a balustrade round it -- you cannot walk off the third floor',
+    s.x < suite.stair.hall.x0 && Math.abs(s.ground - SUITE_Y) < 0.3,
+    JSON.stringify(s));
 
   /* The same treatment for the other two storeys. One walk each, no teleports
    * inside it, every room entered through its own door from the room next to
@@ -1126,6 +1422,126 @@ try {
   });
   check('every stand-in recording the guns fall back on is decoded and ready in the page',
     standIns.length === 0, `missing: ${standIns.join(', ')}`);
+
+  /* ================================================================ */
+  /* Audio selector residency/coverage -- the same enforcement pattern      */
+  /* tools/verify-no-wake.mjs uses for its own scoped bank.                  */
+  /*                                                                          */
+  /* main.js's audio.loadManifest() call is the mansion's entire selector:    */
+  /* weaponCueNames() + silentSquatchCueNames() + MANSION_CAST_CUE_NAMES,      */
+  /* plus every cue starting `vo.silentsquatch.`. This recomputes exactly      */
+  /* that selection from the same manifest the page loaded and asserts the     */
+  /* page's live AudioEngine buffer table is EQUAL to it -- not a superset      */
+  /* (that would mean the unscoped bank leaked back in) and not a subset        */
+  /* (that would mean a cue this scene plays silently fell back to the          */
+  /* synth, which is exactly the bug the 2026-08-06 voice-line and torture-      */
+  /* cord passes both found and fixed). A selector that drifts from what the     */
+  /* scene actually calls `audio.play()`/`audio.startLoop()` with fails here     */
+  /* rather than shipping silent again.                                          */
+  /*                                                                            */
+  /* The three cue-name functions/constants are imported IN THE PAGE, not in    */
+  /* this Node process: `SilentSquatch.js` and `cast.js` build canvas textures    */
+  /* at module scope and need a real `document`, which this script's own Node    */
+  /* process does not have -- the browser these functions actually run in does.  */
+  /* ================================================================ */
+  const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+  const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+  const indexedFiles = new Set(soundIndex.files || []);
+  const mansionCueLists = await page.evaluate(async () => {
+    const [weapons, silentSquatch, cast] = await Promise.all([
+      import('/src/core/weapons/audio.js'),
+      import('/src/mansion/scenes/SilentSquatch.js'),
+      import('/src/mansion/cast.js'),
+    ]);
+    return {
+      weaponCueNames: weapons.weaponCueNames(),
+      silentSquatchCueNames: silentSquatch.silentSquatchCueNames(),
+      mansionCastCueNames: [...cast.MANSION_CAST_CUE_NAMES],
+    };
+  });
+  const MANSION_CAST_CUE_NAMES = mansionCueLists.mansionCastCueNames;
+  const mansionSelectedNames = new Set([
+    ...mansionCueLists.weaponCueNames, ...mansionCueLists.silentSquatchCueNames, ...MANSION_CAST_CUE_NAMES,
+  ]);
+  const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
+    mansionSelectedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
+  ));
+  const expectedMansionResident = mansionSelectedCues
+    .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+    .map((cue) => cue.name).sort();
+  /* `beginTour()` fires `audio.loadManifest()` and does not await it -- the
+   * tour starts on the click, not once 239 files have decoded -- so by the
+   * time execution reaches this check the bank is very likely finished
+   * (this point in the script is reached only after teleporting through and
+   * firing every weapon in the house), but it is not GUARANTEED. Wait for
+   * the buffer table to reach the expected count explicitly rather than
+   * trust however much of the tour happened to run first. */
+  await page.waitForFunction(
+    (n) => (window.mansion.audio?.buffers.size ?? 0) >= n,
+    expectedMansionResident.length,
+    { timeout: 180000 },
+  );
+  const mansionAudioResidency = await page.evaluate((expected) => {
+    const audio = window.mansion.audio;
+    const resident = audio ? [...audio.buffers.keys()].sort() : [];
+    const wanted = new Set(expected);
+    return {
+      exposed: Boolean(audio),
+      resident: resident.length,
+      missing: expected.filter((name) => !audio?.buffers.has(name)),
+      unexpected: resident.filter((name) => !wanted.has(name)),
+    };
+  }, expectedMansionResident);
+  check('the mansion decodes exactly its scoped bank -- voice, armoury and torture-cord cues, nothing unscoped',
+    mansionAudioResidency.exposed
+      && mansionAudioResidency.resident === expectedMansionResident.length
+      && mansionAudioResidency.missing.length === 0
+      && mansionAudioResidency.unexpected.length === 0,
+    JSON.stringify({
+      ...mansionAudioResidency,
+      expected: expectedMansionResident.length,
+      missing: mansionAudioResidency.missing.slice(0, 5),
+      unexpected: mansionAudioResidency.unexpected.slice(0, 5),
+    }));
+  check('the torture cord\'s three recorded cues are indexed and resident (the 2026-08-06 selector gap)',
+    MANSION_CAST_CUE_NAMES.every((name) => expectedMansionResident.includes(name))
+      && MANSION_CAST_CUE_NAMES.every((name) => !mansionAudioResidency.missing.includes(name)),
+    JSON.stringify({ wanted: MANSION_CAST_CUE_NAMES, resident: expectedMansionResident.filter((n) => MANSION_CAST_CUE_NAMES.includes(n)) }));
+
+  /* ================================================================ */
+  /* Instancing coverage -- every fixture the source places must still       */
+  /* produce an instance. Not a mesh-count budget (that would break the       */
+  /* moment anyone furnishes another room); a residency check that the        */
+  /* four InstancedMesh batches src/mansion/scenes/{MansionInterior,           */
+  /* MansionGrounds}.js build are exactly as populated as the placements       */
+  /* pushed into them -- proving the 2026-08-06 instancing pass didn't drop     */
+  /* or duplicate a single sconce, baluster, gold bar or fence post.            */
+  /* ================================================================ */
+  const instancing = await page.evaluate(() => {
+    const counts = {};
+    window.mansion.scene.traverse((o) => {
+      if (o.isInstancedMesh && o.name) counts[o.name] = o.count;
+    });
+    return counts;
+  });
+  /* Not pinned to 30: the third-floor suite added its own dimmed sconces to
+   * the same pool (38 the day it landed). The invariant is part-consistency —
+   * a shade without an arm is the instancing bug this guards. */
+  check('every wall sconce is one instance across its ten shared parts',
+    instancing['sconce-backplate'] >= 30
+      && instancing['sconce-backplate'] === instancing['sconce-arm']
+      && instancing['sconce-backplate'] === instancing['sconce-shade'],
+    JSON.stringify(instancing));
+  check('every baluster is one instance across its shaft and two collars',
+    instancing['baluster-shaft'] > 0
+      && instancing['baluster-shaft'] === instancing['baluster-collar-bottom']
+      && instancing['baluster-shaft'] === instancing['baluster-collar-top'],
+    JSON.stringify(instancing));
+  check('the vault holds all 171 gold bars in its one instanced batch',
+    instancing['vault-gold-bar'] === 171, JSON.stringify(instancing));
+  check('the perimeter fence keeps one post per one cap',
+    instancing['fence-post'] > 0 && instancing['fence-post'] === instancing['fence-post-cap'],
+    JSON.stringify(instancing));
 
   const allRacked = await page.evaluate(() => window.mansion.weapons.report());
   check('every weapon ends the tour back on its own rack',
@@ -2398,6 +2814,56 @@ try {
   /* that is about the actual house is the last one: the mission must   */
   /* mount exactly when there is a laboratory to mount it in.           */
   /* ================================================================ */
+  /* THE PEOPLE AND THE HOUSE WERE BUILT BY DIFFERENT PASSES, so "is anybody
+   * standing inside the furniture" is a question neither half can answer.
+   * This asks the running game, against the real merged collider list, rather
+   * than against the arithmetic that placed them. */
+  const staffing = await page.evaluate(() => ({
+    people: window.mansion.cast?.people ?? {},
+    inSolid: window.mansion.cast?.inSolid ?? [],
+  }));
+  const posts = Object.keys(staffing.people);
+
+  check('the house is staffed -- door, guards, bar, foyer and basement',
+    posts.length >= 9,
+    `${posts.length} on post: ${posts.join(', ')}`);
+
+  check('nobody is standing inside the furniture',
+    staffing.inSolid.length === 0,
+    staffing.inSolid.length ? `inside a collider: ${staffing.inSolid.join(', ')}` : 'all clear');
+
+  /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
+   * like one: "I spawn in holding it but can put it away and see it in my
+   * inventory." Asserting the bar rendered is not that -- it is a row of
+   * squares. This drives the actual keys and reads whether the model in his
+   * hands appeared and disappeared with them. */
+  const carrying = await page.evaluate(async () => {
+    const L = window.mansion.loadout;
+    const before = { slots: L.slots, held: L.held, inHands: L.caseInHands, bar: L.barSlots };
+    /* Slot 5 is empty on arrival, so selecting it is "put it away". */
+    L.select(4);
+    const stowed = { held: L.held, inHands: L.caseInHands, stillCarried: L.hasCase };
+    L.select(before.slots.indexOf('case'));
+    const backOut = { held: L.held, inHands: L.caseInHands };
+    return { before, stowed, backOut };
+  });
+
+  check('the inventory bar is on screen with the case in a slot on arrival',
+    carrying.before.bar >= 5 && carrying.before.slots.includes('case'),
+    `${carrying.before.bar} slots, holding ${JSON.stringify(carrying.before.slots)}`);
+
+  check('he spawns with the case actually in his hands',
+    carrying.before.held === 'case' && carrying.before.inHands === true,
+    `held=${carrying.before.held} visible=${carrying.before.inHands}`);
+
+  check('putting the case away hides it without losing it',
+    carrying.stowed.inHands === false && carrying.stowed.stillCarried === true,
+    `visible=${carrying.stowed.inHands} still in inventory=${carrying.stowed.stillCarried}`);
+
+  check('selecting the case slot puts it back in his hands',
+    carrying.backOut.held === 'case' && carrying.backOut.inHands === true,
+    `held=${carrying.backOut.held} visible=${carrying.backOut.inHands}`);
+
   const night = await page.evaluate(async () => {
     const [lab, mission, machine, script, hudMod] = await Promise.all([
       import('/src/mansion/mission/contract-lab.js'),
@@ -2622,6 +3088,24 @@ try {
     labShot.some((b, i) => i > 64 && b > 24), `${labShot.length} bytes`);
   await page.evaluate(() => window.mansion.setRendering(false));
 
+  /* THE SUITE, DRAWN. Everything above proves the third floor is built and
+   * walkable; none of it proves it is LIT. The room carries an emissive cove
+   * band, an emissive tub light and a television, all of them going through
+   * the same bloom the rest of the scene does, and a shader that fails to
+   * compile up here would pass every geometric check in this file. Stood at
+   * the foot of the bed, looking north at the set and the garden glazing. */
+  await teleport(0, suite.room.floor, 67.4, NORTH);
+  await settle(0.6);
+  const suiteFramesBefore = await page.evaluate(() => window.mansion.framesRendered);
+  await page.evaluate(() => window.mansion.setRendering(true));
+  await page.waitForFunction(
+    (n) => window.mansion.framesRendered > n + 2, suiteFramesBefore, { timeout: 180000 },
+  );
+  const suiteShot = await page.screenshot({ type: 'png', timeout: 120000 });
+  check('the master suite renders a lit frame -- cove, tub light and the set',
+    suiteShot.some((b, i) => i > 64 && b > 24), `${suiteShot.length} bytes`);
+  await page.evaluate(() => window.mansion.setRendering(false));
+
   await teleport(0, GROUND_Y, 44.4, NORTH);
   await settle(0.5);
   const framesBefore = await page.evaluate(() => window.mansion.framesRendered);
@@ -2640,6 +3124,126 @@ try {
   const nonBlack = shot.some((b, i) => i > 64 && b > 24);
   check('the foyer renders a non-black frame from inside the house', nonBlack,
     `${shot.length} bytes`);
+
+  /* ================================================================ */
+  /* THE PREVIEW JUMPS — ?preview=1&checkpoint=<id>                    */
+  /*                                                                    */
+  /* A COLD LOAD PER CASE, AND FOUR CASES RATHER THAN TEN.               */
+  /*                                                                      */
+  /* The whole claim a checkpoint link makes is about what a COLD LOAD      */
+  /* produces, so these have to be real navigations -- and they cannot be    */
+  /* sequential jumps on one page either, because the ladder replays the      */
+  /* mission from the top and a state machine at COMPLETE will not go back to  */
+  /* beat 2. So: one load each, and the list is chosen to cover the four        */
+  /* KINDS of staging the ten links divide into rather than all ten:            */
+  /*                                                                             */
+  /*   arrival        nothing staged -- the ordinary night, case in hand          */
+  /*   core_complete  the mission replayed and the INVENTORY emptied by it        */
+  /*   silent_night   the WORLD staged: bolts thrown, LIFE SIGNS at zero          */
+  /*   suite          the ROOM staged, with no mission involvement at all         */
+  /*                                                                              */
+  /* Measured, and this is why the list is short: the mansion is a fifteen-        */
+  /* thousand-mesh scene and one cold build under swiftshader on a loaded box      */
+  /* costs a minute or more. Ten of them put forty minutes on a verifier that       */
+  /* people have to be willing to run, and a check nobody can afford is a check      */
+  /* nobody runs. The other six ids share the same ladder and the same parser;       */
+  /* `tests/` cannot reach them and this is the honest trade. */
+  /* ================================================================ */
+  const CHECKPOINT_CASES = [
+    {
+      id: 'arrival', state: 'ARRIVAL', hasCase: true, wall: 'shut',
+    },
+    {
+      id: 'core_complete', state: 'LOCK_THE_LAB', hasCase: false, wall: 'open', locked: false,
+    },
+    {
+      id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0,
+    },
+    {
+      id: 'suite', state: 'ARRIVAL', hasCase: true, stairOpen: true,
+    },
+  ];
+  /* This page is a fifteen-thousand-mesh scene running its own simulation
+   * loop; leaving it doing that while another one builds doubles the cost of
+   * every load below. Paused for the duration and released after. */
+  await page.evaluate(() => window.mansion.pause?.());
+  const cpFails = [];
+  for (const want of CHECKPOINT_CASES) {
+    const cpPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
+    const cpErrors = [];
+    cpPage.on('pageerror', (e) => cpErrors.push(e.message));
+    try {
+      await cpPage.goto(
+        `http://localhost:${PORT}/mansion.html?preview=1&checkpoint=${want.id}`,
+        { waitUntil: 'load', timeout: 120000 },
+      );
+      await cpPage.waitForFunction(() => window.mansion?.checkpoints?.jumped, null, { timeout: 180000 });
+      const got = await cpPage.evaluate(() => {
+        const m = window.mansion;
+        return {
+          jumped: m.checkpoints.jumped,
+          running: m.running,
+          state: m.mission?.state ?? null,
+          hasCase: m.loadout.hasCase,
+          locked: m.lab?.doorLocked ?? null,
+          lifeSigns: m.lab?.lifeSigns ?? null,
+          wall: m.lab?.hiddenWall?.phase ?? null,
+          stairOpen: m.suite.stair.open,
+          chip: document.getElementById('checkpoint')?.textContent || null,
+        };
+      });
+      const bad = [];
+      if (got.jumped !== want.id) bad.push(`jumped=${got.jumped}`);
+      if (!got.running) bad.push('not running');
+      if (!got.chip) bad.push('no label chip');
+      if (got.state !== want.state) bad.push(`state=${got.state} want ${want.state}`);
+      if (got.hasCase !== want.hasCase) bad.push(`hasCase=${got.hasCase}`);
+      if (want.locked !== undefined && got.locked !== want.locked) bad.push(`locked=${got.locked}`);
+      if (want.lifeSigns !== undefined && got.lifeSigns !== want.lifeSigns) bad.push(`lifeSigns=${got.lifeSigns}`);
+      if (want.wall !== undefined && got.wall !== want.wall) bad.push(`wall=${got.wall}`);
+      if (want.stairOpen !== undefined && got.stairOpen !== want.stairOpen) bad.push(`stairOpen=${got.stairOpen}`);
+      if (cpErrors.length) bad.push(`errors: ${cpErrors[0]}`);
+      if (bad.length) cpFails.push(`${want.id}: ${bad.join(', ')}`);
+    } catch (error) {
+      cpFails.push(`${want.id}: ${String(error).slice(0, 120)}`);
+    }
+    await cpPage.close();
+  }
+  check('every ?checkpoint= link loads the beat it names, with the mission, the inventory and the world staged',
+    cpFails.length === 0,
+    cpFails.join(' | ') || `${CHECKPOINT_CASES.length} jumps, each on its own cold load`);
+
+  /* The ids this script does not cold-load still have to EXIST and still have
+   * to be the campaign's own. A link that vanished from the table is a dead
+   * link on the preview page, and that is cheap to catch here. */
+  const cpIds = await page.evaluate(() => window.mansion.checkpoints.ids);
+  check('the preview links are the campaign\'s own checkpoint vocabulary, plus arrival and the suite',
+    ['arrival', 'office', 'basement', 'lab', 'core_complete', 'locked',
+      'aubbie_down', 'silent_night', 'clear', 'suite']
+      .every((id) => cpIds.includes(id)) && cpIds.length === 10,
+    cpIds.join(', '));
+
+  {
+    const strayPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
+    const strayErrors = [];
+    strayPage.on('pageerror', (e) => strayErrors.push(e.message));
+    await strayPage.goto(
+      `http://localhost:${PORT}/mansion.html?preview=1&checkpoint=not_a_checkpoint`,
+      { waitUntil: 'load', timeout: 120000 },
+    );
+    await strayPage.waitForFunction(() => window.mansion?.player, null, { timeout: 180000 });
+    const stray = await strayPage.evaluate(() => ({
+      jumped: window.mansion.checkpoints.jumped,
+      running: window.mansion.running,
+      menu: !document.getElementById('menu').classList.contains('hidden'),
+    }));
+    check('an unknown ?checkpoint= value is ignored and the house loads on its own menu',
+      stray.jumped === null && stray.running === false && stray.menu === true
+        && strayErrors.length === 0,
+      JSON.stringify({ ...stray, errors: strayErrors.length }));
+    await strayPage.close();
+  }
+  await page.evaluate(() => window.mansion.resume?.());
 
   /* The film that has not landed yet is allowed to 404 and nothing else is.
    * A blanket "ignore 404s" would let a missing texture or a missing module

@@ -102,6 +102,7 @@ test('the apartment door waits for Lou after the airstrip', () => {
     kind: 'call',
     id: EVENT_IDS.LOU_SECOND_CALL,
     line: 'Lou said he would call when he wanted you back at the Bing.',
+    vo: 'door.refusal.second_bing_call',
   });
 });
 

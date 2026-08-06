@@ -439,19 +439,37 @@ body.beefrun { background: #0c0c10; }
 /* Mission complete                                                   */
 /* ------------------------------------------------------------------ */
 
+/* The report card, and why it is not centred with `align-items`.
+ *
+ * It was, and it overflowed: measured at 960x600 the card is 759 px tall, so
+ * flex centring put its top edge at y -80 and pushed BACK TO THE FLAT down to
+ * y 610 — below the fold, in a scroll container whose content had already been
+ * shifted above its own scroll origin. That is the classic flex-centring
+ * overflow trap: a scrollbar appears, but the part that overflowed upward can
+ * never be reached, and the button at the bottom is only sometimes clickable
+ * depending on exactly how tall the card came out.
+ *
+ * `align-items: flex-start` with `margin: auto` on the card is the fix that
+ * does both jobs: it still centres when the card fits, and when it does not it
+ * anchors to the top so the whole thing — including the button — is inside the
+ * scrollable range. */
 #br-complete {
   position: fixed; inset: 0; z-index: 20;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
   background: radial-gradient(circle at 50% 30%, rgba(40, 30, 20, 0.9), rgba(8, 8, 10, 0.97));
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   color: #e8e2d0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 #br-complete.hidden { display: none; }
 #br-complete .card {
-  max-width: 44rem;
-  padding: 2rem 2.4rem;
+  /* `max-width` alone let the card shrink to its content — 464 px on a 960 px
+   * screen — which is what kept the twelve stats in a single tall column. */
+  width: min(44rem, 100%);
+  padding: 1.6rem 2.4rem;
   text-align: center;
+  margin: auto;
 }
 #br-complete h1 {
   font-size: clamp(1.6rem, 5vw, 2.6rem);
@@ -474,12 +492,16 @@ body.beefrun { background: #0c0c10; }
 }
 #br-complete .rank[data-tier="0"] { color: #9a9384; }
 #br-complete .rank[data-tier="4"] { color: #d8d2e8; text-shadow: 0 0 18px rgba(180, 154, 217, 0.7); }
+/* Twelve stats in one 15rem column is twelve rows of card height on any
+ * laptop. Let them pair up from 11rem — two of those plus the 1.6rem gutter
+ * fit inside the card's own content width — so the report is six rows instead
+ * of twelve and BACK TO THE FLAT stays on the first screen. */
 #br-complete .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   gap: 0.2rem 1.6rem;
   text-align: left;
-  margin-bottom: 1.6rem;
+  margin-bottom: 1.4rem;
 }
 #br-complete .stat {
   display: flex; justify-content: space-between;

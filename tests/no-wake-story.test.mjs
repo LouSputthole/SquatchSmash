@@ -6,6 +6,7 @@ import {
   CAMPAIGN_VERSION,
   EVENT_IDS,
   MISSION_IDS,
+  NO_WAKE_CHECKPOINT_IDS,
   SCENE_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
@@ -120,4 +121,45 @@ test('schema v3 saves before Day Three receive NO WAKE without false progress', 
   assert.equal(migrated.version, CAMPAIGN_VERSION);
   assert.equal(migrated.missions[MISSION_IDS.NO_WAKE].status, 'locked');
   assert.equal(migrated.events[EVENT_IDS.LOU_NO_WAKE_CALL].status, 'pending');
+});
+
+test('every NO WAKE checkpoint survives being written and read back', () => {
+  /* Persisted campaign state is normalised against a whitelist on every read,
+   * and the story banks checkpoints against its own list. When `weighted` was
+   * added to the story and not to the campaign, the mission wrote it, the next
+   * read turned it into null, and a player who stopped after clipping the
+   * ballast on would have resumed from nothing. The only symptom was a
+   * checkpoint that came back null -- no error, no warning.
+   *
+   * So: bank each one in order through the real story, reload from the same
+   * storage, and require it to still be there. This is the gate that makes the
+   * two lists one list. */
+  const storage = new MemoryStorage();
+  const campaign = readyCampaign(storage);
+  const story = createNoWakeStory({ campaign });
+  assert.deepEqual(story.begin(), { ok: true, resumed: false });
+
+  const resumable = NO_WAKE_CHECKPOINT_IDS.filter((id) => id !== 'returned');
+  for (const id of resumable) {
+    if (id !== 'dock') assert.equal(story.checkpoint(id), true, `${id} was refused`);
+    assert.equal(campaign.state.missions[MISSION_IDS.NO_WAKE].checkpoint, id,
+      `${id} did not stick in live state`);
+    assert.equal(createCampaign({ storage }).state.missions[MISSION_IDS.NO_WAKE].checkpoint, id,
+      `${id} was discarded when the save was read back`);
+  }
+
+  // And the terminal one, which only `complete()` may write.
+  assert.equal(story.complete({
+    betrayalConfirmed: true, playerFired: true, bodyDisposed: true,
+  }), true);
+  assert.equal(createCampaign({ storage }).state.missions[MISSION_IDS.NO_WAKE].checkpoint,
+    'returned');
+});
+
+test('the redesign authored three checkpoints and all of them persist', () => {
+  // "Checkpoints after the inlet, after the execution, and after the weights."
+  for (const id of ['open_water', 'execution', 'weighted']) {
+    assert.ok(NO_WAKE_CHECKPOINT_IDS.includes(id), `${id} is not a persistable checkpoint`);
+  }
+  assert.equal(new Set(NO_WAKE_CHECKPOINT_IDS).size, NO_WAKE_CHECKPOINT_IDS.length);
 });

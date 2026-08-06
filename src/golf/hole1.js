@@ -14,11 +14,26 @@ import { toMetres } from './course.js';
 export const TEE = Object.freeze({ x: 0, y: 4.6, z: 0 });
 
 /* 167 yards is 152.7m, so the green centre sits that far from the marker. */
+/**
+ * The green, and the two numbers the playtest was actually about.
+ *
+ * `slopeFront` and `slopePond` are metres of fall across a *half* axis, so
+ * `0.36` over `rz: 11.5` was a 3.13% back-to-front grade and `0.22` over
+ * `rx: 14` another 1.57% across it — about 3.5% everywhere, at the pin, in
+ * every direction at once. Real putting surfaces run 1–2%; the tour cuts the
+ * hole somewhere under 2.5% or the ball will not sit beside it. Measured on
+ * the old numbers the mean grade of green-classified turf was 4.90% and a
+ * firm ten-footer from behind the flag finished in the pond.
+ *
+ * 0.20 and 0.10 give 1.74% and 0.71%: still enough tilt that a straight putt
+ * visibly leaks toward the water — which is Lou's line on the green and has
+ * to stay true — without the green playing like a driveway.
+ */
 export const GREEN = Object.freeze({
   x: 6, z: -152.5,
   rx: 14, rz: 11.5,          // 28m × 23m
-  slopeFront: 0.36,          // metres of fall, back edge to front edge
-  slopePond: 0.22,           // extra fall toward the water (+X)
+  slopeFront: 0.20,          // metres of fall, back edge to front edge
+  slopePond: 0.10,           // extra fall toward the water (+X)
   fringe: 3.2,               // collar width
 });
 
@@ -39,8 +54,26 @@ export const FLAG_HEIGHT = 2.45;
  * a half down. Sunk deep, the near bank hides the water completely from an eye
  * on an elevated tee a hundred and forty metres away — which is realistic and
  * useless: a hazard the player cannot see is not a decision, it is an ambush.
+ *
+ * The basin was also standing on the green. `heightAt()` carves the pond
+ * *after* it blends the putting surface in, deliberately, so nothing can fill
+ * the water back in — but the carve reaches out to 1.35× the ellipse, and at
+ * `x: 25, rx: 14.5` that bank ran across 16.3% of green-classified turf and
+ * took the local grade to 29%. That is the cliff the playtest hit: a putt did
+ * not "break toward the water", it fell off an edge into it, and no amount of
+ * softening the authored green slope would have fixed it because the green
+ * slope was not what the ball was rolling down.
+ *
+ * Moved forward and shortened rather than sideways: it now sits square in
+ * front of the green instead of alongside it, so its basin stops about a
+ * metre short of the front collar and never touches green-classified turf at
+ * any carve weight that matters. What it must still do it still does — an
+ * iron aimed at the flag pitches at roughly (12, -131), which is the middle
+ * of this water, and the same swing at the centre of the green is dry. Eric's
+ * advice on the tee is a fact about the hole, not a flavour line, and the
+ * layout has to keep making him right.
  */
-export const POND = Object.freeze({ x: 25, z: -137, rx: 14.5, rz: 13.5, level: -0.55 });
+export const POND = Object.freeze({ x: 22, z: -131, rx: 13.5, rz: 10.5, level: -0.55 });
 
 /** Front-left. The bail-out miss, and where Rippin is going to be. */
 export const BUNKER = Object.freeze({ x: -8.5, z: -141.5, rx: 7.0, rz: 4.8, depth: 1.0 });
@@ -88,7 +121,16 @@ export const TERRAIN = Object.freeze({
   minX: -88, maxX: 94, minZ: -250, maxZ: 58, cell: 2.0,
 });
 
-/** Five miles an hour, left to right, and it is worth about a club. */
+/**
+ * Five miles an hour, left to right.
+ *
+ * Worth about four yards of drift on a full iron and four and a half metres
+ * on a driver — measured, not estimated. This used to claim it was "worth
+ * about a club", which is both the wrong axis (a crosswind moves the ball
+ * sideways, it does not change the club) and about three times the effect the
+ * flight model actually produces. It is a breeze that nudges a shot toward
+ * the water, which is exactly the amount of wind this morning wants.
+ */
 export const WIND = Object.freeze({
   mph: 5,
   speed: toMetres(5 * 1760) / 3600,   // ≈ 2.24 m/s

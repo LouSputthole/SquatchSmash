@@ -11,13 +11,25 @@ import { SPEAKERS } from './script.js';
  * is the writing, and the mission/main.js supplies the HUD/audio hooks.
  */
 export class DialogueController {
-  constructor({ onLine, onLineEnd, onLook, onChoiceOpen, onChoiceClose, playCue } = {}) {
+  /**
+   * @param {object} hooks
+   * @param {(cue:string, voice:?string)=>number|void} [hooks.playCue] starts a
+   *   line and RETURNS ITS LENGTH IN SECONDS (0/undefined when there is no
+   *   recording). The length is what stops the next line talking over it —
+   *   see `_advance()`.
+   * @param {()=>void} [hooks.stopVoice] cuts whatever is currently being said.
+   *   Called before every line and whenever a sequence replaces another.
+   */
+  constructor({
+    onLine, onLineEnd, onLook, onChoiceOpen, onChoiceClose, playCue, stopVoice,
+  } = {}) {
     this.onLine = onLine;
     this.onLineEnd = onLineEnd;
     this.onLook = onLook;
     this.onChoiceOpen = onChoiceOpen;
     this.onChoiceClose = onChoiceClose;
     this.playCue = playCue;
+    this.stopVoice = stopVoice;
 
     this.queue = [];
     this.active = null;
@@ -40,6 +52,11 @@ export class DialogueController {
 
   /** Queue a SEQUENCES[...] array. Calls onDone() once it drains. */
   play(sequence, { onDone } = {}) {
+    /* Whatever was being said, stop saying it. `play()` REPLACES the queue,
+     * so a sequence started while a line is still in the air used to leave the
+     * old take running underneath the new one — two men talking at once, and
+     * the commonest way this scene got there. */
+    this.stopVoice?.();
     this.queue = sequence.slice();
     this._onDone = onDone || null;
     this._advance();
@@ -69,10 +86,31 @@ export class DialogueController {
     this.active = line;
     const speaker = SPEAKERS[line.speaker] || { name: line.speaker, voice: null };
     this.cueLog.push(line.cue || null);
-    this.playCue?.(line.cue, speaker.voice);
+    /* Cut the previous take before starting this one. Nothing here used to,
+     * so a line whose recording ran past its authored `hold` was still
+     * speaking when the next one began. */
+    this.stopVoice?.();
+    const spoken = this.playCue?.(line.cue, speaker.voice);
     this.onLine?.({ ...line, speakerName: speaker.name });
     if (line.look) this.onLook?.(line.look);
-    this.timer = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
+
+    /* HOW LONG THE LINE HOLDS. Owner playtest, 2026-08-06: "the voicelines are
+     * playing over eachother."
+     *
+     * `hold` is an AUTHORED GUESS — written before any of these lines were
+     * recorded, and where it is absent this falls back to counting characters.
+     * A real take that runs longer than its guess was simply talked over by
+     * the next line, every time, for everybody. That is not a timing tweak
+     * away from correct; the number was never measured against the audio.
+     *
+     * So `playCue` now returns the take's real length and the line holds for
+     * whichever is longer, plus a short breath. The authored `hold` still
+     * wins when it is longer, because some beats want a pause after the words
+     * stop, and it is still the only number available for a line nobody has
+     * recorded yet. */
+    const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
+    const real = typeof spoken === 'number' && spoken > 0 ? spoken + 0.35 : 0;
+    this.timer = Math.max(authored, real);
   }
 
   /**

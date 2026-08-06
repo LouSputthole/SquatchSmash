@@ -20,7 +20,10 @@
  *
  * - **Lou** is the only man on the roster wearing every expensive thing at
  *   once: pressed suit, gold buckle, gold watch, gold rope, pocket square.
- *   None of it is subtle and none of it is meant to be.
+ *   None of it is subtle and none of it is meant to be. The corno on the end
+ *   of the rope is his and nobody else's — Booski and DeathMegatron wear the
+ *   crest, which is the Family's, and Lou wears the thing his grandmother gave
+ *   him. It goes with him into every scene he is in.
  * - **Booski** is old money by comparison — the same gold, but on a knit
  *   rather than a suit, and the chain is layered rather than loud.
  * - **Captain Lou Sasole** is a working pilot, so the good thing he owns is
@@ -48,8 +51,9 @@ export const BIG_UNCLE_LOU = Object.freeze({
   build: 1.38,
   gut: 0.42,
   dress: 'suit',
-  shirt: 0x20242c,
+  shirt: 0x2f3038,
   shirtAccent: 0xe8e2d2,
+  jacketColour: 0x2f3038,
   hairColour: 0x17110d,
   skin: 0xd7a67e,
   luxury: true,
@@ -57,9 +61,60 @@ export const BIG_UNCLE_LOU = Object.freeze({
   belt: 'gold',
   trouserFit: 'creased',
   watch: 'gold',
-  chain: true,
+  chain: 'gold',
+  chainStyle: 'layered',
   pendant: true,
-  pendantStyle: 'crest',
+  pendantStyle: 'horn',
+});
+
+/**
+ * The Bing, where he is the man who owns the building.
+ *
+ * The owner's reference is a chalk-stripe three-piece with the jacket open on
+ * the waistcoat, a dark tie, and a hat — so that is what this is, plus the
+ * corno out over the waistcoat where it can be seen. The jacket has to be OPEN
+ * for that last part to be true at all: a chain worn over a buttoned jacket is
+ * a chain nobody in the club will ever look at.
+ *
+ * The hat is BLACK -- `0x4a3c2c` was a brown felt sitting on top of a suit
+ * built entirely out of blacks and charcoals, and it read as a mismatched
+ * accessory rather than as part of the outfit. A near-black rather than a
+ * literal `0x000000` so the crown still takes a highlight under the club's
+ * one warm bulb instead of drawing as a flat silhouette.
+ */
+export const BIG_UNCLE_LOU_BING = Object.freeze({
+  ...BIG_UNCLE_LOU,
+  pinstripe: true,
+  threePiece: true,
+  hat: 'fedora',
+  hatColour: 0x121114,
+});
+
+/**
+ * The mansion, where he is at home and not working.
+ *
+ * Open short-sleeve camp shirt over a white tee, slacks, the corno on show
+ * because there is no jacket in the way of it, the watch on one wrist and a
+ * gold bracelet on the other. Same man, same jewellery, none of the armour —
+ * which is the point of dressing him differently here at all.
+ */
+export const BIG_UNCLE_LOU_MANSION = Object.freeze({
+  ...BIG_UNCLE_LOU,
+  dress: 'camp',
+  shirt: 0x191a20,
+  shirtAccent: 0xd8cbb2,
+  trouserColour: 0x2b2c34,
+  pattern: true,
+  hair: 'receding',
+  bracelet: 'gold',
+  belt: 'leather',
+  luxury: false,
+  trim: false,
+  /* No hat and no chalk stripe indoors. `trim` off as well: its shirt cuff and
+   * cufflink belong to a long sleeve, and this shirt has not got one. */
+  hat: false,
+  pinstripe: false,
+  threePiece: false,
 });
 
 export const CAPTAIN_LOU_SASOLE = Object.freeze({
@@ -98,6 +153,21 @@ export const BOOSKI = Object.freeze({
   pendantStyle: 'crest',
 });
 
+/**
+ * Boss, not crew — and not the men's jewellery box.
+ *
+ * The first pass put her in the founders' own vocabulary literally: the same
+ * layered gold rope, the same crest medallion, the same watch the men wear.
+ * Owner's note: she is a woman, and a pile of gold chains and a watch is the
+ * MEN's way of saying "senior" on this roster, not hers. So the tailoring
+ * stays — `trim` and `luxury` are what actually mark her as elevated above
+ * the rank and file, the same two flags Lou and Booski carry and the ordinary
+ * floor regulars do not — and the jewellery comes off rather than getting
+ * reassigned to a smaller version of itself. What is left is a sharp, fitted
+ * midnight suit with one accessory, which is `docs/OUTCOMES-AND-NPCS.md`'s
+ * own read on her: THE MUSCLE, "few words, all physical," not a woman who
+ * needs a chain to be taken seriously in this room.
+ */
 export const DEATHMEGATRON = Object.freeze({
   height: 1.79,
   build: 1.12,
@@ -113,11 +183,6 @@ export const DEATHMEGATRON = Object.freeze({
   trim: true,
   belt: 'gold',
   trouserFit: 'creased',
-  watch: 'gold',
-  chain: 'gold',
-  chainStyle: 'layered',
-  pendant: true,
-  pendantStyle: 'crest',
 });
 
 export const SNOW = Object.freeze({
@@ -172,6 +237,13 @@ export const NUMBSKULL = Object.freeze({
   belt: 'leather',
 });
 
+/**
+ * The matriarch. Luxury finish, no watch -- owner's note: the men on this
+ * roster wear one, the women do not, and a gold watch was never the thing
+ * that said "runs the place" about her anyway. `docs/OUTCOMES-AND-NPCS.md`
+ * has her running logistics on everything including the murders; that reads
+ * off the shirt and the posture, not off her wrist.
+ */
 export const HOG_MAMA = Object.freeze({
   height: 1.68,
   build: 1.20,
@@ -183,7 +255,6 @@ export const HOG_MAMA = Object.freeze({
   gender: 'female',
   bodyShape: 'curvy',
   luxury: true,
-  watch: 'gold',
 });
 
 export const WILLY = Object.freeze({
@@ -233,6 +304,25 @@ export const IRISH = Object.freeze({
   belt: 'leather',
 });
 
+/**
+ * Sauce, who is in the whites wherever you find him.
+ *
+ * The body is not new — it is the man already working the buffet at the
+ * closed party in `src/bing/hotdog-party.js`, moved here verbatim so the
+ * floor of the club and the party are the same person rather than two men
+ * with one nickname. `chef` is the wardrobe's whole argument about him: he
+ * brings his own food into a nightclub, and he does not change to come out.
+ */
+export const SAUCE = Object.freeze({
+  height: 1.72,
+  build: 1.08,
+  dress: 'chef',
+  shirt: 0xe7e2d6,
+  hair: 'short',
+  hairColour: 0x241913,
+  skin: 0xe8c39c,
+});
+
 export const AUBBIE = Object.freeze({
   height: 1.77,
   build: 1.05,
@@ -246,9 +336,137 @@ export const AUBBIE = Object.freeze({
 });
 
 /**
+ * James Blond, tied to a chair in the Bing's store room.
+ *
+ * The one tuxedo on the roster, which is exactly why the collision between
+ * `dress: 'suit'` and `tuxedo: true` in `makePerson` went unnoticed for as
+ * long as it did — see the `!tuxedo` gate in `src/bing/cast.js`. `barefoot`
+ * is NOT here: it belongs to `src/bing/license-to-grill-runtime.js`, which
+ * adds it on top of this model, because it is true of this SCENE — whoever
+ * tied him to the chair took his shoes — and not true of the man.
+ */
+export const JAMES_BLOND = Object.freeze({
+  height: 1.83,
+  build: 1.0,
+  dress: 'suit',
+  shirt: 0x14161f,
+  shirtAccent: 0xf0efe8,
+  tuxedo: true,
+  luxury: true,
+  hair: 'short',
+  hairColour: 0xd8c088,
+  skin: 0xf0cba6,
+  bowtie: true,
+});
+
+/**
+ * The Bada Bing's bartender.
+ *
+ * He was typed inline in `populate()` in src/bing/cast.js and nowhere else,
+ * which was fine right up until a second scene needed him — Lou's mansion has
+ * a bar in the billiard bay and it is THIS man working it, not a new one. So
+ * his body moves here, both places spread it, and there is one bartender.
+ *
+ * The waistcoat is the whole read: he is the only person in either building
+ * dressed by an employer rather than by himself.
+ */
+export const BADA_BING_BARTENDER = Object.freeze({
+  height: 1.70,
+  build: 1.00,
+  dress: 'waistcoat',
+  shirt: 0xd8d4cc,
+  hair: 'tied',
+});
+
+/* ------------------------------------------------------------------------ *
+ * LOU'S SECURITY
+ *
+ * Not Family. Hired, uniformed, and paid to be unpleasant — so they are
+ * dressed as a UNIT and the unit is the point: one suit, one shirt colour,
+ * one belt, one watch, and the watch is silver. Lou wears every expensive
+ * thing at once and his men wear none of it, which is the clearest thing the
+ * wardrobe can say about who these people are to him.
+ *
+ * `trim` is on for all of them despite the note at the top of this file about
+ * it not being free: the player is stopped by one of these men at the front
+ * door and talks to another one beside a hanging body. They are stood next
+ * to, so they get collars.
+ * ------------------------------------------------------------------------ */
+
+/** Everything every one of Lou's men has in common. Spread, never restated. */
+const SECURITY_UNIFORM = Object.freeze({
+  dress: 'suit',
+  shirt: 0x191c22,
+  shirtAccent: 0x9aa2ae,
+  trim: true,
+  belt: 'leather',
+  trouserFit: 'creased',
+  watch: 'silver',
+});
+
+/**
+ * The man on the front door.
+ *
+ * Owner: *"This guy is deadly serious and doesn't want any funny business."*
+ * The same uniform as the rest, one grade sharper — he is the biggest of them
+ * and he is the one with the earpiece's worth of authority, because he is the
+ * only one who is allowed to turn you around.
+ */
+export const MANSION_DOOR_MAN = Object.freeze({
+  ...SECURITY_UNIFORM,
+  height: 1.92,
+  build: 1.42,
+  hair: 'bald',
+  skin: 0xb87a4e,
+});
+
+/**
+ * The man in the booth at the street gate.
+ *
+ * Owner playtest: *"ADD a guard working that booth"*. He is on the same
+ * `mansion-gate` throat as the man on the door (see `SPEAKERS.BOOTH` in
+ * src/mansion/script.js) and he is deliberately NOT one of `MANSION_GUARDS`:
+ * those six are posted elsewhere in the house and reusing one of their bodies
+ * would put the same man in two places on the same walk. Older and heavier
+ * than the walkers, because a gate booth is the post you get given after
+ * twenty years of walking the fence.
+ */
+export const MANSION_BOOTH_MAN = Object.freeze({
+  ...SECURITY_UNIFORM,
+  height: 1.80,
+  build: 1.46,
+  hair: 'crop',
+  hairColour: 0x8e8b86,
+  skin: 0xdcb188,
+  beard: true,
+});
+
+/**
+ * The six men on the rest of the house, in the order the mansion posts them:
+ * three walking the perimeter outside, one at the top of the horseshoe stair,
+ * one in the basement, one on the vault.
+ *
+ * They differ only in the four things a uniform cannot hide — height, build,
+ * hair and skin — so they read as six men in the same suit rather than six
+ * copies of one man or six unrelated people who happen to match.
+ */
+export const MANSION_GUARDS = Object.freeze([
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.86, build: 1.22, hair: 'short', hairColour: 0x1c1410, skin: 0xd9a97f }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.78, build: 1.34, hair: 'crop', hairColour: 0x4a3a2a, skin: 0xe8c39c }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.90, build: 1.10, hair: 'short', hairColour: 0x2a1c14, skin: 0x8d5a3a, beard: true }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.81, build: 1.28, hair: 'bald', skin: 0xf0cba6 }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.75, build: 1.40, hair: 'short', hairColour: 0x14100e, skin: 0xc08a5e }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.88, build: 1.16, hair: 'crop', hairColour: 0x8a5a2a, skin: 0xf0cba6, beard: true }),
+]);
+
+/**
  * Everyone above, by the `CHARACTER_IDS` key the campaign uses, so a scene can
  * dress a roster it is iterating rather than naming each import.
  */
+/* Keyed by CHARACTER id, so the scene variants above are deliberately NOT in
+ * here -- `lou` is a person and `lou_bing` is an outfit, and a map that mixed
+ * the two would be the drift this file exists to stop. A scene that wants the
+ * variant imports it by name. */
 export const WARDROBE = Object.freeze({
   lou: BIG_UNCLE_LOU,
   captain_lou_sasole: CAPTAIN_LOU_SASOLE,
@@ -264,6 +482,8 @@ export const WARDROBE = Object.freeze({
   gratin: GRATIN,
   irish: IRISH,
   aubbie: AUBBIE,
+  sauce: SAUCE,
+  james_blond: JAMES_BLOND,
 });
 
 /** The canonical model for a character id, or null for anyone not on it. */

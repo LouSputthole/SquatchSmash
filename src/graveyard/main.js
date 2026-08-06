@@ -163,14 +163,15 @@ function cueSeconds(name) {
   return bank?.length ? bank[0].duration : 0;
 }
 
+/** Play one line and hand the TAKE back, so a mouth can run on it. */
 function playCue(name) {
-  if (!name || !audio.ready) return false;
+  if (!name || !audio.ready) return null;
   const bank = audio.buffers?.get(name);
-  if (!bank?.length) return false;
+  if (!bank?.length) return null;
   audio._vo?.stop?.();
   const source = audio.play(name, { volume: 0.9 });
   audio._vo = source;
-  return true;
+  return { audio, source, seconds: bank[0].duration };
 }
 
 function updateDialogue(dt) {
@@ -182,7 +183,19 @@ function updateDialogue(dt) {
     speakerEl.querySelector('small').textContent = line.who || 'Prospect';
     speakerEl.querySelector('span').textContent = line.text;
     speakerEl.classList.remove('hidden');
-    playCue(line.cue);
+    /* And the man who is saying it says it.
+     *
+     * Snow is the only body out here with lines -- the Prospect is the player,
+     * in first person, with no head to animate -- so this is one name rather
+     * than a table. The mouth runs on the take (src/core/mouth.js) and falls
+     * back to a synthesised envelope for the subtitle's own length when the
+     * cue has no recording, which most of the graveyard's still do not. */
+    const take = playCue(line.cue);
+    if ((line.who || '') === 'Snow') {
+      graveyard.snow?.say?.(Math.max(1.4, duration), take);
+    } else {
+      graveyard.snow?.hush?.();
+    }
   }
   if (!state.activeLine) return;
   state.activeLine.remaining -= dt;

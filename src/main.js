@@ -17,7 +17,7 @@ import { Radio } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
-import { persistentDressingForCampaign } from './world/dressing.js';
+import { cashPilesForCampaign, persistentDressingForCampaign } from './world/dressing.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
@@ -43,6 +43,7 @@ import {
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
+  SILVER_ROOM_COME_HOME,
   HEIST_CLEANUP_ITEMS,
   HEIST_PREPARATION_ITEMS,
   createApartmentStory,
@@ -572,6 +573,11 @@ async function boot() {
      * first day". It comes from the campaign, never from a flag of its own. */
     chapter: campaign.state.story.chapter,
     persistentDressing: persistentDressingForCampaign(campaign.state),
+    /* How much money is in each pile in the flat. A function rather than a
+     * value because the flat re-dresses itself on every sleep and on every
+     * return from a job, and the heist's cut is not a number anybody knows
+     * until the job is over. */
+    cashPiles: () => cashPilesForCampaign(campaign.state),
     onNote: (what) => narrator.note(what),
     /* The phone is campaign state, not apartment state: it has to still be on
      * him at the Bing and at the airstrip, and still be on him tomorrow. */
@@ -651,11 +657,15 @@ async function boot() {
   if (savedActivities.pooped) apartment.state.bowel = 0;
   installHeistApartmentInteractions();
 
-  /* The last beat of Margo's morning is the same sweeping power bar the
-   * crooked picture frame uses, and for the same reason: a hold bar is a
-   * progress meter you watch, and this beat wants a rhythm you are losing.
-   * Tapping the target starts it; the bar owns [E] from there. The hit volume
-   * follows her rig and is enabled for this beat only. */
+  /* The last beat of Margo's morning (and the first, coming home) is the same
+   * sweeping power bar the crooked picture frame uses, and for the same
+   * reason: a hold bar is a progress meter you watch, and this beat wants a
+   * rhythm you are losing. Tapping the target starts it; the bar owns [E]
+   * from there. `enabled` is the ONLY gate on this target -- it is registered
+   * once, permanently, and stays a no-op the rest of the campaign. She is
+   * standing when this becomes enabled, not kneeling: `startMargoDressHelp`
+   * is what puts her down onto the fastening, on this keypress, never before
+   * it. */
   interaction.register(apartment.margo.helpTarget, {
     label: () => 'Help Margo with the <b>dress</b>',
     enabled: () => game.margoScene?.awaitingHelp === true && !margoDress.running,
@@ -794,6 +804,7 @@ async function boot() {
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     heldSlice, updateConsume,
     playMessages, playNews, startMargoWake, finishMargoWake, updateMargoWake,
+    startMargoComeHome, finishMargoComeHome, offerMargoDressHelp,
     margoDress, startMargoDressHelp, updateMargoDressHelp, abandonMargoDressHelp,
     readChat,
     teleport(x, z, facing = 'north') {
@@ -846,15 +857,18 @@ function apartmentStartupCueNames() {
   for (const bulletin of Object.values(news || {})) {
     if (bulletin?.vo) names.add(`vo.${bulletin.vo}.1`);
   }
-  if (apartmentStory.margoWakeOwed()) {
+  if (apartmentStory.margoWakeOwed() || apartmentStory.margoComeHomeOwed()) {
     for (const cue of exactDefinitionCueNames(BIG_NIGHT_MARGO_WAKE)) names.add(cue);
+    for (const cue of exactDefinitionCueNames(SILVER_ROOM_COME_HOME)) names.add(cue);
     names.add('cloth.snap');
     /* The dress foley belongs here too. It shipped in 8963415, but it was left
      * to arrive with the background resident bank, and `playMargoDressImpact`
      * gates on `hasSample` — a decoded buffer, not a delivered file. The whole
      * beat is over inside about twenty seconds of the Start card, so the
      * authored takes lost that race every time and the scene played its
-     * `drunk.collapse` stand-in instead. Four recordings nobody could hear. */
+     * `drunk.collapse` stand-in instead. Four recordings nobody could hear.
+     * Shared by both scenes -- the come-home beat wants the exact same race
+     * won for the exact same reason. */
     for (const cue of MARGO_DRESS_IMPACT_CUES) names.add(cue);
     // And the bar's own takes, which are the beat rather than a garnish on it.
     for (const cue of MARGO_DRESS_CUES) names.add(cue);
@@ -897,14 +911,32 @@ startBtn.addEventListener('click', async () => {
         hud.say('Home again. The package came back with you.', 4800);
       } else if (returningFromSilver) {
         /* The one time he comes home from something that was not work. The
-         * campaign knows how the evening went; the door only says that it did. */
-        const date = campaignAtLoad.missions[MISSION_IDS.SILVER_ROOM];
-        hud.toast(date.seeingHerAgain
-          ? 'She is seeing you again'
-          : 'The evening is over', date.seeingHerAgain ? 'good' : '');
-        hud.say(date.seeingHerAgain
-          ? 'Home. And she said yes to the next one. <em>Tomorrow is the other thing.</em>'
-          : 'Home. That went how it went. <em>Tomorrow is the other thing.</em>', 4800);
+         * campaign knows how the evening went; the door only says that it did.
+         *
+         * SCENE 9. When she actually came home with him, the toast-and-line
+         * every other return gets is replaced by the scene itself -- a
+         * caption describing a cutscene that is about to play anyway is a
+         * caption over nothing. */
+        if (apartmentStory.margoComeHomeOwed()) {
+          startMargoComeHome();
+        } else if (apartmentStory.margoHomeForTheNight()) {
+          /* A reload the same night, after the scene already played this
+           * session: she is already helped out of it and asleep, so land her
+           * there directly rather than replay a walk to a bed she is already
+           * in. */
+          apartment.margo.setPose('lying');
+          apartment.margo.group.visible = true;
+          hud.toast('Margo is asleep', '');
+          hud.say('Home again. She is already asleep.', 3600);
+        } else {
+          const date = campaignAtLoad.missions[MISSION_IDS.SILVER_ROOM];
+          hud.toast(date.seeingHerAgain
+            ? 'She is seeing you again'
+            : 'The evening is over', date.seeingHerAgain ? 'good' : '');
+          hud.say(date.seeingHerAgain
+            ? 'Home. And she said yes to the next one. <em>Tomorrow is the other thing.</em>'
+            : 'Home. That went how it went. <em>Tomorrow is the other thing.</em>', 4800);
+        }
       } else if (returningFromNoWake) {
         hud.toast('NO WAKE', '');
         hud.say('Home. The boat is clean. <em>The phone will ring when it rings.</em>', 5200);
@@ -936,8 +968,10 @@ startBtn.addEventListener('click', async () => {
        * because the AudioContext does not exist until the first gesture. */
       startMorningRadio();
       hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
-      /* Except on the fourth morning, when he is not the only one awake. The
-       * cutscene owns the first minute and hands control back itself. */
+      /* Except on the fourth morning, when he is not the only one awake. He
+       * is free to get up and walk off the moment his eyes open -- see
+       * `startMargoWake`'s own doc comment -- so this does not wait for the
+       * scene to hand control back; there is no moment it had it. */
       if (apartmentStory.margoWakeOwed()) startMargoWake();
       else {
         setTimeout(() => {
@@ -1204,12 +1238,19 @@ document.addEventListener('keydown', (e) => {
 
   switch (e.code) {
     case 'KeyE':
-      /* During the one interactive beat of the wake scene, E starts the dress
-       * bar. The player is still technically in the bed, so this must win over
-       * the ordinary get-up action. */
-      if (game.margoScene?.awaitingHelp) { interaction.press(); break; }
-      if (game.margoScene) break;
-      /* The phone takes [E] first while it is the thing in his hand. You
+      /* The Margo wake/come-home scenes used to special-case [E] here so the
+       * dress bar could take it over the ordinary get-up action -- and that
+       * special case is exactly what left a player stuck on his back with no
+       * key that did anything if the scene stalled for any reason. It is gone.
+       * [E] means "get up" while lying down, full stop, same as any other
+       * morning; her interaction target is an ordinary registered target
+       * (`apartment.margo.helpTarget`, `enabled` gated on `awaitingHelp`) that
+       * the last `else interaction.press()` below reaches once he is up and
+       * looking at her. Lying down and aimed at her is not a path to the bar
+       * any more -- he has to be on his feet, because she is standing, not
+       * kneeling, until he starts it.
+       *
+       * The phone takes [E] first while it is the thing in his hand. You
        * cannot open a fridge and answer a call with the same key, and the
        * call wins -- it is the one thing in this flat that is not waiting
        * for you to get round to it. */
@@ -1246,12 +1287,12 @@ document.addEventListener('keydown', (e) => {
       else if (interaction.current && interaction.current.name === 'radio') radio.next();
       break;
     case 'KeyQ':
-      /* Do not let the general stand-up key tear through a staged wake scene
-       * -- but once the morning is waiting on HIM, [Q] has to mean something.
-       * It hands the fastening back to her and the beat resolves on its own,
-       * so the one screen with no other exit still has an exit. */
-      if (game.margoScene?.awaitingHelp) { abandonMargoDressHelp(); break; }
-      if (game.margoScene) break;
+      /* [Q] while she is merely OFFERING no longer does anything special --
+       * he is free to walk off and come back, so there is nothing here to
+       * abandon. Once the bar is actually running, [Q] hands the fastening
+       * back to her; that case is handled above, ahead of this switch,
+       * alongside the bar's own [E], for the same reason: the bar owns the
+       * keyboard while it runs, the same way the glue bar does. */
       if (apartment.state.heldItem === 'phone' && phone.call) {
         phone.hangUp();
         break;
@@ -1425,6 +1466,12 @@ function standFromSeat() {
 function lieOnBed() {
   if (game.seated || game.onToilet || game.passingOut) return;
   if (player.mode === 'bed') return;
+  /* Getting up mid-scene is the whole point of the rewrite; sleeping back
+   * through Margo unresolved would be a new way to reach the same "she never
+   * finished" state the rewrite exists to close off. She is in the room
+   * until he helps her and she walks out on her own two feet, not until he
+   * climbs back into bed around her. */
+  if (game.margoScene) return;
   game.sitting = null;
   game.inBed = true;
   interaction.setPaused(true);
@@ -2273,7 +2320,10 @@ function eatEggs() {
    * else tips you over, which is both funnier and true. A dart, a zyn or the
    * raw milk each take it the rest of the way on their own -- see
    * `startTheUrge` -- so there is no route through this flat that leaves a
-   * player unable to work out how to make the toilet's other half happen. */
+   * player unable to work out how to make the toilet's other half happen.
+   *
+   * And, like every other route, only while there is still a job to do. */
+  if (alreadyBeen()) return;
   st.bowel = Math.min(1, st.bowel + 0.62);
   st.bowelCause ??= 'eggs';
 }
@@ -2779,13 +2829,25 @@ function tryLeave() {
   doorTries.set(key, tries);
 
   /* Waiting on a phone call is not something he can go and fix, so it gets a
-   * bank of its own and never gets a hint -- there is nothing to hint at. */
+   * bank of its own and never gets a hint -- there is nothing to hint at.
+   *
+   * `res.vo` is the refusal's OWN take, and the specific line beats the bank
+   * every time: the screen says "Booskibro said he would call about tonight"
+   * and the generic bank says "I am not guessing", which is a different
+   * sentence about a different evening. `say()` returns false on an empty
+   * bank, so this reads as "his own words if they have been recorded, the
+   * general-purpose ones until then" and needs no knowledge of what is on
+   * disk. */
   if (res.kind === 'call' || res.kind === 'stay') {
-    audio.say('door.wait', { chance: 0.8, delay: 0.5 });
+    if (!(res.vo && audio.say(res.vo, { delay: 0.5 }))) {
+      audio.say('door.wait', { chance: 0.8, delay: 0.5 });
+    }
     return res;
   }
 
-  audio.say(DOOR_VO[key] ?? 'door.beer', { delay: 0.35 });
+  if (!(res.vo && audio.say(res.vo, { delay: 0.35 }))) {
+    audio.say(DOOR_VO[key] ?? 'door.beer', { delay: 0.35 });
+  }
   if (res.hint && tries >= 2) {
     hud.toast(res.hint, '');
     const hintVo = DOOR_HINT_VO[key];
@@ -3146,8 +3208,27 @@ function updateBowel(dt) {
  */
 function startTheUrge(cause) {
   const st = apartment.state;
+  if (alreadyBeen()) return;
   st.bowelCause = cause;
   st.bowel = 1;
+}
+
+/**
+ * Whether the morning's second errand is already behind him.
+ *
+ * A dart is what gets things STARTED. It is not a lever that sends you back to
+ * the bathroom every time you pull it -- a man who has already been does not
+ * owe the toilet another trip because he lit one afterwards, and being marched
+ * off the balcony mid-cigarette by his own guts is a joke that is funny once.
+ * So the urge fires once a morning and every route in -- dart, zyn, milk,
+ * eggs -- asks here first.
+ *
+ * Read off the campaign as well as the session so it survives a reload: the
+ * save is what the door consults, and the two must not disagree about whether
+ * this morning's business is done.
+ */
+function alreadyBeen() {
+  return game.pooped || campaign.state.activities.pooped === true;
 }
 
 /** What he says about it, by whatever he has just put in himself. */
@@ -3518,11 +3599,22 @@ function playNews(station, { onStart = null } = {}) {
 /**
  * Margo wakes up beside him, says her piece, gets dressed and goes.
  *
- * A cutscene in the sense that he cannot walk during it, and emphatically not
- * in the sense that anything is taken away from him: he keeps the view, she is
- * animated in the room rather than in a cut, and the whole thing is under a
- * minute. It hands control back by putting him exactly where an ordinary
- * morning puts him -- lying in his own bed with [E] on the screen.
+ * NOT a cutscene in the sense that ever mattered to the complaint this
+ * replaced: he can get up and walk off the moment his eyes open, same as any
+ * other morning. What used to make it one -- `interaction.setPaused(true)`
+ * held for the length of the dialogue, and a `game.margoScene` check ahead of
+ * the ordinary get-up key that swallowed it -- is gone. She still keeps the
+ * room (the beats below move her through the same lying/sitting/standing
+ * progression whether or not he is watching), and the one interactive beat
+ * still waits for him; it no longer waits FOR HIM TO WAIT FOR IT.
+ *
+ * She never assumes the kneeling, hands-and-knees position on her own. That
+ * used to be a scheduled beat like the others -- she went down for it at a
+ * fixed second, whether or not anyone had asked, and the player found her
+ * already in position with an interaction prompt sitting on a pose he never
+ * triggered. Now `startMargoDressHelp` is the ONLY place `setPose('kneeling')`
+ * is called, and it only runs from `apartment.margo.helpTarget`'s own
+ * `onUse`, which only fires off a real keypress. Ask, then wait, then kneel.
  *
  * Everything about it is one-shot and durable: `margoWakeOwed` reads the
  * campaign, `margoWakeDone` writes the campaign, so reloading the fourth
@@ -3533,9 +3625,10 @@ function playNews(station, { onStart = null } = {}) {
  *
  * `look` is a point in the room, not an angle, so the camera aim is derived
  * from where she actually is rather than from a number somebody typed twice.
- * He is flat on his back with the view pitched at the ceiling and clamped to a
- * narrow cone; the scene widens that cone and turns his head for him, then
- * puts it back exactly as `layInBed` left it.
+ * Aim is only ever applied while he is still lying down -- `updateMargoWake`
+ * guards every write to `player.*` on `player.mode === 'bed'` -- so a man who
+ * got straight up loses none of his own mouse to a scene that used to own it
+ * unconditionally.
  */
 const MARGO_BEATS = [
   /* Aimed at chest height rather than at the top of her head. She is about a
@@ -3548,11 +3641,9 @@ const MARGO_BEATS = [
    * up -- which is the shape of the morning anyway. */
   { at: 0.0, pose: 'lying', look: null, cue: null },
   { at: 6.4, pose: 'sitting', look: [-3.12, 1.00, -3.30], cue: 'bed.rustle' },
-  /* She goes down beside the bed for the final fastening -- bent over on all
-   * fours with her back to him, because the fastening on that dress runs down
-   * her back and there is no reaching it from the front. The conversation
-   * ends, then the player gets the dress bar before she stands. */
-  { at: 20.0, pose: 'kneeling', look: [-2.51, 0.66, -3.12], cue: 'bed.rustle' },
+  /* She is up and beside the bed, dressed but not yet asking -- NOT kneeling.
+   * That pose is earned, not scheduled; see `startMargoDressHelp`. */
+  { at: 14.0, pose: 'standing', look: [-2.80, 1.30, -3.00], cue: 'bed.rustle' },
 ];
 /*
  * Where he is looking, and it is not a number somebody liked the sound of:
@@ -3564,10 +3655,12 @@ const MARGO_BEATS = [
 const MARGO_HELP_LOOK = [-2.51, 0.66, -3.12];
 const MARGO_STAND_LOOK = [-2.80, 1.30, -3.00];
 /**
- * Seconds after which the morning opens the interactive beat regardless.
+ * Seconds after which the morning offers the interactive beat regardless.
  *
- * The eight lines run about fifty seconds end to end. This is the floor under
- * them, not the schedule: see `openMargoDressBeat`.
+ * The four lines run well under fifty seconds end to end. This is the floor
+ * under them, not the schedule: see `offerMargoDressHelp`. Offering is not
+ * assuming -- this only guarantees the ASK arrives; she still will not kneel
+ * until he presses [E] on her.
  */
 const MARGO_HELP_DEADLINE = 75;
 const MARGO_DRESS_IMPACT_CUES = Object.freeze([
@@ -3673,16 +3766,25 @@ function setMargoDressClap(stage) {
   });
 }
 
-/** Tapping the target hands [E] to the bar. */
+/**
+ * Pressing [E] on her hands over the fastening -- and puts her in the pose
+ * that reaches it. This is the ONLY place `apartment.margo.setPose('kneeling')`
+ * is ever called: she offers, in `offerMargoDressHelp`, standing up; she does
+ * not get down onto the bed until this fires, and this only fires off a real
+ * keypress on her own hit volume. See the doc comment above `MARGO_BEATS`.
+ */
 function startMargoDressHelp() {
   const scene = game.margoScene;
   if (!scene?.awaitingHelp || margoDress.running) return false;
+  apartment.margo.setPose('kneeling');
+  apartment.margo.setDressHelpProgress(0);
+  scene.aim = MARGO_HELP_LOOK;
   margoDress.running = true;
   margoDress.bar.start();
   /* The bar owns the keyboard from here, the same way the glue bar does at the
-   * desk. The target goes with it so the prompt does not sit under the bar
-   * offering to start something that is already running. */
-  interaction.setExclusiveTarget(null);
+   * desk -- and unlike the offer that led here, THIS beat does take the room:
+   * he is committed to the fastening, so the rest of the flat goes quiet
+   * until it is done. */
   interaction.setPaused(true);
   hud.hidePrompt();
   hud.setPosture('let her do it');
@@ -3759,14 +3861,27 @@ function finishMargoDressHelp({ earned = true } = {}) {
   if (scene) scene.dressGlueTarget = 1;
   hud.toast(earned ? 'PVA. Everywhere. Again.' : 'She has got it', earned ? 'bad' : '');
   hud.say(earned
-    ? 'Wood glue. <em>On the dress.</em> The same bottle, the same nozzle, '
-      + 'and she is due at a kitchen in three hours.'
+    ? (scene?.kind === 'comeHome'
+      ? 'Wood glue. <em>On the dress.</em> The same bottle, the same nozzle, '
+        + 'and it was coming off tonight regardless.'
+      : 'Wood glue. <em>On the dress.</em> The same bottle, the same nozzle, '
+        + 'and she is due at a kitchen in three hours.')
     : '<em>Fine.</em> She has got it. She has mostly got it.', 5400);
   completeMargoDressHelp();
   return true;
 }
 
-/** [Q]. She finishes it herself, and the morning carries on regardless. */
+/**
+ * [Q]. She finishes it herself, and the morning carries on regardless.
+ *
+ * Reached only while the bar is actually running (the keydown handler gates
+ * it on `margoDress.running`, same as [E] feeding the bar): once she is
+ * merely OFFERING, there is nothing to abandon -- the player is free to walk
+ * off and come back, and nothing is waiting on him to say so. The second
+ * branch here stays for the same reason `startMargoDressHelp` is idempotent:
+ * a stray call with the offer still open should resolve it kindly rather than
+ * do nothing.
+ */
 function abandonMargoDressHelp() {
   if (margoDress.running) return finishMargoDressHelp({ earned: false });
   if (!game.margoScene?.awaitingHelp) return false;
@@ -3799,18 +3914,27 @@ const MARGO_STAND_Y = 0.87;
 const MARGO_PATH = [
   [-2.80, -3.00], [-2.55, -1.40], [-1.20, 1.20], [0.90, 3.30], [2.72, 4.28],
 ];
+/** The same walk in reverse: the night she comes home, door to bedside. */
+const MARGO_ENTRY_PATH = [...MARGO_PATH].reverse();
 
-function startMargoWake() {
-  if (game.margoScene) return false;
-  /* Wall clock, not accumulated frame time. The lines are scheduled on
-   * setTimeout and the simulation delta is clamped at 50ms, so on a machine
-   * that cannot hold thirty frames a second the two drift apart and she says
-   * goodbye from under the duvet. One clock for both halves. */
-  game.margoScene = {
+/**
+ * The shape both this scene and `startMargoComeHome` drive `updateMargoWake`
+ * off of. One constructor for one shared shape, so a field either of them
+ * relies on can never quietly be missing from the other.
+ */
+function newMargoScene(kind) {
+  return {
+    kind,
+    /* Wall clock, not accumulated frame time. Dialogue is scheduled on
+     * setTimeout and the simulation delta is clamped at 50ms, so on a machine
+     * that cannot hold thirty frames a second the two drift apart and a line
+     * lands from under a duvet nobody is under any more. One clock for both
+     * halves of either scene. */
     startedAt: performance.now(),
     t: 0,
     beat: -1,
     walk: null,
+    entry: false,
     aim: null,
     awaitingHelp: false,
     dressProgress: 0,
@@ -3824,6 +3948,11 @@ function startMargoWake() {
     cameraLiftTarget: 0,
     departAt: null,
   };
+}
+
+function startMargoWake() {
+  if (game.margoScene) return false;
+  game.margoScene = newMargoScene('wake');
   margoDress.bar.reset();
   margoDress.running = false;
   margoDress.clapStage = 0;
@@ -3870,44 +3999,108 @@ function startMargoWake() {
       turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.tony.${i + 1}`, text: `You: ${reply}` });
     }
   });
-  speakSequence(turns, { onDone: () => openMargoDressBeat() });
+  speakSequence(turns, { onDone: () => offerMargoDressHelp() });
   return true;
 }
 
 /**
- * The conversation is over and the morning is waiting on him.
+ * SCENE 9. She came home with him the night of the Silver Room.
+ *
+ * `apartmentStory.margoComeHomeOwed()` gates this on the mission's own
+ * `cameHome` verdict, not on the chapter alone -- an evening that ended
+ * `awkward` or worse never reaches this function. He is already free to move
+ * (`returningToApartment` has already put him on his feet at the door), so
+ * this never touches `interaction.setPaused` or `player.mode` itself; the
+ * only thing it locks down is what `startMargoDressHelp` already locks down
+ * once he actually starts the fastening.
+ *
+ * Reuses every piece of the morning's own machinery -- `apartment.margo`,
+ * `margoDress`, `startMargoDressHelp`, `offerMargoDressHelp`,
+ * `apartment.margo.helpTarget` and its one registered interaction -- rather
+ * than building a second dress-help beat next to it. `game.margoScene.kind`
+ * is the only thing that tells the shared code which scene it is in, and it
+ * only matters twice: what she is doing when the player is not asking
+ * anything of her (the walk in, not the wake-up beats), and what happens
+ * once he has helped her (bed, and staying in it, not the door).
+ */
+function startMargoComeHome() {
+  if (game.margoScene) return false;
+  const margo = apartment.margo;
+  game.margoScene = newMargoScene('comeHome');
+  game.margoScene.walk = 0;
+  game.margoScene.entry = true;
+  margoDress.bar.reset();
+  margoDress.running = false;
+  margoDress.clapStage = 0;
+  audio.loadAdditional?.({
+    names: [...MARGO_DRESS_IMPACT_CUES, ...MARGO_DRESS_CUES],
+  })?.catch?.(() => {});
+  margo.setPose('standing');
+  margo.setDressHelpProgress(0);
+  margo.setDressGlue(0);
+  /* The far end of her own exit path is the front door -- close enough to
+   * where `returningToApartment` puts the player that "in together" reads,
+   * without needing a second authored position just for this. */
+  const [doorX, doorZ] = MARGO_PATH[MARGO_PATH.length - 1];
+  margo.group.position.set(doorX, MARGO_STAND_Y, doorZ);
+  margo.group.rotation.y = 0;
+  margo.group.visible = true;
+  return true;
+}
+
+/** She reached the bedside; the walk-in is over and the talking starts. */
+function startMargoComeHomeTalk() {
+  const turns = [];
+  SILVER_ROOM_COME_HOME.lines.forEach((line, i) => {
+    turns.push({ cue: `vo.${SILVER_ROOM_COME_HOME.vo}.${i + 1}`, text: `Margo: ${line}` });
+    const reply = SILVER_ROOM_COME_HOME.replies[i];
+    if (reply) {
+      turns.push({ cue: `vo.${SILVER_ROOM_COME_HOME.vo}.tony.${i + 1}`, text: `You: ${reply}` });
+    }
+  });
+  speakSequence(turns, { onDone: () => offerMargoDressHelp() });
+}
+
+/**
+ * The conversation is over and the morning is waiting on him -- TO ASK, not
+ * yet to kneel. She stands up beside the bed wanting a hand with the
+ * fastening; whether she actually gets down on it is entirely up to whether
+ * he walks over and presses [E] on her. See `startMargoDressHelp`, the only
+ * place that pose is ever assumed.
  *
  * Pulled out of the `speakSequence` callback and made idempotent so that
- * `updateMargoWake` can reach it too. This callback is the ONLY thing that
- * ever gave the player a key that did anything again, and it hangs off a chain
- * of `setTimeout`s: a browser that throttles a backgrounded tab, an alt-tab
- * across the eight lines, a decode that never lands, and the morning stops
- * dead with a man on his back and no [E]. That is the "stuck in the bed" this
- * scene has been reported for. It is now a floor, not a guarantee -- the
- * watchdog in `updateMargoWake` calls the same function off the scene's own
- * wall clock whether or not the dialogue ever finished.
+ * `updateMargoWake` can reach it too. This callback used to be the ONLY thing
+ * that ever gave the player a key that did anything again, and it hung off a
+ * chain of `setTimeout`s: a browser that throttles a backgrounded tab, an
+ * alt-tab across the lines, a decode that never lands, and the morning
+ * stopped dead with a man on his back and no [E] -- the "stuck in the bed"
+ * this scene was reported for. Getting up no longer waits on this at all:
+ * [E] has stood him up since the first beat, dialogue running or not. This
+ * watchdog now only guarantees the ASK itself is never lost the same way.
  */
-function openMargoDressBeat() {
+function offerMargoDressHelp() {
   const scene = game.margoScene;
   if (!scene || scene.awaitingHelp || scene.walk !== null || margoDress.running) return false;
   if (scene.departAt !== null) return false;
   const margo = apartment.margo;
-  margo.setPose('kneeling');
-  margo.setDressHelpProgress(0);
+  margo.setPose('standing');
   scene.beat = MARGO_BEATS.length - 1;
-  scene.aim = MARGO_HELP_LOOK;
+  scene.aim = MARGO_STAND_LOOK;
   scene.awaitingHelp = true;
   scene.dressProgress = 0;
-  // Tony sits up enough to see her whole pose over the edge of the duvet.
+  // Only does anything if he never got up: lets him see her over the duvet.
   scene.cameraLiftTarget = 1;
-  /* Dialogue owns interaction until now. Hand back only this one target; its
-   * `enabled` predicate keeps the rest of the room inert from bed. */
-  interaction.setExclusiveTarget(margo.helpTarget);
-  interaction.setPaused(false);
+  hud.say(scene.kind === 'comeHome'
+    ? '<em>Can you get this?</em> She turns, back to him, reaching for a zip she cannot see.'
+    : '<em>Can you get this?</em> She turns, back to him, waiting on the clasp.', 4400);
   return true;
 }
 
-/** Close the fastening, let the pose land, then send her to the door. */
+/**
+ * Close the fastening, let the pose land, then either send her to the door
+ * (the morning) or put her to bed (the night she came home) -- `scene.kind`
+ * is the only fork in this whole beat.
+ */
 function completeMargoDressHelp() {
   const scene = game.margoScene;
   if (!scene?.awaitingHelp) return false;
@@ -3919,13 +4112,43 @@ function completeMargoDressHelp() {
   scene.awaitingHelp = false;
   scene.dressProgress = 1;
   apartment.margo.setDressHelpProgress(1);
+  interaction.setExclusiveTarget(null);
+  audio.play('cloth.snap', { volume: 0.55 });
+
+  if (scene.kind === 'comeHome') {
+    finishMargoComeHome();
+    return true;
+  }
+
   apartment.margo.setPose('standing');
   scene.aim = MARGO_STAND_LOOK;
   scene.departAt = performance.now() + 650;
-  interaction.setExclusiveTarget(null);
   interaction.setPaused(true);
-  audio.play('cloth.snap', { volume: 0.55 });
   return true;
+}
+
+/**
+ * SCENE 9's ending. She has the help she needed, and goes to bed -- and
+ * STAYS there, unlike the morning's version of this beat, which walks her
+ * out the front door. `apartment.margo.group` stays visible and in the
+ * `lying` pose for the rest of the night, exactly where `startMargoWake`
+ * expects to find her (or, on a reload before he sleeps, where
+ * `apartmentStory.margoHomeForTheNight()` puts her back without replaying
+ * any of this).
+ */
+function finishMargoComeHome() {
+  game.margoScene = null;
+  margoDress.running = false;
+  margoDress.bar.stop();
+  hud.setTiming(null);
+  hud.setPosture(null);
+  setMargoDressClap(0);
+  interaction.setExclusiveTarget(null);
+  interaction.setPaused(false);
+  apartment.margo.setPose('lying');
+  apartment.margo.group.visible = true;
+  apartmentStory.margoComeHomeDone();
+  hud.say('<em>Night.</em> She is out inside a minute.', 3600);
 }
 
 /** She is gone. Give him the room, the clock and the prompt back. */
@@ -3955,7 +4178,59 @@ function finishMargoWake() {
   }, 1600);
 }
 
-/** Run the scene: her beats, his head, and the walk to the door. */
+/**
+ * A walk, rather than a hop, along `path` to normalized progress `w`.
+ *
+ * Shared by both of Margo's scenes: the exit at the end of the morning
+ * (bedside to door) and the entry at the start of the night she comes home
+ * (door to bedside, `MARGO_ENTRY_PATH`) are the same gait over the same
+ * ground in opposite directions, and used to be two copies of this maths a
+ * screen apart -- the risk being exactly the one this function removes, that
+ * a fix to the walk lands in only one of them.
+ *
+ * This used to swing `legs` -- the group BOTH thighs hang off -- by one
+ * sine, so her entire lower half went forward and back as a single piece
+ * with her feet welded together, and she left the flat bouncing. A gait is
+ * two legs in ANTIPHASE: one thigh forward while the other is behind, the
+ * knee folding on the way through so the shin clears the floor, and each arm
+ * opposing the leg on its own side. Same one sine; the legs read opposite
+ * halves of it.
+ *
+ * `phaseSeconds` is driven off the walk's own wall clock rather than
+ * `scene.t`, so the phase starts at zero with the first step instead of
+ * wherever the conversation happened to leave it -- she used to set off
+ * mid-stride.
+ */
+function poseMargoWalk(margo, path, w, phaseSeconds) {
+  const g = margo.group;
+  const at = Math.min(path.length - 2, Math.floor(w * (path.length - 1)));
+  const local = w * (path.length - 1) - at;
+  const [ax, az] = path[at];
+  const [bx, bz] = path[at + 1];
+  g.position.x = ax + (bx - ax) * local;
+  g.position.z = az + (bz - az) * local;
+  g.rotation.y = Math.atan2(bx - ax, bz - az);
+
+  const phase = phaseSeconds * 5.6;
+  margo.legs.rotation.x = 0;
+  margo.thighs.forEach((thigh, i) => {
+    const sidePhase = phase + (i ? Math.PI : 0);
+    const lift = Math.sin(sidePhase);
+    thigh.rotation.x = -lift * 0.44;                    // negative is forward
+    /* Flexed through the swing and straight on the plant. The 0.9 lead puts
+     * the fold before the thigh reaches the front of its throw, which is where
+     * a knee actually folds. */
+    margo.knees[i].rotation.x = -0.06 - Math.max(0, Math.sin(sidePhase + 0.9)) * 0.66;
+  });
+  margo.arms.forEach((arm, i) => {
+    arm.rotation.x = Math.sin(phase + (i ? Math.PI : 0)) * 0.30;
+  });
+  margo.upper.rotation.x = 0.05;
+  // Two footfalls per cycle, so the bob runs at twice the swing.
+  g.position.y = MARGO_STAND_Y + Math.abs(Math.cos(phase)) * 0.016;
+}
+
+/** Run the scene: her beats, his head, and the walk to (or in from) the door. */
 function updateMargoWake(dt) {
   const scene = game.margoScene;
   if (!scene) return;
@@ -3964,9 +4239,15 @@ function updateMargoWake(dt) {
 
   /* Rise from the pillow into a supported sit instead of cutting to a second
    * camera. This keeps the first-person wake intact and clears the duvet from
-   * the lower half of the interaction. */
-  scene.cameraLift += (scene.cameraLiftTarget - scene.cameraLift) * Math.min(1, dt * 3.2);
-  player.position.y = scene.cameraBaseY + scene.cameraLift * MARGO_CAMERA_LIFT;
+   * the lower half of the interaction -- but ONLY while he is still lying
+   * there. He can get up at any point now (see `getUp`), and once he has,
+   * `player.position.y` belongs to `_updateWalk`'s ground+eye+jump maths; a
+   * scene that kept stamping a bed-relative number over it every frame would
+   * plant him at ankle height the instant he stood. */
+  if (player.mode === 'bed') {
+    scene.cameraLift += (scene.cameraLiftTarget - scene.cameraLift) * Math.min(1, dt * 3.2);
+    player.position.y = scene.cameraBaseY + scene.cameraLift * MARGO_CAMERA_LIFT;
+  }
 
   updateMargoDressHelp(dt);
 
@@ -3986,22 +4267,43 @@ function updateMargoWake(dt) {
    * the scene's own wall clock, the eight lines have never taken more than
    * about fifty seconds, so at seventy-five the morning moves on with or
    * without them. */
-  if (scene.t > MARGO_HELP_DEADLINE) openMargoDressBeat();
+  if (scene.t > MARGO_HELP_DEADLINE) offerMargoDressHelp();
 
-  // Beats.
-  for (let i = MARGO_BEATS.length - 1; i > scene.beat; i--) {
-    if (scene.t < MARGO_BEATS[i].at) continue;
-    const beat = MARGO_BEATS[i];
-    scene.beat = i;
-    margo.setPose(beat.pose);
-    scene.aim = beat.look;
-    if (beat.cue) audio.play(beat.cue, { volume: 0.5 });
-    break;
+  /* MARGO_BEATS is the wake-up's own lying/sitting/standing progression --
+   * she is not asleep at the start of a night she just walked in for, so
+   * none of this runs for `kind === 'comeHome'`. */
+  if (scene.kind === 'wake') {
+    /* SHE IS STILL ASLEEP, and you can hear it.
+     *
+     * Owner: "lets add a low key snore sound". Beat 0 is `lying` and she does
+     * not sit up until 6.4 s, so this is the whole of the window in which the
+     * player is awake and she is not. Low, slow, and not comic -- she is
+     * sixty centimetres from his ear, so it plays dry rather than positioned,
+     * and it stops the moment she moves. */
+    if (scene.beat === 0 && scene.t >= (scene.nextSnore ?? 0.9)) {
+      audio.play('margo.snore', { volume: 0.17 });
+      scene.nextSnore = scene.t + 2.9 + Math.random() * 1.3;
+    }
+
+    for (let i = MARGO_BEATS.length - 1; i > scene.beat; i--) {
+      if (scene.t < MARGO_BEATS[i].at) continue;
+      const beat = MARGO_BEATS[i];
+      scene.beat = i;
+      margo.setPose(beat.pose);
+      scene.aim = beat.look;
+      if (beat.cue) audio.play(beat.cue, { volume: 0.5 });
+      break;
+    }
   }
 
-  // His head, turned toward whatever she is doing -- when there is anything
-  // worth turning toward. A null aim leaves the bed's own pose alone.
-  if (scene.aim) {
+  /* His head, turned toward whatever she is doing -- when there is anything
+   * worth turning toward, and when there is a head here left to turn: once he
+   * is up (`player.mode !== 'bed'`), the mouse is entirely his again. Without
+   * this guard the scene fought a standing player for `player.yaw` every
+   * frame until `finishMargoWake`, which is a second, worse shape of the same
+   * "stuck" complaint this whole rewrite exists to fix -- his feet could
+   * walk, but his own look was still being driven from off-screen. */
+  if (scene.aim && player.mode === 'bed') {
     const head = new THREE.Vector3(scene.aim[0], scene.aim[1], scene.aim[2]);
     const dx = head.x - player.position.x;
     const dy = head.y - player.position.y;
@@ -4021,57 +4323,30 @@ function updateMargoWake(dt) {
   }
   if (scene.walk === null) return;
   /* Wall clock again, and for the same reason plus a harder one: this is the
-   * stretch that ENDS the cutscene. Advanced by frame delta, a machine
-   * rendering at two frames a second leaves her walking across the flat
-   * forever with the player unable to move. Six seconds to the door, on
-   * whatever hardware. */
+   * stretch that ENDS a walk. Advanced by frame delta, a machine rendering at
+   * two frames a second leaves her walking across the flat forever with the
+   * player unable to move on (the exit) or the conversation unable to start
+   * (the entry). Six seconds either way, on whatever hardware. */
   scene.walkStart ??= performance.now();
   scene.walk = Math.min(1, (performance.now() - scene.walkStart) / 6000);
   const w = scene.walk;
-  const g = margo.group;
-  const at = Math.min(MARGO_PATH.length - 2, Math.floor(w * (MARGO_PATH.length - 1)));
-  const local = w * (MARGO_PATH.length - 1) - at;
-  const [ax, az] = MARGO_PATH[at];
-  const [bx, bz] = MARGO_PATH[at + 1];
-  g.position.x = ax + (bx - ax) * local;
-  g.position.z = az + (bz - az) * local;
-  g.rotation.y = Math.atan2(bx - ax, bz - az);
-
-  /*
-   * A walk, rather than a hop.
-   *
-   * This used to swing `legs` -- the group BOTH thighs hang off -- by one
-   * sine, so her entire lower half went forward and back as a single piece
-   * with her feet welded together, and she left the flat bouncing. A gait is
-   * two legs in ANTIPHASE: one thigh forward while the other is behind, the
-   * knee folding on the way through so the shin clears the floor, and each arm
-   * opposing the leg on its own side. Same one sine; the legs read opposite
-   * halves of it.
-   *
-   * Driven off the walk's own wall clock rather than `scene.t`, so the phase
-   * starts at zero with the first step instead of wherever the conversation
-   * happened to leave it -- she used to set off mid-stride.
-   */
-  const phase = ((performance.now() - scene.walkStart) / 1000) * 5.6;
-  margo.legs.rotation.x = 0;
-  margo.thighs.forEach((thigh, i) => {
-    const sidePhase = phase + (i ? Math.PI : 0);
-    const lift = Math.sin(sidePhase);
-    thigh.rotation.x = -lift * 0.44;                    // negative is forward
-    /* Flexed through the swing and straight on the plant. The 0.9 lead puts
-     * the fold before the thigh reaches the front of its throw, which is where
-     * a knee actually folds. */
-    margo.knees[i].rotation.x = -0.06 - Math.max(0, Math.sin(sidePhase + 0.9)) * 0.66;
-  });
-  margo.arms.forEach((arm, i) => {
-    arm.rotation.x = Math.sin(phase + (i ? Math.PI : 0)) * 0.30;
-  });
-  margo.upper.rotation.x = 0.05;
-  // Two footfalls per cycle, so the bob runs at twice the swing.
-  g.position.y = MARGO_STAND_Y + Math.abs(Math.cos(phase)) * 0.016;
-  // The door swings for her on the way past it.
-  apartment.frontDoorPivot.rotation.y = w > 0.80 ? -1.0 * Math.min(1, (w - 0.80) / 0.12) : 0;
-  if (w >= 1) finishMargoWake();
+  const path = scene.entry ? MARGO_ENTRY_PATH : MARGO_PATH;
+  poseMargoWalk(margo, path, w, (performance.now() - scene.walkStart) / 1000);
+  /* The door swings for her near whichever end of the walk she is passing it
+   * at -- the start, coming in, or the end, going out. */
+  apartment.frontDoorPivot.rotation.y = scene.entry
+    ? (w < 0.20 ? -1.0 * Math.min(1, (0.20 - w) / 0.12) : 0)
+    : (w > 0.80 ? -1.0 * Math.min(1, (w - 0.80) / 0.12) : 0);
+  if (w < 1) return;
+  if (scene.entry) {
+    scene.walk = null;
+    scene.walkStart = null;
+    scene.entry = false;
+    margo.setPose('standing');
+    startMargoComeHomeTalk();
+  } else {
+    finishMargoWake();
+  }
 }
 
 /**

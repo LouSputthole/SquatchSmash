@@ -78,6 +78,7 @@ function harness() {
     byId: {
       [CHARACTER_IDS.GRATIN]: member(-4, 3),
       [CHARACTER_IDS.NUMBSKULL]: member(-3, 4),
+      [CHARACTER_IDS.SHUBENATOR]: member(-5, 6),
     },
   };
   const inventory = { added: [], add(id) { this.added.push(id); return true; } };
@@ -398,6 +399,120 @@ test('the cord is the fallback for the left button, and the thing in his hands w
   h.dialogue.finish();
   h.quest.press();
   assert.equal(h.started.at(-1), 'smashPistol', 'the cord swung with his pistol in hand');
+});
+
+/* ---------------- the cart, in his hands ---------------- */
+
+/** Pick a tool off the cart's own menu, the way the player actually does. */
+function takeCartTool(h, word) {
+  const options = h.quest.script[CHARACTER_IDS.JAMES_BLOND].cart.options();
+  const take = options.find((o) => new RegExp(word, 'i').test(o.text));
+  assert.ok(take, `${word} is not on the cart`);
+  return take.next();
+}
+
+test('a cart tool comes to his hands instead of applying itself off the menu', () => {
+  /* Owner's playtest note: he picked the meat tenderiser off the cart and
+   * nothing showed up in his hands, and it could not be used on Blond. Before
+   * this fix, choosing it from the menu fired `apply('tenderizer')` on the
+   * spot -- so the regression test for that bug is that picking it up costs
+   * him NOTHING until it actually lands on Blond. */
+  const h = walkIn(harness());
+  const before = h.quest.state.pressure;
+  const result = takeCartTool(h, 'tenderiser');
+  assert.equal(result, null, 'taking a tool ends the thread, the same as taking the cord');
+  assert.equal(h.quest.tool, 'tenderizer');
+  assert.equal(h.quest.state.pressure, before, 'the menu line must not be the hit');
+  const model = h.camera.getObjectByName('grill.tool.tenderizer');
+  assert.ok(model, 'nothing showed up in his hands');
+  assert.match(h.hud.hand.name, /tenderiser/i);
+});
+
+test('a cart tool lands only when he is standing over the man, same as the cord', () => {
+  const h = walkIn(harness());
+  takeCartTool(h, 'tenderiser');
+
+  // Across the room: nothing happens, and nothing is spent.
+  h.standAt(7.0, -10.2, CHAIR);
+  assert.equal(h.quest.press(), true, 'the press was not taken by the room');
+  assert.notEqual(h.started.at(-1), 'useTenderizer');
+  assert.equal(h.quest.state.pressure, 0);
+
+  // Over the chair: the exchange that was always written for it plays.
+  h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
+  assert.equal(h.quest.press(), true);
+  assert.equal(h.started.at(-1), 'useTenderizer');
+  assert.equal(h.quest.state.pressure, PRESSURE.tenderizer);
+});
+
+test('only one thing lives in his hands at a time', () => {
+  const h = walkIn(harness());
+  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  takeCartTool(h, 'ice bucket');
+  assert.equal(h.quest.tool, 'ice');
+  // The cord is put away while a tool is in his hands.
+  assert.equal(h.quest.cord.root.visible, false);
+  // And the table refuses him — the same rule that already applies to a
+  // second belonging.
+  h.standAt(TABLE.x, TABLE.z - 0.9, TABLE);
+  assert.equal(h.padFor('wristwatch').userData.interact.enabled(), false);
+
+  // [Q] frees his hands, and the cord comes back.
+  assert.equal(h.quest.stepBack(), true);
+  assert.equal(h.quest.tool, null);
+  assert.equal(h.camera.getObjectByName('grill.tool.ice'), undefined);
+  h.quest.update(0.05);
+  assert.equal(h.quest.cord.root.visible, true);
+});
+
+test('swapping cart tools puts the old one down — neither is his property', () => {
+  const h = walkIn(harness());
+  takeCartTool(h, 'tongs');
+  assert.equal(h.quest.tool, 'tongs');
+  takeCartTool(h, 'no label');
+  assert.equal(h.quest.tool, 'sauce', 'the second tool did not replace the first');
+  assert.equal(h.camera.getObjectByName('grill.tool.tongs'), undefined, 'the tongs are still modelled in his hand');
+  assert.ok(h.camera.getObjectByName('grill.tool.sauce'), 'the bottle never arrived');
+});
+
+test('his own things come first — a tool cannot be taken while one of them is in his hands', () => {
+  /* Reachable only through Gratin or Numbskull's own threads, which hand the
+   * floor back without going through `mountBlond`'s `!held` gate — so this is
+   * `giveTool` refusing on its own rather than trusting every caller. */
+  const h = walkIn(harness());
+  h.padFor('wristwatch').userData.interact.onUse();
+  assert.equal(h.quest.held, 'watch');
+  takeCartTool(h, 'tongs');
+  assert.equal(h.quest.tool, null, 'a tool was taken with a belonging already in hand');
+  assert.equal(h.quest.held, 'watch', 'the watch was dropped for the tongs');
+});
+
+test('Shubes walks in for his one interruption, and leaves when it is over', () => {
+  /* Owner's note: "Shubes has a line in this scene but never appears." The
+   * whole thread (`shubesEnters` through `shubesFrozen`) was always written
+   * and always played as dialogue — this is the physical half of the fix. */
+  const h = walkIn(harness());
+  const tree = h.quest.script[CHARACTER_IDS.JAMES_BLOND];
+  const shubes = h.family.byId[CHARACTER_IDS.SHUBENATOR];
+  const home = shubes.group.position.clone();
+  assert.equal(shubes.job, 'sit', 'he starts on the floor, not standing at a door');
+
+  /* Drive pressure past the interruption threshold with a method that is
+   * exempt from the once-only rule, so this does not depend on the dialogue
+   * engine's own auto-advance (the test stub does not implement it). */
+  for (let i = 0; i < 14; i++) tree.gratinTechnique.enter();
+  assert.ok(h.quest.state.pressure >= 40, 'never crossed the interruption threshold');
+  assert.deepEqual(shubes.group.position.toArray(), home.toArray(), 'he walked in before anything asked him to');
+
+  const routed = tree.gratinAdmits.next();
+  assert.equal(routed, 'shubesEnters', 'the room did not route the scene to him');
+  assert.notDeepEqual(shubes.group.position.toArray(), home.toArray(), 'Shubes never left the floor');
+  assert.equal(shubes.job, 'stand');
+
+  // The floor gets the room back once his bit is over.
+  h.dialogue.start(tree, 'floor', null);
+  assert.deepEqual(shubes.group.position.toArray(), home.toArray(), 'he never went back to the floor');
+  assert.equal(shubes.job, 'sit');
 });
 
 test('the room is put back the way it was found, and the cord is kept', () => {

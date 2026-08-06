@@ -80,6 +80,7 @@ const EMISSIVE = {
   neonGreen: new THREE.MeshBasicMaterial({ color: 0x5fbf7a, toneMapped: false }),
   signalRed: new THREE.MeshBasicMaterial({ color: 0xe2352f, toneMapped: false }),
   signalAmber: new THREE.MeshBasicMaterial({ color: 0xd99a2b, toneMapped: false }),
+  signalGreen: new THREE.MeshBasicMaterial({ color: 0x3fbf6a, toneMapped: false }),
 };
 
 const NEONS = [EMISSIVE.neonRed, EMISSIVE.neonBlue, EMISSIVE.neonGreen];
@@ -186,11 +187,29 @@ export const BARRIERS = Object.freeze([
   Object.freeze({ id: 'block_canal_north', x: 20, z: -232, w: 26, d: 5 }),
 ]);
 
-/** City blocks along the route: [x, z, width, depth, storeys]. */
+/**
+ * City blocks along the route: [x, z, width, depth, storeys].
+ *
+ * EVERY ONE OF THESE IS OFF THE ROAD, AND THERE IS A TEST.
+ *
+ * Owner: *"buildings intrude into the road"*. Two of the forty-one did, and
+ * measurably: the warehouse at (-455, 78) put ten metres of itself across the
+ * westbound carriageway of Warehouse Row, and the financial tower at (0,-290)
+ * stood nine metres into the twenty-four-metre Canal Road — the leg the drive
+ * finishes on. `intersectsDrivingObstacle` does not know about them (it reads
+ * `BARRIERS`, which is a different list), so the car drove THROUGH the two of
+ * them, which is worse than being blocked by them.
+ *
+ * `tests/heist-route.test.mjs` now derives every block's footprint and every
+ * road corridor from these two tables and asserts they do not meet, with the
+ * shopfront awning's 0.65 m included in the footprint — so the next building
+ * that lands on a road fails a test rather than being driven through.
+ */
 const BLOCKS = [
   // Garage lane — low warehouse stock either side.
   [-505, 30, 22, 46, 2], [-455, 24, 22, 40, 2],
-  [-505, 84, 22, 30, 2], [-455, 78, 22, 30, 3],
+  // Pulled south off Warehouse Row: this one had 10 m of itself in the road.
+  [-505, 84, 22, 30, 2], [-455, 64, 22, 30, 3],
   // Warehouse row — long sheds and loading bays.
   [-440, 70, 44, 22, 2], [-380, 70, 46, 22, 3], [-318, 70, 44, 22, 2],
   [-440, 120, 44, 22, 3], [-380, 120, 46, 22, 2], [-318, 120, 44, 22, 4],
@@ -205,7 +224,8 @@ const BLOCKS = [
   [-212, -282, 30, 30, 12], [-160, -212, 34, 30, 9],
   [-150, -286, 36, 32, 11], [-84, -216, 34, 30, 14],
   [-70, -288, 34, 32, 8], [-8, -214, 32, 30, 12],
-  [0, -290, 34, 34, 10], [56, -216, 30, 30, 7],
+  // Pushed west clear of Canal Road: this ten-storey tower stood 9 m into it.
+  [-16, -290, 34, 34, 10], [56, -216, 30, 30, 7],
   // Canal road — industrial, sheds and yards.
   [-6, -300, 24, 44, 2], [46, -304, 24, 44, 3],
   [-6, -370, 24, 52, 2], [46, -366, 24, 52, 2],
@@ -374,17 +394,61 @@ function buildParkedCars(group, road, index) {
   return parked;
 }
 
+/**
+ * Which way a mast has to be turned so its lenses face the oncoming driver.
+ *
+ * Owner: *"traffic lights face the wrong way"*. They faced ONE way — every
+ * signal in the city was built at `node.x, node.z` with no rotation at all,
+ * so all six lenses pointed at world +Z. Driving east along the financial row
+ * you passed six signals showing you their backs, and the one at `canal_turn`
+ * — the turn the whole last leg hangs on — was side-on.
+ *
+ * `ROUTE_NODES` already carries `heading`: the compass direction you are
+ * TRAVELLING when you reach the node. A driver on heading H is looking along
+ * +H, so the lens must point along −H. The lenses sit on the mast's local +Z,
+ * and local +Z maps to world `(sin θ, cos θ)`, so θ = atan2(−Hx, −Hz).
+ *
+ * @param {string} heading one of N/E/S/W
+ * @returns {number} yaw in radians
+ */
+export function signalYawForHeading(heading) {
+  const vector = HEADING_VECTORS[heading] ?? HEADING_VECTORS.N;
+  return Math.atan2(-vector.x, -vector.z);
+}
+
 function buildSignal(group, node) {
   const mast = new THREE.Group();
   mast.name = `route-signal-${node.id}`;
   mast.position.set(node.x, 0, node.z);
-  box(mast, [0.2, 8, 0.2], [-9, 4, 0], MAT.steel);
-  box(mast, [9, 0.16, 0.16], [-4.6, 7.7, 0], MAT.steel);
-  const housing = box(mast, [0.4, 1.1, 0.34], [-0.4, 7.1, 0], MAT.darkSteel);
+  // Turned to face whoever is arriving. See `signalYawForHeading`.
+  mast.rotation.y = signalYawForHeading(node.heading);
+  mast.userData.kind = 'route-signal';
+  mast.userData.heading = node.heading;
+
+  /* The pole stands on the kerb of a 24 m road — 11.5 m out, not 9 — and the
+   * arm reaches back over the carriageway to hang the head near the centre
+   * line, which is where a driver looks for it. */
+  box(mast, [0.22, 8.2, 0.22], [-11.5, 4.1, 0], MAT.steel);
+  box(mast, [11.4, 0.18, 0.18], [-5.9, 7.8, 0], MAT.steel);
+  box(mast, [1.6, 0.14, 0.14], [-10.7, 7.0, 0], MAT.steel).rotation.z = 0.62;
+
+  /* Three lenses, in the order every signal in the world has them, with a
+   * hood over each. Two of three was part of why they did not read as
+   * signals even when you were looking at the front of one. */
+  const housing = box(mast, [0.44, 1.5, 0.36], [-0.4, 7.0, 0], MAT.darkSteel);
   housing.name = `route-signal-housing-${node.id}`;
-  box(mast, [0.16, 0.16, 0.06], [-0.4, 7.45, 0.19], EMISSIVE.signalRed);
-  box(mast, [0.16, 0.16, 0.06], [-0.4, 7.1, 0.19], EMISSIVE.signalAmber);
-  const plate = box(mast, [2.6, 0.6, 0.08], [-4.6, 6.4, 0], MAT.sidewalk,
+  const lenses = [
+    [7.48, EMISSIVE.signalRed], [7.0, EMISSIVE.signalAmber], [6.52, EMISSIVE.signalGreen],
+  ];
+  for (const [y, material] of lenses) {
+    box(mast, [0.17, 0.17, 0.06], [-0.4, y, 0.2], material);
+    // The hood: a lip above each lens, which is what makes a light a signal.
+    box(mast, [0.3, 0.05, 0.16], [-0.4, y + 0.13, 0.26], MAT.darkSteel).rotation.x = -0.22;
+  }
+  // A back-plate behind the head, so the housing reads against a bright sky.
+  box(mast, [0.72, 1.72, 0.05], [-0.4, 7.0, -0.2], MAT.darkSteel);
+
+  const plate = box(mast, [2.8, 0.62, 0.08], [-5.4, 6.5, 0], MAT.sidewalk,
     `route-sign-${node.id}`);
   plate.userData.kind = 'route-sign';
   plate.userData.label = node.label;
@@ -430,7 +494,21 @@ export function buildEscapeCity(group, vehicleFactory) {
   const obstacles = [];
 
   for (const [index, road] of ROUTE_ROADS.entries()) {
-    box(group, [road.w, 0.2, road.d], [road.x, -0.1, road.z], MAT.asphalt, `route-road-${road.id}`);
+    /* A MILLIMETRE OF STAGGER, AND IT MATTERS.
+     *
+     * Consecutive roads meet at a junction, and a junction is where two 24 m
+     * slabs cross — 576 m² of two asphalt surfaces at exactly y 0, fighting
+     * for every pixel of it. `scene-audit` calls that COPLANAR and the owner
+     * calls it *"black bar ... non stop flicker"*; there are four of them on
+     * the escape route, one at every turn the drive is built around, which is
+     * the worst possible place to put a shimmering square.
+     *
+     * Each road sits 1.2 mm below the one before it, so at a junction the
+     * earlier road's surface simply wins. The step is a tenth of the lane
+     * paint's thickness and nothing in the drive reads road height: the car
+     * runs on a fixed y and `intersectsDrivingObstacle` is flat. */
+    box(group, [road.w, 0.2, road.d], [road.x, -0.1 - index * 0.0012, road.z],
+      MAT.asphalt, `route-road-${road.id}`);
     buildLaneMarkings(group, road);
     buildSidewalks(group, road, index);
     buildStreetFurniture(group, road, index);

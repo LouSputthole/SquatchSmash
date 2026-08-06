@@ -142,16 +142,30 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   assert.equal(airstrip.markDetected(), true);
   assert.equal(airstrip.checkpoint('returning'), true);
   assert.equal(airstrip.checkpoint('landed_home'), true);
-  assert.equal(airstrip.complete({ landingQuality: 'clean' }), true);
+  assert.equal(airstrip.complete({
+    landingQuality: 'clean',
+    rank: 'Airborne Butcher',
+    unlocks: ['prospectFlightJacket', 'brushrunnerAccess', 'tammyDashboardMug', 'stoveBusinessCard'],
+    packagesDelivered: 26,
+    gunsDelivered: 3,
+  }), true);
   route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
 
   campaign = reload(storage);
+  /* The whole point of the reload: what the Beef Run's end card said you had
+   * earned has to be here, on the way back into the flat. Before the rewards
+   * were recorded this record stopped at `landingQuality`, and the card's six
+   * trophies existed only for as long as the card was on screen. */
   assert.deepEqual(campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING], {
     status: 'complete',
     checkpoint: 'landed_home',
     cargoLoaded: true,
     detected: true,
     landingQuality: 'clean',
+    rank: 'Airborne Butcher',
+    unlocks: ['prospectFlightJacket', 'brushrunnerAccess', 'tammyDashboardMug', 'stoveBusinessCard'],
+    packagesDelivered: 26,
+    gunsDelivered: 3,
   });
   apartment = createApartmentStory({ campaign, ring: () => true });
   assert.equal(apartment.callAnswered(DAY_TWO_LOU_SECOND_CALL), true);

@@ -33,9 +33,11 @@
 import * as THREE from 'three';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
+import { WARDROBE } from '../core/wardrobe.js';
 import { Npc } from './cast.js';
 import {
   BELONGINGS,
+  CART_TOOLS,
   ENDINGS,
   QUEST,
   SCENE_TREES,
@@ -63,6 +65,13 @@ const MARKS = Object.freeze({
   blond: { x: 9.6, z: -12.3, yaw: 0.22 },
   gratin: { x: 8.9, z: -11.35, faceAt: { x: 9.6, z: -11.95 } },
   numbskull: { x: 10.9, z: -11.6, faceAt: { x: 9.6, z: -12.3 } },
+  /* Just inside the door, facing back into the room at the chair. Owner's
+   * note: "Shubes has a line in this scene but never appears" — the words
+   * were always here (`shubesEnters` and its whole thread), but nothing ever
+   * walked him to the door to say them. He is borrowed off the floor the
+   * same way Gratin and Numbskull already are, for the one beat, and put
+   * back the moment it is over — see `markShubes`/`shubesLeaves`. */
+  shubes: { x: 6.9, z: -9.95, faceAt: { x: 9.6, z: -12.3 } },
 });
 
 /** The chair, which is what "walked in" means for the purposes of starting. */
@@ -73,9 +82,11 @@ const ARRIVAL_RANGE = 3.4;
 /** The cord reaches this far, and only in front of him. */
 const WHIP_RANGE = 2.5;
 const WHIP_ARC = Math.cos(0.9);          // a little under 52° either side
-/** How long one swing takes, and how far through it the cord arrives. */
-const SWING_SECONDS = 0.72;
-const SWING_LANDS_AT = 0.60;
+/** How long one swing takes, and how far through it the cord arrives.
+ * Exported with `makeCord`/`poseCord` so the mansion's one-swing version of
+ * this lands on exactly the same frame this one does. */
+export const SWING_SECONDS = 0.72;
+export const SWING_LANDS_AT = 0.60;
 
 /**
  * The store-room door leaf, and how near it Gratin can be heard through it.
@@ -141,6 +152,18 @@ const SMASH_SOUND = Object.freeze({
  * His figure: the remains of a tuxedo, barefoot, and hair that has survived
  * the evening better than he has. Built through the club's own person builder
  * so he is lit, shaded and animated like everybody else in the building.
+ *
+ * The model itself is `WARDROBE.james_blond` — canonical, so he can be looked
+ * at in the fitting room the same way everybody else on the roster can.
+ * `barefoot` is added here rather than in the wardrobe entry because it is
+ * true of THIS ROOM, not of the man: whoever tied him to the chair took his
+ * shoes.
+ *
+ * `dress: 'suit'` plus `tuxedo: true` used to fight each other in
+ * `makePerson` — the ordinary suit's own necktie and lapels were drawn right
+ * over the top of the tux's bib and satin lapels, and a dark sliver of the
+ * wrong lapel showed past the bow tie. That collision is fixed at the source
+ * (`!tuxedo` in `src/bing/cast.js`), not worked around here.
  */
 function makeBlond(scene, colliders) {
   const blond = new Npc(scene, {
@@ -151,29 +174,7 @@ function makeBlond(scene, colliders) {
     z: MARKS.blond.z,
     yaw: MARKS.blond.yaw,
     colliders,
-    model: {
-      height: 1.83,
-      build: 1.0,
-      dress: 'suit',
-      /* Midnight, not black — a dinner jacket, and it reads as one even in a
-       * store room with a single bulb over it.
-       *
-       * `tuxedo`, NOT `neckline: 'v'`. The V cut a skin-coloured triangle into
-       * his chest and hung two pale bars either side of it, which is an open
-       * knit collar, not black tie — the owner's "strange looking Vneck
-       * thing". The tuxedo option builds the opposite: a white bib with studs,
-       * a cummerbund closing it at the waist, and satin lapels laid over the
-       * top. `shirtAccent` is the shirt's own white. */
-      shirt: 0x14161f,
-      shirtAccent: 0xf0efe8,
-      tuxedo: true,
-      luxury: true,
-      hair: 'short',
-      hairColour: 0xd8c088,
-      skin: 0xf0cba6,
-      barefoot: true,
-      bowtie: true,
-    },
+    model: { ...WARDROBE.james_blond, barefoot: true },
   });
   blond.characterId = CHARACTER_IDS.JAMES_BLOND;
   blond.group.userData.npc.characterId = CHARACTER_IDS.JAMES_BLOND;
@@ -206,9 +207,14 @@ const CORD_MATERIALS = {
  * swing can be animated by turning the handle and letting the rest of the whip
  * arrive late. See `poseCord`.
  *
+ * Exported because Lou's mansion reuses it: Gratin offers the player a swing
+ * over the man hanging in the interrogation area, and that is the same length
+ * of flex, the same pose function and the same four cues rather than a second
+ * whip built somewhere else. See src/mansion/cast.js.
+ *
  * @returns {{root: THREE.Group, links: THREE.Object3D[]}}
  */
-function makeCord() {
+export function makeCord() {
   const root = new THREE.Group();
   root.name = 'grill.cord';
   const M = CORD_MATERIALS;
@@ -302,7 +308,7 @@ const REST_CURL = (Math.PI * 2) / 12;
  * Camera space looks down local −Z, so a negative pitch throws the arm
  * down-range and a positive one brings it back over the shoulder.
  */
-function poseCord(cord, p) {
+export function poseCord(cord, p) {
   const rest = !(p >= 0);
   const k = rest ? 0 : Math.min(1, p);
   const ease = (t) => t * t * (3 - 2 * t);
@@ -482,6 +488,117 @@ function makeBelonging(id) {
   return g;
 }
 
+/* ------------------------------------------------------------------ */
+/* The cart, in his hands                                              */
+/* ------------------------------------------------------------------ */
+
+const CART_MATERIALS = {
+  handle: new THREE.MeshStandardMaterial({ color: 0x6b4526, roughness: 0.82 }),
+  steel: PROP_MATERIALS.steel,
+  bucketBody: new THREE.MeshStandardMaterial({ color: 0xb7bcc2, roughness: 0.32, metalness: 0.82 }),
+  ice: new THREE.MeshPhysicalMaterial({
+    color: 0xdcf0f5, roughness: 0.08, transmission: 0.72, thickness: 0.01, transparent: true, opacity: 0.85,
+  }),
+  bottleGlass: new THREE.MeshPhysicalMaterial({
+    color: 0x2a2016, roughness: 0.1, transmission: 0.55, thickness: 0.02, transparent: true, opacity: 0.9,
+  }),
+  sauce: new THREE.MeshStandardMaterial({
+    color: 0xa8280f, emissive: 0x3a0d02, emissiveIntensity: 0.16, roughness: 0.3,
+  }),
+  cap: new THREE.MeshStandardMaterial({ color: 0x1c1c22, roughness: 0.5 }),
+};
+
+/**
+ * One of the four things on the cart, held the way the belongings are: 1:1
+ * scale, out in front of the camera, aimed at Blond and used with a click.
+ *
+ * The owner's note was that these never showed up in his hands at all, so the
+ * bar here is lower than the belongings' — read, held, unmistakable for what
+ * it is at arm's length — not the belongings' level of jewellery detail.
+ */
+function makeCartTool(id) {
+  const M = CART_MATERIALS;
+  const g = new THREE.Group();
+  g.name = `grill.tool.${id}`;
+  if (id === 'tenderizer') {
+    // A wooden handle up into a fist, and a studded metal head to swing it by.
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.017, 0.16, 10), M.handle);
+    handle.position.y = -0.09;
+    g.add(handle);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), M.steel);
+    g.add(head);
+    // The grid of pyramid studs that makes it read as a TENDERISER and not a
+    // gavel — four rows of four on the striking face.
+    for (let ix = 0; ix < 4; ix++) {
+      for (let iy = 0; iy < 4; iy++) {
+        const stud = new THREE.Mesh(new THREE.ConeGeometry(0.007, 0.012, 4), M.steel);
+        stud.rotation.x = Math.PI / 2;
+        stud.rotation.y = Math.PI / 4;
+        stud.position.set(-0.0225 + ix * 0.015, -0.0335 + iy * 0.0225, 0.036);
+        g.add(stud);
+      }
+    }
+  } else if (id === 'ice') {
+    // A frustum pail, two ear handles, and the ice standing proud of the rim.
+    const pail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.075, 16), M.bucketBody);
+    g.add(pail);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.004, 6, 16), M.steel);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.0375;
+    g.add(rim);
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 10, Math.PI), M.steel);
+      ear.rotation.z = Math.PI / 2;
+      ear.position.set(side * 0.052, 0.02, 0);
+      g.add(ear);
+    }
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const cube = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.02), M.ice);
+      cube.position.set(Math.cos(a) * 0.018, 0.05, Math.sin(a) * 0.018);
+      cube.rotation.set(a * 0.6, a, a * 0.4);
+      g.add(cube);
+    }
+  } else if (id === 'tongs') {
+    // Two arms off a common pivot, splayed the way a pair left on a cart is.
+    const pivot = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 8), M.steel);
+    pivot.rotation.x = Math.PI / 2;
+    pivot.position.y = 0.075;
+    g.add(pivot);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Group();
+      arm.position.y = 0.075;
+      arm.rotation.z = side * 0.16;
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.15, 0.009), M.steel);
+      bar.position.y = -0.075;
+      arm.add(bar);
+      const paddle = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.03, 0.006), M.steel);
+      paddle.position.y = -0.155;
+      paddle.rotation.z = -side * 0.16;
+      arm.add(paddle);
+      g.add(arm);
+    }
+  } else {
+    // The sauce: a plain glass bottle, no label, a cap, and something red
+    // enough inside it to be worth being suspicious of.
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.026, 0.13, 14), M.bottleGlass);
+    g.add(body);
+    const fill = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.022, 0.09, 14), M.sauce);
+    fill.position.y = -0.02;
+    g.add(fill);
+    const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.024, 0.03, 14), M.bottleGlass);
+    shoulder.position.y = 0.08;
+    g.add(shoulder);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.03, 12), M.bottleGlass);
+    neck.position.y = 0.11;
+    g.add(neck);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.018, 12), M.cap);
+    cap.position.y = 0.134;
+    g.add(cap);
+  }
+  return g;
+}
+
 /**
  * What is left of one of them afterwards.
  *
@@ -586,6 +703,11 @@ export function createLicenseToGrill({
     /** The object currently in his hands, if any. */
     held: null,
     heldModel: null,
+    /** A cart tool in his hands, if any — see `CART_TOOLS`. Mutually
+     * exclusive with `held`: he has two hands and one of Blond's things is
+     * already a two-handed job. */
+    tool: null,
+    toolModel: null,
     /** What this quest last wrote into the shared HUD hand slot, or null. */
     handShown: null,
     /** id -> { group, pad, wreck, mark } for the five things on the table. */
@@ -650,6 +772,7 @@ export function createLicenseToGrill({
 
   const script = buildLicenseToGrillScript({
     takeCord: () => giveCord(),
+    takeTool: (id) => giveTool(id),
     apply: (kind) => runtime.grill.apply(kind),
     ask: (id) => runtime.grill.ask(id),
     carAvailable: () => !!runtime.grill?.carAvailable(),
@@ -674,7 +797,13 @@ export function createLicenseToGrill({
        * the cooldown because it is the joke, and it arms the gate so no
        * ambient hello can tread on it out on the floor afterwards. */
       shubenator?.scripted('firstMeeting');
+      /* And he actually walks in. Owner's note: he has a line in this scene
+       * and never appears — the words were always here, nothing ever brought
+       * the man himself to the door. Borrowed off the floor exactly the way
+       * Gratin and Numbskull already are; `shubesLeaves` sends him back. */
+      bringIn(CHARACTER_IDS.SHUBENATOR, MARKS.shubes);
     },
+    shubesLeaves: () => putBack(CHARACTER_IDS.SHUBENATOR),
     answerCounter: (id, respect) => runtime.grill.answerCounter(id, respect),
     finish: (ending) => complete(ending),
   });
@@ -731,6 +860,87 @@ export function createLicenseToGrill({
   }
 
   /**
+   * Take one of the cart's tools into his hands.
+   *
+   * Owner's playtest note: he picked the meat tenderiser off the cart and
+   * nothing showed up in his hands, and there was no way to use it on Blond.
+   * So this follows the CORD's own shape rather than the belongings': the
+   * tool comes to the camera at once, and using it on him is a left click
+   * aimed the same way the cord swings — see `useTool` and `blondInReach`.
+   * It is deliberately not the belongings' shape (pick up, get his reaction
+   * immediately): these are not his property to turn over in front of him,
+   * they are a thing Tony picks up off a cart and uses.
+   *
+   * Only one thing lives in his hands. Taking a tool puts down whatever of
+   * Blond's he was holding, the same rule the table already keeps against
+   * holding two things at once.
+   */
+  function giveTool(id) {
+    if (runtime.phase !== 'open') return;
+    /* His own things come first. Reaching the cart while one of Blond's
+     * belongings is in Tony's hands is not supposed to happen — talking to
+     * Blond himself is gated on it (`mountBlond`) — but Gratin and
+     * Numbskull's own threads can hand the floor back without going through
+     * that gate, so this refuses rather than trusts the caller. Put it back
+     * with [Q] first. */
+    if (runtime.held) return;
+    const tool = CART_TOOLS.find((entry) => entry.id === id);
+    if (!tool) return;
+    // Tool-to-tool is a swap, not a refusal: neither is his property.
+    clearToolModel();
+    runtime.tool = id;
+    if (camera) {
+      runtime.toolModel = makeCartTool(id);
+      /* Held out in front, roughly where the belongings ride — a tool from
+       * the cart is looked at and aimed the same way a lifted watch is. */
+      runtime.toolModel.position.set(0.17, -0.22, -0.38);
+      runtime.toolModel.rotation.set(-0.32, 0.46, 0.10);
+      camera.add(runtime.toolModel);
+    }
+    if (runtime.cord) runtime.cord.root.visible = false;
+    sfx(PENDING_SFX.TABLE_PICKUP, { volume: 0.4 });
+    paintHand();
+    instructAfterDialogue('<em>[Click]</em> to use it on him. Stand over him for it to land.', 5600);
+  }
+
+  /**
+   * Put down whatever cart tool is in his hands. Nothing is lost by it — the
+   * same rule the belongings keep: it goes back on the cart, and any pressure
+   * it already earned stays earned.
+   */
+  function putBackTool() {
+    if (!runtime.tool) return false;
+    clearToolModel();
+    runtime.tool = null;
+    if (runtime.cord && runtime.phase === 'open') runtime.cord.root.visible = true;
+    audio?.play('glass.set', { volume: 0.32 });
+    paintHand();
+    return true;
+  }
+
+  function clearToolModel() {
+    if (!runtime.toolModel) return;
+    runtime.toolModel.parent?.remove(runtime.toolModel);
+    runtime.toolModel = null;
+  }
+
+  /**
+   * Use whatever cart tool is in his hands, on Blond — the same reach and the
+   * same facing the cord swings at (`blondInReach`). A landed use fires the
+   * exchange that already existed for it (`useTenderizer` and its three
+   * siblings); a miss says nothing, because a tool that never touched him is
+   * just a thing held up in an empty room, which is not worth a line.
+   */
+  function useTool() {
+    const id = runtime.tool;
+    if (!id) return false;
+    const tool = CART_TOOLS.find((entry) => entry.id === id);
+    if (!tool || !blondInReach()) return true;
+    resume(tool.node);
+    return true;
+  }
+
+  /**
    * Whatever is in his hands, on the HUD.
    *
    * Only ever writes when what it wants to say has CHANGED, and only ever
@@ -751,6 +961,13 @@ export function createLicenseToGrill({
         icon: item?.icon ?? '▣',
         name: item?.hand ?? 'One of his things',
         hint: item?.smashNode ? '[Click] smash it · [Q] put it back' : '[Q] put it back',
+      };
+    } else if (runtime.phase === 'open' && runtime.tool) {
+      const tool = CART_TOOLS.find((entry) => entry.id === runtime.tool);
+      want = {
+        icon: tool?.icon ?? '▣',
+        name: tool?.hand ?? 'Something off the cart',
+        hint: '[Click] to use it on him · [Q] put it back',
       };
     } else if (runtime.phase === 'open' && runtime.hasCord && inStoreRoom()) {
       want = { ...(items.cord ?? { icon: '🪢', name: 'The cord' }), hint: '[Click] to swing it' };
@@ -882,7 +1099,9 @@ export function createLicenseToGrill({
           if (runtime.held === item.id) return `Put <b>${item.label.toLowerCase()}</b> back`;
           return `Pick up <b>${item.label.toLowerCase()}</b>`;
         },
-        enabled: () => runtime.phase === 'open' && !runtime.table.get(item.id)?.wreck
+        /* Not while a cart tool is in his hands either — one thing at a time,
+         * the same rule that keeps him from picking up a second belonging. */
+        enabled: () => runtime.phase === 'open' && !runtime.table.get(item.id)?.wreck && !runtime.tool
           && (runtime.held === null || runtime.held === item.id),
         onUse: () => {
           if (runtime.held === item.id) { putBackHeld(); return; }
@@ -894,7 +1113,7 @@ export function createLicenseToGrill({
 
   /** Take one off the table and into his hands. */
   function pickUp(id) {
-    if (runtime.held || runtime.phase !== 'open') return;
+    if (runtime.held || runtime.tool || runtime.phase !== 'open') return;
     const state = runtime.table.get(id);
     if (!state || state.wreck) return;
     runtime.held = id;
@@ -1121,9 +1340,14 @@ export function createLicenseToGrill({
     unmountTargets();
     putBack(CHARACTER_IDS.GRATIN);
     putBack(CHARACTER_IDS.NUMBSKULL);
+    /* A no-op unless the room ended mid-interruption — a no-op is exactly
+     * what putBack does for anyone it never parked. */
+    putBack(CHARACTER_IDS.SHUBENATOR);
     /* Whatever is still in his hands goes back on the steel. Walking out of a
      * store room holding a dead man's pistol is a different game. */
     putBackHeld();
+    /* And a cart tool goes back on the cart — it was never his to keep. */
+    putBackTool();
     runtime.swing = -1;
     if (runtime.cord) {
       runtime.cord.root.visible = false;
@@ -1148,6 +1372,8 @@ export function createLicenseToGrill({
     get blond() { return runtime.blond; },
     get hasCord() { return runtime.hasCord; },
     get held() { return runtime.held; },
+    /** Whichever cart tool is currently in his hands, or null. */
+    get tool() { return runtime.tool; },
     /** His effects, the pads over them, and any wreckage — for verification. */
     get props() { return runtime.litter; },
     /** id -> { group, pad, wreck, at } for whatever is on the table. */
@@ -1230,7 +1456,7 @@ export function createLicenseToGrill({
        * itself goes away with it — he is carrying it, not brandishing it
        * across the dance floor. */
       const here = inStoreRoom();
-      if (runtime.cord) runtime.cord.root.visible = here && runtime.hasCord && !runtime.held;
+      if (runtime.cord) runtime.cord.root.visible = here && runtime.hasCord && !runtime.held && !runtime.tool;
       paintHand();
 
       /* The swing. One pass of `poseCord` per frame while it is running, and
@@ -1291,28 +1517,32 @@ export function createLicenseToGrill({
     /**
      * Left click: use what is in his hands.
      *
-     * Holding one of Blond's things smashes it; holding the cord swings it.
-     * Returns true when it took the press, and the club's own interaction ray
-     * never sees it. [E] is untouched and still does every ordinary thing in
-     * this room, which is what keeps one violent button from eating the
-     * doorknobs.
+     * Holding one of Blond's things smashes it; holding a cart tool uses it
+     * on him; holding the cord swings it. Returns true when it took the
+     * press, and the club's own interaction ray never sees it. [E] is
+     * untouched and still does every ordinary thing in this room, which is
+     * what keeps one violent button from eating the doorknobs.
      *
-     * Both are gated on being inside the store room. Tony keeps the cord for
-     * the rest of the evening and left click is the club's second interact key
-     * everywhere else in the building — being handed a length of flex must not
-     * cost him the ability to click on a slot machine.
+     * All three are gated on being inside the store room. Tony keeps the
+     * cord for the rest of the evening and left click is the club's second
+     * interact key everywhere else in the building — being handed a length
+     * of flex must not cost him the ability to click on a slot machine.
      */
     press() {
       if (runtime.phase !== 'open' || !inStoreRoom()) return false;
       if (runtime.held) return smashHeld();
+      if (runtime.tool) return useTool();
       if (runtime.hasCord) return swingCord();
       return false;
     },
 
-    /** [Q]: put down whatever of his you are holding. */
+    /** [Q]: put down whatever of his you are holding, or whatever cart tool
+     * is in his hands. */
     stepBack() {
-      if (runtime.phase !== 'open' || !runtime.held) return false;
-      return putBackHeld();
+      if (runtime.phase !== 'open') return false;
+      if (runtime.held) return putBackHeld();
+      if (runtime.tool) return putBackTool();
+      return false;
     },
   };
 }

@@ -33,6 +33,11 @@ const VOICE_SCENES = [
   ['Silver Pines', (name) => name.startsWith('vo.golf.')],
   ['THE TAKE', (name) => name.startsWith('heist.')],
   ['The HotDog Incident', (name) => name.startsWith('vo.bing2.')],
+  ['PROJECT SILENT SQUATCH', (name) => name.startsWith('vo.silentsquatch.')],
+  /* The same house, the night the finale starts. Its own section rather than
+   * a corner of SILENT SQUATCH's: different mission, different cast list, and
+   * the two Lous are cast separately in each. */
+  ['MANSION UNDER SIEGE', (name) => name.startsWith('vo.siege.')],
   ['Squatch Graveyard', (name) => name.startsWith('vo.graveyard.')],
   ['Initiation', (name) => name.startsWith('vo.initiation.')],
   ['Radio', (name) => name.startsWith('radio.')],
@@ -53,7 +58,8 @@ const EFFECT_SCENES = [
     || name === 'sprinkler.tick' || name === 'cart.motor'
     || name === 'bird' || name.startsWith('golf.')],
   ['NO WAKE', (name) => name.startsWith('boat.') || name === 'water.splash'
-    || name === 'ambience.harbor' || name === 'seagull.distant'],
+    || name === 'water.lap.hull' || name === 'ambience.harbor'
+    || name === 'ambience.ocean.night' || name === 'seagull.distant'],
   ['THE TAKE', (name) => name.startsWith('heist.')],
   ['Bada Bing', (name) => name.startsWith('ambience.rain')
     || name.startsWith('ambience.club') || name.startsWith('ambience.crowd')
@@ -118,6 +124,30 @@ function voiceDirection(profile, voices) {
   return VOICE_DIRECTION[profile] || voices?.[profile]?._note || null;
 }
 
+/**
+ * Voice profiles whose casting has changed, mapped to the reason.
+ *
+ * Set `recast` on the profile in the manifest's `voices` block the moment its
+ * id changes — `{ "on": "2026-08-04", "was": "<old id>", "reason": "..." }`.
+ * Every indexed take for that profile is then reported as a replacement take
+ * until the cast is re-rendered and the marker is removed.
+ */
+function recastProfiles(voices = {}) {
+  const out = new Map();
+  for (const [profile, entry] of Object.entries(voices)) {
+    if (!entry || typeof entry !== 'object' || !entry.recast) continue;
+    const { on, was, reason } = entry.recast;
+    out.set(profile, [
+      `the voice profile \`${profile}\` was RECAST${on ? ` on ${on}` : ''}`,
+      was ? ` (was \`${was}\`)` : '',
+      `. Every existing take is in the previous actor's voice. Re-render the whole cast with`,
+      ` \`npm run sfx -- --force --cast ${profile}\`, then remove \`recast\` from the profile.`,
+      reason ? ` ${String(reason).trim()}` : '',
+    ].join(''));
+  }
+  return out;
+}
+
 function voiceReusePlan(cues) {
   /* Direction is part of a performance's identity. Identical words can be
    * authored as cheerful, gleeful or deadpan takes; those must be recorded
@@ -148,7 +178,7 @@ function voiceReusePlan(cues) {
 const isFutureInitiationPartyCue = (cue) => cue.name.startsWith('vo.initiation.party.')
   || cue.name.startsWith('vo.initiation.ambient.');
 
-function renderVoice(out, voice, voices) {
+function renderVoice(out, voice, voices, recast = new Map()) {
   const byScene = group(voice, (cue) => voiceScene(cue.name));
   const reuse = voiceReusePlan(voice);
   /* Reading order for the sections, roughly campaign order. It is a preference,
@@ -161,7 +191,8 @@ function renderVoice(out, voice, voices) {
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
     'The Enola Squatch', 'Jerky Motel', 'NO WAKE', 'The Silver Room',
     'The Silver Case', 'Day Four apartment',
-    'Silver Pines', 'THE TAKE', 'The HotDog Incident', 'Squatch Graveyard', 'Initiation', 'Radio',
+    'Silver Pines', 'THE TAKE', 'The HotDog Incident', 'PROJECT SILENT SQUATCH',
+    'Squatch Graveyard', 'Initiation', 'Radio',
   ];
   const order = [...preferred, ...[...byScene.keys()].filter((s) => !preferred.includes(s)).sort()];
 
@@ -183,9 +214,10 @@ function renderVoice(out, voice, voices) {
       out.push('');
       for (const cue of [...cues].sort((a, b) => a.name.localeCompare(b.name))) {
         const rerecordReason = String(cue.rerecordReason
+          || recast.get(cue.voice)
           || 'the indexed take contains retired wording. Replace it, then remove `needsRerecord` from the manifest.')
           .trim();
-        const replacement = cue.needsRerecord
+        const replacement = cue.needsRerecord || recast.has(cue.voice)
           ? ` **RE-RECORD: ${rerecordReason}**`
           : '';
         const repeated = reuse.byCue.get(cue.name);
@@ -340,7 +372,17 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
   const cues = Array.isArray(manifest.sfx) ? manifest.sfx : [];
   const have = new Set(Array.isArray(index.files) ? index.files : []);
   const missing = cues.filter((cue) => !have.has(fileOf(cue)));
-  const rerecord = cues.filter((cue) => cue.needsRerecord === true && have.has(fileOf(cue)));
+  /* A profile that has been RECAST invalidates every take already recorded
+   * against it, without anybody having to remember to touch the cues.
+   *
+   * The alternative is what happened when Billy HotDog was recast: the id in
+   * `voices` changed, nine takes on disk stayed exactly where they were, the
+   * index still listed them, and the sheet went on reporting Billy as fully
+   * recorded in the old actor's voice. Nothing was missing and nothing was
+   * wrong, and the character had two voices. */
+  const recast = recastProfiles(manifest.voices);
+  const rerecord = cues.filter((cue) => have.has(fileOf(cue))
+    && (cue.needsRerecord === true || recast.has(cue.voice)));
   const pending = [...missing, ...rerecord];
   const allVoice = pending.filter((cue) => typeof cue.say === 'string' && cue.say.trim());
   const allManifestVoice = cues.filter((cue) => typeof cue.say === 'string' && cue.say.trim());
@@ -388,7 +430,7 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
   ];
 
   renderProvisionalCastingReview(out, cues, manifest.voices || {}, have);
-  renderVoice(out, voice, manifest.voices || {});
+  renderVoice(out, voice, manifest.voices || {}, recast);
   renderFutureInitiationParty(out, futureInitiationParty, manifest.voices || {}, {
     total: futureInitiationPartyAll.length,
     indexed: futureInitiationPartyAll.length - futureInitiationParty.length,

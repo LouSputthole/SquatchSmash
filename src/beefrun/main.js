@@ -135,6 +135,21 @@ physics.engines = engines;
 
 const aircraft = new Brushrunner();
 scene.add(aircraft.group);
+
+/* The hold is walkable ground.
+ *
+ * `world.groundAt` is the only thing that decides how high a walking man
+ * stands (floorZones only choose a footstep sound), so a cabin floor 0.76 m up
+ * has to come from here or it does not exist. With the ramp down the aeroplane
+ * answers first and the terrain answers for everywhere else; with it stowed
+ * the aeroplane declines and nothing changes. `resolvePlayer` is the hook
+ * `Player._resolve` leaves for scenes whose geometry is rotated, and it keeps
+ * a man in the hold from strolling out through the far wall. */
+world.groundAt = (x, z) => {
+  const deck = aircraft.deckHeightAt(x, z);
+  return deck === null ? terrainHeight(x, z) : deck;
+};
+world.resolvePlayer = (walker, axis, radius) => aircraft.resolveOnDeck(walker, axis, radius);
 const cargo = new CargoWeightSystem(aircraft.group);
 cargo.showMarkers(false);
 
@@ -144,9 +159,16 @@ const input = new FlightInput();
 const dialogue = new DialogueSystem(hud, {
   audio: missionAudio,
   onLine: (line) => {
-    if (line.who === 'SASOLE') speak(lou, (line.hold ?? 2) * 0.8);
-    else if (line.who === 'CECILIO') speak(airstrip.cecilio, (line.hold ?? 2) * 0.8);
-    else if (line.who === 'STOVE') speak(stove, (line.hold ?? 2) * 0.8);
+    /* `DialogueSystem.update` plays the take and THEN calls this, so the take
+     * is already under way and the mouth can be driven by it rather than by
+     * the authored hold (src/core/mouth.js). Every one of these men is heard
+     * over a headset or across a hangar; the mouth is what says which of them
+     * is talking. */
+    const take = missionAudio.voiceTake();
+    const secs = (line.hold ?? 2) * 0.8;
+    if (line.who === 'SASOLE') speak(lou, secs, take);
+    else if (line.who === 'CECILIO') speak(airstrip.cecilio, secs, take);
+    else if (line.who === 'STOVE') speak(stove, secs, take);
   },
 });
 
@@ -169,6 +191,14 @@ const mission = new MissionController({
 // receive a click, which made the direct preview look frozen.
 
 window.__beefrun = {
+  /* Handed out at the top level, unlike everything else here, so a
+   * generic verifier can find the built world the same way it does on
+   * every other scene (`window.mansion.scene`, `window.__bing.scene`, …)
+   * without knowing this page's shape in particular. Before this,
+   * `tools/scene-audit.mjs` reported "no THREE.Scene reachable from a
+   * global" for the Beef Run specifically, because the only scene graph on
+   * the page lived two hops down at `mission.scene`. */
+  THREE, scene, camera, renderer,
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
   player, cameras, dialogue, interaction, input, audio: missionAudio, hud, flightHud,
   sceneInventory,
@@ -251,6 +281,27 @@ startBtn.addEventListener('click', async () => {
     game.resume = game.previewCheckpoint ?? (started.resumed ? RESUME_CHECKPOINT[started.checkpoint] : null);
   }
 
+  /* Ask for the pointer BEFORE anything is awaited.
+   *
+   * Pointer lock needs the document's TRANSIENT ACTIVATION, and Chrome expires
+   * that about five seconds after the click. Beef Run's Start handler used to
+   * `await audio.init()` and `await audio.loadManifest()` first — 269 recorded
+   * cues fetched and decoded, measured at 17.3 seconds on this machine — and
+   * only then call requestLock(). By that point `navigator.userActivation.isActive`
+   * was already false and the request came back
+   * "A user gesture is required to request Pointer Lock."
+   *
+   * The click is the gesture. Spend it here, at the top, and let the samples
+   * load behind an already-captured pointer.
+   *
+   * The title card deliberately STAYS UP through the load. Hiding it here too
+   * would put an empty airfield and a hidden cursor in front of the player for
+   * fifteen seconds, and "the overlay is gone" is how the rest of the project
+   * knows the scene is actually running. */
+  requestLock();
+  startBtn.disabled = true;
+  startBtn.textContent = 'Warming up the aeroplane…';
+
   await audio.init();
   const sfx = await audio.loadManifest();
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
@@ -260,7 +311,9 @@ startBtn.addEventListener('click', async () => {
   document.body.classList.add('playing');
   sceneInventory.set([]);
   sceneInventory.show();
-  requestLock();
+  // A long load can outlive the lock (an impatient Escape, a tab switch). Ask
+  // again now that everything is ready, if the pointer is not already ours.
+  if (document.pointerLockElement !== canvas) requestLock();
 
   if (!game.started) {
     game.started = true;
@@ -289,26 +342,43 @@ document.getElementById('br-home')?.addEventListener('click', () => {
 
 let dragLook = false;
 let dragging = false;
+let dragLookHinted = false;
 
 function requestLock() {
+  /* Never over the report card. The card has buttons and a locked pointer
+   * cannot reach one — `FlightHud.showComplete()` releases the lock for
+   * exactly that reason, and anything that takes it back afterwards makes the
+   * ending unclickable. This was invisible while the lock was failing on every
+   * run; fixing the lock is what made it reachable. */
+  if (mission.finished || flightHud.completeUp) return;
   /* Keyboard flight controls do not actually require pointer lock.  Enable
    * them before Chrome settles the pointer-lock promise, otherwise a browser
    * that rejects or delays the lock can leave Shift apparently dead for the
    * first part of a cockpit run. */
   input.enabled = true;
-  if (dragLook) { enableInput(); return; }
+  if (document.pointerLockElement === canvas) { enableInput(); return; }
+  /* Drag-look is a FALLBACK, never a life sentence — the same rule the Bada
+   * Bing settled on. This used to read `if (dragLook) { enableInput(); return; }`,
+   * so one refusal latched the mode permanently and no later click ever asked
+   * the browser again. Every attempt asks for the real thing; `pointerlockchange`
+   * retires the fallback the moment one is granted. */
+  if (dragLook) enableInput();
   const p = canvas.requestPointerLock?.();
   if (p && p.catch) p.catch(() => fallBackToDragLook());
   setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
+    if (document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
   }, 600);
 }
 
 function fallBackToDragLook() {
-  if (dragLook) return;
+  if (document.pointerLockElement === canvas) return;
+  if (!dragLook && !dragLookHinted) {
+    dragLookHinted = true;
+    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+      + 'Any click keeps retrying the real thing.', 7000);
+  }
   dragLook = true;
   enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
 }
 
 function enableInput() {
@@ -317,17 +387,30 @@ function enableInput() {
   game.paused = false;
   mission.paused = false;
   document.body.classList.remove('unlocked');
-  overlay.classList.add('hidden');
+  /* Only once the mission is actually running. Drag-look can be settled on
+   * while the sample bank is still loading behind the title card, and taking
+   * the card down from here would say "playing" fifteen seconds before there
+   * is anything to play. */
+  if (game.started) overlay.classList.add('hidden');
 }
 
 document.addEventListener('pointerlockchange', () => {
-  if (dragLook) return;
   const locked = document.pointerLockElement === canvas;
-  player.enabled = locked && !mission.flags.inCockpit;
-  input.enabled = locked;
-  document.body.classList.toggle('unlocked', !locked);
+  if (locked) dragLook = false;          // the real thing won; retire the fallback
+  player.enabled = (locked || dragLook) && !mission.flags.inCockpit;
+  input.enabled = locked || dragLook;
+  document.body.classList.toggle('unlocked', !locked && !dragLook);
   // Once the end card is up, losing the lock is the point, not a pause.
-  if (!locked && game.started && !mission.finished) pauseGame();
+  if (!locked && !dragLook && game.started && !mission.finished) pauseGame();
+});
+
+/* Every canvas click while unlocked re-attempts REAL pointer lock. The browser
+ * may grant it now that this is a fresh user gesture — which is the only way
+ * back from a first request that was refused because the sample bank was still
+ * loading when it was made. */
+canvas.addEventListener('click', () => {
+  if (!game.started || game.paused || mission.finished) return;
+  if (document.pointerLockElement !== canvas) requestLock();
 });
 
 function pauseGame() {

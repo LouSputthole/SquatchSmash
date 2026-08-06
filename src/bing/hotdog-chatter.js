@@ -94,9 +94,11 @@ export function createHotDogChatter({
       const listener = entry.toward ? speakerActor?.(entry.toward) : null;
       if (listener && listener !== actor) actor.faceToward(listener.position.x, listener.position.z);
       else actor.faceToward(player.position.x, player.position.z);
-      actor.say(Math.max(1.4, seconds));
     }
-    playCue?.(entry.cue);
+    /* The cue first, then the mouth: `playCue` hands back the take and the
+     * mouth is driven by it (src/core/mouth.js), so the order matters. */
+    const take = playCue?.(entry.cue) || null;
+    actor?.say(Math.max(1.4, seconds), take);
     hud.say(`<em>${entry.who}:</em> ${entry.line}`, Math.round(seconds * 1000));
     speaking = entry;
     remaining = seconds;

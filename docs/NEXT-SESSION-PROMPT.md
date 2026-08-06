@@ -38,6 +38,59 @@ First:
 4. Run `npm test` and `npm run check`. Treat the exact verification results in
    the handoff as the baseline and investigate any drift before proceeding.
 
+## What has landed since this prompt was first written (2026-08-05)
+
+Everything below the divider is still true. This block is what has been built
+on top of it, and it changes the shape of the campaign — read it first.
+
+- **The arc now runs past Initiation's old position.** Initiation is the ENDING
+  SCENE, not the final mission. The mission order after the Silver Room is:
+  the mansion → **MANSION UNDER SIEGE** → the Enola Squatch → the return to a
+  clean mansion with Sauce "kidnapped" → the cartel palace → Initiation as the
+  closing ceremony. `docs/MANSION-SIEGE-NIGHT.md` is the blueprint for the
+  siege and PART XIV of it is the mansion's own future-edit list.
+- **Squatch Smash is not the standalone game.** It is an in-world computer game
+  inside Squatch Life. The Prospect's apartment is the hub and the campaign
+  return point.
+- **The mansion siege is a damage-state OVERLAY, never a forked map.** Six
+  states over one geometry source, in `src/mansion/siege/`. `verify:mansion`
+  stayed at 199/199 throughout, because `MansionGrounds.js` and
+  `MansionInterior.js` were never edited. `verify:mansion-siege` is 43 checks.
+  Keep it that way: the whole point is that the real mansion can go on being
+  polished without repairing three copies of it.
+- **Nobody in the family dies in the siege.** `core: true` floors a protected
+  actor at 1 HP; at that point they go DOWN — bloodied, out of the fight,
+  bleeding, calling for help — and stay alive. Hold **E** within 2.4 m for
+  1.6 s to revive at a third of health. There is no bleed-out death timer and
+  there must not be one: the owner wants a single SCRIPTED death he chooses,
+  not branching endings.
+- **Willy and Billy HotDog are dead before the mansion arc** and must not
+  appear in any mansion scene. Willy was removed from the boardroom, the cast,
+  the script and the siege ensemble; a test asserts by name that the dead stay
+  out. They are still correct in every scene before NO WAKE.
+- **The Enola Squatch detonation is a set-piece with a clock**
+  (`src/enolasquatch/vfx/Detonation.js`): a short bleach onto a wash you can
+  see through, a pressure bubble the aeroplane ends up inside, a billboarded
+  front on its silhouette, a full-screen sweep as it crosses you, a brief
+  buffet, and a mushroom cloud that SETTLES over the crater and is still there
+  when you fly home. The owner's earlier "blind the player for 0.4 s" note was
+  explicitly walked back — do not put it back.
+- **Both nose-art paintings are on the port forward fuselage**, name forward,
+  pin-up aft, 0.34 m apart. Do not chroma-key the pin-up: her skin and the
+  background vignette sample within four values of each other and a flood fill
+  destroys her. Both PNGs already carry clean alpha.
+- **`main` is current.** The branch audit is `docs/BRANCH-AUDIT.md` — what was
+  merged, what was already in, and the two branches that are deliberately
+  staying out with the evidence for each.
+- **Read `docs/ENGINE-TRAPS.md` entries 6 and 7 before trusting any check.**
+  The suite silently ran 591 tests while reporting "806 passing, 0 failing",
+  and a check written off as flaky for two sessions was actually reporting that
+  the aeroplane flies itself into a hill.
+- Open questions with options and recommendations: `docs/OPEN-DECISIONS.md`.
+  Cross-scene work that is deliberately deferred: `docs/FUTURE-EDITS.md`.
+
+---
+
 Current product facts:
 
 - The apartment is the recurring hub.

@@ -1,3 +1,27 @@
+/**
+ * NO WAKE.
+ *
+ * The spine, from `docs/NO-WAKE-REDESIGN.md`, unchanged from the old build:
+ *
+ *   arrive · board · startup procedure · pilot out · reach the inlet · go
+ *   below · confront Willy · execute · wrap him · fetch the weights from the
+ *   bow · attach them · carry him to the stern · dump him · leave.
+ *
+ * What changed is everything inside it: the boat, the staging, the dialogue,
+ * the pacing and the temperature. The campaign edges are untouched —
+ * `SCENE_IDS.NO_WAKE` still lands here, `createNoWakeStory` still owns
+ * begin/checkpoint/complete, and completing still advances the apartment
+ * chapter to `date`.
+ *
+ * Two rules run through the whole file:
+ *
+ *  - **A character speaks, and then the screen clarifies.** `sayThenObjective`
+ *    is the shape; `docs/TONE-AND-PARODY.md` is why. Nothing in this mission
+ *    puts an instruction up on the same frame as the line that sets it up.
+ *  - **Nothing is simulated that can be authored.** The body is a prefab on a
+ *    path, the carry is one parameter, the disposal is a tween, and loose-object
+ *    physics is never running in a room somebody is being shot in.
+ */
 import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
@@ -13,18 +37,20 @@ import { Radio } from '../core/radio.js';
 import { BulletHoles } from '../world/bullets.js';
 import { makeNineMillimeterPistol, makeRevolver } from '../world/props.js';
 import {
-  NO_WAKE_AMBIENT_LINES,
-  NO_WAKE_AFTERMATH_LINES,
-  NO_WAKE_BELOW_LINES,
-  NO_WAKE_EPILOGUE_LINE,
-  NO_WAKE_START_LINES,
-  buildNoWakeConfrontation,
+  NO_WAKE_BODY_LINES,
+  NO_WAKE_CABIN_SCRIPT,
+  NO_WAKE_DOCK_LINES,
+  NO_WAKE_INLET_LINES,
+  buildNoWakeCruise,
 } from './dialogue.js';
-import { noWakeAudioLoadOptions } from './audio.js';
+import { NoWakeEngineAudio, noWakeAudioLoadOptions } from './audio.js';
 import { NoWakeCameraDirector } from './camera-director.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
+import { createBodyRig } from './body.js';
+import { CABIN_STAGING } from './deck-collision.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -40,6 +66,67 @@ const routeProgress = document.getElementById('route-progress');
 const executionPrompt = document.getElementById('execution-prompt');
 const speakerEl = document.getElementById('speaker');
 
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?preview=1&checkpoint=...)            */
+/*
+ * LOCAL support only, deliberately -- mirrors src/enolasquatch/main.js's
+ * own CHECKPOINT_ALIASES rather than routing through src/core/preview-mode.js,
+ * whose two checkpoint parsers (Heist's and Beef Run's) are each a different
+ * scene's own vocabulary and neither can be taught NO WAKE's checkpoints
+ * without changing a file those two scenes depend on. NO WAKE is
+ * campaign-owned, so this is gated on the shared, scene-agnostic
+ * `isPreviewMode()` the same way Enola's is -- a bare `?checkpoint=` on an
+ * ordinary link must do nothing.
+ *
+ * Only `dock`/`underway`/`open_water`/`execution` are the mission's real,
+ * saveable checkpoints (see `CHECKPOINTS` in src/core/no-wake-story.js). The
+ * owner's waypoints below map onto that vocabulary where one exists
+ * (`underway`, `inlet` -> `open_water`) and pose the later beats directly
+ * where it doesn't -- `confrontation`/`body`/`return` replay the mission's own
+ * progression functions (`beginConfrontation`, `prepareGuns`/`willyReturns`,
+ * `fireExecution`, `disposeBody`) in order, the same way
+ * src/mansion/siege/main.js's `jumpToCheckpoint` walks its own beat chain
+ * instead of assigning `state.phase` by hand.
+ */
+const NO_WAKE_CHECKPOINT_ALIASES = Object.freeze({
+  dock: 'dock',
+  underway: 'underway',
+  inlet: 'inlet',
+  confrontation: 'confrontation',
+  body: 'body',
+  weighted: 'body',
+  return: 'return',
+});
+const NO_WAKE_CHECKPOINT_LABELS = Object.freeze({
+  dock: 'GATE C — ABOARD',
+  underway: 'UNDERWAY — CLEAR OF THE MARINA',
+  inlet: 'THE INLET — OPEN WATER, IDLE',
+  confrontation: 'THE CONFRONTATION',
+  body: 'THE BODY',
+  return: 'THE RIDE HOME',
+});
+function previewCheckpointForLocation(locationLike = window.location) {
+  // Same gate as `src/core/preview-mode.js`'s own checkpoint parsers: a bare
+  // `?checkpoint=` on an ordinary link does nothing without `?preview=1`
+  // alongside it, so a shared preview link cannot be mistaken for a normal
+  // campaign entry.
+  if (!isPreviewMode(locationLike)) return null;
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(NO_WAKE_CHECKPOINT_ALIASES, value)
+    ? NO_WAKE_CHECKPOINT_ALIASES[value]
+    : null;
+}
+/** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = NO_WAKE_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+  const tag = overlay?.querySelector('.tag');
+  if (tag) tag.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  if (startButton) startButton.textContent = `Start at ${label.toLowerCase()}`;
+}
+
 const campaign = createCampaign();
 const story = createNoWakeStory({ campaign });
 let entry = story.canBegin();
@@ -49,7 +136,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = .92;
+renderer.toneMappingExposure = .95;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -62,14 +149,38 @@ const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 const player = new Player(camera, world);
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
+const engineAudio = new NoWakeEngineAudio(audio);
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
 if (postfx.bloom) {
-  postfx.bloom.threshold = 1.18;
-  postfx.bloom.strength = .25;
+  postfx.bloom.threshold = 1.05;
+  postfx.bloom.strength = .32;
 }
 const physics = new BoatPhysics();
 const blood = new BulletHoles(scene, 'blood');
+
+const boat = world.boat;
+const cabin = boat.cabin;
+const bodyRig = createBodyRig(boat);
+const cameraDirector = new NoWakeCameraDirector(camera, boat);
+
+const DECK_H = boat.deck.height;
+const FOREDECK_H = boat.deck.foredeckHeight;
+const CABIN_H = boat.cabinDeck.height;
+/** Ninety seconds of channel, the same gate the old build shipped with. */
+const DRIVE_SECONDS = 90;
+
+/** The startup procedure, in the order the spec lists it. */
+const STARTUP_STEPS = Object.freeze([
+  { key: 'battery', label: 'Battery' },
+  { key: 'blower', label: 'Blower' },
+  { key: 'fuel', label: 'Fuel check' },
+  { key: 'ignitionPort', label: 'Port engine' },
+  { key: 'ignitionStarboard', label: 'Starboard engine' },
+  { key: 'navLights', label: 'Nav lights' },
+  { key: 'dockLine', label: 'Dock line' },
+  { key: 'helm', label: 'Helm' },
+]);
 
 const state = {
   phase: 'dock',
@@ -77,52 +188,56 @@ const state = {
   boarding: false,
   battery: false,
   blower: false,
-  engine: false,
-  bowLine: false,
-  sternLine: false,
+  fuel: false,
+  ignitionPort: false,
+  ignitionStarboard: false,
+  navLights: false,
+  dockLine: false,
   atHelm: false,
+  below: false,
+  moving: false,
   driveSeconds: 0,
+  cruiseIndex: 0,
+  cruiseLines: [],
   dialogue: null,
   dialogueLog: [],
-  aftermathCueLog: [],
-  aftermathVoiceQueue: [],
-  aftermathVoiceActive: null,
-  aftermathVoiceTimer: null,
-  ambientIndex: 0,
+  cueLog: [],
   phaseTime: 0,
   executionShots: 0,
+  stagingLocked: false,
+  carriedBallast: false,
   bodyDisposed: false,
-  returnFrom: new THREE.Vector3(),
-  returnControl: new THREE.Vector3(),
-  returnTo: new THREE.Vector3(),
-  returnHeading: 0,
-  nextGullAt: 8,
+  anchorUp: false,
+  nextGullAt: 9,
   nextCreakAt: 5,
   leaving: false,
 };
 
-const DRIVE_SECONDS = 90;
-const boat = world.boat;
-const cameraDirector = new NoWakeCameraDirector(camera, boat);
 const radioClock = new AuthoredClock(12.75);
 radioClock.setTime(3, 12 * 60 + 45);
 const radio = new Radio(audio, hud, radioClock, {
   venue: 'apartment',
   state: createCampaignRadioAdapter(campaign, {
-    receiverId: 'no_wake_boat',
+    receiverId: 'no_wake_cabin',
     defaultPower: false,
   }),
   canPlayNotice: () => false,
+  /* A small set on a galley counter in an enclosed cabin, not a bedside
+   * receiver across an apartment -- and the spec says it is playing FAINTLY
+   * until Lou shuts it off, so this one is quieter than the shared knob rather
+   * than louder. `output` is not saved, so it cannot move the apartment. */
+  output: .55,
 });
 const radioPosition = new THREE.Vector3();
 boat.targets.radio.getWorldPosition(radioPosition);
 radio.setPosition(radioPosition);
 const radioReady = radio.loadManifest();
+
 const local = new THREE.Vector3();
 const carriedLocal = new THREE.Vector3();
 const carriedWorld = new THREE.Vector3();
 const localCamera = new THREE.Vector3();
-const returnTangent = new THREE.Vector3();
+const scratch = new THREE.Vector3();
 let lastHeading = 0;
 let lastTime = performance.now();
 let elapsed = 0;
@@ -149,23 +264,68 @@ function hideSpeaker() {
 }
 
 /**
- * Accept either one exact future cue (`vo.nowake.lou.1`) or a generated
- * variant bank (`vo.nowake.lou.1.*`). Until those recordings exist the
- * authored subtitle and reading beat remain the complete delivery.
+ * Accept either one exact future cue (`vo.nowake.cabin.lou.negev.1`) or a
+ * generated variant bank. Until those recordings exist the authored subtitle
+ * and reading beat remain the complete delivery, and the mouth runs on the
+ * synthesised envelope rather than on a clock -- see src/core/mouth.js.
  */
-function playDialogueCue(group) {
+function playDialogueCue(group, speaker = null, seconds = 0) {
   const exact = `vo.${group}`;
+  let source = null;
   if (audio.buffers.has(exact)) {
-    audio.play(exact, { volume: .85 });
-    return true;
+    source = audio.play(exact, { volume: .92 });
+  } else if (audio.say(group)) {
+    source = audio.spokenSource();
   }
-  return audio.say(group);
+  const npc = speaker && speaker !== 'player' ? boat.cast?.[speaker] : null;
+  npc?.say?.(Math.max(1.4, seconds || 2.4), source ? { audio, source } : null);
+  return Boolean(source);
 }
 
-function dialogue(lines, done) {
-  state.dialogue = { lines, at: -1, left: 0, done };
-  document.body.classList.add('cinematic');
-  interaction.setPaused(true);
+/**
+ * How long a line owns the voice channel: the longer of its authored reading
+ * beat and whatever take was actually delivered.
+ */
+function voiceWindow(line, authoredSeconds) {
+  const prefix = `vo.nowake.${line.cue}`;
+  let decodedSeconds = 0;
+  for (const name of audio.buffers.keys()) {
+    if (name !== prefix && !name.startsWith(`${prefix}.`)) continue;
+    decodedSeconds = Math.max(decodedSeconds, audio.sampleDuration(name) ?? 0);
+  }
+  return Math.max(authoredSeconds, decodedSeconds + .18);
+}
+
+/** One line, spoken now, without blocking anything. */
+function speak(line, { seconds = null } = {}) {
+  const window = voiceWindow(line, seconds ?? line.seconds ?? 2.6);
+  const token = {};
+  state.spokenToken = token;
+  showSpeaker(line.who, line.text);
+  playDialogueCue(`nowake.${line.cue}`, line.voice, window);
+  audio.hold(window);
+  state.cueLog.push({ cue: line.cue, who: line.who, at: elapsed, window });
+  setTimeout(() => {
+    if (state.spokenToken === token && !state.dialogue) hideSpeaker();
+  }, window * 1000);
+  return window;
+}
+
+/**
+ * The rule from `docs/TONE-AND-PARODY.md`: the character says it, and the HUD
+ * clarifies afterwards. Never both on the same frame, and never the screen
+ * instead of the man.
+ */
+function sayThenObjective(line, title, detail, extra = 0) {
+  const window = speak(line);
+  setTimeout(() => setObjective(title, detail), (window + extra) * 1000);
+  return window;
+}
+
+/** A blocking run of lines, used for the cabin script and the inlet. */
+function dialogue(lines, done, { cinematic = false } = {}) {
+  state.dialogue = { lines, at: -1, left: 0, done, stall: 0 };
+  if (cinematic) document.body.classList.add('cinematic');
   advanceDialogue();
 }
 
@@ -182,14 +342,14 @@ function advanceDialogue() {
     return;
   }
   const line = d.lines[d.at];
-  d.left = line.seconds ?? Math.max(2.6, Math.min(6.2, line.text.length / 15));
+  runCabinBeat(line.beat, 'before');
+  d.left = voiceWindow(line, line.seconds ?? Math.max(2.6, Math.min(6.2, line.text.length / 15)));
   showSpeaker(line.who, line.text);
-  playDialogueCue(`nowake.${line.cue}`);
+  playDialogueCue(`nowake.${line.cue}`, line.voice, d.left);
   audio.hold(d.left);
-  if (line.focus) {
-    state.focus = line.focus;
-    cameraDirector.frameSpeaker(line.focus);
-  }
+  state.cueLog.push({ cue: line.cue, who: line.who, at: elapsed, window: d.left });
+  d.left += runCabinBeat(line.beat, 'after');
+  if (line.voice && line.voice !== 'player') faceTheRoom(line.voice);
 }
 
 function updateDialogue(dt) {
@@ -198,64 +358,207 @@ function updateDialogue(dt) {
   if (state.dialogue.left <= 0) advanceDialogue();
 }
 
+/** Whoever is speaking turns to whoever they are speaking to. */
+function faceTheRoom(voice) {
+  const speaker = boat.cast[voice];
+  if (!speaker) return;
+  const toward = voice === 'willy' ? boat.cast.lou : boat.cast.willy;
+  speaker.faceToward(toward.group.position.x, toward.group.position.z);
+}
+
+/* ------------------------------------------------------------------ *
+ * Boarding and the startup procedure
+ * ------------------------------------------------------------------ */
+
+function startupRemaining() {
+  return STARTUP_STEPS.filter((step) => !state[step.key] && step.key !== 'helm');
+}
+
+function refreshStartupObjective() {
+  if (state.phase !== 'startup') return;
+  const remaining = startupRemaining();
+  if (!remaining.length) {
+    setObjective('COMPLETE THE STARTUP PROCEDURE', 'Take the helm');
+    return;
+  }
+  setObjective('COMPLETE THE STARTUP PROCEDURE', remaining.map((step) => step.label).join(' · '));
+}
+
+function beginBoarding() {
+  if (state.boarded || state.boarding) return false;
+  state.boarding = true;
+  player.clearKeys();
+  interaction.setPaused(true);
+  const deck = world.fromBoatLocal(new THREE.Vector3(-.60, DECK_H + 1.66, 3.10));
+  const yaw = boat.root.rotation.y + Math.PI;
+  audio.play('boat.board.step', { volume: .9 });
+  player.sitAt({
+    position: deck, yaw, pitch: -.06, dur: 1.15, yawRange: Math.PI,
+  }, () => {
+    state.boarding = false;
+    state.boarded = true;
+    boat.gangway.visible = false;
+    boat.targets.board.visible = false;
+    player.mode = 'walk';
+    player.enabled = document.pointerLockElement === canvas;
+    player.ground = boat.root.position.y + DECK_H;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.yawCenter = null;
+    player.yawRange = Math.PI;
+    interaction.setPaused(false);
+    story.checkpoint('dock');
+    phase('startup');
+    /* Lou says it, then the checklist appears. He does not say anything else
+     * for the rest of the procedure however long the player takes. */
+    sayThenObjective(
+      NO_WAKE_DOCK_LINES[1], 'COMPLETE THE STARTUP PROCEDURE',
+      STARTUP_STEPS.filter((step) => step.key !== 'helm').map((step) => step.label).join(' · '),
+    );
+  });
+  return true;
+}
+
+function completeStartupStep(key) {
+  if (state[key]) return false;
+  state[key] = true;
+  boat.controls[key]?.setOn?.(true);
+  refreshStartupObjective();
+  return true;
+}
+
+function startEngine(side) {
+  const key = side === 'port' ? 'ignitionPort' : 'ignitionStarboard';
+  if (!completeStartupStep(key)) return;
+  audio.play('boat.engine.start', { volume: 1, rate: side === 'port' ? 1 : .94 });
+  if (side === 'port') {
+    physics.running = true;
+    boat.controls.running.setOn(true);
+    audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .30, fade: .55 });
+    engineAudio.init();
+    engineAudio.start();
+  } else {
+    audio.setLoopVolume('engine-idle', .46, .6);
+    audio.stopLoop('bilge', .3);
+  }
+}
+
 function registerInteractions() {
   interaction.register(boat.targets.board, {
     label: 'Step aboard <em>Lou’s cruiser</em>',
     enabled: () => !state.boarded && !state.boarding,
     onUse: beginBoarding,
   });
+
   interaction.register(boat.targets.battery, {
-    label: () => state.battery ? 'Battery switch <em>ON</em>' : 'Turn on battery switch',
-    enabled: () => state.boarded && !state.battery,
+    label: () => (state.battery ? 'Battery selector <em>ON</em>' : 'Turn the <b>battery selector</b>'),
+    enabled: () => state.phase === 'startup' && !state.battery,
     onUse: () => {
-      state.battery = true;
-      boat.controls.battery.setOn(true);
-      audio.play('switch.click', { volume: .75 });
-      hud.toast('Battery on', 'good');
+      completeStartupStep('battery');
+      audio.play('switch.click', { volume: .85 });
     },
   });
   interaction.register(boat.targets.blower, {
-    label: () => state.blower ? 'Bilge blower <em>RUNNING</em>' : 'Run bilge blower',
-    enabled: () => state.battery && !state.blower,
+    label: () => (state.blower ? 'Bilge blower <em>RUNNING</em>' : 'Run the <b>bilge blower</b>'),
+    enabled: () => state.phase === 'startup' && state.battery && !state.blower,
     hold: 1.1,
     onUse: () => {
-      state.blower = true;
-      boat.controls.blower.setOn(true);
-      audio.play('switch.click', { volume: .7 });
-      audio.startLoop('bilge', { name: 'pc.fan', volume: .08 });
-      hud.toast('Bilge clear', 'good');
+      completeStartupStep('blower');
+      audio.play('switch.click', { volume: .8 });
+      audio.startLoop('bilge', { name: 'pc.fan', volume: .10 });
     },
   });
-  interaction.register(boat.targets.ignition, {
-    label: () => !state.blower ? 'Run the blower first' : 'Turn ignition',
-    enabled: () => state.battery && !state.engine,
-    hold: .8,
+  interaction.register(boat.targets.fuel, {
+    label: () => (state.fuel ? 'Fuel <em>CHECKED</em>' : 'Open the <b>fuel valve</b> and check the gauge'),
+    enabled: () => state.phase === 'startup' && state.blower && !state.fuel,
+    hold: .6,
     onUse: () => {
-      if (!state.blower) {
-        hud.say('Lou would hear that explosion from the parking lot.', 3500);
-        return;
-      }
-      state.engine = true;
-      boat.controls.ignition.setOn(true);
-      physics.running = true;
-      audio.stopLoop('bilge', .25);
-      audio.play('switch.click', { volume: .7 });
-      audio.play('boat.engine.start', { volume: .9 });
-      audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .17, fade: .55 });
-      setObjective('Release the mooring lines', 'Bow and stern · then take the helm');
-      hud.toast('Twin diesels alive', 'good');
+      completeStartupStep('fuel');
+      audio.play('switch.click', { volume: .7, rate: .78 });
+      boat.controls.gaugeNeedles.fuel.rotation.z = .62;
     },
   });
+  /* The same two keys serve the startup checklist and the exit. Registering a
+   * second descriptor on the same mesh later would leave the target in the
+   * raycast list twice, so the phase lives in `enabled` instead. */
+  interaction.register(boat.targets.ignitionPort, {
+    label: () => (state.ignitionPort ? 'Port engine <em>RUNNING</em>' : 'Start the <b>port engine</b>'),
+    enabled: () => !state.ignitionPort
+      && ((state.phase === 'startup' && state.fuel) || state.phase === 'exit'),
+    hold: .8,
+    onUse: () => (state.phase === 'exit' ? restartEngine('port') : startEngine('port')),
+  });
+  interaction.register(boat.targets.ignitionStarboard, {
+    label: () => (state.ignitionStarboard ? 'Starboard engine <em>RUNNING</em>' : 'Start the <b>starboard engine</b>'),
+    enabled: () => !state.ignitionStarboard && state.ignitionPort
+      && (state.phase === 'startup' || state.phase === 'exit'),
+    hold: .8,
+    onUse: () => (state.phase === 'exit' ? restartEngine('starboard') : startEngine('starboard')),
+  });
+  interaction.register(boat.targets.navLights, {
+    label: () => (state.navLights ? 'Navigation lights <em>ON</em>' : 'Switch on the <b>navigation lights</b>'),
+    enabled: () => state.phase === 'startup' && state.ignitionStarboard && !state.navLights,
+    onUse: () => {
+      completeStartupStep('navLights');
+      audio.play('switch.click', { volume: .8, rate: 1.1 });
+    },
+  });
+  interaction.register(boat.targets.dockLine, {
+    label: 'Release the <b>dock line</b>',
+    enabled: () => state.phase === 'startup' && state.navLights && !state.dockLine,
+    hold: .85,
+    onUse: (line) => {
+      completeStartupStep('dockLine');
+      line.userData.attached = false;
+      line.visible = false;
+      physics.mooringReleased = true;
+      audio.play('boat.rope.release', { volume: .85, rate: .8 });
+    },
+  });
+  interaction.register(boat.targets.helm, {
+    label: 'Take the <b>helm</b>',
+    enabled: () => (state.phase === 'startup' && state.dockLine && !state.atHelm)
+      || (state.phase === 'exit' && state.anchorUp && !state.atHelm),
+    onUse: enterHelm,
+  });
+
+  /* The startup panel is one broad proxy over the whole row, so a player who
+   * has not yet learned where the blower is can find the panel and be told
+   * which switch is next rather than hunting a bezel on a moving deck. */
+  interaction.register(boat.targets.startPanel, {
+    label: () => {
+      const next = startupRemaining()[0];
+      return next ? `Startup panel · next: <b>${next.label}</b>` : 'Startup panel';
+    },
+    soft: true,
+    enabled: () => state.phase === 'startup' && startupRemaining().length > 0,
+    onUse: () => {},
+  });
+
+  interaction.register(boat.targets.companionway, {
+    label: () => (state.phase === 'descend' ? 'Go <b>below deck</b>' : 'Go <b>below</b>'),
+    enabled: () => !state.below && !state.moving
+      && (state.phase === 'descend' || state.phase === 'weights_returning'),
+    hold: .7,
+    onUse: goBelow,
+  });
+  interaction.register(boat.targets.companionwayBelow, {
+    label: 'Go <b>up on deck</b>',
+    enabled: () => state.below && !state.moving && state.phase === 'weights',
+    hold: .7,
+    onUse: comeUp,
+  });
+
   interaction.register(boat.targets.radio, {
     label: () => (radio.on
-      ? 'Turn off the <b>boat radio</b> · hold to <b>tune</b> &nbsp;<span style="opacity:.6">[R] skip</span>'
-      : 'Turn on the <b>boat radio</b> · hold to <b>tune</b>'),
-    enabled: () => state.boarded && !state.dialogue,
+      ? 'Turn off the <b>cabin radio</b> · hold to <b>tune</b> &nbsp;<span style="opacity:.6">[R] skip</span>'
+      : 'Turn on the <b>cabin radio</b> · hold to <b>tune</b>'),
+    enabled: () => state.below && state.phase === 'cabin' && !state.dialogue,
     hold: .8,
     onTap: () => {
       radio.toggle();
       boat.controls.radio.setOn(radio.on);
-      hud.toast(radio.on ? `${radio.station.dial} · ${radio.station.name}` : 'Boat radio off');
+      audio.play('radio.click', { volume: .7 });
     },
     onUse: () => {
       radio.tune();
@@ -263,83 +566,44 @@ function registerInteractions() {
       hud.toast(`${radio.station.dial} · ${radio.station.name}`);
     },
   });
-  for (const [key, target, name] of [
-    ['bowLine', boat.targets.bowLine, 'bow'], ['sternLine', boat.targets.sternLine, 'stern'],
-  ]) {
-    interaction.register(target, {
-      label: `Release ${name} line`,
-      enabled: () => state.engine && !state[key],
-      hold: .85,
-      onUse: (line) => {
-        state[key] = true;
-        line.userData.attached = false;
-        line.visible = false;
-        audio.play('boat.rope.release', { volume: .78, rate: .8 });
-        hud.toast(`${name[0].toUpperCase()}${name.slice(1)} line clear`, 'good');
-        if (state.bowLine && state.sternLine) {
-          physics.mooringReleased = true;
-          setObjective('Take the helm', 'Reverse clear of Gate C');
-        }
-      },
-    });
-  }
-  interaction.register(boat.targets.helm, {
-    label: 'Take the helm',
-    enabled: () => state.engine && state.bowLine && state.sternLine && !state.atHelm,
-    onUse: enterHelm,
-  });
-  /* The proxy carries the hold; the figure keeps it so that looking straight
-   * at the man still says his name. Either one starts the same lift. */
-  for (const target of [boat.targets.body, boat.cast.willy.group]) {
-    interaction.register(target, {
-      label: 'Roll Willy to the transom',
-      holdLabel: 'Move the body overboard',
-      hold: .85,
-      enabled: () => state.phase === 'body' && !state.bodyDisposed,
-      onUse: disposeBody,
-    });
-  }
-}
 
-/** Cross the visible boarding platform instead of teleporting through it. */
-function beginBoarding() {
-  if (state.boarded || state.boarding) return false;
-  state.boarding = true;
-  player.clearKeys();
-  interaction.setPaused(true);
-  const deck = boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72));
-  const yaw = boat.root.rotation.y;
-  setObjective('Step aboard', 'Cross the boarding platform to the port deck');
-  audio.play('boat.board.step', { volume: .8 });
-  player.sitAt({
-    position: deck,
-    yaw,
-    pitch: -.10,
-    dur: 1.15,
-    yawRange: Math.PI,
-  }, () => {
-    state.boarding = false;
-    state.boarded = true;
-    boat.boardingBridge.visible = false;
-    boat.targets.board.visible = false;
-    player.mode = 'walk';
-    player.enabled = document.pointerLockElement === canvas;
-    player.ground = boat.root.position.y + boat.deck.height;
-    player.eyeHeight = 1.66;
-    player.targetEye = 1.66;
-    player.yawCenter = null;
-    player.yawRange = Math.PI;
-    interaction.setPaused(false);
-    hud.toast('Aboard · Gate C', 'good');
-    setObjective('Start the boat', 'Battery · blower · ignition');
-    story.checkpoint('dock');
+  /* The body, in four authored stages. Every one of them is a hold on a broad
+   * proxy over the bag; none of them simulates anything. */
+  interaction.register(boat.targets.body, {
+    label: () => ({
+      roll: 'Hold to <b>roll him onto the tarp</b>',
+      fold: 'Hold to <b>fold your side over</b>',
+      straps: 'Hold to <b>fasten the straps</b>',
+      ballast: 'Hold to <b>clip the ballast to the rings</b>',
+    })[state.wrapStage] ?? 'The bag',
+    hold: 1.1,
+    enabled: () => Boolean(state.wrapStage),
+    onUse: () => advanceWrap(),
   });
-  return true;
+
+  interaction.register(boat.targets.locker, {
+    label: () => (state.carriedBallast ? 'Forward locker' : 'Hold to <b>take the ballast</b>'),
+    hold: 1.0,
+    enabled: () => state.phase === 'weights' && !state.below && !state.carriedBallast,
+    onUse: takeBallast,
+  });
+
+  interaction.register(boat.targets.disposal, {
+    label: 'Hold to <b>put him over</b>',
+    hold: 1.0,
+    enabled: () => state.phase === 'platform' && !state.bodyDisposed,
+    onUse: dumpBody,
+  });
 }
 
 function enterHelm() {
   state.atHelm = true;
-  if (state.phase !== 'coast') phase('drive');
+  if (state.phase === 'startup') {
+    completeStartupStep('helm');
+    phase('drive');
+    story.checkpoint('underway');
+    setObjective('RUN THE NO WAKE CHANNEL', 'Idle out past the marker · keep the red to starboard');
+  }
   player.mode = 'seated';
   player.enabled = true;
   player.yawCenter = null;
@@ -348,175 +612,340 @@ function enterHelm() {
   player.pitchMax = .42;
   player.yaw = physics.heading;
   player.pitch = -.05;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(.14, 2.43, .24)));
+  player.position.copy(world.fromBoatLocal(local.set(1.24, DECK_H + 1.32, 1.06)));
   physics.throttle = 0;
   physics.steer = 0;
+  physics.helmAttended = true;
   lastHeading = physics.heading;
   boat.controls.throttle.setValue(0);
   helmHud.classList.remove('hidden');
-  setObjective('Run for open water', 'Clear the marina · follow the channel markers');
-  story.checkpoint('underway');
-  hud.say('Easy astern. Get the stern clear, then take her out.', 4300);
 }
 
-function setStartupCompleteVisuals() {
-  boat.boardingBridge.visible = false;
-  boat.targets.board.visible = false;
-  boat.controls.battery.setOn(true);
-  boat.controls.blower.setOn(true);
-  boat.controls.ignition.setOn(true);
-  for (const line of [boat.targets.bowLine, boat.targets.sternLine]) {
-    line.userData.attached = false;
-    line.visible = false;
+function leaveHelm({ force = false } = {}) {
+  if (!state.atHelm) return false;
+  if (!force && Math.abs(physics.speed) > .45) {
+    hud.say('Bring both levers to neutral first.', 2400);
+    return false;
   }
-}
-
-function driveLine(line) {
-  showSpeaker(line.who, line.text);
-  playDialogueCue(`nowake.${line.cue}`);
-  audio.hold(4.6);
-  setTimeout(() => {
-    if (!state.dialogue && ['drive', 'coast'].includes(state.phase)) hideSpeaker();
-  }, 4700);
-}
-
-function nonBlockingLine(line, seconds = 3.2) {
-  const token = {};
-  state.nonBlockingLine = token;
-  showSpeaker(line.who, line.text);
-  playDialogueCue(`nowake.${line.cue}`);
-  audio.hold(seconds);
-  setTimeout(() => {
-    if (state.nonBlockingLine === token && !state.dialogue) hideSpeaker();
-  }, seconds * 1000);
-}
-
-function playDockInstructions() {
-  nonBlockingLine(NO_WAKE_START_LINES[0], 4.5);
-  setTimeout(() => {
-    if (!document.body.classList.contains('playing') || state.dialogue) return;
-    nonBlockingLine(NO_WAKE_START_LINES[1], 4.2);
-  }, 4700);
-}
-
-function updateHarborWildlife() {
-  if (!document.body.classList.contains('playing')) return;
-  if (elapsed >= state.nextGullAt) {
-    const cue = audio.buffers.has('seagull.distant') ? 'seagull.distant' : 'bird';
-    audio.play(cue, { volume: cue === 'bird' ? .10 : .26, rate: .88 + Math.random() * .18 });
-    state.nextGullAt = elapsed + 10 + Math.random() * 15;
-  }
-  if (elapsed >= state.nextCreakAt && audio.buffers.has('boat.hull.creak')) {
-    audio.play('boat.hull.creak', { volume: .15, rate: .92 + Math.random() * .12 });
-    state.nextCreakAt = elapsed + 7 + Math.random() * 12;
-  }
-}
-
-function aftermathVoiceWindow(line, authoredSeconds) {
-  const prefix = `vo.nowake.${line.cue}`;
-  let decodedSeconds = 0;
-  for (const name of audio.buffers.keys()) {
-    if (name !== prefix && !name.startsWith(`${prefix}.`)) continue;
-    decodedSeconds = Math.max(decodedSeconds, audio.sampleDuration(name) ?? 0);
-  }
-  // The authored reading beat is the minimum. A longer delivered take owns
-  // the voice channel until its sample has actually finished.
-  return Math.max(authoredSeconds, decodedSeconds + .18);
-}
-
-function scheduleAftermathVoice() {
-  if (state.aftermathVoiceActive || state.aftermathVoiceTimer) return;
-  const entry = state.aftermathVoiceQueue[0];
-  if (!entry) return;
-  const now = performance.now() / 1000;
-  const waitSeconds = Math.max(0, entry.notBefore - now);
-  state.aftermathVoiceTimer = setTimeout(() => {
-    state.aftermathVoiceTimer = null;
-    const startedAt = performance.now() / 1000;
-    entry.status = 'started';
-    entry.startAt = startedAt;
-    entry.endAt = startedAt + entry.windowSeconds;
-    state.aftermathVoiceActive = entry;
-    nonBlockingLine(entry.line, entry.windowSeconds);
-    state.aftermathVoiceTimer = setTimeout(() => {
-      entry.status = 'complete';
-      entry.completedAt = performance.now() / 1000;
-      state.aftermathVoiceQueue.shift();
-      state.aftermathVoiceActive = null;
-      state.aftermathVoiceTimer = null;
-      scheduleAftermathVoice();
-    }, entry.windowSeconds * 1000);
-  }, waitSeconds * 1000);
-}
-
-function queueAftermathLine(line, authoredSeconds, { delay = 0 } = {}) {
-  const requestedAt = performance.now() / 1000;
-  const notBefore = requestedAt + delay;
-  const windowSeconds = aftermathVoiceWindow(line, authoredSeconds);
-  const predecessor = state.aftermathCueLog.at(-1);
-  const startAt = Math.max(notBefore, predecessor?.endAt ?? notBefore);
-  const entry = {
-    cue: line.cue,
-    who: line.who,
-    text: line.text,
-    line,
-    requestedAt,
-    notBefore,
-    windowSeconds,
-    startAt,
-    endAt: startAt + windowSeconds,
-    status: 'queued',
-  };
-  state.aftermathCueLog.push(entry);
-  state.aftermathVoiceQueue.push(entry);
-  scheduleAftermathVoice();
-  return entry;
-}
-
-function reachOpenWater() {
-  if (state.phase !== 'drive') return;
-  phase('coast');
-  story.checkpoint('open_water');
-  setObjective('Bring her to idle', 'Open water · throttle back to neutral');
-  hud.say('That is far enough. Bring her down.', 3800);
-}
-
-function beginConfrontation() {
-  if (state.phase !== 'coast') return;
-  phase('confrontation');
-  physics.throttle = 0;
-  audio.stopLoop('engine-idle', .65);
-  audio.stopLoop('underway', .65);
-  audio.stopLoop('wake', .65);
-  audio.play('boat.engine.shutdown', { volume: .82 });
   state.atHelm = false;
+  physics.throttle = 0;
+  physics.steer = 0;
+  physics.helmAttended = false;
+  boat.controls.throttle.setValue(0);
+  boat.wheel.rotation.z = 0;
+  player.clearKeys();
+  player.mode = 'walk';
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.ground = boat.root.position.y + DECK_H;
+  player.position.copy(world.fromBoatLocal(local.set(-.10, DECK_H + 1.66, .60)));
+  player.yawCenter = null;
+  player.yawRange = Math.PI;
+  player.pitchMin = -Math.PI / 2 + .05;
+  player.pitchMax = Math.PI / 2 - .05;
   helmHud.classList.add('hidden');
-  player.mode = 'frozen';
-  if (radio.on) {
-    // Willy owns this silence, not the physical switch the player chose.
-    radio.turnOff({ remember: false });
-    boat.controls.radio.setOn(false);
-  }
-  setObjective('Listen', 'The engines tick in the swell');
-  const motel = campaign.state.missions[MISSION_IDS.JERKY_MOTEL];
-  const beef = campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
-  dialogue(buildNoWakeConfrontation({
-    beefDetected: beef.detected,
-    motelPoliceHeat: motel.policeHeat,
-  }), willyBelow);
+  return true;
 }
 
-function willyBelow() {
-  phase('below');
-  setObjective('Wait', 'Willy went below');
-  state.willyStartZ = boat.cast.willy.group.position.z;
-  state.focus = null;
-  setTimeout(() => {
-    if (state.phase !== 'below') return;
-    prepareGuns();
-    dialogue(NO_WAKE_BELOW_LINES, willyReturns);
-  }, 4300);
+/* ------------------------------------------------------------------ *
+ * The inlet
+ * ------------------------------------------------------------------ */
+
+function reachInlet() {
+  if (state.phase !== 'drive') return;
+  phase('inlet');
+  story.checkpoint('open_water');
+  /* Lou asks for it; the player brings the levers down himself, and the
+   * engines are only killed once she has actually come off the way. */
+  sayThenObjective(
+    NO_WAKE_INLET_LINES.bringHerDown,
+    'BRING HER DOWN', 'Both levers to neutral',
+  );
 }
+
+function killEngines() {
+  if (state.phase !== 'inlet' || state.enginesKilled) return;
+  state.enginesKilled = true;
+  speak(NO_WAKE_INLET_LINES.killThem);
+  setTimeout(() => {
+    physics.helmAttended = false;
+    physics.running = false;
+    physics.speed = 0;
+    physics.anchored = true;
+    audio.stopLoop('engine-idle', .8);
+    audio.stopLoop('underway', .8);
+    audio.stopLoop('wake', .8);
+    engineAudio.stop(.7);
+    audio.play('boat.engine.shutdown', { volume: 1 });
+    boat.controls.running.setOn(false);
+    boat.controls.ignitionPort.setOn(false);
+    boat.controls.ignitionStarboard.setOn(false);
+    state.ignitionPort = false;
+    state.ignitionStarboard = false;
+    leaveHelm({ force: true });
+    /* The silence after the engines stop should be uncomfortable. Nothing
+     * happens for four seconds except the water. */
+    /* Both branches spelled out rather than one conditional name, because
+     * `tools/check.mjs` reads these call sites to prove every cue this scene
+     * asks for exists in the manifest -- and a cue it cannot see is a cue that
+     * can never be given a recording. `ambience.ocean.night` is authored and
+     * still unrecorded, so until it lands the inlet runs on the hull bed. */
+    if (audio.buffers.has('ambience.ocean.night')) {
+      audio.startLoop('inlet', { name: 'ambience.ocean.night', volume: .22, fade: 2.2, ambience: true });
+    } else {
+      audio.startLoop('inlet', { name: 'boat.hull.wake', volume: .07, fade: 2.2, ambience: true });
+    }
+    setObjective('', '');
+    setTimeout(() => {
+      speak(NO_WAKE_INLET_LINES.channelClear);
+      setTimeout(() => {
+        sayThenObjective(
+          NO_WAKE_INLET_LINES.outOfTheWind,
+          'GO BELOW DECK', 'Down the companionway',
+        );
+        phase('descend');
+      }, 2600);
+    }, 4200);
+  }, 2200);
+}
+
+/* ------------------------------------------------------------------ *
+ * Below deck
+ * ------------------------------------------------------------------ */
+
+function goBelow() {
+  if (state.below || state.moving) return false;
+  state.moving = true;
+  const resumePhase = state.phase;
+  player.clearKeys();
+  interaction.setPaused(true);
+  const mark = world.fromBoatLocal(new THREE.Vector3(-.06, CABIN_H + 1.66, -2.52));
+  /* Facing forward, into the room. `Player` walks along -Z at yaw 0, so the
+   * cabin -- which is forward of the companionway -- is straight ahead of a
+   * man who arrives on this mark at the boat's own heading. */
+  player.sitAt({
+    position: mark, yaw: boat.root.rotation.y, pitch: -.02, dur: 1.5, yawRange: Math.PI,
+  }, () => {
+    state.moving = false;
+    state.below = true;
+    world.setBelow(true);
+    player.mode = 'walk';
+    player.enabled = document.pointerLockElement === canvas;
+    player.ground = boat.root.position.y + CABIN_H;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.yawCenter = null;
+    player.yawRange = Math.PI;
+    player.pitchMin = -Math.PI / 2 + .05;
+    player.pitchMax = Math.PI / 2 - .05;
+    interaction.setPaused(false);
+    enterEnclosure();
+    if (resumePhase === 'descend') beginCabinScene();
+    else if (resumePhase === 'weights_returning') beginBallastAttach();
+  });
+  audio.play('footstep.wood', { volume: .7 });
+  return true;
+}
+
+function comeUp() {
+  if (!state.below || state.moving) return false;
+  state.moving = true;
+  player.clearKeys();
+  interaction.setPaused(true);
+  const mark = world.fromBoatLocal(new THREE.Vector3(-1.26, DECK_H + 1.66, .40));
+  player.sitAt({
+    position: mark, yaw: boat.root.rotation.y, pitch: -.02, dur: 1.5, yawRange: Math.PI,
+  }, () => {
+    state.moving = false;
+    state.below = false;
+    world.setBelow(false);
+    player.mode = 'walk';
+    player.enabled = document.pointerLockElement === canvas;
+    player.ground = boat.root.position.y + DECK_H;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.yawCenter = null;
+    player.yawRange = Math.PI;
+    interaction.setPaused(false);
+    leaveEnclosure();
+  });
+  audio.play('footstep.wood', { volume: .7, rate: 1.05 });
+  return true;
+}
+
+/** Below: the sea steps back, the hull comes forward, the room closes in. */
+function enterEnclosure() {
+  engineAudio.setEnclosure(cabin.group.userData.doorsClosed ? .20 : .45);
+  audio.setLoopVolume('inlet', .05, .8);
+  audio.setLoopCutoff('inlet', 420, .8);
+  if (audio.buffers.has('water.lap.hull')) {
+    audio.startLoop('cabin-water', { name: 'water.lap.hull', volume: .30, fade: 1.4, ambience: true });
+  } else {
+    audio.startLoop('cabin-water', { name: 'boat.hull.creak', volume: .12, fade: 1.4, ambience: true });
+  }
+}
+
+/** "The open air should feel startling after the cabin." */
+function leaveEnclosure() {
+  engineAudio.setEnclosure(1);
+  audio.setLoopCutoff('inlet', 20000, .35);
+  audio.setLoopVolume('inlet', .30, .35);
+  audio.stopLoop('cabin-water', .5);
+  audio.play('seagull.distant', { volume: .30, rate: .9 });
+}
+
+/**
+ * The cabin scene.
+ *
+ * Lou at the far end of the dinette, Booski behind the bar, Willy standing
+ * between the two, the Prospect at the bottom of the stairs, Irish above at the
+ * bow. Booski closes the companionway and the engine noise all but vanishes --
+ * except the engines are already dead, so what vanishes is the sea.
+ */
+function beginCabinScene() {
+  phase('cabin');
+  state.stagingLocked = true;
+  cabin.setLampLevel(1);
+  // Everybody takes their mark. Nobody gathers in the cockpit; it is meant to
+  // feel strangely abandoned up there.
+  placeCabinCast();
+  // The radio is playing faintly when he comes down. Lou shuts it off.
+  if (!radio.on) {
+    radio.toggle();
+    boat.controls.radio.setOn(radio.on);
+  }
+  setTimeout(() => {
+    if (state.phase !== 'cabin') return;
+    // Booski closes the companionway; whatever was left of outside goes.
+    cabin.setDoorsClosed(true);
+    audio.play('door.creak', { volume: .8, rate: .85 });
+    engineAudio.setEnclosure(.20);
+    audio.setLoopVolume('inlet', .015, 1.0);
+    setTimeout(() => {
+      if (radio.on) {
+        radio.turnOff({ remember: false });
+        boat.controls.radio.setOn(false);
+        audio.play('radio.click', { volume: .9 });
+      }
+      pourTheShot();
+    }, 2300);
+  }, 2600);
+}
+
+function placeCabinCast() {
+  const put = (npc, x, z, yaw, y = CABIN_H) => {
+    npc.group.position.set(x, y, z);
+    npc.group.rotation.y = yaw;
+    npc.baseY = y;
+    npc.job = 'stand';
+    npc._syncJob(true);
+  };
+  put(boat.cast.lou, 1.02, -3.66, 0);
+  put(boat.cast.booski, -1.16, -3.30, 1.42);
+  put(boat.cast.willy, .04, -3.06, Math.PI * .86);
+  // Irish never abandons his lookout. He is on the bow the whole time.
+  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.10);
+  boat.cast.irish.group.rotation.y = Math.PI;
+  boat.cast.irish.baseY = FOREDECK_H;
+}
+
+/**
+ * "Booski glances at Lou first, pours one shot, slides it across, pours for
+ * nobody else. Glass and bottle should be unnaturally loud."
+ */
+function pourTheShot() {
+  if (state.phase !== 'cabin') return;
+  boat.cast.booski.faceToward(boat.cast.lou.group.position.x, boat.cast.lou.group.position.z);
+  setTimeout(() => {
+    if (state.phase !== 'cabin') return;
+    boat.cast.booski.faceToward(boat.cast.willy.group.position.x, boat.cast.willy.group.position.z);
+    audio.play('whiskey.pour', { volume: 1 });
+    state.poured = true;
+    setTimeout(() => {
+      // Slid across, onto the dinette table in front of Willy.
+      cabin.props.shotGlass.position.set(.82, .66, -3.06);
+      audio.play('glass.set', { volume: 1 });
+      setTimeout(() => {
+        if (state.phase !== 'cabin') return;
+        dialogue(NO_WAKE_CABIN_SCRIPT, readyToFire);
+      }, 1500);
+    }, 1400);
+  }, 1600);
+}
+
+/**
+ * The staged beats inside the cabin script.
+ *
+ * `before` runs as the line starts; `after` returns extra seconds the line
+ * holds the room for. The `stall` beat is the important one: Lou waits long
+ * enough that the player wonders whether the scene has stalled, and that pause
+ * is authored here so nobody tunes it out by accident.
+ */
+function runCabinBeat(beat, when) {
+  if (!beat) return 0;
+  const willy = boat.cast.willy;
+  if (when === 'before') {
+    if (beat === 'shot') {
+      // He takes the shot because nobody else is going to.
+      cabin.props.shotGlass.position.set(.82, .96, -3.02);
+      setTimeout(() => {
+        if (state.phase !== 'cabin') return;
+        cabin.props.shotGlass.position.set(.82, .66, -3.06);
+        audio.play('glass.set', { volume: 1, rate: .92 });
+      }, 900);
+    }
+    if (beat === 'settle') {
+      /* No exaggerated gasp, no double take: his shoulders settle and his eyes
+       * move between Lou, Booski and the Prospect. */
+      willy.parts.body.rotation.x = .06;
+      const marks = [boat.cast.lou, boat.cast.booski];
+      marks.forEach((who, i) => setTimeout(() => {
+        willy.faceToward(who.group.position.x, who.group.position.z);
+      }, 400 + i * 700));
+      setTimeout(() => willy.faceToward(player.position.x, player.position.z), 1800);
+    }
+    if (beat === 'stairs') {
+      willy.faceToward(player.position.x, player.position.z);
+      cabin.props.shotGlass.position.set(.74, .66, -2.96);
+      audio.play('glass.set', { volume: .95, rate: .88 });
+    }
+    if (beat === 'sit') {
+      setTimeout(() => {
+        /* Every staged beat is fired on a timer and the script can be skipped
+         * faster than the timer, so each one re-checks the phase it belongs to.
+         * Without this, sitting Willy down lands after he has been shot and
+         * puts him back on the booth. */
+        if (state.phase !== 'cabin') return;
+        willy.group.position.set(1.02, CABIN_H + .38, -2.86);
+        willy.group.rotation.y = Math.PI;
+        willy.job = 'sit';
+        willy.baseY = CABIN_H + .38;
+        willy._syncJob(true);
+        audio.play('chair.scrape.wood', { volume: .8, rate: .9 });
+      }, 900);
+    }
+    if (beat === 'ceiling') {
+      // He looks once at the ceiling, knowing Irish is up there, then at Lou.
+      willy.parts.head.rotation.x = -.42;
+      setTimeout(() => {
+        if (state.phase !== 'cabin' && state.phase !== 'ready_to_fire') return;
+        willy.parts.head.rotation.x = 0;
+        willy.faceToward(boat.cast.lou.group.position.x, boat.cast.lou.group.position.z);
+      }, 1400);
+    }
+  }
+  if (when === 'after') {
+    if (beat === 'nothing') return 1.4;
+    /* The blade. Lou waits, and the room waits with him. */
+    if (beat === 'stall') return 0;
+    if (beat === 'ceiling') return 1.6;
+  }
+  return 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * The execution
+ * ------------------------------------------------------------------ */
 
 function executionGun(model, name, calibre, scale = 1) {
   const gun = model.group;
@@ -560,32 +989,21 @@ function prepareGuns() {
   sceneInventory.set([{ icon: '🔫', label: "Tony's revolver · concealed" }]);
 }
 
-function willyReturns() {
+/**
+ * "Lou draws. Booski draws. Objective: DRAW YOUR WEAPON. Movement locked, aim
+ * free, no countdown."
+ */
+function readyToFire() {
   phase('ready_to_fire');
-  boat.cast.lou.group.position.set(-1.45, 1.02, 2.72);
-  boat.cast.lou.group.rotation.y = 0;
-  boat.cast.booski.group.position.set(1.45, 1.02, 2.90);
-  boat.cast.booski.group.rotation.y = 0;
-  /* Irish closes up with them but stays a pace forward of the firing line, so
-   * the shot that follows is plainly two men and a prospect and not three men
-   * and a witness. */
-  boat.cast.irish.group.position.set(-.62, 1.02, 1.94);
-  boat.cast.irish.group.rotation.y = 0;
-  boat.cast.willy.job = 'stand';
-  boat.cast.willy._syncJob(true);
-  boat.cast.willy.group.position.set(0, 1.02, 4.48);
-  boat.cast.willy.group.rotation.y = Math.PI;
+  prepareGuns();
+  state.stagingLocked = true;
   state.playerGun.visible = true;
-  player.mode = 'frozen';
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(0, 2.68, 1.72)));
-  player.yaw = physics.heading + Math.PI;
-  player.pitch = -.08;
+  player.mode = 'walk';
+  player.clearKeys();
+  player.moveScale = 0;
   interaction.setPaused(true);
-  setObjective('Do what Lou brought you here to do', 'Willy is back on deck');
   executionPrompt.classList.remove('hidden');
-  state.focus = 'willy';
-  cameraDirector.frameExecution();
-  hud.say('Willy comes back up. Lou does not look at you.', 4200);
+  setObjective('DRAW YOUR WEAPON', '');
 }
 
 function fireExecution() {
@@ -593,34 +1011,55 @@ function fireExecution() {
   phase('execution');
   executionPrompt.classList.add('hidden');
   story.checkpoint('execution');
-  const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(0, 1.35, .22));
-  const normal = camera.position.clone().sub(impact).normalize();
+  setObjective('', '');
+  /* All three fire on the same beat, and all three keep firing: the owner's
+   * complaint about the old scene was that Lou and Booski were not visibly
+   * shooting. Three or four rounds each, over about a second, and then it
+   * stops. */
+  const volleys = [0, 220, 470, 760];
+  for (const [i, delay] of volleys.entries()) {
+    setTimeout(() => playerShot(), delay + 0);
+    setTimeout(() => npcShot(boat.cast.lou, state.louGun), delay + 45);
+    setTimeout(() => npcShot(boat.cast.booski, state.booskiGun), delay + 90);
+    if (i === volleys.length - 1) setTimeout(dropWilly, delay + 320);
+  }
+}
+
+function playerShot() {
+  if (state.phase !== 'execution') return;
+  const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(
+    (Math.random() - .5) * .12, 1.02 + Math.random() * .22, .16,
+  ));
   audio.play('boat.gunshot.deck', { volume: 1 });
-  const playerMuzzle = state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone());
-  blood.muzzle(playerMuzzle);
-  showShotTracer(playerMuzzle, impact, 0xffe2a3);
-  blood.punch(impact, normal);
-  state.executionShots = 1;
+  const muzzle = state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone());
+  blood.muzzle(muzzle);
+  showShotTracer(muzzle, impact, 0xffe2a3);
+  /* On the man, not in the air where he was standing -- so the wounds ride his
+   * fall and go over the side inside the bag. Not on every round: "no excessive
+   * blood" is a tone rule, and twelve decals on one shirt is a cartoon. */
+  if (state.executionShots % 4 === 0) {
+    blood.punchAttached(boat.cast.willy.group, impact, camera.position.clone().sub(impact).normalize());
+  }
+  state.executionShots++;
   state.playerGun.rotation.x = .32;
-  setTimeout(() => npcShot(boat.cast.lou, state.louGun), 210);
-  setTimeout(() => npcShot(boat.cast.booski, state.booskiGun), 390);
-  setTimeout(() => npcShot(boat.cast.lou, state.louGun), 650);
-  setTimeout(dropWilly, 760);
 }
 
 function npcShot(npc, gun) {
   if (state.phase !== 'execution') return;
   const muzzle = gun.localToWorld(gun.userData.muzzle.clone());
-  audio.play('boat.gunshot.deck', { volume: .92, position: muzzle });
+  audio.play('boat.gunshot.deck', { volume: .94, position: muzzle });
   blood.muzzle(muzzle);
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(
-    (Math.random() - .5) * .18, 1.2 + Math.random() * .35, .18,
+    (Math.random() - .5) * .18, .95 + Math.random() * .30, .14,
   ));
   showShotTracer(muzzle, impact, 0xffc86b);
-  blood.punch(impact, camera.position.clone().sub(impact).normalize());
+  if (state.executionShots % 4 === 1) {
+    blood.punchAttached(
+      boat.cast.willy.group, impact, camera.position.clone().sub(impact).normalize(),
+    );
+  }
   state.executionShots++;
   gun.userData.recoil = 1;
-  npc.speaking = .2;
 }
 
 function showShotTracer(from, to, colour) {
@@ -652,200 +1091,356 @@ function poseExecutionShooter(npc, gun, dt) {
   gun.rotation.x -= kick * .34;
 }
 
+/**
+ * "Willy slumps against the booth and drops forward. The shot glass vibrates,
+ * rolls, and stops against the sink. No flying body, no spray, no ragdoll
+ * comedy, no music."
+ */
 function dropWilly() {
   if (state.phase !== 'execution') return;
   phase('body');
-  boat.cast.willy.group.rotation.z = -1.38;
-  // Npc origins sit at the feet. Once rotated onto his side the old .48 pivot
-  // buried nearly all of Willy below the deck, leaving only a leg visible.
-  boat.cast.willy.group.position.y = 1.06;
+  const willy = boat.cast.willy;
+  willy.baseY = CABIN_H;
+  willy.job = 'stand';
+  willy._syncJob(true);
+  willy.group.position.set(.62, CABIN_H, -3.02);
+  willy.group.rotation.set(0, Math.PI * .9, -1.42);
   state.playerGun.visible = false;
-  state.focus = null;
+  state.glassRoll = { t: 0 };
+  audio.play('hotdog.body.floor', { volume: .74 });
   cameraDirector.frameCollapse();
   player.mode = 'frozen';
-  interaction.setPaused(true);
   document.body.classList.add('cinematic');
-  audio.play('drunk.collapse', { volume: .78 });
-  setObjective('Willy is down', 'Watch the deck');
-  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.move, 4.0, { delay: .22 });
-  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.irishRail, 4.4);
-  setTimeout(enableBodyInteraction, 1250);
+  setTimeout(() => {
+    if (state.phase !== 'body') return;
+    document.body.classList.remove('cinematic');
+    cameraDirector.clear();
+    player.mode = 'walk';
+    player.moveScale = 1;
+    player.enabled = document.pointerLockElement === canvas;
+    interaction.setPaused(false);
+    beginWrap();
+  }, 4200);
 }
 
-function enableBodyInteraction() {
-  if (state.phase !== 'body' || state.bodyDisposed) return;
-  cameraDirector.clear();
-  document.body.classList.remove('cinematic');
+/* ------------------------------------------------------------------ *
+ * The body
+ * ------------------------------------------------------------------ */
+
+function beginWrap() {
+  bodyRig.layTarp();
+  audio.play('cloth.snap', { volume: .9 });
+  state.wrapStage = 'roll';
+  sayThenObjective(NO_WAKE_BODY_LINES.finishIt, 'WRAP HIM', 'Hold E to roll him onto the tarp');
   boat.bodyMarker.visible = true;
-  player.clearKeys();
-  player.mode = 'walk';
-  player.enabled = true;
-  player.eyeHeight = 1.66;
-  player.targetEye = 1.66;
-  player.ground = boat.root.position.y + boat.deck.height;
-  /* Stand him off the body rather than over it. The old mark put his eye 0.2 m
-   * horizontally from a man lying on the deck, so the look vector below came
-   * out at nearly eighty degrees down — at the clamp, and grazing. From here
-   * the body sits a comfortable pace ahead and about forty-five degrees down. */
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.05, 2.68, 3.28)));
-  player.velocity.set(0, 0, 0);
-  player.yawCenter = null;
-  player.yawRange = Math.PI;
-  player.pitchMin = -Math.PI / 2 + .05;
-  player.pitchMax = Math.PI / 2 - .05;
-  // Settle the walking capsule before deriving the aim; the old stern pose sat
-  // inside the bench collider and invalidated the angle one frame later.
-  player.update(.016);
-  const target = new THREE.Box3().setFromObject(boat.cast.willy.group)
-    .getCenter(new THREE.Vector3());
-  const delta = target.sub(player.position);
-  player.yaw = Math.atan2(-delta.x, -delta.z);
-  player.pitch = Math.asin(delta.y / delta.length());
-  player.update(.016);
-  interaction.setPaused(false);
-  interaction.update(.016);
-  setObjective('Put Willy over the side', 'Body marker · hold E to lift with Booski');
-  hud.say('Nobody says his name. The water knocks against the hull.', 5000);
+  boat.bodyMarker.position.set(.46, CABIN_H + .90, -2.94);
 }
 
-function disposeBody() {
-  if (state.phase !== 'body' || state.bodyDisposed) return;
-  state.bodyDisposed = true;
-  interaction.setPaused(true);
-  phase('dispose');
+function advanceWrap() {
+  const stage = state.wrapStage;
+  if (!stage) return;
+  if (stage === 'roll') {
+    /* The swap. From here on there is no ragdoll on this boat. */
+    bodyRig.swapToWrapped(boat.cast.willy);
+    audio.play('boat.body.drag', { volume: .85 });
+    state.wrapStage = 'fold';
+    boat.bodyMarker.visible = false;
+    sayThenObjective(NO_WAKE_BODY_LINES.yourSide, 'WRAP HIM', 'Hold E to fold your side over');
+    return;
+  }
+  if (stage === 'fold') {
+    bodyRig.foldSide('port');
+    audio.play('cloth.snap', { volume: .8, rate: .92 });
+    // Booski takes the other side on the same beat.
+    setTimeout(() => bodyRig.foldSide('starboard'), 520);
+    state.wrapStage = 'straps';
+    sayThenObjective(NO_WAKE_BODY_LINES.straps, 'WRAP HIM', 'Hold E to fasten the straps');
+    return;
+  }
+  if (stage === 'straps') {
+    bodyRig.fastenStraps();
+    audio.play('cloth.suit.movement', { volume: .8 });
+    state.wrapStage = null;
+    setTimeout(() => {
+      bodyRig.closeBag();
+      audio.play('boat.bag.zip', { volume: .95 });
+      beginWeights();
+    }, 1100);
+    return;
+  }
+  if (stage === 'ballast') {
+    bodyRig.attachBallast(boat.ballast);
+    audio.play('boat.ballast.chain', { volume: .9 });
+    state.wrapStage = null;
+    state.carriedBallast = false;
+    sceneInventory.set([{ icon: '🔫', label: "Tony's revolver · concealed" }]);
+    story.checkpoint('weighted');
+    speak(NO_WAKE_BODY_LINES.sockets);
+    setTimeout(beginCarry, 3400);
+  }
+}
+
+/** "LOU: Needs weight. BOOSKI: Bow locker." */
+function beginWeights() {
+  phase('weights');
+  // The composition has held; he can move about the cabin again.
+  state.stagingLocked = false;
+  speak(NO_WAKE_BODY_LINES.needsWeight);
+  setTimeout(() => {
+    sayThenObjective(NO_WAKE_BODY_LINES.bowLocker, 'FETCH THE BALLAST', 'Forward locker, up on the bow');
+  }, 2400);
+}
+
+function takeBallast() {
+  if (state.carriedBallast) return;
+  state.carriedBallast = true;
+  boat.lockerLid.rotation.x = -1.1;
+  boat.ballast.visible = true;
+  audio.play('boat.ballast.chain', { volume: .85, rate: .95 });
+  cameraDirector.frameBallast();
+  player.mode = 'frozen';
+  sceneInventory.set([
+    { icon: '🔫', label: "Tony's revolver · concealed" },
+    { icon: '🧱', label: 'Cast-iron ballast' },
+  ]);
+  setTimeout(() => {
+    cameraDirector.clear();
+    player.mode = 'walk';
+    player.enabled = document.pointerLockElement === canvas;
+    boat.ballast.visible = false;
+    phase('weights_returning');
+    /* Irish does not turn round and does not ask. He heard it. */
+    sayThenObjective(NO_WAKE_BODY_LINES.nothingBehindUs, 'TAKE IT BELOW', 'Down the companionway');
+  }, 2600);
+}
+
+function beginBallastAttach() {
+  phase('weights_attach');
+  state.wrapStage = 'ballast';
+  boat.bodyMarker.visible = true;
+  boat.bodyMarker.position.set(.46, CABIN_H + .90, -2.94);
+  setObjective('ATTACH THE WEIGHT', 'Hold E to clip it to the rings');
+}
+
+/* ------------------------------------------------------------------ *
+ * The carry, the platform and the water
+ * ------------------------------------------------------------------ */
+
+function beginCarry() {
+  if (state.phase === 'carry') return;
+  phase('carry');
   boat.bodyMarker.visible = false;
-  player.clearKeys();
+  state.wrapStage = null;
+  document.body.classList.add('cinematic');
+  player.mode = 'frozen';
+  interaction.setPaused(true);
+  cameraDirector.frameCarryLift();
+  speak(NO_WAKE_BODY_LINES.moveHim);
+  setObjective('', '');
+  // Lou follows and does not help carry.
+  boat.cast.lou.group.position.set(.30, CABIN_H, -2.60);
+  boat.cast.lou.group.rotation.y = 0;
+}
+
+const CARRY_LIFT_SECONDS = 1.8;
+const CARRY_SECONDS = 11.5;
+
+/**
+ * The two-person carry.
+ *
+ * One authored parameter drives the bag, Booski and the player together, which
+ * is what "synchronised root motion" buys: nobody's hands leave it and nothing
+ * can drift out of step. The lift is the only part with a camera on it; the
+ * traverse is first person, because the player is the other end of the carry
+ * and a third-person shot of a bag with one man on it would say so.
+ */
+function updateCarry(dt) {
+  if (state.phase !== 'carry') return;
+  const t = Math.min(1, Math.max(0, (state.phaseTime - CARRY_LIFT_SECONDS) / CARRY_SECONDS));
+  if (state.phaseTime >= CARRY_LIFT_SECONDS && cameraDirector.shot?.id === 'carry-lift-cabin') {
+    cameraDirector.clear();
+  }
+  bodyRig.carryTo(t, {
+    booski: boat.cast.booski,
+    placePlayer: (x, y, z, at) => {
+      player.position.copy(world.fromBoatLocal(scratch.set(x, y + 1.28, z)));
+      // Looking down the bag at the man on the other end of it.
+      player.yaw = boat.root.rotation.y + at.yaw + Math.PI;
+      player.pitch = -.24;
+      player.update(dt);
+    },
+  });
+  if (t > .30 && !state.carryLeftCabin) {
+    state.carryLeftCabin = true;
+    world.setBelow(false);
+    cabin.setDoorsClosed(false);
+    engineAudio.setEnclosure(1);
+    audio.setLoopVolume('inlet', .30, 1.2);
+    audio.setLoopCutoff('inlet', 20000, 1.2);
+    audio.stopLoop('cabin-water', .9);
+    audio.play('seagull.distant', { volume: .26, rate: .92 });
+    // Lou follows them up and stands by the gate. He does not help carry.
+    boat.cast.lou.group.position.set(.40, DECK_H, 1.40);
+    boat.cast.lou.group.rotation.y = 0;
+  }
+  if (t >= 1 && !state.carryDone) {
+    state.carryDone = true;
+    audio.play('boat.body.rail', { volume: .85 });
+    reachPlatform();
+  }
+  if (state.phaseTime > .4 && state.phaseTime < .6) audio.play('cloth.suit.movement', { volume: .5 });
+}
+
+function reachPlatform() {
+  phase('platform');
+  cameraDirector.frameDisposal();
+  boat.cast.booski.group.position.set(1.30, DECK_H, 4.10);
+  boat.cast.booski.group.rotation.y = 0;
+  boat.cast.lou.group.position.set(.20, DECK_H, 3.40);
+  boat.cast.lou.group.rotation.y = 0;
+  /* Water laps inches below the bag. Lou looks at the shoreline and nods. The
+   * nod is the character doing the telling; the objective follows it. */
+  setTimeout(() => {
+    boat.cast.lou.faceToward(-60, world.inlet.z - 6);
+    setTimeout(() => {
+      boat.cast.lou.parts.head.rotation.x = .30;
+      setTimeout(() => { boat.cast.lou.parts.head.rotation.x = 0; }, 380);
+      boat.cast.lou.faceToward(boat.cast.booski.group.position.x, boat.cast.booski.group.position.z);
+      setObjective('DUMP THE BODY', 'Hold E');
+      document.body.classList.remove('cinematic');
+      player.mode = 'frozen';
+      interaction.setPaused(false);
+      /* The player keeps his aim so he can watch it, and the interaction is
+       * aimed from where the carry left him. */
+      const at = world.fromBoatLocal(scratch.set(1.30, DECK_H + 1.62, 4.60));
+      player.position.copy(at);
+      player.yaw = boat.root.rotation.y + Math.PI;
+      player.pitch = -.30;
+      player.update(.016);
+      cameraDirector.clear();
+    }, 2200);
+  }, 1400);
+}
+
+function dumpBody() {
+  if (state.bodyDisposed) return;
+  state.bodyDisposed = true;
+  phase('dispose');
+  interaction.setPaused(true);
   player.mode = 'frozen';
   document.body.classList.add('cinematic');
   cameraDirector.frameDisposal();
-  state.disposal = {
-    bodyStart: boat.cast.willy.group.position.clone(),
-    bodyRotationZ: boat.cast.willy.group.rotation.z,
-    booskiStart: boat.cast.booski.group.position.clone(),
-    railSound: false,
-    prospectLine: false,
-    splash: false,
-    splashCount: 0,
-    returned: false,
-    returnCount: 0,
-  };
-  if (state.booskiGun) state.booskiGun.visible = false;
-  if (state.louGun) state.louGun.visible = false;
-  setObjective('Let go', 'There will be no wake for him');
-  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.lift, 2.5);
-  audio.play('boat.body.drag', { volume: .82 });
+  setObjective('', '');
 }
 
-function smoothBeat(start, end, time) {
-  const value = THREE.MathUtils.clamp((time - start) / (end - start), 0, 1);
-  return value * value * (3 - 2 * value);
-}
+const DISPOSE_SECONDS = 2.6;
 
 function updateDisposal() {
-  if (state.phase !== 'dispose' || !state.disposal) return;
-  const timeline = state.disposal;
-  const time = state.phaseTime;
-  const willy = boat.cast.willy.group;
-  const booski = boat.cast.booski;
-  const dragEnd = new THREE.Vector3(.74, 1.07, 4.34);
-  const liftEnd = new THREE.Vector3(1.78, 1.64, 4.38);
-  const overboardEnd = new THREE.Vector3(3.18, -1.20, 4.54);
-  const booskiDrag = new THREE.Vector3(1.18, 1.02, 3.58);
-  const booskiLift = new THREE.Vector3(1.10, 1.02, 3.82);
-
-  if (time < .95) {
-    const k = smoothBeat(0, .95, time);
-    willy.position.lerpVectors(timeline.bodyStart, dragEnd, k);
-    willy.rotation.z = THREE.MathUtils.lerp(timeline.bodyRotationZ, -1.52, k);
-    booski.group.position.lerpVectors(timeline.booskiStart, booskiDrag, k);
-  } else if (time < 1.85) {
-    const k = smoothBeat(.95, 1.85, time);
-    willy.position.lerpVectors(dragEnd, liftEnd, k);
-    willy.rotation.z = THREE.MathUtils.lerp(-1.52, -2.28, k);
-    booski.group.position.lerpVectors(booskiDrag, booskiLift, k);
-  } else {
-    const k = smoothBeat(1.85, 2.80, time);
-    willy.position.lerpVectors(liftEnd, overboardEnd, k);
-    willy.rotation.z = THREE.MathUtils.lerp(-2.28, -4.10, k);
-    booski.group.position.copy(booskiLift);
+  if (state.phase !== 'dispose') return;
+  const t = Math.min(1, state.phaseTime / DISPOSE_SECONDS);
+  const { struck } = bodyRig.disposeTo(t);
+  if (struck && !state.splashed) {
+    state.splashed = true;
+    /* One strike on the water. No enormous splash. */
+    audio.play('water.splash', { volume: .72 });
+    cameraDirector.frameWaterHold();
   }
-
-  // Booski visibly owns the other end of the lift instead of watching a body
-  // teleport away. This runs after the normal cast update so the authored pose
-  // wins for the disposal beat.
-  booski.group.rotation.y = Math.PI;
-  booski.parts.armL.rotation.set(-.92, 0, -.34);
-  booski.parts.armR.rotation.set(-.92, 0, .34);
-  booski.parts.foreL.rotation.set(-1.18, 0, 0);
-  booski.parts.foreR.rotation.set(-1.18, 0, 0);
-
-  if (time >= 1.08 && !timeline.railSound) {
-    timeline.railSound = true;
-    audio.play('boat.body.rail', { volume: .9 });
-  }
-  if (time >= 1.55 && !timeline.prospectLine) {
-    timeline.prospectLine = true;
-    queueAftermathLine(NO_WAKE_AFTERMATH_LINES.prospect, 1.8);
-  }
-  if (time >= 2.80 && !timeline.splash) {
-    timeline.splash = true;
-    timeline.splashCount++;
-    willy.visible = false;
-    audio.play('water.splash', { volume: .9 });
-  }
-  if (time >= 3.15 && !timeline.returned) {
-    timeline.returned = true;
-    timeline.returnCount++;
-    beginReturn();
+  if (t >= 1 && !state.waterHeld) {
+    state.waterHeld = true;
+    /* Hold on the water for several seconds. Nothing comes back up. */
+    setTimeout(() => {
+      speak(NO_WAKE_BODY_LINES.stillClear);
+      setTimeout(() => {
+        sayThenObjective(NO_WAKE_BODY_LINES.startHer, 'LEAVE THE INLET', 'Both engines · then the helm');
+        beginExit();
+      }, 2400);
+    }, 5200);
   }
 }
 
-function beginReturn() {
-  phase('return');
-  state.returnFrom.copy(boat.root.position);
-  state.returnHeading = physics.heading;
-  state.returnTo.set(0, boat.floatY, 0);
-  const dx = state.returnTo.x - state.returnFrom.x;
-  const dz = state.returnTo.z - state.returnFrom.z;
-  const distance = Math.max(1, Math.hypot(dx, dz));
-  const side = Math.min(110, Math.max(52, distance * .25));
-  /* A broad quadratic arc reads as Lou turning back into the marked channel;
-   * the old point-to-point lerp slid the entire cruiser sideways home. */
-  state.returnControl.set(
-    (state.returnFrom.x + state.returnTo.x) * .5 + (dz / distance) * side,
-    boat.floatY,
-    (state.returnFrom.z + state.returnTo.z) * .5 - (dx / distance) * side,
-  );
-  state.atHelm = false;
-  // Match the physical tableau to the narration: Lou owns the controls while
-  // Booski watches the water beside the newly empty stern deck.
-  boat.cast.lou.group.position.set(.14, 1.02, -.20);
+/* ------------------------------------------------------------------ *
+ * The exit
+ * ------------------------------------------------------------------ */
+
+function beginExit() {
+  phase('exit');
+  document.body.classList.remove('cinematic');
+  cameraDirector.clear();
+  player.mode = 'walk';
+  player.enabled = document.pointerLockElement === canvas;
+  player.ground = boat.root.position.y + DECK_H;
+  player.position.copy(world.fromBoatLocal(local.set(1.10, DECK_H + 1.66, 2.60)));
+  player.velocity.set(0, 0, 0);
+  interaction.setPaused(false);
+  physics.anchored = false;
+  // Irish goes forward for the anchor as soon as both engines are running.
+  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.10);
+  boat.cast.irish.group.rotation.y = Math.PI;
+  boat.cast.booski.group.position.set(-1.20, DECK_H, 3.60);
+  boat.cast.booski.group.rotation.y = 0;
+  boat.cast.lou.group.position.set(-.90, DECK_H, 2.20);
   boat.cast.lou.group.rotation.y = Math.PI;
-  boat.cast.booski.group.position.set(1.72, 1.02, 2.70);
-  boat.cast.booski.group.rotation.y = Math.PI / 2;
-  // Irish sits down on the port bench with his back to the empty stern.
-  boat.cast.irish.job = 'sit';
-  boat.cast.irish._syncJob(true);
-  boat.cast.irish.group.position.set(-1.52, 1.02, 4.10);
-  boat.cast.irish.group.rotation.y = -Math.PI / 2;
-  setObjective('Ride back', 'Nobody speaks');
-  document.body.classList.add('cinematic');
-  audio.startLoop('underway', { name: 'boat.engine.underway', volume: .13, fade: .75 });
-  audio.startLoop('wake', { name: 'boat.hull.wake', volume: .09, fade: .9 });
-  cameraDirector.frameReturn(0);
-  hud.say('Lou takes the helm. Booski watches the water close.', 4800);
-  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.lesson, 5.0, { delay: .72 });
-  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.irishNoBackHalf, 4.2);
+}
+
+function restartEngine(side) {
+  const key = side === 'port' ? 'ignitionPort' : 'ignitionStarboard';
+  if (state[key]) return;
+  state[key] = true;
+  boat.controls[key].setOn(true);
+  audio.play('boat.engine.start', { volume: 1, rate: side === 'port' ? 1 : .94 });
+  if (side === 'port') {
+    physics.running = true;
+    boat.controls.running.setOn(true);
+    audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .34, fade: .55 });
+    engineAudio.start();
+    setObjective('LEAVE THE INLET', 'Starboard engine');
+  } else {
+    audio.setLoopVolume('engine-idle', .48, .6);
+    weighAnchor();
+  }
+}
+
+/** Nobody speaks on the way out. Irish gets the anchor and comes back aft. */
+function weighAnchor() {
+  setObjective('LEAVE THE INLET', 'Irish is getting the anchor');
+  state.anchorTimer = 0;
+  audio.play('boat.rope.release', { volume: .8, rate: .7 });
+  setTimeout(() => {
+    state.anchorUp = true;
+    boat.cast.irish.group.position.set(.10, FOREDECK_H, -3.20);
+    setObjective('LEAVE THE INLET', 'Take the helm and get her out');
+  }, 4200);
+}
+
+const EXIT_RUN_METRES = 90;
+
+function updateExit() {
+  if (state.phase !== 'exit') return;
+  if (state.exitStart === undefined && state.anchorUp) state.exitStart = physics.distance;
+  if (state.exitStart === undefined) return;
+  const run = physics.distance - state.exitStart;
+  if (run > EXIT_RUN_METRES && Math.abs(physics.speed) > 3.2 && !state.astern) {
+    state.astern = true;
+    /* At speed, the camera looks briefly astern at the wake spreading and
+     * smoothing over. Then it is over. */
+    document.body.classList.add('cinematic');
+    cameraDirector.frameAstern();
+    setObjective('', '');
+    setTimeout(completeMission, 5200);
+  }
 }
 
 function completeMission() {
   if (state.leaving) return;
   state.leaving = true;
-  audio.stopLoop('underway', .8);
-  audio.stopLoop('wake', .8);
+  audio.stopLoop('underway', .9);
+  audio.stopLoop('wake', .9);
+  audio.stopLoop('engine-idle', .9);
+  audio.stopLoop('inlet', .9);
+  engineAudio.stop(.9);
   phase('complete');
   document.body.classList.add('cinematic');
-  setObjective('NO WAKE', 'South Harbor · 4:40 PM');
+  setObjective('MISSION COMPLETE: NO WAKE', 'South Harbor · 4:40 PM');
   const completed = story.complete({
     betrayalConfirmed: true, playerFired: true, bodyDisposed: true,
   });
@@ -854,72 +1449,76 @@ function completeMission() {
     state.leaving = false;
     return;
   }
-  showSpeaker(NO_WAKE_EPILOGUE_LINE.who, NO_WAKE_EPILOGUE_LINE.text);
-  playDialogueCue(`nowake.${NO_WAKE_EPILOGUE_LINE.cue}`);
   setTimeout(() => {
     navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
-  }, 3600);
+  }, 3200);
 }
 
-function updateReturn(dt) {
-  if (state.phase !== 'return') return;
-  const k = Math.min(1, state.phaseTime / 16);
-  const ease = k * k * (3 - 2 * k);
-  const inverse = 1 - ease;
-  boat.root.position.x = inverse * inverse * state.returnFrom.x
-    + 2 * inverse * ease * state.returnControl.x
-    + ease * ease * state.returnTo.x;
-  boat.root.position.z = inverse * inverse * state.returnFrom.z
-    + 2 * inverse * ease * state.returnControl.z
-    + ease * ease * state.returnTo.z;
-  returnTangent.set(
-    2 * inverse * (state.returnControl.x - state.returnFrom.x)
-      + 2 * ease * (state.returnTo.x - state.returnControl.x),
-    0,
-    2 * inverse * (state.returnControl.z - state.returnFrom.z)
-      + 2 * ease * (state.returnTo.z - state.returnControl.z),
+/* ------------------------------------------------------------------ *
+ * Per-frame
+ * ------------------------------------------------------------------ */
+
+function updateHarborWildlife() {
+  if (!document.body.classList.contains('playing')) return;
+  if (state.below) return;
+  if (elapsed >= state.nextGullAt) {
+    const cue = audio.buffers.has('seagull.distant') ? 'seagull.distant' : 'bird';
+    audio.play(cue, { volume: cue === 'bird' ? .14 : .34, rate: .88 + Math.random() * .18 });
+    state.nextGullAt = elapsed + 11 + Math.random() * 16;
+  }
+  if (elapsed >= state.nextCreakAt && audio.buffers.has('boat.hull.creak')) {
+    audio.play('boat.hull.creak', { volume: .22, rate: .92 + Math.random() * .12 });
+    state.nextCreakAt = elapsed + 7 + Math.random() * 12;
+  }
+}
+
+/** The shot glass vibrates, rolls, and stops against the sink. */
+function updateGlassRoll(dt) {
+  if (!state.glassRoll) return;
+  state.glassRoll.t += dt;
+  const glass = cabin.props.shotGlass;
+  const foot = cabin.props.sinkFoot;
+  const k = Math.min(1, Math.max(0, (state.glassRoll.t - .5) / 2.4));
+  if (state.glassRoll.t < .5) {
+    glass.position.x = .74 + Math.sin(state.glassRoll.t * 90) * .006;
+    return;
+  }
+  const eased = k * k * (3 - 2 * k);
+  glass.position.set(
+    THREE.MathUtils.lerp(.74, foot.x, eased),
+    THREE.MathUtils.lerp(.66, foot.y + .04, Math.min(1, eased * 2.2)),
+    THREE.MathUtils.lerp(-2.96, foot.z, eased),
   );
-  if (returnTangent.lengthSq() > .001) {
-    boat.root.rotation.y = Math.atan2(returnTangent.x, returnTangent.z);
+  glass.rotation.z = eased * 12;
+  if (k >= 1) {
+    state.glassRoll = null;
+    audio.play('dish.clink', { volume: .8, rate: 1.06 });
   }
-  boat.root.position.y = boat.floatY + Math.sin(state.phaseTime * 1.2) * .05;
-  cameraDirector.frameReturn(state.phaseTime);
-  if (k >= 1) completeMission();
 }
 
-function leaveHelm({ force = false } = {}) {
-  if (!state.atHelm) return false;
-  if (!force && Math.abs(physics.speed) > .45) {
-    hud.say('Bring both throttles to neutral first.', 2400);
-    return false;
-  }
-  state.atHelm = false;
-  physics.throttle = 0;
-  physics.steer = 0;
-  boat.controls.throttle.setValue(0);
-  player.clearKeys();
-  player.mode = 'walk';
-  player.eyeHeight = 1.66;
-  player.targetEye = 1.66;
-  player.ground = boat.root.position.y + boat.deck.height;
-  // Stand fully behind the pedestal rather than inside its capsule margin.
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 1.65)));
-  player.yawCenter = null;
-  player.yawRange = Math.PI;
-  player.pitchMin = -Math.PI / 2 + .05;
-  player.pitchMax = Math.PI / 2 - .05;
-  helmHud.classList.add('hidden');
-  setObjective('Take the helm', 'The controls are in neutral');
-  return true;
+/** The confrontation holds the player on his mark without a wall to do it. */
+function clampToStaging() {
+  if (!state.stagingLocked || !state.below) return;
+  world.toBoatLocal(player.position, carriedLocal);
+  const x = THREE.MathUtils.clamp(carriedLocal.x, CABIN_STAGING.minX, CABIN_STAGING.maxX);
+  const z = THREE.MathUtils.clamp(carriedLocal.z, CABIN_STAGING.minZ, CABIN_STAGING.maxZ);
+  if (x === carriedLocal.x && z === carriedLocal.z) return;
+  carriedLocal.x = x;
+  carriedLocal.z = z;
+  world.fromBoatLocal(carriedLocal, carriedWorld);
+  player.position.x = carriedWorld.x;
+  player.position.z = carriedWorld.z;
+  player.velocity.x = 0;
+  player.velocity.z = 0;
 }
 
 function updateBoat(dt) {
-  const active = ['drive', 'coast'].includes(state.phase);
-  const carryDeckPlayer = active && state.boarded && !state.atHelm && player.mode === 'walk';
+  const driving = ['drive', 'inlet', 'exit'].includes(state.phase);
+  const carryDeckPlayer = driving && state.boarded && !state.atHelm && player.mode === 'walk';
   const headingBefore = boat.root.rotation.y;
   if (carryDeckPlayer) world.toBoatLocal(player.position, carriedLocal);
 
-  if (active) {
+  if (driving && !physics.anchored) {
     let requestedThrottle = 0;
     let requestedSteer = 0;
     if (state.atHelm) {
@@ -928,61 +1527,79 @@ function updateBoat(dt) {
       if (forward !== reverse) requestedThrottle = forward ? 1 : -.48;
       requestedSteer = (player.keys.has('KeyD') ? 1 : 0) - (player.keys.has('KeyA') ? 1 : 0);
     }
-    // Keys command a real spring-loaded twin lever: release returns to neutral,
-    // and leaving the wheel removes propulsion instead of preserving an old value.
     const throttleRate = requestedThrottle === 0 ? 2.8 : requestedThrottle > 0 ? 1.25 : 1.65;
+    const before = physics.throttle;
     physics.throttle += (requestedThrottle - physics.throttle)
       * (1 - Math.exp(-dt * throttleRate));
     physics.steer += (requestedSteer - physics.steer) * (1 - Math.exp(-dt * 4.2));
+    physics.helmAttended = state.atHelm;
     if (!state.atHelm) {
       physics.throttle = 0;
       physics.steer *= Math.exp(-dt * 8);
+    }
+    /* Real levers answer. A step of more than a quarter throttle in one frame
+     * is the player pushing them up, and the engines say so. */
+    if (physics.throttle - before > .012 && elapsed - (state.lastRev ?? -9) > 2.4) {
+      state.lastRev = elapsed;
+      if (audio.buffers.has('boat.engine.rev')) audio.play('boat.engine.rev', { volume: .5 });
     }
 
     physics.advance(dt);
     const motion = physics.motion();
     boat.root.position.set(physics.position.x, boat.floatY + motion.heave, physics.position.y);
     boat.root.rotation.set(motion.pitch, physics.heading, motion.roll, 'YXZ');
-    boat.wheel.rotation.z = physics.steer * .7;
+    /* The rim turns the way the hull does: the helmsman looks forward along -Z,
+     * so a starboard turn (positive steer) winds the top of the wheel to
+     * starboard, which is `rotation.z` NEGATIVE. */
+    boat.wheel.rotation.z = -physics.steer * .7;
     boat.controls.throttle.setValue(physics.throttle);
-    boat.controls.gaugeNeedles.rpm.rotation.z = -.95 + Math.abs(physics.throttle) * 1.9;
+    const rev = -.95 + Math.abs(physics.throttle) * 1.9;
+    boat.controls.gaugeNeedles.tachPort.rotation.z = rev;
+    boat.controls.gaugeNeedles.tachStarboard.rotation.z = rev * .98;
     boat.controls.gaugeNeedles.speed.rotation.z = -.95 + Math.min(1, Math.abs(physics.speed) / 8.5) * 1.9;
-    boat.controls.gaugeNeedles.fuel.rotation.z = .45;
-    const wakeAt = boat.root.localToWorld(new THREE.Vector3(0, 0, 6.55));
+    boat.controls.gaugeNeedles.depth.rotation.z = -.30;
+    const wakeAt = world.fromBoatLocal(local.set(0, 0, 6.05));
     world.wake.emit(wakeAt, physics.heading, Math.abs(physics.speed), dt);
     const propulsion = Math.min(1, Math.abs(physics.speed) / 8.5);
     if (Math.abs(physics.speed) > .25) {
-      audio.startLoop('underway', { name: 'boat.engine.underway', volume: .03, fade: .45 });
-      audio.startLoop('wake', { name: 'boat.hull.wake', volume: .015, fade: .55 });
+      audio.startLoop('underway', { name: 'boat.engine.underway', volume: .08, fade: .45 });
+      audio.startLoop('wake', { name: 'boat.hull.wake', volume: .04, fade: .55 });
     }
-    audio.setLoopVolume('engine-idle', .10 + Math.abs(physics.throttle) * .09, .12);
-    audio.setLoopVolume('underway', .025 + propulsion * .20, .12);
-    audio.setLoopVolume('wake', .01 + propulsion * .17, .12);
+    /* Twin engines the player is standing on top of, and an ocean he is on.
+     * The whole engine room steps back while anybody is speaking. */
+    const underVoice = audio.busy() ? .58 : 1;
+    audio.setLoopVolume('engine-idle', (.30 + Math.abs(physics.throttle) * .20) * underVoice, .18);
+    audio.setLoopVolume('underway', (.08 + propulsion * .48) * underVoice, .18);
+    audio.setLoopVolume('wake', (.04 + propulsion * .34) * underVoice, .18);
+    engineAudio.setDrive({
+      rpm: physics.rpm, throttle: physics.throttle, speed: physics.speed, duck: underVoice,
+    });
 
     if (carryDeckPlayer) {
       world.fromBoatLocal(carriedLocal, carriedWorld);
       player.position.copy(carriedWorld);
       player.yaw += boat.root.rotation.y - headingBefore;
-      player.ground = boat.root.position.y + boat.deck.height;
+      player.ground = boat.root.position.y + boat.deck.heightAt(carriedLocal.z);
     }
 
     if (state.phase === 'drive') {
       if (state.atHelm && Math.abs(physics.speed) > .8) state.driveSeconds += dt;
-      const nextAmbient = NO_WAKE_AMBIENT_LINES[state.ambientIndex];
-      if (nextAmbient && state.driveSeconds >= nextAmbient.at) {
-        driveLine(nextAmbient);
-        state.ambientIndex++;
+      const next = state.cruiseLines[state.cruiseIndex];
+      if (next && state.driveSeconds >= next.at) {
+        speak(next);
+        state.cruiseIndex++;
       }
-      if (state.driveSeconds >= DRIVE_SECONDS && physics.distance >= 360) reachOpenWater();
-    } else if (Math.abs(physics.throttle) < .08 && Math.abs(physics.speed) < .62) {
-      beginConfrontation();
+      if (state.driveSeconds >= DRIVE_SECONDS && physics.distance >= 360) reachInlet();
+    } else if (state.phase === 'inlet' && !state.enginesKilled
+      && Math.abs(physics.throttle) < .08 && Math.abs(physics.speed) < .62) {
+      killEngines();
     }
   }
 
-  if (state.atHelm && active) {
+  if (state.atHelm && driving) {
     const deltaHeading = physics.heading - lastHeading;
     player.yaw += deltaHeading;
-    player.position.copy(boat.root.localToWorld(local.set(.14, 2.43, .24)));
+    player.position.copy(world.fromBoatLocal(local.set(1.24, DECK_H + 1.32, 1.06)));
     player.sway.roll = physics.motion().roll * .32;
     lastHeading = physics.heading;
     throttleReadout.textContent = Math.abs(physics.throttle) < .04
@@ -1001,47 +1618,144 @@ function updateCast(dt) {
     poseExecutionShooter(boat.cast.lou, state.louGun, dt);
     poseExecutionShooter(boat.cast.booski, state.booskiGun, dt);
   }
-  if (state.phase === 'below') {
-    const w = boat.cast.willy.group;
-    w.position.z += (-1.0 - w.position.z) * Math.min(1, dt * 1.8);
-    w.position.y += (-.7 - w.position.y) * Math.min(1, dt * 1.5);
+}
+
+/* ------------------------------------------------------------------ *
+ * Boot, checkpoints and input
+ * ------------------------------------------------------------------ */
+
+function setStartupCompleteVisuals() {
+  boat.gangway.visible = false;
+  boat.targets.board.visible = false;
+  for (const key of ['battery', 'blower', 'fuel', 'ignitionPort', 'ignitionStarboard', 'navLights']) {
+    boat.controls[key].setOn(true);
   }
+  boat.controls.running.setOn(true);
+  boat.targets.dockLine.userData.attached = false;
+  boat.targets.dockLine.visible = false;
 }
 
 function resumeCheckpoint() {
   const checkpoint = campaign.state.missions[MISSION_IDS.NO_WAKE].checkpoint;
   if (!entry.resumed || checkpoint === 'dock' || !checkpoint) return;
   Object.assign(state, {
-    boarded: true, battery: true, blower: true, engine: true, bowLine: true, sternLine: true,
+    boarded: true, battery: true, blower: true, fuel: true,
+    ignitionPort: true, ignitionStarboard: true, navLights: true, dockLine: true,
   });
   setStartupCompleteVisuals();
   physics.running = true;
   physics.mooringReleased = true;
+  phase('startup');
   if (checkpoint === 'underway') {
     setTimeout(enterHelm, 0);
     return;
   }
-  physics.position.set(0, -430);
+  physics.position.set(world.inlet.x, world.inlet.z);
   physics.distance = 430;
   physics.heading = 0;
   physics.throttle = 0;
-  boat.root.position.set(0, boat.floatY, -430);
-  state.boarded = true;
+  boat.root.position.set(world.inlet.x, boat.floatY, world.inlet.z);
   if (checkpoint === 'open_water') {
-    phase('coast');
-    state.atHelm = true;
-    player.mode = 'seated';
-    player.enabled = true;
-    player.yaw = physics.heading;
-    player.pitch = -.05;
-    player.position.copy(boat.root.localToWorld(new THREE.Vector3(.14, 2.43, .24)));
-    lastHeading = physics.heading;
-    helmHud.classList.remove('hidden');
-    setObjective('Bring her to idle', 'Open water · throttle back to neutral');
-  } else {
-    prepareGuns();
-    willyReturns();
+    phase('drive');
+    setTimeout(() => { enterHelm(); reachInlet(); }, 0);
+    return;
   }
+  // Past the shot: put him below with the room already staged.
+  physics.anchored = true;
+  physics.running = false;
+  setTimeout(() => {
+    world.setBelow(true);
+    state.below = true;
+    placeCabinCast();
+    cabin.setDoorsClosed(true);
+    player.mode = 'walk';
+    player.ground = boat.root.position.y + CABIN_H;
+    player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.06, CABIN_H + 1.66, -2.52)));
+    prepareGuns();
+    if (checkpoint === 'weighted') {
+      bodyRig.swapToWrapped(boat.cast.willy);
+      bodyRig.foldSide('port');
+      bodyRig.foldSide('starboard');
+      bodyRig.fastenStraps();
+      bodyRig.closeBag();
+      bodyRig.attachBallast(boat.ballast);
+      beginCarry();
+    } else {
+      dropWilly();
+    }
+  }, 0);
+}
+
+/**
+ * Preview-only checkpoint jump.
+ *
+ * Walks the mission's own real progression functions in order rather than
+ * assigning `state.phase` by hand -- the same contract
+ * src/mansion/siege/main.js's `jumpToCheckpoint` documents for its own beat
+ * chain. `dock` reproduces what `beginBoarding()`'s own completion callback
+ * does (see above), minus the animated walk across the boarding platform.
+ * `underway`/`inlet` route straight through the console-debug handles this
+ * file already exposes (`runtime.startUnderway()`/`runtime.skipDrive()`).
+ * `confrontation`/`body`/`return` pose the later beats directly -- calling
+ * `beginConfrontation()`, `fireExecution()` and `disposeBody()`, the exact
+ * functions a played run calls -- because none of those three is one of the
+ * mission's four saveable checkpoints (dock/underway/open_water/execution),
+ * so there is no earlier real checkpoint to route them through the way
+ * `resumeCheckpoint()`, above, routes `underway`/`open_water`. Each of these
+ * is real, live state: `confrontation` leaves the confrontation dialogue and
+ * the beats after it (below decks, the guns, the return leg) to keep
+ * advancing on the page's own timers exactly as they would in a played run,
+ * and `return` will genuinely finish the mission and navigate home after the
+ * same ride-in that a real playthrough takes.
+ */
+function jumpToPreviewCheckpoint(id) {
+  state.boarded = true;
+  boat.boardingBridge.visible = false;
+  boat.targets.board.visible = false;
+  player.mode = 'walk';
+  player.enabled = true;
+  player.ground = boat.root.position.y + boat.deck.height;
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.yawCenter = null;
+  player.yawRange = Math.PI;
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72)));
+  player.velocity.set(0, 0, 0);
+  interaction.setPaused(false);
+  hud.toast('Aboard · Gate C', 'good');
+  setObjective('Start the boat', 'Battery · blower · ignition');
+  story.checkpoint('dock');
+  if (id === 'dock') return;
+
+  runtime.startUnderway();
+  if (id === 'underway') return;
+
+  runtime.skipDrive();
+  // A played run reaches `coast` with the cruiser still doing real way
+  // through the water -- this jump never actually drove it, so `speed` is
+  // still zero, and `updateBoat()`'s own idle check would read that as
+  // "already at rest" and fire the confrontation on the very next frame,
+  // leaving no real inlet to preview. Give it the same cruising speed the
+  // real drive ends at (see the "released cruiser accelerates" checkpoint
+  // check in tools/verify-no-wake.mjs) so it coasts down for real before
+  // the same real trigger fires -- not held open artificially, just not
+  // starting already past it.
+  physics.speed = 4.9;
+  if (id === 'inlet') return;
+
+  if (id === 'confrontation') {
+    beginConfrontation();
+    return;
+  }
+
+  // body/return pose the execution directly rather than sitting through the
+  // confrontation dialogue -- see the doc comment above.
+  prepareGuns();
+  willyReturns();
+  fireExecution();
+  if (id === 'body') return;
+
+  disposeBody();
 }
 
 function showEntryAvailability() {
@@ -1054,11 +1768,11 @@ function showEntryAvailability() {
 registerInteractions();
 player.mode = 'walk';
 player.enabled = false;
-player.position.set(-5.15, 1.86, 8.4);
+player.position.set(-5.15, 1.86, 7.6);
 player.ground = .2;
 player.eyeHeight = 1.66;
-player.yaw = -.55;
-player.pitch = -.08;
+player.yaw = -.42;
+player.pitch = -.05;
 player.update(.016);
 hud.setClock(3, '12:45 PM', 0);
 showEntryAvailability();
@@ -1066,24 +1780,33 @@ showEntryAvailability();
 const runtime = {
   get phase() { return state.phase; }, set phase(v) { state.phase = v; },
   get campaignState() { return campaign.state; },
-  state, physics, world, boat, player, interaction, story, postfx, audio, radio, radioReady,
-  cameraDirector,
+  /* `scene` is exposed on purpose: `tools/scene-audit.mjs` finds a page's
+   * THREE.Scene by looking for a global with a `.scene` on it, and without one
+   * NO WAKE was never audited at all. */
+  scene,
+  state, physics, world, boat, cabin, bodyRig, player, interaction, story, postfx,
+  audio, radio, radioReady, cameraDirector, blood, engineAudio,
   dialogueLog: state.dialogueLog,
+  cueLog: state.cueLog,
+  startupSteps: STARTUP_STEPS.map((step) => step.key),
   startUnderway() {
     Object.assign(state, {
-      boarded: true, battery: true, blower: true, engine: true, bowLine: true, sternLine: true,
+      boarded: true, battery: true, blower: true, fuel: true,
+      ignitionPort: true, ignitionStarboard: true, navLights: true, dockLine: true,
     });
     setStartupCompleteVisuals();
     physics.running = true;
     physics.mooringReleased = true;
+    phase('startup');
     enterHelm();
   },
   skipDrive() {
     if (state.phase !== 'drive') return false;
     state.driveSeconds = DRIVE_SECONDS;
     physics.distance = 380;
-    physics.position.y = -430;
-    reachOpenWater();
+    physics.position.set(world.inlet.x, world.inlet.z);
+    boat.root.position.set(world.inlet.x, boat.floatY, world.inlet.z);
+    reachInlet();
     return true;
   },
   skipDialogue() {
@@ -1091,14 +1814,25 @@ const runtime = {
     advanceDialogue();
     return true;
   },
+  goBelow,
+  comeUp,
+  beginCabinScene,
+  pourTheShot,
+  runCabinScript() { dialogue(NO_WAKE_CABIN_SCRIPT, readyToFire); },
+  prepareExecution: readyToFire,
   fire: fireExecution,
-  beginConfrontation,
-  prepareExecution() { prepareGuns(); willyReturns(); },
-  leaveHelm(options) { return leaveHelm({ force: options?.force === true }); },
   dropWilly,
-  disposeBody,
-  beginReturn,
+  advanceWrap,
+  takeBallast,
+  beginBallastAttach,
+  beginCarry,
+  dumpBody,
+  beginExit,
   completeMission,
+  leaveHelm(options) { return leaveHelm({ force: options?.force === true }); },
+  /* The confrontation's pen, exposed so a check can step the player and apply
+   * the clamp in the same loop rather than racing the render frame. */
+  clampToStaging,
 };
 window.NO_WAKE = runtime;
 window.__squatchSceneReady?.('NO WAKE ready');
@@ -1108,13 +1842,10 @@ startButton.addEventListener('click', async () => {
     if (campaign.state.scene.id === SCENE_IDS.NO_WAKE) {
       navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
     } else {
-      // No campaign transition was claimed, so returning is a plain URL move.
       location.assign('index.html');
     }
     return;
   }
-  /* Loading the URL is read-only. Start is the player's explicit commit to
-   * claim the mission and the NO WAKE scene in durable campaign state. */
   entry = story.begin();
   if (!entry.ok) {
     showEntryAvailability();
@@ -1123,33 +1854,51 @@ startButton.addEventListener('click', async () => {
   if (campaign.state.scene.id !== SCENE_IDS.NO_WAKE) {
     campaign.enter(SCENE_IDS.NO_WAKE, { spawn: 'gate_c' });
   }
-  // Pointer lock must be requested while the start click still owns transient
-  // user activation. Waiting for the audio banks first makes real browsers
-  // reject the request even though the player did click Start.
   canvas.requestPointerLock?.();
+  const motel = campaign.state.missions[MISSION_IDS.JERKY_MOTEL];
+  const beef = campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+  state.cruiseLines = buildNoWakeCruise({
+    beefDetected: beef.detected, motelPoliceHeat: motel.policeHeat,
+  });
   resumeCheckpoint();
   await audio.init();
+  engineAudio.init();
+  if (audio.busMusic) audio.busMusic.gain.value = 1;
   await radioReady;
-  // NO WAKE crosses three authored shows. Decode those exact station banks
-  // plus this mission rather than the entire 100+ MiB campaign library.
   const radioCueNames = radio.preloadCueNames({ hours: [12.75, 15, 17] });
   const loadedAudio = await audio.loadManifest(noWakeAudioLoadOptions(radioCueNames));
   audio.preloadStats = {
     manifestTotal: audio.manifest.sfx.length,
     selected: loadedAudio.total,
   };
+  /* After the manifest load, same reasoning as the engine-idle restart just
+   * below: `jumpToPreviewCheckpoint` can call real, audio-playing functions
+   * (`beginConfrontation`, `fireExecution`) and `audio.play()` silently does
+   * nothing before `audio.ready` -- calling it any earlier would lose the
+   * checkpoint's own opening line or gunshot. */
+  if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
+  /* A staged checkpoint can arrive with the port engine already running; it
+   * was silent until now for the same audio.ready reason. */
+  if (state.ignitionPort) {
+    audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .40, fade: .8 });
+    engineAudio.start();
+  }
   if (audio.buffers.has('ambience.harbor')) {
-    audio.startLoop('harbor', { name: 'ambience.harbor', volume: .11, ambience: true });
+    audio.startLoop('harbor', { name: 'ambience.harbor', volume: .24, ambience: true });
   } else {
-    /* Existing production fallback until the dedicated harbor bed is
-     * delivered: quiet hull water, never unrelated city rain. */
-    audio.startLoop('harbor', { name: 'boat.hull.wake', volume: .035, ambience: true });
+    audio.startLoop('harbor', { name: 'boat.hull.wake', volume: .05, ambience: true });
   }
   document.body.classList.add('playing');
   sceneInventory.show();
   overlay.classList.add('out');
   player.enabled = true;
-  playDockInstructions();
+  /* Willy's opener, and then nothing. Nobody answers him, and the silence is
+   * the first thing in the mission that is wrong. A staged checkpoint skips
+   * it -- the jump already posed the mission past the dock. */
+  if (!previewCheckpoint && state.phase === 'dock') {
+    speak(NO_WAKE_DOCK_LINES[0]);
+    setObjective('BOARD THE BOAT', 'Gate C · the platform is down');
+  }
   setTimeout(() => overlay.remove(), 850);
 });
 
@@ -1206,11 +1955,14 @@ function animate(now) {
   state.phaseTime += dt;
   updateDialogue(dt);
   updateBoat(dt);
-  if (state.phase !== 'return') player.update(dt);
+  if (!['carry', 'dispose'].includes(state.phase)) player.update(dt);
+  clampToStaging();
   interaction.update(dt);
   updateCast(dt);
+  updateGlassRoll(dt);
+  updateCarry(dt);
   updateDisposal();
-  updateReturn(dt);
+  updateExit();
   cameraDirector.update(dt);
   blood.update(dt);
   if (state.playerGun) state.playerGun.rotation.x += (0 - state.playerGun.rotation.x) * Math.min(1, dt * 9);

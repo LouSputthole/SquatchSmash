@@ -12,6 +12,7 @@ import {
 } from '../src/core/campaign.js';
 import {
   BIG_NIGHT_BOOSKI_CALL,
+  BIG_NIGHT_MARGO_WAKE,
   DATE_MARGO_CALL,
   DAY_FOUR_LOU_GOLF_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
@@ -21,6 +22,7 @@ import {
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
   NO_WAKE_LOU_CALL,
+  SILVER_ROOM_COME_HOME,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createNoWakeStory } from '../src/core/no-wake-story.js';
@@ -323,6 +325,7 @@ test('the apartment door waits for Lou’s call even when every chore is done', 
     kind: 'call',
     id: EVENT_IDS.LOU_FIRST_CALL,
     line: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
+    vo: 'door.refusal.first_call',
   });
 });
 
@@ -405,6 +408,7 @@ test('returning from Bada Bing requires the package before Squatchfather', () =>
     kind: 'item',
     id: ITEM_IDS.LOU_PACKAGE,
     line: 'I am not going anywhere until I find Lou’s package.',
+    vo: 'door.refusal.lou_package',
   });
 
   campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
@@ -540,6 +544,7 @@ test('crossing midnight does not start the Day Two chapter before Tony sleeps', 
     kind: 'stay',
     id: 'sleep',
     line: 'That is enough going out for one night.',
+    vo: 'door.refusal.sleep_after_squatchfather',
   });
   assert.deepEqual(story.sleep(), {
     ok: true, chapter: 'day_two', day: 2, timeMinutes: 420,
@@ -702,6 +707,7 @@ test('the Day Two door waits for Booskibro, then routes to the Beef Run', () => 
     kind: 'call',
     id: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
     line: 'Booskibro said he would call with the next job.',
+    vo: 'door.refusal.day_two_call',
   });
 
   story.callAnswered(DAY_TWO_BOOSKI_CALL);
@@ -763,6 +769,7 @@ test('the door sends Tony to bed after the Motel instead of straight to the Circ
     kind: 'stay',
     id: 'sleep_before_big_night',
     line: 'It is not even light out. Whatever is next can wait until I have slept.',
+    vo: 'door.refusal.sleep_after_motel',
   });
 
   // Nobody rings before he has slept.
@@ -860,6 +867,7 @@ test('the date door waits for Margo, then routes to the Silver Room', () => {
     kind: 'call',
     id: EVENT_IDS.MARGO_DATE_CALL,
     line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+    vo: 'door.refusal.date_call',
   });
 
   story.callAnswered(DATE_MARGO_CALL);
@@ -876,6 +884,7 @@ test('the date door waits for Margo, then routes to the Silver Room', () => {
     kind: 'stay',
     id: 'sleep_before_big_night',
     line: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
+    vo: 'door.refusal.sleep_after_date',
   });
 });
 
@@ -892,6 +901,66 @@ function afterTheDate(storage) {
   });
   return campaign;
 }
+
+test('SCENE 9 is owed only the night she actually came home with him', () => {
+  const campaign = afterTheDate();
+  const story = createApartmentStory({ campaign, ring: () => true });
+
+  // 'strong' outcome, but `SilverStory.complete` never ran here, so there is
+  // no `cameHome` at all yet -- and unlike `margoWakeOwed`, there is no
+  // pre-existing save to be lenient toward: this scene never shipped before.
+  assert.equal(story.margoComeHomeOwed(), false, 'no cameHome verdict yet');
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].cameHome = true;
+  });
+  assert.equal(story.margoComeHomeOwed(), true);
+  assert.equal(story.margoHomeForTheNight(), false, 'owed is not yet done');
+
+  assert.equal(story.margoComeHomeDone(), true);
+  assert.equal(story.margoComeHomeOwed(), false, 'the one-shot marker prevents replay');
+  assert.equal(story.margoHomeForTheNight(), true, 'she is in bed for the rest of the night');
+
+  // A second call is a no-op, same shape as `margoWakeDone`.
+  assert.equal(story.margoComeHomeDone(), false);
+});
+
+test('SCENE 9 never fires on a bad night, and never past the night it happened', () => {
+  const badNight = afterTheDate();
+  setSilverOutcome(badNight, 'awkward', false);
+  const badStory = createApartmentStory({ campaign: badNight, ring: () => true });
+  assert.equal(badStory.margoComeHomeOwed(), false, 'she did not come home');
+  assert.equal(badStory.margoHomeForTheNight(), false);
+
+  const goodNight = afterTheDate();
+  setSilverOutcome(goodNight, 'strong', true);
+  const goodStory = createApartmentStory({ campaign: goodNight, ring: () => true });
+  assert.equal(goodStory.margoComeHomeOwed(), true);
+
+  // Sleeping off the date turns the chapter; the come-home beat belongs to
+  // the night before, not to the morning that follows it.
+  goodStory.margoComeHomeDone();
+  assert.equal(goodStory.sleep().chapter, 'golf_morning');
+  assert.equal(goodStory.margoComeHomeOwed(), false);
+  assert.equal(goodStory.margoHomeForTheNight(), false, 'the night is over');
+});
+
+/** Set the Silver Room's outcome and cameHome verdict directly, mid-test. */
+function setSilverOutcome(campaign, outcome, cameHome) {
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].outcome = outcome;
+    state.missions[MISSION_IDS.SILVER_ROOM].cameHome = cameHome;
+  });
+}
+
+test('the come-home dialogue is cast as Margo and shares no cue names with the wake', () => {
+  assert.equal(SILVER_ROOM_COME_HOME.characterId, CHARACTER_IDS.MARGO);
+  assert.equal(SILVER_ROOM_COME_HOME.from, 'Margo');
+  assert.equal(SILVER_ROOM_COME_HOME.voiceProfile, 'margo');
+  assert.ok(SILVER_ROOM_COME_HOME.lines.length >= 1);
+  assert.equal(SILVER_ROOM_COME_HOME.lines.length, SILVER_ROOM_COME_HOME.replies.length);
+  assert.notEqual(SILVER_ROOM_COME_HOME.vo, BIG_NIGHT_MARGO_WAKE.vo);
+});
 
 test('Lou rings once on the Day 4 wake and unlocks Silver Pines', () => {
   const storage = new MemoryStorage();
@@ -955,6 +1024,7 @@ test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
     kind: 'call',
     id: EVENT_IDS.LOU_GOLF_CALL,
     line: 'Lou said he would call about this morning. I am not guessing where.',
+    vo: 'door.refusal.golf_call',
   });
 
   story.callAnswered(DAY_FOUR_LOU_GOLF_CALL);
@@ -977,6 +1047,7 @@ test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
     kind: 'call',
     id: EVENT_IDS.LOU_HEIST_CALL,
     line: 'Lou said he would call. Today is not a day to guess.',
+    vo: 'door.refusal.heist_call',
   });
   story.callAnswered(DAY_FOUR_LOU_HEIST_CALL);
   for (const item of HEIST_PREPARATION_ITEMS) story.collectHeistPreparation(item.id);

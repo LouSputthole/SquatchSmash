@@ -113,9 +113,9 @@ export const PROFILE_OF = {
   player: 'player',
   ape: 'ape',
   host: 'waiter',
-  // Recast after playtest: a distinct scene-local audition voice, not another
-  // waiter. Its ten existing waiter takes are retired until this bank is rerun.
-  manager: 'npc-male',
+  // Recast after playtest: a distinct voice, not another waiter.
+  // Owner-cast 2026-08-04, split off the shared npc-male id.
+  manager: 'manager',
   waiter: 'waiter',
   bandleader: 'waiter',
   driver: 'doorman',
@@ -314,6 +314,22 @@ export function buildScripts(ctx) {
   /* Her, on the pavement                                              */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * This tree IS the board's "tell her why you are not using the front door".
+   *
+   * It always was — her opening line is the question and three of the four
+   * replies are answers to it — but nothing anywhere in the mission ever set
+   * `flags.askedAboutFront`, so the objective could not be completed by
+   * answering her, or by anything else. It was the one line on the board with
+   * no way to cross it off, which is exactly the report: "I'm not sure how to
+   * tell her I am not using the front door."
+   *
+   * Answering is answering, whichever of the three he picks and however badly
+   * it goes — `owes` is a fumble and still scores the objective, because the
+   * objective is telling her, and Woo already has an opinion about how. Saying
+   * nothing is the one option that does not count, on purpose: it is the
+   * choice to not tell her, and it is written as one.
+   */
   const arrival = {
     open: {
       who: DATE.name,
@@ -321,11 +337,14 @@ export function buildScripts(ctx) {
         + 'clipboard, which I always think is a bit much for a supper club.',
       options: [
         { tone: 'Flat', text: 'The front’s for people waiting to get noticed.',
-          next: 'noticed', effect: () => fire('Woo.SideDoorResponse') },
+          next: 'noticed',
+          effect: () => { flags.askedAboutFront = true; fire('Woo.SideDoorResponse'); } },
         { tone: 'Simple', text: 'I like going this way.',
-          next: 'this-way', effect: () => fire('Woo.SideDoorResponse') },
+          next: 'this-way',
+          effect: () => { flags.askedAboutFront = true; fire('Woo.SideDoorResponse'); } },
         { tone: 'Name-drop', text: 'The guy on the door still owes Big Uncle Lou money.',
-          next: 'owes', effect: () => fire('Woo.SideDoorFumbled') },
+          next: 'owes',
+          effect: () => { flags.askedAboutFront = true; fire('Woo.SideDoorFumbled'); } },
         { tone: 'Nothing', text: '<em>(Just walk towards the alley.)</em>', next: 'nothing' },
       ],
     },
@@ -1857,11 +1876,34 @@ export const BARKS = {
     ['the pass', 'Heard. Heard. Two minutes on the veal.'],
     ['a cook', 'That’s not a garnish, that’s a hedge.'],
   ],
+  /* Appended for the same reason as the floor, and under the same rule. The
+   * corridor is nine metres the player walks slowly, twice. */
   corridor: [
     ['coat check', 'Ninety-one and ninety-two. No, ninety-<em>one</em>.'],
     ['a waiter', 'The four-top by the pillar wants the band’s setlist. In writing.'],
     ['a musician', '<em>(Going past with a horn case.)</em> Sorry — sorry — sorry —'],
+    ['coat check', 'It’s a fur. I’m not hanging a fur next to a wet mac, I don’t care whose it is.'],
+    ['a waiter', 'Who took the front table? Nobody took the front table. The front table walked in.'],
+    ['a porter', 'Down the middle. Down the middle! You go wide, you go through the drape.'],
   ],
+  /* The dining room is where the player spends the long half of the evening,
+   * and seven lines could not carry it — at one every twenty-eight to
+   * forty-eight seconds across the seated half, the room got through its
+   * whole vocabulary about four times over and then started again, which is
+   * the note: "the diners need different voicelines."
+   *
+   * APPENDED, never inserted. Every one of these is `vo.silver.room.floor.N`
+   * where N is its position, the recordings for the first seven exist and are
+   * indexed under those numbers, and the front-door line is addressed by index
+   * in two places — `barks()` retires it after its first airing, and the
+   * harness aims at it. Reordering this list silently reassigns seven takes to
+   * the wrong lines.
+   *
+   * Two hundred people at dinner, overheard in the middle: half of them are
+   * having a restaurant evening and half of them are having this city's
+   * evening, and nobody is explaining anything to anybody because everybody at
+   * the table already knows.
+   */
   floor: [
     ['a diner', 'He calls it a franchise. It’s a van. I’ve seen the van.'],
     ['a diner', 'And they gave him Wednesdays. Wednesdays!'],
@@ -1870,6 +1912,19 @@ export const BARKS = {
     ['a diner', 'You don’t put Big Uncle Lou on a list. Lou doesn’t wait for a table.'],
     ['a diner', 'The front door’s for civilians. That’s not me being clever, that’s the actual policy.'],
     ['a waiter', 'Front and center just went out. Somebody find out who that is.'],
+    ['a diner', 'Thirty-one years on that corner, and the son wants to put a wine list in it.'],
+    ['a diner', '<em>(Not lowering her voice even slightly.)</em> He was there. I saw him. He was at the christening.'],
+    ['a waiter', 'Nine wants dessert, eleven is still on the fish, and twelve has not decided anything since they sat down.'],
+    ['a diner', 'I don’t ask. That is the arrangement. I don’t ask, and I sleep.'],
+    ['a diner', 'Did you see the coat. Look at the coat. That is not a birthday coat.'],
+    ['a waiter', 'That’s not the good rye. Take it back, and don’t let him see you take it back.'],
+    ['a diner', 'Everybody’s a cousin. I have cousins I’ve met twice and one of them does my books.'],
+    ['a diner', 'Six weeks they told me. Six weeks, and we’re sat behind a pillar.'],
+    ['a waiter', 'Two rye, one ice. <em>One.</em> If that comes back with three in it, it’s on you.'],
+    ['a diner', 'He orders for the whole table. Every time. I have never once eaten what I wanted in this room.'],
+    ['a diner', '<em>(Halfway through a story he has plainly told before.)</em> — and the horse was fine! Nobody ever remembers that part!'],
+    ['a waiter', 'Anything they want, all night, and none of it goes on a bill. Those were the words I was given.'],
+    ['a diner', 'Ask me next week. Next week I’ll know, and then I won’t be able to tell you.'],
   ],
 };
 

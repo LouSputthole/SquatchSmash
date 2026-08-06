@@ -29,28 +29,70 @@ import { heightAt } from './field.js';
 /**
  * What each of them turned up in.
  *
+ * Four men in full traditional golf dress: an argyle sweater vest over a
+ * collared shirt, checked plus-fours gathered under the knee, argyle stockings
+ * in the vest's own colours, saddle shoes and a flat cap. It is one costume
+ * played four ways, because that is what makes a foursome look like a foursome
+ * rather than like four people who happened to arrive at the same course.
+ *
+ * The differences are all colour, and the colour is characterisation:
+ *
+ * - **Lou** is in the deepest, most expensive-looking one — bottle green and
+ *   gold, with the tweed to match. He is also the only one of the four wearing
+ *   the corno, the watch and the bracelet, because they are his and they go
+ *   where he goes; golf does not make him a different man.
+ * - **Rippinflow** is in a shirt you can see from the next fairway, which was
+ *   already the note on him and survives the change of outfit intact.
+ * - **Eric** is in the quiet one: greys, navy, nothing to look at.
+ * - **The Prospect** is in whatever the pro shop had. He has not earned a
+ *   colourway either.
+ *
  * Lou has no bandana here. Golf is not club business and the photo is
  * authoritative without it — the docs are explicit about that and this is the
  * scene where it reads most clearly: he is not working this morning.
  */
 const WARDROBE = {
   [CHARACTER_IDS.LOU]: {
-    height: 1.80, build: 1.12, dress: 'shirt', hair: 'receding',
-    shirt: 0x2f3a4e, face: 'assets/faces/lou.png', bandana: false,
+    height: 1.80, build: 1.12, dress: 'argyle', hair: 'receding',
+    shirt: 0x1f5138, shirtAccent: 0xf2efe2,
+    argyle: { a: 0xf2efe2, b: 0xe0c46a, line: 0x0b2a1c },
+    knickers: true, trouserColour: 0x7a7452, shoeStyle: 'saddle',
+    hat: 'flatcap', hatColour: 0x5e5a3e,
+    /* The jewellery is not scene dressing, it is him — same corno, same
+     * watch, same bracelet as the Bing and the mansion. */
+    chain: 'gold', chainStyle: 'single', pendant: true, pendantStyle: 'horn',
+    watch: 'gold', bracelet: 'gold',
+    skin: 0xd7a67e, hairColour: 0x17110d,
+    face: 'assets/faces/lou.png', bandana: false,
   },
   [CHARACTER_IDS.RIPPINFLOW]: {
-    /* A shirt you can see from the next fairway, which is the intention. */
-    height: 1.83, build: 1.05, dress: 'shirt', hair: 'crop',
-    shirt: 0x7b3f95, face: 'assets/faces/rippinflow.png', bandana: false,
+    height: 1.83, build: 1.05, dress: 'argyle', hair: 'crop',
+    shirt: 0x7b3f95, shirtAccent: 0xf4f1e8,
+    argyle: { a: 0xf4f1e8, b: 0xf0b83c, line: 0x37134f },
+    knickers: true, trouserColour: 0x8a7f9c, shoeStyle: 'saddle',
+    hat: 'flatcap', hatColour: 0x6a4f80,
+    /* The thin silver line and nothing hanging off it, exactly as everywhere
+     * else. A different man saying a different thing with his neck. */
+    chain: 'silver', pendant: false, watch: 'silver',
+    face: 'assets/faces/rippinflow.png', bandana: false,
   },
   [CHARACTER_IDS.ERIC]: {
-    height: 1.76, build: 0.98, dress: 'shirt', hair: 'short',
-    shirt: 0xdfe2e8, face: 'assets/faces/erican.png', bandana: false,
+    height: 1.76, build: 0.98, dress: 'argyle', hair: 'short',
+    shirt: 0x39465c, shirtAccent: 0xeceef2,
+    argyle: { a: 0xc9d3df, b: 0x8fa2bb, line: 0x161d2a },
+    knickers: true, trouserColour: 0x5c6472, shoeStyle: 'saddle',
+    hat: 'flatcap', hatColour: 0x424b5a,
+    watch: 'silver',
+    face: 'assets/faces/erican.png', bandana: false,
   },
   [CHARACTER_IDS.PROSPECT]: {
     /* No face photo and no bandana. He has not earned either. */
-    height: 1.79, build: 1.0, dress: 'shirt', hair: 'short',
-    shirt: 0x4a5260, bandana: false,
+    height: 1.79, build: 1.0, dress: 'argyle', hair: 'short',
+    shirt: 0x8a2f34, shirtAccent: 0xf0ece0,
+    argyle: { a: 0x2f6b46, b: 0xe8d9a8, line: 0x2c1a18 },
+    knickers: true, trouserColour: 0x8d8a68, shoeStyle: 'saddle',
+    hat: 'flatcap', hatColour: 0x6b6a4e,
+    bandana: false,
   },
 };
 
@@ -542,7 +584,8 @@ export class Golfer {
     this.club.rotation.set(0, 0, 0);
   }
 
-  say(secs = 2) { this.npc.say(secs); }
+  say(secs = 2, take = null) { this.npc.say(secs, take); }
+  hush() { this.npc.hush(); }
 
   faceToward(x, z, snap = false) { this.npc.faceToward(x, z, snap); }
 

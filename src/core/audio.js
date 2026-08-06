@@ -46,6 +46,12 @@ export class AudioEngine {
     this.loops = new Map();
     /** Output gain for each active one-shot source, without changing play()'s API. */
     this.playbackGains = new WeakMap();
+    /* An AnalyserNode sitting INLINE in the chain of a voice playback, so the
+     * shared mouth system (src/core/mouth.js) can open a character's mouth on
+     * the amplitude that is really reaching the speakers rather than on a
+     * timer. Weak, and keyed by the source, so it dies with the line: one
+     * analyser per line being spoken, never one per character. */
+    this.playbackAnalysers = new WeakMap();
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
     this._manifestLoadPromise = null;
@@ -239,11 +245,24 @@ export class AudioEngine {
 
   /**
    * @param {string} name  cue name, e.g. "fridge.open"
-   * @param {object} opts  { volume, rate, position: THREE.Vector3, ref, delay }
+   * @param {object} opts  { volume, rate, position: THREE.Vector3, ref, delay,
+   *                         analyse }
+   *
+   * `analyse` puts an AnalyserNode inline in this playback's own chain so
+   * something can read how loud it is, frame by frame — which is how a
+   * character's mouth is driven (src/core/mouth.js). It defaults to ON for
+   * `vo.*`, this repo's own naming convention for a spoken line, and is
+   * available explicitly for the scenes whose dialogue is not on that prefix
+   * (THE TAKE names its 112 lines `heist.*`; see ENGINE-TRAPS.md entry 4).
+   * The node is a genuine link in the audible chain, not a dangling tap, so
+   * what it measures is what the player hears.
    */
   play(name, opts = {}) {
     if (!this.ready) return null;
-    const { volume = 1, rate = 1, position = null, delay = 0, muffle = 0 } = opts;
+    const {
+      volume = 1, rate = 1, position = null, delay = 0, muffle = 0,
+      analyse = String(name).startsWith('vo.'),
+    } = opts;
 
     const out = this.ctx.createGain();
     out.gain.value = volume;
@@ -281,7 +300,22 @@ export class AudioEngine {
       const src = this.ctx.createBufferSource();
       src.buffer = bank[(Math.random() * bank.length) | 0];
       src.playbackRate.value = rate;
-      src.connect(out);
+      /* 256 samples is a fifth of a frame at 48 kHz — short enough that a
+       * consonant is not smeared into the vowel before it, long enough that
+       * the RMS of one read is a stable number. No smoothing here: the mouth
+       * does its own, and an analyser that has already smoothed is an analyser
+       * whose gaps between words have been filled in. */
+      const analyser = analyse && this.ctx.createAnalyser ? this.ctx.createAnalyser() : null;
+      if (analyser) {
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0;
+        src.connect(analyser);
+        analyser.connect(out);
+        this.playbackAnalysers.set(src, analyser);
+        this._lastVoice = { name, source: src, analyser, at: when };
+      } else {
+        src.connect(out);
+      }
       this.playbackGains.set(src, out.gain);
       const playback = {
         name,
@@ -322,6 +356,37 @@ export class AudioEngine {
     gain.setValueAtTime(gain.value, t);
     gain.linearRampToValueAtTime(Math.max(0.0001, volume), t + ramp);
     return true;
+  }
+
+  /**
+   * The AnalyserNode tapped onto a playback started with `{ analyse: true }`
+   * (or onto any `vo.*` cue, which is the default). Null for anything else —
+   * `Mouth.speak()` treats that as "no recording to read" and falls back.
+   */
+  analyserFor(source) {
+    return source ? this.playbackAnalysers.get(source) ?? null : null;
+  }
+
+  /**
+   * The voice playback that started within the last `within` seconds, if any.
+   *
+   * For the awkward but real case where the code that PLAYS a line and the
+   * code that MOVES the speaker's mouth are in different modules and cannot
+   * hand a take between them. The mansion is the one: two DialogueControllers
+   * (the cast's and PROJECT SILENT SQUATCH's) share one subtitle bar, and the
+   * mouths are driven by a wrapper on that bar rather than by either
+   * controller — see "THE MOUTHS THE MISSION MOVES" in src/mansion/cast.js.
+   *
+   * The window is what keeps it honest. Both of those calls happen in the same
+   * JS turn as the `play()` they belong to, so a quarter of a second is
+   * enormous slack; a line with no recording finds nothing here rather than
+   * inheriting the previous speaker's take. Prefer passing the take directly
+   * wherever the call sites can see each other.
+   */
+  lastVoicePlayback(within = 0.25) {
+    const last = this._lastVoice;
+    if (!last || !this.ctx) return null;
+    return this.ctx.currentTime - last.at <= within ? last : null;
   }
 
   /** Clear only transient playback evidence; never samples or active sound. */
@@ -401,6 +466,17 @@ export class AudioEngine {
     const secs = this._vo?.buffer ? this._vo.buffer.duration : 1.6;
     this._busyUntil = Math.max(this._busyUntil || 0, this.ctx.currentTime + delay + secs + 0.25);
     return true;
+  }
+
+  /**
+   * The playback `say()` most recently started, for anything that has to
+   * FOLLOW the line rather than merely start it — the mouth system above all.
+   * `say()` is a one-voice-at-a-time channel by design ("he is not a chorus"),
+   * so this is the line being spoken, not a list. Null when the group had no
+   * takes and nothing was played.
+   */
+  spokenSource() {
+    return this._vo ?? null;
   }
 
   /**
@@ -771,6 +847,63 @@ export class AudioEngine {
     if (!h || !h.filter || h.cutoff === hz) return;
     h.cutoff = hz;
     this._rampParam(h.filter.frequency, hz, ramp);
+  }
+
+  /**
+   * Re-pitch a running loop — whichever of the two things is playing it.
+   *
+   * A vehicle engine is the case this exists for. THE TAKE's escape car ran
+   * one bed at one pitch and only moved its VOLUME with speed, which is an
+   * engine getting NEARER rather than an engine working — the owner's
+   * *"engine sounds are bad"*. Pitch is what an ear reads as revs, and the
+   * Beef Run proves the point the expensive way: its two piston engines are a
+   * live oscillator graph precisely because *"pitch is an RPM readout"*.
+   *
+   * THE TRAP THIS ALMOST FELL INTO. A first cut moved `node.playbackRate` and
+   * gave up otherwise, on the assumption that a loop is a decoded sample. Two
+   * of the three loops it was written for — `heist.vehicle.engine.load` and
+   * `heist.vehicle.tires.road` — have no recording on disk and are served by
+   * `synthLoop`, whose "node" is a `{ stop() }` façade over a handful of
+   * oscillators. `playbackRate` was `undefined` on all of them, so the whole
+   * gearbox would have been a silent no-op that still passed every test.
+   *
+   * So both paths are real:
+   *
+   * - **A recorded loop** moves `playbackRate`, which shifts the whole
+   *   recording together the way a tape does.
+   * - **A synthesised loop** moves every voice off its authored frequency.
+   *   Oscillators track the rate exactly, because an oscillator *is* the note.
+   *   Noise bands travel half as far: the filter corner is the texture around
+   *   the note, and dragging it the whole way turns road roar into a kettle.
+   *
+   * Ramped through `_rampParam` like every other loop parameter, so a rate
+   * change arriving inside `startLoop`'s fade cannot stack behind it
+   * (`docs/ENGINE-TRAPS.md` entry 1).
+   *
+   * @param {string} key
+   * @param {number} rate 1 is the loop's authored pitch. Clamped to a range a
+   *   sample survives — past about 4× a loop is a whistle, not an engine.
+   * @param {number} [ramp] seconds
+   * @returns {boolean} whether anything was actually re-pitched
+   */
+  setLoopRate(key, rate, ramp = 0.12) {
+    const h = this.loops.get(key);
+    if (!h?.node) return false;
+    const sample = h.node.playbackRate;
+    const voices = h.node.voices;
+    if (!sample && !voices?.length) return false;
+    const value = Math.max(0.25, Math.min(4, rate));
+    if (h.rate === value) return true;
+    h.rate = value;
+    if (sample) {
+      this._rampParam(sample, value, ramp);
+      return true;
+    }
+    for (const voice of voices) {
+      const scale = voice.kind === 'osc' ? value : 1 + (value - 1) * 0.5;
+      this._rampParam(voice.param, Math.max(20, Math.min(18000, voice.base * scale)), ramp);
+    }
+    return true;
   }
 
   /* ---------------------------------------------------------------- */
@@ -1205,6 +1338,24 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'door.creak':
       burst(ctx, dest, t, { dur: 1.5, type: 'bandpass', freq: 640, q: 14, gain: 0.10, sweep: 0.72 });
       burst(ctx, dest, t + 0.34, { dur: 1.1, type: 'bandpass', freq: 980, q: 18, gain: 0.055, sweep: 0.8 });
+      break;
+    /* A loaded bookcase on a concealed pivot. Heavier and slower than a door
+     * -- the latch first, then a low groan that carries the weight, then the
+     * books shifting on their shelves. */
+    case 'mansion.suite.bookcase.open':
+      burst(ctx, dest, t, { dur: 0.07, type: 'bandpass', freq: 2200, q: 6, gain: 0.16 });
+      burst(ctx, dest, t + 0.06, { dur: 1.7, type: 'lowpass', freq: 420, gain: 0.13, sweep: 0.55 });
+      burst(ctx, dest, t + 0.22, { dur: 1.3, type: 'bandpass', freq: 520, q: 11, gain: 0.07, sweep: 0.75 });
+      for (let i = 0; i < 4; i++) {
+        burst(ctx, dest, t + 0.5 + i * 0.18 + Math.random() * 0.08, {
+          dur: 0.09, type: 'bandpass', freq: 1400 + Math.random() * 900, q: 4, gain: 0.05,
+        });
+      }
+      break;
+    case 'mansion.suite.bookcase.shut':
+      burst(ctx, dest, t, { dur: 1.2, type: 'bandpass', freq: 480, q: 10, gain: 0.07, sweep: 0.7 });
+      burst(ctx, dest, t + 1.05, { dur: 0.26, type: 'lowpass', freq: 190, gain: 0.24, sweep: 0.4 });
+      burst(ctx, dest, t + 1.08, { dur: 0.1, type: 'bandpass', freq: 1300, q: 3, gain: 0.06 });
       break;
     /* Mains sagging for a moment: the hum drops in pitch and comes back. No
      * click, because nothing switched. */
@@ -1852,6 +2003,41 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'mic.handle':
       burst(ctx, dest, t, { dur: 0.12, type: 'lowpass', freq: 260, gain: 0.20 });
       break;
+    /* `applause` also plays as a ONE-SHOT (`Performance.applaud()` calls
+     * both `audio.play('applause', ...)` and `startLoop('applause', ...)`).
+     * The loop's own fallback is `synthLoop`'s case below; without this one
+     * the one-shot fell through to the generic default tick, which is what
+     * every one-shot round of applause in the room sounded like before a
+     * recording existed. */
+    case 'applause':
+      burst(ctx, dest, t, { dur: 1.8, type: 'bandpass', freq: 1900, q: 0.5, gain: 0.22, sweep: 0.7 });
+      burst(ctx, dest, t + 0.02, { dur: 1.5, type: 'highpass', freq: 4600, q: 0.4, gain: 0.12, sweep: 0.6 });
+      break;
+    /* -------- The Word From The Violinist -------- */
+    case 'crowd.whistle':
+      // One sharp two-fingered whistle: up on the intake, down on the note.
+      tone(ctx, dest, t, { freq: 1600, to: 3200, dur: 0.35, gain: 0.14, type: 'sine' });
+      tone(ctx, dest, t + 0.32, { freq: 3100, to: 1500, dur: 0.55, gain: 0.11, type: 'sine' });
+      break;
+    case 'crowd.laughter': {
+      // Several distinct "ha" pulses rather than one wash, easing off at the end.
+      const HA = [0, 0.16, 0.30, 0.48, 0.66, 0.90, 1.2];
+      for (let i = 0; i < HA.length; i++) {
+        burst(ctx, dest, t + HA[i], {
+          dur: 0.14 + (i % 2) * 0.03, type: 'bandpass', freq: 700 + (i % 3) * 220, q: 1.4,
+          gain: 0.10 * (1 - i / (HA.length + 2)), sweep: 0.6,
+        });
+      }
+      break;
+    }
+    case 'band.rimshot':
+      // Ba-dum-tss: two tight snare cracks, then the cymbal wash.
+      burst(ctx, dest, t, { dur: 0.05, type: 'bandpass', freq: 1700, q: 2.2, gain: 0.30 });
+      tone(ctx, dest, t, { freq: 210, to: 90, dur: 0.06, gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + 0.16, { dur: 0.05, type: 'bandpass', freq: 1700, q: 2.2, gain: 0.30 });
+      tone(ctx, dest, t + 0.16, { freq: 210, to: 90, dur: 0.06, gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + 0.32, { dur: 0.55, type: 'highpass', freq: 5200, q: 0.5, gain: 0.16, sweep: 0.5 });
+      break;
     case 'camera.flash':
       burst(ctx, dest, t, { dur: 0.05, type: 'highpass', freq: 3600, gain: 0.16 });
       tone(ctx, dest, t + 0.04, { freq: 1400, to: 4200, dur: 0.6, gain: 0.03, type: 'sine' });
@@ -2017,6 +2203,116 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t + r(0.05), { dur: r(0.24), type: 'highpass', freq: 3100, q: 0.8, gain: 0.12, sweep: 0.54 });
       break;
 
+    /* -------- The Enola Squatch's tail gun --------
+     *
+     * Owner playtest, 2026-08-04: "better bigger machine guns sounds for the
+     * rear gun." The rear turret was playing `gun.shot` — the apartment's
+     * REVOLVER, a single indoor pistol crack with a room slap on it — eleven
+     * times a second out of a pair of half-inch belt-fed guns at four thousand
+     * feet. It sounded like somebody shooting a pistol into a bathroom.
+     *
+     * A heavy aircraft gun is a different animal and is three things a
+     * revolver is not: an enormous low thump you feel before you hear it, a
+     * hard supersonic crack riding on top, and — the part that actually makes
+     * it read as a MACHINE gun — the mechanism, a big reciprocating bolt
+     * slamming in a steel receiver a foot from the gunner's head. There is no
+     * room tail, because there is no room; what comes back instead is the
+     * slipstream, which is the wide, short noise wash at the end.
+     */
+    case 'enolasquatch.gun.rear':
+      // The thump. Two low sines an octave apart so it has weight without mud.
+      tone(ctx, dest, t, { freq: 88, to: 34, dur: r(0.20), gain: 0.62, type: 'sine' });
+      tone(ctx, dest, t + r(0.004), { freq: 172, to: 62, dur: r(0.13), gain: 0.34, type: 'triangle' });
+      // The crack, off the muzzle: brief, bright, and much louder than a pistol.
+      burst(ctx, dest, t, { dur: r(0.026), type: 'highpass', freq: 2400, gain: 1.0 });
+      burst(ctx, dest, t + r(0.003), { dur: r(0.16), type: 'lowpass', freq: 280, gain: 0.92, sweep: 0.30 });
+      // The receiver: bolt back, bolt home. This is the machine part.
+      burst(ctx, dest, t + r(0.030), { dur: r(0.05), type: 'bandpass', freq: 640, q: 3.4, gain: 0.30, sweep: 0.5 });
+      burst(ctx, dest, t + r(0.062), { dur: r(0.04), type: 'bandpass', freq: 1250, q: 5.0, gain: 0.22 });
+      // Brass on the chute, because the chute is right there.
+      burst(ctx, dest, t + r(0.09), { dur: r(0.05), type: 'bandpass', freq: 3400, q: 4.5, gain: 0.09 });
+      // Slipstream wash rather than a room tail.
+      burst(ctx, dest, t + r(0.02), { dur: r(0.34), type: 'bandpass', freq: 760, q: 0.5, gain: 0.16, sweep: 0.55 });
+      break;
+    /* The same guns heard from the flight deck, thirteen metres up the
+     * fuselage with the Shubenator working them: all the low end, none of the
+     * mechanism, and a duller crack. Played instead of the close cue whenever
+     * the player is NOT in the turret, so the gun sounds like it is somewhere
+     * else in the aeroplane — which it is. */
+    case 'enolasquatch.gun.rear.cabin':
+      tone(ctx, dest, t, { freq: 76, to: 30, dur: r(0.26), gain: 0.44, type: 'sine' });
+      burst(ctx, dest, t + r(0.004), { dur: r(0.20), type: 'lowpass', freq: 210, gain: 0.50, sweep: 0.26 });
+      burst(ctx, dest, t + r(0.01), { dur: r(0.09), type: 'bandpass', freq: 520, q: 1.1, gain: 0.16, sweep: 0.4 });
+      burst(ctx, dest, t + r(0.05), { dur: r(0.30), type: 'lowpass', freq: 900, q: 0.5, gain: 0.07, sweep: 0.5 });
+      break;
+
+    /* -------- the Silver Room's kitchen, and its dining room --------
+     *
+     * The extraction bed (`ambience.kitchen`) is the thing everybody shouts
+     * over; these are the work happening under it. A kitchen reads as a
+     * kitchen because of steel landing on steel at irregular intervals, not
+     * because of a louder hum -- so these are all one-shots, rationed and
+     * positioned by the scene, in the way `kitchen.pan` and `kitchen.plate`
+     * already were and were the only two of.
+     */
+    case 'kitchen.clatter':
+      // A stack of pans finding its own level. Three knocks, none of them even.
+      burst(ctx, dest, t, { dur: r(0.05), type: 'bandpass', freq: 2600, q: 3.4, gain: 0.24, sweep: 0.5 });
+      tone(ctx, dest, t + r(0.004), { freq: 640, to: 300, dur: r(0.13), gain: 0.13, type: 'triangle' });
+      burst(ctx, dest, t + r(0.07), { dur: r(0.06), type: 'bandpass', freq: 1850, q: 2.6, gain: 0.17, sweep: 0.56 });
+      burst(ctx, dest, t + r(0.16), { dur: r(0.09), type: 'bandpass', freq: 3300, q: 2.0, gain: 0.11, sweep: 0.62 });
+      tone(ctx, dest, t + r(0.17), { freq: 880, to: 410, dur: r(0.18), gain: 0.07, type: 'sine' });
+      break;
+    case 'kitchen.chop':
+      // A knife through something soft onto a board: the board is the sound.
+      burst(ctx, dest, t, { dur: r(0.018), type: 'highpass', freq: 3200, q: 0.8, gain: 0.14 });
+      tone(ctx, dest, t + r(0.004), { freq: 196, to: 92, dur: r(0.09), gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + r(0.01), { dur: r(0.07), type: 'lowpass', freq: 700, q: 0.9, gain: 0.12, sweep: 0.45 });
+      break;
+    case 'kitchen.oven':
+      // A heavy door on a sprung hinge, and the latch after it.
+      burst(ctx, dest, t, { dur: r(0.12), type: 'bandpass', freq: 420, q: 1.1, gain: 0.20, sweep: 0.4 });
+      tone(ctx, dest, t + r(0.02), { freq: 128, to: 58, dur: r(0.24), gain: 0.26, type: 'triangle' });
+      burst(ctx, dest, t + r(0.20), { dur: r(0.04), type: 'bandpass', freq: 2400, q: 4.0, gain: 0.13 });
+      break;
+    case 'kitchen.ticket':
+      // The printer at the pass. Two chirps and a tear, which is the whole job.
+      tone(ctx, dest, t, { freq: 1580, dur: r(0.035), gain: 0.10, type: 'square' });
+      tone(ctx, dest, t + r(0.06), { freq: 1860, dur: r(0.035), gain: 0.09, type: 'square' });
+      burst(ctx, dest, t + r(0.13), { dur: r(0.11), type: 'highpass', freq: 3600, q: 0.7, gain: 0.10, sweep: 0.7 });
+      break;
+
+    /* The floor. Under the band and under the conversation, so every one of
+     * these is quiet and short: the note was "not overbearing", and a dining
+     * room that competes with the table it is dressing is worse than a silent
+     * one. */
+    case 'dining.cutlery':
+      // Fork set down on a plate, not dropped on one.
+      burst(ctx, dest, t, { dur: r(0.03), type: 'bandpass', freq: 3400, q: 3.8, gain: 0.10, sweep: 0.6 });
+      tone(ctx, dest, t + r(0.006), { freq: 1240, to: 760, dur: r(0.10), gain: 0.055, type: 'sine' });
+      break;
+    case 'dining.glass.clink':
+      // Two glasses meeting, briefly, somewhere else in the room.
+      tone(ctx, dest, t, { freq: 2350, dur: r(0.20), gain: 0.075, type: 'sine' });
+      tone(ctx, dest, t + r(0.008), { freq: 3520, dur: r(0.13), gain: 0.038, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.02), type: 'highpass', freq: 5200, q: 0.8, gain: 0.05 });
+      break;
+    case 'dining.chair':
+      // A chair taking somebody's weight on carpet. Mostly cloth and frame.
+      burst(ctx, dest, t, { dur: r(0.26), type: 'lowpass', freq: 340, q: 0.7, gain: 0.09, sweep: 0.55 });
+      tone(ctx, dest, t + r(0.03), { freq: 92, to: 62, dur: r(0.20), gain: 0.07, type: 'triangle' });
+      break;
+
+    /* Somebody asleep in the next room, from the doorway. Deliberately at the
+     * bottom of the mix: the note asked for "a low key snore", which is a
+     * person breathing and not a comedy sound effect. One slow intake, one
+     * slower release, both nose rather than throat. */
+    case 'margo.snore':
+      burst(ctx, dest, t, { dur: r(0.62), type: 'bandpass', freq: 176, q: 1.6, gain: 0.085, sweep: 1.28 });
+      tone(ctx, dest, t + r(0.05), { freq: 78, to: 96, dur: r(0.52), gain: 0.045, type: 'triangle' });
+      burst(ctx, dest, t + r(0.86), { dur: r(0.74), type: 'lowpass', freq: 260, q: 0.8, gain: 0.05, sweep: 0.5 });
+      break;
+
     default:
       // Unknown cue: a soft neutral tick rather than silence, which makes
       // missing wiring obvious during development without being ugly.
@@ -2024,10 +2320,20 @@ function synth(engine, name, dest, t, rate = 1) {
   }
 }
 
-/** Looping fallback beds. Returns a node (or array of nodes) with stop(). */
+/**
+ * Looping fallback beds. Returns a node-shaped façade with `stop()`.
+ *
+ * It also carries `voices`: every oscillator frequency and every filter corner
+ * this bed was authored with, paired with the value it was authored AT. That
+ * list is the only way `AudioEngine.setLoopRate` can re-pitch a bed that has
+ * no recording behind it — a synth loop has no `playbackRate`, and a vehicle
+ * engine that cannot change pitch is a volume knob pretending to be an engine.
+ * Every bed gets the list; only the ones somebody calls `setLoopRate` on move.
+ */
 function synthLoop(engine, name, dest) {
   const ctx = engine.ctx;
   const nodes = [];
+  const voices = [];
 
   const noise = (filterType, freq, q, gain) => {
     const src = ctx.createBufferSource();
@@ -2044,6 +2350,7 @@ function synthLoop(engine, name, dest) {
     g.connect(dest);
     src.start();
     nodes.push(src);
+    voices.push({ kind: 'noise', param: f.frequency, base: freq });
     return { f, g };
   };
 
@@ -2057,6 +2364,7 @@ function synthLoop(engine, name, dest) {
     g.connect(dest);
     o.start();
     nodes.push(o);
+    voices.push({ kind: 'osc', param: o.frequency, base: freq });
     return o;
   };
 
@@ -2171,6 +2479,36 @@ function synthLoop(engine, name, dest) {
       noise('bandpass', 900, 1.4, 0.20);
       noise('lowpass', 260, 0.7, 0.14);
       break;
+    /* -------- the mansion's third floor -------- */
+    case 'mansion.suite.tone':
+      /* A big warm room with the air on: almost nothing, and deliberately
+       * quieter than the cellar's. Two sines a semitone apart beat slowly
+       * against each other, which is what plant in a duct actually does. */
+      noise('lowpass', 300, 0.7, 0.030);
+      osc('sine', 84, 0.014);
+      osc('sine', 84.7, 0.010);
+      noise('highpass', 6400, 2.0, 0.006);
+      break;
+    case 'mansion.suite.hottub': {
+      /* BUBBLING = FILTERED NOISE, and the LFO is what makes it bubbles
+       * rather than a hiss. A hot tub is a broad wet churn with a bright
+       * surface on top of it, and the surface SWELLS -- jets in a bowl beat
+       * against each other at well under a hertz. So: three noise bands for
+       * the body, and a slow sine on the brightest one's gain. */
+      noise('lowpass', 240, 0.8, 0.11);
+      noise('bandpass', 780, 1.1, 0.075);
+      const surface = noise('bandpass', 2400, 0.7, 0.05);
+      const swell = ctx.createOscillator();
+      swell.type = 'sine';
+      swell.frequency.value = 0.37;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.028;
+      swell.connect(depth);
+      depth.connect(surface.g.gain);
+      swell.start();
+      nodes.push(swell);
+      break;
+    }
     case 'radio.cut':
       // A transmission stepping on itself: full-level broadband hiss with no
       // attack, so it lands on the same frame the music stops.
@@ -2370,11 +2708,38 @@ function synthLoop(engine, name, dest) {
       noise('highpass', 4600, 0.4, 0.16);
       break;
 
+    /* Two beds that sit UNDER ones that already exist rather than replacing
+     * them. `ambience.kitchen` is the extraction fan and nothing else, and
+     * `ambience.diners` is the wash of two hundred people; what neither of
+     * them had was the thing being done in the room. */
+    case 'ambience.kitchen.line':
+      /* Gas under a row of pans: a burner's roar is low broadband, and the
+       * simmer on top of it is a narrow band of bubbling well above it.
+       * Slowly detuned against itself so the two never phase-lock into a
+       * single held note, which is what makes a bed sound like a synthesiser. */
+      noise('lowpass', 210, 0.9, 0.16);
+      noise('bandpass', 640, 1.4, 0.055);
+      noise('bandpass', 3100, 2.4, 0.030);
+      noise('highpass', 6400, 0.9, 0.018);
+      osc('sine', 61.5, 0.020);
+      break;
+    case 'ambience.diners.chatter':
+      /* Conversation heard through other conversation. The band is 200-3000Hz
+       * and the date is sitting in it, so this is deliberately narrower and
+       * lower than `ambience.diners` -- it occupies the vowel range and leaves
+       * the consonants, which is exactly what a room of talking sounds like
+       * from four tables away and is why nothing in it is intelligible. */
+      noise('bandpass', 300, 1.8, 0.105);
+      noise('bandpass', 720, 2.2, 0.052);
+      noise('bandpass', 1650, 1.6, 0.020);
+      break;
+
     default:
       noise('lowpass', 400, 0.5, 0.12);
   }
 
   return {
+    voices,
     stop() {
       for (const n of nodes) {
         try { n.stop(); } catch { /* already stopped */ }

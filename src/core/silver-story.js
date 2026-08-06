@@ -93,6 +93,17 @@ class SilverStory {
        * front door congratulating him on a night that did not go well. */
       done.seeingHerAgain = report.seeingHerAgain === true;
       done.knowsWhatHeDoes = report.date?.knowsWhatHeDoes === true;
+      /* SHE CAME BACK WITH HIM, or she did not.
+       *
+       * `src/silver/mission.js` has computed this since the mission shipped
+       * -- `['perfect', 'strong'].includes(outcome)` -- and NOTHING IN THE
+       * REPO HAS EVER READ IT. It was dropped right here, at the seam, so the
+       * apartment had no way to know how the evening ended and put her in his
+       * bed on the strength of the chapter alone. She was there after a night
+       * that went badly, and she was there after a night he walked out of.
+       *
+       * Owner: "She needs to come home with you". First she has to have. */
+      done.cameHome = report.cameHome === true;
     });
     this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SILVER_ROOM);
     return true;

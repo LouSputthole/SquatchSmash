@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mansion Under Siege — SquatchSmash</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+<style>
+  :root {
+    --gold: #e8c268;
+    --gold-bright: #ffe4a0;
+    --gold-deep: #8a6a1e;
+    --marble: #cfd4e0;
+    --night: #05060a;
+    --panel: rgba(10, 10, 16, .74);
+    --chrome: #b7c0cf;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--night); }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none; color: #f2eee1;
+  }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+
+  .boot-failure {
+    position: fixed; inset: 0; z-index: 100; display: grid; place-content: center;
+    gap: 14px; padding: 32px; text-align: center; background: rgba(5, 6, 10, .97);
+  }
+  .boot-failure[hidden] { display: none; }
+  .boot-failure strong { font-size: 30px; color: var(--gold-bright); }
+  .boot-failure span { max-width: 620px; line-height: 1.55; color: var(--marble); }
+  .boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+  .boot-failure button, .boot-failure a {
+    border: 1px solid var(--gold); border-radius: 6px; padding: 10px 16px;
+    background: #14120c; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+  }
+
+  /* ---------------- Crosshair (purely visual, no JS wiring) ---------------- */
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%; background: rgba(242, 238, 225, .82);
+    box-shadow: 0 0 3px rgba(0, 0, 0, .8); pointer-events: none; z-index: 4;
+  }
+
+  /* ---------------- Interaction prompt ---------------- */
+  #prompt {
+    position: fixed; bottom: 108px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; padding: 9px 18px 9px 12px;
+    background: var(--panel); border: 1px solid rgba(232, 194, 104, .38); border-radius: 10px;
+    backdrop-filter: blur(2px); z-index: 5; max-width: min(64vw, 560px);
+  }
+  #promptKey {
+    flex: 0 0 auto; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px;
+    background: rgba(232, 194, 104, .16); border: 1px solid var(--gold);
+    display: grid; place-items: center; font-size: 13px; font-weight: 900; color: var(--gold-bright);
+  }
+  #promptLabel { font-size: 15px; line-height: 1.35; color: #f2eee1; }
+  #promptLabel b { color: var(--gold-bright); }
+  #promptHoldBar {
+    position: absolute; left: 12px; right: 12px; bottom: -6px; height: 4px; border-radius: 2px;
+    background: rgba(255, 255, 255, .12); overflow: hidden;
+  }
+  #promptHold { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
+
+  /* ---------------- Ammunition counter (basement armory) ----------------
+   * Bottom right, out of the subtitle line's way, and only on screen when
+   * there is something in the player's hands. `#reticle` is the aiming mark
+   * that replaces the passive dot while armed. */
+  #ammo {
+    position: fixed; right: 26px; bottom: 26px; z-index: 5; text-align: right;
+    padding: 10px 16px; border-radius: 10px;
+    background: var(--panel); border: 1px solid rgba(232, 194, 104, .34);
+    backdrop-filter: blur(2px); pointer-events: none;
+  }
+  #ammoName {
+    display: block; font-size: 11px; letter-spacing: 2.4px; font-weight: 800;
+    color: var(--chrome); margin-bottom: 2px;
+  }
+  #ammoCount { display: block; font-size: 34px; font-weight: 900; line-height: 1; color: #f2eee1; }
+  #ammoMag { color: var(--gold-bright); }
+  #ammoCount .slash { color: rgba(242, 238, 225, .38); margin: 0 3px; font-size: 24px; }
+  #ammoReserve { font-size: 21px; color: rgba(242, 238, 225, .66); }
+  #ammoState {
+    display: block; font-size: 11px; letter-spacing: 2.4px; font-weight: 800;
+    color: var(--gold-bright); min-height: 13px; margin-top: 3px;
+  }
+  #ammo.dry #ammoMag { color: #e6663c; }
+  #reticle {
+    position: fixed; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+    pointer-events: none; z-index: 4;
+  }
+  #reticle::before, #reticle::after {
+    content: ''; position: absolute; background: rgba(242, 238, 225, .8);
+    box-shadow: 0 0 3px rgba(0, 0, 0, .9);
+  }
+  #reticle::before { left: 50%; top: 0; width: 1px; height: 22px; margin-left: -.5px; }
+  #reticle::after { top: 50%; left: 0; height: 1px; width: 22px; margin-top: -.5px; }
+
+  /* ---------------- Start / menu overlay ---------------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; overflow-y: auto;
+    background:
+      radial-gradient(ellipse at 50% 28%, rgba(90, 68, 18, .35), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(20, 30, 46, .55), transparent 55%),
+      var(--night);
+    padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  .kicker { font-size: 13px; letter-spacing: 8px; color: var(--chrome); font-weight: 800; }
+  .title {
+    font-size: clamp(38px, 8vw, 84px); font-weight: 900; letter-spacing: 1px;
+    color: var(--gold-bright);
+    text-shadow: 0 0 30px rgba(232, 194, 104, .45), 0 6px 0 #2a2008;
+    margin: 6px 0 10px;
+  }
+  .sub { font-size: 17px; color: #d7d2c4; margin-bottom: 20px; max-width: 640px; }
+  .panel {
+    background: rgba(255, 255, 255, .05); border: 1px solid rgba(232, 194, 104, .3); border-radius: 12px;
+    padding: 14px 22px; font-size: 14px; line-height: 1.85; text-align: left; color: #e6e1d2;
+    max-width: 460px; margin-bottom: 22px;
+  }
+  .panel h3 { font-size: 12px; letter-spacing: 3px; color: var(--gold-bright); margin-bottom: 6px; }
+  .panel b { color: var(--gold); display: inline-block; min-width: 96px; }
+  .btn {
+    font-size: 21px; font-weight: 900; letter-spacing: 1px; padding: 13px 40px; border-radius: 12px;
+    border: none; cursor: pointer; color: #191204; font-family: inherit;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    box-shadow: 0 5px 0 var(--gold-deep), 0 8px 20px rgba(0, 0, 0, .55); transition: transform .08s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--gold-deep); }
+  .btn.alt {
+    background: linear-gradient(180deg, #d7dce6, var(--chrome));
+    box-shadow: 0 5px 0 #5c6472, 0 8px 20px rgba(0, 0, 0, .55);
+  }
+  .btn.small { font-size: 15px; padding: 9px 22px; margin-top: 8px; }
+
+  /* ---------------- Siege HUD ---------------- */
+  #objective {
+    position: fixed; top: 26px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 22px; background: rgba(10, 10, 16, .66);
+    border: 1px solid rgba(255, 45, 24, .5); border-left-width: 3px; border-right-width: 3px;
+    border-radius: 8px; z-index: 6; pointer-events: none; text-align: center;
+    max-width: min(72vw, 620px);
+  }
+  #objective[hidden] { display: none; }
+  #objectiveKicker {
+    font-size: 11px; letter-spacing: .22em; color: #ff8a72; font-weight: 900;
+  }
+  #objectiveText { font-size: 18px; font-weight: 700; color: #fff; line-height: 1.3; }
+  /* The directional half. Deliberately quieter than the objective itself --
+   * it answers "which way", and a player who already knows should be able to
+   * ignore it without it shouting. */
+  #objectiveHint {
+    font-size: 13px; font-weight: 600; color: rgba(242, 238, 225, .72);
+    line-height: 1.35; max-width: 52ch;
+  }
+  #objectiveHint[hidden] { display: none; }
+  /* THE NUDGE. The same line, borrowed for a few seconds to answer a key the
+   * player just pressed that did nothing. It has to out-shout its own quiet
+   * default -- the whole point is that something visibly happened -- so it
+   * goes warm, bold and full brightness for as long as it is up. */
+  #objectiveHint.nudge {
+    color: #ffd08a; font-weight: 800; font-size: 14px;
+  }
+  #objective.done #objectiveKicker { color: #9fe08a; }
+  #objective.done { border-color: rgba(159, 224, 138, .5); }
+
+  /* ---------------- Subtitles ----------------
+   * One bar, bottom centre, above the ammunition counter's line. Every
+   * spoken line in the mission plays through this: the recordings are not
+   * made yet (see docs/ENGINE-TRAPS.md #3 on why that must be visible rather
+   * than silent), so for now the subtitle IS the performance. */
+  #subtitle {
+    position: fixed; bottom: 116px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 10px 22px; background: rgba(6, 7, 11, .8);
+    border-left: 3px solid var(--gold); border-radius: 6px; z-index: 7;
+    pointer-events: none; text-align: center; max-width: min(78vw, 720px);
+  }
+  #subtitle[hidden] { display: none; }
+  #subtitleWho {
+    font-size: 11px; letter-spacing: .2em; font-weight: 900; color: var(--gold-bright);
+  }
+  #subtitleText { font-size: 17px; line-height: 1.4; color: #f4f1e6; }
+
+  #waveCount {
+    position: fixed; top: 26px; right: 26px; padding: 8px 14px;
+    background: rgba(10, 10, 16, .66); border: 1px solid rgba(255, 45, 24, .38);
+    border-radius: 8px; z-index: 6; pointer-events: none;
+    font-size: 13px; letter-spacing: .12em; color: var(--marble);
+  }
+  #waveCount[hidden] { display: none; }
+  #waveCount b { color: #ff8a72; font-size: 19px; }
+
+  #checkpoint {
+    position: fixed; bottom: 168px; left: 50%; transform: translateX(-50%);
+    padding: 7px 18px; background: rgba(10, 10, 16, .74);
+    border: 1px solid rgba(232, 194, 104, .5); border-radius: 20px; z-index: 6;
+    font-size: 12px; letter-spacing: .2em; color: var(--gold-bright);
+    pointer-events: none; opacity: 0; transition: opacity .4s ease;
+  }
+  #checkpoint.show { opacity: 1; }
+
+  /* The alarm's own light on the edges of the screen, driven from JS so it
+   * stays in step with the klaxon rather than running its own CSS clock. */
+  #alarmWash {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center,
+      rgba(255, 45, 24, 0) 42%, rgba(255, 45, 24, .34) 100%);
+  }
+
+  /* Somebody on the floor within reach, and the hold that picks him up. */
+  #helping {
+    position: fixed; bottom: 210px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 9px 20px; background: rgba(10, 10, 16, .74);
+    border: 1px solid rgba(255, 90, 70, .55); border-radius: 10px; z-index: 6;
+    pointer-events: none; text-align: center;
+  }
+  #helping[hidden] { display: none; }
+  #helping .who { font-size: 15px; font-weight: 700; color: #ffb4a0; }
+  #helping .who b { color: #fff; }
+  #helping .track {
+    width: 190px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .16);
+    overflow: hidden;
+  }
+  #helpingBar { height: 100%; width: 0%; background: #ff8a72; }
+
+  #damageWash {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center,
+      rgba(120, 0, 0, 0) 30%, rgba(150, 8, 8, .8) 100%);
+    transition: opacity .18s ease;
+  }
+
+  /* ---------------- The end of the mission ----------------
+   * An honest card. The siege hands the Prospect to Captain Sasole and the
+   * campaign's next scene is THE ENOLA SQUATCH -- which exists, and which
+   * nothing yet loads FROM here, because the campaign wiring between the two
+   * has not been written. Saying so on the card is better than a fade to
+   * black that reads as a crash. */
+  #missionCard { z-index: 12; }
+  #missionCard .kicker { color: #9fe08a; }
+  #missionCard .title { color: #dff3d3; text-shadow: 0 0 30px rgba(120, 200, 110, .35), 0 6px 0 #14230f; }
+  #missionCard .note {
+    font-size: 13px; line-height: 1.7; color: #b9c2d4; max-width: 520px;
+    border: 1px dashed rgba(185, 194, 212, .38); border-radius: 10px;
+    padding: 12px 18px; margin-bottom: 20px;
+  }
+  #missionCard .note b { color: var(--gold-bright); }
+  #missionCard .exits { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  #missionTally {
+    display: flex; gap: 26px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px;
+  }
+  #missionTally div { text-align: center; }
+  #missionTally b { display: block; font-size: 30px; font-weight: 900; color: var(--gold-bright); }
+  #missionTally span { font-size: 11px; letter-spacing: .18em; color: var(--chrome); }
+</style>
+</head>
+<body>
+  <div id="alarmWash"></div>
+  <div id="damageWash"></div>
+  <div id="crosshair"></div>
+
+  <div id="objective" hidden>
+    <span id="objectiveKicker">OBJECTIVE</span>
+    <span id="objectiveText"></span>
+    <span id="objectiveHint" hidden></span>
+  </div>
+
+  <div id="waveCount" hidden><b id="waveRemaining">0</b> <span id="waveLabel">ATTACKERS</span></div>
+
+  <div id="subtitle" hidden>
+    <span id="subtitleWho"></span>
+    <span id="subtitleText"></span>
+  </div>
+
+  <div id="checkpoint">CHECKPOINT</div>
+
+  <div id="helping" hidden>
+    <span class="who">Hold <b>E</b> &mdash; get <b id="helpingName"></b> off the floor</span>
+    <span class="track"><span id="helpingBar"></span></span>
+  </div>
+
+  <div id="prompt" class="hidden">
+    <span id="promptKey">E</span>
+    <span id="promptLabel"></span>
+    <div id="promptHoldBar"><div id="promptHold"></div></div>
+  </div>
+
+  <div id="reticle" class="hidden"></div>
+
+  <div id="ammo" class="hidden">
+    <span id="ammoName"></span>
+    <span id="ammoCount"><b id="ammoMag">0</b><span class="slash">/</span><span id="ammoReserve">0</span></span>
+    <span id="ammoState"></span>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="kicker">SQUATCH LIFE &middot; THE NIGHT THE FINALE STARTS</div>
+    <div class="title">MANSION UNDER SIEGE</div>
+    <div class="sub">
+      You stayed the night at Lou&rsquo;s. Something woke you up, and it was not the alarm &mdash;
+      the alarm came second. There are cars burning in the forecourt, men in the cellar
+      corridor, and a pistol on the nightstand. The armory is at the far end of the hall.
+      Get to it, get upstairs, and hold the house.
+    </div>
+    <div class="panel">
+      <h3>CONTROLS</h3>
+      <div><b>WASD</b> Move &nbsp;&middot;&nbsp; <b>Mouse</b> Look (click to capture)</div>
+      <div><b>Shift</b> Sprint &nbsp;&middot;&nbsp; <b>C</b> Crouch &nbsp;&middot;&nbsp; <b>Space</b> Jump</div>
+      <div><b>Left mouse</b> Fire &nbsp;&middot;&nbsp; <b>R</b> Reload &nbsp;&middot;&nbsp; <b>1&ndash;5</b> Weapon</div>
+      <div><b>E</b> Take a weapon off the rack &nbsp;&middot;&nbsp; <b>Q</b> Put it back</div>
+      <div><b>E / Click</b> Talk, use, interact &nbsp;&middot;&nbsp; <b>Hold E</b> Pick somebody up</div>
+      <div><b>F</b> Say it &mdash; once, from the rail, with the belt-fed up</div>
+      <div><b>Enter</b> Skip a line &nbsp;&middot;&nbsp; <b>Tab</b> Pause &nbsp;&middot;&nbsp; <b>Esc</b> Release mouse</div>
+    </div>
+    <div id="checkpointTag" class="panel" hidden style="margin-bottom:16px"></div>
+    <button id="startBtn" class="btn">WAKE UP</button>
+    <a href="./mansion.html" class="btn alt small" style="text-decoration:none; display:inline-block;">THE HOUSE, QUIET</a>
+  </div>
+
+  <div id="missionCard" class="overlay hidden">
+    <div class="kicker">MANSION UNDER SIEGE</div>
+    <div class="title">THE HOUSE HELD</div>
+    <div class="sub">
+      Twenty-two of them came up the drive and none of them left. The alarm is off, the
+      fires are still going, and Captain Lou Sasole is on the landing with a job that
+      starts at first light.
+    </div>
+    <!-- The denominators are filled in by main.js from the wave table and the
+         roster rather than typed here, so a card that says "of 27" is saying
+         it because the mission really did send 27 men up the drive. -->
+    <div id="missionTally">
+      <div><b id="tallyAttackers">0</b><span id="tallyAttackersOf">ATTACKERS DOWN</span></div>
+      <div><b id="tallyFamily">0</b><span id="tallyFamilyOf">FAMILY ALIVE</span></div>
+      <div><b id="tallyGlass">0</b><span>WINDOWS OUT</span></div>
+    </div>
+    <div class="note">
+      <b>This is where the preview stops.</b> In the campaign the Prospect goes straight
+      from this landing to <b>THE ENOLA SQUATCH</b> — but nothing loads that scene from
+      here yet, because the campaign wiring between the two missions has not been written.
+      Sasole&rsquo;s handoff is authored, played and honest; the aeroplane is a separate
+      page until somebody joins them up.
+    </div>
+    <div class="exits">
+      <a href="./index.html" class="btn small" style="text-decoration:none; display:inline-block;">HOME &mdash; THE APARTMENT</a>
+      <a href="./mansion.html" class="btn alt small" style="text-decoration:none; display:inline-block;">THE HOUSE, QUIET</a>
+      <a href="./enolasquatch.html" class="btn alt small" style="text-decoration:none; display:inline-block;">THE ENOLA SQUATCH (STANDALONE)</a>
+      <button id="replayBtn" type="button" class="btn alt small">PLAY IT AGAIN</button>
+    </div>
+  </div>
+
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong>
+    <span data-boot-detail></span>
+    <div class="actions">
+      <button type="button" data-boot-reload>RELOAD</button>
+      <a href="./index.html">APARTMENT</a>
+    </div>
+  </div>
+
+  <script src="./src/core/boot-guard.js"
+    data-target="bootFailure"
+    data-ready="mansionSiege"
+    data-scene="Mansion Under Siege"></script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+  <script type="module" src="./src/mansion/siege/main.js"
+    onerror="window.__squatchSceneFail('Could not load the scene', 'src/mansion/siege/main.js failed to load.')"></script>
+</body>
+</html>

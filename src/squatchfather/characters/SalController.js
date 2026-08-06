@@ -37,7 +37,8 @@ export class SalController {
     return new THREE.Vector3(POS.salSeat.x, 1.47, POS.salSeat.z - 0.02);
   }
 
-  speak(dur) { this.fig.speak(dur); }
+  speak(dur, take = null) { this.fig.speak(dur, take); }
+  hush() { this.fig.hush(); }
   gesture(name, dur) { this.fig.playGesture(name, dur); }
   lean(on) { this.fig.leanForward(on); }
   lookAt(p) { this.fig.lookAt(p); }

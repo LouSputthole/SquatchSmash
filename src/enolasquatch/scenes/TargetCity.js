@@ -20,13 +20,19 @@
  *                          painted once into one canvas (districts, roads,
  *                          rail, park, docks, river)
  *   1  river              one strip following the carved channel
- *   1  tower blocks       InstancedMesh — downtown, mid-rise, warehouses and
- *                          factory sheds, one shared night-window texture
+ *   6  tower blocks       ONE InstancedMesh — downtown, mid-rise, warehouses
+ *                          and factory sheds — drawn once per box face group,
+ *                          because the four walls carry the shared
+ *                          night-window texture and the roof and the underside
+ *                          deliberately do not. See `buildBlocks()`: a box's
+ *                          six faces share one UV square, so a single material
+ *                          put lit windows on every rooftop in the city.
  *   1  houses             InstancedMesh — terraces and the outskirts
  *   1  roofs              InstancedMesh — pitched roofs on the houses
  *   1  rooftop clutter    InstancedMesh — tanks, stair huts, vents
  *   1  chimneys           InstancedMesh
- *   1  street lights      InstancedMesh
+ *   1  street lights      InstancedMesh — the lamp heads
+ *   1  lamp columns       InstancedMesh — what the lamp heads stand on
  *   1  trees              InstancedMesh — the park, the avenues, the allotments
  *   1  rolling stock      InstancedMesh — the marshalling yard and the sidings
  *   1  river craft        InstancedMesh — barges and lighters at the quays
@@ -37,9 +43,9 @@
  *                          shape and finish. Twenty landmarks for six draw
  *                          calls instead of two hundred and fifty.
  *
- * Roughly twenty draw calls for the entire target. `stats()` reports the real
- * numbers and `tools/verify-enolasquatch.mjs` measures the whole frame with a
- * real render rather than trusting this comment.
+ * Roughly twenty-five draw calls for the entire target. `stats()` reports the
+ * real numbers and `tools/verify-enolasquatch.mjs` measures the whole frame
+ * with a real render rather than trusting this comment.
  *
  * ---------------------------------------------------------------------------
  * THE END OF IT
@@ -51,6 +57,10 @@
  * That is why the city is now WIDER than the crater: the old one was 560 m
  * across inside an 810 m lip, so the whole place vanished on the frame of the
  * flash and there was nothing left to watch the blast wave do anything to.
+ *
+ * `restore()` is the undo for both of them, and it exists because a checkpoint
+ * restart before the drop has to hand the player a city to bomb rather than a
+ * hole to bomb again. See its own comment for the whole of that bug.
  * ---------------------------------------------------------------------------
  */
 import * as THREE from 'three';
@@ -109,6 +119,16 @@ export function riverCarve(lx, lz, cfg = TARGET_CITY) {
  * Returned as a pair — the colour map and a matching emissive map with ONLY
  * the lit windows on it — so the lit ones actually glow at night instead of
  * being pale grey squares.
+ *
+ * Owner playtest, 2026-08-06: "building lights too dense." At 24% lit and a
+ * pale amber-white (`#ffe6b0`/`#ffc86a`, both close enough to white that a
+ * whole tower reads as one bright slab rather than individual windows), a
+ * 130 m tower shows on the order of two hundred windows at once through the
+ * texture's 2.2x3.4 repeat — from three thousand feet that is a lit wall, not
+ * a lit CITY. Down to 13% and warmed toward orange (`#ffa542`/`#ff8a2e`,
+ * pushed further from white than the old pair), which is sparser and reads
+ * as individual points of light rather than a glowing slab, and warmer in the
+ * literal colour-temperature sense the owner asked for.
  */
 function windowTextures(seed) {
   const rand = rng(seed);
@@ -139,11 +159,11 @@ function windowTextures(seed) {
       const y = row * ch + ch * 0.22;
       const w = cw * 0.56;
       const h = ch * 0.5;
-      const lit = rand() < 0.24;
-      c.fillStyle = lit ? '#ffd894' : '#20222c';
+      const lit = rand() < 0.13;
+      c.fillStyle = lit ? '#e69454' : '#20222c';
       c.fillRect(x, y, w, h);
       if (lit) {
-        e.fillStyle = rand() < 0.3 ? '#ffe6b0' : '#ffc86a';
+        e.fillStyle = rand() < 0.3 ? '#ffa542' : '#ff8a2e';
         e.fillRect(x, y, w, h);
       }
     }
@@ -327,6 +347,39 @@ const _dummy = new THREE.Object3D();
 const _colour = new THREE.Color();
 const _scorched = new THREE.Color(0x1a1512);
 
+/**
+ * How brightly the lit windows burn while the town still has power.
+ *
+ * Named because TWO places need to agree about it — `buildBlocks()`, which sets
+ * it, and `restore()`, which has to put it back after `destroy()` knocked it
+ * down to `DEAD_WINDOW_GLOW`. It was a bare literal in one place and a second
+ * bare literal in the other, which is exactly how a restored city ends up dark.
+ *
+ * 0.72 -> 0.5, alongside `windowTextures()`'s sparser, warmer palette (owner
+ * playtest, 2026-08-06: "building lights too dense"): fewer lit windows at
+ * full brightness still reads as a wall of light, so both numbers had to move
+ * together — density in the texture, brightness here.
+ */
+export const WINDOW_GLOW = 0.5;
+/** And what it is turned down to once the town has no power and no windows. */
+export const DEAD_WINDOW_GLOW = 0.04;
+
+/**
+ * The instanced meshes a restore has to put back, in `this.parts` key order.
+ *
+ * Everything in this list is written once at build time from a source record
+ * and then only ever hidden, flattened or scorched — so a byte-for-byte copy of
+ * its `instanceMatrix`/`instanceColor` taken before the first `destroy()` is a
+ * complete description of the standing city. The alternative — re-deriving each
+ * transform from `rooftopOwner`/`lightPos`/`treePos`/… — cannot work, because
+ * those lists only ever kept the (x, z) the shock front sorts on and never the
+ * height, scale or rotation the matrix was built from.
+ */
+const RESTORABLE = [
+  'buildings', 'houses', 'roofs', 'clutter', 'chimneys',
+  'lights', 'lightPoles', 'trees', 'railStock', 'riverCraft',
+];
+
 /** Districts, in the order the block loop tests them. */
 export const DISTRICTS = ['water', 'docks', 'rail', 'park', 'industry', 'downtown', 'midrise', 'terraces', 'edge'];
 
@@ -349,8 +402,11 @@ export class TargetCity {
 
     /** Every building, so the detonation can rewrite them. */
     this.lots = [];
+    /** False again after `restore()` — a restart before the drop rebuilds it. */
     this.destroyed = false;
     this.crater = null;
+    /** A copy of every instance buffer as built. See `_takePristine()`. */
+    this._pristine = null;
     /** Sorted queue the shock front eats through. See `advanceShock()`. */
     this._queue = [];
     this._queueAt = 0;
@@ -501,8 +557,17 @@ export class TargetCity {
         for (let li = 0; li < div; li++) {
           for (let lj = 0; lj < div; lj++) {
             if (rand() < vacancy) continue;
-            const px = bx - inner / 2 + lot * (li + 0.5);
-            const pz = bz - inner / 2 + lot * (lj + 0.5);
+            /* A little jitter off the perfect lot centre — real streets are
+             * not a rigid grid of identical setbacks, and a lot snapped dead
+             * centre every time is part of what a playtest called "buildings
+             * look bad": correct shapes in a placement too regular to read as
+             * a place. Downtown stays close to the line (a business district
+             * IS built to the property line); everywhere else gets more play,
+             * capped well inside the lot so nothing crosses into its
+             * neighbour's or the street's. */
+            const jitter = district === 'downtown' ? 0.04 : district === 'midrise' ? 0.08 : 0.12;
+            const px = bx - inner / 2 + lot * (li + 0.5) + (rand() - 0.5) * lot * jitter;
+            const pz = bz - inner / 2 + lot * (lj + 0.5) + (rand() - 0.5) * lot * jitter;
             const pr = Math.hypot(px, pz);
             if (pr > cfg.radius) continue;
             if (this.districtAt(px, pz) === 'water') continue;
@@ -527,6 +592,33 @@ export class TargetCity {
                 district,
               };
               blocks.push(record);
+
+              /* THE WEDDING CAKE. Owner playtest, 2026-08-06: "buildings look
+               * bad" — every one of them a single flat-topped box was a real
+               * part of that, on the towers most of all, since those are the
+               * ones close enough to the camera on a bombing run to actually
+               * read as a shape. A second, smaller box set back on top of the
+               * taller ones is the classic real-world setback silhouette, and
+               * it costs nothing extra: it is one more instance in the SAME
+               * `blocks` InstancedMesh (still `squatchbourg-buildings`, still
+               * one draw call for the walls and one for the roofs), not a new
+               * mesh or a new material. Only the taller buildings get one —
+               * a two-storey terrace with a wedding-cake top would read as a
+               * mistake, not a variety. */
+              if (record.h > cfg.maxHeight * 0.42 && rand() < (district === 'downtown' ? 0.4 : 0.2)) {
+                const step = {
+                  x: px, z: pz, y: y + record.h,
+                  w: record.w * (0.48 + rand() * 0.22),
+                  d: record.d * (0.48 + rand() * 0.22),
+                  h: record.h * (0.24 + rand() * 0.3),
+                  rot: record.rot + (rand() - 0.5) * 0.08,
+                  tint: record.tint,
+                  warm: record.warm,
+                  district,
+                };
+                blocks.push(step);
+                this.lots.push(step);
+              }
             } else if (district === 'industry' || district === 'docks' || district === 'rail') {
               /* Long, low, wide — sheds and warehouses, not offices. */
               const long = rand() < 0.5;
@@ -570,7 +662,7 @@ export class TargetCity {
       map,
       emissiveMap: emissive,
       emissive: 0xffffff,
-      emissiveIntensity: 0.9,
+      emissiveIntensity: WINDOW_GLOW,
       roughness: 0.92,
       metalness: 0.02,
     });
@@ -579,7 +671,39 @@ export class TargetCity {
     map.repeat.set(2.2, 3.4);
     emissive.repeat.set(2.2, 3.4);
 
-    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), material, Math.max(records.length, 1));
+    /* ---- THE GLOWING ROOFTOPS ----
+     *
+     * Owner playtest, 2026-08-04: "the city looks pretty funky. Theres light
+     * all over the top of the buildings."
+     *
+     * There was, and this is where it came from. A `BoxGeometry` gives every
+     * one of its six faces the same 0..1 UV square, so the night-window map —
+     * and, worse, its emissive twin — was painted onto the TOP of each
+     * building as well as onto its walls. From the only angle this city is
+     * ever seen, which is three thousand feet directly above it, every
+     * warehouse and every tower wore a glowing grid of lit windows on its
+     * roof. Several thousand of them. That is the "funky", and it is why a
+     * night city read as a field of illuminated waffles.
+     *
+     * The fix is a material per face rather than a material per mesh. A
+     * `BoxGeometry` already carries one group per face in the order
+     * +X, -X, +Y, -Y, +Z, -Z, and three.js honours that for an `InstancedMesh`
+     * exactly as it does for a `Mesh`, so slots 2 and 3 — the roof and the
+     * underside — take plain dark asphalt with no map and no emissive map at
+     * all, and the four walls keep the windows. It costs five extra draw calls
+     * across the entire city (see the budget note at the top of this file) and
+     * no extra geometry: the cached unit box is shared and untouched.
+     *
+     * `instanceColor` still tints all six slots, which is what we want — a
+     * building's roof is the same weathered colour as the building. */
+    const roofMaterial = new THREE.MeshStandardMaterial({
+      color: 0x55565c, roughness: 0.98, metalness: 0,
+    });
+    this.parts.buildingWallMat = material;
+    this.parts.buildingRoofMat = roofMaterial;
+    const faces = [material, material, roofMaterial, roofMaterial, material, material];
+
+    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), faces, Math.max(records.length, 1));
     im.name = 'squatchbourg-buildings';
     im.castShadow = false;
     im.receiveShadow = false;
@@ -701,11 +825,30 @@ export class TargetCity {
     this.parts.chimneys = im;
   }
 
+  /**
+   * Street lighting.
+   *
+   * Part of the same refinement pass as the rooftops (owner: "the city looks
+   * pretty funky… lets do a refinement of the city"). These were 1.6 m cubes
+   * of pure unlit yellow floating 7.5 m up with nothing under them — six
+   * hundred of them, and at the size and brightness they were set to, a
+   * significant share of the "light all over" the city was theirs. They are
+   * now a lamp head a third of the size on a real column, which is what makes
+   * a street read as a street from the air: the LINES matter, the individual
+   * blobs do not.
+   */
   buildStreetLights(rand) {
     const cfg = this.cfg;
     const want = 620;
     const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), unlit(0xffdc9a), want);
     im.name = 'squatchbourg-streetlights';
+    // The columns. One extra draw call for six hundred lamp posts.
+    const poles = new THREE.InstancedMesh(
+      cylGeo(0.16, 0.2, 1, 5),
+      new THREE.MeshStandardMaterial({ color: 0x2e3038, roughness: 0.95, metalness: 0.1 }),
+      want,
+    );
+    poles.name = 'squatchbourg-streetlight-poles';
     this.lightPos = [];
     let placed = 0;
     for (let guard = 0; guard < want * 8 && placed < want; guard++) {
@@ -720,18 +863,27 @@ export class TargetCity {
       const onX = Math.abs(lx - sx) < Math.abs(lz - sz);
       const px = onX ? sx : lx;
       const pz = onX ? lz : sz;
-      _dummy.position.set(px, this.groundAt(px, pz) + 7.5, pz);
+      const ground = this.groundAt(px, pz);
+      const h = 7.2;
+      _dummy.position.set(px, ground + h, pz);
       _dummy.rotation.set(0, 0, 0);
-      _dummy.scale.set(1.6, 1.6, 1.6);
+      _dummy.scale.set(0.95, 0.42, 0.95);
       _dummy.updateMatrix();
       im.setMatrixAt(placed, _dummy.matrix);
+      _dummy.position.set(px, ground + h / 2, pz);
+      _dummy.scale.set(1, h, 1);
+      _dummy.updateMatrix();
+      poles.setMatrixAt(placed, _dummy.matrix);
       this.lightPos.push({ x: px, z: pz });
       placed++;
     }
     im.count = placed;
+    poles.count = placed;
     im.instanceMatrix.needsUpdate = true;
-    this.group.add(im);
+    poles.instanceMatrix.needsUpdate = true;
+    this.group.add(im, poles);
     this.parts.lights = im;
+    this.parts.lightPoles = poles;
   }
 
   /** The park, the avenues and the allotments out past the terraces. */
@@ -1188,6 +1340,11 @@ export class TargetCity {
   destroy(point) {
     if (this.destroyed) return this.crater;
     this.destroyed = true;
+    /* Photograph the standing city before anything happens to it. Deferred to
+     * here rather than done in `build()` so a page that never drops the bomb
+     * never pays the ~600 kB: nothing touches these buffers between the build
+     * and this line, so the copy taken now IS the pristine city. */
+    this._takePristine();
 
     const cfg = CRATER;
     const cx = point.x;
@@ -1219,7 +1376,11 @@ export class TargetCity {
     };
     sweep(this.rooftopOwner, this.parts.clutter, 'instance');
     sweep(this.chimneyOwner, this.parts.chimneys, 'instance');
+    // Lamp heads and their columns share `lightPos`, so they go together —
+    // a street of poles standing under lamps that are no longer there would
+    // be a strange thing to leave behind.
     sweep(this.lightPos, this.parts.lights, 'instance');
+    sweep(this.lightPos, this.parts.lightPoles, 'instance');
     sweep(this.treePos, this.parts.trees, 'instance');
     sweep(this.railPos, this.parts.railStock, 'instance');
     sweep(this.craftPos, this.parts.riverCraft, 'instance');
@@ -1238,8 +1399,11 @@ export class TargetCity {
     if (this.parts.buildings.instanceColor) this.parts.buildings.instanceColor.needsUpdate = true;
     this.parts.houses.instanceMatrix.needsUpdate = true;
     this.parts.roofs.instanceMatrix.needsUpdate = true;
-    // The lit windows are out — the town has no power and no windows.
-    this.parts.buildings.material.emissiveIntensity = 0.04;
+    /* The lit windows are out — the town has no power and no windows. Off the
+     * stored WALL material rather than off `parts.buildings.material`, which
+     * is an array of six face slots now (see `buildBlocks()`); writing
+     * `emissiveIntensity` onto an array quietly does nothing. */
+    this.parts.buildingWallMat.emissiveIntensity = DEAD_WINDOW_GLOW;
     /* The ground plate and the river go with the middle: both run right across
      * ground zero, and leaving them drawn puts a street map and a flat blue
      * ribbon lying across the floor of a hundred-metre hole. */
@@ -1295,6 +1459,126 @@ export class TargetCity {
 
   /** True once the front has been past everything there was. */
   get shockComplete() { return this._queueAt >= this._queue.length; }
+
+  /* ---------------------------------------------------------------- */
+  /* Putting it back                                                   */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Copy every restorable instance buffer, once.
+   *
+   * Called from `destroy()`, which is the last moment the city is still whole.
+   * Idempotent: a second raid after a restore re-uses the FIRST photograph
+   * rather than photographing the city it is about to flatten again — which
+   * matters, because a restore is not required to have happened in between.
+   */
+  _takePristine() {
+    if (this._pristine) return this._pristine;
+    this._pristine = [];
+    for (const key of RESTORABLE) {
+      const mesh = this.parts[key];
+      if (!mesh?.isInstancedMesh) continue;
+      this._pristine.push({
+        mesh,
+        count: mesh.count,
+        matrix: mesh.instanceMatrix.array.slice(),
+        colour: mesh.instanceColor ? mesh.instanceColor.array.slice() : null,
+      });
+    }
+    return this._pristine;
+  }
+
+  /**
+   * Rebuild Squatchbourg exactly as it was before the Fat Squatch arrived.
+   *
+   * THE UNWINNABLE RESTART, second half — owner, 2026-08-06: "The enola restart
+   * from latest checkpoint bug still happens where everything is already blown
+   * up and I cant redrop the bomb."
+   *
+   * `MissionController.rearmPayload()` fixed the bomb in an earlier pass and
+   * its comment then claimed the flattened target was fine, because "you get to
+   * drop it again on what is left". It is not fine: restarting a bombing run
+   * over a hole with no city in it is not the mission, and the owner said so.
+   * There was no way back at all — `destroy()` set `destroyed = true` and
+   * NOTHING anywhere ever set it false again, so every restart after a drop was
+   * a run at an empty crater.
+   *
+   * What comes back, and it is everything `destroy()` and `advanceShock()` did:
+   *   every building, house and pitched roof — position, scale, rotation AND
+   *     colour, so nothing is left flattened, tipped over or scorched;
+   *   the rooftop clutter, the chimneys, the lamp heads and their columns, the
+   *     trees, the rolling stock and the river craft;
+   *   every landmark, through `PartKit.show()`;
+   *   the lit windows (`WINDOW_GLOW`), the street plate and the river;
+   *   the crater mesh and its cooling glow, removed from the scene and freed.
+   *
+   * What this canNOT put back, because it does not own it: the hole in the
+   * MISSION's own ground-height function and the sunken vertices in the coarse
+   * east ground mesh. Both live in `../main.js` — see `mission.onCrater`, which
+   * is now called with `null` to undo exactly those two things. A city restored
+   * without that would stand in mid-air over a hundred-metre pit.
+   *
+   * @returns {boolean} whether there was anything to put back
+   */
+  restore() {
+    if (!this.destroyed) return false;
+
+    /* ---- Every instanced thing, back to its build-time matrix ---- */
+    for (const snap of this._pristine || []) {
+      snap.mesh.instanceMatrix.array.set(snap.matrix);
+      snap.mesh.instanceMatrix.needsUpdate = true;
+      if (snap.colour && snap.mesh.instanceColor) {
+        snap.mesh.instanceColor.array.set(snap.colour);
+        snap.mesh.instanceColor.needsUpdate = true;
+      }
+      snap.mesh.count = snap.count;
+    }
+
+    /* ---- The bookkeeping the flattening wrote onto the lot records ---- */
+    for (const l of this.lots) l.gone = false;
+
+    /* ---- The landmarks ---- */
+    for (const lm of this.landmarks) {
+      if (lm.alive) continue;
+      lm.alive = true;
+      for (const h of lm.handles) this.kit.show(h);
+    }
+
+    /* ---- The lights, the streets and the water ---- */
+    this.parts.buildingWallMat.emissiveIntensity = WINDOW_GLOW;
+    this.parts.streets.visible = true;
+    this.parts.river.visible = true;
+
+    /* ---- And the hole ---- */
+    this.removeCrater();
+
+    this._queue.length = 0;
+    this._queueAt = 0;
+    this.shockRadius = 0;
+    this.flattened = 0;
+    this.destroyed = false;
+    return true;
+  }
+
+  /**
+   * Take the crater mesh and its cooling glow off the scene and free them.
+   *
+   * Both are built per-detonation with their own geometry and their own
+   * material (see `buildCraterMesh()`), so unlike the rest of the city they are
+   * genuinely this object's to dispose — nothing else shares them.
+   */
+  removeCrater() {
+    const cr = this.crater;
+    if (!cr) return false;
+    this.crater = null;
+    for (const m of [cr.mesh, cr.glow]) {
+      if (!m) continue;
+      this.scene.remove(m);
+      m.geometry?.dispose?.();
+      m.material?.dispose?.();
+    }
+    return true;
+  }
 
   _hideInstance(mesh, i) {
     _dummy.position.set(0, -400, 0);

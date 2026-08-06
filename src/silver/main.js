@@ -30,7 +30,7 @@ import { buildRoom, ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H, STEP_UP } from './
 import { populate, makeBand } from './cast.js';
 import { Date_ } from './date.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
-import { Mission, ENDINGS } from './mission.js';
+import { Mission, ENDINGS, BACK_OF_HOUSE_TOTAL } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
 import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
@@ -265,7 +265,7 @@ const woo = new Woo({
   onStreak: (n) => {
     audio.play('woo.streak', { volume: 0.6 });
     hud.toast('EVERYBODY EATS', 'good');
-    hud.say(`<em>Every last one of them. ${n} people, and not one of them said thank you like it was a favour.</em>`, 5200);
+    narrate(`<em>Every last one of them. ${n} people, and not one of them said thank you like it was a favour.</em>`, 5200);
     mission.complete('tips');
   },
 });
@@ -273,7 +273,7 @@ const woo = new Woo({
 const mission = new Mission({
   onState: onMissionState,
   onObjective: paintObjectives,
-  onNote: (text) => hud.say(text, 4600),
+  onNote: (text) => narrate(text, 4600),
   onImpatient: (key) => date.bark(key, DATE_BARKS[key]),
   onCheckpoint: saveCheckpoint,
 });
@@ -313,37 +313,100 @@ const mission = new Mission({
  * hearing four lines later.
  */
 let voiceFreeAt = 0;
-let deferredVoice = null;
 
 function voiceSpeaking() { return performance.now() < voiceFreeAt; }
 
+/**
+ * The queue of beats waiting for the floor.
+ *
+ * This started as one slot, which was right for the problem it was written
+ * for — a bark landing on top of a recorded line — and wrong for the one the
+ * owner found next: "there's a lot of dialogue and action subtitles playing
+ * simultaneously at once during the opening scene."
+ *
+ * They were. The first fifteen seconds of the mission fires the "as far back
+ * as you can remember" line at the moment the overlay goes, the "she is out of
+ * the car" line the instant `arrived` lands, the street's own narrator note
+ * the first time `roomAt` answers 'street', and one of her barks on top of all
+ * three — and `hud.say` is a single element that replaces its own contents
+ * with no queue behind it, so each of those wiped the one before it after
+ * about a second. Four written lines, none of them readable.
+ *
+ * One slot cannot hold four. So it is a short queue with the same two rules
+ * the slot had: only one thing has the floor at a time, and anything that has
+ * waited longer than it is worth is dropped rather than said late — a remark
+ * about the pavement is not worth reading in the cellar.
+ */
+const waiting = [];
+/** A beat of air between one line leaving the screen and the next arriving. */
+const NARRATION_GAP = 260;
+let narrationGapAt = 0;
+
+/** Whether anything is currently using the one subtitle line, or the one voice. */
+function floorBusy() {
+  return hud.saying || voiceSpeaking() || performance.now() < narrationGapAt;
+}
+
 /** The whole deferred beat, not only its audio: subtitle and take travel together. */
 function deferVoice(job, { expires = 11000 } = {}) {
-  deferredVoice = { job, expiresAt: performance.now() + expires };
+  waiting.push({ job, expiresAt: performance.now() + expires });
+  /* Four is already more than anybody will read. Beyond that the oldest go,
+   * because a backlog means the scene is talking over itself somewhere and
+   * the newest line is the one that still describes what is on screen. */
+  if (waiting.length > 4) waiting.splice(0, waiting.length - 4);
+}
+
+/**
+ * Narration, queued: the action subtitles, her barks, and the authored beats
+ * that are not part of a conversation tree.
+ *
+ * Not used by `barks()` — the room's own overheard voices are rationed to one
+ * every eleven to twenty-eight seconds already, are never addressed to the
+ * player, and are the one thing in here that is better dropped than delayed.
+ */
+function narrate(text, ms = 4200, {
+  cue = null, volume = 0.9, expires = 14000, speaker = null,
+} = {}) {
+  deferVoice(() => {
+    hud.say(text, ms);
+    narrationGapAt = performance.now() + ms + NARRATION_GAP;
+    const take = cue ? voiceCue(cue, { volume }) : null;
+    /* `speaker` is somebody in the room rather than the narrator, and this is
+     * the moment his or her line actually leaves them — which is the whole
+     * reason the mouth is started HERE and not where the beat was queued.
+     * A deferred bark can sit in that queue for seconds. */
+    speaker?.say?.(Math.max(1.6, ms / 1000), take || { seconds: ms / 1000 });
+  }, { expires });
+  flushVoice();
 }
 
 function flushVoice() {
-  if (!deferredVoice) return;
-  if (voiceSpeaking()) {
-    if (performance.now() > deferredVoice.expiresAt) deferredVoice = null;
+  while (waiting.length) {
+    if (floorBusy()) {
+      /* Only the head can time out: the queue is in the order things were
+       * said, and dropping from the middle would reorder the evening. */
+      if (performance.now() > waiting[0].expiresAt) { waiting.shift(); continue; }
+      return;
+    }
+    const { job } = waiting.shift();
+    job();
+    /* One per pass. `job` is what puts the line on screen, so the next trip
+     * round sees a busy floor rather than clearing it again immediately. */
     return;
   }
-  const { job } = deferredVoice;
-  deferredVoice = null;
-  job();
 }
 
 function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
-  if (!name) return false;
+  if (!name) return null;
   game.voLog.push(name);
   if (game.voLog.length > 256) game.voLog.shift();
   if (solo) {
     audio._vo?.stop?.();
     audio._vo = null;
   }
-  if (!audio.ready) return false;
+  if (!audio.ready) return null;
   const bank = audio.buffers?.get(name);
-  if (!bank?.length) return false;
+  if (!bank?.length) return null;
   const src = audio.play(name, { volume, delay });
   if (solo) audio._vo = src;
   const seconds = delay + (src?.buffer ? src.buffer.duration : 1.6);
@@ -351,7 +414,10 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   /* Only a solo line holds the floor. The room's own overheard voices are
    * played `solo: false` on purpose and must not make a bark wait. */
   if (solo) voiceFreeAt = performance.now() + seconds * 1000;
-  return true;
+  /* The TAKE rather than a boolean — truthy in exactly the places the old
+   * boolean was, and it is what a speaker's mouth runs on. See
+   * src/core/mouth.js. */
+  return { audio, source: src, seconds };
 }
 
 /** A node's or a reply's cue: a string, or a function when the line is one. */
@@ -361,7 +427,8 @@ const cueSeconds = (name) => audio.buffers?.get(name)?.[0]?.duration ?? 0;
 const dialogue = new Dialogue(ui.dialogue, {
   onLine: (text, who, node) => {
     performance_.setDucked(true);
-    voiceCue(nodeCue(node));
+    /* Returned so `Dialogue` can hand the take to the speaker's mouth. */
+    return voiceCue(nodeCue(node));
   },
   /* The replies are Prospect's and he has never had a voice in this scene;
    * the hook is here so that when he gets one it is a `cue` on the option and
@@ -383,18 +450,21 @@ const date = new Date_(scene, room, {
    * something somebody has just said, so she says it when he has finished
    * saying it — which is also what a person does. */
   onBark: (line, key, i) => {
-    const say = () => {
-      hud.say(`<em>${DATE.name}:</em> ${line}`, 4600);
-      voiceCue(`vo.silver.margo.bark.${key}.${i + 1}`, { volume: 0.85 });
-    };
-    if (voiceSpeaking()) deferVoice(say);
-    else say();
+    narrate(`<em>${DATE.name}:</em> ${line}`, 4600, {
+      cue: `vo.silver.margo.bark.${key}.${i + 1}`,
+      volume: 0.85,
+      /* Her own mouth, started when the deferred line is actually said —
+       * `true` back to `Date_.bark()` is what tells it not to start her early.
+       * `date` is not built yet on this line; it is by the time this runs. */
+      speaker: { say: (secs, take) => date.npc.say(secs, take) },
+    });
+    return true;
   },
   onLeftBehind: () => {
     const n = mission.leftBehind();
     woo.fire('Woo.DateLeftBehind');
     date.bark('behind', DATE_BARKS.behind);
-    if (n === 3) hud.say('<em>She has stopped hurrying to keep up, which is a decision rather than a speed.</em>', 5000);
+    if (n === 3) narrate('<em>She has stopped hurrying to keep up, which is a decision rather than a speed.</em>', 5000);
   },
 });
 
@@ -404,9 +474,51 @@ const performance_ = new Performance({
   band,
   onNumber: (n) => {
     hud.toast(`♫ ${n.title} — the Midnight Pines`, '');
-    if (n.say) {
-      hud.say(`<em>${n.lead}:</em> ${n.say}`, 5000);
-      voiceCue(n.cue);
+    /* Queued, with its take. The bandleader introducing a number is the one
+     * line in the scene most likely to arrive while the announcer is still
+     * finishing his — see `startShowCutscene`, which now holds the band until
+     * the announcement is actually over rather than at a hardcoded 8.2s.
+     *
+     * `speaker` opens his own mouth on the take rather than leaving it shut
+     * while a subtitle does the work — see ENGINE-TRAPS.md #8, "an animation
+     * on a clock is not connected to anything". It matters more here than it
+     * ever did for the sung numbers: this is the one place in the set he is
+     * talking rather than playing, so a still mouth would be the most visible
+     * version of that bug in the whole scene. */
+    const leaderSpeaks = n.lead === 'the bandleader'
+      ? { say: (secs, take) => band.leader.say(secs, take) } : null;
+    if (n.say) narrate(`<em>${n.lead}:</em> ${n.say}`, 5000, { cue: n.cue, speaker: leaderSpeaks });
+    /* The rest of a "bit" number, on the number's own clock. `defer` is what
+     * `Cutscene` and the sway both already use for anything that has to
+     * survive a paused tab — a raw `setTimeout` here would keep the joke
+     * running while the pause menu is up, which is exactly the class of bug
+     * `docs/ENGINE-TRAPS.md` warns never survives contact with a real
+     * player.
+     *
+     * `_deferred` is `Performance`'s OWN queue, not `n`'s: it keeps counting
+     * down against every future `update()` regardless of which number is
+     * current by the time it empties out. A harness — or a player mashing a
+     * song request — that jumps the clock straight from this number to
+     * Bananaphone leaves these three still pending, and they used to fire
+     * anyway: a page skip found the wife joke and a rimshot landing in the
+     * middle of the featured number, competing for the one-line-at-a-time
+     * subtitle queue with Bananaphone's own introduction and twice getting
+     * it evicted. Guard on `current === n`: a bit whose number has moved on
+     * is not owed, the same as `_handleFeatureError`'s own `this.current !==
+     * expected` guard two functions up. */
+    for (const bit of n.bits ?? []) {
+      performance_.defer(bit.at, () => {
+        if (performance_.current !== n) return;
+        if (bit.say) {
+          narrate(`<em>${bit.lead}:</em> ${bit.say}`, 5200, {
+            cue: bit.cue,
+            speaker: bit.lead === 'the bandleader' ? leaderSpeaks : null,
+          });
+        }
+        for (const sfx of bit.sfx ?? []) {
+          audio.play(sfx, { volume: 0.5, position: room.anchors.stageCentre, ref: 5, maxDist: 40 });
+        }
+      });
     }
     if (n.theOne) {
       mission.flags.mainPerformanceStarted = true;
@@ -435,7 +547,7 @@ const performance_ = new Performance({
   onNumberError: (n, error) => {
     if (!n.theOne) return;
     hud.toast('THE HOUSE BAND CARRIES IT LIVE', 'bad');
-    hud.say('<em>The featured recording drops out. The Midnight Pines do not. They carry the number live.</em>', 5600);
+    narrate('<em>The featured recording drops out. The Midnight Pines do not. They carry the number live.</em>', 5600);
     console.warn(`Featured performance fallback: ${error?.message || 'stream unavailable'}`);
   },
   onApplause: () => { if (date.mode === 'seated') date.npc.say(1.2); },
@@ -444,9 +556,9 @@ const performance_ = new Performance({
    * — came round again, with the callback, the toast and another offer to dance
    * behind it. Four numbers, then a club between sets. */
   onSetEnd: () => {
-    audio.setLoopVolume('ambience.diners', 0.26, 4);
+    setDinersDuck(0.76, 4);
     hud.toast('♫ end of the set', '');
-    hud.say('<em>The lights come up a third and the room gets its voice back all at once. '
+    narrate('<em>The lights come up a third and the room gets its voice back all at once. '
       + 'Somebody at the back is still clapping on his own.</em>', 5200);
   },
 });
@@ -567,7 +679,20 @@ function tip(id, amount, { generous = false, contextual = false } = {}) {
   return true;
 }
 
-/** The seven people on the way in who have no reason to do you a favour. */
+/**
+ * The seven people on the way in who have no reason to do you a favour.
+ *
+ * Vinny is the first of them and he is on the route: `cast.byName.doorman` is
+ * built at `serviceDoor + (1.6, −1.4)`, which is the alley, not the canopy.
+ * (`anchors.doorman` is a different man entirely — the background figure on
+ * the public door at (2.6, 35.8), who is not on the tip roster at all. Two
+ * doormen, one of them named after the anchor the other one uses.)
+ *
+ * The board asks for six of these seven, so one missed handshake across a
+ * cellar, a dry store, a walk-in, a prep kitchen, a line and a dish pit is
+ * survivable. What it did not do was say so — see BACK_OF_HOUSE_TOTAL and the
+ * `staff` line in mission.js.
+ */
 const BACK_OF_HOUSE = new Set([
   'Woo.DoorAttendantTipped', 'Woo.CellarWorkerTipped', 'Woo.DeliveryTipped',
   'Woo.PorterTipped', 'Woo.CookTipped', 'Woo.LineCookTipped', 'Woo.DishwasherTipped',
@@ -647,7 +772,7 @@ function serveTable() {
   audio.play('glass.set', { volume: 0.4, delay: 1.2, position: room.anchors.frontTable });
   frontGlasses(true);
   if (mission.flags.drinkOrdered === 'rye') {
-    hud.say('<em>One cube. He did not have to be told, and she watches him not be told.</em>', 4600);
+    narrate('<em>One cube. He did not have to be told, and she watches him not be told.</em>', 4600);
   }
 }
 
@@ -668,7 +793,7 @@ function drinkTick(dt) {
   game.drinking = 0;
   poseDrink(null, 0);
   if (drunk.level > 0.55) {
-    hud.say('<em>She notices. She does not say anything, which is not the same as not noticing.</em>', 4200);
+    narrate('<em>She notices. She does not say anything, which is not the same as not noticing.</em>', 4200);
   }
   /* Past a certain point the glass goes over. This is the only thing in the
    * mission that makes a mess, and it is the whole of the chaos counter — which
@@ -680,7 +805,7 @@ function drinkTick(dt) {
     audio.play('glass.set', { volume: 0.6, position: room.anchors.frontTable });
     audio.play('ice.drop', { volume: 0.5, delay: 0.15, position: room.anchors.frontTable });
     date.bark('spill', DATE_BARKS.spill);
-    hud.say('<em>The glass goes over. Not far, and not much in it, and a waiter is on it '
+    narrate('<em>The glass goes over. Not far, and not much in it, and a waiter is on it '
       + 'before you are — which is somehow the worst part.</em>', 4200);
   }
 }
@@ -969,8 +1094,7 @@ function standFromTable() {
       const seat = room.anchors.frontSeats[1];
       date.sitAt(seat);
       const moment = scripts.moments.chairPulled;
-      hud.say(`<em>${moment.who}:</em> ${moment.line}`, moment.hold * 1000);
-      voiceCue(nodeCue(moment));
+      narrate(`<em>${moment.who}:</em> ${moment.line}`, moment.hold * 1000, { cue: nodeCue(moment) });
     },
   });
   game.chairPads = { his: pad, her: herPad };
@@ -1005,7 +1129,7 @@ reg(thanksPad, {
     const b = cast.byName['bing-bouncer'];
     b?.faceToward(player.position.x, player.position.z);
     b?.say(1.4);
-    hud.say('<em>Two fingers off the cloth, and back to whatever they were saying. '
+    narrate('<em>Two fingers off the cloth, and back to whatever they were saying. '
       + 'That is the entire exchange and everybody in this room understood it.</em>', 5200);
     date.watch(thanksPad, 3);
   },
@@ -1070,7 +1194,13 @@ class Cutscene {
         /* The timeline owns the pacing here, so a cue that runs long must not
          * hold the floor past its beat — `solo` still cuts the previous line
          * off, which is what a scene shot on one camera does anyway. */
-        voiceCue(b.cue);
+        const take = voiceCue(b.cue);
+        /* And she says it. She is the only person on screen with a name in
+         * these beats — the driver is off camera and the rest are stage
+         * directions — so this is one comparison rather than a table. The
+         * mouth runs on the take (src/core/mouth.js); a beat with no recording
+         * still animates for its own hold. */
+        if (b.who === DATE.name) date.npc.say(Math.max(1.4, b.hold ?? 3), take);
       }
       b.run?.();
     }
@@ -1388,7 +1518,7 @@ function startTableCutscene() {
       game.chairPads.her.position.set(A.frontSeats[1].x, 0.7, A.frontSeats[1].z);
       date.release();
       date.follow();
-      hud.say('<em>She has not said anything for eleven seconds, which for her is a review.</em>', 5000);
+      narrate('<em>She has not said anything for eleven seconds, which for her is a review.</em>', 5000);
       hud.setPosture(null);
       for (const m of movers) {
         m.job = 'patrol';
@@ -1470,7 +1600,7 @@ function sendChampagne() {
       goesBack(waiter);
       mission.addObjective('thanks', 'Acknowledge the table by the pillar', { optional: true });
       thanksPad.visible = true;
-      hud.say('<em>Look over at the pillar and [E] to lift a glass at them.</em>', 4600);
+      narrate('<em>Look over at the pillar and [E] to lift a glass at them.</em>', 4600);
     },
   });
 }
@@ -1485,21 +1615,52 @@ function startShowCutscene() {
   const A = room.anchors;
 
   room.setHouse(0.28, 0);
-  audio.setLoopVolume('ambience.diners', 0.1, 2.2);
+  setDinersDuck(0.29, 2.2);
 
+  /* The band comes on when the announcement is OVER, not at 8.2 seconds.
+   *
+   * "Overlapping sounds when performance starts — it starts before the
+   * announce finishes." Exactly right, and the arithmetic says so: the
+   * announcer's beat is authored at 5.5s and `performance_.begin()` was nailed
+   * to 8.2, which gives "Ladies and gentlemen — the Silver Room is proud — the
+   * Midnight Pines" two and seven tenths of a second to be said in. The
+   * delivered take is longer than that, so the curtain, the stage clunk, four
+   * stems and the bandleader's own introduction all landed on top of the last
+   * third of it — every time, for everybody, because 2.7 is not a duration
+   * anybody measured, it is the gap between two numbers that were chosen
+   * separately.
+   *
+   * So the announcement's own length is what moves the band: the recorded take
+   * if there is one, and the authored reading beat if there is not. Same rule
+   * the rest of the scene uses for a line that has to finish before the next
+   * thing happens.
+   */
+  const announceAt = 5.5;
+  const announceCue = scripts.scenes.show.find((b) => b.who === 'the announcer')?.cue;
+  /* A floor of 3.4s so an unrecorded announcement still gets read, and a
+   * ceiling so a pathological take cannot strand the player in a dark room. */
+  const announceFor = Math.min(9, Math.max(3.4, cueSeconds(announceCue) + 0.6));
+  const bandOn = announceAt + announceFor;
+
+  /* Everything the curtain cues moves with the curtain. The authored beats put
+   * the "seven of them: brass across the back" description at 9.0 and her "oh,
+   * they're real" at 12.0, both written against a band that arrived at 8.2 —
+   * so they slide by whatever the announcement turned out to need, and keep
+   * the spacing somebody chose between them. */
+  const slide = bandOn - 8.2;
   const beats = [
-    ...scripts.scenes.show.map((b) => ({ ...b })),
+    ...scripts.scenes.show.map((b) => ({ ...b, at: b.at > 8.2 ? b.at + slide : b.at })),
     { at: 0.2, run: () => audio.play('light.dip', { volume: 0.5 }) },
     { at: 4.8, run: () => audio.play('mic.handle', { volume: 0.4, position: A.stageCentre }) },
     {
-      at: 8.2,
+      at: bandOn,
       run: () => {
         room.setHouse(0.28, 1);
         audio.play('stage.clunk', { volume: 0.55, position: A.stageCentre });
         performance_.begin();
       },
     },
-    { at: 10.5, run: () => { performance_.applaud(1.1); date.npc.faceToward(A.stageCentre.x, A.stageCentre.z); } },
+    { at: bandOn + 2.3, run: () => { performance_.applaud(1.1); date.npc.faceToward(A.stageCentre.x, A.stageCentre.z); } },
   ];
 
   const seat = A.frontSeats[0];
@@ -1507,7 +1668,7 @@ function startShowCutscene() {
     dateSeat: A.frontSeats[1],
     camera: [
       { at: 0, from: player.position.clone(), to: new THREE.Vector3(seat.x, 1.24, seat.z), look: { x: A.stageCentre.x, y: 1.6, z: A.stageCentre.z }, dur: 3 },
-      { at: 11.5, to: new THREE.Vector3(seat.x, 1.24, seat.z), look: { x: A.frontSeats[1].x, y: 1.3, z: A.frontSeats[1].z }, dur: 2 },
+      { at: 11.5 + slide, to: new THREE.Vector3(seat.x, 1.24, seat.z), look: { x: A.frontSeats[1].x, y: 1.3, z: A.frontSeats[1].z }, dur: 2 },
     ],
     onDone: () => {
       player.mode = 'seated';
@@ -1517,7 +1678,7 @@ function startShowCutscene() {
       player.yawCenter = seat.faceYaw;
       player.yawRange = 1.9;
       mission.showStarted();
-      audio.setLoopVolume('ambience.diners', 0.16, 2);
+      setDinersDuck(0.47, 2);
     },
   });
 }
@@ -1556,7 +1717,7 @@ function glanceOver(npc, x, z, secs = 3.2) {
 }
 
 function holdTheRoom(on) {
-  audio.setLoopVolume('ambience.diners', on ? 0.02 : 0.16, on ? 0.25 : 1.2);
+  setDinersDuck(on ? 0.06 : 0.47, on ? 0.25 : 1.2);
   performance_.setDucked(on);
   if (!on) return;
   for (const key of ['ape', 'bing-bouncer', 'waiter']) {
@@ -1801,9 +1962,16 @@ function startSway() {
     game.swayStarting = false;
     date.standFrom(spot);
     date.hold();
+    /* "The dancing minigame is completely fucked" was two bugs and this is
+     * the other one: a player judging a timing bar against a partner who was
+     * standing bolt upright the whole four bars, which reads as a quiz, not
+     * a dance. `standFrom` puts her in the default `stand` job; `sway`
+     * overrides it with the couple's-sway pose in `bing/cast.js`, cleared
+     * back to `stand` in `finishSway` below. */
+    date.npc.job = 'sway';
     sway.start(settings.assist);
     game.swayRunning = true;
-    hud.say('<em>Four bars. Hit [E] on the beat and try to look like you meant it.</em>', 4600);
+    narrate('<em>Four bars. Hit [E] on the beat and try to look like you meant it.</em>', 4600);
   }, 900);
 }
 
@@ -1823,6 +1991,7 @@ function finishSway() {
   const result = sway.result;
   mission.flags.swayed = result;
   hud.setTiming(null);
+  date.npc.job = 'stand';
   if (result === 'good') woo.fire('Woo.SwayCompleted');
   dialogue.start(scripts.sway, result === 'good' ? 'good' : 'bad', date.npc);
   setTimeout(() => {
@@ -1872,7 +2041,7 @@ function closeTheEvening() {
   audio.play('cutlery.set', { volume: 0.42, position: room.anchors.frontTable });
   audio.play('glass.set', { volume: 0.34, delay: 0.7, position: room.anchors.frontTable });
   setTimeout(() => goesBack(w), 2600);
-  audio.setLoopVolume('ambience.diners', 0.1, 3);
+  setDinersDuck(0.29, 3);
   dialogue.start(scripts.invitation, 'plates', date.npc);
   mission.addObjective('ask', 'Decide how the night ends');
   closingFor = 0;
@@ -2009,6 +2178,9 @@ function saveCheckpoint(state) {
       champagneSent,
       showStarted,
       taxiGone,
+      /* Whether she has already asked about the front door. The `arrived`
+       * checkpoint is taken on the pavement, either side of that question. */
+      arrivalAsked,
       /* The closing beat is a latch like the rest of them: a reload taken
        * after the plates went must not clear the table a second time and put
        * her opening line back in her mouth. */
@@ -2041,6 +2213,8 @@ function restoreCheckpoint(cp = game.checkpoint) {
   tableCutsceneStarted = !!l.tableCutsceneStarted;
   champagneSent = !!l.champagneSent;
   showStarted = !!l.showStarted;
+  arrivalAsked = !!l.arrivalAsked;
+  arrivalIn = -1;
   closingStarted = !!l.closingStarted;
   closingNudged = !!l.closingNudged;
   closingFor = Number.isFinite(l.closingFor) ? l.closingFor : -1;
@@ -2062,7 +2236,7 @@ function restoreCheckpoint(cp = game.checkpoint) {
   if (mission.flags.showStarted) {
     if (mission.flags.mainPerformanceComplete) {
       performance_.restoreBetweenSets();
-      audio.setLoopVolume('ambience.diners', 0.26, 1.2);
+      setDinersDuck(0.76, 1.2);
     } else {
       performance_.begin();
     }
@@ -2111,10 +2285,9 @@ function restoreCheckpoint(cp = game.checkpoint) {
 function onMissionState(state) {
   if (state === 'arrived') {
     date.follow();
-    hud.say('<em>She is out of the car and looking at the front door, which has a queue on it.</em>', 5000);
-    setTimeout(() => {
-      if (!dialogue.active) dialogue.start(scripts.arrival, 'open', date.npc);
-    }, 3000);
+    narrate('<em>She is out of the car and looking at the front door, which has a queue on it.</em>', 5000);
+    /* Her opening question is owed, not fired-and-forgotten. See `arrivalTick`. */
+    arrivalIn = 3;
   }
   if (state === 'host') {
     mission.addObjective('tips', 'Take care of everybody', { optional: true });
@@ -2133,6 +2306,23 @@ function onMissionState(state) {
 let where = 'street';
 let zone = 'exterior';
 
+/**
+ * How much of the dining room's voice the evening is currently allowing.
+ *
+ * 1 is the room as the zone mix describes it. Everything below that is an
+ * event asking for quiet — the lights going down, the room noticing something,
+ * the plates being cleared — and it is a multiplier rather than a level so
+ * that walking out of the room while the band is on still takes the crowd with
+ * you. `updateZones` applies it every frame; nothing else may write these two
+ * loops directly, which is the entire point.
+ */
+let dinersDuck = 1;
+function setDinersDuck(k, ramp = 1.1) {
+  dinersDuck = Math.max(0, k);
+  audio.setLoopVolume('ambience.diners', 0.34 * dinersDuck, ramp);
+  audio.setLoopVolume('ambience.diners.chatter', 0.24 * dinersDuck, ramp);
+}
+
 function updateZones() {
   const p = player.position;
   const next = roomAt(p.x, p.z, p.y - 1.6);
@@ -2142,17 +2332,36 @@ function updateZones() {
    * through the building at exactly the rate the route walks forwards, which
    * is the whole trick of the entrance: the glamour arrives before you do. */
   const mix = {
-    exterior: { alley: 0.5, cellar: 0.0, kitchen: 0.02, diners: 0.03, band: 0.05 },
-    cellar: { alley: 0.06, cellar: 0.4, kitchen: 0.1, diners: 0.03, band: 0.06 },
-    kitchen: { alley: 0.02, cellar: 0.08, kitchen: 0.42, diners: 0.06, band: 0.12 },
-    corridor: { alley: 0.0, cellar: 0.02, kitchen: 0.16, diners: 0.2, band: 0.34 },
-    club: { alley: 0.0, cellar: 0.0, kitchen: 0.03, diners: 0.34, band: 0.85 },
-  }[nextZone] ?? { alley: 0.2, cellar: 0, kitchen: 0, diners: 0.1, band: 0.1 };
+    exterior: { alley: 0.5, cellar: 0.0, kitchen: 0.02, diners: 0.03, band: 0.05, line: 0.0, chatter: 0.0 },
+    cellar: { alley: 0.06, cellar: 0.4, kitchen: 0.1, diners: 0.03, band: 0.06, line: 0.05, chatter: 0.02 },
+    kitchen: { alley: 0.02, cellar: 0.08, kitchen: 0.42, diners: 0.06, band: 0.12, line: 0.30, chatter: 0.04 },
+    corridor: { alley: 0.0, cellar: 0.02, kitchen: 0.16, diners: 0.2, band: 0.34, line: 0.10, chatter: 0.13 },
+    club: { alley: 0.0, cellar: 0.0, kitchen: 0.03, diners: 0.34, band: 0.85, line: 0.02, chatter: 0.24 },
+  }[nextZone] ?? { alley: 0.2, cellar: 0, kitchen: 0, diners: 0.1, band: 0.1, line: 0, chatter: 0 };
 
   audio.setLoopVolume('ambience.alley', mix.alley, 1.1);
   audio.setLoopVolume('ambience.cellar', mix.cellar, 1.1);
   audio.setLoopVolume('ambience.kitchen', mix.kitchen, 1.1);
-  audio.setLoopVolume('ambience.diners', mix.diners, 1.1);
+  /* The two beds the room was missing under the two it already had: the work
+   * being done in the kitchen, and two hundred people talking in the dining
+   * room. See `core/audio.js` — `ambience.kitchen` is only the extraction fan
+   * and `ambience.diners` is only the wash. */
+  audio.setLoopVolume('ambience.kitchen.line', mix.line, 1.1);
+  /* Both of the dining-room beds carry the show's duck.
+   *
+   * This is the other half of "cut the other sounds". `updateZones` runs every
+   * single frame and used to assign `ambience.diners` the flat zone number
+   * with nothing else in it — so every deliberate duck in the mission was
+   * overwritten within 16 milliseconds of being asked for. The house lights
+   * going down set it to 0.10 and it was back at 0.34 on the next frame; the
+   * room going quiet for "Funny how?" asked for 0.02 and never got below a
+   * third; the whole of the featured number played over a crowd bed at full
+   * room volume, which is a wash of bandpassed noise sitting exactly where a
+   * held vocal note sits. Zone and event are two different questions and the
+   * bed needs the answer to both, so one is a level and the other is a
+   * multiplier on it. */
+  audio.setLoopVolume('ambience.diners', mix.diners * dinersDuck, 1.1);
+  audio.setLoopVolume('ambience.diners.chatter', mix.chatter * dinersDuck, 1.1);
   /* The city, and the queue.
    *
    * The city is a flat exterior bed; the crowd is not, because thirty people
@@ -2189,7 +2398,7 @@ function onRoomChange(next) {
   const notes = NOTES[key];
   if (notes && !game.noted.has(key)) {
     game.noted.add(key);
-    hud.say(notes[(Math.random() * notes.length) | 0], 4800);
+    narrate(notes[(Math.random() * notes.length) | 0], 4800);
   }
   if (key && DATE_BARKS[key] && date.mode === 'follow') {
     setTimeout(() => date.bark(key, DATE_BARKS[key]), 1400);
@@ -2275,6 +2484,137 @@ function streetSound(dt) {
   }
 }
 
+/**
+ * The kitchen, working.
+ *
+ * "Need kitchen sound — clattering and background of a kitchen cooking and
+ * working." The bed was one extraction fan, and the only clatter in the
+ * building was a single `kitchen.pan` or `kitchen.plate` played on a coin flip
+ * behind a bark — so eleven people at full service on a Tuesday made one noise
+ * every twenty seconds, and the room she is counting cooks in sounded like an
+ * empty plant room.
+ *
+ * Rationed the same way the street is, and positioned the same way: the pass
+ * and the line are where the noise is, the dish pit is where the plates are,
+ * and the prep benches are where the knife is. Which one you hear depends on
+ * which of them you are nearest, so walking the length of the kitchen changes
+ * what the kitchen is doing rather than only how loud it is.
+ */
+const KITCHEN_WORK = [
+  // [cue, x, z, volume, weight]
+  ['kitchen.clatter', 20.4, -10.5, 0.42, 5],
+  ['kitchen.pan', 20.4, -10.5, 0.38, 4],
+  ['kitchen.plate', 19.0, -6.6, 0.34, 4],
+  ['kitchen.chop', 18.5, 5.2, 0.40, 3],
+  ['kitchen.oven', 23.0, -10.5, 0.34, 2],
+  ['kitchen.ticket', 19.0, -6.9, 0.30, 2],
+  ['kitchen.clatter', 26.6, -13.6, 0.36, 4],
+];
+const KITCHEN_WEIGHT = KITCHEN_WORK.reduce((n, w) => n + w[4], 0);
+let kitchenAt = 2.5;
+const _workAt = new THREE.Vector3();
+function kitchenSound(dt) {
+  /* Prep and dish count as the kitchen: they are the same room with a
+   * different job in them, and the pass is audible from all of it. */
+  if (!['kitchen', 'prep', 'dish'].includes(where) || game.scene) return;
+  kitchenAt -= dt;
+  if (kitchenAt > 0) return;
+  /* Close together, because that is what a service sounds like. Two and a
+   * half seconds of silence in a working kitchen is a kitchen that has
+   * stopped, and everybody in one notices when it does. */
+  kitchenAt = 1.1 + Math.random() * 2.6;
+  let roll = Math.random() * KITCHEN_WEIGHT;
+  let pick = KITCHEN_WORK[0];
+  for (const w of KITCHEN_WORK) {
+    roll -= w[4];
+    if (roll <= 0) { pick = w; break; }
+  }
+  const [cue, x, z, volume] = pick;
+  _workAt.set(x, 1.0, z);
+  audio.play(cue, {
+    volume: volume * (0.7 + Math.random() * 0.5), position: _workAt, ref: 3, maxDist: 26,
+  });
+}
+
+/**
+ * The dining room, eating.
+ *
+ * "More ambience sound effects for once you are in the main dining room —
+ * backroom chatter, eating, etc, but not overbearing." The last clause is the
+ * hard one and it is why this is not simply louder: the player is sitting at a
+ * table having the only conversation the mission is about, in front of a live
+ * band, and anything here that competes with either of those has made the
+ * scene worse rather than fuller.
+ *
+ * So: quiet, sparse, always somewhere else in the room, and it thins right out
+ * while anybody is talking or while the featured number is playing. Two
+ * hundred people are a bed (`ambience.diners.chatter`); this is the handful of
+ * individual sounds that stop a bed being a texture — a fork going down, two
+ * glasses meeting, somebody sitting back.
+ */
+const FLOOR_LIFE = ['dining.cutlery', 'dining.cutlery', 'dining.glass.clink', 'dining.chair'];
+let floorLifeAt = 6;
+function floorSound(dt) {
+  if (zone !== 'club' || game.scene) return;
+  floorLifeAt -= dt;
+  if (floorLifeAt > 0) return;
+  floorLifeAt = 3.4 + Math.random() * 5.2;
+  /* Out of the way of the two things worth listening to. Not silenced — a
+   * dining room that stops dead the moment she starts a sentence is its own
+   * kind of wrong — but well under them. */
+  const busy = dialogue.active || performance_.onTheOne;
+  const cue = FLOOR_LIFE[(Math.random() * FLOOR_LIFE.length) | 0];
+  /* Somewhere else: at least three metres away, in the half of the room
+   * behind the front table rather than on the stage side of it. */
+  const a = Math.random() * Math.PI * 2;
+  const r = 3.2 + Math.random() * 7;
+  _workAt.set(
+    player.position.x + Math.sin(a) * r,
+    0.85,
+    Math.max(player.position.z + 1.2, player.position.z + Math.cos(a) * r),
+  );
+  audio.play(cue, {
+    volume: (busy ? 0.16 : 0.34) * (0.6 + Math.random() * 0.6),
+    position: _workAt,
+    ref: 4,
+    maxDist: 22,
+  });
+}
+
+/**
+ * The one question she asks on the pavement, which he has to be there for.
+ *
+ * It used to be `setTimeout(() => { if (!dialogue.active) start(arrival) }, 3000)`
+ * — one attempt, three seconds after he got out of the car, abandoned without
+ * a second try if anything at all was being said at that instant. And the
+ * thing being said at that instant is almost always the driver: he is the
+ * nearest interactable, he is worth $40 and a Woo event, and the game has just
+ * put a prompt on his window. Tip him inside the first three seconds — which
+ * is the good play, and the one the tutorial prompt asks for — and her opening
+ * question never happened, the four replies to it were never offered, and the
+ * board's "tell her why you are not using the front door" had nothing left
+ * that could ever have completed it.
+ *
+ * So it is owed rather than fired: it waits for a free mouth, keeps waiting
+ * while he finishes with the driver, and gives up only when he has actually
+ * walked into the alley, because at that point she is asking about a door
+ * neither of them can see any more.
+ */
+let arrivalIn = -1;
+let arrivalAsked = false;
+function arrivalTick(dt) {
+  if (arrivalIn < 0 || arrivalAsked) return;
+  if (mission.state !== 'arrived') { arrivalIn = -1; return; }
+  arrivalIn -= dt;
+  if (arrivalIn > 0) return;
+  /* Not on top of a live conversation — that was the right instinct in the
+   * original and it is kept. It just has to come back. */
+  if (dialogue.active || game.scene) { arrivalIn = 1.2; return; }
+  arrivalAsked = true;
+  arrivalIn = -1;
+  dialogue.start(scripts.arrival, 'open', date.npc);
+}
+
 /* What the building sounds like when nobody is talking to you. */
 function barks(dt) {
   game.barkAt -= dt;
@@ -2303,8 +2643,14 @@ function barks(dt) {
   /* The room's own voices. Anonymous by design — "a cook", "the pass" — so
    * they share the wait staff's profile and are named by where and which,
    * which is also the only stable thing about them. Quieter and never solo:
-   * this is the building overheard, not somebody talking to you. */
-  voiceCue(`vo.silver.room.${key}.${i + 1}`, { volume: 0.5, solo: false });
+   * this is the building overheard, not somebody talking to you.
+   *
+   * The diners specifically, 40% down from the rest of the room (0.5 -> 0.3):
+   * they are the loudest and most numerous voice at the table's own volume,
+   * table talk that competes with hers rather than sitting under it. Staff
+   * lines — the waiter, the cook, the porter — stay at the room's own level;
+   * only `who === 'a diner'` is the one the owner flagged. */
+  voiceCue(`vo.silver.room.${key}.${i + 1}`, { volume: who === 'a diner' ? 0.3 : 0.5, solo: false });
   if (key === 'kitchen') audio.play(Math.random() < 0.5 ? 'kitchen.plate' : 'kitchen.pan', { volume: 0.3 });
 }
 
@@ -2337,6 +2683,12 @@ function evening(dt) {
    * street and a bark that never gets its turn are the kind of thing nobody
    * notices is untested. */
   streetSound(dt);
+  /* Same reason as the street: anything living inline in `frame()` is
+   * something the headless driver silently does not run, and a kitchen that
+   * makes no noise is exactly the kind of thing nobody notices is untested. */
+  kitchenSound(dt);
+  floorSound(dt);
+  arrivalTick(dt);
   flushVoice();
 
   if (sway.active) { sway.update(dt); hud.setTiming(sway.view); }
@@ -2706,7 +3058,10 @@ startBtn.addEventListener('click', async () => {
      * first pickup made the inventory system invisible until it was too late
      * to teach the player that it existed. */
     inventory.onChange(inventory);
-    for (const bed of ['alley', 'cellar', 'kitchen', 'diners']) {
+    /* Six beds now, not four. `kitchen.line` is the gas and the simmer under
+     * the extraction; `diners.chatter` is the talking under the wash. Both
+     * start at zero and are crossfaded by `updateZones` like the rest. */
+    for (const bed of ['alley', 'cellar', 'kitchen', 'kitchen.line', 'diners', 'diners.chatter']) {
       audio.startLoop(`ambience.${bed}`, { volume: 0, ambience: true, fade: 1.5 });
     }
     /* Two more beds, outdoors only. The queue at the rope is thirty people
@@ -2722,7 +3077,7 @@ startBtn.addEventListener('click', async () => {
     paintWoo(woo.score, 0, null);
     paintObjectives(mission.objectives);
     arrive();
-    hud.say('<em>As far back as you can remember, you have wanted to be the man who does not '
+    narrate('<em>As far back as you can remember, you have wanted to be the man who does not '
       + 'stand in that queue.</em>', 6400);
   }
   game.paused = false;
@@ -2809,6 +3164,16 @@ window.__silver = {
   /* The number the back of house is built to, so the verifier holds it to
    * the same one rather than to a copy of it. */
   STEP_UP,
+  /* Same rule for the other number two files have to agree about: the set of
+   * tips that count as "on the way through", and how many the board asks for.
+   * A list and a threshold that drift apart is an objective nobody can
+   * finish, which is what they had already done once. */
+  BACK_OF_HOUSE: [...BACK_OF_HOUSE], BACK_OF_HOUSE_TOTAL,
+  /* The room's own overheard lines, so the harness can aim at one of them by
+   * its index — which is how they are addressed everywhere else — instead of
+   * at a fraction of a list length that changes every time somebody writes
+   * another diner. */
+  BARKS,
   /* Who has been cast, and in whose voice: the verifier holds the manifest
    * to both. */
   VOICE_OF, PROFILE_OF,
@@ -2828,7 +3193,7 @@ window.__silver = {
   __barks: (dt) => { barks(dt); flushVoice(); },
   /* The one-mouth-at-a-time gate, so the harness can prove a recorded line
    * is not being cut off by the next thing that wants to talk. */
-  __voice: () => ({ speaking: voiceSpeaking(), deferred: !!deferredVoice }),
+  __voice: () => ({ speaking: voiceSpeaking(), deferred: waiting.length > 0, queued: waiting.length }),
   /* The car, the dance, and the two things she notices about being ignored.
    * The driver has to step this or it is testing a game nobody plays. */
   __evening: (dt) => evening(dt),

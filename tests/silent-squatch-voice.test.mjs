@@ -38,24 +38,40 @@ const manifest = JSON.parse(
 );
 
 /**
- * The mission's authored cues, per scope, as of 2026-08-04.
+ * The mission's authored cues, per scope.
  *
- * NOT ONE OF THEM IS IN assets/sfx/manifest.json: the mission was written in
- * the same pass as the scene and the manifest is regenerated centrally, so the
- * script legitimately runs ahead of the ledger. This table is how that stays a
- * fact somebody wrote down — a scope that grows a line fails here until the
- * number is updated, and a cue that HAS been generated fails the sync test
- * below until it is removed from the backlog.
+ * This table used to be the *backlog*: none of these were in the manifest,
+ * because the mission was written in the same pass as the scene and there was
+ * no `tools/mansion-vo.mjs` to carry them across. It said "WHEN THE CUES ARE
+ * GENERATED, THIS TABLE GOES TO ZERO", and on 2026-08-04 they were generated.
  *
- * WHEN THE CUES ARE GENERATED, THIS TABLE GOES TO ZERO.
+ * It has not gone to zero; it has changed job. It is now the SHIPPING
+ * INVENTORY, and the test below asserts the manifest contains every one of
+ * these and nothing else on the prefix. That is a stronger contract than the
+ * backlog was: a scope that gains a line fails here until the number is
+ * updated AND `npm run vo:mansion` has been run, so the sheet the voice actor
+ * reads can no longer fall behind the script the game plays.
+ *
+ * The 147 lines were invisible to VOICE-LINES-TODO.md for eleven days.
+ * Nothing reported it, because a cue that is not in the manifest is not
+ * missing — it does not exist.
  */
 const CUES_AWAITING_VO_SYNC = Object.freeze({
   arrival: 10, // Rippin, Eric, Shubes, Snow, and the Prospect on the way in
   office: 10, // Lou, and the case on his desk
   cellar: 6, // the wine cellar and the bust
-  corridor: 7, // Irish, xXx, and Booski shouting from deeper in
+  /* 9, not 7. Owner playtest: *"the xXx family line should be on the first
+   * hit"*. The brief's two quoted lines moved out of the walk-past bark and
+   * into `tortureSwing`, KEEPING THEIR CUE NAMES — both are recorded, and a
+   * rename would have thrown two delivered takes away to make a prefix
+   * tidier. So two lines with `corridor.` ids are now spoken during the
+   * torture beat, and xXx gained two new ones for the approach. */
+  corridor: 9, // Irish, xXx, and Booski shouting from deeper in
   lab: 3, // DeathMegatron at the glass
-  delivery: 8, // the transfer table
+  /* 11, not 8. Owner playtest: *"Booski should hand me a pistol when I give
+   * him the case"*. He does, and he says three lines doing it — the whole
+   * point being that he does not say what it is for. */
+  delivery: 11, // the transfer table, and the pistol that comes with it
   build: 33, // six scientists building it, and two men watching
   completion: 12, // the core, the cheering, and Aubbie coming out
   lock: 9, // the keypad, the bolts, and "Handle it"
@@ -65,6 +81,31 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   gas: 11, // the seven stages
   aftermath: 3, // LIFE SIGNS: 0
   exit: 8, // Snow, the cart, and xXx on the way out
+
+  /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
+   * mission was written before anybody lived here; these are the lines the
+   * building says back. */
+  /* 12, not 6. The gate is TWO POSTS on one throat: the man on the front door
+   * (6) and, from 2026-08-06, the man working the booth at the street gate
+   * (6 — challenge, loiter, the case, and two lines about the book he writes
+   * you into). Owner playtest: "ADD a guard working that booth". Same
+   * `mansion-gate` voice profile, separate SPEAKER because they are separate
+   * bodies and a speaker key picks the mouth the line comes out of. */
+  gate: 12, // the man on the front door, and the man in the booth
+  guards: 9, // perimeter, stairs, basement, vault
+  bar: 3, // the Bada Bing's bartender, working Lou's bar
+  /* 2026-08-05: the whip became a HANDOVER and a repeatable swing rather than
+   * one press on Gratin, so this scope gained the handover line, four
+   * involuntary reactions and the lines xXx chooses to say after them. */
+  torture: 19, // Gratin, the cord, four swings, and what xXx says about family
+
+  /* The rest of the Family, using the house. Owner, 2026-08-05: "Everyone
+   * should be there for the most part utilizing the house hanging out." */
+  /* 6, not 8. Willy's two -- the good chair and the head of the table -- came
+   * out on 2026-08-05: he is executed on the boat in NO WAKE, which is Day 3,
+   * and the mansion arc is after it. Neither line had a recorded take, so
+   * nothing delivered was thrown away. */
+  house: 6, // Sasole at the bar, Numbskull on the terrace, Hog Mama
 });
 
 const TOTAL_AWAITING = Object.values(CUES_AWAITING_VO_SYNC)
@@ -187,7 +228,7 @@ test('every line in the mission has a cue, a voice and words, and no two share o
   }
 });
 
-test('the manifest gap is exactly the declared backlog, per scope', () => {
+test('every authored line is in the manifest, per scope', () => {
   const lines = allSilentSquatchLines();
   const byScope = {};
   for (const line of lines) {
@@ -196,23 +237,39 @@ test('the manifest gap is exactly the declared backlog, per scope', () => {
   }
   assert.deepEqual(
     byScope, { ...CUES_AWAITING_VO_SYNC },
-    'a scope gained or lost lines — update CUES_AWAITING_VO_SYNC and run `npm run vo:sync`',
+    'a scope gained or lost lines — update the inventory and run `npm run vo:mansion`',
   );
   assert.equal(lines.length, TOTAL_AWAITING);
 
-  /* And the manifest genuinely does not have them yet. The day it does, this
-   * flips: the generated cues stop being a declared gap and the table above
-   * goes to zero. */
+  /* The contract that matters: the voice actor's sheet is generated from the
+   * manifest, so a line the game plays and the manifest has never heard of is
+   * a line nobody will ever record, and NOTHING else in the repo notices.
+   * That is what happened here, for 147 lines, until somebody went looking. */
   const inManifest = new Set(manifest.sfx.map((cue) => cue.name));
-  const generated = lines.filter((line) => inManifest.has(line.name));
-  assert.deepEqual(
-    generated.map((line) => line.name), [],
-    'these cues are in the ledger now — take them out of CUES_AWAITING_VO_SYNC',
-  );
-  /* Nothing else on this prefix is in the manifest either, so a renamed line
-   * cannot leave a stale recording behind carrying words nobody says. */
-  const stale = [...inManifest].filter((name) => name.startsWith('vo.silentsquatch.'));
-  assert.deepEqual(stale, []);
+  const absent = lines.filter((line) => !inManifest.has(line.name)).map((line) => line.name);
+  assert.deepEqual(absent, [], 'these lines are not in the ledger — run `npm run vo:mansion`');
+
+  /* And nothing on the prefix that nobody says: a renamed line must not leave
+   * a stale cue behind carrying words that are no longer in the game. */
+  const authored = new Set(lines.map((line) => line.name));
+  const stale = [...inManifest]
+    .filter((name) => name.startsWith('vo.silentsquatch.') && !authored.has(name));
+  assert.deepEqual(stale, [], 'stale cues — run `npm run vo:mansion`');
+});
+
+test('the manifest carries the mission words verbatim and casts them right', () => {
+  /* A cue can be present, named correctly, and carry the wrong text or the
+   * wrong actor — in which case the sheet is full of lines nobody in the game
+   * says, delivered in somebody else's voice. */
+  const declared = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
+  const drift = [];
+  for (const line of allSilentSquatchLines()) {
+    const cue = declared.get(line.name);
+    if (!cue) continue; // covered by the test above
+    if (cue.say !== line.say) drift.push(`${line.name}: text`);
+    if (cue.voice !== line.voice) drift.push(`${line.name}: cast as ${cue.voice}, script says ${line.voice}`);
+  }
+  assert.deepEqual(drift, []);
 });
 
 test('nobody in this mission invents a voice profile', () => {
@@ -231,6 +288,20 @@ test('nobody in this mission invents a voice profile', () => {
     assert.ok(cast.has(name), `${name} is declared pending but nobody speaks with it`);
     assert.equal(voices.has(name), false, `${name} exists now — take it off PENDING_VOICE_PROFILES`);
   }
+});
+
+test('every voice this mission uses has an ElevenLabs id', () => {
+  /* The stronger form of the test above. `PENDING_VOICE_PROFILES` being empty
+   * only means nobody DECLARED a gap; this asserts there isn't one. A cue cast
+   * to a profile with no id cannot be rendered at all — `npm run sfx` has
+   * nothing to send — and it appears on the sheet as an ordinary line the
+   * voice actor cannot possibly deliver. */
+  const voices = manifest.voices || {};
+  const uncast = new Set();
+  for (const line of allSilentSquatchLines()) {
+    if (!voices[line.voice]?.id) uncast.add(line.voice);
+  }
+  assert.deepEqual([...uncast].sort(), []);
 });
 
 test('Big Uncle Lou is lou1, and the Family keeps its locked casting', () => {

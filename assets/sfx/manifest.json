@@ -20,7 +20,7 @@
     },
     "lou1": {
       "id": "M9UAxraM2w5tCjpOaIB0",
-      "_note": "Lou, of Lou & Lou. Breakfast show. Chattier of the two.",
+      "_note": "BIG UNCLE LOU SPUTTHOLE, in the room. The boss. Same performer as `lou`, which is him on the phone. NOT `lou2` -- that is Captain Lou Sasole, a different man, and the two must never merge. (This profile began life as one half of the radio show Lou & Lou; the id was reused for the boss and the old note described the wrong character.)",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
@@ -28,7 +28,7 @@
     },
     "lou2": {
       "id": "QzTKubutNn9TjrB7Xb2Q",
-      "_note": "The other Lou. Two Lous is the whole premise, so they have to be tellable apart or the joke does not land.",
+      "_note": "CAPTAIN LOU SASOLE, the pilot. The OTHER Lou. Two Lous is the whole premise, so they have to be tellable apart in one line -- he is the one with the clipboard looking at the weather. Never Big Uncle Lou, who is `lou1`/`lou`.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
@@ -100,7 +100,7 @@
     },
     "lou": {
       "id": "M9UAxraM2w5tCjpOaIB0",
-      "_note": "Big Uncle Lou on the phone — same man as lou1, phone cadence.",
+      "_note": "BIG UNCLE LOU SPUTTHOLE, on the phone. Same performer and same id as `lou1`; the difference is cadence and the handset, not the man.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
@@ -155,32 +155,40 @@
       "style": 0.42
     },
     "npc-male": {
-      "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "Scene-local male NPC pool for roles that are not recurring Family members. PROVISIONAL audition casting from the owner's old-man NPC row; voice lead must approve or replace this id before locking the final cast.",
+      "id": "THy3prVIjAFnT9vQVvCB",
+      "_note": "Scene-local male NPC pool, for roles that are not recurring Family. Owner-cast 2026-08-05, off the shared audition id it used to borrow. Neutral by design — this voice has to sit behind a dozen different faces without becoming a character.",
       "model": "eleven_multilingual_v2",
       "stability": 0.5,
       "similarity": 0.8,
       "style": 0.35
     },
+    "chester": {
+      "id": "tgfcQY9SGvn3GfmnNWIi",
+      "_note": "Chester — the man in the chair in THE SILVER CASE, and the man the whole scene is spent talking to. Owner-cast 2026-08-06, split out of `npc-male`, which he had been sharing with Deke, Winston and Pruitt: four men in one room in one voice. The id was first pasted 22 characters long against a file where every other id is 20; the owner corrected it to this. Re-render his takes with: npm run sfx -- --force --cast chester",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.45
+    },
     "heist-guard": {
       "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "THE TAKE bank security guard. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "_note": "THE TAKE — the bank security guard. Sole owner of this id since 2026-08-05: the customer, the manager and the npc-male pool were all recast off it, so it is no longer shared. Not itself recast; say so if it should be.",
       "model": "eleven_multilingual_v2",
       "stability": 0.56,
       "similarity": 0.8,
       "style": 0.3
     },
     "heist-customer": {
-      "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "THE TAKE frightened bank customer. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "id": "8Nfp0JhQpkjJB35HObeq",
+      "_note": "THE TAKE — the frightened bank customer. Owner-cast 2026-08-05, replacing a provisional reuse of the shared male audition id. Somebody who came in to pay a cheque; every line is said from the floor.",
       "model": "eleven_multilingual_v2",
       "stability": 0.38,
       "similarity": 0.8,
       "style": 0.5
     },
     "heist-manager": {
-      "id": "NOpBlnGInO9m6vDvFkFC",
-      "_note": "THE TAKE bank manager. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "id": "lE5ZJB6jGeeuvSNxOvs2",
+      "_note": "THE TAKE — the bank manager. Owner-cast 2026-08-05, replacing a provisional reuse of the shared male audition id. He is the one who knows the drill and is trying to be the adult in the room.",
       "model": "eleven_multilingual_v2",
       "stability": 0.62,
       "similarity": 0.8,
@@ -323,16 +331,16 @@
       "style": 0.2
     },
     "waiter": {
-      "id": "gAMZphRyrWJnLMDnom6H",
-      "_note": "The men on the floor of the Silver Room -- the host, the waiters, the champagne runner. Owner-recast 2026-08-04 (was 6yvQSmuck0L7cqMlVtsx). The 74 existing takes were rendered with the previous id and must be re-rendered: npm run sfx -- --force --cast waiter",
+      "id": "miqykcv8BCUvQnRlIGUV",
+      "_note": "The men on the floor of the Silver Room -- the host, the maitre d’, the waiter, the bandleader, and the room’s own overheard voices. One profile and five banks: everybody working the room is the same kind of professional courtesy, and recasting any one of them is a voice id in this block and nothing else. RECAST TWICE ON 2026-08-04, in two sessions that could not see each other: one wrote gAMZphRyrWJnLMDnom6H and rendered nothing, the other wrote this id and re-rendered all 74 takes. This id wins because the takes on disk are its takes -- keeping the other one would have left the manifest naming a voice no file in assets/sfx was ever spoken in. If the owner wanted gAMZphRyrWJnLMDnom6H, change it here and run: npm run sfx -- --force --cast waiter",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.8,
       "style": 0.4
     },
     "hotdog": {
-      "id": "Pcfg2Zc6kmNWQ9ji3J5F",
-      "_note": "Billy HotDog - owner-cast 2026-08-01. Loud welcome-home guest, casually cruel because he has been getting away with it for years; the final insult gets quieter.",
+      "id": "PtJWpiWfVrCfOmNdkFpr",
+      "_note": "Billy HotDog - owner-RECAST 2026-08-04, was Pcfg2Zc6kmNWQ9ji3J5F. Loud welcome-home guest, casually cruel because he has been getting away with it for years; the final insult gets quieter.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
@@ -361,6 +369,158 @@
       "stability": 0.5,
       "similarity": 0.82,
       "style": 0.4
+    },
+    "vetrov": {
+      "id": "v0eRobr4pSbFT9FKocdw",
+      "_note": "Vetrov — PROJECT SILENT SQUATCH scientist, 11 lines (most of any scientist needing a voice). Nervous technician: young, thin, apologetic. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.42,
+      "similarity": 0.82,
+      "style": 0.42
+    },
+    "orlova": {
+      "id": "nzeAacJi50IvxcyDnMXa",
+      "_note": "Orlova — PROJECT SILENT SQUATCH scientist, 11 lines (second most). Junior assistant, youngest voice in the room, proudest of it. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.82,
+      "style": 0.46
+    },
+    "sokolov": {
+      "id": "XeYTv1UwuV9mT4Hi5ZpQ",
+      "_note": "Sokolov — PROJECT SILENT SQUATCH scientist, 10 lines. Weapons engineer, warm, in love with the machine and not the money. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.44,
+      "similarity": 0.82,
+      "style": 0.5
+    },
+    "marchuk": {
+      "id": "8WRfTpaUoqZSfTerOXzI",
+      "_note": "Marchuk — PROJECT SILENT SQUATCH scientist, 9 lines. Medical specialist: clinical, gentle, the only one watching the people. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.58,
+      "similarity": 0.84,
+      "style": 0.24
+    },
+    "bezmenov": {
+      "id": "Xh5OictnmgRO4dff7pLm",
+      "_note": "Bezmenov — PROJECT SILENT SQUATCH scientist, 7 lines. The cynical old one: flat, slow, has worked for men like this before and expects the worst. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.7,
+      "similarity": 0.84,
+      "style": 0.12
+    },
+    "labcomputer": {
+      "id": "zp2G1GqPvAg5KDA55fjC",
+      "_note": "LABORATORY annunciator — PROJECT SILENT SQUATCH, 2 lines and both terrible news. Synthetic, unhurried, no affect whatever: stability high and style at zero on purpose, so the machine does not act.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.95,
+      "similarity": 0.9,
+      "style": 0
+    },
+    "xxx": {
+      "id": "V33LkP9pVLdcjeB2y5Na",
+      "_note": "xXx — hanging upside down by his ankles over a pool of his own blood and still going. Battered, unbothered, one octave lower than he can hold. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.34,
+      "similarity": 0.8,
+      "style": 0.6
+    },
+    "mansion-gate": {
+      "id": "TxWZERZ5Hc6h9dGxVmXa",
+      "_note": "The man on Lou's front door. Deadly serious and does not want any funny business: he greets you because that is the job, not because he is pleased to see you. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.72,
+      "similarity": 0.86,
+      "style": 0.12
+    },
+    "mansion-guard": {
+      "id": "lAqElvydqyTzitpwAdj6",
+      "_note": "Lou's loyal henchmen -- the four to six on the property. One voice across all of them on purpose: they are the same job, not the same man, so keep the readings short and flat and let position do the characterisation. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.22
+    },
+    "squatch-associate": {
+      "id": "mSOmKHC6GZcZbSTGlqHO",
+      "_note": "The Squatch associate. Owner-cast 2026-08-05. This profile had NO ENTRY AT ALL until now — its line was in the game and could never be rendered, which is what VOICE-LINES-NEEDED.md surfaced on its first run.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.36
+    },
+    "mansion-guard-stairs": {
+      "id": "bwCXcoVxWNYMlC6Esa8u",
+      "_note": "Lou's man at the top of the stairs, looking out over the front doors. He can see the gate from up there and he says so. The one post with a view, so he is the least bored of them. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-basement": {
+      "id": "KTPVrSVAEUSJRClDzBw7",
+      "_note": "Lou's man in the cellar, near the armory. Nothing down there belongs to you and he will say that once. Flat, close, and in a room with no daylight. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-vault": {
+      "id": "AocjYzHzWRalprWmBG9m",
+      "_note": "Lou's man on the vault. The door stays open, he stays here, that is the arrangement. The most static post in the house and the least interested in conversation. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "mansion-guard-perimeter": {
+      "id": "ICwKbPHDHAM3eal5tHEZ",
+      "_note": "One of the men walking the perimeter outside, working with `mansion-guard` so the patrol is not one throat twice. Outdoors, on the move, eleven laps a night. Owner-cast 2026-08-05.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.2
+    },
+    "sauce": {
+      "id": "hU1ratPhBTZNviWitzAh",
+      "_note": "Sauce - owner-cast 2026-08-05. In this club every night, not in the Circle. Around the crew but never made.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.3
+    },
+    "manager": {
+      "id": "OLw8Wi4Ch4C4T0zHZrfh",
+      "_note": "The manager at Front and Center (the Silver Room) -- owner-cast 2026-08-04. Previously shared the npc-male id; split out to his own voice here.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.3
+    },
+    "trailer-announcer": {
+      "id": "laTmoAT4stwoPzthxjZT",
+      "_note": "RESERVED 2026-08-04, not yet cast to any cue. Movie-trailer-style announcer for future promotional/trailer content -- distinct from the in-fiction radio `announcer` profile.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.4
+    },
+    "npc-reserve-1": {
+      "id": "kWjdIkuzqBCnHbyAOYlF",
+      "_note": "RESERVED 2026-08-04, not yet cast to any cue. Spare NPC voice -- owner set this aside for a future NPC need or to split out one of the roles still doubled up on `npc-male` (e.g. heist-guard/heist-customer/heist-manager in THE TAKE).",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.3
+    },
+    "npc-reserve-2": {
+      "id": "2vubyVoGjNJ5HPga4SkV",
+      "_note": "RESERVED 2026-08-04, not yet cast to any cue. Owner asked if this was the bartender -- it is not; `bartender` is already LOCKED to nUEpF21E0nXsKMw4L4CS. Set aside for a future NPC need.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.3
     }
   },
   "sfx": [
@@ -1867,23 +2027,17 @@
     {
       "name": "vo.toilet.hint.1",
       "voice": "player",
-      "say": "Nothing doing yet. One dart usually gets that moving.",
-      "needsRerecord": true,
-      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
+      "say": "Nothing doing yet. One dart usually gets that moving."
     },
     {
       "name": "vo.toilet.hint.2",
       "voice": "player",
-      "say": "Not yet. A zyn would sort this out inside a minute.",
-      "needsRerecord": true,
-      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
+      "say": "Not yet. A zyn would sort this out inside a minute."
     },
     {
       "name": "vo.toilet.hint.3",
       "voice": "player",
-      "say": "Empty. There is raw milk in the fridge, mind.",
-      "needsRerecord": true,
-      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
+      "say": "Empty. There is raw milk in the fridge, mind."
     },
     {
       "name": "vo.photo.1",
@@ -3046,14 +3200,12 @@
       "name": "vo.call.lou.bing_second.2",
       "voice": "lou1",
       "say": "Billy HotDog is home. Closed party. Family only.",
-      "needsRerecord": true,
       "_note": "Existing take contains the retired assignment wording. Replace it with this current HotDog-party line, then remove needsRerecord."
     },
     {
       "name": "vo.call.lou.bing_second.3",
       "voice": "lou1",
       "say": "Bring nothing. Come through the front and keep your phone in your pocket.",
-      "needsRerecord": true,
       "_note": "Existing take contains the retired back-office wording. Replace it with this current arrival instruction, then remove needsRerecord."
     },
     {
@@ -3072,7 +3224,6 @@
       "voice": "player",
       "say": "Closed party. Understood.",
       "duration": 2.5,
-      "needsRerecord": true,
       "_note": "Existing take says the retired in-person reply. Replace it with this current closed-party reply, then remove needsRerecord."
     },
     {
@@ -3657,6 +3808,16 @@
       "say": "Good evening. We are the Midnight Pines and we are contractually obliged to be here."
     },
     {
+      "name": "vo.silver.bandleader.set.second",
+      "voice": "waiter",
+      "say": "How are ya? Glad to be here!"
+    },
+    {
+      "name": "vo.silver.bandleader.set.second-wife",
+      "voice": "waiter",
+      "say": "Take my wife, please! I take my wife everywhere… but she finds her way home!"
+    },
+    {
       "name": "vo.silver.bandleader.slow",
       "voice": "waiter",
       "say": "Slow it is. Four! The four!"
@@ -3833,52 +3994,52 @@
     },
     {
       "name": "vo.silver.manager.do",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "…It’ll do. I’ll pass that to the men who carried it."
     },
     {
       "name": "vo.silver.manager.more",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "You didn’t ask for anything. That’s rather the point of the arrangement. Ma’am."
     },
     {
       "name": "vo.silver.manager.open.moment",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Mr — Prospect. One moment."
     },
     {
       "name": "vo.silver.manager.open.settled",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Everything as it should be?"
     },
     {
       "name": "vo.silver.manager.scene-table.1",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "No."
     },
     {
       "name": "vo.silver.manager.scene-table.10",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "For that."
     },
     {
       "name": "vo.silver.manager.scene-table.3",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Then bring something else."
     },
     {
       "name": "vo.silver.manager.scene-table.5",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Two-top. Front and center. Now."
     },
     {
       "name": "vo.silver.manager.scene-table.8",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Give us a minute."
     },
     {
       "name": "vo.silver.manager.took",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "The band’s on at half past. You’ll want to be sitting for the third number, not the first. Trust me on the third number."
     },
     {
@@ -5047,14 +5208,84 @@
       "say": "Sorry — sorry — sorry —"
     },
     {
+      "name": "vo.silver.room.corridor.4",
+      "voice": "waiter",
+      "say": "It’s a fur. I’m not hanging a fur next to a wet mac, I don’t care whose it is."
+    },
+    {
+      "name": "vo.silver.room.corridor.5",
+      "voice": "waiter",
+      "say": "Who took the front table? Nobody took the front table. The front table walked in."
+    },
+    {
+      "name": "vo.silver.room.corridor.6",
+      "voice": "waiter",
+      "say": "Down the middle. Down the middle! You go wide, you go through the drape."
+    },
+    {
       "name": "vo.silver.room.floor.1",
       "voice": "waiter",
       "say": "He calls it a franchise. It’s a van. I’ve seen the van."
     },
     {
+      "name": "vo.silver.room.floor.10",
+      "voice": "waiter",
+      "say": "Nine wants dessert, eleven is still on the fish, and twelve has not decided anything since they sat down."
+    },
+    {
+      "name": "vo.silver.room.floor.11",
+      "voice": "waiter",
+      "say": "I don’t ask. That is the arrangement. I don’t ask, and I sleep."
+    },
+    {
+      "name": "vo.silver.room.floor.12",
+      "voice": "waiter",
+      "say": "Did you see the coat. Look at the coat. That is not a birthday coat."
+    },
+    {
+      "name": "vo.silver.room.floor.13",
+      "voice": "waiter",
+      "say": "That’s not the good rye. Take it back, and don’t let him see you take it back."
+    },
+    {
+      "name": "vo.silver.room.floor.14",
+      "voice": "waiter",
+      "say": "Everybody’s a cousin. I have cousins I’ve met twice and one of them does my books."
+    },
+    {
+      "name": "vo.silver.room.floor.15",
+      "voice": "waiter",
+      "say": "Six weeks they told me. Six weeks, and we’re sat behind a pillar."
+    },
+    {
+      "name": "vo.silver.room.floor.16",
+      "voice": "waiter",
+      "say": "Two rye, one ice. One. If that comes back with three in it, it’s on you."
+    },
+    {
+      "name": "vo.silver.room.floor.17",
+      "voice": "waiter",
+      "say": "He orders for the whole table. Every time. I have never once eaten what I wanted in this room."
+    },
+    {
+      "name": "vo.silver.room.floor.18",
+      "voice": "waiter",
+      "say": "and the horse was fine! Nobody ever remembers that part!"
+    },
+    {
+      "name": "vo.silver.room.floor.19",
+      "voice": "waiter",
+      "say": "Anything they want, all night, and none of it goes on a bill. Those were the words I was given."
+    },
+    {
       "name": "vo.silver.room.floor.2",
       "voice": "waiter",
       "say": "And they gave him Wednesdays. Wednesdays!"
+    },
+    {
+      "name": "vo.silver.room.floor.20",
+      "voice": "waiter",
+      "say": "Ask me next week. Next week I’ll know, and then I won’t be able to tell you."
     },
     {
       "name": "vo.silver.room.floor.3",
@@ -5080,6 +5311,16 @@
       "name": "vo.silver.room.floor.7",
       "voice": "waiter",
       "say": "Front and center just went out. Somebody find out who that is."
+    },
+    {
+      "name": "vo.silver.room.floor.8",
+      "voice": "waiter",
+      "say": "Thirty-one years on that corner, and the son wants to put a wine list in it."
+    },
+    {
+      "name": "vo.silver.room.floor.9",
+      "voice": "waiter",
+      "say": "He was there. I saw him. He was at the christening."
     },
     {
       "name": "vo.silver.room.kitchen.1",
@@ -5647,6 +5888,36 @@
       "say": "Bring her back round and do it with more conviction."
     },
     {
+      "name": "vo.beefrun.sasole.takeoff.behind-1.1",
+      "voice": "lou2",
+      "say": "You have gone backwards off the end of a runway."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.behind-2.1",
+      "voice": "lou2",
+      "say": "The pines behind us are not a taxiway. Nothing back there is."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.behind-3.1",
+      "voice": "lou2",
+      "say": "Round the front. Same runway. Other direction."
+    },
+    {
+      "name": "vo.beefrun.prospect.takeoff.stranded-1.1",
+      "voice": "player",
+      "say": "We’re in the trees."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.stranded-2.1",
+      "voice": "lou2",
+      "say": "We are. And the tow is me and a rope and my whole afternoon."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.stranded-3.1",
+      "voice": "lou2",
+      "say": "Sit still. I will put us back on the numbers and we will never speak of it."
+    },
+    {
       "name": "vo.beefrun.prospect.cruise.what-1.1",
       "voice": "player",
       "say": "What exactly are we picking up?"
@@ -6112,6 +6383,26 @@
       "say": "That was the interview."
     },
     {
+      "name": "vo.beefrun.associate.end.crew-1.1",
+      "voice": "squatch-associate",
+      "say": "Sasole. You’re green."
+    },
+    {
+      "name": "vo.beefrun.sasole.end.crew-2.1",
+      "voice": "lou2",
+      "say": "I have been green since the mountains. Take the middle one first."
+    },
+    {
+      "name": "vo.beefrun.prospect.end.crew-3.1",
+      "voice": "player",
+      "say": "Should I help?"
+    },
+    {
+      "name": "vo.beefrun.sasole.end.crew-4.1",
+      "voice": "lou2",
+      "say": "You flew it here. That was your half."
+    },
+    {
       "name": "vo.beefrun.sasole.end.bite-1.1",
       "voice": "lou2",
       "say": "Worth it."
@@ -6125,6 +6416,11 @@
       "name": "vo.beefrun.sasole.end.envelope-2.1",
       "voice": "lou2",
       "say": "You’re still a prospect."
+    },
+    {
+      "name": "vo.beefrun.sasole.end.envelope-3.1",
+      "voice": "lou2",
+      "say": "Same time tomorrow. Bring a bag for me and nothing for you."
     },
     {
       "name": "vo.beefrun.sasole.bark-stall-1.1",
@@ -6491,6 +6787,21 @@
       "name": "applause",
       "duration": 3.2,
       "prompt": "warm applause from about sixty seated people in a supper club, no whistling, close and enthusiastic, ends naturally"
+    },
+    {
+      "name": "crowd.whistle",
+      "duration": 1.2,
+      "prompt": "a single sharp two-fingered wolf whistle from one man in a warm supper-club crowd, over light applause, close, no other voices, ends naturally"
+    },
+    {
+      "name": "crowd.laughter",
+      "duration": 3,
+      "prompt": "warm laughter from about sixty seated people in a supper club reacting to a stage comedian's joke, close and genuine, a few isolated chuckles trailing off, ends naturally, no applause, no whistling"
+    },
+    {
+      "name": "band.rimshot",
+      "duration": 1,
+      "prompt": "classic comedy rimshot drum sting, snare snare cymbal crash, ba-dum-tss, small hall, dry and close"
     },
     {
       "name": "car.door",
@@ -7214,9 +7525,7 @@
       "voice": "booski",
       "say": "AY! I want that shot in thirty FUCKING seconds!",
       "duration": 4,
-      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him.",
-      "needsRerecord": true,
-      "rerecordReason": "The indexed take is too high-pitched. Replace it with this low, chill delivery, then remove `needsRerecord` from the manifest."
+      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him."
     },
     {
       "name": "vo.bing.booski.shot.handoff",
@@ -7662,6 +7971,26 @@
       "name": "vo.margo.wake.tony.4",
       "voice": "player",
       "say": "I will ring you."
+    },
+    {
+      "name": "vo.margo.comehome.1",
+      "voice": "margo",
+      "say": "Well. You clean up all right, for a man who eats standing over the sink."
+    },
+    {
+      "name": "vo.margo.comehome.tony.1",
+      "voice": "player",
+      "say": "I own exactly one."
+    },
+    {
+      "name": "vo.margo.comehome.2",
+      "voice": "margo",
+      "say": "I am not staying because of the tie. I want that on the record."
+    },
+    {
+      "name": "vo.margo.comehome.tony.2",
+      "voice": "player",
+      "say": "Noted."
     },
     {
       "name": "footstep.concrete",
@@ -9193,6 +9522,90 @@
       "_comment": "Bada Bing, HotDog Incident: the fourth and final fist impact, the one that puts him down.",
       "prompt": "One final devastating fist impact into a clothed adult torso in a closed bar. Very heavy dull low thump, almost no high snap, jacket fabric, long wood-floor room resonance. No gunshot, no voice, no gore.",
       "promptInfluence": 0.56
+    },
+    {
+      "name": "kitchen.clatter",
+      "_note": "Steel landing on steel behind the pass. A kitchen reads as a kitchen because of irregular metal at irregular intervals, not because of a louder hum."
+    },
+    {
+      "name": "kitchen.chop",
+      "_note": "A blade through something firm onto a board. Rationed: the line is busy, not frantic."
+    },
+    {
+      "name": "kitchen.oven",
+      "_note": "An oven door and a tray going in. Heavy, and only once in a while."
+    },
+    {
+      "name": "kitchen.ticket",
+      "_note": "The printer at the pass. Short, and it means somebody out in the room ordered."
+    },
+    {
+      "name": "dining.cutlery",
+      "_note": "A fork set down on a plate at another table. Never intelligible, never a punchline."
+    },
+    {
+      "name": "dining.glass.clink",
+      "_note": "Glass on glass across the room. The Silver Room is full and should sound full."
+    },
+    {
+      "name": "dining.chair",
+      "_note": "A chair moved on carpet. Somebody is leaving, and it is not about you."
+    },
+    {
+      "name": "margo.snore",
+      "_note": "Margo asleep beside him, before she sits up. Owner: \"lets add a low key snore sound\" -- low key is the whole direction. She is sixty centimetres from his ear so it plays dry rather than positioned, and it stops the moment she moves."
+    },
+    {
+      "name": "enolasquatch.gun.rear",
+      "_note": "The Enola Squatch tail gun, close. Owner: \"better bigger machine guns sounds for the rear gun\" -- it had been playing the apartment REVOLVER at eleven shots a second."
+    },
+    {
+      "name": "enolasquatch.gun.rear.cabin",
+      "_note": "The same gun heard from the cabin: the airframe between you and it, not the muzzle."
+    },
+    {
+      "name": "ambience.kitchen.line",
+      "_note": "The Silver Room kitchen bed: gas and a simmer under the extraction fan. The thing everybody in there shouts over."
+    },
+    {
+      "name": "ambience.diners.chatter",
+      "_note": "The main room, full. Vowel-range and nothing intelligible, and it thins to under half while anybody is talking or the featured number is playing."
+    },
+    {
+      "name": "enola.bomb.falling",
+      "duration": 4.57,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Bomb_Falling_Sound_Effects.mp3). The Fat Squatch on its way down. 4.57s against a fall the mission computes at eight or nine seconds, so it is SCHEDULED TO END ON IMPACT rather than started at release — see MissionController.updateRelease. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.a",
+      "duration": 44.07,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Atomic_Bomb_Sound_Effect.mp3). Layer one of three, and the long one — 44s, which deliberately outlives the 30s detonation timeline. Owner: “let the full clips play and well see if we get the power we want.” Do not regenerate, do not truncate."
+    },
+    {
+      "name": "enola.blast.b",
+      "duration": 8.12,
+      "_note": "OWNER-DELIVERED 2026-08-06. Layer two of three, the short one. All three start so that their BOOMS coincide, which is not the same as starting together — each clip has its own lead-in. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.c",
+      "duration": 22.39,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Nuclear_Explosion_Video__Sound.mp3). Layer three of three. Do not regenerate."
+    },
+    {
+      "name": "enola.wind.high",
+      "duration": 22,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "steady high altitude wind rushing over the outside of a heavy four engine bomber at night, deep smooth air roar with a thin whistle where it passes the gun ports and the turret glass, constant and unhurried, no engines, no propellers, no voices, no music, seamless loop",
+      "_note": "NOT YET RECORDED. Owner 2026-08-06: “A nice wind sound to continue playing.” The bed under the synthesised airframe wind — it comes up once the aeroplane is flying and then keeps going, through the drop, through the detonation and all the way home; only a checkpoint restart takes it away. Silent until this file exists (EnolaMissionAudio._updateWindBed checks hasSample and does NOT use startLoop's synth fallback, which would put a second wind under the first)."
+    },
+    {
+      "name": "enola.siren.airraid",
+      "duration": 22,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "a city air raid siren network heard from several kilometres away across open country at night, slow rising and falling wail, several sirens in different parts of the city drifting out of phase with each other, heavily softened by distance with no top end left, no voices, no aircraft, no explosions, seamless loop",
+      "_note": "NOT YET RECORDED. Owner 2026-08-06: “maybe an air raid siren as we approach would be good as wlel.” IT IS THE CITY'S, NOT THE COCKPIT'S: played through a panner sitting at the middle of Squatchbourg, so it arrives from the direction of the target, comes up as the run closes, swings across the aeroplane on the break turn and stops at the flash. Record it dry-ish and distant; the lowpass that closes with range is applied at runtime. Silent until this file exists — no synth fallback on purpose (see EnolaMissionAudio.setAirRaidSiren)."
     },
     {
       "name": "vo.bing2.shubenator.intro",
@@ -10916,196 +11329,6 @@
       "say": "Blue lights. We leave now."
     },
     {
-      "name": "vo.nowake.start.lou.platform.1",
-      "voice": "lou",
-      "say": "Prospect. The platform is down. Walk it onto the port deck and do not make me come back for you."
-    },
-    {
-      "name": "vo.nowake.start.booski.sequence.1",
-      "voice": "booski",
-      "say": "Battery, blower, ignition. Then both lines. The helm is through the open port side."
-    },
-    {
-      "name": "vo.nowake.cruise.willy.cigars.1",
-      "voice": "willy",
-      "say": "This old girl still smells like Lou’s cigars. He sold the ashtrays but kept the smell."
-    },
-    {
-      "name": "vo.nowake.cruise.booski.markers.1",
-      "voice": "booski",
-      "say": "Red markers to starboard, Tony. Unless you want the Harbor Patrol in the conversation."
-    },
-    {
-      "name": "vo.nowake.cruise.willy.motel.1",
-      "voice": "willy",
-      "say": "Nice to get out. Everybody has been looking at me funny since the Motel."
-    },
-    {
-      "name": "vo.nowake.cruise.lou.water.1",
-      "voice": "lou",
-      "say": "Nobody is looking at anybody, Willy. Enjoy the water."
-    },
-    {
-      "name": "vo.nowake.cruise.irish.egg.1",
-      "voice": "irish",
-      "say": "I’ll do the back half of the egg story on the way in. There is a back half. Nobody ever gets to it."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.quiet.1",
-      "voice": "lou",
-      "say": "Kill the engines in your head for a minute, kid. We need the quiet."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.sandwiches.1",
-      "voice": "willy",
-      "say": "What is this, Lou? You said a ride. I brought sandwiches."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.beef-detected.1",
-      "voice": "lou",
-      "say": "The Beef Run drew eyes because somebody gave them a tail number and a day."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.beef-clean.1",
-      "voice": "lou",
-      "say": "The Beef Run was clean. Then a Bureau report named the strip, the cargo, and all four crates."
-    },
-    {
-      "name": "vo.nowake.reveal.booski.pickup.1",
-      "voice": "booski",
-      "say": "Four people knew the reserve pickup. Lou, me, Tony, and the man who asked twice which room."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.questions.1",
-      "voice": "willy",
-      "say": "I ask things. I am interested. That is a crime now?"
-    },
-    {
-      "name": "vo.nowake.reveal.lou.motel-hot.1",
-      "voice": "lou",
-      "say": "The Bureau was on the Motel road before the first siren. That did not happen by luck."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.motel-clean.1",
-      "voice": "lou",
-      "say": "The Bureau knew the Motel, the room, and what was in the cases before Cecilio opened the door."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.bureau.1",
-      "voice": "willy",
-      "say": "You think I talked to the Bureau? After all these years?"
-    },
-    {
-      "name": "vo.nowake.reveal.lou.confirmed.1",
-      "voice": "lou",
-      "say": "We know you did. The only question left is whether you make us hear you deny it again."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.head-v2.1",
-      "voice": "willy",
-      "say": "I need the head. Too much coffee on the ride down. Everybody relax."
-    },
-    {
-      "name": "vo.nowake.reveal.irish.counted.1",
-      "voice": "irish",
-      "say": "Four. I counted it on my fingers, twice, sitting in my own kitchen, hoping I’d get five."
-    },
-    {
-      "name": "vo.nowake.reveal.irish.asked.1",
-      "voice": "irish",
-      "say": "He was asked. Asked, asked again, and now. That is the whole of it and I’ll say so to anybody who asks me."
-    },
-    {
-      "name": "vo.nowake.below.booski.look.1",
-      "voice": "booski",
-      "say": "When he comes back, do not look at Lou. Look at Willy."
-    },
-    {
-      "name": "vo.nowake.below.lou.fire.1",
-      "voice": "lou",
-      "say": "You fire with us. Not after us."
-    },
-    {
-      "name": "vo.nowake.below.irish.hands.1",
-      "voice": "irish",
-      "say": "My hands stay empty, kid. Somebody on this boat has to be able to say what happened out here."
-    },
-    {
-      "name": "vo.nowake.execution.lou.move.1",
-      "voice": "lou",
-      "say": "That’s done. Help Booski get him over the side."
-    },
-    {
-      "name": "vo.nowake.execution.irish.rail.1",
-      "voice": "irish",
-      "say": "Rail’s clear on this side. Take him wide of the propellers and mind your footing."
-    },
-    {
-      "name": "vo.nowake.execution.booski.lift.1",
-      "voice": "booski",
-      "say": "Shoulders, Prospect. I’ve got his legs."
-    },
-    {
-      "name": "vo.nowake.execution.prospect.lift.1",
-      "voice": "player",
-      "say": "I’ve got him."
-    },
-    {
-      "name": "vo.nowake.return.lou.lesson.1",
-      "voice": "lou",
-      "say": "You did what you were told. Leave the rest of it out here."
-    },
-    {
-      "name": "vo.nowake.return.irish.no-back-half.1",
-      "voice": "irish",
-      "say": "I’m not doing the back half. Not today. Ask me at the club sometime."
-    },
-    {
-      "name": "vo.nowake.epilogue.tony.phone.1",
-      "voice": "player",
-      "say": "The phone will ring when it rings."
-    },
-    {
-      "name": "vo.call.lou.no_wake.1",
-      "voice": "lou1",
-      "say": "Kid. South Harbor. Gate C. Quarter to one."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.1",
-      "voice": "player",
-      "say": "Gate C. Quarter to one."
-    },
-    {
-      "name": "vo.call.lou.no_wake.2",
-      "voice": "lou1",
-      "say": "Plain clothes. Leave the phone in the glovebox when you get there."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.2",
-      "voice": "player",
-      "say": "No phone. Understood."
-    },
-    {
-      "name": "vo.call.lou.no_wake.3",
-      "voice": "lou1",
-      "say": "Booski and Willy are already on their way. We are taking a ride."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.3",
-      "voice": "player",
-      "say": "All four of us?"
-    },
-    {
-      "name": "vo.call.lou.no_wake.4",
-      "voice": "lou1",
-      "say": "Do not be late, and do not ring me back."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.4",
-      "voice": "player",
-      "say": "I will be there."
-    },
-    {
       "name": "heist.crew_snow",
       "voice": "snow",
       "say": "Snow. I call the move. You keep the clock honest."
@@ -11760,6 +11983,46 @@
       "name": "vo.bing.full.associate.open.tony.16pgg7u",
       "voice": "player",
       "say": "I’m going."
+    },
+    {
+      "name": "vo.bing.full.aubbie.aside.line.yx6t7d",
+      "voice": "aubbie",
+      "say": "Two nights. There is a chair where I work that reclines, if you lean on it and agree not to call it a chair."
+    },
+    {
+      "name": "vo.bing.full.aubbie.asideMore.line.cevhsx",
+      "voice": "aubbie",
+      "say": "My daughter has started describing me to her friends off a photograph. She holds it up. This one, she says. He is very busy."
+    },
+    {
+      "name": "vo.bing.full.aubbie.more.line.gdwsve",
+      "voice": "aubbie",
+      "say": "Twelve hours, and then the telephone at midnight to ask how it is coming along. It is coming along exactly as it was at seven. It is coming along."
+    },
+    {
+      "name": "vo.bing.full.aubbie.more.tony.1sbfst0",
+      "voice": "player",
+      "say": "Get some sleep, Aubbie."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.line.ojzmwc",
+      "voice": "aubbie",
+      "say": "Lou has me working on a big project. He wants it done yesterday. I am one man with one pair of hands — I am only human."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.tony.12ju9v8",
+      "voice": "player",
+      "say": "You look like you haven’t slept."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.tony.8whbeq",
+      "voice": "player",
+      "say": "Everything’s yesterday with Lou."
+    },
+    {
+      "name": "vo.bing.full.aubbie.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
     },
     {
       "name": "vo.bing.full.bartender.joke.line.1uqigwu",
@@ -13237,6 +13500,46 @@
       "say": "Another time."
     },
     {
+      "name": "vo.bing.full.sauce.aside.line.yujbdt",
+      "voice": "sauce",
+      "say": "The runway. She is on at midnight, she is from San Juan, and she says buenas noches to me on the way past like it costs her nothing."
+    },
+    {
+      "name": "vo.bing.full.sauce.asideMore.line.1aa7iwu",
+      "voice": "sauce",
+      "say": "I tip, I sit, and I have nine words of Spanish off a cassette in the van. She laughs at the words. Nine words and a laugh is more than most marriages start with."
+    },
+    {
+      "name": "vo.bing.full.sauce.more.line.xeijn6",
+      "voice": "sauce",
+      "say": "Every night for eleven years. And every year they send me another one of you. Make the A team, then come and talk to me. Until then you are somebody else’s paperwork."
+    },
+    {
+      "name": "vo.bing.full.sauce.more.tony.1ifjdrr",
+      "voice": "player",
+      "say": "Enjoy the corn."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.line.ggzxjv",
+      "voice": "sauce",
+      "say": "That is corn. I bring my own into this place, and that is not an insult to the kitchen, it is a review. Now what do you want."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.tony.1kpphcc",
+      "voice": "player",
+      "say": "You’re sat very close to the stage."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.tony.1wwigel",
+      "voice": "player",
+      "say": "You brought corn to the Bada Bing."
+    },
+    {
+      "name": "vo.bing.full.sauce.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
       "name": "vo.bing.full.security.chair.line.1461trs",
       "voice": "doorman",
       "say": "Check it from a chair."
@@ -13404,7 +13707,7 @@
     },
     {
       "name": "vo.silvercase.arrival.chester.whoisit",
-      "voice": "npc-male",
+      "voice": "chester",
       "say": "Who is it?"
     },
     {
@@ -13444,7 +13747,7 @@
     },
     {
       "name": "vo.silvercase.control.chester.whatcase",
-      "voice": "npc-male",
+      "voice": "chester",
       "say": "…Case? What case?"
     },
     {
@@ -13459,7 +13762,7 @@
     },
     {
       "name": "vo.silvercase.control.chester.misunderstanding",
-      "voice": "npc-male",
+      "voice": "chester",
       "say": "That was — that was a misunderstanding."
     },
     {
@@ -13489,7 +13792,7 @@
     },
     {
       "name": "vo.silvercase.control.chester.drink",
-      "voice": "npc-male",
+      "voice": "chester",
       "say": "You, uh — you want a drink or somethin’?"
     },
     {
@@ -13554,7 +13857,7 @@
     },
     {
       "name": "vo.silvercase.lou.chester.notpersonal",
-      "voice": "npc-male",
+      "voice": "chester",
       "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —"
     },
     {
@@ -13564,7 +13867,7 @@
     },
     {
       "name": "vo.silvercase.lou.chester.no",
-      "voice": "npc-male",
+      "voice": "chester",
       "say": "No."
     },
     {
@@ -13574,7 +13877,7 @@
     },
     {
       "name": "vo.silvercase.lou.chester.heardofhim",
-      "voice": "npc-male",
+      "voice": "chester",
       "say": "I mean — I’ve heard of him, everybody’s heard of —"
     },
     {
@@ -14136,6 +14439,16 @@
       "name": "vo.enolasquatch.shubes.defense-suppressed-1.1",
       "voice": "shubenator",
       "say": "I think I got one! I think! There was fire! Fire happened!"
+    },
+    {
+      "name": "vo.enolasquatch.irish.defense-engineStrain-1.1",
+      "voice": "irish",
+      "say": "Number three’s losing revs. She’s been asking for this the whole climb."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.defense-engineStrain-2.1",
+      "voice": "lou2",
+      "say": "Heard it. Nurse it — we keep flying, we just fly lighter on that side."
     },
     {
       "name": "vo.enolasquatch.shubes.fighters-first-1.1",
@@ -14914,6 +15227,12 @@
       "direction": "Confirming a fact, not agreeing with a joke."
     },
     {
+      "name": "vo.golf.h1.eric.hes_been_hitting_it_all_morning",
+      "voice": "eric",
+      "say": "He has been hitting it all morning.",
+      "direction": "Correcting the record, gently, as always."
+    },
+    {
       "name": "vo.golf.h1.eric.it_was_a_bunker",
       "voice": "eric",
       "say": "It was a bunker.",
@@ -15020,6 +15339,12 @@
       "voice": "eric",
       "say": "You have selected a driver.",
       "direction": "Perfectly level. This is how Eric roasts people."
+    },
+    {
+      "name": "vo.golf.h1.eric.short_grass",
+      "voice": "eric",
+      "say": "Short grass. That is the whole job off a tee.",
+      "direction": "Plain approval. Eric does not gild anything."
     },
     {
       "name": "vo.golf.h1.eric.take_your_time",
@@ -15325,6 +15650,12 @@
       "direction": "Final and slightly amused."
     },
     {
+      "name": "vo.golf.h1.lou.it_is_today",
+      "voice": "lou1",
+      "say": "It is today.",
+      "direction": "Closing it. Three words and Rippin has nowhere to go."
+    },
+    {
       "name": "vo.golf.h1.lou.job_and_night",
       "voice": "lou1",
       "say": "You’ve got a big job and a big night coming.",
@@ -15486,6 +15817,12 @@
       "voice": "lou1",
       "say": "Take the drop. Forget the shot.",
       "direction": "The most useful thing anybody says to him all day."
+    },
+    {
+      "name": "vo.golf.h1.lou.thats_what_its_for",
+      "voice": "lou1",
+      "say": "That is what the thing is for.",
+      "direction": "Nodding at the driver. Mild, and it is praise."
     },
     {
       "name": "vo.golf.h1.lou.thats_why_we_came",
@@ -15833,6 +16170,12 @@
       "direction": "Instantly, before the sand has settled."
     },
     {
+      "name": "vo.golf.h1.rippin.finally_somebody_hits_it",
+      "voice": "rippinflow",
+      "say": "Finally. Somebody out here hits it.",
+      "direction": "As though he has been waiting years."
+    },
+    {
       "name": "vo.golf.h1.rippin.first_hole_ace",
       "voice": "rippinflow",
       "say": "First hole with us and he gets an ace?",
@@ -15993,6 +16336,12 @@
       "voice": "rippinflow",
       "say": "Not on the scorecard.",
       "direction": "Warmly."
+    },
+    {
+      "name": "vo.golf.h1.rippin.not_the_whole_job",
+      "voice": "rippinflow",
+      "say": "It is not the whole job.",
+      "direction": "Cannot let a compliment stand unsupervised."
     },
     {
       "name": "vo.golf.h1.rippin.now_its_a_meeting",
@@ -16169,6 +16518,12 @@
       "direction": "Information, offered before anybody asks for it."
     },
     {
+      "name": "vo.golf.h2.eric.first_honest_thing",
+      "voice": "eric",
+      "say": "That is the first honest thing anybody has said on a tee this morning.",
+      "direction": "Warm. It is the closest Eric comes to liking somebody out loud."
+    },
+    {
       "name": "vo.golf.h2.eric.gratin_butter_chicken",
       "voice": "eric",
       "say": "Gratin still owes me a proper butter chicken. He has been to India. He has *seen* it done.",
@@ -16211,6 +16566,18 @@
       "direction": "Quiet."
     },
     {
+      "name": "vo.golf.h2.eric.lou",
+      "voice": "eric",
+      "say": "Lou.",
+      "direction": "One syllable. Not a rebuke — a check."
+    },
+    {
+      "name": "vo.golf.h2.eric.sand_is_on_that_line",
+      "voice": "eric",
+      "say": "The sand is on that line.",
+      "direction": "A fact, delivered to nobody in particular."
+    },
+    {
       "name": "vo.golf.h2.eric.six",
       "voice": "eric",
       "say": "Six.",
@@ -16235,6 +16602,12 @@
       "direction": "Not gloating. Reporting."
     },
     {
+      "name": "vo.golf.h2.eric.that_was_a_compliment",
+      "voice": "eric",
+      "say": "That was a compliment.",
+      "direction": "Translating, because somebody has to."
+    },
+    {
       "name": "vo.golf.h2.eric.thats_after_the_job",
       "voice": "eric",
       "say": "That’s after the job, yes.",
@@ -16247,10 +16620,23 @@
       "direction": "Flat."
     },
     {
+      "name": "vo.golf.h2.lou.another_lou",
+      "voice": "lou1",
+      "say": "There’s a captain for it already. Not me. Another Lou. You’ll know him when you see him — he’s the one holding a clipboard and looking at the weather.",
+      "direction": "Fond and faintly exasperated, the way you talk about a cousin who is very good at one thing. Then straight back to the putt.",
+      "postLineHold": 2
+    },
+    {
       "name": "vo.golf.h2.lou.dont",
       "voice": "lou1",
       "say": "Don’t.",
       "direction": "Too late."
+    },
+    {
+      "name": "vo.golf.h2.lou.dont_copy_me",
+      "voice": "lou1",
+      "say": "Don’t copy me. I’m playing this for a five and I’m happy about it.",
+      "direction": "Entirely at peace with his own game."
     },
     {
       "name": "vo.golf.h2.lou.driver",
@@ -16272,6 +16658,12 @@
       "direction": "Protective, barely."
     },
     {
+      "name": "vo.golf.h2.lou.hes_going_to_find_out",
+      "voice": "lou1",
+      "say": "He finds out in a couple of weeks either way. He can find out now with a putter in his hand.",
+      "direction": "To Eric, about the Prospect, in front of the Prospect."
+    },
+    {
       "name": "vo.golf.h2.lou.hes_right_about_the_weather",
       "voice": "lou1",
       "say": "He’s right about the weather.",
@@ -16289,6 +16681,12 @@
       "voice": "lou1",
       "say": "I’m in the fairway. They’re in a conversation about sand.",
       "direction": "Dry, and it is the whole philosophy of the man."
+    },
+    {
+      "name": "vo.golf.h2.lou.im_playing_for_a_five",
+      "voice": "lou1",
+      "say": "I’m playing for a five.",
+      "direction": "Not looking up. He will be proved right and they both know it."
     },
     {
       "name": "vo.golf.h2.lou.its_a_golf_course",
@@ -16311,6 +16709,12 @@
       "direction": "Under his breath. Not for anybody."
     },
     {
+      "name": "vo.golf.h2.lou.nobody_lost_a_hole_wide",
+      "voice": "lou1",
+      "say": "Nobody ever lost a hole from the wide side. They just took longer getting home.",
+      "direction": "Approval that sounds like a shrug."
+    },
+    {
       "name": "vo.golf.h2.lou.one_thing_at_a_time",
       "voice": "lou1",
       "say": "One thing at a time.",
@@ -16329,6 +16733,20 @@
       "direction": "Identical to the last time he did this."
     },
     {
+      "name": "vo.golf.h2.lou.six_thousand_pounds_of_it",
+      "voice": "lou1",
+      "say": "Six thousand pounds of it. It doesn’t go in a van and it doesn’t go in this conversation.",
+      "direction": "Cheerful. He is telling him the weight and nothing else, and the weight is the most frightening part.",
+      "postLineHold": 1.2
+    },
+    {
+      "name": "vo.golf.h2.lou.thing_after_the_thing",
+      "voice": "lou1",
+      "say": "One thing at a time. Although — there’s a thing after the thing, and it needs an aeroplane.",
+      "direction": "Reading a putt while he says it. The aside is not an aside and he knows exactly how it lands.",
+      "postLineHold": 1.4
+    },
+    {
       "name": "vo.golf.h2.lou.three_shots_to_get_there",
       "voice": "lou1",
       "say": "Three shots to get there. You have got room to be wrong twice.",
@@ -16341,6 +16759,24 @@
       "direction": "Closing the card."
     },
     {
+      "name": "vo.golf.h2.prospect.an_aeroplane",
+      "voice": "player",
+      "say": "An aeroplane.",
+      "direction": "Repeating the word to see whether it changes."
+    },
+    {
+      "name": "vo.golf.h2.prospect.cut_the_corner",
+      "voice": "player",
+      "say": "I’m cutting the corner.",
+      "direction": "Committing out loud before he can talk himself out of it."
+    },
+    {
+      "name": "vo.golf.h2.prospect.know_when_im_over_it",
+      "voice": "player",
+      "say": "I’ll know when I’m stood over it.",
+      "direction": "The truth, offered without decoration."
+    },
+    {
       "name": "vo.golf.h2.prospect.ten_drunk_cigarettes",
       "voice": "player",
       "say": "Somebody said something about ten drunk cigarettes.",
@@ -16351,6 +16787,18 @@
       "voice": "player",
       "say": "What eggs?",
       "direction": "He has learned that asking is usually a mistake and asks anyway."
+    },
+    {
+      "name": "vo.golf.h2.prospect.whatever_lou_hits",
+      "voice": "player",
+      "say": "Whatever Lou hits.",
+      "direction": "Half a joke. Only half."
+    },
+    {
+      "name": "vo.golf.h2.prospect.wide_and_safe",
+      "voice": "player",
+      "say": "Wide. I’ll take the extra shot.",
+      "direction": "Unglamorous and completely deliberate."
     },
     {
       "name": "vo.golf.h2.prospect.you_hit_it_short",
@@ -16399,6 +16847,12 @@
       "voice": "rippinflow",
       "say": "He uses a jar.",
       "direction": "Betraying a friend without hesitating."
+    },
+    {
+      "name": "vo.golf.h2.rippin.hes_playing_for_a_six",
+      "voice": "rippinflow",
+      "say": "He’s playing for a six.",
+      "direction": "Instantly."
     },
     {
       "name": "vo.golf.h2.rippin.his_eyes_were_wet",
@@ -16461,6 +16915,12 @@
       "direction": "Looking off into the trees."
     },
     {
+      "name": "vo.golf.h2.rippin.sand_is_everywhere",
+      "voice": "rippinflow",
+      "say": "The sand is everywhere, Eric.",
+      "direction": "Waving it away. He is not wrong and it does not help."
+    },
+    {
       "name": "vo.golf.h2.rippin.shubes_cried",
       "voice": "rippinflow",
       "say": "Shubes cried on the ninth at Ridgemont. Openly.",
@@ -16485,6 +16945,12 @@
       "direction": "Unmovable."
     },
     {
+      "name": "vo.golf.h2.rippin.thats_my_boy",
+      "voice": "rippinflow",
+      "say": "That is my boy.",
+      "direction": "Enormous. He has been waiting all morning for somebody to be reckless."
+    },
+    {
       "name": "vo.golf.h2.rippin.theyre_still_going",
       "voice": "rippinflow",
       "say": "They’re still going, Lou.",
@@ -16503,6 +16969,36 @@
       "direction": "Announcing a plan nobody asked to hear."
     },
     {
+      "name": "vo.golf.h2.rippin.which_side",
+      "voice": "rippinflow",
+      "say": "Right. Corner’s out there somewhere behind those pines. Which side are you playing, Prospect?",
+      "direction": "Genuinely wants to know, and is going to have an opinion either way."
+    },
+    {
+      "name": "vo.golf.h3.booski.fourth_mans_in",
+      "voice": "booski",
+      "say": "Fourth man’s in. That’s the morning.",
+      "direction": "Raising the can about two inches. From him that is a standing ovation."
+    },
+    {
+      "name": "vo.golf.h3.booski.there_he_is",
+      "voice": "booski",
+      "say": "There he is. Take your time. We’ve only been stood out here since seven.",
+      "direction": "Can in hand, not moving an inch. Delighted and complaining."
+    },
+    {
+      "name": "vo.golf.h3.deathmegatron.cigar_with_your_name",
+      "voice": "deathmegatron",
+      "say": "I’ve got a cigar with your name on it and I am not giving it to you.",
+      "direction": "The warmest thing he has ever said to anybody."
+    },
+    {
+      "name": "vo.golf.h3.deathmegatron.two_putt",
+      "voice": "deathmegatron",
+      "say": "Two-putt it and we all go inside.",
+      "direction": "Around a cigar he is not taking out of his mouth."
+    },
+    {
       "name": "vo.golf.h3.eric.good_morning_for_it",
       "voice": "eric",
       "say": "Good morning for it.",
@@ -16519,6 +17015,12 @@
       "voice": "eric",
       "say": "Leave it, Rip.",
       "direction": "And Rippin does, which tells you he understood."
+    },
+    {
+      "name": "vo.golf.h3.eric.most_useful_thing_all_day",
+      "voice": "eric",
+      "say": "That is the most useful thing he has said all day.",
+      "direction": "And he means the whole day, golf included."
     },
     {
       "name": "vo.golf.h3.eric.provisionally",
@@ -16545,6 +17047,13 @@
       "direction": "Watching it come down."
     },
     {
+      "name": "vo.golf.h3.lou.anybody_know_youre_here",
+      "voice": "lou1",
+      "say": "Before you hit. Does anybody know you’re out here this morning?",
+      "direction": "Conversational. He asks it the way he would ask about traffic, and it is the most serious question of the round.",
+      "postLineHold": 1.2
+    },
+    {
       "name": "vo.golf.h3.lou.breaks_toward_the_building",
       "voice": "lou1",
       "say": "Breaks toward the building. Everything here does.",
@@ -16562,6 +17071,12 @@
       "voice": "lou1",
       "say": "Golf.",
       "direction": "Flat."
+    },
+    {
+      "name": "vo.golf.h3.lou.golf_is_the_true_half",
+      "voice": "lou1",
+      "say": "Golf is the true half. Tell people the true half and stop there.",
+      "direction": "Practical instruction, given like a club recommendation."
     },
     {
       "name": "vo.golf.h3.lou.he_did_hear_you",
@@ -16587,6 +17102,19 @@
       "voice": "lou1",
       "say": "No.",
       "direction": "Not looking up."
+    },
+    {
+      "name": "vo.golf.h3.lou.right_answer_wrong_life",
+      "voice": "lou1",
+      "say": "That’s the right answer. I didn’t want it to be.",
+      "direction": "A flicker of something, gone before you can name it.",
+      "postLineHold": 1.4
+    },
+    {
+      "name": "vo.golf.h3.lou.sad_or_professional",
+      "voice": "lou1",
+      "say": "That’s either very sad or very professional.",
+      "direction": "Not unkind. He has met both."
     },
     {
       "name": "vo.golf.h3.lou.seven_oclock",
@@ -16616,11 +17144,36 @@
       "direction": "Reading the hole, and the last sentence is the one that matters."
     },
     {
+      "name": "vo.golf.h3.lou.today_it_matters",
+      "voice": "lou1",
+      "say": "Today it does. Tomorrow it won’t. Hit your ball.",
+      "direction": "And the subject is closed by the man who opened it.",
+      "postLineHold": 1.2
+    },
+    {
       "name": "vo.golf.h3.lou.you_know_whats_at_seven",
       "voice": "lou1",
       "say": "You know what’s at seven.",
       "direction": "Not a question. First time either of them has said the hour out loud, and he says it while looking down the fairway.",
       "postLineHold": 2
+    },
+    {
+      "name": "vo.golf.h3.numbskull.it_is_though",
+      "voice": "numbskull",
+      "say": "It is, though.",
+      "direction": "Standing by it."
+    },
+    {
+      "name": "vo.golf.h3.numbskull.three_putt_is_funnier",
+      "voice": "numbskull",
+      "say": "Three-putt’s funnier.",
+      "direction": "Immediately, and he means it kindly."
+    },
+    {
+      "name": "vo.golf.h3.prospect.does_it_matter",
+      "voice": "player",
+      "say": "Does it matter?",
+      "direction": "Testing whether he is allowed to ask that yet."
     },
     {
       "name": "vo.golf.h3.prospect.i_know",
@@ -16636,10 +17189,34 @@
       "postLineHold": 1.6
     },
     {
+      "name": "vo.golf.h3.prospect.nobody_knows",
+      "voice": "player",
+      "say": "Nobody.",
+      "direction": "Immediate, and he hears how that sounds after he says it."
+    },
+    {
+      "name": "vo.golf.h3.prospect.told_margo",
+      "voice": "player",
+      "say": "I told Margo I was playing golf.",
+      "direction": "Careful. He is watching Lou’s face for the answer."
+    },
+    {
       "name": "vo.golf.h3.prospect.what_if_they_say_no",
       "voice": "player",
       "say": "What if they say no?",
       "direction": "Quiet. The question he has been carrying since the car park."
+    },
+    {
+      "name": "vo.golf.h3.prospect.who_would_i_tell",
+      "voice": "player",
+      "say": "Who would I tell?",
+      "direction": "Blunt, and sadder than he means it."
+    },
+    {
+      "name": "vo.golf.h3.rippin.can_be_both",
+      "voice": "rippinflow",
+      "say": "It can be both.",
+      "direction": "From the next tee marker, and for once he is being serious."
     },
     {
       "name": "vo.golf.h3.rippin.didnt_even_think",
@@ -16703,6 +17280,30 @@
       "direction": "From forty yards away, because he cannot bear it."
     },
     {
+      "name": "vo.golf.h3.shubenator.grille_is_open",
+      "voice": "shubenator",
+      "say": "Balcony’s open. Lou’s buying, which means Eric’s buying.",
+      "direction": "Already turning toward the steps."
+    },
+    {
+      "name": "vo.golf.h3.shubenator.theres_a_bar_up_here",
+      "voice": "shubenator",
+      "say": "There is a bar thirty feet behind me, Prospect. Thirty feet, and I am out here.",
+      "direction": "Genuine sympathy, expressed as a grievance about himself."
+    },
+    {
+      "name": "vo.golf.h3.snow.he_means_come_up",
+      "voice": "snow",
+      "say": "He means come up.",
+      "direction": "Translating, once, with a nod at the terrace over the green, and going back to his beer."
+    },
+    {
+      "name": "vo.golf.h3.snow.numbskull",
+      "voice": "snow",
+      "say": "Numbskull.",
+      "direction": "One word, flat, without turning round."
+    },
+    {
       "name": "vo.machine.lou.golf_morning.0",
       "voice": "announcer",
       "say": "Message. Today. 6:02 AM."
@@ -16741,6 +17342,1041 @@
       "name": "vo.machine.lou.heist_day.3",
       "voice": "lou1",
       "say": "Eat. Dress plain. I will call when the car is moving."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.prospect.humming",
+      "voice": "player",
+      "say": "Whatever’s in here has been humming since the car."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.rippin.balls",
+      "voice": "rippinflow",
+      "say": "Whatever’s in that thing, I don’t want it near my balls."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.rippin.overthere",
+      "voice": "rippinflow",
+      "say": "I’m serious. Take it over there."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.eric.mood",
+      "voice": "eric",
+      "say": "Lou’s waiting for you. And he’s been in one of those moods."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.eric.dontsitdown",
+      "voice": "eric",
+      "say": "Top of the stairs, past the boardroom. Don’t sit down."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.whatsgoingon",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?"
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.nevermind",
+      "voice": "shubenator",
+      "say": "Actually, never mind. I don’t want to know."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.arms",
+      "voice": "shubenator",
+      "say": "I’m gonna go do arms."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.snow.morework",
+      "voice": "snow",
+      "say": "Try not to make more work for me tonight."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.snow.doesntcomeout",
+      "voice": "snow",
+      "say": "It doesn’t come out. Marble."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.shutthedoor",
+      "voice": "lou1",
+      "say": "Shut the door."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.onthedesk",
+      "voice": "lou1",
+      "say": "On the desk. Where I can see it."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.itsadesk",
+      "voice": "lou1",
+      "say": "It’s a desk, kid. It’s been there longer than you have."
+    },
+    {
+      "name": "vo.silentsquatch.office.prospect.whatsinside",
+      "voice": "player",
+      "say": "What’s inside?"
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.soonenough",
+      "voice": "lou1",
+      "say": "Eh. You’ll find out soon enough."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.deliverittobooski",
+      "voice": "lou1",
+      "say": "Go deliver it to Booski. He’s in the basement."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.heykid",
+      "voice": "lou1",
+      "say": "Hey, kid."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.nicejob",
+      "voice": "lou1",
+      "say": "Nice job."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.dontaskanything",
+      "voice": "lou1",
+      "say": "Now don’t fuck around, and don’t ask anything you don’t wanna know."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.pastthearmory",
+      "voice": "lou1",
+      "say": "Down past the armory. Booski knows you’re coming."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.wineracks",
+      "voice": "player",
+      "say": "Wine racks. Pool table. Photographs of men nobody talks about."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.wherewashemeant",
+      "voice": "player",
+      "say": "So where’s the basement he meant?"
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.somebodydusts",
+      "voice": "player",
+      "say": "Somebody dusts this thing."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.gapundertheplinth",
+      "voice": "player",
+      "say": "…There’s a gap under the plinth."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.okay",
+      "voice": "player",
+      "say": "Okay."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.musicsgone",
+      "voice": "player",
+      "say": "Music’s gone."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.notdry",
+      "voice": "irish",
+      "say": "Mind the floor there. It’s not dry."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.drains",
+      "voice": "irish",
+      "say": "There’s a drain every three metres in this hallway. Have a think about why a house needs that."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.goondown",
+      "voice": "irish",
+      "say": "Go on down. He doesn’t like waiting and I don’t like watching him wait."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.takethecar",
+      "voice": "xxx",
+      "say": "You can take the car… you can take the mission…"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.turnyourback",
+      "voice": "xxx",
+      "say": "But you don’t turn your back on family."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.booski.decorations",
+      "voice": "booski",
+      "say": "Quit talking to the decorations and bring me the case!"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.samethreelines",
+      "voice": "irish",
+      "say": "He’s been at that all night, God love him. Same three lines."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.youarelate",
+      "voice": "deathmegatron",
+      "say": "You’re late."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.twelvecentimetres",
+      "voice": "deathmegatron",
+      "say": "Don’t lean on the glass. It’s twelve centimetres. You could drive a car at it."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.sixofthem",
+      "voice": "deathmegatron",
+      "say": "Six of them. Been in there since March."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.deliveryboy",
+      "voice": "booski",
+      "say": "There he is. Our little delivery boy."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.bothhands",
+      "voice": "booski",
+      "say": "On the transfer table. Both hands."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.doesntgetlighter",
+      "voice": "booski",
+      "say": "It doesn’t get lighter, kid."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.thesquatchanium",
+      "voice": "booski",
+      "say": "Ah, yes. The Squatchanium."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.howhard",
+      "voice": "booski",
+      "say": "Do you have any idea how hard this stuff is to get?"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.prospect.i",
+      "voice": "player",
+      "say": "I —"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.rhetorical",
+      "voice": "booski",
+      "say": "Rhetorical question. I don’t care."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.throughitgoes",
+      "voice": "booski",
+      "say": "Through it goes. Watch what they do with it."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.transferchamber",
+      "voice": "orlova",
+      "say": "Transfer chamber secure."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.containmentcylinder",
+      "voice": "aubbie",
+      "say": "Careful with the containment cylinder."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.shieldingnotready",
+      "voice": "vetrov",
+      "say": "Doctor Aubbie, the shielding is not ready."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.whenisayitis",
+      "voice": "aubbie",
+      "say": "The shielding is ready when I say the shielding is ready."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.connectthecore",
+      "voice": "aubbie",
+      "say": "Connect the Squatchanium core."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.rotationstable",
+      "voice": "sokolov",
+      "say": "Core rotation stable."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.coolantpressure",
+      "voice": "orlova",
+      "say": "Purple coolant pressure holding."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.increasecoolant",
+      "voice": "aubbie",
+      "say": "Increase the purple coolant flow."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.reacting",
+      "voice": "marchuk",
+      "say": "The Squatchanium is reacting with the biological stabilizer."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.supposedtoreact",
+      "voice": "aubbie",
+      "say": "It is supposed to react. That is the entire principle."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.radiationclimbing",
+      "voice": "vetrov",
+      "say": "Radiation levels are climbing."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.pipeline",
+      "voice": "vetrov",
+      "say": "My wife thinks I am working on a pipeline."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.donottellthem",
+      "voice": "bezmenov",
+      "say": "Do not tell them that."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.goldfirst",
+      "voice": "aubbie",
+      "say": "No, no, no. Gold coupling first, purple coupling second."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.throughthefloor",
+      "voice": "sokolov",
+      "say": "Feel that through the floor. That is the rings."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.beyondprediction",
+      "voice": "sokolov",
+      "say": "Power output is beyond prediction."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.shadowsonthewall",
+      "voice": "aubbie",
+      "say": "If the stabilizer falls below forty percent, we all become shadows on the wall."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.notintheagreement",
+      "voice": "vetrov",
+      "say": "This was not in the original agreement."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.firstoneever",
+      "voice": "orlova",
+      "say": "First one ever built. Anywhere. By us."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.theywillkillus",
+      "voice": "bezmenov",
+      "say": "They will kill us when this is finished."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.theyneedus",
+      "voice": "aubbie",
+      "say": "They need us."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.needsnoone",
+      "voice": "bezmenov",
+      "say": "Men like him need no one."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.temperature",
+      "voice": "marchuk",
+      "say": "Core temperature is increasing."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.stepback",
+      "voice": "marchuk",
+      "say": "Whoever is standing closest, step back. Both of you."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.weshouldevacuate",
+      "voice": "marchuk",
+      "say": "We should evacuate."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.fourminutes",
+      "voice": "aubbie",
+      "say": "Nobody is evacuating. We are four minutes from finished."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.watchinghistory",
+      "voice": "aubbie",
+      "say": "You are watching history through that window. Try to look like it."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.willbeoperational",
+      "voice": "sokolov",
+      "say": "Silent Squatch will be operational."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.finalsequence",
+      "voice": "orlova",
+      "say": "Beginning final sequence."
+    },
+    {
+      "name": "vo.silentsquatch.build.booski.twelveweeks",
+      "voice": "booski",
+      "say": "Twelve weeks they’ve been down here. Eating my food."
+    },
+    {
+      "name": "vo.silentsquatch.build.dmt.six",
+      "voice": "deathmegatron",
+      "say": "Six."
+    },
+    {
+      "name": "vo.silentsquatch.build.booski.therestarehands",
+      "voice": "booski",
+      "say": "The one doing the talking is the one that matters. The rest are hands."
+    },
+    {
+      "name": "vo.silentsquatch.build.dmt.handscanwrite",
+      "voice": "deathmegatron",
+      "say": "Hands can write."
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.finalstabilization",
+      "voice": "aubbie",
+      "say": "Initiating final stabilization."
+    },
+    {
+      "name": "vo.silentsquatch.completion.computer.corecomplete",
+      "voice": "labcomputer",
+      "say": "PROJECT SILENT SQUATCH: CORE COMPLETE."
+    },
+    {
+      "name": "vo.silentsquatch.completion.orlova.itisholding",
+      "voice": "orlova",
+      "say": "It is holding. It is holding!"
+    },
+    {
+      "name": "vo.silentsquatch.completion.sokolov.twelveweeks",
+      "voice": "sokolov",
+      "say": "Twelve weeks! Twelve weeks!"
+    },
+    {
+      "name": "vo.silentsquatch.completion.vetrov.itoldyou",
+      "voice": "vetrov",
+      "say": "I told you the shielding would hold."
+    },
+    {
+      "name": "vo.silentsquatch.completion.bezmenov.congratulations",
+      "voice": "bezmenov",
+      "say": "Congratulations, everybody."
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.itiscomplete",
+      "voice": "aubbie",
+      "say": "It is complete."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.youarecertain",
+      "voice": "booski",
+      "say": "You’re certain?"
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.fatsquatch",
+      "voice": "aubbie",
+      "say": "The core is stable. The Fat Squatch can now be assembled."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.nobodyelseknows",
+      "voice": "booski",
+      "say": "And nobody else knows how to reproduce it?"
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.onlymyteam",
+      "voice": "aubbie",
+      "say": "Only my team understands the full process."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.good",
+      "voice": "booski",
+      "say": "Good."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.lockthelab",
+      "voice": "booski",
+      "say": "Lock the lab."
+    },
+    {
+      "name": "vo.silentsquatch.lock.dmt.sixninesixnine",
+      "voice": "deathmegatron",
+      "say": "Six nine six nine."
+    },
+    {
+      "name": "vo.silentsquatch.lock.dmt.againslower",
+      "voice": "deathmegatron",
+      "say": "Again. Slower."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.notalongnumber",
+      "voice": "booski",
+      "say": "Six. Nine. Six. Nine. It is not a long number."
+    },
+    {
+      "name": "vo.silentsquatch.lock.bezmenov.whyisdoorlocked",
+      "voice": "bezmenov",
+      "say": "Why is door locked?"
+    },
+    {
+      "name": "vo.silentsquatch.lock.orlova.opendoor",
+      "voice": "orlova",
+      "say": "Open door."
+    },
+    {
+      "name": "vo.silentsquatch.lock.aubbie.whatisthis",
+      "voice": "aubbie",
+      "say": "What is this?"
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.usefulnessexpired",
+      "voice": "booski",
+      "say": "This guy’s usefulness has expired."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.handleit",
+      "voice": "booski",
+      "say": "Handle it."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.wehadagreement",
+      "voice": "aubbie",
+      "say": "Booski, we had agreement."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.wedid",
+      "voice": "booski",
+      "say": "We did."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.maintainthecore",
+      "voice": "aubbie",
+      "say": "You need me to maintain the core."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.copiesofyournotes",
+      "voice": "booski",
+      "say": "We made copies of your notes."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.whatyouhavebuilt",
+      "voice": "aubbie",
+      "say": "You do not understand what you have built!"
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.isaidhandleit",
+      "voice": "booski",
+      "say": "I said handle it."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.lookatme",
+      "voice": "aubbie",
+      "say": "Boy. Look at me. You do not have to do this."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.anyday",
+      "voice": "booski",
+      "say": "Any day, Prospect."
+    },
+    {
+      "name": "vo.silentsquatch.execution.dmt.notgoingtogetquieter",
+      "voice": "deathmegatron",
+      "say": "He is not going to get quieter."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.thatwasaconsole",
+      "voice": "booski",
+      "say": "That was a console. Look at what you’re pointing it at."
+    },
+    {
+      "name": "vo.silentsquatch.execution.dmt.inthewayofthedoor",
+      "voice": "deathmegatron",
+      "say": "He’s in the way of the door."
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.whatareyoudoing",
+      "voice": "orlova",
+      "say": "What are you doing?!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.openthedoor",
+      "voice": "vetrov",
+      "say": "Open the door!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.marchuk.whydidyoukillhim",
+      "voice": "marchuk",
+      "say": "Why did you kill him?!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.everythingyouasked",
+      "voice": "sokolov",
+      "say": "We did everything you asked!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.please",
+      "voice": "vetrov",
+      "say": "Please!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.marchuk.noventilation",
+      "voice": "marchuk",
+      "say": "There is no ventilation!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.wehavefamilies",
+      "voice": "orlova",
+      "say": "We have families!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.cannotleaveus",
+      "voice": "sokolov",
+      "say": "You cannot leave us in here!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.canworkforyou",
+      "voice": "vetrov",
+      "say": "We can work for you!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.tellnobody",
+      "voice": "orlova",
+      "say": "We will tell nobody!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.moveback",
+      "voice": "sokolov",
+      "say": "Move! Move back!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.bezmenov.stop",
+      "voice": "bezmenov",
+      "say": "Stop."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.youstartedthejob",
+      "voice": "booski",
+      "say": "You started the job."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.finishit",
+      "voice": "booski",
+      "say": "Finish it."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.samehand",
+      "voice": "booski",
+      "say": "It’s the same hand you just used."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.computer.activated",
+      "voice": "labcomputer",
+      "say": "SILENT NIGHT PROTOCOL ACTIVATED."
+    },
+    {
+      "name": "vo.silentsquatch.gas.orlova.ventsareopen",
+      "voice": "orlova",
+      "say": "The vents are open."
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.whyarethevents",
+      "voice": "vetrov",
+      "say": "Why are the vents open?"
+    },
+    {
+      "name": "vo.silentsquatch.gas.sokolov.gettothedoor",
+      "voice": "sokolov",
+      "say": "Get to the door! All of you, the door!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.bezmenov.itoldyou",
+      "voice": "bezmenov",
+      "say": "I told you."
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.sleeve",
+      "voice": "marchuk",
+      "say": "Sleeve over your mouth. Breathe through the sleeve."
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.masksarelocked",
+      "voice": "vetrov",
+      "say": "The masks are locked. The masks are locked!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.icant",
+      "voice": "vetrov",
+      "say": "I can’t — I can’t —"
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.staydown",
+      "voice": "marchuk",
+      "say": "Down. Stay down."
+    },
+    {
+      "name": "vo.silentsquatch.gas.orlova.lookatme",
+      "voice": "orlova",
+      "say": "Look at me. Look at me!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.sokolov.openit",
+      "voice": "sokolov",
+      "say": "Open it! Open it! Open —"
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.giveyourhand",
+      "voice": "marchuk",
+      "say": "Nadia. Give me your hand."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.booski.efficient",
+      "voice": "booski",
+      "say": "Efficient."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.booski.lousgonnalikeyou",
+      "voice": "booski",
+      "say": "Lou’s gonna like you."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.dmt.stillrunning",
+      "voice": "deathmegatron",
+      "say": "It’s still running. Look at it."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.snowbasement",
+      "voice": "booski",
+      "say": "Snow. Basement."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.howbad",
+      "voice": "snow",
+      "say": "How bad?"
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.bringthecart",
+      "voice": "booski",
+      "say": "Bring the cart."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.jesuschrist",
+      "voice": "snow",
+      "say": "Jesus Christ."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.andamop",
+      "voice": "booski",
+      "say": "And a mop."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.louisstillawake",
+      "voice": "booski",
+      "say": "Upstairs. Lou’s still awake."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.itoldyou",
+      "voice": "snow",
+      "say": "I told you not to make more work for me."
+    },
+    {
+      "name": "vo.silentsquatch.exit.xxx.familymeeting",
+      "voice": "xxx",
+      "say": "Family meeting go well?"
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.farenough",
+      "voice": "mansion-gate",
+      "say": "That’s far enough. Hands out of the pockets."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.expected",
+      "voice": "mansion-gate",
+      "say": "You’re expected. That is not the same as welcome."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.driveway",
+      "voice": "mansion-gate",
+      "say": "You’re standing on a driveway I have to watch. Go in or go back down the steps."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.staysinyourhand",
+      "voice": "mansion-gate",
+      "say": "That stays in your hand. You don’t set it down, you don’t open it, and you don’t hand it to me."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.differentway",
+      "voice": "mansion-gate",
+      "say": "Do that again and you leave the property a different way than you came onto it."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.straightthrough",
+      "voice": "mansion-gate",
+      "say": "Straight through. Don’t wander, don’t touch anything, and don’t talk to the help."
+    },
+    {
+      "name": "vo.silentsquatch.guards.perimeter.path",
+      "voice": "mansion-guard",
+      "say": "Keep on the path."
+    },
+    {
+      "name": "vo.silentsquatch.guards.perimeter.camera",
+      "voice": "mansion-guard",
+      "say": "You’ve been on camera since the gate."
+    },
+    {
+      "name": "vo.silentsquatch.guards.perimeter.elevenlaps",
+      "voice": "mansion-guard-perimeter",
+      "say": "Long walk, this. I do it eleven times a night."
+    },
+    {
+      "name": "vo.silentsquatch.guards.stairs.seethegate",
+      "voice": "mansion-guard-stairs",
+      "say": "I can see the gate from up here."
+    },
+    {
+      "name": "vo.silentsquatch.guards.stairs.nobodycomesup",
+      "voice": "mansion-guard-stairs",
+      "say": "Nobody comes up these unless he says so."
+    },
+    {
+      "name": "vo.silentsquatch.guards.basement.nothingyours",
+      "voice": "mansion-guard-basement",
+      "say": "Nothing down here belongs to you."
+    },
+    {
+      "name": "vo.silentsquatch.guards.basement.keepwalking",
+      "voice": "mansion-guard-basement",
+      "say": "Keep walking."
+    },
+    {
+      "name": "vo.silentsquatch.guards.vault.arrangement",
+      "voice": "mansion-guard-vault",
+      "say": "The door stays open. I stay here. That’s the arrangement."
+    },
+    {
+      "name": "vo.silentsquatch.guards.vault.backup",
+      "voice": "mansion-guard-vault",
+      "say": "Back up."
+    },
+    {
+      "name": "vo.silentsquatch.bar.bartender.orworking",
+      "voice": "bartender",
+      "say": "You want something, or are you working?"
+    },
+    {
+      "name": "vo.silentsquatch.bar.bartender.samebottle",
+      "voice": "bartender",
+      "say": "It’s the same bottle it was ten minutes ago."
+    },
+    {
+      "name": "vo.silentsquatch.bar.bartender.fifteenbottles",
+      "voice": "bartender",
+      "say": "Fifteen bottles back there and every one of them is Jack And Daniels. Makes the job simple."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.conversational",
+      "voice": "gratin",
+      "say": "Give us a minute. He’s nearly conversational."
+    },
+    {
+      "name": "vo.silentsquatch.torture.prospect.alwaysyou",
+      "voice": "player",
+      "say": "It’s always you doing this."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.kitchensdead",
+      "voice": "gratin",
+      "say": "I’m good at it, and the kitchen’s dead this time of night."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.youwantago",
+      "voice": "gratin",
+      "say": "You want a go? Everybody gets one. It keeps him talking."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.letthetenddoit",
+      "voice": "gratin",
+      "say": "Here. It’s a cord, not a bat — let the end of it do the work."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.panonupstairs",
+      "voice": "gratin",
+      "say": "I’ve got a pan on upstairs. Take your turn or don’t."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.suityourself",
+      "voice": "gratin",
+      "say": "Suit yourself. He’s not going anywhere."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchone",
+      "voice": "xxx",
+      "say": "Hn — GHK—"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.hitlikefamily",
+      "voice": "xxx",
+      "say": "You hit like family."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.notacompliment",
+      "voice": "xxx",
+      "say": "That’s not a compliment. That’s just what they do."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.hesfine",
+      "voice": "gratin",
+      "say": "See? He’s fine."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchtwo",
+      "voice": "xxx",
+      "say": "Agh — Christ—"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.theelbow",
+      "voice": "xxx",
+      "say": "There it is. You’ve got the elbow into it now."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchthree",
+      "voice": "xxx",
+      "say": "Hhh—!"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.stoppedatone",
+      "voice": "xxx",
+      "say": "Go on. Nobody in this house has ever stopped at one."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchfour",
+      "voice": "xxx",
+      "say": "Nn—! …Ah."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.inthemorning",
+      "voice": "xxx",
+      "say": "That one’s going to be there in the morning."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.hecounts",
+      "voice": "gratin",
+      "say": "He’s counting. He always counts."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.oneeach",
+      "voice": "gratin",
+      "say": "One each. House rule."
+    },
+    {
+      "name": "vo.silentsquatch.house.sasole.notflying",
+      "voice": "lou2",
+      "say": "I’m not flying anything tonight, so don’t look at me like that."
+    },
+    {
+      "name": "vo.silentsquatch.house.sasole.didntseeit",
+      "voice": "lou2",
+      "say": "Whatever’s in the case, I didn’t carry it and I didn’t see it."
+    },
+    {
+      "name": "vo.silentsquatch.house.numbskull.nobodyswims",
+      "voice": "numbskull",
+      "say": "Nobody swims. It’s heated and nobody swims."
+    },
+    {
+      "name": "vo.silentsquatch.house.numbskull.hearthegate",
+      "voice": "numbskull",
+      "say": "I like it out here. You can hear the gate."
+    },
+    {
+      "name": "vo.silentsquatch.house.hogmama.theresfood",
+      "voice": "hogmama",
+      "say": "There’s food. Nobody in this house eats, but there’s food."
+    },
+    {
+      "name": "vo.silentsquatch.house.hogmama.leftapanon",
+      "voice": "hogmama",
+      "say": "Gratin left a pan on and went downstairs. Again."
+    },
+    {
+      "name": "vo.door.refusal.heist_cleanup.1",
+      "voice": "player",
+      "say": "Not walking into the Bing wearing the bank. Clean up first."
+    },
+    {
+      "name": "vo.door.refusal.initiation_locked.1",
+      "voice": "player",
+      "say": "Lou said seven. The invitation still has to land."
+    },
+    {
+      "name": "vo.door.refusal.golf_call.1",
+      "voice": "player",
+      "say": "Lou said he would call about this morning. I am not guessing where."
+    },
+    {
+      "name": "vo.door.refusal.golf_return.1",
+      "voice": "player",
+      "say": "Three holes done. Whatever comes next, Lou will call for it."
+    },
+    {
+      "name": "vo.door.refusal.heist_call.1",
+      "voice": "player",
+      "say": "Lou said he would call. Today is not a day to guess."
+    },
+    {
+      "name": "vo.door.refusal.heist_kit.1",
+      "voice": "player",
+      "say": "Everything Lou named goes with me. Nothing else does."
+    },
+    {
+      "name": "vo.door.refusal.big_night_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+    },
+    {
+      "name": "vo.door.refusal.no_wake_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he knew. I am not chasing him today."
+    },
+    {
+      "name": "vo.door.refusal.date_call.1",
+      "voice": "player",
+      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_date.1",
+      "voice": "player",
+      "say": "That was a good night. Tomorrow is the other kind. Bed."
+    },
+    {
+      "name": "vo.door.refusal.day_two_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call with the next job."
+    },
+    {
+      "name": "vo.door.refusal.second_bing_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he wanted you back at the Bing."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_motel.1",
+      "voice": "player",
+      "say": "It is not even light out. Whatever is next can wait until I have slept."
+    },
+    {
+      "name": "vo.door.refusal.first_call.1",
+      "voice": "player",
+      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_squatchfather.1",
+      "voice": "player",
+      "say": "That is enough going out for one night."
+    },
+    {
+      "name": "vo.door.refusal.lou_package.1",
+      "voice": "player",
+      "say": "I am not going anywhere until I find Lou’s package."
+    },
+    {
+      "name": "vo.door.refusal.whiskey.1",
+      "voice": "player",
+      "say": "Take one pull of whiskey. You earned the nerves."
     },
     {
       "name": "vo.initiation.ceremony.speech-booskibro.107itai.1",
@@ -17481,6 +19117,648 @@
       "name": "vo.initiation.ambient.lou.1ckii4g.1",
       "voice": "lou",
       "say": "Humor me."
+    },
+    {
+      "name": "heist.snow_friendly_fire_two",
+      "voice": "snow",
+      "say": "That is twice you have put that barrel across me. Pick a direction."
+    },
+    {
+      "name": "heist.death_friendly_fire",
+      "voice": "deathmegatron",
+      "say": "Hey. I am on your side and I am standing right here."
+    },
+    {
+      "name": "heist.prospect_order_two",
+      "voice": "player",
+      "say": "On the floor. All the way down, and stay there."
+    },
+    {
+      "name": "heist.prospect_order_three",
+      "voice": "player",
+      "say": "Flat. Palms open, arms out. Nobody has to look at anybody."
+    },
+    {
+      "name": "heist.prospect_order_four",
+      "voice": "player",
+      "say": "You are already doing fine. Keep doing it lying down."
+    },
+    {
+      "name": "heist.prospect_order_five",
+      "voice": "player",
+      "say": "Knees, then chest, then hands. In that order and no faster."
+    },
+    {
+      "name": "heist.prospect_demand_two",
+      "voice": "player",
+      "say": "Whatever is in the coat. Out, on the floor, slide it."
+    },
+    {
+      "name": "heist.prospect_demand_three",
+      "voice": "player",
+      "say": "Pockets. Both of them. Do not make me go in there."
+    },
+    {
+      "name": "heist.prospect_tie_two",
+      "voice": "player",
+      "say": "Wrists together. It is plastic, it comes off with scissors."
+    },
+    {
+      "name": "heist.prospect_tie_three",
+      "voice": "player",
+      "say": "Do not pull against it. Pulling is the only way it hurts."
+    },
+    {
+      "name": "heist.prospect_tie_four",
+      "voice": "player",
+      "say": "That is you finished. Nothing else happens to you today."
+    },
+    {
+      "name": "heist.prospect_tie_five",
+      "voice": "player",
+      "say": "Behind your back. Breathe out. There — done."
+    },
+    {
+      "name": "heist.hostage_plead_four",
+      "voice": "heist-customer",
+      "say": "I have a daughter. I have a daughter at home."
+    },
+    {
+      "name": "heist.hostage_plead_five",
+      "voice": "heist-customer",
+      "say": "Nobody’s moving. Look — nobody in here is moving."
+    },
+    {
+      "name": "heist.hostage_plead_teller_two",
+      "voice": "heist-customer",
+      "say": "The drawers are on a timer. I couldn’t open them if you made me."
+    },
+    {
+      "name": "heist.hostage_plead_teller_three",
+      "voice": "heist-customer",
+      "say": "I do this for eleven dollars an hour. Please point that somewhere else."
+    },
+    {
+      "name": "heist.hostage_reassured_three",
+      "voice": "heist-customer",
+      "say": "Alright. Alright. I believe you."
+    },
+    {
+      "name": "heist.hostage_reassured_four",
+      "voice": "heist-customer",
+      "say": "I’m not going to be a problem. I promise I’m not going to be a problem."
+    },
+    {
+      "name": "heist.hostage_reassured_hard_two",
+      "voice": "heist-customer",
+      "say": "Don’t tell me it’s fine. Nothing about this is fine."
+    },
+    {
+      "name": "heist.hostage_reassured_hard_three",
+      "voice": "heist-customer",
+      "say": "Just say how long. Somebody tell me how long."
+    },
+    {
+      "name": "heist.hostage_hands_over_two",
+      "voice": "heist-customer",
+      "say": "Take the watch too. It was a gift, but take it."
+    },
+    {
+      "name": "heist.hostage_hands_over_three",
+      "voice": "heist-customer",
+      "say": "There. There, it’s yours, it’s all yours."
+    },
+    {
+      "name": "heist.hostage_refuses_two",
+      "voice": "heist-customer",
+      "say": "You’ve had it. There is nothing else in these pockets."
+    },
+    {
+      "name": "heist.hostage_refuses_three",
+      "voice": "heist-customer",
+      "say": "I’m overdrawn. That’s why I’m standing in a bank on a Thursday."
+    },
+    {
+      "name": "heist.hostage_tied_two",
+      "voice": "heist-customer",
+      "say": "Okay. Okay, I’m not fighting it."
+    },
+    {
+      "name": "heist.hostage_tied_three",
+      "voice": "heist-customer",
+      "say": "My hands are going numb. Are they meant to go numb?"
+    },
+    {
+      "name": "heist.hostage_caught_two",
+      "voice": "heist-customer",
+      "say": "It’s a phone. It’s only a phone, I’m putting it down."
+    },
+    {
+      "name": "heist.hostage_witness_two",
+      "voice": "heist-customer",
+      "say": "He’s not moving. Somebody — he isn’t moving."
+    },
+    {
+      "name": "heist.snow_pursuit_stopped",
+      "voice": "snow",
+      "say": "Why are we stationary? A parked car is a surrender. Move it."
+    },
+    {
+      "name": "heist.rippin_pursuit_ram",
+      "voice": "rippinflow",
+      "say": "That was on purpose! He is trying to put us into a wall — go, go, do not let him line it up again."
+    },
+    {
+      "_comment": "NO WAKE inlet bed. The pocket behind the wooded point, engines off.",
+      "name": "ambience.ocean.night",
+      "duration": 12,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "sheltered saltwater inlet after dark with the engines off, small swell slapping a fiberglass hull, water moving against rock and trees on both shores, very distant open water, seamless loop, no engine, no birds, no voices, no music"
+    },
+    {
+      "_comment": "NO WAKE throttle answer. Layered over the live engine graph when the levers move.",
+      "name": "boat.engine.rev",
+      "duration": 3.6,
+      "promptInfluence": 0.52,
+      "prompt": "twin late 1980s marine gasoline inboards blipped up from idle and settling back, exhaust note rising and falling through a transom, heard from the cockpit of a fiberglass express cruiser, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE cabin bed. What the confrontation is heard over, below deck.",
+      "name": "water.lap.hull",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "water tapping and slapping against a fiberglass hull heard from inside a small boat cabin, close and enclosed, occasional slow hull flex creak, seamless loop, no engine, no wind, no voices, no music"
+    },
+    {
+      "_comment": "NO WAKE wrapping beat. Booski closes the bag.",
+      "name": "boat.bag.zip",
+      "duration": 2.6,
+      "promptInfluence": 0.55,
+      "prompt": "one long heavy-gauge zipper pulled closed along a thick vinyl body bag, coarse teeth engaging in a single steady run, close interior, no fabric rustle afterwards, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE ballast beat. Cast iron set on the deck and shackled to the bag.",
+      "name": "boat.ballast.chain",
+      "duration": 2.8,
+      "promptInfluence": 0.55,
+      "prompt": "two heavy cast iron ballast pigs set down on a boat deck and a shackle pulled tight through a steel ring, dense low metal weight, short chain rattle, close exterior, no music, no voice"
+    },
+    {
+      "name": "vo.bing2.party.mirage.willy.1",
+      "voice": "willy",
+      "say": "Ask anybody. I was on Mirage all night. Sat B with the Negev like an asshole."
+    },
+    {
+      "name": "vo.bing2.party.mirage.numbskull",
+      "voice": "numbskull",
+      "say": "What is a Negev."
+    },
+    {
+      "name": "vo.bing2.party.mirage.willy.2",
+      "voice": "willy",
+      "say": "It is a gun, Numbskull. It is a very large gun."
+    },
+    {
+      "name": "vo.siege.wake.prospect.awake",
+      "voice": "player",
+      "say": "Okay. Okay — that is not the television."
+    },
+    {
+      "name": "vo.siege.wake.guard.inside",
+      "voice": "mansion-guard",
+      "say": "They are inside! They are in the house — get to the armory!"
+    },
+    {
+      "name": "vo.siege.guide.booski.armory",
+      "voice": "booski",
+      "say": "Kid — armory. East end of the cellar hall, then south through the door. Move."
+    },
+    {
+      "name": "vo.siege.guide.booski.office",
+      "voice": "booski",
+      "say": "Now get up here. Basement stair, straight over the foyer, up the horseshoe — Lou is on the top floor."
+    },
+    {
+      "name": "vo.siege.briefing.prospect.report",
+      "voice": "player",
+      "say": "Lou. There were two of them in the cellar."
+    },
+    {
+      "name": "vo.siege.briefing.lou.forty",
+      "voice": "lou1",
+      "say": "Two in the cellar. There are forty on my lawn."
+    },
+    {
+      "name": "vo.siege.briefing.booski.drive",
+      "voice": "booski",
+      "say": "More coming up the drive — both sides of the fountain, they are not even hurrying."
+    },
+    {
+      "name": "vo.siege.briefing.lou.upstairs",
+      "voice": "lou1",
+      "say": "Everybody upstairs. Nobody holds a ground-floor room tonight, I do not care whose room it is."
+    },
+    {
+      "name": "vo.siege.briefing.lou.stairs",
+      "voice": "lou1",
+      "say": "You. Take the rail over the foyer. Anything that comes through my front door, you put it down on my floor."
+    },
+    {
+      "name": "vo.siege.briefing.prospect.stairs",
+      "voice": "player",
+      "say": "The stairs. Got it."
+    },
+    {
+      "name": "vo.siege.briefing.lou.heavy",
+      "voice": "lou1",
+      "say": "And get the big one up. You did not carry it out of my armory to look at it."
+    },
+    {
+      "name": "vo.siege.prospect.little_friend",
+      "voice": "player",
+      "say": "Say hello to my little friend."
+    },
+    {
+      "name": "vo.siege.lull.booski.reload",
+      "voice": "booski",
+      "say": "That is the first lot! Reload — they are forming up again on the drive!"
+    },
+    {
+      "name": "vo.siege.lull.lou.notover",
+      "voice": "lou1",
+      "say": "It is not over. Watch that door."
+    },
+    {
+      "name": "vo.siege.flank.deathmegatron.glass",
+      "voice": "deathmegatron",
+      "say": "Glass! West wing and east — they are coming in behind us!"
+    },
+    {
+      "name": "vo.siege.aftermath.lou.last",
+      "voice": "lou1",
+      "say": "That is the last of them. Somebody kill that alarm."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.house",
+      "voice": "lou1",
+      "say": "They came to my house. With cars, and a plan, and enough men to spare four of them for a window."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.budget",
+      "voice": "lou1",
+      "say": "This is not a neighbourhood thing any more, kid. This is somebody with a budget."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.sasole",
+      "voice": "lou1",
+      "say": "There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this."
+    },
+    {
+      "name": "vo.siege.aftermath.prospect.sasole",
+      "voice": "player",
+      "say": "Sasole. Right."
+    },
+    {
+      "name": "vo.siege.sasole.sasole.stairs",
+      "voice": "lou2",
+      "say": "You are the one who held the stairs. Good. Then you can hold a bomb bay."
+    },
+    {
+      "name": "vo.siege.sasole.sasole.firstlight",
+      "voice": "lou2",
+      "say": "Get an hour down. We are wheels up at first light, and you are coming with me."
+    },
+    {
+      "name": "vo.nowake.dock.willy.nice-night.1",
+      "voice": "willy",
+      "say": "Nice night for it."
+    },
+    {
+      "name": "vo.nowake.dock.lou.get-her-started.1",
+      "voice": "lou",
+      "say": "Get her started."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.quiet.1",
+      "voice": "willy",
+      "say": "Quiet tonight."
+    },
+    {
+      "name": "vo.nowake.cruise.booski.yeah.1",
+      "voice": "booski",
+      "say": "Yeah."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.strip.1",
+      "voice": "willy",
+      "say": "Nobody has said one word to me about the strip. Not one."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.sideways.1",
+      "voice": "willy",
+      "say": "Everybody has been looking at me sideways since the Motel."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.clean.1",
+      "voice": "willy",
+      "say": "Feels like nobody has been talking to me this week."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.where.1",
+      "voice": "willy",
+      "say": "Where exactly are we headed?"
+    },
+    {
+      "name": "vo.nowake.cruise.lou.away.1",
+      "voice": "lou",
+      "say": "Away from the dock."
+    },
+    {
+      "name": "vo.nowake.inlet.lou.bring-her-down.1",
+      "voice": "lou",
+      "say": "Bring her down."
+    },
+    {
+      "name": "vo.nowake.inlet.lou.kill-them.1",
+      "voice": "lou",
+      "say": "Kill them."
+    },
+    {
+      "name": "vo.nowake.inlet.irish.channel-clear.1",
+      "voice": "irish",
+      "say": "Channel’s clear."
+    },
+    {
+      "name": "vo.nowake.inlet.lou.out-of-the-wind.1",
+      "voice": "lou",
+      "say": "Let’s get out of the wind."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.mirage.1",
+      "voice": "willy",
+      "say": "You remember that Mirage match? We were down fourteen-twelve. Everybody was broke. I bought the Negev, went B, and held the whole site by myself."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.three-through-apartments.1",
+      "voice": "willy",
+      "say": "Three through apartments. One coming out market. Saved the whole damn round."
+    },
+    {
+      "name": "vo.nowake.cabin.lou.willy.1",
+      "voice": "lou",
+      "say": "Willy."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.yeah.1",
+      "voice": "willy",
+      "say": "Yeah?"
+    },
+    {
+      "name": "vo.nowake.cabin.lou.negev.1",
+      "voice": "lou",
+      "say": "Was there ever even a Negev on B?"
+    },
+    {
+      "name": "vo.nowake.cabin.willy.lou.1",
+      "voice": "willy",
+      "say": "Lou…"
+    },
+    {
+      "name": "vo.nowake.cabin.lou.answer.1",
+      "voice": "lou",
+      "say": "Answer the question."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.dont-remember.1",
+      "voice": "willy",
+      "say": "I don’t remember every gun from every round."
+    },
+    {
+      "name": "vo.nowake.cabin.booski.brother.1",
+      "voice": "booski",
+      "say": "You were like a brother to me."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.boosk.1",
+      "voice": "willy",
+      "say": "Boosk, come on. You know me."
+    },
+    {
+      "name": "vo.nowake.cabin.lou.we-do-now.1",
+      "voice": "lou",
+      "say": "Yeah. We do now."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.take-a-seat.1",
+      "voice": "willy",
+      "say": "Can I take a seat?"
+    },
+    {
+      "name": "vo.nowake.cabin.booski.sit-down.1",
+      "voice": "booski",
+      "say": "Sit down."
+    },
+    {
+      "name": "vo.nowake.cabin.willy.all-right.1",
+      "voice": "willy",
+      "say": "All right."
+    },
+    {
+      "name": "vo.nowake.body.lou.finish-it.1",
+      "voice": "lou",
+      "say": "Finish it."
+    },
+    {
+      "name": "vo.nowake.body.booski.your-side.1",
+      "voice": "booski",
+      "say": "Your side. Fold it over and hold it down."
+    },
+    {
+      "name": "vo.nowake.body.booski.straps.1",
+      "voice": "booski",
+      "say": "Straps now. Pull them tight and I’ll close him up."
+    },
+    {
+      "name": "vo.nowake.body.lou.needs-weight.1",
+      "voice": "lou",
+      "say": "Needs weight."
+    },
+    {
+      "name": "vo.nowake.body.booski.bow-locker.1",
+      "voice": "booski",
+      "say": "Bow locker."
+    },
+    {
+      "name": "vo.nowake.body.irish.nothing-behind-us.1",
+      "voice": "irish",
+      "say": "Nothing behind us."
+    },
+    {
+      "name": "vo.nowake.body.booski.sockets.1",
+      "voice": "booski",
+      "say": "Clip it to the rings. I’ll cinch it down."
+    },
+    {
+      "name": "vo.nowake.body.lou.move-him.1",
+      "voice": "lou",
+      "say": "Move him."
+    },
+    {
+      "name": "vo.nowake.body.irish.still-clear.1",
+      "voice": "irish",
+      "say": "Still clear."
+    },
+    {
+      "name": "vo.nowake.body.lou.start-her.1",
+      "voice": "lou",
+      "say": "Start her."
+    },
+    {
+      "name": "vo.call.lou.no_wake.1",
+      "voice": "lou1",
+      "say": "Kid. South Harbor. Gate C. Quarter to one."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.1",
+      "voice": "player",
+      "say": "Gate C. Quarter to one."
+    },
+    {
+      "name": "vo.call.lou.no_wake.2",
+      "voice": "lou1",
+      "say": "Plain clothes. Leave the phone in the glovebox when you get there."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.2",
+      "voice": "player",
+      "say": "No phone. Understood."
+    },
+    {
+      "name": "vo.call.lou.no_wake.3",
+      "voice": "lou1",
+      "say": "Booski and Willy are already on their way. We are taking a ride."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.3",
+      "voice": "player",
+      "say": "All four of us?"
+    },
+    {
+      "name": "vo.call.lou.no_wake.4",
+      "voice": "lou1",
+      "say": "Do not be late, and do not ring me back."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.4",
+      "voice": "player",
+      "say": "I will be there."
+    },
+    {
+      "_comment": "Lou's office. The latch behind the book, and the case swinging. NOT the cellar's hidden wall — that one is two tonnes of masonry on hydraulic rails and takes six seconds; this is a piece of furniture on a pivot and has to sound like one, or the office reads as a second lift lobby.",
+      "name": "mansion.bookcase.latch",
+      "duration": 1.2,
+      "promptInfluence": 0.6,
+      "prompt": "a book pulled out of a bookshelf and stopping against a hidden mechanism, a dry paper and cloth slide followed by a firm brass catch releasing inside the woodwork, close, no voice, no music"
+    },
+    {
+      "name": "mansion.bookcase.swing",
+      "duration": 3.4,
+      "promptInfluence": 0.6,
+      "prompt": "a tall loaded oak bookcase swinging open on a concealed floor pivot, a heavy low wooden groan under real weight, books shifting slightly on their shelves, and a soft rumble through the floorboards, close interior, no voice, no music",
+      "_note": "It is carrying its books. The shelf noise is the tell that this is furniture and not a door."
+    },
+    {
+      "name": "mansion.bookcase.seat",
+      "duration": 2.6,
+      "promptInfluence": 0.6,
+      "prompt": "the same loaded bookcase swinging closed and seating against its frame, the pivot rumble reversed, a dull wooden knock as it meets the jamb and the catch dropping home, close interior, no voice, no music"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.comehere",
+      "voice": "xxx",
+      "say": "…Who’s that. Come here where I can see you."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.thenewkid",
+      "voice": "xxx",
+      "say": "Ah. The new kid. Course it is."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.holdontothis",
+      "voice": "booski",
+      "say": "Here. Hold onto this."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.prospect.whatsitfor",
+      "voice": "player",
+      "say": "What’s it for?"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.nothinghopefully",
+      "voice": "booski",
+      "say": "Nothing, hopefully."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.stopthere",
+      "voice": "mansion-gate",
+      "say": "Stop there. Name."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.onthelist",
+      "voice": "mansion-gate",
+      "say": "You’re on the list. That is the only reason this arm is up."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.nobodystands",
+      "voice": "mansion-gate",
+      "say": "The house is up the drive. Nobody stands at my window."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.dontseeacase",
+      "voice": "mansion-gate",
+      "say": "I don’t see a case. Walk on."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.inthebook",
+      "voice": "mansion-gate",
+      "say": "Everything through this gate goes in the book. The plate, the time, the face."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.yoursisinit",
+      "voice": "mansion-gate",
+      "say": "Yours is in it now. Go on."
+    },
+    {
+      "name": "mansion.suite.tone",
+      "duration": 10,
+      "loop": true,
+      "promptInfluence": 0.45,
+      "prompt": "quiet room tone of a large luxurious top floor bedroom at night, very low air handling hum with no rattle, a faint suggestion of moving water somewhere in the room, nothing else, no music, no voices, seamless loop",
+      "_note": "NOT YET RECORDED. The master suite's bed. Positional, 26 m falloff, mixed at 0.05 — it is the floor under the hot tub rather than a sound in its own right. src/core/audio.js has a synthLoop case, so the room is never silent while this is missing."
+    },
+    {
+      "name": "mansion.suite.hottub",
+      "duration": 10,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "an indoor hot tub with its jets running, continuous heavy bubbling and churning water in a tiled bowl, close but not splashy, the churn swelling and easing slowly as the jets beat against each other, no music, no voices, seamless loop",
+      "_note": "NOT YET RECORDED. Positional at the tub, 14 m falloff. The synthLoop fallback is the procedural version the brief asked for: filtered noise for the body plus a 0.37 Hz sine on the bright band's gain, which is what makes it read as bubbles rather than hiss."
+    },
+    {
+      "name": "mansion.suite.bookcase.open",
+      "duration": 2.6,
+      "promptInfluence": 0.5,
+      "prompt": "a heavy loaded oak bookcase swinging out of a wall on a concealed pivot, a latch releasing, then a deep slow wooden groan under real weight, books shifting on their shelves as it moves, interior, no music, no voices",
+      "_note": "NOT YET RECORDED. The reveal in Lou's office. Synth fallback in src/core/audio.js."
+    },
+    {
+      "name": "mansion.suite.bookcase.shut",
+      "duration": 2.2,
+      "promptInfluence": 0.5,
+      "prompt": "a heavy loaded oak bookcase swinging back into a wall and settling into its frame, wooden groan then one solid dull thud, books shifting, interior, no music, no voices",
+      "_note": "NOT YET RECORDED. Synth fallback in src/core/audio.js."
     }
   ]
 }

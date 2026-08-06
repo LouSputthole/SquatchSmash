@@ -109,5 +109,9 @@ test('a member with no face photo yet wears his authored head instead of a 404',
 
 test('the gallery lives on the hole group so a hole change disposes it', () => {
   assert.match(terrain, /this\.gallery = HOLE\.gallery \? buildGallery\(g, HOLE\.gallery, this\.faces\) : \[\]/);
-  assert.match(terrain, /for \(const npc of this\.gallery\) npc\.update\(dt, playerPos\)/);
+  assert.match(terrain, /for \(const npc of this\.gallery\) \{\s*\n\s*npc\.update\(dt, playerPos\);/);
+  /* And they are alive rather than posed once. The standing drink has to be
+   * applied AFTER `npc.update`, because the `stand` job rewrites the arm
+   * rotations every frame and would put the beer straight back down. */
+  assert.match(terrain, /npc\.update\(dt, playerPos\);\s*\n(?:\s*\/\*[^]*?\*\/\s*\n)?\s*poseWaitingMan\(npc, this\._t\)/);
 });
