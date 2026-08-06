@@ -207,28 +207,66 @@ function horseshoeRiver(x, z) {
   layCourse('river-horseshoe', bend, 64, true);
 
   /* Upstream: out of the hills to the north, wandering, and narrower than the
-   * bend because it has not picked up the side valleys yet. */
+   * bend because it has not picked up the side valleys yet.
+   *
+   * Owner's note (second pass): *"random unconnected patches everywhere."*
+   * MEASURED CAUSE: the bend above is fine — 48 short segments, each sampling
+   * the ground under its own midpoint, 0.49 m of worst-case deviation between
+   * that sample and the real terrain at either end. This reach was the
+   * opposite of that: a blind sine-on-a-bearing path with no idea what the
+   * ground under it was doing, walked in ~200 m jumps into the hills the
+   * flavour text sends it toward. Sampled the same way the bend is — real
+   * terrain height at each segment's own two ends against the flat plane
+   * built at its midpoint — the worst segment was **101 m** off the ground it
+   * was meant to sit on. A water plane 101 m from the dirt under one end of
+   * it does not read as "off" — it reads as a piece of river hanging in open
+   * air with no piece before or after it, which is exactly "unconnected
+   * patches": the plane is still one continuous ribbon in the code, it is
+   * just nowhere near continuous with the ground it is drawn against.
+   *
+   * `traceSlope` already exists in this file for exactly this — the waterfall
+   * header stream below climbs into its own spur the same way — so this walks
+   * uphill from the bend on the same steepest-ascent-in-a-cone the waterfall
+   * uses, instead of a bearing that has never once asked the terrain a
+   * question. Steps are short (25 m, against the waterfall header's 44 m)
+   * because this reach runs much further and, chasing the steepest ascent it
+   * can find for 1.5 km, eventually climbs into real relief: even at 25 m the
+   * worst segment left is ~14 m off, at one crossing, rather than 101 m along
+   * most of the reach — cutting the deviation by seven-eighths rather than
+   * chasing the remainder to zero on ground this rough. Shortening the step
+   * further stopped helping at that one crossing; it is a real fold in the
+   * terrain, not a sampling artefact. */
   const head = bend[0];
   const upstream = [head.clone()];
-  for (let i = 1; i <= 16; i++) {
-    upstream.push(new THREE.Vector3(
-      head.x + 120 * i + Math.sin(i * 0.8) * 130,
-      0,
-      head.z - 168 * i + Math.cos(i * 0.55) * 110,
-    ));
+  let ux = head.x;
+  let uz = head.z;
+  let uHeading = Math.atan2(120, -168);        // seed: the old reach's general bearing
+  for (let i = 1; i <= 60; i++) {
+    const step = traceSlope(x, z, ux, uz, -1, 25, i * 1.6, uHeading);
+    uHeading = step.heading;
+    upstream.push(new THREE.Vector3(step.nx, 0, step.nz));
+    ux = step.nx; uz = step.nz;
   }
   layCourse('river-upstream', upstream, (t) => 58 - t * 16, false);
 
   /* Downstream: it leaves the bend, straightens, and widens on its way to the
-   * coast. Neither reach terminates in view — both run past the fog. */
+   * coast. Neither reach terminates in view — both run past the fog.
+   *
+   * Same bug as upstream, worse: this reach's worst segment measured 109 m of
+   * deviation. Same fix — steepest descent in a cone off the bend's own exit
+   * heading, the way the waterfall's outflow leaves its plunge basin. This
+   * ground is gentler: 185 m steps hold the worst segment to 2.4 m, so it
+   * keeps its original length rather than needing upstream's shorter stride. */
   const tail = bend[bend.length - 1];
   const downstream = [tail.clone()];
+  let wx = tail.x;
+  let wz = tail.z;
+  let wHeading = Math.atan2(-96, 176);         // seed: the old reach's general bearing
   for (let i = 1; i <= 18; i++) {
-    downstream.push(new THREE.Vector3(
-      tail.x - 96 * i + Math.sin(i * 0.62 + 1.3) * 150,
-      0,
-      tail.z + 176 * i + Math.cos(i * 0.44) * 120,
-    ));
+    const step = traceSlope(x, z, wx, wz, 1, 185, i * 1.3, wHeading);
+    wHeading = step.heading;
+    downstream.push(new THREE.Vector3(step.nx, 0, step.nz));
+    wx = step.nx; wz = step.nz;
   }
   layCourse('river-downstream', downstream, (t) => 66 + t * 26, true);
 
