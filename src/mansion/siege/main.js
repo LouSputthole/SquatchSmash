@@ -355,7 +355,18 @@ const armory = mountArmory({
     if (event?.type !== 'taken' || !event.id) return;
     if (HEAVY_IDS.has(event.id)) heavyTaken = true;
     else PRIMARY_TAKEN.add(event.id);
-    mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
+    const done = mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
+    /* HALF-ARMED IS THE QUIET FAILURE. The beat needs BOTH, and a player who
+     * takes one gun and walks gets no refusal at all -- the objective simply
+     * does not advance. He can be on the top floor, at Lou's door, before
+     * anything tells him why the office is not reacting to him, and the rack
+     * he needs is two storeys behind him by then. So the rack says it while
+     * he is still standing at it. */
+    if (!done && mission.beat === B.ARM) {
+      nudge(heavyTaken
+        ? 'That is the belt-fed. Take a rifle off the rack as well — the swap is what the rack is for.'
+        : 'That is your primary. Now the belt-fed, the big one — you are not holding a staircase with that.');
+    }
   },
 });
 
