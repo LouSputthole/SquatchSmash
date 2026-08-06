@@ -23,6 +23,7 @@ import {
   SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
 } from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 import { Radio } from '../core/radio.js';
 import { Inventory } from '../core/inventory.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -117,6 +118,71 @@ const ui = {
   },
   endcard: document.getElementById('endcard'),
 };
+
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?preview=1&checkpoint=...)            */
+/*
+ * LOCAL support only, deliberately -- mirrors src/enolasquatch/main.js's own
+ * CHECKPOINT_ALIASES rather than routing through src/core/preview-mode.js,
+ * whose checkpoint parsers are each a different scene's own vocabulary.
+ * Silver Pines is campaign-owned, so this is gated on the shared,
+ * scene-agnostic `isPreviewMode()` the same way Enola's is -- a bare
+ * `?checkpoint=` on an ordinary link must do nothing.
+ *
+ * The round has no per-hole "checkpoint" concept of its own (see
+ * src/core/golf-story.js -- `recordHole()` just keeps a running card); a
+ * hole2/hole3/grille link stages plausible completed-hole scores through
+ * that SAME real `recordHole()`/`round.restoreProgress()` machinery a
+ * resumed save already uses in `boot()`, below, so the round opens on state
+ * that is genuinely that far along rather than a teleport.
+ */
+const GOLF_CHECKPOINTS = Object.freeze({
+  hole1: 1, hole2: 2, hole3: 3, grille: 'grille',
+});
+const GOLF_CHECKPOINT_LABELS = Object.freeze({
+  hole1: 'HOLE 1 · THE INVITATION',
+  hole2: 'HOLE 2 · THE LONG WALK',
+  hole3: 'HOLE 3 · THE BIG NIGHT',
+  grille: 'THE GRILLE · ROUND COMPLETE',
+});
+/**
+ * Plausible completed-hole cards for the holes a jump skips, in the same
+ * shape `story.recordHole()` expects. These are the exact values
+ * `seedCompletedGolfRound()` in src/core/campaign.js already uses for a
+ * preview'd fully-completed round -- reused here rather than invented twice.
+ */
+const GOLF_PREVIEW_HOLE_CARDS = Object.freeze({
+  1: Object.freeze({ hole: 1, par: 3, strokes: 4, penalties: 0 }),
+  2: Object.freeze({ hole: 2, par: 5, strokes: 5, penalties: 0 }),
+  3: Object.freeze({ hole: 3, par: 4, strokes: 5, penalties: 0 }),
+});
+function previewCheckpointForLocation(locationLike = window.location) {
+  if (!isPreviewMode(locationLike)) return null;
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(GOLF_CHECKPOINTS, value) ? value : null;
+}
+/** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = GOLF_CHECKPOINT_LABELS[previewCheckpoint];
+  const tag = overlay?.querySelector('.tag');
+  if (tag) tag.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  const fine = overlay?.querySelector('.fine');
+  if (fine && previewCheckpoint !== 'hole1') {
+    fine.textContent = 'Earlier holes are staged with plausible preview scores, not a played round.';
+  }
+  if (startBtn) startBtn.textContent = `Start at ${label.toLowerCase()}`;
+}
+/** Stage one skipped hole's plausible card through the real, saveable record. */
+function stagePreviewHoleScore(n) {
+  const card = GOLF_PREVIEW_HOLE_CARDS[n];
+  if (!card) return;
+  story.recordHole({
+    ...card, heardInvitation: true, rodeWithLou: true, hitGreenInRegulation: true,
+  });
+}
 
 const stage = (t) => window.__squatchStage?.(t);
 
@@ -2327,7 +2393,21 @@ async function boot() {
     campaign.enter(SCENE_IDS.SILVER_PINES, { spawn: 'car_park' });
   }
 
-  const resumeHole = begun.resumed ? round.restoreProgress(story.mission) : 1;
+  /* Preview checkpoint: stage plausible completed-hole scores through the
+   * real, saveable `story.recordHole()` for every hole before the requested
+   * waypoint, so a hole2/hole3/grille link opens on a round that is
+   * genuinely that far along. Only reachable on a fresh preview boot
+   * (`begun.resumed` is false the first time `story.begin()` claims the
+   * round), so it can never collide with an actually-resumed save. */
+  if (previewCheckpoint && !begun.resumed) {
+    const target = GOLF_CHECKPOINTS[previewCheckpoint];
+    const throughHole = target === 'grille' ? 3 : target - 1;
+    for (let n = 1; n <= throughHole; n++) stagePreviewHoleScore(n);
+  }
+
+  const resumeHole = begun.resumed || previewCheckpoint
+    ? round.restoreProgress(story.mission)
+    : 1;
   if (begun.resumed && resumeHole === null) {
     story.complete({ holes: story.mission.holes });
     return showStartBlocked({ reason: 'already_complete' });
@@ -2356,7 +2436,7 @@ async function boot() {
   cartRadio.setPosition(cartRadioPosition);
   carts.lead.setRadioOn(false);
 
-  if (begun.resumed && resumeHole > 1) {
+  if ((begun.resumed || previewCheckpoint) && resumeHole > 1) {
     await audio.loadAdditional?.({ prefixes: [`vo.golf.h${resumeHole}.`] }).catch?.(() => {});
   }
 
@@ -2373,7 +2453,12 @@ async function boot() {
 
   requestMouseCapture();
   player.enabled = true;
-  if (begun.resumed && resumeHole > 1) {
+  if (previewCheckpoint === 'grille') {
+    // The full round, staged and closed out for real: `showEndCard()` is the
+    // exact function `round`'s own `onRoundComplete` hook calls, and it
+    // banks the last hole and calls `story.complete()` itself.
+    showEndCard(round.roundSummary());
+  } else if ((begun.resumed || previewCheckpoint) && resumeHole > 1) {
     round.startHole(resumeHole);
     const t = HOLE.teeMarks.ball;
     player.position.set(t.x, HOLE.tee.y + 1.66, t.z + 4);

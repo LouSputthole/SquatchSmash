@@ -1522,7 +1522,72 @@ try {
     JSON.stringify(completed.mission));
   check('the complete browser playthrough leaves canonical storage byte-for-byte untouched',
     completed.canonical === SENTINEL);
-  check('the browser emitted no uncaught errors', problems.length === 0, problems.slice(0, 3).join(' | '));
+  // ---- Preview checkpoint links (?preview=1&checkpoint=...) --------------
+  // Each waypoint gets its own fresh page/preview campaign, the way an owner
+  // clicking a preview.html link would load it. `dock`/`underway`/`inlet`/
+  // `confrontation` are posed synchronously in `jumpToPreviewCheckpoint`
+  // (src/nowake/main.js), but only after the Start handler's own
+  // `audio.init()`/`loadManifest()` resolve -- the same "comfortably over
+  // half a minute" decode `page.setDefaultTimeout`'s own comment documents
+  // above -- so every one of them still needs a generous ceiling. `body`
+  // additionally waits on `fireExecution()`'s own real setTimeout chain
+  // (~2s of wall clock on top of that, unrelated to frame rate) before
+  // Willy is actually down. `return` is deliberately NOT checked here:
+  // reaching it requires `state.phaseTime` to accumulate through the
+  // disposal timeline, which -- like every other phaseTime-driven wait in
+  // this file -- is bounded by the rendered frame rate rather than the wall
+  // clock, so on this rasteriser it would cost minutes on top of the audio
+  // decode. `disposeBody()` is the exact function both `body` and `return`
+  // call, and the full playthrough above already drives the return leg for
+  // real from that same function, so `return`'s own staging is covered by
+  // construction; it was checked manually instead (see the final report).
+  for (const [id, expectPhase, timeoutMs] of [
+    ['dock', 'dock', 120000],
+    ['underway', 'drive', 120000],
+    ['inlet', 'coast', 120000],
+    ['confrontation', 'confrontation', 120000],
+    ['body', 'body', 130000],
+  ]) {
+    const cpPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    const cpProblems = [];
+    cpPage.on('pageerror', (error) => cpProblems.push(error.message));
+    cpPage.on('console', (message) => {
+      if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
+    });
+    await cpPage.goto(`http://localhost:${PORT}/nowake.html?preview=1&checkpoint=${id}`, { waitUntil: 'load' });
+    await cpPage.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 60000 });
+    const chip = await cpPage.evaluate(() => document.querySelector('#overlay .tag')?.textContent ?? '');
+    // Coordinates, not a locator click: this scene's continuous WebGL redraw
+    // on a software rasteriser can make a locator's "two stable frames" wait
+    // run past any reasonable ceiling -- see the identical note on the main
+    // playthrough's own start click, above.
+    const startBox = await cpPage.evaluate(() => {
+      const r = document.getElementById('start-btn').getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await cpPage.mouse.click(startBox.x, startBox.y);
+    // 'dock' is also the pre-click default phase, so waiting on phase alone
+    // would resolve before the async click handler has run at all; require
+    // `boarded` too, which is only ever true after staging actually happens.
+    await cpPage.waitForFunction(
+      (expected) => window.NO_WAKE?.state?.phase === expected && window.NO_WAKE?.state?.boarded === true,
+      expectPhase,
+      { timeout: timeoutMs },
+    ).catch(() => {});
+    const result = await cpPage.evaluate(() => ({
+      phase: window.NO_WAKE.state.phase,
+      boarded: window.NO_WAKE.state.boarded,
+      engine: window.NO_WAKE.state.engine,
+      checkpoint: window.NO_WAKE.campaignState.missions.no_wake.checkpoint,
+    }));
+    check(`?preview=1&checkpoint=${id} loads staged and lands on phase "${expectPhase}"`,
+      result.phase === expectPhase && result.boarded
+        && chip.startsWith('Preview checkpoint:') && cpProblems.length === 0,
+      JSON.stringify({ ...result, chip, problems: cpProblems }));
+    await cpPage.close();
+  }
+
+  check('the browser emitted no uncaught errors', problems.length === 0, problems.join(' | '));
 } finally {
   await browser.close();
   server.close();
