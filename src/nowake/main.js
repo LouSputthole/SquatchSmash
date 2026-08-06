@@ -1253,6 +1253,16 @@ function jumpToPreviewCheckpoint(id) {
   if (id === 'underway') return;
 
   runtime.skipDrive();
+  // A played run reaches `coast` with the cruiser still doing real way
+  // through the water -- this jump never actually drove it, so `speed` is
+  // still zero, and `updateBoat()`'s own idle check would read that as
+  // "already at rest" and fire the confrontation on the very next frame,
+  // leaving no real inlet to preview. Give it the same cruising speed the
+  // real drive ends at (see the "released cruiser accelerates" checkpoint
+  // check in tools/verify-no-wake.mjs) so it coasts down for real before
+  // the same real trigger fires -- not held open artificially, just not
+  // starting already past it.
+  physics.speed = 4.9;
   if (id === 'inlet') return;
 
   if (id === 'confrontation') {
