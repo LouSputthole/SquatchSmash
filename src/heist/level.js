@@ -3,7 +3,9 @@ import { buildEscapeCity, ESCAPE_START } from './city.js';
 import {
   HeistFigure, makeBankGuardFigure, makeBankManagerFigure, makeHostageFigure,
 } from './people.js';
-import { makeCashBag, makeHeistCarbine, makeHeistSidearm, makeBalaclava, makeZipTies } from './weapons.js';
+import {
+  makeCashBag, makeHeistCarbine, makeHeistSidearm, makeBalaclava, makePlateCarrier, makeZipTies,
+} from './weapons.js';
 
 const MAT = {
   concrete: new THREE.MeshStandardMaterial({ color: 0x5a5b58, roughness: 0.92 }),
@@ -197,54 +199,303 @@ function buildSafehouse() {
   }
   group.add(evidence);
 
+  /* ---------------------------------------------------------------- *
+   * The briefing table.
+   *
+   * Owner: *"the briefing tabletop needs a rework — it's unclear what to
+   * do"*. He was looking at a blank sheet of paper with four red dashes and
+   * five brass discs on it, plus one white card block. Nothing on that table
+   * said what the four dashes were, which end of them the job started at, or
+   * that the white block was the bank — so the plan the whole mission is
+   * about was a decoration.
+   *
+   * It is a PLAN now, and it reads left to right in the order the night
+   * happens, because that is the only ordering a player can pick up without
+   * being told:
+   *
+   *   1 THE BANK       west end, in white card with its columns and steps
+   *   2 MERCER STREET  the asphalt strip out of its doors
+   *   3 THE GARAGE     the concrete box with its ramp
+   *   4 THE SWAP YARD  the shed on the canal, east end
+   *
+   * Each site stands on a coloured base — green where the crew is meant to
+   * be, red where it goes wrong — and each carries a pip block counting its
+   * number, which is the only way to number something on a table without
+   * putting a font in the scene. The route between them is one continuous
+   * bright line rather than four floating dashes, with an arrow head on it,
+   * so which way you travel is visible rather than inferred.
+   * ---------------------------------------------------------------- */
   const briefing = new THREE.Group();
   briefing.name = 'briefing-map';
   briefing.position.set(0, 0, 0.2);
-  box(briefing, [5.8, 0.18, 2.4], [0, 0.88, 0], MAT.wood);
+  box(briefing, [5.8, 0.18, 2.4], [0, 0.88, 0], MAT.wood, 'briefing-table-top');
   for (const x of [-2.45, 2.45]) {
     for (const z of [-0.85, 0.85]) box(briefing, [0.24, 0.88, 0.24], [x, 0.43, z], MAT.steel);
   }
-  box(briefing, [4.75, 0.035, 1.78], [0, 0.99, 0], MAT.paper);
+  // The plan sheet, with a printed border and a survey grid on it.
+  box(briefing, [4.75, 0.035, 1.78], [0, 0.99, 0], MAT.paper, 'briefing-plan-sheet');
+  /* THE SURFACE EVERYTHING ON THIS TABLE STANDS ON.
+   *
+   * Owner: *"tabletop rework"*, for the brief as well as the debrief. Every
+   * model on this plan — all four site cards, the route line, the four site
+   * pads — was authored at a hand-picked y between 1.02 and 1.035, and the
+   * paper's top face is at 1.0075. So the whole plan hovered one to two and a
+   * half centimetres over the sheet it is supposed to be drawn on, which at
+   * this scale is a card model the height of its own doorway off the ground.
+   * It reads as a diorama that has been knocked, and it is why the table did
+   * not look like a plan.
+   *
+   * `scene-audit` never caught it and never will: its FLOATING rule allows
+   * 12 cm of support gap, because that tolerance is what stops it reporting
+   * every chair leg in the mansion. This one is measured by
+   * `heist-level-presentation.test.mjs` instead, against this constant, so
+   * the next thing put on this table has a number to sit on.
+   *
+   * The 0.8 mm is not decoration. Seating a face EXACTLY on another face is
+   * the other half of the same problem — two surfaces at one depth fighting
+   * for the pixel, which is `scene-audit`'s COPLANAR class and the owner's
+   * "black bar, non-stop flicker" everywhere else it has turned up. Seating
+   * the plan on 1.0075 put the route line's underside on the paper's top face
+   * and the audit reported it over 0.39 m². Less than a millimetre is under
+   * the eye and over the depth buffer. */
+  const SHEET_TOP = 0.99 + 0.035 / 2;
+  const PLAN_TOP = SHEET_TOP + 0.0008;
+  for (const [w, d, z] of [[4.55, 0.02, -0.84], [4.55, 0.02, 0.84]]) {
+    flat(briefing, [w, 0.006, d], [0, 1.009, z], MAT.ink);
+  }
+  for (const x of [-2.28, 2.28]) flat(briefing, [0.02, 0.006, 1.7], [x, 1.009, 0], MAT.ink);
+  for (let i = -5; i <= 5; i++) flat(briefing, [0.008, 0.004, 1.62], [i * 0.4, 1.008, 0], MAT.marbleDark);
+  for (let i = -2; i <= 2; i++) flat(briefing, [4.4, 0.004, 0.008], [0, 1.008, i * 0.34], MAT.marbleDark);
+  // A title block along the top edge: the red band a plan always has.
+  flat(briefing, [1.5, 0.006, 0.16], [-1.55, 1.009, -0.7], MAT.warning, 'briefing-title-block');
+  for (let i = 0; i < 5; i++) flat(briefing, [0.22, 0.005, 0.03], [-2.1 + i * 0.26, 1.013, -0.7], MAT.paper);
+
+  /* The route: one continuous line through the four sites, with an arrow head
+   * at the far end. Four disconnected dashes are a pattern; a line with a
+   * point on it is a direction. */
   const route = new THREE.Group();
   route.name = 'blueprint-route';
-  route.position.y = 1.035;
-  for (const [x, z, w, d, angle = 0] of [
-    [-1.35, 0.42, 1.55, 0.055, -0.18], [-0.2, 0.05, 1.2, 0.055, -0.35],
-    [0.78, -0.32, 1.15, 0.055, -0.14], [1.65, -0.62, 0.82, 0.055, 0.18],
-  ]) {
-    const segment = box(route, [w, 0.025, d], [x, 0, z], MAT.warning);
-    segment.rotation.y = angle;
+  // Legs are 2 cm thick and centred on the group, so the group sits a
+  // centimetre proud of the paper and the ink lies ON it.
+  route.position.y = PLAN_TOP + 0.01;
+  const legs = [
+    [-1.62, 0.5, -0.62, 0.16], [-0.62, 0.16, 0.34, -0.2],
+    [0.34, -0.2, 1.24, -0.44], [1.24, -0.44, 2.02, -0.56],
+  ];
+  for (const [ax, az, bx, bz] of legs) {
+    const length = Math.hypot(bx - ax, bz - az);
+    const leg = box(route, [length, 0.02, 0.05],
+      [(ax + bx) / 2, 0, (az + bz) / 2], MAT.warning);
+    leg.rotation.y = -Math.atan2(bz - az, bx - ax);
+    leg.castShadow = false;
   }
-  for (const [x, z] of [[-2, 0.65], [-0.85, 0.28], [0.35, -0.12], [1.3, -0.48], [2, -0.6]]) {
-    mesh(route, new THREE.CylinderGeometry(0.085, 0.085, 0.035, 12), MAT.brass, [x, 0.02, z]);
+  const head = mesh(route, new THREE.ConeGeometry(0.09, 0.2, 4), MAT.warning, [2.12, 0, -0.58]);
+  head.rotation.set(Math.PI / 2, 0, -Math.PI / 2 - 0.15);
+  /* Flattened to the thickness of the line it terminates. Laid on its side a
+   * cone is 18 cm of solid pyramid: it hung 6 cm THROUGH the plan sheet and
+   * stood three times the height of its own route line above it. */
+  head.scale.z = 0.11;
+  head.castShadow = false;
+  head.name = 'blueprint-route-arrow';
+  briefing.add(route);
+
+  /* The four sites. `pips` is the site's number, counted in blocks, because
+   * a numeral on a tabletop needs a font and a font needs a canvas. */
+  const SITES = [
+    { id: 'bank', x: -1.62, z: 0.5, pips: 1, good: true },
+    { id: 'street', x: -0.62, z: 0.16, pips: 2, good: false },
+    { id: 'garage', x: 0.34, z: -0.2, pips: 3, good: false },
+    { id: 'swap', x: 1.24, z: -0.44, pips: 4, good: true },
+  ];
+  const siteMarkers = [];
+  for (const site of SITES) {
+    const marker = new THREE.Group();
+    marker.name = `briefing-site-${site.id}`;
+    marker.position.set(site.x, PLAN_TOP + 0.006, site.z);
+    // The base pad: green where the crew is meant to be, red where it is not.
+    flat(marker, [0.46, 0.012, 0.36], [0, 0, 0],
+      site.good ? new THREE.MeshStandardMaterial({ color: 0x3f6b46, roughness: 0.9 }) : MAT.warning);
+    // The pip strip along the front edge: one block per step of the plan.
+    for (let i = 0; i < site.pips; i++) {
+      flat(marker, [0.035, 0.014, 0.035], [-0.16 + i * 0.055, 0.009, 0.15], MAT.ink);
+    }
+    briefing.add(marker);
+    siteMarkers.push(marker);
   }
-  // The bank itself, in card, standing on the plan.
-  const model = new THREE.Group();
-  model.name = 'briefing-bank-model';
-  model.position.set(-1.7, 1.02, -0.5);
-  box(model, [0.72, 0.3, 0.5], [0, 0.15, 0], MAT.paper);
-  for (let i = 0; i < 4; i++) box(model, [0.05, 0.24, 0.05], [-0.26 + i * 0.17, 0.14, 0.28], MAT.paper);
-  briefing.add(model, route);
-  // The things on a table people have been sitting at for two hours.
+
+  /* 1 — THE BANK, in card: the facade, its four columns, and the steps. */
+  const bankCard = new THREE.Group();
+  bankCard.name = 'briefing-bank-model';
+  bankCard.position.set(-1.62, PLAN_TOP, 0.5);
+  box(bankCard, [0.62, 0.3, 0.34], [0, 0.15, -0.04], MAT.paper);
+  for (let i = 0; i < 4; i++) box(bankCard, [0.045, 0.24, 0.045], [-0.2 + i * 0.135, 0.12, 0.14], MAT.paper);
+  box(bankCard, [0.66, 0.06, 0.06], [0, 0.31, 0.02], MAT.paper);
+  for (let i = 0; i < 3; i++) flat(bankCard, [0.5, 0.014, 0.05], [0, 0.012 + i * 0.014, 0.18 + i * 0.045], MAT.marbleDark);
+  briefing.add(bankCard);
+
+  /* 2 — MERCER STREET: the strip of road, its kerbs, and the dead van. */
+  const streetCard = new THREE.Group();
+  streetCard.name = 'briefing-street-model';
+  streetCard.position.set(-0.62, PLAN_TOP, 0.16);
+  flat(streetCard, [0.16, 0.014, 0.42], [0, 0.008, 0], MAT.asphalt);
+  for (const side of [-1, 1]) flat(streetCard, [0.03, 0.02, 0.42], [side * 0.095, 0.012, 0], MAT.marbleDark);
+  for (let i = -1; i <= 1; i++) flat(streetCard, [0.014, 0.004, 0.06], [0, 0.017, i * 0.12], MAT.paper);
+  box(streetCard, [0.07, 0.05, 0.12], [0.02, 0.04, -0.1], MAT.darkConcrete, 'briefing-street-van');
+  briefing.add(streetCard);
+
+  /* 3 — THE GARAGE: a concrete box with its mouth open and its ramp out. */
+  const garageCard = new THREE.Group();
+  garageCard.name = 'briefing-garage-model';
+  garageCard.position.set(0.34, PLAN_TOP, -0.2);
+  for (const side of [-1, 1]) box(garageCard, [0.05, 0.22, 0.3], [side * 0.16, 0.11, 0], MAT.darkConcrete);
+  box(garageCard, [0.37, 0.22, 0.05], [0, 0.11, -0.175], MAT.darkConcrete);
+  box(garageCard, [0.37, 0.04, 0.3], [0, 0.24, 0], MAT.darkConcrete);
+  const gRamp = flat(garageCard, [0.2, 0.014, 0.2], [0, 0.05, 0.2], MAT.concrete);
+  gRamp.rotation.x = 0.4;
+  box(garageCard, [0.09, 0.05, 0.16], [0, 0.04, -0.02], MAT.steel, 'briefing-garage-sedan');
+  briefing.add(garageCard);
+
+  /* 4 — THE SWAP YARD: the shed, the fence, and the clean car under it. */
+  const swapCard = new THREE.Group();
+  swapCard.name = 'briefing-swap-model';
+  swapCard.position.set(1.24, PLAN_TOP, -0.44);
+  box(swapCard, [0.34, 0.16, 0.24], [0, 0.08, -0.03], MAT.steel);
+  const roof = box(swapCard, [0.38, 0.02, 0.28], [0, 0.17, -0.03], MAT.darkConcrete);
+  roof.rotation.z = 0.08;
+  for (let i = 0; i < 5; i++) box(swapCard, [0.008, 0.09, 0.008], [-0.16 + i * 0.08, 0.045, 0.14], MAT.brass);
+  box(swapCard, [0.1, 0.045, 0.16], [0.02, 0.03, 0.06], MAT.marbleDark, 'briefing-swap-car');
+  briefing.add(swapCard);
+
+  /* The things on a table people have been sitting at for two hours: an
+   * ashtray, two mugs, a scale rule, a pack of photographs weighed down. */
   box(briefing, [0.3, 0.09, 0.22], [2.05, 1.02, 0.62], MAT.darkConcrete);
   mesh(briefing, new THREE.CylinderGeometry(0.06, 0.05, 0.11, 10), MAT.paper, [1.7, 1.04, 0.5]);
   mesh(briefing, new THREE.CylinderGeometry(0.06, 0.05, 0.11, 10), MAT.paper, [-1.95, 1.04, 0.72]);
   box(briefing, [0.19, 0.04, 0.12], [-2.1, 1.01, -0.6], MAT.warning);
+  const rule = box(briefing, [0.62, 0.012, 0.05], [-1.1, 1.015, 0.78], MAT.brass, 'briefing-scale-rule');
+  rule.rotation.y = 0.14;
+  for (let i = 0; i < 4; i++) {
+    const photo = box(briefing, [0.24, 0.006, 0.18], [0.75 + i * 0.02, 1.012 + i * 0.006, 0.72], MAT.paper);
+    photo.rotation.y = -0.1 + i * 0.07;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * The same table, at the end of the night.
+   *
+   * Owner: *"debrief: tabletop rework + clear objective"*, and — from the
+   * pass before — *"everyone is just waiting for me at the end, not sure
+   * what the debrief shit is either"*. The debrief happens at THIS table, and
+   * the table was still showing the plan: a route to a bank the crew had
+   * already robbed, with the money nowhere on it. The one thing the debrief
+   * is about is the count, and the count lived in a panel in the corner of
+   * the screen — so the room the player was standing in said nothing.
+   *
+   * `setDebrief` swaps the table over. The plan comes off — route, site pads
+   * and all four card models — and what came home goes on: one bag per
+   * recovered bag, in a row along the back edge, each with its cash out in
+   * front of it in banded bundles. Eight bags is a full table. Six is a table
+   * with two gaps in it, which is a thing you can see from the doorway.
+   *
+   * The row deliberately avoids the ashtray, the two mugs, the scale rule and
+   * the photographs, which stay: people are still sitting here. A first pass
+   * put the bags in two rows and swallowed a coffee mug inside bag seven.
+   * ---------------------------------------------------------------- */
+  const planning = [bankCard, streetCard, garageCard, swapCard, route, ...siteMarkers];
+  const takeGroup = new THREE.Group();
+  takeGroup.name = 'briefing-take';
+  takeGroup.visible = false;
+  briefing.add(takeGroup);
+  const takeBags = [];
+  const takeStacks = [];
+  /* The bag body is 0.27 tall about its own origin and the row is scaled to
+   * 0.92, so this is the height that puts eight canvas bottoms on the paper. */
+  const BAG_SCALE = 0.92;
+  const BAG_Y = PLAN_TOP + 0.135 * BAG_SCALE;
+  for (let i = 0; i < 8; i++) {
+    const x = -1.47 + i * 0.42;
+    const bag = makeCashBag({ full: true });
+    bag.name = `debrief-bag-${i + 1}`;
+    bag.position.set(x, BAG_Y, -0.62);
+    bag.rotation.y = (i % 3 - 1) * 0.14;
+    bag.scale.setScalar(BAG_SCALE);
+    takeGroup.add(bag);
+    takeBags.push(bag);
+    /* The cash out of that bag: six banded bundles, two across and three
+     * high, sitting in front of it where a count gets stacked. */
+    const stack = new THREE.Group();
+    stack.name = `debrief-stack-${i + 1}`;
+    stack.position.set(x, PLAN_TOP, 0.06);
+    for (let s = 0; s < 6; s++) {
+      const bx = (s % 2 ? 0.075 : -0.075);
+      const by = 0.016 + Math.floor(s / 2) * 0.032;
+      const note = box(stack, [0.14, 0.03, 0.1], [bx, by, 0], MAT.cash);
+      note.rotation.y = (s % 2 ? 1 : -1) * 0.07;
+      const band = box(stack, [0.042, 0.033, 0.105], [bx, by, 0], MAT.warning);
+      band.rotation.y = note.rotation.y;
+    }
+    takeGroup.add(stack);
+    takeStacks.push(stack);
+  }
+  /* The ledger Numbskull reads the count off, in the corner Lou sits in. */
+  const ledger = box(takeGroup, [0.46, 0.03, 0.32], [2.02, PLAN_TOP + 0.015, -0.5],
+    MAT.paper, 'debrief-ledger');
+  ledger.rotation.y = -0.18;
+  for (let i = 0; i < 6; i++) {
+    box(takeGroup, [0.3 - i * 0.02, 0.008, 0.014],
+      [2.0, PLAN_TOP + 0.033, -0.6 + i * 0.04], MAT.ink).rotation.y = -0.18;
+  }
+
+  /**
+   * Turn the table from a plan into a count, or back.
+   *
+   * @param {number} bags how many of the eight came home
+   * @param {boolean} [on] false puts the plan back — a checkpoint that resumes
+   *   BEFORE the return has to rebuild a table nobody has counted on yet
+   */
+  briefing.userData.setDebrief = (bags = 0, on = true) => {
+    for (const part of planning) part.visible = !on;
+    takeGroup.visible = on;
+    const home = Math.max(0, Math.min(takeBags.length, Math.round(bags)));
+    for (let i = 0; i < takeBags.length; i++) {
+      takeBags[i].visible = i < home;
+      takeStacks[i].visible = i < home;
+    }
+    briefing.userData.debriefBags = on ? home : 0;
+    briefing.userData.debriefShowing = on;
+  };
+  briefing.userData.planTop = PLAN_TOP;
+  briefing.userData.debriefShowing = false;
+  briefing.userData.debriefBags = 0;
   group.add(briefing);
 
+  /* The vest, on a stand, facing the room.
+   *
+   * Owner, twice: *"vest model still looks bad"*. It was six boxes — a slab
+   * for the body, two for the shoulders, three pouches — at nearly a metre
+   * across, which is a wardrobe rather than a plate carrier. It is the
+   * modelled `makePlateCarrier` now, at the size a carrier actually is
+   * (34 cm across the plate), hanging on a mannequin torso so it reads as
+   * something a person takes off a stand and puts on.
+   */
   const armor = new THREE.Group();
   armor.name = 'safehouse-armor';
   armor.position.set(-5.5, 0, 2.8);
-  box(armor, [0.1, 1.8, 0.1], [0, 0.9, -0.18], MAT.steel, 'armor-stand');
-  box(armor, [0.7, 0.08, 0.45], [0, 0.06, -0.18], MAT.steel);
+  box(armor, [0.09, 1.35, 0.09], [0, 0.68, -0.16], MAT.steel, 'armor-stand');
+  box(armor, [0.62, 0.07, 0.42], [0, 0.05, -0.16], MAT.steel);
+  mesh(armor, new THREE.CylinderGeometry(0.15, 0.19, 0.5, 10), MAT.darkConcrete, [0, 1.3, -0.16])
+    .name = 'armor-mannequin';
+  box(armor, [0.34, 0.1, 0.26], [0, 1.6, -0.16], MAT.darkConcrete);
   const armorParts = [];
-  armorParts.push(box(armor, [0.9, 0.78, 0.24], [0, 1.14, 0], MAT.tactical, 'armor-vest-body'));
-  armorParts.push(box(armor, [0.22, 0.34, 0.25], [-0.54, 1.4, 0], MAT.webbing, 'armor-shoulder-left'));
-  armorParts.push(box(armor, [0.22, 0.34, 0.25], [0.54, 1.4, 0], MAT.webbing, 'armor-shoulder-right'));
-  for (let i = -1; i <= 1; i++) {
-    armorParts.push(box(armor, [0.25, 0.2, 0.12], [i * 0.29, 0.92, 0.18], MAT.webbing, `armor-pouch-${i + 2}`));
-  }
-  armorParts.push(box(armor, [0.62, 0.06, 0.2], [0, 0.74, 0.05], MAT.webbing, 'armor-cummerbund'));
+  const vest = makePlateCarrier({ colour: 0x1d2224, loaded: true });
+  vest.name = 'armor-vest-body';
+  vest.position.set(0, 1.32, -0.1);
+  vest.scale.setScalar(1.15);
+  armor.add(vest);
+  armorParts.push(vest);
+  // A spare set of gloves and a plate bag under the stand, so the corner is a
+  // place gear lives rather than a plinth with one object on it.
+  const gloves = box(armor, [0.3, 0.06, 0.18], [0.34, 0.09, 0.1], MAT.tactical, 'armor-gloves');
+  armorParts.push(gloves);
   armor.userData.setEquipped = (value) => armorParts.forEach((part) => { part.visible = !value; });
   group.add(armor);
 
@@ -474,13 +725,31 @@ function buildVan() {
 
 /** Where the twenty-two lobby civilians stand when the doors come in. */
 export const LOBBY_ANCHORS = Object.freeze([
-  // The queue at the teller line, facing the counter.
+  /* The queue at the teller line, facing the counter — and standing clear of
+   * it. The counter's front face is at z −1.975; a customer told to get down
+   * lies along the way they are facing, so anybody inside about 1.8 m of the
+   * counter lies through it. These start at z +0.4. */
   { x: -5.2, z: 0.4, yaw: Math.PI }, { x: -3.6, z: 0.9, yaw: Math.PI },
   { x: -2.0, z: 0.6, yaw: Math.PI }, { x: -0.4, z: 1.1, yaw: Math.PI },
   { x: 1.2, z: 0.7, yaw: Math.PI }, { x: 2.8, z: 1.2, yaw: Math.PI },
-  // The tellers, behind it, facing out.
-  { x: -6.1, z: -3.1, yaw: 0, role: 'teller' }, { x: -2.6, z: -3.1, yaw: 0, role: 'teller' },
-  { x: 0.9, z: -3.1, yaw: 0, role: 'teller' }, { x: 4.4, z: -3.1, yaw: 0, role: 'teller' },
+  /* THE TELLERS, BEHIND THE COUNTER — and turned along it.
+   *
+   * Owner: *"bank teller NPCs clip through the counter"*. They stood at
+   * z −3.1 facing +Z, and the counter is a solid 17.2 × 0.85 m box whose back
+   * face is at z −2.825. Twenty-seven centimetres of clearance is already
+   * inside a standing figure's own depth; and the instant one of them was
+   * ordered down, `prone()` laid them out ALONG THEIR FACING — 1.7 m of
+   * person straight through the counter, the tills and the glass.
+   *
+   * They are at z −3.9 now, a working arm's length behind the counter, and
+   * turned to face down the line rather than across it. Told to get down,
+   * they lie in the clear run of floor between the counter and the vault
+   * corridor, which is where a teller behind a counter would actually end up.
+   */
+  { x: -6.1, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
+  { x: -2.6, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
+  { x: 0.9, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
+  { x: 4.4, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
   // The writing desks and the waiting seats on the east side.
   { x: 6.4, z: 2.4, yaw: -1.9 }, { x: 7.6, z: 1.2, yaw: -2.4 },
   { x: 7.9, z: 4.1, yaw: -1.2 }, { x: 6.2, z: 5.2, yaw: -0.8 },
@@ -689,7 +958,7 @@ function buildBank() {
     proxy.receiveShadow = false;
     figure.root.userData.proxy = proxy;
     figure.root.userData.hostageId = `hostage_${index + 1}`;
-    figure.root.userData.setState = (state) => figure.setState(state);
+    figure.root.userData.setState = (state, options) => figure.setState(state, options);
     return figure.root;
   });
 
@@ -744,11 +1013,34 @@ function buildBank() {
     box(vault, [0.09, 0.07, 0.03], [2.72 + (i % 3) * 0.18, 1.66 - Math.floor(i / 3) * 0.12, 3.29], MAT.steel);
   }
   group.add(vault);
+
+  /* THE DOOR IS A WALL WHILE IT IS SHUT.
+   *
+   * Owner: *"the vault can be walked into before it opens"*. It could, and
+   * there was nothing stopping it — the bank's collider list has the vault
+   * corridor's two side walls and its back wall, and NOTHING across the
+   * 8.4 m doorway they meet at. The door itself is a decorative disc: a
+   * 2.3 m cylinder hung in the opening with no bounds of any kind, so the
+   * player walked through the shut door, past the bypass Shubenator has not
+   * run yet, and stood on the cash.
+   *
+   * `doorCollider` is real geometry. It fills the whole opening rather than
+   * just the disc, because the gap around a round door in a square hole is
+   * a gap a player will find, and it is added to and removed from the live
+   * collider list by `setOpen` — the same call that moves the disc, so the
+   * thing you can see and the thing you can walk through cannot disagree.
+   */
+  const doorCollider = bounds([8.4, 4.4, 0.7], [0, 2.2, -7.0]);
+  vault.userData.doorCollider = doorCollider;
+  vault.userData.open = false;
   vault.userData.setOpen = (open) => {
-    disc.position.x = open ? -2.6 : 0;
-    disc.rotation.z = open ? 0.5 : 0;
-    ring.visible = !open;
-    wheel.position.x = open ? -2.6 : 0;
+    const isOpen = open === true;
+    vault.userData.open = isOpen;
+    disc.position.x = isOpen ? -2.6 : 0;
+    disc.rotation.z = isOpen ? 0.5 : 0;
+    ring.visible = !isOpen;
+    wheel.position.x = isOpen ? -2.6 : 0;
+    vault.userData.onOpenChanged?.(isOpen);
   };
 
   const bags = new THREE.Group();
@@ -803,6 +1095,12 @@ function buildBank() {
       bounds([0.3, 4.4, 6.4], [4.2, 2.2, -10.1]),
       bounds([8.4, 4.4, 0.3], [0, 2.2, -13.3]),
       bounds([1.4, 1.0, 1.4], [8.4, 0.5, 2.5]),
+      /* The shut vault door. `buildHeistLevel` takes this one back out when
+       * the bypass finishes — see `vault.userData.onOpenChanged`. Without it
+       * the 8.4 m doorway between the two rear-wall panels was open floor and
+       * the player could walk into the vault before Shubenator had touched
+       * the panel. */
+      vault.userData.doorCollider,
     ],
     floorZones: [floorZone(22, 22, 'marble'), floorZone(8.4, 6.4, 'concrete', 0, -10.1)],
   };
@@ -927,8 +1225,22 @@ function buildGarage() {
   for (const [x, z] of [[-10, -6], [9.6, 4]]) {
     for (let i = 0; i < 4; i++) box(group, [0.9, 0.9, 0.9], [x, 0.45 + i * 0.9, z], MAT.darkConcrete);
   }
+  /* The ramp down from the street, and the thing the player used to spawn
+   * inside of.
+   *
+   * Owner: *"garage spawn faces/intersects a big wall"*. The spawn was
+   * (0, 1.66, 12) and this slab runs z 9 to 17 at a metre off the floor, so
+   * the player arrived standing in the middle of it, three metres off the
+   * back wall, looking at concrete. It was also not a collider, so the ramp
+   * you can see was a thing you walked through.
+   *
+   * The ramp keeps its place — it is where the crew came in from — and is a
+   * solid now. The spawn moved to the clear floor in front of it. */
   const ramp = box(group, [7, 0.3, 8], [0, 0.9, 13], MAT.concrete, 'garage-ramp');
   ramp.rotation.x = 0.22;
+  for (const side of [-1, 1]) {
+    box(group, [0.3, 1.6, 8], [side * 3.5, 1.5, 13], MAT.darkConcrete, `garage-ramp-wall-${side}`);
+  }
   const hold = box(group, [8, 0.1, 3], [0, 0.05, 8], MAT.invisible, 'garage-hold');
   hold.castShadow = false;
   const sedan = makeVehicleBody(group, [0, 0, -8], 0x34393d, 'escape-sedan');
@@ -941,7 +1253,10 @@ function buildGarage() {
   }
   return {
     group,
-    spawn: new THREE.Vector3(0, 1.66, 12),
+    /* On the floor in front of the ramp, facing the sedan at z −8. `player.yaw
+     * = 0` looks down −Z, so the first thing in frame is the car the objective
+     * is about instead of the back wall the spawn used to be pressed into. */
+    spawn: new THREE.Vector3(0, 1.66, 6.4),
     interactables: { hold, load, drive },
     sedan,
     colliders: [
@@ -949,6 +1264,14 @@ function buildGarage() {
       ...[-8, -3, 3, 8].flatMap((x) => [-10, 0, 10]
         .map((z) => bounds([0.8, 4.4, 0.8], [x, 2.2, z]))),
       bounds([4.1, 1.9, 2.2], [0, 0.95, -8]),
+      // The ramp and its side walls, which were drawn but not solid.
+      bounds([7, 2.6, 8], [0, 1.3, 13]),
+      ...[-1, 1].map((side) => bounds([0.3, 1.6, 8], [side * 3.5, 1.5, 13])),
+      // The stacked crates in the two corners.
+      ...[[-10, -6], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
+      // The five parked cars down the side walls.
+      ...Array.from({ length: 5 }, (_, i) => bounds([2.2, 1.9, 4.1],
+        [i % 2 ? -9.4 : 9.4, 0.95, -11 + i * 5.5])),
     ],
     floorZones: [floorZone(24, 30, 'concrete')],
   };
@@ -1094,6 +1417,23 @@ export function buildHeistLevel(scene) {
     world.floorZones.push(...(phases[id].floorZones ?? []));
     return phases[id];
   }
+
+  /* The vault door, joined up: the shut door is in the bank's collider list
+   * and comes out of it the moment the bypass finishes. Both lists are kept —
+   * the phase's own, so an `activate('bank')` after the door opened does not
+   * put the wall back, and the live one, so opening it while standing in the
+   * lobby takes effect on the same frame the disc rolls aside. */
+  const vault = phases.bank.interactables.vault;
+  const doorCollider = vault.userData.doorCollider;
+  const bankColliders = phases.bank.colliders;
+  vault.userData.onOpenChanged = (open) => {
+    for (const list of [bankColliders, ...(active === 'bank' ? [world.colliders] : [])]) {
+      const at = list.indexOf(doorCollider);
+      if (open && at >= 0) list.splice(at, 1);
+      if (!open && at < 0) list.push(doorCollider);
+    }
+  };
+
   return { phases, world, activate, get active() { return active; } };
 }
 

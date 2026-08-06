@@ -3,7 +3,8 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import {
-  BARRIERS, ESCAPE_START, HEADING_VECTORS, ROUTE_NODES, ROUTE_ROADS, turnFrom,
+  BARRIERS, ESCAPE_START, HEADING_VECTORS, ROUTE_NODES, ROUTE_ROADS,
+  signalYawForHeading, turnFrom,
 } from '../src/heist/city.js';
 import { intersectsDrivingObstacle } from '../src/heist/geometry.js';
 import { buildHeistLevel } from '../src/heist/level.js';
@@ -139,4 +140,67 @@ test('the route the runtime drives is the route the city authored', () => {
   assert.equal(level.phases.driving.pursuers.length, 3);
   assert.equal(level.phases.driving.car.position.x, ESCAPE_START.x);
   assert.equal(level.phases.driving.car.position.z, ESCAPE_START.z);
+});
+
+test('no building stands in a road the player has to drive down', () => {
+  /* Owner: "buildings intrude into the road." Two of the forty-one did — a
+   * warehouse ten metres into Warehouse Row and a ten-storey tower nine
+   * metres into Canal Road. `intersectsDrivingObstacle` reads BARRIERS, not
+   * the block list, so the car drove straight through both.
+   *
+   * Measured off the built scene rather than off the source table, so a
+   * facade whose shopfront or awning reaches into the carriageway fails too. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const shells = [];
+  level.phases.driving.group.traverse((object) => {
+    if (object.userData.kind === 'route-building') shells.push(object);
+  });
+  assert.ok(shells.length >= 40, `only ${shells.length} buildings found`);
+
+  const intrusions = [];
+  const footprint = new THREE.Box3();
+  for (const shell of shells) {
+    shell.updateWorldMatrix(true, false);
+    footprint.setFromObject(shell);
+    for (const road of ROUTE_ROADS) {
+      const overlapX = Math.min(footprint.max.x, road.x + road.w / 2)
+        - Math.max(footprint.min.x, road.x - road.w / 2);
+      const overlapZ = Math.min(footprint.max.z, road.z + road.d / 2)
+        - Math.max(footprint.min.z, road.z - road.d / 2);
+      if (overlapX > 0 && overlapZ > 0) {
+        intrusions.push(`${shell.name} into ${road.id}`
+          + ` (${overlapX.toFixed(1)} x ${overlapZ.toFixed(1)} m)`);
+      }
+    }
+  }
+  assert.deepEqual(intrusions, [], `buildings in the road: ${intrusions.join('; ')}`);
+});
+
+test('every traffic signal faces the driver who has to read it', () => {
+  /* Owner: "traffic lights face the wrong way." They faced ONE way — the
+   * masts were built with no rotation at all, so all six pointed their
+   * lenses at world +Z whatever direction the route arrived from. */
+  // The swap yard is a stop, not a junction, and has no signal on it.
+  const junctions = ROUTE_NODES.filter((node) => node.turn !== 'stop');
+  for (const node of junctions) {
+    const yaw = signalYawForHeading(node.heading);
+    // The lenses sit on the mast's local +Z, which maps to (sin, cos).
+    const facing = { x: Math.sin(yaw), z: Math.cos(yaw) };
+    const travel = HEADING_VECTORS[node.heading];
+    // Facing the driver means pointing back along the way he is travelling.
+    const dot = facing.x * travel.x + facing.z * travel.z;
+    assert.ok(dot < -0.99,
+      `${node.id} signal faces ${JSON.stringify(facing)} at a driver heading ${node.heading}`);
+  }
+  // And the built masts actually carry that yaw.
+  const level = buildHeistLevel(new THREE.Scene());
+  const masts = [];
+  level.phases.driving.group.traverse((object) => {
+    if (object.userData.kind === 'route-signal') masts.push(object);
+  });
+  assert.equal(masts.length, junctions.length);
+  for (const mast of masts) {
+    assert.ok(Math.abs(mast.rotation.y - signalYawForHeading(mast.userData.heading)) < 1e-9,
+      `${mast.name} was built at a yaw that does not match its heading`);
+  }
 });

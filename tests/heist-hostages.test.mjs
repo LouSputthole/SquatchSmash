@@ -4,7 +4,9 @@ import test from 'node:test';
 import {
   CONTROLLED_STATES, Hostage, HostageDirector, createLobbyHostages,
 } from '../src/heist/hostages.js';
-import { HOSTAGE_BARKS, PROSPECT_VERB_LINES, dialogueLine } from '../src/heist/script.js';
+import {
+  BARK_POOL_FLOOR, HOSTAGE_BARKS, PROSPECT_VERB_LINES, dialogueLine,
+} from '../src/heist/script.js';
 
 function calm() { return new Hostage({ id: 'h1', nerve: 0.2, valuables: 200 }); }
 function nervy() { return new Hostage({ id: 'h2', nerve: 0.9, valuables: 200 }); }
@@ -185,4 +187,26 @@ test('every hostage response and player verb has an authored line behind it', ()
     assert.ok(pool.length, `no line for ${verb}`);
     for (const id of pool) assert.ok(dialogueLine(id), `${id} is not an authored line`);
   }
+});
+
+test('no pool is small enough to be heard as a repeat', () => {
+  /* Owner, twice: "takedown VO is two lines repeating" and "customer VO
+   * repeats too much". Both were pool SIZE, not rotation — `order` and
+   * `restrain` held one line each, so putting a room of twenty-two down and
+   * tying eight of them was two sentences forty times. */
+  const pools = { ...HOSTAGE_BARKS, ...PROSPECT_VERB_LINES };
+  for (const [key, floor] of Object.entries(BARK_POOL_FLOOR)) {
+    const pool = pools[key];
+    assert.ok(pool, `BARK_POOL_FLOOR names a pool that does not exist: ${key}`);
+    assert.ok(pool.length >= floor,
+      `${key} is down to ${pool.length} line(s); the floor is ${floor}`);
+    assert.equal(new Set(pool).size, pool.length, `${key} lists the same line twice`);
+  }
+});
+
+test('the two verbs the player presses most often are the two with the most lines', () => {
+  // Tap-E and hold-E, on twenty-two people. If anything is going to be heard
+  // as a repeat it is these.
+  assert.ok(PROSPECT_VERB_LINES.order.length >= 4);
+  assert.ok(PROSPECT_VERB_LINES.restrain.length >= 4);
 });

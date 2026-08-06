@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makePerson } from '../bing/cast.js';
 import { Mouth } from '../core/mouth.js';
+import { makePlateCarrier } from './weapons.js';
 
 /**
  * Everybody in THE TAKE, on the campaign's own frame.
@@ -246,6 +247,25 @@ export class HeistFigure {
     return this;
   }
 
+  /**
+   * Braced two-handed, which is how a man behind a car door stands.
+   *
+   * Extracted from `makePoliceFigure`, which used to write these five
+   * rotations inline — so an officer who had been knocked down had no way
+   * back to the pose he was built in, and a later wave could not put him on
+   * his feet again. `spawnPolice`'s recycling calls this.
+   */
+  aiming() {
+    this._clear();
+    this.parts.armR.rotation.set(-1.28, 0, 0.16);
+    this.parts.foreR.rotation.set(-0.16, 0, 0);
+    this.parts.armL.rotation.set(-1.2, 0, -0.34);
+    this.parts.foreL.rotation.set(-0.3, 0.3, 0);
+    this.pose = 'aiming';
+    this._poseFrom = null;
+    return this;
+  }
+
   /** Fallen. Not the same shape as prone — nobody chose this one. */
   fallen({ roll = 0.5 } = {}) {
     this._clear();
@@ -261,11 +281,79 @@ export class HeistFigure {
     return this._settle();
   }
 
+  /* ---------------------------------------------------------------- *
+   * Pose blending
+   *
+   * Owner, on the lobby: *"takedown animations are shaky"*. Two causes, and
+   * the first one is the whole of it: **poses were applied in a single
+   * frame**. Every method above writes absolute rotations onto the rig and
+   * returns, so a standing customer became a prone customer between one
+   * `requestAnimationFrame` and the next — a 90° rotation of the whole figure
+   * with nothing in between. Twenty-two of those going off across a room as
+   * the crowd order lands is not an animation, it is a hard cut per person.
+   *
+   * The second is `_settle()`. It measures the POSED figure with a Box3 and
+   * lifts it onto the floor, so the lift arrives on the same frame as the
+   * rotation and the body pops vertically as well as rotating.
+   *
+   * The fix is to keep every pose function exactly as it is — they are
+   * authored poses and they are good — and blend BETWEEN them. `setState`
+   * measures the rig, applies the pose, measures it again, puts the rig back
+   * where it was, and hands the pair to `update()` to walk across. The
+   * settle lift is part of what is measured, so it arrives with the rotation
+   * instead of ahead of it.
+   * ---------------------------------------------------------------- */
+
+  /** Every joint a pose writes to, in one fixed order. */
+  _poseNodes() {
+    const p = this.parts;
+    return [p.armL, p.armR, p.foreL, p.foreR, p.legL, p.legR, p.shinL, p.shinR, p.body, p.head];
+  }
+
+  _capturePose() {
+    return {
+      rotations: this._poseNodes().map((node) => [node.rotation.x, node.rotation.y, node.rotation.z]),
+      tiltRotation: [this.tilt.rotation.x, this.tilt.rotation.y, this.tilt.rotation.z],
+      tiltPosition: [this.tilt.position.x, this.tilt.position.y, this.tilt.position.z],
+    };
+  }
+
+  _applyPose(snapshot) {
+    const nodes = this._poseNodes();
+    for (let i = 0; i < nodes.length; i++) {
+      const [x, y, z] = snapshot.rotations[i];
+      nodes[i].rotation.set(x, y, z);
+    }
+    this.tilt.rotation.set(...snapshot.tiltRotation);
+    this.tilt.position.set(...snapshot.tiltPosition);
+  }
+
+  /**
+   * How long a given change of pose should take.
+   *
+   * Somebody being told to get on the floor takes most of a second about it.
+   * Somebody who has been shot does not, and neither does somebody whose
+   * wrists are being tied while they are already lying down.
+   */
+  static poseDuration(from, to) {
+    if (to === 'fallen' || to === 'down') return 0.32;
+    if (from === 'prone' && to === 'restrained') return 0.42;
+    if (to === 'prone' || to === 'restrained') return 0.72;
+    if (to === 'kneeling') return 0.5;
+    if (to === 'bolting' || to === 'alarm') return 0.28;
+    return 0.34;
+  }
+
   /**
    * @param {string} state one of `HOSTAGE_STATES`
+   * @param {object} [options]
+   * @param {boolean} [options.blend] false to snap, for a checkpoint restore
+   *   or a first build where there is no previous pose to come from.
    * @returns {string} the pose actually applied
    */
-  setState(state) {
+  setState(state, { blend = true } = {}) {
+    const from = this.pose;
+    const before = blend ? this._capturePose() : null;
     switch (state) {
       case 'startled': this.startled(); break;
       case 'pleading': this.pleading(); break;
@@ -277,8 +365,50 @@ export class HeistFigure {
       case 'down': this.fallen(); break;
       default: this.stand(); break;
     }
+    /* `visualState` is set from the pose that was ASKED for, not from how far
+     * the blend has got. Everything outside this class — the verifier, the
+     * interaction prompts, `syncHostageFigure` — is asking a question about
+     * the person's state, and the answer to that must not depend on a tween
+     * being 40% of the way through. */
     this.root.userData.visualState = this.pose;
+    if (before && this.pose !== from) {
+      this._poseFrom = before;
+      this._poseTo = this._capturePose();
+      this._poseElapsed = 0;
+      this._poseDuration = HeistFigure.poseDuration(from, this.pose);
+      this._applyPose(before);
+    } else {
+      this._poseFrom = null;
+    }
     return this.pose;
+  }
+
+  /** Walk the current pose blend forward. Returns true while one is running. */
+  _updatePoseBlend(dt) {
+    if (!this._poseFrom) return false;
+    this._poseElapsed += dt;
+    const raw = Math.min(1, this._poseElapsed / this._poseDuration);
+    // Smoothstep: a body leaves and arrives at rest, it does not start at
+    // full speed. This is the difference between "moved" and "was moved".
+    const t = raw * raw * (3 - 2 * raw);
+    const nodes = this._poseNodes();
+    for (let i = 0; i < nodes.length; i++) {
+      const a = this._poseFrom.rotations[i];
+      const b = this._poseTo.rotations[i];
+      nodes[i].rotation.set(
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+      );
+    }
+    for (const key of ['tiltRotation', 'tiltPosition']) {
+      const a = this._poseFrom[key];
+      const b = this._poseTo[key];
+      const target = key === 'tiltRotation' ? this.tilt.rotation : this.tilt.position;
+      target.set(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+    }
+    if (raw >= 1) this._poseFrom = null;
+    return true;
   }
 
   /**
@@ -302,12 +432,32 @@ export class HeistFigure {
   /** Breathing, the shake that says a person is frightened, and the mouth. */
   update(dt, { fear = 0 } = {}) {
     const talk = this.voiceMouth.update(dt);
+    /* The pose blend runs FIRST and writes the joints; the breath and the
+     * tremble below are offsets laid on top of whatever it left. */
+    const blending = this._updatePoseBlend(dt);
     this.phase += dt * (2.1 + fear * 5);
     this.tremble += (fear - this.tremble) * Math.min(1, dt * 4);
     const breath = Math.sin(this.phase) * (0.006 + this.tremble * 0.012);
     this.parts.body.position.y = breath;
-    const still = this.pose === 'down' || this.pose === 'fallen';
-    const shake = still ? 0 : Math.sin(this.phase * 5.5) * this.tremble * 0.035;
+    /**
+     * How hard this person is shaking, by what has happened to them.
+     *
+     * The other half of the owner's *"takedown animations are shaky"*: the
+     * tremble was one amplitude at one frequency for everybody who was not
+     * dead, so a customer lying face down with their wrists tied vibrated as
+     * hard as one who had just been told to move. Somebody already flat and
+     * restrained has stopped fighting it; somebody mid-pose is being carried
+     * by the blend and does not need a second motion arguing with it.
+     */
+    const settle = (() => {
+      if (this.pose === 'down' || this.pose === 'fallen') return 0;
+      if (this.pose === 'restrained') return 0.25;
+      if (this.pose === 'prone') return 0.45;
+      return 1;
+    })();
+    const shake = blending
+      ? 0
+      : Math.sin(this.phase * 4.4) * this.tremble * 0.028 * settle;
     this.parts.body.rotation.z = shake;
     this.parts.head.rotation.z = -shake * 1.4;
     /* A PHOTOGRAPH CANNOT OPEN ITS MOUTH.
@@ -491,8 +641,12 @@ export function makePoliceFigure({ name, x, z, yaw, index = 0 }) {
     },
   });
   const vestMat = new THREE.MeshStandardMaterial({ color: 0x13161a, roughness: 0.92 });
-  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.44, 0.3), vestMat);
-  vest.position.set(0, 1.26, 0);
+  /* The same modelled carrier the crew and the safehouse stand use, in police
+   * navy. It was the identical 0.44 m box the crew wore, which is the vest
+   * the owner called bad — and there is no reason for the men shooting at you
+   * to be wearing the one piece of gear that was replaced everywhere else. */
+  const vest = makePlateCarrier({ colour: 0x151a22, loaded: true });
+  vest.position.set(0, 1.24, 0.015);
   vest.name = `${name}-vest`;
   figure.parts.body.add(vest);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.106, 0.114, 0.07, 12), vestMat);
@@ -517,12 +671,7 @@ export function makePoliceFigure({ name, x, z, yaw, index = 0 }) {
   gun.rotation.x = -Math.PI / 2;
   figure.parts.foreR.add(gun);
 
-  // Braced two-handed, which is how a man behind a car door stands.
-  figure.parts.armR.rotation.set(-1.28, 0, 0.16);
-  figure.parts.foreR.rotation.set(-0.16, 0, 0);
-  figure.parts.armL.rotation.set(-1.2, 0, -0.34);
-  figure.parts.foreL.rotation.set(-0.3, 0.3, 0);
-  figure.pose = 'aiming';
+  figure.aiming();
   figure.root.userData.weapon = gun;
   return figure;
 }
