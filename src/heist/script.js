@@ -369,6 +369,16 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   rippin_pursuit_close: line('rippin_pursuit_close', CHARACTER_IDS.RIPPINFLOW,
     'He is on the bumper. Do not brake for him, he will just get braver.',
     P.WARNING, ['CITY_PURSUIT', 'ROADBLOCK', 'INDUSTRIAL_ROUTE']),
+  /* The two halves of what a pursuit does to a car that has stopped running.
+   * The owner's note was *"cops stop when the player stops"*; they close and
+   * then they hit now, and both beats needed a voice or the player is being
+   * shunted by something nobody in the car has remarked on. */
+  snow_pursuit_stopped: line('snow_pursuit_stopped', CHARACTER_IDS.SNOW,
+    'Why are we stationary? A parked car is a surrender. Move it.',
+    P.WARNING, ['PLAYER_TAKES_WHEEL', 'CITY_PURSUIT', 'ROADBLOCK', 'INDUSTRIAL_ROUTE']),
+  rippin_pursuit_ram: line('rippin_pursuit_ram', CHARACTER_IDS.RIPPINFLOW,
+    'That was on purpose! He is trying to put us into a wall — go, go, do not let him line it up again.',
+    P.WARNING, ['PLAYER_TAKES_WHEEL', 'CITY_PURSUIT', 'ROADBLOCK', 'INDUSTRIAL_ROUTE']),
 
   /* ---- Big Uncle Lou ----
    *

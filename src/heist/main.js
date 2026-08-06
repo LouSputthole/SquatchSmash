@@ -442,6 +442,7 @@ let pursuitWarned = false;
 let pursuitPressure = 0;
 let ramCooldown = 0;
 let ramBarkAt = 0;
+let pressureBarkAt = 0;
 let weaponsDown = false;
 const crewIntroduced = new Set();
 const SCREEN_CENTER = new THREE.Vector2(0, 0);
@@ -1806,6 +1807,8 @@ function beginDriving() {
   pursuitWarned = false;
   pursuitPressure = 0;
   ramCooldown = 0;
+  ramBarkAt = 0;
+  pressureBarkAt = 0;
   chaseInitialised = false;
   vehicle.x = escapeStart.x;
   vehicle.z = escapeStart.z;
@@ -3314,6 +3317,13 @@ function updatePursuit(dt, forwardX, forwardZ) {
   else if (speedRatio < 0.22) pursuitPressure = Math.min(1, pursuitPressure + dt * 0.42);
   else pursuitPressure = Math.max(0, pursuitPressure - dt * 0.85);
   ramCooldown = Math.max(0, ramCooldown - dt);
+  /* Said once as the gap starts closing, so being shunted a second later is
+   * something the car warned you about rather than something that happened. */
+  const nowSeconds = performance.now() / 1000;
+  if (!copsLost && pursuitPressure > 0.5 && nowSeconds > pressureBarkAt) {
+    pressureBarkAt = nowSeconds + 11;
+    say('snow_pursuit_stopped');
+  }
   // A second and third car join as the job gets louder, and they all quit at
   // the swap — which is the owner's "if you make it to the end you lose them".
   pursuitCount = copsLost ? 0 : Math.min(3, 1 + (routeIndex >= 2 ? 1 : 0) + (routeIndex >= 3 ? 1 : 0));
@@ -3376,7 +3386,7 @@ function updatePursuit(dt, forwardX, forwardZ) {
     camera.rotation.z += (Math.random() - 0.5) * 0.09;
     pursuitPressure = Math.max(0, pursuitPressure - 0.45);
     const now = performance.now() / 1000;
-    if (now > ramBarkAt) { ramBarkAt = now + 7; say('rippin_pursuit_close'); }
+    if (now > ramBarkAt) { ramBarkAt = now + 7; say('rippin_pursuit_ram'); }
   }
 
   if (!copsLost && distance < 9 && !pursuitWarned) {

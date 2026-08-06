@@ -19289,6 +19289,16 @@
       "say": "He is on the bumper. Do not brake for him, he will just get braver."
     },
     {
+      "name": "heist.snow_pursuit_stopped",
+      "voice": "snow",
+      "say": "Why are we stationary? A parked car is a surrender. Move it."
+    },
+    {
+      "name": "heist.rippin_pursuit_ram",
+      "voice": "rippinflow",
+      "say": "That was on purpose! He is trying to put us into a wall — go, go, do not let him line it up again."
+    },
+    {
       "name": "heist.lou_radio_open",
       "voice": "lou",
       "say": "Prospect. You are on my clock now. Do what Snow says and come back with everybody you left with."
