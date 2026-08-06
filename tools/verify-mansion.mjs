@@ -1524,9 +1524,13 @@ try {
     });
     return counts;
   });
+  /* Not pinned to 30: the third-floor suite added its own dimmed sconces to
+   * the same pool (38 the day it landed). The invariant is part-consistency —
+   * a shade without an arm is the instancing bug this guards. */
   check('every wall sconce is one instance across its ten shared parts',
-    instancing['sconce-backplate'] === 30 && instancing['sconce-arm'] === 30
-      && instancing['sconce-shade'] === 30,
+    instancing['sconce-backplate'] >= 30
+      && instancing['sconce-backplate'] === instancing['sconce-arm']
+      && instancing['sconce-backplate'] === instancing['sconce-shade'],
     JSON.stringify(instancing));
   check('every baluster is one instance across its shaft and two collars',
     instancing['baluster-shaft'] > 0
