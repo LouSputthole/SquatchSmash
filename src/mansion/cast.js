@@ -106,9 +106,9 @@ import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
 } from '../bing/license-to-grill-runtime.js';
 import {
-  BADA_BING_BARTENDER, BIG_UNCLE_LOU, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
-  ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL,
-  RIPPINFLOW, SHUBENATOR, SNOW,
+  BADA_BING_BARTENDER, BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
+  ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN,
+  MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../core/wardrobe.js';
 import { box, cylinder, group, mat } from '../world/build.js';
 import { DialogueController } from './mission/DialogueController.js';
@@ -590,6 +590,43 @@ export function mountMansionCast(scene, world = {}, {
     },
   });
 
+  /* ---- the man working the booth at the street gate --------------------
+   *
+   * Owner playtest, verbatim: *"ADD a guard working that booth"*. The booth
+   * has been at (8, 0, 4) since the first pass with a chair in it and nobody
+   * on the chair — an empty security post at the mouth of a property whose
+   * basement has an interrogation room in it.
+   *
+   * HIS SPOT IS THE BOOTH'S OWN, not a number typed in here:
+   * `MansionGrounds` publishes `anchors.boothPost` (inside, at the counter)
+   * and `anchors.boothLook` (out over the drive), so if the booth moves he
+   * moves with it. The shell was rebuilt in the same pass as four walls and a
+   * glazed band precisely so that he can be seen doing the job — before that
+   * it was a solid block and a man inside it was a man nobody would ever
+   * know was there.
+   *
+   * `job: 'work'` rather than `'stand'`: he is at a counter with a book on
+   * it, and the Npc work loop is the shifting-weight-and-writing idle. */
+  const boothStand = at('boothPost', { x: 8.32, y: 0, z: 3.82 });
+  const boothLook = at('boothLook', { x: 2, y: 0, z: 2.8 });
+  post('booth', {
+    name: 'the man on the gate',
+    model: MANSION_BOOTH_MAN,
+    job: 'work',
+    x: boothStand.x,
+    y: boothStand.y ?? 0,
+    z: boothStand.z,
+    yaw: yawToward(boothStand.x, boothStand.z, boothLook.x, boothLook.z),
+    range: GATE_RANGE,
+    bark: SEQUENCES.boothChallenge,
+    idle: SEQUENCES.boothLoiter,
+    look: 'He has your name written down already.',
+    onUse: () => {
+      dialogue.interject(carryingCase() ? SEQUENCES.boothCase : SEQUENCES.boothTalk);
+      return true;
+    },
+  });
+
   /* ---- the perimeter ---------------------------------------------------
    * Three men, one voice, on three loops. Ground level outside the podium is
    * flat street grade, so they walk at y 0. */
@@ -820,12 +857,22 @@ export function mountMansionCast(scene, world = {}, {
    * between the player and the thing he is being told to press.
    *
    * `lou1`, and `assets/faces/lou.png`. NOT Captain Lou Sasole, who is
-   * downstairs on a bar stool wearing a flight jacket and lou2. */
+   * downstairs on a bar stool wearing a flight jacket and lou2.
+   *
+   * AND HE IS IN THE OTHER OUTFIT (owner playtest: *"Lou should wear the other
+   * outfit"*). `src/core/wardrobe.js` has carried three dressings of this man
+   * since the wardrobe pass — the base suit, `BIG_UNCLE_LOU_BING` (the
+   * chalk-stripe three-piece and the fedora he owns the club in) and
+   * `BIG_UNCLE_LOU_MANSION`, whose own docstring says "the mansion, where he
+   * is at home and not working" — and the mansion was posting him in the BASE
+   * suit, so the one entry written for this room had never been worn in it.
+   * Same man, same face photo, same jewellery; the camp shirt instead of the
+   * armour, which is the entire reason a second dressing exists. */
   const desk = at('officeDesk', { x: 0, y: UPPER_Y, z: 70.2 });
   const louAt = { x: desk.x + 1.05, y: desk.y, z: desk.z + 2.55 };
   post('lou', {
     name: 'Big Uncle Lou',
-    model: withFace(BIG_UNCLE_LOU, FACES.lou),
+    model: withFace(BIG_UNCLE_LOU_MANSION, FACES.lou),
     x: louAt.x,
     y: louAt.y,
     z: louAt.z,
@@ -1448,6 +1495,8 @@ export function mountMansionCast(scene, world = {}, {
     switch (speakerKey) {
       /* the house's own staff */
       case 'GATE': return people.gateMan;
+      /* Same throat as GATE, different body, forty metres apart. */
+      case 'BOOTH': return people.booth;
       case 'GRATIN': return torture?.npc ?? null;
       case 'BARTENDER': return people.bartender;
       case 'SNOW': return people.snow;

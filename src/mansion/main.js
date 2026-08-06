@@ -30,6 +30,7 @@ import * as THREE from 'three';
 import {
   buildMansionGrounds,
   GROUND_Y,
+  BASEMENT_Y,
   FOUNTAIN_POS,
   POOL,
 } from './scenes/MansionGrounds.js';
@@ -335,10 +336,93 @@ const audio = new AudioEngine();
  *                       near-inaudible volume -- Initiation Night's faint
  *                       music bed, from somewhere else in the house
  */
+/* ---- THE HOUSE WAS EERILY SILENT (owner playtest, verbatim: "More
+ * background ambience - it's eerily silent").
+ *
+ * Four beds for thirty-six thousand square metres of estate is four beds too
+ * few, and three of them were tied to WATER: the fountain and the pool, both
+ * out the front and the back, plus one near-inaudible music loop. Stand
+ * anywhere in the hedge maze, the ballroom or the cellar and the mix was
+ * literally `ambience.city.night` at 0.11 and nothing else.
+ *
+ * These are all POSITIONAL except the city, and that is the whole point: an
+ * ambience bed with no position plays at the same level in the wine cellar as
+ * it does on the lawn, which is how a house ends up sounding like one room.
+ * `_loopChain` gives every positioned loop a PannerNode with its own
+ * ref/maxDist, so walking from the garden into the hall genuinely crossfades
+ * the garden out and the room tone in.
+ *
+ * Every name below is an existing procedural bed in `core/audio.js` — nothing
+ * here needs a recording, and nothing here is added to the manifest, which is
+ * the same allowance the four original beds were written under. */
+const AMBIENCE_BEDS = [
+  /* Wind in thirty hedges and two hundred roses. `ambience.rain` used as a
+   * leaf bed is the exact trick `src/graveyard/main.js` uses for its wind. */
+  {
+    key: 'nightGarden',
+    name: 'ambience.rain',
+    volume: 0.085,
+    at: [0, GROUND_Y, 104],
+    ref: 11,
+    maxDist: 58,
+    fade: 3.0,
+  },
+  /* The city, over the wall and a long way off. The only non-positional bed
+   * in the list: it is the horizon, and the horizon does not get nearer. */
+  { key: 'distantCity', name: 'ambience.city', volume: 0.042, fade: 3.4 },
+  /* Room tone for the main block -- the sound a big empty house makes. Anchored
+   * in the middle of the ground floor with a maxDist that dies at the facade. */
+  {
+    key: 'houseTone',
+    name: 'ambience.room',
+    volume: 0.1,
+    at: [0, GROUND_Y + 1.6, 52],
+    ref: 9,
+    maxDist: 32,
+    fade: 2.6,
+  },
+  /* Plant hum under the floor. The armory and the wine cellar are a basement
+   * and should sound like one before anybody opens the wall at the far end. */
+  {
+    key: 'cellarTone',
+    name: 'ambience.cellar',
+    volume: 0.11,
+    at: [0, BASEMENT_Y + 1.5, 57],
+    ref: 5,
+    maxDist: 20,
+    fade: 2.0,
+  },
+  /* Gratin left a pan on and went downstairs, so the kitchen is running. */
+  {
+    key: 'kitchenTone',
+    name: 'fridge.hum',
+    volume: 0.09,
+    at: [12.8, GROUND_Y + 1.0, 70],
+    ref: 2.6,
+    maxDist: 13,
+    fade: 1.8,
+  },
+];
+
 function startAmbience() {
   audio.startLoop('crickets', {
     name: 'ambience.city.night', volume: 0.11, ambience: true, fade: 2.2,
   });
+  for (const bed of AMBIENCE_BEDS) {
+    audio.startLoop(bed.key, {
+      name: bed.name,
+      volume: bed.volume,
+      ambience: true,
+      fade: bed.fade ?? 2.0,
+      ...(bed.at
+        ? {
+          position: new THREE.Vector3(bed.at[0], bed.at[1], bed.at[2]),
+          ref: bed.ref,
+          maxDist: bed.maxDist,
+        }
+        : {}),
+    });
+  }
   audio.startLoop('fountainWater', {
     name: 'shower.run',
     volume: 0.16,
@@ -690,6 +774,38 @@ interaction.register(interior.props.kitchen.sinkTarget, {
   label: () => (sinkRunning ? 'Turn the tap <b>off</b>' : 'Run the <b>tap</b>'),
   enabled: () => running,
   onUse: () => setSink(!sinkRunning),
+});
+
+/* ---- THE BOOK THAT OPENS THE BOOKCASE.
+ *
+ * Owner playtest: the concealed door in Lou's office was a comment in a brief
+ * and nothing else, and he went looking for the secret area behind it. It is
+ * real now (`MansionInterior.buildOfficeSecretDoor`) and this is the only way
+ * a player learns that.
+ *
+ * SUBTLE, WHICH MEANS: the prompt is on ONE BOOK, not on the bookcase, so it
+ * only appears when the crosshair is on a single 130 mm volume; the label is
+ * flat prose until it has been used once, so the room does not announce
+ * itself; and there is no HUD objective, no marker and no bark. Everything
+ * else in this house that does something says what it does. This one does
+ * not, and that is the whole design of it. */
+const secretDoor = interior.props.office.secretDoor;
+let secretFound = false;
+interaction.register(secretDoor.latch, {
+  label: () => {
+    if (!secretFound) return 'A volume in a different binding, standing proud of the shelf';
+    return secretDoor.isOpen ? 'Swing the <b>bookcase</b> back' : 'Pull the <b>book</b>';
+  },
+  enabled: () => running,
+  onUse: () => {
+    secretFound = true;
+    const opening = secretDoor.toggle();
+    /* The house's own latch, then two tonnes of oak on a pivot. Both cues are
+     * already in the manifest -- the cellar's hidden wall uses them. */
+    audio.play('silent.bust.switch', { volume: 0.55 });
+    audio.play(opening ? 'silent.wall.mechanism' : 'silent.wall.seat', { volume: 0.4, delay: 0.25 });
+    return true;
+  },
 });
 
 /** Either radio set: switch it on, or move the station over to it. */

@@ -216,6 +216,35 @@ export const BASEMENT_STAIR = Object.freeze({
 });
 export const CHANDELIER_POS = Object.freeze({ x: 0, y: 8.6, z: 44.4 });
 
+/**
+ * The concealed door in Lou's bookcase, and the run behind it.
+ *
+ * Owner playtest, verbatim: *"the bookcase concealed door in Lou's office —
+ * I went looking for a secret area and couldn't find one"*. The mission brief
+ * has asked for "a concealed door in the bookcase for future use" since it was
+ * written; the bookcases were built, the door never was.
+ *
+ * WHERE IT GOES, and why this route and not the owner's guessed one. He
+ * guessed "a private stair up toward the master bedroom", and there is no up:
+ * the office is ON the upper floor (UY 6.0, ceiling 10.2) and the roof slab
+ * starts at 10.2, so a flight up out of this room arrives inside 400 mm of
+ * roof. The bedrooms are on the SAME storey — so the private route to the
+ * master bedroom is not a stair at all, it is a door through one wall, which
+ * is better anyway: it is 1.5 m of masonry between Lou's desk and Lou's bed.
+ *
+ * `z0/z1` is the leaf's own footprint, so the hole and the thing filling it
+ * cannot drift apart. It sits between the longcase clock (which ends at
+ * z 63.92) and the surviving bookcase (which starts at 66.5), and it stops
+ * clear of the master bedroom's south wall at z 65.85.
+ */
+export const OFFICE_SECRET = Object.freeze({
+  z0: 64.0,
+  z1: 65.7,
+  h: 2.4,
+  /** How far the private closet on the bedroom side projects into the room. */
+  depth: 1.45,
+});
+
 /* ================================================================== */
 /* Material palette                                                     */
 /* ================================================================== */
@@ -546,9 +575,15 @@ export function buildMansionInterior(shell = null) {
       }
       seg(ua, ub, cursor, y1, `${tag}-solid`);
     }
-    // Architraves: a moulded case round each opening, so a doorway reads as a
-    // doorway rather than a rectangular absence of wall.
+    /* Architraves: a moulded case round each opening, so a doorway reads as a
+     * doorway rather than a rectangular absence of wall.
+     *
+     * `hidden: true` skips the case, and there is exactly one opening in this
+     * house that wants that: the concealed door behind Lou's bookcase. A
+     * moulded white architrave round a secret door is a sign saying SECRET
+     * DOOR — the whole job of that opening is that nothing marks it. */
     for (const o of openings) {
+      if (o.hidden) continue;
       const jamb = 0.12;
       const t = thickness + 0.06;
       const put = (ua, ub, ya, yb) => {
@@ -1388,9 +1423,30 @@ export function buildMansionInterior(shell = null) {
         y0: GY,
         y1: UCY,
         tag: `${tag}-back`,
-        openings: [{
-          id: `ballroomTo${rear[0].toUpperCase()}${rear.slice(1)}`, u0: 64, u1: 67.5, y0: GY, y1: DOOR_TOP,
-        }],
+        openings: [
+          {
+            id: `ballroomTo${rear[0].toUpperCase()}${rear.slice(1)}`, u0: 64, u1: 67.5, y0: GY, y1: DOOR_TOP,
+          },
+          /* THE CONCEALED DOOR IN LOU'S BOOKCASE, which the brief has always
+           * called for ("a concealed door in the bookcase for future use") and
+           * which had never been anything but a comment. The owner went and
+           * looked for the secret area behind it and there was not one.
+           *
+           * West side only, upper storey only: this is the office's own west
+           * wall, and directly behind it is the master bedroom. `hidden` keeps
+           * the architrave off it. The leaf that fills this hole is the
+           * bookcase itself — see `buildOfficeSecretDoor()`. */
+          ...(side < 0
+            ? [{
+              id: 'officeSecretDoor',
+              u0: OFFICE_SECRET.z0,
+              u1: OFFICE_SECRET.z1,
+              y0: UY,
+              y1: UY + OFFICE_SECRET.h,
+              hidden: true,
+            }]
+            : []),
+        ],
       });
     }
 
@@ -4176,37 +4232,48 @@ export function buildMansionInterior(shell = null) {
     /* Bookcases along the west wall, with a cornice, glazed upper doors and a
      * library ladder parked on its own brass rail -- which is the detail that
      * makes a pair of bookcases read as a library. */
-    for (const bz of [65.2, 67.6]) {
+    /* THE SAME 20 MM THE CLOCK HAD. Measured with the clock: the carcass sat
+     * at x -8.80 and its cornice at -8.83, against panelling whose face is
+     * -8.78 and whose beads reach -8.74 -- so the backs of both bookcases and
+     * both cornices were INSIDE the wall lining. Pulled forward to stand on
+     * the bead line like the clock does, and the cornice narrowed from 0.52 to
+     * 0.44 so its overhang goes forward into the room rather than backward
+     * into the plaster. */
+    const bookX = r.x0 + 0.32;
+    /* ONE fixed bookcase now, not two. The other one is the concealed door and
+     * is built by `buildOfficeSecretDoor()` below, to the same recipe so the
+     * pair still reads as a matched library. */
+    for (const bz of [67.6]) {
       root.add(box({
-        size: [0.4, 2.4, 2.2], pos: [r.x0 + 0.25, UY + 1.2, bz], mat: M_WOOD_DK, name: 'office-bookcase',
+        size: [0.4, 2.4, 2.2], pos: [bookX, UY + 1.2, bz], mat: M_WOOD_DK, name: 'office-bookcase',
       }));
-      solid(r.x0, r.x0 + 0.5, UY, UY + 2.4, bz - 1.1, bz + 1.1);
+      solid(r.x0, r.x0 + 0.57, UY, UY + 2.4, bz - 1.1, bz + 1.1);
       for (let s = 0; s < 3; s++) {
         const shelfY = UY + 0.55 + s * 0.7;
         const books = makeBooks(M, {
-          x: r.x0 + 0.32, y: shelfY, z: bz - 0.9, count: 8, along: 'z',
+          x: bookX + 0.07, y: shelfY, z: bz - 0.9, count: 8, along: 'z',
         });
         root.add(books.group);
       }
       // Moulded cornice and plinth, and a gilt bead down each stile.
       root.add(box({
-        size: [0.52, 0.16, 2.36], pos: [r.x0 + 0.28, UY + 2.48, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-cornice',
+        size: [0.44, 0.16, 2.36], pos: [bookX + 0.02, UY + 2.48, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-cornice',
       }));
       root.add(box({
-        size: [0.5, 0.14, 2.3], pos: [r.x0 + 0.27, UY + 0.07, bz], mat: M_WOOD_DK, cast: false,
+        size: [0.44, 0.14, 2.3], pos: [bookX + 0.02, UY + 0.07, bz], mat: M_WOOD_DK, cast: false,
       }));
       for (const oz of [-1.08, 1.08]) {
         root.add(box({
-          size: [0.06, 2.3, 0.06], pos: [r.x0 + 0.46, UY + 1.25, bz + oz], mat: M_GOLD, cast: false,
+          size: [0.06, 2.3, 0.06], pos: [bookX + 0.21, UY + 1.25, bz + oz], mat: M_GOLD, cast: false,
         }));
       }
       // Glazed doors over the top shelf.
       root.add(box({
-        size: [0.03, 0.62, 2.0], pos: [r.x0 + 0.46, UY + 1.98, bz], mat: M_GLASS_CASE, cast: false,
+        size: [0.03, 0.62, 2.0], pos: [bookX + 0.21, UY + 1.98, bz], mat: M_GLASS_CASE, cast: false,
       }));
     }
     root.add(named(cylinder({
-      r: 0.028, h: 5.2, pos: [r.x0 + 0.52, UY + 2.3, 66.4], mat: M_GOLD, rotX: Math.PI / 2,
+      r: 0.028, h: 5.2, pos: [bookX + 0.27, UY + 2.3, 66.4], mat: M_GOLD, rotX: Math.PI / 2,
     }), 'library-rail'));
     {
       // The ladder itself, leaning on the rail between the two cases.
@@ -4214,17 +4281,137 @@ export function buildMansionInterior(shell = null) {
       const lean = 0.16;
       for (const oz of [-0.24, 0.24]) {
         root.add(box({
-          size: [0.06, 2.5, 0.06], pos: [r.x0 + 0.72, UY + 1.25, lz + oz], mat: M_WOOD_DK, rotZ: lean, name: 'library-ladder',
+          size: [0.06, 2.5, 0.06], pos: [bookX + 0.47, UY + 1.25, lz + oz], mat: M_WOOD_DK, rotZ: lean, name: 'library-ladder',
         }));
       }
       for (let i = 0; i < 6; i++) {
         const ry = UY + 0.32 + i * 0.4;
         root.add(box({
-          size: [0.1, 0.05, 0.5], pos: [r.x0 + 0.72 - (ry - UY - 1.25) * lean, ry, lz], mat: M_WOOD_DK, cast: false,
+          size: [0.1, 0.05, 0.5], pos: [bookX + 0.47 - (ry - UY - 1.25) * lean, ry, lz], mat: M_WOOD_DK, cast: false,
         }));
       }
-      solid(r.x0 + 0.5, r.x0 + 0.95, UY, UY + 2.4, lz - 0.3, lz + 0.3);
+      solid(bookX + 0.25, bookX + 0.7, UY, UY + 2.4, lz - 0.3, lz + 0.3);
     }
+
+    /* ================================================================ */
+    /* THE CONCEALED DOOR (owner playtest, verbatim: "the bookcase       */
+    /* concealed door in Lou's office ... I went looking for a secret     */
+    /* area and couldn't find one")                                       */
+    /*                                                                     */
+    /* He couldn't find one because there wasn't one. The mission brief    */
+    /* has said "a concealed door in the bookcase for future use" since    */
+    /* it was written, the bookcases were built to receive it, and the     */
+    /* door itself had never been more than that sentence.                 */
+    /*                                                                      */
+    /* HOW IT WORKS, and each part is deliberate:                           */
+    /*                                                                       */
+    /*  - THE LEAF IS THE BOOKCASE. Not a door beside a bookcase and not a   */
+    /*    bookcase painted on a door: the whole carcass, its cornice, its    */
+    /*    plinth, its glazing and its books are one group on a hinge at the  */
+    /*    south stile, and the hole in the wall behind it is exactly its own */
+    /*    footprint (OFFICE_SECRET), so shut there is no reveal to see.      */
+    /*  - THE LATCH IS A BOOK. `office-secret-book` is one volume on the     */
+    /*    middle shelf, in a different binding, standing 20 mm proud of its  */
+    /*    neighbours. That is the entire tell, and it is the only            */
+    /*    interactive object in the room that does not say what it does      */
+    /*    until you are looking straight at it.                             */
+    /*  - THE COLLIDER MOVES WITH THE LEAF. `solid()` returns the Box3 that  */
+    /*    goes into the collider list BY REFERENCE, and the composition root */
+    /*    spreads that same array — so re-seating this one box from the      */
+    /*    leaf's world bounds every frame is all it takes for the wall to be */
+    /*    solid when it is shut and gone when it is open. No splicing, no    */
+    /*    second list, nothing for the two halves to disagree about.         */
+    /* ================================================================ */
+    function buildOfficeSecretDoor() {
+      const S = OFFICE_SECRET;
+      const width = S.z1 - S.z0;
+      /* Hinged at the SOUTH stile, so it opens toward the desk and the man
+       * coming through it walks out facing the room rather than the wall. */
+      const hinge = new THREE.Group();
+      hinge.name = 'office-secret-door';
+      hinge.position.set(r.x0, UY, S.z0);
+      root.add(hinge);
+
+      /* Local frame: +x into the room, +z along the leaf toward S.z1. Every
+       * number below is the fixed bookcase's, offset to this origin, so the
+       * two cases are the same object in two states. */
+      const bx = 0.32;
+      const mid = width / 2;
+      /* The panel that fills the wall slot. Its west face is what the master
+       * bedroom's fitted closet is lined with — see `buildOfficeSecretRun`. */
+      hinge.add(box({
+        size: [WALL_T, S.h, width], pos: [-HT, S.h / 2, mid], mat: M_WOOD_DK, name: 'office-secret-leaf-core',
+      }));
+      hinge.add(box({
+        size: [0.4, S.h, width], pos: [bx, S.h / 2, mid], mat: M_WOOD_DK, name: 'office-bookcase',
+      }));
+      hinge.add(box({
+        size: [0.44, 0.16, width - 0.04], pos: [bx + 0.02, S.h + 0.08, mid], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-cornice',
+      }));
+      hinge.add(box({
+        size: [0.44, 0.14, width - 0.1], pos: [bx + 0.02, 0.07, mid], mat: M_WOOD_DK, cast: false,
+      }));
+      for (const oz of [0.13, width - 0.13]) {
+        hinge.add(box({
+          size: [0.06, S.h - 0.1, 0.06], pos: [bx + 0.21, 1.25, oz], mat: M_GOLD, cast: false,
+        }));
+      }
+      hinge.add(box({
+        size: [0.03, 0.62, width - 0.4], pos: [bx + 0.21, 1.98, mid], mat: M_GLASS_CASE, cast: false,
+      }));
+      for (let s = 0; s < 3; s++) {
+        const books = makeBooks(M, {
+          x: bx + 0.07, y: 0.55 + s * 0.7, z: 0.28, count: 6, along: 'z',
+        });
+        hinge.add(books.group);
+      }
+      /* The latch. One book, proud of the rest, in a binding nothing else in
+       * the room uses. Its own mesh so `interaction.register` has something
+       * to write on and a verifier has something to aim at. */
+      const latch = box({
+        size: [0.13, 0.3, 0.055],
+        pos: [bx + 0.09, 0.55 + 0.7 + 0.15, mid + 0.34],
+        mat: M_LEATHER_RED,
+        name: 'office-secret-book',
+      });
+      hinge.add(latch);
+
+      /* Shut, the leaf is a wall. `solid()` hands back the live Box3. */
+      const collider = solid(r.x0 - WALL_T, r.x0 + 0.57, UY, UY + S.h, S.z0, S.z1);
+      const worldBox = new THREE.Box3();
+      const state = { open: false, t: 0 };
+      const OPEN_RAD = -1.62; // swings the far stile into the room
+
+      function reseat() {
+        hinge.updateMatrixWorld(true);
+        worldBox.setFromObject(hinge);
+        collider.min.set(worldBox.min.x, UY, worldBox.min.z);
+        /* `wallColliderTop`, for the same reason every wall in this house uses
+         * it: a collider whose top is exactly the floor above is an invisible
+         * wall for anybody standing on that floor. */
+        collider.max.set(worldBox.max.x, wallColliderTop(UY + S.h), worldBox.max.z);
+      }
+      reseat();
+
+      return {
+        group: hinge,
+        latch,
+        get isOpen() { return state.open; },
+        get openness() { return state.t; },
+        open() { state.open = true; return true; },
+        close() { state.open = false; return true; },
+        toggle() { state.open = !state.open; return state.open; },
+        update(dt) {
+          const want = state.open ? 1 : 0;
+          if (state.t === want) return;
+          const step = Math.min(Math.abs(want - state.t), dt * 0.85);
+          state.t += Math.sign(want - state.t) * step;
+          hinge.rotation.y = OPEN_RAD * state.t;
+          reseat();
+        },
+      };
+    }
+    const secretDoor = buildOfficeSecretDoor();
 
     /* ================================================================ */
     /* THE SAFE, IN THE CORNER (owner playtest 2026-08-04, verbatim:     */
@@ -4542,10 +4729,23 @@ export function buildMansionInterior(shell = null) {
        *
        * Set off the wall by the PLINTH's half-width plus clearance rather than
        * the trunk's, and pulled south off the bookcase (whose front is at
-       * z 64.1) so the dial is not buried in it either. Measured after:
-       * plinth x -8.72, 60 mm clear of the panelling; dial reaches z 64.00,
-       * 100 mm clear of the bookcase. */
-      const kx = r.x0 + 0.49;
+       * z 64.1) so the dial is not buried in it either.
+       *
+       * AND IT WAS STILL IN THE WALL. Owner playtest, second time of asking:
+       * "grandfather clock is IN the wall — push it out". Re-measured on the
+       * built scene, which is what the last pass did not do: the fix above
+       * cleared the PLASTER at x = -8.78 and stopped there, but the office's
+       * west wall is not plaster. It is panelling at -8.78 with a moulded
+       * DADO and a run of PANEL BEADS standing 40 mm proud of it, whose front
+       * faces measure -8.74 — and the clock's plinth measured -8.72. Twenty
+       * millimetres. At that gap the two surfaces read as touching from
+       * anywhere in the room and the beads pass behind the cornice.
+       *
+       * Set off the BEAD line instead of the plaster line, which is the
+       * surface a piece of furniture actually stands against. Measured after:
+       * plinth back -8.59, 150 mm clear of the beads, and the trunk 200 mm
+       * clear of them. */
+      const kx = r.x0 + 0.62;
       const kz = r.z0 + 0.52;
       root.add(box({ size: [0.62, 2.3, 0.5], pos: [kx, UY + 1.15, kz], mat: M_WOOD_DK, name: 'office-longcase-clock' }));
       root.add(box({ size: [0.7, 0.2, 0.58], pos: [kx, UY + 2.36, kz], mat: M_WOOD_DK, cast: false, name: 'office-longcase-cornice' }));
@@ -4659,9 +4859,88 @@ export function buildMansionInterior(shell = null) {
     return {
       desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
       hogMama: officeHogMama,
+      /** The bookcase that is a door, and the book that opens it. */
+      secretDoor,
     };
   }
   const officeProps = buildOffice();
+
+  /* ================================================================== */
+  /* WHERE THE CONCEALED DOOR GOES                                       */
+  /*                                                                      */
+  /* A secret door has to arrive somewhere or it is a hole in a wall. The */
+  /* owner guessed "a private stair up toward the master bedroom"; there  */
+  /* is no up (see OFFICE_SECRET), and the master bedroom is on this same */
+  /* storey with only Lou's own office wall between the two rooms. So the */
+  /* run is short and the whole trick is at the far end: from the BEDROOM */
+  /* side this is the room's walk-in closet, cased and hung and full of    */
+  /* his suits, and the back of it is the back of the bookcase.            */
+  /*                                                                       */
+  /* Built here rather than in `buildBedroom` because it belongs to the     */
+  /* door, not to the bedroom's theme, and because the bedroom factory      */
+  /* dresses four rooms from one body of code — a one-room exception in     */
+  /* there is how the other three end up with a closet nobody meant.        */
+  /* ================================================================== */
+  function buildOfficeSecretRun() {
+    const S = OFFICE_SECRET;
+    const eastX = OFFICE.x0 - WALL_T; // the partition's bedroom face, -9.15
+    const westX = eastX - S.depth;
+    const t = 0.08;
+    const top = UY + S.h;
+    const M_CLOSET = mat({ color: 0x4a3524, roughness: 0.72 });
+
+    // Cheeks and head, so it reads as a fitted closet and not as a hole.
+    for (const [cz0, cz1] of [[S.z0, S.z0 + t], [S.z1 - t, S.z1]]) {
+      root.add(box({
+        size: [S.depth, S.h, t], pos: [(westX + eastX) / 2, UY + S.h / 2, (cz0 + cz1) / 2], mat: M_CLOSET, name: 'office-secret-cheek',
+      }));
+      solid(westX, eastX, UY, wallColliderTop(top), cz0, cz1);
+    }
+    root.add(box({
+      size: [S.depth, 0.12, S.z1 - S.z0], pos: [(westX + eastX) / 2, top + 0.06, (S.z0 + S.z1) / 2], mat: M_CLOSET, cast: false, name: 'office-secret-head',
+    }));
+    // Floor of the run, a shade darker than the bedroom's own boards.
+    topping(westX, eastX, UY + 0.015, S.z0, S.z1, M_WOOD_DK, 'office-secret-floor');
+
+    /* The cased opening into the bedroom, with its two louvred leaves folded
+     * back against the cheeks -- which is why there is no second mechanism
+     * here: a walk-in closet that stands open is a walk-in closet. */
+    for (const lz of [S.z0 + 0.12, S.z1 - 0.12]) {
+      root.add(box({
+        size: [0.05, S.h - 0.12, 0.62], pos: [westX + 0.06, UY + (S.h - 0.12) / 2, lz > (S.z0 + S.z1) / 2 ? lz - 0.24 : lz + 0.24], mat: M_WOOD, cast: false, name: 'office-secret-louvre',
+      }));
+    }
+    root.add(box({
+      size: [0.09, 0.14, S.z1 - S.z0 + 0.1], pos: [westX, top - 0.02, (S.z0 + S.z1) / 2], mat: M_TRIM, cast: false, name: 'office-secret-case',
+    }));
+
+    // A hanging rail and the suits on it: the reason a bedroom has this room.
+    root.add(named(cylinder({
+      r: 0.022, h: S.z1 - S.z0 - 0.3, pos: [(westX + eastX) / 2 - 0.1, UY + 1.85, (S.z0 + S.z1) / 2], mat: M_CHROME, rotX: Math.PI / 2,
+    }), 'office-secret-rail'));
+    for (let i = 0; i < 7; i++) {
+      root.add(box({
+        size: [0.42, 1.0, 0.07],
+        pos: [(westX + eastX) / 2 - 0.1, UY + 1.3, S.z0 + 0.34 + i * 0.15],
+        mat: i % 3 === 0 ? M_WALL_DEEP : M_WOOD_DK,
+        cast: false,
+        name: 'office-secret-suit',
+      }));
+    }
+    const closetLight = new THREE.PointLight(0xffd6a4, 1.6, 4, 2);
+    closetLight.position.set((westX + eastX) / 2, top - 0.3, (S.z0 + S.z1) / 2);
+    root.add(closetLight);
+
+    return {
+      rect: {
+        x0: westX, x1: eastX, z0: S.z0, z1: S.z1,
+      },
+      /* Standing in the run, midway, which is what the verifier walks to. */
+      anchor: new THREE.Vector3((westX + eastX) / 2, UY, (S.z0 + S.z1) / 2),
+      light: closetLight,
+    };
+  }
+  const secretRunProps = buildOfficeSecretRun();
 
   /* ================================================================== */
   /* UPPER FLOOR -- BEDROOMS (down both sides)                           */
@@ -7547,6 +7826,23 @@ const M_GOLD_BAR = mat({
    * by `partition`, so it does not register itself. Declared here by hand, so
    * the art/doorway sweep in tools/verify-mansion.mjs covers it like every
    * other opening in the house. */
+  /* The concealed door, published like every other opening in the house so a
+   * verifier can find it without knowing it is a bookcase. `open` is false at
+   * boot, which is the point of it. */
+  doors.officeSecret = {
+    id: 'officeSecret',
+    x: OFFICE.x0 - HT,
+    y: UY,
+    z: (OFFICE_SECRET.z0 + OFFICE_SECRET.z1) / 2,
+    x0: OFFICE.x0 - WALL_T,
+    x1: OFFICE.x0,
+    y0: UY,
+    y1: UY + OFFICE_SECRET.h,
+    z0: OFFICE_SECRET.z0,
+    z1: OFFICE_SECRET.z1,
+    get open() { return officeProps.secretDoor.isOpen; },
+  };
+
   doors.cellarFromArmory = {
     id: 'cellarFromArmory',
     x: (CELLAR_DOOR.x0 + CELLAR_DOOR.x1) / 2,
@@ -8409,6 +8705,12 @@ const M_GOLD_BAR = mat({
     conferenceTable: new THREE.Vector3(0, UY, 58),
     conferenceHead: new THREE.Vector3(0, UY, 61.4),
     officeDesk: new THREE.Vector3(0, UY, 70.2),
+    /** In the office, square to the bookcase that is a door. */
+    officeSecretDoor: new THREE.Vector3(
+      OFFICE.x0 + 1.5, UY, (OFFICE_SECRET.z0 + OFFICE_SECRET.z1) / 2,
+    ),
+    /** Inside the run, between Lou's suits. */
+    officeSecretRun: secretRunProps.anchor.clone(),
     bedWestFront: new THREE.Vector3(-12.5, UY, 44.5),
     bedEastFront: new THREE.Vector3(12.5, UY, 44.5),
     bedWestRear: new THREE.Vector3(-12.5, UY, 59.5),
@@ -8458,6 +8760,8 @@ const M_GOLD_BAR = mat({
     gallery: galleryProps,
     conference: conferenceProps,
     office: officeProps,
+    /** The walk-in closet on the far side of the concealed door. */
+    officeSecretRun: secretRunProps,
     bedrooms,
     bathrooms: bathProps,
     basement: basementProps,
@@ -8544,6 +8848,10 @@ const M_GOLD_BAR = mat({
     const flick = 0.85 + 0.15 * Math.sin(time * 11) * (Math.sin(time * 2.3) > -0.6 ? 1 : 0.2);
     basementProps.bulbLight.intensity = 3.4 * flick;
     kitchenProps.updateSink(dt);
+    /* The bookcase, swinging. Its collider is re-seated from its own world
+     * box inside this, which is the only thing keeping the wall solid while
+     * it is shut. */
+    officeProps.secretDoor.update(dt);
     /* The office's own Lou used to be ticked here so he breathed and looked
      * up when somebody came in. He is gone — he was the second of two — and
      * the one in `../cast.js` gets his own update from there. See the note in

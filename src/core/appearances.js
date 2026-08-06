@@ -80,7 +80,7 @@ import { APE_FAMILY_MEMBER } from '../bing/family-ape.js';
 import {
   AUBBIE, BADA_BING_BARTENDER, BIG_UNCLE_LOU, BIG_UNCLE_LOU_BING,
   BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
-  GRATIN, HOG_MAMA, IRISH, MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL,
+  GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL,
   RIPPINFLOW, SAUCE, SHUBENATOR, SNOW, WILLY,
 } from './wardrobe.js';
 
@@ -236,6 +236,7 @@ export const SCENES = Object.freeze({
 export const EXTRAS = Object.freeze({
   'staff:bartender': 'The Bada Bing\'s bartender',
   'staff:door_man': "The man on Lou's door",
+  'staff:booth_man': "The man in Lou's gate booth",
   'staff:guard_0': "Lou's security — 1.86, short dark hair",
   'staff:guard_1': "Lou's security — 1.78, cropped",
   'staff:guard_2': "Lou's security — 1.90, bearded",
@@ -592,26 +593,24 @@ export const APPEARANCES = Object.freeze([
    *
    * The seated one was removed, because this project's line is that
    * `MansionInterior.js` is the building and `cast.js` is the people, and the
-   * survivor is the one the mission talks to. `BIG_UNCLE_LOU_MANSION` is now
-   * unused by any scene and is kept in `wardrobe.js` on purpose: it is the
-   * right outfit for him at home, and whoever seats him in `cast.js` should
-   * reach for it. See `docs/FUTURE-EDITS.md`.
+   * survivor is the one the mission talks to.
+   *
+   * AND THE SURVIVOR IS NOW IN THE RIGHT CLOTHES. This row used to carry a
+   * `divergence` saying `BIG_UNCLE_LOU_MANSION` was "now worn by nobody" and
+   * that whoever posts him should reach for it. The owner read the same thing
+   * off the screen — "Lou should wear the other outfit" — and `cast.js` now
+   * does exactly that. The divergence is gone because the defect is gone; the
+   * siege's row below still carries its own, and it is the siege's to answer.
    */
   row({
     character: CHARACTER_IDS.LOU,
     name: 'Big Uncle Lou',
     scene: 'mansion_house',
     where: 'his office, standing behind the desk, facing the door',
-    model: BIG_UNCLE_LOU,
-    from: { wardrobe: 'BIG_UNCLE_LOU' },
+    model: BIG_UNCLE_LOU_MANSION,
+    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
     module: 'src/mansion/cast.js',
-    evidence: 'model: withFace(BIG_UNCLE_LOU, FACES.lou),',
-    divergence: 'He is in the WORKING suit at home, because he is the Lou that '
-      + 'survived the duplicate above and that one was always the suit. '
-      + 'BIG_UNCLE_LOU_MANSION — open camp shirt, the corno on show, no hat, no '
-      + 'chalk stripe — is the better read for a man in his own house at night '
-      + 'and is now worn by nobody. Reported, not fixed: seating him and '
-      + 'dressing him is a scene decision.',
+    evidence: 'model: withFace(BIG_UNCLE_LOU_MANSION, FACES.lou),',
   }),
   row({
     character: CHARACTER_IDS.LOU,
@@ -1078,6 +1077,19 @@ export const APPEARANCES = Object.freeze([
     evidence: 'model: MANSION_DOOR_MAN,',
     /* The same uniform as the rest, one grade sharper — he is the only one
      * of them who is allowed to turn you around. */
+  }),
+  row({
+    character: 'staff:booth_man',
+    name: EXTRAS['staff:booth_man'],
+    scene: 'mansion_house',
+    where: 'inside the security booth at the street gate, at the counter',
+    model: MANSION_BOOTH_MAN,
+    from: { wardrobe: 'MANSION_BOOTH_MAN' },
+    module: 'src/mansion/cast.js',
+    evidence: 'model: MANSION_BOOTH_MAN,',
+    /* Same uniform, same throat as the door man (`mansion-gate`), and
+     * deliberately NOT one of MANSION_GUARDS — those six are posted elsewhere
+     * in the same house and reusing one would put a man in two places. */
   }),
   ...[0, 1, 2].map((i) => row({
     character: `staff:guard_${i}`,

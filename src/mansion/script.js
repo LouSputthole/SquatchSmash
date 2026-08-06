@@ -76,6 +76,18 @@ export const SPEAKERS = Object.freeze({
    */
   GATE: Object.freeze({ name: 'The man on the door', voice: 'mansion-gate' }),
   /**
+   * The man in the booth at the street gate.
+   *
+   * SAME THROAT AS `GATE`, on purpose, and the argument is the perimeter
+   * guards' argument: these two are one job at two ends of one driveway. The
+   * profile note the owner wrote for `mansion-gate` — deadly serious, no funny
+   * business — is the direction for both parts, and splitting them would ask
+   * for a second reading of the same instruction. Separate SPEAKER because
+   * they are separate BODIES: `cast.js` maps a line's speaker to the mouth it
+   * comes out of, and one key for two men moves the wrong jaw.
+   */
+  BOOTH: Object.freeze({ name: 'The man on the gate', voice: 'mansion-gate' }),
+  /**
    * Everybody else in the same suit: the men walking the perimeter, the one at
    * the top of the stairs, the one in the basement and the one on the vault.
    *
@@ -664,6 +676,36 @@ export const SEQUENCES = Object.freeze({
   ]),
   gateInside: Object.freeze([
     { speaker: 'GATE', text: 'Straight through. Don’t wander, don’t touch anything, and don’t talk to the help.', cue: cue('gate', 'doorman.straightthrough'), hold: 5.0 },
+  ]),
+
+  /* ---- The man in the booth at the street gate. -----------------------
+   *
+   * Owner playtest, verbatim: *"ADD a guard working that booth"*. The booth
+   * had a chair in it and nobody on it, which is worse than no booth: an
+   * empty guard post at the mouth of a criminal headquarters says the house
+   * is not being watched, and the whole rest of the night says it is.
+   *
+   * `BOOTH`, on the SAME `mansion-gate` throat as the man on the door, for
+   * the reason the perimeter guards share one: they are the same job at two
+   * ends of the same driveway, and the owner's direction for that profile —
+   * *"deadly serious and doesn't want any funny business"* — is exactly the
+   * note for this part too. He is the first person in the game to speak to
+   * the Prospect on this night, and he does not soften a word of it.
+   */
+  boothChallenge: Object.freeze([
+    { speaker: 'BOOTH', text: 'Stop there. Name.', cue: cue('gate', 'booth.stopthere'), hold: 2.2 },
+    { speaker: 'BOOTH', text: 'You’re on the list. That is the only reason this arm is up.', cue: cue('gate', 'booth.onthelist'), hold: 4.4 },
+  ]),
+  boothLoiter: Object.freeze([
+    { speaker: 'BOOTH', text: 'The house is up the drive. Nobody stands at my window.', cue: cue('gate', 'booth.nobodystands'), hold: 4.0 },
+  ]),
+  /* He has been told what is coming up the drive and told not to look at it. */
+  boothCase: Object.freeze([
+    { speaker: 'BOOTH', text: 'I don’t see a case. Walk on.', cue: cue('gate', 'booth.dontseeacase'), hold: 3.0 },
+  ]),
+  boothTalk: Object.freeze([
+    { speaker: 'BOOTH', text: 'Everything through this gate goes in the book. The plate, the time, the face.', cue: cue('gate', 'booth.inthebook'), hold: 5.2 },
+    { speaker: 'BOOTH', text: 'Yours is in it now. Go on.', cue: cue('gate', 'booth.yoursisinit'), hold: 3.0 },
   ]),
 
   /* ---- The guards. ----------------------------------------------------

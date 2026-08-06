@@ -18268,6 +18268,42 @@
       "say": "Humor me."
     },
     {
+      "name": "enola.bomb.falling",
+      "duration": 4.57,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Bomb_Falling_Sound_Effects.mp3). The Fat Squatch on its way down. 4.57s against a fall the mission computes at eight or nine seconds, so it is SCHEDULED TO END ON IMPACT rather than started at release — see MissionController.updateRelease. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.a",
+      "duration": 44.07,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Atomic_Bomb_Sound_Effect.mp3). Layer one of three, and the long one — 44s, which deliberately outlives the 30s detonation timeline. Owner: “let the full clips play and well see if we get the power we want.” Do not regenerate, do not truncate."
+    },
+    {
+      "name": "enola.blast.b",
+      "duration": 8.12,
+      "_note": "OWNER-DELIVERED 2026-08-06. Layer two of three, the short one. All three start so that their BOOMS coincide, which is not the same as starting together — each clip has its own lead-in. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.c",
+      "duration": 22.39,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Nuclear_Explosion_Video__Sound.mp3). Layer three of three. Do not regenerate."
+    },
+    {
+      "name": "enola.wind.high",
+      "duration": 22,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "steady high altitude wind rushing over the outside of a heavy four engine bomber at night, deep smooth air roar with a thin whistle where it passes the gun ports and the turret glass, constant and unhurried, no engines, no propellers, no voices, no music, seamless loop",
+      "_note": "NOT YET RECORDED. Owner 2026-08-06: “A nice wind sound to continue playing.” The bed under the synthesised airframe wind — it comes up once the aeroplane is flying and then keeps going, through the drop, through the detonation and all the way home; only a checkpoint restart takes it away. Silent until this file exists (EnolaMissionAudio._updateWindBed checks hasSample and does NOT use startLoop's synth fallback, which would put a second wind under the first)."
+    },
+    {
+      "name": "enola.siren.airraid",
+      "duration": 22,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "a city air raid siren network heard from several kilometres away across open country at night, slow rising and falling wail, several sirens in different parts of the city drifting out of phase with each other, heavily softened by distance with no top end left, no voices, no aircraft, no explosions, seamless loop",
+      "_note": "NOT YET RECORDED. Owner 2026-08-06: “maybe an air raid siren as we approach would be good as wlel.” IT IS THE CITY'S, NOT THE COCKPIT'S: played through a panner sitting at the middle of Squatchbourg, so it arrives from the direction of the target, comes up as the run closes, swings across the aeroplane on the break turn and stops at the flash. Record it dry-ish and distant; the lowpass that closes with range is applied at runtime. Silent until this file exists — no synth fallback on purpose (see EnolaMissionAudio.setAirRaidSiren)."
+    },
+    {
       "name": "vo.silentsquatch.arrival.prospect.humming",
       "voice": "player",
       "say": "Whatever’s in here has been humming since the car."
@@ -19033,6 +19069,36 @@
       "say": "Straight through. Don’t wander, don’t touch anything, and don’t talk to the help."
     },
     {
+      "name": "vo.silentsquatch.gate.booth.stopthere",
+      "voice": "mansion-gate",
+      "say": "Stop there. Name."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.onthelist",
+      "voice": "mansion-gate",
+      "say": "You’re on the list. That is the only reason this arm is up."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.nobodystands",
+      "voice": "mansion-gate",
+      "say": "The house is up the drive. Nobody stands at my window."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.dontseeacase",
+      "voice": "mansion-gate",
+      "say": "I don’t see a case. Walk on."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.inthebook",
+      "voice": "mansion-gate",
+      "say": "Everything through this gate goes in the book. The plate, the time, the face."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.yoursisinit",
+      "voice": "mansion-gate",
+      "say": "Yours is in it now. Go on."
+    },
+    {
       "name": "vo.silentsquatch.guards.perimeter.path",
       "voice": "mansion-guard",
       "say": "Keep on the path."
@@ -19216,42 +19282,6 @@
       "name": "vo.silentsquatch.house.hogmama.leftapanon",
       "voice": "hogmama",
       "say": "Gratin left a pan on and went downstairs. Again."
-    },
-    {
-      "name": "enola.bomb.falling",
-      "duration": 4.57,
-      "_note": "OWNER-DELIVERED 2026-08-06 (Bomb_Falling_Sound_Effects.mp3). The Fat Squatch on its way down. 4.57s against a fall the mission computes at eight or nine seconds, so it is SCHEDULED TO END ON IMPACT rather than started at release — see MissionController.updateRelease. Do not regenerate."
-    },
-    {
-      "name": "enola.blast.a",
-      "duration": 44.07,
-      "_note": "OWNER-DELIVERED 2026-08-06 (Atomic_Bomb_Sound_Effect.mp3). Layer one of three, and the long one — 44s, which deliberately outlives the 30s detonation timeline. Owner: “let the full clips play and well see if we get the power we want.” Do not regenerate, do not truncate."
-    },
-    {
-      "name": "enola.blast.b",
-      "duration": 8.12,
-      "_note": "OWNER-DELIVERED 2026-08-06. Layer two of three, the short one. All three start so that their BOOMS coincide, which is not the same as starting together — each clip has its own lead-in. Do not regenerate."
-    },
-    {
-      "name": "enola.blast.c",
-      "duration": 22.39,
-      "_note": "OWNER-DELIVERED 2026-08-06 (Nuclear_Explosion_Video__Sound.mp3). Layer three of three. Do not regenerate."
-    },
-    {
-      "name": "enola.wind.high",
-      "duration": 22,
-      "loop": true,
-      "promptInfluence": 0.5,
-      "prompt": "steady high altitude wind rushing over the outside of a heavy four engine bomber at night, deep smooth air roar with a thin whistle where it passes the gun ports and the turret glass, constant and unhurried, no engines, no propellers, no voices, no music, seamless loop",
-      "_note": "NOT YET RECORDED. Owner 2026-08-06: “A nice wind sound to continue playing.” The bed under the synthesised airframe wind — it comes up once the aeroplane is flying and then keeps going, through the drop, through the detonation and all the way home; only a checkpoint restart takes it away. Silent until this file exists (EnolaMissionAudio._updateWindBed checks hasSample and does NOT use startLoop's synth fallback, which would put a second wind under the first)."
-    },
-    {
-      "name": "enola.siren.airraid",
-      "duration": 22,
-      "loop": true,
-      "promptInfluence": 0.5,
-      "prompt": "a city air raid siren network heard from several kilometres away across open country at night, slow rising and falling wail, several sirens in different parts of the city drifting out of phase with each other, heavily softened by distance with no top end left, no voices, no aircraft, no explosions, seamless loop",
-      "_note": "NOT YET RECORDED. Owner 2026-08-06: “maybe an air raid siren as we approach would be good as wlel.” IT IS THE CITY'S, NOT THE COCKPIT'S: played through a panner sitting at the middle of Squatchbourg, so it arrives from the direction of the target, comes up as the run closes, swings across the aeroplane on the break turn and stops at the flash. Record it dry-ish and distant; the lowpass that closes with range is applied at runtime. Silent until this file exists — no synth fallback on purpose (see EnolaMissionAudio.setAirRaidSiren)."
     }
   ]
 }
