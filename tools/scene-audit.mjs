@@ -77,6 +77,7 @@ const SCENES = [
   { id: 'silvercase', url: 'silvercase.html', start: '#start-btn, #startBtn' },
   { id: 'squatchfather', url: 'squatchfather.html', start: '#start-btn, #startBtn' },
   { id: 'initiation', url: 'initiation.html', start: '#start-btn, #startBtn' },
+  { id: 'mansion-siege', url: 'mansion-siege.html', start: '#start-btn, #startBtn' },
 ];
 
 const TYPES = {
@@ -282,28 +283,44 @@ for (const scene of SCENES) {
       await page.evaluate((sel) => {
         for (const el of document.querySelectorAll(sel)) el.click?.();
       }, scene.start);
-      await page.waitForTimeout(3500);
     }
     /* Find the scene graph without knowing the scene's own handle: every one
-     * of these builds a THREE.Scene, so look for it. */
-    const found = await page.evaluate(async () => {
-      const mod = await import('./vendor/three.module.min.js');
-      globalThis.__auditTHREE = mod;
-      const roots = [];
-      const seen = new Set();
-      const consider = (v) => {
-        if (!v || typeof v !== 'object' || seen.has(v)) return;
-        seen.add(v);
-        if (v.isScene) { roots.push(v); return; }
-        if (v.scene?.isScene) roots.push(v.scene);
-        if (v.root?.isScene) roots.push(v.root);
-      };
-      for (const k of Object.keys(globalThis)) {
-        try { consider(globalThis[k]); } catch { /* cross-origin getters */ }
-      }
-      globalThis.__auditRoots = [...new Set(roots)];
-      return globalThis.__auditRoots.length;
-    });
+     * of these builds a THREE.Scene, so look for it. Poll rather than wait a
+     * fixed delay — the mansion takes tens of seconds to build under software
+     * GL while the squatchfather is up in two, and a single guess misses one
+     * end or wastes the other. Handles nest one level (NO_WAKE.scene,
+     * __heistDebug.world.scene), so the walk looks one property deep too. */
+    let found = 0;
+    const rootDeadline = Date.now() + 90_000;
+    while (!found && Date.now() < rootDeadline) {
+      found = await page.evaluate(async () => {
+        if (!globalThis.__auditTHREE) {
+          globalThis.__auditTHREE = await import('./vendor/three.module.min.js');
+        }
+        const roots = [];
+        const seen = new Set();
+        const consider = (v, depth) => {
+          if (!v || typeof v !== 'object' || seen.has(v)) return;
+          seen.add(v);
+          if (v.isScene) { roots.push(v); return; }
+          if (v.scene?.isScene) roots.push(v.scene);
+          if (v.root?.isScene) roots.push(v.root);
+          if (depth > 0) {
+            for (const k of Object.keys(v)) {
+              let c;
+              try { c = v[k]; } catch { continue; }
+              if (c && typeof c === 'object') consider(c, depth - 1);
+            }
+          }
+        };
+        for (const k of Object.keys(globalThis)) {
+          try { consider(globalThis[k], 1); } catch { /* cross-origin getters */ }
+        }
+        globalThis.__auditRoots = [...new Set(roots)];
+        return globalThis.__auditRoots.length;
+      });
+      if (!found) await page.waitForTimeout(1000);
+    }
     if (!found) {
       report.push({ scene: scene.id, error: 'no THREE.Scene reachable from a global -- scene not audited' });
       await page.close();
