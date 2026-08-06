@@ -7620,10 +7620,12 @@ const M_GOLD_BAR = mat({
      * 550 mm inside the column standing at the same z. Measured: 1.57 m of
      * the frame's height and 0.68 m of its width passing through marble.
      *
-     * Hung midway between the second and third columns instead, which is
-     * where a picture on a colonnaded wall goes. Its twin on the east wall
-     * was moved for the same class of reason (a window) and says so. */
-    wallArt('trophy-founder-west', r.x0 + 0.14, GY + 2.7, 51.4, Math.PI / 2, 1.1, 1.5,
+     * z 51.4 was the first attempt and `verify:mansion` refused it: the art
+     * sweep reported "trophy-founder-west over trophyWestNorth", because this
+     * wall is also glazed at z 43.0..46.4 and 50.2..53.6. Between them there
+     * is exactly one band wide enough for a 1.24 m frame that clears both the
+     * glass and the 0.68 m column at z 48.4, and 47.2 is the middle of it. */
+    wallArt('trophy-founder-west', r.x0 + 0.14, GY + 2.7, 47.2, Math.PI / 2, 1.1, 1.5,
       makePortraitTexture('includer-booski', 'BOOSKIBRO', '#171c22'));
     /* z=52.0, not 48.4: the hall's east wall IS the house's west wall, and the
      * living room's own glazing runs z:47.6..50.8 through it. A portrait at

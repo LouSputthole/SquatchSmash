@@ -239,6 +239,11 @@ try {
     'galleryCenter', 'galleryWest', 'galleryEast', 'conferenceTable', 'conferenceHead',
     'officeDesk', 'bedWestFront', 'bedEastFront', 'bedWestRear', 'bedEastRear',
     'bathWest', 'bathEast', 'chandelier',
+    /* The gate booth's own two, published by MansionGrounds so `cast.js` can
+     * post the man on the gate without typing his coordinates. */
+    'boothPost', 'boothLook',
+    /* Lou's concealed bookcase door, and the walk-in closet behind it. */
+    'officeSecretDoor', 'officeSecretRun',
   ];
   const missingAnchors = EXPECTED_ANCHORS.filter((k) => !(k in rooms));
   const extraAnchors = Object.keys(rooms).filter((k) => !EXPECTED_ANCHORS.includes(k));

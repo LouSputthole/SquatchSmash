@@ -425,7 +425,12 @@ export function mountSilentSquatch({
     update(dt) {
       mission.update(dt, { position: player?.position ?? camera.position });
       carried.update(dt);
-      world.update(dt);
+      /* The world copy is NOT ticked here any more: it is `lab.case`, and
+       * `SilentSquatch.js` already calls `caseObj.update(dt)` in its own
+       * update. Ticking it twice would run its lid tween at double speed —
+       * and the adapter above has no `update` to call, which is how this was
+       * found: `world.update is not a function`, thrown out of the render
+       * loop on the first frame. */
     },
     /** The headless surface, hung off window.mansion by the composition root. */
     debug: {

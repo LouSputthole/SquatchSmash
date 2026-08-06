@@ -947,15 +947,31 @@ const armory = mountArmory({
 /* See src/mansion/loadout.js for why holding and OWNING the case are     */
 /* two separate facts.                                                    */
 /* ================================================================== */
+/**
+ * Set once `cast` exists, and a no-op until then.
+ *
+ * Declared ABOVE the loadout rather than below it, because the whole point of
+ * this variable is that it must never be read before it is initialised — see
+ * the note at `onCordInHand`.
+ */
+let setCordInHand = () => {};
 const loadout = createMansionLoadout({
   weapons: weaponSystem,
   weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
   onCaseInHand: (on) => silentSquatch?.setCaseInHand(on),
-  /* `cast` is declared below this point -- it needs the loadout -- so this is
-   * read at call time rather than captured. The bar cannot select a slot
-   * before the cast exists, so the optional chain is never the answer in
-   * play; it is the answer during construction. */
-  onCordInHand: (on) => cast?.setCordInHand?.(on),
+  /* THROUGH A MUTABLE HANDLE, NOT THROUGH `cast`, and this is not style.
+   *
+   * `const cast = mountMansionCast(...)` is three hundred lines below this,
+   * and `?.` DOES NOT SAVE YOU FROM A TEMPORAL DEAD ZONE — `cast?.x` on a
+   * `const` that has not been initialised is a ReferenceError, not
+   * `undefined`. The path is real and it runs at boot: the mission's first
+   * beat puts the case in his hands, which calls `onCaseOwned`, which calls
+   * `loadout.giveCase()`, which calls `apply()`, which calls this. The house
+   * failed to boot at all — `verify:mansion` timed out waiting for
+   * `window.mansion.player`, with no error anywhere near the cause.
+   *
+   * A `let` initialised to a no-op, reassigned once the cast exists. */
+  onCordInHand: (on) => setCordInHand(on),
 });
 
 /* The ammunition counter. Repainted only when something changed — a DOM write
@@ -1145,6 +1161,10 @@ const cast = mountMansionCast(scene, world, {
   onCordOwned: (owned) => { if (owned) loadout.giveCord(); else loadout.takeCord(); },
   enabled: () => running,
 });
+setCordInHand = (on) => cast?.setCordInHand?.(on);
+/* And catch up: the loadout may already have decided what is in his hand
+ * while this was still a no-op. */
+loadout.refresh();
 /* The guard in the cellar is watching television, which was the owner's note
  * and is also the only thing on his post worth looking at.
  *
