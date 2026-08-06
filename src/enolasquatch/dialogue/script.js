@@ -311,6 +311,17 @@ export const BEATS = {
     H('I think I got one! I think! There was fire! Fire happened!', 3.0),
   ],
 
+  /* 2026-08-06 — the one authored consequence of the whole flak/fighter run,
+   * now that both are "for show" (see LIVE_FIRE in ../config.js): not a hit,
+   * a heavy old aeroplane that has been at high power through a gauntlet and
+   * is telling on itself right at the end of it. Deliberately NOT phrased as
+   * flak finding them — the barrage does no damage of its own any more and
+   * the line should not imply otherwise. */
+  'defense.engineStrain': [
+    I('Number three’s losing revs. She’s been asking for this the whole climb.', 3.6),
+    L('Heard it. Nurse it — we keep flying, we just fly lighter on that side.', 3.8),
+  ],
+
   /* ---------------- Night fighters ----------------
    *
    * 2026-08-04, owner: "They will need good NPC behavior not too hard not too

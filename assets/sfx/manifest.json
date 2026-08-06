@@ -9552,6 +9552,42 @@
       "_note": "The main room, full. Vowel-range and nothing intelligible, and it thins to under half while anybody is talking or the featured number is playing."
     },
     {
+      "name": "enola.bomb.falling",
+      "duration": 4.57,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Bomb_Falling_Sound_Effects.mp3). The Fat Squatch on its way down. 4.57s against a fall the mission computes at eight or nine seconds, so it is SCHEDULED TO END ON IMPACT rather than started at release — see MissionController.updateRelease. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.a",
+      "duration": 44.07,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Atomic_Bomb_Sound_Effect.mp3). Layer one of three, and the long one — 44s, which deliberately outlives the 30s detonation timeline. Owner: “let the full clips play and well see if we get the power we want.” Do not regenerate, do not truncate."
+    },
+    {
+      "name": "enola.blast.b",
+      "duration": 8.12,
+      "_note": "OWNER-DELIVERED 2026-08-06. Layer two of three, the short one. All three start so that their BOOMS coincide, which is not the same as starting together — each clip has its own lead-in. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.c",
+      "duration": 22.39,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Nuclear_Explosion_Video__Sound.mp3). Layer three of three. Do not regenerate."
+    },
+    {
+      "name": "enola.wind.high",
+      "duration": 22,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "steady high altitude wind rushing over the outside of a heavy four engine bomber at night, deep smooth air roar with a thin whistle where it passes the gun ports and the turret glass, constant and unhurried, no engines, no propellers, no voices, no music, seamless loop",
+      "_note": "NOT YET RECORDED. Owner 2026-08-06: “A nice wind sound to continue playing.” The bed under the synthesised airframe wind — it comes up once the aeroplane is flying and then keeps going, through the drop, through the detonation and all the way home; only a checkpoint restart takes it away. Silent until this file exists (EnolaMissionAudio._updateWindBed checks hasSample and does NOT use startLoop's synth fallback, which would put a second wind under the first)."
+    },
+    {
+      "name": "enola.siren.airraid",
+      "duration": 22,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "a city air raid siren network heard from several kilometres away across open country at night, slow rising and falling wail, several sirens in different parts of the city drifting out of phase with each other, heavily softened by distance with no top end left, no voices, no aircraft, no explosions, seamless loop",
+      "_note": "NOT YET RECORDED. Owner 2026-08-06: “maybe an air raid siren as we approach would be good as wlel.” IT IS THE CITY'S, NOT THE COCKPIT'S: played through a panner sitting at the middle of Squatchbourg, so it arrives from the direction of the target, comes up as the run closes, swings across the aeroplane on the break turn and stops at the flash. Record it dry-ish and distant; the lowpass that closes with range is applied at runtime. Silent until this file exists — no synth fallback on purpose (see EnolaMissionAudio.setAirRaidSiren)."
+    },
+    {
       "name": "vo.bing2.shubenator.intro",
       "voice": "shubenator",
       "say": "Club is closed, glasses are full. Hog Mama, save us from one another."
@@ -14575,6 +14611,16 @@
       "say": "I think I got one! I think! There was fire! Fire happened!"
     },
     {
+      "name": "vo.enolasquatch.irish.defense-engineStrain-1.1",
+      "voice": "irish",
+      "say": "Number three’s losing revs. She’s been asking for this the whole climb."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.defense-engineStrain-2.1",
+      "voice": "lou2",
+      "say": "Heard it. Nurse it — we keep flying, we just fly lighter on that side."
+    },
+    {
       "name": "vo.enolasquatch.shubes.fighters-first-1.1",
       "voice": "shubenator",
       "say": "Something just went past the tail. Something fast and it was not ours."
@@ -17468,831 +17514,6 @@
       "say": "Eat. Dress plain. I will call when the car is moving."
     },
     {
-      "name": "vo.door.refusal.heist_cleanup.1",
-      "voice": "player",
-      "say": "Not walking into the Bing wearing the bank. Clean up first."
-    },
-    {
-      "name": "vo.door.refusal.initiation_locked.1",
-      "voice": "player",
-      "say": "Lou said seven. The invitation still has to land."
-    },
-    {
-      "name": "vo.door.refusal.golf_call.1",
-      "voice": "player",
-      "say": "Lou said he would call about this morning. I am not guessing where."
-    },
-    {
-      "name": "vo.door.refusal.golf_return.1",
-      "voice": "player",
-      "say": "Three holes done. Whatever comes next, Lou will call for it."
-    },
-    {
-      "name": "vo.door.refusal.heist_call.1",
-      "voice": "player",
-      "say": "Lou said he would call. Today is not a day to guess."
-    },
-    {
-      "name": "vo.door.refusal.heist_kit.1",
-      "voice": "player",
-      "say": "Everything Lou named goes with me. Nothing else does."
-    },
-    {
-      "name": "vo.door.refusal.big_night_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
-    },
-    {
-      "name": "vo.door.refusal.no_wake_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he knew. I am not chasing him today."
-    },
-    {
-      "name": "vo.door.refusal.date_call.1",
-      "voice": "player",
-      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_date.1",
-      "voice": "player",
-      "say": "That was a good night. Tomorrow is the other kind. Bed."
-    },
-    {
-      "name": "vo.door.refusal.day_two_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call with the next job."
-    },
-    {
-      "name": "vo.door.refusal.second_bing_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he wanted you back at the Bing."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_motel.1",
-      "voice": "player",
-      "say": "It is not even light out. Whatever is next can wait until I have slept."
-    },
-    {
-      "name": "vo.door.refusal.first_call.1",
-      "voice": "player",
-      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_squatchfather.1",
-      "voice": "player",
-      "say": "That is enough going out for one night."
-    },
-    {
-      "name": "vo.door.refusal.lou_package.1",
-      "voice": "player",
-      "say": "I am not going anywhere until I find Lou’s package."
-    },
-    {
-      "name": "vo.door.refusal.whiskey.1",
-      "voice": "player",
-      "say": "Take one pull of whiskey. You earned the nerves."
-    },
-    {
-      "name": "vo.initiation.ceremony.speech-booskibro.107itai.1",
-      "voice": "booski",
-      "say": "Brothers. Sisters. Silverbacks of the Circle."
-    },
-    {
-      "name": "vo.initiation.ceremony.speech-booskibro.040hws8.1",
-      "voice": "booski",
-      "say": "Before there were bandanas... there was a fire. And before this fire... there were FIVE."
-    },
-    {
-      "name": "vo.initiation.ceremony.speech-booskibro.0fec4lv.1",
-      "voice": "booski",
-      "say": "Five who walked out of their apartments and into the pines. Five who heard the forest — and answered it."
-    },
-    {
-      "name": "vo.initiation.ceremony.speech-booskibro.1e5jis7.1",
-      "voice": "booski",
-      "say": "Tonight, five prospects stand where the five once stood. The forest is watching. I am ALSO watching."
-    },
-    {
-      "name": "vo.initiation.ceremony.speech-big-uncle-lou-sputthole.0t0savl.1",
-      "voice": "lou",
-      "say": "What Booskibro means is: welcome. This is a family. A large, damp, forest family."
-    },
-    {
-      "name": "vo.initiation.ceremony.speech-big-uncle-lou-sputthole.08fkjpd.1",
-      "voice": "lou",
-      "say": "Also — whoever keeps leaving beer cans at the fire pit, knock it off. The raccoons are ORGANIZING."
-    },
-    {
-      "name": "vo.initiation.ceremony.speech-booskibro.0encv1g.1",
-      "voice": "booski",
-      "say": "ENOUGH. Prospects! Your first trial is not of the body... but of the MIND."
-    },
-    {
-      "name": "vo.initiation.ceremony.q1-booskibro.0725496.1",
-      "voice": "booski",
-      "say": "Prospect One. Step forward."
-    },
-    {
-      "name": "vo.initiation.ceremony.q1-booskibro.0yt30rc.1",
-      "voice": "booski",
-      "say": "Who are the FIVE founding members of the Silver Sasquatches?"
-    },
-    {
-      "name": "vo.initiation.ceremony.q1-prospect-one.1f8jlt2.1",
-      "voice": "doorman",
-      "say": "Oh — uh. Booskibro... Big Uncle Lou... uhh. Bigfoot? Garfield??...the GEICO Gecko???"
-    },
-    {
-      "name": "vo.initiation.ceremony.q1-big-uncle-lou-sputthole.1ow3urn.1",
-      "voice": "lou",
-      "say": "Oof."
-    },
-    {
-      "name": "vo.initiation.ceremony.q1-booskibro.0ax7uug.1",
-      "voice": "booski",
-      "say": "WRONG."
-    },
-    {
-      "name": "vo.initiation.ceremony.q2-big-uncle-lou-sputthole.1y1r41v.1",
-      "voice": "lou",
-      "say": "...Anyway!"
-    },
-    {
-      "name": "vo.initiation.ceremony.q2-booskibro.09kvaq9.1",
-      "voice": "booski",
-      "say": "Prospect Two. Same question."
-    },
-    {
-      "name": "vo.initiation.ceremony.q2-big-uncle-lou-sputthole.17vvp6d.1",
-      "voice": "lou",
-      "say": "No pressure. Well. Some pressure. A specific, recently demonstrated amount of pressure."
-    },
-    {
-      "name": "vo.initiation.ceremony.correct-booskibro.1y7kr1y.1",
-      "voice": "booski",
-      "say": "CORRECT. Myself. Big Uncle Lou Sputthole. Rippinflow. The Shubenator. Deathmegatron. The FIVE."
-    },
-    {
-      "name": "vo.initiation.ceremony.correct-big-uncle-lou-sputthole.13n17t6.1",
-      "voice": "lou",
-      "say": "Somebody did the reading!"
-    },
-    {
-      "name": "vo.initiation.ceremony.correct-booskibro.0rokpd7.1",
-      "voice": "booski",
-      "say": "The mind is sharp. Now we test the BODY. Clear the line — THE GAUNTLET AWAITS."
-    },
-    {
-      "name": "vo.initiation.ceremony.wrong-booskibro.0ax7uug.1",
-      "voice": "booski",
-      "say": "WRONG."
-    },
-    {
-      "name": "vo.initiation.ceremony.wrong-big-uncle-lou-sputthole.1ptheaa.1",
-      "voice": "lou",
-      "say": "Oh no. Same as the last guy. Word for word almost."
-    },
-    {
-      "name": "vo.initiation.ceremony.endured-booskibro.0m7k205.1",
-      "voice": "booski",
-      "say": "ENOUGH."
-    },
-    {
-      "name": "vo.initiation.ceremony.endured-booskibro.0puzx4p.1",
-      "voice": "booski",
-      "say": "Beaten down to a stump... and still on two feet. The Circle sees you, prospect."
-    },
-    {
-      "name": "vo.initiation.ceremony.endured-booskibro.0jbhkiy.1",
-      "voice": "booski",
-      "say": "Second trial: THE ROAR. The forest must learn your voice. Let it OUT."
-    },
-    {
-      "name": "vo.initiation.ceremony.roar-booskibro.1y99iql.1",
-      "voice": "booski",
-      "say": "HA! Birds three ridges over just quit their nests."
-    },
-    {
-      "name": "vo.initiation.ceremony.roar-booskibro.04z7p1x.1",
-      "voice": "booski",
-      "say": "Final trial: THE TIMBER. That old deadfall has mocked this clearing long enough. SMASH IT."
-    },
-    {
-      "name": "vo.initiation.ceremony.anoint-booskibro.1q1dvvj.1",
-      "voice": "booski",
-      "say": "You took the Circle’s fists. You gave the forest your voice. You turned a log into a suggestion."
-    },
-    {
-      "name": "vo.initiation.ceremony.anoint-booskibro.01hq6iv.1",
-      "voice": "booski",
-      "say": "Tony Squatchtana. You walked into this clearing a prospect."
-    },
-    {
-      "name": "vo.initiation.ceremony.anoint-booskibro.008ri98.1",
-      "voice": "booski",
-      "say": "Walk out a SQUATCH."
-    },
-    {
-      "name": "vo.initiation.ceremony.retry-booskibro.0k7hl8c.1",
-      "voice": "booski",
-      "say": "The Circle forgives once. Arms DOWN this time, prospect."
-    },
-    {
-      "name": "vo.initiation.ceremony.prospect-two.159f04d.1",
-      "voice": "player",
-      "say": "Booskibro, Big Uncle Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron"
-    },
-    {
-      "name": "vo.initiation.ceremony.prospect-two.09f28mj.1",
-      "voice": "player",
-      "say": "Booskibro, Big Uncle Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko"
-    },
-    {
-      "name": "vo.initiation.ceremony.prospect-two.0gkbuto.1",
-      "voice": "player",
-      "say": "Booskibro, Snow, Hogmama, Erican, and two raccoons in a coat"
-    },
-    {
-      "name": "vo.initiation.party.booski.0ul7wj8.1",
-      "voice": "booski",
-      "say": "There he is. Don't just stand there bleeding, come to the fire."
-    },
-    {
-      "name": "vo.initiation.party.booski.0noogwr.1",
-      "voice": "booski",
-      "say": "You did the reading. You have no idea how rare that is. The gecko guy did not do the reading."
-    },
-    {
-      "name": "vo.initiation.party.booski.13pbzks.1",
-      "voice": "booski",
-      "say": "THE MAN OF THE HOUR. Somebody get him something he can't refuse."
-    },
-    {
-      "name": "vo.initiation.party.booski.1fmhlyk.1",
-      "voice": "booski",
-      "say": "I've inducted forty men. I remember maybe six. You, I'll remember."
-    },
-    {
-      "name": "vo.initiation.party.booski.1vk1vra.1",
-      "voice": "booski",
-      "say": "You took the whole Gauntlet with your hands down. Deathmegatron cried a little. He'll deny it."
-    },
-    {
-      "name": "vo.initiation.party.booski.11vs05b.1",
-      "voice": "booski",
-      "say": "That ROAR. Three ridges of wildlife filed a noise complaint. I've never been prouder."
-    },
-    {
-      "name": "vo.initiation.party.booski.0w0lg6e.1",
-      "voice": "booski",
-      "say": "You know what the founders had that nobody has anymore? …I forget. But you've got it too."
-    },
-    {
-      "name": "vo.initiation.party.booski.0jkj49u.1",
-      "voice": "booski",
-      "say": "You're my son now. Legally? No. Forest-legally? Absolutely. Do not test it."
-    },
-    {
-      "name": "vo.initiation.party.booski.19z7fti.1",
-      "voice": "booski",
-      "say": "The log. You broke the log. You want to know what it was for. …It was for that. Next question."
-    },
-    {
-      "name": "vo.initiation.party.booski.1vg0pqs.1",
-      "voice": "booski",
-      "say": "You're quiet. My prospects are never quiet. What are you thinking about over there?"
-    },
-    {
-      "name": "vo.initiation.party.booski.1r7sdky.1",
-      "voice": "booski",
-      "say": "Come here. Closer. …No, closer. I want to see your eyes when I say welcome."
-    },
-    {
-      "name": "vo.initiation.party.booski.0jcxnfk.1",
-      "voice": "booski",
-      "say": "Rippinflow likes you. Rippinflow doesn't like anyone. Makes me wonder what he sees that I don't."
-    },
-    {
-      "name": "vo.initiation.party.lou.1dafja2.1",
-      "voice": "lou",
-      "say": "What he means is welcome. What I mean is: don't touch the good tarp. You'll learn what it's for."
-    },
-    {
-      "name": "vo.initiation.party.lou.0lhhkjk.1",
-      "voice": "lou",
-      "say": "Ignore the speech. Booski's been writing that speech for nine years. It peaked in draft two."
-    },
-    {
-      "name": "vo.initiation.party.lou.1hu8qxr.1",
-      "voice": "lou",
-      "say": "I'm technically still at the airport, spiritually. Don't ask. Have a beer."
-    },
-    {
-      "name": "vo.initiation.party.lou.146tcl0.1",
-      "voice": "lou",
-      "say": "You're doing great. You're doing so much better than Shubes did and Shubes is a full member."
-    },
-    {
-      "name": "vo.initiation.party.lou.1hyasxt.1",
-      "voice": "lou",
-      "say": "Somebody did the reading. Somebody gets to keep their fluids on the inside. Cheers to that."
-    },
-    {
-      "name": "vo.initiation.party.lou.0mz7unr.1",
-      "voice": "lou",
-      "say": "Genuinely proud of you. I might cry. I won't. But I might. That's between us."
-    },
-    {
-      "name": "vo.initiation.party.lou.07lpis4.1",
-      "voice": "lou",
-      "say": "Housekeeping while I've got you: the raccoons unionized. The little one has a clipboard now. Watch him."
-    },
-    {
-      "name": "vo.initiation.party.lou.0hdtwmo.1",
-      "voice": "lou",
-      "say": "You made it. Not everyone does. Don't look at the shirt by the truck. Look at me. You made it."
-    },
-    {
-      "name": "vo.initiation.party.lou.17d1pwa.1",
-      "voice": "lou",
-      "say": "You keep checking your waistband. Cold night? Or is there a reason your hand keeps going there."
-    },
-    {
-      "name": "vo.initiation.party.lou.1rsa6dq.1",
-      "voice": "lou",
-      "say": "I like you. So I'm going to say this once, friendly: whatever you're carrying, put it down before Booski's toast."
-    },
-    {
-      "name": "vo.initiation.party.rippinflow.044fod8.1",
-      "voice": "rippinflow",
-      "say": "…You did good."
-    },
-    {
-      "name": "vo.initiation.party.rippinflow.06x0216.1",
-      "voice": "rippinflow",
-      "say": "You didn't run. Smart. Nobody outruns the tree line."
-    },
-    {
-      "name": "vo.initiation.party.rippinflow.1ktpe8w.1",
-      "voice": "rippinflow",
-      "say": "I was gonna have to be the one. If you'd failed. Glad I didn't."
-    },
-    {
-      "name": "vo.initiation.party.rippinflow.0h4gx85.1",
-      "voice": "rippinflow",
-      "say": "You've got a shooter's hands. I noticed during the Gauntlet. You kept making a fist."
-    },
-    {
-      "name": "vo.initiation.party.rippinflow.0mjhqor.1",
-      "voice": "rippinflow",
-      "say": "Whatever you came here to do. …I hope it was join us."
-    },
-    {
-      "name": "vo.initiation.party.shubes.1cn6ytd.1",
-      "voice": "shubenator",
-      "say": "I'm not crying, it's — it's a smoky fire. It's a really smoky fire. Welcome, man."
-    },
-    {
-      "name": "vo.initiation.party.shubes.04d2y7j.1",
-      "voice": "shubenator",
-      "say": "I remember my initiation. I did NOT cry. Ape's lying. I want that on the record before you hear it."
-    },
-    {
-      "name": "vo.initiation.party.shubes.1hhm04m.1",
-      "voice": "shubenator",
-      "say": "You want a hit? It's going around. It helps with the — the this."
-    },
-    {
-      "name": "vo.initiation.party.shubes.1f1xfoo.1",
-      "voice": "shubenator",
-      "say": "We're brothers now. That's not nothing. That's — okay I'm gonna need a second. It's the smoke."
-    },
-    {
-      "name": "vo.initiation.party.shubes.1ls9vgm.1",
-      "voice": "shubenator",
-      "say": "When Booski said 'walk out a squatch' I felt that in my whole chest. Every time. Every single guy."
-    },
-    {
-      "name": "vo.initiation.party.shubes.1vp41wb.1",
-      "voice": "shubenator",
-      "say": "You seem stressed. Are you stressed? Because I get stressed and it's usually — is everything okay, man? Genuinely."
-    },
-    {
-      "name": "vo.initiation.party.shubes.1fj8r6h.1",
-      "voice": "shubenator",
-      "say": "Please don't do anything tonight. I don't know why I said that. I just — I get feelings. Please don't."
-    },
-    {
-      "name": "vo.initiation.party.deathmegatron.0jlv5p9.1",
-      "voice": "deathmegatron",
-      "say": "Voice on this guy."
-    },
-    {
-      "name": "vo.initiation.party.deathmegatron.08rpeo6.1",
-      "voice": "deathmegatron",
-      "say": "Good hands tonight. Kept 'em down. That's the whole trick."
-    },
-    {
-      "name": "vo.initiation.party.deathmegatron.1mpvq3f.1",
-      "voice": "deathmegatron",
-      "say": "I had my thumb on your windpipe for the Roar. In case. You roared. Good."
-    },
-    {
-      "name": "vo.initiation.party.deathmegatron.05h0ma9.1",
-      "voice": "deathmegatron",
-      "say": "Brother."
-    },
-    {
-      "name": "vo.initiation.party.deathmegatron.0pyngtq.1",
-      "voice": "deathmegatron",
-      "say": "You're tense. I can see it in the shoulders. I put things down when I'm tense. You should put things down."
-    },
-    {
-      "name": "vo.initiation.party.hogmama.1ahg85n.1",
-      "voice": "hogmama",
-      "say": "You eat? There's dogs on the fire. Real ones — hot dogs, relax. Don't make it weird."
-    },
-    {
-      "name": "vo.initiation.party.hogmama.0kumwmd.1",
-      "voice": "hogmama",
-      "say": "Sit down before you fall down. You lost blood tonight. Electrolytes. There's a warm Gatorade in the cooler, it's yours."
-    },
-    {
-      "name": "vo.initiation.party.hogmama.05xn58u.1",
-      "voice": "hogmama",
-      "say": "Every man here I've patched up at least once. You're on the list now. Congratulations, I guess."
-    },
-    {
-      "name": "vo.initiation.party.hogmama.089tex1.1",
-      "voice": "hogmama",
-      "say": "Don't step over by the truck. I haven't dealt with that yet and I don't want you tracking it around."
-    },
-    {
-      "name": "vo.initiation.party.hogmama.1cldrhn.1",
-      "voice": "hogmama",
-      "say": "Boys get sentimental at these. I don't. Somebody has to remember where the shovels are."
-    },
-    {
-      "name": "vo.initiation.party.hogmama.0tuh3wl.1",
-      "voice": "hogmama",
-      "say": "You've got a look. I've seen that look. Last person with that look is a story I tell to scare prospects."
-    },
-    {
-      "name": "vo.initiation.party.hogmama.0k6wgxr.1",
-      "voice": "hogmama",
-      "say": "Whatever you're planning, sweetheart — I do the cleanup. So do it somewhere with a tarp already down."
-    },
-    {
-      "name": "vo.initiation.party.ape.19628w6.1",
-      "voice": "ape",
-      "say": "You took thirty punches and cried less than Shubes did. That's the bar. You cleared the bar."
-    },
-    {
-      "name": "vo.initiation.party.ape.1i4431e.1",
-      "voice": "ape",
-      "say": "Congrats on the murder cult, dork. Beer's warm. So's the induction, apparently."
-    },
-    {
-      "name": "vo.initiation.party.ape.0ijq4on.1",
-      "voice": "ape",
-      "say": "I had money on you eating it at the log. You cost me forty bucks. I've never respected anyone more."
-    },
-    {
-      "name": "vo.initiation.party.ape.09wkzum.1",
-      "voice": "ape",
-      "say": "You know they only shot the first guy because he was worse at trivia than you. Low bar. You limbo'd under it. Proud."
-    },
-    {
-      "name": "vo.initiation.party.ape.1wv0asm.1",
-      "voice": "ape",
-      "say": "Nine feet tall and still can't hold your beer. This is my favorite version of you."
-    },
-    {
-      "name": "vo.initiation.party.ape.0wbojf4.1",
-      "voice": "ape",
-      "say": "Don't let Booski hug you, he'll cry on the fur and it never dries. Ask Shubes. Shubes is basically a sponge now."
-    },
-    {
-      "name": "vo.initiation.party.ape.0igz9f6.1",
-      "voice": "ape",
-      "say": "You're weird tonight. Weirder. And I've seen you sober, so that's a real statement."
-    },
-    {
-      "name": "vo.initiation.party.ape.1gwjrcm.1",
-      "voice": "ape",
-      "say": "What's in the pants, hero. And don't say a gun, because then I have to care, and I'm four deep."
-    },
-    {
-      "name": "vo.initiation.party.irish.0q73ftg.1",
-      "voice": "irish",
-      "say": "Nobody has answered my question about the eggs. You're new — YOU answer it. What is the egg situation."
-    },
-    {
-      "name": "vo.initiation.party.irish.0866paj.1",
-      "voice": "irish",
-      "say": "I raised the parking thing at the last three meetings. Three. We're a forest death cult and we cannot organize a car pool."
-    },
-    {
-      "name": "vo.initiation.party.irish.1ln070f.1",
-      "voice": "irish",
-      "say": "Did they shoot a lad earlier or did I imagine that. Because if they did, that's exactly the kind of thing that should be on the AGENDA."
-    },
-    {
-      "name": "vo.initiation.party.irish.1g5h1uf.1",
-      "voice": "irish",
-      "say": "Welcome, whatever. Do you have opinions on the fire-pit can situation. Because I have a document."
-    },
-    {
-      "name": "vo.initiation.party.irish.03363if.1",
-      "voice": "irish",
-      "say": "I'm not drunk, I'm CORRECT, and there's a difference, and it's in the minutes, which nobody reads."
-    },
-    {
-      "name": "vo.initiation.party.irish.1ah08u7.1",
-      "voice": "irish",
-      "say": "You're the only one not talking. Finally, a serious person. Are you a serious person? Do you want to see the document."
-    },
-    {
-      "name": "vo.initiation.party.erican.190z6i5.1",
-      "voice": "eric",
-      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
-    },
-    {
-      "name": "vo.initiation.party.erican.0bdemm4.1",
-      "voice": "eric",
-      "say": "To the new blood!"
-    },
-    {
-      "name": "vo.initiation.party.erican.1o3ynaq.1",
-      "voice": "eric",
-      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
-    },
-    {
-      "name": "vo.initiation.party.erican.1jb6mll.1",
-      "voice": "eric",
-      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
-    },
-    {
-      "name": "vo.initiation.party.erican.0npetxc.1",
-      "voice": "eric",
-      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
-    },
-    {
-      "name": "vo.initiation.party.gratin.190z6i5.1",
-      "voice": "gratin",
-      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
-    },
-    {
-      "name": "vo.initiation.party.gratin.0bdemm4.1",
-      "voice": "gratin",
-      "say": "To the new blood!"
-    },
-    {
-      "name": "vo.initiation.party.gratin.1o3ynaq.1",
-      "voice": "gratin",
-      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
-    },
-    {
-      "name": "vo.initiation.party.gratin.1jb6mll.1",
-      "voice": "gratin",
-      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
-    },
-    {
-      "name": "vo.initiation.party.gratin.0npetxc.1",
-      "voice": "gratin",
-      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
-    },
-    {
-      "name": "vo.initiation.party.captain-lou-sasole.190z6i5.1",
-      "voice": "lou2",
-      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
-    },
-    {
-      "name": "vo.initiation.party.captain-lou-sasole.0bdemm4.1",
-      "voice": "lou2",
-      "say": "To the new blood!"
-    },
-    {
-      "name": "vo.initiation.party.captain-lou-sasole.1o3ynaq.1",
-      "voice": "lou2",
-      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
-    },
-    {
-      "name": "vo.initiation.party.captain-lou-sasole.1jb6mll.1",
-      "voice": "lou2",
-      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
-    },
-    {
-      "name": "vo.initiation.party.captain-lou-sasole.0npetxc.1",
-      "voice": "lou2",
-      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
-    },
-    {
-      "name": "vo.initiation.party.snow.190z6i5.1",
-      "voice": "snow",
-      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
-    },
-    {
-      "name": "vo.initiation.party.snow.0bdemm4.1",
-      "voice": "snow",
-      "say": "To the new blood!"
-    },
-    {
-      "name": "vo.initiation.party.snow.1o3ynaq.1",
-      "voice": "snow",
-      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
-    },
-    {
-      "name": "vo.initiation.party.snow.1jb6mll.1",
-      "voice": "snow",
-      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
-    },
-    {
-      "name": "vo.initiation.party.snow.0npetxc.1",
-      "voice": "snow",
-      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
-    },
-    {
-      "name": "vo.initiation.party.snow.0l62w3g.1",
-      "voice": "snow",
-      "say": "No hard feelings on the first guy. Job's a job. You I like — you knew the founders."
-    },
-    {
-      "name": "vo.initiation.party.snow.10xbalq.1",
-      "voice": "snow",
-      "say": "You want to know if it gets easier. It got easier around number four. Cheers."
-    },
-    {
-      "name": "vo.initiation.party.snow.1o6vqe0.1",
-      "voice": "snow",
-      "say": "I reloaded twice for that idiot. You? You I wouldn't have needed the second mag. Compliment."
-    },
-    {
-      "name": "vo.initiation.party.snow.05ylq01.1",
-      "voice": "snow",
-      "say": "You're not gonna make me work twice tonight, are you."
-    },
-    {
-      "name": "vo.initiation.ambient.ape.0419kfp.1",
-      "voice": "ape",
-      "say": "Shubes is crying again."
-    },
-    {
-      "name": "vo.initiation.ambient.shubes.1lxqviq.1",
-      "voice": "shubenator",
-      "say": "It's the SMOKE."
-    },
-    {
-      "name": "vo.initiation.ambient.ape.1i3c879.1",
-      "voice": "ape",
-      "say": "There's no smoke over there. You're upwind."
-    },
-    {
-      "name": "vo.initiation.ambient.shubes.1axhvr8.1",
-      "voice": "shubenator",
-      "say": "…It's allergies."
-    },
-    {
-      "name": "vo.initiation.ambient.irish.06l4y20.1",
-      "voice": "irish",
-      "say": "Are we going to talk about the parking or not."
-    },
-    {
-      "name": "vo.initiation.ambient.hogmama.1ju8p58.1",
-      "voice": "hogmama",
-      "say": "Not."
-    },
-    {
-      "name": "vo.initiation.ambient.irish.1bru72z.1",
-      "voice": "irish",
-      "say": "Noted. AGAIN."
-    },
-    {
-      "name": "vo.initiation.ambient.booski.149u0w9.1",
-      "voice": "booski",
-      "say": "Best induction in years."
-    },
-    {
-      "name": "vo.initiation.ambient.lou.08qn0k2.1",
-      "voice": "lou",
-      "say": "You said that about the last one."
-    },
-    {
-      "name": "vo.initiation.ambient.booski.0osl56r.1",
-      "voice": "booski",
-      "say": "The last one's a shirt now, Lou."
-    },
-    {
-      "name": "vo.initiation.ambient.lou.0fglkg3.1",
-      "voice": "lou",
-      "say": "…Fair."
-    },
-    {
-      "name": "vo.initiation.ambient.ape.1gb5hpx.1",
-      "voice": "ape",
-      "say": "Deep. Real deep, big man."
-    },
-    {
-      "name": "vo.initiation.ambient.hogmama.091pd5g.1",
-      "voice": "hogmama",
-      "say": "Whose turn is the tarp this week."
-    },
-    {
-      "name": "vo.initiation.ambient.ape.0h7ii9x.1",
-      "voice": "ape",
-      "say": "Rippinflow's."
-    },
-    {
-      "name": "vo.initiation.ambient.rippinflow.15loodx.1",
-      "voice": "rippinflow",
-      "say": "…I did last week."
-    },
-    {
-      "name": "vo.initiation.ambient.hogmama.0gs5hoq.1",
-      "voice": "hogmama",
-      "say": "You're good at it, though."
-    },
-    {
-      "name": "vo.initiation.ambient.lou.12x3vpg.1",
-      "voice": "lou",
-      "say": "I'm not even meant to be here, technically. I'm at the airport."
-    },
-    {
-      "name": "vo.initiation.ambient.ape.1q4qhzc.1",
-      "voice": "ape",
-      "say": "You've been 'at the airport' for six years."
-    },
-    {
-      "name": "vo.initiation.ambient.lou.03vfmoo.1",
-      "voice": "lou",
-      "say": "And I'll be there six more."
-    },
-    {
-      "name": "vo.initiation.ambient.irish.0at9yb1.1",
-      "voice": "irish",
-      "say": "Nobody. Answered. About the eggs."
-    },
-    {
-      "name": "vo.initiation.ambient.shubes.1l0547c.1",
-      "voice": "shubenator",
-      "say": "What eggs?"
-    },
-    {
-      "name": "vo.initiation.ambient.irish.1eu4g1z.1",
-      "voice": "irish",
-      "say": "EXACTLY."
-    },
-    {
-      "name": "vo.initiation.ambient.booski.06sn01i.1",
-      "voice": "booski",
-      "say": "Rippinflow. Say something to the new blood."
-    },
-    {
-      "name": "vo.initiation.ambient.rippinflow.1tyksgj.1",
-      "voice": "rippinflow",
-      "say": "…Welcome."
-    },
-    {
-      "name": "vo.initiation.ambient.booski.0p8sqgg.1",
-      "voice": "booski",
-      "say": "BEAUTIFUL. That's the most he's said since March."
-    },
-    {
-      "name": "vo.initiation.ambient.ape.1jvatuw.1",
-      "voice": "ape",
-      "say": "New guy's being weird."
-    },
-    {
-      "name": "vo.initiation.ambient.hogmama.0u8bxi6.1",
-      "voice": "hogmama",
-      "say": "I clocked it."
-    },
-    {
-      "name": "vo.initiation.ambient.ape.1rrbwd2.1",
-      "voice": "ape",
-      "say": "…Should we—"
-    },
-    {
-      "name": "vo.initiation.ambient.hogmama.1gphmz6.1",
-      "voice": "hogmama",
-      "say": "Rippinflow's got it."
-    },
-    {
-      "name": "vo.initiation.ambient.lou.149wslz.1",
-      "voice": "lou",
-      "say": "Booski, do your toast where people can see your hands."
-    },
-    {
-      "name": "vo.initiation.ambient.booski.0r5edhx.1",
-      "voice": "booski",
-      "say": "Why."
-    },
-    {
-      "name": "vo.initiation.ambient.lou.1ckii4g.1",
-      "voice": "lou",
-      "say": "Humor me."
-    },
-    {
       "name": "vo.silentsquatch.arrival.prospect.humming",
       "voice": "player",
       "say": "Whatever’s in here has been humming since the car."
@@ -19243,40 +18464,829 @@
       "say": "Gratin left a pan on and went downstairs. Again."
     },
     {
-      "name": "enola.bomb.falling",
-      "duration": 4.57,
-      "_note": "OWNER-DELIVERED 2026-08-06 (Bomb_Falling_Sound_Effects.mp3). The Fat Squatch on its way down. 4.57s against a fall the mission computes at eight or nine seconds, so it is SCHEDULED TO END ON IMPACT rather than started at release — see MissionController.updateRelease. Do not regenerate."
+      "name": "vo.door.refusal.heist_cleanup.1",
+      "voice": "player",
+      "say": "Not walking into the Bing wearing the bank. Clean up first."
     },
     {
-      "name": "enola.blast.a",
-      "duration": 44.07,
-      "_note": "OWNER-DELIVERED 2026-08-06 (Atomic_Bomb_Sound_Effect.mp3). Layer one of three, and the long one — 44s, which deliberately outlives the 30s detonation timeline. Owner: “let the full clips play and well see if we get the power we want.” Do not regenerate, do not truncate."
+      "name": "vo.door.refusal.initiation_locked.1",
+      "voice": "player",
+      "say": "Lou said seven. The invitation still has to land."
     },
     {
-      "name": "enola.blast.b",
-      "duration": 8.12,
-      "_note": "OWNER-DELIVERED 2026-08-06. Layer two of three, the short one. All three start so that their BOOMS coincide, which is not the same as starting together — each clip has its own lead-in. Do not regenerate."
+      "name": "vo.door.refusal.golf_call.1",
+      "voice": "player",
+      "say": "Lou said he would call about this morning. I am not guessing where."
     },
     {
-      "name": "enola.blast.c",
-      "duration": 22.39,
-      "_note": "OWNER-DELIVERED 2026-08-06 (Nuclear_Explosion_Video__Sound.mp3). Layer three of three. Do not regenerate."
+      "name": "vo.door.refusal.golf_return.1",
+      "voice": "player",
+      "say": "Three holes done. Whatever comes next, Lou will call for it."
     },
     {
-      "name": "enola.wind.high",
-      "duration": 22,
-      "loop": true,
-      "promptInfluence": 0.5,
-      "prompt": "steady high altitude wind rushing over the outside of a heavy four engine bomber at night, deep smooth air roar with a thin whistle where it passes the gun ports and the turret glass, constant and unhurried, no engines, no propellers, no voices, no music, seamless loop",
-      "_note": "NOT YET RECORDED. Owner 2026-08-06: “A nice wind sound to continue playing.” The bed under the synthesised airframe wind — it comes up once the aeroplane is flying and then keeps going, through the drop, through the detonation and all the way home; only a checkpoint restart takes it away. Silent until this file exists (EnolaMissionAudio._updateWindBed checks hasSample and does NOT use startLoop's synth fallback, which would put a second wind under the first)."
+      "name": "vo.door.refusal.heist_call.1",
+      "voice": "player",
+      "say": "Lou said he would call. Today is not a day to guess."
     },
     {
-      "name": "enola.siren.airraid",
-      "duration": 22,
-      "loop": true,
-      "promptInfluence": 0.5,
-      "prompt": "a city air raid siren network heard from several kilometres away across open country at night, slow rising and falling wail, several sirens in different parts of the city drifting out of phase with each other, heavily softened by distance with no top end left, no voices, no aircraft, no explosions, seamless loop",
-      "_note": "NOT YET RECORDED. Owner 2026-08-06: “maybe an air raid siren as we approach would be good as wlel.” IT IS THE CITY'S, NOT THE COCKPIT'S: played through a panner sitting at the middle of Squatchbourg, so it arrives from the direction of the target, comes up as the run closes, swings across the aeroplane on the break turn and stops at the flash. Record it dry-ish and distant; the lowpass that closes with range is applied at runtime. Silent until this file exists — no synth fallback on purpose (see EnolaMissionAudio.setAirRaidSiren)."
+      "name": "vo.door.refusal.heist_kit.1",
+      "voice": "player",
+      "say": "Everything Lou named goes with me. Nothing else does."
+    },
+    {
+      "name": "vo.door.refusal.big_night_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+    },
+    {
+      "name": "vo.door.refusal.no_wake_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he knew. I am not chasing him today."
+    },
+    {
+      "name": "vo.door.refusal.date_call.1",
+      "voice": "player",
+      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_date.1",
+      "voice": "player",
+      "say": "That was a good night. Tomorrow is the other kind. Bed."
+    },
+    {
+      "name": "vo.door.refusal.day_two_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call with the next job."
+    },
+    {
+      "name": "vo.door.refusal.second_bing_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he wanted you back at the Bing."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_motel.1",
+      "voice": "player",
+      "say": "It is not even light out. Whatever is next can wait until I have slept."
+    },
+    {
+      "name": "vo.door.refusal.first_call.1",
+      "voice": "player",
+      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_squatchfather.1",
+      "voice": "player",
+      "say": "That is enough going out for one night."
+    },
+    {
+      "name": "vo.door.refusal.lou_package.1",
+      "voice": "player",
+      "say": "I am not going anywhere until I find Lou’s package."
+    },
+    {
+      "name": "vo.door.refusal.whiskey.1",
+      "voice": "player",
+      "say": "Take one pull of whiskey. You earned the nerves."
+    },
+    {
+      "name": "vo.initiation.ceremony.speech-booskibro.107itai.1",
+      "voice": "booski",
+      "say": "Brothers. Sisters. Silverbacks of the Circle."
+    },
+    {
+      "name": "vo.initiation.ceremony.speech-booskibro.040hws8.1",
+      "voice": "booski",
+      "say": "Before there were bandanas... there was a fire. And before this fire... there were FIVE."
+    },
+    {
+      "name": "vo.initiation.ceremony.speech-booskibro.0fec4lv.1",
+      "voice": "booski",
+      "say": "Five who walked out of their apartments and into the pines. Five who heard the forest — and answered it."
+    },
+    {
+      "name": "vo.initiation.ceremony.speech-booskibro.1e5jis7.1",
+      "voice": "booski",
+      "say": "Tonight, five prospects stand where the five once stood. The forest is watching. I am ALSO watching."
+    },
+    {
+      "name": "vo.initiation.ceremony.speech-big-uncle-lou-sputthole.0t0savl.1",
+      "voice": "lou",
+      "say": "What Booskibro means is: welcome. This is a family. A large, damp, forest family."
+    },
+    {
+      "name": "vo.initiation.ceremony.speech-big-uncle-lou-sputthole.08fkjpd.1",
+      "voice": "lou",
+      "say": "Also — whoever keeps leaving beer cans at the fire pit, knock it off. The raccoons are ORGANIZING."
+    },
+    {
+      "name": "vo.initiation.ceremony.speech-booskibro.0encv1g.1",
+      "voice": "booski",
+      "say": "ENOUGH. Prospects! Your first trial is not of the body... but of the MIND."
+    },
+    {
+      "name": "vo.initiation.ceremony.q1-booskibro.0725496.1",
+      "voice": "booski",
+      "say": "Prospect One. Step forward."
+    },
+    {
+      "name": "vo.initiation.ceremony.q1-booskibro.0yt30rc.1",
+      "voice": "booski",
+      "say": "Who are the FIVE founding members of the Silver Sasquatches?"
+    },
+    {
+      "name": "vo.initiation.ceremony.q1-prospect-one.1f8jlt2.1",
+      "voice": "doorman",
+      "say": "Oh — uh. Booskibro... Big Uncle Lou... uhh. Bigfoot? Garfield??...the GEICO Gecko???"
+    },
+    {
+      "name": "vo.initiation.ceremony.q1-big-uncle-lou-sputthole.1ow3urn.1",
+      "voice": "lou",
+      "say": "Oof."
+    },
+    {
+      "name": "vo.initiation.ceremony.q1-booskibro.0ax7uug.1",
+      "voice": "booski",
+      "say": "WRONG."
+    },
+    {
+      "name": "vo.initiation.ceremony.q2-big-uncle-lou-sputthole.1y1r41v.1",
+      "voice": "lou",
+      "say": "...Anyway!"
+    },
+    {
+      "name": "vo.initiation.ceremony.q2-booskibro.09kvaq9.1",
+      "voice": "booski",
+      "say": "Prospect Two. Same question."
+    },
+    {
+      "name": "vo.initiation.ceremony.q2-big-uncle-lou-sputthole.17vvp6d.1",
+      "voice": "lou",
+      "say": "No pressure. Well. Some pressure. A specific, recently demonstrated amount of pressure."
+    },
+    {
+      "name": "vo.initiation.ceremony.correct-booskibro.1y7kr1y.1",
+      "voice": "booski",
+      "say": "CORRECT. Myself. Big Uncle Lou Sputthole. Rippinflow. The Shubenator. Deathmegatron. The FIVE."
+    },
+    {
+      "name": "vo.initiation.ceremony.correct-big-uncle-lou-sputthole.13n17t6.1",
+      "voice": "lou",
+      "say": "Somebody did the reading!"
+    },
+    {
+      "name": "vo.initiation.ceremony.correct-booskibro.0rokpd7.1",
+      "voice": "booski",
+      "say": "The mind is sharp. Now we test the BODY. Clear the line — THE GAUNTLET AWAITS."
+    },
+    {
+      "name": "vo.initiation.ceremony.wrong-booskibro.0ax7uug.1",
+      "voice": "booski",
+      "say": "WRONG."
+    },
+    {
+      "name": "vo.initiation.ceremony.wrong-big-uncle-lou-sputthole.1ptheaa.1",
+      "voice": "lou",
+      "say": "Oh no. Same as the last guy. Word for word almost."
+    },
+    {
+      "name": "vo.initiation.ceremony.endured-booskibro.0m7k205.1",
+      "voice": "booski",
+      "say": "ENOUGH."
+    },
+    {
+      "name": "vo.initiation.ceremony.endured-booskibro.0puzx4p.1",
+      "voice": "booski",
+      "say": "Beaten down to a stump... and still on two feet. The Circle sees you, prospect."
+    },
+    {
+      "name": "vo.initiation.ceremony.endured-booskibro.0jbhkiy.1",
+      "voice": "booski",
+      "say": "Second trial: THE ROAR. The forest must learn your voice. Let it OUT."
+    },
+    {
+      "name": "vo.initiation.ceremony.roar-booskibro.1y99iql.1",
+      "voice": "booski",
+      "say": "HA! Birds three ridges over just quit their nests."
+    },
+    {
+      "name": "vo.initiation.ceremony.roar-booskibro.04z7p1x.1",
+      "voice": "booski",
+      "say": "Final trial: THE TIMBER. That old deadfall has mocked this clearing long enough. SMASH IT."
+    },
+    {
+      "name": "vo.initiation.ceremony.anoint-booskibro.1q1dvvj.1",
+      "voice": "booski",
+      "say": "You took the Circle’s fists. You gave the forest your voice. You turned a log into a suggestion."
+    },
+    {
+      "name": "vo.initiation.ceremony.anoint-booskibro.01hq6iv.1",
+      "voice": "booski",
+      "say": "Tony Squatchtana. You walked into this clearing a prospect."
+    },
+    {
+      "name": "vo.initiation.ceremony.anoint-booskibro.008ri98.1",
+      "voice": "booski",
+      "say": "Walk out a SQUATCH."
+    },
+    {
+      "name": "vo.initiation.ceremony.retry-booskibro.0k7hl8c.1",
+      "voice": "booski",
+      "say": "The Circle forgives once. Arms DOWN this time, prospect."
+    },
+    {
+      "name": "vo.initiation.ceremony.prospect-two.159f04d.1",
+      "voice": "player",
+      "say": "Booskibro, Big Uncle Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron"
+    },
+    {
+      "name": "vo.initiation.ceremony.prospect-two.09f28mj.1",
+      "voice": "player",
+      "say": "Booskibro, Big Uncle Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko"
+    },
+    {
+      "name": "vo.initiation.ceremony.prospect-two.0gkbuto.1",
+      "voice": "player",
+      "say": "Booskibro, Snow, Hogmama, Erican, and two raccoons in a coat"
+    },
+    {
+      "name": "vo.initiation.party.booski.0ul7wj8.1",
+      "voice": "booski",
+      "say": "There he is. Don't just stand there bleeding, come to the fire."
+    },
+    {
+      "name": "vo.initiation.party.booski.0noogwr.1",
+      "voice": "booski",
+      "say": "You did the reading. You have no idea how rare that is. The gecko guy did not do the reading."
+    },
+    {
+      "name": "vo.initiation.party.booski.13pbzks.1",
+      "voice": "booski",
+      "say": "THE MAN OF THE HOUR. Somebody get him something he can't refuse."
+    },
+    {
+      "name": "vo.initiation.party.booski.1fmhlyk.1",
+      "voice": "booski",
+      "say": "I've inducted forty men. I remember maybe six. You, I'll remember."
+    },
+    {
+      "name": "vo.initiation.party.booski.1vk1vra.1",
+      "voice": "booski",
+      "say": "You took the whole Gauntlet with your hands down. Deathmegatron cried a little. He'll deny it."
+    },
+    {
+      "name": "vo.initiation.party.booski.11vs05b.1",
+      "voice": "booski",
+      "say": "That ROAR. Three ridges of wildlife filed a noise complaint. I've never been prouder."
+    },
+    {
+      "name": "vo.initiation.party.booski.0w0lg6e.1",
+      "voice": "booski",
+      "say": "You know what the founders had that nobody has anymore? …I forget. But you've got it too."
+    },
+    {
+      "name": "vo.initiation.party.booski.0jkj49u.1",
+      "voice": "booski",
+      "say": "You're my son now. Legally? No. Forest-legally? Absolutely. Do not test it."
+    },
+    {
+      "name": "vo.initiation.party.booski.19z7fti.1",
+      "voice": "booski",
+      "say": "The log. You broke the log. You want to know what it was for. …It was for that. Next question."
+    },
+    {
+      "name": "vo.initiation.party.booski.1vg0pqs.1",
+      "voice": "booski",
+      "say": "You're quiet. My prospects are never quiet. What are you thinking about over there?"
+    },
+    {
+      "name": "vo.initiation.party.booski.1r7sdky.1",
+      "voice": "booski",
+      "say": "Come here. Closer. …No, closer. I want to see your eyes when I say welcome."
+    },
+    {
+      "name": "vo.initiation.party.booski.0jcxnfk.1",
+      "voice": "booski",
+      "say": "Rippinflow likes you. Rippinflow doesn't like anyone. Makes me wonder what he sees that I don't."
+    },
+    {
+      "name": "vo.initiation.party.lou.1dafja2.1",
+      "voice": "lou",
+      "say": "What he means is welcome. What I mean is: don't touch the good tarp. You'll learn what it's for."
+    },
+    {
+      "name": "vo.initiation.party.lou.0lhhkjk.1",
+      "voice": "lou",
+      "say": "Ignore the speech. Booski's been writing that speech for nine years. It peaked in draft two."
+    },
+    {
+      "name": "vo.initiation.party.lou.1hu8qxr.1",
+      "voice": "lou",
+      "say": "I'm technically still at the airport, spiritually. Don't ask. Have a beer."
+    },
+    {
+      "name": "vo.initiation.party.lou.146tcl0.1",
+      "voice": "lou",
+      "say": "You're doing great. You're doing so much better than Shubes did and Shubes is a full member."
+    },
+    {
+      "name": "vo.initiation.party.lou.1hyasxt.1",
+      "voice": "lou",
+      "say": "Somebody did the reading. Somebody gets to keep their fluids on the inside. Cheers to that."
+    },
+    {
+      "name": "vo.initiation.party.lou.0mz7unr.1",
+      "voice": "lou",
+      "say": "Genuinely proud of you. I might cry. I won't. But I might. That's between us."
+    },
+    {
+      "name": "vo.initiation.party.lou.07lpis4.1",
+      "voice": "lou",
+      "say": "Housekeeping while I've got you: the raccoons unionized. The little one has a clipboard now. Watch him."
+    },
+    {
+      "name": "vo.initiation.party.lou.0hdtwmo.1",
+      "voice": "lou",
+      "say": "You made it. Not everyone does. Don't look at the shirt by the truck. Look at me. You made it."
+    },
+    {
+      "name": "vo.initiation.party.lou.17d1pwa.1",
+      "voice": "lou",
+      "say": "You keep checking your waistband. Cold night? Or is there a reason your hand keeps going there."
+    },
+    {
+      "name": "vo.initiation.party.lou.1rsa6dq.1",
+      "voice": "lou",
+      "say": "I like you. So I'm going to say this once, friendly: whatever you're carrying, put it down before Booski's toast."
+    },
+    {
+      "name": "vo.initiation.party.rippinflow.044fod8.1",
+      "voice": "rippinflow",
+      "say": "…You did good."
+    },
+    {
+      "name": "vo.initiation.party.rippinflow.06x0216.1",
+      "voice": "rippinflow",
+      "say": "You didn't run. Smart. Nobody outruns the tree line."
+    },
+    {
+      "name": "vo.initiation.party.rippinflow.1ktpe8w.1",
+      "voice": "rippinflow",
+      "say": "I was gonna have to be the one. If you'd failed. Glad I didn't."
+    },
+    {
+      "name": "vo.initiation.party.rippinflow.0h4gx85.1",
+      "voice": "rippinflow",
+      "say": "You've got a shooter's hands. I noticed during the Gauntlet. You kept making a fist."
+    },
+    {
+      "name": "vo.initiation.party.rippinflow.0mjhqor.1",
+      "voice": "rippinflow",
+      "say": "Whatever you came here to do. …I hope it was join us."
+    },
+    {
+      "name": "vo.initiation.party.shubes.1cn6ytd.1",
+      "voice": "shubenator",
+      "say": "I'm not crying, it's — it's a smoky fire. It's a really smoky fire. Welcome, man."
+    },
+    {
+      "name": "vo.initiation.party.shubes.04d2y7j.1",
+      "voice": "shubenator",
+      "say": "I remember my initiation. I did NOT cry. Ape's lying. I want that on the record before you hear it."
+    },
+    {
+      "name": "vo.initiation.party.shubes.1hhm04m.1",
+      "voice": "shubenator",
+      "say": "You want a hit? It's going around. It helps with the — the this."
+    },
+    {
+      "name": "vo.initiation.party.shubes.1f1xfoo.1",
+      "voice": "shubenator",
+      "say": "We're brothers now. That's not nothing. That's — okay I'm gonna need a second. It's the smoke."
+    },
+    {
+      "name": "vo.initiation.party.shubes.1ls9vgm.1",
+      "voice": "shubenator",
+      "say": "When Booski said 'walk out a squatch' I felt that in my whole chest. Every time. Every single guy."
+    },
+    {
+      "name": "vo.initiation.party.shubes.1vp41wb.1",
+      "voice": "shubenator",
+      "say": "You seem stressed. Are you stressed? Because I get stressed and it's usually — is everything okay, man? Genuinely."
+    },
+    {
+      "name": "vo.initiation.party.shubes.1fj8r6h.1",
+      "voice": "shubenator",
+      "say": "Please don't do anything tonight. I don't know why I said that. I just — I get feelings. Please don't."
+    },
+    {
+      "name": "vo.initiation.party.deathmegatron.0jlv5p9.1",
+      "voice": "deathmegatron",
+      "say": "Voice on this guy."
+    },
+    {
+      "name": "vo.initiation.party.deathmegatron.08rpeo6.1",
+      "voice": "deathmegatron",
+      "say": "Good hands tonight. Kept 'em down. That's the whole trick."
+    },
+    {
+      "name": "vo.initiation.party.deathmegatron.1mpvq3f.1",
+      "voice": "deathmegatron",
+      "say": "I had my thumb on your windpipe for the Roar. In case. You roared. Good."
+    },
+    {
+      "name": "vo.initiation.party.deathmegatron.05h0ma9.1",
+      "voice": "deathmegatron",
+      "say": "Brother."
+    },
+    {
+      "name": "vo.initiation.party.deathmegatron.0pyngtq.1",
+      "voice": "deathmegatron",
+      "say": "You're tense. I can see it in the shoulders. I put things down when I'm tense. You should put things down."
+    },
+    {
+      "name": "vo.initiation.party.hogmama.1ahg85n.1",
+      "voice": "hogmama",
+      "say": "You eat? There's dogs on the fire. Real ones — hot dogs, relax. Don't make it weird."
+    },
+    {
+      "name": "vo.initiation.party.hogmama.0kumwmd.1",
+      "voice": "hogmama",
+      "say": "Sit down before you fall down. You lost blood tonight. Electrolytes. There's a warm Gatorade in the cooler, it's yours."
+    },
+    {
+      "name": "vo.initiation.party.hogmama.05xn58u.1",
+      "voice": "hogmama",
+      "say": "Every man here I've patched up at least once. You're on the list now. Congratulations, I guess."
+    },
+    {
+      "name": "vo.initiation.party.hogmama.089tex1.1",
+      "voice": "hogmama",
+      "say": "Don't step over by the truck. I haven't dealt with that yet and I don't want you tracking it around."
+    },
+    {
+      "name": "vo.initiation.party.hogmama.1cldrhn.1",
+      "voice": "hogmama",
+      "say": "Boys get sentimental at these. I don't. Somebody has to remember where the shovels are."
+    },
+    {
+      "name": "vo.initiation.party.hogmama.0tuh3wl.1",
+      "voice": "hogmama",
+      "say": "You've got a look. I've seen that look. Last person with that look is a story I tell to scare prospects."
+    },
+    {
+      "name": "vo.initiation.party.hogmama.0k6wgxr.1",
+      "voice": "hogmama",
+      "say": "Whatever you're planning, sweetheart — I do the cleanup. So do it somewhere with a tarp already down."
+    },
+    {
+      "name": "vo.initiation.party.ape.19628w6.1",
+      "voice": "ape",
+      "say": "You took thirty punches and cried less than Shubes did. That's the bar. You cleared the bar."
+    },
+    {
+      "name": "vo.initiation.party.ape.1i4431e.1",
+      "voice": "ape",
+      "say": "Congrats on the murder cult, dork. Beer's warm. So's the induction, apparently."
+    },
+    {
+      "name": "vo.initiation.party.ape.0ijq4on.1",
+      "voice": "ape",
+      "say": "I had money on you eating it at the log. You cost me forty bucks. I've never respected anyone more."
+    },
+    {
+      "name": "vo.initiation.party.ape.09wkzum.1",
+      "voice": "ape",
+      "say": "You know they only shot the first guy because he was worse at trivia than you. Low bar. You limbo'd under it. Proud."
+    },
+    {
+      "name": "vo.initiation.party.ape.1wv0asm.1",
+      "voice": "ape",
+      "say": "Nine feet tall and still can't hold your beer. This is my favorite version of you."
+    },
+    {
+      "name": "vo.initiation.party.ape.0wbojf4.1",
+      "voice": "ape",
+      "say": "Don't let Booski hug you, he'll cry on the fur and it never dries. Ask Shubes. Shubes is basically a sponge now."
+    },
+    {
+      "name": "vo.initiation.party.ape.0igz9f6.1",
+      "voice": "ape",
+      "say": "You're weird tonight. Weirder. And I've seen you sober, so that's a real statement."
+    },
+    {
+      "name": "vo.initiation.party.ape.1gwjrcm.1",
+      "voice": "ape",
+      "say": "What's in the pants, hero. And don't say a gun, because then I have to care, and I'm four deep."
+    },
+    {
+      "name": "vo.initiation.party.irish.0q73ftg.1",
+      "voice": "irish",
+      "say": "Nobody has answered my question about the eggs. You're new — YOU answer it. What is the egg situation."
+    },
+    {
+      "name": "vo.initiation.party.irish.0866paj.1",
+      "voice": "irish",
+      "say": "I raised the parking thing at the last three meetings. Three. We're a forest death cult and we cannot organize a car pool."
+    },
+    {
+      "name": "vo.initiation.party.irish.1ln070f.1",
+      "voice": "irish",
+      "say": "Did they shoot a lad earlier or did I imagine that. Because if they did, that's exactly the kind of thing that should be on the AGENDA."
+    },
+    {
+      "name": "vo.initiation.party.irish.1g5h1uf.1",
+      "voice": "irish",
+      "say": "Welcome, whatever. Do you have opinions on the fire-pit can situation. Because I have a document."
+    },
+    {
+      "name": "vo.initiation.party.irish.03363if.1",
+      "voice": "irish",
+      "say": "I'm not drunk, I'm CORRECT, and there's a difference, and it's in the minutes, which nobody reads."
+    },
+    {
+      "name": "vo.initiation.party.irish.1ah08u7.1",
+      "voice": "irish",
+      "say": "You're the only one not talking. Finally, a serious person. Are you a serious person? Do you want to see the document."
+    },
+    {
+      "name": "vo.initiation.party.erican.190z6i5.1",
+      "voice": "eric",
+      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
+    },
+    {
+      "name": "vo.initiation.party.erican.0bdemm4.1",
+      "voice": "eric",
+      "say": "To the new blood!"
+    },
+    {
+      "name": "vo.initiation.party.erican.1o3ynaq.1",
+      "voice": "eric",
+      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
+    },
+    {
+      "name": "vo.initiation.party.erican.1jb6mll.1",
+      "voice": "eric",
+      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
+    },
+    {
+      "name": "vo.initiation.party.erican.0npetxc.1",
+      "voice": "eric",
+      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
+    },
+    {
+      "name": "vo.initiation.party.gratin.190z6i5.1",
+      "voice": "gratin",
+      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
+    },
+    {
+      "name": "vo.initiation.party.gratin.0bdemm4.1",
+      "voice": "gratin",
+      "say": "To the new blood!"
+    },
+    {
+      "name": "vo.initiation.party.gratin.1o3ynaq.1",
+      "voice": "gratin",
+      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
+    },
+    {
+      "name": "vo.initiation.party.gratin.1jb6mll.1",
+      "voice": "gratin",
+      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
+    },
+    {
+      "name": "vo.initiation.party.gratin.0npetxc.1",
+      "voice": "gratin",
+      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
+    },
+    {
+      "name": "vo.initiation.party.captain-lou-sasole.190z6i5.1",
+      "voice": "lou2",
+      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
+    },
+    {
+      "name": "vo.initiation.party.captain-lou-sasole.0bdemm4.1",
+      "voice": "lou2",
+      "say": "To the new blood!"
+    },
+    {
+      "name": "vo.initiation.party.captain-lou-sasole.1o3ynaq.1",
+      "voice": "lou2",
+      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
+    },
+    {
+      "name": "vo.initiation.party.captain-lou-sasole.1jb6mll.1",
+      "voice": "lou2",
+      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
+    },
+    {
+      "name": "vo.initiation.party.captain-lou-sasole.0npetxc.1",
+      "voice": "lou2",
+      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
+    },
+    {
+      "name": "vo.initiation.party.snow.190z6i5.1",
+      "voice": "snow",
+      "say": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was."
+    },
+    {
+      "name": "vo.initiation.party.snow.0bdemm4.1",
+      "voice": "snow",
+      "say": "To the new blood!"
+    },
+    {
+      "name": "vo.initiation.party.snow.1o3ynaq.1",
+      "voice": "snow",
+      "say": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer."
+    },
+    {
+      "name": "vo.initiation.party.snow.1jb6mll.1",
+      "voice": "snow",
+      "say": "Good roar. I've heard bad ones. Bad ones we don't talk about, on account of the guy."
+    },
+    {
+      "name": "vo.initiation.party.snow.0npetxc.1",
+      "voice": "snow",
+      "say": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him."
+    },
+    {
+      "name": "vo.initiation.party.snow.0l62w3g.1",
+      "voice": "snow",
+      "say": "No hard feelings on the first guy. Job's a job. You I like — you knew the founders."
+    },
+    {
+      "name": "vo.initiation.party.snow.10xbalq.1",
+      "voice": "snow",
+      "say": "You want to know if it gets easier. It got easier around number four. Cheers."
+    },
+    {
+      "name": "vo.initiation.party.snow.1o6vqe0.1",
+      "voice": "snow",
+      "say": "I reloaded twice for that idiot. You? You I wouldn't have needed the second mag. Compliment."
+    },
+    {
+      "name": "vo.initiation.party.snow.05ylq01.1",
+      "voice": "snow",
+      "say": "You're not gonna make me work twice tonight, are you."
+    },
+    {
+      "name": "vo.initiation.ambient.ape.0419kfp.1",
+      "voice": "ape",
+      "say": "Shubes is crying again."
+    },
+    {
+      "name": "vo.initiation.ambient.shubes.1lxqviq.1",
+      "voice": "shubenator",
+      "say": "It's the SMOKE."
+    },
+    {
+      "name": "vo.initiation.ambient.ape.1i3c879.1",
+      "voice": "ape",
+      "say": "There's no smoke over there. You're upwind."
+    },
+    {
+      "name": "vo.initiation.ambient.shubes.1axhvr8.1",
+      "voice": "shubenator",
+      "say": "…It's allergies."
+    },
+    {
+      "name": "vo.initiation.ambient.irish.06l4y20.1",
+      "voice": "irish",
+      "say": "Are we going to talk about the parking or not."
+    },
+    {
+      "name": "vo.initiation.ambient.hogmama.1ju8p58.1",
+      "voice": "hogmama",
+      "say": "Not."
+    },
+    {
+      "name": "vo.initiation.ambient.irish.1bru72z.1",
+      "voice": "irish",
+      "say": "Noted. AGAIN."
+    },
+    {
+      "name": "vo.initiation.ambient.booski.149u0w9.1",
+      "voice": "booski",
+      "say": "Best induction in years."
+    },
+    {
+      "name": "vo.initiation.ambient.lou.08qn0k2.1",
+      "voice": "lou",
+      "say": "You said that about the last one."
+    },
+    {
+      "name": "vo.initiation.ambient.booski.0osl56r.1",
+      "voice": "booski",
+      "say": "The last one's a shirt now, Lou."
+    },
+    {
+      "name": "vo.initiation.ambient.lou.0fglkg3.1",
+      "voice": "lou",
+      "say": "…Fair."
+    },
+    {
+      "name": "vo.initiation.ambient.ape.1gb5hpx.1",
+      "voice": "ape",
+      "say": "Deep. Real deep, big man."
+    },
+    {
+      "name": "vo.initiation.ambient.hogmama.091pd5g.1",
+      "voice": "hogmama",
+      "say": "Whose turn is the tarp this week."
+    },
+    {
+      "name": "vo.initiation.ambient.ape.0h7ii9x.1",
+      "voice": "ape",
+      "say": "Rippinflow's."
+    },
+    {
+      "name": "vo.initiation.ambient.rippinflow.15loodx.1",
+      "voice": "rippinflow",
+      "say": "…I did last week."
+    },
+    {
+      "name": "vo.initiation.ambient.hogmama.0gs5hoq.1",
+      "voice": "hogmama",
+      "say": "You're good at it, though."
+    },
+    {
+      "name": "vo.initiation.ambient.lou.12x3vpg.1",
+      "voice": "lou",
+      "say": "I'm not even meant to be here, technically. I'm at the airport."
+    },
+    {
+      "name": "vo.initiation.ambient.ape.1q4qhzc.1",
+      "voice": "ape",
+      "say": "You've been 'at the airport' for six years."
+    },
+    {
+      "name": "vo.initiation.ambient.lou.03vfmoo.1",
+      "voice": "lou",
+      "say": "And I'll be there six more."
+    },
+    {
+      "name": "vo.initiation.ambient.irish.0at9yb1.1",
+      "voice": "irish",
+      "say": "Nobody. Answered. About the eggs."
+    },
+    {
+      "name": "vo.initiation.ambient.shubes.1l0547c.1",
+      "voice": "shubenator",
+      "say": "What eggs?"
+    },
+    {
+      "name": "vo.initiation.ambient.irish.1eu4g1z.1",
+      "voice": "irish",
+      "say": "EXACTLY."
+    },
+    {
+      "name": "vo.initiation.ambient.booski.06sn01i.1",
+      "voice": "booski",
+      "say": "Rippinflow. Say something to the new blood."
+    },
+    {
+      "name": "vo.initiation.ambient.rippinflow.1tyksgj.1",
+      "voice": "rippinflow",
+      "say": "…Welcome."
+    },
+    {
+      "name": "vo.initiation.ambient.booski.0p8sqgg.1",
+      "voice": "booski",
+      "say": "BEAUTIFUL. That's the most he's said since March."
+    },
+    {
+      "name": "vo.initiation.ambient.ape.1jvatuw.1",
+      "voice": "ape",
+      "say": "New guy's being weird."
+    },
+    {
+      "name": "vo.initiation.ambient.hogmama.0u8bxi6.1",
+      "voice": "hogmama",
+      "say": "I clocked it."
+    },
+    {
+      "name": "vo.initiation.ambient.ape.1rrbwd2.1",
+      "voice": "ape",
+      "say": "…Should we—"
+    },
+    {
+      "name": "vo.initiation.ambient.hogmama.1gphmz6.1",
+      "voice": "hogmama",
+      "say": "Rippinflow's got it."
+    },
+    {
+      "name": "vo.initiation.ambient.lou.149wslz.1",
+      "voice": "lou",
+      "say": "Booski, do your toast where people can see your hands."
+    },
+    {
+      "name": "vo.initiation.ambient.booski.0r5edhx.1",
+      "voice": "booski",
+      "say": "Why."
+    },
+    {
+      "name": "vo.initiation.ambient.lou.1ckii4g.1",
+      "voice": "lou",
+      "say": "Humor me."
     }
   ]
 }
