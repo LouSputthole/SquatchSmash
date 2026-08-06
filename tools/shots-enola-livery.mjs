@@ -1,8 +1,26 @@
 #!/usr/bin/env node
 /**
- * On-foot livery walkaround shots for the Enola Squatch.
+ * On-foot livery walkaround shots of the Enola Squatch, plus the measurements
+ * behind them.
  *
- * Usage: node shots.mjs <outdir>
+ * Written on 2026-08-06, after a pass that had "verified" the nose art from a
+ * chase camera thirty metres dead astern and consequently could not see that
+ * half the paint on the bomb was inside the fuselage. Everything here is shot
+ * from where a man actually stands: the two flanks from three to five metres
+ * abeam at eye height, and the payload from under the wing.
+ *
+ * Camera placements are given in the AEROPLANE's own frame (+X port, +Z nose,
+ * y 0 at the fuselage centreline, tarmac at y -3.0) and converted through the
+ * aircraft group's matrix, so a shot list stays valid wherever on the field
+ * the aeroplane happens to be parked.
+ *
+ * Also dumps `measurements.json`: the world/local extents of every decal, and
+ * a full-scene traversal for negative scales — the MIRRORED defect
+ * `tools/scene-audit.mjs` names, which is the thing that would break if
+ * anybody ever "mirrored" the nose art onto the far flank with `scale.x = -1`.
+ *
+ * Usage: PORT=5993 node tools/shots-enola-livery.mjs <outdir>
+ *        SHOTLIST=<file.json> to override the shot list.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -46,7 +64,8 @@ const browser = await chromium.launch({
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
 
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const page = await browser.newPage({ viewport: { width: 1100, height: 700 } });
+page.setDefaultTimeout(180000);
 const problems = [];
 page.on('pageerror', (e) => problems.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text().slice(0, 200)); });
@@ -70,18 +89,71 @@ await page.evaluate(() => {
 
 const info = await page.evaluate(() => {
   const h = window.__enolaSquatch;
-  const THREE = h.scene.constructor;
   const p = h.physics.position;
-  const bomb = h.payload.group.getWorldPosition(new h.scene.children[0].position.constructor());
+  const round = (v) => Math.round(v * 1000) / 1000;
+
+  /* Every decal's extent, in the frame of the thing it is painted on: the
+   * aeroplane for the nose art and the badges, the casing for the bomb's. */
+  const extents = (root, node) => {
+    node.updateWorldMatrix(true, false);
+    root.updateWorldMatrix(true, false);
+    const g = node.geometry;
+    if (!g) return null;
+    const pos = g.attributes.position;
+    const inv = root.matrixWorld.clone().invert();
+    const V = h.camera.position.constructor;
+    const v = new V();
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(node.matrixWorld).applyMatrix4(inv);
+      lo[0] = Math.min(lo[0], v.x); hi[0] = Math.max(hi[0], v.x);
+      lo[1] = Math.min(lo[1], v.y); hi[1] = Math.max(hi[1], v.y);
+      lo[2] = Math.min(lo[2], v.z); hi[2] = Math.max(hi[2], v.z);
+    }
+    return {
+      name: node.name,
+      visible: node.visible,
+      x: [round(lo[0]), round(hi[0])],
+      y: [round(lo[1]), round(hi[1])],
+      z: [round(lo[2]), round(hi[2])],
+      scale: [node.scale.x, node.scale.y, node.scale.z].map(round),
+    };
+  };
+
+  /* The MIRRORED audit, over the WHOLE scene rather than the aeroplane: a
+   * negative scale on any axis turns a mesh inside out. */
+  const mirrored = [];
+  let objects = 0;
+  h.scene.traverse((o) => {
+    objects++;
+    if (o.scale && (o.scale.x < 0 || o.scale.y < 0 || o.scale.z < 0)) {
+      mirrored.push({ name: o.name || o.type, scale: [o.scale.x, o.scale.y, o.scale.z] });
+    }
+  });
+
+  const ac = h.aircraft;
+  const pay = h.payload;
   return {
-    aircraft: { x: p.x, y: p.y, z: p.z },
-    quat: [h.physics.quat.x, h.physics.quat.y, h.physics.quat.z, h.physics.quat.w],
-    bomb: { x: bomb.x, y: bomb.y, z: bomb.z },
-    ground: h.groundHeight(p.x, p.z),
     phase: h.mission.phase,
+    aircraft: { x: round(p.x), y: round(p.y), z: round(p.z) },
+    ground: round(h.groundHeight(p.x, p.z)),
+    sceneObjects: objects,
+    negativeScales: mirrored,
+    noseArt: [...(ac.parts.noseArt || [])].map((m) => extents(ac.group, m)),
+    aircraftCrests: [...(ac.parts.clubLogo || [])].map((m) => extents(ac.group, m)),
+    bombCrests: [...(pay.parts.clubLogo || [])].map((m) => extents(pay.group, m)),
+    bombPlacard: pay.parts.placard ? [extents(pay.group, pay.parts.placard)] : [],
+    bombStickers: [...(pay.parts.stickers || [])].map((m) => extents(pay.group, m)),
+    /* The bomb's own local y above which the casing is inside the fuselage —
+     * the belly is at aeroplane-local y -1.7 and the mount hangs below it. */
+    bombBellyLine: round(-1.7 - ((pay.group.parent?.position.y ?? 0) + pay.group.position.y)),
   };
 });
-console.log(JSON.stringify(info, null, 2));
+fs.writeFileSync(path.join(OUT, 'measurements.json'), JSON.stringify(info, null, 2));
+console.log(JSON.stringify({
+  negativeScales: info.negativeScales, sceneObjects: info.sceneObjects, bombBellyLine: info.bombBellyLine,
+}, null, 2));
 
 /**
  * Stand at a point in the AEROPLANE's local frame and look at another local
@@ -90,6 +162,9 @@ console.log(JSON.stringify(info, null, 2));
 async function shot(name, fromLocal, atLocal, { eye = 1.66, fov = 66 } = {}) {
   await page.evaluate(([from, at, eyeH, fovDeg]) => {
     const h = window.__enolaSquatch;
+    window.__freeCam = null;                 // give the camera back to the man
+    h.player.enabled = true;
+    h.player.mode = 'walk';
     const g = h.aircraft.group;
     g.updateMatrixWorld(true);
     const V = h.camera.position.constructor;
@@ -107,7 +182,7 @@ async function shot(name, fromLocal, atLocal, { eye = 1.66, fov = 66 } = {}) {
     h.tick(1 / 60);
   }, [fromLocal, atLocal, eye, fov]);
   await page.waitForTimeout(160);
-  await page.screenshot({ path: path.join(OUT, `${name}.png`) });
+  await page.screenshot({ path: path.join(OUT, `${name}.png`), timeout: 180000, animations: 'disabled' });
   console.log('  shot', name);
 }
 
@@ -122,23 +197,28 @@ async function freeShot(name, fromLocal, atLocal, fov = 60) {
     const aw = new V(at[0], at[1], at[2]).applyMatrix4(g.matrixWorld);
     h.player.enabled = false;
     h.player.mode = 'frozen';
+    /* The composition root writes the camera from the player and then renders
+     * in the SAME frame callback, so anything we set from our own rAF is
+     * overwritten before it is ever drawn. Overriding `render` is the only
+     * hook that is guaranteed to be the last word on the matrix. */
+    const r = h.renderer;
+    if (!r.__origRender) r.__origRender = r.render.bind(r);
     window.__freeCam = { fw, aw, fovDeg };
-    const loop = () => {
-      const c = h.camera;
-      c.position.copy(fw);
-      c.up.set(0, 1, 0);
-      c.lookAt(aw);
-      c.fov = fovDeg;
-      c.updateProjectionMatrix();
-      c.updateMatrixWorld();
+    r.render = (scene, cam) => {
+      const f = window.__freeCam;
+      if (f) {
+        cam.position.copy(f.fw);
+        cam.up.set(0, 1, 0);
+        cam.lookAt(f.aw);
+        cam.fov = f.fovDeg;
+        cam.updateProjectionMatrix();
+        cam.updateMatrixWorld(true);
+      }
+      r.__origRender(scene, cam);
     };
-    loop();
-    window.__freeLoop && cancelAnimationFrame(window.__freeLoop);
-    const spin = () => { loop(); window.__freeLoop = requestAnimationFrame(spin); };
-    spin();
   }, [fromLocal, atLocal, fov]);
   await page.waitForTimeout(220);
-  await page.screenshot({ path: path.join(OUT, `${name}.png`) });
+  await page.screenshot({ path: path.join(OUT, `${name}.png`), timeout: 180000, animations: 'disabled' });
   console.log('  shot', name);
 }
 

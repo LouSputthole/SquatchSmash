@@ -634,9 +634,9 @@ export class EnolaSquatch {
     for (const sx of [-1, 1]) {
       /* Ascending, non-overlapping. Every gap is a real object that would
        * otherwise be inside the stripe box: the waist blister at z -5.4 on
-       * both sides, and on the port side the crew door and the nose art. Runs
-       * shorter than 0.25 m are dropped by `runs()`, so touching gaps merge on
-       * their own.
+       * both sides, the crew door on the -X side only, and the nose-art bay,
+       * which since 2026-08-06 is on BOTH. Runs shorter than 0.25 m are
+       * dropped by `runs()`, so touching gaps merge on their own.
        *
        * The forward gap was [3.2, 5.4] — sized for the club badge that used to
        * be the only thing on this flank. It now runs from the wing leading edge
@@ -644,10 +644,15 @@ export class EnolaSquatch {
        * pin-up, the name plate and the badge all stand on it (see the nose-art
        * block below). The last run comes out zero-length and `runs()` drops it,
        * so the stripe simply stops aft of the artwork, which is what a paint
-       * shop masking off a nose-art bay actually leaves behind. */
+       * shop masking off a nose-art bay actually leaves behind.
+       *
+       * The +X flank got the same forward gap on 2026-08-06, when the artwork
+       * was copied to it: the pin-up's ink runs down to y -0.90 and the stripe
+       * band is y -0.80..-0.30, so leaving the stripe on would have drawn a
+       * 0.5 m purple bar across her legs on that side only. */
       const gaps = sx < 0
         ? [[-6.2, -4.6], [-4.4, -2.4], [2.6, FUSE_LEN / 2 - 0.7]]
-        : [[-6.2, -4.6]];
+        : [[-6.2, -4.6], [2.6, FUSE_LEN / 2 - 0.7]];
       for (const [a, b] of runs(gaps)) {
         const len = b - a;
         g.add(mesh(boxGeo(0.036, 0.5, len), purple, sx * LIVERY_X, STRIPE_Y, (a + b) / 2));
@@ -667,14 +672,27 @@ export class EnolaSquatch {
      * planes below are sized from. Neither sheet fills itself: the pin-up's ink
      * is 0.73:1 and the name's is 2.03:1 inside identical 2:3 portrait files.
      *
-     * WHICH SIDE. This one flank, and no mirror of it. Heavy-bomber nose art
-     * was painted on the side the photographer stood, and this is that side:
-     * the crew door is on it, `../main.js`'s `standAtNextCheck()` walks the
-     * player down it for every centreline check, and both club badges and the
-     * old stencil were already here. Copying it to the far flank would also
-     * have meant a second plane whose UVs run the other way, and doing THAT
-     * with a negative scale is the trap that turns a mesh inside out and makes
-     * it vanish. There is no mirror here and no negative scale anywhere below.
+     * WHICH SIDE. Owner, 2026-08-06: "put the enola squatch logo on both sides
+     * with the pinup girl as well." Both, then — one pair of plates per flank,
+     * at the same stations, sized off the same measured aspects.
+     *
+     * This block used to argue for one flank on the grounds that the far side
+     * would need "a second plane whose UVs run the other way", and that doing
+     * that with a negative scale is the trap that turns a mesh inside out.
+     * The second half of that is true and still is. The first half was wrong,
+     * and `artPlate()` below is why: a plane's own +X axis runs to +Z when it
+     * is turned -90 degrees about Y and to -Z when it is turned +90. A viewer
+     * stood off the -X flank has +Z on his right; a viewer off the +X flank
+     * has -Z on his right. So the SAME texture on the SAME geometry reads
+     * left-to-right from either side with nothing flipped — no mirrored UVs,
+     * no `scale.x = -1`, and nothing for `tools/scene-audit.mjs`'s MIRRORED
+     * rule to find. What the two flanks do NOT share is a position, and that
+     * is the whole difference between the two plates.
+     *
+     * Nose-to-tail still reads nose-to-tail on both sides, because both pairs
+     * keep the same z stations: the name is forward of the figure in the
+     * aeroplane's own frame, so it is on the viewer's right from one flank and
+     * his left from the other, exactly as a real aeroplane's two sides do it.
      *
      * WHERE, ALONG THE FUSELAGE. Forward of the wing and under the flight
      * deck, which is both the authentic station and the only clear skin: the
@@ -706,16 +724,24 @@ export class EnolaSquatch {
      * also brings it nearer the eyeline of a man standing on the tarmac looking
      * up at a bomber on three metres of undercarriage. */
     this.parts.noseArt = [];
-    const artPlate = (name, w, h, y, z) => {
+    /**
+     * One painting, on one flank.
+     *
+     * `sx` is the only thing that differs between the two copies, and it moves
+     * the plate and turns it — it never scales it. At `sx * DECAL_X` turned
+     * `sx * PI/2` the plate faces outboard and its own +X (the texture's u)
+     * runs to the viewer's right on either side; see the WHICH SIDE note above
+     * for the derivation. Both plates are built from `new PlaneGeometry` per
+     * plate rather than the cached `planeGeo()`, because `applyNoseArt()`
+     * replaces each one's geometry when the real ink is measured.
+     */
+    const artPlate = (name, w, h, y, z, sx) => {
       const plate = flatMesh(
         new THREE.PlaneGeometry(w, h),
         mat({ roughness: 0.82, metalness: 0.05, transparent: true, alphaTest: 0.04, unique: true }),
-        -DECAL_X, y, z,
+        sx * DECAL_X, y, z,
       );
-      /* Faces -X. A plane's +X runs to +Z under this rotation, so the painting
-       * reads left-to-right for somebody standing off this flank — no UV work
-       * and, critically, no negative scale. */
-      plate.rotation.y = -Math.PI / 2;
+      plate.rotation.y = sx * (Math.PI / 2);
       plate.name = name;
       g.add(plate);
       this.parts.noseArt.push(plate);
@@ -750,17 +776,26 @@ export class EnolaSquatch {
      * standing in for the owner's own would be worse than bare aluminium, and
      * bare aluminium is what an aeroplane waiting for its nose art looks like.
      * The NAME plate does carry a stand-in, so the aeroplane is never anonymous
-     * — the same contract `../livery.js`'s crest placeholder keeps. */
-    const pinup = artPlate('enola-squatch-nose-art', PINUP_W, PINUP_H, ART_TOP - PINUP_H / 2, pinupZ);
-    pinup.visible = false;
-    const namePlate = artPlate('enola-squatch-nose-name', NAME_W, NAME_H, ART_TOP - NAME_H / 2, nameZ);
-    namePlate.material.map = noseNamePlaceholderTexture();
-    namePlate.material.needsUpdate = true;
+     * — the same contract `../livery.js`'s crest placeholder keeps. Each plate
+     * gets its OWN stand-in canvas, because each has its own material and
+     * `applyCrest()` disposes the map it replaces. */
+    this.parts.noseArtPlates = [];
+    this.parts.noseNamePlates = [];
+    for (const sx of [-1, 1]) {
+      const pinup = artPlate('enola-squatch-nose-art', PINUP_W, PINUP_H, ART_TOP - PINUP_H / 2, pinupZ, sx);
+      pinup.visible = false;
+      const namePlate = artPlate('enola-squatch-nose-name', NAME_W, NAME_H, ART_TOP - NAME_H / 2, nameZ, sx);
+      namePlate.material.map = noseNamePlaceholderTexture();
+      namePlate.material.needsUpdate = true;
+      this.parts.noseArtPlates.push(pinup);
+      this.parts.noseNamePlates.push(namePlate);
+    }
 
-    this.parts.noseArtPlate = pinup;
-    this.parts.noseNamePlate = namePlate;
+    /** The -X pair, under the singular names the rest of the code still uses. */
+    [this.parts.noseArtPlate] = this.parts.noseArtPlates;
+    [this.parts.noseNamePlate] = this.parts.noseNamePlates;
     /** Kept under its old name too — the plate IS the nose art now. */
-    this.parts.titlePlate = namePlate;
+    this.parts.titlePlate = this.parts.noseNamePlate;
 
     /* Fire-and-forget, exactly like the club crest: the aeroplane is built
      * synchronously at boot and the paintings decode whenever they decode.
@@ -782,21 +817,27 @@ export class EnolaSquatch {
      * FOUR places, which is where a squadron actually puts its badge: both
      * faces of the fin, and under the cockpit on BOTH sides of the nose.
      *
-     * The port one is new. Owner playtest, 2026-08-04: "The squatch head on
-     * towards the front of the plane — lets use the Squatch logo." That head
-     * was a drawn-from-scratch Sasquatch face on its own canvas, a second
-     * piece of club artwork living next to the real one for no reason; it is
-     * gone, and the club's actual crest stands in its place on the same flank.
+     * The -X nose badge replaced a drawing. Owner playtest, 2026-08-04: "The
+     * squatch head on towards the front of the plane — lets use the Squatch
+     * logo." That head was a drawn-from-scratch Sasquatch face on its own
+     * canvas, a second piece of club artwork living next to the real one for
+     * no reason; it is gone, and the club's actual crest stands in its place.
      *
      * 2026-08-05: it moved forward, from z 4.3 to z 6.6, and came down from
      * 1.75 m to 1.30. It used to be the largest thing on this flank because it
      * was the only thing on it; the flank now carries the aeroplane's own name
      * and her pin-up, and z 4.3 is where the name plate goes. Under the
-     * pilot's window, forward of the artwork and a size with the starboard one,
-     * is where a squadron badge belongs anyway — it is a badge again instead of
-     * the headline act. It sits at y 0.10 so its top clears the cockpit side
-     * glazing (y 0.80, z 6.40..7.90), which is inboard of it and would show
-     * through.
+     * pilot's window, forward of the artwork, is where a squadron badge belongs
+     * anyway — it is a badge again instead of the headline act.
+     *
+     * 2026-08-06: the OTHER nose badge made the same move, for the same
+     * reason. It was still at z 4.0 at 1.35 m, sized and placed for a flank
+     * that had nothing else on it; the artwork now on that flank runs
+     * z 2.72..5.84, straight through it. Both are 1.30 m at z 6.75 now, which
+     * also makes the nose symmetrical — the pair are one badge on two sides
+     * rather than two different badges. y 0.05 keeps each one's top edge
+     * (y 0.70) under the cockpit side glazing, which spans y 0.80..1.50 at
+     * z 6.40..7.90 on BOTH sides and would otherwise show through it.
      *
      * Until the texture resolves they carry the drawn placeholder
      * `resolveGear` falls back to, so no surface is ever blank. */
@@ -806,22 +847,19 @@ export class EnolaSquatch {
     });
     for (const sx of [-1, 1]) {
       const finBadge = flatMesh(planeGeo(1.5, 1.5), logoMat(), sx * 0.2, 3.1, -FUSE_LEN / 2 - 4.3);
-      finBadge.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      finBadge.rotation.y = sx * (Math.PI / 2);
       finBadge.name = 'club-crest-fin';
       g.add(finBadge);
       this.parts.clubLogo.push(finBadge);
     }
-    const noseBadge = flatMesh(planeGeo(1.35, 1.35), logoMat(), DECAL_X, 0.45, 4.0);
-    noseBadge.rotation.y = Math.PI / 2;
-    noseBadge.name = 'club-crest-nose';
-    g.add(noseBadge);
-    this.parts.clubLogo.push(noseBadge);
-    // Port side, forward of the nose art, under the pilot's window.
-    const noseBadgePort = flatMesh(planeGeo(1.30, 1.30), logoMat(), -DECAL_X, 0.05, 6.75);
-    noseBadgePort.rotation.y = -Math.PI / 2;
-    noseBadgePort.name = 'club-crest-nose';
-    g.add(noseBadgePort);
-    this.parts.clubLogo.push(noseBadgePort);
+    // Forward of the nose art, under the pilot's window, on both sides.
+    for (const sx of [-1, 1]) {
+      const noseBadge = flatMesh(planeGeo(1.30, 1.30), logoMat(), sx * DECAL_X, 0.05, 6.75);
+      noseBadge.rotation.y = sx * (Math.PI / 2);
+      noseBadge.name = 'club-crest-nose';
+      g.add(noseBadge);
+      this.parts.clubLogo.push(noseBadge);
+    }
 
     /* ---- Landing gear: fixed tricycle, scaled up ----
      *
@@ -1194,9 +1232,15 @@ export class EnolaSquatch {
    * writes are the trap this codebase already keeps a note about, and a
    * negative one would turn the plate inside out.
    *
+   * BOTH FLANKS, since 2026-08-06. Each painting goes onto its two plates from
+   * one prepared texture — the same `CanvasTexture`, shared, since the two
+   * plates differ only in where they hang. The layout is struck ONCE off the
+   * finished widths and written to both, so the two sides cannot drift apart
+   * if a re-export ever changes a crop.
+   *
    * @param {?{texture: THREE.Texture, aspect: number}} pinup
    * @param {?{texture: THREE.Texture, aspect: number}} name
-   * @returns {number} plates repainted (0-2)
+   * @returns {number} plates repainted (0-4)
    */
   applyNoseArt(pinup, name = null) {
     const L = this.noseArtLayout;
@@ -1206,28 +1250,35 @@ export class EnolaSquatch {
     const asArt = (v, plate) => (v?.texture ? v
       : v?.isTexture ? { texture: v, aspect: plate.geometry.parameters.width / plate.geometry.parameters.height }
         : null);
-    const fit = (plate, art, height) => {
-      if (!plate || !art?.texture) return plate?.geometry.parameters.width ?? 0;
+    const fit = (plates, art, height) => {
+      const first = plates?.[0];
+      if (!first) return 0;
+      if (!art?.texture) return first.geometry.parameters.width;
       const width = height * art.aspect;
-      const geo = plate.geometry;
-      if (Math.abs(geo.parameters.width - width) > 1e-4) {
-        plate.geometry = new THREE.PlaneGeometry(width, height);
-        geo.dispose();
+      for (const plate of plates) {
+        const geo = plate.geometry;
+        if (Math.abs(geo.parameters.width - width) > 1e-4) {
+          plate.geometry = new THREE.PlaneGeometry(width, height);
+          geo.dispose();
+        }
+        applyCrest([plate], art.texture);
+        // Top-aligned, whatever height each one ended up at.
+        plate.position.y = L.top - height / 2;
+        plate.visible = true;
+        n++;
       }
-      applyCrest([plate], art.texture);
-      // Top-aligned, whatever height each one ended up at.
-      plate.position.y = L.top - height / 2;
-      plate.visible = true;
-      n++;
       return width;
     };
 
-    const pinupW = fit(this.parts.noseArtPlate, asArt(pinup, this.parts.noseArtPlate), L.pinupH);
-    const nameW = fit(this.parts.noseNamePlate, asArt(name, this.parts.noseNamePlate), L.nameH);
+    const pinups = this.parts.noseArtPlates ?? [];
+    const names = this.parts.noseNamePlates ?? [];
+    const pinupW = fit(pinups, asArt(pinup, pinups[0] ?? this.parts.noseArtPlate), L.pinupH);
+    const nameW = fit(names, asArt(name, names[0] ?? this.parts.noseNamePlate), L.nameH);
     /* Re-strike the gap off the finished widths. Forward is +Z: the name goes
-     * ahead of the figure, one gap clear of her leading edge. */
-    if (this.parts.noseNamePlate) {
-      this.parts.noseNamePlate.position.z = L.pinupZ + pinupW / 2 + L.gap + nameW / 2;
+     * ahead of the figure, one gap clear of her leading edge — on both flanks,
+     * because both pairs sit at the same stations. */
+    for (const plate of names) {
+      plate.position.z = L.pinupZ + pinupW / 2 + L.gap + nameW / 2;
     }
     return n;
   }

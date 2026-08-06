@@ -5,10 +5,10 @@
  * (the simplest correct approach for a rounded, tapered casing — see
  * `src/beefrun/cargo.js`'s crates for the project's usual "boxes and
  * cylinders" register; this needed something rounder, and a scaled sphere is
- * that same register's rounded primitive), silver/purple paint, a smiling
- * Sasquatch face decal, and a scattering of individually-applied sticker
- * decals, each its own small canvas texture so they read as stuck on rather
- * than printed as one wrap.
+ * that same register's rounded primitive), silver/purple paint, the club's
+ * crest on both shoulders, the depot's FAT SQUATCH label, and a scattering of
+ * individually-applied sticker decals, each its own small canvas texture so
+ * they read as stuck on rather than printed as one wrap.
  *
  * This is a prop, not a physics body: `release()` detaches it from whatever
  * it was parented to (the aeroplane's `payloadMount` anchor, normally — see
@@ -20,7 +20,7 @@
  */
 import * as THREE from 'three';
 import {
-  mat, solid, boxGeo, cylGeo, sphereGeo, planeGeo,
+  mat, solid, boxGeo, cylGeo, sphereGeo,
   mesh, flatMesh, group, rng,
 } from '../../beefrun/util.js';
 import { crestPlaceholderTexture, applyCrest } from '../livery.js';
@@ -35,63 +35,112 @@ const PURPLE_LIGHT = 0x8a6fd9;
 const BODY_LEN = 2.6;       // half-length scale on the main ellipsoid
 const BODY_R = 0.95;        // half-width/height scale
 
-/** The smiling face, painted on the casing's side. */
-function faceTexture() {
-  const c = document.createElement('canvas');
-  c.width = 320; c.height = 320;
-  const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, 320, 320);
-  ctx.fillStyle = 'rgba(0,0,0,0)';
-  ctx.fillRect(0, 0, 320, 320);
+/* ------------------------------------------------------------------ */
+/* Where a decal can actually go on this thing.                        */
+/* ------------------------------------------------------------------ */
 
-  const fur = '#d8d2de';
-  ctx.fillStyle = fur;
-  ctx.beginPath();
-  ctx.ellipse(160, 168, 108, 118, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#b9b2c4';
-  ctx.beginPath();
-  ctx.ellipse(160, 118, 98, 26, 0, 0, Math.PI * 2);
-  ctx.fill();
+/**
+ * Owner playtest, 2026-08-06: "Fat squatch sing needs to be fitted better.
+ * Covering logo on bomb" and "Opposite side has an old graphic on it need the
+ * squatch logo."
+ *
+ * Both notes are the same defect seen from two sides, and the photographs in
+ * `docs/validation/2026-08-06/livery/` are what made it legible. Every decal
+ * on the casing was a FLAT `PlaneGeometry` parked at a constant |x| — which is
+ * three separate mistakes on an egg:
+ *
+ *  1. IT FLOATS. The casing is an ellipsoid whose radius falls away as
+ *     `0.95 * sqrt(1 - (z/2.6)^2)`. The FAT SQUATCH placard was 1.15 m long at
+ *     a constant x of 0.9595, and the casing under its forward edge is only
+ *     0.767 across — so that corner stood 0.19 m out in mid-air, past the
+ *     casing's own silhouette. A 1.15 m flat chord on a 0.9 m radius has a
+ *     0.15 m sagitta and there is no way to hide it.
+ *  2. IT SAT WHERE NOBODY CAN SEE IT. The bomb hangs 0.25 m under a belly at
+ *     y -1.7, so on the mounted aeroplane only the casing BELOW its own local
+ *     y +0.25 is outside the fuselage. The placard's middle was at y +0.06 and
+ *     the two crest badges at y +0.475 — the crests were entirely inside the
+ *     aeroplane, and of the placard the player could read the bottom two lines
+ *     and never the words "FAT SQUATCH".
+ *  3. IT COVERED THE BADGE. The placard spanned z 0.375..1.525 at x -0.9595
+ *     and the port crest z 0.79..1.89 at x -0.817 — overlapping in z, with the
+ *     placard 0.14 m OUTBOARD. Exactly the owner's "covering logo on bomb".
+ *
+ * `casingDecal()` is the fix for all three at once: a patch cut out of the
+ * SAME sphere the casing is, scaled by the SAME three factors, so it lies on
+ * the paint by construction and cannot float, cannot z-fight and cannot break
+ * the silhouette however long it is. `DECAL_ANGLE` then puts the artwork in
+ * the band that is actually outside the aeroplane, and the three placements
+ * below are struck clear of each other and of the girth band.
+ */
 
-  ctx.fillStyle = '#1c1824';
-  for (const ex of [-36, 36]) {
-    ctx.beginPath();
-    ctx.ellipse(160 + ex, 148, 17, 20, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#eee6d8';
-  for (const ex of [-40, 32]) {
-    ctx.beginPath();
-    ctx.arc(160 + ex, 142, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#e6d9b8';
-  ctx.beginPath();
-  ctx.ellipse(160, 208, 52, 38, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#241c14';
-  ctx.beginPath();
-  ctx.ellipse(148, 198, 6, 4, 0, 0, Math.PI * 2);
-  ctx.ellipse(172, 198, 6, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // A wide, genuinely happy grin — this one is delighted to be here.
-  ctx.strokeStyle = '#2a2018';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(118, 224);
-  ctx.quadraticCurveTo(160, 258, 202, 224);
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.moveTo(128, 226);
-  ctx.quadraticCurveTo(160, 246, 192, 226);
-  ctx.quadraticCurveTo(160, 240, 128, 226);
-  ctx.fill();
+/** How far proud of the casing a decal sits: 1.5 cm at the girth. */
+const DECAL_LIFT = 1.015;
 
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+/**
+ * Down the casing's side, in radians from the top.
+ *
+ * pi/2 is the equator. 1.83 rad is 105 degrees — far enough below the belly
+ * line (y +0.25, i.e. 74.7 degrees) that a 0.66 m badge centred here still has
+ * its top edge 0.17 m clear of the fuselage, and tilted 15 degrees down, which
+ * is about the angle a man on the tarmac three metres away is looking at it
+ * from anyway.
+ */
+const DECAL_ANGLE = 1.83;
+
+/** The purple girth band's z span — decals go forward or aft of it, never through. */
+const BAND_Z0 = 0.15;
+const BAND_Z1 = 0.65;
+
+/**
+ * A decal that lies ON the casing.
+ *
+ * The body is `SphereGeometry(1)` scaled `(BODY_R, BODY_R, BODY_LEN)`, so a
+ * patch of that same sphere over a limited phi/theta range, scaled by the same
+ * three numbers and a hair more, IS the casing's surface. Sizes are given in
+ * metres of skin and converted here, because "0.4 radians of azimuth" is not a
+ * number anybody can check against a photograph.
+ *
+ * WHICH WAY THE TEXT RUNS, and why there is no mirroring anywhere in it.
+ * Three.js lays a sphere out as
+ *   `x = -cos(phi)sin(theta), y = cos(theta), z = sin(phi)sin(theta)`
+ * with u rising along phi. On the -X flank (phi near 0) z rises with phi, and
+ * a viewer stood off -X has +Z on his right — so u runs to his right. On the
+ * +X flank (phi near pi) z FALLS with phi, and that viewer has -Z on his right
+ * — so u runs to his right there too. Both flanks read left-to-right off the
+ * same texture with nothing flipped: no mirrored UVs, no negative scale.
+ *
+ * @param {object} o
+ *   side      -1 or +1: which flank
+ *   angle     radians from the top of the casing (pi/2 is the equator)
+ *   z         the decal's centre station along the casing
+ *   w,h       its size on the skin, in metres
+ *   material  its own material (each decal is its own texture)
+ *   name
+ * @returns {THREE.Mesh}
+ */
+function casingDecal({ side, angle, z, w, h, material, name = 'casing-decal' }) {
+  const sinT = Math.sin(angle);
+  /* How far along z this station is, as an angle, and how many metres of z one
+   * radian of azimuth buys HERE — the casing tapers, so it is not a constant. */
+  const reach = BODY_LEN * sinT;
+  const alpha = Math.asin(Math.max(-1, Math.min(1, z / reach)));
+  const perRadian = reach * Math.cos(alpha);
+  const phiLength = w / perRadian;
+  const thetaLength = h / BODY_R;
+  // -X is phi = alpha; +X is its reflection through pi. Neither is a mirror of
+  // the geometry — they are two different arcs of one sphere.
+  const phiCentre = side > 0 ? Math.PI - alpha : alpha;
+  const geo = new THREE.SphereGeometry(
+    1,
+    Math.max(8, Math.round(phiLength * 26)),
+    Math.max(6, Math.round(thetaLength * 18)),
+    phiCentre - phiLength / 2, phiLength,
+    angle - thetaLength / 2, thetaLength,
+  );
+  const m = flatMesh(geo, material, 0, 0, 0);
+  m.scale.set(BODY_R * DECAL_LIFT, BODY_R * DECAL_LIFT, BODY_LEN * DECAL_LIFT);
+  m.name = name;
+  return m;
 }
 
 /**
@@ -112,6 +161,11 @@ function faceTexture() {
  * canvas with a peeled corner and a purple keyline. Everything outside the
  * label is clear, so the casing shows through and the thing reads as
  * something the depot stuck on rather than a hoarding bolted to the side.
+ *
+ * 2026-08-06: the three lines and the arrow came up 14 px. Their ink spanned
+ * y 78..268 inside a die cut running 26..294, so the block sat 14 px low in
+ * its own label and the headline crowded the top edge — which is the one line
+ * the owner reads first and the one the fuselage used to cut off.
  */
 function mainPlacardTexture() {
   const W = 640;
@@ -148,19 +202,19 @@ function mainPlacardTexture() {
   ctx.fillStyle = '#241a3a';
   ctx.textAlign = 'center';
   ctx.font = '900 68px Trebuchet MS, sans-serif';
-  ctx.fillText('FAT SQUATCH', W / 2, 128);
+  ctx.fillText('FAT SQUATCH', W / 2, 114);
   ctx.font = '700 34px Trebuchet MS, sans-serif';
   ctx.fillStyle = '#8a2020';
-  ctx.fillText('HANDLE WITH RESPECT', W / 2, 184);
+  ctx.fillText('HANDLE WITH RESPECT', W / 2, 170);
   ctx.fillStyle = '#241a3a';
   ctx.font = '700 30px Trebuchet MS, sans-serif';
-  ctx.fillText('THIS SIDE TOWARD THE OPS', W / 2, 232);
+  ctx.fillText('THIS SIDE TOWARD THE OPS', W / 2, 218);
   // An arrow, so the instruction is unambiguous even if the reading is not.
   ctx.strokeStyle = '#241a3a';
   ctx.lineWidth = 7;
   ctx.beginPath();
-  ctx.moveTo(196, 252); ctx.lineTo(444, 252);
-  ctx.moveTo(412, 236); ctx.lineTo(444, 252); ctx.lineTo(412, 268);
+  ctx.moveTo(196, 238); ctx.lineTo(444, 238);
+  ctx.moveTo(412, 222); ctx.lineTo(444, 238); ctx.lineTo(412, 254);
   ctx.stroke();
 
   // One corner lifting, which is the whole difference between a sticker and
@@ -184,7 +238,18 @@ function mainPlacardTexture() {
   return tex;
 }
 
-/** One small individually-applied sticker — its own canvas, its own plane. */
+/**
+ * One small individually-applied sticker — its own canvas, its own patch of
+ * casing.
+ *
+ * The type is SET TO THE LABEL, not typed at a fixed size and hoped for. It
+ * used to be a flat `800 34px`, which is about 300 px of "No Smoking, Booski"
+ * inside a 256 px canvas: every sticker on the bomb longer than about twelve
+ * characters had its ends cut off by the canvas edge, and the walkaround
+ * photographs of 2026-08-06 show them reading "Smoking, Boos", "Gratin Appro"
+ * and "bly Stable". Measuring and scaling down to fit is four lines and it
+ * cannot be wrong for a label somebody adds later either.
+ */
 function stickerTexture(text, opts = {}) {
   const { bg = '#e8e2d0', fg = '#1c1a17', accent = '#4a2f8f' } = opts;
   const c = document.createElement('canvas');
@@ -201,8 +266,14 @@ function stickerTexture(text, opts = {}) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const lines = Array.isArray(text) ? text : [text];
-  const size = lines.length > 1 ? 30 : 34;
+  const INNER = 216;                             // the die cut, less its margin
+  let size = lines.length > 1 ? 30 : 34;
   ctx.font = `800 ${size}px Trebuchet MS, sans-serif`;
+  const widest = Math.max(...lines.map((l) => ctx.measureText(l).width), 1);
+  if (widest > INNER) {
+    size = Math.max(14, Math.floor(size * (INNER / widest)));
+    ctx.font = `800 ${size}px Trebuchet MS, sans-serif`;
+  }
   lines.forEach((line, i) => {
     ctx.fillText(line, 128, 64 + (i - (lines.length - 1) / 2) * (size + 4));
   });
@@ -211,12 +282,28 @@ function stickerTexture(text, opts = {}) {
   return tex;
 }
 
+/**
+ * The five little ones, `side` / `angle` down the casing / `z` station — the
+ * same three numbers `casingDecal()` takes, so where they go can be checked
+ * against the photographs.
+ *
+ * They used to be `theta`/`z` pairs on flat planes, and the flat plane was the
+ * same defect the placard had, only smaller: `rotation.z` spun each label in
+ * its own plane and `rotation.y = PI/2` then aimed every one of them at dead
+ * abeam, so the ones round the bottom of the casing went THROUGH it and hung
+ * out the far side. ("Probably Stable" is the one in the photographs, standing
+ * out of the underside like a fin.)
+ *
+ * All five are now clear of the girth band and of the two big decals, and
+ * scattered aft where there is casing to spare rather than fighting the crest
+ * for the same square foot.
+ */
 const STICKERS = [
-  { text: 'Gratin Approved', theta: 0.6, z: 1.1 },
-  { text: 'Do Not Roll', theta: -0.9, z: 0.2 },
-  { text: 'Probably Stable', theta: 2.4, z: -0.6 },
-  { text: 'Property of Lou', theta: -2.1, z: -1.3 },
-  { text: 'No Smoking, Booski', theta: 1.8, z: 0.7 },
+  { text: 'Gratin Approved', side: 1, angle: 1.60, z: -0.50 },
+  { text: 'Property of Lou', side: 1, angle: 2.10, z: -0.55 },
+  { text: 'Do Not Roll', side: 1, angle: 2.10, z: -1.55 },
+  { text: 'Probably Stable', side: -1, angle: 2.10, z: -1.62 },
+  { text: 'No Smoking, Booski', side: -1, angle: 1.60, z: -1.62 },
 ];
 
 export class FatSquatch {
@@ -277,7 +364,11 @@ export class FatSquatch {
 
     // Purple accent band around the girth, and a purple nose tip — "silver
     // and purple" per the brief, not silver alone.
-    const band = mesh(cylGeo(BODY_R * 1.02, BODY_R * 1.02, 0.5, 20), purple, 0, 0, 0.4);
+    /* The band stands 1.02 of the body radius out — outboard of every decal,
+     * which is why `BAND_Z0`/`BAND_Z1` are a no-go zone for the artwork rather
+     * than something a decal can be laid over. */
+    const band = mesh(cylGeo(BODY_R * 1.02, BODY_R * 1.02, BAND_Z1 - BAND_Z0, 20), purple,
+      0, 0, (BAND_Z0 + BAND_Z1) / 2);
     band.rotation.x = Math.PI / 2;
     g.add(band);
     const noseTip = mesh(sphereGeo(1, 12, 10), purpleLight, 0, 0, BODY_LEN * 1.02);
@@ -293,71 +384,99 @@ export class FatSquatch {
       this.parts.lugs.push(lug);
     }
 
-    // ---- The smiling face, on the side everyone will actually see ----
-    const faceMat = mat({ map: faceTexture(), roughness: 0.7, transparent: true, alphaTest: 0.04, unique: true });
-    const face = flatMesh(planeGeo(1.35, 1.35), faceMat, BODY_R * 0.99, 0, 0.55);
-    face.rotation.y = Math.PI / 2;
-    g.add(face);
-    this.parts.face = face;
+    /* ---- The Silver Sasquatches crest, on BOTH flanks of the casing ----
+     *
+     * Owner playtest, 2026-08-04: "Squatch logo on the bomb too."
+     * Owner playtest, 2026-08-06: "Opposite side has an old graphic on it need
+     * the squatch logo."
+     *
+     * THE OLD GRAPHIC was a drawn-from-scratch smiling Sasquatch face on its
+     * own 320x320 canvas — a 1.35 m plane at x +0.94, i.e. the whole starboard
+     * flank of the casing. It is gone, and the club's real artwork stands
+     * where it stood. This is the same call, on the same grounds, as the one
+     * the aeroplane's nose took on 2026-08-04 ("The squatch head on towards
+     * the front of the plane — lets use the Squatch logo"): a second, weaker
+     * piece of club artwork drawn by hand next to the real one, on the one
+     * object in the mission the player is guaranteed to stand under.
+     *
+     * The face also had the crest badge's own problem — it was 1.35 m of flat
+     * plane on a casing 1.9 m across, so its corners floated 0.44 m off the
+     * paint, and its top two thirds were inside the fuselage.
+     *
+     * Both badges are the same size at the same station now, forward of the
+     * girth band and low enough on the casing to be outside the aeroplane, so
+     * the bomb reads the same from either side of the hardstand — which is
+     * what the walkaround actually does, since the restraints check is on the
+     * centreline and can be approached from either flank.
+     */
+    this.parts.clubLogo = [];
+    const CREST_Z = 1.15;                       // spans z 0.82..1.48
+    const CREST_SIZE = 0.66;
+    for (const side of [-1, 1]) {
+      const badge = casingDecal({
+        side,
+        angle: DECAL_ANGLE,
+        z: CREST_Z,
+        w: CREST_SIZE,
+        h: CREST_SIZE,
+        material: mat({
+          map: crestPlaceholderTexture(), roughness: 0.72, transparent: true, alphaTest: 0.02, unique: true,
+        }),
+        name: 'fat-squatch-crest',
+      });
+      g.add(badge);
+      this.parts.clubLogo.push(badge);
+    }
 
-    /* ---- Main placard, opposite the face ----
+    /* ---- Main placard, aft of the band on the port flank ----
      *
-     * Half the size it was (2.2 x 0.92 m down to 1.15 x 0.58) and stuck on
-     * rather than bolted on: transparent surround, `alphaTest` so the clear
-     * corners really are clear, and a couple of degrees of roll because
-     * nobody at the depot lines a label up with anything.
+     * Owner playtest, 2026-08-06: "Fat squatch sing needs to be fitted better.
+     * Covering logo on bomb."
      *
-     * Moved forward to z 0.95 as well, clear of the purple girth band at
-     * z 0.4 — the band stands 1.02 of the body radius out and the placard sat
-     * at 0.99, so the band used to run straight through the middle of it. */
-    const placardMat = mat({
-      map: mainPlacardTexture(), roughness: 0.75, transparent: true, alphaTest: 0.05, unique: true,
+     * 1.10 x 0.55 m of skin (the label art is 2:1, so it neither stretches nor
+     * letterboxes), cut out of the casing itself by `casingDecal()` so it lies
+     * on the paint instead of standing 0.19 m off it, and moved down to
+     * `DECAL_ANGLE` so the whole label — headline included — hangs below the
+     * fuselage where it can be read.
+     *
+     * WHERE IT IS, AND WHAT IT NO LONGER TOUCHES. It spans z -1.15..-0.05.
+     * The girth band is z 0.15..0.65 and stands 1.02 of the body radius proud,
+     * which is outboard of any decal, so the placard is struck 0.20 m aft of
+     * it rather than through it. The crest is z 0.82..1.48, a further 0.17 m
+     * forward of the band. Nothing overlaps anything: on this flank you read
+     * the badge, then the band, then the label, nose to tail.
+     */
+    const placard = casingDecal({
+      side: -1,
+      angle: DECAL_ANGLE,
+      z: -0.60,
+      w: 1.10,
+      h: 0.55,
+      material: mat({
+        map: mainPlacardTexture(), roughness: 0.75, transparent: true, alphaTest: 0.05, unique: true,
+      }),
+      name: 'fat-squatch-ops-sticker',
     });
-    const placard = flatMesh(planeGeo(1.15, 0.58), placardMat, -BODY_R * 1.01, 0.06, 0.95);
-    placard.rotation.y = -Math.PI / 2;
-    placard.rotation.z = 0.06;
-    placard.name = 'fat-squatch-ops-sticker';
     g.add(placard);
     this.parts.placard = placard;
 
     // ---- Small individual stickers, scattered around the casing ----
-    // Each is its OWN canvas texture on its OWN plane, tangent to the body
-    // at its own angle, so they read as things somebody stuck on one at a
-    // time rather than a single wraparound decal sheet.
+    // Each is its OWN canvas texture on its OWN patch of casing, so they read
+    // as things somebody stuck on one at a time rather than a single
+    // wraparound decal sheet. See `STICKERS` for why they moved.
     this.parts.stickers = [];
     for (const s of STICKERS) {
-      const stickerMat = mat({ map: stickerTexture(s.text), roughness: 0.8, transparent: true, unique: true });
-      const plane = flatMesh(planeGeo(0.62, 0.32), stickerMat, 0, 0, 0);
-      const r = BODY_R * 1.005;
-      plane.position.set(Math.sin(s.theta) * r, Math.cos(s.theta) * r, s.z);
-      // Face outward, tangent to the casing at this angle.
-      plane.rotation.z = -s.theta;
-      plane.rotation.y = Math.PI / 2;
-      g.add(plane);
-      this.parts.stickers.push(plane);
-    }
-
-    /* ---- The Silver Sasquatches crest, stencilled on the casing ----
-     *
-     * Owner playtest, 2026-08-04: "Squatch logo on the bomb too." Same
-     * artwork and the same mechanism as the aeroplane's three badges — see
-     * `../livery.js`. Two of them, one on each shoulder of the casing forward
-     * of the girth band, where they are visible from the tarmac with the bay
-     * open (which is exactly when the player is stood under this thing doing
-     * the restraints check) and from the chase camera on the way down.
-     */
-    this.parts.clubLogo = [];
-    for (const sx of [-1, 1]) {
-      const badge = flatMesh(
-        planeGeo(0.78, 0.78),
-        mat({ map: crestPlaceholderTexture(), roughness: 0.72, transparent: true, alphaTest: 0.02, unique: true }),
-        sx * BODY_R * 0.86, BODY_R * 0.5, 1.34,
-      );
-      badge.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
-      badge.rotation.z = sx * -0.5;
-      badge.name = 'fat-squatch-crest';
-      g.add(badge);
-      this.parts.clubLogo.push(badge);
+      const label = casingDecal({
+        side: s.side,
+        angle: s.angle,
+        z: s.z,
+        w: 0.62,
+        h: 0.31,                                // the sticker art is 256x128
+        material: mat({ map: stickerTexture(s.text), roughness: 0.8, transparent: true, unique: true }),
+        name: 'fat-squatch-sticker',
+      });
+      g.add(label);
+      this.parts.stickers.push(label);
     }
 
     // ---- Restraint straps: barely secured, visibly under tension in some
