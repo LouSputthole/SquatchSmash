@@ -315,71 +315,28 @@ const M_CART_HEAD = mat({ color: 0xd8d2c4, roughness: 0.98 });
 const M_CART_BAG = mat({ color: 0x22242a, roughness: 0.95 });
 
 /* ================================================================== */
-/* THE SET IN THE CELLAR                                                */
-/*                                                                       */
-/* Owner: "I want the gaurd downstairs in the cellar to be watching tv."  */
-/*                                                                        */
-/* A cabinet television of the same era as the two upstairs, deliberately  */
-/* plainer: this one is in a room with gun racks in it, so it gets the     */
-/* veneer and the speaker cloth and none of the gold.                      */
-/* ================================================================== */
-const M_TV_CASE = mat({ color: 0x3b2a1c, roughness: 0.68 });
-const M_TV_BEZEL = mat({ color: 0x14161a, roughness: 0.5 });
-const M_TV_CLOTH = mat({ color: 0x6b6152, roughness: 0.95 });
-const M_TV_KNOB = mat({ color: 0x8a7a5a, roughness: 0.45, metalness: 0.5 });
-const M_TV_DARK = mat({ color: 0x05070a, roughness: 0.22 });
-
-/**
- * A television on legs, with a `screen` mesh for `src/core/tv.js` to paint.
+/* THE OLD-SCHOOL SET IS GONE (owner playtest, verbatim: *"the old school
+ * tv in the cellar is misaligned — get rid of it and make the flat screen a
+ * working tv"*).
  *
- * Built here rather than in the interior because the interior is another
- * pass's file this week, and because the set exists FOR the man standing in
- * front of it — moving one without the other is how he ends up watching a
- * wall. Same shape as MansionInterior's own `makeTvSet`, minus its gilding.
+ * `makeCellarTvSet()` used to live here: a wood-cased television on splayed
+ * legs, standing in the armory at `armoryCenter + (0, 0, 4.4)`, with the
+ * guard's yaw derived to land on it. Two things were wrong with it and only
+ * one was the alignment.
+ *
+ *  - The alignment. `tools/scene-audit.mjs` reported
+ *    `mansion.cellarTv.screen × mansion.cellarTv.screen ... share the z
+ *    plane over 0.47 m²` — the picture and the bezel it stands "a couple of
+ *    millimetres proud of" were not proud of it at all once the group was
+ *    turned through π, so the whole face of the set flickered.
+ *  - THE ROOM ALREADY HAD A TELEVISION. `SilentSquatch.js` builds a
+ *    flatscreen on a unit in the entertainment area, four metres away, in
+ *    the room that exists for watching it — and it was a dead black
+ *    rectangle. So the cellar had two sets, one broken and one switched off.
+ *
+ * One set now: the flatscreen, painted by `core/tv.js` from `main.js`, with
+ * the guard standing in the room it is in. See `lab.tv`.
  */
-function makeCellarTvSet(w = 1.2, h = 0.86) {
-  const g = group('mansion.cellarTv');
-  const d = 0.54;
-  g.add(box({ size: [w, h, d], pos: [0, h / 2 + 0.2, 0], mat: M_TV_CASE, name: 'tv-cabinet' }));
-  for (const [lx, lz] of [
-    [-w / 2 + 0.1, -d / 2 + 0.1], [w / 2 - 0.1, -d / 2 + 0.1],
-    [-w / 2 + 0.1, d / 2 - 0.1], [w / 2 - 0.1, d / 2 - 0.1],
-  ]) {
-    g.add(cylinder({ rTop: 0.026, rBottom: 0.04, h: 0.22, pos: [lx, 0.11, lz], mat: M_TV_CASE }));
-  }
-  /* Bezel, then the picture standing a couple of millimetres proud of it. */
-  g.add(box({
-    size: [w * 0.76 + 0.07, h * 0.6 + 0.07, 0.03],
-    pos: [0, h * 0.6, d / 2 + 0.005],
-    mat: M_TV_BEZEL,
-    cast: false,
-  }));
-  const screen = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.76, h * 0.6),
-    mat({ color: 0x05070a, roughness: 0.22, unique: true }),
-  );
-  screen.name = 'mansion.cellarTv.screen';
-  screen.position.set(0, h * 0.6, d / 2 + 0.026);
-  g.add(screen);
-  /* Speaker cloth and two knobs down the side, which is what makes it a set
-   * rather than a picture leaning on a box. */
-  g.add(box({
-    size: [w * 0.13, h * 0.48, 0.02],
-    pos: [w * 0.41, h * 0.6, d / 2 + 0.01],
-    mat: M_TV_CLOTH,
-    cast: false,
-  }));
-  for (const ky of [h * 0.22, h * 0.12]) {
-    g.add(cylinder({
-      r: 0.032, h: 0.028, pos: [w * 0.41, ky + 0.2, d / 2 + 0.02], mat: M_TV_KNOB, rotX: Math.PI / 2,
-    }));
-  }
-  /* A dark strip under the picture, so the front is not one flat plank. */
-  g.add(box({
-    size: [w * 0.6, 0.04, 0.02], pos: [-w * 0.06, 0.3, d / 2 + 0.01], mat: M_TV_DARK, cast: false,
-  }));
-  return { group: g, screen, size: { w, h, d } };
-}
 
 /** The cart, at the origin of its own group so the caller only picks a spot. */
 function makeJanitorCart() {
@@ -688,22 +645,37 @@ export function mountMansionCast(scene, world = {}, {
   /* ---- the basement, and the television --------------------------------
    *
    * Owner, 2026-08-05: *"I want the gaurd downstairs in the cellar to be
-   * watching tv."*
+   * watching tv."* Owner, 2026-08-06: *"the old school tv in the cellar is
+   * misaligned — get rid of it and make the flat screen a working tv."*
    *
-   * HIS POST DOES NOT MOVE ONE CENTIMETRE. He was already standing at
-   * `armoryCenter + (2.2, -1.6)` looking north up the room at roughly
-   * `(armory.x, armory.z + 4)`, so the set is put ON THE LINE HE WAS ALREADY
-   * LOOKING DOWN and his yaw is re-derived to land exactly on it. He is bored,
-   * not off duty: same spot, same arms folded, same two lines about nothing
-   * down here belonging to you, and now something to look at while he says
-   * them. A man taken off his post to watch telly is a different character.
+   * Both notes are one post. He used to stand in the ARMORY looking at a
+   * cabinet set built by this file four metres up the room, while the
+   * entertainment area next door — the room in this cellar that exists for
+   * watching television, with a leather couch, a coffee table and a bar cart
+   * pointed at it — had a flatscreen that was a dead black rectangle.
    *
-   * 4.4 m north of him, against the low partition at the top of the room,
-   * measured clear of it (the partition's collider starts at z 60.40 and the
-   * cabinet's own depth reaches 60.21). */
+   * So he is in the room with the working television now, and the set he is
+   * watching is `lab.tv`, which `main.js` paints with `core/tv.js`. His spot
+   * is DERIVED FROM THE SET rather than typed: 1.75 m east and 1.55 m back
+   * from it, which is the corner of the room the couch, the coffee table and
+   * the bar cart all leave empty — he is watching it standing up, off to one
+   * side, rather than sitting on the family's couch or blocking its view of
+   * the screen. If the entertainment area moves, he moves with it. Measured
+   * on the built cellar: no collider contains him and the nearest is 0.6 m
+   * away.
+   *
+   * Still on duty, not off it: same folded arms, same two lines about nothing
+   * down here belonging to you. A guard watching a television is bored. A
+   * guard sitting on the couch is a different character.
+   *
+   * `armoryCenter` remains the fallback for a house with no laboratory in it,
+   * because without `lab` there is no entertainment area to stand in. */
   const armory = at('armoryCenter', { x: -2, y: BASEMENT_Y, z: 55.5 });
-  const basementAt = { x: armory.x + 2.2, y: armory.y, z: armory.z - 1.6 };
-  const cellarTvAt = { x: armory.x, y: armory.y, z: armory.z + 4.4 };
+  const cellarSet = lab?.tv?.at ?? null;
+  const basementAt = cellarSet
+    ? { x: cellarSet.x + 1.75, y: BASEMENT_Y, z: cellarSet.z - 1.55 }
+    : { x: armory.x + 2.2, y: armory.y, z: armory.z - 1.6 };
+  const cellarTvAt = cellarSet ?? { x: armory.x, y: armory.y, z: armory.z + 4.4 };
   post('basement', {
     name: 'a guard',
     model: MANSION_GUARDS[4],
@@ -715,39 +687,8 @@ export function mountMansionCast(scene, world = {}, {
     folded: true,
     bark: SEQUENCES.guardBasementBark,
     idle: SEQUENCES.guardBasementIdle,
-    look: 'Down here with the racks, watching a television with the sound off.',
+    look: 'Down here watching a television with the sound off.',
   });
-
-  /* ---- and the set he is watching --------------------------------------
-   *
-   * THE CABINET IS BUILT HERE; THE PICTURE IS MAIN.JS'S TO MOUNT, and the
-   * split is not arbitrary — it is this file's oldest rule.
-   *
-   * The first version of this imported `src/core/tv.js` and drove a live `Tv`
-   * from `update()`, which needed no composition-root change at all and was
-   * wrong: `core/tv.js` imports `world/textures.js`, which BUILDS CANVAS
-   * TEXTURES AT MODULE SCOPE. That is precisely the WebGL-shaped dependency
-   * the note at the top of this file refuses to take on — "an import that
-   * cannot run headless takes the whole module with it -- including
-   * `npm test`" — and it did exactly that: the suite went from 677 passing to
-   * SIGKILL. A module whose job is knowing where people stand does not get to
-   * drag a texture painter in behind it.
-   *
-   * So the television is FURNITURE here, with a `screen` mesh published on
-   * `cast.tv` for the composition root to paint. Unpainted it is a set that is
-   * switched off, which is a thing televisions are, and the guard is still
-   * standing in front of a television either way. */
-  const cellarTv = makeCellarTvSet();
-  cellarTv.group.position.set(cellarTvAt.x, cellarTvAt.y, cellarTvAt.z);
-  /* Turned to face back down the room at the man on the post. */
-  cellarTv.group.rotation.y = Math.PI;
-  scene.add(cellarTv.group);
-
-  /* Solid, and MEASURED off the built cabinet rather than authored around it —
-   * the same lesson Snow's cart taught this file. Offered on `colliders` for
-   * the composition root to push and count, never pushed from here. */
-  cellarTv.group.updateMatrixWorld(true);
-  const cellarTvCollider = new THREE.Box3().setFromObject(cellarTv.group);
 
   /* ---- the vault -------------------------------------------------------
    * In the cellar hall, in front of eleven inches of steel that is standing
@@ -1731,32 +1672,14 @@ export function mountMansionCast(scene, world = {}, {
     cart,
     dialogue,
     /**
-     * The cellar guard's television, for the composition root to switch on.
-     *
-     * `screen` is the mesh `src/mansion/main.js`'s own `mountTv` paints — the
-     * same shape `interior.props.lounge.tv.screen` and `…kitchen.tv.screen`
-     * hand it. ONE LINE turns this set on, and it must go where the house's
-     * other sets are mounted rather than after the cast, because the glow-light
-     * loop that fills in `tv._glowLight` runs between them and the render loop
-     * dereferences it every frame:
-     *
-     *   const cellarTv = mountTv(cast.tv.screen, { channel: 1 });
-     *
-     * Unmounted, this is a switched-off television, and the guard is watching
-     * it either way. See the note where it is built for why the live `Tv` is
-     * not driven from in here.
-     */
-    tv: {
-      group: cellarTv.group,
-      screen: cellarTv.screen,
-    },
-    /**
      * Boxes the composition root should push into `world.colliders` and count,
-     * exactly the way it counts the armory's racks. Two entries: Snow's cart
-     * and the cellar television. Nobody's BODY is in here — the house has
-     * never made a person solid and this module is not the place to start.
+     * exactly the way it counts the armory's racks. One entry: Snow's cart.
+     * (The cellar television used to be the second; it is the laboratory's
+     * flatscreen now and the laboratory owns its collider.) Nobody's BODY is
+     * in here — the house has never made a person solid and this module is
+     * not the place to start.
      */
-    colliders: [cartCollider, cellarTvCollider],
+    colliders: [cartCollider],
     /** Snow's body, published so a caller can prove he is here. He carries no
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
@@ -1869,8 +1792,6 @@ export function mountMansionCast(scene, world = {}, {
        * bodies. It belongs to the laboratory and is only borrowed. */
       if (torture?.target) interaction?.unregister?.(torture.target);
       cart.parent?.remove(cart);
-      /* The cellar set. */
-      cellarTv.group.parent?.remove(cellarTv.group);
       /* The blood, in the air and on the floor, and the flash. */
       for (const drop of spray.splice(0)) drop.parent?.remove(drop);
       for (const mark of marks.splice(0)) mark.parent?.remove(mark);

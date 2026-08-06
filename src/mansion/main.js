@@ -1148,13 +1148,20 @@ const cast = mountMansionCast(scene, world, {
 /* The guard in the cellar is watching television, which was the owner's note
  * and is also the only thing on his post worth looking at.
  *
+ * `lab.tv`, not `cast.tv`. There used to be TWO sets down there: a cabinet
+ * television this file painted, built by `cast.js` and standing in the
+ * armory, and the entertainment area's flatscreen, which was a dead black
+ * rectangle in the one room in the cellar built for watching television. The
+ * cabinet set is gone (its own picture z-fought its bezel — `scene-audit`
+ * caught it) and the flatscreen is the set.
+ *
  * Mounted HERE rather than beside the other three sets because the cast does
  * not exist until this point, and given a late arrival the glow-light loop
  * above has already run -- so this repeats what that loop does rather than
  * leaving `_glowLight` undefined for a render loop that dereferences it every
  * frame. Pushed into `houseTvs` too, or it would never be updated and the
  * debug surface would not see it. */
-const cellarTv = cast?.tv?.screen ? mountTv(cast.tv.screen, { channel: 1 }) : null;
+const cellarTv = lab?.tv?.screen ? mountTv(lab.tv.screen, { channel: 1 }) : null;
 if (cellarTv && !cellarTv._glowLight) {
   const glow = new THREE.PointLight(0x9fb4cc, 0, 5, 2);
   glow.position.copy(cellarTv.position);

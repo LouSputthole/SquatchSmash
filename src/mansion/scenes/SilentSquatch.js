@@ -1151,6 +1151,7 @@ export function buildSilentSquatch({
      * at z = 59.62 and the armory's caged store starts at 60.42, which is
      * the 0.8 m that keeps the north lane walkable. */
     const tvZ = entZ1 - 0.2;
+    let entTvScreen = null;
     root.add(box({ size: [2.2, 0.5, 0.4], pos: [entMid, BY + 0.25, tvZ], mat: M_WOOD_DK }));
     prop(entMid - 1.1, entMid + 1.1, BY, BY + 0.5, tvZ - 0.22, tvZ + 0.22);
     /* Foot and neck, because the panel's bottom edge lands 60 mm over the
@@ -1165,9 +1166,31 @@ export function buildSilentSquatch({
     root.add(box({
       size: [1.75, 1.0, 0.07], pos: [entMid, BY + 1.06, tvZ], mat: M_BLACK, name: 'ent-tv',
     }));
-    root.add(box({
-      size: [1.62, 0.9, 0.02], pos: [entMid, BY + 1.06, tvZ - 0.05], mat: M_SCREEN_OFF, cast: false, name: 'ent-tv-screen',
-    }));
+    /* A REAL SCREEN, not a dark rectangle.
+     *
+     * Owner playtest: the cellar's flatscreen should be a working television,
+     * like the apartment's. It was a `M_SCREEN_OFF` box — a set that is
+     * permanently off in the one room down here built for watching it, while
+     * a second, OLD-SCHOOL set stood four metres away in the armory being the
+     * thing the guard looked at.
+     *
+     * PlaneGeometry rather than a box, and published on the lab handle, so
+     * `main.js` can hand it to `core/tv.js`'s `mountTv` exactly the way it
+     * does the billiard bay's and the kitchen's — one canvas texture swapped
+     * onto the mesh's material. Nothing in this file imports `core/tv.js`:
+     * that module builds canvas textures at module scope and this one has to
+     * stay headless (see `cast.js`'s note about the 677-test SIGKILL).
+     *
+     * Unmounted it is still a switched-off television, which is a thing a
+     * television is. */
+    entTvScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.62, 0.9),
+      mat({ color: 0x05070a, roughness: 0.22, unique: true }),
+    );
+    entTvScreen.name = 'ent-tv-screen';
+    entTvScreen.position.set(entMid, BY + 1.06, tvZ - 0.055);
+    entTvScreen.rotation.y = Math.PI;
+    root.add(entTvScreen);
 
     /* A bar cart, tucked into the north-west corner beside the set so that
      * it never reaches into the lane either. */
@@ -1195,6 +1218,13 @@ export function buildSilentSquatch({
     return {
       wine: { x0: wineX0, x1: wineX1, z0: wineZ0, z1: wineZ1, racks, sign: cellarSign },
       entertainment: { x0: entX0, x1: entX1, z0: entZ0, z1: entZ1 },
+      /** The set in the entertainment area. `main.js` paints the screen; the
+       * cellar guard is posted off `at` so he faces the thing he watches. */
+      tv: {
+        screen: entTvScreen,
+        at: { x: entMid, y: BY + 1.06, z: tvZ },
+        faces: -1, // it looks down the room toward -Z
+      },
     };
   }
   const innocent = buildInnocentBasement();
@@ -5051,6 +5081,10 @@ export function buildSilentSquatch({
     /** True from the moment the door locks. The spec's own word. */
     get muffled() { return glassAudio.engaged; },
     glassAudio,
+
+    /** The entertainment area's television. `main.js` mounts core/tv.js on
+     * `screen`; `cast.js` posts the cellar guard off `at`. */
+    tv: innocent.tv,
 
     /* -- the case, carried forward from The Silver Case -- */
     case: {

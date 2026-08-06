@@ -2085,9 +2085,36 @@ export function buildMansionInterior(shell = null) {
         unique: true,
       }),
     );
-    sign.position.set(FOYER.x1 - 0.09, GY + 2.2, 50.2);
+    /* z 53.6, NOT 50.2 (owner playtest, verbatim: *"the cellar sign is
+     * floating in the doorway to the pool room"*).
+     *
+     * It was, and it was measured rather than guessed: this wall is x = 9,
+     * and the band z 48..53 in it is `east-partition-mid`, whose ONLY solid
+     * is either side of the grand archway into the lounge — the billiard bay,
+     * i.e. the pool room — at z 48.5..52.5, GY..ARCH_TOP (4.4). The sign sat
+     * at z 50.2, y 3.4: dead centre of that opening, with nothing behind it
+     * for its whole width and height. A lit CELLAR plaque hanging in mid-air
+     * in the mouth of the billiard room, pointing at the wrong room.
+     *
+     * z 53.6 is 600 mm into `east-partition-rear`, which is solid GY..UCY —
+     * and it is over the STAIRWELL (BASEMENT_STAIR z 51..58), which is what
+     * the sign is for. Same wall, same face, same height, 3.4 m north; the
+     * first thing you read walking east across the rear hall.
+     *
+     * A backing board behind it as well, because a plane 90 mm off plaster is
+     * fine until somebody moves the plaster. The board is the thing that
+     * touches the wall; the sign is fixed to the board. */
+    const signZ = 53.6;
+    sign.position.set(FOYER.x1 - 0.09, GY + 2.2, signZ);
     sign.rotation.y = -Math.PI / 2;
     root.add(sign);
+    root.add(box({
+      size: [0.06, 0.42, 1.02],
+      pos: [FOYER.x1 - 0.04, GY + 2.2, signZ],
+      mat: M_WOOD_DK,
+      cast: false,
+      name: 'cellar-sign-board',
+    }));
     const stairLamp = new THREE.PointLight(0xffe0a8, 3.6, 10, 2);
     stairLamp.position.set(7.2, GY + 2.1, 51.6);
     root.add(stairLamp);
