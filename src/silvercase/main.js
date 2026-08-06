@@ -10,14 +10,15 @@ import { ImpactKit, ShotResolver } from './combat/Shooting.js';
 import { DialogueController } from './dialogue/DialogueController.js';
 import {
   SEQUENCES, CHOICES, OBJECTIVES, INSTRUCTIONS, TARGET_CALLOUTS,
-  silverCaseCueNames,
 } from './dialogue/script.js';
+import { silverCaseAudioLoadOptions } from './audio.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { PostFX } from '../core/postfx.js';
 import { yawToward } from '../world/build.js';
 import { roomEnvironment } from '../world/textures.js';
 
@@ -52,10 +53,29 @@ const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerH
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 
+/*
+ * Bloom, at its unmodified defaults.
+ *
+ * This mission is the same genre `core/postfx.js` was written for — see that
+ * file's own header: "a dark flat full of small bright things". The living
+ * room here has the identical shape (a standard lamp, a flickering TV, an
+ * exit sign, a city-window glow) and the car ride adds a lit dashboard and
+ * passing streetlights, nothing brighter. `src/main.js` (the apartment this
+ * scene shares a floor plan with) mounts `PostFX` with no threshold/strength
+ * override for exactly this reason; NO WAKE and Silver Pines retune it
+ * because they are lit exteriors, a different problem. Leaving the defaults
+ * alone here is the conservative choice: subtle bloom on the emissive
+ * fixtures, the self-measuring frame-time fallback armed exactly as shipped,
+ * nothing added that this scene's own look did not already call for.
+ */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 {
@@ -1488,13 +1508,14 @@ function beginScene() {
    * subtitle over a folder full of finished audio.
    *
    * Named rather than wholesale: the shared manifest is thousands of cues and
-   * this mission needs its own words plus the handful of effects it fires. */
-  audio.loadManifest({
-    names: [
-      ...silverCaseCueNames(),
-      'door.creak', 'door.locked', 'door.knob', 'gun.shot', 'gun.impact',
-      'gun.pickup', 'heist.shubes_case', 'heist.player.hit',
-    ],
+   * this mission needs its own words plus the handful of effects it fires --
+   * see ./audio.js's `isSilverCasePreloadCue`/`silverCaseAudioLoadOptions` for
+   * the named selector `tools/verify-silvercase.mjs` checks residency against. */
+  audio.loadManifest(silverCaseAudioLoadOptions()).then((result) => {
+    // Diagnostics only, same shape every other scoped scene exposes
+    // (src/nowake/main.js, src/bing/main.js): what the full shared manifest
+    // holds versus what this mission actually asked for and got.
+    audio.preloadStats = { manifestTotal: audio.manifest.sfx.length, selected: result.total };
   }).catch(() => {});
   running = true;
   sceneInventory.show();
@@ -1533,7 +1554,8 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !paused) updateGame(dt);
-  renderer.render(scene, camera);
+  postfx.render();
+  postfx.sample(dt);
 }
 
 fsm.start(S.MENU);
@@ -1689,4 +1711,5 @@ window.silvercase = {
   camera,
   scene,
   renderer,
+  postfx,
 };
