@@ -163,8 +163,8 @@
       "style": 0.35
     },
     "chester": {
-      "id": "tgfcQY9SGvn3GfmnNWIito",
-      "_note": "Chester — the man in the chair in THE SILVER CASE, and the man the whole scene is spent talking to. Owner-cast 2026-08-06, split out of `npc-male`, which he had been sharing with Deke and Winston in his own scene: three men in one room in one voice. NOTE FOR THE OWNER: every other id in this file is 20 characters and this one is 22, exactly as it was given. Nothing has been rendered against it yet, so a paste slip costs nothing to correct — confirm it before running: npm run sfx -- --force --cast chester",
+      "id": "tgfcQY9SGvn3GfmnNWIi",
+      "_note": "Chester — the man in the chair in THE SILVER CASE, and the man the whole scene is spent talking to. Owner-cast 2026-08-06, split out of `npc-male`, which he had been sharing with Deke, Winston and Pruitt: four men in one room in one voice. The id was first pasted 22 characters long against a file where every other id is 20; the owner corrected it to this. Re-render his takes with: npm run sfx -- --force --cast chester",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.8,
@@ -19223,6 +19223,26 @@
       "name": "vo.silentsquatch.house.hogmama.leftapanon",
       "voice": "hogmama",
       "say": "Gratin left a pan on and went downstairs. Again."
+    },
+    {
+      "name": "enola.bomb.falling",
+      "duration": 4.57,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Bomb_Falling_Sound_Effects.mp3). The Fat Squatch on its way down. 4.57s against a fall the mission computes at eight or nine seconds, so it is SCHEDULED TO END ON IMPACT rather than started at release — see MissionController.updateRelease. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.a",
+      "duration": 44.07,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Atomic_Bomb_Sound_Effect.mp3). Layer one of three, and the long one — 44s, which deliberately outlives the 30s detonation timeline. Owner: “let the full clips play and well see if we get the power we want.” Do not regenerate, do not truncate."
+    },
+    {
+      "name": "enola.blast.b",
+      "duration": 8.12,
+      "_note": "OWNER-DELIVERED 2026-08-06. Layer two of three, the short one. All three start so that their BOOMS coincide, which is not the same as starting together — each clip has its own lead-in. Do not regenerate."
+    },
+    {
+      "name": "enola.blast.c",
+      "duration": 22.39,
+      "_note": "OWNER-DELIVERED 2026-08-06 (Nuclear_Explosion_Video__Sound.mp3). Layer three of three. Do not regenerate."
     }
   ]
 }

@@ -46,6 +46,12 @@ export class AudioEngine {
     this.loops = new Map();
     /** Output gain for each active one-shot source, without changing play()'s API. */
     this.playbackGains = new WeakMap();
+    /* An AnalyserNode sitting INLINE in the chain of a voice playback, so the
+     * shared mouth system (src/core/mouth.js) can open a character's mouth on
+     * the amplitude that is really reaching the speakers rather than on a
+     * timer. Weak, and keyed by the source, so it dies with the line: one
+     * analyser per line being spoken, never one per character. */
+    this.playbackAnalysers = new WeakMap();
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
     this._manifestLoadPromise = null;
@@ -239,11 +245,24 @@ export class AudioEngine {
 
   /**
    * @param {string} name  cue name, e.g. "fridge.open"
-   * @param {object} opts  { volume, rate, position: THREE.Vector3, ref, delay }
+   * @param {object} opts  { volume, rate, position: THREE.Vector3, ref, delay,
+   *                         analyse }
+   *
+   * `analyse` puts an AnalyserNode inline in this playback's own chain so
+   * something can read how loud it is, frame by frame — which is how a
+   * character's mouth is driven (src/core/mouth.js). It defaults to ON for
+   * `vo.*`, this repo's own naming convention for a spoken line, and is
+   * available explicitly for the scenes whose dialogue is not on that prefix
+   * (THE TAKE names its 112 lines `heist.*`; see ENGINE-TRAPS.md entry 4).
+   * The node is a genuine link in the audible chain, not a dangling tap, so
+   * what it measures is what the player hears.
    */
   play(name, opts = {}) {
     if (!this.ready) return null;
-    const { volume = 1, rate = 1, position = null, delay = 0, muffle = 0 } = opts;
+    const {
+      volume = 1, rate = 1, position = null, delay = 0, muffle = 0,
+      analyse = String(name).startsWith('vo.'),
+    } = opts;
 
     const out = this.ctx.createGain();
     out.gain.value = volume;
@@ -281,7 +300,21 @@ export class AudioEngine {
       const src = this.ctx.createBufferSource();
       src.buffer = bank[(Math.random() * bank.length) | 0];
       src.playbackRate.value = rate;
-      src.connect(out);
+      /* 256 samples is a fifth of a frame at 48 kHz — short enough that a
+       * consonant is not smeared into the vowel before it, long enough that
+       * the RMS of one read is a stable number. No smoothing here: the mouth
+       * does its own, and an analyser that has already smoothed is an analyser
+       * whose gaps between words have been filled in. */
+      const analyser = analyse && this.ctx.createAnalyser ? this.ctx.createAnalyser() : null;
+      if (analyser) {
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0;
+        src.connect(analyser);
+        analyser.connect(out);
+        this.playbackAnalysers.set(src, analyser);
+      } else {
+        src.connect(out);
+      }
       this.playbackGains.set(src, out.gain);
       const playback = {
         name,
@@ -322,6 +355,15 @@ export class AudioEngine {
     gain.setValueAtTime(gain.value, t);
     gain.linearRampToValueAtTime(Math.max(0.0001, volume), t + ramp);
     return true;
+  }
+
+  /**
+   * The AnalyserNode tapped onto a playback started with `{ analyse: true }`
+   * (or onto any `vo.*` cue, which is the default). Null for anything else —
+   * `Mouth.speak()` treats that as "no recording to read" and falls back.
+   */
+  analyserFor(source) {
+    return source ? this.playbackAnalysers.get(source) ?? null : null;
   }
 
   /** Clear only transient playback evidence; never samples or active sound. */
@@ -401,6 +443,17 @@ export class AudioEngine {
     const secs = this._vo?.buffer ? this._vo.buffer.duration : 1.6;
     this._busyUntil = Math.max(this._busyUntil || 0, this.ctx.currentTime + delay + secs + 0.25);
     return true;
+  }
+
+  /**
+   * The playback `say()` most recently started, for anything that has to
+   * FOLLOW the line rather than merely start it — the mouth system above all.
+   * `say()` is a one-voice-at-a-time channel by design ("he is not a chorus"),
+   * so this is the line being spoken, not a list. Null when the group had no
+   * takes and nothing was played.
+   */
+  spokenSource() {
+    return this._vo ?? null;
   }
 
   /**

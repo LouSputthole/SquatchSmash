@@ -313,6 +313,59 @@ carriedCase.group.rotation.set(0.12, 0.5, 0.28);
 carriedCase.group.visible = false;
 camera.add(carriedCase.group);
 
+/**
+ * The take currently in somebody's mouth.
+ *
+ * `source` was previously assigned without ever being declared, and an ES
+ * module is strict mode: `voiceSource = audio.play(...)` threw a
+ * ReferenceError out of `playCue` the first time a line with a recording came
+ * up — which is sixty of this mission's seventy-six. The throw propagated out
+ * of `DialogueController._advance`, so the mission stopped advancing on its
+ * first recorded line rather than failing anywhere visible.
+ *
+ * `seconds` rides along because `onLine` is what starts the speaker's mouth
+ * and it needs to know how long an UNRECORDED line is going to be on screen.
+ */
+let voiceSource = null;
+let voiceSeconds = 0;
+
+/**
+ * Which body in the room each script speaker is.
+ *
+ * PROSPECT is the player — first person, no head to animate — and HUD is
+ * nobody at all, so neither has an entry. Anyone missing from this table is
+ * simply a line nothing in the room mouths, which is the correct outcome for
+ * a voice with no body behind it.
+ */
+const SPEAKER_BODY = Object.freeze({
+  APE: 'ape',
+  DEKE: 'deke',
+  CHESTER: 'chester',
+  WINSTON: 'winston',
+  PRUITT: 'pruitt',
+});
+
+/** Cut every mouth in the room. Called wherever the voice itself is cut. */
+function hushCast() {
+  for (const actor of cast.all) actor.npc.hush?.();
+}
+
+/**
+ * Put the line in the right man's mouth.
+ *
+ * The take is handed over rather than a duration, so the mouth runs on the
+ * amplitude of the recording (src/core/mouth.js) and stops when it stops. The
+ * seconds are the fallback's length only — what an unrecorded line's subtitle
+ * is up for.
+ */
+function speakLine(line) {
+  hushCast();
+  const actor = cast[SPEAKER_BODY[line.speaker]];
+  if (!actor?.alive) return;
+  const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
+  actor.npc.say(Math.max(authored, voiceSeconds), { audio, source: voiceSource });
+}
+
 const dialogue = new DialogueController({
   /* THE TAKES LANDED AND NOTHING PLAYED THEM.
    *
@@ -331,24 +384,33 @@ const dialogue = new DialogueController({
   /* Returns the take's real length so the controller can hold the line for
    * it rather than for an authored guess. See DialogueController._advance. */
   playCue(cue) {
+    voiceSource = null;
+    voiceSeconds = 0;
     if (!cue || !audio?.hasSample?.(cue)) return 0;
     voiceSource = audio.play(cue, { volume: 0.9 });
-    return audio.sampleDuration?.(cue) ?? 0;
+    voiceSeconds = audio.sampleDuration?.(cue) ?? 0;
+    return voiceSeconds;
   },
   stopVoice() {
+    /* The mouth goes with the voice, always — including when the line is CUT
+     * rather than finished, which is what this hook is for. */
+    hushCast();
     if (!voiceSource) return;
     /* `stop()` throws on a source that has already ended, which is the normal
      * case — the line finished on its own and we are only tidying up. */
     try { voiceSource.stop(); } catch { /* already done */ }
     voiceSource = null;
+    voiceSeconds = 0;
   },
   onLine(line) {
     ui.subsWho.textContent = line.speakerName || '';
     ui.subsLine.textContent = line.text;
     ui.subs.classList.add('show');
+    speakLine(line);
   },
   onLineEnd() {
     ui.subs.classList.remove('show');
+    hushCast();
   },
   onLook() {
     // DialogueController's own doc: "a soft suggestion, never a lock." This
@@ -364,6 +426,45 @@ const dialogue = new DialogueController({
     ui.choiceHoldBar.classList.remove('show');
   },
 });
+
+/**
+ * Every mouth in the room, and what is driving it.
+ *
+ * `open` is the smoothed 0..1 opening, `mode` is null / 'audio' / 'fallback',
+ * and `scaleY` is what the mesh is ACTUALLY at — measured off the object
+ * rather than recomputed, so a check cannot pass on a number the renderer
+ * never saw. `photo` marks the faces that have no mouth to move (see
+ * src/core/mouth.js).
+ *
+ * Kept out of `state()` and reachable on its own, because the mouth check
+ * samples it once a frame and building the whole state object — which walks
+ * three decal pools and every actor — at that rate would measure the sampler.
+ */
+function mouthState() {
+  return Object.fromEntries(cast.all.map((actor) => {
+    const m = actor.npc.mouth;
+    return [actor.name.toLowerCase(), {
+      open: +m.open.toFixed(4),
+      mode: m.mode,
+      level: +m.level.toFixed(4),
+      photo: m.photo,
+      scaleY: +(actor.npc.parts.mouth?.scale.y ?? 0).toFixed(5),
+      restY: +(m.rest?.y ?? 0).toFixed(5),
+    }];
+  }));
+}
+
+/** What the voice channel is doing, so silence can be told from a bug. */
+function voiceState() {
+  return {
+    cue: dialogue.cueLog[dialogue.cueLog.length - 1] ?? null,
+    playing: Boolean(voiceSource),
+    seconds: +voiceSeconds.toFixed(3),
+    talking: dialogue.busy,
+    recorded: dialogue.cueLog.filter((c) => c && audio.hasSample(c)).length,
+    attempted: dialogue.cueLog.length,
+  };
+}
 
 const pauseMenu = createPauseMenu({
   title: 'The Silver Case',
@@ -1499,6 +1600,8 @@ window.silvercase = {
         armed: Boolean(actor.weapon),
       },
     ])),
+    mouths: mouthState(),
+    voice: voiceState(),
     /** Ape's cross-scene identity, exactly as the campaign registry has it. */
     ape: {
       characterId: cast.ape.npc.characterId,
@@ -1568,6 +1671,9 @@ window.silvercase = {
   },
   shots,
   impacts,
+  /** Cheap enough to poll every frame — see mouthState(). */
+  mouths: () => mouthState(),
+  voice: () => voiceState(),
   chooseKey: (key) => dialogue.chooseKey(key),
   dialogue,
   cast,

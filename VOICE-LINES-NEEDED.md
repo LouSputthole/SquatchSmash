@@ -26,7 +26,7 @@ then run `npm run sfx:listen` to rebuild the index and `npm run voice:needed` to
 
 ### CHESTER — 7 lines
 
-*Chester — the man in the chair in THE SILVER CASE, and the man the whole scene is spent talking to. Owner-cast 2026-08-06, split out of `npc-male`, which he had been sharing with Deke and Winston in his own scene: three men in one room in one voice. NOTE FOR THE OWNER: every other id in this file is 20 characters and this one is 22, exactly as it was given. Nothing has been rendered against it yet, so a paste slip costs nothing to correct — confirm it before running: npm run sfx -- --force --cast chester*
+*Chester — the man in the chair in THE SILVER CASE, and the man the whole scene is spent talking to. Owner-cast 2026-08-06, split out of `npc-male`, which he had been sharing with Deke, Winston and Pruitt: four men in one room in one voice. The id was first pasted 22 characters long against a file where every other id is 20; the owner corrected it to this. Re-render his takes with: npm run sfx -- --force --cast chester*
 
 **The Silver Case** (7)
 

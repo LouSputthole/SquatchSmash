@@ -23,6 +23,7 @@ import * as THREE from 'three';
  * SAME woman, so the club borrows the builder rather than approximating her.
  * One Margo, one face, both scenes. */
 import { restyleMargoHead } from '../silver/margo.js';
+import { Mouth } from '../core/mouth.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { BADA_BING_BARTENDER, BIG_UNCLE_LOU_BING } from '../core/wardrobe.js';
 import { mat, box, sphere, cylinder, group } from '../world/build.js';
@@ -2531,6 +2532,11 @@ export class Npc {
     this.phase = rand(0, 6.28);
     this.gaze = 0;
     this.speaking = 0;
+    /* The mouth, driven by the voice rather than by a clock — one shared
+     * implementation for the whole cast (src/core/mouth.js). `openScale`
+     * reproduces the old `1 + |sin| * 2.6` opening exactly, so nobody's face
+     * changes shape; only what decides WHEN it opens has moved. */
+    this.mouth = new Mouth(this.parts, { openScale: 2.6 });
     this.folded = false;
     this.targetYaw = undefined;
     this._acc = 0;
@@ -2627,9 +2633,26 @@ export class Npc {
     return true;
   }
 
-  /** Say something: the head moves and one hand comes up for `secs`. */
-  say(secs = 2) {
+  /**
+   * Say something: the head moves, one hand comes up, and the mouth runs on
+   * the take.
+   *
+   * @param {number} secs how long the gesture holds — and, when there is no
+   *   recording, how long the mouth keeps working (the subtitle's own length).
+   * @param {object} [take] the voice this line is being spoken with:
+   *   `{ audio, source }` from `AudioEngine.play()`. Omit it and the mouth
+   *   falls back to a synthesised syllable envelope for `secs`, which is what
+   *   the several hundred still-unrecorded lines in this game get.
+   */
+  say(secs = 2, take = null) {
     this.speaking = secs;
+    this.mouth.speak({ seconds: secs, ...(take || {}) });
+  }
+
+  /** Cut the line: the mouth shuts, whatever the subtitle is still doing. */
+  hush() {
+    this.speaking = 0;
+    this.mouth.stop();
   }
 
   faceToward(x, z, snap = false) {
@@ -2640,6 +2663,12 @@ export class Npc {
   }
 
   update(dt, playerPos) {
+    /* A head can be rebuilt under a live figure -- `restyleMargoHead` clears
+     * the head group and hands back a NEW mouth mesh -- so the mouth driver
+     * has to notice rather than keep animating a mesh that left the scene.
+     * One reference comparison a frame, and it is self-healing for any future
+     * restyle rather than a line somebody has to remember to add. */
+    if (this.mouth.mouth !== this.parts.mouth) this.mouth.bind(this.parts);
     this._syncJob();
     if (this._every > 0) {
       this._acc += dt;
@@ -2963,13 +2992,24 @@ export class Npc {
       this.parts.armL.rotation.z = -0.18;
     }
 
-    // Talking: the jaw works, the head nods, one hand does the explaining.
-    // The hand turns OUT while it explains -- swung inward it crossed the
-    // sternum and the forearm ran through the speaker's own chest.
-    if (this.speaking > 0) {
-      const mb = this.parts.mouth.userData.base;
-      this.parts.mouth.scale.set(mb.x, mb.y * (1 + Math.abs(Math.sin(t * 11)) * 2.6), mb.z);
+    /* Talking: the mouth works, the head nods, one hand does the explaining.
+     *
+     * The mouth is no longer part of this block. It used to be
+     * `1 + |sin(t * 11)| * 2.6` held open for a guessed number of seconds,
+     * which flapped at a fixed cadence and kept flapping after the recording
+     * had finished. It is now driven by the take (src/core/mouth.js) and
+     * closes when the take does, including when the line is cut mid-word.
+     * The hand turns OUT while it explains -- swung inward it crossed the
+     * sternum and the forearm ran through the speaker's own chest. */
+    const talk = this.mouth.update(dt);
+    if (this.speaking > 0 || this.mouth.speaking) {
       this.parts.head.rotation.x = Math.sin(t * 6) * 0.05;
+      /* A PHOTOGRAPH CANNOT OPEN ITS MOUTH. Big Uncle Lou and the rest of the
+       * photographed cast have a real face on the front of the skull and a
+       * hidden placeholder behind it, so their syllables go into the head
+       * instead -- which is what actually reads on a photo at conversational
+       * distance, and it is the SAME envelope everybody else's jaw is on. */
+      if (this.mouth.photo) this.parts.head.rotation.x -= talk * 0.085;
       /* During Booski's delivery the bartender talks while his two hands are
        * committed to the tray. Keep the lips and head alive but do not let a
        * generic talking gesture pull his hand through the glass. */
@@ -2978,8 +3018,6 @@ export class Npc {
         this.parts.armR.rotation.z = 0.16;
         this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;
       }
-    } else {
-      this.parts.mouth.scale.copy(this.parts.mouth.userData.base);
     }
 
     /* Last line of defence for every pose above and any future one: an upper
