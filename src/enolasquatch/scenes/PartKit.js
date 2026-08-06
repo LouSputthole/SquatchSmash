@@ -143,6 +143,33 @@ export class PartKit {
     return true;
   }
 
+  /**
+   * Put a hidden part back exactly where `mount()` put it.
+   *
+   * The undo for `hide()`, and the reason `mount()` keeps `buckets` rather than
+   * throwing the part records away once the meshes are built: the record IS the
+   * transform, so a restore recomputes the original matrix rather than trusting
+   * a snapshot of it. Needed by `TargetCity.restore()` — a checkpoint restart
+   * before the drop has to give the cathedral and the gasholders back, and the
+   * landmarks are the one part of the city that goes away through this class.
+   *
+   * @param {?{key:string,index:number}} handle the handle `box`/`cyl`/… returned
+   * @returns {boolean} whether a part was actually put back
+   */
+  show(handle) {
+    if (!handle) return false;
+    const im = this.meshes.get(handle.key);
+    const p = this.buckets.get(handle.key)?.[handle.index];
+    if (!im || !p) return false;
+    _dummy.position.set(p.x, p.y, p.z);
+    _dummy.rotation.set(p.rx, p.ry, p.rz);
+    _dummy.scale.set(p.sx, p.sy, p.sz);
+    _dummy.updateMatrix();
+    im.setMatrixAt(handle.index, _dummy.matrix);
+    im.instanceMatrix.needsUpdate = true;
+    return true;
+  }
+
   dispose() {
     for (const im of this.meshes.values()) {
       im.parent?.remove(im);

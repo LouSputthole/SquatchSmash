@@ -44,6 +44,16 @@
  * `triggerCatastrophic()` is still the one rare, mission-scripted exception
  * that nothing in this file ever calls on its own. `./Interceptors.js` routes
  * ITS damage through the same four methods for the same reason.
+ *
+ * FIRING BLANKS. `liveFire` (constructor option, default TRUE — this class on
+ * its own is a real battery) is the one switch between a barrage that costs
+ * something and a barrage that is scenery. False gates `_resolveHit()` and
+ * nothing else: every gun, salvo, shell, burst, puff, splinter, tracer,
+ * searchlight, camera shake and sound is unchanged, and the four `damageX()`
+ * methods still work when something else calls them, because they are also the
+ * API a mission or a test drives directly. The Enola Squatch sets it from
+ * `LIVE_FIRE.flak` in `../config.js` — see that flag for why, and for how to
+ * turn the beating back on.
  */
 import * as THREE from 'three';
 import {
@@ -263,9 +273,15 @@ export class Defense {
    * @param {(x:number,z:number)=>number} [opts.getHeight] ground sampler used
    *   only to sit props on the ground.
    */
-  constructor(scene, { getHeight = null } = {}) {
+  constructor(scene, { getHeight = null, liveFire = true } = {}) {
     this.scene = scene;
     this.getHeight = getHeight;
+    /**
+     * Whether a burst or a tracer that connects actually takes something off
+     * the aeroplane. See the FIRING BLANKS note in this file's header — false
+     * changes the CONSEQUENCE and nothing about the show. Writable at runtime.
+     */
+    this.liveFire = liveFire;
     this.root = group('compound-defense');
     scene.add(this.root);
 
@@ -872,8 +888,15 @@ export class Defense {
   /**
    * A connecting shot rolls what kind of damage it is — weighted so an engine
    * is the common case and the others are rarer flavour.
+   *
+   * The ONE place `liveFire` gates. Everything the player sees and hears about
+   * this shot has already happened by the time this is called — the muzzle
+   * flash, the tracer's flight, the burst, the puff, the splinters, the shake
+   * and the crack — so a battery firing blanks looks and sounds identical and
+   * simply stops billing the aeroplane for it.
    */
   _resolveHit(source) {
+    if (!this.liveFire) return;
     this.onHit?.(source === 'flak' ? 'flak-near' : 'tracer-near');
     const roll = Math.random();
     if (roll < 0.55) {

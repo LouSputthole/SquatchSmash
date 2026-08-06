@@ -88,7 +88,7 @@ import {
 
 import {
   AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, ENOLA_PARKING, CRATER,
-  TARGET_CITY,
+  TARGET_CITY, LIVE_FIRE,
 } from './config.js';
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
 import { TargetCity, craterOffset, riverCarve } from './scenes/TargetCity.js';
@@ -345,6 +345,17 @@ const eastGround = buildEastGround(scene);
 window.__squatchStage?.('Painting the desert corridor…');
 
 /**
+ * What `depressGroundForCrater()` overwrote, so a checkpoint restart before the
+ * drop can put it back — `null` while there is no hole. Every entry is one
+ * vertex of the coarse east ground: its index, the height it stood at and the
+ * colour it was painted, taken BEFORE the crater profile was folded in.
+ * Restoring from the recorded values rather than by re-running the height
+ * function is what makes the undo exact: the mesh was built by sampling
+ * `groundHeightCombined`, which now answers with the hole in it.
+ */
+let craterGroundEdits = null;
+
+/**
  * Sink the coarse ground under the crater.
  *
  * The east ground is one static mesh at 50 m per cell — plenty for a route
@@ -357,6 +368,8 @@ window.__squatchStage?.('Painting the desert corridor…');
  * fine mesh be the surface the player actually looks at.
  *
  * Only the ~1,200 vertices inside the footprint are touched, out of 24,465.
+ * Every one of them is recorded into `craterGroundEdits` on the way past, which
+ * is what makes `raiseGroundAfterCrater()` below possible.
  */
 function depressGroundForCrater(craterRecord) {
   const geo = eastGround.geometry;
@@ -367,12 +380,20 @@ function depressGroundForCrater(craterRecord) {
   const outer = CRATER.radius + CRATER.rimWidth;
   const scorch = new THREE.Color(0x241d18);
   const c = new THREE.Color();
+  const edits = [];
   let touched = 0;
   for (let i = 0; i < pos.count; i++) {
     const wx = ox + pos.getX(i);
     const wz = oz + pos.getZ(i);
     const d = Math.hypot(wx - craterRecord.x, wz - craterRecord.z);
     if (d >= outer) continue;
+    edits.push({
+      i,
+      y: pos.getY(i),
+      r: colours ? colours.getX(i) : 0,
+      g: colours ? colours.getY(i) : 0,
+      b: colours ? colours.getZ(i) : 0,
+    });
     // 8 m of clearance in the middle, closing to nothing at the lip, so the
     // fine crater mesh always wins the depth test where it exists.
     const clearance = 8 * smoothstep(outer, outer - 140, d);
@@ -384,10 +405,29 @@ function depressGroundForCrater(craterRecord) {
     }
     touched++;
   }
+  craterGroundEdits = edits;
   pos.needsUpdate = true;
   if (colours) colours.needsUpdate = true;
   geo.computeVertexNormals();
   return touched;
+}
+
+/** Fill the hole in again — the undo for `depressGroundForCrater()`. */
+function raiseGroundAfterCrater() {
+  const edits = craterGroundEdits;
+  craterGroundEdits = null;
+  if (!edits?.length) return 0;
+  const geo = eastGround.geometry;
+  const pos = geo.attributes.position;
+  const colours = geo.attributes.color;
+  for (const e of edits) {
+    pos.setY(e.i, e.y);
+    if (colours) colours.setXYZ(e.i, e.r, e.g, e.b);
+  }
+  pos.needsUpdate = true;
+  if (colours) colours.needsUpdate = true;
+  geo.computeVertexNormals();
+  return edits.length;
 }
 
 /* ------------------------------------------------------------------ */
@@ -590,7 +630,9 @@ const dialogue = new DialogueSystem(hud, {
   audio: missionAudio,
   // The right man's head bobs when his line plays — the same hook Beef Run
   // uses for Lou and Cecilio, just with four people on the circuit.
-  onLine: (line) => crew.speak(line.who, (line.hold ?? 2) * 0.8),
+  /* `DialogueSystem.update` plays the take and THEN calls this, so the take is
+   * already under way and the mouth can run on it rather than on the hold. */
+  onLine: (line) => crew.speak(line.who, (line.hold ?? 2) * 0.8, missionAudio.voiceTake()),
 });
 
 const preflight = new EnolaPreflight({
@@ -611,11 +653,24 @@ const mission = new MissionController({
 
 /* The one wire that keeps the crater honest: the mission tells us the hole
  * exists, we fold it into the ground function every other system already holds
- * a reference to, and we sink the coarse ground mesh under the fine one. */
+ * a reference to, and we sink the coarse ground mesh under the fine one.
+ *
+ * It runs in BOTH directions now. `MissionController.restoreCheckpoint()` calls
+ * it with `null` when a restart before the drop puts Squatchbourg back
+ * (`TargetCity.restore()`), because the city is only two thirds of the hole:
+ * the rest is this module's `activeCrater` — which `groundHeightCombined` folds
+ * into every height query physics, the payload, the defense props and the
+ * targeting all make — and the sunken, scorched vertices in the coarse east
+ * ground mesh. Rebuilding the city without undoing those two would stand a
+ * restored Squatchbourg in the air over a hundred-metre pit. */
 mission.onCrater = (crater) => {
-  if (!crater) return;
-  activeCrater = crater;
-  depressGroundForCrater(crater);
+  if (crater) {
+    activeCrater = crater;
+    depressGroundForCrater(crater);
+  } else {
+    activeCrater = null;
+    raiseGroundAfterCrater();
+  }
 };
 
 mission.onComplete = (report) => {
@@ -1406,6 +1461,11 @@ window.__enolaSquatch = {
     return { inArc, yaw: mission.gunner.yaw, pitch: mission.gunner.pitch };
   },
   groundHeight: groundHeightCombined,
+  /* The for-show switch itself, so a console can put the beating back on:
+   *   __enolaSquatch.liveFire.fighters = true;
+   *   __enolaSquatch.defense.liveFire = true;   // the flak reads its own copy
+   * See `LIVE_FIRE` in ./config.js for what each one covers. */
+  liveFire: LIVE_FIRE,
   /* The detonation's own maths, so a verifier can assert the SHAPE of the
    * double flash and the shock expansion rather than trying to catch a
    * quarter-second peak by sampling. */
@@ -1535,6 +1595,58 @@ window.__enolaSquatch = {
       scenery: { trees: airfieldScenery.trees, tufts: airfieldScenery.tufts },
       cityDestroyed: city.destroyed,
       city: city.stats(),
+      /* Squatchbourg as a restart sees it: whether the hole exists in the
+       * MISSION's ground (not just in the mesh), whether the street plate and
+       * the river are drawn, whether the lights are on, and how many lots are
+       * still standing rather than flattened or vaporised. This is the readout
+       * `restoreCheckpoint()` has to be able to put back — see
+       * `TargetCity.restore()`. */
+      target: {
+        destroyed: city.destroyed,
+        crater: !!activeCrater,
+        craterMesh: !!city.crater,
+        /* Two readings of the same hole, because they answer different
+         * questions. `groundHole` is how far the ground has dropped at the
+         * MIDDLE OF TOWN, which is where the restored city has to stand and
+         * which therefore has to come back to exactly zero; how deep it gets in
+         * the first place depends on where the bomb actually fell, since the
+         * Fat Squatch carries the aeroplane's speed downrange. `holeAtCrater`
+         * is the depth at ground zero itself, which is always the full
+         * `CRATER.depth` while a crater exists and is the honest way to ask
+         * "is there a hole at all". */
+        groundHole: +(groundHeightCombined(TARGET_X, COMPOUND.z)
+          - rawEastHeight(TARGET_X, COMPOUND.z)).toFixed(1),
+        holeAtCrater: activeCrater
+          ? +(groundHeightCombined(activeCrater.x, activeCrater.z)
+            - rawEastHeight(activeCrater.x, activeCrater.z)).toFixed(1)
+          : 0,
+        standingLots: city.lots.filter((l) => !l.gone).length,
+        totalLots: city.lots.length,
+        landmarksAlive: city.landmarks.filter((l) => l.alive).length,
+        streetsVisible: !!city.parts.streets?.visible,
+        riverVisible: !!city.parts.river?.visible,
+        windowGlow: +(city.parts.buildingWallMat?.emissiveIntensity ?? 0).toFixed(3),
+        flattened: city.flattened,
+      },
+      /* The two diamonds — see `NAV_BY_PHASE` in mission/MissionController.js.
+       * `onScreen` is what the HUD is actually doing with it this frame: the
+       * diamond on the place, or the arrowhead pinned to the edge. */
+      marker: (() => {
+        const nav = mission.navTarget();
+        if (!nav) return { shown: false, label: null };
+        const dir = mission.projectNav(nav, mission.navRange ?? 0);
+        return {
+          shown: !document.getElementById('br-dir')?.classList.contains('hidden'),
+          label: nav.label,
+          nm: +(mission.navRange ?? 0).toFixed(2),
+          onScreen: dir ? dir.onScreen : null,
+          x: dir ? +dir.x.toFixed(1) : null,
+          y: dir ? +dir.y.toFixed(1) : null,
+          tag: document.getElementById('br-dir')?.querySelector('.tag')?.textContent ?? null,
+        };
+      })(),
+      /* For show, or for real. See `LIVE_FIRE` in ./config.js. */
+      liveFire: { flak: mission.defense.liveFire, fighters: LIVE_FIRE.fighters },
       /* The 2026-08-04 escalation pass: the air battle, the box that flies for
        * you, the gun you fly it to work, and the blast. All read-only. */
       fighters: {

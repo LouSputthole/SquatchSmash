@@ -57,6 +57,10 @@
  * That is why the city is now WIDER than the crater: the old one was 560 m
  * across inside an 810 m lip, so the whole place vanished on the frame of the
  * flash and there was nothing left to watch the blast wave do anything to.
+ *
+ * `restore()` is the undo for both of them, and it exists because a checkpoint
+ * restart before the drop has to hand the player a city to bomb rather than a
+ * hole to bomb again. See its own comment for the whole of that bug.
  * ---------------------------------------------------------------------------
  */
 import * as THREE from 'three';
@@ -333,6 +337,34 @@ const _dummy = new THREE.Object3D();
 const _colour = new THREE.Color();
 const _scorched = new THREE.Color(0x1a1512);
 
+/**
+ * How brightly the lit windows burn while the town still has power.
+ *
+ * Named because TWO places need to agree about it — `buildBlocks()`, which sets
+ * it, and `restore()`, which has to put it back after `destroy()` knocked it
+ * down to `DEAD_WINDOW_GLOW`. It was a bare literal in one place and a second
+ * bare literal in the other, which is exactly how a restored city ends up dark.
+ */
+export const WINDOW_GLOW = 0.72;
+/** And what it is turned down to once the town has no power and no windows. */
+export const DEAD_WINDOW_GLOW = 0.04;
+
+/**
+ * The instanced meshes a restore has to put back, in `this.parts` key order.
+ *
+ * Everything in this list is written once at build time from a source record
+ * and then only ever hidden, flattened or scorched — so a byte-for-byte copy of
+ * its `instanceMatrix`/`instanceColor` taken before the first `destroy()` is a
+ * complete description of the standing city. The alternative — re-deriving each
+ * transform from `rooftopOwner`/`lightPos`/`treePos`/… — cannot work, because
+ * those lists only ever kept the (x, z) the shock front sorts on and never the
+ * height, scale or rotation the matrix was built from.
+ */
+const RESTORABLE = [
+  'buildings', 'houses', 'roofs', 'clutter', 'chimneys',
+  'lights', 'lightPoles', 'trees', 'railStock', 'riverCraft',
+];
+
 /** Districts, in the order the block loop tests them. */
 export const DISTRICTS = ['water', 'docks', 'rail', 'park', 'industry', 'downtown', 'midrise', 'terraces', 'edge'];
 
@@ -355,8 +387,11 @@ export class TargetCity {
 
     /** Every building, so the detonation can rewrite them. */
     this.lots = [];
+    /** False again after `restore()` — a restart before the drop rebuilds it. */
     this.destroyed = false;
     this.crater = null;
+    /** A copy of every instance buffer as built. See `_takePristine()`. */
+    this._pristine = null;
     /** Sorted queue the shock front eats through. See `advanceShock()`. */
     this._queue = [];
     this._queueAt = 0;
@@ -576,7 +611,7 @@ export class TargetCity {
       map,
       emissiveMap: emissive,
       emissive: 0xffffff,
-      emissiveIntensity: 0.72,
+      emissiveIntensity: WINDOW_GLOW,
       roughness: 0.92,
       metalness: 0.02,
     });
@@ -1254,6 +1289,11 @@ export class TargetCity {
   destroy(point) {
     if (this.destroyed) return this.crater;
     this.destroyed = true;
+    /* Photograph the standing city before anything happens to it. Deferred to
+     * here rather than done in `build()` so a page that never drops the bomb
+     * never pays the ~600 kB: nothing touches these buffers between the build
+     * and this line, so the copy taken now IS the pristine city. */
+    this._takePristine();
 
     const cfg = CRATER;
     const cx = point.x;
@@ -1312,7 +1352,7 @@ export class TargetCity {
      * stored WALL material rather than off `parts.buildings.material`, which
      * is an array of six face slots now (see `buildBlocks()`); writing
      * `emissiveIntensity` onto an array quietly does nothing. */
-    this.parts.buildingWallMat.emissiveIntensity = 0.04;
+    this.parts.buildingWallMat.emissiveIntensity = DEAD_WINDOW_GLOW;
     /* The ground plate and the river go with the middle: both run right across
      * ground zero, and leaving them drawn puts a street map and a flat blue
      * ribbon lying across the floor of a hundred-metre hole. */
@@ -1368,6 +1408,126 @@ export class TargetCity {
 
   /** True once the front has been past everything there was. */
   get shockComplete() { return this._queueAt >= this._queue.length; }
+
+  /* ---------------------------------------------------------------- */
+  /* Putting it back                                                   */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Copy every restorable instance buffer, once.
+   *
+   * Called from `destroy()`, which is the last moment the city is still whole.
+   * Idempotent: a second raid after a restore re-uses the FIRST photograph
+   * rather than photographing the city it is about to flatten again — which
+   * matters, because a restore is not required to have happened in between.
+   */
+  _takePristine() {
+    if (this._pristine) return this._pristine;
+    this._pristine = [];
+    for (const key of RESTORABLE) {
+      const mesh = this.parts[key];
+      if (!mesh?.isInstancedMesh) continue;
+      this._pristine.push({
+        mesh,
+        count: mesh.count,
+        matrix: mesh.instanceMatrix.array.slice(),
+        colour: mesh.instanceColor ? mesh.instanceColor.array.slice() : null,
+      });
+    }
+    return this._pristine;
+  }
+
+  /**
+   * Rebuild Squatchbourg exactly as it was before the Fat Squatch arrived.
+   *
+   * THE UNWINNABLE RESTART, second half — owner, 2026-08-06: "The enola restart
+   * from latest checkpoint bug still happens where everything is already blown
+   * up and I cant redrop the bomb."
+   *
+   * `MissionController.rearmPayload()` fixed the bomb in an earlier pass and
+   * its comment then claimed the flattened target was fine, because "you get to
+   * drop it again on what is left". It is not fine: restarting a bombing run
+   * over a hole with no city in it is not the mission, and the owner said so.
+   * There was no way back at all — `destroy()` set `destroyed = true` and
+   * NOTHING anywhere ever set it false again, so every restart after a drop was
+   * a run at an empty crater.
+   *
+   * What comes back, and it is everything `destroy()` and `advanceShock()` did:
+   *   every building, house and pitched roof — position, scale, rotation AND
+   *     colour, so nothing is left flattened, tipped over or scorched;
+   *   the rooftop clutter, the chimneys, the lamp heads and their columns, the
+   *     trees, the rolling stock and the river craft;
+   *   every landmark, through `PartKit.show()`;
+   *   the lit windows (`WINDOW_GLOW`), the street plate and the river;
+   *   the crater mesh and its cooling glow, removed from the scene and freed.
+   *
+   * What this canNOT put back, because it does not own it: the hole in the
+   * MISSION's own ground-height function and the sunken vertices in the coarse
+   * east ground mesh. Both live in `../main.js` — see `mission.onCrater`, which
+   * is now called with `null` to undo exactly those two things. A city restored
+   * without that would stand in mid-air over a hundred-metre pit.
+   *
+   * @returns {boolean} whether there was anything to put back
+   */
+  restore() {
+    if (!this.destroyed) return false;
+
+    /* ---- Every instanced thing, back to its build-time matrix ---- */
+    for (const snap of this._pristine || []) {
+      snap.mesh.instanceMatrix.array.set(snap.matrix);
+      snap.mesh.instanceMatrix.needsUpdate = true;
+      if (snap.colour && snap.mesh.instanceColor) {
+        snap.mesh.instanceColor.array.set(snap.colour);
+        snap.mesh.instanceColor.needsUpdate = true;
+      }
+      snap.mesh.count = snap.count;
+    }
+
+    /* ---- The bookkeeping the flattening wrote onto the lot records ---- */
+    for (const l of this.lots) l.gone = false;
+
+    /* ---- The landmarks ---- */
+    for (const lm of this.landmarks) {
+      if (lm.alive) continue;
+      lm.alive = true;
+      for (const h of lm.handles) this.kit.show(h);
+    }
+
+    /* ---- The lights, the streets and the water ---- */
+    this.parts.buildingWallMat.emissiveIntensity = WINDOW_GLOW;
+    this.parts.streets.visible = true;
+    this.parts.river.visible = true;
+
+    /* ---- And the hole ---- */
+    this.removeCrater();
+
+    this._queue.length = 0;
+    this._queueAt = 0;
+    this.shockRadius = 0;
+    this.flattened = 0;
+    this.destroyed = false;
+    return true;
+  }
+
+  /**
+   * Take the crater mesh and its cooling glow off the scene and free them.
+   *
+   * Both are built per-detonation with their own geometry and their own
+   * material (see `buildCraterMesh()`), so unlike the rest of the city they are
+   * genuinely this object's to dispose — nothing else shares them.
+   */
+  removeCrater() {
+    const cr = this.crater;
+    if (!cr) return false;
+    this.crater = null;
+    for (const m of [cr.mesh, cr.glow]) {
+      if (!m) continue;
+      this.scene.remove(m);
+      m.geometry?.dispose?.();
+      m.material?.dispose?.();
+    }
+    return true;
+  }
 
   _hideInstance(mesh, i) {
     _dummy.position.set(0, -400, 0);

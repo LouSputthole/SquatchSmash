@@ -80,8 +80,16 @@ try {
     if (message.type() === 'error') problems.push(message.text().slice(0, 240));
   });
 
-  await page.goto(`http://localhost:${PORT}/enolasquatch.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.__squatch?.enolaSquatch === true, null, { timeout: 30000 });
+  /* Playwright's default `goto` budget is thirty seconds, and this page builds
+   * Squatchbourg, the airfield, the aeroplane, the crew and a route mesh before
+   * it fires `load`. On a quiet machine that is a few seconds; on a shared one
+   * with two or three other headless SwiftShader runs going it is not, and the
+   * whole verification then dies at line one with a bare TimeoutError that says
+   * nothing about the mission. Ninety seconds costs nothing when the page is
+   * quick and is the difference between a red run and a real one when it is
+   * not. */
+  await page.goto(`http://localhost:${PORT}/enolasquatch.html`, { waitUntil: 'load', timeout: 90000 });
+  await page.waitForFunction(() => window.__squatch?.enolaSquatch === true, null, { timeout: 90000 });
   check('the page boots and signals the watchdog', true);
 
   /* ---- Start button really boots the mission (not just go()) ---- */
@@ -850,6 +858,15 @@ try {
     const h = window.__enolaSquatch;
     const d = h.defense;
     const before = { bursts: d.burstsFired, near: d.nearMisses };
+    /* FOR SHOW (owner, 2026-08-06). Everything the barrage DOES to the
+     * aeroplane is sampled either side of thirty seconds of real shooting, so
+     * the check below can say the show ran and the bill did not. */
+    const costBefore = {
+      wing: h.physics.damage.wing,
+      hits: d.hitCount,
+      engines: d.damage.engines.filter(Boolean).length,
+      rudder: d.damage.rudder, electrical: d.damage.electrical, fuel: d.damage.fuel,
+    };
     // Straight and level: the predictor is supposed to get the range.
     const bursts = [];
     d.onFlakBurst = (dist, point, severity) => bursts.push({ dist: Math.round(dist), severity: +severity.toFixed(2) });
@@ -879,10 +896,20 @@ try {
       elevated,
       shellsSeen: d.burstsFired - before.bursts,
       bursts: bursts.length,
+      nearMissesSeen: d.nearMisses - before.near,
       closest: bursts.length ? Math.min(...bursts.map((b) => b.dist)) : null,
       settled: +settled.toFixed(2),
       jinked: +jinked.toFixed(2),
       intensity: +d.intensity.toFixed(2),
+      liveFire: d.liveFire,
+      cost: {
+        wing: +(h.physics.damage.wing - costBefore.wing).toFixed(4),
+        hits: d.hitCount - costBefore.hits,
+        engines: d.damage.engines.filter(Boolean).length - costBefore.engines,
+        newRudder: d.damage.rudder !== costBefore.rudder,
+        newElectrical: d.damage.electrical !== costBefore.electrical,
+        newFuel: d.damage.fuel !== costBefore.fuel,
+      },
     };
   });
   check('the flak is a battery problem now: real guns, real salvos, and a predictor that can be beaten',
@@ -895,12 +922,32 @@ try {
     flak.closest !== null && flak.closest < 900,
     `closest burst reported at ${flak.closest} m of ${flak.bursts} heard`);
 
+  /* ---- FOR SHOW: the barrage is scenery you fly through, not a fight you
+   * lose. Owner, 2026-08-06: "I take too much of a beating on the fly in,
+   * theres really no targets to shoot out. Lets just have all the flak and
+   * fighters for show." The check is deliberately both halves at once — thirty
+   * seconds of real salvos, real bursts and real near misses (measured above),
+   * and not one thing off the aeroplane. ---- */
+  check('the flak is for show: the whole barrage still happens and none of it costs the aeroplane anything',
+    flak.liveFire === false
+      && flak.shellsSeen > 12 && flak.bursts > 4 && flak.nearMissesSeen > 0
+      && flak.cost.wing === 0 && flak.cost.hits === 0 && flak.cost.engines === 0
+      && !flak.cost.newRudder && !flak.cost.newElectrical && !flak.cost.newFuel,
+    `${flak.shellsSeen} shells, ${flak.bursts} bursts heard, ${flak.nearMissesSeen} near misses, `
+    + `cost ${JSON.stringify(flak.cost)}`);
+
   /* ---- Night fighters (owner: "not too hard not too easy... they try and
    * shoot you down") ---- */
   const fighters = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     h.spawnFighters(3, 0);
     const states = new Set();
+    // FOR SHOW, the air half: what two minutes of firing passes costs.
+    const costBefore = {
+      wing: h.physics.damage.wing,
+      hits: h.defense.hitCount,
+      engines: h.defense.damage.engines.filter(Boolean).length,
+    };
     let maxEngaged = 0;
     let calledOut = false;
     for (let i = 0; i < 60 * 120; i++) {
@@ -920,6 +967,13 @@ try {
       hitsTaken: f.hitsTaken,
       calledOut,
       warned: [...(h.flightHud._warnState || [])].includes('fighters'),
+      liveFire: h.liveFire.fighters,
+      barked: h.dialogue.seen('fighters.first'),
+      cost: {
+        wing: +(h.physics.damage.wing - costBefore.wing).toFixed(4),
+        hits: h.defense.hitCount - costBefore.hits,
+        engines: h.defense.damage.engines.filter(Boolean).length - costBefore.engines,
+      },
     };
   });
   check('the fighters hunt: they set up, commit, make a firing pass and are called out on the intercom',
@@ -927,6 +981,17 @@ try {
       && fighters.maxEngaged >= 1 && fighters.maxEngaged <= 2
       && fighters.roundsAtUs > 40 && fighters.calledOut && fighters.warned,
     JSON.stringify(fighters));
+
+  /* ---- FOR SHOW, the air half. They still come, still commit, still fire and
+   * are still called out — and their rounds no longer take anything off the
+   * aeroplane. `hitsTaken` is deliberately allowed to be non-zero: the rounds
+   * still CONNECT and are still heard and felt, which is the show; only the
+   * damage the mission's `onFighterHit` used to apply is gone. ---- */
+  check('the fighters are for show too: the passes and the hits still land, the damage does not',
+    fighters.liveFire === false && fighters.roundsAtUs > 40 && fighters.barked
+      && fighters.cost.wing === 0 && fighters.cost.hits === 0 && fighters.cost.engines === 0,
+    `${fighters.roundsAtUs} rounds at us, ${fighters.hitsTaken} of them on, `
+    + `cost ${JSON.stringify(fighters.cost)}`);
 
   const fightersBreak = await page.evaluate(() => {
     const h = window.__enolaSquatch;
@@ -1135,6 +1200,21 @@ try {
   const gunnery = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     const at = h.physics.position.clone();
+    /* ROOM TO RUN. This block flies unattended and eastbound for up to two
+     * minutes while the player works the turret, and a healthy Enola Squatch
+     * covers the better part of eight kilometres doing it. It used to start
+     * from wherever the flak block had left the aeroplane and get away with it
+     * for a reason that has now been deliberately removed: the barrage used to
+     * shoot two engines out and put the wing damage at its limit, so the
+     * cripple never got very far. With the guns firing blanks (`LIVE_FIRE`,
+     * src/enolasquatch/config.js) and ten per cent more thrust, it flies
+     * straight past the map's eastern bound (`updateFlightCommon`'s ±13.4 km),
+     * the mission correctly fails, `fail()` takes the player off the gun, and
+     * the turret test finds itself testing nothing. That is the MISSION
+     * behaving properly and the TEST flying too far, so the test starts from a
+     * known place with the whole map ahead of it and says so if it ever runs
+     * out of room again. */
+    at.x = 3200;
     at.y = h.groundHeight(at.x, at.z) + 620;
     h.physics.setPose(at, 90, 66);
     h.physics.omega.set(0, 0, 0);
@@ -1156,7 +1236,16 @@ try {
     let shots = 0;
     let inArc = false;
     let closest = Infinity;
+    let ranOutOfMap = false;
     for (let pass = 0; pass < 1600 && killed === 0; pass++) {
+      /* If the stress test ever does reach the edge again, SAY SO. A silent
+       * `fail()` mid-loop takes the player off the gun and every assertion
+       * below then reports "the turret does not work", which is a diagnosis of
+       * the wrong system entirely — it cost an hour once. */
+      if (Math.abs(h.physics.position.x) > 12800 || h.mission.failed) {
+        ranOutOfMap = true;
+        break;
+      }
       const live = h.interceptors.fighters.filter((f) => f.alive);
       if (!live.length) break;
       live.sort((a, b) => a.position.distanceTo(h.physics.position) - b.position.distanceTo(h.physics.position));
@@ -1188,6 +1277,7 @@ try {
       leftGun: left === false, backInSeat: h.gunner.manned === false,
       autopilotBefore, autopilotAfter: h.autopilot.engaged,
       hudDown: document.getElementById('enola-combat')?.style.display,
+      ranOutOfMap, endedAtX: Math.round(h.physics.position.x), failed: h.mission.failed,
     };
   });
   check('taking the tail gun puts the player in the turret, engages the autopilot, and hands Shubes off the trigger',
@@ -1195,9 +1285,11 @@ try {
     JSON.stringify({ ...gunnery, shots: undefined, killed: undefined }));
 
   check('the player can actually shoot a night fighter down from the tail',
-    gunnery.inArc && gunnery.shots > 0 && gunnery.killed > 0 && gunnery.belt < 1400,
+    gunnery.inArc && gunnery.shots > 0 && gunnery.killed > 0 && gunnery.belt < 1400
+      && !gunnery.ranOutOfMap,
     `${gunnery.shots} rounds away, ${gunnery.hits} on, ${gunnery.killed} destroyed, `
-    + `${gunnery.belt} left in the belt; closest pass ${gunnery.closest} m`);
+    + `${gunnery.belt} left in the belt; closest pass ${gunnery.closest} m; `
+    + `ended at x ${gunnery.endedAtX}${gunnery.ranOutOfMap ? ' — RAN OUT OF MAP' : ''}`);
 
   check('coming forward again gives the gun back and does not change who is flying',
     gunnery.leftGun && gunnery.backInSeat && gunnery.hudDown === 'none'
@@ -1239,6 +1331,66 @@ try {
     return phase;
   });
   check('go("bombApproach") stages the bombing run', bombApproachEntry === 'bombApproach');
+
+  /* ---- THE DIAMOND ON THE CITY ----
+   *
+   * Owner, 2026-08-06: "I also want a diamond marker on the city where to drop
+   * the bomb and a diamond marker on the airport for the return." Both are the
+   * flight HUD's own objective marker (`FlightHud.setDirection`, plus the
+   * bearing bug and range on the heading tape) driven off one per-phase target,
+   * which is the idiom `src/beefrun/mission.js` already uses. Read off the real
+   * DOM, projected through the real camera. */
+  const cityMarker = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.tick(0.5);
+    const dir = document.getElementById('br-dir');
+    const s = h.state().marker;
+    return {
+      ...s,
+      hidden: dir.classList.contains('hidden'),
+      edge: dir.classList.contains('edge'),
+      left: dir.style.getPropertyValue('--x'),
+      top: dir.style.getPropertyValue('--y'),
+      navLine: document.getElementById('br-nav').textContent,
+      navHidden: document.getElementById('br-nav').classList.contains('hidden'),
+      bugHidden: document.getElementById('br-bug').classList.contains('hidden'),
+      // The aeroplane is west of the target flying east, so the target is ahead
+      // and the diamond has to be ON it rather than pinned to a frame edge.
+      target: { x: 9000, z: -500 },
+      me: { x: Math.round(h.physics.position.x), heading: Math.round(h.physics.headingDeg) },
+    };
+  });
+  check('a diamond marker stands on Squatchbourg through the whole run in, with the range under it',
+    !cityMarker.hidden && cityMarker.label === 'SQUATCHBOURG'
+      && cityMarker.onScreen === true && !cityMarker.edge
+      && /SQUATCHBOURG/.test(cityMarker.tag || '') && /NM/.test(cityMarker.tag || '')
+      && cityMarker.nm > 0.5 && cityMarker.nm < 1.2
+      && !cityMarker.navHidden && !cityMarker.bugHidden
+      && /SQUATCHBOURG/.test(cityMarker.navLine),
+    JSON.stringify(cityMarker));
+
+  /* And it is a marker on the WORLD, not a sticker on the middle of the glass:
+   * turn away from the target and it leaves, as an arrowhead on the frame edge
+   * pointing back at where the city actually is. */
+  const markerTurns = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const facing = h.state().marker;
+    const heading = h.physics.headingDeg;
+    h.physics.setPose(h.physics.position.clone(), (heading + 180) % 360, h.physics.tas);
+    h.tick(0.2);
+    const away = h.state().marker;
+    const dir = document.getElementById('br-dir');
+    const edge = dir.classList.contains('edge');
+    h.physics.setPose(h.physics.position.clone(), heading, h.physics.tas);
+    h.tick(0.2);
+    return { facing, away, edge, back: h.state().marker };
+  });
+  check('the marker is on the place, not on the screen: turn round and it becomes an edge arrow pointing back at it',
+    markerTurns.facing.onScreen === true && markerTurns.away.onScreen === false
+      && markerTurns.edge && markerTurns.back.onScreen === true,
+    JSON.stringify({
+      facing: markerTurns.facing.x, away: markerTurns.away.x, edge: markerTurns.edge,
+    }));
 
   const targetingReal = await page.evaluate(() => {
     const h = window.__enolaSquatch;
@@ -1627,6 +1779,240 @@ try {
       && crater.lipRise > 5 && crater.zeroBeyondLip,
     JSON.stringify(crater));
 
+  /* ================================================================
+   * THE RESTART — the blocker, owner 2026-08-06: "The enola restart from
+   * latest checkpoint bug still happens where everything is already blown up
+   * and I cant redrop the bomb."
+   *
+   * The city has just been destroyed for real, by a real bomb, and the shock
+   * front has been through it. This is the moment the owner was restarting at.
+   * Everything below is the second attempt: put the checkpoint back, prove
+   * Squatchbourg is STANDING again — in the mesh, in the lights, in the street
+   * plate and the river, and in the ground the aeroplane and the payload
+   * actually collide with — and then drop the Fat Squatch on it a second time
+   * and watch it go off.
+   *
+   * Deliberately driven through `requestRestart()`, which is exactly what the
+   * Tab menu's "Restart from checkpoint" calls, rather than through `go()`.
+   * ================================================================ */
+  const beforeRestart = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    // Everything the front had not reached yet goes now, so the restore is
+    // tested against a city that is as flattened as it can get.
+    h.city.advanceShock(6000);
+    const t = h.state().target;
+    return {
+      ...t,
+      checkpoint: h.mission.checkpoint,
+      phase: h.mission.phase,
+      payloadReleased: h.mission.payloadReleased,
+      payloadGone: h.payload.released && h.payload.impacted,
+      // What the mission's own ground function says at ground zero, which is
+      // what physics, the payload's impact test, Defense and Targeting all use.
+      groundAtTarget: +h.groundHeight(9000, -500).toFixed(1),
+      /* The battle damage the blast wave did, which is a SECOND record of what
+       * is broken, parallel to `engines`/`physics.damage` and never reset. */
+      battle: {
+        engines: h.defense.damage.engines.filter(Boolean).length,
+        electrical: h.defense.damage.electrical,
+        hitCount: h.defense.hitCount,
+        deadDials: h.aircraft.instruments?.failed.size ?? 0,
+        wing: +h.physics.damage.wing.toFixed(3),
+      },
+    };
+  });
+  check('after the raid the city really is gone: every lot down, the lights out, the water and the streets hidden',
+    beforeRestart.destroyed && beforeRestart.standingLots === 0
+      && beforeRestart.landmarksAlive === 0 && !beforeRestart.streetsVisible
+      && !beforeRestart.riverVisible && beforeRestart.windowGlow < 0.1
+      && beforeRestart.crater && beforeRestart.craterMesh
+      /* The hole, in the ground the aeroplane and the payload actually collide
+       * with rather than only in the mesh: the full crater depth at ground
+       * zero, and a real drop under the middle of town. See `state().target`
+       * for why those are two different numbers. */
+      && beforeRestart.holeAtCrater < -100 && beforeRestart.groundHole < -5,
+    JSON.stringify(beforeRestart));
+
+  const restarted = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const took = h.mission.requestRestart();
+    /* Read the crew's memory on THIS frame, before the tick below. Half a
+     * second into a restored bombing run the bombardier has already called the
+     * city in sight again — which is the fix working, and would read as the
+     * fix failing if it were sampled afterwards. */
+    const beats = {
+      cityInSight: h.dialogue.seen('bomb.cityInSight'),
+      packageAway: h.dialogue.seen('bomb.packageAway'),
+      flash: h.dialogue.seen('explosion.flash'),
+      escapeTurn: h.dialogue.seen('escape.turn'),
+      preflightDone: h.dialogue.seen('preflight.done'),
+      taxi: h.dialogue.seen('taxi.line'),
+    };
+    h.tick(0.5);
+    const t = h.state().target;
+    return {
+      took,
+      ...t,
+      phase: h.mission.phase,
+      checkpoint: h.mission.checkpoint,
+      /* THE BOMB. Back on the mount, in the scene graph, under the aeroplane —
+       * not just a flag flipped. */
+      payloadReleased: h.mission.payloadReleased,
+      payloadOnMount: h.payload.group.parent === h.aircraft.anchors.payloadMount,
+      payloadVisible: h.payload.group.visible,
+      payloadFlags: { released: h.payload.released, impacted: h.payload.impacted },
+      /* And the hole, in all three places it existed: the fine crater mesh, the
+       * mission's ground function, and the sunken coarse ground mesh. */
+      groundAtTarget: +h.groundHeight(9000, -500).toFixed(1),
+      explosionPoint: !!h.mission.explosionPoint,
+      detonationLive: h.detonation.live,
+      blastFlash: +(h.mission.blastFlash || 0).toFixed(3),
+      // Nothing left over from the attempt before.
+      fighters: h.state().fighters.active,
+      failed: h.mission.failed,
+      /* And the crew have their lines back for the legs about to be reflown —
+       * but not for the ones that are not. */
+      battle: {
+        engines: h.defense.damage.engines.filter(Boolean).length,
+        electrical: h.defense.damage.electrical,
+        hitCount: h.defense.hitCount,
+        deadDials: h.aircraft.instruments?.failed.size ?? 0,
+        wing: +h.physics.damage.wing.toFixed(3),
+      },
+      // The pre-tick sample taken above, NOT a fresh one: see its comment.
+      beats,
+      // And the same reading half a second later, which is a different
+      // question — by then the bombardier has had time to use one of them.
+      beatsAfterHalfASecond: { cityInSight: h.dialogue.seen('bomb.cityInSight') },
+    };
+  });
+  check('restarting from the checkpoint puts Squatchbourg back — every lot standing, the lights on, the streets and the river drawn',
+    restarted.took && restarted.destroyed === false
+      && restarted.standingLots === restarted.totalLots && restarted.totalLots > 800
+      && restarted.landmarksAlive > 15
+      && restarted.streetsVisible && restarted.riverVisible
+      && restarted.windowGlow > 0.5 && restarted.flattened === 0,
+    JSON.stringify({
+      standing: `${restarted.standingLots}/${restarted.totalLots}`,
+      landmarks: restarted.landmarksAlive,
+      streets: restarted.streetsVisible, river: restarted.riverVisible,
+      glow: restarted.windowGlow, flattened: restarted.flattened,
+    }));
+
+  /* The same number, and now it has to be EXACTLY zero: a restored world with
+   * any of the hole left in it stands the city in the air over a pit, and the
+   * next bomb falls through the ground it was supposed to hit. */
+  check('and the crater is filled in — the mesh is gone AND the ground the aeroplane flies over is whole again',
+    !restarted.crater && !restarted.craterMesh
+      && Math.abs(restarted.groundHole) < 0.01 && restarted.holeAtCrater === 0
+      && restarted.groundAtTarget > beforeRestart.groundAtTarget,
+    JSON.stringify({
+      craterRecord: restarted.crater, craterMesh: restarted.craterMesh,
+      groundWas: beforeRestart.groundAtTarget, groundNow: restarted.groundAtTarget,
+      holeRemaining: restarted.groundHole,
+    }));
+
+  check('the second attempt starts on the bombing run with a Fat Squatch actually hanging in the bay',
+    restarted.phase === 'bombApproach' && restarted.checkpoint === 'preRelease'
+      && restarted.payloadReleased === false && restarted.payloadOnMount
+      && restarted.payloadVisible && !restarted.payloadFlags.released
+      && !restarted.payloadFlags.impacted
+      && !restarted.explosionPoint && !restarted.detonationLive
+      && restarted.blastFlash === 0 && restarted.fighters === 0 && !restarted.failed,
+    JSON.stringify({
+      phase: restarted.phase, payload: restarted.payloadFlags,
+      onMount: restarted.payloadOnMount, released: restarted.payloadReleased,
+    }));
+
+  /* ---- The battle damage goes with the engines. `engines.reset(false)` inside
+   * the restore rebuilds all four; `Defense.damage` is a second, parallel
+   * record of what has been shot off and used to survive the restart, so the
+   * mission believed in damage the aeroplane no longer had — most visibly an
+   * ELECTRICAL FAULT stuck on the glass with a dead dial behind it. ---- */
+  check('a restart hands back an aeroplane that is whole — no phantom battle damage from the attempt before',
+    beforeRestart.battle.electrical && beforeRestart.battle.hitCount > 0
+      && restarted.battle.engines === 0 && restarted.battle.electrical === false
+      && restarted.battle.hitCount === 0 && restarted.battle.deadDials === 0
+      && restarted.battle.wing === 0,
+    `before: ${JSON.stringify(beforeRestart.battle)} after: ${JSON.stringify(restarted.battle)}`);
+
+  /* ---- And the crew fly it with him. A second attempt used to be flown in
+   * total silence — every `once: true` beat from the first run was still in
+   * `dialogue.played`, so nobody called the city in sight, nobody said package
+   * away, and nobody reacted to the flash. ---- */
+  check('the crew get their lines back for the legs about to be reflown, and keep the ones that are not',
+    restarted.beats.cityInSight === false && restarted.beats.packageAway === false
+      && restarted.beats.flash === false && restarted.beats.escapeTurn === false
+      && restarted.beats.preflightDone === true && restarted.beats.taxi === true
+      /* And he uses one straight away: half a second into the restored run the
+       * bombardier has called the city in sight again, which is the whole point
+       * of giving the line back. */
+      && restarted.beatsAfterHalfASecond.cityInSight === true,
+    `${JSON.stringify(restarted.beats)} then cityInSight `
+    + `${restarted.beatsAfterHalfASecond.cityInSight} half a second later`);
+
+  /* ---- And it can be delivered a second time. Same route as the first drop:
+   * stage the release beat, pick a line, and let the bomb fall for real. ---- */
+  const secondDrop = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.go('release');
+    const chose = h.mission.chooseReleaseLine('2');
+    // Three seconds of "it's stuck / kick it", then eight or nine of fall.
+    for (let i = 0; i < 60 * 20 && !h.payload.impacted; i++) h.tick(1 / 60);
+    const atImpact = {
+      impacted: h.payload.impacted,
+      detonationLive: h.detonation.live,
+      cityDestroyed: h.city.destroyed,
+      craterMesh: !!h.city.crater,
+      crater: !!h.crater,
+    };
+    // Let the front go out across the town again.
+    for (let i = 0; i < 60 * 14; i++) h.tick(1 / 60);
+    const t = h.state().target;
+    return {
+      chose,
+      ...atImpact,
+      phase: h.mission.phase,
+      flattened: t.flattened,
+      standingLots: t.standingLots,
+      totalLots: t.totalLots,
+      groundHole: t.groundHole,
+      holeAtCrater: t.holeAtCrater,
+      accuracy: h.mission.score.bombAccuracy,
+      failed: h.mission.failed,
+      saidItAgain: {
+        packageAway: h.dialogue.seen('bomb.packageAway'),
+        flash: h.dialogue.seen('explosion.flash'),
+      },
+    };
+  });
+  check('the Fat Squatch can be dropped AGAIN on the restored city, and it really detonates a second time',
+    secondDrop.chose && secondDrop.impacted && secondDrop.detonationLive
+      && secondDrop.cityDestroyed && secondDrop.craterMesh && secondDrop.crater
+      && typeof secondDrop.accuracy === 'number'
+      && secondDrop.holeAtCrater < -100 && !secondDrop.failed,
+    JSON.stringify({
+      impacted: secondDrop.impacted, detonation: secondDrop.detonationLive,
+      accuracy: secondDrop.accuracy, hole: secondDrop.holeAtCrater, phase: secondDrop.phase,
+    }));
+
+  check('and the second blast wave knocks the restored city down again rather than finding an empty crater',
+    secondDrop.flattened > 0 && secondDrop.standingLots < secondDrop.totalLots * 0.4
+      && secondDrop.saidItAgain.packageAway && secondDrop.saidItAgain.flash,
+    `${secondDrop.totalLots - secondDrop.standingLots}/${secondDrop.totalLots} lots down, `
+    + `${secondDrop.flattened} of them by the shock front; `
+    + `crew said it again: ${JSON.stringify(secondDrop.saidItAgain)}`);
+
+  /* ---- Back to where the run was, so the rest of the script still tests the
+   * legs it was written to test: escape, the engine emergency, the return and
+   * the landing. ---- */
+  await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.go('escape');
+    if (!h.defense.damage.engines.some(Boolean)) h.defense.damageEngine(0);
+    h.physics.damage.wing = 0;
+  });
+
   /* ---- Escape naturally finds the engine damaged earlier and offers the
    * emergency choice; resolve it with 'baby' (no forced effect, so the
    * scripted overheat decays on its own rather than getting stuck). ---- */
@@ -1659,6 +2045,27 @@ try {
     emergencyResolved.chose && emergencyResolved.phase === 'return',
     JSON.stringify(emergencyResolved));
 
+  /* ---- THE DIAMOND ON THE AIRPORT. The other half of the owner's request:
+   * the marker hands over from the target to the field the moment the job
+   * becomes getting home. ---- */
+  const fieldMarker = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.tick(0.5);
+    const dir = document.getElementById('br-dir');
+    return {
+      ...h.state().marker,
+      hidden: dir.classList.contains('hidden'),
+      navLine: document.getElementById('br-nav').textContent,
+      phase: h.mission.phase,
+      x: Math.round(h.physics.position.x),
+    };
+  });
+  check('on the way home the diamond is on Whispering Pines instead, with the distance to run',
+    !fieldMarker.hidden && fieldMarker.label === 'WHISPERING PINES'
+      && /WHISPERING PINES/.test(fieldMarker.tag || '')
+      && fieldMarker.nm > 1 && /WHISPERING PINES/.test(fieldMarker.navLine),
+    JSON.stringify(fieldMarker));
+
   /* ---- Return / landing: a real touchdown, a real grade. ---- */
   const landing = await page.evaluate(() => {
     const h = window.__enolaSquatch;
@@ -1682,6 +2089,27 @@ try {
     h.tick(9);
     return { finished: h.mission.finished, report: h.mission.finished ? h.mission.report() : null };
   });
+  /* ---- And it leaves. A marker that is still on the glass over the report
+   * card is a marker telling the player to fly to an airfield he has landed
+   * at. `NAV_BY_PHASE` has no entry for `epilogue`, and `setPhase()` settles
+   * the HUD on the frame the phase changes rather than waiting for a flying
+   * frame that never comes. ---- */
+  const markerGone = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const dir = document.getElementById('br-dir');
+    return {
+      phase: h.mission.phase,
+      shown: !dir.classList.contains('hidden'),
+      navShown: !document.getElementById('br-nav').classList.contains('hidden'),
+      bugShown: !document.getElementById('br-bug').classList.contains('hidden'),
+      target: h.mission.navTarget(),
+    };
+  });
+  check('the marker comes down when it is nobody\'s job — no diamond over the epilogue',
+    markerGone.phase === 'epilogue' && !markerGone.shown
+      && !markerGone.navShown && !markerGone.bugShown && markerGone.target === null,
+    JSON.stringify(markerGone));
+
   check('the epilogue completes the mission and produces a real report card',
     epilogue.finished && epilogue.report
       && typeof epilogue.report.rank === 'string'

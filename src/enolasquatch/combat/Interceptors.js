@@ -56,6 +56,18 @@
  * `../systems/Autopilot.js` while nobody is flying: straight and level is the
  * easiest gunnery problem there is, and that is the price of leaving the seat
  * to man the guns.
+ *
+ * ---------------------------------------------------------------------------
+ * FOR SHOW (owner, 2026-08-06: "Lets just have all the flak and fighters for
+ * show.") Nothing in THIS file changed and nothing in it needed to, because
+ * nothing in it ever touched the aeroplane: a round that connects raises
+ * `hitsTaken` and calls `onHit(severity)`, and the mission's handler is what
+ * turns that into torn skin and a dead engine. That handler —
+ * `MissionController.onFighterHit()` — is now gated on `LIVE_FIRE.fighters`
+ * (`../config.js`). So the passes, the tracer, the near misses, the callouts,
+ * the shake, the barks, `roundsAtUs` and `hitsTaken` are all exactly as they
+ * were, and only the consequence is switched off. Turning it back on is one
+ * boolean; see that flag.
  * ---------------------------------------------------------------------------
  */
 import * as THREE from 'three';
