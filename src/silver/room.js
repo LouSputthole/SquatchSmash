@@ -2190,11 +2190,27 @@ export function buildRoom(scene, { renderer } = {}) {
     wallGap('x', -8.1, 0, 10.1, 3, 4.8, CEIL_FLOOR, M_PANEL, 0.3);
 
     // Wainscoting all the way round, at seated eye height
-    for (const [x0, z0, x1, z1] of [[-30, -16, -30, 26], [-30, 26, 10, 26], [10, -8, 10, 26]]) {
+    for (const [x0, z0, x1, z1] of [[-30, -16, -30, 26], [-30, 26, 10, 26]]) {
       add(box({
         size: [Math.max(Math.abs(x1 - x0), 0.06), 1.15, Math.max(Math.abs(z1 - z0), 0.06)],
         pos: [(x0 + x1) / 2 + (x0 === x1 ? (x0 < 0 ? 0.12 : -0.12) : 0), 0.58,
           (z0 + z1) / 2 + (z0 === z1 ? -0.12 : 0)],
+        mat: M_WAINSCOT, cast: false,
+      }));
+    }
+    /* The east run is the one wall the curtain doorway is punched into
+     * (z 22.6..25.6 at x≈9.8..10.1, the wallGap two calls back). This loop used
+     * to run it as one 34m board from z=-8 straight through to z=26, no gap at
+     * all -- so a strip of dado panelling stood across the doorway itself, from
+     * the floor to 1.155m, which is 56% of the 2.05m opening. "The wall texture
+     * covers the doorway halfway where you go through the curtain" was exactly
+     * that: a board in the doorway that the door-height wall gap never touched,
+     * because this loop draws its own boxes and does not call `wallGap`. Split
+     * either side of the same opening instead. */
+    for (const [z0, z1] of [[-8, 22.6], [25.6, 26]]) {
+      add(box({
+        size: [0.06, 1.15, Math.max(Math.abs(z1 - z0), 0.06)],
+        pos: [10 - 0.12, 0.58, (z0 + z1) / 2],
         mat: M_WAINSCOT, cast: false,
       }));
     }

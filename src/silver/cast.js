@@ -381,10 +381,30 @@ function makeViolin() {
     box({ name: 'lead-bow-hair', size: [0.006, 0.67, 0.007], pos: [0.022, -0.01, 0], mat: string, cast: false }),
     box({ name: 'lead-bow-frog', size: [0.045, 0.075, 0.028], pos: [0.012, -0.31, 0], mat: ebony }),
   );
-  bow.position.set(0.045, 1.34, 0.305);
+  /* "His bow hand is wrong -- hand must be ON the bow." It never could be: the
+   * bow used to be a sibling of the arm, parented to `parts.body` and animated
+   * on its own fixed little arc (`rest + stroke * ...`) that had no relationship
+   * to wherever `perform.js` happened to be pointing the forearm that frame. Two
+   * independent animations, numerically about half a metre apart at any given
+   * instant -- the hand could not be "fixed" onto a target that was itself
+   * moving on an unrelated clock.
+   *
+   * So the bow is not positioned here at all in world or body space. It is
+   * parented to the forearm bone below (`parts.foreR`, in `makeBand`) and given
+   * a LOCAL offset computed once, algebraically, from the same hand point
+   * `verify-silver.mjs` already uses for the left hand: `fore.localToWorld(new
+   * THREE.Vector3(0, -0.3, 0.005))`. Solve `bow.position` so that the frog's own
+   * local point (0.012, -0.31, 0), rotated by this bow.rotation.z, lands exactly
+   * on that hand point:
+   *
+   *   bowPos = handLocal - Rz(rotZ) * frogLocal = (-0.0612, 0.0041, 0.005)
+   *
+   * Wherever the forearm goes -- rest pose, mid-stroke, whatever `perform.js`
+   * asks of it next -- the bow is rigidly attached to it, so the hand is on the
+   * bow by construction rather than by a number that happens to land close this
+   * frame. */
+  bow.position.set(-0.0612, 0.0041, 0.005);
   bow.rotation.z = 0.16;
-  bow.userData.restPosition = bow.position.clone();
-  bow.userData.restZ = bow.rotation.z;
 
   return { group: violin, bow };
 }
@@ -557,12 +577,20 @@ export function makeBand(scene, room) {
         dress: 'suit',
         shirt,
         hair: pick(['short', 'crop', 'receding', 'tied']),
+        /* The leader is cast white, on the owner's note. Everybody else in
+         * the section still gets a skin tone off `SKINS` at random — leaving
+         * this `undefined` for i !== 6 hits `makePerson`'s own default,
+         * `pick(SKINS)`, the same as it always has. */
+        skin: i === 6 ? 0xf0cba6 : undefined,
       },
     });
     npc.holds = holds;
     if (holds === 'violin') {
       npc.violin = makeViolin();
-      npc.parts.body.add(npc.violin.group, npc.violin.bow);
+      npc.parts.body.add(npc.violin.group);
+      /* The bow is held IN the hand: parented to the forearm, not the body --
+       * see the note on `bow.position` in `makeViolin` for why. */
+      npc.parts.foreR.add(npc.violin.bow);
     }
     if (holds === 'sax') {
       npc.sax = makeSax();

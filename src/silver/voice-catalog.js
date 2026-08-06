@@ -109,6 +109,9 @@ export function allSilverVoiceLines() {
   }
   for (const number of SET) {
     if (number.say) add(number.cue, VOICE_OF[number.lead], number.say, `set: ${number.id}`);
+    for (const bit of number.bits ?? []) {
+      if (bit.say) add(bit.cue, VOICE_OF[bit.lead], bit.say, `set: ${number.id} bit@${bit.at}`);
+    }
   }
 
   /* Keep this assertion close to the catalog: the date must not silently

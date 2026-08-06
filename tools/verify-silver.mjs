@@ -2122,14 +2122,29 @@ const stagecraft = await page.evaluate(() => {
    * number, where it read exactly 0.000 every run.
    *
    * So the clock is moved deliberately, the way this harness already
-   * fast-forwards numbers elsewhere, and the bow has to travel with it. */
+   * fast-forwards numbers elsewhere, and the bow has to travel with it.
+   *
+   * WORLD position, not local. The bow used to be a sibling of the arm with
+   * its own hand-authored `position.set(...)` every frame, so `.position`
+   * (parent-relative) was the whole of its motion and measuring it was
+   * correct. It is now parented to `parts.foreR` at a fixed local offset —
+   * "hand ON the bow", by construction, wherever the forearm goes — so its
+   * *local* position never changes and would read a false zero here. What
+   * moves is the forearm, and the bow's position in the room right along with
+   * it; that is what a seated table would actually see, and it is what
+   * `getWorldPosition` reads. */
   const wasT = b.performance.t;
   let bowTravel = 0;
-  const bowAt = bow?.position.clone();
+  const bowAt = bow?.getWorldPosition(new b.THREE.Vector3());
+  const bowNow = new b.THREE.Vector3();
   for (let i = 1; i <= 8; i++) {
     b.performance.t = 1.5 + i * 0.22;
     b.performance.update(0);
-    if (bow) { bowTravel += bowAt.distanceTo(bow.position); bowAt.copy(bow.position); }
+    if (bow) {
+      bow.getWorldPosition(bowNow);
+      bowTravel += bowAt.distanceTo(bowNow);
+      bowAt.copy(bowNow);
+    }
   }
   b.performance.t = wasT;
   const size = violin ? new b.THREE.Box3().setFromObject(violin).getSize(new b.THREE.Vector3()) : null;
@@ -2177,6 +2192,8 @@ const stageDressing = await page.evaluate(() => {
   const lead = b.band.members.find((m) => m.holds === 'violin');
   const violin = lead?.group.getObjectByName('lead-violin');
   const neck = violin?.localToWorld(new THREE.Vector3(-0.30, 0, 0.02));
+  const frog = lead?.group.getObjectByName('lead-bow-frog');
+  const frogPos = frog ? frog.getWorldPosition(new THREE.Vector3()) : null;
   const centre = b.room.anchors.stageCentre;
 
   const saxMan = b.band.members.find((m) => m.holds === 'sax');
@@ -2191,6 +2208,12 @@ const stageDressing = await page.evaluate(() => {
     leadZ: +lead.group.position.z.toFixed(2),
     leadOffCentre: +Math.abs(lead.group.position.x - centre.x).toFixed(2),
     handToNeck: neck ? near(handOf(lead.parts.foreL), neck) : null,
+    /* "His bow hand is wrong -- hand must be ON the bow." Same shape of check
+     * as the neck, on the other hand: the bow is now parented to `foreR` at a
+     * fixed local offset (see `makeViolin`), so this should read a few
+     * millimetres at any pose the performance puts the arm in, not just the
+     * one frame it happened to be sampled at. */
+    handToBow: frogPos ? near(handOf(lead.parts.foreR), frogPos) : null,
     sax: !!saxBody && saxMan.group.visible,
     saxHands: saxBody ? [
       near(handOf(saxMan.parts.foreL), saxBody.getWorldPosition(new THREE.Vector3())),
@@ -2211,6 +2234,9 @@ check('the leader is downstage of the curtain, on the centre line, with his hand
     && stageDressing.handToNeck !== null && stageDressing.handToNeck < 0.06,
   JSON.stringify({ leadZ: stageDressing.leadZ, offCentre: stageDressing.leadOffCentre,
     handToNeck: stageDressing.handToNeck }));
+check('and his bow hand is on the bow',
+  stageDressing.handToBow !== null && stageDressing.handToBow < 0.06,
+  JSON.stringify({ handToBow: stageDressing.handToBow }));
 check('there is a saxophone and a keyboard on the stage, in the hands of two of the seven',
   stageDressing.players === 7 && stageDressing.sax && stageDressing.keys
     && stageDressing.saxHands.every((d) => d < 0.26)

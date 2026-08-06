@@ -3808,6 +3808,16 @@
       "say": "Good evening. We are the Midnight Pines and we are contractually obliged to be here."
     },
     {
+      "name": "vo.silver.bandleader.set.second",
+      "voice": "waiter",
+      "say": "How are ya? Glad to be here!"
+    },
+    {
+      "name": "vo.silver.bandleader.set.second-wife",
+      "voice": "waiter",
+      "say": "Take my wife, please! I take my wife everywhere… but she finds her way home!"
+    },
+    {
       "name": "vo.silver.bandleader.slow",
       "voice": "waiter",
       "say": "Slow it is. Four! The four!"
@@ -6777,6 +6787,21 @@
       "name": "applause",
       "duration": 3.2,
       "prompt": "warm applause from about sixty seated people in a supper club, no whistling, close and enthusiastic, ends naturally"
+    },
+    {
+      "name": "crowd.whistle",
+      "duration": 1.2,
+      "prompt": "a single sharp two-fingered wolf whistle from one man in a warm supper-club crowd, over light applause, close, no other voices, ends naturally"
+    },
+    {
+      "name": "crowd.laughter",
+      "duration": 3,
+      "prompt": "warm laughter from about sixty seated people in a supper club reacting to a stage comedian's joke, close and genuine, a few isolated chuckles trailing off, ends naturally, no applause, no whistling"
+    },
+    {
+      "name": "band.rimshot",
+      "duration": 1,
+      "prompt": "classic comedy rimshot drum sting, snare snare cymbal crash, ba-dum-tss, small hall, dry and close"
     },
     {
       "name": "car.door",
