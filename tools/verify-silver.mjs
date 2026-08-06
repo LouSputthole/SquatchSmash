@@ -2381,7 +2381,20 @@ check('four beats on the beat is a dance, and it pays',
     && !swayPlay.active && swayPlay.swayed === 'good' && swayPlay.completed,
   JSON.stringify(swayPlay));
 
-await page.waitForTimeout(3500);
+/* `finishSway()` reseats both of them off a REAL `setTimeout(…, 3200)`, not a
+ * simulated one -- it is wall-clock time deliberately, the same three
+ * seconds a player waits watching them sit back down. A fixed
+ * `page.waitForTimeout(3500)` raced that timer with a 300ms margin and nothing
+ * else: any GC pause or a slow paint eats the margin and the check samples a
+ * frame where the browser's own timer simply has not fired yet, which is
+ * entry 2 in ENGINE-TRAPS.md under a different name -- a wall-clock wait
+ * standing in for a predicate. Poll the predicate instead, with a budget that
+ * is generous rather than tight; it costs nothing when the timer fires on
+ * schedule and only changes how long a genuine stall takes to report. */
+await page.waitForFunction(() => {
+  const b = window.__silver;
+  return b.mission.state === 'performance' && b.game.seated && !b.game.swayRunning;
+}, null, { timeout: 10000 });
 await tick(1, 0.25);
 const backAtTable = await page.evaluate(() => {
   const b = window.__silver;

@@ -493,9 +493,22 @@ const performance_ = new Performance({
      * survive a paused tab — a raw `setTimeout` here would keep the joke
      * running while the pause menu is up, which is exactly the class of bug
      * `docs/ENGINE-TRAPS.md` warns never survives contact with a real
-     * player. */
+     * player.
+     *
+     * `_deferred` is `Performance`'s OWN queue, not `n`'s: it keeps counting
+     * down against every future `update()` regardless of which number is
+     * current by the time it empties out. A harness — or a player mashing a
+     * song request — that jumps the clock straight from this number to
+     * Bananaphone leaves these three still pending, and they used to fire
+     * anyway: a page skip found the wife joke and a rimshot landing in the
+     * middle of the featured number, competing for the one-line-at-a-time
+     * subtitle queue with Bananaphone's own introduction and twice getting
+     * it evicted. Guard on `current === n`: a bit whose number has moved on
+     * is not owed, the same as `_handleFeatureError`'s own `this.current !==
+     * expected` guard two functions up. */
     for (const bit of n.bits ?? []) {
       performance_.defer(bit.at, () => {
+        if (performance_.current !== n) return;
         if (bit.say) {
           narrate(`<em>${bit.lead}:</em> ${bit.say}`, 5200, {
             cue: bit.cue,
