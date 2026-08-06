@@ -76,7 +76,13 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
    * mission was written before anybody lived here; these are the lines the
    * building says back. */
-  gate: 6, // the man on the front door
+  /* 12, not 6. The gate is TWO POSTS on one throat: the man on the front door
+   * (6) and, from 2026-08-06, the man working the booth at the street gate
+   * (6 — challenge, loiter, the case, and two lines about the book he writes
+   * you into). Owner playtest: "ADD a guard working that booth". Same
+   * `mansion-gate` voice profile, separate SPEAKER because they are separate
+   * bodies and a speaker key picks the mouth the line comes out of. */
+  gate: 12, // the man on the front door, and the man in the booth
   guards: 9, // perimeter, stairs, basement, vault
   bar: 3, // the Bada Bing's bartender, working Lou's bar
   /* 2026-08-05: the whip became a HANDOVER and a repeatable swing rather than

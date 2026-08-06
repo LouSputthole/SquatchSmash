@@ -260,13 +260,34 @@ test('THE STANDING RULE: the cord can be pointed at exactly one man, and it is n
   assert.equal(snowHandler.onUse, undefined,
     'Snow has become something the player can DO something to');
 
-  /* And the swing is reachable from exactly one registered object. */
-  const swingable = r.interaction.registrations.filter((o) => o.userData.interact?.onUse
-    && o !== r.cast.people.gratin.group
-    && o !== r.cast.people.gateMan.group
-    && o !== r.cast.people.bartender.group);
-  assert.deepEqual(swingable, [r.lab.aim],
-    'more than one object can start a swing');
+  /* And the swing is reachable from exactly one registered object.
+   *
+   * THE TALKERS ARE EXCLUDED BY LOOKING THEM UP, not by name and not by a
+   * hand-kept list of three. Everybody `cast.js` posts with an `onUse` is
+   * somebody you can SPEAK to; the whip is the one `onUse` in the house that
+   * is not a conversation, and that is the claim. A literal list of talkers
+   * has to be edited every time a man is posted — it was edited into
+   * existence for Gratin, the door man and the bartender, and the moment the
+   * gate booth got a guard it was three names short and this test failed for
+   * a reason that had nothing to do with the whip.
+   *
+   * AND NOT `deepEqual` ON SCENE GRAPHS. That is the important half. When
+   * this assertion failed, `assert.deepEqual` walked two THREE.Group objects
+   * — parents, children, geometries, every Float32Array — comparing them
+   * structurally, and took the machine to 15.4 GB of resident memory before
+   * the kernel killed node. `npm test` reported 597 of 909 tests and a
+   * SIGKILL, which looks exactly like the runner trap in
+   * docs/ENGINE-TRAPS.md #6 and is not it. Compare NAMES: the assertion says
+   * the same thing, and its failure costs a line of text. */
+  const talkers = new Set(Object.values(r.cast.people).map((npc) => npc.group));
+  const swingable = r.interaction.registrations
+    .filter((o) => o.userData.interact?.onUse && !talkers.has(o));
+  assert.deepEqual(
+    swingable.map((o) => o.name || '(unnamed)'),
+    [r.lab.aim.name || '(unnamed)'],
+    'more than one object can start a swing',
+  );
+  assert.equal(swingable[0], r.lab.aim, 'the one swingable object is not xXx');
 });
 
 test('nobody is registered twice — a second registration would replace the first', () => {
