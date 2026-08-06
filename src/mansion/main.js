@@ -45,7 +45,7 @@ import { Tv, CHANNELS, videoChannel } from '../core/tv.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
-import { WEAPON_ORDER } from '../core/weapons/catalog.js';
+import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { mountSilentSquatch } from './mission/mount.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast } from './cast.js';
@@ -1057,6 +1057,29 @@ if (lab && night.play) {
      * else. Spawning holding it is this firing on the mission's first beat,
      * not a special case at startup. */
     onCaseOwned: (owned) => { if (owned) loadout.giveCase(); else loadout.takeCase(); },
+    /* ---- BOOSKI HANDS HIM A PISTOL (owner playtest).
+     *
+     * The mission's order four beats later is "Handle it", and the only gun
+     * in this house was on a rack in the armory, one floor and six rooms
+     * back up the corridor — behind a hidden wall that has closed behind
+     * him. So either he fetched a weapon before he had been told what it was
+     * for, or he stood in the observation area with an execution order and
+     * empty hands.
+     *
+     * NOT OFF A RACK. `armory.take()` needs a stand and takes a copy off a
+     * wall; this gun came out of Booski's coat and there is no wall to put it
+     * back on. So it goes straight into the weapon system and the bar mirrors
+     * it, which is the same one-gun-at-a-time rule the armory keeps — see
+     * `syncWeapon` in ./loadout.js. Q still stows it.
+     *
+     * `pistol9` rather than the revolver: Booski is the man who made copies
+     * of Aubbie's notes, and a man like that carries a magazine. */
+    onSidearm: () => {
+      if (weaponSystem.equipped === WEAPON_IDS.PISTOL9) return;
+      weaponSystem.equip(WEAPON_IDS.PISTOL9);
+      loadout.syncWeapon(weaponSystem.equipped ?? null);
+      ammoDirty = true;
+    },
     /* The things he presses. Every one of them is optional: a target the
      * environment has not built yet simply is not registered, and the beat it
      * belongs to is still reachable from the debug handle below. */
@@ -1074,6 +1097,13 @@ if (lab && night.play) {
       desk: lab.targets?.desk ?? interior.props.office.desk ?? null,
       bust: lab.targets?.bust ?? lab.targets?.bustSwitch ?? null,
       transferTable: lab.targets?.drawer ?? null,
+      /* WHAT YOU POINT AT vs WHERE IT GOES. The two entries above are aim
+       * boxes -- the desk group (origin on the floor) and the wall drawer's
+       * hit volume -- and the mission was also using them as the place to set
+       * the case down, so it landed under the desk and inside the wall. These
+       * two are the surfaces. */
+      deskSpot: interior.props.office.caseSpot ?? null,
+      tableSpot: lab.targets?.tableSpot ?? null,
       keypad: lab.targets?.keypad ?? null,
       silentNight: lab.targets?.silentNight ?? null,
     },

@@ -62,7 +62,10 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   cellar: 6, // the wine cellar and the bust
   corridor: 7, // Irish, xXx, and Booski shouting from deeper in
   lab: 3, // DeathMegatron at the glass
-  delivery: 8, // the transfer table
+  /* 11, not 8. Owner playtest: *"Booski should hand me a pistol when I give
+   * him the case"*. He does, and he says three lines doing it — the whole
+   * point being that he does not say what it is for. */
+  delivery: 11, // the transfer table, and the pistol that comes with it
   build: 33, // six scientists building it, and two men watching
   completion: 12, // the core, the cheering, and Aubbie coming out
   lock: 9, // the keypad, the bolts, and "Handle it"

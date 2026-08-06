@@ -4123,6 +4123,23 @@ export function buildMansionInterior(shell = null) {
     }
     desk.position.set(0, UY, deskZ);
     root.add(desk);
+    /* WHERE THE CASE LANDS.
+     *
+     * Owner playtest: the delivered case did not end up on the desk. It did
+     * not: `mission/mount.js` was placing it at the world position of THIS
+     * GROUP, whose origin is on the floor at UY — 830 mm below the writing
+     * surface, and inside the pedestal. The case was on the boards under
+     * Lou's knees for the whole of Beat 2.
+     *
+     * A group is the right thing to point a crosshair at and the wrong thing
+     * to put an object on, and one object was doing both jobs. This empty is
+     * the surface: on the leather panel, on the visitor's side of the desk so
+     * the Prospect sets it down in front of Lou rather than under his chin,
+     * and parented to the desk so it moves if the desk does. */
+    const caseSpot = new THREE.Object3D();
+    caseSpot.name = 'office-case-spot';
+    caseSpot.position.set(0.15, 0.9, 0.34);
+    desk.add(caseSpot);
     solid(-1.35, 1.35, UY, UY + 0.85, deskZ - 0.65, deskZ + 0.65);
     // Desk furniture.
     const deskLampPos = [-0.85, UY + 0.83, deskZ - 0.1];
@@ -4859,6 +4876,8 @@ export function buildMansionInterior(shell = null) {
     return {
       desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
       hogMama: officeHogMama,
+      /** The desk TOP, for putting things on. See the note at its build. */
+      caseSpot,
       /** The bookcase that is a door, and the book that opens it. */
       secretDoor,
     };

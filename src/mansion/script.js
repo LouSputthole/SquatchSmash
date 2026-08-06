@@ -352,6 +352,24 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'BOOSKI', text: 'Rhetorical question. I don’t care.', cue: cue('delivery', 'booski.rhetorical'), hold: 2.8 },
     { speaker: 'HUD', stage: 'drawer.send', hold: 2.4 },
     { speaker: 'BOOSKI', text: 'Through it goes. Watch what they do with it.', cue: cue('delivery', 'booski.throughitgoes'), hold: 3.2 },
+    /* ---- THE PISTOL (owner playtest: *"Booski should hand me a pistol
+     * when I give him the case"*).
+     *
+     * The mission's own order four beats later is "Handle it", and until now
+     * the only gun in this house was six rooms and one floor away on a rack
+     * in the armory — so the player either walked back up for it before he
+     * had been told what it was for, or stood in the observation area with an
+     * execution order and empty hands. Booski arms him at the delivery,
+     * which is also the only moment in the mission that makes him
+     * responsible for what he is about to be asked to do.
+     *
+     * `sidearm.give` is the stage direction; the gun itself is the house's
+     * (`main.js` → `weaponSystem`), not the script's. He says nothing about
+     * what it is for, because he has not decided to tell him yet. */
+    { speaker: 'HUD', stage: 'sidearm.give', hold: 1.4 },
+    { speaker: 'BOOSKI', text: 'Here. Hold onto this.', cue: cue('delivery', 'booski.holdontothis'), hold: 2.2 },
+    { speaker: 'PROSPECT', text: 'What’s it for?', cue: cue('delivery', 'prospect.whatsitfor'), hold: 1.6 },
+    { speaker: 'BOOSKI', text: 'Nothing, hopefully.', cue: cue('delivery', 'booski.nothinghopefully'), hold: 2.4 },
   ]),
 
   /* =================================================================== */

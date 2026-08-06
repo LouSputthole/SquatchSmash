@@ -2855,6 +2855,14 @@ export function buildSilentSquatch({
     );
     drawerTarget.position.set(0, 0.1, 0.35);
     drawerFrame.add(drawerTarget);
+    /* WHERE THE CASE IS SET DOWN, as opposed to what the player POINTS AT to
+     * set it down. The mission was placing it at `targets.drawer`, which is
+     * this aim box on the wall frame — so the delivered case appeared
+     * floating in the masonry beside the drawer instead of on the table
+     * Booski opens it on. An empty on the table top, so it moves with the
+     * table and cannot be read as anything to click. */
+    const tableSpot = new THREE.Object3D();
+    tableSpot.name = 'ss-transfer-table-spot';
 
     /* ---- The transfer table: where Booski opens the case. Squared up to
      * the glass, so the case's own glow lands on the pane. */
@@ -2865,6 +2873,10 @@ export function buildSilentSquatch({
       root.add(box({ size: [0.06, 0.94, 0.06], pos: [tableX + lx, LAB_Y + 0.47, tableZ + lz], mat: M_STEEL_DULL }));
     }
     prop(tableX - 0.78, tableX + 0.78, LAB_Y, LAB_Y + 0.98, tableZ - 0.44, tableZ + 0.44);
+    /* On the top, a little toward the glass, so the case's own glow lands on
+     * the pane and the six of them are looking at it through their side. */
+    tableSpot.position.set(tableX, LAB_Y + 0.97, tableZ - 0.08);
+    root.add(tableSpot);
 
     /* ---- SILENT NIGHT PROTOCOL. A lever under a red safety cover, on its
      * own pedestal, deliberately away from everything else on the console:
@@ -2948,6 +2960,7 @@ export function buildSilentSquatch({
       drawerTray,
       drawerLamp,
       drawerTarget,
+      tableSpot,
       transferTable: { x: tableX, y: LAB_Y + 0.97, z: tableZ },
       silentNight: {
         group: sn, lever: snLever, cover: snCover, target: snTarget,
@@ -3477,6 +3490,20 @@ export function buildSilentSquatch({
     x: obs.transferTable.x, y: obs.transferTable.y, z: obs.transferTable.z, rotY: Math.PI,
   });
   root.add(caseObj.group);
+  /* HIDDEN UNTIL SOMEBODY PUTS IT DOWN. Owner playtest: a second case was
+   * already sitting on the transfer table before he had delivered anything.
+   * It was this one — built here, placed here, and visible from the moment
+   * the observation area came into view, while the case he was carrying was
+   * a separate model owned by `mission/mount.js`. Two briefcases on one
+   * table, and the wrong one was the one that glows.
+   *
+   * This is now THE case: `mount.js` drives this object between his hands,
+   * Lou's desk and this table (see the note there). It starts invisible
+   * because at build time nobody has put it anywhere yet, and the mission
+   * shows it the moment he sets it down. A house with no mission mounted
+   * simply has no briefcase in the basement, which is correct — the case
+   * arrives with the Prospect. */
+  caseObj.group.visible = false;
   const caseState = { boost: 1, target: 1, hum: false };
   /* The prop's own lights, so the boost can be applied after its update.
    * Registered with the house rig like everything else down here. */
@@ -5137,6 +5164,10 @@ export function buildSilentSquatch({
       bustSwitch: hiddenWall.switchTarget,
       keypad: obs.keypadTarget,
       drawer: obs.drawerTarget,
+      /** The SURFACE, not the aim box. `mission/mount.js` puts the case here;
+       * `drawer` above is what the crosshair reads. Two different jobs that
+       * were being done by one object, and the case ended up in the wall. */
+      tableSpot: obs.tableSpot,
       silentNight: obs.silentNight.target,
       doorLock: obs.lockPost,
       xxx: xxx.aim,

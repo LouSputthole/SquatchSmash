@@ -118,6 +118,9 @@ class SilentSquatchMission {
     onStage = null,
     playCue = null,
     onCase = null,
+    /** Told when a man in this house puts a weapon in the player's hands.
+     * The mission has no idea what a weapon is; see `sidearm.give`. */
+    onSidearm = null,
     onBeat = null,
   } = {}) {
     if (!lab) throw new TypeError('the Silent Squatch mission needs a lab');
@@ -131,6 +134,7 @@ class SilentSquatchMission {
     this.zones = zones ? { ...zones } : {};
     this.onStageHook = onStage;
     this.onCase = onCase ?? noop;
+    this.onSidearm = onSidearm ?? noop;
     this.onBeat = onBeat ?? noop;
 
     this.dialogue = new DialogueController({
@@ -159,6 +163,8 @@ class SilentSquatchMission {
     this.aubbieKilled = false;
     this.aubbieKilledSide = null;
     this.aubbieMissedShots = 0;
+    /** True once Booski has handed the pistol over at the delivery. */
+    this.sidearmGiven = false;
     this.bezmenovTriedHandleFirst = false;
     /* Set by the player's own hands, and read by the beat those hands ran
      * ahead of: a state's enter() must never clobber the sequence an action
@@ -402,6 +408,8 @@ class SilentSquatchMission {
         rejected: this.wrongCodes,
         locked: this.lab.doorLocked === true,
       },
+      /** Did Booski arm him, and when. The execution is four beats later. */
+      sidearmGiven: this.sidearmGiven,
       aubbie: {
         outside: this.aubbieOutside,
         killed: this.aubbieKilled,
@@ -547,6 +555,14 @@ class SilentSquatchMission {
         break;
       case 'case.slide':
         this.onCase('slide');
+        break;
+      /* Booski arms him at the delivery. The mission does not know what a
+       * weapon is — it says a man handed one over and the composition root
+       * decides what that means, exactly like `onCase`. See the note in
+       * script.js at `deliveryOpen`. */
+      case 'sidearm.give':
+        this.sidearmGiven = true;
+        this.onSidearm(true);
         break;
       default:
         break;

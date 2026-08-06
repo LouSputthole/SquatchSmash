@@ -18544,6 +18544,21 @@
       "say": "Through it goes. Watch what they do with it."
     },
     {
+      "name": "vo.silentsquatch.delivery.booski.holdontothis",
+      "voice": "booski",
+      "say": "Here. Hold onto this."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.prospect.whatsitfor",
+      "voice": "player",
+      "say": "What’s it for?"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.nothinghopefully",
+      "voice": "booski",
+      "say": "Nothing, hopefully."
+    },
+    {
       "name": "vo.silentsquatch.build.orlova.transferchamber",
       "voice": "orlova",
       "say": "Transfer chamber secure."
