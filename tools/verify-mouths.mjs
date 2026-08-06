@@ -620,34 +620,41 @@ const TAKE = await page.evaluate(
  * the numbers above are the check and these are so a person can look.
  * ================================================================== */
 try {
-  await settle();
+  /* Walk into frame FIRST and settle afterwards.
+   *
+   * The mission interjects an ambient bark the first time the player comes
+   * within 2.2 m of Chester (`updateAmbientControl`), so moving the camera and
+   * then photographing "the silent room" photographs a man being asked whether
+   * he wants a drink -- which is the exact shape of the lying artefact this
+   * whole file exists to avoid. Move, let the room finish reacting, then look. */
   await frameOn(RECORDED.body);
+  await settle();
   await shot('b-silent-room');
 
   await speak({ ...RECORDED, hold: 0.5 });
   await shot('a1-recorded-line-mid-word', { openBody: RECORDED.body });
   await settle();
-  await frameOn(RECORDED.body);
   await shot('a2-recorded-line-ended');
 
   await frameOn(PHOTO.body);
+  await settle();
   await speak({ ...PHOTO, hold: 0.5 });
   await shot('e-photo-face-ape', { openBody: PHOTO.body });
   await settle();
 
   await frameOn(RECORDED.body);
+  await settle();
   await speak({ ...RECORDED, hold: 8 });
   await shot('c1-before-the-cut', { openBody: RECORDED.body });
   await page.evaluate(() => window.silvercase.dialogue.play([]));
   await page.waitForTimeout(1200);
   await shot('c2-after-the-cut');
 
-  await settle();
   await frameOn(UNRECORDED.body);
+  await settle();
   await speak({ ...UNRECORDED, hold: 8.0 });
   await shot('d1-text-only-line', { openBody: UNRECORDED.body });
   await settle();
-  await frameOn(UNRECORDED.body);
   await shot('d2-text-only-ended');
 } catch (error) {
   /* The pictures are evidence for a person, not a check. A capture that times

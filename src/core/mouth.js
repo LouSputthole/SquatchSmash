@@ -165,7 +165,6 @@ export class Mouth {
      * people mouthing a subtitle look like a chorus line. */
     this._seed = Math.random() * TAU;
     this._silentFor = 0;
-    this._heard = false;
     this._settled = true;
     this._onEnded = null;
 
@@ -239,7 +238,6 @@ export class Mouth {
     this._seconds = Math.max(0, Number(t.seconds) || 0);
     this._peak = PEAK_FLOOR;
     this._silentFor = 0;
-    this._heard = false;
     this._settled = false;
 
     if (analyser && typeof analyser.getByteTimeDomainData === 'function') {
@@ -348,7 +346,6 @@ export class Mouth {
       return 0;
     }
     this._silentFor = 0;
-    this._heard = true;
     return Math.min(1, (rms - SILENCE_RMS) / (this._peak - SILENCE_RMS));
   }
 
