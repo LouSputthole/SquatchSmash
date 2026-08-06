@@ -820,6 +820,31 @@ export const BIG_NIGHT_MARGO_WAKE = Object.freeze({
   ]),
 });
 
+/**
+ * The night the Silver Room ends with both of them coming back here.
+ *
+ * `SilverStory.complete` folds the mission's own verdict -- `cameHome`,
+ * `['perfect', 'strong'].includes(outcome)` -- down into the campaign, so
+ * this only ever plays for the two best outcomes. Short on purpose: this is
+ * the walk from the front door to the bed, not the whole evening, which the
+ * Silver Room mission has already had. Same shape as `BIG_NIGHT_MARGO_WAKE`
+ * for the same reason -- `lines` is her, `replies[i]` answers `lines[i]`.
+ */
+export const SILVER_ROOM_COME_HOME = Object.freeze({
+  characterId: CHARACTER_IDS.MARGO,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'margo.comehome',
+  lines: Object.freeze([
+    'Well. You clean up all right, for a man who eats standing over the sink.',
+    'I am not staying because of the tie. I want that on the record.',
+  ]),
+  replies: Object.freeze([
+    'I own exactly one.',
+    'Noted.',
+  ]),
+});
+
 class ApartmentStory {
   constructor({ campaign, ring }) {
     this.campaign = campaign;
@@ -1371,6 +1396,43 @@ class ApartmentStory {
   margoWakeDone() {
     if (!this.margoWakeOwed()) return false;
     return this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_WAKE).applied === true;
+  }
+
+  /**
+   * The night of the Silver Room: whether the come-home beat is owed, and
+   * marking it spent.
+   *
+   * Deliberately the same shape as `margoWakeOwed` -- one is the mirror of
+   * the other. `date` is the chapter for exactly as long as it takes to
+   * sleep it off (see `SLEEP_CHAPTERS`), so this window is precise: from the
+   * moment the Silver Room mission completes to the moment he next goes to
+   * bed. Unlike `margoWakeOwed`, there is no pre-existing-save fallback to
+   * honour here -- this scene never shipped before, so `cameHome` has to be
+   * an explicit `true`, not merely not-`false`.
+   */
+  margoComeHomeOwed() {
+    const state = this.campaign.state;
+    if (state.story.chapter !== 'date') return false;
+    if (state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_COME_HOME)) return false;
+    const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    return silver?.status === 'complete' && silver.cameHome === true;
+  }
+
+  /** She is home, helped out of the dress, and in bed. Marker prevents replay. */
+  margoComeHomeDone() {
+    if (!this.margoComeHomeOwed()) return false;
+    return this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_COME_HOME).applied === true;
+  }
+
+  /**
+   * True for the rest of the night once she is in, so a reload before he
+   * sleeps finds her already asleep in bed instead of replaying the walk in
+   * from the door.
+   */
+  margoHomeForTheNight() {
+    const state = this.campaign.state;
+    return state.story.chapter === 'date'
+      && state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_COME_HOME);
   }
 
   #callAnswered() {
