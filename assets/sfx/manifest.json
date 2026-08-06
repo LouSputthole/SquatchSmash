@@ -7948,6 +7948,26 @@
       "say": "I will ring you."
     },
     {
+      "name": "vo.margo.comehome.1",
+      "voice": "margo",
+      "say": "Well. You clean up all right, for a man who eats standing over the sink."
+    },
+    {
+      "name": "vo.margo.comehome.tony.1",
+      "voice": "player",
+      "say": "I own exactly one."
+    },
+    {
+      "name": "vo.margo.comehome.2",
+      "voice": "margo",
+      "say": "I am not staying because of the tie. I want that on the record."
+    },
+    {
+      "name": "vo.margo.comehome.tony.2",
+      "voice": "player",
+      "say": "Noted."
+    },
+    {
       "name": "footstep.concrete",
       "duration": 0.5,
       "prompt": "single footstep on bare concrete, hard flat scuff of a rubber sole with a little grit under it, dry, outdoors, no reverb tail, no voice, no music"
