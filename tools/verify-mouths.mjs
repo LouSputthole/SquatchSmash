@@ -140,10 +140,12 @@ await fsp.mkdir(SHOT_DIR, { recursive: true });
  *   on screen when the condition flips is still on screen when the shutter
  *   goes; on a fast machine it would be within one frame either way.
  */
-async function shot(name, { openBody = null, minOpen = 0.45 } = {}) {
-  await pictureResolution();
-  // A frame at full size before the capture, or the shot is of the stamp.
-  await page.waitForTimeout(900);
+async function shot(name, { openBody = null, minOpen = 0.45, warm = false } = {}) {
+  if (!warm) {
+    await pictureResolution();
+    // A frame at full size before the capture, or the shot is of the stamp.
+    await page.waitForTimeout(900);
+  }
   if (openBody) {
     try {
       await page.waitForFunction(
@@ -194,6 +196,21 @@ async function frameOn(body, distance = 1.7) {
       ],
     };
   }, [body, distance]);
+}
+
+/**
+ * Put the page at full size and let a frame land BEFORE the line starts.
+ *
+ * A picture of an open mouth is a race: the poll sees `open >= 0.45` on the
+ * frame the renderer has just drawn, and if another frame lands before the
+ * shutter, the mouth in the picture is whatever that next frame decided. At
+ * two frames a second the window is wide. Warming the loop first removes the
+ * resize and the first slow full-size frame from that window, leaving only one
+ * round trip.
+ */
+async function warmUp() {
+  await pictureResolution();
+  await page.waitForTimeout(1200);
 }
 
 /* ------------------------------------------------------------------ */
@@ -631,29 +648,33 @@ try {
   await settle();
   await shot('b-silent-room');
 
+  await warmUp();
   await speak({ ...RECORDED, hold: 0.5 });
-  await shot('a1-recorded-line-mid-word', { openBody: RECORDED.body });
+  await shot('a1-recorded-line-mid-word', { openBody: RECORDED.body, warm: true });
   await settle();
   await shot('a2-recorded-line-ended');
 
   await frameOn(PHOTO.body);
   await settle();
+  await warmUp();
   await speak({ ...PHOTO, hold: 0.5 });
-  await shot('e-photo-face-ape', { openBody: PHOTO.body });
+  await shot('e-photo-face-ape', { openBody: PHOTO.body, warm: true });
   await settle();
 
   await frameOn(RECORDED.body);
   await settle();
+  await warmUp();
   await speak({ ...RECORDED, hold: 8 });
-  await shot('c1-before-the-cut', { openBody: RECORDED.body });
+  await shot('c1-before-the-cut', { openBody: RECORDED.body, warm: true });
   await page.evaluate(() => window.silvercase.dialogue.play([]));
   await page.waitForTimeout(1200);
   await shot('c2-after-the-cut');
 
   await frameOn(UNRECORDED.body);
   await settle();
+  await warmUp();
   await speak({ ...UNRECORDED, hold: 8.0 });
-  await shot('d1-text-only-line', { openBody: UNRECORDED.body });
+  await shot('d1-text-only-line', { openBody: UNRECORDED.body, warm: true });
   await settle();
   await shot('d2-text-only-ended');
 } catch (error) {
