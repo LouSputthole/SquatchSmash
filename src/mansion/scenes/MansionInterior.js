@@ -1897,7 +1897,11 @@ export function buildMansionInterior(shell = null) {
      * back face now meets the apron face exactly (`z0 - 0.20 … z0 - 0.14`),
      * the art stands 5 mm proud of the plate, and the scrollwork either side
      * comes forward with it rather than being half-buried in the same way. */
-    const CREST_Z = BALCONY.z0 - 0.17;
+    /* 0.175, not 0.17: at 0.17 the plate's back face landed EXACTLY on the
+     * apron's front face, which `scene-audit` reports as coplanar and which
+     * is a real seam wherever the apron is still exposed beside the plate.
+     * Five millimetres of daylight between them. */
+    const CREST_Z = BALCONY.z0 - 0.175;
     const crestMesh = flatArt('mansion.foyer.crest', {
       x: 0,
       y: UY - 0.68,

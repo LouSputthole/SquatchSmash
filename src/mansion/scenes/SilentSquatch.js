@@ -1595,11 +1595,20 @@ export function buildSilentSquatch({
       const below = i === BANDS
         ? LAB_CEIL
         : stairFloorAt(S.z1 - bandDepth * (i + 0.5)) + 2.55;
-      const y0 = Math.min(above, below);
-      const y1 = Math.max(above, below) + 0.14;
+      /* Inset 10 mm INTO each slab rather than flush with its face. Flush
+       * means two coplanar faces, which is the flicker this house has spent
+       * three passes chasing; 10 mm of overlap means the riser is buried in
+       * the slab it joins and no two exposed faces share a plane. */
+      const y0 = Math.min(above, below) + 0.01;
+      const y1 = Math.max(above, below) + 0.13;
       if (y1 - y0 < 0.02) continue;
       root.add(box({
-        size: [S.x1 - S.x0 + 0.6, y1 - y0, 0.16],
+        /* 0.04 narrower than the slabs it joins. They both ended exactly on
+         * the stairwell wall's outer face at S.x0 - 0.3, so their end faces
+         * were coplanar and `scene-audit` said so. Nothing is visible there
+         * — it is inside the wall — but a shared face is a shared face, and
+         * this costs 20 mm at each end of something nobody can reach. */
+        size: [S.x1 - S.x0 + 0.56, y1 - y0, 0.16],
         pos: [(S.x0 + S.x1) / 2, (y0 + y1) / 2, zEdge],
         mat: M_CONCRETE_DK,
         cast: false,
