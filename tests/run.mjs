@@ -92,6 +92,7 @@ const TEST_MODULES = [
   './mansion-siege.test.mjs',
   './mansion-siege-dressing.test.mjs',
   './mansion-siege-people.test.mjs',
+  './mansion-siege-voice.test.mjs',
   './silver-voice-catalog.test.mjs',
   './golf-story.test.mjs',
   './golf-gallery.test.mjs',

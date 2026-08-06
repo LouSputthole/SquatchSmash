@@ -326,16 +326,45 @@ export function buildSiegeGlass({ damage, grounds, interior } = {}) {
         cast: false,
       }));
     }
-    /* The frame itself, bent where somebody came through it. */
+    /* The frame itself, bent where somebody came through it.
+     *
+     * ## THE BEND IS IN THE TOP OF THE POST, NOT IN THE WHOLE POST
+     *
+     * It used to be one 0.05 m upright rotated 0.05 rad end to end. On the
+     * foyer's two-storey glazing that post is 4.3 m tall, so a "slight" tilt
+     * displaced its head 21 cm out of the wall -- a window frame leaning into
+     * the hall -- and `tools/scene-audit.mjs` reported it as COPLANAR with the
+     * neighbouring pane's post over 1.19 m², because a tilted thin box has a
+     * fat axis-aligned bounding box and the two panes butt at a mullion.
+     *
+     * A frame somebody kicked through bends at the point of impact and stays
+     * put everywhere else. So: a straight post, and a short bent length at the
+     * top of it. That fixes the lean, the flicker and the fiction at once.
+     */
+    const BENT = Math.min(0.4, h * 0.22);
     for (const end of [-1, 1]) {
+      const u = end * (w / 2 - 0.02);
+      const straightH = h - BENT;
       shards.add(box({
         name: `siege.glass.${spec.id}.frame`,
-        size: axis === 'z' ? [0.05, h, 0.05] : [0.05, h, 0.05],
+        size: [0.05, straightH, 0.05],
         pos: axis === 'z'
-          ? [centre.x + end * (w / 2 - 0.02), centre.y, centre.z]
-          : [centre.x, centre.y, centre.z + end * (w / 2 - 0.02)],
+          ? [centre.x + u, centre.y - BENT / 2, centre.z]
+          : [centre.x, centre.y - BENT / 2, centre.z + u],
         mat: M_FRAME_BENT,
-        rotZ: end * 0.05,
+      }));
+      /* The kicked length. Rotated about its own middle, which puts its foot
+       * a couple of centimetres into the top of the straight post -- an
+       * overlap, deliberately, because two boxes that merely touch is the
+       * fault above in miniature. */
+      shards.add(box({
+        name: `siege.glass.${spec.id}.frame.bent`,
+        size: [0.05, BENT, 0.05],
+        pos: axis === 'z'
+          ? [centre.x + u, centre.y + straightH / 2 - 0.02, centre.z]
+          : [centre.x, centre.y + straightH / 2 - 0.02, centre.z + u],
+        mat: M_FRAME_BENT,
+        rotZ: end * 0.28,
       }));
     }
     /* Litter on the floor inside, thrown the way the round came. */

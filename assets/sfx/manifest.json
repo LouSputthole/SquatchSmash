@@ -19252,6 +19252,116 @@
       "promptInfluence": 0.5,
       "prompt": "a city air raid siren network heard from several kilometres away across open country at night, slow rising and falling wail, several sirens in different parts of the city drifting out of phase with each other, heavily softened by distance with no top end left, no voices, no aircraft, no explosions, seamless loop",
       "_note": "NOT YET RECORDED. Owner 2026-08-06: “maybe an air raid siren as we approach would be good as wlel.” IT IS THE CITY'S, NOT THE COCKPIT'S: played through a panner sitting at the middle of Squatchbourg, so it arrives from the direction of the target, comes up as the run closes, swings across the aeroplane on the break turn and stops at the flash. Record it dry-ish and distant; the lowpass that closes with range is applied at runtime. Silent until this file exists — no synth fallback on purpose (see EnolaMissionAudio.setAirRaidSiren)."
+    },
+    {
+      "name": "vo.siege.wake.prospect.awake",
+      "voice": "player",
+      "say": "Okay. Okay — that is not the television."
+    },
+    {
+      "name": "vo.siege.wake.guard.inside",
+      "voice": "mansion-guard",
+      "say": "They are inside! They are in the house — get to the armory!"
+    },
+    {
+      "name": "vo.siege.guide.booski.armory",
+      "voice": "booski",
+      "say": "Kid — armory. East end of the cellar hall, then south through the door. Move."
+    },
+    {
+      "name": "vo.siege.guide.booski.office",
+      "voice": "booski",
+      "say": "Now get up here. Basement stair, straight over the foyer, up the horseshoe — Lou is on the top floor."
+    },
+    {
+      "name": "vo.siege.briefing.prospect.report",
+      "voice": "player",
+      "say": "Lou. There were two of them in the cellar."
+    },
+    {
+      "name": "vo.siege.briefing.lou.forty",
+      "voice": "lou1",
+      "say": "Two in the cellar. There are forty on my lawn."
+    },
+    {
+      "name": "vo.siege.briefing.booski.drive",
+      "voice": "booski",
+      "say": "More coming up the drive — both sides of the fountain, they are not even hurrying."
+    },
+    {
+      "name": "vo.siege.briefing.lou.upstairs",
+      "voice": "lou1",
+      "say": "Everybody upstairs. Nobody holds a ground-floor room tonight, I do not care whose room it is."
+    },
+    {
+      "name": "vo.siege.briefing.lou.stairs",
+      "voice": "lou1",
+      "say": "You. Take the rail over the foyer. Anything that comes through my front door, you put it down on my floor."
+    },
+    {
+      "name": "vo.siege.briefing.prospect.stairs",
+      "voice": "player",
+      "say": "The stairs. Got it."
+    },
+    {
+      "name": "vo.siege.briefing.lou.heavy",
+      "voice": "lou1",
+      "say": "And get the big one up. You did not carry it out of my armory to look at it."
+    },
+    {
+      "name": "vo.siege.prospect.little_friend",
+      "voice": "player",
+      "say": "Say hello to my little friend."
+    },
+    {
+      "name": "vo.siege.lull.booski.reload",
+      "voice": "booski",
+      "say": "That is the first lot! Reload — they are forming up again on the drive!"
+    },
+    {
+      "name": "vo.siege.lull.lou.notover",
+      "voice": "lou1",
+      "say": "It is not over. Watch that door."
+    },
+    {
+      "name": "vo.siege.flank.deathmegatron.glass",
+      "voice": "deathmegatron",
+      "say": "Glass! West wing and east — they are coming in behind us!"
+    },
+    {
+      "name": "vo.siege.aftermath.lou.last",
+      "voice": "lou1",
+      "say": "That is the last of them. Somebody kill that alarm."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.house",
+      "voice": "lou1",
+      "say": "They came to my house. With cars, and a plan, and enough men to spare four of them for a window."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.budget",
+      "voice": "lou1",
+      "say": "This is not a neighbourhood thing any more, kid. This is somebody with a budget."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.sasole",
+      "voice": "lou1",
+      "say": "There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this."
+    },
+    {
+      "name": "vo.siege.aftermath.prospect.sasole",
+      "voice": "player",
+      "say": "Sasole. Right."
+    },
+    {
+      "name": "vo.siege.sasole.sasole.stairs",
+      "voice": "lou2",
+      "say": "You are the one who held the stairs. Good. Then you can hold a bomb bay."
+    },
+    {
+      "name": "vo.siege.sasole.sasole.firstlight",
+      "voice": "lou2",
+      "say": "Get an hour down. We are wheels up at first light, and you are coming with me."
     }
   ]
 }

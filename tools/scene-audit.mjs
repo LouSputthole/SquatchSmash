@@ -66,6 +66,12 @@ const SCENES = [
   { id: 'apartment', url: 'index.html', start: '#start-btn, #startBtn', ready: () => Boolean(globalThis.game || globalThis.apartment) },
   { id: 'bing', url: 'bing.html', start: '#start-btn, #startBtn', ready: () => Boolean(globalThis.__bing) },
   { id: 'mansion', url: 'mansion.html', start: '#startBtn', ready: () => Boolean(globalThis.mansion) },
+  /* The same house on the worst night it ever has. Audited SEPARATELY from
+   * `mansion` and not instead of it: the siege's overlay is only standing once
+   * the mission has applied `under_attack`, which happens on the first frame
+   * after WAKE UP -- so a clean-house audit can never see a wreck, a fire, a
+   * body or a shattered pane, and those are exactly the meshes this scene owns. */
+  { id: 'mansion-siege', url: 'mansion-siege.html', start: '#startBtn', ready: () => Boolean(globalThis.mansionSiege) },
   { id: 'golf', url: 'golf.html', start: '#start-btn, #startBtn' },
   { id: 'silver', url: 'silver.html', start: '#start-btn, #startBtn' },
   { id: 'nowake', url: 'nowake.html', start: '#start-btn, #startBtn' },
@@ -114,8 +120,16 @@ const AUDIT = `(() => {
       if (!n.isMesh || !n.geometry) return;
       if (n.visible === false) return;
       /* Skip things that are legitimately unbounded or per-frame: sky domes,
-       * water planes, particle sprites and instanced crowds. */
-      if (/sky|water|ocean|fog|particle|spray|smoke|tracer|muzzle/i.test(n.name)) return;
+       * water planes, particle sprites and instanced crowds.
+       *
+       * "flame" joined this list with the mansion siege. A flame lump is
+       * scaled and re-emissived every frame and sits in the air above the
+       * thing that is burning, which is what fire looks like -- the same
+       * class of object as the "smoke" puffs already skipped here. Reporting
+       * one of the pair and not the other was an accident of vocabulary.
+       * (No backticks in this comment on purpose: the whole audit is a
+       * template literal, and one backtick ends it mid-sentence.) */
+      if (/sky|water|ocean|fog|particle|spray|smoke|flame|tracer|muzzle/i.test(n.name)) return;
       n.matrixWorld.decompose(pos, quat, scale);
       try { box.setFromObject(n); } catch { return; }
       if (!Number.isFinite(box.min.y) || !Number.isFinite(box.max.y)) return;
@@ -163,7 +177,18 @@ const AUDIT = `(() => {
    * bottom AND their footprints overlap. Anything hanging from above is
    * excluded by the name filter below rather than by geometry, because a
    * chandelier and a floating crate look identical from underneath. */
-  const HANGS = /lamp|light|chandelier|sconce|pendant|sign|banner|bulb|cable|wire|duct|pipe|vent|fan|screen|monitor|tv|picture|art|frame|mirror|shelf|rail|curtain|drape|cornice|beam|soffit|ceil|roof|hook|chain|hang|balloon|cloud|bird|star|moon|sun|glow|halo|decal|handprint|stain|shadow/i;
+  /* Things that are ATTACHED to something rather than standing on it, so
+   * "nothing underneath" is the correct answer rather than a defect.
+   *
+   * The last five joined the list with the mansion siege, and each is a real
+   * class rather than a name that was inconvenient:
+   *   sling         a strap over a shoulder, hanging from the weapon it carries
+   *   soot, scorch  marks ON a wall, exactly like the "stain" already here
+   *   tooth, shard  glass still in the frame of a window somebody came through
+   *   crack         drawn on the pane it is a crack in
+   * Note this only suppresses the FLOATING class; a mirrored, huge, tiny or
+   * coplanar sling is still reported. */
+  const HANGS = /lamp|light|chandelier|sconce|pendant|sign|banner|bulb|cable|wire|duct|pipe|vent|fan|screen|monitor|tv|picture|art|frame|mirror|shelf|rail|curtain|drape|cornice|beam|soffit|ceil|roof|hook|chain|hang|balloon|cloud|bird|star|moon|sun|glow|halo|decal|handprint|stain|shadow|sling|soot|scorch|tooth|shard|crack/i;
   const GROUND = 0.06;
   for (const it of items) {
     if (HANGS.test(it.name)) continue;
@@ -272,7 +297,29 @@ for (const scene of SCENES) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   try {
-    await page.goto(`http://localhost:${PORT}/${scene.url}`, { waitUntil: 'load', timeout: 60_000 });
+    /* THE `ready` PREDICATE IS HONOURED HERE, AND UNTIL THE SIEGE IT WAS NOT.
+     *
+     * It has been documented on the SCENES table since that table was written
+     * -- "a predicate that resolves once the world exists" -- and nothing ever
+     * read it: every scene was navigated with `waitUntil: 'load'` and a flat
+     * 60 s, and the four scenes carrying a predicate got past that gate on
+     * timing alone. `mansion-siege` is the first one heavy enough not to.
+     *
+     * `load` does not fire until every texture the mansion generates has been
+     * decoded, on a browser rendering a burning forecourt through swiftshader.
+     * That is minutes, so the audit reported the scene as
+     * "page.goto: Timeout 60000ms exceeded" -- which reads exactly like a
+     * broken page and is in fact a stopwatch. `tools/verify-mansion-siege.mjs`
+     * hit the identical wall and its fix is the one copied here: navigate on
+     * `domcontentloaded`, which is the point the module graph starts, and then
+     * wait on the scene's OWN signal that it has finished building.
+     *
+     * Scenes with no predicate keep the old gate exactly, so this cannot
+     * change what any of the other twelve report. */
+    await page.goto(`http://localhost:${PORT}/${scene.url}`, scene.ready
+      ? { waitUntil: 'domcontentloaded', timeout: 120_000 }
+      : { waitUntil: 'load', timeout: 60_000 });
+    if (scene.ready) await page.waitForFunction(scene.ready, null, { timeout: 180_000 });
     await page.waitForTimeout(1500);
     if (scene.start) {
       /* Clicked from inside the page rather than by Playwright, because a
