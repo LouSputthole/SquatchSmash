@@ -223,6 +223,15 @@ const AUDIT = `(() => {
       for (let i = 0; i < group.length; i++) {
         for (let j = i + 1; j < group.length; j++) {
           const a = group[i]; const b = group[j];
+          /* A MESH CANNOT Z-FIGHT WITH ITSELF. Every item is indexed under
+           * both its min and its max face, so a ZERO-THICKNESS surface -- a
+           * PlaneGeometry television screen, a CircleGeometry floor inlay, a
+           * RingGeometry border -- lands in the same bucket twice and was
+           * being reported against itself, with its own area, on every plate
+           * in the game bigger than a quarter of a square metre. That is why
+           * the mansion's list carried rows like "cellarTv.screen x
+           * cellarTv.screen": one mesh, no flicker, pure noise. */
+          if (a === b) continue;
           const ou = Math.min(a.max[u], b.max[u]) - Math.max(a.min[u], b.min[u]);
           const ov = Math.min(a.max[v], b.max[v]) - Math.max(a.min[v], b.min[v]);
           if (ou <= 0 || ov <= 0 || ou * ov < AREA) continue;

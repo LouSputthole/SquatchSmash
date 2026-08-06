@@ -494,8 +494,13 @@ const M_BRONZE_STATUE = mat({
 /* plane fallback. Chosen because it is cheap for two small disc/rect     */
 /* meshes and gives the hero fountain a genuinely animated surface; the   */
 /* pool reuses the exact same factory with a different tint.             */
+/*                                                                        */
+/* EXPORTED because the third floor's hot tub is the same problem at a     */
+/* smaller radius, and a second copy of this shader inside                */
+/* MansionInterior.js would be a second thing to fix the next time the     */
+/* water is wrong. The caller owns ticking `uniforms.uTime`.               */
 /* ================================================================== */
-function makeWaterMaterial({ deep = 0x0b3440, shallow = 0x1f7d8c, opacity = 0.85 } = {}) {
+export function makeWaterMaterial({ deep = 0x0b3440, shallow = 0x1f7d8c, opacity = 0.85 } = {}) {
   return new THREE.ShaderMaterial({
     transparent: true,
     uniforms: {
@@ -2429,7 +2434,24 @@ export function buildMansionGrounds(scene = null) {
      * Corners: the two flank walls carry the FULL outer z extent and the two
      * end walls only the inner x extent, so they butt rather than overlap.
      * (The main block's own shell leaves a 0.3 m gap at each corner instead;
-     * that is a separate, older thing and not this pass's to move.) */
+     * that is a separate, older thing and not this pass's to move.)
+     *
+     * BUILT BY HAND RATHER THAN THROUGH `panelWall`, AND THAT IS THE ONE
+     * DELIBERATE DEPARTURE IN THIS FILE. `panelWall` cuts a wall into columns
+     * at every opening edge and butts the columns together, and two boxes that
+     * butt on a square metre of face are precisely what `tools/scene-audit.mjs`
+     * calls COPLANAR -- it is why the existing shell's own list carries
+     * `north-solid x north-solid`, `gallery-south-solid x gallery-south-solid`
+     * and a dozen more. Fixing that inside `panelWall` would move every wall
+     * rect in the house by 20 mm, and the siege cross-checks those rects, so
+     * this pass does not touch it.
+     *
+     * Instead the suite's walls are laid up the way masonry actually goes
+     * together: a continuous band under the sills, a continuous band over the
+     * heads, and piers between the openings that LAP both bands by 20 mm. No
+     * two faces are ever flush, the audit reports nothing, and the wall is one
+     * mesh fewer than the column version. The glazing laps its reveals by the
+     * same 20 mm for the same reason. */
     {
       const sx0 = MASTER_SUITE.x0 - WALL_T;  // -9.15
       const sx1 = MASTER_SUITE.x1 + WALL_T;  //  9.15
@@ -2438,63 +2460,111 @@ export function buildMansionGrounds(scene = null) {
       /** Head and sill of the suite's glazing. */
       const SUITE_SILL = SUITE_Y + 0.9;      // 11.5
       const SUITE_HEAD = SUITE_Y + 2.7;      // 13.3
+      /* The walls are set 60 mm INTO the slab they stand on and 60 mm into the
+       * roof they carry, for the same reason: a wall whose base is exactly a
+       * slab's top face is a flush pair, and a wall bedded into its bearing is
+       * what a wall is. */
+      const WY0 = SUITE_Y - 0.06;
+      const WY1 = SUITE_ROOF_Y0 + 0.06;
+      const LAP = 0.02;
+
+      /**
+       * One glazed elevation, laid up as bands + piers + panes.
+       *
+       * `axis` is the wall's normal ('x' for the flanks, 'z' for the ends);
+       * `lo`/`hi` its thickness band; `u0`/`u1` its extent along itself;
+       * `openings` a list of {id, u0, u1, y0, y1}.
+       */
+      function suiteWall({
+        axis, lo, hi, u0, u1, tag, openings = [],
+      }) {
+        const seg = (ua, ub, ya, yb, name, material = M_STUCCO, inset = 0) => {
+          if (ub - ua < 1e-4 || yb - ya < 1e-4) return;
+          if (axis === 'z') ext(ua, ub, ya, yb, lo + inset, hi - inset, name, material);
+          else ext(lo + inset, hi - inset, ya, yb, ua, ub, name, material);
+        };
+        if (!openings.length) {
+          seg(u0, u1, WY0, WY1, `${tag}-solid`);
+          return;
+        }
+        const sill = Math.min(...openings.map((o) => o.y0));
+        const head = Math.max(...openings.map((o) => o.y1));
+        // Continuous bands under every sill and over every head.
+        seg(u0, u1, WY0, sill, `${tag}-solid`);
+        seg(u0, u1, head, WY1, `${tag}-solid`);
+        // Piers between and either side of the openings, lapping both bands.
+        const edges = [u0];
+        for (const o of openings) edges.push(o.u0, o.u1);
+        edges.push(u1);
+        for (let i = 0; i < edges.length; i += 2) {
+          seg(edges[i], edges[i + 1], sill - LAP, head + LAP, `${tag}-pier`);
+        }
+        // The panes, lapping their own reveals.
+        for (const o of openings) {
+          seg(o.u0, o.u1, o.y0 - LAP, o.y1 + LAP, `${tag}-${o.id}`, M_GLASS_TINT, 0.11);
+          const span = o.u1 - o.u0;
+          const bays = Math.max(1, Math.round(span / 2.4));
+          for (let i = 1; i < bays; i++) {
+            const u = o.u0 + (span * i) / bays;
+            seg(u - 0.05, u + 0.05, o.y0 - LAP, o.y1 + LAP, `${tag}-mullion`, M_MULLION, 0.06);
+          }
+          windows.push(axis === 'z'
+            ? {
+              id: o.id, x0: o.u0, x1: o.u1, y0: o.y0, y1: o.y1, z0: lo, z1: hi,
+            }
+            : {
+              id: o.id, x0: lo, x1: hi, y0: o.y0, y1: o.y1, z0: o.u0, z1: o.u1,
+            });
+        }
+      }
 
       // West and east flanks, with one window each.
-      for (const [lo, hi, tag, id] of [
-        [sx0, MASTER_SUITE.x0, 'suite-west', 'suiteWest'],
-        [MASTER_SUITE.x1, sx1, 'suite-east', 'suiteEast'],
-      ]) {
-        panelWall({
-          axis: 'x',
-          lo,
-          hi,
-          u0: sz0,
-          u1: sz1,
-          y0: SUITE_Y,
-          y1: SUITE_CEILING_Y,
-          tag,
-          openings: [{
-            id,
-            u0: id === 'suiteWest' ? 63.6 : 70.2,
-            u1: id === 'suiteWest' ? 67.4 : 74.0,
-            y0: SUITE_SILL,
-            y1: SUITE_HEAD - 0.3,
-            glass: true,
-          }],
-        });
-      }
+      suiteWall({
+        axis: 'x',
+        lo: sx0,
+        hi: MASTER_SUITE.x0,
+        u0: sz0,
+        u1: sz1,
+        tag: 'suite-west',
+        openings: [{
+          id: 'suiteWest', u0: 63.6, u1: 67.4, y0: SUITE_SILL, y1: SUITE_HEAD - 0.3,
+        }],
+      });
+      suiteWall({
+        axis: 'x',
+        lo: MASTER_SUITE.x1,
+        hi: sx1,
+        u0: sz0,
+        u1: sz1,
+        tag: 'suite-east',
+        openings: [{
+          id: 'suiteEast', u0: 70.2, u1: 74.0, y0: SUITE_SILL, y1: SUITE_HEAD - 0.3,
+        }],
+      });
       /* The rear elevation — the wall the bed looks at, over the pool and the
        * formal garden. Two tall panes with a 5.6 m pier between them, because
        * the pier is what the suite's television hangs on: a 2.6 m screen needs
        * a wall, and this is the only one in the room that is neither glazed
        * nor behind the bed. */
-      panelWall({
+      suiteWall({
         axis: 'z',
         lo: MASTER_SUITE.z1,
         hi: sz1,
         u0: MASTER_SUITE.x0,
         u1: MASTER_SUITE.x1,
-        y0: SUITE_Y,
-        y1: SUITE_CEILING_Y,
         tag: 'suite-north',
         openings: [
-          {
-            id: 'suiteNorthWest', u0: -8.0, u1: -2.8, y0: SUITE_SILL, y1: SUITE_HEAD, glass: true,
-          },
-          {
-            id: 'suiteNorthEast', u0: 2.8, u1: 8.0, y0: SUITE_SILL, y1: SUITE_HEAD, glass: true,
-          },
+          { id: 'suiteNorthWest', u0: -8.0, u1: -2.8, y0: SUITE_SILL, y1: SUITE_HEAD },
+          { id: 'suiteNorthEast', u0: 2.8, u1: 8.0, y0: SUITE_SILL, y1: SUITE_HEAD },
         ],
       });
       // The blind south wall, over the conference room. The bed's head is on it.
-      panelWall({
+      suiteWall({
         axis: 'z',
         lo: sz0,
         hi: MASTER_SUITE.z0,
         u0: MASTER_SUITE.x0,
         u1: MASTER_SUITE.x1,
-        y0: SUITE_Y,
-        y1: SUITE_CEILING_Y,
         tag: 'suite-south',
       });
 
@@ -2506,10 +2576,10 @@ export function buildMansionGrounds(scene = null) {
         name: 'suite-roof-slab',
       }));
       for (const [x0, x1, z0, z1] of [
-        [sx0 - 0.35, sx1 + 0.35, sz0 - 0.35, sz0 - 0.2],
-        [sx0 - 0.35, sx1 + 0.35, sz1 + 0.2, sz1 + 0.35],
-        [sx0 - 0.35, sx0 - 0.2, sz0 - 0.35, sz1 + 0.35],
-        [sx1 + 0.2, sx1 + 0.35, sz0 - 0.35, sz1 + 0.35],
+        [sx0 - 0.32, sx1 + 0.32, sz0 - 0.32, sz0 - 0.2],
+        [sx0 - 0.32, sx1 + 0.32, sz1 + 0.2, sz1 + 0.32],
+        [sx0 - 0.32, sx0 - 0.2, sz0 - 0.32, sz1 + 0.32],
+        [sx1 + 0.2, sx1 + 0.32, sz0 - 0.32, sz1 + 0.32],
       ]) {
         root.add(box({
           size: [x1 - x0, 0.1, z1 - z0],
@@ -2569,24 +2639,32 @@ export function buildMansionGrounds(scene = null) {
      * inside the well and stood him on thin air over a 4.6 m drop, which is
      * exactly the shape of the basement-stair bug this file already carries a
      * comment about. */
+    /* Two full-depth flanks and two infill strips. The strips are 20 mm
+     * SHALLOWER than the flanks and lap into them by 20 mm, so no two pieces
+     * of one slab ever present each other a flush face -- which is what
+     * `tools/scene-audit.mjs` reports as the flicker, and what a slab cut on
+     * exact lines would have produced four times over. */
+    const LAP = 0.02;
     const roofSegs = [
       {
-        x0: BUILDING.x0 - 0.4, x1: SUITE_STAIR_WELL.x0, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4,
+        x0: BUILDING.x0 - 0.4, x1: SUITE_STAIR_WELL.x0 + LAP, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4, full: true,
       },
       {
-        x0: SUITE_STAIR_WELL.x1, x1: BUILDING.x1 + 0.4, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4,
+        x0: SUITE_STAIR_WELL.x1 - LAP, x1: BUILDING.x1 + 0.4, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4, full: true,
       },
       {
-        x0: SUITE_STAIR_WELL.x0, x1: SUITE_STAIR_WELL.x1, z0: BUILDING.z0 - 0.4, z1: SUITE_STAIR_WELL.z0,
+        x0: SUITE_STAIR_WELL.x0, x1: SUITE_STAIR_WELL.x1, z0: BUILDING.z0 - 0.4, z1: SUITE_STAIR_WELL.z0 + LAP, full: false,
       },
       {
-        x0: SUITE_STAIR_WELL.x0, x1: SUITE_STAIR_WELL.x1, z0: SUITE_STAIR_WELL.z1, z1: BUILDING.z1 + 0.4,
+        x0: SUITE_STAIR_WELL.x0, x1: SUITE_STAIR_WELL.x1, z0: SUITE_STAIR_WELL.z1 - LAP, z1: BUILDING.z1 + 0.4, full: false,
       },
     ];
     for (const s of roofSegs) {
+      const y0 = s.full ? ROOF_Y0 : ROOF_Y0 + 0.01;
+      const y1 = s.full ? ROOF_Y1 : ROOF_Y1 - 0.01;
       root.add(box({
-        size: [s.x1 - s.x0, ROOF_Y1 - ROOF_Y0, s.z1 - s.z0],
-        pos: [(s.x0 + s.x1) / 2, (ROOF_Y0 + ROOF_Y1) / 2, (s.z0 + s.z1) / 2],
+        size: [s.x1 - s.x0, y1 - y0, s.z1 - s.z0],
+        pos: [(s.x0 + s.x1) / 2, (y0 + y1) / 2, (s.z0 + s.z1) / 2],
         mat: M_ROOF,
         name: 'roof-slab',
       }));

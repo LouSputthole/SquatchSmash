@@ -298,13 +298,13 @@
     {
       "slot": "closet.shirt.a",
       "file": "shirt-austin-front.jpg",
-      "title": "Austin jersey — front",
+      "title": "Austin jersey \u2014 front",
       "caption": "On the rail. Worn once."
     },
     {
       "slot": "closet.shirt.b",
       "file": "shirt-austin-back.jpg",
-      "title": "Austin jersey — back",
+      "title": "Austin jersey \u2014 back",
       "caption": "On the rail next to its own front."
     },
     {
@@ -684,6 +684,12 @@
       "file": "stacks-5-years.jpg",
       "title": "Five years of stacks, in the vault",
       "caption": "On the steel beside the vault door, where the count is written up."
+    },
+    {
+      "slot": "mansion.suite.crest",
+      "file": "logo-crest.png",
+      "title": "The crest, over the suite's bar",
+      "caption": "Third floor, behind the bottles in Lou's own bar. The only badge hung up there; the other one is set in the marble at the head of the stair."
     }
   ]
 }
