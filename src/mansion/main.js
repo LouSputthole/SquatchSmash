@@ -48,6 +48,7 @@ import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { mountSilentSquatch } from './mission/mount.js';
+import { INSTRUCTIONS } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast, MANSION_CAST_CUE_NAMES } from './cast.js';
 /* Importing these constructs nothing: a Campaign is only built when
@@ -470,6 +471,36 @@ function startAmbience() {
   audio.startLoop('distantMusic', {
     name: 'ambience.club', volume: 0.022, ambience: true, fade: 3,
   });
+  /* The third floor. Two beds, both positional, both quiet:
+   *   - a room tone, so the suite is not the one silent room in a house that
+   *     hums everywhere else;
+   *   - the tub, which is the only thing up there making a noise.
+   * Neither has a recording yet. `AudioEngine.startLoop` falls through to
+   * `synthLoop` when the manifest cue has no sample, and both cues have a
+   * case there -- filtered noise for the room, and a bubbling bed built from
+   * two bandpassed noise sources and a slow LFO for the water. They are in
+   * the manifest so `npm run sfx` can render them the day somebody records
+   * them, and they cost nothing at runtime until then. */
+  const suiteMid = interior.rooms.masterSuite.anchor;
+  audio.startLoop('suiteTone', {
+    name: 'mansion.suite.tone',
+    volume: 0.05,
+    position: new THREE.Vector3(suiteMid.x, suiteMid.y + 1.2, suiteMid.z),
+    ref: 6,
+    maxDist: 26,
+    ambience: true,
+    fade: 2.4,
+  });
+  const tub = interior.props.masterSuite.tub;
+  audio.startLoop('suiteHotTub', {
+    name: 'mansion.suite.hottub',
+    volume: 0.3,
+    position: new THREE.Vector3(tub.x, tub.waterY, tub.z),
+    ref: 2.2,
+    maxDist: 14,
+    ambience: true,
+    fade: 2.0,
+  });
 }
 
 /* ================================================================== */
@@ -521,6 +552,11 @@ function mountTv(screenMesh, { channel = 0, on = true } = {}) {
 
 const loungeTv = mountTv(interior.props.lounge.tv?.screen, { channel: 0 });
 const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { channel: 2 });
+/* The third floor's set: 2.6 m of it on the north pier, facing the bed down
+ * nine metres of room. Same `Tv` as every other set in the house, so it
+ * repaints, it changes channel, it lights the wall in front of it, and the
+ * debug surface counts it with the rest. */
+const suiteTv = mountTv(interior.props.masterSuite.tv?.screen, { channel: 1 });
 
 /* ================================================================== */
 /* THE HOME THEATRE, AND THE SEAM A FILM DROPS INTO                     */
@@ -777,6 +813,45 @@ flavor(
 /* ================================================================== */
 /* Things that actually do something                                    */
 /* ================================================================== */
+
+/* ================================================================== */
+/* THE BOOKCASE IN LOU'S OFFICE                                         */
+/*                                                                       */
+/* The one interaction on the third floor's route, and the reveal itself. */
+/* Registered here rather than in the interior for the same reason the    */
+/* kitchen tap is: `MansionInterior.js` builds the house and knows nothing */
+/* about the interaction system. It publishes a target and a verb; this    */
+/* calls them.                                                              */
+/*                                                                          */
+/* ONE registration, on the invisible slab standing proud of the books --    */
+/* `interaction.register` writes `userData.interact`, so registering twice    */
+/* replaces the first descriptor and leaves a stale row in its target list.   */
+/*                                                                            */
+/* The refusal speaks. There is nothing to refuse here yet, but the label      */
+/* always says what pressing E will do, because a gated interaction that goes  */
+/* quiet is the silent-failure class this project has paid for three times.    */
+/* ================================================================== */
+const secretBookcase = interior.props.masterSuite.secretStair;
+/* THE MERGED LIST IS THE ONE THE PLAYER READS. `colliders` above is a COPY of
+ * the interior's array, so the bookcase has to be told about it or it opens on
+ * screen and stays shut under your feet. See the note where it is built. */
+secretBookcase?.bindColliders?.(colliders);
+if (secretBookcase?.target) {
+  interaction.register(secretBookcase.target, {
+    label: () => (secretBookcase.isOpen()
+      ? 'Swing the <b>bookcase</b> shut'
+      : 'One of these is not a bookcase'),
+    key: 'E',
+    enabled: () => running,
+    onUse: () => {
+      const open = secretBookcase.toggle();
+      audio.play(open ? 'mansion.suite.bookcase.open' : 'mansion.suite.bookcase.shut', {
+        volume: 0.55,
+        position: secretBookcase.target.getWorldPosition(new THREE.Vector3()),
+      });
+    },
+  });
+}
 
 /** The kitchen tap. Hold E to run it; let go and it stops. */
 let sinkRunning = false;
@@ -1179,6 +1254,7 @@ const cast = mountMansionCast(scene, world, {
   audio,
   anchors,
   lab,
+  suite: interior.props.masterSuite,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
   /* Gratin's cord is a thing he is carrying, so it is a slot. Owner
@@ -1498,6 +1574,197 @@ function teleport(x, y, z, yawDeg = 0) {
   player.update(1 / 60);
 }
 
+
+/* ================================================================== */
+/* PREVIEW CHECKPOINTS — ?preview=1&checkpoint=<id>                     */
+/*                                                                       */
+/* Owner's rule, via RIGHT-FIRST-TIME's definition of done: anything      */
+/* longer than five minutes gets `?checkpoint=` jumps off the preview     */
+/* page, on the pattern THE TAKE and the BEEF RUN already use. PROJECT    */
+/* SILENT SQUATCH is eleven beats through three storeys and a hidden      */
+/* laboratory, so getting to the gassing to look at one thing is four     */
+/* minutes of walking every time.                                         */
+/*                                                                        */
+/* THE VOCABULARY IS THE CAMPAIGN'S OWN. `SILENT_SQUATCH_CHECKPOINT_IDS`   */
+/* in `src/core/campaign.js` lists the eight the save file understands —    */
+/* office, basement, lab, core_complete, locked, aubbie_down,              */
+/* silent_night, clear — and the ids below are those eight verbatim, plus   */
+/* `arrival` for the front gate and `suite` for the third floor, which is    */
+/* not part of the mission at all. Inventing a parallel set of names for a   */
+/* preview link is how a link stops meaning anything.                        */
+/*                                                                            */
+/* A JUMP REPLAYS THE MISSION, IT DOES NOT ASSERT ITS STATE. Each row runs     */
+/* the real verbs `src/mansion/mission/` exposes — `arrive`, `placeCase`,      */
+/* `takeCase`, `bustSwitch`, `deliver`, `enterCode`, `shoot`, `silentNight`,   */
+/* `leave` — through the real state machine, pumping the real lab between      */
+/* them. So the inventory is staged because the mission's own `onCaseOwned`     */
+/* fired, the bodies are where the beat put them, the hidden wall is open        */
+/* because the switch was pressed, and there is no second code path that can      */
+/* disagree with the played one. It is the beefrun/heist contract: the jump       */
+/* is a fast-forward, not a stub.                                                  */
+/*                                                                                  */
+/* UNKNOWN VALUES ARE IGNORED. `?checkpoint=banana` loads the ordinary house,        */
+/* because a preview link is a convenience and must never be a way to break a        */
+/* scene for somebody who mistyped one.                                              */
+/* ================================================================== */
+const CHECKPOINT_ORDER = [
+  'arrival', 'office', 'basement', 'lab', 'core_complete',
+  'locked', 'aubbie_down', 'silent_night', 'clear',
+];
+const CHECKPOINTS = {
+  arrival: {
+    label: 'ARRIVAL — THE FRONT GATE',
+    where: () => anchors.frontDoorOutside,
+    yaw: 180,
+  },
+  office: {
+    label: "BEAT 2 — LOU'S OFFICE",
+    where: () => anchors.officeDesk,
+    yaw: 180,
+    play: (m) => { m.arrive('office'); },
+  },
+  basement: {
+    label: 'BEAT 3 — THE HIDDEN ENTRANCE',
+    /* At the marble bust, which is the thing beat 3 is about, rather than at
+     * the cellar door thirty metres of corridor away from it. */
+    where: () => lab?.anchors?.bust ?? anchors.cellarDoor,
+    yaw: 90,
+    play: (m, pump) => {
+      m.arrive('office');
+      pump(() => m.instruction === INSTRUCTIONS.PLACE_CASE);
+      m.placeCase();
+      pump(() => m.instruction === INSTRUCTIONS.TAKE_CASE);
+      m.takeCase();
+      pump(() => m.instruction === INSTRUCTIONS.BUST_SWITCH);
+    },
+  },
+  lab: {
+    label: 'BEAT 5 — BEHIND THE GLASS',
+    where: () => lab?.anchors?.transferTable ?? anchors.armoryCenter,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.basement.play(m, pump);
+      m.bustSwitch();
+      pump(() => m.instruction === INSTRUCTIONS.DELIVER_CASE, 200);
+    },
+  },
+  core_complete: {
+    label: 'BEATS 7–8 — THE CORE IS BUILT',
+    where: () => lab?.anchors?.keypad ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.lab.play(m, pump);
+      m.deliver();
+      pump(() => m.instruction === INSTRUCTIONS.KEYPAD, 400);
+    },
+  },
+  locked: {
+    label: 'BEAT 8 — THE LAB IS LOCKED',
+    where: () => lab?.anchors?.keypad ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.core_complete.play(m, pump);
+      m.enterCode('6969');
+      pump(() => m.instruction === INSTRUCTIONS.ELIMINATE_AUBBIE, 100);
+    },
+  },
+  aubbie_down: {
+    label: 'BEAT 8 — AUBBIE IS DOWN',
+    where: () => lab?.anchors?.silentNight ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.locked.play(m, pump);
+      m.shoot(true);
+      pump(() => m.instruction === INSTRUCTIONS.SILENT_NIGHT, 200);
+    },
+  },
+  silent_night: {
+    label: 'BEAT 10 — SILENT NIGHT',
+    where: () => lab?.anchors?.silentNight ?? lab?.anchors?.transferTable,
+    yaw: 0,
+    play: (m, pump) => {
+      CHECKPOINTS.aubbie_down.play(m, pump);
+      m.silentNight();
+      pump(() => m.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 400);
+    },
+  },
+  clear: {
+    label: 'BEAT 11 — RETURN UPSTAIRS',
+    where: () => lab?.anchors?.stairFoot ?? anchors.basementLanding,
+    yaw: 180,
+    play: (m, pump) => {
+      CHECKPOINTS.silent_night.play(m, pump);
+      m.leave();
+      pump(() => m.state === 'COMPLETE', 60);
+    },
+  },
+  /* NOT A MISSION BEAT. The third floor is somewhere the player finds rather
+   * than somewhere the night sends him, so this stages the ROOM instead of the
+   * mission: at the bookcase, with the stair already open, which is the one
+   * piece of state the suite has. */
+  suite: {
+    label: "THE THIRD FLOOR — LOU'S SUITE",
+    where: () => anchors.secretBookcase,
+    yaw: 270,
+    stage: () => { secretBookcase?.setOpen(true); },
+  },
+};
+
+/** Show the jump's own name for a couple of seconds, the way the siege does. */
+function announceCheckpoint(label) {
+  const el = document.getElementById('checkpoint');
+  if (!el) return;
+  el.textContent = label;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+let checkpointJumped = null;
+
+/**
+ * Jump to a named checkpoint. Returns the id it actually reached, or null.
+ *
+ * Safe to call from the console and from a verifier; the URL parser below is
+ * one caller of it rather than the implementation.
+ */
+function jumpToCheckpoint(id) {
+  const cp = CHECKPOINTS[id];
+  if (!cp) return null;
+  if (!running) beginTour();
+  const mission = silentSquatch?.debug ?? null;
+  if (cp.play && mission) {
+    const DT = 1 / 30;
+    const pump = (pred, limit = 400) => {
+      for (let t = 0; t < limit; t += DT) {
+        if (pred()) return true;
+        silent.update(DT);
+        silentSquatch.update(DT);
+      }
+      return pred();
+    };
+    try { cp.play(mission, pump); } catch { /* a preview link never breaks the scene */ }
+  }
+  try { cp.stage?.(); } catch { /* ditto */ }
+  const at = cp.where?.();
+  if (at && Number.isFinite(at.x)) teleport(at.x, at.y, at.z, cp.yaw ?? 180);
+  checkpointJumped = id;
+  announceCheckpoint(cp.label);
+  return id;
+}
+
+/* The URL. `?checkpoint=<id>` on its own is enough; `?preview=1` is accepted
+ * beside it because that is what preview.html's links carry. */
+{
+  const params = new URLSearchParams(window.location.search);
+  const wanted = params.get('checkpoint');
+  if (wanted && CHECKPOINTS[wanted]) {
+    /* After a frame, so the scene has finished building and the mission has
+     * mounted; before that, `silentSquatch` is null and the ladder would run
+     * against nothing. */
+    requestAnimationFrame(() => jumpToCheckpoint(wanted));
+  }
+}
+
 window.mansion = {
   /* Handed out so a verifier can do real geometry (Box3 of a mesh, say)
    * against the same THREE instance the scene was built with rather than
@@ -1558,6 +1825,38 @@ window.mansion = {
     ...Object.values(grounds.doors).map((d) => ({ ...d })),
     ...grounds.shell.windows.map((w) => ({ ...w })),
   ],
+  /**
+   * THE THIRD FLOOR, for the verifier that walks it.
+   *
+   * Everything here is a live read off the built world rather than a copy of
+   * the numbers that built it: `waterTime` is the hot tub's own shader clock,
+   * `dog` is `report()` off the walking dog, and the three bed plans are
+   * measured with the same THREE instance the scene was built with.
+   */
+  suite: {
+    room: { ...interior.rooms.masterSuite.rect, floor: interior.rooms.masterSuite.floor },
+    bed: interior.props.masterSuite.bed,
+    tub: interior.props.masterSuite.tub,
+    tubSeats: interior.props.masterSuite.tubSeats,
+    dogCushion: interior.props.masterSuite.dogCushion,
+    get waterTime() {
+      return interior.props.masterSuite.tubWaterMaterial.uniforms.uTime.value;
+    },
+    get tvOn() { return suiteTv?.on ?? false; },
+    stair: {
+      hall: { ...secretBookcase.hall },
+      ...secretBookcase.geometry,
+      get open() { return secretBookcase.isOpen(); },
+    },
+    openBookcase: (open = true) => secretBookcase.setOpen(open),
+    get dog() { return cast?.dog?.report?.() ?? null; },
+    petDog: () => cast?.dog?.pet?.() ?? false,
+    /** Tick the dog on his own, for a check that must not wait on the door. */
+    stepDog: (dt = 1 / 60, steps = 1) => {
+      for (let i = 0; i < steps; i++) cast?.dog?.update?.(dt);
+      return cast?.dog?.report?.() ?? null;
+    },
+  },
   /** The working sets, so a verifier can prove they are wired rather than modelled. */
   media: {
     tvs: houseTvs.map((tv) => ({
@@ -1616,6 +1915,12 @@ window.mansion = {
       for (const [id, npc] of Object.entries(cast?.people ?? {})) {
         const p = npc.group?.position;
         if (!p) continue;
+        /* Somebody deliberately inside a fixture is not somebody stuck in the
+         * furniture. Exactly two bodies carry this -- the pair in the third
+         * floor's hot tub, which is a solid marble drum by construction -- and
+         * they carry it on themselves rather than the check carrying a list of
+         * names. */
+        if (npc.inFixture) continue;
         for (const box of colliders) {
           /* Waist height: a floor plate the feet stand on is not a fault, a
            * counter through the middle of a man is. */
@@ -1774,6 +2079,14 @@ window.mansion = {
    * Every beat of the mission is reachable from here, which is how a verifier
    * plays it without a mouse. */
   mission: silentSquatch?.debug ?? null,
+  /** The preview jumps, for the page that links to them and the check that walks them. */
+  checkpoints: {
+    ids: [...CHECKPOINT_ORDER, 'suite'],
+    order: [...CHECKPOINT_ORDER],
+    labels: Object.fromEntries(Object.entries(CHECKPOINTS).map(([k, v]) => [k, v.label])),
+    get jumped() { return checkpointJumped; },
+    jump: (id) => jumpToCheckpoint(id),
+  },
   teleport,
   /** Step the simulation without a real animation frame -- for headless verification. */
   tick(seconds = 1, step = 1 / 60) {
@@ -1783,6 +2096,17 @@ window.mansion = {
   },
   /** Headless-verification only: suspend/resume the render loop. */
   setRendering(on) { renderEnabled = !!on; },
+  /**
+   * Headless-verification only: suspend/resume the SIMULATION as well.
+   *
+   * `setRendering(false)` stops the draw and leaves `updateGame` running, which
+   * is right for a walking tour and wrong for a script that opens a second
+   * page: this scene is fifteen thousand meshes simulating itself, and leaving
+   * it doing that while another copy builds doubles the cost of the build.
+   * `verify:mansion` pauses across its `?checkpoint=` loads for exactly that.
+   */
+  pause() { sharedPauseMenu.pause(); },
+  resume() { sharedPauseMenu.resume?.(); },
   get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return sharedPauseMenu.isPaused(); },

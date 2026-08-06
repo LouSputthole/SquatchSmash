@@ -2489,6 +2489,33 @@ export function makePerson(o = {}) {
 
 const _v = new THREE.Vector3();
 
+/**
+ * THE BADA BING'S FOUR PERFORMERS, AS FIGURES.
+ *
+ * Authored rather than rolled -- "four random dancers" gave the stage four of
+ * the same woman in different colours. Three are fair and the fourth is not;
+ * the hair runs blonde, brunette and black across the line so no two read the
+ * same from the floor. The blonde holds the last slot because the last slot is
+ * the runway, and the owner's ruling is that the blonde works the front.
+ *
+ * EXPORTED because these four are cast members rather than set dressing, and
+ * two of them are in Lou's hot tub on the third floor of the mansion (see
+ * `src/mansion/cast.js`). Spreading this list is what makes the woman in the
+ * tub the same woman who was on the pole -- the alternative is a second set of
+ * literals in a second file, which is how a character quietly becomes two
+ * characters. The GARMENT is not in here: `dress: 'bikini'` is passed at each
+ * call site, because a stage costume and a swimsuit are the same cut on this
+ * rig and the room decides which one it is.
+ */
+export const BADA_BING_PERFORMERS = Object.freeze([
+  Object.freeze({ skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f }),  // platinum
+  // The middle of the back line. She wore the tied style, which from the
+  // floor is a crown and a bun and reads as cropped; hers falls.
+  Object.freeze({ skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'long', shirt: 0x9a4fd9 }),  // brunette
+  Object.freeze({ skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0 }),  // black
+  Object.freeze({ skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a }),  // blonde
+]);
+
 export class Npc {
   /**
    * @param {object} o
@@ -3227,14 +3254,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * Order matters: the list is dealt poles-first and the RUNWAY -- the front
    * of the house, the one the whole room faces -- comes last. The owner's
    * ruling is that the blonde works the front, so she holds the last slot. */
-  const PERFORMERS = [
-    { skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f },  // platinum
-    // The middle of the back line. She wore the tied style, which from the
-    // floor is a crown and a bun and reads as cropped; hers falls.
-    { skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'long', shirt: 0x9a4fd9 },  // brunette
-    { skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0 },  // black
-    { skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a },  // blonde
-  ];
+  const PERFORMERS = BADA_BING_PERFORMERS;
   [...a.poles, a.runway].forEach((p, i) => {
     const look = PERFORMERS[i % PERFORMERS.length];
     add(`performer${i}`, new Npc(scene, {

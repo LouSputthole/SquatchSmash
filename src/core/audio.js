@@ -1339,6 +1339,24 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 1.5, type: 'bandpass', freq: 640, q: 14, gain: 0.10, sweep: 0.72 });
       burst(ctx, dest, t + 0.34, { dur: 1.1, type: 'bandpass', freq: 980, q: 18, gain: 0.055, sweep: 0.8 });
       break;
+    /* A loaded bookcase on a concealed pivot. Heavier and slower than a door
+     * -- the latch first, then a low groan that carries the weight, then the
+     * books shifting on their shelves. */
+    case 'mansion.suite.bookcase.open':
+      burst(ctx, dest, t, { dur: 0.07, type: 'bandpass', freq: 2200, q: 6, gain: 0.16 });
+      burst(ctx, dest, t + 0.06, { dur: 1.7, type: 'lowpass', freq: 420, gain: 0.13, sweep: 0.55 });
+      burst(ctx, dest, t + 0.22, { dur: 1.3, type: 'bandpass', freq: 520, q: 11, gain: 0.07, sweep: 0.75 });
+      for (let i = 0; i < 4; i++) {
+        burst(ctx, dest, t + 0.5 + i * 0.18 + Math.random() * 0.08, {
+          dur: 0.09, type: 'bandpass', freq: 1400 + Math.random() * 900, q: 4, gain: 0.05,
+        });
+      }
+      break;
+    case 'mansion.suite.bookcase.shut':
+      burst(ctx, dest, t, { dur: 1.2, type: 'bandpass', freq: 480, q: 10, gain: 0.07, sweep: 0.7 });
+      burst(ctx, dest, t + 1.05, { dur: 0.26, type: 'lowpass', freq: 190, gain: 0.24, sweep: 0.4 });
+      burst(ctx, dest, t + 1.08, { dur: 0.1, type: 'bandpass', freq: 1300, q: 3, gain: 0.06 });
+      break;
     /* Mains sagging for a moment: the hum drops in pitch and comes back. No
      * click, because nothing switched. */
     case 'light.dip':
@@ -2461,6 +2479,36 @@ function synthLoop(engine, name, dest) {
       noise('bandpass', 900, 1.4, 0.20);
       noise('lowpass', 260, 0.7, 0.14);
       break;
+    /* -------- the mansion's third floor -------- */
+    case 'mansion.suite.tone':
+      /* A big warm room with the air on: almost nothing, and deliberately
+       * quieter than the cellar's. Two sines a semitone apart beat slowly
+       * against each other, which is what plant in a duct actually does. */
+      noise('lowpass', 300, 0.7, 0.030);
+      osc('sine', 84, 0.014);
+      osc('sine', 84.7, 0.010);
+      noise('highpass', 6400, 2.0, 0.006);
+      break;
+    case 'mansion.suite.hottub': {
+      /* BUBBLING = FILTERED NOISE, and the LFO is what makes it bubbles
+       * rather than a hiss. A hot tub is a broad wet churn with a bright
+       * surface on top of it, and the surface SWELLS -- jets in a bowl beat
+       * against each other at well under a hertz. So: three noise bands for
+       * the body, and a slow sine on the brightest one's gain. */
+      noise('lowpass', 240, 0.8, 0.11);
+      noise('bandpass', 780, 1.1, 0.075);
+      const surface = noise('bandpass', 2400, 0.7, 0.05);
+      const swell = ctx.createOscillator();
+      swell.type = 'sine';
+      swell.frequency.value = 0.37;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.028;
+      swell.connect(depth);
+      depth.connect(surface.g.gain);
+      swell.start();
+      nodes.push(swell);
+      break;
+    }
     case 'radio.cut':
       // A transmission stepping on itself: full-level broadband hiss with no
       // attack, so it lands on the same frame the music stops.

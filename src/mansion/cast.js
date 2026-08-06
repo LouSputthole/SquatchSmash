@@ -101,7 +101,7 @@
  * Every bark below is one flat sentence from somebody who is at work.
  */
 import * as THREE from 'three';
-import { Npc } from '../bing/cast.js';
+import { Npc, BADA_BING_PERFORMERS } from '../bing/cast.js';
 import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
 } from '../bing/license-to-grill-runtime.js';
@@ -111,6 +111,7 @@ import {
   MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../core/wardrobe.js';
 import { box, cylinder, group, mat } from '../world/build.js';
+import { mountLilTomCruze } from './dog.js';
 import { DialogueController } from './mission/DialogueController.js';
 import { createMissionHud } from './mission/hud.js';
 import { INSTRUCTIONS, SEQUENCES } from './script.js';
@@ -450,6 +451,8 @@ export function mountMansionCast(scene, world = {}, {
   campaign = null,
   anchors = null,
   lab = null,
+  /** `interior.props.masterSuite` — the third floor's own published spots. */
+  suite = null,
   hud = null,
   hasCase = null,
   /**
@@ -1007,6 +1010,81 @@ export function mountMansionCast(scene, world = {}, {
     idle: SEQUENCES.numbskullIdle,
     look: 'Numbskull, outside, watching a heated pool nobody swims in.',
   });
+
+  /* ================================================================ */
+  /* THE THIRD FLOOR                                                   */
+  /*                                                                    */
+  /* Owner, on the master suite: "hot tub with girls, the dog, and      */
+  /* everything."                                                       */
+  /*                                                                     */
+  /* THE TWO IN THE TUB ARE BADA BING CAST, NOT NEW PEOPLE. Their looks   */
+  /* are spread straight off `BADA_BING_PERFORMERS` in `src/bing/cast.js` */
+  /* -- the same four figures who work the club's poles -- so the woman   */
+  /* in Lou's tub is a woman the player has already met, which is the      */
+  /* whole point of the family owning the club. The GARMENT is the only    */
+  /* thing decided here, and it is the same `dress: 'bikini'` the stage     */
+  /* uses, because on this rig a stage costume and a swimsuit are the same  */
+  /* cut and the room is what makes it one or the other.                    */
+  /*                                                                         */
+  /* `job: 'sit'` folds the figure at the hips and drops it 0.42 x its own    */
+  /* height scale, feet on the floor it was given. So each one is handed the  */
+  /* tub's BENCH height plus that drop, read back off the built figure rather */
+  /* than guessed: `heightScale` is not known until `makePerson` has run.      */
+  /* ================================================================ */
+  const tubSeats = suite?.tubSeats ?? [];
+  tubSeats.slice(0, 2).forEach((seat, i) => {
+    const look = BADA_BING_PERFORMERS[i === 0 ? 3 : 1];
+    const npc = post(`suitePerformer${i}`, {
+      name: 'a dancer',
+      tier: 'ambient',
+      job: 'sit',
+      x: seat.x,
+      /* `seat.y` is the tub's inner FLOOR, which is what `Npc.sit()` wants --
+       * see the note where MansionInterior publishes these. */
+      y: seat.y,
+      z: seat.z,
+      yaw: seat.yaw,
+      model: {
+        role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+        height: i === 0 ? 1.74 : 1.71, build: 1.08, dress: 'bikini', ...look,
+      },
+      look: 'One of the girls from the club, up here where the water is warmer.',
+    });
+    /* SHE IS SUPPOSED TO BE INSIDE THE FURNITURE. `verify:mansion` asserts
+     * that nobody in this house is standing inside a collider, which is a good
+     * check and would fail here for the right reason and the wrong result: a
+     * hot tub is a solid marble drum and two people are sitting in it. The
+     * flag says so on the body, so the check can skip exactly the bodies that
+     * mean it rather than being loosened for everybody. */
+    npc.inFixture = 'the hot tub';
+  });
+
+  /* ---- LIL TOM CRUZE ---------------------------------------------------
+   *
+   * `./dog.js` — a full German Shepherd with a gait, a sit, a wag and a pet
+   * interaction, written to the owner's own brief ("It needs to be animated
+   * and work and go from the office to the bed room and stuff and the player
+   * can pet it") and then never mounted by anything at all. It is mounted
+   * here, which is where the people are.
+   *
+   * HIS GATE IS THE BOOKCASE. `enabled` is the secret door being open, so he
+   * holds on his cushion while the way down is shut and trots the route the
+   * moment it is not — which is a dog with a closed door in front of it, and
+   * is also the only honest way to stop him walking through 200 kg of oak.
+   * He is a hero-tier body in a room with two people in it; his update
+   * allocates nothing.
+   */
+  const secretDoor = suite?.secretStair ?? null;
+  const dog = suite ? mountLilTomCruze({
+    parent: scene,
+    interaction,
+    player: camera ?? player,
+    enabled: () => enabled() && (secretDoor ? secretDoor.isOpen() : true),
+    audio,
+    /* No cue name is invented. He is a quiet dog until somebody records one;
+     * see ENGINE-TRAPS #3 on cues that exist only at a call site. */
+    barkCue: null,
+  }) : null;
 
   /* ---- Gratin, and the offer -------------------------------------------
    * The interrogation area is the laboratory's, so this exists only when the
@@ -1702,6 +1780,8 @@ export function mountMansionCast(scene, world = {}, {
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
     get snow() { return people.snow; },
+    /** Lil Tom Cruze, or null in a house with no third floor in it. */
+    dog,
     /** The two verbs, for a caller that wants to drive them without a mouse.
      * `takeCord` is Gratin; `swing` is xXx, and it works every time. */
     takeCord: () => handTheCordOver(),
@@ -1711,6 +1791,12 @@ export function mountMansionCast(scene, world = {}, {
       if (!enabled()) return;
       const p = playerPosition();
       for (const key of Object.keys(people)) people[key].update(dt, p);
+      /* The dog walks his own route rather than a `post`'s: he is not a
+       * person, he has no lines, and his gate is a door rather than a bark
+       * range. Ticked unconditionally so his own `enabled` decides, not this
+       * loop -- a dog that only animates when you are looking at him is a
+       * statue that moves when you turn round. */
+      dog?.update(dt);
       updateBarks(dt);
       dialogue.update(dt);
 
