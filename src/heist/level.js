@@ -603,13 +603,31 @@ function buildVan() {
 
 /** Where the twenty-two lobby civilians stand when the doors come in. */
 export const LOBBY_ANCHORS = Object.freeze([
-  // The queue at the teller line, facing the counter.
+  /* The queue at the teller line, facing the counter — and standing clear of
+   * it. The counter's front face is at z −1.975; a customer told to get down
+   * lies along the way they are facing, so anybody inside about 1.8 m of the
+   * counter lies through it. These start at z +0.4. */
   { x: -5.2, z: 0.4, yaw: Math.PI }, { x: -3.6, z: 0.9, yaw: Math.PI },
   { x: -2.0, z: 0.6, yaw: Math.PI }, { x: -0.4, z: 1.1, yaw: Math.PI },
   { x: 1.2, z: 0.7, yaw: Math.PI }, { x: 2.8, z: 1.2, yaw: Math.PI },
-  // The tellers, behind it, facing out.
-  { x: -6.1, z: -3.1, yaw: 0, role: 'teller' }, { x: -2.6, z: -3.1, yaw: 0, role: 'teller' },
-  { x: 0.9, z: -3.1, yaw: 0, role: 'teller' }, { x: 4.4, z: -3.1, yaw: 0, role: 'teller' },
+  /* THE TELLERS, BEHIND THE COUNTER — and turned along it.
+   *
+   * Owner: *"bank teller NPCs clip through the counter"*. They stood at
+   * z −3.1 facing +Z, and the counter is a solid 17.2 × 0.85 m box whose back
+   * face is at z −2.825. Twenty-seven centimetres of clearance is already
+   * inside a standing figure's own depth; and the instant one of them was
+   * ordered down, `prone()` laid them out ALONG THEIR FACING — 1.7 m of
+   * person straight through the counter, the tills and the glass.
+   *
+   * They are at z −3.9 now, a working arm's length behind the counter, and
+   * turned to face down the line rather than across it. Told to get down,
+   * they lie in the clear run of floor between the counter and the vault
+   * corridor, which is where a teller behind a counter would actually end up.
+   */
+  { x: -6.1, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
+  { x: -2.6, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
+  { x: 0.9, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
+  { x: 4.4, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
   // The writing desks and the waiting seats on the east side.
   { x: 6.4, z: 2.4, yaw: -1.9 }, { x: 7.6, z: 1.2, yaw: -2.4 },
   { x: 7.9, z: 4.1, yaw: -1.2 }, { x: 6.2, z: 5.2, yaw: -0.8 },
@@ -818,7 +836,7 @@ function buildBank() {
     proxy.receiveShadow = false;
     figure.root.userData.proxy = proxy;
     figure.root.userData.hostageId = `hostage_${index + 1}`;
-    figure.root.userData.setState = (state) => figure.setState(state);
+    figure.root.userData.setState = (state, options) => figure.setState(state, options);
     return figure.root;
   });
 
@@ -873,11 +891,34 @@ function buildBank() {
     box(vault, [0.09, 0.07, 0.03], [2.72 + (i % 3) * 0.18, 1.66 - Math.floor(i / 3) * 0.12, 3.29], MAT.steel);
   }
   group.add(vault);
+
+  /* THE DOOR IS A WALL WHILE IT IS SHUT.
+   *
+   * Owner: *"the vault can be walked into before it opens"*. It could, and
+   * there was nothing stopping it — the bank's collider list has the vault
+   * corridor's two side walls and its back wall, and NOTHING across the
+   * 8.4 m doorway they meet at. The door itself is a decorative disc: a
+   * 2.3 m cylinder hung in the opening with no bounds of any kind, so the
+   * player walked through the shut door, past the bypass Shubenator has not
+   * run yet, and stood on the cash.
+   *
+   * `doorCollider` is real geometry. It fills the whole opening rather than
+   * just the disc, because the gap around a round door in a square hole is
+   * a gap a player will find, and it is added to and removed from the live
+   * collider list by `setOpen` — the same call that moves the disc, so the
+   * thing you can see and the thing you can walk through cannot disagree.
+   */
+  const doorCollider = bounds([8.4, 4.4, 0.7], [0, 2.2, -7.0]);
+  vault.userData.doorCollider = doorCollider;
+  vault.userData.open = false;
   vault.userData.setOpen = (open) => {
-    disc.position.x = open ? -2.6 : 0;
-    disc.rotation.z = open ? 0.5 : 0;
-    ring.visible = !open;
-    wheel.position.x = open ? -2.6 : 0;
+    const isOpen = open === true;
+    vault.userData.open = isOpen;
+    disc.position.x = isOpen ? -2.6 : 0;
+    disc.rotation.z = isOpen ? 0.5 : 0;
+    ring.visible = !isOpen;
+    wheel.position.x = isOpen ? -2.6 : 0;
+    vault.userData.onOpenChanged?.(isOpen);
   };
 
   const bags = new THREE.Group();
@@ -932,6 +973,12 @@ function buildBank() {
       bounds([0.3, 4.4, 6.4], [4.2, 2.2, -10.1]),
       bounds([8.4, 4.4, 0.3], [0, 2.2, -13.3]),
       bounds([1.4, 1.0, 1.4], [8.4, 0.5, 2.5]),
+      /* The shut vault door. `buildHeistLevel` takes this one back out when
+       * the bypass finishes — see `vault.userData.onOpenChanged`. Without it
+       * the 8.4 m doorway between the two rear-wall panels was open floor and
+       * the player could walk into the vault before Shubenator had touched
+       * the panel. */
+      vault.userData.doorCollider,
     ],
     floorZones: [floorZone(22, 22, 'marble'), floorZone(8.4, 6.4, 'concrete', 0, -10.1)],
   };
@@ -1223,6 +1270,23 @@ export function buildHeistLevel(scene) {
     world.floorZones.push(...(phases[id].floorZones ?? []));
     return phases[id];
   }
+
+  /* The vault door, joined up: the shut door is in the bank's collider list
+   * and comes out of it the moment the bypass finishes. Both lists are kept —
+   * the phase's own, so an `activate('bank')` after the door opened does not
+   * put the wall back, and the live one, so opening it while standing in the
+   * lobby takes effect on the same frame the disc rolls aside. */
+  const vault = phases.bank.interactables.vault;
+  const doorCollider = vault.userData.doorCollider;
+  const bankColliders = phases.bank.colliders;
+  vault.userData.onOpenChanged = (open) => {
+    for (const list of [bankColliders, ...(active === 'bank' ? [world.colliders] : [])]) {
+      const at = list.indexOf(doorCollider);
+      if (open && at >= 0) list.splice(at, 1);
+      if (!open && at < 0) list.push(doorCollider);
+    }
+  };
+
   return { phases, world, activate, get active() { return active; } };
 }
 

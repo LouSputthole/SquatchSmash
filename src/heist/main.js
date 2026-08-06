@@ -12,6 +12,11 @@ import { createBankHeistStory } from '../core/bank-heist-story.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+/* The shared weapon sound bank: five cue slots per gun for all six guns in
+ * the game, each with a real recording standing in until the wanted cue
+ * lands. THE TAKE was playing its own carbine recording for both of its
+ * weapons — see `fireWeapon`. */
+import { WEAPON_IDS, playWeaponCue, weaponCueNames } from '../core/weapons/index.js';
 import {
   installPreviewNotice, isPreviewMode, previewCheckpointForLocation,
   previewDifficultyForLocation,
@@ -513,6 +518,43 @@ const casingPool = Array.from({ length: Math.min(24, PERFORMANCE_BUDGET.maxCasin
   return mesh;
 });
 
+/* Blood, in three pools, all pre-built. See `emitBlood`.
+ *
+ * Deliberately not the same mesh as `impactPool`: a hit on a person and a hit
+ * on marble threw identical sandy dust, which is why shooting a customer
+ * looked the same as missing one. */
+const BLOOD_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x5e0d10 });
+const bloodPool = Array.from({ length: 28 }, () => {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.032, 5, 4), BLOOD_MATERIAL);
+  mesh.visible = false;
+  mesh.userData.life = 0;
+  scene.add(mesh);
+  return mesh;
+});
+const bloodMistPool = Array.from({ length: 6 }, () => {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 7, 5),
+    new THREE.MeshBasicMaterial({ color: 0x7d1418, transparent: true, opacity: 0.42 }),
+  );
+  mesh.visible = false;
+  mesh.userData.life = 0;
+  mesh.userData.fade = true;
+  scene.add(mesh);
+  return mesh;
+});
+/** Fatal hits leave a mark on the floor. Bounded by the scene's decal budget. */
+let bloodDecalCursor = 0;
+const bloodDecals = Array.from({ length: Math.min(24, PERFORMANCE_BUDGET.maxDecals) }, () => {
+  const mesh = new THREE.Mesh(
+    new THREE.CircleGeometry(0.42, 10),
+    new THREE.MeshBasicMaterial({ color: 0x4a0a0d, transparent: true, opacity: 0.78 }),
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.visible = false;
+  scene.add(mesh);
+  return mesh;
+});
+
 window.__heistDebug = {
   state: machine.state,
   phase: null,
@@ -985,13 +1027,28 @@ function updateScriptedSpeech() {
 /* ------------------------------------------------------------------ */
 
 const barkCursor = new Map();
+/** The last thing anybody said out of a pool, whichever pool it came from. */
+let lastPooledLine = null;
 
-/** Walk a pooled list so twenty-two people do not say one sentence. */
+/**
+ * Walk a pooled list so twenty-two people do not say one sentence.
+ *
+ * The cursor per key was already here and was already right; what it could
+ * not do was stop two DIFFERENT pools handing out the same line back to back.
+ * `refuses` and `already_robbed` deliberately share sentences, and each kept
+ * its own cursor, so refusing twice in a row got the identical line twice in
+ * a row from two counters that were both behaving. If the pool has anywhere
+ * else to go, it goes there.
+ */
 function sayPooled(pool, key) {
   const lines = pool[key];
   if (!lines?.length) return null;
-  const index = (barkCursor.get(key) ?? 0) % lines.length;
+  let index = (barkCursor.get(key) ?? 0) % lines.length;
+  if (lines.length > 1 && lines[index] === lastPooledLine) {
+    index = (index + 1) % lines.length;
+  }
   barkCursor.set(key, index + 1);
+  lastPooledLine = lines[index];
   say(lines[index]);
   return lines[index];
 }
@@ -1015,11 +1072,18 @@ function actorFor(object) {
   return null;
 }
 
-function syncHostageFigure(person) {
+/**
+ * @param {object} person a `HostageDirector` record
+ * @param {object} [options]
+ * @param {boolean} [options.blend] false to snap the pose. A checkpoint
+ *   rebuild puts twenty-two people into their saved poses at once and should
+ *   not play twenty-two takedowns at the player.
+ */
+function syncHostageFigure(person, options) {
   const root = level.phases.bank.civilians
     .find((figure) => figure.userData.hostageId === person.id);
   if (!root) return;
-  root.userData.setState(person.state);
+  root.userData.setState(person.state, options);
 }
 
 const OBJECTIVE_STATES = new Set([
@@ -1230,6 +1294,54 @@ function emitImpact(position) {
   audio.play('heist.bullet.impact', { position, volume: 0.62, ref: 1.1, maxDist: 22 });
 }
 
+/**
+ * A round that found a person.
+ *
+ * Owner: *"better blood ... effects"*. Every hit in this scene — marble,
+ * wood, a police cruiser, a bank customer — threw the same three sandy dust
+ * motes, so shooting somebody looked exactly like missing them. That is worse
+ * than a missing effect: it is the one moment the mission is scored on
+ * (`HeistObjectiveLedger.civilianRoundsFired`) and it had no feedback at all.
+ *
+ * Three parts, all off the existing pools so nothing is allocated in the
+ * frame that fires: spray along the round's line, a mist puff hanging where
+ * it went in, and — on a fatal hit only — a pool that spreads on the floor
+ * and stays. The floor pool is the reason a lobby the player has shot up
+ * looks different from one he has not.
+ *
+ * @param {THREE.Vector3} position where the round landed
+ * @param {THREE.Vector3} direction the round's travel, for the spray cone
+ * @param {boolean} fatal
+ */
+function emitBlood(position, direction, fatal = false) {
+  const spray = fatal ? 7 : 4;
+  for (let i = 0; i < spray; i++) {
+    const velocity = direction.clone().multiplyScalar(1.4 + Math.random() * 1.8);
+    velocity.x += (Math.random() - 0.5) * 1.9;
+    velocity.y += 0.6 + Math.random() * 1.5;
+    velocity.z += (Math.random() - 0.5) * 1.9;
+    emitFromPool(bloodPool, position, 0.42 + Math.random() * 0.3, velocity);
+  }
+  // The mist: slow, barely moving, and gone before the body lands.
+  emitFromPool(bloodMistPool, position, 0.34, new THREE.Vector3(0, 0.22, 0));
+  audio.play('heist.body.marble', {
+    position, volume: fatal ? 0.66 : 0.4, rate: fatal ? 0.92 : 1.18, ref: 1.2, maxDist: 24,
+  });
+  audio.play('heist.bullet.impact', {
+    position, volume: 0.34, rate: 0.78, ref: 1.1, maxDist: 20,
+  });
+  if (!fatal) return;
+  /* The pool on the floor. It goes at the feet rather than at the wound, it
+   * does not move, and it is not recycled until the decal budget wraps —
+   * `PERFORMANCE_BUDGET.maxDecals` is what bounds it. */
+  const decal = bloodDecals[bloodDecalCursor % bloodDecals.length];
+  bloodDecalCursor++;
+  decal.visible = true;
+  decal.position.set(position.x, 0.012, position.z);
+  decal.rotation.z = Math.random() * Math.PI;
+  decal.scale.setScalar(0.75 + Math.random() * 0.6);
+}
+
 function emitCasing() {
   const position = camera.getWorldPosition(new THREE.Vector3());
   const right = new THREE.Vector3(1, 0.35, 0).applyQuaternion(camera.quaternion).multiplyScalar(0.8);
@@ -1237,18 +1349,27 @@ function emitCasing() {
 }
 
 function updateEffectPools(dt) {
-  const update = (mesh) => {
+  const update = (mesh, gravity = 4.5) => {
     if (!mesh.visible) return;
     mesh.userData.life -= dt;
     if (mesh.userData.life <= 0) {
       mesh.visible = false;
+      if (mesh.userData.fade) mesh.material.opacity = 0.42;
       return;
     }
     mesh.position.addScaledVector(mesh.userData.velocity, dt);
-    mesh.userData.velocity.y -= 4.5 * dt;
+    mesh.userData.velocity.y -= gravity * dt;
+    // The mist thins and swells rather than falling out of the air.
+    if (mesh.userData.fade) {
+      mesh.material.opacity = Math.max(0, mesh.userData.life / 0.34) * 0.42;
+      mesh.scale.setScalar(1 + (0.34 - mesh.userData.life) * 2.4);
+    }
   };
   for (const mesh of impactPool) update(mesh);
   for (const mesh of casingPool) update(mesh);
+  // Blood is heavier than dust and it arcs rather than drifting.
+  for (const mesh of bloodPool) update(mesh, 9.2);
+  for (const mesh of bloodMistPool) update(mesh, 0);
 }
 
 let audioZone = null;
@@ -1802,7 +1923,7 @@ function refreshInteractions() {
   }
 
   if (activePhase === 'bank') {
-    use(p.bank.interactables.guard, 'Security guard drawing — LEFT CLICK TO FIRE', () => {}, {
+    use(p.bank.interactables.guard, 'Security guard is drawing — LEFT CLICK to fire', () => {}, {
       enabled: () => machine.state === 'BANK_ENTRY' && guardThreat.state === 'drawing',
     });
     /* Every person in the lobby is their own target: tap to put them down, hold
@@ -1812,14 +1933,28 @@ function refreshInteractions() {
     for (const figureRoot of p.bank.civilians) {
       const person = hostages.get(figureRoot.userData.hostageId);
       if (!person || !person.interactive) continue;
+      /* THE PROMPT SAYS WHAT THE KEYS DO.
+       *
+       * Owner, verbatim: *"prompts must clearly say E — to the ground, hold
+       * E — tie up"*. What was there — "Order them to the floor · HOLD E
+       * ZIP-TIE (GET THEM DOWN FIRST) · F REASSURE · G TAKE WHAT THEY HAVE" —
+       * put the verb before the key on the first item and the key before the
+       * verb on the other three, so the one thing a tap does was the only
+       * thing whose key was not stated. Every entry is `KEY — verb` now, in
+       * the order a player uses them, and the tie line says why it is
+       * refusing when it refuses. */
       use(figureRoot, () => {
         const live = hostages.get(figureRoot.userData.hostageId);
         if (!live) return '';
         const down = live.state === 'prone' || live.state === 'kneeling';
-        const tie = zipTies <= 0 ? 'NO TIES LEFT'
-          : (down ? 'HOLD E ZIP-TIE' : 'HOLD E ZIP-TIE (GET THEM DOWN FIRST)');
-        return `${down ? 'Keep them down' : 'Order them to the floor'}`
-          + ` · ${tie} · F REASSURE · G TAKE WHAT THEY HAVE`;
+        const tied = live.state === 'restrained';
+        const parts = [down ? 'E — keep them down' : 'E — to the ground'];
+        if (tied) parts.push('tied off');
+        else if (zipTies <= 0) parts.push('HOLD E — no ties left');
+        else if (!down) parts.push('HOLD E — tie up (get them down first)');
+        else parts.push('HOLD E — tie up');
+        parts.push('F — talk them down', 'G — take what they have');
+        return parts.join(' · ');
       }, () => applyHostageVerb(figureRoot, 'restrain'), {
         hold: 1.05,
         onTap: () => applyHostageVerb(figureRoot, 'order'),
@@ -1829,7 +1964,7 @@ function refreshInteractions() {
         },
       });
     }
-    use(p.bank.interactables.crowd, 'ORDER THE WHOLE ROOM DOWN', () => {
+    use(p.bank.interactables.crowd, 'E — put the whole room on the floor', () => {
       if (machine.state !== 'LOBBY_CONTROL' || lobbyControlled) return;
       for (const person of hostages.hostages) {
         person.order();
@@ -1843,7 +1978,7 @@ function refreshInteractions() {
       refreshObjective();
       refreshInteractions();
     }, { soft: true, enabled: () => machine.state === 'LOBBY_CONTROL' && !lobbyControlled });
-    use(p.bank.interactables.rearGuard, rearGuardSecured ? 'Rear guard secured' : 'ORDER REAR GUARD DOWN', () => {
+    use(p.bank.interactables.rearGuard, rearGuardSecured ? 'Rear guard secured' : 'E — order the rear guard down', () => {
       if (machine.state !== 'LOBBY_CONTROL' || !lobbyControlled) return;
       rearGuardSecured = true;
       p.bank.interactables.rearGuard.userData.setNeutralized?.();
@@ -2202,12 +2337,35 @@ function fireWeapon() {
     audio.play('heist.weapon.check', { volume: 0.35, rate: 0.85 });
     return;
   }
-  const shot = active.fire();
-  if (!shot.fired) { if (shot.reason === 'empty') audio.play('heist.weapon.empty'); return; }
-  refreshAmmoReadout();
   const sidearm = loadout.selectedItem === 'sidearm';
-  audio.play(activePhase === 'bank' ? 'heist.weapon.carbine.indoor' : 'heist.weapon.carbine',
-    { volume: sidearm ? 0.72 : 0.9, rate: sidearm ? 1.28 : 1 });
+  /* THE SHARED WEAPON SOUND, NOT A LOCAL ONE.
+   *
+   * Owner: *"better blood + gun sound effects — reuse the shared
+   * weapons/impact kit"*, and *"can we use the guns we already made from the
+   * other scenes here?"* THE TAKE was playing ONE recording for both guns —
+   * `heist.weapon.carbine.indoor` at rate 1.28 for the sidearm, which is a
+   * carbine played fast rather than a pistol. `src/core/weapons/audio.js`
+   * already owns five cue slots per weapon for all six guns in the game, with
+   * a real recording standing in for every one until the wanted cue lands; the
+   * heist's own carbine recordings are what stands in for the carbine. So the
+   * pistol is now a pistol, the dry click is the right dry click, and the day
+   * the `weapon.*` cues are recorded this picks them up with no code change.
+   */
+  const shot = active.fire();
+  if (!shot.fired) {
+    if (shot.reason === 'empty') {
+      playWeaponCue(audio, sidearm ? WEAPON_IDS.PISTOL9 : WEAPON_IDS.CARBINE, 'empty');
+    }
+    return;
+  }
+  refreshAmmoReadout();
+  playWeaponCue(audio, sidearm ? WEAPON_IDS.PISTOL9 : WEAPON_IDS.CARBINE, 'fire', {
+    /* A carbine inside a marble lobby is not a carbine on a street. The
+     * indoor recording is the carbine's stand-in either way; the tail is what
+     * changes, so the room is in the mix rather than in the cue name. */
+    volume: sidearm ? 0.78 : 0.92,
+    rate: activePhase === 'bank' ? 1 : 0.97,
+  });
   emitCasing();
   viewModel.fire();
   muzzle.intensity = sidearm ? 6 : 8;
@@ -2219,11 +2377,12 @@ function fireWeapon() {
   const owner = hit ? actorFor(hit.object) : null;
   objective.noteShot({ hitActor: !!owner });
   if (!hit) return;
-  emitImpact(hit.point);
-  if (!owner) return;
+  // A round into a wall throws dust; a round into a person does not.
+  if (!owner) { emitImpact(hit.point); return; }
   const actor = owner.userData.combatActor;
   const result = registerActorHit(owner, actor, shot.damage, shot.penetration);
-  if (!result?.applied) return;
+  if (!result?.applied) { emitImpact(hit.point); return; }
+  emitBlood(hit.point, camera.getWorldDirection(new THREE.Vector3()), result.fatal);
   if (actor === lobbyGuardActor && result.fatal) {
     neutralizeLobbyGuard('player_shot');
     return;
@@ -2439,13 +2598,14 @@ checkpoints.register('hostages', {
   capture: () => hostages.capture(),
   reset: () => {
     hostages.reset();
-    for (const person of hostages.hostages) syncHostageFigure(person);
+    // A rebuild is not a takedown: snap, do not play twenty-two of them.
+    for (const person of hostages.hostages) syncHostageFigure(person, { blend: false });
     controlWarned = false;
     lobbyHeldAnnounced = false;
   },
   restore: (snapshot) => {
     hostages.restore(snapshot);
-    for (const person of hostages.hostages) syncHostageFigure(person);
+    for (const person of hostages.hostages) syncHostageFigure(person, { blend: false });
   },
 });
 checkpoints.register('objective', {
@@ -2622,7 +2782,7 @@ function resumePersistedCheckpoint(checkpoint) {
     for (const person of hostages.hostages) {
       person.order();
       person.order();
-      syncHostageFigure(person);
+      syncHostageFigure(person, { blend: false });
     }
     lobbyControlled = true;
     rearGuardSecured = true;
@@ -2714,7 +2874,13 @@ async function begin() {
   sceneInventory.show();
   syncHeistInventory();
   await audio.init();
-  await audio.loadManifest({ names: HEIST_VOICE_CUES, prefixes: ['heist.'] });
+  /* Both banks: the scene's own 112 lines and 46 effects on the `heist.`
+   * prefix, plus every cue the shared weapon system plays or stands in with.
+   * Without the second list the stand-ins are names with no buffer behind
+   * them and the guns go quiet. */
+  await audio.loadManifest({
+    names: [...HEIST_VOICE_CUES, ...weaponCueNames()], prefixes: ['heist.'],
+  });
   const opening = story.begin();
   if (!opening.ok) {
     if (opening.reason === 'already_complete') {
@@ -2785,7 +2951,10 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'KeyE') interaction.press();
   if (event.code === 'KeyF') hostageVerbUnderCrosshair('reassure');
   if (event.code === 'KeyG') hostageVerbUnderCrosshair('demand');
-  if (event.code === 'KeyR' && loadout.activeWeapon?.beginReload()) audio.play('heist.weapon.reload');
+  if (event.code === 'KeyR' && loadout.activeWeapon?.beginReload()) {
+    playWeaponCue(audio,
+      loadout.selectedItem === 'sidearm' ? WEAPON_IDS.PISTOL9 : WEAPON_IDS.CARBINE, 'reload.out');
+  }
   if (event.code === 'KeyQ') dropCarriedBag();
   if (event.code === 'F9' && isPreviewMode()) failMission('preview_failure_test');
 });

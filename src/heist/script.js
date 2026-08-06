@@ -240,12 +240,41 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   prospect_reassure_two: line('prospect_reassure_two', CHARACTER_IDS.PROSPECT,
     'Look at me. Do what I say and you go home to whoever is waiting on you.',
     P.OBJECTIVE, null),
+  /* ---- the takedown, which was TWO LINES ----
+   *
+   * Owner: *"takedown VO is two lines repeating"*. Measured and exactly
+   * right — `PROSPECT_VERB_LINES.order` held one line and `.restrain` held
+   * one, so putting twenty-two people on the floor and tying eight of them
+   * was two sentences, forty times, in one room. The pools below are five
+   * and five. Every one of them is the same man doing the same job: flat,
+   * repetitive, and bored on purpose, because a robber who is enjoying it is
+   * a robber the room fights. */
   prospect_order_down: line('prospect_order_down', CHARACTER_IDS.PROSPECT,
     'Down. Face on the floor, hands where I can see them.', P.TACTICAL, null),
+  prospect_order_two: line('prospect_order_two', CHARACTER_IDS.PROSPECT,
+    'On the floor. All the way down, and stay there.', P.TACTICAL, null),
+  prospect_order_three: line('prospect_order_three', CHARACTER_IDS.PROSPECT,
+    'Flat. Palms open, arms out. Nobody has to look at anybody.', P.TACTICAL, null),
+  prospect_order_four: line('prospect_order_four', CHARACTER_IDS.PROSPECT,
+    'You are already doing fine. Keep doing it lying down.', P.TACTICAL, null),
+  prospect_order_five: line('prospect_order_five', CHARACTER_IDS.PROSPECT,
+    'Knees, then chest, then hands. In that order and no faster.', P.TACTICAL, null),
   prospect_demand: line('prospect_demand', CHARACTER_IDS.PROSPECT,
     'Wallet. Watch. On the tile in front of you.', P.TACTICAL, null),
+  prospect_demand_two: line('prospect_demand_two', CHARACTER_IDS.PROSPECT,
+    'Whatever is in the coat. Out, on the floor, slide it.', P.TACTICAL, null),
+  prospect_demand_three: line('prospect_demand_three', CHARACTER_IDS.PROSPECT,
+    'Pockets. Both of them. Do not make me go in there.', P.TACTICAL, null),
   prospect_tie: line('prospect_tie', CHARACTER_IDS.PROSPECT,
     'Hands behind your back. This is so I can stop watching you.', P.TACTICAL, null),
+  prospect_tie_two: line('prospect_tie_two', CHARACTER_IDS.PROSPECT,
+    'Wrists together. It is plastic, it comes off with scissors.', P.TACTICAL, null),
+  prospect_tie_three: line('prospect_tie_three', CHARACTER_IDS.PROSPECT,
+    'Do not pull against it. Pulling is the only way it hurts.', P.TACTICAL, null),
+  prospect_tie_four: line('prospect_tie_four', CHARACTER_IDS.PROSPECT,
+    'That is you finished. Nothing else happens to you today.', P.TACTICAL, null),
+  prospect_tie_five: line('prospect_tie_five', CHARACTER_IDS.PROSPECT,
+    'Behind your back. Breathe out. There — done.', P.TACTICAL, null),
 
   /* ---- the people on the floor ----
    * Pooled and anonymous: the owner is supplying voice ids for these once the
@@ -256,24 +285,60 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
     'I’m not doing anything. I’m not doing anything.', P.BARK, null),
   hostage_plead_three: npcLine('hostage_plead_three', 'Bank Customer',
     'Okay. Okay. It’s okay, I’m looking at the floor.', P.BARK, null),
+  /* Twenty-two people and a pool of three was the other half of the owner's
+   * *"customer VO repeats too much"* — the rotation was working, there was
+   * simply not enough in it to rotate. Five for the room-wide reactions,
+   * three everywhere a single person answers. */
+  hostage_plead_four: npcLine('hostage_plead_four', 'Bank Customer',
+    'I have a daughter. I have a daughter at home.', P.BARK, null),
+  hostage_plead_five: npcLine('hostage_plead_five', 'Bank Customer',
+    'Nobody’s moving. Look — nobody in here is moving.', P.BARK, null),
   hostage_plead_teller: npcLine('hostage_plead_teller', 'Teller',
     'There’s nothing back here. There’s nothing in my drawer.', P.BARK, null),
+  hostage_plead_teller_two: npcLine('hostage_plead_teller_two', 'Teller',
+    'The drawers are on a timer. I couldn’t open them if you made me.', P.BARK, null),
+  hostage_plead_teller_three: npcLine('hostage_plead_teller_three', 'Teller',
+    'I do this for eleven dollars an hour. Please point that somewhere else.', P.BARK, null),
   hostage_reassured_one: npcLine('hostage_reassured_one', 'Bank Customer',
     'It isn’t mine. None of it is mine. Take it.', P.BARK, null),
   hostage_reassured_two: npcLine('hostage_reassured_two', 'Bank Customer',
     'Thank you. Thank you. I’m staying right here.', P.BARK, null),
+  hostage_reassured_three: npcLine('hostage_reassured_three', 'Bank Customer',
+    'Alright. Alright. I believe you.', P.BARK, null),
+  hostage_reassured_four: npcLine('hostage_reassured_four', 'Bank Customer',
+    'I’m not going to be a problem. I promise I’m not going to be a problem.', P.BARK, null),
   hostage_reassured_hard: npcLine('hostage_reassured_hard', 'Bank Customer',
     'Then take it and go. Please just take it and go.', P.BARK, null),
+  hostage_reassured_hard_two: npcLine('hostage_reassured_hard_two', 'Bank Customer',
+    'Don’t tell me it’s fine. Nothing about this is fine.', P.BARK, null),
+  hostage_reassured_hard_three: npcLine('hostage_reassured_hard_three', 'Bank Customer',
+    'Just say how long. Somebody tell me how long.', P.BARK, null),
   hostage_hands_over: npcLine('hostage_hands_over', 'Bank Customer',
     'That’s all of it. That’s everything I have on me.', P.BARK, null),
+  hostage_hands_over_two: npcLine('hostage_hands_over_two', 'Bank Customer',
+    'Take the watch too. It was a gift, but take it.', P.BARK, null),
+  hostage_hands_over_three: npcLine('hostage_hands_over_three', 'Bank Customer',
+    'There. There, it’s yours, it’s all yours.', P.BARK, null),
   hostage_refuses: npcLine('hostage_refuses', 'Bank Customer',
     'I don’t have anything. I came in to pay a bill.', P.BARK, null),
+  hostage_refuses_two: npcLine('hostage_refuses_two', 'Bank Customer',
+    'You’ve had it. There is nothing else in these pockets.', P.BARK, null),
+  hostage_refuses_three: npcLine('hostage_refuses_three', 'Bank Customer',
+    'I’m overdrawn. That’s why I’m standing in a bank on a Thursday.', P.BARK, null),
   hostage_tied: npcLine('hostage_tied', 'Bank Customer',
     'It’s too tight. It’s too tight.', P.BARK, null),
+  hostage_tied_two: npcLine('hostage_tied_two', 'Bank Customer',
+    'Okay. Okay, I’m not fighting it.', P.BARK, null),
+  hostage_tied_three: npcLine('hostage_tied_three', 'Bank Customer',
+    'My hands are going numb. Are they meant to go numb?', P.BARK, null),
   hostage_caught: npcLine('hostage_caught', 'Bank Customer',
     'I wasn’t reaching for anything. I wasn’t.', P.WARNING, null),
+  hostage_caught_two: npcLine('hostage_caught_two', 'Bank Customer',
+    'It’s a phone. It’s only a phone, I’m putting it down.', P.WARNING, null),
   hostage_witness: npcLine('hostage_witness', 'Bank Customer',
     'You shot him. Oh God, you shot him.', P.WARNING, null),
+  hostage_witness_two: npcLine('hostage_witness_two', 'Bank Customer',
+    'He’s not moving. Somebody — he isn’t moving.', P.WARNING, null),
   manager_second: npcLine('manager_second', 'Bank Manager',
     'The timer does not care that you are in a hurry. Neither do I.', P.OBJECTIVE, ['VAULT_BYPASS']),
 
@@ -377,25 +442,60 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
  * do not all beg in one voice.
  */
 export const HOSTAGE_BARKS = Object.freeze({
-  plead: Object.freeze(['hostage_plead_one', 'hostage_plead_two', 'hostage_plead_three']),
-  plead_teller: Object.freeze(['hostage_plead_teller']),
-  reassured: Object.freeze(['hostage_reassured_one', 'hostage_reassured_two']),
-  reassured_hard: Object.freeze(['hostage_reassured_hard']),
-  reassured_tied: Object.freeze(['hostage_reassured_two']),
-  hands_over: Object.freeze(['hostage_hands_over']),
-  refuses: Object.freeze(['hostage_refuses']),
-  already_robbed: Object.freeze(['hostage_refuses']),
-  tied: Object.freeze(['hostage_tied']),
-  caught: Object.freeze(['hostage_caught']),
-  witness: Object.freeze(['hostage_witness']),
+  plead: Object.freeze([
+    'hostage_plead_one', 'hostage_plead_two', 'hostage_plead_three',
+    'hostage_plead_four', 'hostage_plead_five',
+  ]),
+  plead_teller: Object.freeze([
+    'hostage_plead_teller', 'hostage_plead_teller_two', 'hostage_plead_teller_three',
+  ]),
+  reassured: Object.freeze([
+    'hostage_reassured_one', 'hostage_reassured_two',
+    'hostage_reassured_three', 'hostage_reassured_four',
+  ]),
+  reassured_hard: Object.freeze([
+    'hostage_reassured_hard', 'hostage_reassured_hard_two', 'hostage_reassured_hard_three',
+  ]),
+  reassured_tied: Object.freeze(['hostage_reassured_two', 'hostage_reassured_three']),
+  hands_over: Object.freeze([
+    'hostage_hands_over', 'hostage_hands_over_two', 'hostage_hands_over_three',
+  ]),
+  refuses: Object.freeze(['hostage_refuses', 'hostage_refuses_two', 'hostage_refuses_three']),
+  already_robbed: Object.freeze(['hostage_refuses_two', 'hostage_refuses_three']),
+  tied: Object.freeze(['hostage_tied', 'hostage_tied_two', 'hostage_tied_three']),
+  caught: Object.freeze(['hostage_caught', 'hostage_caught_two']),
+  witness: Object.freeze(['hostage_witness', 'hostage_witness_two']),
 });
 
 /** Tony's own verbs, in rotation for the same reason. */
 export const PROSPECT_VERB_LINES = Object.freeze({
   reassure: Object.freeze(['prospect_reassure_one', 'prospect_reassure_two']),
-  demand: Object.freeze(['prospect_demand']),
-  order: Object.freeze(['prospect_order_down']),
-  restrain: Object.freeze(['prospect_tie']),
+  demand: Object.freeze([
+    'prospect_demand', 'prospect_demand_two', 'prospect_demand_three',
+  ]),
+  order: Object.freeze([
+    'prospect_order_down', 'prospect_order_two', 'prospect_order_three',
+    'prospect_order_four', 'prospect_order_five',
+  ]),
+  restrain: Object.freeze([
+    'prospect_tie', 'prospect_tie_two', 'prospect_tie_three',
+    'prospect_tie_four', 'prospect_tie_five',
+  ]),
+});
+
+/**
+ * Every pool the runtime rotates through, and the floor each one must clear.
+ *
+ * The owner's two VO notes — *"takedown VO is two lines repeating"* and
+ * *"customer VO repeats too much"* — were both a pool-size problem rather
+ * than a rotation problem: `sayPooled` walks its list correctly, and the
+ * lists were one and two entries long. `tests/heist-presentation.test.mjs`
+ * asserts these floors so a pool cannot quietly shrink back.
+ */
+export const BARK_POOL_FLOOR = Object.freeze({
+  plead: 4, plead_teller: 3, reassured: 3, reassured_hard: 3,
+  hands_over: 3, refuses: 3, tied: 3, caught: 2, witness: 2,
+  order: 4, restrain: 4, demand: 3, reassure: 2,
 });
 
 /** Both banks, because the runtime does not care which one a line came from. */
