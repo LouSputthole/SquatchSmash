@@ -1880,27 +1880,45 @@ export function buildMansionInterior(shell = null) {
      *
      * Now: rotY PI, and the plate 1 cm north of the art (crest 45.0400, plate
      * face 45.0500). */
+    /* AND CLEAR OF THE APRON IT HANGS ON — the third fault on this one piece,
+     * and the one the owner saw: *"the photo in the hallway is clipping
+     * through the wall fixture"*.
+     *
+     * Measured. The apron is 160 mm deep, centred at `BALCONY.z0 - 0.06`, so
+     * its front face is at `z0 - 0.14`. The gold backing plate was 60 mm deep
+     * centred at `z0 - 0.12`: `z0 - 0.15 … z0 - 0.09`. FIFTY of its sixty
+     * millimetres were inside the masonry — a 1.25 × 1.49 m gilt plate
+     * three-quarters swallowed by the thing it is fixed to, with the art
+     * floating 20 mm off the apron in front of it. `scene-audit`'s own words:
+     * `foyer-crest-plate × balcony-apron ... 1.25 × 1.44 × 0.05`.
+     *
+     * The apron's bottom moulding already projects to `z0 - 0.20`, so that is
+     * the picture line the front of this composition belongs on: the plate's
+     * back face now meets the apron face exactly (`z0 - 0.20 … z0 - 0.14`),
+     * the art stands 5 mm proud of the plate, and the scrollwork either side
+     * comes forward with it rather than being half-buried in the same way. */
+    const CREST_Z = BALCONY.z0 - 0.17;
     const crestMesh = flatArt('mansion.foyer.crest', {
       x: 0,
       y: UY - 0.68,
-      z: BALCONY.z0 - 0.16,
+      z: CREST_Z - 0.035,
       rotY: Math.PI,
       w: 1.05,
       h: 1.29,
       material: mat({ map: crest, roughness: 0.85, unique: true }),
     });
     root.add(box({
-      size: [1.25, 1.49, 0.06], pos: [0, UY - 0.68, BALCONY.z0 - 0.12], mat: M_GOLD, cast: false, name: 'foyer-crest-plate',
+      size: [1.25, 1.49, 0.06], pos: [0, UY - 0.68, CREST_Z], mat: M_GOLD, cast: false, name: 'foyer-crest-plate',
     }));
     // Gilded scrollwork either side of it, along the balcony's apron.
     for (const sx of [-2.1, 2.1]) {
       root.add(box({
-        size: [1.3, 0.06, 0.06], pos: [sx, UY - 0.5, BALCONY.z0 - 0.13], mat: M_GOLD, cast: false,
+        size: [1.3, 0.06, 0.06], pos: [sx, UY - 0.5, CREST_Z], mat: M_GOLD, cast: false,
       }));
       root.add(box({
-        size: [1.3, 0.06, 0.06], pos: [sx, UY - 0.94, BALCONY.z0 - 0.13], mat: M_GOLD, cast: false,
+        size: [1.3, 0.06, 0.06], pos: [sx, UY - 0.94, CREST_Z], mat: M_GOLD, cast: false,
       }));
-      root.add(sphere({ r: 0.09, pos: [sx, UY - 0.72, BALCONY.z0 - 0.13], mat: M_GOLD, cast: false }));
+      root.add(sphere({ r: 0.09, pos: [sx, UY - 0.72, CREST_Z - 0.02], mat: M_GOLD, cast: false }));
     }
 
     // ---- The rear hall's ceiling is low (the gallery is above it); light it.
@@ -4847,7 +4865,19 @@ export function buildMansionInterior(shell = null) {
     sconce(0, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
     // Lou, again, over his own safe -- the east wall has no opening in it
     // anywhere, so this one is as far from a doorway as art gets in here.
-    wallArt('office-safe-portrait', r.x1 - 0.11, UY + 2.15, safeZ + 0.15, -Math.PI / 2, 0.9, 1.1,
+    /* 0.18 OFF THE WALL, NOT 0.11 — the same 40 mm of panel bead that had the
+     * longcase clock in the plaster.
+     *
+     * `makeFrame` builds 140 mm deep about its own hang point, so a picture
+     * centred at `r.x1 - 0.11` reaches back to x 8.81 — through the panel
+     * beads (whose inner face measures 8.74) and into the moulded dado above
+     * them. Measured: 0.03 × 0.13 × 0.97 into the dado and 0.03 × 0.76 × 0.05
+     * into a bead. That is the owner's *"photo clipping through the wall
+     * fixture"* on this wall.
+     *
+     * At 0.18 the frame's back face lands exactly on the bead line, which is
+     * where a picture hung over panelling actually sits. */
+    wallArt('office-safe-portrait', r.x1 - 0.18, UY + 2.15, safeZ + 0.15, -Math.PI / 2, 0.9, 1.1,
       makePortraitTexture('lou-safe', 'L. SPUTTHOLE', '#1e1712'));
     sconce(r.x1 - 0.06, UY + 3.0, safeZ + 0.15, -Math.PI / 2, 1.7);
     // The palm moved into the north-west corner: it used to stand at
@@ -5189,7 +5219,20 @@ export function buildMansionInterior(shell = null) {
     root.add(cylinder({ r: 0.08, h: 0.56, pos: [sideTableX, UY + 0.28, cz + 2.9], mat: palette.sideTable ?? M_WOOD_DK }));
     root.add(cylinder({ r: 0.24, h: 0.02, pos: [sideTableX, UY + 0.59, cz + 2.9], mat: palette.metal ?? M_GOLD, cast: false }));
 
-    wallArt(`${name}-art`, bedX, UY + 2.6, hbZ + (headboardWall === 'north' ? -0.16 : 0.16),
+    /* Over the headboard, unless the room's own theme has put something over
+     * the headboard first.
+     *
+     * `artOffsetX` exists for exactly one room. The gothic bedroom's
+     * four-poster carries a TESTER — a 2.5 × 2.8 m velvet canopy whose top is
+     * at UY + 2.75 and which runs all the way back to the headboard wall —
+     * and this picture hangs at UY + 2.6 on that wall, centred on the same
+     * bed. So the canopy passed straight through the frame: measured at
+     * 1.07 × 0.26 m of overlap, which is what the owner saw as a picture
+     * clipping through a fitting. Any picture at this height above a
+     * four-poster is inside its canopy; the fix is to hang it beside the bed
+     * rather than to lower it into the headboard. */
+    wallArt(`${name}-art`, bedX + (palette.artOffsetX ?? 0), UY + 2.6,
+      hbZ + (headboardWall === 'north' ? -0.16 : 0.16),
       headboardWall === 'north' ? Math.PI : 0, 1.0, 0.8,
       makePortraitTexture(`${name}-art`, palette.artLabel, palette.artTint));
     /* Curtains on the room's OWN window, not on the middle of the wall it is
@@ -5309,6 +5352,13 @@ export function buildMansionInterior(shell = null) {
         rug: M_CARPET_HALL,
         artLabel: 'THE OLD CHAPEL',
         artTint: '#141018',
+        /* Clear of the tester, and OUTBOARD. See the note at the `wallArt`
+         * call. The canopy is 2.5 m wide on the bed's centre line, so the
+         * frame has to move at least 1.82 m; +1.9 was measured and put it
+         * through the stone lancet arcade on the inner wall (which starts at
+         * x -9.24), so it goes the other way, toward the outer wall, where
+         * there is nothing between the bed and the window. */
+        artOffsetX: -1.9,
         windowZ: 44.5,
         southWindowX: -12.0,
         /* THE GOTHIC ROOM. Black panelling, a stone arcade of lancets down the
@@ -7562,7 +7612,18 @@ const M_GOLD_BAR = mat({
         unique: true,
       }),
     });
-    wallArt('trophy-founder-west', r.x0 + 0.14, GY + 2.7, 48.4, Math.PI / 2, 1.1, 1.5,
+    /* z=51.4, not 48.4: THE COLUMNS ARE AT 42.4, 48.4 AND 54.4.
+     *
+     * The order of marble columns down this wall stands at `r.x0 + 0.35` with
+     * a radius of 0.34, so each one occupies x `r.x0 + 0.01 … r.x0 + 0.69`.
+     * This portrait hung at `r.x0 + 0.14` — 140 mm off the wall, which is
+     * 550 mm inside the column standing at the same z. Measured: 1.57 m of
+     * the frame's height and 0.68 m of its width passing through marble.
+     *
+     * Hung midway between the second and third columns instead, which is
+     * where a picture on a colonnaded wall goes. Its twin on the east wall
+     * was moved for the same class of reason (a window) and says so. */
+    wallArt('trophy-founder-west', r.x0 + 0.14, GY + 2.7, 51.4, Math.PI / 2, 1.1, 1.5,
       makePortraitTexture('includer-booski', 'BOOSKIBRO', '#171c22'));
     /* z=52.0, not 48.4: the hall's east wall IS the house's west wall, and the
      * living room's own glazing runs z:47.6..50.8 through it. A portrait at
