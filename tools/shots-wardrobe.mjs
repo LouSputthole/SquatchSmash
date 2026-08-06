@@ -82,13 +82,21 @@ const SHOTS = [
 
   { name: 'booski-full', who: 'booski', rig: 'studio', mark: 'full', spin: 0.5 },
   { name: 'booski-chain', who: 'booski', rig: 'studio', mark: 'chest', yaw: 0.12 },
+  { name: 'booski-watch', who: 'booski', rig: 'studio', mark: 'wrist', yaw: 0.75 },
 
   { name: 'deathmegatron-full', who: 'deathmegatron', rig: 'studio', mark: 'full', spin: 0.5 },
+  { name: 'deathmegatron-chest', who: 'deathmegatron', rig: 'studio', mark: 'chest', yaw: 0.12 },
   { name: 'ape-full', who: 'ape', rig: 'studio', mark: 'full', spin: 0.5 },
   { name: 'snow-full', who: 'snow', rig: 'studio', mark: 'full', spin: 0.5 },
   { name: 'rippinflow-chain', who: 'rippinflow', rig: 'studio', mark: 'chest', yaw: 0.12 },
   { name: 'numbskull-full', who: 'numbskull', rig: 'studio', mark: 'full', spin: 0.5 },
+  { name: 'hogmama-full', who: 'hogmama', rig: 'studio', mark: 'full', spin: 0.5 },
+  { name: 'hogmama-wrist', who: 'hogmama', rig: 'studio', mark: 'wrist', yaw: 0.75 },
   { name: 'billy-full', who: 'billy', rig: 'studio', mark: 'full', spin: 0.5 },
+
+  { name: 'blond-full', who: 'james_blond', rig: 'bing', mark: 'full', spin: 0.5 },
+  { name: 'blond-front', who: 'james_blond', rig: 'bing', mark: 'full', spin: 0 },
+  { name: 'blond-chest', who: 'james_blond', rig: 'bing', mark: 'chest', yaw: 0 },
 ];
 
 const server = http.createServer(async (req, res) => {

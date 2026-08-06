@@ -201,9 +201,10 @@ test('the useless question is answered and then punished', () => {
   assert.match(valueOf(tree.hairAgain.line), /Hit him again/);
 });
 
-test('nobody actually uses the tenderiser on him', () => {
-  /* He gets the line, Gratin gets the better one, and it lands on the cart.
-   * The scene is uncomfortable and ridiculous, not a torture simulator. */
+test('the tenderiser gets a line off him and a better one off Gratin', () => {
+  /* Picking it off the cart puts it in Tony's hands (see `CART_TOOLS` and
+   * `license-to-grill-room.test.mjs`'s cart tests) rather than firing this
+   * automatically — these are what play when it actually lands on him. */
   assert.match(valueOf(tree.useTenderizer.line), /international convention/);
   assert.match(valueOf(tree.tenderizerGratin.line), /own conventions/);
 });

@@ -55,7 +55,7 @@ export const RAIL = [
   { key: 'booski', name: 'Booskibro', photo: 'booski.png', model: WARDROBE.booski,
     note: 'Old money by comparison — the same gold, but on a knit, and the chain is layered rather than loud.' },
   { key: 'deathmegatron', name: 'DeathMegatron', photo: 'deathmegatron.png', model: WARDROBE.deathmegatron,
-    note: 'One of the FIVE. Boss, not crew: midnight suit, luxury finish, layered gold on the founders’ crest.' },
+    note: 'One of the FIVE. Boss, not crew: a sharp midnight suit and the luxury finish, and none of the men’s gold — no chain, no watch.' },
   { key: 'ape', name: 'Ape', photo: 'ape.png', model: APE_FAMILY_MEMBER.model,
     note: 'The one who does the work. Black tee, boots and a belt, and nothing else.' },
   { key: 'snow', name: 'Snow', photo: 'snow.png', model: WARDROBE.snow,
@@ -67,7 +67,7 @@ export const RAIL = [
   { key: 'numbskull', name: 'Numbskull', photo: 'numbskull.png', model: WARDROBE.numbskull,
     note: 'Tallest and heaviest on the roster. Bald, plain, and takes up a doorway.' },
   { key: 'hogmama', name: 'Hog Mama', photo: 'hogmama.png', model: WARDROBE.hogmama,
-    note: 'Luxury finish and a gold watch over a working shirt.' },
+    note: 'Luxury finish over a working shirt, and no watch — the roster’s women don’t wear one.' },
   { key: 'willy', name: 'Willy', photo: 'willy.png', model: WARDROBE.willy,
     note: 'The gut is the silhouette. Receding, bearded, belted under it.' },
   { key: 'eric', name: 'Eric', photo: 'erican.png', model: WARDROBE.eric,
@@ -80,6 +80,8 @@ export const RAIL = [
     note: 'Work clothes, because that is what the night turns into.' },
   { key: 'billy', name: 'Billy HotDog', photo: 'billy.png', model: BILLY_HOTDOG_MODEL,
     note: 'The man in the trunk. Canonical from src/core/hotdog-model.js so the body is visibly the man who went down.' },
+  { key: 'james_blond', name: 'James Blond', photo: 'blond.png', model: WARDROBE.james_blond,
+    note: 'The one tuxedo on the roster. Midnight bib and satin lapels, a bow tie, nothing else fighting it for the same plane.' },
 ];
 
 /* ------------------------------------------------------------------ */

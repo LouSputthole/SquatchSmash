@@ -75,13 +75,19 @@ export const BIG_UNCLE_LOU = Object.freeze({
  * corno out over the waistcoat where it can be seen. The jacket has to be OPEN
  * for that last part to be true at all: a chain worn over a buttoned jacket is
  * a chain nobody in the club will ever look at.
+ *
+ * The hat is BLACK -- `0x4a3c2c` was a brown felt sitting on top of a suit
+ * built entirely out of blacks and charcoals, and it read as a mismatched
+ * accessory rather than as part of the outfit. A near-black rather than a
+ * literal `0x000000` so the crown still takes a highlight under the club's
+ * one warm bulb instead of drawing as a flat silhouette.
  */
 export const BIG_UNCLE_LOU_BING = Object.freeze({
   ...BIG_UNCLE_LOU,
   pinstripe: true,
   threePiece: true,
   hat: 'fedora',
-  hatColour: 0x4a3c2c,
+  hatColour: 0x121114,
 });
 
 /**
@@ -147,6 +153,21 @@ export const BOOSKI = Object.freeze({
   pendantStyle: 'crest',
 });
 
+/**
+ * Boss, not crew — and not the men's jewellery box.
+ *
+ * The first pass put her in the founders' own vocabulary literally: the same
+ * layered gold rope, the same crest medallion, the same watch the men wear.
+ * Owner's note: she is a woman, and a pile of gold chains and a watch is the
+ * MEN's way of saying "senior" on this roster, not hers. So the tailoring
+ * stays — `trim` and `luxury` are what actually mark her as elevated above
+ * the rank and file, the same two flags Lou and Booski carry and the ordinary
+ * floor regulars do not — and the jewellery comes off rather than getting
+ * reassigned to a smaller version of itself. What is left is a sharp, fitted
+ * midnight suit with one accessory, which is `docs/OUTCOMES-AND-NPCS.md`'s
+ * own read on her: THE MUSCLE, "few words, all physical," not a woman who
+ * needs a chain to be taken seriously in this room.
+ */
 export const DEATHMEGATRON = Object.freeze({
   height: 1.79,
   build: 1.12,
@@ -162,11 +183,6 @@ export const DEATHMEGATRON = Object.freeze({
   trim: true,
   belt: 'gold',
   trouserFit: 'creased',
-  watch: 'gold',
-  chain: 'gold',
-  chainStyle: 'layered',
-  pendant: true,
-  pendantStyle: 'crest',
 });
 
 export const SNOW = Object.freeze({
@@ -221,6 +237,13 @@ export const NUMBSKULL = Object.freeze({
   belt: 'leather',
 });
 
+/**
+ * The matriarch. Luxury finish, no watch -- owner's note: the men on this
+ * roster wear one, the women do not, and a gold watch was never the thing
+ * that said "runs the place" about her anyway. `docs/OUTCOMES-AND-NPCS.md`
+ * has her running logistics on everything including the murders; that reads
+ * off the shirt and the posture, not off her wrist.
+ */
 export const HOG_MAMA = Object.freeze({
   height: 1.68,
   build: 1.20,
@@ -232,7 +255,6 @@ export const HOG_MAMA = Object.freeze({
   gender: 'female',
   bodyShape: 'curvy',
   luxury: true,
-  watch: 'gold',
 });
 
 export const WILLY = Object.freeze({
@@ -311,6 +333,30 @@ export const AUBBIE = Object.freeze({
   beard: true,
   skin: 0xd7a67e,
   belt: 'leather',
+});
+
+/**
+ * James Blond, tied to a chair in the Bing's store room.
+ *
+ * The one tuxedo on the roster, which is exactly why the collision between
+ * `dress: 'suit'` and `tuxedo: true` in `makePerson` went unnoticed for as
+ * long as it did — see the `!tuxedo` gate in `src/bing/cast.js`. `barefoot`
+ * is NOT here: it belongs to `src/bing/license-to-grill-runtime.js`, which
+ * adds it on top of this model, because it is true of this SCENE — whoever
+ * tied him to the chair took his shoes — and not true of the man.
+ */
+export const JAMES_BLOND = Object.freeze({
+  height: 1.83,
+  build: 1.0,
+  dress: 'suit',
+  shirt: 0x14161f,
+  shirtAccent: 0xf0efe8,
+  tuxedo: true,
+  luxury: true,
+  hair: 'short',
+  hairColour: 0xd8c088,
+  skin: 0xf0cba6,
+  bowtie: true,
 });
 
 /**
@@ -416,6 +462,7 @@ export const WARDROBE = Object.freeze({
   irish: IRISH,
   aubbie: AUBBIE,
   sauce: SAUCE,
+  james_blond: JAMES_BLOND,
 });
 
 /** The canonical model for a character id, or null for anyone not on it. */

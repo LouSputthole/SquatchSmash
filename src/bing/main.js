@@ -760,7 +760,12 @@ camera.add(heldDrinks.group);
 const shotPour = (() => {
   const root = new THREE.Group();
   root.name = 'booski-shot.pour';
-  root.position.set(-19.18, 1.16, club.anchors.barService.z);
+  /* The bar's own polished top sits at y=1.145 (`club.js`'s bar-top slab,
+   * 1.1 +/- 0.045). The glass used to rest at 1.16 -- only 1.5cm of the
+   * open-ended cylinder's own wall above that surface, thin enough that the
+   * hollow base read as sunk into the counter from most angles. Raised a
+   * few cm clear of it. */
+  root.position.set(-19.18, 1.19, club.anchors.barService.z);
 
   const whiskey = new THREE.MeshStandardMaterial({
     color: 0xb96819, emissive: 0x4b1704, emissiveIntensity: 0.18,
