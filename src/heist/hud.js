@@ -33,7 +33,21 @@ export class HeistHud {
 
   show() { this.root.classList.remove('hidden'); }
   setPhase(value) { this.phase.textContent = String(value).replaceAll('_', ' '); }
-  setObjective(value) { this.objective.textContent = value; }
+  /**
+   * The standing order.
+   *
+   * Idempotent on purpose: THE TAKE recomputes the objective from the mission
+   * state every frame (see `src/heist/orders.js`), which is what stops it
+   * going stale, and a DOM write per frame for a sentence that has not changed
+   * is a layout the scene does not need.
+   */
+  setObjective(value) {
+    const text = String(value ?? '');
+    if (text === this._objectiveText) return false;
+    this._objectiveText = text;
+    this.objective.textContent = text;
+    return true;
+  }
   setThreat(active, remaining = 0, total = 1) {
     this.threat.classList.toggle('hidden', !active);
     if (!active) return;

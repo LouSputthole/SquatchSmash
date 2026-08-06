@@ -9,6 +9,8 @@ import { HeistMissionMachine } from '../src/heist/mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from '../src/heist/navigation.js';
 import { PoliceDirector } from '../src/heist/police.js';
 import { intersectsDrivingObstacle } from '../src/heist/geometry.js';
+import { HEIST_CHECKPOINT_STATE, HEIST_STATES, PREVIEW_START_STATE } from '../src/heist/config.js';
+import { HEIST_ORDERS, objectiveForState } from '../src/heist/orders.js';
 
 test('heist mission sequence rejects skips, records failure, and restores authored state', () => {
   const machine = new HeistMissionMachine();
@@ -138,4 +140,51 @@ test('authored driving solids block buildings without closing the road corridor'
   assert.equal(intersectsDrivingObstacle(20, -30, obstacles), true);
   assert.equal(intersectsDrivingObstacle(0, -30, obstacles), false);
   assert.equal(intersectsDrivingObstacle(13.7, -30, obstacles), false);
+});
+
+/* ------------------------------------------------------------------ */
+/* The standing order                                                  */
+/* ------------------------------------------------------------------ */
+
+test('every mission state the player can stand in has an authored objective', () => {
+  const missing = HEIST_STATES.filter((state) => !(state in HEIST_ORDERS));
+  assert.deepEqual(missing, [], `states with no order: ${missing.join(', ')}`);
+});
+
+test('the objective is a function of the state, not of what was pressed to get there', () => {
+  /* The owner's bug: entering at a preview checkpoint ran the whole mission
+   * under heist.html's static "Meet the crew." Every checkpoint the preview
+   * and the save can start at must resolve to its own phase's instruction
+   * without anything having been pressed. */
+  const entryStates = [
+    ...Object.values(PREVIEW_START_STATE),
+    ...Object.values(HEIST_CHECKPOINT_STATE),
+  ];
+  const opening = objectiveForState('SAFEHOUSE_ARRIVAL');
+  for (const state of entryStates) {
+    const text = objectiveForState(state);
+    assert.equal(typeof text, 'string');
+    assert.ok(text.length > 12, `${state} order is too short to be an instruction: ${text}`);
+    if (state !== 'SAFEHOUSE_ARRIVAL') {
+      assert.notEqual(text, opening, `${state} still shows the opening objective`);
+    }
+  }
+});
+
+test('objectives that carry a sub-step read it from the context, not from a state', () => {
+  // The debrief's four numbered actions all happen inside DEBRIEF.
+  assert.match(objectiveForState('DEBRIEF', { weaponsDown: false }), /^3\/4/);
+  assert.match(objectiveForState('DEBRIEF', { weaponsDown: true }), /^4\/4/);
+  // Fetching a bag and carrying one are different instructions in CASH_LOADING.
+  assert.match(objectiveForState('CASH_LOADING', { bankBagsStaged: 1 }), /1\/2 staged/);
+  assert.match(objectiveForState('CASH_LOADING', { carryingBag: 'cash_3' }), /Carry the bag/);
+  // A contact counts down the officers still up.
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 0 }), /0\/2 officers down/);
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 2 }), /Reach Rippin/);
+  assert.match(objectiveForState('GARAGE_HOLD', { officersDown: 2 }), /Load the cash/);
+});
+
+test('an unknown state falls back to an instruction rather than leaving a stale one', () => {
+  assert.equal(objectiveForState('NOT_A_STATE'), objectiveForState('SAFEHOUSE_ARRIVAL'));
+  assert.equal(objectiveForState(undefined), objectiveForState('SAFEHOUSE_ARRIVAL'));
 });

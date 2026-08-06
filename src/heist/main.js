@@ -37,6 +37,7 @@ import { createHeistBags, LootLedger } from './loot.js';
 import { HeistMissionMachine } from './mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from './navigation.js';
 import { HeistObjectiveLedger } from './objective.js';
+import { objectiveForState } from './orders.js';
 import { makePoliceFigure } from './people.js';
 import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
@@ -220,9 +221,59 @@ const machine = new HeistMissionMachine({
   onTransition: ({ to }) => {
     dialogue.setState(to);
     hud.setPhase(PHASE_FOR_STATE[to] ?? 'MISSION');
+    /* THE OBJECTIVE IS READ OFF THE STATE, ON EVERY TRANSITION.
+     *
+     * It used to be written by whichever `E` press happened to cause the
+     * transition, which meant a mission entered at a checkpoint — a preview
+     * link, a save resume, a failure restore — never set one at all and the
+     * HUD kept `heist.html`'s static "Meet the crew." for the whole job. See
+     * `./orders.js` for the full account. Restores go through here too:
+     * `HeistMissionMachine.restore` calls `onTransition`. */
+    refreshObjective(to);
     window.__heistDebug.state = to;
   },
 });
+
+/**
+ * Put the standing order on the HUD.
+ *
+ * Called on every mission transition and after any interaction that changes a
+ * sub-step inside a state (a bag picked up, an officer down, the vest on).
+ * Cheap enough to call freely: it is a table lookup and a `textContent` write.
+ *
+ * @param {string} [state] defaults to wherever the machine is now
+ */
+/**
+ * A sentence that is allowed to sit on top of the standing order for a moment.
+ *
+ * Exactly one thing needs this — the failure notice, which has to be readable
+ * for the second between the guard firing and the checkpoint restore taking
+ * the screen back. Everything else is a state and belongs in `orders.js`.
+ */
+let objectiveOverrideUntil = 0;
+function announceObjective(text, seconds = 2.5) {
+  objectiveOverrideUntil = performance.now() / 1000 + seconds;
+  hud.setObjective(text);
+}
+
+function refreshObjective(state = machine.state) {
+  if (performance.now() / 1000 < objectiveOverrideUntil) return;
+  hud.setObjective(objectiveForState(state, {
+    armorReady: preparation.armorReady,
+    loadoutReady: preparation.loadoutReady,
+    maskWorn: loadout.maskWorn,
+    lobbyControlled,
+    rearGuardSecured,
+    managerEscortProgress,
+    carryingBag,
+    bankBagsStaged,
+    officersDown,
+    droppedBagDecision,
+    weaponsDown,
+    swapProgress,
+    zipTies,
+  }));
+}
 
 const sceneInventory = new SceneInventoryBar({
   slots: 5,
@@ -1304,7 +1355,7 @@ function startVanRide() {
   activatePhase('van');
   player.mode = 'walk';
   player.moveScale = 0;
-  hud.setObjective('Two blocks out. Press 3 for the balaclava, then E to pull it down.');
+  refreshObjective();
   sayInTurn('rippin_two_lights', 'snow_time', 'snow_mask_call');
 }
 
@@ -1316,7 +1367,7 @@ function pullMaskOn() {
   setCrewMasked(crew, true);
   audio.play('heist.swap.fabric', { volume: 0.7 });
   sayInTurn('prospect_mask_on', 'shubes_loop', 'death_breathe', 'numb_van_count');
-  hud.setObjective('Masks on. Wait for the doors, then move on Snow.');
+  refreshObjective();
   syncHeistInventory(true);
   refreshInteractions();
   return true;
@@ -1351,7 +1402,7 @@ function neutralizeLobbyGuard(source = 'player_shot') {
   dialogue.setState(machine.state);
   say('prospect_counterstrike');
   say('snow_scoreboard');
-  hud.setObjective('Guard down. Aim across the lobby and order everyone to the floor.');
+  refreshObjective();
   refreshInteractions();
   return result;
 }
@@ -1365,7 +1416,7 @@ function enterBank() {
   recoveryCheckpoint = 'bank_entry_retry';
   audio.play('heist.bank.entry');
   audio.play('heist.guard.draw', { delay: 0.12 });
-  hud.setObjective('The lobby guard is drawing on a teller. Shoot him before he fires.');
+  refreshObjective();
   hud.setThreat(true, guardThreat.snapshot().remaining, guardThreat.windowSeconds);
   say('guard_warning');
   say('snow_guard');
@@ -1375,7 +1426,7 @@ function beginStreet() {
   advanceTo('BANK_DOOR_CONTACT');
   activatePhase('street');
   spawnPolice('bank_avenue', 5);
-  hud.setObjective('Break contact from the bank steps. Reach the van together.');
+  refreshObjective();
   say('snow_contact');
   say('death_suppress');
   recordCheckpoint('street_withdrawal', 'STREET_BLOCK_ONE', {
@@ -1422,7 +1473,7 @@ function enterGarage() {
     droppedBagRecovered: droppedBagDecision === 'recovered',
     crewInjuries: { [CHARACTER_IDS.RIPPINFLOW]: 'moderate' },
   });
-  hud.setObjective('Hold the garage entrance. Clear a lane to the secondary car.');
+  refreshObjective();
 }
 
 function beginDriving() {
@@ -1444,7 +1495,7 @@ function beginDriving() {
   interaction.setPaused(true);
   player.mode = 'frozen';
   hud.setDriving(true, 0, level.phases.driving.route[0].label);
-  hud.setObjective('Follow Rippin’s calls. Every wrong turn is a wall.');
+  refreshObjective();
   audio.startLoop('heist.vehicle.engine.load', { volume: 0.14, ambience: true, fade: 0.2 });
   audio.startLoop('heist.vehicle.tires.road', { volume: 0.08, ambience: true, fade: 0.25 });
   say('rippin_drive');
@@ -1466,7 +1517,7 @@ function reachSwap() {
   camera.rotation.z = 0;
   interaction.setPaused(false);
   hud.setDriving(false);
-  hud.setObjective('Nobody followed you in. Transfer the cash, change, and bag the weapons.');
+  refreshObjective();
   say('shubes_swap');
   refreshInteractions();
 }
@@ -1480,7 +1531,7 @@ function returnSafehouse() {
   activatePhase('safehouse');
   setCrewMasked(crew, false);
   crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'moderate';
-  hud.setObjective('Let the room breathe. Help Rippin, then count the take.');
+  refreshObjective();
   say('snow_return');
 }
 
@@ -1583,12 +1634,12 @@ function refreshInteractions() {
           audio.play('heist.map.paper', { volume: 0.65 });
           advanceTo('BRIEFING');
           sayInTurn('snow_plan', 'snow_rules', 'rippin_route');
-          hud.setObjective('Inspect the plan, then prepare the loadout.');
+          refreshObjective();
         } else if (machine.state === 'BRIEFING') {
           audio.play('heist.map.paper', { volume: 0.65 });
           advanceTo('LOADOUT');
           sayInTurn('shubes_case', 'death_bags', 'numb_alarm');
-          hud.setObjective('Equip the vest, then lift and check the carbine and magazines.');
+          refreshObjective();
         }
       });
     use(p.safehouse.interactables.armor, preparation.armorReady ? 'Armor secured' : 'Equip the armor vest', () => {
@@ -1647,10 +1698,13 @@ function refreshInteractions() {
           advanceTo('CREW_EXIT'); enterBank();
         }
       });
-    use(p.van.interactables.kit, 'Check the case: eight ties, spare magazines', () => {
+    /* The tie count goes in the ammo readout, where a count belongs — it used
+     * to be written over the OBJECTIVE, which then stayed on screen as the
+     * standing order for the whole bank. That is the same class of bug
+     * `./orders.js` exists to fix, in miniature. */
+    use(p.van.interactables.kit, () => `Check the case: ${zipTies} ties, spare magazines`, () => {
       audio.play('heist.weapon.check', { volume: 0.5 });
-      hud.setObjective(`${zipTies} zip ties in the case. `
-        + 'They are the only thing that keeps somebody down for good.');
+      refreshAmmoReadout();
     }, { soft: true });
     return;
   }
@@ -1694,7 +1748,7 @@ function refreshInteractions() {
       audio.play('heist.crowd.react');
       sayInTurn('numb_lobby_order', 'lou_radio_lobby', 'death_floor',
         'civilian_please', 'snow_lobby_open');
-      hud.setObjective('Room is down. Tie the nervous ones, and put the rear guard on the floor.');
+      refreshObjective();
       refreshInteractions();
     }, { soft: true, enabled: () => machine.state === 'LOBBY_CONTROL' && !lobbyControlled });
     use(p.bank.interactables.rearGuard, rearGuardSecured ? 'Rear guard secured' : 'ORDER REAR GUARD DOWN', () => {
@@ -1704,7 +1758,7 @@ function refreshInteractions() {
       audio.play('heist.guard.weapon.drop');
       advanceTo('GUARDS_SECURED');
       say('numb_manager');
-      hud.setObjective('Escort the bank manager to the vault corridor.');
+      refreshObjective();
     }, { enabled: () => machine.state === 'LOBBY_CONTROL' && lobbyControlled && !rearGuardSecured });
     use(p.bank.interactables.manager, 'Move the manager to the vault', () => {
       if (machine.state !== 'GUARDS_SECURED' || !rearGuardSecured) return;
@@ -1715,7 +1769,7 @@ function refreshInteractions() {
       recordCheckpoint('bank_secured', 'MANAGER_ESCORT', {
         guardsDisarmed: 2, civiliansHarmed: objective.civilianCasualties,
       });
-      hud.setObjective('Walk the manager to the vault. Keep the lobby covered.');
+      refreshObjective();
       refreshInteractions();
     });
     use(p.bank.interactables.vault,
@@ -1731,7 +1785,7 @@ function refreshInteractions() {
           recordCheckpoint('vault_open', 'CASH_LOADING', {
             alarmTriggered: true, bagsStaged: 0,
           });
-          hud.setObjective('Move two cash bags to the exit. The crew handles the rest.');
+          refreshObjective();
           sayInTurn('snow_clock', 'lou_radio_vault', 'snow_insured');
           audio.play('heist.vault.open');
         }
@@ -1774,7 +1828,7 @@ function refreshInteractions() {
             advanceTo('ALARM_DISCOVERED');
             advanceTo('EXIT_ORDER');
             sayInTurn('numb_signal', 'rippin_street', 'snow_exit', 'lou_radio_street');
-            hud.setObjective('Take the bags and leave together.');
+            refreshObjective();
           }
           refreshInteractions();
         } else if (machine.state === 'EXIT_ORDER') beginStreet();
@@ -1785,7 +1839,7 @@ function refreshInteractions() {
   if (activePhase === 'street') {
     use(p.street.interactables.bankDoor, 'Move off the bank steps', () => {
       if (machine.state === 'BANK_DOOR_CONTACT') advanceTo('STREET_BLOCK_ONE');
-      hud.setObjective('Suppress the right side and reach the disabled van.');
+      refreshObjective();
     });
     use(p.street.interactables.van, officersDown >= 2 ? 'Reach Rippin at the van' : 'Police fire blocks the van', () => {
       if (machine.state !== 'STREET_BLOCK_ONE' || officersDown < 2) return;
@@ -1795,7 +1849,7 @@ function refreshInteractions() {
       officersDown = 0;
       sayInTurn('rippin_van', 'rippin_hit', 'snow_fallback');
       spawnPolice('market_street', 4);
-      hud.setObjective('Clear the second contact, then move toward Mercer. Recover the bag only if safe.');
+      refreshObjective();
     });
     use(p.street.interactables.droppedBag, 'Recover the dropped bag', () => {
       if (machine.state !== 'STREET_BLOCK_TWO' || droppedBagDecision) return;
@@ -1819,7 +1873,7 @@ function refreshInteractions() {
       if (machine.state === 'GARAGE_ENTRY') advanceTo('GARAGE_HOLD');
       if (machine.state === 'GARAGE_HOLD' && officersDown >= 2) {
         say('shubes_garage');
-        hud.setObjective('Load cash and Rippin into the sedan.');
+        refreshObjective();
       }
     });
     use(p.garage.interactables.load, 'Load crew and cash into the sedan', () => {
@@ -1831,7 +1885,7 @@ function refreshInteractions() {
         loot.load(record.id, 'escape_sedan');
       }
       say('death_load');
-      hud.setObjective('Take the wheel. Rippin will call the route.');
+      refreshObjective();
     });
     use(p.garage.interactables.drive, 'Take the driver seat', () => {
       if (machine.state === 'SECONDARY_CAR_LOAD') beginDriving();
@@ -1844,7 +1898,7 @@ function refreshInteractions() {
     use(p.driving.interactables.trunk, swapProgress.trunk ? 'Clean trunk open' : 'Open the clean car trunk', () => {
       swapProgress.trunk = true;
       audio.play('heist.swap.trunk');
-      hud.setObjective('Move every recovered cash bag into the clean car.');
+      refreshObjective();
       refreshInteractions();
     }, { enabled: () => !swapProgress.trunk });
     use(p.driving.interactables.bags, swapProgress.bags ? 'Cash transferred' : 'Transfer the recovered bags', () => {
@@ -1908,7 +1962,7 @@ function refreshInteractions() {
       advanceTo('FIRST_AID');
       say('rippin_aid');
       crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'stabilized';
-      hud.setObjective('2/4 — Stack the bags on the table and count the take with Snow.');
+      refreshObjective();
       refreshInteractions();
     }, { hold: 1.5, enabled: () => machine.state === 'SAFEHOUSE_RETURN' });
     use(p.safehouse.interactables.briefing, '2/4 — Count the take', () => {
@@ -1944,7 +1998,7 @@ function refreshInteractions() {
         'snow_good',
         'prospect_debrief',
       );
-      hud.setObjective('3/4 — Put the weapons down on the table.');
+      refreshObjective();
       refreshInteractions();
     }, { hold: 1.8, enabled: () => machine.state === 'FIRST_AID' });
     use(p.safehouse.interactables.loadout, '3/4 — Put the weapons down', () => {
@@ -1954,7 +2008,7 @@ function refreshInteractions() {
       preparation.reset();
       syncSafehousePresentation();
       syncHeistInventory(true);
-      hud.setObjective('4/4 — Answer Lou.');
+      refreshObjective();
       refreshInteractions();
     }, { enabled: () => machine.state === 'DEBRIEF' && !weaponsDown });
     use(p.safehouse.interactables.van, '4/4 — Answer Lou’s call', () => {
@@ -2089,7 +2143,7 @@ function fireWeapon() {
     if (machine.state === 'LOBBY_CONTROL' && lobbyControlled) {
       advanceTo('GUARDS_SECURED');
       say('numb_manager');
-      hud.setObjective('Escort the bank manager to the vault corridor.');
+      refreshObjective();
     }
     refreshInteractions();
     return;
@@ -2158,7 +2212,7 @@ function updateBankSequence(dt) {
       audio.play('heist.weapon.carbine.indoor');
       hostages.startleAll(0.9);
       for (const person of hostages.hostages) syncHostageFigure(person);
-      hud.setObjective('The guard fired on the lobby. Restoring the last safe checkpoint.');
+      announceObjective('The guard fired on the lobby. Restoring the last safe checkpoint.');
       failMission('guard_shot_civilian');
       return;
     }
@@ -2175,7 +2229,7 @@ function updateBankSequence(dt) {
       escort.group.rotation.y = escort.heading;
     }
     if (previous < 1 && managerEscortProgress >= 1) {
-      hud.setObjective('Manager in position. Open the panel for Shubenator.');
+      refreshObjective();
       refreshInteractions();
     }
   }
@@ -2210,7 +2264,7 @@ function failMission(reason) {
       syncSafehousePresentation();
       player.mode = 'walk';
       player.moveScale = 1;
-      hud.setObjective('Meet Snow and the crew at the briefing table.');
+      refreshObjective();
       fade.style.opacity = '0';
       refreshInteractions();
       return;
@@ -2224,7 +2278,7 @@ function failMission(reason) {
     player.mode = driving ? 'frozen' : 'walk';
     fade.style.opacity = '0';
     if (restoreId === 'bank_entry_retry') {
-      hud.setObjective('The lobby guard is drawing on a teller. Shoot him before he fires.');
+      refreshObjective();
       hud.setThreat(true, guardThreat.snapshot().remaining, guardThreat.windowSeconds);
       audio.play('heist.guard.draw');
       say('snow_guard');
@@ -2440,26 +2494,25 @@ function resumePersistedCheckpoint(checkpoint) {
   preparation.restore({ armorReady: true, loadoutReady: true });
   syncSafehousePresentation();
   seedLootForCheckpoint(checkpoint, mission);
+  /* No `objective` column here any more. It was a second, hand-maintained copy
+   * of the standing order that had already drifted from the one the walked
+   * path sets — `./orders.js` is the only place that sentence is written now,
+   * and `refreshObjective()` at the bottom of this function reads it off the
+   * state the resume just restored. */
   const setup = {
-    safehouse_ready: {
-      state: 'VAN_APPROACH', phase: 'van', objective: 'Stay seated. Pull the mask into position when Snow gives the word.',
-    },
-    bank_secured: {
-      state: 'MANAGER_ESCORT', phase: 'bank', objective: 'Cover Shubenator while he bypasses the vault.', masked: true,
-    },
-    vault_open: {
-      state: 'CASH_LOADING', phase: 'bank', objective: 'Move two cash bags to the exit. The crew handles the rest.', masked: true,
-    },
+    safehouse_ready: { state: 'VAN_APPROACH', phase: 'van' },
+    bank_secured: { state: 'MANAGER_ESCORT', phase: 'bank', masked: true },
+    vault_open: { state: 'CASH_LOADING', phase: 'bank', masked: true },
     street_withdrawal: {
-      state: 'STREET_BLOCK_ONE', phase: 'street', objective: 'Suppress the right side and reach the disabled van.',
+      state: 'STREET_BLOCK_ONE', phase: 'street',
       masked: true, policeBlock: 'bank_avenue', policeCount: 5,
     },
     mercer_garage: {
-      state: 'GARAGE_HOLD', phase: 'garage', objective: 'Hold the garage entrance. Clear a lane to the secondary car.',
+      state: 'GARAGE_HOLD', phase: 'garage',
       masked: true, policeBlock: 'mercer_garage', policeCount: 4, injury: 'moderate',
     },
     vehicle_swap: {
-      state: 'SAFEHOUSE_RETURN', phase: 'safehouse', objective: 'Let the room breathe. Help Rippin, then count the take.',
+      state: 'SAFEHOUSE_RETURN', phase: 'safehouse',
       injury: 'moderate', swapDone: true,
     },
   }[checkpoint];
@@ -2490,7 +2543,9 @@ function resumePersistedCheckpoint(checkpoint) {
   if (setup.policeBlock) spawnPolice(setup.policeBlock, setup.policeCount);
   player.mode = 'walk';
   player.moveScale = setup.phase === 'van' ? 0 : 1;
-  hud.setObjective(setup.objective);
+  /* Last, not first: the order for a state like STREET_BLOCK_ONE counts the
+   * officers still up, and the wave above is what put them there. */
+  refreshObjective(setup.state);
   latestCheckpoint = checkpoint;
   checkpoints.capture(checkpoint, { state: setup.state, phase: setup.phase });
   window.__heistDebug.checkpoint = checkpoint;
@@ -2542,13 +2597,21 @@ function primePreview(checkpoint) {
   else if (checkpoint === 'safehouse_debrief') {
     machine.restore('SAFEHOUSE_RETURN');
     activatePhase('safehouse');
-    hud.setObjective('Help Rippin, count the take, and answer Lou.');
+    refreshObjective();
   } else activatePhase(phaseIdForState(startState));
   if (latestCheckpoint) checkpoints.capture(latestCheckpoint, { state: startState, phase: phaseIdForState(startState) });
   // The scorecard has to be true before the first frame, not after it: a
   // preview that opens on the debrief is read the instant it opens.
   objective.syncLoot(vaultSummary());
   objective.syncHostages(hostages.summary());
+  /* THE OWNER'S BUG, IN ONE LINE.
+   *
+   * This function never set an objective at all, so every preview link past
+   * the safehouse — which is how the owner plays this mission — ran the whole
+   * bank, vault, street and garage under `heist.html`'s static "Meet the
+   * crew." `machine.restore` above already refreshes it; this catches the
+   * context the lines below the restore establish (police up, bags staged). */
+  refreshObjective();
 }
 
 async function begin() {
@@ -2579,7 +2642,7 @@ async function begin() {
     resumePersistedCheckpoint(opening.checkpoint);
   } else {
     activatePhase('safehouse');
-    hud.setObjective('Meet Snow and the crew at the briefing table.');
+    refreshObjective();
     setTimeout(() => {
       advanceTo('CREW_INTRO');
       say('snow_arrival');
@@ -2937,6 +3000,14 @@ function animate() {
   dialogue.update(now);
   updateScriptedSpeech();
   syncHeistInventory();
+  /* The standing order, recomputed from the mission state every frame.
+   *
+   * `HeistHud.setObjective` no-ops when the sentence has not changed, so this
+   * is a table lookup and a string compare — and it makes a stale objective
+   * structurally impossible rather than a thing every new interaction handler
+   * has to remember to update. That was the defect: thirty handlers each
+   * owning a copy, and the checkpoint entries owning none. */
+  if (started) refreshObjective();
   /* The money half of the objective, kept honest continuously rather than only
    * at the debrief, so the HUD and any snapshot agree with the ledger. Twice a
    * second is plenty: `LootLedger.capture()` deep-clones every bag, and this
