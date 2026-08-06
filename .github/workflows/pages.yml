@@ -52,8 +52,8 @@ jobs:
           mkdir -p _site
           cp index.html bing.html squatchfather.html motel.html beefrun.html \
              graveyard.html nowake.html silver.html golf.html heist.html initiation.html \
-             silvercase.html mansion.html enolasquatch.html \
-             preview.html roster.html _site/
+             silvercase.html mansion.html mansion-siege.html enolasquatch.html \
+             preview.html roster.html wardrobe.html _site/
           cp -r src vendor assets game lib _site/
           test -f _site/nowake.html
           test -f _site/graveyard.html
