@@ -1566,6 +1566,46 @@ export function buildSilentSquatch({
         name: 'ss-stair-soffit',
       }));
     }
+    /* ---- AND THE STEPS BETWEEN THOSE FIVE SLABS.
+     *
+     * Owner playtest: gaps in the ceiling over the lab stairway. There were
+     * four of them and they are arithmetic, not bad luck.
+     *
+     * The soffit is five FLAT slabs, each 140 mm thick, one per band, each
+     * one following its band's floor down. The flight drops 3.8 m over five
+     * bands, so consecutive slabs are 760 mm apart vertically and 140 mm of
+     * that is slab — leaving a 620 mm slot running the full width of the
+     * stairwell at every band boundary, open to the void above the flight.
+     * Four slots, and walking down you look up through all of them.
+     *
+     * A raked soffit would have no boundaries at all, but the five-band
+     * approximation is deliberate (see the note above it: a hundred boxes for
+     * a wall you walk past in four seconds). So the boundaries get risers,
+     * the way a stepped ceiling in a real stairwell does. The two ENDS get
+     * one too: the head of the flight steps up to the landing's soffit at
+     * LANDING_CEIL and the foot steps down to the lower level's at LAB_CEIL,
+     * and both of those were 140 mm and 320 mm of the same slot. */
+    for (let i = 0; i <= BANDS; i++) {
+      const zEdge = S.z1 - bandDepth * i;
+      /* The ceiling on each side of this edge. Outside the flight, the room
+       * the stair arrives in supplies it. */
+      const above = i === 0
+        ? LANDING_CEIL
+        : stairFloorAt(S.z1 - bandDepth * (i - 0.5)) + 2.55;
+      const below = i === BANDS
+        ? LAB_CEIL
+        : stairFloorAt(S.z1 - bandDepth * (i + 0.5)) + 2.55;
+      const y0 = Math.min(above, below);
+      const y1 = Math.max(above, below) + 0.14;
+      if (y1 - y0 < 0.02) continue;
+      root.add(box({
+        size: [S.x1 - S.x0 + 0.6, y1 - y0, 0.16],
+        pos: [(S.x0 + S.x1) / 2, (y0 + y1) / 2, zEdge],
+        mat: M_CONCRETE_DK,
+        cast: false,
+        name: 'ss-stair-soffit-riser',
+      }));
+    }
     // A steel handrail down the west side, on the rake.
     {
       const yTopEnd = stairFloorAt(S.z1) + 1.0;
