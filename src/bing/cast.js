@@ -2479,7 +2479,7 @@ export class Npc {
    * @param {object} o
    *   name, tier ('hero' | 'ambient' | 'background')
    *   x, z, yaw, y
-   *   job: 'stand' | 'sit' | 'lean' | 'work' | 'deal' | 'dance' | 'patrol' | 'drink'
+   *   job: 'stand' | 'sit' | 'lean' | 'work' | 'deal' | 'dance' | 'sway' | 'patrol' | 'drink'
    */
   constructor(scene, o = {}) {
     const {
@@ -2929,6 +2929,28 @@ export class Npc {
             this.group.position.y = this.baseY + Math.abs(Math.sin(t * cadence)) * 0.012;
           }
         }
+        break;
+      }
+      /* A couple's sway rather than the stage's own `dance` -- see the note
+       * on the beat there. This is two people standing close, weight
+       * shifting foot to foot, not a set. Used for the front table's dance
+       * beat: "the dancing minigame is completely fucked" was two bugs, and
+       * this is the other one -- the timing bar had a player standing bolt
+       * upright judging four beats with nothing on screen that read as
+       * dancing at all. */
+      case 'sway': {
+        const b = t * 1.7;
+        this.parts.body.position.x = Math.sin(b) * 0.045;
+        this.parts.body.rotation.z = Math.sin(b - 0.35) * 0.09;
+        this.parts.head.rotation.z = Math.sin(b - 0.6) * 0.05;
+        this.parts.legL.rotation.x = Math.sin(b) * 0.10;
+        this.parts.legR.rotation.x = -Math.sin(b) * 0.10;
+        // One hand out and up as though a hand were being held; the other low.
+        this.parts.armL.rotation.set(-0.35 + Math.sin(b) * 0.05, 0, -0.22);
+        this.parts.armR.rotation.set(-0.55 - Math.sin(b) * 0.03, 0.15, 0.55);
+        this.parts.foreL.rotation.x = -0.45;
+        this.parts.foreR.rotation.x = -0.65;
+        this.group.position.y = this.baseY + Math.abs(Math.sin(b)) * 0.012;
         break;
       }
       case 'lean':

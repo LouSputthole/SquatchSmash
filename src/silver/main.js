@@ -477,8 +477,36 @@ const performance_ = new Performance({
     /* Queued, with its take. The bandleader introducing a number is the one
      * line in the scene most likely to arrive while the announcer is still
      * finishing his — see `startShowCutscene`, which now holds the band until
-     * the announcement is actually over rather than at a hardcoded 8.2s. */
-    if (n.say) narrate(`<em>${n.lead}:</em> ${n.say}`, 5000, { cue: n.cue });
+     * the announcement is actually over rather than at a hardcoded 8.2s.
+     *
+     * `speaker` opens his own mouth on the take rather than leaving it shut
+     * while a subtitle does the work — see ENGINE-TRAPS.md #8, "an animation
+     * on a clock is not connected to anything". It matters more here than it
+     * ever did for the sung numbers: this is the one place in the set he is
+     * talking rather than playing, so a still mouth would be the most visible
+     * version of that bug in the whole scene. */
+    const leaderSpeaks = n.lead === 'the bandleader'
+      ? { say: (secs, take) => band.leader.say(secs, take) } : null;
+    if (n.say) narrate(`<em>${n.lead}:</em> ${n.say}`, 5000, { cue: n.cue, speaker: leaderSpeaks });
+    /* The rest of a "bit" number, on the number's own clock. `defer` is what
+     * `Cutscene` and the sway both already use for anything that has to
+     * survive a paused tab — a raw `setTimeout` here would keep the joke
+     * running while the pause menu is up, which is exactly the class of bug
+     * `docs/ENGINE-TRAPS.md` warns never survives contact with a real
+     * player. */
+    for (const bit of n.bits ?? []) {
+      performance_.defer(bit.at, () => {
+        if (bit.say) {
+          narrate(`<em>${bit.lead}:</em> ${bit.say}`, 5200, {
+            cue: bit.cue,
+            speaker: bit.lead === 'the bandleader' ? leaderSpeaks : null,
+          });
+        }
+        for (const sfx of bit.sfx ?? []) {
+          audio.play(sfx, { volume: 0.5, position: room.anchors.stageCentre, ref: 5, maxDist: 40 });
+        }
+      });
+    }
     if (n.theOne) {
       mission.flags.mainPerformanceStarted = true;
       mission.refreshBoard();
@@ -1921,6 +1949,13 @@ function startSway() {
     game.swayStarting = false;
     date.standFrom(spot);
     date.hold();
+    /* "The dancing minigame is completely fucked" was two bugs and this is
+     * the other one: a player judging a timing bar against a partner who was
+     * standing bolt upright the whole four bars, which reads as a quiz, not
+     * a dance. `standFrom` puts her in the default `stand` job; `sway`
+     * overrides it with the couple's-sway pose in `bing/cast.js`, cleared
+     * back to `stand` in `finishSway` below. */
+    date.npc.job = 'sway';
     sway.start(settings.assist);
     game.swayRunning = true;
     narrate('<em>Four bars. Hit [E] on the beat and try to look like you meant it.</em>', 4600);
@@ -1943,6 +1978,7 @@ function finishSway() {
   const result = sway.result;
   mission.flags.swayed = result;
   hud.setTiming(null);
+  date.npc.job = 'stand';
   if (result === 'good') woo.fire('Woo.SwayCompleted');
   dialogue.start(scripts.sway, result === 'good' ? 'good' : 'bad', date.npc);
   setTimeout(() => {
@@ -2594,8 +2630,14 @@ function barks(dt) {
   /* The room's own voices. Anonymous by design — "a cook", "the pass" — so
    * they share the wait staff's profile and are named by where and which,
    * which is also the only stable thing about them. Quieter and never solo:
-   * this is the building overheard, not somebody talking to you. */
-  voiceCue(`vo.silver.room.${key}.${i + 1}`, { volume: 0.5, solo: false });
+   * this is the building overheard, not somebody talking to you.
+   *
+   * The diners specifically, 40% down from the rest of the room (0.5 -> 0.3):
+   * they are the loudest and most numerous voice at the table's own volume,
+   * table talk that competes with hers rather than sitting under it. Staff
+   * lines — the waiter, the cook, the porter — stay at the room's own level;
+   * only `who === 'a diner'` is the one the owner flagged. */
+  voiceCue(`vo.silver.room.${key}.${i + 1}`, { volume: who === 'a diner' ? 0.3 : 0.5, solo: false });
   if (key === 'kitchen') audio.play(Math.random() < 0.5 ? 'kitchen.plate' : 'kitchen.pan', { volume: 0.3 });
 }
 

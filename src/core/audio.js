@@ -1928,6 +1928,41 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'mic.handle':
       burst(ctx, dest, t, { dur: 0.12, type: 'lowpass', freq: 260, gain: 0.20 });
       break;
+    /* `applause` also plays as a ONE-SHOT (`Performance.applaud()` calls
+     * both `audio.play('applause', ...)` and `startLoop('applause', ...)`).
+     * The loop's own fallback is `synthLoop`'s case below; without this one
+     * the one-shot fell through to the generic default tick, which is what
+     * every one-shot round of applause in the room sounded like before a
+     * recording existed. */
+    case 'applause':
+      burst(ctx, dest, t, { dur: 1.8, type: 'bandpass', freq: 1900, q: 0.5, gain: 0.22, sweep: 0.7 });
+      burst(ctx, dest, t + 0.02, { dur: 1.5, type: 'highpass', freq: 4600, q: 0.4, gain: 0.12, sweep: 0.6 });
+      break;
+    /* -------- The Word From The Violinist -------- */
+    case 'crowd.whistle':
+      // One sharp two-fingered whistle: up on the intake, down on the note.
+      tone(ctx, dest, t, { freq: 1600, to: 3200, dur: 0.35, gain: 0.14, type: 'sine' });
+      tone(ctx, dest, t + 0.32, { freq: 3100, to: 1500, dur: 0.55, gain: 0.11, type: 'sine' });
+      break;
+    case 'crowd.laughter': {
+      // Several distinct "ha" pulses rather than one wash, easing off at the end.
+      const HA = [0, 0.16, 0.30, 0.48, 0.66, 0.90, 1.2];
+      for (let i = 0; i < HA.length; i++) {
+        burst(ctx, dest, t + HA[i], {
+          dur: 0.14 + (i % 2) * 0.03, type: 'bandpass', freq: 700 + (i % 3) * 220, q: 1.4,
+          gain: 0.10 * (1 - i / (HA.length + 2)), sweep: 0.6,
+        });
+      }
+      break;
+    }
+    case 'band.rimshot':
+      // Ba-dum-tss: two tight snare cracks, then the cymbal wash.
+      burst(ctx, dest, t, { dur: 0.05, type: 'bandpass', freq: 1700, q: 2.2, gain: 0.30 });
+      tone(ctx, dest, t, { freq: 210, to: 90, dur: 0.06, gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + 0.16, { dur: 0.05, type: 'bandpass', freq: 1700, q: 2.2, gain: 0.30 });
+      tone(ctx, dest, t + 0.16, { freq: 210, to: 90, dur: 0.06, gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + 0.32, { dur: 0.55, type: 'highpass', freq: 5200, q: 0.5, gain: 0.16, sweep: 0.5 });
+      break;
     case 'camera.flash':
       burst(ctx, dest, t, { dur: 0.05, type: 'highpass', freq: 3600, gain: 0.16 });
       tone(ctx, dest, t + 0.04, { freq: 1400, to: 4200, dur: 0.6, gain: 0.03, type: 'sine' });

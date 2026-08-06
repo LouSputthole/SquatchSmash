@@ -39,13 +39,45 @@ export const SET = [
     stems: { rhythm: 0.5, horns: 0.22, piano: 0.34, vocal: 0 },
   },
   {
+    /* The owner's note: "the band is much better, BUT the 'lady singing
+     * thing' must GO." This used to be Ashland Line, a warm-up number led by
+     * `the singer` — which is `band.vocal`, the synthesised "ohhh ohh"
+     * ENGINE-TRAPS.md #8 already had to fight loose from the featured number
+     * once. It is not a recording of anybody; there is no singer built for
+     * this stage at all. Replaced with the violinist opening like a
+     * comedian, in his own voice, before the band goes straight into the
+     * third number.
+     *
+     * Same `id`, same slot: Bananaphone is still literally the third number,
+     * which the mission promises out loud in half a dozen places — the
+     * waiter's tip line, Ape's goodbye, the toast's own option text. Losing a
+     * slot here would make the callback a lie. */
     id: 'second',
-    title: 'Ashland Line',
-    lead: 'the singer',
-    say: null,
-    // The same quarter as the opener, for the same reason.
-    dur: 11,
-    stems: { rhythm: 0.46, horns: 0.18, piano: 0.3, vocal: 0.34 },
+    title: 'A Word From The Violinist',
+    lead: 'the bandleader',
+    say: 'How are ya? Glad to be here!',
+    cue: 'vo.silver.bandleader.set.second',
+    /* The rest of the bit, on the number's own clock rather than a raw
+     * `setTimeout` — see `Performance.defer`, which `onNumber` schedules
+     * these through so a paused tab holds the joke exactly where it left it.
+     * `sfx` beats are crowd reactions; `say`/`cue` beats are the violinist's
+     * second line. */
+    bits: [
+      { at: 2.6, sfx: ['applause', 'crowd.whistle'] },
+      {
+        at: 5.6,
+        lead: 'the bandleader',
+        say: 'Take my wife, please! I take my wife everywhere… but she finds her way home!',
+        cue: 'vo.silver.bandleader.set.second-wife',
+      },
+      { at: 9.8, sfx: ['crowd.laughter', 'band.rimshot'] },
+    ],
+    // Room for the rimshot to land before the standard end-of-number
+    // applause and the 2.4s transition carry the set straight into Bananaphone.
+    dur: 12,
+    // Near silent: this is patter, not a number. A hair of rhythm so the
+    // room does not go dead while he talks.
+    stems: { rhythm: 0.04, horns: 0, piano: 0, vocal: 0 },
   },
   {
     /* The one everybody warned you about: a house violinist playing the
@@ -563,6 +595,19 @@ export class Performance {
            * about 130 degrees, which is what a violinist's left arm does and
            * why it is the tiring one.
            *
+           * The right (bow) arm had the same complaint and a worse cause: "his
+           * bow hand is wrong -- hand must be ON the bow". The bow used to be
+           * animated on its own, independent of this arm entirely (see the note
+           * in `makeViolin`), so no rotation chosen here could put the hand on
+           * it — the target itself was moving on an unrelated clock. The bow is
+           * now parented to `foreR` with a fixed local offset solved to sit at
+           * this hand, so the pose below only has to look like a bow arm: the
+           * shoulder rolled OUT so the elbow clears the ribs (`armR.z`, up from
+           * the 0.42 that read as tucked in) and the forearm brought back IN
+           * toward the strings rather than out past them (`foreR.z`, negative
+           * now rather than positive) — "arm more inward, elbow out". Wherever
+           * this swings, the bow swings with it and the hand is on it.
+           *
            * `build` is fixed for this figure in cast.js for exactly this
            * reason — see the note there. */
           const roam = Math.sin(this.t * 0.4);
@@ -574,18 +619,9 @@ export class Performance {
           const vib = Math.sin(this.t * 11.5) * 0.015;
           P.armL.rotation.set(-0.21, -0.28, -0.29);
           P.foreL.rotation.set(-2.30 + vib, 0, 0.06);
-          P.armR.rotation.set(-0.72 - stroke * 0.08, 0.08, 0.42);
-          P.foreR.rotation.set(-1.0 + stroke * 0.28, 0, 0.12);
+          P.armR.rotation.set(-0.62 - stroke * 0.08, 0.05, 0.65);
+          P.foreR.rotation.set(-1.05 + stroke * 0.28, 0, -0.30);
           P.body.rotation.z = Math.sin(this.t * 1.3) * 0.035;
-          if (m.violin?.bow) {
-            const rest = m.violin.bow.userData.restPosition;
-            m.violin.bow.position.set(
-              rest.x + stroke * 0.025,
-              rest.y + stroke * 0.12,
-              rest.z,
-            );
-            m.violin.bow.rotation.z = m.violin.bow.userData.restZ + stroke * 0.08;
-          }
           break;
         }
         default: break;
@@ -625,7 +661,18 @@ export class Performance {
  * Four prompts, on the beat, using the existing timing bar.
  */
 export class Sway {
-  constructor({ bpm = 118, beats = 4 } = {}) {
+  /* "The dancing minigame is completely fucked" — measured, this was 118 BPM,
+   * a beat every 508ms, judged against a 62% window: 315ms by default and
+   * 437ms with assist turned on. That is a fast-song rhythm-game reaction
+   * window landing on a couple swaying at a supper club, after twenty minutes
+   * of walking and talking, with no warning it was about to become a timing
+   * test. 60 BPM — one second a beat — roughly doubles both windows (620ms
+   * default, 860ms assisted) without touching the judging logic itself: `hits
+   * >= half the beats` still wins it. Slower here, not more forgiving there,
+   * is the whole fix — the bar now gives a distracted player time to read it
+   * and land on it, which is what "we want the player to succeed" means for a
+   * beat that only exists to be a nice moment. */
+  constructor({ bpm = 60, beats = 4 } = {}) {
     this.bpm = bpm;
     this.beats = beats;
     this.active = false;
