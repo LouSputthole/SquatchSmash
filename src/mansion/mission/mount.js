@@ -62,6 +62,16 @@ export function mountSilentSquatch({
    * inventory can hold a slot for it. Not told about stowing -- that is the
    * player's half and the inventory is the thing doing it. */
   onCaseOwned = () => {},
+  /**
+   * Booski putting a pistol in his hand at the delivery (owner playtest).
+   *
+   * A weapon is the house's business, not the mission's — `main.js` owns the
+   * WeaponSystem, the armory and the inventory bar, and this file has never
+   * heard of any of them. So the mission says "a man handed him a sidearm"
+   * and the composition root decides what that means, which is the same
+   * split `onCase` already uses.
+   */
+  onSidearm = () => {},
 } = {}) {
   if (!lab || !THREE || !scene || !camera) return null;
 
@@ -76,15 +86,43 @@ export function mountSilentSquatch({
   carried.group.visible = false;
   camera.add(carried.group);
 
-  const world = makeCase({ x: 0, y: 0, z: 0 });
-  world.group.name = 'silentSquatchWorldCase';
-  world.group.visible = false;
-  scene.add(world.group);
+  /**
+   * THE CASE IN THE WORLD IS THE LAB'S CASE.
+   *
+   * Owner playtest: there was a second case already sitting on the transfer
+   * table before he had delivered anything. There was, and there were THREE
+   * briefcases in this mission, not two:
+   *
+   *   1. `carried`, at the bottom of frame — this file's.
+   *   2. a `world` copy this file built and moved between the desk, the
+   *      table and under the desk.
+   *   3. `lab.case`, which `SilentSquatch.js` builds AND PLACES ON THE
+   *      TRANSFER TABLE AT BUILD TIME, visible from the moment the player
+   *      first sees the observation area.
+   *
+   * Number 3 is the one with the gold-and-purple internal lights, the hum,
+   * the `brighten()` the brief asks for and the handle `verify:mansion`
+   * measures. Number 2 had none of that and was the one the mission actually
+   * moved — so the case the player carried in was a dead prop, the case that
+   * glows was scenery, and both of them were on the table at once.
+   *
+   * One object now. `lab.case` starts hidden (see SilentSquatch.js) and this
+   * file drives it, which also means Booski opening it on the table is the
+   * beat with the sound and the glow on it rather than a lid turning.
+   */
+  const world = {
+    group: lab.case.group,
+    open: () => lab.case.open(),
+    close: (opts) => lab.case.close(opts),
+  };
 
   const worldPos = (object, fallback) => {
     if (object?.getWorldPosition) return object.getWorldPosition(new THREE.Vector3());
     if (object?.isVector3) return object.clone();
-    return fallback ? fallback.clone() : new THREE.Vector3();
+    if (Number.isFinite(object?.x)) return new THREE.Vector3(object.x, object.y ?? 0, object.z);
+    if (fallback?.clone) return fallback.clone();
+    if (Number.isFinite(fallback?.x)) return new THREE.Vector3(fallback.x, fallback.y ?? 0, fallback.z);
+    return new THREE.Vector3();
   };
 
   /* TWO SEPARATE FACTS, and the carried model is visible only when both hold.
@@ -127,11 +165,24 @@ export function mountSilentSquatch({
         world.group.visible = false;
         world.close({ instant: true });
         break;
+      /* WHERE IT LANDS IS NOT WHERE IT IS CLICKED.
+       *
+       * `targets.desk` is the desk GROUP, whose origin is on the floor at
+       * UY — so "put the case on the desk" put it through the pedestal and
+       * onto the boards, 830 mm below the writing surface and 1.4 m from
+       * where the anchor said. `targets.transferTable` is the wall DRAWER's
+       * aim box, so the delivered case appeared floating in the wall beside
+       * the drawer rather than on the table Booski opens it on.
+       *
+       * Both are correct as things to POINT AT and wrong as places to put
+       * something down. The scene publishes a surface point for each
+       * (`deskSpot`, `tableSpot`); the click target stays the fallback so a
+       * scene that has not grown one yet still works. */
       case 'desk':
-        putCaseOn(targets.desk, anchors?.officeDesk);
+        putCaseOn(targets.deskSpot ?? targets.desk, anchors?.officeDesk);
         break;
       case 'table':
-        putCaseOn(targets.transferTable, lab.anchors?.transferTable);
+        putCaseOn(targets.tableSpot ?? targets.transferTable, lab.anchors?.transferTable);
         break;
       case 'open': world.open(); break;
       case 'close': world.close(); break;
@@ -146,7 +197,7 @@ export function mountSilentSquatch({
        * Dropped to the floor and pushed under, rather than hidden: `gone`
        * already exists for things that stop existing. */
       case 'stash': {
-        const desk = worldPos(targets.desk, anchors?.officeDesk);
+        const desk = worldPos(targets.deskSpot ?? targets.desk, anchors?.officeDesk);
         world.group.position.set(desk.x, Math.max(0.14, desk.y - 0.78), desk.z + 0.22);
         world.group.rotation.y = 0.22;
         world.close({ instant: true });
@@ -179,6 +230,7 @@ export function mountSilentSquatch({
     onLine: (line) => hud.showLine(line),
     onLineEnd: () => hud.hideLine(),
     onCase,
+    onSidearm,
     playCue: (cue) => {
       /* A dry line, from somebody standing in the room. Cue names are data
        * here, never a literal at a call site.
@@ -324,7 +376,14 @@ export function mountSilentSquatch({
     const point = body?.position ?? lab.anchors?.aubbie ?? null;
     if (point && Number.isFinite(point.x)) {
       aimResolved = 'position';
-      const to = new THREE.Vector3(point.x, point.y ?? camera.position.y, point.z)
+      /* PLUS 1.4, because `body.position` is a figure's ORIGIN, which is the
+       * floor between his feet. Aiming the cone there asked the player to put
+       * the crosshair on a pair of shoes to carry out an execution. This
+       * branch is now the fallback of a fallback — the lab publishes
+       * `aubbieTarget` — but a fallback that is wrong is worse than no
+       * fallback, because it is the one that runs when everything else has
+       * already failed. */
+      const to = new THREE.Vector3(point.x, (point.y ?? camera.position.y) + 1.4, point.z)
         .sub(camera.position).normalize();
       const forward = camera.getWorldDirection(new THREE.Vector3());
       return forward.dot(to) > 0.985; // about five degrees
@@ -366,7 +425,12 @@ export function mountSilentSquatch({
     update(dt) {
       mission.update(dt, { position: player?.position ?? camera.position });
       carried.update(dt);
-      world.update(dt);
+      /* The world copy is NOT ticked here any more: it is `lab.case`, and
+       * `SilentSquatch.js` already calls `caseObj.update(dt)` in its own
+       * update. Ticking it twice would run its lid tween at double speed —
+       * and the adapter above has no `update` to call, which is how this was
+       * found: `world.update is not a function`, thrown out of the render
+       * loop on the first frame. */
     },
     /** The headless surface, hung off window.mansion by the composition root. */
     debug: {

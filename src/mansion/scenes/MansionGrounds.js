@@ -154,7 +154,26 @@ export const WEST_WING = Object.freeze({
  * stops dead on the building line for the same reason (no overhang across the
  * bedroom windows above it). */
 export const WING_ROOF_Y0 = 6.6;
-export const WING_ROOF_Y1 = 7.05;
+/* 6.86, not 7.05 -- THE FLICKER IN THE UPPER-FLOOR WEST WALL.
+ *
+ * Owner playtest, verbatim: "Exterior wall flickers on the inside". Measured
+ * on the built scene rather than guessed at: the west range's roof slab was
+ * 6.60..7.05 and it runs east to the building line, while the two west
+ * bedrooms' glazing starts at UPPER_SILL = 6.90 and is only 0.18 m thick. So
+ * the top 150 mm of the slab passed through the bottom 150 mm of the glass --
+ * 6.8 m of it in the rear bedroom and 3.8 m in the front one, plus the same
+ * intersection through four window mullions.
+ *
+ * The comment three lines up already SAID the roof "lands under the upper
+ * storey's window sills (UPPER_SILL = 6.9)", which was true of Y0 and false of
+ * Y1, and Y1 is the face that does the intersecting. That is the whole defect:
+ * a constraint stated against the wrong end of the slab.
+ *
+ * 6.86 leaves 40 mm of daylight under the sill. Y0 is untouched, so every
+ * ceiling in the range (trophy hall, winter garden -- all three read
+ * WING_ROOF_Y0) is exactly where it was; only the slab's thickness changes,
+ * 0.45 -> 0.26. */
+export const WING_ROOF_Y1 = 6.86;
 
 /* THE LOWER LEVEL (owner brief, third pass): a guest bedroom, a LAN room, a
  * home theatre and a vault, none of which fit in the armory.
@@ -280,7 +299,34 @@ export const REAR_DOOR = Object.freeze({
  * facade line). Both numbers now move with the facade -- see FORECOURT_SHIFT
  * -- so the rim still stops a clear metre short of the steps. */
 export const COURT_CENTRE = Object.freeze({ x: 0, z: 35 - FORECOURT_SHIFT });
-export const COURT_RADIUS = 12;
+/* 14.2, not 12 (owner playtest, verbatim: "Widen the driveway around the front
+ * fountain -- it needs more room").
+ *
+ * MEASURED BEFORE MOVING ANYTHING, because "it feels tight" is a symptom and
+ * the tightness was not evenly distributed. The basin's widest tier is r = 6
+ * and it sits THREE METRES SOUTH of the court's own centre, so at r = 12 the
+ * drivable ring was:
+ *
+ *   south arc   12 - 3 - 6 = 3.0 m   <- the pinch, and the arc every car
+ *                                       arriving from the gate has to turn on
+ *   east/west   sqrt(144-9) - 6 = 5.6 m
+ *   north arc   12 + 3 - 6 = 9.0 m
+ *
+ * Three metres is one car's width with nothing either side of it. At 14.2 the
+ * same three numbers are 5.2 / 7.9 / 11.2, and the parked pair moves out with
+ * it (see CAR_SPOTS) so the two walking corridors past the basin widen too.
+ *
+ * WHY THE RADIUS AND NOT THE CENTRE. Re-centring the basin on the court would
+ * have levelled all three arcs at 8.2 m, and it is the more obvious fix -- but
+ * the fountain's collision body is what stops a straight walk up the drive
+ * short of the steps, `verify:mansion` walks exactly that, and moving the
+ * basin north moves where the walk stops. The basin stays where the facade
+ * pass put it; the paving grows around it.
+ *
+ * The north edge lands at z = 44.2, which is 8 m INSIDE the building line
+ * (BUILDING.z0 = 36) -- the circle has always run under the podium and the
+ * front steps, and the extra 2.2 m is hidden under the same masonry. */
+export const COURT_RADIUS = 14.2;
 export const FOUNTAIN_POS = Object.freeze({ x: 0, z: 32 - FORECOURT_SHIFT });
 export const POOL = Object.freeze({
   x0: -7, x1: 7, z0: 81, z1: 89, y: GROUND_Y - 1.3,
@@ -381,6 +427,8 @@ const M_BOOTH_GLASS = mat({
   color: 0x8fb6c8, roughness: 0.1, transparent: true, opacity: 0.35,
 });
 const M_BARRIER_ARM = mat({ color: 0xd8d420, roughness: 0.5 });
+/* The dark bands that turn a yellow stick into a boom gate. */
+const M_BARRIER_STRIPE = mat({ color: 0x1b1b1e, roughness: 0.62 });
 
 const M_PALM_TRUNK = mat({ color: 0x5c4a32, roughness: 0.9 });
 const M_PALM_LEAF = mat({ color: 0x2f6b3c, roughness: 0.85, side: THREE.DoubleSide });
@@ -1318,6 +1366,11 @@ export function buildMansionGrounds(scene = null) {
    * since the basin blocks the centreline), and the run of turnaround in
    * front of the steps. The pair nearest the drive sit further out at 11.5 m
    * so that corridor stays about 1.6 m wide rather than a squeeze.
+   *
+   * The radius moved out with COURT_RADIUS (12 -> 14.2). A car left where it
+   * was would have taken the whole of the widening back: the point of a wider
+   * court is a wider corridor between the basin and the parked cars, and that
+   * corridor is measured from the CAR, not from the kerb.
    */
   function courtSpot(deg, r, kind, color) {
     const t = THREE.MathUtils.degToRad(deg);
@@ -1342,8 +1395,8 @@ export function buildMansionGrounds(scene = null) {
    * cars sit where a car actually would (nearest the door, out of the
    * turning circle) and both corridors stay about five metres wide. */
   const CAR_SPOTS = [
-    courtSpot(180, 11.0, 'lincoln', 0x101014),
-    courtSpot(0, 11.0, 'suv', 0x2a2a30),
+    courtSpot(180, 12.4, 'lincoln', 0x101014),
+    courtSpot(0, 12.4, 'suv', 0x2a2a30),
     {
       x: SPUR_X, z: 22.5, kind: 'suv', color: 0x151519, yaw: Math.PI, note: 'side lot bay 1',
     },
@@ -1381,33 +1434,126 @@ export function buildMansionGrounds(scene = null) {
     const w = 2;
     const d = 2;
     const h = 2.2;
-    const shell = box({ size: [w, h, d], pos: [cx, h / 2, cz], mat: M_BOOTH });
-    root.add(shell);
-    root.add(box({ size: [w + 0.3, 0.12, d + 0.3], pos: [cx, h + 0.06, cz], mat: M_BOOTH_ROOF }));
-    root.add(box({ size: [0.05, 0.9, 1.3], pos: [cx - w / 2 - 0.01, 1.35, cz], mat: M_BOOTH_GLASS }));
 
-    // Empty chair inside, visible through the window.
+    /* THE WEIRD YELLOW THING (owner playtest, verbatim: "the weird yellow
+     * thing near the guard booth at the entrance").
+     *
+     * MEASURED, because two passes had already moved this arm and neither had
+     * measured where it ENDED UP. The pivot stood at x = cx - 1.6 = 6.4 and
+     * the arm was authored on local +X, 3.4 m long, pitched 0.28 rad. So it
+     * ran from (6.40, 1.00) to (9.67, 1.94) -- EASTWARD, straight through the
+     * booth, whose shell occupies x 7..9 from the ground to 2.2. A bright
+     * yellow bar buried to half its length in the guard hut and sticking out
+     * the far side is exactly "a weird yellow thing", and no amount of
+     * re-pitching it was ever going to help: it was pointing at the booth.
+     *
+     * A barrier arm points ACROSS THE ROAD IT CLOSES. The drive is x -4..4;
+     * the booth is 3 m east of its kerb. So the arm now swings on local -X,
+     * out over the drive, and it is RAISED -- near vertical, which is what an
+     * open barrier looks like and is also the one attitude that occupies no
+     * part of the approach sightline at eye height. It gets its stripes and
+     * its counterweight, so it reads as traffic furniture rather than as a
+     * yellow stick, and its meshes are named so a check can find them.
+     */
+
+    /* The shell is four walls and a glazed upper band rather than one solid
+     * block: there is a man working this booth now (see cast.js's `booth`
+     * post) and a man inside a solid box is a man nobody will ever see. Same
+     * footprint, same roof, same collider. */
+    const sill = 1.02;
+    const head = 1.98;
+    const shell = box({
+      size: [w, sill, d], pos: [cx, sill / 2, cz], mat: M_BOOTH, name: 'booth-shell',
+    });
+    root.add(shell);
+    // Corner mullions, and a head rail the roof sits on.
+    for (const [mx, mz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      root.add(box({
+        size: [0.12, head - sill, 0.12],
+        pos: [cx + mx * (w / 2 - 0.06), (sill + head) / 2, cz + mz * (d / 2 - 0.06)],
+        mat: M_BOOTH,
+        name: 'booth-mullion',
+      }));
+    }
+    root.add(box({
+      size: [w, 0.14, d], pos: [cx, head + 0.07, cz], mat: M_BOOTH, name: 'booth-head-rail',
+    }));
+    /* Glazing on three sides. The fourth (east, away from the drive) is the
+     * doorway he came in through, and is left as an opening in the upper band
+     * -- a booth with no door is a box. */
+    for (const [gx, gz, sx, sz] of [
+      [-(w / 2 - 0.03), 0, 0.05, d - 0.16],
+      [0, -(d / 2 - 0.03), w - 0.16, 0.05],
+      [0, (d / 2 - 0.03), w - 0.16, 0.05],
+    ]) {
+      root.add(box({
+        size: [sx, head - sill - 0.06, sz],
+        pos: [cx + gx, (sill + head) / 2, cz + gz],
+        mat: M_BOOTH_GLASS,
+        cast: false,
+        name: 'booth-glass',
+      }));
+    }
+    root.add(box({ size: [w + 0.3, 0.12, d + 0.3], pos: [cx, h + 0.06, cz], mat: M_BOOTH_ROOF }));
+
+    // The chair he is not sitting in, and the counter he works off.
     const chair = group('booth-chair',
       box({ size: [0.55, 0.08, 0.55], pos: [0, 0.45, 0], mat: M_BOOTH }),
       box({ size: [0.55, 0.6, 0.08], pos: [0, 0.75, -0.24], mat: M_BOOTH }));
-    chair.position.set(cx + 0.2, 0, cz);
+    chair.position.set(cx + 0.52, 0, cz + 0.4);
     root.add(chair);
+    root.add(box({
+      size: [0.42, 0.05, d - 0.3], pos: [cx - w / 2 + 0.23, 0.98, cz], mat: M_BOOTH_ROOF, cast: false, name: 'booth-counter',
+    }));
 
-    // Barrier arm, raised/open -- no gate mechanic this pass. Was resting at
-    // 1.15 rad (~66 deg): a 3.4m arm at that steep-but-not-vertical angle
-    // reaches from near the ground all the way up to ~4m, a long bright
-    // yellow diagonal that cut across the primary gate-approach sightline.
-    // Rested much closer to horizontal instead -- clearly still raised/open,
-    // but short enough in reach and height that it no longer sticks up into
-    // that view.
-    const postX = cx - 1.6;
+    /* The barrier: post, counterweight, striped arm, and a rest cradle on the
+     * far kerb for the arm to come down onto. Raised = open. */
+    const postX = cx - 1.62;
     const postZ = cz;
-    root.add(cylinder({ r: 0.08, h: 1.0, pos: [postX, 0.5, postZ], mat: M_BOOTH }));
+    root.add(cylinder({
+      r: 0.09, h: 1.15, pos: [postX, 0.575, postZ], mat: M_BOOTH, name: 'barrier-post',
+    }));
+    root.add(box({
+      size: [0.34, 0.3, 0.3], pos: [postX, 1.2, postZ], mat: M_BOOTH_ROOF, cast: false, name: 'barrier-head',
+    }));
     const armPivot = new THREE.Group();
-    armPivot.add(box({ size: [3.4, 0.09, 0.09], pos: [1.7, 0, 0], mat: M_BARRIER_ARM }));
-    armPivot.position.set(postX, 1.0, postZ);
-    armPivot.rotation.z = 0.28;
+    armPivot.name = 'barrier-arm';
+    /* Authored on local -X so it reaches over the DRIVE. Down it would lie at
+     * (6.40,1.15) -> (3.00,1.15); up it stands clear of everything. */
+    const ARM = 3.4;
+    armPivot.add(box({
+      size: [ARM, 0.09, 0.09], pos: [-ARM / 2, 0, 0], mat: M_BARRIER_ARM, name: 'barrier-arm-boom',
+    }));
+    for (let i = 0; i < 4; i++) {
+      armPivot.add(box({
+        size: [0.42, 0.095, 0.095],
+        pos: [-0.42 - i * 0.85, 0, 0],
+        mat: M_BARRIER_STRIPE,
+        cast: false,
+        name: 'barrier-arm-stripe',
+      }));
+    }
+    // Counterweight on the short end, which is why a real one balances.
+    armPivot.add(box({
+      size: [0.36, 0.26, 0.26], pos: [0.3, 0, 0], mat: M_BOOTH_ROOF, cast: false, name: 'barrier-counterweight',
+    }));
+    armPivot.position.set(postX, 1.2, postZ);
+    /* MINUS 1.44 rad, and the sign is the whole thing. The boom is authored on
+     * local -X, and a rotation about +Z takes -X DOWNWARD -- measured on the
+     * built scene, the first attempt at +1.44 put the tip at y = -2.18, i.e.
+     * three metres underground. Negative swings it up: the boom stands at 82
+     * degrees beside the post with its tip at (5.94, 4.58), nothing crosses
+     * the drive at eye height, and the nearest it comes to the booth shell is
+     * a metre. */
+    armPivot.rotation.z = -1.44;
     root.add(armPivot);
+    /* No rest cradle is modelled, and that is a decision rather than an
+     * omission: a cradle belongs at the far kerb of the lane the boom closes,
+     * the drive's east kerb is at x = 4.15 and the boom's tip lowers to
+     * x = 2.98 -- 1.2 m INTO the carriageway. A post standing there is a post
+     * every car on this property drives through. The gate stands open all
+     * night, the boom is never down, and the cradle would only ever have been
+     * furniture in the road. */
 
     /* THE AWKWARD LIGHT (owner playtest 2026-08-04, verbatim):
      *
@@ -1461,11 +1607,30 @@ export function buildMansionGrounds(scene = null) {
     sconceLight.position.set(lanternX - 0.3, h - 0.62, cz);
     root.add(sconceLight);
 
-    solid(cx - w / 2, cx + w / 2, 0, h, cz - d / 2, cz + d / 2);
-    solid(postX - 0.1, postX + 0.1, 0, 1.0, postZ - 0.1, postZ + 0.1);
+    /* FOUR WALLS, NOT ONE BLOCK. The booth used to be a single solid box, and
+     * with a man now working inside it that box is a man buried in furniture
+     * -- which `verify:mansion` tests for by name. It is a hut: the walls are
+     * solid and the 1.4 m of floor between them is not. Nobody can walk in
+     * (every side is closed at waist height), and nobody standing at the
+     * counter is inside anything. */
+    const t = 0.14;
+    solid(cx - w / 2, cx - w / 2 + t, 0, h, cz - d / 2, cz + d / 2);
+    solid(cx + w / 2 - t, cx + w / 2, 0, h, cz - d / 2, cz + d / 2);
+    solid(cx - w / 2, cx + w / 2, 0, h, cz - d / 2, cz - d / 2 + t);
+    solid(cx - w / 2, cx + w / 2, 0, h, cz + d / 2 - t, cz + d / 2);
+    solid(postX - 0.11, postX + 0.11, 0, 1.35, postZ - 0.11, postZ + 0.11);
 
     return {
-      shell, chair, arm: armPivot, light: boothLight, position: new THREE.Vector3(cx, 0, cz),
+      shell,
+      chair,
+      arm: armPivot,
+      light: boothLight,
+      position: new THREE.Vector3(cx, 0, cz),
+      /* Where the man working this booth stands: inside it, at the counter,
+       * facing the drive. Published rather than typed into cast.js so the
+       * booth can be moved without leaving him standing in the lawn. */
+      post: new THREE.Vector3(cx + 0.32, 0, cz - 0.18),
+      lookAt: new THREE.Vector3(cx - 6, 0, cz - 1.2),
     };
   }
   const securityBooth = buildSecurityBooth();
@@ -4104,6 +4269,9 @@ export function buildMansionGrounds(scene = null) {
     fountainFront: new THREE.Vector3(0, 0, 26 - FORECOURT_SHIFT),
     frontDoorOutside: new THREE.Vector3(0, GROUND_Y, BUILDING.z0 - 1.5),
     securityBooth: new THREE.Vector3(SECURITY_BOOTH_POS.x, 0, SECURITY_BOOTH_POS.z),
+    /** Inside the booth, at the counter. `cast.js` posts the gate man here. */
+    boothPost: securityBooth.post.clone(),
+    boothLook: securityBooth.lookAt.clone(),
     poolPatio: new THREE.Vector3(0, GROUND_Y, 85),
     poolDoorOutside: new THREE.Vector3((POOL_DOOR.x0 + POOL_DOOR.x1) / 2, GROUND_Y, 76.5),
     poolSteps: new THREE.Vector3(

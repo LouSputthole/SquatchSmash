@@ -76,6 +76,18 @@ export const SPEAKERS = Object.freeze({
    */
   GATE: Object.freeze({ name: 'The man on the door', voice: 'mansion-gate' }),
   /**
+   * The man in the booth at the street gate.
+   *
+   * SAME THROAT AS `GATE`, on purpose, and the argument is the perimeter
+   * guards' argument: these two are one job at two ends of one driveway. The
+   * profile note the owner wrote for `mansion-gate` — deadly serious, no funny
+   * business — is the direction for both parts, and splitting them would ask
+   * for a second reading of the same instruction. Separate SPEAKER because
+   * they are separate BODIES: `cast.js` maps a line's speaker to the mouth it
+   * comes out of, and one key for two men moves the wrong jaw.
+   */
+  BOOTH: Object.freeze({ name: 'The man on the gate', voice: 'mansion-gate' }),
+  /**
    * Everybody else in the same suit: the men walking the perimeter, the one at
    * the top of the stairs, the one in the basement and the one on the vault.
    *
@@ -289,12 +301,21 @@ export const SEQUENCES = Object.freeze({
   irishIdle: Object.freeze([
     { speaker: 'IRISH', text: 'Go on down. He doesn’t like waiting and I don’t like watching him wait.', cue: cue('corridor', 'irish.goondown'), hold: 4.2 },
   ]),
+  /* WALKING PAST HIM IS NOT THE SAME AS HITTING HIM.
+   *
+   * Owner playtest: *"the xXx family line should be on the first hit"*. It
+   * was on the approach — the spec's two best lines, spent on a proximity
+   * bark for walking down a corridor, before the player had done anything at
+   * all. They are the payoff of picking the cord up, and they are in
+   * `tortureSwing` now, on the same two cues, so the recorded takes carry
+   * across unchanged.
+   *
+   * What is left here is a man who has been hanging upside down for some
+   * hours noticing that somebody has come in. He does not make a speech. */
   xxxHanging: Object.freeze([
-    // spec
-    { speaker: 'XXX', text: 'You can take the car… you can take the mission…', cue: cue('corridor', 'xxx.takethecar'), hold: 3.4 },
+    { speaker: 'XXX', text: '…Who’s that. Come here where I can see you.', cue: cue('corridor', 'xxx.comehere'), hold: 3.6 },
     { speaker: 'HUD', stage: 'xxx.cough', hold: 1.2 },
-    // spec
-    { speaker: 'XXX', text: 'But you don’t turn your back on family.', cue: cue('corridor', 'xxx.turnyourback'), hold: 3.0 },
+    { speaker: 'XXX', text: 'Ah. The new kid. Course it is.', cue: cue('corridor', 'xxx.thenewkid'), hold: 3.0 },
   ]),
   booskiShouts: Object.freeze([
     // spec
@@ -340,6 +361,24 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'BOOSKI', text: 'Rhetorical question. I don’t care.', cue: cue('delivery', 'booski.rhetorical'), hold: 2.8 },
     { speaker: 'HUD', stage: 'drawer.send', hold: 2.4 },
     { speaker: 'BOOSKI', text: 'Through it goes. Watch what they do with it.', cue: cue('delivery', 'booski.throughitgoes'), hold: 3.2 },
+    /* ---- THE PISTOL (owner playtest: *"Booski should hand me a pistol
+     * when I give him the case"*).
+     *
+     * The mission's own order four beats later is "Handle it", and until now
+     * the only gun in this house was six rooms and one floor away on a rack
+     * in the armory — so the player either walked back up for it before he
+     * had been told what it was for, or stood in the observation area with an
+     * execution order and empty hands. Booski arms him at the delivery,
+     * which is also the only moment in the mission that makes him
+     * responsible for what he is about to be asked to do.
+     *
+     * `sidearm.give` is the stage direction; the gun itself is the house's
+     * (`main.js` → `weaponSystem`), not the script's. He says nothing about
+     * what it is for, because he has not decided to tell him yet. */
+    { speaker: 'HUD', stage: 'sidearm.give', hold: 1.4 },
+    { speaker: 'BOOSKI', text: 'Here. Hold onto this.', cue: cue('delivery', 'booski.holdontothis'), hold: 2.2 },
+    { speaker: 'PROSPECT', text: 'What’s it for?', cue: cue('delivery', 'prospect.whatsitfor'), hold: 1.6 },
+    { speaker: 'BOOSKI', text: 'Nothing, hopefully.', cue: cue('delivery', 'booski.nothinghopefully'), hold: 2.4 },
   ]),
 
   /* =================================================================== */
@@ -666,6 +705,36 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'GATE', text: 'Straight through. Don’t wander, don’t touch anything, and don’t talk to the help.', cue: cue('gate', 'doorman.straightthrough'), hold: 5.0 },
   ]),
 
+  /* ---- The man in the booth at the street gate. -----------------------
+   *
+   * Owner playtest, verbatim: *"ADD a guard working that booth"*. The booth
+   * had a chair in it and nobody on it, which is worse than no booth: an
+   * empty guard post at the mouth of a criminal headquarters says the house
+   * is not being watched, and the whole rest of the night says it is.
+   *
+   * `BOOTH`, on the SAME `mansion-gate` throat as the man on the door, for
+   * the reason the perimeter guards share one: they are the same job at two
+   * ends of the same driveway, and the owner's direction for that profile —
+   * *"deadly serious and doesn't want any funny business"* — is exactly the
+   * note for this part too. He is the first person in the game to speak to
+   * the Prospect on this night, and he does not soften a word of it.
+   */
+  boothChallenge: Object.freeze([
+    { speaker: 'BOOTH', text: 'Stop there. Name.', cue: cue('gate', 'booth.stopthere'), hold: 2.2 },
+    { speaker: 'BOOTH', text: 'You’re on the list. That is the only reason this arm is up.', cue: cue('gate', 'booth.onthelist'), hold: 4.4 },
+  ]),
+  boothLoiter: Object.freeze([
+    { speaker: 'BOOTH', text: 'The house is up the drive. Nobody stands at my window.', cue: cue('gate', 'booth.nobodystands'), hold: 4.0 },
+  ]),
+  /* He has been told what is coming up the drive and told not to look at it. */
+  boothCase: Object.freeze([
+    { speaker: 'BOOTH', text: 'I don’t see a case. Walk on.', cue: cue('gate', 'booth.dontseeacase'), hold: 3.0 },
+  ]),
+  boothTalk: Object.freeze([
+    { speaker: 'BOOTH', text: 'Everything through this gate goes in the book. The plate, the time, the face.', cue: cue('gate', 'booth.inthebook'), hold: 5.2 },
+    { speaker: 'BOOTH', text: 'Yours is in it now. Go on.', cue: cue('gate', 'booth.yoursisinit'), hold: 3.0 },
+  ]),
+
   /* ---- The guards. ----------------------------------------------------
    * One voice, seven metres apart. Each of these is one flat sentence about
    * the ground the man is standing on, because that is the whole part: the
@@ -781,11 +850,26 @@ export const SEQUENCES = Object.freeze({
    * The stage direction is where the cord actually moves; the cast module
    * drives it and nothing here decides how a whip works.
    */
+  /* THE FIRST HIT IS THE SPEC'S LINE.
+   *
+   * Owner playtest: *"the xXx family line should be on the first hit"*. The
+   * brief's two quoted lines used to be a proximity bark you got for walking
+   * down the corridor (`xxxHanging`), which spent them on nothing — and they
+   * are the entire reason this character is hanging in this basement. Now
+   * they are what he says the first time somebody in this family hits him,
+   * and the involuntary noise still comes first because being hit is not a
+   * decision. Same two cues, so the recorded takes carry across.
+   *
+   * "You hit like family" moved to the SECOND hit, where it is a reply
+   * rather than a competing thesis. */
   tortureSwing: Object.freeze([
     { speaker: 'HUD', stage: 'cord.swing', hold: 0.8 },
     { speaker: 'XXX', text: 'Hn — GHK—', cue: cue('torture', 'xxx.ouchone'), hold: 1.2 },
-    { speaker: 'XXX', text: 'You hit like family.', cue: cue('torture', 'xxx.hitlikefamily'), hold: 2.4 },
-    { speaker: 'XXX', text: 'That’s not a compliment. That’s just what they do.', cue: cue('torture', 'xxx.notacompliment'), hold: 4.0 },
+    // spec
+    { speaker: 'XXX', text: 'You can take the car… you can take the mission…', cue: cue('corridor', 'xxx.takethecar'), hold: 3.4 },
+    { speaker: 'HUD', stage: 'xxx.cough', hold: 1.2 },
+    // spec
+    { speaker: 'XXX', text: 'But you don’t turn your back on family.', cue: cue('corridor', 'xxx.turnyourback'), hold: 3.0 },
     { speaker: 'GRATIN', text: 'See? He’s fine.', cue: cue('torture', 'gratin.hesfine'), hold: 2.0 },
   ]),
   /* The second, the third and the fourth, cycled from the fourth onward. He
@@ -794,6 +878,8 @@ export const SEQUENCES = Object.freeze({
   tortureSwingTwo: Object.freeze([
     { speaker: 'HUD', stage: 'cord.swing', hold: 0.8 },
     { speaker: 'XXX', text: 'Agh — Christ—', cue: cue('torture', 'xxx.ouchtwo'), hold: 1.4 },
+    { speaker: 'XXX', text: 'You hit like family.', cue: cue('torture', 'xxx.hitlikefamily'), hold: 2.4 },
+    { speaker: 'XXX', text: 'That’s not a compliment. That’s just what they do.', cue: cue('torture', 'xxx.notacompliment'), hold: 4.0 },
     { speaker: 'XXX', text: 'There it is. You’ve got the elbow into it now.', cue: cue('torture', 'xxx.theelbow'), hold: 3.6 },
   ]),
   tortureSwingThree: Object.freeze([

@@ -421,6 +421,27 @@ export const MANSION_DOOR_MAN = Object.freeze({
 });
 
 /**
+ * The man in the booth at the street gate.
+ *
+ * Owner playtest: *"ADD a guard working that booth"*. He is on the same
+ * `mansion-gate` throat as the man on the door (see `SPEAKERS.BOOTH` in
+ * src/mansion/script.js) and he is deliberately NOT one of `MANSION_GUARDS`:
+ * those six are posted elsewhere in the house and reusing one of their bodies
+ * would put the same man in two places on the same walk. Older and heavier
+ * than the walkers, because a gate booth is the post you get given after
+ * twenty years of walking the fence.
+ */
+export const MANSION_BOOTH_MAN = Object.freeze({
+  ...SECURITY_UNIFORM,
+  height: 1.80,
+  build: 1.46,
+  hair: 'crop',
+  hairColour: 0x8e8b86,
+  skin: 0xdcb188,
+  beard: true,
+});
+
+/**
  * The six men on the rest of the house, in the order the mansion posts them:
  * three walking the perimeter outside, one at the top of the horseshoe stair,
  * one in the basement, one on the vault.

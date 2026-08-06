@@ -19654,6 +19654,81 @@
       "name": "vo.call.lou.no_wake.tony.4",
       "voice": "player",
       "say": "I will be there."
+    },
+    {
+      "_comment": "Lou's office. The latch behind the book, and the case swinging. NOT the cellar's hidden wall — that one is two tonnes of masonry on hydraulic rails and takes six seconds; this is a piece of furniture on a pivot and has to sound like one, or the office reads as a second lift lobby.",
+      "name": "mansion.bookcase.latch",
+      "duration": 1.2,
+      "promptInfluence": 0.6,
+      "prompt": "a book pulled out of a bookshelf and stopping against a hidden mechanism, a dry paper and cloth slide followed by a firm brass catch releasing inside the woodwork, close, no voice, no music"
+    },
+    {
+      "name": "mansion.bookcase.swing",
+      "duration": 3.4,
+      "promptInfluence": 0.6,
+      "prompt": "a tall loaded oak bookcase swinging open on a concealed floor pivot, a heavy low wooden groan under real weight, books shifting slightly on their shelves, and a soft rumble through the floorboards, close interior, no voice, no music",
+      "_note": "It is carrying its books. The shelf noise is the tell that this is furniture and not a door."
+    },
+    {
+      "name": "mansion.bookcase.seat",
+      "duration": 2.6,
+      "promptInfluence": 0.6,
+      "prompt": "the same loaded bookcase swinging closed and seating against its frame, the pivot rumble reversed, a dull wooden knock as it meets the jamb and the catch dropping home, close interior, no voice, no music"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.comehere",
+      "voice": "xxx",
+      "say": "…Who’s that. Come here where I can see you."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.thenewkid",
+      "voice": "xxx",
+      "say": "Ah. The new kid. Course it is."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.holdontothis",
+      "voice": "booski",
+      "say": "Here. Hold onto this."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.prospect.whatsitfor",
+      "voice": "player",
+      "say": "What’s it for?"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.nothinghopefully",
+      "voice": "booski",
+      "say": "Nothing, hopefully."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.stopthere",
+      "voice": "mansion-gate",
+      "say": "Stop there. Name."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.onthelist",
+      "voice": "mansion-gate",
+      "say": "You’re on the list. That is the only reason this arm is up."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.nobodystands",
+      "voice": "mansion-gate",
+      "say": "The house is up the drive. Nobody stands at my window."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.dontseeacase",
+      "voice": "mansion-gate",
+      "say": "I don’t see a case. Walk on."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.inthebook",
+      "voice": "mansion-gate",
+      "say": "Everything through this gate goes in the book. The plate, the time, the face."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.yoursisinit",
+      "voice": "mansion-gate",
+      "say": "Yours is in it now. Go on."
     }
   ]
 }

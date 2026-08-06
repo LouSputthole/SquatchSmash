@@ -284,6 +284,20 @@ export function neonText(key, text, colour = '#ff3d8b', opts = {}) {
  *
  * Mount the result with props.js's makeFrame() and it is framed artwork.
  */
+/**
+ * `bg: null` LEAVES THE PLATE TRANSPARENT.
+ *
+ * Every use of this until 2026-08-06 was a framed picture on a wall, where an
+ * opaque plate IS the picture. The mansion's LAN room needed the other thing:
+ * the owner asked for the Squatch logo ON THE GAMER CHAIRS, and a logo on a
+ * chair is silk-screened onto the shell, not a card cable-tied to it. With a
+ * background fill it was a card — a 340 mm dark plaque floating on the back
+ * of every chair in the room.
+ *
+ * A canvas starts transparent, so this is a fill that does not happen; the
+ * caller's material is what has to be `transparent`/`alphaTest`. Existing
+ * callers pass no `bg` and are untouched.
+ */
 export function squatchArt(key, {
   title = [], footer = null, ink = '#c8a24a', bg = '#1a1420',
   w = 512, h = 640, rule = true,
@@ -291,8 +305,10 @@ export function squatchArt(key, {
   return cached(`bing.squatch.${key}`, () => {
     const c = canvas(w, h);
     const g = c.getContext('2d');
-    g.fillStyle = bg;
-    g.fillRect(0, 0, w, h);
+    if (bg) {
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, h);
+    }
     if (rule) {
       g.strokeStyle = ink;
       g.lineWidth = Math.round(h / 64);

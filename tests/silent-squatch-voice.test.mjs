@@ -60,9 +60,18 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   arrival: 10, // Rippin, Eric, Shubes, Snow, and the Prospect on the way in
   office: 10, // Lou, and the case on his desk
   cellar: 6, // the wine cellar and the bust
-  corridor: 7, // Irish, xXx, and Booski shouting from deeper in
+  /* 9, not 7. Owner playtest: *"the xXx family line should be on the first
+   * hit"*. The brief's two quoted lines moved out of the walk-past bark and
+   * into `tortureSwing`, KEEPING THEIR CUE NAMES — both are recorded, and a
+   * rename would have thrown two delivered takes away to make a prefix
+   * tidier. So two lines with `corridor.` ids are now spoken during the
+   * torture beat, and xXx gained two new ones for the approach. */
+  corridor: 9, // Irish, xXx, and Booski shouting from deeper in
   lab: 3, // DeathMegatron at the glass
-  delivery: 8, // the transfer table
+  /* 11, not 8. Owner playtest: *"Booski should hand me a pistol when I give
+   * him the case"*. He does, and he says three lines doing it — the whole
+   * point being that he does not say what it is for. */
+  delivery: 11, // the transfer table, and the pistol that comes with it
   build: 33, // six scientists building it, and two men watching
   completion: 12, // the core, the cheering, and Aubbie coming out
   lock: 9, // the keypad, the bolts, and "Handle it"
@@ -76,7 +85,13 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
    * mission was written before anybody lived here; these are the lines the
    * building says back. */
-  gate: 6, // the man on the front door
+  /* 12, not 6. The gate is TWO POSTS on one throat: the man on the front door
+   * (6) and, from 2026-08-06, the man working the booth at the street gate
+   * (6 — challenge, loiter, the case, and two lines about the book he writes
+   * you into). Owner playtest: "ADD a guard working that booth". Same
+   * `mansion-gate` voice profile, separate SPEAKER because they are separate
+   * bodies and a speaker key picks the mouth the line comes out of. */
+  gate: 12, // the man on the front door, and the man in the booth
   guards: 9, // perimeter, stairs, basement, vault
   bar: 3, // the Bada Bing's bartender, working Lou's bar
   /* 2026-08-05: the whip became a HANDOVER and a repeatable swing rather than

@@ -1151,6 +1151,7 @@ export function buildSilentSquatch({
      * at z = 59.62 and the armory's caged store starts at 60.42, which is
      * the 0.8 m that keeps the north lane walkable. */
     const tvZ = entZ1 - 0.2;
+    let entTvScreen = null;
     root.add(box({ size: [2.2, 0.5, 0.4], pos: [entMid, BY + 0.25, tvZ], mat: M_WOOD_DK }));
     prop(entMid - 1.1, entMid + 1.1, BY, BY + 0.5, tvZ - 0.22, tvZ + 0.22);
     /* Foot and neck, because the panel's bottom edge lands 60 mm over the
@@ -1165,9 +1166,31 @@ export function buildSilentSquatch({
     root.add(box({
       size: [1.75, 1.0, 0.07], pos: [entMid, BY + 1.06, tvZ], mat: M_BLACK, name: 'ent-tv',
     }));
-    root.add(box({
-      size: [1.62, 0.9, 0.02], pos: [entMid, BY + 1.06, tvZ - 0.05], mat: M_SCREEN_OFF, cast: false, name: 'ent-tv-screen',
-    }));
+    /* A REAL SCREEN, not a dark rectangle.
+     *
+     * Owner playtest: the cellar's flatscreen should be a working television,
+     * like the apartment's. It was a `M_SCREEN_OFF` box — a set that is
+     * permanently off in the one room down here built for watching it, while
+     * a second, OLD-SCHOOL set stood four metres away in the armory being the
+     * thing the guard looked at.
+     *
+     * PlaneGeometry rather than a box, and published on the lab handle, so
+     * `main.js` can hand it to `core/tv.js`'s `mountTv` exactly the way it
+     * does the billiard bay's and the kitchen's — one canvas texture swapped
+     * onto the mesh's material. Nothing in this file imports `core/tv.js`:
+     * that module builds canvas textures at module scope and this one has to
+     * stay headless (see `cast.js`'s note about the 677-test SIGKILL).
+     *
+     * Unmounted it is still a switched-off television, which is a thing a
+     * television is. */
+    entTvScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.62, 0.9),
+      mat({ color: 0x05070a, roughness: 0.22, unique: true }),
+    );
+    entTvScreen.name = 'ent-tv-screen';
+    entTvScreen.position.set(entMid, BY + 1.06, tvZ - 0.055);
+    entTvScreen.rotation.y = Math.PI;
+    root.add(entTvScreen);
 
     /* A bar cart, tucked into the north-west corner beside the set so that
      * it never reaches into the lane either. */
@@ -1195,6 +1218,13 @@ export function buildSilentSquatch({
     return {
       wine: { x0: wineX0, x1: wineX1, z0: wineZ0, z1: wineZ1, racks, sign: cellarSign },
       entertainment: { x0: entX0, x1: entX1, z0: entZ0, z1: entZ1 },
+      /** The set in the entertainment area. `main.js` paints the screen; the
+       * cellar guard is posted off `at` so he faces the thing he watches. */
+      tv: {
+        screen: entTvScreen,
+        at: { x: entMid, y: BY + 1.06, z: tvZ },
+        faces: -1, // it looks down the room toward -Z
+      },
     };
   }
   const innocent = buildInnocentBasement();
@@ -1534,6 +1564,55 @@ export function buildSilentSquatch({
         mat: M_CONCRETE_DK,
         cast: false,
         name: 'ss-stair-soffit',
+      }));
+    }
+    /* ---- AND THE STEPS BETWEEN THOSE FIVE SLABS.
+     *
+     * Owner playtest: gaps in the ceiling over the lab stairway. There were
+     * four of them and they are arithmetic, not bad luck.
+     *
+     * The soffit is five FLAT slabs, each 140 mm thick, one per band, each
+     * one following its band's floor down. The flight drops 3.8 m over five
+     * bands, so consecutive slabs are 760 mm apart vertically and 140 mm of
+     * that is slab — leaving a 620 mm slot running the full width of the
+     * stairwell at every band boundary, open to the void above the flight.
+     * Four slots, and walking down you look up through all of them.
+     *
+     * A raked soffit would have no boundaries at all, but the five-band
+     * approximation is deliberate (see the note above it: a hundred boxes for
+     * a wall you walk past in four seconds). So the boundaries get risers,
+     * the way a stepped ceiling in a real stairwell does. The two ENDS get
+     * one too: the head of the flight steps up to the landing's soffit at
+     * LANDING_CEIL and the foot steps down to the lower level's at LAB_CEIL,
+     * and both of those were 140 mm and 320 mm of the same slot. */
+    for (let i = 0; i <= BANDS; i++) {
+      const zEdge = S.z1 - bandDepth * i;
+      /* The ceiling on each side of this edge. Outside the flight, the room
+       * the stair arrives in supplies it. */
+      const above = i === 0
+        ? LANDING_CEIL
+        : stairFloorAt(S.z1 - bandDepth * (i - 0.5)) + 2.55;
+      const below = i === BANDS
+        ? LAB_CEIL
+        : stairFloorAt(S.z1 - bandDepth * (i + 0.5)) + 2.55;
+      /* Inset 10 mm INTO each slab rather than flush with its face. Flush
+       * means two coplanar faces, which is the flicker this house has spent
+       * three passes chasing; 10 mm of overlap means the riser is buried in
+       * the slab it joins and no two exposed faces share a plane. */
+      const y0 = Math.min(above, below) + 0.01;
+      const y1 = Math.max(above, below) + 0.13;
+      if (y1 - y0 < 0.02) continue;
+      root.add(box({
+        /* 0.04 narrower than the slabs it joins. They both ended exactly on
+         * the stairwell wall's outer face at S.x0 - 0.3, so their end faces
+         * were coplanar and `scene-audit` said so. Nothing is visible there
+         * — it is inside the wall — but a shared face is a shared face, and
+         * this costs 20 mm at each end of something nobody can reach. */
+        size: [S.x1 - S.x0 + 0.56, y1 - y0, 0.16],
+        pos: [(S.x0 + S.x1) / 2, (y0 + y1) / 2, zEdge],
+        mat: M_CONCRETE_DK,
+        cast: false,
+        name: 'ss-stair-soffit-riser',
       }));
     }
     // A steel handrail down the west side, on the rake.
@@ -2855,6 +2934,14 @@ export function buildSilentSquatch({
     );
     drawerTarget.position.set(0, 0.1, 0.35);
     drawerFrame.add(drawerTarget);
+    /* WHERE THE CASE IS SET DOWN, as opposed to what the player POINTS AT to
+     * set it down. The mission was placing it at `targets.drawer`, which is
+     * this aim box on the wall frame — so the delivered case appeared
+     * floating in the masonry beside the drawer instead of on the table
+     * Booski opens it on. An empty on the table top, so it moves with the
+     * table and cannot be read as anything to click. */
+    const tableSpot = new THREE.Object3D();
+    tableSpot.name = 'ss-transfer-table-spot';
 
     /* ---- The transfer table: where Booski opens the case. Squared up to
      * the glass, so the case's own glow lands on the pane. */
@@ -2865,6 +2952,10 @@ export function buildSilentSquatch({
       root.add(box({ size: [0.06, 0.94, 0.06], pos: [tableX + lx, LAB_Y + 0.47, tableZ + lz], mat: M_STEEL_DULL }));
     }
     prop(tableX - 0.78, tableX + 0.78, LAB_Y, LAB_Y + 0.98, tableZ - 0.44, tableZ + 0.44);
+    /* On the top, a little toward the glass, so the case's own glow lands on
+     * the pane and the six of them are looking at it through their side. */
+    tableSpot.position.set(tableX, LAB_Y + 0.97, tableZ - 0.08);
+    root.add(tableSpot);
 
     /* ---- SILENT NIGHT PROTOCOL. A lever under a red safety cover, on its
      * own pedestal, deliberately away from everything else on the console:
@@ -2948,6 +3039,7 @@ export function buildSilentSquatch({
       drawerTray,
       drawerLamp,
       drawerTarget,
+      tableSpot,
       transferTable: { x: tableX, y: LAB_Y + 0.97, z: tableZ },
       silentNight: {
         group: sn, lever: snLever, cover: snCover, target: snTarget,
@@ -3477,6 +3569,20 @@ export function buildSilentSquatch({
     x: obs.transferTable.x, y: obs.transferTable.y, z: obs.transferTable.z, rotY: Math.PI,
   });
   root.add(caseObj.group);
+  /* HIDDEN UNTIL SOMEBODY PUTS IT DOWN. Owner playtest: a second case was
+   * already sitting on the transfer table before he had delivered anything.
+   * It was this one — built here, placed here, and visible from the moment
+   * the observation area came into view, while the case he was carrying was
+   * a separate model owned by `mission/mount.js`. Two briefcases on one
+   * table, and the wrong one was the one that glows.
+   *
+   * This is now THE case: `mount.js` drives this object between his hands,
+   * Lou's desk and this table (see the note there). It starts invisible
+   * because at build time nobody has put it anywhere yet, and the mission
+   * shows it the moment he sets it down. A house with no mission mounted
+   * simply has no briefcase in the basement, which is correct — the case
+   * arrives with the Prospect. */
+  caseObj.group.visible = false;
   const caseState = { boost: 1, target: 1, hum: false };
   /* The prop's own lights, so the boost can be applied after its update.
    * Registered with the house rig like everything else down here. */
@@ -3621,6 +3727,13 @@ export function buildSilentSquatch({
   const GLASS_INSIDE_Z = GLASS_WALL.z0 - 0.55; // where you stand to hit it
   const handprints = [];
 
+  /**
+   * What working at a bench looks like, cycled per man. See the work loop in
+   * `update`. `gap` is a deliberate entry: the pauses are what stop six
+   * people at six benches reading as six people miming.
+   */
+  const WORK_GESTURES = Object.freeze(['reach', 'gap', 'point', 'gap', 'hands', 'gap', 'reach', 'gap']);
+
   function buildScientist(i) {
     const spec = SCIENTIST_SPECS[i];
     const fig = new Figure({
@@ -3654,11 +3767,27 @@ export function buildSilentSquatch({
       target: null,
       speed: 1.25,
       _t: Math.random() * 6,
+      /** Seconds until this man's next move at his bench. See the work loop. */
+      _work: 0.4 + Math.random() * 3.2,
+      _workN: 0,
       _cough: 0,
       _fall: 0,
       _printed: false,
+      /** Set by `stepOut`: where to walk once he is through the doorway. */
+      queued: null,
 
       get position() { return fig.group.position; },
+      /**
+       * SOMETHING TO SHOOT AT.
+       *
+       * `mission/mount.js` asks the lab for `aubbieTarget`, then for
+       * `body.object`, `body.group` or `body.mesh`, and only if it finds NONE
+       * of them does it fall back to a five-degree cone around
+       * `body.position` — which is this man's FEET. This object published
+       * `position` and nothing else, so the execution was always the cone,
+       * and the cone was around a pair of shoes. See `stepOut`.
+       */
+      get object() { return fig.group; },
 
       /** The sibling supplies the cue; this supplies the mouth and the path. */
       say(cue, opts = {}) {
@@ -3718,13 +3847,28 @@ export function buildSilentSquatch({
         self.goTo(fig.group.position.x, GLASS_INSIDE_Z - 1.2, 0.9);
         return self;
       },
-      /** Beat 8: he tries the handle and finds out. */
-      tryDoor() {
+      /**
+       * Beat 8: he tries the handle and finds out.
+       *
+       * `tryHandle` IS THE NAME. `mission/contract-lab.js` publishes the API
+       * the mission speaks — `stepOut`, `tryHandle`, `slam` — and this file
+       * had called the same three things `leaveLab`, `tryDoor` and `pound`.
+       * The mission calls them through `?.()`, so all three were silent
+       * no-ops in the real lab while passing every test against the double.
+       * The descriptive names are kept as aliases; the contract name is the
+       * one the mission uses. See the note at `stepOut` for what that cost.
+       */
+      tryHandle() {
         if (!self.alive) return self;
         self.stage = 'confused';
         self.goTo((GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, GLASS_INSIDE_Z, 1.35);
+        /* SILENT, and that is the direction. Bezmenov is the one who saw this
+         * coming in March; he does not shout, he walks to the door and puts
+         * his hand on a handle that does not move, and then he turns round. */
+        fig.playGesture('reach', 1.6);
         return self;
       },
+      tryDoor() { return self.tryHandle(); },
       /** Beat 9: he stops pounding and simply stares, having expected it. */
       stare() {
         if (!self.alive) return self;
@@ -3780,6 +3924,8 @@ export function buildSilentSquatch({
         }
         return self;
       },
+      /** The contract's name for it. See `tryHandle`. */
+      slam(times = 1) { return self.pound(times); },
       /** Beat 9: a metal chair into the glass. The chair bends. It does not. */
       chairStrike() {
         if (!self.alive) return self;
@@ -3847,12 +3993,47 @@ export function buildSilentSquatch({
         paintLifeSigns();
         return self;
       },
-      /** Beat 7: Aubbie comes through the door into the observation area. */
-      leaveLab(x = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, z = GLASS_WALL.z1 + 1.5) {
+      /**
+       * Beat 7: Aubbie comes through the door into the observation area.
+       *
+       * THE SOFTLOCK WAS HERE, and it was a spelling mistake with teeth.
+       * `SilentSquatchMission.#stage('door.open')` calls
+       * `scientists[0].stepOut?.()`; this object was called `leaveLab`; the
+       * optional call swallowed it. So the mission set `aubbieOutside = true`
+       * and told the player to eliminate a man who was still standing at the
+       * core on the far side of twelve centimetres of glass, twelve metres
+       * away, with his feet at LAB_Y.
+       *
+       * `mount.js` resolves the shot by raycast if the lab hands it a mesh
+       * and by a FIVE DEGREE CONE on `body.position` if it does not — and
+       * `position` here is `fig.group.position`, which is his FEET. A player
+       * standing at the SILENT NIGHT pedestal with the order "Eliminate
+       * Aubbie" had to put the crosshair within five degrees of a pair of
+       * shoes behind a wall of glass, and every miss counted as a miss. Two
+       * of the three ways out of Beat 8 were therefore shut, and the third
+       * was luck.
+       *
+       * Two halves to the fix and they are independent, which is the point:
+       * he WALKS OUT (this method, under the name the mission calls), and
+       * there is a BODY TO AIM AT whether he does or not (`object` above,
+       * plus `lab.aubbieTarget`). Either alone would have hidden the other.
+       *
+       * `z = GLASS_WALL.z1 + 1.5` is a metre and a half clear of the pane on
+       * the observation side, in the open, in front of Booski — which is
+       * where the brief wants him to fall: "in full view of the scientists
+       * through the glass".
+       */
+      stepOut(x = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, z = GLASS_WALL.z1 + 1.5) {
         self.inside = false;
-        self.goTo(x, z, 1.3);
+        self.stage = 'walking';
+        /* Through the doorway first, then out. One straight line from the
+         * core to the observation area clips the door jamb and he arrives
+         * walking through the glass. */
+        self.goTo((GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, GLASS_INSIDE_Z, 1.3);
+        self.queued = { x, z, speed: 1.3, stage: 'outside' };
         return self;
       },
+      leaveLab(x, z) { return self.stepOut(x, z); },
       setInside(v) { self.inside = !!v; return self; },
       /** Beat 8: he is killed in the observation area, in full view. */
       kill() {
@@ -4630,7 +4811,19 @@ export function buildSilentSquatch({
       }
       if (s.target) {
         const done = f.walkTo(s.target.x, s.target.z, dt, s.speed, true);
-        if (done) s.target = null;
+        if (done) {
+          s.target = null;
+          /* The second leg of Aubbie's exit. He walks to the DOORWAY and then
+           * out into the observation area, because one straight line from the
+           * core clips the jamb and puts him through the glass. */
+          if (s.queued) {
+            const next = s.queued;
+            s.queued = null;
+            s.stage = next.stage ?? s.stage;
+            s.goTo(next.x, next.z, next.speed ?? 1.3);
+            if (next.stage === 'outside') f.lookAt({ x: next.x, z: next.z + 3 });
+          }
+        }
       }
       if (s.stage === 'crawling') {
         // Down on the knees, torso forward, head up at the door.
@@ -4657,6 +4850,34 @@ export function buildSilentSquatch({
         f.armR.shoulder.rotation.x = -1.6 + Math.sin(time * 9 + s.index + 1.4) * 0.5;
         f.armL.elbow.rotation.x = -0.5;
         f.armR.elbow.rotation.x = -0.5;
+      }
+      /* ---- THE WORK LOOP.
+       *
+       * Owner playtest: the six of them stood at their benches doing
+       * absolutely nothing until the gas arrived, which is a strange thing to
+       * watch for the ten minutes of Beats 5 to 7 — the brief's whole picture
+       * is a laboratory that is BUSY right up to the moment it is sealed.
+       *
+       * Not an animation and not a state machine: a slow cycle of the
+       * gestures the Figure already has, on each man's own clock, at his own
+       * bench. `_work` is his phase and it is seeded off `_t` (already
+       * randomised per man in the constructor) so the six are never in step —
+       * six identical people moving together is worse than six still ones.
+       *
+       * `reach` for something on the bench, `point` at a readout, `hands` for
+       * a two-handed adjustment, and gaps of NOTHING in between, which is the
+       * half that makes it read as work: a man who gestures continuously is a
+       * man having an argument. Aubbie (index 0) is at the core rather than a
+       * bench and gets the longer, slower version — he supervises. */
+      if (s.stage === 'work' && s.alive && !s.target) {
+        s._work -= dt;
+        if (s._work <= 0) {
+          const lead = s.index === 0;
+          /* Half the cycles are a pause. `gap` is what a bench looks like. */
+          const move = WORK_GESTURES[(s._workN++ + s.index) % WORK_GESTURES.length];
+          s._work = (lead ? 2.6 : 1.7) + Math.random() * (lead ? 3.4 : 2.6);
+          if (move !== 'gap') f.playGesture(move, s._work * 0.62);
+        }
       }
     }
 
@@ -4896,10 +5117,23 @@ export function buildSilentSquatch({
     scientists,
     /** Index 0, by name, because the mission says his name constantly. */
     get aubbie() { return scientists[0]; },
+    /**
+     * What the execution's trigger pull is aimed at.
+     *
+     * `mission/mount.js` looks for this FIRST, and only falls back to a
+     * five-degree cone round a position when the lab offers nothing. His
+     * whole figure, so a shot at his chest, his head or his coat all count,
+     * and the crosshair reads him the way it reads every other body.
+     */
+    get aubbieTarget() { return scientists[0]?.object ?? null; },
     get lifeSigns() { return lifeSigns; },
     /** True from the moment the door locks. The spec's own word. */
     get muffled() { return glassAudio.engaged; },
     glassAudio,
+
+    /** The entertainment area's television. `main.js` mounts core/tv.js on
+     * `screen`; `cast.js` posts the cellar guard off `at`. */
+    tv: innocent.tv,
 
     /* -- the case, carried forward from The Silver Case -- */
     case: {
@@ -5013,6 +5247,10 @@ export function buildSilentSquatch({
       bustSwitch: hiddenWall.switchTarget,
       keypad: obs.keypadTarget,
       drawer: obs.drawerTarget,
+      /** The SURFACE, not the aim box. `mission/mount.js` puts the case here;
+       * `drawer` above is what the crosshair reads. Two different jobs that
+       * were being done by one object, and the case ended up in the wall. */
+      tableSpot: obs.tableSpot,
       silentNight: obs.silentNight.target,
       doorLock: obs.lockPost,
       xxx: xxx.aim,

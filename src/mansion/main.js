@@ -30,6 +30,7 @@ import * as THREE from 'three';
 import {
   buildMansionGrounds,
   GROUND_Y,
+  BASEMENT_Y,
   FOUNTAIN_POS,
   POOL,
 } from './scenes/MansionGrounds.js';
@@ -44,7 +45,7 @@ import { Tv, CHANNELS, videoChannel } from '../core/tv.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
-import { WEAPON_ORDER } from '../core/weapons/catalog.js';
+import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { mountSilentSquatch } from './mission/mount.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast } from './cast.js';
@@ -335,10 +336,93 @@ const audio = new AudioEngine();
  *                       near-inaudible volume -- Initiation Night's faint
  *                       music bed, from somewhere else in the house
  */
+/* ---- THE HOUSE WAS EERILY SILENT (owner playtest, verbatim: "More
+ * background ambience - it's eerily silent").
+ *
+ * Four beds for thirty-six thousand square metres of estate is four beds too
+ * few, and three of them were tied to WATER: the fountain and the pool, both
+ * out the front and the back, plus one near-inaudible music loop. Stand
+ * anywhere in the hedge maze, the ballroom or the cellar and the mix was
+ * literally `ambience.city.night` at 0.11 and nothing else.
+ *
+ * These are all POSITIONAL except the city, and that is the whole point: an
+ * ambience bed with no position plays at the same level in the wine cellar as
+ * it does on the lawn, which is how a house ends up sounding like one room.
+ * `_loopChain` gives every positioned loop a PannerNode with its own
+ * ref/maxDist, so walking from the garden into the hall genuinely crossfades
+ * the garden out and the room tone in.
+ *
+ * Every name below is an existing procedural bed in `core/audio.js` — nothing
+ * here needs a recording, and nothing here is added to the manifest, which is
+ * the same allowance the four original beds were written under. */
+const AMBIENCE_BEDS = [
+  /* Wind in thirty hedges and two hundred roses. `ambience.rain` used as a
+   * leaf bed is the exact trick `src/graveyard/main.js` uses for its wind. */
+  {
+    key: 'nightGarden',
+    name: 'ambience.rain',
+    volume: 0.085,
+    at: [0, GROUND_Y, 104],
+    ref: 11,
+    maxDist: 58,
+    fade: 3.0,
+  },
+  /* The city, over the wall and a long way off. The only non-positional bed
+   * in the list: it is the horizon, and the horizon does not get nearer. */
+  { key: 'distantCity', name: 'ambience.city', volume: 0.042, fade: 3.4 },
+  /* Room tone for the main block -- the sound a big empty house makes. Anchored
+   * in the middle of the ground floor with a maxDist that dies at the facade. */
+  {
+    key: 'houseTone',
+    name: 'ambience.room',
+    volume: 0.1,
+    at: [0, GROUND_Y + 1.6, 52],
+    ref: 9,
+    maxDist: 32,
+    fade: 2.6,
+  },
+  /* Plant hum under the floor. The armory and the wine cellar are a basement
+   * and should sound like one before anybody opens the wall at the far end. */
+  {
+    key: 'cellarTone',
+    name: 'ambience.cellar',
+    volume: 0.11,
+    at: [0, BASEMENT_Y + 1.5, 57],
+    ref: 5,
+    maxDist: 20,
+    fade: 2.0,
+  },
+  /* Gratin left a pan on and went downstairs, so the kitchen is running. */
+  {
+    key: 'kitchenTone',
+    name: 'fridge.hum',
+    volume: 0.09,
+    at: [12.8, GROUND_Y + 1.0, 70],
+    ref: 2.6,
+    maxDist: 13,
+    fade: 1.8,
+  },
+];
+
 function startAmbience() {
   audio.startLoop('crickets', {
     name: 'ambience.city.night', volume: 0.11, ambience: true, fade: 2.2,
   });
+  for (const bed of AMBIENCE_BEDS) {
+    audio.startLoop(bed.key, {
+      name: bed.name,
+      volume: bed.volume,
+      ambience: true,
+      fade: bed.fade ?? 2.0,
+      ...(bed.at
+        ? {
+          position: new THREE.Vector3(bed.at[0], bed.at[1], bed.at[2]),
+          ref: bed.ref,
+          maxDist: bed.maxDist,
+        }
+        : {}),
+    });
+  }
   audio.startLoop('fountainWater', {
     name: 'shower.run',
     volume: 0.16,
@@ -692,6 +776,44 @@ interaction.register(interior.props.kitchen.sinkTarget, {
   onUse: () => setSink(!sinkRunning),
 });
 
+/* ---- THE BOOK THAT OPENS THE BOOKCASE.
+ *
+ * Owner playtest: the concealed door in Lou's office was a comment in a brief
+ * and nothing else, and he went looking for the secret area behind it. It is
+ * real now (`MansionInterior.buildOfficeSecretDoor`) and this is the only way
+ * a player learns that.
+ *
+ * SUBTLE, WHICH MEANS: the prompt is on ONE BOOK, not on the bookcase, so it
+ * only appears when the crosshair is on a single 130 mm volume; the label is
+ * flat prose until it has been used once, so the room does not announce
+ * itself; and there is no HUD objective, no marker and no bark. Everything
+ * else in this house that does something says what it does. This one does
+ * not, and that is the whole design of it. */
+const secretDoor = interior.props.office.secretDoor;
+let secretFound = false;
+interaction.register(secretDoor.latch, {
+  label: () => {
+    if (!secretFound) return 'A volume in a different binding, standing proud of the shelf';
+    return secretDoor.isOpen ? 'Swing the <b>bookcase</b> back' : 'Pull the <b>book</b>';
+  },
+  enabled: () => running,
+  onUse: () => {
+    secretFound = true;
+    const opening = secretDoor.toggle();
+    /* ITS OWN CUES, and not the cellar's. The first draft of this played
+     * `silent.bust.switch` / `silent.wall.mechanism`, which is wrong twice
+     * over: those describe two tonnes of masonry on hydraulic rails taking
+     * six seconds, and this is a piece of furniture on a pivot -- and they
+     * are not in `assets/sfx/manifest.json` at all (SilentSquatch.js authors
+     * them locally and lets them fall through to the synth), so `npm run
+     * check` was reporting a cue that could never be given a recording. See
+     * docs/ENGINE-TRAPS.md #3: the manifest is the truth. */
+    audio.play('mansion.bookcase.latch', { volume: 0.55 });
+    audio.play(opening ? 'mansion.bookcase.swing' : 'mansion.bookcase.seat', { volume: 0.4, delay: 0.25 });
+    return true;
+  },
+});
+
 /** Either radio set: switch it on, or move the station over to it. */
 for (const [set, where] of [
   [interior.props.lounge.radio, 'the billiard bay'],
@@ -825,10 +947,31 @@ const armory = mountArmory({
 /* See src/mansion/loadout.js for why holding and OWNING the case are     */
 /* two separate facts.                                                    */
 /* ================================================================== */
+/**
+ * Set once `cast` exists, and a no-op until then.
+ *
+ * Declared ABOVE the loadout rather than below it, because the whole point of
+ * this variable is that it must never be read before it is initialised — see
+ * the note at `onCordInHand`.
+ */
+let setCordInHand = () => {};
 const loadout = createMansionLoadout({
   weapons: weaponSystem,
   weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
   onCaseInHand: (on) => silentSquatch?.setCaseInHand(on),
+  /* THROUGH A MUTABLE HANDLE, NOT THROUGH `cast`, and this is not style.
+   *
+   * `const cast = mountMansionCast(...)` is three hundred lines below this,
+   * and `?.` DOES NOT SAVE YOU FROM A TEMPORAL DEAD ZONE — `cast?.x` on a
+   * `const` that has not been initialised is a ReferenceError, not
+   * `undefined`. The path is real and it runs at boot: the mission's first
+   * beat puts the case in his hands, which calls `onCaseOwned`, which calls
+   * `loadout.giveCase()`, which calls `apply()`, which calls this. The house
+   * failed to boot at all — `verify:mansion` timed out waiting for
+   * `window.mansion.player`, with no error anywhere near the cause.
+   *
+   * A `let` initialised to a no-op, reassigned once the cast exists. */
+  onCordInHand: (on) => setCordInHand(on),
 });
 
 /* The ammunition counter. Repainted only when something changed — a DOM write
@@ -935,6 +1078,29 @@ if (lab && night.play) {
      * else. Spawning holding it is this firing on the mission's first beat,
      * not a special case at startup. */
     onCaseOwned: (owned) => { if (owned) loadout.giveCase(); else loadout.takeCase(); },
+    /* ---- BOOSKI HANDS HIM A PISTOL (owner playtest).
+     *
+     * The mission's order four beats later is "Handle it", and the only gun
+     * in this house was on a rack in the armory, one floor and six rooms
+     * back up the corridor — behind a hidden wall that has closed behind
+     * him. So either he fetched a weapon before he had been told what it was
+     * for, or he stood in the observation area with an execution order and
+     * empty hands.
+     *
+     * NOT OFF A RACK. `armory.take()` needs a stand and takes a copy off a
+     * wall; this gun came out of Booski's coat and there is no wall to put it
+     * back on. So it goes straight into the weapon system and the bar mirrors
+     * it, which is the same one-gun-at-a-time rule the armory keeps — see
+     * `syncWeapon` in ./loadout.js. Q still stows it.
+     *
+     * `pistol9` rather than the revolver: Booski is the man who made copies
+     * of Aubbie's notes, and a man like that carries a magazine. */
+    onSidearm: () => {
+      if (weaponSystem.equipped === WEAPON_IDS.PISTOL9) return;
+      weaponSystem.equip(WEAPON_IDS.PISTOL9);
+      loadout.syncWeapon(weaponSystem.equipped ?? null);
+      ammoDirty = true;
+    },
     /* The things he presses. Every one of them is optional: a target the
      * environment has not built yet simply is not registered, and the beat it
      * belongs to is still reachable from the debug handle below. */
@@ -952,6 +1118,13 @@ if (lab && night.play) {
       desk: lab.targets?.desk ?? interior.props.office.desk ?? null,
       bust: lab.targets?.bust ?? lab.targets?.bustSwitch ?? null,
       transferTable: lab.targets?.drawer ?? null,
+      /* WHAT YOU POINT AT vs WHERE IT GOES. The two entries above are aim
+       * boxes -- the desk group (origin on the floor) and the wall drawer's
+       * hit volume -- and the mission was also using them as the place to set
+       * the case down, so it landed under the desk and inside the wall. These
+       * two are the surfaces. */
+      deskSpot: interior.props.office.caseSpot ?? null,
+      tableSpot: lab.targets?.tableSpot ?? null,
       keypad: lab.targets?.keypad ?? null,
       silentNight: lab.targets?.silentNight ?? null,
     },
@@ -982,10 +1155,25 @@ const cast = mountMansionCast(scene, world, {
   lab,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
+  /* Gratin's cord is a thing he is carrying, so it is a slot. Owner
+   * playtest: it used to be welded to the camera from the handover to the
+   * end of the mission. */
+  onCordOwned: (owned) => { if (owned) loadout.giveCord(); else loadout.takeCord(); },
   enabled: () => running,
 });
+setCordInHand = (on) => cast?.setCordInHand?.(on);
+/* And catch up: the loadout may already have decided what is in his hand
+ * while this was still a no-op. */
+loadout.refresh();
 /* The guard in the cellar is watching television, which was the owner's note
  * and is also the only thing on his post worth looking at.
+ *
+ * `lab.tv`, not `cast.tv`. There used to be TWO sets down there: a cabinet
+ * television this file painted, built by `cast.js` and standing in the
+ * armory, and the entertainment area's flatscreen, which was a dead black
+ * rectangle in the one room in the cellar built for watching television. The
+ * cabinet set is gone (its own picture z-fought its bezel — `scene-audit`
+ * caught it) and the flatscreen is the set.
  *
  * Mounted HERE rather than beside the other three sets because the cast does
  * not exist until this point, and given a late arrival the glow-light loop
@@ -993,7 +1181,7 @@ const cast = mountMansionCast(scene, world, {
  * leaving `_glowLight` undefined for a render loop that dereferences it every
  * frame. Pushed into `houseTvs` too, or it would never be updated and the
  * debug surface would not see it. */
-const cellarTv = cast?.tv?.screen ? mountTv(cast.tv.screen, { channel: 1 }) : null;
+const cellarTv = lab?.tv?.screen ? mountTv(lab.tv.screen, { channel: 1 }) : null;
 if (cellarTv && !cellarTv._glowLight) {
   const glow = new THREE.PointLight(0x9fb4cc, 0, 5, 2);
   glow.position.copy(cellarTv.position);

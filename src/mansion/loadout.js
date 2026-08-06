@@ -41,6 +41,12 @@ import { SceneInventoryBar } from '../core/scene-inventory.js';
  */
 export const MANSION_ITEMS = Object.freeze({
   case: Object.freeze({ icon: '▤', name: 'The chrome case', hint: 'Lou is expecting this' }),
+  /* Owner playtest: *"I should be able to put the whip away"*. He could not —
+   * Gratin's cord went onto the camera and stayed in shot for the rest of the
+   * night, through the delivery, the execution and the walk back up. It is a
+   * thing he is carrying, so it is a slot like everything else, and `cast.js`
+   * keeps the same OWNING/HOLDING split the case does. */
+  cord: Object.freeze({ icon: '⌇', name: 'Gratin’s cord', hint: 'One each. House rule.' }),
 });
 
 /** Slot presentation for a weapon the player picked up. */
@@ -57,6 +63,7 @@ function weaponEntry(id, name) {
 export function createMansionLoadout({
   weapons = null,
   onCaseInHand = () => {},
+  onCordInHand = () => {},
   weaponName = (id) => id,
   slots = 5,
 } = {}) {
@@ -65,7 +72,7 @@ export function createMansionLoadout({
   const catalog = { ...MANSION_ITEMS };
   const bar = new SceneInventoryBar({ slots, catalog, visible: true });
 
-  const isWeapon = (id) => Boolean(id) && id !== 'case';
+  const isWeapon = (id) => Boolean(id) && id !== 'case' && id !== 'cord';
 
   /**
    * Redraw, and put the case in or out of his hands.
@@ -87,6 +94,7 @@ export function createMansionLoadout({
    */
   function apply() {
     onCaseInHand(inventory.held === 'case');
+    onCordInHand(inventory.held === 'cord');
     bar.catalog = catalog;
     bar.set(inventory.items, inventory.selected);
   }
@@ -124,6 +132,20 @@ export function createMansionLoadout({
     },
 
     hasCase: () => inventory.has('case'),
+
+    /** Gratin handed the cord over. One each — see the hint on the item. */
+    giveCord() {
+      if (inventory.has('cord')) return true;
+      const ok = inventory.add('cord');
+      apply();
+      return ok;
+    },
+    takeCord() {
+      const had = inventory.remove('cord');
+      apply();
+      return had;
+    },
+    hasCord: () => inventory.has('cord'),
 
     /**
      * Mirror the armory: he carries exactly the gun the weapon system says he
