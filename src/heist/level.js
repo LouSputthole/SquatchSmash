@@ -234,6 +234,23 @@ function buildSafehouse() {
   }
   // The plan sheet, with a printed border and a survey grid on it.
   box(briefing, [4.75, 0.035, 1.78], [0, 0.99, 0], MAT.paper, 'briefing-plan-sheet');
+  /* THE SURFACE EVERYTHING ON THIS TABLE STANDS ON.
+   *
+   * Owner: *"tabletop rework"*, for the brief as well as the debrief. Every
+   * model on this plan — all four site cards, the route line, the four site
+   * pads — was authored at a hand-picked y between 1.02 and 1.035, and the
+   * paper's top face is at 1.0075. So the whole plan hovered one to two and a
+   * half centimetres over the sheet it is supposed to be drawn on, which at
+   * this scale is a card model the height of its own doorway off the ground.
+   * It reads as a diorama that has been knocked, and it is why the table did
+   * not look like a plan.
+   *
+   * `scene-audit` never caught it and never will: its FLOATING rule allows
+   * 12 cm of support gap, because that tolerance is what stops it reporting
+   * every chair leg in the mansion. This one is measured by
+   * `heist-level-presentation.test.mjs` instead, against this constant, so
+   * the next thing put on this table has a number to sit on. */
+  const PLAN_TOP = 0.99 + 0.035 / 2;
   for (const [w, d, z] of [[4.55, 0.02, -0.84], [4.55, 0.02, 0.84]]) {
     flat(briefing, [w, 0.006, d], [0, 1.009, z], MAT.ink);
   }
@@ -249,7 +266,9 @@ function buildSafehouse() {
    * point on it is a direction. */
   const route = new THREE.Group();
   route.name = 'blueprint-route';
-  route.position.y = 1.035;
+  // Legs are 2 cm thick and centred on the group, so the group sits a
+  // centimetre proud of the paper and the ink lies ON it.
+  route.position.y = PLAN_TOP + 0.01;
   const legs = [
     [-1.62, 0.5, -0.62, 0.16], [-0.62, 0.16, 0.34, -0.2],
     [0.34, -0.2, 1.24, -0.44], [1.24, -0.44, 2.02, -0.56],
@@ -261,8 +280,12 @@ function buildSafehouse() {
     leg.rotation.y = -Math.atan2(bz - az, bx - ax);
     leg.castShadow = false;
   }
-  const head = mesh(route, new THREE.ConeGeometry(0.09, 0.2, 4), MAT.warning, [2.12, 0.02, -0.58]);
+  const head = mesh(route, new THREE.ConeGeometry(0.09, 0.2, 4), MAT.warning, [2.12, 0, -0.58]);
   head.rotation.set(Math.PI / 2, 0, -Math.PI / 2 - 0.15);
+  /* Flattened to the thickness of the line it terminates. Laid on its side a
+   * cone is 18 cm of solid pyramid: it hung 6 cm THROUGH the plan sheet and
+   * stood three times the height of its own route line above it. */
+  head.scale.z = 0.11;
   head.castShadow = false;
   head.name = 'blueprint-route-arrow';
   briefing.add(route);
@@ -275,24 +298,26 @@ function buildSafehouse() {
     { id: 'garage', x: 0.34, z: -0.2, pips: 3, good: false },
     { id: 'swap', x: 1.24, z: -0.44, pips: 4, good: true },
   ];
+  const siteMarkers = [];
   for (const site of SITES) {
     const marker = new THREE.Group();
     marker.name = `briefing-site-${site.id}`;
-    marker.position.set(site.x, 1.02, site.z);
+    marker.position.set(site.x, PLAN_TOP + 0.006, site.z);
     // The base pad: green where the crew is meant to be, red where it is not.
-    flat(marker, [0.46, 0.012, 0.36], [0, 0.005, 0],
+    flat(marker, [0.46, 0.012, 0.36], [0, 0, 0],
       site.good ? new THREE.MeshStandardMaterial({ color: 0x3f6b46, roughness: 0.9 }) : MAT.warning);
     // The pip strip along the front edge: one block per step of the plan.
     for (let i = 0; i < site.pips; i++) {
-      flat(marker, [0.035, 0.014, 0.035], [-0.16 + i * 0.055, 0.014, 0.15], MAT.ink);
+      flat(marker, [0.035, 0.014, 0.035], [-0.16 + i * 0.055, 0.009, 0.15], MAT.ink);
     }
     briefing.add(marker);
+    siteMarkers.push(marker);
   }
 
   /* 1 — THE BANK, in card: the facade, its four columns, and the steps. */
   const bankCard = new THREE.Group();
   bankCard.name = 'briefing-bank-model';
-  bankCard.position.set(-1.62, 1.03, 0.5);
+  bankCard.position.set(-1.62, PLAN_TOP, 0.5);
   box(bankCard, [0.62, 0.3, 0.34], [0, 0.15, -0.04], MAT.paper);
   for (let i = 0; i < 4; i++) box(bankCard, [0.045, 0.24, 0.045], [-0.2 + i * 0.135, 0.12, 0.14], MAT.paper);
   box(bankCard, [0.66, 0.06, 0.06], [0, 0.31, 0.02], MAT.paper);
@@ -302,7 +327,7 @@ function buildSafehouse() {
   /* 2 — MERCER STREET: the strip of road, its kerbs, and the dead van. */
   const streetCard = new THREE.Group();
   streetCard.name = 'briefing-street-model';
-  streetCard.position.set(-0.62, 1.03, 0.16);
+  streetCard.position.set(-0.62, PLAN_TOP, 0.16);
   flat(streetCard, [0.16, 0.014, 0.42], [0, 0.008, 0], MAT.asphalt);
   for (const side of [-1, 1]) flat(streetCard, [0.03, 0.02, 0.42], [side * 0.095, 0.012, 0], MAT.marbleDark);
   for (let i = -1; i <= 1; i++) flat(streetCard, [0.014, 0.004, 0.06], [0, 0.017, i * 0.12], MAT.paper);
@@ -312,7 +337,7 @@ function buildSafehouse() {
   /* 3 — THE GARAGE: a concrete box with its mouth open and its ramp out. */
   const garageCard = new THREE.Group();
   garageCard.name = 'briefing-garage-model';
-  garageCard.position.set(0.34, 1.03, -0.2);
+  garageCard.position.set(0.34, PLAN_TOP, -0.2);
   for (const side of [-1, 1]) box(garageCard, [0.05, 0.22, 0.3], [side * 0.16, 0.11, 0], MAT.darkConcrete);
   box(garageCard, [0.37, 0.22, 0.05], [0, 0.11, -0.175], MAT.darkConcrete);
   box(garageCard, [0.37, 0.04, 0.3], [0, 0.24, 0], MAT.darkConcrete);
@@ -324,7 +349,7 @@ function buildSafehouse() {
   /* 4 — THE SWAP YARD: the shed, the fence, and the clean car under it. */
   const swapCard = new THREE.Group();
   swapCard.name = 'briefing-swap-model';
-  swapCard.position.set(1.24, 1.03, -0.44);
+  swapCard.position.set(1.24, PLAN_TOP, -0.44);
   box(swapCard, [0.34, 0.16, 0.24], [0, 0.08, -0.03], MAT.steel);
   const roof = box(swapCard, [0.38, 0.02, 0.28], [0, 0.17, -0.03], MAT.darkConcrete);
   roof.rotation.z = 0.08;
@@ -344,6 +369,94 @@ function buildSafehouse() {
     const photo = box(briefing, [0.24, 0.006, 0.18], [0.75 + i * 0.02, 1.012 + i * 0.006, 0.72], MAT.paper);
     photo.rotation.y = -0.1 + i * 0.07;
   }
+
+  /* ---------------------------------------------------------------- *
+   * The same table, at the end of the night.
+   *
+   * Owner: *"debrief: tabletop rework + clear objective"*, and — from the
+   * pass before — *"everyone is just waiting for me at the end, not sure
+   * what the debrief shit is either"*. The debrief happens at THIS table, and
+   * the table was still showing the plan: a route to a bank the crew had
+   * already robbed, with the money nowhere on it. The one thing the debrief
+   * is about is the count, and the count lived in a panel in the corner of
+   * the screen — so the room the player was standing in said nothing.
+   *
+   * `setDebrief` swaps the table over. The plan comes off — route, site pads
+   * and all four card models — and what came home goes on: one bag per
+   * recovered bag, in a row along the back edge, each with its cash out in
+   * front of it in banded bundles. Eight bags is a full table. Six is a table
+   * with two gaps in it, which is a thing you can see from the doorway.
+   *
+   * The row deliberately avoids the ashtray, the two mugs, the scale rule and
+   * the photographs, which stay: people are still sitting here. A first pass
+   * put the bags in two rows and swallowed a coffee mug inside bag seven.
+   * ---------------------------------------------------------------- */
+  const planning = [bankCard, streetCard, garageCard, swapCard, route, ...siteMarkers];
+  const takeGroup = new THREE.Group();
+  takeGroup.name = 'briefing-take';
+  takeGroup.visible = false;
+  briefing.add(takeGroup);
+  const takeBags = [];
+  const takeStacks = [];
+  /* The bag body is 0.27 tall about its own origin and the row is scaled to
+   * 0.92, so this is the height that puts eight canvas bottoms on the paper. */
+  const BAG_SCALE = 0.92;
+  const BAG_Y = PLAN_TOP + 0.135 * BAG_SCALE;
+  for (let i = 0; i < 8; i++) {
+    const x = -1.47 + i * 0.42;
+    const bag = makeCashBag({ full: true });
+    bag.name = `debrief-bag-${i + 1}`;
+    bag.position.set(x, BAG_Y, -0.62);
+    bag.rotation.y = (i % 3 - 1) * 0.14;
+    bag.scale.setScalar(BAG_SCALE);
+    takeGroup.add(bag);
+    takeBags.push(bag);
+    /* The cash out of that bag: six banded bundles, two across and three
+     * high, sitting in front of it where a count gets stacked. */
+    const stack = new THREE.Group();
+    stack.name = `debrief-stack-${i + 1}`;
+    stack.position.set(x, PLAN_TOP, 0.06);
+    for (let s = 0; s < 6; s++) {
+      const bx = (s % 2 ? 0.075 : -0.075);
+      const by = 0.016 + Math.floor(s / 2) * 0.032;
+      const note = box(stack, [0.14, 0.03, 0.1], [bx, by, 0], MAT.cash);
+      note.rotation.y = (s % 2 ? 1 : -1) * 0.07;
+      const band = box(stack, [0.042, 0.033, 0.105], [bx, by, 0], MAT.warning);
+      band.rotation.y = note.rotation.y;
+    }
+    takeGroup.add(stack);
+    takeStacks.push(stack);
+  }
+  /* The ledger Numbskull reads the count off, in the corner Lou sits in. */
+  const ledger = box(takeGroup, [0.46, 0.03, 0.32], [2.02, PLAN_TOP + 0.015, -0.5],
+    MAT.paper, 'debrief-ledger');
+  ledger.rotation.y = -0.18;
+  for (let i = 0; i < 6; i++) {
+    box(takeGroup, [0.3 - i * 0.02, 0.008, 0.014],
+      [2.0, PLAN_TOP + 0.033, -0.6 + i * 0.04], MAT.ink).rotation.y = -0.18;
+  }
+
+  /**
+   * Turn the table from a plan into a count, or back.
+   *
+   * @param {number} bags how many of the eight came home
+   * @param {boolean} [on] false puts the plan back — a checkpoint that resumes
+   *   BEFORE the return has to rebuild a table nobody has counted on yet
+   */
+  briefing.userData.setDebrief = (bags = 0, on = true) => {
+    for (const part of planning) part.visible = !on;
+    takeGroup.visible = on;
+    const home = Math.max(0, Math.min(takeBags.length, Math.round(bags)));
+    for (let i = 0; i < takeBags.length; i++) {
+      takeBags[i].visible = i < home;
+      takeStacks[i].visible = i < home;
+    }
+    briefing.userData.debriefBags = on ? home : 0;
+    briefing.userData.debriefShowing = on;
+  };
+  briefing.userData.planTop = PLAN_TOP;
+  briefing.userData.debriefShowing = false;
+  briefing.userData.debriefBags = 0;
   group.add(briefing);
 
   /* The vest, on a stand, facing the room.

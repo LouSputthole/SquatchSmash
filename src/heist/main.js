@@ -297,6 +297,12 @@ function refreshObjective(state = machine.state) {
     weaponsDown,
     swapProgress,
     zipTies,
+    /* The score, for the orders that read it back. Kept live rather than
+     * snapshotted at the count, because a checkpoint entered straight into
+     * the debrief has a ledger and no count event to have run. */
+    bagsRecovered: objective.bagsRecovered,
+    totalBags: objective.totalBags,
+    civilianCasualties: objective.civilianCasualties,
   }));
 }
 
@@ -1608,6 +1614,19 @@ function syncSafehousePresentation() {
    * preparation state came from — a pickup, a checkpoint resume, a preview
    * entry, or the debrief putting the guns back down. */
   syncPlayerArmor();
+  /* And the table shows whichever half of the night the mission is in.
+   *
+   * The same class of bug as `orders.js`: the count on the table was written
+   * by the handler that ran when you pressed the table, so a `?checkpoint=`
+   * preview dropped straight into the debrief stood a room full of people
+   * around a plan for a bank they had already robbed. It is a function of the
+   * mission state here instead, so entering at any checkpoint dresses the
+   * table correctly on frame one — and going BACK past the count (a restored
+   * checkpoint, a failed run) puts the plan back. */
+  level.phases.safehouse.interactables.briefing.userData.setDebrief?.(
+    Math.min(objective.totalBags, objective.bagsRecovered),
+    stateIndex(machine.state) >= stateIndex('MONEY_COUNT'),
+  );
 }
 
 function registerCrewIntroductions() {
@@ -2326,7 +2345,13 @@ function refreshInteractions() {
       refreshObjective();
       refreshInteractions();
     }, { hold: 1.5, enabled: () => machine.state === 'SAFEHOUSE_RETURN' });
-    use(p.safehouse.interactables.briefing, '2/4 — Count the take', () => {
+    /* The label reads the table, before and after. Before the count it is the
+     * instruction; after it, the table is a readout the player can walk back
+     * to and be told the number again — which is the whole point of putting
+     * the bags on it. */
+    use(p.safehouse.interactables.briefing, () => (machine.state === 'FIRST_AID'
+      ? '2/4 — Empty the bags and count the take'
+      : `The take: ${objective.bagsRecovered} of ${objective.totalBags} bags home`), () => {
       if (machine.state !== 'FIRST_AID') return;
       advanceTo('MONEY_COUNT');
       objective.syncLoot(loot.summary());
@@ -2390,10 +2415,16 @@ function refreshInteractions() {
  * taken control away from him.
  */
 function showDebriefBoard() {
-  const board = document.getElementById('debrief-board');
-  if (!board) return;
   objective.syncLoot(loot.summary());
   objective.syncHostages(hostages.summary());
+  /* The count, on the table the crew is standing round, not only in a panel
+   * in the corner of the screen. The plan comes off and the bags that made it
+   * home go on — see `briefing.userData.setDebrief`. */
+  level.phases.safehouse.interactables.briefing.userData.setDebrief?.(
+    Math.min(8, objective.bagsRecovered), true,
+  );
+  const board = document.getElementById('debrief-board');
+  if (!board) return;
   const rows = objective.scorecard()
     .map((row) => `<tr class="${row.good ? 'good' : 'bad'}">`
       + `<td>${row.label}</td><td>${row.value}</td></tr>`)

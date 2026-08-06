@@ -146,3 +146,106 @@ test('escape route has practical lights, readable facades, and a physical pursui
   assert.ok(level.phases.driving.pursuit.getObjectByName('pursuit-lightbar-red'));
   assert.ok(level.phases.driving.pursuit.getObjectByName('pursuit-lightbar-blue'));
 });
+
+test('the briefing table is a plan before the job and the count after it', () => {
+  /* Owner: "debrief: tabletop rework + clear objective." The debrief happens
+   * at the briefing table and the table was still showing the plan — a route
+   * to a bank the crew had already robbed, with the money nowhere on it. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const briefing = level.phases.safehouse.interactables.briefing;
+  const named = (name) => briefing.getObjectByName(name);
+
+  // Before: the plan is up, the take is not.
+  assert.equal(briefing.userData.debriefShowing, false);
+  assert.equal(named('briefing-bank-model').visible, true);
+  assert.equal(named('blueprint-route').visible, true);
+  assert.equal(named('briefing-take').visible, false);
+
+  // After: the plan comes off — route, site pads and all four card models —
+  // and one bag per bag that came home goes on, with its cash out in front.
+  briefing.userData.setDebrief(6, true);
+  for (const name of ['briefing-bank-model', 'briefing-street-model',
+    'briefing-garage-model', 'briefing-swap-model', 'blueprint-route',
+    'briefing-site-bank', 'briefing-site-swap']) {
+    assert.equal(named(name).visible, false, `${name} is still on the table`);
+  }
+  assert.equal(named('briefing-take').visible, true);
+  assert.equal(named('debrief-ledger').visible, true);
+  for (let i = 1; i <= 8; i++) {
+    const home = i <= 6;
+    assert.equal(named(`debrief-bag-${i}`).visible, home, `bag ${i}`);
+    assert.equal(named(`debrief-stack-${i}`).visible, home, `stack ${i}`);
+  }
+  assert.equal(briefing.userData.debriefBags, 6);
+
+  // And it goes back, because a checkpoint can land before the count.
+  briefing.userData.setDebrief(0, false);
+  assert.equal(named('briefing-bank-model').visible, true);
+  assert.equal(named('briefing-take').visible, false);
+});
+
+test('nothing on the briefing table hovers over the paper it is drawn on', () => {
+  /* Every model on this plan was authored at a hand-picked y between 1.02 and
+   * 1.035 while the sheet's top face is at 1.0075, so the whole plan floated
+   * one to two and a half centimetres above it. `scene-audit` cannot see this
+   * — its FLOATING rule allows 12 cm of support gap on purpose — so it is
+   * measured here instead, against the surface itself. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const briefing = level.phases.safehouse.interactables.briefing;
+  briefing.updateWorldMatrix(true, true);
+  const sheet = briefing.getObjectByName('briefing-plan-sheet');
+  const paper = new THREE.Box3().setFromObject(sheet).max.y;
+
+  const seated = (object) => {
+    const bottom = new THREE.Box3().setFromObject(object).min.y;
+    assert.ok(bottom >= paper - 0.004 && bottom <= paper + 0.004,
+      `${object.name} sits ${((bottom - paper) * 1000).toFixed(1)} mm off the plan sheet`);
+  };
+  for (const name of ['briefing-bank-model', 'briefing-street-model',
+    'briefing-garage-model', 'briefing-swap-model', 'blueprint-route',
+    'briefing-site-bank', 'briefing-site-street', 'briefing-site-garage',
+    'briefing-site-swap']) {
+    seated(briefing.getObjectByName(name));
+  }
+
+  briefing.userData.setDebrief(8, true);
+  briefing.updateWorldMatrix(true, true);
+  for (let i = 1; i <= 8; i++) {
+    seated(briefing.getObjectByName(`debrief-bag-${i}`));
+    seated(briefing.getObjectByName(`debrief-stack-${i}`));
+  }
+  seated(briefing.getObjectByName('debrief-ledger'));
+});
+
+test('the debrief bags do not swallow the mugs the crew is still drinking from', () => {
+  /* A first pass laid the eight bags out in two rows and put a coffee mug
+   * inside bag seven. People are still sitting at this table. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const briefing = level.phases.safehouse.interactables.briefing;
+  briefing.userData.setDebrief(8, true);
+  briefing.updateWorldMatrix(true, true);
+
+  /* The ashtray, the two mugs and the cigarette pack: unnamed meshes standing
+   * ON the plan with real height. Deliberately not the printed border, the
+   * survey grid or the photographs — those are 4-to-6 mm of ink lying flat on
+   * the paper, and a bag resting on the paper is meant to touch them. */
+  const paper = new THREE.Box3()
+    .setFromObject(briefing.getObjectByName('briefing-plan-sheet')).max.y;
+  const clutter = [];
+  for (const child of briefing.children) {
+    if (child.name || !child.isMesh) continue;
+    const box = new THREE.Box3().setFromObject(child);
+    if (box.max.y - box.min.y < 0.02 || box.max.y < paper) continue;
+    clutter.push(box);
+  }
+  assert.ok(clutter.length >= 4, `expected the table's props, saw ${clutter.length}`);
+  for (let i = 1; i <= 8; i++) {
+    for (const name of [`debrief-bag-${i}`, `debrief-stack-${i}`]) {
+      const item = new THREE.Box3().setFromObject(briefing.getObjectByName(name));
+      for (const prop of clutter) {
+        assert.equal(item.intersectsBox(prop), false,
+          `${name} is standing on top of something that was already on the table`);
+      }
+    }
+  }
+});

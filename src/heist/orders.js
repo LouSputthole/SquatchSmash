@@ -57,12 +57,33 @@
  * @property {boolean} [weaponsDown]     the guns are on the safehouse table
  * @property {object}  [swapProgress]    the seven evidence actions
  * @property {number}  [zipTies]         ties left in the case
+ * @property {number}  [bagsRecovered]   vault bags that came home
+ * @property {number}  [totalBags]       how many there were to begin with
+ * @property {number}  [civilianCasualties] people who did not walk out
  */
 
 /** How many of the seven evidence actions at the swap are done. */
 function swapDone(progress) {
   const values = Object.values(progress ?? {});
   return values.length ? values.filter(Boolean).length : 0;
+}
+
+/**
+ * The job's score, in the one sentence the debrief is about.
+ *
+ * The two axes `HeistObjectiveLedger` keeps and Lou asks about. It TRAILS the
+ * instruction rather than leading it: the numbered step is the thing the
+ * player has to act on and has to stay at the front of the line, which is
+ * also what `heist-systems.test.mjs` pins.
+ */
+function takeLine(context = {}) {
+  const bags = context.bagsRecovered ?? 0;
+  const total = context.totalBags ?? 8;
+  const dead = context.civilianCasualties ?? 0;
+  const people = dead === 0
+    ? 'Nobody hurt'
+    : `${dead} civilian${dead === 1 ? '' : 's'} killed`;
+  return `THE TAKE: ${bags}/${total} bags · ${people}.`;
 }
 
 /**
@@ -160,14 +181,22 @@ export const HEIST_ORDERS = Object.freeze({
       : `Nobody followed you in. Transfer the cash, change, and bag the weapons — ${done}/7 done.`;
   },
 
-  /* ---- the safehouse, coming home ---- */
-  SAFEHOUSE_RETURN: '1/4 — Let the room breathe. Get Rippin’s leg wrapped.',
-  FIRST_AID: '2/4 — Stack the bags on the table and count the take with Snow.',
-  MONEY_COUNT: '2/4 — Stack the bags on the table and count the take with Snow.',
-  DEBRIEF: (c = {}) => (c.weaponsDown
-    ? '4/4 — Answer Lou’s call.'
-    : '3/4 — Put the weapons down on the table.'),
-  LOU_CALL_SAFEHOUSE: 'Hear Lou out.',
+  /* ---- the safehouse, coming home ----
+   *
+   * Owner: *"debrief ... + a clear objective at that phase"*. The four steps
+   * were numbered by the pass before this one, which fixed "everyone is just
+   * waiting for me" — but every one of them was a bare instruction, so a
+   * player who had just watched the bags go on the table was still not told
+   * WHAT HAD BEEN DECIDED. The debrief is the only place the job gets scored,
+   * so from the count onward the order carries the count: the two numbers Lou
+   * asks about, in the HUD, next to the thing you still have to do. */
+  SAFEHOUSE_RETURN: '1/4 — Let the room breathe. Get Rippin’s leg wrapped. HOLD E.',
+  FIRST_AID: '2/4 — Empty the bags onto the briefing table and count the take. HOLD E at the table.',
+  MONEY_COUNT: '2/4 — Empty the bags onto the briefing table and count the take. HOLD E at the table.',
+  DEBRIEF: (c = {}) => `${c.weaponsDown
+    ? '4/4 — Answer Lou’s call at the van.'
+    : '3/4 — Put the weapons down on the bench.'} ${takeLine(c)}`,
+  LOU_CALL_SAFEHOUSE: (c = {}) => `Hear Lou out. ${takeLine(c)}`,
 
   /* ---- after ---- */
   RETURN_APARTMENT: 'Go home.',
