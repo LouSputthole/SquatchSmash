@@ -26,8 +26,20 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isEnolaPreloadCue } from '../src/enolasquatch/audio.js';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5225;
+
+// The residency contract this mission is held to — see src/enolasquatch/audio.js.
+const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+const indexedFiles = new Set(soundIndex.files || []);
+const selectedEnolaCues = soundManifest.sfx.filter((cue) => isEnolaPreloadCue(cue));
+const expectedEnolaResidentNames = selectedEnolaCues
+  .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+  .map((cue) => cue.name)
+  .sort();
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -113,6 +125,63 @@ try {
       && booted.phase === 'walkaround' && booted.inCockpit === false
       && booted.playerEnabled && booted.onGround,
     JSON.stringify(booted));
+
+  /* ---- Bloom mounts at NO WAKE's own tuning (this is the same class of
+   * scene — open-air, night, distant lights — see main.js's own comment on
+   * why it borrows those exact numbers) with the auto-fallback still armed. */
+  const postfxBoot = await page.evaluate(() => {
+    const fx = window.__enolaSquatch.postfx;
+    return {
+      present: Boolean(fx),
+      enabled: fx?.enabled,
+      hasComposer: Boolean(fx?.composer),
+      hasBloom: Boolean(fx?.bloom),
+      strength: fx?.bloom?.strength ?? null,
+      threshold: fx?.bloom?.threshold ?? null,
+      manual: fx?._manual,
+    };
+  });
+  check('PostFX mounts enabled with the tuned-down exterior bloom and the auto-fallback armed',
+    postfxBoot.present && postfxBoot.enabled && postfxBoot.hasComposer && postfxBoot.hasBloom
+      && postfxBoot.strength === 0.25 && postfxBoot.threshold === 1.18 && postfxBoot.manual === false,
+    JSON.stringify(postfxBoot));
+
+  /* ---- Audio residency: startAudio() fires audio.loadManifest() in the
+   * background rather than awaiting it (see main.js's own comment on why),
+   * so wait for that same promise before reading what actually got decoded. */
+  await page.evaluate(async () => {
+    const engine = window.__enolaSquatch.audio.engine;
+    if (engine._manifestLoadPromise) await engine._manifestLoadPromise;
+  });
+  const enolaAudioResidency = await page.evaluate(() => {
+    const engine = window.__enolaSquatch.audio.engine;
+    return {
+      plan: engine.preloadStats ?? null,
+      loaded: engine.loadedCount,
+      resident: [...engine.buffers.keys()].sort(),
+    };
+  });
+  const missingEnolaNames = expectedEnolaResidentNames
+    .filter((name) => !enolaAudioResidency.resident.includes(name));
+  const unexpectedEnolaNames = enolaAudioResidency.resident
+    .filter((name) => !expectedEnolaResidentNames.includes(name));
+  check('The Enola Squatch decodes exactly its own scoped cue set (vo.enolasquatch.*/enolasquatch.*/enola.*/footstep.*/ambience.*/shared effects) — no more, no less',
+    enolaAudioResidency.plan?.manifestTotal === soundManifest.sfx.length
+      && enolaAudioResidency.plan?.selected === expectedEnolaResidentNames.length
+      && enolaAudioResidency.loaded === expectedEnolaResidentNames.length
+      && enolaAudioResidency.resident.length === expectedEnolaResidentNames.length
+      && missingEnolaNames.length === 0
+      && unexpectedEnolaNames.length === 0,
+    JSON.stringify({
+      plan: enolaAudioResidency.plan,
+      loaded: enolaAudioResidency.loaded,
+      expected: expectedEnolaResidentNames.length,
+      missing: missingEnolaNames.slice(0, 5),
+      unexpected: unexpectedEnolaNames.slice(0, 5),
+    }));
+  check('the resident bank is a small slice of the shared manifest, not the whole bank',
+    expectedEnolaResidentNames.length < soundManifest.sfx.length * 0.1,
+    JSON.stringify({ resident: expectedEnolaResidentNames.length, manifest: soundManifest.sfx.length }));
 
   /* ---- The crew are actually there, standing round the aeroplane ---- */
   const crewOnApron = await page.evaluate(() => {

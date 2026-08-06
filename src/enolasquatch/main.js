@@ -69,6 +69,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { PostFX } from '../core/postfx.js';
 import { roomEnvironment } from '../world/textures.js';
 import { resolveGear } from '../world/gear.js';
 
@@ -221,10 +222,36 @@ const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.1, 15000);
 
+/*
+ * Bloom, tuned down from the apartment's defaults for the same reason NO WAKE
+ * tunes it down (`src/nowake/main.js`): this is a wide-open night exterior,
+ * not a small dark room. The unmodified defaults in `core/postfx.js` were set
+ * against 151 emissive meshes crammed into one flat; out here the emissive
+ * surfaces are Squatchbourg's lit windows and streets seen from altitude, the
+ * tracer fire, the muzzle flashes and the engine-out smoke glow, and they are
+ * both far more numerous and far more likely to sit above the default 0.82
+ * threshold than a lamp in a room. A higher threshold and lower strength keep
+ * the same restrained "just the genuinely bright things" read this scene's
+ * flight already has rather than washing the whole city out. The nuclear
+ * flash/shock is unaffected either way — `blastWhiteout`/`blastLuminance`
+ * (./vfx/Detonation.js) are a separate CSS filter chain over the finished
+ * frame, exactly as postfx.js's own header describes for the drink/mushroom
+ * filters; bloom and that wash do not interact and neither replaces the
+ * other. Same two knobs NO WAKE turns, same values, for the same class of
+ * scene (open-air, night, distant lights) rather than an untested guess.
+ */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.18;
+  postfx.bloom.strength = .25;
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* ------------------------------------------------------------------ */
@@ -1492,7 +1519,7 @@ window.__squatch.enolaSquatch = true;
 
 window.__enolaSquatch = {
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
-  cameras, input, hud, flightHud, scene, camera, renderer, airfield,
+  cameras, input, hud, flightHud, scene, camera, renderer, airfield, postfx,
   player, interaction, preflight, crew, city, audio: missionAudio,
   get defense() { return mission.defense; },
   get targeting() { return mission.targeting; },
@@ -2074,7 +2101,8 @@ function frame() {
     simulateFrame(dt);
   }
 
-  renderer.render(scene, camera);
+  postfx.render();
+  postfx.sample(dt);
 }
 
 frame();
