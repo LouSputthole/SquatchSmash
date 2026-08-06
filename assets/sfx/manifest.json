@@ -9480,51 +9480,77 @@
     },
     {
       "name": "kitchen.clatter",
-      "_note": "Steel landing on steel behind the pass. A kitchen reads as a kitchen because of irregular metal at irregular intervals, not because of a louder hum."
+      "_note": "Steel landing on steel behind the pass. A kitchen reads as a kitchen because of irregular metal at irregular intervals, not because of a louder hum.",
+      "prompt": "a small stack of steel pans and lids landing unevenly on a stainless kitchen counter behind a restaurant pass, three irregular metallic knocks, close, dry, no music, no voice",
+      "duration": 0.6
     },
     {
       "name": "kitchen.chop",
-      "_note": "A blade through something firm onto a board. Rationed: the line is busy, not frantic."
+      "_note": "A blade through something firm onto a board. Rationed: the line is busy, not frantic.",
+      "prompt": "a single knife chop through a firm vegetable onto a wooden cutting board, quick low thud with a faint blade edge tick, close kitchen mic, dry, no music, no voice",
+      "duration": 0.4
     },
     {
       "name": "kitchen.oven",
-      "_note": "An oven door and a tray going in. Heavy, and only once in a while."
+      "_note": "An oven door and a tray going in. Heavy, and only once in a while.",
+      "prompt": "a heavy restaurant oven door opened on a sprung hinge and a metal tray slid in, followed by the door latching shut, close kitchen mic, dry, no music, no voice",
+      "duration": 1.0
     },
     {
       "name": "kitchen.ticket",
-      "_note": "The printer at the pass. Short, and it means somebody out in the room ordered."
+      "_note": "The printer at the pass. Short, and it means somebody out in the room ordered.",
+      "prompt": "a restaurant kitchen order-ticket printer at the pass, two short electronic chirps followed by a paper tear, close, dry, no music, no voice",
+      "duration": 0.6
     },
     {
       "name": "dining.cutlery",
-      "_note": "A fork set down on a plate at another table. Never intelligible, never a punchline."
+      "_note": "A fork set down on a plate at another table. Never intelligible, never a punchline.",
+      "prompt": "a single fork set down gently onto a china plate at a nearby restaurant table, soft metallic tap, distant room tone, dry, no music, no voice",
+      "duration": 0.6
     },
     {
       "name": "dining.glass.clink",
-      "_note": "Glass on glass across the room. The Silver Room is full and should sound full."
+      "_note": "Glass on glass across the room. The Silver Room is full and should sound full.",
+      "prompt": "two wine glasses clinking together briefly at a nearby table in a full restaurant dining room, bright single glass chime with faint room tone, no music, no voice",
+      "duration": 0.6
     },
     {
       "name": "dining.chair",
-      "_note": "A chair moved on carpet. Somebody is leaving, and it is not about you."
+      "_note": "A chair moved on carpet. Somebody is leaving, and it is not about you.",
+      "prompt": "a wooden dining chair shifted and scraped a short distance across thick carpet, single low cloth-and-frame scrape, restaurant room tone, dry, no music, no voice",
+      "duration": 1.0
     },
     {
       "name": "margo.snore",
-      "_note": "Margo asleep beside him, before she sits up. Owner: \"lets add a low key snore sound\" -- low key is the whole direction. She is sixty centimetres from his ear so it plays dry rather than positioned, and it stops the moment she moves."
+      "_note": "Margo asleep beside him, before she sits up. Owner: \"lets add a low key snore sound\" -- low key is the whole direction. She is sixty centimetres from his ear so it plays dry rather than positioned, and it stops the moment she moves.",
+      "prompt": "one slow low-key snore of a woman sleeping close by, gentle nasal intake breath followed by a slower nasal release, soft and quiet, dry close mic, no music, no voice",
+      "duration": 1.8
     },
     {
       "name": "enolasquatch.gun.rear",
-      "_note": "The Enola Squatch tail gun, close. Owner: \"better bigger machine guns sounds for the rear gun\" -- it had been playing the apartment REVOLVER at eleven shots a second."
+      "_note": "The Enola Squatch tail gun, close. Owner: \"better bigger machine guns sounds for the rear gun\" -- it had been playing the apartment REVOLVER at eleven shots a second.",
+      "prompt": "a single shot from a pair of half-inch belt-fed heavy aircraft machine guns fired from an open turret at altitude, enormous low-end thump under a hard supersonic crack off the muzzle, audible reciprocating bolt mechanism slamming shut in a steel receiver close to the ear, brass ejecting into a chute, short wide slipstream wind wash instead of a room tail, no reverb, no music, no voice",
+      "duration": 0.6
     },
     {
       "name": "enolasquatch.gun.rear.cabin",
-      "_note": "The same gun heard from the cabin: the airframe between you and it, not the muzzle."
+      "_note": "The same gun heard from the cabin: the airframe between you and it, not the muzzle.",
+      "prompt": "the same heavy twin aircraft machine gun heard from deep inside the fuselage thirteen metres away, muffled low thump and a duller distant crack with the mechanism buried by airframe structure, no bright high end, short decay, no reverb tail, no music, no voice",
+      "duration": 0.6
     },
     {
       "name": "ambience.kitchen.line",
-      "_note": "The Silver Room kitchen bed: gas and a simmer under the extraction fan. The thing everybody in there shouts over."
+      "_note": "The Silver Room kitchen bed: gas and a simmer under the extraction fan. The thing everybody in there shouts over.",
+      "prompt": "a busy restaurant kitchen line ambience, steady gas burner hiss and a low simmer under a constant extraction fan hum, occasional distant pot clatter, no voices, no music, seamless loop",
+      "loop": true,
+      "duration": 12
     },
     {
       "name": "ambience.diners.chatter",
-      "_note": "The main room, full. Vowel-range and nothing intelligible, and it thins to under half while anybody is talking or the featured number is playing."
+      "_note": "The main room, full. Vowel-range and nothing intelligible, and it thins to under half while anybody is talking or the featured number is playing.",
+      "prompt": "a full restaurant dining room ambience, dense overlapping indistinct diner chatter in a low vowel-range murmur with no intelligible words, occasional soft clink of cutlery and glasses at nearby tables, warm room tone, no music, no shouting, seamless loop",
+      "loop": true,
+      "duration": 12
     },
     {
       "name": "vo.bing2.shubenator.intro",
