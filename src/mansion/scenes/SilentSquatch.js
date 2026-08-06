@@ -3655,17 +3655,28 @@ export function buildSilentSquatch({
 
       /** The sibling supplies the cue; this supplies the mouth and the path. */
       say(cue, opts = {}) {
-        if (!self.alive && !opts.force) return false;
-        const secs = opts.seconds ?? 1.7;
+        if (!self.alive && !opts.force) return 0;
+        /* THE REAL LENGTH, when there is a recording.
+         *
+         * `opts.seconds ?? 1.7` was a guess doing two jobs badly: it decided
+         * how long the mouth moved AND, upstream, how long the line held
+         * before the next one started. Both were wrong for any take that is
+         * not 1.7 seconds long, which is most of them — a mouth that stops
+         * mid-sentence, and a scientist talked over by the next scientist.
+         *
+         * Returns the seconds it used, so `SilentSquatchMission.#speak` can
+         * hand it to the dialogue controller. `0` means nothing was spoken. */
+        const recorded = cue ? (audio?.sampleDuration?.(cue) ?? 0) : 0;
+        const secs = opts.seconds ?? (recorded > 0 ? recorded : 1.7);
         fig.speak(secs);
-        if (!cue) return true;
+        if (!cue) return secs;
         const at = fig.group.position.clone();
         at.y = LAB_Y + 1.55;
         const route = self.inside ? glassAudio.say.bind(glassAudio) : plainSay;
         route(cue, {
           volume: opts.volume ?? 0.9, position: at, ref: 2.2, maxDist: 26, ...opts,
         });
-        return true;
+        return secs;
       },
       /** Face a world point (the glass, Booski, the core). */
       lookAt(x, z) { fig.lookAt({ x, z }); return self; },

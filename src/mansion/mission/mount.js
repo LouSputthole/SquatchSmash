@@ -181,11 +181,19 @@ export function mountSilentSquatch({
     onCase,
     playCue: (cue) => {
       /* A dry line, from somebody standing in the room. Cue names are data
-       * here, never a literal at a call site: none of this mission's cues have
-       * been generated yet (see tests/silent-squatch-voice.test.mjs), so this
-       * is silence plus a subtitle until they are, which is the game's own
-       * silence-over-synthesis convention. */
-      if (audio?.hasSample?.(cue)) audio.play(cue);
+       * here, never a literal at a call site.
+       *
+       * THIS COMMENT USED TO SAY the mission's cues "have not been generated
+       * yet", so this was "silence plus a subtitle until they are". That
+       * stopped being true at some point and nobody updated it — 175 of the
+       * 191 are recorded — and the stale note is a good part of why the scene
+       * was played in silence for so long without anybody chasing it.
+       *
+       * Returns the take's length so the line holds for the recording rather
+       * than for an authored guess. See `DialogueController._advance`. */
+      if (!audio?.hasSample?.(cue)) return 0;
+      audio.play(cue);
+      return audio.sampleDuration?.(cue) ?? 0;
     },
   });
 

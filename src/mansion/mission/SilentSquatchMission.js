@@ -476,17 +476,26 @@ class SilentSquatchMission {
   /** Route a line to the right mouth. Behind the glass, that is a scientist's
    * body and `lab.glassAudio`; in the observation room it is a plain cue. */
   #speak(cue, voice, line, playCue) {
-    if (!cue) return;
+    if (!cue) return 0;
     const index = SCIENTIST_INDEX[line.speaker];
     if (line.muffled) {
       this.glassRouted++;
       const body = index === undefined ? null : this.lab.scientists?.[index];
-      if (body?.say) body.say(cue);
-      else this.lab.glassAudio?.play?.(cue);
-      return;
+      /* Both muffled routes return the take's length for the same reason the
+       * dry one does — a line behind the glass is still a line, and the
+       * controller has to know how long to hold it or the next one talks over
+       * it. See `DialogueController._advance`. */
+      if (body?.say) return body.say(cue) || 0;
+      /* No body for this speaker, so it goes through the glass bus directly.
+       * That path returns an audio node rather than a length, and there is no
+       * duration accessor on it — so this reports 0 and the line falls back to
+       * its authored hold. Worth knowing rather than guessing: it is the only
+       * route in the scene that still does. */
+      this.lab.glassAudio?.play?.(cue);
+      return 0;
     }
     this.dryRouted++;
-    playCue?.(cue, voice);
+    return playCue?.(cue, voice) || 0;
   }
 
   /** Stage directions written into the script. The lab ones are performed
