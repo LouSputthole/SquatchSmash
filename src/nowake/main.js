@@ -25,6 +25,7 @@ import { NoWakeCameraDirector } from './camera-director.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -39,6 +40,67 @@ const rpmReadout = document.getElementById('rpm-readout');
 const routeProgress = document.getElementById('route-progress');
 const executionPrompt = document.getElementById('execution-prompt');
 const speakerEl = document.getElementById('speaker');
+
+/* ------------------------------------------------------------------ */
+/* Preview checkpoint shortcuts (?preview=1&checkpoint=...)            */
+/*
+ * LOCAL support only, deliberately -- mirrors src/enolasquatch/main.js's
+ * own CHECKPOINT_ALIASES rather than routing through src/core/preview-mode.js,
+ * whose two checkpoint parsers (Heist's and Beef Run's) are each a different
+ * scene's own vocabulary and neither can be taught NO WAKE's checkpoints
+ * without changing a file those two scenes depend on. NO WAKE is
+ * campaign-owned, so this is gated on the shared, scene-agnostic
+ * `isPreviewMode()` the same way Enola's is -- a bare `?checkpoint=` on an
+ * ordinary link must do nothing.
+ *
+ * Only `dock`/`underway`/`open_water`/`execution` are the mission's real,
+ * saveable checkpoints (see `CHECKPOINTS` in src/core/no-wake-story.js). The
+ * owner's waypoints below map onto that vocabulary where one exists
+ * (`underway`, `inlet` -> `open_water`) and pose the later beats directly
+ * where it doesn't -- `confrontation`/`body`/`return` replay the mission's own
+ * progression functions (`beginConfrontation`, `prepareGuns`/`willyReturns`,
+ * `fireExecution`, `disposeBody`) in order, the same way
+ * src/mansion/siege/main.js's `jumpToCheckpoint` walks its own beat chain
+ * instead of assigning `state.phase` by hand.
+ */
+const NO_WAKE_CHECKPOINT_ALIASES = Object.freeze({
+  dock: 'dock',
+  underway: 'underway',
+  inlet: 'inlet',
+  confrontation: 'confrontation',
+  body: 'body',
+  weighted: 'body',
+  return: 'return',
+});
+const NO_WAKE_CHECKPOINT_LABELS = Object.freeze({
+  dock: 'GATE C — ABOARD',
+  underway: 'UNDERWAY — CLEAR OF THE MARINA',
+  inlet: 'THE INLET — OPEN WATER, IDLE',
+  confrontation: 'THE CONFRONTATION',
+  body: 'THE BODY',
+  return: 'THE RIDE HOME',
+});
+function previewCheckpointForLocation(locationLike = window.location) {
+  // Same gate as `src/core/preview-mode.js`'s own checkpoint parsers: a bare
+  // `?checkpoint=` on an ordinary link does nothing without `?preview=1`
+  // alongside it, so a shared preview link cannot be mistaken for a normal
+  // campaign entry.
+  if (!isPreviewMode(locationLike)) return null;
+  let params;
+  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
+  const value = params.get('checkpoint');
+  return value && Object.prototype.hasOwnProperty.call(NO_WAKE_CHECKPOINT_ALIASES, value)
+    ? NO_WAKE_CHECKPOINT_ALIASES[value]
+    : null;
+}
+/** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
+const previewCheckpoint = previewCheckpointForLocation();
+if (previewCheckpoint) {
+  const label = NO_WAKE_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
+  const tag = overlay?.querySelector('.tag');
+  if (tag) tag.textContent = `Preview checkpoint: ${label}. Progress on this page is temporary.`;
+  if (startButton) startButton.textContent = `Start at ${label.toLowerCase()}`;
+}
 
 const campaign = createCampaign();
 const story = createNoWakeStory({ campaign });
@@ -1146,6 +1208,68 @@ function resumeCheckpoint() {
   }
 }
 
+/**
+ * Preview-only checkpoint jump.
+ *
+ * Walks the mission's own real progression functions in order rather than
+ * assigning `state.phase` by hand -- the same contract
+ * src/mansion/siege/main.js's `jumpToCheckpoint` documents for its own beat
+ * chain. `dock` reproduces what `beginBoarding()`'s own completion callback
+ * does (see above), minus the animated walk across the boarding platform.
+ * `underway`/`inlet` route straight through the console-debug handles this
+ * file already exposes (`runtime.startUnderway()`/`runtime.skipDrive()`).
+ * `confrontation`/`body`/`return` pose the later beats directly -- calling
+ * `beginConfrontation()`, `fireExecution()` and `disposeBody()`, the exact
+ * functions a played run calls -- because none of those three is one of the
+ * mission's four saveable checkpoints (dock/underway/open_water/execution),
+ * so there is no earlier real checkpoint to route them through the way
+ * `resumeCheckpoint()`, above, routes `underway`/`open_water`. Each of these
+ * is real, live state: `confrontation` leaves the confrontation dialogue and
+ * the beats after it (below decks, the guns, the return leg) to keep
+ * advancing on the page's own timers exactly as they would in a played run,
+ * and `return` will genuinely finish the mission and navigate home after the
+ * same ride-in that a real playthrough takes.
+ */
+function jumpToPreviewCheckpoint(id) {
+  state.boarded = true;
+  boat.boardingBridge.visible = false;
+  boat.targets.board.visible = false;
+  player.mode = 'walk';
+  player.enabled = true;
+  player.ground = boat.root.position.y + boat.deck.height;
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.yawCenter = null;
+  player.yawRange = Math.PI;
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72)));
+  player.velocity.set(0, 0, 0);
+  interaction.setPaused(false);
+  hud.toast('Aboard · Gate C', 'good');
+  setObjective('Start the boat', 'Battery · blower · ignition');
+  story.checkpoint('dock');
+  if (id === 'dock') return;
+
+  runtime.startUnderway();
+  if (id === 'underway') return;
+
+  runtime.skipDrive();
+  if (id === 'inlet') return;
+
+  if (id === 'confrontation') {
+    beginConfrontation();
+    return;
+  }
+
+  // body/return pose the execution directly rather than sitting through the
+  // confrontation dialogue -- see the doc comment above.
+  prepareGuns();
+  willyReturns();
+  fireExecution();
+  if (id === 'body') return;
+
+  disposeBody();
+}
+
 function showEntryAvailability() {
   if (entry.ok) return;
   startButton.textContent = 'Return to the apartment';
@@ -1245,6 +1369,12 @@ startButton.addEventListener('click', async () => {
     manifestTotal: audio.manifest.sfx.length,
     selected: loadedAudio.total,
   };
+  /* After the manifest load, same reasoning as the engine-idle restart just
+   * below: `jumpToPreviewCheckpoint` can call real, audio-playing functions
+   * (`beginConfrontation`, `fireExecution`) and `audio.play()` silently does
+   * nothing before `audio.ready` -- calling it any earlier would lose the
+   * checkpoint's own opening line or gunshot. */
+  if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
   // A resumed checkpoint arrives with the engines already running. They were
   // silent until the player restarted the mission from the dock.
   if (state.engine) {
@@ -1262,7 +1392,7 @@ startButton.addEventListener('click', async () => {
   sceneInventory.show();
   overlay.classList.add('out');
   player.enabled = true;
-  playDockInstructions();
+  if (!previewCheckpoint) playDockInstructions();
   setTimeout(() => overlay.remove(), 850);
 });
 
