@@ -156,6 +156,58 @@ export const WEST_WING = Object.freeze({
 export const WING_ROOF_Y0 = 6.6;
 export const WING_ROOF_Y1 = 7.05;
 
+/* ==================================================================== */
+/* THE THIRD FLOOR — LOU'S MASTER SUITE                                  */
+/*                                                                        */
+/* Owner, verbatim: "It was supposed to be on the third floor -- ultra     */
+/* over-the-top luxury bedroom, hot tub with girls, the dog, and           */
+/* everything. Canopy bed. Big TV. Cool lighting."                         */
+/*                                                                          */
+/* WHY IT IS OVER THE OFFICE AND NOT OVER THE WEST WING. The brief that     */
+/* reached this pass said "above the office/west wing", and the west wing    */
+/* is the wrong half of that sentence, measurably: its roof is at            */
+/* WING_ROOF_Y0/Y1 = 6.6/7.05, deliberately UNDER the upper storey's window  */
+/* sills at 6.9. A storey standing on it would have 3.15 m to the main       */
+/* block's own roof and would black out every rear bedroom window on the     */
+/* west elevation. It would also not be a THIRD floor — it would be a        */
+/* second one, level with the bedrooms.                                      */
+/*                                                                            */
+/* The house has exactly one honest third floor: on top of the main roof       */
+/* slab, whose finished top is ROOF_Y1 = 10.6. So the suite floor IS that      */
+/* slab, and the suite's walls stand on the walls below it — x = ±9 (the       */
+/* office's own flank partitions), z = 63 (the conference/office partition)    */
+/* and z = 75 (the rear elevation). Nothing cantilevers, and the mass reads    */
+/* from the grounds as a set-back pavilion over the rear of the centre block   */
+/* with 7.25 m of flat roof either side of it, which is what a top storey on   */
+/* a house this shape looks like.                                              */
+/*                                                                              */
+/* `SUITE_STAIR_WELL` is the hole this floor needs cut through the roof slab    */
+/* for the concealed stair that climbs out of Lou's office. MansionInterior.js  */
+/* builds the stair inside that rect and imports it from here so the slab and   */
+/* the flight can never disagree about where the opening is.                    */
+/* ==================================================================== */
+/** Suite floor = the top of the existing roof slab. Nothing is re-poured. */
+export const SUITE_Y = ROOF_Y1;
+/** 3.2 m ceilings. The floor below has 4.2; a top storey sits a little lower. */
+export const SUITE_CEILING_Y = 13.8;
+export const SUITE_ROOF_Y0 = SUITE_CEILING_Y;
+export const SUITE_ROOF_Y1 = 14.2;
+/** Inner faces of the suite. Stacked exactly on the office below. */
+export const MASTER_SUITE = Object.freeze({
+  x0: -8.85, x1: 8.85, z0: 63.15, z1: 75.0,
+});
+/**
+ * The hole in the main roof slab that the concealed stair rises through.
+ *
+ * These are the OPEN edges — the faces a balustrade stands on, not the
+ * outside of the walls below. The stair hall's west wall is x 6.25..6.55 and
+ * its north wall z 68.85..69.15; both stop at ROOF_Y0 and carry the slab, so
+ * the slab reaches over their heads and the parapet stands on top of it.
+ */
+export const SUITE_STAIR_WELL = Object.freeze({
+  x0: 6.55, x1: 8.85, z0: 65.25, z1: 68.85,
+});
+
 /* THE LOWER LEVEL (owner brief, third pass): a guest bedroom, a LAN room, a
  * home theatre and a vault, none of which fit in the armory.
  *
@@ -2363,12 +2415,182 @@ export function buildMansionGrounds(scene = null) {
     wingSpill.position.set(wingOuterX - 1.4, 2.8, 48.0);
     root.add(wingSpill);
 
-    // Roof slab (small eave overhang) + gold roofline trim.
-    root.add(box({
-      size: [BUILDING.x1 - BUILDING.x0 + 0.8, ROOF_Y1 - ROOF_Y0, BUILDING.z1 - BUILDING.z0 + 0.8],
-      pos: [0, (ROOF_Y0 + ROOF_Y1) / 2, (BUILDING.z0 + BUILDING.z1) / 2],
-      mat: M_ROOF,
-    }));
+    /* -- THE THIRD FLOOR: the master suite's own shell. ------------------
+     *
+     * Four walls, four windows and a roof, standing on the main roof slab
+     * over the rear of the centre block. See the note on SUITE_Y at the top
+     * of this file for why it is here and not over the west wing.
+     *
+     * The walls land ON the walls below — x = ±9 are the office's flank
+     * partitions, z = 63 is the conference/office partition and z = 75 is the
+     * rear elevation — so the load path is honest and the mass reads from the
+     * grounds as a set-back top storey with 7.25 m of flat roof either side.
+     *
+     * Corners: the two flank walls carry the FULL outer z extent and the two
+     * end walls only the inner x extent, so they butt rather than overlap.
+     * (The main block's own shell leaves a 0.3 m gap at each corner instead;
+     * that is a separate, older thing and not this pass's to move.) */
+    {
+      const sx0 = MASTER_SUITE.x0 - WALL_T;  // -9.15
+      const sx1 = MASTER_SUITE.x1 + WALL_T;  //  9.15
+      const sz0 = MASTER_SUITE.z0 - WALL_T;  //  62.85
+      const sz1 = MASTER_SUITE.z1 + WALL_T;  //  75.30
+      /** Head and sill of the suite's glazing. */
+      const SUITE_SILL = SUITE_Y + 0.9;      // 11.5
+      const SUITE_HEAD = SUITE_Y + 2.7;      // 13.3
+
+      // West and east flanks, with one window each.
+      for (const [lo, hi, tag, id] of [
+        [sx0, MASTER_SUITE.x0, 'suite-west', 'suiteWest'],
+        [MASTER_SUITE.x1, sx1, 'suite-east', 'suiteEast'],
+      ]) {
+        panelWall({
+          axis: 'x',
+          lo,
+          hi,
+          u0: sz0,
+          u1: sz1,
+          y0: SUITE_Y,
+          y1: SUITE_CEILING_Y,
+          tag,
+          openings: [{
+            id,
+            u0: id === 'suiteWest' ? 63.6 : 70.2,
+            u1: id === 'suiteWest' ? 67.4 : 74.0,
+            y0: SUITE_SILL,
+            y1: SUITE_HEAD - 0.3,
+            glass: true,
+          }],
+        });
+      }
+      /* The rear elevation — the wall the bed looks at, over the pool and the
+       * formal garden. Two tall panes with a 5.6 m pier between them, because
+       * the pier is what the suite's television hangs on: a 2.6 m screen needs
+       * a wall, and this is the only one in the room that is neither glazed
+       * nor behind the bed. */
+      panelWall({
+        axis: 'z',
+        lo: MASTER_SUITE.z1,
+        hi: sz1,
+        u0: MASTER_SUITE.x0,
+        u1: MASTER_SUITE.x1,
+        y0: SUITE_Y,
+        y1: SUITE_CEILING_Y,
+        tag: 'suite-north',
+        openings: [
+          {
+            id: 'suiteNorthWest', u0: -8.0, u1: -2.8, y0: SUITE_SILL, y1: SUITE_HEAD, glass: true,
+          },
+          {
+            id: 'suiteNorthEast', u0: 2.8, u1: 8.0, y0: SUITE_SILL, y1: SUITE_HEAD, glass: true,
+          },
+        ],
+      });
+      // The blind south wall, over the conference room. The bed's head is on it.
+      panelWall({
+        axis: 'z',
+        lo: sz0,
+        hi: MASTER_SUITE.z0,
+        u0: MASTER_SUITE.x0,
+        u1: MASTER_SUITE.x1,
+        y0: SUITE_Y,
+        y1: SUITE_CEILING_Y,
+        tag: 'suite-south',
+      });
+
+      // Roof slab over it, with the same eave and the same gold roofline.
+      root.add(box({
+        size: [sx1 - sx0 + 0.7, SUITE_ROOF_Y1 - SUITE_ROOF_Y0, sz1 - sz0 + 0.7],
+        pos: [(sx0 + sx1) / 2, (SUITE_ROOF_Y0 + SUITE_ROOF_Y1) / 2, (sz0 + sz1) / 2],
+        mat: M_ROOF,
+        name: 'suite-roof-slab',
+      }));
+      for (const [x0, x1, z0, z1] of [
+        [sx0 - 0.35, sx1 + 0.35, sz0 - 0.35, sz0 - 0.2],
+        [sx0 - 0.35, sx1 + 0.35, sz1 + 0.2, sz1 + 0.35],
+        [sx0 - 0.35, sx0 - 0.2, sz0 - 0.35, sz1 + 0.35],
+        [sx1 + 0.2, sx1 + 0.35, sz0 - 0.35, sz1 + 0.35],
+      ]) {
+        root.add(box({
+          size: [x1 - x0, 0.1, z1 - z0],
+          pos: [(x0 + x1) / 2, SUITE_ROOF_Y0 + 0.02, (z0 + z1) / 2],
+          mat: M_GOLD,
+          cast: false,
+          name: 'suite-roof-trim',
+        }));
+      }
+      /* A gilded parapet round the flat roof the new storey stands in the
+       * middle of. Without it the third floor reads as a shed dropped on a
+       * roof; with it the roof reads as a terrace and the suite as the
+       * pavilion in the middle of one. Set 1.2 m in off the eaves so it is
+       * clear of the roofline trim already there. */
+      for (const [x0, x1, z0, z1] of [
+        [BUILDING.x0 + 1.2, BUILDING.x1 - 1.2, BUILDING.z0 + 1.2, BUILDING.z0 + 1.42],
+        [BUILDING.x0 + 1.2, BUILDING.x1 - 1.2, BUILDING.z1 - 1.42, BUILDING.z1 - 1.2],
+        [BUILDING.x0 + 1.2, BUILDING.x0 + 1.42, BUILDING.z0 + 1.2, BUILDING.z1 - 1.2],
+        [BUILDING.x1 - 1.42, BUILDING.x1 - 1.2, BUILDING.z0 + 1.2, BUILDING.z1 - 1.2],
+      ]) {
+        root.add(box({
+          size: [x1 - x0, 0.62, z1 - z0],
+          pos: [(x0 + x1) / 2, ROOF_Y1 + 0.31, (z0 + z1) / 2],
+          mat: M_MARBLE_DK,
+          cast: false,
+          name: 'roof-parapet',
+        }));
+        root.add(box({
+          size: [x1 - x0 + 0.14, 0.09, z1 - z0 + 0.14],
+          pos: [(x0 + x1) / 2, ROOF_Y1 + 0.66, (z0 + z1) / 2],
+          mat: M_GOLD,
+          cast: false,
+          name: 'roof-parapet-cope',
+        }));
+      }
+      /* Uplighters on the roof terrace, washing the suite's own walls. This
+       * is what makes the new mass READ at night from the driveway and the
+       * rear garden — it is the only storey with nothing behind it. */
+      for (const [lx, lz] of [[-12.4, 66.0], [12.4, 66.0], [-12.4, 72.0], [12.4, 72.0]]) {
+        const up = new THREE.PointLight(0xffd6a0, 5.2, 14, 2);
+        up.position.set(lx, ROOF_Y1 + 0.5, lz);
+        root.add(up);
+        root.add(cylinder({
+          r: 0.16, h: 0.3, pos: [lx, ROOF_Y1 + 0.15, lz], mat: M_GOLD, cast: false,
+        }));
+      }
+    }
+
+    /* Roof slab (small eave overhang) + gold roofline trim.
+     *
+     * NOTCHED, the way the podium below it is notched round the basement
+     * stairwell: the third floor's concealed stair climbs out of Lou's office
+     * and has to come THROUGH this slab, so the slab is poured in four
+     * segments round `SUITE_STAIR_WELL` instead of one. A slab with no hole in
+     * it would have the player walk up a flight into its underside — and,
+     * worse, `MansionInterior.floorAt` would have offered the suite's floor
+     * inside the well and stood him on thin air over a 4.6 m drop, which is
+     * exactly the shape of the basement-stair bug this file already carries a
+     * comment about. */
+    const roofSegs = [
+      {
+        x0: BUILDING.x0 - 0.4, x1: SUITE_STAIR_WELL.x0, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4,
+      },
+      {
+        x0: SUITE_STAIR_WELL.x1, x1: BUILDING.x1 + 0.4, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4,
+      },
+      {
+        x0: SUITE_STAIR_WELL.x0, x1: SUITE_STAIR_WELL.x1, z0: BUILDING.z0 - 0.4, z1: SUITE_STAIR_WELL.z0,
+      },
+      {
+        x0: SUITE_STAIR_WELL.x0, x1: SUITE_STAIR_WELL.x1, z0: SUITE_STAIR_WELL.z1, z1: BUILDING.z1 + 0.4,
+      },
+    ];
+    for (const s of roofSegs) {
+      root.add(box({
+        size: [s.x1 - s.x0, ROOF_Y1 - ROOF_Y0, s.z1 - s.z0],
+        pos: [(s.x0 + s.x1) / 2, (ROOF_Y0 + ROOF_Y1) / 2, (s.z0 + s.z1) / 2],
+        mat: M_ROOF,
+        name: 'roof-slab',
+      }));
+    }
     for (const [x0, x1, z0, z1] of [
       [BUILDING.x0 - 0.4, BUILDING.x1 + 0.4, zS0 - 0.05, zS0 + 0.1],
       [BUILDING.x0 - 0.4, BUILDING.x1 + 0.4, zN1 - 0.1, zN1 + 0.05],
@@ -4164,6 +4386,15 @@ export function buildMansionGrounds(scene = null) {
     BASEMENT_Y,
     ROOF_Y0,
     ROOF_Y1,
+    /* The third floor. `MansionInterior.js` reads these rather than restating
+     * them, so the suite's floor can never end up at a different height from
+     * the slab it is laid on. */
+    SUITE_Y,
+    SUITE_CEILING_Y,
+    SUITE_ROOF_Y0,
+    SUITE_ROOF_Y1,
+    masterSuite: { ...MASTER_SUITE },
+    suiteStairWell: { ...SUITE_STAIR_WELL },
     WALL_T,
     footprint: { ...BUILDING },
     loungeBay: { ...LOUNGE_BAY },
