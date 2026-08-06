@@ -658,8 +658,11 @@ function goBelow() {
   player.clearKeys();
   interaction.setPaused(true);
   const mark = world.fromBoatLocal(new THREE.Vector3(-.06, CABIN_H + 1.66, -2.52));
+  /* Facing forward, into the room. `Player` walks along -Z at yaw 0, so the
+   * cabin -- which is forward of the companionway -- is straight ahead of a
+   * man who arrives on this mark at the boat's own heading. */
   player.sitAt({
-    position: mark, yaw: boat.root.rotation.y + Math.PI, pitch: -.02, dur: 1.5, yawRange: Math.PI,
+    position: mark, yaw: boat.root.rotation.y, pitch: -.02, dur: 1.5, yawRange: Math.PI,
   }, () => {
     state.moving = false;
     state.below = true;
@@ -689,7 +692,7 @@ function comeUp() {
   interaction.setPaused(true);
   const mark = world.fromBoatLocal(new THREE.Vector3(-1.26, DECK_H + 1.66, .40));
   player.sitAt({
-    position: mark, yaw: boat.root.rotation.y + Math.PI, pitch: -.02, dur: 1.5, yawRange: Math.PI,
+    position: mark, yaw: boat.root.rotation.y, pitch: -.02, dur: 1.5, yawRange: Math.PI,
   }, () => {
     state.moving = false;
     state.below = false;
@@ -824,6 +827,7 @@ function runCabinBeat(beat, when) {
       // He takes the shot because nobody else is going to.
       cabin.props.shotGlass.position.set(.82, .96, -3.02);
       setTimeout(() => {
+        if (state.phase !== 'cabin') return;
         cabin.props.shotGlass.position.set(.82, .66, -3.06);
         audio.play('glass.set', { volume: 1, rate: .92 });
       }, 900);
@@ -845,6 +849,11 @@ function runCabinBeat(beat, when) {
     }
     if (beat === 'sit') {
       setTimeout(() => {
+        /* Every staged beat is fired on a timer and the script can be skipped
+         * faster than the timer, so each one re-checks the phase it belongs to.
+         * Without this, sitting Willy down lands after he has been shot and
+         * puts him back on the booth. */
+        if (state.phase !== 'cabin') return;
         willy.group.position.set(1.02, CABIN_H + .38, -2.86);
         willy.group.rotation.y = Math.PI;
         willy.job = 'sit';
@@ -857,6 +866,7 @@ function runCabinBeat(beat, when) {
       // He looks once at the ceiling, knowing Irish is up there, then at Lou.
       willy.parts.head.rotation.x = -.42;
       setTimeout(() => {
+        if (state.phase !== 'cabin' && state.phase !== 'ready_to_fire') return;
         willy.parts.head.rotation.x = 0;
         willy.faceToward(boat.cast.lou.group.position.x, boat.cast.lou.group.position.z);
       }, 1400);
@@ -1686,6 +1696,9 @@ const runtime = {
   beginExit,
   completeMission,
   leaveHelm(options) { return leaveHelm({ force: options?.force === true }); },
+  /* The confrontation's pen, exposed so a check can step the player and apply
+   * the clamp in the same loop rather than racing the render frame. */
+  clampToStaging,
 };
 window.NO_WAKE = runtime;
 window.__squatchSceneReady?.('NO WAKE ready');

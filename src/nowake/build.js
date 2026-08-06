@@ -101,6 +101,15 @@ export function textPlate(name, text, width, height, {
 export function proxy(name, size, x, y, z) {
   const out = box(name, size, new THREE.MeshBasicMaterial({
     transparent: true, opacity: 0, depthWrite: false, colorWrite: false,
+    /* DOUBLE SIDED, and this is not cosmetic on an invisible box.
+     *
+     * A raycast only registers a hit on a face it meets from the outside, so a
+     * front-side proxy is unusable by anyone standing inside it -- and these
+     * volumes are deliberately generous, which means the player is often
+     * inside one. Boarding was the case that found it: the gangway proxy
+     * reaches across the dock to where a player naturally stands, and from
+     * there the crosshair passed straight through it and found nothing. */
+    side: THREE.DoubleSide,
   }), x, y, z);
   out.castShadow = false;
   out.receiveShadow = false;
