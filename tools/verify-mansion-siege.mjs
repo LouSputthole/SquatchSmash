@@ -744,6 +744,89 @@ try {
     nav.end - nav.start > 8, `x ${nav.start} -> ${nav.end}`);
 
   /* ---------------------------------------------------------------- */
+  /* 9b. Audio selector residency -- the same enforcement pattern         */
+  /* tools/verify-mansion.mjs and tools/verify-no-wake.mjs use for their    */
+  /* own scoped banks.                                                      */
+  /*                                                                         */
+  /* beginSiege()'s audio.loadManifest() call is weaponCueNames() +          */
+  /* siegeCueNames() -- no `vo.siege.*` dialogue prefix exists, because the   */
+  /* siege has none: `siege.prospect.little_friend` is a bark, not a line     */
+  /* with a cue-name prefix of its own. This recomputes that exact selection   */
+  /* from the manifest the page loaded (importing `siegeCueNames` from the     */
+  /* scene itself, in the page, since it is authored beside the four            */
+  /* `audio.play()` call sites that use it) and asserts the live buffer         */
+  /* table equals it -- catching the drift the 2026-08-06 pass found and        */
+  /* fixed (`siege.friendly.revived` was missing from this list).               */
+  /* ---------------------------------------------------------------- */
+  const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+  const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+  const indexedFiles = new Set(soundIndex.files || []);
+  const siegeCueLists = await evaluate(async () => {
+    const [weapons, siege] = await Promise.all([
+      import('/src/core/weapons/audio.js'),
+      import('/src/mansion/siege/main.js'),
+    ]);
+    return { weaponCueNames: weapons.weaponCueNames(), siegeCueNames: siege.siegeCueNames() };
+  });
+  const siegeSelectedNames = new Set([...siegeCueLists.weaponCueNames, ...siegeCueLists.siegeCueNames]);
+  const expectedSiegeResident = soundManifest.sfx
+    .filter((cue) => siegeSelectedNames.has(cue.name))
+    .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+    .map((cue) => cue.name).sort();
+  /* Fire-and-forget, same as the tour: wait for the buffer table explicitly
+   * rather than trust however much of the mission happened to run first. */
+  await page.waitForFunction(
+    (n) => (window.mansionSiege.audio?.buffers.size ?? 0) >= n,
+    expectedSiegeResident.length,
+    { timeout: 180000 },
+  );
+  const siegeAudioResidency = await evaluate((expected) => {
+    const audio = window.mansionSiege.audio;
+    const resident = audio ? [...audio.buffers.keys()].sort() : [];
+    const wanted = new Set(expected);
+    return {
+      exposed: Boolean(audio),
+      resident: resident.length,
+      missing: expected.filter((name) => !audio?.buffers.has(name)),
+      unexpected: resident.filter((name) => !wanted.has(name)),
+    };
+  }, expectedSiegeResident);
+  check('the siege decodes exactly its scoped bank -- armoury cues and its own siege cues, nothing unscoped',
+    siegeAudioResidency.exposed
+      && siegeAudioResidency.resident === expectedSiegeResident.length
+      && siegeAudioResidency.missing.length === 0
+      && siegeAudioResidency.unexpected.length === 0,
+    JSON.stringify({
+      ...siegeAudioResidency,
+      expected: expectedSiegeResident.length,
+      missing: siegeAudioResidency.missing.slice(0, 5),
+      unexpected: siegeAudioResidency.unexpected.slice(0, 5),
+    }));
+
+  /* ---------------------------------------------------------------- */
+  /* 9c. Instancing coverage -- the mansion's shared builders now instance   */
+  /* the sconces, balusters, vault gold bars and perimeter fence (2026-08-  */
+  /* 06). The siege calls those same two builders directly (see this file's  */
+  /* own header), so it inherits the reduction with no siege-specific         */
+  /* geometry change -- this proves that inheritance rather than assuming it. */
+  /* ---------------------------------------------------------------- */
+  const siegeInstancing = await evaluate(() => {
+    const counts = {};
+    window.mansionSiege.scene.traverse((o) => {
+      if (o.isInstancedMesh && o.name) counts[o.name] = o.count;
+    });
+    return counts;
+  });
+  check('the siege inherits the tour\'s instanced sconces, balusters, gold bars and fence',
+    siegeInstancing['sconce-shade'] === 30
+      && siegeInstancing['baluster-shaft'] > 0
+      && siegeInstancing['baluster-shaft'] === siegeInstancing['baluster-collar-top']
+      && siegeInstancing['vault-gold-bar'] === 171
+      && siegeInstancing['fence-post'] > 0
+      && siegeInstancing['fence-post'] === siegeInstancing['fence-post-cap'],
+    JSON.stringify(siegeInstancing));
+
+  /* ---------------------------------------------------------------- */
   /* 10. The boundary, and a frame that is not black                    */
   /* ---------------------------------------------------------------- */
   const bounded = await evaluate(() => {

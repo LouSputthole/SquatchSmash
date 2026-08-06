@@ -1144,11 +1144,14 @@ export function buildMansionInterior(shell = null) {
     const n = balusterPlacements.length;
     if (n === 0) return;
     const shaft = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 20), M_CHROME, n);
+    shaft.name = 'baluster-shaft';
     shaft.receiveShadow = true;
     const collarBottom = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.038, 0.09, 20), M_GOLD, n);
+    collarBottom.name = 'baluster-collar-bottom';
     collarBottom.castShadow = false;
     collarBottom.receiveShadow = true;
     const collarTop = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.038, 0.05, 0.09, 20), M_GOLD, n);
+    collarTop.name = 'baluster-collar-top';
     collarTop.castShadow = false;
     collarTop.receiveShadow = true;
     const m4 = new THREE.Matrix4();

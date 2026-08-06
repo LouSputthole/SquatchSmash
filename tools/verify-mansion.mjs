@@ -1128,6 +1128,122 @@ try {
   check('every stand-in recording the guns fall back on is decoded and ready in the page',
     standIns.length === 0, `missing: ${standIns.join(', ')}`);
 
+  /* ================================================================ */
+  /* Audio selector residency/coverage -- the same enforcement pattern      */
+  /* tools/verify-no-wake.mjs uses for its own scoped bank.                  */
+  /*                                                                          */
+  /* main.js's audio.loadManifest() call is the mansion's entire selector:    */
+  /* weaponCueNames() + silentSquatchCueNames() + MANSION_CAST_CUE_NAMES,      */
+  /* plus every cue starting `vo.silentsquatch.`. This recomputes exactly      */
+  /* that selection from the same manifest the page loaded and asserts the     */
+  /* page's live AudioEngine buffer table is EQUAL to it -- not a superset      */
+  /* (that would mean the unscoped bank leaked back in) and not a subset        */
+  /* (that would mean a cue this scene plays silently fell back to the          */
+  /* synth, which is exactly the bug the 2026-08-06 voice-line and torture-      */
+  /* cord passes both found and fixed). A selector that drifts from what the     */
+  /* scene actually calls `audio.play()`/`audio.startLoop()` with fails here     */
+  /* rather than shipping silent again.                                          */
+  /*                                                                            */
+  /* The three cue-name functions/constants are imported IN THE PAGE, not in    */
+  /* this Node process: `SilentSquatch.js` and `cast.js` build canvas textures    */
+  /* at module scope and need a real `document`, which this script's own Node    */
+  /* process does not have -- the browser these functions actually run in does.  */
+  /* ================================================================ */
+  const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+  const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+  const indexedFiles = new Set(soundIndex.files || []);
+  const mansionCueLists = await page.evaluate(async () => {
+    const [weapons, silentSquatch, cast] = await Promise.all([
+      import('/src/core/weapons/audio.js'),
+      import('/src/mansion/scenes/SilentSquatch.js'),
+      import('/src/mansion/cast.js'),
+    ]);
+    return {
+      weaponCueNames: weapons.weaponCueNames(),
+      silentSquatchCueNames: silentSquatch.silentSquatchCueNames(),
+      mansionCastCueNames: [...cast.MANSION_CAST_CUE_NAMES],
+    };
+  });
+  const MANSION_CAST_CUE_NAMES = mansionCueLists.mansionCastCueNames;
+  const mansionSelectedNames = new Set([
+    ...mansionCueLists.weaponCueNames, ...mansionCueLists.silentSquatchCueNames, ...MANSION_CAST_CUE_NAMES,
+  ]);
+  const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
+    mansionSelectedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
+  ));
+  const expectedMansionResident = mansionSelectedCues
+    .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+    .map((cue) => cue.name).sort();
+  /* `beginTour()` fires `audio.loadManifest()` and does not await it -- the
+   * tour starts on the click, not once 239 files have decoded -- so by the
+   * time execution reaches this check the bank is very likely finished
+   * (this point in the script is reached only after teleporting through and
+   * firing every weapon in the house), but it is not GUARANTEED. Wait for
+   * the buffer table to reach the expected count explicitly rather than
+   * trust however much of the tour happened to run first. */
+  await page.waitForFunction(
+    (n) => (window.mansion.audio?.buffers.size ?? 0) >= n,
+    expectedMansionResident.length,
+    { timeout: 180000 },
+  );
+  const mansionAudioResidency = await page.evaluate((expected) => {
+    const audio = window.mansion.audio;
+    const resident = audio ? [...audio.buffers.keys()].sort() : [];
+    const wanted = new Set(expected);
+    return {
+      exposed: Boolean(audio),
+      resident: resident.length,
+      missing: expected.filter((name) => !audio?.buffers.has(name)),
+      unexpected: resident.filter((name) => !wanted.has(name)),
+    };
+  }, expectedMansionResident);
+  check('the mansion decodes exactly its scoped bank -- voice, armoury and torture-cord cues, nothing unscoped',
+    mansionAudioResidency.exposed
+      && mansionAudioResidency.resident === expectedMansionResident.length
+      && mansionAudioResidency.missing.length === 0
+      && mansionAudioResidency.unexpected.length === 0,
+    JSON.stringify({
+      ...mansionAudioResidency,
+      expected: expectedMansionResident.length,
+      missing: mansionAudioResidency.missing.slice(0, 5),
+      unexpected: mansionAudioResidency.unexpected.slice(0, 5),
+    }));
+  check('the torture cord\'s three recorded cues are indexed and resident (the 2026-08-06 selector gap)',
+    MANSION_CAST_CUE_NAMES.every((name) => expectedMansionResident.includes(name))
+      && MANSION_CAST_CUE_NAMES.every((name) => !mansionAudioResidency.missing.includes(name)),
+    JSON.stringify({ wanted: MANSION_CAST_CUE_NAMES, resident: expectedMansionResident.filter((n) => MANSION_CAST_CUE_NAMES.includes(n)) }));
+
+  /* ================================================================ */
+  /* Instancing coverage -- every fixture the source places must still       */
+  /* produce an instance. Not a mesh-count budget (that would break the       */
+  /* moment anyone furnishes another room); a residency check that the        */
+  /* four InstancedMesh batches src/mansion/scenes/{MansionInterior,           */
+  /* MansionGrounds}.js build are exactly as populated as the placements       */
+  /* pushed into them -- proving the 2026-08-06 instancing pass didn't drop     */
+  /* or duplicate a single sconce, baluster, gold bar or fence post.            */
+  /* ================================================================ */
+  const instancing = await page.evaluate(() => {
+    const counts = {};
+    window.mansion.scene.traverse((o) => {
+      if (o.isInstancedMesh && o.name) counts[o.name] = o.count;
+    });
+    return counts;
+  });
+  check('every wall sconce is one instance across its ten shared parts',
+    instancing['sconce-backplate'] === 30 && instancing['sconce-arm'] === 30
+      && instancing['sconce-shade'] === 30,
+    JSON.stringify(instancing));
+  check('every baluster is one instance across its shaft and two collars',
+    instancing['baluster-shaft'] > 0
+      && instancing['baluster-shaft'] === instancing['baluster-collar-bottom']
+      && instancing['baluster-shaft'] === instancing['baluster-collar-top'],
+    JSON.stringify(instancing));
+  check('the vault holds all 171 gold bars in its one instanced batch',
+    instancing['vault-gold-bar'] === 171, JSON.stringify(instancing));
+  check('the perimeter fence keeps one post per one cap',
+    instancing['fence-post'] > 0 && instancing['fence-post'] === instancing['fence-post-cap'],
+    JSON.stringify(instancing));
+
   const allRacked = await page.evaluate(() => window.mansion.weapons.report());
   check('every weapon ends the tour back on its own rack',
     Object.values(allRacked).every((w) => w.onWall === w.copies && w.taken === null),

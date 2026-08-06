@@ -886,8 +886,12 @@ startBtn.addEventListener('click', beginSiege);
  * these seven are recorded yet, so today this changes nothing audible; it
  * costs nothing either, since `loadManifest` drops any name with no manifest
  * entry before it ever requests a file, and it means the day `siege.friendly.
- * revived` IS recorded, this list does not need to be remembered too. */
-function siegeCueNames() {
+ * revived` IS recorded, this list does not need to be remembered too.
+ *
+ * Exported so tools/verify-mansion-siege.mjs can recompute the scene's own
+ * selector rather than retyping it -- the same reason
+ * src/mansion/scenes/SilentSquatch.js exports `silentSquatchCueNames()`. */
+export function siegeCueNames() {
   return [
     'siege.alarm.tone',
     'siege.prospect.little_friend',
