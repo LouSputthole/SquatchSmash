@@ -354,9 +354,7 @@ const M_SUITE_TUB_LIGHT = mat({
   color: 0x0a2630, emissive: 0x63dfff, emissiveIntensity: 2.1, roughness: 0.4,
 });
 const M_SUITE_MIRROR = mat({ color: 0xdce6ee, roughness: 0.07, metalness: 0.9 });
-const M_SUITE_GLASS = mat({
-  color: 0xbfe0e8, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.3,
-});
+
 
 /*
  * Retiled surfaces, MEMOISED by their repeat counts.
@@ -1091,10 +1089,10 @@ export function buildMansionInterior(shell = null) {
 
   /** A flush ceiling fixture plus its light. */
   function ceilingLight(x, z, y, colour = 0xffdca0, intensity = 5, distance = 15) {
-    /* Named, both of them. `cylinder()` and `sphere()` in world/build.js drop
-     * the `name` option on the floor, which is why every flush fitting in this
-     * house has been an anonymous pair of meshes the audit reports as floating
-     * -- a ceiling light IS floating, and the only way to say so is a name. */
+    /* Named, both of them. Neither ever carried a name, so every flush fitting
+     * in this house was an anonymous pair of meshes the audit could only
+     * report as two floating boxes -- a ceiling light IS floating, and a name
+     * is the only way to say so. */
     root.add(named(cylinder({
       rTop: 0.22, rBottom: 0.28, h: 0.1, pos: [x, y, z], mat: mat({ color: 0x2a2118, roughness: 0.6 }),
     }), 'ceiling-light-pan'));
@@ -5580,25 +5578,60 @@ export function buildMansionInterior(shell = null) {
     props.tub = {
       x: tubX, z: tubZ, r: TUB_R, waterY: TUB_WATER, benchY: TUB_BENCH, floorY: TUB_FLOOR,
     };
-    root.add(named(cylinder({
-      r: TUB_R, h: TUB_RIM - SY, pos: [tubX, (SY + TUB_RIM) / 2, tubZ], mat: M_SUITE_MARBLE,
-    }), 'suite-tub-drum'));
-    root.add(named(cylinder({
-      r: TUB_R + 0.09, h: 0.09, pos: [tubX, TUB_RIM + 0.04, tubZ], mat: M_GOLD, cast: false,
-    }), 'suite-tub-coping'));
-    root.add(named(cylinder({
-      r: TUB_IN, h: TUB_RIM - TUB_FLOOR + 0.1, pos: [tubX, (TUB_FLOOR + TUB_RIM) / 2, tubZ], mat: M_SUITE_ONYX, cast: false,
-    }), 'suite-tub-tank'));
-    root.add(named(cylinder({
-      r: TUB_IN - 0.01, h: 0.06, pos: [tubX, TUB_FLOOR, tubZ], mat: M_SUITE_ONYX, cast: false,
-    }), 'suite-tub-tank-floor'));
-    // The bench ring the two of them are sitting on.
-    root.add(named(cylinder({
-      r: TUB_IN - 0.03, h: 0.1, pos: [tubX, TUB_BENCH, tubZ], mat: M_SUITE_ONYX, cast: false,
-    }), 'suite-tub-bench'));
-    root.add(named(cylinder({
-      r: TUB_IN - 0.52, h: 0.14, pos: [tubX, TUB_BENCH, tubZ], mat: M_SUITE_GLASS, cast: false,
-    }), 'suite-tub-footwell'));
+    /* A HOT TUB IS A BOWL, NOT A DRUM WITH A LID ON IT.
+     *
+     * The first build of this stacked solid cylinders -- drum, tank, bench --
+     * and every one of them filled its own volume, so the water, the bench,
+     * the jets and the underwater light were all buried inside solid stone and
+     * what the room actually contained was a brown disc with two heads behind
+     * it. It passed every geometric check in the verifier, because "the water
+     * mesh exists" and "you can see the water" are different sentences; it was
+     * a screenshot that found it.
+     *
+     * So it is built the way a tub is built: an open drum, an open liner
+     * inside it, a floor, an annular bench with a real footwell down the
+     * middle, and a coping that closes the gap between the drum and the liner.
+     * `world/build.js`'s `cylinder()` shares one capped unit geometry and
+     * cannot be open-ended, which is why these are raw THREE. DoubleSide,
+     * because the inside of a bowl is the back of its wall. */
+    const M_TUB_MARBLE = mat({ color: 0xf2ede0, roughness: 0.22, side: THREE.DoubleSide });
+    const M_TUB_ONYX = mat({ color: 0x1b1620, roughness: 0.24, metalness: 0.2, side: THREE.DoubleSide });
+    /* Every one of the six pieces below LAPS its neighbour by 12-30 mm rather
+     * than meeting it exactly, the same rule the rest of this floor is built
+     * to: six concentric surfaces stacked on the same four heights would be
+     * five flush pairs, which is the flicker. */
+    const shell2 = (radius, h, y, material, name) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, h, 44, 1, true), material);
+      m.position.set(tubX, y, tubZ);
+      m.castShadow = false;
+      m.receiveShadow = true;
+      m.name = name;
+      root.add(m);
+      return m;
+    };
+    const disc = (rIn, rOut, y, material, name) => {
+      const m = new THREE.Mesh(
+        rIn > 0 ? new THREE.RingGeometry(rIn, rOut, 44) : new THREE.CircleGeometry(rOut, 44),
+        material,
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(tubX, y, tubZ);
+      m.receiveShadow = true;
+      m.name = name;
+      root.add(m);
+      return m;
+    };
+    shell2(TUB_R, TUB_RIM - SY + 0.02, (SY - 0.02 + TUB_RIM) / 2, M_TUB_MARBLE, 'suite-tub-drum');
+    shell2(TUB_IN, TUB_RIM - TUB_FLOOR - 0.018, (TUB_FLOOR - 0.03 + TUB_RIM - 0.012) / 2, M_TUB_ONYX, 'suite-tub-liner');
+    disc(0, TUB_IN - 0.005, TUB_FLOOR, M_SUITE_ONYX, 'suite-tub-floor');
+    // The coping closes the wall head between the liner and the drum.
+    disc(TUB_IN - 0.01, TUB_R + 0.09, TUB_RIM + 0.005, M_GOLD, 'suite-tub-coping');
+    /* The bench, as a real ring with a footwell down the middle -- which is
+     * what makes the two of them read as sitting IN the water rather than on
+     * a disc of it. */
+    disc(TUB_IN - 0.62, TUB_IN - 0.02, TUB_BENCH, M_SUITE_ONYX, 'suite-tub-bench');
+    shell2(TUB_IN - 0.62, TUB_BENCH - TUB_FLOOR + 0.002,
+      (TUB_FLOOR - 0.016 + TUB_BENCH - 0.014) / 2, M_TUB_ONYX, 'suite-tub-bench-riser');
     // Two marble steps up to the coping, on the south side you walk in from.
     for (let i = 0; i < 2; i++) {
       root.add(box({
@@ -5612,7 +5645,7 @@ export function buildMansionInterior(shell = null) {
      * and reads local xy, so the disc is built flat in XY and laid down —
      * exactly how the pool outside builds its own surface. */
     const tubWaterMat = makeWaterMaterial({ deep: 0x0a3a4c, shallow: 0x49c6dd, opacity: 0.82 });
-    const tubWater = new THREE.Mesh(new THREE.CircleGeometry(TUB_IN - 0.03, 40), tubWaterMat);
+    const tubWater = new THREE.Mesh(new THREE.CircleGeometry(TUB_IN - 0.02, 44), tubWaterMat);
     tubWater.rotation.x = -Math.PI / 2;
     tubWater.position.set(tubX, TUB_WATER, tubZ);
     tubWater.name = 'suite-tub-water';

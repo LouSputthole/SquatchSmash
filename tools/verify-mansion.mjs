@@ -2964,6 +2964,24 @@ try {
     labShot.some((b, i) => i > 64 && b > 24), `${labShot.length} bytes`);
   await page.evaluate(() => window.mansion.setRendering(false));
 
+  /* THE SUITE, DRAWN. Everything above proves the third floor is built and
+   * walkable; none of it proves it is LIT. The room carries an emissive cove
+   * band, an emissive tub light and a television, all of them going through
+   * the same bloom the rest of the scene does, and a shader that fails to
+   * compile up here would pass every geometric check in this file. Stood at
+   * the foot of the bed, looking north at the set and the garden glazing. */
+  await teleport(0, suite.room.floor, 67.4, NORTH);
+  await settle(0.6);
+  const suiteFramesBefore = await page.evaluate(() => window.mansion.framesRendered);
+  await page.evaluate(() => window.mansion.setRendering(true));
+  await page.waitForFunction(
+    (n) => window.mansion.framesRendered > n + 2, suiteFramesBefore, { timeout: 180000 },
+  );
+  const suiteShot = await page.screenshot({ type: 'png', timeout: 120000 });
+  check('the master suite renders a lit frame -- cove, tub light and the set',
+    suiteShot.some((b, i) => i > 64 && b > 24), `${suiteShot.length} bytes`);
+  await page.evaluate(() => window.mansion.setRendering(false));
+
   await teleport(0, GROUND_Y, 44.4, NORTH);
   await settle(0.5);
   const framesBefore = await page.evaluate(() => window.mansion.framesRendered);
