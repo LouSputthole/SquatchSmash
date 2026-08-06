@@ -77,7 +77,7 @@ export function buildCabin(root) {
 
   /* ---- shell: sole, liner, ceiling ---- */
   group.add(box('cabin sole', [3.24, .08, 3.10], veneerDark, 0, SOLE - .04, -3.55));
-  group.add(box('cabin sole runner', [1.10, .02, 2.30], runner, -.06, SOLE + .01, -3.20));
+  group.add(box('cabin sole runner', [1.10, .02, 2.30], runner, -.06, SOLE + .015, -3.20));
   for (const sx of [-1, 1]) {
     group.add(box(`cabin hull liner · ${sx < 0 ? 'port' : 'starboard'}`,
       [.10, 1.84, 3.10], liner, sx * 1.63, SOLE + .90, -3.55));
@@ -103,7 +103,7 @@ export function buildCabin(root) {
   const galley = new THREE.Group();
   galley.name = 'galley and wet bar';
   group.add(galley);
-  galley.add(box('galley cabinet carcass', [.96, .96, 1.12], veneerDark, -1.22, SOLE + .48, -3.30));
+  galley.add(box('galley cabinet carcass', [.96, .94, 1.12], veneerDark, -1.22, SOLE + .48, -3.30));
   galley.add(box('galley counter top', [1.00, .06, 1.14], veneer, -1.22, COUNTER_TOP, -3.30));
   galley.add(box('galley counter fiddle rail', [.04, .05, 1.14], brass, -.74, COUNTER_TOP + .05, -3.30));
   const sink = mesh('galley stainless sink basin',
@@ -117,8 +117,8 @@ export function buildCabin(root) {
   galley.add(box('galley mini fridge door', [.04, .52, .58], liner, -.75, SOLE + .40, -3.02));
   galley.add(box('galley mini fridge latch', [.05, .06, .12], brass, -.72, SOLE + .40, -2.82));
   // Mirrored liquor cabinet and a restrained bottle shelf above the counter.
-  galley.add(box('galley mirrored liquor cabinet frame', [.16, .58, 1.10], veneer, -1.50, 1.16, -3.30));
-  const mirrorPane = box('galley liquor cabinet mirror', [.02, .48, 1.00], mirror, -1.41, 1.16, -3.30);
+  galley.add(box('galley mirrored liquor cabinet frame', [.16, .58, 1.10], veneer, -1.49, 1.16, -3.30));
+  const mirrorPane = box('galley liquor cabinet mirror', [.02, .48, 1.00], mirror, -1.405, 1.16, -3.30);
   galley.add(mirrorPane);
   galley.add(box('galley bottle shelf', [.22, .04, 1.00], veneer, -1.36, .96, -3.30));
   galley.add(box('galley bottle shelf fiddle', [.02, .07, 1.00], brass, -1.26, 1.00, -3.30));
@@ -199,13 +199,13 @@ export function buildCabin(root) {
   const dinette = new THREE.Group();
   dinette.name = 'curved dinette';
   group.add(dinette);
-  dinette.add(box('dinette booth base', [1.06, .40, 1.24], veneerDark, 1.17, SOLE + .20, -3.24));
-  dinette.add(box('dinette booth cushion', [1.06, .10, 1.24], vinyl, 1.17, BOOTH_SEAT + .05, -3.24));
+  dinette.add(box('dinette booth base', [1.06, .40, 1.24], veneerDark, 1.17, SOLE + .205, -3.24));
+  dinette.add(box('dinette booth cushion', [1.06, .10, 1.24], vinyl, 1.17, BOOTH_SEAT + .06, -3.24));
   // Curved: two return cushions close the booth at each end.
-  dinette.add(box('dinette booth cushion · forward return', [.72, .10, .38], vinyl, 1.34, BOOTH_SEAT + .05, -3.72));
-  dinette.add(box('dinette booth base · forward return', [.72, .40, .38], veneerDark, 1.34, SOLE + .20, -3.72));
-  dinette.add(box('dinette booth cushion · aft return', [.72, .10, .34], vinyl, 1.34, BOOTH_SEAT + .05, -2.76));
-  dinette.add(box('dinette booth base · aft return', [.72, .40, .34], veneerDark, 1.34, SOLE + .20, -2.76));
+  dinette.add(box('dinette booth cushion · forward return', [.72, .10, .38], vinyl, 1.34, BOOTH_SEAT + .06, -3.72));
+  dinette.add(box('dinette booth base · forward return', [.72, .40, .38], veneerDark, 1.34, SOLE + .205, -3.72));
+  dinette.add(box('dinette booth cushion · aft return', [.72, .10, .34], vinyl, 1.34, BOOTH_SEAT + .06, -2.76));
+  dinette.add(box('dinette booth base · aft return', [.72, .40, .34], veneerDark, 1.34, SOLE + .205, -2.76));
   // A low back, on purpose: the man in this booth stays visible over it.
   dinette.add(box('dinette booth back rest', [.12, .42, 1.90], vinylDark, 1.55, .48, -3.24));
   dinette.add(box('dinette table pedestal', [.10, .74, .10], steel, .92, SOLE + .37, -3.24));
@@ -218,12 +218,12 @@ export function buildCabin(root) {
   const berth = new THREE.Group();
   berth.name = 'forward V-berth';
   group.add(berth);
-  berth.add(box('V-berth base', [3.10, .52, 1.24], veneerDark, 0, SOLE + .26, -4.52));
+  berth.add(box('V-berth base', [3.10, .52, 1.24], veneerDark, 0, SOLE + .27, -4.52));
   berth.add(box('V-berth mattress', [2.90, .16, 1.16], vinyl, 0, .14, -4.52));
   berth.add(box('V-berth rumpled bedding', [2.10, .13, .78], mat(0x8a8272, .95), -.14, .26, -4.62));
   berth.add(box('V-berth pillow port', [.52, .13, .30], mat(0xc9c3b2, .92), -.78, .28, -4.94));
   berth.add(box('V-berth pillow starboard', [.52, .13, .30], mat(0xc9c3b2, .92), .70, .28, -4.94));
-  berth.add(box('V-berth storage locker door', [1.30, .30, .04], veneer, 0, SOLE + .22, -3.88));
+  berth.add(box('V-berth storage locker door', [1.30, .30, .04], veneer, 0, SOLE + .22, -3.87));
   berth.add(box('V-berth storage locker latch', [.09, .09, .04], brass, 0, SOLE + .22, -3.86));
   for (const sx of [-1, 1]) {
     const lamp = box(`V-berth reading lamp ${sx < 0 ? 'port' : 'starboard'}`, [.10, .09, .14], brass, sx * 1.40, 1.10, -4.60);
