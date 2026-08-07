@@ -7305,33 +7305,48 @@ export function buildMansionInterior(shell = null) {
          * `wx` in buildBedroom) and at 2.0 the rack's foot would have stood
          * 20 mm off its door handles. At 1.8 there is 220 mm between them. */
         const bx = cx - 1.8;
-        root.add(box({ size: [0.4, 0.12, 1.3], pos: [bx, UY + 0.44, 43.6], mat: M_LEATHER_DK, name: 'oldtime-bench-pad' }));
-        for (const bz of [43.1, 44.1]) {
+        /* MOVED OFF THE ROOM'S OWN ARMCHAIR. Owner playtest 2026-08-06: "the
+         * weight set and a chair sit inside the wardrobe and bed" -- measured
+         * on the built scene, the literal fault is narrower than that but
+         * just as real: `buildBedroom`'s own armchair for this room (its
+         * generic `chairX`/`cz + 2.6` placement, `bed-east-front-chair`) has
+         * always sat at z 44.19..44.86, and this bench was built at the SAME
+         * z the very next pass over, 43.0..44.3 -- 90 mm of the bench pad
+         * and the rack's own footprint genuinely inside the chair's own
+         * collider. `buildBedroom` runs before `extra`, so the generic chair
+         * was already standing there and nothing here ever checked it.
+         *
+         * Pulled the whole press 0.55 m south, away from the chair and still
+         * clear of the wardrobe (its collider ends x 10.05, the rack's own
+         * starts x 10.175 -- an x gap this z move does not touch): 42.45..
+         * 43.75 clears the chair's 44.19 start by 440 mm. */
+        root.add(box({ size: [0.4, 0.12, 1.3], pos: [bx, UY + 0.44, 43.05], mat: M_LEATHER_DK, name: 'oldtime-bench-pad' }));
+        for (const bz of [42.55, 43.55]) {
           root.add(box({ size: [0.3, 0.38, 0.1], pos: [bx, UY + 0.19, bz], mat: M_RACK, name: 'oldtime-bench-leg' }));
         }
         for (const ox of [-0.32, 0.32]) {
           root.add(box({
-            size: [0.08, 1.0, 0.08], pos: [bx + ox, UY + 0.5, 43.2], mat: M_RACK, name: 'oldtime-rack-upright',
+            size: [0.08, 1.0, 0.08], pos: [bx + ox, UY + 0.5, 42.65], mat: M_RACK, name: 'oldtime-rack-upright',
           }));
           root.add(box({
-            size: [0.34, 0.05, 0.34], pos: [bx + ox, UY + 0.025, 43.2], mat: M_RACK, cast: false, name: 'oldtime-rack-foot',
+            size: [0.34, 0.05, 0.34], pos: [bx + ox, UY + 0.025, 42.65], mat: M_RACK, cast: false, name: 'oldtime-rack-foot',
           }));
           // The J-hook the bar actually rests in, at bar height.
           root.add(box({
-            size: [0.1, 0.07, 0.17], pos: [bx + ox, UY + 0.955, 43.26], mat: M_RACK, cast: false, name: 'oldtime-rack-hook',
+            size: [0.1, 0.07, 0.17], pos: [bx + ox, UY + 0.955, 42.71], mat: M_RACK, cast: false, name: 'oldtime-rack-hook',
           }));
         }
         root.add(named(cylinder({
-          r: 0.03, h: 1.5, pos: [bx, UY + 0.95, 43.2], mat: M_CHROME, rotZ: Math.PI / 2,
+          r: 0.03, h: 1.5, pos: [bx, UY + 0.95, 42.65], mat: M_CHROME, rotZ: Math.PI / 2,
         }), 'oldtime-barbell'));
         for (const ox of [-0.6, 0.6]) {
           root.add(named(cylinder({
-            r: 0.2, h: 0.1, pos: [bx + ox, UY + 0.95, 43.2], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
+            r: 0.2, h: 0.1, pos: [bx + ox, UY + 0.95, 42.65], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
           }), 'oldtime-barbell-plate'));
         }
         // Collider takes the rack's full height -- it is 1 m of steel, not a
         // 0.6 m bench you can walk over the top of.
-        solid(cx - 2.4, cx - 1.6, UY, UY + 1.0, 43.0, 44.3);
+        solid(cx - 2.4, cx - 1.6, UY, UY + 1.0, 42.45, 43.75);
       },
     }),
     westRear: buildBedroom({
