@@ -981,23 +981,43 @@ export function mountMansionCast(scene, world = {}, {
 
   function snowToTheBasement() {
     const npc = people.snow;
-    const foot = lab?.anchors?.stairFoot ?? null;
-    const table = lab?.anchors?.transferTable ?? null;
-    if (!npc || snowErrand || !foot || !Number.isFinite(foot.x) || !table) return false;
-    const floorY = foot.y ?? npc.baseY;
-    /* Two waypoints, because the cross opening is a doorway and one straight
-     * line from the stair foot to the transfer table goes through its pier. */
-    const through = lab?.anchors?.crossOpening ?? { x: (foot.x + table.x) / 2, z: table.z };
-    const stop = { x: table.x + 2.4, z: table.z + 1.7 };
-    npc.group.position.set(foot.x, floorY, foot.z);
+    const room = lab?.rooms?.observation ?? null;
+    const door = lab?.anchors?.crossOpening ?? null;
+    if (!npc || snowErrand || !room || !door || !Number.isFinite(door.x)) return false;
+    const floorY = room.floor ?? npc.baseY;
+
+    /* IN THROUGH THE PIER OPENING, which is the doorway between the
+     * interrogation corridor and the observation area — the same one the
+     * player came in through, and the only way in on this floor.
+     *
+     * NOT from the foot of the stairwell, which is sixteen metres away: the
+     * exchange that calls him is eleven seconds long and a man pushing a cart
+     * walks at a metre and a half a second, so starting him at the stairs put
+     * him in the doorway around the time Booski said "And a mop." He comes
+     * down the stairs and along the corridor while Booski is still on the
+     * intercom; the walk you SEE is the last few metres of it. */
+    const inside = { x: room.anchor.x, z: room.anchor.z };
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+    /* Beside the console bank rather than on the transfer table, and clamped
+     * into the room's own rect so the stop cannot land in a wall if the room
+     * moves. */
+    const stop = {
+      x: clamp(inside.x + 2.0, room.rect.x0 + 1.0, room.rect.x1 - 1.0),
+      z: clamp(inside.z - 0.6, room.rect.z0 + 1.0, room.rect.z1 - 1.0),
+    };
+    const step = {
+      x: clamp((door.x + stop.x) / 2, room.rect.x0 + 1.0, room.rect.x1 - 1.0),
+      z: clamp(door.z, room.rect.z0 + 1.0, room.rect.z1 - 1.0),
+    };
+    npc.group.position.set(door.x, floorY, door.z);
     npc.baseY = floorY;
-    npc.homeX = foot.x;
-    npc.homeZ = foot.z;
-    npc.speed = 1.05;
-    npc.route = [{ x: through.x, z: through.z }, { x: stop.x, z: stop.z }];
+    npc.homeX = door.x;
+    npc.homeZ = door.z;
+    npc.speed = 1.5;
+    npc.route = [step, stop];
     npc.routeAt = 0;
     npc.job = 'patrol';
-    npc.faceToward(through.x, through.z, true);
+    npc.faceToward(step.x, step.z, true);
     snowErrand = { stop, floorY, arrived: false, foley: 0 };
     /* ---- CLEANUP FOLEY (owner playtest: "the scene needs a proper SFX pass",
      * and the last thing he named was cleanup foley).

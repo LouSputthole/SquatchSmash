@@ -3162,21 +3162,36 @@ try {
    * bar is read for his name and his line. A teleport past him would prove
    * nothing: the fault was entirely about the path a player actually takes. */
   await teleport(rooms.spawn.x, 0, rooms.spawn.z, (rooms.spawnYaw * 180) / Math.PI);
-  await settle(0.5);
   const boothHeard = [];
+  const boothSubtitles = [];
   for (let leg = 0; leg < 26; leg++) {
     await walk(0.5);
-    const said = await page.evaluate(() => window.mansion.mission?.hud?.() ?? null);
-    if (said?.subtitle && !boothHeard.some((entry) => entry.text === said.subtitle)) {
-      boothHeard.push({ who: said.speaker, text: said.subtitle });
+    /* TWO DIFFERENT QUESTIONS, and only one of them is a race.
+     *
+     * `cast.said` is the house's own dialogue controller's cue log: what he
+     * SAID, in order, which nothing can take away from him. The subtitle bar
+     * is shared between that controller and the mission's, so a line can be on
+     * screen for two seconds and still be gone by the time this samples — the
+     * first version of this check failed on a build where the man was speaking
+     * perfectly well, because the mission's own idle line had the bar. */
+    const seen = await page.evaluate(() => ({
+      said: window.mansion.cast?.said ?? [],
+      hud: window.mansion.mission?.hud?.() ?? null,
+    }));
+    for (const cue of seen.said) if (!boothHeard.includes(cue)) boothHeard.push(cue);
+    if (seen.hud?.subtitle && !boothSubtitles.some((s2) => s2.text === seen.hud.subtitle)) {
+      boothSubtitles.push({ who: seen.hud.speaker, text: seen.hud.subtitle });
     }
   }
-  const boothLine = boothHeard.find((entry) => /gate/i.test(entry.who || ''));
+  const challenged = boothHeard.includes('vo.silentsquatch.gate.booth.stopthere');
+  const subtitled = boothSubtitles.some((entry) => /gate/i.test(entry.who || ''));
   check('walking up the drive from the spawn makes the man in the booth challenge you, with subtitles',
-    Boolean(boothLine) && /stop there/i.test(boothLine?.text || ''),
-    boothHeard.length
-      ? boothHeard.map((entry) => `${entry.who}: ${entry.text}`).join(' | ')
-      : 'nobody said anything on the whole walk up the drive');
+    challenged && subtitled,
+    [
+      challenged ? '' : `he never said it — heard: ${boothHeard.slice(0, 4).join(', ') || 'nothing'}`,
+      subtitled ? '' : `no subtitle from him — bar showed: ${boothSubtitles.map((e) => e.who).join(', ') || 'nothing'}`,
+    ].filter(Boolean).join(' | ')
+      || `"Stop there. Name." on the walk up, subtitled as ${boothSubtitles.find((e) => /gate/i.test(e.who || '')).who}`);
 
   /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
    * like one: "I spawn in holding it but can put it away and see it in my
@@ -3679,7 +3694,10 @@ try {
        * arrived rather than that he was teleported into position. */
       if (want.snowDown && !bad.length) {
         const snow = await cpPage.evaluate(() => {
-          window.mansion.tick(8);
+          /* The jump's own pump runs the MISSION and the LABORATORY and not
+           * the cast, so his walk has not started when the page settles. This
+           * is the walk, with room to spare. */
+          window.mansion.tick(14);
           const m = window.mansion;
           return {
             errand: m.cast?.snowErrand ?? null,

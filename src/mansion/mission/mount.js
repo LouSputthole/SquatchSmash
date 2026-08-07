@@ -280,8 +280,14 @@ export function mountSilentSquatch({
 
   function turnCaseAwayFromPlayer() {
     const eye = player?.position ?? camera.position;
-    const dx = world.group.position.x - eye.x;
-    const dz = world.group.position.z - eye.z;
+    /* WHERE IT IS GOING, not where it is. `lou.rotate` is the first entry in
+     * `officeOpen` and the 0.55 s hand-off is still in the air when it fires,
+     * so reading the live position turns the case to face away from the man
+     * WHILE IT IS STILL IN HIS HANDS -- half a metre in front of his own eye,
+     * where the answer is a rounding error away from meaningless. */
+    const to = placing?.to ?? world.group.position;
+    const dx = to.x - eye.x;
+    const dz = to.z - eye.z;
     if (Math.hypot(dx, dz) < 0.05) return null;
     /* A Group's local +z points along `atan2(dx, dz)`; away from the player is
      * exactly the vector from him to the case. */
@@ -313,9 +319,24 @@ export function mountSilentSquatch({
     const e = k * k * (3 - 2 * k);
     world.group.position.lerpVectors(placing.from, placing.to, e);
     world.group.position.y += Math.sin(Math.PI * k) * 0.22;
+    /* WHAT IS IN IT TRAVELS WITH IT. `deliveryOpen`'s very first entry is
+     * `case.open`, which fires on the frame the hand-off starts — so the
+     * container was being seated at the case's mid-flight position and left
+     * hanging in the air over the observation-room floor while the case went
+     * on to the table without it. */
+    if (contents?.group?.visible) {
+      contents.placeAt(
+        world.group.position.x, world.group.position.y + 0.02, world.group.position.z,
+      );
+    }
     if (k >= 1) {
       world.group.position.copy(placing.to);
       placing = null;
+      if (contents?.group?.visible) {
+        contents.placeAt(
+          world.group.position.x, world.group.position.y + 0.02, world.group.position.z,
+        );
+      }
     }
   }
 

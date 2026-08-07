@@ -1933,6 +1933,16 @@ window.mansion = {
     /** Snow's errand to the basement, or null if Booski has not called him.
      * Owner playtest: he has clean-up lines about the lab and was never in it. */
     get snowErrand() { return cast?.snowErrand ?? null; },
+    /**
+     * Every cue the HOUSE's own dialogue controller has played, in order.
+     *
+     * The cast and the mission are two controllers sharing one subtitle bar,
+     * so "was that line on screen when I looked" is a race between them —
+     * which is exactly how the booth guard's challenge came back as a FAIL on
+     * a build where he was speaking. This is what he SAID, which is not a
+     * race, and the bar is checked separately for the subtitle.
+     */
+    get said() { return [...(cast?.dialogue?.cueLog ?? [])]; },
     /** Posts whose standing position is inside a solid box. */
     get inSolid() {
       const bad = [];
