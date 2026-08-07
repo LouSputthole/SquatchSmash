@@ -3498,10 +3498,18 @@ try {
 
   /* M4, continued: the office fireplace's own light is genuinely part of
    * the nearest-N rig's active set from real playing distance, not just
-   * numerically long-ranged. Teleported well past the fire's old 9 m
-   * range (measured, corner to corner, up to ~18.5 m across this room) and
-   * ticked a full second so `updateLightRig` (main.js) has scored it. */
-  await teleport(-7.5, UPPER_Y, 64.0, SOUTH);
+   * numerically long-ranged. The office is an oversized multi-purpose room
+   * (~17.7 x 11.85 m, corner-to-corner over 21 m) shared with a couple
+   * dozen other practical lights (desk lamp, sconces, the bookcase run,
+   * the chandelier over the seating group...), so `updateLightRig`'s
+   * nearest-N scoring means the fire cannot realistically out-rank every
+   * other light from the room's most extreme far corner -- and it does
+   * not need to, since nobody stands there to admire the fireplace.
+   * Standing over by the seating group instead (a real vantage point you
+   * would actually look at the fire from, ~12.6 m away -- well past the
+   * fire's old 9 m hard cutoff, and well past "right next to it"), ticked
+   * a full second so `updateLightRig` (main.js) has scored it. */
+  await teleport(-4.0, UPPER_Y, 67.0, SOUTH);
   await settle(1.0);
   const fireVisibleFar = await page.evaluate(() => {
     const glow = window.mansion.interior.props.office.fireGlow;
