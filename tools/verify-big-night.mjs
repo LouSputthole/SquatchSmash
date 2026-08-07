@@ -446,7 +446,6 @@ try {
   await page.waitForTimeout(180);
   const helpReady = await page.evaluate(() => {
     const game = window.__squatch;
-    game.interaction.update(1 / 60);
     const names = [];
     game.apartment.margo.group.traverse((object) => {
       if (object.name) names.push(object.name);
@@ -468,8 +467,11 @@ try {
       shapedClothes: names.includes('margo.silhouette.seat.left')
         && names.includes('margo.silhouette.seat.right'),
       targetVisible: game.apartment.margo.helpTarget.visible,
-      targetCurrent: game.interaction.current === game.apartment.margo.helpTarget,
-      prompt: document.querySelector('#prompt .label')?.textContent ?? '',
+      // The fastening is still hers alone: nothing has been asked of him yet.
+      closure: game.apartment.margo.dressHelpProgress,
+      glue: game.apartment.margo.dressGlue,
+      mode: game.player.mode,
+      paused: game.interaction.paused,
       /* Where the beat is TAKING the camera, not where a swiftshader frame
        * rate has got it to yet: both of these ease in over about a second of
        * real time, and this gate renders at single-figure frames per second.
@@ -486,26 +488,129 @@ try {
       && helpReady.canonicalFace
       && helpReady.shapedClothes,
     JSON.stringify(helpReady));
+  /* She ASKS standing up, and she is still standing when the ask lands: the
+   * all-fours pose is earned by a keypress on her own hit volume and is never
+   * scheduled (see `startMargoDressHelp`, the only caller of
+   * `setPose('kneeling')`). A morning that found her already down on the bed
+   * would be the bug this beat was rebuilt to remove.
+   *
+   * And nothing has moved him: he is still flat on his back with the flat
+   * paused around him, propped up on an elbow with the look floor dropped so
+   * he can see her over his own thrown-back duvet. Also a clean dress -- the
+   * come-home night's fastening and its glue both came off the shared rig. */
+  check('the morning asks before it kneels, from a bed he has not been moved out of',
+    helpReady.pose === 'standing'
+      && helpReady.knees.every((angle) => angle === 0)
+      && helpReady.torso === 0
+      && helpReady.headY > 1.3
+      && helpReady.targetVisible
+      && helpReady.closure === 0
+      && helpReady.glue === 0
+      && helpReady.mode === 'bed'
+      && helpReady.paused === true
+      /* Propped up on an elbow and pointed at her rather than left flat
+       * squinting over the duvet. The aim down onto her back once she kneels
+       * wants about -0.43 of pitch, so the look floor has to be below that --
+       * at the -0.35 it used to be, his head stopped short of the beat. */
+      && helpReady.lift === 1
+      && helpReady.pitchFloor <= -0.5,
+    JSON.stringify(helpReady));
+
+  /* From here the beat is played exactly the way a player plays it, because
+   * since SCENE 10 there is no other way to reach it: [E] on his back means
+   * GET UP (the keydown handler routes it there before anything else sees
+   * it), so the fastening is reached by standing up, looking down at her, and
+   * pressing [E] on her own hit volume. Real keypress, real raycast from the
+   * real camera, real `onUse`. */
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(
+    () => window.__squatch.player.mode !== 'bed' && window.__squatch.interaction.paused === false,
+    null,
+    { timeout: 30000 },
+  );
+  /* Mouse-look, in the only terms a headless run has: put his yaw and pitch
+   * on the fastening and let the game's own loop do the raycast on its next
+   * frame. Nothing here reaches inside `interaction.current`. */
+  await page.evaluate(() => {
+    const game = window.__squatch;
+    const margo = game.apartment.margo;
+    margo.group.updateMatrixWorld(true);
+    const m = margo.helpTarget.matrixWorld.elements;
+    const dx = m[12] - game.camera.position.x;
+    const dy = m[13] - game.camera.position.y;
+    const dz = m[14] - game.camera.position.z;
+    game.player.yaw = Math.atan2(-dx, -dz);
+    game.player.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+  });
+  const onHisFeet = await page.waitForFunction(
+    () => (window.__squatch.interaction.current === window.__squatch.apartment.margo.helpTarget
+      ? {
+        mode: window.__squatch.player.mode,
+        current: window.__squatch.interaction.current?.name ?? null,
+        prompt: document.querySelector('#prompt .label')?.textContent ?? '',
+        /* He stands up right beside her -- `bedExit` is half a metre off the
+         * fastening -- so reaching this is standing up and looking down, not
+         * a hike across the flat. */
+        reach: Math.hypot(
+          window.__squatch.apartment.margo.helpTarget.matrixWorld.elements[12]
+            - window.__squatch.camera.position.x,
+          window.__squatch.apartment.margo.helpTarget.matrixWorld.elements[13]
+            - window.__squatch.camera.position.y,
+          window.__squatch.apartment.margo.helpTarget.matrixWorld.elements[14]
+            - window.__squatch.camera.position.z,
+        ),
+      }
+      : null),
+    null,
+    { timeout: 30000 },
+  ).then((handle) => handle.jsonValue()).catch((error) => ({ error: String(error).slice(0, 120) }));
+  check('the dress-help beat puts the target under the crosshair once he is on his feet',
+    onHisFeet.mode === 'walk'
+      && onHisFeet.current === 'margo-dress-help'
+      && /help margo/i.test(onHisFeet.prompt ?? '')
+      && onHisFeet.reach < 1.5,
+    JSON.stringify(onHisFeet));
+
   /* Bent over on all fours, not knelt upright: the fastening runs down the
    * BACK of the dress, so the pose is what makes the interaction reachable at
    * all. Her head ending up barely above her own hips is the cheapest thing
    * to assert that an upright kneel cannot fake. */
-  check('the dress-help beat bends her over on all fours and puts the target under the crosshair',
-    helpReady.pose === 'kneeling'
-      && helpReady.knees.every((angle) => angle > 1.3)
-      && helpReady.torso > 1.3
-      && helpReady.headY < 0.75
-      && helpReady.targetVisible
-      && helpReady.targetCurrent
-      && /help margo/i.test(helpReady.prompt)
-      /* And he is being propped up on an elbow and pointed down at her rather
-       * than left flat squinting over his own duvet. The aim onto her back
-       * wants about -0.43 of pitch, so the look floor has to be below that --
-       * at the -0.35 it used to be, his head stopped short of the beat. */
-      && helpReady.lift === 1
-      && helpReady.aim?.[1] < 0.8
-      && helpReady.pitchFloor <= -0.5,
-    JSON.stringify(helpReady));
+  const kneeling = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.interaction.press();
+    const margo = game.apartment.margo;
+    margo.group.updateMatrixWorld(true);
+    const m = margo.helpTarget.matrixWorld.elements;
+    return {
+      started: game.margoDress.bar.active && game.margoDress.running,
+      pose: margo.pose,
+      knees: margo.knees.map((knee) => knee.rotation.x),
+      torso: margo.upper.rotation.x,
+      headY: Math.round(margo.head.matrixWorld.elements[13] * 1000) / 1000,
+      // The beat takes the room -- he is committed to the fastening now.
+      paused: game.interaction.paused,
+      /* And the authored mark it turns his head to is still ON the fastening:
+       * `MARGO_HELP_LOOK` is meant to be the measured world position of the
+       * hit volume, which rides the torso and therefore moves whenever the
+       * pose is re-measured. */
+      aim: game.game.margoScene?.aim ?? null,
+      target: [m[12], m[13], m[14]],
+    };
+  });
+  check('pressing [E] on her bends her over on all fours and takes the room',
+    kneeling.started === true
+      && kneeling.pose === 'kneeling'
+      && kneeling.knees.every((angle) => angle > 1.3)
+      && kneeling.torso > 1.3
+      && kneeling.headY < 0.75
+      && kneeling.paused === true
+      && kneeling.aim?.length === 3
+      && Math.hypot(
+        kneeling.aim[0] - kneeling.target[0],
+        kneeling.aim[1] - kneeling.target[1],
+        kneeling.aim[2] - kneeling.target[2],
+      ) < 0.06,
+    JSON.stringify(kneeling));
   if (CAPTURE) {
     const capturePath = path.resolve(CAPTURE);
     await fsp.mkdir(path.dirname(capturePath), { recursive: true });
@@ -516,15 +621,10 @@ try {
       if (overlay) overlay.style.display = 'none';
       return previous;
     });
-    /* Pump the scene's own update so the camera has arrived before the
-     * shutter. The lift and the head turn both ease in over about a second of
-     * REAL time and this gate renders at single-figure frames per second, so a
-     * capture taken on wall clock is a photograph of a camera still moving.
-     * `updateMargoWake` reads its beats off performance.now(), so stepping it
-     * converges the pose without skipping the scene forward. */
-    await page.evaluate(() => {
-      for (let i = 0; i < 150; i++) window.__squatch.updateMargoWake(1 / 60);
-    });
+    /* No pumping of the scene's own update before the shutter any more: the
+     * pose lands on the keypress and the camera is his own, standing, already
+     * pointed at her by the look above -- there is nothing left easing in.
+     * Stepping `updateMargoWake` here would only sweep the live bar. */
     await page.waitForTimeout(120);
     await page.screenshot({ path: capturePath });
     await page.evaluate((display) => {
@@ -535,20 +635,13 @@ try {
   }
 
   /* The beat is the picture frame's sweeping power bar rather than a hold, so
-   * it is driven the way the bar is actually played: tap to start it, then hit
-   * [E] with the marker inside the window. The marker is parked mid-window by
-   * hand rather than waited for, because a sweep that speeds up on every
-   * success is not something a headless gate should be trying to time. */
+   * it is played the way the bar is actually played: [E] with the marker
+   * inside the window, once per pull. The marker is parked mid-window by hand
+   * rather than waited for, because a sweep that speeds up on every success is
+   * not something a headless gate should be trying to time. */
   const dressGame = await page.evaluate(() => {
     const game = window.__squatch;
-    const target = game.apartment.margo.helpTarget;
-    const reachable = game.interaction.current === target;
-    /* Continue far enough to report all downstream checks even if camera
-     * reachability failed; the `reachable` assertion above still fails. */
-    if (!reachable) game.interaction.current = target;
-    game.interaction.press();
     const bar = game.margoDress.bar;
-    const started = bar.active && game.margoDress.running;
     const clapWhileRunning = game.audio.loops.has('margo.dress.clap');
 
     const before = game.audio.playbacks.length;
@@ -562,8 +655,6 @@ try {
     }
     const played = game.audio.playbacks.slice(before).map((playback) => playback.name);
     return {
-      reachable,
-      started,
       clapWhileRunning,
       total,
       good,
@@ -577,9 +668,7 @@ try {
     };
   });
   check('the dress beat is the same power bar as the picture frame, and it lands every pull',
-    dressGame.reachable
-      && dressGame.started
-      && dressGame.total === 7
+    dressGame.total === 7
       && dressGame.good === 7
       && dressGame.running === false
       && dressGame.progress === 1
@@ -656,8 +745,9 @@ try {
       events: game.campaign.state.story.timeEvents,
       minutes: game.campaign.state.story.timeMinutes,
       mode: game.player.mode,
-      pitch: Math.round(game.player.pitch * 100) / 100,
-      yawCentre: Math.round((game.player.yawCenter ?? 0) * 100) / 100,
+      paused: game.interaction.paused,
+      yawCentre: game.player.yawCenter,
+      pitchFloor: Math.round(game.player.pitchMin * 100) / 100,
       door: game.apartmentStory.tryLeave({}),
     };
   });
@@ -667,9 +757,16 @@ try {
       && handedBack.owed === false
       && handedBack.events.includes('scene.margo_wake')
       && handedBack.minutes === 7 * 60
-      // Exactly the pose an ordinary morning hands over.
-      && handedBack.mode === 'bed'
-      && handedBack.pitch === 0.95
+      /* On his feet, where the beat left him. He had to get up to help her --
+       * [E] on his back is the get-up key -- so a morning that ended by laying
+       * him back down was teleporting a standing man into his own bed and
+       * pausing the flat around him. He keeps the posture he earned, the whole
+       * room to point at, and his own head: no scene yaw centre, no scene
+       * pitch floor. */
+      && handedBack.mode === 'walk'
+      && handedBack.paused === false
+      && handedBack.yawCentre === null
+      && handedBack.pitchFloor < -1
       && handedBack.door?.kind === 'call',
     JSON.stringify(handedBack));
 
