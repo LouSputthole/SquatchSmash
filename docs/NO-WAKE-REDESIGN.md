@@ -21,10 +21,18 @@ temperature.
 
 ## The boat
 
-A fictional 35–36 ft late-1980s express cabin cruiser, laid out like a
-stretched 270 Sundancer: big cockpit and bow, a proper cabin with a wet bar,
-a dinette and a V-berth. Modern boats are proportion reference only — this one
-is period-correct.
+A fictional late-1980s express cabin cruiser, laid out like a stretched 270
+Sundancer: big cockpit and bow, a proper cabin with a wet bar, a dinette and a
+V-berth. Modern boats are proportion reference only — this one is
+period-correct.
+
+**She is 42 ft, not the 35–36 this section originally specified.** The
+2026-08-06 playtest (`docs/audits/2026-08-06/PLAYTEST-PUNCH-LIST.md`, N1) found
+the smaller hull's cabin unplayable — "the confrontation plays out in a
+bathroom" — and the owner asked for the whole boat to grow: hull, deck and
+especially the volume below. 12.83 m overall, 11.80 m of hull, 5.12 m of beam.
+The measured shape lives in `src/nowake/deck-collision.js`; do not re-derive it
+from this paragraph.
 
 Cream fiberglass with a dark burgundy or navy stripe · smoked wraparound
 windshield · analog gauges · chrome throttle levers · cream vinyl with
@@ -61,8 +69,18 @@ forward locker. **Irish stays here almost the whole mission.**
 ## Below deck — the heart of it
 
 The companionway drops into a warm enclosed cabin. Engines go muffled and
-physical. Low ceiling. The hull creaks. Water taps the fiberglass. The room
-should feel smaller once all four men are in it.
+physical. The hull creaks. Water taps the fiberglass.
+
+~~Low ceiling. The room should feel smaller once all four men are in it.~~
+**Withdrawn by the 2026-08-06 playtest (N1).** Built to the letter, that
+sentence produced a room with 1.36 m of clear floor across, 1.66 m fore and
+aft and 1.82 m of headroom — the owner's "bathroom". It is a salon now: 2.12 m
+of clear sole between the galley and the dinette, 2.33 m fore and aft, 2.08 m
+of headroom, and a walkway across the front of the V-berth. The enclosure is
+carried by sound, light and the closed companionway doors, not by the walls
+being close enough to touch. `tests/no-wake-deck.test.mjs` and
+`npm run verify:no-wake` both measure the room, so the bathroom cannot return
+by accident.
 
 **Port — bar and galley:** wood-veneer counter, small stainless sink, mirrored
 liquor cabinet, the tequila, four heavy-bottomed glasses, ice bucket, mini

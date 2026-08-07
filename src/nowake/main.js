@@ -173,6 +173,18 @@ const CABIN_H = boat.cabinDeck.height;
 /** Ninety seconds of channel, the same gate the old build shipped with. */
 const DRIVE_SECONDS = 90;
 
+/**
+ * The shot glass, on the dinette table and then on the sole.
+ *
+ * Named because five different beats move it and the table moved 0.32 m down
+ * and 0.36 m outboard when the salon was built (punch list N1). Five loose
+ * literals is five chances to leave one behind.
+ */
+const GLASS_TABLE_X = 1.10;
+const GLASS_TABLE_Y = 0.345;
+const GLASS_ROLL_X = 1.02;
+const GLASS_ROLL_Z = -3.95;
+
 /** The startup procedure, in the order the spec lists it. */
 const STARTUP_STEPS = Object.freeze([
   { key: 'battery', label: 'Battery' },
@@ -615,7 +627,7 @@ function enterHelm() {
   player.pitchMax = .42;
   player.yaw = physics.heading;
   player.pitch = -.05;
-  player.position.copy(world.fromBoatLocal(local.set(1.24, DECK_H + 1.32, 1.06)));
+  player.position.copy(world.fromBoatLocal(local.set(1.42, DECK_H + 1.32, 1.06)));
   physics.throttle = 0;
   physics.steer = 0;
   physics.helmAttended = true;
@@ -722,7 +734,7 @@ function goBelow() {
   const resumePhase = state.phase;
   player.clearKeys();
   interaction.setPaused(true);
-  const mark = world.fromBoatLocal(new THREE.Vector3(-.06, CABIN_H + 1.66, -2.52));
+  const mark = world.fromBoatLocal(new THREE.Vector3(-.25, CABIN_H + 1.66, -2.55));
   /* Facing forward, into the room. `Player` walks along -Z at yaw 0, so the
    * cabin -- which is forward of the companionway -- is straight ahead of a
    * man who arrives on this mark at the boat's own heading. */
@@ -755,7 +767,7 @@ function comeUp() {
   state.moving = true;
   player.clearKeys();
   interaction.setPaused(true);
-  const mark = world.fromBoatLocal(new THREE.Vector3(-1.26, DECK_H + 1.66, .40));
+  const mark = world.fromBoatLocal(new THREE.Vector3(-1.465, DECK_H + 1.66, .40));
   player.sitAt({
     position: mark, yaw: boat.root.rotation.y, pitch: -.02, dur: 1.5, yawRange: Math.PI,
   }, () => {
@@ -843,11 +855,28 @@ function placeCabinCast() {
     npc.job = 'stand';
     npc._syncJob(true);
   };
-  put(boat.cast.lou, 1.02, -3.66, 0);
-  put(boat.cast.booski, -1.16, -3.30, 1.42);
-  put(boat.cast.willy, .04, -3.06, Math.PI * .86);
+  /* The salon is 0.72 m wider and 0.80 m longer than the room these three
+   * marks were first blocked in (punch list N1), so they are re-blocked to it:
+   * Lou at the forward end of the dinette, Booski behind the length of the bar,
+   * Willy standing between them with the whole room behind him. The player
+   * arrives at (-0.25, -2.80) and `tools/verify-no-wake.mjs` re-casts the sight
+   * line from his eye to each man's chest, so none of this may put anybody
+   * behind anything.
+   *
+   * They are also blocked to the CAMERA, not just to the floor plan, and that
+   * is the whole reason a bigger room needed new marks rather than the old ones
+   * moved outward. Spread across the full width of it, Booski left the frame:
+   * at a 68° vertical FOV the horizontal half-angle is 50°, and a man 1.2 m to
+   * port of a player standing 0.9 m away is past it. Stood where they used to
+   * stand, all three were close enough to fill the screen with a shoulder. They
+   * are 1.8-2.7 m forward of the player's mark now and inside 35° of his eye
+   * line, which is a composition instead of a crowd, and the verifier measures
+   * both the sight line and the NDC. */
+  put(boat.cast.lou, 1.20, -4.80, 0);
+  put(boat.cast.booski, -1.05, -4.60, 1.42);
+  put(boat.cast.willy, .20, -4.30, Math.PI * .86);
   // Irish never abandons his lookout. He is on the bow the whole time.
-  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.10);
+  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.80);
   boat.cast.irish.group.rotation.y = Math.PI;
   boat.cast.irish.baseY = FOREDECK_H;
 }
@@ -866,7 +895,7 @@ function pourTheShot() {
     state.poured = true;
     setTimeout(() => {
       // Slid across, onto the dinette table in front of Willy.
-      cabin.props.shotGlass.position.set(.82, .66, -3.06);
+      cabin.props.shotGlass.position.set(GLASS_TABLE_X, GLASS_TABLE_Y, -4.10);
       audio.play('glass.set', { volume: 1 });
       setTimeout(() => {
         if (state.phase !== 'cabin') return;
@@ -890,10 +919,10 @@ function runCabinBeat(beat, when) {
   if (when === 'before') {
     if (beat === 'shot') {
       // He takes the shot because nobody else is going to.
-      cabin.props.shotGlass.position.set(.82, .96, -3.02);
+      cabin.props.shotGlass.position.set(GLASS_TABLE_X, GLASS_TABLE_Y + .30, -4.06);
       setTimeout(() => {
         if (state.phase !== 'cabin') return;
-        cabin.props.shotGlass.position.set(.82, .66, -3.06);
+        cabin.props.shotGlass.position.set(GLASS_TABLE_X, GLASS_TABLE_Y, -4.10);
         audio.play('glass.set', { volume: 1, rate: .92 });
       }, 900);
     }
@@ -909,7 +938,7 @@ function runCabinBeat(beat, when) {
     }
     if (beat === 'stairs') {
       willy.faceToward(player.position.x, player.position.z);
-      cabin.props.shotGlass.position.set(.74, .66, -2.96);
+      cabin.props.shotGlass.position.set(GLASS_ROLL_X, GLASS_TABLE_Y, GLASS_ROLL_Z);
       audio.play('glass.set', { volume: .95, rate: .88 });
     }
     if (beat === 'sit') {
@@ -919,7 +948,7 @@ function runCabinBeat(beat, when) {
          * Without this, sitting Willy down lands after he has been shot and
          * puts him back on the booth. */
         if (state.phase !== 'cabin') return;
-        willy.group.position.set(1.02, CABIN_H + .38, -2.86);
+        willy.group.position.set(1.35, CABIN_H + .38, -4.15);
         willy.group.rotation.y = Math.PI;
         willy.job = 'sit';
         willy.baseY = CABIN_H + .38;
@@ -1106,7 +1135,7 @@ function dropWilly() {
   willy.baseY = CABIN_H;
   willy.job = 'stand';
   willy._syncJob(true);
-  willy.group.position.set(.62, CABIN_H, -3.02);
+  willy.group.position.set(.28, CABIN_H, -3.78);
   willy.group.rotation.set(0, Math.PI * .9, -1.42);
   state.playerGun.visible = false;
   state.glassRoll = { t: 0 };
@@ -1136,7 +1165,7 @@ function beginWrap() {
   state.wrapStage = 'roll';
   sayThenObjective(NO_WAKE_BODY_LINES.finishIt, 'WRAP HIM', 'Hold E to roll him onto the tarp');
   boat.bodyMarker.visible = true;
-  boat.bodyMarker.position.set(.46, CABIN_H + .90, -2.94);
+  boat.bodyMarker.position.set(.10, CABIN_H + .90, -3.85);
 }
 
 function advanceWrap() {
@@ -1221,7 +1250,7 @@ function beginBallastAttach() {
   phase('weights_attach');
   state.wrapStage = 'ballast';
   boat.bodyMarker.visible = true;
-  boat.bodyMarker.position.set(.46, CABIN_H + .90, -2.94);
+  boat.bodyMarker.position.set(.10, CABIN_H + .90, -3.85);
   setObjective('ATTACH THE WEIGHT', 'Hold E to clip it to the rings');
 }
 
@@ -1241,7 +1270,7 @@ function beginCarry() {
   speak(NO_WAKE_BODY_LINES.moveHim);
   setObjective('', '');
   // Lou follows and does not help carry.
-  boat.cast.lou.group.position.set(.30, CABIN_H, -2.60);
+  boat.cast.lou.group.position.set(.60, CABIN_H, -3.10);
   boat.cast.lou.group.rotation.y = 0;
 }
 
@@ -1283,7 +1312,7 @@ function updateCarry(dt) {
     audio.stopLoop('cabin-water', .9);
     audio.play('seagull.distant', { volume: .26, rate: .92 });
     // Lou follows them up and stands by the gate. He does not help carry.
-    boat.cast.lou.group.position.set(.40, DECK_H, 1.40);
+    boat.cast.lou.group.position.set(.40, DECK_H, 1.60);
     boat.cast.lou.group.rotation.y = 0;
   }
   if (t >= 1 && !state.carryDone) {
@@ -1297,8 +1326,11 @@ function updateCarry(dt) {
 function reachPlatform() {
   phase('platform');
   cameraDirector.frameDisposal();
-  boat.cast.booski.group.position.set(1.30, DECK_H, 4.10);
+  boat.cast.booski.group.position.set(1.40, DECK_H, 4.60);
   boat.cast.booski.group.rotation.y = 0;
+  /* Forward of the gate, and it stays forward of the gate: "Lou never helped
+   * carry" is asserted in the verifier as `lou.z <= 3.5`, which is the whole
+   * point of him standing where the bag is not. */
   boat.cast.lou.group.position.set(.20, DECK_H, 3.40);
   boat.cast.lou.group.rotation.y = 0;
   /* Water laps inches below the bag. Lou looks at the shoreline and nods. The
@@ -1311,14 +1343,34 @@ function reachPlatform() {
       boat.cast.lou.faceToward(boat.cast.booski.group.position.x, boat.cast.booski.group.position.z);
       setObjective('DUMP THE BODY', 'Hold E');
       document.body.classList.remove('cinematic');
-      player.mode = 'frozen';
+      /* PUNCH LIST N4. Two things stopped E working here, and both of them are
+       * in these six lines.
+       *
+       *  - `frozen` is a mode with NO INPUT AT ALL: `Player.handleMouseMove`
+       *    returns on it. The mission asked for a look-at interaction and then
+       *    took the player's head away, so an aim that missed could not be
+       *    corrected by the only means a first-person game has. `seated` locks
+       *    him to the spot and leaves him his eyes, which is what "the player
+       *    keeps his aim so he can watch it" was always trying to say.
+       *  - The authored aim missed. Pitched 17° down from 1.62 m above the
+       *    cockpit sole, the crosshair passed over the disposal zone entirely.
+       *    He looks AT the bag now (26°), and stands 0.15 m inboard of where he
+       *    did, because 1.30 was exactly the old zone's own corner.
+       *
+       * The clamps are undone in `beginExit()`; leaving them on cost the ride
+       * home its head. */
+      player.mode = 'seated';
       interaction.setPaused(false);
-      /* The player keeps his aim so he can watch it, and the interaction is
-       * aimed from where the carry left him. */
-      const at = world.fromBoatLocal(scratch.set(1.30, DECK_H + 1.62, 4.60));
+      const at = world.fromBoatLocal(scratch.set(1.15, DECK_H + 1.62, 4.70));
       player.position.copy(at);
+      player.velocity.set(0, 0, 0);
       player.yaw = boat.root.rotation.y + Math.PI;
-      player.pitch = -.30;
+      player.yawCenter = player.yaw;
+      player.yawRange = 1.15;
+      player.pitchMin = -1.15;
+      player.pitchMax = .25;
+      player.pitch = -.46;
+      player.enabled = document.pointerLockElement === canvas;
       player.update(.016);
       cameraDirector.clear();
     }, 2200);
@@ -1372,16 +1424,23 @@ function beginExit() {
   player.mode = 'walk';
   player.enabled = document.pointerLockElement === canvas;
   player.ground = boat.root.position.y + DECK_H;
-  player.position.copy(world.fromBoatLocal(local.set(1.10, DECK_H + 1.66, 2.60)));
+  player.position.copy(world.fromBoatLocal(local.set(1.20, DECK_H + 1.66, 2.80)));
+  /* The disposal mark clamped his look so he could not turn round on the swim
+   * platform (N4). Whoever sets a yaw window owns taking it off again, and this
+   * is the beat that gives him the boat back. */
+  player.yawCenter = null;
+  player.yawRange = Math.PI;
+  player.pitchMin = -Math.PI / 2 + .05;
+  player.pitchMax = Math.PI / 2 - .05;
   player.velocity.set(0, 0, 0);
   interaction.setPaused(false);
   physics.anchored = false;
   // Irish goes forward for the anchor as soon as both engines are running.
-  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.10);
+  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.80);
   boat.cast.irish.group.rotation.y = Math.PI;
-  boat.cast.booski.group.position.set(-1.20, DECK_H, 3.60);
+  boat.cast.booski.group.position.set(-1.30, DECK_H, 3.90);
   boat.cast.booski.group.rotation.y = 0;
-  boat.cast.lou.group.position.set(-.90, DECK_H, 2.20);
+  boat.cast.lou.group.position.set(-.95, DECK_H, 2.30);
   boat.cast.lou.group.rotation.y = Math.PI;
 }
 
@@ -1483,14 +1542,14 @@ function updateGlassRoll(dt) {
   const foot = cabin.props.sinkFoot;
   const k = Math.min(1, Math.max(0, (state.glassRoll.t - .5) / 2.4));
   if (state.glassRoll.t < .5) {
-    glass.position.x = .74 + Math.sin(state.glassRoll.t * 90) * .006;
+    glass.position.x = GLASS_ROLL_X + Math.sin(state.glassRoll.t * 90) * .006;
     return;
   }
   const eased = k * k * (3 - 2 * k);
   glass.position.set(
-    THREE.MathUtils.lerp(.74, foot.x, eased),
-    THREE.MathUtils.lerp(.66, foot.y + .04, Math.min(1, eased * 2.2)),
-    THREE.MathUtils.lerp(-2.96, foot.z, eased),
+    THREE.MathUtils.lerp(GLASS_ROLL_X, foot.x, eased),
+    THREE.MathUtils.lerp(GLASS_TABLE_Y, foot.y + .04, Math.min(1, eased * 2.2)),
+    THREE.MathUtils.lerp(GLASS_ROLL_Z, foot.z, eased),
   );
   glass.rotation.z = eased * 12;
   if (k >= 1) {
@@ -1561,7 +1620,7 @@ function updateBoat(dt) {
     boat.controls.gaugeNeedles.tachStarboard.rotation.z = rev * .98;
     boat.controls.gaugeNeedles.speed.rotation.z = -.95 + Math.min(1, Math.abs(physics.speed) / 8.5) * 1.9;
     boat.controls.gaugeNeedles.depth.rotation.z = -.30;
-    const wakeAt = world.fromBoatLocal(local.set(0, 0, 6.05));
+    const wakeAt = world.fromBoatLocal(local.set(0, 0, 6.55));
     world.wake.emit(wakeAt, physics.heading, Math.abs(physics.speed), dt);
     const propulsion = Math.min(1, Math.abs(physics.speed) / 8.5);
     if (Math.abs(physics.speed) > .25) {
@@ -1602,7 +1661,7 @@ function updateBoat(dt) {
   if (state.atHelm && driving) {
     const deltaHeading = physics.heading - lastHeading;
     player.yaw += deltaHeading;
-    player.position.copy(world.fromBoatLocal(local.set(1.24, DECK_H + 1.32, 1.06)));
+    player.position.copy(world.fromBoatLocal(local.set(1.42, DECK_H + 1.32, 1.06)));
     player.sway.roll = physics.motion().roll * .32;
     lastHeading = physics.heading;
     throttleReadout.textContent = Math.abs(physics.throttle) < .04
@@ -1673,7 +1732,7 @@ function resumeCheckpoint() {
     cabin.setDoorsClosed(true);
     player.mode = 'walk';
     player.ground = boat.root.position.y + CABIN_H;
-    player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.06, CABIN_H + 1.66, -2.52)));
+    player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.25, CABIN_H + 1.66, -2.55)));
     prepareGuns();
     if (checkpoint === 'weighted') {
       bodyRig.swapToWrapped(boat.cast.willy);
@@ -1731,7 +1790,7 @@ function jumpToPreviewCheckpoint(id) {
   player.targetEye = 1.66;
   player.yawCenter = null;
   player.yawRange = Math.PI;
-  player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.60, DECK_H + 1.66, 3.10)));
+  player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.70, DECK_H + 1.66, 3.10)));
   player.yaw = boat.root.rotation.y + Math.PI;
   player.pitch = -.06;
   player.velocity.set(0, 0, 0);
@@ -1781,7 +1840,7 @@ function jumpToPreviewCheckpoint(id) {
   player.yawRange = Math.PI;
   player.pitchMin = -Math.PI / 2 + .05;
   player.pitchMax = Math.PI / 2 - .05;
-  player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.06, CABIN_H + 1.66, -2.52)));
+  player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.25, CABIN_H + 1.66, -2.55)));
   player.velocity.set(0, 0, 0);
   interaction.setPaused(false);
   enterEnclosure();
@@ -1999,10 +2058,30 @@ document.addEventListener('visibilitychange', () => {
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
 });
+/**
+ * E pressed with nothing under the crosshair, during a beat that is waiting for
+ * E. `docs/RIGHT-FIRST-TIME.md`, the refused-input rule: "every gated
+ * interaction, when refused, must SAY WHY". N4 was exactly this failure --
+ * the mission put DUMP THE BODY on screen and then answered the key with
+ * silence for as long as the player cared to press it.
+ */
+function sayWhyNothingHappened() {
+  if (interaction.paused) return;
+  if (state.phase === 'platform' && !state.bodyDisposed) {
+    hud.say('Look down at the bag on the platform, then hold E.', 2600);
+  } else if (state.wrapStage) {
+    hud.say('Look at the body, then hold E.', 2600);
+  }
+}
+
 document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
   player.setKey(event.code, true);
-  if (event.code === 'KeyE') interaction.press();
+  if (event.code === 'KeyE') {
+    const onSomething = Boolean(interaction.current);
+    interaction.press();
+    if (!onSomething) sayWhyNothingHappened();
+  }
   if (event.code === 'KeyR' && radio.on) radio.next();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
   if (event.code === 'KeyQ' && state.atHelm) leaveHelm();

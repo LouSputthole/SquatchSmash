@@ -217,7 +217,7 @@ test('the deck paths the owner called tight are wide', () => {
     'the bow has to be wide enough to walk; nothing but rails may stand on it');
   const foredeckWidth = at('starboard rail · foredeck run').min.x
     - at('port rail · foredeck run').max.x;
-  assert.ok(foredeckWidth >= 4,
+  assert.ok(foredeckWidth >= 4.7,
     `the foredeck is only ${foredeckWidth.toFixed(2)} m across`);
   /* And the route the body takes: companionway aft to the transom gate, past a
    * U of seating that opens to starboard. */
@@ -237,8 +237,61 @@ test('the deck is two levels joined by a ramp, and the ramp is monotonic', () =>
     previous = here;
   }
   // The cabin is under the foredeck and stands up in.
-  assert.ok(CABIN.ceiling - CABIN.height >= 1.75,
+  assert.ok(CABIN.ceiling - CABIN.height >= 2.05,
     `only ${(CABIN.ceiling - CABIN.height).toFixed(2)} m of headroom below deck`);
+});
+
+/**
+ * Punch list N1: "below-deck cabin far too small — plays out in a bathroom".
+ *
+ * The complaint was a measurement, so the fix is a measurement, and this is the
+ * cheapest machine that can catch it coming back. Every number here is what the
+ * old cabin FAILED: 1.36 m of clear width, 1.66 m of clear length, 1.82 m of
+ * headroom, 2.3 m² of floor. Shrinking any of them below a room a man can be
+ * confronted in fails here before a browser is ever opened.
+ */
+test('the cabin is a salon a confrontation fits in, not a bathroom', () => {
+  const at = (name) => cabin.boxes.find((box) => box.name === name);
+  const headroom = CABIN.ceiling - CABIN.height;
+  assert.ok(headroom >= 2.05, `${headroom.toFixed(2)} m of headroom is a crawl space`);
+
+  // Beam to beam between the two furniture runs: the width of the salon floor.
+  const clearWidth = at('cabin · dinette booth').min.x - at('cabin · galley counter').max.x;
+  assert.ok(clearWidth >= 2.0,
+    `only ${clearWidth.toFixed(2)} m of clear sole between the galley and the dinette`);
+
+  // And fore-and-aft, from the galley's forward end to the companionway sill.
+  const clearLength = at('cabin · companionway sill').min.z - at('cabin · galley counter').min.z;
+  assert.ok(clearLength >= 2.2,
+    `only ${clearLength.toFixed(2)} m of clear sole between the V-berth and the stairs`);
+
+  // The whole room, liner to liner and bulkhead to bulkhead.
+  const interiorWidth = CABIN.halfBeam * 2;
+  const interiorLength = CABIN.stern - CABIN.bow;
+  assert.ok(interiorWidth >= 3.8, `the cabin is only ${interiorWidth.toFixed(2)} m across`);
+  assert.ok(interiorLength >= 3.5, `the cabin is only ${interiorLength.toFixed(2)} m long`);
+
+  /* Measured rather than assumed: walk the 0.05 m grid and count the squares a
+   * standing capsule's CENTRE can occupy without touching anything. That is the
+   * honest "can four men be in here" number, and the old cabin's was 0.80 m² —
+   * one man, standing still, which is exactly what the owner saw. */
+  let squares = 0;
+  for (let x = -CABIN.halfBeam; x <= CABIN.halfBeam + 1e-9; x += .05) {
+    for (let z = CABIN.bow; z <= CABIN.stern + 1e-9; z += .05) {
+      const { depth } = deckPenetration(cabin.boxes, x, z, CAPSULE_RADIUS,
+        CABIN.height + EYE_HEIGHT, EYE_HEIGHT);
+      if (depth <= 1e-6) squares++;
+    }
+  }
+  const floor = squares * .05 * .05;
+  assert.ok(floor >= 3.4,
+    `only ${floor.toFixed(2)} m² of standable cabin sole (the bathroom was 0.80)`);
+
+  // The confrontation's own pen has to be a room too, not a phone box.
+  const stagingArea = (CABIN_STAGING.maxX - CABIN_STAGING.minX)
+    * (CABIN_STAGING.maxZ - CABIN_STAGING.minZ);
+  assert.ok(stagingArea >= 1.2,
+    `the staging area is ${stagingArea.toFixed(2)} m² — the player cannot move in it`);
 });
 
 test('the confrontation staging area is inside the cabin and is not a trap', () => {

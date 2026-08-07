@@ -27,12 +27,17 @@
  *
  * ## The redesign's shape, and why the numbers are what they are
  *
- * `docs/NO-WAKE-REDESIGN.md` replaces the old 42-footer with a 35-36 ft
- * late-1980s express cruiser and moves the confrontation below deck. That
- * gives this file two jobs instead of one, and one new rule from the owner:
- * **the deck paths are wide.** Reaching the bow and reaching the helm were the
- * two things that read as tight, so the routes to both are authored at a metre
- * or better rather than at the capsule's own width.
+ * `docs/NO-WAKE-REDESIGN.md` moves the confrontation below deck, and the
+ * 2026-08-06 playtest (`docs/audits/2026-08-06/PLAYTEST-PUNCH-LIST.md`, N1)
+ * then grew the whole boat: the 36-footer's cabin was 1.36 m of clear floor
+ * under a 1.82 m ceiling and the owner said the confrontation "plays out in a
+ * bathroom". She is now a 42 ft hull — 0.36 m more half beam, 0.70 m more bow,
+ * 0.50 m more stern — and her sole is 0.32 m deeper, which is where the salon
+ * below comes from. That gives this file two jobs instead of one, and one rule
+ * from the owner that predates the punch list: **the deck paths are wide.**
+ * Reaching the bow and reaching the helm were the two things that read as
+ * tight, so the routes to both are authored at a metre or better rather than
+ * at the capsule's own width.
  *
  *  - **Two levels on deck.** The foredeck is the cabin trunk's roof at 1.70 and
  *    the cockpit sole is at 1.02, joined by a ramp under the windshield's
@@ -42,7 +47,7 @@
  *  - **Forward of the windshield the whole beam is walkable.** A raised
  *    foredeck over a full-width trunk is what this hull actually is, and it
  *    means the bow — where the mooring line and the ballast locker are — is
- *    4.1 m across instead of a 1 m side deck.
+ *    4.8 m across instead of a 1 m side deck.
  *  - **One route between the cockpit and the foredeck**, up the centre: 0.98 m
  *    between the companionway hatch and the helm console, then 1.24 m through
  *    the windshield walk-through. Wide, legible, and impossible to get wedged
@@ -50,17 +55,19 @@
  *  - **The cockpit seating is a U that opens to starboard**, so the passage
  *    from the companionway aft to the transom gate — the route the body takes
  *    — is clear the whole way, which the spec asks for by name.
- *  - **Below deck is deliberately small.** The confrontation wants the player
- *    on his mark; the cabin's clear floor is a corridor about 0.76 m wide
- *    between the galley counter and the dinette. That is the staging area, not
- *    an accident, and it still passes the escape sweep.
+ *  - **Below deck is a salon, and that is the punch list's N1.** The clear
+ *    floor between the galley counter and the dinette is 2.12 m across and
+ *    2.28 m fore-and-aft under 2.08 m of headroom — four men and a table with
+ *    room to stand round it, where the old cabin was a 0.76 m corridor. The
+ *    dimensions are asserted by `tests/no-wake-deck.test.mjs` and again in
+ *    `tools/verify-no-wake.mjs`, so the bathroom cannot come back by accident.
  */
 
 /** Walkable extent of the main deck in boat space. */
 export const DECK = {
-  halfBeam: 2.02,
-  bow: -5.15,
-  stern: 4.90,
+  halfBeam: 2.38,
+  bow: -5.85,
+  stern: 5.40,
   /** The cockpit sole. Everything that says "the deck height" means this one. */
   height: 1.02,
   /** The cabin trunk roof the player walks on forward of the windshield. */
@@ -82,14 +89,22 @@ export const DECK = {
   },
 };
 
-/** Walkable extent of the cabin sole, below deck. */
+/**
+ * Walkable extent of the cabin sole, below deck.
+ *
+ * The sole dropped 0.32 m and the room grew 0.36 m a side and 0.80 m forward
+ * for punch-list N1. The ceiling is 6 cm LOWER than it was on purpose: the old
+ * liner panel was authored at 1.62 with the trunk roof's underside at 1.56 and
+ * the two were fighting for the same 3 m² of plane. It beds into the roof now,
+ * and the headroom came from the floor instead.
+ */
 export const CABIN = {
-  halfBeam: 1.58,
-  bow: -5.00,
-  stern: -2.20,
-  height: -0.20,
-  /** Underside of the foredeck. The cabin is 1.82 m in the clear. */
-  ceiling: 1.62,
+  halfBeam: 1.94,
+  bow: -5.85,
+  stern: -2.10,
+  height: -0.52,
+  /** Underside of the foredeck. The cabin is 2.08 m in the clear. */
+  ceiling: 1.56,
   heightAt() { return this.height; },
 };
 
@@ -100,9 +115,16 @@ export const CABIN = {
  * a small staging area so the composition holds." A clamp rather than more
  * geometry, because geometry that exists only to pen somebody in is geometry
  * the sweep then has to prove is not a trap.
+ *
+ * It grew with the room (punch list N1). At 0.40 x 0.84 m it was a phone box
+ * inside a bathroom; at 1.17 x 1.30 m — four times the floor — the player can
+ * cross the salon and change his angle on all three men without ever leaving
+ * the composition. It stops short of the two aft-bulkhead returns either side
+ * of the companionway on purpose: a corner the resolver has to push him out of
+ * is a corner the clamp then pushes him back into.
  */
 export const CABIN_STAGING = Object.freeze({
-  minX: -0.42, maxX: -0.02, minZ: -3.30, maxZ: -2.46,
+  minX: -0.82, maxX: 0.35, minZ: -3.80, maxZ: -2.50,
 });
 
 /** Player capsule radius (`RADIUS` in src/core/player.js). Its diameter is the
@@ -122,35 +144,35 @@ export const CAPSULE_RADIUS = 0.30;
  * 0.98, and the ramp between them is covered by both.
  */
 export const DECK_COLLIDERS = [
-  { name: 'starboard rail · foredeck run', min: [2.06, 1.60, -5.25], max: [2.50, 2.86, -1.40] },
-  { name: 'starboard rail · side deck', min: [2.06, 0.98, -1.80], max: [2.50, 2.86, 0.66] },
-  { name: 'starboard coaming · cockpit', min: [2.00, 0.98, 0.00], max: [2.50, 2.08, 4.70] },
-  { name: 'starboard transom gate', min: [2.00, 0.98, 4.20], max: [2.50, 2.08, 5.05] },
-  { name: 'port rail · foredeck run', min: [-2.50, 1.60, -5.25], max: [-2.06, 2.86, -1.40] },
-  { name: 'port rail · side deck', min: [-2.50, 0.98, -1.80], max: [-2.06, 2.86, 0.66] },
-  { name: 'port coaming · cockpit', min: [-2.50, 0.98, 0.00], max: [-2.00, 2.08, 5.05] },
-  { name: 'stern rail', min: [-2.00, 0.98, 4.62], max: [2.00, 2.08, 5.10] },
+  { name: 'starboard rail · foredeck run', min: [2.42, 1.60, -5.95], max: [2.86, 2.86, -1.40] },
+  { name: 'starboard rail · side deck', min: [2.42, 0.98, -1.80], max: [2.86, 2.86, 0.66] },
+  { name: 'starboard coaming · cockpit', min: [2.36, 0.98, 0.00], max: [2.86, 2.08, 5.20] },
+  { name: 'starboard transom gate', min: [2.36, 0.98, 4.70], max: [2.86, 2.08, 5.55] },
+  { name: 'port rail · foredeck run', min: [-2.86, 1.60, -5.95], max: [-2.42, 2.86, -1.40] },
+  { name: 'port rail · side deck', min: [-2.86, 0.98, -1.80], max: [-2.42, 2.86, 0.66] },
+  { name: 'port coaming · cockpit', min: [-2.86, 0.98, 0.00], max: [-2.36, 2.08, 5.55] },
+  { name: 'stern rail', min: [-2.36, 0.98, 5.12], max: [2.36, 2.08, 5.60] },
   /* The two pulpit rails overlap at the stem on purpose. Stopping each of them
    * short of the centreline leaves a slot narrower than the capsule that is
    * unreachable on foot and reachable by being ejected forward -- which drops
    * the player off the bow with no way back. */
-  { name: 'bow pulpit · port', min: [-2.40, 1.60, -6.20], max: [0.06, 2.60, -4.90] },
-  { name: 'bow pulpit · starboard', min: [-0.06, 1.60, -6.20], max: [2.40, 2.60, -4.90] },
+  { name: 'bow pulpit · port', min: [-2.76, 1.60, -6.90], max: [0.06, 2.60, -5.60] },
+  { name: 'bow pulpit · starboard', min: [-0.06, 1.60, -6.90], max: [2.76, 2.60, -5.60] },
   /* Smoked wraparound windshield in two wings with a 1.24 m centre
    * walk-through. This is the only way between the cockpit and the foredeck,
    * and it is deliberately twice the capsule's width. */
-  { name: 'windshield · port wing', min: [-2.10, 0.98, -2.02], max: [-0.62, 3.20, -1.40] },
-  { name: 'windshield · starboard wing', min: [0.62, 0.98, -2.02], max: [2.10, 3.20, -1.40] },
+  { name: 'windshield · port wing', min: [-2.46, 0.98, -2.02], max: [-0.62, 3.20, -1.40] },
+  { name: 'windshield · starboard wing', min: [0.62, 0.98, -2.02], max: [2.46, 3.20, -1.40] },
   /* The helm is to starboard. Console and bench are one mass from the
    * windshield aft, so the route forward is the centre and only the centre. */
-  { name: 'helm console', min: [0.34, 0.98, -1.40], max: [2.10, 2.40, 0.02] },
-  { name: 'helm bench', min: [0.46, 0.98, 0.72], max: [2.04, 2.16, 1.66] },
+  { name: 'helm console', min: [0.34, 0.98, -1.40], max: [2.46, 2.40, 0.02] },
+  { name: 'helm bench', min: [0.46, 0.98, 0.72], max: [2.40, 2.16, 1.66] },
   /* The companionway hatch is a hole in the deck. Solid, because a hole the
    * player can walk into is a fall, and going below is an authored move. */
-  { name: 'companionway hatch', min: [-2.20, 0.98, -1.40], max: [-0.64, 1.44, 0.00] },
-  { name: 'cockpit seating · port return', min: [-2.00, 0.98, 2.30], max: [-1.10, 2.06, 4.62] },
-  { name: 'cockpit seating · forward leg', min: [-2.00, 0.98, 2.30], max: [-0.55, 2.06, 2.86] },
-  { name: 'cockpit seating · aft bench', min: [-2.00, 0.98, 3.95], max: [0.62, 2.06, 4.62] },
+  { name: 'companionway hatch', min: [-2.56, 0.98, -1.40], max: [-0.64, 1.44, 0.00] },
+  { name: 'cockpit seating · port return', min: [-2.36, 0.98, 2.30], max: [-1.26, 2.06, 5.12] },
+  { name: 'cockpit seating · forward leg', min: [-2.36, 0.98, 2.30], max: [-0.55, 2.06, 2.86] },
+  { name: 'cockpit seating · aft bench', min: [-2.36, 0.98, 4.45], max: [0.62, 2.06, 5.12] },
 ];
 
 /**
@@ -158,21 +180,39 @@ export const DECK_COLLIDERS = [
  *
  * The cabin is bar to port, dinette to starboard, V-berth forward, and a
  * closed head and a mid-cabin berth in the aft bulkhead either side of a
- * 1.40 m companionway doorway. The doorway carries a knee-high sill box: the
+ * 1.90 m companionway doorway. The doorway carries a knee-high sill box: the
  * player can see up the steps and cannot walk into them, because going up is
  * an authored move for the same reason going down is.
+ *
+ * The furniture is what makes the salon, so it is what N1 changed. The galley
+ * is 0.94 m deep against the port liner and the dinette 1.10 m against the
+ * starboard one, on a room 0.72 m wider than it was, which leaves 2.12 m of
+ * clear sole between them running 2.33 m from the galley's forward end to the
+ * companionway sill. Standing room, with the table beside you rather than
+ * against your knees.
+ *
+ * **The 0.65 m athwartships strip in front of the V-berth is load bearing, and
+ * it is not decoration.** `ejectFromInside` resolves a capsule buried in a
+ * solid by leaving through its nearest FREE face, and a point lying exactly on
+ * a face two boxes share is inside both of them at once: the V-berth wants to
+ * push it aft and the galley wants to push it forward, the two cancel, and the
+ * capsule stands there overlapping both forever. The old cabin had exactly that
+ * shared plane at z -3.86 and only escaped it because the sweep's 0.05 m grid
+ * never landed on the number. The strip turns the shared plane into a real
+ * 0.65 m gap — over the capsule's own width, so `narrowChannels()` is happy —
+ * and it reads as the walkway across the front of the salon that it is.
  */
 export const CABIN_COLLIDERS = [
-  { name: 'cabin · port hull side', min: [-2.30, -0.28, -5.20], max: [-1.62, 1.62, -2.00] },
-  { name: 'cabin · starboard hull side', min: [1.62, -0.28, -5.20], max: [2.30, 1.62, -2.00] },
-  { name: 'cabin · V-berth', min: [-1.72, -0.28, -5.30], max: [1.72, 0.62, -3.86] },
-  { name: 'cabin · galley counter', min: [-1.72, -0.28, -3.86], max: [-0.74, 0.78, -2.74] },
-  /* Seat and low back only. The dinette has to be something the player shoots
+  { name: 'cabin · port hull side', min: [-2.66, -0.62, -6.05], max: [-1.98, 1.56, -1.90] },
+  { name: 'cabin · starboard hull side', min: [1.98, -0.62, -6.05], max: [2.66, 1.56, -1.90] },
+  { name: 'cabin · V-berth', min: [-2.08, -0.62, -5.95], max: [2.08, 0.24, -5.10] },
+  { name: 'cabin · galley counter', min: [-2.08, -0.62, -4.45], max: [-1.14, 0.46, -2.90] },
+  /* Seat, table and low back. The dinette has to be something the player shoots
    * over, not a wall the composition hides Willy behind. */
-  { name: 'cabin · dinette booth', min: [0.62, -0.28, -3.86], max: [1.72, 0.72, -2.60] },
-  { name: 'cabin · aft bulkhead · mid-berth', min: [-1.72, -0.28, -2.74], max: [-1.10, 1.62, -2.00] },
-  { name: 'cabin · aft bulkhead · head', min: [0.30, -0.28, -2.60], max: [1.72, 1.62, -2.00] },
-  { name: 'cabin · companionway sill', min: [-1.78, -0.28, -2.12], max: [0.36, 0.26, -2.00] },
+  { name: 'cabin · dinette booth', min: [0.98, -0.62, -4.45], max: [2.08, 0.44, -2.80] },
+  { name: 'cabin · aft bulkhead · mid-berth', min: [-2.08, -0.62, -2.90], max: [-1.20, 1.56, -1.90] },
+  { name: 'cabin · aft bulkhead · head', min: [0.70, -0.62, -2.80], max: [2.08, 1.56, -1.90] },
+  { name: 'cabin · companionway sill', min: [-1.26, -0.62, -2.12], max: [0.76, -0.10, -1.90] },
 ];
 
 /** Plain `{min,max}` boxes with `.x/.y/.z` members -- the same shape as a

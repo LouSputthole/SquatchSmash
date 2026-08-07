@@ -421,12 +421,19 @@ function buildChannel(scene) {
   return { root: channel, sign: signPost, point, quarry };
 }
 
-/** The 35-36 ft express cruiser's hull, in her own frame. */
+/**
+ * The 42 ft express cruiser's hull, in her own frame.
+ *
+ * She was a 36-footer until the 2026-08-06 playtest (punch list N1): 0.36 m
+ * more half beam, 0.70 m more bow and 0.50 m more stern, and fuller forward
+ * through the sections the cabin lives under, because that is where the salon
+ * had to come from. `deck-collision.js` carries the matching walkable extents.
+ */
 function cruiserHullGeometry() {
   const sections = [
-    { z: -5.55, w: .10 }, { z: -5.10, w: .66 }, { z: -4.40, w: 1.24 },
-    { z: -3.40, w: 1.76 }, { z: -2.00, w: 2.08 }, { z: 0.00, w: 2.18 },
-    { z: 2.40, w: 2.20 }, { z: 4.20, w: 2.12 }, { z: 5.05, w: 1.94 },
+    { z: -6.25, w: .12 }, { z: -5.70, w: .86 }, { z: -4.85, w: 1.74 },
+    { z: -3.70, w: 2.24 }, { z: -2.15, w: 2.46 }, { z: 0.00, w: 2.54 },
+    { z: 2.60, w: 2.56 }, { z: 4.60, w: 2.46 }, { z: 5.55, w: 2.26 },
   ];
   const positions = [];
   const tri = (a, b, c) => positions.push(...a, ...b, ...c);
@@ -469,9 +476,9 @@ function cruiserHullGeometry() {
  */
 function buildBoat(scene, marina) {
   const root = new THREE.Group();
-  root.name = '36-foot express cruiser';
+  root.name = '42-foot express cruiser';
   root.userData.dimensions = {
-    length: 11.6, hullLength: 10.6, beam: 4.40, feet: 35.8, deckHeight: DECK.height,
+    length: 12.83, hullLength: 11.80, beam: 5.12, feet: 42.1, deckHeight: DECK.height,
   };
   root.position.y = BOAT_FLOAT_Y;
 
@@ -498,30 +505,36 @@ function buildBoat(scene, marina) {
   // The stripe. Burgundy, because Lou paid cash.
   for (const sx of [-1, 1]) {
     const side = sx < 0 ? 'port' : 'starboard';
-    root.add(box(`burgundy sheer stripe ${side}`, [.10, .17, 9.6], burgundy, sx * 2.14, .40, .05));
-    root.add(box(`burgundy accent stripe ${side}`, [.09, .07, 9.6], burgundy, sx * 2.16, .60, .05));
-    root.add(box(`rub strip ${side}`, [.13, .16, 10.2], rubber, sx * 2.16, .74, .00));
-    root.add(box(`gunwale cap ${side}`, [.30, .12, 10.2], creamDeep, sx * 2.06, .80, .00));
+    root.add(box(`burgundy sheer stripe ${side}`, [.10, .17, 10.8], burgundy, sx * 2.50, .40, -.05));
+    root.add(box(`burgundy accent stripe ${side}`, [.09, .07, 10.8], burgundy, sx * 2.52, .60, -.05));
+    root.add(box(`rub strip ${side}`, [.13, .16, 11.4], rubber, sx * 2.52, .74, -.10));
+    root.add(box(`gunwale cap ${side}`, [.30, .12, 11.4], creamDeep, sx * 2.42, .80, -.10));
   }
-  root.add(box('transom face', [3.92, .82, .12], cream, 0, .36, 5.06));
-  const transomName = textPlate('transom name sign', 'NO WAKE  ·  SOUTH HARBOR', 2.2, .26, {
+  root.add(box('transom face', [4.52, .82, .12], cream, 0, .36, 5.56));
+  const transomName = textPlate('transom name sign', 'NO WAKE  ·  SOUTH HARBOR', 2.5, .26, {
     foreground: '#e8dfbf', background: '#4a1520', border: '#2a0d13', font: 34,
   });
-  transomName.position.set(0, .46, 5.13);
+  transomName.position.set(0, .46, 5.63);
   root.add(transomName);
 
   /* ---- soles and decks ---- */
-  root.add(box('cockpit sole', [4.12, .10, 6.96], teak, 0, .97, 1.42));
-  root.add(box('cockpit sole nonslip', [3.90, .02, 6.80], creamDeep, 0, 1.025, 1.42));
+  root.add(box('cockpit sole', [4.84, .10, 7.46], teak, 0, .97, 1.67));
+  root.add(box('cockpit sole nonslip', [4.62, .02, 7.30], creamDeep, 0, 1.025, 1.67));
   /* The step boxes bed 1 cm into the sole rather than sitting exactly on its
    * top plane; two surfaces at the same depth are the flicker class the
    * geometry audit exists to catch. */
+  /* Each step's underside is 1 cm INSIDE the one below it, and no step is
+   * taller than its own rise. Authored 0.30 tall on a 0.18 rise they overlapped
+   * by 0.12, which means every step's supporting face was 0.12 m ABOVE its own
+   * base -- and `tools/scene-audit.mjs` reads a supporter as something whose
+   * top is AT the thing's bottom, so the middle step reported as hanging in the
+   * air. It was, in the only sense the audit can measure. */
   for (let i = 0; i < 3; i++) {
-    root.add(box(`bridge deck step ${i + 1}`, [1.24, .30, .34], teak,
-      0, 1.16 + i * .18, -1.20 - i * .30));
+    root.add(box(`bridge deck step ${i + 1}`, [1.24, .24, .34], teak,
+      0, 1.13 + i * .22, -1.20 - i * .30));
   }
-  root.add(box('cabin trunk roof · foredeck', [4.12, .14, 3.30], creamDeep, 0, 1.63, -3.60));
-  root.add(box('cabin trunk roof nonslip', [3.70, .02, 3.10], cream, 0, 1.705, -3.60));
+  root.add(box('cabin trunk roof · foredeck', [4.84, .14, 4.00], creamDeep, 0, 1.63, -3.95));
+  root.add(box('cabin trunk roof nonslip', [4.42, .02, 3.80], cream, 0, 1.705, -3.95));
   /* The trunk stands on the sheer (0.76) and carries the foredeck (1.56), so
    * the thing the player walks on forward has something under it. Authored
    * taller and lower, it hung in the hull with its base in mid-air; authored
@@ -530,35 +543,49 @@ function buildBoat(scene, marina) {
    * the hull and pushes 15 mm into the foredeck, which is what a moulding
    * actually does. */
   for (const sx of [-1, 1]) {
-    root.add(box(`cabin trunk side ${sx < 0 ? 'port' : 'starboard'}`, [.14, .83, 3.30], cream, sx * 2.00, 1.16, -3.60));
+    root.add(box(`cabin trunk side ${sx < 0 ? 'port' : 'starboard'}`, [.14, .83, 4.00], cream, sx * 2.36, 1.16, -3.95));
   }
-  root.add(box('cabin trunk forward face', [3.10, .83, .14], cream, 0, 1.16, -5.22));
-  root.add(box('forward bulkhead', [4.02, .70, .16], cream, 0, 1.36, -2.00));
+  root.add(box('cabin trunk forward face', [3.66, .83, .14], cream, 0, 1.16, -5.92));
+  root.add(box('forward bulkhead', [4.74, .70, .16], cream, 0, 1.36, -2.00));
 
   /* ---- stern: swim platform, ladder, transom gate ---- */
   const platform = new THREE.Group();
   platform.name = 'swim platform';
-  platform.add(box('swim platform deck', [3.20, .11, 1.00], teak, 0, .07, 5.58));
-  platform.add(box('swim platform nonslip', [3.00, .02, .90], creamDeep, 0, .13, 5.58));
+  platform.add(box('swim platform deck', [3.72, .11, 1.00], teak, 0, .07, 6.08));
+  platform.add(box('swim platform nonslip', [3.52, .02, .90], creamDeep, 0, .13, 6.08));
   for (const sx of [-1, 1]) {
-    platform.add(box(`swim platform bracket ${sx < 0 ? 'port' : 'starboard'}`, [.10, .52, .40], chrome, sx * 1.32, .30, 5.16));
+    platform.add(box(`swim platform bracket ${sx < 0 ? 'port' : 'starboard'}`, [.10, .52, .40], chrome, sx * 1.54, .30, 5.66));
   }
-  platform.add(box('swim ladder rail port', [.05, .60, .05], chrome, .78, .38, 5.92));
-  platform.add(box('swim ladder rail starboard', [.05, .60, .05], chrome, 1.10, .38, 5.92));
+  platform.add(box('swim ladder rail port', [.05, .60, .05], chrome, .94, .38, 6.42));
+  platform.add(box('swim ladder rail starboard', [.05, .60, .05], chrome, 1.26, .38, 6.42));
   for (const [i, y] of [.22, .02].entries()) {
-    platform.add(box(`swim ladder step ${i + 1}`, [.36, .03, .10], chrome, .94, y, 5.94));
+    platform.add(box(`swim ladder step ${i + 1}`, [.36, .03, .10], chrome, 1.10, y, 6.44));
   }
   root.add(platform);
-  const disposalZone = proxy('disposal zone · platform aft edge', [2.6, 1.0, .9], 0, .55, 5.72);
+  /* PUNCH LIST N4: "after wrapping the body, E would not dump it off the back."
+   *
+   * This box is why. It was 1.00 m tall, topping out at 1.05 -- level with the
+   * water, a metre and a half BELOW the eye of the man the mission has just
+   * planted on the platform and told to press E. His authored aim looked 17°
+   * down at the horizon and the ray went straight over it, so the crosshair
+   * found nothing, no prompt appeared, and `InteractionSystem.press()` returned
+   * on `!this.current` without so much as a click. The hold never even started.
+   *
+   * It reaches from the water to head height and 2.1 m aft now, so every aim
+   * between 9° and 50° below the horizontal from the disposal mark lands in it,
+   * and `reachPlatform()` points him at the bag rather than past it. Invisible
+   * and live only during `phase === 'platform'`, so nothing else can catch it.
+   * `tools/verify-no-wake.mjs` holds a real KeyE on it. */
+  const disposalZone = proxy('disposal zone · platform aft edge', [3.4, 2.4, 2.1], .55, 1.05, 6.20);
   root.add(disposalZone);
 
   const transomGate = new THREE.Group();
   transomGate.name = 'starboard transom gate';
   transomGate.add(beamBetween('transom gate upper rail',
-    new THREE.Vector3(2.06, 1.72, 4.28), new THREE.Vector3(2.06, 1.72, 4.98), .028, chrome, 8));
+    new THREE.Vector3(2.42, 1.72, 4.78), new THREE.Vector3(2.42, 1.72, 5.48), .028, chrome, 8));
   transomGate.add(beamBetween('transom gate lower rail',
-    new THREE.Vector3(2.06, 1.34, 4.28), new THREE.Vector3(2.06, 1.34, 4.98), .024, chrome, 8));
-  transomGate.add(cylinder('transom gate latch post', .028, .68, chrome, 2.09, 2.09, 4.90, 8));
+    new THREE.Vector3(2.42, 1.34, 4.78), new THREE.Vector3(2.42, 1.34, 5.48), .024, chrome, 8));
+  transomGate.add(cylinder('transom gate latch post', .028, .68, chrome, 2.45, 2.09, 5.40, 8));
   root.add(transomGate);
 
   /* Storage hatch in the cockpit sole: the tarp and the bag live in here. */
@@ -583,27 +610,27 @@ function buildBoat(scene, marina) {
    * camera moved; butting them exactly would have traded it for the same fight
    * on their end faces. The cushion still runs the whole corner -- it is one
    * piece of vinyl over two mouldings, which is how the boat is built. */
-  seating.add(box('cockpit seat base · port return', [.86, .46, 1.43], creamDeep, -1.55, 1.23, 3.285));
-  seating.add(box('cockpit seat cushion · port return', [.80, .13, 1.70], vinyl, -1.55, 1.52, 3.46));
-  seating.add(box('cockpit seat seam · port return', [.82, .03, .04], vinylSeam, -1.55, 1.59, 3.46));
-  seating.add(box('cockpit seat back · port return', [.16, .48, 1.78], vinyl, -1.94, 1.80, 3.46));
-  seating.add(box('cockpit seat base · aft bench', [2.60, .45, .64], creamDeep, -0.69, 1.235, 4.30));
-  seating.add(box('cockpit seat cushion · aft bench', [2.52, .13, .58], vinyl, -0.69, 1.52, 4.30));
-  seating.add(box('cockpit seat seam · aft bench', [2.52, .03, .04], vinylSeam, -0.69, 1.59, 4.30));
-  seating.add(box('cockpit seat back · aft bench', [2.60, .48, .16], vinyl, -0.69, 1.80, 4.54));
-  seating.add(box('cockpit seat base · forward leg', [1.42, .47, .52], creamDeep, -1.27, 1.225, 2.58));
-  seating.add(box('cockpit seat cushion · forward leg', [1.36, .13, .46], vinyl, -1.27, 1.52, 2.58));
-  seating.add(box('cockpit seat back · forward leg', [1.42, .48, .14], vinyl, -1.27, 1.80, 2.36));
+  seating.add(box('cockpit seat base · port return', [.86, .46, 1.93], creamDeep, -1.91, 1.23, 3.535));
+  seating.add(box('cockpit seat cushion · port return', [.80, .13, 2.20], vinyl, -1.91, 1.52, 3.71));
+  seating.add(box('cockpit seat seam · port return', [.82, .03, .04], vinylSeam, -1.91, 1.59, 3.71));
+  seating.add(box('cockpit seat back · port return', [.16, .48, 2.28], vinyl, -2.30, 1.80, 3.71));
+  seating.add(box('cockpit seat base · aft bench', [2.96, .45, .64], creamDeep, -0.87, 1.235, 4.80));
+  seating.add(box('cockpit seat cushion · aft bench', [2.88, .13, .58], vinyl, -0.87, 1.52, 4.80));
+  seating.add(box('cockpit seat seam · aft bench', [2.88, .03, .04], vinylSeam, -0.87, 1.59, 4.80));
+  seating.add(box('cockpit seat back · aft bench', [2.96, .48, .16], vinyl, -0.87, 1.80, 5.04));
+  seating.add(box('cockpit seat base · forward leg', [1.78, .47, .52], creamDeep, -1.45, 1.225, 2.58));
+  seating.add(box('cockpit seat cushion · forward leg', [1.72, .13, .46], vinyl, -1.45, 1.52, 2.58));
+  seating.add(box('cockpit seat back · forward leg', [1.78, .48, .14], vinyl, -1.45, 1.80, 2.36));
   root.add(seating);
   // The removable cocktail table, mounted on the seating rather than loose in
   // the middle of the cockpit where it could become slapstick debris.
-  root.add(box('cocktail table pedestal', [.08, .40, .08], chrome, -1.40, 1.79, 3.42));
-  root.add(box('cocktail table top', [.52, .04, .70], teak, -1.40, 2.00, 3.42));
+  root.add(box('cocktail table pedestal', [.08, .40, .08], chrome, -1.76, 1.79, 3.42));
+  root.add(box('cocktail table top', [.52, .04, .70], teak, -1.76, 2.00, 3.42));
   for (const [i, z] of [3.16, 3.68].entries()) {
-    root.add(mesh(`cockpit cupholder ${i + 1}`, new THREE.TorusGeometry(.055, .012, 6, 14), chrome, -1.92, 1.86, z)
+    root.add(mesh(`cockpit cupholder ${i + 1}`, new THREE.TorusGeometry(.055, .012, 6, 14), chrome, -2.28, 1.86, z)
       .rotateX(-Math.PI / 2));
   }
-  root.add(cylinder('cockpit ashtray', .075, .04, mat(0x4f5457, .5), -1.40, 2.04, 3.14, 14));
+  root.add(cylinder('cockpit ashtray', .075, .04, mat(0x4f5457, .5), -1.76, 2.04, 3.14, 14));
   // Engine hatch, with its seams and rings, flush in the sole.
   root.add(box('engine hatch lid', [2.30, .04, 1.90], teak, -.30, 1.045, 2.10));
   for (const [i, x] of [-1.46, .86].entries()) {
@@ -621,12 +648,12 @@ function buildBoat(scene, marina) {
     root.add(print);
   }
   // Coiled dock lines and life jackets, stowed on the seating.
-  root.add(mesh('cockpit rope coil', new THREE.TorusGeometry(.20, .045, 8, 20), ropeMat, -1.55, 1.62, 2.90)
+  root.add(mesh('cockpit rope coil', new THREE.TorusGeometry(.20, .045, 8, 20), ropeMat, -1.91, 1.62, 2.90)
     .rotateX(-Math.PI / 2));
-  for (const [i, z] of [4.06, 4.36].entries()) {
-    root.add(box(`stowed life jacket ${i + 1}`, [.34, .10, .26], mat(0xc4512f, .9), -1.86, 1.64, z));
+  for (const [i, z] of [4.56, 4.86].entries()) {
+    root.add(box(`stowed life jacket ${i + 1}`, [.34, .10, .26], mat(0xc4512f, .9), -2.22, 1.64, z));
   }
-  root.add(cylinder('cockpit fire extinguisher', .10, .50, mat(0xa8352a), 1.90, 1.30, 1.62, 16));
+  root.add(cylinder('cockpit fire extinguisher', .10, .50, mat(0xa8352a), 2.26, 1.30, 1.62, 16));
 
   /* ---- coamings, rails and pulpit ---- */
   function railRun(name, x, z0, z1, base) {
@@ -640,57 +667,57 @@ function buildBoat(scene, marina) {
       root.add(cylinder(`${name} stanchion ${i + 1}`, .027, .74, chrome, x, base + .37, z, 8));
     }
   }
-  railRun('port bow rail', -2.14, -5.10, -1.62, DECK.foredeckHeight);
-  railRun('starboard bow rail', 2.14, -5.10, -1.62, DECK.foredeckHeight);
+  railRun('port bow rail', -2.50, -5.80, -1.62, DECK.foredeckHeight);
+  railRun('starboard bow rail', 2.50, -5.80, -1.62, DECK.foredeckHeight);
   for (const sx of [-1, 1]) {
     const side = sx < 0 ? 'port' : 'starboard';
     root.add(beamBetween(`${side} pulpit rail upper`,
-      new THREE.Vector3(sx * .10, 1.92, -5.62), new THREE.Vector3(sx * 2.14, 2.42, -5.06), .030, chrome, 8));
+      new THREE.Vector3(sx * .10, 1.92, -6.32), new THREE.Vector3(sx * 2.50, 2.42, -5.76), .030, chrome, 8));
     root.add(beamBetween(`${side} pulpit rail lower`,
-      new THREE.Vector3(sx * .09, 1.72, -5.60), new THREE.Vector3(sx * 2.14, 2.04, -5.06), .024, chrome, 8));
+      new THREE.Vector3(sx * .09, 1.72, -6.30), new THREE.Vector3(sx * 2.50, 2.04, -5.76), .024, chrome, 8));
     // Cockpit coaming: a solid moulding rather than open rail, aft.
-    root.add(box(`${side} cockpit coaming`, [.20, .70, 5.00], creamDeep, sx * 2.11, 1.36, 2.50));
-    root.add(box(`${side} coaming cap`, [.26, .06, 5.00], teak, sx * 2.11, 1.72, 2.50));
+    root.add(box(`${side} cockpit coaming`, [.20, .70, 5.50], creamDeep, sx * 2.47, 1.36, 2.75));
+    root.add(box(`${side} coaming cap`, [.26, .06, 5.50], teak, sx * 2.47, 1.72, 2.75));
   }
-  root.add(box('stern coaming', [4.02, .70, .20], creamDeep, 0, 1.36, 4.86));
-  root.add(box('stern coaming cap', [4.02, .06, .26], teak, 0, 1.72, 4.86));
+  root.add(box('stern coaming', [4.74, .70, .20], creamDeep, 0, 1.36, 5.36));
+  root.add(box('stern coaming cap', [4.74, .06, .26], teak, 0, 1.72, 5.36));
 
   /* ---- bow: sun pad, anchor hatch, forward locker, searchlight ---- */
   const bow = new THREE.Group();
   bow.name = 'foredeck fittings';
-  bow.add(box('bow sun pad cushion', [2.30, .13, 1.30], vinyl, 0, 1.77, -2.90));
-  bow.add(box('bow sun pad seam', [2.30, .03, .04], vinylSeam, 0, 1.84, -2.90));
-  bow.add(box('anchor hatch lid', [1.00, .05, .80], creamDeep, 0, 1.73, -4.62));
-  bow.add(box('anchor hatch seam', [1.06, .02, .86], teakDark, 0, 1.70, -4.62));
-  bow.add(mesh('anchor hatch lift ring', new THREE.TorusGeometry(.07, .012, 6, 16), chrome, 0, 1.76, -4.32)
+  bow.add(box('bow sun pad cushion', [2.70, .13, 1.30], vinyl, 0, 1.77, -3.60));
+  bow.add(box('bow sun pad seam', [2.70, .03, .04], vinylSeam, 0, 1.84, -3.60));
+  bow.add(box('anchor hatch lid', [1.00, .05, .80], creamDeep, 0, 1.73, -5.32));
+  bow.add(box('anchor hatch seam', [1.06, .02, .86], teakDark, 0, 1.70, -5.32));
+  bow.add(mesh('anchor hatch lift ring', new THREE.TorusGeometry(.07, .012, 6, 16), chrome, 0, 1.76, -5.02)
     .rotateX(-Math.PI / 2));
-  bow.add(mesh('bow rope coil', new THREE.TorusGeometry(.22, .05, 8, 20), ropeMat, -1.30, 1.77, -4.30)
+  bow.add(mesh('bow rope coil', new THREE.TorusGeometry(.22, .05, 8, 20), ropeMat, -1.60, 1.77, -5.00)
     .rotateX(-Math.PI / 2));
   const searchlight = new THREE.Group();
   searchlight.name = 'bow searchlight';
   searchlight.add(cylinder('searchlight body', .12, .18, chrome, 0, 0, 0, 16).rotateX(Math.PI / 2));
   searchlight.add(mesh('searchlight lens', new THREE.CircleGeometry(.10, 16), mat(0xe8e2c8, .3), 0, 0, -.10));
   searchlight.add(cylinder('searchlight pedestal', .05, .16, chrome, 0, -.16, 0, 10));
-  searchlight.position.set(.86, 1.86, -4.10);
+  searchlight.position.set(1.10, 1.86, -4.80);
   bow.add(searchlight);
   const bowNav = new THREE.PointLight(0xf2f4e6, 1.4, 3.4, 2);
   bowNav.name = 'bow navigation light glow';
-  bowNav.position.set(0, 1.98, -5.30);
+  bowNav.position.set(0, 1.98, -6.00);
   bow.add(bowNav);
-  bow.add(cylinder('bow navigation light housing', .05, .16, chrome, 0, 1.86, -5.30, 10));
+  bow.add(cylinder('bow navigation light housing', .05, .16, chrome, 0, 1.86, -6.00, 10));
 
   /* The forward locker, and the cast iron in it. "Two cast-iron pieces or one
    * bundled ballast prop, visibly heavy without being a physics puzzle." */
   const locker = new THREE.Group();
   locker.name = 'forward ballast locker';
-  const lockerLid = box('forward locker lid', [1.20, .06, .90], creamDeep, -.02, 1.74, -3.72);
+  const lockerLid = box('forward locker lid', [1.20, .06, .90], creamDeep, -.02, 1.74, -4.42);
   locker.add(lockerLid);
   /* The seam sits at the lid's waist, not under its lip. Flush with the lid's
    * underside it shared a plane with the sun pad's base over 0.39 m²; the deck
    * stack here (roof 1.70, nonslip 1.695-1.715, lid 1.71-1.77, pad from 1.705)
    * has no 2 cm gap below the lid to put it in, and there is one above. */
-  locker.add(box('forward locker seam', [1.26, .02, .96], teakDark, -.02, 1.7525, -3.72));
-  locker.add(mesh('forward locker lift ring', new THREE.TorusGeometry(.07, .012, 6, 16), brass, -.02, 1.77, -3.42)
+  locker.add(box('forward locker seam', [1.26, .02, .96], teakDark, -.02, 1.7525, -4.42));
+  locker.add(mesh('forward locker lift ring', new THREE.TorusGeometry(.07, .012, 6, 16), brass, -.02, 1.77, -4.12)
     .rotateX(-Math.PI / 2));
   const ballast = new THREE.Group();
   ballast.name = 'cast-iron ballast bundle';
@@ -700,11 +727,11 @@ function buildBoat(scene, marina) {
     new THREE.Vector3(-.10, .18, -.20), new THREE.Vector3(-.10, .18, .20), .022, mat(0x30281f, .95), 8));
   ballast.add(beamBetween('ballast shackle',
     new THREE.Vector3(.16, .20, 0), new THREE.Vector3(.16, .28, 0), .026, chrome, 8));
-  ballast.position.set(-.02, 1.50, -3.72);
+  ballast.position.set(-.02, 1.50, -4.42);
   ballast.visible = false;
   locker.add(ballast);
   bow.add(locker);
-  const lockerTarget = proxy('forward locker interaction', [1.7, 1.3, 1.5], -.02, 2.1, -3.72);
+  const lockerTarget = proxy('forward locker interaction', [1.7, 1.3, 1.5], -.02, 2.1, -4.42);
   bow.add(lockerTarget);
   root.add(bow);
 
@@ -713,17 +740,17 @@ function buildBoat(scene, marina) {
   windshield.name = 'smoked wraparound windshield';
   for (const sx of [-1, 1]) {
     const side = sx < 0 ? 'port' : 'starboard';
-    const pane = box(`windshield pane ${side}`, [1.34, .78, .05], smoked, sx * 1.34, 2.10, -1.74);
+    const pane = box(`windshield pane ${side}`, [1.72, .78, .05], smoked, sx * 1.52, 2.10, -1.74);
     pane.rotation.x = -.16;
     windshield.add(pane);
-    const wing = box(`windshield wing pane ${side}`, [.05, .70, .58], smoked, sx * 2.02, 2.06, -1.44);
+    const wing = box(`windshield wing pane ${side}`, [.05, .70, .58], smoked, sx * 2.38, 2.06, -1.44);
     windshield.add(wing);
-    windshield.add(box(`windshield frame outboard ${side}`, [.07, .86, .09], creamDeep, sx * 2.02, 2.08, -1.72));
+    windshield.add(box(`windshield frame outboard ${side}`, [.07, .86, .09], creamDeep, sx * 2.38, 2.08, -1.72));
     windshield.add(box(`windshield frame inboard ${side}`, [.07, .86, .09], creamDeep, sx * .66, 2.08, -1.72));
-    windshield.add(box(`windshield frame cap ${side}`, [1.44, .07, .10], creamDeep, sx * 1.34, 2.50, -1.76));
-    windshield.add(box(`windshield frame sill ${side}`, [1.44, .07, .10], creamDeep, sx * 1.34, 1.70, -1.70));
+    windshield.add(box(`windshield frame cap ${side}`, [1.82, .07, .10], creamDeep, sx * 1.52, 2.50, -1.76));
+    windshield.add(box(`windshield frame sill ${side}`, [1.82, .07, .10], creamDeep, sx * 1.52, 1.70, -1.70));
     windshield.add(beamBetween(`windshield wiper ${side}`,
-      new THREE.Vector3(sx * 1.60, 1.86, -1.70), new THREE.Vector3(sx * 1.06, 2.36, -1.74), .016, black, 7));
+      new THREE.Vector3(sx * 1.90, 1.86, -1.70), new THREE.Vector3(sx * 1.20, 2.36, -1.74), .016, black, 7));
   }
   // The walk-through's own low centre pane and grab rails.
   windshield.add(box('windshield walk-through door', [1.22, .42, .05], smoked, 0, 1.92, -1.74));
@@ -736,8 +763,8 @@ function buildBoat(scene, marina) {
   /* ---- helm, to starboard ---- */
   const helm = new THREE.Group();
   helm.name = 'starboard helm station';
-  helm.add(box('helm console pedestal', [1.62, 1.10, .84], creamDeep, 1.20, 1.55, -.66));
-  const dashPanel = box('helm dash panel', [1.70, .20, .74], black, 1.20, 2.10, -.68);
+  helm.add(box('helm console pedestal', [2.10, 1.10, .84], creamDeep, 1.40, 1.55, -.66));
+  const dashPanel = box('helm dash panel', [2.18, .20, .74], black, 1.40, 2.10, -.68);
   dashPanel.rotation.x = -.22;
   helm.add(dashPanel);
   helm.add(box('helm console side pod', [.34, .70, .66], creamDeep, .48, 1.35, -.72));
@@ -756,11 +783,11 @@ function buildBoat(scene, marina) {
   }
   /* The wheel stands 0.40 m proud of the fascia on its own raked column, so
    * the 0.64 m rim never sweeps through the instruments behind it. */
-  wheel.position.set(1.12, 1.98, -.16);
+  wheel.position.set(1.30, 1.98, -.16);
   wheel.rotation.x = .18;
   helm.add(wheel);
   helm.add(beamBetween('helm steering column',
-    new THREE.Vector3(1.12, 1.86, -.56), new THREE.Vector3(1.12, 1.97, -.22), .048, chrome, 10));
+    new THREE.Vector3(1.30, 1.86, -.56), new THREE.Vector3(1.30, 1.97, -.22), .048, chrome, 10));
 
   function gauge(label, x, y, z) {
     const g = new THREE.Group();
@@ -787,11 +814,11 @@ function buildBoat(scene, marina) {
     return needle;
   }
   const gaugeNeedles = {
-    tachPort: gauge('TACH P', .66, 2.22, -.40),
-    tachStarboard: gauge('TACH S', .98, 2.22, -.40),
-    speed: gauge('KNOTS', 1.30, 2.22, -.40),
-    fuel: gauge('FUEL', 1.62, 2.22, -.40),
-    depth: gauge('DEPTH', 1.86, 1.96, -.44),
+    tachPort: gauge('TACH P', .84, 2.22, -.40),
+    tachStarboard: gauge('TACH S', 1.16, 2.22, -.40),
+    speed: gauge('KNOTS', 1.48, 2.22, -.40),
+    fuel: gauge('FUEL', 1.80, 2.22, -.40),
+    depth: gauge('DEPTH', 2.04, 1.96, -.44),
   };
 
   // Warning lights, in a row along the top of the fascia.
@@ -799,42 +826,70 @@ function buildBoat(scene, marina) {
   for (const [i, label] of ['OIL', 'TEMP', 'VOLT'].entries()) {
     const lampMat = new THREE.MeshStandardMaterial({ color: 0x2a2118, emissive: 0x000000, emissiveIntensity: 0 });
     warningMats.push(lampMat);
-    const lamp = cylinder(`helm warning light ${label}`, .026, .022, lampMat, .60 + i * .16, 2.42, -.50, 12);
+    const lamp = cylinder(`helm warning light ${label}`, .026, .022, lampMat, .78 + i * .16, 2.42, -.50, 12);
     lamp.rotation.x = Math.PI / 2;
     helm.add(lamp);
   }
 
-  const compass = mesh('helm compass', new THREE.SphereGeometry(.14, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), smoked, 1.12, 2.28, -.92);
+  const compass = mesh('helm compass', new THREE.SphereGeometry(.14, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), smoked, 1.30, 2.28, -.92);
   compass.rotation.x = -.22;
   helm.add(compass);
-  helm.add(mesh('helm compass brass ring', new THREE.TorusGeometry(.145, .014, 8, 20), brass, 1.12, 2.28, -.92)
+  helm.add(mesh('helm compass brass ring', new THREE.TorusGeometry(.145, .014, 8, 20), brass, 1.30, 2.28, -.92)
     .rotateX(-Math.PI / 2));
 
-  const vhf = box('marine VHF radio', [.42, .24, .17], black, 1.86, 2.20, -.56);
+  const vhf = box('marine VHF radio', [.42, .24, .17], black, 2.04, 2.20, -.56);
   helm.add(vhf);
   const vhfFace = textPlate('VHF channel face', 'VHF 16', .38, .13, {
     foreground: '#78c8b7', background: '#0b1719', border: '#273234', font: 30,
   });
-  vhfFace.position.set(1.86, 2.21, -.47);
+  vhfFace.position.set(2.04, 2.21, -.47);
   helm.add(vhfFace);
 
   /* The startup panel. Battery selector, blower, fuel valve, two ignitions and
    * the navigation-light switch, in one row at hand height. The player performs
-   * this in silence; nothing here reacts comically to being touched. */
-  helm.add(box('engine start panel', [1.58, .40, .10], black, 1.20, 1.62, -.28));
-  const panelTitle = textPlate('engine start panel label', 'BATT · BLOWER · FUEL · PORT · STBD · NAV', .96, .07, {
+   * this in silence; nothing here reacts comically to being touched.
+   *
+   * PUNCH LIST N2: "the startup controls are too bunched to hit individually".
+   * They were six fittings 0.07-0.17 m across on 0.22-0.26 m centres, aimed at
+   * through their own bezels from a moving deck, and the broad `startPanel`
+   * proxy behind them answered every near miss with "next: Blower" instead of
+   * the blower. Two changes, and both are measured by `tools/verify-no-wake.mjs`:
+   *
+   *  1. `PANEL_CONTROL_X` puts them on 0.36 m centres across the full width of
+   *     the console — 45% more separation, and no pair closer than the reach of
+   *     a hand.
+   *  2. Every one of them carries its own 0.30 m interaction proxy. A bezel is
+   *     not a target; a 0.30 m box on 0.36 m centres is, and because the box is
+   *     smaller than the spacing no two of them can ever overlap.
+   *
+   * The row also dropped to 1.46, below the wheel rim's 1.63 sweep. At 1.62 the
+   * middle of a 0.36 m row would have been behind the wheel. */
+  helm.add(box('engine start panel', [2.16, .44, .10], black, 1.40, 1.39, -.28));
+  const panelTitle = textPlate('engine start panel label', 'BATT · BLOWER · FUEL · PORT · STBD · NAV', 1.30, .09, {
     foreground: '#e7dec0', background: '#171d1f', border: '#555e5f', font: 22,
   });
-  panelTitle.position.set(1.20, 1.80, -.22);
+  panelTitle.position.set(1.40, 1.22, -.22);
   helm.add(panelTitle);
+
+  /* One row, six centres, 0.36 m apart. Read by the panel, by every control
+   * below and by the verifier's spacing assertion, so "spaced out" is one
+   * number and not six. */
+  const PANEL_Y = 1.46;
+  const PANEL_Z = -.22;
+  const PANEL_CONTROL_X = [.50, .86, 1.22, 1.58, 1.94, 2.30];
+  /** A hand-sized hit volume on a control that is the size of a bezel. */
+  const controlProxy = (group, name) => {
+    group.add(proxy(`${name} hit volume`, [.30, .30, .26], 0, 0, .06));
+    return group;
+  };
 
   const battery = new THREE.Group();
   battery.name = 'battery selector switch';
   battery.add(cylinder('battery selector body', .085, .06, black, 0, 0, 0, 20).rotateX(Math.PI / 2));
   const batteryKnob = box('battery selector knob', [.11, .04, .07], mat(0xc9403a), 0, 0, .05);
   battery.add(batteryKnob);
-  battery.position.set(.60, 1.62, -.22);
-  helm.add(battery);
+  battery.position.set(PANEL_CONTROL_X[0], PANEL_Y, PANEL_Z);
+  helm.add(controlProxy(battery, 'battery selector'));
 
   const blower = new THREE.Group();
   blower.name = 'bilge blower push button';
@@ -842,16 +897,16 @@ function buildBoat(scene, marina) {
   const blowerButton = cylinder('blower button', .055, .07, mat(0xd3a529), 0, 0, .05, 20);
   blowerButton.rotation.x = Math.PI / 2;
   blower.add(blowerButton);
-  blower.position.set(.86, 1.62, -.22);
-  helm.add(blower);
+  blower.position.set(PANEL_CONTROL_X[1], PANEL_Y, PANEL_Z);
+  helm.add(controlProxy(blower, 'bilge blower'));
 
   const fuelValve = new THREE.Group();
   fuelValve.name = 'fuel valve and sight check';
   fuelValve.add(cylinder('fuel valve body', .06, .05, brass, 0, 0, 0, 16).rotateX(Math.PI / 2));
   const fuelLever = box('fuel valve lever', [.13, .03, .05], brass, .04, 0, .05);
   fuelValve.add(fuelLever);
-  fuelValve.position.set(1.10, 1.62, -.22);
-  helm.add(fuelValve);
+  fuelValve.position.set(PANEL_CONTROL_X[2], PANEL_Y, PANEL_Z);
+  helm.add(controlProxy(fuelValve, 'fuel valve'));
 
   const ignitions = {};
   for (const [i, side] of ['port', 'starboard'].entries()) {
@@ -873,8 +928,8 @@ function buildBoat(scene, marina) {
     keyTurn.add(box(`${side} ignition key blade`, [.035, .12, .025], mat(0xc6b67c, .34, .55), 0, -.03, .055));
     keyTurn.add(box(`${side} ignition key fob`, [.08, .07, .03], rubber, 0, -.075, .055));
     ignition.add(keyTurn);
-    ignition.position.set(1.34 + i * .22, 1.62, -.22);
-    helm.add(ignition);
+    ignition.position.set(PANEL_CONTROL_X[3 + i], PANEL_Y, PANEL_Z);
+    helm.add(controlProxy(ignition, `${side} ignition`));
     ignitions[side] = { root: ignition, keyTurn };
   }
 
@@ -883,11 +938,11 @@ function buildBoat(scene, marina) {
   navSwitch.add(box('nav switch body', [.10, .14, .06], black, 0, 0, 0));
   const navLever = box('nav switch lever', [.06, .09, .05], mat(0x86d0a0), 0, 0, .045);
   navSwitch.add(navLever);
-  navSwitch.position.set(1.80, 1.62, -.22);
-  helm.add(navSwitch);
+  navSwitch.position.set(PANEL_CONTROL_X[5], PANEL_Y, PANEL_Z);
+  helm.add(controlProxy(navSwitch, 'navigation light switch'));
 
   const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x25312d, emissive: 0x000000, emissiveIntensity: 0 });
-  const indicator = cylinder('helm running indicator', .03, .03, indicatorMat, 1.68, 1.78, -.24, 14);
+  const indicator = cylinder('helm running indicator', .03, .03, indicatorMat, .62, 1.70, -.24, 14);
   indicator.rotation.x = Math.PI / 2;
   helm.add(indicator);
 
@@ -902,57 +957,57 @@ function buildBoat(scene, marina) {
   throttlePivot.add(box('throttle lever knob port', [.08, .10, .10], black, -.06, .39, 0));
   throttlePivot.add(box('throttle lever knob starboard', [.08, .10, .10], black, .06, .39, 0));
   throttle.add(throttlePivot);
-  throttle.position.set(1.98, 1.66, -.72);
+  throttle.position.set(2.16, 1.66, -.72);
   throttle.rotation.x = 1.05;
   helm.add(throttle);
 
-  const helmTarget = proxy('broad helm interaction proxy', [1.66, 1.72, .90], 1.16, 1.88, -.52);
+  const helmTarget = proxy('broad helm interaction proxy', [1.90, 1.72, .90], 1.34, 1.88, -.52);
   helm.add(helmTarget);
-  const startPanelTarget = proxy('startup panel interaction', [1.66, .80, .70], 1.20, 1.68, -.26);
+  const startPanelTarget = proxy('startup panel interaction', [2.24, .58, .60], 1.40, PANEL_Y, -.26);
   helm.add(startPanelTarget);
 
   // The helm bench: a double, so the collision mass and the mesh agree.
-  helm.add(box('helm bench base', [1.50, .47, .90], creamDeep, 1.28, 1.245, 1.19));
-  helm.add(box('helm bench cushion', [1.46, .14, .84], vinyl, 1.28, 1.555, 1.19));
-  helm.add(box('helm bench seam', [1.46, .03, .04], vinylSeam, 1.28, 1.62, 1.19));
-  helm.add(box('helm bench back', [1.46, .52, .16], vinyl, 1.28, 1.86, 1.53));
+  helm.add(box('helm bench base', [1.80, .47, .90], creamDeep, 1.43, 1.245, 1.19));
+  helm.add(box('helm bench cushion', [1.76, .14, .84], vinyl, 1.43, 1.555, 1.19));
+  helm.add(box('helm bench seam', [1.76, .03, .04], vinylSeam, 1.43, 1.62, 1.19));
+  helm.add(box('helm bench back', [1.76, .52, .16], vinyl, 1.43, 1.86, 1.53));
   root.add(helm);
 
   /* ---- companionway on deck ---- */
   const companionwayDeck = new THREE.Group();
   companionwayDeck.name = 'companionway head';
-  companionwayDeck.add(box('companionway coaming port', [.10, .34, 1.40], creamDeep, -1.83, 1.19, -.70));
+  companionwayDeck.add(box('companionway coaming port', [.10, .34, 1.40], creamDeep, -2.24, 1.19, -.70));
   companionwayDeck.add(box('companionway coaming starboard', [.10, .34, 1.40], creamDeep, -.69, 1.19, -.70));
-  companionwayDeck.add(box('companionway coaming forward', [1.24, .34, .10], creamDeep, -1.26, 1.19, -1.35));
-  const slidingHatch = box('companionway sliding hatch', [1.26, .07, .74], smoked, -1.26, 1.40, -1.06);
+  companionwayDeck.add(box('companionway coaming forward', [1.65, .34, .10], creamDeep, -1.465, 1.19, -1.35));
+  const slidingHatch = box('companionway sliding hatch', [1.67, .07, .74], smoked, -1.465, 1.40, -1.06);
   companionwayDeck.add(slidingHatch);
   companionwayDeck.add(beamBetween('companionway grab rail',
     new THREE.Vector3(-.66, 1.42, -1.30), new THREE.Vector3(-.66, 1.42, -.16), .022, chrome, 8));
   root.add(companionwayDeck);
-  const companionwayTarget = proxy('companionway interaction · deck', [1.50, 1.60, 1.60], -1.26, 1.80, -.70);
+  const companionwayTarget = proxy('companionway interaction · deck', [1.90, 1.60, 1.60], -1.465, 1.80, -.70);
   root.add(companionwayTarget);
 
   /* ---- mast, antennas, navigation lights, cleats, fenders ---- */
   /* Bolted to the gunwale caps at 1.75, which is where an arch is actually
    * through-bolted, rather than beginning 0.7 m above the cockpit sole. */
-  root.add(cylinder('radar arch leg port', .06, 1.40, chrome, -2.06, 2.45, .60, 10));
-  root.add(cylinder('radar arch leg starboard', .06, 1.40, chrome, 2.06, 2.45, .60, 10));
-  root.add(box('radar arch beam', [4.24, .12, .18], chrome, 0, 3.15, .60));
+  root.add(cylinder('radar arch leg port', .06, 1.40, chrome, -2.42, 2.45, .60, 10));
+  root.add(cylinder('radar arch leg starboard', .06, 1.40, chrome, 2.42, 2.45, .60, 10));
+  root.add(box('radar arch beam', [4.96, .12, .18], chrome, 0, 3.15, .60));
   root.add(beamBetween('VHF whip antenna',
-    new THREE.Vector3(-2.06, 3.15, .60), new THREE.Vector3(-2.18, 5.05, .48), .016, chrome, 7));
+    new THREE.Vector3(-2.42, 3.15, .60), new THREE.Vector3(-2.54, 5.05, .48), .016, chrome, 7));
   const sternNavLight = new THREE.PointLight(0xfff0d0, 0, 6, 2);
   sternNavLight.name = 'stern navigation light glow';
   sternNavLight.position.set(0, 3.29, .60);
   root.add(sternNavLight);
   const redNav = new THREE.PointLight(0xff3d2d, 0, 5, 2);
   redNav.name = 'port navigation light glow';
-  redNav.position.set(-2.02, 1.98, -4.98);
+  redNav.position.set(-2.38, 1.98, -5.68);
   const greenNav = new THREE.PointLight(0x43df82, 0, 5, 2);
   greenNav.name = 'starboard navigation light glow';
-  greenNav.position.set(2.02, 1.98, -4.98);
+  greenNav.position.set(2.38, 1.98, -5.68);
   root.add(redNav, greenNav);
-  const redLens = cylinder('port navigation light lens', .045, .10, mat(0x6b1a15, .5), -2.02, 1.92, -4.98, 10);
-  const greenLens = cylinder('starboard navigation light lens', .045, .10, mat(0x14512c, .5), 2.02, 1.92, -4.98, 10);
+  const redLens = cylinder('port navigation light lens', .045, .10, mat(0x6b1a15, .5), -2.38, 1.92, -5.68, 10);
+  const greenLens = cylinder('starboard navigation light lens', .045, .10, mat(0x14512c, .5), 2.38, 1.92, -5.68, 10);
   root.add(redLens, greenLens);
 
   function boatCleat(name, x, z, y) {
@@ -968,34 +1023,34 @@ function buildBoat(scene, marina) {
     root.add(cleat);
     return cleat;
   }
-  const bowCleat = boatCleat('bow mooring cleat', -1.94, -4.86, DECK.foredeckHeight);
-  boatCleat('stern mooring cleat port', -1.94, 4.72, DECK.height);
-  boatCleat('stern mooring cleat starboard', 1.94, 4.72, DECK.height);
-  for (const [i, z] of [-3.6, -.4, 3.2].entries()) {
-    const fender = cylinder(`hanging dock fender ${i + 1}`, .16, .84, vinyl, -2.30, .80, z, 16);
+  const bowCleat = boatCleat('bow mooring cleat', -2.30, -5.56, DECK.foredeckHeight);
+  boatCleat('stern mooring cleat port', -2.30, 5.22, DECK.height);
+  boatCleat('stern mooring cleat starboard', 2.30, 5.22, DECK.height);
+  for (const [i, z] of [-4.3, -.4, 3.6].entries()) {
+    const fender = cylinder(`hanging dock fender ${i + 1}`, .16, .84, vinyl, -2.66, .80, z, 16);
     root.add(fender);
     root.add(beamBetween(`hanging fender lanyard ${i + 1}`,
-      new THREE.Vector3(-2.12, 1.30, z), new THREE.Vector3(-2.30, 1.18, z), .016, ropeMat, 7));
+      new THREE.Vector3(-2.48, 1.30, z), new THREE.Vector3(-2.66, 1.18, z), .016, ropeMat, 7));
   }
 
   /* ---- boarding gangway ---- */
   const gangway = new THREE.Group();
   gangway.name = 'visible physical boarding bridge';
-  const gangwayDeck = box('boarding bridge nonslip deck', [1.90, .13, 1.10], teak, -3.16, .72, 3.10);
+  const gangwayDeck = box('boarding bridge nonslip deck', [1.56, .13, 1.10], teak, -3.33, .72, 3.10);
   gangwayDeck.rotation.z = .32;
   gangway.add(gangwayDeck);
-  const gangwayEdgePort = box('boarding bridge edge forward', [1.94, .10, .075], mat(0xc2a648, .72), -3.16, .79, 2.56);
+  const gangwayEdgePort = box('boarding bridge edge forward', [1.60, .10, .075], mat(0xc2a648, .72), -3.33, .79, 2.56);
   gangwayEdgePort.rotation.z = .32;
   const gangwayEdgeStarboard = gangwayEdgePort.clone();
   gangwayEdgeStarboard.name = 'boarding bridge edge aft';
   gangwayEdgeStarboard.position.z = 3.64;
   gangway.add(gangwayEdgePort, gangwayEdgeStarboard);
   gangway.add(box('boarding bridge dock step', [.62, .20, 1.20], teakDark, -3.98, .32, 3.10));
-  const gangwayHinge = cylinder('boarding bridge hinge', .09, 1.24, chrome, -2.32, 1.02, 3.10, 12);
+  const gangwayHinge = cylinder('boarding bridge hinge', .09, 1.24, chrome, -2.68, 1.02, 3.10, 12);
   gangwayHinge.rotation.x = Math.PI / 2;
   gangway.add(gangwayHinge);
   root.add(gangway);
-  const boardTarget = proxy('forgiving boarding bridge interaction', [2.4, 2.1, 2.2], -3.10, 1.10, 3.10);
+  const boardTarget = proxy('forgiving boarding bridge interaction', [2.4, 2.1, 2.2], -3.33, 1.10, 3.10);
   root.add(boardTarget);
 
   /* ---- the single dock line ---- */
@@ -1016,7 +1071,7 @@ function buildBoat(scene, marina) {
     return line;
   }
   const dockLine = mooringLine(
-    'dock', new THREE.Vector3(-1.94, DECK.foredeckHeight + .28 + BOAT_FLOAT_Y, -4.86), marina.dockCleat,
+    'dock', new THREE.Vector3(-2.30, DECK.foredeckHeight + .28 + BOAT_FLOAT_Y, -5.56), marina.dockCleat,
   );
 
   /* ---- below deck ---- */
@@ -1032,7 +1087,7 @@ function buildBoat(scene, marina) {
   bodyMarker.add(mesh('body marker ring', new THREE.TorusGeometry(.20, .026, 8, 24), markerMaterial));
   bodyMarker.visible = false;
   root.add(bodyMarker);
-  const bodyTarget = proxy('broad body interaction proxy', [1.80, 1.10, 1.90], .40, .30, -3.00);
+  const bodyTarget = proxy('broad body interaction proxy', [2.10, 1.30, 2.30], .10, CABIN.height + .50, -3.85);
   root.add(bodyTarget);
 
   /* ---- controls ---- */
@@ -1144,7 +1199,15 @@ function buildBoat(scene, marina) {
     /* Lou by the helm, Booski near the stern, Irish already aboard with
      * binoculars up forward. Nobody moves to greet Willy. */
     lou: new Npc(root, {
-      name: 'Big Uncle Lou', tier: 'hero', x: .38, y: DECK.height, z: .30, yaw: Math.PI,
+      /* PUNCH LIST N3: "Lou stands in the way at the startup panel." He was on
+       * (0.38, 0.30) -- inside the console's own port-aft corner, on the only
+       * route forward, and squarely between the player and the left-hand end of
+       * the row he has just been told to work through. He watches from the port
+       * quarter of the bridge deck now: 2.5 m clear of the nearest switch,
+       * nothing of him on any line from the panel mark to any control, and
+       * turned to face the helm so "get her started" is still said to somebody.
+       * `tools/verify-no-wake.mjs` measures both clearances. */
+      name: 'Big Uncle Lou', tier: 'hero', x: -1.30, y: DECK.height, z: 1.60, yaw: 1.767,
       job: 'stand', model: { ...BIG_UNCLE_LOU, face: 'assets/faces/lou.png' },
     }),
     booski: new Npc(root, {
@@ -1159,7 +1222,7 @@ function buildBoat(scene, marina) {
      * moment the boat gets under way for home, and the only times he speaks are
      * to report what is behind them. */
     irish: new Npc(root, {
-      name: 'Irish', tier: 'hero', x: .10, y: DECK.foredeckHeight, z: -4.10, yaw: Math.PI,
+      name: 'Irish', tier: 'hero', x: .10, y: DECK.foredeckHeight, z: -4.80, yaw: Math.PI,
       job: 'stand', model: {
         ...source[CHARACTER_IDS.IRISH].model, face: 'assets/faces/irish.png',
       },
@@ -1335,8 +1398,8 @@ export function buildNoWakeWorld(scene) {
     boat.root.worldToLocal(_localPlayer);
     const space = below ? boat.cabinDeck : boat.deck;
     const boxes = below ? boat.cabinBoxes : boat.deckBoxes;
-    if (_localPlayer.x < -3 || _localPlayer.x > 3
-      || _localPlayer.z < -7 || _localPlayer.z > 7
+    if (_localPlayer.x < -3.4 || _localPlayer.x > 3.4
+      || _localPlayer.z < -7.6 || _localPlayer.z > 7.6
       || _localPlayer.y < space.height - .4 || _localPlayer.y > space.height + 3.6) return;
     const solved = resolveOnDeck(
       boxes, _localPlayer.x, _localPlayer.z,

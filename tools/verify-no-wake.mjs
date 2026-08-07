@@ -168,6 +168,24 @@ try {
       game.interaction.update(1 / 60);
       return game.interaction.current?.name ?? null;
     };
+    /* The startup panel, in one place.
+     *
+     * `PANEL_CONTROLS` is the checklist in order with each control's own centre
+     * in boat space, and `PANEL_STAND` is the spot a player works it from: the
+     * slot between the helm console and the helm bench, which is where a person
+     * running an engine-start checklist would actually stand. Both are shared by
+     * the checklist walk-through, the N2 spacing measurement, the N3 clearance
+     * measurement and the exit's engine restart, so there is one copy of these
+     * numbers rather than four that can drift apart. */
+    window.PANEL_STAND = [0.72, 0.38];
+    window.PANEL_CONTROLS = [
+      ['battery', [0.50, 1.46, -0.22]],
+      ['blower', [0.86, 1.46, -0.22]],
+      ['fuel', [1.22, 1.46, -0.22]],
+      ['ignitionPort', [1.58, 1.46, -0.22]],
+      ['ignitionStarboard', [1.94, 1.46, -0.22]],
+      ['navLights', [2.30, 1.46, -0.22]],
+    ];
   });
 
   const radioCueNames = await page.evaluate(() => window.NO_WAKE.radio.preloadCueNames({
@@ -348,10 +366,15 @@ try {
     boot.phase === 'dock' && boot.mission.status === 'in_progress'
       && boot.scene.id === 'no_wake' && boot.scene.spawn === 'gate_c' && boot.preview,
     JSON.stringify({ phase: boot.phase, mission: boot.mission.status, scene: boot.scene }));
-  check('the boat is a detailed 35-36 ft express cruiser, not the old 42-footer',
-    /36-foot express cruiser/.test(boot.boatName)
-      && boot.dimensions.feet >= 34 && boot.dimensions.feet <= 37
-      && boot.dimensions.beam >= 4.2 && boot.dimensions.beam <= 4.6
+  /* Punch list N1 grew her. The 36-footer's cabin was the "bathroom" the owner
+   * played through, so the floor these numbers stand on is the playtest and not
+   * the redesign spec: 42 ft, 5.12 m of beam, and the walkable extents in
+   * `deck-collision.js` moved with the hull. */
+  check('the boat is the detailed 42 ft express cruiser the playtest asked for, not the 36-footer',
+    /42-foot express cruiser/.test(boot.boatName)
+      && boot.dimensions.feet >= 41 && boot.dimensions.feet <= 44
+      && boot.dimensions.beam >= 4.9 && boot.dimensions.beam <= 5.4
+      && boot.dimensions.hullLength >= 11.4
       && boot.detailMeshes >= 300 && boot.buoyCount >= 10,
     JSON.stringify({ boat: boot.boatName, dimensions: boot.dimensions, details: boot.detailMeshes }));
   check('the period fittings the spec names are all modeled',
@@ -376,6 +399,68 @@ try {
       && boot.cabinParts.portholes >= 4 && boot.cabinParts.runner
       && boot.cabinParts.companionway >= 8,
     JSON.stringify({ meshes: boot.cabinMeshes, ...boot.cabinParts }));
+
+  /* ---------------------------------------------------------------- *
+   * N1 — "the confrontation plays out in a bathroom"
+   *
+   * The complaint was a measurement, so this is a measurement, taken from the
+   * BUILT scene rather than from the collider table `tests/no-wake-deck.test.mjs`
+   * measures: the room the player actually stands in, swept on the 0.05 m grid
+   * with the real capsule, plus the headroom over his own eye line. Every
+   * number below is one the old cabin failed — 1.36 m across, 1.66 m fore and
+   * aft, 1.82 m of headroom, 0.80 m² a man could stand in.
+   * ---------------------------------------------------------------- */
+  const salon = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const cabin = game.boat.cabinDeck;
+    const boxes = game.boat.cabinBoxes;
+    const eyeY = cabin.height + 1.66;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const clearAt = (x, z) => {
+      for (const box of boxes) {
+        if (eyeY + .05 < box.min.y || cabin.height > box.max.y) continue;
+        const cx = clamp(x, box.min.x, box.max.x);
+        const cz = clamp(z, box.min.z, box.max.z);
+        if (Math.hypot(x - cx, z - cz) < .30 - 1e-6) return false;
+      }
+      return true;
+    };
+    let squares = 0;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let x = -cabin.halfBeam; x <= cabin.halfBeam + 1e-9; x += .05) {
+      for (let z = cabin.bow; z <= cabin.stern + 1e-9; z += .05) {
+        if (!clearAt(x, z)) continue;
+        squares++;
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+        minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+      }
+    }
+    /* And the actual ceiling over the man, from the built mesh rather than from
+     * the constant: the liner panel is what his head meets. */
+    const liner = game.cabin.group.getObjectByName('cabin ceiling panel');
+    const linerUnderside = liner.position.y - liner.geometry.parameters.height / 2;
+    return {
+      standableArea: +(squares * .05 * .05).toFixed(2),
+      spanX: +(maxX - minX).toFixed(2),
+      spanZ: +(maxZ - minZ).toFixed(2),
+      headroom: +(cabin.ceiling - cabin.height).toFixed(2),
+      overEyes: +(linerUnderside - eyeY).toFixed(2),
+    };
+  });
+  // The staging clamp is authored in Node-side source, not on the page.
+  salon.staging = +((CABIN_STAGING.maxX - CABIN_STAGING.minX)
+    * (CABIN_STAGING.maxZ - CABIN_STAGING.minZ)).toFixed(2);
+  /* The bathroom measured 0.80 m² of standable sole, 0.95 m across and 1.10 m
+   * fore and aft, under 1.82 m of ceiling, with a 0.34 m² pen to stand in. Every
+   * floor below is comfortably clear of those and comfortably under what this
+   * boat actually has, so a regression has to be a real one to trip it. */
+  check('below deck reads as a salon and not a bathroom: floor, span, headroom and a staging area to move in',
+    salon.standableArea >= 3.4 && salon.spanX >= 2.6 && salon.spanZ >= 2.1
+      && salon.headroom >= 2.05 && salon.overEyes > 0 && salon.staging >= 1.2,
+    JSON.stringify(salon));
   check('the startup controls the spec lists are modeled objects',
     /battery selector/.test(boot.controls.battery)
       && /blower push/.test(boot.controls.blower)
@@ -482,7 +567,7 @@ try {
     game.player.position.set(-4.72, 1.86, 3.10);
     game.player.ground = .2;
     game.player.update(1 / 60);
-    return window.__aim([-3.10, 1.10, 3.10]);
+    return window.__aim([-3.33, 1.10, 3.10]);
   });
   await capture('no-wake-boarding-bridge.png');
   await page.keyboard.press('e');
@@ -701,11 +786,11 @@ try {
     /* `Player` walks along -Z at yaw 0, so a heading offset of 0 is forward
      * (the bow) and Math.PI is aft (the transom). */
     // From the boarding mark, straight forward, up the centre and onto the bow.
-    const toTheBow = runFrom([-0.20, 3.10], 0, 420);
+    const toTheBow = runFrom([-0.20, 3.10], 0, 480);
     // And back aft again from the bow, which is the walk that used to trap him.
-    const backAft = runFrom([0.0, -4.60], Math.PI, 420);
+    const backAft = runFrom([0.0, -5.20], Math.PI, 480);
     // Starboard side of the cockpit, aft to the transom gate: the body's route.
-    const toTheGate = runFrom([1.30, 1.40], Math.PI, 300);
+    const toTheGate = runFrom([1.60, 1.40], Math.PI, 340);
     player.clearKeys();
     player.mode = saved.mode;
     player.yaw = saved.yaw;
@@ -715,9 +800,9 @@ try {
     return { toTheBow, backAft, toTheGate };
   });
   check('the player can walk from the boarding mark all the way to the bow, and back aft again',
-    routes.toTheBow[2] < -4.2 && Math.abs(routes.toTheBow[0]) < 1.2
-      && routes.backAft[2] > 2.5
-      && routes.toTheGate[2] > 3.6,
+    routes.toTheBow[2] < -4.9 && Math.abs(routes.toTheBow[0]) < 1.2
+      && routes.backAft[2] > 3.0
+      && routes.toTheGate[2] > 4.1,
     JSON.stringify(routes));
 
   /* ---------------------------------------------------------------- *
@@ -729,22 +814,17 @@ try {
     const V = game.player.position.constructor;
     const deck = game.boat.deck;
     const log = [];
-    // Stand where a player stands to run the panel: the centre of the bridge
-    // deck, between the companionway hatch and the helm console.
+    /* Stand where a player stands to run the panel: in front of it, in the slot
+     * between the helm console and the helm bench. `PANEL_STAND` and
+     * `PANEL_CONTROLS` are shared with the spacing and Lou-clearance checks
+     * below, so "where the panel is worked from" is one place in this file. */
     game.player.mode = 'walk';
     game.player.enabled = true;
     game.player.ground = game.boat.root.position.y + deck.height;
-    game.player.position.copy(game.world.fromBoatLocal(new V(-0.10, deck.height + 1.66, 0.40)));
+    game.player.position.copy(game.world.fromBoatLocal(
+      new V(window.PANEL_STAND[0], deck.height + 1.66, window.PANEL_STAND[1])));
     game.player.update(1 / 60);
-    const steps = [
-      ['battery', [0.60, 1.62, -0.22]],
-      ['blower', [0.86, 1.62, -0.22]],
-      ['fuel', [1.10, 1.62, -0.22]],
-      ['ignitionPort', [1.34, 1.62, -0.22]],
-      ['ignitionStarboard', [1.56, 1.62, -0.22]],
-      ['navLights', [1.80, 1.62, -0.22]],
-    ];
-    for (const [key, at] of steps) {
+    for (const [key, at] of window.PANEL_CONTROLS) {
       const before = { ...game.state };
       const targeted = window.__aim(at);
       // Out of order? Every step behind this one is still false, so pressing
@@ -762,17 +842,125 @@ try {
       navOn: game.boat.controls.navLights.on,
     };
   });
+  /* Every step must land on ITS OWN control, not merely on something. Before
+   * N2 the crosshair could take the broad `startup panel` proxy or a neighbour
+   * and the check would still have read "targeted". */
+  const OWN_CONTROL = {
+    battery: /battery selector switch/,
+    blower: /bilge blower push button/,
+    fuel: /fuel valve and sight check/,
+    ignitionPort: /^port engine ignition key$/,
+    ignitionStarboard: /^starboard engine ignition key$/,
+    navLights: /navigation light switch/,
+  };
   check('the eight-step startup procedure is performed switch by switch from the bridge deck',
-    startupOrder.log.every((step) => step.done && step.targeted)
+    startupOrder.log.every((step) => step.done && OWN_CONTROL[step.key].test(step.targeted ?? ''))
       && startupOrder.running && startupOrder.navOn
       && /STARTUP PROCEDURE/.test(startupOrder.objective ?? ''),
     JSON.stringify(startupOrder));
+
+  /* ---------------------------------------------------------------- *
+   * N2 — "the startup controls are too bunched to hit individually"
+   * ---------------------------------------------------------------- */
+
+  const panel = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const keys = ['battery', 'blower', 'fuel', 'ignitionPort', 'ignitionStarboard', 'navLights'];
+    const controls = keys.map((key) => {
+      const group = game.boat.targets[key];
+      const at = group.getWorldPosition(new V());
+      const hit = group.children.find((child) => /hit volume/.test(child.name || ''));
+      return {
+        key,
+        name: group.name,
+        local: game.world.toBoatLocal(at.clone()).toArray(),
+        hit: hit ? [hit.geometry.parameters.width, hit.geometry.parameters.height,
+          hit.geometry.parameters.depth] : null,
+      };
+    });
+    let closest = Infinity;
+    let closestPair = null;
+    let overlapping = 0;
+    for (let i = 0; i < controls.length; i++) {
+      for (let j = i + 1; j < controls.length; j++) {
+        const a = controls[i];
+        const b = controls[j];
+        const gap = Math.hypot(a.local[0] - b.local[0], a.local[1] - b.local[1],
+          a.local[2] - b.local[2]);
+        if (gap < closest) { closest = gap; closestPair = [a.key, b.key]; }
+        // Their own hit volumes must not run into each other either.
+        if (a.hit && b.hit
+          && Math.abs(a.local[0] - b.local[0]) < (a.hit[0] + b.hit[0]) / 2
+          && Math.abs(a.local[1] - b.local[1]) < (a.hit[1] + b.hit[1]) / 2
+          && Math.abs(a.local[2] - b.local[2]) < (a.hit[2] + b.hit[2]) / 2) overlapping++;
+      }
+    }
+    return { controls, closest: +closest.toFixed(3), closestPair, overlapping };
+  });
+  /* The owner's own words: "too bunched to hit individually — space them out."
+   * They were on 0.22-0.26 m centres; nothing under 0.34 gets to ship again,
+   * every one of them carries a hand-sized hit volume, and no two of those
+   * volumes may touch — which is what makes them individually hittable rather
+   * than merely far apart. */
+  check('every startup control is on its own 0.34 m of panel with its own hit volume',
+    panel.closest >= 0.34
+      && panel.controls.length === 6
+      && panel.controls.every((control) => control.hit && control.hit[0] >= .26
+        && control.hit[1] >= .26 && control.hit[2] >= .20)
+      && panel.overlapping === 0,
+    JSON.stringify({ closest: panel.closest, pair: panel.closestPair, overlapping: panel.overlapping }));
+
+  /* ---------------------------------------------------------------- *
+   * N3 — "Lou stands in the way at the startup panel"
+   * ---------------------------------------------------------------- */
+
+  const louClear = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const deck = game.boat.deck;
+    const lou = game.world.toBoatLocal(game.boat.cast.lou.group.getWorldPosition(new V()));
+    const eye = [window.PANEL_STAND[0], deck.height + 1.66, window.PANEL_STAND[1]];
+    /* How close a man's own vertical axis comes to the line the player looks
+     * along to reach each switch. Under about half a metre and his shoulder is
+     * in the way of the thing the objective just told the player to press. */
+    const clearanceTo = (control) => {
+      let best = Infinity;
+      const dx = control[0] - eye[0];
+      const dz = control[2] - eye[2];
+      const length = Math.hypot(dx, dz);
+      for (let t = 0; t <= length; t += 0.02) {
+        const x = eye[0] + (dx / length) * t;
+        const z = eye[2] + (dz / length) * t;
+        best = Math.min(best, Math.hypot(x - lou.x, z - lou.z));
+      }
+      return best;
+    };
+    const sightLines = window.PANEL_CONTROLS.map(([key, at]) => ({
+      key, clearance: +clearanceTo(at).toFixed(3),
+    }));
+    const nearestControl = Math.min(...window.PANEL_CONTROLS.map(([, at]) => (
+      Math.hypot(at[0] - lou.x, at[2] - lou.z)
+    )));
+    return {
+      lou: lou.toArray().map((n) => +n.toFixed(2)),
+      standsOnTheStand: Math.hypot(lou.x - eye[0], lou.z - eye[2]) < .7,
+      nearestControl: +nearestControl.toFixed(2),
+      worstSightLine: Math.min(...sightLines.map((line) => line.clearance)),
+      sightLines,
+    };
+  });
+  check('Lou watches the startup from clear of the panel, the controls and the line to them',
+    louClear.nearestControl >= 1.5
+      && louClear.worstSightLine >= 0.55
+      && !louClear.standsOnTheStand,
+    JSON.stringify(louClear));
 
   const outOfOrder = await page.evaluate(() => {
     const game = window.NO_WAKE;
     // The helm cannot be taken until the dock line is off.
     const before = game.state.atHelm;
-    window.__aim([1.16, 1.88, -0.52]);
+    window.__aim([1.34, 1.88, -0.52]);
     game.interaction.press();
     for (let i = 0; i < 30; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -784,7 +972,7 @@ try {
 
   const lineReleased = await page.evaluate((foredeck) => {
     const game = window.NO_WAKE;
-    const targeted = window.__aim([-1.94, foredeck + .30, -4.86], [-1.30, foredeck + 1.66, -4.10]);
+    const targeted = window.__aim([-2.30, foredeck + .30, -5.56], [-1.70, foredeck + 1.66, -4.80]);
     game.interaction.press();
     for (let i = 0; i < 60 && !game.state.dockLine; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -826,7 +1014,8 @@ try {
      * 2.7 m the crosshair reaches -- so a check that aimed from there was
      * asking the helm to be usable from the foredeck. */
     const deck = game.boat.deck;
-    const targeted = window.__aim([1.16, 1.88, -0.52], [-0.10, deck.height + 1.66, 0.40]);
+    const targeted = window.__aim([1.34, 1.88, -0.52],
+      [window.PANEL_STAND[0], deck.height + 1.66, window.PANEL_STAND[1]]);
     game.interaction.press();
     for (let i = 0; i < 30 && !game.state.atHelm; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -890,7 +1079,7 @@ try {
   await page.evaluate(() => {
     const game = window.NO_WAKE;
     game.physics.speed = 0;
-    window.__aim([1.16, 1.88, -0.52]);
+    window.__aim([1.34, 1.88, -0.52]);
     game.interaction.press();
     for (let i = 0; i < 30 && !game.state.atHelm; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -969,9 +1158,9 @@ try {
     game.player.mode = 'walk';
     game.player.enabled = true;
     game.player.ground = game.boat.root.position.y + game.boat.deck.height;
-    game.player.position.copy(game.world.fromBoatLocal(new V(-0.60, game.boat.deck.height + 1.66, 0.60)));
+    game.player.position.copy(game.world.fromBoatLocal(new V(-0.70, game.boat.deck.height + 1.66, 0.60)));
     game.player.update(1 / 60);
-    const targeted = window.__aim([-1.26, 1.80, -0.70]);
+    const targeted = window.__aim([-1.465, 1.80, -0.70]);
     game.interaction.press();
     for (let i = 0; i < 80 && !game.state.moving; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -985,14 +1174,28 @@ try {
       below: game.state.below,
       worldBelow: game.world.below,
       local: game.world.toBoatLocal(game.player.position.clone()).toArray(),
-      ground: game.player.ground - game.boat.root.position.y,
+      /* The sole he is standing on, IN THE BOAT'S OWN FRAME.
+       *
+       * `player.ground - boat.root.position.y` is not that: the hull keeps
+       * whatever pitch and roll the last driven frame left on it, so a point
+       * 2.5 m forward of the boat's origin sits centimetres off its own local
+       * height once the attitude is resolved. Subtracting the root's Y alone
+       * measured that attitude and called it the floor, and read 11 mm out
+       * against a 10 mm tolerance for no reason but the trim. Round-tripping
+       * the ground point through `toBoatLocal` removes it. */
+      soleUnderfoot: (() => {
+        const V = game.player.position.constructor;
+        const at = new V(game.player.position.x, game.player.ground, game.player.position.z);
+        return game.world.toBoatLocal(at).y;
+      })(),
       enclosure: game.engineAudio.enclosure,
       radioOn: game.radio.on,
     };
   });
   check('the player goes down the companionway onto the cabin sole and the room closes in',
     /companionway/.test(goingBelow.targeted ?? '') && below.below && below.worldBelow
-      && Math.abs(below.ground - CABIN_HEIGHT) < .01
+      && Math.abs(below.soleUnderfoot - CABIN_HEIGHT) < .01
+      && Math.abs(below.local[1] - (CABIN_HEIGHT + 1.66)) < .02
       && below.local[2] > CABIN_BOW && below.local[2] < CABIN_STERN
       && below.enclosure < 1,
     JSON.stringify(below));
@@ -1066,9 +1269,11 @@ try {
   check('Irish stays on the bow through the whole confrontation',
     staging.irishLocal[2] < -3 && staging.irishLocal[1] > DECK.height,
     JSON.stringify({ irish: staging.irishLocal }));
+  /* Measured against the sole rather than against zero: the cabin floor dropped
+   * 0.32 m for N1 and a bare "> .5" was reading the old room's height. */
   check('Booski pours one shot and slides it across to Willy',
-    staging.shotGlass[0] > .5 && staging.shotGlass[1] > .5,
-    JSON.stringify({ shotGlass: staging.shotGlass }));
+    staging.shotGlass[0] > .5 && staging.shotGlass[1] > CABIN.height + .6,
+    JSON.stringify({ shotGlass: staging.shotGlass, sole: CABIN.height }));
   await capture('no-wake-cabin-staging.png');
 
   const penned = await page.evaluate(() => {
@@ -1196,7 +1401,7 @@ try {
     const stage = await page.evaluate((want) => {
       const game = window.NO_WAKE;
       if (game.state.wrapStage !== want) return { want, got: game.state.wrapStage, ok: false };
-      const targeted = window.__aim([0.40, 0.30, -3.00]);
+      const targeted = window.__aim([0.10, game.boat.cabinDeck.height + 0.50, -3.85]);
       game.interaction.press();
       for (let i = 0; i < 120 && game.state.wrapStage === want; i++) game.interaction.update(.05);
       game.interaction.release();
@@ -1229,7 +1434,7 @@ try {
   await page.waitForFunction(() => window.NO_WAKE.phase === 'weights');
   const upForWeights = await page.evaluate(() => {
     const game = window.NO_WAKE;
-    const targeted = window.__aim([-0.40, 0.70, -2.20]);
+    const targeted = window.__aim([-0.25, game.boat.cabinDeck.height + 1.00, -2.32]);
     game.interaction.press();
     for (let i = 0; i < 80 && !game.state.moving; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -1252,9 +1457,9 @@ try {
     game.player.mode = 'walk';
     game.player.enabled = true;
     game.player.ground = game.boat.root.position.y + foredeck;
-    game.player.position.copy(game.world.fromBoatLocal(new V(-0.02, foredeck + 1.66, -2.90)));
+    game.player.position.copy(game.world.fromBoatLocal(new V(-0.02, foredeck + 1.66, -3.60)));
     game.player.update(1 / 60);
-    const targeted = window.__aim([-0.02, 2.10, -3.72]);
+    const targeted = window.__aim([-0.02, 2.10, -4.42]);
     game.interaction.press();
     for (let i = 0; i < 120 && !game.state.carriedBallast; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -1280,10 +1485,10 @@ try {
   await page.evaluate(() => {
     const game = window.NO_WAKE;
     const V = game.player.position.constructor;
-    game.player.position.copy(game.world.fromBoatLocal(new V(-0.60, game.boat.deck.height + 1.66, 0.60)));
+    game.player.position.copy(game.world.fromBoatLocal(new V(-0.70, game.boat.deck.height + 1.66, 0.60)));
     game.player.ground = game.boat.root.position.y + game.boat.deck.height;
     game.player.update(1 / 60);
-    window.__aim([-1.26, 1.80, -0.70]);
+    window.__aim([-1.465, 1.80, -0.70]);
     game.interaction.press();
     for (let i = 0; i < 80 && !game.state.moving; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -1291,7 +1496,7 @@ try {
   await page.waitForFunction(() => window.NO_WAKE.phase === 'weights_attach');
   const weighted = await page.evaluate(() => {
     const game = window.NO_WAKE;
-    const targeted = window.__aim([0.40, 0.30, -3.00]);
+    const targeted = window.__aim([0.10, game.boat.cabinDeck.height + 0.50, -3.85]);
     game.interaction.press();
     for (let i = 0; i < 120 && !game.bodyRig.state.weighted; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -1377,17 +1582,62 @@ try {
     JSON.stringify(platform));
   await capture('no-wake-platform.png');
 
-  const dumped = await page.evaluate(() => {
+  /* ---------------------------------------------------------------- *
+   * N4 — "after wrapping the body, E would not dump it off the back"
+   *
+   * The old check here aimed the crosshair with `__aim` and then called
+   * `interaction.press()`, and it passed on a build where the mission was
+   * broken, because BOTH of those steps are things the mission does not do for
+   * the player. What the mission does is leave him where the carry put him,
+   * pointing where it pointed him, and wait for a key. So this one touches
+   * neither: it reads the pose the mission chose, holds the physical E key
+   * through `page.keyboard`, and waits for the body to go over the side.
+   *
+   * The two things it would have caught, both of them true before the fix:
+   * the authored aim looked over the disposal zone entirely (`aimedAt: null`,
+   * no prompt), and `player.mode = 'frozen'` meant the player could not look
+   * down to find it either.
+   * ---------------------------------------------------------------- */
+
+  const beforeDump = await page.evaluate(() => {
     const game = window.NO_WAKE;
-    const targeted = window.__aim([0, 0.55, 5.72]);
-    game.interaction.press();
-    for (let i = 0; i < 160 && !game.state.bodyDisposed; i++) game.interaction.update(.05);
-    game.interaction.release();
-    return { targeted, disposed: game.state.bodyDisposed, phase: game.phase };
+    return {
+      /* Nothing is aimed here. This is the pose reachPlatform() left, resolved
+       * through the real interaction system on the real camera. */
+      aimedAt: game.interaction.current?.name ?? null,
+      promptShown: !document.getElementById('prompt').classList.contains('hidden'),
+      canLook: game.player.mode !== 'frozen',
+      mode: game.player.mode,
+      local: game.world.toBoatLocal(game.player.position.clone()).toArray().map((n) => +n.toFixed(2)),
+      pitch: +game.player.pitch.toFixed(2),
+    };
   });
-  check('the player holds to put him over, through the disposal zone',
-    /disposal zone/.test(dumped.targeted ?? '') && dumped.disposed && dumped.phase === 'dispose',
-    JSON.stringify(dumped));
+  check('the disposal mark points the player AT the bag and leaves him his head',
+    /disposal zone/.test(beforeDump.aimedAt ?? '') && beforeDump.promptShown
+      && beforeDump.canLook,
+    JSON.stringify(beforeDump));
+
+  /* And the key itself. `keyboard.down` goes through the page's own keydown
+   * listener, `interaction.press()`, the hold accumulator in the real frame
+   * loop, and `dumpBody()` -- the whole path the owner used. The wait is
+   * generous because the hold is 1.0 SIMULATED second and this rasteriser draws
+   * about one frame a second (ENGINE-TRAPS #2). */
+  await page.keyboard.down('e');
+  const dumped = await page.evaluate(async () => {
+    const game = window.NO_WAKE;
+    const start = performance.now();
+    while (performance.now() - start < 240000 && !game.state.bodyDisposed) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    return {
+      disposed: game.state.bodyDisposed,
+      phase: game.phase,
+      seconds: +((performance.now() - start) / 1000).toFixed(1),
+    };
+  });
+  await page.keyboard.up('e');
+  check('holding the real E key on the disposal mark puts him over the back',
+    dumped.disposed && dumped.phase === 'dispose', JSON.stringify(dumped));
 
   const disposal = [];
   for (const t of [.3, .6, 1.0]) {
@@ -1440,10 +1690,11 @@ try {
     game.player.mode = 'walk';
     game.player.enabled = true;
     game.player.ground = game.boat.root.position.y + game.boat.deck.height;
-    game.player.position.copy(game.world.fromBoatLocal(new V(-0.10, game.boat.deck.height + 1.66, 0.40)));
+    game.player.position.copy(game.world.fromBoatLocal(
+      new V(window.PANEL_STAND[0], game.boat.deck.height + 1.66, window.PANEL_STAND[1])));
     game.player.update(1 / 60);
     const out = [];
-    for (const [key, at] of [['ignitionPort', [1.34, 1.62, -0.22]], ['ignitionStarboard', [1.56, 1.62, -0.22]]]) {
+    for (const [key, at] of window.PANEL_CONTROLS.filter(([key]) => key.startsWith('ignition'))) {
       const targeted = window.__aim(at);
       game.interaction.press();
       for (let i = 0; i < 120 && !game.state[key]; i++) game.interaction.update(.05);
@@ -1460,7 +1711,7 @@ try {
 
   const drivenOut = await page.evaluate(async () => {
     const game = window.NO_WAKE;
-    window.__aim([1.16, 1.88, -0.52]);
+    window.__aim([1.34, 1.88, -0.52]);
     game.interaction.press();
     for (let i = 0; i < 40 && !game.state.atHelm; i++) game.interaction.update(.05);
     game.interaction.release();
@@ -1553,13 +1804,23 @@ try {
     ['body', 'body', 130000],
   ]) {
     const cpPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    /* Playwright's own 30 s default, not this file's, was governing these
+     * pages: `setDefaultTimeout` is per-page and the main playthrough's page is
+     * the only one that ever got it. `nowake.html` fetches its whole module
+     * graph, the three.js build and the scene's textures on a software
+     * rasteriser, and under any load at all that is more than 30 s -- so the
+     * verifier died mid-loop with a `page.goto: Timeout 30000ms exceeded` on a
+     * page that was loading perfectly well. Same doctrine as the ceiling on the
+     * main page: a guard against a hang, not a performance assertion. */
+    cpPage.setDefaultTimeout(300000);
+    cpPage.setDefaultNavigationTimeout(300000);
     const cpProblems = [];
     cpPage.on('pageerror', (error) => cpProblems.push(error.message));
     cpPage.on('console', (message) => {
       if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
     });
     await cpPage.goto(`http://localhost:${PORT}/nowake.html?preview=1&checkpoint=${id}`, { waitUntil: 'load' });
-    await cpPage.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 60000 });
+    await cpPage.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
     const chip = await cpPage.evaluate(() => document.querySelector('#overlay .tag')?.textContent ?? '');
     // Coordinates, not a locator click: this scene's continuous WebGL redraw
     // on a software rasteriser can make a locator's "two stable frames" wait
