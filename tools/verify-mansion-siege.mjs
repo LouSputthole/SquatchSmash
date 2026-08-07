@@ -142,8 +142,68 @@ async function walkUntil(done, keys = ['KeyW'], cap = 20, bite = 0.35) {
 try {
   console.log('\nMANSION UNDER SIEGE\n');
 
-  await page.goto(`http://localhost:${PORT}/mansion-siege.html`, { waitUntil: 'load' });
+  /* ---------------------------------------------------------------- */
+  /* 0. THE FRAME'S BILL                                                */
+  /*                                                                    */
+  /* This block is first because everything after it turns rendering    */
+  /* OFF, and a scene that is never drawn cannot be caught being        */
+  /* undrawable. That is not hypothetical: this file reported 93/93     */
+  /* green on the build the owner measured at a five-minute load and    */
+  /* one frame per second on an RTX 4080. It passed because             */
+  /* `setRendering(false)` was the third line of the run, so no check   */
+  /* here had ever waited for a picture.                               */
+  /*                                                                    */
+  /* The cause was `main.js` seeding its practical-light rig with       */
+  /* nothing, leaving all 228 of the house's point lights visible;      */
+  /* three.js compiles every visible light into every material, and     */
+  /* the first frame's shader compile never returned. So the pin is a   */
+  /* WALL CLOCK on the first drawn frame, plus the three structural     */
+  /* budgets that keep the frame affordable in the first place.         */
+  /* ---------------------------------------------------------------- */
+  const bootStart = Date.now();
+  await page.goto(`http://localhost:${PORT}/mansion-siege.html`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.mansionSiege?.scene, null, { timeout: 90000 });
+  const readyMs = Date.now() - bootStart;
+  /* A scene handle is not a picture. Measured in this harness: 4.6 s to the
+   * handle and 15.3 s to the fourth frame with the rig seeded; with it empty,
+   * the handle still arrived in 58 s and no frame ever did -- the tab was
+   * killed at 360 s. 120 s is far above any healthy value on a loaded box and
+   * far below a scene that cannot compile. */
+  await page.waitForFunction(() => window.mansionSiege.framesRendered > 3, null, { timeout: 180000 });
+  const firstFrameMs = Date.now() - bootStart;
+  check('the siege draws its first frames inside the boot budget',
+    firstFrameMs < 120000,
+    `${(readyMs / 1000).toFixed(1)}s to the scene, ${(firstFrameMs / 1000).toFixed(1)}s to frame four (budget 120s)`);
+
+  const budget = await evaluate(() => {
+    const s = window.mansionSiege;
+    let interiorCasters = 0;
+    s.interior.root.traverse((o) => { if (o.isMesh && o.castShadow) interiorCasters++; });
+    return {
+      lights: s.perf.visibleLights,
+      shadowCasters: s.perf.shadowCasters(),
+      interiorCasters,
+      transmissive: s.perf.transmissiveMeshes(),
+      minMetres: +s.perf.minMetres.toFixed(3),
+    };
+  });
+  /* three.js compiles every VISIBLE light into every material's shader. The
+   * rig holds ten practicals; the rest of the allowance is the moon, the
+   * hemisphere fill, the five exterior spots and the sets' own glows. */
+  check('no more lights are lit than the shader budget allows',
+    budget.lights <= 24, `${budget.lights} lit (budget 24)`);
+  /* The only shadow-casting light in this scene is the moon, and it is
+   * outside. The shell is already between it and everything indoors. */
+  check('nothing inside the house casts the moon\'s shadow',
+    budget.interiorCasters === 0, `${budget.interiorCasters} interior casters`);
+  check('the shadow pass is a few hundred objects, not a few thousand',
+    budget.shadowCasters <= 1200,
+    `${budget.shadowCasters} casters, minimum ${budget.minMetres} m (budget 1200)`);
+  /* One transmissive object makes three re-render the whole opaque list into
+   * an offscreen target. One decanter therefore draws the house twice. */
+  check('nothing refracts, so the opaque scene is drawn once per frame',
+    budget.transmissive === 0, `${budget.transmissive} transmissive meshes`);
+
   await evaluate(() => window.mansionSiege.setRendering(false));
 
   /* ---------------------------------------------------------------- */
@@ -1240,6 +1300,42 @@ try {
     }
     for (const message of jumpErrors) problems.push(`[${want.id}] ${message}`);
     await jump.close();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* DRAW CALLS, from two poses the mission actually stands in          */
+  /*                                                                    */
+  /* Last, because it needs the camera moved and `teleport` starts the  */
+  /* mission -- doing this earlier would make `#startBtn` a no-op and    */
+  /* take the whole run with it. `setState('clean')` first so the number */
+  /* is the house rather than however many bodies this playthrough left  */
+  /* on the floor.                                                       */
+  /*                                                                     */
+  /* `perf.drawCalls()` turns `renderer.info.autoReset` OFF for the      */
+  /* measurement on purpose: this three build resets `info` AFTER        */
+  /* `shadowMap.render()`, so with the default on the shadow pass reads  */
+  /* as zero however many thousand objects it drew.                      */
+  /* ---------------------------------------------------------------- */
+  {
+    const drawn = await evaluate(() => {
+      const s = window.mansionSiege;
+      s.setState('clean');
+      s.setRendering(false);
+      const out = {};
+      for (const [name, y, yaw] of [['foyer', 1.2, 180], ['gallery', 6.0, 200]]) {
+        const r = s.route[name];
+        s.teleport((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2, yaw);
+        out[name] = s.perf.drawCalls().calls;
+      }
+      return out;
+    });
+    /* Measured here, foyer/gallery: 18,536 / 16,200 before the transmission
+     * and shadow-caster passes landed, 7,218 / 6,042 after. 11,000 sits
+     * between them with room for a wing of new furniture. */
+    check('the foyer costs fewer draw calls than the budget',
+      drawn.foyer <= 11000, `${drawn.foyer} calls (budget 11000)`);
+    check('and so does the gallery',
+      drawn.gallery <= 11000, `${drawn.gallery} calls (budget 11000)`);
   }
 
   const strayNotFound = notFound.filter((p) => !p.endsWith('/the-feature.mp4'));
