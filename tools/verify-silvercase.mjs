@@ -282,11 +282,30 @@ try {
     JSON.stringify(postfxBoot));
 
   // ---- MENU -> CAR_RIDE (begin(), the same call the Begin button makes) -
-  let carRide = await page.evaluate(() => {
-    window.silvercase.begin();
-    window.silvercase.tick(0.1);
+  //
+  // `begin()` now AWAITS `audio.loadManifest(...)` before it ever calls
+  // `fsm.go(S.CAR_RIDE)` (see main.js's own comment on the bug this fixes),
+  // so `window.silvercase.begin()` returns a promise that only resolves once
+  // the mission is genuinely sitting in CAR_RIDE with its manifest resident —
+  // awaiting it here, rather than firing it and ticking a fixed 0.1s like the
+  // old synchronous `begin()` allowed, is what actually exercises that fix
+  // instead of racing it a second time from the test side.
+  let carRide = await page.evaluate(async () => {
     const sc = window.silvercase;
-    return { state: sc.state(), mode: sc.player.mode, cueLog: sc.dialogue.cueLog.slice() };
+    await sc.begin();
+    sc.tick(0.1);
+    const subs = document.getElementById('subs');
+    return {
+      state: sc.state(),
+      mode: sc.player.mode,
+      cueLog: sc.dialogue.cueLog.slice(),
+      voiceLog: sc.dialogue.voiceLog.slice(),
+      subtitle: {
+        shown: subs?.classList.contains('show') ?? false,
+        who: document.getElementById('subsWho')?.textContent ?? '',
+        line: document.getElementById('subsLine')?.textContent ?? '',
+      },
+    };
   });
   check('beginning the scene seats the player in the car and starts the drive-over dialogue',
     carRide.state.beat === 'CAR_RIDE'
@@ -294,9 +313,37 @@ try {
       && carRide.cueLog[0] === 'vo.silvercase.car.ape.pitch',
     JSON.stringify(carRide));
 
-  // ---- Audio residency: begin() fires audio.loadManifest(...) without
-  // awaiting it (see main.js's own comment on why), so wait for that same
-  // promise here before reading what actually got decoded. ------------------
+  // ---- V1 (2026-08-06 playtest): "Ape's first line still doesn't play."
+  //
+  // Root cause was a race, not a missing cue or a missing recording: begin()
+  // used to fire `audio.loadManifest(...)` and, in the SAME tick, transition
+  // into CAR_RIDE — whose enter() plays the mission's very first line
+  // synchronously, before the fetch/decode had a single tick to run. Every
+  // later line was fine because its own multi-second `hold` gave that same
+  // in-flight load time no earlier line ever got, which is why only the
+  // FIRST line ever went quiet. Pinned two ways: the DOM subtitle (which
+  // never depended on audio and would have papered over a "just no sound"
+  // read of this bug) really is showing Ape's line, AND — the actual
+  // regression target — `voiceLog[0]`, populated from `playCue`'s own
+  // real-time return value rather than a retroactive `hasSample()` re-check
+  // (which by now, after the manifest has long since finished loading, could
+  // no longer see the race at all), reports that the take actually played. -
+  const firstLine = carRide.voiceLog[0];
+  check('the first Ape cue/subtitle registered in the event log during a fresh playthrough is his opening pitch',
+    firstLine?.speaker === 'APE'
+      && firstLine?.cue === 'vo.silvercase.car.ape.pitch'
+      && carRide.subtitle.shown === true
+      && carRide.subtitle.who === 'Ape'
+      && carRide.subtitle.line === firstLine?.text,
+    JSON.stringify({ firstLine, subtitle: carRide.subtitle }));
+  check('the first Ape line of a fresh playthrough actually plays its recorded audio, not a silent subtitle',
+    firstLine?.playedAudio === true,
+    JSON.stringify(firstLine));
+
+  // ---- Audio residency: begin() now genuinely awaits audio.loadManifest(...)
+  // before returning (see above), so by this point in the script the promise
+  // is already settled — this re-await is just a defensive no-op guard
+  // against a future regression reintroducing the old fire-and-forget shape. -
   await page.evaluate(async () => {
     const audio = window.silvercase.audio;
     if (audio._manifestLoadPromise) await audio._manifestLoadPromise;
@@ -1095,8 +1142,12 @@ try {
     await cpPage.goto(`http://localhost:${PORT}/silvercase.html?checkpoint=${id}`, { waitUntil: 'load' });
     await cpPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
     const chip = await cpPage.evaluate(() => document.querySelector('#menu .subtitle')?.textContent ?? '');
-    const result = await cpPage.evaluate(() => {
-      window.silvercase.begin();
+    const result = await cpPage.evaluate(async () => {
+      // begin() awaits audio.loadManifest(...) before it transitions the FSM
+      // at all (see the CAR_RIDE/V1 check above) — await it here too, or
+      // every one of these six preview checkpoints would still be reading
+      // MENU rather than its own waypoint.
+      await window.silvercase.begin();
       window.silvercase.tick(0.2);
       return window.silvercase.state();
     });

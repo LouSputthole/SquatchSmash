@@ -1630,7 +1630,13 @@ ui.playAgainBtn.addEventListener('click', () => {
   window.location.reload();
 });
 
-function beginScene() {
+async function beginScene() {
+  // Requested here, before anything is awaited, while this click still carries
+  // real user activation — matching NO WAKE's own start-button handler
+  // (src/nowake/main.js), which calls `canvas.requestPointerLock?.()` before
+  // its own `await audio.init()`/`await audio.loadManifest(...)` chain for
+  // exactly this reason.
+  lockPointer();
   audio.init();
   /* PRELOAD, which this scene never did.
    *
@@ -1644,19 +1650,42 @@ function beginScene() {
    * Named rather than wholesale: the shared manifest is thousands of cues and
    * this mission needs its own words plus the handful of effects it fires --
    * see ./audio.js's `isSilverCasePreloadCue`/`silverCaseAudioLoadOptions` for
-   * the named selector `tools/verify-silvercase.mjs` checks residency against. */
-  audio.loadManifest(silverCaseAudioLoadOptions()).then((result) => {
+   * the named selector `tools/verify-silvercase.mjs` checks residency against.
+   *
+   * AWAITED, which it did not used to be. THE FIRST LINE'S OWN BUG: this used
+   * to fire `loadManifest()` and, in the very same tick, call
+   * `fsm.go(S.CAR_RIDE)` (or `jumpToPreviewCheckpoint`) without waiting for it.
+   * `CAR_RIDE.enter()` calls `dialogue.play(SEQUENCES.carRide, ...)`
+   * synchronously, so the mission's OPENING line ran `playCue()` while
+   * `audio.buffers` was still empty from a fetch/decode that had not had a
+   * single tick to run yet -- `hasSample()` was false, `playCue()` returned 0,
+   * and a take that was already on disk and already in the manifest played as
+   * a silent subtitle. Nothing else in the mission ever hit this: every other
+   * line's own multi-second `hold` gave the same in-flight fetch time no
+   * earlier line ever got, so the manifest was long since resident by the time
+   * line two came up -- which is why this only ever happened to the FIRST
+   * line, every time, and why re-checking "is it recorded?" after the fact
+   * (the diagnostic this function already logs below) could never catch it.
+   * Same shape as NO WAKE's own `await audio.loadManifest(...)` before
+   * `jumpToPreviewCheckpoint` (src/nowake/main.js), for the identical reason —
+   * see that file's comment on why calling it any earlier loses the
+   * checkpoint's own opening line. */
+  try {
+    const result = await audio.loadManifest(silverCaseAudioLoadOptions());
     // Diagnostics only, same shape every other scoped scene exposes
     // (src/nowake/main.js, src/bing/main.js): what the full shared manifest
     // holds versus what this mission actually asked for and got.
     audio.preloadStats = { manifestTotal: audio.manifest.sfx.length, selected: result.total };
-  }).catch(() => {});
+  } catch {
+    /* A failed fetch leaves `audio.buffers` empty and every cue falls back to
+     * the subtitle-only/synth path DialogueController already has for an
+     * unrecorded line -- not a reason to block the mission from starting. */
+  }
   running = true;
   sceneInventory.show();
   syncInventory();
   if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
   else fsm.go(S.CAR_RIDE);
-  lockPointer();
 }
 
 // ---------------------------------------------------------------- loop
