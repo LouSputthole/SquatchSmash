@@ -1360,14 +1360,69 @@ try {
     + `${gunnery.belt} left in the belt; closest pass ${gunnery.closest} m; `
     + `ended at x ${gunnery.endedAtX}${gunnery.ranOutOfMap ? ' — RAN OUT OF MAP' : ''}`);
 
-  check('coming forward again gives the gun back and does not change who is flying',
+  /* ---- E2: returning to the pilot seat disengages the autopilot automatically ----
+   *
+   * Owner playtest, 2026-08-06: "When the player returns to the pilot seat,
+   * autopilot should disengage automatically." Taking the tail gun requires
+   * the autopilot (`toggleGun()`), so `gunnery.autopilotBefore` is always
+   * true here; coming back forward (`leaveGun()`, ../src/enolasquatch/
+   * mission/MissionController.js) now gives the aeroplane back the same way
+   * the `P` key would -- this used to read "does not change who is flying",
+   * which was the bug the owner hit, not a feature. */
+  check('coming forward again gives the gun back and disengages the autopilot automatically',
     gunnery.leftGun && gunnery.backInSeat && gunnery.hudDown === 'none'
-      && gunnery.autopilotAfter === gunnery.autopilotBefore,
+      && gunnery.autopilotBefore === true && gunnery.autopilotAfter === false,
     JSON.stringify({
       leftGun: gunnery.leftGun,
       backInSeat: gunnery.backInSeat,
       autopilot: `${gunnery.autopilotBefore} -> ${gunnery.autopilotAfter}`,
     }));
+
+  /* ---- E2, isolated: a minimal, synthetic seat re-entry (no fighters, no
+   * gunnery loop) so a regression here reads as exactly what broke, and pins
+   * that the disengage uses the SAME cue the scene already plays for a
+   * player-requested hand-back (`auto.off`, not `auto.kicked` -- nothing
+   * forced this) and the same predictability reset the fighters read. ---- */
+  const seatSwitch = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const m = h.mission;
+    h.physics.setPose(h.physics.position.clone(), h.physics.headingDeg, 66);
+    h.physics.omega.set(0, 0, 0);
+    m.autopilot.disengage(null);
+    m.autopilot.lockout = 0;
+    if (m.gunner.manned) m.leaveGun();
+    // Forget both cues, not just the one this test expects -- 'auto.kicked'
+    // was already played earlier in this run (the blast-wave disengage
+    // above), and `seen()` reads all of dialogue history, not just what this
+    // block does. Without this the assertion below is testing stale state.
+    h.dialogue.forget('auto.off', 'auto.kicked');
+    h.interceptors.setPredictability(0.77); // a nonzero value the reset has to actually change
+    // `setPose()` writes velocity/position but `tas` is only recomputed by
+    // `AircraftPhysics.advance()` -- tick once so `engage()` (inside the
+    // gunToggle below) reads a live airspeed rather than whatever `tas` was
+    // before this synthetic re-pose.
+    h.tick(1 / 60, 1 / 60);
+    const took = h.gunToggle();            // T -- into the turret; requires+engages the autopilot
+    const engagedInTurret = m.autopilot.engaged;
+    const manningTurret = m.gunner.manned;
+    const left = h.gunToggle();            // T -- back to the pilot's seat
+    h.tick(1 / 60);
+    return {
+      took, engagedInTurret, manningTurret, left,
+      manned: m.gunner.manned,
+      autopilotEngaged: m.autopilot.engaged,
+      autopilotReason: m.autopilot.reason,
+      autoOffPlayed: h.dialogue.seen('auto.off'),
+      autoKickedPlayed: h.dialogue.seen('auto.kicked'),
+      fighterPredictability: h.interceptors._predictability,
+    };
+  });
+  check('a synthetic seat re-entry (T, T) leaves the autopilot state false, with the player-hand-back cue, not the forced-kick one',
+    seatSwitch.took && seatSwitch.engagedInTurret && seatSwitch.manningTurret
+      && seatSwitch.left === false && seatSwitch.manned === false
+      && seatSwitch.autopilotEngaged === false && seatSwitch.autoOffPlayed
+      && !seatSwitch.autoKickedPlayed && seatSwitch.fighterPredictability === 0,
+    JSON.stringify(seatSwitch));
 
   /* ---- The HUD instruction follows the character, per the tone doctrine ---- */
   const instruction = await page.evaluate(() => {

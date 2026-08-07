@@ -626,11 +626,29 @@ export class MissionController {
     return wasGone;
   }
 
+  /**
+   * Come forward out of the turret and back into the pilot's seat.
+   *
+   * THE AUTOPILOT COMES OFF WITH YOU — owner playtest, 2026-08-06: "When the
+   * player returns to the pilot seat, autopilot should disengage
+   * automatically." It used to leave the gyro flying, so a player who had
+   * come forward again — hands back on the yoke, by every other signal — was
+   * still being flown until he separately remembered to hit <em>P</em>, which
+   * read as the key not having worked at all (the same shape of bug
+   * `updateLanding()` already guards against by doing exactly this pair of
+   * calls on its own, forced way back into the seat for the final approach —
+   * see there). `disengage(null)` — not a `reason` — is the same call
+   * `toggleAutopilot()` makes for a player-requested hand-back, so it plays
+   * the identical cue this scene already uses for "the player turned the
+   * autopilot off himself": `auto.off` on the radio and the fighters'
+   * predictability reset, never `auto.kicked`, because nothing forced this.
+   */
   leaveGun() {
     if (!this.gunner.manned) return false;
     this.gunner.leave();
     this.gunFiring = false;
     this.dialogue.play('gun.leave', { once: true });
+    if (this.autopilot.engaged) this.autopilot.disengage(null);
     return true;
   }
 
