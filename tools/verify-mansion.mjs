@@ -668,8 +668,17 @@ try {
     { at: [0.0, 62.4], note: "to Lou's door" },
     { at: [0.0, 67.0], room: 'office', note: "into Lou's office" },
     { at: [0.0, 62.4], note: 'back out of the office' },
-    { at: [3.2, 61.0], note: 'back down the east side of the table' },
-    { at: [3.2, 55.0], note: '...and out past its head' },
+    /* 4.2, NOT 3.2. The conference table's collider ends at x = 3.0 and the
+     * player's own radius is a third of a metre, so a waypoint at 3.2 walks
+     * him along the table's edge with two centimetres in hand — and it landed
+     * on the wrong side of that on one run and the right side on the next,
+     * which is a flake rather than a check. There is five metres of clear
+     * parquet between the table and the east wall; the claim being made is
+     * "you can get round the head of it and out", and that is what this walks
+     * now. (Recorded here rather than in a ledger because the fix is the
+     * waypoint: nothing about the room changed.) */
+    { at: [4.2, 61.0], note: 'back down the east side of the table' },
+    { at: [4.2, 55.0], note: '...and out past its head' },
     { at: [0.0, 50.8], note: 'out onto the gallery again' },
     { at: [14.0, 50.5], room: 'gallery', note: 'east along the gallery, past the other flank wall' },
     { at: [14.0, 45.2], room: 'bedEastFront', note: 'into the east front bedroom' },
@@ -3507,22 +3516,39 @@ try {
       return { placed, eye, samples, state: m.mission.state };
     });
     const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-    const lit = office.samples.filter((s2) => s2.contents?.visible);
+    /**
+     * AFTER HE HAS TURNED IT, which is the only window the claim is about.
+     *
+     * "Contents visible" is not that window: the checks above this one send
+     * the transfer drawer through, which leaves the Squatchanium container
+     * visible for the rest of the page — so the first frames of this sample
+     * are the case still parked in the basement, twenty metres away, pointing
+     * the way the laboratory built it. Measuring the facing over those says
+     * the latches are 180 degrees out, and they are: he has not picked it up
+     * yet. The turn is the event; everything after the last frame of it is the
+     * case as Lou left it.
+     */
+    const lastTurn = office.samples.map((s2) => s2.turning).lastIndexOf(true);
+    const settled = lastTurn < 0 ? [] : office.samples.slice(lastTurn + 1);
+    const lit = settled.filter((s2) => s2.contents?.visible && s2.visible);
     const facing = lit.map((s2) => Math.abs(wrap(
       s2.yaw - Math.atan2(s2.x - office.eye.x, s2.z - office.eye.z),
     )));
     const worstFacing = facing.length ? Math.max(...facing) : null;
     const bad = [];
     if (!office.placed) bad.push('the case never went down on the desk');
-    if (!lit.length) bad.push('nothing lit up inside it');
-    if (!office.samples.some((s2) => s2.turning)) bad.push('he never turned it');
+    if (lastTurn < 0) bad.push('he never turned it');
+    if (!lit.length) bad.push('nothing lit up inside it after he turned it');
     /* 0.25 rad is 14 degrees: the latches are pointed at the far side of the
      * desk, not merely on that half of the compass. */
-    if (worstFacing === null || worstFacing > 0.25) bad.push(`latches ${worstFacing?.toFixed(2)} rad off the far side of the desk`);
+    if (worstFacing === null || worstFacing > 0.25) {
+      bad.push(`latches ${worstFacing?.toFixed(2)} rad off the far side of the desk`
+        + ` (case at ${lit[0]?.x}, ${lit[0]?.z}; he is at ${office.eye.x}, ${office.eye.z})`);
+    }
     check('Lou turns the case to face himself before he opens it, and the purple-and-gold is inside',
       bad.length === 0,
       bad.join(' | ')
-        || `${lit.length} frames lit, latches within ${worstFacing.toFixed(3)} rad of straight at him`);
+        || `${lit.length} frames lit after the turn, latches within ${worstFacing.toFixed(3)} rad of straight at him`);
   }
 
   /* ================================================================ */
