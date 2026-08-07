@@ -59,6 +59,7 @@ import { buildSiegeDressing } from './dressing.js';
 import { buildSiegeGlass } from './glass.js';
 import { createAttackerPool } from './attackers.js';
 import { buildSiegeEnsemble } from './ensemble.js';
+import { flattenTransmission, capShadowCasters, SHADOW_CAP } from '../perf.js';
 
 /* ================================================================== */
 /* DOM                                                                   */
@@ -416,6 +417,26 @@ const armory = mountArmory({
         : 'That is your primary. Now the belt-fed, the big one — you are not holding a staircase with that.');
     }
   },
+});
+
+/* ================================================================== */
+/* The two bills the house was paying every frame -- see ../perf.js      */
+/*                                                                        */
+/* The siege stands the same house up, so it was paying the same two: the  */
+/* entire opaque scene drawn a second time to refract a decanter, and a    */
+/* shadow pass full of objects standing indoors under the only             */
+/* shadow-casting light in the scene, which is outside. Run here, after     */
+/* the wreckage, the glass, the cartel and the family are all standing, so  */
+/* every one of them is measured by the same rule.                          */
+/* ================================================================== */
+const flatGlass = flattenTransmission([scene]);
+const shadowCap = capShadowCasters({
+  /* The house's insides. The cartel and the family are NOT on this list --
+   * the cartel come up the drive in the open and the size rule below keeps
+   * a man-sized figure, which is what makes a body on the forecourt read as
+   * being on the forecourt. */
+  indoor: [interior.root],
+  outdoor: [scene],
 });
 
 /* ================================================================== */
@@ -1540,4 +1561,53 @@ window.mansionSiege = {
   get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return pauseMenu.isPaused(); },
+  /**
+   * The frame's own bill, so tools/verify-mansion-siege.mjs can assert the
+   * budget instead of taking "it booted" for a performance claim. Same shape
+   * as the tour's `window.mansion.perf`; see ../perf.js for what each number
+   * is and why `info.autoReset` has to come off to read the shadow pass.
+   */
+  perf: {
+    ...SHADOW_CAP,
+    transmissionMaterialsFlattened: flatGlass.materials,
+    transmissionMeshesFlattened: flatGlass.meshes,
+    shadowCastersKept: shadowCap.kept,
+    shadowCastersDropped: shadowCap.dropped,
+    get visibleLights() {
+      let n = 0;
+      scene.traverse((o) => {
+        if (!o.isLight) return;
+        for (let p = o; p; p = p.parent) if (p.visible === false) return;
+        n++;
+      });
+      return n;
+    },
+    shadowCasters() {
+      let n = 0;
+      scene.traverse((o) => { if (o.isMesh && o.castShadow) n++; });
+      return n;
+    },
+    transmissiveMeshes() {
+      let n = 0;
+      scene.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (m && m.transmission > 0) { n++; return; }
+        }
+      });
+      return n;
+    },
+    drawCalls() {
+      const auto = renderer.info.autoReset;
+      renderer.info.autoReset = false;
+      renderer.info.reset();
+      renderer.render(scene, camera);
+      const out = {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+      renderer.info.autoReset = auto;
+      return out;
+    },
+  },
 };

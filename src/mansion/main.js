@@ -51,6 +51,7 @@ import { mountSilentSquatch } from './mission/mount.js';
 import { INSTRUCTIONS } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast, MANSION_CAST_CUE_NAMES } from './cast.js';
+import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
 /* Importing these constructs nothing: a Campaign is only built when
  * createCampaign() is CALLED, which happens below and only when there is a
  * laboratory in the house to play the mission in. Opening the house to walk
@@ -1288,6 +1289,38 @@ for (const box of cast?.colliders ?? []) {
 }
 
 /* ================================================================== */
+/* The two bills the house was paying every frame -- see ./perf.js       */
+/*                                                                        */
+/* Last, because both walk the finished scene: the cast is mounted, the    */
+/* laboratory is standing and every television has its screen. Measured    */
+/* here with `renderer.info.autoReset` off (this three build resets info   */
+/* after the shadow pass, so the default hides it): 34,365 draw calls at   */
+/* the spawn, of which 13,150 were the whole house drawn a second time to  */
+/* refract a decanter and 7,567 were a shadow pass mostly made of objects  */
+/* standing indoors, under a roof, beneath the only shadow-casting light   */
+/* in the scene.                                                           */
+/* ================================================================== */
+const flatGlass = flattenTransmission([scene]);
+const shadowCap = capShadowCasters({
+  /* Indoors and underground: the shell is already between all of these and
+   * the moon. The cast never leave the house and Snow's cart is in the
+   * cellar, so their bodies join the list rather than paying for shadows
+   * that are drawn inside a volume the moon does not light. */
+  indoor: [
+    interior.root,
+    silent.root,
+    ...Object.values(cast?.people ?? {}).map((npc) => npc?.group),
+    cast?.cart,
+    cast?.dog?.root,
+  ].filter(Boolean),
+  /* Everything else, judged on size. The whole scene rather than just the
+   * grounds, so the armory's guns and anything a later pass hangs straight
+   * off `scene` are measured by the same rule; the indoor list above has
+   * already cleared its own and a cleared mesh is skipped here. */
+  outdoor: [scene],
+});
+
+/* ================================================================== */
 /* Pause menu                                                            */
 /* ================================================================== */
 const clock = new THREE.Clock();
@@ -2096,6 +2129,66 @@ window.mansion = {
   get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return sharedPauseMenu.isPaused(); },
+  /**
+   * What ./perf.js took off the frame, so tools/verify-mansion.mjs can
+   * assert the RULE (nothing indoors casts the moon's shadow; no material
+   * refracts) instead of a pinned count that has to be re-typed every time
+   * somebody adds a lamp.
+   */
+  perf: {
+    ...SHADOW_CAP,
+    transmissionMaterialsFlattened: flatGlass.materials,
+    transmissionMeshesFlattened: flatGlass.meshes,
+    shadowCastersKept: shadowCap.kept,
+    shadowCastersDropped: shadowCap.dropped,
+    /** Live counts, read off the graph rather than remembered. */
+    get visibleLights() {
+      let n = 0;
+      scene.traverse((o) => {
+        if (!o.isLight) return;
+        for (let p = o; p; p = p.parent) if (p.visible === false) return;
+        n++;
+      });
+      return n;
+    },
+    shadowCasters() {
+      let n = 0;
+      scene.traverse((o) => { if (o.isMesh && o.castShadow) n++; });
+      return n;
+    },
+    transmissiveMeshes() {
+      let n = 0;
+      scene.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (m && m.transmission > 0) { n++; return; }
+        }
+      });
+      return n;
+    },
+    /**
+     * Draw calls for one frame from where the camera is standing, shadow
+     * pass INCLUDED.
+     *
+     * `renderer.info.autoReset` has to come off for this: this three build
+     * calls `info.reset()` after `shadowMap.render()`, so with the default
+     * on, the shadow pass reads as zero no matter how many thousand objects
+     * it drew. That is why a shadow pass costing 7,567 calls a frame sat
+     * here unnoticed.
+     */
+    drawCalls() {
+      const auto = renderer.info.autoReset;
+      renderer.info.autoReset = false;
+      renderer.info.reset();
+      renderer.render(scene, camera);
+      const out = {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+      renderer.info.autoReset = auto;
+      return out;
+    },
+  },
 };
 
 /*
