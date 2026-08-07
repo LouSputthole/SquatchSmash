@@ -1353,7 +1353,22 @@ export function buildSilentSquatch({
      * Tucked against the wall stub south of the opening so it never stands
      * in the doorway. `prop` rather than `solid`: it is furniture, and its
      * top is nowhere near a floor datum. */
-    const bustX = d.x1 + 0.34;
+    /* PULLED OUT FROM THE WALL, PAST THE TROPHY HEAD IT WAS STANDING IN.
+     *
+     * Owner playtest 2026-08-06: "a large statue has a smaller statue
+     * clipped into its front corner." Measured on the built scene: the
+     * south `trophyHead` (above) is mounted flush on this same wall stub at
+     * z 64.55, and its fur/muzzle geometry projects out to x -15.098 -- a
+     * genuine 0.44 m x, 0.28 m z, 0.16 m y box overlap with this bust's own
+     * marble at the old `d.x1 + 0.34`. Both objects want the same 0.55 m of
+     * wall between the corridor's south end (z 64.3) and the door (z 64.85);
+     * the bust is the freestanding one of the pair -- the trophy has to stay
+     * flush on the wall it is mounted to -- so it is the one that moves.
+     *
+     * At `d.x1 + 1.0` the marble's near face is x -14.88, 218 mm clear of
+     * the trophy's x -15.098, and the switch beneath it (below) is still
+     * reachable from the same spot in the corridor it always was. */
+    const bustX = d.x1 + 1.0;
     const bustZ = d.z0 - 0.5;
     const plinth = group('sasquatch-bust');
     plinth.position.set(bustX, CELLAR_Y, bustZ);
