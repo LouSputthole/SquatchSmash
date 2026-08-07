@@ -2039,9 +2039,12 @@ try {
     JSON.stringify(lan));
 
   const theatre = await page.evaluate(() => window.mansion.theatre);
-  check('the home theatre has a working projector with a film seam wired into it',
-    theatre && theatre.on === false && theatre.channels[0] === 'THE FEATURE'
-      && theatre.channels.length > 1,
+  check('the home theatre has a working projector with four film reels wired into it',
+    theatre && theatre.on === false && theatre.channels[0] === 'REEL 1: THE GODFATHER'
+      && theatre.channels.slice(0, 4).join(',') === [
+        'REEL 1: THE GODFATHER', 'REEL 2: GOODFELLAS', 'REEL 3: HEAT', 'REEL 4: BLOW',
+      ].join(',')
+      && theatre.channels.length > 4,
     JSON.stringify(theatre));
   const theatreRun = await page.evaluate(() => {
     const t = window.mansion.theatre;
@@ -2051,8 +2054,9 @@ try {
     t.toggle();
     return { on, showing, off: t.on };
   });
-  check('the projector switches on, runs the feature channel, and switches off again',
-    theatreRun.on === true && theatreRun.off === false && theatreRun.showing === 'THE FEATURE',
+  check('the projector switches on, runs the first reel, and switches off again',
+    theatreRun.on === true && theatreRun.off === false
+      && theatreRun.showing === 'REEL 1: THE GODFATHER',
     JSON.stringify(theatreRun));
 
   /* ================================================================ */

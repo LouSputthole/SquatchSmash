@@ -4,6 +4,10 @@
 
 - `austin-2.mp4` - THE AUSTIN TAPE
 - `hog-mamas-show.mp4` - HOG MAMA'S SHOW (Sebesta Does Stand-Up)
+- `godfather-sollozzo.mp4` - the mansion home theatre, reel 1 (The Godfather, "Killing Sollozzo and McCluskey")
+- `goodfellas-copacabana.mp4` - the mansion home theatre, reel 2 (Goodfellas, the Copacabana long take)
+- `heat-bank-robbery.mp4` - the mansion home theatre, reel 3 (Heat, the bank robbery)
+- `blow-opening.mp4` - the mansion home theatre, reel 4 (Blow, the opening scene) and the apartment's gangster-marathon channel
 
 Tapes for the telly. A file in here becomes a channel via `videoChannel()` in
 `src/core/tv.js` — it is blitted onto the same 512x288 canvas every other

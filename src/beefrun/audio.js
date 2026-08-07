@@ -18,6 +18,7 @@ import { clamp, lerp } from './util.js';
 
 const MAX_RPM = 2450;
 const SFX_DIR = 'assets/sfx/';
+const MUSIC_DIR = 'assets/music/';
 
 /* One-off recordings shared with the apartment that Beef Run calls by name.
  * Keeping this list beside the scene-specific engine makes an accidental new
@@ -97,6 +98,12 @@ export class MissionAudio {
     this.phase = null;
     this._musicTimer = null;
     this._step = 0;
+    /* The real needle-drop for this mission's takeoff, if it has one.
+     * Beef Run and the Enola Squatch each name their own file (set on the
+     * instance in their own main.js) rather than hardcoding a song here,
+     * since the two missions share this class but not a soundtrack. Left
+     * `null`, `setPhase('takeoff')` plays the usual procedural score. */
+    this.takeoffAnthemFile = null;
   }
 
   get ctx() { return this.engine?.ctx; }
@@ -320,7 +327,29 @@ export class MissionAudio {
       this.stopMusic();
       return;
     }
+    if (name === 'takeoff' && this.takeoffAnthemFile) {
+      this.playTakeoffAnthem();
+      return;
+    }
     this.startMusic();
+  }
+
+  /**
+   * Swap the procedural score for a real recording right around takeoff.
+   * `replaceMusicLoop` rather than `startMusicLoop` so a checkpoint restore
+   * back into 'takeoff' restarts the record instead of finding a stale
+   * handle and doing nothing. Plays once — a needle-drop, not a loop — and
+   * later phases start their own procedural pattern as usual when they
+   * arrive, whether or not the song is still going.
+   */
+  playTakeoffAnthem() {
+    if (!this.takeoffAnthemFile || !this.engine?.replaceMusicLoop) return;
+    this.stopMusic();
+    this.engine.replaceMusicLoop('music.takeoff', `${MUSIC_DIR}${this.takeoffAnthemFile}`, {
+      volume: 0.5,
+      loop: false,
+      ambience: true,
+    });
   }
 
   startMusic() {

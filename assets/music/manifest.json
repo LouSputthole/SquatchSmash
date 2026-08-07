@@ -82,6 +82,18 @@
       "start": 5,
       "cutAt": 9.7,
       "_note": "Lou's office, on the first entry only. Owner-picked window: in at 5.0, out at 9.7. No station and no venue -- a cue, not programming."
+    },
+    {
+      "file": "cant-you-hear-me-knocking.mp3",
+      "title": "Can't You Hear Me Knocking",
+      "artist": "The Rolling Stones",
+      "_note": "Beef Run's takeoff needle-drop, right around climbout. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/beefrun/main.js."
+    },
+    {
+      "file": "fortunate-son.mp3",
+      "title": "Fortunate Son",
+      "artist": "Creedence Clearwater Revival",
+      "_note": "The Enola Squatch's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js."
     }
   ]
 }

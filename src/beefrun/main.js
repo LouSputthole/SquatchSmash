@@ -108,6 +108,7 @@ const story = createAirstripStory({ campaign });
 
 const audio = new BeefAudioEngine();
 const missionAudio = new MissionAudio(audio);
+missionAudio.takeoffAnthemFile = 'cant-you-hear-me-knocking.mp3';
 const hud = new Hud();
 const flightHud = new FlightHud();
 // Beef Run resets the carried loadout, but keeps the campaign's five-box

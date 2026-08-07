@@ -292,11 +292,18 @@ const COUNTER_SQUATCH_LEGENDS = {
  *
  * The file being missing is normal -- a bundled build has no assets/ folder to
  * fetch from -- so a failure is a card on screen, not an exception.
+ *
+ * Pass `files` instead of `file` for a marathon: several tapes played back to
+ * back in order, looping to the first once the last one ends. Still one
+ * element, one decoder -- it just gets a new `src` on `ended` instead of
+ * looping itself.
  */
-export function videoChannel({ name, file, card, glow }) {
+export function videoChannel({ name, file, files, card, glow }) {
+  const playlist = files ?? [file];
   let el = null;
   let wired = false;
   let failed = false;
+  let index = 0;
 
   return {
     name,
@@ -304,11 +311,18 @@ export function videoChannel({ name, file, card, glow }) {
       if (failed) return;
       if (!el) {
         el = document.createElement('video');
-        el.src = assetUrl(VIDEO_DIR, file);
-        el.loop = true;
+        el.src = assetUrl(VIDEO_DIR, playlist[index]);
+        el.loop = playlist.length === 1;
         el.playsInline = true;
         el.preload = 'auto';
         el.addEventListener('error', () => { failed = true; });
+        if (playlist.length > 1) {
+          el.addEventListener('ended', () => {
+            index = (index + 1) % playlist.length;
+            el.src = assetUrl(VIDEO_DIR, playlist[index]);
+            el.play().catch(() => { /* the card covers it */ });
+          });
+        }
       }
       /* No audio system (the club office set) or none running yet: play it
        * muted rather than blaring out of the middle of the player's head. */
@@ -394,9 +408,27 @@ const HOG_MAMAS_SHOW = videoChannel({
   glow: { colour: 0xe08ab1, intensity: 1.25 },
 });
 
+/**
+ * Four gangster-picture reels, back to back, the way a channel that only
+ * shows this one kind of thing runs at 2am. Same four tapes as the mansion's
+ * home theatre reels (see src/mansion/main.js), owned by their own element so
+ * the two never fight over a decoder.
+ */
+const GANGSTER_MARATHON = videoChannel({
+  name: 'GANGSTER MARATHON',
+  files: [
+    'godfather-sollozzo.mp4',
+    'goodfellas-copacabana.mp4',
+    'heat-bank-robbery.mp4',
+    'blow-opening.mp4',
+  ],
+  card: 'MARATHON IS OFF AIR',
+  glow: { colour: 0xc8a458, intensity: 1.2 },
+});
+
 export const CHANNELS = [
   SQUATCH_WATCH, JERKY_CHANNEL, COUNTER_SQUATCH_LEGENDS, AUSTIN_TAPE,
-  HOG_MAMAS_SHOW,
+  HOG_MAMAS_SHOW, GANGSTER_MARATHON,
   NOTICES, TEST_CARD, STATIC,
 ];
 

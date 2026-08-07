@@ -566,34 +566,54 @@ const suiteTv = mountTv(interior.props.masterSuite.tv?.screen, { channel: 1 });
 /* the projector.                                                         */
 /*                                                                        */
 /* It is a `core/tv.js` set like the other two, with ONE difference: its   */
-/* channel list starts with a `videoChannel`, which is the same factory     */
-/* the apartment's Austin tape and Hog Mama's show already use. That        */
-/* factory builds its own <video> element on first use, wires the sound     */
-/* through a panner at the screen, and -- this is the part that makes it a  */
-/* seam rather than a stub -- draws a card reading NO FILM IN THE GATE when */
-/* the file is missing, which it is. Nothing here throws, nothing here      */
-/* fetches, and the room plays correctly today.                            */
+/* channel list starts with four `videoChannel`s, the same factory the       */
+/* apartment's Austin tape and Hog Mama's show already use. That factory     */
+/* builds its own <video> element on first use, wires the sound through a    */
+/* panner at the screen, and -- this is the part that makes it a seam        */
+/* rather than a stub -- draws a card reading NO FILM IN THE GATE when a     */
+/* file is missing. Nothing here throws, nothing here fetches, and the       */
+/* room plays correctly today.                                              */
 /*                                                                          */
-/* TO DROP A FILM IN: put the file at assets/video/the-feature.mp4. That is  */
-/* the whole change -- no code, no manifest (assets/video/ is not indexed by */
-/* one; `assetUrl` resolves the name directly). The two existing tapes in    */
+/* TO DROP A FILM IN: put the file at assets/video/name.mp4 and add a        */
+/* videoChannel() for it below. No manifest (assets/video/ is not indexed    */
+/* by one; `assetUrl` resolves the name directly). The existing tapes in     */
 /* that folder are the precedent for the encode.                            */
 /*                                                                           */
 /* The other two sets in the house deliberately carry MANSION_CHANNELS,      */
 /* which filters video channels OUT: two sets tuned to the same tape share    */
-/* one <video> element and fight over it. This set owns its own channel       */
-/* object, so it shares nothing with anything.                                */
+/* one <video> element and fight over it. This set owns four channel          */
+/* objects, so it shares nothing with anything.                               */
 /* ================================================================== */
-const THEATRE_FEATURE = videoChannel({
-  name: 'THE FEATURE',
-  file: 'the-feature.mp4',
-  card: 'NO FILM IN THE GATE',
-  glow: { colour: 0xc8d4e8, intensity: 1.5 },
-});
+const THEATRE_REELS = [
+  videoChannel({
+    name: 'REEL 1: THE GODFATHER',
+    file: 'godfather-sollozzo.mp4',
+    card: 'NO FILM IN THE GATE',
+    glow: { colour: 0xc8d4e8, intensity: 1.5 },
+  }),
+  videoChannel({
+    name: 'REEL 2: GOODFELLAS',
+    file: 'goodfellas-copacabana.mp4',
+    card: 'NO FILM IN THE GATE',
+    glow: { colour: 0xc8d4e8, intensity: 1.5 },
+  }),
+  videoChannel({
+    name: 'REEL 3: HEAT',
+    file: 'heat-bank-robbery.mp4',
+    card: 'NO FILM IN THE GATE',
+    glow: { colour: 0xc8d4e8, intensity: 1.5 },
+  }),
+  videoChannel({
+    name: 'REEL 4: BLOW',
+    file: 'blow-opening.mp4',
+    card: 'NO FILM IN THE GATE',
+    glow: { colour: 0xc8d4e8, intensity: 1.5 },
+  }),
+];
 const theatreScreen = interior.props.theatre?.screen ?? null;
 const theatreTv = mountTv(theatreScreen, { channel: 0, on: false });
 if (theatreTv) {
-  theatreTv.channels = [THEATRE_FEATURE, ...MANSION_CHANNELS];
+  theatreTv.channels = [...THEATRE_REELS, ...MANSION_CHANNELS];
   theatreTv.index = 0;
 }
 
