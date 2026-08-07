@@ -244,9 +244,11 @@ test('the takeoff record is wired to the Beef Run’s first roll, at the owner�
   assert.match(beefMission, /SIGNATURE_TRACKS\.cantYouHearMeKnocking/);
   assert.match(beefMission, /flags\.knockingCued/, 'once per run');
   /* Fired from exactly one place. The El Hueso departure runs through a
-   * different phase and must not play it a second time. */
+   * different phase and must not play it a second time. Counted as
+   * playSignatureTrack calls, not raw mentions — the takeoff checkpoint
+   * restore also *stops* the record by its key, and stopping is not firing. */
   assert.equal(
-    beefMission.split('SIGNATURE_TRACKS.cantYouHearMeKnocking').length - 1, 1,
+    beefMission.split('playSignatureTrack(engine, SIGNATURE_TRACKS.cantYouHearMeKnocking').length - 1, 1,
     'the takeoff record is fired from exactly one place',
   );
   assert.match(beefMission, /loop: false/, 'a record plays through, it does not loop');
