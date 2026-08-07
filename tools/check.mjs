@@ -516,6 +516,26 @@ try {
   fail(err.message);
 }
 
+/* ---- every character with lines must actually be standing in the scene ----
+ * Owner, 2026-08-06 playtest: "anywhere there are lines for a character, is
+ * that character in the scene? They need to be." (PLAYTEST-PUNCH-LIST.md
+ * X1). Known offender: Snow has PROJECT SILENT SQUATCH lab clean-up lines
+ * and no body ever moves into the lab or basement to say them — see
+ * `tools/check-line-presence.mjs`'s own header and `tools/scene-casts.json`
+ * for the full mapping and the current findings. */
+try {
+  const { findViolations, formatReport, loadSceneCasts } = await import('./check-line-presence.mjs');
+  const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+  const result = findViolations(sfxManifest, loadSceneCasts());
+  if (result.violations.length || result.unmapped.length) {
+    fail(`line-presence: ${result.violations.length} violation(s), ${result.unmapped.length} unmapped cue(s). `
+      + 'Run `npm run check:line-presence` for the full report.\n'
+      + formatReport(result).split('\n').map((line) => `    ${line}`).join('\n'));
+  }
+} catch (err) {
+  fail(err.message);
+}
+
 /* ---- three.js must actually be vendored ---- */
 const three = path.join(ROOT, 'vendor/three.module.min.js');
 if (!fs.existsSync(three) || fs.statSync(three).size < 100_000) {

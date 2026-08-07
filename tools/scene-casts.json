@@ -1,0 +1,228 @@
+{
+  "$comment": [
+    "Per-scene physical cast declarations for tools/check-line-presence.mjs.",
+    "",
+    "WHY THIS IS HAND-WRITTEN, NOT DERIVED: the codebase stages characters at",
+    "least four different ways -- src/mansion/cast.js's post() registry,",
+    "src/bing/family.js's FAMILY table + populateFamily(), src/heist/cast.js's",
+    "HEIST_CREW_IDS, src/enolasquatch/crew.js's createCrew(), src/golf's",
+    "buildGallery()/buildFoursome(), direct `new Npc(...)` calls, and plain",
+    "`makeFigure()` calls with no registry at all. No single grep pattern finds",
+    "'who has a body in this scene' across all of them without also matching",
+    "unrelated things (wardrobe tables, face-photo tables, prop names). So each",
+    "row below was seeded by hand, reading the scene's own cast/mount source --",
+    "see `sourceFiles` on each entry -- rather than guessed from a pattern.",
+    "",
+    "`staged` is the list of voice PROFILE ids (assets/sfx/manifest.json's",
+    "`voices` block keys) that have an actual built body somewhere in the",
+    "scene. A voice not in this list, and not covered by an exemption in",
+    "tools/check-line-presence.mjs, is reported as a violation: lines with",
+    "nobody standing there to say them.",
+    "",
+    "`sceneVoiceExemptions` covers a voice that legitimately has NO body in",
+    "THIS scene for its entire run -- always heard over a radio, an intercom or",
+    "a phone rather than ever appearing -- even though its cue prefix belongs",
+    "to the scene. Each one cites the source line that proves it. This is",
+    "different from the global phone/radio/PA prefix exemptions in the checker",
+    "(vo.call.*, vo.machine.*, vo.news.*, radio.*): those catch cues that were",
+    "AUTHORED as a call/broadcast. These catch a scene's own cue prefix being",
+    "used for a character who the scene's own code establishes is contacted",
+    "electronically for the whole mission.",
+    "",
+    "KEEP THIS BY HAND when a scene's roster changes -- it is data, not a",
+    "generated file, and nothing regenerates it. If a new mission adds a",
+    "speaking character, add their voice id to `staged` (or a dated violation",
+    "will appear the moment their first line is written)."
+  ],
+  "scenes": [
+    {
+      "id": "silent-squatch",
+      "label": "PROJECT SILENT SQUATCH",
+      "cuePrefixes": ["vo.silentsquatch."],
+      "sourceFiles": [
+        "src/mansion/cast.js",
+        "src/mansion/scenes/SilentSquatch.js",
+        "src/mansion/script.js",
+        "src/mansion/mission/SilentSquatchMission.js"
+      ],
+      "staged": [
+        "booski", "aubbie", "xxx", "mansion-gate", "orlova", "vetrov",
+        "deathmegatron", "sokolov", "lou1", "marchuk", "gratin", "bezmenov",
+        "irish", "shubenator", "bartender", "rippinflow", "eric",
+        "mansion-guard", "mansion-guard-stairs", "mansion-guard-basement",
+        "mansion-guard-vault", "mansion-guard-perimeter", "lou2",
+        "numbskull", "hogmama"
+      ],
+      "sceneVoiceExemptions": {
+        "labcomputer": "The laboratory's own annunciator -- script.js's SPEAKERS.LAB_COMPUTER docstring: 'Flat, synthetic, indifferent.' A PA voice with no body by design, the same class as vo.machine./vo.news."
+      },
+      "notes": "Snow ('snow', 5 lines) is DELIBERATELY NOT in `staged`. cast.js posts him once, in the foyer ('Near the entrance, inside the foyer bark zone'), and never moves or rebuilds him. That covers `snowFoyer`/`snowIdle`. It does NOT cover `snowIntercom` (Booski summons him to the basement over the intercom -- 'Snow. Basement.' / 'How bad?') or `snowOnTheStairs` ('I told you not to make more work for me'), which SilentSquatchMission.js fires when the PLAYER reaches the basement 'stairs' zone on the way out -- a bark authored for a man who is supposed to be there and never is. This is PLAYTEST-PUNCH-LIST.md S10/X1's known offender; see the checker's ALLOWLIST comment for why it must stay reported."
+    },
+    {
+      "id": "mansion-siege",
+      "label": "MANSION UNDER SIEGE",
+      "cuePrefixes": ["vo.siege."],
+      "sourceFiles": ["src/mansion/siege/ensemble.js", "src/mansion/siege/script.js"],
+      "staged": ["lou1", "lou2", "booski", "mansion-guard", "deathmegatron"],
+      "sceneVoiceExemptions": {},
+      "notes": "ensemble.js's ROSTER fields the whole family as defenders (lou, booski, rippinflow, snow, shubenator, eric, aubbie, irish, deathmegatron, numbskull, hogmama, captain_lou_sasole) plus guard_0/1/2/wounded on the mansion-guard voice. Every siege voice resolves to a body."
+      },
+    {
+      "id": "hotdog-incident",
+      "label": "The HotDog Incident",
+      "cuePrefixes": ["vo.bing2."],
+      "sourceFiles": ["src/bing/hotdog-party.js", "src/bing/hotdog-main.js", "src/bing/family.js"],
+      "staged": [
+        "booski", "snow", "ape", "lou1", "rippinflow", "hogmama", "hotdog",
+        "willy", "numbskull", "shubenator", "aubbie", "gratin",
+        "deathmegatron", "irish", "seff", "lou2", "eric", "lag", "old-stove"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "buildHotDogParty() seats the whole FAMILY roster (minus the two it filters, which it then re-adds explicitly) plus Lou, Billy HotDog, Aubbie and Sauce by name. Sauce ('sauce') has no lines in this bank so it is absent from `staged` on purpose -- add it back if a Sauce line is ever authored here."
+    },
+    {
+      "id": "enola-squatch",
+      "label": "The Enola Squatch",
+      "cuePrefixes": ["vo.enolasquatch."],
+      "sourceFiles": ["src/enolasquatch/crew.js", "src/enolasquatch/dialogue/script.js", "src/enolasquatch/mission/MissionController.js"],
+      "staged": ["lou2", "irish", "shubenator", "numbskull"],
+      "sceneVoiceExemptions": {},
+      "notes": "crew.js's createCrew() builds exactly four men (sasole/irish/numbskull/shubes) and says so in its own header: 'Big Uncle Lou is not on this aeroplane.' 'lou1' (4 lines) is DELIBERATELY NOT in `staged`. Two of its four lines ('call.opening') are the pre-flight phone call and are exempted by cue-name in the checker. The other two ('arrival.lou') are NOT exempted: MissionController.js's own comment calls the epilogue 'the one deliberate stub... no populated hangar/crowd-of-Family-NPCs scene' -- Lou's arrival line plays over an empty apron. A second Snow-in-lab, caught by this tool."
+    },
+    {
+      "id": "the-take",
+      "label": "THE TAKE",
+      "cuePrefixes": ["heist."],
+      "sourceFiles": ["src/heist/cast.js", "src/heist/script.js", "src/heist/level.js", "src/heist/hostages.js"],
+      "staged": [
+        "snow", "heist-customer", "rippinflow", "deathmegatron", "numbskull",
+        "shubenator", "heist-manager", "heist-guard"
+      ],
+      "sceneVoiceExemptions": {
+        "lou": "HEIST_CREW_IDS (src/heist/cast.js) is prospect/snow/rippinflow/shubenator/deathmegatron/numbskull -- Lou is never one of the five crew bodies. script.js's own comment on HEIST_PENDING_DIALOGUE confirms it: 'He is on the radio for the job and he is the last voice in the safehouse' -- every lou_radio_*/lou_call/lou_debrief_* cue is the crew hearing him over a connection, never a body in the room."
+      },
+      "notes": ""
+    },
+    {
+      "id": "bada-bing",
+      "label": "Bada Bing",
+      "cuePrefixes": ["vo.bing.", "vo.bj.", "vo.slots."],
+      "sourceFiles": ["src/bing/cast.js", "src/bing/family.js", "src/bing/script.js", "src/bing/license-to-grill-runtime.js"],
+      "staged": [
+        "gratin", "blond", "lou1", "doorman", "uncle", "lou", "numbskull",
+        "bartender", "shubenator", "margo", "dealer", "booski", "lag",
+        "eric", "hogmama", "deathmegatron", "willy", "irish", "ape",
+        "old-stove", "snow", "rippinflow", "seff", "aubbie", "announcer",
+        "sauce", "performer", "lou2", "npc-male"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "cast.js's populate() builds the floor staff (doorman/bouncer/hallGuard/security -> 'doorman' voice per script.js's VOICE_BY_SCOPE, bartender, dealer, dj -> 'announcer', margo, plus generic 'regular'/'patron'/'tabler'/'stander' background bodies that carry the 'npc-male' ambient lines) and family.js's FAMILY table seats the rest by name, including James Blond ('blond', license-to-grill-runtime.js's makeBlond()) and Aubbie/Sauce off the clock. NOTE, not a violation: vo.bj.dealer.* cues carry voice 'uncle' while VOICE_BY_SCOPE casts the scope as 'dealer' and a second cue family (vo.bing.blackjack.dealer.*, vo.bing.full.dealer.*) carries voice 'dealer' for what reads like the same blackjack table -- two profile ids for one body. Both resolve to the same physically staged dealer NPC, so neither is a presence violation, but it looks like the kind of casting drift PLAYTEST-PUNCH-LIST.md S5 describes and is worth a human look."
+    },
+    {
+      "id": "silver-pines",
+      "label": "Silver Pines",
+      "cuePrefixes": ["vo.golf.", "vo.call.lou.golf.", "vo.machine.lou.golf_morning.", "vo.machine.lou.heist_day."],
+      "sourceFiles": ["src/golf/terrain.js", "src/golf/hole3.js", "src/golf/cast.js"],
+      "staged": ["lou1", "rippinflow", "eric", "booski", "deathmegatron", "numbskull", "shubenator", "snow"],
+      "sceneVoiceExemptions": {},
+      "notes": "The foursome (Lou, Rippinflow, Eric, the player) plays the round; hole3.js's GALLERY places Booski/Shubenator/DeathMegatron/Numbskull/Snow at the clubhouse for hole 3, built by terrain.js's buildGallery(). vo.call.lou.golf.*/vo.machine.lou.*_day.* are already covered by the checker's global phone/machine prefix exemption; listed here only so their cues resolve to this scene instead of tripping the 'unmapped cue' guard."
+    },
+    {
+      "id": "silver-room",
+      "label": "The Silver Room",
+      "cuePrefixes": ["vo.silver."],
+      "sourceFiles": ["src/silver/cast.js", "src/silver/margo.js"],
+      "staged": ["margo", "waiter", "ape", "doorman", "manager", "announcer"],
+      "sceneVoiceExemptions": {},
+      "notes": "cast.js's populate() builds Vinny/the doorman ('doorman'), 'manager', 'waiter' (plus mover1/mover2/server<N> on the same voice) and 'the host'; Ape is spread in as the exact Bing FAMILY figure (identifySilverApe()). The single 'announcer' line ('...the Silver Room is proud... the Midnight Pines') is the room's own host introducing the act on stage, not an offscreen PA."
+    },
+    {
+      "id": "silver-case",
+      "label": "The Silver Case",
+      "cuePrefixes": ["vo.silvercase."],
+      "sourceFiles": ["src/silvercase/cast/cast.js", "src/silvercase/main.js"],
+      "staged": ["ape", "chester", "npc-male"],
+      "sceneVoiceExemptions": {},
+      "notes": "cast/cast.js builds ape, chester, Deke and Winston (both voiced 'npc-male' per dialogue/script.js's VOICE_OF) and Pruitt (hidden until revealed, also 'npc-male')."
+    },
+    {
+      "id": "no-wake",
+      "label": "NO WAKE",
+      "cuePrefixes": ["vo.nowake."],
+      "sourceFiles": ["src/nowake/main.js", "src/nowake/body.js"],
+      "staged": ["willy", "lou", "booski", "irish"],
+      "sceneVoiceExemptions": {},
+      "notes": "boat.cast.{lou,booski,willy,irish} are built and moved through the whole scene in main.js -- the cabin confrontation, the execution, the wrap and the deck departure."
+    },
+    {
+      "id": "beef-run",
+      "label": "The Beef Run",
+      "cuePrefixes": ["vo.beefrun."],
+      "sourceFiles": ["src/beefrun/npc.js", "src/beefrun/mission.js", "src/beefrun/script.js"],
+      "staged": ["lou2", "old-stove", "cecilio", "squatch-associate"],
+      "sceneVoiceExemptions": {
+        "caib-radio": "script.js's own SPEAKERS entry names it 'CAIB RADIO' -- air-traffic-control chatter over the aircraft radio, never a body in the scene.",
+        "lookout": "The line's own authored text is tagged '(radio, urgent)' (script.js: 'Motor. Two valleys over, coming this way.') -- a lookout calling in over the radio, not standing in frame."
+      },
+      "notes": "makeLou()==Sasole ('lou2'), makeOldStove(), makeCecilio() are all built and staged; makeAssociate() is built immediately before the 'end.crew' beat plays ('Sasole. You're green.')."
+    },
+    {
+      "id": "jerky-motel",
+      "label": "Jerky Motel",
+      "cuePrefixes": ["vo.motel."],
+      "sourceFiles": ["src/motel/actors.js"],
+      "staged": ["motel-rico", "snow", "motel-chino", "npc-male"],
+      "sceneVoiceExemptions": {},
+      "notes": "actors.js's identity presets build snow/rico/chino directly."
+    },
+    {
+      "id": "squatch-graveyard",
+      "label": "Squatch Graveyard",
+      "cuePrefixes": ["vo.graveyard."],
+      "sourceFiles": ["src/graveyard/world.js"],
+      "staged": ["snow", "echo"],
+      "sceneVoiceExemptions": {},
+      "notes": "Snow is a built Npc in the plot. 'echo' ('Hey, guys? I am still alive down here.') is the one squatch buried alive at the 'echo' plot -- he has no visible body by the scene's own joke, but world.js gives his exact grave a dedicated, audio-synced rumble effect (`echoSoil`/`startEchoRumble`) at the same spot the line comes from, which is the physical staging this scene has for a man underground. Treated as staged rather than a violation; flag this row for a human if that reasoning does not hold up."
+    },
+    {
+      "id": "squatchfather",
+      "label": "Squatchfather",
+      "cuePrefixes": ["vo.sf."],
+      "sourceFiles": ["src/squatchfather/characters/SalController.js", "src/squatchfather/characters/McClawskyController.js"],
+      "staged": ["sal", "mcclawsky"],
+      "sceneVoiceExemptions": {},
+      "notes": "Both principals have dedicated controllers."
+    },
+    {
+      "id": "initiation",
+      "label": "Initiation",
+      "cuePrefixes": ["vo.initiation."],
+      "sourceFiles": ["src/initiation/npc.js", "src/initiation/main.js", "src/initiation/dialogue.js"],
+      "staged": [
+        "booski", "lou", "ape", "hogmama", "shubenator", "irish", "snow",
+        "rippinflow", "deathmegatron", "eric", "gratin", "lou2", "doorman"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "npc.js's ROSTER seats the whole circle by voice; main.js's PROSPECT_NAMES line builds 'PROSPECT ONE' (voice 'doorman' per dialogue.js's VOICE_OF) as a standing figure with a nameplate, first in the initiation line."
+    },
+    {
+      "id": "apartment",
+      "label": "Apartment and shared",
+      "cuePrefixes": [
+        "vo.door.", "vo.idle", "vo.mail.", "vo.margo.",
+        "vo.ammo.", "vo.beer.", "vo.bong.", "vo.cig.", "vo.computer.",
+        "vo.cs.", "vo.dress.", "vo.eat.", "vo.fart.", "vo.fired.",
+        "vo.fridge.", "vo.getup.", "vo.glue.", "vo.gun.", "vo.heave.",
+        "vo.hr.", "vo.hungfixed.", "vo.hunghigh.", "vo.liedown.",
+        "vo.milk.", "vo.notice.", "vo.pc.", "vo.pee.", "vo.photo.",
+        "vo.poop.", "vo.radio.", "vo.shower.", "vo.shrooms.", "vo.sleep.",
+        "vo.slice.", "vo.smash.", "vo.spooky.", "vo.tap.", "vo.toilet.",
+        "vo.wake.", "vo.whiskey.", "vo.zyn."
+      ],
+      "sourceFiles": ["src/world/apartment.js"],
+      "staged": ["margo"],
+      "sceneVoiceExemptions": {},
+      "notes": "Every prefix here except vo.margo.* is exclusively the player's own muttering (voice 'player', globally exempt -- see the checker). Margo is built once per campaign load in apartment.js ('Built in every chapter and shown by the cutscene') and shown/hidden by chapter, not rebuilt per scene."
+    }
+  ]
+}
