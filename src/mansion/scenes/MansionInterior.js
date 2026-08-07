@@ -4494,21 +4494,97 @@ export function buildMansionInterior(shell = null) {
     /* ONE fixed bookcase on this wall. The office's other bookcases -- and
      * the one that is a door -- live on the stair-hall wall; see THE PRIVATE
      * STAIR below. */
+    /* REBUILT AS A PIECE OF FURNITURE. Owner playtest 2026-08-06: "office
+     * bookcase looks bad -- rebuild it as a handsome piece (proper shelves,
+     * books with varied spines, trim)." What was here was one 0.4 x 2.4 x
+     * 2.2 slab with three identical rows of eight books each standing at
+     * fixed heights -- nothing under a row, nothing between two rows, and
+     * nothing telling the eye a shelf was there at all. A cornice and a
+     * plinth were doing the whole job of reading as "furniture" by
+     * themselves, on a case that was a wall with books floating in front
+     * of it.
+     *
+     * It is now a case with real shelves: a recessed back and two end
+     * panels rather than one solid slab, four shelf boards with a gilt
+     * nosing (one under each of the three open rows and one carrying the
+     * glazed top), and three rows of books that are no longer the same row
+     * copied three times -- each has its own count and its own starting
+     * point along the shelf, and the bottom row gets a pair of brass
+     * bookends the way a shelf that is actually used does.
+     *
+     * CRITICAL -- THIS IS NOT THE SECRET DOOR. This is the free-standing
+     * bookcase on the office's WEST wall. The bookcase bound to the
+     * master-suite stair (`doors.officeSecretBookcase`) is built by
+     * `bookcaseBay()`, below, in THE PRIVATE STAIR section, on the EAST
+     * wall -- a different function, different names, a different collider,
+     * and nothing in this block touches it. */
     for (const bz of [67.6]) {
+      const bookCaseD = 0.4;  // depth into the room, along x
+      const bookCaseW = 2.2;  // width along the wall, along z
+      const bz0 = bz - bookCaseW / 2 + 0.03;
+      // The case: a recessed back and two end panels, not one solid slab,
+      // and a toe kick so it stands proud of the skirting rather than
+      // sitting on the floor like a plinth-less crate.
       root.add(box({
-        size: [0.4, 2.4, 2.2], pos: [bookX, UY + 1.2, bz], mat: M_WOOD_DK, name: 'office-bookcase',
+        size: [0.06, 2.3, bookCaseW], pos: [bookX - bookCaseD / 2 + 0.03, UY + 1.19, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-back',
+      }));
+      for (const oz of [-(bookCaseW / 2 - 0.03), bookCaseW / 2 - 0.03]) {
+        root.add(box({
+          size: [bookCaseD - 0.02, 2.3, 0.06], pos: [bookX, UY + 1.19, bz + oz], mat: M_WOOD_DK, name: 'office-bookcase-end',
+        }));
+      }
+      root.add(box({
+        size: [bookCaseD - 0.04, 0.14, bookCaseW - 0.08], pos: [bookX, UY + 0.11, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-toe',
       }));
       solid(r.x0, r.x0 + 0.57, UY, UY + 2.4, bz - 1.1, bz + 1.1);
-      for (let s = 0; s < 3; s++) {
-        const shelfY = UY + 0.55 + s * 0.7;
+      /* Four shelf boards -- bottom, and under each row above it -- each
+       * proud of the end panels by 10 mm with a thin gilt nosing along its
+       * own front edge, so a shelf reads as a board with an edge on it
+       * rather than a change of colour on the back panel. */
+      const shelfYs = [UY + 0.42, UY + 1.12, UY + 1.82, UY + 2.30];
+      for (const shelfY of shelfYs) {
+        root.add(box({
+          size: [bookCaseD, 0.045, bookCaseW - 0.06], pos: [bookX, shelfY, bz], mat: M_WOOD_DK, name: 'office-bookcase-shelf',
+        }));
+        root.add(box({
+          size: [0.025, 0.05, bookCaseW - 0.06], pos: [bookX + bookCaseD / 2 - 0.01, shelfY + 0.023, bz], mat: M_GOLD, cast: false, name: 'office-bookcase-shelf-nosing',
+        }));
+      }
+      /* Three rows of books, each its OWN count and its own starting point
+       * along the shelf -- the fix for "the same row of eight copied three
+       * times" -- standing on the shelf board 45 mm below each of them
+       * rather than in the air a shelf's height above it. `extent` (the
+       * space the row actually fills, `makeBooks`'s own return) is what the
+       * bookends below are measured off, not the shelf's full width -- a
+       * bookend belongs at the end of the ROW, not the end of the SHELF. */
+      let row1;
+      for (const [shelfY, count, startZ] of [
+        [shelfYs[0], 9, bz0 + 0.06],
+        [shelfYs[1], 6, bz0 + 0.34],
+        [shelfYs[2], 8, bz0 + 0.14],
+      ]) {
         const books = makeBooks(M, {
-          x: bookX + 0.07, y: shelfY, z: bz - 0.9, count: 8, along: 'z',
+          x: bookX + 0.05, y: shelfY + 0.045, z: startZ, count, along: 'z',
         });
         root.add(books.group);
+        if (shelfY === shelfYs[0]) row1 = { startZ, extent: books.extent };
       }
-      // Moulded cornice and plinth, and a gilt bead down each stile.
+      // A pair of brass bookends flanking the bottom row, propping it in --
+      // the detail that says the shelf is used rather than dressed.
+      for (const ez of [row1.startZ - 0.03, row1.startZ + row1.extent + 0.03]) {
+        root.add(box({
+          size: [bookCaseD - 0.1, 0.16, 0.012], pos: [bookX + 0.03, shelfYs[0] + 0.125, ez], mat: M_BRONZE, cast: false, name: 'office-bookcase-bookend',
+        }));
+      }
+      // Moulded cornice, with a gilt fillet under it -- laps 20 mm into the
+      // crown rather than butting flush on it, the same reason every
+      // architrave in this house laps its reveal instead of meeting it edge
+      // to edge (see `partition()`'s own note). And the plinth.
       root.add(box({
-        size: [0.44, 0.16, 2.36], pos: [bookX + 0.02, UY + 2.48, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-cornice',
+        size: [0.44, 0.1, 2.36], pos: [bookX + 0.02, UY + 2.43, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-cornice',
+      }));
+      root.add(box({
+        size: [0.46, 0.05, 2.38], pos: [bookX + 0.025, UY + 2.375, bz], mat: M_GOLD, cast: false, name: 'office-bookcase-cornice-fillet',
       }));
       root.add(box({
         size: [0.44, 0.14, 2.3], pos: [bookX + 0.02, UY + 0.07, bz], mat: M_WOOD_DK, cast: false,
