@@ -106,6 +106,18 @@ export const CUE_SUBSTRING_EXEMPTIONS = Object.freeze([
       + 'of vo.call.* like the rest of the game\'s calls, so it needs naming '
       + 'here rather than being caught by the global prefix exemption.',
   },
+  {
+    includes: 'vo.enolasquatch.lou.arrival-lou',
+    reason: "The post-landing check-in ('Did they get the package?') -- "
+      + "script.js's 'arrival.lou' epilogue beat. crew.js is explicit that "
+      + 'Big Uncle Lou is not on this aeroplane, and '
+      + "MissionController.updateEpilogue() calls itself 'the one deliberate "
+      + "stub': no populated hangar scene exists to stand him in, so the "
+      + 'beat plays as Lou over the radio, the same contact channel the '
+      + 'mission opens on. If a real hangar epilogue is ever built and Lou '
+      + 'gets a body there, DELETE this entry so the checker starts holding '
+      + 'him to it.',
+  },
 ]);
 
 /* ================================================================== */
