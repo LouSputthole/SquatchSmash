@@ -10249,8 +10249,23 @@ const M_GOLD_BAR = mat({
         cast: false,
       }));
     }
+    /* OFF THE DOOR'S OWN ARCHITRAVE. Owner playtest 2026-08-06: "the picture
+     * outside the vault still passes through the white bar in the wall" --
+     * the white bar being the moulded M_TRIM architrave `partition()` builds
+     * round every doorway it cuts (see the note over that function; this is
+     * the same fitting the "black bar ... non-stop flicker" fix put a 15 mm
+     * lap into). Measured on the built scene at `r.x0 + 0.6`: this plaque's
+     * frame ran x 11.4..12.2, and the vault door's own west jamb -- a case
+     * cut into the SAME wall this plaque hangs on -- starts at x 12.28. An
+     * 80 mm gap, not an overlap, but tight enough on one wall stub that the
+     * two read as touching from most angles in the corridor, the same
+     * "measured technically clear, reads as touching" fault the office
+     * clock and fireplace on this floor were both built with (see their own
+     * notes). Set back to `r.x0 + 0.57`: 110 mm clear of the jamb and
+     * 110 mm clear of the vault's own west wall lining on the other side,
+     * balanced instead of lopsided. */
     const vaultMark = flatArt('mansion.vault.mark', {
-      x: r.x0 + 0.6,
+      x: r.x0 + 0.57,
       y: BY + 1.9,
       z: r.z0 + 0.18,
       rotY: 0,
