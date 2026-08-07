@@ -1041,9 +1041,15 @@ export function mountMansionCast(scene, world = {}, {
     return true;
   }
 
-  /** The cart goes where he goes, and its collider with it. */
+  /**
+   * The cart goes where he goes, and its collider with it.
+   *
+   * ONLY WHILE HE IS WALKING. A parked cart does not move, and re-deriving a
+   * collider from twenty meshes every frame for the rest of the night is a
+   * cost with nothing on the other side of it.
+   */
   function updateSnowErrand() {
-    if (!snowErrand) return;
+    if (!snowErrand || snowErrand.arrived) return;
     const npc = people.snow;
     const at = npc.group.position;
     /* Ahead of him, the way a man pushes a cart, and turned with him. */
@@ -1055,40 +1061,39 @@ export function mountMansionCast(scene, world = {}, {
     );
     cart.rotation.y = npc.group.rotation.y;
     cart.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(cart);
-    cartCollider.copy(box);
+    _seatBox.setFromObject(cart);
+    cartCollider.copy(_seatBox);
     cartCollider.min.y = snowErrand.floorY;
-    cartCollider.max.y = Math.min(box.max.y, snowErrand.floorY + 1.05);
-    if (!snowErrand.arrived) {
-      /* The cart's own loop follows him rather than staying where it started;
-       * a wheel bed pinned to a spot is a wheel bed nobody believes.
-       * `moveLoop` is `AudioEngine`'s, added for exactly this. */
-      audio?.moveLoop('silent.cart.wheels', cart.position);
-      if (Math.hypot(at.x - snowErrand.stop.x, at.z - snowErrand.stop.z) > 0.75) return;
-      /* He is there. Stop him and turn him at the glass, which is the thing he
-       * has been sent down to look at. */
-      snowErrand.arrived = true;
-      npc.route = null;
-      npc.job = 'work';
-      const glass = lab?.anchors?.glassDoor ?? snowErrand.stop;
-      npc.faceToward(glass.x, glass.z);
-      /* Parked, and then he gets on with it: the liner into the hoop, the mop
-       * out of the wringer, and the mop on the floor for the rest of the
-       * night. Staggered, because a man does these one at a time. */
-      audio?.stopLoop?.('silent.cart.wheels', 0.4);
-      const at2 = cart.position.clone();
-      audio?.play?.('silent.cart.park', { volume: 0.6, position: at2, ref: 2, maxDist: 16 });
-      audio?.play?.('silent.bag.liner', { volume: 0.5, delay: 1.4, position: at2, ref: 2, maxDist: 14 });
-      audio?.play?.('silent.mop.wring', { volume: 0.55, delay: 3.0, position: at2, ref: 2, maxDist: 16 });
-      audio?.startLoop?.('silent.mop.floor', {
-        name: 'silent.mop.floor',
-        volume: 0.3,
-        position: at2,
-        ref: 2.4,
-        maxDist: 16,
-        fade: 1.6,
-      });
-    }
+    cartCollider.max.y = Math.min(_seatBox.max.y, snowErrand.floorY + 1.05);
+
+    /* The cart's own loop follows him rather than staying where it started;
+     * a wheel bed pinned to a spot is a wheel bed nobody believes.
+     * `moveLoop` is `AudioEngine`'s, added for exactly this. */
+    audio?.moveLoop('silent.cart.wheels', cart.position);
+    if (Math.hypot(at.x - snowErrand.stop.x, at.z - snowErrand.stop.z) > 0.75) return;
+    /* He is there. Stop him and turn him at the glass, which is the thing he
+     * has been sent down to look at. */
+    snowErrand.arrived = true;
+    npc.route = null;
+    npc.job = 'work';
+    const glass = lab?.anchors?.glassDoor ?? snowErrand.stop;
+    npc.faceToward(glass.x, glass.z);
+    /* Parked, and then he gets on with it: the liner into the hoop, the mop
+     * out of the wringer, and the mop on the floor for the rest of the
+     * night. Staggered, because a man does these one at a time. */
+    audio?.stopLoop?.('silent.cart.wheels', 0.4);
+    const at2 = cart.position.clone();
+    audio?.play?.('silent.cart.park', { volume: 0.6, position: at2, ref: 2, maxDist: 16 });
+    audio?.play?.('silent.bag.liner', { volume: 0.5, delay: 1.4, position: at2, ref: 2, maxDist: 14 });
+    audio?.play?.('silent.mop.wring', { volume: 0.55, delay: 3.0, position: at2, ref: 2, maxDist: 16 });
+    audio?.startLoop?.('silent.mop.floor', {
+      name: 'silent.mop.floor',
+      volume: 0.3,
+      position: at2,
+      ref: 2.4,
+      maxDist: 16,
+      fade: 1.6,
+    });
   }
 
   /* ================================================================ */
