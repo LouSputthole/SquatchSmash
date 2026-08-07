@@ -111,20 +111,21 @@ check(`all ${AUTHORED_LINE_COUNT} redesigned NO WAKE lines have stable cue ids, 
     }),
   JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
 
-/* The redesign rewrote every line in the mission, so the whole bank is owed.
+/* The redesign rewrote every line in the mission, so the whole bank was owed.
  * This list is a statement about what is still outstanding: a line that gets
  * recorded has to come out of it, and a line authored later has to go in, or
- * the sheet stops being the thing the owner records from (engine trap #3). */
+ * the sheet stops being the thing the owner records from (engine trap #3).
+ * All 37 were delivered 2026-08-06 -- the sheet owes none of them now, and
+ * every one is indexed. */
 const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
-const expectedNoWakePickups = authoredVoice.map((line) => `vo.nowake.${line.cue}.1.mp3`).sort();
 const noWakePickupFiles = authoredVoice
   .map((line) => `vo.nowake.${line.cue}.1.mp3`)
   .filter((file) => recordingSheet.includes(`\`${file}\``))
   .sort();
-check(`the recording sheet still owes every one of the ${AUTHORED_LINE_COUNT} redesigned lines`,
-  JSON.stringify(noWakePickupFiles) === JSON.stringify(expectedNoWakePickups)
-    && authoredVoice.every((line) => !indexedFiles.has(`vo.nowake.${line.cue}.1.mp3`)),
-  JSON.stringify({ owed: noWakePickupFiles.length, expected: expectedNoWakePickups.length }));
+check(`all ${AUTHORED_LINE_COUNT} redesigned NO WAKE lines are delivered and off the recording sheet`,
+  noWakePickupFiles.length === 0
+    && authoredVoice.every((line) => indexedFiles.has(`vo.nowake.${line.cue}.1.mp3`)),
+  JSON.stringify({ owed: noWakePickupFiles.length, total: AUTHORED_LINE_COUNT }));
 
 /* A reworded line must not inherit a delivered take of different words. The old
  * build shipped `vo.nowake.cruise.willy.motel.1.mp3`; the redesign's equivalent
@@ -234,11 +235,11 @@ try {
   /* Five effects were authored with the redesign and none is recorded yet: the
    * inlet bed, the throttle blip, the water on the hull heard from the cabin,
    * the bag closing and the ballast. Everything else this boat asks for is on
-   * disk. An approved-pending list is a statement about what is owed. */
+   * disk, including all 37 redesigned voice lines as of 2026-08-06. An
+   * approved-pending list is a statement about what is owed. */
   const expectedPendingNoWakeNames = [
     'ambience.ocean.night', 'boat.bag.zip', 'boat.ballast.chain',
     'boat.engine.rev', 'water.lap.hull',
-    ...authoredVoice.map((line) => `vo.nowake.${line.cue}.1`),
   ].sort();
   check('only the approved NO WAKE production pickups remain pending',
     JSON.stringify(pendingNoWakeNames) === JSON.stringify(expectedPendingNoWakeNames),

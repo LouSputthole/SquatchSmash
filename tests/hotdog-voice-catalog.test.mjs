@@ -30,15 +30,7 @@ import {
  * WHEN THE TAKES ARE DELIVERED, EMPTY THIS ARRAY. It should be `[]` in a
  * released state.
  */
-const HOTDOG_CUES_AWAITING_RECORDING = [
-  /* The Negev foreshadow, authored 2026-08-06 with the NO WAKE redesign.
-   * `docs/NO-WAKE-REDESIGN.md`: "The Negev lands harder if it has been heard
-   * once before... Disposable Squatch chatter at the time." Three lines at the
-   * closed party, none of them recorded yet. */
-  'vo.bing2.party.mirage.willy.1',
-  'vo.bing2.party.mirage.numbskull',
-  'vo.bing2.party.mirage.willy.2',
-];
+const HOTDOG_CUES_AWAITING_RECORDING = [];
 
 test('Billy HotDog and Aubbie are stable characters without splitting Eric and Erican', () => {
   assert.deepEqual(
