@@ -149,18 +149,81 @@ export function mountSilentSquatch({
     }
   };
 
-  function putCaseOn(object, fallback) {
+  /** Where the case is when it leaves him: chest height, an arm in front. */
+  function handsPosition() {
+    const eye = player?.position ?? camera.position;
+    const forward = camera.getWorldDirection(new THREE.Vector3());
+    forward.y = 0;
+    if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+    forward.normalize();
+    return new THREE.Vector3(eye.x, eye.y - 0.45, eye.z).addScaledVector(forward, 0.5);
+  }
+
+  /* ---------------- setting it down ----------------
+   *
+   * Owner playtest, 2026-08-06: *"Case hand-off: prompt floats at a random
+   * spot near Booski. Walk up to Booski, hit E, case auto-places on the
+   * table."*
+   *
+   * TWO HALVES, and only one of them is this block. The prompt moved onto
+   * Booski's own body (`src/mansion/cast.js` — he is the man you talk to, and
+   * a floating E over a patch of basement is not a hand-off). This half is
+   * what happens after the press: the case LEAVES HIS HANDS AND ARRIVES ON
+   * THE TABLE, travelling, rather than teleporting out of shot and existing
+   * on a surface a metre and a half away on the next frame.
+   *
+   * It is a placement, not a physics throw: 0.55 s from where the man is
+   * standing to the anchor the scene publishes, on a shallow arc with the lid
+   * levelling out, so the eye follows the object and knows where it went. The
+   * destination is exactly `targets.tableSpot` — the anchor — so "did the case
+   * end up on the table" stays a coordinate comparison for the verifier
+   * rather than a question about an animation.
+   */
+  const PLACE_SECONDS = 0.55;
+  /** null, or a placement in flight. `to` is the anchor, and it always wins. */
+  let placing = null;
+
+  function putCaseOn(object, fallback, { animate = false, from = null } = {}) {
     const at = worldPos(object, fallback);
-    world.group.position.copy(at);
     world.group.visible = true;
     caseOwned = false;
     refreshCarried();
+    if (!animate) {
+      placing = null;
+      world.group.position.copy(at);
+      return at;
+    }
+    /* From his hands. `from` is the player, and the case starts at chest
+     * height in front of him rather than at his feet -- `player.position` is
+     * the eye, so this is the object he was holding, not the ground he was
+     * standing on. */
+    const start = from?.isVector3 ? from.clone() : worldPos(from, at);
+    world.group.position.copy(start);
+    placing = { from: start, to: at.clone(), t: 0 };
+    return at;
+  }
+
+  /** One frame of the hand-off. Lands ON the anchor, always. */
+  function updatePlacing(dt) {
+    if (!placing) return;
+    placing.t = Math.min(1, placing.t + dt / PLACE_SECONDS);
+    const k = placing.t;
+    /* Smoothstep across, and a low arc up and over so it reads as being set
+     * down rather than dragged along the floor. */
+    const e = k * k * (3 - 2 * k);
+    world.group.position.lerpVectors(placing.from, placing.to, e);
+    world.group.position.y += Math.sin(Math.PI * k) * 0.22;
+    if (k >= 1) {
+      world.group.position.copy(placing.to);
+      placing = null;
+    }
   }
 
   function onCase(what) {
     switch (what) {
       case 'carry':
         caseOwned = true;
+        placing = null;
         refreshCarried();
         world.group.visible = false;
         world.close({ instant: true });
@@ -179,10 +242,14 @@ export function mountSilentSquatch({
        * (`deskSpot`, `tableSpot`); the click target stays the fallback so a
        * scene that has not grown one yet still works. */
       case 'desk':
-        putCaseOn(targets.deskSpot ?? targets.desk, anchors?.officeDesk);
+        putCaseOn(targets.deskSpot ?? targets.desk, anchors?.officeDesk, {
+          animate: true, from: handsPosition(),
+        });
         break;
       case 'table':
-        putCaseOn(targets.tableSpot ?? targets.transferTable, lab.anchors?.transferTable);
+        putCaseOn(targets.tableSpot ?? targets.transferTable, lab.anchors?.transferTable, {
+          animate: true, from: handsPosition(),
+        });
         break;
       case 'open': world.open(); break;
       case 'close': world.close(); break;
@@ -197,6 +264,7 @@ export function mountSilentSquatch({
        * Dropped to the floor and pushed under, rather than hidden: `gone`
        * already exists for things that stop existing. */
       case 'stash': {
+        placing = null;
         const desk = worldPos(targets.deskSpot ?? targets.desk, anchors?.officeDesk);
         world.group.position.set(desk.x, Math.max(0.14, desk.y - 0.78), desk.z + 0.22);
         world.group.rotation.y = 0.22;
@@ -207,6 +275,7 @@ export function mountSilentSquatch({
         break;
       }
       case 'gone':
+        placing = null;
         world.group.visible = false;
         caseOwned = false;
         refreshCarried();
@@ -427,9 +496,23 @@ export function mountSilentSquatch({
     get carryingCase() { return caseOwned; },
     /** Put it under Lou's desk. Owner's note; also reachable from the script. */
     stashCase() { onCase('stash'); },
+    /**
+     * Hand the case over, from wherever the player is standing.
+     *
+     * Published because the man he hands it TO is built by `../cast.js`, which
+     * is mounted after this and owns Booski's body. This file has never heard
+     * of Booski and does not need to: the cast registers the press on him and
+     * calls this, exactly the way `onSidearm` lets the mission arm a player it
+     * knows nothing about. Returns false when it is not that beat, and the
+     * caller says why.
+     */
+    deliverCase: () => mission.deliverCase(),
+    /** Is the case still in his hands as far as the MISSION is concerned. */
+    get caseState() { return mission.caseState; },
     update(dt) {
       mission.update(dt, { position: player?.position ?? camera.position });
       carried.update(dt);
+      updatePlacing(dt);
       /* The world copy is NOT ticked here any more: it is `lab.case`, and
        * `SilentSquatch.js` already calls `caseObj.update(dt)` in its own
        * update. Ticking it twice would run its lid tween at double speed —
@@ -456,6 +539,16 @@ export function mountSilentSquatch({
       shoot: (hit = true) => mission.shootAubbie(hit),
       silentNight: () => mission.pullSilentNight(),
       leave: () => mission.leave(),
+      /** Where the case actually is, in world space, and whether it is still
+       * travelling. The owner's note was about WHERE it lands; this is the
+       * number a check compares against `lab.targets.tableSpot`. */
+      caseAt: () => ({
+        x: +world.group.position.x.toFixed(3),
+        y: +world.group.position.y.toFixed(3),
+        z: +world.group.position.z.toFixed(3),
+        visible: world.group.visible,
+        placing: Boolean(placing),
+      }),
     },
   };
 }

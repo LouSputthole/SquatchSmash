@@ -471,6 +471,18 @@ export function mountMansionCast(scene, world = {}, {
    * `setCordInHand` on the returned object.
    */
   onCordOwned = () => {},
+  /**
+   * Booski taking the case off him — `() => boolean`, true if the mission
+   * accepted it.
+   *
+   * The delivery is the mission's beat and Booski's body is this module's, and
+   * neither half is allowed to import the other: the mission is mounted first
+   * and has never heard of a man called Booski, and this module has never
+   * heard of a mission. So the composition root passes the verb down, exactly
+   * as it does with `hasCase` and `onCordOwned`. Omit it and Booski is a man
+   * you can look at, which is what he was before the owner's note.
+   */
+  onDeliverCase = null,
   enabled = () => true,
 } = {}) {
   if (!scene) return null;
@@ -1151,7 +1163,30 @@ export function mountMansionCast(scene, world = {}, {
         y: booskiAt.y,
         z: booskiAt.z,
         yaw: yawToward(booskiAt.x, booskiAt.z, labAt.crossOpening?.x ?? booskiAt.x + 7, booskiAt.z + 1.3),
-        look: 'Booski. Everything in this basement is happening because he said so.',
+        /* THE HAND-OFF IS A MAN, NOT A SPOT ON THE FLOOR.
+         *
+         * Owner playtest, 2026-08-06: *"Case hand-off: prompt floats at a
+         * random spot near Booski. Walk up to Booski, hit E, case auto-places
+         * on the table."*
+         *
+         * It did float: the only thing registered for the delivery was the
+         * wall DRAWER's aim box, which is a steel hatch a metre and a half
+         * behind him, so the prompt for the biggest beat in the mission
+         * appeared over a piece of scenery while the man who asked for the
+         * case stood beside it saying "On the transfer table. Both hands."
+         *
+         * So the press is on HIM now. The drawer keeps its own registration —
+         * it is a real object and pressing it still works — but the beat is
+         * the one the line describes: you walk up to Booski and give him the
+         * case, and the case goes on the table (`mission/mount.js` animates
+         * it onto `tableSpot`).
+         *
+         * `onDeliverCase` is injected because this module has never heard of
+         * the mission and must not learn: same split as `hasCase`. */
+        look: () => (carryingCase()
+          ? 'Give Booski the <b>case</b>'
+          : 'Booski. Everything in this basement is happening because he said so.'),
+        onUse: () => handTheCaseOver(),
       });
     }
 
@@ -1552,6 +1587,26 @@ export function mountMansionCast(scene, world = {}, {
    * the mission knows; this module never guesses at its state. */
   function carryingCase() {
     return typeof hasCase === 'function' ? hasCase() === true : false;
+  }
+
+  /**
+   * You give Booski the case, and Booski puts it on the table.
+   *
+   * Owner playtest: the delivery prompt used to live on the wall drawer, a
+   * metre and a half behind the man asking for it. It lives on him now, and
+   * this is the press.
+   *
+   * THE REFUSED PRESS SPEAKS (docs/RIGHT-FIRST-TIME.md, "the refused-input
+   * rule"). If the mission is not at the delivery yet -- he walked down here
+   * before Lou had handed him anything, or he has already delivered -- Booski
+   * says so rather than the button doing nothing three times in a row.
+   */
+  function handTheCaseOver() {
+    if (!carryingCase()) return false;
+    if (typeof onDeliverCase !== 'function') return false;
+    if (onDeliverCase() === true) return true;
+    dialogue.interject(SEQUENCES.deliveryStall);
+    return true;
   }
 
   /**

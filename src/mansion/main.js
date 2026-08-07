@@ -1247,6 +1247,13 @@ const cast = mountMansionCast(scene, world, {
    * playtest: it used to be welded to the camera from the handover to the
    * end of the mission. */
   onCordOwned: (owned) => { if (owned) loadout.giveCord(); else loadout.takeCord(); },
+  /* The delivery is a hand-off to a MAN (owner playtest: "walk up to Booski,
+   * hit E, case auto-places on the table"). The mission owns the beat, the
+   * cast owns Booski's body, and neither imports the other -- so the verb
+   * comes down through here, like `hasCase` above it. `silentSquatch` is
+   * assigned before this call and read at press time, so a house with no
+   * laboratory in it simply has a Booski you cannot hand anything to. */
+  onDeliverCase: () => silentSquatch?.deliverCase?.() === true,
   enabled: () => running,
 });
 setCordInHand = (on) => cast?.setCordInHand?.(on);

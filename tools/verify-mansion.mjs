@@ -3222,6 +3222,13 @@ try {
     {
       id: 'arrival', state: 'ARRIVAL', hasCase: true, wall: 'shut',
     },
+    /* The fifth kind, added for the owner's case hand-off note: the beat where
+     * the player is standing in the observation area with the case still in
+     * his hands and Booski asking for it. It is the only cold load in this
+     * list that goes on to press a button — see `handOff` below. */
+    {
+      id: 'lab', state: 'OBSERVATION', hasCase: true, wall: 'open', handOff: true,
+    },
     {
       id: 'core_complete', state: 'LOCK_THE_LAB', hasCase: false, wall: 'open', locked: false,
     },
@@ -3273,6 +3280,86 @@ try {
       if (want.stairOpen !== undefined && got.stairOpen !== want.stairOpen) bad.push(`stairOpen=${got.stairOpen}`);
       if (cpErrors.length) bad.push(`errors: ${cpErrors[0]}`);
       if (bad.length) cpFails.push(`${want.id}: ${bad.join(', ')}`);
+
+      /* ---- S1: THE CASE HAND-OFF.
+       *
+       * Owner playtest, 2026-08-06: *"Case hand-off: prompt floats at a random
+       * spot near Booski. Walk up to Booski, hit E, case auto-places on the
+       * table."* The prompt used to be on the wall DRAWER's aim box — a steel
+       * hatch a metre and a half behind the man asking for the case.
+       *
+       * So this walks the beat the way the note describes it and nothing else:
+       * stand in front of BOOSKI, put the crosshair on HIM, press the real E
+       * through the real interaction system, and then require the case to end
+       * up ON the table anchor. Not "an event fired" — the object's own world
+       * position against `lab.targets.tableSpot`, after the placement has had
+       * time to land, because the whole complaint was about where things are.
+       */
+      if (want.handOff && !bad.length) {
+        const handOff = await cpPage.evaluate(() => {
+          const T = window.mansion.THREE;
+          const m = window.mansion;
+          const booski = m.cast?.people?.booski ?? null;
+          if (!booski) return { error: 'no Booski in this house' };
+          const b = new T.Box3().setFromObject(booski.group);
+          const chest = b.getCenter(new T.Vector3());
+          chest.y = b.min.y + (b.max.y - b.min.y) * 0.62;
+
+          /* A metre and a half off his chest, on the side the player comes in
+           * from, and looking at him. Inside the interaction system's own 2.7 m
+           * reach without standing inside the man. */
+          const toward = new T.Vector3(chest.x, 0, chest.z)
+            .sub(new T.Vector3(m.lab.anchors.crossOpening.x, 0, m.lab.anchors.crossOpening.z));
+          if (toward.lengthSq() < 1e-6) toward.set(0, 0, 1);
+          toward.normalize();
+          const stand = new T.Vector3(chest.x, 0, chest.z).addScaledVector(toward, -1.5);
+          m.teleport(stand.x, m.lab.datums.LAB_Y, stand.z, 0);
+          m.tick(0.3);
+
+          const pl = m.player;
+          const dx = chest.x - pl.position.x;
+          const dz = chest.z - pl.position.z;
+          const dy = chest.y - pl.position.y;
+          pl.yaw = Math.atan2(-dx, -dz);
+          pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+          m.tick(0.25);
+
+          const owner = m.interaction.current;
+          const prompt = document.getElementById('prompt').classList.contains('hidden')
+            ? null : document.getElementById('promptLabel').textContent;
+          const before = m.mission.report().case.state;
+          m.interaction.press();
+          m.interaction.release();
+          /* Long enough for the 0.55 s placement to finish, and then some. */
+          m.tick(1.6);
+
+          const spot = m.lab.targets.tableSpot.getWorldPosition(new T.Vector3());
+          const at = m.mission.caseAt();
+          return {
+            onBooski: owner === booski.group,
+            prompt,
+            before,
+            after: m.mission.report().case.state,
+            delivered: m.mission.report().case.delivered,
+            spot: { x: +spot.x.toFixed(3), y: +spot.y.toFixed(3), z: +spot.z.toFixed(3) },
+            at,
+            off: +Math.hypot(at.x - spot.x, at.y - spot.y, at.z - spot.z).toFixed(3),
+            standOff: +Math.hypot(dx, dz).toFixed(2),
+          };
+        });
+        const off = [];
+        if (handOff.error) off.push(handOff.error);
+        if (!handOff.onBooski) off.push('the crosshair does not find Booski');
+        if (!/case/i.test(handOff.prompt || '')) off.push(`prompt reads "${handOff.prompt}"`);
+        if (handOff.before !== 'carried') off.push(`case was ${handOff.before} before the press`);
+        if (handOff.after !== 'table') off.push(`case is ${handOff.after} after it`);
+        if (!(handOff.off <= 0.05)) off.push(`case landed ${handOff.off} m off the table anchor`);
+        if (handOff.at?.placing) off.push('the placement never finished');
+        if (handOff.at && handOff.at.visible !== true) off.push('the case is not visible on the table');
+        check('walking up to Booski and pressing E puts the case on the transfer table anchor',
+          off.length === 0,
+          off.join(' | ') || `prompt "${handOff.prompt}" at ${handOff.standOff} m, case ${handOff.off} m from the anchor`);
+      }
     } catch (error) {
       cpFails.push(`${want.id}: ${String(error).slice(0, 120)}`);
     }
