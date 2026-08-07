@@ -26,18 +26,19 @@ the manifest to mark every track that belongs in the club set.
 
 With no tracks listed the radio still turns on — it just plays static.
 
-## Signature cues — four records still owed
+## Signature cues
 
 Some songs belong to a person or a moment rather than to a station. These are
-cues, not programming. Three are wired and waiting only on a file; the fourth
-is waiting on both, by request.
+cues, not programming. All are wired and all are delivered as of 2026-08-06.
 
-| Cue | File wanted | Fires on | Playing until then | Wired? |
-|---|---|---|---|---|
-| **Sensi Lou** | `sensi-lou.mp3` | Tony entering Big Uncle Lou's office at the Bing | `good-ole-days.mp3` | yes |
-| **Baby Snakes** | `baby-snakes.mp3` | Booskibro's first significant appearance — at the Bing, the shot beat where he takes the floor and yells for it | `booskibro.mp3` | yes |
-| **Can't You Hear Me Knocking** | `cant-you-hear-me-knocking.mp3` | **Beef Run initial takeoff roll, at 45 knots** | `10-drunk-cigarettes.mp3` | yes |
-| **Store room spy jazz** | `spy-jazz.mp3` | The portable radio during *License to Grill* | `cosmic-drift.mp3` | yes |
+| Cue | File | Fires on | Wired? |
+|---|---|---|---|
+| **Sensi Lou** | `sensi-lou.mp3` | Tony entering Big Uncle Lou's office at the Bing | yes |
+| **Baby Snakes** | `baby-snakes.mp3` | Booskibro's first significant appearance — at the Bing, the shot beat where he takes the floor and yells for it | yes |
+| **Can't You Hear Me Knocking** | `cant-you-hear-me-knocking.mp3` | Beef Run initial takeoff roll, at 45 knots | yes |
+| **Fortunate Son** | `fortunate-son.mp3` | The Enola Squatch's initial takeoff roll, same mechanism | yes |
+| **Store room spy jazz** | `spy-jazz.mp3` | The portable radio during *License to Grill* (Blond) | yes |
+| **THE TAKE's safehouse radio** | `codename-sasquatch.mp3` | The crew's actual fresh start, the morning of the job — not the preview/resume/return paths | yes |
 
 ### Can't You Hear Me Knocking — wired 2026-08-05
 

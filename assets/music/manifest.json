@@ -13,6 +13,16 @@
       "title": "Cosmic Drift"
     },
     {
+      "file": "through-the-night.mp3",
+      "station": "uncle",
+      "title": "Through the Night"
+    },
+    {
+      "file": "daydream-diner-2.mp3",
+      "venue": "mansion",
+      "title": "Daydream Diner 2"
+    },
+    {
       "file": "front-and-center-bananaphone-e786d7fe.mp3",
       "venue": "silver_room",
       "artist": "Raffi",
@@ -94,6 +104,16 @@
       "title": "Fortunate Son",
       "artist": "Creedence Clearwater Revival",
       "_note": "The Enola Squatch's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js."
+    },
+    {
+      "file": "codename-sasquatch.mp3",
+      "title": "Codename: Sasquatch",
+      "_note": "THE TAKE's safehouse radio, on the crew's actual fresh start the morning of the job -- not on the preview/resume/return paths. No station and no venue -- a cue, not programming. Runtime reads the file directly in src/heist/main.js's begin()."
+    },
+    {
+      "file": "spy-jazz.mp3",
+      "title": "Theme for an Unconfirmed Sighting",
+      "_note": "The Bing store room's portable radio during License to Grill (Blond). No station and no venue -- a cue, not programming. Runtime reads signature-music.js's storeRoomJazz."
     }
   ]
 }
