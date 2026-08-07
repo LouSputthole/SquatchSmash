@@ -276,6 +276,107 @@ const seatBase = (floorY, cushion) => floorY + cushion - POSE_CUSHION;
 /** How high this house's seats are, measured off its own colliders. */
 const CUSHION = Object.freeze({ chair: 0.50, islandStool: 0.75, barStool: 0.90 });
 
+/* ================================================================== */
+/* ...AND THEN MEASURING IT IN THE HOUSE THAT WAS ACTUALLY BUILT        */
+/*                                                                       */
+/* Owner playtest, 2026-08-06: *"Chair sitters (Hog Mama, Capt Sasole)    */
+/* clip through their chairs."* Measured, in the running game:            */
+/*                                                                        */
+/*   Hog Mama   hips 80 mm inside the kitchen stool's cushion, thighs      */
+/*              90 mm into it, and her back 40 mm inside its backrest      */
+/*   Sasole     hips 110 mm inside the bay bar stool's cushion, and        */
+/*              through the gold ring on top of it as well                 */
+/*   Eric       correct, on a dining chair, with the same arithmetic       */
+/*                                                                          */
+/* WHY THE ARITHMETIC CANNOT FIX IT. `seatBase` needs two numbers: how high  */
+/* the seat is, and how far above its base the folded pose puts a backside.  */
+/* The second one is a single constant and it is not a constant: the         */
+/* correction Hog Mama needs is 80 mm and the one Sasole needs is 130 mm,    */
+/* on the same formula, because they are different heights on differently    */
+/* built bodies. And the first one was read off the seats' COLLIDERS, which  */
+/* stand 15 mm and 35 mm proud of the cushions they cover.                   */
+/*                                                                            */
+/* So the arithmetic stays as the placement — it is right to within a few      */
+/* centimetres and it is what puts him at the right seat at all — and then     */
+/* this measures the result and corrects it. One ray, straight down out of      */
+/* the underside of his own hips, at mount, against the house as built. What    */
+/* it finds is the seat's real surface, whatever the seat is and whoever is     */
+/* sitting on it, and it cannot drift when somebody re-covers a stool.          */
+/*                                                                              */
+/* The feet are still allowed to fall where they fall (see `seatBase`).         */
+/* ================================================================== */
+const _seatRay = new THREE.Raycaster();
+const _seatDown = new THREE.Vector3(0, -1, 0);
+const _seatBox = new THREE.Box3();
+const _seatAt = new THREE.Vector3();
+/** How far a correction is allowed to move somebody. Anything larger is a
+ * figure over a hole in the floor rather than a pose that needs 8 cm. */
+const SEAT_MAX_LIFT = 0.35;
+
+/** True if this object is any part of any NPC's body. */
+function partOfSomebody(object) {
+  for (let o = object; o; o = o.parent) if (o.userData?.npc) return true;
+  return false;
+}
+
+/**
+ * Where the surface under a seated man's hips is, and where his hips are.
+ *
+ * The ray starts ABOVE his hips rather than below them, and that is the whole
+ * trick: a man who is sunk into a cushion has his hips INSIDE it, and a ray
+ * that starts inside a box and points down leaves through a back face, which
+ * `MeshStandardMaterial`'s front-side culling throws away. The first version
+ * of this started 20 mm under his backside, sailed straight through the stool
+ * it was measuring, hit the kitchen floor, decided that was a 730 mm
+ * correction, refused it as absurd, and moved nobody at all.
+ *
+ * Returns `{ hips, seat }` in world Y, or null when there is nothing under
+ * him. The hit must be at or below the TOP of his hips — a bar counter
+ * overhanging him is not a seat.
+ */
+function seatUnder(scene, npc) {
+  const hips = npc?.parts?.hips;
+  if (!scene || !hips) return null;
+  npc.group.updateMatrixWorld(true);
+  _seatBox.setFromObject(hips);
+  if (_seatBox.isEmpty()) return null;
+  const underside = _seatBox.min.y;
+  const top = _seatBox.max.y;
+  _seatBox.getCenter(_seatAt);
+  _seatRay.set(new THREE.Vector3(_seatAt.x, top + 0.35, _seatAt.z), _seatDown);
+  _seatRay.far = 1.6;
+  const hit = _seatRay.intersectObject(scene, true)
+    .find((candidate) => !partOfSomebody(candidate.object) && candidate.point.y <= top);
+  return { hips: underside, seat: hit ? hit.point.y : null };
+}
+
+/**
+ * Put a seated figure ON its seat rather than IN it. Returns the metres he
+ * moved, or null when there was nothing under him to sit on.
+ */
+function sitOnTheSeat(scene, npc) {
+  if (!npc?.seated) return null;
+  let moved = 0;
+  /* Three passes, because lifting a man can change WHICH surface is under
+   * him: the pair in the hot tub come up off its floor and onto its moulded
+   * seat, and one correction leaves them 50 mm into the ledge they have just
+   * arrived over. It settles in two; the third is there so "it settled" is a
+   * fact rather than a hope. */
+  for (let pass = 0; pass < 3; pass++) {
+    const found = seatUnder(scene, npc);
+    if (!found || found.seat === null) return pass === 0 ? null : +moved.toFixed(3);
+    const lift = found.seat - found.hips;
+    if (!Number.isFinite(lift) || Math.abs(lift) > SEAT_MAX_LIFT) break;
+    if (Math.abs(lift) < 0.005) break;
+    npc.group.position.y += lift;
+    /* `baseY` too, or the next `stand()`/`sit()` puts him straight back. */
+    npc.baseY += lift;
+    npc.group.updateMatrixWorld(true);
+    moved += lift;
+  }
+  return +moved.toFixed(3);
+}
+
 /**
  * The perimeter beats.
  *
@@ -310,6 +411,27 @@ const IDLE_SECONDS = 7.0;
 /** How near the gate man has to be before he stops you. Wider: he is meant to
  * get the line out before you are on his step, not after. */
 const GATE_RANGE = 8.0;
+/**
+ * ...AND HOW FAR THE MAN IN THE BOOTH SHOUTS, WHICH IS ACROSS THE DRIVE.
+ *
+ * Owner playtest, 2026-08-06, on the booth guard's lines: verify the trigger
+ * fires. IT DID NOT, and it was arithmetic rather than wiring.
+ *
+ * His counter is at x 8.32, z 3.82. The drive he is watching is x −4 to +4
+ * (MansionGrounds' own note on the barrier arm: "the drive is x −4..4; the
+ * booth is 3 m east of its kerb"), and the player spawns at x 0 and walks
+ * straight up it. The closest that walk ever comes to him is 8.32 m — and he
+ * was on `GATE_RANGE`, 8.0. So the first person in the game to speak to the
+ * Prospect never spoke, and he never spoke by 32 centimetres, on the exact
+ * path the game starts you on. Hugging the east kerb triggered him and walking
+ * up the middle did not, which is the worst kind of working.
+ *
+ * 12.5 m is the width of the thing he is watching, not a number that felt
+ * safer: counter to the far kerb is 8.32 + 4 = 12.32, so anybody who passes
+ * his barrier gets challenged whichever side of the road he uses. He is a man
+ * at a gate shouting at a car; the distance IS the part.
+ */
+const BOOTH_RANGE = 12.5;
 
 /* ================================================================== */
 /* SNOW'S CART                                                          */
@@ -471,6 +593,18 @@ export function mountMansionCast(scene, world = {}, {
    * `setCordInHand` on the returned object.
    */
   onCordOwned = () => {},
+  /**
+   * Booski taking the case off him — `() => boolean`, true if the mission
+   * accepted it.
+   *
+   * The delivery is the mission's beat and Booski's body is this module's, and
+   * neither half is allowed to import the other: the mission is mounted first
+   * and has never heard of a man called Booski, and this module has never
+   * heard of a mission. So the composition root passes the verb down, exactly
+   * as it does with `hasCase` and `onCordOwned`. Omit it and Booski is a man
+   * you can look at, which is what he was before the owner's note.
+   */
+  onDeliverCase = null,
   enabled = () => true,
 } = {}) {
   if (!scene) return null;
@@ -507,6 +641,8 @@ export function mountMansionCast(scene, world = {}, {
   /* ---------------------------------------------------------------- */
   const people = {};
   const posts = [];
+  /** Everybody who is sitting on something, for the seat pass at the end. */
+  const seated = [];
 
   const at = (name, fallback) => {
     const a = anchors?.[name];
@@ -539,6 +675,12 @@ export function mountMansionCast(scene, world = {}, {
     posts.push({
       id, npc, bark, idle, range, onArrive, onLeave, near: 0, said: false, saidIdle: false,
     });
+    /* On the seat, not in it. Every seated body gets measured against the
+     * house as built -- see `sitOnTheSeat`. Deferred until the whole cast is
+     * standing, because a chair somebody else is about to be put on is still
+     * furniture and the ray must not find a body that has not been corrected
+     * yet. */
+    if (npc.seated) seated.push({ id, npc });
     if (interaction && (look || onUse)) {
       /* ONE registration per body, on the body. `interaction.register` writes
        * `userData.interact`, so a second registration on the same object would
@@ -611,7 +753,11 @@ export function mountMansionCast(scene, world = {}, {
     y: boothStand.y ?? 0,
     z: boothStand.z,
     yaw: yawToward(boothStand.x, boothStand.z, boothLook.x, boothLook.z),
-    range: GATE_RANGE,
+    /* Across the drive, not eight metres of it -- see BOOTH_RANGE. He was on
+     * GATE_RANGE and the centre line of his own road is 8.32 m from his
+     * window, so "Stop there. Name." never played for anybody who walked up
+     * the middle, which is where the game starts you. */
+    range: BOOTH_RANGE,
     bark: SEQUENCES.boothChallenge,
     idle: SEQUENCES.boothLoiter,
     look: 'He has your name written down already.',
@@ -818,6 +964,148 @@ export function mountMansionCast(scene, world = {}, {
    * pillar. */
   cartCollider.min.y = snowAt.y;
   cartCollider.max.y = Math.min(cartCollider.max.y, snowAt.y + 1.05);
+
+  /* ================================================================ */
+  /* SNOW COMES DOWN                                                   */
+  /*                                                                    */
+  /* Owner playtest, 2026-08-06: *"Snow must come down to the lab for   */
+  /* his clean-up lines."* He never did. Booski gets on the intercom at */
+  /* the end of beat 10 — "Snow. Basement." / "Bring the cart." — and    */
+  /* Snow answers "How bad?" and then "Jesus Christ.", which is a man    */
+  /* looking at a room full of bodies. He was in the foyer, three floors */
+  /* up, for every word of it, and "Jesus Christ." was a disembodied     */
+  /* subtitle about a room nobody in it had seen.                        */
+  /*                                                                      */
+  /* HE ARRIVES OUT OF THE STAIRWELL AND WALKS IN, which is the whole of  */
+  /* the note ("movement + presence when his cues fire"). He is NOT       */
+  /* walked down from the foyer: the house is four storeys stacked in one */
+  /* column, the Npc walk is a flat-plane nav with collider avoidance and */
+  /* no stairs in it, and a man sliding down through three floors is a    */
+  /* worse thing to watch than a man who was not there. So he is put at   */
+  /* the foot of the stairwell — off the observation area, out of the     */
+  /* player's sightline, exactly where somebody coming down would be —    */
+  /* and walks the last stretch himself, pushing the cart, arriving while */
+  /* Booski is still saying "Bring the cart."                             */
+  /* ================================================================ */
+  /** null, or the walk he is on. */
+  let snowErrand = null;
+
+  function snowToTheBasement() {
+    const npc = people.snow;
+    const room = lab?.rooms?.observation ?? null;
+    const door = lab?.anchors?.crossOpening ?? null;
+    if (!npc || snowErrand || !room || !door || !Number.isFinite(door.x)) return false;
+    const floorY = room.floor ?? npc.baseY;
+
+    /* IN THROUGH THE PIER OPENING, which is the doorway between the
+     * interrogation corridor and the observation area — the same one the
+     * player came in through, and the only way in on this floor.
+     *
+     * NOT from the foot of the stairwell, which is sixteen metres away: the
+     * exchange that calls him is eleven seconds long and a man pushing a cart
+     * walks at a metre and a half a second, so starting him at the stairs put
+     * him in the doorway around the time Booski said "And a mop." He comes
+     * down the stairs and along the corridor while Booski is still on the
+     * intercom; the walk you SEE is the last few metres of it. */
+    const inside = { x: room.anchor.x, z: room.anchor.z };
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+    /* Beside the console bank rather than on the transfer table, and clamped
+     * into the room's own rect so the stop cannot land in a wall if the room
+     * moves. */
+    const stop = {
+      x: clamp(inside.x + 2.0, room.rect.x0 + 1.0, room.rect.x1 - 1.0),
+      z: clamp(inside.z - 0.6, room.rect.z0 + 1.0, room.rect.z1 - 1.0),
+    };
+    const step = {
+      x: clamp((door.x + stop.x) / 2, room.rect.x0 + 1.0, room.rect.x1 - 1.0),
+      z: clamp(door.z, room.rect.z0 + 1.0, room.rect.z1 - 1.0),
+    };
+    npc.group.position.set(door.x, floorY, door.z);
+    npc.baseY = floorY;
+    npc.homeX = door.x;
+    npc.homeZ = door.z;
+    npc.speed = 1.5;
+    npc.route = [step, stop];
+    npc.routeAt = 0;
+    npc.job = 'patrol';
+    npc.faceToward(step.x, step.z, true);
+    snowErrand = { stop, floorY, arrived: false, foley: 0 };
+    /* ---- CLEANUP FOLEY (owner playtest: "the scene needs a proper SFX pass",
+     * and the last thing he named was cleanup foley).
+     *
+     * He pulls the gloves on at the bottom of the stairs and pushes the cart
+     * in, and the cart is a LOOP that travels with him — four hard castors,
+     * one with a flat spot, and a bucket of water in a frame. Authored in
+     * scenes/SilentSquatch.js's cue table with the rest of the scene's sound;
+     * played here because this module owns the man and the cart. */
+    audio?.play?.('silent.gloves.snap', {
+      volume: 0.6, position: npc.group.position.clone(), ref: 2, maxDist: 14,
+    });
+    audio?.startLoop?.('silent.cart.wheels', {
+      name: 'silent.cart.wheels',
+      volume: 0.42,
+      position: cart.position.clone(),
+      ref: 2.4,
+      maxDist: 18,
+      fade: 0.6,
+    });
+    return true;
+  }
+
+  /**
+   * The cart goes where he goes, and its collider with it.
+   *
+   * ONLY WHILE HE IS WALKING. A parked cart does not move, and re-deriving a
+   * collider from twenty meshes every frame for the rest of the night is a
+   * cost with nothing on the other side of it.
+   */
+  function updateSnowErrand() {
+    if (!snowErrand || snowErrand.arrived) return;
+    const npc = people.snow;
+    const at = npc.group.position;
+    /* Ahead of him, the way a man pushes a cart, and turned with him. */
+    const ahead = 0.95;
+    cart.position.set(
+      at.x + Math.sin(npc.group.rotation.y) * ahead,
+      snowErrand.floorY,
+      at.z + Math.cos(npc.group.rotation.y) * ahead,
+    );
+    cart.rotation.y = npc.group.rotation.y;
+    cart.updateMatrixWorld(true);
+    _seatBox.setFromObject(cart);
+    cartCollider.copy(_seatBox);
+    cartCollider.min.y = snowErrand.floorY;
+    cartCollider.max.y = Math.min(_seatBox.max.y, snowErrand.floorY + 1.05);
+
+    /* The cart's own loop follows him rather than staying where it started;
+     * a wheel bed pinned to a spot is a wheel bed nobody believes.
+     * `moveLoop` is `AudioEngine`'s, added for exactly this. */
+    audio?.moveLoop('silent.cart.wheels', cart.position);
+    if (Math.hypot(at.x - snowErrand.stop.x, at.z - snowErrand.stop.z) > 0.75) return;
+    /* He is there. Stop him and turn him at the glass, which is the thing he
+     * has been sent down to look at. */
+    snowErrand.arrived = true;
+    npc.route = null;
+    npc.job = 'work';
+    const glass = lab?.anchors?.glassDoor ?? snowErrand.stop;
+    npc.faceToward(glass.x, glass.z);
+    /* Parked, and then he gets on with it: the liner into the hoop, the mop
+     * out of the wringer, and the mop on the floor for the rest of the
+     * night. Staggered, because a man does these one at a time. */
+    audio?.stopLoop?.('silent.cart.wheels', 0.4);
+    const at2 = cart.position.clone();
+    audio?.play?.('silent.cart.park', { volume: 0.6, position: at2, ref: 2, maxDist: 16 });
+    audio?.play?.('silent.bag.liner', { volume: 0.5, delay: 1.4, position: at2, ref: 2, maxDist: 14 });
+    audio?.play?.('silent.mop.wring', { volume: 0.55, delay: 3.0, position: at2, ref: 2, maxDist: 16 });
+    audio?.startLoop?.('silent.mop.floor', {
+      name: 'silent.mop.floor',
+      volume: 0.3,
+      position: at2,
+      ref: 2.4,
+      maxDist: 16,
+      fade: 1.6,
+    });
+  }
 
   /* ================================================================ */
   /* THE FAMILY, UPSTAIRS                                              */
@@ -1162,7 +1450,30 @@ export function mountMansionCast(scene, world = {}, {
         y: booskiAt.y,
         z: booskiAt.z,
         yaw: yawToward(booskiAt.x, booskiAt.z, labAt.crossOpening?.x ?? booskiAt.x + 7, booskiAt.z + 1.3),
-        look: 'Booski. Everything in this basement is happening because he said so.',
+        /* THE HAND-OFF IS A MAN, NOT A SPOT ON THE FLOOR.
+         *
+         * Owner playtest, 2026-08-06: *"Case hand-off: prompt floats at a
+         * random spot near Booski. Walk up to Booski, hit E, case auto-places
+         * on the table."*
+         *
+         * It did float: the only thing registered for the delivery was the
+         * wall DRAWER's aim box, which is a steel hatch a metre and a half
+         * behind him, so the prompt for the biggest beat in the mission
+         * appeared over a piece of scenery while the man who asked for the
+         * case stood beside it saying "On the transfer table. Both hands."
+         *
+         * So the press is on HIM now. The drawer keeps its own registration —
+         * it is a real object and pressing it still works — but the beat is
+         * the one the line describes: you walk up to Booski and give him the
+         * case, and the case goes on the table (`mission/mount.js` animates
+         * it onto `tableSpot`).
+         *
+         * `onDeliverCase` is injected because this module has never heard of
+         * the mission and must not learn: same split as `hasCase`. */
+        look: () => (carryingCase()
+          ? 'Give Booski the <b>case</b>'
+          : 'Booski. Everything in this basement is happening because he said so.'),
+        onUse: () => handTheCaseOver(),
       });
     }
 
@@ -1566,6 +1877,26 @@ export function mountMansionCast(scene, world = {}, {
   }
 
   /**
+   * You give Booski the case, and Booski puts it on the table.
+   *
+   * Owner playtest: the delivery prompt used to live on the wall drawer, a
+   * metre and a half behind the man asking for it. It lives on him now, and
+   * this is the press.
+   *
+   * THE REFUSED PRESS SPEAKS (docs/RIGHT-FIRST-TIME.md, "the refused-input
+   * rule"). If the mission is not at the delivery yet -- he walked down here
+   * before Lou had handed him anything, or he has already delivered -- Booski
+   * says so rather than the button doing nothing three times in a row.
+   */
+  function handTheCaseOver() {
+    if (!carryingCase()) return false;
+    if (typeof onDeliverCase !== 'function') return false;
+    if (onDeliverCase() === true) return true;
+    dialogue.interject(SEQUENCES.deliveryStall);
+    return true;
+  }
+
+  /**
    * Which BODY a line comes out of.
    *
    * One entry per casting key in `SPEAKERS`, so a line played anywhere moves
@@ -1690,6 +2021,53 @@ export function mountMansionCast(scene, world = {}, {
     screen.__castSpeaks = true;
   }
 
+  /* ================================================================ */
+  /* THE SEAT PASS                                                     */
+  /*                                                                    */
+  /* Run once, here, after every body in the house is standing where it */
+  /* belongs: each seated figure is measured against the furniture      */
+  /* under him and lifted onto it. See `sitOnTheSeat` for why the       */
+  /* arithmetic on its own could not do this.                           */
+  /* ================================================================ */
+  const seatLifts = {};
+  /* THE MATRICES FIRST. Nothing has been rendered yet at mount, so most of
+   * the house has never had `updateMatrixWorld` run on it and every mesh is
+   * still sitting at its local transform as far as a raycast is concerned.
+   * Without this the rays sail through the furniture and report a floor two
+   * rooms away — which is exactly what the first version of this pass did:
+   * it corrected the two people in the hot tub, whose subtree had been
+   * touched, and left the three the owner actually complained about. */
+  scene.updateMatrixWorld(true);
+  for (const entry of seated) {
+    const lift = sitOnTheSeat(scene, entry.npc);
+    if (lift !== null) seatLifts[entry.id] = lift;
+  }
+
+  /**
+   * How every seated body is sitting, right now.
+   *
+   * `gap` is the distance from the underside of his hips to the surface
+   * directly beneath them: 0 is sitting on it, negative is inside it, and a
+   * large positive number is hovering. Published so a verifier can assert the
+   * owner's note rather than take a screenshot of it.
+   */
+  function seatReport() {
+    const out = [];
+    for (const entry of seated) {
+      const found = seatUnder(scene, entry.npc);
+      if (!found) continue;
+      out.push({
+        id: entry.id,
+        name: entry.npc.name,
+        lifted: seatLifts[entry.id] ?? null,
+        hips: +found.hips.toFixed(3),
+        seat: found.seat === null ? null : +found.seat.toFixed(3),
+        gap: found.seat === null ? null : +(found.hips - found.seat).toFixed(3),
+      });
+    }
+    return out;
+  }
+
   /**
    * Gratin's whole approach, in one run: he tells you to give him a minute,
    * the Prospect points out that it is always him, he explains that he is good
@@ -1791,6 +2169,25 @@ export function mountMansionCast(scene, world = {}, {
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
     get snow() { return people.snow; },
+    /**
+     * Booski has called him down. Owner playtest: he has clean-up lines about
+     * the laboratory and was never in it. Returns false in a house with no
+     * laboratory, and is a no-op once he is already on his way.
+     */
+    snowToTheBasement: () => snowToTheBasement(),
+    /** Where he is on that errand, for a check that wants to prove it. */
+    get snowErrand() {
+      if (!snowErrand) return null;
+      const at = people.snow.group.position;
+      return {
+        arrived: snowErrand.arrived,
+        x: +at.x.toFixed(2),
+        y: +at.y.toFixed(2),
+        z: +at.z.toFixed(2),
+      };
+    },
+    /** Every seated body, and how it is sitting. See `seatReport`. */
+    seats: () => seatReport(),
     /** Lil Tom Cruze, or null in a house with no third floor in it. */
     dog,
     /** The two verbs, for a caller that wants to drive them without a mouse.
@@ -1808,6 +2205,7 @@ export function mountMansionCast(scene, world = {}, {
        * loop -- a dog that only animates when you are looking at him is a
        * statue that moves when you turn round. */
       dog?.update(dt);
+      updateSnowErrand();
       updateBarks(dt);
       dialogue.update(dt);
 

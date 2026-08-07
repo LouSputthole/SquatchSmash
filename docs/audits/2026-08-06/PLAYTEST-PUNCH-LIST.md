@@ -65,6 +65,11 @@ would catch its regression — per `docs/RIGHT-FIRST-TIME.md`.
 - P2. MANSION SIEGE is unplayable: ~5-minute load, ~1 fps on an RTX 4080. Instrument,
   find the pathology, fix the root cause, and pin budgets in the verifiers.
 
+## BEEF RUN — agent: beefrun-cockpit (sonnet)
+
+- B1. Cockpit still has geometry intersecting the pilot's view, and intersecting
+  Capt Sasole — clear the sightlines and un-clip Sasole.
+
 ## ENOLA SQUATCH — agent: enola (sonnet)
 
 - E1. Start the drop-bomb sequence earlier so release happens over the target.

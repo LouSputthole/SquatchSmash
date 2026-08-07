@@ -145,7 +145,12 @@ export class Radio {
    * available here; venue-scoped records must opt into this exact location.
    */
   get playlist() {
-    return this.tracks.filter((track) => !track.venue || track.venue === this.venue);
+    /* `cue: true` marks a record that belongs to a scripted moment (a
+     * signature sting, a mission needle-drop) — on disk and in the manifest,
+     * but never station programming. Without this the takeoff anthems aired
+     * in the 97.8 rotation on every receiver in the game. */
+    return this.tracks.filter((track) => !track.cue
+      && (!track.venue || track.venue === this.venue));
   }
 
   /** True while a record is on air, so nothing talks over it. */

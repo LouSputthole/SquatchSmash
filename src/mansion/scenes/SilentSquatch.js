@@ -66,6 +66,9 @@ import { tileTex, fabricTex } from '../../world/textures.js';
 import { printed, tiled } from '../../bing/kit.js';
 import { Figure } from '../../squatchfather/characters/Figure.js';
 import { makeCase } from '../../silvercase/props/case.js';
+/* The pooled arterial decal THE SILVER CASE puts on every man it shoots. Used
+ * here for the execution -- see `bleed()`. */
+import { BulletHoles } from '../../world/bullets.js';
 import { BASEMENT_Y, SECRET_DOOR } from './MansionGrounds.js';
 
 /* ================================================================== */
@@ -130,53 +133,142 @@ export const LAB_CODE = '6969';
 /* ================================================================== */
 /* AUDIO CUES                                                          */
 /*                                                                      */
-/* Authored here, generated centrally. Nothing in this file writes to   */
-/* assets/sfx/manifest.json -- these are names plus the prompt that     */
-/* describes each one, exactly the shape core/weapons/audio.js uses for */
-/* its thirty `weapon.*` cues. Every one of them falls back to          */
-/* core/audio.js's procedural synth until a recording lands, so the     */
-/* scene plays today and gets better without a code change.             */
+/* `[name, prompt, seconds]`. Authored here, generated centrally.       */
+/* Nothing in this file writes to assets/sfx/manifest.json -- these are */
+/* names plus the prompt that describes each one, exactly the shape     */
+/* core/weapons/audio.js uses for its thirty `weapon.*` cues. Every one */
+/* of them falls back to core/audio.js's procedural synth until a       */
+/* recording lands, so the scene plays today and gets better without a  */
+/* code change.                                                          */
+/*                                                                       */
+/* `npm run sfx:mansion` PROMOTES THEM INTO THE MANIFEST, which is the    */
+/* half that was missing until 2026-08-06. docs/RIGHT-FIRST-TIME.md lists */
+/* it: "33 `silent.*` cues authored here that are not in the manifest --  */
+/* `npm run sfx` can never render them; invisible to `check` because they */
+/* go through a local `sfx()` helper." A cue that is not in the manifest  */
+/* is not a cue that is missing a recording. It is a cue that does not     */
+/* exist as far as the whole production pipeline is concerned: it cannot   */
+/* be generated, it cannot be commissioned, and it never appears on the    */
+/* sheet the sound guy works from.                                          */
+/*                                                                          */
+/* `loop` IS DERIVED FROM THE PROMPT, not authored twice: a prompt that      */
+/* opens with "Loop." describes a seamless bed and the manifest entry gets   */
+/* `loop: true`. One sentence, one fact, and a cue whose prompt says loop     */
+/* and whose manifest entry does not cannot exist.                            */
 /* ================================================================== */
 export const SILENT_SQUATCH_CUES = Object.freeze([
-  ['silent.bust.switch', 'A small concealed toggle under a marble plinth: a hard mechanical click with a metallic aftertaste, then a relay closing somewhere behind the wall.'],
-  ['silent.wall.mechanism', 'Two tonnes of decorated wall on hydraulic rails: a pressure release, a deep grinding shove backwards, a pause, then a long sideways rumble on steel rollers with the whole room resonating under it. Roughly six seconds.'],
-  ['silent.wall.seat', 'The same wall coming home: the sideways rumble reversed, a heavy seat, and the dead thump of masonry meeting masonry. Everything behind it goes silent on the last frame.'],
-  ['silent.stairwell.ambience', 'Loop. A dead concrete stairwell four metres underground: low air-handling rumble, distant water in a pipe, and the electrical hum of a run of old fluorescent ballasts. No music, no wind.'],
-  ['silent.fluorescent.buzz', 'Loop. One failing tube directly overhead: a 100 Hz ballast buzz with an irregular flutter and a faint tick as the starter tries and fails.'],
-  ['silent.drain.drip', 'Water finding a drainage channel: a single fat drop into a shallow trench, with a hard concrete slap and a short tail.'],
-  ['silent.door.open', 'A heavy glass-and-steel door sliding open on a rail: a pneumatic release, a smooth rolling travel, and a soft seat at the end. Substantial, not automatic-supermarket.'],
-  ['silent.door.seal', 'The same door closing and SEALING: the roll, then a rubber gasket compressing under real force and the air pressure changing on both sides of it.'],
-  ['silent.door.bolts', 'Four steel bolts driving into their sockets one after another, fast: solid, industrial, final. Ends on a relay and a single low tone.'],
-  ['silent.keypad.key', 'One key on a rubber-membrane industrial keypad. Dull press, faint electronic blip.'],
-  ['silent.keypad.accept', 'Two rising electronic tones and a lock relay letting go. Cold, not friendly.'],
-  ['silent.keypad.reject', 'A flat descending buzz, twice. The sound of a machine that does not care.'],
-  ['silent.drawer.open', 'A steel transfer drawer in a wall: a lock releasing, a heavy tray sliding out on runners, and a stop.'],
-  ['silent.drawer.through', 'The tray going the other way: motorised, slow, a seal closing behind it, and a muffled clunk arriving on the far side of the glass.'],
-  ['silent.core.hum', 'Loop. The Squatchanium core at rest: a deep steady electrical hum with a slow beating overtone, a faint metallic rotation under it, and coolant moving somewhere in the frame.'],
-  ['silent.core.build', 'Twenty seconds of the same hum building: pitch climbing, harmonics stacking, the rotation speeding up, and a low mechanical strain coming in underneath. Ends unresolved.'],
-  ['silent.core.roar', 'The completion: the build breaking into a deep mechanical roar, huge and metallic, then dropping back to a locked, steady, enormous hum.'],
-  ['silent.core.lock', 'Stabiliser rings locking: three heavy magnetic clunks in quick succession and a rising tone snapping off.'],
-  ['silent.alarm', 'Loop. An internal laboratory alarm: a slow two-tone industrial klaxon, unhurried, with a rotating-beacon motor whirring under it. Not a fire alarm and not a siren -- a protocol running.'],
-  ['silent.gas.release', 'Ceiling vents opening under pressure: a series of solenoid clacks, then a hard sustained release of gas into a sealed room.'],
-  ['silent.gas.hiss', 'Loop. Gas continuing to fill a sealed concrete room: broadband hiss with a slow pulsing pressure wave and the vents rattling faintly in their frames.'],
-  ['silent.glass.fist', 'A bare fist on 60 mm reinforced glass. Almost no ring: a heavy dull impact that goes straight into the frame, felt more than heard. Stays sharp even from the far side.'],
-  ['silent.glass.chair', 'A metal chair swung two-handed into that same glass. A huge dead impact, the chair frame ringing and buckling, and the pane not moving at all. Ends with the chair hitting the floor.'],
-  ['silent.choking', 'Loop. A distant bed of several people coughing and choking behind heavy glass: overlapping, ragged, thinning out over its length. Never comedic, never a single voice.'],
-  ['silent.equipment.crash', 'Glassware and a light steel trolley going over in a laboratory: a scattering smash and a long rolling tail.'],
-  ['silent.switch.cover', 'A red safety cover lifting on a stiff spring hinge: a plastic snap and a metallic detent holding it open.'],
-  ['silent.switch.pull', 'A big industrial lever pulled through its full travel: mechanical resistance, a heavy detent at the bottom, and a contactor slamming closed.'],
-  ['silent.monitor.turn', 'A wall of CRT monitors all changing state at once: a soft collective degauss thump and a wash of high-frequency line whine settling.'],
-  ['silent.chain.creak', 'Loop. A load-bearing chain on a ceiling hook with a man on the end of it: slow irregular creaks, links shifting, and the hook turning a few degrees at a time.'],
-  ['silent.case.hum', 'Loop. Close-up: the containment case. A low electrical hum with a faint vibration in the shell and an occasional high transient, like something inside changing state.'],
-  ['silent.container.lift', 'A dense metal cylinder lifted out of foam by two hands: the foam releasing, the mass shifting, and a soft magnetic detach.'],
-  ['silent.arc', 'A short gold electrical arc between two electrodes: a crack, a sizzle, and an ozone tail.'],
-  ['silent.voice.complete', 'A cold synthesised facility voice, no warmth, faintly accented by its own compression: "PROJECT SILENT SQUATCH. CORE COMPLETE."'],
-  ['silent.voice.protocol', 'The same voice: "SILENT NIGHT PROTOCOL ACTIVATED." Repeated once, flatly, over an alarm.'],
+  ['silent.bust.switch', 'A small concealed toggle under a marble plinth: a hard mechanical click with a metallic aftertaste, then a relay closing somewhere behind the wall.', 1.4],
+  ['silent.wall.mechanism', 'Two tonnes of decorated wall on hydraulic rails: a pressure release, a deep grinding shove backwards, a pause, then a long sideways rumble on steel rollers with the whole room resonating under it. Roughly six seconds.', 7.0],
+  ['silent.wall.seat', 'The same wall coming home: the sideways rumble reversed, a heavy seat, and the dead thump of masonry meeting masonry. Everything behind it goes silent on the last frame.', 5.0],
+  ['silent.stairwell.ambience', 'Loop. A dead concrete stairwell four metres underground: low air-handling rumble, distant water in a pipe, and the electrical hum of a run of old fluorescent ballasts. No music, no wind.', 12.0],
+  ['silent.fluorescent.buzz', 'Loop. One failing tube directly overhead: a 100 Hz ballast buzz with an irregular flutter and a faint tick as the starter tries and fails.', 10.0],
+  ['silent.drain.drip', 'Water finding a drainage channel: a single fat drop into a shallow trench, with a hard concrete slap and a short tail.', 1.6],
+  ['silent.door.open', 'A heavy glass-and-steel door sliding open on a rail: a pneumatic release, a smooth rolling travel, and a soft seat at the end. Substantial, not automatic-supermarket.', 3.0],
+  ['silent.door.seal', 'The same door closing and SEALING: the roll, then a rubber gasket compressing under real force and the air pressure changing on both sides of it.', 3.2],
+  ['silent.door.bolts', 'Four steel bolts driving into their sockets one after another, fast: solid, industrial, final. Ends on a relay and a single low tone.', 2.4],
+  ['silent.keypad.key', 'One key on a rubber-membrane industrial keypad. Dull press, faint electronic blip.', 0.5],
+  ['silent.keypad.accept', 'Two rising electronic tones and a lock relay letting go. Cold, not friendly.', 1.6],
+  ['silent.keypad.reject', 'A flat descending buzz, twice. The sound of a machine that does not care.', 1.2],
+  ['silent.drawer.open', 'A steel transfer drawer in a wall: a lock releasing, a heavy tray sliding out on runners, and a stop.', 2.2],
+  ['silent.drawer.through', 'The tray going the other way: motorised, slow, a seal closing behind it, and a muffled clunk arriving on the far side of the glass.', 3.4],
+  ['silent.core.hum', 'Loop. The Squatchanium core at rest: a deep steady electrical hum with a slow beating overtone, a faint metallic rotation under it, and coolant moving somewhere in the frame.', 12.0],
+  ['silent.core.build', 'Twenty seconds of the same hum building: pitch climbing, harmonics stacking, the rotation speeding up, and a low mechanical strain coming in underneath. Ends unresolved.', 20.0],
+  ['silent.core.roar', 'The completion: the build breaking into a deep mechanical roar, huge and metallic, then dropping back to a locked, steady, enormous hum.', 7.0],
+  ['silent.core.lock', 'Stabiliser rings locking: three heavy magnetic clunks in quick succession and a rising tone snapping off.', 2.0],
+  ['silent.alarm', 'Loop. An internal laboratory alarm: a slow two-tone industrial klaxon, unhurried, with a rotating-beacon motor whirring under it. Not a fire alarm and not a siren -- a protocol running.', 10.0],
+  ['silent.gas.release', 'Ceiling vents opening under pressure: a series of solenoid clacks, then a hard sustained release of gas into a sealed room.', 3.6],
+  ['silent.gas.hiss', 'Loop. Gas continuing to fill a sealed concrete room: broadband hiss with a slow pulsing pressure wave and the vents rattling faintly in their frames.', 12.0],
+  ['silent.glass.fist', 'A bare fist on 60 mm reinforced glass. Almost no ring: a heavy dull impact that goes straight into the frame, felt more than heard. Stays sharp even from the far side.', 1.2],
+  ['silent.glass.chair', 'A metal chair swung two-handed into that same glass. A huge dead impact, the chair frame ringing and buckling, and the pane not moving at all. Ends with the chair hitting the floor.', 2.6],
+  ['silent.choking', 'Loop. A distant bed of several people coughing and choking behind heavy glass: overlapping, ragged, thinning out over its length. Never comedic, never a single voice.', 12.0],
+  ['silent.equipment.crash', 'Glassware and a light steel trolley going over in a laboratory: a scattering smash and a long rolling tail.', 3.0],
+  ['silent.switch.cover', 'A red safety cover lifting on a stiff spring hinge: a plastic snap and a metallic detent holding it open.', 1.2],
+  ['silent.switch.pull', 'A big industrial lever pulled through its full travel: mechanical resistance, a heavy detent at the bottom, and a contactor slamming closed.', 1.6],
+  ['silent.monitor.turn', 'A wall of CRT monitors all changing state at once: a soft collective degauss thump and a wash of high-frequency line whine settling.', 2.4],
+  ['silent.chain.creak', 'Loop. A load-bearing chain on a ceiling hook with a man on the end of it: slow irregular creaks, links shifting, and the hook turning a few degrees at a time.', 12.0],
+  ['silent.case.hum', 'Loop. Close-up: the containment case. A low electrical hum with a faint vibration in the shell and an occasional high transient, like something inside changing state.', 10.0],
+  /* THIS CUE EXISTS BECAUSE A LINE OF DIALOGUE WAS PLAYING HERE.
+   *
+   * Owner playtest, 2026-08-06: "one line plays with the wrong voice id". It
+   * did, and it was this one -- `lab.case.open()` played `heist.shubes_case`,
+   * which is not a sound effect at all: it is THE TAKE's Shubenator saying
+   * "The blue case is organized. Your hands are not part of the organization."
+   * So the Shubenator's voice came out of a briefcase in Lou's basement,
+   * every time Booski opened it, in a scene he is not in.
+   *
+   * Nothing about the name gave that away at the call site -- `heist.*` is
+   * both THE TAKE's effects prefix AND its dialogue prefix (ENGINE-TRAPS #4),
+   * so borrowing a "case" cue from it was one letter away from borrowing a
+   * performance. The manifest is the thing that knows, and the check that now
+   * holds this shut reads it: see `no cue this scene plays is somebody
+   * else's line` in tools/verify-mansion.mjs. */
+  ['silent.case.latches', 'A heavy chrome flight case being opened on a steel table: two sprung catches letting go one after the other, a stiff hinge, and the lid coming up against its stops. Close, dry, expensive-sounding. No voice.', 1.8],
+  ['silent.container.lift', 'A dense metal cylinder lifted out of foam by two hands: the foam releasing, the mass shifting, and a soft magnetic detach.', 1.8],
+  ['silent.arc', 'A short gold electrical arc between two electrodes: a crack, a sizzle, and an ozone tail.', 1.2],
+  ['silent.voice.complete', 'A cold synthesised facility voice, no warmth, faintly accented by its own compression: "PROJECT SILENT SQUATCH. CORE COMPLETE."', 3.4],
+  ['silent.voice.protocol', 'The same voice: "SILENT NIGHT PROTOCOL ACTIVATED." Repeated once, flatly, over an alarm.', 4.0],
+
+  /* =================================================================== */
+  /* THE 2026-08-06 SFX PASS                                              */
+  /*                                                                       */
+  /* Owner playtest: *"The scene needs a proper SFX pass."* Named by him:   */
+  /* lab hums, core sounds, gunshots with room tone, cleanup foley. Every   */
+  /* one below is a cue with a prompt and a length, in the manifest, with a */
+  /* procedural fallback until the sound guy renders it -- and every one is */
+  /* PLAYED by something in this file, because a cue nobody triggers is a   */
+  /* line item on a recording sheet that will never be heard.               */
+  /* =================================================================== */
+
+  /* ---- the room itself. Three beds under everything down here, all of
+   * them the sound of a building doing work nobody asked it to do. */
+  ['silent.lab.hvac', 'Loop. The laboratory\'s own air handling from inside the sealed room: a big slow plant fan through ductwork, a steady pressure hiss at the diffusers, and a subsonic thrum you feel more than hear. Clean and clinical, no rattles -- this room is maintained.', 12.0],
+  ['silent.coolant.flow', 'Loop. Coolant moving through pipework at the core: liquid under pressure in a 50 mm line, a faint chatter at a bend, and the occasional slug of vapour going through. Close, wet, metallic.', 10.0],
+  ['silent.monitors.whine', 'Loop. A wall of CRT monitors at close range: the 15 kHz line whine of six of them slightly out of tune with each other, plus a low mains hum from the console bank under them. Thin, electrical, and slightly unpleasant to stand next to.', 10.0],
+
+  /* ---- the core. `build`/`roar`/`lock` already exist; these two are the
+   * texture between them and the one thing it does when nobody is looking. */
+  ['silent.core.rings', 'Loop. Three magnetic stabiliser rings turning around a core at speed: a smooth heavy rotation with a beating overtone as the rings pass each other, and a bearing note underneath. Enormous and completely even -- nothing here is straining.', 10.0],
+  ['silent.core.discharge', 'The core shedding energy it does not need: a deep dry crack, an arc rolling away into the ductwork, and the hum dropping a tone and coming back. Once, unhurried, like a machine clearing its throat.', 3.0],
+
+  /* ---- the execution. Owner's own words: "gunshots with room tone". The
+   * weapon system has its own report; this is what the ROOM does with it. */
+  ['silent.gunshot.observation', 'A 9 mm pistol fired once in a low concrete observation room with a glass wall down one side: a hard flat crack, an immediate slap off the glass, and a tail that goes into the ductwork and dies in about a second and a half. Loud, dry and small -- there is nowhere for it to go.', 2.4],
+  ['silent.gunshot.tail', 'What is left in the room a second after that shot: the ring in both ears, a plate rattling somewhere in the ceiling, and the hum of the machinery coming back up underneath it as your hearing returns.', 4.0],
+  ['silent.shell.concrete', 'A single 9 mm brass case landing on a painted concrete floor and coming to rest: a bright first tick, three quick lighter ones, and a short roll.', 1.6],
+  ['silent.body.concrete', 'A grown man in a lab coat going down onto concrete, unbraced: a heavy soft impact with no cushion in it, the flat knock of a skull following a fraction later, and cloth settling.', 2.0],
+  ['silent.blood.spatter', 'Something wet hitting a hard floor from height: a short scatter of fat droplets across concrete, with no splash and no ring. Understated -- this is a texture, not a gore effect.', 1.2],
+
+  /* ---- cleanup foley. Snow, with the cart Booski told him to bring. */
+  ['silent.cart.wheels', 'Loop. An industrial janitor cart being pushed across painted concrete: four small hard castors, one of them with a flat spot, a mop bucket of water slopping in its frame, and bottles knocking together on the shelf.', 8.0],
+  ['silent.cart.park', 'The same cart stopping: the castors dropping into stillness, the water in the bucket sloshing forward and settling, and the push bar taking the weight as somebody lets go of it.', 2.6],
+  ['silent.mop.wring', 'A mop head going into a wringer and being worked twice: the metal frame taking the load, water forced out in two hard bursts, and the handle knocking the rim of the bucket.', 2.8],
+  ['silent.mop.floor', 'Loop. A wet mop head worked across concrete in long strokes: the drag of soaked cotton, water spreading and being pushed back, and the handle pivoting in a gloved hand.', 8.0],
+  ['silent.gloves.snap', 'A pair of heavy rubber gloves pulled on and snapped at the wrists, twice. Close, dry, and unpleasantly brisk.', 1.6],
+  ['silent.bag.liner', 'A heavy-gauge polythene liner shaken open and pulled down over a hoop frame: one loud snap of air and a long rustle.', 2.4],
 ]);
 
 /** Just the names, for `audio.loadManifest({ names })`. */
 export function silentSquatchCueNames() {
   return SILENT_SQUATCH_CUES.map(([name]) => name);
+}
+
+/**
+ * The same cues in the shape `assets/sfx/manifest.json` wants them.
+ *
+ * `tools/mansion-sfx.mjs` is the only caller: it merges these into the
+ * manifest so `npm run sfx` can render them and so they reach the recording
+ * sheets. Nothing in this module writes a manifest.
+ *
+ * `loop` is DERIVED from the prompt — a bed whose prompt opens with "Loop."
+ * is a bed — so the two can never disagree.
+ */
+export function silentSquatchManifestCues() {
+  return SILENT_SQUATCH_CUES.map(([name, prompt, seconds]) => {
+    const cue = { name, duration: seconds };
+    if (/^Loop\./.test(prompt)) cue.loop = true;
+    cue.prompt = prompt;
+    return cue;
+  });
 }
 
 /* ================================================================== */
@@ -3688,30 +3780,59 @@ export function buildSilentSquatch({
   /* confusion, panic, covering their mouths, coughing, slamming the glass, */
   /* crawling for the door, and going down.                                 */
   /* ================================================================== */
+  /**
+   * HOW BIG A SCIENTIST IS, IN METRES.
+   *
+   * Owner playtest, 2026-08-06: *"The scientists are all far too large."* They
+   * were: measured in the built house, the six stood 1.94 m to 2.05 m, which
+   * made every one of them taller than Numbskull (1.97), the biggest man on
+   * the roster, and put the smallest of them a centimetre over Big Uncle Lou.
+   * Six Russians in lab coats were the tallest people in the building.
+   *
+   * The cause is that this rig is not the one the rest of the house is built
+   * from. `Figure` (src/squatchfather/characters/Figure.js) reads `height` as
+   * a multiplier ON THE TORSO ONLY — the legs, the neck and the head do not
+   * move with it — so its natural standing height is about 1.98 m whatever
+   * `height` says, and the numbers in this table were being read as though
+   * they were the `Npc`'s `height`, which IS metres.
+   *
+   * `metres` is metres. The build measures each figure's own natural height
+   * once and scales the whole group to it, uniformly, about the group origin —
+   * which is the floor between his feet, so nobody's shoes leave the concrete.
+   * Measured rather than divided by a constant, because the natural height
+   * depends on `bulk` and on the hair, and a constant would drift the moment
+   * either changed.
+   *
+   * The range is the house's own: `src/core/wardrobe.js` runs 1.68 (Hog Mama)
+   * to 1.94 (DeathMegatron) with most of the Family between 1.74 and 1.86.
+   * Aubbie is 1.77 here because Aubbie is 1.77 in the wardrobe — he is the
+   * same man the player drinks with in the Bing, and a scientist a head taller
+   * than the Aubbie in the club is a different character.
+   */
   const SCIENTIST_SPECS = [
     // 0 -- Aubbie. Lead. Older, greying, the only one with a tie showing.
     {
-      id: 'aubbie', bulk: 1.06, height: 1.03, coat: 0xe2e0d6, shirt: 0xdad8cc, tie: 0x4a2028, hair: 0x3a3630, temples: 0x9a968c, skin: 0xc0956e, browHeavy: true, hairStyle: 'short',
+      id: 'aubbie', metres: 1.77, bulk: 1.06, height: 1.03, coat: 0xe2e0d6, shirt: 0xdad8cc, tie: 0x4a2028, hair: 0x3a3630, temples: 0x9a968c, skin: 0xc0956e, browHeavy: true, hairStyle: 'short',
     },
     // 1 -- the nervous technician. Small, young, hair too long for the room.
     {
-      id: 'two', bulk: 0.9, height: 0.98, coat: 0xd6d4ca, shirt: 0xc8d0d8, tie: 0x2c4a5a, hair: 0x241c14, skin: 0xd0a882, hairStyle: 'short', lidHeavy: false,
+      id: 'two', metres: 1.72, bulk: 0.9, height: 0.98, coat: 0xd6d4ca, shirt: 0xc8d0d8, tie: 0x2c4a5a, hair: 0x241c14, skin: 0xd0a882, hairStyle: 'short', lidHeavy: false,
     },
     // 2 -- the weapons engineer. Heavy, cropped, sleeves of the coat rolled.
     {
-      id: 'three', bulk: 1.3, height: 0.97, coat: 0xcdcbc0, shirt: 0x9aa4ac, tie: 0x33383e, hair: 0x1a1712, skin: 0xb4855e, hairStyle: 'crop', browHeavy: true,
+      id: 'three', metres: 1.79, bulk: 1.3, height: 0.97, coat: 0xcdcbc0, shirt: 0x9aa4ac, tie: 0x33383e, hair: 0x1a1712, skin: 0xb4855e, hairStyle: 'crop', browHeavy: true,
     },
     // 3 -- the cynical older one. Tall, grey, hooded eyes. Sees it first.
     {
-      id: 'four', bulk: 1.0, height: 1.08, coat: 0xdcdad0, shirt: 0xd0cec4, tie: 0x3a3a42, hair: 0x8e8a80, skin: 0xc8b096, hairStyle: 'short', lidHeavy: true,
+      id: 'four', metres: 1.86, bulk: 1.0, height: 1.08, coat: 0xdcdad0, shirt: 0xd0cec4, tie: 0x3a3a42, hair: 0x8e8a80, skin: 0xc8b096, hairStyle: 'short', lidHeavy: true,
     },
     // 4 -- the junior assistant. Slight, cropped, newest coat in the room.
     {
-      id: 'five', bulk: 0.86, height: 0.95, coat: 0xeae8de, shirt: 0xdde4ea, tie: 0x5a2a30, hair: 0x4a3220, skin: 0xdcb894, hairStyle: 'crop',
+      id: 'five', metres: 1.68, bulk: 0.86, height: 0.95, coat: 0xeae8de, shirt: 0xdde4ea, tie: 0x5a2a30, hair: 0x4a3220, skin: 0xdcb894, hairStyle: 'crop',
     },
     // 5 -- the medical specialist. Broad, dark-haired, surgical blues.
     {
-      id: 'six', bulk: 1.14, height: 1.0, coat: 0x9ec4c0, shirt: 0x8ab4b0, tie: 0x2a4a48, hair: 0x14100c, skin: 0x8e6a4a, hairStyle: 'short', browHeavy: true,
+      id: 'six', metres: 1.81, bulk: 1.14, height: 1.0, coat: 0x9ec4c0, shirt: 0x8ab4b0, tie: 0x2a4a48, hair: 0x14100c, skin: 0x8e6a4a, hairStyle: 'short', browHeavy: true,
     },
   ];
 
@@ -3742,6 +3863,57 @@ export function buildSilentSquatch({
   const GLASS_INSIDE_Z = GLASS_WALL.z0 - 0.55; // where you stand to hit it
   const handprints = [];
 
+  /* ================================================================== */
+  /* WHERE EACH OF THEM DIES                                             */
+  /*                                                                      */
+  /* Owner playtest, 2026-08-06: *"Scientists' dying animations overlap/  */
+  /* intersect each other."*                                              */
+  /*                                                                       */
+  /* THEY ALL CRAWLED TO THE SAME COORDINATE. `crawl()` sent every one of  */
+  /* them to the middle of the glass door — one point, five men, no        */
+  /* separation of any kind — and then each fell forward from wherever the  */
+  /* walk had left him, which was inside whoever got there first. The gas   */
+  /* stage that produces the scene's last image produced five bodies in one */
+  /* 600 mm square.                                                         */
+  /*                                                                        */
+  /* So each man has a LANE: his own stretch of glass, spaced by more than a */
+  /* fallen body is wide, fanned out from the door he is crawling for. He    */
+  /* still crawls for the door — that is the spec's own direction — but he   */
+  /* arrives at his own bit of it. `collapseYaw` then rolls each body a       */
+  /* different way, and `separate()` in `collapse()` is the backstop for the  */
+  /* case a lane cannot cover: a man who went down early, in the open,        */
+  /* somewhere another man is still walking through.                          */
+  /* ================================================================== */
+  /** Lane spacing. MEASURED, not guessed: a fallen figure's bounding box runs
+   * up to 1.30 m across once it has rolled, so 1.40 m is the smallest pitch at
+   * which two of them cannot touch. */
+  const LANE_PITCH = 1.4;
+  /** How close two bodies on the floor are allowed to be, centre to centre.
+   * The same 1.30 m plus a little, so the backstop agrees with the lanes. */
+  const CORPSE_GAP = 1.35;
+  const DOOR_CENTRE_X = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2;
+  /**
+   * His own piece of the glass, fanned out either side of the door.
+   *
+   * Index 0 (Aubbie) keeps the door itself — he is the one who walks out
+   * through it and dies on the other side, so his lane is empty by the time
+   * anybody is crawling. The five who are left take the two slots each side of
+   * it and one more beyond, which spreads them over 5.6 m of a 10 m room with
+   * a gap where the door is: the picture the beat wants is five people at the
+   * window, and five people at the window are not five people in a heap.
+   */
+  const LANE_ORDER = [0, -1, 1, -2, 2, 3];
+  function laneX(index) {
+    return THREE.MathUtils.clamp(
+      DOOR_CENTRE_X + (LANE_ORDER[index] ?? 0) * LANE_PITCH,
+      SEALED_LAB.x0 + 0.9,
+      SEALED_LAB.x1 - 0.9,
+    );
+  }
+  /** Which way a body rolls as it goes down. Fixed per man, and no two of the
+   * six the same, so the floor never reads as a row of identical falls. */
+  const COLLAPSE_ROLL = [0.34, -0.52, 0.18, -0.28, 0.46, -0.14];
+
   /**
    * What working at a bench looks like, cycled per man. See the work loop in
    * `update`. `gap` is a deliberate entry: the pauses are what stop six
@@ -3770,10 +3942,35 @@ export function buildSilentSquatch({
     fig.group.position.y = LAB_Y;
     root.add(fig.group);
 
+    /* ---- HUMAN SCALE, MEASURED (owner playtest: "far too large").
+     *
+     * `Figure`'s `height` is a torso multiplier, not metres, so all six stood
+     * about 2 m whatever it said. This measures the figure that was actually
+     * built — its own natural height, with its own bulk and its own hair — and
+     * scales the group uniformly to `spec.metres`.
+     *
+     * ABOUT THE GROUP ORIGIN, which is the floor between his feet
+     * (`buildFigure` puts the pelvis at +0.92 and hangs the legs off it, so
+     * local y = 0 is the shoe soles). A uniform scale about that point cannot
+     * lift him off the floor or sink him into it, whatever the factor, which
+     * is why "feet on the floor" needs no second correction here.
+     *
+     * `figScale` is published so everything measured in WORLD metres off this
+     * body — where his mouth is, how high his handprint lands — scales with
+     * him instead of drifting up his chest as he shrinks. */
+    const natural = new THREE.Box3().setFromObject(fig.group);
+    const naturalHeight = natural.isEmpty() ? 0 : natural.max.y - natural.min.y;
+    const figScale = naturalHeight > 0.5 ? spec.metres / naturalHeight : 1;
+    fig.group.scale.setScalar(figScale);
+    fig.group.updateMatrixWorld(true);
+
     const self = {
       index: i,
       id: spec.id,
       fig,
+      /** Metres he is actually built at, and what it took to get there. */
+      metres: spec.metres,
+      figScale,
       home,
       alive: true,
       inside: true,
@@ -3804,6 +4001,20 @@ export function buildSilentSquatch({
        */
       get object() { return fig.group; },
 
+      /**
+       * HIS MOUTH, PUBLISHED, because "does his mouth move" is the owner's
+       * note and a claim nothing could previously measure.
+       *
+       * `open` is 0..1 off the shared driver (src/core/mouth.js) and `mode` is
+       * `'audio'` when it is running on the take's own amplitude, `'fallback'`
+       * when the line has no recording and the envelope is synthesised, and
+       * `null` when he is not talking. A check samples `open` across a line
+       * and requires it to VARY — a mouth stuck open is as wrong as a mouth
+       * that never opened, and only one of those reads as a bug in a still.
+       */
+      get mouthOpen() { return fig.voiceMouth.open; },
+      get mouthMode() { return fig.voiceMouth.mode; },
+
       /** The sibling supplies the cue; this supplies the mouth and the path. */
       say(cue, opts = {}) {
         if (!self.alive && !opts.force) return 0;
@@ -3824,8 +4035,16 @@ export function buildSilentSquatch({
           return secs;
         }
         const at = fig.group.position.clone();
-        at.y = LAB_Y + 1.55;
-        const route = self.inside ? glassAudio.say.bind(glassAudio) : plainSay;
+        /* His mouth, not a fixed height off the floor: these bodies are scaled
+         * to their own metres now (see `figScale`), so a hard 1.55 would put
+         * the shortest man's voice above his hairline. */
+        at.y = LAB_Y + 1.55 * figScale;
+        /* `opts.dry` is the CALLER saying this line is not behind the glass,
+         * and it wins over `self.inside`. The mission knows — it is the thing
+         * that opened the door and marked the line unmuffled — and a body that
+         * has to infer it from its own flag is a body that muffles the first
+         * line of the execution because a walk cycle has not finished yet. */
+        const route = self.inside && !opts.dry ? glassAudio.say.bind(glassAudio) : plainSay;
         const source = route(cue, {
           volume: opts.volume ?? 0.9, position: at, ref: 2.2, maxDist: 26, ...opts,
         });
@@ -3955,11 +4174,15 @@ export function buildSilentSquatch({
         chairBend();
         return self;
       },
+      /** His lane at the glass — his own, and nobody else's. See LANE_PITCH. */
+      get lane() { return laneX(i); },
       crawl() {
         if (!self.alive) return self;
         self.stage = 'crawling';
         self.speed = 0.42;
-        self.target = { x: (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, z: GLASS_INSIDE_Z };
+        /* FOR THE DOOR, IN HIS OWN LANE. Every one of them used to crawl to
+         * the same coordinate and die on top of the man who got there first. */
+        self.target = { x: laneX(i), z: GLASS_INSIDE_Z };
         return self;
       },
       /** The last thing he leaves behind. Sticks to the glass at his height. */
@@ -3985,7 +4208,8 @@ export function buildSilentSquatch({
         );
         m.position.set(
           THREE.MathUtils.clamp(fig.group.position.x, GLASS_WALL.x0 + 0.4, GLASS_WALL.x1 - 0.4),
-          LAB_Y + 1.34,
+          /* Shoulder height on THIS man, not on a two-metre one. */
+          LAB_Y + 1.34 * figScale,
           GLASS_WALL.z0 - 0.09,
         );
         m.name = 'ss-handprint';
@@ -4003,7 +4227,15 @@ export function buildSilentSquatch({
         fig.gestureT = 0;
         fig.talkT = 0;
         self._fall = 0;
-        self._fallYaw = (Math.random() - 0.5) * 0.8;
+        /* Fixed per man rather than random: six random rolls will occasionally
+         * hand two neighbours the same one, and the whole point of this pass is
+         * that the floor after Silent Night reads as six separate people. */
+        self._fallYaw = COLLAPSE_ROLL[i % COLLAPSE_ROLL.length];
+        /* Measured in the pose he is about to end in, and then put back, so
+         * the nudge happens before the fall rather than as a jump after it. */
+        poseFallen(self, 1);
+        separateFallen(self);
+        poseFallen(self, 0);
         lifeSigns = Math.max(0, lifeSigns - 1);
         paintLifeSigns();
         return self;
@@ -4050,6 +4282,24 @@ export function buildSilentSquatch({
       },
       leaveLab(x, z) { return self.stepOut(x, z); },
       setInside(v) { self.inside = !!v; return self; },
+      /**
+       * Beat 8: THE ROUND ARRIVES (owner playtest: "blood effect when Aubbie
+       * is shot").
+       *
+       * Separate from `collapse()` on purpose. Collapsing is what the gas does
+       * to five people behind glass and it is bloodless; this is what a pistol
+       * does to one man standing three metres away, and the mission calls both
+       * in that order. A lab that has not grown this method still plays — the
+       * mission calls it with `?.()` — and the man still falls over.
+       *
+       * `from` is where the shot came from, so the wound faces the shooter.
+       */
+      shot(from = null) {
+        if (self._bled) return self;
+        self._bled = true;
+        bleed(fig, figScale, from);
+        return self;
+      },
       /** Beat 8: he is killed in the observation area, in full view. */
       kill() {
         self.inside = false;
@@ -4061,6 +4311,206 @@ export function buildSilentSquatch({
 
   /** Speech from somebody who is NOT behind the glass. */
   function plainSay(cue, opts) { return audio?.play?.(cue, opts) ?? null; }
+
+  /* ================================================================== */
+  /* BLOOD                                                               */
+  /*                                                                      */
+  /* Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."*    */
+  /* There was none. The only thing that happened when the player carried  */
+  /* out the execution was that the man fell over.                          */
+  /*                                                                        */
+  /* NOTHING NEW IS DRAWN HERE. Two effects this repository already has:     */
+  /*                                                                         */
+  /*   `BulletHoles(scene, 'blood')` — src/world/bullets.js, the pooled       */
+  /*     arterial decal THE SILVER CASE puts on every man it shoots           */
+  /*     (`ImpactKit.body`), attached to the BODY so the wound travels with    */
+  /*     him as he goes down rather than hanging in the air where he was;      */
+  /*   `stain()` — this file's own floor decal, the one the pool under xXx     */
+  /*     and the marks down the interrogation corridor are made of.            */
+  /*                                                                            */
+  /* The wound is on him, the spatter is on the floor behind him along the       */
+  /* line of the shot, and the pool arrives underneath him as he lands rather    */
+  /* than the instant the trigger goes — it takes a second for a man to bleed    */
+  /* onto concrete, and the fall takes about that long.                          */
+  /* ================================================================== */
+  /** Built on the first shot: a scene where nobody is shot pays nothing. */
+  let blood = null;
+  /** Pools that are still fading up, with their target opacity. */
+  const bloodPools = [];
+  const bloodMarks = [];
+
+  function bloodPool() {
+    if (blood) return blood;
+    /* Into this module's own group rather than the scene's root, so the marks
+     * belong to the laboratory the way everything else here does. */
+    blood = new BulletHoles(root, 'blood');
+    /* Its muzzle flash is a PointLight, and this scene meters its lights
+     * (`registerLight`). Nothing here calls `muzzle()` — the weapon system
+     * owns the flash at the player's end — so the light comes straight back
+     * out rather than sitting in every shader in the basement forever.
+     * `update()` returns on the first line without it. */
+    blood.flash?.parent?.remove(blood.flash);
+    return blood;
+  }
+
+  /**
+   * He was hit. `from` is where the round came from, so the wound faces the
+   * shooter and the spatter goes out the other side.
+   */
+  function bleed(fig, figScale, from = null) {
+    const kit = bloodPool();
+    const body = fig.group.position;
+    /* THE ROOM'S HALF OF THE SHOT (owner playtest: "gunshots with room tone").
+     * The weapon system owns the report at the muzzle; this is the crack
+     * coming back off twelve centimetres of glass, the case landing, the man
+     * landing, and the ring that is left when it has all stopped. Positioned
+     * on the body rather than on the player so it pans across as he falls. */
+    const heard = new THREE.Vector3(body.x, LAB_Y + 1.3, body.z);
+    sfx('silent.gunshot.observation', {
+      volume: 0.95, position: heard, ref: 4, maxDist: 40,
+    });
+    sfx('silent.shell.concrete', {
+      volume: 0.5, delay: 0.35, position: heard, ref: 2, maxDist: 14,
+    });
+    sfx('silent.body.concrete', {
+      volume: 0.8, delay: 0.85, position: heard, ref: 3, maxDist: 22,
+    });
+    sfx('silent.blood.spatter', {
+      volume: 0.45, delay: 1.0, position: heard, ref: 2, maxDist: 12,
+    });
+    sfx('silent.gunshot.tail', {
+      volume: 0.55, delay: 0.2, position: heard, ref: 6, maxDist: 40,
+    });
+    const chestY = body.y + 1.28 * figScale;
+    const toward = new THREE.Vector3(
+      (from?.x ?? body.x) - body.x, 0, (from?.z ?? body.z + 1) - body.z,
+    );
+    if (toward.lengthSq() < 1e-6) toward.set(0, 0, 1);
+    toward.normalize();
+
+    /* The wound, on him, facing the man who fired. Attached to the torso
+     * GROUP rather than to a mesh: `Figure`'s boxes carry real geometry but
+     * the group is where a decal belongs, and it is uniformly scaled. */
+    const entry = new THREE.Vector3(body.x, chestY, body.z).addScaledVector(toward, 0.16);
+    const wound = kit.punchAttached(fig.torso, entry, toward);
+    wound.name = 'ss-blood-wound';
+    bloodMarks.push(wound);
+
+    /* Spatter, out the back, on the floor. Same pool, laid flat. */
+    const behind = toward.clone().negate();
+    for (let i = 0; i < 3; i++) {
+      const at = new THREE.Vector3(body.x, LAB_FLOOR + 0.004, body.z)
+        .addScaledVector(behind, 0.55 + i * 0.42 + Math.random() * 0.3);
+      at.x += (Math.random() - 0.5) * 0.5;
+      at.z += (Math.random() - 0.5) * 0.5;
+      const mark = kit.punch(at, new THREE.Vector3(0, 1, 0));
+      mark.name = 'ss-blood-spatter';
+      bloodMarks.push(mark);
+    }
+
+    /* And the pool, under him, arriving over the second it takes him to land.
+     * `stain()` is this file's own — the same decal the corridor is covered
+     * in, so the floor of this basement reads as one continuous night. */
+    const pool = stain(body.x, body.z, LAB_FLOOR, 0.62, 3, 0);
+    pool.name = 'ss-blood-pool';
+    bloodPools.push({ mesh: pool, t: 0, to: 0.88 });
+    return pool;
+  }
+
+  /**
+   * The pose of a man going down, at `e` = 0 (upright) to 1 (on the floor).
+   *
+   * Extracted from the update loop so `collapse()` can put him in the pose he
+   * is ABOUT to end in, measure it, and put him back — see `separateFallen`.
+   * Felled like a tree, pivoting at the feet, with his own roll on the way.
+   */
+  function poseFallen(s, e) {
+    const f = s.fig;
+    f.root.rotation.x = e * 1.46;
+    f.root.rotation.z = e * (s._fallYaw ?? 0);
+    f.pelvis.position.y = 0.92 - e * 0.42;
+    f.group.updateMatrixWorld(true);
+  }
+
+  const _corpseA = new THREE.Box3();
+  /** Concrete between two bodies on the floor. */
+  const CORPSE_MARGIN = 0.12;
+  const overlapsXZ = (a, b, margin) => a.min.x - margin < b.max.x && a.max.x + margin > b.min.x
+    && a.min.z - margin < b.max.z && a.max.z + margin > b.min.z;
+
+  /**
+   * NOBODY DIES ON TOP OF ANYBODY (owner playtest: the dying animations
+   * intersect each other).
+   *
+   * The lanes do most of it — each man crawls for his own piece of the glass
+   * rather than for the one coordinate all five used to converge on — and this
+   * is what closes the rest: a man gassed before he started crawling, a man
+   * who went down in the open, and the six straight `collapse()` calls a
+   * verifier makes without walking anybody anywhere.
+   *
+   * IT MEASURES THE POSE HE IS ABOUT TO END IN, not the one he is in. A
+   * standing man's footprint is 400 mm across and a fallen one's is 1.3 m, so
+   * separating the uprights leaves the corpses overlapping — which is exactly
+   * what the lane pitch on its own still did for two of them. `collapse()`
+   * puts him in the final pose, calls this, and puts him back, so the nudge is
+   * applied before the fall starts and there is nothing to see.
+   *
+   * He slides ALONG THE GLASS rather than away from it, because the whole
+   * image is people at the window, and only as far as it takes: this stops at
+   * the first clear spot rather than spacing everybody evenly, which would
+   * look arranged. Clamped inside the room, so nothing goes through a wall.
+   */
+  function separateFallen(who) {
+    /* EVERY body on the floor, not only the ones on this side of the glass.
+     * Whether a man counts as "inside" is a flag the mission sets when he
+     * walks through a door, and two bodies in the same three square metres
+     * are two bodies in the same three square metres whatever it says. The
+     * five metres of glass between the two rooms does the separating for the
+     * pairs that genuinely are apart, because this is an XZ test. */
+    const others = scientists.filter((s) => s !== who && !s.alive);
+    if (!others.length) return 0;
+    /* EVERYBODY IN HIS FINAL POSE, not the one he is in.
+     *
+     * The five go down on their own clock — the mission spaces them 1.1 s
+     * apart and a verifier collapses all six in the same frame — so a man
+     * measured mid-fall is measured as most of a standing man, whose
+     * footprint is a third of the one he is about to have. Each of the others
+     * is posed flat, measured, and put straight back on the frame of his own
+     * fall that he was on. */
+    const boxes = others.map((s) => {
+      const was = THREE.MathUtils.smoothstep(s._fall, 0, 1);
+      poseFallen(s, 1);
+      const box = new THREE.Box3().setFromObject(s.object);
+      poseFallen(s, was);
+      return box;
+    });
+    const start = who.fig.group.position.x;
+    const clear = (x) => {
+      who.fig.group.position.x = x;
+      who.fig.group.updateMatrixWorld(true);
+      _corpseA.setFromObject(who.object);
+      return boxes.every((b) => !overlapsXZ(_corpseA, b, CORPSE_MARGIN));
+    };
+    if (clear(start)) return 0;
+    /* Out from where he fell, alternating sides, in 200 mm steps. Twenty of
+     * them is 4 m either way, which is wider than this room's free floor. */
+    for (let step = 1; step <= 20; step++) {
+      for (const side of [1, -1]) {
+        const x = THREE.MathUtils.clamp(
+          start + side * step * 0.2,
+          SEALED_LAB.x0 + 0.9,
+          SEALED_LAB.x1 - 0.9,
+        );
+        if (clear(x)) return +(x - start).toFixed(3);
+      }
+    }
+    /* Nowhere left. Put him back where he died rather than at the end of the
+     * last thing we tried — a body in the wrong place is better than a body
+     * against a wall it was pushed into. */
+    who.fig.group.position.x = start;
+    who.fig.group.updateMatrixWorld(true);
+    return 0;
+  }
 
   /* The chair beat 9 needs, standing at a station until somebody picks it
    * up. `chairBend()` is what "the chair bends, the glass does not break"
@@ -4203,6 +4653,11 @@ export function buildSilentSquatch({
    * and stopped when it seats, which is also the spec's "lab sound cuts to
    * nothing" on the way out. */
   let ambienceOn = false;
+  /* The two clocks the 2026-08-06 SFX pass runs: the drain in the
+   * interrogation corridor and the core clearing its throat. Both irregular
+   * on purpose -- a drip on a fixed interval is a metronome. */
+  let dripT = 2.5;
+  let dischargeT = 24;
   function startUnderworldAmbience() {
     if (ambienceOn) return;
     ambienceOn = true;
@@ -4238,6 +4693,51 @@ export function buildSilentSquatch({
       ambience: true,
       fade: 2.6,
     });
+    /* ---- THE 2026-08-06 SFX PASS: the room's own beds.
+     *
+     * Owner playtest: "the scene needs a proper SFX pass", and the first thing
+     * he named was lab hums. Four beds under a stairwell buzz and a core hum
+     * is not four sounds playing at once — each one is somewhere, with its own
+     * rolloff, so walking from the stairwell to the glass is a walk through a
+     * building rather than a crossfade between two rooms. */
+    loop('silent.lab.hvac', {
+      name: 'silent.lab.hvac',
+      volume: 0.18,
+      position: new THREE.Vector3(CORE_AT.x, LAB_CEIL - 0.5, SEALED_LAB.z0 + 2.0),
+      ref: 5,
+      maxDist: 30,
+      ambience: true,
+      fade: 3.0,
+    });
+    loop('silent.coolant.flow', {
+      name: 'silent.coolant.flow',
+      volume: 0.16,
+      position: new THREE.Vector3(CORE_AT.x - 2.4, LAB_Y + 1.1, CORE_AT.z + 1.4),
+      ref: 2.4,
+      maxDist: 16,
+      ambience: true,
+      fade: 2.0,
+    });
+    loop('silent.core.rings', {
+      name: 'silent.core.rings',
+      volume: 0.2,
+      position: new THREE.Vector3(CORE_AT.x, LAB_Y + 1.4, CORE_AT.z),
+      ref: 3,
+      maxDist: 26,
+      ambience: true,
+      fade: 2.6,
+    });
+    /* At the console bank, on the OBSERVATION side — six CRTs you have to
+     * stand next to for the whole of beats 5 to 7. */
+    loop('silent.monitors.whine', {
+      name: 'silent.monitors.whine',
+      volume: 0.12,
+      position: new THREE.Vector3(CORE_AT.x, LAB_Y + 1.5, GLASS_WALL.z1 + 1.4),
+      ref: 2.2,
+      maxDist: 12,
+      ambience: true,
+      fade: 1.8,
+    });
   }
   function stopUnderworldAmbience() {
     if (!ambienceOn) return;
@@ -4246,6 +4746,15 @@ export function buildSilentSquatch({
       'silent.stairwell.ambience', 'silent.fluorescent.buzz',
       'silent.chain.creak', 'silent.core.hum', 'silent.gas.hiss',
       'silent.choking', 'silent.alarm',
+      /* The 2026-08-06 pass. Every bed this module starts is stopped here:
+       * the wall closing is supposed to take the basement's noise with it. */
+      'silent.lab.hvac', 'silent.coolant.flow', 'silent.core.rings',
+      'silent.monitors.whine', 'silent.cart.wheels', 'silent.mop.floor',
+      /* The case's own hum belongs to whoever is carrying it rather than to
+       * this room, and by the time the wall seats it has gone through the
+       * drawer — but a bed this module can start is a bed this module stops,
+       * with no exceptions, or the list is a list of most of them. */
+      'silent.case.hum',
     ]) stop(k, 0.5);
   }
 
@@ -4436,7 +4945,24 @@ export function buildSilentSquatch({
         volume: 0.85, delay: 1.6, position: at, ref: 4, maxDist: 30,
       });
       glassAudio.play('silent.voice.complete', { volume: 0.8, delay: 2.4 });
+      /* And then the thing it does when nobody is looking at it. The 2026-08-06
+       * SFX pass: the completion used to end on the annunciator and leave the
+       * machine sitting there in a hum, which is a machine that has stopped. */
+      glassAudio.play('silent.core.discharge', {
+        volume: 0.7, delay: 5.2, position: at, ref: 4, maxDist: 30,
+      });
       monitors.setPurple();
+      return true;
+    },
+    /** The same crack, on demand: the core clearing its throat while the six
+     * are still working. Driven from the update loop's own slow clock. */
+    discharge() {
+      glassAudio.play('silent.core.discharge', {
+        volume: 0.55,
+        position: new THREE.Vector3(CORE_AT.x, LAB_Y + 1.7, CORE_AT.z),
+        ref: 4,
+        maxDist: 30,
+      });
       return true;
     },
   };
@@ -4487,6 +5013,18 @@ export function buildSilentSquatch({
       });
       glassAudio.loop('silent.gas.hiss', {
         name: 'silent.gas.hiss', volume: 0.3, position: at, ref: 5, maxDist: 36, fade: 1.4, path: 'distant',
+      });
+      /* AND THE ROOM COMING APART. `silent.equipment.crash` has been authored
+       * with a prompt since the scene was built and was never once played --
+       * five people going for a door they cannot open take a trolley of
+       * glassware with them, and until the 2026-08-06 SFX pass the only thing
+       * you heard through the glass was voices. */
+      glassAudio.distant('silent.equipment.crash', {
+        volume: 0.7,
+        delay: 4.5,
+        position: new THREE.Vector3(CORE_AT.x + 2.4, LAB_Y + 0.9, CORE_AT.z),
+        ref: 4,
+        maxDist: 30,
       });
       return true;
     },
@@ -4738,6 +5276,33 @@ export function buildSilentSquatch({
       xxx.drip.visible = fall < 0.94;
     }
 
+    /* ---- THE 2026-08-06 SFX PASS: the two one-shots that live on a clock.
+     *
+     * `silent.drain.drip` had a prompt and a name and had never been played by
+     * anything — a corridor with a drain every three metres, which Irish makes
+     * a speech about, and nothing coming out of any of them. It lands in the
+     * gulley on its own irregular clock; the core cracks on a much slower one.
+     * Both only while the basement is open, so a shut wall is silent. */
+    if (ambienceOn) {
+      dripT -= dt;
+      if (dripT <= 0) {
+        dripT = 3.2 + Math.random() * 5.5;
+        sfx('silent.drain.drip', {
+          volume: 0.32,
+          position: new THREE.Vector3(
+            INTERROGATION.x0 + 1.2, LAB_FLOOR, 52.0 + (Math.random() - 0.5) * 3,
+          ),
+          ref: 2,
+          maxDist: 14,
+        });
+      }
+      dischargeT -= dt;
+      if (dischargeT <= 0) {
+        dischargeT = 26 + Math.random() * 22;
+        coreApi.discharge();
+      }
+    }
+
     /* ---- the core. */
     const cs = coreState;
     cs.t += dt;
@@ -4817,11 +5382,9 @@ export function buildSilentSquatch({
       const f = s.fig;
       if (!s.alive) {
         // The collapse. Pivots at the feet, like a felled tree, and stays.
+        if (s._fall >= 1) continue;
         s._fall = Math.min(1, s._fall + dt * 0.9);
-        const e = THREE.MathUtils.smoothstep(s._fall, 0, 1);
-        f.root.rotation.x = e * 1.46;
-        f.root.rotation.z = e * (s._fallYaw ?? 0);
-        f.pelvis.position.y = 0.92 - e * 0.42;
+        poseFallen(s, THREE.MathUtils.smoothstep(s._fall, 0, 1));
         continue;
       }
       if (s.target) {
@@ -4894,6 +5457,16 @@ export function buildSilentSquatch({
           if (move !== 'gap') f.playGesture(move, s._work * 0.62);
         }
       }
+    }
+
+    /* ---- the pool under the man who was shot, arriving as he lands. */
+    for (const p of bloodPools) {
+      if (p.t >= 1) continue;
+      p.t = Math.min(1, p.t + dt * 0.85);
+      p.mesh.material.opacity = p.t * p.to;
+      /* It spreads as well as darkens; a disc that only fades up reads as a
+       * decal switching on. */
+      p.mesh.scale.setScalar(0.55 + p.t * 0.45);
     }
 
     /* ---- handprints fading up on the inside of the glass. */
@@ -5156,7 +5729,10 @@ export function buildSilentSquatch({
       group: caseObj.group,
       open: () => {
         caseObj.open();
-        sfx('heist.shubes_case', {
+        /* `silent.case.latches`, NOT `heist.shubes_case` -- that one is a line
+         * of the Shubenator's from THE TAKE and it was playing here. See the
+         * cue's own note in SILENT_SQUATCH_CUES. */
+        sfx('silent.case.latches', {
           volume: 0.6, position: caseObj.group.position.clone(), ref: 1.4, maxDist: 12,
         });
         lab.case.brighten(2.1);
@@ -5312,6 +5888,10 @@ export function buildSilentSquatch({
       wineRacks: innocent.wine.racks.length,
       decorArt: decorArt.length,
       get handprints() { return handprints.length; },
+      /** Wound and spatter decals on the man the player shot, plus the pool
+       * under him. The owner's blood effect, proved by what it left behind. */
+      get bloodMarks() { return bloodMarks.filter((m) => m.visible).length; },
+      get bloodPools() { return bloodPools.length; },
       get chairBent() { return chairBent; },
       coreRings: core.rings.length,
       hasFatSquatchEmblem: !!core.emblem,

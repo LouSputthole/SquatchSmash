@@ -353,6 +353,21 @@ try {
     }
   }
 
+  /* PROJECT SILENT SQUATCH's SOUND EFFECTS, which are a catalog in exactly the
+   * way the voice catalogs above are and were invisible to every one of these
+   * checks until 2026-08-06. They go through a local `sfx()` helper, so the
+   * `audio.play('literal')` scan cannot see them either — thirty-five fully
+   * described sounds that `npm run sfx` could never render because they were
+   * not in the manifest. docs/RIGHT-FIRST-TIME.md lists this by name. */
+  {
+    const { checkMansionSfxManifest } = await import('./mansion-sfx.mjs');
+    const drift = checkMansionSfxManifest(sfxManifest);
+    if (drift.length) {
+      fail(`PROJECT SILENT SQUATCH sound catalog drift: ${drift.length} problem(s) `
+        + `(first: ${drift[0]}). Run \`npm run sfx:mansion\`.`);
+    }
+  }
+
   /* The inbox names its group in data rather than at the call site, so the
    * scan above cannot see it. Same failure either way: a renamed bank is a
    * reply he never gives, and nothing anywhere says so. */
@@ -512,6 +527,26 @@ try {
     }
   }
   if (Object.keys(OBJECTIVES).length < 10) fail('the objective list looks truncated');
+} catch (err) {
+  fail(err.message);
+}
+
+/* ---- every character with lines must actually be standing in the scene ----
+ * Owner, 2026-08-06 playtest: "anywhere there are lines for a character, is
+ * that character in the scene? They need to be." (PLAYTEST-PUNCH-LIST.md
+ * X1). Known offender: Snow has PROJECT SILENT SQUATCH lab clean-up lines
+ * and no body ever moves into the lab or basement to say them — see
+ * `tools/check-line-presence.mjs`'s own header and `tools/scene-casts.json`
+ * for the full mapping and the current findings. */
+try {
+  const { findViolations, formatReport, loadSceneCasts } = await import('./check-line-presence.mjs');
+  const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+  const result = findViolations(sfxManifest, loadSceneCasts());
+  if (result.violations.length || result.unmapped.length) {
+    fail(`line-presence: ${result.violations.length} violation(s), ${result.unmapped.length} unmapped cue(s). `
+      + 'Run `npm run check:line-presence` for the full report.\n'
+      + formatReport(result).split('\n').map((line) => `    ${line}`).join('\n'));
+  }
 } catch (err) {
   fail(err.message);
 }

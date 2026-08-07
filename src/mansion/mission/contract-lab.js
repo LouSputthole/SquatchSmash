@@ -44,9 +44,31 @@ function makeScientist(index, glassAudio, lab) {
     log: [],
     /** Cues that came out of this body. */
     lines: [],
-    say(cue) {
+    /** The same cues with the options they were played on, so a check can
+     * read the level a line actually left at — `VOICE_GAIN` in ../script.js
+     * is per-profile and the mission applies it here. */
+    takes: [],
+    /** The ones that did NOT go through the glass: this man's own voice, in
+     * the room, because he has walked out of the sealed lab. */
+    dry: [],
+    /**
+     * A line, out of THIS body.
+     *
+     * `opts.dry` is the mission saying the line is not behind the glass; a man
+     * who has stepped out is dry whether or not anybody said so. Everything
+     * else goes through the send.
+     *
+     * IT IS ALWAYS THIS METHOD, muffled or not. That is the whole of the
+     * owner's "Aubbie's mouth stops moving once he leaves the lab" note: the
+     * real lab moves a scientist's jaw from inside `say()`, so a line that
+     * goes round it is a line spoken with the mouth shut.
+     */
+    say(cue, opts = {}) {
       this.lines.push(cue);
-      glassAudio.play(cue, { from: index, muffled: lab.muffled });
+      this.takes.push({ cue, ...opts });
+      if (opts.dry === true || this.side !== 'lab') this.dry.push({ cue, ...opts });
+      else glassAudio.play(cue, { from: index, muffled: lab.muffled, ...opts });
+      return opts.seconds ?? 0;
     },
     panic() { this.state = 'panic'; this.log.push('panic'); },
     cover() { this.state = 'covering'; this.log.push('cover'); },
@@ -59,6 +81,16 @@ function makeScientist(index, glassAudio, lab) {
       this.log.push('collapse');
     },
     handprint() { this.log.push('handprint'); lab.handprints++; },
+    /**
+     * The round arriving, which is not the same event as the body going down.
+     *
+     * Owner playtest: "blood effect when Aubbie is shot." The real lab spends
+     * this on a wound decal, spatter and a pool (see `bleed` in
+     * scenes/SilentSquatch.js); the contract records that it was asked for,
+     * which is the half the mission is responsible for. `collapse` still
+     * follows, and the gassing's five collapses still carry no `shot`.
+     */
+    shot(from = null) { this.log.push('shot'); this.shotFrom = from ?? null; },
     /** Aubbie, coming out through the glass door into the observation area. */
     stepOut() { this.side = 'observation'; this.log.push('stepOut'); },
     tryHandle() { this.log.push('tryHandle'); },

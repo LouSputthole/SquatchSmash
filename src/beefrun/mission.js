@@ -209,10 +209,13 @@ export class MissionController {
     const engine = this.audio?.engine;
     if (!engine) return Promise.resolve(null);
     return playSignatureTrack(engine, SIGNATURE_TRACKS.cantYouHearMeKnocking, {
-      // A record, not a sting: it runs its two minutes and stops. `ambience`
+      // A record, not a sting: it runs its three minutes and stops. `ambience`
       // keeps it on the music bus, under the headset and under the dialogue.
+      // `replace` so a checkpoint-restored roll starts the song over instead
+      // of finding the previous attempt's handle and doing nothing.
       loop: false,
       ambience: true,
+      replace: true,
     }).catch(() => null);
   }
 
@@ -1818,6 +1821,10 @@ export class MissionController {
         this.audio.setPhase('takeoff');
         this.flags.rotateCalled = false;
         this.flags.clearCalled = false;
+        /* The record restarts with the attempt: kill whatever is left of the
+         * last take and let the 45-knot trigger fire again on this roll. */
+        this.flags.knockingCued = false;
+        this.audio?.engine?.stopLoop?.(SIGNATURE_TRACKS.cantYouHearMeKnocking.loopKey, 0.35);
         this.setPhase('lineup');
       },
       approach: () => {

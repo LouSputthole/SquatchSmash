@@ -143,6 +143,49 @@ const BASE_TURB = 0.4;
  * he wants and the experiment should not argue. */
 const DROP_CAM_SECONDS = 4.2;
 
+/* THE DROP SEQUENCE STARTS EARLY ENOUGH TO LAND ON THE TARGET.
+ *
+ * Owner playtest, 2026-08-06: "The bomb is great. The drop bomb sequence
+ * should start a bit earlier so that you aren't so far over the target."
+ *
+ * `updateBombApproach()` below hands off to the bomb-bay-malfunction beat
+ * (`updateBombMalfunction()`) the moment `Targeting.readyToRelease` trips OR
+ * the aeroplane is this close to the compound — whichever comes first. A
+ * player who nails heading/bank/altitude gets the early exit; everyone else
+ * — which is most of a flight through a target defended by live-looking flak
+ * (`updateBombApproach()` runs `defense.intensity` at 1.35-1.8 the whole
+ * time) — rides this fallback, and it was the effective trigger the owner
+ * was flying against.
+ *
+ * From there the aeroplane is committed to a fixed run of real time before
+ * `payload.release()` actually fires, none of it skippable: `_malfNeeded`
+ * (8 s minimum, `updateBombMalfunction()`) holding level, then the player
+ * has to read the five `RELEASE_LINES` and pick one (`chooseReleaseLine()`),
+ * then `updateRelease()`'s own `stuck` (2 s) and `kick` (1 s) beats — eleven
+ * seconds of flight time before anyone touches a key, plus however long the
+ * choice itself takes. At this airframe's ~62 m/s bombing-run airspeed
+ * that is upward of 700 m of ground covered on the old 700 m trigger alone,
+ * before a single second of player reaction — measured end to end (a
+ * synthetic flight held off Targeting's alignment gates so it is forced onto
+ * this exact fallback, `tools/verify-enolasquatch.mjs`'s "the drop sequence
+ * releases on the target" check): release landed a bare 9 m short of
+ * TARGET_X for an instant choice, but 180 m past it at a 3 s reaction, 303 m
+ * past at 5 s, 489 m past at 8 s — "well past the target" for anyone who
+ * actually reads the choice instead of mashing a key blind.
+ *
+ * `BOMB_MALFUNCTION_TRIGGER_M` moves that fallback out to 1100 m — still
+ * inside the 1400 m `updateDefensePhase()` uses to hand off into
+ * `bombApproach` in the first place, so the approach corridor still exists —
+ * which puts release within a couple of hundred metres of the target for a
+ * 5-6 s reaction (the RELEASE_LINES read in about that long) and no worse
+ * than ~90 m past it even at a slow 8 s, instead of the ~490 m the old
+ * number left on the table. A fast, instant-choice player now undershoots by
+ * a few hundred metres rather than dropping bang on the pin — the safer
+ * side of the target's own ~460 m defended radius (`Defense.deploy()`'s
+ * `radius`) to miss by, and the one the owner's own wording ("so that you
+ * aren't so far over the target") asked for. */
+const BOMB_MALFUNCTION_TRIGGER_M = 1100;
+
 /* ------------------------------------------------------------------ */
 /* THE TWO DIAMONDS                                                    */
 /*
@@ -626,11 +669,29 @@ export class MissionController {
     return wasGone;
   }
 
+  /**
+   * Come forward out of the turret and back into the pilot's seat.
+   *
+   * THE AUTOPILOT COMES OFF WITH YOU — owner playtest, 2026-08-06: "When the
+   * player returns to the pilot seat, autopilot should disengage
+   * automatically." It used to leave the gyro flying, so a player who had
+   * come forward again — hands back on the yoke, by every other signal — was
+   * still being flown until he separately remembered to hit <em>P</em>, which
+   * read as the key not having worked at all (the same shape of bug
+   * `updateLanding()` already guards against by doing exactly this pair of
+   * calls on its own, forced way back into the seat for the final approach —
+   * see there). `disengage(null)` — not a `reason` — is the same call
+   * `toggleAutopilot()` makes for a player-requested hand-back, so it plays
+   * the identical cue this scene already uses for "the player turned the
+   * autopilot off himself": `auto.off` on the radio and the fighters'
+   * predictability reset, never `auto.kicked`, because nothing forced this.
+   */
   leaveGun() {
     if (!this.gunner.manned) return false;
     this.gunner.leave();
     this.gunFiring = false;
     this.dialogue.play('gun.leave', { once: true });
+    if (this.autopilot.engaged) this.autopilot.disengage(null);
     return true;
   }
 
@@ -1784,7 +1845,7 @@ export class MissionController {
       ? `${OBJECTIVES.BOMB_APPROACH} — steady`
       : OBJECTIVES.BOMB_APPROACH);
 
-    if (this.targeting.readyToRelease || this.targeting.distance < 700) {
+    if (this.targeting.readyToRelease || this.targeting.distance < BOMB_MALFUNCTION_TRIGGER_M) {
       this.setPhase('bombMalfunction');
     }
   }

@@ -121,24 +121,28 @@ export class AudioEngine {
    * 404s. `npm run sfx` rewrites it; hand-added files can be listed manually.
    * If the index is missing entirely we fall back to probing every cue.
    */
-  loadManifest({ names = null, prefixes = [] } = {}) {
+  loadManifest({ names = null, prefixes = [], filter = null } = {}) {
     // A transient failure may be retried, while a successful load remains
     // immutable for this page and coalesces double-clicked starts.
     return loadOnceRetriable(
       this,
       '_manifestLoadPromise',
-      () => this._loadManifestOnce({ names, prefixes }),
+      () => this._loadManifestOnce({ names, prefixes, filter }),
     );
   }
 
-  async _loadManifestOnce({ names = null, prefixes = [] } = {}) {
+  async _loadManifestOnce({ names = null, prefixes = [], filter = null } = {}) {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
     const allCues = this.manifest.sfx || [];
     const selectedNames = names ? new Set(names) : null;
-    const cues = selectedNames || prefixes.length
+    /* `filter` widens a names/prefixes selection rather than narrowing it, so
+     * a scene can say "my own dialogue prefix, plus every shared effect" —
+     * the shared pool has no common prefix to name. */
+    const cues = selectedNames || prefixes.length || filter
       ? allCues.filter((cue) => selectedNames?.has(cue.name)
-        || prefixes.some((prefix) => cue.name.startsWith(prefix)))
+        || prefixes.some((prefix) => cue.name.startsWith(prefix))
+        || (filter ? filter(cue) : false))
       : allCues;
     let wanted;
     if (isBundled()) {
@@ -832,6 +836,32 @@ export class AudioEngine {
       param.setValueAtTime(param.value, t);
     }
     param.linearRampToValueAtTime(value, t + ramp);
+  }
+
+  /**
+   * Move a positional loop's source without restarting it.
+   *
+   * Added for the mansion's janitor cart, which is a bed that walks: four
+   * castors and a bucket of water crossing a basement while a conversation
+   * runs over the top of it. The alternative every scene had before this was
+   * stop-and-restart per frame, which is a new panner, a new gain, a new fade
+   * and a click, sixty times a second.
+   *
+   * Returns false for a loop that is not running or was started without a
+   * position, so a caller can tell "moved" from "there was nothing to move".
+   */
+  moveLoop(key, position) {
+    const h = this.loops.get(key);
+    if (!h?.panner || !position || !Number.isFinite(position.x)) return false;
+    const p = h.panner;
+    if (p.positionX) {
+      p.positionX.value = position.x;
+      p.positionY.value = position.y ?? 0;
+      p.positionZ.value = position.z;
+    } else {
+      p.setPosition(position.x, position.y ?? 0, position.z);
+    }
+    return true;
   }
 
   setLoopVolume(key, v, ramp = 0.3) {

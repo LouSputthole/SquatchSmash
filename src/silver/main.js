@@ -3045,7 +3045,15 @@ startBtn.addEventListener('click', async () => {
     }
   }
   await audio.init();
-  const sfx = await audio.loadManifest();
+  /* Scoped, not the whole bank: this page only ever speaks vo.silver.* (344
+   * cues), but an unscoped load decoded all ~3,700 — every other scene's
+   * dialogue included — before `game.started` could flip, which is what made
+   * the first click hang (and verify-silver-story time out under load). Own
+   * dialogue by prefix, plus the shared un-prefixed effects pool by filter. */
+  const sfx = await audio.loadManifest({
+    prefixes: ['vo.silver.'],
+    filter: (cue) => !cue.name.startsWith('vo.'),
+  });
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
 
   overlay.classList.add('hidden');
