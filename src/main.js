@@ -4179,16 +4179,34 @@ function finishMargoWake() {
   audio.play('door.knob', { volume: 0.7 });
   apartmentStory.margoWakeDone();
   syncClockFromCampaign();
-  // Exactly the pose an ordinary morning hands over: on his back, looking at
-  // the ceiling, [E] to get up.
-  player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
-  interaction.setPaused(true);
-  hud.hidePrompt();
+  /* Hand back the posture he was actually in.
+   *
+   * Since SCENE 10 that is very nearly always ON HIS FEET: the fastening is
+   * only ever started from `interaction.press()`, and while he is lying down
+   * [E] means get up (see the keydown handler), so a man who helped her with
+   * the dress got up and walked over to do it. This used to lay him back down
+   * unconditionally -- "exactly the pose an ordinary morning hands over" --
+   * which teleported a standing player into his own bed the instant she shut
+   * the door, and paused every interaction in the flat on top of it. That is
+   * the same "held hostage in the bed" shape the rest of this scene exists to
+   * be rid of. `completeMargoDressHelp` is what took the room for her walk
+   * out, and this is where it goes back.
+   *
+   * The bed branch stays for the man who never got up -- reachable by dev
+   * console and by any future route that ends the morning without the beat --
+   * and hands over the ordinary morning: on his back, [E] to get up. */
+  if (player.mode === 'bed') {
+    player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
+    interaction.setPaused(true);
+    hud.hidePrompt();
+    setTimeout(() => {
+      if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
+    }, 1600);
+  } else {
+    interaction.setPaused(false);
+  }
   hud.say('<em>Gone.</em> The flat is very quiet and today is the day.', 4600);
   updateObjectives();
-  setTimeout(() => {
-    if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
-  }, 1600);
 }
 
 /**
