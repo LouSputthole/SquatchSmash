@@ -106,6 +106,7 @@ export const MANSION_ART_SLOTS = [
   'mansion.bay.shield',
   'mansion.conference.crest',
   'mansion.gallery.pride',
+  'mansion.gallery.campfire',
   'mansion.ballroom.backdrop',
   'mansion.office.shield',
   /* Owner, on walking his own house: "we had another commit or a pass which
@@ -3893,11 +3894,35 @@ export function buildMansionInterior(shell = null) {
     }));
     sconce(-11.4, UY + 3.0, Z_GALLERY_S + 0.2, 0, 1.9);
 
+    /* A second single piece, mirrored to the pride banner across the room's
+     * width -- east wing's south wall, symmetric with the pride banner's
+     * spot in the west wing, and clear of the east opening the same way
+     * (galleryToBedEastFront: x 13.1..14.9). */
+    const galleryCampfire = flatArt('mansion.gallery.campfire', {
+      x: 11.4,
+      y: UY + 2.0,
+      z: Z_GALLERY_S + 0.18,
+      rotY: 0,
+      w: 1.5,
+      h: 1.1,
+      material: mat({
+        map: squatchArt('mansion-gallery-campfire', {
+          title: ['UNCLE', 'SQUATCH'], footer: 'BY THE FIRE', ink: '#e8c268', bg: '#151019',
+        }),
+        roughness: 0.85,
+        unique: true,
+      }),
+    });
+    root.add(box({
+      size: [1.68, 1.28, 0.05], pos: [11.4, UY + 2.0, Z_GALLERY_S + 0.14], mat: M_GOLD, cast: false,
+    }));
+    sconce(11.4, UY + 3.0, Z_GALLERY_S + 0.2, 0, 1.9);
+
     const lights = [];
     for (const px of [-12, -4, 4, 12]) {
       lights.push(ceilingLight(px, 50.5, UCY - 0.3, 0xffdca0, 5.2, 15));
     }
-    return { lights, pride: galleryPride };
+    return { lights, pride: galleryPride, campfire: galleryCampfire };
   }
   const galleryProps = buildGallery();
 
@@ -10382,6 +10407,7 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.bay.shield', mesh: loungeProps.bayShield, w: 1.05 },
     { slot: 'mansion.conference.crest', mesh: conferenceProps.crest?.art, w: 1.3 },
     { slot: 'mansion.gallery.pride', mesh: galleryProps.pride, w: 1.5 },
+    { slot: 'mansion.gallery.campfire', mesh: galleryProps.campfire, w: 1.5 },
     { slot: 'mansion.ballroom.backdrop', mesh: ballroomProps.backdrop, w: 2.4 },
     { slot: 'mansion.office.shield', mesh: officeProps.shield, w: 1.45 },
     { slot: 'mansion.office.hogmama', mesh: officeProps.hogMama?.art, w: 0.9 },

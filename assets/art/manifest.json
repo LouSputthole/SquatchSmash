@@ -398,6 +398,12 @@
       "caption": "Framed on the door wall of Lou's office. Top secret -- ask before you stare."
     },
     {
+      "slot": "bing.office.noir_print",
+      "file": "bing-office-noir.png",
+      "title": "Uncle Squatch Beats",
+      "caption": "A spy-noir print of Lou's DJ alter ego, east wall of the office."
+    },
+    {
       "slot": "bing.bathroom.anime4",
       "file": "bing-bathroom-anime4.jpg",
       "title": "Bada Bing bathroom print",
@@ -612,6 +618,12 @@
       "file": "dreamhack-crowd.jpg",
       "title": "The crowd, on the gallery",
       "caption": "At the west end of the run, between the founders' portraits and the bedrooms."
+    },
+    {
+      "slot": "mansion.gallery.campfire",
+      "file": "mansion-campfire-banjo.png",
+      "title": "Uncle Squatch, by the fire",
+      "caption": "East end of the gallery's south wall, mirrored to the crowd shot on the west end."
     },
     {
       "slot": "mansion.ballroom.backdrop",

@@ -36,6 +36,7 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 | `bing.office.logo.crest` | Bada Bing, Silver Sasquatches crest above Lou's filing cabinet |
 | `bing.office.logo.shield` | Bada Bing, Silver Sasquatches shield beside Lou's desk |
 | `bing.office.fridge.sticker.toy` | Bada Bing, die-cut sticker on Lou's office mini fridge |
+| `bing.office.noir_print` | Bada Bing, "Uncle Squatch Beats" spy-noir print — east wall, south of the safe picture |
 | `bing.office.nephews` | Bada Bing, "THE NEPHEWS" frame on the office door wall |
 | `bing.bathroom.anime4` | Bada Bing, framed print on the bathroom wall |
 | `bing.hallway.uncle_lou` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
