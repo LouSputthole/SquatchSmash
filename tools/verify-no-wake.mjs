@@ -1804,13 +1804,23 @@ try {
     ['body', 'body', 130000],
   ]) {
     const cpPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    /* Playwright's own 30 s default, not this file's, was governing these
+     * pages: `setDefaultTimeout` is per-page and the main playthrough's page is
+     * the only one that ever got it. `nowake.html` fetches its whole module
+     * graph, the three.js build and the scene's textures on a software
+     * rasteriser, and under any load at all that is more than 30 s -- so the
+     * verifier died mid-loop with a `page.goto: Timeout 30000ms exceeded` on a
+     * page that was loading perfectly well. Same doctrine as the ceiling on the
+     * main page: a guard against a hang, not a performance assertion. */
+    cpPage.setDefaultTimeout(300000);
+    cpPage.setDefaultNavigationTimeout(300000);
     const cpProblems = [];
     cpPage.on('pageerror', (error) => cpProblems.push(error.message));
     cpPage.on('console', (message) => {
       if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
     });
     await cpPage.goto(`http://localhost:${PORT}/nowake.html?preview=1&checkpoint=${id}`, { waitUntil: 'load' });
-    await cpPage.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 60000 });
+    await cpPage.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
     const chip = await cpPage.evaluate(() => document.querySelector('#overlay .tag')?.textContent ?? '');
     // Coordinates, not a locator click: this scene's continuous WebGL redraw
     // on a software rasteriser can make a locator's "two stable frames" wait
