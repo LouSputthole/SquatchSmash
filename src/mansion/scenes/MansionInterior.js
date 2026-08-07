@@ -2458,7 +2458,27 @@ export function buildMansionInterior(shell = null) {
       size: [0.45, 0.08, 2.0], pos: [fx + 0.725, GY + 0.04, 52.6], mat: M_MARBLE_DK, cast: false, name: 'fireplace-hearth',
     }));
     solid(fx, fx + 0.6, GY, GY + 2.3, 51.2, 54.0);
-    const fireGlow = new THREE.PointLight(0xff7a2a, 4.2, 9, 2);
+    /* Owner playtest 2026-08-06: "the fireplace fire only becomes visible
+     * when you're right next to it". Two things gate a practical light in
+     * this house, and this one was short on both.
+     *
+     * `main.js`'s `updateLightRig()` keeps only the nearest ACTIVE_LIGHTS of
+     * ~90 practical lights switched on each frame, scored as
+     * `distanceTo(camera) - light.distance` -- so a light's own `distance`
+     * is not just its falloff radius, it is the light's ENTRY IN THAT RACE.
+     * At 9 m this one lost to every other light in the room the moment the
+     * player was more than a few strides from the hearth, and a firebox
+     * built out of `M_SILHOUETTE` (a near-black material, see the note
+     * above) reads as an unlit hole in the wall with its glow switched off
+     * -- which is the "only visible right next to it" the owner is
+     * describing, not the embers' own emissive material (that renders at
+     * any distance; it was the light selling the fire that was gone).
+     *
+     * The living room is up to 21.85 m deep (LIVING.z1 - LIVING.z0); from
+     * this hearth the farthest corner a player can stand in is a little
+     * under 18 m away. 20 m clears that with room to spare and wins the
+     * nearest-N race from anywhere the fire is meant to be seen. */
+    const fireGlow = new THREE.PointLight(0xff7a2a, 4.2, 20, 2);
     fireGlow.position.set(fx + 0.9, GY + 0.6, 52.6);
     root.add(fireGlow);
     // A cast grate with front bars, and the logs burning on it.
@@ -4698,7 +4718,15 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [0.3, 0.05, 0.9], pos: [fireX - 0.38, UY + 0.12, fireZ], mat: mat({ color: 0x140a06, emissive: 0xff5a1e, emissiveIntensity: 1.8, roughness: 0.9 }), cast: false, name: 'office-embers',
     }));
-    const fireGlow = new THREE.PointLight(0xff8a3c, 4.0, 9, 2);
+    /* Owner playtest 2026-08-06: "the fireplace fire only becomes visible
+     * when you're right next to it" -- same fault as the living room's own
+     * hearth (see the long note over its `fireGlow`), and the same fix.
+     * `main.js`'s nearest-N light rig scores every practical light as
+     * `distanceTo(camera) - light.distance`, so this light's 9 m range was
+     * also its ranking in that race, and it was losing it a few strides from
+     * the fender. The office is up to 18.5 m across on the diagonal from
+     * this hearth; 20 m covers it. */
+    const fireGlow = new THREE.PointLight(0xff8a3c, 4.0, 20, 2);
     fireGlow.position.set(fireX - 0.9, UY + 0.55, fireZ);
     root.add(fireGlow);
     // Overmantel mirror, garniture and the fire irons.
