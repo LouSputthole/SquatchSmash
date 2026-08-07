@@ -65,6 +65,13 @@ const EFFECT_SCENES = [
     || name.startsWith('ambience.club') || name.startsWith('ambience.crowd')
     || name.startsWith('car.radio') || name.startsWith('hotdog.')],
   ['Apartment — Margo', (name) => name.startsWith('margo.dress.')],
+  /* PROJECT SILENT SQUATCH's own noises: the hidden wall, the core, the gas,
+   * the glass, the execution and the cleanup. Authored in
+   * src/mansion/scenes/SilentSquatch.js since the scene was built and only in
+   * the manifest since 2026-08-06 (`npm run sfx:mansion`) — before that they
+   * could not appear on this sheet at all, because a cue that is not in the
+   * manifest is not a cue as far as production is concerned. */
+  ['PROJECT SILENT SQUATCH', (name) => name.startsWith('silent.')],
   ['Shared movement', (name) => name.startsWith('footstep.')],
 ];
 
@@ -300,8 +307,19 @@ function renderProvisionalCastingReview(out, cues, voices, have) {
 
 function renderManifestEffects(out, effects) {
   const byScene = group(effects, (cue) => effectScene(cue.name));
-  const order = ['Silver Pines', 'NO WAKE', 'THE TAKE', 'Bada Bing',
-    'Apartment — Margo', 'Shared movement', 'Shared / other'];
+  /**
+   * The reading order, and then EVERYTHING ELSE.
+   *
+   * This used to be the whole list, so a scene added to `EFFECT_SCENES` and
+   * not to this line was silently dropped out of the sheet: its cues were
+   * grouped under a heading that was never printed. PROJECT SILENT SQUATCH's
+   * fifty-one sounds landed in exactly that hole the day they reached the
+   * manifest. Named scenes come first, in this order, and anything not named
+   * follows rather than disappearing.
+   */
+  const preferred = ['PROJECT SILENT SQUATCH', 'Silver Pines', 'NO WAKE', 'THE TAKE',
+    'Bada Bing', 'Apartment — Margo', 'Shared movement', 'Shared / other'];
+  const order = [...preferred, ...[...byScene.keys()].filter((s) => !preferred.includes(s)).sort()];
 
   if (!effects.length) {
     out.push('## Manifest effect pickups', '', 'Nothing outstanding.', '');

@@ -9539,7 +9539,7 @@
       "name": "kitchen.oven",
       "_note": "An oven door and a tray going in. Heavy, and only once in a while.",
       "prompt": "a heavy restaurant oven door opened on a sprung hinge and a metal tray slid in, followed by the door latching shut, close kitchen mic, dry, no music, no voice",
-      "duration": 1.0
+      "duration": 1
     },
     {
       "name": "kitchen.ticket",
@@ -9563,7 +9563,7 @@
       "name": "dining.chair",
       "_note": "A chair moved on carpet. Somebody is leaving, and it is not about you.",
       "prompt": "a wooden dining chair shifted and scraped a short distance across thick carpet, single low cloth-and-frame scrape, restaurant room tone, dry, no music, no voice",
-      "duration": 1.0
+      "duration": 1
     },
     {
       "name": "margo.snore",
@@ -19785,6 +19785,275 @@
       "promptInfluence": 0.5,
       "prompt": "a heavy loaded oak bookcase swinging back into a wall and settling into its frame, wooden groan then one solid dull thud, books shifting, interior, no music, no voices",
       "_note": "NOT YET RECORDED. Synth fallback in src/core/audio.js."
+    },
+    {
+      "name": "silent.bust.switch",
+      "duration": 1.4,
+      "prompt": "A small concealed toggle under a marble plinth: a hard mechanical click with a metallic aftertaste, then a relay closing somewhere behind the wall."
+    },
+    {
+      "name": "silent.wall.mechanism",
+      "duration": 7,
+      "prompt": "Two tonnes of decorated wall on hydraulic rails: a pressure release, a deep grinding shove backwards, a pause, then a long sideways rumble on steel rollers with the whole room resonating under it. Roughly six seconds."
+    },
+    {
+      "name": "silent.wall.seat",
+      "duration": 5,
+      "prompt": "The same wall coming home: the sideways rumble reversed, a heavy seat, and the dead thump of masonry meeting masonry. Everything behind it goes silent on the last frame."
+    },
+    {
+      "name": "silent.stairwell.ambience",
+      "duration": 12,
+      "loop": true,
+      "prompt": "Loop. A dead concrete stairwell four metres underground: low air-handling rumble, distant water in a pipe, and the electrical hum of a run of old fluorescent ballasts. No music, no wind."
+    },
+    {
+      "name": "silent.fluorescent.buzz",
+      "duration": 10,
+      "loop": true,
+      "prompt": "Loop. One failing tube directly overhead: a 100 Hz ballast buzz with an irregular flutter and a faint tick as the starter tries and fails."
+    },
+    {
+      "name": "silent.drain.drip",
+      "duration": 1.6,
+      "prompt": "Water finding a drainage channel: a single fat drop into a shallow trench, with a hard concrete slap and a short tail."
+    },
+    {
+      "name": "silent.door.open",
+      "duration": 3,
+      "prompt": "A heavy glass-and-steel door sliding open on a rail: a pneumatic release, a smooth rolling travel, and a soft seat at the end. Substantial, not automatic-supermarket."
+    },
+    {
+      "name": "silent.door.seal",
+      "duration": 3.2,
+      "prompt": "The same door closing and SEALING: the roll, then a rubber gasket compressing under real force and the air pressure changing on both sides of it."
+    },
+    {
+      "name": "silent.door.bolts",
+      "duration": 2.4,
+      "prompt": "Four steel bolts driving into their sockets one after another, fast: solid, industrial, final. Ends on a relay and a single low tone."
+    },
+    {
+      "name": "silent.keypad.key",
+      "duration": 0.5,
+      "prompt": "One key on a rubber-membrane industrial keypad. Dull press, faint electronic blip."
+    },
+    {
+      "name": "silent.keypad.accept",
+      "duration": 1.6,
+      "prompt": "Two rising electronic tones and a lock relay letting go. Cold, not friendly."
+    },
+    {
+      "name": "silent.keypad.reject",
+      "duration": 1.2,
+      "prompt": "A flat descending buzz, twice. The sound of a machine that does not care."
+    },
+    {
+      "name": "silent.drawer.open",
+      "duration": 2.2,
+      "prompt": "A steel transfer drawer in a wall: a lock releasing, a heavy tray sliding out on runners, and a stop."
+    },
+    {
+      "name": "silent.drawer.through",
+      "duration": 3.4,
+      "prompt": "The tray going the other way: motorised, slow, a seal closing behind it, and a muffled clunk arriving on the far side of the glass."
+    },
+    {
+      "name": "silent.core.hum",
+      "duration": 12,
+      "loop": true,
+      "prompt": "Loop. The Squatchanium core at rest: a deep steady electrical hum with a slow beating overtone, a faint metallic rotation under it, and coolant moving somewhere in the frame."
+    },
+    {
+      "name": "silent.core.build",
+      "duration": 20,
+      "prompt": "Twenty seconds of the same hum building: pitch climbing, harmonics stacking, the rotation speeding up, and a low mechanical strain coming in underneath. Ends unresolved."
+    },
+    {
+      "name": "silent.core.roar",
+      "duration": 7,
+      "prompt": "The completion: the build breaking into a deep mechanical roar, huge and metallic, then dropping back to a locked, steady, enormous hum."
+    },
+    {
+      "name": "silent.core.lock",
+      "duration": 2,
+      "prompt": "Stabiliser rings locking: three heavy magnetic clunks in quick succession and a rising tone snapping off."
+    },
+    {
+      "name": "silent.alarm",
+      "duration": 10,
+      "loop": true,
+      "prompt": "Loop. An internal laboratory alarm: a slow two-tone industrial klaxon, unhurried, with a rotating-beacon motor whirring under it. Not a fire alarm and not a siren -- a protocol running."
+    },
+    {
+      "name": "silent.gas.release",
+      "duration": 3.6,
+      "prompt": "Ceiling vents opening under pressure: a series of solenoid clacks, then a hard sustained release of gas into a sealed room."
+    },
+    {
+      "name": "silent.gas.hiss",
+      "duration": 12,
+      "loop": true,
+      "prompt": "Loop. Gas continuing to fill a sealed concrete room: broadband hiss with a slow pulsing pressure wave and the vents rattling faintly in their frames."
+    },
+    {
+      "name": "silent.glass.fist",
+      "duration": 1.2,
+      "prompt": "A bare fist on 60 mm reinforced glass. Almost no ring: a heavy dull impact that goes straight into the frame, felt more than heard. Stays sharp even from the far side."
+    },
+    {
+      "name": "silent.glass.chair",
+      "duration": 2.6,
+      "prompt": "A metal chair swung two-handed into that same glass. A huge dead impact, the chair frame ringing and buckling, and the pane not moving at all. Ends with the chair hitting the floor."
+    },
+    {
+      "name": "silent.choking",
+      "duration": 12,
+      "loop": true,
+      "prompt": "Loop. A distant bed of several people coughing and choking behind heavy glass: overlapping, ragged, thinning out over its length. Never comedic, never a single voice."
+    },
+    {
+      "name": "silent.equipment.crash",
+      "duration": 3,
+      "prompt": "Glassware and a light steel trolley going over in a laboratory: a scattering smash and a long rolling tail."
+    },
+    {
+      "name": "silent.switch.cover",
+      "duration": 1.2,
+      "prompt": "A red safety cover lifting on a stiff spring hinge: a plastic snap and a metallic detent holding it open."
+    },
+    {
+      "name": "silent.switch.pull",
+      "duration": 1.6,
+      "prompt": "A big industrial lever pulled through its full travel: mechanical resistance, a heavy detent at the bottom, and a contactor slamming closed."
+    },
+    {
+      "name": "silent.monitor.turn",
+      "duration": 2.4,
+      "prompt": "A wall of CRT monitors all changing state at once: a soft collective degauss thump and a wash of high-frequency line whine settling."
+    },
+    {
+      "name": "silent.chain.creak",
+      "duration": 12,
+      "loop": true,
+      "prompt": "Loop. A load-bearing chain on a ceiling hook with a man on the end of it: slow irregular creaks, links shifting, and the hook turning a few degrees at a time."
+    },
+    {
+      "name": "silent.case.hum",
+      "duration": 10,
+      "loop": true,
+      "prompt": "Loop. Close-up: the containment case. A low electrical hum with a faint vibration in the shell and an occasional high transient, like something inside changing state."
+    },
+    {
+      "name": "silent.case.latches",
+      "duration": 1.8,
+      "prompt": "A heavy chrome flight case being opened on a steel table: two sprung catches letting go one after the other, a stiff hinge, and the lid coming up against its stops. Close, dry, expensive-sounding. No voice."
+    },
+    {
+      "name": "silent.container.lift",
+      "duration": 1.8,
+      "prompt": "A dense metal cylinder lifted out of foam by two hands: the foam releasing, the mass shifting, and a soft magnetic detach."
+    },
+    {
+      "name": "silent.arc",
+      "duration": 1.2,
+      "prompt": "A short gold electrical arc between two electrodes: a crack, a sizzle, and an ozone tail."
+    },
+    {
+      "name": "silent.voice.complete",
+      "duration": 3.4,
+      "prompt": "A cold synthesised facility voice, no warmth, faintly accented by its own compression: \"PROJECT SILENT SQUATCH. CORE COMPLETE.\""
+    },
+    {
+      "name": "silent.voice.protocol",
+      "duration": 4,
+      "prompt": "The same voice: \"SILENT NIGHT PROTOCOL ACTIVATED.\" Repeated once, flatly, over an alarm."
+    },
+    {
+      "name": "silent.lab.hvac",
+      "duration": 12,
+      "loop": true,
+      "prompt": "Loop. The laboratory's own air handling from inside the sealed room: a big slow plant fan through ductwork, a steady pressure hiss at the diffusers, and a subsonic thrum you feel more than hear. Clean and clinical, no rattles -- this room is maintained."
+    },
+    {
+      "name": "silent.coolant.flow",
+      "duration": 10,
+      "loop": true,
+      "prompt": "Loop. Coolant moving through pipework at the core: liquid under pressure in a 50 mm line, a faint chatter at a bend, and the occasional slug of vapour going through. Close, wet, metallic."
+    },
+    {
+      "name": "silent.monitors.whine",
+      "duration": 10,
+      "loop": true,
+      "prompt": "Loop. A wall of CRT monitors at close range: the 15 kHz line whine of six of them slightly out of tune with each other, plus a low mains hum from the console bank under them. Thin, electrical, and slightly unpleasant to stand next to."
+    },
+    {
+      "name": "silent.core.rings",
+      "duration": 10,
+      "loop": true,
+      "prompt": "Loop. Three magnetic stabiliser rings turning around a core at speed: a smooth heavy rotation with a beating overtone as the rings pass each other, and a bearing note underneath. Enormous and completely even -- nothing here is straining."
+    },
+    {
+      "name": "silent.core.discharge",
+      "duration": 3,
+      "prompt": "The core shedding energy it does not need: a deep dry crack, an arc rolling away into the ductwork, and the hum dropping a tone and coming back. Once, unhurried, like a machine clearing its throat."
+    },
+    {
+      "name": "silent.gunshot.observation",
+      "duration": 2.4,
+      "prompt": "A 9 mm pistol fired once in a low concrete observation room with a glass wall down one side: a hard flat crack, an immediate slap off the glass, and a tail that goes into the ductwork and dies in about a second and a half. Loud, dry and small -- there is nowhere for it to go."
+    },
+    {
+      "name": "silent.gunshot.tail",
+      "duration": 4,
+      "prompt": "What is left in the room a second after that shot: the ring in both ears, a plate rattling somewhere in the ceiling, and the hum of the machinery coming back up underneath it as your hearing returns."
+    },
+    {
+      "name": "silent.shell.concrete",
+      "duration": 1.6,
+      "prompt": "A single 9 mm brass case landing on a painted concrete floor and coming to rest: a bright first tick, three quick lighter ones, and a short roll."
+    },
+    {
+      "name": "silent.body.concrete",
+      "duration": 2,
+      "prompt": "A grown man in a lab coat going down onto concrete, unbraced: a heavy soft impact with no cushion in it, the flat knock of a skull following a fraction later, and cloth settling."
+    },
+    {
+      "name": "silent.blood.spatter",
+      "duration": 1.2,
+      "prompt": "Something wet hitting a hard floor from height: a short scatter of fat droplets across concrete, with no splash and no ring. Understated -- this is a texture, not a gore effect."
+    },
+    {
+      "name": "silent.cart.wheels",
+      "duration": 8,
+      "loop": true,
+      "prompt": "Loop. An industrial janitor cart being pushed across painted concrete: four small hard castors, one of them with a flat spot, a mop bucket of water slopping in its frame, and bottles knocking together on the shelf."
+    },
+    {
+      "name": "silent.cart.park",
+      "duration": 2.6,
+      "prompt": "The same cart stopping: the castors dropping into stillness, the water in the bucket sloshing forward and settling, and the push bar taking the weight as somebody lets go of it."
+    },
+    {
+      "name": "silent.mop.wring",
+      "duration": 2.8,
+      "prompt": "A mop head going into a wringer and being worked twice: the metal frame taking the load, water forced out in two hard bursts, and the handle knocking the rim of the bucket."
+    },
+    {
+      "name": "silent.mop.floor",
+      "duration": 8,
+      "loop": true,
+      "prompt": "Loop. A wet mop head worked across concrete in long strokes: the drag of soaked cotton, water spreading and being pushed back, and the handle pivoting in a gloved hand."
+    },
+    {
+      "name": "silent.gloves.snap",
+      "duration": 1.6,
+      "prompt": "A pair of heavy rubber gloves pulled on and snapped at the wrists, twice. Close, dry, and unpleasantly brisk."
+    },
+    {
+      "name": "silent.bag.liner",
+      "duration": 2.4,
+      "prompt": "A heavy-gauge polythene liner shaken open and pulled down over a hoop frame: one loud snap of air and a long rustle."
     }
   ]
 }

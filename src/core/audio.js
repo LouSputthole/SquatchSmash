@@ -834,6 +834,32 @@ export class AudioEngine {
     param.linearRampToValueAtTime(value, t + ramp);
   }
 
+  /**
+   * Move a positional loop's source without restarting it.
+   *
+   * Added for the mansion's janitor cart, which is a bed that walks: four
+   * castors and a bucket of water crossing a basement while a conversation
+   * runs over the top of it. The alternative every scene had before this was
+   * stop-and-restart per frame, which is a new panner, a new gain, a new fade
+   * and a click, sixty times a second.
+   *
+   * Returns false for a loop that is not running or was started without a
+   * position, so a caller can tell "moved" from "there was nothing to move".
+   */
+  moveLoop(key, position) {
+    const h = this.loops.get(key);
+    if (!h?.panner || !position || !Number.isFinite(position.x)) return false;
+    const p = h.panner;
+    if (p.positionX) {
+      p.positionX.value = position.x;
+      p.positionY.value = position.y ?? 0;
+      p.positionZ.value = position.z;
+    } else {
+      p.setPosition(position.x, position.y ?? 0, position.z);
+    }
+    return true;
+  }
+
   setLoopVolume(key, v, ramp = 0.3) {
     const h = this.loops.get(key);
     if (!h) return;

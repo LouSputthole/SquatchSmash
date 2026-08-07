@@ -168,6 +168,39 @@ export const SPEAKERS = Object.freeze({
   HUD: Object.freeze({ name: '', voice: null }),
 });
 
+/* =================================================================== */
+/* PER-VOICE OUTPUT GAIN                                                */
+/*                                                                       */
+/* Owner playtest, 2026-08-06: *"Aubbie volume +20%."*                   */
+/*                                                                        */
+/* AT THE PROFILE, NOT AT THE FILE AND NOT AT THE CALL SITE. Aubbie has   */
+/* thirty-one lines in this mission and they leave by two different       */
+/* routes — muffled, out of his body behind twelve centimetres of glass,  */
+/* and dry, out of the same body once he has walked through the door —    */
+/* so a number typed at either route fixes half of him. And a take        */
+/* re-rendered louder fixes only the takes that exist today: eleven of    */
+/* this mission's lines are still unrecorded and the eleven after them    */
+/* would arrive quiet again.                                              */
+/*                                                                         */
+/* So it is one table, keyed by the `voices` profile every one of his      */
+/* lines already resolves to, read by `SilentSquatchMission.#speak` and by */
+/* `mission/mount.js`'s `playCue` — the only two places a line of this     */
+/* mission's ever reaches the engine. Recast him and the gain follows the  */
+/* profile; give somebody else the same problem and it is one row.         */
+/* =================================================================== */
+export const VOICE_GAIN = Object.freeze({
+  /* +20%. He is the quietest performance on the roster and half his part is
+   * played through the glass send, which takes another 40% off him on top. */
+  aubbie: 1.2,
+});
+
+/** The output gain a line in this voice is played at. 1 for everybody with no
+ * row of their own, so an uncast or misspelled profile is simply normal. */
+export function gainForVoice(voice) {
+  const gain = VOICE_GAIN[voice];
+  return Number.isFinite(gain) && gain > 0 ? gain : 1;
+}
+
 /** Speaker key -> index in `lab.scientists`. The mission routes a scientist's
  * line through `lab.glassAudio` and calls `lab.scientists[i].say(cue)` so the
  * body it comes out of is the right one. */
@@ -633,6 +666,23 @@ export const SEQUENCES = Object.freeze({
   /* =================================================================== */
   /* BEAT 11 — Snow, and the exit.                                        */
   /* =================================================================== */
+  /**
+   * SNOW IS ON THE INTERCOM UNTIL HE IS IN THE ROOM.
+   *
+   * Owner playtest, 2026-08-06: *"Snow must come down to the lab for his
+   * clean-up lines."* He never did — Booski called him, he answered, and then
+   * he said "Jesus Christ.", which is a man looking at a room full of bodies,
+   * from the foyer, three floors up, having seen nothing.
+   *
+   * The exchange splits where it always split. The first three lines are the
+   * intercom: a man answering a call and being told to bring a cart. Then
+   * `snow.arrives` sends him down — the scene walks him out of the stairwell
+   * with the cart (see `snowToTheBasement` in ../cast.js) — and the last two
+   * are said IN the observation area, by somebody who can see the glass. The
+   * hold on the stage direction is the walk.
+   *
+   * Not one line of text changed, so not one recording is invalidated.
+   */
   snowIntercom: Object.freeze([
     // spec
     { speaker: 'BOOSKI', text: 'Snow. Basement.', cue: cue('exit', 'booski.snowbasement'), hold: 2.0 },
@@ -641,7 +691,9 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'HUD', stage: 'booski.looksthrough', hold: 2.0 },
     // spec
     { speaker: 'BOOSKI', text: 'Bring the cart.', cue: cue('exit', 'booski.bringthecart'), hold: 1.8 },
-    // spec
+    /* He comes down the stairwell with it. Long enough to walk in on. */
+    { speaker: 'HUD', stage: 'snow.arrives', hold: 6.0 },
+    // spec — and now he is standing in it
     { speaker: 'SNOW', text: 'Jesus Christ.', cue: cue('exit', 'snow.jesuschrist'), hold: 1.8 },
     // spec
     { speaker: 'BOOSKI', text: 'And a mop.', cue: cue('exit', 'booski.andamop'), hold: 1.8 },
@@ -959,7 +1011,30 @@ export const OBJECTIVES = Object.freeze({
   LOCK_THE_LAB: 'Lock the laboratory door.',
   ELIMINATE_AUBBIE: 'Eliminate Aubbie.',
   ACTIVATE_SILENT_NIGHT: 'Activate Silent Night.',
-  RETURN_UPSTAIRS: 'Return upstairs.',
+  /* ---- THE WALK OUT, IN THE TWO LEGS IT ACTUALLY HAS.
+   *
+   * Owner playtest, 2026-08-06, verbatim: *"Objective says 'return to the
+   * cellar', voice lines say return to Lou, Booski says go upstairs —
+   * reconcile the flow so the player knows what to do."*
+   *
+   * He was reading three different destinations off one beat, and none of the
+   * three agreed with the fourth thing — where the mission actually ended,
+   * which was the top of the stairwell in the cellar, nowhere near Lou:
+   *
+   *   Booski says      "Upstairs. Lou's still awake."
+   *   the objective    "Return upstairs."      (upstairs from WHERE, to WHAT)
+   *   the instruction  "Go back up the stairwell to the cellar."
+   *   the mission      completed at the cellar and said nothing else
+   *
+   * They all say the same thing now, and the thing they say is where the beat
+   * really ends: Lou's office. The objective NAMES THE MAN from the moment
+   * Booski gives the order, and changes at the top of the stairs to name the
+   * room, so it is a progress report rather than a repeated instruction. The
+   * step-by-step is the INSTRUCTIONS below, which is the split this file has
+   * always used: the objective is what he is doing, the instruction is what to
+   * press next. */
+  REPORT_TO_LOU: 'Report back to Lou. He is still awake.',
+  LOU_IS_WAITING: 'Report to Lou in his office, upstairs.',
 });
 
 /**
@@ -975,7 +1050,10 @@ export const INSTRUCTIONS = Object.freeze({
   KEYPAD: 'Press E at the keypad, then type the code and press ENTER.',
   ELIMINATE_AUBBIE: 'Aim at Aubbie and LEFT CLICK.',
   SILENT_NIGHT: 'Hold E on the SILENT NIGHT switch.',
+  /* The two legs of the walk out, in order. Neither of them contradicts the
+   * objective any more: the objective says LOU and these say which stair. */
   RETURN_UPSTAIRS: 'Go back up the stairwell to the cellar.',
+  RETURN_TO_OFFICE: 'Up the main stairs to Lou’s office, past the boardroom.',
   /* Gratin's offer, in the two steps it actually has. Raised in the relevant
    * sequence's `onDone`, after he has finished speaking — never on the same
    * frame as the question. The first replaced a single `TAKE_A_SWING` that

@@ -1043,6 +1043,16 @@ const armory = mountArmory({
  * the note at `onCordInHand`.
  */
 let setCordInHand = () => {};
+/**
+ * Booski calling Snow down to the basement, through a mutable handle for the
+ * reason `setCordInHand` is one: `const cast = mountMansionCast(...)` is two
+ * hundred lines BELOW `mountSilentSquatch(...)`, and `cast?.x` on a `const`
+ * in its temporal dead zone is a ReferenceError rather than `undefined`. The
+ * beat that spends this is minutes away, but the rule that says do not point
+ * a closure at a `const` you have not reached yet is the one that cost this
+ * house a boot once already.
+ */
+let summonSnow = () => false;
 const loadout = createMansionLoadout({
   weapons: weaponSystem,
   weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
@@ -1183,6 +1193,12 @@ if (lab && night.play) {
      *
      * `pistol9` rather than the revolver: Booski is the man who made copies
      * of Aubbie's notes, and a man like that carries a magazine. */
+    /* ---- SNOW COMES DOWN (owner playtest: he has clean-up lines about the
+     * lab and never comes down). Booski's "Bring the cart." now reaches the
+     * man it is addressed to: `cast.js` walks him out of the stairwell with
+     * the cart while the exchange is still running. `cast` is assigned below
+     * this call, so it goes through the mutable handle above. */
+    onSnowSummoned: () => summonSnow(),
     onSidearm: () => {
       if (weaponSystem.equipped === WEAPON_IDS.PISTOL9) return;
       weaponSystem.equip(WEAPON_IDS.PISTOL9);
@@ -1248,9 +1264,17 @@ const cast = mountMansionCast(scene, world, {
    * playtest: it used to be welded to the camera from the handover to the
    * end of the mission. */
   onCordOwned: (owned) => { if (owned) loadout.giveCord(); else loadout.takeCord(); },
+  /* The delivery is a hand-off to a MAN (owner playtest: "walk up to Booski,
+   * hit E, case auto-places on the table"). The mission owns the beat, the
+   * cast owns Booski's body, and neither imports the other -- so the verb
+   * comes down through here, like `hasCase` above it. `silentSquatch` is
+   * assigned before this call and read at press time, so a house with no
+   * laboratory in it simply has a Booski you cannot hand anything to. */
+  onDeliverCase: () => silentSquatch?.deliverCase?.() === true,
   enabled: () => running,
 });
 setCordInHand = (on) => cast?.setCordInHand?.(on);
+summonSnow = () => cast?.snowToTheBasement?.() === true;
 /* And catch up: the loadout may already have decided what is in his hand
  * while this was still a no-op. */
 loadout.refresh();
@@ -1707,14 +1731,17 @@ const CHECKPOINTS = {
       pump(() => m.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 400);
     },
   },
+  /* BEAT 11's FIRST LEG. The jump stages the order and the walk out of the
+   * basement; it deliberately does NOT press `leave()` or `reportToLou()`,
+   * because those are the two things the player is here to do. The label and
+   * the objective both name Lou, which is the owner's flow note. */
   clear: {
-    label: 'BEAT 11 — RETURN UPSTAIRS',
+    label: 'BEAT 11 — BACK UP TO LOU',
     where: () => lab?.anchors?.stairFoot ?? anchors.basementLanding,
     yaw: 180,
     play: (m, pump) => {
       CHECKPOINTS.silent_night.play(m, pump);
-      m.leave();
-      pump(() => m.state === 'COMPLETE', 60);
+      pump(() => m.state === 'EXIT', 60);
     },
   },
   /* NOT A MISSION BEAT. The third floor is somewhere the player finds rather
@@ -1928,6 +1955,27 @@ window.mansion = {
       }
       return out;
     },
+    /**
+     * How everybody who is sitting on something is sitting.
+     *
+     * Owner playtest: "Chair sitters (Hog Mama, Capt Sasole) clip through
+     * their chairs." `gap` is the distance from the underside of a man's hips
+     * to the surface directly under them — negative is inside the seat.
+     */
+    get seats() { return cast?.seats?.() ?? []; },
+    /** Snow's errand to the basement, or null if Booski has not called him.
+     * Owner playtest: he has clean-up lines about the lab and was never in it. */
+    get snowErrand() { return cast?.snowErrand ?? null; },
+    /**
+     * Every cue the HOUSE's own dialogue controller has played, in order.
+     *
+     * The cast and the mission are two controllers sharing one subtitle bar,
+     * so "was that line on screen when I looked" is a race between them —
+     * which is exactly how the booth guard's challenge came back as a FAIL on
+     * a build where he was speaking. This is what he SAID, which is not a
+     * race, and the bar is checked separately for the subtitle.
+     */
+    get said() { return [...(cast?.dialogue?.cueLog ?? [])]; },
     /** Posts whose standing position is inside a solid box. */
     get inSolid() {
       const bad = [];

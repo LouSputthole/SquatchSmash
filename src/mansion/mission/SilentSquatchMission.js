@@ -1,6 +1,6 @@
 import {
   SEQUENCES, OBJECTIVES, INSTRUCTIONS, TARGET_CALLOUTS, LAB_DOOR_CODE,
-  SCIENTIST_INDEX,
+  SCIENTIST_INDEX, gainForVoice,
 } from '../script.js';
 import { DialogueController } from './DialogueController.js';
 import { SilentSquatchStateMachine, S, BEAT_OF } from './SilentSquatchStateMachine.js';
@@ -82,6 +82,17 @@ const COLLAPSE_ORDER = Object.freeze([
   SCIENTIST_INDEX.ORLOVA,
 ]);
 
+/**
+ * The level a laboratory body plays a line at with nobody overriding it.
+ *
+ * The number belongs to `scenes/SilentSquatch.js` (`say()`'s `opts.volume ??
+ * 0.9`) and is restated here because this file is now the caller that
+ * overrides it — per-voice gain has to be applied to SOMETHING, and applying
+ * it to a default the scene owns without saying so is how the two drift apart.
+ * If the scene's default moves, this moves with it.
+ */
+const LAB_BODY_VOLUME = 0.9;
+
 const COLLAPSE_INTERVAL = 1.1;
 /** How long the aftermath will wait for the monitor to agree that they are
  * dead before reporting what it actually says. Never a fail state — a lab that
@@ -104,7 +115,9 @@ class SilentSquatchMission {
    * @param {Function} [opts.onLine]    subtitle in
    * @param {Function} [opts.onLineEnd] subtitle out
    * @param {Function} [opts.onStage]   cosmetic stage directions for the scene
-   * @param {Function} [opts.playCue]   play a dry (non-muffled) cue by name
+   * @param {Function} [opts.playCue]   `(cue, voice, gain)` — play a dry
+   *   (non-muffled) cue by name. `gain` is the speaker's own profile gain
+   *   (see `VOICE_GAIN` in ../script.js) and is 1 for everybody without a row.
    * @param {Function} [opts.onCase]    'carry' | 'desk' | 'open' | 'close' | 'slide' | 'table' | 'gone'
    * @param {Function} [opts.onBeat]    (state, beatNumber) whenever a beat starts
    */
@@ -163,6 +176,8 @@ class SilentSquatchMission {
     this.aubbieKilled = false;
     this.aubbieKilledSide = null;
     this.aubbieMissedShots = 0;
+    /** True once the round has actually landed in him. See `shootAubbie`. */
+    this.bloodShed = false;
     /** True once Booski has handed the pistol over at the delivery. */
     this.sidearmGiven = false;
     this.bezmenovTriedHandleFirst = false;
@@ -357,6 +372,15 @@ class SilentSquatchMission {
     this.#instruct('');
     this.hud.setCallout('');
     const aubbie = this.lab.scientists?.[SCIENTIST_INDEX.AUBBIE];
+    /* THE BLOOD, THEN THE FALL, in that order (owner playtest: "blood effect
+     * when Aubbie is shot"). `shot` is the round arriving and `collapse` is
+     * the body going down, and they are two calls because the gassing uses
+     * the second one five times over and none of that is bloody. `from` is
+     * where the shot came from so the wound faces the shooter; the mission
+     * does not know where the player is standing, so the scene resolves it
+     * against his own body when it is not told. */
+    aubbie?.shot?.(null);
+    this.bloodShed = true;
     aubbie?.collapse?.();
     this.dialogue.play(SEQUENCES.executionDone, {
       onDone: () => this.fsm.go(S.REACTION),
@@ -382,8 +406,25 @@ class SilentSquatchMission {
     this.leaving = true;
     this.#instruct('');
     this.dialogue.play(SEQUENCES.wallCloses, {
-      onDone: () => this.fsm.go(S.COMPLETE),
+      /* NOT `COMPLETE`. Getting out of the basement is the first half of what
+       * Booski asked for; the second half is the man he told you to go and
+       * see. See `S.BACK_TO_LOU`. */
+      onDone: () => this.fsm.go(S.BACK_TO_LOU),
     });
+    return true;
+  }
+
+  /**
+   * Beat 11. He is back in the office, and that is the night.
+   *
+   * The player's own action, like everything else in this mission — the
+   * `officeReturn` trigger volume calls it when he walks in, and a verifier
+   * calls it directly. Refuses at every other moment.
+   */
+  reportToLou() {
+    if (!this.#at(S.BACK_TO_LOU)) return false;
+    this.#instruct('');
+    this.fsm.go(S.COMPLETE);
     return true;
   }
 
@@ -415,6 +456,8 @@ class SilentSquatchMission {
         killed: this.aubbieKilled,
         side: this.aubbieKilledSide,
         missedShots: this.aubbieMissedShots,
+        /** The round landed and the scene was told to bleed him. */
+        bled: this.bloodShed,
       },
       muffled: this.lab.muffled === true,
       glassRouted: this.glassRouted,
@@ -486,6 +529,13 @@ class SilentSquatchMission {
   #speak(cue, voice, line, playCue) {
     if (!cue) return 0;
     const index = SCIENTIST_INDEX[line.speaker];
+    /* Owner playtest: "Aubbie volume +20%". Per PROFILE, so it reaches him on
+     * both of his routes and on the lines nobody has recorded yet. See
+     * `VOICE_GAIN` in ../script.js. `LAB_BODY_VOLUME` is the level the
+     * laboratory plays a body's line at when nobody says otherwise; it is
+     * restated here because this is the caller that now says otherwise. */
+    const gain = gainForVoice(voice);
+    const volume = LAB_BODY_VOLUME * gain;
     if (line.muffled) {
       this.glassRouted++;
       const body = index === undefined ? null : this.lab.scientists?.[index];
@@ -493,7 +543,7 @@ class SilentSquatchMission {
        * dry one does — a line behind the glass is still a line, and the
        * controller has to know how long to hold it or the next one talks over
        * it. See `DialogueController._advance`. */
-      if (body?.say) return body.say(cue) || 0;
+      if (body?.say) return body.say(cue, { volume }) || 0;
       /* No body for this speaker, so it goes through the glass bus directly.
        * That path returns an audio node rather than a length, and there is no
        * duration accessor on it — so this reports 0 and the line falls back to
@@ -503,7 +553,35 @@ class SilentSquatchMission {
       return 0;
     }
     this.dryRouted++;
-    return playCue?.(cue, voice) || 0;
+    /**
+     * A SCIENTIST WHO HAS WALKED OUT FROM BEHIND THE GLASS IS STILL A BODY.
+     *
+     * Owner playtest, 2026-08-06: *"Aubbie's mouth stops moving once he leaves
+     * the lab."* It did, and the reason was this branch. A scientist's mouth
+     * is moved by `lab.scientists[i].say()` — the laboratory plays the cue AND
+     * hands the playing node to his jaw (src/core/mouth.js). That call only
+     * ever happened on the MUFFLED route, because muffled was being used as a
+     * proxy for "this line comes out of a body". It is not: it means "there is
+     * twelve centimetres of glass in the way".
+     *
+     * So from `door.open` onwards — the eleven lines of Aubbie's the whole
+     * execution is made of, "It is complete", "Booski, we had agreement", "You
+     * do not have to do this" — every one of them was played by `playCue`,
+     * which is a bare `audio.play()` that has never heard of him, and he
+     * pleaded for his life with his mouth shut.
+     *
+     * The body is asked FIRST and the plain cue is the fallback, which is also
+     * the right way round for everybody else: Booski, Lou and the guards have
+     * no entry in `SCIENTIST_INDEX`, so they take the fallback unchanged and
+     * their mouths keep being moved by the cast's own subtitle-bar wrapper.
+     *
+     * `dry: true` is not a guess — the mission knows this line is not behind
+     * the glass, and saying so beats letting the body infer it from a `side`
+     * flag that the mission is the thing that sets.
+     */
+    const body = index === undefined ? null : this.lab.scientists?.[index];
+    if (body?.say) return body.say(cue, { volume, dry: true }) || 0;
+    return playCue?.(cue, voice, gain) || 0;
   }
 
   /** Stage directions written into the script. The lab ones are performed
@@ -597,6 +675,21 @@ class SilentSquatchMission {
       case 'snow': this.#bark('snow', SEQUENCES.snowFoyer); break;
       case 'office':
         if (this.fsm.is(S.ARRIVAL)) this.fsm.go(S.LOU_OFFICE);
+        break;
+      /* THE SAME ROOM, A SECOND TIME, AND THEREFORE A SECOND ZONE ID.
+       * `arrive()` fires each id once and only once — walking back into the
+       * office on `office` would be swallowed by the visit he made in beat 2,
+       * and the night would never end.
+       *
+       * ...AND A SECOND ID IS NOT ENOUGH ON ITS OWN. The player stands in this
+       * room in beat 2 as well, with the case in his hands, and `arrive()`
+       * CONSUMES an id the first time the trigger volume is crossed whatever
+       * the handler does with it. So beat 2's visit ate beat 11's zone and the
+       * mission could never be finished — the objective said "Report to Lou in
+       * his office", the player walked into Lou's office, and nothing
+       * happened. A visit that is not beat 11's puts the id straight back. */
+      case 'officeReturn':
+        if (!this.reportToLou()) this.zonesEntered.delete('officeReturn');
         break;
       case 'cellar':
         this.#bark('cellar', SEQUENCES.cellarArrival);
@@ -900,11 +993,37 @@ class SilentSquatchMission {
       [S.EXIT]: {
         enter: () => {
           if (this.leaving) return;
+          /* Booski says "Upstairs. Lou's still awake."; the objective names
+           * Lou; the instruction says which stair. All three agree, which is
+           * the whole of the owner's flow note. */
           this.#sayThenInstruct(SEQUENCES.exitOrder, INSTRUCTIONS.RETURN_UPSTAIRS, {
-            objective: OBJECTIVES.RETURN_UPSTAIRS,
+            objective: OBJECTIVES.REPORT_TO_LOU,
           });
         },
         update: (dt) => this.#stalls(dt, 40, [SEQUENCES.exitOrder]),
+      },
+
+      /**
+       * Beat 11, second leg: the cellar door is behind him and Lou is
+       * upstairs.
+       *
+       * The mission used to finish HERE, at the top of the stairwell, with an
+       * objective that had said "Return upstairs." since the basement — so the
+       * night ended in a wine cellar, three floors below the man who sent him,
+       * with nothing on screen to say it was over.
+       *
+       * A scene with no office trigger volume — `mission/contract-lab.js`, and
+       * any harness driving the mission on its own — completes here instead of
+       * standing about waiting for a zone that does not exist. Same idiom as
+       * `S.STAIRWELL` and `S.INTERROGATION` above.
+       */
+      [S.BACK_TO_LOU]: {
+        enter: () => {
+          this.#objective(OBJECTIVES.LOU_IS_WAITING);
+          this.#instruct(INSTRUCTIONS.RETURN_TO_OFFICE);
+          if (!this.zones.officeReturn) go(S.COMPLETE);
+        },
+        update: (dt) => this.#stalls(dt, 45, [SEQUENCES.exitOrder]),
       },
 
       [S.COMPLETE]: {
