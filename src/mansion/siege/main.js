@@ -167,9 +167,34 @@ const anchors = { ...grounds.anchors, ...interior.anchors };
 
 /* The nearest-N local light rig, same shape as the tour's: a late-arriving
  * light joins a candidate pool switched off and takes its turn on proximity,
- * so the VISIBLE light count never changes and no material recompiles. */
+ * so the VISIBLE light count never changes and no material recompiles.
+ *
+ * THE POOL IS SEEDED FROM THE HOUSE, and that line is the whole reason this
+ * page was playable at one frame per second on a 4080 with a five-minute
+ * load. `buildMansionGrounds` and `buildMansionInterior` hand back 58 and 170
+ * practical point lights respectively -- a lamp on a nightstand, a bulb in a
+ * display case, a candle on a dining table -- and every one of them is
+ * `visible` when it is built. `src/mansion/main.js` has always emptied that
+ * pool into its own rig (its comment records the tour measuring a scene that
+ * "never produced a second frame at all, because the shader for ninety-three
+ * point lights never finished compiling"). This file declared the identical
+ * rig and then seeded it with NOTHING, so the siege ran the same house with
+ * 228 visible point lights: three.js compiles every visible light into every
+ * material's shader, so the boot was hundreds of 228-light shader compiles
+ * and each frame afterwards looped 228 lights per pixel.
+ *
+ * Measured in the headless harness, before and after this line:
+ * 235 -> 17 effectively-visible lights, no first frame inside 360 s -> a
+ * first frame in about 2 s. Nothing about the LOOK of the house changes: the
+ * moon, the hemisphere fill and the five exterior spots are not in these
+ * arrays and stay on, and the ten nearest practicals to the camera are lit
+ * exactly as the tour lights its fourteen. */
 const ACTIVE_LIGHTS = 10;
-const _lightRank = [];
+const _lightRank = [...grounds.lights, ...interior.lights]
+  .map((light) => { light.visible = false; return { light, score: 0 }; });
+for (let i = 0; i < Math.min(ACTIVE_LIGHTS, _lightRank.length); i++) {
+  _lightRank[i].light.visible = true;
+}
 let _lightTimer = 0;
 function registerLocalLight(light) {
   light.visible = false;
