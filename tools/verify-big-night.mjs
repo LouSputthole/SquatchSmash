@@ -121,6 +121,10 @@ await page.addInitScript(() => {
         status: 'complete', outcome: 'strong', woo: 74, band: 'strong',
         tippedEverybody: true, rememberedDrink: true,
         seeingHerAgain: true, knowsWhatHeDoes: true,
+        /* The verdict a played strong night writes (mission.js derives it
+         * from the outcome). Without it the fourth-morning wake is not owed
+         * and the back half of this file waits on a scene that cannot start. */
+        cameHome: true,
       },
       initiation: { status: 'locked' },
     },
@@ -341,8 +345,11 @@ try {
       && slept.initiation === 'locked',
     JSON.stringify(slept));
 
+  /* The blackout's own choreography is ~5.2s of real setTimeout before the
+   * flag flips; under software rendering the frames around it stretch, and
+   * 15s proved marginal — one run in two died here. */
   await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
-    timeout: 15000,
+    timeout: 60000,
   });
   const woke = await page.evaluate(() => ({
     day: window.__squatch.time.day,

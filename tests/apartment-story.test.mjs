@@ -945,6 +945,39 @@ test('SCENE 9 never fires on a bad night, and never past the night it happened',
   assert.equal(goodStory.margoHomeForTheNight(), false, 'the night is over');
 });
 
+test('an absent cameHome verdict survives normalize, and the fourth morning survives with it', () => {
+  /* The pre-existing-save shim: a save from before the verdict existed has no
+   * `cameHome` at all, and `margoWakeOwed` deliberately reads that as "yes".
+   * normalize used to coerce the absence to an explicit false on the very
+   * next update -- the one value the shim cannot survive -- so one reload
+   * cancelled the fourth morning for every old save. Absent must round-trip
+   * as absent. */
+  const campaign = afterTheDate();
+  // A pre-verdict save has no key at all; a fresh seed carries `false` from
+  // birth, so the old-save shape has to be made, not assumed.
+  campaign.update((state) => {
+    delete state.missions[MISSION_IDS.SILVER_ROOM].cameHome;
+  });
+  campaign.update(() => {});
+  const silver = campaign.state.missions[MISSION_IDS.SILVER_ROOM];
+  assert.equal('cameHome' in silver, false, 'absent verdict must stay absent through normalize');
+
+  const story = createApartmentStory({ campaign, ring: () => true });
+  story.sleep();
+  assert.equal(campaign.state.story.chapter, 'golf_morning');
+  assert.equal(story.margoWakeOwed(), true, 'the shim keeps the old save\'s morning');
+
+  // The explicit verdicts still round-trip untouched in both directions.
+  setSilverOutcome(campaign, 'strong', true);
+  campaign.update(() => {});
+  assert.equal(campaign.state.missions[MISSION_IDS.SILVER_ROOM].cameHome, true);
+  assert.equal(story.margoWakeOwed(), true);
+  setSilverOutcome(campaign, 'awkward', false);
+  campaign.update(() => {});
+  assert.equal(campaign.state.missions[MISSION_IDS.SILVER_ROOM].cameHome, false);
+  assert.equal(story.margoWakeOwed(), false, 'an explicit no still blocks the morning');
+});
+
 /** Set the Silver Room's outcome and cameHome verdict directly, mid-test. */
 function setSilverOutcome(campaign, outcome, cameHome) {
   campaign.update((state) => {

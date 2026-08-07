@@ -1416,8 +1416,14 @@ function normalize(saved) {
          * verdict at all, and defaults to "yes". A stricter reader would not
          * be so lucky -- and `margoComeHomeOwed` (SCENE 9's own gate) is
          * exactly that reader: it requires an explicit `true`, which could
-         * never have survived to be read. */
-        cameHome: silver.cameHome === true,
+         * never have survived to be read.
+         *
+         * Tri-state, deliberately. `=== true` here coerced an ABSENT verdict
+         * to an explicit `false`, which is the one value `margoWakeOwed`'s
+         * pre-existing-save shim cannot survive: a save from before the
+         * verdict existed round-tripped through one normalize and had its
+         * fourth morning cancelled. Absent must stay absent. */
+        ...(typeof silver.cameHome === 'boolean' ? { cameHome: silver.cameHome } : {}),
       },
       [MISSION_IDS.SILVER_PINES]: {
         status: golfStatus,
