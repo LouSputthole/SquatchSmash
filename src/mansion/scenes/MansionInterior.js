@@ -4691,7 +4691,27 @@ export function buildMansionInterior(shell = null) {
      * in it is a conference room with a desk. Marble surround, a lit grate,
      * an overmantel mirror in a gilt frame, garniture on the shelf and a set
      * of irons on the hearth. */
-    const fireZ = 70.4;
+    /* MOVED OFF THE BOOKCASE WALL. Owner playtest 2026-08-06: "move the
+     * fireplace slightly right so it is not behind the bookcase."
+     *
+     * "Right" is not reachable in x -- fireX already sits flush on the east
+     * exterior wall (r.x1 - 0.02) with nowhere further out to go. Measured
+     * on the built scene instead: at fireZ 70.4 the south pilaster ran
+     * z 68.9..69.65, and the secret stair's own hall -- the bookcase run's
+     * back wall, `suite-stair-wall`, x 6.25..8.85 z 68.85..69.15 -- reaches
+     * the whole width of that pilaster and stops only 250 mm short of it.
+     * The chimneypiece was standing IN the wall the office bookcases are
+     * fitted into, which from the office side reads as exactly what the
+     * owner is describing: the fire opening behind the last bay of books.
+     *
+     * Pushed 0.6 m further north: the south pilaster now starts at
+     * fireZ - 1.5 = 69.5, clear of the hall's own north wall (ending 69.15)
+     * by 350 mm instead of overlapping it by 250 mm -- and, since every
+     * dimension below is written off `fireZ`, the whole surround moves as
+     * one piece. Checked against the room's own north wall (BUILDING.z1 =
+     * 75): the north pilaster now reaches fireZ + 1.5 = 72.5, more than 2 m
+     * short of it. */
+    const fireZ = 71.0;
     const fireX = r.x1 - 0.02;
     /* A FIREPLACE IS A VOID WITH A SURROUND ROUND IT, NOT A DARK BOX ON A SLAB.
      *
