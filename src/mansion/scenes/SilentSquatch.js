@@ -3689,30 +3689,59 @@ export function buildSilentSquatch({
   /* confusion, panic, covering their mouths, coughing, slamming the glass, */
   /* crawling for the door, and going down.                                 */
   /* ================================================================== */
+  /**
+   * HOW BIG A SCIENTIST IS, IN METRES.
+   *
+   * Owner playtest, 2026-08-06: *"The scientists are all far too large."* They
+   * were: measured in the built house, the six stood 1.94 m to 2.05 m, which
+   * made every one of them taller than Numbskull (1.97), the biggest man on
+   * the roster, and put the smallest of them a centimetre over Big Uncle Lou.
+   * Six Russians in lab coats were the tallest people in the building.
+   *
+   * The cause is that this rig is not the one the rest of the house is built
+   * from. `Figure` (src/squatchfather/characters/Figure.js) reads `height` as
+   * a multiplier ON THE TORSO ONLY — the legs, the neck and the head do not
+   * move with it — so its natural standing height is about 1.98 m whatever
+   * `height` says, and the numbers in this table were being read as though
+   * they were the `Npc`'s `height`, which IS metres.
+   *
+   * `metres` is metres. The build measures each figure's own natural height
+   * once and scales the whole group to it, uniformly, about the group origin —
+   * which is the floor between his feet, so nobody's shoes leave the concrete.
+   * Measured rather than divided by a constant, because the natural height
+   * depends on `bulk` and on the hair, and a constant would drift the moment
+   * either changed.
+   *
+   * The range is the house's own: `src/core/wardrobe.js` runs 1.68 (Hog Mama)
+   * to 1.94 (DeathMegatron) with most of the Family between 1.74 and 1.86.
+   * Aubbie is 1.77 here because Aubbie is 1.77 in the wardrobe — he is the
+   * same man the player drinks with in the Bing, and a scientist a head taller
+   * than the Aubbie in the club is a different character.
+   */
   const SCIENTIST_SPECS = [
     // 0 -- Aubbie. Lead. Older, greying, the only one with a tie showing.
     {
-      id: 'aubbie', bulk: 1.06, height: 1.03, coat: 0xe2e0d6, shirt: 0xdad8cc, tie: 0x4a2028, hair: 0x3a3630, temples: 0x9a968c, skin: 0xc0956e, browHeavy: true, hairStyle: 'short',
+      id: 'aubbie', metres: 1.77, bulk: 1.06, height: 1.03, coat: 0xe2e0d6, shirt: 0xdad8cc, tie: 0x4a2028, hair: 0x3a3630, temples: 0x9a968c, skin: 0xc0956e, browHeavy: true, hairStyle: 'short',
     },
     // 1 -- the nervous technician. Small, young, hair too long for the room.
     {
-      id: 'two', bulk: 0.9, height: 0.98, coat: 0xd6d4ca, shirt: 0xc8d0d8, tie: 0x2c4a5a, hair: 0x241c14, skin: 0xd0a882, hairStyle: 'short', lidHeavy: false,
+      id: 'two', metres: 1.72, bulk: 0.9, height: 0.98, coat: 0xd6d4ca, shirt: 0xc8d0d8, tie: 0x2c4a5a, hair: 0x241c14, skin: 0xd0a882, hairStyle: 'short', lidHeavy: false,
     },
     // 2 -- the weapons engineer. Heavy, cropped, sleeves of the coat rolled.
     {
-      id: 'three', bulk: 1.3, height: 0.97, coat: 0xcdcbc0, shirt: 0x9aa4ac, tie: 0x33383e, hair: 0x1a1712, skin: 0xb4855e, hairStyle: 'crop', browHeavy: true,
+      id: 'three', metres: 1.79, bulk: 1.3, height: 0.97, coat: 0xcdcbc0, shirt: 0x9aa4ac, tie: 0x33383e, hair: 0x1a1712, skin: 0xb4855e, hairStyle: 'crop', browHeavy: true,
     },
     // 3 -- the cynical older one. Tall, grey, hooded eyes. Sees it first.
     {
-      id: 'four', bulk: 1.0, height: 1.08, coat: 0xdcdad0, shirt: 0xd0cec4, tie: 0x3a3a42, hair: 0x8e8a80, skin: 0xc8b096, hairStyle: 'short', lidHeavy: true,
+      id: 'four', metres: 1.86, bulk: 1.0, height: 1.08, coat: 0xdcdad0, shirt: 0xd0cec4, tie: 0x3a3a42, hair: 0x8e8a80, skin: 0xc8b096, hairStyle: 'short', lidHeavy: true,
     },
     // 4 -- the junior assistant. Slight, cropped, newest coat in the room.
     {
-      id: 'five', bulk: 0.86, height: 0.95, coat: 0xeae8de, shirt: 0xdde4ea, tie: 0x5a2a30, hair: 0x4a3220, skin: 0xdcb894, hairStyle: 'crop',
+      id: 'five', metres: 1.68, bulk: 0.86, height: 0.95, coat: 0xeae8de, shirt: 0xdde4ea, tie: 0x5a2a30, hair: 0x4a3220, skin: 0xdcb894, hairStyle: 'crop',
     },
     // 5 -- the medical specialist. Broad, dark-haired, surgical blues.
     {
-      id: 'six', bulk: 1.14, height: 1.0, coat: 0x9ec4c0, shirt: 0x8ab4b0, tie: 0x2a4a48, hair: 0x14100c, skin: 0x8e6a4a, hairStyle: 'short', browHeavy: true,
+      id: 'six', metres: 1.81, bulk: 1.14, height: 1.0, coat: 0x9ec4c0, shirt: 0x8ab4b0, tie: 0x2a4a48, hair: 0x14100c, skin: 0x8e6a4a, hairStyle: 'short', browHeavy: true,
     },
   ];
 
@@ -3743,6 +3772,57 @@ export function buildSilentSquatch({
   const GLASS_INSIDE_Z = GLASS_WALL.z0 - 0.55; // where you stand to hit it
   const handprints = [];
 
+  /* ================================================================== */
+  /* WHERE EACH OF THEM DIES                                             */
+  /*                                                                      */
+  /* Owner playtest, 2026-08-06: *"Scientists' dying animations overlap/  */
+  /* intersect each other."*                                              */
+  /*                                                                       */
+  /* THEY ALL CRAWLED TO THE SAME COORDINATE. `crawl()` sent every one of  */
+  /* them to the middle of the glass door — one point, five men, no        */
+  /* separation of any kind — and then each fell forward from wherever the  */
+  /* walk had left him, which was inside whoever got there first. The gas   */
+  /* stage that produces the scene's last image produced five bodies in one */
+  /* 600 mm square.                                                         */
+  /*                                                                        */
+  /* So each man has a LANE: his own stretch of glass, spaced by more than a */
+  /* fallen body is wide, fanned out from the door he is crawling for. He    */
+  /* still crawls for the door — that is the spec's own direction — but he   */
+  /* arrives at his own bit of it. `collapseYaw` then rolls each body a       */
+  /* different way, and `separate()` in `collapse()` is the backstop for the  */
+  /* case a lane cannot cover: a man who went down early, in the open,        */
+  /* somewhere another man is still walking through.                          */
+  /* ================================================================== */
+  /** Lane spacing. MEASURED, not guessed: a fallen figure's bounding box runs
+   * up to 1.30 m across once it has rolled, so 1.40 m is the smallest pitch at
+   * which two of them cannot touch. */
+  const LANE_PITCH = 1.4;
+  /** How close two bodies on the floor are allowed to be, centre to centre.
+   * The same 1.30 m plus a little, so the backstop agrees with the lanes. */
+  const CORPSE_GAP = 1.35;
+  const DOOR_CENTRE_X = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2;
+  /**
+   * His own piece of the glass, fanned out either side of the door.
+   *
+   * Index 0 (Aubbie) keeps the door itself — he is the one who walks out
+   * through it and dies on the other side, so his lane is empty by the time
+   * anybody is crawling. The five who are left take the two slots each side of
+   * it and one more beyond, which spreads them over 5.6 m of a 10 m room with
+   * a gap where the door is: the picture the beat wants is five people at the
+   * window, and five people at the window are not five people in a heap.
+   */
+  const LANE_ORDER = [0, -1, 1, -2, 2, 3];
+  function laneX(index) {
+    return THREE.MathUtils.clamp(
+      DOOR_CENTRE_X + (LANE_ORDER[index] ?? 0) * LANE_PITCH,
+      SEALED_LAB.x0 + 0.9,
+      SEALED_LAB.x1 - 0.9,
+    );
+  }
+  /** Which way a body rolls as it goes down. Fixed per man, and no two of the
+   * six the same, so the floor never reads as a row of identical falls. */
+  const COLLAPSE_ROLL = [0.34, -0.52, 0.18, -0.28, 0.46, -0.14];
+
   /**
    * What working at a bench looks like, cycled per man. See the work loop in
    * `update`. `gap` is a deliberate entry: the pauses are what stop six
@@ -3771,10 +3851,35 @@ export function buildSilentSquatch({
     fig.group.position.y = LAB_Y;
     root.add(fig.group);
 
+    /* ---- HUMAN SCALE, MEASURED (owner playtest: "far too large").
+     *
+     * `Figure`'s `height` is a torso multiplier, not metres, so all six stood
+     * about 2 m whatever it said. This measures the figure that was actually
+     * built — its own natural height, with its own bulk and its own hair — and
+     * scales the group uniformly to `spec.metres`.
+     *
+     * ABOUT THE GROUP ORIGIN, which is the floor between his feet
+     * (`buildFigure` puts the pelvis at +0.92 and hangs the legs off it, so
+     * local y = 0 is the shoe soles). A uniform scale about that point cannot
+     * lift him off the floor or sink him into it, whatever the factor, which
+     * is why "feet on the floor" needs no second correction here.
+     *
+     * `figScale` is published so everything measured in WORLD metres off this
+     * body — where his mouth is, how high his handprint lands — scales with
+     * him instead of drifting up his chest as he shrinks. */
+    const natural = new THREE.Box3().setFromObject(fig.group);
+    const naturalHeight = natural.isEmpty() ? 0 : natural.max.y - natural.min.y;
+    const figScale = naturalHeight > 0.5 ? spec.metres / naturalHeight : 1;
+    fig.group.scale.setScalar(figScale);
+    fig.group.updateMatrixWorld(true);
+
     const self = {
       index: i,
       id: spec.id,
       fig,
+      /** Metres he is actually built at, and what it took to get there. */
+      metres: spec.metres,
+      figScale,
       home,
       alive: true,
       inside: true,
@@ -3839,7 +3944,10 @@ export function buildSilentSquatch({
           return secs;
         }
         const at = fig.group.position.clone();
-        at.y = LAB_Y + 1.55;
+        /* His mouth, not a fixed height off the floor: these bodies are scaled
+         * to their own metres now (see `figScale`), so a hard 1.55 would put
+         * the shortest man's voice above his hairline. */
+        at.y = LAB_Y + 1.55 * figScale;
         /* `opts.dry` is the CALLER saying this line is not behind the glass,
          * and it wins over `self.inside`. The mission knows — it is the thing
          * that opened the door and marked the line unmuffled — and a body that
@@ -3975,11 +4083,15 @@ export function buildSilentSquatch({
         chairBend();
         return self;
       },
+      /** His lane at the glass — his own, and nobody else's. See LANE_PITCH. */
+      get lane() { return laneX(i); },
       crawl() {
         if (!self.alive) return self;
         self.stage = 'crawling';
         self.speed = 0.42;
-        self.target = { x: (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, z: GLASS_INSIDE_Z };
+        /* FOR THE DOOR, IN HIS OWN LANE. Every one of them used to crawl to
+         * the same coordinate and die on top of the man who got there first. */
+        self.target = { x: laneX(i), z: GLASS_INSIDE_Z };
         return self;
       },
       /** The last thing he leaves behind. Sticks to the glass at his height. */
@@ -4005,7 +4117,8 @@ export function buildSilentSquatch({
         );
         m.position.set(
           THREE.MathUtils.clamp(fig.group.position.x, GLASS_WALL.x0 + 0.4, GLASS_WALL.x1 - 0.4),
-          LAB_Y + 1.34,
+          /* Shoulder height on THIS man, not on a two-metre one. */
+          LAB_Y + 1.34 * figScale,
           GLASS_WALL.z0 - 0.09,
         );
         m.name = 'ss-handprint';
@@ -4023,7 +4136,15 @@ export function buildSilentSquatch({
         fig.gestureT = 0;
         fig.talkT = 0;
         self._fall = 0;
-        self._fallYaw = (Math.random() - 0.5) * 0.8;
+        /* Fixed per man rather than random: six random rolls will occasionally
+         * hand two neighbours the same one, and the whole point of this pass is
+         * that the floor after Silent Night reads as six separate people. */
+        self._fallYaw = COLLAPSE_ROLL[i % COLLAPSE_ROLL.length];
+        /* Measured in the pose he is about to end in, and then put back, so
+         * the nudge happens before the fall rather than as a jump after it. */
+        poseFallen(self, 1);
+        separateFallen(self);
+        poseFallen(self, 0);
         lifeSigns = Math.max(0, lifeSigns - 1);
         paintLifeSigns();
         return self;
@@ -4081,6 +4202,101 @@ export function buildSilentSquatch({
 
   /** Speech from somebody who is NOT behind the glass. */
   function plainSay(cue, opts) { return audio?.play?.(cue, opts) ?? null; }
+
+  /**
+   * The pose of a man going down, at `e` = 0 (upright) to 1 (on the floor).
+   *
+   * Extracted from the update loop so `collapse()` can put him in the pose he
+   * is ABOUT to end in, measure it, and put him back — see `separateFallen`.
+   * Felled like a tree, pivoting at the feet, with his own roll on the way.
+   */
+  function poseFallen(s, e) {
+    const f = s.fig;
+    f.root.rotation.x = e * 1.46;
+    f.root.rotation.z = e * (s._fallYaw ?? 0);
+    f.pelvis.position.y = 0.92 - e * 0.42;
+    f.group.updateMatrixWorld(true);
+  }
+
+  const _corpseA = new THREE.Box3();
+  /** Concrete between two bodies on the floor. */
+  const CORPSE_MARGIN = 0.12;
+  const overlapsXZ = (a, b, margin) => a.min.x - margin < b.max.x && a.max.x + margin > b.min.x
+    && a.min.z - margin < b.max.z && a.max.z + margin > b.min.z;
+
+  /**
+   * NOBODY DIES ON TOP OF ANYBODY (owner playtest: the dying animations
+   * intersect each other).
+   *
+   * The lanes do most of it — each man crawls for his own piece of the glass
+   * rather than for the one coordinate all five used to converge on — and this
+   * is what closes the rest: a man gassed before he started crawling, a man
+   * who went down in the open, and the six straight `collapse()` calls a
+   * verifier makes without walking anybody anywhere.
+   *
+   * IT MEASURES THE POSE HE IS ABOUT TO END IN, not the one he is in. A
+   * standing man's footprint is 400 mm across and a fallen one's is 1.3 m, so
+   * separating the uprights leaves the corpses overlapping — which is exactly
+   * what the lane pitch on its own still did for two of them. `collapse()`
+   * puts him in the final pose, calls this, and puts him back, so the nudge is
+   * applied before the fall starts and there is nothing to see.
+   *
+   * He slides ALONG THE GLASS rather than away from it, because the whole
+   * image is people at the window, and only as far as it takes: this stops at
+   * the first clear spot rather than spacing everybody evenly, which would
+   * look arranged. Clamped inside the room, so nothing goes through a wall.
+   */
+  function separateFallen(who) {
+    /* EVERY body on the floor, not only the ones on this side of the glass.
+     * Whether a man counts as "inside" is a flag the mission sets when he
+     * walks through a door, and two bodies in the same three square metres
+     * are two bodies in the same three square metres whatever it says. The
+     * five metres of glass between the two rooms does the separating for the
+     * pairs that genuinely are apart, because this is an XZ test. */
+    const others = scientists.filter((s) => s !== who && !s.alive);
+    if (!others.length) return 0;
+    /* EVERYBODY IN HIS FINAL POSE, not the one he is in.
+     *
+     * The five go down on their own clock — the mission spaces them 1.1 s
+     * apart and a verifier collapses all six in the same frame — so a man
+     * measured mid-fall is measured as most of a standing man, whose
+     * footprint is a third of the one he is about to have. Each of the others
+     * is posed flat, measured, and put straight back on the frame of his own
+     * fall that he was on. */
+    const boxes = others.map((s) => {
+      const was = THREE.MathUtils.smoothstep(s._fall, 0, 1);
+      poseFallen(s, 1);
+      const box = new THREE.Box3().setFromObject(s.object);
+      poseFallen(s, was);
+      return box;
+    });
+    const start = who.fig.group.position.x;
+    const clear = (x) => {
+      who.fig.group.position.x = x;
+      who.fig.group.updateMatrixWorld(true);
+      _corpseA.setFromObject(who.object);
+      return boxes.every((b) => !overlapsXZ(_corpseA, b, CORPSE_MARGIN));
+    };
+    if (clear(start)) return 0;
+    /* Out from where he fell, alternating sides, in 200 mm steps. Twenty of
+     * them is 4 m either way, which is wider than this room's free floor. */
+    for (let step = 1; step <= 20; step++) {
+      for (const side of [1, -1]) {
+        const x = THREE.MathUtils.clamp(
+          start + side * step * 0.2,
+          SEALED_LAB.x0 + 0.9,
+          SEALED_LAB.x1 - 0.9,
+        );
+        if (clear(x)) return +(x - start).toFixed(3);
+      }
+    }
+    /* Nowhere left. Put him back where he died rather than at the end of the
+     * last thing we tried — a body in the wrong place is better than a body
+     * against a wall it was pushed into. */
+    who.fig.group.position.x = start;
+    who.fig.group.updateMatrixWorld(true);
+    return 0;
+  }
 
   /* The chair beat 9 needs, standing at a station until somebody picks it
    * up. `chairBend()` is what "the chair bends, the glass does not break"
@@ -4837,11 +5053,9 @@ export function buildSilentSquatch({
       const f = s.fig;
       if (!s.alive) {
         // The collapse. Pivots at the feet, like a felled tree, and stays.
+        if (s._fall >= 1) continue;
         s._fall = Math.min(1, s._fall + dt * 0.9);
-        const e = THREE.MathUtils.smoothstep(s._fall, 0, 1);
-        f.root.rotation.x = e * 1.46;
-        f.root.rotation.z = e * (s._fallYaw ?? 0);
-        f.pelvis.position.y = 0.92 - e * 0.42;
+        poseFallen(s, THREE.MathUtils.smoothstep(s._fall, 0, 1));
         continue;
       }
       if (s.target) {

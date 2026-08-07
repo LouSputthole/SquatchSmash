@@ -276,6 +276,107 @@ const seatBase = (floorY, cushion) => floorY + cushion - POSE_CUSHION;
 /** How high this house's seats are, measured off its own colliders. */
 const CUSHION = Object.freeze({ chair: 0.50, islandStool: 0.75, barStool: 0.90 });
 
+/* ================================================================== */
+/* ...AND THEN MEASURING IT IN THE HOUSE THAT WAS ACTUALLY BUILT        */
+/*                                                                       */
+/* Owner playtest, 2026-08-06: *"Chair sitters (Hog Mama, Capt Sasole)    */
+/* clip through their chairs."* Measured, in the running game:            */
+/*                                                                        */
+/*   Hog Mama   hips 80 mm inside the kitchen stool's cushion, thighs      */
+/*              90 mm into it, and her back 40 mm inside its backrest      */
+/*   Sasole     hips 110 mm inside the bay bar stool's cushion, and        */
+/*              through the gold ring on top of it as well                 */
+/*   Eric       correct, on a dining chair, with the same arithmetic       */
+/*                                                                          */
+/* WHY THE ARITHMETIC CANNOT FIX IT. `seatBase` needs two numbers: how high  */
+/* the seat is, and how far above its base the folded pose puts a backside.  */
+/* The second one is a single constant and it is not a constant: the         */
+/* correction Hog Mama needs is 80 mm and the one Sasole needs is 130 mm,    */
+/* on the same formula, because they are different heights on differently    */
+/* built bodies. And the first one was read off the seats' COLLIDERS, which  */
+/* stand 15 mm and 35 mm proud of the cushions they cover.                   */
+/*                                                                            */
+/* So the arithmetic stays as the placement — it is right to within a few      */
+/* centimetres and it is what puts him at the right seat at all — and then     */
+/* this measures the result and corrects it. One ray, straight down out of      */
+/* the underside of his own hips, at mount, against the house as built. What    */
+/* it finds is the seat's real surface, whatever the seat is and whoever is     */
+/* sitting on it, and it cannot drift when somebody re-covers a stool.          */
+/*                                                                              */
+/* The feet are still allowed to fall where they fall (see `seatBase`).         */
+/* ================================================================== */
+const _seatRay = new THREE.Raycaster();
+const _seatDown = new THREE.Vector3(0, -1, 0);
+const _seatBox = new THREE.Box3();
+const _seatAt = new THREE.Vector3();
+/** How far a correction is allowed to move somebody. Anything larger is a
+ * figure over a hole in the floor rather than a pose that needs 8 cm. */
+const SEAT_MAX_LIFT = 0.35;
+
+/** True if this object is any part of any NPC's body. */
+function partOfSomebody(object) {
+  for (let o = object; o; o = o.parent) if (o.userData?.npc) return true;
+  return false;
+}
+
+/**
+ * Where the surface under a seated man's hips is, and where his hips are.
+ *
+ * The ray starts ABOVE his hips rather than below them, and that is the whole
+ * trick: a man who is sunk into a cushion has his hips INSIDE it, and a ray
+ * that starts inside a box and points down leaves through a back face, which
+ * `MeshStandardMaterial`'s front-side culling throws away. The first version
+ * of this started 20 mm under his backside, sailed straight through the stool
+ * it was measuring, hit the kitchen floor, decided that was a 730 mm
+ * correction, refused it as absurd, and moved nobody at all.
+ *
+ * Returns `{ hips, seat }` in world Y, or null when there is nothing under
+ * him. The hit must be at or below the TOP of his hips — a bar counter
+ * overhanging him is not a seat.
+ */
+function seatUnder(scene, npc) {
+  const hips = npc?.parts?.hips;
+  if (!scene || !hips) return null;
+  npc.group.updateMatrixWorld(true);
+  _seatBox.setFromObject(hips);
+  if (_seatBox.isEmpty()) return null;
+  const underside = _seatBox.min.y;
+  const top = _seatBox.max.y;
+  _seatBox.getCenter(_seatAt);
+  _seatRay.set(new THREE.Vector3(_seatAt.x, top + 0.35, _seatAt.z), _seatDown);
+  _seatRay.far = 1.6;
+  const hit = _seatRay.intersectObject(scene, true)
+    .find((candidate) => !partOfSomebody(candidate.object) && candidate.point.y <= top);
+  return { hips: underside, seat: hit ? hit.point.y : null };
+}
+
+/**
+ * Put a seated figure ON its seat rather than IN it. Returns the metres he
+ * moved, or null when there was nothing under him to sit on.
+ */
+function sitOnTheSeat(scene, npc) {
+  if (!npc?.seated) return null;
+  let moved = 0;
+  /* Three passes, because lifting a man can change WHICH surface is under
+   * him: the pair in the hot tub come up off its floor and onto its moulded
+   * seat, and one correction leaves them 50 mm into the ledge they have just
+   * arrived over. It settles in two; the third is there so "it settled" is a
+   * fact rather than a hope. */
+  for (let pass = 0; pass < 3; pass++) {
+    const found = seatUnder(scene, npc);
+    if (!found || found.seat === null) return pass === 0 ? null : +moved.toFixed(3);
+    const lift = found.seat - found.hips;
+    if (!Number.isFinite(lift) || Math.abs(lift) > SEAT_MAX_LIFT) break;
+    if (Math.abs(lift) < 0.005) break;
+    npc.group.position.y += lift;
+    /* `baseY` too, or the next `stand()`/`sit()` puts him straight back. */
+    npc.baseY += lift;
+    npc.group.updateMatrixWorld(true);
+    moved += lift;
+  }
+  return +moved.toFixed(3);
+}
+
 /**
  * The perimeter beats.
  *
@@ -310,6 +411,27 @@ const IDLE_SECONDS = 7.0;
 /** How near the gate man has to be before he stops you. Wider: he is meant to
  * get the line out before you are on his step, not after. */
 const GATE_RANGE = 8.0;
+/**
+ * ...AND HOW FAR THE MAN IN THE BOOTH SHOUTS, WHICH IS ACROSS THE DRIVE.
+ *
+ * Owner playtest, 2026-08-06, on the booth guard's lines: verify the trigger
+ * fires. IT DID NOT, and it was arithmetic rather than wiring.
+ *
+ * His counter is at x 8.32, z 3.82. The drive he is watching is x −4 to +4
+ * (MansionGrounds' own note on the barrier arm: "the drive is x −4..4; the
+ * booth is 3 m east of its kerb"), and the player spawns at x 0 and walks
+ * straight up it. The closest that walk ever comes to him is 8.32 m — and he
+ * was on `GATE_RANGE`, 8.0. So the first person in the game to speak to the
+ * Prospect never spoke, and he never spoke by 32 centimetres, on the exact
+ * path the game starts you on. Hugging the east kerb triggered him and walking
+ * up the middle did not, which is the worst kind of working.
+ *
+ * 12.5 m is the width of the thing he is watching, not a number that felt
+ * safer: counter to the far kerb is 8.32 + 4 = 12.32, so anybody who passes
+ * his barrier gets challenged whichever side of the road he uses. He is a man
+ * at a gate shouting at a car; the distance IS the part.
+ */
+const BOOTH_RANGE = 12.5;
 
 /* ================================================================== */
 /* SNOW'S CART                                                          */
@@ -519,6 +641,8 @@ export function mountMansionCast(scene, world = {}, {
   /* ---------------------------------------------------------------- */
   const people = {};
   const posts = [];
+  /** Everybody who is sitting on something, for the seat pass at the end. */
+  const seated = [];
 
   const at = (name, fallback) => {
     const a = anchors?.[name];
@@ -551,6 +675,12 @@ export function mountMansionCast(scene, world = {}, {
     posts.push({
       id, npc, bark, idle, range, onArrive, onLeave, near: 0, said: false, saidIdle: false,
     });
+    /* On the seat, not in it. Every seated body gets measured against the
+     * house as built -- see `sitOnTheSeat`. Deferred until the whole cast is
+     * standing, because a chair somebody else is about to be put on is still
+     * furniture and the ray must not find a body that has not been corrected
+     * yet. */
+    if (npc.seated) seated.push({ id, npc });
     if (interaction && (look || onUse)) {
       /* ONE registration per body, on the body. `interaction.register` writes
        * `userData.interact`, so a second registration on the same object would
@@ -623,7 +753,11 @@ export function mountMansionCast(scene, world = {}, {
     y: boothStand.y ?? 0,
     z: boothStand.z,
     yaw: yawToward(boothStand.x, boothStand.z, boothLook.x, boothLook.z),
-    range: GATE_RANGE,
+    /* Across the drive, not eight metres of it -- see BOOTH_RANGE. He was on
+     * GATE_RANGE and the centre line of his own road is 8.32 m from his
+     * window, so "Stop there. Name." never played for anybody who walked up
+     * the middle, which is where the game starts you. */
+    range: BOOTH_RANGE,
     bark: SEQUENCES.boothChallenge,
     idle: SEQUENCES.boothLoiter,
     look: 'He has your name written down already.',
@@ -1734,6 +1868,53 @@ export function mountMansionCast(scene, world = {}, {
     screen.__castSpeaks = true;
   }
 
+  /* ================================================================ */
+  /* THE SEAT PASS                                                     */
+  /*                                                                    */
+  /* Run once, here, after every body in the house is standing where it */
+  /* belongs: each seated figure is measured against the furniture      */
+  /* under him and lifted onto it. See `sitOnTheSeat` for why the       */
+  /* arithmetic on its own could not do this.                           */
+  /* ================================================================ */
+  const seatLifts = {};
+  /* THE MATRICES FIRST. Nothing has been rendered yet at mount, so most of
+   * the house has never had `updateMatrixWorld` run on it and every mesh is
+   * still sitting at its local transform as far as a raycast is concerned.
+   * Without this the rays sail through the furniture and report a floor two
+   * rooms away — which is exactly what the first version of this pass did:
+   * it corrected the two people in the hot tub, whose subtree had been
+   * touched, and left the three the owner actually complained about. */
+  scene.updateMatrixWorld(true);
+  for (const entry of seated) {
+    const lift = sitOnTheSeat(scene, entry.npc);
+    if (lift !== null) seatLifts[entry.id] = lift;
+  }
+
+  /**
+   * How every seated body is sitting, right now.
+   *
+   * `gap` is the distance from the underside of his hips to the surface
+   * directly beneath them: 0 is sitting on it, negative is inside it, and a
+   * large positive number is hovering. Published so a verifier can assert the
+   * owner's note rather than take a screenshot of it.
+   */
+  function seatReport() {
+    const out = [];
+    for (const entry of seated) {
+      const found = seatUnder(scene, entry.npc);
+      if (!found) continue;
+      out.push({
+        id: entry.id,
+        name: entry.npc.name,
+        lifted: seatLifts[entry.id] ?? null,
+        hips: +found.hips.toFixed(3),
+        seat: found.seat === null ? null : +found.seat.toFixed(3),
+        gap: found.seat === null ? null : +(found.hips - found.seat).toFixed(3),
+      });
+    }
+    return out;
+  }
+
   /**
    * Gratin's whole approach, in one run: he tells you to give him a minute,
    * the Prospect points out that it is always him, he explains that he is good
@@ -1835,6 +2016,8 @@ export function mountMansionCast(scene, world = {}, {
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
     get snow() { return people.snow; },
+    /** Every seated body, and how it is sitting. See `seatReport`. */
+    seats: () => seatReport(),
     /** Lil Tom Cruze, or null in a house with no third floor in it. */
     dog,
     /** The two verbs, for a caller that wants to drive them without a mouse.

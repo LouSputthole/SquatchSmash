@@ -1902,6 +1902,14 @@ window.mansion = {
       }
       return out;
     },
+    /**
+     * How everybody who is sitting on something is sitting.
+     *
+     * Owner playtest: "Chair sitters (Hog Mama, Capt Sasole) clip through
+     * their chairs." `gap` is the distance from the underside of a man's hips
+     * to the surface directly under them — negative is inside the seat.
+     */
+    get seats() { return cast?.seats?.() ?? []; },
     /** Posts whose standing position is inside a solid box. */
     get inSolid() {
       const bad = [];

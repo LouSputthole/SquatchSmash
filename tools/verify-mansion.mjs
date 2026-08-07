@@ -2571,6 +2571,63 @@ try {
       && coreRun.purple === true,
     JSON.stringify(coreRun));
 
+  /* ---- S7: THE SIX ARE PEOPLE-SIZED.
+   *
+   * Owner playtest, 2026-08-06: *"The scientists are all far too large."*
+   * Measured before this pass, the six stood 1.94 m to 2.05 m, which made
+   * every one of them taller than Numbskull, the biggest man in the house.
+   * The cause was that `Figure`'s `height` is a torso multiplier and was being
+   * read as metres; they are scaled to measured metres now.
+   *
+   * Asserted against THE REST OF THE CAST rather than against a number typed
+   * twice: the house's own bodies are in the scene and they are what "human
+   * proportions consistent with the rest of the cast" means. Feet on the lab
+   * floor and heads clear of its ceiling are the other half of the note. */
+  const sizes = await page.evaluate(() => {
+    const T = window.mansion.THREE;
+    const L = window.mansion.lab;
+    const house = [];
+    window.mansion.scene.traverse((o) => {
+      if (!o.userData?.npc) return;
+      const b = new T.Box3().setFromObject(o);
+      if (!b.isEmpty()) house.push({ name: o.userData.npc.name, h: +(b.max.y - b.min.y).toFixed(3) });
+    });
+    const six = L.scientists.map((s) => {
+      const b = new T.Box3().setFromObject(s.object);
+      return {
+        i: s.index,
+        metres: s.metres ?? null,
+        scale: s.figScale ? +s.figScale.toFixed(3) : null,
+        height: +(b.max.y - b.min.y).toFixed(3),
+        feet: +b.min.y.toFixed(3),
+        head: +b.max.y.toFixed(3),
+      };
+    });
+    return {
+      six,
+      houseTallest: house.reduce((a, b2) => (b2.h > a.h ? b2 : a), { name: '-', h: 0 }),
+      houseCount: house.length,
+      LAB_Y: L.datums.LAB_Y,
+      LAB_CEIL: L.datums.LAB_CEIL,
+    };
+  });
+  const sizeFails = [];
+  for (const s of sizes.six) {
+    if (!(s.height >= 1.6 && s.height <= 1.9)) sizeFails.push(`#${s.i} stands ${s.height} m`);
+    if (s.metres === null || Math.abs(s.height - s.metres) > 0.02) {
+      sizeFails.push(`#${s.i} is ${s.height} m but declares ${s.metres}`);
+    }
+    if (Math.abs(s.feet - sizes.LAB_Y) > 0.03) sizeFails.push(`#${s.i} feet at ${s.feet}`);
+    if (s.head > sizes.LAB_CEIL - 0.4) sizeFails.push(`#${s.i} head at ${s.head} under a ${sizes.LAB_CEIL} ceiling`);
+    if (s.height > sizes.houseTallest.h) {
+      sizeFails.push(`#${s.i} is taller than ${sizes.houseTallest.name}`);
+    }
+  }
+  check('the six scientists are human-sized, feet on the lab floor and heads clear of its fixtures',
+    sizeFails.length === 0 && sizes.houseCount > 15,
+    sizeFails.slice(0, 4).join(' | ')
+      || `${sizes.six.map((s) => s.height).join(', ')} m against ${sizes.houseTallest.name} at ${sizes.houseTallest.h}`);
+
   /* ---- Silent Night. The gas fills the room, white to purple-grey, and
    * the six go down one by one. */
   const gasRun = await page.evaluate(async () => {
@@ -2604,6 +2661,21 @@ try {
     window.mansion.tick(3);
     out.lifeSigns = L.lifeSigns;
     out.aliveAfter = L.scientists.filter((x) => x.alive).length;
+    /* S7/S8: how big each of them is, and where each of them ended up. Read
+     * after the fall so the boxes are the ones a player is looking at. */
+    const T = window.mansion.THREE;
+    out.bodies = L.scientists.map((sci) => {
+      const b = new T.Box3().setFromObject(sci.object);
+      return {
+        i: sci.index,
+        metres: sci.metres ?? null,
+        height: +(b.max.y - b.min.y).toFixed(3),
+        feet: +b.min.y.toFixed(3),
+        head: +b.max.y.toFixed(3),
+        x: [+b.min.x.toFixed(3), +b.max.x.toFixed(3)],
+        z: [+b.min.z.toFixed(3), +b.max.z.toFixed(3)],
+      };
+    });
     return out;
   });
   check('Silent Night fills the sealed lab with gas -- thin at first, and it keeps thickening',
@@ -2621,6 +2693,36 @@ try {
     JSON.stringify({
       lifeSigns: gasRun.lifeSigns, alive: gasRun.aliveAfter, handprints: gasRun.handprints,
     }));
+
+  /* ---- S8: AND NOT ONE OF THEM DIES INSIDE ANOTHER ONE.
+   *
+   * Owner playtest: *"Scientists' dying animations overlap/intersect each
+   * other."* They did, and it was one coordinate: `crawl()` sent all five to
+   * the middle of the glass door, so the last image of the scene was five
+   * bodies in the same 600 mm square. Each man has his own lane now, and
+   * `collapse()` measures the pose he is about to end in before he starts
+   * falling.
+   *
+   * Pairwise, on the boxes as they actually are after the fall, in XZ —
+   * because a body on the floor is a footprint and two footprints must not
+   * share ground. Read off the run above, which put all six through the
+   * spec's ladder and then collapsed them. */
+  const corpsePairs = [];
+  for (let a = 0; a < gasRun.bodies.length; a++) {
+    for (let b = a + 1; b < gasRun.bodies.length; b++) {
+      const A = gasRun.bodies[a];
+      const B = gasRun.bodies[b];
+      const ox = Math.min(A.x[1], B.x[1]) - Math.max(A.x[0], B.x[0]);
+      const oz = Math.min(A.z[1], B.z[1]) - Math.max(A.z[0], B.z[0]);
+      if (ox > 0 && oz > 0) {
+        corpsePairs.push(`#${A.i} and #${B.i} overlap ${ox.toFixed(2)} x ${oz.toFixed(2)} m`);
+      }
+    }
+  }
+  check('no two of the six end up lying inside each other',
+    corpsePairs.length === 0 && gasRun.bodies.length === 6,
+    corpsePairs.join(' | ')
+      || `six separate bodies, x centres ${gasRun.bodies.map((b) => ((b.x[0] + b.x[1]) / 2).toFixed(1)).join(', ')}`);
 
   const coreAfter = await page.evaluate(() => {
     const L = window.mansion.lab;
@@ -2900,6 +3002,59 @@ try {
   check('nobody is standing inside the furniture',
     staffing.inSolid.length === 0,
     staffing.inSolid.length ? `inside a collider: ${staffing.inSolid.join(', ')}` : 'all clear');
+
+  /* ---- S9: AND NOBODY IS SITTING INSIDE IT EITHER.
+   *
+   * Owner playtest, 2026-08-06: *"Chair sitters (Hog Mama, Capt Sasole) clip
+   * through their chairs."* Measured before the fix: Hog Mama's hips were 80
+   * mm inside the kitchen stool's cushion and Captain Sasole's were 110 mm
+   * into the bay bar's, while Eric on a dining chair was correct — one
+   * formula, three different errors, because the pose constant it used is not
+   * a constant across bodies of different heights and builds.
+   *
+   * `cast.seats` measures each seated body against the house as built: `gap`
+   * is the distance from the underside of his hips to the surface directly
+   * beneath them. Negative is inside the seat and positive is hovering over
+   * it, and BOTH are the fault — 20 mm either way is the tolerance, which is
+   * a centimetre of upholstery. */
+  const seats = await page.evaluate(() => window.mansion.cast?.seats ?? []);
+  const seatFails = seats
+    .filter((seat) => seat.gap === null || Math.abs(seat.gap) > 0.02)
+    .map((seat) => `${seat.name} ${seat.gap === null ? 'has nothing under him' : `${(seat.gap * 1000).toFixed(0)} mm ${seat.gap < 0 ? 'inside' : 'above'} his seat`}`);
+  const named = ['sasole', 'hogmama'].filter((id) => !seats.some((seat) => seat.id === id));
+  check('everybody sitting on something is sitting ON it, not in it',
+    seatFails.length === 0 && named.length === 0 && seats.length >= 3,
+    seatFails.join(' | ') || (named.length ? `not measured: ${named.join(', ')}`
+      : `${seats.length} seated: ${seats.map((s2) => `${s2.id} ${(s2.gap * 1000).toFixed(0)}mm`).join(', ')}`));
+
+  /* ---- S12: THE MAN IN THE BOOTH ACTUALLY SPEAKS.
+   *
+   * Owner playtest: his lines are unrecorded, which is the sound guy's half —
+   * but the TRIGGER is this file's, and it was broken by 32 centimetres. His
+   * counter is at x 8.32, the drive he watches is x −4..4, and he was on the
+   * 8 m gate range: the closest the spawn-to-front-door walk ever came to him
+   * was 8.32 m, so the first person in the game to speak to the Prospect
+   * never said a word to anybody who walked up the middle of the road.
+   *
+   * Walked, from the spawn, ON HELD KEYS through the gate, and the subtitle
+   * bar is read for his name and his line. A teleport past him would prove
+   * nothing: the fault was entirely about the path a player actually takes. */
+  await teleport(rooms.spawn.x, 0, rooms.spawn.z, (rooms.spawnYaw * 180) / Math.PI);
+  await settle(0.5);
+  const boothHeard = [];
+  for (let leg = 0; leg < 26; leg++) {
+    await walk(0.5);
+    const said = await page.evaluate(() => window.mansion.mission?.hud?.() ?? null);
+    if (said?.subtitle && !boothHeard.some((entry) => entry.text === said.subtitle)) {
+      boothHeard.push({ who: said.speaker, text: said.subtitle });
+    }
+  }
+  const boothLine = boothHeard.find((entry) => /gate/i.test(entry.who || ''));
+  check('walking up the drive from the spawn makes the man in the booth challenge you, with subtitles',
+    Boolean(boothLine) && /stop there/i.test(boothLine?.text || ''),
+    boothHeard.length
+      ? boothHeard.map((entry) => `${entry.who}: ${entry.text}`).join(' | ')
+      : 'nobody said anything on the whole walk up the drive');
 
   /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
    * like one: "I spawn in holding it but can put it away and see it in my
