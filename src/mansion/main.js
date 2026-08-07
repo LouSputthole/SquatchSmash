@@ -556,7 +556,8 @@ const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { channel: 2 });
  * nine metres of room. Same `Tv` as every other set in the house, so it
  * repaints, it changes channel, it lights the wall in front of it, and the
  * debug surface counts it with the rest. */
-const suiteTv = mountTv(interior.props.masterSuite.tv?.screen, { channel: 1 });
+const suiteScreen = interior.props.masterSuite.tv?.screen ?? null;
+const suiteTv = mountTv(suiteScreen, { channel: 1 });
 
 /* ================================================================== */
 /* THE HOME THEATRE, AND THE SEAM A FILM DROPS INTO                     */
@@ -583,38 +584,65 @@ const suiteTv = mountTv(interior.props.masterSuite.tv?.screen, { channel: 1 });
 /* which filters video channels OUT: two sets tuned to the same tape share    */
 /* one <video> element and fight over it. This set owns four channel          */
 /* objects, so it shares nothing with anything.                               */
+/*                                                                            */
+/* `makeFilmReels()`, not a shared `THEATRE_REELS` constant, because the       */
+/* suite's own set (below) gets the same four reels too -- and a              */
+/* `videoChannel()` object owns exactly one <video> element in a closure, so   */
+/* handing the theatre's four objects to a second Tv would be the fight the   */
+/* paragraph above already ruled out, just between two ROOMS instead of two    */
+/* sets in the same one. Calling the factory again for the suite mints four    */
+/* fresh elements that share nothing with the theatre's.                       */
 /* ================================================================== */
-const THEATRE_REELS = [
-  videoChannel({
-    name: 'REEL 1: THE GODFATHER',
-    file: 'godfather-sollozzo.mp4',
-    card: 'NO FILM IN THE GATE',
-    glow: { colour: 0xc8d4e8, intensity: 1.5 },
-  }),
-  videoChannel({
-    name: 'REEL 2: GOODFELLAS',
-    file: 'goodfellas-copacabana.mp4',
-    card: 'NO FILM IN THE GATE',
-    glow: { colour: 0xc8d4e8, intensity: 1.5 },
-  }),
-  videoChannel({
-    name: 'REEL 3: HEAT',
-    file: 'heat-bank-robbery.mp4',
-    card: 'NO FILM IN THE GATE',
-    glow: { colour: 0xc8d4e8, intensity: 1.5 },
-  }),
-  videoChannel({
-    name: 'REEL 4: BLOW',
-    file: 'blow-opening.mp4',
-    card: 'NO FILM IN THE GATE',
-    glow: { colour: 0xc8d4e8, intensity: 1.5 },
-  }),
-];
+function makeFilmReels() {
+  return [
+    videoChannel({
+      name: 'REEL 1: THE GODFATHER',
+      file: 'godfather-sollozzo.mp4',
+      card: 'NO FILM IN THE GATE',
+      glow: { colour: 0xc8d4e8, intensity: 1.5 },
+    }),
+    videoChannel({
+      name: 'REEL 2: GOODFELLAS',
+      file: 'goodfellas-copacabana.mp4',
+      card: 'NO FILM IN THE GATE',
+      glow: { colour: 0xc8d4e8, intensity: 1.5 },
+    }),
+    videoChannel({
+      name: 'REEL 3: HEAT',
+      file: 'heat-bank-robbery.mp4',
+      card: 'NO FILM IN THE GATE',
+      glow: { colour: 0xc8d4e8, intensity: 1.5 },
+    }),
+    videoChannel({
+      name: 'REEL 4: BLOW',
+      file: 'blow-opening.mp4',
+      card: 'NO FILM IN THE GATE',
+      glow: { colour: 0xc8d4e8, intensity: 1.5 },
+    }),
+  ];
+}
 const theatreScreen = interior.props.theatre?.screen ?? null;
 const theatreTv = mountTv(theatreScreen, { channel: 0, on: false });
 if (theatreTv) {
-  theatreTv.channels = [...THEATRE_REELS, ...MANSION_CHANNELS];
+  theatreTv.channels = [...makeFilmReels(), ...MANSION_CHANNELS];
   theatreTv.index = 0;
+}
+
+/* THE SUITE SET GETS THE SAME FOUR REELS. Owner playtest, 2026-08-06: the
+ * master suite's own "Big TV" (his brief for the room) had no way to change
+ * its channel at all -- `mountTv` built it a working `Tv` with a full
+ * MANSION_CHANNELS list, but nothing below ever registered an interaction on
+ * it, so index 1 was the only channel anybody would ever see. Wired the same
+ * way the theatre's projector is (own note above): a fresh `makeFilmReels()`
+ * call so the suite's copies of the four films share no <video> element with
+ * the theatre's, prepended to the same drawn channels every other set in the
+ * house carries. `suiteTv.index` is bumped by the reel count so the set still
+ * opens on the channel it always did (MANSION_CHANNELS[1]) rather than
+ * snapping to a film the first time the room loads. */
+if (suiteTv) {
+  const suiteReels = makeFilmReels();
+  suiteTv.channels = [...suiteReels, ...MANSION_CHANNELS];
+  suiteTv.index = suiteReels.length + 1;
 }
 
 /* A small warm glow in front of each set, so the picture lights the room.
@@ -928,6 +956,12 @@ for (const [tv, prop] of [
    * target, because a projector bolted to a ceiling is not something you
    * reach up and press. */
   [theatreTv, theatreScreen ? { group: theatreScreen } : null],
+  /* The suite's set, wall-mounted rather than a cabinet like the lounge's
+   * and the kitchen's -- `MansionInterior.js` never gave it a `.group`, only
+   * a `.screen`, so this is built the same ad-hoc way the theatre's entry
+   * above is. Owner playtest 2026-08-06: the suite TV had no way to change
+   * channel at all; this loop is the thing that was missing, not a new one. */
+  [suiteTv, suiteScreen ? { group: suiteScreen } : null],
 ]) {
   if (!tv || !prop) continue;
   interaction.register(prop.group, {
