@@ -44,6 +44,21 @@ export class DialogueController {
      * hook headless verify scripts read to prove wiring without needing a
      * real recording (same idiom as `game.voLog` elsewhere in the repo). */
     this.cueLog = [];
+
+    /**
+     * The real audio/subtitle event log, one entry per line, in play order.
+     *
+     * `cueLog` only ever proves a cue was ASKED for — it says nothing about
+     * whether the take was actually reachable at that instant, which is
+     * exactly the gap the mission's first line fell through: `hasSample()`
+     * checked at play time, not whenever a verify script happens to check
+     * later (by which point an in-flight manifest load may well have
+     * finished, hiding the very race that broke it). `playedAudio` is
+     * `playCue`'s own return value at the moment this line ran — a real
+     * decoded take started, not a retroactive guess — so a verify script can
+     * assert the FIRST line of a fresh playthrough actually sounded rather
+     * than merely being logged as attempted. */
+    this.voiceLog = [];
   }
 
   get busy() {
@@ -91,6 +106,16 @@ export class DialogueController {
      * speaking when the next one began. */
     this.stopVoice?.();
     const spoken = this.playCue?.(line.cue, speaker.voice);
+    /* Logged from `spoken` — playCue's own real-time report — not from a
+     * post-hoc `hasSample(cue)` re-check, which is exactly what would have
+     * missed the race: by the time anything asks again, the manifest may
+     * have already finished loading. */
+    this.voiceLog.push({
+      speaker: line.speaker,
+      cue: line.cue || null,
+      text: line.text || null,
+      playedAudio: typeof spoken === 'number' && spoken > 0,
+    });
     this.onLine?.({ ...line, speakerName: speaker.name });
     if (line.look) this.onLook?.(line.look);
 
