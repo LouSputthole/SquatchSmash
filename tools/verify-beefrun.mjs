@@ -1652,6 +1652,143 @@ const chain = await page.evaluate(() => {
     /hold B/i.test(touchdownCoaching.objective || '')
       && touchdownCoaching.called.includes('home.brake'),
     JSON.stringify(touchdownCoaching));
+
+  /* ---- Cockpit clipping: nothing pokes into the pilot's view or into Sasole ----
+   *
+   * Owner's note, 8-6: *"cockpit still has shit intersecting my view and of
+   * Sasole."* Two machine checks, one per half of the complaint:
+   *
+   *   (a) no cockpit FIXTURE comes within a small radius of the pilot's own
+   *       camera position. The shell/canopy around him is EXPECTED to
+   *       enclose that point — a hollow shell's own bounding box contains
+   *       the cabin air inside it, that is not a strut through the near
+   *       plane — so shell and glazing meshes are named and excluded BY
+   *       NAME rather than silently skipped by distance.
+   *   (b) no cockpit FIXTURE's bounding box intersects Capt Sasole's own
+   *       body box, on all five flight-phase checkpoints and however he
+   *       happens to be turned at that moment: `updateFigure()` in npc.js
+   *       aims his neck and torso at `camera.position` every frame he is
+   *       aboard, not only while he is talking (see the comment there), so
+   *       his swept reach has to be measured moving, not just at rest — a
+   *       snapshot at his rest pose is exactly what let the pilot seat and
+   *       the inboard rudder pedal ship 5-10 cm inside him. His own seat is
+   *       excluded from (b): he is meant to touch it, that is what sitting
+   *       in it means. His own body meshes never enter either check — this
+   *       walks `aircraft.group`, and his figure only becomes a child of it
+   *       once he boards, at which point his own clothes and cup are still
+   *       excluded (see `louBox` below).
+   */
+  const cockpitClipping = await resumePage.evaluate((checkpoints) => {
+    // Structural skin: frame stations, stringers, the rolled corners, the
+    // turtledeck and keel, riveted skin patches, decals painted on the
+    // skin, and the glazing that is meant to sit close around the pilot's
+    // head. Every one of these has a bounding box that legitimately
+    // contains the cabin air a fixture would not be allowed to.
+    const SHELL_NAMES = [
+      'windshield', 'cabin-glass-side-left', 'cabin-glass-side-right',
+      'cabin-glass-quarter-left', 'cabin-glass-quarter-right',
+      'nose-cone', 'nose-fairing', 'tail-boom', 'tail-boom-fairing', 'run-tally',
+    ];
+    const SHELL_ANCESTORS = [
+      'fuselage-shell', 'aircraft-hull-detail', 'aircraft-exterior-details',
+      'tail-support-frame', 'cargo-floor',
+    ];
+    // Everything a hand or a knee could actually be stopped by. Deliberately
+    // an ALLOWLIST rather than "everything else": the shell above already
+    // covers structure, and a bare denylist would need to name every rivet
+    // line this scene ever grows.
+    const FIXTURE_NAMES = [
+      'instrument-panel', 'glare-shield-coaming', 'yoke-pilot', 'yoke-copilot',
+      'lever-throttle-left', 'lever-throttle-right', 'lever-prop-left', 'lever-prop-right',
+      'lever-mixture-left', 'lever-mixture-right', 'flap-lever', 'compass-housing',
+      'rudder-pedal-left', 'rudder-pedal-right',
+      'pilot-seat-cushion', 'pilot-seat-back',
+      'placard-ignore-below-20', 'placard-general-concern', 'concern-light',
+      'nav-map', 'nav-map-tape-1', 'nav-map-tape-2', 'cigarette-lighter', 'bobblehead',
+      'tammy-golden-ak-sticker', 'cockpit-radio-stack',
+    ];
+    const CAM_RADIUS = 0.35;   // measured clearance to the nearest real fixture is ~0.44 m
+    const MIN_OVERLAP = 0.001; // metres per axis — below this is touching, not clipping
+
+    const b = window.__beefrun;
+    const THREE = b.THREE;
+    const aircraft = b.aircraft;
+    const lou = b.mission.lou;
+    const box = new THREE.Box3();
+
+    const isShell = (n) => {
+      if (SHELL_NAMES.includes(n.name) || /^fuselage-/.test(n.name)) return true;
+      for (let p = n; p; p = p.parent) if (SHELL_ANCESTORS.includes(p.name)) return true;
+      return false;
+    };
+    const isFixture = (n) => {
+      for (let p = n; p; p = p.parent) if (FIXTURE_NAMES.includes(p.name)) return true;
+      return false;
+    };
+    const distPointBox = (p, bx) => {
+      const dx = Math.max(bx.min.x - p.x, 0, p.x - bx.max.x);
+      const dy = Math.max(bx.min.y - p.y, 0, p.y - bx.max.y);
+      const dz = Math.max(bx.min.z - p.z, 0, p.z - bx.max.z);
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    };
+
+    const perCheckpoint = [];
+    for (const cp of checkpoints) {
+      const restored = cp === 'landing' ? b.mission.restorePreviewLanding() : b.mission.restoreCheckpoint(cp);
+      if (!restored) { perCheckpoint.push({ checkpoint: cp, error: 'restore failed' }); continue; }
+      aircraft.group.updateMatrixWorld(true);
+      lou.group.updateMatrixWorld(true);
+
+      const camPos = b.camera.position.clone();
+
+      /* Sasole's own body box: mesh geometry only, so his floating name-tag
+       * sprite (`nameTag()` in npc.js, a metre above his head) cannot
+       * inflate it, and visible geometry only, so his hidden coffee cup
+       * (`f.cup`, hidden the moment he boards) cannot either. */
+      const louBox = new THREE.Box3();
+      let louMeshes = 0;
+      lou.group.traverse((n) => {
+        if (!n.isMesh || !n.geometry) return;
+        for (let p = n; p; p = p.parent) if (p.visible === false) return;
+        box.setFromObject(n);
+        if (!Number.isFinite(box.min.x)) return;
+        louBox.union(box);
+        louMeshes++;
+      });
+
+      const camNear = [];
+      const louOverlaps = [];
+      aircraft.group.traverse((n) => {
+        if (!n.isMesh || !n.geometry) return;
+        for (let p = n; p; p = p.parent) if (p.visible === false) return;
+        box.setFromObject(n);
+        if (!Number.isFinite(box.min.x)) return;
+
+        if (!isShell(n)) {
+          const d = distPointBox(camPos, box);
+          if (d < CAM_RADIUS) camNear.push({ name: n.name || '(unnamed)', metres: +d.toFixed(3) });
+        }
+        if (louMeshes && isFixture(n)) {
+          const ox = Math.min(box.max.x, louBox.max.x) - Math.max(box.min.x, louBox.min.x);
+          const oy = Math.min(box.max.y, louBox.max.y) - Math.max(box.min.y, louBox.min.y);
+          const oz = Math.min(box.max.z, louBox.max.z) - Math.max(box.min.z, louBox.min.z);
+          if (ox > MIN_OVERLAP && oy > MIN_OVERLAP && oz > MIN_OVERLAP) {
+            louOverlaps.push({ name: n.name, cubicMetres: +(ox * oy * oz).toFixed(5) });
+          }
+        }
+      });
+      perCheckpoint.push({ checkpoint: cp, phase: b.mission.phase, camNear, louOverlaps });
+    }
+    return perCheckpoint;
+  }, ['takeoff', 'approach', 'departure', 'return', 'landing']);
+
+  check('no cockpit fixture comes within 0.35 m of the pilot camera on any flight-phase checkpoint (shell/canopy excluded by name)',
+    cockpitClipping.every((c) => !c.error && c.camNear.length === 0),
+    JSON.stringify(cockpitClipping.map((c) => ({ checkpoint: c.checkpoint, camNear: c.camNear }))));
+  check("no cockpit fixture intersects Capt Sasole's body box on any flight-phase checkpoint, however he is turned (his own seat excluded)",
+    cockpitClipping.every((c) => !c.error && c.louOverlaps.length === 0),
+    JSON.stringify(cockpitClipping.map((c) => ({ checkpoint: c.checkpoint, louOverlaps: c.louOverlaps }))));
+
   check('no console errors during the resume', resumeProblems.length === 0,
     resumeProblems.join(' | '));
   await resumePage.close();

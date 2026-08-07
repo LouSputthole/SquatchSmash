@@ -203,8 +203,10 @@ function inside(rect, s, pad = 0.25) {
 }
 
 try {
-  await page.goto(`http://localhost:${PORT}/mansion.html`, { waitUntil: 'load' });
+  const bootStart = Date.now();
+  await page.goto(`http://localhost:${PORT}/mansion.html`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.mansion?.player, null, { timeout: 120000 });
+  const readyMs = Date.now() - bootStart;
 
   /* ================================================================ */
   /* Static sanity                                                     */
@@ -298,6 +300,78 @@ try {
   await page.waitForFunction(() => window.mansion.framesRendered > 3, null, { timeout: 180000 });
   check('the scene renders real frames after boot', true,
     `${await page.evaluate(() => window.mansion.framesRendered)} frames`);
+  const firstFrameMs = Date.now() - bootStart;
+
+  /* ================================================================ */
+  /* THE FRAME'S BILL                                                  */
+  /*                                                                   */
+  /* Measured before this pass, one `renderer.render()` per pose with  */
+  /* `renderer.info.autoReset` OFF (this three build resets `info`     */
+  /* after `shadowMap.render()`, so with the default on a shadow pass  */
+  /* of any size reads as zero -- which is how a 7,567-call one lived  */
+  /* here unnoticed):                                                  */
+  /*                                                                   */
+  /*   pose      total   shadow   main   main w/o transmission         */
+  /*   spawn    34,365    7,567  26,798               13,648           */
+  /*   foyer    24,705    7,567  17,138                8,751           */
+  /*   gallery  20,580    7,567  13,013                6,677           */
+  /*   armory   16,441    7,567   8,874                4,508           */
+  /*                                                                   */
+  /* After: 14,167 / 9,269 / 7,195 / 5,026. See src/mansion/perf.js.   */
+  /* ================================================================ */
+  check('the house is standing and drawing inside the boot budget',
+    firstFrameMs < 180000,
+    `${(readyMs / 1000).toFixed(1)}s to the scene, ${(firstFrameMs / 1000).toFixed(1)}s to frame four (budget 180s)`);
+
+  const budget = await page.evaluate(() => {
+    const M = window.mansion;
+    let interiorCasters = 0;
+    M.interior.root.traverse((o) => { if (o.isMesh && o.castShadow) interiorCasters++; });
+    return {
+      lights: M.perf.visibleLights,
+      shadowCasters: M.perf.shadowCasters(),
+      interiorCasters,
+      transmissive: M.perf.transmissiveMeshes(),
+      minMetres: +M.perf.minMetres.toFixed(3),
+      spawn: (() => {
+        const s = M.rooms.spawn;
+        M.teleport(s.x, 0, s.z, 180);
+        return M.perf.drawCalls().calls;
+      })(),
+      foyer: (() => {
+        const f = M.rooms.foyerCenter;
+        M.teleport(f.x, 0, f.z, 180);
+        return M.perf.drawCalls().calls;
+      })(),
+    };
+  });
+  /* three.js compiles every VISIBLE light into every material's shader, and
+   * the house builds 228 practical point lights. The nearest-N rig holds
+   * fourteen of them on; the rest of the allowance is the moon, the
+   * hemisphere fill, the five exterior spots and the sets' own glows. */
+  check('no more lights are lit than the shader budget allows',
+    budget.lights <= 30, `${budget.lights} lit (budget 30)`);
+  /* The only shadow-casting light in this scene is the moon, outside. The
+   * shell is already between it and every mesh indoors. */
+  check('nothing inside the house casts the moon\'s shadow',
+    budget.interiorCasters === 0, `${budget.interiorCasters} interior casters`);
+  /* 7,766 casters before this pass, 633 after -- and the laboratory, four
+   * metres under the west wing, is in the difference. */
+  check('the shadow pass is a few hundred objects, not a few thousand',
+    budget.shadowCasters <= 1200,
+    `${budget.shadowCasters} casters, minimum ${budget.minMetres} m (budget 1200)`);
+  /* A single `transmission > 0` material makes three.js re-render the whole
+   * opaque list into an offscreen target so the glass has something to
+   * refract: one decanter on a bar draws the entire house a second time. */
+  check('nothing refracts, so the opaque scene is drawn once per frame',
+    budget.transmissive === 0, `${budget.transmissive} transmissive meshes`);
+  /* 34,365 before, 14,167 after, at the one pose that sees the whole
+   * property at once. 20,000 catches either pass being lost without
+   * failing the day somebody adds a wing. */
+  check('the whole property in one shot costs fewer draw calls than the budget',
+    budget.spawn <= 20000, `${budget.spawn} calls at the gate (budget 20000)`);
+  check('and the foyer costs fewer still',
+    budget.foyer <= 14000, `${budget.foyer} calls in the foyer (budget 14000)`);
 
   /* Suspend rendering for the walking tour. Every check from here to the
    * screenshot at the end is geometry, collision and navigation -- none of it
@@ -668,8 +742,17 @@ try {
     { at: [0.0, 62.4], note: "to Lou's door" },
     { at: [0.0, 67.0], room: 'office', note: "into Lou's office" },
     { at: [0.0, 62.4], note: 'back out of the office' },
-    { at: [3.2, 61.0], note: 'back down the east side of the table' },
-    { at: [3.2, 55.0], note: '...and out past its head' },
+    /* 4.2, NOT 3.2. The conference table's collider ends at x = 3.0 and the
+     * player's own radius is a third of a metre, so a waypoint at 3.2 walks
+     * him along the table's edge with two centimetres in hand — and it landed
+     * on the wrong side of that on one run and the right side on the next,
+     * which is a flake rather than a check. There is five metres of clear
+     * parquet between the table and the east wall; the claim being made is
+     * "you can get round the head of it and out", and that is what this walks
+     * now. (Recorded here rather than in a ledger because the fix is the
+     * waypoint: nothing about the room changed.) */
+    { at: [4.2, 61.0], note: 'back down the east side of the table' },
+    { at: [4.2, 55.0], note: '...and out past its head' },
     { at: [0.0, 50.8], note: 'out onto the gallery again' },
     { at: [14.0, 50.5], room: 'gallery', note: 'east along the gallery, past the other flank wall' },
     { at: [14.0, 45.2], room: 'bedEastFront', note: 'into the east front bedroom' },
@@ -2571,6 +2654,107 @@ try {
       && coreRun.purple === true,
     JSON.stringify(coreRun));
 
+  /* ---- S7: THE SIX ARE PEOPLE-SIZED.
+   *
+   * Owner playtest, 2026-08-06: *"The scientists are all far too large."*
+   * Measured before this pass, the six stood 1.94 m to 2.05 m, which made
+   * every one of them taller than Numbskull, the biggest man in the house.
+   * The cause was that `Figure`'s `height` is a torso multiplier and was being
+   * read as metres; they are scaled to measured metres now.
+   *
+   * Asserted against THE REST OF THE CAST rather than against a number typed
+   * twice: the house's own bodies are in the scene and they are what "human
+   * proportions consistent with the rest of the cast" means. Feet on the lab
+   * floor and heads clear of its ceiling are the other half of the note. */
+  const sizes = await page.evaluate(() => {
+    const T = window.mansion.THREE;
+    const L = window.mansion.lab;
+    const house = [];
+    window.mansion.scene.traverse((o) => {
+      if (!o.userData?.npc) return;
+      const b = new T.Box3().setFromObject(o);
+      if (!b.isEmpty()) house.push({ name: o.userData.npc.name, h: +(b.max.y - b.min.y).toFixed(3) });
+    });
+    const six = L.scientists.map((s) => {
+      const b = new T.Box3().setFromObject(s.object);
+      return {
+        i: s.index,
+        metres: s.metres ?? null,
+        scale: s.figScale ? +s.figScale.toFixed(3) : null,
+        height: +(b.max.y - b.min.y).toFixed(3),
+        feet: +b.min.y.toFixed(3),
+        head: +b.max.y.toFixed(3),
+      };
+    });
+    return {
+      six,
+      houseTallest: house.reduce((a, b2) => (b2.h > a.h ? b2 : a), { name: '-', h: 0 }),
+      houseCount: house.length,
+      LAB_Y: L.datums.LAB_Y,
+      LAB_CEIL: L.datums.LAB_CEIL,
+    };
+  });
+  const sizeFails = [];
+  for (const s of sizes.six) {
+    if (!(s.height >= 1.6 && s.height <= 1.9)) sizeFails.push(`#${s.i} stands ${s.height} m`);
+    if (s.metres === null || Math.abs(s.height - s.metres) > 0.02) {
+      sizeFails.push(`#${s.i} is ${s.height} m but declares ${s.metres}`);
+    }
+    if (Math.abs(s.feet - sizes.LAB_Y) > 0.03) sizeFails.push(`#${s.i} feet at ${s.feet}`);
+    if (s.head > sizes.LAB_CEIL - 0.4) sizeFails.push(`#${s.i} head at ${s.head} under a ${sizes.LAB_CEIL} ceiling`);
+    if (s.height > sizes.houseTallest.h) {
+      sizeFails.push(`#${s.i} is taller than ${sizes.houseTallest.name}`);
+    }
+  }
+  check('the six scientists are human-sized, feet on the lab floor and heads clear of its fixtures',
+    sizeFails.length === 0 && sizes.houseCount > 15,
+    sizeFails.slice(0, 4).join(' | ')
+      || `${sizes.six.map((s) => s.height).join(', ')} m against ${sizes.houseTallest.name} at ${sizes.houseTallest.h}`);
+
+  /* ---- S6: HE BLEEDS.
+   *
+   * Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."* There
+   * was none — the man simply fell over. `bleed()` reuses two effects this
+   * repository already has: THE SILVER CASE's pooled arterial decal
+   * (`BulletHoles(scene, 'blood')`, attached to the body so the wound travels
+   * with him) and this scene's own floor `stain()`, the one the pool under
+   * xXx is made of.
+   *
+   * Asserted on what it LEAVES BEHIND rather than on a flag: decals that
+   * exist, a pool that is actually opaque by the time he has landed, and the
+   * wound still on him after the fall. */
+  const bleeding = await page.evaluate(() => {
+    const T = window.mansion.THREE;
+    const L = window.mansion.lab;
+    const aubbie = L.scientists[0];
+    const before = { marks: L.inventory.bloodMarks, pools: L.inventory.bloodPools };
+    aubbie.shot({ x: aubbie.position.x, z: aubbie.position.z + 3 });
+    aubbie.collapse();
+    window.mansion.tick(3);
+    let poolOpacity = 0;
+    let onBody = 0;
+    window.mansion.scene.traverse((o) => {
+      if (o.name === 'ss-blood-pool') poolOpacity = Math.max(poolOpacity, o.material.opacity);
+      if (o.name === 'ss-blood-wound' && o.visible) {
+        /* Still attached to him, not left hanging where he was standing. */
+        const at = o.getWorldPosition(new T.Vector3());
+        if (Math.hypot(at.x - aubbie.position.x, at.z - aubbie.position.z) < 1.6) onBody++;
+      }
+    });
+    return {
+      before,
+      marks: L.inventory.bloodMarks,
+      pools: L.inventory.bloodPools,
+      poolOpacity: +poolOpacity.toFixed(3),
+      onBody,
+    };
+  });
+  check('shooting Aubbie leaves blood — a wound on him, spatter behind him and a pool under him',
+    bleeding.before.marks === 0 && bleeding.before.pools === 0
+      && bleeding.marks >= 4 && bleeding.pools >= 1
+      && bleeding.poolOpacity > 0.5 && bleeding.onBody >= 1,
+    JSON.stringify(bleeding));
+
   /* ---- Silent Night. The gas fills the room, white to purple-grey, and
    * the six go down one by one. */
   const gasRun = await page.evaluate(async () => {
@@ -2604,6 +2788,21 @@ try {
     window.mansion.tick(3);
     out.lifeSigns = L.lifeSigns;
     out.aliveAfter = L.scientists.filter((x) => x.alive).length;
+    /* S7/S8: how big each of them is, and where each of them ended up. Read
+     * after the fall so the boxes are the ones a player is looking at. */
+    const T = window.mansion.THREE;
+    out.bodies = L.scientists.map((sci) => {
+      const b = new T.Box3().setFromObject(sci.object);
+      return {
+        i: sci.index,
+        metres: sci.metres ?? null,
+        height: +(b.max.y - b.min.y).toFixed(3),
+        feet: +b.min.y.toFixed(3),
+        head: +b.max.y.toFixed(3),
+        x: [+b.min.x.toFixed(3), +b.max.x.toFixed(3)],
+        z: [+b.min.z.toFixed(3), +b.max.z.toFixed(3)],
+      };
+    });
     return out;
   });
   check('Silent Night fills the sealed lab with gas -- thin at first, and it keeps thickening',
@@ -2621,6 +2820,36 @@ try {
     JSON.stringify({
       lifeSigns: gasRun.lifeSigns, alive: gasRun.aliveAfter, handprints: gasRun.handprints,
     }));
+
+  /* ---- S8: AND NOT ONE OF THEM DIES INSIDE ANOTHER ONE.
+   *
+   * Owner playtest: *"Scientists' dying animations overlap/intersect each
+   * other."* They did, and it was one coordinate: `crawl()` sent all five to
+   * the middle of the glass door, so the last image of the scene was five
+   * bodies in the same 600 mm square. Each man has his own lane now, and
+   * `collapse()` measures the pose he is about to end in before he starts
+   * falling.
+   *
+   * Pairwise, on the boxes as they actually are after the fall, in XZ —
+   * because a body on the floor is a footprint and two footprints must not
+   * share ground. Read off the run above, which put all six through the
+   * spec's ladder and then collapsed them. */
+  const corpsePairs = [];
+  for (let a = 0; a < gasRun.bodies.length; a++) {
+    for (let b = a + 1; b < gasRun.bodies.length; b++) {
+      const A = gasRun.bodies[a];
+      const B = gasRun.bodies[b];
+      const ox = Math.min(A.x[1], B.x[1]) - Math.max(A.x[0], B.x[0]);
+      const oz = Math.min(A.z[1], B.z[1]) - Math.max(A.z[0], B.z[0]);
+      if (ox > 0 && oz > 0) {
+        corpsePairs.push(`#${A.i} and #${B.i} overlap ${ox.toFixed(2)} x ${oz.toFixed(2)} m`);
+      }
+    }
+  }
+  check('no two of the six end up lying inside each other',
+    corpsePairs.length === 0 && gasRun.bodies.length === 6,
+    corpsePairs.join(' | ')
+      || `six separate bodies, x centres ${gasRun.bodies.map((b) => ((b.x[0] + b.x[1]) / 2).toFixed(1)).join(', ')}`);
 
   const coreAfter = await page.evaluate(() => {
     const L = window.mansion.lab;
@@ -2792,6 +3021,149 @@ try {
     missingCues.length === 0 && cuePrompts.length === 0 && lab.cues.length >= 30,
     JSON.stringify({ missing: missingCues, thin: cuePrompts, total: lab.cues.length }));
 
+  /* ---- S13: THE SFX PASS, AND THE HALF OF IT THAT IS NOT A SOUND.
+   *
+   * Owner playtest, 2026-08-06: *"The scene needs a proper SFX pass."* He named
+   * four things — lab hums, core sounds, gunshots with room tone, cleanup
+   * foley — and all four are now authored cues with prompts and lengths.
+   *
+   * But the pass that mattered more is the one docs/RIGHT-FIRST-TIME.md had
+   * already written down and nobody had done: NOT ONE of this scene's sounds
+   * was in `assets/sfx/manifest.json`. They go through a local `sfx()` helper,
+   * so `check`'s `audio.play('literal')` scan could not see them; `npm run sfx`
+   * reads the manifest, so it could never render them; `audio:todo` reads the
+   * manifest, so they never reached the sheet the sound guy works from. Fifty
+   * fully-described sounds that no part of production could see.
+   *
+   * So this asserts BOTH halves: the four things he named exist as cues, and
+   * every cue this scene plays is in the manifest with the prompt the scene
+   * wrote for it. `npm run sfx:mansion` is what puts them there and
+   * `npm run check` now fails when they drift. */
+  {
+    const manifest = JSON.parse(
+      await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'),
+    );
+    const declared = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
+    const notInManifest = lab.cues.filter((name) => !declared.has(name));
+    const thin = lab.cues.filter((name) => (declared.get(name)?.prompt?.length ?? 0) < 40);
+    const noLength = lab.cues.filter((name) => !(declared.get(name)?.duration > 0));
+    /* The four the owner named, each by a cue that exists and is played. */
+    const PASS = {
+      'lab hums': ['silent.lab.hvac', 'silent.coolant.flow', 'silent.monitors.whine'],
+      'core sounds': ['silent.core.rings', 'silent.core.discharge', 'silent.core.roar'],
+      'gunshots with room tone': ['silent.gunshot.observation', 'silent.gunshot.tail',
+        'silent.shell.concrete', 'silent.body.concrete'],
+      'cleanup foley': ['silent.cart.wheels', 'silent.cart.park', 'silent.mop.wring',
+        'silent.mop.floor', 'silent.gloves.snap', 'silent.bag.liner'],
+    };
+    const shortfall = Object.entries(PASS)
+      .map(([what, names]) => [what, names.filter((n) => !lab.cues.includes(n))])
+      .filter(([, missing]) => missing.length)
+      .map(([what, missing]) => `${what}: ${missing.join(', ')}`);
+    check('the SFX pass exists as manifest cues, not as synth-only names the sound guy cannot see',
+      notInManifest.length === 0 && thin.length === 0 && noLength.length === 0
+        && shortfall.length === 0 && lab.cues.length >= 50,
+      [
+        notInManifest.length ? `not in the manifest: ${notInManifest.slice(0, 4).join(', ')}` : '',
+        thin.length ? `thin prompts: ${thin.slice(0, 3).join(', ')}` : '',
+        noLength.length ? `no length: ${noLength.slice(0, 3).join(', ')}` : '',
+        ...shortfall,
+      ].filter(Boolean).join(' | ')
+        || `${lab.cues.length} cues, every one in the manifest with a prompt and a length`);
+  }
+
+  /* ---- ...and every bed the scene starts is a bed it stops.
+   *
+   * A loop left running after the wall seats is a basement you can still hear
+   * from the wine cellar, which is the one thing beat 11's last stage
+   * direction is about — "the wall closes behind him and the lab is not
+   * audible". The 2026-08-06 SFX pass added four more beds to a function that
+   * had a hand-written stop list beside it, which is precisely the shape of
+   * thing that goes stale.
+   *
+   * READ OFF THE SOURCE rather than off a running AudioContext: whether
+   * headless Chromium gives this page a working audio device is not the
+   * subject, and a check that quietly passes when the engine did not start is
+   * the "gate that lies" pattern ENGINE-TRAPS #5 is about. */
+  {
+    const src = await fsp.readFile(
+      path.join(ROOT, 'src/mansion/scenes/SilentSquatch.js'), 'utf8',
+    );
+    const started = new Set([...src.matchAll(/\bloop\(\s*'(silent\.[a-z0-9.]+)'/g)].map((m) => m[1]));
+    for (const m of src.matchAll(/glassAudio\.loop\(\s*'(silent\.[a-z0-9.]+)'/g)) started.add(m[1]);
+    const stopBlock = src.slice(src.indexOf('function stopUnderworldAmbience'));
+    const stopList = stopBlock.slice(0, stopBlock.indexOf('}'));
+    const unstopped = [...started].filter((name) => !stopList.includes(`'${name}'`));
+    check('every looping bed the laboratory starts is one the closing wall stops',
+      unstopped.length === 0 && started.size >= 8,
+      unstopped.length ? `left running: ${unstopped.join(', ')}` : `${started.size} beds, all stopped`);
+  }
+
+  /* ---- S5: NO CUE THIS SCENE PLAYS IS SOMEBODY ELSE'S LINE.
+   *
+   * Owner playtest, 2026-08-06: "one line plays with the wrong voice id."
+   * `lab.case.open()` played `heist.shubes_case` as the sound of the latches
+   * — and that cue is not a sound effect, it is THE TAKE's Shubenator saying
+   * "The blue case is organized." So the Shubenator's recorded voice came out
+   * of a briefcase in Lou's basement every time Booski opened it.
+   *
+   * The manifest is the only thing that knows the difference: a cue with a
+   * `voice`/`say` is a PERFORMANCE and a cue with a `prompt` is a NOISE, and
+   * `heist.*` is both prefixes at once (ENGINE-TRAPS #4). So this reads every
+   * cue name the mansion's own modules play as a literal and fails if any of
+   * them is cast to a mouth. Static, because the fault is one that never
+   * throws and only ever sounds wrong. */
+  {
+    const manifest = JSON.parse(
+      await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'),
+    );
+    const cast = new Map(manifest.sfx
+      .filter((cue) => cue.voice || cue.say)
+      .map((cue) => [cue.name, cue.voice ?? '(uncast)']));
+    const scanned = [];
+    (function walkMansion(dir) {
+      for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+        if (entry.isDirectory()) walkMansion(`${dir}/${entry.name}`);
+        else if (entry.name.endsWith('.js')) scanned.push(`${dir}/${entry.name}`);
+      }
+    })('src/mansion');
+    /* The scene's own audio verbs, all of which take a cue name first. The
+     * mission's spoken lines never appear as literals — they are data in
+     * script.js — so anything this finds is a call site choosing a noise. */
+    const CUE_CALL = /(?:sfx|loop|stop|plainSay|play|startLoop|impact|say)\(\s*'([a-z0-9][a-z0-9._-]*)'/g;
+    const borrowed = [];
+    for (const file of scanned) {
+      const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+      for (const found of src.matchAll(CUE_CALL)) {
+        if (cast.has(found[1])) borrowed.push(`${file}: ${found[1]} is ${cast.get(found[1])}'s line`);
+      }
+    }
+    check('no sound the mansion plays as an effect is somebody else\'s recorded line',
+      borrowed.length === 0,
+      borrowed.join(' | ') || `${scanned.length} modules scanned, ${cast.size} cast cues in the manifest`);
+  }
+
+  /* ---- ...and every line the mission DOES play comes out of the voice its
+   * own casting names. `SPEAKERS[x].voice` is the authority and the manifest
+   * is generated from it (`npm run vo:mansion`), so a drift here is a cue
+   * that will be RECORDED by the wrong performer. */
+  {
+    const manifest = JSON.parse(
+      await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'),
+    );
+    const declared = new Map(manifest.sfx.map((cue) => [cue.name, cue.voice ?? null]));
+    const authored = await page.evaluate(async () => {
+      const script = await import('/src/mansion/script.js');
+      return script.allSilentSquatchLines()
+        .map((line) => ({ name: line.name, speaker: line.speaker, voice: line.voice }));
+    });
+    const miscast = authored.filter((line) => declared.get(line.name) !== line.voice)
+      .map((line) => `${line.name} (${line.speaker}) wants ${line.voice}, manifest says ${declared.get(line.name)}`);
+    check('every PROJECT SILENT SQUATCH line is cast to its own speaker\'s voice profile',
+      miscast.length === 0 && authored.length > 150,
+      miscast.slice(0, 3).join(' | ') || `${authored.length} lines, every one on its speaker's profile`);
+  }
+
   /* ---- And the wall closes again, which is the exit. */
   const closed = await page.evaluate(async () => {
     window.mansion.lab.hiddenWall.close();
@@ -2835,6 +3207,74 @@ try {
   check('nobody is standing inside the furniture',
     staffing.inSolid.length === 0,
     staffing.inSolid.length ? `inside a collider: ${staffing.inSolid.join(', ')}` : 'all clear');
+
+  /* ---- S9: AND NOBODY IS SITTING INSIDE IT EITHER.
+   *
+   * Owner playtest, 2026-08-06: *"Chair sitters (Hog Mama, Capt Sasole) clip
+   * through their chairs."* Measured before the fix: Hog Mama's hips were 80
+   * mm inside the kitchen stool's cushion and Captain Sasole's were 110 mm
+   * into the bay bar's, while Eric on a dining chair was correct — one
+   * formula, three different errors, because the pose constant it used is not
+   * a constant across bodies of different heights and builds.
+   *
+   * `cast.seats` measures each seated body against the house as built: `gap`
+   * is the distance from the underside of his hips to the surface directly
+   * beneath them. Negative is inside the seat and positive is hovering over
+   * it, and BOTH are the fault — 20 mm either way is the tolerance, which is
+   * a centimetre of upholstery. */
+  const seats = await page.evaluate(() => window.mansion.cast?.seats ?? []);
+  const seatFails = seats
+    .filter((seat) => seat.gap === null || Math.abs(seat.gap) > 0.02)
+    .map((seat) => `${seat.name} ${seat.gap === null ? 'has nothing under him' : `${(seat.gap * 1000).toFixed(0)} mm ${seat.gap < 0 ? 'inside' : 'above'} his seat`}`);
+  const named = ['sasole', 'hogmama'].filter((id) => !seats.some((seat) => seat.id === id));
+  check('everybody sitting on something is sitting ON it, not in it',
+    seatFails.length === 0 && named.length === 0 && seats.length >= 3,
+    seatFails.join(' | ') || (named.length ? `not measured: ${named.join(', ')}`
+      : `${seats.length} seated: ${seats.map((s2) => `${s2.id} ${(s2.gap * 1000).toFixed(0)}mm`).join(', ')}`));
+
+  /* ---- S12: THE MAN IN THE BOOTH ACTUALLY SPEAKS.
+   *
+   * Owner playtest: his lines are unrecorded, which is the sound guy's half —
+   * but the TRIGGER is this file's, and it was broken by 32 centimetres. His
+   * counter is at x 8.32, the drive he watches is x −4..4, and he was on the
+   * 8 m gate range: the closest the spawn-to-front-door walk ever came to him
+   * was 8.32 m, so the first person in the game to speak to the Prospect
+   * never said a word to anybody who walked up the middle of the road.
+   *
+   * Walked, from the spawn, ON HELD KEYS through the gate, and the subtitle
+   * bar is read for his name and his line. A teleport past him would prove
+   * nothing: the fault was entirely about the path a player actually takes. */
+  await teleport(rooms.spawn.x, 0, rooms.spawn.z, (rooms.spawnYaw * 180) / Math.PI);
+  const boothHeard = [];
+  const boothSubtitles = [];
+  for (let leg = 0; leg < 26; leg++) {
+    await walk(0.5);
+    /* TWO DIFFERENT QUESTIONS, and only one of them is a race.
+     *
+     * `cast.said` is the house's own dialogue controller's cue log: what he
+     * SAID, in order, which nothing can take away from him. The subtitle bar
+     * is shared between that controller and the mission's, so a line can be on
+     * screen for two seconds and still be gone by the time this samples — the
+     * first version of this check failed on a build where the man was speaking
+     * perfectly well, because the mission's own idle line had the bar. */
+    const seen = await page.evaluate(() => ({
+      said: window.mansion.cast?.said ?? [],
+      hud: window.mansion.mission?.hud?.() ?? null,
+    }));
+    for (const cue of seen.said) if (!boothHeard.includes(cue)) boothHeard.push(cue);
+    if (seen.hud?.subtitle && !boothSubtitles.some((s2) => s2.text === seen.hud.subtitle)) {
+      boothSubtitles.push({ who: seen.hud.speaker, text: seen.hud.subtitle });
+    }
+  }
+  const challenged = boothHeard.includes('vo.silentsquatch.gate.booth.stopthere');
+  const subtitled = boothSubtitles.some((entry) => /gate/i.test(entry.who || ''));
+  check('walking up the drive from the spawn makes the man in the booth challenge you, with subtitles',
+    challenged && subtitled,
+    [
+      challenged ? '' : `he never said it — heard: ${boothHeard.slice(0, 4).join(', ') || 'nothing'}`,
+      subtitled ? '' : `no subtitle from him — bar showed: ${boothSubtitles.map((e) => e.who).join(', ') || 'nothing'}`,
+    ].filter(Boolean).join(' | ')
+      || `"Stop there. Name." on the walk up, subtitled as ${boothSubtitles.find((e) => /gate/i.test(e.who || '')).who}`);
 
   /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
    * like one: "I spawn in holding it but can put it away and see it in my
@@ -2927,6 +3367,11 @@ try {
     until(() => run.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 30);
     snap('exit');
     run.leave();
+    /* THE EXIT IS TWO LEGS (the owner's flow note): out of the basement, and
+     * then up to the man who sent him. This harness passes no zones, so the
+     * second leg completes on its own — see `S.BACK_TO_LOU`. */
+    until(() => run.fsm.name === machine.S.BACK_TO_LOU, 30);
+    snap('backToLou');
     until(() => run.fsm.name === machine.S.COMPLETE, 30);
 
     const report = run.report();
@@ -2959,8 +3404,16 @@ try {
       objectiveOrder: [
         OBJECTIVES.DELIVER_PACKAGE, OBJECTIVES.TAKE_TO_BOOSKI, OBJECTIVES.LOCK_THE_LAB,
         OBJECTIVES.ELIMINATE_AUBBIE, OBJECTIVES.ACTIVATE_SILENT_NIGHT,
-        OBJECTIVES.RETURN_UPSTAIRS, '',
+        OBJECTIVES.REPORT_TO_LOU, OBJECTIVES.LOU_IS_WAITING, '',
       ],
+      /* S11: what the three things that used to disagree each say now. */
+      flow: {
+        booskiSaysUpstairs: script.SEQUENCES.exitOrder[0].text,
+        exitObjective: OBJECTIVES.REPORT_TO_LOU,
+        exitInstruction: INSTRUCTIONS.RETURN_UPSTAIRS,
+        officeObjective: OBJECTIVES.LOU_IS_WAITING,
+        officeInstruction: INSTRUCTIONS.RETURN_TO_OFFICE,
+      },
       labBuilt: Boolean(built),
       missionMounted: Boolean(window.mansion.mission),
     };
@@ -3024,6 +3477,35 @@ try {
       && keypadScreen.instruction.startsWith('Press E at the keypad'),
     `${keypadScreen.objective} / ${keypadScreen.instruction}`);
 
+  /* ---- S11: THE WALK OUT SAYS ONE THING.
+   *
+   * Owner playtest, 2026-08-06: *"Objective says 'return to the cellar', voice
+   * lines say return to Lou, Booski says go upstairs."* Three destinations off
+   * one beat, and none of them was the fourth thing — where the mission
+   * actually ENDED, which was the top of the cellar stair, nowhere near Lou.
+   *
+   * Checked as an agreement rather than as four strings typed twice: whatever
+   * the writing says, the man's name has to be in the objective from the
+   * moment he gives the order, the objective has to CHANGE at the top of the
+   * stairs, and the state the mission finishes in has to be the one that
+   * objective names. */
+  const exitScreen = night.screens.find((s2) => s2.where === 'exit');
+  const officeScreen2 = night.screens.find((s2) => s2.where === 'backToLou');
+  const flowFails = [];
+  if (!/Lou/i.test(night.flow.booskiSaysUpstairs)) flowFails.push('Booski does not mention Lou');
+  if (!/upstairs/i.test(night.flow.booskiSaysUpstairs)) flowFails.push('Booski does not say upstairs');
+  if (!/Lou/i.test(exitScreen?.objective || '')) flowFails.push(`leg one objective: "${exitScreen?.objective}"`);
+  if (!/stairwell/i.test(exitScreen?.instruction || '')) flowFails.push(`leg one instruction: "${exitScreen?.instruction}"`);
+  if (!/office/i.test(officeScreen2?.objective || '')) flowFails.push(`leg two objective: "${officeScreen2?.objective}"`);
+  if (!/office/i.test(officeScreen2?.instruction || '')) flowFails.push(`leg two instruction: "${officeScreen2?.instruction}"`);
+  if (exitScreen?.objective === officeScreen2?.objective) flowFails.push('the objective never changed');
+  /* And the mission genuinely has two legs to it now, in the spec's beat 11. */
+  if (!night.report.history.includes('BACK_TO_LOU')) flowFails.push('there is no second leg');
+  check('the walk out agrees with itself: Booski, the objective, the instruction and where the night ends',
+    flowFails.length === 0,
+    flowFails.join(' | ')
+      || `"${night.flow.booskiSaysUpstairs}" -> "${exitScreen.objective}" -> "${officeScreen2.objective}"`);
+
   check('the mission mounts exactly when the house has a laboratory in it',
     night.labBuilt === night.missionMounted,
     night.labBuilt
@@ -3069,6 +3551,79 @@ try {
       && wiring.resolved.silentNight
       && wiring.resolved.transferTable,
     JSON.stringify(wiring));
+
+  /* ================================================================ */
+  /* S2: LOU OPENS IT TOWARD HIMSELF, AND THERE IS SOMETHING IN IT     */
+  /*                                                                    */
+  /* Owner playtest, 2026-08-06: *"Lou opens the case toward himself,   */
+  /* with the purple-and-gold glow effect."* Two faults behind one note: */
+  /*                                                                     */
+  /*  - the script's own `lou.rotate` stage direction was played on every */
+  /*    run and performed by nobody, because `mission/mount.js` never      */
+  /*    passed an `onStage` hook in. The case opened whichever way the      */
+  /*    player had happened to set it down.                                 */
+  /*  - the case has no contents by construction (the prop's own header      */
+  /*    says so), and the Squatchanium container that is supposed to be      */
+  /*    inside it — purple band, gold core, vapour, all already animated —    */
+  /*    was built hidden on the transfer table and only ever appeared when     */
+  /*    the drawer sent it through the wall.                                   */
+  /*                                                                            */
+  /* Driven on the office beat itself, from where a player stands, and the       */
+  /* case's own facing is measured against where he is standing.                 */
+  /* ================================================================ */
+  {
+    const office = await page.evaluate(() => {
+      const m = window.mansion;
+      m.checkpoints.jump('office');
+      const desk = m.rooms.officeDesk;
+      /* In front of the desk on the door side, looking at it — which is the
+       * side Lou is NOT on. */
+      m.teleport(desk.x, desk.y, desk.z - 2.2, 180);
+      m.tick(0.5);
+      const eye = { x: m.player.position.x, z: m.player.position.z };
+      const placed = m.mission.placeCase();
+      const samples = [];
+      for (let frame = 0; frame < 300; frame++) {
+        m.tick(1 / 30);
+        samples.push(m.mission.caseAt());
+      }
+      return { placed, eye, samples, state: m.mission.state };
+    });
+    const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+    /**
+     * AFTER HE HAS TURNED IT, which is the only window the claim is about.
+     *
+     * "Contents visible" is not that window: the checks above this one send
+     * the transfer drawer through, which leaves the Squatchanium container
+     * visible for the rest of the page — so the first frames of this sample
+     * are the case still parked in the basement, twenty metres away, pointing
+     * the way the laboratory built it. Measuring the facing over those says
+     * the latches are 180 degrees out, and they are: he has not picked it up
+     * yet. The turn is the event; everything after the last frame of it is the
+     * case as Lou left it.
+     */
+    const lastTurn = office.samples.map((s2) => s2.turning).lastIndexOf(true);
+    const settled = lastTurn < 0 ? [] : office.samples.slice(lastTurn + 1);
+    const lit = settled.filter((s2) => s2.contents?.visible && s2.visible);
+    const facing = lit.map((s2) => Math.abs(wrap(
+      s2.yaw - Math.atan2(s2.x - office.eye.x, s2.z - office.eye.z),
+    )));
+    const worstFacing = facing.length ? Math.max(...facing) : null;
+    const bad = [];
+    if (!office.placed) bad.push('the case never went down on the desk');
+    if (lastTurn < 0) bad.push('he never turned it');
+    if (!lit.length) bad.push('nothing lit up inside it after he turned it');
+    /* 0.25 rad is 14 degrees: the latches are pointed at the far side of the
+     * desk, not merely on that half of the compass. */
+    if (worstFacing === null || worstFacing > 0.25) {
+      bad.push(`latches ${worstFacing?.toFixed(2)} rad off the far side of the desk`
+        + ` (case at ${lit[0]?.x}, ${lit[0]?.z}; he is at ${office.eye.x}, ${office.eye.z})`);
+    }
+    check('Lou turns the case to face himself before he opens it, and the purple-and-gold is inside',
+      bad.length === 0,
+      bad.join(' | ')
+        || `${lit.length} frames lit after the turn, latches within ${worstFacing.toFixed(3)} rad of straight at him`);
+  }
 
   /* ================================================================ */
   /* Rendering back on: the house must actually draw something           */
@@ -3157,11 +3712,27 @@ try {
     {
       id: 'arrival', state: 'ARRIVAL', hasCase: true, wall: 'shut',
     },
+    /* The fifth kind, added for the owner's case hand-off note: the beat where
+     * the player is standing in the observation area with the case still in
+     * his hands and Booski asking for it. It is the only cold load in this
+     * list that goes on to press a button — see `handOff` below. */
+    /* Which of the four it lands on depends on whether the teleport at the end
+     * of the jump has had a frame to fire the observation trigger volume yet,
+     * and the claim the link makes is not "this exact state" — it is "the case
+     * is in his hands and the delivery is legal", which is these four. */
+    {
+      id: 'lab',
+      state: ['STAIRWELL', 'INTERROGATION', 'OBSERVATION', 'DELIVERY'],
+      hasCase: true,
+      wall: 'open',
+      handOff: true,
+    },
     {
       id: 'core_complete', state: 'LOCK_THE_LAB', hasCase: false, wall: 'open', locked: false,
     },
+    /* The beat AFTER the gassing, which is the one Snow is called down for. */
     {
-      id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0,
+      id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0, snowDown: true,
     },
     {
       id: 'suite', state: 'ARRIVAL', hasCase: true, stairOpen: true,
@@ -3200,7 +3771,8 @@ try {
       if (got.jumped !== want.id) bad.push(`jumped=${got.jumped}`);
       if (!got.running) bad.push('not running');
       if (!got.chip) bad.push('no label chip');
-      if (got.state !== want.state) bad.push(`state=${got.state} want ${want.state}`);
+      const wantStates = Array.isArray(want.state) ? want.state : [want.state];
+      if (!wantStates.includes(got.state)) bad.push(`state=${got.state} want ${wantStates.join('|')}`);
       if (got.hasCase !== want.hasCase) bad.push(`hasCase=${got.hasCase}`);
       if (want.locked !== undefined && got.locked !== want.locked) bad.push(`locked=${got.locked}`);
       if (want.lifeSigns !== undefined && got.lifeSigns !== want.lifeSigns) bad.push(`lifeSigns=${got.lifeSigns}`);
@@ -3208,6 +3780,139 @@ try {
       if (want.stairOpen !== undefined && got.stairOpen !== want.stairOpen) bad.push(`stairOpen=${got.stairOpen}`);
       if (cpErrors.length) bad.push(`errors: ${cpErrors[0]}`);
       if (bad.length) cpFails.push(`${want.id}: ${bad.join(', ')}`);
+
+      /* ---- S10: SNOW IS IN THE ROOM HE IS TALKING ABOUT.
+       *
+       * Owner playtest, 2026-08-06: *"Snow must come down to the lab for his
+       * clean-up lines."* He never did. Booski calls him — "Snow. Basement." /
+       * "Bring the cart." — and he answers "Jesus Christ.", which is a man
+       * looking at a room full of bodies, from the foyer, three floors up.
+       *
+       * This is the cold load of the beat that calls him, so by the time the
+       * page has settled the exchange has run: his BODY has to be on the lab
+       * floor, inside the observation area, and his errand has to say he
+       * arrived rather than that he was teleported into position. */
+      if (want.snowDown && !bad.length) {
+        const snow = await cpPage.evaluate(() => {
+          /* The jump's own pump runs the MISSION and the LABORATORY and not
+           * the cast, so his walk has not started when the page settles. This
+           * is the walk, with room to spare. */
+          window.mansion.tick(14);
+          const m = window.mansion;
+          return {
+            errand: m.cast?.snowErrand ?? null,
+            at: m.cast?.people?.snow ?? null,
+            observation: m.lab?.rects?.OBSERVATION ?? null,
+            LAB_Y: m.lab?.datums?.LAB_Y ?? null,
+          };
+        });
+        const off = [];
+        if (!snow.errand) off.push('Booski never called him down');
+        else if (!snow.errand.arrived) off.push(`he is still walking, at ${snow.errand.x}, ${snow.errand.z}`);
+        if (!snow.at) off.push('there is no Snow in this house');
+        else {
+          if (Math.abs(snow.at.y - snow.LAB_Y) > 0.4) off.push(`he is on the floor at y=${snow.at.y}, not the lab's ${snow.LAB_Y}`);
+          const r = snow.observation;
+          if (!(snow.at.x > r.x0 && snow.at.x < r.x1 && snow.at.z > r.z0 && snow.at.z < r.z1)) {
+            off.push(`he is at (${snow.at.x}, ${snow.at.z}), outside the observation area`);
+          }
+        }
+        check('Snow comes down to the laboratory for the lines he says about it',
+          off.length === 0,
+          off.join(' | ') || `arrived at (${snow.at.x}, ${snow.at.z}) on the lab floor`);
+      }
+
+      /* ---- S1: THE CASE HAND-OFF.
+       *
+       * Owner playtest, 2026-08-06: *"Case hand-off: prompt floats at a random
+       * spot near Booski. Walk up to Booski, hit E, case auto-places on the
+       * table."* The prompt used to be on the wall DRAWER's aim box — a steel
+       * hatch a metre and a half behind the man asking for the case.
+       *
+       * So this walks the beat the way the note describes it and nothing else:
+       * stand in front of BOOSKI, put the crosshair on HIM, press the real E
+       * through the real interaction system, and then require the case to end
+       * up ON the table anchor. Not "an event fired" — the object's own world
+       * position against `lab.targets.tableSpot`, after the placement has had
+       * time to land, because the whole complaint was about where things are.
+       */
+      if (want.handOff && !bad.length) {
+        const handOff = await cpPage.evaluate(() => {
+          const T = window.mansion.THREE;
+          const m = window.mansion;
+          /* HIS BODY, out of the scene graph.
+           *
+           * `window.mansion.cast.people` publishes COORDINATES, not `Npc`s —
+           * it is a map of `{x, y, z}` built for the "is anybody standing in
+           * the furniture" check — so `people.booski.group` is undefined and
+           * every measurement off it is a throw. The bodies carry
+           * `userData.npc` (src/bing/cast.js's constructor writes it), which
+           * is the handle that actually exists. */
+          let body = null;
+          m.scene.traverse((o) => {
+            if (!body && o.userData?.npc?.name === 'Booski') body = o;
+          });
+          if (!body) return { error: 'no Booski in this house' };
+          const booski = { group: body };
+          const b = new T.Box3().setFromObject(body);
+          const chest = b.getCenter(new T.Vector3());
+          chest.y = b.min.y + (b.max.y - b.min.y) * 0.62;
+
+          /* A metre and a half off his chest, on the side the player comes in
+           * from, and looking at him. Inside the interaction system's own 2.7 m
+           * reach without standing inside the man. */
+          const toward = new T.Vector3(chest.x, 0, chest.z)
+            .sub(new T.Vector3(m.lab.anchors.crossOpening.x, 0, m.lab.anchors.crossOpening.z));
+          if (toward.lengthSq() < 1e-6) toward.set(0, 0, 1);
+          toward.normalize();
+          const stand = new T.Vector3(chest.x, 0, chest.z).addScaledVector(toward, -1.5);
+          m.teleport(stand.x, m.lab.datums.LAB_Y, stand.z, 0);
+          m.tick(0.3);
+
+          const pl = m.player;
+          const dx = chest.x - pl.position.x;
+          const dz = chest.z - pl.position.z;
+          const dy = chest.y - pl.position.y;
+          pl.yaw = Math.atan2(-dx, -dz);
+          pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+          m.tick(0.25);
+
+          const owner = m.interaction.current;
+          const prompt = document.getElementById('prompt').classList.contains('hidden')
+            ? null : document.getElementById('promptLabel').textContent;
+          const before = m.mission.report().case.state;
+          m.interaction.press();
+          m.interaction.release();
+          /* Long enough for the 0.55 s placement to finish, and then some. */
+          m.tick(1.6);
+
+          const spot = m.lab.targets.tableSpot.getWorldPosition(new T.Vector3());
+          const at = m.mission.caseAt();
+          return {
+            onBooski: owner === booski.group,
+            prompt,
+            before,
+            after: m.mission.report().case.state,
+            delivered: m.mission.report().case.delivered,
+            spot: { x: +spot.x.toFixed(3), y: +spot.y.toFixed(3), z: +spot.z.toFixed(3) },
+            at,
+            off: +Math.hypot(at.x - spot.x, at.y - spot.y, at.z - spot.z).toFixed(3),
+            standOff: +Math.hypot(dx, dz).toFixed(2),
+          };
+        });
+        const off = [];
+        if (handOff.error) off.push(handOff.error);
+        if (!handOff.onBooski) off.push('the crosshair does not find Booski');
+        if (!/case/i.test(handOff.prompt || '')) off.push(`prompt reads "${handOff.prompt}"`);
+        if (handOff.before !== 'carried') off.push(`case was ${handOff.before} before the press`);
+        if (handOff.after !== 'table') off.push(`case is ${handOff.after} after it`);
+        if (!(handOff.off <= 0.05)) off.push(`case landed ${handOff.off} m off the table anchor`);
+        if (handOff.at?.placing) off.push('the placement never finished');
+        if (handOff.at && handOff.at.visible !== true) off.push('the case is not visible on the table');
+        check('walking up to Booski and pressing E puts the case on the transfer table anchor',
+          off.length === 0,
+          off.join(' | ') || `prompt "${handOff.prompt}" at ${handOff.standOff} m, case ${handOff.off} m from the anchor`);
+      }
     } catch (error) {
       cpFails.push(`${want.id}: ${String(error).slice(0, 120)}`);
     }

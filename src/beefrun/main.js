@@ -108,7 +108,10 @@ const story = createAirstripStory({ campaign });
 
 const audio = new BeefAudioEngine();
 const missionAudio = new MissionAudio(audio);
-missionAudio.takeoffAnthemFile = 'cant-you-hear-me-knocking.mp3';
+/* No takeoffAnthemFile here: Beef Run's takeoff record is the signature cue
+ * in src/core/signature-music.js, fired at 45 knots on the roll by
+ * mission.js. Naming it here as well put the same song on two loop keys —
+ * once at the roll, again at climbout (owner's 8-6 playtest note). */
 const hud = new Hud();
 const flightHud = new FlightHud();
 // Beef Run resets the carried loadout, but keeps the campaign's five-box

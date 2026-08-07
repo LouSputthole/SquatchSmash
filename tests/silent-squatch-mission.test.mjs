@@ -18,7 +18,7 @@ import { createContractLab } from '../src/mansion/mission/contract-lab.js';
 import { createSilentSquatchMission } from '../src/mansion/mission/SilentSquatchMission.js';
 import { BEAT_OF, S } from '../src/mansion/mission/SilentSquatchStateMachine.js';
 import {
-  INSTRUCTIONS, OBJECTIVES, SCIENTIST_INDEX, SEQUENCES,
+  INSTRUCTIONS, OBJECTIVES, SCIENTIST_INDEX, SEQUENCES, gainForVoice,
 } from '../src/mansion/script.js';
 import { createSilentSquatchStory } from '../src/core/silent-squatch-story.js';
 import {
@@ -127,6 +127,34 @@ function playThrough(r, hooks = {}) {
   assert.ok(atState(S.COMPLETE, 30), 'the wall never closed behind him');
 }
 
+/**
+ * The same night, stopped at the moment Booski sends him back upstairs.
+ *
+ * The exit is two legs now (the owner's flow note), so the checks about it
+ * need the state BEFORE `leave()` rather than after the whole thing has run.
+ */
+function playThroughToExit(r) {
+  const { mission, atInstruction, atState } = r;
+  mission.start();
+  mission.arrive('office');
+  atInstruction(INSTRUCTIONS.PLACE_CASE);
+  mission.placeCaseOnDesk();
+  atInstruction(INSTRUCTIONS.TAKE_CASE);
+  mission.takeCaseBack();
+  atInstruction(INSTRUCTIONS.BUST_SWITCH);
+  mission.pressBustSwitch();
+  atInstruction(INSTRUCTIONS.DELIVER_CASE, 200);
+  mission.deliverCase();
+  atInstruction(INSTRUCTIONS.KEYPAD, 400);
+  mission.enterCode('6969');
+  atInstruction(INSTRUCTIONS.ELIMINATE_AUBBIE, 100);
+  mission.shootAubbie(true);
+  atInstruction(INSTRUCTIONS.SILENT_NIGHT, 200);
+  mission.pullSilentNight();
+  assert.ok(atState(S.EXIT, 300), 'the gassing never finished');
+  assert.ok(atInstruction(INSTRUCTIONS.RETURN_UPSTAIRS, 30), 'never sent back upstairs');
+}
+
 test('the whole night plays, and the player performs every action himself', () => {
   const r = rig();
   playThrough(r);
@@ -155,9 +183,96 @@ test('the objectives are the spec\'s, in the spec\'s order', () => {
     OBJECTIVES.LOCK_THE_LAB,
     OBJECTIVES.ELIMINATE_AUBBIE,
     OBJECTIVES.ACTIVATE_SILENT_NIGHT,
-    OBJECTIVES.RETURN_UPSTAIRS,
+    /* The walk out, in the two legs it has. Owner playtest: the objective, the
+     * lines and the destination used to be three different places. */
+    OBJECTIVES.REPORT_TO_LOU,
+    OBJECTIVES.LOU_IS_WAITING,
     '',
   ]);
+});
+
+/**
+ * Owner playtest, 2026-08-06: *"Objective says 'return to the cellar', voice
+ * lines say return to Lou, Booski says go upstairs — reconcile the flow so the
+ * player knows what to do."*
+ *
+ * The three of them and the DESTINATION now say one thing. This checks all
+ * four against each other rather than checking any one of them against a
+ * string typed twice.
+ */
+test('the exit says one thing: the objective, the line and the place the night ends', () => {
+  const r = rig({ zones: { officeReturn: { x: 0, z: 70, r: 4 } } });
+  const { mission, atState, until } = r;
+  playThroughToExit(r);
+
+  /* Leg one, in the basement. Booski names Lou; so does the objective; the
+   * instruction is the stair he is standing at the bottom of. */
+  const booski = SEQUENCES.exitOrder[0].text;
+  assert.match(booski, /upstairs/i);
+  assert.match(booski, /Lou/);
+  assert.equal(mission.objective, OBJECTIVES.REPORT_TO_LOU);
+  assert.match(mission.objective, /Lou/);
+  assert.equal(mission.instruction, INSTRUCTIONS.RETURN_UPSTAIRS);
+  assert.match(mission.instruction, /stairwell/i);
+
+  /* Leg two. He is out of the basement and the objective has MOVED ON rather
+   * than repeating itself — the owner's "make it update as I progress". */
+  assert.equal(mission.leave(), true);
+  assert.ok(atState(S.BACK_TO_LOU, 30), 'the wall never closed behind him');
+  assert.equal(mission.objective, OBJECTIVES.LOU_IS_WAITING);
+  assert.match(mission.objective, /office/i);
+  assert.match(mission.instruction, /office/i);
+
+  /* And the night ends WHERE IT SAYS IT DOES: in Lou's office, on the player
+   * walking in, not at the top of a cellar stair three floors below him. */
+  assert.equal(mission.report().complete, false);
+  assert.equal(mission.arrive('officeReturn'), true);
+  assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30));
+  assert.equal(mission.report().complete, true);
+});
+
+/**
+ * THE ROOM HE IS SENT BACK TO IS A ROOM HE HAS ALREADY BEEN IN.
+ *
+ * `arrive()` consumes a zone id the first time the trigger volume is crossed,
+ * whatever the handler does with it — so beat 2's visit to the office ate beat
+ * 11's trigger, the objective said "Report to Lou in his office", the player
+ * walked into Lou's office, and nothing happened. Walked here with a POSITION,
+ * through `update()`, because that is the only path the fault is on.
+ */
+test('walking into the office in beat 2 does not eat the trigger that ends the night', () => {
+  const OFFICE = { x: 0, z: 70, r: 4 };
+  const r = rig({ zones: { office: OFFICE, officeReturn: OFFICE } });
+  const { mission, until } = r;
+  const inTheOffice = { x: 0, z: 70 };
+  const away = { x: 0, z: 40 };
+
+  mission.start();
+  /* Beat 2: he stands at the desk, which is inside BOTH volumes. */
+  mission.update(1 / 30, { position: inTheOffice });
+  assert.ok(until(() => mission.instruction === INSTRUCTIONS.PLACE_CASE));
+  mission.update(1 / 30, { position: away });
+
+  playThroughToExit(r);
+  assert.equal(mission.leave(), true);
+  assert.ok(r.atState(S.BACK_TO_LOU, 30));
+
+  /* Beat 11: back into the same room, on the same trigger volume. */
+  mission.update(1 / 30, { position: inTheOffice });
+  assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30), 'the night never ended');
+  assert.equal(mission.report().complete, true);
+});
+
+test('the office cannot be reported to before the basement is behind him', () => {
+  const r = rig({ zones: { officeReturn: { x: 0, z: 70, r: 4 } } });
+  const { mission } = r;
+  mission.start();
+  assert.equal(mission.reportToLou(), false, 'the night ended on beat 1');
+  playThroughToExit(r);
+  assert.equal(mission.reportToLou(), false, 'the basement is still open behind him');
+  assert.equal(mission.leave(), true);
+  assert.ok(r.atState(S.BACK_TO_LOU, 30));
+  assert.equal(mission.reportToLou(), true);
 });
 
 test('the case is carried in, put on the desk by hand, picked back up, and delivered', () => {
@@ -347,6 +462,113 @@ test('every line behind the glass goes through the glass audio, and nothing else
   const dry = new Set(report.cues.filter((c) => !lab.glassAudio.log.some((g) => g.cue === c)));
   assert.ok([...dry].some((c) => c.includes('booski.')));
   assert.equal([...dry].some((c) => c.includes('.orlova.')), false);
+});
+
+/**
+ * Owner playtest, 2026-08-06: *"Aubbie's mouth stops moving once he leaves the
+ * lab."*
+ *
+ * A scientist's jaw is moved from inside `lab.scientists[i].say()` — the
+ * laboratory plays the cue and hands the playing node to his mouth. The
+ * mission was only calling that on MUFFLED lines, so from `door.open` onwards
+ * every line of Aubbie's went round his body through a bare `playCue`, and he
+ * pleaded for his life with his mouth shut. This is the routing half; the jaw
+ * itself is measured in the real lab by `npm run verify:mansion`.
+ */
+test('every line of Aubbie\'s comes out of Aubbie, including the ones after he walks out', () => {
+  const r = rig();
+  playThrough(r);
+  const { lab, mission } = r;
+  const aubbie = lab.scientists[SCIENTIST_INDEX.AUBBIE];
+
+  /* Eighteen on a clean run: ten over the build, one at the completion, three
+   * coming out through the door, "What is this?", and the three of the
+   * pleading. The nag lines are extra and only fire if the player dawdles. */
+  const his = mission.report().cues.filter((cue) => cue.includes('.aubbie.'));
+  assert.ok(his.length >= 18, `${his.length} Aubbie cues is too few to be his part`);
+  const missed = his.filter((cue) => !aubbie.lines.includes(cue));
+  assert.deepEqual(missed, [], 'these lines never reached his body, so his mouth never moved');
+
+  /* The half that used to be broken: the lines he says on the player's side of
+   * the glass. They are dry AND they come out of him. */
+  assert.equal(aubbie.side, 'observation', 'he never came out through the door');
+  /* Seven: the three he says coming out of the door, "What is this?", and the
+   * three of the pleading. Every one of them was silent-mouthed before. */
+  assert.ok(aubbie.dry.length >= 7, `${aubbie.dry.length} dry lines is not his whole execution`);
+  assert.ok(aubbie.dry.every((take) => take.dry === true));
+  assert.ok(
+    aubbie.dry.some((take) => take.cue.includes('execution.')),
+    'the execution is the beat he is out here for',
+  );
+  /* And not one of them went through twelve centimetres of glass he is
+   * standing on the wrong side of. */
+  assert.equal(
+    lab.glassAudio.log.some((entry) => entry.cue.includes('execution.aubbie.')), false,
+  );
+});
+
+/**
+ * Owner playtest, 2026-08-06: *"Aubbie volume +20%."*
+ *
+ * At the PROFILE (`VOICE_GAIN` in script.js), so it reaches both of his routes
+ * and the lines nobody has recorded yet. Asserted as a number rather than as
+ * "louder than before", because "before" is not available to a check.
+ */
+test('Aubbie is played at his profile\'s gain, and nobody else is moved', () => {
+  const r = rig();
+  playThrough(r);
+  const { lab } = r;
+
+  assert.equal(gainForVoice('aubbie'), 1.2, 'the owner asked for +20%');
+  assert.equal(gainForVoice('booski'), 1);
+  assert.equal(gainForVoice('nobody-by-this-name'), 1);
+
+  const aubbie = lab.scientists[SCIENTIST_INDEX.AUBBIE];
+  const levels = new Set(aubbie.takes.map((take) => take.volume));
+  assert.deepEqual([...levels], [1.08], 'every line of his leaves at 0.9 x 1.2');
+
+  /* The other five are on the same route and are NOT boosted, which is what
+   * makes this a per-voice gain rather than a louder laboratory. */
+  for (const index of [
+    SCIENTIST_INDEX.VETROV, SCIENTIST_INDEX.SOKOLOV,
+    SCIENTIST_INDEX.BEZMENOV, SCIENTIST_INDEX.ORLOVA, SCIENTIST_INDEX.MARCHUK,
+  ]) {
+    const takes = lab.scientists[index].takes;
+    assert.ok(takes.length > 0, `scientist ${index} never spoke`);
+    assert.deepEqual([...new Set(takes.map((t) => t.volume))], [0.9]);
+  }
+});
+
+/**
+ * Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."*
+ *
+ * `shot` and `collapse` are two calls on purpose: the first is a round
+ * arriving and the second is a body going down, and the gassing uses the
+ * second one five more times without a drop of blood anywhere. This proves the
+ * mission asks for both, in that order, and only for the man who was shot.
+ */
+test('the man who is shot is bled, and the five who are gassed are not', () => {
+  const r = rig();
+  playThrough(r);
+  const { lab, mission } = r;
+  const aubbie = lab.scientists[SCIENTIST_INDEX.AUBBIE];
+
+  assert.ok(aubbie.log.includes('shot'), 'nothing told the scene he had been hit');
+  assert.ok(
+    aubbie.log.indexOf('shot') < aubbie.log.indexOf('collapse'),
+    'he bled after he had already fallen over',
+  );
+  assert.equal(mission.report().aubbie.bled, true);
+
+  for (const index of [
+    SCIENTIST_INDEX.VETROV, SCIENTIST_INDEX.SOKOLOV,
+    SCIENTIST_INDEX.BEZMENOV, SCIENTIST_INDEX.ORLOVA, SCIENTIST_INDEX.MARCHUK,
+  ]) {
+    assert.equal(
+      lab.scientists[index].log.includes('shot'), false,
+      `scientist ${index} was gassed, not shot`,
+    );
+  }
 });
 
 test('the HUD never speaks over the man in the room', () => {

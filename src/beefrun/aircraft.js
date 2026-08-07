@@ -299,11 +299,22 @@ export class Brushrunner {
     g.add(hull);
     this.parts.hull = hull;
 
-    // Mismatched replacement panels. Nobody has ever repainted this aeroplane.
-    g.add(mesh(boxGeo(1.82, 0.62, 1.5), patch, 0, 0.34, -1.2));
-    g.add(mesh(boxGeo(1.82, 0.44, 0.9), patch, 0, -0.5, 1.9));
+    /* Mismatched replacement panels. Nobody has ever repainted this aeroplane.
+     * Named with the rest of the skin (`fuselage-` prefix) so the cockpit
+     * verifier's shell allowlist catches them the same way: a patch riveted
+     * over the belly is structurally the fuselage, and its bounding box
+     * necessarily contains the cabin air behind it exactly like the skin it
+     * is patching — that is not a fixture poking into the pilot or Sasole. */
+    const patchAft = mesh(boxGeo(1.82, 0.62, 1.5), patch, 0, 0.34, -1.2);
+    patchAft.name = 'fuselage-patch-aft';
+    g.add(patchAft);
+    const patchFwd = mesh(boxGeo(1.82, 0.44, 0.9), patch, 0, -0.5, 1.9);
+    patchFwd.name = 'fuselage-patch-fwd';
+    g.add(patchFwd);
     // Riveted belly strake.
-    g.add(mesh(boxGeo(1.5, 0.1, 6.8), metal, 0, -0.99, 0.4));
+    const strake = mesh(boxGeo(1.5, 0.1, 6.8), metal, 0, -0.99, 0.4);
+    strake.name = 'fuselage-belly-strake';
+    g.add(strake);
 
     const nose = mesh(cylGeo(0.42, 0.9, 1.5, 14), skin, 0, 0.05, 4.6);
     nose.name = 'nose-cone';
@@ -676,6 +687,7 @@ export class Brushrunner {
     const emblemMat = mat({ map: apartmentCrestTexture(), roughness: 0.9, transparent: true, alphaTest: 0.03 });
     for (const sx of [-1, 1]) {
       const emblem = flatMesh(new THREE.PlaneGeometry(0.9, 0.9), emblemMat, sx * 0.945, 0.28, 1.28);
+      emblem.name = `fuselage-emblem-${sx < 0 ? 'right' : 'left'}`;
       emblem.rotation.y = sx * Math.PI / 2;
       g.add(emblem);
     }
@@ -686,17 +698,24 @@ export class Brushrunner {
     tally.rotation.y = -Math.PI / 2;
     g.add(tally);
 
-    // ---- Glazing ----
+    /* ---- Glazing ----
+     * Named so the cockpit verifier's shell/canopy allowlist can name it
+     * explicitly rather than guessing: this is the intended glass around the
+     * pilot's head, not a fixture that should ever be flagged as poking into
+     * his view. */
     const windshield = mesh(boxGeo(1.62, 0.92, 0.1), glassMat, 0, 0.72, 3.42);
+    windshield.name = 'windshield';
     windshield.rotation.x = -0.34;
     windshield.castShadow = false;
     g.add(windshield);
     this.parts.windshield = windshield;
     for (const sx of [-1, 1]) {
       const side = mesh(boxGeo(0.06, 0.72, 1.5), glassMat, sx * 0.94, 0.55, 2.5);
+      side.name = `cabin-glass-side-${sx < 0 ? 'right' : 'left'}`;
       side.castShadow = false;
       g.add(side);
       const port = mesh(boxGeo(0.06, 0.5, 0.6), glassMat, sx * 0.94, 0.45, 0.6);
+      port.name = `cabin-glass-quarter-${sx < 0 ? 'right' : 'left'}`;
       port.castShadow = false;
       g.add(port);
     }
@@ -971,6 +990,22 @@ export class Brushrunner {
     const LEFT = 1;
     const RIGHT = -1;
 
+    /* Owner's note (8-6): *"cockpit still has shit intersecting my view and
+     * of Sasole."* MEASURED CAUSE, second half: Sasole leans toward whoever
+     * is flying every frame he is aboard — `updateFigure()` in npc.js aims
+     * his neck and torso at `camera.position`, not only while he is talking
+     * — and that lean swings his seated body's local x as far as +0.27,
+     * across the centreline and past the pilot seat's own inboard edge at
+     * 0.17. `tools/verify-beefrun.mjs`'s cockpit-clipping checks measured
+     * this on all five flight-phase checkpoints, not one: the pilot seat and
+     * the inboard rudder pedal came out 5-10 cm inside his body box every
+     * time. Nobody is ever seated in the pilot seat to see it move (same
+     * fact the seat comment below already leans on), so it and the pedals
+     * riding under it go `PILOT_SEAT_CLEARANCE` further from the
+     * centreline; the eye point, panel, coaming and yoke — everything the
+     * pilot's own view is built from — are untouched. */
+    const PILOT_SEAT_CLEARANCE = 0.14;
+
     // Instrument panel: one canvas for all six gauges, redrawn in flight.
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
@@ -987,6 +1022,7 @@ export class Brushrunner {
      * the seat now lives below the sightline, and the nose is the only thing
      * left in the way, which is how it should be. */
     const panel = mesh(boxGeo(1.62, 0.72, 0.1), panelDark, 0, 0.30, 2.86);
+    panel.name = 'instrument-panel';
     panel.rotation.x = 0.16;
     g.add(panel);
     /* The gauges hang off the panel's own back face, turned to look into the
@@ -998,7 +1034,9 @@ export class Brushrunner {
     panel.add(face);
 
     // Glare shield and coaming.
-    g.add(mesh(boxGeo(1.7, 0.1, 0.5), trimMat, 0, 0.70, 2.9));
+    const coaming = mesh(boxGeo(1.7, 0.1, 0.5), trimMat, 0, 0.70, 2.9);
+    coaming.name = 'glare-shield-coaming';
+    g.add(coaming);
 
     /* A complete radio stack rather than three anonymous green bars: three
      * separate boxes, lit frequency windows, tuning knobs, and a guarded power
@@ -1053,6 +1091,7 @@ export class Brushrunner {
     this.parts.yoke = [];
     for (const sx of [-1, 1]) {
       const yokeRoot = new THREE.Group();
+      yokeRoot.name = `yoke-${sx === RIGHT ? 'copilot' : 'pilot'}`;
       yokeRoot.position.set(sx * 0.42, 0.3, 2.42);
       const column = mesh(cylGeo(0.045, 0.045, 0.5, 8), metal, 0, 0, 0.2);
       column.rotation.x = Math.PI / 2;
@@ -1069,8 +1108,10 @@ export class Brushrunner {
     // Throttle / prop / mixture quadrant.
     this.parts.lever = [];
     const leverColors = [0x1d1d1f, 0x1d1d1f, 0x2f6bd9, 0x2f6bd9, 0xd94f2a, 0xd94f2a];
+    const leverNames = ['lever-throttle-left', 'lever-throttle-right', 'lever-prop-left', 'lever-prop-right', 'lever-mixture-left', 'lever-mixture-right'];
     for (let i = 0; i < 6; i++) {
       const lever = new THREE.Group();
+      lever.name = leverNames[i];
       lever.position.set(-0.16 + (i % 2) * 0.09 + Math.floor(i / 2) * 0.14 - 0.06, 0.06, 2.44);
       const shaft = mesh(boxGeo(0.035, 0.24, 0.035), metal, 0, 0.12, 0);
       lever.add(shaft);
@@ -1080,6 +1121,7 @@ export class Brushrunner {
     }
     // Flap lever, off to the left of the quadrant.
     const flapLever = new THREE.Group();
+    flapLever.name = 'flap-lever';
     flapLever.position.set(-0.34, 0.06, 2.4);
     flapLever.add(mesh(boxGeo(0.04, 0.3, 0.04), metal, 0, 0.15, 0));
     flapLever.add(mesh(boxGeo(0.1, 0.06, 0.1), solid(0xd9d2c4, { roughness: 0.7 }), 0, 0.31, 0));
@@ -1089,6 +1131,7 @@ export class Brushrunner {
     // Magnetic compass on the windshield post.
     // Hung just under the cabin roof at 0.97, not through it.
     const compassHousing = mesh(boxGeo(0.16, 0.14, 0.14), panelDark, 0, 0.90, 3.0);
+    compassHousing.name = 'compass-housing';
     g.add(compassHousing);
     const compassCanvas = document.createElement('canvas');
     compassCanvas.width = 256; compassCanvas.height = 64;
@@ -1102,9 +1145,12 @@ export class Brushrunner {
     compassHousing.add(compassFace);
 
     // Rudder pedals, under the flying pilot's feet — so, the left seat.
+    // Shifted outboard by PILOT_SEAT_CLEARANCE with the seat below; see the
+    // note by that constant.
     this.parts.pedal = [];
     for (const sx of [-1, 1]) {
-      const pedal = mesh(boxGeo(0.12, 0.04, 0.2), metal, sx * 0.16 + LEFT * 0.42, -0.42, 2.3);
+      const pedal = mesh(boxGeo(0.12, 0.04, 0.2), metal, sx * 0.16 + LEFT * 0.42 + PILOT_SEAT_CLEARANCE, -0.42, 2.3);
+      pedal.name = `rudder-pedal-${sx < 0 ? 'right' : 'left'}`;
       pedal.rotation.x = 0.5;
       g.add(pedal);
       this.parts.pedal.push(pedal);
@@ -1126,17 +1172,25 @@ export class Brushrunner {
      * stations rather than only the centreline, which alone clears the
      * pilot; Sasole's seat also drops 14 cm, cushion included, because his
      * head box is wider than the pilot's eye point and the outboard edge of
-     * it still needs the extra room. The pilot's own seat is untouched —
-     * nobody is ever seated in it to look at. */
+     * it still needs the extra room. The pilot's own seat also moves now —
+     * see `PILOT_SEAT_CLEARANCE` above — because nobody sitting in it to
+     * look at is exactly why it was free to sit in Sasole's swept path. */
     const copilotSeatDrop = 0.14;
     for (const sx of [-1, 1]) {
+      const who = sx === RIGHT ? 'copilot' : 'pilot';
       const drop = sx === RIGHT ? copilotSeatDrop : 0;
-      g.add(mesh(boxGeo(0.5, 0.12, 0.5), seatMat, sx * 0.42, -0.35 - drop, 1.72));
-      g.add(mesh(boxGeo(0.5, 0.62, 0.12), seatMat, sx * 0.42, -0.05 - drop, 1.5));
+      const clearance = sx === LEFT ? PILOT_SEAT_CLEARANCE : 0;
+      const cushion = mesh(boxGeo(0.5, 0.12, 0.5), seatMat, sx * 0.42 + clearance, -0.35 - drop, 1.72);
+      cushion.name = `${who}-seat-cushion`;
+      g.add(cushion);
+      const back = mesh(boxGeo(0.5, 0.62, 0.12), seatMat, sx * 0.42 + clearance, -0.05 - drop, 1.5);
+      back.name = `${who}-seat-back`;
+      g.add(back);
     }
 
     // The bobblehead: a sasquatch on a spring, and the honest instrument.
     const bobble = new THREE.Group();
+    bobble.name = 'bobblehead';
     bobble.position.set(RIGHT * 0.3, 0.70, 2.94);  // stands on the coaming, inboard
     const bobBody = mesh(cylGeo(0.035, 0.045, 0.07, 8), solid(0x6b5a44, { roughness: 1 }), 0, 0.03, 0);
     bobble.add(bobBody);
@@ -1179,11 +1233,12 @@ export class Brushrunner {
       g.add(m);
       return m;
     };
-    placard('IGNORE BELOW 20', 0.3, 0.05, LEFT * 0.42, 0.05, 2.79);
-    placard('GENERAL CONCERN', 0.26, 0.045, RIGHT * 0.52, 0.72, 2.83, { bg: '#3a3630', fg: '#e8c86a' });
+    placard('IGNORE BELOW 20', 0.3, 0.05, LEFT * 0.42, 0.05, 2.79).name = 'placard-ignore-below-20';
+    placard('GENERAL CONCERN', 0.26, 0.045, RIGHT * 0.52, 0.72, 2.83, { bg: '#3a3630', fg: '#e8c86a' }).name = 'placard-general-concern';
 
     // The warning light itself, above its label, over on Sasole's side.
     const concern = flatMesh(boxGeo(0.09, 0.045, 0.02), unlit(0x3a2a10), RIGHT * 0.52, 0.77, 2.82);
+    concern.name = 'concern-light';
     g.add(concern);
     this.parts.concernLight = concern;
 
@@ -1195,16 +1250,19 @@ export class Brushrunner {
       }),
       RIGHT * 0.62, 0.2, 2.7,
     );
+    map.name = 'nav-map';
     map.rotation.set(0.7, -0.3, 0.12);
     g.add(map);
-    for (const tx of [-0.14, 0.14]) {
+    for (const [ti, tx] of [-0.14, 0.14].entries()) {
       const tape = flatMesh(new THREE.PlaneGeometry(0.06, 0.05), unlit(0xe8e2c8, { transparent: true, opacity: 0.7 }), RIGHT * 0.62 + tx, 0.29, 2.69);
+      tape.name = `nav-map-tape-${ti + 1}`;
       tape.rotation.copy(map.rotation);
       g.add(tape);
     }
 
     // Cigarette lighter that sometimes has an opinion.
     const lighter = flatMesh(cylGeo(0.02, 0.02, 0.02, 8), unlit(0x2a2a2a), LEFT * 0.6, 0.12, 2.78);
+    lighter.name = 'cigarette-lighter';
     lighter.rotation.x = Math.PI / 2 + 0.16;
     g.add(lighter);
     this.parts.lighter = lighter;

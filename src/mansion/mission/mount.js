@@ -39,6 +39,11 @@ function defaultZones(anchors) {
     shubes: at(anchors.galleryCenter),
     snow: at(anchors.foyerCenter),
     office: at(anchors.officeDesk, 4),
+    /* THE SAME SPOT, UNDER A SECOND NAME. Beat 11 sends him back to Lou and
+     * `arrive()` fires each id exactly once, so walking into the office at the
+     * end of the night on the `office` id would be swallowed by the visit he
+     * made at the start of it. Two ids, one room, one anchor. */
+    officeReturn: at(anchors.officeDesk, 4),
     cellar: at(anchors.armoryCenter, 5),
   };
   for (const key of Object.keys(zones)) if (!zones[key]) delete zones[key];
@@ -72,6 +77,16 @@ export function mountSilentSquatch({
    * split `onCase` already uses.
    */
   onSidearm = () => {},
+  /**
+   * Booski calling Snow down to the basement (owner playtest: he has clean-up
+   * lines about the laboratory and was never in it).
+   *
+   * A man with a cart is `../cast.js`'s, and this file has never heard of him.
+   * The composition root supplies the verb, exactly as it does for the pistol
+   * and for the hand-off; a house with no cast simply plays the exchange with
+   * nobody arriving, which is what it did before.
+   */
+  onSnowSummoned = () => {},
 } = {}) {
   if (!lab || !THREE || !scene || !camera) return null;
 
@@ -116,6 +131,41 @@ export function mountSilentSquatch({
     close: (opts) => lab.case.close(opts),
   };
 
+  /* ---------------- what is inside it ----------------
+   *
+   * Owner playtest, 2026-08-06: *"Lou opens the case toward himself, with the
+   * purple-and-gold glow effect."* The case had no contents at all —
+   * `src/silvercase/props/case.js` says so in its own header ("No interior
+   * objects are ever built") — so opening it produced a lid and two small
+   * interior lights on an empty chrome tray, twice, in the two beats the whole
+   * mission is about.
+   *
+   * IT IS NOT A NEW EFFECT. The Squatchanium container is already built by
+   * `scenes/SilentSquatch.js` — the purple energy band under its shielding,
+   * the pulsing gold core deeper in, and the vapour curling off the casing,
+   * all of them already animated by that module's own update loop — and its
+   * own comment says "Sits in the case until it is lifted out." It never did.
+   * It was built hidden on the transfer table and only ever appeared when the
+   * drawer sent it through the wall, so the thing the case is carrying was
+   * invisible for the entire journey it is carried on.
+   *
+   * So the case shows what is in it: the container, seated in the tray, from
+   * the moment a lid comes up until it closes again. Purple and gold, out of
+   * the module that owns them. */
+  const contents = lab.container ?? null;
+  function showContents(on) {
+    if (!contents?.group) return;
+    if (!on) {
+      contents.group.visible = false;
+      return;
+    }
+    const at = world.group.position;
+    /* In the tray, on the case's own hinge line, so the lid comes up behind
+     * it and the glow reads against the chrome rather than past it. */
+    contents.placeAt(at.x, at.y + 0.02, at.z);
+    contents.group.visible = true;
+  }
+
   const worldPos = (object, fallback) => {
     if (object?.getWorldPosition) return object.getWorldPosition(new THREE.Vector3());
     if (object?.isVector3) return object.clone();
@@ -149,21 +199,162 @@ export function mountSilentSquatch({
     }
   };
 
-  function putCaseOn(object, fallback) {
+  /** Where the case is when it leaves him: chest height, an arm in front. */
+  function handsPosition() {
+    const eye = player?.position ?? camera.position;
+    const forward = camera.getWorldDirection(new THREE.Vector3());
+    forward.y = 0;
+    if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+    forward.normalize();
+    return new THREE.Vector3(eye.x, eye.y - 0.45, eye.z).addScaledVector(forward, 0.5);
+  }
+
+  /* ---------------- setting it down ----------------
+   *
+   * Owner playtest, 2026-08-06: *"Case hand-off: prompt floats at a random
+   * spot near Booski. Walk up to Booski, hit E, case auto-places on the
+   * table."*
+   *
+   * TWO HALVES, and only one of them is this block. The prompt moved onto
+   * Booski's own body (`src/mansion/cast.js` — he is the man you talk to, and
+   * a floating E over a patch of basement is not a hand-off). This half is
+   * what happens after the press: the case LEAVES HIS HANDS AND ARRIVES ON
+   * THE TABLE, travelling, rather than teleporting out of shot and existing
+   * on a surface a metre and a half away on the next frame.
+   *
+   * It is a placement, not a physics throw: 0.55 s from where the man is
+   * standing to the anchor the scene publishes, on a shallow arc with the lid
+   * levelling out, so the eye follows the object and knows where it went. The
+   * destination is exactly `targets.tableSpot` — the anchor — so "did the case
+   * end up on the table" stays a coordinate comparison for the verifier
+   * rather than a question about an animation.
+   */
+  const PLACE_SECONDS = 0.55;
+  /** null, or a placement in flight. `to` is the anchor, and it always wins. */
+  let placing = null;
+
+  function putCaseOn(object, fallback, { animate = false, from = null } = {}) {
     const at = worldPos(object, fallback);
-    world.group.position.copy(at);
     world.group.visible = true;
     caseOwned = false;
     refreshCarried();
+    if (!animate) {
+      placing = null;
+      world.group.position.copy(at);
+      return at;
+    }
+    /* From his hands. `from` is the player, and the case starts at chest
+     * height in front of him rather than at his feet -- `player.position` is
+     * the eye, so this is the object he was holding, not the ground he was
+     * standing on. */
+    const start = from?.isVector3 ? from.clone() : worldPos(from, at);
+    world.group.position.copy(start);
+    placing = { from: start, to: at.clone(), t: 0 };
+    return at;
+  }
+
+  /* ---------------- turning it round ----------------
+   *
+   * Owner playtest: *"Lou opens the case toward himself."*
+   *
+   * The script has always had the stage direction — `officeOpen` opens with
+   * `{ stage: 'lou.rotate' }`, and its comment says "Lou turns it to face
+   * himself, the locks let go, and the gold and the purple come up out of it
+   * and across the walls, his cigar smoke, and his hands". Nothing performed
+   * it: the mission hands an unknown stage to `onStage`, and this file never
+   * passed one in, so the case sat exactly as the player had put it down and
+   * opened away from the man it belongs to.
+   *
+   * The prop's front is its LATCH side (+z, see src/silvercase/props/case.js),
+   * and the lid hinges at the back and tips away from it — so whoever the
+   * latches face is the one person who can see into it. Turning them to face
+   * Lou therefore does both halves of the note at once.
+   *
+   * WHERE LOU IS, WITHOUT ASKING WHO LOU IS: he is the man on the far side of
+   * his own desk, which is the side the player is not standing on. Measured
+   * off the player at the moment the beat fires rather than wired to a body
+   * this file has never heard of — the same reason `onSidearm` exists.
+   */
+  const TURN_SECONDS = 0.9;
+  let turning = null;
+
+  function turnCaseAwayFromPlayer() {
+    const eye = player?.position ?? camera.position;
+    /* WHERE IT IS GOING, not where it is. `lou.rotate` is the first entry in
+     * `officeOpen` and the 0.55 s hand-off is still in the air when it fires,
+     * so reading the live position turns the case to face away from the man
+     * WHILE IT IS STILL IN HIS HANDS -- half a metre in front of his own eye,
+     * where the answer is a rounding error away from meaningless. */
+    const to = placing?.to ?? world.group.position;
+    const dx = to.x - eye.x;
+    const dz = to.z - eye.z;
+    if (Math.hypot(dx, dz) < 0.05) return null;
+    /* A Group's local +z points along `atan2(dx, dz)`; away from the player is
+     * exactly the vector from him to the case. */
+    const want = Math.atan2(dx, dz);
+    const from = world.group.rotation.y;
+    /* The short way round, so a 10-degree correction never spins it 350. */
+    let delta = (want - from) % (Math.PI * 2);
+    if (delta > Math.PI) delta -= Math.PI * 2;
+    if (delta < -Math.PI) delta += Math.PI * 2;
+    turning = { from, delta, t: 0 };
+    return +want.toFixed(3);
+  }
+
+  function updateTurning(dt) {
+    if (!turning) return;
+    turning.t = Math.min(1, turning.t + dt / TURN_SECONDS);
+    const k = turning.t;
+    world.group.rotation.y = turning.from + turning.delta * (k * k * (3 - 2 * k));
+    if (k >= 1) turning = null;
+  }
+
+  /** One frame of the hand-off. Lands ON the anchor, always. */
+  function updatePlacing(dt) {
+    if (!placing) return;
+    placing.t = Math.min(1, placing.t + dt / PLACE_SECONDS);
+    const k = placing.t;
+    /* Smoothstep across, and a low arc up and over so it reads as being set
+     * down rather than dragged along the floor. */
+    const e = k * k * (3 - 2 * k);
+    world.group.position.lerpVectors(placing.from, placing.to, e);
+    world.group.position.y += Math.sin(Math.PI * k) * 0.22;
+    /* WHAT IS IN IT TRAVELS WITH IT. `deliveryOpen`'s very first entry is
+     * `case.open`, which fires on the frame the hand-off starts — so the
+     * container was being seated at the case's mid-flight position and left
+     * hanging in the air over the observation-room floor while the case went
+     * on to the table without it. */
+    if (contents?.group?.visible) {
+      contents.placeAt(
+        world.group.position.x, world.group.position.y + 0.02, world.group.position.z,
+      );
+    }
+    if (k >= 1) {
+      world.group.position.copy(placing.to);
+      placing = null;
+      if (contents?.group?.visible) {
+        contents.placeAt(
+          world.group.position.x, world.group.position.y + 0.02, world.group.position.z,
+        );
+      }
+    }
   }
 
   function onCase(what) {
     switch (what) {
       case 'carry':
         caseOwned = true;
+        placing = null;
         refreshCarried();
         world.group.visible = false;
         world.close({ instant: true });
+        showContents(false);
+        /* "Whatever's in here has been humming since the car." — the
+         * Prospect's own first line of the mission, and until the 2026-08-06
+         * SFX pass it was not true: `lab.case.hum()` existed, was fully
+         * authored as `silent.case.hum`, and nothing anywhere called it. It
+         * runs while the case is in his hands and stops the moment it is not. */
+        lab.case.hum?.(true);
         break;
       /* WHERE IT LANDS IS NOT WHERE IT IS CLICKED.
        *
@@ -179,13 +370,25 @@ export function mountSilentSquatch({
        * (`deskSpot`, `tableSpot`); the click target stays the fallback so a
        * scene that has not grown one yet still works. */
       case 'desk':
-        putCaseOn(targets.deskSpot ?? targets.desk, anchors?.officeDesk);
+        lab.case.hum?.(false);
+        putCaseOn(targets.deskSpot ?? targets.desk, anchors?.officeDesk, {
+          animate: true, from: handsPosition(),
+        });
         break;
       case 'table':
-        putCaseOn(targets.tableSpot ?? targets.transferTable, lab.anchors?.transferTable);
+        lab.case.hum?.(false);
+        putCaseOn(targets.tableSpot ?? targets.transferTable, lab.anchors?.transferTable, {
+          animate: true, from: handsPosition(),
+        });
         break;
-      case 'open': world.open(); break;
-      case 'close': world.close(); break;
+      case 'open':
+        world.open();
+        showContents(true);
+        break;
+      case 'close':
+        world.close();
+        showContents(false);
+        break;
       case 'slide':
         /* Lou pushes it back across the desk toward him. */
         world.group.position.z += 0.35;
@@ -197,6 +400,8 @@ export function mountSilentSquatch({
        * Dropped to the floor and pushed under, rather than hidden: `gone`
        * already exists for things that stop existing. */
       case 'stash': {
+        placing = null;
+        lab.case.hum?.(false);
         const desk = worldPos(targets.deskSpot ?? targets.desk, anchors?.officeDesk);
         world.group.position.set(desk.x, Math.max(0.14, desk.y - 0.78), desk.z + 0.22);
         world.group.rotation.y = 0.22;
@@ -207,6 +412,8 @@ export function mountSilentSquatch({
         break;
       }
       case 'gone':
+        placing = null;
+        lab.case.hum?.(false);
         world.group.visible = false;
         caseOwned = false;
         refreshCarried();
@@ -231,7 +438,41 @@ export function mountSilentSquatch({
     onLineEnd: () => hud.hideLine(),
     onCase,
     onSidearm,
-    playCue: (cue) => {
+    /**
+     * The stage directions the SET performs, as opposed to the ones the
+     * laboratory performs (those are handled inside the mission).
+     *
+     * This hook existed and was never passed in, so the two directions below
+     * were written into the script, played on every run, logged by the
+     * dialogue controller — and did nothing at all. `lou.rotate` is the owner's
+     * "opens toward himself"; `case.lift` is Booski taking the container out
+     * of the case in front of the transfer drawer.
+     */
+    onStage: (stage) => {
+      switch (stage) {
+        case 'lou.rotate':
+          turnCaseAwayFromPlayer();
+          break;
+        /* Booski has told him to bring the cart, and he brings it. The mission
+         * has never heard of Snow; the composition root hands the verb down,
+         * the same seam `onSidearm` and `onDeliverCase` use. */
+        case 'snow.arrives':
+          onSnowSummoned();
+          break;
+        case 'case.lift':
+          /* Out of the tray and up, so the drawer has something to carry. The
+           * laboratory owns the container and its own cue. */
+          lab.container?.lift?.();
+          if (lab.container?.placeAt) {
+            const at = world.group.position;
+            lab.container.placeAt(at.x, at.y + 0.16, at.z);
+          }
+          break;
+        default:
+          break;
+      }
+    },
+    playCue: (cue, voice, gain = 1) => {
       /* A dry line, from somebody standing in the room. Cue names are data
        * here, never a literal at a call site.
        *
@@ -242,9 +483,14 @@ export function mountSilentSquatch({
        * was played in silence for so long without anybody chasing it.
        *
        * Returns the take's length so the line holds for the recording rather
-       * than for an authored guess. See `DialogueController._advance`. */
+       * than for an authored guess. See `DialogueController._advance`.
+       *
+       * `gain` is the speaker's PROFILE gain, handed down by the mission from
+       * `VOICE_GAIN` in ../script.js — the owner's "Aubbie volume +20%" note.
+       * Applied here rather than baked into a take so it reaches his
+       * unrecorded lines too. */
       if (!audio?.hasSample?.(cue)) return 0;
-      audio.play(cue);
+      audio.play(cue, { volume: gain });
       return audio.sampleDuration?.(cue) ?? 0;
     },
   });
@@ -422,9 +668,27 @@ export function mountSilentSquatch({
     get carryingCase() { return caseOwned; },
     /** Put it under Lou's desk. Owner's note; also reachable from the script. */
     stashCase() { onCase('stash'); },
+    /**
+     * Hand the case over, from wherever the player is standing.
+     *
+     * Published because the man he hands it TO is built by `../cast.js`, which
+     * is mounted after this and owns Booski's body. This file has never heard
+     * of Booski and does not need to: the cast registers the press on him and
+     * calls this, exactly the way `onSidearm` lets the mission arm a player it
+     * knows nothing about. Returns false when it is not that beat, and the
+     * caller says why.
+     */
+    deliverCase: () => mission.deliverCase(),
+    /** Is the case still in his hands as far as the MISSION is concerned. */
+    get caseState() { return mission.caseState; },
     update(dt) {
       mission.update(dt, { position: player?.position ?? camera.position });
       carried.update(dt);
+      updatePlacing(dt);
+      updateTurning(dt);
+      /* The hum travels with the man carrying it rather than staying where the
+       * case last sat. One panner move, no restart — see `AudioEngine.moveLoop`. */
+      if (caseOwned && audio?.moveLoop) audio.moveLoop('silent.case.hum', handsPosition());
       /* The world copy is NOT ticked here any more: it is `lab.case`, and
        * `SilentSquatch.js` already calls `caseObj.update(dt)` in its own
        * update. Ticking it twice would run its lid tween at double speed —
@@ -451,6 +715,32 @@ export function mountSilentSquatch({
       shoot: (hit = true) => mission.shootAubbie(hit),
       silentNight: () => mission.pullSilentNight(),
       leave: () => mission.leave(),
+      /** Beat 11's second leg: he walked back into the office. */
+      reportToLou: () => mission.reportToLou(),
+      /** Where the case actually is, in world space, and whether it is still
+       * travelling. The owner's note was about WHERE it lands; this is the
+       * number a check compares against `lab.targets.tableSpot`. */
+      caseAt: () => ({
+        x: +world.group.position.x.toFixed(3),
+        y: +world.group.position.y.toFixed(3),
+        z: +world.group.position.z.toFixed(3),
+        visible: world.group.visible,
+        placing: Boolean(placing),
+        /** Which way its latches point, and whether it is still turning.
+         * The owner's "opens toward himself" is this number against where the
+         * player is standing. */
+        yaw: +world.group.rotation.y.toFixed(3),
+        turning: Boolean(turning),
+        /** Is the purple-and-gold showing, and where. */
+        contents: contents?.group
+          ? {
+            visible: contents.group.visible,
+            x: +contents.group.position.x.toFixed(3),
+            y: +contents.group.position.y.toFixed(3),
+            z: +contents.group.position.z.toFixed(3),
+          }
+          : null,
+      }),
     },
   };
 }

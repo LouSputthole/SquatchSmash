@@ -51,6 +51,7 @@ import { mountSilentSquatch } from './mission/mount.js';
 import { INSTRUCTIONS } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast, MANSION_CAST_CUE_NAMES } from './cast.js';
+import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
 /* Importing these constructs nothing: a Campaign is only built when
  * createCampaign() is CALLED, which happens below and only when there is a
  * laboratory in the house to play the mission in. Opening the house to walk
@@ -1042,6 +1043,16 @@ const armory = mountArmory({
  * the note at `onCordInHand`.
  */
 let setCordInHand = () => {};
+/**
+ * Booski calling Snow down to the basement, through a mutable handle for the
+ * reason `setCordInHand` is one: `const cast = mountMansionCast(...)` is two
+ * hundred lines BELOW `mountSilentSquatch(...)`, and `cast?.x` on a `const`
+ * in its temporal dead zone is a ReferenceError rather than `undefined`. The
+ * beat that spends this is minutes away, but the rule that says do not point
+ * a closure at a `const` you have not reached yet is the one that cost this
+ * house a boot once already.
+ */
+let summonSnow = () => false;
 const loadout = createMansionLoadout({
   weapons: weaponSystem,
   weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
@@ -1182,6 +1193,12 @@ if (lab && night.play) {
      *
      * `pistol9` rather than the revolver: Booski is the man who made copies
      * of Aubbie's notes, and a man like that carries a magazine. */
+    /* ---- SNOW COMES DOWN (owner playtest: he has clean-up lines about the
+     * lab and never comes down). Booski's "Bring the cart." now reaches the
+     * man it is addressed to: `cast.js` walks him out of the stairwell with
+     * the cart while the exchange is still running. `cast` is assigned below
+     * this call, so it goes through the mutable handle above. */
+    onSnowSummoned: () => summonSnow(),
     onSidearm: () => {
       if (weaponSystem.equipped === WEAPON_IDS.PISTOL9) return;
       weaponSystem.equip(WEAPON_IDS.PISTOL9);
@@ -1247,9 +1264,17 @@ const cast = mountMansionCast(scene, world, {
    * playtest: it used to be welded to the camera from the handover to the
    * end of the mission. */
   onCordOwned: (owned) => { if (owned) loadout.giveCord(); else loadout.takeCord(); },
+  /* The delivery is a hand-off to a MAN (owner playtest: "walk up to Booski,
+   * hit E, case auto-places on the table"). The mission owns the beat, the
+   * cast owns Booski's body, and neither imports the other -- so the verb
+   * comes down through here, like `hasCase` above it. `silentSquatch` is
+   * assigned before this call and read at press time, so a house with no
+   * laboratory in it simply has a Booski you cannot hand anything to. */
+  onDeliverCase: () => silentSquatch?.deliverCase?.() === true,
   enabled: () => running,
 });
 setCordInHand = (on) => cast?.setCordInHand?.(on);
+summonSnow = () => cast?.snowToTheBasement?.() === true;
 /* And catch up: the loadout may already have decided what is in his hand
  * while this was still a no-op. */
 loadout.refresh();
@@ -1286,6 +1311,38 @@ for (const box of cast?.colliders ?? []) {
   colliders.push(box);
   castColliders++;
 }
+
+/* ================================================================== */
+/* The two bills the house was paying every frame -- see ./perf.js       */
+/*                                                                        */
+/* Last, because both walk the finished scene: the cast is mounted, the    */
+/* laboratory is standing and every television has its screen. Measured    */
+/* here with `renderer.info.autoReset` off (this three build resets info   */
+/* after the shadow pass, so the default hides it): 34,365 draw calls at   */
+/* the spawn, of which 13,150 were the whole house drawn a second time to  */
+/* refract a decanter and 7,567 were a shadow pass mostly made of objects  */
+/* standing indoors, under a roof, beneath the only shadow-casting light   */
+/* in the scene.                                                           */
+/* ================================================================== */
+const flatGlass = flattenTransmission([scene]);
+const shadowCap = capShadowCasters({
+  /* Indoors and underground: the shell is already between all of these and
+   * the moon. The cast never leave the house and Snow's cart is in the
+   * cellar, so their bodies join the list rather than paying for shadows
+   * that are drawn inside a volume the moon does not light. */
+  indoor: [
+    interior.root,
+    silent.root,
+    ...Object.values(cast?.people ?? {}).map((npc) => npc?.group),
+    cast?.cart,
+    cast?.dog?.root,
+  ].filter(Boolean),
+  /* Everything else, judged on size. The whole scene rather than just the
+   * grounds, so the armory's guns and anything a later pass hangs straight
+   * off `scene` are measured by the same rule; the indoor list above has
+   * already cleared its own and a cleared mesh is skipped here. */
+  outdoor: [scene],
+});
 
 /* ================================================================== */
 /* Pause menu                                                            */
@@ -1674,14 +1731,17 @@ const CHECKPOINTS = {
       pump(() => m.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 400);
     },
   },
+  /* BEAT 11's FIRST LEG. The jump stages the order and the walk out of the
+   * basement; it deliberately does NOT press `leave()` or `reportToLou()`,
+   * because those are the two things the player is here to do. The label and
+   * the objective both name Lou, which is the owner's flow note. */
   clear: {
-    label: 'BEAT 11 — RETURN UPSTAIRS',
+    label: 'BEAT 11 — BACK UP TO LOU',
     where: () => lab?.anchors?.stairFoot ?? anchors.basementLanding,
     yaw: 180,
     play: (m, pump) => {
       CHECKPOINTS.silent_night.play(m, pump);
-      m.leave();
-      pump(() => m.state === 'COMPLETE', 60);
+      pump(() => m.state === 'EXIT', 60);
     },
   },
   /* NOT A MISSION BEAT. The third floor is somewhere the player finds rather
@@ -1895,6 +1955,27 @@ window.mansion = {
       }
       return out;
     },
+    /**
+     * How everybody who is sitting on something is sitting.
+     *
+     * Owner playtest: "Chair sitters (Hog Mama, Capt Sasole) clip through
+     * their chairs." `gap` is the distance from the underside of a man's hips
+     * to the surface directly under them — negative is inside the seat.
+     */
+    get seats() { return cast?.seats?.() ?? []; },
+    /** Snow's errand to the basement, or null if Booski has not called him.
+     * Owner playtest: he has clean-up lines about the lab and was never in it. */
+    get snowErrand() { return cast?.snowErrand ?? null; },
+    /**
+     * Every cue the HOUSE's own dialogue controller has played, in order.
+     *
+     * The cast and the mission are two controllers sharing one subtitle bar,
+     * so "was that line on screen when I looked" is a race between them —
+     * which is exactly how the booth guard's challenge came back as a FAIL on
+     * a build where he was speaking. This is what he SAID, which is not a
+     * race, and the bar is checked separately for the subtitle.
+     */
+    get said() { return [...(cast?.dialogue?.cueLog ?? [])]; },
     /** Posts whose standing position is inside a solid box. */
     get inSolid() {
       const bad = [];
@@ -2096,6 +2177,66 @@ window.mansion = {
   get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return sharedPauseMenu.isPaused(); },
+  /**
+   * What ./perf.js took off the frame, so tools/verify-mansion.mjs can
+   * assert the RULE (nothing indoors casts the moon's shadow; no material
+   * refracts) instead of a pinned count that has to be re-typed every time
+   * somebody adds a lamp.
+   */
+  perf: {
+    ...SHADOW_CAP,
+    transmissionMaterialsFlattened: flatGlass.materials,
+    transmissionMeshesFlattened: flatGlass.meshes,
+    shadowCastersKept: shadowCap.kept,
+    shadowCastersDropped: shadowCap.dropped,
+    /** Live counts, read off the graph rather than remembered. */
+    get visibleLights() {
+      let n = 0;
+      scene.traverse((o) => {
+        if (!o.isLight) return;
+        for (let p = o; p; p = p.parent) if (p.visible === false) return;
+        n++;
+      });
+      return n;
+    },
+    shadowCasters() {
+      let n = 0;
+      scene.traverse((o) => { if (o.isMesh && o.castShadow) n++; });
+      return n;
+    },
+    transmissiveMeshes() {
+      let n = 0;
+      scene.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (m && m.transmission > 0) { n++; return; }
+        }
+      });
+      return n;
+    },
+    /**
+     * Draw calls for one frame from where the camera is standing, shadow
+     * pass INCLUDED.
+     *
+     * `renderer.info.autoReset` has to come off for this: this three build
+     * calls `info.reset()` after `shadowMap.render()`, so with the default
+     * on, the shadow pass reads as zero no matter how many thousand objects
+     * it drew. That is why a shadow pass costing 7,567 calls a frame sat
+     * here unnoticed.
+     */
+    drawCalls() {
+      const auto = renderer.info.autoReset;
+      renderer.info.autoReset = false;
+      renderer.info.reset();
+      renderer.render(scene, camera);
+      const out = {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+      renderer.info.autoReset = auto;
+      return out;
+    },
+  },
 };
 
 /*

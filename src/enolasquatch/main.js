@@ -2012,8 +2012,14 @@ document.addEventListener('keydown', (e) => {
   }
   if (mission.inCockpit && e.code === 'KeyT') {
     const was = mission.gunner.manned;
+    const autoWas = mission.autopilot.engaged;
     const on = mission.toggleGun();
     if (on !== was) hud.toast(on ? 'TAIL GUN — LEFT BUTTON TO FIRE' : 'BACK IN THE SEAT');
+    // Coming back to the pilot's seat gives the autopilot back automatically —
+    // see MissionController.leaveGun(). Same toast the 'P' key raises for the
+    // same state change, so the seat switch reads exactly like switching it
+    // off by hand would have.
+    if (autoWas && !mission.autopilot.engaged) hud.toast('AUTOPILOT OFF');
   }
   // The nightfall cut is skippable — see `MissionController.skipCutscene()`.
   if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {

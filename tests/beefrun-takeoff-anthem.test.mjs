@@ -54,11 +54,49 @@ test('returning to takeoff (a checkpoint restore) restarts the anthem rather tha
   assert.equal(engine.calls.length, 2, 'the anthem must restart, not silently no-op, on a repeat takeoff');
 });
 
-test('Beef Run and the Enola Squatch each name their own takeoff anthem', () => {
+test('each takeoff song has exactly one owner', async () => {
+  /* Beef Run's record is the signature cue fired at 45 knots on the roll.
+   * Naming it as a MissionAudio anthem too played the song twice — once at
+   * the roll, again at climbout, on two different loop keys (owner's 8-6
+   * playtest). The Enola Squatch has no signature cue, so MissionAudio is
+   * its one owner. */
   const beefMain = fs.readFileSync(new URL('../src/beefrun/main.js', import.meta.url), 'utf8');
   const enolaMain = fs.readFileSync(new URL('../src/enolasquatch/main.js', import.meta.url), 'utf8');
-  assert.match(beefMain, /missionAudio\.takeoffAnthemFile = 'cant-you-hear-me-knocking\.mp3';/);
+  assert.doesNotMatch(beefMain, /takeoffAnthemFile = /,
+    'Beef Run must not name a MissionAudio anthem — the signature cue owns the moment');
   assert.match(enolaMain, /missionAudio\.takeoffAnthemFile = 'fortunate-son\.mp3';/);
+  const { SIGNATURE_TRACKS } = await import('../src/core/signature-music.js');
+  const knocking = SIGNATURE_TRACKS.cantYouHearMeKnocking;
+  assert.equal(knocking.file, 'cant-you-hear-me-knocking.mp3');
+  assert.equal(knocking.cutAt, 180, 'owner asked for about three minutes of the song');
+});
+
+test('a checkpoint-restored takeoff re-arms and restarts the record', () => {
+  const mission = fs.readFileSync(new URL('../src/beefrun/mission.js', import.meta.url), 'utf8');
+  /* The restore into the takeoff checkpoint must clear the 45-knot latch and
+   * stop the previous attempt's loop, and the cue itself must replace any
+   * still-running handle — otherwise a restarted roll gets silence. */
+  const restore = mission.slice(mission.indexOf('takeoff: () =>'), mission.indexOf('approach: () =>'));
+  assert.match(restore, /knockingCued = false/);
+  assert.match(restore, /stopLoop/);
+  const record = mission.slice(mission.indexOf('playTakeoffRecord()'));
+  assert.match(record.slice(0, 600), /replace: true/);
+});
+
+test('cue records never enter the radio rotation', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(new URL('../assets/music/manifest.json', import.meta.url), 'utf8'),
+  );
+  const byFile = new Map((manifest.tracks || []).map((t) => [t.file, t]));
+  for (const file of [
+    'cant-you-hear-me-knocking.mp3', 'fortunate-son.mp3',
+    'baby-snakes.mp3', 'sensi-lou.mp3',
+  ]) {
+    assert.equal(byFile.get(file)?.cue, true, `${file} must be marked cue: true`);
+  }
+  const radio = fs.readFileSync(new URL('../src/core/radio.js', import.meta.url), 'utf8');
+  assert.match(radio, /!track\.cue/,
+    'the radio playlist must exclude cue-marked records from programming');
 });
 
 test('both takeoff anthems are on disk and listed in the music manifest', () => {
