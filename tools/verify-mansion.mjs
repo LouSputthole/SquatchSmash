@@ -203,8 +203,10 @@ function inside(rect, s, pad = 0.25) {
 }
 
 try {
-  await page.goto(`http://localhost:${PORT}/mansion.html`, { waitUntil: 'load' });
+  const bootStart = Date.now();
+  await page.goto(`http://localhost:${PORT}/mansion.html`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.mansion?.player, null, { timeout: 120000 });
+  const readyMs = Date.now() - bootStart;
 
   /* ================================================================ */
   /* Static sanity                                                     */
@@ -298,6 +300,78 @@ try {
   await page.waitForFunction(() => window.mansion.framesRendered > 3, null, { timeout: 180000 });
   check('the scene renders real frames after boot', true,
     `${await page.evaluate(() => window.mansion.framesRendered)} frames`);
+  const firstFrameMs = Date.now() - bootStart;
+
+  /* ================================================================ */
+  /* THE FRAME'S BILL                                                  */
+  /*                                                                   */
+  /* Measured before this pass, one `renderer.render()` per pose with  */
+  /* `renderer.info.autoReset` OFF (this three build resets `info`     */
+  /* after `shadowMap.render()`, so with the default on a shadow pass  */
+  /* of any size reads as zero -- which is how a 7,567-call one lived  */
+  /* here unnoticed):                                                  */
+  /*                                                                   */
+  /*   pose      total   shadow   main   main w/o transmission         */
+  /*   spawn    34,365    7,567  26,798               13,648           */
+  /*   foyer    24,705    7,567  17,138                8,751           */
+  /*   gallery  20,580    7,567  13,013                6,677           */
+  /*   armory   16,441    7,567   8,874                4,508           */
+  /*                                                                   */
+  /* After: 14,167 / 9,269 / 7,195 / 5,026. See src/mansion/perf.js.   */
+  /* ================================================================ */
+  check('the house is standing and drawing inside the boot budget',
+    firstFrameMs < 180000,
+    `${(readyMs / 1000).toFixed(1)}s to the scene, ${(firstFrameMs / 1000).toFixed(1)}s to frame four (budget 180s)`);
+
+  const budget = await page.evaluate(() => {
+    const M = window.mansion;
+    let interiorCasters = 0;
+    M.interior.root.traverse((o) => { if (o.isMesh && o.castShadow) interiorCasters++; });
+    return {
+      lights: M.perf.visibleLights,
+      shadowCasters: M.perf.shadowCasters(),
+      interiorCasters,
+      transmissive: M.perf.transmissiveMeshes(),
+      minMetres: +M.perf.minMetres.toFixed(3),
+      spawn: (() => {
+        const s = M.rooms.spawn;
+        M.teleport(s.x, 0, s.z, 180);
+        return M.perf.drawCalls().calls;
+      })(),
+      foyer: (() => {
+        const f = M.rooms.foyerCenter;
+        M.teleport(f.x, 0, f.z, 180);
+        return M.perf.drawCalls().calls;
+      })(),
+    };
+  });
+  /* three.js compiles every VISIBLE light into every material's shader, and
+   * the house builds 228 practical point lights. The nearest-N rig holds
+   * fourteen of them on; the rest of the allowance is the moon, the
+   * hemisphere fill, the five exterior spots and the sets' own glows. */
+  check('no more lights are lit than the shader budget allows',
+    budget.lights <= 30, `${budget.lights} lit (budget 30)`);
+  /* The only shadow-casting light in this scene is the moon, outside. The
+   * shell is already between it and every mesh indoors. */
+  check('nothing inside the house casts the moon\'s shadow',
+    budget.interiorCasters === 0, `${budget.interiorCasters} interior casters`);
+  /* 7,766 casters before this pass, 633 after -- and the laboratory, four
+   * metres under the west wing, is in the difference. */
+  check('the shadow pass is a few hundred objects, not a few thousand',
+    budget.shadowCasters <= 1200,
+    `${budget.shadowCasters} casters, minimum ${budget.minMetres} m (budget 1200)`);
+  /* A single `transmission > 0` material makes three.js re-render the whole
+   * opaque list into an offscreen target so the glass has something to
+   * refract: one decanter on a bar draws the entire house a second time. */
+  check('nothing refracts, so the opaque scene is drawn once per frame',
+    budget.transmissive === 0, `${budget.transmissive} transmissive meshes`);
+  /* 34,365 before, 14,167 after, at the one pose that sees the whole
+   * property at once. 20,000 catches either pass being lost without
+   * failing the day somebody adds a wing. */
+  check('the whole property in one shot costs fewer draw calls than the budget',
+    budget.spawn <= 20000, `${budget.spawn} calls at the gate (budget 20000)`);
+  check('and the foyer costs fewer still',
+    budget.foyer <= 14000, `${budget.foyer} calls in the foyer (budget 14000)`);
 
   /* Suspend rendering for the walking tour. Every check from here to the
    * screenshot at the end is geometry, collision and navigation -- none of it
