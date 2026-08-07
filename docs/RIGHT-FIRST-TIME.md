@@ -82,9 +82,16 @@ order — cheap machines first:
   `cylinder()`/`sphere()` in `src/world/build.js` silently drop the `name`
   option — no check can ever assert an anonymous mesh. Fix the two builders,
   then burn down the unnamed count per scene.
-- **`silent.*` cue sync.** Promote the 33 locally-authored SilentSquatch cues
-  into the manifest so `npm run sfx` can render them (they are synth-only until
-  then).
+- ~~**`silent.*` cue sync.**~~ **DONE, 2026-08-06.** All of PROJECT SILENT
+  SQUATCH's sounds are in the manifest: `tools/mansion-sfx.mjs`
+  (`npm run sfx:mansion` / `check:mansion-sfx`) promotes the scene's own cue
+  table, `npm run check` fails on drift between the two, and they appear on
+  `VOICE-LINES-TODO.md` under their own heading. The pass that closed it added
+  sixteen more (the owner's "proper SFX pass": lab hums, core sounds, gunshots
+  with room tone, cleanup foley), so the number is 51 rather than 33 — and
+  three of the original ones turned out never to have been PLAYED by anything,
+  which is the same fault one level down. A cue nothing triggers is a line item
+  on a recording sheet that will never be heard.
 - **Audit-in-CI.** The sweep deliberately doesn't gate (half its findings are
   legitimate), but a per-scene BASELINE COUNT can: fail CI when a scene's
   finding count rises above its recorded baseline. Ratchet down, never up.
