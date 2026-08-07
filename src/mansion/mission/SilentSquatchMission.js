@@ -406,8 +406,25 @@ class SilentSquatchMission {
     this.leaving = true;
     this.#instruct('');
     this.dialogue.play(SEQUENCES.wallCloses, {
-      onDone: () => this.fsm.go(S.COMPLETE),
+      /* NOT `COMPLETE`. Getting out of the basement is the first half of what
+       * Booski asked for; the second half is the man he told you to go and
+       * see. See `S.BACK_TO_LOU`. */
+      onDone: () => this.fsm.go(S.BACK_TO_LOU),
     });
+    return true;
+  }
+
+  /**
+   * Beat 11. He is back in the office, and that is the night.
+   *
+   * The player's own action, like everything else in this mission — the
+   * `officeReturn` trigger volume calls it when he walks in, and a verifier
+   * calls it directly. Refuses at every other moment.
+   */
+  reportToLou() {
+    if (!this.#at(S.BACK_TO_LOU)) return false;
+    this.#instruct('');
+    this.fsm.go(S.COMPLETE);
     return true;
   }
 
@@ -658,6 +675,13 @@ class SilentSquatchMission {
       case 'snow': this.#bark('snow', SEQUENCES.snowFoyer); break;
       case 'office':
         if (this.fsm.is(S.ARRIVAL)) this.fsm.go(S.LOU_OFFICE);
+        break;
+      /* THE SAME ROOM, A SECOND TIME, AND THEREFORE A SECOND ZONE ID.
+       * `arrive()` fires each id once and only once — walking back into the
+       * office on `office` would be swallowed by the visit he made in beat 2,
+       * and the night would never end. */
+      case 'officeReturn':
+        this.reportToLou();
         break;
       case 'cellar':
         this.#bark('cellar', SEQUENCES.cellarArrival);
@@ -961,11 +985,37 @@ class SilentSquatchMission {
       [S.EXIT]: {
         enter: () => {
           if (this.leaving) return;
+          /* Booski says "Upstairs. Lou's still awake."; the objective names
+           * Lou; the instruction says which stair. All three agree, which is
+           * the whole of the owner's flow note. */
           this.#sayThenInstruct(SEQUENCES.exitOrder, INSTRUCTIONS.RETURN_UPSTAIRS, {
-            objective: OBJECTIVES.RETURN_UPSTAIRS,
+            objective: OBJECTIVES.REPORT_TO_LOU,
           });
         },
         update: (dt) => this.#stalls(dt, 40, [SEQUENCES.exitOrder]),
+      },
+
+      /**
+       * Beat 11, second leg: the cellar door is behind him and Lou is
+       * upstairs.
+       *
+       * The mission used to finish HERE, at the top of the stairwell, with an
+       * objective that had said "Return upstairs." since the basement — so the
+       * night ended in a wine cellar, three floors below the man who sent him,
+       * with nothing on screen to say it was over.
+       *
+       * A scene with no office trigger volume — `mission/contract-lab.js`, and
+       * any harness driving the mission on its own — completes here instead of
+       * standing about waiting for a zone that does not exist. Same idiom as
+       * `S.STAIRWELL` and `S.INTERROGATION` above.
+       */
+      [S.BACK_TO_LOU]: {
+        enter: () => {
+          this.#objective(OBJECTIVES.LOU_IS_WAITING);
+          this.#instruct(INSTRUCTIONS.RETURN_TO_OFFICE);
+          if (!this.zones.officeReturn) go(S.COMPLETE);
+        },
+        update: (dt) => this.#stalls(dt, 45, [SEQUENCES.exitOrder]),
       },
 
       [S.COMPLETE]: {

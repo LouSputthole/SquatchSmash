@@ -39,6 +39,11 @@ function defaultZones(anchors) {
     shubes: at(anchors.galleryCenter),
     snow: at(anchors.foyerCenter),
     office: at(anchors.officeDesk, 4),
+    /* THE SAME SPOT, UNDER A SECOND NAME. Beat 11 sends him back to Lou and
+     * `arrive()` fires each id exactly once, so walking into the office at the
+     * end of the night on the `office` id would be swallowed by the visit he
+     * made at the start of it. Two ids, one room, one anchor. */
+    officeReturn: at(anchors.officeDesk, 4),
     cellar: at(anchors.armoryCenter, 5),
   };
   for (const key of Object.keys(zones)) if (!zones[key]) delete zones[key];
@@ -660,6 +665,8 @@ export function mountSilentSquatch({
       shoot: (hit = true) => mission.shootAubbie(hit),
       silentNight: () => mission.pullSilentNight(),
       leave: () => mission.leave(),
+      /** Beat 11's second leg: he walked back into the office. */
+      reportToLou: () => mission.reportToLou(),
       /** Where the case actually is, in world space, and whether it is still
        * travelling. The owner's note was about WHERE it lands; this is the
        * number a check compares against `lab.targets.tableSpot`. */

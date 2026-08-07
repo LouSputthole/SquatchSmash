@@ -127,6 +127,34 @@ function playThrough(r, hooks = {}) {
   assert.ok(atState(S.COMPLETE, 30), 'the wall never closed behind him');
 }
 
+/**
+ * The same night, stopped at the moment Booski sends him back upstairs.
+ *
+ * The exit is two legs now (the owner's flow note), so the checks about it
+ * need the state BEFORE `leave()` rather than after the whole thing has run.
+ */
+function playThroughToExit(r) {
+  const { mission, atInstruction, atState } = r;
+  mission.start();
+  mission.arrive('office');
+  atInstruction(INSTRUCTIONS.PLACE_CASE);
+  mission.placeCaseOnDesk();
+  atInstruction(INSTRUCTIONS.TAKE_CASE);
+  mission.takeCaseBack();
+  atInstruction(INSTRUCTIONS.BUST_SWITCH);
+  mission.pressBustSwitch();
+  atInstruction(INSTRUCTIONS.DELIVER_CASE, 200);
+  mission.deliverCase();
+  atInstruction(INSTRUCTIONS.KEYPAD, 400);
+  mission.enterCode('6969');
+  atInstruction(INSTRUCTIONS.ELIMINATE_AUBBIE, 100);
+  mission.shootAubbie(true);
+  atInstruction(INSTRUCTIONS.SILENT_NIGHT, 200);
+  mission.pullSilentNight();
+  assert.ok(atState(S.EXIT, 300), 'the gassing never finished');
+  assert.ok(atInstruction(INSTRUCTIONS.RETURN_UPSTAIRS, 30), 'never sent back upstairs');
+}
+
 test('the whole night plays, and the player performs every action himself', () => {
   const r = rig();
   playThrough(r);
@@ -155,9 +183,64 @@ test('the objectives are the spec\'s, in the spec\'s order', () => {
     OBJECTIVES.LOCK_THE_LAB,
     OBJECTIVES.ELIMINATE_AUBBIE,
     OBJECTIVES.ACTIVATE_SILENT_NIGHT,
-    OBJECTIVES.RETURN_UPSTAIRS,
+    /* The walk out, in the two legs it has. Owner playtest: the objective, the
+     * lines and the destination used to be three different places. */
+    OBJECTIVES.REPORT_TO_LOU,
+    OBJECTIVES.LOU_IS_WAITING,
     '',
   ]);
+});
+
+/**
+ * Owner playtest, 2026-08-06: *"Objective says 'return to the cellar', voice
+ * lines say return to Lou, Booski says go upstairs — reconcile the flow so the
+ * player knows what to do."*
+ *
+ * The three of them and the DESTINATION now say one thing. This checks all
+ * four against each other rather than checking any one of them against a
+ * string typed twice.
+ */
+test('the exit says one thing: the objective, the line and the place the night ends', () => {
+  const r = rig({ zones: { officeReturn: { x: 0, z: 70, r: 4 } } });
+  const { mission, atState, until } = r;
+  playThroughToExit(r);
+
+  /* Leg one, in the basement. Booski names Lou; so does the objective; the
+   * instruction is the stair he is standing at the bottom of. */
+  const booski = SEQUENCES.exitOrder[0].text;
+  assert.match(booski, /upstairs/i);
+  assert.match(booski, /Lou/);
+  assert.equal(mission.objective, OBJECTIVES.REPORT_TO_LOU);
+  assert.match(mission.objective, /Lou/);
+  assert.equal(mission.instruction, INSTRUCTIONS.RETURN_UPSTAIRS);
+  assert.match(mission.instruction, /stairwell/i);
+
+  /* Leg two. He is out of the basement and the objective has MOVED ON rather
+   * than repeating itself — the owner's "make it update as I progress". */
+  assert.equal(mission.leave(), true);
+  assert.ok(atState(S.BACK_TO_LOU, 30), 'the wall never closed behind him');
+  assert.equal(mission.objective, OBJECTIVES.LOU_IS_WAITING);
+  assert.match(mission.objective, /office/i);
+  assert.match(mission.instruction, /office/i);
+
+  /* And the night ends WHERE IT SAYS IT DOES: in Lou's office, on the player
+   * walking in, not at the top of a cellar stair three floors below him. */
+  assert.equal(mission.report().complete, false);
+  assert.equal(mission.arrive('officeReturn'), true);
+  assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30));
+  assert.equal(mission.report().complete, true);
+});
+
+test('the office cannot be reported to before the basement is behind him', () => {
+  const r = rig({ zones: { officeReturn: { x: 0, z: 70, r: 4 } } });
+  const { mission } = r;
+  mission.start();
+  assert.equal(mission.reportToLou(), false, 'the night ended on beat 1');
+  playThroughToExit(r);
+  assert.equal(mission.reportToLou(), false, 'the basement is still open behind him');
+  assert.equal(mission.leave(), true);
+  assert.ok(r.atState(S.BACK_TO_LOU, 30));
+  assert.equal(mission.reportToLou(), true);
 });
 
 test('the case is carried in, put on the desk by hand, picked back up, and delivered', () => {

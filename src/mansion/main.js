@@ -1681,14 +1681,17 @@ const CHECKPOINTS = {
       pump(() => m.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 400);
     },
   },
+  /* BEAT 11's FIRST LEG. The jump stages the order and the walk out of the
+   * basement; it deliberately does NOT press `leave()` or `reportToLou()`,
+   * because those are the two things the player is here to do. The label and
+   * the objective both name Lou, which is the owner's flow note. */
   clear: {
-    label: 'BEAT 11 — RETURN UPSTAIRS',
+    label: 'BEAT 11 — BACK UP TO LOU',
     where: () => lab?.anchors?.stairFoot ?? anchors.basementLanding,
     yaw: 180,
     play: (m, pump) => {
       CHECKPOINTS.silent_night.play(m, pump);
-      m.leave();
-      pump(() => m.state === 'COMPLETE', 60);
+      pump(() => m.state === 'EXIT', 60);
     },
   },
   /* NOT A MISSION BEAT. The third floor is somewhere the player finds rather

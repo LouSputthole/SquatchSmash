@@ -992,7 +992,30 @@ export const OBJECTIVES = Object.freeze({
   LOCK_THE_LAB: 'Lock the laboratory door.',
   ELIMINATE_AUBBIE: 'Eliminate Aubbie.',
   ACTIVATE_SILENT_NIGHT: 'Activate Silent Night.',
-  RETURN_UPSTAIRS: 'Return upstairs.',
+  /* ---- THE WALK OUT, IN THE TWO LEGS IT ACTUALLY HAS.
+   *
+   * Owner playtest, 2026-08-06, verbatim: *"Objective says 'return to the
+   * cellar', voice lines say return to Lou, Booski says go upstairs —
+   * reconcile the flow so the player knows what to do."*
+   *
+   * He was reading three different destinations off one beat, and none of the
+   * three agreed with the fourth thing — where the mission actually ended,
+   * which was the top of the stairwell in the cellar, nowhere near Lou:
+   *
+   *   Booski says      "Upstairs. Lou's still awake."
+   *   the objective    "Return upstairs."      (upstairs from WHERE, to WHAT)
+   *   the instruction  "Go back up the stairwell to the cellar."
+   *   the mission      completed at the cellar and said nothing else
+   *
+   * They all say the same thing now, and the thing they say is where the beat
+   * really ends: Lou's office. The objective NAMES THE MAN from the moment
+   * Booski gives the order, and changes at the top of the stairs to name the
+   * room, so it is a progress report rather than a repeated instruction. The
+   * step-by-step is the INSTRUCTIONS below, which is the split this file has
+   * always used: the objective is what he is doing, the instruction is what to
+   * press next. */
+  REPORT_TO_LOU: 'Report back to Lou. He is still awake.',
+  LOU_IS_WAITING: 'Report to Lou in his office, upstairs.',
 });
 
 /**
@@ -1008,7 +1031,10 @@ export const INSTRUCTIONS = Object.freeze({
   KEYPAD: 'Press E at the keypad, then type the code and press ENTER.',
   ELIMINATE_AUBBIE: 'Aim at Aubbie and LEFT CLICK.',
   SILENT_NIGHT: 'Hold E on the SILENT NIGHT switch.',
+  /* The two legs of the walk out, in order. Neither of them contradicts the
+   * objective any more: the objective says LOU and these say which stair. */
   RETURN_UPSTAIRS: 'Go back up the stairwell to the cellar.',
+  RETURN_TO_OFFICE: 'Up the main stairs to Lou’s office, past the boardroom.',
   /* Gratin's offer, in the two steps it actually has. Raised in the relevant
    * sequence's `onDone`, after he has finished speaking — never on the same
    * frame as the question. The first replaced a single `TAKE_A_SWING` that

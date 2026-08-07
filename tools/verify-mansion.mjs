@@ -3191,6 +3191,11 @@ try {
     until(() => run.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 30);
     snap('exit');
     run.leave();
+    /* THE EXIT IS TWO LEGS (the owner's flow note): out of the basement, and
+     * then up to the man who sent him. This harness passes no zones, so the
+     * second leg completes on its own — see `S.BACK_TO_LOU`. */
+    until(() => run.fsm.name === machine.S.BACK_TO_LOU, 30);
+    snap('backToLou');
     until(() => run.fsm.name === machine.S.COMPLETE, 30);
 
     const report = run.report();
@@ -3223,8 +3228,16 @@ try {
       objectiveOrder: [
         OBJECTIVES.DELIVER_PACKAGE, OBJECTIVES.TAKE_TO_BOOSKI, OBJECTIVES.LOCK_THE_LAB,
         OBJECTIVES.ELIMINATE_AUBBIE, OBJECTIVES.ACTIVATE_SILENT_NIGHT,
-        OBJECTIVES.RETURN_UPSTAIRS, '',
+        OBJECTIVES.REPORT_TO_LOU, OBJECTIVES.LOU_IS_WAITING, '',
       ],
+      /* S11: what the three things that used to disagree each say now. */
+      flow: {
+        booskiSaysUpstairs: script.SEQUENCES.exitOrder[0].text,
+        exitObjective: OBJECTIVES.REPORT_TO_LOU,
+        exitInstruction: INSTRUCTIONS.RETURN_UPSTAIRS,
+        officeObjective: OBJECTIVES.LOU_IS_WAITING,
+        officeInstruction: INSTRUCTIONS.RETURN_TO_OFFICE,
+      },
       labBuilt: Boolean(built),
       missionMounted: Boolean(window.mansion.mission),
     };
@@ -3287,6 +3300,35 @@ try {
     keypadScreen.objective === 'Lock the laboratory door.'
       && keypadScreen.instruction.startsWith('Press E at the keypad'),
     `${keypadScreen.objective} / ${keypadScreen.instruction}`);
+
+  /* ---- S11: THE WALK OUT SAYS ONE THING.
+   *
+   * Owner playtest, 2026-08-06: *"Objective says 'return to the cellar', voice
+   * lines say return to Lou, Booski says go upstairs."* Three destinations off
+   * one beat, and none of them was the fourth thing — where the mission
+   * actually ENDED, which was the top of the cellar stair, nowhere near Lou.
+   *
+   * Checked as an agreement rather than as four strings typed twice: whatever
+   * the writing says, the man's name has to be in the objective from the
+   * moment he gives the order, the objective has to CHANGE at the top of the
+   * stairs, and the state the mission finishes in has to be the one that
+   * objective names. */
+  const exitScreen = night.screens.find((s2) => s2.where === 'exit');
+  const officeScreen2 = night.screens.find((s2) => s2.where === 'backToLou');
+  const flowFails = [];
+  if (!/Lou/i.test(night.flow.booskiSaysUpstairs)) flowFails.push('Booski does not mention Lou');
+  if (!/upstairs/i.test(night.flow.booskiSaysUpstairs)) flowFails.push('Booski does not say upstairs');
+  if (!/Lou/i.test(exitScreen?.objective || '')) flowFails.push(`leg one objective: "${exitScreen?.objective}"`);
+  if (!/stairwell/i.test(exitScreen?.instruction || '')) flowFails.push(`leg one instruction: "${exitScreen?.instruction}"`);
+  if (!/office/i.test(officeScreen2?.objective || '')) flowFails.push(`leg two objective: "${officeScreen2?.objective}"`);
+  if (!/office/i.test(officeScreen2?.instruction || '')) flowFails.push(`leg two instruction: "${officeScreen2?.instruction}"`);
+  if (exitScreen?.objective === officeScreen2?.objective) flowFails.push('the objective never changed');
+  /* And the mission genuinely has two legs to it now, in the spec's beat 11. */
+  if (!night.report.history.includes('BACK_TO_LOU')) flowFails.push('there is no second leg');
+  check('the walk out agrees with itself: Booski, the objective, the instruction and where the night ends',
+    flowFails.length === 0,
+    flowFails.join(' | ')
+      || `"${night.flow.booskiSaysUpstairs}" -> "${exitScreen.objective}" -> "${officeScreen2.objective}"`);
 
   check('the mission mounts exactly when the house has a laboratory in it',
     night.labBuilt === night.missionMounted,

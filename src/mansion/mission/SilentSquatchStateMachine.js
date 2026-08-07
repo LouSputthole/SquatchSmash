@@ -64,8 +64,24 @@ export const BEAT_OF = Object.freeze({
   AFTERMATH: 10,
   /** Beat 11 — Snow on the intercom. */
   SNOW_CALL: 11,
-  /** Beat 11 — past xXx, up, and the wall closes. */
+  /** Beat 11 — past xXx, up the stairwell, and the wall closes behind him. */
   EXIT: 11,
+  /**
+   * Beat 11 — and then up to the office, because that is where he was sent.
+   *
+   * Owner playtest, 2026-08-06: *"Objective says 'return to the cellar', voice
+   * lines say return to Lou, Booski says go upstairs — reconcile the flow so
+   * the player knows what to do."* All three were saying different things and
+   * only one of them was the destination the mission actually ended at: the
+   * top of the stairwell, in the cellar, which is neither what Booski said nor
+   * what the objective said.
+   *
+   * The walk out is TWO legs, because it always was — out of the basement, and
+   * then up through the house to the man who sent you — and the mission only
+   * ever modelled the first one. This is the second, and the objective changes
+   * at the top of the stairs to say so.
+   */
+  BACK_TO_LOU: 11,
   /** MISSION COMPLETE: SILENT SQUATCH. */
   COMPLETE: 11,
 });
