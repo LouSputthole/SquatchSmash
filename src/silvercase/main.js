@@ -1194,6 +1194,29 @@ function buildStates() {
         setObjective(OBJECTIVES.ENTER_APARTMENT);
         stallTimer = 0;
         stallWarned = false;
+        // Owner playtest, 2026-08-06: "After the player opens the door, the
+        // Ape should step INTO the apartment (currently stays outside)." He
+        // used to stay parked at APE_SPOTS.door (x 5.25 — the hallway; the
+        // flat starts at x 6, ANCHORS.frontDoorInside) for however long the
+        // player took to walk in and close the door behind them: the ONLY
+        // place that ever called `moveTo('start')` was ESTABLISH_CONTROL,
+        // which doesn't begin until the player themselves interacts with the
+        // door a second time to shut it. A player who lingered in the open
+        // doorway — which this beat's own `doorStall` line above exists to
+        // cover — was looking at an apartment with Deke, Chester and Winston
+        // in it and no Ape, because the door swings open in KNOCK, well
+        // before this beat is ever reached (its 0.8s tween starts 0.5s into
+        // a beat this one is queued well behind the "who is it?"/"building
+        // appreciation committee" exchange). So: the door is already open by
+        // the time the player is handed ENTER_APARTMENT's own objective, and
+        // this is the natural "he follows you in" moment — a pace behind the
+        // player crossing the same threshold, not staged around whenever THEY
+        // get around to shutting the door. ESTABLISH_CONTROL still calls
+        // `moveTo('start')` itself too: a second call while he's already
+        // there is a no-op lerp (from ≈ to), and the preview checkpoints
+        // ('room' and later) and `restoreCheckpoint()` reach ESTABLISH_CONTROL
+        // without ever passing through this beat at all.
+        cast.ape.moveTo('start');
       },
       update(dt) {
         stallTimer += dt;

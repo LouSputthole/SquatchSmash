@@ -22,6 +22,16 @@ import { APE_FAMILY_MEMBER } from '../src/bing/family-ape.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
 import { isSilverCasePreloadCue } from '../src/silvercase/audio.js';
 
+// ApartmentScene.js's own ROOMS.apartment box (x 6…12, z -2.5…2.5) — not
+// imported: that module transitively pulls in src/world/props.js, which
+// calls a `document.createElement('canvas')` texture builder at MODULE TOP
+// LEVEL (brushedMetal(), eagerly evaluated), so importing it here in plain
+// Node (this file runs outside the browser, unlike everything under page.
+// evaluate) throws `ReferenceError: document is not defined` before a single
+// check runs. Same reason the hallway-spawn check just above hardcodes `6` as
+// the wall between the corridor and the flat instead of importing it.
+const APARTMENT_ROOM = Object.freeze({ x0: 6, x1: 12, z0: -2.5, z1: 2.5 });
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5223;
 
@@ -512,6 +522,30 @@ try {
   check('KNOCK is reachable', knock.beat === 'KNOCK', knock.beat);
   let enterApt = await go('ENTER_APARTMENT');
   check('ENTER_APARTMENT is reachable', enterApt.beat === 'ENTER_APARTMENT', enterApt.beat);
+
+  // ---- V2 (2026-08-06 playtest): "After the player opens the door, the
+  // Ape should step INTO the apartment (currently stays outside)." --------
+  // The front door is already open by this point — its own creak-and-swing
+  // tween runs on a fixed 0.5s+0.8s timer inside KNOCK, well before this
+  // beat is ever reached — so this dwells inside ENTER_APARTMENT itself,
+  // simulating a player who takes a few seconds to walk through the open
+  // doorway before shutting it, and reads Ape's position WHILE that beat is
+  // still current. That is the actual regression: he used to sit at
+  // APE_SPOTS.door (hallway side, x 5.25) for this entire beat and only ever
+  // walked in once ESTABLISH_CONTROL began, i.e. once the player closed the
+  // door behind themselves — so checking his position only after that beat
+  // (as the mission always has) would pass on the old, buggy staging too.
+  // APARTMENT_ROOM starts at x=6; the 0.5 margin below clears the doorway/
+  // threshold itself, not just the room's nominal edge.
+  const apeDuringEntry = await tick(2.5);
+  check('ENTER_APARTMENT dialogue/timing is unaffected by the walk-in',
+    apeDuringEntry.beat === 'ENTER_APARTMENT', apeDuringEntry.beat);
+  check("Ape steps into the apartment volume while the door stands open, not left waiting in the hallway",
+    apeDuringEntry.ape.at.x > APARTMENT_ROOM.x0 + 0.5
+      && apeDuringEntry.ape.at.x < APARTMENT_ROOM.x1
+      && apeDuringEntry.ape.at.z > APARTMENT_ROOM.z0
+      && apeDuringEntry.ape.at.z < APARTMENT_ROOM.z1,
+    JSON.stringify({ at: apeDuringEntry.ape.at, apartment: APARTMENT_ROOM }));
 
   // ---- "Coffee table is in the couch need to move it." -------------------
   // Measured, not asserted against a literal position: the two props' own
