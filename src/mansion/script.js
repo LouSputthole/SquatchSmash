@@ -666,6 +666,23 @@ export const SEQUENCES = Object.freeze({
   /* =================================================================== */
   /* BEAT 11 — Snow, and the exit.                                        */
   /* =================================================================== */
+  /**
+   * SNOW IS ON THE INTERCOM UNTIL HE IS IN THE ROOM.
+   *
+   * Owner playtest, 2026-08-06: *"Snow must come down to the lab for his
+   * clean-up lines."* He never did — Booski called him, he answered, and then
+   * he said "Jesus Christ.", which is a man looking at a room full of bodies,
+   * from the foyer, three floors up, having seen nothing.
+   *
+   * The exchange splits where it always split. The first three lines are the
+   * intercom: a man answering a call and being told to bring a cart. Then
+   * `snow.arrives` sends him down — the scene walks him out of the stairwell
+   * with the cart (see `snowToTheBasement` in ../cast.js) — and the last two
+   * are said IN the observation area, by somebody who can see the glass. The
+   * hold on the stage direction is the walk.
+   *
+   * Not one line of text changed, so not one recording is invalidated.
+   */
   snowIntercom: Object.freeze([
     // spec
     { speaker: 'BOOSKI', text: 'Snow. Basement.', cue: cue('exit', 'booski.snowbasement'), hold: 2.0 },
@@ -674,7 +691,9 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'HUD', stage: 'booski.looksthrough', hold: 2.0 },
     // spec
     { speaker: 'BOOSKI', text: 'Bring the cart.', cue: cue('exit', 'booski.bringthecart'), hold: 1.8 },
-    // spec
+    /* He comes down the stairwell with it. Long enough to walk in on. */
+    { speaker: 'HUD', stage: 'snow.arrives', hold: 6.0 },
+    // spec — and now he is standing in it
     { speaker: 'SNOW', text: 'Jesus Christ.', cue: cue('exit', 'snow.jesuschrist'), hold: 1.8 },
     // spec
     { speaker: 'BOOSKI', text: 'And a mop.', cue: cue('exit', 'booski.andamop'), hold: 1.8 },

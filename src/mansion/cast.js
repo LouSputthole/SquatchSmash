@@ -955,6 +955,83 @@ export function mountMansionCast(scene, world = {}, {
   cartCollider.max.y = Math.min(cartCollider.max.y, snowAt.y + 1.05);
 
   /* ================================================================ */
+  /* SNOW COMES DOWN                                                   */
+  /*                                                                    */
+  /* Owner playtest, 2026-08-06: *"Snow must come down to the lab for   */
+  /* his clean-up lines."* He never did. Booski gets on the intercom at */
+  /* the end of beat 10 — "Snow. Basement." / "Bring the cart." — and    */
+  /* Snow answers "How bad?" and then "Jesus Christ.", which is a man    */
+  /* looking at a room full of bodies. He was in the foyer, three floors */
+  /* up, for every word of it, and "Jesus Christ." was a disembodied     */
+  /* subtitle about a room nobody in it had seen.                        */
+  /*                                                                      */
+  /* HE ARRIVES OUT OF THE STAIRWELL AND WALKS IN, which is the whole of  */
+  /* the note ("movement + presence when his cues fire"). He is NOT       */
+  /* walked down from the foyer: the house is four storeys stacked in one */
+  /* column, the Npc walk is a flat-plane nav with collider avoidance and */
+  /* no stairs in it, and a man sliding down through three floors is a    */
+  /* worse thing to watch than a man who was not there. So he is put at   */
+  /* the foot of the stairwell — off the observation area, out of the     */
+  /* player's sightline, exactly where somebody coming down would be —    */
+  /* and walks the last stretch himself, pushing the cart, arriving while */
+  /* Booski is still saying "Bring the cart."                             */
+  /* ================================================================ */
+  /** null, or the walk he is on. */
+  let snowErrand = null;
+
+  function snowToTheBasement() {
+    const npc = people.snow;
+    const foot = lab?.anchors?.stairFoot ?? null;
+    const table = lab?.anchors?.transferTable ?? null;
+    if (!npc || snowErrand || !foot || !Number.isFinite(foot.x) || !table) return false;
+    const floorY = foot.y ?? npc.baseY;
+    /* Two waypoints, because the cross opening is a doorway and one straight
+     * line from the stair foot to the transfer table goes through its pier. */
+    const through = lab?.anchors?.crossOpening ?? { x: (foot.x + table.x) / 2, z: table.z };
+    const stop = { x: table.x + 2.4, z: table.z + 1.7 };
+    npc.group.position.set(foot.x, floorY, foot.z);
+    npc.baseY = floorY;
+    npc.homeX = foot.x;
+    npc.homeZ = foot.z;
+    npc.speed = 1.05;
+    npc.route = [{ x: through.x, z: through.z }, { x: stop.x, z: stop.z }];
+    npc.routeAt = 0;
+    npc.job = 'patrol';
+    npc.faceToward(through.x, through.z, true);
+    snowErrand = { stop, floorY, arrived: false };
+    return true;
+  }
+
+  /** The cart goes where he goes, and its collider with it. */
+  function updateSnowErrand() {
+    if (!snowErrand) return;
+    const npc = people.snow;
+    const at = npc.group.position;
+    /* Ahead of him, the way a man pushes a cart, and turned with him. */
+    const ahead = 0.95;
+    cart.position.set(
+      at.x + Math.sin(npc.group.rotation.y) * ahead,
+      snowErrand.floorY,
+      at.z + Math.cos(npc.group.rotation.y) * ahead,
+    );
+    cart.rotation.y = npc.group.rotation.y;
+    cart.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(cart);
+    cartCollider.copy(box);
+    cartCollider.min.y = snowErrand.floorY;
+    cartCollider.max.y = Math.min(box.max.y, snowErrand.floorY + 1.05);
+    if (snowErrand.arrived) return;
+    if (Math.hypot(at.x - snowErrand.stop.x, at.z - snowErrand.stop.z) > 0.75) return;
+    /* He is there. Stop him and turn him at the glass, which is the thing he
+     * has been sent down to look at. */
+    snowErrand.arrived = true;
+    npc.route = null;
+    npc.job = 'work';
+    const glass = lab?.anchors?.glassDoor ?? snowErrand.stop;
+    npc.faceToward(glass.x, glass.z);
+  }
+
+  /* ================================================================ */
   /* THE FAMILY, UPSTAIRS                                              */
   /*                                                                    */
   /* NOBODY BELOW GETS A BARK FROM THIS MODULE, and that is deliberate. */
@@ -2016,6 +2093,23 @@ export function mountMansionCast(scene, world = {}, {
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
     get snow() { return people.snow; },
+    /**
+     * Booski has called him down. Owner playtest: he has clean-up lines about
+     * the laboratory and was never in it. Returns false in a house with no
+     * laboratory, and is a no-op once he is already on his way.
+     */
+    snowToTheBasement: () => snowToTheBasement(),
+    /** Where he is on that errand, for a check that wants to prove it. */
+    get snowErrand() {
+      if (!snowErrand) return null;
+      const at = people.snow.group.position;
+      return {
+        arrived: snowErrand.arrived,
+        x: +at.x.toFixed(2),
+        y: +at.y.toFixed(2),
+        z: +at.z.toFixed(2),
+      };
+    },
     /** Every seated body, and how it is sitting. See `seatReport`. */
     seats: () => seatReport(),
     /** Lil Tom Cruze, or null in a house with no third floor in it. */
@@ -2035,6 +2129,7 @@ export function mountMansionCast(scene, world = {}, {
        * loop -- a dog that only animates when you are looking at him is a
        * statue that moves when you turn round. */
       dog?.update(dt);
+      updateSnowErrand();
       updateBarks(dt);
       dialogue.update(dt);
 

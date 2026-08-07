@@ -1042,6 +1042,16 @@ const armory = mountArmory({
  * the note at `onCordInHand`.
  */
 let setCordInHand = () => {};
+/**
+ * Booski calling Snow down to the basement, through a mutable handle for the
+ * reason `setCordInHand` is one: `const cast = mountMansionCast(...)` is two
+ * hundred lines BELOW `mountSilentSquatch(...)`, and `cast?.x` on a `const`
+ * in its temporal dead zone is a ReferenceError rather than `undefined`. The
+ * beat that spends this is minutes away, but the rule that says do not point
+ * a closure at a `const` you have not reached yet is the one that cost this
+ * house a boot once already.
+ */
+let summonSnow = () => false;
 const loadout = createMansionLoadout({
   weapons: weaponSystem,
   weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
@@ -1182,6 +1192,12 @@ if (lab && night.play) {
      *
      * `pistol9` rather than the revolver: Booski is the man who made copies
      * of Aubbie's notes, and a man like that carries a magazine. */
+    /* ---- SNOW COMES DOWN (owner playtest: he has clean-up lines about the
+     * lab and never comes down). Booski's "Bring the cart." now reaches the
+     * man it is addressed to: `cast.js` walks him out of the stairwell with
+     * the cart while the exchange is still running. `cast` is assigned below
+     * this call, so it goes through the mutable handle above. */
+    onSnowSummoned: () => summonSnow(),
     onSidearm: () => {
       if (weaponSystem.equipped === WEAPON_IDS.PISTOL9) return;
       weaponSystem.equip(WEAPON_IDS.PISTOL9);
@@ -1257,6 +1273,7 @@ const cast = mountMansionCast(scene, world, {
   enabled: () => running,
 });
 setCordInHand = (on) => cast?.setCordInHand?.(on);
+summonSnow = () => cast?.snowToTheBasement?.() === true;
 /* And catch up: the loadout may already have decided what is in his hand
  * while this was still a no-op. */
 loadout.refresh();
@@ -1913,6 +1930,9 @@ window.mansion = {
      * to the surface directly under them — negative is inside the seat.
      */
     get seats() { return cast?.seats?.() ?? []; },
+    /** Snow's errand to the basement, or null if Booski has not called him.
+     * Owner playtest: he has clean-up lines about the lab and was never in it. */
+    get snowErrand() { return cast?.snowErrand ?? null; },
     /** Posts whose standing position is inside a solid box. */
     get inSolid() {
       const bad = [];

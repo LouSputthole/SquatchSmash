@@ -77,6 +77,16 @@ export function mountSilentSquatch({
    * split `onCase` already uses.
    */
   onSidearm = () => {},
+  /**
+   * Booski calling Snow down to the basement (owner playtest: he has clean-up
+   * lines about the laboratory and was never in it).
+   *
+   * A man with a cart is `../cast.js`'s, and this file has never heard of him.
+   * The composition root supplies the verb, exactly as it does for the pistol
+   * and for the hand-off; a house with no cast simply plays the exchange with
+   * nobody arriving, which is what it did before.
+   */
+  onSnowSummoned = () => {},
 } = {}) {
   if (!lab || !THREE || !scene || !camera) return null;
 
@@ -411,6 +421,12 @@ export function mountSilentSquatch({
       switch (stage) {
         case 'lou.rotate':
           turnCaseAwayFromPlayer();
+          break;
+        /* Booski has told him to bring the cart, and he brings it. The mission
+         * has never heard of Snow; the composition root hands the verb down,
+         * the same seam `onSidearm` and `onDeliverCase` use. */
+        case 'snow.arrives':
+          onSnowSummoned();
           break;
         case 'case.lift':
           /* Out of the tray and up, so the drawer has something to carry. The

@@ -3529,8 +3529,9 @@ try {
     {
       id: 'core_complete', state: 'LOCK_THE_LAB', hasCase: false, wall: 'open', locked: false,
     },
+    /* The beat AFTER the gassing, which is the one Snow is called down for. */
     {
-      id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0,
+      id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0, snowDown: true,
     },
     {
       id: 'suite', state: 'ARRIVAL', hasCase: true, stairOpen: true,
@@ -3577,6 +3578,44 @@ try {
       if (want.stairOpen !== undefined && got.stairOpen !== want.stairOpen) bad.push(`stairOpen=${got.stairOpen}`);
       if (cpErrors.length) bad.push(`errors: ${cpErrors[0]}`);
       if (bad.length) cpFails.push(`${want.id}: ${bad.join(', ')}`);
+
+      /* ---- S10: SNOW IS IN THE ROOM HE IS TALKING ABOUT.
+       *
+       * Owner playtest, 2026-08-06: *"Snow must come down to the lab for his
+       * clean-up lines."* He never did. Booski calls him — "Snow. Basement." /
+       * "Bring the cart." — and he answers "Jesus Christ.", which is a man
+       * looking at a room full of bodies, from the foyer, three floors up.
+       *
+       * This is the cold load of the beat that calls him, so by the time the
+       * page has settled the exchange has run: his BODY has to be on the lab
+       * floor, inside the observation area, and his errand has to say he
+       * arrived rather than that he was teleported into position. */
+      if (want.snowDown && !bad.length) {
+        const snow = await cpPage.evaluate(() => {
+          window.mansion.tick(8);
+          const m = window.mansion;
+          return {
+            errand: m.cast?.snowErrand ?? null,
+            at: m.cast?.people?.snow ?? null,
+            observation: m.lab?.rects?.OBSERVATION ?? null,
+            LAB_Y: m.lab?.datums?.LAB_Y ?? null,
+          };
+        });
+        const off = [];
+        if (!snow.errand) off.push('Booski never called him down');
+        else if (!snow.errand.arrived) off.push(`he is still walking, at ${snow.errand.x}, ${snow.errand.z}`);
+        if (!snow.at) off.push('there is no Snow in this house');
+        else {
+          if (Math.abs(snow.at.y - snow.LAB_Y) > 0.4) off.push(`he is on the floor at y=${snow.at.y}, not the lab's ${snow.LAB_Y}`);
+          const r = snow.observation;
+          if (!(snow.at.x > r.x0 && snow.at.x < r.x1 && snow.at.z > r.z0 && snow.at.z < r.z1)) {
+            off.push(`he is at (${snow.at.x}, ${snow.at.z}), outside the observation area`);
+          }
+        }
+        check('Snow comes down to the laboratory for the lines he says about it',
+          off.length === 0,
+          off.join(' | ') || `arrived at (${snow.at.x}, ${snow.at.z}) on the lab floor`);
+      }
 
       /* ---- S1: THE CASE HAND-OFF.
        *
