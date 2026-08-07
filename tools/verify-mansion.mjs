@@ -3766,9 +3766,21 @@ try {
         const handOff = await cpPage.evaluate(() => {
           const T = window.mansion.THREE;
           const m = window.mansion;
-          const booski = m.cast?.people?.booski ?? null;
-          if (!booski) return { error: 'no Booski in this house' };
-          const b = new T.Box3().setFromObject(booski.group);
+          /* HIS BODY, out of the scene graph.
+           *
+           * `window.mansion.cast.people` publishes COORDINATES, not `Npc`s —
+           * it is a map of `{x, y, z}` built for the "is anybody standing in
+           * the furniture" check — so `people.booski.group` is undefined and
+           * every measurement off it is a throw. The bodies carry
+           * `userData.npc` (src/bing/cast.js's constructor writes it), which
+           * is the handle that actually exists. */
+          let body = null;
+          m.scene.traverse((o) => {
+            if (!body && o.userData?.npc?.name === 'Booski') body = o;
+          });
+          if (!body) return { error: 'no Booski in this house' };
+          const booski = { group: body };
+          const b = new T.Box3().setFromObject(body);
           const chest = b.getCenter(new T.Vector3());
           chest.y = b.min.y + (b.max.y - b.min.y) * 0.62;
 
