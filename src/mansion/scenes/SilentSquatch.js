@@ -168,6 +168,22 @@ export const SILENT_SQUATCH_CUES = Object.freeze([
   ['silent.monitor.turn', 'A wall of CRT monitors all changing state at once: a soft collective degauss thump and a wash of high-frequency line whine settling.'],
   ['silent.chain.creak', 'Loop. A load-bearing chain on a ceiling hook with a man on the end of it: slow irregular creaks, links shifting, and the hook turning a few degrees at a time.'],
   ['silent.case.hum', 'Loop. Close-up: the containment case. A low electrical hum with a faint vibration in the shell and an occasional high transient, like something inside changing state.'],
+  /* THIS CUE EXISTS BECAUSE A LINE OF DIALOGUE WAS PLAYING HERE.
+   *
+   * Owner playtest, 2026-08-06: "one line plays with the wrong voice id". It
+   * did, and it was this one -- `lab.case.open()` played `heist.shubes_case`,
+   * which is not a sound effect at all: it is THE TAKE's Shubenator saying
+   * "The blue case is organized. Your hands are not part of the organization."
+   * So the Shubenator's voice came out of a briefcase in Lou's basement,
+   * every time Booski opened it, in a scene he is not in.
+   *
+   * Nothing about the name gave that away at the call site -- `heist.*` is
+   * both THE TAKE's effects prefix AND its dialogue prefix (ENGINE-TRAPS #4),
+   * so borrowing a "case" cue from it was one letter away from borrowing a
+   * performance. The manifest is the thing that knows, and the check that now
+   * holds this shut reads it: see `no cue this scene plays is somebody
+   * else's line` in tools/verify-mansion.mjs. */
+  ['silent.case.latches', 'A heavy chrome flight case being opened on a steel table: two sprung catches letting go one after the other, a stiff hinge, and the lid coming up against its stops. Close, dry, expensive-sounding. No voice.'],
   ['silent.container.lift', 'A dense metal cylinder lifted out of foam by two hands: the foam releasing, the mass shifting, and a soft magnetic detach.'],
   ['silent.arc', 'A short gold electrical arc between two electrodes: a crack, a sizzle, and an ozone tail.'],
   ['silent.voice.complete', 'A cold synthesised facility voice, no warmth, faintly accented by its own compression: "PROJECT SILENT SQUATCH. CORE COMPLETE."'],
@@ -5141,7 +5157,10 @@ export function buildSilentSquatch({
       group: caseObj.group,
       open: () => {
         caseObj.open();
-        sfx('heist.shubes_case', {
+        /* `silent.case.latches`, NOT `heist.shubes_case` -- that one is a line
+         * of the Shubenator's from THE TAKE and it was playing here. See the
+         * cue's own note in SILENT_SQUATCH_CUES. */
+        sfx('silent.case.latches', {
           volume: 0.6, position: caseObj.group.position.clone(), ref: 1.4, maxDist: 12,
         });
         lab.case.brighten(2.1);

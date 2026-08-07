@@ -2792,6 +2792,71 @@ try {
     missingCues.length === 0 && cuePrompts.length === 0 && lab.cues.length >= 30,
     JSON.stringify({ missing: missingCues, thin: cuePrompts, total: lab.cues.length }));
 
+  /* ---- S5: NO CUE THIS SCENE PLAYS IS SOMEBODY ELSE'S LINE.
+   *
+   * Owner playtest, 2026-08-06: "one line plays with the wrong voice id."
+   * `lab.case.open()` played `heist.shubes_case` as the sound of the latches
+   * — and that cue is not a sound effect, it is THE TAKE's Shubenator saying
+   * "The blue case is organized." So the Shubenator's recorded voice came out
+   * of a briefcase in Lou's basement every time Booski opened it.
+   *
+   * The manifest is the only thing that knows the difference: a cue with a
+   * `voice`/`say` is a PERFORMANCE and a cue with a `prompt` is a NOISE, and
+   * `heist.*` is both prefixes at once (ENGINE-TRAPS #4). So this reads every
+   * cue name the mansion's own modules play as a literal and fails if any of
+   * them is cast to a mouth. Static, because the fault is one that never
+   * throws and only ever sounds wrong. */
+  {
+    const manifest = JSON.parse(
+      await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'),
+    );
+    const cast = new Map(manifest.sfx
+      .filter((cue) => cue.voice || cue.say)
+      .map((cue) => [cue.name, cue.voice ?? '(uncast)']));
+    const scanned = [];
+    (function walkMansion(dir) {
+      for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+        if (entry.isDirectory()) walkMansion(`${dir}/${entry.name}`);
+        else if (entry.name.endsWith('.js')) scanned.push(`${dir}/${entry.name}`);
+      }
+    })('src/mansion');
+    /* The scene's own audio verbs, all of which take a cue name first. The
+     * mission's spoken lines never appear as literals — they are data in
+     * script.js — so anything this finds is a call site choosing a noise. */
+    const CUE_CALL = /(?:sfx|loop|stop|plainSay|play|startLoop|impact|say)\(\s*'([a-z0-9][a-z0-9._-]*)'/g;
+    const borrowed = [];
+    for (const file of scanned) {
+      const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+      for (const found of src.matchAll(CUE_CALL)) {
+        if (cast.has(found[1])) borrowed.push(`${file}: ${found[1]} is ${cast.get(found[1])}'s line`);
+      }
+    }
+    check('no sound the mansion plays as an effect is somebody else\'s recorded line',
+      borrowed.length === 0,
+      borrowed.join(' | ') || `${scanned.length} modules scanned, ${cast.size} cast cues in the manifest`);
+  }
+
+  /* ---- ...and every line the mission DOES play comes out of the voice its
+   * own casting names. `SPEAKERS[x].voice` is the authority and the manifest
+   * is generated from it (`npm run vo:mansion`), so a drift here is a cue
+   * that will be RECORDED by the wrong performer. */
+  {
+    const manifest = JSON.parse(
+      await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'),
+    );
+    const declared = new Map(manifest.sfx.map((cue) => [cue.name, cue.voice ?? null]));
+    const authored = await page.evaluate(async () => {
+      const script = await import('/src/mansion/script.js');
+      return script.allSilentSquatchLines()
+        .map((line) => ({ name: line.name, speaker: line.speaker, voice: line.voice }));
+    });
+    const miscast = authored.filter((line) => declared.get(line.name) !== line.voice)
+      .map((line) => `${line.name} (${line.speaker}) wants ${line.voice}, manifest says ${declared.get(line.name)}`);
+    check('every PROJECT SILENT SQUATCH line is cast to its own speaker\'s voice profile',
+      miscast.length === 0 && authored.length > 150,
+      miscast.slice(0, 3).join(' | ') || `${authored.length} lines, every one on its speaker's profile`);
+  }
+
   /* ---- And the wall closes again, which is the exit. */
   const closed = await page.evaluate(async () => {
     window.mansion.lab.hiddenWall.close();
