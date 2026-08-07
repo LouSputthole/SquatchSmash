@@ -231,7 +231,7 @@ export function mountSilentSquatch({
     onLineEnd: () => hud.hideLine(),
     onCase,
     onSidearm,
-    playCue: (cue) => {
+    playCue: (cue, voice, gain = 1) => {
       /* A dry line, from somebody standing in the room. Cue names are data
        * here, never a literal at a call site.
        *
@@ -242,9 +242,14 @@ export function mountSilentSquatch({
        * was played in silence for so long without anybody chasing it.
        *
        * Returns the take's length so the line holds for the recording rather
-       * than for an authored guess. See `DialogueController._advance`. */
+       * than for an authored guess. See `DialogueController._advance`.
+       *
+       * `gain` is the speaker's PROFILE gain, handed down by the mission from
+       * `VOICE_GAIN` in ../script.js — the owner's "Aubbie volume +20%" note.
+       * Applied here rather than baked into a take so it reaches his
+       * unrecorded lines too. */
       if (!audio?.hasSample?.(cue)) return 0;
-      audio.play(cue);
+      audio.play(cue, { volume: gain });
       return audio.sampleDuration?.(cue) ?? 0;
     },
   });

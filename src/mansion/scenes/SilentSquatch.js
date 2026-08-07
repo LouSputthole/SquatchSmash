@@ -3805,6 +3805,20 @@ export function buildSilentSquatch({
        */
       get object() { return fig.group; },
 
+      /**
+       * HIS MOUTH, PUBLISHED, because "does his mouth move" is the owner's
+       * note and a claim nothing could previously measure.
+       *
+       * `open` is 0..1 off the shared driver (src/core/mouth.js) and `mode` is
+       * `'audio'` when it is running on the take's own amplitude, `'fallback'`
+       * when the line has no recording and the envelope is synthesised, and
+       * `null` when he is not talking. A check samples `open` across a line
+       * and requires it to VARY — a mouth stuck open is as wrong as a mouth
+       * that never opened, and only one of those reads as a bug in a still.
+       */
+      get mouthOpen() { return fig.voiceMouth.open; },
+      get mouthMode() { return fig.voiceMouth.mode; },
+
       /** The sibling supplies the cue; this supplies the mouth and the path. */
       say(cue, opts = {}) {
         if (!self.alive && !opts.force) return 0;
@@ -3826,7 +3840,12 @@ export function buildSilentSquatch({
         }
         const at = fig.group.position.clone();
         at.y = LAB_Y + 1.55;
-        const route = self.inside ? glassAudio.say.bind(glassAudio) : plainSay;
+        /* `opts.dry` is the CALLER saying this line is not behind the glass,
+         * and it wins over `self.inside`. The mission knows — it is the thing
+         * that opened the door and marked the line unmuffled — and a body that
+         * has to infer it from its own flag is a body that muffles the first
+         * line of the execution because a walk cycle has not finished yet. */
+        const route = self.inside && !opts.dry ? glassAudio.say.bind(glassAudio) : plainSay;
         const source = route(cue, {
           volume: opts.volume ?? 0.9, position: at, ref: 2.2, maxDist: 26, ...opts,
         });

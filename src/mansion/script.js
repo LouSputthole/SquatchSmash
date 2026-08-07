@@ -168,6 +168,39 @@ export const SPEAKERS = Object.freeze({
   HUD: Object.freeze({ name: '', voice: null }),
 });
 
+/* =================================================================== */
+/* PER-VOICE OUTPUT GAIN                                                */
+/*                                                                       */
+/* Owner playtest, 2026-08-06: *"Aubbie volume +20%."*                   */
+/*                                                                        */
+/* AT THE PROFILE, NOT AT THE FILE AND NOT AT THE CALL SITE. Aubbie has   */
+/* thirty-one lines in this mission and they leave by two different       */
+/* routes — muffled, out of his body behind twelve centimetres of glass,  */
+/* and dry, out of the same body once he has walked through the door —    */
+/* so a number typed at either route fixes half of him. And a take        */
+/* re-rendered louder fixes only the takes that exist today: eleven of    */
+/* this mission's lines are still unrecorded and the eleven after them    */
+/* would arrive quiet again.                                              */
+/*                                                                         */
+/* So it is one table, keyed by the `voices` profile every one of his      */
+/* lines already resolves to, read by `SilentSquatchMission.#speak` and by */
+/* `mission/mount.js`'s `playCue` — the only two places a line of this     */
+/* mission's ever reaches the engine. Recast him and the gain follows the  */
+/* profile; give somebody else the same problem and it is one row.         */
+/* =================================================================== */
+export const VOICE_GAIN = Object.freeze({
+  /* +20%. He is the quietest performance on the roster and half his part is
+   * played through the glass send, which takes another 40% off him on top. */
+  aubbie: 1.2,
+});
+
+/** The output gain a line in this voice is played at. 1 for everybody with no
+ * row of their own, so an uncast or misspelled profile is simply normal. */
+export function gainForVoice(voice) {
+  const gain = VOICE_GAIN[voice];
+  return Number.isFinite(gain) && gain > 0 ? gain : 1;
+}
+
 /** Speaker key -> index in `lab.scientists`. The mission routes a scientist's
  * line through `lab.glassAudio` and calls `lab.scientists[i].say(cue)` so the
  * body it comes out of is the right one. */

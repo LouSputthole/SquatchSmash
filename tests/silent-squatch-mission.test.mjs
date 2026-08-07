@@ -18,7 +18,7 @@ import { createContractLab } from '../src/mansion/mission/contract-lab.js';
 import { createSilentSquatchMission } from '../src/mansion/mission/SilentSquatchMission.js';
 import { BEAT_OF, S } from '../src/mansion/mission/SilentSquatchStateMachine.js';
 import {
-  INSTRUCTIONS, OBJECTIVES, SCIENTIST_INDEX, SEQUENCES,
+  INSTRUCTIONS, OBJECTIVES, SCIENTIST_INDEX, SEQUENCES, gainForVoice,
 } from '../src/mansion/script.js';
 import { createSilentSquatchStory } from '../src/core/silent-squatch-story.js';
 import {
@@ -347,6 +347,81 @@ test('every line behind the glass goes through the glass audio, and nothing else
   const dry = new Set(report.cues.filter((c) => !lab.glassAudio.log.some((g) => g.cue === c)));
   assert.ok([...dry].some((c) => c.includes('booski.')));
   assert.equal([...dry].some((c) => c.includes('.orlova.')), false);
+});
+
+/**
+ * Owner playtest, 2026-08-06: *"Aubbie's mouth stops moving once he leaves the
+ * lab."*
+ *
+ * A scientist's jaw is moved from inside `lab.scientists[i].say()` — the
+ * laboratory plays the cue and hands the playing node to his mouth. The
+ * mission was only calling that on MUFFLED lines, so from `door.open` onwards
+ * every line of Aubbie's went round his body through a bare `playCue`, and he
+ * pleaded for his life with his mouth shut. This is the routing half; the jaw
+ * itself is measured in the real lab by `npm run verify:mansion`.
+ */
+test('every line of Aubbie\'s comes out of Aubbie, including the ones after he walks out', () => {
+  const r = rig();
+  playThrough(r);
+  const { lab, mission } = r;
+  const aubbie = lab.scientists[SCIENTIST_INDEX.AUBBIE];
+
+  /* Eighteen on a clean run: ten over the build, one at the completion, three
+   * coming out through the door, "What is this?", and the three of the
+   * pleading. The nag lines are extra and only fire if the player dawdles. */
+  const his = mission.report().cues.filter((cue) => cue.includes('.aubbie.'));
+  assert.ok(his.length >= 18, `${his.length} Aubbie cues is too few to be his part`);
+  const missed = his.filter((cue) => !aubbie.lines.includes(cue));
+  assert.deepEqual(missed, [], 'these lines never reached his body, so his mouth never moved');
+
+  /* The half that used to be broken: the lines he says on the player's side of
+   * the glass. They are dry AND they come out of him. */
+  assert.equal(aubbie.side, 'observation', 'he never came out through the door');
+  /* Seven: the three he says coming out of the door, "What is this?", and the
+   * three of the pleading. Every one of them was silent-mouthed before. */
+  assert.ok(aubbie.dry.length >= 7, `${aubbie.dry.length} dry lines is not his whole execution`);
+  assert.ok(aubbie.dry.every((take) => take.dry === true));
+  assert.ok(
+    aubbie.dry.some((take) => take.cue.includes('execution.')),
+    'the execution is the beat he is out here for',
+  );
+  /* And not one of them went through twelve centimetres of glass he is
+   * standing on the wrong side of. */
+  assert.equal(
+    lab.glassAudio.log.some((entry) => entry.cue.includes('execution.aubbie.')), false,
+  );
+});
+
+/**
+ * Owner playtest, 2026-08-06: *"Aubbie volume +20%."*
+ *
+ * At the PROFILE (`VOICE_GAIN` in script.js), so it reaches both of his routes
+ * and the lines nobody has recorded yet. Asserted as a number rather than as
+ * "louder than before", because "before" is not available to a check.
+ */
+test('Aubbie is played at his profile\'s gain, and nobody else is moved', () => {
+  const r = rig();
+  playThrough(r);
+  const { lab } = r;
+
+  assert.equal(gainForVoice('aubbie'), 1.2, 'the owner asked for +20%');
+  assert.equal(gainForVoice('booski'), 1);
+  assert.equal(gainForVoice('nobody-by-this-name'), 1);
+
+  const aubbie = lab.scientists[SCIENTIST_INDEX.AUBBIE];
+  const levels = new Set(aubbie.takes.map((take) => take.volume));
+  assert.deepEqual([...levels], [1.08], 'every line of his leaves at 0.9 x 1.2');
+
+  /* The other five are on the same route and are NOT boosted, which is what
+   * makes this a per-voice gain rather than a louder laboratory. */
+  for (const index of [
+    SCIENTIST_INDEX.VETROV, SCIENTIST_INDEX.SOKOLOV,
+    SCIENTIST_INDEX.BEZMENOV, SCIENTIST_INDEX.ORLOVA, SCIENTIST_INDEX.MARCHUK,
+  ]) {
+    const takes = lab.scientists[index].takes;
+    assert.ok(takes.length > 0, `scientist ${index} never spoke`);
+    assert.deepEqual([...new Set(takes.map((t) => t.volume))], [0.9]);
+  }
 });
 
 test('the HUD never speaks over the man in the room', () => {
