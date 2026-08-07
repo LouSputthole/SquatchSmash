@@ -3350,6 +3350,167 @@ try {
   }
   await page.evaluate(() => window.mansion.resume?.());
 
+  /* ================================================================ */
+  /* GEOMETRY & PROPS -- the 2026-08-06 playtest punch list              */
+  /*                                                                     */
+  /* Nine measured pairs, pinned the same way the office clock and the   */
+  /* fireplace are pinned in MansionInterior.js's own comments: not "it   */
+  /* looks right", a real Box3 off the built scene, read once here so a   */
+  /* regression on any of them fails a machine instead of a playtest.     */
+  /* ================================================================ */
+  const punchList = await page.evaluate(() => {
+    const THREE = window.mansion.THREE;
+    const scene = window.mansion.scene;
+    scene.updateMatrixWorld(true);
+    /** Every mesh or group whose own name matches, each as its own Box3 --
+     * a LIST, not a union, because unioning two chairs either side of a
+     * room turns "neither touches the wall" into a box that spans the
+     * whole room and does. */
+    function boxes(name) {
+      const out = [];
+      scene.traverse((o) => {
+        if (o.name !== name) return;
+        const b = new THREE.Box3().setFromObject(o);
+        if (Number.isFinite(b.min.x)) out.push(b);
+      });
+      return out;
+    }
+    function pairOverlap(a, b) {
+      const ox = Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x);
+      const oy = Math.min(a.max.y, b.max.y) - Math.max(a.min.y, b.min.y);
+      const oz = Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z);
+      return { ox, oy, oz, hit: ox > 0 && oy > 0 && oz > 0 };
+    }
+    /** Worst (largest) overlap between any box in `as` and any in `bs`; a
+     * gap is reported as the smallest of the three axis gaps, negative. */
+    function worstOverlap(as, bs) {
+      let best = null;
+      for (const a of as) {
+        for (const b of bs) {
+          const o = pairOverlap(a, b);
+          const size = o.hit ? Math.min(o.ox, o.oy, o.oz) : -Math.max(-o.ox, -o.oy, -o.oz);
+          if (!best || size > best.size) best = { ...o, size };
+        }
+      }
+      return best;
+    }
+    const out = {};
+
+    // M2: the office fireplace clear of the secret-stair hall's own wall
+    // (the wall the bookcase run is fitted into) -- not "behind the
+    // bookcase" any more.
+    out.fireplaceVsBookcaseWall = worstOverlap(boxes('office-chimneypiece'), boxes('suite-stair-wall'));
+
+    // M3: the grandfather clock clear of the panel beads on the office's
+    // west wall (x = -8.745, measured; there is no name unique to just
+    // this wall's beads, both long walls carry one).
+    const clockBoxes = [...boxes('office-longcase-clock'), ...boxes('office-longcase-cornice'), ...boxes('office-longcase-plinth')];
+    const clockMinX = clockBoxes.length ? Math.min(...clockBoxes.map((b) => b.min.x)) : null;
+    out.clockWallClearance = clockMinX === null ? null : clockMinX - (-8.745);
+
+    // M5: the old-timey bedroom's weight bench clear of its own armchair.
+    out.weightsVsChair = worstOverlap(
+      [...boxes('oldtime-bench-pad'), ...boxes('oldtime-rack-upright'), ...boxes('oldtime-rack-foot')],
+      boxes('bed-east-front-chair-seat'),
+    );
+
+    // M6: the suite's wet-bar counter clear of both flanking chairs (a
+    // per-chair check, not a union of the pair -- see the note above).
+    out.barVsChairs = worstOverlap(
+      [...boxes('suite-bar-counter'), ...boxes('suite-bar-top'), ...boxes('suite-bar-nosing')],
+      boxes('suite-chair-seat'),
+    );
+
+    // M8: Snow's cart clear of the foyer's own centre table.
+    out.cartVsTable = worstOverlap(
+      [...boxes('mop-bucket'), ...boxes('cart-shelf'), ...boxes('wringer')],
+      boxes('foyer-centre-table'),
+    );
+
+    // M9: the vault's own plaque clear of its door's architrave -- `art`
+    // is the house's own registered-picture list (MansionInterior.js's
+    // `recordArt`), already in world space; the architrave case is a
+    // named mesh, `cellar-rooms-case`, several of them (one triplet per
+    // door on that partition), so every one is checked.
+    const vaultMark = window.mansion.art.find((a) => a.id === 'mansion.vault.mark');
+    const vaultMarkBox = vaultMark
+      ? new THREE.Box3(
+        new THREE.Vector3(vaultMark.x0, vaultMark.y0, vaultMark.z0),
+        new THREE.Vector3(vaultMark.x1, vaultMark.y1, vaultMark.z1),
+      )
+      : null;
+    out.vaultPictureVsArchitrave = vaultMarkBox
+      ? worstOverlap([vaultMarkBox], boxes('cellar-rooms-case'))
+      : null;
+
+    // M10: the marble bust clear of the hunting trophy mounted beside it --
+    // both GROUPS, not meshes (their own parts are unnamed); `boxes()`
+    // above matches by object name regardless of Group vs Mesh, and
+    // `Box3.setFromObject` walks a group's whole subtree either way.
+    out.bustVsTrophy = worstOverlap(boxes('sasquatch-bust'), boxes('silent-trophy'));
+
+    // M1: the office bookcase is a case with real shelves now, not a slab
+    // with books floating in front of it -- and the secret-stair bookcase
+    // (a different function entirely, `bookcaseBay()`) is unaffected.
+    out.officeBookcase = {
+      shelves: boxes('office-bookcase-shelf').length,
+      back: boxes('office-bookcase-back').length,
+      ends: boxes('office-bookcase-end').length,
+    };
+
+    // M4: both fireplaces' practical lights, and whether the office one
+    // clears the nearest-N light rig's own scoring at real playing
+    // distance -- see `updateLightRig` in main.js.
+    out.fireplaceLightRange = {
+      livingRoom: window.mansion.interior.props.livingRoom.fireGlow?.distance ?? null,
+      office: window.mansion.interior.props.office.fireGlow?.distance ?? null,
+    };
+
+    return out;
+  });
+  check('M2 -- the office fireplace does not stand in the secret-stair hall\'s own wall (the bookcase run\'s wall)',
+    punchList.fireplaceVsBookcaseWall && !punchList.fireplaceVsBookcaseWall.hit,
+    JSON.stringify(punchList.fireplaceVsBookcaseWall));
+  check('M3 -- the grandfather clock clears the office\'s west-wall panel beads by at least 0.5 m',
+    punchList.clockWallClearance !== null && punchList.clockWallClearance > 0.5,
+    `clearance ${punchList.clockWallClearance?.toFixed(3)} m`);
+  check('M5 -- the old-timey bedroom\'s weight bench does not intersect its own armchair',
+    punchList.weightsVsChair && !punchList.weightsVsChair.hit,
+    JSON.stringify(punchList.weightsVsChair));
+  check('M6 -- neither suite chair intersects the wet bar counter',
+    punchList.barVsChairs && !punchList.barVsChairs.hit,
+    JSON.stringify(punchList.barVsChairs));
+  check('M8 -- Snow\'s cart does not intersect the foyer\'s centre table',
+    punchList.cartVsTable && !punchList.cartVsTable.hit,
+    JSON.stringify(punchList.cartVsTable));
+  check('M9 -- the vault plaque does not pass through its door\'s own architrave',
+    punchList.vaultPictureVsArchitrave && !punchList.vaultPictureVsArchitrave.hit,
+    JSON.stringify(punchList.vaultPictureVsArchitrave));
+  check('M10 -- the marble bust does not clip the hunting trophy mounted beside it',
+    punchList.bustVsTrophy && !punchList.bustVsTrophy.hit,
+    JSON.stringify(punchList.bustVsTrophy));
+  check('M1 -- the office bookcase is built with real shelves, not books floating on a slab',
+    punchList.officeBookcase.shelves >= 4 && punchList.officeBookcase.back >= 1 && punchList.officeBookcase.ends >= 2,
+    JSON.stringify(punchList.officeBookcase));
+  check('M4 -- both fireplaces\' practical lights carry range enough to read from across their rooms',
+    punchList.fireplaceLightRange.livingRoom >= 18 && punchList.fireplaceLightRange.office >= 18,
+    JSON.stringify(punchList.fireplaceLightRange));
+
+  /* M4, continued: the office fireplace's own light is genuinely part of
+   * the nearest-N rig's active set from real playing distance, not just
+   * numerically long-ranged. Teleported well past the fire's old 9 m
+   * range (measured, corner to corner, up to ~18.5 m across this room) and
+   * ticked a full second so `updateLightRig` (main.js) has scored it. */
+  await teleport(-7.5, UPPER_Y, 64.0, SOUTH);
+  await settle(1.0);
+  const fireVisibleFar = await page.evaluate(() => {
+    const glow = window.mansion.interior.props.office.fireGlow;
+    return { visible: glow?.visible ?? null, distance: glow?.distance ?? null };
+  });
+  check('M4 -- the office fire\'s light is switched on from across the room, not just standing on the hearth',
+    fireVisibleFar.visible === true,
+    JSON.stringify(fireVisibleFar));
+
   /* The film that has not landed yet is allowed to 404 and nothing else is.
    * A blanket "ignore 404s" would let a missing texture or a missing module
    * through; naming the file keeps the seam honest in both directions. */
