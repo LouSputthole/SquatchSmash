@@ -982,6 +982,61 @@ try {
     suiteSet.on === true && suiteSet.sets >= 5,
     JSON.stringify(suiteSet));
 
+  /* CHANGING CHANNEL ON THE SUITE'S OWN SET, ON THE PLAYER'S OWN ACTIONS.
+   *
+   * Owner playtest 2026-08-06: "the upstairs TV should have changeable
+   * channels." It already had a working `Tv` -- `mountTv` built the set,
+   * the channel list, the repaint -- but nothing in `main.js`'s "either
+   * television" loop ever named the suite's screen, so no interaction was
+   * ever registered on it and E did nothing standing in front of it. Proved
+   * here the same way the bookcase above is: find the real screen mesh,
+   * aim the real crosshair at it, and read `interaction.current` before
+   * touching anything, because a check that calls `tv.next()` directly
+   * cannot fail on a set with no interaction wired to it at all -- that is
+   * exactly the shape of bug this class of fix keeps producing (see the
+   * clock and the fireplace on the floor below, same lesson). A real key
+   * press held past the set's own 0.55 s hold is what proves the wiring,
+   * not the channel list. */
+  await teleport(0, SUITE_Y, 73.0, NORTH);
+  await settle(0.3);
+  const suiteTvAim = await page.evaluate(() => {
+    const THREE = window.mansion.THREE;
+    let target = null;
+    window.mansion.scene.traverse((o) => { if (o.name === 'suite-tv-screen') target = o; });
+    if (!target) return { found: false };
+    const at = target.getWorldPosition(new THREE.Vector3());
+    const pl = window.mansion.player;
+    const dx = at.x - pl.position.x;
+    const dz = at.z - pl.position.z;
+    const dy = at.y - pl.position.y;
+    pl.yaw = Math.atan2(-dx, -dz);
+    pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+    window.mansion.tick(0.2);
+    return {
+      found: true,
+      onIt: window.mansion.interaction.current === target,
+      prompt: document.getElementById('prompt').classList.contains('hidden')
+        ? null : document.getElementById('promptLabel').textContent,
+    };
+  });
+  check('the suite TV is reached on foot and is aimable, and it says what E does',
+    suiteTvAim.found && suiteTvAim.onIt && !!suiteTvAim.prompt,
+    JSON.stringify(suiteTvAim));
+
+  const suiteTvHold = await page.evaluate(() => {
+    const before = window.mansion.media.tvs[2]?.channel ?? null;
+    window.mansion.interaction.press();
+    // The set's own hold is 0.55 s; this clears it without a real held key.
+    window.mansion.tick(0.7);
+    window.mansion.interaction.release();
+    const after = window.mansion.media.tvs[2]?.channel ?? null;
+    return { before, after };
+  });
+  check('pressing and holding E on the suite TV changes its channel',
+    suiteTvHold.before !== null && suiteTvHold.after !== null
+      && suiteTvHold.before !== suiteTvHold.after,
+    JSON.stringify(suiteTvHold));
+
   /* THE STAIR WELL IS GUARDED. Walk hard at the opening from the suite side
    * and be stopped by the balustrade rather than falling 4.6 m onto a flight. */
   await teleport(5.6, SUITE_Y, 67.0, EAST);
