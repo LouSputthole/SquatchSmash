@@ -13,6 +13,7 @@
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
     "check": "node tools/check.mjs",
     "check:flight": "node tools/flight-test.mjs",
+    "check:line-presence": "node tools/check-line-presence.mjs",
     "verify:art": "node tools/verify-art.mjs",
     "verify:day-one": "node tools/verify-day-one.mjs",
     "verify:day-two": "node tools/verify-day-two.mjs",

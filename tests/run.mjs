@@ -114,6 +114,7 @@ const TEST_MODULES = [
   './inventory.test.mjs',
   './inventory-view.test.mjs',
   './player.test.mjs',
+  './check-line-presence.test.mjs',
 ];
 
 /* A module that throws while being IMPORTED used to end the run silently.
