@@ -2891,6 +2891,52 @@ try {
     staffing.inSolid.length === 0,
     staffing.inSolid.length ? `inside a collider: ${staffing.inSolid.join(', ')}` : 'all clear');
 
+  /* M11 -- LOU'S SHIRT HUGS HIS TORSO THROUGH ANIMATION.
+   *
+   * Owner playtest 2026-08-06: "Lou's shirt panels are coming way off his
+   * body." Fixed at the shared source, `src/bing/cast.js`'s `makePerson` /
+   * `frontPanel` (every figure in every scene built off it, not just this
+   * house): the ribcage's own breathing animation scales `torso` by a real
+   * ~2% every 1.5 s, and the shirt's front panels used to be its SIBLINGS
+   * under `body` -- built once, flush with the chest at rest, and never
+   * moved again as the chest under them kept growing and shrinking. They
+   * are children of `torsoWrap` now, the neutral group breathing scales
+   * instead of the ribcage mesh itself, so a panel's offset from the chest
+   * scales down and back up with the chest under it.
+   *
+   * Proved on the house's own Lou (`BIG_UNCLE_LOU_MANSION`, the camp shirt
+   * with its two front panels and its undershirt) rather than on the
+   * builder in isolation: found by his own known post position, so a
+   * regression that reintroduced the sibling bug specifically for the
+   * mansion's dressing would fail here even if `bing/cast.js`'s own tests
+   * somehow did not. */
+  const louShirt = await page.evaluate(() => {
+    const THREE = window.mansion.THREE;
+    const lou = window.mansion.cast?.people?.lou;
+    if (!lou) return { found: false };
+    window.mansion.scene.updateMatrixWorld(true);
+    let wrap = null;
+    let bestD = Infinity;
+    window.mansion.scene.traverse((o) => {
+      if (o.name !== 'torso-wrap') return;
+      const p = o.getWorldPosition(new THREE.Vector3());
+      const d = Math.hypot(p.x - lou.x, p.z - lou.z);
+      if (d < bestD) { bestD = d; wrap = o; }
+    });
+    if (!wrap || bestD > 1.0) return { found: false, bestD };
+    const names = new Set(wrap.children.map((c) => c.name));
+    return {
+      found: true,
+      bestD: +bestD.toFixed(2),
+      hasUndershirt: names.has('camp.undershirt'),
+      hasLeftFront: names.has('camp.front.left'),
+      hasRightFront: names.has('camp.front.right'),
+    };
+  });
+  check('M11 -- Lou\'s shirt panels are parented to the torso\'s own breathing scale, not siblings of it',
+    louShirt.found && louShirt.hasUndershirt && louShirt.hasLeftFront && louShirt.hasRightFront,
+    JSON.stringify(louShirt));
+
   /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
    * like one: "I spawn in holding it but can put it away and see it in my
    * inventory." Asserting the bar rendered is not that -- it is a row of
