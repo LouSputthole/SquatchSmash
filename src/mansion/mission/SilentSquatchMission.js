@@ -679,9 +679,17 @@ class SilentSquatchMission {
       /* THE SAME ROOM, A SECOND TIME, AND THEREFORE A SECOND ZONE ID.
        * `arrive()` fires each id once and only once — walking back into the
        * office on `office` would be swallowed by the visit he made in beat 2,
-       * and the night would never end. */
+       * and the night would never end.
+       *
+       * ...AND A SECOND ID IS NOT ENOUGH ON ITS OWN. The player stands in this
+       * room in beat 2 as well, with the case in his hands, and `arrive()`
+       * CONSUMES an id the first time the trigger volume is crossed whatever
+       * the handler does with it. So beat 2's visit ate beat 11's zone and the
+       * mission could never be finished — the objective said "Report to Lou in
+       * his office", the player walked into Lou's office, and nothing
+       * happened. A visit that is not beat 11's puts the id straight back. */
       case 'officeReturn':
-        this.reportToLou();
+        if (!this.reportToLou()) this.zonesEntered.delete('officeReturn');
         break;
       case 'cellar':
         this.#bark('cellar', SEQUENCES.cellarArrival);

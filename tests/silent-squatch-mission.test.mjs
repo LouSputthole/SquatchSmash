@@ -231,6 +231,38 @@ test('the exit says one thing: the objective, the line and the place the night e
   assert.equal(mission.report().complete, true);
 });
 
+/**
+ * THE ROOM HE IS SENT BACK TO IS A ROOM HE HAS ALREADY BEEN IN.
+ *
+ * `arrive()` consumes a zone id the first time the trigger volume is crossed,
+ * whatever the handler does with it — so beat 2's visit to the office ate beat
+ * 11's trigger, the objective said "Report to Lou in his office", the player
+ * walked into Lou's office, and nothing happened. Walked here with a POSITION,
+ * through `update()`, because that is the only path the fault is on.
+ */
+test('walking into the office in beat 2 does not eat the trigger that ends the night', () => {
+  const OFFICE = { x: 0, z: 70, r: 4 };
+  const r = rig({ zones: { office: OFFICE, officeReturn: OFFICE } });
+  const { mission, until } = r;
+  const inTheOffice = { x: 0, z: 70 };
+  const away = { x: 0, z: 40 };
+
+  mission.start();
+  /* Beat 2: he stands at the desk, which is inside BOTH volumes. */
+  mission.update(1 / 30, { position: inTheOffice });
+  assert.ok(until(() => mission.instruction === INSTRUCTIONS.PLACE_CASE));
+  mission.update(1 / 30, { position: away });
+
+  playThroughToExit(r);
+  assert.equal(mission.leave(), true);
+  assert.ok(r.atState(S.BACK_TO_LOU, 30));
+
+  /* Beat 11: back into the same room, on the same trigger volume. */
+  mission.update(1 / 30, { position: inTheOffice });
+  assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30), 'the night never ended');
+  assert.equal(mission.report().complete, true);
+});
+
 test('the office cannot be reported to before the basement is behind him', () => {
   const r = rig({ zones: { officeReturn: { x: 0, z: 70, r: 4 } } });
   const { mission } = r;
