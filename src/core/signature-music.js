@@ -125,8 +125,9 @@ export const SIGNATURE_TRACKS = Object.freeze({
    *    mission PHASE rather than a one-shot flag: `rotateCalled` is
    *    deliberately reset for the second departure, and anything hung off that
    *    pattern would play the record twice.
-   *  - **About two minutes**, not the whole record: `cutAt` at 120 seconds
-   *    from the top.
+   *  - **About three minutes**, not the whole record: `cutAt` at 180 seconds
+   *    from the top. (Two minutes as first agreed; the owner's 2026-08-06
+   *    playtest note moved it to "like 3 minutes".)
    *  - **Its own loop key**, so the mix ducks it against Sasole's rotation
    *    call and the departure barks instead of it joining the ambient bed.
    *
@@ -146,7 +147,7 @@ export const SIGNATURE_TRACKS = Object.freeze({
      * started. Wants a mix pass once the real recording is audible in place. */
     volume: 0.30,
     start: 0,
-    cutAt: 120,
+    cutAt: 180,
   }),
   /**
    * The portable radio in the Bing's store room, during License to Grill.

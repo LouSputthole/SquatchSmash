@@ -73,7 +73,8 @@
       "artist": "Frank Zappa",
       "start": 18.6,
       "cutAt": 22.6,
-      "_note": "Booski's entrance, on the [E] that takes the shot. Owner-picked window widened 0.4s at each end on the 2026-08-04 playtest: in at 18.6, out at 22.6. Documentation — the runtime reads signature-music.js."
+      "_note": "Booski's entrance, on the [E] that takes the shot. Owner-picked window widened 0.4s at each end on the 2026-08-04 playtest: in at 18.6, out at 22.6. Documentation — the runtime reads signature-music.js.",
+      "cue": true
     },
     {
       "file": "sensi-lou.mp3",
@@ -81,19 +82,22 @@
       "artist": "—",
       "start": 5,
       "cutAt": 9.7,
-      "_note": "Lou's office, on the first entry only. Owner-picked window: in at 5.0, out at 9.7. No station and no venue -- a cue, not programming."
+      "_note": "Lou's office, on the first entry only. Owner-picked window: in at 5.0, out at 9.7. No station and no venue -- a cue, not programming.",
+      "cue": true
     },
     {
       "file": "cant-you-hear-me-knocking.mp3",
       "title": "Can't You Hear Me Knocking",
       "artist": "The Rolling Stones",
-      "_note": "Beef Run's takeoff needle-drop, right around climbout. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/beefrun/main.js."
+      "_note": "Beef Run's takeoff needle-drop, right around climbout. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/beefrun/main.js.",
+      "cue": true
     },
     {
       "file": "fortunate-son.mp3",
       "title": "Fortunate Son",
       "artist": "Creedence Clearwater Revival",
-      "_note": "The Enola Squatch's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js."
+      "_note": "The Enola Squatch's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js.",
+      "cue": true
     }
   ]
 }

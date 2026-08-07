@@ -235,7 +235,7 @@ test('the takeoff record is wired to the Beef Run’s first roll, at the owner�
   assert.equal(track.file, 'cant-you-hear-me-knocking.mp3');
   assert.equal(track.fallbackFile, '10-drunk-cigarettes.mp3', 'it must sound like something before the file lands');
   assert.equal(track.loopKey, 'music.knocking', 'its own mix slot, so the rotation call can duck it');
-  assert.equal(track.cutAt, 120, 'about two minutes of it, not the whole record');
+  assert.equal(track.cutAt, 180, 'about three minutes of it, not the whole record — owner moved it up from two on the 8-6 playtest');
 
   const beefMission = fs.readFileSync(
     new URL('../src/beefrun/mission.js', import.meta.url), 'utf8',
