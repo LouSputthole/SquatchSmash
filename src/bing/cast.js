@@ -849,13 +849,38 @@ export function makePerson(o = {}) {
    * A chest slab that reaches the waistband hides the waist behind it and the
    * whole figure goes rectangular -- which is what it did on the first pass,
    * most obviously on the dancers. */
+  /* BREATHING ANIMATES `torsoWrap`, NOT `torso` -- owner playtest, of Lou
+   * specifically: "his shirt panels are coming way off his body".
+   *
+   * `torso` is a box() mesh, and box() puts an object's SIZE in its own
+   * `.scale` (the unit-cube convention this whole file uses) -- so animating
+   * torso.scale by a ~2% breathing factor is exactly correct for the ribcage
+   * MESH. It stopped being correct the moment `frontPanel()` started
+   * measuring garments off that mesh: a shirt panel is built once, and a
+   * torso that then grows and shrinks every 1.5 seconds does not carry the
+   * panel with it, because the panel is a SIBLING of `torso` under `body`,
+   * not a child -- nothing about the ribcage's own scale animation ever
+   * reaches it. On the exhale the panel is proud of the chest it is meant to
+   * lie flat on; on the inhale it is buried in it. That is the "way off his
+   * body": not a one-time offset but a gap that opens and closes forever.
+   *
+   * `torsoWrap` is a plain, unscaled Group standing where `torso` used to
+   * stand; `torso` now sits at its own local origin, inside the wrap.
+   * `update()` below scales the WRAP by a true ~2% multiplier instead of
+   * scaling `torso` directly, and every shirt panel `frontPanel()` builds is
+   * parented to the wrap rather than to `body` (see the note there) -- so a
+   * panel's offset from the chest breathes down and back up with the chest
+   * itself, the same motion `torso`'s own geometry already had, and the two
+   * surfaces can never come apart. */
   const torso = slab({
     name: 'ribcage',
     size: [(curvy ? 0.192 : 0.188) * t * 2, 0.16 * 2, D * 2],
-    pos: [0, 1.365, lean],
+    pos: [0, 0, 0],
     mat: performanceWear ? skinMat : cloth,
   });
-  body.add(torso);
+  const torsoWrap = group('torso-wrap', torso);
+  torsoWrap.position.set(0, 1.365, lean);
+  body.add(torsoWrap);
   // Shoulders: a slab the width of the frame, capped with square deltoids
   body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
   for (const sx of [-1, 1]) {
@@ -921,6 +946,15 @@ export function makePerson(o = {}) {
    * 20mm-thick panel came out 0.12mm thick and vanished. The group carries the
    * placement, the mesh inside it carries the size, and children of the group
    * are in plain metres.
+   *
+   * PARENTED TO `torsoWrap`, NOT `body` -- see the note over `torso`'s own
+   * construction. `torsoFront()` reads world-space boxes, and at build time
+   * nothing above `body` has moved yet, so world space and body space still
+   * coincide; subtracting `torsoWrap.position` is the whole conversion from
+   * a body-relative offset to a wrap-relative one. Every caller used to add
+   * the returned group to `body` itself -- that add now happens here, once,
+   * so a panel can never end up back on the unscaled body by a caller
+   * forgetting the wrap.
    */
   function frontPanel({
     name, width, yTop, yBottom, thickness = 0.02, mat: material,
@@ -931,7 +965,11 @@ export function makePerson(o = {}) {
     const zBottom = torsoFront(yBottom, yBottom, hw) + lift;
     const h = Math.hypot(yTop - yBottom, zTop - zBottom);
     const panel = group(name);
-    panel.position.set(x, (yTop + yBottom) / 2, (zTop + zBottom) / 2);
+    panel.position.set(
+      x - torsoWrap.position.x,
+      (yTop + yBottom) / 2 - torsoWrap.position.y,
+      (zTop + zBottom) / 2 - torsoWrap.position.z,
+    );
     panel.rotation.z = splay;
     panel.rotation.x = Math.atan2(zTop - zBottom, yTop - yBottom);
     panel.add(box({
@@ -940,6 +978,7 @@ export function makePerson(o = {}) {
     }));
     panel.userData.faceZ = thickness / 2;
     panel.userData.halfHeight = h / 2;
+    torsoWrap.add(panel);
     return panel;
   }
 
@@ -1198,11 +1237,12 @@ export function makePerson(o = {}) {
        * chest depth on Lou they ran straight through his middle and the whole
        * front of the suit came out plain black. */
       for (const sx of [-0.148, -0.104, -0.060, 0.060, 0.104, 0.148]) {
-        body.add(frontPanel({
+        // `frontPanel` parents itself to `torsoWrap` now -- see its own note.
+        frontPanel({
           name: 'suit.pinstripe.front',
           width: 0.008, yTop: 1.500, yBottom: 1.060,
           thickness: 0.008, x: sx * t, mat: stripeMat, lift: 0.005,
-        }));
+        });
         body.add(box({
           name: 'suit.pinstripe.back',
           size: [0.008, 0.45, 0.008],
@@ -1249,12 +1289,12 @@ export function makePerson(o = {}) {
           roughness: 0.84,
         });
         const vestHalf = 0.112 * Math.min(t, 1.25);
+        // `frontPanel` parents itself to `torsoWrap` now -- see its own note.
         const vest = frontPanel({
           name: 'suit.waistcoat',
           width: vestHalf * 2, yTop: vestTop, yBottom: 1.152,
           thickness: 0.022, mat: vestMat, lift: 0.008,
         });
-        body.add(vest);
         const face = vest.userData.faceZ;
         /* The point. A waistcoat finishes in a V below the last button, and
          * without it the garment ends in a straight hem that reads as a bib. */
@@ -1288,6 +1328,10 @@ export function makePerson(o = {}) {
         /* An open jacket wears its lapels further out and leaning harder, which
          * is what opens the gap the waistcoat shows through -- and a jacket
          * front hangs on the man, so it slopes with him like everything else. */
+        /* Only the plain box() branch needs adding here -- `frontPanel`
+         * parents itself to `torsoWrap` now (see its own note), and adding
+         * it a second time here would just reparent it back onto the
+         * unscaled `body`, undoing that. */
         const lap = threePiece
           ? frontPanel({
             name: `suit.lapel.${sx < 0 ? 'left' : 'right'}`,
@@ -1301,7 +1345,7 @@ export function makePerson(o = {}) {
             pos: [sx * 0.06 * Math.min(t, 1.2), 1.352, D * 1.10], mat: jacket,
             rotZ: sx * 0.22,
           });
-        body.add(lap);
+        if (!threePiece) body.add(lap);
       }
       body.add(box({
         name: 'suit.tie',
@@ -1520,12 +1564,12 @@ export function makePerson(o = {}) {
      * belly rather than stop above it. `frontPanel` is what does that. */
     const shirtTop = 1.498;
     const shirtBottom = 1.022;
+    // `frontPanel` parents itself to `torsoWrap` now -- see its own note.
     const tee = frontPanel({
       name: 'camp.undershirt',
       width: 0.150 * Math.min(t, 1.25), yTop: shirtTop, yBottom: 1.16,
       thickness: 0.018, mat: teeMat, lift: 0.006,
     });
-    body.add(tee);
     // A crew neck on the undershirt, so it is a tee and not a bib.
     tee.add(box({
       name: 'camp.undershirt.neck',
@@ -1542,13 +1586,13 @@ export function makePerson(o = {}) {
       /* Each front hangs open and slightly away from the middle, which is why
        * the two are splayed apart rather than parked side by side. */
       const width = 0.152 * t;
+      // `frontPanel` parents itself to `torsoWrap` now -- see its own note.
       const panel = frontPanel({
         name: `camp.front.${side < 0 ? 'left' : 'right'}`,
         width, yTop: shirtTop, yBottom: shirtBottom,
         thickness: 0.020, mat: cloth, lift: 0.020,
         x: side * 0.132 * t, splay: side * 0.05,
       });
-      body.add(panel);
       const face = panel.userData.faceZ;
       // The turned edge of the placket, which is what makes it read as open.
       panel.add(box({
@@ -2468,12 +2512,18 @@ export function makePerson(o = {}) {
   /* box() and sphere() in world/build.js put an object's SIZE in its scale --
    * they all share one unit geometry. So anything animated by scale has to be
    * animated relative to what it already is, or it snaps to a one-metre cube.
-   * Breathing did exactly that, and the club filled up with pale boxes. */
-  torso.userData.base = torso.scale.clone();
+   * Breathing did exactly that, and the club filled up with pale boxes.
+   *
+   * `torso` itself no longer needs a captured base: breathing now scales
+   * `torsoWrap` (a plain, always-neutral Group) by a true multiplier instead
+   * of scaling the ribcage mesh's own SIZE every frame -- see the note over
+   * `torso`'s construction and `update()` below. `mouth` still uses this
+   * pattern directly, because nothing hangs off the mouth the way a shirt
+   * panel hangs off the chest. */
   mouth.userData.base = mouth.scale.clone();
 
   return {
-    group: g, body, head, eyes, mouth, torso, waist, hips, curves,
+    group: g, body, head, eyes, mouth, torso, torsoWrap, waist, hips, curves,
     profile: g.userData.profile,
     heightScale,
     armL, armR, legL, legR,
@@ -2721,10 +2771,18 @@ export class Npc {
     this.t += dt;
     const t = this.t + this.phase;
 
-    // Breathing, always. It is most of what separates a person from a prop.
+    /* Breathing, always. It is most of what separates a person from a prop.
+     *
+     * Scales `torsoWrap`, not `torso`. `torso` is a box() mesh whose own
+     * `.scale` already carries its SIZE, so it keeps that scale fixed at
+     * build time and never touches it again; `torsoWrap` is the plain,
+     * always-neutral Group `torso` sits inside, and every shirt panel
+     * (`frontPanel()`, in the torso's own construction note above) is
+     * parented there too. Scaling the wrap by a true ~2% multiplier moves
+     * the chest AND every panel resting on it together, so a shirt can no
+     * longer separate from the body breathing under it. */
     const breathe = 1 + Math.sin(t * 1.5) * 0.02;
-    const base = this.parts.torso.userData.base;
-    this.parts.torso.scale.set(base.x * breathe, base.y, base.z * breathe);
+    this.parts.torsoWrap.scale.set(breathe, 1, breathe);
     if (this.speaking > 0) this.speaking -= dt;
     // Clear transient speaking/job rotations before applying this frame's
     // authored pose. Previously a speaker could keep a tilted head or raised
