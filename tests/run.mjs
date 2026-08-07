@@ -84,6 +84,7 @@ const TEST_MODULES = [
   './no-wake-story.test.mjs',
   './no-wake-script.test.mjs',
   './no-wake-deck.test.mjs',
+  './silver-audio-scope.test.mjs',
   './silver-story.test.mjs',
   './silver-ape-continuity.test.mjs',
   './silvercase-cast.test.mjs',

@@ -121,24 +121,28 @@ export class AudioEngine {
    * 404s. `npm run sfx` rewrites it; hand-added files can be listed manually.
    * If the index is missing entirely we fall back to probing every cue.
    */
-  loadManifest({ names = null, prefixes = [] } = {}) {
+  loadManifest({ names = null, prefixes = [], filter = null } = {}) {
     // A transient failure may be retried, while a successful load remains
     // immutable for this page and coalesces double-clicked starts.
     return loadOnceRetriable(
       this,
       '_manifestLoadPromise',
-      () => this._loadManifestOnce({ names, prefixes }),
+      () => this._loadManifestOnce({ names, prefixes, filter }),
     );
   }
 
-  async _loadManifestOnce({ names = null, prefixes = [] } = {}) {
+  async _loadManifestOnce({ names = null, prefixes = [], filter = null } = {}) {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
     const allCues = this.manifest.sfx || [];
     const selectedNames = names ? new Set(names) : null;
-    const cues = selectedNames || prefixes.length
+    /* `filter` widens a names/prefixes selection rather than narrowing it, so
+     * a scene can say "my own dialogue prefix, plus every shared effect" —
+     * the shared pool has no common prefix to name. */
+    const cues = selectedNames || prefixes.length || filter
       ? allCues.filter((cue) => selectedNames?.has(cue.name)
-        || prefixes.some((prefix) => cue.name.startsWith(prefix)))
+        || prefixes.some((prefix) => cue.name.startsWith(prefix))
+        || (filter ? filter(cue) : false))
       : allCues;
     let wanted;
     if (isBundled()) {
