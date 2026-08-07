@@ -3978,7 +3978,14 @@ function startMargoWake() {
   })?.catch?.(() => {});
   const margo = apartment.margo;
   margo.setPose('lying');
+  /* Last night off her, both halves of it: the mess AND the fastening. The
+   * glue was already cleared here; the closure was not, so a morning after
+   * the come-home night opened on a dress that was still done up from the
+   * beat she is about to ask for help with again. `startMargoComeHome` clears
+   * both, and these two scenes share one rig -- whichever runs second inherits
+   * whatever the first left on it. */
   margo.setDressGlue(0);
+  margo.setDressHelpProgress(0);
   margo.group.visible = true;
   interaction.setPaused(true);
   hud.hidePrompt();
