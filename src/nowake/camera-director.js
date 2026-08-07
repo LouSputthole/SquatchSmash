@@ -27,7 +27,9 @@ import * as THREE from 'three';
  * end of the dinette over a low back; Booski is behind the bar. From the mark at
  * the foot of the stairs all three are in frame at once and none of them is
  * behind anything, which is the owner's "spawning behind a wall" complaint
- * answered with staging instead of with a cut.
+ * answered with staging instead of with a cut. Every position below is written
+ * against the salon the 2026-08-06 playtest bought (punch list N1), which sits
+ * 0.32 m lower and 0.72 m wider than the room these shots were first cut for.
  *
  * Every shot below is a beat the spec explicitly stages, and the player is
  * `frozen` for all of them.
@@ -36,7 +38,7 @@ import * as THREE from 'three';
 /** The last thing the mission shows: the wake spreading and smoothing over. */
 const ASTERN_SHOT = Object.freeze({
   id: 'exit-astern-wake',
-  position: [0, 2.95, 6.40],
+  position: [0, 2.95, 6.90],
   target: [0, -0.10, 16.0],
   fov: 62,
   rate: 6.0,
@@ -75,7 +77,7 @@ export class NoWakeCameraDirector {
   /** The slump: a low side profile, not a stare down at deck fragments. */
   frameCollapse() {
     this.setShot('execution-collapse-profile', {
-      position: [-0.34, 0.58, -2.06],
+      position: [-0.66, 0.26, -2.70],
       targetNpc: 'willy',
       targetOffset: [0, 0.55, 0],
       fov: 58,
@@ -86,8 +88,8 @@ export class NoWakeCameraDirector {
   /** The tarp, the roll, the fold and the straps. */
   frameWrap() {
     this.setShot('body-wrap-cabin', {
-      position: [-0.34, 0.94, -2.14],
-      target: [0.50, 0.02, -3.06],
+      position: [-0.72, 0.62, -2.78],
+      target: [0.10, -0.30, -3.85],
       fov: 60,
       rate: 8,
     }, { snap: true });
@@ -96,8 +98,8 @@ export class NoWakeCameraDirector {
   /** The bow locker, in open air, with Irish's back to the whole thing. */
   frameBallast() {
     this.setShot('ballast-bow-locker', {
-      position: [-1.16, 2.58, -2.06],
-      target: [-0.02, 1.76, -3.86],
+      position: [-1.30, 2.58, -2.70],
+      target: [-0.02, 1.76, -4.56],
       fov: 58,
       rate: 8,
     }, { snap: true });
@@ -106,8 +108,8 @@ export class NoWakeCameraDirector {
   /** Two men lifting, in the room they have to get him out of. */
   frameCarryLift() {
     this.setShot('carry-lift-cabin', {
-      position: [-0.06, 1.14, -3.94],
-      target: [0.14, 0.40, -2.52],
+      position: [-0.15, 0.82, -4.92],
+      target: [0.10, 0.08, -3.25],
       fov: 62,
       rate: 7,
     }, { snap: true });
@@ -116,8 +118,8 @@ export class NoWakeCameraDirector {
   /** Off the starboard quarter, low, with the water inches under the bag. */
   frameDisposal() {
     this.setShot('disposal-swim-platform', {
-      position: [3.55, 0.88, 6.15],
-      target: [0.55, 0.28, 5.66],
+      position: [3.91, 0.88, 6.65],
+      target: [0.55, 0.28, 6.16],
       fov: 58,
       rate: 7,
     }, { snap: true });
@@ -133,8 +135,8 @@ export class NoWakeCameraDirector {
    */
   frameWaterHold() {
     this.setShot('disposal-water-hold', {
-      position: [0.30, 1.55, 6.80],
-      target: [0.30, -0.18, 8.40],
+      position: [0.30, 1.55, 7.30],
+      target: [0.30, -0.18, 8.90],
       fov: 54,
       rate: 3.2,
     }, { snap: true });

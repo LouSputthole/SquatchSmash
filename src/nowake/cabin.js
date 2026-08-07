@@ -2,8 +2,20 @@
  * Below deck.
  *
  * "The companionway drops into a warm enclosed cabin. Engines go muffled and
- * physical. Low ceiling. The hull creaks. Water taps the fiberglass. The room
- * should feel smaller once all four men are in it."
+ * physical. The hull creaks. Water taps the fiberglass."
+ *
+ * The redesign's spec also said "low ceiling… the room should feel smaller once
+ * all four men are in it", and the 2026-08-06 playtest is what that produced:
+ * "the confrontation plays out in a bathroom" (punch list N1). It was not a
+ * figure of speech — the clear sole was 1.36 m across and 1.66 m fore and aft
+ * under 1.82 m of headroom, which is a shower cubicle with a bar in it.
+ *
+ * So this is a SALON now. The sole dropped 0.32 m, the hull grew 0.36 m a side
+ * and 0.70 m forward, the galley and dinette are shallower against their
+ * liners, and there is a walkway across the front of the V-berth: 2.12 m of
+ * clear floor between the two furniture runs, 2.33 m of it fore and aft, under
+ * 2.08 m of headroom, with the table beside you instead of against your knees.
+ * `tests/no-wake-deck.test.mjs` measures every one of those numbers.
  *
  * Everything in here is a child of the boat root, so the cabin is in the boat's
  * own coordinate system exactly like the deck is — the spec's "one stable local
@@ -34,6 +46,10 @@
  *  - **Nothing here is loose.** The bottle, the glasses and the ice bucket are
  *    authored props the scene moves by hand. No physics runs in this room, so
  *    the shot cannot turn the bar into confetti.
+ *  - **Every height is written against `SOLE`, not as an absolute.** The sole
+ *    moved 0.32 m for N1 and forty numbers in this file had to move with it;
+ *    the ones that did not were the ones that broke. Nothing below is allowed
+ *    to be a bare y again.
  */
 import * as THREE from 'three';
 
@@ -42,11 +58,16 @@ import {
 } from './build.js';
 import { CABIN } from './deck-collision.js';
 
-const SOLE = CABIN.height;          // -0.20
-const CEILING = CABIN.ceiling;      // 1.62
-const COUNTER_TOP = 0.78;
-const BOOTH_SEAT = 0.20;
-const TABLE_TOP = 0.62;
+const SOLE = CABIN.height;              // -0.52
+const CEILING = CABIN.ceiling;          // 1.56 — 2.08 m in the clear
+/** Inboard face of the hull liner, port and starboard. */
+const LINER = CABIN.halfBeam + .09;     // 2.03
+/** Every working surface, measured off the sole so the room can be re-levelled. */
+const COUNTER_TOP = SOLE + 0.98;
+const BOOTH_SEAT = SOLE + 0.40;
+const TABLE_TOP = SOLE + 0.82;
+/** Centreline of the companionway, below deck. */
+const STAIRS_X = -0.25;
 
 /**
  * Build the cabin under the foredeck.
@@ -76,27 +97,31 @@ export function buildCabin(root) {
   });
 
   /* ---- shell: sole, liner, ceiling ---- */
-  group.add(box('cabin sole', [3.24, .08, 3.10], veneerDark, 0, SOLE - .04, -3.55));
-  group.add(box('cabin sole runner', [1.10, .02, 2.30], runner, -.06, SOLE + .015, -3.20));
+  group.add(box('cabin sole', [4.16, .08, 4.20], veneerDark, 0, SOLE - .04, -3.95));
+  group.add(box('cabin sole runner', [1.40, .02, 2.60], runner, -.10, SOLE + .015, -3.40));
   for (const sx of [-1, 1]) {
     group.add(box(`cabin hull liner · ${sx < 0 ? 'port' : 'starboard'}`,
-      [.10, 1.84, 3.10], liner, sx * 1.63, SOLE + .90, -3.55));
+      [.10, 2.16, 4.20], liner, sx * LINER, SOLE + 1.04, -3.95));
     group.add(box(`cabin veneer rail · ${sx < 0 ? 'port' : 'starboard'}`,
-      [.06, .10, 3.10], veneer, sx * 1.57, COUNTER_TOP + .28, -3.55));
+      [.06, .10, 4.20], veneer, sx * (LINER - .06), COUNTER_TOP + .28, -3.95));
     // Portholes: dark water and, now and then, a shoreline light.
-    for (const z of [-2.95, -3.75]) {
+    for (const z of [-3.30, -4.30]) {
       const port = mesh(`cabin porthole glass ${sx < 0 ? 'port' : 'stbd'} ${z}`,
-        new THREE.CircleGeometry(.15, 22), glassMaterial, sx * 1.575, 1.02, z);
+        new THREE.CircleGeometry(.15, 22), glassMaterial, sx * (LINER - .025), SOLE + 1.22, z);
       port.rotation.y = -sx * Math.PI / 2;
       const ring = mesh(`cabin porthole brass ring ${sx < 0 ? 'port' : 'stbd'} ${z}`,
-        new THREE.TorusGeometry(.16, .022, 8, 20), brass, sx * 1.57, 1.02, z);
+        new THREE.TorusGeometry(.16, .022, 8, 20), brass, sx * (LINER - .03), SOLE + 1.22, z);
       ring.rotation.y = -sx * Math.PI / 2;
       group.add(port, ring);
     }
   }
-  group.add(box('cabin ceiling panel', [3.30, .06, 3.30], liner, 0, CEILING + .03, -3.55));
-  for (const z of [-2.60, -3.50, -4.40]) {
-    group.add(box(`cabin ceiling beam ${z}`, [3.26, .07, .10], veneer, 0, CEILING - .04, z));
+  /* Two centimetres UP into the trunk roof, not level with its underside. The
+   * roof's bottom face is at 1.56 and the old liner panel was authored at 1.65,
+   * so three square metres of ceiling were inside the deck the player walks on.
+   * It beds now, and the headroom came out of the floor instead. */
+  group.add(box('cabin ceiling panel', [4.30, .06, 4.30], liner, 0, CEILING - .02, -3.95));
+  for (const z of [-2.55, -3.55, -4.55, -5.45]) {
+    group.add(box(`cabin ceiling beam ${z}`, [4.24, .07, .10], veneer, 0, CEILING - .09, z));
   }
 
   /* ---- port: bar and galley ---- */
@@ -105,48 +130,57 @@ export function buildCabin(root) {
   group.add(galley);
   /* 2 cm taller than the counter needs, so the counter beds into the carcass
    * instead of balancing on its top face over a square metre of shared plane. */
-  galley.add(box('galley cabinet carcass', [.96, .96, 1.12], veneerDark, -1.22, SOLE + .49, -3.30));
-  galley.add(box('galley counter top', [1.00, .06, 1.14], veneer, -1.22, COUNTER_TOP, -3.30));
-  galley.add(box('galley counter fiddle rail', [.04, .05, 1.14], brass, -.74, COUNTER_TOP + .05, -3.30));
+  galley.add(box('galley cabinet carcass', [.88, .96, 1.52], veneerDark, -1.59, SOLE + .49, -3.68));
+  galley.add(box('galley counter top', [.92, .06, 1.54], veneer, -1.59, COUNTER_TOP, -3.68));
+  galley.add(box('galley counter fiddle rail', [.04, .05, 1.54], brass, -1.15, COUNTER_TOP + .05, -3.68));
   const sink = mesh('galley stainless sink basin',
-    new THREE.CylinderGeometry(.17, .14, .16, 18, 1, true), steel, -1.20, COUNTER_TOP - .07, -3.72);
+    new THREE.CylinderGeometry(.17, .14, .16, 18, 1, true), steel, -1.60, COUNTER_TOP - .07, -4.10);
   galley.add(sink);
-  galley.add(mesh('galley sink drain', new THREE.CircleGeometry(.14, 18), black, -1.20, COUNTER_TOP - .14, -3.72)
+  galley.add(mesh('galley sink drain', new THREE.CircleGeometry(.14, 18), black, -1.60, COUNTER_TOP - .14, -4.10)
     .rotateX(-Math.PI / 2));
   galley.add(beamBetween('galley tap',
-    new THREE.Vector3(-1.20, COUNTER_TOP, -3.90), new THREE.Vector3(-1.20, COUNTER_TOP + .22, -3.78), .018, steel, 8));
+    new THREE.Vector3(-1.60, COUNTER_TOP, -4.28), new THREE.Vector3(-1.60, COUNTER_TOP + .22, -4.16), .018, steel, 8));
   // Mini fridge under the counter, with a brass latch.
-  galley.add(box('galley mini fridge door', [.04, .52, .58], liner, -.75, SOLE + .40, -3.02));
-  galley.add(box('galley mini fridge latch', [.05, .06, .12], brass, -.72, SOLE + .40, -2.82));
+  galley.add(box('galley mini fridge door', [.04, .52, .58], liner, -1.16, SOLE + .40, -3.20));
+  galley.add(box('galley mini fridge latch', [.05, .06, .12], brass, -1.13, SOLE + .40, -3.00));
   // Mirrored liquor cabinet and a restrained bottle shelf above the counter.
-  galley.add(box('galley mirrored liquor cabinet frame', [.16, .58, 1.10], veneer, -1.49, 1.16, -3.30));
-  const mirrorPane = box('galley liquor cabinet mirror', [.02, .48, 1.00], mirror, -1.405, 1.16, -3.30);
+  /* Its back beds 2 cm into the liner rather than sitting flush against it:
+   * flush, the cabinet and 0.87 m² of hull side shared one x plane, which is
+   * the flicker class the geometry audit exists to catch. Same reason the
+   * mirror sits 4 mm INSIDE the frame's face instead of on it. */
+  galley.add(box('galley mirrored liquor cabinet frame', [.16, .58, 1.50], veneer, -1.92, SOLE + 1.36, -3.68));
+  const mirrorPane = box('galley liquor cabinet mirror', [.02, .48, 1.40], mirror, -1.826, SOLE + 1.36, -3.68);
   galley.add(mirrorPane);
-  galley.add(box('galley bottle shelf', [.22, .04, 1.00], veneer, -1.36, .96, -3.30));
-  galley.add(box('galley bottle shelf fiddle', [.02, .07, 1.00], brass, -1.26, 1.00, -3.30));
-  for (const [i, z] of [-3.68, -3.52, -3.06, -2.92].entries()) {
+  galley.add(box('galley bottle shelf', [.22, .04, 1.40], veneer, -1.77, SOLE + 1.16, -3.68));
+  galley.add(box('galley bottle shelf fiddle', [.02, .07, 1.40], brass, -1.67, SOLE + 1.20, -3.68));
+  for (const [i, z] of [-4.14, -3.94, -3.42, -3.24].entries()) {
     galley.add(tube(`galley shelf bottle ${i + 1}`, .035, .26, .022,
-      mat(i % 2 ? 0x3d5b32 : 0x6a3a22, .42), -1.36, 1.11, z, 10));
+      mat(i % 2 ? 0x3d5b32 : 0x6a3a22, .42), -1.77, SOLE + 1.31, z, 10));
   }
   /* The amber strip under the cabinet is the room's warmth. Named as a light
    * so the audit does not ask what is holding it up. */
-  const underLight = box('galley under-cabinet amber light', [.10, .03, .96], mat(0xf0c274, .5), -1.44, .86, -3.30);
+  const underLight = box('galley under-cabinet amber light', [.10, .03, 1.36], mat(0xf0c274, .5), -1.85, SOLE + 1.06, -3.68);
   underLight.material.emissive = new THREE.Color(0xd79138);
   underLight.material.emissiveIntensity = 1.4;
   galley.add(underLight);
-  const barLamp = new THREE.PointLight(0xf2c078, 2.6, 3.4, 2);
+  const barLamp = new THREE.PointLight(0xf2c078, 2.6, 3.9, 2);
   barLamp.name = 'galley amber cabinet lamp';
-  barLamp.position.set(-1.30, .92, -3.30);
+  barLamp.position.set(-1.71, SOLE + 1.12, -3.68);
   galley.add(barLamp);
 
-  // The one fixed swivel stool. Bolted to the sole, so it cannot be knocked over.
-  const stool = new THREE.Group();
-  stool.name = 'fixed swivel bar stool';
-  stool.add(cylinder('bar stool base plate', .16, .04, steel, 0, SOLE + .02, 0, 16));
-  stool.add(cylinder('bar stool column', .045, .58, steel, 0, SOLE + .30, 0, 12));
-  stool.add(cylinder('bar stool cushion', .18, .09, vinyl, 0, SOLE + .62, 0, 18));
-  stool.position.set(-.52, 0, -2.86);
-  group.add(stool);
+  // Two fixed swivel stools now the bar is long enough for them. Bolted to the
+  // sole, so they cannot be knocked over.
+  const stools = [];
+  for (const [i, z] of [-3.30, -4.02].entries()) {
+    const stool = new THREE.Group();
+    stool.name = `fixed swivel bar stool ${i + 1}`;
+    stool.add(cylinder(`bar stool ${i + 1} base plate`, .16, .04, steel, 0, SOLE + .02, 0, 16));
+    stool.add(cylinder(`bar stool ${i + 1} column`, .045, .58, steel, 0, SOLE + .30, 0, 12));
+    stool.add(cylinder(`bar stool ${i + 1} cushion`, .18, .09, vinyl, 0, SOLE + .62, 0, 18));
+    stool.position.set(-.95, 0, z);
+    group.add(stool);
+    stools.push(stool);
+  }
 
   // The tequila and four heavy-bottomed glasses. Authored props: the scene
   // pours one of them and rolls it across the sole, and nothing else moves.
@@ -157,17 +191,17 @@ export function buildCabin(root) {
   bottle.add(cylinder('tequila bottle neck', .018, .10, mat(0xcfc08a, .28), 0, .35, 0, 12));
   bottle.add(cylinder('tequila bottle cork', .020, .04, veneerDark, 0, .41, 0, 12));
   bottle.add(box('tequila bottle label', [.07, .09, .002], mat(0xd8c98f, .8), 0, .13, .047));
-  bottle.position.set(-1.06, COUNTER_TOP + .03, -3.42);
+  bottle.position.set(-1.46, COUNTER_TOP + .03, -4.00);
   group.add(bottle);
 
   const glasses = [];
-  for (const [i, z] of [-3.20, -3.08, -2.96, -2.84].entries()) {
+  for (const [i, z] of [-3.62, -3.50, -3.38, -3.26].entries()) {
     const glass = new THREE.Group();
     glass.name = `heavy-bottomed glass ${i + 1}`;
     glass.add(cylinder(`glass ${i + 1} base`, .035, .026, glassMaterial, 0, .013, 0, 14));
     glass.add(mesh(`glass ${i + 1} wall`,
       new THREE.CylinderGeometry(.034, .032, .07, 14, 1, true), glassMaterial, 0, .062, 0));
-    glass.position.set(-1.02, COUNTER_TOP + .03, z);
+    glass.position.set(-1.42, COUNTER_TOP + .03, z);
     group.add(glass);
     glasses.push(glass);
   }
@@ -192,28 +226,32 @@ export function buildCabin(root) {
   const radioLed = cylinder('cabin radio power lamp', .012, .014, radioLedMat, .10, .035, .07, 12);
   radioLed.rotation.x = Math.PI / 2;
   radio.add(radioLed);
-  radio.position.set(-1.26, COUNTER_TOP + .03, -2.62);
+  radio.position.set(-1.62, COUNTER_TOP + .03, -3.02);
   group.add(radio);
-  const radioTarget = proxy('cabin radio interaction', [.62, .52, .58], -1.20, COUNTER_TOP + .18, -2.62);
+  const radioTarget = proxy('cabin radio interaction', [.72, .62, .68], -1.52, COUNTER_TOP + .20, -3.02);
   group.add(radioTarget);
 
   /* ---- starboard: the curved dinette ---- */
   const dinette = new THREE.Group();
   dinette.name = 'curved dinette';
   group.add(dinette);
-  dinette.add(box('dinette booth base', [1.06, .40, 1.24], veneerDark, 1.17, SOLE + .205, -3.24));
-  dinette.add(box('dinette booth cushion', [1.06, .10, 1.24], vinyl, 1.17, BOOTH_SEAT + .06, -3.24));
+  dinette.add(box('dinette booth base', [.86, .40, 1.50], veneerDark, 1.60, SOLE + .205, -3.65));
+  dinette.add(box('dinette booth cushion', [.86, .10, 1.50], vinyl, 1.60, BOOTH_SEAT + .06, -3.65));
   // Curved: two return cushions close the booth at each end.
-  dinette.add(box('dinette booth cushion · forward return', [.72, .10, .38], vinyl, 1.34, BOOTH_SEAT + .06, -3.72));
-  dinette.add(box('dinette booth base · forward return', [.72, .40, .38], veneerDark, 1.34, SOLE + .205, -3.72));
-  dinette.add(box('dinette booth cushion · aft return', [.72, .10, .34], vinyl, 1.34, BOOTH_SEAT + .06, -2.76));
-  dinette.add(box('dinette booth base · aft return', [.72, .40, .34], veneerDark, 1.34, SOLE + .205, -2.76));
+  /* The returns sit 2 cm lower than the run they meet. They overlap it — the
+   * booth is one moulding, not three — and at exactly the same height the
+   * overlap was a quarter of a square metre of shared top face on each side,
+   * reported by the audit as the flicker it would have been. */
+  dinette.add(box('dinette booth cushion · forward return', [.84, .10, .42], vinyl, 1.44, BOOTH_SEAT + .04, -4.20));
+  dinette.add(box('dinette booth base · forward return', [.84, .40, .42], veneerDark, 1.44, SOLE + .185, -4.20));
+  dinette.add(box('dinette booth cushion · aft return', [.84, .10, .38], vinyl, 1.44, BOOTH_SEAT + .04, -3.10));
+  dinette.add(box('dinette booth base · aft return', [.84, .40, .38], veneerDark, 1.44, SOLE + .185, -3.10));
   // A low back, on purpose: the man in this booth stays visible over it.
-  dinette.add(box('dinette booth back rest', [.12, .42, 1.90], vinylDark, 1.55, .48, -3.24));
-  dinette.add(box('dinette table pedestal', [.10, .74, .10], steel, .92, SOLE + .37, -3.24));
-  dinette.add(box('dinette table top', [.62, .05, 1.02], veneer, .96, TABLE_TOP, -3.24));
-  dinette.add(box('dinette table fiddle rail', [.66, .04, .03], brass, .96, TABLE_TOP + .04, -3.74));
-  const ashtray = cylinder('dinette ashtray', .07, .03, mat(0x5c6163, .5), .84, TABLE_TOP + .04, -2.94, 14);
+  dinette.add(box('dinette booth back rest', [.12, .42, 1.86], vinylDark, 1.97, SOLE + .68, -3.65));
+  dinette.add(box('dinette table pedestal', [.10, .74, .10], steel, 1.24, SOLE + .37, -3.65));
+  dinette.add(box('dinette table top', [.66, .05, 1.20], veneer, 1.32, TABLE_TOP, -3.65));
+  dinette.add(box('dinette table fiddle rail', [.70, .04, .03], brass, 1.32, TABLE_TOP + .04, -4.25));
+  const ashtray = cylinder('dinette ashtray', .07, .03, mat(0x5c6163, .5), 1.16, TABLE_TOP + .04, -3.30, 14);
   dinette.add(ashtray);
 
   /* ---- forward: the V-berth, behind its curtain ---- */
@@ -222,97 +260,98 @@ export function buildCabin(root) {
   group.add(berth);
   /* Its foot is 2 cm below the sole, not level with it: the tarpaulin gets
    * laid on that sole and the two bottoms were fighting for the same plane. */
-  berth.add(box('V-berth base', [3.10, .54, 1.24], veneerDark, 0, SOLE + .26, -4.52));
-  berth.add(box('V-berth mattress', [2.90, .16, 1.16], vinyl, 0, .14, -4.52));
-  berth.add(box('V-berth rumpled bedding', [2.10, .13, .78], mat(0x8a8272, .95), -.14, .26, -4.62));
-  berth.add(box('V-berth pillow port', [.52, .13, .30], mat(0xc9c3b2, .92), -.78, .28, -4.94));
-  berth.add(box('V-berth pillow starboard', [.52, .13, .30], mat(0xc9c3b2, .92), .70, .28, -4.94));
-  berth.add(box('V-berth storage locker door', [1.30, .30, .04], veneer, 0, SOLE + .22, -3.87));
-  berth.add(box('V-berth storage locker latch', [.09, .09, .04], brass, 0, SOLE + .22, -3.86));
+  berth.add(box('V-berth base', [4.00, .54, .86], veneerDark, 0, SOLE + .25, -5.52));
+  berth.add(box('V-berth mattress', [3.80, .16, .82], vinyl, 0, SOLE + .58, -5.52));
+  berth.add(box('V-berth rumpled bedding', [2.60, .13, .60], mat(0x8a8272, .95), -.14, SOLE + .71, -5.60));
+  berth.add(box('V-berth pillow port', [.60, .13, .30], mat(0xc9c3b2, .92), -.94, SOLE + .73, -5.82));
+  berth.add(box('V-berth pillow starboard', [.60, .13, .30], mat(0xc9c3b2, .92), .86, SOLE + .73, -5.82));
+  berth.add(box('V-berth storage locker door', [1.60, .30, .04], veneer, 0, SOLE + .22, -5.08));
+  berth.add(box('V-berth storage locker latch', [.09, .09, .04], brass, 0, SOLE + .22, -5.07));
   for (const sx of [-1, 1]) {
-    const lamp = box(`V-berth reading lamp ${sx < 0 ? 'port' : 'starboard'}`, [.10, .09, .14], brass, sx * 1.40, 1.10, -4.60);
+    const lamp = box(`V-berth reading lamp ${sx < 0 ? 'port' : 'starboard'}`, [.10, .09, .14], brass, sx * 1.80, SOLE + 1.30, -5.60);
     berth.add(lamp);
     const glow = new THREE.PointLight(0xf3cd93, 1.1, 2.0, 2);
     glow.name = `V-berth reading lamp glow ${sx < 0 ? 'port' : 'starboard'}`;
-    glow.position.set(sx * 1.28, 1.06, -4.60);
+    glow.position.set(sx * 1.68, SOLE + 1.26, -5.60);
     berth.add(glow);
   }
   // The dark deck hatch overhead, and the curtain drawn most of the way across.
-  berth.add(box('V-berth overhead hatch frame', [.66, .05, .66], veneerDark, 0, CEILING - .04, -4.60));
-  berth.add(box('V-berth overhead hatch pane', [.56, .03, .56], black, 0, CEILING - .07, -4.60));
-  const curtain = box('V-berth curtain', [2.34, .96, .05], mat(0x6d5f4c, .95), -.18, .90, -3.92);
+  berth.add(box('V-berth overhead hatch frame', [.66, .05, .66], veneerDark, 0, CEILING - .10, -5.52));
+  berth.add(box('V-berth overhead hatch pane', [.56, .03, .56], black, 0, CEILING - .13, -5.52));
+  const curtain = box('V-berth curtain', [2.90, .96, .05], mat(0x6d5f4c, .95), -.18, SOLE + 1.10, -5.02);
   berth.add(curtain);
   berth.add(beamBetween('V-berth curtain rail',
-    new THREE.Vector3(-1.52, 1.40, -3.92), new THREE.Vector3(1.52, 1.40, -3.92), .014, brass, 8));
+    new THREE.Vector3(-1.90, SOLE + 1.60, -5.02), new THREE.Vector3(1.90, SOLE + 1.60, -5.02), .014, brass, 8));
 
   /* ---- aft bulkhead: head to starboard, mid-cabin berth to port ---- */
   const aft = new THREE.Group();
   aft.name = 'cabin aft bulkhead';
   group.add(aft);
-  aft.add(box('aft bulkhead panel · starboard', [1.36, 1.82, .09], veneer, .98, SOLE + .91, -2.10));
-  aft.add(box('closed head door', [.62, 1.56, .05], veneerDark, .86, SOLE + .78, -2.04));
-  aft.add(box('head door brass handle', [.10, .05, .06], brass, 1.10, SOLE + .82, -2.00));
-  aft.add(box('head door louvre', [.44, .22, .02], veneerDark, .86, SOLE + 1.42, -2.01));
-  aft.add(box('aft bulkhead panel · port', [.62, 1.82, .09], veneer, -1.41, SOLE + .91, -2.10));
+  aft.add(box('aft bulkhead panel · starboard', [1.38, 2.08, .09], veneer, 1.39, SOLE + 1.04, -2.02));
+  aft.add(box('closed head door', [.66, 1.80, .05], veneerDark, 1.30, SOLE + .91, -1.96));
+  aft.add(box('head door brass handle', [.10, .05, .06], brass, 1.58, SOLE + .95, -1.92));
+  aft.add(box('head door louvre', [.48, .22, .02], veneerDark, 1.30, SOLE + 1.62, -1.93));
+  aft.add(box('aft bulkhead panel · port', [.88, 2.08, .09], veneer, -1.64, SOLE + 1.04, -2.02));
   // The narrow aft sleeping compartment: a low, dark opening under the bridge
   // deck. Deliberately not enterable; it is depth, not a room.
-  aft.add(box('mid-cabin berth opening surround', [.66, .12, .10], veneerDark, -1.38, .58, -2.06));
-  aft.add(box('mid-cabin berth darkness', [.60, .62, .06], mat(0x0d1012, 1), -1.38, .24, -2.08));
-  aft.add(box('mid-cabin berth mattress edge', [.60, .10, .30], vinyl, -1.38, -.06, -2.22));
+  aft.add(box('mid-cabin berth opening surround', [.72, .12, .10], veneerDark, -1.62, SOLE + .78, -1.98));
+  aft.add(box('mid-cabin berth darkness', [.66, .62, .06], mat(0x0d1012, 1), -1.62, SOLE + .44, -2.00));
+  aft.add(box('mid-cabin berth mattress edge', [.66, .10, .30], vinyl, -1.62, SOLE + .14, -2.14));
 
   /* ---- the companionway: steps, sill, sliding hatch and doors ---- */
   const companionway = new THREE.Group();
   companionway.name = 'companionway';
   group.add(companionway);
-  companionway.add(box('companionway sill', [1.44, .30, .12], veneerDark, -.40, SOLE + .10, -2.06));
+  companionway.add(box('companionway sill', [1.90, .30, .12], veneerDark, STAIRS_X, SOLE + .10, -2.06));
   /* Wider than a real one, on purpose: the spec asks for it so the two-person
-   * carry animation has somewhere to be. Four treads from the cabin sole to
-   * the cockpit sole. */
-  for (let i = 0; i < 4; i++) {
-    companionway.add(box(`companionway tread ${i + 1}`, [1.20, .07, .30], veneer,
-      -.40, SOLE + .34 + i * .30, -1.90 + i * .34));
-    companionway.add(box(`companionway riser ${i + 1}`, [1.20, .28, .04], veneerDark,
-      -.40, SOLE + .20 + i * .30, -2.04 + i * .34));
+   * carry animation has somewhere to be. Five treads now the sole is 0.32 m
+   * deeper — the rise per tread is unchanged at 0.30, which is what keeps the
+   * carry's authored climb reading as a climb. */
+  for (let i = 0; i < 5; i++) {
+    companionway.add(box(`companionway tread ${i + 1}`, [1.66, .07, .30], veneer,
+      STAIRS_X, SOLE + .34 + i * .30, -1.94 + i * .30));
+    companionway.add(box(`companionway riser ${i + 1}`, [1.66, .28, .04], veneerDark,
+      STAIRS_X, SOLE + .20 + i * .30, -2.08 + i * .30));
   }
   for (const sx of [-1, 1]) {
     companionway.add(box(`companionway side rail ${sx < 0 ? 'port' : 'starboard'}`,
-      [.07, 1.36, 1.44], veneer, -.40 + sx * .64, SOLE + .70, -1.60));
+      [.07, 1.36, 1.50], veneer, STAIRS_X + sx * .87, SOLE + .70, -1.60));
   }
   /* The doors Booski closes. Hinged as a pair so `setClosed` swings them shut
    * and the engines all but vanish. */
-  const doorPort = box('companionway door · port leaf', [.60, 1.10, .05], veneerDark, .30, .55, 0);
-  const doorStarboard = box('companionway door · starboard leaf', [.60, 1.10, .05], veneerDark, -.30, .55, 0);
+  const doorPort = box('companionway door · port leaf', [.95, 1.40, .05], veneerDark, .475, .70, 0);
+  const doorStarboard = box('companionway door · starboard leaf', [.95, 1.40, .05], veneerDark, -.475, .70, 0);
   const doorHingePort = new THREE.Group();
   doorHingePort.name = 'companionway door hinge · port';
-  doorHingePort.position.set(-1.02, SOLE + .10, -2.00);
+  doorHingePort.position.set(STAIRS_X - .95, SOLE + .10, -2.00);
   doorHingePort.add(doorPort);
   const doorHingeStarboard = new THREE.Group();
   doorHingeStarboard.name = 'companionway door hinge · starboard';
-  doorHingeStarboard.position.set(.22, SOLE + .10, -2.00);
+  doorHingeStarboard.position.set(STAIRS_X + .95, SOLE + .10, -2.00);
   doorHingeStarboard.add(doorStarboard);
   companionway.add(doorHingePort, doorHingeStarboard);
 
-  const companionwayTarget = proxy('companionway interaction · below', [1.50, 1.70, .80], -.40, .70, -2.20);
+  const companionwayTarget = proxy('companionway interaction · below', [1.90, 1.90, .90], STAIRS_X, SOLE + 1.00, -2.32);
   group.add(companionwayTarget);
 
   /* ---- the tarp and the body bag, in the locker under the dinette ---- */
-  const tarp = box('folded tarpaulin', [.86, .12, .62], mat(0x2f4048, .95), .30, SOLE + .06, -2.70);
+  const tarp = box('folded tarpaulin', [.86, .12, .62], mat(0x2f4048, .95), .60, SOLE + .06, -3.00);
   tarp.visible = false;
   group.add(tarp);
 
   /* ---- practical light ---- */
-  const cabinLight = new THREE.PointLight(0xf6d3a0, 3.4, 6.5, 2);
+  const cabinLight = new THREE.PointLight(0xf6d3a0, 3.9, 8.0, 2);
   cabinLight.name = 'cabin amber overhead light';
-  cabinLight.position.set(0, CEILING - .18, -3.30);
+  cabinLight.position.set(0, CEILING - .24, -3.60);
   group.add(cabinLight);
   const dome = mesh('cabin overhead light dome',
     new THREE.SphereGeometry(.11, 16, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
-    mat(0xf0dcb4, .5), 0, CEILING - .08, -3.30);
+    mat(0xf0dcb4, .5), 0, CEILING - .14, -3.60);
   dome.material.emissive = new THREE.Color(0xd8a862);
   dome.material.emissiveIntensity = 1.1;
   group.add(dome);
   group.add(mesh('cabin overhead light brass ring',
-    new THREE.TorusGeometry(.12, .016, 8, 18), brass, 0, CEILING - .06, -3.30).rotateX(Math.PI / 2));
+    new THREE.TorusGeometry(.12, .016, 8, 18), brass, 0, CEILING - .12, -3.60).rotateX(Math.PI / 2));
 
   let detailMeshes = 0;
   group.traverse((object) => { if (object.isMesh) detailMeshes++; });
@@ -322,8 +361,8 @@ export function buildCabin(root) {
     group,
     targets: { radio: radioTarget, companionway: companionwayTarget },
     props: {
-      bottle, glasses, shotGlass, tarp, radio, curtain, cabinLight, dome, barLamp,
-      sinkFoot: new THREE.Vector3(-1.20, SOLE + .04, -3.72),
+      bottle, glasses, shotGlass, tarp, radio, curtain, cabinLight, dome, barLamp, stools,
+      sinkFoot: new THREE.Vector3(-1.60, SOLE + .04, -4.10),
     },
     controls: {
       radio: {

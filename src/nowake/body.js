@@ -25,17 +25,24 @@ import * as THREE from 'three';
 
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, cylinder, mat, mesh } from './build.js';
+import { CABIN } from './deck-collision.js';
 
-/** Where the bag rests, at each authored stage of the carry, in boat space. */
+/**
+ * Where the bag rests, at each authored stage of the carry, in boat space.
+ *
+ * Re-cut for the bigger boat (punch list N1): he is wrapped in the middle of
+ * the salon rather than jammed against the dinette, the climb starts 0.32 m
+ * lower because the sole did, and the platform is 0.50 m further aft.
+ */
 const CARRY_PATH = Object.freeze([
-  { at: 0.00, pos: [0.46, -0.16, -2.94], yaw: -0.24, roll: 0 },
-  { at: 0.10, pos: [0.24, 0.46, -2.80], yaw: -0.10, roll: 0 },
-  { at: 0.22, pos: [-0.34, 0.52, -2.44], yaw: 0.02, roll: 0 },
-  { at: 0.40, pos: [-0.60, 1.14, -1.42], yaw: 0.02, roll: 0 },
-  { at: 0.52, pos: [-0.86, 1.34, -0.34], yaw: 0.06, roll: 0 },
-  { at: 0.70, pos: [0.10, 1.34, 1.90], yaw: 0.10, roll: 0 },
-  { at: 0.86, pos: [1.30, 1.30, 3.90], yaw: 0.42, roll: 0 },
-  { at: 1.00, pos: [0.62, 0.18, 5.58], yaw: 0.16, roll: 0 },
+  { at: 0.00, pos: [0.10, -0.48, -3.85], yaw: -0.10, roll: 0 },
+  { at: 0.10, pos: [0.00, 0.14, -3.55], yaw: -0.06, roll: 0 },
+  { at: 0.22, pos: [-0.25, 0.20, -2.95], yaw: 0.02, roll: 0 },
+  { at: 0.40, pos: [-0.80, 1.14, -1.30], yaw: 0.02, roll: 0 },
+  { at: 0.52, pos: [-1.10, 1.34, -0.30], yaw: 0.06, roll: 0 },
+  { at: 0.70, pos: [0.05, 1.34, 2.10], yaw: 0.10, roll: 0 },
+  { at: 0.86, pos: [1.40, 1.30, 4.30], yaw: 0.42, roll: 0 },
+  { at: 1.00, pos: [0.62, 0.18, 6.08], yaw: 0.16, roll: 0 },
 ]);
 
 /** Where each carrier stands relative to the bag, at the head and the feet. */
@@ -80,8 +87,8 @@ export function createBodyRig(boat) {
   const tarpGroup = new THREE.Group();
   tarpGroup.name = 'tarpaulin';
   tarpGroup.add(tarp);
-  tarpGroup.position.set(0.46, -0.19, -2.94);
-  tarpGroup.rotation.y = -0.24;
+  tarpGroup.position.set(0.10, CABIN.height + 0.01, -3.85);
+  tarpGroup.rotation.y = -0.10;
   tarpGroup.visible = false;
   root.add(tarpGroup);
 
@@ -273,7 +280,10 @@ export function createBodyRig(boat) {
       if (booski) {
         booski.group.position.set(
           at.x + sin * CARRIER_OFFSET.head,
-          Math.max(-0.20, at.y - 0.62),
+          /* Never below the sole he is standing on. Written as CABIN.height and
+           * not as the number: the sole dropped 0.32 m for N1 and a hard -0.20
+           * here left Booski hovering over it for the whole lift. */
+          Math.max(CABIN.height, at.y - 0.62),
           at.z + cos * CARRIER_OFFSET.head,
         );
         booski.group.rotation.y = at.yaw + Math.PI;
