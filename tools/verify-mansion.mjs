@@ -3601,8 +3601,16 @@ try {
      * the player is standing in the observation area with the case still in
      * his hands and Booski asking for it. It is the only cold load in this
      * list that goes on to press a button — see `handOff` below. */
+    /* Which of the four it lands on depends on whether the teleport at the end
+     * of the jump has had a frame to fire the observation trigger volume yet,
+     * and the claim the link makes is not "this exact state" — it is "the case
+     * is in his hands and the delivery is legal", which is these four. */
     {
-      id: 'lab', state: 'OBSERVATION', hasCase: true, wall: 'open', handOff: true,
+      id: 'lab',
+      state: ['STAIRWELL', 'INTERROGATION', 'OBSERVATION', 'DELIVERY'],
+      hasCase: true,
+      wall: 'open',
+      handOff: true,
     },
     {
       id: 'core_complete', state: 'LOCK_THE_LAB', hasCase: false, wall: 'open', locked: false,
@@ -3648,7 +3656,8 @@ try {
       if (got.jumped !== want.id) bad.push(`jumped=${got.jumped}`);
       if (!got.running) bad.push('not running');
       if (!got.chip) bad.push('no label chip');
-      if (got.state !== want.state) bad.push(`state=${got.state} want ${want.state}`);
+      const wantStates = Array.isArray(want.state) ? want.state : [want.state];
+      if (!wantStates.includes(got.state)) bad.push(`state=${got.state} want ${wantStates.join('|')}`);
       if (got.hasCase !== want.hasCase) bad.push(`hasCase=${got.hasCase}`);
       if (want.locked !== undefined && got.locked !== want.locked) bad.push(`locked=${got.locked}`);
       if (want.lifeSigns !== undefined && got.lifeSigns !== want.lifeSigns) bad.push(`lifeSigns=${got.lifeSigns}`);
