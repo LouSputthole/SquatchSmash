@@ -764,7 +764,18 @@ export function mountMansionCast(scene, world = {}, {
    * (`SEQUENCES.snowFoyer`, on the `snow` zone) and firing it from two places
    * would say it twice. This module supplies the body and the cart. */
   const foyer = at('foyerCenter', { x: 0, y: GROUND_Y, z: 44.4 });
-  const snowAt = { x: foyer.x - 2.4, y: foyer.y, z: foyer.z - 1.2 };
+  /* -3.6, not -2.4. Owner playtest 2026-08-06: "Snow's cleaning equipment
+   * intersects a table." The table is `foyer-centre-table`, standing on the
+   * compass inlay at the foyer's own centre (MansionInterior.js's `inlayZ`
+   * is this same `foyer.z`) with a collider x -1.4..1.4 -- and at -2.4 the
+   * cart built 1.45 m east of `snowAt` (below) put the mop-bucket at
+   * x -1.351..-0.549, 0.85 m of it inside the table's own western half.
+   * Snow's own body was never the problem; only the cart, standing forward
+   * of him, reached that far in. Moved the whole post 1.2 m further from
+   * the centreline -- the cart's offset from Snow is untouched, so it still
+   * clears him the same way the note below describes -- and the bucket now
+   * sits at x -2.551..-1.749, 349 mm clear of the table's western edge. */
+  const snowAt = { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 };
   post('snow', {
     name: 'Snow',
     model: withFace(SNOW, FACES.snow),
