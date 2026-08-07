@@ -3291,6 +3291,62 @@ try {
     JSON.stringify(wiring));
 
   /* ================================================================ */
+  /* S2: LOU OPENS IT TOWARD HIMSELF, AND THERE IS SOMETHING IN IT     */
+  /*                                                                    */
+  /* Owner playtest, 2026-08-06: *"Lou opens the case toward himself,   */
+  /* with the purple-and-gold glow effect."* Two faults behind one note: */
+  /*                                                                     */
+  /*  - the script's own `lou.rotate` stage direction was played on every */
+  /*    run and performed by nobody, because `mission/mount.js` never      */
+  /*    passed an `onStage` hook in. The case opened whichever way the      */
+  /*    player had happened to set it down.                                 */
+  /*  - the case has no contents by construction (the prop's own header      */
+  /*    says so), and the Squatchanium container that is supposed to be      */
+  /*    inside it — purple band, gold core, vapour, all already animated —    */
+  /*    was built hidden on the transfer table and only ever appeared when     */
+  /*    the drawer sent it through the wall.                                   */
+  /*                                                                            */
+  /* Driven on the office beat itself, from where a player stands, and the       */
+  /* case's own facing is measured against where he is standing.                 */
+  /* ================================================================ */
+  {
+    const office = await page.evaluate(() => {
+      const m = window.mansion;
+      m.checkpoints.jump('office');
+      const desk = m.rooms.officeDesk;
+      /* In front of the desk on the door side, looking at it — which is the
+       * side Lou is NOT on. */
+      m.teleport(desk.x, desk.y, desk.z - 2.2, 180);
+      m.tick(0.5);
+      const eye = { x: m.player.position.x, z: m.player.position.z };
+      const placed = m.mission.placeCase();
+      const samples = [];
+      for (let frame = 0; frame < 300; frame++) {
+        m.tick(1 / 30);
+        samples.push(m.mission.caseAt());
+      }
+      return { placed, eye, samples, state: m.mission.state };
+    });
+    const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+    const lit = office.samples.filter((s2) => s2.contents?.visible);
+    const facing = lit.map((s2) => Math.abs(wrap(
+      s2.yaw - Math.atan2(s2.x - office.eye.x, s2.z - office.eye.z),
+    )));
+    const worstFacing = facing.length ? Math.max(...facing) : null;
+    const bad = [];
+    if (!office.placed) bad.push('the case never went down on the desk');
+    if (!lit.length) bad.push('nothing lit up inside it');
+    if (!office.samples.some((s2) => s2.turning)) bad.push('he never turned it');
+    /* 0.25 rad is 14 degrees: the latches are pointed at the far side of the
+     * desk, not merely on that half of the compass. */
+    if (worstFacing === null || worstFacing > 0.25) bad.push(`latches ${worstFacing?.toFixed(2)} rad off the far side of the desk`);
+    check('Lou turns the case to face himself before he opens it, and the purple-and-gold is inside',
+      bad.length === 0,
+      bad.join(' | ')
+        || `${lit.length} frames lit, latches within ${worstFacing.toFixed(3)} rad of straight at him`);
+  }
+
+  /* ================================================================ */
   /* Rendering back on: the house must actually draw something           */
   /* ================================================================ */
   /* The lab first, because "the player must always clearly see the

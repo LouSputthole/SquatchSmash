@@ -116,6 +116,41 @@ export function mountSilentSquatch({
     close: (opts) => lab.case.close(opts),
   };
 
+  /* ---------------- what is inside it ----------------
+   *
+   * Owner playtest, 2026-08-06: *"Lou opens the case toward himself, with the
+   * purple-and-gold glow effect."* The case had no contents at all —
+   * `src/silvercase/props/case.js` says so in its own header ("No interior
+   * objects are ever built") — so opening it produced a lid and two small
+   * interior lights on an empty chrome tray, twice, in the two beats the whole
+   * mission is about.
+   *
+   * IT IS NOT A NEW EFFECT. The Squatchanium container is already built by
+   * `scenes/SilentSquatch.js` — the purple energy band under its shielding,
+   * the pulsing gold core deeper in, and the vapour curling off the casing,
+   * all of them already animated by that module's own update loop — and its
+   * own comment says "Sits in the case until it is lifted out." It never did.
+   * It was built hidden on the transfer table and only ever appeared when the
+   * drawer sent it through the wall, so the thing the case is carrying was
+   * invisible for the entire journey it is carried on.
+   *
+   * So the case shows what is in it: the container, seated in the tray, from
+   * the moment a lid comes up until it closes again. Purple and gold, out of
+   * the module that owns them. */
+  const contents = lab.container ?? null;
+  function showContents(on) {
+    if (!contents?.group) return;
+    if (!on) {
+      contents.group.visible = false;
+      return;
+    }
+    const at = world.group.position;
+    /* In the tray, on the case's own hinge line, so the lid comes up behind
+     * it and the glow reads against the chrome rather than past it. */
+    contents.placeAt(at.x, at.y + 0.02, at.z);
+    contents.group.visible = true;
+  }
+
   const worldPos = (object, fallback) => {
     if (object?.getWorldPosition) return object.getWorldPosition(new THREE.Vector3());
     if (object?.isVector3) return object.clone();
@@ -203,6 +238,56 @@ export function mountSilentSquatch({
     return at;
   }
 
+  /* ---------------- turning it round ----------------
+   *
+   * Owner playtest: *"Lou opens the case toward himself."*
+   *
+   * The script has always had the stage direction — `officeOpen` opens with
+   * `{ stage: 'lou.rotate' }`, and its comment says "Lou turns it to face
+   * himself, the locks let go, and the gold and the purple come up out of it
+   * and across the walls, his cigar smoke, and his hands". Nothing performed
+   * it: the mission hands an unknown stage to `onStage`, and this file never
+   * passed one in, so the case sat exactly as the player had put it down and
+   * opened away from the man it belongs to.
+   *
+   * The prop's front is its LATCH side (+z, see src/silvercase/props/case.js),
+   * and the lid hinges at the back and tips away from it — so whoever the
+   * latches face is the one person who can see into it. Turning them to face
+   * Lou therefore does both halves of the note at once.
+   *
+   * WHERE LOU IS, WITHOUT ASKING WHO LOU IS: he is the man on the far side of
+   * his own desk, which is the side the player is not standing on. Measured
+   * off the player at the moment the beat fires rather than wired to a body
+   * this file has never heard of — the same reason `onSidearm` exists.
+   */
+  const TURN_SECONDS = 0.9;
+  let turning = null;
+
+  function turnCaseAwayFromPlayer() {
+    const eye = player?.position ?? camera.position;
+    const dx = world.group.position.x - eye.x;
+    const dz = world.group.position.z - eye.z;
+    if (Math.hypot(dx, dz) < 0.05) return null;
+    /* A Group's local +z points along `atan2(dx, dz)`; away from the player is
+     * exactly the vector from him to the case. */
+    const want = Math.atan2(dx, dz);
+    const from = world.group.rotation.y;
+    /* The short way round, so a 10-degree correction never spins it 350. */
+    let delta = (want - from) % (Math.PI * 2);
+    if (delta > Math.PI) delta -= Math.PI * 2;
+    if (delta < -Math.PI) delta += Math.PI * 2;
+    turning = { from, delta, t: 0 };
+    return +want.toFixed(3);
+  }
+
+  function updateTurning(dt) {
+    if (!turning) return;
+    turning.t = Math.min(1, turning.t + dt / TURN_SECONDS);
+    const k = turning.t;
+    world.group.rotation.y = turning.from + turning.delta * (k * k * (3 - 2 * k));
+    if (k >= 1) turning = null;
+  }
+
   /** One frame of the hand-off. Lands ON the anchor, always. */
   function updatePlacing(dt) {
     if (!placing) return;
@@ -227,6 +312,7 @@ export function mountSilentSquatch({
         refreshCarried();
         world.group.visible = false;
         world.close({ instant: true });
+        showContents(false);
         break;
       /* WHERE IT LANDS IS NOT WHERE IT IS CLICKED.
        *
@@ -251,8 +337,14 @@ export function mountSilentSquatch({
           animate: true, from: handsPosition(),
         });
         break;
-      case 'open': world.open(); break;
-      case 'close': world.close(); break;
+      case 'open':
+        world.open();
+        showContents(true);
+        break;
+      case 'close':
+        world.close();
+        showContents(false);
+        break;
       case 'slide':
         /* Lou pushes it back across the desk toward him. */
         world.group.position.z += 0.35;
@@ -300,6 +392,34 @@ export function mountSilentSquatch({
     onLineEnd: () => hud.hideLine(),
     onCase,
     onSidearm,
+    /**
+     * The stage directions the SET performs, as opposed to the ones the
+     * laboratory performs (those are handled inside the mission).
+     *
+     * This hook existed and was never passed in, so the two directions below
+     * were written into the script, played on every run, logged by the
+     * dialogue controller — and did nothing at all. `lou.rotate` is the owner's
+     * "opens toward himself"; `case.lift` is Booski taking the container out
+     * of the case in front of the transfer drawer.
+     */
+    onStage: (stage) => {
+      switch (stage) {
+        case 'lou.rotate':
+          turnCaseAwayFromPlayer();
+          break;
+        case 'case.lift':
+          /* Out of the tray and up, so the drawer has something to carry. The
+           * laboratory owns the container and its own cue. */
+          lab.container?.lift?.();
+          if (lab.container?.placeAt) {
+            const at = world.group.position;
+            lab.container.placeAt(at.x, at.y + 0.16, at.z);
+          }
+          break;
+        default:
+          break;
+      }
+    },
     playCue: (cue, voice, gain = 1) => {
       /* A dry line, from somebody standing in the room. Cue names are data
        * here, never a literal at a call site.
@@ -513,6 +633,7 @@ export function mountSilentSquatch({
       mission.update(dt, { position: player?.position ?? camera.position });
       carried.update(dt);
       updatePlacing(dt);
+      updateTurning(dt);
       /* The world copy is NOT ticked here any more: it is `lab.case`, and
        * `SilentSquatch.js` already calls `caseObj.update(dt)` in its own
        * update. Ticking it twice would run its lid tween at double speed —
@@ -548,6 +669,20 @@ export function mountSilentSquatch({
         z: +world.group.position.z.toFixed(3),
         visible: world.group.visible,
         placing: Boolean(placing),
+        /** Which way its latches point, and whether it is still turning.
+         * The owner's "opens toward himself" is this number against where the
+         * player is standing. */
+        yaw: +world.group.rotation.y.toFixed(3),
+        turning: Boolean(turning),
+        /** Is the purple-and-gold showing, and where. */
+        contents: contents?.group
+          ? {
+            visible: contents.group.visible,
+            x: +contents.group.position.x.toFixed(3),
+            y: +contents.group.position.y.toFixed(3),
+            z: +contents.group.position.z.toFixed(3),
+          }
+          : null,
       }),
     },
   };
