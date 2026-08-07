@@ -208,6 +208,106 @@ try {
     home.door?.kind === 'stay' && home.door?.id === 'sleep_before_big_night',
     JSON.stringify(home.door));
 
+  /* ---------------------------------------------------------------- */
+  /* G1 (2026-08-06 playtest): the night she comes home, on all fours   */
+  /* until the glue effect actually lands on her back                   */
+  /* ---------------------------------------------------------------- */
+
+  /* Driven directly rather than by replaying the Silver Room mission: the
+   * scene's natural trigger, `apartmentStory.margoComeHomeOwed()`, only
+   * fires once at boot off a `cameHome` verdict this fixture never carries.
+   * `startMargoComeHome` and the rest of the scene's driver functions are on
+   * `window.__squatch` for exactly this -- exercising the beat without
+   * earning a whole mission's 'perfect'/'strong' ending first. */
+  const comeHomeStart = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.startMargoComeHome();
+    // Skip the six-second walk to the bedside; nothing under test happens there.
+    game.game.margoScene.walkStart = performance.now() - 7000;
+    game.updateMargoWake(1 / 60);
+    return {
+      running: !!game.game.margoScene,
+      kind: game.game.margoScene?.kind,
+      pose: game.apartment.margo.pose,
+    };
+  });
+  check('the come-home scene starts standing, walked in from the door',
+    comeHomeStart.running && comeHomeStart.kind === 'comeHome'
+      && comeHomeStart.pose === 'standing',
+    JSON.stringify(comeHomeStart));
+
+  await page.waitForFunction(
+    () => window.__squatch.game.margoScene?.awaitingHelp === true,
+    null,
+    { timeout: 60000 },
+  );
+  /* Same power-bar drive as the morning's dress-help beat (`dressGame` below):
+   * tap to start it, then hit every pull with the marker centred in the
+   * window, so the fastening completes deterministically.
+   *
+   * The three snapshots below -- just-fastened, mid-landing, landed -- are
+   * captured inside ONE `page.evaluate`, not three. Split across separate
+   * round trips, the page's own render loop keeps calling `updateMargoWake`
+   * in real time between them (it runs unconditionally every animation
+   * frame), so the ramp could sneak past 33/34 of the way to its target
+   * before the "still holding" snapshot ever executes and make this flaky.
+   * A single synchronous script cannot be interleaved by that loop. */
+  const comeHome = await page.evaluate(() => {
+    const game = window.__squatch;
+    const target = game.apartment.margo.helpTarget;
+    if (game.interaction.current !== target) game.interaction.current = target;
+    game.interaction.press();
+    const bar = game.margoDress.bar;
+    for (let i = 0; i < bar.total; i++) {
+      game.updateMargoDressHelp(1 / 60);
+      bar.pos = (bar.window[0] + bar.window[1]) / 2;
+      bar.press();
+    }
+    const snap = () => ({
+      running: !!game.game.margoScene,
+      paused: game.interaction.paused,
+      visible: game.apartment.margo.group.visible,
+      pose: game.apartment.margo.pose,
+      glueTarget: game.game.margoScene?.dressGlueTarget ?? null,
+      glue: game.apartment.margo.dressGlue,
+      blobsShown: game.apartment.margo.dressGlueGroup.children.filter((b) => b.visible).length,
+      blobsTotal: game.apartment.margo.dressGlueGroup.children.length,
+    });
+    // The exact frame the fastening finishes: the glue has just been
+    // triggered and NOTHING has ramped onto the dress yet.
+    const justFastened = snap();
+    /* One frame short of the glue's own landing ramp (`dt * 1.8` a frame in
+     * `updateMargoWake`, so 34 frames of 1/60s to cross 0 to 1) -- the hold
+     * has to still be holding here, all fours and all, or the gate is a
+     * decoration. */
+    for (let i = 0; i < 33; i++) game.updateMargoWake(1 / 60);
+    const stillHolding = snap();
+    // The one frame the ramp actually catches its target -- the gate itself.
+    game.updateMargoWake(1 / 60);
+    const landed = snap();
+    return { justFastened, stillHolding, landed };
+  });
+  check('the fastening finishes with her still on all fours and the glue only just triggered',
+    comeHome.justFastened.running === true
+      && comeHome.justFastened.pose === 'kneeling'
+      && comeHome.justFastened.glueTarget === 1
+      && comeHome.justFastened.glue === 0
+      && comeHome.justFastened.blobsShown === 0,
+    JSON.stringify(comeHome.justFastened));
+  check('she is still on all fours while the glue is still landing on her back',
+    comeHome.stillHolding.running === true
+      && comeHome.stillHolding.pose === 'kneeling'
+      && comeHome.stillHolding.glue > 0 && comeHome.stillHolding.glue < 1,
+    JSON.stringify(comeHome.stillHolding));
+  check('she reaches bed only once the glue has fully landed on her back',
+    comeHome.landed.running === false
+      && comeHome.landed.paused === false
+      && comeHome.landed.glue === 1
+      && comeHome.landed.blobsShown === comeHome.landed.blobsTotal
+      && comeHome.landed.pose === 'lying'
+      && comeHome.landed.visible === true,
+    JSON.stringify(comeHome.landed));
+
   const slept = await page.evaluate(() => {
     const game = window.__squatch;
     game.lieOnBed();
