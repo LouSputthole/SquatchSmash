@@ -4980,8 +4980,23 @@ export function buildMansionInterior(shell = null) {
        * Set off the BEAD line instead of the plaster line, which is the
        * surface a piece of furniture actually stands against. Measured after:
        * plinth back -8.59, 150 mm clear of the beads, and the trunk 200 mm
-       * clear of them. */
-      const kx = r.x0 + 0.62;
+       * clear of them.
+       *
+       * PULLED OUT OF THE CORNER. Owner playtest 2026-08-06: "the grandfather
+       * clock is still against/into the wall — pull it toward the door." The
+       * wall clearance above is real and measured (150 mm) -- what was not
+       * fixed is that the clock was still wedged into the SW corner, 220 mm
+       * off the south wall as well as the west one, which reads as "in the
+       * wall" from most angles in the room even though neither number is
+       * technically zero: a piece of furniture pinned into a dark corner on
+       * two sides at once photographs the same as one sunk into it.
+       *
+       * Moved 780 mm east, toward the doorway's own x = 0 rather than away
+       * from either wall (there was already clearance to give up): plinth
+       * back now -7.81, 935 mm off the panel beads, with the same 220 mm to
+       * the south wall as before -- clear on both sides, and read on the
+       * walk in from the door instead of left in the corner behind it. */
+      const kx = r.x0 + 1.4;
       const kz = r.z0 + 0.52;
       root.add(box({ size: [0.62, 2.3, 0.5], pos: [kx, UY + 1.15, kz], mat: M_WOOD_DK, name: 'office-longcase-clock' }));
       root.add(box({ size: [0.7, 0.2, 0.58], pos: [kx, UY + 2.36, kz], mat: M_WOOD_DK, cast: false, name: 'office-longcase-cornice' }));
