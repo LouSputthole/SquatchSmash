@@ -2628,6 +2628,50 @@ try {
     sizeFails.slice(0, 4).join(' | ')
       || `${sizes.six.map((s) => s.height).join(', ')} m against ${sizes.houseTallest.name} at ${sizes.houseTallest.h}`);
 
+  /* ---- S6: HE BLEEDS.
+   *
+   * Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."* There
+   * was none — the man simply fell over. `bleed()` reuses two effects this
+   * repository already has: THE SILVER CASE's pooled arterial decal
+   * (`BulletHoles(scene, 'blood')`, attached to the body so the wound travels
+   * with him) and this scene's own floor `stain()`, the one the pool under
+   * xXx is made of.
+   *
+   * Asserted on what it LEAVES BEHIND rather than on a flag: decals that
+   * exist, a pool that is actually opaque by the time he has landed, and the
+   * wound still on him after the fall. */
+  const bleeding = await page.evaluate(() => {
+    const T = window.mansion.THREE;
+    const L = window.mansion.lab;
+    const aubbie = L.scientists[0];
+    const before = { marks: L.inventory.bloodMarks, pools: L.inventory.bloodPools };
+    aubbie.shot({ x: aubbie.position.x, z: aubbie.position.z + 3 });
+    aubbie.collapse();
+    window.mansion.tick(3);
+    let poolOpacity = 0;
+    let onBody = 0;
+    window.mansion.scene.traverse((o) => {
+      if (o.name === 'ss-blood-pool') poolOpacity = Math.max(poolOpacity, o.material.opacity);
+      if (o.name === 'ss-blood-wound' && o.visible) {
+        /* Still attached to him, not left hanging where he was standing. */
+        const at = o.getWorldPosition(new T.Vector3());
+        if (Math.hypot(at.x - aubbie.position.x, at.z - aubbie.position.z) < 1.6) onBody++;
+      }
+    });
+    return {
+      before,
+      marks: L.inventory.bloodMarks,
+      pools: L.inventory.bloodPools,
+      poolOpacity: +poolOpacity.toFixed(3),
+      onBody,
+    };
+  });
+  check('shooting Aubbie leaves blood — a wound on him, spatter behind him and a pool under him',
+    bleeding.before.marks === 0 && bleeding.before.pools === 0
+      && bleeding.marks >= 4 && bleeding.pools >= 1
+      && bleeding.poolOpacity > 0.5 && bleeding.onBody >= 1,
+    JSON.stringify(bleeding));
+
   /* ---- Silent Night. The gas fills the room, white to purple-grey, and
    * the six go down one by one. */
   const gasRun = await page.evaluate(async () => {

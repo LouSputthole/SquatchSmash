@@ -424,6 +424,38 @@ test('Aubbie is played at his profile\'s gain, and nobody else is moved', () => 
   }
 });
 
+/**
+ * Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."*
+ *
+ * `shot` and `collapse` are two calls on purpose: the first is a round
+ * arriving and the second is a body going down, and the gassing uses the
+ * second one five more times without a drop of blood anywhere. This proves the
+ * mission asks for both, in that order, and only for the man who was shot.
+ */
+test('the man who is shot is bled, and the five who are gassed are not', () => {
+  const r = rig();
+  playThrough(r);
+  const { lab, mission } = r;
+  const aubbie = lab.scientists[SCIENTIST_INDEX.AUBBIE];
+
+  assert.ok(aubbie.log.includes('shot'), 'nothing told the scene he had been hit');
+  assert.ok(
+    aubbie.log.indexOf('shot') < aubbie.log.indexOf('collapse'),
+    'he bled after he had already fallen over',
+  );
+  assert.equal(mission.report().aubbie.bled, true);
+
+  for (const index of [
+    SCIENTIST_INDEX.VETROV, SCIENTIST_INDEX.SOKOLOV,
+    SCIENTIST_INDEX.BEZMENOV, SCIENTIST_INDEX.ORLOVA, SCIENTIST_INDEX.MARCHUK,
+  ]) {
+    assert.equal(
+      lab.scientists[index].log.includes('shot'), false,
+      `scientist ${index} was gassed, not shot`,
+    );
+  }
+});
+
 test('the HUD never speaks over the man in the room', () => {
   /* The owner's rule: Booski says "Lock the lab" and the objective appears
    * AFTER he has finished. This walks the two beats where an instruction and

@@ -81,6 +81,16 @@ function makeScientist(index, glassAudio, lab) {
       this.log.push('collapse');
     },
     handprint() { this.log.push('handprint'); lab.handprints++; },
+    /**
+     * The round arriving, which is not the same event as the body going down.
+     *
+     * Owner playtest: "blood effect when Aubbie is shot." The real lab spends
+     * this on a wound decal, spatter and a pool (see `bleed` in
+     * scenes/SilentSquatch.js); the contract records that it was asked for,
+     * which is the half the mission is responsible for. `collapse` still
+     * follows, and the gassing's five collapses still carry no `shot`.
+     */
+    shot(from = null) { this.log.push('shot'); this.shotFrom = from ?? null; },
     /** Aubbie, coming out through the glass door into the observation area. */
     stepOut() { this.side = 'observation'; this.log.push('stepOut'); },
     tryHandle() { this.log.push('tryHandle'); },

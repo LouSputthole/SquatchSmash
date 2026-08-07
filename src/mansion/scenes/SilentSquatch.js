@@ -66,6 +66,9 @@ import { tileTex, fabricTex } from '../../world/textures.js';
 import { printed, tiled } from '../../bing/kit.js';
 import { Figure } from '../../squatchfather/characters/Figure.js';
 import { makeCase } from '../../silvercase/props/case.js';
+/* The pooled arterial decal THE SILVER CASE puts on every man it shoots. Used
+ * here for the execution -- see `bleed()`. */
+import { BulletHoles } from '../../world/bullets.js';
 import { BASEMENT_Y, SECRET_DOOR } from './MansionGrounds.js';
 
 /* ================================================================== */
@@ -4191,6 +4194,24 @@ export function buildSilentSquatch({
       },
       leaveLab(x, z) { return self.stepOut(x, z); },
       setInside(v) { self.inside = !!v; return self; },
+      /**
+       * Beat 8: THE ROUND ARRIVES (owner playtest: "blood effect when Aubbie
+       * is shot").
+       *
+       * Separate from `collapse()` on purpose. Collapsing is what the gas does
+       * to five people behind glass and it is bloodless; this is what a pistol
+       * does to one man standing three metres away, and the mission calls both
+       * in that order. A lab that has not grown this method still plays — the
+       * mission calls it with `?.()` — and the man still falls over.
+       *
+       * `from` is where the shot came from, so the wound faces the shooter.
+       */
+      shot(from = null) {
+        if (self._bled) return self;
+        self._bled = true;
+        bleed(fig, figScale, from);
+        return self;
+      },
       /** Beat 8: he is killed in the observation area, in full view. */
       kill() {
         self.inside = false;
@@ -4202,6 +4223,90 @@ export function buildSilentSquatch({
 
   /** Speech from somebody who is NOT behind the glass. */
   function plainSay(cue, opts) { return audio?.play?.(cue, opts) ?? null; }
+
+  /* ================================================================== */
+  /* BLOOD                                                               */
+  /*                                                                      */
+  /* Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."*    */
+  /* There was none. The only thing that happened when the player carried  */
+  /* out the execution was that the man fell over.                          */
+  /*                                                                        */
+  /* NOTHING NEW IS DRAWN HERE. Two effects this repository already has:     */
+  /*                                                                         */
+  /*   `BulletHoles(scene, 'blood')` — src/world/bullets.js, the pooled       */
+  /*     arterial decal THE SILVER CASE puts on every man it shoots           */
+  /*     (`ImpactKit.body`), attached to the BODY so the wound travels with    */
+  /*     him as he goes down rather than hanging in the air where he was;      */
+  /*   `stain()` — this file's own floor decal, the one the pool under xXx     */
+  /*     and the marks down the interrogation corridor are made of.            */
+  /*                                                                            */
+  /* The wound is on him, the spatter is on the floor behind him along the       */
+  /* line of the shot, and the pool arrives underneath him as he lands rather    */
+  /* than the instant the trigger goes — it takes a second for a man to bleed    */
+  /* onto concrete, and the fall takes about that long.                          */
+  /* ================================================================== */
+  /** Built on the first shot: a scene where nobody is shot pays nothing. */
+  let blood = null;
+  /** Pools that are still fading up, with their target opacity. */
+  const bloodPools = [];
+  const bloodMarks = [];
+
+  function bloodPool() {
+    if (blood) return blood;
+    /* Into this module's own group rather than the scene's root, so the marks
+     * belong to the laboratory the way everything else here does. */
+    blood = new BulletHoles(root, 'blood');
+    /* Its muzzle flash is a PointLight, and this scene meters its lights
+     * (`registerLight`). Nothing here calls `muzzle()` — the weapon system
+     * owns the flash at the player's end — so the light comes straight back
+     * out rather than sitting in every shader in the basement forever.
+     * `update()` returns on the first line without it. */
+    blood.flash?.parent?.remove(blood.flash);
+    return blood;
+  }
+
+  /**
+   * He was hit. `from` is where the round came from, so the wound faces the
+   * shooter and the spatter goes out the other side.
+   */
+  function bleed(fig, figScale, from = null) {
+    const kit = bloodPool();
+    const body = fig.group.position;
+    const chestY = body.y + 1.28 * figScale;
+    const toward = new THREE.Vector3(
+      (from?.x ?? body.x) - body.x, 0, (from?.z ?? body.z + 1) - body.z,
+    );
+    if (toward.lengthSq() < 1e-6) toward.set(0, 0, 1);
+    toward.normalize();
+
+    /* The wound, on him, facing the man who fired. Attached to the torso
+     * GROUP rather than to a mesh: `Figure`'s boxes carry real geometry but
+     * the group is where a decal belongs, and it is uniformly scaled. */
+    const entry = new THREE.Vector3(body.x, chestY, body.z).addScaledVector(toward, 0.16);
+    const wound = kit.punchAttached(fig.torso, entry, toward);
+    wound.name = 'ss-blood-wound';
+    bloodMarks.push(wound);
+
+    /* Spatter, out the back, on the floor. Same pool, laid flat. */
+    const behind = toward.clone().negate();
+    for (let i = 0; i < 3; i++) {
+      const at = new THREE.Vector3(body.x, LAB_FLOOR + 0.004, body.z)
+        .addScaledVector(behind, 0.55 + i * 0.42 + Math.random() * 0.3);
+      at.x += (Math.random() - 0.5) * 0.5;
+      at.z += (Math.random() - 0.5) * 0.5;
+      const mark = kit.punch(at, new THREE.Vector3(0, 1, 0));
+      mark.name = 'ss-blood-spatter';
+      bloodMarks.push(mark);
+    }
+
+    /* And the pool, under him, arriving over the second it takes him to land.
+     * `stain()` is this file's own — the same decal the corridor is covered
+     * in, so the floor of this basement reads as one continuous night. */
+    const pool = stain(body.x, body.z, LAB_FLOOR, 0.62, 3, 0);
+    pool.name = 'ss-blood-pool';
+    bloodPools.push({ mesh: pool, t: 0, to: 0.88 });
+    return pool;
+  }
 
   /**
    * The pose of a man going down, at `e` = 0 (upright) to 1 (on the floor).
@@ -5130,6 +5235,16 @@ export function buildSilentSquatch({
       }
     }
 
+    /* ---- the pool under the man who was shot, arriving as he lands. */
+    for (const p of bloodPools) {
+      if (p.t >= 1) continue;
+      p.t = Math.min(1, p.t + dt * 0.85);
+      p.mesh.material.opacity = p.t * p.to;
+      /* It spreads as well as darkens; a disc that only fades up reads as a
+       * decal switching on. */
+      p.mesh.scale.setScalar(0.55 + p.t * 0.45);
+    }
+
     /* ---- handprints fading up on the inside of the glass. */
     for (const h of handprints) {
       if (h.t >= 1) continue;
@@ -5549,6 +5664,10 @@ export function buildSilentSquatch({
       wineRacks: innocent.wine.racks.length,
       decorArt: decorArt.length,
       get handprints() { return handprints.length; },
+      /** Wound and spatter decals on the man the player shot, plus the pool
+       * under him. The owner's blood effect, proved by what it left behind. */
+      get bloodMarks() { return bloodMarks.filter((m) => m.visible).length; },
+      get bloodPools() { return bloodPools.length; },
       get chairBent() { return chairBent; },
       coreRings: core.rings.length,
       hasFatSquatchEmblem: !!core.emblem,

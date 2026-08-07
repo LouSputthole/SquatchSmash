@@ -176,6 +176,8 @@ class SilentSquatchMission {
     this.aubbieKilled = false;
     this.aubbieKilledSide = null;
     this.aubbieMissedShots = 0;
+    /** True once the round has actually landed in him. See `shootAubbie`. */
+    this.bloodShed = false;
     /** True once Booski has handed the pistol over at the delivery. */
     this.sidearmGiven = false;
     this.bezmenovTriedHandleFirst = false;
@@ -370,6 +372,15 @@ class SilentSquatchMission {
     this.#instruct('');
     this.hud.setCallout('');
     const aubbie = this.lab.scientists?.[SCIENTIST_INDEX.AUBBIE];
+    /* THE BLOOD, THEN THE FALL, in that order (owner playtest: "blood effect
+     * when Aubbie is shot"). `shot` is the round arriving and `collapse` is
+     * the body going down, and they are two calls because the gassing uses
+     * the second one five times over and none of that is bloody. `from` is
+     * where the shot came from so the wound faces the shooter; the mission
+     * does not know where the player is standing, so the scene resolves it
+     * against his own body when it is not told. */
+    aubbie?.shot?.(null);
+    this.bloodShed = true;
     aubbie?.collapse?.();
     this.dialogue.play(SEQUENCES.executionDone, {
       onDone: () => this.fsm.go(S.REACTION),
@@ -428,6 +439,8 @@ class SilentSquatchMission {
         killed: this.aubbieKilled,
         side: this.aubbieKilledSide,
         missedShots: this.aubbieMissedShots,
+        /** The round landed and the scene was told to bleed him. */
+        bled: this.bloodShed,
       },
       muffled: this.lab.muffled === true,
       glassRouted: this.glassRouted,
