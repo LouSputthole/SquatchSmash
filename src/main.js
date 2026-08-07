@@ -4116,6 +4116,19 @@ function completeMargoDressHelp() {
   audio.play('cloth.snap', { volume: 0.55 });
 
   if (scene.kind === 'comeHome') {
+    /* G1 (2026-08-06 playtest): this used to fall straight through to
+     * `finishMargoComeHome` here -- lying down, asleep, in the same tick the
+     * fastening finished, before the bottle he just emptied on her back had
+     * so much as appeared. `finishMargoDressHelp` (the caller) has just set
+     * `scene.dressGlueTarget = 1`; unless he skipped past the offer with [Q]
+     * before she ever went down (the one path where no glue was ever
+     * coming, and `dressGlueTarget` is still its initial 0), stay right
+     * here. `setPose` is not called in this branch, so the `kneeling` pose
+     * `startMargoDressHelp` put her in simply holds -- and `updateMargoWake`'s
+     * own ramp of `dressGlue` up to that target is the only thing that ever
+     * calls `finishMargoComeHome` from here on. No timer of this function's
+     * own: the gate is the effect's own state, not a guess at its length. */
+    if (scene.dressGlueTarget >= 1) return true;
     finishMargoComeHome();
     return true;
   }
@@ -4255,6 +4268,20 @@ function updateMargoWake(dt) {
   if (scene.dressGlue < scene.dressGlueTarget) {
     scene.dressGlue = Math.min(scene.dressGlueTarget, scene.dressGlue + dt * 1.8);
     margo.setDressGlue(scene.dressGlue);
+  }
+
+  /* G1: the night she comes home, `completeMargoDressHelp` left her on all
+   * fours instead of sending her to bed, precisely so the glue ramping in
+   * just above has somewhere to land before she is asleep. This is the only
+   * place that hold ends -- once the ramp has actually CAUGHT the target
+   * `finishMargoDressHelp` set (not merely nonzero: a scene that never
+   * triggered the glue, `dressGlueTarget` still 0, must not finish here on
+   * its very first frame), the effect's own state is the gate, not a fixed
+   * delay standing in for it. */
+  if (scene.kind === 'comeHome' && scene.dressGlueTarget >= 1
+    && scene.dressGlue >= scene.dressGlueTarget) {
+    finishMargoComeHome();
+    return;
   }
 
   /* The watchdog on the dialogue.
