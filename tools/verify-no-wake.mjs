@@ -448,12 +448,17 @@ try {
       spanZ: +(maxZ - minZ).toFixed(2),
       headroom: +(cabin.ceiling - cabin.height).toFixed(2),
       overEyes: +(linerUnderside - eyeY).toFixed(2),
-      staging: +((CABIN_STAGING.maxX - CABIN_STAGING.minX)
-        * (CABIN_STAGING.maxZ - CABIN_STAGING.minZ)).toFixed(2),
     };
   });
+  // The staging clamp is authored in Node-side source, not on the page.
+  salon.staging = +((CABIN_STAGING.maxX - CABIN_STAGING.minX)
+    * (CABIN_STAGING.maxZ - CABIN_STAGING.minZ)).toFixed(2);
+  /* The bathroom measured 0.80 m² of standable sole, 0.95 m across and 1.10 m
+   * fore and aft, under 1.82 m of ceiling, with a 0.34 m² pen to stand in. Every
+   * floor below is comfortably clear of those and comfortably under what this
+   * boat actually has, so a regression has to be a real one to trip it. */
   check('below deck reads as a salon and not a bathroom: floor, span, headroom and a staging area to move in',
-    salon.standableArea >= 3.4 && salon.spanX >= 1.5 && salon.spanZ >= 2.6
+    salon.standableArea >= 3.4 && salon.spanX >= 2.6 && salon.spanZ >= 2.1
       && salon.headroom >= 2.05 && salon.overEyes > 0 && salon.staging >= 1.2,
     JSON.stringify(salon));
   check('the startup controls the spec lists are modeled objects',
@@ -1169,14 +1174,28 @@ try {
       below: game.state.below,
       worldBelow: game.world.below,
       local: game.world.toBoatLocal(game.player.position.clone()).toArray(),
-      ground: game.player.ground - game.boat.root.position.y,
+      /* The sole he is standing on, IN THE BOAT'S OWN FRAME.
+       *
+       * `player.ground - boat.root.position.y` is not that: the hull keeps
+       * whatever pitch and roll the last driven frame left on it, so a point
+       * 2.5 m forward of the boat's origin sits centimetres off its own local
+       * height once the attitude is resolved. Subtracting the root's Y alone
+       * measured that attitude and called it the floor, and read 11 mm out
+       * against a 10 mm tolerance for no reason but the trim. Round-tripping
+       * the ground point through `toBoatLocal` removes it. */
+      soleUnderfoot: (() => {
+        const V = game.player.position.constructor;
+        const at = new V(game.player.position.x, game.player.ground, game.player.position.z);
+        return game.world.toBoatLocal(at).y;
+      })(),
       enclosure: game.engineAudio.enclosure,
       radioOn: game.radio.on,
     };
   });
   check('the player goes down the companionway onto the cabin sole and the room closes in',
     /companionway/.test(goingBelow.targeted ?? '') && below.below && below.worldBelow
-      && Math.abs(below.ground - CABIN_HEIGHT) < .01
+      && Math.abs(below.soleUnderfoot - CABIN_HEIGHT) < .01
+      && Math.abs(below.local[1] - (CABIN_HEIGHT + 1.66)) < .02
       && below.local[2] > CABIN_BOW && below.local[2] < CABIN_STERN
       && below.enclosure < 1,
     JSON.stringify(below));

@@ -1328,7 +1328,10 @@ function reachPlatform() {
   cameraDirector.frameDisposal();
   boat.cast.booski.group.position.set(1.40, DECK_H, 4.60);
   boat.cast.booski.group.rotation.y = 0;
-  boat.cast.lou.group.position.set(.20, DECK_H, 3.90);
+  /* Forward of the gate, and it stays forward of the gate: "Lou never helped
+   * carry" is asserted in the verifier as `lou.z <= 3.5`, which is the whole
+   * point of him standing where the bag is not. */
+  boat.cast.lou.group.position.set(.20, DECK_H, 3.40);
   boat.cast.lou.group.rotation.y = 0;
   /* Water laps inches below the bag. Lou looks at the shoreline and nods. The
    * nod is the character doing the telling; the objective follows it. */
