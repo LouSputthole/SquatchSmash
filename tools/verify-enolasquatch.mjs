@@ -2170,6 +2170,107 @@ try {
     + `${secondDrop.flattened} of them by the shock front; `
     + `crew said it again: ${JSON.stringify(secondDrop.saidItAgain)}`);
 
+  /* ---- E1: the drop sequence starts early enough to land ON the target ----
+   *
+   * Owner playtest, 2026-08-06: "The bomb is great. The drop bomb sequence
+   * should start a bit earlier so that you aren't so far over the target."
+   *
+   * Every release check above jumps straight past the trigger with `go()` /
+   * `restoreCheckpoint()`, which stages the aeroplane at a fixed spot and
+   * never exercises the DISTANCE the mission itself picks to start the
+   * bomb-bay-malfunction beat (`updateBombApproach()`'s own
+   * `BOMB_MALFUNCTION_TRIGGER_M`, ../src/enolasquatch/mission/
+   * MissionController.js) — the thing the owner is actually flying against.
+   * This one flies it organically from four kilometres out, forced onto the
+   * DISTANCE fallback rather than the alignment gate (heading dead on the
+   * bearing, but held a mere 10 m above `Targeting`'s altitude band ceiling,
+   * so `onAltitude` — and therefore `aligned`/`readyToRelease` — never
+   * trips, the same way a real approach under active flak rarely holds the
+   * whole tolerance stack for a continuous 1.6 s), then gives the release
+   * choice a 6-second read-and-decide before answering it — long enough to
+   * actually read the five `RELEASE_LINES`, not an instant reflex click. */
+  const dropSequence = await page.evaluate(async () => {
+    const h = window.__enolaSquatch;
+    const m = h.mission;
+    m.finished = false; m.failed = null; m.paused = false;
+    h.defense.clear();
+    h.interceptors.clear();
+    m.autopilot.disengage(null);
+    m.autopilot.lockout = 0;
+    // The second drop just above leaves a detonation animating (`live`).
+    // `rearmPayload()` nulls `explosionPoint`, and `updateDetonation()` reads
+    // it unconditionally whenever `detonation.live` -- same ordering
+    // `restoreCheckpoint()` uses (dispose the detonation before rearming).
+    h.detonation.dispose();
+    m.rearmPayload();
+    const TARGET_X = 9000;
+    const START_X = TARGET_X - 4000;
+    const Z = -500; // COMPOUND.z
+    // This flies roughly a minute and a half of real engine time on top of
+    // everything the suite has already burned from the SAME shared fuel
+    // pool (`engines.fuel`) -- restored below so this synthetic run leaves
+    // no residue for `escape`/`emergency` after it, which read that same
+    // pool and stall (`hotScript` only decays while `e.running`, and an
+    // empty tank kills `running` for every engine) if it runs dry.
+    const fuelBefore = h.engines.fuel;
+    h.weather.setConditions({ turbulence: 0, crosswind: 0 });
+    h.physics.setPose({ x: START_X, y: 780, z: Z }, 90, 62);
+    h.engines.forceRunning();
+    m.flags.enginesEverStarted = true;
+    h.input.throttle = 0.6;
+    h.physics.controls.parkingBrake = false;
+    if (!m.inCockpit) m.enterCockpit({ advance: false });
+    m.setPhase('bombApproach');
+    // Let `tas`/`onGround` settle from the teleport before `engage()` reads
+    // them -- both are written by `AircraftPhysics.advance()`, not `setPose()`.
+    h.tick(1 / 60, 1 / 60);
+    const took = m.autopilot.engage({});
+
+    const REACTION_S = 6;
+    let malfunctionAt = null;
+    let releaseEnteredAt = null;
+    let choiceMade = false;
+    let simT = 0;
+    // `AircraftPhysics.advance()` integrates on its own FIXED=1/120s
+    // accumulator capped at MAX_STEPS=8 per call (~0.067s of sim time) --
+    // feeding it a bigger dt per `tick()` call doesn't move the aeroplane
+    // further, the remainder is silently discarded. Stay under that budget.
+    const stepSec = 1 / 30;
+    let releasedAt = null;
+    for (let i = 0; i < 12000; i++) {
+      h.tick(stepSec, stepSec);
+      simT += stepSec;
+      if (!malfunctionAt && m.phase === 'bombMalfunction') malfunctionAt = { t: simT, x: h.physics.position.x };
+      if (!releaseEnteredAt && m.phase === 'release') releaseEnteredAt = { t: simT, x: h.physics.position.x };
+      if (m.phase === 'release' && m._releaseStep === 'awaitChoice' && !choiceMade
+          && simT >= (releaseEnteredAt?.t ?? 0) + REACTION_S) {
+        choiceMade = true;
+        m.chooseReleaseLine('3');
+      }
+      if (h.payload.released && !releasedAt) {
+        releasedAt = { x: h.physics.position.x, z: h.physics.position.z };
+        break;
+      }
+      if (simT > 150) break; // safety valve, should never fire
+    }
+    h.engines.fuel = fuelBefore;
+    return {
+      took,
+      malfunctionTriggerDistance: malfunctionAt ? +(TARGET_X - malfunctionAt.x).toFixed(1) : null,
+      releasedAt,
+      distanceFromTarget: releasedAt
+        ? +Math.hypot(TARGET_X - releasedAt.x, Z - releasedAt.z).toFixed(1) : null,
+    };
+  });
+  check('BOMB_MALFUNCTION_TRIGGER_M starts the drop sequence with enough road left to fly it (< 1400 m -- inside the bombApproach corridor)',
+    dropSequence.took && dropSequence.malfunctionTriggerDistance !== null
+      && dropSequence.malfunctionTriggerDistance > 900 && dropSequence.malfunctionTriggerDistance < 1400,
+    JSON.stringify(dropSequence));
+  check('the drop sequence releases at/near the target rather than well past it, for a real 6s read-the-choice reaction',
+    dropSequence.releasedAt && dropSequence.distanceFromTarget < 350,
+    `released ${dropSequence.distanceFromTarget} m from the target ` +
+    `(malfunction triggered at ${dropSequence.malfunctionTriggerDistance} m out)`);
+
   /* ---- Back to where the run was, so the rest of the script still tests the
    * legs it was written to test: escape, the engine emergency, the return and
    * the landing. ---- */
