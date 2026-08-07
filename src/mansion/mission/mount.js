@@ -328,6 +328,12 @@ export function mountSilentSquatch({
         world.group.visible = false;
         world.close({ instant: true });
         showContents(false);
+        /* "Whatever's in here has been humming since the car." — the
+         * Prospect's own first line of the mission, and until the 2026-08-06
+         * SFX pass it was not true: `lab.case.hum()` existed, was fully
+         * authored as `silent.case.hum`, and nothing anywhere called it. It
+         * runs while the case is in his hands and stops the moment it is not. */
+        lab.case.hum?.(true);
         break;
       /* WHERE IT LANDS IS NOT WHERE IT IS CLICKED.
        *
@@ -343,11 +349,13 @@ export function mountSilentSquatch({
        * (`deskSpot`, `tableSpot`); the click target stays the fallback so a
        * scene that has not grown one yet still works. */
       case 'desk':
+        lab.case.hum?.(false);
         putCaseOn(targets.deskSpot ?? targets.desk, anchors?.officeDesk, {
           animate: true, from: handsPosition(),
         });
         break;
       case 'table':
+        lab.case.hum?.(false);
         putCaseOn(targets.tableSpot ?? targets.transferTable, lab.anchors?.transferTable, {
           animate: true, from: handsPosition(),
         });
@@ -372,6 +380,7 @@ export function mountSilentSquatch({
        * already exists for things that stop existing. */
       case 'stash': {
         placing = null;
+        lab.case.hum?.(false);
         const desk = worldPos(targets.deskSpot ?? targets.desk, anchors?.officeDesk);
         world.group.position.set(desk.x, Math.max(0.14, desk.y - 0.78), desk.z + 0.22);
         world.group.rotation.y = 0.22;
@@ -383,6 +392,7 @@ export function mountSilentSquatch({
       }
       case 'gone':
         placing = null;
+        lab.case.hum?.(false);
         world.group.visible = false;
         caseOwned = false;
         refreshCarried();
@@ -655,6 +665,9 @@ export function mountSilentSquatch({
       carried.update(dt);
       updatePlacing(dt);
       updateTurning(dt);
+      /* The hum travels with the man carrying it rather than staying where the
+       * case last sat. One panner move, no restart — see `AudioEngine.moveLoop`. */
+      if (caseOwned && audio?.moveLoop) audio.moveLoop('silent.case.hum', handsPosition());
       /* The world copy is NOT ticked here any more: it is `lab.case`, and
        * `SilentSquatch.js` already calls `caseObj.update(dt)` in its own
        * update. Ticking it twice would run its lid tween at double speed —

@@ -998,7 +998,26 @@ export function mountMansionCast(scene, world = {}, {
     npc.routeAt = 0;
     npc.job = 'patrol';
     npc.faceToward(through.x, through.z, true);
-    snowErrand = { stop, floorY, arrived: false };
+    snowErrand = { stop, floorY, arrived: false, foley: 0 };
+    /* ---- CLEANUP FOLEY (owner playtest: "the scene needs a proper SFX pass",
+     * and the last thing he named was cleanup foley).
+     *
+     * He pulls the gloves on at the bottom of the stairs and pushes the cart
+     * in, and the cart is a LOOP that travels with him — four hard castors,
+     * one with a flat spot, and a bucket of water in a frame. Authored in
+     * scenes/SilentSquatch.js's cue table with the rest of the scene's sound;
+     * played here because this module owns the man and the cart. */
+    audio?.play?.('silent.gloves.snap', {
+      volume: 0.6, position: npc.group.position.clone(), ref: 2, maxDist: 14,
+    });
+    audio?.startLoop?.('silent.cart.wheels', {
+      name: 'silent.cart.wheels',
+      volume: 0.42,
+      position: cart.position.clone(),
+      ref: 2.4,
+      maxDist: 18,
+      fade: 0.6,
+    });
     return true;
   }
 
@@ -1020,15 +1039,36 @@ export function mountMansionCast(scene, world = {}, {
     cartCollider.copy(box);
     cartCollider.min.y = snowErrand.floorY;
     cartCollider.max.y = Math.min(box.max.y, snowErrand.floorY + 1.05);
-    if (snowErrand.arrived) return;
-    if (Math.hypot(at.x - snowErrand.stop.x, at.z - snowErrand.stop.z) > 0.75) return;
-    /* He is there. Stop him and turn him at the glass, which is the thing he
-     * has been sent down to look at. */
-    snowErrand.arrived = true;
-    npc.route = null;
-    npc.job = 'work';
-    const glass = lab?.anchors?.glassDoor ?? snowErrand.stop;
-    npc.faceToward(glass.x, glass.z);
+    if (!snowErrand.arrived) {
+      /* The cart's own loop follows him rather than staying where it started;
+       * a wheel bed pinned to a spot is a wheel bed nobody believes.
+       * `moveLoop` is `AudioEngine`'s, added for exactly this. */
+      audio?.moveLoop('silent.cart.wheels', cart.position);
+      if (Math.hypot(at.x - snowErrand.stop.x, at.z - snowErrand.stop.z) > 0.75) return;
+      /* He is there. Stop him and turn him at the glass, which is the thing he
+       * has been sent down to look at. */
+      snowErrand.arrived = true;
+      npc.route = null;
+      npc.job = 'work';
+      const glass = lab?.anchors?.glassDoor ?? snowErrand.stop;
+      npc.faceToward(glass.x, glass.z);
+      /* Parked, and then he gets on with it: the liner into the hoop, the mop
+       * out of the wringer, and the mop on the floor for the rest of the
+       * night. Staggered, because a man does these one at a time. */
+      audio?.stopLoop?.('silent.cart.wheels', 0.4);
+      const at2 = cart.position.clone();
+      audio?.play?.('silent.cart.park', { volume: 0.6, position: at2, ref: 2, maxDist: 16 });
+      audio?.play?.('silent.bag.liner', { volume: 0.5, delay: 1.4, position: at2, ref: 2, maxDist: 14 });
+      audio?.play?.('silent.mop.wring', { volume: 0.55, delay: 3.0, position: at2, ref: 2, maxDist: 16 });
+      audio?.startLoop?.('silent.mop.floor', {
+        name: 'silent.mop.floor',
+        volume: 0.3,
+        position: at2,
+        ref: 2.4,
+        maxDist: 16,
+        fade: 1.6,
+      });
+    }
   }
 
   /* ================================================================ */

@@ -2938,6 +2938,84 @@ try {
     missingCues.length === 0 && cuePrompts.length === 0 && lab.cues.length >= 30,
     JSON.stringify({ missing: missingCues, thin: cuePrompts, total: lab.cues.length }));
 
+  /* ---- S13: THE SFX PASS, AND THE HALF OF IT THAT IS NOT A SOUND.
+   *
+   * Owner playtest, 2026-08-06: *"The scene needs a proper SFX pass."* He named
+   * four things — lab hums, core sounds, gunshots with room tone, cleanup
+   * foley — and all four are now authored cues with prompts and lengths.
+   *
+   * But the pass that mattered more is the one docs/RIGHT-FIRST-TIME.md had
+   * already written down and nobody had done: NOT ONE of this scene's sounds
+   * was in `assets/sfx/manifest.json`. They go through a local `sfx()` helper,
+   * so `check`'s `audio.play('literal')` scan could not see them; `npm run sfx`
+   * reads the manifest, so it could never render them; `audio:todo` reads the
+   * manifest, so they never reached the sheet the sound guy works from. Fifty
+   * fully-described sounds that no part of production could see.
+   *
+   * So this asserts BOTH halves: the four things he named exist as cues, and
+   * every cue this scene plays is in the manifest with the prompt the scene
+   * wrote for it. `npm run sfx:mansion` is what puts them there and
+   * `npm run check` now fails when they drift. */
+  {
+    const manifest = JSON.parse(
+      await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'),
+    );
+    const declared = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
+    const notInManifest = lab.cues.filter((name) => !declared.has(name));
+    const thin = lab.cues.filter((name) => (declared.get(name)?.prompt?.length ?? 0) < 40);
+    const noLength = lab.cues.filter((name) => !(declared.get(name)?.duration > 0));
+    /* The four the owner named, each by a cue that exists and is played. */
+    const PASS = {
+      'lab hums': ['silent.lab.hvac', 'silent.coolant.flow', 'silent.monitors.whine'],
+      'core sounds': ['silent.core.rings', 'silent.core.discharge', 'silent.core.roar'],
+      'gunshots with room tone': ['silent.gunshot.observation', 'silent.gunshot.tail',
+        'silent.shell.concrete', 'silent.body.concrete'],
+      'cleanup foley': ['silent.cart.wheels', 'silent.cart.park', 'silent.mop.wring',
+        'silent.mop.floor', 'silent.gloves.snap', 'silent.bag.liner'],
+    };
+    const shortfall = Object.entries(PASS)
+      .map(([what, names]) => [what, names.filter((n) => !lab.cues.includes(n))])
+      .filter(([, missing]) => missing.length)
+      .map(([what, missing]) => `${what}: ${missing.join(', ')}`);
+    check('the SFX pass exists as manifest cues, not as synth-only names the sound guy cannot see',
+      notInManifest.length === 0 && thin.length === 0 && noLength.length === 0
+        && shortfall.length === 0 && lab.cues.length >= 50,
+      [
+        notInManifest.length ? `not in the manifest: ${notInManifest.slice(0, 4).join(', ')}` : '',
+        thin.length ? `thin prompts: ${thin.slice(0, 3).join(', ')}` : '',
+        noLength.length ? `no length: ${noLength.slice(0, 3).join(', ')}` : '',
+        ...shortfall,
+      ].filter(Boolean).join(' | ')
+        || `${lab.cues.length} cues, every one in the manifest with a prompt and a length`);
+  }
+
+  /* ---- ...and every bed the scene starts is a bed it stops.
+   *
+   * A loop left running after the wall seats is a basement you can still hear
+   * from the wine cellar, which is the one thing beat 11's last stage
+   * direction is about — "the wall closes behind him and the lab is not
+   * audible". The 2026-08-06 SFX pass added four more beds to a function that
+   * had a hand-written stop list beside it, which is precisely the shape of
+   * thing that goes stale.
+   *
+   * READ OFF THE SOURCE rather than off a running AudioContext: whether
+   * headless Chromium gives this page a working audio device is not the
+   * subject, and a check that quietly passes when the engine did not start is
+   * the "gate that lies" pattern ENGINE-TRAPS #5 is about. */
+  {
+    const src = await fsp.readFile(
+      path.join(ROOT, 'src/mansion/scenes/SilentSquatch.js'), 'utf8',
+    );
+    const started = new Set([...src.matchAll(/\bloop\(\s*'(silent\.[a-z0-9.]+)'/g)].map((m) => m[1]));
+    for (const m of src.matchAll(/glassAudio\.loop\(\s*'(silent\.[a-z0-9.]+)'/g)) started.add(m[1]);
+    const stopBlock = src.slice(src.indexOf('function stopUnderworldAmbience'));
+    const stopList = stopBlock.slice(0, stopBlock.indexOf('}'));
+    const unstopped = [...started].filter((name) => !stopList.includes(`'${name}'`));
+    check('every looping bed the laboratory starts is one the closing wall stops',
+      unstopped.length === 0 && started.size >= 8,
+      unstopped.length ? `left running: ${unstopped.join(', ')}` : `${started.size} beds, all stopped`);
+  }
+
   /* ---- S5: NO CUE THIS SCENE PLAYS IS SOMEBODY ELSE'S LINE.
    *
    * Owner playtest, 2026-08-06: "one line plays with the wrong voice id."

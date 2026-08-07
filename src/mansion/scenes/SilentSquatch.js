@@ -133,44 +133,60 @@ export const LAB_CODE = '6969';
 /* ================================================================== */
 /* AUDIO CUES                                                          */
 /*                                                                      */
-/* Authored here, generated centrally. Nothing in this file writes to   */
-/* assets/sfx/manifest.json -- these are names plus the prompt that     */
-/* describes each one, exactly the shape core/weapons/audio.js uses for */
-/* its thirty `weapon.*` cues. Every one of them falls back to          */
-/* core/audio.js's procedural synth until a recording lands, so the     */
-/* scene plays today and gets better without a code change.             */
+/* `[name, prompt, seconds]`. Authored here, generated centrally.       */
+/* Nothing in this file writes to assets/sfx/manifest.json -- these are */
+/* names plus the prompt that describes each one, exactly the shape     */
+/* core/weapons/audio.js uses for its thirty `weapon.*` cues. Every one */
+/* of them falls back to core/audio.js's procedural synth until a       */
+/* recording lands, so the scene plays today and gets better without a  */
+/* code change.                                                          */
+/*                                                                       */
+/* `npm run sfx:mansion` PROMOTES THEM INTO THE MANIFEST, which is the    */
+/* half that was missing until 2026-08-06. docs/RIGHT-FIRST-TIME.md lists */
+/* it: "33 `silent.*` cues authored here that are not in the manifest --  */
+/* `npm run sfx` can never render them; invisible to `check` because they */
+/* go through a local `sfx()` helper." A cue that is not in the manifest  */
+/* is not a cue that is missing a recording. It is a cue that does not     */
+/* exist as far as the whole production pipeline is concerned: it cannot   */
+/* be generated, it cannot be commissioned, and it never appears on the    */
+/* sheet the sound guy works from.                                          */
+/*                                                                          */
+/* `loop` IS DERIVED FROM THE PROMPT, not authored twice: a prompt that      */
+/* opens with "Loop." describes a seamless bed and the manifest entry gets   */
+/* `loop: true`. One sentence, one fact, and a cue whose prompt says loop     */
+/* and whose manifest entry does not cannot exist.                            */
 /* ================================================================== */
 export const SILENT_SQUATCH_CUES = Object.freeze([
-  ['silent.bust.switch', 'A small concealed toggle under a marble plinth: a hard mechanical click with a metallic aftertaste, then a relay closing somewhere behind the wall.'],
-  ['silent.wall.mechanism', 'Two tonnes of decorated wall on hydraulic rails: a pressure release, a deep grinding shove backwards, a pause, then a long sideways rumble on steel rollers with the whole room resonating under it. Roughly six seconds.'],
-  ['silent.wall.seat', 'The same wall coming home: the sideways rumble reversed, a heavy seat, and the dead thump of masonry meeting masonry. Everything behind it goes silent on the last frame.'],
-  ['silent.stairwell.ambience', 'Loop. A dead concrete stairwell four metres underground: low air-handling rumble, distant water in a pipe, and the electrical hum of a run of old fluorescent ballasts. No music, no wind.'],
-  ['silent.fluorescent.buzz', 'Loop. One failing tube directly overhead: a 100 Hz ballast buzz with an irregular flutter and a faint tick as the starter tries and fails.'],
-  ['silent.drain.drip', 'Water finding a drainage channel: a single fat drop into a shallow trench, with a hard concrete slap and a short tail.'],
-  ['silent.door.open', 'A heavy glass-and-steel door sliding open on a rail: a pneumatic release, a smooth rolling travel, and a soft seat at the end. Substantial, not automatic-supermarket.'],
-  ['silent.door.seal', 'The same door closing and SEALING: the roll, then a rubber gasket compressing under real force and the air pressure changing on both sides of it.'],
-  ['silent.door.bolts', 'Four steel bolts driving into their sockets one after another, fast: solid, industrial, final. Ends on a relay and a single low tone.'],
-  ['silent.keypad.key', 'One key on a rubber-membrane industrial keypad. Dull press, faint electronic blip.'],
-  ['silent.keypad.accept', 'Two rising electronic tones and a lock relay letting go. Cold, not friendly.'],
-  ['silent.keypad.reject', 'A flat descending buzz, twice. The sound of a machine that does not care.'],
-  ['silent.drawer.open', 'A steel transfer drawer in a wall: a lock releasing, a heavy tray sliding out on runners, and a stop.'],
-  ['silent.drawer.through', 'The tray going the other way: motorised, slow, a seal closing behind it, and a muffled clunk arriving on the far side of the glass.'],
-  ['silent.core.hum', 'Loop. The Squatchanium core at rest: a deep steady electrical hum with a slow beating overtone, a faint metallic rotation under it, and coolant moving somewhere in the frame.'],
-  ['silent.core.build', 'Twenty seconds of the same hum building: pitch climbing, harmonics stacking, the rotation speeding up, and a low mechanical strain coming in underneath. Ends unresolved.'],
-  ['silent.core.roar', 'The completion: the build breaking into a deep mechanical roar, huge and metallic, then dropping back to a locked, steady, enormous hum.'],
-  ['silent.core.lock', 'Stabiliser rings locking: three heavy magnetic clunks in quick succession and a rising tone snapping off.'],
-  ['silent.alarm', 'Loop. An internal laboratory alarm: a slow two-tone industrial klaxon, unhurried, with a rotating-beacon motor whirring under it. Not a fire alarm and not a siren -- a protocol running.'],
-  ['silent.gas.release', 'Ceiling vents opening under pressure: a series of solenoid clacks, then a hard sustained release of gas into a sealed room.'],
-  ['silent.gas.hiss', 'Loop. Gas continuing to fill a sealed concrete room: broadband hiss with a slow pulsing pressure wave and the vents rattling faintly in their frames.'],
-  ['silent.glass.fist', 'A bare fist on 60 mm reinforced glass. Almost no ring: a heavy dull impact that goes straight into the frame, felt more than heard. Stays sharp even from the far side.'],
-  ['silent.glass.chair', 'A metal chair swung two-handed into that same glass. A huge dead impact, the chair frame ringing and buckling, and the pane not moving at all. Ends with the chair hitting the floor.'],
-  ['silent.choking', 'Loop. A distant bed of several people coughing and choking behind heavy glass: overlapping, ragged, thinning out over its length. Never comedic, never a single voice.'],
-  ['silent.equipment.crash', 'Glassware and a light steel trolley going over in a laboratory: a scattering smash and a long rolling tail.'],
-  ['silent.switch.cover', 'A red safety cover lifting on a stiff spring hinge: a plastic snap and a metallic detent holding it open.'],
-  ['silent.switch.pull', 'A big industrial lever pulled through its full travel: mechanical resistance, a heavy detent at the bottom, and a contactor slamming closed.'],
-  ['silent.monitor.turn', 'A wall of CRT monitors all changing state at once: a soft collective degauss thump and a wash of high-frequency line whine settling.'],
-  ['silent.chain.creak', 'Loop. A load-bearing chain on a ceiling hook with a man on the end of it: slow irregular creaks, links shifting, and the hook turning a few degrees at a time.'],
-  ['silent.case.hum', 'Loop. Close-up: the containment case. A low electrical hum with a faint vibration in the shell and an occasional high transient, like something inside changing state.'],
+  ['silent.bust.switch', 'A small concealed toggle under a marble plinth: a hard mechanical click with a metallic aftertaste, then a relay closing somewhere behind the wall.', 1.4],
+  ['silent.wall.mechanism', 'Two tonnes of decorated wall on hydraulic rails: a pressure release, a deep grinding shove backwards, a pause, then a long sideways rumble on steel rollers with the whole room resonating under it. Roughly six seconds.', 7.0],
+  ['silent.wall.seat', 'The same wall coming home: the sideways rumble reversed, a heavy seat, and the dead thump of masonry meeting masonry. Everything behind it goes silent on the last frame.', 5.0],
+  ['silent.stairwell.ambience', 'Loop. A dead concrete stairwell four metres underground: low air-handling rumble, distant water in a pipe, and the electrical hum of a run of old fluorescent ballasts. No music, no wind.', 12.0],
+  ['silent.fluorescent.buzz', 'Loop. One failing tube directly overhead: a 100 Hz ballast buzz with an irregular flutter and a faint tick as the starter tries and fails.', 10.0],
+  ['silent.drain.drip', 'Water finding a drainage channel: a single fat drop into a shallow trench, with a hard concrete slap and a short tail.', 1.6],
+  ['silent.door.open', 'A heavy glass-and-steel door sliding open on a rail: a pneumatic release, a smooth rolling travel, and a soft seat at the end. Substantial, not automatic-supermarket.', 3.0],
+  ['silent.door.seal', 'The same door closing and SEALING: the roll, then a rubber gasket compressing under real force and the air pressure changing on both sides of it.', 3.2],
+  ['silent.door.bolts', 'Four steel bolts driving into their sockets one after another, fast: solid, industrial, final. Ends on a relay and a single low tone.', 2.4],
+  ['silent.keypad.key', 'One key on a rubber-membrane industrial keypad. Dull press, faint electronic blip.', 0.5],
+  ['silent.keypad.accept', 'Two rising electronic tones and a lock relay letting go. Cold, not friendly.', 1.6],
+  ['silent.keypad.reject', 'A flat descending buzz, twice. The sound of a machine that does not care.', 1.2],
+  ['silent.drawer.open', 'A steel transfer drawer in a wall: a lock releasing, a heavy tray sliding out on runners, and a stop.', 2.2],
+  ['silent.drawer.through', 'The tray going the other way: motorised, slow, a seal closing behind it, and a muffled clunk arriving on the far side of the glass.', 3.4],
+  ['silent.core.hum', 'Loop. The Squatchanium core at rest: a deep steady electrical hum with a slow beating overtone, a faint metallic rotation under it, and coolant moving somewhere in the frame.', 12.0],
+  ['silent.core.build', 'Twenty seconds of the same hum building: pitch climbing, harmonics stacking, the rotation speeding up, and a low mechanical strain coming in underneath. Ends unresolved.', 20.0],
+  ['silent.core.roar', 'The completion: the build breaking into a deep mechanical roar, huge and metallic, then dropping back to a locked, steady, enormous hum.', 7.0],
+  ['silent.core.lock', 'Stabiliser rings locking: three heavy magnetic clunks in quick succession and a rising tone snapping off.', 2.0],
+  ['silent.alarm', 'Loop. An internal laboratory alarm: a slow two-tone industrial klaxon, unhurried, with a rotating-beacon motor whirring under it. Not a fire alarm and not a siren -- a protocol running.', 10.0],
+  ['silent.gas.release', 'Ceiling vents opening under pressure: a series of solenoid clacks, then a hard sustained release of gas into a sealed room.', 3.6],
+  ['silent.gas.hiss', 'Loop. Gas continuing to fill a sealed concrete room: broadband hiss with a slow pulsing pressure wave and the vents rattling faintly in their frames.', 12.0],
+  ['silent.glass.fist', 'A bare fist on 60 mm reinforced glass. Almost no ring: a heavy dull impact that goes straight into the frame, felt more than heard. Stays sharp even from the far side.', 1.2],
+  ['silent.glass.chair', 'A metal chair swung two-handed into that same glass. A huge dead impact, the chair frame ringing and buckling, and the pane not moving at all. Ends with the chair hitting the floor.', 2.6],
+  ['silent.choking', 'Loop. A distant bed of several people coughing and choking behind heavy glass: overlapping, ragged, thinning out over its length. Never comedic, never a single voice.', 12.0],
+  ['silent.equipment.crash', 'Glassware and a light steel trolley going over in a laboratory: a scattering smash and a long rolling tail.', 3.0],
+  ['silent.switch.cover', 'A red safety cover lifting on a stiff spring hinge: a plastic snap and a metallic detent holding it open.', 1.2],
+  ['silent.switch.pull', 'A big industrial lever pulled through its full travel: mechanical resistance, a heavy detent at the bottom, and a contactor slamming closed.', 1.6],
+  ['silent.monitor.turn', 'A wall of CRT monitors all changing state at once: a soft collective degauss thump and a wash of high-frequency line whine settling.', 2.4],
+  ['silent.chain.creak', 'Loop. A load-bearing chain on a ceiling hook with a man on the end of it: slow irregular creaks, links shifting, and the hook turning a few degrees at a time.', 12.0],
+  ['silent.case.hum', 'Loop. Close-up: the containment case. A low electrical hum with a faint vibration in the shell and an occasional high transient, like something inside changing state.', 10.0],
   /* THIS CUE EXISTS BECAUSE A LINE OF DIALOGUE WAS PLAYING HERE.
    *
    * Owner playtest, 2026-08-06: "one line plays with the wrong voice id". It
@@ -186,16 +202,73 @@ export const SILENT_SQUATCH_CUES = Object.freeze([
    * performance. The manifest is the thing that knows, and the check that now
    * holds this shut reads it: see `no cue this scene plays is somebody
    * else's line` in tools/verify-mansion.mjs. */
-  ['silent.case.latches', 'A heavy chrome flight case being opened on a steel table: two sprung catches letting go one after the other, a stiff hinge, and the lid coming up against its stops. Close, dry, expensive-sounding. No voice.'],
-  ['silent.container.lift', 'A dense metal cylinder lifted out of foam by two hands: the foam releasing, the mass shifting, and a soft magnetic detach.'],
-  ['silent.arc', 'A short gold electrical arc between two electrodes: a crack, a sizzle, and an ozone tail.'],
-  ['silent.voice.complete', 'A cold synthesised facility voice, no warmth, faintly accented by its own compression: "PROJECT SILENT SQUATCH. CORE COMPLETE."'],
-  ['silent.voice.protocol', 'The same voice: "SILENT NIGHT PROTOCOL ACTIVATED." Repeated once, flatly, over an alarm.'],
+  ['silent.case.latches', 'A heavy chrome flight case being opened on a steel table: two sprung catches letting go one after the other, a stiff hinge, and the lid coming up against its stops. Close, dry, expensive-sounding. No voice.', 1.8],
+  ['silent.container.lift', 'A dense metal cylinder lifted out of foam by two hands: the foam releasing, the mass shifting, and a soft magnetic detach.', 1.8],
+  ['silent.arc', 'A short gold electrical arc between two electrodes: a crack, a sizzle, and an ozone tail.', 1.2],
+  ['silent.voice.complete', 'A cold synthesised facility voice, no warmth, faintly accented by its own compression: "PROJECT SILENT SQUATCH. CORE COMPLETE."', 3.4],
+  ['silent.voice.protocol', 'The same voice: "SILENT NIGHT PROTOCOL ACTIVATED." Repeated once, flatly, over an alarm.', 4.0],
+
+  /* =================================================================== */
+  /* THE 2026-08-06 SFX PASS                                              */
+  /*                                                                       */
+  /* Owner playtest: *"The scene needs a proper SFX pass."* Named by him:   */
+  /* lab hums, core sounds, gunshots with room tone, cleanup foley. Every   */
+  /* one below is a cue with a prompt and a length, in the manifest, with a */
+  /* procedural fallback until the sound guy renders it -- and every one is */
+  /* PLAYED by something in this file, because a cue nobody triggers is a   */
+  /* line item on a recording sheet that will never be heard.               */
+  /* =================================================================== */
+
+  /* ---- the room itself. Three beds under everything down here, all of
+   * them the sound of a building doing work nobody asked it to do. */
+  ['silent.lab.hvac', 'Loop. The laboratory\'s own air handling from inside the sealed room: a big slow plant fan through ductwork, a steady pressure hiss at the diffusers, and a subsonic thrum you feel more than hear. Clean and clinical, no rattles -- this room is maintained.', 12.0],
+  ['silent.coolant.flow', 'Loop. Coolant moving through pipework at the core: liquid under pressure in a 50 mm line, a faint chatter at a bend, and the occasional slug of vapour going through. Close, wet, metallic.', 10.0],
+  ['silent.monitors.whine', 'Loop. A wall of CRT monitors at close range: the 15 kHz line whine of six of them slightly out of tune with each other, plus a low mains hum from the console bank under them. Thin, electrical, and slightly unpleasant to stand next to.', 10.0],
+
+  /* ---- the core. `build`/`roar`/`lock` already exist; these two are the
+   * texture between them and the one thing it does when nobody is looking. */
+  ['silent.core.rings', 'Loop. Three magnetic stabiliser rings turning around a core at speed: a smooth heavy rotation with a beating overtone as the rings pass each other, and a bearing note underneath. Enormous and completely even -- nothing here is straining.', 10.0],
+  ['silent.core.discharge', 'The core shedding energy it does not need: a deep dry crack, an arc rolling away into the ductwork, and the hum dropping a tone and coming back. Once, unhurried, like a machine clearing its throat.', 3.0],
+
+  /* ---- the execution. Owner's own words: "gunshots with room tone". The
+   * weapon system has its own report; this is what the ROOM does with it. */
+  ['silent.gunshot.observation', 'A 9 mm pistol fired once in a low concrete observation room with a glass wall down one side: a hard flat crack, an immediate slap off the glass, and a tail that goes into the ductwork and dies in about a second and a half. Loud, dry and small -- there is nowhere for it to go.', 2.4],
+  ['silent.gunshot.tail', 'What is left in the room a second after that shot: the ring in both ears, a plate rattling somewhere in the ceiling, and the hum of the machinery coming back up underneath it as your hearing returns.', 4.0],
+  ['silent.shell.concrete', 'A single 9 mm brass case landing on a painted concrete floor and coming to rest: a bright first tick, three quick lighter ones, and a short roll.', 1.6],
+  ['silent.body.concrete', 'A grown man in a lab coat going down onto concrete, unbraced: a heavy soft impact with no cushion in it, the flat knock of a skull following a fraction later, and cloth settling.', 2.0],
+  ['silent.blood.spatter', 'Something wet hitting a hard floor from height: a short scatter of fat droplets across concrete, with no splash and no ring. Understated -- this is a texture, not a gore effect.', 1.2],
+
+  /* ---- cleanup foley. Snow, with the cart Booski told him to bring. */
+  ['silent.cart.wheels', 'Loop. An industrial janitor cart being pushed across painted concrete: four small hard castors, one of them with a flat spot, a mop bucket of water slopping in its frame, and bottles knocking together on the shelf.', 8.0],
+  ['silent.cart.park', 'The same cart stopping: the castors dropping into stillness, the water in the bucket sloshing forward and settling, and the push bar taking the weight as somebody lets go of it.', 2.6],
+  ['silent.mop.wring', 'A mop head going into a wringer and being worked twice: the metal frame taking the load, water forced out in two hard bursts, and the handle knocking the rim of the bucket.', 2.8],
+  ['silent.mop.floor', 'Loop. A wet mop head worked across concrete in long strokes: the drag of soaked cotton, water spreading and being pushed back, and the handle pivoting in a gloved hand.', 8.0],
+  ['silent.gloves.snap', 'A pair of heavy rubber gloves pulled on and snapped at the wrists, twice. Close, dry, and unpleasantly brisk.', 1.6],
+  ['silent.bag.liner', 'A heavy-gauge polythene liner shaken open and pulled down over a hoop frame: one loud snap of air and a long rustle.', 2.4],
 ]);
 
 /** Just the names, for `audio.loadManifest({ names })`. */
 export function silentSquatchCueNames() {
   return SILENT_SQUATCH_CUES.map(([name]) => name);
+}
+
+/**
+ * The same cues in the shape `assets/sfx/manifest.json` wants them.
+ *
+ * `tools/mansion-sfx.mjs` is the only caller: it merges these into the
+ * manifest so `npm run sfx` can render them and so they reach the recording
+ * sheets. Nothing in this module writes a manifest.
+ *
+ * `loop` is DERIVED from the prompt — a bed whose prompt opens with "Loop."
+ * is a bed — so the two can never disagree.
+ */
+export function silentSquatchManifestCues() {
+  return SILENT_SQUATCH_CUES.map(([name, prompt, seconds]) => {
+    const cue = { name, duration: seconds };
+    if (/^Loop\./.test(prompt)) cue.loop = true;
+    cue.prompt = prompt;
+    return cue;
+  });
 }
 
 /* ================================================================== */
@@ -4272,6 +4345,27 @@ export function buildSilentSquatch({
   function bleed(fig, figScale, from = null) {
     const kit = bloodPool();
     const body = fig.group.position;
+    /* THE ROOM'S HALF OF THE SHOT (owner playtest: "gunshots with room tone").
+     * The weapon system owns the report at the muzzle; this is the crack
+     * coming back off twelve centimetres of glass, the case landing, the man
+     * landing, and the ring that is left when it has all stopped. Positioned
+     * on the body rather than on the player so it pans across as he falls. */
+    const heard = new THREE.Vector3(body.x, LAB_Y + 1.3, body.z);
+    sfx('silent.gunshot.observation', {
+      volume: 0.95, position: heard, ref: 4, maxDist: 40,
+    });
+    sfx('silent.shell.concrete', {
+      volume: 0.5, delay: 0.35, position: heard, ref: 2, maxDist: 14,
+    });
+    sfx('silent.body.concrete', {
+      volume: 0.8, delay: 0.85, position: heard, ref: 3, maxDist: 22,
+    });
+    sfx('silent.blood.spatter', {
+      volume: 0.45, delay: 1.0, position: heard, ref: 2, maxDist: 12,
+    });
+    sfx('silent.gunshot.tail', {
+      volume: 0.55, delay: 0.2, position: heard, ref: 6, maxDist: 40,
+    });
     const chestY = body.y + 1.28 * figScale;
     const toward = new THREE.Vector3(
       (from?.x ?? body.x) - body.x, 0, (from?.z ?? body.z + 1) - body.z,
@@ -4544,6 +4638,11 @@ export function buildSilentSquatch({
    * and stopped when it seats, which is also the spec's "lab sound cuts to
    * nothing" on the way out. */
   let ambienceOn = false;
+  /* The two clocks the 2026-08-06 SFX pass runs: the drain in the
+   * interrogation corridor and the core clearing its throat. Both irregular
+   * on purpose -- a drip on a fixed interval is a metronome. */
+  let dripT = 2.5;
+  let dischargeT = 24;
   function startUnderworldAmbience() {
     if (ambienceOn) return;
     ambienceOn = true;
@@ -4579,6 +4678,51 @@ export function buildSilentSquatch({
       ambience: true,
       fade: 2.6,
     });
+    /* ---- THE 2026-08-06 SFX PASS: the room's own beds.
+     *
+     * Owner playtest: "the scene needs a proper SFX pass", and the first thing
+     * he named was lab hums. Four beds under a stairwell buzz and a core hum
+     * is not four sounds playing at once — each one is somewhere, with its own
+     * rolloff, so walking from the stairwell to the glass is a walk through a
+     * building rather than a crossfade between two rooms. */
+    loop('silent.lab.hvac', {
+      name: 'silent.lab.hvac',
+      volume: 0.18,
+      position: new THREE.Vector3(CORE_AT.x, LAB_CEIL - 0.5, SEALED_LAB.z0 + 2.0),
+      ref: 5,
+      maxDist: 30,
+      ambience: true,
+      fade: 3.0,
+    });
+    loop('silent.coolant.flow', {
+      name: 'silent.coolant.flow',
+      volume: 0.16,
+      position: new THREE.Vector3(CORE_AT.x - 2.4, LAB_Y + 1.1, CORE_AT.z + 1.4),
+      ref: 2.4,
+      maxDist: 16,
+      ambience: true,
+      fade: 2.0,
+    });
+    loop('silent.core.rings', {
+      name: 'silent.core.rings',
+      volume: 0.2,
+      position: new THREE.Vector3(CORE_AT.x, LAB_Y + 1.4, CORE_AT.z),
+      ref: 3,
+      maxDist: 26,
+      ambience: true,
+      fade: 2.6,
+    });
+    /* At the console bank, on the OBSERVATION side — six CRTs you have to
+     * stand next to for the whole of beats 5 to 7. */
+    loop('silent.monitors.whine', {
+      name: 'silent.monitors.whine',
+      volume: 0.12,
+      position: new THREE.Vector3(CORE_AT.x, LAB_Y + 1.5, GLASS_WALL.z1 + 1.4),
+      ref: 2.2,
+      maxDist: 12,
+      ambience: true,
+      fade: 1.8,
+    });
   }
   function stopUnderworldAmbience() {
     if (!ambienceOn) return;
@@ -4587,6 +4731,15 @@ export function buildSilentSquatch({
       'silent.stairwell.ambience', 'silent.fluorescent.buzz',
       'silent.chain.creak', 'silent.core.hum', 'silent.gas.hiss',
       'silent.choking', 'silent.alarm',
+      /* The 2026-08-06 pass. Every bed this module starts is stopped here:
+       * the wall closing is supposed to take the basement's noise with it. */
+      'silent.lab.hvac', 'silent.coolant.flow', 'silent.core.rings',
+      'silent.monitors.whine', 'silent.cart.wheels', 'silent.mop.floor',
+      /* The case's own hum belongs to whoever is carrying it rather than to
+       * this room, and by the time the wall seats it has gone through the
+       * drawer — but a bed this module can start is a bed this module stops,
+       * with no exceptions, or the list is a list of most of them. */
+      'silent.case.hum',
     ]) stop(k, 0.5);
   }
 
@@ -4777,7 +4930,24 @@ export function buildSilentSquatch({
         volume: 0.85, delay: 1.6, position: at, ref: 4, maxDist: 30,
       });
       glassAudio.play('silent.voice.complete', { volume: 0.8, delay: 2.4 });
+      /* And then the thing it does when nobody is looking at it. The 2026-08-06
+       * SFX pass: the completion used to end on the annunciator and leave the
+       * machine sitting there in a hum, which is a machine that has stopped. */
+      glassAudio.play('silent.core.discharge', {
+        volume: 0.7, delay: 5.2, position: at, ref: 4, maxDist: 30,
+      });
       monitors.setPurple();
+      return true;
+    },
+    /** The same crack, on demand: the core clearing its throat while the six
+     * are still working. Driven from the update loop's own slow clock. */
+    discharge() {
+      glassAudio.play('silent.core.discharge', {
+        volume: 0.55,
+        position: new THREE.Vector3(CORE_AT.x, LAB_Y + 1.7, CORE_AT.z),
+        ref: 4,
+        maxDist: 30,
+      });
       return true;
     },
   };
@@ -4828,6 +4998,18 @@ export function buildSilentSquatch({
       });
       glassAudio.loop('silent.gas.hiss', {
         name: 'silent.gas.hiss', volume: 0.3, position: at, ref: 5, maxDist: 36, fade: 1.4, path: 'distant',
+      });
+      /* AND THE ROOM COMING APART. `silent.equipment.crash` has been authored
+       * with a prompt since the scene was built and was never once played --
+       * five people going for a door they cannot open take a trolley of
+       * glassware with them, and until the 2026-08-06 SFX pass the only thing
+       * you heard through the glass was voices. */
+      glassAudio.distant('silent.equipment.crash', {
+        volume: 0.7,
+        delay: 4.5,
+        position: new THREE.Vector3(CORE_AT.x + 2.4, LAB_Y + 0.9, CORE_AT.z),
+        ref: 4,
+        maxDist: 30,
       });
       return true;
     },
@@ -5077,6 +5259,33 @@ export function buildSilentSquatch({
       const fall = (time * 0.32) % 1;
       xxx.drip.position.y = THREE.MathUtils.lerp(LAB_Y + 0.5, LAB_FLOOR + 0.03, fall);
       xxx.drip.visible = fall < 0.94;
+    }
+
+    /* ---- THE 2026-08-06 SFX PASS: the two one-shots that live on a clock.
+     *
+     * `silent.drain.drip` had a prompt and a name and had never been played by
+     * anything — a corridor with a drain every three metres, which Irish makes
+     * a speech about, and nothing coming out of any of them. It lands in the
+     * gulley on its own irregular clock; the core cracks on a much slower one.
+     * Both only while the basement is open, so a shut wall is silent. */
+    if (ambienceOn) {
+      dripT -= dt;
+      if (dripT <= 0) {
+        dripT = 3.2 + Math.random() * 5.5;
+        sfx('silent.drain.drip', {
+          volume: 0.32,
+          position: new THREE.Vector3(
+            INTERROGATION.x0 + 1.2, LAB_FLOOR, 52.0 + (Math.random() - 0.5) * 3,
+          ),
+          ref: 2,
+          maxDist: 14,
+        });
+      }
+      dischargeT -= dt;
+      if (dischargeT <= 0) {
+        dischargeT = 26 + Math.random() * 22;
+        coreApi.discharge();
+      }
     }
 
     /* ---- the core. */

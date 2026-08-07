@@ -353,6 +353,21 @@ try {
     }
   }
 
+  /* PROJECT SILENT SQUATCH's SOUND EFFECTS, which are a catalog in exactly the
+   * way the voice catalogs above are and were invisible to every one of these
+   * checks until 2026-08-06. They go through a local `sfx()` helper, so the
+   * `audio.play('literal')` scan cannot see them either — thirty-five fully
+   * described sounds that `npm run sfx` could never render because they were
+   * not in the manifest. docs/RIGHT-FIRST-TIME.md lists this by name. */
+  {
+    const { checkMansionSfxManifest } = await import('./mansion-sfx.mjs');
+    const drift = checkMansionSfxManifest(sfxManifest);
+    if (drift.length) {
+      fail(`PROJECT SILENT SQUATCH sound catalog drift: ${drift.length} problem(s) `
+        + `(first: ${drift[0]}). Run \`npm run sfx:mansion\`.`);
+    }
+  }
+
   /* The inbox names its group in data rather than at the call site, so the
    * scan above cannot see it. Same failure either way: a renamed bank is a
    * reply he never gives, and nothing anywhere says so. */
