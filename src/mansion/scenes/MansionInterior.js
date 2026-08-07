@@ -6336,7 +6336,23 @@ export function buildMansionInterior(shell = null) {
       root.add(box({
         size: [0.18, 0.26, 0.18], pos: [sx - 0.45, SY + 0.61, sz + 1.6], mat: M_GLASS_CASE, cast: false, name: 'suite-decanter',
       }));
-      makeFancyChair(sx - 2.5, SY, sz + 1.6, Math.PI / 2 - 0.25, M_SUITE_VELVET_DK, { backH: 0.86, tag: 'suite-chair' });
+      /* THE WEST CHAIR IS NOT 2.5 M OFF THE TABLE LIKE ITS PARTNER.
+       *
+       * Owner playtest 2026-08-06: "the suite wet bar has a seat going
+       * through it." Measured on the built scene: at `sx - 2.5` (x -7.4) this
+       * chair's own collider (`makeFancyChair`'s fixed 0.56 m footprint, x
+       * -7.68..-7.12) overlapped `suite-bar-counter`'s (x -8.85..-7.35 --
+       * the wet bar is built against this room's west wall, r.x0) by
+       * 330 mm, and its cushion clipped the counter's own onyx body the same
+       * way. The east chair, mirrored the same 2.5 m off the table, has nine
+       * metres of open floor on ITS side and was never the problem -- only
+       * the west one backs onto the bar.
+       *
+       * Pulled in to 1.7 m off the table instead of 2.5: its collider now
+       * runs -6.88..-6.32, 350 mm clear of the bar counter's face and
+       * 570 mm short of the low table, both comfortably inside a seating
+       * group without touching either piece it sits between. */
+      makeFancyChair(sx - 1.7, SY, sz + 1.6, Math.PI / 2 - 0.25, M_SUITE_VELVET_DK, { backH: 0.86, tag: 'suite-chair' });
       makeFancyChair(sx + 2.5, SY, sz + 1.6, -Math.PI / 2 + 0.25, M_SUITE_VELVET_DK, { backH: 0.86, tag: 'suite-chair' });
       /* An urn in the north-west corner rather than a palm. `makePlant`'s
        * fronds are five anonymous spheres splayed off a trunk, and the audit
