@@ -172,7 +172,8 @@ class BankHeistStory {
       done.outcome = BANK_HEIST_OUTCOMES.includes(report.outcome)
         ? report.outcome : inferredOutcome(done);
       state.story.chapter = 'post_heist';
-      state.missions[MISSION_IDS.INITIATION].status = 'available';
+      state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
+      state.missions[MISSION_IDS.INITIATION].status = 'locked';
     }, { required: true });
     return true;
   }

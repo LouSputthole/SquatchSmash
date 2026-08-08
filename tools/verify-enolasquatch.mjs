@@ -72,7 +72,8 @@ const browser = await chromium.launch({
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: [
-    '--use-gl=swiftshader',
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
   ],
@@ -100,7 +101,7 @@ try {
    * nothing about the mission. Ninety seconds costs nothing when the page is
    * quick and is the difference between a red run and a real one when it is
    * not. */
-  await page.goto(`http://localhost:${PORT}/enolasquatch.html`, { waitUntil: 'load', timeout: 90000 });
+  await page.goto(`http://localhost:${PORT}/enolasquatch.html?preview=1`, { waitUntil: 'load', timeout: 90000 });
   await page.waitForFunction(() => window.__squatch?.enolaSquatch === true, null, { timeout: 90000 });
   check('the page boots and signals the watchdog', true);
 
@@ -145,6 +146,24 @@ try {
     postfxBoot.present && postfxBoot.enabled && postfxBoot.hasComposer && postfxBoot.hasBloom
       && postfxBoot.strength === 0.25 && postfxBoot.threshold === 1.18 && postfxBoot.manual === false,
     JSON.stringify(postfxBoot));
+
+  const terrainCoverage = await page.evaluate(() => {
+    const ground = window.__enolaSquatch.eastGround;
+    ground.geometry.computeBoundingBox();
+    return {
+      name: ground.name,
+      minX: ground.position.x + ground.geometry.boundingBox.min.x,
+      maxX: ground.position.x + ground.geometry.boundingBox.max.x,
+      safetyBoundaryX: 13400,
+      scatter: window.__enolaSquatch.scene.getObjectByName('eastbound terrain scatter')?.count ?? 0,
+    };
+  });
+  check('the eastbound terrain continues beyond the target and the mission boundary, with no visible map edge on the bomb break',
+    terrainCoverage.name === 'eastbound terrain ground'
+      && terrainCoverage.minX <= -1400 && terrainCoverage.maxX >= 14500
+      && terrainCoverage.maxX > terrainCoverage.safetyBoundaryX
+      && terrainCoverage.scatter >= 600,
+    JSON.stringify(terrainCoverage));
 
   /* ---- Audio residency: startAudio() fires audio.loadManifest() in the
    * background rather than awaiting it (see main.js's own comment on why),
@@ -206,6 +225,63 @@ try {
     crewOnApron.count === 4 && !crewOnApron.aboard && crewOnApron.inScene && crewOnApron.near
       && crewOnApron.sasoleIsPilot && crewOnApron.noBigLou,
     JSON.stringify(crewOnApron));
+
+  /* ---- The pilot can see out, and the four nose propellers stay outboard ----
+   * This is measured from the built browser scene rather than inferred from
+   * the constructor constants.  The eye has to sit above the panel, inside
+   * the windshield's vertical band, with the glass ahead of it; the nearest
+   * propeller hub must remain well outside the forward centreline. */
+  const cockpitSightline = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const a = h.aircraft;
+    const V = h.physics.position.constructor;
+    a.group.updateMatrixWorld(true);
+    const bounds = (o) => {
+      o.geometry.computeBoundingBox();
+      const b = o.geometry.boundingBox;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      let centre = new V();
+      for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
+        const p = new V(x, y, z).applyMatrix4(o.matrixWorld);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+        centre.add(p);
+      }
+      centre.multiplyScalar(1 / 8);
+      return { minY, maxY, centre };
+    };
+    const panel = a.parts.cockpit.children.find((o) => {
+      const p = o.geometry?.parameters;
+      return o.isMesh && Math.abs((p?.width ?? 0) - 2.3) < 0.01
+        && Math.abs((p?.height ?? 0) - 0.95) < 0.01
+        && Math.abs((p?.depth ?? 0) - 0.12) < 0.01;
+    });
+    const eye = a.pilotEye.clone().applyMatrix4(a.group.matrixWorld);
+    const nose = new V(0, 0, 1).transformDirection(a.group.matrixWorld);
+    const panelBox = panel ? bounds(panel) : null;
+    const windshieldBox = bounds(a.parts.windshield);
+    const propOffsets = a.parts.prop.map((p) => Math.abs(p.position.x - a.pilotEye.x));
+    return {
+      panelFound: !!panel,
+      eyeY: eye.y,
+      panelTop: panelBox?.maxY ?? Infinity,
+      windshieldMinY: windshieldBox.minY,
+      windshieldMaxY: windshieldBox.maxY,
+      glassAhead: windshieldBox.centre.clone().sub(eye).dot(nose),
+      nearestPropOffset: Math.min(...propOffsets),
+      propCount: propOffsets.length,
+    };
+  });
+  check('the seated pilot eye clears the panel, falls inside the windshield and has no nose propeller on the forward centreline',
+    cockpitSightline.panelFound
+      && cockpitSightline.eyeY > cockpitSightline.panelTop + 0.08
+      && cockpitSightline.eyeY > cockpitSightline.windshieldMinY
+      && cockpitSightline.eyeY < cockpitSightline.windshieldMaxY
+      && cockpitSightline.glassAhead > 0.5
+      && cockpitSightline.propCount === 4
+      && cockpitSightline.nearestPropOffset > 5,
+    JSON.stringify(cockpitSightline));
 
   /* ---- The club crest, on the aeroplane and on the bomb ----
    * Owner: "Aircraft is nice. Needs Squatch logo." + "Squatch logo on the bomb
@@ -317,6 +393,7 @@ try {
   const walkaround = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     const log = [];
+    let firstMiss = null;
     let guard = 0;
     while (!h.preflight.complete && guard++ < 40) {
       const at = h.standAtNextCheck(2.0);
@@ -330,6 +407,67 @@ try {
       const target = h.interaction.current;
       const desc = target?.userData?.interact;
       const label = desc ? (typeof desc.label === 'function' ? desc.label() : desc.label) : null;
+      if (!target && !firstMiss) {
+        /* A reachability failure is otherwise just "prompted:false", which
+         * cannot tell a bad authored proxy from a bad camera pose or a stale
+         * scene graph. Capture the exact ray the real interaction system just
+         * used, plus both the matrices it saw and the bounds implied by the
+         * objects' local transforms. This is diagnostic evidence only: it
+         * never updates an Object3D matrix or changes the player's pose. */
+        const expected = h.preflight.markerTarget();
+        const ray = h.interaction.raycaster.ray;
+        const authoredWorld = (object) => {
+          const chain = [];
+          for (let o = object; o; o = o.parent) chain.push(o);
+          const matrix = new object.matrixWorld.constructor().identity();
+          for (let i = chain.length - 1; i >= 0; i--) {
+            const o = chain[i];
+            const local = new object.matrixWorld.constructor()
+              .compose(o.position, o.quaternion, o.scale);
+            matrix.multiply(local);
+          }
+          return matrix;
+        };
+        const boundsFor = (matrixOf) => {
+          let bounds = null;
+          expected?.traverse?.((o) => {
+            if (!o.isMesh || !o.geometry) return;
+            if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+            const box = o.geometry.boundingBox?.clone();
+            if (!box) return;
+            box.applyMatrix4(matrixOf(o));
+            if (bounds) bounds.union(box); else bounds = box;
+          });
+          return bounds ? {
+            min: bounds.min.toArray().map((n) => +n.toFixed(3)),
+            max: bounds.max.toArray().map((n) => +n.toFixed(3)),
+          } : null;
+        };
+        const nearest = h.interaction.raycaster
+          .intersectObjects(h.interaction.targets, true)
+          .slice(0, 5)
+          .map((hit) => ({
+            distance: +hit.distance.toFixed(3),
+            object: hit.object.name || hit.object.type,
+            owner: h.interaction._ownerOf(hit.object)?.name || null,
+            point: hit.point.toArray().map((n) => +n.toFixed(3)),
+          }));
+        const anchor = h.preflight.markerAnchor(new h.camera.position.constructor());
+        const aim = anchor?.clone().sub(ray.origin).normalize();
+        firstMiss = {
+          check: at.name,
+          stand: at.stand,
+          player: h.player.position.toArray().map((n) => +n.toFixed(3)),
+          camera: h.camera.position.toArray().map((n) => +n.toFixed(3)),
+          rayOrigin: ray.origin.toArray().map((n) => +n.toFixed(3)),
+          rayDirection: ray.direction.toArray().map((n) => +n.toFixed(5)),
+          markerAnchor: anchor?.toArray().map((n) => +n.toFixed(3)) ?? null,
+          aimDot: aim ? +aim.dot(ray.direction).toFixed(6) : null,
+          staleBounds: boundsFor((o) => o.matrixWorld),
+          authoredBounds: boundsFor(authoredWorld),
+          nearest,
+        };
+      }
       // Hold long enough to satisfy the longest hold in the walk (1.0 s).
       h.pressE(1.3);
       log.push({
@@ -359,6 +497,7 @@ try {
         'bayDone', 'payloadDone', 'tailDone', 'surfacesDone',
       ].map((k) => [k, h.dialogue.seen(`preflight.sasole.${k}`)])),
       phase: h.mission.phase,
+      firstMiss,
     };
   });
   check('every walkaround check is reachable on foot and completes through the real interaction system',
@@ -368,7 +507,8 @@ try {
        * payload, tail, surfaces). More than that means the crosshair had to be
        * re-aimed, i.e. something is only reachable by luck. */
       && walkaround.log.length === 10,
-    JSON.stringify({ complete: walkaround.complete, tasks: walkaround.tasks, log: walkaround.log }));
+    JSON.stringify({ complete: walkaround.complete, tasks: walkaround.tasks, log: walkaround.log,
+      firstMiss: walkaround.firstMiss }));
 
   check('the walkaround fires the four crew beats that used to play at nobody from the left seat',
     walkaround.seen.numbskull && walkaround.seen.restraints
@@ -770,18 +910,28 @@ try {
     h.input.throttle = 1;
     h.tick(8);
     h.input.key('KeyW', false);
+    const musicKeys = [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.'));
+    const anthem = h.audio.engine.loops.get('music.takeoff');
     return {
       phaseAtStart,
       thrustL: h.physics.thrustL,
       thrustR: h.physics.thrustR,
       ias: h.physics.ias,
       groundSpeed: h.physics.groundSpeed,
+      musicKeys,
+      anthem: anthem ? { volume: anthem.volume, loop: anthem.element.loop } : null,
+      anthemOptions: h.audio.takeoffAnthemOptions,
     };
   });
   check('go("takeoff") stages the runway, and all four engines produce real thrust under full power',
     takeoff.phaseAtStart === 'takeoff' && takeoff.thrustL > 1000 && takeoff.thrustR > 1000
       && (takeoff.ias > 5 || takeoff.groundSpeed > 5),
     JSON.stringify(takeoff));
+  check('Fortunate Son has one owner, plays once at 13% lower volume, and fades at 2:30',
+    takeoff.musicKeys.length === 1 && takeoff.musicKeys[0] === 'music.takeoff'
+      && takeoff.anthem?.volume === 0.435 && takeoff.anthem.loop === false
+      && takeoff.anthemOptions?.cutAt === 150 && takeoff.anthemOptions?.cutFade === 4,
+    JSON.stringify({ keys: takeoff.musicKeys, anthem: takeoff.anthem, options: takeoff.anthemOptions }));
 
   /* Shortcut: an unassisted headless takeoff roll/rotation is a flight-model
    * timing question (already covered by `npm run check:flight`'s tuning
@@ -808,9 +958,72 @@ try {
   });
   check('holding 090 for real transitions climbTurn into cruise', cruiseEntry === 'cruise', cruiseEntry);
 
+  /* ---- The camera hint: the owner's requested twenty-seconds-after-takeoff
+   * reminder must be a real visible control, and using the control must both
+   * change the view and dismiss the reminder. `state().cameraTip` is painted
+   * from the live DOM node, so this is evidence of presentation rather than a
+   * source-string check. The one-second steps keep the mission deterministic;
+   * the flight model itself advances on its fixed-step cap. ---- */
+  const cameraHint = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.go('cruise');
+    let shownAt = null;
+    for (let i = 1; i <= 24; i++) {
+      h.tick(1);
+      const tip = h.state().cameraTip;
+      if (tip.visible) { shownAt = tip.flying; break; }
+    }
+    const before = h.state();
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', bubbles: true }));
+    const after = h.state();
+    h.cameras.setView('cockpit');
+    h.go('cruise');
+    return {
+      shownAt,
+      text: document.getElementById('enola-camera-tip')?.textContent || '',
+      before: { view: before.camera.view, ...before.cameraTip },
+      after: { view: after.camera.view, ...after.cameraTip },
+    };
+  });
+  check('twenty seconds into real flight, the HUD visibly flashes the C camera instruction',
+    cameraHint.shownAt !== null && cameraHint.shownAt >= 20 && cameraHint.shownAt <= 21
+      && cameraHint.before.visible && cameraHint.before.opacity > 0
+      && /C.*CHANGE THE CAMERA VIEW/i.test(cameraHint.text),
+    JSON.stringify(cameraHint));
+  check('pressing C changes the camera and dismisses the hint for the rest of the flight',
+    cameraHint.after.view !== cameraHint.before.view
+      && cameraHint.after.done && !cameraHint.after.visible,
+    JSON.stringify(cameraHint));
+
+  const earlyTurn = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.go('climbTurn');
+    /* Start just shy of the radial fallback. During the 2.5 s heading hold the
+     * aeroplane crosses that fallback but remains west of detection, so this
+     * isolates climb-turn progression instead of immediately testing the
+     * next phase too. */
+    const x = 1900;
+    const z = -1500;
+    h.physics.setPose({ x, y: h.groundHeight(x, z) + 340, z }, 90, 62);
+    h.tick(3.2);
+    return {
+      phase: h.mission.phase,
+      turnCalled: h.mission.flags.turnCalled,
+      onCourseSeconds: h.mission._onCourseT,
+    };
+  });
+  check('an early turn onto 090 clears the climb instruction instead of soft-locking on the missed z line',
+    earlyTurn.phase === 'cruise' && earlyTurn.turnCalled,
+    JSON.stringify(earlyTurn));
+
   /* ---- Cruise: a real nav-correction bark when off-heading. ---- */
   const navBark = await page.evaluate(() => {
     const h = window.__enolaSquatch;
+    /* The early-turn check intentionally rewinds a phase. Restore the real
+     * turn-on-course checkpoint so this assertion exercises updateCruise,
+     * not whichever later phase its preceding simulation reached. */
+    h.go('cruise');
     /* Heading 130 with a 090 corridor. This airframe's nose is +Z, so the
      * pilot's left is +X and headings count round toward +X — a RISING heading
      * is a LEFT turn. Sitting at 130 the aeroplane has already gone too far
@@ -958,6 +1171,13 @@ try {
       h.input.key('KeyD', false);
     }
     const jinked = d.trackQuality;
+    /* One controlled spent puff: the visual should leave a black flower, then
+     * recycle before it becomes a stationary circle left in the sky. */
+    const quietPoint = h.physics.position.clone().add({ x: 0, y: 400, z: 0 });
+    d._burst(quietPoint, h.physics.position);
+    const puffsBeforeRecycle = d._activeFlak.length;
+    d._updateFlak(6);
+    const puffsAfterSixSeconds = d._activeFlak.length;
     void heading;
     return {
       batteries: d.batteries.length,
@@ -971,6 +1191,8 @@ try {
       jinked: +jinked.toFixed(2),
       intensity: +d.intensity.toFixed(2),
       liveFire: d.liveFire,
+      puffsBeforeRecycle,
+      puffsAfterSixSeconds,
       cost: {
         wing: +(h.physics.damage.wing - costBefore.wing).toFixed(4),
         hits: d.hitCount - costBefore.hits,
@@ -990,6 +1212,10 @@ try {
   check('a burst that goes off near the aeroplane is reported with its real distance',
     flak.closest !== null && flak.closest < 900,
     `closest burst reported at ${flak.closest} m of ${flak.bursts} heard`);
+
+  check('spent flak puffs recycle instead of remaining as black circles in the sky',
+    flak.puffsBeforeRecycle > 0 && flak.puffsAfterSixSeconds === 0,
+    JSON.stringify({ before: flak.puffsBeforeRecycle, after: flak.puffsAfterSixSeconds }));
 
   /* ---- FOR SHOW: the barrage is scenery you fly through, not a fight you
    * lose. Owner, 2026-08-06: "I take too much of a beating on the fly in,
@@ -1680,6 +1906,7 @@ try {
        * and handing itself back. */
       bubblePeak: 0, washPeak: 0, washOverlayPeak: 0, washFrames: 0,
       turbPeak: 0, viewsSeen: [], dropCamSeen: false,
+      nosePathDot: -1, noseY: 1,
     };
     /* The overlay is real DOM: read what the browser actually computed, not
      * the number the mission published. A sweep that is being written to a
@@ -1706,6 +1933,13 @@ try {
       }
       if (!seen.viewsSeen.includes(st.camera.view)) seen.viewsSeen.push(st.camera.view);
       if (st.camera.dropCam > 0) seen.dropCamSeen = true;
+      if (h.payload.released && !h.payload.impacted && h.payload.velocity.lengthSq() > 0.01) {
+        const V = h.physics.position.constructor;
+        const nose = new V(0, 0, 1).applyQuaternion(h.payload.group.quaternion).normalize();
+        const path = h.payload.velocity.clone().normalize();
+        seen.nosePathDot = Math.max(seen.nosePathDot, nose.dot(path));
+        seen.noseY = Math.min(seen.noseY, nose.y);
+      }
       const vfx = h.mission._explosionVfx;
       if (vfx) seen.bubblePeak = Math.max(seen.bubblePeak, vfx.bubble.scale.x);
     };
@@ -1799,10 +2033,14 @@ try {
   });
 
   check('the Fat Squatch really falls, really impacts, and the mission really moves through explosion into escape',
-    explosionReal.impacted && typeof explosionReal.bombAccuracy === 'number'
+    explosionReal.impacted && explosionReal.bombAccuracy > 0.5
       && ['escape', 'emergency', 'return'].includes(explosionReal.phase) && !explosionReal.failed
       && explosionReal.whistleStopped,
     JSON.stringify({ ...explosionReal, seen: undefined }));
+
+  check('the Fat Squatch settles nose-first into its falling path instead of tumbling sideways',
+    explosionReal.seen.nosePathDot > 0.94 && explosionReal.seen.noseY < -0.2,
+    JSON.stringify({ dot: explosionReal.seen.nosePathDot, noseY: explosionReal.seen.noseY }));
 
   check('the detonation is on the scale the brief asked for: a huge flash, a real light, a fireball and a debris fan',
     explosionReal.seen.flashPeak > 500 && explosionReal.seen.fireballPeak > 400
@@ -2156,7 +2394,7 @@ try {
   check('the Fat Squatch can be dropped AGAIN on the restored city, and it really detonates a second time',
     secondDrop.chose && secondDrop.impacted && secondDrop.detonationLive
       && secondDrop.cityDestroyed && secondDrop.craterMesh && secondDrop.crater
-      && typeof secondDrop.accuracy === 'number'
+      && secondDrop.accuracy > 0.5
       && secondDrop.holeAtCrater < -100 && !secondDrop.failed,
     JSON.stringify({
       impacted: secondDrop.impacted, detonation: secondDrop.detonationLive,
@@ -2262,12 +2500,13 @@ try {
         ? +Math.hypot(TARGET_X - releasedAt.x, Z - releasedAt.z).toFixed(1) : null,
     };
   });
-  check('BOMB_MALFUNCTION_TRIGGER_M starts the drop sequence with enough road left to fly it (< 1400 m -- inside the bombApproach corridor)',
+  check('BOMB_MALFUNCTION_TRIGGER_M starts the drop sequence early enough to account for ballistic carry',
     dropSequence.took && dropSequence.malfunctionTriggerDistance !== null
-      && dropSequence.malfunctionTriggerDistance > 900 && dropSequence.malfunctionTriggerDistance < 1400,
+      && dropSequence.malfunctionTriggerDistance > 1450 && dropSequence.malfunctionTriggerDistance < 1750,
     JSON.stringify(dropSequence));
-  check('the drop sequence releases at/near the target rather than well past it, for a real 6s read-the-choice reaction',
-    dropSequence.releasedAt && dropSequence.distanceFromTarget < 350,
+  check('a real 6s read-the-choice reaction releases before the target with room for the bomb to fly',
+    dropSequence.releasedAt && dropSequence.releasedAt.x < 9000
+      && dropSequence.distanceFromTarget > 300 && dropSequence.distanceFromTarget < 750,
     `released ${dropSequence.distanceFromTarget} m from the target ` +
     `(malfunction triggered at ${dropSequence.malfunctionTriggerDistance} m out)`);
 
@@ -2306,11 +2545,31 @@ try {
   const emergencyResolved = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     const chose = h.mission.chooseEmergencyResponse('baby');
-    h.tick(75); // the scripted overheat (70s) has to decay before return
-    return { chose, phase: h.mission.phase };
+    let minAgl = h.physics.agl;
+    /* Keep flying while the authored 70-second overheat decays. The former
+     * `tick(75)` left a heavy, untrimmed bomber completely hands-off; depending
+     * on the approach state it hit terrain, killed the selected engine and
+     * then reported an emergency-choice failure. Use the same light climb
+     * correction as the escape leg above, through the real input/physics path. */
+    for (let i = 0; i < 80 && h.mission.phase === 'emergency' && !h.mission.failed; i++) {
+      h.input.key('KeyS', true);
+      h.tick(0.25);
+      h.input.key('KeyS', false);
+      h.tick(0.75);
+      minAgl = Math.min(minAgl, h.physics.agl);
+    }
+    h.input.key('KeyS', false);
+    const engine = h.engines.engines[h.mission._emergencyEngineIndex];
+    return {
+      chose,
+      phase: h.mission.phase,
+      failed: h.mission.failed,
+      minAgl: +minAgl.toFixed(1),
+      engine: { running: engine.running, dead: engine.dead, hotScript: engine.hotScript },
+    };
   });
   check('choosing the emergency response resolves it and the mission moves on to return',
-    emergencyResolved.chose && emergencyResolved.phase === 'return',
+    emergencyResolved.chose && emergencyResolved.phase === 'return' && !emergencyResolved.failed,
     JSON.stringify(emergencyResolved));
 
   /* ---- THE DIAMOND ON THE AIRPORT. The other half of the owner's request:

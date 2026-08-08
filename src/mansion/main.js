@@ -14,12 +14,10 @@
  * `world = { colliders, floorZones, groundAt }` object, and a plain
  * requestAnimationFrame loop).
  *
- * PROJECT SILENT SQUATCH now mounts on top of that, and only when there is
- * something to mount it in: the mission lives in `./mission/`, its writing in
- * `./script.js`, and this file hands it the laboratory the environment build
- * publishes (`interior.props.lab`). With no laboratory in the house, nothing
- * is mounted, no campaign is constructed, and this is exactly the walkable
- * tour it has always been -- see the SILENT SQUATCH section below.
+ * PROJECT SILENT SQUATCH mounts on the ordinary campaign visit and receives
+ * the laboratory published by the environment build (`interior.props.lab`).
+ * The explicit return visit uses the same house in its repaired state for
+ * Lou's final briefing. `?preview=1` keeps either visit save-free.
  *
  * DOM contract (see the bottom of this file for the full list the Entry
  * phase's mansion.html must provide): #menu/#startBtn for the click-to-begin
@@ -39,6 +37,8 @@ import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatc
 import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
+import { FocusRush } from '../core/focus-rush.js';
+import { PEE_CUE_NAMES, PeeSystem } from '../core/pee-system.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
@@ -47,17 +47,19 @@ import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
+import { createFinalArcLoadout } from '../core/final-arc-loadout.js';
 import { mountSilentSquatch } from './mission/mount.js';
 import { INSTRUCTIONS } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast, MANSION_CAST_CUE_NAMES } from './cast.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
-/* Importing these constructs nothing: a Campaign is only built when
- * createCampaign() is CALLED, which happens below and only when there is a
- * laboratory in the house to play the mission in. Opening the house to walk
- * around it must never touch a save. */
-import { createCampaign } from '../core/campaign.js';
+import { SCENE_IDS, createCampaign } from '../core/campaign.js';
+import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
+import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
+import { MANSION_RETURN_REPORT, mansionVisitMode } from './campaign.js';
+import { StreamSystem } from '../world/stream.js';
 
 /* ================================================================== */
 /* DOM handles                                                          */
@@ -76,6 +78,32 @@ const ammoReserveEl = $('ammoReserve');
 const ammoStateEl = $('ammoState');
 const reticleEl = $('reticle');
 
+/* One page, two canonical visits. The ordinary visit is PROJECT SILENT
+ * SQUATCH and the explicit return query is the repaired-house briefing after
+ * Enola. Preview links construct no campaign or story at all. */
+const mansionVisit = mansionVisitMode();
+const mansionPreview = isPreviewMode();
+const mansionCampaign = createFinalArcRuntimeSession({
+  preview: mansionPreview,
+  campaign: mansionPreview ? null : createCampaign(),
+  sceneId: mansionVisit === 'return' ? SCENE_IDS.MANSION_RETURN : SCENE_IDS.MANSION,
+  spawn: mansionVisit === 'return' ? 'driveway' : 'gate',
+  storyFactory: mansionVisit === 'return'
+    ? createMansionReturnCampaignStory
+    : createSilentSquatchStory,
+});
+const mansionCampaignEntry = mansionCampaign.begin();
+
+if (mansionVisit === 'return') {
+  const kicker = menuEl?.querySelector?.('.kicker');
+  const title = menuEl?.querySelector?.('.title');
+  const sub = menuEl?.querySelector?.('.sub');
+  if (kicker) kicker.textContent = 'THE HOUSE · AFTER THE ENOLA SQUATCH';
+  if (title) title.textContent = "LOU'S MANSION — RETURN";
+  if (sub) sub.textContent = 'The house has been repaired. Big Uncle Lou is waiting in his office with the next location.';
+  if (startBtn) startBtn.textContent = 'WALK UP TO THE HOUSE';
+}
+
 /**
  * The InteractionSystem contract wants exactly `showPrompt`/`hidePrompt`/
  * `setHold` (see `core/interaction.js`'s docstring and its calls into
@@ -86,7 +114,9 @@ const reticleEl = $('reticle');
 const tinyHud = {
   showPrompt(label, key = 'E') {
     promptLabelEl.innerHTML = label;
-    promptKeyEl.textContent = key;
+    const passive = key === 'LOOK';
+    promptKeyEl.textContent = passive ? '' : key;
+    promptKeyEl.classList.toggle('hidden', passive);
     promptEl.classList.remove('hidden');
   },
   hidePrompt() {
@@ -121,7 +151,7 @@ scene.add(camera);
  *
  * `core/postfx.js`'s own default (threshold 0.82) was picked for the
  * apartment: a handful of small emissive things in an otherwise dim room.
- * This house has thirty wall sconces, several chandeliers, three working
+ * This house has thirty wall sconces, several chandeliers, nine working
  * television sets (drawn `toneMapped: false`, so their canvas texture never
  * gets compressed back under 1) and the vault's own case light -- measurably
  * more and brighter emissive surfaces than the apartment ever had. Left at
@@ -532,9 +562,12 @@ const houseTvs = [];
 /* over one element. The mansion's sets carry the drawn channels only.     */
 const MANSION_CHANNELS = CHANNELS.filter((c) => typeof c.enter !== 'function');
 
-function mountTv(screenMesh, { channel = 0, on = true } = {}) {
+function mountTv(screenMesh, {
+  id = 'television', channel = 0, on = true, glow = true,
+} = {}) {
   if (!screenMesh) return null;
   const tv = new Tv({ audio });
+  tv.id = id;
   tv.channels = MANSION_CHANNELS.slice();
   tv.on = on;
   tv.index = channel;
@@ -547,18 +580,35 @@ function mountTv(screenMesh, { channel = 0, on = true } = {}) {
   screenMesh.material = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
   tv._tex = tex;
   tv._glowLight = null;
+  tv.useGlow = glow;
   houseTvs.push(tv);
   return tv;
 }
 
-const loungeTv = mountTv(interior.props.lounge.tv?.screen, { channel: 0 });
-const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { channel: 2 });
+const interactiveTvs = [];
+const loungeTv = mountTv(interior.props.lounge.tv?.screen, { id: 'lounge', channel: 0 });
+const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { id: 'kitchen', channel: 2 });
 /* The third floor's set: 2.6 m of it on the north pier, facing the bed down
  * nine metres of room. Same `Tv` as every other set in the house, so it
  * repaints, it changes channel, it lights the wall in front of it, and the
  * debug surface counts it with the rest. */
 const suiteScreen = interior.props.masterSuite.tv?.screen ?? null;
-const suiteTv = mountTv(suiteScreen, { channel: 1 });
+const suiteTv = mountTv(suiteScreen, { id: 'master-suite', channel: 1 });
+/* All four themed bedrooms publish a screen, and every screen gets the same
+ * shared Tv controller as the lounge and apartment sets. They used to be
+ * painted black props: present in the room build, absent from this list. */
+const bedroomTvs = Object.entries(interior.props.bedrooms)
+  .map(([id, bedroom], index) => ({
+    tv: mountTv(bedroom.screen, {
+      id: `bedroom-${id}`,
+      channel: index % MANSION_CHANNELS.length,
+      on: false,
+      glow: false,
+    }),
+    prop: bedroom.screen ? { group: bedroom.screen } : null,
+  }))
+  .filter(({ tv, prop }) => tv && prop);
+interactiveTvs.push(...bedroomTvs);
 
 /* ================================================================== */
 /* THE HOME THEATRE, AND THE SEAM A FILM DROPS INTO                     */
@@ -623,7 +673,7 @@ function makeFilmReels() {
   ];
 }
 const theatreScreen = interior.props.theatre?.screen ?? null;
-const theatreTv = mountTv(theatreScreen, { channel: 0, on: false });
+const theatreTv = mountTv(theatreScreen, { id: 'theatre', channel: 0, on: false });
 if (theatreTv) {
   theatreTv.channels = [...makeFilmReels(), ...MANSION_CHANNELS];
   theatreTv.index = 0;
@@ -648,15 +698,16 @@ if (suiteTv) {
 
 /* A small warm glow in front of each set, so the picture lights the room.
  *
- * These two sit OUTSIDE the nearest-N light rig above, and deliberately: a
+ * The main-room set glows sit OUTSIDE the nearest-N light rig above, and deliberately: a
  * television's glow has to follow the set it belongs to, not the camera. That
  * is safe only because they are dimmed to zero rather than hidden when the
  * set is off -- three.js keys its shader programs on the number of VISIBLE
  * lights, so toggling `.visible` here would recompile every shader in the
- * scene each time somebody switched a telly on. The count stays constant at
- * ACTIVE_LIGHTS + 2 for the whole run; measured in the browser: 126 point
- * lights built, 16 visible, one shader compile. */
+ * scene each time somebody switched a telly on. Bedroom screens remain fully
+ * interactive but skip the extra PointLight: four rarely used sets should not
+ * tax every material in the house while they are dark. */
 for (const tv of houseTvs) {
+  if (!tv.useGlow) continue;
   const glow = new THREE.PointLight(0x9fb4cc, 0, 5, 2);
   glow.position.copy(tv.position);
   scene.add(glow);
@@ -728,6 +779,15 @@ player.ground = 0;
 /* callback needed.                                                         */
 /* ================================================================== */
 const interaction = new InteractionSystem(camera, tinyHud);
+const mansionStream = new StreamSystem(scene);
+const mansionPee = new PeeSystem({
+  camera,
+  stream: mansionStream,
+  audio,
+  colliders,
+  bladder: 1,
+});
+const suiteFocus = new FocusRush({ baseFov: camera.fov });
 /* The base MAX_DISTANCE (2.7 m, set inside core/interaction.js) is tuned for
  * close-up apartment fixtures (drawers, switches, a phone on a nightstand).
  * This scene's flavour props are architectural set pieces meant to be read
@@ -783,7 +843,10 @@ interaction.setOccluders([...grounds.occluders, ...interior.occluders, ...silent
 
 function flavor(mesh, label) {
   if (!mesh) return;
-  interaction.register(mesh, { label, enabled: () => running });
+  /* `LOOK` is a mansion-local presentation sentinel. Passive descriptions
+   * remain readable, but tinyHud suppresses the key cap so the house no
+   * longer promises E will do something on inert art and furniture. */
+  interaction.register(mesh, { label, key: 'LOOK', enabled: () => running });
 }
 flavor(
   grounds.props.fountain.statue,
@@ -842,6 +905,29 @@ flavor(
   interior.props.guestRoom.art,
   'Made up, turned down, and a window that looks out on a light bulb.',
 );
+/* After PROJECT SILENT SQUATCH, the house does not eject the player through
+ * a menu. The quiet evening remains playable until he deliberately sleeps in
+ * the real guest bed; that one physical action advances the campaign clock,
+ * opens the siege, and performs the registered scene transition. */
+if (interior.props.guestRoom.bed) {
+  interaction.register(interior.props.guestRoom.bed, {
+    label: 'Sleep in the guest room',
+    hold: 1.15,
+    enabled: () => {
+      if (!running || mansionPreview || mansionVisit === 'return') return false;
+      const mission = mansionCampaign.story?.mission;
+      return mission?.status === 'complete'
+        && mission.eveningReady === true
+        && mission.sleptAtMansion !== true;
+    },
+    onUse: () => {
+      const rested = mansionCampaign.story?.restAtMansion?.();
+      if (!rested?.ok) return false;
+      mansionCampaign.navigate(SCENE_IDS.MANSION_SIEGE, { spawn: 'guest_suite' });
+      return true;
+    },
+  });
+}
 flavor(
   interior.props.cellarHall.crest,
   'MEMBERS AND GUESTS. Four doors off one corridor, and the sign has never stopped anybody.',
@@ -862,6 +948,49 @@ flavor(
 /* ================================================================== */
 /* Things that actually do something                                    */
 /* ================================================================== */
+
+/* Every real toilet published by the house uses the apartment/graveyard
+ * free-aim stream. Holding E starts immediately; releasing E stops, so the
+ * interaction never traps the player in a modal bathroom state. */
+const mansionToilets = Object.values(interior.props.bathrooms)
+  .map((bathroom) => bathroom?.toilet)
+  .filter(Boolean);
+for (const toilet of mansionToilets) {
+  interaction.register(toilet.group, {
+    label: () => (mansionPee.active && mansionPee.toiletId === toilet.id
+      ? 'Keep holding to use the <b>toilet</b>'
+      : 'Hold to use the <b>toilet</b>'),
+    enabled: () => running && (!mansionPee.active || mansionPee.toiletId === toilet.id),
+    hold: 3.5,
+    onHoldProgress: () => { if (!mansionPee.active) mansionPee.start(toilet); },
+    onTap: () => mansionPee.stop(),
+    onUse: () => mansionPee.stop(),
+  });
+}
+
+/* Lou's suite reuses the Bada Bing line as a complete mechanic, not only a
+ * white mesh: same recorded snort, same 25-second focus window, same FOV and
+ * movement curve through core/focus-rush.js. One line, one consumption. */
+const suitePowder = interior.props.masterSuite?.powder ?? null;
+if (suitePowder?.group) {
+  interaction.register(suitePowder.group, {
+    label: () => (suitePowder.consumed
+      ? 'The empty space on <b>Lou\'s bar</b>'
+      : 'The line on <b>Lou\'s bar</b>'),
+    enabled: () => running,
+    hold: 1.1,
+    onUse: () => {
+      if (!suitePowder.consume()) return false;
+      suiteFocus.start(25);
+      audio.play('bing.line.snort', {
+        volume: 0.5,
+        position: suitePowder.group.getWorldPosition(new THREE.Vector3()),
+      });
+      announceCheckpoint('LOCKED IN — EVERYTHING ARRIVES AT ONCE');
+      return true;
+    },
+  });
+}
 
 /* ================================================================== */
 /* THE BOOKCASE IN LOU'S OFFICE                                         */
@@ -945,36 +1074,103 @@ for (const [set, where] of [
   });
 }
 
-/* Either television. `core/interaction.js`'s two-action contract is
+/* The theatre is a room the player can actually use, not only a television
+ * texture. One chair is one target; Q stands back into its own aisle. */
+let activeTheatreSeat = null;
+const theatreSeats = interior.props.theatre?.seats ?? [];
+
+function sitInTheatre(seat) {
+  const data = seat?.userData?.theatreSeat;
+  if (!data || activeTheatreSeat || player.mode !== 'walk') return false;
+  activeTheatreSeat = seat;
+  interaction.setPaused(true);
+  player.sitAt({
+    position: new THREE.Vector3(data.pose.x, data.pose.y, data.pose.z),
+    yaw: data.pose.yaw,
+    pitch: 0,
+    yawRange: 1.25,
+    pitchMin: -0.65,
+    pitchMax: 0.38,
+    dur: 0.75,
+  }, () => interaction.setPaused(false));
+  return true;
+}
+
+function standFromTheatre() {
+  const data = activeTheatreSeat?.userData?.theatreSeat;
+  if (!data) return false;
+  interaction.setPaused(true);
+  activeTheatreSeat = null;
+  /* Player.standFrom assumes the apartment floor is world Y zero. This room
+   * is at -2.8, so use this scene's floor-aware teleport instead. */
+  teleport(data.exit.x, data.exit.y, data.exit.z, data.exit.yaw);
+  interaction.setPaused(false);
+  return true;
+}
+
+for (const seat of theatreSeats) {
+  const target = seat?.userData?.theatreSeat?.hit;
+  if (!target) continue;
+  interaction.register(target, {
+    label: 'Sit in the theatre chair',
+    enabled: () => running && !activeTheatreSeat && player.mode === 'walk',
+    onUse: () => sitInTheatre(seat),
+  });
+}
+
+function syncTheatreLights() {
+  const on = theatreTv?.on === true;
+  for (const light of interior.props.theatre?.houseLights ?? []) {
+    const full = light.userData.fullIntensity ?? 3.2;
+    light.intensity = on ? full * 0.08 : full;
+  }
+  /* The aisle never goes black. It drops enough to stop fighting the screen
+   * while retaining the step edge and the route back to the door. */
+  for (const light of interior.props.theatre?.aisleLights ?? []) {
+    const full = light.userData.fullIntensity ?? 1.6;
+    light.intensity = on ? full * 0.35 : full;
+  }
+}
+
+/* Every television. `core/interaction.js`'s two-action contract is
  * onTap = the cheap one on a quick press, onUse = the committed one at the
  * end of a hold -- so a tap works the power switch and a hold walks the
  * channels, which is the way round a set actually behaves. */
-for (const [tv, prop] of [
-  [loungeTv, interior.props.lounge.tv],
-  [kitchenTv, interior.props.kitchen.tv],
+interactiveTvs.unshift(
+  { tv: loungeTv, prop: interior.props.lounge.tv },
+  { tv: kitchenTv, prop: interior.props.kitchen.tv },
+);
+interactiveTvs.push(
   /* The theatre's projector works exactly the same way -- tap to run the
    * feature, hold to walk the channel list. The screen mesh itself is the
    * target, because a projector bolted to a ceiling is not something you
    * reach up and press. */
-  [theatreTv, theatreScreen ? { group: theatreScreen } : null],
+  { tv: theatreTv, prop: theatreScreen ? { group: theatreScreen } : null },
   /* The suite's set, wall-mounted rather than a cabinet like the lounge's
    * and the kitchen's -- `MansionInterior.js` never gave it a `.group`, only
    * a `.screen`, so this is built the same ad-hoc way the theatre's entry
    * above is. Owner playtest 2026-08-06: the suite TV had no way to change
    * channel at all; this loop is the thing that was missing, not a new one. */
-  [suiteTv, suiteScreen ? { group: suiteScreen } : null],
-]) {
-  if (!tv || !prop) continue;
+  { tv: suiteTv, prop: suiteScreen ? { group: suiteScreen } : null },
+);
+
+function registerTvInteraction({ tv, prop }) {
+  if (!tv || !prop) return false;
   interaction.register(prop.group, {
     label: () => (tv.on
       ? `<b>${tv.channel.name}</b> &mdash; hold to change channel`
       : 'Switch the <b>set</b> on'),
     enabled: () => running,
     hold: 0.55,
-    onUse: () => { if (tv.on) tv.next(); else tv.toggle(); },
-    onTap: () => tv.toggle(),
+    onUse: () => {
+      if (tv.on) tv.next(); else tv.toggle();
+      syncTheatreLights();
+    },
+    onTap: () => { tv.toggle(); syncTheatreLights(); },
   });
+  return true;
 }
+for (const { tv, prop } of interactiveTvs) registerTvInteraction({ tv, prop });
 
 /* ================================================================== */
 /* THE BASEMENT ARMORY                                                  */
@@ -1000,6 +1196,8 @@ for (const [tv, prop] of [
 /* has never heard of Snow. There is no actor list here and there is no   */
 /* damage in this scene at all: the mansion is empty.                     */
 /* ================================================================== */
+const finalArcLoadout = createFinalArcLoadout();
+let captureMansionLoadout = () => {};
 const weaponSystem = new WeaponSystem({
   camera,
   world: scene,
@@ -1016,7 +1214,10 @@ const weaponSystem = new WeaponSystem({
    * tracer stops exactly where a look-prompt stops. */
   hitTargets: [...interior.occluders, ...grounds.occluders, ...silent.occluders],
   range: 70,
-  onEvent: () => { ammoDirty = true; },
+  onEvent: () => {
+    ammoDirty = true;
+    captureMansionLoadout();
+  },
 });
 
 /* How many collider boxes the racks contributed. The merged list is otherwise
@@ -1046,13 +1247,15 @@ const armory = mountArmory({
    * read as black rectangles with black shapes on them, which is the state
    * this pass exists to leave behind. */
   addLight: registerLocalLight,
-  onEvent: () => {
+  retainTaken: true,
+  onEvent: (event) => {
     ammoDirty = true;
-    /* The bar follows the rack rather than the other way round: whatever the
-     * armory says is in his hands is what the slot shows, and putting a gun
-     * back empties it. See the note on `apply()` in ./loadout.js for what
-     * happened when this drove the weapon system instead of mirroring it. */
-    loadout.syncWeapon(weaponSystem.equipped ?? null);
+    const ok = loadout.syncWeapon(weaponSystem.equipped ?? null, {
+      rackedId: event?.type === 'rack' ? event.id : null,
+    });
+    /* Taking a sixth gun is a real failure, not a silent replacement. Put the
+     * copy back immediately; the five owned slots and their ammo are intact. */
+    if (!ok && event?.type === 'take') armory.put();
   },
 });
 
@@ -1089,6 +1292,7 @@ let setCordInHand = () => {};
 let summonSnow = () => false;
 const loadout = createMansionLoadout({
   weapons: weaponSystem,
+  durableLoadout: finalArcLoadout,
   weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
   onCaseInHand: (on) => silentSquatch?.setCaseInHand(on),
   /* THROUGH A MUTABLE HANDLE, NOT THROUGH `cast`, and this is not style.
@@ -1105,6 +1309,10 @@ const loadout = createMansionLoadout({
    * A `let` initialised to a no-op, reassigned once the cast exists. */
   onCordInHand: (on) => setCordInHand(on),
 });
+captureMansionLoadout = () => loadout.capture();
+for (const id of finalArcLoadout.items) {
+  if (id) armory.claim(id);
+}
 
 /* The ammunition counter. Repainted only when something changed — a DOM write
  * every frame for a number that moves twice a second is a DOM write every
@@ -1176,23 +1384,17 @@ const lab = interior.props.lab
  * finished it says so, and the mission is not mounted a second time -- the
  * house is simply a house with an open basement and a man still hanging in it.
  */
-function beginCampaignNight() {
-  try {
-    const story = createSilentSquatchStory({ campaign: createCampaign() });
-    const entry = story.begin();
-    /* `play: false` means the save says this night is over -- the only reason
-     * the mission is not mounted in a house that has a laboratory in it. A
-     * campaign that could not be READ is a different thing entirely and must
-     * never cost anybody the mission. */
-    return entry.ok ? { story, play: true } : { story: null, play: false };
-  } catch {
-    /* A sandboxed frame with no storage must still be able to play it; it
-     * just does not remember it afterwards. */
-    return { story: null, play: true };
-  }
-}
-
-const night = lab ? beginCampaignNight() : { story: null, play: false };
+const night = (() => {
+  if (!lab || mansionVisit === 'return') return { story: null, play: false };
+  if (mansionPreview) return { story: null, play: true };
+  /* Keep the story even after completion. The laboratory mission no longer
+   * mounts, but the same story owns the quiet-evening guest-bed seam that
+   * opens Mansion Under Siege. */
+  return {
+    story: mansionCampaign.story,
+    play: mansionCampaignEntry.ok === true,
+  };
+})();
 const missionStory = night.story;
 
 let silentSquatch = null;
@@ -1221,9 +1423,9 @@ if (lab && night.play) {
      *
      * NOT OFF A RACK. `armory.take()` needs a stand and takes a copy off a
      * wall; this gun came out of Booski's coat and there is no wall to put it
-     * back on. So it goes straight into the weapon system and the bar mirrors
-     * it, which is the same one-gun-at-a-time rule the armory keeps — see
-     * `syncWeapon` in ./loadout.js. Q still stows it.
+     * back on. So it goes straight into the weapon system and the durable bar
+     * adds it without replacing any gun already earned. Q stows it without
+     * discarding its slot or ammunition.
      *
      * `pistol9` rather than the revolver: Booski is the man who made copies
      * of Aubbie's notes, and a man like that carries a magazine. */
@@ -1271,6 +1473,30 @@ if (lab && night.play) {
   });
 }
 
+function returnLouLabel() {
+  if (mansionVisit !== 'return' || mansionPreview) {
+    return 'Big Uncle Lou. He has been waiting for you and he is not going to say so.';
+  }
+  return mansionCampaign.story?.mission?.status === 'complete'
+    ? 'Leave for the Cartel Palace'
+    : "Receive Lou's briefing";
+}
+
+function useReturnBriefing() {
+  if (mansionVisit !== 'return' || mansionPreview) return false;
+  const status = mansionCampaign.story?.mission?.status;
+  if (status === 'complete') {
+    mansionCampaign.navigate(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
+    return true;
+  }
+  if (status !== 'in_progress') return false;
+  const completed = mansionCampaign.complete(MANSION_RETURN_REPORT);
+  if (completed) {
+    announceCheckpoint('BRIEFING COMPLETE — WRONG CITY · SAUCE MISSING · PALACE LOCATED');
+  }
+  return completed;
+}
+
 /* ================================================================== */
 /* The people in the house                                              */
 /*                                                                       */
@@ -1292,6 +1518,7 @@ const cast = mountMansionCast(scene, world, {
   anchors,
   lab,
   suite: interior.props.masterSuite,
+  pool: grounds.props.poolPatio,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
   /* Gratin's cord is a thing he is carrying, so it is a slot. Owner
@@ -1305,6 +1532,16 @@ const cast = mountMansionCast(scene, world, {
    * assigned before this call and read at press time, so a house with no
    * laboratory in it simply has a Booski you cannot hand anything to. */
   onDeliverCase: () => silentSquatch?.deliverCase?.() === true,
+  louInteraction: mansionVisit === 'return' && !mansionPreview
+    ? { label: returnLouLabel, onUse: useReturnBriefing, enabled: () => true }
+    : {
+      label: 'Report to Lou',
+      enabled: () => silentSquatch?.debug?.state === 'BACK_TO_LOU',
+      onUse: () => silentSquatch?.debug?.reportToLou?.() === true,
+    },
+  eveningEnabled: () => mansionPreview
+    || mansionCampaign.story?.mission?.status === 'complete',
+  theatreChannel: () => (theatreTv?.on ? theatreTv.channel?.name ?? '' : ''),
   enabled: () => running,
 });
 setCordInHand = (on) => cast?.setCordInHand?.(on);
@@ -1328,12 +1565,17 @@ loadout.refresh();
  * leaving `_glowLight` undefined for a render loop that dereferences it every
  * frame. Pushed into `houseTvs` too, or it would never be updated and the
  * debug surface would not see it. */
-const cellarTv = lab?.tv?.screen ? mountTv(lab.tv.screen, { channel: 1 }) : null;
+const cellarTv = lab?.tv?.screen ? mountTv(lab.tv.screen, { id: 'cellar', channel: 1 }) : null;
 if (cellarTv && !cellarTv._glowLight) {
   const glow = new THREE.PointLight(0x9fb4cc, 0, 5, 2);
   glow.position.copy(cellarTv.position);
   scene.add(glow);
   cellarTv._glowLight = glow;
+}
+if (cellarTv && lab?.tv?.screen) {
+  const cellarTvEntry = { tv: cellarTv, prop: { group: lab.tv.screen } };
+  interactiveTvs.push(cellarTvEntry);
+  registerTvInteraction(cellarTvEntry);
 }
 
 /* Snow's cart is solid. Pushed here rather than inside the cast because
@@ -1398,13 +1640,14 @@ const sharedPauseMenu = createPauseMenu({
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'E, or click -- look at something notable for a one-line note.',
     'In the cellar armory: E takes a weapon off the rack. Left mouse fires it,'
-      + ' R reloads, Q puts it back.',
+      + ' R reloads, Q stows it; E at its rack returns it.',
     'On a job: E works the thing you are looking at. At a keypad, type the'
       + ' number and press ENTER.',
     'Tab pauses and resumes. Escape releases the mouse, which also pauses.',
   ],
   onPause: () => {
     interaction.setPaused(true);
+    mansionPee.stop();
     weaponSystem.setTrigger(false);
     player.clearKeys();
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
@@ -1422,6 +1665,13 @@ const sharedPauseMenu = createPauseMenu({
 /* ================================================================== */
 async function beginTour() {
   if (running) return;
+  if (!mansionCampaignEntry.ok && mansionCampaignEntry.reason !== 'already_complete') {
+    const sub = menuEl?.querySelector?.('.sub');
+    if (sub) sub.textContent = mansionVisit === 'return'
+      ? 'This return visit is locked until The Enola Squatch is complete.'
+      : "Lou's mansion is locked until The Silver Case is complete.";
+    return;
+  }
   running = true;
   menuEl.classList.add('hidden');
   await audio.init();
@@ -1459,12 +1709,23 @@ async function beginTour() {
    * in this list, so a torture session ran on the procedural synth even
    * though the real take was sitting in assets/sfx. */
   audio.loadManifest({
-    names: [...weaponCueNames(), ...silentSquatchCueNames(), ...MANSION_CAST_CUE_NAMES],
+    names: [
+      ...weaponCueNames(),
+      ...silentSquatchCueNames(),
+      ...MANSION_CAST_CUE_NAMES,
+      ...PEE_CUE_NAMES,
+      'bing.line.snort',
+    ],
     prefixes: ['vo.silentsquatch.'],
   }).catch(() => {});
   player.enabled = true;
   lockPointer();
   clock.getDelta();
+  if (mansionVisit !== 'return'
+    && mansionCampaignEntry.resumed
+    && CHECKPOINTS[mansionCampaignEntry.checkpoint]) {
+    jumpToCheckpoint(mansionCampaignEntry.checkpoint);
+  }
 }
 startBtn.addEventListener('click', beginTour);
 
@@ -1486,7 +1747,10 @@ window.addEventListener('keydown', (e) => {
    * browser accelerator on its own — the Beef Run's Ctrl lesson applies to
    * modifiers, not to plain letters. */
   if (e.code === 'KeyR' && !e.repeat) weaponSystem.reload();
-  if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) armory.put();
+  if (e.code === 'KeyQ' && !e.repeat) {
+    if (activeTheatreSeat) standFromTheatre();
+    else if (weaponSystem.equipped) loadout.stow();
+  }
   /* Slots, the same keys as the flat: Digit1..Digit5 pick one directly, the
    * wheel cycles. Selecting the case's slot puts it back in his hands and
    * selecting anything else puts it away -- that IS the stow, so there is no
@@ -1504,13 +1768,18 @@ window.addEventListener('wheel', (e) => {
 }, { passive: true });
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
-  if (e.code === 'KeyE') interaction.release();
+  if (e.code === 'KeyE') {
+    interaction.release();
+    mansionPee.stop();
+  }
 });
 window.addEventListener('blur', () => {
   player.clearKeys();
   interaction.release();
+  mansionPee.stop();
   weaponSystem.setTrigger(false);
 });
+window.addEventListener('pagehide', () => captureMansionLoadout());
 window.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
   player.handleMouseMove(e.movementX, e.movementY);
@@ -1549,7 +1818,10 @@ document.addEventListener('pointerlockchange', () => {
 /* Render / update loop                                                  */
 /* ================================================================== */
 function updateGame(dt) {
+  suiteFocus.update(dt);
+  suiteFocus.apply(camera, player);
   player.update(dt);
+  mansionPee.update(dt);
   interaction.update(dt);
   grounds.update(dt);
   // The camera position is what Lou's gaze tracks in his office upstairs.
@@ -1562,15 +1834,18 @@ function updateGame(dt) {
    * only flagged when it has actually changed. */
   for (const tv of houseTvs) {
     if (!tv.on) {
-      if (tv._glowLight.intensity !== 0) tv._glowLight.intensity = 0;
+      if (tv._glowLight && tv._glowLight.intensity !== 0) tv._glowLight.intensity = 0;
       continue;
     }
     tv.update(dt);
     tv._tex.needsUpdate = true;
-    const g = tv.glow();
-    tv._glowLight.color.setHex(g.colour);
-    tv._glowLight.intensity = g.intensity * 1.6;
+    if (tv._glowLight) {
+      const g = tv.glow();
+      tv._glowLight.color.setHex(g.colour);
+      tv._glowLight.intensity = g.intensity * 1.6;
+    }
   }
+  syncTheatreLights();
   houseRadio.update(dt);
   /* The mission, if the house has a laboratory in it. It moves the beat on,
    * plays the writing, and drives the lab; it never moves the camera. */
@@ -1637,6 +1912,8 @@ function teleport(x, y, z, yawDeg = 0) {
   player.mode = 'walk';
   player.eyeHeight = 1.66;
   player.targetEye = 1.66;
+  player.pitchMin = -Math.PI / 2 + 0.05;
+  player.pitchMax = Math.PI / 2 - 0.05;
   player.position.set(x, y + player.eyeHeight, z);
   player.ground = y;
   player.velocity.set(0, 0, 0);
@@ -1832,12 +2109,13 @@ function jumpToCheckpoint(id) {
   return id;
 }
 
-/* The URL. `?checkpoint=<id>` on its own is enough; `?preview=1` is accepted
- * beside it because that is what preview.html's links carry. */
+/* Shareable fast-forward URLs are preview-only. Ordinary reload restoration
+ * comes from `mansionCampaignEntry.checkpoint` inside beginTour(), never from
+ * a query string that could silently bypass the durable story. */
 {
   const params = new URLSearchParams(window.location.search);
   const wanted = params.get('checkpoint');
-  if (wanted && CHECKPOINTS[wanted]) {
+  if (mansionPreview && wanted && CHECKPOINTS[wanted]) {
     /* After a frame, so the scene has finished building and the mission has
      * mounted; before that, `silentSquatch` is null and the ladder would run
      * against nothing. */
@@ -1846,6 +2124,14 @@ function jumpToCheckpoint(id) {
 }
 
 window.mansion = {
+  campaign: {
+    visit: mansionVisit,
+    preview: mansionPreview,
+    entry: mansionCampaignEntry,
+    state: () => mansionCampaign.campaign?.state ?? null,
+    rest: () => mansionCampaign.story?.restAtMansion?.() ?? { ok: false, reason: 'preview' },
+    brief: () => useReturnBriefing(),
+  },
   /* Handed out so a verifier can do real geometry (Box3 of a mesh, say)
    * against the same THREE instance the scene was built with rather than
    * re-deriving world boxes from constructor parameters. */
@@ -1940,6 +2226,7 @@ window.mansion = {
   /** The working sets, so a verifier can prove they are wired rather than modelled. */
   media: {
     tvs: houseTvs.map((tv) => ({
+      id: tv.id,
       get on() { return tv.on; },
       get channel() { return tv.channel.name; },
       toggle: () => tv.toggle(),
@@ -2010,6 +2297,12 @@ window.mansion = {
      * race, and the bar is checked separately for the subtitle.
      */
     get said() { return [...(cast?.dialogue?.cueLog ?? [])]; },
+    /** Optional-evening proof surface: authored roster positions and the
+     * deterministic theatre/pool interactions exposed by cast.js itself. */
+    get roster() { return cast?.debug?.roster ?? []; },
+    get evening() { return cast?.debug?.evening ?? null; },
+    usePoolGirl: () => cast?.debug?.usePoolGirl?.() === true,
+    useOldStove: () => cast?.debug?.useOldStove?.() === true,
     /** Posts whose standing position is inside a solid box. */
     get inSolid() {
       const bad = [];
@@ -2038,6 +2331,26 @@ window.mansion = {
         }
       }
       return bad;
+    },
+  },
+  /** The rendered prompt, including whether it is an action or only a look
+   * description. This lets the browser verifier catch false E affordances. */
+  prompt: {
+    get visible() { return !promptEl.classList.contains('hidden'); },
+    get key() { return promptKeyEl.textContent; },
+    get keyHidden() { return promptKeyEl.classList.contains('hidden'); },
+    get label() { return promptLabelEl.textContent; },
+    get audit() {
+      const passive = interaction.targets.filter((target) => {
+        const desc = target.userData?.interact;
+        return desc && !desc.onUse && !desc.onTap;
+      });
+      return {
+        passive: passive.length,
+        falseE: passive
+          .filter((target) => target.userData.interact.key !== 'LOOK')
+          .map((target) => target.name || '(unnamed)'),
+      };
     },
   },
   /** Kitchen tap -- the "working sink". */
@@ -2174,7 +2487,18 @@ window.mansion = {
     get on() { return theatreTv.on; },
     get channel() { return theatreTv.channel.name; },
     channels: theatreTv.channels.map((c) => c.name),
-    toggle: () => theatreTv.toggle(),
+    get sitting() { return activeTheatreSeat ? theatreSeats.indexOf(activeTheatreSeat) : -1; },
+    get seats() { return theatreSeats.length; },
+    get lights() {
+      return {
+        house: (interior.props.theatre?.houseLights ?? []).map((light) => Number(light.intensity.toFixed(3))),
+        aisle: (interior.props.theatre?.aisleLights ?? []).map((light) => Number(light.intensity.toFixed(3))),
+        ceiling: interior.props.theatre?.lights?.filter((light) => light.userData.theatreRole === 'ceiling').length ?? 0,
+      };
+    },
+    toggle: () => { theatreTv.toggle(); syncTheatreLights(); return theatreTv.on; },
+    sit: (index = 0) => sitInTheatre(theatreSeats[index]),
+    stand: () => standFromTheatre(),
   } : null,
   /** PROJECT SILENT SQUATCH, or null in a house with no laboratory in it.
    * Every beat of the mission is reachable from here, which is how a verifier

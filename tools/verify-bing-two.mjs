@@ -1197,22 +1197,43 @@ try {
   // staged synchronously in src/bing/hotdog-main.js's
   // `jumpToPreviewCheckpoint`, so they resolve as soon as the async Start
   // handler's own audio loading does; `graveyard` leaves the party director
-  // running for real, so it is given the same SIM_WAIT budget every other
-  // director-driven wait in this file uses.
+  // running so the authored handoff is still the path that finishes the scene.
+  // The production route above has already exercised it on real frames; this
+  // preview-link contract advances that same exposed director deterministically
+  // so its result does not depend on SwiftShader render throughput.
   for (const [id, expectMissionState, timeout] of [
     ['party', 'party', 90000],
     ['attack', 'attack', 90000],
     ['cleanup', 'cleanup', 90000],
     ['graveyard', 'done', SIM_WAIT],
   ]) {
-    const cpContext = await browser.newContext({ viewport: { width: 960, height: 540 } });
+    const cpContext = await browser.newContext({ viewport: { width: 640, height: 400 } });
     const cpPage = await cpContext.newPage();
     cpPage.setDefaultTimeout(SIM_WAIT);
     const cpProblems = watchProblems(cpPage);
     await cpPage.goto(`http://localhost:${PORT}/bing.html?visit=2&preview=1&checkpoint=${id}`, { waitUntil: 'load' });
     await cpPage.waitForFunction(() => window.HOTDOG_INCIDENT?.story, null, { timeout: 90000 });
+    // Keep the director-driven graveyard waypoint on the same lightweight
+    // renderer path as the production route above. SwiftShader plus the full
+    // post stack can otherwise advance only a few simulated frames per real
+    // second, turning a short authored handoff into a harness timeout.
+    await cpPage.evaluate(() => window.HOTDOG_INCIDENT.postfx.disable?.());
     const chip = await cpPage.evaluate(() => document.querySelector('#overlay .tag')?.textContent ?? '');
+    // The graveyard checkpoint deliberately plays the real handoff director
+    // rather than resolving synchronously. Keep this fresh checkpoint page in
+    // the foreground so Chromium does not throttle the requestAnimationFrame
+    // loop behind the still-open production route used earlier in this run.
+    await cpPage.bringToFront();
     await cpPage.evaluate(() => document.getElementById('start-btn').click());
+    await cpPage.waitForFunction(() => window.HOTDOG_INCIDENT?.game?.started, null, { timeout: 90000 });
+    if (id === 'graveyard') {
+      await cpPage.evaluate(() => {
+        const incident = window.HOTDOG_INCIDENT;
+        for (let tick = 0; tick < 800 && incident.mission.state !== 'done'; tick++) {
+          incident.updateDirector(0.05);
+        }
+      });
+    }
     await cpPage.waitForFunction(
       (expected) => window.HOTDOG_INCIDENT?.mission?.state === expected,
       expectMissionState,

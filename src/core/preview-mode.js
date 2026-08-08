@@ -30,6 +30,7 @@ export const APARTMENT_PREVIEW_VARIANTS = Object.freeze([
   'after-silver-room',
   'day-four-wake',
   'after-golf',
+  'after-heist',
 ]);
 
 export class PreviewMemoryStorage {
@@ -84,11 +85,12 @@ const HEIST_PREVIEW_CHECKPOINTS = Object.freeze([
   'safehouse_debrief',
 ]);
 
-/* Beef Run has four durable restart points plus one short final-approach
- * demonstration start.  This list deliberately lives beside the preview URL
- * parser rather than the campaign checkpoint list: `landing` is a shareable
- * demo pose, not a fifth state a real campaign can save. */
+/* Beef Run has four durable restart points plus two shareable demo poses.
+ * This list deliberately lives beside the preview URL parser rather than the
+ * campaign checkpoint list: `preflight` is an on-foot walkaround shortcut and
+ * `landing` is the final-approach setup; neither is a new campaign save state. */
 const BEEFRUN_PREVIEW_CHECKPOINTS = Object.freeze([
+  'preflight',
   'takeoff',
   'approach',
   'departure',
@@ -153,6 +155,18 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   if (pathname.endsWith('/nowake.html') || pathname.endsWith('nowake.html')) {
     return 'no_wake';
   }
+  if (pathname.endsWith('/silvercase.html') || pathname.endsWith('silvercase.html')) {
+    return 'silver_case';
+  }
+  if (pathname.endsWith('/mansion-siege.html') || pathname.endsWith('mansion-siege.html')) {
+    return 'mansion_siege';
+  }
+  if (pathname.endsWith('/enolasquatch.html') || pathname.endsWith('enolasquatch.html')) {
+    return 'enola_squatch';
+  }
+  if (pathname.endsWith('/cartel-palace.html') || pathname.endsWith('cartel-palace.html')) {
+    return 'cartel_palace';
+  }
   /* The Initiation build does not create a campaign yet, so nothing in that
    * page consults this today. It is mapped anyway so the route cannot silently
    * seed an apartment preview the day the scene does claim its own state. */
@@ -164,7 +178,9 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
    * is mapped here so a preview of the mission seeds the mission's own scene
    * rather than quietly seeding an apartment. */
   if (pathname.endsWith('/mansion.html') || pathname.endsWith('mansion.html')) {
-    return 'mansion';
+    return searchParams(locationLike).get('visit') === 'return'
+      ? 'mansion_return'
+      : 'mansion';
   }
   if (pathname.endsWith('/bing.html') || pathname.endsWith('bing.html')) {
     return searchParams(locationLike).get('visit') === '2'

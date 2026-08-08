@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Verify The Silver Case (src/silvercase/) — a standalone mission, opened
- * directly via silvercase.html, no campaign/localStorage involved.
+ * Verify The Silver Case through a seeded canonical campaign entry. Separate
+ * checkpoint pages use save-free preview URLs.
  *
  * Drives the mission's own state machine end to end using the
  * window.silvercase debug handle (go()/tick()/state()/pressFire()/
@@ -19,7 +19,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { APE_FAMILY_MEMBER } from '../src/bing/family-ape.js';
-import { CHARACTER_IDS } from '../src/core/campaign.js';
+import {
+  CAMPAIGN_STORAGE_KEY,
+  CHARACTER_IDS,
+  MISSION_IDS,
+  SCENE_IDS,
+  createCampaign,
+} from '../src/core/campaign.js';
 import { isSilverCasePreloadCue } from '../src/silvercase/audio.js';
 
 // ApartmentScene.js's own ROOMS.apartment box (x 6…12, z -2.5…2.5) — not
@@ -34,6 +40,17 @@ const APARTMENT_ROOM = Object.freeze({ x0: 6, x1: 12, z0: -2.5, z1: 2.5 });
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5223;
+
+class MemoryStorage {
+  constructor() { this.values = new Map(); }
+  getItem(key) { return this.values.get(key) ?? null; }
+  setItem(key, value) { this.values.set(key, String(value)); }
+}
+const campaignSeed = createCampaign({ storage: new MemoryStorage() });
+campaignSeed.update((state) => {
+  state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
+});
+const SILVER_CASE_CAMPAIGN_SEED = campaignSeed.state;
 
 // The residency contract this mission is held to — see src/silvercase/audio.js.
 const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
@@ -86,7 +103,11 @@ const browser = await chromium.launch({
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: [
-    '--use-gl=swiftshader',
+    /* Current Chromium's direct SwiftShader GL backend can lose the WebGL
+     * context at boot and leave a 0x0 drawing buffer. Route SwiftShader
+     * through ANGLE instead: same software renderer, stable WebGL lifecycle. */
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
   ],
@@ -194,6 +215,7 @@ async function domOverlay(id) {
 async function screenLuminance() {
   return page.evaluate(() => {
     const sc = window.silvercase;
+    const gl = sc.renderer.getContext();
     sc.renderer.render(sc.scene, sc.camera);
     const src = sc.renderer.domElement;
     const c = document.createElement('canvas');
@@ -210,7 +232,12 @@ async function screenLuminance() {
       if (l > 0.06) lit += 1;
     }
     const pixels = data.length / 4;
-    return { mean: +(sum / pixels).toFixed(4), litFraction: +(lit / pixels).toFixed(3) };
+    return {
+      mean: +(sum / pixels).toFixed(4),
+      litFraction: +(lit / pixels).toFixed(3),
+      contextLost: gl.isContextLost(),
+      drawingBuffer: [gl.drawingBufferWidth, gl.drawingBufferHeight],
+    };
   });
 }
 
@@ -257,6 +284,9 @@ async function hotbar() {
 }
 
 try {
+  await page.addInitScript(({ key, state }) => {
+    localStorage.setItem(key, JSON.stringify(state));
+  }, { key: CAMPAIGN_STORAGE_KEY, state: SILVER_CASE_CAMPAIGN_SEED });
   await page.goto(`http://localhost:${PORT}/silvercase.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
 
@@ -322,6 +352,19 @@ try {
       && carRide.mode === 'seated'
       && carRide.cueLog[0] === 'vo.silvercase.car.ape.pitch',
     JSON.stringify(carRide));
+  const campaignEntry = await page.evaluate(() => ({
+    preview: window.silvercase.campaign.preview,
+    state: window.silvercase.campaign.state(),
+  }));
+  check('beginning the ordinary URL claims the canonical Silver Case campaign scene',
+    campaignEntry.preview === false
+      && campaignEntry.state?.scene?.id === SCENE_IDS.SILVER_CASE
+      && campaignEntry.state?.missions?.[MISSION_IDS.SILVER_CASE]?.status === 'in_progress',
+    JSON.stringify({
+      preview: campaignEntry.preview,
+      scene: campaignEntry.state?.scene,
+      status: campaignEntry.state?.missions?.[MISSION_IDS.SILVER_CASE]?.status,
+    }));
 
   // ---- V1 (2026-08-06 playtest): "Ape's first line still doesn't play."
   //
@@ -389,9 +432,18 @@ try {
     JSON.stringify({ resident: expectedSilverCaseResidentNames.length, manifest: soundManifest.sfx.length }));
 
   // ---- The car ride is a picture, not a black screen. ------------------
+  /* `sc.tick()` advances mission state but intentionally does not render.
+   * Give the real frame loop one full painted frame after the async Begin
+   * seam resolves; otherwise a faster Begin can sample the menu's cleared
+   * backbuffer before CAR_RIDE has ever reached WebGL. */
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
   const carLight = await screenLuminance();
   check('the car ride actually renders a lit cabin rather than a black screen',
-    carLight.mean > 0.02 && carLight.litFraction > 0.3,
+    carLight.contextLost === false
+      && carLight.drawingBuffer[0] > 0 && carLight.drawingBuffer[1] > 0
+      && carLight.mean > 0.02 && carLight.litFraction > 0.3,
     JSON.stringify(carLight));
 
   const carRig = await page.evaluate(() => {
@@ -409,6 +461,51 @@ try {
     carRig.visible && carRig.lights.length >= 3
       && carRig.apeId === 'ape' && Math.abs(carRig.apeHeight - 1.88) < 0.01,
     JSON.stringify(carRig));
+
+  const pulpSuits = await page.evaluate(async () => {
+    const sc = window.silvercase;
+    const { SILVERCASE_PROSPECT_PRESENTATION } = await import('/src/silvercase/cast/prospect.js');
+    const colour = (root, name) => root.getObjectByName(name)?.material?.color?.getHex() ?? null;
+    const apeSuit = (npc) => ({
+      id: npc.characterId,
+      outfit: npc.group.userData.npc?.outfit ?? null,
+      jacket: colour(npc.group, 'suit.lapel.left'),
+      shirt: colour(npc.group, 'suit.collar.point'),
+      tie: colour(npc.group, 'suit.tie'),
+      knot: colour(npc.group, 'suit.tie.knot'),
+      pocketSquare: Boolean(npc.group.getObjectByName('suit.pocket-square')),
+    });
+    const arm = sc.viewModel.viewArm;
+    return {
+      face: sc.state().ape.face,
+      carApe: apeSuit(sc.car.ape),
+      apartmentApe: apeSuit(sc.cast.ape.npc),
+      prospect: {
+        id: arm.userData.characterPresentation?.id ?? null,
+        face: SILVERCASE_PROSPECT_PRESENTATION.face,
+        jacket: colour(arm, 'silvercase.viewmodel.suit-sleeve'),
+        shirt: colour(arm, 'silvercase.viewmodel.shirt-cuff'),
+        tie: SILVERCASE_PROSPECT_PRESENTATION.model.tieColour,
+      },
+    };
+  });
+  const suitedApe = (ape) => ape.id === CHARACTER_IDS.APE
+    && ape.outfit === 'suit'
+    && ape.jacket === 0x111116
+    && ape.shirt === 0xf2efe7
+    && ape.tie === 0x09090c
+    && ape.knot === 0x09090c
+    && ape.pocketSquare === false;
+  check('both canonical Ape instances and Tony wear the live Pulp Fiction black/white suit contract',
+    pulpSuits.face === 'assets/faces/ape.png'
+      && suitedApe(pulpSuits.carApe)
+      && suitedApe(pulpSuits.apartmentApe)
+      && pulpSuits.prospect.id === CHARACTER_IDS.PROSPECT
+      && pulpSuits.prospect.face === null
+      && pulpSuits.prospect.jacket === 0x111116
+      && pulpSuits.prospect.shirt === 0xf2efe7
+      && pulpSuits.prospect.tie === 0x09090c,
+    JSON.stringify(pulpSuits));
 
   // ---- The steering wheel is a steering wheel. ---------------------------
   // "Apes steering wheel is sideways." A TorusGeometry's axis is +Z, which in
@@ -450,14 +547,18 @@ try {
   check('the car interior is dressed rather than a dashboard in a void',
     carDressing.meshes >= 60, JSON.stringify(carDressing));
 
-  // ---- Ape's identity is the campaign's, not a local lookalike. ---------
-  check('Ape is the canonical campaign character, with the Bing model and face',
+  // ---- Ape's identity is the campaign's, not a local lookalike. His suit
+  // is deliberately scene-local, so compare the body/head facts that define
+  // the man rather than demanding the Bing's casual tee on this job. --------
+  const canonicalApeFields = ['height', 'build', 'hair', 'hairColour', 'beard', 'skin'];
+  check('Ape is the canonical campaign character and body beneath the mission suit',
     carRide.state.ape.characterId === APE_FAMILY_MEMBER.id
       && carRide.state.ape.characterId === CHARACTER_IDS.APE
       && carRide.state.ape.family === true
       && carRide.state.ape.face === 'assets/faces/ape.png'
-      && JSON.stringify(carRide.state.ape.model)
-        === JSON.stringify({ ...APE_FAMILY_MEMBER.model, face: 'assets/faces/ape.png' }),
+      && canonicalApeFields.every(
+        (field) => carRide.state.ape.model[field] === APE_FAMILY_MEMBER.model[field],
+      ),
     JSON.stringify(carRide.state.ape));
 
   // ---- Everybody is a person-sized person. -----------------------------
@@ -1116,7 +1217,14 @@ try {
     p.yaw = 0;
     p.pitch = -Math.atan2(1.46, 0.85);
   });
-  await page.waitForTimeout(150);
+  // A wall-clock sleep is not a rendered-frame guarantee in headless Chromium:
+  // under load, 150 ms can elapse before requestAnimationFrame paints even
+  // once. The interaction ray reads camera.matrixWorld from the last render,
+  // so wait for the frame loop itself (twice, to clear callback ordering)
+  // instead of hoping a timer happened to contain one.
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
   const promptOnCase = await page.evaluate(() => {
     window.silvercase.tick(0.1);
     return document.getElementById('promptText').textContent;
@@ -1173,7 +1281,7 @@ try {
     cpPage.on('console', (message) => {
       if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
     });
-    await cpPage.goto(`http://localhost:${PORT}/silvercase.html?checkpoint=${id}`, { waitUntil: 'load' });
+    await cpPage.goto(`http://localhost:${PORT}/silvercase.html?preview=1&checkpoint=${id}`, { waitUntil: 'load' });
     await cpPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
     const chip = await cpPage.evaluate(() => document.querySelector('#menu .subtitle')?.textContent ?? '');
     const result = await cpPage.evaluate(async () => {

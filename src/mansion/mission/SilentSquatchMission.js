@@ -186,6 +186,8 @@ class SilentSquatchMission {
      * accepted one frame early has already started. See #at(). */
     this.wallOpened = false;
     this.leaving = false;
+    this.reportingToLou = false;
+    this.reportedToLou = false;
     this.chairBent = false;
     this.collapsed = [];
     this.lifeSignsAtAftermath = null;
@@ -422,9 +424,15 @@ class SilentSquatchMission {
    * calls it directly. Refuses at every other moment.
    */
   reportToLou() {
-    if (!this.#at(S.BACK_TO_LOU)) return false;
+    if (!this.#at(S.BACK_TO_LOU) || this.reportingToLou) return false;
+    this.reportingToLou = true;
     this.#instruct('');
-    this.fsm.go(S.COMPLETE);
+    this.dialogue.play(SEQUENCES.louAfterLab, {
+      onDone: () => {
+        this.reportedToLou = true;
+        this.fsm.go(S.COMPLETE);
+      },
+    });
     return true;
   }
 
@@ -472,6 +480,8 @@ class SilentSquatchMission {
       lifeSignsTimedOut: this.lifeSignsTimedOut,
       cues: [...this.dialogue.cueLog],
       stages: [...this.dialogue.stageLog],
+      reportingToLou: this.reportingToLou,
+      reportedToLou: this.reportedToLou,
       complete: this.complete,
     };
   }
@@ -689,7 +699,9 @@ class SilentSquatchMission {
        * his office", the player walked into Lou's office, and nothing
        * happened. A visit that is not beat 11's puts the id straight back. */
       case 'officeReturn':
-        if (!this.reportToLou()) this.zonesEntered.delete('officeReturn');
+        /* Arrival only puts Lou within reach. The mission completes when the
+         * player presses E on Lou's body, not on this invisible volume. */
+        if (!this.fsm.is(S.BACK_TO_LOU)) this.zonesEntered.delete('officeReturn');
         break;
       case 'cellar':
         this.#bark('cellar', SEQUENCES.cellarArrival);
@@ -1020,10 +1032,14 @@ class SilentSquatchMission {
       [S.BACK_TO_LOU]: {
         enter: () => {
           this.#objective(OBJECTIVES.LOU_IS_WAITING);
-          this.#instruct(INSTRUCTIONS.RETURN_TO_OFFICE);
-          if (!this.zones.officeReturn) go(S.COMPLETE);
+          this.#instruct(INSTRUCTIONS.TALK_TO_LOU);
+          if (!this.zones.officeReturn) {
+            go(S.COMPLETE);
+            return;
+          }
         },
-        update: (dt) => this.#stalls(dt, 45, [SEQUENCES.exitOrder]),
+        /* Booski gave the order once in EXIT. The objective remains while the
+         * player roams; the same cue no longer repeats every 45 seconds. */
       },
 
       [S.COMPLETE]: {

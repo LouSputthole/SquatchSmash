@@ -14,6 +14,7 @@ const CHECKPOINTS = Object.freeze([
 ]);
 
 const PREVIEW_FLIGHT_CHECKPOINTS = Object.freeze([
+  'preflight',
   'takeoff',
   'approach',
   'departure',
@@ -99,7 +100,7 @@ class AirstripStory {
     if (!PREVIEW_FLIGHT_CHECKPOINTS.includes(checkpoint)) return false;
     const mission = this.campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
     if (mission.status !== 'in_progress') return false;
-    if (checkpoint === 'takeoff') return true;
+    if (checkpoint === 'preflight' || checkpoint === 'takeoff') return true;
     if (!this.checkpoint('remote_strip')) return false;
     if (checkpoint === 'approach') return true;
     if (!this.loadCargo()) return false;

@@ -56,6 +56,7 @@ export class StreamSystem {
     this.colliders = [];
     this.target = null;      // { centre: Vector3, radius, top } -- scores a clean hit
     this.ignore = null;      // collider to skip (the toilet itself)
+    this.floorHeight = 0;
 
     this.stats = { total: 0, onTarget: 0, onFloor: 0, onWall: 0 };
 
@@ -103,6 +104,11 @@ export class StreamSystem {
   /** Boxes the stream can splash off. Pass the apartment's collider list. */
   setColliders(list) {
     this.colliders = list;
+  }
+
+  /** Floor under the active fixture. Defaults to the apartment's y=0. */
+  setFloorHeight(y = 0) {
+    this.floorHeight = Number.isFinite(y) ? y : 0;
   }
 
   /**
@@ -188,8 +194,8 @@ export class StreamSystem {
       }
 
       // Floor.
-      if (ny <= 0.004) {
-        this._stain(nx, 0.006, nz, UP);
+      if (ny <= this.floorHeight + 0.004) {
+        this._stain(nx, this.floorHeight + 0.006, nz, UP);
         this._kill(d);
         this.stats.total++;
         this.stats.onFloor++;

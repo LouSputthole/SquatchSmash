@@ -36,6 +36,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isFutureInitiationCue } from './audio-scope.mjs';
 import { writeIndex } from './sfx-index-json.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -84,8 +85,6 @@ const ONLY = valueOf('--only')?.split(',').map((s) => s.trim()).filter(Boolean) 
 const CAST = valueOf('--cast')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
 
 const isSpoken = (cue) => typeof cue.say === 'string';
-const isFutureInitiationPartyCue = (cue) => cue.name.startsWith('vo.initiation.party.')
-  || cue.name.startsWith('vo.initiation.ambient.');
 
 const API_KEY = process.env.ELEVENLABS_API_KEY || process.env.XI_API_KEY;
 
@@ -103,7 +102,7 @@ async function main() {
   /* Future dialogue is opt-in even for a hand-built --only list. This guards
    * automation that reads every missing manifest voice and would otherwise
    * spend a production run on the party catalog before its scene exists. */
-  if (LIVE_ONLY || !INCLUDE_FUTURE) cues = cues.filter((cue) => !isFutureInitiationPartyCue(cue));
+  if (LIVE_ONLY || !INCLUDE_FUTURE) cues = cues.filter((cue) => !isFutureInitiationCue(cue));
 
   // A spoken cue is useless until somebody has pasted a voice id in. Say so
   // once, clearly, instead of failing forty times against the API.

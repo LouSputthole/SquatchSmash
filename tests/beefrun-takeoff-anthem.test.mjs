@@ -42,6 +42,21 @@ test('a mission with a takeoff anthem plays the real recording once instead of t
   assert.equal(engine.calls[0].opts.loop, false, 'a needle-drop plays once, it does not loop');
 });
 
+test('a mission can author one quieter, timed takeoff window with a slow fade', () => {
+  const engine = fakeEngine();
+  const audio = new MissionAudio(engine);
+  audio.ready = true;
+  audio.takeoffAnthemFile = 'test-song.mp3';
+  audio.takeoffAnthemOptions = { volume: 0.435, cutAt: 150, cutFade: 4 };
+  audio.setPhase('takeoff');
+
+  assert.equal(engine.calls.length, 1);
+  assert.equal(engine.calls[0].opts.volume, 0.435, '13% below the shared 0.5 needle-drop level');
+  assert.equal(engine.calls[0].opts.cutAt, 150, 'the record ends at two minutes thirty');
+  assert.equal(engine.calls[0].opts.cutFade, 4, 'the timed ending is a slow fade, not a hard cut');
+  assert.equal(engine.calls[0].opts.loop, false);
+});
+
 test('returning to takeoff (a checkpoint restore) restarts the anthem rather than doing nothing', () => {
   const engine = fakeEngine();
   const audio = new MissionAudio(engine);
@@ -65,6 +80,8 @@ test('each takeoff song has exactly one owner', async () => {
   assert.doesNotMatch(beefMain, /takeoffAnthemFile = /,
     'Beef Run must not name a MissionAudio anthem — the signature cue owns the moment');
   assert.match(enolaMain, /missionAudio\.takeoffAnthemFile = 'fortunate-son\.mp3';/);
+  assert.match(enolaMain, /takeoffAnthemOptions = \{ volume: 0\.435, cutAt: 150, cutFade: 4 \};/,
+    'Enola owns one quieter 2:30 Fortunate Son window with a slow fade');
   const { SIGNATURE_TRACKS } = await import('../src/core/signature-music.js');
   const knocking = SIGNATURE_TRACKS.cantYouHearMeKnocking;
   assert.equal(knocking.file, 'cant-you-hear-me-knocking.mp3');

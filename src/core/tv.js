@@ -297,13 +297,34 @@ const COUNTER_SQUATCH_LEGENDS = {
  * back in order, looping to the first once the last one ends. Still one
  * element, one decoder -- it just gets a new `src` on `ended` instead of
  * looping itself.
+ *
+ * `startAt` is an editorial in-point for a single tape. It is applied every
+ * time the channel is selected and again when that tape loops, so material
+ * before the in-point never slips back onto the television after one circuit.
  */
-export function videoChannel({ name, file, files, card, glow }) {
+export function videoChannel({ name, file, files, card, glow, startAt = 0 }) {
   const playlist = files ?? [file];
   let el = null;
   let wired = false;
   let failed = false;
   let index = 0;
+  let pendingSeek = false;
+  let pendingPlay = false;
+
+  const seekToInPoint = () => {
+    if (!el || startAt <= 0) return true;
+    try {
+      el.currentTime = startAt;
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const requestPlay = () => {
+    const p = el?.play();
+    if (p && p.catch) p.catch(() => { /* the card covers it */ });
+  };
 
   return {
     name,
@@ -312,15 +333,32 @@ export function videoChannel({ name, file, files, card, glow }) {
       if (!el) {
         el = document.createElement('video');
         el.src = assetUrl(VIDEO_DIR, playlist[index]);
-        el.loop = playlist.length === 1;
+        /* Native looping always seeks to zero. A tape with an editorial
+         * in-point owns its `ended` loop below instead. */
+        el.loop = playlist.length === 1 && startAt <= 0;
         el.playsInline = true;
         el.preload = 'auto';
-        el.addEventListener('error', () => { failed = true; });
+        el.addEventListener('error', () => {
+          failed = true;
+          pendingPlay = false;
+        });
+        el.addEventListener('loadedmetadata', () => {
+          if (pendingSeek) pendingSeek = !seekToInPoint();
+          if (pendingPlay && !pendingSeek) {
+            pendingPlay = false;
+            requestPlay();
+          }
+        });
         if (playlist.length > 1) {
           el.addEventListener('ended', () => {
             index = (index + 1) % playlist.length;
             el.src = assetUrl(VIDEO_DIR, playlist[index]);
-            el.play().catch(() => { /* the card covers it */ });
+            requestPlay();
+          });
+        } else if (startAt > 0) {
+          el.addEventListener('ended', () => {
+            pendingSeek = !seekToInPoint();
+            if (!pendingSeek) requestPlay();
           });
         }
       }
@@ -362,10 +400,22 @@ export function videoChannel({ name, file, files, card, glow }) {
         }
       }
       if (!wired) el.muted = true;
-      const p = el.play();
-      if (p && p.catch) p.catch(() => { /* the card covers it */ });
+      if (startAt > 0) {
+        if (el.readyState < 1) {
+          pendingSeek = true;
+          pendingPlay = true;
+          return;
+        }
+        pendingSeek = !seekToInPoint();
+        if (pendingSeek) {
+          pendingPlay = true;
+          return;
+        }
+      }
+      requestPlay();
     },
     leave() {
+      pendingPlay = false;
       try { el?.pause(); } catch { /* never started */ }
     },
     draw(g, t) {
@@ -404,6 +454,7 @@ const AUSTIN_TAPE = videoChannel({
 const HOG_MAMAS_SHOW = videoChannel({
   name: "HOG MAMA'S SHOW",
   file: 'hog-mamas-show.mp4',
+  startAt: 6,
   card: "HOG MAMA'S SHOW IS OFF AIR",
   glow: { colour: 0xe08ab1, intensity: 1.25 },
 });

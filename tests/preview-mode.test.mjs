@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -61,6 +62,17 @@ test('preview query and route resolution preserve existing query parameters', ()
   assert.equal(previewSceneForLocation({
     pathname: '/game/golf.html', search: '?preview=1',
   }), SCENE_IDS.SILVER_PINES);
+  for (const [pathname, scene] of [
+    ['/game/silvercase.html', SCENE_IDS.SILVER_CASE],
+    ['/game/mansion-siege.html', SCENE_IDS.MANSION_SIEGE],
+    ['/game/enolasquatch.html', SCENE_IDS.ENOLA_SQUATCH],
+    ['/game/cartel-palace.html', SCENE_IDS.CARTEL_PALACE],
+  ]) {
+    assert.equal(previewSceneForLocation({ pathname, search: '?preview=1' }), scene, pathname);
+  }
+  assert.equal(previewSceneForLocation({
+    pathname: '/game/mansion.html', search: '?visit=return&preview=1',
+  }), SCENE_IDS.MANSION_RETURN);
   assert.equal(previewApartmentVariantForLocation({
     pathname: '/game/index.html',
     search: '?preview=1&apartment=after-beef-run',
@@ -71,6 +83,7 @@ test('preview query and route resolution preserve existing query parameters', ()
   }), null);
   assert.ok(APARTMENT_PREVIEW_VARIANTS.includes('day-four-wake'));
   assert.ok(APARTMENT_PREVIEW_VARIANTS.includes('after-golf'));
+  assert.ok(APARTMENT_PREVIEW_VARIANTS.includes('after-heist'));
   assert.equal(
     previewNavigationHref('bing.html?visit=2#lot', current),
     'bing.html?visit=2&preview=1#lot',
@@ -98,6 +111,9 @@ test('heist preview checkpoint and difficulty inputs are bounded', () => {
 
 test('Beef Run preview checkpoints are bounded and cannot override a normal save', () => {
   assert.equal(previewBeefRunCheckpointForLocation({
+    pathname: '/game/beefrun.html', search: '?preview=1&checkpoint=preflight',
+  }), 'preflight');
+  assert.equal(previewBeefRunCheckpointForLocation({
     pathname: '/game/beefrun.html', search: '?preview=1&checkpoint=takeoff',
   }), 'takeoff');
   assert.equal(previewBeefRunCheckpointForLocation({
@@ -112,6 +128,38 @@ test('Beef Run preview checkpoints are bounded and cannot override a normal save
   assert.equal(previewBeefRunCheckpointForLocation({
     pathname: '/game/heist.html', search: '?preview=1&checkpoint=takeoff',
   }), null);
+});
+
+test('the preview launcher exposes the Beef Run preflight alongside its flight skips', () => {
+  const html = fs.readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
+  assert.match(html, /beefrun\.html\?preview=1&amp;checkpoint=preflight[^>]*>Preflight</i);
+});
+
+test('final-arc launcher links preserve preview isolation and expose Cartel Palace skips', () => {
+  const html = fs.readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
+  assert.match(html, /silvercase\.html\?preview=1&amp;checkpoint=car[^>]*>Car</i);
+  assert.match(html, /mansion-siege\.html\?preview=1&amp;checkpoint=wake[^>]*>Wake</i);
+  assert.match(html, /data-preview-scene="mansion-siege"[^>]+href="mansion-siege\.html\?preview=1"/i);
+  assert.match(html, /data-preview-scene="mansion-return"[^>]+href="mansion\.html\?visit=return&amp;preview=1"/i);
+  assert.match(html, /data-preview-scene="cartel-palace"[^>]+href="cartel-palace\.html\?preview=1"/i);
+  for (const checkpoint of ['approach', 'perimeter', 'estate', 'betrayal', 'dining_room', 'clear']) {
+    assert.match(html, new RegExp(`cartel-palace\\.html\\?preview=1&amp;checkpoint=${checkpoint}`));
+  }
+  const sceneOrder = [...html.matchAll(/data-preview-scene="([^"]+)"/g)]
+    .map((match) => match[1]);
+  const finalOrder = [
+    'silvercase', 'mansion', 'mansion-siege', 'enolasquatch',
+    'mansion-return', 'cartel-palace', 'initiation',
+  ];
+  assert.deepEqual(
+    sceneOrder.filter((scene) => finalOrder.includes(scene)),
+    finalOrder,
+  );
+});
+
+test('the preview launcher exposes the wardrobe inspection tool', () => {
+  const html = fs.readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
+  assert.match(html, /data-preview-tool="wardrobe"[^>]+href="wardrobe\.html"/i);
 });
 
 test('motel preview starts unlocked without reading or writing canonical localStorage', () => {
@@ -274,6 +322,27 @@ test('every authored apartment iteration receives a coherent isolated campaign c
         assert.equal(createApartmentStory({ campaign }).margoWakeOwed(), false);
       },
     },
+    {
+      variant: 'after-heist', spawn: 'front_door', chapter: 'post_heist', day: 4,
+      time: 17 * 60 + 20,
+      verify(state, campaign) {
+        const heist = state.missions[MISSION_IDS.BANK_HEIST];
+        assert.equal(heist.status, 'complete');
+        assert.equal(heist.cleanup.finalCalls, true);
+        assert.equal(heist.cleanup.washed, false);
+        assert.equal(heist.cleanup.changed, false);
+        assert.equal(heist.cleanup.gearSecured, false);
+        assert.equal(
+          heist.operationalLoss + heist.familyShare + heist.crewShare + heist.prospectShare,
+          heist.grossTake,
+        );
+        assert.equal(state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
+        assert.equal(
+          createApartmentStory({ campaign }).tryLeave(state.activities).id,
+          'washed',
+        );
+      },
+    },
   ];
   const expectedReturnSources = new Map([
     ['day-one-wake', null],
@@ -287,6 +356,7 @@ test('every authored apartment iteration receives a coherent isolated campaign c
     ['after-silver-room', SCENE_IDS.SILVER_ROOM],
     ['day-four-wake', null],
     ['after-golf', SCENE_IDS.SILVER_PINES],
+    ['after-heist', SCENE_IDS.BANK_HEIST],
   ]);
 
   assert.deepEqual(cases.map(({ variant }) => variant), [...APARTMENT_PREVIEW_VARIANTS]);
@@ -406,6 +476,21 @@ test('standalone mission previews receive only temporary prerequisites', () => {
       },
     },
     {
+      location: { pathname: '/mansion.html', search: '?visit=return&preview=1' },
+      scene: SCENE_IDS.MANSION_RETURN,
+      verify(state) {
+        assert.equal(state.missions[MISSION_IDS.SILVER_CASE].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.SILENT_SQUATCH].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.MANSION_SIEGE].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.ENOLA_SQUATCH].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.MANSION_RETURN].status, 'available');
+        assert.equal(state.missions[MISSION_IDS.CARTEL_PALACE].status, 'locked');
+        assert.equal(state.story.chapter, 'mansion_return');
+        assert.equal(state.story.day, 6);
+        assert.equal(state.story.timeMinutes, 18 * 60 + 30);
+      },
+    },
+    {
       location: { pathname: '/initiation.html', search: '?preview=1' },
       scene: SCENE_IDS.INITIATION,
       verify(state) {
@@ -413,11 +498,14 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'complete');
         assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
         assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.CARTEL_PALACE].status, 'complete');
         assert.equal(state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
-        // The date is behind him, so the big night is the next calendar day.
+        // Preview uses the same final-arc clock as play: Palace extraction is
+        // the end of Day 6, and the frozen Initiation follows it directly.
         assert.equal(state.story.chapter, 'big_night');
-        assert.equal(state.story.day, 4);
+        assert.equal(state.story.day, 6);
+        assert.equal(state.story.timeMinutes, 23 * 60);
       },
     },
   ];

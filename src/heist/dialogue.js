@@ -43,6 +43,21 @@ export class DialogueArbiter {
     return true;
   }
 
+  /**
+   * Deliver a mission command even when ambient chatter already owns the bus.
+   * Commands are intentionally state-independent once triggered: the player
+   * cannot erase Lou's radio order by completing the next interaction before
+   * the current bark finishes.
+   */
+  pushCommand(line) {
+    return this.push({
+      ...line,
+      priority: DIALOGUE_PRIORITY.TACTICAL,
+      interruptible: false,
+      states: null,
+    });
+  }
+
   update(now) {
     this.queue = this.queue.filter((line) => line.expiresAt > now
       && (!line.states || line.states.includes(this.state)));

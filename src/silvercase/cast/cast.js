@@ -123,7 +123,7 @@ function apeAimPose(parts) {
 
 export function populateCast(root) {
   // ---------------- Ape ----------------
-  // Canonical figure, canonical face, canonical id. Nothing local.
+  // Canonical body, face and id under The Silver Case's scene-local suit.
   const apeNpc = buildSilverCaseApe(root, {
     x: APE_SPOTS.hallway.x, z: APE_SPOTS.hallway.z, yaw: APE_SPOTS.hallway.yaw, job: 'stand',
   });

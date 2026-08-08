@@ -84,6 +84,35 @@ const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const TOWN = LANDMARKS_EAST.find((l) => l.id === 'town');
 const CLOUDBANK = LANDMARKS_EAST.find((l) => l.id === 'cloudbank');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
+/**
+ * Resolve the climb-out's turn gate without making one invisible z coordinate
+ * a mission soft-lock. The planned route crosses `TURN_POINT.z`; a player who
+ * starts the east turn early stops travelling south, so radial clearance from
+ * Whispering Pines is an equally safe alternative once the bomber is above
+ * the same minimum AGL.
+ */
+export function evaluateClimbTurnProgress({
+  x, z, agl, headingDeg, turnCalled = false, onCourseSeconds = 0,
+}, dt) {
+  const clearedPlannedPoint = z <= TURN_POINT.z;
+  const clearedFieldRadially = Math.hypot(x - WP.x, z - WP.z) >= 2200;
+  const cleared = agl > TURN_POINT.minAltitudeAgl
+    && (clearedPlannedPoint || clearedFieldRadially);
+  const callTurn = !turnCalled && cleared;
+  const trackingHeading = turnCalled || callTurn;
+  const headingError = Math.abs(headingDelta(headingDeg, TURN_POINT.newHeading));
+  const nextOnCourse = trackingHeading && headingError < 8
+    ? onCourseSeconds + dt
+    : 0;
+  return {
+    callTurn,
+    onCourseSeconds: nextOnCourse,
+    ready: nextOnCourse > 2.5,
+    headingError,
+    clearedPlannedPoint,
+    clearedFieldRadially,
+  };
+}
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;   // 270 — back the way we came
 
 /* THE ONE AUTHORED ENGINE PROBLEM.
@@ -184,7 +213,11 @@ const DROP_CAM_SECONDS = 4.2;
  * side of the target's own ~460 m defended radius (`Defense.deploy()`'s
  * `radius`) to miss by, and the one the owner's own wording ("so that you
  * aren't so far over the target") asked for. */
-const BOMB_MALFUNCTION_TRIGGER_M = 1100;
+/* 2026-08-08 follow-up: the measured 6-second-choice run still released at
+ * the pin and scored zero after ballistic carry. This supersedes the 1100 m
+ * historical measurement above: defense hands off at 2200 m and the fixed
+ * malfunction sequence begins at 1600 m, leaving roughly 550 m of lead. */
+const BOMB_MALFUNCTION_TRIGGER_M = 1600;
 
 /* ------------------------------------------------------------------ */
 /* THE TWO DIAMONDS                                                    */
@@ -1451,18 +1484,21 @@ export class MissionController {
   /* ---- Climb / turn / cruise ---- */
 
   updateClimbTurn(dt) {
-    void dt;
     const p = this.physics;
-    const pastPoint = p.position.z <= TURN_POINT.z && p.agl > TURN_POINT.minAltitudeAgl;
-    if (!this.flags.turnCalled && pastPoint) {
+    const gate = evaluateClimbTurnProgress({
+      x: p.position.x,
+      z: p.position.z,
+      agl: p.agl,
+      headingDeg: p.headingDeg,
+      turnCalled: this.flags.turnCalled,
+      onCourseSeconds: this._onCourseT,
+    }, dt);
+    if (gate.callTurn) {
       this.flags.turnCalled = true;
       this.dialogue.play('climb.turn.east', { once: true });
     }
-    if (this.flags.turnCalled) {
-      const err = Math.abs(headingDelta(p.headingDeg, TURN_POINT.newHeading));
-      this._onCourseT = err < 8 ? this._onCourseT + dt : 0;
-      if (this._onCourseT > 2.5) this.setPhase('cruise');
-    }
+    this._onCourseT = gate.onCourseSeconds;
+    if (gate.ready) this.setPhase('cruise');
   }
 
   /** Shared by `cruise` and `return` — Irish's heading corrections. */
@@ -1732,7 +1768,7 @@ export class MissionController {
     /* THE ONE AUTHORED ENGINE PROBLEM — see the constants at the top of the
      * file. Toward the end of the flak/fighter stretch, not the start of it. */
     if (!this._engineOutFired && p.position.x > ENGINE_OUT_TRIGGER_X) this.triggerEngineOut();
-    if (p.position.x > TARGET_X - 1400) {
+    if (p.position.x > TARGET_X - 2200) {
       this.defense.suppress();
       this.setPhase('bombApproach');
     }
@@ -1845,7 +1881,11 @@ export class MissionController {
       ? `${OBJECTIVES.BOMB_APPROACH} — steady`
       : OBJECTIVES.BOMB_APPROACH);
 
-    if (this.targeting.readyToRelease || this.targeting.distance < BOMB_MALFUNCTION_TRIGGER_M) {
+    /* The malfunction has a fixed hold/choice/kick duration. A predictable
+     * lead point gives the bomb's retained horizontal velocity room to carry
+     * it onto the city; starting on an early alignment gate made the best
+     * pilot release short and a late fallback carried everyone else long. */
+    if (this.targeting.distance < BOMB_MALFUNCTION_TRIGGER_M) {
       this.setPhase('bombMalfunction');
     }
   }
@@ -2320,7 +2360,13 @@ export class MissionController {
       this._emergencyPushFailAt = null;
       this.dialogue.play('emergency.shutdown', { once: true });
     }
-    if (this._emergencyResolved && (!e.hotScript || e.hotScript <= 0)) {
+    /* `EngineSystem.hotScript` only counts down while an engine is running.
+     * Shutdown is one of the three authored answers above, and fuel starvation
+     * or the push-it failure can stop the same engine too. Waiting only for
+     * `hotScript <= 0` therefore stranded every one of those valid outcomes in
+     * this phase forever. Once the player has answered, a stopped engine is
+     * already the resolution; a running one still serves the full heat timer. */
+    if (this._emergencyResolved && (!e.running || !e.hotScript || e.hotScript <= 0)) {
       this.setPhase('return');
     }
   }
@@ -2674,6 +2720,13 @@ export class MissionController {
 
   saveCheckpoint(name) {
     if (!CHECKPOINTS.includes(name)) return;
+    // restoreCheckpoint's canonical setPhase() immediately saves again. Put
+    // the durable targeting accumulator back before that save so phase entry
+    // cannot replace a historical corridor grade with a fresh zero ledger.
+    if (this._checkpointTargetingRestore) {
+      this.targeting.restoreCheckpoint(this._checkpointTargetingRestore);
+      this._checkpointTargetingRestore = null;
+    }
     this.checkpoint = name;
     this.checkpointData = {
       name,
@@ -2683,10 +2736,12 @@ export class MissionController {
       quat: this.physics.quat.clone(),
       fuel: this.engines.fuel,
       damage: { ...this.physics.damage },
+      targeting: this.targeting.checkpoint(),
       score: { ...this.score },
       payloadReleased: this.payloadReleased,
       dusk: this.weather.dusk,
     };
+    this.onCheckpoint?.(name, this.checkpointData);
     this.flightHud?.showCheckpoint?.(`CHECKPOINT — ${name.toUpperCase()}`);
     if (typeof setTimeout === 'function') setTimeout(() => this.flightHud?.hideCheckpoint?.(), 2200);
   }
@@ -2809,7 +2864,9 @@ export class MissionController {
         this.setPhase('cruise');
       },
       preRelease: () => {
-        this.physics.setPose(new THREE.Vector3(TARGET_X - 1200, approxGroundHeight(TARGET_X) + 400, COMPOUND.z), TURN_POINT.newHeading, 62);
+        /* Restore outside the 1600 m malfunction trigger so the player gets
+         * the same visible bombing-run lead-in as organic flight. */
+        this.physics.setPose(new THREE.Vector3(TARGET_X - 2100, approxGroundHeight(TARGET_X) + 400, COMPOUND.z), TURN_POINT.newHeading, 62);
         this.engines.forceRunning();
         this.input.throttle = 0.6;
         this.physics.controls.parkingBrake = false;
@@ -2888,7 +2945,9 @@ export class MissionController {
      * the owner kept hitting. `setup.return()` sets it true again immediately
      * below, and that is the whole of the exception. */
     if (name !== 'return') this.payloadReleased = false;
+    this._checkpointTargetingRestore = data?.targeting ?? null;
     setup[name]();
+    this._checkpointTargetingRestore = null;
     /* Reconcile the prop with the flag the restore just settled on. Every
      * checkpoint but one comes back with the bomb aboard and `rearmPayload()`
      * above has already hung it up; `return` is the exception — it is the leg

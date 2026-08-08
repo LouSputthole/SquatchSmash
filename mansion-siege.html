@@ -87,6 +87,9 @@
     color: var(--gold-bright); min-height: 13px; margin-top: 3px;
   }
   #ammo.dry #ammoMag { color: #e6663c; }
+  /* The durable five-slot bar sits above the ammunition card instead of
+   * sharing its bottom-right footprint. */
+  #scene-inventory-hands { right: 26px; bottom: 112px; }
   #reticle {
     position: fixed; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
     pointer-events: none; z-index: 4;
@@ -239,11 +242,8 @@
   }
 
   /* ---------------- The end of the mission ----------------
-   * An honest card. The siege hands the Prospect to Captain Sasole and the
-   * campaign's next scene is THE ENOLA SQUATCH -- which exists, and which
-   * nothing yet loads FROM here, because the campaign wiring between the two
-   * has not been written. Saying so on the card is better than a fade to
-   * black that reads as a crash. */
+   * The campaign card commits the siege result before continuing into THE
+   * ENOLA SQUATCH. Preview keeps a standalone link and never writes a save. */
   #missionCard { z-index: 12; }
   #missionCard .kicker { color: #9fe08a; }
   #missionCard .title { color: #dff3d3; text-shadow: 0 0 30px rgba(120, 200, 110, .35), 0 6px 0 #14230f; }
@@ -315,7 +315,7 @@
       <div><b>WASD</b> Move &nbsp;&middot;&nbsp; <b>Mouse</b> Look (click to capture)</div>
       <div><b>Shift</b> Sprint &nbsp;&middot;&nbsp; <b>C</b> Crouch &nbsp;&middot;&nbsp; <b>Space</b> Jump</div>
       <div><b>Left mouse</b> Fire &nbsp;&middot;&nbsp; <b>R</b> Reload &nbsp;&middot;&nbsp; <b>1&ndash;5</b> Weapon</div>
-      <div><b>E</b> Take a weapon off the rack &nbsp;&middot;&nbsp; <b>Q</b> Put it back</div>
+      <div><b>E</b> Take / return a rack weapon &nbsp;&middot;&nbsp; <b>1–5</b> Select &nbsp;&middot;&nbsp; <b>Q</b> Stow</div>
       <div><b>E / Click</b> Talk, use, interact &nbsp;&middot;&nbsp; <b>Hold E</b> Pick somebody up</div>
       <div><b>F</b> Say it &mdash; once, from the rail, with the belt-fed up</div>
       <div><b>Enter</b> Skip a line &nbsp;&middot;&nbsp; <b>Tab</b> Pause &nbsp;&middot;&nbsp; <b>Esc</b> Release mouse</div>
@@ -342,16 +342,14 @@
       <div><b id="tallyGlass">0</b><span>WINDOWS OUT</span></div>
     </div>
     <div class="note">
-      <b>This is where the preview stops.</b> In the campaign the Prospect goes straight
-      from this landing to <b>THE ENOLA SQUATCH</b> — but nothing loads that scene from
-      here yet, because the campaign wiring between the two missions has not been written.
-      Sasole&rsquo;s handoff is authored, played and honest; the aeroplane is a separate
-      page until somebody joins them up.
+      <b>The house held.</b> Captain Lou Sasole&rsquo;s handoff now carries directly into
+      <b>THE ENOLA SQUATCH</b>. Preview runs keep the standalone link; campaign runs
+      commit the siege report before they leave this landing.
     </div>
     <div class="exits">
       <a href="./index.html" class="btn small" style="text-decoration:none; display:inline-block;">HOME &mdash; THE APARTMENT</a>
       <a href="./mansion.html" class="btn alt small" style="text-decoration:none; display:inline-block;">THE HOUSE, QUIET</a>
-      <a href="./enolasquatch.html" class="btn alt small" style="text-decoration:none; display:inline-block;">THE ENOLA SQUATCH (STANDALONE)</a>
+      <a id="continueBtn" href="./enolasquatch.html" class="btn alt small" style="text-decoration:none; display:inline-block;">CONTINUE &mdash; THE ENOLA SQUATCH</a>
       <button id="replayBtn" type="button" class="btn alt small">PLAY IT AGAIN</button>
     </div>
   </div>

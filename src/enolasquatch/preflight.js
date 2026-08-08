@@ -59,6 +59,33 @@ const PROP_REACTION = [
 const _markerPos = new THREE.Vector3();
 const _markerOff = new THREE.Vector3();
 
+/**
+ * Refresh the world matrices Raycaster will read for authored interaction
+ * roots and every nested hit proxy below them.
+ *
+ * Three.js deliberately does not update Object3D transforms from
+ * `Raycaster.intersectObjects()`. A normal rendered frame hides that contract
+ * because WebGLRenderer updates the whole scene first. The Enola Squatch also
+ * has a deterministic simulation path (`window.__enolaSquatch.tick()` and
+ * `standAtNextCheck()`) that performs real interaction raycasts without a
+ * render. After the aircraft is staged on the apron, `markerAnchor()` updates
+ * the registered part's matrix but not its descendant proxy, leaving the ray
+ * aimed at the new world pose while the proxy still exists at its build-time
+ * pose near the origin.
+ *
+ * Keep this target-scoped rather than updating the enormous city scene: the
+ * walkaround has only ten authored roots, and those roots are the complete
+ * interaction surface while Tony is outside the aeroplane.
+ */
+export function syncInteractionTargetMatrices(interaction) {
+  if (!interaction) return;
+  const targets = interaction.exclusiveTarget
+    ? [interaction.exclusiveTarget]
+    : interaction.targets ?? [];
+  const roots = new Set([...targets, ...(interaction.occluders ?? [])]);
+  for (const root of roots) root?.updateWorldMatrix?.(true, true);
+}
+
 /** Where the highlight belongs on each part, in aeroplane-local metres. */
 const MARKER_OFFSET = {
   chocks: new THREE.Vector3(0, 0.2, 0),

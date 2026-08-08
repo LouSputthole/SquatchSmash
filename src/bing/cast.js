@@ -346,24 +346,27 @@ export function makePerson(o = {}) {
      * Rippinflow wears a thin silver line and nothing hanging off it, which
      * is a different man saying a different thing with his neck. */
     pendant = true, chainStyle = 'single', pendantStyle = 'disc',
-    neckline = false, luxury = false, shirtAccent = null, watch = false,
+    neckline = false, luxury = false, shirtAccent = null, tieColour = 0x6a1a24,
+    pocketSquare = 0xb8a05a, watch = false,
     bracelet = false,
     /* Dinner-jacket details, all of them small and all of them the whole read
      * on the one man who needs them: a bow tie at the collar, the tuxedo front
      * behind it, and bare feet, because whoever tied him to that chair took
      * his shoes. */
-    bowtie = false, barefoot = false, tuxedo = false,
+    bowtie = false, bowtieColour = 0x101018, barefoot = false, tuxedo = false,
     /* Tailoring detail, off by default because a crowd of twenty extras does
      * not need waistbands. Turn it on for anyone the player stands next to.
      *   trim      collar points, placket, buttons and cuffs on a shirt;
      *             buttons, a pocket square and a real knotted tie on a suit
      *   belt      false | 'leather' | 'gold' -- a waistband and a buckle
      *   trouserFit 'plain' | 'creased' -- a front crease and turn-ups
+     *   tieColour straight business-tie colour; pocketSquare may be a colour
+     *              or false when the scene calls for plain, severe tailoring
      *   jacketColour override the garment colour independently of `shirt`,
      *             which a bomber needs because its knits are the accent
      *   patches   squadron patches on a bomber's shoulder and chest */
     trim = false, belt = false, trouserFit = 'plain',
-    jacketColour: jacketColourOption = null, patches = false,
+    jacketColour: jacketColourOption = null, waistcoatColour = 0x191920, patches = false,
     /* Headwear, tailoring and the golf course. All off by default, because
      * every one of them is meshes on a figure and the room behind Lou does
      * not need a hat band.
@@ -1130,10 +1133,10 @@ export function makePerson(o = {}) {
    * of it. It is the single detail that turns a dark suit into a dinner
    * jacket at store-room distance. */
   if (bowtie && !performanceWear) {
-    const tieMat = mat({ color: 0x101018, roughness: 0.42 });
+    const tieMat = mat({ color: bowtieColour, roughness: 0.42 });
     // Just under the collar line the V-neck block uses, on the shirt front.
     const tieY = 1.495;
-    const tieZ = shirtFront + 0.016;
+    const tieZ = (dress === 'waistcoat' ? D * 1.08 : shirtFront) + 0.016;
     for (const side of [-1, 1]) {
       const wing = box({
         name: `bowtie.wing.${side < 0 ? 'left' : 'right'}`,
@@ -1354,14 +1357,14 @@ export function makePerson(o = {}) {
          * waistcoat. This is also what leaves the sternum free for the chain. */
         size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
         pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
-        mat: mat({ color: 0x6a1a24, roughness: 0.7 }),
+        mat: mat({ color: tieColour, roughness: 0.7 }),
       }));
       if (trim) {
         /* What separates a suit from a dark rectangle: a knot at the top of the
-         * tie, two buttons where a jacket actually closes, a pocket square, and
-         * a collar with points. All of it in front of the chest, none of it
-         * cutting into the figure. */
-        const tieMat = mat({ color: 0x6a1a24, roughness: 0.7 });
+         * tie, two buttons where a jacket actually closes, an optional pocket
+         * square, and a collar with points. All of it in front of the chest,
+         * none of it cutting into the figure. */
+        const tieMat = mat({ color: tieColour, roughness: 0.7 });
         const knot = box({
           name: 'suit.tie.knot',
           size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
@@ -1396,12 +1399,14 @@ export function makePerson(o = {}) {
           }));
         }
         // Breast pocket square, on his left -- the figure faces +Z.
-        body.add(box({
-          name: 'suit.pocket-square',
-          size: [0.05, 0.022, 0.010],
-          pos: [0.152 * t, 1.392, D * 1.115],
-          mat: mat({ color: 0xb8a05a, roughness: 0.68 }),
-        }));
+        if (pocketSquare !== false) {
+          body.add(box({
+            name: 'suit.pocket-square',
+            size: [0.05, 0.022, 0.010],
+            pos: [0.152 * t, 1.392, D * 1.115],
+            mat: mat({ color: pocketSquare, roughness: 0.68 }),
+          }));
+        }
       }
     }               // !tuxedo
   }
@@ -1630,8 +1635,23 @@ export function makePerson(o = {}) {
     }
   }
   if (dress === 'waistcoat') {
-    body.add(box({ size: [0.35 * t, 0.32, D * 2.06], pos: [0, 1.34, 0], mat: mat({ color: 0x191920, roughness: 0.82 }) }));
-    body.add(box({ size: [0.075, 0.05, 0.02], pos: [0, 1.5, D * 1.05], mat: mat({ color: 0x6a1a24, roughness: 0.6 }) }));
+    body.add(box({
+      name: 'waistcoat.front',
+      size: [0.35 * t, 0.32, D * 2.06],
+      pos: [0, 1.34, 0],
+      mat: mat({ color: waistcoatColour, roughness: 0.82 }),
+    }));
+    /* The legacy uniform used one small neck block as shorthand. A featured
+     * server may request the proper two-wing bow tie above; do not stack the
+     * shorthand through it. */
+    if (!bowtie) {
+      body.add(box({
+        name: 'waistcoat.neck-tab',
+        size: [0.075, 0.05, 0.02],
+        pos: [0, 1.5, D * 1.05],
+        mat: mat({ color: 0x6a1a24, roughness: 0.6 }),
+      }));
+    }
   }
   if (dress === 'work') {
     body.add(box({ size: [0.35 * t, 0.22, D * 2.06], pos: [0, 1.1, 0], mat: mat({ color: 0x2a2a30, roughness: 0.95 }) }));

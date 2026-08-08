@@ -218,10 +218,14 @@ function buildRack(def) {
  *   with a nearest-N light rig (this house has one, and had to grow one) must
  *   be the thing that decides which lights are live.
  * @param {Function} [o.onEvent]      ({type:'take'|'rack'|'resupply', id})
+ * @param {boolean} [o.retainTaken]   stow a previous gun instead of returning
+ *   it to the wall when another is taken. Durable hotbars opt into this;
+ *   legacy one-gun armories retain the original swap behavior by default.
  */
 export function mountArmory({
   parent, system, interaction, racks,
   enabled = () => true, addCollider = null, addLight = null, onEvent = null,
+  retainTaken = false,
 }) {
   const root = new THREE.Group();
   root.name = 'armory';
@@ -307,8 +311,11 @@ export function mountArmory({
   function take(id, index = null) {
     const stand = stands.get(id);
     if (!stand) return false;
-    // Whatever is in the player's hands goes back on its own wall first.
-    if (system.equipped && system.equipped !== id) put();
+    // A legacy rack swaps. A durable inventory merely stows the previous gun.
+    if (system.equipped && system.equipped !== id) {
+      if (retainTaken) system.stow();
+      else put();
+    }
     const copy = index === null
       ? stand.built.copies.find((c) => c.gun.visible)
       : stand.built.copies[index];
@@ -317,6 +324,20 @@ export function mountArmory({
     stand.taken = copy.index;
     system.equip(id);
     emit({ type: 'take', id, index: copy.index });
+    return true;
+  }
+
+  /** Reserve a wall copy for a gun restored from durable scene state. */
+  function claim(id, index = null) {
+    const stand = stands.get(id);
+    if (!stand) return false;
+    if (stand.taken !== null) return true;
+    const copy = index === null
+      ? stand.built.copies.find((entry) => entry.gun.visible)
+      : stand.built.copies[index];
+    if (!copy || !copy.gun.visible) return false;
+    copy.gun.visible = false;
+    stand.taken = copy.index;
     return true;
   }
 
@@ -348,6 +369,7 @@ export function mountArmory({
     root,
     stands,
     take,
+    claim,
     put,
     resupply,
     /** Everything on the wall, for a HUD, a verifier or a debug handle. */

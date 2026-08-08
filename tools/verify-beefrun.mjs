@@ -226,6 +226,8 @@ try {
     const b = window.__beefrun;
     const audioEngine = b.audio.engine;
     const residentNames = [...audioEngine.buffers.keys()];
+    const expectedSet = new Set(expectedCues);
+    const radioSet = new Set(b.radioAudioPlan.full);
     const cx = Math.round(b.player.position.x / 500);
     const cz = Math.round(b.player.position.z / 500);
     return {
@@ -244,8 +246,19 @@ try {
         loaded: audioEngine.loadedCount,
         residentNames: residentNames.length,
         missingExpected: expectedCues.filter((name) => !audioEngine.buffers.has(name)),
+        missingRadioStartup: b.radioAudioPlan.startup
+          .filter((name) => !audioEngine.buffers.has(name)),
+        unexpectedResident: residentNames
+          .filter((name) => !expectedSet.has(name) && !radioSet.has(name)),
         unrelatedCampaignVo: residentNames.filter((name) => name.startsWith('vo.')
-          && !name.startsWith('vo.beefrun.')),
+          && !name.startsWith('vo.beefrun.') && !name.startsWith('vo.radio.')),
+        radioStartup: b.radioAudioPlan.startup.length,
+        radioFull: b.radioAudioPlan.full.length,
+      },
+      radio: {
+        station: b.radio.station.name,
+        powered: b.radio.on,
+        tracks: b.radio.tracks.length,
       },
     };
   }, expectedResidentCues);
@@ -260,13 +273,21 @@ try {
     started.inventoryVisible && started.inventorySlots === 5 && started.inventorySlotCount === '5',
     JSON.stringify({ visible: started.inventoryVisible, slots: started.inventorySlots,
       slotCount: started.inventorySlotCount }));
-  check('Beef Run decodes only its complete recorded audio set',
+  check('Beef Run decodes its complete mission bank plus only the bounded shared radio bank',
     started.audio.manifestTotal === voiceManifest.sfx.length
       && started.audio.selected === expectedResidentCues.length
-      && started.audio.loaded === expectedResidentCues.length
+      && started.audio.loaded >= expectedResidentCues.length + started.audio.radioStartup
+      && started.audio.loaded <= expectedResidentCues.length + started.audio.radioFull
       && started.audio.missingExpected.length === 0
+      && started.audio.missingRadioStartup.length === 0
+      && started.audio.unexpectedResident.length === 0
       && started.audio.unrelatedCampaignVo.length === 0,
     JSON.stringify({ ...started.audio, expected: expectedResidentCues.length, loadMs: audioLoadMs }));
+  check('the shared cockpit receiver is tuned to the campaign station and starts under player control',
+    started.radio.station === '97.8 THE SQUATCH'
+      && started.radio.powered === false
+      && started.radio.tracks > 0,
+    JSON.stringify(started.radio));
 
   const earlyRestart = await page.evaluate(() => {
     const b = window.__beefrun;
@@ -357,6 +378,79 @@ try {
       && scenePass.louFacingPlayer < 0.01,
     JSON.stringify(scenePass));
 
+  const handoffStaging = await page.evaluate(async () => {
+    const b = window.__beefrun;
+    const m = b.mission;
+    const THREE = b.THREE;
+    const npc = await import('/src/beefrun/npc.js');
+    const stand = m.airfield.anchors.stoveStand;
+    const louStand = m.airfield.anchors.louStand;
+    const crates = m.airfield.anchors.stoveCrates;
+
+    // Test the actual standing figure against the parked aircraft, then put
+    // him back in the hangar so the live scene still owns his entrance.
+    const oldPosition = m.stove.group.position.clone();
+    m.stove.group.position.copy(stand);
+    m.stove.group.updateMatrixWorld(true);
+    m.aircraft.group.updateMatrixWorld(true);
+    const characterMeshes = [];
+    const aircraftMeshes = [];
+    m.stove.group.traverse((part) => { if (part.isMesh && part.visible) characterMeshes.push(part); });
+    m.aircraft.group.traverse((part) => {
+      if (part.isMesh && part.visible && part.material?.visible !== false) aircraftMeshes.push(part);
+    });
+    const collisions = [];
+    for (const body of characterMeshes) {
+      const bodyBox = new THREE.Box3().setFromObject(body);
+      for (const part of aircraftMeshes) {
+        const overlap = bodyBox.clone().intersect(new THREE.Box3().setFromObject(part));
+        if (!overlap.isEmpty()) {
+          const size = overlap.getSize(new THREE.Vector3());
+          if (Math.min(size.x, size.y, size.z) > 0.001) collisions.push(part.name || '(unnamed)');
+        }
+      }
+    }
+    m.stove.group.position.copy(oldPosition);
+    m.stove.group.updateMatrixWorld(true);
+
+    // Reapply the authored briefing pose and inspect the pieces below the
+    // shoulder joint. Shoulder contact is expected; a forearm in the torso is
+    // the player-reported clipping bug.
+    npc.setPose(m.lou, 'lean');
+    const louRotation = m.lou.group.rotation.clone();
+    /* Compare in the authored body frame. World-axis AABBs around a yawed
+     * figure can overlap even when the two oriented boxes are clear. */
+    m.lou.group.rotation.set(0, 0, 0);
+    m.lou.group.updateMatrixWorld(true);
+    const torso = new THREE.Box3().setFromObject(
+      m.lou.group.getObjectByName('captain_lou_sasole-torso'),
+    );
+    const armClips = [];
+    for (const [index, arm] of m.lou.arms.entries()) {
+      for (const [part, object] of [['forearm', arm.elbow.children[0]], ['hand', arm.hand]]) {
+        if (!torso.clone().intersect(new THREE.Box3().setFromObject(object)).isEmpty()) {
+          armClips.push(`${index}:${part}`);
+        }
+      }
+    }
+    m.lou.group.rotation.copy(louRotation);
+    m.lou.group.updateMatrixWorld(true);
+    return {
+      distanceToSasole: stand.distanceTo(louStand),
+      distanceToCrates: stand.distanceTo(crates),
+      collisions: [...new Set(collisions)],
+      armClips,
+    };
+  });
+  check('Stove joins the handoff within nine metres, stays with his crates, and clears the parked aircraft',
+    handoffStaging.distanceToSasole < 9.5
+      && handoffStaging.distanceToCrates < 4
+      && handoffStaging.collisions.length === 0,
+    JSON.stringify(handoffStaging));
+  check('Sasole\'s live apron lean keeps both forearms and hands outside his torso',
+    handoffStaging.armClips.length === 0,
+    JSON.stringify(handoffStaging.armClips));
+
   /* The two men on the apron are named, and the names ride with them. */
   const tags = await page.evaluate(async () => {
     const m = window.__beefrun.mission;
@@ -379,11 +473,16 @@ try {
     npc.walkTo(m.stove, from.x + 6, from.z - 6, { speed: 40 });
     for (let i = 0; i < 30; i++) npc.updateFigure(m.stove, 0.05, null);
     const stoveAfter = read(m.stove);
+    const figureMoved = +m.stove.group.position.distanceTo(from).toFixed(2);
+    const tagMoved = +stoveAfter.world.distanceTo(stoveBefore.world).toFixed(2);
+    m.stove.group.position.copy(from);
+    m.stove.walk = null;
+    m.stove.group.updateMatrixWorld(true);
     return {
       lou: { text: lou.text, sprite: lou.sprite, onFigure: lou.onFigure },
       stove: { text: stoveBefore.text, sprite: stoveBefore.sprite, onFigure: stoveBefore.onFigure },
-      figureMoved: +m.stove.group.position.distanceTo(from).toFixed(2),
-      tagMoved: +stoveAfter.world.distanceTo(stoveBefore.world).toFixed(2),
+      figureMoved,
+      tagMoved,
     };
   });
   check('both airfield NPCs carry a name tag that tracks them',
@@ -643,6 +742,32 @@ const runwayStart = await page.evaluate(() => {
     pose: m.lou.pose,
   };
   m.enterCockpit();
+  // Exercise one real cockpit frame after this FRESH boarding, not only the
+  // checkpoint-resume pose checked later in this verifier. This was the path
+  // that could leave the right seat visually empty even though a saved flight
+  // happened to restore Sasole correctly.
+  b.aircraft.syncTo(b.physics);
+  m.updateLou(0.016);
+  b.aircraft.group.updateMatrixWorld(true);
+  const expectedSeatWorld = b.aircraft.copilotSeat.clone().applyMatrix4(b.aircraft.group.matrixWorld);
+  const actualSeatWorld = m.lou.group.getWorldPosition(b.physics.position.clone());
+  let visibleMeshes = 0;
+  m.lou.group.traverse((part) => {
+    if (!part.isMesh) return;
+    let visible = true;
+    for (let node = part; node; node = node.parent) visible = visible && node.visible;
+    if (visible) visibleMeshes++;
+  });
+  const freshRightSeat = {
+    parented: m.lou.group.parent === b.aircraft.group,
+    localError: m.lou.group.position.distanceTo(b.aircraft.copilotSeat),
+    worldError: actualSeatWorld.distanceTo(expectedSeatWorld),
+    groupVisible: m.lou.group.visible,
+    visibleMeshes,
+    torsoVisible: m.lou.group.getObjectByName('captain_lou_sasole-torso')?.visible,
+    cupHidden: m.lou.cup?.visible === false,
+    tagHidden: m.lou.tag?.visible === false,
+  };
 
   const target = m.airfield.anchors.lineUp;
   const staged = {
@@ -672,6 +797,7 @@ const runwayStart = await page.evaluate(() => {
     earlyBoardBlocked,
     offeredAfterLouSeats,
     louSeat,
+    freshRightSeat,
     staged,
     takeoffPhase: m.phase,
     lineupReady: m.flags.lineupReady,
@@ -685,6 +811,14 @@ check('Lou seats first, then boarding cuts the stopped aircraft to runway 18',
     && runwayStart.louSeat.parented
     && runwayStart.louSeat.localError < 0.001
     && runwayStart.louSeat.pose === 'sit'
+    && runwayStart.freshRightSeat.parented
+    && runwayStart.freshRightSeat.localError < 0.001
+    && runwayStart.freshRightSeat.worldError < 0.001
+    && runwayStart.freshRightSeat.groupVisible
+    && runwayStart.freshRightSeat.visibleMeshes >= 8
+    && runwayStart.freshRightSeat.torsoVisible
+    && runwayStart.freshRightSeat.cupHidden
+    && runwayStart.freshRightSeat.tagHidden
     && runwayStart.staged.phase === 'startup'
     && runwayStart.staged.flagged
     && Math.abs(runwayStart.staged.x - runwayStart.staged.targetX) < 0.01
@@ -1056,6 +1190,18 @@ const chain = await page.evaluate(() => {
         trunks: m.airstrip.root.getObjectByName('el-hueso-jungle-trunks')?.count || 0,
         crowns: m.airstrip.root.getObjectByName('el-hueso-jungle-canopy')?.count || 0,
       },
+      airport: {
+        huts: m.airstrip.root.children.filter((part) => part.name === 'hut').length,
+        shelters: m.airstrip.root.children.filter((part) => part.name === 'shelter').length,
+        trucks: m.airstrip.root.children.filter((part) => part.name === 'mil-truck').length,
+        cargoStacks: m.airstrip.root.children.filter((part) => part.name === 'cargo-stack').length,
+        antennas: m.airstrip.root.children.filter((part) => part.name === 'antenna').length,
+        windsocks: m.airstrip.root.children.filter((part) => part.name === 'shirt-sock').length,
+        drums: m.airstrip.drums.length,
+        chickens: m.airstrip.chickens.length,
+        guards: m.airstrip.guards.length,
+        colliders: m.airstrip.colliders.length,
+      },
       cecilio: {
         tag: cecilio.tag?.userData.text,
         authoredFace: !!cecilio.group.getObjectByName('cecilio-face'),
@@ -1090,6 +1236,18 @@ const chain = await page.evaluate(() => {
   check('El Hueso has a low-draw-call secondary jungle wall',
     remotePresentation.jungle.trunks === 44 && remotePresentation.jungle.crowns === 44,
     JSON.stringify(remotePresentation.jungle));
+  check('El Hueso already has a complete working airport camp, not an empty destination pad',
+    remotePresentation.airport.huts === 4
+      && remotePresentation.airport.shelters === 1
+      && remotePresentation.airport.trucks === 2
+      && remotePresentation.airport.cargoStacks === 3
+      && remotePresentation.airport.antennas === 1
+      && remotePresentation.airport.windsocks === 1
+      && remotePresentation.airport.drums === 11
+      && remotePresentation.airport.chickens === 7
+      && remotePresentation.airport.guards === 4
+      && remotePresentation.airport.colliders >= 10,
+    JSON.stringify(remotePresentation.airport));
   check('Don Cecilio has a readable identity and tailored outfit while the rear guards stay unchanged',
     remotePresentation.cecilio.tag === 'DON CECILIO'
       && remotePresentation.cecilio.authoredFace
@@ -1297,52 +1455,52 @@ const chain = await page.evaluate(() => {
     taxiRoute.every((part) => part.found),
     JSON.stringify(taxiRoute));
 
-  const rollKeys = await resumePage.evaluate(() => {
-    const input = window.__beefrun.input;
-    const axis = (code) => {
-      input.clear();
-      input.usingGamepad = false;
-      input.keys.add(code);
+  const rollKeys = await resumePage.evaluate(async () => {
+    const { FlightInput } = await import('/src/beefrun/input.js');
+    const { AircraftPhysics } = await import('/src/beefrun/physics.js');
+    const THREE = window.__beefrun.THREE;
+    const fly = ({ code = null, padX = null, padYaw = 0 }) => {
+      const input = new FlightInput();
+      input.pollGamepad = padX === null
+        ? () => null
+        : () => ({ axes: [padX, 0, padYaw, 0], buttons: [] });
+      if (code) input.key(code, true);
       input.update(0.2);
-      return input.axes.roll;
+      const axes = { roll: input.axes.roll, yaw: input.axes.yaw };
+      const physics = new AircraftPhysics({ getHeight: () => 0 });
+      physics.assisted = false;
+      physics.setPose(new THREE.Vector3(0, 500, 0), 0, 55);
+      physics.controls.parkingBrake = false;
+      input.applyTo(physics.controls);
+      for (let i = 0; i < 60; i++) physics.step(1 / 120);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+      const left = new THREE.Vector3(-1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+      return { ...axes, leftY: left.y, rightY: right.y };
     };
-    const a = axis('KeyA');
-    const d = axis('KeyD');
-    input.clear();
-    return { a, d };
+    return {
+      a: fly({ code: 'KeyA' }),
+      d: fly({ code: 'KeyD' }),
+      gamepadRight: fly({ padX: 1, padYaw: 1 }),
+      gamepadLeft: fly({ padX: -1, padYaw: -1 }),
+    };
   });
-  check('A and D use the cockpit-visible bank polarity',
-    rollKeys.a > 0 && rollKeys.d < 0,
-    JSON.stringify(rollKeys));
-
-  const gamepadAxes = await resumePage.evaluate(() => {
-    const input = window.__beefrun.input;
-    const originalPoll = input.pollGamepad;
-    input.clear();
-    input.usingGamepad = false;
-    input.pollGamepad = () => ({ axes: [1, 0, 1, 0], buttons: [] });
-    input.update(0.016);
-    const right = { roll: input.axes.roll, yaw: input.axes.yaw };
-    input.clear();
-    input.usingGamepad = false;
-    input.pollGamepad = () => ({ axes: [-1, 0, -1, 0], buttons: [] });
-    input.update(0.016);
-    const left = { roll: input.axes.roll, yaw: input.axes.yaw };
-    input.pollGamepad = originalPoll;
-    input.clear();
-    input.usingGamepad = false;
-    return { right, left };
-  });
-  check('gamepad roll and rudder match the corrected cockpit-visible polarity',
-    gamepadAxes.right.roll < 0 && gamepadAxes.right.yaw < 0
-      && gamepadAxes.left.roll > 0 && gamepadAxes.left.yaw > 0,
-    JSON.stringify(gamepadAxes));
+  check('A lowers the authored left wing and D lowers the authored right wing',
+    rollKeys.a.leftY < rollKeys.a.rightY
+      && rollKeys.d.rightY < rollKeys.d.leftY,
+    JSON.stringify({ a: rollKeys.a, d: rollKeys.d }));
+  check('gamepad bank matches the same player-facing wing movement and rudder polarity',
+    rollKeys.gamepadRight.rightY < rollKeys.gamepadRight.leftY
+      && rollKeys.gamepadRight.yaw < 0
+      && rollKeys.gamepadLeft.leftY < rollKeys.gamepadLeft.rightY
+      && rollKeys.gamepadLeft.yaw > 0,
+    JSON.stringify({ right: rollKeys.gamepadRight, left: rollKeys.gamepadLeft }));
 
   const restartGuard = await resumePage.evaluate(() => {
     const b = window.__beefrun;
     const original = b.mission.requestRestart;
     let restartCalls = 0;
     b.mission.requestRestart = () => { restartCalls++; };
+    const radioBefore = b.radio.on;
 
     document.dispatchEvent(new KeyboardEvent('keydown', {
       code: 'KeyR', bubbles: true, cancelable: true,
@@ -1351,6 +1509,15 @@ const chain = await page.evaluate(() => {
       code: 'KeyR', bubbles: true, cancelable: true,
     }));
     const afterRawR = restartCalls;
+    const radioToggled = b.radio.on !== radioBefore;
+    /* Put the receiver back exactly as this resume page found it. */
+    document.dispatchEvent(new KeyboardEvent('keydown', {
+      code: 'KeyR', bubbles: true, cancelable: true,
+    }));
+    document.dispatchEvent(new KeyboardEvent('keyup', {
+      code: 'KeyR', bubbles: true, cancelable: true,
+    }));
+    const radioRestored = b.radio.on === radioBefore;
 
     window.dispatchEvent(new KeyboardEvent('keydown', {
       code: 'Tab', bubbles: true, cancelable: true,
@@ -1372,6 +1539,8 @@ const chain = await page.evaluate(() => {
     b.mission.requestRestart = original;
     return {
       afterRawR,
+      radioToggled,
+      radioRestored,
       opened,
       restartLabel: restartButton?.textContent.trim() || '',
       pauseInstructions,
@@ -1381,8 +1550,10 @@ const chain = await page.evaluate(() => {
       closed,
     };
   });
-  check('raw R is inert and checkpoint restart only runs from the pause menu button',
+  check('R powers only the cockpit receiver and restart still runs only from the pause menu',
     restartGuard.afterRawR === 0
+      && restartGuard.radioToggled
+      && restartGuard.radioRestored
       && restartGuard.opened
       && restartGuard.restartLabel === 'Restart from checkpoint'
       && restartGuard.afterMenu === 1

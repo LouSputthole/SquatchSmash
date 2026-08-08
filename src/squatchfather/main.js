@@ -199,7 +199,6 @@ sharedPauseMenu = createPauseMenu({
     lockPointer();
   },
   onRestart: () => hardRestart(),
-  actions: [{ label: 'Back to apartment', onSelect: () => returnToApartment() }],
 });
 
 renderer.domElement.addEventListener('mousedown', (e) => {
@@ -1288,10 +1287,6 @@ function returnToApartment() {
 }
 
 $('againBtn').addEventListener('click', returnToApartment);
-for (const id of ['backBtn', 'quitBtn', 'menuBtn']) {
-  const el = $(id);
-  if (el) el.addEventListener('click', returnToApartment);
-}
 
 // Build the audio graph while the menu is still up: the context sits
 // suspended until the start click, but the recordings fetch and decode now,

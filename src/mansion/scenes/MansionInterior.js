@@ -61,7 +61,7 @@ import {
   makeBed, makeNightstand, makePlant, makeFloorLamp, makeFrame,
   makeToilet, makeTub, makeWhiskeyBottle, makeShotGlass,
   makeAshtray, makeBooks, makeWallClock, makeDesk, makeChair, makeBeerCan,
-  makePizzaBox, makeBong,
+  makePizzaBox, makeBong, makeZynCan,
 } from '../../world/props.js';
 import { resolveGear } from '../../world/gear.js';
 /* NO PEOPLE ARE BUILT IN THIS FILE. It used to import the club's figure
@@ -1439,6 +1439,10 @@ export function buildMansionInterior(shell = null) {
   function makeTvSet(x, y, z, rotY = 0, { w = 1.5, h = 1.0 } = {}) {
     const g = new THREE.Group();
     const d = 0.62;
+    /* The cabinet starts 220 mm above the floor. The old face used `h *
+     * 0.62` as world height and forgot that offset, so on the little kitchen
+     * set the lower third of the picture hung below the wooden cabinet. */
+    const faceY = 0.22 + h * 0.60;
     g.add(box({ size: [w, h, d], pos: [0, h / 2 + 0.22, 0], mat: M_WOOD_DK, name: 'tv-cabinet' }));
     g.add(box({ size: [w + 0.06, 0.05, d + 0.06], pos: [0, h + 0.24, 0], mat: M_GOLD, cast: false }));
     for (const [lx, lz] of [[-w / 2 + 0.12, -d / 2 + 0.12], [w / 2 - 0.12, -d / 2 + 0.12],
@@ -1449,17 +1453,18 @@ export function buildMansionInterior(shell = null) {
     }
     // Bezel and the picture itself.
     g.add(box({
-      size: [w * 0.78 + 0.07, h * 0.62 + 0.07, 0.03], pos: [0, h * 0.62, d / 2 + 0.005], mat: M_STOVE_BLACK, cast: false,
+      size: [w * 0.78 + 0.07, h * 0.62 + 0.07, 0.03], pos: [0, faceY, d / 2 + 0.005], mat: M_STOVE_BLACK, cast: false,
     }));
     const screen = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 0.78, h * 0.62),
       mat({ color: 0x05070a, roughness: 0.22, unique: true }),
     );
-    screen.position.set(0, h * 0.62, d / 2 + 0.026);
+    screen.position.set(0, faceY, d / 2 + 0.026);
+    screen.name = 'tv-screen';
     g.add(screen);
     // Speaker grille and the channel knobs down the right-hand side.
     g.add(box({
-      size: [w * 0.14, h * 0.5, 0.02], pos: [w * 0.42, h * 0.62, d / 2 + 0.01], mat: M_FABRIC_GOLD, cast: false,
+      size: [w * 0.14, h * 0.5, 0.02], pos: [w * 0.42, faceY, d / 2 + 0.01], mat: M_FABRIC_GOLD, cast: false,
     }));
     for (const ky of [h * 0.24, h * 0.14]) {
       g.add(cylinder({
@@ -2854,6 +2859,18 @@ export function buildMansionInterior(shell = null) {
     root.add(cylinder({
       rTop: 0.16, rBottom: 0.12, h: 0.24, pos: [barX - 0.16, GY + 1.27, barZ1 - 0.5], mat: M_SILVER,
     }));
+    /* Stock somebody can actually take to the LAN room. Four intact cans on
+     * the service side of the bar, between the glass rank rather than inside
+     * it, make the bay read as in use instead of a bottle display. */
+    const loungeDrinks = [];
+    for (const [i, z] of [45.8, 47.2, 48.6, 50.0].entries()) {
+      const drink = makeBeerCan(M, {
+        x: barX + 0.16, y: GY + 1.2, z, crushed: false, rotY: i * 0.37,
+      });
+      drink.group.name = 'lounge-bar-drink';
+      root.add(drink.group);
+      loungeDrinks.push(drink.group);
+    }
 
     /* ---- Stools. Measured clearance: the nearest archway pier is at
      * x=16.4, the stool colliders start at x=18.74. */
@@ -2978,6 +2995,7 @@ export function buildMansionInterior(shell = null) {
       tv: loungeTvSet,
       bay: { ...bay },
       barTop: { x: barX - 0.06, z: (barZ0 + barZ1) / 2 },
+      drinks: loungeDrinks,
     };
   }
   const loungeProps = buildLounge();
@@ -5388,17 +5406,24 @@ export function buildMansionInterior(shell = null) {
           name: `${tag}-runner`,
         }));
       }
-      /* The closed string under the flight, and its collider on the OPEN
-       * flank only. A collider under the whole footprint would put the next
-       * tread's own mass above the climber's feet and the stair would block
-       * itself -- the note on `stairFlight` above has the arithmetic. */
-      root.add(box({
-        size: [w + 0.06, 0.5, rect.z1 - rect.z0],
-        pos: [cx, yBase + RISER * 5.5 - 0.42, (rect.z0 + rect.z1) / 2],
-        mat: M_WOOD_DK,
-        cast: false,
-        name: `${tag}-string`,
-      }));
+      /* Two honest sloping stringers, not one flat full-width black box.
+       * That old slab was visible between every tread and read as a giant
+       * panel driven through the stair. These narrow visual members follow
+       * the same pitch as the handrail and leave the marble underside open. */
+      const run = rect.z1 - rect.z0;
+      const rise = RISER * 11;
+      const stringLength = Math.hypot(run, rise);
+      const pitch = Math.atan2(rise, run);
+      for (const stringX of [rect.x0 + 0.12, rect.x1 - 0.12]) {
+        root.add(box({
+          size: [0.14, 0.18, stringLength],
+          pos: [stringX, yBase + rise / 2 - 0.13, (rect.z0 + rect.z1) / 2],
+          mat: M_WOOD,
+          rotX: dir > 0 ? -pitch : pitch,
+          cast: false,
+          name: `${tag}-stringer`,
+        }));
+      }
     }
     flight(SUITE_FLIGHT_A, UY, 1, 'suite-stair-a');
     flight(SUITE_FLIGHT_B, LANDING_Y, -1, 'suite-stair-b');
@@ -5412,9 +5437,9 @@ export function buildMansionInterior(shell = null) {
       name: 'suite-stair-landing',
     }));
     root.add(box({
-      size: [L.x1 - L.x0 - 0.04, 0.62, L.z1 - L.z0 + LAP],
-      pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.45, (L.z0 + L.z1) / 2 + LAP / 2],
-      mat: M_WOOD_DK,
+      size: [L.x1 - L.x0 - 0.14, 0.16, L.z1 - L.z0 + LAP - 0.14],
+      pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.2, (L.z0 + L.z1) / 2 + LAP / 2],
+      mat: M_MARBLE_DK,
       cast: false,
       name: 'suite-stair-landing-soffit',
     }));
@@ -6188,6 +6213,46 @@ export function buildMansionInterior(shell = null) {
       const glass = makeShotGlass(M, { x: r.x0 + 1.1, y: SY + 1.14, z: barZ0 + 0.9 + i * 0.3 });
       root.add(glass.group);
     }
+    /* The same deliberately-unlabelled line that sits on the Bada Bing
+     * urinal, moved to Lou's private bar for the suite beat. It stays a real
+     * world prop; main.js supplies the shared focus rush and existing snort
+     * cue. On the near edge of the marble, clear of the four shot glasses. */
+    const powderGroup = new THREE.Group();
+    powderGroup.name = 'suite-cocaine';
+    powderGroup.position.set(r.x0 + 1.5, SY + 1.125, barZ1 - 0.62);
+    const powderLine = box({
+      size: [0.035, 0.008, 0.34],
+      pos: [0, 0.006, 0],
+      mat: mat({ color: 0xf6f5ed, roughness: 0.92 }),
+      cast: false,
+      name: 'suite-cocaine-line',
+    });
+    powderLine.rotation.y = -0.12;
+    const powderCard = box({
+      size: [0.085, 0.008, 0.055],
+      pos: [0.12, 0.008, 0.08],
+      mat: mat({ color: 0xb7c5d8, roughness: 0.68 }),
+      rotY: 0.22,
+      cast: false,
+      name: 'suite-cocaine-card',
+    });
+    powderGroup.add(powderLine, powderCard);
+    root.add(powderGroup);
+    let powderConsumed = false;
+    props.powder = {
+      group: powderGroup,
+      line: powderLine,
+      card: powderCard,
+      get consumed() { return powderConsumed; },
+      consume() {
+        if (powderConsumed) return false;
+        powderConsumed = true;
+        powderLine.visible = false;
+        powderCard.position.x += 0.04;
+        powderCard.rotation.y += 0.18;
+        return true;
+      },
+    };
     /* The crest, over the bar. `MANSION_ART_SLOTS` carries the slot so the
      * real artwork swaps in if the file resolves; the drawn crest under it is
      * what ships when it does not. */
@@ -6392,7 +6457,6 @@ export function buildMansionInterior(shell = null) {
     }
     sconce(r.x1 - 0.05, SY + 2.5, 69.7, -Math.PI / 2, 1.2);
     sconce(r.x0 + 0.05, SY + 2.5, 74.2, Math.PI / 2, 1.2);
-    ceilingLight(-1.2, 70.6, SCY - 0.42, 0xffd0a0, 3.2, 14);
 
     /* One chandelier, hung clear of the tester — the bed's canopy tops out at
      * 12.95 and this hangs at 12.5 over the middle of the floor, which is the
@@ -6407,7 +6471,7 @@ export function buildMansionInterior(shell = null) {
           const bx = Math.cos(a) * tr;
           const bz = Math.sin(a) * tr;
           root.add(box({
-            size: [tr * 0.9, 0.025, 0.025], pos: [-1.2 + bx / 2, cy + ty, cz + bz / 2], mat: M_GOLD, rotY: a, name: 'suite-chandelier-arm',
+            size: [tr, 0.025, 0.025], pos: [-1.2 + bx / 2, cy + ty, cz + bz / 2], mat: M_GOLD, rotY: -a, name: 'suite-chandelier-arm',
           }));
           root.add(named(cylinder({
             rTop: 0.07, rBottom: 0.09, h: 0.11, pos: [-1.2 + bx, cy + ty + 0.05, cz + bz], mat: M_SHADE_CREAM,
@@ -7294,17 +7358,19 @@ export function buildMansionInterior(shell = null) {
           }));
         },
       },
-      extra: ({ cx }) => {
+      extra: ({ r }) => {
         /* A weights bench nobody has used since it arrived -- WITH THE RACK
          * THAT HOLDS ITS BAR UP. The other half of "Workout bench and
          * everything by bed is overlapping": the loaded barbell hung at
          * y 6.92..6.98 with nothing beneath it but the bench top at 6.50, so
          * 0.42 m of clear air and a bar floating over it. A bench press is a
          * bench AND two uprights; only the bench had been built. */
-        /* cx - 1.8, not cx - 2.0: the press moved 120 mm into the room (see
-         * `wx` in buildBedroom) and at 2.0 the rack's foot would have stood
-         * 20 mm off its door handles. At 1.8 there is 220 mm between them. */
-        const bx = cx - 1.8;
+        /* By the exterior window, where the room has open floor. The former
+         * `cx - 1.8` kept the rack beside the wardrobe, dresser and bed even
+         * after its z-only nudge. At `r.x1 - 1.25` the loaded bar stops half a
+         * metre short of the outer wall and the whole set is over two metres
+         * from the bed centre. */
+        const bx = r.x1 - 1.25;
         /* MOVED OFF THE ROOM'S OWN ARMCHAIR. Owner playtest 2026-08-06: "the
          * weight set and a chair sit inside the wardrobe and bed" -- measured
          * on the built scene, the literal fault is narrower than that but
@@ -7346,7 +7412,7 @@ export function buildMansionInterior(shell = null) {
         }
         // Collider takes the rack's full height -- it is 1 m of steel, not a
         // 0.6 m bench you can walk over the top of.
-        solid(cx - 2.4, cx - 1.6, UY, UY + 1.0, 42.45, 43.75);
+        solid(bx - 0.4, bx + 0.4, UY, UY + 1.0, 42.45, 43.75);
       },
     }),
     westRear: buildBedroom({
@@ -7966,11 +8032,12 @@ export function buildMansionInterior(shell = null) {
      * (5 mm into, not exactly on: two faces at the same depth is the flicker,
      * and a cistern that touches its wall has never shown a seam.) */
     const looX = inward > 0 ? r.x1 - 0.66 : r.x0 + 0.66;
+    const looYaw = inward > 0 ? -Math.PI / 2 : Math.PI / 2;
     const loo = makeToilet(M, {
-      x: looX, z: cz + 2.4, rotY: inward > 0 ? -Math.PI / 2 : Math.PI / 2,
+      x: looX, z: cz + 2.4, rotY: looYaw,
     });
     wrap.add(loo.group);
-    solid(looX - 0.4, looX + 0.4, UY, UY + 0.84, cz + 2.1, cz + 2.7);
+    const looCollider = solid(looX - 0.4, looX + 0.4, UY, UY + 0.84, cz + 2.1, cz + 2.7);
     root.add(wrap);
     /* THE OLD SINK IS GONE. Owner, twice -- of this room, "two sinks, get rid
      * of the old sink, fix new sink", and of the modern one, "same thing with
@@ -8444,7 +8511,28 @@ export function buildMansionInterior(shell = null) {
       dl.position.set(lx2, UCY - 0.5, lz2);
       root.add(dl);
     }
-    return key;
+    /* Publish the fixture, not only the bathroom light. The composition root
+     * mounts the shared PeeSystem against every entry in `props.bathrooms`,
+     * so adding another bathroom cannot silently add a decorative-only loo.
+     * `makeToilet` is authored at local floor zero; this room's wrapper sits
+     * on UY, and the bowl's small forward offset must rotate with the pan. */
+    const bowl = new THREE.Vector3(0, loo.bowl.y, 0.02)
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), looYaw)
+      .add(new THREE.Vector3(looX, UY, cz + 2.4));
+    return {
+      light: key,
+      toilet: {
+        id: name,
+        group: loo.group,
+        lidPivot: loo.lidPivot,
+        seatPivot: loo.seatPivot,
+        bowl,
+        radius: loo.bowlRadius + 0.02,
+        waterY: UY + loo.waterY,
+        floorY: UY,
+        collider: looCollider,
+      },
+    };
   }
   const bathProps = {
     west: buildBathroom(BATH_WEST, 'bath-west'),
@@ -9560,6 +9648,7 @@ const M_GOLD_BAR = mat({
     const bed = makeBed(M, {
       x: bedX, z: bedZ, w: 1.8, len: 2.2,
     });
+    bed.group.name = 'guest-room-bed';
     bed.group.position.set(bedX * 2, 0, bedZ * 2);
     bed.group.rotation.y = Math.PI;
     wrap.add(bed.group);
@@ -9647,7 +9736,7 @@ const M_GOLD_BAR = mat({
       }),
     });
     const light = ceilingLight(cx, cz, -0.4, 0xffdca0, 6.6, 15);
-    return { art: guestArt, light };
+    return { art: guestArt, light, bed: bed.group };
   }
   const guestProps = buildGuestRoom();
 
@@ -9716,7 +9805,23 @@ const M_GOLD_BAR = mat({
         g.add(box({ size: [0.14, 0.24, 0.7], pos: [s * 0.42, 0.66, 0.02], mat: M_LEATHER_DK }));
         g.add(cylinder({ r: 0.05, h: 0.05, pos: [s * 0.42, 0.78, 0.22], mat: M_SILHOUETTE, cast: false }));
       }
+      /* One invisible, chest-height aim volume per chair. Material
+       * visibility is false (so it draws nothing) while the mesh remains
+       * raycastable. main.js registers this exact target for sitting. */
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(0.74, 1.1, 0.66),
+        new THREE.MeshBasicMaterial({ visible: false }),
+      );
+      hit.position.set(0, 0.7, 0);
+      hit.name = 'theatre-seat-target';
+      g.add(hit);
       g.position.set(sx, sy, sz);
+      g.name = 'theatre-recliner';
+      g.userData.theatreSeat = {
+        hit,
+        pose: { x: sx, y: sy + 1.24, z: sz + 0.04, yaw: Math.PI },
+        exit: { x: sx, y: sy, z: sz + 0.92, yaw: 180 },
+      };
       root.add(g);
       solid(sx - 0.48, sx + 0.48, sy, sy + 0.9, sz - 0.42, sz + 0.42);
       seats.push(g);
@@ -9774,18 +9879,21 @@ const M_GOLD_BAR = mat({
         unique: true,
       }),
     });
-    /* House lights. Sconces down both walls and two dimmed downlights over the
-     * aisle, because "a cinema is dark" and "you cannot see the room you just
-     * walked into" are different things -- the first render of this room was
-     * the second one. Aisle strip lights down the seat ends as well, which is
-     * what a room with a step in the dark actually has. */
+    /* House lights. Four wall sconces, and low aisle markers so the riser can
+     * still be read after the picture starts. The two flush fixtures that
+     * used to sit in the middle of the ceiling are deliberately gone. */
     const lights = [];
+    const houseLights = [];
+    const aisleLights = [];
     for (const sz of [69.4, 72.4]) {
-      lights.push(sconce(r.x0 + 0.13, BY + 1.95, sz, Math.PI / 2, 3.2));
-      lights.push(sconce(r.x1 - 0.13, BY + 1.95, sz, -Math.PI / 2, 3.2));
+      houseLights.push(sconce(r.x0 + 0.13, BY + 1.95, sz, Math.PI / 2, 3.2));
+      houseLights.push(sconce(r.x1 - 0.13, BY + 1.95, sz, -Math.PI / 2, 3.2));
     }
-    lights.push(ceilingLight(cx, 71.4, -0.42, 0xffd0a0, 3.4, 11));
-    lights.push(ceilingLight(cx, 73.9, -0.42, 0xffd0a0, 2.6, 9));
+    for (const light of houseLights) {
+      light.userData.theatreRole = 'house';
+      light.userData.fullIntensity = light.intensity;
+      lights.push(light);
+    }
     for (const [ax, az] of [[-3.6, 70.6], [-2.1, 70.6], [-3.6, 73.2], [-2.1, 73.2]]) {
       root.add(box({
         size: [0.16, 0.05, 0.16],
@@ -9795,11 +9903,14 @@ const M_GOLD_BAR = mat({
       }));
       const l = new THREE.PointLight(0xffb85a, 1.6, 4, 2);
       l.position.set(ax, BY + 0.2, az);
+      l.userData.theatreRole = 'aisle';
+      l.userData.fullIntensity = l.intensity;
       root.add(l);
       lights.push(l);
+      aisleLights.push(l);
     }
     return {
-      screen, banner: theatreBanner, seats, lights,
+      screen, banner: theatreBanner, seats, lights, houseLights, aisleLights,
     };
   }
   const theatreProps = buildTheatre();
@@ -9965,12 +10076,36 @@ const M_GOLD_BAR = mat({
     root.add(cylinder({
       r: 0.018, h: 3.6, pos: [r.x0 + 0.34, BY + 1.9, cz], mat: M_CHROME, rotX: Math.PI / 2,
     }));
-    root.add(box({
-      size: [0.6, 0.85, 0.6], pos: [5.0, BY + 0.43, r.z0 + 0.4], mat: M_STEEL, name: 'lan-fridge',
+    /* A glass-front drinks fridge rather than an opaque steel cube. The
+     * shell is five panels so the stock is visible through the shared glass
+     * material; its collider keeps the original external footprint. */
+    const fridgeX = 5.0;
+    const fridgeZ = r.z0 + 0.4;
+    const fridge = group('lan-fridge');
+    fridge.add(box({ size: [0.05, 0.85, 0.6], pos: [-0.275, 0.43, 0], mat: M_STEEL }));
+    fridge.add(box({ size: [0.55, 0.06, 0.6], pos: [0, 0.03, 0], mat: M_STEEL }));
+    fridge.add(box({ size: [0.55, 0.06, 0.6], pos: [0, 0.82, 0], mat: M_STEEL }));
+    fridge.add(box({ size: [0.55, 0.73, 0.05], pos: [0, 0.43, -0.275], mat: M_STEEL }));
+    fridge.add(box({ size: [0.55, 0.73, 0.05], pos: [0, 0.43, 0.275], mat: M_STEEL }));
+    fridge.add(box({ size: [0.54, 0.035, 0.5], pos: [0, 0.39, 0], mat: M_CHROME, cast: false }));
+    fridge.add(box({
+      size: [0.035, 0.7, 0.5], pos: [0.292, 0.45, 0], mat: M_GLASS_CASE,
+      cast: false, name: 'lan-fridge-glass',
     }));
-    root.add(box({
-      size: [0.04, 0.7, 0.5], pos: [5.29, BY + 0.45, r.z0 + 0.4], mat: M_CHROME, cast: false,
-    }));
+    fridge.position.set(fridgeX, BY, fridgeZ);
+    root.add(fridge);
+    const fridgeDrinks = [];
+    for (const [row, y] of [0.08, 0.46].entries()) {
+      for (const [column, z] of [-0.17, 0, 0.17].entries()) {
+        const drink = makeBeerCan(M, {
+          x: fridgeX + 0.18, y: BY + y, z: fridgeZ + z,
+          crushed: false, rotY: (row * 3 + column) * 0.42,
+        });
+        drink.group.name = 'lan-fridge-drink';
+        root.add(drink.group);
+        fridgeDrinks.push(drink.group);
+      }
+    }
     solid(4.7, 5.3, BY, BY + 0.85, r.z0 + 0.1, r.z0 + 0.7);
     /* The snack table stands at the WEST end of the aisle, not the middle of
      * it: the middle of the aisle is the line from the door to the far wall,
@@ -9985,7 +10120,18 @@ const M_GOLD_BAR = mat({
       const can = makeBeerCan(M, {
         x: tableX + bx, y: BY + 0.8, z: cz + bz, crushed, rotY: bx,
       });
+      can.group.name = 'lan-table-drink';
       root.add(can.group);
+    }
+    const zynTins = [];
+    for (const [zx, zz, yaw] of [
+      [tableX - 0.57, cz + 0.27, -0.4],
+      [tableX + 0.55, cz + 0.27, 0.65],
+    ]) {
+      const zyn = makeZynCan(M, { x: zx, y: BY + 0.805, z: zz, rotY: yaw });
+      zyn.group.name = 'lan-zyn-tin';
+      root.add(zyn.group);
+      zynTins.push(zyn.group);
     }
     const pizza = makePizzaBox(M, {
       x: tableX + 0.1, y: BY + 0.8, z: cz - 0.02, rotY: 0.3,
@@ -10051,6 +10197,7 @@ const M_GOLD_BAR = mat({
     lights.push(rgbGlow);
     return {
       stations, chairBacks, banner: lanBanner, lights,
+      fridge, fridgeDrinks, zynTins,
     };
   }
   const lanProps = buildLanRoom();

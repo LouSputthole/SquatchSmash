@@ -3,13 +3,14 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import { selectApproachCall } from '../src/beefrun/approach-coaching.js';
-import { CameraManager } from '../src/beefrun/cameras.js';
 import { FlightInput } from '../src/beefrun/input.js';
 import { MissionController } from '../src/beefrun/mission.js';
+import { fromWardrobe, makeFigure, setPose } from '../src/beefrun/npc.js';
 import { AircraftPhysics } from '../src/beefrun/physics.js';
 import { stageRemoteDeparture } from '../src/beefrun/remote-departure.js';
+import { CAPTAIN_LOU_SASOLE } from '../src/core/wardrobe.js';
 
-function cockpitHorizonAfter(keyCode) {
+function wingHeightsAfter(keyCode) {
   const input = new FlightInput();
   input.pollGamepad = () => null;
   input.key(keyCode, true);
@@ -28,27 +29,21 @@ function cockpitHorizonAfter(keyCode) {
   input.applyTo(physics.controls);
   for (let i = 0; i < 60; i++) physics.step(1 / 120);
 
-  const body = new THREE.Group();
-  body.position.copy(physics.position);
-  body.quaternion.copy(physics.quat);
-  const camera = new THREE.PerspectiveCamera(66, 1, 0.1, 5000);
-  new CameraManager(camera).update(0, physics, body, new THREE.Vector3());
-  camera.updateMatrixWorld();
-
-  const horizon = [
-    new THREE.Vector3(-100, 500, 1000).project(camera),
-    new THREE.Vector3(100, 500, 1000).project(camera),
-  ].sort((a, b) => a.x - b.x);
-  return { leftY: horizon[0].y, rightY: horizon[1].y };
+  /* Measure the aeroplane the player is moving, not the sign of an internal
+   * control axis.  Brushrunner's authored body frame is nose +Z, right wing
+   * +X (aircraft.js), so the opposite tip is the left wing. */
+  const rightWing = new THREE.Vector3(1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+  const leftWing = new THREE.Vector3(-1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+  return { leftY: leftWing.y, rightY: rightWing.y, rollDeg: physics.rollDeg };
 }
 
-test('A banks left and D banks right in the cockpit view', () => {
-  const a = cockpitHorizonAfter('KeyA');
-  const d = cockpitHorizonAfter('KeyD');
+test('A lowers the left wing and D lowers the right wing', () => {
+  const a = wingHeightsAfter('KeyA');
+  const d = wingHeightsAfter('KeyD');
 
-  assert.ok(a.leftY > a.rightY,
+  assert.ok(a.leftY < a.rightY,
     `A showed a right bank: ${JSON.stringify(a)}`);
-  assert.ok(d.leftY < d.rightY,
+  assert.ok(d.rightY < d.leftY,
     `D showed a left bank: ${JSON.stringify(d)}`);
 });
 
@@ -162,7 +157,7 @@ test('Q and E use the corrected cockpit rudder polarity', () => {
   assert.ok(e.axes.yaw < 0, `E rudder was ${e.axes.yaw}`);
 });
 
-test('gamepad right roll and rudder match D and E in the cockpit', () => {
+test('gamepad right roll matches the right-wing-down D control', () => {
   const right = new FlightInput();
   right.pollGamepad = () => ({ axes: [1, 0, 1, 0], buttons: [] });
   right.update(0.016);
@@ -171,20 +166,21 @@ test('gamepad right roll and rudder match D and E in the cockpit', () => {
   left.pollGamepad = () => ({ axes: [-1, 0, -1, 0], buttons: [] });
   left.update(0.016);
 
-  assert.ok(right.axes.roll < 0, `right-stick roll was ${right.axes.roll}`);
+  assert.ok(right.axes.roll > 0, `right-stick roll was ${right.axes.roll}`);
   assert.ok(right.axes.yaw < 0, `right-stick rudder was ${right.axes.yaw}`);
-  assert.ok(left.axes.roll > 0, `left-stick roll was ${left.axes.roll}`);
+  assert.ok(left.axes.roll < 0, `left-stick roll was ${left.axes.roll}`);
   assert.ok(left.axes.yaw > 0, `left-stick rudder was ${left.axes.yaw}`);
 });
 
-test('R is inert so checkpoint restart requires the pause menu', () => {
+test('R powers only the cockpit radio; checkpoint restart still requires the pause menu', () => {
   const input = new FlightInput();
   const actions = [];
   input.onAction = (action) => actions.push(action);
 
   input.key('KeyR', true);
 
-  assert.deepEqual(actions, []);
+  assert.deepEqual(actions, ['radioPower']);
+  assert.equal(actions.includes('restart'), false);
 });
 
 test('restart cannot skip the apron flow before a checkpoint exists', () => {
@@ -201,4 +197,106 @@ test('restart cannot skip the apron flow before a checkpoint exists', () => {
   fake.checkpoint = 'departure';
   assert.equal(MissionController.prototype.requestRestart.call(fake), true);
   assert.deepEqual(restored, ['departure']);
+});
+
+test('preview preflight starts on foot beside the first inspection without creating a flight checkpoint', () => {
+  const chock = new THREE.Object3D();
+  chock.position.set(-55, 41.62, 385);
+  chock.updateMatrixWorld(true);
+  const primed = [];
+  const fake = {
+    phase: 'arrival',
+    checkpoint: null,
+    flags: { inCockpit: false },
+    player: {
+      position: new THREE.Vector3(-88, 43.66, 350),
+      ground: 42,
+      eyeHeight: 1.66,
+      mode: 'walk',
+      enabled: true,
+      yaw: 0,
+      pitch: 0,
+      velocity: new THREE.Vector3(1, 0, 1),
+      clearKeys() {},
+    },
+    preflight: { chocks: [chock] },
+    terrain: { prime: (x, z) => primed.push([x, z]) },
+    interaction: { setPaused() {} },
+    setPhase(name) { this.phase = name; },
+  };
+
+  const started = MissionController.prototype.startPreviewPreflight.call(fake);
+  const distance = Math.hypot(
+    fake.player.position.x - chock.position.x,
+    fake.player.position.z - chock.position.z,
+  );
+
+  assert.equal(started, true);
+  assert.equal(fake.phase, 'preflight');
+  assert.equal(fake.flags.inCockpit, false);
+  assert.equal(fake.checkpoint, null);
+  assert.equal(fake.player.mode, 'walk');
+  assert.equal(fake.player.enabled, true);
+  assert.ok(distance >= 2 && distance <= 4, `player started ${distance}m from the first check`);
+  assert.deepEqual(primed, [[fake.player.position.x, fake.player.position.z]]);
+});
+
+test('Old Stove reveal turns the player briefly and brings Sasole a small step toward the handoff', () => {
+  const lou = makeFigure();
+  const stove = makeFigure();
+  lou.group.position.set(-2, 0, -1);
+  stove.group.position.set(4, 0, -5);
+  const player = { position: new THREE.Vector3(0, 1.66, 0), yaw: 0, pitch: 0 };
+  const fake = {
+    flags: { stoveRevealShown: false },
+    player,
+    stove,
+    lou,
+    stoveReveal: null,
+  };
+  const beforeLou = lou.group.position.clone();
+  const desiredYaw = Math.atan2(
+    -(stove.group.position.x - player.position.x),
+    -(stove.group.position.z - player.position.z),
+  );
+  const beforeError = Math.abs(Math.atan2(
+    Math.sin(desiredYaw - player.yaw), Math.cos(desiredYaw - player.yaw),
+  ));
+
+  assert.equal(MissionController.prototype.beginStoveReveal.call(fake), true);
+  assert.equal(fake.flags.stoveRevealShown, true);
+  assert.ok(lou.walk, 'Sasole should take a short step into the handoff');
+  const louStep = Math.hypot(lou.walk.x - beforeLou.x, lou.walk.z - beforeLou.z);
+  assert.ok(louStep >= 0.8 && louStep <= 1.8, `Sasole moved ${louStep}m`);
+
+  for (let i = 0; i < 8; i++) MissionController.prototype.updateStoveReveal.call(fake, 0.1);
+  const afterError = Math.abs(Math.atan2(
+    Math.sin(desiredYaw - player.yaw), Math.cos(desiredYaw - player.yaw),
+  ));
+  assert.ok(afterError < beforeError * 0.35,
+    `camera did not turn decisively toward Stove (${beforeError} -> ${afterError})`);
+  assert.equal(MissionController.prototype.beginStoveReveal.call(fake), false,
+    'the reveal cue is one-shot');
+});
+
+test('Sasole lean keeps both forearms and hands outside his torso', () => {
+  /* The player sees him from the front, so calling one arm "left" is
+   * ambiguous.  The useful production contract is not: neither forearm may
+   * pass through his jacket while the briefing pose idles. */
+  const lou = makeFigure({
+    ...fromWardrobe(CAPTAIN_LOU_SASOLE),
+    name: 'captain_lou_sasole',
+  });
+  setPose(lou, 'lean');
+  lou.group.updateMatrixWorld(true);
+  const torso = new THREE.Box3().setFromObject(
+    lou.group.getObjectByName('captain_lou_sasole-torso'),
+  );
+
+  for (const [index, arm] of lou.arms.entries()) {
+    for (const [part, object] of [['forearm', arm.elbow.children[0]], ['hand', arm.hand]]) {
+      const overlap = torso.clone().intersect(new THREE.Box3().setFromObject(object));
+      assert.ok(overlap.isEmpty(), `arm ${index} ${part} still passes through Sasole's torso`);
+    }
+  }
 });

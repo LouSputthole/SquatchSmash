@@ -398,8 +398,8 @@ export function buildCarInterior() {
   root.add(sweep);
 
   // ---------------- Ape, at the wheel ----------------
-  // The canonical figure: same body, same clothes, same supplied face as the
-  // Bing floor and the Silver Room. See ../cast/ape.js.
+  // The canonical Ape body, id and supplied face, wearing this mission's
+  // scene-local black suit. See ../cast/ape.js.
   const apeNpc = buildSilverCaseApe(root, {
     x: CAR_ANCHORS.driverSeat.x,
     y: CAR_ANCHORS.driverSeat.y,

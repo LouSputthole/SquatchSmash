@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildAudioTodo, normalizeAudioTodo } from '../tools/audio-todo-lib.mjs';
+import { isFutureInitiationCue } from '../tools/audio-scope.mjs';
 import { voiceProfileFor } from '../src/core/characters.js';
 import { ALL_HEIST_DIALOGUE } from '../src/heist/script.js';
 
@@ -143,7 +144,19 @@ test('the standard voice generation command excludes unreachable party dialogue'
   const generator = fs.readFileSync(path.join(ROOT, 'tools/generate-sfx.mjs'), 'utf8');
   assert.match(packageJson.scripts['sfx:vo'], /--voice-only --live-only/);
   assert.match(generator, /const LIVE_ONLY = has\('--live-only'\)/);
-  assert.match(generator, /if \(LIVE_ONLY \|\| !INCLUDE_FUTURE\) cues = cues\.filter\(\(cue\) => !isFutureInitiationPartyCue\(cue\)\)/);
+  assert.match(generator, /if \(LIVE_ONLY \|\| !INCLUDE_FUTURE\) cues = cues\.filter\(\(cue\) => !isFutureInitiationCue\(cue\)\)/);
+});
+
+test('every production sheet shares the same future Initiation exclusion', () => {
+  assert.equal(isFutureInitiationCue({ name: 'vo.initiation.party.future.1' }), true);
+  assert.equal(isFutureInitiationCue({ name: 'vo.initiation.ambient.future.1' }), true);
+  assert.equal(isFutureInitiationCue({ name: 'vo.initiation.live.1' }), false);
+
+  for (const file of ['generate-sfx.mjs', 'audio-todo-lib.mjs', 'voice-needed.mjs']) {
+    const source = fs.readFileSync(path.join(ROOT, 'tools', file), 'utf8');
+    assert.match(source, /import \{ isFutureInitiationCue \} from '\.\/audio-scope\.mjs';/,
+      `${file} does not use the shared future-dialogue predicate`);
+  }
 });
 
 test('delivered provisional takes stay visible as casting review work', () => {

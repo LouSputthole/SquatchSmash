@@ -3,6 +3,7 @@ import {
   installPreviewNotice,
   previewNavigationHref,
 } from './preview-mode.js';
+import { FINAL_ARC_LOADOUT_STORAGE_KEY } from './final-arc-loadout-storage.js';
 
 /**
  * Stable IDs shared by every scene. Display names and voice-provider aliases
@@ -59,6 +60,11 @@ export const SCENE_IDS = Object.freeze({
   SILVER_ROOM: 'silver_room',
   SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
+  SILVER_CASE: 'silver_case',
+  MANSION_SIEGE: 'mansion_siege',
+  ENOLA_SQUATCH: 'enola_squatch',
+  MANSION_RETURN: 'mansion_return',
+  CARTEL_PALACE: 'cartel_palace',
   INITIATION: 'initiation',
   /* Lou's house. An explorable compound before PROJECT SILENT SQUATCH claims
    * it, and the mission's own scene after: the office upstairs, the wine
@@ -94,6 +100,11 @@ export const MISSION_IDS = Object.freeze({
   SILVER_ROOM: 'silver_room',
   SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
+  SILVER_CASE: 'silver_case',
+  MANSION_SIEGE: 'mansion_siege',
+  ENOLA_SQUATCH: 'enola_squatch',
+  MANSION_RETURN: 'mansion_return',
+  CARTEL_PALACE: 'cartel_palace',
   INITIATION: 'initiation',
   /* PROJECT SILENT SQUATCH -- the night in Lou's mansion, immediately after
    * The Silver Case. */
@@ -211,11 +222,25 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_SILVER_PINES: 'mission.silver_pines',
   DEPART_BANK_HEIST: 'travel.bank_heist',
   COMPLETE_BANK_HEIST: 'mission.bank_heist',
+  /* The final chapter has no apartment hub between scenes, so its travel and
+   * runtime spans live in this same exact-once ledger.  These markers make the
+   * calendar agree with the authored Day 5 / Day 6 sequence without letting a
+   * reload, retry, or repeated Continue click farm hours. */
+  DEPART_SILVER_CASE: 'travel.silver_case',
+  COMPLETE_SILVER_CASE: 'mission.silver_case',
   DEPART_INITIATION: 'travel.initiation',
   /* The drive up to Lou's house with the case on the passenger seat, and the
    * hours it takes to hand it over, watch it get built, and clean up after. */
   DEPART_MANSION: 'travel.mansion',
   COMPLETE_SILENT_SQUATCH: 'mission.silent_squatch',
+  REST_AT_MANSION: 'sleep.mansion',
+  COMPLETE_MANSION_SIEGE: 'mission.mansion_siege',
+  DEPART_ENOLA_SQUATCH: 'travel.enola_squatch',
+  COMPLETE_ENOLA_SQUATCH: 'mission.enola_squatch',
+  RETURN_TO_MANSION: 'travel.mansion_return',
+  COMPLETE_MANSION_RETURN: 'mission.mansion_return',
+  DEPART_CARTEL_PALACE: 'travel.cartel_palace',
+  COMPLETE_CARTEL_PALACE: 'mission.cartel_palace',
 });
 
 const TIME_EVENTS = Object.freeze({
@@ -324,22 +349,48 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 17 * 60 + 20 }),
   }),
+  /* THE TAKE ends at 5:20 PM on Day 4.  The final chapter opens on the next
+   * afternoon, without adding another playable apartment detour: Ape's pickup
+   * and the off-screen rendezvous land The Silver Case at 4 PM on Day 5. */
+  [TIME_EVENT_IDS.DEPART_SILVER_CASE]: Object.freeze({
+    atLeast: Object.freeze({ day: 5, timeMinutes: 16 * 60 }),
+  }),
+  // Car ride, apartment takeover, ambush, aftermath, and recovery of the case.
+  [TIME_EVENT_IDS.COMPLETE_SILVER_CASE]: Object.freeze({ minutes: 90 }),
   /* The big night is the day after the date. Sleeping off the Silver Room is
    * what turns the page, so the ceremony lands on Day 4 at seven sharp. */
   [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 19 * 60 }),
   }),
-  /* PROJECT SILENT SQUATCH runs on the clock rather than at a fixed hour: it
-   * follows The Silver Case, which is not yet a routed scene, so pinning it to
-   * a wall-clock time would be inventing a place for it in a day the campaign
-   * has not written yet. The drive is twenty-five minutes and the night in the
-   * basement is a little over two hours. */
+  /* PROJECT SILENT SQUATCH follows the now-routed Silver Case.  The drive is
+   * twenty-five minutes and the night in the basement is a little over two
+   * hours.  Eight hours in Lou's guest room wakes Tony at 4:10 AM on calendar
+   * Day 6; the workbook's "Day 5 night" label describes the overnight begun on
+   * Day 5, just as HotDog's Day 2 night already crosses calendar midnight. */
   [TIME_EVENT_IDS.DEPART_MANSION]: Object.freeze({ minutes: 25 }),
   [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH]: Object.freeze({ minutes: 135 }),
+  [TIME_EVENT_IDS.REST_AT_MANSION]: Object.freeze({ minutes: 8 * 60 }),
+  // Guest-room wake through the Sasole handoff at the end of the assault.
+  [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE]: Object.freeze({ minutes: 120 }),
+  /* The house survives at dawn.  Repair, mission planning, and aircraft prep
+   * consume the day; Enola opens on the last of the Day 6 afternoon, matching
+   * the airfield runtime's visible daylight-to-nightfall cut. */
+  [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH]: Object.freeze({
+    atLeast: Object.freeze({ day: 6, timeMinutes: 14 * 60 }),
+  }),
+  [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH]: Object.freeze({ minutes: 4 * 60 }),
+  [TIME_EVENT_IDS.RETURN_TO_MANSION]: Object.freeze({ minutes: 30 }),
+  [TIME_EVENT_IDS.COMPLETE_MANSION_RETURN]: Object.freeze({ minutes: 45 }),
+  /* Lou holds the raid until full dark.  The estate approach therefore keeps
+   * its Day 6 night label even if a faster preceding scene finishes early. */
+  [TIME_EVENT_IDS.DEPART_CARTEL_PALACE]: Object.freeze({
+    atLeast: Object.freeze({ day: 6, timeMinutes: 20 * 60 + 30 }),
+  }),
+  [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: Object.freeze({ minutes: 150 }),
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 12;
+export const CAMPAIGN_VERSION = 14;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -403,6 +454,174 @@ export const BANK_HEIST_OUTCOMES = Object.freeze([
   'barely_clean',
 ]);
 
+export const SILVER_CASE_CHECKPOINT_IDS = Object.freeze([
+  'car_ride', 'hallway', 'apartment', 'case_reveal', 'bathroom_ambush',
+  'aftermath', 'case_recovered',
+]);
+
+export const MANSION_SIEGE_CHECKPOINT_IDS = Object.freeze([
+  'wake', 'armed', 'briefed', 'wave_one',
+]);
+
+export const ENOLA_SQUATCH_CHECKPOINT_IDS = Object.freeze([
+  'takeoff', 'turnOnCourse', 'preRelease', 'return',
+]);
+
+export const ENOLA_SQUATCH_RANKS = Object.freeze([
+  'Woke the Neighbours',
+  'Delivered, Eventually',
+  'Certified Heavy Aviator',
+  'Night Ops Professional',
+  'Express Shipping',
+]);
+
+export const ENOLA_SQUATCH_UNLOCKS = Object.freeze([
+  'Enola Squatch Flight Jacket',
+  'Fat Squatch Dashboard Ornament',
+  'Achievement: EXPRESS SHIPPING',
+  'Achievement: TAIL-END CHARLIE',
+  'Achievement: NOT A SCRATCH',
+]);
+
+const enolaUnit = (value) => (Number.isFinite(value)
+  ? Math.max(0, Math.min(1, value)) : null);
+const enolaNonNegative = (value, max) => (Number.isFinite(value)
+  ? Math.max(0, Math.min(max, value)) : null);
+
+/**
+ * Reduce MissionController's in-memory checkpoint to the plain data its
+ * restore/report paths actually consume. Vector/quaternion pose and weather
+ * are intentionally omitted: each checkpoint's canonical setup owns them.
+ */
+export function normalizeEnolaCheckpointSnapshot(snapshot, expectedName = null) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const name = ENOLA_SQUATCH_CHECKPOINT_IDS.includes(snapshot.name)
+    ? snapshot.name : null;
+  if (!name || (expectedName && name !== expectedName)) return null;
+  if (!snapshot.score || typeof snapshot.score !== 'object'
+    || !snapshot.damage || typeof snapshot.damage !== 'object'
+    || !snapshot.targeting || typeof snapshot.targeting !== 'object') return null;
+  const requiredScoreFields = [
+    'takeoff', 'finalLanding', 'patrolPeak', 'flightTime', 'fuelRemaining',
+    'damage', 'bombAccuracy', 'expressShipping', 'corridorScore',
+    'fightersDestroyed', 'fighterPasses', 'autopilotSeconds', 'blastDistance',
+  ];
+  if (!requiredScoreFields.every((field) => Object.prototype.hasOwnProperty.call(snapshot.score, field))) {
+    return null;
+  }
+
+  const scoreTime = enolaNonNegative(snapshot.targeting.scoreTime, 86400);
+  const scoreSum = enolaNonNegative(snapshot.targeting.scoreSum, 86400);
+  if (scoreTime === null || scoreSum === null || scoreSum > scoreTime) return null;
+
+  const nullableUnit = (value) => (value === null ? null : enolaUnit(value));
+  const nullableDistance = (value) => (value === null
+    ? null : enolaNonNegative(value, 100000));
+  const score = {
+    takeoff: nullableUnit(snapshot.score.takeoff),
+    finalLanding: nullableUnit(snapshot.score.finalLanding),
+    patrolPeak: enolaUnit(snapshot.score.patrolPeak),
+    flightTime: enolaNonNegative(snapshot.score.flightTime, 86400),
+    fuelRemaining: enolaUnit(snapshot.score.fuelRemaining),
+    damage: enolaUnit(snapshot.score.damage),
+    bombAccuracy: nullableUnit(snapshot.score.bombAccuracy),
+    expressShipping: snapshot.score.expressShipping === true,
+    corridorScore: scoreTime > 0 ? scoreSum / scoreTime : 0,
+    fightersDestroyed: enolaNonNegative(snapshot.score.fightersDestroyed, 999),
+    fighterPasses: enolaNonNegative(snapshot.score.fighterPasses, 999),
+    autopilotSeconds: enolaNonNegative(snapshot.score.autopilotSeconds, 86400),
+    blastDistance: nullableDistance(snapshot.score.blastDistance),
+  };
+  if (Object.entries(score).some(([key, value]) => key !== 'expressShipping' && value === null
+    && !['takeoff', 'finalLanding', 'bombAccuracy', 'blastDistance'].includes(key))) return null;
+
+  const fuel = enolaNonNegative(snapshot.fuel, 3000);
+  const wing = enolaUnit(snapshot.damage.wing);
+  const gear = enolaUnit(snapshot.damage.gear);
+  if (fuel === null || wing === null || gear === null) return null;
+
+  return {
+    name,
+    fuel,
+    damage: {
+      wing,
+      gear,
+      tireBurst: snapshot.damage.tireBurst === true,
+    },
+    targeting: { scoreSum, scoreTime },
+    score: {
+      ...score,
+      fightersDestroyed: Math.round(score.fightersDestroyed),
+      fighterPasses: Math.round(score.fighterPasses),
+    },
+  };
+}
+
+export const CARTEL_PALACE_CHECKPOINT_IDS = Object.freeze([
+  'approach', 'perimeter', 'estate', 'betrayal', 'dining_room', 'clear',
+]);
+
+export const CARTEL_PALACE_EVIDENCE_IDS = Object.freeze([
+  'sauce_belongings', 'sauce_payment_ledger', 'sauce_security_still',
+]);
+
+export const CARTEL_PALACE_ALARM_REASONS = Object.freeze([
+  'detected', 'guard_contact', 'gunshot',
+]);
+
+export const CARTEL_PALACE_OUTCOMES = Object.freeze([
+  'clean', 'hard_exit', 'costly_success',
+]);
+
+function initialFinalArcMissions() {
+  return {
+    [MISSION_IDS.SILVER_CASE]: {
+      status: 'locked',
+      checkpoint: null,
+      caseRecovered: false,
+      winstonOutcome: null,
+      irritatedApe: false,
+      apeFinishedChester: false,
+      apeFinishedWinston: false,
+    },
+    [MISSION_IDS.MANSION_SIEGE]: {
+      status: 'locked',
+      checkpoint: null,
+      attackersDown: 0,
+      littleFriendSaid: false,
+      sasoleMet: false,
+    },
+    [MISSION_IDS.ENOLA_SQUATCH]: {
+      status: 'locked',
+      checkpoint: null,
+      checkpointSnapshot: null,
+      rank: null,
+      score: 0,
+      unlocks: [],
+      payloadReleased: false,
+      returnedHome: false,
+    },
+    [MISSION_IDS.MANSION_RETURN]: {
+      status: 'locked',
+      briefingComplete: false,
+      wrongCityConfirmed: false,
+      sauceMissingConfirmed: false,
+      palaceLocationKnown: false,
+    },
+    [MISSION_IDS.CARTEL_PALACE]: {
+      status: 'locked',
+      checkpoint: null,
+      evidenceFound: [],
+      sauceBetrayalConfirmed: false,
+      alarmRaised: false,
+      alarmReason: null,
+      markEliminated: false,
+      sauceEliminated: false,
+      outcome: null,
+    },
+  };
+}
+
 const MEMORIAL_GRAVE_IDS = Object.freeze([
   'babs', 'brawny', 'whiplash', 'sheep', 'echo', 'colton', 'geewiz', 'sauce',
 ]);
@@ -424,6 +643,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.SILVER_CASE,
       SCENE_IDS.INITIATION,
       SCENE_IDS.MANSION,
     ]),
@@ -504,6 +724,12 @@ const SCENES = Object.freeze({
     ]),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
+  [SCENE_IDS.SILVER_CASE]: Object.freeze({
+    href: 'silvercase.html',
+    defaultSpawn: 'car_ride',
+    spawns: Object.freeze(['car_ride', 'hallway', 'apartment']),
+    next: Object.freeze([SCENE_IDS.MANSION]),
+  }),
   /* The Initiation is registered so the apartment door can route to it through
    * ordinary campaign state. The scene itself is deliberately untouched: it
    * does not read the campaign, claim the scene, or report completion yet, so
@@ -522,7 +748,31 @@ const SCENES = Object.freeze({
     href: 'mansion.html',
     defaultSpawn: 'gate',
     spawns: Object.freeze(['gate', 'foyer', 'cellar']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.MANSION_SIEGE, SCENE_IDS.APARTMENT]),
+  }),
+  [SCENE_IDS.MANSION_SIEGE]: Object.freeze({
+    href: 'mansion-siege.html',
+    defaultSpawn: 'guest_suite',
+    spawns: Object.freeze(['guest_suite', 'armory', 'foyer', 'balcony']),
+    next: Object.freeze([SCENE_IDS.ENOLA_SQUATCH]),
+  }),
+  [SCENE_IDS.ENOLA_SQUATCH]: Object.freeze({
+    href: 'enolasquatch.html',
+    defaultSpawn: 'airfield',
+    spawns: Object.freeze(['airfield', 'flight_deck', 'target', 'return_leg']),
+    next: Object.freeze([SCENE_IDS.MANSION_RETURN]),
+  }),
+  [SCENE_IDS.MANSION_RETURN]: Object.freeze({
+    href: 'mansion.html?visit=return',
+    defaultSpawn: 'driveway',
+    spawns: Object.freeze(['driveway', 'foyer', 'office']),
+    next: Object.freeze([SCENE_IDS.CARTEL_PALACE]),
+  }),
+  [SCENE_IDS.CARTEL_PALACE]: Object.freeze({
+    href: 'cartel-palace.html',
+    defaultSpawn: 'approach',
+    spawns: Object.freeze(['approach', 'perimeter', 'estate', 'dining_room']),
+    next: Object.freeze([SCENE_IDS.INITIATION]),
   }),
 });
 
@@ -728,6 +978,7 @@ function initialState() {
         disciplinedFire: true,
         outcome: null,
       },
+      ...initialFinalArcMissions(),
       [MISSION_IDS.INITIATION]: {
         status: 'locked',
       },
@@ -753,6 +1004,8 @@ function initialState() {
         notesRecovered: false,
         conspiracyBoard: false,
         trophyAwarded: false,
+        eveningReady: false,
+        sleptAtMansion: false,
       },
     },
     events: {
@@ -828,6 +1081,76 @@ function storyAfterTimeEvent(story, eventId) {
     timeMinutes: absolute % MINUTES_PER_DAY,
     timeEvents: timeEvents.includes(eventId) ? timeEvents : [...timeEvents, eventId],
   };
+}
+
+const FINAL_ARC_TIME_EVENT_ORDER = Object.freeze([
+  TIME_EVENT_IDS.DEPART_SILVER_CASE,
+  TIME_EVENT_IDS.COMPLETE_SILVER_CASE,
+  TIME_EVENT_IDS.DEPART_MANSION,
+  TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH,
+  TIME_EVENT_IDS.REST_AT_MANSION,
+  TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE,
+  TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH,
+  TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH,
+  TIME_EVENT_IDS.RETURN_TO_MANSION,
+  TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
+  TIME_EVENT_IDS.DEPART_CARTEL_PALACE,
+  TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
+]);
+
+function finalArcTimeEventsReached(saved) {
+  const missions = saved.missions ?? {};
+  const silverCase = missions[MISSION_IDS.SILVER_CASE] ?? {};
+  const silent = missions[MISSION_IDS.SILENT_SQUATCH] ?? {};
+  const siege = missions[MISSION_IDS.MANSION_SIEGE] ?? {};
+  const enola = missions[MISSION_IDS.ENOLA_SQUATCH] ?? {};
+  const mansionReturn = missions[MISSION_IDS.MANSION_RETURN] ?? {};
+  const palace = missions[MISSION_IDS.CARTEL_PALACE] ?? {};
+  const initiation = missions[MISSION_IDS.INITIATION] ?? {};
+  const started = (mission) => ['in_progress', 'complete'].includes(mission.status);
+  const exposed = (mission) => ['available', 'in_progress', 'complete'].includes(mission.status);
+
+  /* Work backwards.  An exposed downstream mission is durable evidence that
+   * its preceding handoff completed even when an old partial save omitted the
+   * earlier status.  Merely AVAILABLE is never treated as departure: the next
+   * scene has to begin before its travel marker is earned. */
+  const palaceComplete = palace.status === 'complete'
+    || ['available', 'in_progress', 'complete'].includes(initiation.status);
+  const palaceDeparted = started(palace) || palaceComplete;
+  const mansionReturnComplete = mansionReturn.status === 'complete'
+    || exposed(palace) || palaceComplete;
+  const mansionReturnDeparted = started(mansionReturn) || mansionReturnComplete;
+  const enolaComplete = enola.status === 'complete'
+    || exposed(mansionReturn) || mansionReturnDeparted;
+  const enolaDeparted = started(enola) || enolaComplete;
+  const siegeComplete = siege.status === 'complete' || exposed(enola) || enolaDeparted;
+  const mansionRested = silent.sleptAtMansion === true || exposed(siege) || siegeComplete;
+  const silentComplete = silent.status === 'complete' || mansionRested;
+  const mansionDeparted = started(silent) || silentComplete;
+  const silverComplete = silverCase.status === 'complete'
+    || exposed(silent) || mansionDeparted;
+  const silverDeparted = started(silverCase) || silverComplete;
+
+  return FINAL_ARC_TIME_EVENT_ORDER.filter((eventId) => ({
+    [TIME_EVENT_IDS.DEPART_SILVER_CASE]: silverDeparted,
+    [TIME_EVENT_IDS.COMPLETE_SILVER_CASE]: silverComplete,
+    [TIME_EVENT_IDS.DEPART_MANSION]: mansionDeparted,
+    [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH]: silentComplete,
+    [TIME_EVENT_IDS.REST_AT_MANSION]: mansionRested,
+    [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE]: siegeComplete,
+    [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH]: enolaDeparted,
+    [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH]: enolaComplete,
+    [TIME_EVENT_IDS.RETURN_TO_MANSION]: mansionReturnDeparted,
+    [TIME_EVENT_IDS.COMPLETE_MANSION_RETURN]: mansionReturnComplete,
+    [TIME_EVENT_IDS.DEPART_CARTEL_PALACE]: palaceDeparted,
+    [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: palaceComplete,
+  })[eventId]);
+}
+
+function absoluteStoryMinutes(story) {
+  const day = Number.isSafeInteger(story?.day) && story.day > 0 ? story.day : 1;
+  const time = Number.isFinite(story?.timeMinutes) ? story.timeMinutes : 0;
+  return (day - 1) * MINUTES_PER_DAY + time;
 }
 
 const MIGRATIONS = Object.freeze({
@@ -1132,7 +1455,98 @@ const MIGRATIONS = Object.freeze({
           notesRecovered: false,
           conspiracyBoard: false,
           trophyAwarded: false,
+          eveningReady: false,
+          sleptAtMansion: false,
         },
+      },
+    };
+  },
+  12(saved) {
+    /* Initiation used to open directly after THE TAKE. A player who already
+     * saw that invitation keeps it exactly as-is; the new finale must never
+     * turn a terminal save into a locked door. Everyone still before that
+     * invitation enters the preservation-first final arc after the apartment
+     * cleanup instead. */
+    const progressed = ['available', 'in_progress', 'complete'];
+    const initiationStatus = saved.missions?.[MISSION_IDS.INITIATION]?.status;
+    const alreadyAtInitiation = saved.scene?.id === SCENE_IDS.INITIATION;
+    const grandfathered = alreadyAtInitiation || progressed.includes(initiationStatus);
+    const heistComplete = saved.missions?.[MISSION_IDS.BANK_HEIST]?.status === 'complete'
+      || saved.story?.chapter === 'post_heist';
+    const finalArc = initialFinalArcMissions();
+    for (const mission of Object.values(finalArc)) {
+      mission.grandfathered = grandfathered;
+      if (grandfathered) mission.status = 'complete';
+    }
+    if (!grandfathered && heistComplete) {
+      finalArc[MISSION_IDS.SILVER_CASE].status = 'available';
+    }
+
+    return {
+      ...saved,
+      version: 13,
+      story: !grandfathered && saved.story?.chapter === 'big_night'
+        ? { ...saved.story, chapter: 'post_heist' }
+        : saved.story,
+      missions: {
+        ...saved.missions,
+        ...finalArc,
+        [MISSION_IDS.INITIATION]: grandfathered
+          ? {
+            ...(saved.missions?.[MISSION_IDS.INITIATION] ?? {}),
+            status: alreadyAtInitiation && !progressed.includes(initiationStatus)
+              ? 'in_progress' : initiationStatus,
+          }
+          : { status: 'locked' },
+      },
+    };
+  },
+  13(saved) {
+    /* Schema 13 routed the final arc but only Silent Squatch and the mansion
+     * sleep moved its clock.  Repair saves already inside that route to the
+     * minimum clock their durable mission progress proves.  A player whose
+     * clock is later is never rewound, and an old Initiation save grandfathered
+     * by v12 -> v13 remains byte-for-byte identical apart from the version. */
+    const finalArcMissions = [
+      MISSION_IDS.SILVER_CASE,
+      MISSION_IDS.MANSION_SIEGE,
+      MISSION_IDS.ENOLA_SQUATCH,
+      MISSION_IDS.MANSION_RETURN,
+      MISSION_IDS.CARTEL_PALACE,
+    ];
+    const grandfathered = finalArcMissions.some(
+      (id) => saved.missions?.[id]?.grandfathered === true,
+    );
+    if (grandfathered) return { ...saved, version: 14 };
+
+    const reached = finalArcTimeEventsReached(saved);
+    /* Nothing in the new route has started.  Older pre-finale migrations can
+     * legitimately be on any of Days 1-4; the Day 4 5:20 PM baseline below is
+     * only meaningful once a final-arc transition has actually completed. */
+    if (reached.length === 0) return { ...saved, version: 14 };
+    let canonical = {
+      ...(saved.story ?? {}),
+      day: 4,
+      timeMinutes: 17 * 60 + 20,
+      timeEvents: [],
+    };
+    for (const eventId of reached) canonical = storyAfterTimeEvent(canonical, eventId);
+
+    const savedAbsolute = absoluteStoryMinutes(saved.story);
+    const canonicalAbsolute = absoluteStoryMinutes(canonical);
+    const repairedClock = canonicalAbsolute > savedAbsolute
+      ? { day: canonical.day, timeMinutes: canonical.timeMinutes }
+      : {};
+    return {
+      ...saved,
+      version: 14,
+      story: {
+        ...saved.story,
+        ...repairedClock,
+        timeEvents: uniqueStrings([
+          ...uniqueStrings(saved.story?.timeEvents),
+          ...reached,
+        ]),
       },
     };
   },
@@ -1251,6 +1665,26 @@ function normalize(saved) {
   const bankHeist = saved.missions?.[MISSION_IDS.BANK_HEIST] ?? {};
   const bankHeistStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(bankHeist.status) ? bankHeist.status : base.missions.bank_heist.status;
+  const silverCase = saved.missions?.[MISSION_IDS.SILVER_CASE] ?? {};
+  const silverCaseStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(silverCase.status)
+    ? silverCase.status : base.missions[MISSION_IDS.SILVER_CASE].status;
+  const mansionSiege = saved.missions?.[MISSION_IDS.MANSION_SIEGE] ?? {};
+  const mansionSiegeStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(mansionSiege.status)
+    ? mansionSiege.status : base.missions[MISSION_IDS.MANSION_SIEGE].status;
+  const enolaSquatch = saved.missions?.[MISSION_IDS.ENOLA_SQUATCH] ?? {};
+  const enolaSquatchStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(enolaSquatch.status)
+    ? enolaSquatch.status : base.missions[MISSION_IDS.ENOLA_SQUATCH].status;
+  const mansionReturn = saved.missions?.[MISSION_IDS.MANSION_RETURN] ?? {};
+  const mansionReturnStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(mansionReturn.status)
+    ? mansionReturn.status : base.missions[MISSION_IDS.MANSION_RETURN].status;
+  const cartelPalace = saved.missions?.[MISSION_IDS.CARTEL_PALACE] ?? {};
+  const cartelPalaceStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(cartelPalace.status)
+    ? cartelPalace.status : base.missions[MISSION_IDS.CARTEL_PALACE].status;
   const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
@@ -1493,6 +1927,69 @@ function normalize(saved) {
         outcome: BANK_HEIST_OUTCOMES.includes(bankHeist.outcome)
           ? bankHeist.outcome : null,
       },
+      [MISSION_IDS.SILVER_CASE]: {
+        status: silverCaseStatus,
+        checkpoint: SILVER_CASE_CHECKPOINT_IDS.includes(silverCase.checkpoint)
+          ? silverCase.checkpoint : null,
+        caseRecovered: silverCase.caseRecovered === true,
+        winstonOutcome: ['spared', 'player_killed', 'ape_killed']
+          .includes(silverCase.winstonOutcome) ? silverCase.winstonOutcome : null,
+        irritatedApe: silverCase.irritatedApe === true,
+        apeFinishedChester: silverCase.apeFinishedChester === true,
+        apeFinishedWinston: silverCase.apeFinishedWinston === true,
+        ...(silverCase.grandfathered === true ? { grandfathered: true } : {}),
+      },
+      [MISSION_IDS.MANSION_SIEGE]: {
+        status: mansionSiegeStatus,
+        checkpoint: MANSION_SIEGE_CHECKPOINT_IDS.includes(mansionSiege.checkpoint)
+          ? mansionSiege.checkpoint : null,
+        attackersDown: boundedNumber(mansionSiege.attackersDown, 0, 99, 0, true),
+        littleFriendSaid: mansionSiege.littleFriendSaid === true,
+        sasoleMet: mansionSiege.sasoleMet === true,
+        ...(mansionSiege.grandfathered === true ? { grandfathered: true } : {}),
+      },
+      [MISSION_IDS.ENOLA_SQUATCH]: {
+        status: enolaSquatchStatus,
+        checkpoint: ENOLA_SQUATCH_CHECKPOINT_IDS.includes(enolaSquatch.checkpoint)
+          ? enolaSquatch.checkpoint : null,
+        checkpointSnapshot: normalizeEnolaCheckpointSnapshot(
+          enolaSquatch.checkpointSnapshot,
+          ENOLA_SQUATCH_CHECKPOINT_IDS.includes(enolaSquatch.checkpoint)
+            ? enolaSquatch.checkpoint : null,
+        ),
+        rank: ENOLA_SQUATCH_RANKS.includes(enolaSquatch.rank)
+          ? enolaSquatch.rank : null,
+        score: boundedNumber(enolaSquatch.score, 0, 1, 0),
+        unlocks: uniqueStrings(enolaSquatch.unlocks)
+          .filter((unlock) => ENOLA_SQUATCH_UNLOCKS.includes(unlock)),
+        payloadReleased: enolaSquatch.payloadReleased === true,
+        returnedHome: enolaSquatch.returnedHome === true,
+        ...(enolaSquatch.grandfathered === true ? { grandfathered: true } : {}),
+      },
+      [MISSION_IDS.MANSION_RETURN]: {
+        status: mansionReturnStatus,
+        briefingComplete: mansionReturn.briefingComplete === true,
+        wrongCityConfirmed: mansionReturn.wrongCityConfirmed === true,
+        sauceMissingConfirmed: mansionReturn.sauceMissingConfirmed === true,
+        palaceLocationKnown: mansionReturn.palaceLocationKnown === true,
+        ...(mansionReturn.grandfathered === true ? { grandfathered: true } : {}),
+      },
+      [MISSION_IDS.CARTEL_PALACE]: {
+        status: cartelPalaceStatus,
+        checkpoint: CARTEL_PALACE_CHECKPOINT_IDS.includes(cartelPalace.checkpoint)
+          ? cartelPalace.checkpoint : null,
+        evidenceFound: uniqueStrings(cartelPalace.evidenceFound)
+          .filter((id) => CARTEL_PALACE_EVIDENCE_IDS.includes(id)),
+        sauceBetrayalConfirmed: cartelPalace.sauceBetrayalConfirmed === true,
+        alarmRaised: cartelPalace.alarmRaised === true,
+        alarmReason: CARTEL_PALACE_ALARM_REASONS.includes(cartelPalace.alarmReason)
+          ? cartelPalace.alarmReason : null,
+        markEliminated: cartelPalace.markEliminated === true,
+        sauceEliminated: cartelPalace.sauceEliminated === true,
+        outcome: CARTEL_PALACE_OUTCOMES.includes(cartelPalace.outcome)
+          ? cartelPalace.outcome : null,
+        ...(cartelPalace.grandfathered === true ? { grandfathered: true } : {}),
+      },
       [MISSION_IDS.INITIATION]: {
         status: initiationStatus,
       },
@@ -1513,6 +2010,8 @@ function normalize(saved) {
         notesRecovered: silentSquatch.notesRecovered === true,
         conspiracyBoard: silentSquatch.conspiracyBoard === true,
         trophyAwarded: silentSquatch.trophyAwarded === true,
+        eveningReady: silentSquatch.eveningReady === true,
+        sleptAtMansion: silentSquatch.sleptAtMansion === true,
       },
     },
     events: {
@@ -1847,6 +2346,13 @@ class Campaign {
         // The valid new primary campaign is still more important than an old
         // recovery note that the player explicitly chose to discard.
       }
+      try {
+        this.storage.removeItem?.(FINAL_ARC_LOADOUT_STORAGE_KEY);
+      } catch {
+        // The fresh campaign remains authoritative even when a hostile
+        // storage shim refuses cleanup. A later final-arc page will still be
+        // gated by the reset story before it can expose this adapter state.
+      }
     }
     this._state = fresh;
     this._recovery = null;
@@ -1922,6 +2428,10 @@ const APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
   'after-golf': Object.freeze({
     progress: 7, spawn: 'front_door', chapter: 'heist_day', day: 4,
     timeMinutes: 10 * 60 + 30,
+  }),
+  'after-heist': Object.freeze({
+    progress: 8, spawn: 'front_door', chapter: 'post_heist', day: 4,
+    timeMinutes: 17 * 60 + 20,
   }),
 });
 
@@ -2103,6 +2613,53 @@ function seedApartmentPreviewCampaign(state, variant) {
     bankHeist.status = 'locked';
   }
 
+  if (checkpoint.progress >= 8) {
+    state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+    bankHeist.status = 'complete';
+    bankHeist.checkpoint = 'vehicle_swap';
+    bankHeist.briefingComplete = true;
+    Object.assign(bankHeist.preparation, {
+      armor: true,
+      gloves: true,
+      mask: true,
+      carbine: true,
+      sidearm: true,
+      magazines: true,
+      duffel: true,
+    });
+    bankHeist.preparationComplete = true;
+    Object.assign(bankHeist, {
+      bankEntered: true,
+      guardsDisarmed: 2,
+      alarmTriggered: true,
+      vaultOpened: true,
+      bagsStaged: 8,
+      bagsRecovered: 7,
+      grossTake: 1_260_000,
+      compromisedCash: 0,
+      operationalLoss: 55_500,
+      familyShare: 602_250,
+      crewShare: 481_800,
+      prospectShare: 120_450,
+      primaryVanLost: true,
+      playerDroveEscape: true,
+      vehicleDamage: 41,
+      policeHeat: 61,
+      followedSnow: true,
+      disciplinedFire: true,
+      crewSurvived: true,
+      outcome: 'professional',
+    });
+    bankHeist.crewInjuries[CHARACTER_IDS.RIPPINFLOW] = 'moderate';
+    bankHeist.cleanup.finalCalls = true;
+    state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
+    markTime(
+      TIME_EVENT_IDS.LOU_HEIST_CALL,
+      TIME_EVENT_IDS.DEPART_BANK_HEIST,
+      TIME_EVENT_IDS.COMPLETE_BANK_HEIST,
+    );
+  }
+
   if (checkpoint.spawn === 'wake') {
     state.activities.eaten = false;
     state.activities.showered = false;
@@ -2129,7 +2686,36 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     const silver = state.missions[MISSION_IDS.SILVER_ROOM];
     const golf = state.missions[MISSION_IDS.SILVER_PINES];
     const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
+    const silverCase = state.missions[MISSION_IDS.SILVER_CASE];
+    const silentSquatch = state.missions[MISSION_IDS.SILENT_SQUATCH];
+    const mansionSiege = state.missions[MISSION_IDS.MANSION_SIEGE];
+    const enolaSquatch = state.missions[MISSION_IDS.ENOLA_SQUATCH];
+    const mansionReturn = state.missions[MISSION_IDS.MANSION_RETURN];
+    const cartelPalace = state.missions[MISSION_IDS.CARTEL_PALACE];
     const initiation = state.missions[MISSION_IDS.INITIATION];
+    const finalArcPrelude = [
+      SCENE_IDS.SILVER_CASE,
+      SCENE_IDS.MANSION_SIEGE,
+      SCENE_IDS.ENOLA_SQUATCH,
+      SCENE_IDS.MANSION_RETURN,
+      SCENE_IDS.CARTEL_PALACE,
+    ].includes(sceneId);
+    const seedFinalArcClock = (eventCount) => {
+      const reached = FINAL_ARC_TIME_EVENT_ORDER.slice(0, eventCount);
+      let clock = {
+        ...state.story,
+        day: 4,
+        timeMinutes: 17 * 60 + 20,
+        timeEvents: [],
+      };
+      for (const eventId of reached) clock = storyAfterTimeEvent(clock, eventId);
+      state.story.day = clock.day;
+      state.story.timeMinutes = clock.timeMinutes;
+      state.story.timeEvents = uniqueStrings([
+        ...uniqueStrings(state.story.timeEvents),
+        ...reached,
+      ]);
+    };
 
     if (sceneId === SCENE_IDS.APARTMENT) {
       apartmentSpawn = seedApartmentPreviewCampaign(state, apartmentVariant);
@@ -2146,7 +2732,13 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
      * mission exposed, and the case from The Silver Case already in his
      * hands, because the whole first beat is carrying it up the stairs. */
     if (sceneId === SCENE_IDS.MANSION) {
-      state.missions[MISSION_IDS.SILENT_SQUATCH].status = 'available';
+      silverCase.status = 'complete';
+      silverCase.checkpoint = 'case_recovered';
+      silverCase.caseRecovered = true;
+      silverCase.winstonOutcome = 'spared';
+      silentSquatch.status = 'available';
+      state.story.chapter = 'mansion';
+      seedFinalArcClock(3);
       previewCarry(state, ITEM_IDS.SILVER_CASE);
       return;
     }
@@ -2162,7 +2754,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
-    ].includes(sceneId)) {
+    ].includes(sceneId) || finalArcPrelude) {
       firstBing.status = 'complete';
       firstBing.packageReceived = true;
       state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
@@ -2194,7 +2786,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
-    ].includes(sceneId)) {
+    ].includes(sceneId) || finalArcPrelude) {
       squatchfather.status = 'complete';
       squatchfather.weaponStaged = true;
       squatchfather.weaponDropped = true;
@@ -2233,7 +2825,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
-    ].includes(sceneId)) {
+    ].includes(sceneId) || finalArcPrelude) {
       secondBing.status = 'complete';
       secondBing.checkpoint = 'buried';
       secondBing.assignment = 'reserve_pickup';
@@ -2249,7 +2841,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.NO_WAKE, SCENE_IDS.SILVER_ROOM, SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
-    ].includes(sceneId)) {
+    ].includes(sceneId) || finalArcPrelude) {
       motel.status = 'complete';
       motel.ending = 'home';
       motel.cargoRecovered = true;
@@ -2268,7 +2860,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.SILVER_ROOM, SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION,
     ]
-      .includes(sceneId)) {
+      .includes(sceneId) || finalArcPrelude) {
       noWake.status = 'complete';
       noWake.checkpoint = 'returned';
       noWake.betrayalConfirmed = true;
@@ -2289,7 +2881,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     }
 
     if ([SCENE_IDS.SILVER_PINES, SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION]
-      .includes(sceneId)) {
+      .includes(sceneId) || finalArcPrelude) {
       silver.status = 'complete';
       silver.outcome = 'strong';
       silver.woo = 74;
@@ -2317,7 +2909,8 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if ([SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION].includes(sceneId)) {
+    if ([SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION].includes(sceneId)
+      || finalArcPrelude) {
       seedCompletedGolfRound(golf);
       state.story.chapter = 'heist_day';
       state.story.day = 4;
@@ -2350,7 +2943,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if (sceneId === SCENE_IDS.INITIATION) {
+    if (sceneId === SCENE_IDS.INITIATION || finalArcPrelude) {
       bankHeist.status = 'complete';
       bankHeist.checkpoint = 'vehicle_swap';
       bankHeist.briefingComplete = true;
@@ -2371,8 +2964,103 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       bankHeist.primaryVanLost = true;
       bankHeist.crewInjuries[CHARACTER_IDS.RIPPINFLOW] = 'moderate';
       bankHeist.outcome = 'professional';
-      state.story.chapter = 'big_night';
       state.story.timeMinutes = 19 * 60;
+
+      if (sceneId === SCENE_IDS.SILVER_CASE) {
+        state.story.chapter = 'silver_case';
+        silverCase.status = 'available';
+        seedFinalArcClock(1);
+        return;
+      }
+
+      Object.assign(silverCase, {
+        status: 'complete',
+        checkpoint: 'case_recovered',
+        caseRecovered: true,
+        winstonOutcome: 'spared',
+      });
+
+      Object.assign(silentSquatch, {
+        status: 'complete',
+        checkpoint: 'clear',
+        casePlaced: true,
+        caseDelivered: true,
+        labLocked: true,
+        aubbieEliminated: true,
+        silentNightActivated: true,
+        basementUnlocked: true,
+        notesRecovered: true,
+        conspiracyBoard: true,
+        trophyAwarded: true,
+        eveningReady: true,
+        sleptAtMansion: true,
+      });
+
+      if (sceneId === SCENE_IDS.MANSION_SIEGE) {
+        state.story.chapter = 'mansion_siege';
+        mansionSiege.status = 'available';
+        seedFinalArcClock(5);
+        return;
+      }
+
+      Object.assign(mansionSiege, {
+        status: 'complete',
+        checkpoint: 'wave_one',
+        attackersDown: 8,
+        littleFriendSaid: true,
+        sasoleMet: true,
+      });
+
+      if (sceneId === SCENE_IDS.ENOLA_SQUATCH) {
+        state.story.chapter = 'enola_squatch';
+        enolaSquatch.status = 'available';
+        seedFinalArcClock(7);
+        return;
+      }
+
+      Object.assign(enolaSquatch, {
+        status: 'complete',
+        checkpoint: 'return',
+        rank: 'A',
+        score: 0.9,
+        unlocks: ['precision_release'],
+        payloadReleased: true,
+        returnedHome: true,
+      });
+
+      if (sceneId === SCENE_IDS.MANSION_RETURN) {
+        state.story.chapter = 'mansion_return';
+        mansionReturn.status = 'available';
+        seedFinalArcClock(9);
+        return;
+      }
+
+      Object.assign(mansionReturn, {
+        status: 'complete',
+        briefingComplete: true,
+        wrongCityConfirmed: true,
+        sauceMissingConfirmed: true,
+        palaceLocationKnown: true,
+      });
+
+      if (sceneId === SCENE_IDS.CARTEL_PALACE) {
+        state.story.chapter = 'cartel_palace';
+        cartelPalace.status = 'available';
+        seedFinalArcClock(10);
+        return;
+      }
+
+      Object.assign(cartelPalace, {
+        status: 'complete',
+        checkpoint: 'clear',
+        evidenceFound: ['photograph', 'security_tape'],
+        sauceBetrayalConfirmed: true,
+        markEliminated: true,
+        sauceEliminated: true,
+        outcome: 'clean',
+      });
+      state.story.chapter = 'big_night';
+      seedFinalArcClock(12);
       state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
       initiation.status = 'available';
     }

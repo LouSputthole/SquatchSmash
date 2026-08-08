@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { persistentDressingForCampaign } from '../src/world/dressing.js';
+import {
+  CHAPTER_ORDER,
+  dressingFor,
+  persistentDressingForCampaign,
+} from '../src/world/dressing.js';
+
+test('the discarded floor shirt is absent from every apartment chapter', () => {
+  for (const chapter of CHAPTER_ORDER) {
+    assert.equal(dressingFor(chapter).shown.has('bloodShirt'), false,
+      `${chapter} still leaves the blood-stained shirt on the floor`);
+  }
+});
 
 test('Tammy’s Dashboard Mug appears only after Beef Run and survives later apartment chapters', () => {
   const beforeFlight = {

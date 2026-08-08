@@ -26,6 +26,11 @@ import {
 import { crestPlaceholderTexture, applyCrest } from '../livery.js';
 
 const G = 9.81;
+const NOSE_AXIS = new THREE.Vector3(0, 0, 1);
+const _flightPath = new THREE.Vector3();
+const _desiredWorldAttitude = new THREE.Quaternion();
+const _desiredLocalAttitude = new THREE.Quaternion();
+const _parentWorldAttitude = new THREE.Quaternion();
 
 const SILVER = 0xb8bcc6;
 const SILVER_DARK = 0x8a8e98;
@@ -316,7 +321,6 @@ export class FatSquatch {
     this.impacted = false;
     this.impactPoint = null;
     this.velocity = new THREE.Vector3();
-    this.angularVelocity = new THREE.Vector3(0.4, 0.15, 0.6);
     this.fallTime = 0;
 
     /** Called once, from `update()`, the frame `impacted` first becomes true. */
@@ -619,9 +623,22 @@ export class FatSquatch {
     this.fallTime += dt;
     this.velocity.y -= G * dt;
     this.group.position.addScaledVector(this.velocity, dt);
-    this.group.rotation.x += this.angularVelocity.x * dt;
-    this.group.rotation.y += this.angularVelocity.y * dt;
-    this.group.rotation.z += this.angularVelocity.z * dt;
+
+    /* Follow the ballistic path instead of free-tumbling. The casing's +Z
+     * nose turns into the forward velocity, then slowly pitches down as
+     * gravity adds vertical speed. About 95% settles in 2.5 seconds: visible
+     * and deliberate, never a snap. */
+    if (this.velocity.lengthSq() > 0.01) {
+      _flightPath.copy(this.velocity).normalize();
+      _desiredWorldAttitude.setFromUnitVectors(NOSE_AXIS, _flightPath);
+      if (this.group.parent) {
+        this.group.parent.getWorldQuaternion(_parentWorldAttitude).invert();
+        _desiredLocalAttitude.copy(_parentWorldAttitude).multiply(_desiredWorldAttitude);
+      } else {
+        _desiredLocalAttitude.copy(_desiredWorldAttitude);
+      }
+      this.group.quaternion.slerp(_desiredLocalAttitude, 1 - Math.exp(-1.25 * dt));
+    }
 
     if (getHeight) {
       const ground = getHeight(this.group.position.x, this.group.position.z);

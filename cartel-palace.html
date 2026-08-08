@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Cartel Palace · Squatch Life</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#9813;</text></svg>" />
+  <link rel="stylesheet" href="src/style.css" />
+  <link rel="stylesheet" href="src/cartel-palace/cartel-palace.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body class="cartel-palace">
+  <canvas id="scene"></canvas>
+  <div id="night-grade" aria-hidden="true"></div>
+  <div id="alarm-wash" aria-hidden="true"></div>
+
+  <div id="hud" aria-hidden="true">
+    <div id="crosshair"><span></span></div>
+    <div id="prompt" class="hidden">
+      <kbd class="key">E</kbd><span class="label">Interact</span><div class="holdbar"><i></i></div>
+    </div>
+    <div id="subtitle" class="hidden"></div>
+    <div id="hands">
+      <div id="hotbar" class="hidden"></div>
+      <div id="hand-item" class="hidden"><div class="icon"></div><div class="meta"><span class="name"></span><span class="hint"></span></div></div>
+    </div>
+    <div id="radio-osd" class="hidden"><div class="rtitle"><span></span></div><div class="rtrack"></div></div>
+    <div id="clock" class="hidden"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
+    <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
+    <div id="toast-stack"></div>
+
+    <section id="mission-card">
+      <small id="objective-kicker">THE CARTEL PALACE</small>
+      <strong id="objective">Reach the service gate</strong>
+      <span id="objective-detail">Stay quiet · Sauce is supposed to be a rescue</span>
+      <div id="evidence-count"><i></i><span>Evidence 0 / 3</span></div>
+    </section>
+
+    <section id="stealth">
+      <small>EXPOSURE</small><div class="meter"><i></i></div><span>UNSEEN</span>
+    </section>
+
+    <section id="health">
+      <small>TONY</small><div class="meter"><i></i></div><span>100</span>
+    </section>
+
+    <section id="ammo" class="hidden">
+      <small id="ammo-name">9MM</small>
+      <strong><span id="ammo-mag">15</span><b>/</b><span id="ammo-reserve">75</span></strong>
+      <span id="ammo-state"></span>
+    </section>
+
+    <section id="boss" class="hidden">
+      <small>MARK · CARTEL BOSS</small>
+      <div class="armor"><i></i></div>
+      <div class="life"><i></i></div>
+      <span>ARMORED</span>
+    </section>
+  </div>
+
+  <div id="overlay">
+    <div class="panel">
+      <p class="eyebrow">SQUATCH LIFE · FINAL OPERATION</p>
+      <h1>CARTEL <span>PALACE</span></h1>
+      <p class="tag">Mark's estate is awake behind the wall. Sauce is inside. The family still thinks this is a rescue.</p>
+      <button id="start-btn">Begin the approach</button>
+      <ul class="controls">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>C</kbd> crouch · <kbd>Space</kbd> jump</li>
+        <li><kbd>E</kbd> interact / quiet takedown · mouse aim · click fire · <kbd>R</kbd> reload</li>
+        <li><kbd>1</kbd>–<kbd>5</kbd> final-raid loadout · <kbd>Q</kbd> empty hands · <kbd>Tab</kbd> objective and controls</li>
+        <li>Cut power, work through the service wing, and let the evidence tell you what Sauce did.</li>
+      </ul>
+      <p class="fine">No final confrontation dialogue is staged in this build. The locked script will be added only after approval.</p>
+    </div>
+  </div>
+
+  <div id="death" class="hidden">
+    <div class="panel compact">
+      <p class="eyebrow">THE ESTATE HOLDS</p>
+      <h1>TRY <span>AGAIN</span></h1>
+      <p class="tag">The last checkpoint is still yours.</p>
+      <button id="retry-btn">Restart checkpoint</button>
+    </div>
+  </div>
+
+  <div id="ending" class="hidden">
+    <div class="panel compact">
+      <p class="eyebrow">FINAL MISSION COMPLETE</p>
+      <h1>MARK'S <span>TABLE</span></h1>
+      <p class="tag">The palace is quiet. Sauce's rescue story is finished. The Family is waiting for Tony.</p>
+      <button id="initiation-btn">Go to the Initiation</button>
+    </div>
+  </div>
+
+  <div id="loading"><div class="bar"><i></i></div><span>Following the service road…</span></div>
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong><span data-boot-detail></span>
+    <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./preview.html">SCENE PREVIEW</a></div>
+  </div>
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="CARTEL PALACE" data-scene="CARTEL PALACE"></script>
+  <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s)s.textContent=t;};</script>
+  <script type="module" src="src/cartel-palace/main.js" onerror="window.__squatchSceneFail('Could not load Cartel Palace','src/cartel-palace/main.js failed to load.')"></script>
+</body>
+</html>

@@ -135,6 +135,35 @@ test('tactical dialogue interrupts banter and stale queued commands are discarde
   assert.deepEqual(dialogue.queue, []);
 });
 
+test('mission radio commands interrupt chatter and survive the next state transition', () => {
+  const started = [];
+  const dialogue = new DialogueArbiter({ onStart: (line) => started.push(line.id) });
+  dialogue.setState('LOBBY_CONTROL');
+  dialogue.push({
+    id: 'hostage_bark', priority: DIALOGUE_PRIORITY.BARK,
+    states: ['LOBBY_CONTROL'],
+  });
+  dialogue.pushCommand({
+    id: 'lou_radio_lobby', priority: DIALOGUE_PRIORITY.OBJECTIVE,
+    states: ['LOBBY_CONTROL'],
+  });
+  assert.deepEqual(started, ['hostage_bark', 'lou_radio_lobby']);
+  assert.equal(dialogue.current?.id, 'lou_radio_lobby');
+  assert.equal(dialogue.current?.interruptible, false);
+  dialogue.setState('GUARDS_SECURED');
+  assert.equal(dialogue.current?.id, 'lou_radio_lobby');
+  dialogue.pushCommand({ id: 'lou_radio_vault', states: ['CASH_LOADING'] });
+  dialogue.pushCommand({ id: 'lou_radio_street', states: ['EXIT_ORDER'] });
+  assert.deepEqual(dialogue.queue.map((line) => line.id), [
+    'lou_radio_vault', 'lou_radio_street',
+  ]);
+  dialogue.finish();
+  dialogue.finish();
+  assert.deepEqual(started, [
+    'hostage_bark', 'lou_radio_lobby', 'lou_radio_vault', 'lou_radio_street',
+  ]);
+});
+
 test('authored driving solids block buildings without closing the road corridor', () => {
   const obstacles = [{ x: 20, z: -30, w: 10, d: 18 }];
   assert.equal(intersectsDrivingObstacle(20, -30, obstacles), true);

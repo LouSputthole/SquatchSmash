@@ -3063,6 +3063,29 @@ export function buildSilentSquatch({
      * the pane and the six of them are looking at it through their side. */
     tableSpot.position.set(tableX, LAB_Y + 0.97, tableZ - 0.08);
     root.add(tableSpot);
+    /* A visible inlay under the case anchor. The empty remains the exact
+     * placement target used by the mission; this thin, non-interactive mesh
+     * simply tells the player where the transfer belongs before Booski puts
+     * anything there. Rotating a square forty-five degrees makes the brief's
+     * diamond marker without adding another bespoke prop system. */
+    const tableMarker = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.34, 0.34),
+      mat({
+        color: 0x5a367a,
+        emissive: 0x9e61d0,
+        emissiveIntensity: 1.15,
+        roughness: 0.42,
+        metalness: 0.18,
+        unique: true,
+      }),
+    );
+    tableMarker.name = 'ss-transfer-table-diamond';
+    tableMarker.rotation.set(-Math.PI / 2, 0, Math.PI / 4);
+    tableMarker.position.copy(tableSpot.position);
+    tableMarker.position.y += 0.006;
+    tableMarker.castShadow = false;
+    tableMarker.receiveShadow = false;
+    root.add(tableMarker);
 
     /* ---- SILENT NIGHT PROTOCOL. A lever under a red safety cover, on its
      * own pedestal, deliberately away from everything else on the console:
@@ -3147,6 +3170,7 @@ export function buildSilentSquatch({
       drawerLamp,
       drawerTarget,
       tableSpot,
+      tableMarker,
       transferTable: { x: tableX, y: LAB_Y + 0.97, z: tableZ },
       silentNight: {
         group: sn, lever: snLever, cover: snCover, target: snTarget,
@@ -5150,7 +5174,7 @@ export function buildSilentSquatch({
       [innocent.wine.sign, 'THE CELLAR. Racked to the ceiling and nobody in this family drinks wine.'],
     ];
     for (const [mesh, text] of flavour) {
-      if (mesh) interaction.register(mesh, { label: text, enabled: live });
+      if (mesh) interaction.register(mesh, { label: text, key: 'LOOK', enabled: live });
     }
   }
   registerInteractions();
@@ -5840,8 +5864,9 @@ export function buildSilentSquatch({
       drawer: obs.drawerTarget,
       /** The SURFACE, not the aim box. `mission/mount.js` puts the case here;
        * `drawer` above is what the crosshair reads. Two different jobs that
-       * were being done by one object, and the case ended up in the wall. */
+      * were being done by one object, and the case ended up in the wall. */
       tableSpot: obs.tableSpot,
+      tableMarker: obs.tableMarker,
       silentNight: obs.silentNight.target,
       doorLock: obs.lockPost,
       xxx: xxx.aim,

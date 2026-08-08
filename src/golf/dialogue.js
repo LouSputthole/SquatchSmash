@@ -56,7 +56,7 @@ export class CueQueue {
   }
 
   /** Fire one cue by id. Returns false if it was declined. */
-  play(id, { force = false } = {}) {
+  play(id, { force = false, orderedSequence = false } = {}) {
     const cue = CUES[id];
     if (!cue) {
       // A missing cue is a script bug, not a runtime one. Say so, do not throw.
@@ -72,14 +72,15 @@ export class CueQueue {
       }
       /* Ambient chatter stands down while the scene is saying something. This
        * is the whole reason the priority field exists. */
-      if (cue.priority === PRIORITY.BANTER && (this.suppressed || this.busy)) return false;
+      if (cue.priority === PRIORITY.BANTER
+        && (this.suppressed || (!orderedSequence && this.busy))) return false;
       if (cue.when && !cue.when()) return false;
     }
 
     this.queue.push(cue);
-    /* Higher priority goes first, but never reorders equals — an argument has
-     * to arrive in the order it was written. */
-    this.queue.sort((a, b) => RANK[b.priority] - RANK[a.priority]);
+    /* Standalone cues are priority-sorted but never reorder equals. An authored
+     * sequence that claimed an empty floor already owns its exact order. */
+    if (!orderedSequence) this.queue.sort((a, b) => RANK[b.priority] - RANK[a.priority]);
     return true;
   }
 
@@ -90,8 +91,13 @@ export class CueQueue {
       console.warn(`Silver Pines: no sequence "${nameOrIds}"`);
       return false;
     }
+    /* A complete authored conversation that begins on an empty floor owns its
+     * exact order, including lower-priority banter. Standalone ambient lines
+     * still yield to a busy or suppressed floor, and play() still applies the
+     * once, cooldown, and `when` eligibility checks to every sequence member. */
+    const orderedSequence = !this.busy && !this.suppressed;
     let any = false;
-    for (const id of ids) any = this.play(id, opts) || any;
+    for (const id of ids) any = this.play(id, { ...opts, orderedSequence }) || any;
     return any;
   }
 

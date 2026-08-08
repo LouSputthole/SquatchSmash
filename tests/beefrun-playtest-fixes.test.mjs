@@ -18,6 +18,7 @@ const beefMain = read('../src/beefrun/main.js');
 const beefNpc = read('../src/beefrun/npc.js');
 const beefPreflight = read('../src/beefrun/preflight.js');
 const beefAircraft = read('../src/beefrun/aircraft.js');
+const beefAirfield = read('../src/beefrun/airfield.js');
 const beefMission = read('../src/beefrun/mission.js');
 const beefDetection = read('../src/beefrun/detection.js');
 
@@ -90,6 +91,30 @@ test('the two Lous are different men and this file only knows one of them', () =
   assert.notEqual(CAPTAIN_LOU_SASOLE.dress, BIG_UNCLE_LOU.dress);
   assert.notEqual(CAPTAIN_LOU_SASOLE.shirt, BIG_UNCLE_LOU.shirt);
   assert.match(beefNpc, /nameTag\('CAPT\. LOU SASOLE'/);
+});
+
+test('the preview-only preflight link starts the walkaround instead of a flight restore', () => {
+  assert.match(beefMain, /preflight:\s*'PREFLIGHT CHECK'/);
+  const start = beefMain.slice(beefMain.indexOf("startBtn.addEventListener('click'"));
+  assert.match(start, /game\.resume === 'preflight'\s*\? mission\.startPreviewPreflight\(\)/);
+});
+
+test('Old Stove finishes close enough to share the handoff mark with Sasole', () => {
+  const anchor = (name) => {
+    const match = beefAirfield.match(
+      new RegExp(`${name}:\\s*new THREE\\.Vector3\\((-?[\\d.]+),\\s*ELEV,\\s*(-?[\\d.]+)\\)`),
+    );
+    assert.ok(match, `missing ${name} airfield anchor`);
+    return { x: Number(match[1]), z: Number(match[2]) };
+  };
+  const lou = anchor('louStand');
+  const stove = anchor('stoveStand');
+  const crates = anchor('stoveCrates');
+  const fromLou = Math.hypot(stove.x - lou.x, stove.z - lou.z);
+  const fromCrates = Math.hypot(stove.x - crates.x, stove.z - crates.z);
+
+  assert.ok(fromLou < 9.5, `Stove still stops ${fromLou.toFixed(1)}m from Sasole`);
+  assert.ok(fromCrates < 4, `Stove should still read as standing with his crates (${fromCrates.toFixed(1)}m)`);
 });
 
 /* ---------------- 5. "wheel cholks come with the plane" ---------------- */

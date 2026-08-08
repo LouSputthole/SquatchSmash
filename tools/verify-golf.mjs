@@ -430,29 +430,9 @@ async function walkUpAndPress(getTarget) {
   return pressUntilToast(t);
 }
 
-/* A real finding, and why 4h/4i/4j below assert registration rather than aim.
- *
- * The lead cart carries three amenities: a cooler (a 0.42 x 0.34 x 0.50 box at
- * y 0.70) and, up on the seat at y 1.15, a cigarette pack 14 cm across and a
- * Zyn tin 13 cm across, 18 cm apart from each other. Walking up and pressing E
- * does not reliably reach the two small ones — across five runs the crosshair
- * repeatedly resolved to the cooler instead, and `pressUntilToast` then drained
- * it four cans deep while "aiming at" the cigarettes. Aiming at the cooler got
- * back "Wintergreen. Naturally." Standing closer is worse: inside about a
- * metre the crosshair resolves to nothing at all.
- *
- * That is a genuine, if minor, gameplay problem — a player has the same
- * trouble picking the pack out from the cooler beside it — and the fix is to
- * space the props, which is a level-design call for the owner rather than
- * something to bend a test around. (An earlier guess that the new trailside
- * cooler was the culprit was wrong: it is the cart's own cooler, and moving
- * the trailside one to 6 m changed nothing. That change was reverted.)
- *
- * So these three check what can be checked deterministically: each amenity is
- * a distinct registered interaction with its own handler and label. The
- * walk-up-and-press coverage is deliberately not asserted here, because a gate
- * that fails one run in two teaches everybody to ignore it.
- */
+/* The cart amenities sit below eye height and only 18 cm apart, so their live
+ * contract must exercise a real 3-D aim, E press, inventory transfer, and prop
+ * removal. Registration alone previously let an unreachable item look green. */
 
 
 const returnHere = await page.evaluate(() => ({
@@ -553,6 +533,30 @@ check('4g. the trailside cooler runs out and says so instead of going negative',
   coolerAfterAll === 0 && /picked clean|empty|beat you to it/i.test(coolerEmptyPress.toast),
   JSON.stringify({ afterAll: coolerAfterAll, toast: coolerEmptyPress.toast }));
 
+const cigarettesGrab = await walkUpAndPress(() => {
+  const mesh = window.__golf.carts.lead.amenities.cigarettes;
+  mesh.updateWorldMatrix(true, false);
+  const p = mesh.getWorldPosition(mesh.position.clone());
+  return { x: p.x, y: p.y, z: p.z, standoff: 1.55 };
+});
+const cigarettesState = await page.evaluate(() => ({
+  owned: window.__golf.inventory.has('cigs'),
+  held: window.__golf.inventory.held,
+  visible: window.__golf.carts.lead.amenities.cigarettes.visible,
+}));
+
+const zynGrab = await walkUpAndPress(() => {
+  const mesh = window.__golf.carts.lead.amenities.zyn;
+  mesh.updateWorldMatrix(true, false);
+  const p = mesh.getWorldPosition(mesh.position.clone());
+  return { x: p.x, y: p.y, z: p.z, standoff: 1.55 };
+});
+const zynState = await page.evaluate(() => ({
+  owned: window.__golf.inventory.has('zyn'),
+  held: window.__golf.inventory.held,
+  visible: window.__golf.carts.lead.amenities.zyn.visible,
+}));
+
 const cartAmenities = await page.evaluate(() => {
   const g = window.__golf;
   const want = ['golf-cart-cooler', 'golf-cart-cigarettes', 'golf-cart-zyn-tin'];
@@ -572,16 +576,22 @@ const cartAmenities = await page.evaluate(() => {
   }
   return out;
 });
-check('4h. the cart cigarettes are a registered interaction with their own handler',
+check('4h. walking up to the cart cigarettes puts them in the shared inventory',
   cartAmenities['golf-cart-cigarettes'].registered
     && cartAmenities['golf-cart-cigarettes'].hasUse
-    && /cigarette/i.test(cartAmenities['golf-cart-cigarettes'].label || ''),
-  JSON.stringify(cartAmenities['golf-cart-cigarettes']));
-check('4i. the cart Zyn tin is a registered interaction with its own handler',
+    && /cigarette/i.test(cartAmenities['golf-cart-cigarettes'].label || '')
+    && cigarettesState.owned
+    && !cigarettesState.visible
+    && /smokes|cigarette/i.test(cigarettesGrab.toast || ''),
+  JSON.stringify({ target: cartAmenities['golf-cart-cigarettes'], grab: cigarettesGrab, state: cigarettesState }));
+check('4i. walking up to the cart Zyn tin puts it in the shared inventory',
   cartAmenities['golf-cart-zyn-tin'].registered
     && cartAmenities['golf-cart-zyn-tin'].hasUse
-    && /zyn/i.test(cartAmenities['golf-cart-zyn-tin'].label || ''),
-  JSON.stringify(cartAmenities['golf-cart-zyn-tin']));
+    && /zyn/i.test(cartAmenities['golf-cart-zyn-tin'].label || '')
+    && zynState.owned
+    && !zynState.visible
+    && /wintergreen|zyn/i.test(zynGrab.toast || ''),
+  JSON.stringify({ target: cartAmenities['golf-cart-zyn-tin'], grab: zynGrab, state: zynState }));
 check('4j. the cart cooler is its own interaction, distinct from the trailside coolers',
   cartAmenities['golf-cart-cooler'].registered
     && cartAmenities['golf-cart-cooler'].hasUse
@@ -1373,6 +1383,14 @@ await page.setViewportSize({ width: 480, height: 300 });
 const played = await page.evaluate(async () => {
   const g = window.__golf;
   const { layoutFor } = await import('/src/golf/hole.js');
+  const { SEQUENCES } = await import('/src/golf/script.js');
+  const h2GreenExpected = SEQUENCES['h2.green.big_night'];
+  const spokenCueOrder = [];
+  const originalSay = g.cues.hooks.say;
+  g.cues.hooks.say = (cue, seconds) => {
+    spokenCueOrder.push(cue.id);
+    return originalSay?.(cue, seconds);
+  };
   const seen = new Set();
   const beats = [];
   const holesPlayed = [g.HOLE.number];
@@ -1475,6 +1493,20 @@ const played = await page.evaluate(async () => {
       const d = Math.hypot(b.x - g.LAYOUT.pin.x, b.z - g.LAYOUT.pin.z);
       const surface = g.surfaceAt(b.x, b.z);
       const onGreen = surface === 'green' || surface === 'fringe';
+      /* Hole 2 owns a long authored green conversation. Stay beside the ball
+       * until the real CueQueue has spoken that block, otherwise a synthetic
+       * tap-in can finish the hole before the line under test reaches the
+       * floor and turn this into a static reference check again. */
+      const hearingH2Green = g.HOLE.number === 2 && onGreen
+        && !h2GreenExpected.every((id) => g.cues.heard(id));
+      if (hearingH2Green) {
+        /* The solver can address remotely, but the production trigger belongs
+         * to the player entering the green. Put the harness beside its live
+         * ball, as an actual player must be, before waiting on the dialogue. */
+        g.teleport(b.x, b.z);
+        g.step(0.05);
+        continue;
+      }
       const useClub = onGreen || d < 12 ? 'putter' : 'iron';
       g.setClub(useClub);
       const solved = g.solve(
@@ -1543,6 +1575,8 @@ const played = await page.evaluate(async () => {
     roundStrokes: line.strokes,
     roundToPar: line.label,
     built: g.round.holes, visuals, effectCounts,
+    h2GreenExpected,
+    h2GreenSpoken: spokenCueOrder.filter((id) => h2GreenExpected.includes(id)),
     replayVisible: document.getElementById('endcard-again')?.hidden === false,
     dialogueState: {
       active: g.dialogue.active,
@@ -1575,6 +1609,10 @@ check('20c. long approach shots return the player to the live cart for retrieval
   played.soloRetrievalSeen && played.parkedCount > played.built.length,
   JSON.stringify({ soloRetrieval: played.soloRetrievalSeen, parked: played.parkedCount }));
 check("21. Lou's private conversation triggers on the ride", played.louPrivate);
+check('21a. the authored Hole 2 green conversation plays every line in order, including Nehoo',
+  JSON.stringify(played.h2GreenSpoken) === JSON.stringify(played.h2GreenExpected)
+    && played.h2GreenSpoken.includes('golf.h2.lou.nehoo'),
+  `${played.h2GreenSpoken.length}/${played.h2GreenExpected.length} lines; Nehoo at ${played.h2GreenSpoken.indexOf('golf.h2.lou.nehoo') + 1}`);
 check('21b. every NPC walks to his live ball before each approach swing',
   played.npcActionsProper && played.npcActionSamples.length >= 9,
   played.npcActionSamples.map((s) => `H${s.hole} ${s.id} ${s.distance.toFixed(1)}m`).join(' / '));

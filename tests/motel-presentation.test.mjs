@@ -1,8 +1,23 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import * as THREE from 'three';
 
 import { Actor, CAST, buildWeaponMesh } from '../src/motel/actors.js';
+
+test('the normal Motel start cannot escape to the apartment', () => {
+  const html = fs.readFileSync(new URL('../motel.html', import.meta.url), 'utf8');
+  const start = html.match(/<div id="menu"[\s\S]*?(?=<div id="pause")/)?.[0] ?? '';
+  const bootFailure = html.match(/<div id="bootFailure"[\s\S]*?(?=<script src="\.\/src\/core\/boot-guard)/)?.[0] ?? '';
+
+  assert.match(start, /id="startBtn"[^>]*>START THE DEAL/);
+  assert.doesNotMatch(start, /href="\.\/index\.html"/,
+    'normal flow exposes an apartment escape before the mission starts');
+  assert.match(html, /id="continueBtn"[^>]*>RETURN TO APARTMENT/,
+    'mission completion lost its campaign return');
+  assert.match(bootFailure, /href="\.\/index\.html"[^>]*>APARTMENT/,
+    'boot failure lost its recovery route');
+});
 
 test('Rico has a stable face identity and an animated speaking mouth', () => {
   const scene = new THREE.Scene();

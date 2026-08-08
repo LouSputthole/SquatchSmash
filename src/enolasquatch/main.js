@@ -1,15 +1,16 @@
 /**
  * The Enola Squatch — boot, wiring, and the frame.
  *
- * A standalone scene, entered directly (no apartment, no campaign save) — the
- * same way `enolasquatch.html` is a standalone sibling of `beefrun.html`, not
- * a page reached through it. Modeled closely on `src/beefrun/main.js`'s
+ * A canonical campaign scene with a save-free preview entry. Its flight model
+ * remains a standalone sibling of `beefrun.html`, while the narrow final-arc
+ * runtime seam owns only checkpoints, completion, and page transitions.
+ * Modeled closely on `src/beefrun/main.js`'s
  * composition-root pattern (renderer/scene/camera setup, how it wires
  * AircraftPhysics/EngineSystem/CameraManager/FlightInput/WeatherSystem/
  * DetectionSystem/MissionController/FlightHud together and drives them in the
  * render loop, its pause/restart/checkpoint wiring, its console debug-handle
  * convention). It is simplified where this mission genuinely has less going
- * on — no campaign/story save, no crate-based cargo, no terrain streaming —
+ * on — no crate-based cargo and no terrain streaming —
  * but as of 2026-08-04 it is NOT simplified in the way this comment used to
  * claim: the scene now opens with an on-foot walkaround, so `Player`,
  * `InteractionSystem` and a real boarding step are all wired here, the same
@@ -100,11 +101,26 @@ import { MissionController } from './mission/MissionController.js';
 import {
   blastLuminance, blastWhiteout, shockRadiusAt, shellOpacity, shockPass,
 } from './vfx/Detonation.js';
-import { EnolaPreflight } from './preflight.js';
+import { EnolaPreflight, syncInteractionTargetMatrices } from './preflight.js';
 import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
 import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
 import { isPreviewMode } from '../core/preview-mode.js';
+import { SCENE_IDS, createCampaign } from '../core/campaign.js';
+import {
+  createFinalArcRuntimeSession,
+  restoreCompletedFinalArcEntry,
+} from '../core/final-arc-runtime.js';
+import { createEnolaSquatchCampaignStory } from '../core/final-arc-story.js';
+import {
+  enolaCompletionReportFromSave,
+  enolaResumePlan,
+} from './campaign.js';
+import {
+  createFinalArcLoadout,
+  FINAL_ARC_WEAPON_CATALOG,
+  FINAL_ARC_SLOT_COUNT,
+} from '../core/final-arc-loadout.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
@@ -180,6 +196,15 @@ function previewCheckpointForLocation(locationLike = window.location) {
 
 /** Resolved once at boot — a real `go()` phase name, or null for the ordinary opening. */
 const previewCheckpoint = previewCheckpointForLocation();
+const enolaCampaignPreview = isPreviewMode();
+const enolaCampaign = createFinalArcRuntimeSession({
+  preview: enolaCampaignPreview,
+  campaign: enolaCampaignPreview ? null : createCampaign(),
+  sceneId: SCENE_IDS.ENOLA_SQUATCH,
+  spawn: 'airfield',
+  storyFactory: createEnolaSquatchCampaignStory,
+});
+let enolaCampaignComplete = false;
 if (previewCheckpoint) {
   const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
   const tag = overlay?.querySelector('.tag');
@@ -340,9 +365,12 @@ function groundHeightCombined(x, z) {
 
 /** One static, non-streamed ground mesh covering the whole flight envelope. */
 function buildEastGround(sceneRef) {
-  const boundsX = [-1400, 10200];
+  /* Keep drawing past the target and past the mission's 13.4 km safety
+   * boundary. The old mesh ended only 1.2 km beyond Squatchbourg, so the
+   * player could see the terrain fall off while making the bomb-break turn. */
+  const boundsX = [-1400, 14500];
   const boundsZ = [-4200, 1000];
-  const segX = 232;
+  const segX = 318;
   const segZ = 104;
   const width = boundsX[1] - boundsX[0];
   const depth = boundsZ[1] - boundsZ[0];
@@ -393,6 +421,9 @@ function buildEastGround(sceneRef) {
   geo.computeVertexNormals();
   const mat_ = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 });
   const groundMesh = new THREE.Mesh(geo, mat_);
+  groundMesh.name = 'eastbound terrain ground';
+  groundMesh.userData.boundsX = [...boundsX];
+  groundMesh.userData.boundsZ = [...boundsZ];
   groundMesh.position.set(cx, 0, cz);
   groundMesh.receiveShadow = true;
   sceneRef.add(groundMesh);
@@ -401,14 +432,18 @@ function buildEastGround(sceneRef) {
   // atmosphere — not a full forest system, just enough that the corridor
   // does not read as bare ground. Kept off the airfield's own footprint and
   // off the compound's landing-pad carve.
-  const COUNT = 460;
+  const COUNT = 620;
   const scatterGeo = coneGeo(3, 9, 6);
   const scatterMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
   const scatter = new THREE.InstancedMesh(scatterGeo, scatterMat, COUNT);
+  scatter.name = 'eastbound terrain scatter';
   const rand = rng(0xE57A11);
   const dummy = new THREE.Object3D();
   let used = 0;
-  for (let i = 0; i < COUNT && used < COUNT; i++) {
+  /* Rejected candidates must not consume the visible-instance budget. The
+   * old COUNT-attempt loop asked for 620 but rendered only about 214 after
+   * the runway, city and zone-density filters did their work. */
+  for (let attempts = 0; attempts < COUNT * 8 && used < COUNT; attempts++) {
     const wx = boundsX[0] + rand() * width;
     const wz = boundsZ[0] + rand() * depth;
     const zone = ZONES_EAST[zoneIndexForX(wx)];
@@ -532,10 +567,20 @@ function raiseGroundAfterCrater() {
 
 const hud = new Hud();
 const flightHud = new FlightHud();
+const finalArcLoadout = createFinalArcLoadout();
+function paintDurableCarry() {
+  hud.setInventory({
+    slots: FINAL_ARC_SLOT_COUNT,
+    items: finalArcLoadout.items,
+    selected: finalArcLoadout.selected,
+  }, FINAL_ARC_WEAPON_CATALOG);
+}
+paintDurableCarry();
 
 const audio = new EnolaAudioEngine();
 const missionAudio = new EnolaMissionAudio(audio);
 missionAudio.takeoffAnthemFile = 'fortunate-son.mp3';
+missionAudio.takeoffAnthemOptions = { volume: 0.435, cutAt: 150, cutFade: 4 };
 
 const airfield = buildAirfield(scene, {});
 
@@ -743,6 +788,12 @@ const mission = new MissionController({
   player, interaction, preflight, crew, city,
   getHeight: groundHeightCombined,
 });
+mission.onCheckpoint = (id, snapshot) => {
+  enolaCampaign.checkpoint(id, {
+    payloadReleased: snapshot?.payloadReleased === true,
+    checkpointSnapshot: snapshot,
+  });
+};
 // Defense/Targeting are created internally by MissionController when the ctx
 // omits them (see its constructor) — using our own `getHeight` closure. The
 // debug handle below reads them back off `mission` rather than constructing
@@ -770,9 +821,36 @@ mission.onCrater = (crater) => {
   }
 };
 
-mission.onComplete = (report) => {
+function showEnolaCompletion(report, {
+  campaignComplete = false,
+  playSting = false,
+} = {}) {
+  if (!report) return false;
+  enolaCampaignComplete ||= campaignComplete;
   flightHud.showComplete(report);
-  missionAudio.sting?.();
+  if (playSting) missionAudio.sting?.();
+  // The title overlay has a higher stacking level than FlightHud's established
+  // report card. A completed reload has not passed through the ordinary Start
+  // tail, so hide the title here as part of restoring that same local UI.
+  overlay.classList.add('hidden');
+  document.body.classList.add('playing');
+  if (enolaCampaignComplete) {
+    const continueBtn = $('es-again');
+    if (continueBtn) continueBtn.textContent = "Return to Lou's mansion";
+  }
+  return true;
+}
+
+mission.onComplete = (report) => {
+  enolaCampaignComplete ||= enolaCampaign.complete({
+    ...report,
+    payloadReleased: mission.payloadReleased,
+    returnedHome: true,
+  });
+  showEnolaCompletion(report, {
+    campaignComplete: enolaCampaignComplete,
+    playSting: true,
+  });
 };
 
 /* ------------------------------------------------------------------ */
@@ -1289,6 +1367,13 @@ function simulateFrame(dt) {
      * (`tick()`/`standAtNextCheck()` never render, so the camera matrix would
      * never move at all). One matrix compose, on foot only. */
     camera.updateMatrixWorld();
+    /* Raycaster does not refresh Object3D matrices. Renderer normally does,
+     * but `tick()` and `standAtNextCheck()` deliberately drive this real
+     * interaction path without rendering. Refresh only the ten registered
+     * aircraft-part roots and their child hit proxies before the raycast; a
+     * full `scene.updateMatrixWorld(true)` would walk all of Squatchbourg for
+     * an apron prompt. */
+    syncInteractionTargetMatrices(interaction);
     interaction.update(dt);
   }
 
@@ -1431,7 +1516,8 @@ function go(phase) {
       mission.restoreCheckpoint('preRelease');
       break;
     case 'bombMalfunction': {
-      const x = TARGET_X - 500;
+      /* Match the lead distance used by organic mission flight. */
+      const x = TARGET_X - 1600;
       const z = COMPOUND.z;
       const y = groundHeightCombined(x, z) + 360;
       physics.setPose(new THREE.Vector3(x, y, z), TURN_POINT.newHeading, 60);
@@ -1443,7 +1529,9 @@ function go(phase) {
       break;
     }
     case 'release': {
-      const x = TARGET_X - 200;
+      /* Three seconds of handle/kick choreography plus the bomb's horizontal
+       * carry need roughly 700 m of lead at bombing-run speed. */
+      const x = TARGET_X - 700;
       const z = COMPOUND.z;
       const y = groundHeightCombined(x, z) + 350;
       physics.setPose(new THREE.Vector3(x, y, z), TURN_POINT.newHeading, 60);
@@ -1519,9 +1607,14 @@ window.__squatch = window.__squatch || {};
 window.__squatch.enolaSquatch = true;
 
 window.__enolaSquatch = {
+  campaign: {
+    preview: enolaCampaignPreview,
+    state: () => enolaCampaign.campaign?.state ?? null,
+    get completed() { return enolaCampaignComplete; },
+  },
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
   cameras, input, hud, flightHud, scene, camera, renderer, airfield, postfx,
-  player, interaction, preflight, crew, city, audio: missionAudio,
+  player, interaction, preflight, crew, city, eastGround, audio: missionAudio,
   get defense() { return mission.defense; },
   get targeting() { return mission.targeting; },
   get interceptors() { return mission.interceptors; },
@@ -1529,6 +1622,12 @@ window.__enolaSquatch = {
   get gunner() { return mission.gunner; },
   get detonation() { return mission.detonation; },
   get crater() { return activeCrater; },
+  loadout: {
+    get slots() { return finalArcLoadout.items; },
+    get selected() { return finalArcLoadout.selected; },
+    get equipped() { return finalArcLoadout.equipped; },
+    select(index) { finalArcLoadout.select(index); paintDurableCarry(); return finalArcLoadout.selected; },
+  },
 
   /* ---- The escalation pass's own console/verification handles ---- */
 
@@ -1839,12 +1938,45 @@ function startAudio() {
 
 startBtn.addEventListener('click', () => {
   if (!game.started) {
+    const campaignEntry = enolaCampaign.begin();
+    if (!campaignEntry.ok) {
+      if (restoreCompletedFinalArcEntry(campaignEntry, {
+        preview: enolaCampaignPreview,
+        restore: () => showEnolaCompletion(
+          enolaCompletionReportFromSave(enolaCampaign.story?.mission),
+          { campaignComplete: true },
+        ),
+      })) return;
+      const tag = overlay?.querySelector('.tag');
+      if (tag) {
+        tag.textContent = campaignEntry.reason === 'already_complete'
+          ? "The Enola Squatch is already complete. Continue from Lou's mansion."
+          : 'The Enola Squatch is locked until the mansion siege is complete.';
+      }
+      return;
+    }
+    const resumePlan = campaignEntry.resumed
+      ? enolaResumePlan(campaignEntry.checkpoint, campaignEntry.checkpointSnapshot)
+      : null;
     if (previewCheckpoint) {
       // `go()` sets `game.started`/`game.paused`/`mission.paused` itself —
       // see its own doc comment below.
       go(previewCheckpoint);
       const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
       hud.say(`<em>Preview checkpoint:</em> ${label}.`, 4200);
+    } else if (resumePlan) {
+      // Campaign saves use MissionController's own checkpoint tokens. `go()`
+      // is the scene's existing restore path; URL aliases stay preview-only.
+      if (resumePlan.checkpointData) {
+        mission.checkpointData = resumePlan.checkpointData;
+      }
+      go(resumePlan.phase);
+      hud.say(
+        resumePlan.legacyFallback
+          ? '<em>Legacy flight save recovered at takeoff.</em> The score must be re-earned.'
+          : '<em>Flight resumed from the last checkpoint.</em>',
+        5200,
+      );
     } else {
       game.started = true;
       mission.begin();
@@ -1947,7 +2079,13 @@ const pauseMenu = createPauseMenu({
   canRestart: () => game.started && !mission.finished,
 });
 
-$('es-again')?.addEventListener('click', () => window.location.reload());
+$('es-again')?.addEventListener('click', () => {
+  if (enolaCampaignComplete && !enolaCampaignPreview) {
+    enolaCampaign.navigate(SCENE_IDS.MANSION_RETURN, { spawn: 'driveway' });
+    return;
+  }
+  window.location.reload();
+});
 
 /* ------------------------------------------------------------------ */
 /* Input                                                              */
@@ -1981,6 +2119,25 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') return;
   if (game.paused) return;
   if (e.repeat) return;
+  /* On foot these are the same durable five slots as Mansion and Siege.
+   * Once aboard, 1/2 return to engine start and the authored 1–5 dialogue
+   * choices keep priority; the tail gun remains station equipment and never
+   * enters this carry list. */
+  if (!mission.inCockpit && !currentChoice() && /^Digit[1-5]$/.test(e.code)) {
+    finalArcLoadout.select(Number(e.code.slice(5)) - 1);
+    paintDurableCarry();
+    const id = finalArcLoadout.items[finalArcLoadout.selected];
+    hud.toast(id ? FINAL_ARC_WEAPON_CATALOG[id].name.toUpperCase() : 'EMPTY SLOT');
+    e.preventDefault();
+    return;
+  }
+  if (!mission.inCockpit && e.code === 'KeyQ') {
+    finalArcLoadout.stow();
+    paintDurableCarry();
+    hud.toast('WEAPON STOWED');
+    e.preventDefault();
+    return;
+  }
   const code = input.keyEvent(e, true);
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
   player.setKey(e.code, true);

@@ -223,12 +223,20 @@ test('the exit says one thing: the objective, the line and the place the night e
   assert.match(mission.objective, /office/i);
   assert.match(mission.instruction, /office/i);
 
-  /* And the night ends WHERE IT SAYS IT DOES: in Lou's office, on the player
-   * walking in, not at the top of a cellar stair three floors below him. */
+  /* And the night ends WHERE IT SAYS IT DOES: in Lou's office, after the
+   * player actually talks to Lou -- entering the room is not a conversation. */
   assert.equal(mission.report().complete, false);
   assert.equal(mission.arrive('officeReturn'), true);
+  assert.equal(mission.fsm.name, S.BACK_TO_LOU);
+  assert.equal(mission.reportToLou(), true);
+  assert.equal(mission.reportToLou(), false, 'Lou cannot be triggered twice while he is talking');
   assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30));
   assert.equal(mission.report().complete, true);
+  assert.equal(mission.report().reportedToLou, true);
+  assert.deepEqual(
+    r.lines.slice(-SEQUENCES.louAfterLab.length).map((line) => line.cue),
+    SEQUENCES.louAfterLab.map((line) => line.cue),
+  );
 });
 
 /**
@@ -259,7 +267,9 @@ test('walking into the office in beat 2 does not eat the trigger that ends the n
 
   /* Beat 11: back into the same room, on the same trigger volume. */
   mission.update(1 / 30, { position: inTheOffice });
-  assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30), 'the night never ended');
+  assert.equal(mission.fsm.name, S.BACK_TO_LOU, 'entering the office must wait for Lou');
+  assert.equal(mission.reportToLou(), true);
+  assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30), 'Lou never ended the night');
   assert.equal(mission.report().complete, true);
 });
 
@@ -273,6 +283,9 @@ test('the office cannot be reported to before the basement is behind him', () =>
   assert.equal(mission.leave(), true);
   assert.ok(r.atState(S.BACK_TO_LOU, 30));
   assert.equal(mission.reportToLou(), true);
+  assert.equal(mission.reportToLou(), false, 'the interaction is latched while Lou speaks');
+  assert.ok(r.until(() => mission.fsm.name === S.COMPLETE, 30));
+  assert.equal(mission.report().reportedToLou, true);
 });
 
 test('the case is carried in, put on the desk by hand, picked back up, and delivered', () => {
@@ -734,6 +747,7 @@ test('a reload mid-night comes back to the beat he was on', () => {
   const resumed = story.begin();
   assert.equal(resumed.ok, true);
   assert.equal(resumed.resumed, true);
+  assert.equal(resumed.checkpoint, 'basement');
   const night = campaign.state.missions[MISSION_IDS.SILENT_SQUATCH];
   assert.equal(night.checkpoint, 'basement');
   assert.equal(night.casePlaced, true);

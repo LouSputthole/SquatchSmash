@@ -1361,7 +1361,9 @@ function reachPlatform() {
        * home its head. */
       player.mode = 'seated';
       interaction.setPaused(false);
-      const at = world.fromBoatLocal(scratch.set(1.15, DECK_H + 1.62, 4.70));
+      /* Stay forward of the transom: at z 4.70 the first-person camera was
+       * nearly inside the wrapped body when it reached the swim platform. */
+      const at = world.fromBoatLocal(scratch.set(1.15, DECK_H + 1.62, 4.10));
       player.position.copy(at);
       player.velocity.set(0, 0, 0);
       player.yaw = boat.root.rotation.y + Math.PI;

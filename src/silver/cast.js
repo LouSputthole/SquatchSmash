@@ -26,6 +26,7 @@ export { TIP_POINTS, TIP_TOTAL } from './woo.js';
 
 const SUIT_DINERS = [0x1b1b22, 0x232430, 0x2a2028, 0x1e2430];
 const GOWNS = [0x5a1430, 0x1a2a4a, 0x2a4a3a, 0x4a3a10, 0x3a1a3a];
+const SILVER_WAITER_FACE = 'assets/faces/silver-waiter.png';
 
 /**
  * The Silver Room owns Ape's seat and visit choreography, but not a second
@@ -226,7 +227,15 @@ export function populate(scene, room) {
     name: 'the waiter', tier: 'hero', job: 'patrol',
     x: -8, z: 8, yaw: 0,
     route: [{ x: -8, z: 8 }, { x: -18, z: 4 }, { x: -12, z: -2 }, { x: -4, z: 6 }],
-    model: { height: 1.78, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'crop' },
+    /* This is the featured server in Tony and Margo's ordered dinner beats.
+     * Give him the supplied East Asian-inspired portrait without cloning that
+     * likeness onto the restaurant's procedural background staff. */
+    model: {
+      height: 1.78, dress: 'waistcoat', shirt: 0xf2eee6, hair: 'crop',
+      hairColour: 0x14100e, skin: 0xd4a078, face: SILVER_WAITER_FACE,
+      waistcoatColour: 0xc85a17,
+      bowtie: true, bowtieColour: 0xb71926,
+    },
   }));
 
   add('photographer', new Npc(scene, {

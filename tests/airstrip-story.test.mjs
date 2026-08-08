@@ -171,6 +171,7 @@ test('a reward id nobody recognises never reaches the save', () => {
 
 test('preview flight starts prime only the campaign facts their leg needs', () => {
   const expected = {
+    preflight: { checkpoint: 'airstrip', cargoLoaded: false },
     takeoff: { checkpoint: 'airstrip', cargoLoaded: false },
     approach: { checkpoint: 'remote_strip', cargoLoaded: false },
     departure: { checkpoint: 'returning', cargoLoaded: true },

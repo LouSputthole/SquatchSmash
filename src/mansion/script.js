@@ -147,6 +147,8 @@ export const SPEAKERS = Object.freeze({
   SASOLE: Object.freeze({ name: 'Captain Lou Sasole', voice: 'lou2' }),
   NUMBSKULL: Object.freeze({ name: 'Numbskull', voice: 'numbskull' }),
   HOGMAMA: Object.freeze({ name: 'Hog Mama', voice: 'hogmama' }),
+  OLD_STOVE: Object.freeze({ name: 'Old Stove', voice: 'old-stove' }),
+  PERFORMER: Object.freeze({ name: 'Dancer', voice: 'performer' }),
 
   /* ---- the six scientists. Index order matches `lab.scientists`. ---- */
   /** 0 — lead. Brilliant, exhausted, arrogant, proud of the weapon. */
@@ -716,6 +718,43 @@ export const SEQUENCES = Object.freeze({
   wallCloses: Object.freeze([
     { speaker: 'HUD', stage: 'wall.close', hold: 3.0 },
   ]),
+  /* The actual office interaction after the lab. This is not a trigger-volume
+   * epilogue: the player walks back to Lou and presses E on Lou's body. Only
+   * after this exchange does the mission become the quiet mansion evening. */
+  louAfterLab: Object.freeze([
+    { speaker: 'LOU', text: 'You’re staying here tonight.', cue: cue('exit', 'lou.stayingtonight'), hold: 2.2 },
+    { speaker: 'LOU', text: 'Guest room’s downstairs, off the cellar hall. It’s made up.', cue: cue('exit', 'lou.guestroomdownstairs'), hold: 3.8 },
+    { speaker: 'LOU', text: 'Look around if you want. Have a drink, watch a picture. Then get some sleep.', cue: cue('exit', 'lou.enjoythehouse'), hold: 4.8 },
+  ]),
+
+  /* The quiet-evening ensemble. The theatre line keys off the reel that is
+   * actually in the projector; the pool exchange is a three-step E path and
+   * every spoken beat remains in this catalog/manifest ledger. */
+  oldStoveTheatre: Object.freeze([
+    { speaker: 'OLD_STOVE', text: 'Put something on, kid. House this size, picture still doesn’t start itself.', cue: cue('evening', 'stove.putsomethingon'), hold: 4.2 },
+  ]),
+  oldStoveGodfather: Object.freeze([
+    { speaker: 'OLD_STOVE', text: 'This one knows when to sit still. Leave it here.', cue: cue('evening', 'stove.godfather'), hold: 3.2 },
+  ]),
+  oldStoveGoodfellas: Object.freeze([
+    { speaker: 'OLD_STOVE', text: 'Good picture. Everybody talks too much. Accurate.', cue: cue('evening', 'stove.goodfellas'), hold: 3.4 },
+  ]),
+  oldStoveHeat: Object.freeze([
+    { speaker: 'OLD_STOVE', text: 'Turn this one up. The street part.', cue: cue('evening', 'stove.heat'), hold: 2.8 },
+  ]),
+  oldStoveBlow: Object.freeze([
+    { speaker: 'OLD_STOVE', text: 'I knew a guy like this. Worse shirts.', cue: cue('evening', 'stove.blow'), hold: 3.0 },
+  ]),
+  poolGirlHello: Object.freeze([
+    { speaker: 'PERFORMER', text: 'You gonna stand there looking nervous, or come say hello?', cue: cue('evening', 'performer.sayhello'), hold: 3.6 },
+  ]),
+  poolGirlFlirt: Object.freeze([
+    { speaker: 'PROSPECT', text: 'I was trying to think of something smooth.', cue: cue('evening', 'prospect.smooth'), hold: 2.8 },
+    { speaker: 'PERFORMER', text: 'Keep trying. Hold this strap instead.', cue: cue('evening', 'performer.holdthestrap'), hold: 3.0 },
+  ]),
+  poolGirlDressHelp: Object.freeze([
+    { speaker: 'PERFORMER', text: 'There. See? Useful beats smooth.', cue: cue('evening', 'performer.useful'), hold: 2.8 },
+  ]),
 
   /* =================================================================== */
   /* THE HOUSE ITSELF — the people who are in it whether or not the       */
@@ -1054,6 +1093,7 @@ export const INSTRUCTIONS = Object.freeze({
    * objective any more: the objective says LOU and these say which stair. */
   RETURN_UPSTAIRS: 'Go back up the stairwell to the cellar.',
   RETURN_TO_OFFICE: 'Up the main stairs to Lou’s office, past the boardroom.',
+  TALK_TO_LOU: 'Press E on Lou in his office.',
   /* Gratin's offer, in the two steps it actually has. Raised in the relevant
    * sequence's `onDone`, after he has finished speaking — never on the same
    * frame as the question. The first replaced a single `TAKE_A_SWING` that

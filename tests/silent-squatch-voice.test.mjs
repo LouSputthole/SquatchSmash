@@ -80,7 +80,8 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   silentnight: 4, // the switch
   gas: 11, // the seven stages
   aftermath: 3, // LIFE SIGNS: 0
-  exit: 8, // Snow, the cart, and xXx on the way out
+  exit: 11, // Snow, the cart, xXx, and Lou ending the night in his office
+  evening: 9, // Old Stove's reel remarks and the pool-deck dress-help exchange
 
   /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
    * mission was written before anybody lived here; these are the lines the

@@ -489,10 +489,14 @@ export function setPose(f, pose) {
   switch (pose) {
     case 'lean':                      // against the wing, one elbow up
       f.hips.rotation.z = 0.1;
-      R.shoulder.rotation.x = -1.5;
-      R.shoulder.rotation.z = -0.35;
-      R.elbow.rotation.x = -0.5;
-      L.shoulder.rotation.z = 0.18;
+      /* arms[0] is his physical right and arms[1] his physical left (the man
+       * faces +Z).  The old Z signs folded the hanging arm through his jacket
+       * and pulled the raised elbow across his chest. Keep both elbows on
+       * their own side of the torso while retaining the casual wing lean. */
+      R.shoulder.rotation.x = -1.3;
+      R.shoulder.rotation.z = 0.22;
+      R.elbow.rotation.x = -0.35;
+      L.shoulder.rotation.z = -0.12;
       f.legs[1].hip.rotation.x = 0.12;
       break;
     case 'gut':                       // hand pressed to the stomach

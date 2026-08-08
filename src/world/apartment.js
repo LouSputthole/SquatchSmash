@@ -218,12 +218,12 @@ const FRIDGE_PHOTOS = [
  *
  * `closet.back` is the whole reason the closet exists: it hangs where the
  * clothes cover it, and you only find it by shoving them out of the way. The
- * two shirts are on the rail in front of it; the two shrine photographs are
- * propped on the floor underneath, which is not where you keep photographs of
- * your friend, and is exactly where these are.
+ * two shirts are on the rail in front of it. The second Booski photograph is
+ * still propped on the floor underneath, which is not where you keep a
+ * photograph of your friend, and is exactly where this one is.
  */
-const CLOSET_SLOTS = ['closet.shirt.a', 'closet.shirt.b',
-  'shrine.a', 'shrine.b',
+const CLOSET_SLOTS = ['closet.back', 'closet.shirt.a', 'closet.shirt.b',
+  'shrine.b',
   /* Not in the closet at all: face down under the bed, and the only way to
    * see it is to go looking. Kept in this list because it is the same kind of
    * thing -- a picture that lives somewhere other than a wall. */
@@ -1409,18 +1409,11 @@ export async function buildApartment(ctx) {
     }
   });
 
-  /* The shrine. Two photographs of Booski on the closet floor, propped against
-   * the back wall. Nobody keeps photographs of their friend on the floor of a
-   * cupboard. These are on the floor of a cupboard. */
-  /* One of them is the shrine and the other is a supporting photograph, so
-   * they are not the same size. The big one sits square against the back wall
-   * with the candles in front of it; the small one is off to the side, tilted,
-   * the way a second picture ends up when there was only room for one. */
+  /* The supporting Booski photograph stays propped on the closet floor. The
+   * podium portrait that used to duplicate it here is now the large picture
+   * mounted behind the clothes, where the player asked for it. */
   for (const [slot, sx, tilt, dz, size] of [
-    /* shrine.b pulled in and pushed forward. At +0.19 its outer edge reached
-     * x 4.982 against a closet that stops at 4.96 -- it was inside the side
-     * wall -- and it was still touching shrine.a with 13mm of overlap. */
-    ['shrine.a', -0.02, 0.05, 0, 0.22], ['shrine.b', 0.145, -0.26, 0.155, 0.125],
+    ['shrine.b', 0.145, -0.26, 0.155, 0.125],
   ]) {
     const g = gear.get(slot);
     if (!g?.real) continue;

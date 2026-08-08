@@ -34,6 +34,7 @@ import { Mission, ENDINGS, BACK_OF_HOUSE_TOTAL } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
 import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
+import { enqueueVoiceFloor } from './voice-floor.js';
 import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
@@ -348,12 +349,15 @@ function floorBusy() {
 }
 
 /** The whole deferred beat, not only its audio: subtitle and take travel together. */
-function deferVoice(job, { expires = 11000 } = {}) {
-  waiting.push({ job, expiresAt: performance.now() + expires });
+function deferVoice(job, { expires = 11000, priority = false } = {}) {
+  enqueueVoiceFloor(waiting, {
+    job,
+    expiresAt: performance.now() + expires,
+    priority,
+  });
   /* Four is already more than anybody will read. Beyond that the oldest go,
    * because a backlog means the scene is talking over itself somewhere and
    * the newest line is the one that still describes what is on screen. */
-  if (waiting.length > 4) waiting.splice(0, waiting.length - 4);
 }
 
 /**
@@ -365,7 +369,7 @@ function deferVoice(job, { expires = 11000 } = {}) {
  * player, and are the one thing in here that is better dropped than delayed.
  */
 function narrate(text, ms = 4200, {
-  cue = null, volume = 0.9, expires = 14000, speaker = null,
+  cue = null, volume = 0.9, expires = 14000, speaker = null, priority = false,
 } = {}) {
   deferVoice(() => {
     hud.say(text, ms);
@@ -376,7 +380,7 @@ function narrate(text, ms = 4200, {
      * reason the mouth is started HERE and not where the beat was queued.
      * A deferred bark can sit in that queue for seconds. */
     speaker?.say?.(Math.max(1.6, ms / 1000), take || { seconds: ms / 1000 });
-  }, { expires });
+  }, { expires, priority });
   flushVoice();
 }
 
@@ -487,7 +491,9 @@ const performance_ = new Performance({
      * version of that bug in the whole scene. */
     const leaderSpeaks = n.lead === 'the bandleader'
       ? { say: (secs, take) => band.leader.say(secs, take) } : null;
-    if (n.say) narrate(`<em>${n.lead}:</em> ${n.say}`, 5000, { cue: n.cue, speaker: leaderSpeaks });
+    if (n.say) narrate(`<em>${n.lead}:</em> ${n.say}`, 5000, {
+      cue: n.cue, speaker: leaderSpeaks, priority: true, expires: 30000,
+    });
     /* The rest of a "bit" number, on the number's own clock. `defer` is what
      * `Cutscene` and the sway both already use for anything that has to
      * survive a paused tab — a raw `setTimeout` here would keep the joke
@@ -826,8 +832,15 @@ function registerDoor(key, opts = {}) {
   const door = room.doors[key];
   if (!door) return;
   reg(door.leaf, {
-    label: () => (door.locked ? `${door.label} — locked` : `${door.open ? 'Close' : 'Open'} ${door.label}`),
+    label: () => {
+      if (opts.blocked?.()) return opts.blockedLabel ?? `Try ${door.label}`;
+      return door.locked ? `${door.label} — locked` : `${door.open ? 'Close' : 'Open'} ${door.label}`;
+    },
     onUse: () => {
+      if (opts.blocked?.()) {
+        opts.onBlocked?.(door);
+        return;
+      }
       if (door.locked) {
         audio.play('door.locked', { volume: 0.55, position: door.pivot.position });
         hud.say(opts.lockedLine ?? 'Locked. Not tonight.', 3000);
@@ -862,12 +875,33 @@ registerDoor('service', {
   onToggle: (door) => {
     if (!door.open) return;
     mission.flags.sideDoorOpened = true;
+    if (room.anchors.serviceRouteMarker) room.anchors.serviceRouteMarker.visible = false;
     date.bark('door', DATE_BARKS.door);
   },
 });
 registerDoor('kitchenSwing');
 registerDoor('walkin');
-registerDoor('front');
+registerDoor('front', {
+  /* Stepping into the alley does not magically make the public entrance the
+   * right route. It stays unavailable until the service door has actually
+   * been opened, closing the old alley-one-step-then-turn-around bypass. */
+  blocked: () => !mission.flags.sideDoorOpened
+    && (mission.state === 'arrived' || mission.state === 'service-route'),
+  blockedLabel: 'Try the <b>front door</b>',
+  onBlocked: (door) => {
+    audio.play('door.locked', { volume: 0.58, position: door.pivot.position });
+    const marker = room.anchors.serviceRouteMarker;
+    if (marker) marker.visible = true;
+    if (!game.frontDoorRerouted) {
+      game.frontDoorRerouted = true;
+      hud.toast('SIDE ENTRANCE MARKED', '');
+      /* The fully voiced arrival conversation now pays immediately when the
+       * public door is tried. The timed path below remains the fallback for a
+       * player who never touches it. */
+      startArrivalDialogue();
+    }
+  },
+});
 registerDoor('backstage', { lockedLine: 'Backstage. Not while there is a band behind it.' });
 registerDoor('manager', { lockedLine: 'The manager is not in his office. The manager is never in his office.' });
 registerDoor('rear');
@@ -1094,7 +1128,9 @@ function standFromTable() {
       const seat = room.anchors.frontSeats[1];
       date.sitAt(seat);
       const moment = scripts.moments.chairPulled;
-      narrate(`<em>${moment.who}:</em> ${moment.line}`, moment.hold * 1000, { cue: nodeCue(moment) });
+      narrate(`<em>${moment.who}:</em> ${moment.line}`, moment.hold * 1000, {
+        cue: nodeCue(moment), priority: true, expires: 30000,
+      });
     },
   });
   game.chairPads = { his: pad, her: herPad };
@@ -2602,6 +2638,13 @@ function floorSound(dt) {
  */
 let arrivalIn = -1;
 let arrivalAsked = false;
+function startArrivalDialogue() {
+  if (arrivalAsked || dialogue.active || game.scene || mission.state !== 'arrived') return false;
+  arrivalAsked = true;
+  arrivalIn = -1;
+  dialogue.start(scripts.arrival, 'open', date.npc);
+  return true;
+}
 function arrivalTick(dt) {
   if (arrivalIn < 0 || arrivalAsked) return;
   if (mission.state !== 'arrived') { arrivalIn = -1; return; }
@@ -2610,9 +2653,7 @@ function arrivalTick(dt) {
   /* Not on top of a live conversation — that was the right instinct in the
    * original and it is kept. It just has to come back. */
   if (dialogue.active || game.scene) { arrivalIn = 1.2; return; }
-  arrivalAsked = true;
-  arrivalIn = -1;
-  dialogue.start(scripts.arrival, 'open', date.npc);
+  startArrivalDialogue();
 }
 
 /* What the building sounds like when nobody is talking to you. */

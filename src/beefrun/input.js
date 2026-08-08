@@ -83,7 +83,8 @@ export class FlightInput {
     const map = {
       KeyC: 'camera', KeyE: 'interact', KeyB: 'brakeToggle',
       KeyF: 'flapsDown', KeyG: 'flapsUp',
-      KeyM: 'mute', KeyH: 'help', KeyN: 'nav', KeyV: 'parkingBrake',
+      KeyM: 'mute', KeyH: 'help', KeyV: 'parkingBrake',
+      KeyR: 'radioPower', KeyT: 'radioTune', KeyN: 'radioNext',
       Digit1: 'startLeft', Digit2: 'startRight', Digit3: 'battery', Digit4: 'fuel',
     };
     if (map[code]) this.onAction?.(map[code]);
@@ -114,10 +115,9 @@ export class FlightInput {
 
     if (pad) {
       const pitch = dead(-pad.axes[1]);
-      // Match the player-facing keyboard sense. The cockpit camera reverses
-      // the simulation's internal roll/yaw signs, so a right stick movement
-      // must produce the same values as D and E, not A and Q.
-      const roll = dead(-pad.axes[0]);
+      // Match the player-facing keyboard sense: right stick is the same
+      // right-wing-down command as D, left stick is the same as A.
+      const roll = dead(pad.axes[0]);
       const yaw = dead(-(pad.axes[2] ?? 0));
       // Triggers: right for power, left for brakes.
       const rt = pad.buttons[7]?.value ?? 0;
@@ -139,12 +139,11 @@ export class FlightInput {
     if (!this.usingGamepad) {
       const want = {
         pitch: (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0),
-        /* The Brushrunner's authored nose points down Three's +Z axis, while
-         * a camera looks down -Z. That makes the cockpit's visible left/right
-         * the opposite of the simulation's internal roll sign. Map the keys
-         * to what the pilot sees: A/Left lowers the left side of the panel and
-         * D/Right lowers the right side. */
-        roll: (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) - (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0),
+        /* Player-facing contract: A lowers the authored left wing and D lowers
+         * the right one.  The airframe is nose +Z / right wing +X, while the
+         * aerodynamic roll coefficient applies the opposite torque sign, so
+         * left input is negative here and right input is positive. */
+        roll: (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
         yaw: (k.has('KeyE') ? 0 : 0) + (k.has('Period') ? 1 : 0) - (k.has('Comma') ? 1 : 0),
       };
       // Q and E are rudder in the air; E is also "interact" on the ground, so

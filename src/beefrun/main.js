@@ -12,7 +12,14 @@ import * as THREE from 'three';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
-import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
+import {
+  SCENE_IDS,
+  createCampaign,
+  createCampaignRadioAdapter,
+  navigateCampaign,
+} from '../core/campaign.js';
+import { AuthoredClock } from '../core/authored-clock.js';
+import { Radio } from '../core/radio.js';
 import { createAirstripStory } from '../core/airstrip-story.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -140,6 +147,30 @@ physics.engines = engines;
 const aircraft = new Brushrunner();
 scene.add(aircraft.group);
 
+/* The labelled SQUATCH FM unit in the panel is the same campaign receiver as
+ * the apartment, boat and golf cart, not a mission-local loop.  Its physical
+ * output is quieter because it is at arm's length under a headset, and the
+ * meeting bulletin is long behind the crew by this flight. */
+const radioClock = new AuthoredClock(9 + 10 / 60);
+radioClock.setTime(Math.max(1, campaign.state.story.day), 9 * 60 + 10);
+const radio = new Radio(audio, hud, radioClock, {
+  venue: 'beefrun',
+  state: createCampaignRadioAdapter(campaign, {
+    receiverId: 'beefrun_cockpit',
+    defaultPower: false,
+  }),
+  canPlayNotice: () => false,
+  output: 0.62,
+});
+const radioPosition = new THREE.Vector3();
+aircraft.parts.radioStack.getWorldPosition(radioPosition);
+radio.setPosition(radioPosition);
+const radioReady = radio.loadManifest();
+const radioAudioPlan = {
+  startup: radio.preloadCueNames({ hours: [radioClock.hour], startupOnly: true }),
+  full: radio.preloadCueNames({ hours: [radioClock.hour] }),
+};
+
 /* The hold is walkable ground.
  *
  * `world.groundAt` is the only thing that decides how high a walking man
@@ -205,6 +236,7 @@ window.__beefrun = {
   THREE, scene, camera, renderer,
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
   player, cameras, dialogue, interaction, input, audio: missionAudio, hud, flightHud,
+  radio, radioClock, radioAudioPlan,
   sceneInventory,
   campaign, story,
   get campaignState() { return campaign.state; },
@@ -221,6 +253,7 @@ window.__squatch.beefrun = true;
 
 const previewCheckpoint = previewBeefRunCheckpointForLocation();
 const PREVIEW_CHECKPOINT_LABELS = Object.freeze({
+  preflight: 'PREFLIGHT CHECK',
   takeoff: 'RUNWAY TAKEOFF',
   approach: 'EL HUESO APPROACH',
   departure: 'LOADED DEPARTURE',
@@ -308,6 +341,16 @@ startBtn.addEventListener('click', async () => {
 
   await audio.init();
   const sfx = await audio.loadManifest();
+  /* The airfield's large mission bank remains the critical path it already
+   * was. Add only the receiver controls, ident and current-show opener before
+   * play; the rest of the 9:10 running order decodes while the player is still
+   * on the apron. This is the same bounded shared-Radio preload contract used
+   * by Silver Pines, not another Beef-specific station bank. */
+  await Promise.all([
+    radioReady,
+    audio.loadAdditional({ names: radioAudioPlan.startup }),
+  ]);
+  void audio.loadAdditional({ names: radioAudioPlan.full }).catch(() => {});
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
   missionAudio.init();
 
@@ -324,9 +367,9 @@ startBtn.addEventListener('click', async () => {
     mission.begin(game.difficulty);
     audio.startLoop('ambience.city.day', { volume: 0.03, ambience: true, fade: 3 });
     if (game.resume) {
-      const restored = game.resume === 'landing'
-        ? mission.restorePreviewLanding()
-        : mission.restoreCheckpoint(game.resume);
+      const restored = game.resume === 'preflight' ? mission.startPreviewPreflight()
+        : game.resume === 'landing' ? mission.restorePreviewLanding()
+          : mission.restoreCheckpoint(game.resume);
       if (!restored) throw new Error(`Could not restore Beef Run checkpoint: ${game.resume}`);
       const label = PREVIEW_CHECKPOINT_LABELS[game.resume];
       hud.say(game.previewCheckpoint
@@ -435,6 +478,7 @@ const pauseMenu = createPauseMenu({
     '3 — battery. 4 — fuel. 1/2 — start or stop each engine. Engine 1 is the left one.',
     'C — camera. Restart scene / checkpoint — use the button in this menu.',
     'Tab — pause or resume.',
+    'Cockpit radio: R - power. T - tune 97.8 THE SQUATCH. N - next block.',
     'Nothing uses Ctrl or Cmd: with a flight key those are browser shortcuts (Ctrl+W closes the tab) and this page cannot intercept them.',
   ],
   onPause: () => {
@@ -445,6 +489,7 @@ const pauseMenu = createPauseMenu({
     player.clearKeys();
     input.clear();
     interaction.release();
+    radio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
@@ -453,12 +498,13 @@ const pauseMenu = createPauseMenu({
     player.enabled = !mission.flags.inCockpit;
     input.enabled = true;
     audio.ctx?.resume?.();
+    radio.resume();
     last = performance.now();
     requestLock();
   },
   /* There is always a recoverable choice in Tab: before flight creates a
    * checkpoint it restarts the scene; afterwards it restores the authored
-   * checkpoint. Raw R remains deliberately inert. */
+   * checkpoint. R belongs only to the cockpit receiver; it never restarts. */
   onRestart: () => {
     if (mission.checkpoint) mission.requestRestart();
     else window.location.reload();
@@ -585,6 +631,28 @@ input.onAction = (name) => {
     case 'help':
       hud.toast(flightHud.toggleControls() ? 'CONTROLS SHOWN' : 'CONTROLS HIDDEN');
       break;
+    case 'radioPower':
+      if (mission.flags.inCockpit) {
+        radio.toggle();
+        hud.toast(radio.on ? `${radio.station.name} ON` : 'COCKPIT RADIO OFF');
+      }
+      break;
+    case 'radioTune':
+      if (mission.flags.inCockpit) {
+        radio.tune();
+        hud.toast(`TUNED TO ${radio.station.name}`);
+      }
+      break;
+    case 'radioNext':
+      if (mission.flags.inCockpit) {
+        if (radio.on) {
+          radio.next();
+          hud.toast('NEXT RADIO BLOCK');
+        } else {
+          hud.toast('COCKPIT RADIO OFF');
+        }
+      }
+      break;
     case 'mute':
       audio.setMasterVolume(audio.master?.gain.value > 0.05 ? 0 : 0.9);
       break;
@@ -665,6 +733,16 @@ function frame() {
     dialogue.update(dt);
     mission.update(dt);
 
+    /* The station is bolted to the panel, so both its music graph and its
+     * one-shot host takes follow the aircraft after every sync/teleport. A
+     * mission line always wins the mix; ducking changes neither the shared
+     * volume knob nor the receiver's saved power state. */
+    aircraft.parts.radioStack.getWorldPosition(radioPosition);
+    radio.setPosition(radioPosition);
+    radio.setPhoneDucked(dialogue.busy);
+    radioClock.update(dt);
+    radio.update(dt);
+
     if (inCockpit) {
       cameras.update(dt, physics, aircraft.group, aircraft.pilotEye, {
         roughness: physics.gust.length() * 0.05 + (physics.onGround ? physics.groundSpeed * 0.01 : 0),
@@ -679,14 +757,24 @@ function frame() {
     audio.updateListener(camera);
   }
 
+  /* A powered receiver must not keep a MediaElement and talk bed running
+   * behind the report card. Pause preserves its switch for the saved campaign
+   * while releasing this finished scene's audible ownership. */
+  if (flightHud.completeUp) radio.pause();
+
   renderer.render(scene, camera);
 }
 
 frame();
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && game.started) audio.setMasterVolume(0);
-  else if (game.started) audio.setMasterVolume(0.9);
+  if (document.hidden && game.started) {
+    radio.pause();
+    audio.setMasterVolume(0);
+  } else if (game.started) {
+    audio.setMasterVolume(0.9);
+    if (!game.paused && !flightHud.completeUp) radio.resume();
+  }
 });
 
 void clamp; void DIFFICULTY; void EH; void THREE;

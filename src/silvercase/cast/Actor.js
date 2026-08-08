@@ -212,7 +212,11 @@ export class Actor {
       p.shinL.rotation.set(0.16, 0, 0);
       p.shinR.rotation.set(0.05, 0, 0);
     }
-    p.torso.scale.copy(p.torso.userData.base);
+    /* Breathing belongs to the neutral wrapper in the shared figure rig.
+     * The ribcage mesh encodes its authored dimensions in `scale` and no
+     * longer carries the old `userData.base`; reset the wrapper so the body
+     * does not freeze halfway through a breath. */
+    p.torsoWrap.scale.set(1, 1, 1);
     p.mouth.scale.copy(p.mouth.userData.base);
   }
 

@@ -618,7 +618,10 @@ export function buildRoom(scene, { renderer } = {}) {
      * a dead end against the old return wall, and came back out. The service
      * plate stays exactly where it is; what changes is that the only thing it
      * can be pointing at now is the way in. */
-    wallGap('x', 34.2, -22, 30, -3.4, 3.4, 9, M_BRICK, 0.4);
+    /* The public leaf is 3.4 m wide. The wall opening used to be 6.8 m wide,
+     * leaving a person-sized gap on BOTH sides of the closed glass door. It
+     * now meets the jambs instead of presenting two accidental entrances. */
+    wallGap('x', 34.2, -22, 30, -1.7, 1.7, 9, M_BRICK, 0.4);
     wall(-22, 34.2, -22, 26, 9, M_BRICK, 0.4);
     /* The old east return, now the back of the frontage rather than a corner
      * anybody sees -- kept because it is what closes the void behind it, and
@@ -944,6 +947,40 @@ export function buildRoom(scene, { renderer } = {}) {
 
     anchors.serviceDoor = new THREE.Vector3(30, 0, 11.7);
     anchors.alleyMouth = new THREE.Vector3(34, 0, 30);
+
+    /* A mission marker, but physically in the world: trying the public door
+     * turns this yellow diamond on at the alley mouth, and opening the service
+     * door turns it off. Hidden at build time so the authored sign and Margo's
+     * question get the first chance to direct the player. */
+    const markerMat = mat({
+      color: 0xffd62a,
+      emissive: 0xffb800,
+      emissiveIntensity: 1.8,
+      roughness: 0.35,
+      metalness: 0.05,
+    });
+    const markerCore = mat({
+      color: 0xfff3a0,
+      emissive: 0xffd62a,
+      emissiveIntensity: 2.4,
+      roughness: 0.25,
+    });
+    const routeMarker = group('service-route-marker');
+    routeMarker.add(
+      box({ size: [0.62, 0.62, 0.08], pos: [0, 0, 0], mat: markerMat, rotZ: Math.PI / 4, cast: false }),
+      box({ size: [0.25, 0.25, 0.09], pos: [0, 0, 0], mat: markerCore, rotZ: Math.PI / 4, cast: false }),
+    );
+    routeMarker.position.set(32.2, 2.35, 33.45);
+    routeMarker.visible = false;
+    add(routeMarker);
+    anchors.serviceRouteMarker = routeMarker;
+    let markerTime = 0;
+    ticking.push((dt) => {
+      if (!routeMarker.visible) return;
+      markerTime += dt;
+      routeMarker.position.y = 2.35 + Math.sin(markerTime * 2.4) * 0.09;
+      markerMat.emissiveIntensity = 1.55 + (Math.sin(markerTime * 3.1) + 1) * 0.35;
+    });
 
     // The service door: a steel fire door with a bulb over it
     hangDoor('service', {

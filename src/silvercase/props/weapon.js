@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { makeRevolver } from '../../world/props.js';
+import {
+  SILVERCASE_PROSPECT_PRESENTATION,
+  makeSilverCaseProspectViewArm,
+} from '../cast/prospect.js';
 
 /**
  * The guns in The Silver Case.
@@ -87,7 +91,9 @@ export function muzzleWorld(gun, out) {
  * player already did.
  */
 export function makeRevolverViewModel(camera, {
-  skin = 0xd2a074, sleeve = 0x1d1c22,
+  skin = SILVERCASE_PROSPECT_PRESENTATION.model.skin,
+  sleeve = SILVERCASE_PROSPECT_PRESENTATION.model.jacketColour,
+  shirtCuff = SILVERCASE_PROSPECT_PRESENTATION.model.shirtAccent,
 } = {}) {
   const group = new THREE.Group();
   group.name = 'silvercase.viewmodel';
@@ -96,20 +102,8 @@ export function makeRevolverViewModel(camera, {
   gun.position.set(0, -0.02, -0.03);
   group.add(gun);
 
-  const skinMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.85 });
-  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.11, 0.1), skinMat);
-  hand.name = 'silvercase.viewmodel.hand';
-  hand.position.set(0, -0.06, 0.075);
-  hand.rotation.x = -0.42;
-  group.add(hand);
-
-  const cuff = new THREE.Mesh(
-    new THREE.BoxGeometry(0.105, 0.105, 0.17),
-    new THREE.MeshStandardMaterial({ color: sleeve, roughness: 0.92 }),
-  );
-  cuff.position.set(0.004, -0.125, 0.19);
-  cuff.rotation.x = -0.3;
-  group.add(cuff);
+  const viewArm = makeSilverCaseProspectViewArm({ skin, sleeve, shirtCuff });
+  group.add(viewArm);
 
   // Bottom-right of frame, angled slightly inward — close enough to read as
   // held, far enough not to eat the subtitles.
@@ -127,6 +121,7 @@ export function makeRevolverViewModel(camera, {
   return {
     group,
     gun,
+    viewArm,
     get drawn() { return drawn; },
     /** Bring it up. Idempotent — asking twice does not restart the draw. */
     draw() {

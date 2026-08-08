@@ -524,7 +524,11 @@ export function buildAirfield(scene, { terrain } = {}) {
      * opening (x -65..-55), officially not present — and walks out to
      * stoveStand near the end of the preflight to wait beside his crates. */
     stoveHangar: new THREE.Vector3(-62, ELEV, 401),
-    stoveStand: new THREE.Vector3(-64, ELEV, 386),
+    /* Close enough for Stove, Sasole and the player to read as one handoff,
+     * but south of the tailplane rather than inside it. The old (-64, 386)
+     * stop left him 12.9 m from Sasole, across the aircraft with no shared
+     * stage picture. */
+    stoveStand: new THREE.Vector3(-60.5, ELEV, 379.5),
     stoveCrates: new THREE.Vector3(-62, ELEV, 382),
     stoveCart: new THREE.Vector3(-58, ELEV, 380),
   };

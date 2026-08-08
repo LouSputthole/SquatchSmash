@@ -217,4 +217,27 @@ export class Firearm {
       shots: this.shots,
     };
   }
+
+  /**
+   * Restore durable ammunition into a newly-mounted scene or checkpoint.
+   * Reload timers and held-trigger latches are presentation-local transients;
+   * carrying a gun through a scene seam must never resume half a reload or
+   * fire because the previous page closed while the mouse was down.
+   */
+  restore(snapshot = {}) {
+    if (snapshot.id && snapshot.id !== this.id) return false;
+    const rounds = Number.isFinite(snapshot.rounds) ? Math.trunc(snapshot.rounds) : this.rounds;
+    const reserve = Number.isFinite(snapshot.reserve) ? Math.trunc(snapshot.reserve) : this.reserve;
+    this.rounds = Math.max(0, Math.min(this.capacity, rounds));
+    this.reserve = Math.max(0, reserve);
+    this.state = READY;
+    this.timer = 0;
+    this.spent = 0;
+    this.cooldown = 0;
+    this.recoil = 0;
+    this.triggerHeld = false;
+    this._triggerConsumed = false;
+    this._clicked = false;
+    return true;
+  }
 }

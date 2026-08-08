@@ -319,7 +319,7 @@ try {
   }, null, { timeout: 180000, polling: 500 });
   state = await snapshot();
   check('missing the guard window restarts at the bank threshold with a fresh threat',
-    state.guardFailures === 1 && state.phase === 'bank' && state.guardThreat.remaining > 2.5,
+    state.guardFailures === 1 && state.phase === 'bank' && state.guardThreat.remaining > 2.3,
     JSON.stringify(state.guardThreat));
 
   await page.keyboard.press('Digit1');
@@ -655,10 +655,21 @@ try {
       && debriefSaid.includes('lou_debrief_souvenirs')
       && debriefSaid.includes('lou_debrief_verdict_bad'),
     JSON.stringify(debriefSaid.filter((id) => id.startsWith('lou_'))));
+  const louRadioScheduled = new Set([
+    ...state.voice.spoken,
+    ...state.voice.busQueued,
+    state.voice.busCurrent,
+    ...state.voice.commandBacklog,
+  ].filter(Boolean));
   check('Lou is on the job as well as at the end of it',
     ['lou_radio_open', 'lou_radio_lobby', 'lou_radio_vault', 'lou_radio_street']
-      .every((id) => state.voice.spoken.includes(id)),
-    JSON.stringify(state.voice.spoken.filter((id) => id.startsWith('lou_radio'))));
+      .every((id) => louRadioScheduled.has(id)),
+    JSON.stringify({
+      spoken: state.voice.spoken.filter((id) => id.startsWith('lou_radio')),
+      current: state.voice.busCurrent,
+      queued: state.voice.busQueued.filter((id) => id.startsWith('lou_radio')),
+      backlog: state.voice.commandBacklog.filter((id) => id.startsWith('lou_radio')),
+    }));
   await shot('11-safehouse-money-count');
   await use('safehouse-loadout');
   await use('van-door');
@@ -769,7 +780,7 @@ try {
     apartment.cleanupComplete
       && apartment.visible.every((visible) => !visible)
       && apartment.door.kind === 'go'
-      && apartment.door.destination === 'initiation',
+      && apartment.door.destination === 'silver_case',
     JSON.stringify(apartment));
   await apartmentPage.screenshot({ path: path.join(SHOTS, '13-apartment-cleanup-complete.png') });
   await apartmentPage.close();

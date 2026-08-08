@@ -34,10 +34,10 @@ function buildWater(scene) {
     transparent: false,
     uniforms: {
       uTime: { value: 0 },
-      uFog: { value: new THREE.Color(0x4a5a63) },
-      uDeep: { value: new THREE.Color(0x0a1a24) },
-      uShallow: { value: new THREE.Color(0x1d4653) },
-      uSky: { value: new THREE.Color(0xd9a166) },
+      uFog: { value: new THREE.Color(0x87a9b8) },
+      uDeep: { value: new THREE.Color(0x0b3445) },
+      uShallow: { value: new THREE.Color(0x2f7684) },
+      uSky: { value: new THREE.Color(0xe4f2f5) },
     },
     vertexShader: `
       varying vec3 vWorld;
@@ -77,8 +77,8 @@ function buildWater(scene) {
         vec3 col = mix(uDeep, uShallow, .26 + vHeight * 1.45 + micro * .035);
         col = mix(col, vec3(.42, .48, .50), crest * .30);
         col = mix(col, uFog, .10 + fresnel * .26);
-        /* Dusk: a low sun lays a warm strip down the water instead of the flat
-         * daylight sheen the old harbour had. */
+        /* Daylight: a cool sky lays a readable strip down the water without
+         * bleaching the wave shape into a flat blue plane. */
         float glare = pow(max(0.0, 1.0 - abs(vWorld.x) * .012), 6.0);
         col += uSky * glare * (.05 + fresnel * .10);
         float glint = pow(max(0.0, rippleA * .5 + rippleB * .5), 18.0) * .13;
@@ -350,7 +350,14 @@ function buildChannel(scene) {
   signPost.position.set(13.5, 0, -62);
   channel.add(signPost);
 
-  /* Houses along the shore, thinning out as the marina lights fall away. */
+  /* Continuous banks on both sides make these shore houses read as a coast,
+   * not as sixteen floating houseboats. The inner edges stay 65 m off the
+   * channel centreline, leaving the full navigable corridor open all the way
+   * to the inlet; the top remains the 1.9 m datum the houses were authored on. */
+  channel.add(box('west channel shoreline', [160, 3.4, 560], mat(0x26382c), -145, .2, -250));
+  channel.add(box('east channel shoreline', [160, 3.4, 560], mat(0x26382c), 145, .2, -250));
+
+  /* Houses along the shore, thinning out as the marina falls away. */
   for (let i = 0; i < 16; i++) {
     const z = -30 - i * 17 - (i * i) * .9;
     const side = i % 2 ? 1 : -1;
@@ -374,12 +381,11 @@ function buildChannel(scene) {
       pane.material.emissiveIntensity = 1.5 - i * .12;
       house.add(pane);
     }
-    /* The bank is 3.4 m thick centred at 0.2, so its top is 1.9. The house
-     * sits on that rather than a metre inside it. */
+    /* Both continuous banks top out at 1.9 m, so the house sits on land rather
+     * than a metre inside it. */
     house.position.set(x, 1.9, z);
     house.rotation.y = side > 0 ? -.3 : .3;
     channel.add(house);
-    channel.add(box(`shoreline bank ${i + 1}`, [34, 3.4, 24], mat(0x1b2620), x, .2, z + 4));
   }
 
   /* The wooded point to port, and the quarry face to starboard. Together they
@@ -1080,11 +1086,10 @@ function buildBoat(scene, marina) {
   /* ---- the marker over the body, and its interaction proxy ---- */
   const bodyMarker = new THREE.Group();
   bodyMarker.name = 'body objective marker';
-  const markerMaterial = new THREE.MeshStandardMaterial({
-    color: 0xd8bf6a, emissive: 0x7d5718, emissiveIntensity: 1.1,
-    roughness: .42, metalness: .16,
-  });
-  bodyMarker.add(mesh('body marker ring', new THREE.TorusGeometry(.20, .026, 8, 24), markerMaterial));
+  /* Keep the mission's visibility/position anchor, but do not hang a golden
+   * arcade ring over a body. The body itself and the broad interaction proxy
+   * carry this beat; main.js can continue toggling this empty anchor without
+   * maintaining a second code path for the old marker. */
   bodyMarker.visible = false;
   root.add(bodyMarker);
   const bodyTarget = proxy('broad body interaction proxy', [2.10, 1.30, 2.30], .10, CABIN.height + .50, -3.85);
@@ -1351,15 +1356,16 @@ class WakePool {
 }
 
 export function buildNoWakeWorld(scene) {
-  /* Dusk. Navigation lights mean something, the water goes to slate, and the
-   * marina reads as somewhere everybody has already gone home from. */
-  scene.background = new THREE.Color(0x33414b);
-  scene.fog = new THREE.FogExp2(0x33414b, .0042);
-  const hemi = new THREE.HemisphereLight(0x6d7f8a, 0x181f22, 1.05);
-  hemi.name = 'dusk hemisphere light';
-  const sun = new THREE.DirectionalLight(0xe8a86a, 1.35);
-  sun.name = 'low dusk sun';
-  sun.position.set(-42, 12, -18);
+  /* Clear daytime. The mission clock already reads 12:45 PM; the world now
+   * agrees with it, keeping the rails, shoreline and water readable while the
+   * cabin retains its own practical lighting below deck. */
+  scene.background = new THREE.Color(0x91b3c2);
+  scene.fog = new THREE.FogExp2(0x91b3c2, .0026);
+  const hemi = new THREE.HemisphereLight(0xdcecf3, 0x405044, 1.65);
+  hemi.name = 'daylight hemisphere light';
+  const sun = new THREE.DirectionalLight(0xfff0ce, 2.15);
+  sun.name = 'high daytime sun';
+  sun.position.set(-55, 85, -35);
   sun.castShadow = true;
   scene.add(hemi, sun);
   const water = buildWater(scene);

@@ -5,7 +5,9 @@ import { completedRoundAction, connectGolfFootsteps } from '../src/golf/runtime.
 import { CourseAudio } from '../src/golf/audio.js';
 import { BEAT, Round } from '../src/golf/mission.js';
 import { BALL_STATE } from '../src/golf/ball.js';
+import { CueQueue } from '../src/golf/dialogue.js';
 import { HOLE } from '../src/golf/hole.js';
+import { SEQUENCES } from '../src/golf/script.js';
 
 test('Golf footsteps resolve the live course surface and carry a positional snapshot', () => {
   const calls = [];
@@ -166,4 +168,44 @@ test('watching the first NPC tee shot unlocks F to skip the remaining shots', ()
   assert.equal(round.npcShotsSeen, true);
   assert.equal(round.requestSkip(), true, 'F skips only the shots still remaining');
   assert.equal(round.skipRequested, true);
+});
+
+test('the authored Hole 2 green conversation plays every line in order, including Nehoo', () => {
+  const spoken = [];
+  const cues = new CueQueue({
+    say: (cue) => spoken.push(cue.id),
+    clear() {},
+    clipLength: () => 0.01,
+  });
+  const sequence = SEQUENCES['h2.green.big_night'];
+
+  assert.equal(cues.playSequence(sequence), true);
+  for (let step = 0; cues.busy && step < sequence.length * 4; step++) {
+    cues.update(10);
+  }
+
+  assert.deepEqual(spoken, sequence);
+  assert.equal(cues.heard('golf.h2.lou.nehoo'), true);
+});
+
+test('standalone Golf banter still yields to a busy or suppressed floor and keeps its cooldown', () => {
+  const cues = new CueQueue({ clear() {}, clipLength: () => 0.01 });
+  const reaction = 'golf.h1.rippin.easy_prospect';
+  const ambient = 'golf.h1.eric.thats_a_lot_of_club';
+
+  assert.equal(cues.play(reaction), true);
+  assert.equal(cues.play(ambient), false, 'ambient banter talked over an occupied floor');
+
+  cues.update(10);
+  cues.update(10);
+  assert.equal(cues.play(ambient), true);
+  cues.update(10);
+  cues.update(10);
+  assert.equal(cues.playSequence([ambient]), false,
+    'an authored sequence ignored the line’s 25-second cooldown');
+
+  const suppressed = new CueQueue();
+  suppressed.suppressBanter(true);
+  assert.equal(suppressed.playSequence([ambient]), false,
+    'a suppressed authored sequence put ambient banter on the floor');
 });

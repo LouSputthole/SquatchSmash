@@ -35,7 +35,12 @@ test('every expanded member offers a second topic off their opening line', () =>
     const tree = scripts[id];
     assert.ok(tree, `${id} has no hangout at all`);
     const options = valueOf(tree.open.options) || [];
-    const branch = options.find((option) => option.next === 'aside');
+    /* Ape's second topic is a follow-up to the words "load-bearing" in his
+     * second main-thread line. Offering it before he has said those words was
+     * the playtest bug; everybody else's aside still belongs on the opener. */
+    const branchOwner = id === CHARACTER_IDS.APE ? tree.more : tree.open;
+    const branch = (valueOf(branchOwner.options) || [])
+      .find((option) => option.next === 'aside');
     assert.ok(branch, `${id} has nothing to ask about besides the first thing`);
     // Numbskull's is "Ow?", which is the correct length for Numbskull.
     assert.ok(branch.text && branch.text.trim().length > 1, `${id}'s second topic has no question`);
@@ -68,7 +73,8 @@ test('leaving is still always on the table', () => {
   /* Every walk-up has to be walkable-away-from on the first press; a member
    * who can only be answered is a member who traps the player. */
   for (const id of EXPANDED) {
-    const options = valueOf(scripts[id].open.options) || [];
+    const owner = id === CHARACTER_IDS.APE ? scripts[id].more : scripts[id].open;
+    const options = valueOf(owner.options) || [];
     assert.ok(options.some((option) => option.next === null),
       `${id} cannot be left on the opening line`);
   }
@@ -82,6 +88,18 @@ test('the main thread is untouched by the addition', () => {
       `${id} lost the original reply`);
     assert.ok(tree.more?.line, `${id} lost the original second beat`);
   }
+});
+
+test('Ape only offers the load-bearing follow-up after he has said load-bearing', () => {
+  const ape = scripts[CHARACTER_IDS.APE];
+  const opening = valueOf(ape.open.options) || [];
+  const followUp = valueOf(ape.more.options) || [];
+
+  assert.equal(opening.some((option) => /load-bearing/i.test(option.text)), false,
+    'the player can ask about words Ape has not said yet');
+  assert.ok(followUp.some((option) => option.next === 'aside'
+    && /load-bearing/i.test(option.text)),
+  'the follow-up disappeared instead of moving behind Ape\'s first reply');
 });
 
 test('the hand-named hangout cues are still the ones the verifier expects', () => {

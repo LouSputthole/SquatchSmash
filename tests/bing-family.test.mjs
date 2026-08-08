@@ -57,6 +57,15 @@ test('Shubenator opens his first meeting with the cheerful signature without los
   assert.equal(shubenator.more.cue, 'vo.bing.hang.shubenator.2');
 });
 
+test('Shubenator does not offer the same floor question twice', () => {
+  const shubenator = buildFamilyScripts()[CHARACTER_IDS.SHUBENATOR];
+  const options = shubenator.open.options;
+  const copy = options.map((option) => option.text.trim().toLocaleLowerCase('en-US'));
+
+  assert.equal(new Set(copy).size, copy.length, 'the option wheel contains duplicate copy');
+  assert.equal(copy.filter((text) => text === 'what did the floor do?').length, 1);
+});
+
 test('the campaign owns three separately directed recordings of the same signature wording', () => {
   const takes = Object.values(SHUBENATOR_SIGNATURE_TAKES);
 

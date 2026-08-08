@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -77,4 +78,19 @@ test('completing Squatchfather records the dropped weapon and survives reload', 
   assert.equal(saved.status, 'complete');
   assert.equal(saved.weaponStaged, true);
   assert.equal(saved.weaponDropped, true);
+});
+
+test('Squatchfather exposes the apartment handoff only after scene completion', () => {
+  const html = readFileSync(new URL('../squatchfather.html', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/squatchfather/main.js', import.meta.url), 'utf8');
+
+  assert.equal(html.includes('id="backBtn"'), false,
+    'the title card still lets the player abandon the linear mission');
+  assert.equal(html.includes('id="quitBtn"'), false,
+    'the pause card still lets the player abandon the linear mission');
+  assert.equal(html.includes('id="menuBtn"'), false,
+    'the completion card should have one canonical apartment handoff');
+  assert.doesNotMatch(source, /actions:\s*\[[^\]]*Back to apartment/is,
+    'the shared pause overlay still lets the player abandon the linear mission');
+  assert.match(html, /id="againBtn"[^>]*>[^<]*RETURN TO THE APARTMENT/i);
 });

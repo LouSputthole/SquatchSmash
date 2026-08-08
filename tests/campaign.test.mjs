@@ -15,6 +15,7 @@ import {
   createCampaignRadioAdapter,
   navigateCampaign,
 } from '../src/core/campaign.js';
+import { FINAL_ARC_LOADOUT_STORAGE_KEY } from '../src/core/final-arc-loadout-storage.js';
 
 class MemoryStorage {
   constructor() {
@@ -200,6 +201,7 @@ test('a confirmed campaign reset replaces story progress and clears obsolete rec
   campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
   campaign.advanceTime(TIME_EVENT_IDS.EAT, (state) => { state.activities.eaten = true; });
   storage.setItem(CAMPAIGN_RECOVERY_KEY, JSON.stringify({ reason: 'old_test_recovery', raw: '{}' }));
+  storage.setItem(FINAL_ARC_LOADOUT_STORAGE_KEY, JSON.stringify({ slots: ['carbine'] }));
 
   const reset = campaign.reset();
 
@@ -209,6 +211,7 @@ test('a confirmed campaign reset replaces story progress and clears obsolete rec
   assert.equal(reset.activities.eaten, false);
   assert.equal(reset.inventory.concealed.includes(ITEM_IDS.LOU_PACKAGE), false);
   assert.equal(storage.getItem(CAMPAIGN_RECOVERY_KEY), null);
+  assert.equal(storage.getItem(FINAL_ARC_LOADOUT_STORAGE_KEY), null);
   assert.deepEqual(createCampaign({ storage }).state, reset);
 });
 

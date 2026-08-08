@@ -24,11 +24,10 @@ import {
  *
  * THE CASE IS THE SAME CASE. The mission follows The Silver Case and reuses
  * its case, so `ITEM_IDS.SILVER_CASE` is carried in and handed over rather
- * than spawned on Lou's desk. The Silver Case is not a routed campaign scene
- * yet (`silvercase.html` is entered directly and claims no campaign state), so
- * `begin()` will put the case in his hands if the save does not already show
- * him carrying it, and says so in its return value rather than pretending. The
- * day that scene claims its own state, the `unrouted` branch is what tightens.
+ * than spawned on Lou's desk. The final-campaign route carries it forward from
+ * `silvercase.html`; direct developer loads still receive the case here so the
+ * standalone mansion scene remains playable. `begin()` reports `carriedIn`
+ * honestly in both paths.
  */
 
 class SilentSquatchStory {
@@ -45,8 +44,8 @@ class SilentSquatchStory {
    *
    * `{ ok: true, resumed, unrouted, carriedIn }` on entry;
    * `{ ok: false, reason }` when the save says it is already over. `unrouted`
-   * means the page was opened without a campaign transition into it — true of
-   * every load today, because nothing routes here yet.
+   * means the page was opened without a campaign transition into it, as with a
+   * standalone developer load.
    */
   begin() {
     const state = this.campaign.state;
@@ -58,15 +57,15 @@ class SilentSquatchStory {
     if (status === 'in_progress') {
       return {
         ok: true, resumed: true, unrouted, carriedIn,
+        checkpoint: this.mission.checkpoint,
       };
     }
 
-    /* He arrives with it. If the save has never heard of the case — which is
-     * every save today, because The Silver Case does not write one — he is
-     * given it here rather than the mission starting with empty hands and a
-     * beat that cannot be played. */
+    /* He arrives with it. A direct developer load that never ran The Silver
+     * Case receives it here rather than starting with empty hands and a beat
+     * that cannot be played. */
     if (!carriedIn) this.campaign.addItem(ITEM_IDS.SILVER_CASE);
-    this.campaign.update((next) => {
+    this.campaign.advanceTime(TIME_EVENT_IDS.DEPART_MANSION, (next) => {
       next.missions[MISSION_IDS.SILENT_SQUATCH].status = 'in_progress';
     });
     return {
@@ -122,7 +121,7 @@ class SilentSquatchStory {
 
     const aubbie = report.aubbie ?? {};
     const lost = 1 + (Array.isArray(report.collapsed) ? report.collapsed.length : 0);
-    this.campaign.update((state) => {
+    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH, (state) => {
       const night = state.missions[MISSION_IDS.SILENT_SQUATCH];
       night.status = 'complete';
       night.checkpoint = 'clear';
@@ -139,6 +138,8 @@ class SilentSquatchStory {
       night.notesRecovered = true;
       night.conspiracyBoard = true;
       night.trophyAwarded = true;
+      night.eveningReady = true;
+      state.story.chapter = 'mansion_evening';
 
       state.story.familyRespect = Math.min(
         100, state.story.familyRespect + SILENT_SQUATCH_RESPECT,
@@ -153,8 +154,28 @@ class SilentSquatchStory {
         state.inventory.carried.push(ITEM_IDS.SQUATCHANIUM_MINIATURE);
       }
     });
-    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH);
     return true;
+  }
+
+  /**
+   * The quiet mansion evening ends at the guest-room bed. Sleeping is the
+   * deliberate load seam between the canonical house and its siege overlay;
+   * it unlocks the attack but does not navigate while the current page is
+   * still fading out.
+   */
+  restAtMansion() {
+    const night = this.mission;
+    if (night.status !== 'complete') return { ok: false, reason: 'mission_incomplete' };
+    if (!night.eveningReady) return { ok: false, reason: 'evening_incomplete' };
+    if (night.sleptAtMansion) return { ok: false, reason: 'already_rested' };
+
+    this.campaign.advanceTime(TIME_EVENT_IDS.REST_AT_MANSION, (state) => {
+      const saved = state.missions[MISSION_IDS.SILENT_SQUATCH];
+      saved.sleptAtMansion = true;
+      state.story.chapter = 'mansion_siege';
+      state.missions[MISSION_IDS.MANSION_SIEGE].status = 'available';
+    }, { required: true });
+    return { ok: true, chapter: 'mansion_siege' };
   }
 }
 

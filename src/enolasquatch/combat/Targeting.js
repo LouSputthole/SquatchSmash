@@ -101,6 +101,26 @@ export class Targeting {
     return this._scoreT > 0 ? clamp(this._scoreSum / this._scoreT, 0, 1) : 0;
   }
 
+  /** Plain, bounded state needed to continue weighting a saved corridor grade. */
+  checkpoint() {
+    return {
+      scoreSum: this._scoreSum,
+      scoreTime: this._scoreT,
+    };
+  }
+
+  /** Restore only the historical score accumulator, never reticle/pose state. */
+  restoreCheckpoint(snapshot = {}) {
+    if (!Number.isFinite(snapshot.scoreSum) || !Number.isFinite(snapshot.scoreTime)
+      || snapshot.scoreTime < 0 || snapshot.scoreTime > 86400
+      || snapshot.scoreSum < 0 || snapshot.scoreSum > snapshot.scoreTime) return false;
+    this._scoreSum = snapshot.scoreSum;
+    this._scoreT = snapshot.scoreTime;
+    this._holdT = 0;
+    this.readyToRelease = false;
+    return true;
+  }
+
   /**
    * @param {number} dt
    * @param {object} phys AircraftPhysics — reads position/headingDeg/

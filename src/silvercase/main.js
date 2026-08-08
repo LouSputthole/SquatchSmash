@@ -19,8 +19,20 @@ import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { PostFX } from '../core/postfx.js';
+import { SCENE_IDS, createCampaign } from '../core/campaign.js';
+import {
+  createFinalArcRuntimeSession,
+  restoreCompletedFinalArcEntry,
+} from '../core/final-arc-runtime.js';
+import { createSilverCaseCampaignStory } from '../core/final-arc-story.js';
+import { isPreviewMode } from '../core/preview-mode.js';
 import { yawToward } from '../world/build.js';
 import { roomEnvironment } from '../world/textures.js';
+import {
+  checkpointForSilverCaseBeat,
+  silverCaseCampaignReport,
+  silverCaseResumeCheckpoint,
+} from './campaign.js';
 
 /**
  * The Silver Case — composition root.
@@ -29,9 +41,9 @@ import { roomEnvironment } from '../world/textures.js';
  * (DialogueController + script.js), the bathroom reaction window
  * (ReactionWindow), the shared Player/InteractionSystem/AudioEngine/
  * pause-menu, and the mission's own state machine into the full playable
- * beat sequence. Standalone: no import of core/campaign.js, no
- * navigateCampaign call anywhere in this file. Open silvercase.html directly
- * to play, the same way src/squatchfather/main.js is entered directly.
+ * beat sequence. The mission still owns all of its internal state; the narrow
+ * final-arc runtime seam below only claims the canonical campaign scene,
+ * forwards played checkpoints/results, and transitions to Lou's mansion.
  *
  * See the accompanying report for the exact DOM id contract this file
  * expects silvercase.html to provide, and for every place this file had to
@@ -188,6 +200,7 @@ const SILVERCASE_CHECKPOINT_LABELS = Object.freeze({
   aftermath: 'THE AFTERMATH',
 });
 function previewCheckpointForLocation(locationLike = window.location) {
+  if (!isPreviewMode(locationLike)) return null;
   let params;
   try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
   const value = params.get('checkpoint');
@@ -197,6 +210,15 @@ function previewCheckpointForLocation(locationLike = window.location) {
 }
 /** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
 const previewCheckpoint = previewCheckpointForLocation();
+const campaignPreview = isPreviewMode();
+const silverCaseCampaign = createFinalArcRuntimeSession({
+  preview: campaignPreview,
+  campaign: campaignPreview ? null : createCampaign(),
+  sceneId: SCENE_IDS.SILVER_CASE,
+  spawn: 'car_ride',
+  storyFactory: createSilverCaseCampaignStory,
+});
+let silverCaseCampaignComplete = false;
 if (previewCheckpoint) {
   const label = SILVERCASE_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
   const subtitle = document.querySelector('#menu .subtitle');
@@ -850,7 +872,13 @@ function restoreCheckpoint() {
  * ends by calling `fsm.go()` on the real target state, so that state's own
  * `enter()` -- its dialogue, its instruction text -- still runs for real.
  */
-function jumpToPreviewCheckpoint(id) {
+function jumpToPreviewCheckpoint(id, savedMission = null) {
+  // Relationship/execution facts can be earned before the coarse checkpoint
+  // advances. Restore them before every local staging branch so a later
+  // completion cannot rewrite a durable true back to false.
+  flags.irritatedApe ||= savedMission?.irritatedApe === true;
+  flags.apeFinishedChester ||= savedMission?.apeFinishedChester === true;
+  flags.apeFinishedWinston ||= savedMission?.apeFinishedWinston === true;
   if (id === 'car') { fsm.go(S.CAR_RIDE); return; }
   if (id === 'hallway') { fsm.go(S.ARRIVE_HALLWAY); return; }
 
@@ -904,6 +932,17 @@ function jumpToPreviewCheckpoint(id) {
   cast.pruitt.reveal();
   cast.pruitt.kill();
   apartment.doors.bathroomDoor.group.rotation.y = apartment.doors.bathroomDoor.openRotationY;
+  if (id === 'case_recovered') {
+    if (!['spared', 'player_killed', 'ape_killed'].includes(savedMission?.winstonOutcome)) {
+      fsm.go(S.AFTERMATH);
+      return;
+    }
+    if (['player_killed', 'ape_killed'].includes(savedMission?.winstonOutcome)) {
+      cast.winston.kill();
+    }
+    fsm.go(S.PICK_UP_CASE);
+    return;
+  }
   fsm.go(S.AFTERMATH);
 }
 
@@ -1564,13 +1603,7 @@ function buildStates() {
         setObjective('');
         setInstruction('');
         player.mode = 'frozen';
-        after(1.0, () => {
-          running = false;
-          document.exitPointerLock?.();
-          ui.hud.classList.remove('visible');
-          sceneInventory.hide();
-          ui.sceneCompleteOverlay.classList.remove('hidden');
-        });
+        after(1.0, () => showSilverCaseCompletion());
       },
     },
 
@@ -1592,7 +1625,42 @@ function buildStates() {
   };
 }
 
-const fsm = new SilverCaseStateMachine(buildStates());
+function showSilverCaseCompletion({ campaignComplete = silverCaseCampaignComplete } = {}) {
+  silverCaseCampaignComplete ||= campaignComplete === true;
+  if (silverCaseCampaignComplete && ui.playAgainBtn) {
+    ui.playAgainBtn.textContent = "CONTINUE TO LOU'S MANSION";
+  }
+  running = false;
+  document.exitPointerLock?.();
+  player.clearKeys?.();
+  ui.menu?.classList.add('hidden');
+  ui.hud.classList.remove('visible');
+  sceneInventory.hide();
+  ui.sceneCompleteOverlay.classList.remove('hidden');
+}
+
+function reportSilverCaseBeat(name) {
+  const checkpoint = checkpointForSilverCaseBeat(name);
+  if (checkpoint) {
+    silverCaseCampaign.checkpoint(checkpoint, silverCaseCampaignReport({
+      winstonAlive: cast.winston.alive,
+      flags,
+    }));
+  }
+  if (name !== S.SCENE_COMPLETE) return;
+
+  silverCaseCampaignComplete = silverCaseCampaign.complete(
+    silverCaseCampaignReport({
+      winstonAlive: cast.winston.alive,
+      flags,
+    }),
+  );
+  if (silverCaseCampaignComplete && ui.playAgainBtn) {
+    ui.playAgainBtn.textContent = "CONTINUE TO LOU'S MANSION";
+  }
+}
+
+const fsm = new SilverCaseStateMachine(buildStates(), reportSilverCaseBeat);
 
 // ---------------------------------------------------------------- input
 
@@ -1650,10 +1718,26 @@ ui.retryBtn.addEventListener('click', () => {
   restoreCheckpoint();
 });
 ui.playAgainBtn.addEventListener('click', () => {
+  if (silverCaseCampaignComplete && !campaignPreview) {
+    silverCaseCampaign.navigate(SCENE_IDS.MANSION, { spawn: 'gate' });
+    return;
+  }
   window.location.reload();
 });
 
 async function beginScene() {
+  const campaignEntry = silverCaseCampaign.begin();
+  if (!campaignEntry.ok) {
+    if (restoreCompletedFinalArcEntry(campaignEntry, {
+      preview: campaignPreview,
+      restore: () => showSilverCaseCompletion({ campaignComplete: true }),
+    })) return false;
+    const subtitle = ui.menu?.querySelector?.('.subtitle');
+    if (subtitle) subtitle.textContent = campaignEntry.reason === 'already_complete'
+      ? "The case is already back with Lou. Continue from the campaign's current scene."
+      : 'The Silver Case is not available in this campaign yet.';
+    return false;
+  }
   // Requested here, before anything is awaited, while this click still carries
   // real user activation — matching NO WAKE's own start-button handler
   // (src/nowake/main.js), which calls `canvas.requestPointerLock?.()` before
@@ -1707,8 +1791,18 @@ async function beginScene() {
   running = true;
   sceneInventory.show();
   syncInventory();
+  const resumeCheckpoint = campaignEntry.resumed
+    ? silverCaseResumeCheckpoint(
+      campaignEntry.checkpoint,
+      silverCaseCampaign.story?.mission,
+    )
+    : null;
   if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
+  else if (resumeCheckpoint) {
+    jumpToPreviewCheckpoint(resumeCheckpoint, silverCaseCampaign.story?.mission);
+  }
   else fsm.go(S.CAR_RIDE);
+  return true;
 }
 
 // ---------------------------------------------------------------- loop
@@ -1756,6 +1850,11 @@ frame();
 // simulating real mouse/keyboard events.
 
 window.silvercase = {
+  campaign: {
+    preview: campaignPreview,
+    state: () => silverCaseCampaign.campaign?.state ?? null,
+    get completed() { return silverCaseCampaignComplete; },
+  },
   fsm,
   go: (name) => fsm.go(name),
   tick(secs = 1) {

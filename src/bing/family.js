@@ -318,15 +318,15 @@ export function buildFamilyScripts({
    */
   const hangout = (name, slug, {
     line1, line2, reply, replyTone = 'Reply', last, lastCue, leave = 'Another time.',
-    aside,
+    leaveCue, aside, asideAfterMore = false,
   }) => {
     const options = [
       { tone: reply.replyTone ?? replyTone, text: reply.text, cue: reply.cue, next: 'more' },
     ];
-    if (aside) {
+    if (aside && !asideAfterMore) {
       options.push({ tone: aside.tone, text: aside.ask, cue: aside.askCue, next: 'aside' });
     }
-    options.push({ tone: 'Leave', text: leave, next: null });
+    options.push({ tone: 'Leave', text: leave, cue: leaveCue, next: null });
 
     const tree = {
       open: {
@@ -362,7 +362,17 @@ export function buildFamilyScripts({
         hold: aside.hold2 ?? 4.4,
       };
     }
-    if (last) {
+    if (aside && asideAfterMore) {
+      /* Some questions only make sense after the second main beat. Ape's
+       * "load-bearing" follow-up was previously offered before he had used
+       * those words, which made the wheel read like Tony had seen the script.
+       * Keep the opening reply and its leave intact, then offer the contextual
+       * question after the line that earns it. */
+      tree.more.options = [
+        { tone: aside.tone, text: aside.ask, cue: aside.askCue, next: 'aside' },
+        { tone: 'Leave', text: leave, cue: leaveCue, next: null },
+      ];
+    } else if (last) {
       // The prospect gets the last word — authored, so it carries its cue.
       tree.more.options = [{ tone: 'Reply', text: last, cue: lastCue, next: null }];
     } else {
@@ -580,9 +590,15 @@ export function buildFamilyScripts({
     line2: 'I am having a nice time. This is my nice-time face. It is load-bearing.',
     aside: {
       tone: 'Ask', ask: 'Load-bearing how?',
+      /* The question moved to `more`, but the spoken words did not change.
+       * Keep the already-recorded exact take instead of minting the same line
+       * again under a node-dependent filename. */
+      askCue: 'vo.bing.full.ape.open.tony.qqlmup',
       line1: 'If it comes off, something behind it has to hold the weight instead. Nobody wants that. I do not want that.',
       line2: 'So I keep it on, I have a nice time, and everybody goes home. It is a system and it works.',
     },
+    asideAfterMore: true,
+    leaveCue: 'vo.bing.full.ape.open.tony.kay3u1',
   });
 
   const old_stove = hangout('Old Stove', 'stove', {
@@ -632,7 +648,15 @@ export function buildFamilyScripts({
 
   const shubenatorHangout = hangout('The Shubenator', 'shubenator', {
     line1: 'I did nine hundred push-ups today. The number is not the impressive part. The floor was.',
-    reply: { text: 'What did the floor do?', replyTone: 'Ask' },
+    /* "What did the floor do?" belongs to the actual floor branch below.
+     * It used to be printed twice on the same wheel, with one copy routing to
+     * an unrelated shrimp line. "Go on." is already a recorded Prospect take
+     * in this scene, so reuse that exact audio instead of creating an asset
+     * debt for a two-word connective. */
+    reply: {
+      text: 'Go on.', replyTone: 'Listen',
+      cue: 'vo.bing.full.irish.open.tony.msqwvq',
+    },
     line2: 'You need mass, Prospect. Order the shrimp. Order nine shrimp.',
     aside: {
       tone: 'Ask', ask: 'What did the floor do?',

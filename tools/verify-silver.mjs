@@ -814,6 +814,42 @@ check('he starts on the pavement beside the car, not walking up to it from somew
 check('the wallet can pay for the evening',
   s.money >= 600, `$${s.money}`);
 
+/* The public door is scenery for this entrance, not a shortcut. Trying it
+ * must leave the leaf shut, pay the already-recorded Margo arrival exchange,
+ * and reveal one yellow in-world marker at the alley mouth. The two points at
+ * x ±2 used to be literal person-sized holes beside the 3.4 m glass leaf. */
+const frontReroute = await page.evaluate(() => {
+  const b = window.__silver;
+  const door = b.room.doors.front;
+  const marker = b.room.anchors.serviceRouteMarker;
+  const before = { open: door.open, marker: marker?.visible ?? null };
+  const gapsClosed = [-2, 2].every((x) => b.room.colliders.some((box) => (
+    box.containsPoint(new b.THREE.Vector3(x, 1, 34.2))
+  )));
+  door.leaf.userData.interact.onUse();
+  return {
+    before,
+    open: door.open,
+    marked: marker?.visible === true,
+    markerName: marker?.name ?? null,
+    markerAt: marker ? [
+      +marker.position.x.toFixed(1), +marker.position.y.toFixed(1), +marker.position.z.toFixed(1),
+    ] : null,
+    rerouted: b.game.frontDoorRerouted === true,
+    dialogue: b.dialogue.active ? b.dialogue.nodeId : null,
+    gapsClosed,
+  };
+});
+check('trying the public door keeps it shut and marks the alley with a yellow diamond',
+  frontReroute.before.open === false && frontReroute.before.marker === false
+    && frontReroute.open === false && frontReroute.marked && frontReroute.rerouted
+    && frontReroute.markerName === 'service-route-marker'
+    && frontReroute.markerAt?.[0] >= 30 && frontReroute.markerAt?.[2] >= 30
+    && frontReroute.dialogue === 'open',
+  JSON.stringify(frontReroute));
+check('the public glass leaf meets both jambs instead of leaving two walk-through gaps',
+  frontReroute.gapsClosed, JSON.stringify(frontReroute));
+
 /* ---- the arrival has room ----
  * The car used to slide SIDEWAYS down the z axis and stop with its nose over
  * the kerb, on the pavement, in the canopy posts, with the pair of them
@@ -1040,7 +1076,18 @@ check('and once he has walked off the car goes, and takes its prompt with it',
 check('and it is audibly a car driving away rather than one that stops existing',
   drovOff.heardItGo, JSON.stringify(drovOff));
 
-await page.evaluate(() => window.__silver.room.doors.service.toggle());
+const serviceEntry = await page.evaluate(() => {
+  const b = window.__silver;
+  b.room.doors.service.leaf.userData.interact.onUse();
+  return {
+    open: b.room.doors.service.open,
+    flag: b.mission.flags.sideDoorOpened === true,
+    markerHidden: b.room.anchors.serviceRouteMarker?.visible === false,
+  };
+});
+check('opening the service door clears its marker and records the real route',
+  serviceEntry.open && serviceEntry.flag && serviceEntry.markerHidden,
+  JSON.stringify(serviceEntry));
 await walkTo(34, 13.5);
 await walkTo(31.6, 11.7);
 await walkTo(28.4, 11.7);    // through the service door onto the landing
@@ -1687,6 +1734,15 @@ const chair = await page.evaluate(() => {
 });
 check('pulling her chair out is worth something, and sits her down',
   chair.after > chair.before && chair.dateMode === 'seated', JSON.stringify(chair));
+
+/* `tick()` advances mission time deliberately without advancing the browser's
+ * subtitle clock. The chair line is queued behind whatever still owns the
+ * floor from the table cutscene, exactly as it is during play, so wait on the
+ * delivered cue before accelerating the evening again. Otherwise the harness
+ * can race several simulated minutes through a four-line real-time queue and
+ * incorrectly report a production line as silent. */
+await page.waitForFunction(() => window.__silver.game.voLog
+  .includes('vo.silver.margo.moments.chairPulled'), null, { timeout: 20000 });
 
 await page.evaluate(() => window.__silver.game.chairPads.his.userData.interact.onUse());
 await tick(2.5, 0.1);
@@ -2443,6 +2499,12 @@ await page.waitForFunction(() => {
   const b = window.__silver;
   return b.performance.current?.theOne === true && b.audio.loops.has('band.feature');
 }, null, { timeout: 10000 });
+/* Same accelerated-clock boundary as the chair moment. The first two numbers
+ * are skipped by simulated time above, but spoken introductions are paced by
+ * the real subtitle floor. Prove the featured introduction actually leaves
+ * that queue before the harness skips on to dessert and the ending. */
+await page.waitForFunction(() => window.__silver.game.voLog
+  .includes('vo.silver.bandleader.set.front-and-center'), null, { timeout: 20000 });
 
 const featureLive = await page.evaluate(() => {
   const b = window.__silver;
@@ -3406,7 +3468,8 @@ check('a recorded line is not cut off by the next thing that wants to talk',
 
 check('the evening actually asked for its voice, line by line, rather than staying silent',
   voice.asked > 40 && voice.distinct > 25 && voice.specials.length === 3,
-  `${voice.asked} cues asked for, ${voice.distinct} distinct — e.g. ${voice.sample.join(', ')}`);
+  `${voice.asked} cues asked for, ${voice.distinct} distinct; specials: `
+    + `${voice.specials.join(', ') || 'none'}; e.g. ${voice.sample.join(', ')}`);
 check('and every line anybody cast can say has a cue in the manifest that says the same words',
   voice.nMissing === 0 && voice.nDrifted === 0 && voice.badVoice.length === 0,
   voice.nMissing || voice.nDrifted || voice.badVoice.length

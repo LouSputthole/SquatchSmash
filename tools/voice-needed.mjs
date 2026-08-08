@@ -28,6 +28,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isFutureInitiationCue } from './audio-scope.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(ROOT, 'assets/sfx/manifest.json');
@@ -65,8 +66,6 @@ const fileOf = (cue) => `${cue.file || cue.name}.mp3`;
  * reason. Excluded here too: this file is what needs SAYING, and nobody hears
  * these.
  */
-const unreachable = (name) => name.startsWith('vo.initiation.party.');
-
 function main() {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   const index = JSON.parse(fs.readFileSync(INDEX, 'utf8'));
@@ -75,7 +74,7 @@ function main() {
 
   const spoken = (manifest.sfx || [])
     .filter((cue) => typeof cue.say === 'string' && cue.say.trim())
-    .filter((cue) => !unreachable(cue.name));
+    .filter((cue) => !isFutureInitiationCue(cue));
 
   /* Recast invalidates everything already recorded for that profile: the
    * takes on disk are a different actor. See `recastProfiles` in

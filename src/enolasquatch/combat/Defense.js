@@ -75,6 +75,8 @@ export const LETHAL_RADIUS = 34;
 export const RATTLE_RADIUS = 95;
 /** Inside this you hear it and feel it and nothing else happens. */
 export const HEARD_RADIUS = 320;
+/** Long enough to leave a black flower, short enough not to become a decal. */
+export const FLAK_PUFF_SECONDS = 5.5;
 
 const SHELL_SPEED = 720;         // m/s, muzzle — flight time is the whole point
 const _v = new THREE.Vector3();
@@ -855,7 +857,7 @@ export class Defense {
        * over a defended target with the black flowers that make it read as a
        * barrage rather than as a firework. */
       const bloom = clamp(life / 0.22, 0, 1);
-      const age = clamp(life / 9.5, 0, 1);
+      const age = clamp(life / FLAK_PUFF_SECONDS, 0, 1);
       const r = lerp(3, 26, Math.sqrt(bloom)) + age * 16;
       b.puff.scale.setScalar(r);
       b.lump.scale.setScalar(r * 0.72);
@@ -877,7 +879,7 @@ export class Defense {
         bit.material.opacity = splinter;
       }
 
-      if (life >= 9.5) {
+      if (life >= FLAK_PUFF_SECONDS) {
         this.root.remove(b.group);
         this._activeFlak.splice(i, 1);
         this._flakPool.push(b);

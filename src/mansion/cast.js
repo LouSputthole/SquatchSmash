@@ -102,6 +102,7 @@
  */
 import * as THREE from 'three';
 import { Npc, BADA_BING_PERFORMERS } from '../bing/cast.js';
+import { FAMILY } from '../bing/family.js';
 import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
 } from '../bing/license-to-grill-runtime.js';
@@ -110,6 +111,7 @@ import {
   ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN,
   MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../core/wardrobe.js';
+import { CHARACTER_IDS } from '../core/campaign.js';
 import { box, cylinder, group, mat } from '../world/build.js';
 import { mountLilTomCruze } from './dog.js';
 import { DialogueController } from './mission/DialogueController.js';
@@ -195,6 +197,8 @@ const FACES = Object.freeze({
   erican: 'assets/faces/erican.png',
   shubes: 'assets/faces/shubes.png',
   hogmama: 'assets/faces/hogmama.png',
+  ape: 'assets/faces/ape.png',
+  stove: 'assets/faces/stove.png',
   /* Owner playtest, 2026-08-06: "snow doesnt have his face."
    *
    * He did not, and neither did Gratin. Both photographs have been sitting in
@@ -236,6 +240,8 @@ const FACES = Object.freeze({
 const CAN_PAINT_FACES = typeof document !== 'undefined'
   && typeof document.createElementNS === 'function';
 const withFace = (model, face) => (CAN_PAINT_FACES && face ? { ...model, face } : model);
+const FAMILY_BY_ID = new Map(FAMILY.map((member) => [member.id, member]));
+const familyModel = (id) => FAMILY_BY_ID.get(id)?.model ?? null;
 
 /* ================================================================== */
 /* SITTING DOWN ON THIS HOUSE'S FURNITURE                               */
@@ -575,6 +581,8 @@ export function mountMansionCast(scene, world = {}, {
   lab = null,
   /** `interior.props.masterSuite` — the third floor's own published spots. */
   suite = null,
+  /** `grounds.props.poolPatio` — its actual loungers, waterline and basin. */
+  pool = null,
   hud = null,
   hasCase = null,
   /**
@@ -603,8 +611,13 @@ export function mountMansionCast(scene, world = {}, {
    * heard of a mission. So the composition root passes the verb down, exactly
    * as it does with `hasCase` and `onCordOwned`. Omit it and Booski is a man
    * you can look at, which is what he was before the owner's note.
-   */
+  */
   onDeliverCase = null,
+  /** Optional return-visit action mounted on Big Uncle Lou's own body. */
+  louInteraction = null,
+  /** Quiet-evening gate and the reel currently in the theatre projector. */
+  eveningEnabled = () => true,
+  theatreChannel = () => '',
   enabled = () => true,
 } = {}) {
   if (!scene) return null;
@@ -665,7 +678,7 @@ export function mountMansionCast(scene, world = {}, {
     model, name, x, y = 0, z, yaw = 0, job = 'stand', folded = false,
     route = null, speed = 1.0, tier = 'hero',
     bark = null, idle = null, range = BARK_RANGE, look = null, onUse = null,
-    onArrive = null, onLeave = null,
+    interactEnabled = null, onArrive = null, onLeave = null,
   }) {
     const npc = new Npc(scene, {
       name, tier, job, x, y, z, yaw, route, speed, model, colliders,
@@ -689,7 +702,9 @@ export function mountMansionCast(scene, world = {}, {
        * the mission already owns. */
       interaction.register(npc.group, {
         label: look,
-        enabled: () => enabled(),
+        key: onUse ? 'E' : 'LOOK',
+        enabled: () => enabled()
+          && (typeof interactEnabled === 'function' ? interactEnabled() : true),
         ...(onUse ? { onUse } : {}),
       });
     }
@@ -1155,7 +1170,10 @@ export function mountMansionCast(scene, world = {}, {
     z: louAt.z,
     /* Across his own desk, at the door somebody is about to come through. */
     yaw: yawToward(louAt.x, louAt.z, desk.x, desk.z - 3),
-    look: 'Big Uncle Lou. He has been waiting for you and he is not going to say so.',
+    look: louInteraction?.label
+      ?? 'Big Uncle Lou. He has been waiting for you and he is not going to say so.',
+    onUse: louInteraction?.onUse ?? null,
+    interactEnabled: louInteraction?.enabled ?? null,
   });
 
   /* ---- Rippin, in the pool room ----------------------------------------
@@ -1310,6 +1328,77 @@ export function mountMansionCast(scene, world = {}, {
     look: 'Numbskull, outside, watching a heated pool nobody swims in.',
   });
 
+  /* ---- The rest of the living roster ---------------------------------
+   * Willy and Billy HotDog are dead by this chapter. Aubbie is physically
+   * present in the laboratory below. These five were the living names still
+   * absent from the house: they now use five rooms rather than collecting in
+   * another bar-shaped knot. All models come from the canonical Family row. */
+  const conference = at('conferenceTable', { x: 0, y: UPPER_Y, z: 58 });
+  post('seff', {
+    name: 'Seff',
+    model: familyModel(CHARACTER_IDS.SEFF),
+    job: 'work',
+    x: conference.x - 7.15,
+    y: conference.y,
+    z: conference.z + 0.4,
+    yaw: yawToward(conference.x - 7.15, conference.z + 0.4, conference.x, conference.z),
+    look: 'Seff, monitoring the conference-room phone nobody is meant to call.',
+  });
+
+  const lan = at('lanRoomCenter', { x: 6.4, y: BASEMENT_Y, z: 71.15 });
+  post('lag', {
+    name: 'Lag',
+    model: familyModel(CHARACTER_IDS.LAG),
+    x: lan.x,
+    y: lan.y,
+    z: lan.z + 2.4,
+    yaw: yawToward(lan.x, lan.z + 2.4, lan.x, lan.z),
+    look: 'Lag, standing behind five live machines and blaming the one with the best connection.',
+  });
+
+  const ballroom = at('ballroomCenter', { x: 0, y: GROUND_Y, z: 66 });
+  post('ape', {
+    name: 'Ape',
+    model: withFace(familyModel(CHARACTER_IDS.APE), FACES.ape),
+    folded: true,
+    x: ballroom.x - 6.4,
+    y: ballroom.y,
+    z: ballroom.z + 1.2,
+    yaw: yawToward(ballroom.x - 6.4, ballroom.z + 1.2, ballroom.x, ballroom.z),
+    look: 'Ape, keeping to the edge of the ballroom and keeping his hands where everybody can see them.',
+  });
+  post('sauce', {
+    name: 'Sauce',
+    model: familyModel(CHARACTER_IDS.SAUCE),
+    job: 'work',
+    x: ballroom.x + 6.4,
+    y: ballroom.y,
+    z: ballroom.z + 1.2,
+    yaw: yawToward(ballroom.x + 6.4, ballroom.z + 1.2, ballroom.x, ballroom.z),
+    look: 'Sauce, checking a buffet that nobody asked him to check.',
+  });
+
+  const theatre = at('theatreCenter', { x: -2.85, y: BASEMENT_Y, z: 72.6 });
+  const theatreLines = () => {
+    const channel = String(theatreChannel?.() ?? '').toUpperCase();
+    if (channel.includes('GOODFELLAS')) return SEQUENCES.oldStoveGoodfellas;
+    if (channel.includes('HEAT')) return SEQUENCES.oldStoveHeat;
+    if (channel.includes('BLOW')) return SEQUENCES.oldStoveBlow;
+    if (channel.includes('GODFATHER')) return SEQUENCES.oldStoveGodfather;
+    return SEQUENCES.oldStoveTheatre;
+  };
+  post('oldStove', {
+    name: 'Old Stove',
+    model: withFace(familyModel(CHARACTER_IDS.OLD_STOVE), FACES.stove),
+    x: theatre.x - 3.6,
+    y: theatre.y,
+    z: theatre.z - 4.4,
+    yaw: yawToward(theatre.x - 3.6, theatre.z - 4.4, theatre.x, theatre.z),
+    look: () => `Old Stove, waiting on ${theatreChannel?.() || 'a picture'}.`,
+    interactEnabled: () => eveningEnabled(),
+    onUse: () => { dialogue.interject(theatreLines()); return true; },
+  });
+
   /* ================================================================ */
   /* THE THIRD FLOOR                                                   */
   /*                                                                    */
@@ -1357,6 +1446,140 @@ export function mountMansionCast(scene, world = {}, {
      * mean it rather than being loosened for everybody. */
     npc.inFixture = 'the hot tub';
   });
+
+  /* ---- The pool-deck evening -----------------------------------------
+   * Three women, composed against the actual pool build: two reclining on
+   * the empty east-side loungers and one standing shoulder-deep in the
+   * water. The first keeps the existing three-press flirt -> strap-help path;
+   * moving her onto furniture must not replace that interaction. */
+  const poolAt = at('poolPatio', { x: 0, y: GROUND_Y, z: 85 });
+  function poolChair(index, fallback) {
+    const chair = pool?.chairs?.[index];
+    if (!chair) return fallback;
+    chair.updateMatrixWorld(true);
+    const position = chair.getWorldPosition(new THREE.Vector3());
+    const rotation = new THREE.Euler().setFromQuaternion(
+      chair.getWorldQuaternion(new THREE.Quaternion()), 'YXZ',
+    );
+    return { x: position.x, y: position.y, z: position.z, yaw: rotation.y };
+  }
+  /* Towel-free chairs. The towel alternates across the row; 4 and 6 are the
+   * two unoccupied surfaces built for bodies rather than folded linen. */
+  const firstLounger = poolChair(4, {
+    x: poolAt.x + 10.6, y: poolAt.y, z: poolAt.z - 5.6, yaw: -Math.PI / 2,
+  });
+  const secondLounger = poolChair(6, {
+    x: poolAt.x + 10.6, y: poolAt.y, z: poolAt.z + 0.8, yaw: -Math.PI / 2,
+  });
+  const poolRecliners = [];
+  function posePoolRecliner(npc) {
+    if (!npc?.parts) return;
+    npc.parts.body.rotation.x = -0.46;
+    npc.parts.head.rotation.x += 0.2;
+    npc.parts.armL.rotation.set(-0.28, 0, -0.28);
+    npc.parts.armR.rotation.set(-0.28, 0, 0.28);
+  }
+  const poolEvening = { phase: 'hello', greetedSecond: false, dressHelped: false };
+  let dressStrap = null;
+  const primaryPoolGirl = post('poolPerformer0', {
+    name: 'a dancer by the pool',
+    tier: 'ambient',
+    job: 'sit',
+    x: firstLounger.x,
+    y: seatBase(firstLounger.y, 0.47),
+    z: firstLounger.z,
+    yaw: firstLounger.yaw,
+    model: {
+      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+      height: 1.73, build: 1.08, dress: 'bikini', ...BADA_BING_PERFORMERS[0],
+    },
+    look: () => {
+      if (poolEvening.phase === 'hello') return 'Say hello to the dancer by the pool';
+      if (poolEvening.phase === 'flirt') return 'Try flirting with her';
+      if (poolEvening.phase === 'strap') return 'Help fix her dress strap';
+      return 'Her dress strap is fixed. Useful beats smooth.';
+    },
+    interactEnabled: () => eveningEnabled(),
+    onUse: () => {
+      if (dialogue.busy) return false;
+      if (poolEvening.phase === 'hello') {
+        poolEvening.phase = 'flirt';
+        dialogue.play(SEQUENCES.poolGirlHello);
+      } else if (poolEvening.phase === 'flirt') {
+        poolEvening.phase = 'strap';
+        dialogue.play(SEQUENCES.poolGirlFlirt);
+      } else if (poolEvening.phase === 'strap') {
+        poolEvening.phase = 'done';
+        poolEvening.dressHelped = true;
+        if (dressStrap) {
+          dressStrap.rotation.z = 0.18;
+          dressStrap.position.y += 0.08;
+        }
+        dialogue.play(SEQUENCES.poolGirlDressHelp);
+      } else return false;
+      return true;
+    },
+  });
+  primaryPoolGirl.inFixture = 'pool lounger';
+  primaryPoolGirl.poolPose = 'reclined';
+  poolRecliners.push(primaryPoolGirl);
+  posePoolRecliner(primaryPoolGirl);
+  dressStrap = box({
+    size: [0.045, 0.42, 0.025],
+    pos: [0.2, 1.34, 0.13],
+    mat: mat({ color: 0x6e1834, roughness: 0.7 }),
+    rotZ: -0.68,
+    cast: false,
+    name: 'pool-performer-dress-strap',
+  });
+  primaryPoolGirl.parts.body.add(dressStrap);
+
+  const secondPoolGirl = post('poolPerformer1', {
+    name: 'a dancer by the pool',
+    tier: 'ambient',
+    job: 'sit',
+    x: secondLounger.x,
+    y: seatBase(secondLounger.y, 0.47),
+    z: secondLounger.z,
+    yaw: secondLounger.yaw,
+    model: {
+      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+      height: 1.71, build: 1.06, dress: 'bikini', ...BADA_BING_PERFORMERS[2],
+    },
+    look: () => (poolEvening.greetedSecond
+      ? 'One of the girls from the club, enjoying the quiet.'
+      : 'Say hello to the other dancer'),
+    interactEnabled: () => eveningEnabled() && !poolEvening.greetedSecond,
+    onUse: () => {
+      if (dialogue.busy || poolEvening.greetedSecond) return false;
+      poolEvening.greetedSecond = true;
+      dialogue.play(SEQUENCES.poolGirlHello);
+      return true;
+    },
+  });
+  secondPoolGirl.inFixture = 'pool lounger';
+  secondPoolGirl.poolPose = 'reclined';
+  poolRecliners.push(secondPoolGirl);
+  posePoolRecliner(secondPoolGirl);
+
+  const water = pool?.pool ?? { x0: -7, x1: 7, z0: 81, z1: 89 };
+  const waterY = pool?.waterY ?? poolAt.y - 0.2;
+  const poolGirlInWater = post('poolPerformer2', {
+    name: 'a dancer in the pool',
+    tier: 'ambient',
+    x: (water.x0 + water.x1) / 2 + 2.2,
+    y: waterY - 1.15,
+    z: (water.z0 + water.z1) / 2 + 0.4,
+    yaw: yawToward((water.x0 + water.x1) / 2 + 2.2, (water.z0 + water.z1) / 2 + 0.4,
+      firstLounger.x, firstLounger.z),
+    model: {
+      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+      height: 1.7, build: 1.04, dress: 'bikini', ...BADA_BING_PERFORMERS[1],
+    },
+    look: 'One of the girls from the club is cooling off in the pool.',
+  });
+  poolGirlInWater.inFixture = 'the pool';
+  poolGirlInWater.poolPose = 'in-water';
 
   /* ---- LIL TOM CRUZE ---------------------------------------------------
    *
@@ -2199,6 +2422,10 @@ export function mountMansionCast(scene, world = {}, {
       if (!enabled()) return;
       const p = playerPosition();
       for (const key of Object.keys(people)) people[key].update(dt, p);
+      /* Npc.update deliberately restores the neutral torso pose every frame;
+       * the loungers are a fixture-specific rest pose, so apply it after the
+       * shared animation has done its work. */
+      for (const npc of poolRecliners) posePoolRecliner(npc);
       /* The dog walks his own route rather than a `post`'s: he is not a
        * person, he has no lines, and his gate is a door rather than a bark
        * range. Ticked unconditionally so his own `enabled` decides, not this
@@ -2253,6 +2480,25 @@ export function mountMansionCast(scene, world = {}, {
           z: Number(npc.group.position.z.toFixed(2)),
         }));
       },
+      get evening() {
+        return {
+          poolPhase: poolEvening.phase,
+          poolSecondGreeted: poolEvening.greetedSecond,
+          dressHelped: poolEvening.dressHelped,
+          poolComposition: ['poolPerformer0', 'poolPerformer1', 'poolPerformer2']
+            .map((id) => ({
+              id,
+              pose: people[id]?.poolPose ?? '',
+              x: Number(people[id]?.group?.position?.x?.toFixed?.(2) ?? 0),
+              y: Number(people[id]?.group?.position?.y?.toFixed?.(2) ?? 0),
+              z: Number(people[id]?.group?.position?.z?.toFixed?.(2) ?? 0),
+            })),
+          oldStovePresent: Boolean(people.oldStove),
+          theatreChannel: theatreChannel?.() ?? '',
+        };
+      },
+      usePoolGirl: () => people.poolPerformer0?.group?.userData?.interact?.onUse?.() === true,
+      useOldStove: () => people.oldStove?.group?.userData?.interact?.onUse?.() === true,
       get spoken() { return [...dialogue.cueLog]; },
       get stages() { return [...stages]; },
       get gratin() {

@@ -464,9 +464,9 @@ const M_SILVER = mat({ color: 0xc8ccd6, roughness: 0.16, metalness: 0.9 });
 const M_STATUE = mat({
   color: 0xdfe4ee, roughness: 0.34, metalness: 0.26, emissive: 0x1b2130, emissiveIntensity: 0.55,
 });
-/** Darkened silver for the statue's bandana, so the mascot shape still reads. */
+/** Family red for the statue's headband, so the mascot shape reads at night. */
 const M_STATUE_PATINA = mat({
-  color: 0x8f95a2, roughness: 0.42, metalness: 0.2, emissive: 0x14181f, emissiveIntensity: 1.0,
+  color: 0xa51f2d, roughness: 0.42, metalness: 0.2, emissive: 0x31070b, emissiveIntensity: 0.72,
 });
 const M_CHROME = mat({ color: 0xd7dce3, roughness: 0.14, metalness: 0.95 });
 
@@ -1282,7 +1282,7 @@ export function buildMansionGrounds(scene = null) {
      *     plastic. Every mesh is repainted with the same M_SILVER /
      *     M_MARBLE_DK pair the rest of this file uses for metalwork, so it
      *     reads as a polished casting under the uplights. The bandana keeps a
-     *     darker patina so the silhouette still has the mascot's shape in it.
+     *     red enamel so the silhouette still has the mascot's shape in it.
      *  2. SCALE IT. The game model stands about 3.9 units tall with its feet
      *     at y~0.07, so 0.95 puts a 3.7 m monument on the pedestal.
      *  3. POSE IT. `buildArm` hangs each arm from a shoulder pivot, exactly so

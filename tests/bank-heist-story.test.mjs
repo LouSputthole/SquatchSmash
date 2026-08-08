@@ -133,14 +133,15 @@ test('THE TAKE records authored checkpoints exactly once and folds its result in
   assert.ok(state.missions[MISSION_IDS.BANK_HEIST].prospectShare > 0);
   assert.equal(state.missions[MISSION_IDS.BANK_HEIST]
     .crewInjuries[CHARACTER_IDS.RIPPINFLOW], 'moderate');
-  assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
+  assert.equal(state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
+  assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
 
   for (const item of HEIST_CLEANUP_ITEMS) {
     assert.equal(apartment.completeHeistCleanup(item.id), true);
   }
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].cleanupComplete, true);
   assert.deepEqual(apartment.tryLeave(), {
-    kind: 'go', destination: SCENE_IDS.INITIATION,
+    kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });
 });
 

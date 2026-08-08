@@ -16,6 +16,7 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
+import { FocusRush } from '../core/focus-rush.js';
 import { Phone } from '../core/phone.js';
 import { Radio } from '../core/radio.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
@@ -44,7 +45,6 @@ import { buildClub, ROOMS, roomAt, STAGE_H } from './club.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 import { createShubenatorSignature } from '../core/shubenator-signature.js';
 import { createLicenseToGrill } from './license-to-grill-runtime.js';
-import { QUEST } from './license-to-grill.js';
 import { BingAudioEngine } from './audio.js';
 import { populate, makeAssociate } from './cast.js';
 import {
@@ -211,6 +211,7 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const drunk = new Drunk();
 const highs = new Highs();
+const focusRush = new FocusRush({ baseFov: 70 });
 const inventory = new Inventory(5);
 inventory.onChange = () => hud.setInventory(inventory, ITEMS);
 const campaign = createCampaign();
@@ -481,6 +482,12 @@ const club = buildClub(scene, { renderer });
 world.colliders = club.colliders;
 world.floorZones = club.floorZones;
 world.groundAt = club.groundAt;
+/* The service door is an exit on the first visit, not a second entrance.
+ * Leaving it unlocked let Eric's back-hall route bypass the bouncer and the
+ * whole front-door introduction. Crossing into the main room through the
+ * public entrance unlocks it below; the HotDog return keeps its existing
+ * emergency access. */
+if (!isSecondVisit) club.doors.service.locked = true;
 /* The props that borrow the player's own art off assets/art -- the stickers
  * on Lou's fridge. The room is already standing and dressed with the drawn
  * versions; this only waits for the real images, and never throws if they are
@@ -1061,6 +1068,10 @@ function paintObjectives(list) {
  * presents as human, and nothing here says otherwise.
  * ------------------------------------------------------------------ */
 const spokeTo = new Set();
+/* Mounted later, after the floor cast exists. Objective painting can be
+ * requested by the mission before that mount, so the handle is deliberately
+ * nullable rather than living in a temporal-dead-zone `const`. */
+let licenseToGrill = null;
 function optionalObjectives() {
   const list = [
     {
@@ -1076,6 +1087,14 @@ function optionalObjectives() {
     { id: 'tip', text: 'Tip the performers', optional: true, done: (game.tips || 0) > 0 },
     { id: 'drink', text: 'Order a drink from the bar', optional: true, done: (mission.drinks || 0) > 0 },
   ];
+  if (!isSecondVisit) {
+    list.push({
+      id: 'grill',
+      text: 'See what Gratin needs in the service room',
+      optional: true,
+      done: licenseToGrill?.phase === 'done',
+    });
+  }
   if (isSecondVisit) {
     list.push({ id: 'song', text: 'Request a song from the DJ', optional: true, done: !!game.songRequested });
   }
@@ -1097,7 +1116,8 @@ function objectivesTick() {
   if (game.booskiShotDone) mission.complete('shot');
   const sig = `${mission.objectives.map((o) => (o.done ? 1 : 0)).join('')}`
     + `|${mission.objectives.length}|${spokeTo.size}|${mission.spins || 0}|${mission.hands || 0}`
-    + `|${mission.drinks || 0}|${game.tips || 0}|${game.songRequested ? 1 : 0}`;
+    + `|${mission.drinks || 0}|${game.tips || 0}|${game.songRequested ? 1 : 0}`
+    + `|${licenseToGrill?.phase ?? 'unmounted'}`;
   if (sig === objectiveSig) return;
   objectiveSig = sig;
   repaintObjectives();
@@ -1185,31 +1205,15 @@ function drinkTick(dt) {
  * lets go. Deliberately a short, self-contained state rather than a fourth
  * entry in the Highs system -- this is not a night out, it is a bathroom.
  * ------------------------------------------------------------------ */
-const FOCUS_FOV = 9;      // degrees the view narrows by at full effect
-let focusK = 0;
-
 function startFocus(secs = 25) {
-  game.focus = Math.max(game.focus || 0, secs);
+  game.focus = focusRush.start(secs);
+  return game.focus;
 }
 
 function focusTick(dt) {
-  if (game.focus > 0) game.focus = Math.max(0, game.focus - dt);
-  const want = game.focus > 0 ? 1 : 0;
-  // Comes on fast, lets go slowly, which is the honest shape of it.
-  focusK += (want - focusK) * Math.min(1, dt * (want ? 2.2 : 0.55));
-  if (focusK < 0.003) {
-    if (game.focusWasOn) {
-      game.focusWasOn = false;
-      camera.fov = 70;
-      camera.updateProjectionMatrix();
-    }
-    return;
-  }
-  game.focusWasOn = true;
-  camera.fov = 70 - FOCUS_FOV * focusK;
-  camera.updateProjectionMatrix();
-  player.moveScale *= 1 + 0.42 * focusK;
-  fxDrunk.style.setProperty('--vig', (drunk.vignette + 0.42 * focusK).toFixed(3));
+  focusRush.update(dt);
+  game.focus = focusRush.remaining;
+  focusRush.apply(camera, player, { baseMoveScale: player.moveScale });
 }
 
 /* A short cheerful shower of bills. DOM, not geometry: it is a HUD flourish
@@ -1456,7 +1460,6 @@ registerDoor('storage', {
   onToggle: (door) => {
     if (!door.open) return;
     if (!licenseToGrill.available()) return;
-    mission.addObjective('grill', QUEST.objective);
     licenseToGrill.open();
   },
 });
@@ -1617,7 +1620,7 @@ const LICENSE_TO_GRILL_KEY = 'squatch.bing.license-to-grill';
  * ambient on the floor asks `offer` and is told no if he has just said it. */
 const shubenatorSignature = createShubenatorSignature();
 
-const licenseToGrill = createLicenseToGrill({
+licenseToGrill = createLicenseToGrill({
   scene,
   /* The cord and the five things off Blond's person are carried, so they hang
    * off the camera like every other held prop in this building. */
@@ -1643,7 +1646,7 @@ const licenseToGrill = createLicenseToGrill({
     } catch {
       /* A refused write costs the callback later, not the scene now. */
     }
-    mission.complete('grill');
+    repaintObjectives();
   },
 });
 
@@ -3331,6 +3334,10 @@ function onRoomChange(next) {
   }
   if (next === 'main' && !mission.inside) {
     mission.enteredClub();
+    /* The first visit must come through the bouncer/front-door sequence.
+     * Once he is genuinely inside, the fire/service door becomes the live
+     * alarmed exit it was always meant to be. */
+    if (!isSecondVisit) club.doors.service.locked = false;
     hud.say('Warm, loud, and darker than it needs to be. The hallway to the back is on the right.', 5200);
   }
   if (next === 'hallway' && mission.state === 'club') mission.reachedHallway();
@@ -3482,7 +3489,7 @@ function frame() {
   player.lookDrag = highs.lookDrag;
   focusTick(raw);
   fxDrunk.style.setProperty('--blur', `${drunk.blur.toFixed(2)}px`);
-  fxDrunk.style.setProperty('--vig', drunk.vignette.toFixed(3));
+  fxDrunk.style.setProperty('--vig', (drunk.vignette + 0.42 * focusRush.strength).toFixed(3));
   fxDrunk.style.setProperty('--warm', drunk.warmth.toFixed(3));
 
   player.update(dt);
@@ -3538,7 +3545,7 @@ if (isSecondVisit) {
 loading.classList.add('hidden');
 window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
-  interaction, drunk, highs, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
+  interaction, drunk, highs, focusRush, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
   family, familyScripts, faceIndex,
   licenseToGrill, shubenatorSignature,
   isSecondVisit, secondVisitStory,

@@ -44,9 +44,21 @@ import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
 import { weaponCueNames } from '../../core/weapons/audio.js';
 import { WEAPON_IDS } from '../../core/weapons/catalog.js';
+import { SceneInventoryBar } from '../../core/scene-inventory.js';
+import {
+  createFinalArcLoadout,
+  FINAL_ARC_WEAPON_CATALOG,
+} from '../../core/final-arc-loadout.js';
 import { FACTIONS, FactionMatrix } from '../../core/combat/factions.js';
 import { CombatActor } from '../../core/combat/actors.js';
 import { SuppressionModel } from '../../core/combat/suppression.js';
+import { SCENE_IDS, createCampaign } from '../../core/campaign.js';
+import {
+  createFinalArcRuntimeSession,
+  restoreCompletedFinalArcEntry,
+} from '../../core/final-arc-runtime.js';
+import { createMansionSiegeCampaignStory } from '../../core/final-arc-story.js';
+import { isPreviewMode } from '../../core/preview-mode.js';
 
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
@@ -322,6 +334,9 @@ const playerActor = new CombatActor({
   id: 'prospect', faction: FACTIONS.CREW, maxHealth: 100, armor: 0,
 });
 
+const finalArcLoadout = createFinalArcLoadout();
+const loadoutBar = new SceneInventoryBar({ catalog: FINAL_ARC_WEAPON_CATALOG, visible: true });
+let captureSiegeLoadout = () => {};
 const weaponSystem = new WeaponSystem({
   camera,
   world: scene,
@@ -330,8 +345,26 @@ const weaponSystem = new WeaponSystem({
     ?? exteriorGroundAt(x, z),
   hitTargets: [...interior.occluders, ...grounds.occluders],
   range: 70,
-  onEvent: () => { ammoDirty = true; },
+  onEvent: () => {
+    ammoDirty = true;
+    captureSiegeLoadout();
+  },
 });
+captureSiegeLoadout = () => {
+  finalArcLoadout.capture(weaponSystem);
+  loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+  return finalArcLoadout.state;
+};
+function equipOwnedWeapon(id) {
+  const result = finalArcLoadout.acquire(id, weaponSystem.firearm(id).snapshot());
+  if (!result.ok) return false;
+  finalArcLoadout.select(result.slot, weaponSystem);
+  loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+  ammoDirty = true;
+  return true;
+}
+finalArcLoadout.apply(weaponSystem, { equip: false });
+loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
 
 const attackers = createAttackerPool({
   scene,
@@ -399,9 +432,27 @@ const armory = mountArmory({
     ));
   },
   addLight: registerLocalLight,
+  retainTaken: true,
   onEvent: (event) => {
     ammoDirty = true;
-    if (event?.type !== 'taken' || !event.id) return;
+    if (!event?.id) return;
+    if (event.type === 'rack') {
+      finalArcLoadout.remove(event.id);
+      captureSiegeLoadout();
+      return;
+    }
+    if (event.type === 'resupply') {
+      captureSiegeLoadout();
+      return;
+    }
+    if (event.type !== 'take') return;
+    const owned = finalArcLoadout.acquire(event.id, weaponSystem.firearm(event.id).snapshot());
+    if (!owned.ok) {
+      armory.put();
+      nudge('Five slots are full. Stow or return a gun before taking another.');
+      return;
+    }
+    captureSiegeLoadout();
     if (HEAVY_IDS.has(event.id)) heavyTaken = true;
     else PRIMARY_TAKEN.add(event.id);
     const done = mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
@@ -418,6 +469,12 @@ const armory = mountArmory({
     }
   },
 });
+for (const id of finalArcLoadout.items) {
+  if (!id) continue;
+  armory.claim(id);
+  if (HEAVY_IDS.has(id)) heavyTaken = true;
+  else PRIMARY_TAKEN.add(id);
+}
 
 /* ================================================================== */
 /* The two bills the house was paying every frame -- see ../perf.js      */
@@ -446,6 +503,16 @@ let running = false;
 let ammoDirty = true;
 let waveDirty = true;
 let checkpointToast = 0;
+
+const siegeCampaignPreview = isPreviewMode();
+const siegeCampaign = createFinalArcRuntimeSession({
+  preview: siegeCampaignPreview,
+  campaign: siegeCampaignPreview ? null : createCampaign(),
+  sceneId: SCENE_IDS.MANSION_SIEGE,
+  spawn: 'guest_suite',
+  storyFactory: createMansionSiegeCampaignStory,
+});
+let siegeCampaignComplete = false;
 
 /* ================================================================== */
 /* WHAT PEOPLE SAY                                                       */
@@ -513,7 +580,14 @@ const mission = new SiegeMission({
     waveDirty = true;
     const sequence = BEAT_SEQUENCE[beat];
     if (sequence) dialogue.play(sequence);
-    if (beat === B.COMPLETE) showMissionCard();
+    if (beat === B.COMPLETE) {
+      siegeCampaignComplete = siegeCampaign.complete({
+        attackersDown: mission.attackersDown,
+        littleFriendSaid: mission.littleFriendSaid,
+        sasoleMet: true,
+      });
+      showMissionCard();
+    }
     /* THE TWO FIGHTS THAT ARE NOT WAVES.
      *
      * `ENCOUNTERS` in waves.js authors the corridor's two men and the foyer's
@@ -541,6 +615,11 @@ const mission = new SiegeMission({
     if (order?.group === '2B') dialogue.play('flank');
   },
   onCheckpoint: (id) => {
+    siegeCampaign.checkpoint(id, {
+      attackersDown: mission.attackersDown,
+      littleFriendSaid: mission.littleFriendSaid,
+      sasoleMet: mission.beat === B.COMPLETE,
+    });
     checkpointEl.textContent = (CHECKPOINTS[id]?.label ?? 'CHECKPOINT').toUpperCase();
     checkpointEl.classList.add('show');
     checkpointToast = 2.2;
@@ -564,8 +643,12 @@ mission
     restore: (snap) => { if (snap) playerActor.restore(snap); },
   })
   .provide('ammunition', {
-    capture: () => weaponSystem.hud?.() ?? null,
-    restore: () => { ammoDirty = true; },
+    capture: () => finalArcLoadout.checkpoint(),
+    restore: (snapshot) => {
+      finalArcLoadout.restore(snapshot, weaponSystem);
+      loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+      ammoDirty = true;
+    },
   })
   .provide('enemiesDown', {
     capture: () => attackers.snapshot(),
@@ -811,6 +894,7 @@ function updateTriggers(dt) {
   if (mission.beat === B.TO_ARMORY) {
     if (inRect(BASEMENT_ROOM, x, z) && feet < GROUND_Y - 1) {
       mission.enteredArmory();
+      mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
       return;
     }
     /* Out of the bedroom and into the corridor: Booski, on the house radio,
@@ -881,7 +965,17 @@ window.addEventListener('keydown', (e) => {
   player.setKey(e.code, true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
   if (e.code === 'KeyR' && !e.repeat) { weaponSystem.reload(); ammoDirty = true; }
-  if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) armory.put();
+  if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
+    finalArcLoadout.stow(weaponSystem);
+    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+    ammoDirty = true;
+  }
+  if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
+    finalArcLoadout.select(Number(e.code.slice(5)) - 1, weaponSystem);
+    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+    ammoDirty = true;
+    e.preventDefault();
+  }
   /* The line. Once, ever, and only with the heavy up on the landing. */
   if (e.code === 'KeyF' && !e.repeat) tryTheLine();
   /* Skip the rest of whoever is talking. Enter, deliberately: Space is jump,
@@ -895,6 +989,20 @@ window.addEventListener('keydown', (e) => {
   // B — the same bloom toggle every PostFX-mounted scene answers to.
   if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
+window.addEventListener('wheel', (e) => {
+  if (!running) return;
+  const occupied = finalArcLoadout.items;
+  if (occupied.filter(Boolean).length <= 1) return;
+  let index = finalArcLoadout.selected;
+  for (let tries = 0; tries < occupied.length; tries++) {
+    index = (index + (e.deltaY > 0 ? 1 : -1) + occupied.length) % occupied.length;
+    if (!occupied[index]) continue;
+    finalArcLoadout.select(index, weaponSystem);
+    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+    ammoDirty = true;
+    break;
+  }
+}, { passive: true });
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
   if (e.code === 'KeyE') interaction.release();
@@ -904,6 +1012,7 @@ window.addEventListener('blur', () => {
   interaction.release();
   weaponSystem.setTrigger(false);
 });
+window.addEventListener('pagehide', () => captureSiegeLoadout());
 window.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
   player.handleMouseMove(e.movementX, e.movementY);
@@ -1013,7 +1122,7 @@ function refreshAmmo() {
   ammoEl.classList.remove('hidden');
   reticleEl?.classList.remove('hidden');
   ammoNameEl.textContent = hud.name ?? '';
-  ammoMagEl.textContent = String(hud.mag ?? 0);
+  ammoMagEl.textContent = String(hud.rounds ?? 0);
   ammoReserveEl.textContent = String(hud.reserve ?? 0);
   ammoStateEl.textContent = hud.state ?? '';
 }
@@ -1072,7 +1181,7 @@ function refreshWaveCount() {
 /* the way out, and here is why the aeroplane is a separate link.          */
 /* ================================================================== */
 let missionCardShown = false;
-function showMissionCard() {
+function showMissionCard({ attackersDown = mission.attackersDown } = {}) {
   if (missionCardShown || !missionCardEl) return;
   missionCardShown = true;
   /* EVERY NUMBER HERE COMES OFF A LEDGER RATHER THAN OFF THE LIVE SCENE, and
@@ -1088,7 +1197,7 @@ function showMissionCard() {
   const roll = totalAttackers();
   const family = ensemble.census();
   const set = (id, value) => { const el = $(id); if (el) el.textContent = String(value); };
-  set('tallyAttackers', mission.attackersDown);
+  set('tallyAttackers', attackersDown);
   set('tallyAttackersOf', `OF ${roll.total} ATTACKERS DOWN`);
   set('tallyFamily', family.alive);
   set('tallyFamilyOf', `OF ${family.total} FAMILY ALIVE`);
@@ -1103,6 +1212,11 @@ function showMissionCard() {
   running = false;
 }
 $('replayBtn')?.addEventListener('click', () => window.location.reload());
+$('continueBtn')?.addEventListener('click', (event) => {
+  if (siegeCampaignPreview || !siegeCampaignComplete) return;
+  event.preventDefault();
+  siegeCampaign.navigate(SCENE_IDS.ENOLA_SQUATCH, { spawn: 'airfield' });
+});
 
 /* ================================================================== */
 /* The wake-up                                                           */
@@ -1149,7 +1263,7 @@ const pauseMenu = createPauseMenu({
   getObjective: () => mission.objective ?? 'Hold the house.',
   instructions: [
     'W A S D -- move. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
-    'Left mouse fires. R reloads. E takes a weapon off the rack, Q puts it back.',
+    'Left mouse fires. R reloads. E takes or returns a rack weapon. 1–5 select; Q stows.',
     'F -- say it, once, from the top of the stairs with the heavy in your hands.',
     'E -- held, next to somebody on the floor, gets them back on their feet.',
     'Enter skips the rest of a line. Tab pauses and resumes.',
@@ -1174,17 +1288,9 @@ const pauseMenu = createPauseMenu({
 /*                                                                       */
 /* WHY THIS IS PARSED HERE AND NOT IN `src/core/preview-mode.js`.        */
 /*                                                                       */
-/* That module owns the CAMPAIGN's preview routing: which scene a page    */
-/* seeds, which apartment variant it dresses, and which saved progress a  */
-/* `?preview=1` session is allowed to invent. The siege has no campaign    */
-/* entry at all yet -- it is reachable only by typing its URL -- so it has */
-/* nothing to seed and no saved progress to protect, and a row in the      */
-/* shared parser would be a promise about campaign state that this scene   */
-/* cannot currently keep. `previewBeefRunCheckpointForLocation()` carries   */
-/* the same warning in its own docblock for the same reason. So the list    */
-/* lives beside the mission it belongs to and the shared module is left     */
-/* alone; the day the siege joins the campaign, this is one function to     */
-/* move rather than a fork to unpick.                                      */
+/* The shared module owns scene selection; this page-local parser owns the */
+/* siege's four mission checkpoint poses. Every checkpoint URL is preview  */
+/* isolated, while an ordinary start claims the canonical campaign scene. */
 /*                                                                        */
 /* IT REPLAYS THE BEATS RATHER THAN FAKING THEM. Every jump below walks    */
 /* the real `mission` methods in the real order -- wokeUp, enteredArmory,  */
@@ -1222,7 +1328,7 @@ function requestedCheckpoint() {
   try { value = new URLSearchParams(window.location.search).get('checkpoint'); } catch { value = null; }
   return value && Object.hasOwn(CHECKPOINT_ENTRIES, value) ? value : null;
 }
-const startCheckpoint = requestedCheckpoint();
+const startCheckpoint = siegeCampaignPreview ? requestedCheckpoint() : null;
 
 if (startCheckpoint && startCheckpoint !== 'wake') {
   const entry = CHECKPOINT_ENTRIES[startCheckpoint];
@@ -1246,7 +1352,7 @@ function jumpToCheckpoint(id) {
   if (id === 'wake' || !CHECKPOINT_ENTRIES[id]) return false;
   mission.wokeUp();
   mission.enteredArmory();
-  weaponSystem.equip(WEAPON_IDS.CARBINE);
+  equipOwnedWeapon(WEAPON_IDS.CARBINE);
   PRIMARY_TAKEN.add(WEAPON_IDS.CARBINE);
   heavyTaken = true;
   mission.armed({ primary: true, heavy: true });
@@ -1255,7 +1361,7 @@ function jumpToCheckpoint(id) {
   mission.enteredOffice();
   dialogue.play('briefing');
   dialogue.finish();
-  weaponSystem.equip(WEAPON_IDS.SAW);
+  equipOwnedWeapon(WEAPON_IDS.SAW);
   if (id === 'briefed') return true;
 
   /* Wave one, fought and won on the clock. `sayHello()` is the real gate --
@@ -1278,20 +1384,45 @@ function jumpToCheckpoint(id) {
 /* ================================================================== */
 async function beginSiege() {
   if (running) return;
+  const campaignEntry = siegeCampaign.begin();
+  if (!campaignEntry.ok) {
+    if (restoreCompletedFinalArcEntry(campaignEntry, {
+      preview: siegeCampaignPreview,
+      restore: () => {
+        siegeCampaignComplete = true;
+        menuEl.classList.add('hidden');
+        showMissionCard({
+          attackersDown: siegeCampaign.story?.mission?.attackersDown ?? 0,
+        });
+      },
+    })) return false;
+    if (checkpointTagEl) {
+      checkpointTagEl.hidden = false;
+      checkpointTagEl.textContent = campaignEntry.reason === 'already_complete'
+        ? 'This siege is already complete in the current campaign.'
+        : 'Mansion Under Siege is not available in the current campaign.';
+    }
+    return false;
+  }
   running = true;
   menuEl.classList.add('hidden');
   await audio.init();
   audio.loadManifest({ names: [...weaponCueNames(), ...siegeCueNames()] }).catch(() => {});
-  /* The pistol on the nightstand: the Heavy-frame .45, which is the sidearm
-   * this campaign has put in his hands before. One magazine in and one spare
-   * -- enough to survive a corridor if he aims, nowhere near enough to make
-   * the armory optional. */
-  weaponSystem.equip(WEAPON_IDS.REVOLVER);
+  /* A direct/legacy entry still gets the nightstand .45. Campaign entry keeps
+   * the exact guns, selected slot and ammunition brought out of the previous
+   * Mansion scene instead of replacing them at boot. */
+  if (!finalArcLoadout.items.some(Boolean)) finalArcLoadout.acquire(WEAPON_IDS.REVOLVER);
+  finalArcLoadout.apply(weaponSystem);
+  loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
   ammoDirty = true;
   mission.start(B.WAKE);
-  if (startCheckpoint && startCheckpoint !== 'wake') {
-    jumpToCheckpoint(startCheckpoint);
-    const at = CHECKPOINT_ENTRIES[startCheckpoint].at;
+  const entryCheckpoint = campaignEntry.resumed
+    && Object.hasOwn(CHECKPOINT_ENTRIES, campaignEntry.checkpoint)
+    ? campaignEntry.checkpoint
+    : startCheckpoint;
+  if (entryCheckpoint && entryCheckpoint !== 'wake') {
+    jumpToCheckpoint(entryCheckpoint);
+    const at = CHECKPOINT_ENTRIES[entryCheckpoint].at;
     if (at) teleport(at.x, at.y, at.z, at.yaw);
     /* A checkpoint start has already had its wake-up. Skipping it also skips
      * `mission.wokeUp()`, which `jumpToCheckpoint` has already called. */
@@ -1302,18 +1433,17 @@ async function beginSiege() {
   }
   renderer.domElement.requestPointerLock?.();
   clock.getDelta();
+  return true;
 }
 startBtn.addEventListener('click', beginSiege);
 
 /**
  * Cue names this scene wants preloaded. Kept beside the mission it serves.
  *
- * The effect cues are still unregistered in `assets/sfx/manifest.json` and
- * are therefore synthesised or silent -- a known gap, reported rather than
- * papered over; `loadManifest` drops any name with no manifest entry before
- * it ever requests a file, so listing them costs nothing and means the day
- * one IS recorded this list does not need to be remembered too. The SPOKEN
- * lines are a different matter: they come off `./script.js`,
+ * These six effects are REQUIRED authored cues. Runtime synthesis may keep a
+ * playtest moving, but it is not completion: the verifier checks every name
+ * here against both manifest metadata and the generated file index before it
+ * checks browser residency. The SPOKEN lines come off `./script.js`,
  * `tools/siege-vo.mjs` puts every one of them in the manifest, and the
  * recording sheet has carried them since. See ENGINE-TRAPS #3 for the three
  * previous times a scene shipped without that and nobody found out.
@@ -1321,16 +1451,21 @@ startBtn.addEventListener('click', beginSiege);
  * Exported so tools/verify-mansion-siege.mjs can recompute the scene's own
  * selector rather than retyping it -- the same reason
  * src/mansion/scenes/SilentSquatch.js exports `silentSquatchCueNames()`. */
+export const REQUIRED_SIEGE_EFFECT_CUES = Object.freeze([
+  'siege.alarm.tone',
+  'siege.glass.shatter',
+  'siege.fire.crackle',
+  'siege.wave.incoming',
+  'siege.checkpoint',
+  'siege.friendly.revived',
+]);
+
+export function siegeEffectCueNames() {
+  return [...REQUIRED_SIEGE_EFFECT_CUES];
+}
+
 export function siegeCueNames() {
-  return [
-    'siege.alarm.tone',
-    'siege.glass.shatter',
-    'siege.fire.crackle',
-    'siege.wave.incoming',
-    'siege.checkpoint',
-    'siege.friendly.revived',
-    ...siegeVoiceCueNames(),
-  ];
+  return [...siegeEffectCueNames(), ...siegeVoiceCueNames()];
 }
 
 /* ================================================================== */
@@ -1433,6 +1568,11 @@ function teleport(x, y, z, yawDeg = 0) {
 }
 
 window.mansionSiege = {
+  campaign: {
+    preview: siegeCampaignPreview,
+    state: () => siegeCampaign.campaign?.state ?? null,
+    get completed() { return siegeCampaignComplete; },
+  },
   THREE,
   scene,
   camera,
@@ -1533,6 +1673,13 @@ window.mansionSiege = {
   teleport,
   start: () => beginSiege(),
   /** What is in his hands, and putting something there. For the verifier. */
+  loadout: {
+    get slots() { return finalArcLoadout.items; },
+    get selected() { return finalArcLoadout.selected; },
+    get equipped() { return finalArcLoadout.equipped; },
+    checkpoint: () => finalArcLoadout.checkpoint(),
+    select: (index) => finalArcLoadout.select(index, weaponSystem),
+  },
   get equipped() { return weaponSystem.equipped ?? null; },
   get playerHealth() { return playerActor.health; },
   get playerDown() { return playerActor.incapacitated; },
@@ -1545,7 +1692,10 @@ window.mansionSiege = {
     onPlayerDown();
     return mission.beat;
   },
-  equip: (id) => { weaponSystem.equip(id); ammoDirty = true; return weaponSystem.equipped ?? null; },
+  equip: (id) => {
+    equipOwnedWeapon(id);
+    return weaponSystem.equipped ?? null;
+  },
   /**
    * Step the simulation on the scene's own clock rather than on real
    * animation frames. Every verify-*.mjs in this repo drives scenes this

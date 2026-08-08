@@ -536,5 +536,7 @@ body.beefrun { background: #0c0c10; }
   border: 1px solid rgba(232, 226, 208, 0.35);
 }
 
-/* The clock and the bladder meter belong to the flat, not to an aeroplane. */
-body.beefrun #clock, body.beefrun #bladder, body.beefrun #radio-osd { display: none !important; }
+/* The clock and the bladder meter belong to the flat, not to an aeroplane.
+ * The shared radio OSD does belong here now: it mirrors the live receiver in
+ * the panel and remains hidden through Hud.setRadio() while the set is off. */
+body.beefrun #clock, body.beefrun #bladder { display: none !important; }

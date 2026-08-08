@@ -66,13 +66,43 @@ export function createMansionLoadout({
   onCordInHand = () => {},
   weaponName = (id) => id,
   slots = 5,
+  durableLoadout = null,
+  bar: suppliedBar = null,
 } = {}) {
   const inventory = new Inventory(slots);
   /** Catalog grows as guns are picked up, so the bar can label them. */
   const catalog = { ...MANSION_ITEMS };
-  const bar = new SceneInventoryBar({ slots, catalog, visible: true });
+  const bar = suppliedBar ?? new SceneInventoryBar({ slots, catalog, visible: true });
 
   const isWeapon = (id) => Boolean(id) && id !== 'case' && id !== 'cord';
+
+  /* A scene seam restores the exact weapon slots before mission-local things
+   * (the case and the cord) are handed over. Local props can occupy the gaps;
+   * the durable projection written back below contains guns only. */
+  if (durableLoadout) {
+    const saved = durableLoadout.state;
+    for (let i = 0; i < Math.min(slots, saved.slots?.length ?? 0); i++) {
+      const id = saved.slots[i];
+      if (!isWeapon(id)) continue;
+      inventory.items[i] = id;
+      catalog[id] = weaponEntry(id, weaponName(id));
+    }
+    inventory.selected = Math.max(0, Math.min(slots - 1, saved.selected ?? 0));
+    durableLoadout.apply(weapons, { equip: false });
+  }
+
+  function persist() {
+    if (!durableLoadout) return null;
+    durableLoadout.replaceSlots(
+      inventory.items.map((id) => (isWeapon(id) ? id : null)),
+      {
+        selected: inventory.selected,
+        equipped: weapons?.equipped ?? null,
+        weaponSystem: weapons,
+      },
+    );
+    return durableLoadout.state;
+  }
 
   /**
    * Redraw, and put the case in or out of his hands.
@@ -97,6 +127,7 @@ export function createMansionLoadout({
     onCordInHand(inventory.held === 'cord');
     bar.catalog = catalog;
     bar.set(inventory.items, inventory.selected);
+    persist();
   }
 
   inventory.onChange = apply;
@@ -148,21 +179,21 @@ export function createMansionLoadout({
     hasCord: () => inventory.has('cord'),
 
     /**
-     * Mirror the armory: he carries exactly the gun the weapon system says he
-     * has, and no more.
-     *
-     * At most ONE weapon slot, because the armory is a rack you take one thing
-     * off — a slot per gun ever touched would fill five slots with guns that
-     * are back on the wall, and then the case would have nowhere to go.
+     * Mirror an armory pickup without erasing guns earned earlier. A new gun
+     * fills the first free slot; selecting a known one reuses its stable slot.
+     * Only an explicit physical rack return removes ownership.
      * @param {string|null} id the equipped weapon, or null for empty hands
      */
-    syncWeapon(id) {
-      for (const existing of inventory.items) {
-        if (isWeapon(existing) && existing !== id) inventory.remove(existing);
-      }
+    syncWeapon(id, { rackedId = null } = {}) {
+      if (rackedId) this.rackWeapon(rackedId);
       if (id && !inventory.has(id)) {
         catalog[id] = weaponEntry(id, weaponName(id));
-        inventory.add(id);
+        if (!inventory.add(id)) {
+          persist();
+          return false;
+        }
+      } else if (id) {
+        inventory.select(inventory.items.indexOf(id));
       }
       /* Putting a gun back on the rack empties the slot it was in, and the
        * selection was still pointing at it -- so he walked away from the
@@ -174,16 +205,42 @@ export function createMansionLoadout({
         if (occupied >= 0) inventory.select(occupied);
       }
       apply();
+      return true;
+    },
+
+    /** Q stows a gun; ownership, slot position and ammunition all survive. */
+    stow() {
+      weapons?.stow?.();
+      const empty = inventory.items.indexOf(null);
+      if (empty >= 0) inventory.select(empty);
+      durableLoadout?.stow(weapons);
+      apply();
+      return true;
+    },
+
+    /** Returning a gun to a physical rack removes that one gun only. */
+    rackWeapon(id) {
+      if (!isWeapon(id)) return false;
+      const removed = inventory.remove(id);
+      if (!inventory.held) {
+        const occupied = inventory.items.findIndex(Boolean);
+        if (occupied >= 0) inventory.select(occupied);
+      }
+      apply();
+      return removed;
     },
 
     select(i) {
       inventory.select(i);
       selectionChanged();
+      apply();
     },
     cycle(dir) {
       inventory.cycle(dir);
       selectionChanged();
+      apply();
     },
+    capture: persist,
     refresh: apply,
   };
 }

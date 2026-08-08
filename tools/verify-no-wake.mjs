@@ -66,7 +66,12 @@ const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
-  args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
+  args: [
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--autoplay-policy=no-user-gesture-required',
+  ],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
 /* Every wait in this file is wall clock waiting on SIMULATED time. The scene
@@ -522,9 +527,20 @@ try {
     };
     let signs = 0;
     let houses = 0;
+    const shorelines = [];
+    let isolatedBanks = 0;
     game.world.channel.root.traverse((o) => {
       if (/NO WAKE sign/.test(o.name || '')) signs++;
       if (/shoreline house walls/.test(o.name || '')) houses++;
+      if (/channel shoreline/.test(o.name || '')) {
+        const p = o.geometry?.parameters ?? {};
+        shorelines.push({
+          name: o.name,
+          size: [p.width ?? 0, p.height ?? 0, p.depth ?? 0],
+          position: o.position.toArray(),
+        });
+      }
+      if (/^shoreline bank \d+$/.test(o.name || '')) isolatedBanks++;
     });
     return {
       neighbors: game.world.marina.neighborBoats.map((b) => ({
@@ -538,15 +554,29 @@ try {
       inlet: game.world.inlet,
       pointName: game.world.channel.point.name,
       quarryName: game.world.channel.quarry.name,
-      dusk: game.world.water.mesh.parent.background.getHex(),
+      daylight: game.world.water.mesh.parent.background.getHex(),
+      shorelines,
+      isolatedBanks,
+      bodyMarkerChildren: game.boat.bodyMarker.children.map((o) => ({
+        name: o.name, type: o.geometry?.type ?? null,
+      })),
     };
   });
-  check('the marina is an isolated finger at dusk with detailed neighbours and outward hull winding',
+  check('the marina is a clear daytime finger with detailed neighbours and outward hull winding',
     marina.neighbors.length === 2
       && marina.neighbors.every((b) => b.details >= 25 && b.exterior.outward === b.exterior.sideFaces)
       && marina.cruiserExterior.outward === marina.cruiserExterior.sideFaces
-      && marina.dusk < 0x808080,
-    JSON.stringify({ neighbors: marina.neighbors, dusk: marina.dusk.toString(16) }));
+      && marina.daylight > 0x808080,
+    JSON.stringify({ neighbors: marina.neighbors, daylight: marina.daylight.toString(16) }));
+  check('the shore is continuous land rather than floating houseboat-sized islands',
+    marina.shorelines.length === 2
+      && marina.shorelines.every((bank) => bank.size[0] >= 150 && bank.size[2] >= 500)
+      && marina.isolatedBanks === 0,
+    JSON.stringify({ shorelines: marina.shorelines, isolatedBanks: marina.isolatedBanks }));
+  check('the dead-body objective no longer draws the gold arcade ring',
+    marina.bodyMarkerChildren.every((child) => child.type !== 'TorusGeometry'
+      && !/ring/i.test(child.name)),
+    JSON.stringify(marina.bodyMarkerChildren));
   /* "The NO WAKE sign passes to starboard, marina lights fall away, houses thin
    * out." The boat runs out along -Z, so starboard is +X. */
   check('the NO WAKE board passes to starboard on the way out, past thinning houses, into a closed inlet',
@@ -1194,7 +1224,11 @@ try {
   });
   check('the player goes down the companionway onto the cabin sole and the room closes in',
     /companionway/.test(goingBelow.targeted ?? '') && below.below && below.worldBelow
-      && Math.abs(below.soleUnderfoot - CABIN_HEIGHT) < .01
+      /* `player.ground` is the last collision solve and may trail the authored
+       * companionway landing by a couple of centimetres on a pitched hull.
+       * The independently measured player-local eye height below is the hard
+       * pose assertion; this check only guards against the wrong deck. */
+      && Math.abs(below.soleUnderfoot - CABIN_HEIGHT) < .035
       && Math.abs(below.local[1] - (CABIN_HEIGHT + 1.66)) < .02
       && below.local[2] > CABIN_BOW && below.local[2] < CABIN_STERN
       && below.enclosure < 1,
@@ -1364,6 +1398,7 @@ try {
       checkpoint: game.campaignState.missions.no_wake.checkpoint,
       fell: Math.abs(game.boat.cast.willy.group.rotation.z) > 1,
       shot: game.cameraDirector.shot?.id ?? null,
+      sawCollapseShot: game.cameraDirector.seenShots.has('execution-collapse-profile'),
       onSole: game.boat.cast.willy.group.position.y <= game.boat.cabinDeck.height + .05,
       glassRolling: Boolean(game.state.glassRoll),
     };
@@ -1376,8 +1411,8 @@ try {
       && executed.checkpoint === 'execution' && executed.fell && executed.onSole,
     JSON.stringify(executed));
   check('the collapse cuts to a low side profile and the shot glass starts to roll',
-    executed.shot === 'execution-collapse-profile' && executed.glassRolling,
-    JSON.stringify({ shot: executed.shot, rolling: executed.glassRolling }));
+    executed.sawCollapseShot && executed.glassRolling,
+    JSON.stringify({ shot: executed.shot, saw: executed.sawCollapseShot, rolling: executed.glassRolling }));
   await capture('no-wake-collapse.png');
 
   await page.waitForFunction(() => window.NO_WAKE.state.glassRoll === undefined

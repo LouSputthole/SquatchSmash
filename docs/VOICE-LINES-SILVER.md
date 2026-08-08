@@ -46,12 +46,12 @@ stop the previous solo voice, and dialogue ducks the live performance mix.
 Current Front and Center voice coverage:
 
 - **344** exact cues in the authored catalog and shared manifest.
-- **324** exact cue recordings listed in `assets/sfx/index.json` and present in
+- **342** exact cue recordings listed in `assets/sfx/index.json` and present in
   `assets/sfx/`.
-- **20** missing recordings: **16** new room barks, **2** in the Margo bank,
-  and **2** new bandleader cues (the stand-up bit that replaced Ashland Line —
-  see below).
-- **0** other Front and Center voice pickups.
+- **2** missing recordings: the new bandleader stand-up cues.
+- **12** indexed featured-waiter files require replacement because their bank
+  was owner-recast to `silver-waiter` on 2026-08-08. They are current runtime
+  filenames but still contain the previous actor until regenerated.
 
 The show opening was rewritten on the owner's note: "the band is much better,
 BUT the 'lady singing thing' must GO." The second warm-up number used to be
@@ -66,17 +66,17 @@ whistle, laughter, a rimshot — are sound-effect cues (`crowd.whistle`,
 `crowd.laughter`, `band.rimshot`, plus the existing `applause`), not voice
 lines, and are not part of this catalog.
 
-The Manager bank is now fully recorded under the scene-local `npc-male`
-profile. The previous ten Manager takes used the shared waiter voice; they are
+The Manager bank is fully recorded under the scene-local `manager` profile.
+The previous ten Manager takes used the shared waiter voice; they are
 retired from the runtime and kept only for comparison in
 `assets/audio/auditions/retired-silver-manager-waiter/`. Do not copy those
 takes back into `assets/sfx/`.
 
-The sixteen outstanding room barks are the dining-room and corridor lines added
+The sixteen added room barks are the dining-room and corridor lines added
 because the floor deck was repeating audibly across the seated half of the
 evening — thirteen new diners and waiters on the floor, three more in the
 corridor. They are subtitled and wired now and read correctly without audio;
-they are ordinary pickups for the shared `waiter` profile. **Append to those
+they are now recorded under the shared `waiter` profile. **Append to those
 two decks, never insert into them:** every room bark is addressed by its
 position (`vo.silver.room.floor.N`), the first seven floor takes are already
 recorded against those numbers, and `barks()` retires floor line six by index
@@ -100,19 +100,23 @@ concepts separate lets one role be recast without renaming its cues.
 | `dishwasher` | `waiter` | 3 | 3 | 0 |
 | `driver` | `doorman` | 6 | 6 | 0 |
 | `host` | `waiter` | 8 | 8 | 0 |
-| `manager` | `npc-male` | 10 | 10 | 0 |
-| `margo` | `margo` | 118 | 116 | 2 |
+| `manager` | `manager` | 10 | 10 | 0 |
+| `margo` | `margo` | 118 | 118 | 0 |
 | `photographer` | `waiter` | 3 | 3 | 0 |
 | `player` | `player` | 102 | 102 | 0 |
 | `porter` | `waiter` | 3 | 3 | 0 |
-| `room` | `waiter` | 36 | 20 | 16 |
+| `room` | `waiter` | 36 | 36 | 0 |
 | `servicebar` | `waiter` | 3 | 3 | 0 |
 | `vinny` | `doorman` | 4 | 4 | 0 |
-| `waiter` | `waiter` | 12 | 12 | 0 |
-| **Total** |  | **344** | **324** | **20** |
+| `waiter` | `silver-waiter` | 12 | 12* | 0* |
+| **Total** |  | **344** | **342** | **2** |
+
+\* The twelve featured-waiter files are indexed but marked for full recast;
+they do not count as approved current performances.
 
 The same catalog grouped by recording profile is: `margo` 118, `player` 102,
-`waiter` 92, `ape` 11, `doorman` 10, `npc-male` 10, and `announcer` 1.
+`waiter` 80, `silver-waiter` 12, `ape` 11, `doorman` 10, `manager` 10, and
+`announcer` 1.
 
 ## Performance direction
 
@@ -132,12 +136,15 @@ runtime fires the selected option's exact cue.
 the campaign. He is delighted that he recognizes Margo's diner and is trying,
 badly, not to show it.
 
-**Manager (`npc-male`, 10 cues).** Distinct from the shared floor-staff voice.
+**Manager (`manager`, 10 cues).** Distinct from the shared floor-staff voice.
 Controlled authority; never raises his voice. The set is recorded and indexed.
-The `npc-male` casting was a provisional audition profile; it is in the shipped
-runtime now and any recut should be a matched set, not a single line.
+Any future recut should remain a matched set, not a single line.
 
-**Floor and back-of-house staff (`waiter`, 92 cues across twelve banks).** The
+**Featured date waiter (`silver-waiter`, 12 cues).** The owner-selected voice
+is `gAMZphRyrWJnLMDnom6H`. Regenerate and audition the complete bank before
+removing its manifest `recast` marker.
+
+**Floor and back-of-house staff (`waiter`, 80 cues across eleven banks).** The
 shared profile is deliberate, while separate cue banks preserve the option to
 recast an individual role later. The room barks are overheard work, not lines
 addressed to the player. Kitchen calls should cross the space with urgency;
@@ -156,20 +163,19 @@ indexed, and wired to the show timeline.
 counts, filenames, or pickup text. Fix the authored line, voice profile, or
 production state and regenerate the file instead.
 
-For the current room-bark, Margo, and bandleader pickups:
+For the current featured-waiter recast and bandleader pickups:
 
-1. Use the twenty exact filenames and lines under **Voice pickups — The
-   Silver Room** in `VOICE-LINES-TODO.md`. Sixteen are `vo.silver.room.*` on
-   the shared `waiter` profile; two are `vo.silver.margo.*`; two are
-   `vo.silver.bandleader.set.second*` — the violinist's stand-up bit, also on
-   `waiter`.
-2. For a repo-generated pass, run `npm run sfx:vo -- --cast waiter` and
-   `--cast margo`. For an outside actor or voice service, place the approved
-   files directly in `assets/sfx/` under those exact filenames.
+1. Use the fourteen exact filenames and lines under **Voice pickups — The
+   Silver Room** in `VOICE-LINES-TODO.md`: twelve `vo.silver.waiter.*`
+   replacement takes and two `vo.silver.bandleader.set.second*` pickups.
+2. Run `npm run sfx -- --force --cast silver-waiter` for the featured waiter.
+   The dry run must list exactly twelve cues. Record the two bandleader files
+   under the existing shared `waiter` profile.
 3. Run `npm run sfx:listen` to rebuild `assets/sfx/index.json`, update each
    file's cache-busting hash, and audition the delivered takes.
 4. Run `npm run audio:todo` to refresh the generated handoff. The Silver Room
-   pickup section should disappear when all twenty are indexed.
+   pickup section should disappear after both bandleader files are indexed and
+   the auditioned waiter profile's temporary `recast` marker is removed.
 5. Gate the delivery with `npm run check:silver-vo`,
    `npm run audio:todo:check`, `npm test`, `npm run check`, and
    `npm run verify:silver`.

@@ -33,6 +33,14 @@ import { createGolfStory } from '../src/core/golf-story.js';
 import { createMotelStory } from '../src/core/motel-story.js';
 import { createNoWakeStory } from '../src/core/no-wake-story.js';
 import { createSilverStory } from '../src/core/silver-story.js';
+import {
+  createCartelPalaceCampaignStory,
+  createEnolaSquatchCampaignStory,
+  createMansionReturnCampaignStory,
+  createMansionSiegeCampaignStory,
+  createSilverCaseCampaignStory,
+} from '../src/core/final-arc-story.js';
+import { createSilentSquatchStory } from '../src/core/silent-squatch-story.js';
 import { createSquatchfatherStory } from '../src/core/squatchfather-story.js';
 
 class MemoryStorage {
@@ -300,8 +308,87 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     assert.equal(apartment.completeHeistCleanup(item.id), true);
   }
   assert.deepEqual(apartmentExit(apartment, campaign), {
-    kind: 'go', destination: SCENE_IDS.INITIATION,
+    kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });
+
+  route(campaign, SCENE_IDS.SILVER_CASE, 'car_ride', 'silvercase.html');
+  const silverCase = createSilverCaseCampaignStory({ campaign });
+  assert.deepEqual(silverCase.begin(), { ok: true, resumed: false });
+  assert.equal(silverCase.checkpoint('case_reveal'), true);
+  assert.equal(silverCase.checkpoint('bathroom_ambush'), true);
+  assert.equal(silverCase.complete({
+    winstonOutcome: 'spared',
+    irritatedApe: false,
+  }), true);
+
+  campaign = reload(storage);
+  route(campaign, SCENE_IDS.MANSION, 'gate', 'mansion.html');
+  const silentSquatch = createSilentSquatchStory({ campaign });
+  assert.equal(silentSquatch.begin().ok, true);
+  assert.equal(silentSquatch.checkpoint('office'), true);
+  assert.equal(silentSquatch.checkpoint('lab'), true);
+  assert.equal(silentSquatch.checkpoint('silent_night'), true);
+  assert.equal(silentSquatch.complete({
+    case: { placedOnDesk: true, delivered: true },
+    keypad: { locked: true },
+    aubbie: { killed: true },
+    gasStages: ['armed', 'released'],
+    collapsed: ['scientist_2', 'scientist_3'],
+  }), true);
+  assert.deepEqual(silentSquatch.restAtMansion(), {
+    ok: true, chapter: 'mansion_siege',
+  });
+
+  campaign = reload(storage);
+  route(campaign, SCENE_IDS.MANSION_SIEGE, 'guest_suite', 'mansion-siege.html');
+  const mansionSiege = createMansionSiegeCampaignStory({ campaign });
+  assert.deepEqual(mansionSiege.begin(), { ok: true, resumed: false });
+  assert.equal(mansionSiege.checkpoint('armed', { littleFriendSaid: true }), true);
+  assert.equal(mansionSiege.checkpoint('wave_one', {
+    attackersDown: 8,
+    sasoleMet: true,
+  }), true);
+  assert.equal(mansionSiege.complete({ attackersDown: 8 }), true);
+
+  campaign = reload(storage);
+  route(campaign, SCENE_IDS.ENOLA_SQUATCH, 'airfield', 'enolasquatch.html');
+  const enola = createEnolaSquatchCampaignStory({ campaign });
+  assert.deepEqual(enola.begin(), { ok: true, resumed: false });
+  assert.equal(enola.checkpoint('takeoff'), true);
+  assert.equal(enola.checkpoint('preRelease', { payloadReleased: true }), true);
+  assert.equal(enola.checkpoint('return'), true);
+  assert.equal(enola.complete({
+    rank: 'A',
+    score: 0.915,
+    unlocks: ['precision_release'],
+    payloadReleased: true,
+    returnedHome: true,
+  }), true);
+
+  campaign = reload(storage);
+  route(campaign, SCENE_IDS.MANSION_RETURN, 'driveway', 'mansion.html?visit=return');
+  const mansionReturn = createMansionReturnCampaignStory({ campaign });
+  assert.deepEqual(mansionReturn.begin(), { ok: true, resumed: false });
+  assert.equal(mansionReturn.complete({
+    wrongCityConfirmed: true,
+    sauceMissingConfirmed: true,
+    palaceLocationKnown: true,
+  }), true);
+
+  campaign = reload(storage);
+  route(campaign, SCENE_IDS.CARTEL_PALACE, 'approach', 'cartel-palace.html');
+  const cartelPalace = createCartelPalaceCampaignStory({ campaign });
+  assert.deepEqual(cartelPalace.begin(), { ok: true, resumed: false });
+  assert.equal(cartelPalace.checkpoint('betrayal', {
+    evidenceFound: ['photograph'],
+    sauceBetrayalConfirmed: true,
+  }), true);
+  assert.equal(cartelPalace.checkpoint('clear', {
+    markEliminated: true,
+    sauceEliminated: true,
+  }), true);
+  assert.equal(cartelPalace.complete({ outcome: 'clean' }), true);
+
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
     state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
@@ -312,9 +399,37 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   campaign = reload(storage);
   assert.equal(campaign.state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].status, 'complete');
+  for (const missionId of [
+    MISSION_IDS.SILVER_CASE,
+    MISSION_IDS.SILENT_SQUATCH,
+    MISSION_IDS.MANSION_SIEGE,
+    MISSION_IDS.ENOLA_SQUATCH,
+    MISSION_IDS.MANSION_RETURN,
+    MISSION_IDS.CARTEL_PALACE,
+  ]) {
+    assert.equal(campaign.state.missions[missionId].status, 'complete');
+  }
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
   assert.notEqual(campaign.state.missions[MISSION_IDS.INITIATION].status, 'complete');
+  assert.equal(campaign.state.story.day, 6);
+  assert.equal(campaign.state.story.timeMinutes, 23 * 60);
+  for (const eventId of [
+    TIME_EVENT_IDS.DEPART_SILVER_CASE,
+    TIME_EVENT_IDS.COMPLETE_SILVER_CASE,
+    TIME_EVENT_IDS.DEPART_MANSION,
+    TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH,
+    TIME_EVENT_IDS.REST_AT_MANSION,
+    TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE,
+    TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH,
+    TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH,
+    TIME_EVENT_IDS.RETURN_TO_MANSION,
+    TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
+    TIME_EVENT_IDS.DEPART_CARTEL_PALACE,
+    TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
+  ]) {
+    assert.equal(campaign.state.story.timeEvents.includes(eventId), true, eventId);
+  }
   assert.throws(
     () => campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'wake' }),
     /Cannot transition from "initiation" to "apartment"/,

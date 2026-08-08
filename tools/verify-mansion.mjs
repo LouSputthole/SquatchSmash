@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Verify Lou's Mansion -- a standalone, explore-only environment (exterior
- * grounds + interior rooms, no NPCs/combat/dialogue/mission state).
+ * Verify Lou's Mansion through the save-free ordinary-visit preview. The
+ * environment and PROJECT SILENT SQUATCH remain fully playable in that mode.
  *
  * WHAT THIS CHECKS, AND WHY IT IS SHAPED THIS WAY
  *
@@ -36,6 +36,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PEE_CUE_NAMES } from '../src/core/pee-system.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5224;
@@ -82,7 +83,12 @@ const browser = await chromium.launch({
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: [
-    '--use-gl=swiftshader',
+    /* Current Chromium's direct SwiftShader GL backend can invalidate a
+     * linked depth program (or lose the whole context) under this scene's
+     * cold-load pressure. ANGLE keeps the same software renderer while
+     * providing Chromium's supported WebGL lifecycle. */
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
   ],
@@ -204,7 +210,7 @@ function inside(rect, s, pad = 0.25) {
 
 try {
   const bootStart = Date.now();
-  await page.goto(`http://localhost:${PORT}/mansion.html`, { waitUntil: 'load', timeout: 180000 });
+  await page.goto(`http://localhost:${PORT}/mansion.html?preview=1`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.mansion?.player, null, { timeout: 120000 });
   const readyMs = Date.now() - bootStart;
 
@@ -1035,10 +1041,22 @@ try {
   const dogMoved = await page.evaluate(() => {
     const before = window.mansion.suite.dog;
     /* 26 simulated seconds: his first waypoint holds for 16, so anything less
-     * measures the wait rather than the walk. */
-    const after = window.mansion.suite.stepDog(1 / 30, 780);
+     * measures the wait rather than the walk. Observe his farthest point in
+     * that bounded window instead of comparing only its two endpoints: by the
+     * time this check reaches the suite the live render loop may have put him
+     * anywhere on his ping-pong route, including a phase that returns close
+     * to its starting point 26 seconds later. */
+    let after = before;
+    let farthest = 0;
+    for (let i = 0; i < 780; i++) {
+      after = window.mansion.suite.stepDog(1 / 30, 1);
+      farthest = Math.max(farthest, Math.hypot(after.x - before.x, after.z - before.z));
+    }
     return {
-      before, after, moved: +Math.hypot(after.x - before.x, after.z - before.z).toFixed(2),
+      before,
+      after,
+      farthest: +farthest.toFixed(2),
+      endpoint: +Math.hypot(after.x - before.x, after.z - before.z).toFixed(2),
     };
   });
   const dogPet = await page.evaluate(() => {
@@ -1051,8 +1069,8 @@ try {
       && dogAtRest.registered === true,
     JSON.stringify(dogAtRest));
   check('...he walks his route once the bookcase is open, and he sits down to be petted',
-    dogMoved.moved > 1.5 && dogPet.ok === true && dogPet.state === 'pet' && dogPet.pets === 1,
-    JSON.stringify({ moved: dogMoved.moved, after: dogMoved.after, pet: dogPet }));
+    dogMoved.farthest > 1.5 && dogPet.ok === true && dogPet.state === 'pet' && dogPet.pets === 1,
+    JSON.stringify({ farthest: dogMoved.farthest, endpoint: dogMoved.endpoint, after: dogMoved.after, pet: dogPet }));
 
   /* THE SET. Wired through core/tv.js like every other television in the
    * house, so it repaints and changes channel rather than being a black plate. */
@@ -1472,20 +1490,41 @@ try {
   check('the empty click happens once per trigger pull, not once per frame',
     dry.clicks >= 1 && dry.clicks <= 3, `${dry.clicks} clicks`);
 
-  /* ---- Put it back, and it remembers what it had left. ---- */
+  /* ---- Q stows without deleting it. A deliberate rack return is separate. ---- */
   await page.keyboard.press('KeyQ');
   await settle(0.3);
-  const racked = await page.evaluate(() => ({
+  const stowedGun = await page.evaluate(() => ({
     equipped: window.mansion.weapons.equipped,
     hudText: window.mansion.weapons.hudText(),
     onWall: window.mansion.weapons.report().pistol9.onWall,
     ammo: window.mansion.weapons.ammo().pistol9,
+    slots: window.mansion.loadout.slots,
   }));
-  check('Q puts the weapon back on its rack and clears the ammunition counter',
-    racked.equipped === null && racked.onWall === 4 && racked.hudText === null,
+  check('Q stows the weapon without returning it to the rack or deleting ownership',
+    stowedGun.equipped === null && stowedGun.onWall === 3
+      && stowedGun.hudText === null && stowedGun.slots.includes('pistol9'),
+    JSON.stringify(stowedGun));
+  check('a stowed empty weapon keeps its ammunition state',
+    stowedGun.ammo.rounds === 0, JSON.stringify(stowedGun.ammo));
+
+  const racked = await page.evaluate(() => {
+    const L = window.mansion.loadout;
+    const w = window.mansion.weapons;
+    L.select(L.slots.indexOf('pistol9'));
+    const put = w.put();
+    window.mansion.tick(0.2);
+    return {
+      put,
+      equipped: w.equipped,
+      onWall: w.report().pistol9.onWall,
+      slots: L.slots,
+      ammo: w.ammo().pistol9,
+    };
+  });
+  check('returning the held weapon to its physical rack removes only that owned gun',
+    racked.put === true && racked.equipped === null && racked.onWall === 4
+      && !racked.slots.includes('pistol9'),
     JSON.stringify(racked));
-  check('a weapon put back empty comes off the wall empty — the armory is shared, not a vending machine',
-    racked.ammo.rounds === 0, JSON.stringify(racked.ammo));
 
   const resupplied = await page.evaluate(() => {
     const w = window.mansion.weapons;
@@ -1567,7 +1606,8 @@ try {
   /*                                                                          */
   /* main.js's audio.loadManifest() call is the mansion's entire selector:    */
   /* weaponCueNames() + silentSquatchCueNames() + MANSION_CAST_CUE_NAMES,      */
-  /* plus every cue starting `vo.silentsquatch.`. This recomputes exactly      */
+  /* the shared toilet cues, Lou's reused snort, and every cue starting         */
+  /* `vo.silentsquatch.`. This recomputes exactly                               */
   /* that selection from the same manifest the page loaded and asserts the     */
   /* page's live AudioEngine buffer table is EQUAL to it -- not a superset      */
   /* (that would mean the unscoped bank leaked back in) and not a subset        */
@@ -1598,8 +1638,15 @@ try {
     };
   });
   const MANSION_CAST_CUE_NAMES = mansionCueLists.mansionCastCueNames;
+  const mansionFixtureCueNames = new Set([
+    ...PEE_CUE_NAMES,
+    'bing.line.snort',
+  ]);
   const mansionSelectedNames = new Set([
-    ...mansionCueLists.weaponCueNames, ...mansionCueLists.silentSquatchCueNames, ...MANSION_CAST_CUE_NAMES,
+    ...mansionCueLists.weaponCueNames,
+    ...mansionCueLists.silentSquatchCueNames,
+    ...MANSION_CAST_CUE_NAMES,
+    ...mansionFixtureCueNames,
   ]);
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
     mansionSelectedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
@@ -1995,23 +2042,38 @@ try {
   /* ================================================================ */
   const media = await page.evaluate(() => ({
     tvs: window.mansion.media.tvs.length,
+    tvIds: window.mansion.media.tvs.map((tv) => tv.id),
     radioSets: window.mansion.media.radioSets,
     radioOn: window.mansion.media.radioOn,
     slots: window.mansion.artSlots.length,
   }));
-  check('the house has working televisions and two radio sets, and the radio starts off',
-    media.tvs >= 2 && media.radioSets >= 2 && media.radioOn === false,
+  const expectedTvIds = [
+    'lounge', 'kitchen', 'master-suite',
+    'bedroom-westFront', 'bedroom-eastFront', 'bedroom-westRear', 'bedroom-eastRear',
+    'theatre', 'cellar',
+  ];
+  check('all nine house televisions use the shared interface, including every bedroom',
+    media.tvs === expectedTvIds.length
+      && expectedTvIds.every((id) => media.tvIds.includes(id))
+      && media.radioSets >= 2 && media.radioOn === false,
     JSON.stringify(media));
 
-  const tvRun = await page.evaluate(async () => {
-    const tv = window.mansion.media.tvs[0];
+  const tvRun = await page.evaluate(() => window.mansion.media.tvs.map((tv) => {
+    const wasOn = tv.on;
+    if (!wasOn) tv.toggle();
     const first = tv.channel;
     tv.next();
     const second = tv.channel;
-    return { on: tv.on, first, second };
-  });
-  check('a television is genuinely running a channel list, not a still picture',
-    tvRun.on === true && tvRun.first !== tvRun.second,
+    /* Leave the tour exactly as this check found it. The theatre's later
+     * assertion requires reel one and its lights off, so a media probe must
+     * not become scene direction. */
+    for (let guard = 0; guard < 32 && tv.channel !== first; guard++) tv.next();
+    if (!wasOn) tv.toggle();
+    return { id: tv.id, ran: second !== first, restored: tv.channel === first && tv.on === wasOn };
+  }));
+  check('every television genuinely runs a channel list, not a still picture',
+    tvRun.length === expectedTvIds.length
+      && tvRun.every((tv) => tv.ran && tv.restored),
     JSON.stringify(tvRun));
 
   const radioRun = await page.evaluate(() => {
@@ -2176,6 +2238,61 @@ try {
     lan.stations >= 5 && lan.chairLogos === lan.stations,
     JSON.stringify(lan));
 
+  const mansionDetail = await page.evaluate(() => {
+    const M = window.mansion;
+    const count = (name) => {
+      let total = 0;
+      M.scene.traverse((object) => { if (object.name === name) total++; });
+      return total;
+    };
+    const toilets = Object.values(M.interior.props.bathrooms).map(({ toilet }) => ({
+      id: toilet.id,
+      hold: toilet.group.userData.interact?.hold ?? null,
+      usable: typeof toilet.group.userData.interact?.onUse === 'function',
+    }));
+    const powder = M.interior.props.masterSuite.powder;
+    let redHeadband = false;
+    M.grounds.root.getObjectByName('silver-sasquatch-statue')?.traverse((object) => {
+      if (!object.isMesh || object.userData?.palKey !== 'bandana') return;
+      const colour = object.material.color;
+      if (colour.r > colour.g * 1.5 && colour.r > colour.b * 1.5) redHeadband = true;
+    });
+    return {
+      toilets,
+      powder: {
+        lineVisible: powder.line.visible,
+        hold: powder.group.userData.interact?.hold ?? null,
+        usable: typeof powder.group.userData.interact?.onUse === 'function',
+      },
+      transferDiamond: {
+        visible: M.lab.targets.tableMarker?.visible === true,
+        name: M.lab.targets.tableMarker?.name ?? '',
+      },
+      redHeadband,
+      lanZyn: count('lan-zyn-tin'),
+      lanFridgeDrinks: count('lan-fridge-drink'),
+      lanTableDrinks: count('lan-table-drink'),
+      loungeDrinks: count('lounge-bar-drink'),
+    };
+  });
+  check('both Mansion toilets are wired to the shared hold-to-pee action',
+    mansionDetail.toilets.length === 2
+      && mansionDetail.toilets.every((toilet) => toilet.usable && toilet.hold >= 3),
+    JSON.stringify(mansionDetail.toilets));
+  check('Lou\'s suite publishes a usable cocaine line and the transfer table marks its diamond',
+    mansionDetail.powder.lineVisible && mansionDetail.powder.usable
+      && mansionDetail.powder.hold >= 1
+      && mansionDetail.transferDiamond.visible
+      && mansionDetail.transferDiamond.name === 'ss-transfer-table-diamond',
+    JSON.stringify({ powder: mansionDetail.powder, marker: mansionDetail.transferDiamond }));
+  check('the statue wears a red headband and the LAN/bar stock is visibly present',
+    mansionDetail.redHeadband
+      && mansionDetail.lanZyn >= 2
+      && mansionDetail.lanFridgeDrinks >= 6
+      && mansionDetail.lanTableDrinks >= 4
+      && mansionDetail.loungeDrinks >= 4,
+    JSON.stringify(mansionDetail));
+
   const theatre = await page.evaluate(() => window.mansion.theatre);
   check('the home theatre has a working projector with four film reels wired into it',
     theatre && theatre.on === false && theatre.channels[0] === 'REEL 1: THE GODFATHER'
@@ -2186,15 +2303,37 @@ try {
     JSON.stringify(theatre));
   const theatreRun = await page.evaluate(() => {
     const t = window.mansion.theatre;
+    const before = t.lights;
+    const sat = t.sit(0);
+    window.mansion.tick(1);
+    const sitting = t.sitting;
+    const stood = t.stand();
     t.toggle();
     const on = t.on;
     const showing = t.channel;
+    const dimmed = t.lights;
     t.toggle();
-    return { on, showing, off: t.on };
+    const restored = t.lights;
+    return {
+      seats: t.seats, sat, sitting, stood, before, on, showing, dimmed,
+      off: t.on, restored,
+    };
   });
   check('the projector switches on, runs the first reel, and switches off again',
     theatreRun.on === true && theatreRun.off === false
       && theatreRun.showing === 'REEL 1: THE GODFATHER',
+    JSON.stringify(theatreRun));
+  check('all twelve theatre chairs are usable and return the player to their aisle',
+    theatreRun.seats === 12 && theatreRun.sat === true
+      && theatreRun.sitting === 0 && theatreRun.stood === true,
+    JSON.stringify(theatreRun));
+  check('the projector dims four house sconces but preserves four low aisle lights',
+    theatreRun.before.house.length === 4 && theatreRun.before.aisle.length === 4
+      && theatreRun.before.ceiling === 0
+      && theatreRun.dimmed.house.every((n, i) => n < theatreRun.before.house[i] * 0.1)
+      && theatreRun.dimmed.aisle.every((n, i) => n <= theatreRun.before.aisle[i] * 0.36)
+      && theatreRun.restored.house.every((n, i) => n === theatreRun.before.house[i])
+      && theatreRun.restored.aisle.every((n, i) => n === theatreRun.before.aisle[i]),
     JSON.stringify(theatreRun));
 
   /* ================================================================ */
@@ -3252,6 +3391,9 @@ try {
   const staffing = await page.evaluate(() => ({
     people: window.mansion.cast?.people ?? {},
     inSolid: window.mansion.cast?.inSolid ?? [],
+    roster: window.mansion.cast?.roster ?? [],
+    evening: window.mansion.cast?.evening ?? null,
+    prompt: window.mansion.prompt?.audit ?? null,
   }));
   const posts = Object.keys(staffing.people);
 
@@ -3262,6 +3404,58 @@ try {
   check('nobody is standing inside the furniture',
     staffing.inSolid.length === 0,
     staffing.inSolid.length ? `inside a collider: ${staffing.inSolid.join(', ')}` : 'all clear');
+
+  const livingSquatches = [
+    'lou', 'rippin', 'eric', 'shubes', 'sasole', 'hogmama', 'numbskull',
+    'seff', 'lag', 'ape', 'sauce', 'oldStove', 'snow', 'irish', 'booski',
+    'deathmegatron', 'gratin',
+  ];
+  const absentLiving = livingSquatches.filter((id) => !posts.includes(id));
+  check('every living Squatch assigned to the Mansion ensemble is physically present',
+    absentLiving.length === 0 && !posts.some((id) => /willy|hotdog/i.test(id)),
+    absentLiving.length ? `missing: ${absentLiving.join(', ')}` : `${livingSquatches.length} living family posts; dead men absent`);
+
+  check('passive descriptions never advertise a false E action',
+    staffing.prompt && staffing.prompt.passive >= 20 && staffing.prompt.falseE.length === 0,
+    JSON.stringify(staffing.prompt));
+
+  const evening = await page.evaluate(() => {
+    const M = window.mansion;
+    M.tick(12);
+    const first = M.cast.usePoolGirl();
+    M.tick(4.2);
+    const second = M.cast.usePoolGirl();
+    M.tick(6.2);
+    const third = M.cast.usePoolGirl();
+    M.tick(3.2);
+    const stove = M.cast.useOldStove();
+    M.tick(4.5);
+    return {
+      first, second, third, stove,
+      state: M.cast.evening,
+      said: M.cast.said,
+    };
+  });
+  const eveningCues = [
+    'vo.silentsquatch.evening.performer.sayhello',
+    'vo.silentsquatch.evening.prospect.smooth',
+    'vo.silentsquatch.evening.performer.holdthestrap',
+    'vo.silentsquatch.evening.performer.useful',
+  ];
+  check('the pool girl flirt and dress-help path plays in sequence and visibly completes',
+    evening.first && evening.second && evening.third
+      && evening.state?.poolPhase === 'done' && evening.state?.dressHelped === true
+      && eveningCues.every((cue) => evening.said.includes(cue)),
+    JSON.stringify(evening));
+  check('the pool scene keeps two women reclined on loungers and a third in the water',
+    evening.state?.poolComposition?.length === 3
+      && evening.state.poolComposition.filter(({ pose }) => pose === 'reclined').length === 2
+      && evening.state.poolComposition.filter(({ pose }) => pose === 'in-water').length === 1,
+    JSON.stringify(evening.state?.poolComposition));
+  check('Old Stove is present in the theatre and encourages the player to put on a picture',
+    evening.stove && evening.state?.oldStovePresent === true
+      && evening.said.includes('vo.silentsquatch.evening.stove.putsomethingon'),
+    JSON.stringify(evening));
 
   /* M11 -- LOU'S SHIRT HUGS HIS TORSO THROUGH ANIMATION.
    *
@@ -3513,7 +3707,7 @@ try {
         exitObjective: OBJECTIVES.REPORT_TO_LOU,
         exitInstruction: INSTRUCTIONS.RETURN_UPSTAIRS,
         officeObjective: OBJECTIVES.LOU_IS_WAITING,
-        officeInstruction: INSTRUCTIONS.RETURN_TO_OFFICE,
+        officeInstruction: INSTRUCTIONS.TALK_TO_LOU,
       },
       labBuilt: Boolean(built),
       missionMounted: Boolean(window.mansion.mission),
@@ -4223,6 +4417,21 @@ try {
   check('M4 -- the office fire\'s light is switched on from across the room, not just standing on the hearth',
     fireVisibleFar.visible === true,
     JSON.stringify(fireVisibleFar));
+
+  const contextHealth = await page.evaluate(() => {
+    const gl = window.mansion.renderer.getContext();
+    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+    return {
+      lost: gl.isContextLost(),
+      version: gl.getParameter(gl.VERSION),
+      renderer: debug
+        ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
+        : gl.getParameter(gl.RENDERER),
+    };
+  });
+  check('the ANGLE SwiftShader context stays healthy through the full mansion tour',
+    contextHealth.lost === false,
+    JSON.stringify(contextHealth));
 
   /* The film that has not landed yet is allowed to 404 and nothing else is.
    * A blanket "ignore 404s" would let a missing texture or a missing module

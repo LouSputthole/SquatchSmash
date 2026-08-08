@@ -191,8 +191,8 @@ try {
       && !dateRoom.shown.includes('willyPhoto')
       && dateRoom.shown.includes('motelKey')
       && dateRoom.shown.includes('casualJacket')
-      // Still an accumulating flat: Day Two's things are all still here.
-      && dateRoom.shown.includes('bloodShirt')
+      // Still an accumulating flat, except for the owner-retired floor shirt.
+      && !dateRoom.shown.includes('bloodShirt')
       && dateRoom.shown.includes('cashSmall'),
     JSON.stringify(dateRoom.shown));
   check('Lou has stopped saying things, and the Motel is on the news',
@@ -391,9 +391,11 @@ try {
       && ['heistArmor', 'heistGloves', 'heistMask', 'heistCarbine',
         'heistSidearm', 'heistMagazines', 'heistDuffel']
         .every((id) => !peak.shown.includes(id))
-      // Everything he accumulated on the way here is still here.
-      && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap', 'tammyDashboardMug']
+      // Everything he accumulated on the way here is still here; the owner-
+      // retired floor shirt must stay absent from every chapter.
+      && ['cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap', 'tammyDashboardMug']
         .every((id) => peak.shown.includes(id))
+      && !peak.shown.includes('bloodShirt')
       && !peak.shown.includes('lanyard')
       && !peak.shown.includes('willyPhoto')
       && peak.raining === false,

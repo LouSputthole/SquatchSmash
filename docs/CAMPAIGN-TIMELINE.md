@@ -1,10 +1,11 @@
-# Campaign timeline — current production flow (updated 2026-08-01)
+# Campaign timeline — current production flow (updated 2026-08-08)
 
-The owner's authoritative four-day shape and the connected route implemented
-by campaign schema v9. NO WAKE, the Billy HotDog incident and graveyard, Front
-and Center, Silver Pines, and the Day Four heist are all built and connected.
-The Initiation is still a terminal WIP and remains frozen until the owner has
-playtested it.
+The owner's connected campaign route implemented by campaign schema v14. The
+original four-day apartment spine remains intact; the final chapter now starts
+after THE TAKE cleanup and connects The Silver Case, PROJECT SILENT SQUATCH,
+Mansion Under Siege, Enola Squatch, the repaired-mansion briefing, and Cartel
+Palace. Initiation remains a protected terminal WIP until the owner has
+playtested and approved changes to that scene.
 
 ## Campaign premise
 
@@ -26,17 +27,19 @@ initiation into the Silver Sasquatches.
 This is the production route implemented by `src/core/campaign.js` and covered
 by `npm run verify:campaign-route`:
 
-| Day | Apartment gate | Mission route | Return / chapter change |
+| Chapter | Apartment gate | Mission route | Return / chapter change |
 |---|---|---|---|
 | 1 | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → apartment whiskey nerve-settle → Squatchfather | Return home and sleep |
 | 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two / HotDog incident → Squatch Graveyard → Jerky Motel | Return home 4:30 AM and sleep |
 | 3 | Wake noon, answer Big Uncle Lou's vague harbor call | NO WAKE → apartment, answer Margo → Front and Center | Return home and sleep |
-| 4 | Margo's morning-after beat, answer Big Uncle Lou's Silver Pines call | Silver Pines → apartment, answer Lou's heist call and collect seven loadout pieces → THE TAKE → apartment cleanup → Initiation reference | Terminal WIP: Initiation remains `in_progress` |
+| 4 | Margo's morning-after beat, answer Big Uncle Lou's Silver Pines call | Silver Pines → apartment, answer Lou's heist call and collect seven loadout pieces → THE TAKE → apartment cleanup | The cleaned apartment opens the final chapter |
+| Final chapter | No additional apartment detour | The Silver Case → Lou's Mansion / PROJECT SILENT SQUATCH → quiet mansion evening and guest-room sleep → Mansion Under Siege → Enola Squatch → repaired Mansion return → Cartel Palace | Cartel Palace opens Initiation; Initiation is entered `in_progress` and remains frozen |
 
 Every external mission owns a registered scene/spawn and either returns to the
 apartment or hands directly to the next mission. The save survives reloads at
-each seam; the final campaign gap is an approved Initiation completion event and
-outbound ending, not a missing route into the final day.
+each seam. The connected topology is complete through entry to Initiation; the
+remaining campaign-ending decision is the protected Initiation scene itself,
+not a missing route into the final chapter.
 
 ## Day 1 — Welcome to the Life
 
@@ -138,19 +141,52 @@ bank, vault, street, garage, vehicle-swap, driving, loot, injuries, settlement,
 and retry checkpoints persist. The safehouse returns Tony home, where washing,
 changing, and hiding the gear are physical door requirements.
 
-**Initiation night — WIP, DO NOT TOUCH.** The ceremonial payoff at the Bada
+**The final chapter — built and connected.** Completing the apartment cleanup
+opens The Silver Case, then hands directly through PROJECT SILENT SQUATCH,
+the quiet mansion evening and guest-room sleep, Mansion Under Siege, Enola
+Squatch, the repaired-mansion briefing, and Cartel Palace. Cartel Palace is the
+last combat mission. Its successful extraction exposes Initiation.
+
+The final chapter uses authored, exact-once clock events at every travel and
+mission handoff. Reloading or replaying a completion cannot add the duration a
+second time, and preview campaigns keep these events in page-local storage.
+
+| Beat | Campaign clock after the authored event |
+|---|---|
+| Leave for The Silver Case | Day 5, 4:00 PM |
+| Complete The Silver Case | Day 5, 5:30 PM |
+| Arrive at Lou's Mansion | Day 5, 5:55 PM |
+| Complete PROJECT SILENT SQUATCH | Day 5, 8:10 PM |
+| Sleep in the guest room | Day 6, 4:10 AM |
+| Complete Mansion Under Siege | Day 6, 6:10 AM |
+| Leave for Enola Squatch after regrouping | Day 6, 2:00 PM |
+| Complete Enola Squatch | Day 6, 6:00 PM |
+| Return to the repaired Mansion | Day 6, 6:30 PM |
+| Complete the return briefing | Day 6, 7:15 PM |
+| Leave for Cartel Palace | Day 6, 8:30 PM |
+| Extract from Cartel Palace | Day 6, 11:00 PM |
+
+The workbook's **Day 5 night** label for Mansion Under Siege is a narrative
+label for the overnight begun on Day 5. The guest-room sleep crosses midnight,
+so the campaign's calendar clock correctly begins Siege on Day 6 at 4:10 AM.
+
+**Initiation night — WIP, DO NOT TOUCH.** The protected ceremonial payoff at the Bada
 Bing, not another action sequence: old faces return, the Prospect is praised
 for specific campaign actions, Lou explains what membership means, the oath,
 formal acceptance, and "Prospect" replaced by his chosen name or Squatch
 title. Let the player breathe, talk to everyone, hear callbacks, drink. Final
 image: Lou raises a glass, the family cheers, the camera pulls back from the
 club, a television quietly reports the search for the heist crew, credits.
+The current campaign enters this runtime `in_progress`; none of the proposed
+rewrite or ending behavior below is implemented without owner approval.
 
-## THE MANSION ARC — planned 2026-08-05, not built
+## HISTORICAL MANSION ARC DESIGN — superseded by schema v14
 
-Owner's direction. This is design, not a build order: nothing below exists
-yet, and the point of writing it down now is that PROJECT SILENT SQUATCH is
-already in the game and currently just ends.
+The sections below preserve the 2026-08-05 design record. They are not current
+implementation status and must not be used as a build order. The authoritative
+route and current owner decisions are in
+`CAMPAIGN-FLOW-AND-POLISH-REPORT-2026-08-08.md` and
+`FINAL-CAMPAIGN-INTEGRATION-2026-08-08.md`.
 
 **Where it hangs.** PROJECT SILENT SQUATCH is built and playable — the
 Prospect carries the case to Lou, the lab finishes the weapon, Booski has the

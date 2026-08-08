@@ -48,12 +48,13 @@ ensureThreeShim();
 ensureDomShim();
 
 const { TargetCity, WINDOW_GLOW, DEAD_WINDOW_GLOW } = await import('../src/enolasquatch/scenes/TargetCity.js');
+const { EnolaSquatch } = await import('../src/enolasquatch/scenes/EnolaSquatch.js');
 const { PartKit } = await import('../src/enolasquatch/scenes/PartKit.js');
-const { Defense, LETHAL_RADIUS } = await import('../src/enolasquatch/combat/Defense.js');
+const { Defense, LETHAL_RADIUS, FLAK_PUFF_SECONDS } = await import('../src/enolasquatch/combat/Defense.js');
 const { AC_ENOLA, LIVE_FIRE, CHECKPOINTS, CRATER } = await import('../src/enolasquatch/config.js');
 const { AC } = await import('../src/beefrun/config.js');
 const {
-  MissionController, NAV_BY_PHASE, NAV_CITY, NAV_FIELD,
+  MissionController, NAV_BY_PHASE, NAV_CITY, NAV_FIELD, evaluateClimbTurnProgress,
 } = await import('../src/enolasquatch/mission/MissionController.js');
 
 /* ------------------------------------------------------------------ */
@@ -250,6 +251,32 @@ test('every checkpoint at or before the drop restores the city; the leg after it
   assert.deepEqual(CHECKPOINTS, ['takeoff', 'turnOnCourse', 'preRelease', 'return']);
 });
 
+test('turning east a little early cannot strand the mission in the climb instruction', () => {
+  /* A player who starts the called turn before crossing the exact z=-2600
+   * line stops travelling south. The old z-only gate then waited forever even
+   * though the aeroplane was safely clear of the field and already on 090. */
+  let onCourseSeconds = 0;
+  let turnCalled = false;
+  for (let i = 0; i < 4 * 60; i++) {
+    const gate = evaluateClimbTurnProgress({
+      x: 2200,
+      z: -1600,
+      agl: 340,
+      headingDeg: 90,
+      turnCalled,
+      onCourseSeconds,
+    }, 1 / 60);
+    turnCalled ||= gate.callTurn;
+    onCourseSeconds = gate.onCourseSeconds;
+    if (gate.ready) {
+      assert.equal(turnCalled, true);
+      assert.ok(i / 60 < 3.2, 'an already-correct heading still waited too long');
+      return;
+    }
+  }
+  assert.fail('the early east turn never entered cruise');
+});
+
 test('a restart lets the crew say the beats belonging to the legs it replays, and only those', () => {
   const said = [
     'preflight.arrival', 'preflight.done', 'taxi.line', 'takeoff.rotate',
@@ -311,6 +338,56 @@ test('the city marker is up for the whole run in and the field marker for the wa
   assert.equal(NAV_FIELD.label, 'WHISPERING PINES');
   // The city marker stands over the tallest thing in town rather than inside it.
   assert.ok(NAV_CITY.up > 132);
+});
+
+test('every resolved emergency can hand off to return even when its engine stops', () => {
+  const makeMission = ({ running = true, hotScript = 70 } = {}) => {
+    const engine = { running, dead: false, hotScript };
+    const self = {
+      phase: 'emergency',
+      phaseTime: 2,
+      _emergencyResolved: false,
+      _emergencyEngineIndex: 0,
+      _emergencyPushFailAt: null,
+      engines: {
+        engines: [engine],
+        kill() { engine.running = false; },
+      },
+      dialogue: { play() {} },
+      setPhase(name) { self.phase = name; },
+    };
+    return { self, engine };
+  };
+
+  const shutdown = makeMission();
+  assert.equal(MissionController.prototype.chooseEmergencyResponse.call(shutdown.self, 'shutdown'), true);
+  assert.equal(shutdown.engine.running, false, 'shutdown did not stop the selected engine');
+  MissionController.prototype.updateEmergency.call(shutdown.self, 1 / 60);
+  assert.equal(shutdown.self.phase, 'return', 'the shutdown choice stranded the mission in emergency');
+
+  const starved = makeMission({ running: false, hotScript: 35 });
+  assert.equal(MissionController.prototype.chooseEmergencyResponse.call(starved.self, 'baby'), true);
+  MissionController.prototype.updateEmergency.call(starved.self, 1 / 60);
+  assert.equal(starved.self.phase, 'return', 'a fuel-starved engine stranded the mission in emergency');
+});
+
+test('a running emergency engine still waits for its authored heat timer', () => {
+  const engine = { running: true, hotScript: 0.5 };
+  const self = {
+    phase: 'emergency',
+    phaseTime: 2,
+    _emergencyResolved: true,
+    _emergencyEngineIndex: 0,
+    _emergencyPushFailAt: null,
+    engines: { engines: [engine] },
+    dialogue: { play() {} },
+    setPhase(name) { self.phase = name; },
+  };
+  MissionController.prototype.updateEmergency.call(self, 1 / 60);
+  assert.equal(self.phase, 'emergency');
+  engine.hotScript = 0;
+  MissionController.prototype.updateEmergency.call(self, 1 / 60);
+  assert.equal(self.phase, 'return');
 });
 
 /** A camera at `from`, looking along `dir`, the way the projection expects. */
@@ -429,6 +506,17 @@ test('a battery firing blanks puts up exactly the same barrage and takes nothing
   assert.ok(real.hitCount > 0);
 });
 
+test('spent flak puffs recycle promptly instead of hanging as black circles in the sky', () => {
+  const defense = new Defense(new THREE.Scene(), { getHeight: () => 240, liveFire: false });
+  defense.deploy({ x: 9000, z: -500 }, { groundY: 240, radius: 460, patrolPlanes: 0 });
+  const at = new THREE.Vector3(9000, 640, -500);
+  defense._burst(at, at);
+  assert.equal(defense._activeFlak.length, 1);
+  defense._updateFlak(FLAK_PUFF_SECONDS + 0.1);
+  assert.equal(defense._activeFlak.length, 0, 'the spent puff is still floating');
+  assert.ok(FLAK_PUFF_SECONDS <= 6, `${FLAK_PUFF_SECONDS}s is still a persistent sky decal`);
+});
+
 test('the damage API still works when something else calls it — nothing was deleted', () => {
   const defense = new Defense(new THREE.Scene(), { getHeight: () => 240, liveFire: false });
   const hits = [];
@@ -479,4 +567,116 @@ test('the Enola Squatch got ten per cent more thrust and the Brushrunner got non
   // `ac` both `AircraftPhysics` and `EngineSystem` are constructed with, so this
   // change reaches this aeroplane and no other one.
   assert.equal(AC.thrustMax, 5200);
+});
+
+/* ------------------------------------------------------------------ */
+/* Terrain-impact forgiveness and hard-crash presentation             */
+/* ------------------------------------------------------------------ */
+
+function enolaImpactHarness() {
+  const events = [];
+  const fake = {
+    aircraft: {
+      destroyed: false,
+      explode() {
+        this.destroyed = true;
+        events.push('explode');
+        return true;
+      },
+    },
+    physics: {
+      damage: { wing: 0 },
+      controls: { throttleL: 0.7, throttleR: 0.7 },
+      velocity: new THREE.Vector3(38, -6, 72),
+      omega: new THREE.Vector3(0.3, 0.2, 0.4),
+    },
+    cameras: { addShake: (amount) => events.push(['shake', amount]) },
+    audio: { explosion: () => events.push('explosion-sound') },
+    engines: {
+      engines: [{}, {}, {}, {}],
+      kill: (index, reason) => events.push(['kill', index, reason]),
+    },
+    fail: (reason) => events.push(['fail', reason]),
+  };
+  return { fake, events };
+}
+
+test('Enola terrain contact is forgiving through the light-brush threshold', () => {
+  const { fake, events } = enolaImpactHarness();
+
+  MissionController.prototype.onImpact.call(fake, 2.4, 'terrain');
+
+  assert.equal(fake.physics.damage.wing, 0);
+  assert.equal(fake.aircraft.destroyed, false);
+  assert.deepEqual(events, []);
+});
+
+test('Enola terrain impacts damage above 2.4 but do not fail through severity 6.5', () => {
+  const { fake, events } = enolaImpactHarness();
+
+  MissionController.prototype.onImpact.call(fake, 6.5, 'terrain');
+
+  assert.ok(fake.physics.damage.wing > 0 && fake.physics.damage.wing < 1);
+  assert.equal(fake.aircraft.destroyed, false);
+  assert.ok(events.some((event) => Array.isArray(event) && event[0] === 'shake'));
+  assert.equal(events.some((event) => Array.isArray(event) && event[0] === 'fail'), false);
+  assert.equal(events.includes('explosion-sound'), false);
+});
+
+test('Enola terminal-impact failure starts above 6.5, while the fireball waits for 7.6', () => {
+  const { fake, events } = enolaImpactHarness();
+
+  MissionController.prototype.onImpact.call(fake, 6.51, 'terrain');
+
+  assert.equal(fake.aircraft.destroyed, false);
+  assert.equal(events.includes('explode'), false);
+  assert.equal(events.includes('explosion-sound'), false);
+  assert.ok(events.some((event) => Array.isArray(event)
+    && event[0] === 'fail' && /ground/i.test(event[1])));
+});
+
+test('Enola hard terrain crashes create a fireball, sound the explosion, stop the wreck, and fail the run', () => {
+  const { fake, events } = enolaImpactHarness();
+
+  MissionController.prototype.onImpact.call(fake, 7.6, 'terrain');
+
+  assert.equal(fake.aircraft.destroyed, true);
+  assert.ok(events.includes('explode'));
+  assert.ok(events.includes('explosion-sound'));
+  assert.deepEqual(
+    events.filter((event) => Array.isArray(event) && event[0] === 'kill'),
+    [
+      ['kill', 0, 'destroyed'],
+      ['kill', 1, 'destroyed'],
+      ['kill', 2, 'destroyed'],
+      ['kill', 3, 'destroyed'],
+    ],
+  );
+  assert.ok(events.some((event) => Array.isArray(event)
+    && event[0] === 'fail' && /ground/i.test(event[1])));
+  assert.equal(fake.physics.controls.throttleL, 0);
+  assert.equal(fake.physics.controls.throttleR, 0);
+  assert.ok(fake.physics.velocity.length() < 4, 'the wreck should shed nearly all forward speed');
+  assert.equal(fake.physics.omega.length(), 0);
+});
+
+test('the real Enola airframe swaps intact geometry for visible crash VFX and restores losslessly', () => {
+  const aircraft = new EnolaSquatch();
+  const intactChildren = [...aircraft.group.children];
+
+  assert.equal(aircraft.explode(), true);
+  assert.equal(aircraft.destroyed, true);
+  assert.ok(intactChildren.every((child) => child.visible === false));
+  assert.equal(aircraft.explosion?.name, 'enola-squatch-explosion');
+  assert.ok(aircraft.explosion.children.some((child) => child.userData.fireball));
+  assert.ok(aircraft.explosion.children.some((child) => child.userData.smoke));
+  assert.ok(aircraft.explosion.children.some((child) => child.userData.debris));
+
+  aircraft.updateExplosion(0.2);
+  assert.ok(aircraft.explosion.userData.age > 0);
+
+  aircraft.resetDestruction();
+  assert.equal(aircraft.destroyed, false);
+  assert.equal(aircraft.explosion, null);
+  assert.ok(intactChildren.every((child) => child.visible === true));
 });

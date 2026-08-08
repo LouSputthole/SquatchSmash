@@ -308,10 +308,10 @@
       "caption": "On the rail next to its own front."
     },
     {
-      "slot": "shrine.a",
+      "slot": "closet.back",
       "file": "shrine-booski-podium.jpg",
       "title": "Booski at the podium",
-      "caption": "The big one. Candles in front of it, door shut."
+      "caption": "The big one, mounted behind the clothes where shoving the rail aside reveals it."
     },
     {
       "slot": "shrine.b",

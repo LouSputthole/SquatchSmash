@@ -41,10 +41,9 @@
 
 <canvas id="scene"></canvas>
 
-<!-- The apartment's HUD, reused as-is. Its constructor expects all of these to
-     exist; this mission (cockpit-only, no on-foot walkaround) only ever uses
-     #subtitle and #toast-stack out of the set, the same accommodation
-     beefrun.html makes for its own unused rows. -->
+<!-- The apartment's HUD, reused as-is. The on-foot walkaround also uses its
+     five-slot hotbar for durable carry; the aircraft's tail gun remains a
+     station and is reported by the separate flight/combat HUD. -->
 <div id="hud" aria-hidden="true">
   <div id="crosshair"><span></span></div>
 

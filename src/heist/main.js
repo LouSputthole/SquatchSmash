@@ -318,6 +318,10 @@ let activeDialogueSource = null;
  * current one, and on a slow machine several lines can come and go between two
  * checks — so "did this beat speak" has to be asked of a history, not a div. */
 const spokenLines = [];
+/* Mission-command lines are not disposable barks. If a checkpoint rebuilds
+ * the arbiter while one is waiting behind another command, the backlog feeds
+ * it back onto the bus instead of silently losing Lou for the rest of the job. */
+const missionCommandBacklog = [];
 /** Shut every mouth in the scene. Called wherever the take itself is cut. */
 function hushCrew() {
   for (const actor of crew.values()) actor.figure.hush();
@@ -376,6 +380,8 @@ const dialogue = new DialogueArbiter({
   onStart(line) {
     spokenLines.push(line.id);
     if (spokenLines.length > 200) spokenLines.shift();
+    const commandIndex = missionCommandBacklog.indexOf(line.id);
+    if (commandIndex >= 0) missionCommandBacklog.splice(commandIndex, 1);
     try { activeDialogueSource?.stop?.(); } catch { /* already ended */ }
     /* Whatever the last speaker was still saying, he has stopped -- the source
      * above was just cut, and a mouth left running would carry on without it. */
@@ -1032,6 +1038,9 @@ function debugSnapshot() {
     voice: {
       spoken: [...spokenLines],
       queued: [...scriptedSpeech],
+      busQueued: dialogue.capture().queue.map((line) => line.id),
+      busCurrent: dialogue.current?.id ?? null,
+      commandBacklog: [...missionCommandBacklog],
       authored: HEIST_VOICE_CUES.length,
       pending: HEIST_PENDING_CUES.length,
       decoded: HEIST_VOICE_CUES.filter((cue) => audio.hasSample(cue)).length,
@@ -1108,6 +1117,22 @@ function debugSnapshot() {
 function say(id) {
   const line = dialogueLine(id);
   if (line) dialogue.push(line);
+}
+
+function sayCommand(id) {
+  const line = dialogueLine(id);
+  if (!line || spokenLines.includes(id)) return;
+  if (!missionCommandBacklog.includes(id)) missionCommandBacklog.push(id);
+  updateMissionCommands();
+}
+
+function updateMissionCommands() {
+  const id = missionCommandBacklog[0];
+  if (!id) return;
+  const liveIds = [dialogue.current?.id, ...dialogue.capture().queue.map((line) => line.id)];
+  if (liveIds.includes(id)) return;
+  const line = dialogueLine(id);
+  if (line) dialogue.pushCommand(line);
 }
 
 /**
@@ -2046,7 +2071,7 @@ function refreshInteractions() {
       if (!preparation.ready || machine.state !== 'LOADOUT') return;
       advanceTo('BOARD_VAN');
       say('prospect_ready');
-      say('lou_radio_open');
+      sayCommand('lou_radio_open');
       audio.play('heist.van.door');
       startVanRide();
       recordCheckpoint('safehouse_ready', 'VAN_APPROACH');
@@ -2147,7 +2172,8 @@ function refreshInteractions() {
       }
       lobbyControlled = true;
       audio.play('heist.crowd.react');
-      sayInTurn('numb_lobby_order', 'lou_radio_lobby', 'death_floor',
+      sayCommand('lou_radio_lobby');
+      sayInTurn('numb_lobby_order', 'death_floor',
         'civilian_please', 'snow_lobby_open');
       refreshObjective();
       refreshInteractions();
@@ -2187,7 +2213,8 @@ function refreshInteractions() {
             alarmTriggered: true, bagsStaged: 0,
           });
           refreshObjective();
-          sayInTurn('snow_clock', 'lou_radio_vault', 'snow_insured');
+          sayCommand('lou_radio_vault');
+          sayInTurn('snow_clock', 'snow_insured');
           audio.play('heist.vault.open');
         }
       }, {
@@ -2228,7 +2255,8 @@ function refreshInteractions() {
             audio.startLoop('heist.bank.alarm', { volume: 0.34, ambience: true, fade: 0.15 });
             advanceTo('ALARM_DISCOVERED');
             advanceTo('EXIT_ORDER');
-            sayInTurn('numb_signal', 'rippin_street', 'snow_exit', 'lou_radio_street');
+            sayCommand('lou_radio_street');
+            sayInTurn('numb_signal', 'rippin_street', 'snow_exit');
             refreshObjective();
           }
           refreshInteractions();
@@ -3671,6 +3699,7 @@ function animate() {
   muzzle.intensity = Math.max(0, muzzle.intensity - dt * 70);
   if (dialogue.current && now >= dialogueEndAt) dialogue.finish();
   dialogue.update(now);
+  updateMissionCommands();
   updateScriptedSpeech();
   syncHeistInventory();
   /* The standing order, recomputed from the mission state every frame.

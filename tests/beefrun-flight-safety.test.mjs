@@ -197,3 +197,64 @@ test('standing near Cecilio does not keep his mouth moving after dialogue ends',
   assert.equal(cecilio.talk, 0);
   assert.equal(cecilio.lookAt, fake.player.position);
 });
+
+function impactHarness() {
+  const events = [];
+  const fake = {
+    aircraft: {
+      destroyed: false,
+      explode() {
+        this.destroyed = true;
+        events.push('explode');
+        return true;
+      },
+    },
+    physics: {
+      damage: { wing: 0 },
+      controls: { throttleL: 0.7, throttleR: 0.7 },
+      velocity: new THREE.Vector3(20, -3, 40),
+      omega: new THREE.Vector3(0.2, 0.1, 0.3),
+    },
+    cameras: { addShake: (amount) => events.push(['shake', amount]) },
+    audio: {
+      play: (name) => events.push(['play', name]),
+      explosion: () => events.push('explosion-sound'),
+    },
+    engines: {
+      engines: [{}, {}],
+      kill: (index, reason) => events.push(['kill', index, reason]),
+    },
+    fail: (reason) => events.push(['fail', reason]),
+  };
+  return { fake, events };
+}
+
+test('a light terrain brush is forgiven without damage, failure, or explosion', () => {
+  const { fake, events } = impactHarness();
+
+  MissionController.prototype.onImpact.call(fake, 2.2, 'terrain');
+
+  assert.equal(fake.physics.damage.wing, 0);
+  assert.equal(fake.aircraft.destroyed, false);
+  assert.deepEqual(events, []);
+});
+
+test('only a hard terrain crash explodes the aircraft and kills both engines', () => {
+  const { fake, events } = impactHarness();
+
+  MissionController.prototype.onImpact.call(fake, 7.7, 'terrain');
+
+  assert.equal(fake.aircraft.destroyed, true);
+  assert.ok(events.includes('explode'));
+  assert.ok(events.includes('explosion-sound'));
+  assert.deepEqual(
+    events.filter((event) => Array.isArray(event) && event[0] === 'kill'),
+    [['kill', 0, 'destroyed'], ['kill', 1, 'destroyed']],
+  );
+  assert.ok(events.some((event) => Array.isArray(event)
+    && event[0] === 'fail' && /ground/i.test(event[1])));
+  assert.equal(fake.physics.controls.throttleL, 0);
+  assert.equal(fake.physics.controls.throttleR, 0);
+  assert.ok(fake.physics.velocity.length() < 2, 'the wreck should shed nearly all of its velocity');
+  assert.equal(fake.physics.omega.length(), 0);
+});

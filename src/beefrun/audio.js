@@ -72,6 +72,11 @@ export class BeefAudioEngine extends AudioEngine {
     } else {
       const index = await loadJson(SFX_DIR, 'index.json');
       const available = index ? new Set(index.files || []) : null;
+      /* Inherited loadAdditional() uses the same delivered-file boundary for
+       * narrow post-start banks such as the shared cockpit radio. Keep the
+       * index on the engine instead of only in this local load so an optional
+       * radio cue can never turn into a blind fetch for an undelivered take. */
+      this._availableFiles = available;
       this._fileVersions = index?.versions || {};
       availableCues = available
         ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
@@ -104,6 +109,10 @@ export class MissionAudio {
      * since the two missions share this class but not a soundtrack. Left
      * `null`, `setPhase('takeoff')` plays the usual procedural score. */
     this.takeoffAnthemFile = null;
+    /* Optional per-scene playback window. Enola uses this to author the
+     * delivered record's level and fade without giving the shared flight
+     * audio layer knowledge of a particular song. */
+    this.takeoffAnthemOptions = null;
   }
 
   get ctx() { return this.engine?.ctx; }
@@ -347,8 +356,9 @@ export class MissionAudio {
     this.stopMusic();
     this.engine.replaceMusicLoop('music.takeoff', `${MUSIC_DIR}${this.takeoffAnthemFile}`, {
       volume: 0.5,
-      loop: false,
       ambience: true,
+      ...(this.takeoffAnthemOptions ?? {}),
+      loop: false,
     });
   }
 

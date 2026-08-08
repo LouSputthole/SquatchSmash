@@ -224,6 +224,51 @@ check('long Bing records stream through WebAudio without retained music AudioBuf
     && Number.isFinite(entry.duration) && entry.duration > 0),
   JSON.stringify(streamedVenueMusic));
 
+const aubbieOpeningLoudness = await page.evaluate(() => {
+  const measure = (name) => {
+    const buffer = window.__bing.audio.buffers.get(name)?.[0];
+    if (!buffer) return { name, decoded: false };
+    let energy = 0;
+    let peak = 0;
+    let samples = 0;
+    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+      const data = buffer.getChannelData(channel);
+      samples += data.length;
+      for (let i = 0; i < data.length; i += 1) {
+        const magnitude = Math.abs(data[i]);
+        energy += data[i] * data[i];
+        if (magnitude > peak) peak = magnitude;
+      }
+    }
+    const rms = samples > 0 ? Math.sqrt(energy / samples) : 0;
+    const toDb = (value) => 20 * Math.log10(Math.max(value, 1e-9));
+    return {
+      name,
+      decoded: true,
+      rmsDb: Number(toDb(rms).toFixed(2)),
+      peakDb: Number(toDb(peak).toFixed(2)),
+    };
+  };
+  const opening = measure('vo.bing.full.aubbie.open.line.ojzmwc');
+  const adjacent = measure('vo.bing.full.aubbie.more.line.gdwsve');
+  return {
+    opening,
+    adjacent,
+    rmsDeltaDb: opening.decoded && adjacent.decoded
+      ? Number(Math.abs(opening.rmsDb - adjacent.rmsDb).toFixed(2))
+      : null,
+    peakDeltaDb: opening.decoded && adjacent.decoded
+      ? Number(Math.abs(opening.peakDb - adjacent.peakDb).toFixed(2))
+      : null,
+  };
+});
+check('Aubbie\'s opening line is level-matched to his adjacent delivered take',
+  aubbieOpeningLoudness.opening.decoded
+    && aubbieOpeningLoudness.adjacent.decoded
+    && aubbieOpeningLoudness.rmsDeltaDb <= 6
+    && aubbieOpeningLoudness.peakDeltaDb <= 6,
+  JSON.stringify(aubbieOpeningLoudness));
+
 /* A focused mode makes before/after residency measurements cheap while the
  * normal command continues through every story and presentation contract. */
 if (process.argv.includes('--audio-only')) {
@@ -413,6 +458,14 @@ console.log('Driving the mission…');
 
 let s = await state();
 check('starts behind the wheel in the lot', s.mission === 'lot', s.mission);
+const serviceGateAtStart = await page.evaluate(() => {
+  const door = window.__bing.club.doors.service;
+  door.leaf.userData.interact.onUse();
+  return { locked: door.locked, open: door.open };
+});
+check('the first visit cannot bypass the bouncer through the service door',
+  serviceGateAtStart.locked && !serviceGateAtStart.open,
+  JSON.stringify(serviceGateAtStart));
 /* Empty-handed. The one thing this night is for is Lou putting the package on
  * the desk, so the prospect cannot already have it while he is still in the
  * car park. Held here and asserted again after the handoff. */
@@ -827,6 +880,13 @@ check('the locked ones stay locked', doors.lockedStayedShut);
  * Walk off mid-thread and the next talk resumes where it lapsed; only a
  * finished conversation replays from the top. */
 await walkTo(-18.5, 2.2, Math.PI / 2);
+const serviceGateInside = await page.evaluate(() => ({
+  locked: window.__bing.club.doors.service.locked,
+  mission: window.__bing.mission.state,
+}));
+check('crossing the public entrance turns the service door into the alarmed exit',
+  serviceGateInside.mission === 'club' && !serviceGateInside.locked,
+  JSON.stringify(serviceGateInside));
 const resume = await page.evaluate(() => {
   const b = window.__bing;
   const bartender = b.cast.byName.bartender;
@@ -2982,7 +3042,8 @@ check('tipping the runway puts money in the air',
       && primary.some((t) => /cute girl at the bar/.test(t))
       && primary.some((t) => /shot with Booski/.test(t))
       && optional.some((t) => /\d+\/\d+.*squatches/.test(t))
-      && ['Play the slots', 'Play blackjack', 'Tip the performers', 'Order a drink from the bar']
+      && ['Play the slots', 'Play blackjack', 'Tip the performers', 'Order a drink from the bar',
+        'See what Gratin needs in the service room']
         .every((want) => optional.some((t) => t.includes(want)))
       && punchHud.objectives.some((o) => o.rule),
     JSON.stringify(texts));

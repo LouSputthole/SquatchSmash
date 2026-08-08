@@ -1,5 +1,12 @@
 # OPEN DECISIONS — the mansion siege, and what it is blocking
 
+> Historical decision brief from 2026-08-05. For current implementation
+> status, whole-campaign topology, protected boundaries, recording totals, and
+> the consolidated owner-decision list, see
+> `CAMPAIGN-FLOW-AND-POLISH-REPORT-2026-08-08.md`. Items below remain useful
+> design context but their old verifier totals and implementation-state claims
+> are not current evidence.
+
 Every item here is something I can build more than one way, where the ways
 lead somewhere different. **Nothing below is a bug.** The bugs get fixed; these
 get decided.
@@ -232,15 +239,18 @@ Nothing can be built for these; they are files and ids only the owner has.
 | ~~`assets/art/enola-squatch-nose-art.png`~~ | **Delivered 2026-08-05**, with `enola-squatch-nose-name.png` alongside it. Both are on the aeroplane |
 | The real "Can't You Hear Me Knocking" recording | Its cue |
 
-### And one the owner has already answered twice, differently
+### Featured waiter casting — resolved 2026-08-08
 
-The **Silver Room waiter** was recast to two different ids on 2026-08-04, in
-two sessions that could not see each other. The merge took
-`miqykcv8BCUvQnRlIGUV`, because that is the id all 74 takes on disk were
-actually rendered with; `gAMZphRyrWJnLMDnom6H` had none. If the second one was
-the intended voice, change it in the manifest and run
-`npm run sfx -- --force --cast waiter`. The whole history is in the profile's
-own `_note` and in `docs/BRANCH-AUDIT.md`.
+The owner selected `gAMZphRyrWJnLMDnom6H` for the featured Silver Room date
+waiter. That bank now has its own `silver-waiter` profile, so only the twelve
+`vo.silver.waiter.*` takes are recast. The other eighty host, bandleader, room,
+and staff cues retain `miqykcv8BCUvQnRlIGUV` through the shared `waiter`
+profile. The replacement run is:
+
+`npm run sfx -- --force --cast silver-waiter`
+
+The temporary `recast` marker stays in the manifest until those twelve takes
+are generated, indexed, and auditioned.
 
 > The two NPC voice ids were mentioned in conversation but never actually
 > pasted. That is the only reason they are not wired.

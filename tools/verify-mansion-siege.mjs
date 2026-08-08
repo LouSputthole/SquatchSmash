@@ -34,6 +34,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inspectRequiredAudioBank } from './required-audio-bank.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5231;
@@ -73,7 +74,11 @@ const browser = await chromium.launch({
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: [
-    '--use-gl=swiftshader',
+    /* Direct SwiftShader intermittently invalidates the first instanced
+     * MeshDepthMaterial link in this shadow-heavy scene. Keep software
+     * rendering deterministic by routing it through Chromium's ANGLE path. */
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
   ],
@@ -161,7 +166,7 @@ try {
   /* budgets that keep the frame affordable in the first place.         */
   /* ---------------------------------------------------------------- */
   const bootStart = Date.now();
-  await page.goto(`http://localhost:${PORT}/mansion-siege.html`, { waitUntil: 'load', timeout: 180000 });
+  await page.goto(`http://localhost:${PORT}/mansion-siege.html?preview=1`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.mansionSiege?.scene, null, { timeout: 90000 });
   const readyMs = Date.now() - bootStart;
   /* A scene handle is not a picture. Measured in this harness: 4.6 s to the
@@ -268,6 +273,32 @@ try {
   /* ---------------------------------------------------------------- */
   await page.click('#startBtn');
   await page.waitForFunction(() => window.mansionSiege.running, null, { timeout: 20000 });
+  const arrivalLoadout = await evaluate(() => ({
+    ...window.mansionSiege.loadout.checkpoint(),
+    equippedInHands: window.mansionSiege.equipped,
+    renderedSlots: document.querySelectorAll('#hotbar .slot').length,
+    hotbarHidden: document.getElementById('hotbar')?.classList.contains('hidden') ?? true,
+  }));
+  check('the inherited final-arc loadout renders as five usable slots on arrival',
+    arrivalLoadout.slots.length === 5 && arrivalLoadout.renderedSlots === 5
+      && arrivalLoadout.hotbarHidden === false && arrivalLoadout.slots.includes('revolver')
+      && arrivalLoadout.equipped === 'revolver' && arrivalLoadout.equippedInHands === 'revolver',
+    JSON.stringify(arrivalLoadout));
+
+  await page.keyboard.press('KeyQ');
+  await settle(0.1);
+  const stowedLoadout = await evaluate(() => ({
+    ...window.mansionSiege.loadout.checkpoint(),
+    equippedInHands: window.mansionSiege.equipped,
+  }));
+  check('Q gives empty hands without deleting the owned gun or its ammunition',
+    stowedLoadout.equipped === null && stowedLoadout.equippedInHands === null
+      && stowedLoadout.slots.includes('revolver')
+      && stowedLoadout.ammo.revolver.rounds === arrivalLoadout.ammo.revolver.rounds
+      && stowedLoadout.ammo.revolver.reserve === arrivalLoadout.ammo.revolver.reserve,
+    JSON.stringify(stowedLoadout));
+  await page.keyboard.press('Digit1');
+  await settle(0.1);
   const spawn = await at();
   const route = await evaluate(() => window.mansionSiege.route);
   check('he wakes up in the basement guest room', inRect(spawn, route.guestRoom)
@@ -988,10 +1019,9 @@ try {
   check('the handoff completes the mission', finished.complete === true
     && finished.beat === 'COMPLETE', JSON.stringify({ beat: finished.beat }));
   /* THE CARD IS THE END OF THE PREVIEW AND IT HAS TO BE HONEST AND CLICKABLE.
-   * Enola Squatch is not wired to this mission -- the card says so in as many
-   * words rather than fading to black, which reads as a crash. And the
-   * pointer goes back to the player, because a card full of links behind a
-   * locked pointer is a softlock with better typography. */
+   * It names the now-wired Enola handoff, and the pointer goes back to the
+   * player because a card full of links behind a locked pointer is a softlock
+   * with better typography. */
   check('and puts up a mission-complete card with the mouse handed back',
     finished.hud.complete === true && finished.running === false && finished.locked === false,
     JSON.stringify({ card: finished.hud.complete, running: finished.running }));
@@ -1019,10 +1049,10 @@ try {
       replay: !!document.getElementById('replayBtn'),
     };
   });
-  check('the card links home rather than dead-ending',
-    card.links.includes('./index.html') && card.replay === true, card.links.join(' '));
-  check('and says out loud that the Enola Squatch handoff is not wired yet',
-    /not been written|not wired|separate page/i.test(card.note),
+  check('the card offers the direct Enola Squatch handoff and keeps replay available',
+    card.links.includes('./enolasquatch.html') && card.replay === true, card.links.join(' '));
+  check('and says out loud that the Enola Squatch handoff is wired',
+    /handoff now carries directly into\s+the enola squatch/i.test(card.note),
     card.note.slice(0, 90));
   /* ## THIS CHECK IS AGAINST THE LEDGER, NOT AGAINST "MORE THAN NOUGHT"
    *
@@ -1106,7 +1136,10 @@ try {
   /* own scoped banks.                                                      */
   /*                                                                         */
   /* beginSiege()'s audio.loadManifest() call is weaponCueNames() +          */
-  /* siegeCueNames() -- no `vo.siege.*` dialogue prefix exists, because the   */
+  /* siegeCueNames(). Required effects are checked BEFORE the manifest is      */
+  /* allowed to filter the residency expectation: otherwise an absent cue      */
+  /* disappears from both lists and produces a false green.                    */
+  /* No `vo.siege.*` dialogue prefix exists, because the                        */
   /* siege has none: `siege.prospect.little_friend` is a bark, not a line     */
   /* with a cue-name prefix of its own. This recomputes that exact selection   */
   /* from the manifest the page loaded (importing `siegeCueNames` from the     */
@@ -1123,8 +1156,24 @@ try {
       import('/src/core/weapons/audio.js'),
       import('/src/mansion/siege/main.js'),
     ]);
-    return { weaponCueNames: weapons.weaponCueNames(), siegeCueNames: siege.siegeCueNames() };
+    return {
+      weaponCueNames: weapons.weaponCueNames(),
+      siegeCueNames: siege.siegeCueNames(),
+      siegeEffectCueNames: siege.siegeEffectCueNames(),
+    };
   });
+  const siegeAuthoredEffects = inspectRequiredAudioBank({
+    requiredNames: siegeCueLists.siegeEffectCueNames,
+    manifest: soundManifest,
+    index: soundIndex,
+  });
+  check('every required Siege effect has authored manifest metadata and an indexed recording',
+    siegeAuthoredEffects.ok,
+    JSON.stringify({
+      required: siegeAuthoredEffects.requiredNames.length,
+      missingManifest: siegeAuthoredEffects.missingManifest,
+      missingFiles: siegeAuthoredEffects.missingFiles,
+    }));
   const siegeSelectedNames = new Set([...siegeCueLists.weaponCueNames, ...siegeCueLists.siegeCueNames]);
   const expectedSiegeResident = soundManifest.sfx
     .filter((cue) => siegeSelectedNames.has(cue.name))
@@ -1253,7 +1302,7 @@ try {
      * enough for that on swiftshader and the failure it produces is a
      * navigation timeout, which looks nothing like what it is. The real
      * readiness signal is the next line, and it has always had 90 s. */
-    await jump.goto(`http://localhost:${PORT}/mansion-siege.html?checkpoint=${want.id}`,
+    await jump.goto(`http://localhost:${PORT}/mansion-siege.html?preview=1&checkpoint=${want.id}`,
       { waitUntil: 'domcontentloaded', timeout: 120000 });
     await jump.waitForFunction(() => window.mansionSiege?.scene, null, { timeout: 120000 });
     /* Before anything else: this page is a fresh scene and its render loop is
@@ -1337,6 +1386,21 @@ try {
     check('and so does the gallery',
       drawn.gallery <= 11000, `${drawn.gallery} calls (budget 11000)`);
   }
+
+  const contextHealth = await evaluate(() => {
+    const gl = window.mansionSiege.renderer.getContext();
+    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+    return {
+      lost: gl.isContextLost(),
+      version: gl.getParameter(gl.VERSION),
+      renderer: debug
+        ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
+        : gl.getParameter(gl.RENDERER),
+    };
+  });
+  check('the ANGLE SwiftShader context stays healthy through every render probe',
+    contextHealth.lost === false,
+    JSON.stringify(contextHealth));
 
   const strayNotFound = notFound.filter((p) => !p.endsWith('/the-feature.mp4'));
   check('nothing the scene asks for is missing except the film nobody delivered',

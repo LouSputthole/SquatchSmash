@@ -1,3 +1,5 @@
+import { isFutureInitiationCue } from './audio-scope.mjs';
+
 /**
  * Build the human-facing audio production handoff from the two audio systems
  * that still exist in this repository.
@@ -181,9 +183,6 @@ function voiceReusePlan(cues) {
     performances: cues.length - redundant,
   };
 }
-
-const isFutureInitiationPartyCue = (cue) => cue.name.startsWith('vo.initiation.party.')
-  || cue.name.startsWith('vo.initiation.ambient.');
 
 function renderVoice(out, voice, voices, recast = new Map()) {
   const byScene = group(voice, (cue) => voiceScene(cue.name));
@@ -404,9 +403,9 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
   const pending = [...missing, ...rerecord];
   const allVoice = pending.filter((cue) => typeof cue.say === 'string' && cue.say.trim());
   const allManifestVoice = cues.filter((cue) => typeof cue.say === 'string' && cue.say.trim());
-  const futureInitiationPartyAll = allManifestVoice.filter(isFutureInitiationPartyCue);
-  const futureInitiationParty = allVoice.filter(isFutureInitiationPartyCue);
-  const voice = allVoice.filter((cue) => !isFutureInitiationPartyCue(cue));
+  const futureInitiationPartyAll = allManifestVoice.filter(isFutureInitiationCue);
+  const futureInitiationParty = allVoice.filter(isFutureInitiationCue);
+  const voice = allVoice.filter((cue) => !isFutureInitiationCue(cue));
   const reuse = voiceReusePlan(voice);
   const effects = missing.filter((cue) => !(typeof cue.say === 'string' && cue.say.trim()));
   const manifestFiles = new Set(cues.map(fileOf));

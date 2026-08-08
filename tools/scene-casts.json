@@ -73,12 +73,14 @@
         "lou2",
         "numbskull",
         "hogmama",
-        "snow"
+        "snow",
+        "old-stove",
+        "performer"
       ],
       "sceneVoiceExemptions": {
         "labcomputer": "The laboratory's own annunciator -- script.js's SPEAKERS.LAB_COMPUTER docstring: 'Flat, synthetic, indifferent.' A PA voice with no body by design, the same class as vo.machine./vo.news."
       },
-      "notes": "Snow ('snow', 5 lines) staged as of the 8-6 punch-list fix (S10): cast.js's snow errand (cast.js:982-1100) brings his body into the lab through the pier opening for the script.js:695 'snow.arrives' stage, so snowIntercom's first three lines play over the intercom while he is on his way and the last two are said in the room. His permanent foyer post covers snowFoyer/snowIdle as before. Was this checker's original known offender, reported until the fix landed."
+      "notes": "Snow ('snow', 5 lines) staged as of the 8-6 punch-list fix (S10): cast.js's snow errand brings his body into the lab through the pier opening, so the intercom lines lead into his in-room lines. His permanent foyer post covers the idle beats. The quiet-evening phase also stages Old Stove physically in the theatre and the performer physically beside the pool before either voice can speak."
     },
     {
       "id": "mansion-siege",
@@ -269,6 +271,7 @@
       ],
       "staged": [
         "margo",
+        "silver-waiter",
         "waiter",
         "ape",
         "doorman",
@@ -276,7 +279,7 @@
         "announcer"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast.js's populate() builds Vinny/the doorman ('doorman'), 'manager', 'waiter' (plus mover1/mover2/server<N> on the same voice) and 'the host'; Ape is spread in as the exact Bing FAMILY figure (identifySilverApe()). The single 'announcer' line ('...the Silver Room is proud... the Midnight Pines') is the room's own host introducing the act on stage, not an offscreen PA."
+      "notes": "cast.js's populate() builds Vinny/the doorman ('doorman'), 'manager', the featured date waiter ('silver-waiter'), ambient staff on the shared 'waiter' profile (mover1/mover2/server<N>), and 'the host'; Ape is spread in as the exact Bing FAMILY figure (identifySilverApe()). The single 'announcer' line ('...the Silver Room is proud... the Midnight Pines') is the room's own host introducing the act on stage, not an offscreen PA."
     },
     {
       "id": "silver-case",

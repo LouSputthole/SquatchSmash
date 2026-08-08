@@ -40,7 +40,10 @@ const EXPECTED_SCENE_LINKS = Object.freeze({
    * that ships without a card here now fails rather than quietly hiding. */
   silvercase: 'silvercase.html?preview=1',
   mansion: 'mansion.html?preview=1',
+  'mansion-siege': 'mansion-siege.html?preview=1',
   enolasquatch: 'enolasquatch.html?preview=1',
+  'mansion-return': 'mansion.html?visit=return&preview=1',
+  'cartel-palace': 'cartel-palace.html?preview=1',
 });
 const APARTMENT_PREVIEW_CASES = Object.freeze([
   Object.freeze({
@@ -98,6 +101,11 @@ const APARTMENT_PREVIEW_CASES = Object.freeze([
     timeMinutes: 10 * 60 + 30, mission: 'silver_pines', missionStatus: 'complete',
     pendingEvent: 'lou_heist_call',
   }),
+  Object.freeze({
+    variant: 'after-heist', spawn: 'front_door', chapter: 'post_heist', day: 4,
+    timeMinutes: 17 * 60 + 20, mission: 'bank_heist', missionStatus: 'complete',
+    pendingEvent: null,
+  }),
 ]);
 const EXPECTED_APARTMENT_RETURN_SOURCES = Object.freeze({
   'after-bing-one': 'bada_bing_one',
@@ -107,6 +115,7 @@ const EXPECTED_APARTMENT_RETURN_SOURCES = Object.freeze({
   'after-no-wake': 'no_wake',
   'after-silver-room': 'silver_room',
   'after-golf': 'silver_pines',
+  'after-heist': 'bank_heist',
 });
 
 let chromium;
@@ -134,7 +143,8 @@ const browser = await chromium.launch({
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: [
-    '--use-gl=swiftshader',
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
   ],
@@ -210,6 +220,8 @@ try {
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
     apartments: [...document.querySelectorAll('[data-preview-apartment]')]
       .map((link) => [link.dataset.previewApartment, link.getAttribute('href')]),
+    tools: [...document.querySelectorAll('[data-preview-tool]')]
+      .map((link) => [link.dataset.previewTool, link.getAttribute('href')]),
   }));
   check('the launcher exposes every authored mission preview',
     launcher.title === 'Scene preview'
@@ -222,6 +234,9 @@ try {
   check('the launcher exposes every canonical apartment iteration',
     linksMatchExpected(launcher.apartments, expectedApartmentLinks),
     JSON.stringify(launcher.apartments));
+  check('the launcher exposes the wardrobe inspection tool',
+    linksMatchExpected(launcher.tools, { wardrobe: 'wardrobe.html' }),
+    JSON.stringify(launcher.tools));
   check('opening the launcher leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
@@ -242,6 +257,8 @@ try {
         events: state.events,
         returnSource: window.__squatch.apartmentReturnSource,
         previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
+        bloodShirtVisible:
+          window.__squatch.apartment.dressing.get('bloodShirt')?.group.visible ?? false,
       };
     });
     check(`apartment preview ${expected.variant} boots at its canonical checkpoint`,
@@ -251,16 +268,19 @@ try {
         && apartment.story.day === expected.day
         && apartment.story.timeMinutes === expected.timeMinutes
         && apartment.missions[expected.mission].status === expected.missionStatus
-        && apartment.events[expected.pendingEvent].status === 'pending'
+        && (!expected.pendingEvent
+          || apartment.events[expected.pendingEvent].status === 'pending')
         && apartment.returnSource
           === (EXPECTED_APARTMENT_RETURN_SOURCES[expected.variant] ?? null)
+        && !apartment.bloodShirtVisible
         && apartment.previewNotice,
       JSON.stringify({
         scene: apartment.scene,
         story: apartment.story,
         mission: apartment.missions[expected.mission],
-        event: apartment.events[expected.pendingEvent],
+        event: expected.pendingEvent ? apartment.events[expected.pendingEvent] : null,
         returnSource: apartment.returnSource,
+        bloodShirtVisible: apartment.bloodShirtVisible,
       }));
   }
   check('all apartment previews leave the canonical save untouched',

@@ -47,6 +47,7 @@ const RETRY_GAP = 10;
  */
 export const DEPARTURE_REFUSALS = Object.freeze({
   heist_cleanup: 'Not walking into the Bing wearing the bank. Clean up first.',
+  final_arc_locked: 'The bank is done. The next call is not here yet.',
   initiation_locked: 'Lou said seven. The invitation still has to land.',
   golf_call: 'Lou said he would call about this morning. I am not guessing where.',
   golf_return: 'Three holes done. Whatever comes next, Lou will call for it.',
@@ -199,6 +200,7 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
   [SCENE_IDS.SILVER_PINES]: 'Silver Pines',
   [SCENE_IDS.BANK_HEIST]: 'THE TAKE',
+  [SCENE_IDS.SILVER_CASE]: 'the Silver Case pickup',
   [SCENE_IDS.INITIATION]: 'the Initiation',
 });
 
@@ -1123,6 +1125,17 @@ class ApartmentStory {
           ...missing,
           ...refusal('heist_cleanup'),
         };
+      }
+      const silverCase = state.missions[MISSION_IDS.SILVER_CASE];
+      if (silverCase.status !== 'complete') {
+        if (silverCase.status === 'locked') {
+          return {
+            kind: 'stay',
+            id: 'final_arc_locked',
+            ...refusal('final_arc_locked'),
+          };
+        }
+        return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
       }
       if (state.missions[MISSION_IDS.INITIATION].status === 'locked') {
         return {

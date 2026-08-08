@@ -103,6 +103,7 @@ export class MissionController {
       louAboard: false,
       inCockpit: false,
       stoveWalked: false,
+      stoveRevealShown: false,
       chocksWarned: false,
       runupDone: false,
       runwayStaged: false,
@@ -133,6 +134,7 @@ export class MissionController {
     this._ambientBarkTimer = 18;
     this._touchdowns = [];
     this._lastCrateShift = 0;
+    this.stoveReveal = null;
 
     this.physics.onTouchdown = (vs, g, wheel) => this.onTouchdown(vs, g, wheel);
     this.physics.onImpact = (sev, what) => this.onImpact(sev, what);
@@ -190,6 +192,37 @@ export class MissionController {
     this.weather.setConditions({ turbulence: 0.22, crosswind: 0.4 * d.crosswind, rain: 0, cloudDensity: 0.35, dusk: 0 });
     this.audio.setPhase('airport');
     this.setPhase('arrival');
+  }
+
+  /**
+   * Preview-only start at the walkaround.
+   *
+   * This is intentionally an on-foot scene pose, not a durable campaign
+   * checkpoint.  The normal mission still begins at the gate with Sasole's
+   * arrival conversation; main.js calls this only for the bounded
+   * `?preview=1&checkpoint=preflight` route.
+   */
+  startPreviewPreflight() {
+    const first = this.preflight?.chocks?.[0];
+    if (!first) return false;
+
+    first.updateWorldMatrix?.(true, false);
+    const target = first.getWorldPosition(new THREE.Vector3());
+    const ground = WP.elev;
+    this.player.position.set(target.x - 2.4, ground + this.player.eyeHeight, target.z + 1.4);
+    this.player.ground = ground;
+    this.player.yaw = yawToward(this.player.position, target);
+    this.player.pitch = -0.08;
+    this.player.velocity?.set?.(0, 0, 0);
+    this.player.clearKeys?.();
+    this.player.mode = 'walk';
+    this.player.enabled = true;
+    this.flags.inCockpit = false;
+    this.interaction?.setPaused?.(false);
+    this.checkpoint = null;
+    this.setPhase('preflight');
+    this.terrain?.prime?.(this.player.position.x, this.player.position.z);
+    return true;
   }
 
   /**
@@ -612,6 +645,7 @@ export class MissionController {
 
     // Lou: increasingly unwell, and reacting to the flying.
     this.updateLou(dt);
+    this.updateStoveReveal(dt);
 
     /* Before the phase gets a say: is the aeroplane sitting somewhere it can
      * never get out of? Kept here rather than in `updateFlightCommon` because
@@ -683,6 +717,9 @@ export class MissionController {
       const stand = this.airfield.anchors.stoveStand;
       walkTo(this.stove, stand.x, stand.z, { speed: 1.3 });
     }
+    if (this.flags.stoveWalked && !this.stove.walk && !this.flags.stoveRevealShown) {
+      this.beginStoveReveal();
+    }
     /* The guided walkaround: the objective names the one thing to do next —
      * the marker in the world and the checklist on the glass agree with it —
      * instead of reciting everything still left. */
@@ -692,6 +729,63 @@ export class MissionController {
       ? `${OBJECTIVES.preflight} — next: ${next.label}${step}`
       : OBJECTIVES.preflight);
     this.flightHud.setChecklist(this.preflight.checklist);
+  }
+
+  /**
+   * Introduce Old Stove without adding another line of dialogue.
+   *
+   * The camera gets a quick, soft assist toward the man who just stepped out
+   * of the hangar, while Sasole takes only a pace toward the player and the
+   * handoff.  It is a one-shot stage beat: mouse look remains live and the
+   * final heading is left with the player rather than snapping back.
+   */
+  beginStoveReveal() {
+    if (this.flags.stoveRevealShown) return false;
+    this.flags.stoveRevealShown = true;
+    const target = this.stove.group.position.clone();
+    this.stove.lookAt = this.player.position;
+    this.stoveReveal = { t: 0, duration: 1.05, target };
+
+    const meetX = (this.player.position.x + target.x) * 0.5;
+    const meetZ = (this.player.position.z + target.z) * 0.5;
+    const dx = meetX - this.lou.group.position.x;
+    const dz = meetZ - this.lou.group.position.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance > 0.05) {
+      const step = Math.min(distance, 1.45);
+      walkTo(
+        this.lou,
+        this.lou.group.position.x + (dx / distance) * step,
+        this.lou.group.position.z + (dz / distance) * step,
+        { speed: 1.05, pose: 'idle' },
+      );
+      this.lou.lookAt = target;
+    }
+    return true;
+  }
+
+  updateStoveReveal(dt) {
+    const cue = this.stoveReveal;
+    if (!cue) return;
+    cue.t += dt;
+    cue.target.copy(this.stove.group.position);
+    const wantYaw = yawToward(this.player.position, cue.target);
+    const yawError = Math.atan2(
+      Math.sin(wantYaw - this.player.yaw),
+      Math.cos(wantYaw - this.player.yaw),
+    );
+    const turn = 1 - Math.exp(-9 * dt);
+    this.player.yaw += yawError * turn;
+    const horizontal = Math.max(0.1, Math.hypot(
+      cue.target.x - this.player.position.x,
+      cue.target.z - this.player.position.z,
+    ));
+    const wantPitch = Math.atan2(
+      cue.target.y + 1.55 - this.player.position.y,
+      horizontal,
+    );
+    this.player.pitch = damp(this.player.pitch, wantPitch, 8, dt);
+    if (cue.t >= cue.duration) this.stoveReveal = null;
   }
 
   /* ---- Old Stove ---- */
@@ -1733,7 +1827,10 @@ export class MissionController {
     }
     const onApron = !this.flags.louAboard
       && ['arrival', 'preflight', 'stove', 'loadGuns'].includes(this.phase);
-    if (onApron) this.lou.faceToward(this.player.position.x, this.player.position.z);
+    // A walking body owns its heading. Re-aiming the whole group at the player
+    // before every walk frame made his short Stove handoff step jitter in
+    // place; once he stops, he resumes tracking the player normally.
+    if (onApron && !this.lou.walk) this.lou.faceToward(this.player.position.x, this.player.position.z);
     updateFigure(this.lou, dt, this.flags.inCockpit ? this.camera.position : this.player.position);
     // The cup and the name tag both belong to the man on the apron. Once he is
     // in the right seat you are half a metre from him and you know who he is.
