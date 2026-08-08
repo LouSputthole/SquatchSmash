@@ -496,8 +496,8 @@ export function buildFamilyScripts({
      * pitched at a man who does not have to raise his voice in his own room.
      * The demand is unchanged and the count is unchanged, which matters,
      * because `booskiShot.handoff` is him arriving on "Twenty-eight." The
-     * manifest still carries the old wording and an actor direction; the `say`
-     * needs to follow this line the next time the cue block is regenerated. */
+     * indexed file is still the old performance, so the manifest deliberately
+     * carries a rerecord marker until this calmer wording is delivered. */
     yell: {
       who: 'Booskibro',
       line: 'Get my man a shot. Thirty fuckin’ seconds. That’s generous, baby.',

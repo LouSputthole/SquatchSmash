@@ -11,13 +11,219 @@ import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
 ensureThreeShim();
 ensureDomShim();
 
-const { buildMansionGrounds, UPPER_Y } = await import('../src/mansion/scenes/MansionGrounds.js');
-const { buildMansionInterior } = await import('../src/mansion/scenes/MansionInterior.js');
+const {
+  buildMansionGrounds, GROUND_Y, POOL, UPPER_Y,
+} = await import('../src/mansion/scenes/MansionGrounds.js');
+const {
+  buildMansionInterior, MANSION_ART_SLOTS,
+} = await import('../src/mansion/scenes/MansionInterior.js');
 const { buildSilentSquatch } = await import('../src/mansion/scenes/SilentSquatch.js');
 const { mountMansionCast } = await import('../src/mansion/cast.js');
 const mansionMainSource = readFileSync(new URL('../src/mansion/main.js', import.meta.url), 'utf8');
 const bingMainSource = readFileSync(new URL('../src/bing/main.js', import.meta.url), 'utf8');
 const mansionVerifierSource = readFileSync(new URL('../tools/verify-mansion.mjs', import.meta.url), 'utf8');
+const artManifest = JSON.parse(readFileSync(new URL('../assets/art/manifest.json', import.meta.url), 'utf8'));
+
+test('the pool publishes a walkable stair down to a real basin floor', () => {
+  const grounds = buildMansionGrounds(null);
+  const patio = grounds.props.poolPatio;
+  const levels = patio.entrySteps?.levels ?? [];
+
+  assert.ok(levels.length >= 6, 'the pool has no authored entry stair');
+  assert.equal(levels[0].y, GROUND_Y, 'the first tread is not flush with the deck');
+  assert.equal(levels.at(-1).y, POOL.y, 'the final tread does not land on the basin floor');
+  for (let i = 1; i < levels.length; i++) {
+    assert.ok(levels[i].z0 >= levels[i - 1].z1 - 0.001, 'pool treads overlap out of order');
+    assert.ok(levels[i].y < levels[i - 1].y, 'the pool stair does not descend into the water');
+  }
+
+  const x = (patio.entrySteps.x0 + patio.entrySteps.x1) / 2;
+  for (const level of levels) {
+    const z = (level.z0 + level.z1) / 2;
+    assert.equal(patio.groundAt(x, z), level.y, `no walking surface on tread at z=${z}`);
+  }
+  assert.equal(patio.groundAt(x, (POOL.z0 + POOL.z1) / 2), POOL.y);
+  assert.equal(patio.groundAt(POOL.x1 + 1, (POOL.z0 + POOL.z1) / 2), null);
+
+  const mouthZ = (patio.entrySteps.z0 + POOL.z0) / 2;
+  const mouthBlockers = grounds.colliders.filter((collider) => collider.min.x < x + 0.3
+    && collider.max.x > x - 0.3
+    && collider.min.z < mouthZ + 0.15
+    && collider.max.z > mouthZ - 0.15
+    && collider.max.y > POOL.y + 0.2);
+  assert.deepEqual(mouthBlockers, [], 'a pool-wall collider still seals the entry steps');
+
+  const visualSteps = [];
+  grounds.root.traverse((object) => {
+    if (object.name === 'pool-entry-step') visualSteps.push(object);
+  });
+  assert.equal(visualSteps.length, levels.length);
+  assert.match(mansionMainSource, /poolPatio\.groundAt\(x, z\)/);
+});
+
+test('the guest-room family photo moved to the dresser and the Squatch crest owns the bed wall', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const guest = interior.props.guestRoom;
+  interior.root.updateMatrixWorld(true);
+
+  assert.ok(guest.art?.isMesh, 'the guest-room family photo is missing');
+  assert.ok(guest.crest?.isMesh, 'the guest-room Squatch crest is missing');
+  assert.equal(guest.dresser?.name, 'guest-dresser');
+  assert.equal(guest.crest.name, 'mansion.guest.crest');
+
+  const dresserAt = guest.dresser.getWorldPosition(new THREE.Vector3());
+  const photoAt = guest.art.getWorldPosition(new THREE.Vector3());
+  const crestAt = guest.crest.getWorldPosition(new THREE.Vector3());
+  const headboard = interior.root.getObjectByName('guest-headboard');
+  const headboardBox = new THREE.Box3().setFromObject(headboard);
+  const headboardAt = headboardBox.getCenter(new THREE.Vector3());
+  const mirrorBox = new THREE.Box3().setFromObject(interior.root.getObjectByName('guest-mirror'));
+  const photoBox = new THREE.Box3().setFromObject(guest.art);
+  const crestBox = new THREE.Box3().setFromObject(guest.crest);
+
+  assert.ok(Math.abs(photoAt.z - dresserAt.z) < 1.55, 'family photo is not beside the dresser');
+  assert.ok(Math.abs(photoAt.x - dresserAt.x) < 0.7, 'family photo stayed over the bed');
+  assert.equal(photoBox.intersectsBox(mirrorBox), false, 'family photo intersects the dresser mirror');
+  assert.ok(Math.abs(crestAt.x - headboardAt.x) < 0.05, 'crest is not centred over the bed');
+  assert.ok(Math.abs(crestAt.z - headboardAt.z) < 0.25, 'crest is not on the bed wall');
+  assert.ok(crestBox.min.y > headboardBox.max.y + 0.02, 'crest overlaps the guest headboard');
+  assert.ok(MANSION_ART_SLOTS.includes('mansion.guest.crest'));
+  assert.equal(
+    artManifest.art.find((entry) => entry.slot === 'mansion.guest.crest')?.file,
+    'logo-crest.png',
+  );
+});
+
+test('the winter-garden birdcage bars terminate in a named bottom tray', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const tray = interior.props.winterGarden.birdcage?.bottom;
+
+  assert.ok(tray?.isMesh, 'the birdcage still has no bottom');
+  assert.equal(tray.name, 'winter-birdcage-bottom');
+
+  const trayBox = new THREE.Box3().setFromObject(tray);
+  const bars = [];
+  interior.root.traverse((object) => {
+    if (object.name === 'winter-birdcage-bar') bars.push(object);
+  });
+  assert.equal(bars.length, 10);
+  for (const bar of bars) {
+    const barBox = new THREE.Box3().setFromObject(bar);
+    assert.ok(
+      Math.abs(barBox.min.y - trayBox.max.y) < 0.04,
+      `birdcage bar starts ${Math.abs(barBox.min.y - trayBox.max.y).toFixed(3)} m above its tray`,
+    );
+  }
+});
+
+test('both gate medallions use the approved Squatch crest slot', () => {
+  const grounds = buildMansionGrounds(null);
+  const medallions = grounds.props.gate?.medallions ?? [];
+
+  assert.equal(medallions.length, 2, 'the gate does not publish both medallions');
+  for (const medallion of medallions) {
+    assert.equal(medallion.name, 'mansion-gate-squatch-crest');
+    assert.equal(medallion.userData.art?.slot, 'mansion.gate.crests');
+  }
+  assert.equal(
+    artManifest.art.find((entry) => entry.slot === 'mansion.gate.crests')?.file,
+    'logo-crest.png',
+  );
+  assert.match(mansionVerifierSource, /both gate medallions resolve to the approved Squatch crest art/);
+});
+
+test('the modern guest bedroom is physically named for Booski and DeathMegatron', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const room = interior.props.bedrooms.eastRear;
+  const identity = room.identity;
+
+  assert.deepEqual(identity?.owners, ['booski', 'deathmegatron']);
+  assert.equal(identity?.plaque?.name, 'booski-death-room-plaque');
+  assert.equal(identity?.crest?.name, 'booski-death-room-crest');
+  assert.deepEqual(
+    identity?.portraits?.map((portrait) => portrait.name),
+    ['booski-death-room-booski-portrait', 'booski-death-room-deathmegatron-portrait'],
+  );
+  assert.deepEqual(
+    identity?.props?.map((prop) => prop.name),
+    ['booski-death-room-ledger', 'booski-death-room-security-radio'],
+  );
+
+  const roomRect = interior.rooms.bedEastRear.rect;
+  const published = [
+    identity.plaque,
+    identity.crest,
+    ...identity.portraits,
+    ...identity.props,
+  ];
+  interior.root.updateMatrixWorld(true);
+  for (const object of published) {
+    const at = object.getWorldPosition(new THREE.Vector3());
+    assert.ok(at.x >= roomRect.x0 && at.x <= roomRect.x1, `${object.name} is outside the room in x`);
+    assert.ok(at.z >= roomRect.z0 && at.z <= roomRect.z1, `${object.name} is outside the room in z`);
+  }
+
+  for (const [slot, file] of [
+    ['mansion.bedroom.booski-death.crest', 'logo-crest.png'],
+    ['mansion.bedroom.booski-death.booski', 'shrine-booski-podium.jpg'],
+    ['mansion.bedroom.booski-death.deathmegatron', 'family-portrait-deathmegatron.webp'],
+  ]) {
+    assert.ok(MANSION_ART_SLOTS.includes(slot), `${slot} is not resolved by the mansion art pipeline`);
+    assert.equal(artManifest.art.find((entry) => entry.slot === slot)?.file, file);
+  }
+  assert.match(mansionVerifierSource, /Booski and DeathMegatron share one physically named bedroom/);
+});
+
+test('the Bada Bing grey sedan is staged inside the gate and recognizes only the saved plate ending', () => {
+  const grounds = buildMansionGrounds(null);
+  const sedan = grounds.props.greySedan;
+
+  assert.equal(sedan?.group?.name, 'bada-bing-grey-sedan');
+  assert.equal(sedan.kind, 'sedan');
+  assert.equal(sedan.paint.color.getHex(), 0x2e3038);
+  assert.equal(sedan.storyThread, 'bada_bing_one');
+  assert.ok(sedan.z > 0 && sedan.z < 12, 'the sedan is not staged just inside the gate');
+  assert.ok(sedan.worldCollider.max.x < -4.8, 'the sedan blocks the gate lane');
+  const landscapingClashes = [
+    ...grounds.props.landscaping.beds,
+    ...grounds.props.landscaping.hedges,
+  ].filter((item) => sedan.worldCollider.min.x < item.x1
+    && sedan.worldCollider.max.x > item.x0
+    && sedan.worldCollider.min.z < item.z1
+    && sedan.worldCollider.max.z > item.z0);
+  assert.deepEqual(landscapingClashes, [], 'the sedan is parked through the front landscaping');
+  const palmClashes = grounds.props.palmSpots.filter(([x, z]) => (
+    x + 0.4 > sedan.worldCollider.min.x
+    && x - 0.4 < sedan.worldCollider.max.x
+    && z + 0.4 > sedan.worldCollider.min.z
+    && z - 0.4 < sedan.worldCollider.max.z
+  ));
+  assert.deepEqual(palmClashes, [], 'the sedan is parked through a palm tree');
+  const layby = grounds.root.getObjectByName('grey-sedan-gate-layby');
+  assert.ok(layby?.isMesh, 'the gate sedan has no authored lay-by');
+  const laybyBox = new THREE.Box3().setFromObject(layby);
+  assert.ok(laybyBox.min.x <= sedan.worldCollider.min.x
+    && laybyBox.max.x >= sedan.worldCollider.max.x
+    && laybyBox.min.z <= sedan.worldCollider.min.z
+    && laybyBox.max.z >= sedan.worldCollider.max.z,
+  'the grey sedan does not fit inside its gate lay-by');
+
+  assert.equal(sedan.recognized, false);
+  assert.equal(sedan.setCampaignEnding('warned'), false);
+  assert.equal(sedan.recognized, false);
+  assert.equal(sedan.setCampaignEnding('plate'), true);
+  assert.equal(sedan.recognized, true);
+  assert.equal(sedan.sourceEnding, 'plate');
+
+  assert.match(mansionMainSource,
+    /state\?\.missions\?\.\[MISSION_IDS\.BADA_BING_ONE\]\?\.ending/);
+  assert.match(mansionMainSource, /greySedan\.setCampaignEnding\(badaBingEnding\)/);
+  assert.match(mansionVerifierSource, /the Bada Bing grey sedan is staged inside the gate/);
+  assert.match(mansionVerifierSource, /the saved plate ending is the only grey-sedan recognition trigger/);
+});
 
 test('PeeSystem targets the selected upstairs toilet and emits until released', () => {
   const calls = [];

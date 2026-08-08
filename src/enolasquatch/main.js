@@ -614,32 +614,22 @@ scene.add(aircraft.group);
 const payload = new FatSquatch();
 aircraft.anchors.payloadMount.add(payload.group);
 
-/* The club's crest, onto the aeroplane's three badges and the bomb's two.
+/* The club's crest, onto the aeroplane's four badges and the bomb's two.
  * Owner: "Aircraft is nice. Needs Squatch logo." + "Squatch logo on the bomb
  * too." `crest.round` is an EXISTING art slot pointing at the existing
  * `assets/art/logo-crest.png` (see `assets/art/manifest.json`), so no new art
  * and no manifest change; if the file ever goes missing, `resolveGear` hands
  * back its own drawn placeholder and the badges simply keep the drawn crest
  * they were built with. Fire-and-forget on purpose — nothing waits for it. */
-/* The second slot, `enolasquatch.noseart`, is the owner's own "Enola Squatch"
- * artwork — see the block above `this.parts.noseArtPlate` in
- * `scenes/EnolaSquatch.js` for the two-step drop-in. It is resolved the same
- * way and applied ONLY when `resolveGear` reports the slot resolved to a real
- * file (`real`): the slot does not exist in `assets/art/manifest.json` yet, and
- * without that guard the resolver's own generic poster fallback would land on
- * the aeroplane's flank in place of the drawn "ENOLA SQUATCH" stencil the
- * plate is built with, which would be a downgrade rather than a placeholder.
- * Asking for a slot that is not in the manifest costs one map lookup and
- * fetches nothing, so there is no 404 in the console for artwork that has not
- * been made yet — the same reason `assets/faces/index.json` exists. */
+/* The owner's pin-up and name paintings are owned by `EnolaSquatch.artReady`.
+ * They are delivered direct files with a crop/matte pipeline, not gear slots;
+ * keeping a second optional `resolveGear('enolasquatch.noseart')` path here was
+ * stale telemetry and always reported zero after the real paintings landed. */
 let clubLogoBadges = 0;
-let noseArtApplied = 0;
-resolveGear(['crest.round', 'enolasquatch.noseart'])
+resolveGear(['crest.round'])
   .then((gear) => {
     const tex = gear.get('crest.round')?.texture;
     clubLogoBadges = aircraft.applyClubLogo(tex) + payload.applyClubLogo(tex);
-    const art = gear.get('enolasquatch.noseart');
-    if (art?.real) noseArtApplied = aircraft.applyNoseArt(art.texture);
   })
   .catch(() => { /* the drawn crest is already on every badge */ });
 
@@ -1772,14 +1762,9 @@ window.__enolaSquatch = {
         onPayload: payload.parts.clubLogo?.length ?? 0,
         realArtworkApplied: clubLogoBadges,
       },
-      /* The owner's own "Enola Squatch" artwork: whether the placeholder plate
-       * is up (always) and whether a real file has replaced it (only once
-       * `enolasquatch.noseart` is in `assets/art/manifest.json`). */
-      noseArt: {
-        placeholderUp: !!aircraft.parts.noseArtPlate,
-        name: aircraft.parts.noseArtPlate?.name ?? null,
-        realArtworkApplied: noseArtApplied,
-      },
+      /* The owner's own "Enola Squatch" artwork, read from the paired live
+       * plates and their real `artReady` promise rather than a retired slot. */
+      noseArt: aircraft.noseArtPresentation(),
       /* The flashing camera hint — see `updateCameraTip()`. */
       cameraTip: {
         flying: +cameraTipState.flying.toFixed(1),

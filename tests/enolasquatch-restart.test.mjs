@@ -660,6 +660,37 @@ test('Enola hard terrain crashes create a fireball, sound the explosion, stop th
   assert.equal(fake.physics.omega.length(), 0);
 });
 
+test('the owner nose art is a matched non-overlapping pair on both aeroplane flanks', () => {
+  const aircraft = new EnolaSquatch({ withCockpit: false });
+  const pinup = new THREE.Texture();
+  const name = new THREE.Texture();
+
+  assert.equal(aircraft.applyNoseArt(
+    { texture: pinup, aspect: 0.731 },
+    { texture: name, aspect: 2.024 },
+  ), 4);
+
+  const state = aircraft.noseArtPresentation();
+  assert.equal(state.realArtworkApplied, 4);
+  assert.deepEqual(state.pinups, {
+    count: 2, visible: 2, textured: 2, ownerArtwork: 2,
+  });
+  assert.deepEqual(state.names, {
+    count: 2, visible: 2, textured: 2, ownerArtwork: 2,
+  });
+  assert.equal(state.paired, true);
+  assert.equal(state.noOverlap, true);
+  assert.ok(Math.abs(state.minimumGap - state.expectedGap) < 1e-6);
+  assert.deepEqual(state.sides.map(({ side }) => side), [-1, 1]);
+  for (const side of state.sides) {
+    assert.ok(side.pinup.visible && side.pinup.ownerArtwork);
+    assert.ok(side.name.visible && side.name.ownerArtwork);
+    assert.ok(Math.abs(side.gap - state.expectedGap) < 1e-6);
+    assert.ok(side.topDelta < 1e-6, 'the name and figure must stay top-aligned');
+    assert.equal(side.outboard, true, 'both paintings must face outboard');
+  }
+});
+
 test('the real Enola airframe swaps intact geometry for visible crash VFX and restores losslessly', () => {
   const aircraft = new EnolaSquatch();
   const intactChildren = [...aircraft.group.children];

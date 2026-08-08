@@ -67,6 +67,7 @@ import { Mission, ENDINGS } from './mission.js';
 import {
   SecondVisitMission,
   buildSecondVisitLouScript,
+  secondVisitLouStartNode,
 } from './second-visit.js';
 
 const START_CASH = 340;
@@ -2311,7 +2312,8 @@ function startLouScene() {
   game.louTalking = true;
   game.louBriefing = true;
   cast.byName.lou.faceToward(player.position.x, player.position.z);
-  dialogue.start(scripts.lou, 'enter', cast.byName.lou, { lockMovement: true });
+  const startAt = isSecondVisit ? secondVisitLouStartNode(mission.state) : 'enter';
+  dialogue.start(scripts.lou, startAt, cast.byName.lou, { lockMovement: true });
 }
 
 /**

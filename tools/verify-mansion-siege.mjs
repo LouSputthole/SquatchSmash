@@ -272,7 +272,14 @@ try {
   /* 2. He wakes up in the guest room, in the basement                  */
   /* ---------------------------------------------------------------- */
   await page.click('#startBtn');
-  await page.waitForFunction(() => window.mansionSiege.running, null, { timeout: 20000 });
+  /* `running` flips before the user-gesture audio bank finishes loading.
+   * WAKE is the first truthful playable-state signal: by then the inherited
+   * loadout has been applied, the mission is started and the wake checkpoint
+   * exists. Reading the page at `running && beat === null` only measures an
+   * async initialization seam and can starve that seam with synthetic ticks. */
+  await page.waitForFunction(() => (
+    window.mansionSiege.running && window.mansionSiege.beat === 'WAKE'
+  ), null, { timeout: 30000 });
   const arrivalLoadout = await evaluate(() => ({
     ...window.mansionSiege.loadout.checkpoint(),
     equippedInHands: window.mansionSiege.equipped,
@@ -1135,22 +1142,34 @@ try {
   /* tools/verify-mansion.mjs and tools/verify-no-wake.mjs use for their    */
   /* own scoped banks.                                                      */
   /*                                                                         */
-  /* beginSiege()'s audio.loadManifest() call is weaponCueNames() +          */
-  /* siegeCueNames(). Required effects are checked BEFORE the manifest is      */
+  /* beginSiege() decodes the required effects first, then loadAdditional()    */
+  /* fills weaponCueNames() + Siege voice names. Required effects are checked  */
+  /* BEFORE the manifest is                                                    */
   /* allowed to filter the residency expectation: otherwise an absent cue      */
   /* disappears from both lists and produces a false green.                    */
   /* No `vo.siege.*` dialogue prefix exists, because the                        */
   /* siege has none: `siege.prospect.little_friend` is a bark, not a line     */
   /* with a cue-name prefix of its own. This recomputes that exact selection   */
   /* from the manifest the page loaded (importing `siegeCueNames` from the     */
-  /* scene itself, in the page, since it is authored beside the four            */
-  /* `audio.play()` call sites that use it) and asserts the live buffer         */
+  /* scene itself, in the page) and asserts the live buffer table equals it.    */
   /* table equals it -- catching the drift the 2026-08-06 pass found and        */
   /* fixed (`siege.friendly.revived` was missing from this list).               */
   /* ---------------------------------------------------------------- */
   const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
   const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
   const indexedFiles = new Set(soundIndex.files || []);
+  const siegeMainRuntimeSource = fs.readFileSync(path.join(ROOT, 'src', 'mansion', 'siege', 'main.js'), 'utf8');
+  const requiredGameplayCallsites = [
+    /missionAudio\.updateEnvironment\(\{/, // alarm tone and fire bed follow the live layer clocks
+    /missionAudio\.waveIncoming\('one'\)/,
+    /missionAudio\.waveIncoming\('two'\)/,
+    /missionAudio\.checkpoint\(id\)/,
+    /missionAudio\.glassShattered\(/,
+    /missionAudio\.friendlyRevived\(/,
+  ];
+  check('every required Siege effect is requested by gameplay through the mission-audio adapter',
+    requiredGameplayCallsites.every((pattern) => pattern.test(siegeMainRuntimeSource))
+      && !/audio\.play\?\.\('siege\./.test(siegeMainRuntimeSource));
   const siegeCueLists = await evaluate(async () => {
     const [weapons, siege] = await Promise.all([
       import('/src/core/weapons/audio.js'),
@@ -1208,6 +1227,19 @@ try {
       missing: siegeAudioResidency.missing.slice(0, 5),
       unexpected: siegeAudioResidency.unexpected.slice(0, 5),
     }));
+  const siegeCueTrace = await evaluate(() => window.mansionSiege.missionAudio.cueTrace());
+  const recurringGameplayCues = [
+    'siege.alarm.tone',
+    'siege.fire.crackle',
+    'siege.wave.incoming',
+    'siege.checkpoint',
+  ];
+  const requestedSiegeCues = new Set(siegeCueTrace
+    .filter((entry) => entry.action !== 'stopLoop')
+    .map((entry) => entry.cue));
+  check('the played mission cue trace contains its recurring alarm, fire, wave and checkpoint events',
+    recurringGameplayCues.every((cue) => requestedSiegeCues.has(cue)),
+    JSON.stringify({ trace: siegeCueTrace }));
 
   /* ---------------------------------------------------------------- */
   /* 9c. Instancing coverage -- the mansion's shared builders now instance   */
@@ -1314,7 +1346,9 @@ try {
       requested: window.mansionSiege.startCheckpoint,
     }));
     await jump.click('#startBtn');
-    await jump.waitForFunction(() => window.mansionSiege.running, null, { timeout: 20000 });
+    await jump.waitForFunction((expectedBeat) => (
+      window.mansionSiege.running && window.mansionSiege.beat === expectedBeat
+    ), want.beat, { timeout: 30000 });
     await jump.evaluate(() => window.mansionSiege.tick(0.4));
     const landed = await jump.evaluate(() => {
       const s = window.mansionSiege;
@@ -1325,13 +1359,26 @@ try {
         placed: s.placed(),
         waveOneDown: s.mission.waves.one.down.size,
         littleFriend: s.mission.littleFriendSaid,
+        checkpointEvents: s.missionAudio.cueTrace()
+          .filter((entry) => entry.cue === 'siege.checkpoint')
+          .map((entry) => entry.event),
+        dialogueActive: s.dialogue.active,
         at: { x: +s.player.position.x.toFixed(1), z: +s.player.position.z.toFixed(1) },
         objective: s.objective,
       };
     });
     check(`?checkpoint=${want.id} starts the mission at ${want.beat}`,
-      landed.beat === want.beat && tag.requested === want.id,
-      JSON.stringify({ beat: landed.beat, at: landed.at, objective: landed.objective }));
+      landed.beat === want.beat
+        && tag.requested === want.id
+        && landed.dialogueActive === false
+        && landed.checkpointEvents.join('|') === `checkpoint_${want.id}`,
+      JSON.stringify({
+        beat: landed.beat,
+        at: landed.at,
+        objective: landed.objective,
+        checkpointEvents: landed.checkpointEvents,
+        dialogueActive: landed.dialogueActive,
+      }));
     if (want.label) {
       check(`  and says so on the menu before you press start`,
         tag.tag === true && tag.button.includes(want.label), `"${tag.button}"`);

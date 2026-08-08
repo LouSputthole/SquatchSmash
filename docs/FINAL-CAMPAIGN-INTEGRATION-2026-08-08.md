@@ -1,8 +1,8 @@
 # Final campaign integration contract
 
 Status: implemented contract for `codex/final-campaign-stitch-polish-20260807`;
-final live-scene verification is recorded in
-`CAMPAIGN-FLOW-AND-POLISH-REPORT-2026-08-08.md`.
+the last broad live-scene baseline and final focused browser evidence are
+recorded in `CAMPAIGN-FLOW-AND-POLISH-REPORT-2026-08-08.md`.
 
 This document records what is verified in the repository, what the production
 route will become, and which existing work is deliberately protected while the
@@ -58,7 +58,7 @@ THE TAKE
   -> quiet mansion evening and guest-room sleep
   -> Mansion Under Siege
   -> Enola Squatch
-  -> repaired Mansion return / final briefing
+  -> repaired Mansion return / fact bridge (briefing prose pending)
   -> Cartel Palace
   -> Initiation (enter in_progress; frozen scene)
 ```
@@ -86,7 +86,7 @@ Use distinct scene IDs even when two phases share one page and world builder:
 | `initiation` | existing frozen runtime | gathering | terminal |
 
 Mission records are required for Silver Case, Silent Squatch, Mansion Siege,
-Enola Squatch, and Cartel Palace. The repaired-mansion briefing is a scene
+Enola Squatch, and Cartel Palace. The repaired-mansion return is a scene
 phase/event rather than a second mansion mission. Checkpoint URL parameters are
 preview-only; campaign saves remain the durable source of truth.
 
@@ -100,8 +100,9 @@ preview-only; campaign saves remain the durable source of truth.
    handed directly to Captain Lou Sasole.
 4. Enola's old “remember the jerky run?” phone opening and generic package
    ending are replaced with new cue IDs and an in-person continuation.
-5. Enola returns Tony to the repaired mansion. The briefing establishes the
-   wrong-city operation, Sauce's apparent capture, and Mark's estate.
+5. Enola returns Tony to the repaired mansion. The current one-interaction
+   fact bridge records the wrong-city operation, Sauce's apparent capture, and
+   Mark's estate, then advances. It has no approved spoken briefing prose yet.
 6. Cartel Palace reveals Sauce as the traitor and uses Mark as the final boss.
    Exact confrontation dialogue and outcomes require owner approval; do not
    improvise recordable final prose merely to fill a spreadsheet.
@@ -113,7 +114,7 @@ Campaign schema v14 owns final-arc travel and mission time as exact-once
 events. The canonical schedule is Silver Case departure Day 5 at 4:00 PM,
 case completion 5:30 PM, Mansion arrival 5:55 PM, Silent Squatch completion
 8:10 PM, guest-room wake Day 6 at 4:10 AM, Siege completion 6:10 AM, Enola
-departure 2:00 PM and completion 6:00 PM, Mansion return 6:30 PM and briefing
+departure 2:00 PM and completion 6:00 PM, Mansion return 6:30 PM and fact-bridge
 completion 7:15 PM, then Palace departure 8:30 PM and extraction 11:00 PM.
 
 The source workbook's **Day 5 night** Siege label means the overnight begun on
@@ -192,19 +193,31 @@ scene catalog -> scene VO sync -> manifest -> voice:needed/audio:todo
 Current reachable ledger after the production-scope repair:
 
 - 3,217 reachable spoken cues;
-- 3,081 current indexed performances;
-- 136 pickups: 124 missing plus 12 featured-waiter replacement takes;
+- 3,080 current indexed performances;
+- 137 pickups: 124 missing plus 13 replacement takes;
 - 116 recorded future Initiation party/ambient cues excluded from live totals.
 
-The newly surfaced missing takes are the 12 already-authored Mansion post-lab
+The surfaced missing takes include the 12 already-authored Mansion post-lab
 and quiet-evening cues plus the final-arc locked apartment-door refusal. They
-are now present in the scene catalogs, manifest, generated handoffs, and the
-campaign-ordered workbook rather than silently omitted.
+are present in the scene catalogs, manifest, generated handoffs, and the
+campaign-ordered workbook rather than silently omitted. Booski's current
+first-visit shot line is the thirteenth marked recast: its indexed file contains
+superseded wording and is no longer counted as a current performance.
 
 The featured Front and Center waiter alone maps to `silver-waiter`, voice ID
 `gAMZphRyrWJnLMDnom6H`. The other 80 host, room, band, and staff cues retain
 the shared `waiter` actor. The new 12 takes remain a marked recast until they
 are generated, auditioned, indexed, and the temporary marker is removed.
+
+The generated sampled-effect queue contains 72 shared-manifest cues. NO WAKE
+contributes five and Front and Center contributes three. Six are newly authored
+Mansion Siege cues for alarm, checkpoint, fire, friendly revive, glass shatter,
+and incoming wave. Their gameplay callsites are wired through the Siege
+mission-audio adapter, but all six MP3 samples remain unrecorded and use
+procedural fallbacks. Jerky Motel's 74 older sampled-audio briefs are
+quarantined in the legacy review backlog; they are not current manifest
+filenames and do not represent a current runtime failure. The current HotDog
+scene split contributes three VO pickups to the 137-line queue.
 
 ## Preview and verification contract
 
@@ -219,7 +232,16 @@ are generated, auditioned, indexed, and the temporary marker is removed.
 - Cross-scene inventory tests cover five slots, additive pickup, non-
   destructive stow, serialization, and checkpoint restoration.
 - Keep focused browser verifiers for Beef Run, Front and Center, Mansion,
-  Siege, Enola, Cartel Palace, preview isolation, and the fresh route.
+  Siege, Enola, Cartel Palace, preview isolation, and the fresh route. The final
+  focused runs prove Beef's six public checkpoint links **6/6**, including the
+  repaired input/physics brake restore; Mansion **273/273** in **481.7s**, with
+  the new pool, gate crests, named bedroom, and grey sedan green; and Enola
+  **98/98**, reading the real four owner nose-art plates.
+- Mansion's final measurement reports 27 visible lights, 649 shadow casters,
+  14,657 draw calls from the gate view, and 9,744 from the foyer view.
+- Mansion Siege is **105/106**. All gameplay, mission-audio callsite, and
+  checkpoint assertions pass; the sole failure groups the six required Siege
+  recordings that are authored and requested but still absent from the index.
 
 ## Performance and geometry gates
 
@@ -235,18 +257,23 @@ are generated, auditioned, indexed, and the temporary marker is removed.
   reports into failing verification where stable.
 - Prefer shared LOD, culling, light pooling, and audio scoping over simply
   reducing scene detail.
+- Headless hardware-only probing was inconclusive. The headless ANGLE results
+  are regression evidence only; physical RTX 4080 performance sign-off remains
+  explicitly unverified.
 
 ## Owner decisions still open
 
 These do not block topology or engineering:
 
 1. Final approval of the exact Mark/Sauce confrontation and outcome lines.
-2. Whether the final arc should later move from post-heist to immediately after
+2. Approved Mansion Return briefing prose. The current runtime is intentionally
+   only a one-interaction fact bridge.
+3. Whether the final arc should later move from post-heist to immediately after
    the Silver Room despite the completed Golf/THE TAKE continuity.
-3. Final raid loadout and whether any confiscation occurs at the palace.
-4. Audition approval of the 12 new waiter takes after they can be generated.
-5. Mansion Siege named-cast survival policy: plot protection, one authored
+4. Final raid loadout and whether any confiscation occurs at the palace.
+5. Audition approval of the 12 new waiter takes after they can be generated.
+6. Mansion Siege named-cast survival policy: plot protection, one authored
    death, or a downstream-persistent player rescue/failure branch.
-6. Whether THE TAKE stays intact or becomes the proposed larger `HOT SQUATCH`
+7. Whether THE TAKE stays intact or becomes the proposed larger `HOT SQUATCH`
    redesign; the latter is a separate mission-production decision.
-7. Identity of the dead Bada Bing performer in the Siege foyer.
+8. Identity of the dead Bada Bing performer in the Siege foyer.

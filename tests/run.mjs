@@ -112,6 +112,7 @@ const TEST_MODULES = [
   './mansion-siege-dressing.test.mjs',
   './mansion-siege-people.test.mjs',
   './mansion-siege-voice.test.mjs',
+  './mansion-siege-audio.test.mjs',
   './required-audio-bank.test.mjs',
   './cartel-palace-mission.test.mjs',
   './cartel-palace-runtime.test.mjs',

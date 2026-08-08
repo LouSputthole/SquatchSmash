@@ -6,6 +6,7 @@ import { inspectRequiredAudioBank } from '../tools/required-audio-bank.mjs';
 
 const verifierSource = readFileSync(new URL('../tools/verify-mansion-siege.mjs', import.meta.url), 'utf8');
 const siegeSource = readFileSync(new URL('../src/mansion/siege/main.js', import.meta.url), 'utf8');
+const siegeAudioSource = readFileSync(new URL('../src/mansion/siege/audio.js', import.meta.url), 'utf8');
 
 test('a required authored cue cannot disappear by being absent from the manifest', () => {
   const report = inspectRequiredAudioBank({
@@ -59,7 +60,7 @@ test('the Siege verifier checks the unfiltered required effect list before resid
     'siege.wave.incoming',
     'siege.checkpoint',
     'siege.friendly.revived',
-  ]) assert.match(siegeSource, new RegExp(`'${name.replaceAll('.', '\\.')}'`));
+  ]) assert.match(siegeAudioSource, new RegExp(`'${name.replaceAll('.', '\\.')}'`));
 
   assert.match(siegeSource, /export function siegeEffectCueNames\(\)/);
   assert.match(verifierSource, /inspectRequiredAudioBank\(\{/);

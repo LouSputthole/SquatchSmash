@@ -53,7 +53,7 @@ import { INSTRUCTIONS } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import { mountMansionCast, MANSION_CAST_CUE_NAMES } from './cast.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
-import { SCENE_IDS, createCampaign } from '../core/campaign.js';
+import { MISSION_IDS, SCENE_IDS, createCampaign } from '../core/campaign.js';
 import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
 import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
 import { isPreviewMode } from '../core/preview-mode.js';
@@ -191,6 +191,15 @@ const grounds = buildMansionGrounds(scene);
 const interior = buildMansionInterior(grounds.shell);
 scene.add(grounds.root, interior.root);
 
+/* The watchers' grey sedan from the first Bada Bing visit is parked just
+ * inside this gate. Recognition is a read-only payoff of the fact that
+ * scene already saved: inspecting the plate makes `ending === 'plate'`.
+ * Nothing is written back here, and no plate text is fabricated. */
+const greySedan = grounds.props.greySedan;
+const badaBingEnding = mansionCampaign.campaign
+  ?.state?.missions?.[MISSION_IDS.BADA_BING_ONE]?.ending ?? null;
+greySedan.setCampaignEnding(badaBingEnding);
+
 const colliders = [...grounds.colliders, ...interior.colliders];
 const doors = { ...grounds.doors, ...interior.doors };
 const anchors = { ...grounds.anchors, ...interior.anchors };
@@ -281,8 +290,9 @@ const { ramp: serviceRamp } = grounds.props.serviceRoad;
  * outside. Those steps need resolving here, the same way the front entrance
  * and the service ramp already are.
  */
-const poolDeck = grounds.props.poolPatio.deck;
-const poolSteps = grounds.props.poolPatio.steps;
+const poolPatio = grounds.props.poolPatio;
+const poolDeck = poolPatio.deck;
+const poolSteps = poolPatio.steps;
 /* The two flights off the terrace's north edge into the formal garden. Same
  * treatment as the front steps and the service ramp: lerp-stepped geometry
  * built by MansionGrounds, resolved here from the rects it exports. Without
@@ -290,6 +300,11 @@ const poolSteps = grounds.props.poolPatio.steps;
 const gardenStairs = grounds.props.poolPatio.gardenStairs;
 
 function exteriorGroundAt(x, z) {
+  /* The deck rect encloses the pool's hole, so its real basin/step surface
+   * must get first refusal. Otherwise the player clears the new entry gap but
+   * keeps walking at deck height over the water. */
+  const poolSurface = poolPatio.groundAt(x, z);
+  if (poolSurface !== null) return poolSurface;
   if (inRectXZ(frontSteps, x, z)) {
     const t = THREE.MathUtils.clamp((z - frontSteps.z0) / (frontSteps.z1 - frontSteps.z0), 0, 1);
     return THREE.MathUtils.lerp(0, GROUND_Y, t);
@@ -928,6 +943,12 @@ if (interior.props.guestRoom.bed) {
     },
   });
 }
+flavor(
+  greySedan.group,
+  greySedan.recognized
+    ? 'The grey sedan from the Bada Bing lot. You know this car.'
+    : 'A grey sedan waits just inside Lou\'s gate.',
+);
 flavor(
   interior.props.cellarHall.crest,
   'MEMBERS AND GUESTS. Four doors off one corridor, and the sign has never stopped anybody.',
@@ -2172,6 +2193,9 @@ window.mansion = {
    * without an entry here is a room the verifier will not check. */
   roomTable: interior.rooms,
   vehicles: grounds.props.vehicles.map((v) => ({
+    id: v.id ?? null,
+    storyThread: v.storyThread ?? null,
+    recognized: v.recognized === true,
     kind: v.kind ?? null,
     note: v.note ?? null,
     x: v.x,
@@ -2180,6 +2204,22 @@ window.mansion = {
     min: { x: v.worldCollider.min.x, z: v.worldCollider.min.z },
     max: { x: v.worldCollider.max.x, z: v.worldCollider.max.z },
   })),
+  greySedan: {
+    group: greySedan.group,
+    get recognized() { return greySedan.recognized; },
+    get sourceEnding() { return greySedan.sourceEnding; },
+    storyThread: greySedan.storyThread,
+    x: greySedan.x,
+    z: greySedan.z,
+    yaw: greySedan.yaw,
+    min: { x: greySedan.worldCollider.min.x, z: greySedan.worldCollider.min.z },
+    max: { x: greySedan.worldCollider.max.x, z: greySedan.worldCollider.max.z },
+  },
+  gate: {
+    medallions: grounds.props.gate.medallions,
+    artSlot: grounds.props.gate.artSlot,
+    artReady: grounds.props.gate.artReady,
+  },
   landscaping: grounds.props.landscaping,
   /** Every hung picture's world box, and every opening it must not cover.
    * tools/verify-mansion.mjs intersects the two -- see the art/doorway note

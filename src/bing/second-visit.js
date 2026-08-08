@@ -28,6 +28,17 @@ const STATES = Object.freeze([
 ]);
 
 /**
+ * Lou's old compatibility line names the murder, so it is only safe after the
+ * attack has actually begun. Before that, wandering into the office gets his
+ * already-recorded stage redirect instead of spoiling the party escalation.
+ */
+export function secondVisitLouStartNode(state) {
+  if (state === 'attack') return 'enter';
+  if (['cleanup', 'body-ready', 'done'].includes(state)) return 'cleanup';
+  return 'hang';
+}
+
+/**
  * The authored spine of the closed-party sequence. The runtime owns timing,
  * camera emphasis and animation; this data owns the words and named reactions
  * so the scene can be verified without rendering it.
@@ -287,6 +298,12 @@ export function buildSecondVisitLouScript() {
       who: 'Lou',
       line: 'Out front. Hog Mama is waiting on the stage controls.',
       hold: 2.8,
+    },
+    cleanup: {
+      who: 'Lou',
+      line: 'Nobody leaves. Congratulations, everybody. You are all involved now.',
+      cue: 'vo.bing2.lou.lockdown',
+      hold: 4.0,
     },
   } }).lou;
 }

@@ -321,6 +321,25 @@ try {
       && logo.realArtworkApplied === 6,
     JSON.stringify(logo));
 
+  const noseArt = await page.evaluate(async () => {
+    const h = window.__enolaSquatch;
+    await h.aircraft.artReady;
+    return h.state().noseArt;
+  });
+  check('the owner pin-up and ENOLA SQUATCH name are paired, textured and separated on both flanks',
+    noseArt.artReady && noseArt.loadState === 'ready' && !noseArt.loadError
+      && noseArt.realArtworkApplied === 4
+      && noseArt.pinups.count === 2 && noseArt.pinups.visible === 2
+      && noseArt.pinups.textured === 2 && noseArt.pinups.ownerArtwork === 2
+      && noseArt.names.count === 2 && noseArt.names.visible === 2
+      && noseArt.names.textured === 2 && noseArt.names.ownerArtwork === 2
+      && noseArt.paired && noseArt.noOverlap
+      && noseArt.minimumGap >= noseArt.expectedGap - 1e-3
+      && noseArt.sides.length === 2
+      && noseArt.sides.every((side) => side.gap >= noseArt.expectedGap - 1e-3
+        && side.topDelta < 1e-4 && side.outboard),
+    JSON.stringify(noseArt));
+
   /* ---- Whispering Pines has grass and a treeline ----
    * Owner: "Missing all the grass and stuff at whispering pines airport." The
    * ground colour matters as much as the scatter: the route mesh used to

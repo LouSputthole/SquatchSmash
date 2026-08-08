@@ -253,6 +253,7 @@ export class SiegeDialogue {
     this.hold = 0;
     /** Sequences already played, so a checkpoint restore cannot replay one. */
     this.played = new Set();
+    this._playbackSuppressionDepth = 0;
   }
 
   get active() { return this.line !== null || this.queue.length > 0; }
@@ -275,6 +276,25 @@ export class SiegeDialogue {
     return true;
   }
 
+  /**
+   * Walk authored dialogue gates while reconstructing a checkpoint without
+   * replaying lines that happened before that checkpoint. Sequences remain in
+   * `played`, and explicit finish() calls still fire their load-bearing onDone
+   * handoffs; any guidance line left active at the destination is cancelled.
+   */
+  withSuppressedPlayback(run) {
+    if (typeof run !== 'function') {
+      throw new TypeError('withSuppressedPlayback needs a callback');
+    }
+    this._playbackSuppressionDepth += 1;
+    try {
+      return run();
+    } finally {
+      this._playbackSuppressionDepth -= 1;
+      if (this._playbackSuppressionDepth === 0) this.cancel();
+    }
+  }
+
   _next() {
     const line = this.queue.shift() ?? null;
     this.line = line;
@@ -293,8 +313,10 @@ export class SiegeDialogue {
     this.hold = Number.isFinite(recorded) && recorded > 0.2
       ? recorded + 0.45
       : line.seconds;
-    try { this.audio?.play?.(line.name, { volume: 1 }); } catch { /* no audio yet */ }
-    this.onLine?.(line);
+    if (this._playbackSuppressionDepth === 0) {
+      try { this.audio?.play?.(line.name, { volume: 1 }); } catch { /* no audio yet */ }
+      this.onLine?.(line);
+    }
   }
 
   update(dt) {

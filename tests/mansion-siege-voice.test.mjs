@@ -174,6 +174,35 @@ test('finish() ends the beat; cancel() un-happens it', () => {
   assert.equal(other.active, false);
 });
 
+test('checkpoint reconstruction marks prior dialogue heard without playing or queuing it', () => {
+  const heard = [];
+  const lines = [];
+  const done = [];
+  const runner = new SiegeDialogue({
+    audio: { play: (name) => heard.push(name), sampleDuration: () => null },
+    onLine: (line) => lines.push(line.id),
+    onDone: (id) => done.push(id),
+  });
+
+  const result = runner.withSuppressedPlayback(() => {
+    runner.play('wake');
+    runner.play('guide_office');
+    runner.play('briefing');
+    runner.finish();
+    runner.play('lull');
+    return 'restored';
+  });
+
+  assert.equal(result, 'restored');
+  assert.deepEqual(heard, []);
+  assert.deepEqual(lines, []);
+  assert.deepEqual(done, ['briefing'], 'load-bearing dialogue still advances the replay ladder');
+  assert.equal(runner.active, false, 'destination guidance must not remain silently queued');
+  for (const id of ['wake', 'guide_office', 'briefing', 'lull']) {
+    assert.equal(runner.play(id), false, `${id} must remain marked as already heard`);
+  }
+});
+
 test('the runner holds a line for its recording when there is one', () => {
   const audio = {
     played: [],

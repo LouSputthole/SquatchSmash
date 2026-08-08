@@ -130,7 +130,15 @@ export const MANSION_ART_SLOTS = [
    * takes a list of meshes per slot for exactly this. */
   'mansion.lan.chairs',
   'mansion.guest.art',
+  'mansion.guest.crest',
   'mansion.vault.mark',
+  /* One upstairs guest room belongs to two actual residents rather than to a
+   * theme catalogue. Their two existing character photographs and the
+   * approved house crest are resolved through the same manifest as every
+   * other picture in this building. */
+  'mansion.bedroom.booski-death.crest',
+  'mansion.bedroom.booski-death.booski',
+  'mansion.bedroom.booski-death.deathmegatron',
   /* The third floor. ONE slot, over the wet bar — the suite's other badge is
    * a gilt inlay in the marble at the head of the stair, which is drawn
    * rather than hung, because "another crest on another wall" is the exact
@@ -6753,7 +6761,7 @@ export function buildMansionInterior(shell = null) {
      * clipping through a fitting. Any picture at this height above a
      * four-poster is inside its canopy; the fix is to hang it beside the bed
      * rather than to lower it into the headboard. */
-    wallArt(`${name}-art`, bedX + (palette.artOffsetX ?? 0), UY + 2.6,
+    const bedArt = wallArt(`${name}-art`, bedX + (palette.artOffsetX ?? 0), UY + 2.6,
       hbZ + (headboardWall === 'north' ? -0.16 : 0.16),
       headboardWall === 'north' ? Math.PI : 0, 1.0, 0.8,
       makePortraitTexture(`${name}-art`, palette.artLabel, palette.artTint));
@@ -6793,12 +6801,19 @@ export function buildMansionInterior(shell = null) {
       dresserZ,
       outerX: dresserSide > 0 ? r.x0 : r.x1,
       innerX: dresserSide > 0 ? r.x1 : r.x0,
+      bedArt,
       screen: null,
+      identity: null,
     };
     const light = palette.light ? palette.light(ctx) : ceilingLight(cx, cz, UCY - 0.35, 0xffdca0, 5, 15);
     palette.dress?.(ctx);
     extra?.(ctx);
-    return { light, screen: ctx.screen };
+    return {
+      light,
+      screen: ctx.screen,
+      art: bedArt,
+      identity: ctx.identity,
+    };
   }
 
   /**
@@ -7721,7 +7736,7 @@ export function buildMansionInterior(shell = null) {
         },
         dress: (c) => {
           const {
-            r, cx, cz, bedX, bedZ, hbZ, innerX,
+            r, cx, cz, bedX, bedZ, hbZ, innerX, sideTableX, bedArt,
           } = c;
           const doors = [[13.1, 14.9]];
           /* Slab wall lining with a lit cove over it, notched for both doors
@@ -7885,27 +7900,114 @@ export function buildMansionInterior(shell = null) {
             lx + (innerX < cx ? 0.9 : -0.9) - 0.32, lx + (innerX < cx ? 0.9 : -0.9) + 0.32,
             UY, UY + 0.52, lz + 0.24, lz + 0.76,
           );
-          // An abstract panel on the inner wall, and a chrome arc lamp by the
-          // lounge chair.
-          const panel = flatArt('modern-art-panel', {
-            x: innerX + 0.1,
-            y: UY + 1.7,
-            z: cz - 1.4,
-            rotY: Math.PI / 2,
-            w: 1.6,
-            h: 1.1,
-            material: mat({
-              map: printed('mansion.modern.panel', ['', ''], {
-                w: 512, h: 352, bg: '#20242c', fg: '#9fd0ff', border: '#9fd0ff',
+          /* This is Booski and DeathMegatron's shared room, not a generic
+           * modern hotel suite. The identification is all physical: a named
+           * brass plaque beside the door, their two existing character
+           * photographs, the existing crest above the bed, Booski's ledger
+           * on the media cabinet and DeathMegatron's security radio on the
+           * side table. No line of dialogue is needed to explain any of it. */
+          const crest = bedArt.art;
+          crest.name = 'booski-death-room-crest';
+          crest.userData.art = {
+            slot: 'mansion.bedroom.booski-death.crest', real: false, file: null,
+          };
+
+          const portraits = [
+            {
+              slot: 'mansion.bedroom.booski-death.booski',
+              name: 'booski-death-room-booski-portrait',
+              z: cz - 2.65,
+              label: 'BOOSKI',
+              tint: '#4c3522',
+            },
+            {
+              slot: 'mansion.bedroom.booski-death.deathmegatron',
+              name: 'booski-death-room-deathmegatron-portrait',
+              z: cz - 1.35,
+              label: 'DEATHMEGATRON',
+              tint: '#241b2c',
+            },
+          ].map((spec) => {
+            root.add(box({
+              size: [0.05, 1.2, 0.94],
+              pos: [innerX + 0.06, UY + 2.0, spec.z],
+              mat: M_CHROME,
+              cast: false,
+            }));
+            const portrait = flatArt(spec.slot, {
+              x: innerX + 0.1,
+              y: UY + 2.0,
+              z: spec.z,
+              rotY: Math.PI / 2,
+              w: 0.82,
+              h: 1.08,
+              material: mat({
+                map: makePortraitTexture(spec.slot, spec.label, spec.tint),
+                roughness: 0.62,
+                unique: true,
               }),
-              roughness: 0.6,
+            });
+            portrait.name = spec.name;
+            portrait.userData.art = { slot: spec.slot, real: false, file: null };
+            return portrait;
+          });
+
+          const plaque = flatArt('booski-death-room-plaque-art', {
+            x: r.x1 - 0.44,
+            y: UY + 1.78,
+            z: r.z0 + 0.17,
+            w: 0.72,
+            h: 0.48,
+            material: mat({
+              map: printed('mansion.booski-death.plaque', ['BOOSKI', '&', 'DEATHMEGATRON'], {
+                w: 512,
+                h: 320,
+                bg: '#211b16',
+                fg: '#e1bd66',
+                border: '#b78b38',
+                font: '900 42px "Trebuchet MS", sans-serif',
+                lineHeight: 66,
+              }),
+              roughness: 0.38,
+              metalness: 0.38,
               unique: true,
             }),
           });
-          panel.name = 'modern-art-panel';
+          plaque.name = 'booski-death-room-plaque';
           root.add(box({
-            size: [0.05, 1.24, 1.74], pos: [innerX + 0.06, UY + 1.7, cz - 1.4], mat: M_CHROME, cast: false,
+            size: [0.84, 0.6, 0.06],
+            pos: [r.x1 - 0.44, UY + 1.78, r.z0 + 0.11],
+            mat: M_BRASS,
+            cast: false,
           }));
+
+          const ledger = group(
+            'booski-death-room-ledger',
+            box({ size: [0.62, 0.045, 0.42], pos: [0, 0.023, 0], mat: M_LEATHER_DK, cast: false }),
+            box({ size: [0.54, 0.012, 0.34], pos: [0.01, 0.052, -0.01], mat: M_CARD, cast: false }),
+            box({ size: [0.06, 0.018, 0.12], pos: [-0.23, 0.066, -0.12], mat: M_CHROME, cast: false }),
+          );
+          ledger.position.set(bedX - 0.65, UY + 0.65, tvZ - 0.03);
+          ledger.rotation.y = -0.16;
+          root.add(ledger);
+
+          const securityRadio = group(
+            'booski-death-room-security-radio',
+            box({ size: [0.22, 0.32, 0.12], pos: [0, 0.16, 0], mat: M_STOVE_BLACK, cast: false }),
+            box({ size: [0.14, 0.08, 0.02], pos: [0, 0.21, 0.071], mat: M_MOD_LED, cast: false }),
+            cylinder({ r: 0.018, h: 0.24, pos: [0.075, 0.43, 0], mat: M_STOVE_BLACK, cast: false }),
+            cylinder({ r: 0.035, h: 0.035, pos: [-0.06, 0.35, 0], mat: M_CHROME, cast: false }),
+          );
+          securityRadio.position.set(sideTableX, UY + 0.61, cz + 2.9);
+          root.add(securityRadio);
+
+          c.identity = {
+            owners: ['booski', 'deathmegatron'],
+            plaque,
+            crest,
+            portraits,
+            props: [ledger, securityRadio],
+          };
         },
       },
       extra: ({ cz, r }) => {
@@ -9370,15 +9472,34 @@ const M_GOLD_BAR = mat({
     solid(trolleyX - 0.4, trolleyX + 0.4, GY, GY + 0.8, r.z0 + 5.1, r.z0 + 5.7);
 
     // A birdcage on a stand, empty, hood up. Nobody asks about it.
-    root.add(cylinder({ r: 0.34, h: 0.05, pos: [r.x0 + 1.8, GY + 0.03, r.z1 - 5.0], mat: M_BRONZE, cast: false }));
-    root.add(cylinder({ r: 0.05, h: 1.5, pos: [r.x0 + 1.8, GY + 0.75, r.z1 - 5.0], mat: M_BRONZE }));
+    const cageX = r.x0 + 1.8;
+    const cageZ = r.z1 - 5.0;
+    const cageBottomY = GY + 1.5;
+    root.add(cylinder({ r: 0.34, h: 0.05, pos: [cageX, GY + 0.03, cageZ], mat: M_BRONZE, cast: false }));
+    root.add(cylinder({ r: 0.05, h: 1.5, pos: [cageX, GY + 0.75, cageZ], mat: M_BRONZE }));
+    /* The bars previously ended in open air at the top of the stand. This
+     * shallow bronze tray is both the visible cage floor and their shared
+     * termination, named so the geometry cannot regress silently. */
+    const cageBottom = cylinder({
+      r: 0.36,
+      h: 0.06,
+      pos: [cageX, cageBottomY - 0.03, cageZ],
+      mat: M_BRONZE,
+      cast: false,
+      name: 'winter-birdcage-bottom',
+    });
+    root.add(cageBottom);
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;
       root.add(cylinder({
-        r: 0.012, h: 0.9, pos: [r.x0 + 1.8 + Math.cos(a) * 0.32, GY + 1.95, r.z1 - 5.0 + Math.sin(a) * 0.32], mat: M_GOLD,
+        r: 0.012,
+        h: 0.9,
+        pos: [cageX + Math.cos(a) * 0.32, GY + 1.95, cageZ + Math.sin(a) * 0.32],
+        mat: M_GOLD,
+        name: 'winter-birdcage-bar',
       }));
     }
-    root.add(cylinder({ rTop: 0.06, rBottom: 0.36, h: 0.34, pos: [r.x0 + 1.8, GY + 2.55, r.z1 - 5.0], mat: M_GOLD, cast: false }));
+    root.add(cylinder({ rTop: 0.06, rBottom: 0.36, h: 0.34, pos: [cageX, GY + 2.55, cageZ], mat: M_GOLD, cast: false }));
     solid(r.x0 + 1.5, r.x0 + 2.1, GY, GY + 2.4, r.z1 - 5.3, r.z1 - 4.7);
 
     const winterShield = flatArt('mansion.winter.shield', {
@@ -9402,7 +9523,12 @@ const M_GOLD_BAR = mat({
       ceilingLight(cx, cz, CEIL - 0.45, 0xdff0e4, 5.6, 15),
       ceilingLight(cx, r.z1 - 4.0, CEIL - 0.45, 0xdff0e4, 5.2, 14),
     ];
-    return { shield: winterShield, pool: { x: cx, z: cz, r: poolR }, lights };
+    return {
+      shield: winterShield,
+      pool: { x: cx, z: cz, r: poolR },
+      birdcage: { bottom: cageBottom },
+      lights,
+    };
   }
 
   /* ================================================================== */
@@ -9675,7 +9801,8 @@ const M_GOLD_BAR = mat({
       root.add(l);
     }
 
-    caseFurniture(r.x0 + 0.5, cz - 0.6, BY, 1.8, 0.55, 0.9, Math.PI / 2, 3);
+    const dresser = caseFurniture(r.x0 + 0.5, cz - 0.6, BY, 1.8, 0.55, 0.9, Math.PI / 2, 3);
+    dresser.name = 'guest-dresser';
     root.add(box({
       size: [0.06, 1.3, 1.0],
       pos: [r.x0 + 0.14, BY + 1.75, cz - 0.6],
@@ -9720,11 +9847,14 @@ const M_GOLD_BAR = mat({
     root.add(wellLight);
     curtains('x', r.x0 + 0.3, cz + 2.0, BY + 0.8, 2.8, 1.9, M_CURTAIN);
 
+    /* The family photograph used to occupy the badge position directly over
+     * the bed. It belongs by the dresser instead, beside (not over) its
+     * mirror. The bed wall now carries the actual Silver Sasquatches crest. */
     const guestArt = flatArt('mansion.guest.art', {
-      x: cx - 0.6,
+      x: r.x0 + 0.13,
       y: BY + 1.95,
-      z: r.z1 - 0.13,
-      rotY: Math.PI,
+      z: cz - 2.05,
+      rotY: Math.PI / 2,
       w: 1.1,
       h: 1.4,
       material: mat({
@@ -9735,8 +9865,27 @@ const M_GOLD_BAR = mat({
         unique: true,
       }),
     });
+    guestArt.name = 'mansion.guest.art';
+    const guestCrest = flatArt('mansion.guest.crest', {
+      x: bedX,
+      y: BY + 2.05,
+      z: r.z1 - 0.13,
+      rotY: Math.PI,
+      w: 0.95,
+      h: 0.95,
+      material: mat({
+        map: squatchArt('mansion-guest-crest', {
+          title: ['SILVER', 'SASQUATCHES'], footer: 'FAMILY HOUSE', ink: '#d8b85b', bg: '#1b1520',
+        }),
+        roughness: 0.9,
+        unique: true,
+      }),
+    });
+    guestCrest.name = 'mansion.guest.crest';
     const light = ceilingLight(cx, cz, -0.4, 0xffdca0, 6.6, 15);
-    return { art: guestArt, light, bed: bed.group };
+    return {
+      art: guestArt, crest: guestCrest, dresser, light, bed: bed.group,
+    };
   }
   const guestProps = buildGuestRoom();
 
@@ -10724,7 +10873,23 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.theatre.banner', mesh: theatreProps.banner, w: 1.0 },
     { slot: 'mansion.lan.banner', mesh: lanProps.banner, w: 1.6 },
     { slot: 'mansion.guest.art', mesh: guestProps.art, w: 1.1 },
+    { slot: 'mansion.guest.crest', mesh: guestProps.crest, w: 0.95 },
     { slot: 'mansion.vault.mark', mesh: vaultProps.mark, w: 0.8 },
+    {
+      slot: 'mansion.bedroom.booski-death.crest',
+      mesh: bedrooms.eastRear.identity?.crest,
+      w: 0.95,
+    },
+    {
+      slot: 'mansion.bedroom.booski-death.booski',
+      mesh: bedrooms.eastRear.identity?.portraits?.[0],
+      w: 0.82,
+    },
+    {
+      slot: 'mansion.bedroom.booski-death.deathmegatron',
+      mesh: bedrooms.eastRear.identity?.portraits?.[1],
+      w: 0.82,
+    },
     { slot: 'mansion.suite.crest', mesh: suiteProps.crest, w: 1.3 },
     /* One slot, every gamer chair in the LAN room. The owner asked for the
      * logo on the chairs, plural, and five chairs pointed at five slots would

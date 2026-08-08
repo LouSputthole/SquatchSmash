@@ -63,6 +63,7 @@ import { isPreviewMode } from '../../core/preview-mode.js';
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
 import { SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeVoiceCueNames } from './script.js';
+import { REQUIRED_SIEGE_EFFECT_CUES, SiegeMissionAudio } from './audio.js';
 import {
   COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS, totalAttackers,
 } from './waves.js';
@@ -247,6 +248,7 @@ scene.add(glass.root);
 /* Audio                                                                 */
 /* ================================================================== */
 const audio = new AudioEngine();
+const missionAudio = new SiegeMissionAudio(audio);
 
 /* ================================================================== */
 /* Player and world                                                      */
@@ -500,6 +502,8 @@ const shadowCap = capShadowCasters({
 /* The mission                                                           */
 /* ================================================================== */
 let running = false;
+let starting = false;
+let checkpointReconstructionDepth = 0;
 let ammoDirty = true;
 let waveDirty = true;
 let checkpointToast = 0;
@@ -557,6 +561,19 @@ const BEAT_SEQUENCE = Object.freeze({
   [B.AFTERMATH]: 'aftermath',
 });
 
+function recordSiegeCheckpoint(id) {
+  if (checkpointReconstructionDepth > 0) return;
+  missionAudio.checkpoint(id);
+  siegeCampaign.checkpoint(id, {
+    attackersDown: mission.attackersDown,
+    littleFriendSaid: mission.littleFriendSaid,
+    sasoleMet: mission.beat === B.COMPLETE,
+  });
+  checkpointEl.textContent = (CHECKPOINTS[id]?.label ?? 'CHECKPOINT').toUpperCase();
+  checkpointEl.classList.add('show');
+  checkpointToast = 2.2;
+}
+
 const mission = new SiegeMission({
   damage,
   onObjective: (text, hint, done) => {
@@ -578,6 +595,8 @@ const mission = new SiegeMission({
   onBeat: (beat) => {
     ensemble.stage(beat);
     waveDirty = true;
+    if (beat === B.WAVE_ONE) missionAudio.waveIncoming('one');
+    if (beat === B.WAVE_TWO) missionAudio.waveIncoming('two');
     const sequence = BEAT_SEQUENCE[beat];
     if (sequence) dialogue.play(sequence);
     if (beat === B.COMPLETE) {
@@ -614,16 +633,7 @@ const mission = new SiegeMission({
      * beat the brief asked for. */
     if (order?.group === '2B') dialogue.play('flank');
   },
-  onCheckpoint: (id) => {
-    siegeCampaign.checkpoint(id, {
-      attackersDown: mission.attackersDown,
-      littleFriendSaid: mission.littleFriendSaid,
-      sasoleMet: mission.beat === B.COMPLETE,
-    });
-    checkpointEl.textContent = (CHECKPOINTS[id]?.label ?? 'CHECKPOINT').toUpperCase();
-    checkpointEl.classList.add('show');
-    checkpointToast = 2.2;
-  },
+  onCheckpoint: (id) => recordSiegeCheckpoint(id),
 });
 
 /**
@@ -741,7 +751,7 @@ function updateRevive(dt) {
   reviveHeld += dt;
   if (reviveHeld < REVIVE_SECONDS) return;
   reviveHeld = 0;
-  if (ensemble.revive?.(near.id)) audio.play?.('siege.friendly.revived', { volume: 0.8 });
+  if (ensemble.revive?.(near.id)) missionAudio.friendlyRevived(player.position);
 }
 
 /**
@@ -792,7 +802,7 @@ function shatterNearest({ x, z, opening }) {
       if (entry.window !== opening) continue;
       if (entry.state === 'broken') return null;
       if (glass.shatter(id)) {
-        audio.play?.('siege.glass.shatter');
+        missionAudio.glassShattered({ x, y: 1.2, z });
         ensemble.noteImpact({ x, y: 1.2, z }, 7);
         return id;
       }
@@ -814,7 +824,7 @@ function shatterNearest({ x, z, opening }) {
     if (distance < bestDistance) { bestDistance = distance; best = id; }
   }
   if (best && glass.shatter(best)) {
-    audio.play?.('siege.glass.shatter');
+    missionAudio.glassShattered({ x, y: 1.2, z });
     ensemble.noteImpact({ x, y: 1.2, z }, 7);
     return best;
   }
@@ -1348,92 +1358,124 @@ if (startCheckpoint && startCheckpoint !== 'wake') {
  * man it releases marked down, which is the same arithmetic a real fight
  * performs, and then the bodies are cleared off the landing.
  */
+function withCheckpointReconstruction(run) {
+  checkpointReconstructionDepth += 1;
+  try {
+    return missionAudio.withSuppressedEvents(
+      () => dialogue.withSuppressedPlayback(run),
+    );
+  } finally {
+    checkpointReconstructionDepth -= 1;
+  }
+}
+
 function jumpToCheckpoint(id) {
   if (id === 'wake' || !CHECKPOINT_ENTRIES[id]) return false;
-  mission.wokeUp();
-  mission.enteredArmory();
-  equipOwnedWeapon(WEAPON_IDS.CARBINE);
-  PRIMARY_TAKEN.add(WEAPON_IDS.CARBINE);
-  heavyTaken = true;
-  mission.armed({ primary: true, heavy: true });
-  if (id === 'armed') return true;
+  return withCheckpointReconstruction(() => {
+    mission.wokeUp();
+    mission.enteredArmory();
+    equipOwnedWeapon(WEAPON_IDS.CARBINE);
+    PRIMARY_TAKEN.add(WEAPON_IDS.CARBINE);
+    heavyTaken = true;
+    mission.armed({ primary: true, heavy: true });
+    if (id === 'armed') return true;
 
-  mission.enteredOffice();
-  dialogue.play('briefing');
-  dialogue.finish();
-  equipOwnedWeapon(WEAPON_IDS.SAW);
-  if (id === 'briefed') return true;
+    mission.enteredOffice();
+    dialogue.play('briefing');
+    dialogue.finish();
+    equipOwnedWeapon(WEAPON_IDS.SAW);
+    if (id === 'briefed') return true;
 
-  /* Wave one, fought and won on the clock. `sayHello()` is the real gate --
-   * beat, line flag and wave director all move exactly as they do when the
-   * player presses F on the step. */
-  if (!mission.sayHello()) return false;
-  dialogue.finish();
-  for (let guard = 0; guard < 400 && mission.beat === B.WAVE_ONE; guard++) {
-    for (const attackerId of [...mission.waves.one.standing]) mission.noteDown(attackerId);
-    mission.update(0.5);
-  }
-  attackers.despawnAll();
-  ammoDirty = true;
-  waveDirty = true;
-  return mission.beat === B.LULL;
+    /* Wave one, fought and won on the clock. `sayHello()` is the real gate --
+     * beat, line flag and wave director all move exactly as they do when the
+     * player presses F on the step. */
+    if (!mission.sayHello()) return false;
+    dialogue.finish();
+    for (let guard = 0; guard < 400 && mission.beat === B.WAVE_ONE; guard++) {
+      for (const attackerId of [...mission.waves.one.standing]) mission.noteDown(attackerId);
+      mission.update(0.5);
+    }
+    attackers.despawnAll();
+    ammoDirty = true;
+    waveDirty = true;
+    return mission.beat === B.LULL;
+  });
 }
 
 /* ================================================================== */
 /* Boot                                                                  */
 /* ================================================================== */
 async function beginSiege() {
-  if (running) return;
-  const campaignEntry = siegeCampaign.begin();
-  if (!campaignEntry.ok) {
-    if (restoreCompletedFinalArcEntry(campaignEntry, {
-      preview: siegeCampaignPreview,
-      restore: () => {
-        siegeCampaignComplete = true;
-        menuEl.classList.add('hidden');
-        showMissionCard({
-          attackersDown: siegeCampaign.story?.mission?.attackersDown ?? 0,
-        });
-      },
-    })) return false;
-    if (checkpointTagEl) {
-      checkpointTagEl.hidden = false;
-      checkpointTagEl.textContent = campaignEntry.reason === 'already_complete'
-        ? 'This siege is already complete in the current campaign.'
-        : 'Mansion Under Siege is not available in the current campaign.';
+  if (running || starting) return false;
+  starting = true;
+  const idleLabel = startBtn.textContent;
+  startBtn.disabled = true;
+  try {
+    const campaignEntry = siegeCampaign.begin();
+    if (!campaignEntry.ok) {
+      if (restoreCompletedFinalArcEntry(campaignEntry, {
+        preview: siegeCampaignPreview,
+        restore: () => {
+          siegeCampaignComplete = true;
+          menuEl.classList.add('hidden');
+          showMissionCard({
+            attackersDown: siegeCampaign.story?.mission?.attackersDown ?? 0,
+          });
+        },
+      })) return false;
+      if (checkpointTagEl) {
+        checkpointTagEl.hidden = false;
+        checkpointTagEl.textContent = campaignEntry.reason === 'already_complete'
+          ? 'This siege is already complete in the current campaign.'
+          : 'Mansion Under Siege is not available in the current campaign.';
+      }
+      return false;
     }
-    return false;
+    startBtn.textContent = 'LOADING AUDIO…';
+    await audio.init();
+    /* Checkpoint dialogue, weapons and Siege effects can all fire synchronously
+     * once the mission begins. Decode those playable banks before starting so a
+     * real recording is never replaced by a one-shot synth fallback. */
+    await audio.loadManifest({ names: siegeEffectCueNames() }).catch(() => {});
+    await audio.loadAdditional({ names: [...weaponCueNames(), ...siegeVoiceCueNames()] }).catch(() => {});
+    /* A direct/legacy entry still gets the nightstand .45. Campaign entry keeps
+     * the exact guns, selected slot and ammunition brought out of the previous
+     * Mansion scene instead of replacing them at boot. */
+    if (!finalArcLoadout.items.some(Boolean)) finalArcLoadout.acquire(WEAPON_IDS.REVOLVER);
+    finalArcLoadout.apply(weaponSystem);
+    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+    ammoDirty = true;
+    const entryCheckpoint = campaignEntry.resumed
+      && Object.hasOwn(CHECKPOINT_ENTRIES, campaignEntry.checkpoint)
+      ? campaignEntry.checkpoint
+      : startCheckpoint;
+    if (entryCheckpoint && entryCheckpoint !== 'wake') {
+      const restored = withCheckpointReconstruction(() => {
+        mission.start(B.WAKE);
+        return jumpToCheckpoint(entryCheckpoint);
+      });
+      if (!restored) throw new Error(`Could not restore Siege checkpoint: ${entryCheckpoint}`);
+      recordSiegeCheckpoint(entryCheckpoint);
+      const at = CHECKPOINT_ENTRIES[entryCheckpoint].at;
+      if (at) teleport(at.x, at.y, at.z, at.yaw);
+      /* A checkpoint start has already had its wake-up. Skipping it also skips
+       * `mission.wokeUp()`, which `jumpToCheckpoint` has already called. */
+      waking = 0;
+      player.enabled = true;
+    } else {
+      mission.start(B.WAKE);
+      startWaking();
+    }
+    running = true;
+    menuEl.classList.add('hidden');
+    renderer.domElement.requestPointerLock?.();
+    clock.getDelta();
+    return true;
+  } finally {
+    starting = false;
+    startBtn.disabled = false;
+    if (!running) startBtn.textContent = idleLabel;
   }
-  running = true;
-  menuEl.classList.add('hidden');
-  await audio.init();
-  audio.loadManifest({ names: [...weaponCueNames(), ...siegeCueNames()] }).catch(() => {});
-  /* A direct/legacy entry still gets the nightstand .45. Campaign entry keeps
-   * the exact guns, selected slot and ammunition brought out of the previous
-   * Mansion scene instead of replacing them at boot. */
-  if (!finalArcLoadout.items.some(Boolean)) finalArcLoadout.acquire(WEAPON_IDS.REVOLVER);
-  finalArcLoadout.apply(weaponSystem);
-  loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
-  ammoDirty = true;
-  mission.start(B.WAKE);
-  const entryCheckpoint = campaignEntry.resumed
-    && Object.hasOwn(CHECKPOINT_ENTRIES, campaignEntry.checkpoint)
-    ? campaignEntry.checkpoint
-    : startCheckpoint;
-  if (entryCheckpoint && entryCheckpoint !== 'wake') {
-    jumpToCheckpoint(entryCheckpoint);
-    const at = CHECKPOINT_ENTRIES[entryCheckpoint].at;
-    if (at) teleport(at.x, at.y, at.z, at.yaw);
-    /* A checkpoint start has already had its wake-up. Skipping it also skips
-     * `mission.wokeUp()`, which `jumpToCheckpoint` has already called. */
-    waking = 0;
-    player.enabled = true;
-  } else {
-    startWaking();
-  }
-  renderer.domElement.requestPointerLock?.();
-  clock.getDelta();
-  return true;
 }
 startBtn.addEventListener('click', beginSiege);
 
@@ -1451,14 +1493,7 @@ startBtn.addEventListener('click', beginSiege);
  * Exported so tools/verify-mansion-siege.mjs can recompute the scene's own
  * selector rather than retyping it -- the same reason
  * src/mansion/scenes/SilentSquatch.js exports `silentSquatchCueNames()`. */
-export const REQUIRED_SIEGE_EFFECT_CUES = Object.freeze([
-  'siege.alarm.tone',
-  'siege.glass.shatter',
-  'siege.fire.crackle',
-  'siege.wave.incoming',
-  'siege.checkpoint',
-  'siege.friendly.revived',
-]);
+export { REQUIRED_SIEGE_EFFECT_CUES } from './audio.js';
 
 export function siegeEffectCueNames() {
   return [...REQUIRED_SIEGE_EFFECT_CUES];
@@ -1489,6 +1524,11 @@ function updateGame(dt) {
    * spends one frame with the new beat and the old wave. */
   dialogue.update(dt);
   night.update(dt);
+  missionAudio.updateEnvironment({
+    alarmActive: damage.activeLayers.has('alarm'),
+    alarmStruck: night.alarm.struck,
+    fireActive: damage.activeLayers.has('battle'),
+  });
   dressing.update(dt);
   glass.update(dt);
   /* `alive` is the crew the cartel may engage, and it is deliberately
@@ -1580,6 +1620,7 @@ window.mansionSiege = {
   postfx,
   player,
   audio,
+  missionAudio,
   interaction,
   grounds,
   interior,

@@ -1856,6 +1856,81 @@ try {
   check('the motor court and the side lot are both populated',
     vehicles.length >= 5, `${vehicles.length} vehicles`);
 
+  const greySedanReport = await page.evaluate(() => {
+    const sedan = window.mansion.grounds.props.greySedan;
+    const published = window.mansion.greySedan;
+    const layby = window.mansion.scene.getObjectByName('grey-sedan-gate-layby');
+    const laybyBox = new window.mansion.THREE.Box3().setFromObject(layby);
+    const landscapingClashes = [
+      ...window.mansion.landscaping.beds,
+      ...window.mansion.landscaping.hedges,
+    ].filter((item) => sedan.worldCollider.min.x < item.x1
+      && sedan.worldCollider.max.x > item.x0
+      && sedan.worldCollider.min.z < item.z1
+      && sedan.worldCollider.max.z > item.z0);
+    const palmClashes = window.mansion.grounds.props.palmSpots.filter(([x, z]) => (
+      x + 0.4 > sedan.worldCollider.min.x
+      && x - 0.4 < sedan.worldCollider.max.x
+      && z + 0.4 > sedan.worldCollider.min.z
+      && z - 0.4 < sedan.worldCollider.max.z
+    ));
+    const originalEnding = sedan.sourceEnding;
+    const originalRecognized = sedan.recognized;
+    const warned = sedan.setCampaignEnding('warned');
+    const plate = sedan.setCampaignEnding('plate');
+    const other = sedan.setCampaignEnding('left');
+    sedan.setCampaignEnding(originalEnding);
+    return {
+      id: sedan.id,
+      name: sedan.group.name,
+      kind: sedan.kind,
+      storyThread: sedan.storyThread,
+      x: sedan.x,
+      z: sedan.z,
+      min: { x: sedan.worldCollider.min.x, z: sedan.worldCollider.min.z },
+      max: { x: sedan.worldCollider.max.x, z: sedan.worldCollider.max.z },
+      layby: {
+        name: layby?.name ?? null,
+        min: { x: laybyBox.min.x, z: laybyBox.min.z },
+        max: { x: laybyBox.max.x, z: laybyBox.max.z },
+      },
+      landscapingClashes: landscapingClashes.length,
+      palmClashes: palmClashes.length,
+      originalEnding,
+      originalRecognized,
+      publishedRecognized: published.recognized,
+      warned,
+      plate,
+      other,
+      restored: sedan.sourceEnding === originalEnding
+        && sedan.recognized === originalRecognized,
+    };
+  });
+  check('the Bada Bing grey sedan is staged inside the gate without blocking its lane',
+    greySedanReport.id === 'bada-bing-grey-sedan'
+      && greySedanReport.name === 'bada-bing-grey-sedan'
+      && greySedanReport.kind === 'sedan'
+      && greySedanReport.storyThread === 'bada_bing_one'
+      && greySedanReport.z > 0
+      && greySedanReport.z < 12
+      && greySedanReport.max.x < -4.8
+      && greySedanReport.layby.name === 'grey-sedan-gate-layby'
+      && greySedanReport.layby.min.x <= greySedanReport.min.x
+      && greySedanReport.layby.max.x >= greySedanReport.max.x
+      && greySedanReport.layby.min.z <= greySedanReport.min.z
+      && greySedanReport.layby.max.z >= greySedanReport.max.z
+      && greySedanReport.landscapingClashes === 0
+      && greySedanReport.palmClashes === 0,
+    JSON.stringify(greySedanReport));
+  check('the saved plate ending is the only grey-sedan recognition trigger',
+    greySedanReport.warned === false
+      && greySedanReport.plate === true
+      && greySedanReport.other === false
+      && greySedanReport.originalRecognized === (greySedanReport.originalEnding === 'plate')
+      && greySedanReport.publishedRecognized === greySedanReport.originalRecognized
+      && greySedanReport.restored,
+    JSON.stringify(greySedanReport));
+
   function overlaps(a, b) {
     return a.min.x < b.max.x && a.max.x > b.min.x && a.min.z < b.max.z && a.max.z > b.min.z;
   }
@@ -1936,13 +2011,40 @@ try {
   check('the west perimeter fence blocks a straight walk toward the property boundary',
     s.x > -29.9, JSON.stringify(s));
 
-  await teleport(0, GROUND_Y, 78, NORTH);
-  await walk(6);
+  /* Owner playtest: "Pool in back is a solid I cant get in it." This used to
+   * assert the defect as the expected result. Walk the authored opening now,
+   * stand on the basin floor long enough for ground resolution to settle, and
+   * walk back out. Every metre is driven by real W input through walkTo(). */
+  const poolEntry = await page.evaluate(() => {
+    const patio = window.mansion.grounds.props.poolPatio;
+    return {
+      x: (patio.entrySteps.x0 + patio.entrySteps.x1) / 2,
+      z0: patio.entrySteps.z0,
+      z1: patio.entrySteps.z1,
+      pool: { ...patio.pool },
+    };
+  });
+  await teleport(poolEntry.x, GROUND_Y, poolEntry.z0 - 0.9, NORTH);
   await settle(0.3);
+  const enteredPool = await walkTo(poolEntry.x, poolEntry.z1 + 0.8, { steps: 20, tol: 0.35 });
   s = await state();
-  const insidePoolFootprint = s.x > -7 && s.x < 7 && s.z > 81 && s.z < 89;
-  check("a solid curb keeps a straight walk out of the pool's own basin footprint",
-    !insidePoolFootprint, JSON.stringify({ ...s, insidePoolFootprint }));
+  check('the pool entry can be walked from the deck down into the basin with real WASD',
+    enteredPool.ok && inside(poolEntry.pool, s, 0.2) && Math.abs(s.ground - poolEntry.pool.y) < 0.08,
+    JSON.stringify({ enteredPool, state: s, entry: poolEntry }));
+
+  const standingInPool = s;
+  await settle(1.0);
+  const stoodInPool = await state();
+  check('standing in the pool stays on its real basin floor instead of snapping back to deck height',
+    Math.abs(stoodInPool.ground - poolEntry.pool.y) < 0.08
+      && Math.hypot(stoodInPool.x - standingInPool.x, stoodInPool.z - standingInPool.z) < 0.05,
+    JSON.stringify({ before: standingInPool, after: stoodInPool }));
+
+  const exitedPool = await walkTo(poolEntry.x, poolEntry.z0 - 0.8, { steps: 20, tol: 0.35 });
+  s = await state();
+  check('the same pool steps can be walked back out onto the deck',
+    exitedPool.ok && !inside(poolEntry.pool, s, 0) && Math.abs(s.ground - GROUND_Y) < 0.08,
+    JSON.stringify({ exitedPool, state: s }));
 
   await teleport(0, UPPER_Y, 50.5, SOUTH);
   await settle(0.4);
@@ -2036,6 +2138,70 @@ try {
   }
   check('no picture, banner or mirror is hung across a doorway or a window',
     clashes.length === 0, clashes.join(' | '));
+
+  /* The two gate faces and the shared bedroom are manifest-backed. Wait for
+   * the same promises the runtime publishes, then inspect the real meshes --
+   * a manifest entry on its own is not proof that the picture reached the
+   * wall. */
+  await page.evaluate(async () => {
+    await Promise.all([
+      window.mansion.gate.artReady,
+      window.mansion.interior.artReady,
+    ]);
+  });
+  const gateArt = await page.evaluate(() => ({
+    slot: window.mansion.gate.artSlot,
+    medallions: window.mansion.gate.medallions.map((mesh) => ({
+      name: mesh.name,
+      art: mesh.userData.art,
+    })),
+  }));
+  check('both gate medallions resolve to the approved Squatch crest art',
+    gateArt.slot === 'mansion.gate.crests'
+      && gateArt.medallions.length === 2
+      && gateArt.medallions.every((medallion) => medallion.name === 'mansion-gate-squatch-crest'
+        && medallion.art?.real === true
+        && medallion.art?.file === 'logo-crest.png'),
+    JSON.stringify(gateArt));
+
+  const sharedBedroom = await page.evaluate(() => {
+    const room = window.mansion.interior.props.bedrooms.eastRear;
+    const identity = room.identity;
+    const rect = window.mansion.roomTable.bedEastRear.rect;
+    const objects = [
+      identity.plaque,
+      identity.crest,
+      ...identity.portraits,
+      ...identity.props,
+    ].map((object) => {
+      const p = object.getWorldPosition(new window.mansion.THREE.Vector3());
+      return { name: object.name, x: p.x, z: p.z, art: object.userData.art ?? null };
+    });
+    return {
+      owners: identity.owners,
+      rect,
+      objects,
+      plaque: identity.plaque.name,
+      crest: identity.crest.userData.art,
+      portraits: identity.portraits.map((portrait) => portrait.userData.art),
+      props: identity.props.map((prop) => prop.name),
+    };
+  });
+  check('Booski and DeathMegatron share one physically named bedroom',
+    JSON.stringify(sharedBedroom.owners) === JSON.stringify(['booski', 'deathmegatron'])
+      && sharedBedroom.plaque === 'booski-death-room-plaque'
+      && sharedBedroom.objects.every((object) => object.x >= sharedBedroom.rect.x0
+        && object.x <= sharedBedroom.rect.x1
+        && object.z >= sharedBedroom.rect.z0
+        && object.z <= sharedBedroom.rect.z1)
+      && JSON.stringify(sharedBedroom.props)
+        === JSON.stringify(['booski-death-room-ledger', 'booski-death-room-security-radio'])
+      && sharedBedroom.crest?.real === true
+      && sharedBedroom.crest?.file === 'logo-crest.png'
+      && sharedBedroom.portraits.every((art) => art?.real === true)
+      && sharedBedroom.portraits.map((art) => art.file).join('|')
+        === 'shrine-booski-podium.jpg|family-portrait-deathmegatron.webp',
+    JSON.stringify(sharedBedroom));
 
   /* ================================================================ */
   /* Working sets, and the working sink                                 */

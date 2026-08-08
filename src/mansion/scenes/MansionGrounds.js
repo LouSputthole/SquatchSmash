@@ -47,6 +47,7 @@ import { makeCar, makeVehicleCollider, populateLot } from '../../bing/vehicles.j
 // share that exact cached texture instance.
 import { tileTex } from '../../world/textures.js';
 import { tiled, brick, printed } from '../../bing/kit.js';
+import { resolveGear } from '../../world/gear.js';
 /* The Squatch Smash player rig, reused as the monument in the fountain --
  * see buildFountain(). game/ is the in-world PC game and has no dependency
  * on this scene; this import goes one way only, and the module is three
@@ -66,6 +67,13 @@ export const BASEMENT_Y = -2.8;
 export const ROOF_Y0 = UPPER_CEILING_Y;
 export const ROOF_Y1 = 10.6;
 export const WALL_T = 0.4;
+/* Keep ground-owned art in the same discoverable `*SLOTS` shape as the
+ * interior art list. tools/check.mjs reads these arrays from every scene that
+ * owns manifest-backed art, so a typo cannot ship as an unresolved slot. */
+export const MANSION_GROUND_ART_SLOTS = [
+  'mansion.gate.crests',
+];
+export const MANSION_GATE_ART_SLOT = MANSION_GROUND_ART_SLOTS[0];
 
 /* THE FRONT WALL, PULLED OUT (owner playtest 2026-08-04, verbatim):
  *
@@ -971,6 +979,7 @@ export function buildMansionGrounds(scene = null) {
   /* Street gate: pillars + emblems + open wrought-iron leaves           */
   /* ---------------------------------------------------------------- */
   const PILLAR_H = 3.6;
+  const gateMedallions = [];
   function gatePillar(x) {
     root.add(box({ size: [1.0, PILLAR_H, 1.0], pos: [x, PILLAR_H / 2, 0], mat: M_PILLAR }));
     root.add(box({ size: [1.2, 0.15, 1.2], pos: [x, PILLAR_H + 0.08, 0], mat: M_GOLD }));
@@ -989,7 +998,14 @@ export function buildMansionGrounds(scene = null) {
     );
     medallion.position.set(x, 2.5, -0.62);
     medallion.rotation.y = Math.PI; // face -Z, toward the street/spawn side
+    medallion.name = 'mansion-gate-squatch-crest';
+    medallion.userData.art = {
+      slot: MANSION_GATE_ART_SLOT,
+      real: false,
+      file: null,
+    };
     root.add(medallion);
+    gateMedallions.push(medallion);
     // A tight little spotlight square on the medallion -- without it the
     // artwork itself still vanishes into the pillar's own shadow at night.
     const medallionLight = new THREE.SpotLight(0xfff6e0, 7, 5, 0.42, 0.5, 1.4);
@@ -1000,6 +1016,26 @@ export function buildMansionGrounds(scene = null) {
   }
   gatePillar(-4);
   gatePillar(4);
+
+  /* The canvas footprint remains a fail-safe only. Both faces resolve one
+   * approved art slot to the exact crest already used throughout the house,
+   * and keep the circular medallion geometry rather than stretching the
+   * square source into a new sign. The promise is published so the browser
+   * verifier can prove the real file landed on both pillars. */
+  const gateArtReady = resolveGear([MANSION_GATE_ART_SLOT]).then((gear) => {
+    const supplied = gear.get(MANSION_GATE_ART_SLOT);
+    if (!supplied?.real) return [];
+    for (const medallion of gateMedallions) {
+      medallion.material.map = supplied.texture;
+      medallion.material.needsUpdate = true;
+      medallion.userData.art = {
+        slot: MANSION_GATE_ART_SLOT,
+        real: true,
+        file: supplied.file,
+      };
+    }
+    return gateMedallions.map(() => MANSION_GATE_ART_SLOT);
+  }).catch(() => []);
 
   // Wrought-iron leaves, swung open and folded back against the fence line --
   // no open/close mechanic this pass, so they are simply modelled open.
@@ -1510,6 +1546,21 @@ export function buildMansionGrounds(scene = null) {
    * cars sit where a car actually would (nearest the door, out of the
    * turning circle) and both corridors stay about five metres wide. */
   const CAR_SPOTS = [
+    /* The same grey sedan that watched the first Bada Bing visit, pulled off
+     * the drive just inside Lou's gate. Its 0x2e3038 paint is the exact
+     * watchers-car colour from bing/vehicles.js; no plate text is invented.
+     * The composition root reads the saved ending and marks this instance as
+     * recognized only when the player actually inspected that plate. */
+    {
+      id: 'bada-bing-grey-sedan',
+      storyThread: 'bada_bing_one',
+      x: -6.7,
+      z: 7.0,
+      kind: 'sedan',
+      color: 0x2e3038,
+      yaw: -Math.PI / 2,
+      note: 'Bada Bing grey sedan, inside gate',
+    },
     courtSpot(180, 12.4, 'lincoln', 0x101014),
     courtSpot(0, 12.4, 'suv', 0x2a2a30),
     {
@@ -1531,14 +1582,36 @@ export function buildMansionGrounds(scene = null) {
   }
   const vehicles = CAR_SPOTS.map((spot) => {
     const car = makeCar(spot.kind, spot.color);
+    if (spot.id) car.group.name = spot.id;
+    if (spot.storyThread) car.group.userData.storyThread = spot.storyThread;
     car.group.position.set(spot.x, 0, spot.z);
     car.group.rotation.y = spot.yaw;
     root.add(car.group);
     const worldCollider = makeVehicleCollider(car);
     colliders.push(worldCollider);
     return {
-      ...car, x: spot.x, z: spot.z, yaw: spot.yaw, note: spot.note, worldCollider,
+      ...car,
+      id: spot.id ?? null,
+      storyThread: spot.storyThread ?? null,
+      kind: spot.kind,
+      x: spot.x,
+      z: spot.z,
+      yaw: spot.yaw,
+      note: spot.note,
+      worldCollider,
     };
+  });
+  const greySedan = vehicles.find((vehicle) => vehicle.id === 'bada-bing-grey-sedan');
+  Object.assign(greySedan, {
+    recognized: false,
+    sourceEnding: null,
+    setCampaignEnding(ending = null) {
+      this.sourceEnding = typeof ending === 'string' ? ending : null;
+      this.recognized = ending === 'plate';
+      this.group.userData.recognized = this.recognized;
+      this.group.userData.recognitionSource = this.sourceEnding;
+      return this.recognized;
+    },
   });
 
   /* ---------------------------------------------------------------- */
@@ -1791,7 +1864,8 @@ export function buildMansionGrounds(scene = null) {
    *              the bed, clear of both benches and 3.2 m inside the fence.
    */
   const PALM_SPOTS = [
-    [-6, 6], [6, 6], [-6, 14], [6, 16], [16.6, 6],
+    /* The first west palm moved out of the grey sedan's gate lay-by. */
+    [-9.4, 3.2], [6, 6], [-6, 14], [6, 16], [16.6, 6],
     [-13.5, 38.6 - FORECOURT_SHIFT], [13.5, 38.6 - FORECOURT_SHIFT],
     [-24, 12], [-27, 17], [-26.5, 38 - FORECOURT_SHIFT],
   ];
@@ -1940,6 +2014,24 @@ export function buildMansionGrounds(scene = null) {
     // 1. Driveway borders: a planted strip outside each kerb, running from
     // the gate to the turnaround, with the existing lamp row standing in it.
     for (const side of [-1, 1]) {
+      if (side < 0) {
+        /* A paved lay-by for the Bada Bing grey sedan. It is deliberately cut
+         * out of the west border bed instead of letting the car sit through a
+         * hedge, a palm and twenty metres of flowers. The two planted runs
+         * resume on either end, so the approach still reads as one scheme. */
+        root.add(box({
+          size: [3.9, 0.055, 6.6],
+          pos: [-6.25, 0.028, 7.0],
+          mat: paverMaterial(3.9, 6.6),
+          name: 'grey-sedan-gate-layby',
+        }));
+        bed(-6.7, -4.35, 1.5, 3.55);
+        plantBed(-6.55, -4.5, 1.8, 3.3, 1.2);
+        bed(-6.7, -4.35, 10.45, 22);
+        plantBed(-6.55, -4.5, 10.7, 21.7, 1.5);
+        hedge(-7.0, -6.7, 10.45, 22, 0.8);
+        continue;
+      }
       bed(side > 0 ? 4.35 : -6.7, side > 0 ? 6.7 : -4.35, 1.5, 22);
       plantBed(side > 0 ? 4.5 : -6.55, side > 0 ? 6.55 : -4.5, 1.8, 21.7, 1.5);
       // The hedge starts at z=6, north of the security booth and its barrier
@@ -3237,10 +3329,41 @@ export function buildMansionGrounds(scene = null) {
       mat: M_POOL_LINER,
     }));
     const pw = 0.5;
+    /* The pool is part of the evening hangout, not a painted blue obstacle.
+     * Its south coping now opens onto six broad submerged treads. Their
+     * rectangles and exact top heights are published below so the player
+     * resolves the same surfaces that are rendered -- no invisible ramp and
+     * no flat deck height floating over the water. */
+    const entrySteps = {
+      x0: -4.2,
+      x1: -1.8,
+      z0: POOL.z0 - pw,
+      z1: POOL.z0 + 2.5,
+      levels: [],
+    };
+    const entryLevelCount = 6;
+    const entryDepth = (entrySteps.z1 - entrySteps.z0) / entryLevelCount;
+    for (let i = 0; i < entryLevelCount; i++) {
+      const top = THREE.MathUtils.lerp(GROUND_Y, POOL.y, i / (entryLevelCount - 1));
+      const z0 = entrySteps.z0 + i * entryDepth;
+      const z1 = z0 + entryDepth;
+      const base = POOL.y - 0.06;
+      const level = {
+        x0: entrySteps.x0, x1: entrySteps.x1, z0, z1, y: top,
+      };
+      entrySteps.levels.push(level);
+      root.add(box({
+        size: [entrySteps.x1 - entrySteps.x0, top - base, entryDepth + 0.025],
+        pos: [(entrySteps.x0 + entrySteps.x1) / 2, (base + top) / 2, (z0 + z1) / 2],
+        mat: M_POOL_LINER,
+        name: 'pool-entry-step',
+      }));
+    }
     const wallSegs = [
       [POOL.x0 - pw, POOL.x0, POOL.z0 - pw, POOL.z1 + pw],
       [POOL.x1, POOL.x1 + pw, POOL.z0 - pw, POOL.z1 + pw],
-      [POOL.x0 - pw, POOL.x1 + pw, POOL.z0 - pw, POOL.z0],
+      [POOL.x0 - pw, entrySteps.x0, POOL.z0 - pw, POOL.z0],
+      [entrySteps.x1, POOL.x1 + pw, POOL.z0 - pw, POOL.z0],
       [POOL.x0 - pw, POOL.x1 + pw, POOL.z1, POOL.z1 + pw],
     ];
     for (const [x0, x1, z0, z1] of wallSegs) {
@@ -3271,7 +3394,8 @@ export function buildMansionGrounds(scene = null) {
     waterMaterials.push(poolWaterMat);
     // Gilded coping course round the water line, the width of the wall head.
     for (const [cx0, cx1, cz0, cz1] of [
-      [POOL.x0 - pw, POOL.x1 + pw, POOL.z0 - pw, POOL.z0],
+      [POOL.x0 - pw, entrySteps.x0, POOL.z0 - pw, POOL.z0],
+      [entrySteps.x1, POOL.x1 + pw, POOL.z0 - pw, POOL.z0],
       [POOL.x0 - pw, POOL.x1 + pw, POOL.z1, POOL.z1 + pw],
       [POOL.x0 - pw, POOL.x0, POOL.z0, POOL.z1],
       [POOL.x1, POOL.x1 + pw, POOL.z0, POOL.z1],
@@ -3607,6 +3731,17 @@ export function buildMansionGrounds(scene = null) {
       },
     };
 
+    /** A nullable floor resolver for the basin and its authored entry steps.
+     * The composition root asks this before the surrounding deck, whose
+     * rectangular footprint necessarily includes the pool's hole. */
+    const groundAt = (x, z) => {
+      for (const level of entrySteps.levels) {
+        if (x >= level.x0 && x <= level.x1 && z >= level.z0 && z <= level.z1) return level.y;
+      }
+      if (x >= POOL.x0 && x <= POOL.x1 && z >= POOL.z0 && z <= POOL.z1) return POOL.y;
+      return null;
+    };
+
     return {
       pool: POOL,
       waterY: poolWaterY,
@@ -3617,6 +3752,8 @@ export function buildMansionGrounds(scene = null) {
       spray: poolSpray,
       radio: poolRadio,
       deck: deckRect,
+      entrySteps,
+      groundAt,
       steps: {
         x0: stepsX0, x1: stepsX1, z0: stepsZ0, z1: stepsZ1,
       },
@@ -4730,8 +4867,14 @@ export function buildMansionGrounds(scene = null) {
   /* Props (named references for debugging/composition)                 */
   /* ---------------------------------------------------------------- */
   const props = {
+    gate: {
+      medallions: gateMedallions,
+      artSlot: MANSION_GATE_ART_SLOT,
+      artReady: gateArtReady,
+    },
     fountain,
     vehicles,
+    greySedan,
     carSpots: CAR_SPOTS,
     securityBooth,
     frontEntry,

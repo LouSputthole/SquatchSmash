@@ -7536,9 +7536,11 @@
     {
       "name": "vo.bing.booski.shot.yell",
       "voice": "booski",
-      "say": "AY! I want that shot in thirty FUCKING seconds!",
+      "say": "Get my man a shot. Thirty fuckin’ seconds. That’s generous, baby.",
       "duration": 4,
-      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him."
+      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him.",
+      "needsRerecord": true,
+      "rerecordReason": "The indexed take is the retired high-pitched AY performance. Replace it with this calmer no-AY wording, then remove needsRerecord."
     },
     {
       "name": "vo.bing.booski.shot.handoff",
@@ -18708,6 +18710,49 @@
       "promptInfluence": 0.5,
       "prompt": "a heavy loaded oak bookcase swinging back into a wall and settling into its frame, wooden groan then one solid dull thud, books shifting, interior, no music, no voices",
       "_note": "NOT YET RECORDED. Synth fallback in src/core/audio.js."
+    },
+    {
+      "_comment": "One alarm pulse; runtime repeats it on the same 1.45-second clock as the red emergency lights.",
+      "name": "siege.alarm.tone",
+      "duration": 1.2,
+      "promptInfluence": 0.52,
+      "prompt": "one complete pulse of a large private-house security alarm inside a stone mansion, a slow two-tone electronic klaxon with hard foyer reflections, urgent but not a fire alarm or police siren, ends cleanly before the next pulse, no announcement, no voice, no music"
+    },
+    {
+      "_comment": "Large mansion window breached inward by an attacker.",
+      "name": "siege.glass.shatter",
+      "duration": 2.2,
+      "promptInfluence": 0.54,
+      "prompt": "a large residential window smashed violently inward, heavy first crack, the pane collapsing into many sharp shards, wood frame rattling and glass scattering across a hard mansion floor, close interior, no gunshot, no voice, no music"
+    },
+    {
+      "_comment": "Continuous burning-furnishings bed while the battle damage layer is active.",
+      "name": "siege.fire.crackle",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "furniture and heavy drapery burning inside a damaged mansion foyer, dense low flames, dry wood pops, cloth crackle and occasional settling embers, steady seamless loop, no siren, no voices, no music"
+    },
+    {
+      "_comment": "Short nonverbal warning when either authored attacker wave begins.",
+      "name": "siege.wave.incoming",
+      "duration": 2.8,
+      "promptInfluence": 0.5,
+      "prompt": "a new group of armed attackers arriving up a gravel mansion drive at night, two distant vehicle doors slam and many heavy boots surge toward the house, tense and immediate, no gunfire, no intelligible speech, no music"
+    },
+    {
+      "_comment": "Restrained UI confirmation for an exact-once mission checkpoint.",
+      "name": "siege.checkpoint",
+      "duration": 0.8,
+      "promptInfluence": 0.55,
+      "prompt": "short restrained checkpoint confirmation, one muted mechanical latch followed by a low warm electronic chime, clear game UI sound without melody, no voice, no ambience"
+    },
+    {
+      "_comment": "Physical recovery foley after the player finishes the hold-E revive.",
+      "name": "siege.friendly.revived",
+      "duration": 1.4,
+      "promptInfluence": 0.52,
+      "prompt": "one wounded large furry crewman helped from the floor back to his feet, heavy clothing and tactical gear shifting, a hand gripping a shoulder, boots planting and one controlled breath, no intelligible speech, no music"
     },
     {
       "name": "silent.bust.switch",

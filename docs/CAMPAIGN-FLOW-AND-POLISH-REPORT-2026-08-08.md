@@ -60,7 +60,7 @@ flowchart TD
   QE --> BED["Guest-room sleep seam"]
   BED --> SG["Mansion Under Siege"]
   SG --> EN["Enola Squatch"]
-  EN --> MR["Repaired Mansion return briefing"]
+  EN --> MR["Repaired Mansion return fact bridge"]
   MR --> CP["Cartel Palace - Mark and Sauce"]
   CP --> IN["Initiation - entered in_progress; frozen"]
 ```
@@ -93,7 +93,7 @@ The authored final-chapter clock is:
 | Mansion arrival / Silent Squatch completion | Day 5, 5:55 PM / 8:10 PM |
 | Guest-room wake / Siege completion | Day 6, 4:10 AM / 6:10 AM |
 | Enola departure / completion | Day 6, 2:00 PM / 6:00 PM |
-| Mansion return / briefing completion | Day 6, 6:30 PM / 7:15 PM |
+| Mansion return / fact-bridge completion | Day 6, 6:30 PM / 7:15 PM |
 | Palace departure / extraction | Day 6, 8:30 PM / 11:00 PM |
 
 The dialogue workbook calls Siege **Day 5 night** because it is the overnight
@@ -132,16 +132,19 @@ scene catalog -> scene VO sync -> assets/sfx/manifest.json
 -> docs/SQUATCH-SMASH-DIALOGUE.xlsx
 ```
 
-Current generated live scope before the final browser closeout:
+Current generated live scope before the follow-up browser closeout:
 
 - 3,217 reachable spoken cues;
-- 3,081 indexed current performances;
-- 136 pickups: 124 missing recordings and 12 featured-waiter recasts;
+- 3,080 indexed current performances;
+- 137 pickups: 124 missing recordings and 13 recasts;
 - future Initiation party/ambient cues are excluded from the live denominator.
 
 The featured Front and Center waiter alone uses voice ID
 `gAMZphRyrWJnLMDnom6H`. Existing files for those 12 cue names are the prior
 actor and remain marked for recast until regenerated, auditioned, and indexed.
+The thirteenth recast is Booski's current first-visit shot line: its indexed
+take contains superseded wording, so the exact current source text is now
+honestly queued instead of being counted as a current performance.
 The workbook follows campaign order and includes separate Mansion return,
 Cartel Palace, Initiation, and recording-queue tabs. Exact Mark/Sauce
 confrontation prose is intentionally not invented before owner approval.
@@ -150,9 +153,19 @@ with all 37 honestly marked unrecorded; it no longer presents the superseded
 31-line greybox script as voiced.
 The Mansion catalog now includes the 12 authored post-lab/quiet-evening cues
 that had not reached the manifest. The workbook contains 240 Mansion rows and
-its recording queue exactly matches all 136 generated pickup filenames. The
+its recording queue exactly matches all 137 generated pickup filenames. The
 additional apartment pickup is the final-arc locked-door refusal, which is now
 present in the catalog, manifest, generated sheets, and workbook.
+
+The generated production queue also contains 72 shared-manifest sampled
+effects. NO WAKE contributes five and Front and Center contributes three. Six
+of the 72 are the authored Mansion Siege effects for alarm, checkpoint, fire,
+friendly revive, glass shatter, and incoming wave. Their gameplay callsites
+are wired through the Siege mission-audio adapter, while their MP3 samples are
+still unrecorded and continue to use procedural fallbacks. Jerky Motel's 74
+older sampled-audio briefs remain quarantined in the legacy review backlog;
+they are not current shared-manifest filenames or evidence of a runtime audio
+failure.
 
 ## Preview coverage
 
@@ -184,26 +197,30 @@ player's canonical save.
 1. Approve the exact Mark/Sauce confrontation and outcome lines. The playable
    evidence trail, betrayal, two-target boss fight, and extraction are built;
    recordable final prose is deliberately pending.
-2. Keep the final chapter after THE TAKE, or later move it immediately after
+2. Approve recordable prose for the repaired-Mansion return. The current
+   runtime is a one-interaction fact bridge that records the wrong-city,
+   Sauce-missing, and Mark-estate facts and advances; it has no approved spoken
+   briefing yet.
+3. Keep the final chapter after THE TAKE, or later move it immediately after
    Front and Center. The current placement is the preservation-first choice.
-3. Decide the preferred Cartel Palace starting loadout and whether any authored
+4. Decide the preferred Cartel Palace starting loadout and whether any authored
    confiscation occurs. The current contract preserves earned guns.
-4. Audition and approve the 12 new featured-waiter takes when recording access
+5. Audition and approve the 12 new featured-waiter takes when recording access
    is available.
-5. Playtest the frozen Initiation before authorizing any rewrite, completion
+6. Playtest the frozen Initiation before authorizing any rewrite, completion
    event, or campaign epilogue beyond entry.
-6. Choose the Mansion Siege survival policy. The safe current contract keeps
+7. Choose the Mansion Siege survival policy. The safe current contract keeps
    the named family alive; a named death or player-driven bleed-out mechanic
    would require downstream dialogue and save branches rather than a combat
    tuning-only change.
-7. Decide whether THE TAKE remains the current playable heist or becomes the
+8. Decide whether THE TAKE remains the current playable heist or becomes the
    larger proposed `HOT SQUATCH` movie structure (planning, calm vault exit,
    moving-car gunfight, crash, and foot escape). That is a mission redesign,
    not a defect fix, so this pass preserves and verifies the existing heist.
-8. Name the dead Bada Bing performer used by Mansion Siege before recording a
+9. Name the dead Bada Bing performer used by Mansion Siege before recording a
    character-specific reaction. The existing staging can remain generic until
    that story choice is approved.
-9. Decide whether the current procedural low-poly presentation is the shipping
+10. Decide whether the current procedural low-poly presentation is the shipping
    art direction or a gameplay-complete stand-in for an authored model,
    material, animation, and lighting pass. This pass removes measured
    intersections and interaction blockers; it does not pretend generated box
@@ -214,30 +231,30 @@ player's canonical save.
 | Area | Current disposition | Evidence / remaining boundary |
 |---|---|---|
 | Margo apartment night | Frozen by owner | No dialogue, pose, timing, staging, camera, sound, mechanic, or reveal change. The requested special radio song remains an external asset choice. |
-| Bada Bing first visit | Fixed and live-green | Service entrance stays locked until the real public entry; Ape's follow-up is contextual; Shubenator has one floor question; License to Grill is upfront and optional. Its focused real-input browser route passes 23/23 through the door, cord, tenderizer, belongings, Shubenator interruption, reveal, persistence, and cleanup; the direct contracts pass 49/49. The generated Bing catalog is 354/354 synchronized. Aubbie's opening take was normalized from -43.4 dB to -20.9 dB RMS and now matches his adjacent take within 0.02 dB in the decoded browser-audio gate. |
+| Bada Bing first visit | Fixed and live-green | Service entrance stays locked until the real public entry; Ape's follow-up is contextual; Shubenator has one floor question; License to Grill is upfront and optional. Its focused real-input browser route passes 23/23 through the door, cord, tenderizer, belongings, Shubenator interruption, reveal, persistence, and cleanup; the direct contracts pass 49/49. The generated Bing catalog is 354/354 synchronized. Aubbie's opening take was normalized from -43.4 dB to -20.9 dB RMS and now matches his adjacent take within 0.02 dB in the decoded browser-audio gate. Booski's changed shot line is the one additional marked recast; the stale indexed wording is no longer counted as current. |
 | Squatchfather | Fixed and live-green | 43/43 live. Revolver, cowering room, persistent attached blood/wounds, both falls, completion, and return passed with no runtime errors. Normal start and pause screens no longer expose the premature Apartment escape; the valid completion return remains. |
-| Beef Run | Fixed and verified | 74/74 plus 3/3 checkpoint previews. Correct roll direction, Stove/Sasole staging, right-seat Sasole, Tammy sticker, checkpoint music, cargo access, forgiving crash/explosion contract, and El Hueso dressing are covered. The cockpit now uses the shared persistent station receiver with R power, T tune, N skip, mission-dialogue ducking, checkpoint restore, and no duplicate music owner. |
+| Beef Run | Fixed and browser-green | The prior mission run remains 74/74, and the expanded public checkpoint verifier is now 6/6. It opens every public phase link - preflight, takeoff, approach, departure, return, and landing - and verifies physical cargo, flight configuration, radio ownership, preview-save isolation, and exact checkpoint state. Brake restore now synchronizes the input latch and aircraft-physics control instead of allowing them to disagree after a restore. Correct roll direction, Stove/Sasole staging, right-seat Sasole, Tammy sticker, checkpoint music, cargo access, forgiving crash/explosion contract, and El Hueso dressing remain covered. |
 | Golf / Silver Pines | Fixed and live-green | 104/104. Real cart cigarette and Zyn walk-ups transfer inventory and hide their props. The entire 34-line Hole 2 green sequence now plays in authored order rather than dropping its banter block; Lou's Nehoo cue is heard at position 21. Swing/putt feel and full-song licensing remain human/owner gates. |
-| HotDog / Graveyard | Fixed and live-green | 35/35. Four impacts, visible irregular blood, knife/stool aftermath, wrap/load objective, stable Billy body identity, carry, head-first grave placement, Motel unlock, and all four direct preview checkpoints pass. |
-| Jerky Motel | Verified existing | 50/50 live with sequential deal, eight-count, payment, capture recovery, combat, drive home, campaign persistence, and no console errors. "Needs help big time" is not a deterministic defect brief; a redesign needs specific desired beats. |
-| NO WAKE | Fixed and live-green | 74/74. Daylight, continuous marina banks, no gold body ring, 42.1-foot boat, 2.08 m cabin headroom, separated controls, rail/player/boat collision, 0.88 m draft, real hold-E body dump, firearms, radio, manual restart, and player-driven return passed. All 37 current spoken cues are still external recording work. |
-| Front and Center | Fixed and live-green | 157/157. Full blocked public entrance, closed jamb gaps, voiced side-door reroute/marker, waiter -> bottle/sender -> Ape ordering, Margo seating, and non-staring extras passed. Two bandleader pickups and 12 waiter recasts remain. |
+| HotDog / Graveyard | Fixed and live-green | 35/35. Four impacts, visible irregular blood, knife/stool aftermath, wrap/load objective, stable Billy body identity, carry, head-first grave placement, Motel unlock, and all four direct preview checkpoints pass. Three current HotDog VO pickups remain external recording work. |
+| Jerky Motel | Verified existing | 50/50 live with sequential deal, eight-count, payment, capture recovery, combat, drive home, campaign persistence, and no console errors. Its 74 older sampled-audio briefs are quarantined in the legacy review backlog, not current shared-manifest pickups or a current runtime failure. They require mapping, deduplication, and approval before production. "Needs help big time" is not a deterministic defect brief; a redesign needs specific desired beats. |
+| NO WAKE | Fixed and live-green | 74/74. Daylight, continuous marina banks, no gold body ring, 42.1-foot boat, 2.08 m cabin headroom, separated controls, rail/player/boat collision, 0.88 m draft, real hold-E body dump, firearms, radio, manual restart, and player-driven return passed. All 37 current spoken cues and five sampled effects are still external recording work. |
+| Front and Center | Fixed and live-green | 157/157. Full blocked public entrance, closed jamb gaps, voiced side-door reroute/marker, waiter -> bottle/sender -> Ape ordering, Margo seating, and non-staring extras passed. Two bandleader pickups, 12 waiter recasts, and three sampled effects remain. |
 | THE TAKE | Fixed and live-green | 61/61. Guard/civilian hits, casualty HUD, five crew, bounded police wave, vault/eight bags, debrief, six checkpoint recoveries, Apartment cleanup, and Silver Case handoff pass. Lou's four mission radio orders now interrupt disposable chatter and survive checkpoint rebuilds instead of expiring when the player advances quickly. Thirty expanded recording pickups remain; the proposed HOT SQUATCH version is an owner-approved redesign, not this defect pass. |
 | The Silver Case | Fixed and live-green | 71/71. Both canonical Ape instances now wear the requested black suit, white shirt, and black tie while retaining the same body, face, and identity; Tony's first-person arm carries the matching black sleeve and white cuff. Ape's opening/entry, case route, seated death regression, couch body, recovery, campaign claim, and all checkpoints remain green. |
-| Mansion / Silent Squatch | Fixed and live-green | 267/267. Fountain/drive, layered ambience, house geometry, case handoff, scientists, blood/deaths, Snow/Aubbie staging, theatre seating/dimming/local audio, master stairs/chandelier, passive LOOK prompts, nine interactive TVs, two toilet/pee interactions, Lou-suite powder/snort focus, the transfer marker, stocked LAN/bar areas, three-woman pool composition, explicit Lou interaction, and guest-bed seam passed. The final clean run completed in 478.3s with a 1.1s scene boot, 3.1s frame four, 27/30 visible lights, and an exact 244/244 scoped audio bank. Twenty-three spoken recordings and 51 sampled effects remain external production pickups. |
-| Mansion Siege | Gameplay green; audio blocked | 103/104 in the final combined-tree run. Shared durable five-slot loadout, stow/return semantics, ammunition restore/HUD, four checkpoints, combat, Enola handoff, healthy ANGLE WebGL, and zero console errors passed. The remaining check now truthfully fails because six required sampled cues have no manifest entry or file: alarm, checkpoint, fire, friendly revive, glass shatter, and incoming wave. Twenty-two spoken recordings are also external pickups; any named family death remains an owner-authored branch decision. |
-| Enola Squatch | Fixed and live-green | Latest full run 97/97, following three consecutive 95/95 stress runs. Preflight reachability, heading handoff, pilot-seat autopilot release, resolved stopped-engine emergencies, bomb attitude/whistle/accuracy, one bounded music owner, terrain continuation, flak recycling, checkpoints and campaign return passed. Exact impact tests prove light brushes through 2.4 are forgiven, medium contact damages without ending the flight, hard crashes fail, and fireball impacts play the explosion and stop all four engines. The live 20-second C-camera tooltip and dismissal also pass. Two engine-strain cues remain unrecorded. |
-| Repaired Mansion / Cartel Palace | Fixed and live-green | 28/28 after the final preview-clock correction. The distinct exact-once return briefing feeds a first-class Palace runtime with power cut, physical evidence trail, armored Mark, armed Sauce, two-target clear, six previews, real hold-E extraction, and temporary Initiation unlock without canonical-save mutation. Final confrontation prose remains pending owner approval before recording. |
+| Mansion / Silent Squatch | Fixed and browser-green | 273/273 in 481.7s. The expanded real-input run passes the walkable pool entry/basin, approved crests on both gate faces, guest-room crest/photo correction, birdcage tray, physically identified Booski/DeathMegatron bedroom, and returning Bada Bing grey sedan. It reports 27 visible lights, 649 shadow casters, 14,657 gate-view draw calls, and 9,744 foyer-view draw calls. Twenty-three spoken recordings and 51 sampled effects remain external production pickups. |
+| Mansion Siege | Gameplay green; six recordings blocked | 105/106. Every gameplay, mission-audio callsite, checkpoint, combat, durable-loadout, and Enola handoff assertion passes. The sole failed assertion is required audio-bank residency: all six authored Siege effects are in the manifest and requested by gameplay, but their indexed MP3 recordings are absent. Procedural fallbacks remain active until alarm, checkpoint, fire, friendly revive, glass shatter, and incoming wave are recorded and indexed. Twenty-two spoken recordings are also external pickups; any named family death remains an owner-authored branch decision. |
+| Enola Squatch | Fixed and browser-green | 98/98. The real owner nose art is now proven on all four live flank plates - two pin-ups and two name plates - with the expected pairing, artwork ownership, spacing, top alignment, and outward orientation. The run also passes preflight reachability, heading handoff, pilot-seat autopilot release, emergency handling, bombing, bounded music, terrain, flak, checkpoints, campaign return, forgiving brushes, hard-crash explosion, and the camera tooltip. Two engine-strain cues remain unrecorded. |
+| Repaired Mansion / Cartel Palace | Fixed and live-green | 28/28 after the final preview-clock correction. The distinct exact-once Mansion Return fact bridge feeds a first-class Palace runtime with power cut, physical evidence trail, armored Mark, armed Sauce, two-target clear, six previews, real hold-E extraction, and temporary Initiation unlock without canonical-save mutation. The bridge currently commits its three facts in one interaction; approved spoken briefing and final confrontation prose remain pending owner approval before recording. |
 | Final-arc reload and clock integrity | Fixed and browser-green | Schema v14 advances twelve exact-once Day 5/Day 6 clock events and safely repairs partial v13 saves without rewinding. The 69/69 browser reload pass preserves all three Winston outcomes, Mansion/Siege progress, Enola fuel/damage/score/targeting rank, Palace partial evidence/alarm/individual targets/hard-exit outcome, completion cards, and preview isolation. Legacy saves missing outcome payloads replay the unresolved beat instead of guessing. |
 | Preview launcher | Fixed and live-green | 47/47. All 12 apartment iterations, Fitting Room, every mission, bounded checkpoints, the distinct repaired-Mansion visit, canonical final-scene order, and page-local save isolation passed. Every apartment checkpoint also proves the removed floor shirt stays absent. |
 
 ## Verification ledger
 
-Latest combined-tree verification snapshot:
+Final combined-tree verification snapshot:
 
-- `npm test`: **1,146 / 1,146 passed**.
-- `npm run check`: **425 source files** and **5 manifests** parsed and
-  validated; no errors.
+- `npm test` is **1,162 / 1,162 passed** and `npm run check` parses **426 source
+  files** and **5 manifests** with no errors after the Mansion, Siege, Beef,
+  Enola, workbook, and production-ledger follow-up changes.
 - Focused final-arc contracts: clock **6/6**, runtime sessions **9/9**, reload
   wiring **5/5**, topology **12/12**, fresh route **1/1**, Enola campaign
   persistence **7/7**, Palace mission **12/12**, Palace runtime **2/2**, and
@@ -248,18 +265,28 @@ Latest combined-tree verification snapshot:
 - Real-browser preview launcher: **47/47**, including all twelve apartment
   iterations, every final mission, Mansion Return, Fitting Room, canonical-save
   isolation, and zero runtime console errors.
-- Voice production: **3,217 reachable spoken cues**, **3,081 indexed current
-  performances**, and **136 exact pickups**. `VOICE-LINES-NEEDED.md`,
+- Focused follow-up browser evidence: Beef public checkpoints **6/6**, Mansion
+  **273/273** in **481.7s**, Mansion Siege **105/106** with only the six absent
+  required recordings grouped under its audio-residency failure, and Enola
+  **98/98** with all four owner nose-art plates verified.
+- Voice production: **3,217 reachable spoken cues**, **3,080 indexed current
+  performances**, and **137 exact pickups**: 124 missing and 13 recasts.
+  `VOICE-LINES-NEEDED.md`,
   `VOICE-LINES-TODO.md`, all scene manifest checks, and staged-speaker line
   presence are synchronized.
-- Dialogue workbook: **23 sheets**, **2,872 dialogue rows**, and **136 recording
+- Sampled-effect production: **72 shared-manifest pickups**. Siege's six
+  authored effects have gameplay callsites but no recorded samples; Motel's 74
+  legacy briefs remain outside this manifest count and outside the runtime
+  readiness denominator.
+- Dialogue workbook: **23 sheets**, **2,872 dialogue rows**, and **137 recording
   queue filenames** matching `VOICE-LINES-NEEDED.md` exactly. The binary file
   opens cleanly and its campaign label is schema v14.
 - Protected-source diff: no change under `initiation.html`, `src/initiation/**`,
   `src/silver/margo.js`, or `src/silver/date.js`.
 - Performance figures above are headless ANGLE/SwiftShader regression evidence,
-  not target-hardware FPS certification. A physical GPU playtest remains a
-  shipping gate.
+  not target-hardware FPS certification. Attempts to force a headless hardware
+  probe were inconclusive, so the physical RTX 4080 playtest remains explicitly
+  unverified and is still a shipping gate.
 
 Passing source or unit checks alone was not used as proof for a visual,
 interaction, performance, or audio requirement; the scene-specific browser

@@ -216,6 +216,12 @@ export class EnolaSquatch {
     };
     /** Set by the mission during the defence phase; read in `update()`. */
     this.rearGunFiring = false;
+    /* The paintings load after the synchronous airframe build. Keep their
+     * state on the aircraft that owns the plates so debug consumers inspect
+     * the real load promise and real materials, not a parallel composition-
+     * root counter that can drift away from them. */
+    this.noseArtLoadState = 'idle';
+    this.noseArtLoadError = null;
     /** True once `explode()` has replaced the airframe with a fireball. See
      * `explode()` / `updateExplosion()` / `resetDestruction()` at the bottom
      * of this class — ported from `src/beefrun/aircraft.js`'s `Brushrunner`,
@@ -791,9 +797,15 @@ export class EnolaSquatch {
     for (const sx of [-1, 1]) {
       const pinup = artPlate('enola-squatch-nose-art', PINUP_W, PINUP_H, ART_TOP - PINUP_H / 2, pinupZ, sx);
       pinup.visible = false;
+      Object.assign(pinup.userData, {
+        noseArtRole: 'pinup', noseArtSide: sx, ownerArtworkApplied: false,
+      });
       const namePlate = artPlate('enola-squatch-nose-name', NAME_W, NAME_H, ART_TOP - NAME_H / 2, nameZ, sx);
       namePlate.material.map = noseNamePlaceholderTexture();
       namePlate.material.needsUpdate = true;
+      Object.assign(namePlate.userData, {
+        noseArtRole: 'name', noseArtSide: sx, ownerArtworkApplied: false,
+      });
       this.parts.noseArtPlates.push(pinup);
       this.parts.noseNamePlates.push(namePlate);
     }
@@ -808,9 +820,18 @@ export class EnolaSquatch {
      * synchronously at boot and the paintings decode whenever they decode.
      * `applyNoseArt()` is what actually repaints, and it is idempotent, so the
      * console helper in `../main.js` may call it again without harm. */
+    this.noseArtLoadState = 'loading';
     this.artReady = Promise.all([noseArtTexture('pinup'), noseArtTexture('name')])
       .then(([pin, nom]) => this.applyNoseArt(pin, nom))
-      .catch(() => 0);
+      .then((count) => {
+        this.noseArtLoadState = 'ready';
+        return count;
+      })
+      .catch((error) => {
+        this.noseArtLoadState = 'failed';
+        this.noseArtLoadError = error?.message || String(error);
+        return 0;
+      });
 
     /* ---- The Silver Sasquatches crest ----
      *
@@ -1221,12 +1242,9 @@ export class EnolaSquatch {
    * Put the owner's own artwork on the flank.
    *
    * Called from `build()` when `../livery.js` finishes decoding, and safe to
-   * call again — `../main.js` still resolves the old `enolasquatch.noseart`
-   * gear slot and hands whatever it gets to this, which is a no-op while that
-   * slot is absent from `assets/art/manifest.json`. The paintings do not come
-   * through the gear resolver: they need their matte read, their glow put back
-   * and their ink measured before they can be sized onto a plane at all, and
-   * `resolveGear` hands back a texture with none of that done.
+   * call again. The paintings deliberately bypass the gear resolver: they need
+   * their matte read, their glow put back, and their ink measured before they
+   * can be sized onto a plane at all; `resolveGear` returns only a texture.
    *
    * Each plate is RESIZED to the painting it receives rather than the painting
    * being squeezed onto the plate. Both files are 2:3 portrait sheets and
@@ -1272,6 +1290,7 @@ export class EnolaSquatch {
         // Top-aligned, whatever height each one ended up at.
         plate.position.y = L.top - height / 2;
         plate.visible = true;
+        plate.userData.ownerArtworkApplied = true;
         n++;
       }
       return width;
@@ -1288,6 +1307,82 @@ export class EnolaSquatch {
       plate.position.z = L.pinupZ + pinupW / 2 + L.gap + nameW / 2;
     }
     return n;
+  }
+
+  /**
+   * Read-only nose-art telemetry from the plates themselves.
+   *
+   * The old debug seam counted an optional `resolveGear` slot that the scene
+   * no longer uses, so it reported zero even while both delivered PNGs were
+   * visible. This record deliberately derives pairing, paint ownership and
+   * separation from live geometry/materials after `artReady` settles.
+   */
+  noseArtPresentation() {
+    const pinups = this.parts.noseArtPlates ?? [];
+    const names = this.parts.noseNamePlates ?? [];
+    const describe = (plate) => {
+      if (!plate) return null;
+      const width = plate.geometry?.parameters?.width ?? 0;
+      const height = plate.geometry?.parameters?.height ?? 0;
+      return {
+        name: plate.name,
+        side: plate.userData.noseArtSide ?? Math.sign(plate.position.x),
+        visible: plate.visible,
+        textured: Boolean(plate.material?.map),
+        ownerArtwork: Boolean(plate.userData.ownerArtworkApplied),
+        width,
+        height,
+        x: plate.position.x,
+        y: plate.position.y,
+        z: plate.position.z,
+        top: plate.position.y + height / 2,
+      };
+    };
+    const sides = [-1, 1].map((side) => {
+      const pinupPlate = pinups.find((plate) => plate.userData.noseArtSide === side);
+      const namePlate = names.find((plate) => plate.userData.noseArtSide === side);
+      const pinup = describe(pinupPlate);
+      const name = describe(namePlate);
+      const gap = pinup && name
+        ? (name.z - name.width / 2) - (pinup.z + pinup.width / 2)
+        : null;
+      return {
+        side,
+        pinup,
+        name,
+        gap,
+        topDelta: pinup && name ? Math.abs(pinup.top - name.top) : null,
+        outboard: Boolean(pinupPlate && namePlate
+          && Math.abs(pinupPlate.rotation.y - side * Math.PI / 2) < 1e-4
+          && Math.abs(namePlate.rotation.y - side * Math.PI / 2) < 1e-4),
+      };
+    });
+    const appliedCount = [...pinups, ...names]
+      .filter((plate) => plate.userData.ownerArtworkApplied).length;
+    const validGaps = sides.map(({ gap }) => gap).filter(Number.isFinite);
+    const summarize = (plates) => ({
+      count: plates.length,
+      visible: plates.filter((plate) => plate.visible).length,
+      textured: plates.filter((plate) => plate.material?.map).length,
+      ownerArtwork: plates.filter((plate) => plate.userData.ownerArtworkApplied).length,
+    });
+    return {
+      loadState: this.noseArtLoadState,
+      loadError: this.noseArtLoadError,
+      artReady: this.noseArtLoadState === 'ready',
+      placeholderUp: pinups.length > 0,
+      name: pinups[0]?.name ?? null,
+      realArtworkApplied: appliedCount,
+      expectedGap: this.noseArtLayout.gap,
+      minimumGap: validGaps.length ? Math.min(...validGaps) : null,
+      paired: sides.every(({ pinup, name, topDelta, outboard }) => Boolean(
+        pinup && name && topDelta < 1e-4 && outboard
+      )),
+      noOverlap: validGaps.length === 2 && validGaps.every((gap) => gap > 1e-4),
+      pinups: summarize(pinups),
+      names: summarize(names),
+      sides,
+    };
   }
 
   /* ---------------------------------------------------------------- */

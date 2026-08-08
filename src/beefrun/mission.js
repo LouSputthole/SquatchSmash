@@ -61,6 +61,22 @@ const UNLOCK_LABELS = Object.freeze({
 const _navPos = new THREE.Vector3();
 const _navView = new THREE.Matrix4();
 
+/**
+ * The cockpit input object owns the parking brake and copies it into physics
+ * every frame. Checkpoint staging must update both sides or the next frame
+ * silently restores the constructor default (`true`).
+ */
+export function syncCheckpointParkingBrake(input, controls, enabled) {
+  const value = Boolean(enabled);
+  input.parkingBrake = value;
+  controls.parkingBrake = value;
+}
+
+/** A checkpoint always restores a balanced pair of engine throttles. */
+export function resetCheckpointThrottleSplit(input) {
+  input.throttleSplit = 0;
+}
+
 export class MissionController {
   constructor(ctx) {
     Object.assign(this, ctx);
@@ -1894,6 +1910,7 @@ export class MissionController {
     this.aircraft.resetDestruction?.();
     this.dialogue.clear();
     this.input.clear();
+    resetCheckpointThrottleSplit(this.input);
     this.detection.clear();
     this.flightHud.hideComplete();
     // Every checkpoint restore lands in the cockpit, so the walkaround's
@@ -1913,7 +1930,7 @@ export class MissionController {
         this.engines.forceRunning();
         this.input.throttle = 0;
         this.input.flaps = 0;
-        this.physics.controls.parkingBrake = false;
+        syncCheckpointParkingBrake(this.input, this.physics.controls, false);
         this.weather.setConditions({ dusk: 0, rain: 0, turbulence: 0.22, cloudDensity: 0.35 });
         this.audio.setPhase('takeoff');
         this.flags.rotateCalled = false;
@@ -1931,7 +1948,7 @@ export class MissionController {
         this.engines.forceRunning();
         this.input.throttle = 0.55;
         this.input.flaps = 0.5;
-        this.physics.controls.parkingBrake = false;
+        syncCheckpointParkingBrake(this.input, this.physics.controls, false);
         this.weather.setConditions({ dusk: 0, rain: 0, turbulence: 0.62, cloudDensity: 0.55 });
         this.audio.setPhase('approach');
         this.flags.approachCalls = 0;
@@ -1953,7 +1970,7 @@ export class MissionController {
         this.engines.forceRunning();
         this.input.throttle = 0.5;
         this.input.flaps = 0;
-        this.physics.controls.parkingBrake = false;
+        syncCheckpointParkingBrake(this.input, this.physics.controls, false);
         this.restoreCargo(data?.cargo);
         this.weather.setConditions({ dusk: 1, rain: 0.15, turbulence: 0.5, cloudDensity: 0.6, crosswind: 2.6 * this.difficulty.crosswind });
         this.airfield.moveTruckToThreshold();
@@ -2014,7 +2031,7 @@ export class MissionController {
     this.physics.setPose(new THREE.Vector3(a.x, a.y, a.z), a.heading, a.speed);
     this.input.throttle = 0.46;
     this.input.flaps = 0.5;
-    this.physics.controls.parkingBrake = false;
+    syncCheckpointParkingBrake(this.input, this.physics.controls, false);
     this.terrain.prime(this.physics.position.x, this.physics.position.z);
     this.aircraft.syncTo(this.physics);
     return true;

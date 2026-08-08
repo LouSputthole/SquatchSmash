@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 
 import { buildFamilyScripts } from '../src/bing/family.js';
@@ -73,4 +74,17 @@ test('the campaign owns three separately directed recordings of the same signatu
   assert.equal(new Set(takes.map((take) => take.cue)).size, 3);
   assert.equal(new Set(takes.map((take) => take.direction)).size, 3);
   assert.deepEqual(takes.map((take) => take.text), Array(3).fill(SHUBENATOR_SIGNATURE_TEXT));
+});
+
+test('Booski shot demand keeps source, manifest, and rerecord debt synchronized', () => {
+  const scripts = buildFamilyScripts();
+  const node = scripts[CHARACTER_IDS.BOOSKI].yell;
+  const manifest = JSON.parse(fs.readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'));
+  const cue = manifest.sfx.find((entry) => entry.name === node.cue);
+
+  assert.ok(cue, `${node.cue} is absent from the sound manifest`);
+  assert.equal(cue.say, node.line);
+  assert.equal(cue.needsRerecord, true,
+    'the indexed file is the retired AY take and must remain recording debt until replaced');
+  assert.match(cue.rerecordReason, /retired high-pitched AY performance/i);
 });

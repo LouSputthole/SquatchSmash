@@ -136,7 +136,8 @@ combining everything taught: driving, instructions, weapons, crowd control,
 timed objectives, carrying loot, crew coordination, police response, escape
 routing, injuries, decisions under pressure. It does not end at the escape —
 it decompresses: vehicle swap, safehouse, counting money, arguing over
-mistakes, checking who survived, and the invitation to tonight. Its briefing,
+mistakes, checking who survived, and Lou putting the crew's performance on the
+record before the Family decides Tony's future later. Its briefing,
 bank, vault, street, garage, vehicle-swap, driving, loot, injuries, settlement,
 and retry checkpoints persist. The safehouse returns Tony home, where washing,
 changing, and hiding the gear are physical door requirements.

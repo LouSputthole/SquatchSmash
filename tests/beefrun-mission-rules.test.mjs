@@ -4,7 +4,11 @@ import * as THREE from 'three';
 
 import { selectApproachCall } from '../src/beefrun/approach-coaching.js';
 import { FlightInput } from '../src/beefrun/input.js';
-import { MissionController } from '../src/beefrun/mission.js';
+import {
+  MissionController,
+  resetCheckpointThrottleSplit,
+  syncCheckpointParkingBrake,
+} from '../src/beefrun/mission.js';
 import { fromWardrobe, makeFigure, setPose } from '../src/beefrun/npc.js';
 import { AircraftPhysics } from '../src/beefrun/physics.js';
 import { stageRemoteDeparture } from '../src/beefrun/remote-departure.js';
@@ -181,6 +185,33 @@ test('R powers only the cockpit radio; checkpoint restart still requires the pau
 
   assert.deepEqual(actions, ['radioPower']);
   assert.equal(actions.includes('restart'), false);
+});
+
+test('airborne checkpoint restores keep the input-owned parking brake released', () => {
+  const input = new FlightInput();
+  const controls = { parkingBrake: true };
+
+  syncCheckpointParkingBrake(input, controls, false);
+  input.applyTo(controls);
+
+  assert.equal(input.parkingBrake, false);
+  assert.equal(controls.parkingBrake, false,
+    'the next input frame must not put the parking brake back on');
+});
+
+test('checkpoint restores clear dirty split throttle before the next input frame', () => {
+  const input = new FlightInput();
+  const controls = {};
+  input.throttle = 0.55;
+  input.throttleSplit = 1;
+
+  resetCheckpointThrottleSplit(input);
+  input.applyTo(controls);
+
+  assert.equal(input.throttleSplit, 0);
+  assert.equal(controls.throttleL, 0.55);
+  assert.equal(controls.throttleR, 0.55,
+    'a restored leg must not respawn with one engine commanded to idle');
 });
 
 test('restart cannot skip the apron flow before a checkpoint exists', () => {

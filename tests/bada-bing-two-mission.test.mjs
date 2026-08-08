@@ -6,7 +6,9 @@ import * as THREE from 'three';
 import {
   SECOND_VISIT_CLEANUP_TASKS,
   SecondVisitMission,
+  buildSecondVisitLouScript,
   buildHotDogPartySequence,
+  secondVisitLouStartNode,
 } from '../src/bing/second-visit.js';
 import { createPartyCollider } from '../src/bing/party-collision.js';
 import { restoreHotDogCleanupPresentation } from '../src/bing/hotdog-cleanup-presentation.js';
@@ -77,6 +79,24 @@ test('the second Bing visit turns the closed party into a short cleanup mission'
   assert.equal(mission.state, 'done');
   assert.equal(mission.objectives.find((objective) => objective.id === 'load')?.done, true);
   assert.ok(objectiveSnapshots.length >= 5);
+});
+
+test('Lou cannot spoil the HotDog murder before the attack starts', () => {
+  assert.equal(secondVisitLouStartNode('lot'), 'hang');
+  assert.equal(secondVisitLouStartNode('party'), 'hang');
+  assert.equal(secondVisitLouStartNode('performance'), 'hang');
+  assert.equal(secondVisitLouStartNode('tension'), 'hang');
+  assert.equal(secondVisitLouStartNode('attack'), 'enter');
+  assert.equal(secondVisitLouStartNode('cleanup'), 'cleanup');
+  assert.equal(secondVisitLouStartNode('body-ready'), 'cleanup');
+  assert.equal(secondVisitLouStartNode('done'), 'cleanup');
+
+  const cleanup = buildSecondVisitLouScript().cleanup;
+  assert.equal(cleanup.cue, 'vo.bing2.lou.lockdown');
+  assert.equal(
+    cleanup.line,
+    'Nobody leaves. Congratulations, everybody. You are all involved now.',
+  );
 });
 
 test('the authored party sequence keeps the relaxed set, escalation, sudden attack, and motel handoff', () => {

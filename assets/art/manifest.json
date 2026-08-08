@@ -677,7 +677,37 @@
       "slot": "mansion.guest.art",
       "file": "bing-office-nephews.jpg",
       "title": "The Nephews, in the guest room",
-      "caption": "Over the bed in the guest bedroom on the lower level. Family, where a guest sleeps."
+      "caption": "Beside the dresser in the guest bedroom on the lower level. Family, where a guest unpacks."
+    },
+    {
+      "slot": "mansion.guest.crest",
+      "file": "logo-crest.png",
+      "title": "The crest, over the guest bed",
+      "caption": "Centred over the bed in the lower-level guest room, where the family photograph used to hang."
+    },
+    {
+      "slot": "mansion.gate.crests",
+      "file": "logo-crest.png",
+      "title": "The crest, on both gate pillars",
+      "caption": "The approved house crest replaces the temporary footprint on both street-facing medallions."
+    },
+    {
+      "slot": "mansion.bedroom.booski-death.crest",
+      "file": "logo-crest.png",
+      "title": "The crest, over Booski and DeathMegatron's bed",
+      "caption": "The shared room's house badge, centred above the modern platform bed."
+    },
+    {
+      "slot": "mansion.bedroom.booski-death.booski",
+      "file": "shrine-booski-podium.jpg",
+      "title": "Booski, in the shared bedroom",
+      "caption": "Booski's existing podium photograph, framed on the inner wall of the room he shares with DeathMegatron."
+    },
+    {
+      "slot": "mansion.bedroom.booski-death.deathmegatron",
+      "file": "family-portrait-deathmegatron.webp",
+      "title": "DeathMegatron, in the shared bedroom",
+      "caption": "DeathMegatron's existing family portrait beside Booski's, above her security radio."
     },
     {
       "slot": "mansion.vault.mark",
