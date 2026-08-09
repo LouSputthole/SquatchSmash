@@ -72,10 +72,11 @@ import { ensureThreeShim, ensureDomShim } from '../tools/three-shim.mjs';
 ensureThreeShim();
 ensureDomShim();
 
-import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { CHARACTER_IDS, SCENE_IDS } from '../src/core/campaign.js';
 import * as WARDROBE_MODULE from '../src/core/wardrobe.js';
 import {
-  APPEARANCES, EXTRAS, PHOTOS, SCENES,
+  APPEARANCES, CAMPAIGN_SCENE_COVERAGE, EXTRAS, PHOTOS,
+  PROCEDURAL_APPEARANCE_TEMPLATES, SCENES,
   appearancesInScene, appearancesOf, isShowable, ledgerCharacters,
 } from '../src/core/appearances.js';
 
@@ -137,6 +138,24 @@ function literalAfter(source, anchor) {
   const at = source.indexOf(anchor);
   if (at < 0) return null;
   const open = clean.indexOf('{', at);
+  if (open < 0) return null;
+  let depth = 0;
+  for (let i = open; i < clean.length; i++) {
+    if (clean[i] === '{') depth += 1;
+    else if (clean[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(open, i + 1);
+    }
+  }
+  return null;
+}
+
+/** The innermost object literal containing a unique source anchor. */
+function literalContaining(source, anchor) {
+  const clean = blankNoise(source);
+  const at = source.indexOf(anchor);
+  if (at < 0) return null;
+  const open = clean.lastIndexOf('{', at);
   if (open < 0) return null;
   let depth = 0;
   for (let i = open; i < clean.length; i++) {
@@ -246,6 +265,8 @@ function wardrobeReach(rel) {
 
 test('the ledger is frozen data, top to bottom', () => {
   assert.ok(Object.isFrozen(APPEARANCES), 'APPEARANCES is not frozen');
+  assert.ok(Object.isFrozen(CAMPAIGN_SCENE_COVERAGE),
+    'CAMPAIGN_SCENE_COVERAGE is not frozen');
   assert.ok(Object.isFrozen(SCENES), 'SCENES is not frozen');
   assert.ok(Object.isFrozen(EXTRAS), 'EXTRAS is not frozen');
   assert.ok(Object.isFrozen(PHOTOS), 'PHOTOS is not frozen');
@@ -256,6 +277,248 @@ test('the ledger is frozen data, top to bottom', () => {
         `${a.character} in ${a.scene} carries a mutable model — the game's own `
         + 'models are all frozen and a copy that is not is a copy somebody can edit');
     }
+  }
+});
+
+test('every playable campaign scene is explicitly classified for wardrobe review', () => {
+  const campaignIds = Object.values(SCENE_IDS).sort();
+  assert.deepEqual(Object.keys(CAMPAIGN_SCENE_COVERAGE).sort(), campaignIds,
+    'the wardrobe catalog must classify every SCENE_IDS value, including aliases and frozen scenes');
+
+  const allowed = new Set(['appearance-ledger', 'alias', 'no-fixed-cast', 'frozen']);
+  for (const id of campaignIds) {
+    const coverage = CAMPAIGN_SCENE_COVERAGE[id];
+    assert.ok(Object.isFrozen(coverage), `${id} wardrobe coverage is mutable`);
+    assert.equal(coverage.id, id, `${id} coverage carries the wrong id`);
+    assert.ok(allowed.has(coverage.status), `${id} has unknown wardrobe status ${coverage.status}`);
+    assert.ok(Array.isArray(coverage.appearanceScenes), `${id} has no appearanceScenes list`);
+    assert.ok(Object.isFrozen(coverage.appearanceScenes), `${id} appearanceScenes is mutable`);
+    assert.ok(Array.isArray(coverage.modules) && coverage.modules.length > 0,
+      `${id} must name the production module(s) its classification was checked against`);
+    assert.ok(Object.isFrozen(coverage.modules), `${id} coverage modules are mutable`);
+    assert.ok(Array.isArray(coverage.requiredAppearances),
+      `${id} has no requiredAppearances list`);
+    assert.ok(Object.isFrozen(coverage.requiredAppearances),
+      `${id} requiredAppearances is mutable`);
+    assert.ok(coverage.note?.length > 40, `${id} coverage does not explain its classification`);
+    for (const rel of coverage.modules) {
+      assert.ok(fs.existsSync(path.join(ROOT, rel)), `${id} coverage names missing ${rel}`);
+    }
+    for (const sceneId of coverage.appearanceScenes) {
+      assert.ok(SCENES[sceneId], `${id} points at missing appearance scene ${sceneId}`);
+      assert.ok(appearancesInScene(sceneId).length > 0,
+        `${id} points at empty appearance scene ${sceneId}`);
+    }
+    for (const required of coverage.requiredAppearances) {
+      assert.ok(Object.isFrozen(required), `${id} has a mutable required appearance selector`);
+      assert.ok(coverage.appearanceScenes.includes(required.scene),
+        `${id} requires ${required.character}@${required.scene} outside its appearanceScenes`);
+      assert.ok(APPEARANCES.some((appearance) => appearance.character === required.character
+        && appearance.scene === required.scene
+        && (required.variant === undefined || appearance.variant === required.variant)),
+      `${id} fixed cast is missing ${required.character}@${required.scene}`);
+    }
+
+    if (coverage.status === 'appearance-ledger' || coverage.status === 'alias') {
+      assert.ok(coverage.appearanceScenes.length > 0,
+        `${id} says it is covered but points at no appearance scene`);
+    } else {
+      assert.equal(coverage.appearanceScenes.length, 0,
+        `${id} is ${coverage.status} but also claims a rendered appearance scene`);
+    }
+  }
+
+  assert.equal(CAMPAIGN_SCENE_COVERAGE[SCENE_IDS.INITIATION].status, 'frozen',
+    'Initiation must be catalogued across its frozen boundary, never imported or reconstructed here');
+  assert.ok(Object.values(CAMPAIGN_SCENE_COVERAGE)
+    .filter((entry) => entry.status === 'frozen')
+    .every((entry) => entry.id === SCENE_IDS.INITIATION),
+  'Initiation is the only frozen campaign runtime');
+});
+
+test('every fixed campaign identity has at least one wardrobe-ledger row', () => {
+  const claimed = new Set(APPEARANCES.map((appearance) => appearance.character));
+  const missing = Object.values(CHARACTER_IDS).filter((id) => !claimed.has(id));
+  assert.deepEqual(missing, [],
+    `fixed CHARACTER_IDS consumers missing from the wardrobe ledger: ${missing.join(', ')}`);
+});
+
+test('Margo is catalogued at home, at the ordinary Bing and in the Silver Room without crossing her protected runtime boundary', () => {
+  const rows = appearancesOf(CHARACTER_IDS.MARGO);
+  assert.deepEqual(rows.map((row) => row.scene).sort(), ['apartment', 'bada_bing', 'silver_room']);
+
+  const apartment = rows.find((row) => row.scene === 'apartment');
+  assert.equal(apartment.model, null, 'the apartment private rig must remain source-only');
+  assert.equal(apartment.module, 'src/world/dressing.js');
+  const apartmentSource = read(apartment.module);
+  for (const anchor of [
+    'export function makeMorningGuest(M) {',
+    "const blouse = group('margo.outfit.blouse');",
+    "name: 'margo.outfit.jeans.waistband'",
+    'name: `margo.leg.${side}.shoe`',
+    'restyleMargoHead({ head },',
+  ]) assert.ok(apartmentSource.includes(anchor), `Margo morning rig lost ${anchor}`);
+
+  const bing = rows.find((row) => row.scene === 'bada_bing');
+  assert.deepEqual(bing.model, {
+    height: 1.69, build: 0.96, dress: 'shirt', shirt: 0x24303a, hair: 'tied',
+    hairColour: 0x2a1c14, skin: 0xd8a878, gender: 'female', bodyShape: 'curvy',
+  });
+  assert.ok(read(bing.module).includes('restyleMargoHead(by.margo.parts,'),
+    'ordinary-Bing Margo no longer receives her authored head restyle');
+
+  const silver = rows.find((row) => row.scene === 'silver_room');
+  assert.deepEqual(silver.model, {
+    height: 1.69, build: 1.06, dress: 'gown', shirt: 0x1a2a4a,
+    hair: 'bald', hairColour: 0x2a1c14, skin: 0xd8a878,
+    gender: 'female', bodyShape: 'curvy',
+  });
+  assert.ok(read(silver.module).includes('restyleMargoHead(this.npc.parts,'),
+    'Silver Room Margo no longer receives her authored head restyle');
+
+  assert.doesNotMatch(read('src/core/appearances.js'),
+    /^import .*silver\/(?:margo|date)\.js/m,
+    'the data-only wardrobe ledger must not import Margo/date runtime modules');
+});
+
+test('License to Grill catalogs the exact canonical James Blond tuxedo with its scene-owned bare feet', () => {
+  const row = appearancesOf(CHARACTER_IDS.JAMES_BLOND).find((appearance) => (
+    appearance.scene === 'bada_bing' && appearance.variant === 'license_to_grill'
+  ));
+  assert.ok(row, 'License to Grill James Blond is absent from the wardrobe ledger');
+  assert.deepEqual(row.model, { ...WARDROBE_MODULE.JAMES_BLOND, barefoot: true });
+  assert.equal(row.from.baseWardrobe, 'JAMES_BLOND');
+  assert.deepEqual(row.from.adds, ['barefoot']);
+  assert.ok(read(row.module).includes('model: { ...WARDROBE.james_blond, barefoot: true },'));
+});
+
+test('Enola Captain Sasole mirrors the canonical wardrobe through the shared block-rig adapter', () => {
+  const row = APPEARANCES.find((entry) => (
+    entry.scene === 'enola_squatch'
+    && entry.character === CHARACTER_IDS.CAPTAIN_LOU_SASOLE
+  ));
+  assert.ok(row, 'Enola Captain Sasole is absent from the wardrobe ledger');
+  assert.strictEqual(row.model, WARDROBE_MODULE.CAPTAIN_LOU_SASOLE);
+  assert.equal(row.from.wardrobe, 'CAPTAIN_LOU_SASOLE');
+  assert.equal(row.evidence, '...fromWardrobe(CAPTAIN_LOU_SASOLE),');
+  assert.equal(row.divergence, null);
+  const source = read(row.module);
+  assert.ok(source.includes("import { CAPTAIN_LOU_SASOLE } from '../core/wardrobe.js';"));
+  assert.ok(source.includes('...fromWardrobe(CAPTAIN_LOU_SASOLE),'));
+});
+
+test('finite procedural clothing/job combinations have deterministic extreme fixtures and source evidence', async () => {
+  assert.ok(Object.isFrozen(PROCEDURAL_APPEARANCE_TEMPLATES));
+  const ids = PROCEDURAL_APPEARANCE_TEMPLATES.map((template) => template.id);
+  assert.equal(new Set(ids).size, ids.length, 'procedural template ids are not unique');
+  assert.deepEqual(ids.filter((id) => id.startsWith('bing.')).sort(), [
+    'bing.patron.shirt.drink', 'bing.patron.shirt.sit',
+    'bing.patron.suit.drink', 'bing.patron.suit.sit',
+    'bing.patron.tracksuit.drink', 'bing.patron.tracksuit.sit',
+    'bing.performer.bikini.dance',
+    'bing.stander.shirt.lean', 'bing.stander.tracksuit.lean',
+    'bing.tabler.shirt.drink', 'bing.tabler.tracksuit.drink',
+  ]);
+  assert.deepEqual(ids.filter((id) => id.startsWith('silver.')).sort(), [
+    'silver.band.suit.stand',
+    'silver.diner.gown.drink', 'silver.diner.gown.sit',
+    'silver.diner.suit.drink', 'silver.diner.suit.sit',
+    'silver.kitchen.chef.work',
+    'silver.queue.gown.lean', 'silver.queue.gown.stand',
+    'silver.queue.shirt.lean', 'silver.queue.shirt.stand',
+    'silver.queue.suit.lean', 'silver.queue.suit.stand',
+    'silver.server.waistcoat.patrol',
+  ]);
+
+  const THREE = await import('three');
+  const cast = await import(pathToFileURL(path.join(ROOT, 'src/bing/cast.js')).href);
+  for (const template of PROCEDURAL_APPEARANCE_TEMPLATES) {
+    assert.ok(Object.isFrozen(template), `${template.id} is mutable`);
+    assert.ok(SCENES[template.scene], `${template.id} names missing scene ${template.scene}`);
+    assert.ok(SCENES[template.scene].modules.includes(template.module),
+      `${template.id} source ${template.module} is outside ${template.scene}`);
+    const source = read(template.module);
+    assert.ok(Object.isFrozen(template.evidence) && template.evidence.length >= 2,
+      `${template.id} does not prove both clothes and job`);
+    for (const anchor of template.evidence) {
+      assert.ok(source.includes(anchor), `${template.id} lost source evidence ${anchor}`);
+    }
+    assert.deepEqual(template.fixtures.map((fixture) => fixture.id), ['min', 'max']);
+    for (const fixture of template.fixtures) {
+      assert.ok(Object.isFrozen(fixture) && Object.isFrozen(fixture.model));
+      assert.equal(fixture.model.dress, template.dress);
+      assert.equal(fixture.model.gender ?? null, template.gender);
+      assert.equal(fixture.model.bodyShape ?? null, template.bodyShape);
+      const npc = new cast.Npc(new THREE.Scene(), {
+        name: template.id, tier: 'hero', job: template.job, look: false,
+        model: { ...fixture.model, face: null },
+      });
+      npc.t = 0;
+      npc.phase = 0;
+      npc.update(0, null);
+      npc.group.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(npc.group);
+      const size = bounds.getSize(new THREE.Vector3());
+      assert.ok([...bounds.min.toArray(), ...bounds.max.toArray(), ...size.toArray()]
+        .every(Number.isFinite), `${template.id}.${fixture.id} has non-finite bounds`);
+      assert.ok(size.x > 0 && size.y > 0 && size.z > 0,
+        `${template.id}.${fixture.id} has empty geometry`);
+    }
+  }
+});
+
+test('the mansion ledger includes every authored Family and performer model consumer', async () => {
+  const house = appearancesInScene('mansion_house');
+  const familyEvidence = new Map([
+    [CHARACTER_IDS.SEFF, 'model: familyModel(CHARACTER_IDS.SEFF),'],
+    [CHARACTER_IDS.LAG, 'model: familyModel(CHARACTER_IDS.LAG),'],
+    [CHARACTER_IDS.APE, 'model: withFace(familyModel(CHARACTER_IDS.APE), FACES.ape),'],
+    [CHARACTER_IDS.SAUCE, 'model: familyModel(CHARACTER_IDS.SAUCE),'],
+    [CHARACTER_IDS.OLD_STOVE, 'model: withFace(familyModel(CHARACTER_IDS.OLD_STOVE), FACES.stove),'],
+  ]);
+  for (const [character, evidence] of familyEvidence) {
+    assert.ok(house.some((entry) => entry.character === character && entry.evidence === evidence),
+      `mansion_house is missing the real familyModel consumer ${character}`);
+  }
+
+  const performers = house.filter((entry) => entry.from.mansionPerformer);
+  assert.deepEqual(performers.map((entry) => entry.from.mansionPerformer.post).sort(), [
+    'poolPerformer0', 'poolPerformer1', 'poolPerformer2',
+    'suitePerformer0', 'suitePerformer1',
+  ], 'the fitting room must show the two suite and three pool performer variants');
+
+  const castSource = read('src/mansion/cast.js');
+  const castModule = await import(pathToFileURL(path.join(ROOT, 'src/bing/cast.js')).href);
+  for (const entry of performers) {
+    const recipe = entry.from.mansionPerformer;
+    let height;
+    let build;
+    let performerIndex;
+    if (recipe.post.startsWith('suitePerformer')) {
+      const loop = literalAfter(castSource, 'post(`suitePerformer${i}`, {');
+      assert.ok(loop, 'the suite performer loop no longer has an authored post block');
+      assert.match(castSource, /const look = BADA_BING_PERFORMERS\[i === 0 \? 3 : 1\];/u);
+      assert.match(loop, /height: i === 0 \? 1\.74 : 1\.71, build: 1\.08, dress: 'bikini', \.\.\.look,/u);
+      const loopIndex = Number(recipe.post.at(-1));
+      height = loopIndex === 0 ? 1.74 : 1.71;
+      build = 1.08;
+      performerIndex = loopIndex === 0 ? 3 : 1;
+    } else {
+      const block = literalAfter(castSource, `post('${recipe.post}', {`);
+      assert.ok(block, `${recipe.post} no longer has an authored post block`);
+      const modelText = block.match(/model:\s*\{([\s\S]*?)\n\s*\},/u)?.[1];
+      assert.ok(modelText, `${recipe.post} no longer has an inline model literal`);
+      height = Number(modelText.match(/height:\s*([0-9.]+)/u)?.[1]);
+      build = Number(modelText.match(/build:\s*([0-9.]+)/u)?.[1]);
+      performerIndex = Number(modelText.match(/BADA_BING_PERFORMERS\[(\d+)\]/u)?.[1]);
+      assert.ok(Number.isFinite(height) && Number.isFinite(build) && Number.isInteger(performerIndex),
+        `${recipe.post} no longer composes a fixed body with a Bada Bing performer look`);
+    }
+    assert.equal(recipe.index, performerIndex, `${recipe.post} points at the wrong performer identity`);
+    assert.deepEqual(entry.model, {
+      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+      height, build, dress: 'bikini', ...castModule.BADA_BING_PERFORMERS[performerIndex],
+    }, `${recipe.post} in the wardrobe catalog has drifted from the production model`);
   }
 });
 
@@ -331,6 +594,27 @@ test('rows that name a wardrobe export ARE that export, by identity', () => {
   }
 });
 
+test('scene-owned additions to a canonical wardrobe model are explicit and exact', () => {
+  for (const a of APPEARANCES) {
+    if (!a.from.baseWardrobe) continue;
+    const base = WARDROBE_MODELS.get(a.from.baseWardrobe);
+    assert.ok(base, `${a.from.baseWardrobe} is not exported by src/core/wardrobe.js`);
+    const adds = new Set(a.from.adds ?? []);
+    for (const [key, value] of Object.entries(base)) {
+      assert.deepEqual(a.model[key], value,
+        `${a.name} in ${a.scene} drifted from ${a.from.baseWardrobe}.${key}`);
+    }
+    for (const key of Object.keys(a.model)) {
+      assert.ok(Object.hasOwn(base, key) || adds.has(key),
+        `${a.name} in ${a.scene} adds undeclared wardrobe field ${key}`);
+    }
+    for (const key of adds) {
+      assert.ok(Object.hasOwn(a.model, key) && !Object.hasOwn(base, key),
+        `${a.name} in ${a.scene} declares a non-addition ${key}`);
+    }
+  }
+});
+
 test('rows proved against another module match what that module exports', async () => {
   for (const a of APPEARANCES) {
     if (!a.from.export) continue;
@@ -366,10 +650,14 @@ test("rows read out of a scene's private table still match that table", () => {
   for (const a of APPEARANCES) {
     if (a.from.source !== true) continue;
     const label = `${a.name} in ${a.scene}`;
-    const text = literalAfter(read(a.from.module), a.evidence);
+    const text = a.from.containing
+      ? literalContaining(read(a.from.module), a.evidence)
+      : literalAfter(read(a.from.module), a.evidence);
     assert.ok(text, `${label}: no object literal after ${JSON.stringify(a.evidence)}`);
     const real = evalLiteral(text, label);
+    const adds = new Set(a.from.adds ?? []);
     for (const [key, value] of Object.entries(a.model)) {
+      if (adds.has(key)) continue;
       assert.deepEqual(value, real[key],
         `${label}: the ledger says ${key} is ${JSON.stringify(value)} and `
         + `${a.from.module} says ${JSON.stringify(real[key])}. The scene is right.`);
@@ -383,23 +671,24 @@ test("rows read out of a scene's private table still match that table", () => {
   }
 });
 
-test('the heist crew wear the shirts their own presentation table gives them', async () => {
-  /* `from.adds` above deliberately excludes these three keys from the deep
-   * compare, because the scene composes them at the call site rather than
-   * storing them on `model`. Excluded is not unchecked: `shirt` comes off the
-   * same exported table and is compared here, and the two constants are read
-   * back out of the call site itself. */
+test('the heist crew reuse canonical bodies while tactical gear stays scene-owned', async () => {
   const module = await import(pathToFileURL(path.join(ROOT, 'src/heist/cast.js')).href);
   const source = read('src/heist/cast.js');
-  assert.ok(source.includes('skin: 0xd2a074,'), 'the heist no longer sets skin at the call site');
-  assert.ok(source.includes('bandana: false,'), 'the heist no longer sets bandana at the call site');
+  assert.ok(source.includes('...presentation.model,'));
+  assert.ok(source.includes('bandana: false,'));
+  assert.ok(source.includes('face: CAN_PAINT_FACES ? (presentation.face ?? null) : null,'));
+  assert.ok(source.includes('addPlateCarrier(figure, presentation.shirtDark);'));
   for (const a of appearancesInScene('bank_heist')) {
     const presentation = module.HEIST_CREW_PRESENTATION[a.character];
     assert.ok(presentation, `the heist no longer presents ${a.character}`);
-    assert.equal(a.model.shirt, presentation.shirt,
-      `${a.name}'s heist shirt has moved`);
-    assert.equal(a.model.skin, 0xd2a074, `${a.name}'s heist skin has moved`);
-    assert.equal(a.model.bandana, false, `${a.name} has a bandana on the job`);
+    const canonical = WARDROBE_MODULE.WARDROBE[a.character];
+    assert.ok(canonical, `${a.character} has no canonical wardrobe model`);
+    assert.strictEqual(presentation.model, canonical,
+      `${a.name}'s heist presentation copied or replaced the canonical body`);
+    assert.strictEqual(a.model, canonical,
+      `${a.name}'s appearance row does not mirror the canonical body`);
+    assert.equal(typeof presentation.shirtDark, 'number',
+      `${a.name}'s scene-owned plate-carrier colour is missing`);
   }
 });
 
@@ -432,8 +721,9 @@ test('every wardrobe model a scene can reach is a row in the ledger', () => {
       const reachable = wardrobeReach(rel);
       const claimed = new Set(
         appearancesInScene(scene.id)
-          .filter((a) => a.module === rel && a.from.wardrobe)
-          .map((a) => baseName(a.from.wardrobe)),
+          .filter((a) => a.module === rel)
+          .flatMap((a) => [a.from.wardrobe, a.from.baseWardrobe, a.from.canonicalBody]
+            .filter(Boolean).map(baseName)),
       );
       for (const name of reachable) {
         assert.ok(claimed.has(name),
@@ -563,12 +853,86 @@ test('the ledger answers the two questions the workshop asks it', () => {
   for (const c of characters) assert.ok(c.scenes.length > 0);
 });
 
-test('every divergence the ledger reports is a sentence, not a shrug', () => {
-  const reported = APPEARANCES.filter((a) => a.divergence);
-  assert.ok(reported.length > 0,
-    'the ledger reports no divergences at all, which would be a first');
-  for (const a of reported) {
-    assert.ok(a.divergence.length > 60,
-      `${a.name} in ${a.scene} has a divergence note too short to act on`);
+test('a one-person wardrobe lineup is framed full length, not cropped to its width', async () => {
+  const preview = await import('../src/wardrobe/preview.js');
+  assert.equal(typeof preview.lineupCameraDistance, 'function',
+    'the fitting room must expose its lineup framing calculation for verification');
+  const distance = preview.lineupCameraDistance({
+    width: 0.96, tallest: 1.88, targetY: 1.0, aspect: 980 / 900, fov: 38,
+  });
+  const halfV = (38 * Math.PI / 180) / 2;
+  const verticalNeed = Math.max(1.0, 1.88 - 1.0) / Math.tan(halfV) * 1.06;
+  assert.ok(distance + 1e-9 >= verticalNeed,
+    `one-person lineup distance ${distance} ignores its ${verticalNeed} m vertical fit`);
+});
+
+test('real animated Lou Npc keeps pinstripes and three-piece fronts registered to the breathing body surface', async () => {
+  const [THREE, cast] = await Promise.all([
+    import('three'), import(pathToFileURL(path.join(ROOT, 'src/bing/cast.js')).href),
+  ]);
+  const npc = new cast.Npc(new THREE.Scene(), {
+    name: 'Lou', tier: 'hero', job: 'sit', look: false,
+    model: { ...WARDROBE_MODULE.BIG_UNCLE_LOU_BING, face: null },
+  });
+  const named = (name) => {
+    const found = [];
+    npc.group.traverse((object) => { if (object.name === name) found.push(object); });
+    return found;
+  };
+  const belly = npc.group.getObjectByName('person.gut.belly');
+  const surfaces = {
+    waistcoat: named('suit.waistcoat.cloth'),
+    lapelLeft: named('suit.lapel.left'),
+    lapelRight: named('suit.lapel.right'),
+    pinstripeFronts: named('suit.pinstripe.front'),
+  };
+  assert.ok(belly, 'Lou lost the structural belly surface');
+  assert.equal(surfaces.waistcoat.length, 1);
+  assert.equal(surfaces.lapelLeft.length, 1);
+  assert.equal(surfaces.lapelRight.length, 1);
+  assert.equal(surfaces.pinstripeFronts.length, 6);
+
+  const box = (object) => new THREE.Box3().setFromObject(object);
+  const gaps = [-Math.PI / 3, 0, Math.PI / 3].map((phase) => {
+    npc.t = phase;
+    npc.phase = 0;
+    npc.update(0, new THREE.Vector3());
+    npc.group.updateMatrixWorld(true);
+    const bellyZ = box(belly).max.z;
+    const gap = (object) => box(object).max.z - bellyZ;
+    return {
+      waistcoat: gap(surfaces.waistcoat[0]),
+      lapelLeft: gap(surfaces.lapelLeft[0]),
+      lapelRight: gap(surfaces.lapelRight[0]),
+      pinstripeFronts: surfaces.pinstripeFronts.map(gap),
+    };
+  });
+  const drift = (values) => Math.max(...values) - Math.min(...values);
+  const drifts = [
+    drift(gaps.map((entry) => entry.waistcoat)),
+    drift(gaps.map((entry) => entry.lapelLeft)),
+    drift(gaps.map((entry) => entry.lapelRight)),
+    ...surfaces.pinstripeFronts.map((_, index) => (
+      drift(gaps.map((entry) => entry.pinstripeFronts[index]))
+    )),
+  ];
+  assert.ok(Math.max(...drifts) <= 0.0015,
+    `Lou garment-to-belly surface drift is ${(Math.max(...drifts) * 1000).toFixed(3)}mm: ${JSON.stringify({ gaps, drifts })}`);
+});
+
+test('every wardrobe difference has a status and no unresolved divergence ships', () => {
+  const allowed = new Set(['none', 'intentional', 'unresolved']);
+  for (const a of APPEARANCES) {
+    assert.ok(allowed.has(a.divergenceStatus),
+      `${a.name} in ${a.scene} has invalid divergence status ${a.divergenceStatus}`);
+    assert.equal(Boolean(a.divergence), a.divergenceStatus !== 'none',
+      `${a.name} in ${a.scene} has contradictory divergence data`);
   }
+  const reported = APPEARANCES.filter((a) => a.divergence);
+  assert.deepEqual(reported.map((a) => [a.scene, a.character, a.divergenceStatus]), [
+    ['enola_squatch', CHARACTER_IDS.IRISH, 'intentional'],
+    ['enola_squatch', CHARACTER_IDS.NUMBSKULL, 'intentional'],
+  ]);
+  assert.deepEqual(APPEARANCES.filter((a) => a.divergenceStatus === 'unresolved'), [],
+    'an unresolved cross-scene wardrobe divergence would ship');
 });

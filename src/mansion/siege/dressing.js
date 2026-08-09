@@ -55,13 +55,16 @@ import { makeCar, makeVehicleCollider } from '../../bing/vehicles.js';
  * couch. Nothing here re-derives a proportion. */
 import { HeistFigure } from '../../heist/people.js';
 import {
-  GROUND_Y, BASEMENT_Y, BUILDING, CELLAR_HALL,
+  GROUND_Y, BASEMENT_Y, UPPER_Y, BUILDING, CELLAR_HALL,
   COURT_CENTRE, COURT_RADIUS, FRONT_DOOR,
 } from '../scenes/MansionGrounds.js';
-import { FOYER, STAIR_WEST, STAIR_EAST, CHANDELIER_POS } from '../scenes/MansionInterior.js';
+import {
+  FOYER, GALLERY, OFFICE, STAIR_WEST, STAIR_EAST, CHANDELIER_POS,
+} from '../scenes/MansionInterior.js';
 
 const GY = GROUND_Y;   // 1.2
 const BY = BASEMENT_Y; // -2.8
+const UY = UPPER_Y;    // 6.0
 
 /* ================================================================== */
 /* The three constraints, as numbers                                    */
@@ -188,6 +191,10 @@ const M_FABRIC_BURNT = mat({ color: 0x3a2b22, roughness: 0.98 });
 const M_UPHOLSTERY = mat({ color: 0x3d3a46, roughness: 0.95 });
 const M_RADIO = mat({ color: 0x1c1e22, roughness: 0.8 });
 const M_LED = mat({ color: 0x000000, emissive: 0x2ad06a, emissiveIntensity: 2.4, roughness: 1 });
+const M_PAPER = mat({ color: 0xd8d1b9, roughness: 0.96 });
+const M_MARKER_RED = mat({ color: 0x8e2523, roughness: 0.9 });
+const M_MARKER_BLUE = mat({ color: 0x274f78, roughness: 0.9 });
+const M_MEDICAL = mat({ color: 0xe4e1d8, roughness: 0.96 });
 
 /* Fire is the one place a material gets mutated per frame, so every flame and
  * every puff gets its OWN material (`unique: true`). build.js shares materials
@@ -302,7 +309,7 @@ export function boxCoversXZ(b, x, z, pad = 0) {
 /* ================================================================== */
 
 export function buildSiegeDressing({
-  damage, grounds, interior, registerLight = null,
+  damage, grounds, interior, smokeSystem = null, registerLight = null,
 } = {}) {
   if (!damage) throw new Error('buildSiegeDressing needs the damage-state overlay');
 
@@ -320,6 +327,8 @@ export function buildSiegeDressing({
   const baseArrays = [liveColliders, grounds?.colliders, interior?.colliders];
 
   let time = 0;
+  const sharedSmokeOrigin = new THREE.Vector3();
+  const sharedSmokeUp = new THREE.Vector3(0, 1, 0);
 
   /** Add a group to the overlay AND to the scene graph, in one place. */
   function enrol(name, node, { boxes = [], layers = ['battle'] } = {}) {
@@ -344,11 +353,11 @@ export function buildSiegeDressing({
   /* ---------------------------------------------------------------- */
   /* Fire and smoke                                                     */
   /*                                                                     */
-  /* No canvas, no sprite pool, no SmokeSystem: that one needs a real     */
-  /* document to bake its texture and this module has to build headless   */
-  /* so the checkpoint path can be tested without a browser. A fire here  */
-  /* is a handful of emissive lumps that breathe, one point light that    */
-  /* flickers, and a column of translucent spheres that rise and recycle. */
+  /* The runtime receives the canonical pooled SmokeSystem used elsewhere */
+  /* in the campaign. Headless tests may omit it, in which case the bounded */
+  /* mesh columns below remain as a deterministic fallback. A fire here is */
+  /* a handful of emissive lumps that breathe, one point light that        */
+  /* flickers, and either pooled billboards or a small recycled column.    */
   /* ---------------------------------------------------------------- */
 
   /**
@@ -470,6 +479,9 @@ export function buildSiegeDressing({
         rate: 0.17,
         peak: 0.22,
       });
+      /* Browser scenes use the campaign's canonical pooled billboard smoke.
+       * The bounded mesh column stays as the headless/test fallback only. */
+      if (smokeSystem) column.group.visible = false;
       g.add(column.group);
     }
 
@@ -481,7 +493,9 @@ export function buildSiegeDressing({
       smoke: column,
       baseIntensity: intensity,
       seed: fires.length * 3.7,
-      tick(dt, t) {
+      sharedClock: 0,
+      smokeHeight: 1.05 * scale,
+      tick(dt, t, emitShared = false) {
         /* Two sines of different periods, so the flicker never finds a beat.
          * The same trick the grounds' tiki torches use. */
         const flick = 0.72 + 0.28 * Math.sin(t * 9.1 + this.seed) * Math.sin(t * 3.3 + this.seed * 2);
@@ -491,6 +505,24 @@ export function buildSiegeDressing({
           const s = l.base * k;
           l.mesh.scale.set(s, s * 1.15, s);
           l.material.emissiveIntensity = l.baseIntensity * (0.7 + 0.45 * k);
+        }
+        if (emitShared && smokeSystem) {
+          this.sharedClock -= dt;
+          if (this.sharedClock <= 0) {
+            this.sharedClock += 0.34;
+            this.group.getWorldPosition(sharedSmokeOrigin);
+            sharedSmokeOrigin.y += this.smokeHeight;
+            smokeSystem.emit(sharedSmokeOrigin, sharedSmokeUp, {
+              count: 2,
+              speed: 0.18,
+              spread: 0.28,
+              size0: 0.16,
+              size1: 1.2,
+              life: 3.2,
+              peak: 0.14,
+              rise: 0.34,
+            });
+          }
         }
       },
     };
@@ -1007,7 +1039,270 @@ export function buildSiegeDressing({
   }
 
   /* ================================================================== */
-  /* 4a. THE DEAD GUARD IN THE CELLAR CORRIDOR                            */
+  /* 4. ARCHITECTURAL BATTLE LINE                                         */
+  /*                                                                       */
+  /* The live review showed a pristine shell behind convincing loose        */
+  /* wreckage. This stays a state-layer overlay over the canonical mansion:  */
+  /* surface marks stand millimetres proud of real walls/floors, add no      */
+  /* collider, and disappear with the battle layer. The sequence follows the */
+  /* mission's actual route: facade -> foyer -> gallery -> Lou's office.     */
+  /* ================================================================== */
+  const architecture = {
+    group: group('siege.architecture.damage'),
+    zones: {},
+    colliders: [],
+  };
+
+  function architectureZone(name, populate) {
+    const g = group(`siege.architecture.${name}`);
+    populate(g);
+    let markCount = 0;
+    g.traverse((object) => { if (object.isMesh) markCount += 1; });
+    architecture.group.add(g);
+    const zone = { group: g, markCount };
+    architecture.zones[name] = zone;
+    return zone;
+  }
+
+  architectureZone('facade', (g) => {
+    /* Incoming fire walks across both shoulders of the front glazing. The
+     * marks stay on the south face and leave the actual door untouched. */
+    g.add(impacts({
+      x: -5.45, y: GY + 2.8, z: BUILDING.z0 - 0.025,
+      axis: 'z', name: 'siege.architecture.facade.west', count: 8, spread: 1.45, seed: 7,
+    }));
+    g.add(impacts({
+      x: 5.25, y: GY + 3.35, z: BUILDING.z0 - 0.025,
+      axis: 'z', name: 'siege.architecture.facade.east', count: 7, spread: 1.25, seed: 19,
+    }));
+  });
+
+  architectureZone('foyer', (g) => {
+    /* Crossfire stitched the side walls above head height. The 20 mm
+     * standoff keeps each cluster in the room instead of in the partition. */
+    g.add(impacts({
+      x: FOYER.x0 + 0.02, y: GY + 2.75, z: 40.4,
+      axis: 'x', name: 'siege.architecture.foyer.west', count: 8, spread: 1.4, seed: 11,
+    }));
+    g.add(impacts({
+      x: FOYER.x1 - 0.02, y: GY + 3.25, z: 42.1,
+      axis: 'x', name: 'siege.architecture.foyer.east', count: 7, spread: 1.25, seed: 23,
+    }));
+    /* Hairline fractures radiate through the marble around the destroyed
+     * centrepiece. Raised 12 mm: visible, non-coplanar and never solid. */
+    const cracks = group('siege.architecture.foyer.floor-cracks');
+    const CRACKS = [
+      [-1.05, 43.85, 1.55, -0.25], [0.85, 44.85, 1.35, 0.42],
+      [-0.35, 45.15, 1.05, 1.1], [1.15, 43.7, 0.9, -1.0],
+      [-1.45, 44.55, 0.78, 0.62], [0.25, 43.55, 0.7, 1.45],
+    ];
+    CRACKS.forEach(([x, z, length, yaw], i) => {
+      cracks.add(box({
+        name: `siege.architecture.foyer.floor-crack.${i}`,
+        size: [length, 0.012, 0.025], pos: [x, GY + 0.012, z],
+        mat: M_SOOT, rotY: yaw, cast: false,
+      }));
+    });
+    g.add(cracks);
+  });
+
+  architectureZone('gallery', (g) => {
+    /* High wall strikes read from both the rail and the office approach
+     * without entering the player's firing-step sightline. */
+    g.add(impacts({
+      x: -8.1, y: UY + 2.45, z: GALLERY.z1 - 0.02,
+      axis: 'z', name: 'siege.architecture.gallery.west', count: 8, spread: 1.35, seed: 31,
+    }));
+    g.add(impacts({
+      x: 7.7, y: UY + 2.15, z: GALLERY.z1 - 0.02,
+      axis: 'z', name: 'siege.architecture.gallery.east', count: 7, spread: 1.2, seed: 43,
+    }));
+    for (const [x, z, yaw] of [[-4.2, 50.1, 0.22], [4.8, 49.75, -0.35], [1.7, 51.55, 1.1]]) {
+      g.add(box({
+        name: 'siege.architecture.gallery.floor-scar',
+        size: [1.05, 0.012, 0.035], pos: [x, UY + 0.012, z],
+        mat: M_SOOT, rotY: yaw, cast: false,
+      }));
+    }
+  });
+
+  architectureZone('office', (g) => {
+    /* The people in Lou's room flinch at real impacts; the room now shows
+     * where those rounds landed without moving a single base-room object. */
+    g.add(impacts({
+      x: OFFICE.x0 + 0.02, y: UY + 2.35, z: 67.2,
+      axis: 'x', name: 'siege.architecture.office.west', count: 7, spread: 1.15, seed: 53,
+    }));
+    g.add(impacts({
+      x: OFFICE.x1 - 0.02, y: UY + 2.0, z: 71.8,
+      axis: 'x', name: 'siege.architecture.office.east', count: 7, spread: 1.05, seed: 67,
+    }));
+  });
+
+  nameSubtree(architecture.group, 'siege.architecture');
+  enrol('siege.architecture.damage', architecture.group);
+
+  /* ================================================================== */
+  /* 4a. DEFENCE OPERATIONS                                               */
+  /*                                                                       */
+  /* The ensemble already performs four jobs -- Lou works the command desk, */
+  /* Shubenator runs a radio, Aubbie treats a guard and everybody reloads -- */
+  /* but the baseline frame gave them no physical equipment to work. These  */
+  /* are the props those existing authored performances require, not new     */
+  /* story. They are low/profile wall-or-table dressing, add no collider and */
+  /* stay out of the gallery's central attacker/player lane.                */
+  /* ================================================================== */
+  const defenceStations = {
+    group: group('siege.stations'),
+    zones: {},
+    colliders: [],
+  };
+
+  function defenceStation(name, role, anchor, populate) {
+    const g = group(`siege.station.${name}`);
+    populate(g);
+    nameSubtree(g, `siege.station.${name}`);
+    let meshCount = 0;
+    g.traverse((object) => { if (object.isMesh) meshCount += 1; });
+    defenceStations.group.add(g);
+    const station = {
+      group: g,
+      role,
+      anchor: Object.freeze({ ...anchor }),
+      meshCount,
+    };
+    defenceStations.zones[name] = station;
+    return station;
+  }
+
+  defenceStation('officeCommand', 'command', { x: 0, y: UY, z: 71.05 }, (g) => {
+    /* A battle map opened across the visitor edge of Lou's existing desk.
+     * The centre stays clear for the mission case and nobody gains a new
+     * collision volume around a desk that is already solid. */
+    for (const [x, z, yaw, material, id] of [
+      [-0.58, 71.03, -0.08, M_PAPER, 'west'],
+      [0.58, 71.05, 0.1, M_PAPER, 'east'],
+    ]) {
+      g.add(box({
+        name: `siege.station.officeCommand.command-map.${id}`,
+        size: [1.0, 0.014, 0.72], pos: [x, UY + 0.855, z], mat: material, rotY: yaw, cast: false,
+      }));
+    }
+    /* Grease-pencil routes and marked contact points make these operational
+     * maps rather than two blank sheets. */
+    for (const [x, z, length, yaw, material] of [
+      [-0.72, 70.95, 0.55, 0.28, M_MARKER_RED],
+      [-0.42, 71.18, 0.42, -0.45, M_MARKER_BLUE],
+      [0.43, 70.92, 0.5, 0.55, M_MARKER_RED],
+      [0.7, 71.18, 0.48, -0.2, M_MARKER_BLUE],
+    ]) {
+      g.add(box({
+        name: 'siege.station.officeCommand.command-route',
+        size: [length, 0.008, 0.025], pos: [x, UY + 0.867, z], mat: material, rotY: yaw, cast: false,
+      }));
+    }
+    for (const [i, x, z, material] of [
+      [0, -0.8, 71.2, M_MARKER_RED], [1, -0.3, 70.86, M_MARKER_BLUE],
+      [2, 0.38, 71.2, M_MARKER_RED], [3, 0.8, 70.9, M_MARKER_BLUE],
+    ]) {
+      g.add(named(cylinder({
+        r: 0.025, h: 0.012, pos: [x, UY + 0.878, z], mat: material, cast: false,
+      }), `siege.station.officeCommand.command-marker.${i}`));
+    }
+  });
+
+  defenceStation('radio', 'radio', { x: -1.85, y: UY, z: 58.75 }, (g) => {
+    /* Shubenator's set sits on the real conference table (top y = UY+.81),
+     * within arm's reach of his authored post at (-2.6, 59). */
+    g.add(box({
+      name: 'siege.station.radio.chassis',
+      size: [0.78, 0.28, 0.44], pos: [-1.85, UY + 0.96, 58.75], mat: M_RADIO,
+    }));
+    g.add(box({
+      name: 'siege.station.radio.tuner',
+      size: [0.42, 0.09, 0.018], pos: [-1.85, UY + 1.0, 58.52], mat: M_GLASSY, cast: false,
+    }));
+    g.add(box({
+      name: 'siege.station.radio.led',
+      size: [0.08, 0.035, 0.02], pos: [-1.56, UY + 0.96, 58.51], mat: M_LED, cast: false,
+    }));
+    for (const [i, x] of [[0, -2.08], [1, -1.92], [2, -1.76]]) {
+      g.add(named(cylinder({
+        r: 0.035, h: 0.03, pos: [x, UY + 0.91, 58.5], mat: M_STEEL, rotX: Math.PI / 2,
+      }), `siege.station.radio.knob.${i}`));
+    }
+    g.add(box({
+      name: 'siege.station.radio.handset',
+      size: [0.62, 0.09, 0.1], pos: [-1.85, UY + 1.17, 58.78], mat: M_RADIO, rotY: -0.12,
+    }));
+    g.add(named(cylinder({
+      r: 0.012, h: 0.9, pos: [-2.18, UY + 1.5, 58.82], mat: M_STEEL, rotZ: -0.18,
+    }), 'siege.station.radio.antenna'));
+  });
+
+  defenceStation('triage', 'triage', { x: 3.85, y: UY, z: 52.15 }, (g) => {
+    /* Aubbie's open field case, against the gallery's north wall and beside
+     * his authored position, not in the firing step. */
+    g.add(box({
+      name: 'siege.station.triage.case',
+      size: [1.0, 0.28, 0.56], pos: [3.85, UY + 0.14, 52.15], mat: M_RADIO,
+    }));
+    g.add(box({
+      name: 'siege.station.triage.lid',
+      size: [1.0, 0.06, 0.55], pos: [3.85, UY + 0.58, 52.42], mat: M_RADIO, rotX: -0.18,
+    }));
+    g.add(box({
+      name: 'siege.station.triage.cross.h',
+      size: [0.34, 0.025, 0.1], pos: [3.85, UY + 0.62, 52.14], mat: M_MARKER_RED, cast: false,
+    }));
+    g.add(box({
+      name: 'siege.station.triage.cross.v',
+      size: [0.1, 0.025, 0.34], pos: [3.85, UY + 0.62, 52.14], mat: M_MARKER_RED, cast: false,
+    }));
+    for (let i = 0; i < 4; i++) {
+      g.add(named(cylinder({
+        r: 0.055, h: 0.22, pos: [3.55 + i * 0.2, UY + 0.36, 52.02],
+        mat: M_MEDICAL, rotZ: Math.PI / 2, cast: false,
+      }), `siege.station.triage.bandage.${i}`));
+    }
+    g.add(box({
+      name: 'siege.station.triage.dressing',
+      size: [0.42, 0.07, 0.32], pos: [4.15, UY + 0.34, 52.05], mat: M_MEDICAL, cast: false,
+    }));
+  });
+
+  defenceStation('resupply', 'resupply', { x: -4.25, y: UY, z: 52.1 }, (g) => {
+    /* The centre firing step keeps its belt boxes. This smaller flank cache
+     * supports the people holding the west rail without duplicating a second
+     * hero position. */
+    for (const [i, x, y, z, yaw] of [
+      [0, -4.48, UY + 0.18, 52.1, 0.08],
+      [1, -4.05, UY + 0.18, 52.08, -0.06],
+      [2, -4.27, UY + 0.52, 52.13, 0.12],
+    ]) {
+      g.add(box({
+        name: `siege.station.resupply.ammo-can.${i}`,
+        size: [0.38, 0.34, 0.62], pos: [x, y, z], mat: M_STEEL, rotY: yaw,
+      }));
+      g.add(box({
+        name: `siege.station.resupply.can-latch.${i}`,
+        size: [0.13, 0.05, 0.025], pos: [x, y + 0.1, z - 0.322], mat: M_BRASS, cast: false,
+      }));
+    }
+    for (let i = 0; i < 5; i++) {
+      g.add(box({
+        name: `siege.station.resupply.magazine.${i}`,
+        size: [0.09, 0.24, 0.045],
+        pos: [-3.78 + i * 0.1, UY + 0.12, 51.9 + (i % 2) * 0.07],
+        mat: M_RADIO, rotZ: -0.22 + i * 0.08, cast: false,
+      }));
+    }
+  });
+
+  enrol('siege.stations', defenceStations.group);
+
+  /* ================================================================== */
+  /* 4b. THE DEAD GUARD IN THE CELLAR CORRIDOR                            */
   /*                                                                       */
   /* "They were in the house before you woke up", readable in one look:      */
   /* a mansion guard across the corridor couch outside the theatre, weapon    */
@@ -1676,8 +1971,22 @@ export function buildSiegeDressing({
   function update(dt) {
     if (!(dt > 0)) return;
     time += dt;
-    for (const fire of fires) fire.tick(dt, time);
+    const battle = damage.activeLayers.has('battle');
+    for (const fire of fires) fire.tick(dt, time, battle);
     for (const s of smokes) s.tick(dt, time);
+    if (smokeSystem) {
+      if (battle) {
+        smokeSystem.update(dt);
+      } else {
+        /* A checkpoint restore can turn the battle layer off immediately.
+         * Clear the shared pool in that same frame so the previous room's
+         * haze cannot linger into the clean/exterior state. */
+        for (const puff of smokeSystem.puffs ?? []) {
+          puff.sprite.visible = false;
+          if (puff.sprite.material) puff.sprite.material.opacity = 0;
+        }
+      }
+    }
   }
 
   const props = {
@@ -1690,11 +1999,15 @@ export function buildSiegeDressing({
     bodies: { guard: cellarBody, performer: foyerBody },
     debris,
     centrepiece,
+    architecture,
+    defenceStations,
     firingStep,
     smoke: {
       columns: smokes,
       floorClearance: SMOKE_FLOOR_CLEARANCE,
       maxOpacity: SMOKE_MAX_OPACITY,
+      sharedSystem: smokeSystem,
+      mode: smokeSystem ? 'shared-pooled-billboards' : 'bounded-mesh-fallback',
     },
     lights,
     anchors: SIEGE_ANCHORS,

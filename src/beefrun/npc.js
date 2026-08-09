@@ -154,6 +154,7 @@ export function nameTag(text, colour) {
   const h = TAG_CAP * (c.height / 64);
   spr.scale.set(h * (c.width / c.height), h, 1);
   spr.position.y = TAG_Y;
+  spr.name = 'name-tag';
   spr.renderOrder = 3;
   spr.userData.text = text;
   return spr;
@@ -171,17 +172,23 @@ export function makeFigure(o = {}) {
   const boots = solid(o.boots ?? 0x33291f, { roughness: 0.9 });
   const w = 0.42 + (o.build ?? 0.4) * 0.16;
 
-  const g = group(o.name || 'figure');
+  const figureName = o.name || 'figure';
+  const semantic = (object, suffix) => {
+    object.name = `${figureName}-${suffix}`;
+    return object;
+  };
+  const g = group(figureName);
   const hips = new THREE.Group();
+  hips.name = `${figureName}-hips`;
   hips.position.y = 0.86;
   g.add(hips);
 
   const torso = mesh(boxGeo(w, 0.62, 0.28), o.jacket ? solid(o.jacket, { roughness: 0.85 }) : shirt, 0, 0.31, 0);
-  torso.name = `${o.name || 'figure'}-torso`;
+  torso.name = `${figureName}-torso`;
   hips.add(torso);
   if (o.jacket) {
     // Collar and open front, so the stained shirt shows.
-    hips.add(mesh(boxGeo(w * 0.42, 0.5, 0.06), shirt, 0, 0.32, 0.15));
+    hips.add(semantic(mesh(boxGeo(w * 0.42, 0.5, 0.06), shirt, 0, 0.32, 0.15), 'jacket-front'));
   }
 
   /* Tailoring, for the people the player stands in front of.
@@ -221,6 +228,7 @@ export function makeFigure(o = {}) {
   void jacketMat;
 
   const neck = new THREE.Group();
+  neck.name = `${figureName}-neck`;
   neck.position.set(0, 0.66, 0);
   hips.add(neck);
   /* The head. With a photograph it is one image on the front of the skull and
@@ -240,35 +248,42 @@ export function makeFigure(o = {}) {
   } else {
     head = mesh(boxGeo(0.24, 0.28, 0.24), skin, 0, 0.14, 0);
   }
+  head.name = `${figureName}-head`;
   neck.add(head);
-  if (o.hair !== false && !o.face) neck.add(mesh(boxGeo(0.25, 0.08, 0.25), solid(o.hair ?? 0x3a2c20, { roughness: 1 }), 0, 0.27, 0));
+  if (o.hair !== false && !o.face) neck.add(semantic(mesh(boxGeo(0.25, 0.08, 0.25), solid(o.hair ?? 0x3a2c20, { roughness: 1 }), 0, 0.27, 0), 'hair'));
   if (o.shades && !o.face) {
-    neck.add(mesh(boxGeo(0.22, 0.06, 0.03), solid(0x14161a, { roughness: 0.3, metalness: 0.4 }), 0, 0.16, 0.13));
+    neck.add(semantic(mesh(boxGeo(0.22, 0.06, 0.03), solid(0x14161a, { roughness: 0.3, metalness: 0.4 }), 0, 0.16, 0.13), 'shades'));
   }
   if (o.hat === 'cowboy') {
-    neck.add(mesh(cylGeo(0.13, 0.15, 0.16, 10), solid(0x6b5432, { roughness: 1 }), 0, 0.34, 0));
-    neck.add(mesh(cylGeo(0.34, 0.34, 0.03, 12), solid(0x6b5432, { roughness: 1 }), 0, 0.27, 0));
+    neck.add(semantic(mesh(cylGeo(0.13, 0.15, 0.16, 10), solid(0x6b5432, { roughness: 1 }), 0, 0.34, 0), 'cowboy-hat-crown'));
+    neck.add(semantic(mesh(cylGeo(0.34, 0.34, 0.03, 12), solid(0x6b5432, { roughness: 1 }), 0, 0.27, 0), 'cowboy-hat-brim'));
   } else if (o.hat === 'cap') {
-    neck.add(mesh(boxGeo(0.26, 0.1, 0.26), solid(o.hatColor ?? 0x4a2f8f, { roughness: 1 }), 0, 0.31, 0));
-    neck.add(mesh(boxGeo(0.24, 0.03, 0.14), solid(o.hatColor ?? 0x4a2f8f, { roughness: 1 }), 0, 0.27, 0.18));
+    neck.add(semantic(mesh(boxGeo(0.26, 0.1, 0.26), solid(o.hatColor ?? 0x4a2f8f, { roughness: 1 }), 0, 0.31, 0), 'cap-crown'));
+    neck.add(semantic(mesh(boxGeo(0.24, 0.03, 0.14), solid(o.hatColor ?? 0x4a2f8f, { roughness: 1 }), 0, 0.27, 0.18), 'cap-brim'));
   } else if (o.hat === 'headset') {
     // Hanging round the neck, which is where Lou's lives.
-    neck.add(mesh(cylGeo(0.07, 0.07, 0.05, 8), solid(0x24262a, { roughness: 0.8 }), -0.13, 0.0, 0));
-    neck.add(mesh(cylGeo(0.07, 0.07, 0.05, 8), solid(0x24262a, { roughness: 0.8 }), 0.13, 0.0, 0));
-    neck.add(mesh(boxGeo(0.28, 0.04, 0.04), solid(0x24262a, { roughness: 0.8 }), 0, -0.02, -0.08));
+    neck.add(semantic(mesh(cylGeo(0.07, 0.07, 0.05, 8), solid(0x24262a, { roughness: 0.8 }), -0.13, 0.0, 0), 'headset-cup-right'));
+    neck.add(semantic(mesh(cylGeo(0.07, 0.07, 0.05, 8), solid(0x24262a, { roughness: 0.8 }), 0.13, 0.0, 0), 'headset-cup-left'));
+    neck.add(semantic(mesh(boxGeo(0.28, 0.04, 0.04), solid(0x24262a, { roughness: 0.8 }), 0, -0.02, -0.08), 'headset-band'));
   }
 
   const arms = [];
   for (const side of [-1, 1]) {
+    const sideName = side < 0 ? 'right' : 'left';
     const shoulder = new THREE.Group();
+    shoulder.name = `${figureName}-arm-${sideName}-shoulder`;
     shoulder.position.set(side * (w / 2 + 0.06), 0.56, 0);
     const upper = mesh(boxGeo(0.12, 0.3, 0.14), o.jacket ? solid(o.jacket, { roughness: 0.85 }) : shirt, 0, -0.15, 0);
+    upper.name = `${figureName}-arm-${sideName}-upper`;
     shoulder.add(upper);
     const elbow = new THREE.Group();
+    elbow.name = `${figureName}-arm-${sideName}-elbow`;
     elbow.position.y = -0.3;
     const fore = mesh(boxGeo(0.11, 0.28, 0.12), o.sleeves === false ? skin : (o.jacket ? solid(o.jacket, { roughness: 0.85 }) : shirt), 0, -0.14, 0);
+    fore.name = `${figureName}-arm-${sideName}-forearm`;
     elbow.add(fore);
     const hand = mesh(boxGeo(0.11, 0.12, 0.11), skin, 0, -0.32, 0);
+    hand.name = `${figureName}-arm-${sideName}-hand`;
     elbow.add(hand);
     if (o.dress === 'bomber' && o.jacket) {
       // Knitted cuff where the sleeve stops.
@@ -280,7 +295,12 @@ export function makeFigure(o = {}) {
       const band = o.watch === 'gold'
         ? solid(0xe8c04a, { roughness: 0.25, metalness: 0.9 })
         : solid(0xc8ccd2, { roughness: 0.3, metalness: 0.85 });
-      elbow.add(named2(mesh(boxGeo(0.085, 0.038, 0.085), band, 0, -0.245, 0), o, 'watch'));
+      /* Above the knit cuff and proud of the sleeve's +Z face. At the old
+       * wrist centre (-0.245, 0) the smaller watch box lived wholly inside
+       * the 120x70x130 mm bomber cuff, so Captain Sasole technically wore a
+       * watch that could never be seen. Keep its back seated in the forearm,
+       * but leave the face outside the cuff like the shared cast rig does. */
+      elbow.add(named2(mesh(boxGeo(0.085, 0.038, 0.085), band, 0, -0.2, 0.07), o, 'watch'));
     }
     shoulder.add(elbow);
     hips.add(shoulder);
@@ -289,14 +309,18 @@ export function makeFigure(o = {}) {
 
   const legs = [];
   for (const side of [-1, 1]) {
+    const sideName = side < 0 ? 'right' : 'left';
     const hip = new THREE.Group();
+    hip.name = `${figureName}-leg-${sideName}-hip`;
     hip.position.set(side * 0.12, 0, 0);
     const thigh = mesh(boxGeo(0.16, 0.44, 0.18), trousers, 0, -0.22, 0);
+    thigh.name = `${figureName}-leg-${sideName}-thigh`;
     hip.add(thigh);
     const knee = new THREE.Group();
+    knee.name = `${figureName}-leg-${sideName}-knee`;
     knee.position.y = -0.44;
-    knee.add(mesh(boxGeo(0.14, 0.4, 0.16), trousers, 0, -0.2, 0));
-    knee.add(mesh(boxGeo(0.16, 0.12, 0.26), boots, 0, -0.44, 0.04));
+    knee.add(semantic(mesh(boxGeo(0.14, 0.4, 0.16), trousers, 0, -0.2, 0), `leg-${sideName}-shin`));
+    knee.add(semantic(mesh(boxGeo(0.16, 0.12, 0.26), boots, 0, -0.44, 0.04), `leg-${sideName}-boot`));
     if (o.trouserFit === 'creased') {
       // A pressed crease down the front and a turn-up at the boot. Two thin
       // slabs, and the difference between trousers and a pair of tubes.
@@ -800,15 +824,28 @@ export function makeOldStove() {
     face: 'assets/faces/stove.png',
   });
   setPose(f, 'idle');
+  const semantic = (object, suffix) => {
+    object.name = `stove-${suffix}`;
+    return object;
+  };
 
   // Headset round the neck: green cups, exactly where Lou's black ones sit.
   const cupMat = solid(0x5f6b3a, { roughness: 0.8 });
   for (const sx of [-0.14, 0.14]) {
-    f.neck.add(mesh(cylGeo(0.075, 0.075, 0.055, 8), cupMat, sx, -0.02, 0));
+    f.neck.add(semantic(
+      mesh(cylGeo(0.075, 0.075, 0.055, 8), cupMat, sx, -0.02, 0),
+      `headset-cup-${sx < 0 ? 'right' : 'left'}`,
+    ));
   }
-  f.neck.add(mesh(boxGeo(0.3, 0.04, 0.04), solid(0x2a2a2e, { roughness: 0.8 }), 0, -0.04, -0.09));
+  f.neck.add(semantic(
+    mesh(boxGeo(0.3, 0.04, 0.04), solid(0x2a2a2e, { roughness: 0.8 }), 0, -0.04, -0.09),
+    'headset-band',
+  ));
   // The boom mic, folded up and forgotten.
-  const boom = mesh(boxGeo(0.035, 0.035, 0.17), solid(0x1e1e22, { roughness: 0.8 }), 0.13, 0.02, 0.09);
+  const boom = semantic(
+    mesh(boxGeo(0.035, 0.035, 0.17), solid(0x1e1e22, { roughness: 0.8 }), 0.13, 0.02, 0.09),
+    'headset-boom',
+  );
   boom.rotation.x = -0.5;
   f.neck.add(boom);
 
@@ -818,27 +855,46 @@ export function makeOldStove() {
   const webbing = solid(0xa8232a, { roughness: 0.95 });
   const steel = solid(0xc8ccd2, { roughness: 0.35, metalness: 0.8 });
   for (const sx of [-1, 1]) {
-    const strap = mesh(boxGeo(0.085, 0.62, 0.055), webbing, sx * 0.13, 0.31, 0.15);
+    const sideName = sx < 0 ? 'right' : 'left';
+    const strap = semantic(
+      mesh(boxGeo(0.085, 0.62, 0.055), webbing, sx * 0.13, 0.31, 0.15),
+      `parachute-front-strap-${sideName}`,
+    );
     strap.rotation.z = sx * 0.12;
     f.hips.add(strap);
     // Back half of the same strap.
-    const back = mesh(boxGeo(0.085, 0.6, 0.055), webbing, sx * 0.15, 0.31, -0.15);
+    const back = semantic(
+      mesh(boxGeo(0.085, 0.6, 0.055), webbing, sx * 0.15, 0.31, -0.15),
+      `parachute-back-strap-${sideName}`,
+    );
     back.rotation.z = sx * 0.14;
     f.hips.add(back);
     // Leg loop.
-    const loop = mesh(boxGeo(0.075, 0.24, 0.05), webbing, sx * 0.14, 0.02, 0.1);
+    const loop = semantic(
+      mesh(boxGeo(0.075, 0.24, 0.05), webbing, sx * 0.14, 0.02, 0.1),
+      `parachute-leg-loop-${sideName}`,
+    );
     loop.rotation.x = 0.5;
     f.hips.add(loop);
     // Buckle.
-    f.hips.add(mesh(boxGeo(0.075, 0.075, 0.03), steel, sx * 0.13, 0.16, 0.18));
+    f.hips.add(semantic(
+      mesh(boxGeo(0.075, 0.075, 0.03), steel, sx * 0.13, 0.16, 0.18),
+      `parachute-buckle-${sideName}`,
+    ));
   }
   // Chest strap across the two risers.
-  f.hips.add(mesh(boxGeo(0.34, 0.07, 0.05), webbing, 0, 0.44, 0.16));
+  f.hips.add(semantic(mesh(boxGeo(0.34, 0.07, 0.05), webbing, 0, 0.44, 0.16), 'parachute-chest-strap'));
   // The pack itself, on his back.
-  f.hips.add(mesh(boxGeo(0.34, 0.44, 0.14), solid(0x8a1f26, { roughness: 0.95 }), 0, 0.3, -0.2));
+  f.hips.add(semantic(
+    mesh(boxGeo(0.34, 0.44, 0.14), solid(0x8a1f26, { roughness: 0.95 }), 0, 0.3, -0.2),
+    'parachute-pack',
+  ));
 
   // A folder he never opens, held against his leg.
-  const folder = mesh(boxGeo(0.24, 0.32, 0.03), solid(0xc9b78d, { roughness: 0.9 }), 0, -0.34, 0.07);
+  const folder = semantic(
+    mesh(boxGeo(0.24, 0.32, 0.03), solid(0xc9b78d, { roughness: 0.9 }), 0, -0.34, 0.07),
+    'folder',
+  );
   f.arms[1].elbow.add(folder);
   f.folder = folder;
   // Not the name on any of his documents, which is the joke.

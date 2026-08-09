@@ -248,7 +248,11 @@ test('the takeoff record is wired to the Beef Run’s first roll, at the owner�
    * playSignatureTrack calls, not raw mentions — the takeoff checkpoint
    * restore also *stops* the record by its key, and stopping is not firing. */
   assert.equal(
-    beefMission.split('playSignatureTrack(engine, SIGNATURE_TRACKS.cantYouHearMeKnocking').length - 1, 1,
+    beefMission.split('const track = SIGNATURE_TRACKS.cantYouHearMeKnocking').length - 1, 1,
+    'the takeoff record has one canonical local track binding',
+  );
+  assert.equal(
+    beefMission.split('playSignatureTrack(engine, track').length - 1, 1,
     'the takeoff record is fired from exactly one place',
   );
   assert.match(beefMission, /loop: false/, 'a record plays through, it does not loop');

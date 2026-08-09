@@ -13,6 +13,72 @@
 export const STYLES = ['calm', 'threat', 'insult', 'expert'];
 export const STYLE_LABEL = { calm: 'CALM', threat: 'THREATENING', insult: 'INSULTING', expert: 'JERKY EXPERT' };
 
+export const SNOW_GUN_HANDOFF = Object.freeze({
+  offer: Object.freeze({
+    speaker: 'Snow',
+    line: 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.',
+    seconds: 5.4,
+  }),
+  transfer: Object.freeze({
+    speaker: 'Prospect',
+    line: 'It is under my coat. It stays under my coat.',
+    seconds: 3.0,
+  }),
+});
+
+/* The room earns the inspection controls through a complete spoken exchange.
+ * These are exact existing catalog lines, arranged as one immutable sequence
+ * for the shared dialogue floor to play before the sample becomes usable. */
+export const ROOM_ENTRY_BEATS = Object.freeze([
+  Object.freeze({
+    speaker: 'Chino',
+    line: 'Door stays shut. Air conditioning.',
+    seconds: 3.0,
+    leadSeconds: 0.5,
+  }),
+  Object.freeze({
+    speaker: 'Rico',
+    line: 'Mountain reserve. Eleven-year cure. No fillers.',
+    seconds: 4.0,
+    leadSeconds: 0.65,
+  }),
+  Object.freeze({
+    speaker: 'Prospect',
+    line: 'Eight in their case. One on the table. Neither of them is mine yet.',
+    seconds: 3.6,
+    leadSeconds: 0.7,
+  }),
+  Object.freeze({
+    speaker: 'Rico',
+    line: 'Meat first. Money second. That is how this works.',
+    seconds: 3.6,
+    leadSeconds: 0.75,
+  }),
+]);
+
+/* Seller turns that can answer Tony's physical inspection without inventing a
+ * second speech system. Every sentence already belongs to the Motel voice
+ * catalog; `leadSeconds` gives the preceding inspection line room to land
+ * before the existing dialogue floor starts the response. */
+export const INSPECTION_MEETING_BEATS = Object.freeze({
+  smell: Object.freeze([
+    Object.freeze({ speaker: 'Rico', line: 'I told you.', seconds: 2.4, leadSeconds: 0.55 }),
+  ]),
+  grain: Object.freeze([
+    Object.freeze({ speaker: 'Chino', line: 'Rico. He is asking who handled it.', seconds: 3.0, leadSeconds: 0.65 }),
+    Object.freeze({ speaker: 'Rico', line: 'Nobody handled it. It handles itself.', seconds: 3.2, leadSeconds: 0.55 }),
+  ]),
+  taste: Object.freeze([
+    Object.freeze({ speaker: 'Chino', line: 'No refunds once you chew.', seconds: 2.8, leadSeconds: 0.65 }),
+  ]),
+  reference: Object.freeze([
+    Object.freeze({ speaker: 'Chino', line: 'You buying or writing a cookbook?', seconds: 3.0, leadSeconds: 0.7 }),
+  ]),
+  scan: Object.freeze([
+    Object.freeze({ speaker: 'Rico', line: 'This is not gas-station product.', seconds: 3.0, leadSeconds: 0.75 }),
+  ]),
+});
+
 export const NODES = {
   // --- in the car, before you ever open a door ---
   snowBrief: {

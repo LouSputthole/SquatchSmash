@@ -22,6 +22,7 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { WEAPON_IDS, weaponDef } from '../core/weapons/catalog.js';
@@ -538,8 +539,13 @@ const pauseMenu = createPauseMenu({
     player.enabled = true;
     requestGamePointerLock();
   },
-  onRestart: () => location.reload(),
-  restartLabel: () => `Restart · ${state.lastCheckpoint.replaceAll('_', ' ')}`,
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.CARTEL_PALACE,
+    location,
+    restartCheckpoint: () => location.reload(),
+    canRestartCheckpoint: () => Boolean(campaignStory.mission.checkpoint),
+  }),
 });
 
 startButton.addEventListener('click', async () => {
@@ -711,7 +717,7 @@ window.CARTEL_PALACE = {
   get checkpoint() { return state.lastCheckpoint; },
   snapshot: () => mission.snapshot(),
   evidence: () => Object.fromEntries(Object.entries(palace.evidence).map(([id, target]) => [id, target.userData.collected === true])),
-  geometry: () => ({ colliders: palace.colliders.length, meshes: palace.root.children.length, drawCalls: renderer.info.render.calls }),
+  geometry: () => ({ ...palace.inspectEnvironment(), drawCalls: renderer.info.render.calls }),
 };
 
 window.__squatchSceneReady?.('CARTEL PALACE ready');

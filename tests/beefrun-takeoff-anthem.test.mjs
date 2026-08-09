@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-import { MissionAudio } from '../src/beefrun/audio.js';
+import {
+  KNOCKING_INTRO_BOOST,
+  MissionAudio,
+  armTakeoffRecordIntro,
+  takeoffRecordIntroVolume,
+} from '../src/beefrun/audio.js';
+import { MissionController } from '../src/beefrun/mission.js';
 
 /** An engine stub that only records what startMusicLoop-family calls were made. */
 function fakeEngine() {
@@ -15,6 +21,70 @@ function fakeEngine() {
     },
   };
 }
+
+test('Knocking opens exactly 30% louder for 24 audible seconds, then returns to its current mix', () => {
+  const events = [];
+  const listeners = new Map();
+  const element = {
+    currentTime: 0,
+    /* play() flips `paused` before audio is actually audible; only the
+     * `playing` event is the start of the requested 24-second window. */
+    paused: false,
+    addEventListener(name, listener) { listeners.set(name, listener); },
+  };
+  const handle = {
+    element,
+    gain: {
+      gain: {
+        setValueAtTime(value, at) { events.push({ value, at }); },
+      },
+    },
+  };
+  const ctx = { currentTime: 11 };
+
+  assert.equal(KNOCKING_INTRO_BOOST.multiplier, 1.3);
+  assert.equal(KNOCKING_INTRO_BOOST.seconds, 24);
+  assert.equal(takeoffRecordIntroVolume(0.30), 0.39);
+  assert.equal(armTakeoffRecordIntro(handle, ctx, 0.30), true);
+  assert.deepEqual(events, [], 'the 24-second clock must not run before media playback starts');
+
+  listeners.get('playing')();
+  assert.deepEqual(events, [{ value: 0.30, at: 35 }],
+    'the existing 0.30 mix must resume on the audio clock exactly 24 seconds after playback');
+});
+
+test('the real 45-knot takeoff cue owns the louder timed intro', async () => {
+  const calls = [];
+  const events = [];
+  const listeners = new Map();
+  const handle = {
+    element: {
+      currentTime: 0,
+      paused: true,
+      addEventListener(name, listener) { listeners.set(name, listener); },
+    },
+    gain: { gain: { setValueAtTime(value, at) { events.push({ value, at }); } } },
+  };
+  const engine = {
+    ctx: { currentTime: 8 },
+    replaceMusicLoop(key, url, opts) {
+      calls.push({ key, url, opts });
+      return handle;
+    },
+  };
+
+  const result = await MissionController.prototype.playTakeoffRecord.call({ audio: { engine } });
+  assert.equal(result, handle);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].opts.volume, 0.39,
+    'the cue must begin 30% above the existing 0.30 mix');
+  assert.equal(typeof listeners.get('playing'), 'function',
+    'the settle clock must be armed on actual media playback');
+
+  handle.element.paused = false;
+  listeners.get('playing')();
+  assert.deepEqual(events, [{ value: 0.30, at: 32 }]);
+});
 
 test('a mission with no takeoff anthem set still plays the usual procedural score', () => {
   const engine = fakeEngine();
@@ -97,7 +167,7 @@ test('a checkpoint-restored takeoff re-arms and restarts the record', () => {
   assert.match(restore, /knockingCued = false/);
   assert.match(restore, /stopLoop/);
   const record = mission.slice(mission.indexOf('playTakeoffRecord()'));
-  assert.match(record.slice(0, 600), /replace: true/);
+  assert.match(record.slice(0, 900), /replace: true/);
 });
 
 test('cue records never enter the radio rotation', () => {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import { CHARACTER_IDS } from '../core/campaign.js';
-import { AUBBIE, BIG_UNCLE_LOU, SAUCE } from '../core/wardrobe.js';
+import { AUBBIE, BIG_UNCLE_LOU_BING, SAUCE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
@@ -532,9 +532,10 @@ export async function buildHotDogParty(scene, club) {
   const lou = makeNpc(scene, club, {
     name: 'Big Uncle Lou', characterId: CHARACTER_IDS.LOU,
     x: -16.2, z: 2.0, yaw: 2.25, job: 'stand',
-    // Canonical, so the man running this party is the man on the boat and the
-    // man in the office. The face is the only thing local to the scene.
-    model: { ...BIG_UNCLE_LOU, face: faces.has('lou.png') ? 'assets/faces/lou.png' : null },
+    // The club's canonical three-piece, so the man running the private party
+    // is still the owner dressed for his own building. The face is the only
+    // thing local to the scene.
+    model: { ...BIG_UNCLE_LOU_BING, face: faces.has('lou.png') ? 'assets/faces/lou.png' : null },
   });
   const hotdog = makeNpc(scene, club, {
     name: 'Billy HotDog', characterId: CHARACTER_IDS.BILLY_HOTDOG,

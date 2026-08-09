@@ -447,7 +447,12 @@ export function buildMotel(scene, renderer) {
   refs.bathLight = bathLight;
 
   // Bathroom window (rear alley escape)
-  const bathWin = boxMesh(1.78, 1.48, 0.1, C.glass, 3.3, 1.85, R.z0 + 0.15, { emissive: 0x3d5a4c });
+  const bathWin = boxMesh(1.78, 1.48, 0.1, C.glass, 3.3, 1.85, R.z0 + 0.15, {
+    emissive: 0x3d5a4c,
+    transparent: true,
+    opacity: 0.32,
+    depthWrite: false,
+  });
   scene.add(bathWin);
   refs.bathWindow = { mesh: bathWin, open: false, broken: false, x: 3.3, z: R.z0 };
 
@@ -608,7 +613,12 @@ export function buildMotel(scene, renderer) {
   door11.locked = true;
   refs.door11 = door11;
   // Rear window of room eleven, out to the alley
-  const win11 = boxMesh(1.58, 1.48, 0.1, C.glass, -12, 1.85, R11.z0 + 0.15, { emissive: 0x2e3a24 });
+  const win11 = boxMesh(1.58, 1.48, 0.1, C.glass, -12, 1.85, R11.z0 + 0.15, {
+    emissive: 0x2e3a24,
+    transparent: true,
+    opacity: 0.32,
+    depthWrite: false,
+  });
   scene.add(win11);
   refs.window11 = { mesh: win11, broken: false, x: -12, z: R11.z0 };
   // Stacked shipment crates — the real product
@@ -642,6 +652,12 @@ export function buildMotel(scene, renderer) {
   officeDoor.collider = block(-45.1, -43.0, O.z1 - 0.3, O.z1, 0, 2.7, 'officedoor');
   officeDoor.collider.enabled = false;
   officeDoor.open = true;
+  // This entrance starts available from the lot. Keep the visible hinge and
+  // animation state in the same open pose as its disabled doorway blocker;
+  // otherwise the player walks through a leaf that still looks shut.
+  officeDoor.angle = -2.2;
+  officeDoor.targetAngle = -2.2;
+  officeDoor.pivot.rotation.y = -2.2;
   refs.officeDoor = officeDoor;
   const officeRear = makeDoor(1.9, 2.7, 0x3f6b8a);
   // Hinged on the east jamb: the pi rotation mirrors the leaf, so hinging at

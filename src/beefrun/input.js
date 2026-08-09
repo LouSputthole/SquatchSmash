@@ -117,7 +117,7 @@ export class FlightInput {
       const pitch = dead(-pad.axes[1]);
       // Match the player-facing keyboard sense: right stick is the same
       // right-wing-down command as D, left stick is the same as A.
-      const roll = dead(pad.axes[0]);
+      const roll = dead(-pad.axes[0]);
       const yaw = dead(-(pad.axes[2] ?? 0));
       // Triggers: right for power, left for brakes.
       const rt = pad.buttons[7]?.value ?? 0;
@@ -140,10 +140,10 @@ export class FlightInput {
       const want = {
         pitch: (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0),
         /* Player-facing contract: A lowers the authored left wing and D lowers
-         * the right one.  The airframe is nose +Z / right wing +X, while the
-         * aerodynamic roll coefficient applies the opposite torque sign, so
-         * left input is negative here and right input is positive. */
-        roll: (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
+         * the right one.  Facing nose +Z, the pilot's left wing is +X; the
+         * aerodynamic roll coefficient negates this control before applying
+         * torque, so left input is positive and right input is negative. */
+        roll: (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) - (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0),
         yaw: (k.has('KeyE') ? 0 : 0) + (k.has('Period') ? 1 : 0) - (k.has('Comma') ? 1 : 0),
       };
       // Q and E are rudder in the air; E is also "interact" on the ground, so

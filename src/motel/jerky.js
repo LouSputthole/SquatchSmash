@@ -86,8 +86,22 @@ export class Inspection {
     this.verdict = null;    // 'genuine' | 'counterfeit'
   }
 
+  // Stable authored rows for renderers: completed checks remain visible in
+  // place, so number keys never shift to a different inspection.
+  choices() {
+    return INSPECTIONS.map(({ id, key, label }) => {
+      const selected = this.done.has(id);
+      return { id, key, label, selected, disabled: selected };
+    });
+  }
+
   available() {
     return INSPECTIONS.filter((i) => !this.done.has(i.id));
+  }
+
+  runKey(key) {
+    const choice = INSPECTIONS.find((inspection) => inspection.key === String(key));
+    return choice ? this.run(choice.id) : null;
   }
 
   // Run an inspection. Returns { line, prospect, heat, revealed }

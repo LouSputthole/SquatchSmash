@@ -188,7 +188,8 @@ const DROP_CAM_SECONDS = 4.2;
  *
  * From there the aeroplane is committed to a fixed run of real time before
  * `payload.release()` actually fires, none of it skippable: `_malfNeeded`
- * (8 s minimum, `updateBombMalfunction()`) holding level, then the player
+ * (8 s minimum, `updateBombMalfunction()`) of committed reset choreography,
+ * then the player
  * has to read the five `RELEASE_LINES` and pick one (`chooseReleaseLine()`),
  * then `updateRelease()`'s own `stuck` (2 s) and `kick` (1 s) beats — eleven
  * seconds of flight time before anyone touches a key, plus however long the
@@ -1893,13 +1894,14 @@ export class MissionController {
   /* ---- Bomb-bay malfunction ---- */
 
   updateBombMalfunction(dt) {
-    const p = this.physics;
     if (!this._resetPlayed && this.phaseTime > 1.0) {
       this._resetPlayed = true;
       this.dialogue.play('bomb.manualReset', { once: true, delay: 0.4 });
     }
-    const level = Math.abs(p.rollDeg) < 12 && Math.abs(p.pitchDeg) < 10;
-    this._malfHoldT = level ? this._malfHoldT + dt : Math.max(0, this._malfHoldT - dt * 0.5);
+    /* Once the manual reset starts, it is committed. Steering can move the
+     * target under the aeroplane but cannot undo elapsed choreography; only
+     * the mission's public pause guard (at the top of `update`) stops time. */
+    this._malfHoldT += dt;
     if (!this._shubesFired && this._malfHoldT > this._malfNeeded * 0.5) {
       this._shubesFired = true;
       this.dialogue.play('bomb.shubesInBay', { once: true });

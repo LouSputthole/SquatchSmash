@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import * as THREE from 'three';
 
 import {
   ITEM_IDS,
@@ -8,6 +9,7 @@ import {
   createCampaign,
 } from '../src/core/campaign.js';
 import { createSquatchfatherStory } from '../src/core/squatchfather-story.js';
+import { Figure } from '../src/squatchfather/characters/Figure.js';
 
 class MemoryStorage {
   constructor() {
@@ -93,4 +95,157 @@ test('Squatchfather exposes the apartment handoff only after scene completion', 
   assert.doesNotMatch(source, /actions:\s*\[[^\]]*Back to apartment/is,
     'the shared pause overlay still lets the player abandon the linear mission');
   assert.match(html, /id="againBtn"[^>]*>[^<]*RETURN TO THE APARTMENT/i);
+});
+
+const EXHALE_T = -Math.PI / (2 * 1.6);
+const INHALE_T = Math.PI / (2 * 1.6);
+
+function visibleSuitParts(figure) {
+  // The fallback lets this regression reproduce the old public Figure before
+  // the fitted garment rig exists. The named public refs below are the final
+  // contract; this ordering is not used after that contract is available.
+  const oldParts = figure.torso.children;
+  return {
+    chest: figure.chest,
+    shirt: figure.shirt ?? oldParts[1],
+    tie: figure.tie,
+    lapelL: figure.lapelL ?? oldParts[3],
+    lapelR: figure.lapelR ?? oldParts[4],
+  };
+}
+
+function normalizedSuitFit(figure) {
+  figure.group.updateWorldMatrix(true, true);
+  const parts = visibleSuitParts(figure);
+  const chest = new THREE.Box3().setFromObject(parts.chest);
+  const height = chest.max.y - chest.min.y;
+  const depth = chest.max.z - chest.min.z;
+  const measure = (part) => {
+    const bounds = new THREE.Box3().setFromObject(part);
+    return [
+      (bounds.min.y - chest.min.y) / height,
+      (bounds.max.y - chest.min.y) / height,
+      (bounds.min.z - chest.min.z) / depth,
+      (bounds.max.z - chest.min.z) / depth,
+    ];
+  };
+  return Object.fromEntries(Object.entries(parts)
+    .filter(([name]) => name !== 'chest')
+    .map(([name, part]) => [name, measure(part)]));
+}
+
+function maxFitDelta(a, b) {
+  return Math.max(...Object.keys(a).flatMap((name) =>
+    a[name].map((value, i) => Math.abs(value - b[name][i]))));
+}
+
+test('Squatchfather Figure breathes the visible suit as one registered assembly', () => {
+  const figure = new Figure({ bulk: 1.08 });
+  figure.t = EXHALE_T;
+  figure.update(0);
+  const exhale = normalizedSuitFit(figure);
+  figure.t = INHALE_T;
+  figure.update(0);
+  const inhale = normalizedSuitFit(figure);
+
+  const drift = maxFitDelta(exhale, inhale);
+  assert.ok(drift < 1e-9,
+    `shirt/tie/lapels drifted ${drift.toFixed(6)} chest-widths through one breath`);
+});
+
+test('Squatchfather Figure exposes reusable named torso garment parts', () => {
+  const figure = new Figure();
+  const expected = [
+    ['sf.torso.chest', figure.chest],
+    ['sf.torso.shirt', figure.shirt],
+    ['sf.torso.tie', figure.tie],
+    ['sf.torso.lapel.left', figure.lapelL],
+    ['sf.torso.lapel.right', figure.lapelR],
+    ['sf.torso.shoulders', figure.shoulderBar],
+  ];
+
+  assert.equal(figure.torsoGarments?.name, 'sf.torso.garments');
+  for (const [name, part] of expected) {
+    assert.ok(part, `${name} is not exposed by Figure`);
+    assert.equal(part.name, name);
+    assert.equal(part.parent, figure.torsoGarments, `${name} is outside the breathing garment rig`);
+  }
+});
+
+test('Squatchfather Figure neutralizes and freezes breathing while down, then resets cleanly', () => {
+  const figure = new Figure();
+  figure.t = INHALE_T;
+  figure.update(0);
+
+  figure.down = true;
+  figure.t = EXHALE_T;
+  figure.update(0);
+  const breathingNode = figure.torsoGarments ?? figure.chest;
+  assert.deepEqual(breathingNode.scale.toArray(), [1, 1, 1],
+    'a down figure retained or applied a live breath');
+
+  figure.t = INHALE_T;
+  figure.update(0);
+  assert.deepEqual(breathingNode.scale.toArray(), [1, 1, 1],
+    'a corpse resumed breathing on a later update');
+
+  figure.setDown(false);
+  assert.deepEqual(breathingNode.scale.toArray(), [1, 1, 1],
+    'checkpoint reset did not restore a neutral garment rig');
+  figure.update(0);
+  assert.ok(breathingNode.scale.y > 1,
+    'a revived figure did not resume normal breathing');
+});
+
+const FIGURE_SEMANTIC_NODES = [
+  'sf.figure', 'sf.root', 'sf.pelvis', 'sf.pelvis.coat',
+  'sf.torso', 'sf.torso.garments', 'sf.neck', 'sf.head', 'sf.face.jaw.pivot',
+  'sf.leg.left.hip', 'sf.leg.left.thigh', 'sf.leg.left.knee',
+  'sf.leg.left.shin', 'sf.leg.left.shoe',
+  'sf.leg.right.hip', 'sf.leg.right.thigh', 'sf.leg.right.knee',
+  'sf.leg.right.shin', 'sf.leg.right.shoe',
+  'sf.arm.left.shoulder', 'sf.arm.left.sleeve.upper', 'sf.arm.left.elbow',
+  'sf.arm.left.sleeve.forearm', 'sf.arm.left.hand',
+  'sf.arm.right.shoulder', 'sf.arm.right.sleeve.upper', 'sf.arm.right.elbow',
+  'sf.arm.right.sleeve.forearm', 'sf.arm.right.hand',
+];
+
+for (const [label, look] of [
+  ['fixed', {}],
+  ['fur', { fur: true }],
+  ['crop/temples/lids', { hairStyle: 'crop', temples: 0x77716c, lidHeavy: true }],
+]) {
+  test(`Squatchfather ${label} Figure has no anonymous reusable anatomy or clothing nodes`, () => {
+    const figure = new Figure(look);
+    const anonymous = [];
+    figure.group.traverse((node) => {
+      if ((node.isGroup || node.isMesh) && !node.name) {
+        anonymous.push(`${node.type} under ${node.parent?.name || '(anonymous)'}`);
+      }
+    });
+    assert.deepEqual(anonymous, [], `${label} Figure anonymous nodes: ${anonymous.join(', ')}`);
+    for (const name of FIGURE_SEMANTIC_NODES) {
+      assert.ok(figure.group.getObjectByName(name), `${label} Figure is missing ${name}`);
+    }
+  });
+}
+
+test('the Squatchfather cook builder labels every reusable body and clothing part', () => {
+  const sceneSource = readFileSync(
+    new URL('../src/squatchfather/scenes/SquatchfatherScene.js', import.meta.url),
+    'utf8',
+  );
+  const builder = sceneSource.match(
+    /function makeBystander\([\s\S]*?(?=\n\s*\/\/ The waiter and the diners)/,
+  )?.[0];
+  assert.ok(builder, 'the cook makeBystander source is missing');
+  for (const name of [
+    'sf.bystander.cook', 'sf.bystander.coat',
+    'sf.bystander.sleeve.left', 'sf.bystander.sleeve.right',
+    'sf.bystander.trouser.left', 'sf.bystander.trouser.right',
+  ]) {
+    assert.ok(builder.includes(name), `cook builder is missing ${name}`);
+  }
+  assert.doesNotMatch(builder, /g\.add\(box\(/,
+    'cook builder still adds anonymous clothing/anatomy meshes directly');
 });

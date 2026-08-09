@@ -38,6 +38,10 @@ function fakeLab() {
   aim.position.set(XXX_AT.x, XXX_AT.y + 1.0, XXX_AT.z);
   aim.updateMatrixWorld(true);
   const said = [];
+  const fate = { alive: true, cause: null };
+  const fatalMark = new THREE.Group();
+  fatalMark.visible = false;
+  const fatalPool = { visible: false };
   return {
     aim,
     said,
@@ -52,7 +56,20 @@ function fakeLab() {
       aim,
       rig: { ankleY: XXX_AT.y + 2.2 },
       say: (cue, opts) => { said.push({ cue, opts }); return true; },
-      get alive() { return true; },
+      fatalMarks: [fatalMark],
+      fatalPool,
+      kill: (cause, hit) => {
+        if (!fate.alive) return false;
+        fate.alive = false;
+        fate.cause = cause;
+        fate.hit = hit;
+        fatalMark.visible = true;
+        fatalPool.visible = true;
+        return true;
+      },
+      get alive() { return fate.alive; },
+      get deathCause() { return fate.cause; },
+      get deathHit() { return fate.hit; },
     },
   };
 }
@@ -145,7 +162,7 @@ test('the cord cannot be swung before it has been handed over', () => {
   assert.equal(r.count('mansion.whipBlood'), 0);
 });
 
-test('THE BUG: once he has it, the whip works every single time', () => {
+test('once he has it, the whip keeps working through ordinary hits', () => {
   const r = mount();
   r.pressGratin();
 
@@ -155,6 +172,46 @@ test('THE BUG: once he has it, the whip works every single time', () => {
     assert.equal(r.cast.debug.gratin.swings, i, `swing ${i} did not land`);
     assert.equal(r.cast.debug.gratin.hasCord, true, `the cord left his hand after swing ${i}`);
   }
+});
+
+test('the tenth landed whip hit kills xXx once and leaves the bloody result', () => {
+  const r = mount();
+  r.pressGratin();
+
+  for (let i = 1; i <= 10; i++) {
+    assert.equal(r.pressXxx(), true, `swing ${i} was refused before the fatal hit`);
+    r.settle();
+    assert.equal(r.cast.debug.gratin.swings, i, `swing ${i} did not land`);
+  }
+
+  assert.equal(r.lab.xxx.alive, false);
+  assert.equal(r.lab.xxx.deathCause, 'whip');
+  assert.equal(r.cast.debug.gratin.deathCause, 'whip');
+  assert.equal(r.cast.debug.gratin.fatalWhipHits, 10);
+  assert.equal(r.cast.debug.gratin.fatalPoolVisible, true);
+  assert.equal(r.cast.debug.gratin.fatalWoundsVisible, true);
+  assert.equal(r.pressXxx(), false, 'a dead xXx accepted an eleventh swing');
+  r.settle(15);
+  assert.equal(r.lab.xxx.alive, false, 'death did not persist after the scene kept ticking');
+  assert.equal(r.cast.debug.gratin.swings, 10);
+});
+
+test('one firearm impact on xXx kills him; unrelated firearm impacts do not', () => {
+  const r = mount();
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+  const point = new THREE.Vector3(-23.2, -5.4, 51.6);
+  const from = new THREE.Vector3(-20, -5, 55);
+
+  assert.equal(r.cast.hitXxxWithFirearm({ object: wall, point, from }), false);
+  assert.equal(r.lab.xxx.alive, true);
+  assert.equal(r.cast.hitXxxWithFirearm({ object: r.lab.aim, point, from }), true);
+  assert.equal(r.lab.xxx.alive, false);
+  assert.equal(r.lab.xxx.deathCause, 'firearm');
+  assert.equal(r.lab.xxx.deathHit.point, point, 'the real firearm point was replaced');
+  assert.equal(r.cast.debug.gratin.fatalPoolVisible, true);
+  assert.equal(r.cast.debug.gratin.fatalWoundsVisible, true);
+  assert.equal(r.cast.hitXxxWithFirearm({ object: r.lab.aim, point, from }), false,
+    'a corpse took a second firearm death');
 });
 
 test('the house rule gates a second HANDOVER, not a second hit', () => {
@@ -250,7 +307,7 @@ test('THE STOW: the cord can be put away, and a put-away cord does not swing', (
   assert.equal(r.cast.debug.gratin.swings, before + 1);
 });
 
-test('every swing lands blood, and it collects on the floor under him', () => {
+test('every swing sprays blood without creating a second persistent floor system', () => {
   const r = mount();
   r.pressGratin();
 
@@ -262,15 +319,14 @@ test('every swing lands blood, and it collects on the floor under him', () => {
 
   r.settle(3);
   assert.equal(r.count('mansion.whipBlood'), 0, 'droplets never landed or expired');
-  const afterOne = r.cast.debug.gratin.bloodMarks;
-  assert.ok(afterOne > 0, 'no blood reached the floor');
+  assert.equal(r.count('mansion.whipBloodMark'), 0,
+    'the cast created a legacy floor decal beside the shared death pool');
+  assert.equal(r.cast.debug.gratin.bloodMarks, 0);
 
   r.pressXxx();
   r.settle(3);
-  assert.ok(
-    r.cast.debug.gratin.bloodMarks > afterOne,
-    'a second hit left no more blood than the first',
-  );
+  assert.equal(r.count('mansion.whipBloodMark'), 0,
+    'a later hit reintroduced a duplicate persistent floor decal');
 });
 
 test('the blood comes off where the man actually is, not off a typed number', () => {

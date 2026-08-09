@@ -127,6 +127,93 @@ export function makeVehicleBody(group, position, color = 0x17191c, name = 'vehic
   return root;
 }
 
+/**
+ * A full-height cargo van, long on local Z with its load doors at -Z.
+ *
+ * `makeVehicleBody` is deliberately a sedan: it is long on X, low-roofed,
+ * glazed through the passenger compartment, and shared by the escape car and
+ * the police fleet. Scaling that mesh made the primary van a wide car. This
+ * builder gives boarding scenes a different, truthful silhouette while
+ * leaving every vehicle that is meant to drive like a car alone.
+ */
+export function makeCargoVan(group, position, color = 0x151719, name = 'cargo-van') {
+  const root = new THREE.Group();
+  root.name = name;
+  root.position.set(...position);
+  root.userData.kind = 'cargo-van';
+
+  const bodyMat = new THREE.MeshStandardMaterial({ color, metalness: 0.48, roughness: 0.5 });
+  const trim = new THREE.MeshStandardMaterial({ color: 0x0d1012, roughness: 0.78 });
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: 0x17242b, transparent: true, opacity: 0.58, roughness: 0.17, metalness: 0.12,
+  });
+  const lamp = new THREE.MeshBasicMaterial({ color: 0xb72b25, toneMapped: false });
+
+  // One tall, uninterrupted load box is the read a scaled passenger car lacks.
+  box(root, [2.68, 0.68, 5.72], [0, 0.72, 0.18], bodyMat, `${name}-lower-body`);
+  box(root, [2.58, 2.12, 4.42], [0, 1.55, -0.34], bodyMat, `${name}-cargo-box`);
+  box(root, [2.66, 0.14, 4.5], [0, 2.66, -0.3], trim, `${name}-roof-cap`);
+
+  // The cab and short nose live at +Z; the cargo doors face the room at -Z.
+  box(root, [2.5, 1.72, 1.7], [0, 1.34, 2.48], bodyMat, `${name}-cab`);
+  box(root, [2.42, 0.48, 0.72], [0, 0.84, 3.28], bodyMat, `${name}-nose`);
+  const windscreen = box(root, [2.14, 0.78, 0.08], [0, 1.86, 3.31], glass, `${name}-windscreen`);
+  windscreen.rotation.x = -0.13;
+  for (const side of [-1, 1]) {
+    const sideWindow = box(root, [0.07, 0.72, 1.02], [side * 1.255, 1.82, 2.48], glass,
+      `${name}-cab-window-${side < 0 ? 'left' : 'right'}`);
+    sideWindow.castShadow = false;
+    box(root, [0.16, 0.22, 0.38], [side * 1.43, 1.72, 2.76], trim,
+      `${name}-mirror-${side < 0 ? 'left' : 'right'}`);
+    // The long recessed rub rail preserves the slab-sided commercial read.
+    box(root, [0.08, 0.12, 3.55], [side * 1.34, 1.3, -0.35], trim,
+      `${name}-cargo-rail-${side < 0 ? 'left' : 'right'}`);
+  }
+
+  const rearZ = -2.59;
+  for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
+    box(root, [1.23, 2.08, 0.1], [side * 0.635, 1.53, rearZ], bodyMat,
+      `${name}-rear-door-${label}`);
+    for (const y of [0.78, 2.2]) {
+      box(root, [0.08, 0.2, 0.06], [side * 1.13, y, rearZ - 0.075], trim,
+        `${name}-rear-hinge-${label}-${y < 1 ? 'low' : 'high'}`);
+    }
+    flat(root, [0.18, 0.38, 0.04], [side * 1.05, 0.9, rearZ - 0.085], lamp,
+      `${name}-tail-light-${label}`);
+  }
+  box(root, [0.06, 1.96, 0.06], [0, 1.53, rearZ - 0.07], trim, `${name}-rear-seam`);
+  box(root, [0.3, 0.1, 0.06], [0.2, 1.46, rearZ - 0.09], trim, `${name}-rear-handle`);
+  box(root, [2.82, 0.22, 0.3], [0, 0.43, -2.7], trim, `${name}-rear-bumper`);
+  flat(root, [0.52, 0.22, 0.035], [0, 0.69, -2.655], MAT.paper, `${name}-rear-plate`);
+
+  // Two axles, four visible wheels. Their axis is X because this van is long Z.
+  for (const z of [-1.72, 2.18]) {
+    for (const x of [-1.37, 1.37]) {
+      const wheel = mesh(root, new THREE.CylinderGeometry(0.43, 0.43, 0.28, 16),
+        new THREE.MeshStandardMaterial({ color: 0x090b0c, roughness: 0.98 }), [x, 0.46, z],
+        `${name}-wheel-${z < 0 ? 'rear' : 'front'}-${x < 0 ? 'left' : 'right'}`);
+      wheel.rotation.z = Math.PI / 2;
+      const hub = mesh(root, new THREE.CylinderGeometry(0.18, 0.18, 0.3, 12),
+        new THREE.MeshStandardMaterial({ color: 0x73777b, metalness: 0.82, roughness: 0.36 }),
+        [x, 0.46, z]);
+      hub.rotation.z = Math.PI / 2;
+    }
+  }
+
+  // A soft proxy over the physical pair keeps both leaves one E target.
+  const rearDoorTarget = box(root, [2.5, 2.26, 0.12], [0, 1.5, rearZ - 0.11],
+    new THREE.MeshBasicMaterial({
+      transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+    }), 'van-door');
+  rearDoorTarget.castShadow = false;
+  rearDoorTarget.receiveShadow = false;
+  rearDoorTarget.userData.kind = 'cargo-van-rear-doors';
+  root.userData.rearDoorTarget = rearDoorTarget;
+
+  group.add(root);
+  return root;
+}
+
 /* ------------------------------------------------------------------ */
 /* Safehouse                                                           */
 /* ------------------------------------------------------------------ */
@@ -134,7 +221,39 @@ export function makeVehicleBody(group, position, color = 0x17191c, name = 'vehic
 function buildSafehouse() {
   const group = new THREE.Group();
   group.name = 'phase-safehouse';
-  room(group, 18, 14, 4.2);
+  // The north wall is a loading bay, not a solid wall with a vehicle clipped
+  // into it. Its shell is authored below around the opening.
+  room(group, 18, 14, 4.2, MAT.concrete, { back: false });
+
+  const loadingBay = new THREE.Group();
+  loadingBay.name = 'safehouse-loading-bay';
+  loadingBay.userData.kind = 'loading-bay';
+  loadingBay.position.set(0, 0, 7);
+  const BAY_OPENING = 3.7;
+  const BAY_WING = (18 - BAY_OPENING) / 2;
+  const BAY_WING_X = BAY_OPENING / 2 + BAY_WING / 2;
+  box(loadingBay, [BAY_WING, 4.2, 0.25], [-BAY_WING_X, 2.1, 0], MAT.darkConcrete,
+    'loading-bay-wall-left');
+  box(loadingBay, [BAY_WING, 4.2, 0.25], [BAY_WING_X, 2.1, 0], MAT.darkConcrete,
+    'loading-bay-wall-right');
+  box(loadingBay, [BAY_OPENING, 0.68, 0.25], [0, 3.86, 0], MAT.darkConcrete,
+    'loading-bay-header');
+  box(loadingBay, [0.2, 3.55, 0.38], [-1.92, 1.78, -0.04], MAT.steel,
+    'loading-bay-jamb-left');
+  box(loadingBay, [0.2, 3.55, 0.38], [1.92, 1.78, -0.04], MAT.steel,
+    'loading-bay-jamb-right');
+  const roller = mesh(loadingBay, new THREE.CylinderGeometry(0.22, 0.22, 3.48, 14),
+    MAT.steel, [0, 3.48, -0.24], 'loading-bay-roller');
+  roller.rotation.z = Math.PI / 2;
+  for (const side of [-1, 1]) {
+    const practical = new THREE.PointLight(0xffd18c, 2.5, 8, 2);
+    practical.name = `loading-bay-task-light-${side < 0 ? 'left' : 'right'}`;
+    practical.position.set(side * 2.5, 3.18, -0.9);
+    loadingBay.add(practical);
+    flat(loadingBay, [0.62, 0.12, 0.34], [side * 2.5, 3.3, -0.2], GLOW.amber,
+      `loading-bay-lamp-${side < 0 ? 'left' : 'right'}`);
+  }
+  group.add(loadingBay);
 
   /* The floor is a poured slab with a drain and old tape lines: this room is a
    * body shop somebody stopped using, not a briefing set. */
@@ -146,6 +265,11 @@ function buildSafehouse() {
   for (const [x, z, w, d] of [[-2.6, 4.6, 3.4, 2.2], [6.2, -1.4, 2.6, 3]]) {
     flat(group, [w, 0.012, d], [x, 0.006, z], MAT.carpet);
   }
+  // Painted guide lines make the empty floor a loading apron and make the
+  // van's direction legible even before the player reaches the doors.
+  flat(group, [0.1, 0.018, 4.1], [-1.7, 0.012, 4.75], MAT.warning, 'loading-apron-stripe-left');
+  flat(group, [0.1, 0.018, 4.1], [1.7, 0.012, 4.75], MAT.warning, 'loading-apron-stripe-right');
+  flat(group, [3.5, 0.018, 0.12], [0, 0.012, 2.72], MAT.warning, 'loading-apron-stop-line');
 
   for (const [index, x] of [-7, -5.1, 6.8].entries()) {
     const locker = new THREE.Group();
@@ -567,6 +691,7 @@ function buildSafehouse() {
    * is interactive; all of it is why the room reads as somewhere people are. */
   for (const x of [-4.5, 4.5]) {
     const light = new THREE.PointLight(0xffd89d, 2.8, 11, 2);
+    light.name = `safehouse-overhead-${x < 0 ? 'left' : 'right'}`;
     light.position.set(x, 3.45, 0);
     group.add(light);
     const fitting = box(group, [2.4, 0.12, 0.34], [x, 3.5, 0], MAT.steel);
@@ -618,22 +743,29 @@ function buildSafehouse() {
   clock.name = 'safehouse-clock';
   box(group, [0.04, 0.2, 0.03], [-8.63, 3.18, 2.4], MAT.ink);
 
-  const van = makeVehicleBody(group, [0, 0, 5], 0x151719, 'primary-van');
-  van.scale.set(1.25, 1.2, 1.1);
-  const vanDoor = box(group, [1.6, 2.2, 0.12], [0, 1.25, 5.95], MAT.steel, 'van-door');
-  box(group, [0.14, 0.5, 0.06], [0.55, 1.25, 6.02], MAT.brass);
+  /* Nose outside, cargo doors inside: this van is backed through the bay
+   * instead of parked sideways across the work floor. */
+  const van = makeCargoVan(group, [0, 0, 6.45], 0x151719, 'primary-van');
+  const vanDoor = van.userData.rearDoorTarget;
 
   return {
     group,
-    // Back from the table, not on top of it: at z 3 the briefing map filled the
-    // lower half of the frame and the crew behind it were a row of shoulders.
-    spawn: new THREE.Vector3(0, 1.66, 4.9),
+    // Clear apron between the briefing and the rear doors. The old 4.9 spawn
+    // was physically inside the scaled car and collision resolution decided
+    // which side of the alleged van the player appeared on.
+    spawn: new THREE.Vector3(0, 1.66, 2.25),
     interactables: { briefing, armor, loadout, van: vanDoor },
     colliders: [
-      ...roomColliders(18, 14, 4.2),
+      // Safehouse shell with a real 3.7 m opening at the loading bay.
+      bounds([18, 4.2, 0.25], [0, 2.1, -7]),
+      bounds([0.25, 4.2, 14], [-9, 2.1, 0]),
+      bounds([0.25, 4.2, 14], [9, 2.1, 0]),
+      bounds([BAY_WING, 4.2, 0.25], [-BAY_WING_X, 2.1, 7]),
+      bounds([BAY_WING, 4.2, 0.25], [BAY_WING_X, 2.1, 7]),
+      bounds([BAY_OPENING, 0.68, 0.25], [0, 3.86, 7]),
       bounds([5.8, 1.05, 2.4], [0, 0.52, 0.2]),
       bounds([4.1, 1.2, 1.5], [4.7, 0.6, 2.5]),
-      bounds([4.9, 2.0, 2.1], [0, 1, 5]),
+      bounds([2.9, 2.9, 6.35], [0, 1.45, 6.45]),
       bounds([1.1, 1.1, 4.2], [-8.2, 0.55, -1.6]),
       bounds([1.1, 1.1, 1.6], [8.2, 0.55, -3.4]),
     ],
@@ -648,18 +780,46 @@ function buildSafehouse() {
 function buildVan() {
   const group = new THREE.Group();
   group.name = 'phase-van';
-  box(group, [3.6, 0.16, 6.4], [0, -0.08, 0], MAT.steel);
-  box(group, [3.6, 2.8, 0.14], [0, 1.4, 3.13], MAT.darkConcrete);
-  box(group, [0.14, 2.8, 6.4], [-1.73, 1.4, 0], MAT.darkConcrete);
-  box(group, [0.14, 2.8, 6.4], [1.73, 1.4, 0], MAT.darkConcrete);
-  box(group, [3.6, 0.16, 6.4], [0, 2.78, 0], MAT.darkConcrete);
+  /* The first captured interior was functionally black: one 1.1-intensity
+   * bulb over near-black concrete panels gave the renderer no gradients to
+   * return. These are still work-van colours, but painted metal rather than
+   * an unlit void. */
+  const vanWall = new THREE.MeshStandardMaterial({
+    color: 0x5b6469, metalness: 0.24, roughness: 0.76,
+  });
+  const vanCeiling = new THREE.MeshStandardMaterial({
+    color: 0x4a5358, metalness: 0.2, roughness: 0.82,
+  });
+  const vanDoor = new THREE.MeshStandardMaterial({
+    color: 0x626b70, metalness: 0.35, roughness: 0.62,
+  });
+  const vanBench = new THREE.MeshStandardMaterial({ color: 0x59483b, roughness: 0.88 });
+  const vanCushion = new THREE.MeshStandardMaterial({ color: 0x877159, roughness: 0.92 });
+  const vanRubber = new THREE.MeshStandardMaterial({ color: 0x343e43, roughness: 0.98 });
+
+  box(group, [3.6, 0.16, 6.4], [0, -0.08, 0], MAT.steel, 'van-floor');
+  box(group, [3.6, 2.8, 0.14], [0, 1.4, 3.13], vanWall, 'van-bulkhead-wall');
+  box(group, [0.14, 2.8, 6.4], [-1.73, 1.4, 0], vanWall, 'van-wall-left');
+  box(group, [0.14, 2.8, 6.4], [1.73, 1.4, 0], vanWall, 'van-wall-right');
+  box(group, [3.6, 0.16, 6.4], [0, 2.78, 0], vanCeiling, 'van-ceiling');
   // Benches down both sides, ribbed walls, grab rails, a strapped equipment
   // case and the bulkhead window through to the cab.
-  box(group, [0.62, 0.62, 4.8], [-1.32, 0.54, 0.1], MAT.wood);
-  box(group, [0.62, 0.62, 4.8], [1.32, 0.54, 0.1], MAT.wood);
+  for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
+    box(group, [0.62, 0.62, 4.8], [side * 1.32, 0.54, 0.1], vanBench, `van-bench-${label}`);
+    box(group, [0.66, 0.12, 4.62], [side * 1.32, 0.9, 0.1], vanCushion,
+      `van-bench-cushion-${label}`);
+    box(group, [0.14, 0.74, 4.62], [side * 1.57, 1.2, 0.1], vanCushion,
+      `van-bench-back-${label}`);
+    for (const z of [-1.55, -0.45, 0.65, 1.75]) {
+      box(group, [0.68, 0.025, 0.045], [side * 1.32, 0.966, z], MAT.webbing,
+        `van-bench-seam-${label}-${z}`);
+    }
+  }
   for (let i = -6; i <= 6; i++) {
-    box(group, [0.05, 2.4, 0.05], [-1.64, 1.4, i * 0.45], MAT.steel);
-    box(group, [0.05, 2.4, 0.05], [1.64, 1.4, i * 0.45], MAT.steel);
+    box(group, [0.05, 2.4, 0.05], [-1.64, 1.4, i * 0.45], MAT.steel,
+      `van-wall-rib-left-${i + 7}`);
+    box(group, [0.05, 2.4, 0.05], [1.64, 1.4, i * 0.45], MAT.steel,
+      `van-wall-rib-right-${i + 7}`);
   }
   for (const z of [-1.65, -0.55, 0.55, 1.65]) {
     box(group, [0.05, 0.05, 0.55], [-1.0, 1.8, z], MAT.brass);
@@ -669,14 +829,38 @@ function buildVan() {
   bulkhead.castShadow = false;
   const kit = box(group, [1.0, 0.42, 0.6], [0, 0.22, 2.3], MAT.tactical, 'van-equipment-case');
   box(group, [1.05, 0.06, 0.08], [0, 0.46, 2.3], MAT.webbing);
-  const dome = new THREE.PointLight(0xd8b884, 1.1, 6, 2);
-  dome.position.set(0, 2.5, 0);
-  group.add(dome);
-  flat(group, [0.5, 0.05, 0.22], [0, 2.62, 0], GLOW.amber, 'van-dome-lens');
 
-  const door = box(group, [2.4, 2.5, 0.14], [0, 1.25, -3.13], MAT.steel, 'van-interior-door');
-  box(group, [0.1, 0.5, 0.06], [0.5, 1.3, -3.04], MAT.brass);
-  box(group, [0.1, 0.5, 0.06], [-0.5, 1.3, -3.04], MAT.brass);
+  /* Two local pools, total intensity 4.8. The central dome reveals the five
+   * occupied seats; the shorter rear pool gives the exit beat a destination.
+   * Neither spills beyond this six-metre box. */
+  box(group, [0.92, 0.1, 0.42], [0, 2.68, 0.55], MAT.steel, 'van-dome-fixture');
+  flat(group, [0.74, 0.045, 0.3], [0, 2.62, 0.55], GLOW.amber, 'van-dome-lens');
+  const dome = new THREE.PointLight(0xffd39a, 2.7, 6.4, 2);
+  dome.name = 'van-dome-task-light';
+  dome.position.set(0, 2.4, 0.55);
+  group.add(dome);
+
+  box(group, [1.72, 0.1, 0.34], [0, 2.66, -2.22], MAT.steel, 'van-rear-task-fixture');
+  flat(group, [1.48, 0.045, 0.22], [0, 2.6, -2.22], GLOW.amber, 'van-rear-task-lens');
+  const rearTask = new THREE.PointLight(0xffdfb0, 2.1, 4.8, 2);
+  rearTask.name = 'van-rear-task-light';
+  rearTask.position.set(0, 2.34, -2.22);
+  group.add(rearTask);
+
+  flat(group, [1.3, 0.025, 5.05], [0, 0.018, -0.05], vanRubber, 'van-aisle-runner');
+  for (const z of [-1.8, -0.9, 0, 0.9, 1.8]) {
+    flat(group, [1.14, 0.012, 0.035], [0, 0.036, z], MAT.steel, `van-aisle-rib-${z}`);
+  }
+
+  const door = box(group, [2.4, 2.5, 0.14], [0, 1.25, -3.13], vanDoor, 'van-interior-door');
+  for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
+    box(group, [1.02, 0.88, 0.035], [side * 0.58, 1.55, -3.04], vanCeiling,
+      `van-rear-door-panel-${label}`);
+    flat(group, [0.34, 0.12, 0.025], [side * 0.84, 0.46, -3.015], GLOW.alarm,
+      `van-rear-door-reflector-${label}`);
+    box(group, [0.1, 0.5, 0.06], [side * 0.5, 1.3, -3.0], MAT.brass,
+      `van-rear-door-latch-${label}`);
+  }
 
   /**
    * The reason the mask never went on.
@@ -1219,6 +1403,7 @@ function buildGarage() {
     fitting.castShadow = false;
     flat(group, [0.22, 0.05, 8.6], [i * 5, 4.1, 0], GLOW.amber);
     const light = new THREE.PointLight(0xe8d7ae, 1.6, 14, 2);
+    light.name = `garage-overhead-${i + 3}`;
     light.position.set(i * 5, 3.9, 0);
     group.add(light);
   }
@@ -1246,6 +1431,58 @@ function buildGarage() {
   const sedan = makeVehicleBody(group, [0, 0, -8], 0x34393d, 'escape-sedan');
   const load = box(group, [2.4, 1.1, 0.2], [0, 0.85, -7], MAT.steel, 'sedan-trunk');
   const drive = box(group, [1, 1.3, 0.2], [-1.1, 1.1, -8], MAT.glass, 'driver-door');
+
+  /* A transfer lane, not an isolated car in the dark. The five ceiling pools
+   * stay unchanged; one directed work lamp picks out the trunk without adding
+   * another omnidirectional light to every surface in the garage. */
+  const transfer = new THREE.Group();
+  transfer.name = 'garage-transfer-zone';
+  transfer.position.set(0, 0, -8);
+  flat(transfer, [0.1, 0.018, 6.4], [-2.55, 0.012, 0], MAT.warning,
+    'garage-transfer-stripe-left');
+  flat(transfer, [0.1, 0.018, 6.4], [2.55, 0.012, 0], MAT.warning,
+    'garage-transfer-stripe-right');
+  flat(transfer, [5.2, 0.018, 0.12], [0, 0.012, 3], MAT.warning,
+    'garage-transfer-stop-line');
+  for (const [x, label] of [[-1.35, 'left'], [1.35, 'right']]) {
+    const stop = box(transfer, [0.82, 0.18, 0.24], [x, 0.09, -1.38], MAT.warning,
+      `garage-wheel-stop-${label}`);
+    stop.rotation.x = -0.12;
+  }
+  group.add(transfer);
+
+  const workLamp = new THREE.Group();
+  workLamp.name = 'garage-work-lamp';
+  workLamp.position.set(3.8, 0, -4.8);
+  box(workLamp, [0.62, 0.08, 0.62], [0, 0.04, 0], MAT.steel, 'garage-work-lamp-base');
+  box(workLamp, [0.08, 3.1, 0.08], [0, 1.55, 0], MAT.steel, 'garage-work-lamp-mast');
+  const lampHead = flat(workLamp, [0.66, 0.42, 0.18], [-0.18, 2.95, -0.08], GLOW.amber,
+    'garage-work-lamp-head');
+  lampHead.rotation.y = -0.45;
+  group.add(workLamp);
+  const taskTarget = new THREE.Object3D();
+  taskTarget.name = 'garage-sedan-task-target';
+  taskTarget.position.set(0, 0.8, -8);
+  group.add(taskTarget);
+  const taskLight = new THREE.SpotLight(0xffdfaa, 4.8, 18, Math.PI / 5, 0.45, 1.8);
+  taskLight.name = 'garage-sedan-task-light';
+  taskLight.position.set(3.6, 3.0, -4.7);
+  taskLight.target = taskTarget;
+  group.add(taskLight);
+
+  const toolCart = new THREE.Group();
+  toolCart.name = 'garage-tool-cart';
+  toolCart.position.set(5.5, 0, -5.5);
+  box(toolCart, [1.35, 0.12, 0.72], [0, 0.42, 0], MAT.steel, 'garage-tool-cart-lower');
+  box(toolCart, [1.35, 0.12, 0.72], [0, 1.02, 0], MAT.steel, 'garage-tool-cart-top');
+  for (const [x, z] of [[-0.55, -0.25], [-0.55, 0.25], [0.55, -0.25], [0.55, 0.25]]) {
+    mesh(toolCart, new THREE.CylinderGeometry(0.1, 0.1, 0.08, 10), MAT.tactical, [x, 0.12, z])
+      .rotation.z = Math.PI / 2;
+  }
+  box(toolCart, [0.08, 0.85, 0.08], [-0.64, 0.72, 0], MAT.steel);
+  box(toolCart, [0.5, 0.08, 0.08], [-0.86, 1.1, 0], MAT.steel, 'garage-tool-cart-handle');
+  box(toolCart, [0.24, 0.18, 0.32], [-0.34, 1.17, 0], MAT.warning, 'garage-tool-case');
+  group.add(toolCart);
   for (let i = 0; i < 5; i++) {
     const parked = makeVehicleBody(group, [i % 2 ? -9.4 : 9.4, 0, -11 + i * 5.5],
       [0x2b3035, 0x4a2222, 0x223528, 0x36363c, 0x2d3a48][i], `garage-parked-${i}`);
@@ -1269,6 +1506,7 @@ function buildGarage() {
       ...[-1, 1].map((side) => bounds([0.3, 1.6, 8], [side * 3.5, 1.5, 13])),
       // The stacked crates in the two corners.
       ...[[-10, -6], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
+      bounds([1.4, 1.2, 0.8], [5.5, 0.6, -5.5]),
       // The five parked cars down the side walls.
       ...Array.from({ length: 5 }, (_, i) => bounds([2.2, 1.9, 4.1],
         [i % 2 ? -9.4 : 9.4, 0.95, -11 + i * 5.5])),
@@ -1319,22 +1557,93 @@ function buildDriving() {
   // from where the player is put down, this was a wall of yellow.
   flat(group, [0.08, 0.34, 0.9], [13.6, 3.4, -655], GLOW.amber, 'swap-shed-light');
   flat(group, [0.08, 0.34, 0.9], [13.6, 3.4, -651], GLOW.amber, 'swap-shed-light-2');
-  const yardLight = new THREE.PointLight(0xffd7a0, 3, 40, 2);
-  yardLight.position.set(17, 7, -653);
+  const yardPole = new THREE.Group();
+  yardPole.name = 'swap-yard-light-pole';
+  yardPole.position.set(17, 0, -648.2);
+  box(yardPole, [0.18, 6.6, 0.18], [0, 3.3, 0], MAT.steel, 'swap-yard-light-mast');
+  box(yardPole, [0.16, 0.16, 4.8], [0, 6.5, -2.4], MAT.steel, 'swap-yard-light-arm');
+  flat(yardPole, [0.9, 0.18, 0.48], [0, 6.36, -4.72], GLOW.amber, 'swap-yard-light-head');
+  group.add(yardPole);
+  const yardLight = new THREE.PointLight(0xffd7a0, 4.2, 38, 2);
+  yardLight.name = 'swap-yard-fill';
+  yardLight.position.set(17, 6.35, -652.9);
   group.add(yardLight);
   box(group, [3, 1.6, 2.2], [26, 0.8, -659], MAT.warning, 'swap-skip');
   for (let i = 0; i < 4; i++) box(group, [1.2, 0.16, 1.0], [25, 0.1 + i * 0.18, -646], MAT.wood);
   for (let i = 0; i < 8; i++) box(group, [0.08, 2.4, 0.08], [13 + i * 2.2, 1.2, -644], MAT.steel);
 
+  const cleanCarBay = new THREE.Group();
+  cleanCarBay.name = 'swap-clean-car-bay';
+  cleanCarBay.position.set(23.8, 0, -656);
+  flat(cleanCarBay, [0.1, 0.02, 6.2], [-1.55, 0.012, 0], MAT.warning,
+    'swap-clean-car-stripe-left');
+  flat(cleanCarBay, [0.1, 0.02, 6.2], [1.55, 0.012, 0], MAT.warning,
+    'swap-clean-car-stripe-right');
+  flat(cleanCarBay, [3.2, 0.02, 0.12], [0, 0.012, -3], MAT.warning,
+    'swap-clean-car-stop-line');
+  group.add(cleanCarBay);
+
+  const workbench = new THREE.Group();
+  workbench.name = 'swap-workbench';
+  workbench.position.set(18.8, 0, -654);
+  box(workbench, [7, 0.16, 1.2], [0, 0.72, 0], MAT.steel, 'swap-workbench-top');
+  for (const x of [-3.2, 3.2]) {
+    for (const z of [-0.42, 0.42]) box(workbench, [0.14, 0.68, 0.14], [x, 0.34, z], MAT.steel);
+  }
+  box(workbench, [6.5, 0.08, 0.12], [0, 0.36, 0.45], MAT.warning, 'swap-workbench-safety-edge');
+  group.add(workbench);
+
+  const sortingTarp = new THREE.Group();
+  sortingTarp.name = 'swap-sorting-tarp';
+  sortingTarp.position.set(19.1, 0, -657);
+  flat(sortingTarp, [5.8, 0.018, 2.0], [0, 0.012, 0], MAT.tactical, 'swap-sorting-tarp-sheet');
+  for (const x of [-1.4, 0, 1.4]) {
+    flat(sortingTarp, [0.04, 0.01, 1.8], [x, 0.025, 0], MAT.warning, `swap-sorting-divider-${x}`);
+  }
+  group.add(sortingTarp);
+
+  for (const [x, z, label] of [[14.35, -658.15, 'left'], [25.65, -650.25, 'right']]) {
+    const bollard = new THREE.Group();
+    bollard.name = `swap-bollard-${label}`;
+    bollard.position.set(x, 0, z);
+    mesh(bollard, new THREE.CylinderGeometry(0.16, 0.19, 1.2, 12), MAT.warning, [0, 0.6, 0]);
+    flat(bollard, [0.35, 0.1, 0.35], [0, 0.78, 0], MAT.paper, `swap-bollard-band-${label}`);
+    group.add(bollard);
+  }
+
+  // Two narrow task pools, sharing the existing yard fill rather than adding
+  // more point lights to the entire driving scene.
+  const taskRig = new THREE.Group();
+  taskRig.name = 'swap-task-light-rig';
+  box(taskRig, [11.2, 0.16, 0.16], [20.2, 4.75, -651.2], MAT.steel, 'swap-task-light-truss');
+  for (const [id, x, targetPosition] of [
+    ['workbench', 18.2, [18.5, 0.8, -654]],
+    ['car', 24, [23.8, 0.9, -656]],
+  ]) {
+    flat(taskRig, [0.68, 0.18, 0.42], [x, 4.55, -651.4], GLOW.amber,
+      `swap-task-fixture-${id}`);
+    const target = new THREE.Object3D();
+    target.name = `swap-task-target-${id}`;
+    target.position.set(...targetPosition);
+    group.add(target);
+    const light = new THREE.SpotLight(0xffdda2, id === 'car' ? 5.2 : 4.8, 20,
+      Math.PI / 5, 0.48, 1.8);
+    light.name = `swap-task-light-${id}`;
+    light.position.set(x, 4.5, -651.4);
+    light.target = target;
+    group.add(light);
+  }
+  group.add(taskRig);
+
   const cleanCar = makeVehicleBody(group, [23.8, 0, -656], 0x18231f, 'clean-swap-car');
   cleanCar.rotation.y = Math.PI / 2;
   const trunk = box(group, [1.4, 0.7, 0.2], [22.9, 0.82, -656], MAT.steel, 'swap-trunk');
   const bagsProp = box(group, [1.6, 0.7, 0.8], [17.7, 0.36, -652], MAT.darkConcrete, 'swap-bags');
-  const aid = box(group, [0.62, 0.18, 0.42], [15.8, 0.76, -654], MAT.marble, 'swap-aid');
-  const masks = box(group, [0.72, 0.16, 0.48], [16.9, 0.7, -656], MAT.darkConcrete, 'swap-masks');
+  const aid = box(group, [0.62, 0.18, 0.42], [15.8, 0.89, -654], MAT.marble, 'swap-aid');
+  const masks = box(group, [0.72, 0.16, 0.48], [17.1, 0.88, -654], MAT.darkConcrete, 'swap-masks');
   const jackets = box(group, [1.1, 0.28, 0.6], [18.5, 0.15, -657], MAT.wood, 'swap-jackets');
   const weapons = box(group, [1.7, 0.24, 0.62], [20.2, 0.16, -657], MAT.steel, 'swap-weapons');
-  const wipe = box(group, [0.6, 0.08, 0.42], [21.7, 0.75, -654], MAT.marble, 'swap-wipe');
+  const wipe = box(group, [0.6, 0.08, 0.42], [21.7, 0.84, -654], MAT.marble, 'swap-wipe');
   const depart = box(group, [1.2, 1.4, 0.2], [24.1, 1.0, -655.2], swapMat, 'swap-depart');
 
   const car = makeVehicleBody(group, [ESCAPE_START.x, 0, ESCAPE_START.z], 0x34393d, 'player-car');
@@ -1394,7 +1703,15 @@ function buildDriving() {
     interactables: {
       swap, trunk, bags: bagsProp, aid, masks, jackets, weapons, wipe, depart,
     },
-    colliders: [],
+    colliders: [
+      // Large authored solids in the walkable swap-yard bounds.
+      bounds([3, 1.6, 2.2], [26, 0.8, -659]),
+      bounds([2.2, 1.9, 4.1], [23.8, 0.95, -656]),
+      bounds([7, 0.88, 1.2], [18.8, 0.44, -654]),
+      bounds([1.2, 0.82, 1], [25, 0.41, -646]),
+      bounds([0.38, 1.2, 0.38], [14.35, 0.6, -658.15]),
+      bounds([0.38, 1.2, 0.38], [25.65, 0.6, -650.25]),
+    ],
     floorZones: city.roads.map((road) => floorZone(road.w, road.d, 'asphalt', road.x, road.z)),
   };
 }

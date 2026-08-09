@@ -8,10 +8,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import * as THREE from 'three';
 
+import { buildLandmarks } from '../src/beefrun/landmarks.js';
 import { MissionController } from '../src/beefrun/mission.js';
 import { BIG_UNCLE_LOU, CAPTAIN_LOU_SASOLE } from '../src/core/wardrobe.js';
 import { AIRSTRIP_UNLOCKS, LANDING_QUALITIES } from '../src/core/campaign.js';
+import { ensureDomShim } from '../tools/three-shim.mjs';
+
+ensureDomShim();
 
 const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
 const beefMain = read('../src/beefrun/main.js');
@@ -21,6 +26,102 @@ const beefAircraft = read('../src/beefrun/aircraft.js');
 const beefAirfield = read('../src/beefrun/airfield.js');
 const beefMission = read('../src/beefrun/mission.js');
 const beefDetection = read('../src/beefrun/detection.js');
+
+test('the whole river is one connected ribbon instead of rotated rectangular patches or course seams', () => {
+  const scene = new THREE.Scene();
+  const river = buildLandmarks(scene).marks.river.group;
+  const waterSurfaces = [];
+  river.traverse((part) => {
+    if (part.isMesh && part.name.endsWith('-surface')) waterSurfaces.push(part);
+  });
+  const water = river.getObjectByName('river-course-surface');
+
+  assert.ok(water?.isMesh, 'the full upstream-to-downstream river has no surface');
+  assert.deepEqual(waterSurfaces.map((part) => part.name), ['river-course-surface'],
+    'separate course meshes leave a hard seam where their end caps cross');
+  const vertices = water.geometry.getAttribute('position').count;
+  assert.ok(vertices > 300, `the complete course was truncated to ${vertices} vertices`);
+  assert.equal(water.geometry.index.count, (vertices / 2 - 1) * 6);
+  assert.deepEqual([water.rotation.x, water.rotation.y, water.rotation.z], [0, 0, 0]);
+});
+
+test('the continuous river never folds back on itself at a reach tangent', () => {
+  const scene = new THREE.Scene();
+  const river = buildLandmarks(scene).marks.river.group;
+  const water = river.getObjectByName('river-course-surface');
+  const positions = water.geometry.getAttribute('position');
+  const centres = [];
+
+  for (let vertex = 0; vertex < positions.count; vertex += 2) {
+    centres.push(new THREE.Vector2(
+      (positions.getX(vertex) + positions.getX(vertex + 1)) * 0.5,
+      (positions.getZ(vertex) + positions.getZ(vertex + 1)) * 0.5,
+    ));
+  }
+
+  let sharpest = { row: -1, radians: 0 };
+  for (let row = 1; row < centres.length - 1; row++) {
+    const incoming = centres[row].clone().sub(centres[row - 1]);
+    const outgoing = centres[row + 1].clone().sub(centres[row]);
+    assert.ok(incoming.length() > 0.01 && outgoing.length() > 0.01,
+      `river row ${row} duplicates an adjacent centreline point`);
+    const cosine = THREE.MathUtils.clamp(
+      incoming.dot(outgoing) / (incoming.length() * outgoing.length()),
+      -1,
+      1,
+    );
+    const radians = Math.acos(cosine);
+    if (radians > sharpest.radians) sharpest = { row, radians };
+  }
+
+  const degrees = THREE.MathUtils.radToDeg(sharpest.radians);
+  assert.ok(sharpest.radians < Math.PI / 2,
+    `river centreline folds ${degrees.toFixed(3)} degrees at row ${sharpest.row}`);
+});
+
+test('every gravel bar overlaps the river instead of becoming a detached patch', () => {
+  const scene = new THREE.Scene();
+  const river = buildLandmarks(scene).marks.river.group;
+  const water = river.getObjectByName('river-course-surface');
+  const positions = water.geometry.getAttribute('position');
+  const rows = [];
+  const bars = [];
+  scene.updateMatrixWorld(true);
+
+  for (let vertex = 0; vertex < positions.count; vertex += 2) {
+    const left = water.localToWorld(new THREE.Vector3(
+      positions.getX(vertex), positions.getY(vertex), positions.getZ(vertex),
+    ));
+    const right = water.localToWorld(new THREE.Vector3(
+      positions.getX(vertex + 1), positions.getY(vertex + 1), positions.getZ(vertex + 1),
+    ));
+    rows.push({ centre: left.clone().add(right).multiplyScalar(0.5), halfWidth: left.distanceTo(right) * 0.5 });
+  }
+  river.traverse((part) => {
+    if (part.isMesh && /-bar-\d+$/.test(part.name)) bars.push(part);
+  });
+  assert.ok(bars.length > 0, 'the course lost all of its gravel bars');
+
+  let worst = { name: '', gap: -Infinity, distance: 0, reach: 0 };
+  for (const bar of bars) {
+    const centre = bar.getWorldPosition(new THREE.Vector3());
+    const radius = bar.geometry.parameters.radius
+      * Math.max(...bar.getWorldScale(new THREE.Vector3()).toArray());
+    let nearest = { distance: Infinity, halfWidth: 0 };
+    for (const row of rows) {
+      const distance = Math.hypot(centre.x - row.centre.x, centre.z - row.centre.z);
+      if (distance < nearest.distance) nearest = { distance, halfWidth: row.halfWidth };
+    }
+    const gap = nearest.distance - nearest.halfWidth - radius;
+    if (gap > worst.gap) {
+      worst = { name: bar.name, gap, distance: nearest.distance, reach: nearest.halfWidth + radius };
+    }
+  }
+
+  assert.ok(worst.gap <= 0,
+    `${worst.name} has ${worst.gap.toFixed(2)} m of dry ground between it and the river `
+      + `(centre ${worst.distance.toFixed(2)} m away; overlap reach ${worst.reach.toFixed(2)} m)`);
+});
 
 /* ---------------- 1. "why does it not take my pointer?" ---------------- */
 

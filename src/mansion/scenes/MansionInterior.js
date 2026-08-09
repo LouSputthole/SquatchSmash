@@ -61,8 +61,9 @@ import {
   makeBed, makeNightstand, makePlant, makeFloorLamp, makeFrame,
   makeToilet, makeTub, makeWhiskeyBottle, makeShotGlass,
   makeAshtray, makeBooks, makeWallClock, makeDesk, makeChair, makeBeerCan,
-  makePizzaBox, makeBong, makeZynCan,
+  makePizzaBox, makeZynCan,
 } from '../../world/props.js';
+import { buildInteractiveBong } from '../../world/bong.js';
 import { resolveGear } from '../../world/gear.js';
 /* NO PEOPLE ARE BUILT IN THIS FILE. It used to import the club's figure
  * builder and the wardrobe to sit a Big Uncle Lou in the office carver, on the
@@ -144,6 +145,18 @@ export const MANSION_ART_SLOTS = [
    * rather than hung, because "another crest on another wall" is the exact
    * complaint the last art pass earned. */
   'mansion.suite.crest',
+  /* The owner's ten authored photographs, recovered from the dedicated
+   * Mansion-art pass and hung once each in the room chosen for them. */
+  'mansion.gallery.roster',
+  'mansion.ballroom.major',
+  'mansion.lounge.cowboy',
+  'mansion.conference.stacks',
+  'mansion.office.boss',
+  'mansion.winter.almighty',
+  'mansion.cellar.bus',
+  'mansion.guest.dog',
+  'mansion.theatre.lockup',
+  'mansion.lan.denver',
 ];
 
 /* ================================================================== */
@@ -480,6 +493,45 @@ function makePortraitTexture(key, name, tint) {
     border: '#3a2a18',
     lineHeight: 34,
   });
+}
+
+/** A real little landscape for the lake room, rather than another text card. */
+function makeLakeBedTexture() {
+  const c = document.createElement('canvas');
+  c.width = 640;
+  c.height = 400;
+  const g = c.getContext('2d');
+  const sky = g.createLinearGradient?.(0, 0, 0, 260);
+  if (sky) {
+    sky.addColorStop(0, '#16283a');
+    sky.addColorStop(1, '#8bb4c7');
+    g.fillStyle = sky;
+  } else g.fillStyle = '#426982';
+  g.fillRect(0, 0, 640, 260);
+  g.fillStyle = '#d9e4dd';
+  g.beginPath();
+  g.arc(500, 78, 34, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#172c26';
+  for (let x = -20; x < 680; x += 54) {
+    const h = 88 + (x % 5) * 7;
+    g.beginPath();
+    g.moveTo(x, 260); g.lineTo(x + 28, 260 - h); g.lineTo(x + 56, 260);
+    g.fill();
+  }
+  g.fillStyle = '#244f68';
+  g.fillRect(0, 260, 640, 140);
+  g.strokeStyle = '#a8d3dd';
+  g.lineWidth = 5;
+  for (let y = 286; y < 380; y += 28) {
+    g.beginPath();
+    g.moveTo(20 + (y % 3) * 18, y);
+    g.lineTo(610 - (y % 4) * 16, y + 3);
+    g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 function inRect(r, x, z) {
@@ -1335,6 +1387,7 @@ export function buildMansionInterior(shell = null) {
     root.add(f.group);
     recordArt(id, x, y, z, rotY, w + 0.14, h + 0.14);
     f.slotId = id;
+    f.art.userData.artPiece = id;
     return f;
   }
 
@@ -1349,6 +1402,7 @@ export function buildMansionInterior(shell = null) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
     m.position.set(x, y, z);
     m.rotation.y = rotY;
+    m.userData.artPiece = id;
     root.add(m);
     recordArt(id, x, y, z, rotY, w, h, depth);
     return m;
@@ -2953,6 +3007,22 @@ export function buildMansionInterior(shell = null) {
       size: [0.05, 0.92, 1.2], pos: [backX - 0.06, GY + 2.86, 49.9], mat: M_GOLD, cast: false,
     }));
 
+    /* Owner-authored Austin Major portrait: the clear south bay of the
+     * billiard-room inner wall, visible as soon as the foyer opens into it. */
+    const loungeCowboy = wallArt(
+      'mansion.lounge.cowboy',
+      r.x0 + 0.14,
+      GY + 2.4,
+      40.0,
+      Math.PI / 2,
+      1.2,
+      1.2,
+      squatchArt('mansion-lounge-cowboy', {
+        title: ['AUSTIN'], footer: 'MAJOR', ink: '#d8b23a', bg: '#1c1420',
+      }),
+    );
+    sconce(r.x0 + 0.2, GY + 3.25, 40.0, Math.PI / 2, 1.9);
+
     /* ---- The set on the bar, and the television at the room's front end.
      * Both are cabinets here; core/radio.js and core/tv.js drive them from
      * the composition root. */
@@ -2998,6 +3068,7 @@ export function buildMansionInterior(shell = null) {
       cases,
       banner,
       bayShield,
+      cowboy: loungeCowboy,
       jackDaniels,
       radio: loungeRadio,
       tv: loungeTvSet,
@@ -3309,7 +3380,27 @@ export function buildMansionInterior(shell = null) {
         }));
       }
     }
-    return { stageLight, stageStack, backdrop: stageBackdrop };
+    const majorBanner = flatArt('mansion.ballroom.major', {
+      x: r.x0 + 0.16,
+      y: GY + 3.3,
+      z: 72.9,
+      rotY: Math.PI / 2,
+      w: 3.4,
+      h: 1.14,
+      material: mat({
+        map: squatchArt('mansion-ballroom-major', {
+          title: ['AUSTIN MAJOR'], footer: 'THE HOUSE WENT', ink: '#c9a2ff', bg: '#1a1226',
+        }),
+        roughness: 0.9,
+        unique: true,
+      }),
+    });
+    root.add(cylinder({
+      r: 0.03, h: 3.6, pos: [r.x0 + 0.12, GY + 3.92, 72.9], mat: M_GOLD, rotX: Math.PI / 2,
+    }));
+    return {
+      stageLight, stageStack, backdrop: stageBackdrop, major: majorBanner,
+    };
   }
   const ballroomProps = buildBallroom();
 
@@ -3424,6 +3515,8 @@ export function buildMansionInterior(shell = null) {
   /* ================================================================== */
   function buildKitchen() {
     const r = KITCHEN;
+    const sinkX = r.x1 - 0.4;
+    const sinkZ = 61.5;
     const tileMat = mat({
       map: tiled(tileTex(6, '#7f7a6d', '#e6e2d6'), 12, 16), roughness: 0.5, unique: true,
     });
@@ -3439,7 +3532,11 @@ export function buildMansionInterior(shell = null) {
       }));
       solid(x0, x1, GY, GY + 0.94, z0, z1);
     }
-    counterRun(r.x1 - 0.7, r.x1, 59, 64.6);
+    /* Leave a real opening in both the worktop and cabinet carcass for the
+     * sink. The old run was one uninterrupted slab; the two steel "bowls"
+     * were built underneath it, so from above there was no sink at all. */
+    counterRun(r.x1 - 0.7, r.x1, 59, sinkZ - 0.7);
+    counterRun(r.x1 - 0.7, r.x1, sinkZ + 0.7, 64.6);
     counterRun(r.x1 - 0.7, r.x1, 67.6, 71);
     /* The north run stops short of x=12.4: the pool door (x:9.6-12.0) goes
      * through this wall, and a counter across it is a doorway you can see
@@ -3492,52 +3589,125 @@ export function buildMansionInterior(shell = null) {
     /* root registers the tap as a hold-to-use interaction wired to the      */
     /* existing `tap.run` cue (no new audio cue: this scene adds none).      */
     /* ================================================================ */
-    const sinkX = r.x1 - 0.4;
-    const sinkZ = 61.5;
-    // Two bowls, sunk into the counter with a drainer beside them.
-    for (const bz of [sinkZ - 0.3, sinkZ + 0.3]) {
-      root.add(box({
-        size: [0.46, 0.26, 0.5], pos: [sinkX, GY + 0.79, bz], mat: M_STEEL, name: 'sink-bowl',
-      }));
-      root.add(box({
-        size: [0.4, 0.02, 0.44], pos: [sinkX, GY + 0.68, bz], mat: M_RACK, cast: false,
+    /* A lower sink cabinet supports two genuinely open bowls. Their floors
+     * and walls finish below the worktop instead of hiding behind a chrome
+     * lid. The named groups are the public geometry contract used by the
+     * room verifier. */
+    root.add(box({
+      size: [0.7, 0.7, 1.4],
+      pos: [sinkX, GY + 0.35, sinkZ],
+      mat: M.cabinet,
+      name: 'kitchen-sink-cabinet',
+    }));
+    root.add(box({
+      size: [0.04, 0.58, 1.24],
+      pos: [r.x1 - 0.72, GY + 0.38, sinkZ],
+      mat: M_WOOD_DK,
+      cast: false,
+      name: 'kitchen-sink-cabinet-front',
+    }));
+    solid(r.x1 - 0.7, r.x1, GY, GY + 0.94, sinkZ - 0.7, sinkZ + 0.7);
+
+    const sinkRim = new THREE.Group();
+    sinkRim.name = 'kitchen-sink-rim';
+    root.add(sinkRim);
+    const rimY = GY + 0.94;
+    for (const rx of [sinkX - 0.25, sinkX + 0.25]) {
+      sinkRim.add(box({
+        size: [0.06, 0.04, 1.36], pos: [rx, rimY, sinkZ], mat: M_CHROME,
+        cast: false, name: 'kitchen-sink-rim-rail',
       }));
     }
+    for (const rz of [sinkZ - 0.67, sinkZ, sinkZ + 0.67]) {
+      sinkRim.add(box({
+        size: [0.56, 0.04, 0.06], pos: [sinkX, rimY, rz], mat: M_CHROME,
+        cast: false, name: rz === sinkZ ? 'kitchen-sink-divider' : 'kitchen-sink-rim-rail',
+      }));
+    }
+
+    const sinkBowls = [];
+    for (const bz of [sinkZ - 0.335, sinkZ + 0.335]) {
+      const bowl = new THREE.Group();
+      bowl.name = 'kitchen-sink-bowl';
+      const floor = box({
+        size: [0.38, 0.03, 0.49],
+        pos: [sinkX, GY + 0.735, bz],
+        mat: M_STEEL,
+        cast: false,
+        name: 'kitchen-sink-basin-floor',
+      });
+      bowl.add(floor);
+      for (const wx of [sinkX - 0.21, sinkX + 0.21]) {
+        bowl.add(box({
+          size: [0.04, 0.14, 0.49], pos: [wx, GY + 0.79, bz], mat: M_STEEL,
+          cast: false, name: 'kitchen-sink-basin-wall',
+        }));
+      }
+      for (const wz of [bz - 0.275, bz + 0.275]) {
+        bowl.add(box({
+          size: [0.46, 0.14, 0.04], pos: [sinkX, GY + 0.79, wz], mat: M_STEEL,
+          cast: false, name: 'kitchen-sink-basin-wall',
+        }));
+      }
+      root.add(bowl);
+      sinkBowls.push(bowl);
+    }
+
+    // A ribbed draining board sits on the uninterrupted counter beyond the
+    // north bowl; it does not cap either opening.
     root.add(box({
-      size: [0.56, 0.03, 1.16], pos: [sinkX, GY + 0.925, sinkZ], mat: M_CHROME, cast: false,
+      size: [0.56, 0.025, 0.52], pos: [sinkX, GY + 0.945, sinkZ + 0.96],
+      mat: M_CHROME, cast: false, name: 'kitchen-sink-drainer',
     }));
     for (let i = 0; i < 7; i++) {
       root.add(box({
-        size: [0.42, 0.012, 0.02], pos: [sinkX, GY + 0.935, sinkZ + 0.76 + i * 0.055], mat: M_CHROME, cast: false,
+        size: [0.42, 0.012, 0.018], pos: [sinkX, GY + 0.962, sinkZ + 0.79 + i * 0.055],
+        mat: M_RACK, cast: false, name: 'kitchen-sink-drainer-rib',
       }));
     }
-    // Swan-neck mixer with a lever, plus a pull-out spray and a soap pump.
-    const tapBaseY = GY + 0.94;
-    root.add(cylinder({ r: 0.045, h: 0.03, pos: [sinkX - 0.19, tapBaseY, sinkZ], mat: M_CHROME }));
-    root.add(cylinder({ r: 0.028, h: 0.36, pos: [sinkX - 0.19, tapBaseY + 0.18, sinkZ], mat: M_CHROME }));
-    const spoutY = tapBaseY + 0.4;
-    root.add(cylinder({
-      r: 0.026, h: 0.24, pos: [sinkX - 0.13, spoutY, sinkZ], mat: M_CHROME, rotZ: Math.PI / 2 - 0.5,
-    }));
-    const tapSpout = cylinder({
-      r: 0.022, h: 0.1, pos: [sinkX - 0.02, spoutY - 0.06, sinkZ], mat: M_CHROME,
-    });
-    root.add(tapSpout);
+    // A continuous swan-neck mixer on the back rail. Its outlet and water
+    // stand over the SOUTH bowl, not over the divider between the two bowls.
+    const waterZ = sinkZ - 0.335;
+    const tapBaseY = GY + 0.96;
+    const faucet = new THREE.Group();
+    faucet.name = 'kitchen-sink-faucet';
+    root.add(faucet);
+    faucet.add(named(cylinder({
+      r: 0.05, h: 0.035, pos: [sinkX + 0.22, tapBaseY, waterZ], mat: M_CHROME,
+    }), 'kitchen-sink-faucet-base'));
+    faucet.add(named(cylinder({
+      r: 0.028, h: 0.22, pos: [sinkX + 0.22, tapBaseY + 0.125, waterZ], mat: M_CHROME,
+    }), 'kitchen-sink-faucet-riser'));
+    const faucetArch = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.026, 8, 24, Math.PI), M_CHROME);
+    faucetArch.position.set(sinkX + 0.04, tapBaseY + 0.235, waterZ);
+    faucetArch.name = 'kitchen-sink-faucet-arch';
+    faucet.add(faucetArch);
+    const spoutY = tapBaseY + 0.175;
+    const tapSpout = named(cylinder({
+      r: 0.022, h: 0.12, pos: [sinkX - 0.14, spoutY, waterZ], mat: M_CHROME,
+    }), 'kitchen-sink-faucet-spout');
+    faucet.add(tapSpout);
     const tapLever = box({
-      size: [0.13, 0.024, 0.024], pos: [sinkX - 0.24, tapBaseY + 0.22, sinkZ], mat: M_CHROME, rotZ: 0.35,
+      size: [0.13, 0.024, 0.024], pos: [sinkX + 0.24, tapBaseY + 0.14, waterZ - 0.09],
+      mat: M_CHROME, rotZ: 0.35, name: 'kitchen-sink-faucet-lever',
     });
-    root.add(tapLever);
-    root.add(cylinder({ r: 0.028, h: 0.2, pos: [sinkX - 0.19, tapBaseY + 0.1, sinkZ - 0.34], mat: M_CHROME }));
-    root.add(cylinder({
-      rTop: 0.032, rBottom: 0.045, h: 0.14, pos: [sinkX - 0.19, tapBaseY + 0.07, sinkZ + 0.42], mat: M_SILVER,
-    }));
+    faucet.add(tapLever);
+    faucet.add(named(cylinder({
+      r: 0.028, h: 0.18, pos: [sinkX + 0.2, tapBaseY + 0.09, sinkZ + 0.28],
+      mat: M_CHROME,
+    }), 'kitchen-sink-pullout-spray'));
+    faucet.add(named(cylinder({
+      rTop: 0.032, rBottom: 0.045, h: 0.14, pos: [sinkX + 0.2, tapBaseY + 0.07, sinkZ + 0.48],
+      mat: M_SILVER,
+    }), 'kitchen-sink-soap-pump'));
     // The stream, the splash ring and the surface ripple -- hidden until the
     // tap is opened.
     const streamMat = mat({
       color: 0xcfe8f2, roughness: 0.15, transparent: true, opacity: 0.55, unique: true,
     });
     const sinkStream = cylinder({
-      r: 0.014, h: 0.28, pos: [sinkX - 0.02, spoutY - 0.24, sinkZ], mat: streamMat, cast: false,
+      r: 0.014, h: 0.3, pos: [sinkX - 0.14, GY + 0.91, waterZ], mat: streamMat,
+      cast: false, name: 'kitchen-sink-stream',
     });
     sinkStream.visible = false;
     root.add(sinkStream);
@@ -3546,7 +3716,8 @@ export function buildMansionInterior(shell = null) {
     });
     const sinkSplash = new THREE.Mesh(new THREE.RingGeometry(0.02, 0.09, 20), splashMat);
     sinkSplash.rotation.x = -Math.PI / 2;
-    sinkSplash.position.set(sinkX - 0.02, GY + 0.685, sinkZ);
+    sinkSplash.position.set(sinkX - 0.14, GY + 0.755, waterZ);
+    sinkSplash.name = 'kitchen-sink-splash';
     sinkSplash.visible = false;
     root.add(sinkSplash);
     /* An invisible aiming proxy over the bowls. The spout itself is a 2 cm
@@ -3557,7 +3728,7 @@ export function buildMansionInterior(shell = null) {
       new THREE.BoxGeometry(0.8, 0.7, 1.3),
       new THREE.MeshBasicMaterial({ visible: false }),
     );
-    sinkTarget.position.set(sinkX - 0.15, GY + 1.1, sinkZ);
+    sinkTarget.position.set(sinkX - 0.05, GY + 1.1, sinkZ);
     sinkTarget.name = 'kitchen-sink-target';
     root.add(sinkTarget);
 
@@ -3871,7 +4042,21 @@ export function buildMansionInterior(shell = null) {
       kitchenLights.push(ceilingLight(px, pz, UY - 0.35, 0xffe9c4, 5.6, 15));
     }
     return {
-      island, stove, ceilingLights: kitchenLights, tap: tapSpout, sinkTarget, runSink, updateSink, tv: kitchenTvSet,
+      island,
+      stove,
+      ceilingLights: kitchenLights,
+      tap: tapSpout,
+      sinkTarget,
+      sink: {
+        bowls: sinkBowls,
+        rim: sinkRim,
+        faucet,
+        stream: sinkStream,
+        splash: sinkSplash,
+      },
+      runSink,
+      updateSink,
+      tv: kitchenTvSet,
     };
   }
   const kitchenProps = buildKitchen();
@@ -3939,11 +4124,31 @@ export function buildMansionInterior(shell = null) {
     }));
     sconce(-11.4, UY + 3.0, Z_GALLERY_S + 0.2, 0, 1.9);
 
+    const galleryRoster = flatArt('mansion.gallery.roster', {
+      x: 7.4,
+      y: UY + 2.05,
+      z: Z_GALLERY_S + 0.18,
+      rotY: 0,
+      w: 3.2,
+      h: 1.28,
+      material: mat({
+        map: squatchArt('mansion-gallery-roster', {
+          title: ['THE ROSTER'], footer: 'EVERY NAME ON IT', ink: '#e8c268', bg: '#191322',
+        }),
+        roughness: 0.85,
+        unique: true,
+      }),
+    });
+    root.add(box({
+      size: [3.4, 1.46, 0.05], pos: [7.4, UY + 2.05, Z_GALLERY_S + 0.14], mat: M_GOLD, cast: false,
+    }));
+    sconce(7.4, UY + 3.05, Z_GALLERY_S + 0.2, 0, 1.9);
+
     const lights = [];
     for (const px of [-12, -4, 4, 12]) {
       lights.push(ceilingLight(px, 50.5, UCY - 0.3, 0xffdca0, 5.2, 15));
     }
-    return { lights, pride: galleryPride };
+    return { lights, pride: galleryPride, roster: galleryRoster };
   }
   const galleryProps = buildGallery();
 
@@ -4227,6 +4432,18 @@ export function buildMansionInterior(shell = null) {
       squatchArt('mansion-conference-crest', {
         title: ['SILVER', 'SASQUATCHES'], footer: 'EST. THE OLD DAYS', ink: '#d8b23a', bg: '#141018',
       }));
+    const conferenceStacks = wallArt(
+      'mansion.conference.stacks',
+      r.x1 - 0.14,
+      UY + 2.4,
+      59.9,
+      -Math.PI / 2,
+      1.15,
+      1.15,
+      squatchArt('mansion-conference-stacks', {
+        title: ['FIVE YEARS'], footer: 'OF STACKS', ink: '#c9a2ff', bg: '#1a1226',
+      }),
+    );
 
     /* Coffered ceiling, in gold on the warm plaster: a beam grid over the
      * middle of the room with the two fittings hung inside it. A boardroom
@@ -4277,6 +4494,7 @@ export function buildMansionInterior(shell = null) {
       screen,
       lights,
       crest: conferenceCrest,
+      stacks: conferenceStacks,
     };
   }
   const conferenceProps = buildConference();
@@ -5044,6 +5262,16 @@ export function buildMansionInterior(shell = null) {
     curtains('z', r.z1 - 0.22, 4.0, UY + 0.6, 5.4, 3.4, M_CURTAIN_RED);
     wallArt('office-lou', -4.6, UY + 2.4, r.z0 + 0.2, 0, 1.2, 1.5,
       makePortraitTexture('lou-office', 'BIG UNCLE LOU', '#2a1c14'));
+    const officeBoss = wallArt(
+      'mansion.office.boss',
+      -6.9,
+      UY + 2.4,
+      r.z0 + 0.2,
+      0,
+      0.86,
+      1.03,
+      makePortraitTexture('lou-photo', 'THE SHIRT', '#241a16'),
+    );
     /* The shield behind the desk. Lou's own wall in his own office is the
      * one place in the house the family badge has to be. Kept east of the
      * office door (x:-1.6..1.6) so it is not another picture over a doorway. */
@@ -5162,6 +5390,7 @@ export function buildMansionInterior(shell = null) {
     ceilingLight(0, 74.2, UCY - 0.4, 0xffdca0, 4.2, 13);
     return {
       desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
+      boss: officeBoss,
       hogMama: officeHogMama,
       /** The desk TOP, for putting things on. See the note at its build. */
       caseSpot,
@@ -5893,6 +6122,127 @@ export function buildMansionInterior(shell = null) {
       root.add(l);
     }
 
+    /* ---- Finish the bed zone. The room had a fully authored canopy but its
+     * foot opened straight onto eleven metres of carpet, so the bed read as
+     * an isolated prop in a large hall. A low bench closes that composition,
+     * and narrow runners give the two nightstand sides a deliberate edge
+     * without adding another collider to either route around the bed. */
+    const suiteBedBench = new THREE.Group();
+    suiteBedBench.name = 'suite-bed-bench';
+    suiteBedBench.add(box({
+      size: [2.2, 0.18, 0.7],
+      pos: [0, SY + 0.46, 66.55],
+      mat: M_SUITE_VELVET,
+      name: 'suite-bed-bench-cushion',
+    }));
+    suiteBedBench.add(box({
+      size: [2.08, 0.12, 0.58],
+      pos: [0, SY + 0.34, 66.55],
+      mat: M_GOLD,
+      cast: false,
+      name: 'suite-bed-bench-apron',
+    }));
+    for (const [lx, lz] of [[-0.9, -0.24], [0.9, -0.24], [-0.9, 0.24], [0.9, 0.24]]) {
+      suiteBedBench.add(named(cylinder({
+        rTop: 0.035,
+        rBottom: 0.055,
+        h: 0.34,
+        pos: [lx, SY + 0.17, 66.55 + lz],
+        mat: M_GOLD,
+      }), 'suite-bed-bench-leg'));
+    }
+    root.add(suiteBedBench);
+    solid(-1.12, 1.12, SY, SY + 0.56, 66.2, 66.9);
+
+    const suiteBedRunners = [-1.95, 1.95].map((x) => {
+      const runner = box({
+        size: [0.62, 0.035, 2.35],
+        pos: [x, SY + 0.06, 64.78],
+        mat: M_SUITE_CARPET,
+        cast: false,
+        name: 'suite-bedside-runner',
+      });
+      root.add(runner);
+      return runner;
+    });
+
+    /* The canopy already has bedside reading lamps, but those are behind its
+     * posts and leave the new bed-foot composition in silhouette from the
+     * suite entry. A matched pair of slim floor lamps lights the bench and
+     * the route around it without adding another cabinet or collider. */
+    const suiteBedFootLights = [-1, 1].map((side) => {
+      const lamp = new THREE.Group();
+      lamp.name = side < 0 ? 'suite-bed-foot-lamp-left' : 'suite-bed-foot-lamp-right';
+      const lx = side * 1.48;
+      const lz = 66.33;
+      lamp.add(named(cylinder({
+        r: 0.15, h: 0.035, pos: [lx, SY + 0.02, lz], mat: M_SUITE_ONYX,
+      }), 'suite-bed-foot-lamp-base'));
+      lamp.add(named(cylinder({
+        r: 0.025, h: 1.16, pos: [lx, SY + 0.6, lz], mat: M_GOLD,
+      }), 'suite-bed-foot-lamp-stem'));
+      lamp.add(named(cylinder({
+        rTop: 0.13, rBottom: 0.21, h: 0.24, pos: [lx, SY + 1.28, lz], mat: M_SHADE_CREAM,
+      }), 'suite-bed-foot-lamp-shade'));
+      lamp.add(sphere({
+        r: 0.05, pos: [lx, SY + 1.2, lz], mat: M_BULB_WARM, cast: false,
+      }));
+      const light = new THREE.PointLight(0xffc27a, 3.4, 8.5, 2);
+      light.position.set(lx, SY + 1.2, lz);
+      light.name = 'suite-bed-foot-task-light';
+      lamp.add(light);
+      root.add(lamp);
+      return lamp;
+    });
+
+    /* A scene-built Lou accent occupies the blind south-wall bay between the
+     * two existing sconces, clear of the canopy and the dressing run. It uses
+     * the existing procedural portrait/frame materials and deliberately has
+     * no manifest slot: the owner's ten recovered photographs remain hung
+     * exactly once each in their authored rooms. */
+    const suiteLouPortrait = wallArt(
+      'suite-lou-accent',
+      -5.65,
+      SY + 1.72,
+      r.z0 + 0.14,
+      0,
+      0.9,
+      1.35,
+      makePortraitTexture('suite-lou-portrait', 'BIG UNCLE LOU', '#2b1811'),
+    );
+    suiteLouPortrait.group.name = 'suite-lou-accent';
+    const suiteLouPortraitLight = new THREE.Group();
+    suiteLouPortraitLight.name = 'suite-lou-accent-light';
+    suiteLouPortraitLight.add(box({
+      size: [0.72, 0.07, 0.11],
+      pos: [-5.65, SY + 2.48, r.z0 + 0.25],
+      mat: M_GOLD,
+      cast: false,
+      name: 'suite-lou-accent-light-bar',
+    }));
+    for (const x of [-5.93, -5.37]) {
+      suiteLouPortraitLight.add(box({
+        size: [0.05, 0.13, 0.08],
+        pos: [x, SY + 2.42, r.z0 + 0.2],
+        mat: M_GOLD,
+        cast: false,
+        name: 'suite-lou-accent-light-bracket',
+      }));
+    }
+    const portraitLight = new THREE.PointLight(0xffd19a, 1.55, 4.2, 2);
+    portraitLight.position.set(-5.65, SY + 2.28, r.z0 + 0.56);
+    portraitLight.name = 'suite-lou-accent-task-light';
+    suiteLouPortraitLight.add(portraitLight);
+    root.add(suiteLouPortraitLight);
+    props.refinement = {
+      bench: suiteBedBench,
+      runners: suiteBedRunners,
+      portrait: suiteLouPortrait.group,
+      portraitArt: suiteLouPortrait.art,
+      accentLights: suiteBedFootLights,
+      portraitLight: suiteLouPortraitLight,
+    };
+
     /* ================================================================ */
     /* LIL TOM CRUZE'S CUSHION                                          */
     /*                                                                   */
@@ -6623,8 +6973,19 @@ export function buildMansionInterior(shell = null) {
     const cz = (r.z0 + r.z1) / 2;
     trimRoom(r, UY, UCY - 0.3);
     topping(r.x0, r.x1, UY + 0.01, r.z0, r.z1, palette.floor ?? M_PARQUET, `${name}-floor`);
-    rug(cx, cz, Math.min(5.4, r.x1 - r.x0 - 1.2), Math.min(6.0, r.z1 - r.z0 - 1.8), UY,
-      palette.rug ?? M_RUG_LIVING);
+    /* The floor topping reaches UY + 0.02. Passing bare UY to `rug()` put
+     * its plane at UY + 0.012: eight millimetres under that finish, which is
+     * why all four room-size rugs disappeared in the real screenshots and
+     * left a large empty parquet field. */
+    const roomRug = rug(
+      cx,
+      cz,
+      Math.min(5.4, r.x1 - r.x0 - 1.2),
+      Math.min(6.0, r.z1 - r.z0 - 1.8),
+      UY + 0.02,
+      palette.rug ?? M_RUG_LIVING,
+    );
+    roomRug.name = `${name}-rug`;
 
     /* `inward` points from the wing's outer (exterior) wall toward the middle
      * of the house. The bedroom door is in the OUTER corner, so the bed and
@@ -6804,6 +7165,7 @@ export function buildMansionInterior(shell = null) {
       bedArt,
       screen: null,
       identity: null,
+      details: null,
     };
     const light = palette.light ? palette.light(ctx) : ceilingLight(cx, cz, UCY - 0.35, 0xffdca0, 5, 15);
     palette.dress?.(ctx);
@@ -6811,8 +7173,13 @@ export function buildMansionInterior(shell = null) {
     return {
       light,
       screen: ctx.screen,
-      art: bedArt,
+      art: bedArt.art,
+      artFrame: bedArt,
+      bed: bed.group,
+      rug: roomRug,
       identity: ctx.identity,
+      details: ctx.details,
+      cluster: ctx.cluster,
     };
   }
 
@@ -7144,16 +7511,98 @@ export function buildMansionInterior(shell = null) {
             }));
           }
           solid(gx - 0.3, gx + 0.3, UY, UY + 1.8, gz - 0.3, gz + 0.3);
+
+          /* The room was architecturally complete but still read like a set:
+           * every large object was closed, centred and untouched. An open
+           * folio on the existing coffer gives the front bedroom one small
+           * occupied detail without spending another metre of walkable floor
+           * or inventing a new piece of furniture. The three named pieces are
+           * published with the room so the all-bedroom pass verifies the
+           * actual meshes instead of merely counting a bed and a television. */
+          const folioLeft = box({
+            size: [0.46, 0.025, 0.54],
+            pos: [chestX - 0.22, UY + 0.675, chestZ],
+            mat: M_CARD,
+            rotZ: 0.045,
+            cast: false,
+            name: 'gothic-open-folio-left',
+          });
+          const folioRight = box({
+            size: [0.46, 0.025, 0.54],
+            pos: [chestX + 0.22, UY + 0.675, chestZ],
+            mat: M_CARD,
+            rotZ: -0.045,
+            cast: false,
+            name: 'gothic-open-folio-right',
+          });
+          const folioRibbon = box({
+            size: [0.04, 0.03, 0.48],
+            pos: [chestX, UY + 0.695, chestZ + 0.01],
+            mat: M_GOTHIC_VELVET,
+            cast: false,
+            name: 'gothic-folio-ribbon',
+          });
+          root.add(folioLeft, folioRight, folioRibbon);
+          c.details = [folioLeft, folioRight, folioRibbon];
         },
       },
-      extra: ({ cx }) => {
-        // Somebody is staying: a suitcase, open, half unpacked.
-        root.add(box({ size: [0.9, 0.24, 0.6], pos: [cx + 2.0, UY + 0.12, 43.4], mat: M_LEATHER_TAN }));
-        root.add(box({
-          size: [0.9, 0.06, 0.6], pos: [cx + 2.0, UY + 0.4, 43.1], mat: M_LEATHER_TAN, rotX: -0.9,
+      extra: (c) => {
+        const { cx } = c;
+        // The existing open case is now a complete packing/dressing cluster,
+        // with a valet for the garment instead of three anonymous boxes.
+        const packing = new THREE.Group();
+        packing.name = 'gothic-packing-cluster';
+        const packingCase = box({
+          size: [0.9, 0.24, 0.6],
+          pos: [cx + 2.0, UY + 0.12, 43.4],
+          mat: M_LEATHER_TAN,
+          name: 'gothic-packing-case',
+        });
+        const packingLid = box({
+          size: [0.9, 0.06, 0.6],
+          pos: [cx + 2.0, UY + 0.4, 43.1],
+          mat: M_LEATHER_TAN,
+          rotX: -0.9,
+          name: 'gothic-packing-lid',
+        });
+        const packedGarment = box({
+          size: [0.7, 0.1, 0.44],
+          pos: [cx + 2.0, UY + 0.28, 43.4],
+          mat: M_GOTHIC_VELVET,
+          cast: false,
+          name: 'gothic-packed-garment',
+        });
+        const valet = new THREE.Group();
+        valet.name = 'gothic-valet-stand';
+        const vx = cx + 0.92;
+        const vz = 43.26;
+        valet.add(named(cylinder({
+          r: 0.15, h: 0.04, pos: [vx, UY + 0.02, vz], mat: M_GOTHIC_IRON,
+        }), 'gothic-valet-base'));
+        valet.add(named(cylinder({
+          r: 0.025, h: 1.52, pos: [vx, UY + 0.78, vz], mat: M_GOTHIC_IRON,
+        }), 'gothic-valet-post'));
+        valet.add(box({
+          size: [0.84, 0.06, 0.07],
+          pos: [vx, UY + 1.5, vz],
+          mat: M_GOTHIC_IRON,
+          name: 'gothic-valet-hanger',
         }));
-        root.add(box({ size: [0.7, 0.1, 0.44], pos: [cx + 2.0, UY + 0.28, 43.4], mat: M_CARD, cast: false }));
+        valet.add(box({
+          size: [0.68, 0.82, 0.09],
+          pos: [vx, UY + 1.08, vz + 0.05],
+          mat: M_GOTHIC_VELVET,
+          cast: false,
+          name: 'gothic-valet-robe',
+        }));
+        packing.add(packingCase, packingLid, packedGarment, valet);
+        root.add(packing);
         solid(cx + 1.5, cx + 2.5, UY, UY + 0.3, 43.05, 43.75);
+        c.cluster = {
+          kind: 'packing',
+          root: packing,
+          inventory: [packingCase, packingLid, packedGarment, valet],
+        };
       },
     }),
     eastFront: buildBedroom({
@@ -7299,25 +7748,81 @@ export function buildMansionInterior(shell = null) {
           }));
           solid(trunkX - 0.4, trunkX + 0.4, UY, UY + 0.66, 44.0, 45.2);
 
+          /* The steamer trunk now looks travelled rather than newly spawned:
+           * two tied straps continue over its lid and a paper tag hangs on
+           * the room-facing side. They stay on the trunk's existing footprint
+           * and are published as this front bedroom's detail pass. */
+          const trunkStrapLeft = box({
+            size: [0.74, 0.045, 0.1],
+            pos: [trunkX, UY + 0.655, 44.25],
+            mat: M_LEATHER_DK,
+            cast: false,
+            name: 'oldtime-trunk-strap-left',
+          });
+          const trunkStrapRight = box({
+            size: [0.74, 0.045, 0.1],
+            pos: [trunkX, UY + 0.655, 44.95],
+            mat: M_LEATHER_DK,
+            cast: false,
+            name: 'oldtime-trunk-strap-right',
+          });
+          const travelTag = box({
+            size: [0.035, 0.22, 0.34],
+            pos: [trunkX - 0.385, UY + 0.4, 44.82],
+            mat: M_CARD,
+            rotX: -0.12,
+            cast: false,
+            name: 'oldtime-travel-tag',
+          });
+          root.add(trunkStrapLeft, trunkStrapRight, travelTag);
+          c.details = [trunkStrapLeft, trunkStrapRight, travelTag];
+
           const washX = innerX + 0.5;
-          root.add(box({ size: [0.55, 0.06, 1.0], pos: [washX, UY + 0.86, 46.1], mat: M_WOOD_DK, name: 'oldtime-washstand' }));
+          const washstandCluster = new THREE.Group();
+          washstandCluster.name = 'oldtime-washstand-cluster';
+          const washstand = box({
+            size: [0.55, 0.06, 1.0],
+            pos: [washX, UY + 0.86, 46.1],
+            mat: M_WOOD_DK,
+            name: 'oldtime-washstand',
+          });
+          washstandCluster.add(washstand);
           for (const [ox, oz] of [[-0.2, -0.42], [0.2, -0.42], [-0.2, 0.42], [0.2, 0.42]]) {
-            root.add(box({ size: [0.06, 0.86, 0.06], pos: [washX + ox, UY + 0.43, 46.1 + oz], mat: M_WOOD_DK }));
+            washstandCluster.add(box({
+              size: [0.06, 0.86, 0.06],
+              pos: [washX + ox, UY + 0.43, 46.1 + oz],
+              mat: M_WOOD_DK,
+              name: 'oldtime-washstand-leg',
+            }));
           }
-          root.add(box({ size: [0.5, 0.04, 0.9], pos: [washX, UY + 0.3, 46.1], mat: M_WOOD_DK, cast: false }));
-          root.add(cylinder({
-            rTop: 0.19, rBottom: 0.12, h: 0.12, pos: [washX, UY + 0.94, 45.86], mat: M_CARD, name: 'oldtime-basin',
+          washstandCluster.add(box({
+            size: [0.5, 0.04, 0.9],
+            pos: [washX, UY + 0.3, 46.1],
+            mat: M_WOOD_DK,
+            cast: false,
+            name: 'oldtime-washstand-shelf',
           }));
-          root.add(cylinder({
-            rTop: 0.09, rBottom: 0.13, h: 0.28, pos: [washX, UY + 1.03, 46.4], mat: M_CARD, name: 'oldtime-pitcher',
-          }));
-          root.add(cylinder({
+          const basin = named(cylinder({
+            rTop: 0.19, rBottom: 0.12, h: 0.12, pos: [washX, UY + 0.94, 45.86], mat: M_CARD,
+          }), 'oldtime-basin');
+          const pitcher = named(cylinder({
+            rTop: 0.09, rBottom: 0.13, h: 0.28, pos: [washX, UY + 1.03, 46.4], mat: M_CARD,
+          }), 'oldtime-pitcher');
+          washstandCluster.add(basin, pitcher);
+          washstandCluster.add(named(cylinder({
             r: 0.025, h: 0.16, pos: [washX + 0.12, UY + 1.1, 46.4], mat: M_CARD, rotZ: 0.9, cast: false,
-          }));
-          root.add(box({
+          }), 'oldtime-pitcher-handle'));
+          const towel = box({
             size: [0.06, 0.5, 0.24], pos: [washX - 0.2, UY + 1.1, 46.1], mat: M_TRIM, rotZ: 0.1, cast: false, name: 'oldtime-towel',
-          }));
+          });
+          washstandCluster.add(towel);
+          root.add(washstandCluster);
           solid(washX - 0.3, washX + 0.3, UY, UY + 0.9, 45.6, 46.6);
+          c.cluster = {
+            kind: 'washstand',
+            root: washstandCluster,
+            inventory: [washstand, basin, pitcher, towel],
+          };
 
           // The gramophone, on the dresser, horn and all.
           const gx = outerX - 0.45;
@@ -7474,7 +7979,7 @@ export function buildMansionInterior(shell = null) {
         },
         dress: (c) => {
           const {
-            r, cz, bedX, bedZ, hbZ, outerX, inward,
+            r, cz, bedX, bedZ, hbZ, outerX, inward, bedArt,
           } = c;
           /* Shiplap: horizontal boards to the chair rail, right round the
            * room, notched for BOTH doorways -- the gallery door in the south
@@ -7517,6 +8022,15 @@ export function buildMansionInterior(shell = null) {
               size: [0.42, 0.14, 0.34], pos: [bedX + ox, UY + 0.78, hbZ + 0.5], mat: M_LAKE_STRIPE, rotZ: 0.06, cast: false, name: 'lake-cushion',
             }));
           }
+
+          /* The authored lake landscape over the bed. This keeps the shared
+           * frame/placement but replaces its old text placard with actual
+           * moonlit water and pines. */
+          bedArt.art.name = 'lake-room-bed-art';
+          bedArt.art.userData.theme = 'lake';
+          bedArt.art.material = mat({
+            map: makeLakeBedTexture(), roughness: 0.72, unique: true,
+          });
 
           /* Crossed paddles and a life ring -- the two objects that say lake
            * house from the doorway. Both on the headboard wall, FLANKING the
@@ -7677,7 +8191,8 @@ export function buildMansionInterior(shell = null) {
           }
         },
       },
-      extra: ({ cz, r }) => {
+      extra: (c) => {
+        const { cz, r } = c;
         /* A writing desk under the window, with a lamp and a letter.
          *
          * On the INNER half of the room. It used to stand at cx-1.6, which is
@@ -7687,14 +8202,88 @@ export function buildMansionInterior(shell = null) {
          * and every check passed because they all teleported to the far side
          * of the desk before holding W. */
         const dx = r.x1 - 3.05;
-        root.add(box({ size: [1.5, 0.07, 0.7], pos: [dx, UY + 0.75, cz + 3.4], mat: M_WOOD_DK }));
+        const writingCluster = new THREE.Group();
+        writingCluster.name = 'lake-writing-cluster';
+        const writingDesk = box({
+          size: [1.5, 0.07, 0.7],
+          pos: [dx, UY + 0.75, cz + 3.4],
+          mat: M_WOOD_DK,
+          name: 'lake-writing-desk',
+        });
+        writingCluster.add(writingDesk);
         for (const [ox, oz] of [[-0.65, -0.28], [0.65, -0.28], [-0.65, 0.28], [0.65, 0.28]]) {
-          root.add(box({ size: [0.07, 0.75, 0.07], pos: [dx + ox, UY + 0.37, cz + 3.4 + oz], mat: M_WOOD_DK }));
+          writingCluster.add(box({
+            size: [0.07, 0.75, 0.07],
+            pos: [dx + ox, UY + 0.37, cz + 3.4 + oz],
+            mat: M_WOOD_DK,
+            name: 'lake-writing-desk-leg',
+          }));
         }
         solid(dx - 0.8, dx + 0.8, UY, UY + 0.8, cz + 3.05, cz + 3.75);
-        root.add(box({
-          size: [0.24, 0.01, 0.32], pos: [dx, UY + 0.79, cz + 3.4], mat: M_CARD, cast: false,
+        const writingChair = new THREE.Group();
+        writingChair.name = 'lake-writing-chair';
+        const chairZ = cz + 2.67;
+        writingChair.add(box({
+          size: [0.58, 0.1, 0.52],
+          pos: [dx, UY + 0.48, chairZ],
+          mat: M_LAKE_BLUE,
+          name: 'lake-writing-chair-seat',
         }));
+        writingChair.add(box({
+          size: [0.58, 0.68, 0.09],
+          pos: [dx, UY + 0.78, chairZ - 0.25],
+          mat: M_LAKE_BOARD,
+          name: 'lake-writing-chair-back',
+        }));
+        for (const [ox, oz] of [[-0.23, -0.2], [0.23, -0.2], [-0.23, 0.2], [0.23, 0.2]]) {
+          writingChair.add(box({
+            size: [0.055, 0.46, 0.055],
+            pos: [dx + ox, UY + 0.23, chairZ + oz],
+            mat: M_WOOD_DK,
+            name: 'lake-writing-chair-leg',
+          }));
+        }
+        writingCluster.add(writingChair);
+        const lamp = new THREE.Group();
+        lamp.name = 'lake-desk-lamp';
+        const lampX = dx - 0.48;
+        const lampZ = cz + 3.4;
+        lamp.add(named(cylinder({
+          r: 0.11, h: 0.035, pos: [lampX, UY + 0.805, lampZ], mat: M_CHROME,
+        }), 'lake-desk-lamp-base'));
+        lamp.add(named(cylinder({
+          r: 0.018, h: 0.34, pos: [lampX, UY + 0.99, lampZ], mat: M_CHROME,
+        }), 'lake-desk-lamp-stem'));
+        lamp.add(named(cylinder({
+          rTop: 0.08, rBottom: 0.18, h: 0.18,
+          pos: [lampX, UY + 1.2, lampZ],
+          mat: M_LAKE_BLUE,
+        }), 'lake-desk-lamp-shade'));
+        lamp.add(sphere({
+          r: 0.045, pos: [lampX, UY + 1.13, lampZ], mat: M_BULB_WARM, cast: false,
+        }));
+        writingCluster.add(lamp);
+        const taskLight = new THREE.PointLight(0xffe2b8, 1.4, 4.2, 2);
+        taskLight.position.set(lampX, UY + 1.12, lampZ);
+        taskLight.name = 'lake-writing-task-light';
+        writingCluster.add(taskLight);
+
+        const letter = box({
+          size: [0.24, 0.012, 0.32],
+          pos: [dx + 0.22, UY + 0.795, cz + 3.4],
+          mat: M_CARD,
+          rotY: -0.14,
+          cast: false,
+          name: 'lake-desk-letter',
+        });
+        writingCluster.add(letter);
+        root.add(writingCluster);
+        c.details = [lamp, letter];
+        c.cluster = {
+          kind: 'writing-desk',
+          root: writingCluster,
+          inventory: [writingDesk, writingChair, lamp, letter],
+        };
       },
     }),
     eastRear: buildBedroom({
@@ -7952,6 +8541,50 @@ export function buildMansionInterior(shell = null) {
             return portrait;
           });
 
+          /* A second, smaller pair makes the room read as theirs from both
+           * ends instead of putting all identity into one wall bay. They use
+           * the same two real character photographs through the same art
+           * slots; the manifest still has one source of truth per person. */
+          const accentPortraits = [
+            {
+              slot: 'mansion.bedroom.booski-death.booski',
+              name: 'booski-death-room-booski-accent',
+              z: cz + 1.2,
+              label: 'BOOSKI',
+              tint: '#4c3522',
+            },
+            {
+              slot: 'mansion.bedroom.booski-death.deathmegatron',
+              name: 'booski-death-room-deathmegatron-accent',
+              z: cz + 2.25,
+              label: 'DEATHMEGATRON',
+              tint: '#241b2c',
+            },
+          ].map((spec) => {
+            root.add(box({
+              size: [0.05, 0.9, 0.7],
+              pos: [innerX + 0.06, UY + 1.72, spec.z],
+              mat: M_CHROME,
+              cast: false,
+            }));
+            const portrait = flatArt(`${spec.slot}.accent`, {
+              x: innerX + 0.1,
+              y: UY + 1.72,
+              z: spec.z,
+              rotY: Math.PI / 2,
+              w: 0.58,
+              h: 0.78,
+              material: mat({
+                map: makePortraitTexture(`${spec.slot}.accent`, spec.label, spec.tint),
+                roughness: 0.62,
+                unique: true,
+              }),
+            });
+            portrait.name = spec.name;
+            portrait.userData.art = { slot: spec.slot, real: false, file: null };
+            return portrait;
+          });
+
           const plaque = flatArt('booski-death-room-plaque-art', {
             x: r.x1 - 0.44,
             y: UY + 1.78,
@@ -8006,24 +8639,71 @@ export function buildMansionInterior(shell = null) {
             plaque,
             crest,
             portraits,
+            accentPortraits,
             props: [ledger, securityRadio],
           };
+          c.details = [ledger, securityRadio];
         },
       },
-      extra: ({ cz, r }) => {
+      extra: (c) => {
+        const { cz, r } = c;
         /* The room's own one-off: a low bench at the foot of the platform,
          * where the television stand used to stand in the middle of the
-         * floor. It is 0.42 m tall, so it neither blocks the media wall nor
-         * the run through to the ensuite. */
+         * floor. It is now a complete dressing cluster with its folded item
+         * and full-height mirror named and published together. It remains
+         * 0.42 m tall, so it neither blocks the media wall nor the run through
+         * to the ensuite. */
         const tx = r.x0 + 3.05;
-        root.add(box({ size: [1.4, 0.12, 0.5], pos: [tx, UY + 0.4, cz + 3.4], mat: M_MOD_FABRIC, name: 'modern-bench' }));
+        const dressingCluster = new THREE.Group();
+        dressingCluster.name = 'modern-dressing-cluster';
+        const dressingBench = box({
+          size: [1.4, 0.12, 0.5],
+          pos: [tx, UY + 0.4, cz + 3.4],
+          mat: M_MOD_FABRIC,
+          name: 'modern-dressing-bench',
+        });
+        dressingCluster.add(dressingBench);
         for (const ox of [-0.6, 0.6]) {
-          root.add(box({ size: [0.06, 0.34, 0.44], pos: [tx + ox, UY + 0.17, cz + 3.4], mat: M_CHROME }));
+          dressingCluster.add(box({
+            size: [0.06, 0.34, 0.44],
+            pos: [tx + ox, UY + 0.17, cz + 3.4],
+            mat: M_CHROME,
+            name: 'modern-dressing-bench-leg',
+          }));
         }
-        root.add(box({
-          size: [0.44, 0.08, 0.36], pos: [tx + 0.3, UY + 0.5, cz + 3.4], mat: M_LEATHER_DK, rotY: 0.2, cast: false,
+        const foldedGarment = box({
+          size: [0.44, 0.08, 0.36],
+          pos: [tx + 0.3, UY + 0.5, cz + 3.4],
+          mat: M_LEATHER_DK,
+          rotY: 0.2,
+          cast: false,
+          name: 'modern-folded-garment',
+        });
+        dressingCluster.add(foldedGarment);
+        const dressingMirror = new THREE.Group();
+        dressingMirror.name = 'modern-dressing-mirror';
+        dressingMirror.add(box({
+          size: [0.08, 1.96, 1.08],
+          pos: [r.x0 + 0.12, UY + 1.35, cz + 3.4],
+          mat: M_CHROME,
+          cast: false,
+          name: 'modern-dressing-mirror-frame',
         }));
+        dressingMirror.add(box({
+          size: [0.035, 1.76, 0.88],
+          pos: [r.x0 + 0.17, UY + 1.35, cz + 3.4],
+          mat: M_GLASS_CASE,
+          cast: false,
+          name: 'modern-dressing-mirror-glass',
+        }));
+        dressingCluster.add(dressingMirror);
+        root.add(dressingCluster);
         solid(tx - 0.7, tx + 0.7, UY, UY + 0.46, cz + 3.15, cz + 3.65);
+        c.cluster = {
+          kind: 'dressing-bench',
+          root: dressingCluster,
+          inventory: [dressingBench, foldedGarment, dressingMirror],
+        };
       },
     }),
   };
@@ -9161,14 +9841,18 @@ const M_GOLD_BAR = mat({
 
     // The plinth. Black marble, and the name cut into the face of it.
     const plinthH = 0.95;
+    /* Sink the plinth a couple of centimetres into the top step. Its old
+     * bottom face landed exactly on the dais top, leaving 4.51 m2 of
+     * coplanar marble to flicker. The two mouldings overlap their neighbours
+    * by the same small amount instead of sharing an exposed plane. */
     root.add(box({
-      size: [2.9, plinthH, 1.9], pos: [tx, daisTop + plinthH / 2, apseZ - 1.9], mat: M_WALL_DEEP, name: 'includer-plinth',
+      size: [2.9, plinthH + 0.02, 1.9], pos: [tx, daisTop + (plinthH - 0.02) / 2, apseZ - 1.9], mat: M_WALL_DEEP, name: 'includer-plinth',
     }));
     root.add(box({
-      size: [3.2, 0.12, 2.2], pos: [tx, daisTop + plinthH + 0.06, apseZ - 1.9], mat: M_MARBLE_DK, cast: false,
+      size: [3.2, 0.12, 2.2], pos: [tx, daisTop + plinthH + 0.04, apseZ - 1.9], mat: M_MARBLE_DK, cast: false, name: 'includer-plinth-cap',
     }));
     root.add(box({
-      size: [3.2, 0.14, 2.2], pos: [tx, daisTop + 0.07, apseZ - 1.9], mat: M_MARBLE_DK, cast: false,
+      size: [3.2, 0.12, 2.2], pos: [tx, daisTop + 0.08, apseZ - 1.9], mat: M_MARBLE_DK, cast: false, name: 'includer-plinth-foot',
     }));
     solid(tx - 1.6, tx + 1.6, daisTop, daisTop + plinthH, apseZ - 2.95, apseZ - 0.85);
     /* The engraving, on the south face -- the face you see coming through the
@@ -9432,7 +10116,9 @@ const M_GOLD_BAR = mat({
     for (const [px, pz, s] of [
       [r.x0 + 1.5, r.z0 + 2.2, 3.1], [r.x1 - 2.6, r.z0 + 2.2, 2.7],
       [r.x0 + 1.5, r.z1 - 2.2, 3.1], [r.x1 - 2.6, r.z1 - 2.2, 2.7],
-      [r.x0 + 1.4, cz, 2.4], [r.x1 - 2.6, cz, 2.4],
+      /* One centre-row palm is enough. The former east mate at x1-2.6 was
+       * 1.5 m from the fountain centre, inside its 2.25 m basin. */
+      [r.x0 + 1.4, cz, 2.4],
     ]) {
       root.add(cylinder({
         rTop: 0.62, rBottom: 0.46, h: 0.66, pos: [px, GY + 0.33, pz], mat: mat({ color: 0x8c4a2c, roughness: 0.9 }),
@@ -9518,6 +10204,18 @@ const M_GOLD_BAR = mat({
       }),
     });
 
+    const winterAlmighty = wallArt(
+      'mansion.winter.almighty',
+      r.x1 - 0.48,
+      GY + 2.7,
+      66.2,
+      -Math.PI / 2,
+      1.15,
+      1.44,
+      makePortraitTexture('winter-almighty', 'THE ALMIGHTY', '#16241c'),
+    );
+    sconce(r.x1 - 0.54, GY + 3.75, 66.2, -Math.PI / 2, 2.0);
+
     const lights = [
       ceilingLight(cx, r.z0 + 4.0, CEIL - 0.45, 0xdff0e4, 5.2, 14),
       ceilingLight(cx, cz, CEIL - 0.45, 0xdff0e4, 5.6, 15),
@@ -9525,6 +10223,7 @@ const M_GOLD_BAR = mat({
     ];
     return {
       shield: winterShield,
+      almighty: winterAlmighty,
       pool: { x: cx, z: cz, r: poolR },
       birdcage: { bottom: cageBottom },
       lights,
@@ -9676,8 +10375,9 @@ const M_GOLD_BAR = mat({
     /* Signage over each door, so the corridor tells you what is behind it --
      * the cellar stair's own CELLAR sign is what made the basement findable
      * in the first place, and four unmarked doors underground is worse. */
+    let prospectSign = null;
     for (const [sx, text] of [
-      [-12.1, 'GUEST'], [-2.85, 'THEATRE'], [6.4, 'LAN'], [13.35, 'VAULT'],
+      [-12.1, 'PROSPECT'], [-2.85, 'THEATRE'], [6.4, 'LAN'], [13.35, 'VAULT'],
     ]) {
       const sign = new THREE.Mesh(
         new THREE.PlaneGeometry(1.25, 0.28),
@@ -9697,6 +10397,8 @@ const M_GOLD_BAR = mat({
        * place you can read them you were looking at the back of an unlit
        * plane. Four signs whose whole job is telling you where you are. */
       sign.rotation.y = Math.PI;
+      sign.name = text === 'PROSPECT' ? 'prospect-room-sign' : `cellar-${text.toLowerCase()}-sign`;
+      if (text === 'PROSPECT') prospectSign = sign;
       root.add(sign);
     }
     // Framed photographs of the house being built, between the doors.
@@ -9736,6 +10438,17 @@ const M_GOLD_BAR = mat({
         unique: true,
       }),
     });
+    const cellarBus = wallArt(
+      'mansion.cellar.bus',
+      -10.5,
+      BY + 1.75,
+      r.z0 + 0.08,
+      0,
+      0.72,
+      0.96,
+      makePortraitTexture('cellar-bus', 'THE BUS', '#181418'),
+    );
+
     // A bench, a fire point and a service panel -- the things a corridor has.
     root.add(box({ size: [1.9, 0.09, 0.44], pos: [-4.4, BY + 0.46, r.z0 + 0.34], mat: M_WOOD_DK }));
     for (const lx of [-5.2, -3.6]) {
@@ -9753,7 +10466,9 @@ const M_GOLD_BAR = mat({
         size: [0.08, 0.14, 0.04], pos: [1.36 + (i % 3) * 0.24, BY + 1.72 - Math.floor(i / 3) * 0.28, r.z0 + 0.2], mat: M_CHROME, cast: false,
       }));
     }
-    return { crest: cellarCrest, lights };
+    return {
+      crest: cellarCrest, bus: cellarBus, prospectSign, lights,
+    };
   }
   const cellarHallProps = buildCellarHall();
 
@@ -9764,7 +10479,10 @@ const M_GOLD_BAR = mat({
     const cz = (r.z0 + r.z1) / 2;
     topping(r.x0, r.x1, BY + 0.012, r.z0, r.z1, M_PARQUET, 'guest-floor');
     trimRoom(r, BY, -0.3);
-    rug(cx, cz + 0.4, 5.4, 4.6, BY, M_RUG_LIVING);
+    /* As upstairs, the finish is 22 mm above BY; the old rug plane was at
+     * BY + 12 mm and therefore rendered underneath the parquet. */
+    const guestRug = rug(cx, cz + 0.4, 5.4, 4.6, BY + 0.022, M_RUG_LIVING);
+    guestRug.name = 'guest-room-rug';
     lineRoom(r, 1.0, M_WALL_DEEP, [-13.0, -11.2], 0.04);
 
     const bedX = cx - 0.6;
@@ -9783,6 +10501,37 @@ const M_GOLD_BAR = mat({
     root.add(box({
       size: [2.2, 1.35, 0.16], pos: [bedX, BY + 0.85, r.z1 - 0.28], mat: M_LEATHER_TAN, name: 'guest-headboard',
     }));
+    /* The shared bed supplied the frame and mattress, but this deeper room
+     * still stopped at that apartment-grade layer. Finish it with the same
+     * physical bedding hierarchy used upstairs: a full coverlet, a folded
+     * foot throw and a pair of raised cushions against the headboard. */
+    const guestCoverlet = box({
+      size: [1.72, 0.1, 1.5],
+      pos: [bedX, BY + 0.73, bedZ - 0.12],
+      mat: M_LEATHER_TAN,
+      cast: false,
+      name: 'guest-bed-coverlet',
+    });
+    const guestThrow = box({
+      size: [1.8, 0.12, 0.5],
+      pos: [bedX, BY + 0.8, bedZ - 0.72],
+      mat: M_FABRIC_GOLD,
+      rotX: -0.06,
+      cast: false,
+      name: 'guest-bed-throw',
+    });
+    const guestCushions = [-0.42, 0.42].map((ox, index) => box({
+      size: [0.62, 0.16, 0.4],
+      pos: [bedX + ox, BY + 0.81, bedZ + 0.72],
+      mat: M_TRIM,
+      rotZ: index ? -0.05 : 0.05,
+      cast: false,
+      name: index ? 'guest-bed-cushion-right' : 'guest-bed-cushion-left',
+    }));
+    root.add(guestCoverlet, guestThrow, ...guestCushions);
+    const guestRefinement = {
+      bedding: [guestCoverlet, guestThrow, ...guestCushions],
+    };
     for (const side of [-1, 1]) {
       const nx = bedX + side * 1.45;
       const ns = makeNightstand(M, { x: nx, z: bedZ + 1.05 });
@@ -9801,20 +10550,26 @@ const M_GOLD_BAR = mat({
       root.add(l);
     }
 
+    const prospectDressingCluster = new THREE.Group();
+    prospectDressingCluster.name = 'prospect-dressing-cluster';
     const dresser = caseFurniture(r.x0 + 0.5, cz - 0.6, BY, 1.8, 0.55, 0.9, Math.PI / 2, 3);
     dresser.name = 'guest-dresser';
-    root.add(box({
+    prospectDressingCluster.add(dresser);
+    const guestMirror = box({
       size: [0.06, 1.3, 1.0],
       pos: [r.x0 + 0.14, BY + 1.75, cz - 0.6],
       mat: mat({ color: 0xdce6ee, roughness: 0.08, metalness: 0.85 }),
       name: 'guest-mirror',
-    }));
-    root.add(box({
+    });
+    const guestWardrobe = box({
       size: [0.66, 2.1, 1.9], pos: [r.x1 - 0.4, BY + 1.05, r.z0 + 1.8], mat: M_WOOD_DK, name: 'guest-wardrobe',
-    }));
-    root.add(box({
+    });
+    const guestWardrobeDoor = box({
       size: [0.05, 1.8, 0.9], pos: [r.x1 - 0.75, BY + 1.1, r.z0 + 1.8], mat: M_WOOD, cast: false,
-    }));
+      name: 'guest-wardrobe-door',
+    });
+    prospectDressingCluster.add(guestMirror, guestWardrobe, guestWardrobeDoor);
+    root.add(prospectDressingCluster);
     solid(r.x1 - 0.75, r.x1 - 0.05, BY, BY + 2.1, r.z0 + 0.85, r.z0 + 2.75);
     makeSeat(r.x0 + 1.5, BY, r.z0 + 1.5, 0.9, M_FABRIC_CHAIR, 0.8);
     // A luggage rack with a case on it, and a tray with two glasses.
@@ -9826,6 +10581,78 @@ const M_GOLD_BAR = mat({
     solid(cx + 1.5, cx + 2.5, BY, BY + 0.8, r.z0 + 0.8, r.z0 + 1.4);
     const shotA = makeShotGlass(M, { x: cx - 1.35, y: BY + 0.6, z: bedZ + 1.05 });
     root.add(shotA.group);
+
+    /* Personal belongings turn the deeper room into the Prospect's room,
+     * rather than a generic hotel room with his name over the door. They use
+     * the otherwise empty east-wall bay beyond the wardrobe, so the direct
+     * path from the corridor to the bed remains open. */
+    const prospectFootlocker = box({
+      size: [0.72, 0.52, 1.34],
+      pos: [r.x1 - 0.48, BY + 0.26, r.z1 - 2.15],
+      mat: M_LEATHER_TAN,
+      name: 'prospect-footlocker',
+    });
+    root.add(prospectFootlocker);
+    for (const oz of [-0.46, 0.46]) {
+      root.add(box({
+        size: [0.76, 0.12, 0.08],
+        pos: [r.x1 - 0.48, BY + 0.43, r.z1 - 2.15 + oz],
+        mat: M_WOOD_DK,
+        cast: false,
+      }));
+    }
+    root.add(box({
+      size: [0.04, 0.16, 0.14],
+      pos: [r.x1 - 0.86, BY + 0.34, r.z1 - 2.15],
+      mat: M_BRASS,
+      cast: false,
+    }));
+    solid(r.x1 - 0.88, r.x1 - 0.08, BY, BY + 0.55, r.z1 - 2.86, r.z1 - 1.44);
+
+    const prospectJacket = box({
+      size: [0.055, 1.05, 0.72],
+      pos: [r.x1 - 0.1, BY + 1.58, r.z1 - 0.78],
+      mat: M_LEATHER_DK,
+      cast: false,
+      name: 'prospect-work-jacket',
+    });
+    root.add(prospectJacket);
+    for (const oz of [-0.48, 0.48]) {
+      root.add(box({
+        size: [0.06, 0.72, 0.22],
+        pos: [r.x1 - 0.12, BY + 1.45, r.z1 - 0.78 + oz],
+        mat: M_LEATHER_DK,
+        rotX: oz * 0.22,
+        cast: false,
+      }));
+    }
+    root.add(cylinder({
+      r: 0.035,
+      h: 0.34,
+      pos: [r.x1 - 0.13, BY + 2.2, r.z1 - 0.78],
+      mat: M_BRONZE,
+      rotZ: Math.PI / 2,
+      cast: false,
+    }));
+
+    const prospectBoots = new THREE.Group();
+    prospectBoots.name = 'prospect-work-boots';
+    prospectBoots.position.set(r.x1 - 1.35, BY, r.z1 - 0.72);
+    for (const sx of [-0.16, 0.16]) {
+      prospectBoots.add(box({
+        size: [0.24, 0.36, 0.42],
+        pos: [sx, 0.18, 0],
+        mat: M_LEATHER_DK,
+        cast: false,
+      }));
+      prospectBoots.add(box({
+        size: [0.26, 0.16, 0.48],
+        pos: [sx, 0.08, -0.22],
+        mat: M_LEATHER_DK,
+        cast: false,
+      }));
+    }
+    root.add(prospectBoots);
 
     /* A lightwell. There is no daylight four metres under a ballroom, so the
      * room is given the thing a good basement guest room actually has: a
@@ -9882,9 +10709,39 @@ const M_GOLD_BAR = mat({
       }),
     });
     guestCrest.name = 'mansion.guest.crest';
+    const guestDog = wallArt(
+      'mansion.guest.dog',
+      r.x1 - 0.14,
+      BY + 1.7,
+      72.6,
+      -Math.PI / 2,
+      0.62,
+      0.83,
+      makePortraitTexture('guest-dog', 'THE DOG', '#1c1a16'),
+    );
     const light = ceilingLight(cx, cz, -0.4, 0xffdca0, 6.6, 15);
     return {
-      art: guestArt, crest: guestCrest, dresser, light, bed: bed.group,
+      art: guestArt,
+      crest: guestCrest,
+      dog: guestDog,
+      dresser,
+      light,
+      bed: bed.group,
+      rug: guestRug,
+      refinement: guestRefinement,
+      cluster: {
+        kind: 'dressing-storage',
+        root: prospectDressingCluster,
+        inventory: [dresser, guestMirror, guestWardrobe],
+      },
+      identity: {
+        owners: ['prospect'],
+        sign: cellarHallProps.prospectSign,
+        entryZ: r.z0,
+        bedZ,
+        depth: r.z1 - r.z0,
+        belongings: [prospectFootlocker, prospectJacket, prospectBoots],
+      },
     };
   }
   const guestProps = buildGuestRoom();
@@ -10058,8 +10915,23 @@ const M_GOLD_BAR = mat({
       lights.push(l);
       aisleLights.push(l);
     }
+    const theatreLockup = flatArt('mansion.theatre.lockup', {
+      x: r.x1 - 0.14,
+      y: BY + 1.7,
+      z: 73.5,
+      rotY: -Math.PI / 2,
+      w: 0.95,
+      h: 0.95,
+      material: mat({
+        map: squatchArt('mansion-theatre-lockup', {
+          title: ['AUSTIN'], footer: 'MAJOR', ink: '#c9a2ff', bg: '#0f0b16',
+        }),
+        roughness: 0.9,
+        unique: true,
+      }),
+    });
     return {
-      screen, banner: theatreBanner, seats, lights, houseLights, aisleLights,
+      screen, banner: theatreBanner, lockup: theatreLockup, seats, lights, houseLights, aisleLights,
     };
   }
   const theatreProps = buildTheatre();
@@ -10288,8 +11160,9 @@ const M_GOLD_BAR = mat({
     root.add(pizza.group);
     /* THE BONG ON THE TABLE (owner brief for this room, 2026-08-06).
      *
-     * `makeBong` is the flat's, unchanged — the same glass, the same water
-     * that has been in there too long, the same lighter beside it. This room
+     * `buildInteractiveBong` is the flat's shared prop and raycast seam — the
+     * same glass, the same water that has been in there too long, the same
+     * lighter beside it, and now the same functioning bowl. This room
      * is five men who play until four in the morning under a blue cove
      * light, and the snack table already had beer and a pizza box on it; the
      * bong is the third thing on that table in every house this game has
@@ -10299,10 +11172,10 @@ const M_GOLD_BAR = mat({
      * about 400 mm round `tableX + 0.1`) and of the four cans, on a table
      * whose own collider already stops anyone walking through it. Its height
      * is 355 mm and the top is at BY + 0.80, so nothing above it. */
-    const bong = makeBong(M, {
+    const bong = buildInteractiveBong(M, {
       x: tableX + 0.78, y: BY + 0.8, z: cz - 0.18, rotY: -0.5,
     });
-    root.add(bong.group);
+    root.add(bong.group, bong.target);
 
     // The bracket board and the house banner, on the wall behind the rack.
     /* x=9.4 and x=3.6, not cx+/-1.2: this wall has the room's door in it at
@@ -10344,9 +11217,24 @@ const M_GOLD_BAR = mat({
     rgbGlow.position.set(cx, BY + 1.1, cz);
     root.add(rgbGlow);
     lights.push(rgbGlow);
+    const lanDenver = flatArt('mansion.lan.denver', {
+      x: r.x1 - 0.14,
+      y: BY + 1.5,
+      z: 73.2,
+      rotY: -Math.PI / 2,
+      w: 0.9,
+      h: 0.9,
+      material: mat({
+        map: squatchArt('mansion-lan-denver', {
+          title: ['DENVER'], footer: '2026', ink: '#7fd0ff', bg: '#101625',
+        }),
+        roughness: 0.9,
+        unique: true,
+      }),
+    });
     return {
-      stations, chairBacks, banner: lanBanner, lights,
-      fridge, fridgeDrinks, zynTins,
+      stations, chairBacks, banner: lanBanner, denver: lanDenver, lights,
+      fridge, fridgeDrinks, zynTins, bong,
     };
   }
   const lanProps = buildLanRoom();
@@ -10563,8 +11451,8 @@ const M_GOLD_BAR = mat({
     const vaultMark = flatArt('mansion.vault.mark', {
       x: r.x0 + 0.57,
       y: BY + 1.9,
-      z: r.z0 + 0.18,
-      rotY: 0,
+      z: r.z0 - 0.18,
+      rotY: Math.PI,
       w: 0.8,
       h: 1.0,
       material: mat({
@@ -10882,12 +11770,18 @@ const M_GOLD_BAR = mat({
     },
     {
       slot: 'mansion.bedroom.booski-death.booski',
-      mesh: bedrooms.eastRear.identity?.portraits?.[0],
+      meshes: [
+        bedrooms.eastRear.identity?.portraits?.[0],
+        bedrooms.eastRear.identity?.accentPortraits?.[0],
+      ].filter(Boolean),
       w: 0.82,
     },
     {
       slot: 'mansion.bedroom.booski-death.deathmegatron',
-      mesh: bedrooms.eastRear.identity?.portraits?.[1],
+      meshes: [
+        bedrooms.eastRear.identity?.portraits?.[1],
+        bedrooms.eastRear.identity?.accentPortraits?.[1],
+      ].filter(Boolean),
       w: 0.82,
     },
     { slot: 'mansion.suite.crest', mesh: suiteProps.crest, w: 1.3 },
@@ -10902,6 +11796,16 @@ const M_GOLD_BAR = mat({
     {
       slot: 'mansion.lan.chairs', meshes: lanProps.chairBacks, w: 0.34, alpha: true,
     },
+    { slot: 'mansion.gallery.roster', mesh: galleryProps.roster, w: 3.2 },
+    { slot: 'mansion.ballroom.major', mesh: ballroomProps.major, w: 3.4 },
+    { slot: 'mansion.lounge.cowboy', mesh: loungeProps.cowboy?.art, w: 1.2 },
+    { slot: 'mansion.conference.stacks', mesh: conferenceProps.stacks?.art, w: 1.15 },
+    { slot: 'mansion.office.boss', mesh: officeProps.boss?.art, w: 0.86 },
+    { slot: 'mansion.winter.almighty', mesh: winterProps.almighty?.art, w: 1.15 },
+    { slot: 'mansion.cellar.bus', mesh: cellarHallProps.bus?.art, w: 0.72 },
+    { slot: 'mansion.guest.dog', mesh: guestProps.dog?.art, w: 0.62 },
+    { slot: 'mansion.theatre.lockup', mesh: theatreProps.lockup, w: 0.95 },
+    { slot: 'mansion.lan.denver', mesh: lanProps.denver, w: 0.9 },
   ];
   const artReady = resolveGear(MANSION_ART_SLOTS).then((gear) => {
     const dressed = [];

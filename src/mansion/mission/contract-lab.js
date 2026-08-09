@@ -90,7 +90,7 @@ function makeScientist(index, glassAudio, lab) {
      * which is the half the mission is responsible for. `collapse` still
      * follows, and the gassing's five collapses still carry no `shot`.
      */
-    shot(from = null) { this.log.push('shot'); this.shotFrom = from ?? null; },
+    shot(hit = null) { this.log.push('shot'); this.shotHit = hit ?? null; },
     /** Aubbie, coming out through the glass door into the observation area. */
     stepOut() { this.side = 'observation'; this.log.push('stepOut'); },
     tryHandle() { this.log.push('tryHandle'); },

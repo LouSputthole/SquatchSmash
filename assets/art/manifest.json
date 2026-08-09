@@ -720,6 +720,66 @@
       "file": "logo-crest.png",
       "title": "The crest, over the suite's bar",
       "caption": "Third floor, behind the bottles in Lou's own bar. The only badge hung up there; the other one is set in the marble at the head of the stair."
+    },
+    {
+      "slot": "mansion.gallery.roster",
+      "file": "austin-major-2025-roster.jpg",
+      "title": "The roster, on the gallery",
+      "caption": "Austin Major 2025, every name on it. Hung opposite the founders' portraits."
+    },
+    {
+      "slot": "mansion.ballroom.major",
+      "file": "austin-major-cowboy-banner.jpg",
+      "title": "The Major banner, in the ballroom",
+      "caption": "High on the west wall beside the stage, where it clears a room full of people."
+    },
+    {
+      "slot": "mansion.lounge.cowboy",
+      "file": "austin-major-cowboy.jpg",
+      "title": "Austin, framed",
+      "caption": "In the billiard room, first thing you see coming through from the front hall."
+    },
+    {
+      "slot": "mansion.conference.stacks",
+      "file": "logo-5-years-of-stacks.jpg",
+      "title": "Five years of stacks",
+      "caption": "In the conference room, north of the coffee service. Five years, in the room where the business gets done."
+    },
+    {
+      "slot": "mansion.office.boss",
+      "file": "boss-camp-shirt.jpg",
+      "title": "The shirt",
+      "caption": "In Lou's office, next to the painted portrait. The man as he actually turned up."
+    },
+    {
+      "slot": "mansion.winter.almighty",
+      "file": "squatch-almighty.jpg",
+      "title": "The Almighty",
+      "caption": "In the winter garden, facing the lily pool. Wine in one hand, eggs in the other."
+    },
+    {
+      "slot": "mansion.cellar.bus",
+      "file": "party-bus-night.jpg",
+      "title": "The bus",
+      "caption": "On the lower level with the building photographs. Nobody remembers who was driving."
+    },
+    {
+      "slot": "mansion.guest.dog",
+      "file": "house-dog.jpg",
+      "title": "The dog",
+      "caption": "In the guest room, by the bed. The one thing down there that is not house branding."
+    },
+    {
+      "slot": "mansion.theatre.lockup",
+      "file": "austin-major-lockup.jpg",
+      "title": "Austin Major, in the screening room",
+      "caption": "Behind the back row, where a cinema puts the poster for what is on."
+    },
+    {
+      "slot": "mansion.lan.denver",
+      "file": "logo-denver-2026.jpg",
+      "title": "Denver 2026",
+      "caption": "In the LAN room, east wall. Next stop."
     }
   ]
 }

@@ -45,6 +45,18 @@ const CSS = `
   border-radius: 8px; background: rgba(4,4,8,.66); text-shadow: 0 2px 6px rgba(0,0,0,.9); }
 .ss-subs.muffled .ss-line { color: #c9c4bb; font-style: italic;
   background: rgba(4,4,8,.48); text-shadow: none; }
+.ss-timing { position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%);
+  width: min(56vw, 460px); padding: 9px 12px 8px; border-radius: 8px;
+  background: rgba(4,4,8,.78); border: 1px solid rgba(232,194,104,.42); display: none; }
+.ss-timing.show { display: block; }
+.ss-timing-track { height: 13px; position: relative; overflow: hidden; border-radius: 5px;
+  background: #1b1b22; border: 1px solid rgba(255,255,255,.18); }
+.ss-timing-window { position: absolute; top: 0; bottom: 0; background: rgba(113,205,126,.48); }
+.ss-timing-marker { position: absolute; top: -2px; bottom: -2px; width: 4px;
+  transform: translateX(-2px); background: #f6e7b4; box-shadow: 0 0 7px rgba(246,231,180,.8); }
+.ss-timing.hit .ss-timing-marker { background: #6cff82; }
+.ss-timing.miss .ss-timing-marker { background: #ff624c; }
+.ss-timing-count { margin-top: 5px; text-align: center; font-size: 11px; letter-spacing: 2px; }
 .ss-keypad { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
   padding: 18px 22px; border-radius: 10px; background: rgba(8,10,14,.92);
   border: 1px solid rgba(232,194,104,.5); text-align: center; display: none; }
@@ -73,6 +85,19 @@ export function createMissionHud({ parent = document.body } = {}) {
   const callout = document.createElement('div');
   callout.className = 'ss-callout';
 
+  const timing = document.createElement('div');
+  timing.className = 'ss-timing';
+  const timingTrack = document.createElement('div');
+  timingTrack.className = 'ss-timing-track';
+  const timingWindow = document.createElement('div');
+  timingWindow.className = 'ss-timing-window';
+  const timingMarker = document.createElement('div');
+  timingMarker.className = 'ss-timing-marker';
+  const timingCount = document.createElement('div');
+  timingCount.className = 'ss-timing-count';
+  timingTrack.append(timingWindow, timingMarker);
+  timing.append(timingTrack, timingCount);
+
   const subs = document.createElement('div');
   subs.className = 'ss-subs';
   const who = document.createElement('span');
@@ -90,7 +115,7 @@ export function createMissionHud({ parent = document.body } = {}) {
   hint.textContent = 'TYPE THE CODE · ENTER TO CONFIRM · ESC TO STEP AWAY';
   keypad.append(readout, hint);
 
-  root.append(objective, instruction, callout, subs, keypad);
+  root.append(objective, instruction, callout, timing, subs, keypad);
   parent.append(root);
 
   return {
@@ -107,6 +132,16 @@ export function createMissionHud({ parent = document.body } = {}) {
     setCallout(text) {
       callout.textContent = text || '';
       callout.classList.toggle('show', Boolean(text));
+    },
+    setTiming(view) {
+      timing.classList.toggle('show', Boolean(view));
+      timing.classList.toggle('hit', view?.flash === 'hit');
+      timing.classList.toggle('miss', view?.flash === 'miss');
+      if (!view) return;
+      timingWindow.style.left = `${view.from * 100}%`;
+      timingWindow.style.width = `${(view.to - view.from) * 100}%`;
+      timingMarker.style.left = `${view.pos * 100}%`;
+      timingCount.textContent = `PULL ${view.hits} / ${view.total}`;
     },
     /** A spoken line. `muffled` is what the reinforced glass looks like. */
     showLine({ speakerName, text, muffled }) {
@@ -141,6 +176,7 @@ export function createMissionHud({ parent = document.body } = {}) {
         objective: objective.classList.contains('show') ? objective.textContent : '',
         instruction: instruction.classList.contains('show') ? instruction.textContent : '',
         callout: callout.classList.contains('show') ? callout.textContent : '',
+        timing: timing.classList.contains('show') ? timingCount.textContent : '',
         subtitle: subs.classList.contains('show') ? line.textContent : '',
         speaker: subs.classList.contains('show') ? who.textContent : '',
         keypad: keypad.classList.contains('show') ? readout.textContent : null,

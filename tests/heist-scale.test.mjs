@@ -3,6 +3,13 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import {
+  DEATHMEGATRON,
+  NUMBSKULL,
+  RIPPINFLOW,
+  SHUBENATOR,
+  SNOW,
+} from '../src/core/wardrobe.js';
 import { HEIST_CREW_PRESENTATION, buildHeistCrew, crewHeights } from '../src/heist/cast.js';
 import { buildHeistLevel } from '../src/heist/level.js';
 import {
@@ -22,6 +29,14 @@ import { HEIST_PENDING_DIALOGUE, HEIST_DIALOGUE, pendingHeistCues } from '../src
 const HUMAN_MIN = 1.55;
 const HUMAN_MAX = 2.0;
 
+const CANONICAL_HEIST_CREW = Object.freeze({
+  [CHARACTER_IDS.SNOW]: SNOW,
+  [CHARACTER_IDS.RIPPINFLOW]: RIPPINFLOW,
+  [CHARACTER_IDS.SHUBENATOR]: SHUBENATOR,
+  [CHARACTER_IDS.DEATHMEGATRON]: DEATHMEGATRON,
+  [CHARACTER_IDS.NUMBSKULL]: NUMBSKULL,
+});
+
 function topOfHead(figure) {
   const box = new THREE.Box3().setFromObject(figure.root);
   return box.max.y;
@@ -32,11 +47,61 @@ test('every crew member is a person-sized person', () => {
   const crew = buildHeistCrew(scene);
   assert.equal(crew.size, 5);
   for (const height of crewHeights(crew)) {
-    assert.ok(height >= 1.7 && height <= 1.9, `crew height ${height}`);
+    assert.ok(height >= 1.7 && height <= HUMAN_MAX, `crew height ${height}`);
   }
-  // And the tallest is DeathMegatron, which is a character fact, not an accident.
+  // Numbskull's canonical 1.95 m body is tall; it is not the old 2.56 m rig.
   const tallest = [...crew.values()].sort((a, b) => b.height - a.height)[0];
-  assert.equal(tallest.id, CHARACTER_IDS.DEATHMEGATRON);
+  assert.equal(tallest.id, CHARACTER_IDS.NUMBSKULL);
+});
+
+test('named heist crew keep their canonical bodies underneath the job gear', () => {
+  const crew = buildHeistCrew(new THREE.Scene());
+
+  for (const [id, canonical] of Object.entries(CANONICAL_HEIST_CREW)) {
+    const presentation = HEIST_CREW_PRESENTATION[id];
+    const actor = crew.get(id);
+    assert.strictEqual(presentation.model, canonical, `${id} copied or restated its body`);
+    assert.equal(actor.figure.height, canonical.height, `${id} changed height for the heist`);
+    assert.equal(actor.figure.parts.profile.outfit, canonical.dress, `${id} changed clothes for the heist`);
+    assert.equal(actor.figure.parts.profile.gender, canonical.gender ?? 'unspecified', `${id} changed gender`);
+    assert.equal(actor.figure.parts.profile.bodyShape, canonical.bodyShape ?? 'average', `${id} changed body shape`);
+    assert.equal(
+      actor.figure.parts.head.getObjectByName('person.neck').material.color.getHex(),
+      canonical.skin,
+      `${id} changed skin tone for the heist`,
+    );
+    if (canonical.hair === 'bald') {
+      assert.equal(actor.figure.parts.head.getObjectByName('person.hair.crown'), undefined,
+        `${id} grew scene-local hair`);
+    } else if (!presentation.face && canonical.hairColour) {
+      assert.equal(
+        actor.figure.parts.head.getObjectByName('person.hair.crown').material.color.getHex(),
+        canonical.hairColour,
+        `${id} changed hair colour for the heist`,
+      );
+    }
+    const hasPhotoFace = actor.figure.parts.head.getObjectByName('person.face.photo-skull') != null;
+    assert.equal(
+      actor.figure.parts.head.getObjectByName('person.hair.crown') != null,
+      canonical.hair !== 'bald' && !hasPhotoFace,
+      `${id} hair representation disagrees with its ${hasPhotoFace ? 'photo' : 'procedural'} head`,
+    );
+    assert.equal(
+      actor.figure.parts.head.getObjectByName('person.face.beard') != null,
+      canonical.beard === true,
+      `${id} beard mesh disagrees with the canonical body`,
+    );
+    assert.ok(actor.figure.parts.body.getObjectByName('belt.strap'), `${id} lost the canonical belt`);
+    assert.ok(actor.figure.parts.body.getObjectByName('crew-plate-carrier'), `${id} lost the tactical carrier`);
+    const weaponName = id === CHARACTER_IDS.SNOW || id === CHARACTER_IDS.DEATHMEGATRON
+      ? 'crew-carbine' : 'crew-sidearm';
+    assert.ok(actor.figure.parts.body.getObjectByName(weaponName), `${id} lost the heist weapon overlay`);
+    assert.ok(actor.figure.parts.body.getObjectByName('crew-weapon-sling'), `${id} lost the weapon sling`);
+    if (id === CHARACTER_IDS.NUMBSKULL) {
+      assert.ok(actor.figure.parts.head.getObjectByName('person.glasses.bridge'),
+        'Numbskull lost his documented round-glasses face treatment');
+    }
+  }
 });
 
 test('the crew are built on the shared frame, not on the Sasquatch Smash rig', () => {
@@ -56,7 +121,7 @@ test('every crew member has an authored height in the presentation table', () =>
   for (const id of Object.keys(HEIST_CREW_PRESENTATION)) {
     const height = HEIST_CREW_PRESENTATION[id].model?.height;
     assert.ok(typeof height === 'number', `${id} has no authored height`);
-    assert.ok(height >= 1.7 && height <= 1.9, `${id} is ${height} m`);
+    assert.ok(height >= 1.7 && height <= HUMAN_MAX, `${id} is ${height} m`);
   }
 });
 
@@ -83,7 +148,7 @@ test('the crew and the bank staff are within a foot of each other', () => {
   const bankShortest = Math.min(
     ...level.phases.bank.civilians.map((root) => root.userData.figure.height),
   );
-  assert.ok(crewTallest - bankShortest < 0.32,
+  assert.ok(crewTallest - bankShortest < 0.4,
     `the tallest robber is ${(crewTallest - bankShortest).toFixed(2)} m over the shortest customer`);
 });
 
@@ -109,6 +174,41 @@ test('a prone figure lies on the floor rather than half inside it', () => {
   figure.stand();
   const standing = new THREE.Box3().setFromObject(figure.root);
   assert.ok(standing.max.y > 1.5);
+});
+
+test('a fallen figure stops breathing on the floor and resets cleanly to stand', () => {
+  const figure = makeHostageFigure({ id: 'fallen', index: 0, role: 'customer', x: 0, z: 0, yaw: 0 });
+
+  /* Enter the death pose from a real inhale. The animation offset used to be
+   * baked into `_settle()`, then the next breath phase moved the corpse through
+   * the floor. */
+  figure.phase = Math.PI / 2;
+  figure.update(0, { fear: 0 });
+  figure.setState('down', { blend: false });
+
+  const sample = (phase) => {
+    figure.phase = phase;
+    figure.update(0, { fear: 0 });
+    figure.root.updateMatrixWorld(true);
+    return {
+      bodyY: figure.parts.body.position.y,
+      bounds: new THREE.Box3().setFromObject(figure.root),
+    };
+  };
+  const inhale = sample(Math.PI / 2);
+  const exhale = sample(Math.PI * 1.5);
+
+  assert.equal(inhale.bodyY, 0, 'the fallen chest kept breathing upward');
+  assert.equal(exhale.bodyY, 0, 'the fallen chest kept breathing downward');
+  assert.ok(Math.abs(inhale.bounds.min.y - exhale.bounds.min.y) < 1e-9,
+    `the corpse floor contact moved ${inhale.bounds.min.y} -> ${exhale.bounds.min.y}`);
+  assert.ok(exhale.bounds.min.y >= -1e-6,
+    `the corpse dipped through the floor to ${exhale.bounds.min.y}`);
+
+  figure.setState('ambient', { blend: false });
+  assert.equal(figure.parts.body.position.y, 0, 'standing retained the corpse animation offset');
+  assert.equal(figure.tilt.position.y, 0, 'standing retained the corpse floor-settle lift');
+  assert.equal(figure.pose, 'stand');
 });
 
 test('lines written this pass are all in the pending bank with heist cues', () => {

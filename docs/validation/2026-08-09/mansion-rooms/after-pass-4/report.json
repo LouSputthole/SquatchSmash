@@ -1,0 +1,40 @@
+{
+  "label": "after-pass-4",
+  "screenshots": [
+    {
+      "name": "lou-suite-lighting",
+      "player": [
+        5.5,
+        12.26,
+        68.4
+      ],
+      "target": [
+        0,
+        10.874999999105931,
+        66.55
+      ]
+    },
+    {
+      "name": "lou-suite-portrait",
+      "player": [
+        -2.5,
+        12.26,
+        64.8
+      ],
+      "target": [
+        -5.65,
+        12.32,
+        63.282250000000005
+      ]
+    }
+  ],
+  "gl": {
+    "lost": false,
+    "drawingBuffer": [
+      1280,
+      720
+    ]
+  },
+  "notFound": [],
+  "errors": []
+}

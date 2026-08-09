@@ -18,6 +18,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
@@ -2828,6 +2829,11 @@ const pauseMenu = createPauseMenu({
     clock.getDelta();
     requestLock();
   },
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.SILVER_ROOM,
+    location,
+  }),
 });
 
 document.addEventListener('pointerlockchange', () => {

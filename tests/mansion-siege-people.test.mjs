@@ -38,6 +38,7 @@ const THREE = await import('three');
 const { CombatActor } = await import('../src/core/combat/actors.js');
 const { FACTIONS, FactionMatrix } = await import('../src/core/combat/factions.js');
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
+const { BIG_UNCLE_LOU_MANSION } = await import('../src/core/wardrobe.js');
 const {
   COMBAT_BOUNDARY, ENCOUNTERS, ROLES, STAGING, WaveDirector,
 } = await import('../src/mansion/siege/waves.js');
@@ -990,6 +991,31 @@ test('the two Lous are two men', () => {
   assert.equal(sasole.root.visible, false);
   ensemble.stage('TO_SASOLE');
   assert.equal(sasole.root.visible, true, 'he arrives for his own objective');
+});
+
+test('Big Uncle Lou keeps his same-night mansion clothes through the siege', () => {
+  const { scene, colliders, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  const lou = ensemble.members.get('lou');
+
+  assert.equal(lou.figure.parts.profile.height, BIG_UNCLE_LOU_MANSION.height);
+  assert.equal(lou.figure.parts.profile.outfit, BIG_UNCLE_LOU_MANSION.dress);
+  assert.equal(lou.figure.parts.profile.watch, BIG_UNCLE_LOU_MANSION.watch);
+  assert.equal(lou.figure.parts.profile.bracelet, BIG_UNCLE_LOU_MANSION.bracelet);
+  assert.equal(lou.figure.parts.profile.chainStyle, BIG_UNCLE_LOU_MANSION.chainStyle);
+  assert.ok(lou.figure.parts.body.getObjectByName('camp.front.left'));
+  assert.ok(lou.figure.parts.body.getObjectByName('camp.front.right'));
+  assert.ok(lou.figure.parts.body.getObjectByName('camp.pattern.tile'));
+  assert.equal(lou.figure.parts.body.getObjectByName('suit.jacket.chest'), undefined);
+
+  // Wardrobe reuse must not replace any of the authored siege behavior.
+  assert.deepEqual(lou.definition.routine, ['phone', 'window', 'callout']);
+  assert.equal(lou.weaponId, 'pistol9');
+  assert.ok(lou.gun, 'Lou lost his mission pistol');
+  ensemble.stage('BRIEFING');
+  ensemble.update(0.1, { player: makePlayer(), colliders, hostiles: [] });
+  assert.equal(lou.businessKey, 'phone');
+  assert.ok(lou.figure.parts.armR.rotation.x < -2, 'Lou lost the phone pose');
 });
 
 test('no posting blocks the staircase or the balcony bay', () => {

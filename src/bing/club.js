@@ -1652,8 +1652,9 @@ export function buildClub(scene, { renderer } = {}) {
       add(flex);
       storeroom.bulb = bulb;
 
-      /* The rolling cart. It is a kitchen's cart, so what is on it is a
-       * kitchen's tools, and the scene never has to invent an implement. */
+      /* The rolling cart. License-to-grill-runtime mounts the four physical
+       * pickup implements on this frame so the visible models are the same
+       * objects E hides and Q restores. */
       const cart = group('grill-cart');
       cart.position.set(8.2, 0, -12.85);
       cart.rotation.y = -0.34;
@@ -1664,13 +1665,6 @@ export function buildClub(scene, { renderer } = {}) {
         cart.add(cylinder({ r: 0.018, h: 0.8, pos: [lx, 0.4, lz], mat: M_UTIL }));
         cart.add(cylinder({ r: 0.045, h: 0.05, pos: [lx, 0.03, lz], rotX: Math.PI / 2, mat: mat({ color: 0x1c1c1c, roughness: 0.9 }) }));
       }
-      // Tenderiser, tongs, and the bottle whose label fell off.
-      cart.add(box({ size: [0.1, 0.1, 0.16], pos: [-0.24, 0.86, 0.02], mat: M_UTIL }));
-      cart.add(cylinder({ r: 0.016, h: 0.3, pos: [-0.24, 0.95, 0.02], mat: mat({ color: 0x3a2a1c, roughness: 0.9 }) }));
-      for (const tz of [-0.02, 0.03]) {
-        cart.add(box({ size: [0.02, 0.02, 0.44], pos: [0.06, 0.81, tz], rotY: 0.12, mat: M_UTIL }));
-      }
-      cart.add(cylinder({ r: 0.038, h: 0.2, pos: [0.34, 0.9, -0.05], mat: mat({ color: 0x8a2418, roughness: 0.5 }) }));
       add(cart);
       solid(7.75, -13.15, 8.65, -12.55, 0, 0.95);
       storeroom.cart = cart;

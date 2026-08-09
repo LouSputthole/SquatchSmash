@@ -31,9 +31,10 @@
  *    borrowed for him — that is how a second identity gets minted by accident.
  */
 import {
-  makeFigure, setPose, nameTag, updateFigure, speak, walkTo,
+  fromWardrobe, makeFigure, setPose, nameTag, updateFigure, speak, walkTo,
 } from '../beefrun/npc.js';
 import { solid, boxGeo, cylGeo, mesh, group } from '../beefrun/util.js';
+import { CAPTAIN_LOU_SASOLE } from '../core/wardrobe.js';
 
 /* Subtitle colours, kept identical to `dialogue/script.js`'s SPEAKERS so the
  * name over a man's head is the colour his lines come up in. */
@@ -90,15 +91,12 @@ const HEAD_TURN_INBOARD = 0.92;
 export function createCrew() {
   const sasole = makeFigure({
     name: 'captain_lou_sasole',
-    skin: 0xd8b48c,
-    shirt: 0xd8d2c0,
-    jacket: 0x5a3a22,          // the same old leather flight jacket
-    trousers: 0xa89878,
-    boots: 0x4a3320,
-    hair: 0x4a4038,
+    /* His clothes and body palette are the same canonical contract Beef Run
+     * already adapts onto this private block rig. The aeroplane owns only the
+     * headset, face crop, pose and station below. */
+    ...fromWardrobe(CAPTAIN_LOU_SASOLE),
     shades: true,
     hat: 'headset',
-    build: 0.55,
     face: 'assets/faces/sasole.png',
     faceCrop: [0.08, 0.28, 0.84, 0.63],
   });
@@ -118,6 +116,7 @@ export function createCrew() {
   });
   // The navigator's board goes everywhere with him.
   const board = mesh(boxGeo(0.3, 0.38, 0.03), solid(0xc9b78d, { roughness: 0.9 }), 0, -0.34, 0.08);
+  board.name = 'irish-chart';
   irish.arms[1].elbow.add(board);
   irish.board = board;
   irish.tag = nameTag('IRISH', COLOUR.IRISH);
@@ -139,6 +138,7 @@ export function createCrew() {
     build: 0.62,
   });
   const wrench = mesh(boxGeo(0.05, 0.42, 0.07), solid(0x9aa0a6, { roughness: 0.4, metalness: 0.7 }), 0, -0.36, 0.02);
+  wrench.name = 'numbskull-wrench';
   numbskull.arms[0].elbow.add(wrench);
   numbskull.wrench = wrench;
   numbskull.tag = nameTag('NUMBSKULL', COLOUR.NUMBSKULL);
@@ -157,9 +157,12 @@ export function createCrew() {
   });
   // Flying helmet, because he was not supposed to be here and found one.
   const helmet = mesh(cylGeo(0.15, 0.16, 0.2, 10), solid(0x4a4238, { roughness: 0.95 }), 0, 0.22, 0);
+  helmet.name = 'shubes-flight-helmet';
   shubes.neck.add(helmet);
   for (const sx of [-0.14, 0.14]) {
-    shubes.neck.add(mesh(cylGeo(0.07, 0.07, 0.06, 8), solid(0x24262a, { roughness: 0.8 }), sx, 0.13, 0));
+    const cup = mesh(cylGeo(0.07, 0.07, 0.06, 8), solid(0x24262a, { roughness: 0.8 }), sx, 0.13, 0);
+    cup.name = `shubes-headset-cup-${sx < 0 ? 'right' : 'left'}`;
+    shubes.neck.add(cup);
   }
   shubes.tag = nameTag('THE SHUBENATOR', COLOUR.SHUBES);
   shubes.group.add(shubes.tag);

@@ -40,6 +40,7 @@ import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
 import { PostFX } from '../../core/postfx.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
 import { weaponCueNames } from '../../core/weapons/audio.js';
@@ -59,6 +60,7 @@ import {
 } from '../../core/final-arc-runtime.js';
 import { createMansionSiegeCampaignStory } from '../../core/final-arc-story.js';
 import { isPreviewMode } from '../../core/preview-mode.js';
+import { SmokeSystem } from '../../world/smoke.js';
 
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
@@ -138,6 +140,7 @@ renderer.toneMappingExposure = 0.94;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
+const siegeSmoke = new SmokeSystem(scene);
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.08, 260);
 scene.add(camera);
 
@@ -237,7 +240,7 @@ const night = buildSiegeNight({ damage, registerLight: registerLocalLight });
 scene.add(night.root);
 
 const dressing = buildSiegeDressing({
-  damage, grounds, interior, registerLight: registerLocalLight,
+  damage, grounds, interior, smokeSystem: siegeSmoke, registerLight: registerLocalLight,
 });
 scene.add(dressing.root);
 
@@ -339,14 +342,30 @@ const playerActor = new CombatActor({
 const finalArcLoadout = createFinalArcLoadout();
 const loadoutBar = new SceneInventoryBar({ catalog: FINAL_ARC_WEAPON_CATALOG, visible: true });
 let captureSiegeLoadout = () => {};
+let attackers = null;
+let hitConfirmTimer = 0;
+let playerHitCount = 0;
+let pointerLockRejected = false;
+const siegeWeaponHitTargets = [...interior.occluders, ...grounds.occluders];
 const weaponSystem = new WeaponSystem({
   camera,
   world: scene,
   audio,
   groundAt: (x, z) => interior.floorAt(x, z, player.position.y - player.eyeHeight)
     ?? exteriorGroundAt(x, z),
-  hitTargets: [...interior.occluders, ...grounds.occluders],
+  hitTargets: siegeWeaponHitTargets,
   range: 70,
+  onImpact: ({ object, damage: shotDamage, penetration }) => {
+    if (!attackers || !object) return;
+    const resolved = attackers.registerHit(object, shotDamage, penetration);
+    if (!resolved[0]?.result?.applied) return;
+    playerHitCount++;
+    hitConfirmTimer = 0.18;
+    if (reticleEl) {
+      reticleEl.dataset.confirmed = 'true';
+      reticleEl.style.filter = 'drop-shadow(0 0 5px rgba(255, 104, 72, .95))';
+    }
+  },
   onEvent: () => {
     ammoDirty = true;
     captureSiegeLoadout();
@@ -368,7 +387,7 @@ function equipOwnedWeapon(id) {
 finalArcLoadout.apply(weaponSystem, { equip: false });
 loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
 
-const attackers = createAttackerPool({
+attackers = createAttackerPool({
   scene,
   damage,
   matrix,
@@ -471,6 +490,10 @@ const armory = mountArmory({
     }
   },
 });
+/* The shared weapon ray now sees people and architecture in one sorted list.
+ * That makes a wall stop a round before an attacker, and gives every automatic
+ * follow-up shot the same actor resolution as the opening click. */
+siegeWeaponHitTargets.push(attackers.root);
 for (const id of finalArcLoadout.items) {
   if (!id) continue;
   armory.claim(id);
@@ -516,6 +539,7 @@ const siegeCampaign = createFinalArcRuntimeSession({
   spawn: 'guest_suite',
   storyFactory: createMansionSiegeCampaignStory,
 });
+const siegeRecoveryCampaign = siegeCampaign.campaign ?? createCampaign();
 let siegeCampaignComplete = false;
 
 /* ================================================================== */
@@ -941,26 +965,6 @@ function holdTheLine() {
 }
 
 /* ================================================================== */
-/* Firing                                                                */
-/* ================================================================== */
-const SCREEN_CENTRE = new THREE.Vector2(0, 0);
-const raycaster = new THREE.Raycaster();
-
-function fire() {
-  if (!running || pauseMenu.isPaused()) return;
-  const shot = weaponSystem.triggerPress();
-  if (!shot?.fired) return;
-  ammoDirty = true;
-  raycaster.setFromCamera(SCREEN_CENTRE, camera);
-  const hits = raycaster.intersectObject(attackers.root, true);
-  const first = hits[0];
-  if (!first) return;
-  const actor = attackers.actorFor(first.object);
-  if (!actor) return;
-  attackers.registerHit(first.object, shot.damage, shot.penetration);
-}
-
-/* ================================================================== */
 /* Input                                                                 */
 /*                                                                       */
 /* `Player` DOES NOT LISTEN FOR ITS OWN KEYS. It exposes setKey/clearKeys */
@@ -1027,13 +1031,73 @@ window.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
   player.handleMouseMove(e.movementX, e.movementY);
 });
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running) return;
-  if (document.pointerLockElement !== renderer.domElement) {
-    renderer.domElement.requestPointerLock?.();
+
+/**
+ * Ask for mouse capture without leaving a rejected promise or a silent dead
+ * trigger behind. `beginSiege()` also asks after its asynchronous audio load,
+ * where the browser may no longer consider the start-button gesture current;
+ * a later canvas click is the reliable recovery gesture.
+ */
+function requestSiegePointerLock({ explain = false } = {}) {
+  if (document.pointerLockElement === renderer.domElement) return true;
+  if (typeof renderer.domElement.requestPointerLock !== 'function') {
+    pointerLockRejected = true;
+    if (explain) nudge('Mouse capture is unavailable. Open this page directly, or allow pointer lock.');
+    return false;
+  }
+  try {
+    const pending = renderer.domElement.requestPointerLock();
+    pending?.catch?.(() => {
+      pointerLockRejected = true;
+      if (explain) nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
+    });
+    return true;
+  } catch {
+    pointerLockRejected = true;
+    if (explain) nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
+    return false;
+  }
+}
+
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === renderer.domElement) {
+    pointerLockRejected = false;
     return;
   }
-  if (e.button === 0) fire();
+  weaponSystem.setTrigger(false);
+});
+document.addEventListener('pointerlockerror', () => {
+  pointerLockRejected = true;
+  weaponSystem.setTrigger(false);
+  if (running && !pauseMenu.isPaused()) {
+    nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
+  }
+});
+
+renderer.domElement.addEventListener('mousedown', (e) => {
+  if (!running || e.button !== 0 || pauseMenu.isPaused()) return;
+  if (document.pointerLockElement !== renderer.domElement) {
+    /* After an explicit browser rejection, do not turn every later click into
+     * another invisible no-op. A deliberate click still fires one round; the
+     * HUD explains why mouse-look is unavailable, while the same fresh user
+     * gesture retries capture in case the browser permission has changed. */
+    if (pointerLockRejected) {
+      requestSiegePointerLock({ explain: true });
+      if (weaponSystem.equipped) weaponSystem.triggerPress();
+      else nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
+      return;
+    }
+    requestSiegePointerLock({ explain: true });
+    return;
+  }
+  if (!weaponSystem.equipped) {
+    nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
+    return;
+  }
+  weaponSystem.setTrigger(true);
+});
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 0) weaponSystem.setTrigger(false);
 });
 
 /* ================================================================== */
@@ -1279,6 +1343,27 @@ const pauseMenu = createPauseMenu({
     'Enter skips the rest of a line. Tab pauses and resumes.',
     'Escape releases the mouse, which also pauses.',
   ],
+  recovery: createCampaignSceneRecovery({
+    campaign: siegeRecoveryCampaign,
+    sceneId: SCENE_IDS.MANSION_SIEGE,
+    location,
+    restartCheckpoint: () => {
+      const checkpoint = mission.checkpoint?.id
+        ?? siegeCampaign.story?.mission?.checkpoint
+        ?? startCheckpoint
+        ?? 'wake';
+      if (siegeCampaignPreview) {
+        const url = new URL(location.href);
+        url.searchParams.set('preview', '1');
+        url.searchParams.set('checkpoint', checkpoint);
+        location.assign(url);
+      } else {
+        location.reload();
+      }
+      return { ok: true, checkpoint };
+    },
+    canRestartCheckpoint: () => true,
+  }),
   onPause: () => {
     interaction.setPaused(true);
     weaponSystem.setTrigger(false);
@@ -1289,7 +1374,7 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(false);
     if (audio.ctx?.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
-    renderer.domElement.requestPointerLock?.();
+    requestSiegePointerLock({ explain: true });
   },
 });
 
@@ -1440,9 +1525,22 @@ async function beginSiege() {
     await audio.loadAdditional({ names: [...weaponCueNames(), ...siegeVoiceCueNames()] }).catch(() => {});
     /* A direct/legacy entry still gets the nightstand .45. Campaign entry keeps
      * the exact guns, selected slot and ammunition brought out of the previous
-     * Mansion scene instead of replacing them at boot. */
+     * Mansion scene instead of replacing them at boot. A stowed weapon is a
+     * useful state in the Mansion, but carrying five visible guns into an
+     * active siege with none in hand makes every trigger pull look broken.
+     * Equip a loaded owned slot on entry without manufacturing ammunition. */
     if (!finalArcLoadout.items.some(Boolean)) finalArcLoadout.acquire(WEAPON_IDS.REVOLVER);
     finalArcLoadout.apply(weaponSystem);
+    if (!weaponSystem.equipped) {
+      const inherited = finalArcLoadout.checkpoint();
+      const loaded = (index) => {
+        const id = inherited.slots[index];
+        return id && (inherited.ammo?.[id]?.rounds ?? 0) > 0;
+      };
+      let slot = loaded(inherited.selected) ? inherited.selected : inherited.slots.findIndex((id, index) => loaded(index));
+      if (slot < 0) slot = inherited.slots.findIndex(Boolean);
+      if (slot >= 0) finalArcLoadout.select(slot, weaponSystem);
+    }
     loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
     ammoDirty = true;
     const entryCheckpoint = campaignEntry.resumed
@@ -1468,7 +1566,7 @@ async function beginSiege() {
     }
     running = true;
     menuEl.classList.add('hidden');
-    renderer.domElement.requestPointerLock?.();
+    requestSiegePointerLock({ explain: true });
     clock.getDelta();
     return true;
   } finally {
@@ -1517,6 +1615,13 @@ function updateGame(dt) {
   updateTriggers(dt);
   interaction.update();
   weaponSystem.update(dt, { speed: player.velocity?.length?.() ?? 0 });
+  if (hitConfirmTimer > 0) {
+    hitConfirmTimer = Math.max(0, hitConfirmTimer - dt);
+    if (hitConfirmTimer === 0 && reticleEl) {
+      delete reticleEl.dataset.confirmed;
+      reticleEl.style.filter = '';
+    }
+  }
   suppression.update(dt);
   mission.update(dt);
   /* AFTER the mission, not before: a sequence's `onDone` advances the beat,
@@ -1722,6 +1827,9 @@ window.mansionSiege = {
     select: (index) => finalArcLoadout.select(index, weaponSystem),
   },
   get equipped() { return weaponSystem.equipped ?? null; },
+  get playerHits() { return playerHitCount; },
+  get pointerLockRejected() { return pointerLockRejected; },
+  weaponStats: () => ({ ...weaponSystem.stats }),
   get playerHealth() { return playerActor.health; },
   get playerDown() { return playerActor.incapacitated; },
   /** Headless only -- see the note on `invulnerable`. */

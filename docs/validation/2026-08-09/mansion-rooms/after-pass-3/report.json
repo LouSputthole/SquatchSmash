@@ -1,0 +1,105 @@
+{
+  "label": "after-pass-3",
+  "screenshots": [
+    {
+      "name": "lou-suite-lighting",
+      "player": [
+        5.5,
+        12.26,
+        68.4
+      ],
+      "target": [
+        0,
+        10.874999999105931,
+        66.55
+      ]
+    },
+    {
+      "name": "lou-suite-portrait",
+      "player": [
+        -2.5,
+        12.26,
+        64.8
+      ],
+      "target": [
+        -5.65,
+        12.32,
+        63.282250000000005
+      ]
+    },
+    {
+      "name": "bedroom-gothic-cluster",
+      "player": [
+        -12.55,
+        7.66,
+        37.2
+      ],
+      "target": [
+        -11.1,
+        6.77,
+        43.295008601114986
+      ]
+    },
+    {
+      "name": "bedroom-old-timey-cluster",
+      "player": [
+        14.7,
+        7.66,
+        42.13
+      ],
+      "target": [
+        9.65,
+        6.675873021909455,
+        46.1
+      ]
+    },
+    {
+      "name": "bedroom-lake-cluster",
+      "player": [
+        -14.75,
+        7.66,
+        58.3
+      ],
+      "target": [
+        -12.2,
+        6.6425000017881395,
+        62.5625
+      ]
+    },
+    {
+      "name": "bedroom-modern-cluster",
+      "player": [
+        14.75,
+        7.66,
+        58.3
+      ],
+      "target": [
+        11.065,
+        7.165,
+        62.9
+      ]
+    },
+    {
+      "name": "bedroom-prospect-cluster",
+      "player": [
+        -12.55,
+        -1.14,
+        67
+      ],
+      "target": [
+        -11.73,
+        -1.5999999999999999,
+        70
+      ]
+    }
+  ],
+  "gl": {
+    "lost": false,
+    "drawingBuffer": [
+      1280,
+      720
+    ]
+  },
+  "notFound": [],
+  "errors": []
+}

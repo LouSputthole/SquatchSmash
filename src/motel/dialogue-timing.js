@@ -16,6 +16,12 @@ export function nextLineDelayMs(holdSeconds, gapSeconds = DIALOGUE_GAP_SECONDS) 
   return Math.max(0, holdSeconds + gap) * 1000;
 }
 
+/** Resolve the breath before an authored follow-up on the shared voice floor. */
+export function dialogueBeatLeadSeconds(beat, fallback = DIALOGUE_GAP_SECONDS) {
+  const defaultGap = Number.isFinite(fallback) ? Math.max(0, fallback) : DIALOGUE_GAP_SECONDS;
+  return Number.isFinite(beat?.leadSeconds) ? Math.max(0, beat.leadSeconds) : defaultGap;
+}
+
 /**
  * A tiny reservation system for the Motel's single dialogue floor. Calls to
  * `say()` can come from timers, interactions, ambient barks and scripted

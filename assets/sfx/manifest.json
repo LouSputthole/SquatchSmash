@@ -10505,871 +10505,6 @@
       "say": "That closes the HotDog incident. The Motel does not close this easy."
     },
     {
-      "name": "vo.motel.bathroom-seller.1r6c7ar.1",
-      "voice": "npc-male",
-      "say": "Hold him still!"
-    },
-    {
-      "name": "vo.motel.chino.11p7h06.1",
-      "voice": "motel-chino",
-      "say": "The gloves are for hygiene."
-    },
-    {
-      "name": "vo.motel.chino.17xspfp.1",
-      "voice": "motel-chino",
-      "say": "Stand where I can see you."
-    },
-    {
-      "name": "vo.motel.chino.1l7xwgv.1",
-      "voice": "motel-chino",
-      "say": "Get the case! Get the case!"
-    },
-    {
-      "name": "vo.motel.chino.1no0rm9.1",
-      "voice": "motel-chino",
-      "say": "Rico. Why is he so tall. Rico."
-    },
-    {
-      "name": "vo.motel.chino.1uqwhor.1",
-      "voice": "motel-chino",
-      "say": "Nobody gets it!"
-    },
-    {
-      "name": "vo.motel.chino.2v2pmh.1",
-      "voice": "motel-chino",
-      "say": "He is too big! Somebody find the prod!"
-    },
-    {
-      "name": "vo.motel.chino.4zdbk.1",
-      "voice": "motel-chino",
-      "say": "He is buying it blind. Rico. He is buying it blind."
-    },
-    {
-      "name": "vo.motel.chino.5t7utr.1",
-      "voice": "motel-chino",
-      "say": "Rico. He knows."
-    },
-    {
-      "name": "vo.motel.chino.6gc2rn.1",
-      "voice": "motel-chino",
-      "say": "Rico. He is asking who handled it."
-    },
-    {
-      "name": "vo.motel.chino.gd9owk.1",
-      "voice": "motel-chino",
-      "say": "You buying or writing a cookbook?"
-    },
-    {
-      "name": "vo.motel.chino.jmbt5j.1",
-      "voice": "motel-chino",
-      "say": "Then nobody eats!"
-    },
-    {
-      "name": "vo.motel.chino.l2z2zx.1",
-      "voice": "motel-chino",
-      "say": "Nobody is rushing. I am just standing here. By the door."
-    },
-    {
-      "name": "vo.motel.chino.qdheri.1",
-      "voice": "motel-chino",
-      "say": "You think rare meat grows on trees?"
-    },
-    {
-      "name": "vo.motel.chino.rs9ixw.1",
-      "voice": "motel-chino",
-      "say": "Door stays shut. Air conditioning."
-    },
-    {
-      "name": "vo.motel.chino.ys9i6q.1",
-      "voice": "motel-chino",
-      "say": "No refunds once you chew."
-    },
-    {
-      "name": "vo.motel.prospect.10do4h8.1",
-      "voice": "player",
-      "say": "I did not say the meat was real."
-    },
-    {
-      "name": "vo.motel.prospect.10rdx22.1",
-      "voice": "player",
-      "say": "Eight packages. Numbered labels. Two of these seals have been opened and re-pressed."
-    },
-    {
-      "name": "vo.motel.prospect.10saw4l.1",
-      "voice": "player",
-      "say": "You people do not respect the cure."
-    },
-    {
-      "name": "vo.motel.prospect.115gqb.1",
-      "voice": "player",
-      "say": "Snow stays. Say the next part carefully."
-    },
-    {
-      "name": "vo.motel.prospect.11o17zs.1",
-      "voice": "player",
-      "say": "Drive before I inspect you."
-    },
-    {
-      "name": "vo.motel.prospect.12budk2.1",
-      "voice": "player",
-      "say": "I have eaten belts with better texture."
-    },
-    {
-      "name": "vo.motel.prospect.12obl7r.1",
-      "voice": "player",
-      "say": "Somebody who loved this animal cut this."
-    },
-    {
-      "name": "vo.motel.prospect.141ox2h.1",
-      "voice": "player",
-      "say": "Humidity touched the bottom packages."
-    },
-    {
-      "name": "vo.motel.prospect.14b4r8e.1",
-      "voice": "player",
-      "say": "It survived the way a rumour survives."
-    },
-    {
-      "name": "vo.motel.prospect.14i9cbs.1",
-      "voice": "player",
-      "say": "That is not sauce."
-    },
-    {
-      "name": "vo.motel.prospect.15489fg.1",
-      "voice": "player",
-      "say": "Too much pepper."
-    },
-    {
-      "name": "vo.motel.prospect.154gev9.1",
-      "voice": "player",
-      "say": "It is under my coat. It stays under my coat."
-    },
-    {
-      "name": "vo.motel.prospect.15g7pb6.1",
-      "voice": "player",
-      "say": "I inspect standing."
-    },
-    {
-      "name": "vo.motel.prospect.15ikvju.1",
-      "voice": "player",
-      "say": "The railing was rusted. That is on the motel."
-    },
-    {
-      "name": "vo.motel.prospect.18hjn3n.1",
-      "voice": "player",
-      "say": "This strip has been folded."
-    },
-    {
-      "name": "vo.motel.prospect.18wzbaw.1",
-      "voice": "player",
-      "say": "Open the door."
-    },
-    {
-      "name": "vo.motel.prospect.197dj2e.1",
-      "voice": "player",
-      "say": "Stay down."
-    },
-    {
-      "name": "vo.motel.prospect.19y7yz4.1",
-      "voice": "player",
-      "say": "The bathroom window opened an inch. Somebody in there wanted air, or a look at the lot."
-    },
-    {
-      "name": "vo.motel.prospect.1adqkmh.1",
-      "voice": "player",
-      "say": "The coupon expired in March. So did my patience."
-    },
-    {
-      "name": "vo.motel.prospect.1be8uji.1",
-      "voice": "player",
-      "say": "You saw a raccoon. A big one. In a shirt."
-    },
-    {
-      "name": "vo.motel.prospect.1bj01wp.1",
-      "voice": "player",
-      "say": "Seventy-two hours of smoke, right in the eyes."
-    },
-    {
-      "name": "vo.motel.prospect.1bzy9q9.1",
-      "voice": "player",
-      "say": "I have to duck in your doorway. Think about what that means for you."
-    },
-    {
-      "name": "vo.motel.prospect.1cxjcvf.1",
-      "voice": "player",
-      "say": "Wear it."
-    },
-    {
-      "name": "vo.motel.prospect.1cyyp1q.1",
-      "voice": "player",
-      "say": "It is real."
-    },
-    {
-      "name": "vo.motel.prospect.1d0a8bc.1",
-      "voice": "player",
-      "say": "Premium stash. Black wrap, wax seal, real numbers. He was never going to sell me this."
-    },
-    {
-      "name": "vo.motel.prospect.1d7xfdi.1",
-      "voice": "player",
-      "say": "Eight packages. Numbered labels. Seals all intact."
-    },
-    {
-      "name": "vo.motel.prospect.1dq5l5a.1",
-      "voice": "player",
-      "say": "You are the third best liar in this room and there are three of us."
-    },
-    {
-      "name": "vo.motel.prospect.1eqj2mi.1",
-      "voice": "player",
-      "say": "Pointed at nothing. Whoever aimed it did not want room twelve on tape."
-    },
-    {
-      "name": "vo.motel.prospect.1f40bwo.1",
-      "voice": "player",
-      "say": "Everyone in this room is smaller than the deal."
-    },
-    {
-      "name": "vo.motel.prospect.1fre0j.1",
-      "voice": "player",
-      "say": "I know. I heard you breathing an hour ago."
-    },
-    {
-      "name": "vo.motel.prospect.1g6x37j.1",
-      "voice": "player",
-      "say": "Room eleven. The real cure, stacked to the ceiling. They were selling me the wrapping."
-    },
-    {
-      "name": "vo.motel.prospect.1hsm8zy.1",
-      "voice": "player",
-      "say": "Do not rush me near meat."
-    },
-    {
-      "name": "vo.motel.prospect.1icrpcf.1",
-      "voice": "player",
-      "say": "Brittle outside, alive inside."
-    },
-    {
-      "name": "vo.motel.prospect.1k6caos.1",
-      "voice": "player",
-      "say": "You Rico?"
-    },
-    {
-      "name": "vo.motel.prospect.1l8u6sa.1",
-      "voice": "player",
-      "say": "He answered too fast to be lying."
-    },
-    {
-      "name": "vo.motel.prospect.1mllplw.1",
-      "voice": "player",
-      "say": "Their case is on the far bed now. That is not where a deal happens."
-    },
-    {
-      "name": "vo.motel.prospect.1mr6qip.1",
-      "voice": "player",
-      "say": "Now. Where is my meat."
-    },
-    {
-      "name": "vo.motel.prospect.1nfytw8.1",
-      "voice": "player",
-      "say": "Eight in their case. One on the table. Neither of them is mine yet."
-    },
-    {
-      "name": "vo.motel.prospect.1ppllw9.1",
-      "voice": "player",
-      "say": "There is a man breathing in your bathroom, Rico."
-    },
-    {
-      "name": "vo.motel.prospect.1q6jhrg.1",
-      "voice": "player",
-      "say": "A man with real product does not need a partner. Deal."
-    },
-    {
-      "name": "vo.motel.prospect.1qdqv41.1",
-      "voice": "player",
-      "say": "Cured, not dried."
-    },
-    {
-      "name": "vo.motel.prospect.1qkrqus.1",
-      "voice": "player",
-      "say": "Reserve wrapper. Chewed open, not cut. Somebody in this motel is eating the inventory."
-    },
-    {
-      "name": "vo.motel.prospect.1sf6znk.1",
-      "voice": "player",
-      "say": "That is how business works."
-    },
-    {
-      "name": "vo.motel.prospect.1sg1oqo.1",
-      "voice": "player",
-      "say": "Third man. Of course there is a third man."
-    },
-    {
-      "name": "vo.motel.prospect.1to7kzv.1",
-      "voice": "player",
-      "say": "This room is too warm."
-    },
-    {
-      "name": "vo.motel.prospect.1toav3k.1",
-      "voice": "player",
-      "say": "Silver is cheaper than this and silver does not spoil."
-    },
-    {
-      "name": "vo.motel.prospect.1va5ald.1",
-      "voice": "player",
-      "say": "This motel smells like boiled carpet."
-    },
-    {
-      "name": "vo.motel.prospect.1vgn0j7.1",
-      "voice": "player",
-      "say": "This is gas-station product with the logo scraped off."
-    },
-    {
-      "name": "vo.motel.prospect.1wgrphx.1",
-      "voice": "player",
-      "say": "Nobody near the television."
-    },
-    {
-      "name": "vo.motel.prospect.1ydce4z.1",
-      "voice": "player",
-      "say": "Hands. Both of them. On the case."
-    },
-    {
-      "name": "vo.motel.prospect.1z12ntc.1",
-      "voice": "player",
-      "say": "Motel lamp. Heavier than it looks."
-    },
-    {
-      "name": "vo.motel.prospect.39rx91.1",
-      "voice": "player",
-      "say": "Stamp is serialised."
-    },
-    {
-      "name": "vo.motel.prospect.3vsopv.1",
-      "voice": "player",
-      "say": "Stop eating the shipment!"
-    },
-    {
-      "name": "vo.motel.prospect.51x338.1",
-      "voice": "player",
-      "say": "Show me the full case."
-    },
-    {
-      "name": "vo.motel.prospect.5mi8ez.1",
-      "voice": "player",
-      "say": "Sugar glaze, uniform strips, no butcher stamp. Room eleven, then."
-    },
-    {
-      "name": "vo.motel.prospect.5u8h0e.1",
-      "voice": "player",
-      "say": "Second floor. He looked away a half second late. That is a man with a job."
-    },
-    {
-      "name": "vo.motel.prospect.5wkpe7.1",
-      "voice": "player",
-      "say": "Do not put hands on a Squatchtana."
-    },
-    {
-      "name": "vo.motel.prospect.7fnml8.1",
-      "voice": "player",
-      "say": "I can smell preservatives."
-    },
-    {
-      "name": "vo.motel.prospect.7gn93f.1",
-      "voice": "player",
-      "say": "Wasted good seasoning."
-    },
-    {
-      "name": "vo.motel.prospect.7w3hzi.1",
-      "voice": "player",
-      "say": "It matches the card."
-    },
-    {
-      "name": "vo.motel.prospect.7ziac4.1",
-      "voice": "player",
-      "say": "You sold me a lie in a wrapper. Fix it."
-    },
-    {
-      "name": "vo.motel.prospect.9a7rkv.1",
-      "voice": "player",
-      "say": "Eleven-year cure. It has a barcode from last April."
-    },
-    {
-      "name": "vo.motel.prospect.9znaav.1",
-      "voice": "player",
-      "say": "Depends what is in the suitcase."
-    },
-    {
-      "name": "vo.motel.prospect.aic4op.1",
-      "voice": "player",
-      "say": "He is watching the road, not the lot. Nobody watches the road unless somebody is coming."
-    },
-    {
-      "name": "vo.motel.prospect.am69zw.1",
-      "voice": "player",
-      "say": "Running engine. Warm seat. Nobody in it. That is a car waiting to leave in a hurry."
-    },
-    {
-      "name": "vo.motel.prospect.b82z9m.1",
-      "voice": "player",
-      "say": "This is gas-station product."
-    },
-    {
-      "name": "vo.motel.prospect.c3avlg.1",
-      "voice": "player",
-      "say": "Four of them in the lot. Two by the stairs, one at the pool, one at my car."
-    },
-    {
-      "name": "vo.motel.prospect.d13f0e.1",
-      "voice": "player",
-      "say": "Say his name again and I use the vacuum sealer on you."
-    },
-    {
-      "name": "vo.motel.prospect.gaamab.1",
-      "voice": "player",
-      "say": "Motel bathtubs are not built for this species."
-    },
-    {
-      "name": "vo.motel.prospect.gfi373.1",
-      "voice": "player",
-      "say": "That is the Reserve."
-    },
-    {
-      "name": "vo.motel.prospect.hmhz25.1",
-      "voice": "player",
-      "say": "The card and the meat disagree."
-    },
-    {
-      "name": "vo.motel.prospect.il9mli.1",
-      "voice": "player",
-      "say": "Nobody sells this to anybody now."
-    },
-    {
-      "name": "vo.motel.prospect.j3x376.1",
-      "voice": "player",
-      "say": "Nobody in this room agrees where the cattle died."
-    },
-    {
-      "name": "vo.motel.prospect.k9e4m.1",
-      "voice": "player",
-      "say": "If the grain runs sideways, we walk."
-    },
-    {
-      "name": "vo.motel.prospect.lflt2o.1",
-      "voice": "player",
-      "say": "You parked facing the building."
-    },
-    {
-      "name": "vo.motel.prospect.m5c7so.1",
-      "voice": "player",
-      "say": "No, I am motel inspection."
-    },
-    {
-      "name": "vo.motel.prospect.mctpd6.1",
-      "voice": "player",
-      "say": "Vacuum packets. Opened out here, refilled out here. Somebody repacked the shipment in a parking lot."
-    },
-    {
-      "name": "vo.motel.prospect.nj4caa.1",
-      "voice": "player",
-      "say": "This smoke is real."
-    },
-    {
-      "name": "vo.motel.prospect.owqgsl.1",
-      "voice": "player",
-      "say": "You stored this near fish."
-    },
-    {
-      "name": "vo.motel.prospect.q78td1.1",
-      "voice": "player",
-      "say": "If they waste my time, they lose more than jerky."
-    },
-    {
-      "name": "vo.motel.prospect.rkk726.1",
-      "voice": "player",
-      "say": "Bring out the real case and we forget this."
-    },
-    {
-      "name": "vo.motel.prospect.s09ge3.1",
-      "voice": "player",
-      "say": "This was cut against the grain. Who handled it?"
-    },
-    {
-      "name": "vo.motel.prospect.vxzjpf.1",
-      "voice": "player",
-      "say": "Hold the case. I am driving."
-    },
-    {
-      "name": "vo.motel.prospect.w6mx48.1",
-      "voice": "player",
-      "say": "Nobody locks a door during honest jerky."
-    },
-    {
-      "name": "vo.motel.prospect.yg7zy7.1",
-      "voice": "player",
-      "say": "You scraped the logo off. You did not scrape it well."
-    },
-    {
-      "name": "vo.motel.prospect.zuwvp1.1",
-      "voice": "player",
-      "say": "Compact revolver. Six in the wheel. For emergencies and disrespect."
-    },
-    {
-      "name": "vo.motel.rico.11fionc.1",
-      "voice": "motel-rico",
-      "say": "Not worth it, not worth it!"
-    },
-    {
-      "name": "vo.motel.rico.170sfxc.1",
-      "voice": "motel-rico",
-      "say": "I told you."
-    },
-    {
-      "name": "vo.motel.rico.1acw28m.1",
-      "voice": "motel-rico",
-      "say": "Relax, big man. Doors open easier when nobody yells at them."
-    },
-    {
-      "name": "vo.motel.rico.1ahrvdy.1",
-      "voice": "motel-rico",
-      "say": "Nobody handled it. It handles itself."
-    },
-    {
-      "name": "vo.motel.rico.1ayqiuw.1",
-      "voice": "motel-rico",
-      "say": "Nothing personal. Everything financial."
-    },
-    {
-      "name": "vo.motel.rico.1d1vszt.1",
-      "voice": "motel-rico",
-      "say": "This is not gas-station product."
-    },
-    {
-      "name": "vo.motel.rico.1d3w1y8.1",
-      "voice": "motel-rico",
-      "say": "Government took the herd. Government did not take everything."
-    },
-    {
-      "name": "vo.motel.rico.1d756mb.1",
-      "voice": "motel-rico",
-      "say": "Barcodes get printed. Meat gets born."
-    },
-    {
-      "name": "vo.motel.rico.1g6gshq.1",
-      "voice": "motel-rico",
-      "say": "Do not lean on that. It is a wall, but only technically."
-    },
-    {
-      "name": "vo.motel.rico.1gvk8hc.1",
-      "voice": "motel-rico",
-      "say": "What is in the suitcase is history. Come inside before the neighbours smell it."
-    },
-    {
-      "name": "vo.motel.rico.1hkmltr.1",
-      "voice": "motel-rico",
-      "say": "The whole case. Nothing to hide in a case."
-    },
-    {
-      "name": "vo.motel.rico.1iuwr62.1",
-      "voice": "motel-rico",
-      "say": "Mountain reserve. Eleven-year cure. No fillers."
-    },
-    {
-      "name": "vo.motel.rico.1l3y0w1.1",
-      "voice": "motel-rico",
-      "say": "Meat first. Money second. That is how this works."
-    },
-    {
-      "name": "vo.motel.rico.1l5asv7.1",
-      "voice": "motel-rico",
-      "say": "Whoa — WHOA—"
-    },
-    {
-      "name": "vo.motel.rico.1m8h69d.1",
-      "voice": "motel-rico",
-      "say": "Not the product! Anything but the product!"
-    },
-    {
-      "name": "vo.motel.rico.1p55mem.1",
-      "voice": "motel-rico",
-      "say": "There is no other case. There is this case."
-    },
-    {
-      "name": "vo.motel.rico.1q073mn.1",
-      "voice": "motel-rico",
-      "say": "That batch crossed three state lines."
-    },
-    {
-      "name": "vo.motel.rico.1r9ocyc.1",
-      "voice": "motel-rico",
-      "say": "...Who told you about eleven?"
-    },
-    {
-      "name": "vo.motel.rico.6tkwpk.1",
-      "voice": "motel-rico",
-      "say": "Seventy-two hours of smoke. Seventy-two."
-    },
-    {
-      "name": "vo.motel.rico.a1d282.1",
-      "voice": "motel-rico",
-      "say": "Depends who is asking about meat at this hour."
-    },
-    {
-      "name": "vo.motel.rico.afuxpx.1",
-      "voice": "motel-rico",
-      "say": "Now the other half. On the table, where I can see it."
-    },
-    {
-      "name": "vo.motel.rico.agljzb.1",
-      "voice": "motel-rico",
-      "say": "See? Civilised."
-    },
-    {
-      "name": "vo.motel.rico.bdn2mc.1",
-      "voice": "motel-rico",
-      "say": "In this room we are all the same size."
-    },
-    {
-      "name": "vo.motel.rico.bxbl0i.1",
-      "voice": "motel-rico",
-      "say": "Three. He counted three."
-    },
-    {
-      "name": "vo.motel.rico.fy7cus.1",
-      "voice": "motel-rico",
-      "say": "The cattle had names."
-    },
-    {
-      "name": "vo.motel.rico.hwxkhb.1",
-      "voice": "motel-rico",
-      "say": "Satisfied? The case is right there. Eight of them. Count it."
-    },
-    {
-      "name": "vo.motel.rico.ifg4sl.1",
-      "voice": "motel-rico",
-      "say": "There it is. Now we are all friends with a table between us."
-    },
-    {
-      "name": "vo.motel.rico.kf27q4.1",
-      "voice": "motel-rico",
-      "say": "Funny. Inspectors do not have that much fur."
-    },
-    {
-      "name": "vo.motel.rico.m5af92.1",
-      "voice": "motel-rico",
-      "say": "Bring out the cutting board."
-    },
-    {
-      "name": "vo.motel.rico.nq46iz.1",
-      "voice": "motel-rico",
-      "say": "Do not touch that package."
-    },
-    {
-      "name": "vo.motel.rico.p761vr.1",
-      "voice": "motel-rico",
-      "say": "Bring out the cutting board!"
-    },
-    {
-      "name": "vo.motel.rico.pbbijs.1",
-      "voice": "motel-rico",
-      "say": "Now that is business."
-    },
-    {
-      "name": "vo.motel.rico.q51qjl.1",
-      "voice": "motel-rico",
-      "say": "You Prospect?"
-    },
-    {
-      "name": "vo.motel.rico.vj382u.1",
-      "voice": "motel-rico",
-      "say": "Come in before the neighbours smell it."
-    },
-    {
-      "name": "vo.motel.rico.wapvrs.1",
-      "voice": "motel-rico",
-      "say": "Belts. He says belts. In my room."
-    },
-    {
-      "name": "vo.motel.rico.yn1flc.1",
-      "voice": "motel-rico",
-      "say": "The next part is the part where you decide."
-    },
-    {
-      "name": "vo.motel.rico.zag488.1",
-      "voice": "motel-rico",
-      "say": "Noted. Loudly."
-    },
-    {
-      "name": "vo.motel.rico.zxp81u.1",
-      "voice": "motel-rico",
-      "say": "Your driver takes forty of your money for parking a car. Walk out with me instead. You keep the case, I keep the cash, he keeps the parking."
-    },
-    {
-      "name": "vo.motel.snow.164aj8o.1",
-      "voice": "snow",
-      "say": "Humidity touched everything tonight."
-    },
-    {
-      "name": "vo.motel.snow.16e6ehh.1",
-      "voice": "snow",
-      "say": "I am fine. Not my blood."
-    },
-    {
-      "name": "vo.motel.snow.17ndr8f.1",
-      "voice": "snow",
-      "say": "That was my door."
-    },
-    {
-      "name": "vo.motel.snow.19076v5.1",
-      "voice": "snow",
-      "say": "Coming in. Do not swing."
-    },
-    {
-      "name": "vo.motel.snow.19l50hx.1",
-      "voice": "snow",
-      "say": "Second car. Running. Nobody in it."
-    },
-    {
-      "name": "vo.motel.snow.1bnvuno.1",
-      "voice": "snow",
-      "say": "We paid forty thousand dollars for gas-station product."
-    },
-    {
-      "name": "vo.motel.snow.1cofoww.1",
-      "voice": "snow",
-      "say": "The pool. Nobody drained it since the eighties."
-    },
-    {
-      "name": "vo.motel.snow.1couizl.1",
-      "voice": "snow",
-      "say": "Driving. Driving."
-    },
-    {
-      "name": "vo.motel.snow.1geklbx.1",
-      "voice": "snow",
-      "say": "Grain runs sideways, I am driving."
-    },
-    {
-      "name": "vo.motel.snow.1hkt3n0.1",
-      "voice": "snow",
-      "say": "Right here. Facing the exit."
-    },
-    {
-      "name": "vo.motel.snow.1k5xr8m.1",
-      "voice": "snow",
-      "say": "Two minutes. Then I honk."
-    },
-    {
-      "name": "vo.motel.snow.1lx3orc.1",
-      "voice": "snow",
-      "say": "The upstairs. Somebody keeps not looking at me."
-    },
-    {
-      "name": "vo.motel.snow.1mos74v.1",
-      "voice": "snow",
-      "say": "Car is running! Move!"
-    },
-    {
-      "name": "vo.motel.snow.1u9ic7d.1",
-      "voice": "snow",
-      "say": "Pool side!"
-    },
-    {
-      "name": "vo.motel.snow.1wrp7lq.1",
-      "voice": "snow",
-      "say": "I grabbed a case. It is full of smoked turkey. It is warm."
-    },
-    {
-      "name": "vo.motel.snow.1wwmnvb.1",
-      "voice": "snow",
-      "say": "Crowbar. And the thing we never mention."
-    },
-    {
-      "name": "vo.motel.snow.2udv3x.1",
-      "voice": "snow",
-      "say": "How much survived?"
-    },
-    {
-      "name": "vo.motel.snow.4wspkp.1",
-      "voice": "snow",
-      "say": "Buy the meat. Leave. No speeches."
-    },
-    {
-      "name": "vo.motel.snow.5y6dnm.1",
-      "voice": "snow",
-      "say": "Well?"
-    },
-    {
-      "name": "vo.motel.snow.8x9w8s.1",
-      "voice": "snow",
-      "say": "Room twelve. Meat first. Money second."
-    },
-    {
-      "name": "vo.motel.snow.9a19ir.1",
-      "voice": "snow",
-      "say": "Good. Best deal we ever made was the one we did not."
-    },
-    {
-      "name": "vo.motel.snow.cqr2ld.1",
-      "voice": "snow",
-      "say": "Crowbar. Catch it."
-    },
-    {
-      "name": "vo.motel.snow.en02v2.1",
-      "voice": "snow",
-      "say": "Then we are rich. I am still shaking."
-    },
-    {
-      "name": "vo.motel.snow.gqd56p.1",
-      "voice": "snow",
-      "say": "Buy. Leave. No speeches."
-    },
-    {
-      "name": "vo.motel.snow.jyf5oa.1",
-      "voice": "snow",
-      "say": "Which case is ours?"
-    },
-    {
-      "name": "vo.motel.snow.mngzvm.1",
-      "voice": "snow",
-      "say": "Checking quality."
-    },
-    {
-      "name": "vo.motel.snow.nrgisy.1",
-      "voice": "snow",
-      "say": "Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk."
-    },
-    {
-      "name": "vo.motel.snow.nugzzr.1",
-      "voice": "snow",
-      "say": "One package? Ask for the case."
-    },
-    {
-      "name": "vo.motel.snow.pa9o26.1",
-      "voice": "snow",
-      "say": "Good. Business. Not opera."
-    },
-    {
-      "name": "vo.motel.snow.shbjlt.1",
-      "voice": "snow",
-      "say": "Tell me that was worth it."
-    },
-    {
-      "name": "vo.motel.snow.x8vdf0.1",
-      "voice": "snow",
-      "say": "Seatbelt. Or do not."
-    },
-    {
-      "name": "vo.motel.snow.ymyrtq.1",
-      "voice": "snow",
-      "say": "I parked facing the exit. Mostly."
-    },
-    {
-      "name": "vo.motel.snow.zvy8zf.1",
-      "voice": "snow",
-      "say": "Blue lights. We leave now."
-    },
-    {
       "name": "heist.crew_snow",
       "voice": "snow",
       "say": "Snow. I call the move. You keep the clock honest."
@@ -12704,11 +11839,6 @@
       "name": "vo.bing.full.james_blond.handOverCord.line.127e3o",
       "voice": "gratin",
       "say": "Here. Off the fryer. It was a cord before it was anything else, so nobody has to explain it later."
-    },
-    {
-      "name": "vo.bing.full.james_blond.handOverCord.tony.17vccwv",
-      "voice": "player",
-      "say": "Take the cord."
     },
     {
       "name": "vo.bing.full.james_blond.iceGratin.line.ocnwj3",
@@ -18435,6 +17565,871 @@
       "name": "vo.siege.sasole.sasole.firstlight",
       "voice": "lou2",
       "say": "Get an hour down. We are wheels up at first light, and you are coming with me."
+    },
+    {
+      "name": "vo.motel.bathroom-seller.1r6c7ar.1",
+      "voice": "npc-male",
+      "say": "Hold him still!"
+    },
+    {
+      "name": "vo.motel.chino.11p7h06.1",
+      "voice": "motel-chino",
+      "say": "The gloves are for hygiene."
+    },
+    {
+      "name": "vo.motel.chino.17xspfp.1",
+      "voice": "motel-chino",
+      "say": "Stand where I can see you."
+    },
+    {
+      "name": "vo.motel.chino.1l7xwgv.1",
+      "voice": "motel-chino",
+      "say": "Get the case! Get the case!"
+    },
+    {
+      "name": "vo.motel.chino.1no0rm9.1",
+      "voice": "motel-chino",
+      "say": "Rico. Why is he so tall. Rico."
+    },
+    {
+      "name": "vo.motel.chino.1uqwhor.1",
+      "voice": "motel-chino",
+      "say": "Nobody gets it!"
+    },
+    {
+      "name": "vo.motel.chino.2v2pmh.1",
+      "voice": "motel-chino",
+      "say": "He is too big! Somebody find the prod!"
+    },
+    {
+      "name": "vo.motel.chino.4zdbk.1",
+      "voice": "motel-chino",
+      "say": "He is buying it blind. Rico. He is buying it blind."
+    },
+    {
+      "name": "vo.motel.chino.5t7utr.1",
+      "voice": "motel-chino",
+      "say": "Rico. He knows."
+    },
+    {
+      "name": "vo.motel.chino.6gc2rn.1",
+      "voice": "motel-chino",
+      "say": "Rico. He is asking who handled it."
+    },
+    {
+      "name": "vo.motel.chino.gd9owk.1",
+      "voice": "motel-chino",
+      "say": "You buying or writing a cookbook?"
+    },
+    {
+      "name": "vo.motel.chino.jmbt5j.1",
+      "voice": "motel-chino",
+      "say": "Then nobody eats!"
+    },
+    {
+      "name": "vo.motel.chino.l2z2zx.1",
+      "voice": "motel-chino",
+      "say": "Nobody is rushing. I am just standing here. By the door."
+    },
+    {
+      "name": "vo.motel.chino.qdheri.1",
+      "voice": "motel-chino",
+      "say": "You think rare meat grows on trees?"
+    },
+    {
+      "name": "vo.motel.chino.rs9ixw.1",
+      "voice": "motel-chino",
+      "say": "Door stays shut. Air conditioning."
+    },
+    {
+      "name": "vo.motel.chino.ys9i6q.1",
+      "voice": "motel-chino",
+      "say": "No refunds once you chew."
+    },
+    {
+      "name": "vo.motel.prospect.10do4h8.1",
+      "voice": "player",
+      "say": "I did not say the meat was real."
+    },
+    {
+      "name": "vo.motel.prospect.10rdx22.1",
+      "voice": "player",
+      "say": "Eight packages. Numbered labels. Two of these seals have been opened and re-pressed."
+    },
+    {
+      "name": "vo.motel.prospect.10saw4l.1",
+      "voice": "player",
+      "say": "You people do not respect the cure."
+    },
+    {
+      "name": "vo.motel.prospect.115gqb.1",
+      "voice": "player",
+      "say": "Snow stays. Say the next part carefully."
+    },
+    {
+      "name": "vo.motel.prospect.11o17zs.1",
+      "voice": "player",
+      "say": "Drive before I inspect you."
+    },
+    {
+      "name": "vo.motel.prospect.12budk2.1",
+      "voice": "player",
+      "say": "I have eaten belts with better texture."
+    },
+    {
+      "name": "vo.motel.prospect.12obl7r.1",
+      "voice": "player",
+      "say": "Somebody who loved this animal cut this."
+    },
+    {
+      "name": "vo.motel.prospect.141ox2h.1",
+      "voice": "player",
+      "say": "Humidity touched the bottom packages."
+    },
+    {
+      "name": "vo.motel.prospect.14b4r8e.1",
+      "voice": "player",
+      "say": "It survived the way a rumour survives."
+    },
+    {
+      "name": "vo.motel.prospect.14i9cbs.1",
+      "voice": "player",
+      "say": "That is not sauce."
+    },
+    {
+      "name": "vo.motel.prospect.15489fg.1",
+      "voice": "player",
+      "say": "Too much pepper."
+    },
+    {
+      "name": "vo.motel.prospect.154gev9.1",
+      "voice": "player",
+      "say": "It is under my coat. It stays under my coat."
+    },
+    {
+      "name": "vo.motel.prospect.15g7pb6.1",
+      "voice": "player",
+      "say": "I inspect standing."
+    },
+    {
+      "name": "vo.motel.prospect.15ikvju.1",
+      "voice": "player",
+      "say": "The railing was rusted. That is on the motel."
+    },
+    {
+      "name": "vo.motel.prospect.18hjn3n.1",
+      "voice": "player",
+      "say": "This strip has been folded."
+    },
+    {
+      "name": "vo.motel.prospect.18wzbaw.1",
+      "voice": "player",
+      "say": "Open the door."
+    },
+    {
+      "name": "vo.motel.prospect.197dj2e.1",
+      "voice": "player",
+      "say": "Stay down."
+    },
+    {
+      "name": "vo.motel.prospect.19y7yz4.1",
+      "voice": "player",
+      "say": "The bathroom window opened an inch. Somebody in there wanted air, or a look at the lot."
+    },
+    {
+      "name": "vo.motel.prospect.1adqkmh.1",
+      "voice": "player",
+      "say": "The coupon expired in March. So did my patience."
+    },
+    {
+      "name": "vo.motel.prospect.1be8uji.1",
+      "voice": "player",
+      "say": "You saw a raccoon. A big one. In a shirt."
+    },
+    {
+      "name": "vo.motel.prospect.1bj01wp.1",
+      "voice": "player",
+      "say": "Seventy-two hours of smoke, right in the eyes."
+    },
+    {
+      "name": "vo.motel.prospect.1bzy9q9.1",
+      "voice": "player",
+      "say": "I have to duck in your doorway. Think about what that means for you."
+    },
+    {
+      "name": "vo.motel.prospect.1cxjcvf.1",
+      "voice": "player",
+      "say": "Wear it."
+    },
+    {
+      "name": "vo.motel.prospect.1cyyp1q.1",
+      "voice": "player",
+      "say": "It is real."
+    },
+    {
+      "name": "vo.motel.prospect.1d0a8bc.1",
+      "voice": "player",
+      "say": "Premium stash. Black wrap, wax seal, real numbers. He was never going to sell me this."
+    },
+    {
+      "name": "vo.motel.prospect.1d7xfdi.1",
+      "voice": "player",
+      "say": "Eight packages. Numbered labels. Seals all intact."
+    },
+    {
+      "name": "vo.motel.prospect.1dq5l5a.1",
+      "voice": "player",
+      "say": "You are the third best liar in this room and there are three of us."
+    },
+    {
+      "name": "vo.motel.prospect.1eqj2mi.1",
+      "voice": "player",
+      "say": "Pointed at nothing. Whoever aimed it did not want room twelve on tape."
+    },
+    {
+      "name": "vo.motel.prospect.1f40bwo.1",
+      "voice": "player",
+      "say": "Everyone in this room is smaller than the deal."
+    },
+    {
+      "name": "vo.motel.prospect.1fre0j.1",
+      "voice": "player",
+      "say": "I know. I heard you breathing an hour ago."
+    },
+    {
+      "name": "vo.motel.prospect.1g6x37j.1",
+      "voice": "player",
+      "say": "Room eleven. The real cure, stacked to the ceiling. They were selling me the wrapping."
+    },
+    {
+      "name": "vo.motel.prospect.1hsm8zy.1",
+      "voice": "player",
+      "say": "Do not rush me near meat."
+    },
+    {
+      "name": "vo.motel.prospect.1icrpcf.1",
+      "voice": "player",
+      "say": "Brittle outside, alive inside."
+    },
+    {
+      "name": "vo.motel.prospect.1k6caos.1",
+      "voice": "player",
+      "say": "You Rico?"
+    },
+    {
+      "name": "vo.motel.prospect.1l8u6sa.1",
+      "voice": "player",
+      "say": "He answered too fast to be lying."
+    },
+    {
+      "name": "vo.motel.prospect.1mllplw.1",
+      "voice": "player",
+      "say": "Their case is on the far bed now. That is not where a deal happens."
+    },
+    {
+      "name": "vo.motel.prospect.1mr6qip.1",
+      "voice": "player",
+      "say": "Now. Where is my meat."
+    },
+    {
+      "name": "vo.motel.prospect.1nfytw8.1",
+      "voice": "player",
+      "say": "Eight in their case. One on the table. Neither of them is mine yet."
+    },
+    {
+      "name": "vo.motel.prospect.1ppllw9.1",
+      "voice": "player",
+      "say": "There is a man breathing in your bathroom, Rico."
+    },
+    {
+      "name": "vo.motel.prospect.1q6jhrg.1",
+      "voice": "player",
+      "say": "A man with real product does not need a partner. Deal."
+    },
+    {
+      "name": "vo.motel.prospect.1qdqv41.1",
+      "voice": "player",
+      "say": "Cured, not dried."
+    },
+    {
+      "name": "vo.motel.prospect.1qkrqus.1",
+      "voice": "player",
+      "say": "Reserve wrapper. Chewed open, not cut. Somebody in this motel is eating the inventory."
+    },
+    {
+      "name": "vo.motel.prospect.1sf6znk.1",
+      "voice": "player",
+      "say": "That is how business works."
+    },
+    {
+      "name": "vo.motel.prospect.1sg1oqo.1",
+      "voice": "player",
+      "say": "Third man. Of course there is a third man."
+    },
+    {
+      "name": "vo.motel.prospect.1to7kzv.1",
+      "voice": "player",
+      "say": "This room is too warm."
+    },
+    {
+      "name": "vo.motel.prospect.1toav3k.1",
+      "voice": "player",
+      "say": "Silver is cheaper than this and silver does not spoil."
+    },
+    {
+      "name": "vo.motel.prospect.1va5ald.1",
+      "voice": "player",
+      "say": "This motel smells like boiled carpet."
+    },
+    {
+      "name": "vo.motel.prospect.1vgn0j7.1",
+      "voice": "player",
+      "say": "This is gas-station product with the logo scraped off."
+    },
+    {
+      "name": "vo.motel.prospect.1wgrphx.1",
+      "voice": "player",
+      "say": "Nobody near the television."
+    },
+    {
+      "name": "vo.motel.prospect.1ydce4z.1",
+      "voice": "player",
+      "say": "Hands. Both of them. On the case."
+    },
+    {
+      "name": "vo.motel.prospect.1z12ntc.1",
+      "voice": "player",
+      "say": "Motel lamp. Heavier than it looks."
+    },
+    {
+      "name": "vo.motel.prospect.39rx91.1",
+      "voice": "player",
+      "say": "Stamp is serialised."
+    },
+    {
+      "name": "vo.motel.prospect.3vsopv.1",
+      "voice": "player",
+      "say": "Stop eating the shipment!"
+    },
+    {
+      "name": "vo.motel.prospect.51x338.1",
+      "voice": "player",
+      "say": "Show me the full case."
+    },
+    {
+      "name": "vo.motel.prospect.5mi8ez.1",
+      "voice": "player",
+      "say": "Sugar glaze, uniform strips, no butcher stamp. Room eleven, then."
+    },
+    {
+      "name": "vo.motel.prospect.5u8h0e.1",
+      "voice": "player",
+      "say": "Second floor. He looked away a half second late. That is a man with a job."
+    },
+    {
+      "name": "vo.motel.prospect.5wkpe7.1",
+      "voice": "player",
+      "say": "Do not put hands on a Squatchtana."
+    },
+    {
+      "name": "vo.motel.prospect.7fnml8.1",
+      "voice": "player",
+      "say": "I can smell preservatives."
+    },
+    {
+      "name": "vo.motel.prospect.7gn93f.1",
+      "voice": "player",
+      "say": "Wasted good seasoning."
+    },
+    {
+      "name": "vo.motel.prospect.7w3hzi.1",
+      "voice": "player",
+      "say": "It matches the card."
+    },
+    {
+      "name": "vo.motel.prospect.7ziac4.1",
+      "voice": "player",
+      "say": "You sold me a lie in a wrapper. Fix it."
+    },
+    {
+      "name": "vo.motel.prospect.9a7rkv.1",
+      "voice": "player",
+      "say": "Eleven-year cure. It has a barcode from last April."
+    },
+    {
+      "name": "vo.motel.prospect.9znaav.1",
+      "voice": "player",
+      "say": "Depends what is in the suitcase."
+    },
+    {
+      "name": "vo.motel.prospect.aic4op.1",
+      "voice": "player",
+      "say": "He is watching the road, not the lot. Nobody watches the road unless somebody is coming."
+    },
+    {
+      "name": "vo.motel.prospect.am69zw.1",
+      "voice": "player",
+      "say": "Running engine. Warm seat. Nobody in it. That is a car waiting to leave in a hurry."
+    },
+    {
+      "name": "vo.motel.prospect.b82z9m.1",
+      "voice": "player",
+      "say": "This is gas-station product."
+    },
+    {
+      "name": "vo.motel.prospect.c3avlg.1",
+      "voice": "player",
+      "say": "Four of them in the lot. Two by the stairs, one at the pool, one at my car."
+    },
+    {
+      "name": "vo.motel.prospect.d13f0e.1",
+      "voice": "player",
+      "say": "Say his name again and I use the vacuum sealer on you."
+    },
+    {
+      "name": "vo.motel.prospect.gaamab.1",
+      "voice": "player",
+      "say": "Motel bathtubs are not built for this species."
+    },
+    {
+      "name": "vo.motel.prospect.gfi373.1",
+      "voice": "player",
+      "say": "That is the Reserve."
+    },
+    {
+      "name": "vo.motel.prospect.hmhz25.1",
+      "voice": "player",
+      "say": "The card and the meat disagree."
+    },
+    {
+      "name": "vo.motel.prospect.il9mli.1",
+      "voice": "player",
+      "say": "Nobody sells this to anybody now."
+    },
+    {
+      "name": "vo.motel.prospect.j3x376.1",
+      "voice": "player",
+      "say": "Nobody in this room agrees where the cattle died."
+    },
+    {
+      "name": "vo.motel.prospect.k9e4m.1",
+      "voice": "player",
+      "say": "If the grain runs sideways, we walk."
+    },
+    {
+      "name": "vo.motel.prospect.lflt2o.1",
+      "voice": "player",
+      "say": "You parked facing the building."
+    },
+    {
+      "name": "vo.motel.prospect.m5c7so.1",
+      "voice": "player",
+      "say": "No, I am motel inspection."
+    },
+    {
+      "name": "vo.motel.prospect.mctpd6.1",
+      "voice": "player",
+      "say": "Vacuum packets. Opened out here, refilled out here. Somebody repacked the shipment in a parking lot."
+    },
+    {
+      "name": "vo.motel.prospect.nj4caa.1",
+      "voice": "player",
+      "say": "This smoke is real."
+    },
+    {
+      "name": "vo.motel.prospect.owqgsl.1",
+      "voice": "player",
+      "say": "You stored this near fish."
+    },
+    {
+      "name": "vo.motel.prospect.q78td1.1",
+      "voice": "player",
+      "say": "If they waste my time, they lose more than jerky."
+    },
+    {
+      "name": "vo.motel.prospect.rkk726.1",
+      "voice": "player",
+      "say": "Bring out the real case and we forget this."
+    },
+    {
+      "name": "vo.motel.prospect.s09ge3.1",
+      "voice": "player",
+      "say": "This was cut against the grain. Who handled it?"
+    },
+    {
+      "name": "vo.motel.prospect.vxzjpf.1",
+      "voice": "player",
+      "say": "Hold the case. I am driving."
+    },
+    {
+      "name": "vo.motel.prospect.w6mx48.1",
+      "voice": "player",
+      "say": "Nobody locks a door during honest jerky."
+    },
+    {
+      "name": "vo.motel.prospect.yg7zy7.1",
+      "voice": "player",
+      "say": "You scraped the logo off. You did not scrape it well."
+    },
+    {
+      "name": "vo.motel.prospect.zuwvp1.1",
+      "voice": "player",
+      "say": "Compact revolver. Six in the wheel. For emergencies and disrespect."
+    },
+    {
+      "name": "vo.motel.rico.11fionc.1",
+      "voice": "motel-rico",
+      "say": "Not worth it, not worth it!"
+    },
+    {
+      "name": "vo.motel.rico.170sfxc.1",
+      "voice": "motel-rico",
+      "say": "I told you."
+    },
+    {
+      "name": "vo.motel.rico.1acw28m.1",
+      "voice": "motel-rico",
+      "say": "Relax, big man. Doors open easier when nobody yells at them."
+    },
+    {
+      "name": "vo.motel.rico.1ahrvdy.1",
+      "voice": "motel-rico",
+      "say": "Nobody handled it. It handles itself."
+    },
+    {
+      "name": "vo.motel.rico.1ayqiuw.1",
+      "voice": "motel-rico",
+      "say": "Nothing personal. Everything financial."
+    },
+    {
+      "name": "vo.motel.rico.1d1vszt.1",
+      "voice": "motel-rico",
+      "say": "This is not gas-station product."
+    },
+    {
+      "name": "vo.motel.rico.1d3w1y8.1",
+      "voice": "motel-rico",
+      "say": "Government took the herd. Government did not take everything."
+    },
+    {
+      "name": "vo.motel.rico.1d756mb.1",
+      "voice": "motel-rico",
+      "say": "Barcodes get printed. Meat gets born."
+    },
+    {
+      "name": "vo.motel.rico.1g6gshq.1",
+      "voice": "motel-rico",
+      "say": "Do not lean on that. It is a wall, but only technically."
+    },
+    {
+      "name": "vo.motel.rico.1gvk8hc.1",
+      "voice": "motel-rico",
+      "say": "What is in the suitcase is history. Come inside before the neighbours smell it."
+    },
+    {
+      "name": "vo.motel.rico.1hkmltr.1",
+      "voice": "motel-rico",
+      "say": "The whole case. Nothing to hide in a case."
+    },
+    {
+      "name": "vo.motel.rico.1iuwr62.1",
+      "voice": "motel-rico",
+      "say": "Mountain reserve. Eleven-year cure. No fillers."
+    },
+    {
+      "name": "vo.motel.rico.1l3y0w1.1",
+      "voice": "motel-rico",
+      "say": "Meat first. Money second. That is how this works."
+    },
+    {
+      "name": "vo.motel.rico.1l5asv7.1",
+      "voice": "motel-rico",
+      "say": "Whoa — WHOA—"
+    },
+    {
+      "name": "vo.motel.rico.1m8h69d.1",
+      "voice": "motel-rico",
+      "say": "Not the product! Anything but the product!"
+    },
+    {
+      "name": "vo.motel.rico.1p55mem.1",
+      "voice": "motel-rico",
+      "say": "There is no other case. There is this case."
+    },
+    {
+      "name": "vo.motel.rico.1q073mn.1",
+      "voice": "motel-rico",
+      "say": "That batch crossed three state lines."
+    },
+    {
+      "name": "vo.motel.rico.1r9ocyc.1",
+      "voice": "motel-rico",
+      "say": "...Who told you about eleven?"
+    },
+    {
+      "name": "vo.motel.rico.6tkwpk.1",
+      "voice": "motel-rico",
+      "say": "Seventy-two hours of smoke. Seventy-two."
+    },
+    {
+      "name": "vo.motel.rico.a1d282.1",
+      "voice": "motel-rico",
+      "say": "Depends who is asking about meat at this hour."
+    },
+    {
+      "name": "vo.motel.rico.afuxpx.1",
+      "voice": "motel-rico",
+      "say": "Now the other half. On the table, where I can see it."
+    },
+    {
+      "name": "vo.motel.rico.agljzb.1",
+      "voice": "motel-rico",
+      "say": "See? Civilised."
+    },
+    {
+      "name": "vo.motel.rico.bdn2mc.1",
+      "voice": "motel-rico",
+      "say": "In this room we are all the same size."
+    },
+    {
+      "name": "vo.motel.rico.bxbl0i.1",
+      "voice": "motel-rico",
+      "say": "Three. He counted three."
+    },
+    {
+      "name": "vo.motel.rico.fy7cus.1",
+      "voice": "motel-rico",
+      "say": "The cattle had names."
+    },
+    {
+      "name": "vo.motel.rico.hwxkhb.1",
+      "voice": "motel-rico",
+      "say": "Satisfied? The case is right there. Eight of them. Count it."
+    },
+    {
+      "name": "vo.motel.rico.ifg4sl.1",
+      "voice": "motel-rico",
+      "say": "There it is. Now we are all friends with a table between us."
+    },
+    {
+      "name": "vo.motel.rico.kf27q4.1",
+      "voice": "motel-rico",
+      "say": "Funny. Inspectors do not have that much fur."
+    },
+    {
+      "name": "vo.motel.rico.m5af92.1",
+      "voice": "motel-rico",
+      "say": "Bring out the cutting board."
+    },
+    {
+      "name": "vo.motel.rico.nq46iz.1",
+      "voice": "motel-rico",
+      "say": "Do not touch that package."
+    },
+    {
+      "name": "vo.motel.rico.p761vr.1",
+      "voice": "motel-rico",
+      "say": "Bring out the cutting board!"
+    },
+    {
+      "name": "vo.motel.rico.pbbijs.1",
+      "voice": "motel-rico",
+      "say": "Now that is business."
+    },
+    {
+      "name": "vo.motel.rico.q51qjl.1",
+      "voice": "motel-rico",
+      "say": "You Prospect?"
+    },
+    {
+      "name": "vo.motel.rico.vj382u.1",
+      "voice": "motel-rico",
+      "say": "Come in before the neighbours smell it."
+    },
+    {
+      "name": "vo.motel.rico.wapvrs.1",
+      "voice": "motel-rico",
+      "say": "Belts. He says belts. In my room."
+    },
+    {
+      "name": "vo.motel.rico.yn1flc.1",
+      "voice": "motel-rico",
+      "say": "The next part is the part where you decide."
+    },
+    {
+      "name": "vo.motel.rico.zag488.1",
+      "voice": "motel-rico",
+      "say": "Noted. Loudly."
+    },
+    {
+      "name": "vo.motel.rico.zxp81u.1",
+      "voice": "motel-rico",
+      "say": "Your driver takes forty of your money for parking a car. Walk out with me instead. You keep the case, I keep the cash, he keeps the parking."
+    },
+    {
+      "name": "vo.motel.snow.164aj8o.1",
+      "voice": "snow",
+      "say": "Humidity touched everything tonight."
+    },
+    {
+      "name": "vo.motel.snow.16e6ehh.1",
+      "voice": "snow",
+      "say": "I am fine. Not my blood."
+    },
+    {
+      "name": "vo.motel.snow.17ndr8f.1",
+      "voice": "snow",
+      "say": "That was my door."
+    },
+    {
+      "name": "vo.motel.snow.19076v5.1",
+      "voice": "snow",
+      "say": "Coming in. Do not swing."
+    },
+    {
+      "name": "vo.motel.snow.19l50hx.1",
+      "voice": "snow",
+      "say": "Second car. Running. Nobody in it."
+    },
+    {
+      "name": "vo.motel.snow.1bnvuno.1",
+      "voice": "snow",
+      "say": "We paid forty thousand dollars for gas-station product."
+    },
+    {
+      "name": "vo.motel.snow.1cofoww.1",
+      "voice": "snow",
+      "say": "The pool. Nobody drained it since the eighties."
+    },
+    {
+      "name": "vo.motel.snow.1couizl.1",
+      "voice": "snow",
+      "say": "Driving. Driving."
+    },
+    {
+      "name": "vo.motel.snow.1geklbx.1",
+      "voice": "snow",
+      "say": "Grain runs sideways, I am driving."
+    },
+    {
+      "name": "vo.motel.snow.1hkt3n0.1",
+      "voice": "snow",
+      "say": "Right here. Facing the exit."
+    },
+    {
+      "name": "vo.motel.snow.1k5xr8m.1",
+      "voice": "snow",
+      "say": "Two minutes. Then I honk."
+    },
+    {
+      "name": "vo.motel.snow.1lx3orc.1",
+      "voice": "snow",
+      "say": "The upstairs. Somebody keeps not looking at me."
+    },
+    {
+      "name": "vo.motel.snow.1mos74v.1",
+      "voice": "snow",
+      "say": "Car is running! Move!"
+    },
+    {
+      "name": "vo.motel.snow.1u9ic7d.1",
+      "voice": "snow",
+      "say": "Pool side!"
+    },
+    {
+      "name": "vo.motel.snow.1wrp7lq.1",
+      "voice": "snow",
+      "say": "I grabbed a case. It is full of smoked turkey. It is warm."
+    },
+    {
+      "name": "vo.motel.snow.1wwmnvb.1",
+      "voice": "snow",
+      "say": "Crowbar. And the thing we never mention."
+    },
+    {
+      "name": "vo.motel.snow.2udv3x.1",
+      "voice": "snow",
+      "say": "How much survived?"
+    },
+    {
+      "name": "vo.motel.snow.4wspkp.1",
+      "voice": "snow",
+      "say": "Buy the meat. Leave. No speeches."
+    },
+    {
+      "name": "vo.motel.snow.5y6dnm.1",
+      "voice": "snow",
+      "say": "Well?"
+    },
+    {
+      "name": "vo.motel.snow.8x9w8s.1",
+      "voice": "snow",
+      "say": "Room twelve. Meat first. Money second."
+    },
+    {
+      "name": "vo.motel.snow.9a19ir.1",
+      "voice": "snow",
+      "say": "Good. Best deal we ever made was the one we did not."
+    },
+    {
+      "name": "vo.motel.snow.cqr2ld.1",
+      "voice": "snow",
+      "say": "Crowbar. Catch it."
+    },
+    {
+      "name": "vo.motel.snow.en02v2.1",
+      "voice": "snow",
+      "say": "Then we are rich. I am still shaking."
+    },
+    {
+      "name": "vo.motel.snow.gqd56p.1",
+      "voice": "snow",
+      "say": "Buy. Leave. No speeches."
+    },
+    {
+      "name": "vo.motel.snow.jyf5oa.1",
+      "voice": "snow",
+      "say": "Which case is ours?"
+    },
+    {
+      "name": "vo.motel.snow.mngzvm.1",
+      "voice": "snow",
+      "say": "Checking quality."
+    },
+    {
+      "name": "vo.motel.snow.nrgisy.1",
+      "voice": "snow",
+      "say": "Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk."
+    },
+    {
+      "name": "vo.motel.snow.nugzzr.1",
+      "voice": "snow",
+      "say": "One package? Ask for the case."
+    },
+    {
+      "name": "vo.motel.snow.pa9o26.1",
+      "voice": "snow",
+      "say": "Good. Business. Not opera."
+    },
+    {
+      "name": "vo.motel.snow.shbjlt.1",
+      "voice": "snow",
+      "say": "Tell me that was worth it."
+    },
+    {
+      "name": "vo.motel.snow.x8vdf0.1",
+      "voice": "snow",
+      "say": "Seatbelt. Or do not."
+    },
+    {
+      "name": "vo.motel.snow.ymyrtq.1",
+      "voice": "snow",
+      "say": "I parked facing the exit. Mostly."
+    },
+    {
+      "name": "vo.motel.snow.zvy8zf.1",
+      "voice": "snow",
+      "say": "Blue lights. We leave now."
     },
     {
       "name": "vo.nowake.dock.willy.nice-night.1",

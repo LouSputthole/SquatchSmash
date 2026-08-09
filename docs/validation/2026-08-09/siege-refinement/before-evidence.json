@@ -1,0 +1,40 @@
+{
+  "pass": "before",
+  "views": [
+    "before-forecourt.png",
+    "before-foyer.png",
+    "before-gallery.png",
+    "before-office.png"
+  ],
+  "inventory": {
+    "state": "under_attack",
+    "groups": {
+      "glass.foyer.south.west.shards": 20,
+      "glass.living.west.north.shards": 20,
+      "glass.lounge.bay.east.mid.shards": 20,
+      "glass.particles": 48,
+      "glass.upper.east.front.shards": 20,
+      "night.emergency": 27,
+      "siege.attackers": 517,
+      "siege.body.guard": 75,
+      "siege.body.performer": 62,
+      "siege.centrepiece.wreck": 27,
+      "siege.debris.cellar": 52,
+      "siege.debris.foyer": 149,
+      "siege.debris.lounge": 28,
+      "siege.ensemble": 1923,
+      "siege.fire.foyer": 19,
+      "siege.step": 66,
+      "siege.wreck.burning": 36,
+      "siege.wreck.burnt": 24,
+      "siege.wreck.drive": 16,
+      "siege.wreck.kerbed": 16,
+      "siege.wreck.stalled": 16
+    },
+    "visibleLights": 18,
+    "framesRendered": 93,
+    "contextLost": false
+  },
+  "notFound": [],
+  "pageErrors": []
+}

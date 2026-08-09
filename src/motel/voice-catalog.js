@@ -4,6 +4,7 @@ import {
   NODES,
   PROSPECT_BARKS,
   SELLER_BARKS,
+  SNOW_GUN_HANDOFF,
   SNOW_BARKS,
   SNOW_FIGHT_BARKS,
 } from './dialogue.js';
@@ -121,6 +122,9 @@ export function allMotelVoiceLines() {
   for (const [speaker, text] of FIGHT_BARKS) add(speaker, text, 'fight bark');
   for (const text of SNOW_FIGHT_BARKS) add('Snow', text, 'Snow fight bark');
   for (const [speaker, text] of ENDING) add(speaker, text, 'ending');
+  for (const [beat, line] of Object.entries(SNOW_GUN_HANDOFF)) {
+    add(line.speaker, line.line, `Snow gun handoff: ${beat}`);
+  }
 
   for (const inspection of INSPECTIONS) {
     for (const result of [inspection.real, inspection.fake]) {

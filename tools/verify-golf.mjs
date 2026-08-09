@@ -221,6 +221,36 @@ check('3a. both carts have a physical dashboard radio receiver',
     && world.cartRadio.position.every(Number.isFinite),
   JSON.stringify(world.cartRadio));
 
+const sharedPresentation = await page.evaluate(async () => {
+  const g = window.__golf;
+  const { Box3, Vector3 } = await import('/vendor/three.module.min.js');
+  return {
+    outfits: Object.fromEntries(Object.entries(g.golfers).map(([id, golfer]) => {
+      const vest = golfer.group.getObjectByName('argyle.vest');
+      return [id, {
+        parent: vest?.parent?.name ?? null,
+        chest: vest?.parent?.parent?.name ?? null,
+      }];
+    })),
+    beers: g.carts.lead.amenities.beers.map((can) => {
+      can.updateMatrixWorld(true);
+      return new Box3().setFromObject(can).getSize(new Vector3()).toArray();
+    }),
+  };
+});
+check('3b. complete argyle chests ride the shared breathing wrapper',
+  Object.values(sharedPresentation.outfits)
+    .every(({ parent, chest }) => parent === 'argyle.garment' && chest === 'torso-wrap'),
+  JSON.stringify(sharedPresentation.outfits));
+check('3b1. the cart stocks apartment-sized Squatch beer instead of unit cylinders',
+  sharedPresentation.beers.length === 4
+    && sharedPresentation.beers.every(([x, y, z]) => (
+      x > 0.06 && x < 0.08
+      && Math.abs(y - 0.127) < 0.002
+      && z > 0.06 && z < 0.08
+    )),
+  JSON.stringify(sharedPresentation.beers));
+
 const clubArt = await page.evaluate(async () => {
   const g = window.__golf;
   const { Box3 } = await import('/vendor/three.module.min.js');
@@ -486,21 +516,28 @@ const drank = await page.evaluate(async () => {
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
   g.player.keys.add('KeyF');
   let lifted = 0;
+  let tilt = 0;
+  let roll = 0;
   for (let t = 0; t < 3.0; t += 1 / 60) {
     g.step(1 / 60);
     lifted = Math.max(lifted, g.heldProps.drinks.can.position.y);
+    tilt = Math.max(tilt, g.heldProps.drinks.can.rotation.x);
+    roll = Math.max(roll, g.heldProps.drinks.can.rotation.z);
   }
   g.player.keys.delete('KeyF');
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' }));
   return {
     before,
     after: g.inventory.items.filter((slot) => slot === 'beer').length,
-    lifted,
+    lifted, tilt, roll,
     canRest: g.heldProps.drinks.can.position.y,
   };
 });
 check('4f1. holding F drinks the beer with the shared held-can animation and frees the slot',
-  drank.before === 1 && drank.after === 0 && drank.lifted > -0.15,
+  drank.before === 1 && drank.after === 0
+    && drank.lifted > 0.25
+    && Math.abs(drank.tilt - 1.95) < 0.02
+    && Math.abs(drank.roll - 0.34) < 0.02,
   JSON.stringify(drank));
 
 /* Drain the rest, one authored can at a time, drinking whenever his hands are
@@ -592,6 +629,36 @@ check('4i. walking up to the cart Zyn tin puts it in the shared inventory',
     && !zynState.visible
     && /wintergreen|zyn/i.test(zynGrab.toast || ''),
   JSON.stringify({ target: cartAmenities['golf-cart-zyn-tin'], grab: zynGrab, state: zynState }));
+const cigaretteUse = await page.evaluate(() => {
+  const g = window.__golf;
+  const slot = g.inventory.items.indexOf('cigs');
+  const before = g.inventory.has('cigs');
+  g.inventory.select(slot);
+  g.audio.clearPlaybackLog();
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+  g.player.keys.add('KeyF');
+  let peakPuffs = 0;
+  for (let t = 0; t < 3.0; t += 1 / 60) {
+    g.step(1 / 60);
+    peakPuffs = Math.max(peakPuffs,
+      g.smoke?.puffs?.filter(({ sprite }) => sprite.visible).length ?? 0);
+  }
+  g.player.keys.delete('KeyF');
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' }));
+  return {
+    before,
+    after: g.inventory.has('cigs'),
+    peakPuffs,
+    audio: g.audio.playbacks.map(({ name }) => name),
+  };
+});
+check('4i1. smoking the cart pack uses the apartment light, drag, exhale, and pooled smoke',
+  cigaretteUse.before
+    && !cigaretteUse.after
+    && cigaretteUse.peakPuffs >= 10
+    && ['cig.light', 'cig.drag', 'cig.exhale', 'cig.stub']
+      .every((name) => cigaretteUse.audio.includes(name)),
+  JSON.stringify(cigaretteUse));
 check('4j. the cart cooler is its own interaction, distinct from the trailside coolers',
   cartAmenities['golf-cart-cooler'].registered
     && cartAmenities['golf-cart-cooler'].hasUse

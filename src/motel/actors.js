@@ -43,35 +43,44 @@ export function buildActor(cfg = {}) {
 // Roughly 1.85 m to Prospect's 3.3 m. Real proportions, blocky construction,
 // so a human reads as a person and never as a small sasquatch.
 function buildHumanRig(cfg = {}) {
+  const identity = (cfg.identity || cfg.name || 'Seller').toLowerCase().replace(/\s+/g, '_');
   const skin = cfg.skin ?? SKIN_TONES[0];
   const shirt = cfg.shirt ?? 0x8a8a92;
   const pants = cfg.pants ?? 0x2f3340;
   const hair = cfg.hair ?? 0x241a12;
   const shoes = cfg.shoes ?? 0x1c1c22;
   const sleeveless = !!cfg.sleeveless;
+  const garment = cfg.tropical ?? shirt;
 
   const group = new THREE.Group();
+  group.name = `actor.${identity}`;
   const body = new THREE.Group();
+  body.name = 'actor.rig.body';
   group.add(body);
 
   const hips = box(0.44, 0.2, 0.24, pants);
+  hips.name = 'actor.garment.pants.waist';
   hips.position.y = 0.98;
   body.add(hips);
 
   const torso = box(0.5, 0.64, 0.26, shirt);
+  torso.name = 'actor.anatomy.torso';
   torso.position.y = 1.3;
   body.add(torso);
 
-  const shoulders = box(0.58, 0.14, 0.28, shirt);
+  const shoulders = box(0.58, 0.14, 0.28, garment);
+  shoulders.name = 'actor.garment.shoulders';
   shoulders.position.y = 1.58;
   body.add(shoulders);
 
   const neck = box(0.13, 0.1, 0.13, skin);
+  neck.name = 'actor.anatomy.neck';
   neck.position.y = 1.68;
   body.add(neck);
 
   // Head
   const head = new THREE.Group();
+  head.name = 'actor.joint.head';
   head.position.set(0, 1.84, 0);
   const eyes = [];
   let face = null;
@@ -98,13 +107,16 @@ function buildHumanRig(cfg = {}) {
     face = skull;
     head.add(skull);
     const hairCap = box(0.27, 0.09, 0.27, hair);
+    hairCap.name = 'actor.hair.crown';
     hairCap.position.y = 0.15;
     head.add(hairCap);
     const back = box(0.27, 0.16, 0.1, hair);
+    back.name = 'actor.hair.back';
     back.position.set(0, 0.03, -0.1);
     head.add(back);
     for (const s of [-1, 1]) {
       const e = box(0.045, 0.035, 0.03, cfg.eyeColor ?? 0x20242e);
+      e.name = `actor.eye.${s < 0 ? 'left' : 'right'}`;
       e.position.set(0.06 * s, 0.03, 0.13);
       head.add(e);
       eyes.push(e);
@@ -116,8 +128,8 @@ function buildHumanRig(cfg = {}) {
   }
   body.add(head);
 
-  const armL = buildHumanArm(-1, shirt, skin, sleeveless);
-  const armR = buildHumanArm(1, shirt, skin, sleeveless);
+  const armL = buildHumanArm(-1, garment, skin, sleeveless);
+  const armR = buildHumanArm(1, garment, skin, sleeveless);
   body.add(armL, armR);
 
   const legL = buildHumanLeg(-1, pants, shoes);
@@ -130,51 +142,62 @@ function buildHumanRig(cfg = {}) {
     torso.material = lambert(skin);
     for (const s of [-1, 1]) {
       const panel = box(0.17, 0.66, 0.06, cfg.tropical);
+      panel.name = `actor.garment.tropical.panel.${s < 0 ? 'left' : 'right'}`;
       panel.position.set(0.17 * s, 1.3, 0.14);
       body.add(panel);
     }
     const collar = box(0.5, 0.08, 0.28, cfg.tropical);
+    collar.name = 'actor.garment.tropical.collar';
     collar.position.y = 1.6;
     body.add(collar);
   }
   if (cfg.shades) {
     const g = box(0.24, 0.06, 0.04, 0x101014, { emissive: 0x2a2a3a });
+    g.name = 'actor.accessory.shades';
     g.position.set(0, 0.04, 0.14);
     head.add(g);
   }
   if (cfg.mustache) {
     const m = box(0.12, 0.025, 0.03, hair);
+    m.name = 'actor.accessory.mustache';
     m.position.set(0, -0.05, 0.14);
     head.add(m);
   }
   if (cfg.chain) {
     const c = box(0.24, 0.03, 0.05, 0xe8c04a, { emissive: 0x6a5210 });
+    c.name = 'actor.accessory.chain';
     c.position.set(0, 1.52, 0.14);
     body.add(c);
     const medal = box(0.08, 0.1, 0.03, 0xe8c04a, { emissive: 0x6a5210 });
+    medal.name = 'actor.accessory.medal';
     medal.position.set(0, 1.42, 0.15);
     body.add(medal);
   }
   if (cfg.apron) {
     const a = box(0.42, 0.78, 0.05, 0xd8d2c0);
+    a.name = 'actor.garment.apron';
     a.position.set(0, 1.18, 0.15);
     body.add(a);
     const stain = box(0.14, 0.12, 0.03, 0x7a1414);
+    stain.name = 'actor.garment.apron.stain';
     stain.position.set(0.09, 1.06, 0.18);
     body.add(stain);
   }
   if (cfg.gloves) {
-    for (const arm of [armL, armR]) {
+    for (const [arm, side] of [[armL, 'left'], [armR, 'right']]) {
       const gl = box(0.14, 0.16, 0.14, 0xf0f4f0);
+      gl.name = `actor.garment.glove.${side}`;
       gl.position.y = -0.62;
       arm.add(gl);
     }
   }
   if (cfg.cap) {
     const cap = box(0.28, 0.1, 0.28, cfg.cap);
+    cap.name = 'actor.accessory.cap';
     cap.position.set(0, 0.17, 0);
     head.add(cap);
     const brim = box(0.28, 0.04, 0.14, cfg.cap);
+    brim.name = 'actor.accessory.cap.brim';
     brim.position.set(0, 0.13, 0.19);
     head.add(brim);
   }
@@ -191,14 +214,18 @@ function buildHumanRig(cfg = {}) {
 
 function buildHumanArm(side, shirt, skin, sleeveless) {
   const pivot = new THREE.Group();
+  pivot.name = `actor.joint.shoulder.${side < 0 ? 'left' : 'right'}`;
   pivot.position.set(0.32 * side, 1.52, 0);
   const upper = box(0.13, 0.38, 0.15, sleeveless ? skin : shirt);
+  upper.name = `actor.garment.sleeve.${side < 0 ? 'left' : 'right'}`;
   upper.position.y = -0.19;
   pivot.add(upper);
   const fore = box(0.11, 0.34, 0.13, skin);
+  fore.name = `actor.anatomy.forearm.${side < 0 ? 'left' : 'right'}`;
   fore.position.y = -0.53;
   pivot.add(fore);
   const hand = box(0.12, 0.14, 0.12, skin);
+  hand.name = `actor.anatomy.hand.${side < 0 ? 'left' : 'right'}`;
   hand.position.y = -0.76;
   pivot.add(hand);
   pivot.userData.hand = hand;
@@ -207,11 +234,14 @@ function buildHumanArm(side, shirt, skin, sleeveless) {
 
 function buildHumanLeg(side, pants, shoes) {
   const pivot = new THREE.Group();
+  pivot.name = `actor.joint.hip.${side < 0 ? 'left' : 'right'}`;
   pivot.position.set(0.13 * side, 0.94, 0);
   const leg = box(0.17, 0.9, 0.19, pants);
+  leg.name = `actor.garment.pants.leg.${side < 0 ? 'left' : 'right'}`;
   leg.position.y = -0.45;
   pivot.add(leg);
   const shoe = box(0.18, 0.11, 0.3, shoes);
+  shoe.name = `actor.garment.shoe.${side < 0 ? 'left' : 'right'}`;
   shoe.position.set(0, -0.9, 0.06);
   pivot.add(shoe);
   return pivot;
@@ -548,6 +578,27 @@ export function buildWeaponMesh(kind) {
   return b();
 }
 
+/* Fixed cast presets carry a finite set of authored tools. Name them when an
+ * Actor equips them, while leaving `buildWeaponMesh`'s existing public output
+ * untouched for callers that use an unnamed fallback as a compatibility cue. */
+const EQUIPPED_WEAPON_PARTS = Object.freeze({
+  cleaver: Object.freeze(['handle', 'blade']),
+  thermometer: Object.freeze(['probe', 'dial']),
+  slicer: Object.freeze(['body', 'blade']),
+  hook: Object.freeze(['shaft', 'tip']),
+  knife: Object.freeze(['handle', 'blade']),
+});
+
+function nameEquippedWeapon(kind, model) {
+  const parts = EQUIPPED_WEAPON_PARTS[kind];
+  if (!parts) return model;
+  model.name = `weapon.${kind}`;
+  for (let i = 0; i < parts.length; i += 1) {
+    if (model.children[i]) model.children[i].name = `weapon.${kind}.${parts[i]}`;
+  }
+  return model;
+}
+
 // ---------------- Actor ----------------
 
 let nextId = 1;
@@ -563,6 +614,7 @@ export class Actor {
       || (this.role === 'ally' ? 'friendly' : this.role === 'civilian' ? 'civilian' : 'seller');
     this.rig = buildActor(cfg);
     this.group = this.rig.group;
+    this.baseScale = this.group.scale.x;
     this.group.position.set(cfg.x || 0, 0, cfg.z || 0);
     this.heading = cfg.heading ?? 0;
     /* The pose the scene authored, kept apart from `heading` so that idling —
@@ -629,7 +681,7 @@ export class Actor {
     }
     this.weapon = kind;
     if (!kind) return;
-    const m = buildWeaponMesh(kind);
+    const m = nameEquippedWeapon(kind, buildWeaponMesh(kind));
     const hand = this.rig.armR.userData.hand;
     if (hand) {
       // In the fist, not hovering a hand-width under it.
@@ -874,11 +926,19 @@ export class Actor {
     // chaser wedged on geometry counts too, but standing at arm's length from
     // the player is fighting, not stuck.
     const chaseStuck = (this.state === 'chase' || this.state === 'grab') && distToPlayer > 2.6;
-    if (this.state === 'flee' || this.state === 'goto' || chaseStuck) {
+    const panicStuck = this.state === 'panic';
+    if (this.state === 'flee' || this.state === 'goto' || chaseStuck || panicStuck) {
       const moved = Math.hypot(p.x - this.lastX, p.z - this.lastZ);
       this.stuckT = moved < 0.02 ? this.stuckT + dt : 0;
       if (this.stuckT > 3.5) {
         this.stuckT = 0;
+        /* A cowed civilian is trying to put a wall between himself and Tony,
+         * not run through that wall forever. Preserve the escape heading as
+         * his new idle pose before yielding to the scene callback. */
+        if (this.state === 'panic') {
+          this.setFacing(this.heading);
+          this.state = 'idle';
+        }
         ctx.onStuck?.(this);
       }
     } else {
@@ -921,9 +981,9 @@ export class Actor {
 
     // Hit flash
     if (this.hitFlash > 0) {
-      this.group.scale.setScalar(1 + this.hitFlash * 0.35);
-    } else if (this.group.scale.x !== 1) {
-      this.group.scale.setScalar(1);
+      this.group.scale.setScalar(this.baseScale * (1 + this.hitFlash * 0.35));
+    } else if (this.group.scale.x !== this.baseScale) {
+      this.group.scale.setScalar(this.baseScale);
     }
   }
 
@@ -937,8 +997,7 @@ export class Actor {
     const step = Math.min(speed * dt, d);
     const nx = p.x + (dx / d) * step;
     const nz = p.z + (dz / d) * step;
-    this.applyMove(nx, nz, ctx);
-    return true;
+    return this.applyMove(nx, nz, ctx);
   }
 
   moveAway(tx, tz, dt, speed, ctx) {
@@ -949,16 +1008,18 @@ export class Actor {
     const nx = p.x + (dx / d) * speed * dt;
     const nz = p.z + (dz / d) * speed * dt;
     this.faceTo(nx, nz, dt);
-    this.applyMove(nx, nz, ctx);
-    return true;
+    return this.applyMove(nx, nz, ctx);
   }
 
   // Slide along blockers rather than sticking to them.
   applyMove(nx, nz, ctx) {
     const p = this.group.position;
     const r = this.rig.radius ?? 0.55;
+    const beforeX = p.x;
+    const beforeZ = p.z;
     if (!ctx.blocked(nx, p.z, p.y, r)) p.x = nx;
     if (!ctx.blocked(p.x, nz, p.y, r)) p.z = nz;
+    return Math.hypot(p.x - beforeX, p.z - beforeZ) > 0.0001;
   }
 
   remove() {

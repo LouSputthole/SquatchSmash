@@ -499,7 +499,7 @@ export function makePerson(o = {}) {
   const softFigure = showgirl || (female && curvy);
   const slab = (opts) => (softFigure
     ? softBox({ ...opts, name: `person.soft.${opts.name ?? 'slab'}` })
-    : box({ ...opts, name: undefined }));
+    : box(opts));
   const t = 0.55 + build * 0.45;          // 1.0 at build 1
   // Shoulders carry the blocky read, so they sit a little wider than the old
   // rounded frame -- still narrower than the chest is deep is wide.
@@ -522,6 +522,9 @@ export function makePerson(o = {}) {
    * ever touched again after this function returns. */
   const gutOn = Math.max(0, gut);
   const lean = gutOn > 0 ? -(0.014 + gutOn * 0.02) * t : 0;
+  const gownOcclusion = dress === 'gown'
+    ? { always: [], seated: [], visibleBelowHem: [] }
+    : null;
 
   /* ---- legs ----
    * Slab thigh, slab shin, a knee block between them, and a shoe that is a
@@ -689,7 +692,11 @@ export function makePerson(o = {}) {
      * is the entire read -- a plain white shoe at this scale is a bandage. */
     const saddleUpper = mat({ color: 0xf0ece0, roughness: 0.42 });
     const footMat = barefoot ? skinMat : (saddle ? saddleUpper : shoe);
-    shin.add(box({ size: barefoot ? [0.112, 0.056, 0.25] : [0.135, 0.068, 0.29], pos: [0, -0.44, barefoot ? 0.035 : 0.05], mat: footMat }));
+    shin.add(box({
+      name: barefoot ? 'foot.bare' : 'shoe.upper',
+      size: barefoot ? [0.112, 0.056, 0.25] : [0.135, 0.068, 0.29],
+      pos: [0, -0.44, barefoot ? 0.035 : 0.05], mat: footMat,
+    }));
     if (saddle) {
       shin.add(box({
         name: 'shoe.saddle.band',
@@ -710,7 +717,11 @@ export function makePerson(o = {}) {
       }));
     }
     if (!barefoot) {
-      shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: saddle ? saddleUpper : shoe }));
+      shin.add(box({
+        name: 'shoe.heel',
+        size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078],
+        mat: saddle ? saddleUpper : shoe,
+      }));
       /* A sole. One matte strip under a glossier upper, and the shoe stops
        * being a black wedge -- it is the cheapest possible read of "these are
        * shoes and that is a floor". */
@@ -739,12 +750,40 @@ export function makePerson(o = {}) {
   const legL = leg(-1);
   const legR = leg(1);
   g.add(legL, legR);
+  if (gownOcclusion) {
+    for (const legRoot of [legL, legR]) {
+      const shinRoot = legRoot.children.find((child) => child.name === 'shin');
+      const thigh = legRoot.getObjectByName('person.soft.thigh')
+        || legRoot.getObjectByName('thigh');
+      const knee = shinRoot?.getObjectByName('person.soft.knee')
+        || shinRoot?.getObjectByName('knee');
+      const shinMesh = shinRoot?.getObjectByName('person.soft.shin')
+        || shinRoot?.getObjectByName('shin');
+      for (const internal of [thigh, knee]) {
+        if (!internal) continue;
+        internal.visible = false;
+        internal.userData.occludedBy = 'gown';
+        gownOcclusion.always.push(internal);
+      }
+      if (shinMesh) {
+        shinMesh.userData.occludedWhen = 'gown:seated';
+        gownOcclusion.seated.push(shinMesh);
+      }
+      shinRoot?.traverse((node) => {
+        if (!node.isMesh) return;
+        if (node.name.startsWith('shoe.') || node.name === 'foot.bare') {
+          gownOcclusion.visibleBelowHem.push(node);
+        }
+      });
+    }
+  }
 
   /* ---- torso ----
    * Pelvis, waist and chest are three slabs that taper into each other, so
    * the whole trunk reads as one solid shape with a waist cut into it rather
    * than as separate lumps. The performers get the hips and the chest pushed
    * out; nobody else does. */
+  const breathingStructureParts = [];
   const hipHalf = (curvy ? 0.205 : 0.155) * t
     * (build > 1.15 ? 1.06 : 1) * (showgirl ? 1.08 : 1);
   const hips = slab({
@@ -757,6 +796,16 @@ export function makePerson(o = {}) {
     mat: performanceWear ? skinMat : trousers,
   });
   body.add(hips);
+  /* A full opaque gown owns the visible silhouette from its skirt through its
+   * overlapping bodice. Keep the named hip mesh in the rig for pose/collision
+   * consumers, but do not render that internal anatomy through the faceted
+   * cloth. Circumscribing this rounded rectangle with the eight-sided skirt
+   * would invert the authored A-line on the widest procedural builds. */
+  if (dress === 'gown') {
+    hips.visible = false;
+    hips.userData.occludedBy = 'gown';
+    gownOcclusion.always.push(hips);
+  }
   const waist = slab({
     name: 'waist',
     size: [
@@ -770,6 +819,7 @@ export function makePerson(o = {}) {
     mat: performanceWear ? skinMat : (dress === 'suit' ? jacket : cloth),
   });
   body.add(waist);
+  breathingStructureParts.push(waist);
   /* A big man is big at the middle, not at the shoulders. Anything over about
    * 1.15 build gets a front on him, which is most of what makes Lou Lou --
    * unless he has a real gut below, which stands in for this modest paunch
@@ -777,15 +827,19 @@ export function makePerson(o = {}) {
   if (build > 1.15 && !gutOn) {
     const heavy = (build - 1) * 0.9;
     // Wide and shallow, sunk into the torso: a front, not a beach ball
-    body.add(box({
+    const heavyFront = box({
+      name: 'torso.heavy.front',
       size: [0.37 * t, 0.27 * t, 0.21 * t],
       pos: [0, 1.18, D * (0.45 + heavy * 0.2)], mat: dress === 'suit' ? jacket : cloth,
-    }));
+    });
     // The shirt hangs over the belt, so the lower half is still shirt
-    body.add(box({
+    const heavyLower = box({
+      name: 'torso.heavy.lower',
       size: [0.33 * t, 0.20 * t, 0.18 * t],
       pos: [0, 1.05, D * (0.3 + heavy * 0.2)], mat: dress === 'suit' ? jacket : cloth,
-    }));
+    });
+    body.add(heavyFront, heavyLower);
+    breathingStructureParts.push(heavyFront, heavyLower);
   }
   /* ---- gut ----
    * A real belly, general enough for any figure the cast wants one on --
@@ -841,12 +895,13 @@ export function makePerson(o = {}) {
       pos: [0, 1.15, lean + (front + back) / 2],
       mat: gutMat,
       // A generous chamfer: rounded enough to be a belly, faceted enough to
-      // belong to a body cut from boxes. `slab` is not used here because it
-      // only chamfers the curvy figures and drops the name on everyone else,
-      // and this shape is measured by name in two places.
+      // belong to a body cut from boxes. `slab` only chamfers curvy figures;
+      // this belly must keep the same chamfer and public measurement name on
+      // every build that has one.
       r: 0.075,
     });
     body.add(belly);
+    breathingStructureParts.push(belly);
   }
   /* The ribcage stops above the navel rather than running down to the hips.
    * A chest slab that reaches the waistband hides the waist behind it and the
@@ -870,11 +925,11 @@ export function makePerson(o = {}) {
    * `torsoWrap` is a plain, unscaled Group standing where `torso` used to
    * stand; `torso` now sits at its own local origin, inside the wrap.
    * `update()` below scales the WRAP by a true ~2% multiplier instead of
-   * scaling `torso` directly, and every shirt panel `frontPanel()` builds is
-   * parented to the wrap rather than to `body` (see the note there) -- so a
-   * panel's offset from the chest breathes down and back up with the chest
-   * itself, the same motion `torso`'s own geometry already had, and the two
-   * surfaces can never come apart. */
+   * scaling `torso` directly. The fitted structural waist/belly/heavy front
+   * and every shirt panel `frontPanel()` builds ride in neutral-offset rigs
+   * under the same wrap. A garment therefore follows the actual surface it
+   * was fitted to, not merely another garment with the same parent. Hips stay
+   * outside this breathing trunk so the pelvis remains planted. */
   const torso = slab({
     name: 'ribcage',
     size: [(curvy ? 0.192 : 0.188) * t * 2, 0.16 * 2, D * 2],
@@ -884,8 +939,34 @@ export function makePerson(o = {}) {
   const torsoWrap = group('torso-wrap', torso);
   torsoWrap.position.set(0, 1.365, lean);
   body.add(torsoWrap);
-  // Shoulders: a slab the width of the frame, capped with square deltoids
-  body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
+  /* Waist, belly and the optional heavy front were authored in body
+   * coordinates before the chest existed. Preserve those neutral transforms
+   * with the same cancelling offset used by garments, then breathe both rigs
+   * through one trunk. Leaving these surfaces under `body` made Lou's
+   * waistcoat open a 10.24mm world-space gap every breath even though a
+   * torso-local centre test reported zero. */
+  const torsoStructureRig = group('torso-structure');
+  torsoStructureRig.position.copy(torsoWrap.position).multiplyScalar(-1);
+  torsoWrap.add(torsoStructureRig);
+  for (const part of breathingStructureParts) {
+    body.remove(part);
+    torsoStructureRig.add(part);
+  }
+  /* Details authored in body coordinates can still share the ribcage's live
+   * breathing transform through this neutral-offset rig. The offset cancels
+   * `torsoWrap.position` at rest; the wrapper then moves the jacket shell,
+   * tailoring and jewellery as one dressed chest instead of breathing a
+   * waistcoat out from under a stationary tie. */
+  const torsoGarmentRig = group('torso-garments');
+  torsoGarmentRig.position.copy(torsoWrap.position).multiplyScalar(-1);
+  torsoWrap.add(torsoGarmentRig);
+  const wearOnTorso = (part) => {
+    torsoGarmentRig.add(part);
+    return part;
+  };
+  // Shoulders: the central slab is a fitted trunk surface; deltoids remain at
+  // the fixed arm sockets so breathing cannot pull the shoulder/arm seam.
+  torsoStructureRig.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
   for (const sx of [-1, 1]) {
     body.add(slab({
       name: 'deltoid',
@@ -915,7 +996,33 @@ export function makePerson(o = {}) {
    * possible and cheap, and it keeps working for shapes nobody has built yet.
    * Call it before a garment to find out where to lay the garment.
    */
+  /* Freeze the anatomical surface before any garment is added. `frontPanel`
+   * used to traverse `body` live, so the first chalk stripe became part of
+   * the "body" seen by the second stripe, the waistcoat measured over all six
+   * stripes, and each lapel measured over the layer before it. On Lou that
+   * built an order-dependent staircase more than ten centimetres off his
+   * chest. Garments fit the wearer, never previously-built garments. */
+  const torsoSurfaceMeshes = [];
+  body.traverse((node) => {
+    if (node.isMesh) torsoSurfaceMeshes.push(node);
+  });
   const _frontProbe = new THREE.Box3();
+  function structuralTorsoFront(y0, y1 = y0, halfWidth = 0.16) {
+    body.updateMatrixWorld(true);
+    let front = D;
+    for (const m of torsoSurfaceMeshes) {
+      _frontProbe.setFromObject(m);
+      if (_frontProbe.max.y < y0 || _frontProbe.min.y > y1) continue;
+      if (_frontProbe.min.x > halfWidth || _frontProbe.max.x < -halfWidth) continue;
+      front = Math.max(front, _frontProbe.max.z);
+    }
+    return front;
+  }
+
+  /* Some later accessories deliberately clear the DRESSED figure. Lou's horn
+   * is the important case: its back has to clear the waistcoat, not merely his
+   * ribcage. Keep that live measurement distinct from the structural profile
+   * used to CUT a garment, so layering cannot feed back into the cut itself. */
   function torsoFront(y0, y1 = y0, halfWidth = 0.16) {
     body.updateMatrixWorld(true);
     let front = D;
@@ -964,8 +1071,8 @@ export function makePerson(o = {}) {
     lift = 0.004, x = 0, splay = 0,
   }) {
     const hw = Math.abs(x) + width / 2;
-    const zTop = torsoFront(yTop, yTop, hw) + lift;
-    const zBottom = torsoFront(yBottom, yBottom, hw) + lift;
+    const zTop = structuralTorsoFront(yTop, yTop, hw) + lift;
+    const zBottom = structuralTorsoFront(yBottom, yBottom, hw) + lift;
     const h = Math.hypot(yTop - yBottom, zTop - zBottom);
     const panel = group(name);
     panel.position.set(
@@ -1004,7 +1111,7 @@ export function makePerson(o = {}) {
         pos: [x * t, 1.345, shirtFront],
         mat: accent,
       });
-      body.add(rib);
+      wearOnTorso(rib);
     }
     const hem = box({
       name: 'shirt.luxury.hem',
@@ -1012,7 +1119,7 @@ export function makePerson(o = {}) {
       pos: [0, 1.205, shirtFront],
       mat: accent,
     });
-    body.add(hem);
+    wearOnTorso(hem);
   }
   if (neckline === 'v' && !performanceWear) {
     const topY = 1.505;
@@ -1026,7 +1133,7 @@ export function makePerson(o = {}) {
     const opening = new THREE.Mesh(new THREE.ShapeGeometry(shape), skinMat);
     opening.name = 'shirt.neckline.v';
     opening.position.z = shirtFront + 0.005;
-    body.add(opening);
+    wearOnTorso(opening);
     const collarLength = Math.hypot(halfW, topY - bottomY);
     for (const side of [-1, 1]) {
       const collar = box({
@@ -1036,7 +1143,7 @@ export function makePerson(o = {}) {
         mat: accent,
       });
       collar.rotation.z = side * -0.55;
-      body.add(collar);
+      wearOnTorso(collar);
     }
   }
 
@@ -1072,7 +1179,7 @@ export function makePerson(o = {}) {
      * it and close in towards the waist, so the visible shirt narrows as it
      * descends the way a real dinner jacket makes it. Sizing the bib to the
      * gap instead leaves a slice of bare ribcage between shirt and lapel. */
-    body.add(box({
+    wearOnTorso(box({
       name: 'tuxedo.shirt.front',
       size: [0.17 * Math.min(t, 1.2), 0.30, 0.014],
       pos: [0, 1.352, tuxFront],
@@ -1080,7 +1187,7 @@ export function makePerson(o = {}) {
     }));
     // Shirt studs. Three, because a dress shirt has three showing.
     for (const sy of [1.428, 1.348, 1.268]) {
-      body.add(box({
+      wearOnTorso(box({
         name: 'tuxedo.shirt.stud',
         size: [0.016, 0.016, 0.008],
         pos: [0, sy, tuxFront + 0.009],
@@ -1089,7 +1196,7 @@ export function makePerson(o = {}) {
     }
     /* The cummerbund. Without it the white bib stops in mid-air above the
      * trousers and the figure reads as a man in a bib, not a man in a tuxedo. */
-    body.add(box({
+    wearOnTorso(box({
       name: 'tuxedo.cummerbund',
       size: [0.20 * Math.min(t, 1.2), 0.052, 0.016],
       pos: [0, 1.196, tuxFront + 0.001],
@@ -1107,7 +1214,7 @@ export function makePerson(o = {}) {
         mat: satin,
       });
       lapel.rotation.z = -side * 0.17;
-      body.add(lapel);
+      wearOnTorso(lapel);
       // The notch: a short satin wing out towards the shoulder seam.
       const notch = box({
         name: `tuxedo.lapel.notch.${side < 0 ? 'left' : 'right'}`,
@@ -1116,11 +1223,11 @@ export function makePerson(o = {}) {
         mat: satin,
       });
       notch.rotation.z = -side * 0.34;
-      body.add(notch);
+      wearOnTorso(notch);
     }
     /* Breast pocket square, on his LEFT -- the figure faces +Z, so his left
      * hand is on +X and the pocket goes with it. */
-    body.add(box({
+    wearOnTorso(box({
       name: 'tuxedo.pocket-square',
       size: [0.048, 0.022, 0.010],
       pos: [0.182 * Math.min(t, 1.2), 1.398, tuxFront],
@@ -1145,9 +1252,9 @@ export function makePerson(o = {}) {
         mat: tieMat,
       });
       wing.rotation.z = side * 0.28;
-      body.add(wing);
+      wearOnTorso(wing);
     }
-    body.add(box({ name: 'bowtie.knot', size: [0.018, 0.024, 0.016], pos: [0, tieY, tieZ + 0.004], mat: tieMat }));
+    wearOnTorso(box({ name: 'bowtie.knot', size: [0.018, 0.024, 0.016], pos: [0, tieY, tieZ + 0.004], mat: tieMat }));
   }
 
   // Adult performer silhouette. The coloured rounded forms are the bikini
@@ -1170,7 +1277,7 @@ export function makePerson(o = {}) {
         mat: cloth,
       });
       cup.name = `performer.bikini-top.${sx < 0 ? 'left' : 'right'}`;
-      body.add(cup);
+      wearOnTorso(cup);
       curves[sx < 0 ? 'bustL' : 'bustR'] = cup;
 
       // Behind her, not beside her: pushed out at the hip these read as
@@ -1203,7 +1310,7 @@ export function makePerson(o = {}) {
         mat: cloth,
       });
       strap.rotation.z = sx * -0.16;
-      body.add(strap);
+      wearOnTorso(strap);
     }
     const topBand = box({
       name: 'performer.bikini-top.band',
@@ -1222,14 +1329,18 @@ export function makePerson(o = {}) {
       pos: [0, 1.02, 0],
       mat: cloth,
     });
-    body.add(topBand, bottomBand);
+    wearOnTorso(topBand);
+    body.add(bottomBand);
     curves.topBand = topBand;
     curves.bottomBand = bottomBand;
   }
 
   if (dress === 'suit') {
     // A jacket is a slightly bigger torso with a shirt front cut out of it
-    body.add(box({ size: [0.365 * t, 0.46, D * 2.1], pos: [0, 1.28, 0], mat: jacket }));
+    wearOnTorso(box({
+      name: 'suit.jacket.chest',
+      size: [0.365 * t, 0.46, D * 2.1], pos: [0, 1.28, 0], mat: jacket,
+    }));
     if (pinstripe) {
       /* Chalk stripe, front and back. Three either side of the centre line on
        * each face: the middle of the chest is shirt, waistcoat and lapel, so a
@@ -1246,7 +1357,7 @@ export function makePerson(o = {}) {
           width: 0.008, yTop: 1.500, yBottom: 1.060,
           thickness: 0.008, x: sx * t, mat: stripeMat, lift: 0.005,
         });
-        body.add(box({
+        wearOnTorso(box({
           name: 'suit.pinstripe.back',
           size: [0.008, 0.45, 0.008],
           pos: [sx * t, 1.28, -D * 1.052], mat: stripeMat,
@@ -1281,7 +1392,8 @@ export function makePerson(o = {}) {
      */
     const vestTop = 1.432;
     if (!tuxedo) {
-      body.add(box({
+      wearOnTorso(box({
+        name: 'suit.shirt.front',
         size: [0.075, 0.36, 0.02],
         pos: [0, 1.36, D * 1.06],
         mat: mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.9 }),
@@ -1320,11 +1432,13 @@ export function makePerson(o = {}) {
         /* Buttons down the middle, in the panel's own space so they stay on the
          * cloth however far the belly under it tips the garment. */
         for (let i = 0; i < 4; i++) {
-          vest.add(cylinder({
+          const button = cylinder({
             r: 0.0085, h: 0.005, seg: 8,
             pos: [0, 0.096 - i * 0.062, face + 0.004], rotX: Math.PI / 2,
             mat: mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 }),
-          }));
+          });
+          button.name = 'suit.waistcoat.button';
+          vest.add(button);
         }
       }
       for (const sx of [-1, 1]) {
@@ -1348,9 +1462,9 @@ export function makePerson(o = {}) {
             pos: [sx * 0.06 * Math.min(t, 1.2), 1.352, D * 1.10], mat: jacket,
             rotZ: sx * 0.22,
           });
-        if (!threePiece) body.add(lap);
+        if (!threePiece) wearOnTorso(lap);
       }
-      body.add(box({
+      wearOnTorso(box({
         name: 'suit.tie',
         /* Stops AT the waistcoat rather than in front of it: on a three-piece
          * the tie disappears at the top button and everything below that is
@@ -1369,11 +1483,11 @@ export function makePerson(o = {}) {
           name: 'suit.tie.knot',
           size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
         });
-        body.add(knot);
+        wearOnTorso(knot);
         // The tip, wider than the neck of the tie, hanging below the last
         // button -- unless a waistcoat has already swallowed it.
         if (!threePiece) {
-          body.add(box({
+          wearOnTorso(box({
             name: 'suit.tie.tip',
             size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
           }));
@@ -1386,21 +1500,23 @@ export function makePerson(o = {}) {
             pos: [side * 0.052, 1.455, D * 1.075], mat: shirtMat,
           });
           point.rotation.z = side * 0.34;
-          body.add(point);
+          wearOnTorso(point);
         }
         const buttonMat = mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 });
         /* An open jacket's buttons are on its own edge, out where the front
          * hangs -- not closed across a waistcoat it is not fastened over. */
         const buttonX = threePiece ? -0.152 : -0.052;
         for (const by of [1.268, 1.192]) {
-          body.add(cylinder({
+          const button = cylinder({
             r: 0.0105, h: 0.005, seg: 8,
             pos: [buttonX * t, by, D * 1.10], rotX: Math.PI / 2, mat: buttonMat,
-          }));
+          });
+          button.name = 'suit.jacket.button';
+          wearOnTorso(button);
         }
         // Breast pocket square, on his left -- the figure faces +Z.
         if (pocketSquare !== false) {
-          body.add(box({
+          wearOnTorso(box({
             name: 'suit.pocket-square',
             size: [0.05, 0.022, 0.010],
             pos: [0.152 * t, 1.392, D * 1.115],
@@ -1418,16 +1534,18 @@ export function makePerson(o = {}) {
       color: new THREE.Color(shirt).lerp(new THREE.Color(0x000000), 0.22).getHex(),
       roughness: 0.9,
     });
-    body.add(box({
+    wearOnTorso(box({
       name: 'shirt.placket',
       size: [0.036, 0.30, 0.012], pos: [0, 1.33, D * 1.05], mat: placketMat,
     }));
     const buttonMat = mat({ color: shirtAccent ?? 0xe8e4da, roughness: 0.5 });
     for (const by of [1.44, 1.365, 1.29, 1.215]) {
-      body.add(cylinder({
+      const button = cylinder({
         r: 0.0085, h: 0.004, seg: 8,
         pos: [0, by, D * 1.062], rotX: Math.PI / 2, mat: buttonMat,
-      }));
+      });
+      button.name = 'shirt.button';
+      wearOnTorso(button);
     }
     for (const side of [-1, 1]) {
       const point = box({
@@ -1436,9 +1554,9 @@ export function makePerson(o = {}) {
         pos: [side * 0.055, 1.472, D * 1.02], mat: placketMat,
       });
       point.rotation.z = side * 0.3;
-      body.add(point);
+      wearOnTorso(point);
     }
-    body.add(box({
+    wearOnTorso(box({
       name: 'shirt.collar.stand',
       size: [0.19 * t, 0.036, D * 1.5], pos: [0, 1.508, lean * 0.5], mat: placketMat,
     }));
@@ -1456,6 +1574,13 @@ export function makePerson(o = {}) {
      * is a box turned 45 degrees -- on a figure cut from slabs a rotated slab
      * is a diamond, and a texture would be the only bitmap on the entire cast.
      */
+    /* Keep the complete garment on the same neutral wrapper as the ribcage.
+     * The shared idle animation breathes `torsoWrap`; leaving the vest as a
+     * sibling made the chest recede while the knit stayed behind in space. */
+    const vestRig = group('argyle.garment');
+    vestRig.position.copy(torsoWrap.position).multiplyScalar(-1);
+    torsoWrap.add(vestRig);
+    const wear = (part) => { vestRig.add(part); return part; };
     const vestHalf = 0.196 * t;
     const vestTopY = 1.478;
     const vestBottomY = 1.192;
@@ -1464,7 +1589,7 @@ export function makePerson(o = {}) {
      * not: they run down onto whatever the man's middle is doing, so each row
      * measures its own height -- one of the four on this course is Lou. */
     const vestFront = D * 1.06;
-    body.add(box({
+    wear(box({
       name: 'argyle.vest',
       size: [vestHalf * 2, vestTopY - vestBottomY, D * 2.12],
       pos: [0, (vestTopY + vestBottomY) / 2, 0], mat: cloth,
@@ -1482,7 +1607,7 @@ export function makePerson(o = {}) {
     const vOpen = new THREE.Mesh(new THREE.ShapeGeometry(vShape), underMat);
     vOpen.name = 'argyle.vest.opening';
     vOpen.position.z = vestFront + 0.012;
-    body.add(vOpen);
+    wear(vOpen);
     // The ribbed band round the V, and the ribbed hem that stops the garment.
     for (const side of [-1, 1]) {
       const trimBar = box({
@@ -1492,15 +1617,15 @@ export function makePerson(o = {}) {
         mat: stitchMat,
       });
       trimBar.rotation.z = side * -0.52;
-      body.add(trimBar);
+      wear(trimBar);
     }
-    body.add(box({
+    wear(box({
       name: 'argyle.vest.rib.hem',
       size: [vestHalf * 2.02, 0.030, D * 2.14],
       pos: [0, vestBottomY + 0.012, 0], mat: stitchMat,
     }));
     // The collar of the shirt underneath, standing up out of the V.
-    body.add(box({
+    wear(box({
       name: 'argyle.shirt.collar.stand',
       size: [0.19 * t, 0.038, D * 1.5], pos: [0, 1.508, lean * 0.5], mat: underMat,
     }));
@@ -1511,7 +1636,7 @@ export function makePerson(o = {}) {
         pos: [side * 0.054, 1.470, D * 1.055], mat: underMat,
       });
       point.rotation.z = side * 0.3;
-      body.add(point);
+      wear(point);
     }
     /* The lattice. `w`/`h` are the diamond's diagonals, and the second grid is
      * offset by half of each so the two tile edge to edge instead of leaving
@@ -1533,14 +1658,14 @@ export function makePerson(o = {}) {
             ? ((dy - vBottomY) / (vestTopY - vBottomY)) * vHalf
             : 0;
           if (Math.abs(dx) < vAt + 0.028) continue;
-          const diamondZ = Math.max(vestFront, torsoFront(dy, dy, vestHalf)) + 0.010;
+          const diamondZ = Math.max(vestFront, structuralTorsoFront(dy, dy, vestHalf)) + 0.010;
           const d = box({
             name: 'argyle.diamond',
             size: [w * 0.66, h * 0.66, 0.008],
             pos: [dx, dy, diamondZ], mat: colour,
           });
           d.rotation.z = Math.PI / 4;
-          body.add(d);
+          wear(d);
           // The overstitch: one thin line through the diamond, which is the
           // detail that stops the lattice reading as a harlequin costume.
           const stitch = box({
@@ -1549,7 +1674,7 @@ export function makePerson(o = {}) {
             pos: [dx, dy, diamondZ + 0.006], mat: stitchMat,
           });
           stitch.rotation.z = Math.PI / 4;
-          body.add(stitch);
+          wear(stitch);
         }
       }
     }
@@ -1631,11 +1756,11 @@ export function makePerson(o = {}) {
       });
       wing.rotation.z = side * -0.34;
       wing.rotation.x = -0.42;
-      body.add(wing);
+      wearOnTorso(wing);
     }
   }
   if (dress === 'waistcoat') {
-    body.add(box({
+    wearOnTorso(box({
       name: 'waistcoat.front',
       size: [0.35 * t, 0.32, D * 2.06],
       pos: [0, 1.34, 0],
@@ -1645,7 +1770,7 @@ export function makePerson(o = {}) {
      * server may request the proper two-wing bow tie above; do not stack the
      * shorthand through it. */
     if (!bowtie) {
-      body.add(box({
+      wearOnTorso(box({
         name: 'waistcoat.neck-tab',
         size: [0.075, 0.05, 0.02],
         pos: [0, 1.5, D * 1.05],
@@ -1654,27 +1779,52 @@ export function makePerson(o = {}) {
     }
   }
   if (dress === 'work') {
-    body.add(box({ size: [0.35 * t, 0.22, D * 2.06], pos: [0, 1.1, 0], mat: mat({ color: 0x2a2a30, roughness: 0.95 }) }));
+    body.add(box({
+      name: 'work.front',
+      size: [0.35 * t, 0.22, D * 2.06], pos: [0, 1.1, 0],
+      mat: mat({ color: 0x2a2a30, roughness: 0.95 }),
+    }));
   }
   if (dress === 'chef') {
     // A double-breasted front: two rows of buttons is the whole silhouette
-    body.add(box({ size: [0.355 * t, 0.42, D * 2.12], pos: [0, 1.3, 0], mat: whites }));
-    for (const bx of [-0.055, 0.055]) {
+    wearOnTorso(box({
+      name: 'chef.jacket',
+      size: [0.355 * t, 0.42, D * 2.12], pos: [0, 1.3, 0], mat: whites,
+    }));
+    for (const [column, bx] of [-0.055, 0.055].entries()) {
       for (let i = 0; i < 4; i++) {
-        body.add(sphere({ r: 0.014, pos: [bx * t, 1.46 - i * 0.1, D * 1.09], mat: mat({ color: 0xc8c4ba, roughness: 0.6 }) }));
+        wearOnTorso(sphere({
+          name: `chef.button.${column}.${i}`,
+          r: 0.014, pos: [bx * t, 1.46 - i * 0.1, D * 1.09],
+          mat: mat({ color: 0xc8c4ba, roughness: 0.6 }),
+        }));
       }
     }
     // Apron, from the waist down, and a towel over the shoulder
-    body.add(box({ size: [0.30 * t, 0.5, D * 2.16], pos: [0, 0.98, D * 0.1], mat: apronMat }));
-    const towel = box({ size: [0.07, 0.3, 0.05], pos: [-0.17 * t, 1.4, -0.02], mat: mat({ color: 0xd0ccc2, roughness: 0.97 }) });
+    body.add(box({
+      name: 'chef.apron',
+      size: [0.30 * t, 0.5, D * 2.16], pos: [0, 0.98, D * 0.1], mat: apronMat,
+    }));
+    const towel = box({
+      name: 'chef.towel',
+      size: [0.07, 0.3, 0.05], pos: [-0.17 * t, 1.4, -0.02],
+      mat: mat({ color: 0xd0ccc2, roughness: 0.97 }),
+    });
     towel.rotation.z = 0.2;
     body.add(towel);
   }
   if (dress === 'porter') {
     // A long apron over a bare-armed tee, tied at the back
-    body.add(box({ size: [0.32 * t, 0.72, D * 2.1], pos: [0, 0.94, D * 0.12], mat: apronMat }));
-    body.add(box({ size: [0.09, 0.34, 0.02], pos: [-0.06, 1.34, D * 1.08], mat: apronMat }));
-    body.add(box({ size: [0.09, 0.34, 0.02], pos: [0.06, 1.34, D * 1.08], mat: apronMat }));
+    body.add(box({
+      name: 'porter.apron',
+      size: [0.32 * t, 0.72, D * 2.1], pos: [0, 0.94, D * 0.12], mat: apronMat,
+    }));
+    for (const [side, sx] of [['left', -1], ['right', 1]]) {
+      wearOnTorso(box({
+        name: `porter.strap.${side}`,
+        size: [0.09, 0.34, 0.02], pos: [sx * 0.06, 1.34, D * 1.08], mat: apronMat,
+      }));
+    }
   }
   if (belt && !performanceWear && dress !== 'gown') {
     /* A waistband and a buckle. This is the join the figure has never had --
@@ -1732,14 +1882,14 @@ export function makePerson(o = {}) {
     const hardware = mat({ color: 0xb9bec6, roughness: 0.24, metalness: 0.92 });
 
     // The shell, a touch proud of the torso all round so it hangs off it.
-    body.add(box({
+    wearOnTorso(box({
       name: 'bomber.shell',
       size: [0.372 * t, 0.40, D * 2.16], pos: [0, 1.31, 0], mat: leather,
     }));
     /* The waistband. Ribbed: five shallow slats rather than one band, because
      * a single box reads as a hem and the ribbing is the whole tell. */
     for (let i = 0; i < 5; i++) {
-      body.add(box({
+      wearOnTorso(box({
         name: 'bomber.waistband.rib',
         size: [0.378 * t, 0.019, D * 2.19],
         pos: [0, 1.128 + i * 0.021, 0],
@@ -1748,7 +1898,7 @@ export function makePerson(o = {}) {
     }
     /* The collar, standing rather than lying: a bomber's knit collar holds its
      * own shape, which is why it sits above the shoulder line. */
-    body.add(box({
+    wearOnTorso(box({
       name: 'bomber.collar',
       size: [0.215 * t, 0.062, D * 1.62], pos: [0, 1.532, lean * 0.5], mat: knit,
     }));
@@ -1760,26 +1910,26 @@ export function makePerson(o = {}) {
         mat: knit,
       });
       wing.rotation.y = -side * 0.42;
-      body.add(wing);
+      wearOnTorso(wing);
     }
     /* The zip, off centre-left the way a flight jacket's is, with a pull that
      * hangs. Hardware is the only shiny thing on the garment. */
-    body.add(box({
+    wearOnTorso(box({
       name: 'bomber.zip.tape',
       size: [0.022, 0.40, 0.012], pos: [-0.012, 1.31, D * 1.10], mat: knit,
     }));
-    body.add(box({
+    wearOnTorso(box({
       name: 'bomber.zip.teeth',
       size: [0.010, 0.40, 0.008], pos: [-0.012, 1.31, D * 1.115], mat: hardware,
     }));
-    body.add(box({
+    wearOnTorso(box({
       name: 'bomber.zip.pull',
       size: [0.013, 0.034, 0.006], pos: [-0.012, 1.168, D * 1.125], mat: hardware,
     }));
     /* Shoulder yokes. Two seams running out to the sleeve head; on a slab
      * figure they are the only thing that says the garment has panels. */
     for (const side of [-1, 1]) {
-      body.add(box({
+      wearOnTorso(box({
         name: 'bomber.yoke',
         size: [0.166 * t, 0.016, D * 2.0],
         pos: [side * 0.104 * t, 1.474, 0],
@@ -1795,18 +1945,18 @@ export function makePerson(o = {}) {
         mat: knit,
       });
       slash.rotation.z = side * 0.5;
-      body.add(slash);
+      wearOnTorso(slash);
     }
     if (patches) {
       /* Squadron flash on the chest and a name tape under it. Small, and
        * deliberately not legible -- a readable patch at this scale would be
        * three pixels of noise pretending to be text. */
-      body.add(box({
+      wearOnTorso(box({
         name: 'bomber.patch.squadron',
         size: [0.062, 0.062, 0.008], pos: [0.096 * t, 1.398, D * 1.10],
         mat: mat({ color: 0x8d2f2a, roughness: 0.9 }),
       }));
-      body.add(box({
+      wearOnTorso(box({
         name: 'bomber.patch.nametape',
         size: [0.086, 0.026, 0.007], pos: [-0.088 * t, 1.372, D * 1.10],
         mat: mat({ color: 0x6b5a34, roughness: 0.92 }),
@@ -1821,11 +1971,24 @@ export function makePerson(o = {}) {
      * dress and a lampshade. */
     const gownMat = mat({ color: shirt, roughness: 0.62, metalness: 0.08 });
     // Eight sides, not fourteen: faceted enough to belong beside square limbs
-    body.add(cylinder({ rTop: 0.16 * t, rBottom: 0.24 * t, h: 0.78, seg: 8, pos: [0, 0.62, 0], mat: gownMat }));
-    body.add(box({ size: [0.31 * t, 0.34, D * 2.05], pos: [0, 1.32, 0], mat: gownMat }));
+    body.add(cylinder({
+      name: 'gown.skirt',
+      // Keep the authored hem at y=.23, but carry the same skirt up under the
+      // bodice. Stopping at y=1.01 exposed the dark structural hips as a
+      // brief-like band on every curvy gown.
+      rTop: 0.16 * t, rBottom: 0.24 * t, h: 0.93, seg: 8,
+      pos: [0, 0.695, 0], mat: gownMat,
+    }));
+    wearOnTorso(box({
+      name: 'gown.bodice',
+      size: [0.31 * t, 0.34, D * 2.05], pos: [0, 1.32, 0], mat: gownMat,
+    }));
     // Straps, and the neckline they imply
-    for (const sx of [-1, 1]) {
-      body.add(box({ size: [0.03, 0.14, 0.02], pos: [sx * 0.09, 1.47, D * 0.4], mat: gownMat }));
+    for (const [side, sx] of [['left', -1], ['right', 1]]) {
+      wearOnTorso(box({
+        name: `gown.strap.${side}`,
+        size: [0.03, 0.14, 0.02], pos: [sx * 0.09, 1.47, D * 0.4], mat: gownMat,
+      }));
     }
   }
   if (chain) {
@@ -1838,6 +2001,9 @@ export function makePerson(o = {}) {
     const metal = silver
       ? mat({ color: 0xcfd6e0, roughness: 0.14, metalness: 0.98 })
       : mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 });
+    /* A necklace rests on whatever covers the chest, so it follows the same
+     * breathing rig for every outfit. Wrist pieces stay on their arm rigs. */
+    const wearNecklace = wearOnTorso;
     const chestZ = D * (dress === 'suit' ? 1.07 : 1.02) + 0.016;
     const addDrape = ({ width, low, gauge, name, lowZ = chestZ + 0.003 }) => {
       /* The mid control points ride between the collar and wherever the low
@@ -1888,7 +2054,7 @@ export function makePerson(o = {}) {
         if (i % 2) link.rotateY(Math.PI / 2);
         links.add(link);
       }
-      body.add(links);
+      wearNecklace(links);
       return links;
     };
     /* On a closed jacket the drape has to be narrow enough to pass BEHIND the
@@ -1958,14 +2124,14 @@ export function makePerson(o = {}) {
         pos: [0, 1.524, -D * 0.92], rotZ: Math.PI / 2, mat: metal,
       });
       clasp.name = 'necklace.clasp';
-      body.add(clasp);
+      wearNecklace(clasp);
     }
     if (pendant && horn) {
       /* Hung from the low point of the chain itself, so the bail is a ring the
        * chain runs through rather than a ring parked near it. */
       const corno = makeHorn(metal);
       corno.position.set(0, low, pendantZ);
-      body.add(corno);
+      wearNecklace(corno);
     } else if (pendant) {
       const crest = pendantStyle === 'crest';
       const disc = cylinder({
@@ -1976,7 +2142,7 @@ export function makePerson(o = {}) {
         mat: metal,
       });
       disc.name = 'necklace.pendant';
-      body.add(disc);
+      wearNecklace(disc);
       if (crest) {
         const insetMat = mat({ color: 0x2a1838, roughness: 0.32, metalness: 0.38 });
         const inset = cylinder({
@@ -1987,14 +2153,14 @@ export function makePerson(o = {}) {
           mat: insetMat,
         });
         inset.name = 'necklace.pendant.crest';
-        body.add(inset);
+        wearNecklace(inset);
         const crown = box({
           name: 'necklace.pendant.crown',
           size: [0.025, 0.012, 0.006],
           pos: [0, low - 0.021, pendantZ + 0.014],
           mat: metal,
         });
-        body.add(crown);
+        wearNecklace(crown);
       }
     }
   }
@@ -2004,7 +2170,10 @@ export function makePerson(o = {}) {
    * the brow is what actually reads at three metres. */
   const head = group('head');
   head.position.set(0, 1.50, lean);
-  head.add(box({ size: [0.105, 0.10, 0.105], pos: [0, 0.04, -0.005], mat: skinMat }));     // neck
+  head.add(box({
+    name: 'person.neck',
+    size: [0.105, 0.10, 0.105], pos: [0, 0.04, -0.005], mat: skinMat,
+  }));
 
   /* A photo face is one image on the front of a box skull and plain colour on
    * the other five sides -- the Initiation's technique, and the reason Big
@@ -2025,12 +2194,17 @@ export function makePerson(o = {}) {
       new THREE.BoxGeometry(0.162, 0.212, 0.19),
       [wrap, wrap, wrap, wrap, faceMat, wrap],   // +z is the face
     );
+    skull.name = 'person.face.photo-skull';
     skull.position.set(0, 0.168, 0);
     head.add(skull);
     /* The mouth still exists and is still driven by the talk animation -- it
      * is simply not drawn over a photograph of a real person's mouth. Talking
      * reads on a photo head through the head movement instead. */
-    mouth = box({ size: [0.05, 0.011, 0.014], pos: [0, 0.112, 0.084], mat: mat({ color: 0x8a4a48, roughness: 0.6 }) });
+    mouth = box({
+      name: 'person.face.mouth',
+      size: [0.05, 0.011, 0.014], pos: [0, 0.112, 0.084],
+      mat: mat({ color: 0x8a4a48, roughness: 0.6 }),
+    });
     mouth.visible = false;
     head.add(mouth);
   } else {
@@ -2039,24 +2213,57 @@ export function makePerson(o = {}) {
      * worked because the surface fell away toward the edges; drop them onto a
      * box and the whole face sinks inside the head and the figure goes blank.
      * Each z below is chosen to clear the plane it sits on. */
-    head.add(box({ size: [0.186, 0.216, 0.20], pos: [0, 0.165, 0], mat: skinMat }));       // skull, front at 0.100
-    head.add(box({ size: [0.158, 0.085, 0.19], pos: [0, 0.115, 0.012], mat: skinMat }));   // jaw,   front at 0.107
-    head.add(box({ size: [0.09, 0.05, 0.05], pos: [0, 0.088, 0.095], mat: skinMat }));     // chin
+    head.add(box({
+      name: 'person.face.skull',
+      size: [0.186, 0.216, 0.20], pos: [0, 0.165, 0], mat: skinMat,
+    }));
+    head.add(box({
+      name: 'person.face.jaw',
+      size: [0.158, 0.085, 0.19], pos: [0, 0.115, 0.012], mat: skinMat,
+    }));
+    head.add(box({
+      name: 'person.face.chin',
+      size: [0.09, 0.05, 0.05], pos: [0, 0.088, 0.095], mat: skinMat,
+    }));
     for (const sx of [-1, 1]) {
-      head.add(box({ size: [0.026, 0.058, 0.032], pos: [sx * 0.098, 0.163, -0.005], mat: skinMat }));
+      head.add(box({
+        name: `person.face.ear.${sx < 0 ? 'left' : 'right'}`,
+        size: [0.026, 0.058, 0.032], pos: [sx * 0.098, 0.163, -0.005], mat: skinMat,
+      }));
     }
-    head.add(box({ size: [0.15, 0.03, 0.032], pos: [0, 0.206, 0.094], mat: skinMat }));    // brow
+    head.add(box({
+      name: 'person.face.brow',
+      size: [0.15, 0.03, 0.032], pos: [0, 0.206, 0.094], mat: skinMat,
+    }));
     /* Dark rectangles, because that is what reads at three metres -- the same
      * call the Squatchfather's figures make. The iris is inset in front of it
      * so there is still an eye colour when somebody leans in close. */
     for (const sx of [-1, 1]) {
-      head.add(box({ size: [0.042, 0.03, 0.014], pos: [sx * 0.036, 0.181, 0.103], mat: mat({ color: 0x1a1410, roughness: 0.5 }) }));
-      const iris = box({ size: [0.018, 0.017, 0.01], pos: [sx * 0.036, 0.1815, 0.111], mat: mat({ color: pick([0x3a2a18, 0x2a3a4a, 0x2a4a2a]), roughness: 0.35 }) });
+      const side = sx < 0 ? 'left' : 'right';
+      head.add(box({
+        name: `person.face.eye.${side}`,
+        size: [0.042, 0.03, 0.014], pos: [sx * 0.036, 0.181, 0.103],
+        mat: mat({ color: 0x1a1410, roughness: 0.5 }),
+      }));
+      const iris = box({
+        name: `person.face.iris.${side}`,
+        size: [0.018, 0.017, 0.01], pos: [sx * 0.036, 0.1815, 0.111],
+        mat: mat({
+          color: pick([0x3a2a18, 0x2a3a4a, 0x2a4a2a]), roughness: 0.35,
+        }),
+      });
       head.add(iris);
       eyes.push(iris);
     }
-    head.add(box({ size: [0.032, 0.052, 0.042], pos: [0, 0.156, 0.113], mat: skinMat }));  // nose
-    mouth = box({ size: [0.052, 0.012, 0.016], pos: [0, 0.113, 0.114], mat: mat({ color: 0x8a4a48, roughness: 0.6 }) });
+    head.add(box({
+      name: 'person.face.nose',
+      size: [0.032, 0.052, 0.042], pos: [0, 0.156, 0.113], mat: skinMat,
+    }));
+    mouth = box({
+      name: 'person.face.mouth',
+      size: [0.052, 0.012, 0.016], pos: [0, 0.113, 0.114],
+      mat: mat({ color: 0x8a4a48, roughness: 0.6 }),
+    });
     head.add(mouth);
   }
 
@@ -2120,13 +2327,24 @@ export function makePerson(o = {}) {
     }
   }
   if (beard && !face) {
-    head.add(box({ size: [0.15, 0.075, 0.16], pos: [0, 0.105, 0.04], mat: hairMat }));
+    head.add(box({
+      name: 'person.face.beard',
+      size: [0.15, 0.075, 0.16], pos: [0, 0.105, 0.04], mat: hairMat,
+    }));
   }
   if (glasses) {
     for (const sx of [-1, 1]) {
-      head.add(box({ size: [0.042, 0.032, 0.004], pos: [sx * 0.034, 0.181, 0.096], mat: mat({ color: 0x14141a, roughness: 0.35 }) }));
+      head.add(box({
+        name: `person.glasses.lens.${sx < 0 ? 'left' : 'right'}`,
+        size: [0.042, 0.032, 0.004], pos: [sx * 0.034, 0.181, 0.096],
+        mat: mat({ color: 0x14141a, roughness: 0.35 }),
+      }));
     }
-    head.add(box({ size: [0.03, 0.004, 0.004], pos: [0, 0.181, 0.096], mat: mat({ color: 0x14141a, roughness: 0.35 }) }));
+    head.add(box({
+      name: 'person.glasses.bridge',
+      size: [0.03, 0.004, 0.004], pos: [0, 0.181, 0.096],
+      mat: mat({ color: 0x14141a, roughness: 0.35 }),
+    }));
   }
   if (hat) {
     /* ---- headwear ----
@@ -2200,8 +2418,16 @@ export function makePerson(o = {}) {
     }
   }
   if (bandana) {
-    head.add(box({ size: [0.185, 0.048, 0.195], pos: [0, 0.222, -0.006], mat: mat({ color: BANDANA, roughness: 0.92 }) }));
-    const tail = box({ size: [0.035, 0.115, 0.018], pos: [0.012, 0.185, -0.1], mat: mat({ color: BANDANA, roughness: 0.92 }) });
+    head.add(box({
+      name: 'person.bandana.wrap',
+      size: [0.185, 0.048, 0.195], pos: [0, 0.222, -0.006],
+      mat: mat({ color: BANDANA, roughness: 0.92 }),
+    }));
+    const tail = box({
+      name: 'person.bandana.tail',
+      size: [0.035, 0.115, 0.018], pos: [0.012, 0.185, -0.1],
+      mat: mat({ color: BANDANA, roughness: 0.92 }),
+    });
     tail.rotation.x = 0.5;
     head.add(tail);
   }
@@ -2295,8 +2521,9 @@ export function makePerson(o = {}) {
         size: [0.098 * t, 0.032, 0.103 * t],
         pos: [0, -0.256, 0.001], mat: cuffMat,
       });
-      /* `slab` drops the name on everybody who is not chamfered, and this is a
-       * part the watch has to be measured against. Put it back. */
+      /* Keep one public name across the box and chamfered variants. The soft
+       * branch namespaces structural slabs, but this garment is consumed by
+       * the same watch-clearance contract on every body shape. */
       cuff.name = 'shirt.cuff';
       fore.add(cuff);
       /* Proud of the cuff, not inside it. At z 0.03 this sat well behind the
@@ -2543,9 +2770,9 @@ export function makePerson(o = {}) {
   mouth.userData.base = mouth.scale.clone();
 
   return {
-    group: g, body, head, eyes, mouth, torso, torsoWrap, waist, hips, curves,
+    group: g, body, head, eyes, mouth, torso, torsoWrap, torsoStructureRig, waist, hips, curves,
     profile: g.userData.profile,
-    heightScale,
+    heightScale, gownOcclusion,
     armL, armR, legL, legR,
     foreL: armL.userData.fore, foreR: armR.userData.fore,
     shinL: legL.children.find((c) => c.name === 'shin'),
@@ -2558,6 +2785,8 @@ export function makePerson(o = {}) {
 /* ------------------------------------------------------------------ */
 
 const _v = new THREE.Vector3();
+const CURVY_REST_ARM_SPLAY = 0.18;
+const CURVY_DANCE_ARM_SPLAY = 0.32;
 
 /**
  * THE BADA BING'S FOUR PERFORMERS, AS FIGURES.
@@ -2625,6 +2854,7 @@ export class Npc {
      * figure uses were tuned for a flat front and bring the forearm straight
      * through where a real belly now sits. */
     this.gutted = (this.parts.profile.gut ?? 0) > 0;
+    this.curvy = this.parts.profile.bodyShape === 'curvy';
     this.homeYaw = yaw;
     this.baseY = y;
     /* Where a mover belongs. The dance walks the floor around a pole and has
@@ -2691,13 +2921,31 @@ export class Npc {
       this.parts.foreL.rotation.x = -0.5;
       this.parts.foreR.rotation.x = -0.5;
     }
+    this._splayCurvyArms();
     this.group.position.y = this.baseY - 0.42 * this.parts.heightScale;
+    this._syncGownOcclusion(true);
   }
 
   stand() {
     this._neutralPose();
+    this._splayCurvyArms();
     this.seated = false;
     this.group.position.y = this.baseY;
+    this._syncGownOcclusion(false);
+  }
+
+  _syncGownOcclusion(seated) {
+    const occlusion = this.parts.gownOcclusion;
+    if (!occlusion) return;
+    for (const mesh of occlusion.always) mesh.visible = false;
+    for (const mesh of occlusion.seated) mesh.visible = !seated;
+    for (const mesh of occlusion.visibleBelowHem) mesh.visible = true;
+  }
+
+  _splayCurvyArms(minimum = CURVY_REST_ARM_SPLAY) {
+    if (!this.curvy) return;
+    this.parts.armL.rotation.z = Math.min(this.parts.armL.rotation.z, -minimum);
+    this.parts.armR.rotation.z = Math.max(this.parts.armR.rotation.z, minimum);
   }
 
   _neutralPose() {
@@ -3160,6 +3408,17 @@ export class Npc {
         this.parts.armR.rotation.z = 0.16;
         this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;
       }
+    }
+
+    /* Curvy hips are wider than the hanging forearm line. Keep authored arm
+     * motion, but reserve a small outward angle so a hand never gets there by
+     * passing through the wearer's own hip or shirt. This is a pose limit,
+     * not a body-shape change: the skeleton, socket and limb dimensions stay
+     * exactly where the wardrobe authored them. */
+    if (this.job === 'dance') this._splayCurvyArms(CURVY_DANCE_ARM_SPLAY);
+    else if (this.job === 'stand' || this.job === 'sit' || this.job === 'drink'
+      || this.job === 'lean' || this.job === 'work') {
+      this._splayCurvyArms();
     }
 
     /* Last line of defence for every pose above and any future one: an upper

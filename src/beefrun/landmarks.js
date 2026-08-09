@@ -172,29 +172,92 @@ function horseshoeRiver(x, z) {
   const water = STILL_WATER;
   const sand = solid(0xbaa87c, { roughness: 1 });
 
-  /** Lay a run of river along a list of points, widening downstream. */
-  const layCourse = (name, pts, width, bars) => {
+  /** Sample one named reach and add its gravel bars. Water is built only
+   * after all three reaches exist, so their joins share one tangent/cross-
+   * section instead of crossing two independent end caps. */
+  const sampleCourse = (name, pts, width, bars) => {
     const run = group(name);
+    const widthAt = (t) => (typeof width === 'function' ? width(t) : width);
+    const samples = [{ point: pts[0].clone(), width: widthAt(0) }];
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i], b = pts[i + 1];
-      const mid = a.clone().lerp(b, 0.5);
       const len = a.distanceTo(b);
-      const w = typeof width === 'function' ? width(i / (pts.length - 1)) : width;
-      const seg = flatMesh(planeGeo(w, len + 6), water, mid.x, terrainHeight(x + mid.x, z + mid.z) + 1.2, mid.z);
-      seg.name = `${name}-${i}`;
-      seg.rotation.x = -Math.PI / 2;
-      seg.rotation.z = -Math.atan2(b.x - a.x, b.z - a.z);
-      run.add(seg);
+      const divisions = Math.max(1, Math.ceil(len / 32));
+      for (let step = 1; step <= divisions; step++) {
+        const along = step / divisions;
+        const t = (i + along) / (pts.length - 1);
+        samples.push({
+          point: a.clone().lerp(b, along),
+          width: widthAt(t),
+        });
+      }
       if (bars && i % 6 === 0) {
+        const mid = a.clone().lerp(b, 0.5);
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const segmentLength = Math.max(0.001, Math.hypot(dx, dz));
+        const sideX = dz / segmentLength;
+        const sideZ = -dx / segmentLength;
+        const towardCentreX = -mid.x;
+        const towardCentreZ = -mid.z;
+        const inside = Math.sign(sideX * towardCentreX + sideZ * towardCentreZ) || 1;
+        const segmentT = (i + 0.5) / (pts.length - 1);
+        // Straddle the inside bank in the segment's own cross-section. Scaling
+        // `mid` toward the landmark origin made the offset grow with distance,
+        // eventually leaving downstream bars tens of metres across dry ground.
+        const edgeOffset = Math.max(0, widthAt(segmentT) * 0.5 - 8);
+        const barX = mid.x + sideX * inside * edgeOffset;
+        const barZ = mid.z + sideZ * inside * edgeOffset;
         const bar = flatMesh(new THREE.CircleGeometry(22, 10), sand,
-          mid.x * 0.88, terrainHeight(x + mid.x * 0.88, z + mid.z * 0.88) + 1.3, mid.z * 0.88);
+          barX, terrainHeight(x + barX, z + barZ) + 1.3, barZ);
         bar.name = `${name}-bar-${i}`;
         bar.rotation.x = -Math.PI / 2;
         run.add(bar);
       }
     }
     g.add(run);
-    return run;
+    return samples;
+  };
+
+  /** One indexed ribbon, sampled often enough to ride the terrain. Separate
+   * rotated planes expose their square ends at every bend; separate ribbons
+   * still expose an end cap at the reach joins. One full-course surface has
+   * neither failure mode. */
+  const buildCourseSurface = (samples) => {
+    const positions = [];
+    const indices = [];
+    for (let i = 0; i < samples.length; i++) {
+      const previous = samples[Math.max(0, i - 1)].point;
+      const next = samples[Math.min(samples.length - 1, i + 1)].point;
+      const dx = next.x - previous.x;
+      const dz = next.z - previous.z;
+      const length = Math.max(0.001, Math.hypot(dx, dz));
+      const sideX = dz / length;
+      const sideZ = -dx / length;
+      const centre = samples[i].point;
+      const half = samples[i].width * 0.5;
+      const y = terrainHeight(x + centre.x, z + centre.z) + 1.2;
+      positions.push(
+        centre.x + sideX * half, y, centre.z + sideZ * half,
+        centre.x - sideX * half, y, centre.z - sideZ * half,
+      );
+      if (i < samples.length - 1) {
+        const left = i * 2;
+        const right = left + 1;
+        const nextLeft = left + 2;
+        const nextRight = left + 3;
+        indices.push(left, right, nextLeft, right, nextRight, nextLeft);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    const surface = flatMesh(geometry, water);
+    surface.name = 'river-course-surface';
+    g.add(surface);
+    return surface;
   };
 
   // The bend itself, unchanged in shape — it is the landmark, and it works.
@@ -204,7 +267,7 @@ function horseshoeRiver(x, z) {
     const a = Math.PI * 1.15 * (i / 48) - Math.PI * 0.08;
     bend.push(new THREE.Vector3(Math.cos(a) * R, 0, Math.sin(a) * R * 0.8));
   }
-  layCourse('river-horseshoe', bend, 64, true);
+  const bendSamples = sampleCourse('river-horseshoe', bend, 64, true);
 
   /* Upstream: out of the hills to the north, wandering, and narrower than the
    * bend because it has not picked up the side valleys yet.
@@ -247,7 +310,7 @@ function horseshoeRiver(x, z) {
     upstream.push(new THREE.Vector3(step.nx, 0, step.nz));
     ux = step.nx; uz = step.nz;
   }
-  layCourse('river-upstream', upstream, (t) => 58 - t * 16, false);
+  const upstreamSamples = sampleCourse('river-upstream', upstream, (t) => 58 - t * 16, false);
 
   /* Downstream: it leaves the bend, straightens, and widens on its way to the
    * coast. Neither reach terminates in view — both run past the fog.
@@ -261,14 +324,27 @@ function horseshoeRiver(x, z) {
   const downstream = [tail.clone()];
   let wx = tail.x;
   let wz = tail.z;
-  let wHeading = Math.atan2(-96, 176);         // seed: the old reach's general bearing
+  const beforeTail = bend[bend.length - 2];
+  // Leave the landmark on the bend's actual exit tangent. The old guessed
+  // bearing pointed almost back into the horseshoe and folded the ribbon at
+  // the reach join before traceSlope could correct it.
+  let wHeading = Math.atan2(tail.x - beforeTail.x, tail.z - beforeTail.z);
   for (let i = 1; i <= 18; i++) {
     const step = traceSlope(x, z, wx, wz, 1, 185, i * 1.3, wHeading);
     wHeading = step.heading;
     downstream.push(new THREE.Vector3(step.nx, 0, step.nz));
     wx = step.nx; wz = step.nz;
   }
-  layCourse('river-downstream', downstream, (t) => 66 + t * 26, true);
+  const downstreamSamples = sampleCourse('river-downstream', downstream, (t) => 66 + t * 26, true);
+
+  /* Flow order matters for the cross-section tangent: far upstream into the
+   * bend, around the horseshoe, then away downstream. Drop the duplicated
+   * head/tail samples so there is one actual row of vertices at each join. */
+  buildCourseSurface([
+    ...upstreamSamples.slice().reverse(),
+    ...bendSamples.slice(1),
+    ...downstreamSamples.slice(1),
+  ]);
 
   /* The neck: the pinched strip of land between the two arms of the meander,
    * with the gravel spit that is about to cut it off. This is the shape that

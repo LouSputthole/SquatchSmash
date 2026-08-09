@@ -35,8 +35,11 @@ import {
   GOLF_EFFECT_CUES, GOLF_LATER_AUDIO_SCOPES, GOLF_START_AUDIO_SCOPE,
   playRecordedGolfChoice, playRecordedGolfCue, recordedGolfClip,
 } from '../src/golf/audio.js';
-import { Golfer, makeBag, makeClub } from '../src/golf/cast.js';
+import * as GOLF_CAST from '../src/golf/cast.js';
 import { CartPair } from '../src/golf/carts.js';
+import { BIG_UNCLE_LOU, ERIC, RIPPINFLOW } from '../src/core/wardrobe.js';
+
+const { Golfer, makeBag, makeClub } = GOLF_CAST;
 
 /* These are the facts about the hole that the browser verifier cannot state
  * cheaply and that a careless edit to the layout would silently change. The
@@ -45,6 +48,62 @@ import { CartPair } from '../src/golf/carts.js';
 
 const TEE = { x: TEE_MARKS.ball.x, z: TEE_MARKS.ball.z };
 const lieAt = (p) => surfaceProps(surfaceAt(p.x, p.z));
+
+test('the named golf roster keeps canonical bodies under its exact scene outfit', () => {
+  const wardrobe = GOLF_CAST.GOLF_WARDROBE;
+  assert.ok(wardrobe, 'Silver Pines does not expose one reusable composed wardrobe');
+
+  const canonical = new Map([
+    [CHARACTER_IDS.LOU, BIG_UNCLE_LOU],
+    [CHARACTER_IDS.RIPPINFLOW, RIPPINFLOW],
+    [CHARACTER_IDS.ERIC, ERIC],
+  ]);
+  const bodyFields = [
+    'height', 'build', 'gut', 'skin', 'hair', 'hairColour',
+    'gender', 'bodyShape', 'beard',
+  ];
+  for (const [id, model] of canonical) {
+    for (const field of bodyFields) {
+      assert.deepEqual(
+        wardrobe[id]?.[field],
+        model[field],
+        `${id} golf ${field} drifted from the canonical body`,
+      );
+    }
+  }
+
+  const outfits = {
+    [CHARACTER_IDS.LOU]: {
+      dress: 'argyle', shirt: 0x1f5138, shirtAccent: 0xf2efe2,
+      argyle: { a: 0xf2efe2, b: 0xe0c46a, line: 0x0b2a1c },
+      knickers: true, trouserColour: 0x7a7452, shoeStyle: 'saddle',
+      hat: 'flatcap', hatColour: 0x5e5a3e, bandana: false,
+    },
+    [CHARACTER_IDS.RIPPINFLOW]: {
+      dress: 'argyle', shirt: 0x7b3f95, shirtAccent: 0xf4f1e8,
+      argyle: { a: 0xf4f1e8, b: 0xf0b83c, line: 0x37134f },
+      knickers: true, trouserColour: 0x8a7f9c, shoeStyle: 'saddle',
+      hat: 'flatcap', hatColour: 0x6a4f80, bandana: false,
+    },
+    [CHARACTER_IDS.ERIC]: {
+      dress: 'argyle', shirt: 0x39465c, shirtAccent: 0xeceef2,
+      argyle: { a: 0xc9d3df, b: 0x8fa2bb, line: 0x161d2a },
+      knickers: true, trouserColour: 0x5c6472, shoeStyle: 'saddle',
+      hat: 'flatcap', hatColour: 0x424b5a, bandana: false,
+    },
+    [CHARACTER_IDS.PROSPECT]: {
+      dress: 'argyle', shirt: 0x8a2f34, shirtAccent: 0xf0ece0,
+      argyle: { a: 0x2f6b46, b: 0xe8d9a8, line: 0x2c1a18 },
+      knickers: true, trouserColour: 0x8d8a68, shoeStyle: 'saddle',
+      hat: 'flatcap', hatColour: 0x6b6a4e, bandana: false,
+    },
+  };
+  for (const [id, outfit] of Object.entries(outfits)) {
+    for (const [field, value] of Object.entries(outfit)) {
+      assert.deepEqual(wardrobe[id]?.[field], value, `${id} lost golf ${field}`);
+    }
+  }
+});
 
 function makeRound() {
   return new Round({

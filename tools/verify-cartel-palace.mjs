@@ -102,6 +102,7 @@ try {
     const state = await page.evaluate(() => {
       const runtime = window.CARTEL_PALACE;
       const snapshot = runtime.snapshot();
+      const environment = runtime.geometry();
       return {
         checkpoint: runtime.checkpoint,
         snapshot,
@@ -124,7 +125,15 @@ try {
         },
         doors: runtime.palace.state(),
         extractionVisible: runtime.palace.targets.extractionGate.visible,
-        geometry: runtime.geometry(),
+        geometry: {
+          meshes: environment.meshes,
+          groups: environment.groups,
+          namedMeshes: environment.namedMeshes,
+          colliders: environment.colliders,
+          solidWaterworks: environment.solidWaterworks,
+          zones: Object.fromEntries(Object.entries(environment.zones)
+            .map(([name, zone]) => [name, { meshes: zone.meshes, bounds: zone.bounds }])),
+        },
         previewNotice: Boolean(document.getElementById('squatch-preview-notice')),
         canonical: localStorage.getItem('squatchlife.campaign'),
         bootFailed: !document.getElementById('bootFailure')?.hidden,
@@ -144,6 +153,22 @@ try {
         && state.materialLanguage === 'stucco-stone-clay-tile-courtyard'
         && state.geometry.colliders >= 20,
       JSON.stringify({ evidence: state.snapshot.evidenceFound, geometry: state.geometry }));
+    check(`${checkpoint}: exposes the real refined environment inventory`,
+      state.geometry.meshes >= 750
+        && state.geometry.groups >= 90
+        && state.geometry.namedMeshes / state.geometry.meshes >= 0.85
+        && Object.keys(state.geometry.zones).sort().join(',')
+          === 'ceilings,courtyard,dining,gallery,guestSuite,office,security'
+        && Object.values(state.geometry.zones).every((zone) => zone.meshes > 0)
+        && state.geometry.solidWaterworks.sort().join(',')
+          === 'courtyard-fountain-collider,reflecting-pool-collider',
+      JSON.stringify({
+        meshes: state.geometry.meshes,
+        groups: state.geometry.groups,
+        namedMeshes: state.geometry.namedMeshes,
+        zones: Object.fromEntries(Object.entries(state.geometry.zones).map(([name, zone]) => [name, zone.meshes])),
+        solidWaterworks: state.geometry.solidWaterworks,
+      }));
     check(`${checkpoint}: uses the shared final-raid combat contract`,
       state.loadout.length === 5
         && state.loadout.filter(Boolean).length >= 3
@@ -175,11 +200,25 @@ try {
       const route = await page.evaluate(() => ({
         mission: window.CARTEL_PALACE.snapshot(),
         doors: window.CARTEL_PALACE.palace.state(),
+        facadeLightIntensity: window.CARTEL_PALACE.palace.lights
+          .filter((light) => light.name === 'courtyard-wall-lantern-light')
+          .map((light) => light.intensity),
+        facadeBulbColors: (() => {
+          const colors = [];
+          window.CARTEL_PALACE.palace.root.traverse((object) => {
+            if (object.name === 'courtyard-lantern-bulb') colors.push(object.material.color.getHex());
+          });
+          return colors;
+        })(),
       }));
       check('approach: the real E-hold target cuts power and opens the route',
         route.mission.beat === 'perimeter'
           && route.mission.powerCut
-          && route.doors.serviceGateOpen,
+          && route.doors.serviceGateOpen
+          && route.facadeLightIntensity.length === 4
+          && route.facadeLightIntensity.every((intensity) => intensity === 0)
+          && route.facadeBulbColors.length === 4
+          && route.facadeBulbColors.every((color) => color === 0x080909),
         JSON.stringify(route));
     }
 

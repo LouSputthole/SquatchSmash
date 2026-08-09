@@ -61,6 +61,20 @@
   #objList .todo::before { content: "▫ "; }
   #objList h4 { font-size: 11px; letter-spacing: 2px; color: var(--pink); margin: 6px 0 2px; }
 
+  #surveyBrief {
+    position: absolute; top: 88px; left: 50%; transform: translateX(-50%);
+    width: min(780px, calc(100vw - 36px)); padding: 13px 20px; opacity: 0; visibility: hidden;
+    text-align: center; font-size: clamp(22px, 3vw, 36px); line-height: 1.16; font-weight: 900;
+    color: #fff; background: rgba(10,14,26,.86); border: 1px solid rgba(255,215,94,.62);
+    border-radius: 12px; text-shadow: 0 2px 10px #000;
+  }
+  #hud.visible #surveyBrief { animation: surveyBriefIn 10s ease-out forwards; }
+  @keyframes surveyBriefIn {
+    0% { opacity: 0; visibility: visible; transform: translate(-50%, -10px); }
+    6%, 74% { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+    100% { opacity: 0; visibility: hidden; transform: translate(-50%, -4px); }
+  }
+
   #meters { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 340px; display: none; }
   #meters.show { display: block; }
 
@@ -111,6 +125,15 @@
   #packList .item.new { animation: packIn .5s ease-out; }
   @keyframes packIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
 
+  /* The shared inventory bar defaults to the same bottom-right corner as the
+     Motel's weapon description. Keep both readable: equipment stays beside
+     Tony's hands, while the five stable inventory slots sit at screen centre. */
+  body #scene-inventory-hands {
+    left: 0; right: 0; bottom: 18px; width: auto; transform: none;
+    display: flex; justify-content: center;
+  }
+  body #scene-inventory-hands #hotbar { width: 234px; justify-content: center; }
+
   #prompt {
     position: absolute; bottom: 118px; left: 50%; transform: translateX(-50%);
     padding: 7px 16px; font-size: 16px; font-weight: 700; opacity: 0; transition: opacity .12s;
@@ -157,6 +180,7 @@
   /* The answers are the instruction. They wait until the character has
      finished asking, rather than sitting under a line still being spoken. */
   #wheel.pending #wheelOpts, #wheel.pending #wheelHint { visibility: hidden; }
+  #wheel.pending #wheelHead { visibility: hidden; }
   .opt {
     display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
     padding: 10px 14px; font-size: 15px; line-height: 1.35; text-align: left;
@@ -178,26 +202,33 @@
 
   /* ---------------- Inspection panel ---------------- */
   #inspect {
-    position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 6;
-    width: 300px; padding: 12px 14px; display: none;
+    position: fixed; left: 50%; right: auto; top: 50%; transform: translate(-50%, -50%); z-index: 6;
+    width: min(640px, calc(100vw - 40px)); padding: 18px 20px; display: none;
   }
   #inspect.show { display: block; pointer-events: auto; }
-  #inspect h3 { font-size: 12px; letter-spacing: 3px; color: var(--yellow); margin-bottom: 4px; }
-  #inspectSerial { font-size: 11px; color: #8d97ab; margin-bottom: 8px; letter-spacing: 1px; }
+  #inspect h3 { font-size: 14px; letter-spacing: 3px; color: var(--yellow); margin-bottom: 5px; text-align: center; }
+  #inspectSerial { font-size: 11px; color: #8d97ab; margin-bottom: 12px; letter-spacing: 1px; text-align: center; }
+  #inspectList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .insp {
-    display: block; width: 100%; text-align: left; margin-bottom: 5px; cursor: pointer;
+    display: block; width: 100%; text-align: left; margin: 0; cursor: pointer;
     background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 7px;
     color: #eef1f7; font-family: inherit; font-size: 14px; padding: 6px 10px;
   }
   .insp:hover { border-color: var(--turq); }
-  .insp.done { opacity: .38; cursor: default; }
+  .insp.done {
+    opacity: .38; cursor: default; color: #8e99ad; filter: grayscale(1);
+    border-color: rgba(142,153,173,.24);
+  }
   /* One test at a time — the panel waits while the room talks about the last. */
   #inspect.busy .insp[data-id] { opacity: .4; cursor: wait; border-color: rgba(255,255,255,.12); }
   .insp .k { color: var(--yellow); font-weight: 900; margin-right: 8px; }
-  #verdict { margin-top: 8px; font-size: 14px; font-weight: 800; }
+  #verdict { margin-top: 12px; font-size: 14px; font-weight: 800; text-align: center; }
   #verdict.real { color: var(--green); }
   #verdict.fake { color: #ff8a8a; }
-  #inspectHint { font-size: 11px; color: #8d97ab; margin-top: 6px; }
+  #inspectHint { font-size: 11px; color: #8d97ab; margin-top: 8px; text-align: center; }
+  @media (max-width: 700px) {
+    #inspectList { grid-template-columns: 1fr; }
+  }
 
   /* ---------------- Drive HUD ---------------- */
   #driveHud { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 320px; display: none; }
@@ -316,6 +347,8 @@
       <div id="objList"></div>
     </div>
 
+    <div id="surveyBrief" role="status" aria-live="polite">Survey the Motel before going into your meeting or go right into it</div>
+
     <div id="meters">
       <div class="meter" id="heatWrap">
         <div class="lbl"><span>SELLER SUSPICION</span><span id="heatPct">0%</span></div>
@@ -426,6 +459,13 @@
         <div>Look around the lot before you knock — every warning sign you spot buys you something later.</div>
         <div>The sample may be genuine, half-cut, or entirely gas-station product. Inspect it properly.</div>
         <div>Where you are standing when it goes bad decides how it goes.</div>
+      </div>
+      <div class="panel" id="dealPrimer">
+        <h3>THE PACKAGES</h3>
+        <div><b>YOUR PACKAGE</b> Lou's $40,000 money case. Keep it shut.</div>
+        <div><b>THEIR SAMPLE</b> One Reserve strip for inspection.</div>
+        <div><b>THEIR PACKAGES</b> Eight sealed packages in their case. Count them.</div>
+        <div><b>THE ORDER</b> Inspect their sample. Count their packages. Put your money down last.</div>
       </div>
     </div>
     <div class="btnrow">

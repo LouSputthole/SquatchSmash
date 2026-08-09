@@ -25,15 +25,17 @@
  * own exchange and then be smashable.
  *
  * So this file now owns a room rather than a cutscene: a door you open and
- * walk through, a cord in your hands, five objects on a steel table, and a
- * left mouse button that means "use what you are holding". `PRESSURE` in the
- * rules file is untouched — the economy is the same argument it always was,
- * and only the interface in front of it has changed.
+ * walk through, a cord in your hands, five objects on a steel table, four
+ * implements on a rolling cart, and a left mouse button that means "use what
+ * you are holding". Landed blows carry the rules file's visible hit count into
+ * wounds, impact spray and the seventh-hit fatal ending; breaking one of
+ * Blond's possessions takes the mutually exclusive information route.
  */
 import * as THREE from 'three';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 import { WARDROBE } from '../core/wardrobe.js';
+import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
 import { Npc } from './cast.js';
 import {
   BELONGINGS,
@@ -87,6 +89,8 @@ const WHIP_ARC = Math.cos(0.9);          // a little under 52° either side
  * this lands on exactly the same frame this one does. */
 export const SWING_SECONDS = 0.72;
 export const SWING_LANDS_AT = 0.60;
+const TOOL_SWING_SECONDS = 0.58;
+const TOOL_LANDS_AT = 0.56;
 
 /**
  * The store-room door leaf, and how near it Gratin can be heard through it.
@@ -179,6 +183,63 @@ function makeBlond(scene, colliders) {
   blond.characterId = CHARACTER_IDS.JAMES_BLOND;
   blond.group.userData.npc.characterId = CHARACTER_IDS.JAMES_BLOND;
   return blond;
+}
+
+/**
+ * Steel cuffs around Blond's seated ankles, joined by measured interlocking
+ * links. The cuffs and chain share Blond's rig-root space, so rotating his
+ * torso into the fatal slump cannot pull the chain away from his ankles.
+ */
+function shackleBlond(blond) {
+  const rigRoot = blond?.group;
+  const shins = [blond?.parts?.shinL, blond?.parts?.shinR];
+  if (!rigRoot?.isObject3D || shins.some((shin) => !shin?.isObject3D)) return null;
+
+  const steel = new THREE.MeshStandardMaterial({
+    color: 0x565b62, roughness: 0.44, metalness: 0.86,
+  });
+  const cuffs = [];
+  for (const [index, shin] of shins.entries()) {
+    const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.092, 0.016, 7, 20), steel);
+    cuff.name = `grill.blond.ankle-cuff.${index === 0 ? 'left' : 'right'}`;
+    cuff.position.set(0, -0.37, 0);
+    cuff.rotation.x = Math.PI / 2;
+    cuff.castShadow = true;
+    const clasp = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.042, 0.028), steel);
+    clasp.name = 'grill.blond.ankle-cuff.clasp';
+    clasp.position.x = index === 0 ? 0.09 : -0.09;
+    cuff.add(clasp);
+    shin.add(cuff);
+    cuffs.push(cuff);
+  }
+
+  blond.group.updateWorldMatrix(true, true);
+  const cuffPoints = cuffs.map((cuff) => rigRoot.worldToLocal(
+    cuff.getWorldPosition(new THREE.Vector3()),
+  ));
+  const delta = cuffPoints[1].clone().sub(cuffPoints[0]);
+  const span = delta.length();
+  const direction = delta.clone().normalize();
+  const count = Math.max(5, Math.ceil(span / 0.045) + 1);
+  const chain = new THREE.Group();
+  chain.name = 'grill.blond.ankle-chain';
+  rigRoot.add(chain);
+  const links = [];
+  const along = new THREE.Vector3(1, 0, 0);
+  for (let i = 0; i < count; i++) {
+    const link = new THREE.Mesh(new THREE.TorusGeometry(0.031, 0.009, 6, 14), steel);
+    link.name = 'grill.blond.ankle-chain-link';
+    link.position.lerpVectors(cuffPoints[0], cuffPoints[1], i / (count - 1));
+    link.quaternion.setFromUnitVectors(along, direction);
+    if (i % 2) link.rotateX(Math.PI / 2);
+    link.scale.x = 1.25;
+    link.castShadow = true;
+    chain.add(link);
+    links.push(link);
+  }
+  chain.userData.measuredSpan = span;
+  chain.userData.linkPitch = span / (count - 1);
+  return { root: chain, cuffs, links, span };
 }
 
 /* ------------------------------------------------------------------ */
@@ -523,15 +584,18 @@ function makeCartTool(id) {
   if (id === 'tenderizer') {
     // A wooden handle up into a fist, and a studded metal head to swing it by.
     const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.017, 0.16, 10), M.handle);
+    handle.name = 'grill.tool.tenderizer.handle';
     handle.position.y = -0.09;
     g.add(handle);
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), M.steel);
+    head.name = 'grill.tool.tenderizer.head';
     g.add(head);
     // The grid of pyramid studs that makes it read as a TENDERISER and not a
     // gavel — four rows of four on the striking face.
     for (let ix = 0; ix < 4; ix++) {
       for (let iy = 0; iy < 4; iy++) {
         const stud = new THREE.Mesh(new THREE.ConeGeometry(0.007, 0.012, 4), M.steel);
+        stud.name = `grill.tool.tenderizer.stud.${ix}.${iy}`;
         stud.rotation.x = Math.PI / 2;
         stud.rotation.y = Math.PI / 4;
         stud.position.set(-0.0225 + ix * 0.015, -0.0335 + iy * 0.0225, 0.036);
@@ -541,13 +605,16 @@ function makeCartTool(id) {
   } else if (id === 'ice') {
     // A frustum pail, two ear handles, and the ice standing proud of the rim.
     const pail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.075, 16), M.bucketBody);
+    pail.name = 'grill.tool.ice.pail';
     g.add(pail);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.004, 6, 16), M.steel);
+    rim.name = 'grill.tool.ice.rim';
     rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.0375;
     g.add(rim);
     for (const side of [-1, 1]) {
       const ear = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 10, Math.PI), M.steel);
+      ear.name = `grill.tool.ice.ear.${side < 0 ? 'left' : 'right'}`;
       ear.rotation.z = Math.PI / 2;
       ear.position.set(side * 0.052, 0.02, 0);
       g.add(ear);
@@ -555,6 +622,7 @@ function makeCartTool(id) {
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
       const cube = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.02), M.ice);
+      cube.name = `grill.tool.ice.cube.${i}`;
       cube.position.set(Math.cos(a) * 0.018, 0.05, Math.sin(a) * 0.018);
       cube.rotation.set(a * 0.6, a, a * 0.4);
       g.add(cube);
@@ -562,17 +630,21 @@ function makeCartTool(id) {
   } else if (id === 'tongs') {
     // Two arms off a common pivot, splayed the way a pair left on a cart is.
     const pivot = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 8), M.steel);
+    pivot.name = 'grill.tool.tongs.pivot';
     pivot.rotation.x = Math.PI / 2;
     pivot.position.y = 0.075;
     g.add(pivot);
     for (const side of [-1, 1]) {
       const arm = new THREE.Group();
+      arm.name = `grill.tool.tongs.arm.${side < 0 ? 'left' : 'right'}`;
       arm.position.y = 0.075;
       arm.rotation.z = side * 0.16;
       const bar = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.15, 0.009), M.steel);
+      bar.name = `${arm.name}.bar`;
       bar.position.y = -0.075;
       arm.add(bar);
       const paddle = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.03, 0.006), M.steel);
+      paddle.name = `${arm.name}.paddle`;
       paddle.position.y = -0.155;
       paddle.rotation.z = -side * 0.16;
       arm.add(paddle);
@@ -582,17 +654,22 @@ function makeCartTool(id) {
     // The sauce: a plain glass bottle, no label, a cap, and something red
     // enough inside it to be worth being suspicious of.
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.026, 0.13, 14), M.bottleGlass);
+    body.name = 'grill.tool.sauce.bottle';
     g.add(body);
     const fill = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.022, 0.09, 14), M.sauce);
+    fill.name = 'grill.tool.sauce.fill';
     fill.position.y = -0.02;
     g.add(fill);
     const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.024, 0.03, 14), M.bottleGlass);
+    shoulder.name = 'grill.tool.sauce.shoulder';
     shoulder.position.y = 0.08;
     g.add(shoulder);
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.03, 12), M.bottleGlass);
+    neck.name = 'grill.tool.sauce.neck';
     neck.position.y = 0.11;
     g.add(neck);
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.018, 12), M.cap);
+    cap.name = 'grill.tool.sauce.cap';
     cap.position.y = 0.134;
     g.add(cap);
   }
@@ -651,18 +728,24 @@ export function createLicenseToGrill({
   inventory = null,
   items = {},
   isSecondVisit = false,
+  initialPersisted = null,
   addMoney = () => {},
   onPersist = () => {},
 } = {}) {
+  const restored = initialPersisted && typeof initialPersisted === 'object'
+    && initialPersisted.completed === true
+    ? { ...initialPersisted }
+    : null;
   const runtime = {
     /** 'closed' while it is somebody else's store room. */
-    phase: 'closed',
+    phase: restored ? 'done' : 'closed',
     grill: null,
     blond: null,
+    restraints: null,
     /* Where the Family were standing before this started, so the floor is put
      * back exactly as it was rather than approximately. */
     parked: new Map(),
-    persisted: null,
+    persisted: restored,
     /**
      * How far through the evening the CONVERSATION is, as opposed to how far
      * through it the interrogation is.
@@ -674,9 +757,9 @@ export function createLicenseToGrill({
      * lapsed (walk more than 6.5m from the chair and Dialogue ends it) was
      * gone for the rest of the visit, with a live objective still on screen.
      *
-     * 'intro' | 'floor' | 'named'. Written at the two moments that actually
-     * move the scene on, so walking back up to the chair always lands
-     * somewhere sensible rather than somewhere remembered.
+     * 'intro' | 'floor' | 'breaking' | 'named'. `breaking` keeps a lapsed
+     * property reaction routed into Blond's information; only `named`, marked
+     * after the written-down beat, may re-enter beyond Vincent Mallard.
      */
     stage: 'intro',
     /** Set by a scene tree that wants to hand the player back to the chair. */
@@ -708,14 +791,22 @@ export function createLicenseToGrill({
      * already a two-handed job. */
     tool: null,
     toolModel: null,
+    toolSwing: -1,
+    toolSwingLanded: false,
     /** What this quest last wrote into the shared HUD hand slot, or null. */
     handShown: null,
     /** id -> { group, pad, wreck, mark } for the five things on the table. */
     table: new Map(),
+    /** id -> { group, pad, at } for the four physical tools on the cart. */
+    cart: new Map(),
     /** Queued HUD lines, shown one at a time once nobody is talking. */
     pendingSay: [],
     sayCooldown: 0,
   };
+  const blood = scene?.add ? {
+    impacts: new BloodImpactSystem(scene),
+    pools: new DeathBloodPool(scene, { capacity: 2 }),
+  } : null;
 
   /* ---------------- sound ---------------- */
 
@@ -784,9 +875,10 @@ export function createLicenseToGrill({
      * So the hand-off is recorded and performed by this quest's own update, on
      * the first frame after the current line has finished and closed itself. */
     handOff: (node) => { runtime.handOff = node || 'floor'; },
+    markNamed: () => { runtime.stage = 'named'; },
     threatenCar: () => {
       const broke = runtime.grill.threatenCar();
-      if (broke) runtime.stage = 'named';
+      if (broke) runtime.stage = 'breaking';
       return broke;
     },
     shubesDue: () => !!runtime.grill?.shubesDue(),
@@ -825,6 +917,7 @@ export function createLicenseToGrill({
    */
   function reentry() {
     if (runtime.stage === 'named') return 'afterTheName';
+    if (runtime.stage === 'breaking' || runtime.grill?.broken) return 'breaks';
     if (runtime.stage === 'floor') return 'floor';
     return 'open';
   }
@@ -835,15 +928,19 @@ export function createLicenseToGrill({
    * Gratin hands it over and it becomes Tony's.
    *
    * Owner's note: *"Gratin should hand me the cord and let it come to my
-   * inventory like an item."* So it takes a real slot in the club's own
-   * five-slot bar and stays there for the rest of the visit, and the model
-   * goes on the camera where every other carried thing in this building goes.
+   * inventory like an item."* It takes a real slot in the club's five-slot bar
+   * when one is free and stays equipped as the quest weapon when all five are
+   * occupied; either way its model goes on the camera with every other carried
+   * thing in this building.
    */
   function giveCord() {
     if (runtime.hasCord) return;
     runtime.hasCord = true;
     runtime.stage = 'floor';
-    inventory?.add?.('cord');
+    const stored = inventory?.add?.('cord');
+    if (stored === false) {
+      hud?.toast?.('Inventory full — the cord stays equipped in your hands.', '');
+    }
     if (camera && !runtime.cord) {
       runtime.cord = makeCord();
       camera.add(runtime.cord.root);
@@ -889,12 +986,13 @@ export function createLicenseToGrill({
     // Tool-to-tool is a swap, not a refusal: neither is his property.
     clearToolModel();
     runtime.tool = id;
+    const cartState = runtime.cart.get(id);
+    if (cartState) cartState.group.visible = false;
     if (camera) {
       runtime.toolModel = makeCartTool(id);
       /* Held out in front, roughly where the belongings ride — a tool from
        * the cart is looked at and aimed the same way a lifted watch is. */
-      runtime.toolModel.position.set(0.17, -0.22, -0.38);
-      runtime.toolModel.rotation.set(-0.32, 0.46, 0.10);
+      poseTool(-1);
       camera.add(runtime.toolModel);
     }
     if (runtime.cord) runtime.cord.root.visible = false;
@@ -910,8 +1008,12 @@ export function createLicenseToGrill({
    */
   function putBackTool() {
     if (!runtime.tool) return false;
+    const cartState = runtime.cart.get(runtime.tool);
+    if (cartState) cartState.group.visible = true;
     clearToolModel();
     runtime.tool = null;
+    runtime.toolSwing = -1;
+    runtime.toolSwingLanded = false;
     if (runtime.cord && runtime.phase === 'open') runtime.cord.root.visible = true;
     audio?.play('glass.set', { volume: 0.32 });
     paintHand();
@@ -924,6 +1026,29 @@ export function createLicenseToGrill({
     runtime.toolModel = null;
   }
 
+  /** Camera-space wind-up, strike and settle for any implement off the cart. */
+  function poseTool(progress) {
+    const model = runtime.toolModel;
+    if (!model) return;
+    const p = progress < 0 ? 0 : Math.max(0, Math.min(1, progress));
+    const ease = (value) => value * value * (3 - 2 * value);
+    const wind = p < 0.35
+      ? ease(p / 0.35)
+      : 1 - ease((p - 0.35) / 0.65);
+    const strikePhase = Math.max(0, Math.min(1, (p - 0.28) / 0.60));
+    const strike = Math.sin(strikePhase * Math.PI);
+    model.position.set(
+      0.17 + wind * 0.055,
+      -0.22 + wind * 0.10 - strike * 0.12,
+      -0.38 - strike * 0.13,
+    );
+    model.rotation.set(
+      -0.32 - wind * 1.05 + strike * 2.05,
+      0.46 - strike * 0.22,
+      0.10 + wind * 0.58 - strike * 0.82,
+    );
+  }
+
   /**
    * Use whatever cart tool is in his hands, on Blond — the same reach and the
    * same facing the cord swings at (`blondInReach`). A landed use fires the
@@ -934,10 +1059,95 @@ export function createLicenseToGrill({
   function useTool() {
     const id = runtime.tool;
     if (!id) return false;
-    const tool = CART_TOOLS.find((entry) => entry.id === id);
-    if (!tool || !blondInReach()) return true;
-    resume(tool.node);
+    if (runtime.toolSwing >= 0) return true;
+    runtime.toolSwing = 0;
+    runtime.toolSwingLanded = false;
+    sfx(PENDING_SFX.CORD_SWING, { volume: 0.34 });
     return true;
+  }
+
+  /** Resolve one tool impact at the frame the held model reaches Blond. */
+  function resolveToolSwing() {
+    if (runtime.toolSwingLanded) return;
+    runtime.toolSwingLanded = true;
+    const id = runtime.tool;
+    const tool = CART_TOOLS.find((entry) => entry.id === id);
+    if (!tool || !blondInReach()) {
+      sfx(PENDING_SFX.CORD_MISS, {
+        volume: 0.32,
+        position: new THREE.Vector3(CHAIR.x, 0.9, CHAIR.z),
+      });
+      return;
+    }
+    const result = runtime.grill?.apply?.(id);
+    markBodyHit(result);
+    sfx(PENDING_SFX.CORD_WHIP, {
+      volume: 0.56,
+      position: new THREE.Vector3(CHAIR.x, 1.1, CHAIR.z),
+    });
+    runtime.blond?.say?.(0.8);
+    if (result?.fatal) {
+      finishFatalBlow();
+      return;
+    }
+    if (!dialogue?.active) resume(result?.repeat ? 'swingAgain' : tool.node);
+  }
+
+  /** Put a shared wound and lower spatter at the actual seated body. */
+  function markBodyHit(result) {
+    if (!blood || !runtime.blond || !result?.hits) return null;
+    const anchor = runtime.blond.parts?.body ?? runtime.blond.group;
+    runtime.blond.group.updateWorldMatrix(true, true);
+    const index = result.hits - 1;
+    const point = anchor.localToWorld(new THREE.Vector3(
+      ((index % 3) - 1) * 0.085,
+      1.38 - (index % 2) * 0.14,
+      0.18,
+    ));
+    const from = player
+      ? new THREE.Vector3(player.position.x, 1.5, player.position.z)
+      : point.clone().add(new THREE.Vector3(0, 0, 1));
+    return blood.impacts.hit({
+      actor: runtime.blond,
+      anchor,
+      spatterAnchor: anchor,
+      point,
+      from,
+    });
+  }
+
+  /** Lock a readable final slump, spill at floor height, and close without info. */
+  function finishFatalBlow() {
+    if (!runtime.blond || runtime.phase !== 'open') return false;
+    dialogue?.end?.('fatal');
+    hud?.toast?.('Blond is dead — the information dies with him.', 'bad', 5200);
+    const at = runtime.blond.group.getWorldPosition(new THREE.Vector3());
+    blood?.pools.spill(at, {
+      floorY: 0,
+      size: 0.92,
+      opacity: 0.9,
+      seed: 707,
+    });
+    poseDeadBlond();
+    complete(ENDINGS.BEATEN);
+    return true;
+  }
+
+  function poseDeadBlond() {
+    const blond = runtime.blond;
+    if (!blond) return;
+    blond.hush?.();
+    blond.job = 'dead';
+    blond.group.userData.dead = true;
+    if (blond.group.userData.npc) blond.group.userData.npc.dead = true;
+    const { body, head, armL, armR, foreL, foreR } = blond.parts;
+    body.position.set(0.08, 0, -0.04);
+    body.rotation.set(0.12, 0, -0.34);
+    head.rotation.set(0.5, 0, -0.24);
+    armL.rotation.set(0.1, 0, -1.05);
+    armR.rotation.set(0.1, 0, 1.05);
+    foreL.rotation.set(0.25, 0, -0.12);
+    foreR.rotation.set(0.25, 0, 0.12);
   }
 
   /**
@@ -1029,9 +1239,14 @@ export function createLicenseToGrill({
       if (!dialogue?.active) resume('swingWide');
       return;
     }
-    runtime.grill?.apply('strike');
+    const result = runtime.grill?.apply('strike');
+    markBodyHit(result);
     sfx(PENDING_SFX.CORD_WHIP, { volume: 0.62, position: chairAt });
     runtime.blond?.say?.(1.2);
+    if (result?.fatal) {
+      finishFatalBlow();
+      return;
+    }
     const swings = runtime.grill?.swings?.() ?? 0;
     /* The first three landed swings are authored, in order, and the third is
      * where Gratin gives up on the beating and points at the table — which is
@@ -1052,15 +1267,66 @@ export function createLicenseToGrill({
   /* ---------------- the table ---------------- */
 
   /**
+   * Put every usable implement on the rolling cart as a real interaction.
+   *
+   * The cart used to be scenery backed by a dialogue submenu. That made its
+   * tools impossible to pick up by looking at them, even though the visible
+   * cart was within arm's reach. These are the same models Tony carries, laid
+   * out at the authored cart anchor and registered through the room's normal
+   * interaction system: [E] picks one up; the mouse never does.
+   */
+  function dressCart() {
+    const at = club?.anchors?.grillCart;
+    if (!at || !scene || !interaction || runtime.cart.size) return;
+    const yaw = club?.storeroom?.cart?.rotation?.y ?? -0.34;
+    const layouts = Object.freeze({
+      tenderizer: { x: -0.27, y: 0.07, z: -0.08, rot: [0, 0, Math.PI / 2] },
+      ice: { x: -0.08, y: 0.075, z: 0.08, rot: [0, 0, 0] },
+      tongs: { x: 0.13, y: 0.055, z: -0.04, rot: [Math.PI / 2, 0, 0.18] },
+      sauce: { x: 0.31, y: 0.13, z: 0.04, rot: [0, 0, 0] },
+    });
+    const worldAt = (local) => ({
+      x: at.x + Math.cos(yaw) * local.x + Math.sin(yaw) * local.z,
+      y: at.y + local.y,
+      z: at.z - Math.sin(yaw) * local.x + Math.cos(yaw) * local.z,
+    });
+
+    for (const tool of CART_TOOLS) {
+      const layout = layouts[tool.id];
+      const world = worldAt(layout);
+      const group = makeCartTool(tool.id);
+      group.name = `grill.cart-tool.${tool.id}`;
+      group.position.set(world.x, world.y, world.z);
+      group.rotation.set(...layout.rot);
+      group.rotation.y += yaw;
+      scene.add(group);
+      runtime.litter.push(group);
+
+      const pad = makePad(0.22, 0.25, 0.22);
+      pad.name = `grill.cart-target.${tool.id}`;
+      pad.position.set(world.x, at.y + 0.14, world.z);
+      scene.add(pad);
+      runtime.litter.push(pad);
+      runtime.cart.set(tool.id, { tool, group, pad, at: world });
+
+      runtime.targets.push(interaction.register(pad, {
+        label: () => `Pick up <b>${tool.label.toLowerCase()}</b>`,
+        enabled: () => runtime.phase === 'open' && runtime.held === null
+          && runtime.tool === null && group.visible,
+        onUse: () => giveTool(tool.id),
+      }));
+    }
+  }
+
+  /**
    * Lay a man out on a steel table.
    *
    * This is the owner's structural note made physical. It used to be a
    * dialogue node called `things` with five nouns under it; it is now five
    * objects on the prep table by the door, each with its own pad to aim at and
-   * its own exchange when it comes off the steel. The economy underneath is
-   * untouched: picking one up is the same `apply(id)` the menu option used to
-   * make, and `PRESSURE` still says a man's watch is worth three and a half
-   * beatings.
+   * its own exchange when it comes off the steel. Picking one up still records
+   * that possession's authored reaction; breaking the first valid one commits
+   * the information route.
    */
   function dressTable() {
     const at = club?.anchors?.grillTable;
@@ -1162,9 +1428,9 @@ export function createLicenseToGrill({
   /**
    * Break it.
    *
-   * Worth six, which is deliberately almost nothing — see `PRESSURE.smash`.
-   * What it actually buys is the coldest writing in the room and the discovery
-   * that the man who laughed through a beating has a floor after all.
+   * The first valid possession broken secures the information route. What it
+   * buys is the coldest writing in the room and the discovery that the man who
+   * laughed through a beating has a floor after all.
    */
   function smashHeld() {
     const id = runtime.held;
@@ -1177,6 +1443,7 @@ export function createLicenseToGrill({
       return true;
     }
     const result = runtime.grill?.smash?.(id);
+    if (result?.broke) runtime.stage = 'breaking';
     clearHeldModel();
     runtime.held = null;
     const wreck = makeWreck(id);
@@ -1258,6 +1525,7 @@ export function createLicenseToGrill({
     runtime.targets.push(interaction.register(runtime.blond.group, {
       label: () => {
         if (runtime.stage === 'named') return 'Settle up with <b>James Blond</b>';
+        if (runtime.stage === 'breaking') return 'Hear <b>James Blond</b> out';
         if (runtime.stage === 'floor') return 'Work on <b>James Blond</b>';
         return 'Talk to <b>James Blond</b>';
       },
@@ -1292,10 +1560,14 @@ export function createLicenseToGrill({
     runtime.handOff = null;
     runtime.arrived = false;
     runtime.grill = createInterrogation();
+    blood?.impacts.reset();
+    blood?.pools.reset();
     runtime.blond = makeBlond(scene, club?.colliders);
+    runtime.restraints = shackleBlond(runtime.blond);
     bringIn(CHARACTER_IDS.GRATIN, MARKS.gratin);
     bringIn(CHARACTER_IDS.NUMBSKULL, MARKS.numbskull);
     mountBlond();
+    dressCart();
     dressTable();
 
     /* The radio on the shelf, and it is the only thing in the room behaving
@@ -1360,8 +1632,11 @@ export function createLicenseToGrill({
       /* He stays in the chair whatever the ending — tied, one hand free, or
        * not needing the chair any more. The room keeps him; the floor does
        * not get a barefoot man in a dinner jacket walking through it. */
-      runtime.blond.job = 'sit';
-      runtime.blond._syncJob?.(true);
+      if (runtime.grill?.dead) poseDeadBlond();
+      else {
+        runtime.blond.job = 'sit';
+        runtime.blond._syncJob?.(true);
+      }
     }
   }
 
@@ -1370,14 +1645,19 @@ export function createLicenseToGrill({
     get state() { return runtime.grill?.state ?? null; },
     get persisted() { return runtime.persisted; },
     get blond() { return runtime.blond; },
+    get restraints() { return runtime.restraints; },
     get hasCord() { return runtime.hasCord; },
     get held() { return runtime.held; },
     /** Whichever cart tool is currently in his hands, or null. */
     get tool() { return runtime.tool; },
+    get toolSwing() { return runtime.toolSwing; },
+    get blood() { return blood; },
     /** His effects, the pads over them, and any wreckage — for verification. */
     get props() { return runtime.litter; },
     /** id -> { group, pad, wreck, at } for whatever is on the table. */
     get table() { return runtime.table; },
+    /** id -> { group, pad, at } for the physical torture-cart implements. */
+    get cart() { return runtime.cart; },
     /** The first-person cord, once Gratin has handed it over. */
     get cord() { return runtime.cord; },
     script,
@@ -1429,6 +1709,11 @@ export function createLicenseToGrill({
 
     /** Everything the club has to do to this per frame. */
     update(dt) {
+      /* Evidence keeps animating after the quest completes: the fatal call
+       * flips phase to done immediately, while the bounded floor pool still
+       * has a full growth cycle to finish. */
+      blood?.impacts.update(dt);
+      blood?.pools.update(dt);
       /* The shout through the door comes BEFORE any of it, and is the only
        * part of this that runs while the store room is still somebody else's.
        * It is the owner's *"I also didn't hear gratin yell when I went near
@@ -1474,6 +1759,25 @@ export function createLicenseToGrill({
           if (runtime.cord) poseCord(runtime.cord, -1);
         } else if (runtime.cord) poseCord(runtime.cord, runtime.swing);
       }
+
+      /* A cart implement has its own wind-up and one impact frame. Applying
+       * the rules here keeps a dialogue choice or mouse-down from becoming a
+       * hit before the object visibly reaches Blond. */
+      if (runtime.toolSwing >= 0) {
+        runtime.toolSwing += dt / TOOL_SWING_SECONDS;
+        poseTool(runtime.toolSwing);
+        if (runtime.toolSwing >= TOOL_LANDS_AT) resolveToolSwing();
+        if (runtime.toolSwing >= 1) {
+          runtime.toolSwing = -1;
+          runtime.toolSwingLanded = false;
+          poseTool(-1);
+        }
+      }
+
+      /* A fatal impact can close the quest from inside either animation.
+       * Nothing below this point may restart dialogue or run Npc.update over
+       * the locked dead pose on that same frame. */
+      if (runtime.phase !== 'open') return;
 
       /* Walking in is what starts it. `open()` no longer teleports anybody, so
        * the introduction waits until Tony is genuinely in front of the chair
@@ -1529,11 +1833,22 @@ export function createLicenseToGrill({
      * of flex must not cost him the ability to click on a slot machine.
      */
     press() {
-      if (runtime.phase !== 'open' || !inStoreRoom()) return false;
+      if (!inStoreRoom()) return false;
+      /* The body remains in the room after the fatal close; its left button
+       * must not turn back into E and interact through the corpse. */
+      if (runtime.grill?.dead) return true;
+      if (runtime.phase !== 'open') return false;
+      /* Breaking one possession has already secured the information route.
+       * Consume violent input while the authored response resolves so a
+       * queued swing cannot undercut or visually contradict that success. */
+      if (runtime.grill?.broken) return true;
       if (runtime.held) return smashHeld();
       if (runtime.tool) return useTool();
       if (runtime.hasCord) return swingCord();
-      return false;
+      /* Empty hands still belong to the attack layer in this room. Returning
+       * false would make main.js fall through to InteractionSystem.press(),
+       * turning left mouse into a second [E] for pickups and conversations. */
+      return true;
     },
 
     /** [Q]: put down whatever of his you are holding, or whatever cart tool

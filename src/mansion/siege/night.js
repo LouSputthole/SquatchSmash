@@ -141,6 +141,70 @@ export function buildSiegeNight({ damage, registerLight = null } = {}) {
   }
   damage.group('night.emergency', { object: emergency, layers: ['alarm'] });
 
+  /* ---------------- battle hierarchy ---------------- */
+  /* The live review showed one broad red wash competing with the mansion's
+   * chandeliers. Three bounded practicals give the route readable colour
+   * beats without adding another sky light: cold at the shattered entrance,
+   * cold rim at the firing rail, warm at Lou's command desk. They enter the
+   * composition root's same nearest-N pool as every mansion practical, so
+   * this costs three candidates and never breaks the shader-light budget. */
+  const accentRoot = new THREE.Group();
+  accentRoot.name = 'siege-battle-accents';
+  root.add(accentRoot);
+  const accents = {};
+
+  function accent(role, {
+    x, y, z, colour, intensity, reach, lens = [0.7, 0.08, 0.16], into = -1,
+  }) {
+    const fixture = new THREE.Group();
+    fixture.name = `siege-accent-${role}`;
+    fixture.position.set(x, y, z);
+
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(lens[0] + 0.12, lens[1] + 0.08, lens[2] + 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x20252b, roughness: 0.82 }),
+    );
+    plate.name = `siege-accent-${role}.plate`;
+    fixture.add(plate);
+    const glow = new THREE.Mesh(
+      new THREE.BoxGeometry(...lens),
+      new THREE.MeshBasicMaterial({ color: colour }),
+    );
+    glow.name = `siege-accent-${role}.lens`;
+    glow.position.z = into * 0.04;
+    fixture.add(glow);
+
+    const light = new THREE.PointLight(colour, intensity, reach, 2);
+    light.name = `siege-accent-${role}.light`;
+    light.position.set(0, -0.18, into * 0.35);
+    light.userData.siegeAccent = role;
+    fixture.add(light);
+    accentRoot.add(fixture);
+    registerLight?.(light);
+
+    const entry = {
+      fixture,
+      light,
+      anchor: Object.freeze({ x, y, z }),
+    };
+    accents[role] = entry;
+    return entry;
+  }
+
+  accent('breach', {
+    x: 0, y: 4.25, z: 36.55,
+    colour: 0x7faeff, intensity: 4.2, reach: 14, into: 1,
+  });
+  accent('gallery', {
+    x: 0, y: 8.45, z: 49.0,
+    colour: 0x86b9e8, intensity: 3.4, reach: 11, into: -1,
+  });
+  accent('command', {
+    x: -0.6, y: 7.55, z: 70.85,
+    colour: 0xffb45f, intensity: 3.0, reach: 7.5, lens: [0.46, 0.07, 0.14], into: -1,
+  });
+  damage.group('night.accents', { object: accentRoot, layers: ['battle'] });
+
   /* ---------------- the alarm ---------------- */
   /* Audio belongs to the scene's engine; what lives here is the CLOCK both
    * the sound and the light run off, so the pulse and the two-tone stay in
@@ -173,5 +237,5 @@ export function buildSiegeNight({ damage, registerLight = null } = {}) {
     for (const post of posts) post.light.intensity = swell * post.peak;
   }
 
-  return { root, update, alarm, posts, emergency };
+  return { root, update, alarm, posts, emergency, accentRoot, accents };
 }

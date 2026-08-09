@@ -2523,6 +2523,27 @@ export function makeHeldDrinks(M) {
   return { group: g, can, bottle, jug };
 }
 
+/**
+ * Pose the apartment drink rig at normalized hold-to-drink progress.
+ * Scenes own their gameplay effects, but share this exact lift and tilt.
+ */
+export function poseHeldDrink(drinks, which, progress) {
+  const can = drinks?.can;
+  const bottle = drinks?.bottle;
+  const jug = drinks?.jug;
+  if (!can || !bottle || !jug) return false;
+  can.visible = which === 'can';
+  bottle.visible = which === 'bottle';
+  jug.visible = which === 'jug';
+  const held = which === 'can' ? can : which === 'bottle' ? bottle : which === 'jug' ? jug : null;
+  if (!held) return false;
+  const k = THREE.MathUtils.clamp(Number(progress) || 0, 0, 1);
+  const eased = k * k * (3 - 2 * k);
+  held.position.set(-0.10 * eased, 0.26 * eased, 0.09 * eased);
+  held.rotation.set(1.95 * eased, 0, 0.34 * eased);
+  return true;
+}
+
 export function makeHeldCigarette() {
   const g = group('heldCig');
   const paperMat = mat({ color: 0xf2ece0, roughness: 0.9 });

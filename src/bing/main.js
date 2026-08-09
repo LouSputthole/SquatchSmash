@@ -37,6 +37,7 @@ import {
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { makeHeldDrinks } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -45,6 +46,7 @@ import { buildClub, ROOMS, roomAt, STAGE_H } from './club.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 import { createShubenatorSignature } from '../core/shubenator-signature.js';
 import { createLicenseToGrill } from './license-to-grill-runtime.js';
+import { QUEST as LICENSE_TO_GRILL_QUEST } from './license-to-grill.js';
 import { BingAudioEngine } from './audio.js';
 import { populate, makeAssociate } from './cast.js';
 import {
@@ -1091,8 +1093,8 @@ function optionalObjectives() {
   if (!isSecondVisit) {
     list.push({
       id: 'grill',
-      text: 'See what Gratin needs in the service room',
-      optional: true,
+      text: LICENSE_TO_GRILL_QUEST.objective,
+      optional: false,
       done: licenseToGrill?.phase === 'done',
     });
   }
@@ -1616,6 +1618,19 @@ const familyScripts = buildFamilyScripts({
  * reason the DJ's record index lives where it does. */
 const LICENSE_TO_GRILL_KEY = 'squatch.bing.license-to-grill';
 
+/** Restore only a completed, factual side-room result; bad/stale JSON simply
+ * leaves the first-visit objective available again. Preview runs use their
+ * isolated memory store, so this never leaks proof state into a real save. */
+function loadLicenseToGrillProgress() {
+  try {
+    const storage = getPreviewRuntime()?.storage ?? globalThis.localStorage;
+    const parsed = JSON.parse(storage?.getItem(LICENSE_TO_GRILL_KEY) || 'null');
+    return parsed?.completed === true ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 /* One gate for the signature line for this whole visit. The store room's
  * interruption is a scripted beat and goes through `scripted`; anything
  * ambient on the floor asks `offer` and is told no if he has just said it. */
@@ -1635,6 +1650,7 @@ licenseToGrill = createLicenseToGrill({
   campaign,
   family,
   shubenator: shubenatorSignature,
+  initialPersisted: loadLicenseToGrillProgress(),
   /* The cord takes a real slot in the club's own five-slot bar. */
   inventory,
   items: ITEMS,
@@ -2980,6 +2996,11 @@ const pauseMenu = createPauseMenu({
     clock.getDelta();
     requestLock();
   },
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: activeSceneId,
+    location,
+  }),
 });
 
 document.addEventListener('pointerlockchange', () => {

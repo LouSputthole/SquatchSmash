@@ -29,6 +29,7 @@ const M = Object.freeze({
   brass: new THREE.MeshStandardMaterial({ color: 0xc79b49, roughness: 0.32, metalness: 0.76 }),
   iron: new THREE.MeshStandardMaterial({ color: 0x16191b, roughness: 0.56, metalness: 0.58 }),
   plaster: new THREE.MeshStandardMaterial({ color: 0xe1d2b4, roughness: 0.91 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: 0xddd0b9, roughness: 0.94 }),
   floor: new THREE.MeshStandardMaterial({ color: 0x665044, roughness: 0.78 }),
   floorAccent: new THREE.MeshStandardMaterial({ color: 0xb38b57, roughness: 0.74 }),
   textile: new THREE.MeshStandardMaterial({ color: 0x5a1718, roughness: 0.98 }),
@@ -38,11 +39,17 @@ const M = Object.freeze({
   red: new THREE.MeshStandardMaterial({ color: 0x6a1718, roughness: 0.86 }),
   green: new THREE.MeshStandardMaterial({ color: 0x213c2d, roughness: 0.96 }),
   leaf: new THREE.MeshStandardMaterial({ color: 0x1d3929, roughness: 0.99 }),
+  glass: new THREE.MeshStandardMaterial({
+    color: 0xd8eef0, roughness: 0.14, metalness: 0.06, transparent: true, opacity: 0.42,
+  }),
   water: new THREE.MeshStandardMaterial({
     color: 0x164a59, roughness: 0.16, metalness: 0.08, transparent: true, opacity: 0.82,
   }),
   screen: new THREE.MeshStandardMaterial({
     color: 0x122329, emissive: 0x5c9aa3, emissiveIntensity: 0.9, roughness: 0.38,
+  }),
+  window: new THREE.MeshStandardMaterial({
+    color: 0x101a1d, emissive: 0x203f43, emissiveIntensity: 0.34, roughness: 0.22, metalness: 0.12,
   }),
   lampWarm: new THREE.MeshBasicMaterial({ color: 0xffd69a }),
   lampCool: new THREE.MeshBasicMaterial({ color: 0x94dce5 }),
@@ -211,6 +218,73 @@ function table(parent, colliders, x, z, width, depth, name = 'table') {
   return g;
 }
 
+function diningChair(parent, colliders, x, z, yaw, index) {
+  const chair = new THREE.Group();
+  chair.name = `dining-chair.${index}`;
+  chair.position.set(x, 0, z);
+  chair.rotation.y = yaw;
+  chair.add(
+    box([0.76, 0.12, 0.76], [0, 0.52, 0], M.woodLight, 'dining-chair-seat'),
+    box([0.76, 0.92, 0.12], [0, 1.0, 0.34], M.wood, 'dining-chair-back'),
+    box([0.62, 0.58, 0.58], [0, 0.62, 0], M.textile, 'dining-chair-upholstery'),
+  );
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    chair.add(box([0.085, 0.5, 0.085], [sx * 0.3, 0.25, sz * 0.3], M.wood, 'dining-chair-leg'));
+  }
+  parent.add(chair);
+  addCollider(colliders, [x, 0.7, z], [0.9, 1.4, 0.9], chair.name);
+  return chair;
+}
+
+function diningPlaceSetting(parent, x, z, index) {
+  const setting = new THREE.Group();
+  setting.name = `dining-place-setting.${index}`;
+  setting.position.set(x, 0.92, z);
+  const plate = cylinder(0.23, 0.026, [0, 0, 0], M.white, 'dining-plate', 18);
+  const innerPlate = cylinder(0.15, 0.012, [0, 0.022, 0], M.floorAccent, 'dining-plate-rim', 18);
+  const glass = cylinder(0.055, 0.17, [0.28, 0.09, 0], M.glass, 'dining-glass', 12);
+  const napkin = box([0.19, 0.022, 0.28], [-0.28, 0.025, 0], M.textile, 'dining-napkin');
+  setting.add(plate, innerPlate, glass, napkin);
+  parent.add(setting);
+  return setting;
+}
+
+function diningChandelier(parent) {
+  const fixture = new THREE.Group();
+  fixture.name = 'dining-chandelier';
+  fixture.position.set(0, 0, -42.4);
+  fixture.add(cylinder(0.035, 0.78, [0, 4.12, 0], M.brass, 'dining-chandelier-chain', 8));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.28, 0.055, 8, 32), M.brass);
+  ring.name = 'dining-chandelier-ring';
+  ring.position.y = 3.7;
+  ring.rotation.x = Math.PI / 2;
+  fixture.add(ring);
+  for (let index = 0; index < 8; index++) {
+    const angle = (index / 8) * Math.PI * 2;
+    const arm = box(
+      [1.18, 0.045, 0.045],
+      [Math.cos(angle) * 0.62, 3.7, Math.sin(angle) * 0.62],
+      M.brass,
+      'dining-chandelier-arm',
+    );
+    arm.rotation.y = -angle;
+    fixture.add(arm);
+    fixture.add(cylinder(
+      0.13, 0.07,
+      [Math.cos(angle) * 1.24, 3.63, Math.sin(angle) * 1.24],
+      M.brass,
+      'dining-chandelier-cup',
+      10,
+    ));
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 7), M.lampWarm);
+    bulb.name = 'dining-chandelier-bulb';
+    bulb.position.set(Math.cos(angle) * 1.24, 3.58, Math.sin(angle) * 1.24);
+    fixture.add(bulb);
+  }
+  parent.add(fixture);
+  return fixture;
+}
+
 function evidenceBelongings(parent, colliders) {
   const at = PALACE_ANCHORS.belongings;
   const bench = table(parent, colliders, at.x, at.z, 2.2, 0.8, 'guest-suite-luggage-bench');
@@ -264,6 +338,8 @@ export function buildCartelPalace(scene) {
   root.name = 'cartel-palace.compound';
   scene.add(root);
   const colliders = [];
+  const courtyardPracticalLights = [];
+  const courtyardLampBulbs = [];
 
   const earth = new THREE.Mesh(new THREE.PlaneGeometry(150, 190), new THREE.MeshStandardMaterial({
     color: 0x171b17, roughness: 1,
@@ -336,6 +412,94 @@ export function buildCartelPalace(scene) {
   for (const [x, z] of [[-18, 54], [-18, 32], [18, 31], [-18, 8], [18, 8]]) palm(root, x, z, 0.9);
   for (const x of [-16, -13, 13, 16]) cypress(root, x, 10, 4.6);
 
+  const courtyardDetails = new THREE.Group();
+  courtyardDetails.name = 'courtyard-refinement';
+  root.add(courtyardDetails);
+
+  // The original basin had water but no fountain silhouette. A two-tier stone
+  // centerpiece and six explicit arcs make it legible from the service gate.
+  const centerpiece = new THREE.Group();
+  centerpiece.name = 'courtyard-fountain-centerpiece';
+  centerpiece.position.set(0, 0, 35);
+  centerpiece.add(
+    cylinder(0.68, 1.0, [0, 1.04, 0], M.stoneLight, 'courtyard-fountain-pedestal', 18),
+    cylinder(1.02, 0.16, [0, 1.56, 0], M.stoneLight, 'courtyard-fountain-tier', 24),
+    cylinder(0.25, 0.7, [0, 1.96, 0], M.stoneLight, 'courtyard-fountain-column', 16),
+    cylinder(0.58, 0.14, [0, 2.34, 0], M.stoneLight, 'courtyard-fountain-tier', 20),
+  );
+  const finial = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 10), M.brass);
+  finial.name = 'courtyard-fountain-finial';
+  finial.position.y = 2.58;
+  centerpiece.add(finial);
+  for (let index = 0; index < 6; index++) {
+    const angle = (index / 6) * Math.PI * 2;
+    const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+    const curve = new THREE.QuadraticBezierCurve3(
+      direction.clone().multiplyScalar(0.28).setY(2.42),
+      direction.clone().multiplyScalar(1.08).setY(2.82),
+      direction.clone().multiplyScalar(1.75).setY(0.64),
+    );
+    const jet = new THREE.Mesh(new THREE.TubeGeometry(curve, 14, 0.026, 5, false), M.glass);
+    jet.name = 'courtyard-water-jet';
+    jet.castShadow = false;
+    centerpiece.add(jet);
+  }
+  courtyardDetails.add(centerpiece);
+  addCollider(colliders, [0, 0.35, 35], [6.4, 0.7, 6.4], 'courtyard-fountain-collider');
+
+  // A raised four-piece coping reads as an edge from any approach angle and
+  // gives the reflecting pool the same physical truth as its stone surround.
+  courtyardDetails.add(
+    box([12.0, 0.22, 0.35], [-11, 0.14, 15.15], M.stoneLight, 'reflecting-pool-border'),
+    box([12.0, 0.22, 0.35], [-11, 0.14, 22.85], M.stoneLight, 'reflecting-pool-border'),
+    box([0.35, 0.22, 7.35], [-16.85, 0.14, 19], M.stoneLight, 'reflecting-pool-border'),
+    box([0.35, 0.22, 7.35], [-5.15, 0.14, 19], M.stoneLight, 'reflecting-pool-border'),
+  );
+  addCollider(colliders, [-11, 0.22, 19], [12.0, 0.44, 8.0], 'reflecting-pool-collider');
+
+  // The blank estate front now has repeated window bays, a plinth/cornice
+  // hierarchy and wall lanterns. All pieces project from existing solid walls
+  // and therefore introduce no new blockers in the courtyard route.
+  courtyardDetails.add(
+    box([29.5, 0.28, 0.2], [-3.25, 0.24, 12.34], M.stoneLight, 'estate-facade-plinth'),
+    box([2.5, 0.28, 0.2], [16.75, 0.24, 12.34], M.stoneLight, 'estate-facade-plinth'),
+    box([29.5, 0.26, 0.28], [-3.25, 4.48, 12.36], M.stoneLight, 'estate-facade-cornice'),
+    box([2.5, 0.26, 0.28], [16.75, 4.48, 12.36], M.stoneLight, 'estate-facade-cornice'),
+  );
+  for (const x of [-15.0, -11.1, -7.2, -3.3, 0.6, 4.5, 8.4, 16.8]) {
+    const bay = new THREE.Group();
+    bay.name = 'estate-facade-bay';
+    bay.position.set(x, 0, 12.43);
+    bay.add(
+      box([1.48, 1.78, 0.06], [0, 2.35, 0], M.window, 'estate-facade-window', { cast: false }),
+      box([1.9, 0.18, 0.22], [0, 1.42, 0.02], M.stoneLight, 'estate-facade-window-sill'),
+      box([1.9, 0.22, 0.22], [0, 3.3, 0.02], M.stoneLight, 'estate-facade-window-header'),
+      box([0.18, 2.05, 0.2], [-0.86, 2.35, 0.01], M.stoneLight, 'estate-facade-window-jamb'),
+      box([0.18, 2.05, 0.2], [0.86, 2.35, 0.01], M.stoneLight, 'estate-facade-window-jamb'),
+    );
+    courtyardDetails.add(bay);
+  }
+  for (const x of [-13.1, -5.25, 2.55, 10.35]) {
+    const lantern = new THREE.Group();
+    lantern.name = 'courtyard-wall-lantern';
+    lantern.position.set(x, 2.8, 12.68);
+    lantern.add(
+      box([0.08, 0.42, 0.22], [0, 0, -0.08], M.brass, 'courtyard-lantern-bracket'),
+      cylinder(0.16, 0.08, [0, 0.26, 0.06], M.brass, 'courtyard-lantern-cap', 10),
+    );
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 7), M.lampWarm);
+    bulb.name = 'courtyard-lantern-bulb';
+    bulb.position.set(0, 0.05, 0.08);
+    lantern.add(bulb);
+    courtyardLampBulbs.push(bulb);
+    courtyardDetails.add(lantern);
+    const light = new THREE.PointLight(0xffb86f, 4.4, 9.5, 2);
+    light.name = 'courtyard-wall-lantern-light';
+    light.position.set(x, 2.75, 13.1);
+    root.add(light);
+    courtyardPracticalLights.push(light);
+  }
+
   // Estate exterior and roof. The interior shell is built from segments so
   // the service and dining doors are real openings, not visual decals.
   const estate = new THREE.Group();
@@ -351,6 +515,25 @@ export function buildCartelPalace(scene) {
   solid(estate, colliders, [14.8, 4.8, 0.5], [10.6, 2.4, -50], M.stucco, 'estate-rear-wall-east');
   arch(estate, 13.5, 11.68, 3.6, 3.6, 0.5);
   tiledRoof(estate, 0, -19, 38, 64, 5.35);
+
+  // A real interior shell keeps the exterior clay roof and its ridges out of
+  // every eye-level room view. The panels meet at authored room boundaries;
+  // they are visual soffits, not collision slabs, so the mission route and
+  // headroom remain exactly as they were.
+  const ceilings = new THREE.Group();
+  ceilings.name = 'estate-interior-ceilings';
+  estate.add(ceilings);
+  for (const [name, size, position] of [
+    ['estate-entry-ceiling', [7.0, 0.12, 16.0], [14.2, 4.54, 4.0]],
+    ['mark-office-ceiling', [9.25, 0.12, 16.0], [-13.275, 4.54, -6.75]],
+    ['guest-suite-ceiling', [18.95, 0.12, 16.0], [0.825, 4.54, -6.75]],
+    ['security-room-ceiling', [7.0, 0.12, 14.0], [14.2, 4.54, -11.0]],
+    ['service-corridor-ceiling', [7.0, 0.12, 16.0], [14.2, 4.54, -26.0]],
+    ['portrait-gallery-ceiling', [28.0, 0.12, 18.8], [-3.7, 4.54, -24.6]],
+    ['final-dining-ceiling', [35.5, 0.12, 15.35], [0, 4.54, -42.075]],
+  ]) {
+    ceilings.add(box(size, position, M.ceiling, name, { cast: false, receive: true }));
+  }
 
   const estateDoor = box([3.4, 3.45, 0.22], [13.5, 1.73, 11.7], M.wood, 'estate-service-door');
   estate.add(estateDoor);
@@ -394,11 +577,155 @@ export function buildCartelPalace(scene) {
   for (let z = -11.5; z <= -2; z += 2.2) {
     solid(estate, colliders, [0.75, 2.2, 1.5], [-16.6, 1.1, z], M.wood, 'mark-office-files');
   }
+
+  const officeDetails = new THREE.Group();
+  officeDetails.name = 'mark-office-refinement';
+  estate.add(officeDetails);
+  officeDetails.add(
+    box([7.2, 0.035, 11.0], [-13.2, 0.07, -6.6], M.green, 'office-detail.rug', { cast: false }),
+    box([0.08, 1.45, 12.5], [-17.69, 1.18, -6.5], M.woodLight, 'office-detail.wainscot'),
+    box([0.08, 0.12, 12.5], [-17.63, 1.92, -6.5], M.brass, 'office-detail.dado-rail'),
+  );
+  const officeDrawers = new THREE.Group();
+  officeDrawers.name = 'office-detail.file-drawers';
+  for (let z = -11.5; z <= -2; z += 2.2) {
+    for (const y of [0.46, 1.08, 1.7]) {
+      officeDrawers.add(
+        box([0.035, 0.48, 1.18], [-16.21, y, z], M.woodLight, 'office-file-drawer-face'),
+        box([0.025, 0.08, 0.32], [-16.18, y, z], M.brass, 'office-file-drawer-pull'),
+      );
+    }
+  }
+  officeDetails.add(officeDrawers);
+
+  const officeChair = new THREE.Group();
+  officeChair.name = 'office-detail.desk-chair';
+  officeChair.position.set(-10.6, 0, -8.25);
+  officeChair.add(
+    box([0.72, 0.12, 0.72], [0, 0.52, 0], M.wood, 'office-chair-seat'),
+    box([0.72, 0.88, 0.12], [0, 1.0, -0.32], M.wood, 'office-chair-back'),
+    box([0.58, 0.18, 0.58], [0, 0.61, 0], M.textile, 'office-chair-cushion'),
+  );
+  officeDetails.add(officeChair);
+
+  const officeLamp = new THREE.Group();
+  officeLamp.name = 'office-detail.desk-lamp';
+  officeLamp.position.set(-11.55, 0, -6.8);
+  officeLamp.add(
+    cylinder(0.19, 0.07, [0, 0.92, 0], M.brass, 'office-lamp-base', 12),
+    cylinder(0.035, 0.62, [0, 1.23, 0], M.brass, 'office-lamp-stem', 8),
+  );
+  const officeShade = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.34, 12, 1, true), M.lampWarm);
+  officeShade.name = 'office-lamp-shade';
+  officeShade.position.set(0, 1.55, 0);
+  officeLamp.add(officeShade);
+  officeDetails.add(officeLamp);
+
+  const officeCoffers = new THREE.Group();
+  officeCoffers.name = 'office-detail.ceiling-beams';
+  for (const z of [-12.5, -9.5, -6.5, -3.5, -0.5]) {
+    officeCoffers.add(box([8.0, 0.14, 0.16], [-13.7, 4.4, z], M.wood, 'office-ceiling-beam', { cast: false }));
+  }
+  officeDetails.add(officeCoffers);
+
   solid(estate, colliders, [4.2, 0.68, 2.3], [4.7, 0.34, -11.2], M.wood, 'guest-suite-bed');
   estate.add(box([3.9, 0.16, 2.12], [4.7, 0.76, -11.2], M.white, 'guest-suite-linen'));
+
+  const guestDetails = new THREE.Group();
+  guestDetails.name = 'guest-suite-refinement';
+  estate.add(guestDetails);
+  guestDetails.add(
+    box([8.8, 0.035, 9.2], [4.7, 0.07, -9.4], M.textile, 'guest-suite-detail.rug', { cast: false }),
+    box([4.55, 1.55, 0.18], [4.7, 1.25, -12.32], M.wood, 'guest-suite-detail.headboard'),
+    box([4.45, 0.28, 0.16], [4.7, 0.53, -10.05], M.woodLight, 'guest-suite-detail.footboard'),
+    box([3.6, 0.11, 0.65], [4.7, 0.88, -11.77], M.floorAccent, 'guest-suite-detail.blanket-fold'),
+  );
+  const guestPillows = new THREE.Group();
+  guestPillows.name = 'guest-suite-detail.pillows';
+  guestPillows.add(
+    box([1.5, 0.18, 0.62], [3.75, 0.93, -11.72], M.white, 'guest-suite-pillow'),
+    box([1.5, 0.18, 0.62], [5.65, 0.93, -11.72], M.white, 'guest-suite-pillow'),
+  );
+  guestDetails.add(guestPillows);
+  const nightstands = new THREE.Group();
+  nightstands.name = 'guest-suite-detail.nightstands';
+  const bedsideLamps = new THREE.Group();
+  bedsideLamps.name = 'guest-suite-detail.bedside-lamps';
+  for (const x of [1.9, 7.5]) {
+    nightstands.add(
+      box([0.9, 0.12, 0.78], [x, 0.64, -11.25], M.woodLight, 'guest-suite-nightstand-top'),
+      box([0.68, 0.58, 0.58], [x, 0.31, -11.25], M.wood, 'guest-suite-nightstand-base'),
+    );
+    bedsideLamps.add(
+      cylinder(0.13, 0.05, [x, 0.74, -11.25], M.brass, 'guest-suite-lamp-base', 10),
+      cylinder(0.025, 0.4, [x, 0.94, -11.25], M.brass, 'guest-suite-lamp-stem', 8),
+    );
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 7), M.lampWarm);
+    bulb.name = 'guest-suite-lamp-bulb';
+    bulb.position.set(x, 1.17, -11.25);
+    bedsideLamps.add(bulb);
+  }
+  guestDetails.add(nightstands, bedsideLamps);
+  const guestWall = new THREE.Group();
+  guestWall.name = 'guest-suite-detail.wall-panels';
+  for (const x of [2.6, 4.7, 6.8]) {
+    guestWall.add(box([1.65, 1.35, 0.08], [x, 2.65, -12.36], M.woodLight, 'guest-suite-wall-panel'));
+  }
+  guestDetails.add(guestWall);
+  const guestCoffers = new THREE.Group();
+  guestCoffers.name = 'guest-suite-detail.ceiling-beams';
+  for (const x of [-6.5, -3.3, -0.1, 3.1, 6.3, 9.5]) {
+    guestCoffers.add(box([0.16, 0.14, 15.2], [x, 4.4, -6.75], M.woodLight, 'guest-suite-ceiling-beam', { cast: false }));
+  }
+  guestDetails.add(guestCoffers);
+
   for (let z = -14; z <= -6; z += 2.1) {
     solid(estate, colliders, [1.05, 2.4, 0.7], [16.9, 1.2, z], M.iron, 'security-rack');
   }
+
+  const securityDetails = new THREE.Group();
+  securityDetails.name = 'security-room-refinement';
+  estate.add(securityDetails);
+  securityDetails.add(
+    box([6.5, 0.035, 10.5], [14.2, 0.07, -11.0], M.ink, 'security-detail.floor-field', { cast: false }),
+    box([6.2, 0.025, 0.32], [14.2, 0.095, -6.8], M.floorAccent, 'security-detail.threshold-stripe', { cast: false }),
+    box([3.5, 1.65, 0.12], [14.9, 2.15, -10.38], M.iron, 'security-detail.console-backdrop'),
+  );
+  const monitorBank = new THREE.Group();
+  monitorBank.name = 'security-detail.monitor-bank';
+  for (const [x, y] of [[13.9, 2.35], [14.9, 2.35], [15.9, 2.35], [14.4, 1.75], [15.4, 1.75]]) {
+    monitorBank.add(box([0.82, 0.5, 0.06], [x, y, -10.48], M.screen, 'security-monitor', { cast: false }));
+  }
+  securityDetails.add(monitorBank);
+  const rackFaces = new THREE.Group();
+  rackFaces.name = 'security-detail.rack-faces';
+  const indicators = new THREE.Group();
+  indicators.name = 'security-detail.indicators';
+  for (let z = -14; z <= -6; z += 2.1) {
+    rackFaces.add(box([0.07, 1.95, 0.55], [16.36, 1.2, z], M.stone, 'security-rack-face'));
+    for (const y of [0.65, 1.05, 1.45, 1.85]) {
+      indicators.add(box([0.025, 0.055, 0.055], [16.31, y, z], M.lampCool, 'security-rack-indicator', { cast: false }));
+    }
+  }
+  securityDetails.add(rackFaces, indicators);
+  const cableTray = new THREE.Group();
+  cableTray.name = 'security-detail.cable-tray';
+  cableTray.add(
+    box([0.12, 0.12, 10.5], [11.35, 4.23, -11], M.iron, 'security-cable-rail', { cast: false }),
+    box([0.12, 0.12, 10.5], [11.85, 4.23, -11], M.iron, 'security-cable-rail', { cast: false }),
+  );
+  for (let z = -15.7; z <= -6.3; z += 0.7) {
+    cableTray.add(box([0.62, 0.04, 0.05], [11.6, 4.2, z], M.iron, 'security-cable-rung', { cast: false }));
+  }
+  securityDetails.add(cableTray);
+  const stool = new THREE.Group();
+  stool.name = 'security-detail.operator-stool';
+  stool.position.set(13.25, 0, -8.7);
+  stool.add(
+    cylinder(0.3, 0.1, [0, 0.58, 0], M.woodLight, 'security-stool-seat', 14),
+    cylinder(0.06, 0.55, [0, 0.29, 0], M.iron, 'security-stool-post', 8),
+  );
+  securityDetails.add(stool);
 
   // Portrait gallery and evidence approach.
   for (const side of [-1, 1]) {
@@ -407,15 +734,108 @@ export function buildCartelPalace(scene) {
   const galleryRunner = box([5.2, 0.025, 17], [0, 0.09, -24.5], M.textile, 'portrait-gallery-runner', { cast: false });
   estate.add(galleryRunner);
 
-  // Dining room: one long table, two clear target positions, sideboards and a
-  // rear terrace. It is larger than every room before it and ends the axis.
-  const finalTable = table(estate, colliders, 0, -42.4, 9.8, 2.2, 'mark-dining-table');
+  const galleryDetails = new THREE.Group();
+  galleryDetails.name = 'portrait-gallery-refinement';
+  estate.add(galleryDetails);
+  // The west side previously had no mounting surface at all. This one solid
+  // gallery wall gives the portrait sequence architectural depth without
+  // changing the central patrol/combat aisle.
+  solid(galleryDetails, colliders, [0.32, 4.2, 18.6], [-10.5, 2.1, -24.6], M.plaster, 'gallery-west-wall');
+  for (const side of [-1, 1]) {
+    for (const z of [-18, -21.5, -25, -28.5]) {
+      galleryDetails.add(box(
+        [0.08, 2.45, 2.45], [side * 10.08, 1.75, z], M.woodLight, 'gallery-wall-panel',
+      ));
+      const pictureLight = new THREE.Group();
+      pictureLight.name = 'gallery-picture-light';
+      pictureLight.position.set(side * 9.63, 2.68, z);
+      pictureLight.add(box([0.38, 0.06, 0.06], [0, 0, 0], M.brass, 'gallery-picture-light-arm'));
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.075, 9, 6), M.lampWarm);
+      bulb.name = 'gallery-picture-light-bulb';
+      bulb.position.set(-side * 0.18, -0.08, 0);
+      pictureLight.add(bulb);
+      galleryDetails.add(pictureLight);
+    }
+  }
+  galleryDetails.add(
+    box([0.055, 0.04, 17.0], [-2.58, 0.115, -24.5], M.brass, 'gallery-runner-border', { cast: false }),
+    box([0.055, 0.04, 17.0], [2.58, 0.115, -24.5], M.brass, 'gallery-runner-border', { cast: false }),
+  );
+  for (const z of [-16.6, -19.4, -22.2, -25.0, -27.8, -30.6, -33.2]) {
+    galleryDetails.add(box([19.6, 0.14, 0.16], [0, 4.4, z], M.wood, 'gallery-ceiling-beam', { cast: false }));
+  }
+  for (const x of [-6.5, 0, 6.5]) {
+    galleryDetails.add(box([0.16, 0.14, 17.9], [x, 4.4, -24.6], M.wood, 'gallery-ceiling-beam', { cast: false }));
+  }
+  for (const [index, x] of [-8.25, 8.25].entries()) {
+    const bench = new THREE.Group();
+    bench.name = 'gallery-bench';
+    bench.position.set(x, 0, -24.6);
+    bench.add(
+      box([0.86, 0.14, 3.0], [0, 0.52, 0], M.woodLight, `gallery-bench.${index}.seat`),
+      box([0.68, 0.18, 2.72], [0, 0.63, 0], M.textile, `gallery-bench.${index}.cushion`),
+      box([0.12, 0.5, 0.12], [0, 0.25, -1.26], M.wood, `gallery-bench.${index}.leg`),
+      box([0.12, 0.5, 0.12], [0, 0.25, 1.26], M.wood, `gallery-bench.${index}.leg`),
+    );
+    galleryDetails.add(bench);
+    addCollider(colliders, [x, 0.52, -24.6], [1.0, 1.04, 3.2], `gallery-bench.${index}`);
+  }
+  // The existing east-side service-wall gap remains the evidence-route door;
+  // an overhead lintel and jambs make that gap intentional without closing it.
+  galleryDetails.add(
+    box([0.4, 3.45, 0.28], [10.5, 1.73, -26.28], M.stoneLight, 'gallery-service-door-jamb'),
+    box([0.4, 3.45, 0.28], [10.5, 1.73, -22.22], M.stoneLight, 'gallery-service-door-jamb'),
+    box([0.4, 0.32, 4.35], [10.5, 3.62, -24.25], M.stoneLight, 'gallery-service-door-lintel'),
+  );
+
+  // Dining room: a formal cartel table staged as the final arena. The front
+  // edge deliberately has no chairs: Mark and Sauce retain their canonical
+  // positions and the player gets two clean flanking lanes around the table.
+  const diningStage = new THREE.Group();
+  diningStage.name = 'final-dining-refinement';
+  estate.add(diningStage);
+  diningStage.add(box([14.8, 0.04, 11.5], [0, 0.07, -42.15], M.textile, 'final-dining-rug', { cast: false }));
+
+  const finalTable = table(diningStage, colliders, 0, -42.4, 9.8, 2.2, 'mark-dining-table');
+  finalTable.add(box([8.7, 0.024, 0.54], [0, 0.9, 0], M.floorAccent, 'dining-table-runner', { cast: false }));
   for (let x = -3.9; x <= 3.9; x += 1.3) {
     finalTable.add(cylinder(0.045, 0.32, [x, 1.06, 0], M.brass, 'dining-candle', 8));
   }
-  solid(estate, colliders, [3.8, 1.1, 0.75], [-14.7, 0.55, -43.5], M.wood, 'dining-sideboard-west');
-  solid(estate, colliders, [3.8, 1.1, 0.75], [14.7, 0.55, -43.5], M.wood, 'dining-sideboard-east');
-  framedPortrait(estate, 0, 2.5, -49.65, { scale: 1.05 });
+  let settingIndex = 0;
+  for (const z of [-0.62, 0.62]) {
+    for (const x of [-3.55, -1.2, 1.2, 3.55]) {
+      diningPlaceSetting(finalTable, x, z, settingIndex++);
+    }
+  }
+  let chairIndex = 0;
+  for (const [x, z, yaw] of [
+    [-3.6, -44.2, Math.PI], [-1.2, -44.2, Math.PI],
+    [1.2, -44.2, Math.PI], [3.6, -44.2, Math.PI],
+    [-5.55, -42.4, -Math.PI / 2], [5.55, -42.4, Math.PI / 2],
+  ]) diningChair(diningStage, colliders, x, z, yaw, chairIndex++);
+
+  for (const z of [-36.4, -38.8, -41.2, -43.6, -46.0, -48.4]) {
+    diningStage.add(box([32.8, 0.12, 0.18], [0, 4.4, z], M.wood, 'dining-coffer-beam', { cast: false }));
+  }
+  for (const x of [-12, -6, 0, 6, 12]) {
+    diningStage.add(box([0.18, 0.12, 13.6], [x, 4.4, -42.4], M.wood, 'dining-coffer-beam', { cast: false }));
+  }
+  for (const x of [-17.7, 17.7]) {
+    for (const z of [-37.0, -40.6, -44.2, -47.8]) {
+      diningStage.add(box([0.08, 1.5, 2.6], [x, 1.2, z], M.woodLight, 'dining-wall-panel'));
+    }
+  }
+  for (const x of [-14.2, -10.4, -6.6, 6.6, 10.4, 14.2]) {
+    diningStage.add(
+      box([3.1, 2.6, 0.08], [x, 1.58, -49.69], M.woodLight, 'dining-rear-wall-panel'),
+      box([2.7, 2.2, 0.055], [x, 1.58, -49.63], M.textile, 'dining-rear-wall-inset'),
+    );
+  }
+  diningChandelier(diningStage);
+
+  solid(diningStage, colliders, [3.8, 1.1, 0.75], [-14.7, 0.55, -43.5], M.wood, 'dining-sideboard-west');
+  solid(diningStage, colliders, [3.8, 1.1, 0.75], [14.7, 0.55, -43.5], M.wood, 'dining-sideboard-east');
+  framedPortrait(diningStage, 0, 2.5, -49.65, { scale: 1.05 });
 
   const extractionGate = ironGate(5.4, 3.7, 'terrace-extraction-gate');
   extractionGate.position.set(0, 0, -52.6);
@@ -423,7 +843,7 @@ export function buildCartelPalace(scene) {
   const extractionCollider = addCollider(colliders, [0, 2, -52.6], [5.5, 4.0, 0.3], 'terrace-extraction-gate');
 
   // One pool of local lights; the composition root can cap or disable it.
-  const lights = [];
+  const lights = [...courtyardPracticalLights];
   for (const [x, y, z, color, intensity, distance] of [
     [0, 1.1, 35, 0x7ac4d1, 5.2, 15],
     [-11, 0.4, 19, 0x4ea6b8, 4.2, 13],
@@ -435,11 +855,11 @@ export function buildCartelPalace(scene) {
     [5, 2.7, -7, 0xffb66d, 14, 14],
     [15, 2.5, -10, 0x86aeb2, 12, 13],
     [14.5, 2.7, -24, 0x91bcc2, 13, 14],
-    [0, 2.9, -25, 0xffa85a, 17, 16],
+    [0, 3.35, -25, 0xffa85a, 11, 16],
     [0, 2.9, -36.5, 0xffb16b, 18, 15],
-    [0, 2.9, -42, 0xff9c51, 24, 20],
-    [-3.2, 3.2, -43, 0xffd6a0, 22, 10],
-    [3.2, 3.2, -43, 0xb7d3dc, 20, 10],
+    [0, 3.55, -42.4, 0xff9c51, 14, 20],
+    [-3.2, 2.85, -43, 0xffd6a0, 9, 10],
+    [3.2, 2.85, -43, 0xb7d3dc, 8, 10],
   ]) {
     const light = new THREE.PointLight(color, intensity, distance, 2);
     light.position.set(x, y, z);
@@ -477,6 +897,8 @@ export function buildCartelPalace(scene) {
     serviceGate.position.x = 11.1;
     removeCollider(colliders, serviceGateCollider);
     powerLight.material = M.blackout;
+    for (const light of courtyardPracticalLights) light.intensity = 0;
+    for (const bulb of courtyardLampBulbs) bulb.material = M.blackout;
     return true;
   }
 
@@ -508,6 +930,62 @@ export function buildCartelPalace(scene) {
     return true;
   }
 
+  const environmentZones = Object.freeze({
+    ceilings,
+    courtyard: courtyardDetails,
+    office: officeDetails,
+    guestSuite: guestDetails,
+    security: securityDetails,
+    gallery: galleryDetails,
+    dining: diningStage,
+  });
+
+  /**
+   * Public, derived inspection data for Node and browser verification. Nothing
+   * here is a hand-maintained promise: counts, names and bounds are recomputed
+   * from the same live scene graph the player sees.
+   */
+  function inspectEnvironment() {
+    root.updateMatrixWorld(true);
+    let meshes = 0;
+    let groups = 0;
+    let namedMeshes = 0;
+    root.traverse((object) => {
+      if (object.isMesh) {
+        meshes++;
+        if (object.name) namedMeshes++;
+      }
+      if (object.isGroup) groups++;
+    });
+
+    const zones = Object.fromEntries(Object.entries(environmentZones).map(([name, zone]) => {
+      let zoneMeshes = 0;
+      const names = new Set();
+      zone.traverse((object) => {
+        if (object.isMesh) zoneMeshes++;
+        if (object.name) names.add(object.name);
+      });
+      const bounds = new THREE.Box3().setFromObject(zone);
+      return [name, {
+        meshes: zoneMeshes,
+        names: [...names].sort(),
+        bounds: { min: bounds.min.toArray(), max: bounds.max.toArray() },
+      }];
+    }));
+
+    return {
+      meshes,
+      groups,
+      namedMeshes,
+      colliders: colliders.length,
+      colliderNames: colliders.map((collider) => collider.name).filter(Boolean).sort(),
+      solidWaterworks: colliders
+        .filter((collider) => ['courtyard-fountain-collider', 'reflecting-pool-collider'].includes(collider.name))
+        .map((collider) => collider.name),
+      zones,
+    };
+  }
+
   root.updateMatrixWorld(true);
   return {
     root,
@@ -520,6 +998,7 @@ export function buildCartelPalace(scene) {
     targets: { powerBox: cabinet, estateDoor, diningDoor: diningDoors, extractionGate },
     doors: { openServiceGate, openEstateDoor, openDiningRoom, openExtraction },
     lights,
+    inspectEnvironment,
     state: () => ({ serviceGateOpen, estateDoorOpen, diningOpen, extractionOpen }),
   };
 }

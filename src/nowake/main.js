@@ -51,6 +51,8 @@ import { createBodyRig } from './body.js';
 import { CABIN_STAGING } from './deck-collision.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { isPreviewMode } from '../core/preview-mode.js';
+import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -199,6 +201,7 @@ const STARTUP_STEPS = Object.freeze([
 
 const state = {
   phase: 'dock',
+  paused: false,
   boarded: false,
   boarding: false,
   battery: false,
@@ -2043,22 +2046,71 @@ startButton.addEventListener('click', async () => {
   setTimeout(() => overlay.remove(), 850);
 });
 
+let interactionPausedBeforeMenu = false;
+const pauseMenu = createPauseMenu({
+  title: 'No Wake',
+  canPause: () => document.body.classList.contains('playing') && !state.leaving,
+  getObjective: () => [objectiveEl.textContent, objectiveDetailEl.textContent]
+    .filter(Boolean).join(' — ') || 'Follow Lou’s current instruction aboard the boat.',
+  instructions: [
+    'W A S D — move. E or Click — interact; hold when the prompt asks.',
+    'At the helm: W/S — throttle. A/D — steer. Q — leave the helm.',
+    'At the execution prompt: Click — fire.',
+    'R — advance the boat radio. B — bloom. Tab — pause or resume.',
+  ],
+  onPause: () => {
+    state.paused = true;
+    interactionPausedBeforeMenu = interaction.paused;
+    player.enabled = false;
+    player.clearKeys();
+    interaction.release();
+    interaction.setPaused(true);
+    radio.pause();
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    state.paused = false;
+    interaction.setPaused(interactionPausedBeforeMenu);
+    audio.ctx?.resume?.();
+    radio.resume();
+    lastTime = performance.now();
+    if (!state.atHelm) {
+      const pending = canvas.requestPointerLock?.();
+      pending?.catch?.(() => {});
+    } else {
+      player.enabled = true;
+    }
+  },
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.NO_WAKE,
+    location,
+    restartCheckpoint: () => location.reload(),
+    canRestartCheckpoint: () => {
+      const checkpoint = campaign.state.missions[MISSION_IDS.NO_WAKE].checkpoint;
+      return Boolean(checkpoint && checkpoint !== 'dock');
+    },
+  }),
+});
+
 canvas.addEventListener('click', () => {
-  if (!document.body.classList.contains('playing')) return;
+  if (!document.body.classList.contains('playing') || state.paused) return;
   if (document.pointerLockElement === canvas || state.phase === 'ready_to_fire') return;
   const pending = canvas.requestPointerLock?.();
   pending?.catch?.(() => {});
 });
 
 document.addEventListener('pointerlockchange', () => {
-  player.enabled = document.pointerLockElement === canvas || state.atHelm;
+  if (!state.paused) player.enabled = document.pointerLockElement === canvas || state.atHelm;
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) radio.pause();
-  else radio.resume();
+  else if (!state.paused) radio.resume();
 });
 document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
+  if (!state.paused && document.pointerLockElement === canvas) {
+    player.handleMouseMove(event.movementX, event.movementY);
+  }
 });
 /**
  * E pressed with nothing under the crosshair, during a beat that is waiting for
@@ -2078,6 +2130,7 @@ function sayWhyNothingHappened() {
 
 document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
+  if (state.paused) return;
   player.setKey(event.code, true);
   if (event.code === 'KeyE') {
     const onSomething = Boolean(interaction.current);
@@ -2112,6 +2165,10 @@ function animate(now) {
   requestAnimationFrame(animate);
   const dt = Math.min(.05, Math.max(.001, (now - lastTime) / 1000));
   lastTime = now;
+  if (state.paused) {
+    postfx.render();
+    return;
+  }
   elapsed += dt;
   state.phaseTime += dt;
   updateDialogue(dt);

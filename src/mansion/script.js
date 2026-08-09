@@ -196,11 +196,25 @@ export const VOICE_GAIN = Object.freeze({
   aubbie: 1.2,
 });
 
+/* Reinforced glass removes roughly two thirds of the voice bus before
+ * positional attenuation is applied. Aubbie's already-quiet performance
+ * therefore needs a route-specific send boost while he is still inside;
+ * once he steps through the door his authored +20% profile is unchanged. */
+export const SEALED_VOICE_GAIN = Object.freeze({
+  /* At the authored observation mark he is roughly ten metres from the
+   * listener. This restores a clearly audible quarter-scale voice after both
+   * the 0.34 glass send and the inverse-distance panner. */
+  aubbie: 4.5,
+});
+
 /** The output gain a line in this voice is played at. 1 for everybody with no
  * row of their own, so an uncast or misspelled profile is simply normal. */
-export function gainForVoice(voice) {
+export function gainForVoice(voice, { sealed = false } = {}) {
   const gain = VOICE_GAIN[voice];
-  return Number.isFinite(gain) && gain > 0 ? gain : 1;
+  const profile = Number.isFinite(gain) && gain > 0 ? gain : 1;
+  const sealedGain = SEALED_VOICE_GAIN[voice];
+  const compensation = sealed && Number.isFinite(sealedGain) && sealedGain > 0 ? sealedGain : 1;
+  return profile * compensation;
 }
 
 /** Speaker key -> index in `lab.scientists`. The mission routes a scientist's

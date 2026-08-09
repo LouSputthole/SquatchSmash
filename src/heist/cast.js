@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { getCharacter } from '../core/characters.js';
+import {
+  DEATHMEGATRON,
+  NUMBSKULL,
+  RIPPINFLOW,
+  SHUBENATOR,
+  SNOW,
+} from '../core/wardrobe.js';
 import { HeistFigure } from './people.js';
 import {
   makeBalaclava, makeHeistCarbine, makeHeistSidearm, makePlateCarrier,
@@ -33,40 +40,32 @@ export const HEIST_CREW_IDS = Object.freeze([
 /**
  * Presentation per crew member, on the shared builder's own vocabulary.
  *
- * Heights are the campaign's: DeathMegatron is the big one at 1.88, Snow reads
- * lean at 1.79, Numbskull is the shortest man in the van. Faces are the
- * supplied photographs, as the character bible requires for named members.
+ * The body underneath the job gear is the canonical wardrobe object itself.
+ * The heist adds only a photographed face, a plate-carrier colour, a weapon,
+ * and the mission mask. That keeps the tactical read without turning the same
+ * named people into different bodies for one scene.
  */
 export const HEIST_CREW_PRESENTATION = Object.freeze({
   [CHARACTER_IDS.SNOW]: Object.freeze({
-    face: 'assets/faces/snow.png', shirt: 0x313740, shirtDark: 0x20252c,
-    model: Object.freeze({ height: 1.79, build: 1.08, dress: 'work', hair: 'crop' }),
+    face: 'assets/faces/snow.png', shirtDark: 0x20252c, model: SNOW,
   }),
   [CHARACTER_IDS.RIPPINFLOW]: Object.freeze({
-    face: 'assets/faces/rippinflow.png', shirt: 0x3d4039, shirtDark: 0x252720,
-    model: Object.freeze({ height: 1.77, build: 1.02, dress: 'work', hair: 'tied' }),
+    face: 'assets/faces/rippinflow.png', shirtDark: 0x252720, model: RIPPINFLOW,
   }),
   [CHARACTER_IDS.SHUBENATOR]: Object.freeze({
-    face: 'assets/faces/shubes.png', shirt: 0x2d3440, shirtDark: 0x171c26,
-    model: Object.freeze({ height: 1.81, build: 1.05, dress: 'work', hair: 'short' }),
+    face: 'assets/faces/shubes.png', shirtDark: 0x171c26, model: SHUBENATOR,
   }),
   [CHARACTER_IDS.DEATHMEGATRON]: Object.freeze({
-    face: 'assets/faces/deathmegatron.png', shirt: 0x38332f, shirtDark: 0x201d1a,
-    model: Object.freeze({ height: 1.88, build: 1.3, dress: 'work', hair: 'bald', beard: true }),
+    face: 'assets/faces/deathmegatron.png', shirtDark: 0x201d1a, model: DEATHMEGATRON,
   }),
   // No canonical photo is present for Numbskull. The shared builder's
   // procedural head is the deliberate fallback; another person's identity is
   // never used. He keeps the round glasses that are his read across scenes.
   [CHARACTER_IDS.NUMBSKULL]: Object.freeze({
     face: null,
-    shirt: 0x3f4247,
     shirtDark: 0x24262a,
-    hair: 0x3a2a1e,
     proceduralFace: Object.freeze({ treatment: 'round_glasses', brows: true, nose: true }),
-    model: Object.freeze({
-      height: 1.72, build: 1.0, dress: 'work', hair: 'receding',
-      hairColour: 0x3a2a1e, glasses: true,
-    }),
+    model: NUMBSKULL,
   }),
 });
 
@@ -113,6 +112,7 @@ function slingWeapon(figure, heavy) {
     new THREE.BoxGeometry(0.05, 0.62, 0.03),
     new THREE.MeshStandardMaterial({ color: 0x3d4238, roughness: 1 }),
   );
+  strap.name = 'crew-weapon-sling';
   strap.position.set(0.04, 1.3, 0.06);
   strap.rotation.z = 0.5;
   figure.parts.body.add(strap);
@@ -154,9 +154,9 @@ export function buildHeistCrew(scene) {
       x, z, yaw: heading, tier: 'hero',
       model: {
         ...presentation.model,
-        shirt: presentation.shirt,
-        skin: 0xd2a074,
         bandana: false,
+        glasses: presentation.proceduralFace?.treatment === 'round_glasses'
+          || presentation.model.glasses === true,
         face: CAN_PAINT_FACES ? (presentation.face ?? null) : null,
       },
     });

@@ -9,6 +9,7 @@ import {
 import { WEAPON_SFX, WEAPON_SFX_STANDINS, playWeaponCue, weaponStandInCueNames } from '../src/core/weapons/audio.js';
 import { Firearm, READY, RELOAD_IN, RELOAD_OUT } from '../src/core/weapons/Firearm.js';
 import { EjectaPool } from '../src/core/weapons/Ejecta.js';
+import { WeaponSystem } from '../src/core/weapons/WeaponSystem.js';
 import { TracerPool } from '../src/core/combat/tracers.js';
 import { buildWeaponModel } from '../src/core/weapons/models.js';
 import { makeHeistCarbine } from '../src/heist/weapons.js';
@@ -168,6 +169,42 @@ test('tracer spacing follows the catalog, so a belt is not solid tracer', () => 
   const revolver = new Firearm('revolver');
   revolver.setTrigger(true);
   assert.equal(revolver.fire().tracer, true, 'every .45 round is a tracer round');
+});
+
+test('every shared weapon impact carries its catalog damage through click and held fire', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.08, 100);
+  camera.updateMatrixWorld(true);
+  const world = new THREE.Group();
+  const target = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 2, 0.2),
+    new THREE.MeshBasicMaterial(),
+  );
+  target.position.set(0, 0, -5);
+  world.add(target);
+  world.updateMatrixWorld(true);
+
+  const impacts = [];
+  const weapons = new WeaponSystem({
+    camera,
+    world,
+    hitTargets: [target],
+    onImpact: (impact) => impacts.push(impact),
+  });
+  weapons.equip('saw');
+
+  weapons.triggerPress();
+  for (let i = 0; i < 10; i++) weapons.update(1 / 60);
+  assert.ok(impacts.length >= 1, 'a deliberate click never reached its target');
+
+  weapons.setTrigger(true);
+  for (let i = 0; i < 30; i++) weapons.update(1 / 60);
+  weapons.setTrigger(false);
+  for (let i = 0; i < 10; i++) weapons.update(1 / 60);
+  assert.ok(impacts.length >= 3, `held automatic fire produced only ${impacts.length} impacts`);
+  for (const impact of impacts) {
+    assert.equal(impact.damage, WEAPON_CATALOG.saw.damage);
+    assert.equal(impact.penetration, WEAPON_CATALOG.saw.penetration);
+  }
 });
 
 /* ------------------------------------------------------------------ */

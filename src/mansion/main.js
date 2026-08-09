@@ -37,12 +37,15 @@ import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatc
 import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
+import { Highs } from '../core/highs.js';
 import { FocusRush } from '../core/focus-rush.js';
 import { PEE_CUE_NAMES, PeeSystem } from '../core/pee-system.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
-import { Tv, CHANNELS, videoChannel } from '../core/tv.js';
+import {
+  Tv, CHANNELS, TV_AUDIO_SPATIAL_PROFILE, videoChannel,
+} from '../core/tv.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
@@ -51,15 +54,22 @@ import { createFinalArcLoadout } from '../core/final-arc-loadout.js';
 import { mountSilentSquatch } from './mission/mount.js';
 import { INSTRUCTIONS } from './script.js';
 import { createMansionLoadout } from './loadout.js';
-import { mountMansionCast, MANSION_CAST_CUE_NAMES } from './cast.js';
+import {
+  mountMansionCast, MANSION_CAST_CUE_NAMES, theatreSeatAvailable, theatreSeatOccupant,
+} from './cast.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
 import { MISSION_IDS, SCENE_IDS, createCampaign } from '../core/campaign.js';
 import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
+import {
+  createCampaignSceneRecovery, createCampaignSceneRestartAdapter,
+} from '../core/campaign-scene-skip.js';
 import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
 import { MANSION_RETURN_REPORT, mansionVisitMode } from './campaign.js';
 import { StreamSystem } from '../world/stream.js';
+import { SmokeSystem } from '../world/smoke.js';
+import { createBongBehavior, registerInteractiveBong } from '../world/bong.js';
 
 /* ================================================================== */
 /* DOM handles                                                          */
@@ -93,6 +103,10 @@ const mansionCampaign = createFinalArcRuntimeSession({
     : createSilentSquatchStory,
 });
 const mansionCampaignEntry = mansionCampaign.begin();
+const mansionRecoveryCampaign = mansionCampaign.campaign ?? createCampaign();
+const mansionRecoveryScene = mansionVisit === 'return'
+  ? SCENE_IDS.MANSION_RETURN
+  : SCENE_IDS.MANSION;
 
 if (mansionVisit === 'return') {
   const kicker = menuEl?.querySelector?.('.kicker');
@@ -626,38 +640,22 @@ const bedroomTvs = Object.entries(interior.props.bedrooms)
 interactiveTvs.push(...bedroomTvs);
 
 /* ================================================================== */
-/* THE HOME THEATRE, AND THE SEAM A FILM DROPS INTO                     */
+/* THE HOME THEATRE AND ITS FOUR SHIPPED REELS                          */
 /*                                                                       */
-/* Owner brief, verbatim: "A Home theatre room (will add a watchable      */
-/* movie)". The room is built (MansionInterior's buildTheatre); this is   */
-/* the projector.                                                         */
-/*                                                                        */
-/* It is a `core/tv.js` set like the other two, with ONE difference: its   */
-/* channel list starts with four `videoChannel`s, the same factory the       */
-/* apartment's Austin tape and Hog Mama's show already use. That factory     */
-/* builds its own <video> element on first use, wires the sound through a    */
-/* panner at the screen, and -- this is the part that makes it a seam        */
-/* rather than a stub -- draws a card reading NO FILM IN THE GATE when a     */
-/* file is missing. Nothing here throws, nothing here fetches, and the       */
-/* room plays correctly today.                                              */
-/*                                                                          */
-/* TO DROP A FILM IN: put the file at assets/video/name.mp4 and add a        */
-/* videoChannel() for it below. No manifest (assets/video/ is not indexed    */
-/* by one; `assetUrl` resolves the name directly). The existing tapes in     */
-/* that folder are the precedent for the encode.                            */
-/*                                                                           */
-/* The other two sets in the house deliberately carry MANSION_CHANNELS,      */
-/* which filters video channels OUT: two sets tuned to the same tape share    */
-/* one <video> element and fight over it. This set owns four channel          */
-/* objects, so it shares nothing with anything.                               */
-/*                                                                            */
-/* `makeFilmReels()`, not a shared `THEATRE_REELS` constant, because the       */
-/* suite's own set (below) gets the same four reels too -- and a              */
-/* `videoChannel()` object owns exactly one <video> element in a closure, so   */
-/* handing the theatre's four objects to a second Tv would be the fight the   */
-/* paragraph above already ruled out, just between two ROOMS instead of two    */
-/* sets in the same one. Calling the factory again for the suite mints four    */
-/* fresh elements that share nothing with the theatre's.                       */
+/* The theatre projector is the same shared `core/tv.js` controller as   */
+/* every television in the house. Its first four channels are real video */
+/* reels -- Godfather, Goodfellas, Heat and Blow -- and all four MP4s ship */
+/* in assets/video. `videoChannel` creates one <video> element per channel, */
+/* spatializes it at the screen and retains the NO FILM card only as a      */
+/* defensive asset-failure state; missing media is not an authored seam.    */
+/*                                                                         */
+/* Lounge, kitchen and bedroom sets use the drawn MANSION_CHANNELS. The     */
+/* theatre and suite each prepend their own four fresh videoChannel objects: */
+/* a channel owns its <video> element in a closure, so sharing one object     */
+/* between rooms would make the two sets fight over playback. Calling         */
+/* makeFilmReels() once per set keeps every reel independent. To add another  */
+/* film, ship its MP4 and add a videoChannel here; zero 404s is the verifier   */
+/* contract.                                                                 */
 /* ================================================================== */
 function makeFilmReels() {
   return [
@@ -1102,7 +1100,10 @@ const theatreSeats = interior.props.theatre?.seats ?? [];
 
 function sitInTheatre(seat) {
   const data = seat?.userData?.theatreSeat;
-  if (!data || activeTheatreSeat || player.mode !== 'walk') return false;
+  if (!data || !theatreSeatAvailable(seat, {
+    activeSeat: activeTheatreSeat,
+    playerMode: player.mode,
+  })) return false;
   activeTheatreSeat = seat;
   interaction.setPaused(true);
   player.sitAt({
@@ -1134,7 +1135,10 @@ for (const seat of theatreSeats) {
   if (!target) continue;
   interaction.register(target, {
     label: 'Sit in the theatre chair',
-    enabled: () => running && !activeTheatreSeat && player.mode === 'walk',
+    enabled: () => running && theatreSeatAvailable(seat, {
+      activeSeat: activeTheatreSeat,
+      playerMode: player.mode,
+    }),
     onUse: () => sitInTheatre(seat),
   });
 }
@@ -1214,11 +1218,12 @@ for (const { tv, prop } of interactiveTvs) registerTvInteraction({ tv, prop });
 /* scene that wants a round to hurt somebody decides that itself, with    */
 /* its own roster in front of it — which is how the standing rule that    */
 /* Snow never enters player-hostile targeting is kept by a module that    */
-/* has never heard of Snow. There is no actor list here and there is no   */
-/* damage in this scene at all: the mansion is empty.                     */
+/* has never heard of Snow. The sole scene-owned exception is xXx's own   */
+/* published aim volume; no other cast body enters the firearm targets.   */
 /* ================================================================== */
 const finalArcLoadout = createFinalArcLoadout();
 let captureMansionLoadout = () => {};
+let applyXxxFirearmImpact = () => false;
 const weaponSystem = new WeaponSystem({
   camera,
   world: scene,
@@ -1233,8 +1238,21 @@ const weaponSystem = new WeaponSystem({
   /* What a round can stop on: the house's own walls, floors and ceilings.
    * These are the same meshes the interaction system uses as occluders, so a
    * tracer stops exactly where a look-prompt stops. */
-  hitTargets: [...interior.occluders, ...grounds.occluders, ...silent.occluders],
+  hitTargets: [
+    ...interior.occluders,
+    ...grounds.occluders,
+    ...silent.occluders,
+    silent?.lab?.targets?.xxx,
+  ].filter(Boolean),
   range: 70,
+  onImpact: (hit) => {
+    const normal = hit.normal?.clone?.().transformDirection(hit.object.matrixWorld) ?? null;
+    applyXxxFirearmImpact({
+      ...hit,
+      normal,
+      from: camera.getWorldPosition(new THREE.Vector3()),
+    });
+  },
   onEvent: () => {
     ammoDirty = true;
     captureMansionLoadout();
@@ -1540,6 +1558,7 @@ const cast = mountMansionCast(scene, world, {
   lab,
   suite: interior.props.masterSuite,
   pool: grounds.props.poolPatio,
+  theatre: interior.props.theatre,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
   /* Gratin's cord is a thing he is carrying, so it is a slot. Owner
@@ -1565,8 +1584,31 @@ const cast = mountMansionCast(scene, world, {
   theatreChannel: () => (theatreTv?.on ? theatreTv.channel?.name ?? '' : ''),
   enabled: () => running,
 });
+/* Build smoke only AFTER the cast's one-time seat raycasts. THREE.Sprite's
+ * raycast path needs a camera, while that furniture probe is intentionally a
+ * camera-free downward ray; putting pooled smoke in the scene before the
+ * probe makes an invisible puff look like a raycastable seat and aborts boot. */
+const mansionSmoke = new SmokeSystem(scene);
+const mansionHighs = new Highs();
+const mansionBongDirection = new THREE.Vector3();
+const mansionBongBehavior = createBongBehavior({
+  audio,
+  highs: mansionHighs,
+  smoke: mansionSmoke,
+  origin: () => camera.position,
+  direction: () => camera.getWorldDirection(mansionBongDirection),
+});
+const mansionBongRegistration = registerInteractiveBong(
+  interaction,
+  interior.props.lanRoom.bong,
+  {
+    enabled: () => running,
+    onUse: () => mansionBongBehavior.use(),
+  },
+);
 setCordInHand = (on) => cast?.setCordInHand?.(on);
 summonSnow = () => cast?.snowToTheBasement?.() === true;
+applyXxxFirearmImpact = (hit) => cast?.hitXxxWithFirearm?.(hit) === true;
 /* And catch up: the loadout may already have decided what is in his hand
  * while this was still a no-op. */
 loadout.refresh();
@@ -1666,6 +1708,32 @@ const sharedPauseMenu = createPauseMenu({
       + ' number and press ENTER.',
     'Tab pauses and resumes. Escape releases the mouse, which also pauses.',
   ],
+  recovery: createCampaignSceneRecovery({
+    campaign: mansionRecoveryCampaign,
+    sceneId: mansionRecoveryScene,
+    location,
+    restartScene: () => {
+      /* Clear reusable pooled effects before the durable reset/reload. A
+       * browser reload builds a fresh lab, but preview harnesses and delayed
+       * navigators must not observe stale marks in the outgoing scene. */
+      lab.blood.reset();
+      return createCampaignSceneRestartAdapter({
+        campaign: mansionRecoveryCampaign,
+        sceneId: mansionRecoveryScene,
+        location,
+      })();
+    },
+    restartCheckpoint: mansionVisit === 'return' ? null : () => {
+      const checkpoint = mansionCampaign.story?.mission?.checkpoint
+        ?? checkpointJumped
+        ?? 'scene_entry';
+      lab.blood.reset();
+      location.reload();
+      return { ok: true, checkpoint };
+    },
+    canRestartCheckpoint: () => mansionVisit !== 'return'
+      && Boolean(mansionCampaign.story?.mission?.checkpoint ?? checkpointJumped),
+  }),
   onPause: () => {
     interaction.setPaused(true);
     mansionPee.stop();
@@ -1761,6 +1829,15 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
+  /* The other pool performer uses the same seven-pull TimingBar contract as
+   * the apartment dress-help scene. Escape abandons that sequence before it
+   * reaches pointer-lock/pause handling, leaving the performer available to
+   * try again. */
+  if (e.code === 'Escape' && cast?.dressHelpActive) {
+    cast.abandonDressHelp();
+    e.preventDefault();
+    return;
+  }
   if (e.code === 'Space') e.preventDefault();
   player.setKey(e.code, true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
@@ -1841,7 +1918,14 @@ document.addEventListener('pointerlockchange', () => {
 function updateGame(dt) {
   suiteFocus.update(dt);
   suiteFocus.apply(camera, player);
+  mansionHighs.update(dt);
+  player.sway.yaw = mansionHighs.sway.yaw;
+  player.sway.pitch = mansionHighs.sway.pitch;
+  player.sway.roll = mansionHighs.sway.roll;
+  player.moveScale = mansionHighs.moveScale;
+  player.lookDrag = mansionHighs.lookDrag;
   player.update(dt);
+  mansionSmoke.update(dt);
   mansionPee.update(dt);
   interaction.update(dt);
   grounds.update(dt);
@@ -2049,7 +2133,7 @@ const CHECKPOINTS = {
     yaw: 0,
     play: (m, pump) => {
       CHECKPOINTS.locked.play(m, pump);
-      m.shoot(true);
+      m.shootPreview();
       pump(() => m.instruction === INSTRUCTIONS.SILENT_NIGHT, 200);
     },
   },
@@ -2269,6 +2353,14 @@ window.mansion = {
       id: tv.id,
       get on() { return tv.on; },
       get channel() { return tv.channel.name; },
+      get position() {
+        return { x: tv.position.x, y: tv.position.y, z: tv.position.z };
+      },
+      /* The video channel's live MediaElement -> filter -> gain -> Panner
+       * graph and AudioContext listener AudioParams. This turns null if the
+       * reel never wired or the listener was never advanced. */
+      get audioGraph() { return tv.channel.debugAudio?.() ?? null; },
+      spatialProfile: TV_AUDIO_SPATIAL_PROFILE,
       toggle: () => tv.toggle(),
       next: () => tv.next(),
     })),
@@ -2341,7 +2433,28 @@ window.mansion = {
      * deterministic theatre/pool interactions exposed by cast.js itself. */
     get roster() { return cast?.debug?.roster ?? []; },
     get evening() { return cast?.debug?.evening ?? null; },
+    get xxxFate() { return cast?.debug?.gratin ?? null; },
+    /** Stable browser-verifier seam to the ACTUAL registered performer body.
+     * This does not perform the interaction: callers still have to stand in
+     * range, aim the crosshair and press InteractionSystem E. It only avoids
+     * guessing a nested dress mesh out of the entire scene graph. */
+    poolPerformerRig: (index = 0) => {
+      const npc = cast?.people?.[`poolPerformer${index}`];
+      if (!npc?.group) return null;
+      return {
+        target: npc.group,
+        strap: npc.parts?.body?.getObjectByName?.(
+          index === 1 ? 'pool-performer-2-dress-strap' : 'pool-performer-dress-strap',
+        ) ?? null,
+        head: npc.parts?.head ?? null,
+      };
+    },
+    takeCord: () => cast?.takeCord?.() === true,
+    swingAtXxx: () => cast?.swing?.() === true,
     usePoolGirl: () => cast?.debug?.usePoolGirl?.() === true,
+    useSecondPoolGirl: () => cast?.debug?.useSecondPoolGirl?.() === true,
+    setSecondPoolDressTarget: (on = true) => cast?.debug?.setSecondPoolDressTarget?.(on) === true,
+    abandonPoolDress: () => cast?.debug?.abandonSecondPoolDress?.() === true,
     useOldStove: () => cast?.debug?.useOldStove?.() === true,
     /** Posts whose standing position is inside a solid box. */
     get inSolid() {
@@ -2521,6 +2634,15 @@ window.mansion = {
   lan: {
     stations: interior.props.lanRoom.stations.length,
     chairLogos: interior.props.lanRoom.chairBacks.length,
+    bong: {
+      get groupName() { return interior.props.lanRoom.bong?.group?.name ?? ''; },
+      get targetName() { return interior.props.lanRoom.bong?.target?.name ?? ''; },
+      registered: mansionBongRegistration != null,
+      get uses() { return mansionBongBehavior.uses; },
+      get weed() { return mansionBongBehavior.weed; },
+      get visiblePuffs() { return mansionSmoke.puffs.filter((p) => p.sprite.visible).length; },
+      use: () => mansionBongBehavior.use(),
+    },
   },
   /** The theatre's projector, and whether the film seam is wired. */
   theatre: theatreTv ? {
@@ -2529,6 +2651,13 @@ window.mansion = {
     channels: theatreTv.channels.map((c) => c.name),
     get sitting() { return activeTheatreSeat ? theatreSeats.indexOf(activeTheatreSeat) : -1; },
     get seats() { return theatreSeats.length; },
+    get occupied() {
+      return theatreSeats.map((seat, index) => ({ index, occupant: theatreSeatOccupant(seat) }))
+        .filter(({ occupant }) => occupant !== null);
+    },
+    get available() {
+      return theatreSeats.filter((seat) => theatreSeatOccupant(seat) === null).length;
+    },
     get lights() {
       return {
         house: (interior.props.theatre?.houseLights ?? []).map((light) => Number(light.intensity.toFixed(3))),

@@ -53,14 +53,14 @@ export class SalController {
     this.dead = true;
     this.fig.hit();
     this.fig.leanTarget = 0;
-    setTimeout(() => { this.fig.down = true; }, 220);
+    setTimeout(() => { this.fig.setDown(true); }, 220);
   }
 
   // Checkpoint restart: he is sitting there again, mid-sentence.
   revive() {
     this.dead = false;
     const f = this.fig;
-    f.down = false;
+    f.setDown(false);
     f.deathT = 0;
     f.hitT = 0;
     f.talkT = 0;
