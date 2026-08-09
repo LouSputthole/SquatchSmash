@@ -52,6 +52,7 @@ import {
 } from '../../core/final-arc-loadout.js';
 import { FACTIONS, FactionMatrix } from '../../core/combat/factions.js';
 import { CombatActor } from '../../core/combat/actors.js';
+import { CombatStatusHud } from '../../core/combat/hud.js';
 import { SuppressionModel } from '../../core/combat/suppression.js';
 import { SCENE_IDS, createCampaign } from '../../core/campaign.js';
 import {
@@ -338,6 +339,7 @@ const suppression = new SuppressionModel();
 const playerActor = new CombatActor({
   id: 'prospect', faction: FACTIONS.CREW, maxHealth: 100, armor: 0,
 });
+const combatHud = new CombatStatusHud({ actor: playerActor, visible: false });
 
 const finalArcLoadout = createFinalArcLoadout();
 const loadoutBar = new SceneInventoryBar({ catalog: FINAL_ARC_WEAPON_CATALOG, visible: true });
@@ -345,6 +347,7 @@ let captureSiegeLoadout = () => {};
 let attackers = null;
 let hitConfirmTimer = 0;
 let playerHitCount = 0;
+let playerDamageEvents = 0;
 let pointerLockRejected = false;
 const siegeWeaponHitTargets = [...interior.occluders, ...grounds.occluders];
 const weaponSystem = new WeaponSystem({
@@ -1565,6 +1568,7 @@ async function beginSiege() {
       startWaking();
     }
     running = true;
+    combatHud.show();
     menuEl.classList.add('hidden');
     requestSiegePointerLock({ explain: true });
     clock.getDelta();
@@ -1645,7 +1649,12 @@ function updateGame(dt) {
     player: playerTarget,
     colliders,
     alive: () => ensemble.targets(),
-    onPlayerHit: ({ fatal }) => { if (fatal) onPlayerDown(); },
+    onPlayerHit: ({ damage: hitDamage, fatal }) => {
+      playerDamageEvents++;
+      combatHud.update();
+      combatHud.noteDamage(hitDamage);
+      if (fatal) onPlayerDown();
+    },
     /* A man came through a window: break it for real, so the hole he used is
      * a hole the player can shoot back through. The pool reports WHERE he
      * crossed rather than which pane, because it does not own the glass --
@@ -1673,6 +1682,7 @@ function updateGame(dt) {
       Math.max(suppression.vignette, 1 - playerActor.health / playerActor.maxHealth) * 0.9,
     );
   }
+  combatHud.update();
   if (checkpointToast > 0) {
     checkpointToast -= dt;
     if (checkpointToast <= 0) checkpointEl.classList.remove('show');
@@ -1724,8 +1734,10 @@ window.mansionSiege = {
   renderer,
   postfx,
   player,
+  playerActor,
   audio,
   missionAudio,
+  combatHud,
   interaction,
   grounds,
   interior,
@@ -1779,6 +1791,7 @@ window.mansionSiege = {
     subtitle: subtitleEl?.hidden ? null : subtitleTextEl?.textContent ?? null,
     counter: waveCountEl?.hidden ? null
       : `${waveRemainingEl?.textContent ?? ''} ${waveLabelEl?.textContent ?? ''}`.trim(),
+    health: combatHud.update(),
     complete: missionCardEl ? !missionCardEl.classList.contains('hidden') : false,
   }),
   /** Checkpoint entry, as the ?checkpoint= URLs drive it. */
@@ -1828,6 +1841,7 @@ window.mansionSiege = {
   },
   get equipped() { return weaponSystem.equipped ?? null; },
   get playerHits() { return playerHitCount; },
+  get playerDamageEvents() { return playerDamageEvents; },
   get pointerLockRejected() { return pointerLockRejected; },
   weaponStats: () => ({ ...weaponSystem.stats }),
   get playerHealth() { return playerActor.health; },

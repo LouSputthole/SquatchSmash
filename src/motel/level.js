@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { lambert } from '../../game/src/world.js';
+import { makeMotelArrivalCar } from './vehicle.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — level geometry.
@@ -827,23 +828,39 @@ export function buildMotel(scene, renderer) {
   }
 
   // Snow's getaway sedan — engine off, parked facing the road
-  const manCar = makeCar(0x6b2f3a);
-  manCar.position.set(-8, 0, 17);
-  scene.add(manCar);
-  const manCarCollider = block(-9.2, -6.8, 14.6, 19.4, 0, 1.8, 'car');
-  refs.manCar = {
-    group: manCar,
-    collider: manCarCollider,
-    x: -8,
-    z: 17,
-    trunk: { x: -8, z: 19.6, opened: false },
-    headlights: [],
-  };
-  const hlL = new THREE.SpotLight(0xfff4d0, 0, 40, 0.5, 0.5, 1.4);
-  hlL.position.set(-8.7, 0.9, 19.5);
-  hlL.target.position.set(-9, 0.4, 40);
-  scene.add(hlL, hlL.target);
-  refs.manCar.headlights.push(hlL);
+  const manCar = makeMotelArrivalCar(scene);
+  const carHalfX = manCar.width / 2 + 0.24;
+  const carHalfZ = manCar.length / 2 + 0.12;
+  const manCarCollider = block(
+    manCar.park.x - carHalfX,
+    manCar.park.x + carHalfX,
+    manCar.park.z - carHalfZ,
+    manCar.park.z + carHalfZ,
+    0,
+    2.2,
+    'car',
+  );
+  // The shell becomes solid after Tony is on the pavement. While he is in
+  // the cockpit this same blocker must not occlude its own passenger door.
+  manCarCollider.enabled = false;
+  manCar.collider = manCarCollider;
+  manCar.x = manCar.park.x;
+  manCar.z = manCar.park.z;
+  manCar.placeArrival(1);
+  const trunkAtPark = manCar.trunkPosition();
+  manCar.trunk = { x: trunkAtPark.x, z: trunkAtPark.z, opened: false };
+  manCar.placeArrival(0);
+  manCar.headlights = [];
+  refs.manCar = manCar;
+
+  for (const side of [-1, 1]) {
+    const lamp = new THREE.SpotLight(0xfff4d0, 280, 42, 0.46, 0.55, 1.4);
+    lamp.name = `vehicle.motel.headlight.${side < 0 ? 'left' : 'right'}`;
+    lamp.position.set(2.25, 0.86, side * 0.62);
+    lamp.target.position.set(15, 0.15, side * 0.78);
+    manCar.group.add(lamp, lamp.target);
+    manCar.headlights.push(lamp);
+  }
 
   // The second car — engine running, one of the warning signs
   const secondCar = makeCar(0x2f3a6b, true);

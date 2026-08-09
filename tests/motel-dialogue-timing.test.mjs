@@ -83,6 +83,7 @@ test('the two wheel prompts are spoken once, by the wheel that asks for an answe
     return source.slice(from, source.indexOf(end, from));
   };
   const opening = section('function startScene(', 'function finishScene(');
+  const arrivalGate = section('function maybeOpenCarBrief(', 'function finishArrival(');
   const boarding = section('function boardGetaway(', '// ---------- Doors');
 
   /* `snowBrief` and `getaway` both had their prompt spoken by the scene and
@@ -91,12 +92,14 @@ test('the two wheel prompts are spoken once, by the wheel that asks for an answe
    * subtitle. Only the wheel says them now. */
   assert.doesNotMatch(opening, /say\(ALLY, 'Room twelve\./);
   assert.doesNotMatch(boarding, /say\(ALLY, 'Tell me that was worth it\./);
-  assert.match(opening, /openDialogue\('snowBrief'\)/);
+  assert.match(arrivalGate, /openDialogue\('snowBrief'\)/);
   assert.match(boarding, /openDialogue\('getaway'\)/);
 
   /* And the opening waits for Snow's take to decode rather than losing a race
    * with its own download and reading as an unrecorded line. */
   assert.match(opening, /primeMotelVoice\(\[OPENING_CUE\]/);
+  assert.match(opening, /openingVoiceReady = true;\s*\n\s*maybeOpenCarBrief\(\);/,
+    'the decoded opening must pass through the parked-car gate');
   assert.match(source, /sfx\.init\(\{ priorityVoice: \[OPENING_CUE\] \}\)/);
 });
 

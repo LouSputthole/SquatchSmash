@@ -669,6 +669,7 @@ export class Actor {
     this.stuckT = 0;
     this.lastX = this.group.position.x;
     this.lastZ = this.group.position.z;
+    this.seatedPose = null;
   }
 
   get position() { return this.group.position; }
@@ -725,6 +726,49 @@ export class Actor {
     return this.setFacing(
       Math.atan2(x - this.group.position.x, z - this.group.position.z),
     );
+  }
+
+  /** Hold an authored world-space pose inside a moving vehicle. */
+  sitAt(position, heading = this.heading, {
+    scaleFactor = 1,
+    headYaw = 0,
+    armPitch = -0.38,
+  } = {}) {
+    this.state = 'seated';
+    this.target = null;
+    this.seatedPose = { scaleFactor, headYaw, armPitch };
+    this.group.position.copy(position);
+    this.group.scale.setScalar(this.baseScale * scaleFactor);
+    this.setFacing(heading);
+    this.group.rotation.x = 0;
+    this.group.rotation.z = 0;
+    this.rig.body.position.y = 0;
+    this.rig.head.rotation.set(0, headYaw, 0);
+    this.rig.legL.rotation.x = -1.15;
+    this.rig.legR.rotation.x = -1.15;
+    this.rig.armL.rotation.x = armPitch;
+    this.rig.armR.rotation.x = armPitch;
+    return this;
+  }
+
+  /** Put a vehicle occupant back into the ordinary grounded actor loop. */
+  standAt(position, heading = this.heading) {
+    this.state = 'idle';
+    this.target = null;
+    this.seatedPose = null;
+    this.group.position.copy(position);
+    this.group.scale.setScalar(this.baseScale);
+    this.anchor = { x: position.x, z: position.z };
+    this.setFacing(heading);
+    this.group.rotation.x = 0;
+    this.group.rotation.z = 0;
+    this.rig.body.position.y = 0;
+    this.rig.head.rotation.set(0, 0, 0);
+    this.rig.legL.rotation.x = 0;
+    this.rig.legR.rotation.x = 0;
+    this.rig.armL.rotation.x = 0;
+    this.rig.armR.rotation.x = 0;
+    return this;
   }
 
   // Returns true if the actor goes down from this hit.
@@ -787,6 +831,22 @@ export class Actor {
     this.attackCd = Math.max(0, this.attackCd - dt);
     this.gestureT = Math.max(0, this.gestureT - dt);
     this.talkT = Math.max(0, this.talkT - dt);
+
+    /* A car seat is not a floor zone. Its world position is authored by the
+     * vehicle adapter every frame, so gravity and pathfinding must leave it
+     * alone until the scene explicitly calls standAt(). */
+    if (this.state === 'seated') {
+      const pose = this.seatedPose ?? { scaleFactor: 1, headYaw: 0, armPitch: -0.38 };
+      this.group.scale.setScalar(this.baseScale * pose.scaleFactor);
+      this.rig.body.position.y = 0;
+      this.rig.head.rotation.set(0, pose.headYaw, 0);
+      this.rig.legL.rotation.x = -1.15;
+      this.rig.legR.rotation.x = -1.15;
+      this.rig.armL.rotation.x = pose.armPitch;
+      this.rig.armR.rotation.x = pose.armPitch;
+      this.voiceMouth.update(dt);
+      return;
+    }
 
     let moving = false;
     let speed = this.speed;

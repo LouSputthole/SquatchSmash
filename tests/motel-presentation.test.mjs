@@ -4,6 +4,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import { Actor, CAST, buildWeaponMesh } from '../src/motel/actors.js';
+import { makeMotelArrivalCar } from '../src/motel/vehicle.js';
 
 test('the normal Motel start cannot escape to the apartment', () => {
   const html = fs.readFileSync(new URL('../motel.html', import.meta.url), 'utf8');
@@ -190,6 +191,140 @@ test('a Motel actor keeps the authored body scale after its first update', () =>
   rico.update(0.05, ctx);
   assert.equal(rico.group.scale.x, authoredScale,
     'the animation update must not normalize the authored body scale');
+});
+
+test('Snow can occupy a moving car seat without snapping to the lot floor, then stand outside it', () => {
+  const snow = new Actor(new THREE.Scene(), { ...CAST.snow(), x: 0, z: 0, state: 'idle' });
+  const seat = new THREE.Vector3(-8.4, -0.1, 17.2);
+  const ctx = { player: { x: -8.4, z: 17.2 }, floorAt: () => 0, blocked: () => false };
+
+  const authoredScale = snow.baseScale;
+  snow.sitAt(seat, 0.4, { scaleFactor: 0.82, headYaw: 0.72, armPitch: -1.05 });
+  snow.update(0.2, ctx);
+  assert.equal(snow.state, 'seated');
+  assert.ok(snow.group.position.distanceTo(seat) < 0.001,
+    'the seated driver fell out of the moving car onto the world floor');
+  assert.ok(snow.rig.legL.rotation.x < -0.8 && snow.rig.legR.rotation.x < -0.8,
+    'Snow is standing through the driver seat instead of sitting in it');
+  assert.ok(Math.abs(snow.group.scale.x - authoredScale * 0.82) < 1e-9,
+    'the shared adult rig is not refitted to the car cabin while seated');
+  assert.equal(snow.rig.head.rotation.y, 0.72,
+    'Snow cannot glance toward Tony while his body and hands stay oriented to the wheel');
+  assert.equal(snow.rig.armL.rotation.x, -1.05,
+    'Snow does not hold his arms forward toward the steering wheel');
+
+  const pavement = new THREE.Vector3(-6.3, 0, 16.8);
+  snow.standAt(pavement, Math.PI);
+  snow.update(0.01, ctx);
+  assert.equal(snow.state, 'idle');
+  assert.equal(snow.group.position.y, 0,
+    'Snow did not leave the car on grounded pavement');
+  assert.equal(snow.group.scale.x, authoredScale,
+    'Snow did not return to his canonical adult scale after leaving the car');
+  assert.equal(snow.rig.head.rotation.y, 0,
+    'Snow kept the in-car glance after returning to the ordinary actor loop');
+  assert.ok(Math.abs(snow.rig.legL.rotation.x) < 0.8
+      && Math.abs(snow.rig.legR.rotation.x) < 0.8,
+  'Snow kept the seated leg pose after getting out');
+});
+
+test('the passenger pull-in composition contains Snow, his shoulders, hands, wheel, and dashboard', () => {
+  const scene = new THREE.Scene();
+  const car = makeMotelArrivalCar(scene);
+  car.placeArrival(0.35);
+  const loadTexture = THREE.TextureLoader.prototype.load;
+  THREE.TextureLoader.prototype.load = () => new THREE.Texture();
+  try {
+    const snow = new Actor(scene, { ...CAST.snow(), state: 'seated' });
+    const forward = car.forwardYaw();
+    const towardTony = car.driverFacingPassengerYaw();
+    const glance = THREE.MathUtils.clamp(
+      Math.atan2(Math.sin(towardTony - forward), Math.cos(towardTony - forward)),
+      -Math.PI / 2,
+      Math.PI / 2,
+    );
+    snow.sitAt(car.driverActorPosition(), forward, {
+      scaleFactor: 0.74,
+      headYaw: glance,
+      armPitch: -1.05,
+    });
+
+    const camera = new THREE.PerspectiveCamera(75, 1280 / 720, 0.1, 400);
+    camera.position.copy(car.passengerPosition());
+    const yaw = car.passengerArrivalYaw(0.35);
+    const pitch = 0.04;
+    camera.lookAt(
+      camera.position.x + Math.sin(yaw) * Math.cos(pitch) * 8,
+      camera.position.y + Math.sin(pitch) * 8,
+      camera.position.z + Math.cos(yaw) * Math.cos(pitch) * 8,
+    );
+    scene.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+
+    const ndc = (object) => {
+      const bounds = new THREE.Box3().setFromObject(object);
+      const points = [];
+      for (const x of [bounds.min.x, bounds.max.x]) {
+        for (const y of [bounds.min.y, bounds.max.y]) {
+          for (const z of [bounds.min.z, bounds.max.z]) {
+            points.push(new THREE.Vector3(x, y, z).project(camera));
+          }
+        }
+      }
+      return {
+        x0: Math.min(...points.map((point) => point.x)),
+        x1: Math.max(...points.map((point) => point.x)),
+        y0: Math.min(...points.map((point) => point.y)),
+        y1: Math.max(...points.map((point) => point.y)),
+      };
+    };
+    const contained = (object) => {
+      const box = ndc(object);
+      return box.x0 >= -1 && box.x1 <= 1 && box.y0 >= -1 && box.y1 <= 1;
+    };
+    const centered = (object) => {
+      const point = new THREE.Vector3();
+      object.getWorldPosition(point);
+      point.project(camera);
+      return Math.abs(point.x) < 1 && Math.abs(point.y) < 1;
+    };
+    const face = snow.group.getObjectByName('actor.face.snow');
+    const shoulders = snow.group.getObjectByName('actor.garment.shoulders');
+    const hands = ['actor.anatomy.hand.left', 'actor.anatomy.hand.right']
+      .map((name) => snow.group.getObjectByName(name));
+    const faceBox = ndc(face);
+    const faceCenter = (faceBox.x0 + faceBox.x1) / 2;
+    const faceWorld = new THREE.Vector3();
+    face.getWorldPosition(faceWorld);
+    const photoNormal = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(face.getWorldQuaternion(new THREE.Quaternion()));
+    const photoFacingTony = photoNormal.dot(camera.position.clone().sub(faceWorld).normalize());
+
+    assert.ok(contained(face) && contained(shoulders),
+      `Snow's head/shoulders clip the arrival frame: ${JSON.stringify({ face: faceBox, shoulders: ndc(shoulders) })}`);
+    assert.ok(Math.abs(faceCenter) > 0.45,
+      `Snow occupies the middle instead of a side third: ${faceCenter}`);
+    assert.ok(photoFacingTony > 0.7,
+      `Snow's photographed face is turned away from Tony: ${photoFacingTony}`);
+    assert.ok(hands.every(centered), 'Snow loses one or both hands outside the arrival frame');
+    assert.ok(centered(car.group.getObjectByName('cockpit.steering-wheel')),
+      'the wheel is absent from the passenger composition');
+    assert.ok(centered(car.group.getObjectByName('cockpit.dashboard')),
+      'the dashboard is absent from the passenger composition');
+    const cameraClips = [];
+    scene.traverse((object) => {
+      if (!object.isMesh) return;
+      object.geometry.computeBoundingBox();
+      const localEye = object.worldToLocal(camera.position.clone());
+      if (object.geometry.boundingBox?.containsPoint(localEye)) {
+        cameraClips.push(object.name || object.geometry?.type || 'anonymous mesh');
+      }
+    });
+    assert.deepEqual(cameraClips, [],
+      `Tony's passenger eye clips a car or body mesh: ${cameraClips.join(', ')}`);
+  } finally {
+    THREE.TextureLoader.prototype.load = loadTexture;
+  }
 });
 
 test('the Motel hit flash scales from and returns to the authored body size', () => {

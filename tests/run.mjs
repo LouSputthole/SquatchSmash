@@ -19,6 +19,8 @@ const TEST_MODULES = [
   './heist-campaign.test.mjs',
   './bank-heist-story.test.mjs',
   './combat-core.test.mjs',
+  './combat-hud.test.mjs',
+  './mansion-siege-hud.test.mjs',
   './combatlab-tool.test.mjs',
   './smoke-system.test.mjs',
   './blood-effects.test.mjs',

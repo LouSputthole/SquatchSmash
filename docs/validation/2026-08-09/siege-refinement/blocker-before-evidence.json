@@ -1,0 +1,224 @@
+{
+  "pass": "blocker-before",
+  "views": [
+    "blocker-before-forecourt.png",
+    "blocker-before-foyer.png",
+    "blocker-before-dead-performer.png",
+    "blocker-before-east-stair-ascent.png",
+    "blocker-before-east-stair-head.png",
+    "blocker-before-foyer-fire.png",
+    "blocker-before-gallery.png",
+    "blocker-before-gallery-operations.png",
+    "blocker-before-office.png"
+  ],
+  "inventory": {
+    "state": "under_attack",
+    "groups": {
+      "glass.foyer.south.west.shards": 20,
+      "glass.living.west.north.shards": 20,
+      "glass.lounge.bay.east.mid.shards": 20,
+      "glass.particles": 48,
+      "glass.upper.east.front.shards": 20,
+      "night.accents": 6,
+      "night.emergency": 27,
+      "siege.architecture.damage": 127,
+      "siege.attackers": 517,
+      "siege.body.guard": 75,
+      "siege.body.performer": 62,
+      "siege.centrepiece.wreck": 27,
+      "siege.debris.cellar": 52,
+      "siege.debris.foyer": 149,
+      "siege.debris.lounge": 28,
+      "siege.ensemble": 1923,
+      "siege.fire.foyer": 19,
+      "siege.stations": 38,
+      "siege.step": 66,
+      "siege.wreck.burning": 36,
+      "siege.wreck.burnt": 24,
+      "siege.wreck.drive": 16,
+      "siege.wreck.kerbed": 16,
+      "siege.wreck.stalled": 16
+    },
+    "visibleLights": 19,
+    "framesRendered": 184,
+    "contextLost": false,
+    "geometry": {
+      "eastPartition": {
+        "min": [
+          8.85,
+          1.2,
+          36
+        ],
+        "max": [
+          9.15,
+          10.2,
+          48
+        ]
+      },
+      "austinMajor": {
+        "min": [
+          9.2545,
+          2.965,
+          39.365
+        ],
+        "max": [
+          9.31,
+          4.235,
+          40.635
+        ]
+      },
+      "worklamp": {
+        "min": [
+          2.512,
+          5.995,
+          45.42
+        ],
+        "max": [
+          2.968,
+          7.6183,
+          45.82
+        ]
+      },
+      "performer": {
+        "min": [
+          -7.8665,
+          1.2,
+          36.7942
+        ],
+        "max": [
+          -6.5552,
+          1.9169,
+          38.6395
+        ]
+      },
+      "performerBlood": {
+        "min": [
+          -7.9,
+          1.228,
+          38.4
+        ],
+        "max": [
+          -7,
+          1.24,
+          39.1
+        ]
+      }
+    },
+    "ensemble": [
+      {
+        "id": "lou",
+        "visible": true,
+        "x": -1.679,
+        "y": 6,
+        "z": 68.578
+      },
+      {
+        "id": "booski",
+        "visible": true,
+        "x": 6.1,
+        "y": 6,
+        "z": 50.564
+      },
+      {
+        "id": "rippinflow",
+        "visible": true,
+        "x": -5.985,
+        "y": 6,
+        "z": 48.736
+      },
+      {
+        "id": "snow",
+        "visible": true,
+        "x": -12.8,
+        "y": 6,
+        "z": 50.2
+      },
+      {
+        "id": "shubenator",
+        "visible": true,
+        "x": -2.978,
+        "y": 6,
+        "z": 55.601
+      },
+      {
+        "id": "eric",
+        "visible": true,
+        "x": 7.725,
+        "y": 6,
+        "z": 49.117
+      },
+      {
+        "id": "aubbie",
+        "visible": true,
+        "x": 2.809,
+        "y": 6,
+        "z": 51.814
+      },
+      {
+        "id": "irish",
+        "visible": true,
+        "x": -8.4,
+        "y": 6,
+        "z": 49.4
+      },
+      {
+        "id": "deathmegatron",
+        "visible": true,
+        "x": 6.557,
+        "y": 6,
+        "z": 60.102
+      },
+      {
+        "id": "numbskull",
+        "visible": true,
+        "x": -7.9,
+        "y": 6,
+        "z": 49.22
+      },
+      {
+        "id": "hogmama",
+        "visible": true,
+        "x": -1.129,
+        "y": 6,
+        "z": 63.463
+      },
+      {
+        "id": "captain_lou_sasole",
+        "visible": false,
+        "x": 3.4,
+        "y": 6,
+        "z": 52
+      },
+      {
+        "id": "guard_0",
+        "visible": true,
+        "x": -4.6,
+        "y": 6,
+        "z": 48.7
+      },
+      {
+        "id": "guard_1",
+        "visible": true,
+        "x": 4.6,
+        "y": 6,
+        "z": 48.7
+      },
+      {
+        "id": "guard_2",
+        "visible": true,
+        "x": -9.443,
+        "y": 6,
+        "z": 51.437
+      },
+      {
+        "id": "guard_wounded",
+        "visible": true,
+        "x": 3.609,
+        "y": 6,
+        "z": 51.614
+      }
+    ]
+  },
+  "notFound": [],
+  "pageErrors": []
+}

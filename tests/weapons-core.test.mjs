@@ -236,12 +236,14 @@ test('every stand-in is a cue that is really in the sfx manifest and really has 
   }
 });
 
-test('the thirty wanted cues are declared, and the stand-ins stay until files land', async () => {
-  const { readFileSync } = await import('node:fs');
+test('all thirty canonical weapon recordings are declared, indexed, hashed, and non-trivial on disk', async () => {
+  const { readFileSync, statSync } = await import('node:fs');
   const manifest = JSON.parse(readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'));
   const index = JSON.parse(readFileSync(new URL('../assets/sfx/index.json', import.meta.url), 'utf8'));
   const declared = new Set(manifest.sfx.map((c) => c.name));
   const files = new Set(index.files);
+  const wanted = allWeaponCueNames();
+  assert.equal(wanted.length, 30);
 
   /* Being in the manifest is what puts a cue on the recording sheet, so all
    * thirty belong there from the moment they are authored — that is how they
@@ -254,11 +256,17 @@ test('the thirty wanted cues are declared, and the stand-ins stay until files la
    * silent, because these names have no procedural fallback in core/audio.js.
    * `playWeaponCue` already gates on `hasSample`, so a delivered file is
    * preferred automatically and nothing has to change when they arrive. */
-  for (const cue of allWeaponCueNames()) {
+  for (const cue of wanted) {
+    const file = `${cue}.mp3`;
+    assert.ok(files.has(file), `${cue} is not indexed`);
+    assert.match(index.versions?.[file] ?? '', /^[a-f0-9]{10}$/,
+      `${cue} has no content hash in assets/sfx/index.json`);
+    assert.ok(statSync(new URL(`../assets/sfx/${file}`, import.meta.url)).size > 1024,
+      `${cue} is a trivial or empty recording`);
     assert.ok(declared.has(cue), `${cue} is not in assets/sfx/manifest.json — it will never be recorded`);
   }
-  const delivered = allWeaponCueNames().filter((cue) => files.has(`${cue}.mp3`));
-  assert.ok(delivered.length <= allWeaponCueNames().length);
+  const delivered = wanted.filter((cue) => files.has(`${cue}.mp3`));
+  assert.equal(delivered.length, 30, `only ${delivered.length}/30 canonical weapon recordings delivered`);
 });
 
 test('playWeaponCue prefers a delivered recording and otherwise plays the stand-in', () => {
@@ -275,10 +283,15 @@ test('playWeaponCue prefers a delivered recording and otherwise plays the stand-
   playWeaponCue(fake, 'saw', 'fire', { volume: 0.7 });
   assert.equal(played[1][0], 'weapon.saw.fire', 'the real recording was ignored once it landed');
 
-  // Every slot of every weapon resolves to something.
+  // Once AudioEngine reports the delivered bank decoded, every slot must use
+  // its canonical recording rather than silently routing to a legacy cue.
+  fake.delivered = new Set(allWeaponCueNames());
   for (const id of WEAPON_ORDER) {
     for (const slot of WEAPON_CUE_SLOTS) {
+      const before = played.length;
       assert.equal(playWeaponCue(fake, id, slot), true, `${id}.${slot} played nothing`);
+      assert.equal(played.length, before + 1, `${id}.${slot} emitted the wrong number of cues`);
+      assert.equal(played.at(-1)[0], weaponCue(id, slot), `${id}.${slot} used its legacy stand-in`);
     }
   }
 });

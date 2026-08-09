@@ -77,6 +77,25 @@ async function capture(target, name) {
   });
 }
 
+async function aimPublicInteract(target, id) {
+  const aimed = await target.evaluate((targetId) => {
+    const motel = window.MOTEL;
+    const interact = motel.interactableList.find((entry) => entry.id === targetId);
+    const point = interact?.follow?.() ?? interact;
+    if (!interact || !point) return null;
+    motel.face(point.x, point.z, point.y);
+    return { id: targetId, point: [point.x, point.y, point.z] };
+  }, id);
+  if (!aimed) return { intended: id, active: null, point: null, prompt: '' };
+  await target.waitForTimeout(180);
+  return target.evaluate(({ targetId, point }) => ({
+    intended: targetId,
+    active: window.MOTEL.activeInteract(),
+    point,
+    prompt: document.getElementById('prompt')?.textContent ?? '',
+  }), { targetId: id, point: aimed.point });
+}
+
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok });
@@ -339,6 +358,9 @@ try {
     { waitUntil: 'load' },
   );
   await previewPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  const campaignSeed = await previewPage.evaluate(
+    () => localStorage.getItem('squatchlife.campaign'),
+  );
   check('the direct Motel preview exposes a playable start',
     await previewPage.locator('#startBtn').isVisible()
       && await previewPage.locator('#squatch-preview-notice').isVisible());
@@ -350,7 +372,300 @@ try {
     JSON.stringify(packagePrimer));
 
   await previewPage.click('#startBtn');
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
+  await previewPage.waitForFunction(
+    () => window.MOTEL.arrival.progress > 0.18 && window.MOTEL.arrival.progress < 0.82,
+    null,
+    { timeout: 8000, polling: 60 },
+  );
+  const arrivalComposition = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
+    const driver = new motel.three.Vector3(...motel.arrival.driver);
+    const passenger = new motel.three.Vector3(...motel.arrival.passenger);
+    motel.scene.updateMatrixWorld(true);
+    motel.camera.updateMatrixWorld(true);
+    const projectVisible = (object) => {
+      const point = new motel.three.Vector3();
+      object.getWorldPosition(point);
+      point.project(motel.camera);
+      return Math.abs(point.x) < 0.96
+        && Math.abs(point.y) < 0.96
+        && point.z > -1 && point.z < 1;
+    };
+    const face = snow.group.getObjectByName('actor.face.snow');
+    const torso = snow.group.getObjectByName('actor.anatomy.torso');
+    const shoulders = snow.group.getObjectByName('actor.garment.shoulders');
+    const projectedPixels = (object) => {
+      const bounds = new motel.three.Box3().setFromObject(object);
+      const corners = [];
+      for (const x of [bounds.min.x, bounds.max.x]) {
+        for (const y of [bounds.min.y, bounds.max.y]) {
+          for (const z of [bounds.min.z, bounds.max.z]) {
+            corners.push(new motel.three.Vector3(x, y, z).project(motel.camera));
+          }
+        }
+      }
+      const xs = corners.map((point) => point.x);
+      const ys = corners.map((point) => point.y);
+      const left = (Math.min(...xs) + 1) * innerWidth / 2;
+      const right = (Math.max(...xs) + 1) * innerWidth / 2;
+      const top = (1 - Math.max(...ys)) * innerHeight / 2;
+      const bottom = (1 - Math.min(...ys)) * innerHeight / 2;
+      return {
+        left: Number(left.toFixed(1)),
+        right: Number(right.toFixed(1)),
+        top: Number(top.toFixed(1)),
+        bottom: Number(bottom.toFixed(1)),
+        centerX: Number(((left + right) / 2).toFixed(1)),
+        width: Number((right - left).toFixed(1)),
+        height: Number((bottom - top).toFixed(1)),
+      };
+    };
+    const faceWorld = new motel.three.Vector3();
+    face.getWorldPosition(faceWorld);
+    const toFace = faceWorld.clone().sub(motel.camera.position);
+    const faceRay = new motel.three.Raycaster(
+      motel.camera.position,
+      toFace.clone().normalize(),
+      0.02,
+      toFace.length() + 0.1,
+    );
+    const firstOpaque = faceRay.intersectObjects(motel.scene.children, true).find((hit) => {
+      const materials = [].concat(hit.object.material || []);
+      return materials.some((material) => !material.transparent || material.opacity >= 0.8);
+    });
+    const faceNormal = new motel.three.Vector3(0, 0, 1)
+      .applyQuaternion(face.getWorldQuaternion(new motel.three.Quaternion()));
+    const faceToCamera = motel.camera.position.clone().sub(faceWorld).normalize();
+    const driverSeat = motel.refs.manCar.group.getObjectByName('cockpit.seat.driver');
+    const passengerSeat = motel.refs.manCar.group.getObjectByName('cockpit.seat.passenger');
+    const wheel = motel.refs.manCar.group.getObjectByName('cockpit.steering-wheel');
+    const dashboard = motel.refs.manCar.group.getObjectByName('cockpit.dashboard');
+    const snowHands = [
+      snow.group.getObjectByName('actor.anatomy.hand.left'),
+      snow.group.getObjectByName('actor.anatomy.hand.right'),
+    ];
+    const body = motel.refs.manCar.group.getObjectByName('car.body.front');
+    const cabinFill = motel.refs.manCar.group.getObjectByName('vehicle.motel.cabin-fill');
+    const yaw = Math.atan2(motel.facing.x, motel.facing.z);
+    const forward = motel.refs.manCar.forwardYaw();
+    const towardSnow = motel.refs.manCar.passengerFacingDriverYaw();
+    const angle = (to, from) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
+    const viewBlend = Math.abs(angle(yaw, forward) / angle(towardSnow, forward));
+    const cameraClips = [];
+    for (const root of [motel.refs.manCar.group, snow.group]) {
+      root.traverse((object) => {
+        if (!object.isMesh) return;
+        object.geometry.computeBoundingBox();
+        const localEye = object.worldToLocal(motel.camera.position.clone());
+        if (object.geometry.boundingBox?.containsPoint(localEye)) {
+          cameraClips.push(object.name || object.geometry?.type || 'anonymous mesh');
+        }
+      });
+    }
+    return {
+      phase: motel.phase,
+      progress: motel.arrival.progress,
+      cameraFov: motel.camera.fov,
+      sharedBase: motel.refs.manCar.group.userData.sharedVehicleBase,
+      bodyStyle: motel.refs.manCar.group.userData.bodyStyle,
+      paint: body.material.color.getHexString(),
+      roof: Boolean(motel.refs.manCar.group.getObjectByName('car.roof')),
+      seats: ['cockpit.seat.driver', 'cockpit.seat.passenger']
+        .every((name) => Boolean(motel.refs.manCar.group.getObjectByName(name))),
+      playerAtPassenger: Math.hypot(motel.pos.x - passenger.x, motel.pos.z - passenger.z),
+      snowState: snow.state,
+      snowAtDriver: snow.group.position.distanceTo(driver),
+      snowFaceOnScreen: Boolean(face) && projectVisible(face),
+      snowTorsoOnScreen: Boolean(torso) && projectVisible(torso),
+      snowFacePixels: projectedPixels(face),
+      snowTorsoPixels: projectedPixels(torso),
+      snowShouldersPixels: projectedPixels(shoulders),
+      snowFaceFirstOpaque: firstOpaque?.object?.name || null,
+      snowPhotoFacesTony: Number(faceNormal.dot(faceToCamera).toFixed(3)),
+      viewBlendTowardSnow: Number(viewBlend.toFixed(3)),
+      wheelOnScreen: projectVisible(wheel),
+      dashboardOnScreen: projectVisible(dashboard),
+      snowHandsOnScreen: snowHands.every((hand) => hand && projectVisible(hand)),
+      cameraClips,
+      seatAssignments: {
+        driver: { role: driverSeat.userData.seatRole, occupant: driverSeat.userData.occupant },
+        passenger: {
+          role: passengerSeat.userData.seatRole,
+          occupant: passengerSeat.userData.occupant,
+        },
+      },
+      cabinFill: cabinFill
+        ? { intensity: cabinFill.intensity, distance: cabinFill.distance }
+        : null,
+      carToPark: motel.refs.manCar.group.position.distanceTo(motel.refs.manCar.park),
+      colliderEnabled: motel.refs.manCar.collider.enabled,
+    };
+  });
+  check('Tony and Snow visibly pull in seated in the shared maroon convertible',
+    arrivalComposition.phase === 'arrival'
+      && arrivalComposition.progress > 0.18
+      && arrivalComposition.cameraFov === 75
+      && arrivalComposition.sharedBase === 'bing.makePlayerCar'
+      && arrivalComposition.bodyStyle === 'convertible'
+      && arrivalComposition.paint === '8b3f5d'
+      && !arrivalComposition.roof
+      && arrivalComposition.seats
+      && arrivalComposition.playerAtPassenger < 0.05
+      && arrivalComposition.snowState === 'seated'
+      && arrivalComposition.snowAtDriver < 0.05
+      && arrivalComposition.snowFaceOnScreen
+      && arrivalComposition.snowTorsoOnScreen
+      && arrivalComposition.snowFacePixels.width >= 80
+      && arrivalComposition.snowFacePixels.height >= 80
+      && arrivalComposition.snowTorsoPixels.height >= 120
+      && arrivalComposition.snowFacePixels.left >= 0
+      && arrivalComposition.snowFacePixels.right <= 1280
+      && arrivalComposition.snowFacePixels.top >= 0
+      && arrivalComposition.snowFacePixels.bottom <= 720
+      && arrivalComposition.snowShouldersPixels.left >= 0
+      && arrivalComposition.snowShouldersPixels.right <= 1280
+      && arrivalComposition.snowShouldersPixels.top >= 0
+      && arrivalComposition.snowShouldersPixels.bottom <= 720
+      && (arrivalComposition.snowFacePixels.centerX < 1280 * 0.42
+        || arrivalComposition.snowFacePixels.centerX > 1280 * 0.58)
+      && arrivalComposition.snowPhotoFacesTony > 0.7
+      && arrivalComposition.viewBlendTowardSnow >= 0.25
+      && arrivalComposition.viewBlendTowardSnow <= 0.36
+      && arrivalComposition.wheelOnScreen
+      && arrivalComposition.dashboardOnScreen
+      && arrivalComposition.snowHandsOnScreen
+      && arrivalComposition.cameraClips.length === 0
+      && arrivalComposition.seatAssignments.driver.role === 'driver'
+      && arrivalComposition.seatAssignments.driver.occupant === 'snow'
+      && arrivalComposition.seatAssignments.passenger.role === 'passenger'
+      && arrivalComposition.seatAssignments.passenger.occupant === 'tony'
+      && arrivalComposition.cabinFill?.intensity > 0
+      && arrivalComposition.cabinFill.distance <= 4
+      && arrivalComposition.carToPark > 1
+      && !arrivalComposition.colliderEnabled,
+    JSON.stringify(arrivalComposition));
+  await capture(previewPage, 'arrival-shared-convertible');
+  await previewPage.evaluate(() => window.MOTEL.setArrivalCameraMode('exterior'));
+  await previewPage.waitForTimeout(160);
+  const exteriorOccupants = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
+    const driver = new motel.three.Vector3(...motel.arrival.driver);
+    const passenger = new motel.three.Vector3(...motel.arrival.passengerActor);
+    motel.scene.updateMatrixWorld(true);
+    motel.camera.updateMatrixWorld(true);
+    const onScreen = (object) => {
+      const bounds = new motel.three.Box3().setFromObject(object);
+      const center = bounds.getCenter(new motel.three.Vector3()).project(motel.camera);
+      return Math.abs(center.x) < 0.92 && Math.abs(center.y) < 0.92
+        && center.z > -1 && center.z < 1;
+    };
+    const driverSeat = motel.refs.manCar.group.getObjectByName('cockpit.seat.driver');
+    const passengerSeat = motel.refs.manCar.group.getObjectByName('cockpit.seat.passenger');
+    return {
+      phase: motel.phase,
+      cameraMode: motel.arrival.cameraMode,
+      cameraDistance: motel.camera.position.distanceTo(motel.refs.manCar.cabinCenterPosition()),
+      snowState: snow.state,
+      snowAtDriver: snow.group.position.distanceTo(driver),
+      tonyAtPassenger: motel.player.group.position.distanceTo(passenger),
+      snowScale: snow.group.scale.x,
+      snowBaseScale: snow.baseScale,
+      tonyScale: motel.player.group.scale.x,
+      playerVisible: motel.player.group.visible,
+      snowOnScreen: onScreen(snow.group),
+      tonyOnScreen: onScreen(motel.player.group),
+      occupants: [driverSeat.userData.occupant, passengerSeat.userData.occupant],
+    };
+  });
+  check('the exterior pull-in proves Snow and Tony physically seated in their assigned seats',
+    exteriorOccupants.phase === 'arrival'
+      && exteriorOccupants.cameraMode === 'exterior'
+      && exteriorOccupants.cameraDistance > 3
+      && exteriorOccupants.snowState === 'seated'
+      && exteriorOccupants.snowAtDriver < 0.05
+      && exteriorOccupants.tonyAtPassenger < 0.05
+      && exteriorOccupants.snowScale < exteriorOccupants.snowBaseScale
+      && exteriorOccupants.tonyScale < 0.85
+      && exteriorOccupants.playerVisible
+      && exteriorOccupants.snowOnScreen
+      && exteriorOccupants.tonyOnScreen
+      && exteriorOccupants.occupants.join(',') === 'snow,tony',
+    JSON.stringify(exteriorOccupants));
+  await capture(previewPage, 'arrival-exterior-both-occupants');
+  await previewPage.evaluate(() => window.MOTEL.setArrivalCameraMode('passenger'));
+  await previewPage.waitForTimeout(80);
+  const arrivalSurveyBrief = await previewPage.evaluate(() => {
+    const element = document.getElementById('surveyBrief');
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      text: element.textContent.trim(),
+      opacity: Number(style.opacity),
+      visible: style.visibility,
+      width: rect.width,
+    };
+  });
+  check('the survey message stays hidden until Tony receives playable control',
+    arrivalSurveyBrief.text === 'Survey the Motel before going into your meeting or go right into it'
+      && arrivalSurveyBrief.opacity === 0
+      && arrivalSurveyBrief.visible === 'hidden'
+      && arrivalSurveyBrief.width >= 500,
+    JSON.stringify(arrivalSurveyBrief));
+
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'car');
+  await previewPage.waitForFunction(() => {
+    const element = document.getElementById('surveyBrief');
+    return document.getElementById('hud')?.classList.contains('control-ready')
+      && Number(getComputedStyle(element).opacity) > 0.5;
+  }, null, { timeout: 3000, polling: 30 });
+  const controlHandoffBrief = await previewPage.evaluate(() => {
+    const element = document.getElementById('surveyBrief');
+    const style = getComputedStyle(element);
+    return {
+      phase: window.MOTEL.phase,
+      controlReady: document.getElementById('hud').classList.contains('control-ready'),
+      opacity: Number(style.opacity),
+      visible: style.visibility,
+      animations: element.getAnimations().map((animation) => ({
+        currentTime: Number(animation.currentTime?.toFixed?.(1) || 0),
+        playState: animation.playState,
+      })),
+    };
+  });
+  check('the full ten-second survey brief starts at the playable passenger-seat handoff',
+    controlHandoffBrief.phase === 'car'
+      && controlHandoffBrief.controlReady
+      && controlHandoffBrief.opacity > 0.5
+      && controlHandoffBrief.visible === 'visible'
+      && controlHandoffBrief.animations.some((animation) => animation.playState === 'running'
+        && animation.currentTime < 2000),
+    JSON.stringify(controlHandoffBrief));
+  const parkedComposition = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
+    const exit = motel.refs.manCar.driverExitPosition();
+    return {
+      flags: motel.arrival,
+      snowState: snow.state,
+      snow: snow.group.position.toArray(),
+      distanceToDriverExit: snow.group.position.distanceTo(exit),
+      floor: motel.level.floorAt(snow.position.x, snow.position.z, 0),
+      playerBlocked: motel.isBlocked(motel.pos.x, motel.pos.z, motel.feetY, motel.playerRadius),
+    };
+  });
+  check('Snow gets out onto grounded pavement while Tony remains free in the passenger seat',
+    parkedComposition.flags.complete
+      && !parkedComposition.flags.snowSeated
+      && parkedComposition.flags.snowExitedCar
+      && parkedComposition.snowState === 'idle'
+      && parkedComposition.distanceToDriverExit < 0.08
+      && Math.abs(parkedComposition.snow[1] - parkedComposition.floor) < 0.02
+      && !parkedComposition.playerBlocked,
+    JSON.stringify(parkedComposition));
+  await capture(previewPage, 'arrival-snow-grounded-exit');
   const motelInventory = await previewPage.evaluate(() => {
     const hands = document.querySelector('#hotbar');
     const gear = document.querySelector('#gearBox');
@@ -388,23 +703,6 @@ try {
         && rect.height >= 40 && rect.left >= 0 && rect.right <= 1280),
     JSON.stringify(motelInventory));
   await previewPage.waitForTimeout(700);
-  const surveyBrief = await previewPage.evaluate(() => {
-    const element = document.getElementById('surveyBrief');
-    const style = getComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    return {
-      text: element.textContent.trim(),
-      opacity: Number(style.opacity),
-      visible: style.visibility,
-      width: rect.width,
-    };
-  });
-  check('a large opening HUD message offers surveying or going straight in',
-    surveyBrief.text === 'Survey the Motel before going into your meeting or go right into it'
-      && surveyBrief.opacity > 0.5
-      && surveyBrief.visible === 'visible'
-      && surveyBrief.width >= 500,
-    JSON.stringify(surveyBrief));
   // SwiftShader can need several frames to compile the first motel materials.
   // Capture after that warm-up, but before the opening dialogue wheel appears.
   await previewPage.waitForTimeout(800);
@@ -470,6 +768,12 @@ try {
   const passengerSightline = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     motel.scene.updateMatrixWorld(true);
+    const visibleInTree = (object) => {
+      for (let node = object; node; node = node.parent) {
+        if (!node.visible) return false;
+      }
+      return true;
+    };
     const direction = new motel.three.Vector3();
     motel.camera.getWorldDirection(direction);
     const ray = new motel.three.Raycaster(motel.camera.position, direction, 0, 80);
@@ -478,14 +782,19 @@ try {
       hit.object.getWorldPosition(world);
       return {
         distance: Number(hit.distance.toFixed(3)),
+        name: hit.object.name || null,
         geometry: hit.object.geometry?.type || null,
         color: hit.object.material?.color?.getHexString?.() || null,
+        transparent: [].concat(hit.object.material || [])
+          .every((material) => material.transparent && material.opacity < 0.8),
+        visible: visibleInTree(hit.object),
         world: world.toArray().map((value) => Number(value.toFixed(3))),
       };
     });
   });
+  const firstOpaquePassengerHit = passengerSightline.find((hit) => hit.visible && !hit.transparent);
   check('the passenger-seat sightline is clear of opaque car panels',
-    passengerSightline.length > 0 && passengerSightline[0].distance > 2,
+    passengerSightline.length > 0 && firstOpaquePassengerHit?.distance > 2,
     JSON.stringify(passengerSightline));
 
   /* The scene's first line is Snow's, it is recorded, and it used to be
@@ -519,9 +828,24 @@ try {
     openingVoice.node === 'snowBrief' && openingVoice.played.length === 1,
     JSON.stringify({ node: openingVoice.node, plays: openingVoice.played.length }));
 
+  const moneyCaseAim = await aimPublicInteract(previewPage, 'moneyCase');
+  check('aiming at Tony\'s case selects the case rather than a cabin neighbour',
+    moneyCaseAim.active === 'moneyCase' && /case/i.test(moneyCaseAim.prompt),
+    JSON.stringify(moneyCaseAim));
+  const gloveboxAim = await aimPublicInteract(previewPage, 'glovebox');
+  check('aiming at the glovebox selects the revolver rather than the door or case',
+    gloveboxAim.active === 'glovebox' && /weapon/i.test(gloveboxAim.prompt),
+    JSON.stringify(gloveboxAim));
+  const earlyDoorAim = await aimPublicInteract(previewPage, 'exitCar');
+  check('aiming at the passenger door selects the exit without stealing other cabin targets',
+    earlyDoorAim.active === 'exitCar' && /passenger door/i.test(earlyDoorAim.prompt),
+    JSON.stringify(earlyDoorAim));
+  // Public interaction path: return the crosshair to the glovebox and press E.
+  await aimPublicInteract(previewPage, 'glovebox');
+  await previewPage.keyboard.press('KeyE');
+  await previewPage.waitForTimeout(120);
   const revolverPresentation = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    motel.forceInteract('glovebox');
     motel.scene.updateMatrixWorld(true);
     const held = motel.camera.children.find((child) => child.type === 'Group')?.children[0];
     const partNames = [];
@@ -582,8 +906,66 @@ try {
       && snowOffer.enabled
       && /Snow offers/i.test(snowOffer.label),
     JSON.stringify(snowOffer));
-  await previewPage.evaluate(() => window.MOTEL.forceInteract('exitCar'));
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot');
+  const snowAim = await aimPublicInteract(previewPage, 'silverback');
+  check('aiming at Snow selects his offered Commander rather than the close money case',
+    snowAim.active === 'silverback' && /Snow offers/i.test(snowAim.prompt),
+    JSON.stringify(snowAim));
+  /* Leave through the same public path as a player. `forceInteract` used to
+   * jump around the point-target and collision adapter, which let a camera
+   * trapped inside the car collider pass this verifier while [E] did nothing
+   * in the shipped scene. */
+  await aimPublicInteract(previewPage, 'exitCar');
+  const passengerDoorAim = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const door = motel.refs.manCar.passengerDoorPosition();
+    const dx = door.x - motel.pos.x;
+    const dz = door.z - motel.pos.z;
+    const dy = door.y - 1.55;
+    const horizontal = Math.hypot(dx, dz);
+    const distance = Math.hypot(horizontal, dy);
+    return {
+      phase: motel.phase,
+      active: motel.activeInteract(),
+      distance,
+      facingDot: distance < 0.001 ? 1
+        : (dx * motel.facing.x + dy * motel.facing.y + dz * motel.facing.z) / distance,
+      door: door.toArray(),
+      player: [motel.pos.x, motel.feetY, motel.pos.z],
+    };
+  });
+  check('aiming at the actual passenger door exposes the public [E] exit prompt',
+    passengerDoorAim.phase === 'car'
+      && passengerDoorAim.active === 'exitCar'
+      && passengerDoorAim.distance < 1.5
+      && passengerDoorAim.facingDot > 0.9,
+    JSON.stringify(passengerDoorAim));
+  await previewPage.keyboard.press('KeyE');
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot', null, { timeout: 5000 })
+    .catch(() => {});
+  const realDoorExit = await previewPage.evaluate(() => ({
+    phase: window.MOTEL.phase,
+    blocked: window.MOTEL.isBlocked(
+      window.MOTEL.pos.x,
+      window.MOTEL.pos.z,
+      window.MOTEL.feetY,
+      window.MOTEL.playerRadius,
+    ),
+    colliderEnabled: window.MOTEL.refs.manCar.collider.enabled,
+    position: [window.MOTEL.pos.x, window.MOTEL.feetY, window.MOTEL.pos.z],
+  }));
+  check('real [E] on the passenger door exits to clear pavement',
+    realDoorExit.phase === 'lot'
+      && !realDoorExit.blocked
+      && realDoorExit.colliderEnabled,
+    JSON.stringify(realDoorExit));
+  await capture(previewPage, 'after-real-e-passenger-exit');
+  await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    motel.teleport(-13.5, 21.5);
+    motel.face(motel.refs.manCar.park.x, motel.refs.manCar.park.z);
+  });
+  await previewPage.waitForTimeout(180);
+  await capture(previewPage, 'parked-maroon-convertible-exterior');
 
   const friendlyGuardBefore = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -634,6 +1016,61 @@ try {
   check('real WASD input moves Tony forward without a collider trap',
     motion.distance > 0.4 && motion.forwardProgress > 0.35 && !motion.blocked,
     JSON.stringify(motion));
+
+  /* Independent public Q path, from a clean campaign and a genuinely seated
+   * player. Reusing the E page after it reached the lot would only prove that
+   * Q is harmless on foot. */
+  const qContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const qPage = await qContext.newPage();
+  trackRuntimeErrors(qPage);
+  try {
+    await qPage.addInitScript((seed) => {
+      if (seed) localStorage.setItem('squatchlife.campaign', seed);
+    }, campaignSeed);
+    await qPage.goto(
+      `http://localhost:${PORT}/motel.html?preview=1&q-exit=1`,
+      { waitUntil: 'load' },
+    );
+    await qPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+    await qPage.click('#startBtn');
+    await qPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
+    await qPage.evaluate(() => window.MOTEL.completeArrival());
+    await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 5000 });
+    const beforeQ = await qPage.evaluate(() => ({
+      phase: window.MOTEL.phase,
+      snowExitedCar: window.MOTEL.arrival.snowExitedCar,
+      blocked: window.MOTEL.isBlocked(
+        window.MOTEL.pos.x,
+        window.MOTEL.pos.z,
+        window.MOTEL.feetY,
+        window.MOTEL.playerRadius,
+      ),
+    }));
+    await qPage.keyboard.press('KeyQ');
+    await qPage.waitForFunction(() => window.MOTEL.phase === 'lot');
+    const afterQ = await qPage.evaluate(() => ({
+      phase: window.MOTEL.phase,
+      blocked: window.MOTEL.isBlocked(
+        window.MOTEL.pos.x,
+        window.MOTEL.pos.z,
+        window.MOTEL.feetY,
+        window.MOTEL.playerRadius,
+      ),
+      colliderEnabled: window.MOTEL.refs.manCar.collider.enabled,
+      position: [window.MOTEL.pos.x, window.MOTEL.feetY, window.MOTEL.pos.z],
+    }));
+    check('[Q] independently exits the parked car to clear pavement',
+      beforeQ.phase === 'car'
+        && beforeQ.snowExitedCar
+        && !beforeQ.blocked
+        && afterQ.phase === 'lot'
+        && !afterQ.blocked
+        && afterQ.colliderEnabled,
+      JSON.stringify({ beforeQ, afterQ }));
+    await capture(qPage, 'after-independent-q-exit');
+  } finally {
+    await qContext.close();
+  }
 
   /* A point prompt must obey the same three-dimensional reach and wall
    * occlusion as every physical target in the shared InteractionSystem. The
@@ -699,7 +1136,7 @@ try {
   await previewPage.waitForFunction(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk?.state === 'idle';
-  }, null, { timeout: 10000, polling: 80 }).catch(() => {});
+  }, null, { timeout: 30000, polling: 80 }).catch(() => {});
   const clerkStoppedA = await previewPage.evaluate(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk ? { x: clerk.position.x, z: clerk.position.z, state: clerk.state } : null;

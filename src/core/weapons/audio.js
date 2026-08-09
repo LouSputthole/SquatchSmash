@@ -1,6 +1,6 @@
 /**
- * The weapon system's sound: thirty cues asked for, thirty stand-ins playing
- * until they land.
+ * The weapon system's sound: thirty delivered canonical cues, with proven
+ * legacy recordings retained only as a partial-bank safety net.
  *
  * THIS FILE ADDS NOTHING TO `assets/sfx/manifest.json`. Cues are generated
  * centrally; what a scene can do is write down exactly what it needs and play
@@ -9,10 +9,8 @@
  * and `src/core/signature-music.js` for the two records — and this is the same
  * shape:
  *
- *   - `WEAPON_SFX` names what has been ASKED for. Nothing here plays it by
- *     name unless `audio.hasSample()` says a decoded recording exists, so an
- *     undelivered name costs nothing and the day it is generated the guns pick
- *     it up with no code change.
+ *   - `WEAPON_SFX` names the canonical delivered bank. Nothing here plays one
+ *     unless `audio.hasSample()` says that recording really decoded.
  *   - every stand-in is written out as its own literal play call, by name.
  *     `tools/check.mjs` scans for exactly that shape and fails the build for a
  *     cue that is not in the manifest, so each stand-in below is verified to
@@ -33,7 +31,7 @@ export const WEAPON_SFX = Object.freeze(Object.fromEntries(
 ));
 
 /**
- * The recordings standing in tonight.
+ * Proven fallbacks for an old, partial, or failed-to-decode audio bank.
  *
  * Listed here as data purely so a scene can PRELOAD them (see
  * `weaponStandInCueNames`) and so a test can assert every wanted cue has one.
@@ -84,7 +82,7 @@ export function weaponStandInCueNames() {
   return [...new Set(Object.values(WEAPON_SFX_STANDINS))];
 }
 
-/** Every name this system is waiting on, for a scene's preload list. */
+/** Every canonical weapon recording, for a scene's preload list. */
 export function weaponWantedCueNames() {
   return Object.values(WEAPON_SFX);
 }

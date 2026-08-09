@@ -87,9 +87,18 @@
     color: var(--gold-bright); min-height: 13px; margin-top: 3px;
   }
   #ammo.dry #ammoMag { color: #e6663c; }
-  /* The durable five-slot bar sits above the ammunition card instead of
-   * sharing its bottom-right footprint. */
-  #scene-inventory-hands { right: 26px; bottom: 112px; }
+  /* The shared stylesheet loads after this page's inline rules. The `body`
+   * qualifier is deliberate: keep this scene-level placement authoritative
+   * and give the five-slot bar its own bottom-centre lane, clear of ammo. */
+  body #scene-inventory-hands {
+    left: 50%; right: auto; bottom: 22px; transform: translateX(-50%);
+  }
+  @media (max-width: 680px) {
+    /* Three cards cannot share one 480px row. Keep health/ammo at the lower
+     * corners and lift the centred loadout into its own compact lane. */
+    body #scene-inventory-hands { bottom: 112px; }
+    #ammo { right: 12px; bottom: 12px; }
+  }
   #reticle {
     position: fixed; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
     pointer-events: none; z-index: 4;
