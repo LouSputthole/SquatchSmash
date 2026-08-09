@@ -59,6 +59,19 @@ const ROLE_LOOKS = {
   clerk: { dress: 'shirt', shirt: 0xb9c0c8, hair: 'short', glasses: true },
 };
 
+const VISUAL_POSE_BY_STATE = Object.freeze({
+  startled: 'startled',
+  pleading: 'pleading',
+  kneeling: 'kneeling',
+  prone: 'prone',
+  restrained: 'restrained',
+  bolting: 'bolting',
+  alarm: 'alarm',
+  down: 'fallen',
+});
+
+const FLOOR_POSES = new Set(['kneeling', 'prone', 'restrained', 'bolting', 'alarm', 'fallen']);
+
 /**
  * One person, plus the poses THE TAKE puts them in.
  *
@@ -85,6 +98,8 @@ export class HeistFigure {
     this.pose = 'stand';
     this.phase = Math.random() * 6.28;
     this.tremble = 0;
+    this._bounds = new THREE.Box3();
+    this._groundBlend = false;
     /* Everybody in this bank can talk, so everybody in it has a working mouth.
      * `makePerson` already builds one (and hides it behind a photographed
      * face); this is the shared driver that opens it on the take rather than
@@ -105,6 +120,11 @@ export class HeistFigure {
     for (const part of [p.armL, p.armR, p.foreL, p.foreR, p.legL, p.legR, p.shinL, p.shinR]) {
       part.rotation.set(0, 0, 0);
     }
+    /* Breathing is an animation offset, not authored pose data. Clear it
+     * before measuring a floor pose or returning a recycled figure to stand;
+     * otherwise `_settle()` bakes whichever breath phase happened to be live
+     * into the corpse's floor contact. */
+    p.body.position.y = 0;
     p.body.rotation.set(0, 0, 0);
     p.head.rotation.set(0, 0, 0);
     this.tilt.rotation.set(0, 0, 0);
@@ -135,10 +155,10 @@ export class HeistFigure {
   /** Hands up, head down, and shaking. The reaction to a muzzle. */
   pleading() {
     this._clear();
-    this.parts.armL.rotation.set(-2.72, 0, -0.34);
-    this.parts.armR.rotation.set(-2.72, 0, 0.34);
-    this.parts.foreL.rotation.x = -0.28;
-    this.parts.foreR.rotation.x = -0.28;
+    this.parts.armL.rotation.set(-2.18, 0, -0.25);
+    this.parts.armR.rotation.set(-2.34, 0, 0.32);
+    this.parts.foreL.rotation.set(-1.8, 0, 0.4);
+    this.parts.foreR.rotation.set(-1.65, 0, -0.48);
     this.parts.body.rotation.x = 0.12;
     this.parts.head.rotation.x = 0.18;
     this.pose = 'pleading';
@@ -160,7 +180,7 @@ export class HeistFigure {
     this.parts.head.rotation.x = 0.22;
     this.tilt.position.y = -0.44 * this.scale;
     this.pose = 'kneeling';
-    return this;
+    return this._settle();
   }
 
   /**
@@ -174,10 +194,15 @@ export class HeistFigure {
    */
   _settle() {
     this.tilt.position.y = 0;
+    return this._ground();
+  }
+
+  /** Keep the currently interpolated rig touching its authored floor. */
+  _ground() {
     this.root.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(this.root);
+    const box = this._bounds.setFromObject(this.root);
     if (!Number.isFinite(box.min.y)) return this;
-    this.tilt.position.y = this.baseY - box.min.y;
+    this.tilt.position.y += this.baseY - box.min.y;
     return this;
   }
 
@@ -220,12 +245,12 @@ export class HeistFigure {
   bolting() {
     this._clear();
     this.parts.body.rotation.x = 0.42;
-    this.parts.armL.rotation.x = -1.1;
-    this.parts.armR.rotation.x = 0.9;
-    this.parts.foreL.rotation.x = -1.2;
-    this.parts.legL.rotation.x = -0.9;
-    this.parts.legR.rotation.x = 0.7;
-    this.parts.shinL.rotation.x = 1.1;
+    this.parts.armL.rotation.x = -0.22;
+    this.parts.armR.rotation.x = -0.22;
+    this.parts.foreL.rotation.x = -0.75;
+    this.parts.foreR.rotation.x = -0.75;
+    this.parts.shinL.rotation.x = 0.1;
+    this.parts.shinR.rotation.x = 0.1;
     this.pose = 'bolting';
     return this;
   }
@@ -349,9 +374,19 @@ export class HeistFigure {
    * @param {object} [options]
    * @param {boolean} [options.blend] false to snap, for a checkpoint restore
    *   or a first build where there is no previous pose to come from.
+   * @param {number} [options.roll] authored side fall for the `down` pose.
    * @returns {string} the pose actually applied
    */
-  setState(state, { blend = true } = {}) {
+  setState(state, { blend = true, roll = undefined } = {}) {
+    const requestedPose = VISUAL_POSE_BY_STATE[state] ?? 'stand';
+    /* State synchronization is intentionally idempotent. `main.js` may sync a
+     * person again when another hostage reacts or a line is spoken; replaying
+     * the pose method here would cancel the live blend and jump straight to
+     * its endpoint. Explicit checkpoint restores retain the old snap path. */
+    if (blend && requestedPose === this.pose) {
+      this.root.userData.visualState = this.pose;
+      return this.pose;
+    }
     const from = this.pose;
     const before = blend ? this._capturePose() : null;
     switch (state) {
@@ -362,7 +397,7 @@ export class HeistFigure {
       case 'restrained': this.restrained(); break;
       case 'bolting': this.bolting(); break;
       case 'alarm': this.alarm(); break;
-      case 'down': this.fallen(); break;
+      case 'down': this.fallen(Number.isFinite(roll) ? { roll } : undefined); break;
       default: this.stand(); break;
     }
     /* `visualState` is set from the pose that was ASKED for, not from how far
@@ -376,9 +411,11 @@ export class HeistFigure {
       this._poseTo = this._capturePose();
       this._poseElapsed = 0;
       this._poseDuration = HeistFigure.poseDuration(from, this.pose);
+      this._groundBlend = FLOOR_POSES.has(from) || FLOOR_POSES.has(this.pose);
       this._applyPose(before);
     } else {
       this._poseFrom = null;
+      this._groundBlend = false;
     }
     return this.pose;
   }
@@ -407,7 +444,17 @@ export class HeistFigure {
       const target = key === 'tiltRotation' ? this.tilt.rotation : this.tilt.position;
       target.set(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
     }
-    if (raw >= 1) this._poseFrom = null;
+    /* Rotating a grounded rig changes which mesh is lowest. A linear blend of
+     * the endpoint lifts therefore drives knees and shoulders through the
+     * marble midway through the motion. Ground only while the short blend is
+     * live; settled poses retain their measured endpoint and pay no per-frame
+     * Box3 cost. */
+    this.parts.body.position.y = 0;
+    if (this._groundBlend) this._ground();
+    if (raw >= 1) {
+      this._poseFrom = null;
+      this._groundBlend = false;
+    }
     return true;
   }
 
@@ -435,10 +482,18 @@ export class HeistFigure {
     /* The pose blend runs FIRST and writes the joints; the breath and the
      * tremble below are offsets laid on top of whatever it left. */
     const blending = this._updatePoseBlend(dt);
-    this.phase += dt * (2.1 + fear * 5);
-    this.tremble += (fear - this.tremble) * Math.min(1, dt * 4);
-    const breath = Math.sin(this.phase) * (0.006 + this.tremble * 0.012);
-    this.parts.body.position.y = breath;
+    const fallen = this.pose === 'down' || this.pose === 'fallen';
+    if (fallen) {
+      /* Down means down. Mansion Siege and Cartel both keep ticking their
+       * shared HeistFigure after incapacitation, so the invariant belongs here
+       * rather than in three scene loops. */
+      this.tremble = 0;
+      this.parts.body.position.y = 0;
+    } else {
+      this.phase += dt * (2.1 + fear * 5);
+      this.tremble += (fear - this.tremble) * Math.min(1, dt * 4);
+      this.parts.body.position.y = Math.sin(this.phase) * (0.006 + this.tremble * 0.012);
+    }
     /**
      * How hard this person is shaking, by what has happened to them.
      *
@@ -451,15 +506,30 @@ export class HeistFigure {
      */
     const settle = (() => {
       if (this.pose === 'down' || this.pose === 'fallen') return 0;
-      if (this.pose === 'restrained') return 0.25;
-      if (this.pose === 'prone') return 0.45;
+      if (this.pose === 'restrained') return 0.08;
+      if (this.pose === 'prone') return 0.28;
       return 1;
     })();
     const shake = blending
       ? 0
-      : Math.sin(this.phase * 4.4) * this.tremble * 0.028 * settle;
+      : Math.sin(this.phase * 1.7) * this.tremble * 0.018 * settle;
     this.parts.body.rotation.z = shake;
     this.parts.head.rotation.z = -shake * 1.4;
+    if (!blending && this.pose === 'bolting') {
+      /* A bolt is a repeating action, not the single crouched keyframe that
+       * names it. Opposite arms and legs carry a compact run cycle while the
+       * figure's root remains owned by the scene/navigation layer. */
+      const stride = Math.sin(this.phase * 1.2);
+      this.parts.armL.rotation.x = -0.22 + stride * 0.68;
+      this.parts.armR.rotation.x = -0.22 - stride * 0.68;
+      this.parts.foreL.rotation.x = -0.75 - Math.max(0, -stride) * 0.28;
+      this.parts.foreR.rotation.x = -0.75 - Math.max(0, stride) * 0.28;
+      this.parts.legL.rotation.x = -stride * 0.62;
+      this.parts.legR.rotation.x = stride * 0.62;
+      this.parts.shinL.rotation.x = 0.1 + Math.max(0, stride) * 0.9;
+      this.parts.shinR.rotation.x = 0.1 + Math.max(0, -stride) * 0.9;
+      this._ground();
+    }
     /* A PHOTOGRAPH CANNOT OPEN ITS MOUTH.
      *
      * The crew wear their real faces on the front of the skull, so there is no
@@ -576,9 +646,9 @@ export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.gu
     figure.parts.head.rotation.y = -p * 0.18;
     root.userData.threatProgress = p;
   };
-  root.userData.setNeutralized = () => {
+  root.userData.setNeutralized = ({ blend = true } = {}) => {
     gun.visible = false;
-    figure.fallen({ roll: -0.42 });
+    figure.setState('down', { blend, roll: -0.42 });
     root.userData.neutralized = true;
   };
   root.userData.resetThreatPose = () => {

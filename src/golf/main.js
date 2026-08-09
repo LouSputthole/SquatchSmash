@@ -28,6 +28,8 @@ import { Radio } from '../core/radio.js';
 import { Inventory } from '../core/inventory.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { SmokeSystem, emitCigaretteExhale } from '../world/smoke.js';
 
 import { Course } from './terrain.js';
 import { Golfer, makeBag, makeBall, makeBallMarker, makeClub } from './cast.js';
@@ -53,7 +55,8 @@ import {
 } from './audio.js';
 import { completedRoundAction, connectGolfFootsteps } from './runtime.js';
 import {
-  USE_TIME, createHeldProps, dressSquatchBeer, loadSquatchBeerLabel,
+  USE_TIME, createHeldProps, dressGolfCartConsumables, dressSquatchBeer,
+  loadSquatchBeerLabel,
 } from './hands.js';
 
 /* ------------------------------------------------------------------ */
@@ -220,6 +223,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.08, 700);
 scene.add(camera);
+const smoke = new SmokeSystem(scene);
+const smokeOrigin = new THREE.Vector3();
+const smokeDirection = new THREE.Vector3();
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -614,6 +620,7 @@ const heldProps = createHeldProps(camera);
  * when he started — so letting go, or changing slot, abandons it. */
 let usingItem = null;
 let useProgress = 0;
+let cigaretteDragPlayed = false;
 
 function syncGolfInventory() {
   sceneInventory.set(inventory.items, inventory.selected);
@@ -675,7 +682,10 @@ function beginItemUse() {
   usingItem = held;
   useProgress = 0;
   if (held === 'beer') audio.play('can.crack', { volume: 0.72, position: player.position });
-  if (held === 'cigs') audio.play('cig.pack', { volume: 0.5, position: player.position });
+  if (held === 'cigs') {
+    cigaretteDragPlayed = false;
+    audio.play('cig.light', { volume: 0.75, position: player.position });
+  }
   if (held === 'zyn') audio.play('zyn.tin', { volume: 0.55, position: player.position });
   return true;
 }
@@ -701,17 +711,33 @@ function updateItemUse(dt) {
   const k = Math.min(1, useProgress / (USE_TIME[usingItem] ?? 2));
   if (usingItem === 'beer') heldProps.poseDrink(k);
   else if (usingItem === 'zyn') heldProps.poseTin(k);
-  else heldProps.poseSmoke(k, useProgress);
+  else {
+    heldProps.poseSmoke(k, useProgress);
+    if (!cigaretteDragPlayed && k >= 0.36) {
+      cigaretteDragPlayed = true;
+      audio.play('cig.drag', { volume: 0.7, position: player.position });
+    }
+    if (Math.random() < dt * 6) {
+      heldProps.cig.ember.getWorldPosition(smokeOrigin);
+      smoke.wisp(smokeOrigin);
+    }
+  }
   if (k < 1) return;
 
   const finished = usingItem;
+  if (finished === 'cigs') {
+    camera.getWorldPosition(smokeOrigin);
+    camera.getWorldDirection(smokeDirection);
+    emitCigaretteExhale(smoke, smokeOrigin, smokeDirection);
+    audio.play('cig.exhale', { volume: 0.8, position: player.position });
+  }
   cancelItemUse();
   inventory.remove(finished);
   if (finished === 'beer') {
     audio.play('can.crush', { volume: 0.72, position: player.position });
     hud.toast('Cold. Free. Eight in the morning.', 'good', 2200);
   } else if (finished === 'cigs') {
-    audio.play('cig.pack', { volume: 0.4, position: player.position });
+    audio.play('cig.stub', { volume: 0.5, position: player.position });
     hud.toast('Lou packed for eighteen holes.', 'hint', 2200);
   } else {
     audio.play('zyn.tin', { volume: 0.45, position: player.position });
@@ -1975,8 +2001,8 @@ let sideCoolerRemaining = 0;
  * `dressSquatchBeer` only ever swaps a geometry and a material.
  */
 function restockSquatchBeer() {
-  dressSquatchBeer(carts.lead.amenities?.beers ?? []);
-  dressSquatchBeer(carts.follow.amenities?.beers ?? []);
+  dressGolfCartConsumables(carts.lead.amenities);
+  dressGolfCartConsumables(carts.follow.amenities);
   dressSquatchBeer(course.sideCooler?.cans ?? []);
 }
 
@@ -2219,7 +2245,11 @@ const pauseMenu = createPauseMenu({
     clock.getDelta();
     requestMouseCapture();
   },
-  onRestart: () => window.location.reload(),
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.SILVER_PINES,
+    location: window.location,
+  }),
 });
 
 function frame() {
@@ -2236,6 +2266,7 @@ function frame() {
   round.update(dt, player.position);
   courseAudio?.update(dt);
   updateItemUse(dt);
+  smoke.update(dt);
 
   // --- camera ---
   if (camMode === CAM.ADDRESS) {
@@ -2496,7 +2527,7 @@ frame();
  */
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
-  interaction, inventory, heldProps,
+  interaction, inventory, heldProps, smoke,
   cartRadio, landingPreview, npcBallMarkers,
   cartRadioAudioPlan,
   waitForCartRadioAudio: () => cartRadioAudioReady,
@@ -2536,6 +2567,7 @@ window.__golf = {
     for (const g of Object.values(golfers)) g.update(dt, player.position);
     courseAudio?.update(dt);
     updateItemUse(dt);
+    smoke.update(dt);
     updateShotPresentation(dt);
     updateFrozenMeter(dt);
     /* Keep the verifier's synchronous simulation equivalent to one rendered

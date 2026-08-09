@@ -2,7 +2,7 @@ import { makeCase } from '../../silvercase/props/case.js';
 import { createSilentSquatchMission } from './SilentSquatchMission.js';
 import { createMissionHud } from './hud.js';
 import { S } from './SilentSquatchStateMachine.js';
-import { LAB_DOOR_CODE } from '../script.js';
+import { LAB_DOOR_CODE, SCIENTIST_INDEX } from '../script.js';
 
 /**
  * PROJECT SILENT SQUATCH — the browser wiring.
@@ -27,12 +27,18 @@ import { LAB_DOOR_CODE } from '../script.js';
  */
 
 const ZONE_RADIUS = 3.2;
+const ZONE_VERTICAL_TOLERANCE = 1.2;
 
 /** Where the upstairs cast stand, if nobody has told us. These are the house's
  * own room anchors, so beat 1 populates the rooms that exist today. */
 function defaultZones(anchors) {
   if (!anchors) return {};
-  const at = (v, r = ZONE_RADIUS) => (v ? { x: v.x, z: v.z, r } : null);
+  const at = (v, r = ZONE_RADIUS, verticalTolerance = ZONE_VERTICAL_TOLERANCE) => (v ? {
+    x: v.x,
+    ...(Number.isFinite(v.y) ? { y: v.y, verticalTolerance } : {}),
+    z: v.z,
+    r,
+  } : null);
   const zones = {
     rippin: at(anchors.loungeCenter),
     eric: at(anchors.diningTable),
@@ -63,6 +69,7 @@ export function mountSilentSquatch({
   targets = {},
   enabled = () => true,
   autoStart = true,
+  missionHud = null,
   /* Told when the MISSION gives him the case or takes it away, so the scene's
    * inventory can hold a slot for it. Not told about stowing -- that is the
    * player's half and the inventory is the thing doing it. */
@@ -90,7 +97,7 @@ export function mountSilentSquatch({
 } = {}) {
   if (!lab || !THREE || !scene || !camera) return null;
 
-  const hud = createMissionHud();
+  const hud = missionHud ?? createMissionHud();
 
   /* ---------------- the case ---------------- */
   const carried = makeCase({ x: 0, y: 0, z: 0 });
@@ -423,6 +430,7 @@ export function mountSilentSquatch({
   }
 
   /* ---------------- the mission ---------------- */
+  const missionZones = { ...defaultZones(anchors), ...(lab.anchors ? labZones(lab) : {}) };
   const mission = createSilentSquatchMission({
     lab,
     story,
@@ -433,7 +441,7 @@ export function mountSilentSquatch({
       }),
       setCallout: (text) => hud.setCallout(text),
     },
-    zones: { ...defaultZones(anchors), ...(lab.anchors ? labZones(lab) : {}) },
+    zones: missionZones,
     onLine: (line) => hud.showLine(line),
     onLineEnd: () => hud.hideLine(),
     onCase,
@@ -501,7 +509,15 @@ export function mountSilentSquatch({
     for (const id of ['bust', 'corridor', 'xxx', 'observation', 'stairs', 'cellarTop', 'cellar']) {
       const v = a[id];
       if (v && Number.isFinite(v.x) && Number.isFinite(v.z)) {
-        out[id] = { x: v.x, z: v.z, r: v.r ?? ZONE_RADIUS };
+        const verticalTolerance = Number.isFinite(v.verticalTolerance)
+          ? v.verticalTolerance
+          : (id === 'stairs' ? 1.4 : 1.1);
+        out[id] = {
+          x: v.x,
+          ...(Number.isFinite(v.y) ? { y: v.y, verticalTolerance } : {}),
+          z: v.z,
+          r: v.r ?? ZONE_RADIUS,
+        };
       }
     }
     return out;
@@ -605,10 +621,8 @@ export function mountSilentSquatch({
    * Did that trigger pull find him?
    *
    * The mission does not decide this — the crosshair does. The lab is asked
-   * for something to aim at, in order of preference: a mesh, then a position.
-   * If it publishes neither, the shot is accepted rather than leaving the
-   * player in a locked room with an order he cannot carry out, and the debug
-   * report says the aim was never resolved.
+   * for the body mesh. A real ray intersection record is preserved all the
+   * way to the blood adapter; a cone or boolean cannot place a wound.
    */
   let aimResolved = 'unresolved';
   function aubbieHit() {
@@ -617,31 +631,54 @@ export function mountSilentSquatch({
     if (mesh) {
       aimResolved = 'mesh';
       ray.setFromCamera(centre, camera);
-      return ray.intersectObject(mesh, true).length > 0;
-    }
-    const point = body?.position ?? lab.anchors?.aubbie ?? null;
-    if (point && Number.isFinite(point.x)) {
-      aimResolved = 'position';
-      /* PLUS 1.4, because `body.position` is a figure's ORIGIN, which is the
-       * floor between his feet. Aiming the cone there asked the player to put
-       * the crosshair on a pair of shoes to carry out an execution. This
-       * branch is now the fallback of a fallback — the lab publishes
-       * `aubbieTarget` — but a fallback that is wrong is worse than no
-       * fallback, because it is the one that runs when everything else has
-       * already failed. */
-      const to = new THREE.Vector3(point.x, (point.y ?? camera.position.y) + 1.4, point.z)
-        .sub(camera.position).normalize();
-      const forward = camera.getWorldDirection(new THREE.Vector3());
-      return forward.dot(to) > 0.985; // about five degrees
+      const hit = ray.intersectObject(mesh, true)[0] ?? null;
+      if (!hit) return null;
+      return {
+        point: hit.point.clone(),
+        normal: hit.face?.normal?.clone?.().transformDirection(hit.object.matrixWorld) ?? null,
+        object: hit.object,
+        from: camera.getWorldPosition(new THREE.Vector3()),
+      };
     }
     aimResolved = 'unresolved';
-    return true;
+    return null;
+  }
+
+  /** Preview/checkpoint staging still uses the exact hit contract, but cannot
+   * depend on where a human happened to leave the camera. Organic shots never
+   * call this adapter: `fire()` remains the real ray above. */
+  function previewAubbieHit() {
+    const aubbie = lab.scientists?.[SCIENTIST_INDEX.AUBBIE];
+    const object = aubbie?.fig?.chest ?? aubbie?.object ?? lab.aubbieTarget;
+    if (!object?.isObject3D) return null;
+    object.updateMatrixWorld(true);
+    const point = object.getWorldPosition(new THREE.Vector3());
+    const from = camera.getWorldPosition(new THREE.Vector3());
+    const normal = from.clone().sub(point);
+    if (normal.lengthSq() < 1e-8) normal.set(0, 0, 1);
+    else normal.normalize();
+    return { point, normal, object, from };
   }
 
   /** A left click. Returns true if the mission took it as the execution. */
   function fire() {
     if (!at(S.EXECUTION)) return false;
     return mission.shootAubbie(aubbieHit());
+  }
+
+  /* Player.position is the camera/eye. Lab and room anchors are floor datums.
+   * Keep one allocation-free adapter at the composition boundary so the
+   * mission can compare like with like; otherwise its correctly 3D trigger
+   * cylinders miss the player by the standing eye height (1.66 m). */
+  const missionFootPosition = { x: 0, y: 0, z: 0 };
+  function playerFeet() {
+    const position = player?.position ?? camera.position;
+    missionFootPosition.x = position.x;
+    missionFootPosition.z = position.z;
+    missionFootPosition.y = Number.isFinite(player?.eyeHeight)
+      ? position.y - player.eyeHeight
+      : position.y;
+    return missionFootPosition;
   }
 
   if (autoStart) mission.start();
@@ -682,7 +719,7 @@ export function mountSilentSquatch({
     /** Is the case still in his hands as far as the MISSION is concerned. */
     get caseState() { return mission.caseState; },
     update(dt) {
-      mission.update(dt, { position: player?.position ?? camera.position });
+      mission.update(dt, { position: playerFeet() });
       carried.update(dt);
       updatePlacing(dt);
       updateTurning(dt);
@@ -703,6 +740,12 @@ export function mountSilentSquatch({
       get objective() { return mission.objective; },
       get instruction() { return mission.instruction; },
       get aimResolved() { return aimResolved; },
+      get zones() {
+        return Object.fromEntries(Object.entries(missionZones)
+          .map(([id, zone]) => [id, { ...zone }]));
+      },
+      resolveAubbieHit: () => aubbieHit(),
+      previewAubbieHit: () => previewAubbieHit(),
       code: LAB_DOOR_CODE,
       report: () => mission.report(),
       hud: () => hud.text(),
@@ -712,7 +755,8 @@ export function mountSilentSquatch({
       bustSwitch: () => mission.pressBustSwitch(),
       deliver: () => mission.deliverCase(),
       enterCode: (code) => mission.enterCode(code),
-      shoot: (hit = true) => mission.shootAubbie(hit),
+      shoot: (hit = null) => mission.shootAubbie(hit),
+      shootPreview: () => mission.shootAubbie(previewAubbieHit()),
       silentNight: () => mission.pullSilentNight(),
       leave: () => mission.leave(),
       /** Beat 11's second leg: he walked back into the office. */

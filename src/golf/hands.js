@@ -15,18 +15,14 @@
  * meshes Tony raises in the apartment and at the Bing — and the can gets the
  * same owner-supplied `label.beer` artwork the fridge cans wear, so the beer
  * on a golf course is the beer from the fridge and not a second beer built to
- * look like it. The one thing that is not a straight import is the pose
- * function: `poseDrink` is a nine-line local in both `src/main.js` and
- * `src/bing/main.js` rather than an export, so this is a third copy of nine
- * lines instead of a fourth prop. It matches the flat's version exactly,
- * including the sign of the tilt — positive rotation about X swings the base
- * up over the mouth, which is a man drinking; negative is the same motion
- * played backwards, which is a man pouring beer down his own shirt.
+ * look like it. `poseHeldDrink` is the apartment's actual motion interface,
+ * so the course samples the same lift, tilt, and roll instead of copying it.
  */
 
 import * as THREE from 'three';
 import {
-  beerLabelMaterial, makeBeerCan, makeHeldCigarette, makeHeldDrinks,
+  beerLabelMaterial, makeBeerCan, makeCigarettePack, makeHeldCigarette,
+  makeHeldDrinks, makeZynCan, poseHeldDrink,
 } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { resolveGear } from '../world/gear.js';
@@ -71,7 +67,12 @@ export function loadSquatchBeerLabel() {
  * @param {THREE.Mesh[]} cans the placeholder can meshes, in place
  */
 export function dressSquatchBeer(cans = []) {
-  if (!cans.length) return 0;
+  const validCans = cans.filter((can) => can?.isMesh);
+  if (!validCans.length) return 0;
+  const undressed = validCans.filter(
+    (can) => can.userData.reusableProp !== 'squatch-beer',
+  );
+  if (!undressed.length) return validCans.length;
   const prototypeCan = makeBeerCan(makeMaterials(), { x: 0, y: 0, z: 0 });
   /* makeBeerCan builds from the base up: [label body, top ring, bottom ring].
    * Its body is 0.115 tall centred at y 0.058, so the can's mid-height — which
@@ -79,22 +80,69 @@ export function dressSquatchBeer(cans = []) {
   const [body, top, bottom] = prototypeCan.group.children;
   if (!body) return 0;
   const MID = 0.058;
-  let dressed = 0;
-  for (const can of cans) {
-    if (!can?.isMesh) continue;
+  for (const can of undressed) {
     can.geometry?.dispose?.();
     can.geometry = body.geometry;
     can.material = body.material;
+    can.scale.copy(body.scale);
+    can.userData.reusableProp = 'squatch-beer';
     for (const ring of [top, bottom]) {
       if (!ring) continue;
       const cap = new THREE.Mesh(ring.geometry, ring.material);
       cap.name = `${can.name}-cap`;
-      cap.position.y = ring.position.y - MID;
+      /* `can` is the canonical body's scaled mesh. Children inherit that
+       * non-uniform scale, so express cap transforms in the parent's local
+       * units instead of multiplying the apartment dimensions twice. */
+      cap.position.copy(ring.position);
+      cap.position.y -= MID;
+      cap.position.divide(body.scale);
+      cap.scale.copy(ring.scale).divide(body.scale);
+      cap.rotation.copy(ring.rotation);
       can.add(cap);
     }
-    dressed++;
   }
-  return dressed;
+  return validCans.length;
+}
+
+/**
+ * Dress the cart's generous interaction targets with the apartment's actual
+ * consumable props. The targets stay in place so their tested reach and
+ * pickup interface do not change; only their visible children are shared.
+ */
+export function dressGolfCartConsumables(amenities) {
+  const beers = dressSquatchBeer(amenities?.beers ?? []);
+  let cigarettes = 0;
+  let zyn = 0;
+  let materials = null;
+  const reusableMaterials = () => (materials ??= makeMaterials());
+
+  if (amenities?.cigarettes) {
+    const target = amenities.cigarettes;
+    target.userData.reusableProp = 'cigarette-pack';
+    if (!target.getObjectByName('cigs')) {
+      const prop = makeCigarettePack(
+        reusableMaterials(), { x: 0, y: -0.0175, z: 0 },
+      ).group;
+      target.add(prop);
+      if (target.material) target.material.visible = false;
+    }
+    cigarettes = 1;
+  }
+
+  if (amenities?.zyn) {
+    const target = amenities.zyn;
+    target.userData.reusableProp = 'zyn-tin';
+    if (!target.getObjectByName('zyn')) {
+      const prop = makeZynCan(
+        reusableMaterials(), { x: 0, y: -0.013, z: 0 },
+      ).group;
+      target.add(prop);
+      if (target.material) target.material.visible = false;
+    }
+    zyn = 1;
+  }
+
+  return { beers, cigarettes, zyn };
 }
 
 /**
@@ -138,20 +186,9 @@ export function createHeldProps(camera) {
    * lip, which is the whole of the animation. */
   const tin = new THREE.Group();
   tin.name = 'golf-held-zyn-tin';
+  tin.userData.reusableProp = 'zyn-tin';
   tin.position.set(0.24, -0.30, -0.40);
-  const tinBody = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.036, 0.036, 0.015, 20),
-    new THREE.MeshStandardMaterial({ color: 0x3f78b8, roughness: 0.55 }),
-  );
-  tinBody.name = 'golf-held-zyn-tin-body';
-  tin.add(tinBody);
-  const tinLid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.0365, 0.0365, 0.004, 20),
-    new THREE.MeshStandardMaterial({ color: 0xe8edf3, roughness: 0.45 }),
-  );
-  tinLid.name = 'golf-held-zyn-tin-lid';
-  tinLid.position.y = 0.0095;
-  tin.add(tinLid);
+  tin.add(makeZynCan(makeMaterials(), { x: 0, y: 0, z: 0 }).group);
   tin.visible = false;
   group.add(tin);
 
@@ -195,11 +232,7 @@ export function createHeldProps(camera) {
    */
   function poseDrink(k) {
     if (showing !== 'beer') return;
-    const e = k * k * (3 - 2 * k);
-    drinks.can.position.set(
-      rest.can.x - 0.10 * e, rest.can.y + 0.26 * e, rest.can.z + 0.09 * e,
-    );
-    drinks.can.rotation.set(1.30 * e, 0, -0.34 * e);
+    poseHeldDrink(drinks, 'can', k);
   }
 
   /** The tin comes up, the lid turns, and a pouch goes in. Same easing. */

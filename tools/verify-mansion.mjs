@@ -37,6 +37,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PEE_CUE_NAMES } from '../src/core/pee-system.js';
+import { TV_AUDIO_SPATIAL_PROFILE } from '../src/core/tv.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5224;
@@ -96,12 +97,9 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
 
 const problems = [];
-/* Every 404 the page takes, by path. The home theatre's film seam deliberately
- * points at a tape that has not been delivered (assets/video/the-feature.mp4),
- * and switching the projector on is what proves the seam is wired -- so the
- * fetch, and its 404, are the correct behaviour rather than a fault. They are
- * recorded here so the console check can say WHICH resource was missing
- * instead of either failing on it or waving all 404s through. */
+/* Every 404 the page takes, by path. All four authored theatre reels now
+ * ship, so there is no missing-media allowance: a texture, module, cue or
+ * film that fails to load is a release failure and is named here. */
 const notFound = [];
 page.on('response', (r) => {
   if (r.status() === 404) notFound.push(new URL(r.url()).pathname);
@@ -210,8 +208,19 @@ function inside(rect, s, pad = 0.25) {
 
 try {
   const bootStart = Date.now();
+  const bootPageError = new Promise((_, reject) => {
+    page.once('pageerror', (error) => reject(error));
+  });
   await page.goto(`http://localhost:${PORT}/mansion.html?preview=1`, { waitUntil: 'load', timeout: 180000 });
-  await page.waitForFunction(() => window.mansion?.player, null, { timeout: 120000 });
+  try {
+    await Promise.race([
+      page.waitForFunction(() => window.mansion?.player, null, { timeout: 180000 }),
+      bootPageError,
+    ]);
+  } catch (error) {
+    console.error(`Mansion boot diagnostics: ${problems.join(' | ') || 'no page error reached the console'}`);
+    throw error;
+  }
   const readyMs = Date.now() - bootStart;
 
   /* ================================================================ */
@@ -1082,6 +1091,114 @@ try {
   check('the suite\'s television is a working set, not a black plate',
     suiteSet.on === true && suiteSet.sets >= 5,
     JSON.stringify(suiteSet));
+  /* An ACTUAL video reel through the ACTUAL MediaElement -> gain -> Panner
+   * graph and the ACTUAL AudioContext listener. The older assertion combined
+   * camera coordinates with the exported curve; it remained green if the
+   * reel never wired or `audio.updateListener(camera)` stopped moving the
+   * WebAudio listener. Select a real suite reel, wait for its live graph, then
+   * read the browser-owned AudioParams beside the set and outside the room. */
+  const tvSetup = await page.evaluate(() => {
+    const m = window.mansion;
+    const tv = m.media.tvs.find((entry) => entry.id === 'master-suite');
+    if (!tv) return { error: 'master-suite television is absent' };
+    const restore = {
+      x: m.player.position.x,
+      y: m.player.position.y,
+      z: m.player.position.z,
+      yaw: m.player.yaw,
+      pitch: m.player.pitch,
+    };
+    const source = tv.position;
+    const floor = m.roomTable.masterSuite.floor;
+    for (let i = 0; i < 24 && !/^REEL /.test(tv.channel); i++) tv.next();
+    m.teleport(source.x, floor, source.z - 2.45, 0);
+    m.tick(0.25);
+    return {
+      id: tv.id,
+      channel: tv.channel,
+      source,
+      restore,
+      floor,
+      camera: { x: m.camera.position.x, y: m.camera.position.y, z: m.camera.position.z },
+    };
+  });
+  let tvDistance = tvSetup;
+  if (!tvSetup.error) {
+    await page.waitForFunction(() => {
+      const tv = window.mansion.media.tvs.find((entry) => entry.id === 'master-suite');
+      const graph = tv?.audioGraph;
+      return graph?.graphConnected === true && graph?.contextState === 'running'
+        && graph?.video?.playing === true && graph?.video?.readyState >= 2;
+    }, null, { timeout: 120000 });
+    /* AudioParam.setTargetAtTime uses a 20ms smoothing constant. This is real
+     * AudioContext time, not simulation time, so give it a few constants
+     * before reading the near listener. */
+    await page.waitForTimeout(120);
+    const near = await page.evaluate(() => {
+      const m = window.mansion;
+      m.tick(0.08);
+      const tv = m.media.tvs.find((entry) => entry.id === 'master-suite');
+      return {
+        graph: tv.audioGraph,
+        camera: { x: m.camera.position.x, y: m.camera.position.y, z: m.camera.position.z },
+      };
+    });
+    await page.evaluate(() => {
+      const m = window.mansion;
+      const tv = m.media.tvs.find((entry) => entry.id === 'master-suite');
+      const source = tv.position;
+      const floor = m.roomTable.masterSuite.floor;
+      /* South is through the suite doorway and down the house: a real
+       * outside-room listening position, not an arbitrary scalar. */
+      m.teleport(source.x, floor, source.z - 16.5, 0);
+      m.tick(0.25);
+    });
+    await page.waitForTimeout(120);
+    const far = await page.evaluate(() => {
+      const m = window.mansion;
+      m.tick(0.08);
+      const tv = m.media.tvs.find((entry) => entry.id === 'master-suite');
+      return {
+        graph: tv.audioGraph,
+        camera: { x: m.camera.position.x, y: m.camera.position.y, z: m.camera.position.z },
+      };
+    });
+    await page.evaluate((restore) => {
+      const m = window.mansion;
+      m.teleport(restore.x, restore.y, restore.z, restore.yaw * 180 / Math.PI);
+      m.player.pitch = restore.pitch;
+      m.tick(0.1);
+    }, tvSetup.restore);
+    tvDistance = { ...tvSetup, near, far };
+  }
+  const pointDistance = (a, b) => (a && b
+    ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) : Infinity);
+  const liveProfile = tvDistance.near?.graph?.panner;
+  check('a real Mansion video reel uses its live Panner/listener and becomes inaudible outside the room',
+    !tvDistance.error
+      && tvDistance.id === 'master-suite'
+      && /^REEL /.test(tvDistance.channel)
+      && tvDistance.near?.graph?.wired === true
+      && tvDistance.near.graph.graphConnected === true
+      && tvDistance.near.graph.contextState === 'running'
+      && tvDistance.near.graph.video.playing === true
+      && tvDistance.near.graph.video.muted === false
+      && /(?:godfather|goodfellas|heat|blow)-.*\.mp4(?:$|\?)/i.test(tvDistance.near.graph.video.src || '')
+      && pointDistance(tvDistance.near.graph.source, tvDistance.source) <= 0.01
+      && pointDistance(tvDistance.near.graph.listener, tvDistance.near.camera) <= 0.15
+      && pointDistance(tvDistance.far.graph.listener, tvDistance.far.camera) <= 0.15
+      && pointDistance(tvDistance.near.graph.listener, tvDistance.far.graph.listener) >= 10
+      && liveProfile?.distanceModel === TV_AUDIO_SPATIAL_PROFILE.distanceModel
+      && liveProfile?.refDistance === TV_AUDIO_SPATIAL_PROFILE.refDistance
+      && liveProfile?.maxDistance === TV_AUDIO_SPATIAL_PROFILE.maxDistance
+      && liveProfile?.rolloffFactor === TV_AUDIO_SPATIAL_PROFILE.rolloffFactor
+      && Math.abs(tvDistance.near.graph.mediaGain - 0.9) <= 0.001
+      && tvDistance.near.graph.distance <= TV_AUDIO_SPATIAL_PROFILE.refDistance
+      && tvDistance.near.graph.effectiveGain >= 0.89
+      && tvDistance.far.graph.distance >= TV_AUDIO_SPATIAL_PROFILE.outsideRoomDistance
+      && tvDistance.far.graph.effectiveGain <= 0.02
+      && tvDistance.near.graph.effectiveGain > tvDistance.far.graph.effectiveGain,
+    JSON.stringify(tvDistance));
 
   /* CHANGING CHANNEL ON THE SUITE'S OWN SET, ON THE PLAYER'S OWN ACTIONS.
    *
@@ -2164,6 +2281,95 @@ try {
         && medallion.art?.file === 'logo-crest.png'),
     JSON.stringify(gateArt));
 
+  /* The owner's ten authored photos were recovered from history. Await the
+   * production art promise above, then enumerate the real scene meshes and
+   * their decoded texture images. A manifest-only check would pass if a slot
+   * existed while the wall still showed its procedural fallback. */
+  const recoveredArt = await page.evaluate(async () => {
+    const expected = [
+      ['mansion.gallery.roster', 'austin-major-2025-roster.jpg'],
+      ['mansion.ballroom.major', 'austin-major-cowboy-banner.jpg'],
+      ['mansion.lounge.cowboy', 'austin-major-cowboy.jpg'],
+      ['mansion.conference.stacks', 'logo-5-years-of-stacks.jpg'],
+      ['mansion.office.boss', 'boss-camp-shirt.jpg'],
+      ['mansion.winter.almighty', 'squatch-almighty.jpg'],
+      ['mansion.cellar.bus', 'party-bus-night.jpg'],
+      ['mansion.guest.dog', 'house-dog.jpg'],
+      ['mansion.theatre.lockup', 'austin-major-lockup.jpg'],
+      ['mansion.lan.denver', 'logo-denver-2026.jpg'],
+    ];
+    const dressed = await window.mansion.interior.artReady;
+    const meshes = [];
+    window.mansion.scene.updateMatrixWorld(true);
+    window.mansion.scene.traverse((mesh) => {
+      const art = mesh.userData?.art;
+      if (!art?.slot || !expected.some(([slot]) => slot === art.slot)) return;
+      const image = mesh.material?.map?.image ?? mesh.material?.map?.source?.data ?? null;
+      let shown = mesh.visible !== false && mesh.material?.visible !== false;
+      for (let parent = mesh.parent; parent && shown; parent = parent.parent) shown = parent.visible !== false;
+      const size = new window.mansion.THREE.Box3().setFromObject(mesh)
+        .getSize(new window.mansion.THREE.Vector3());
+      meshes.push({
+        slot: art.slot,
+        file: art.file,
+        real: art.real === true,
+        shown,
+        mapped: Boolean(mesh.material?.map),
+        decoded: Boolean(image && (image.complete !== false)
+          && ((image.naturalWidth ?? image.videoWidth ?? image.width ?? 0) > 0)),
+        width: +Math.max(size.x, size.z).toFixed(3),
+        height: +size.y.toFixed(3),
+      });
+    });
+    return { expected, dressed, meshes };
+  });
+  const recoveredFailures = [];
+  for (const [slot, file] of recoveredArt.expected) {
+    const found = recoveredArt.meshes.filter((mesh) => mesh.slot === slot);
+    if (found.length !== 1) recoveredFailures.push(`${slot} has ${found.length} meshes`);
+    else if (found[0].file !== file || !found[0].real || !found[0].shown
+      || !found[0].mapped || !found[0].decoded || found[0].width <= 0 || found[0].height <= 0) {
+      recoveredFailures.push(`${slot}: ${JSON.stringify(found[0])}`);
+    }
+    if (!recoveredArt.dressed.includes(slot)) recoveredFailures.push(`${slot} absent from artReady result`);
+  }
+  check('all ten recovered Mansion photographs resolve to visible decoded meshes in their authored rooms',
+    recoveredArt.expected.length === 10
+      && recoveredArt.meshes.length === 10
+      && recoveredFailures.length === 0,
+    recoveredFailures.join(' | ') || recoveredArt.meshes.map((mesh) => `${mesh.slot}:${mesh.file}`).join(' | '));
+
+  const vaultPicture = await page.evaluate(() => {
+    const T = window.mansion.THREE;
+    const rect = window.mansion.roomTable.vault.rect;
+    let mesh = null;
+    window.mansion.scene.traverse((object) => {
+      if (!mesh && object.userData?.art?.slot === 'mansion.vault.mark') mesh = object;
+    });
+    if (!mesh) return { error: 'mansion.vault.mark has no scene mesh' };
+    const at = mesh.getWorldPosition(new T.Vector3());
+    const normal = new T.Vector3(0, 0, 1).applyQuaternion(mesh.getWorldQuaternion(new T.Quaternion()));
+    const image = mesh.material?.map?.image ?? mesh.material?.map?.source?.data ?? null;
+    return {
+      at: { x: at.x, y: at.y, z: at.z },
+      normal: { x: normal.x, y: normal.y, z: normal.z },
+      outside: at.z < rect.z0,
+      facesCorridor: normal.z < -0.98,
+      shown: mesh.visible !== false && mesh.material?.visible !== false,
+      mapped: Boolean(mesh.material?.map),
+      decoded: Boolean(image && image.complete !== false
+        && ((image.naturalWidth ?? image.videoWidth ?? image.width ?? 0) > 0)),
+      art: mesh.userData.art,
+    };
+  });
+  check('the vault picture is visibly textured outside the vault and faces the cellar corridor',
+    !vaultPicture.error
+      && vaultPicture.outside && vaultPicture.facesCorridor
+      && vaultPicture.shown && vaultPicture.mapped && vaultPicture.decoded
+      && vaultPicture.art?.real === true
+      && vaultPicture.art?.file === 'stacks-5-years.jpg',
+    JSON.stringify(vaultPicture));
+
   const sharedBedroom = await page.evaluate(() => {
     const room = window.mansion.interior.props.bedrooms.eastRear;
     const identity = room.identity;
@@ -2172,6 +2378,7 @@ try {
       identity.plaque,
       identity.crest,
       ...identity.portraits,
+      ...identity.accentPortraits,
       ...identity.props,
     ].map((object) => {
       const p = object.getWorldPosition(new window.mansion.THREE.Vector3());
@@ -2184,6 +2391,12 @@ try {
       plaque: identity.plaque.name,
       crest: identity.crest.userData.art,
       portraits: identity.portraits.map((portrait) => portrait.userData.art),
+      accentPortraits: identity.accentPortraits.map((portrait) => ({
+        name: portrait.name,
+        art: portrait.userData.art,
+        mapped: Boolean(portrait.material?.map),
+        shown: portrait.visible !== false,
+      })),
       props: identity.props.map((prop) => prop.name),
     };
   });
@@ -2200,6 +2413,11 @@ try {
       && sharedBedroom.crest?.file === 'logo-crest.png'
       && sharedBedroom.portraits.every((art) => art?.real === true)
       && sharedBedroom.portraits.map((art) => art.file).join('|')
+        === 'shrine-booski-podium.jpg|family-portrait-deathmegatron.webp'
+      && sharedBedroom.accentPortraits.length === 2
+      && sharedBedroom.accentPortraits.every((portrait) => portrait.art?.real === true
+        && portrait.mapped && portrait.shown)
+      && sharedBedroom.accentPortraits.map((portrait) => portrait.art.file).join('|')
         === 'shrine-booski-podium.jpg|family-portrait-deathmegatron.webp',
     JSON.stringify(sharedBedroom));
 
@@ -2260,6 +2478,234 @@ try {
   });
   check('the kitchen sink actually runs', sinkRun.on === true && sinkRun.off === false,
     JSON.stringify(sinkRun));
+
+  /* ROOM FINISH CONTRACTS. Read the public room props and the geometry that
+   * production actually built. These are deliberately AABB checks rather
+   * than source-string promises: the previous sink bowls existed in source
+   * but were sealed below the counter, and every bedroom rug existed while
+   * rendering 8-10 mm under its finished floor. */
+  const roomFinish = await page.evaluate(() => {
+    const m = window.mansion;
+    const T = m.THREE;
+    const scene = m.scene;
+    const props = m.interior.props;
+    scene.updateMatrixWorld(true);
+
+    const bounds = (object) => {
+      if (!object) return null;
+      const b = new T.Box3().setFromObject(object);
+      if (b.isEmpty()) return null;
+      const out = {
+        x0: b.min.x, x1: b.max.x,
+        y0: b.min.y, y1: b.max.y,
+        z0: b.min.z, z1: b.max.z,
+      };
+      out.sx = out.x1 - out.x0;
+      out.sy = out.y1 - out.y0;
+      out.sz = out.z1 - out.z0;
+      out.cx = (out.x0 + out.x1) / 2;
+      out.cy = (out.y0 + out.y1) / 2;
+      out.cz = (out.z0 + out.z1) / 2;
+      out.finite = Object.values(out).every(Number.isFinite);
+      return out;
+    };
+    const namedBounds = (name) => bounds(scene.getObjectByName(name));
+    const lightIntensity = (object) => {
+      let total = 0;
+      object?.traverse((piece) => { if (piece.isLight) total += piece.intensity; });
+      return total;
+    };
+
+    const sink = props.kitchen.sink;
+    const sinkRim = bounds(sink?.rim);
+    const sinkBowls = (sink?.bowls ?? []).map(bounds);
+    const sinkStream = bounds(sink?.stream);
+    const streamBowls = sinkStream ? sinkBowls.filter((b) => b
+      && sinkStream.cx >= b.x0 && sinkStream.cx <= b.x1
+      && sinkStream.cz >= b.z0 && sinkStream.cz <= b.z1).length : 0;
+    const faucetParts = [
+      'kitchen-sink-faucet-base',
+      'kitchen-sink-faucet-riser',
+      'kitchen-sink-faucet-arch',
+      'kitchen-sink-faucet-spout',
+      'kitchen-sink-faucet-lever',
+      'kitchen-sink-pullout-spray',
+      'kitchen-sink-soap-pump',
+    ];
+
+    const suite = props.masterSuite.refinement;
+    const suiteBench = bounds(suite?.bench);
+    const suiteMattress = namedBounds('suite-bed-mattress');
+    const benchCollider = suiteBench ? m.interior.colliders.some((c) => (
+      Math.abs(c.min.x - suiteBench.x0) <= 0.05
+      && Math.abs(c.max.x - suiteBench.x1) <= 0.05
+      && Math.abs(c.min.z - suiteBench.z0) <= 0.05
+      && Math.abs(c.max.z - suiteBench.z1) <= 0.05
+      && c.min.y <= suiteBench.y0 + 0.02
+      && c.max.y >= suiteBench.y1 - 0.02
+    )) : false;
+
+    const rugSpecs = [
+      ['westFront', props.bedrooms.westFront?.rug, 'bed-west-front-floor'],
+      ['eastFront', props.bedrooms.eastFront?.rug, 'bed-east-front-floor'],
+      ['westRear', props.bedrooms.westRear?.rug, 'bed-west-rear-floor'],
+      ['eastRear', props.bedrooms.eastRear?.rug, 'bed-east-rear-floor'],
+      ['guestRoom', props.guestRoom?.rug, 'guest-floor'],
+    ];
+    const rugs = rugSpecs.map(([id, rug, floorName]) => ({
+      id,
+      rug: bounds(rug),
+      floor: namedBounds(floorName),
+    }));
+
+    const detailObjects = {
+      westFront: props.bedrooms.westFront?.details ?? [],
+      eastFront: props.bedrooms.eastFront?.details ?? [],
+      westRear: props.bedrooms.westRear?.details ?? [],
+      eastRear: props.bedrooms.eastRear?.details ?? [],
+      guestRoom: props.guestRoom?.refinement?.bedding ?? [],
+    };
+    const details = Object.fromEntries(Object.entries(detailObjects).map(([id, objects]) => [id, {
+      names: objects.map((o) => o?.name ?? ''),
+      bounds: objects.map(bounds),
+    }]));
+    const clusterRooms = {
+      westFront: props.bedrooms.westFront,
+      eastFront: props.bedrooms.eastFront,
+      westRear: props.bedrooms.westRear,
+      eastRear: props.bedrooms.eastRear,
+      guestRoom: props.guestRoom,
+    };
+    const clusters = Object.fromEntries(Object.entries(clusterRooms).map(([id, room]) => [id, {
+      kind: room?.cluster?.kind ?? null,
+      rootName: room?.cluster?.root?.name ?? null,
+      root: bounds(room?.cluster?.root),
+      names: (room?.cluster?.inventory ?? []).map((o) => o?.name ?? ''),
+      bounds: (room?.cluster?.inventory ?? []).map(bounds),
+    }]));
+
+    return {
+      sink: {
+        bowls: sinkBowls,
+        rim: sinkRim,
+        stream: sinkStream,
+        streamBowls,
+        faucet: bounds(sink?.faucet),
+        missingFaucetParts: faucetParts.filter((name) => !scene.getObjectByName(name)),
+      },
+      suite: {
+        bench: suiteBench,
+        mattress: suiteMattress,
+        gap: suiteBench && suiteMattress ? suiteBench.z0 - suiteMattress.z1 : null,
+        runners: (suite?.runners ?? []).map(bounds),
+        portraitName: suite?.portrait?.name ?? null,
+        portrait: bounds(suite?.portrait),
+        portraitArt: bounds(suite?.portraitArt),
+        portraitArtPiece: suite?.portraitArt?.userData?.artPiece ?? null,
+        portraitManifestSlot: suite?.portraitArt?.userData?.art?.slot
+          ?? suite?.portraitArt?.userData?.artSlot ?? null,
+        accentNames: (suite?.accentLights ?? []).map((o) => o?.name ?? ''),
+        accentLights: (suite?.accentLights ?? []).map(bounds),
+        accentIntensity: (suite?.accentLights ?? []).map(lightIntensity),
+        portraitLightName: suite?.portraitLight?.name ?? null,
+        portraitLight: bounds(suite?.portraitLight),
+        portraitLightIntensity: lightIntensity(suite?.portraitLight),
+        benchCollider,
+      },
+      rugs,
+      details,
+      clusters,
+    };
+  });
+
+  const finiteBox = (b) => !!b && b.finite;
+  const sinkBowlTop = Math.max(...roomFinish.sink.bowls.map((b) => b?.y1 ?? -Infinity));
+  check('the kitchen sink has two recessed open bowls and its water lands in one bowl, not on the divider',
+    roomFinish.sink.bowls.length === 2
+      && roomFinish.sink.bowls.every(finiteBox)
+      && finiteBox(roomFinish.sink.rim)
+      && finiteBox(roomFinish.sink.stream)
+      && roomFinish.sink.rim.y1 - sinkBowlTop >= 0.08
+      && roomFinish.sink.streamBowls === 1
+      && finiteBox(roomFinish.sink.faucet)
+      && roomFinish.sink.missingFaucetParts.length === 0,
+    JSON.stringify(roomFinish.sink));
+
+  check('Lou\'s suite closes the bed zone with a colliding bench, two runners and a lit scene-built accent',
+    finiteBox(roomFinish.suite.bench)
+      && roomFinish.suite.gap >= 0.25
+      && roomFinish.suite.runners.length === 2
+      && roomFinish.suite.runners.every(finiteBox)
+      && finiteBox(roomFinish.suite.portrait)
+      && finiteBox(roomFinish.suite.portraitArt)
+      && roomFinish.suite.portraitName === 'suite-lou-accent'
+      && roomFinish.suite.portraitArtPiece === 'suite-lou-accent'
+      && roomFinish.suite.portraitManifestSlot === null
+      && roomFinish.suite.accentNames.join('|') === 'suite-bed-foot-lamp-left|suite-bed-foot-lamp-right'
+      && roomFinish.suite.accentLights.length === 2
+      && roomFinish.suite.accentLights.every(finiteBox)
+      && roomFinish.suite.accentIntensity.every((intensity) => intensity >= 2.2)
+      && roomFinish.suite.portraitLightName === 'suite-lou-accent-light'
+      && finiteBox(roomFinish.suite.portraitLight)
+      && roomFinish.suite.portraitLightIntensity >= 1.5
+      && roomFinish.suite.benchCollider,
+    JSON.stringify(roomFinish.suite));
+
+  const badRugs = roomFinish.rugs.filter(({ rug, floor }) => !finiteBox(rug)
+    || !finiteBox(floor)
+    || rug.y0 < floor.y1 + 0.002
+    || rug.sx < 4.5
+    || rug.sz < 4.0);
+  check('all four upper bedrooms and the Prospect room render a useful rug above the finished floor',
+    roomFinish.rugs.length === 5 && badRugs.length === 0,
+    badRugs.length ? JSON.stringify(badRugs) : JSON.stringify(roomFinish.rugs));
+
+  const expectedDetails = {
+    westFront: ['gothic-folio-ribbon', 'gothic-open-folio-left', 'gothic-open-folio-right'],
+    eastFront: ['oldtime-travel-tag', 'oldtime-trunk-strap-left', 'oldtime-trunk-strap-right'],
+    westRear: ['lake-desk-lamp', 'lake-desk-letter'],
+    eastRear: ['booski-death-room-ledger', 'booski-death-room-security-radio'],
+    guestRoom: ['guest-bed-coverlet', 'guest-bed-cushion-left', 'guest-bed-cushion-right', 'guest-bed-throw'],
+  };
+  const badDetails = Object.entries(expectedDetails).filter(([id, expected]) => {
+    const actual = roomFinish.details[id];
+    return !actual
+      || actual.bounds.some((b) => !finiteBox(b))
+      || [...actual.names].sort().join('|') !== [...expected].sort().join('|');
+  });
+  check('each bedroom publishes its authored finishing inventory with finite geometry',
+    badDetails.length === 0,
+    badDetails.length ? JSON.stringify(Object.fromEntries(badDetails)) : JSON.stringify(roomFinish.details));
+
+  const expectedClusters = {
+    westFront: ['packing', 'gothic-packing-cluster', [
+      'gothic-packed-garment', 'gothic-packing-case', 'gothic-packing-lid', 'gothic-valet-stand',
+    ]],
+    eastFront: ['washstand', 'oldtime-washstand-cluster', [
+      'oldtime-basin', 'oldtime-pitcher', 'oldtime-towel', 'oldtime-washstand',
+    ]],
+    westRear: ['writing-desk', 'lake-writing-cluster', [
+      'lake-desk-lamp', 'lake-desk-letter', 'lake-writing-chair', 'lake-writing-desk',
+    ]],
+    eastRear: ['dressing-bench', 'modern-dressing-cluster', [
+      'modern-dressing-bench', 'modern-dressing-mirror', 'modern-folded-garment',
+    ]],
+    guestRoom: ['dressing-storage', 'prospect-dressing-cluster', [
+      'guest-dresser', 'guest-mirror', 'guest-wardrobe',
+    ]],
+  };
+  const badClusters = Object.entries(expectedClusters).filter(([id, [kind, rootName, names]]) => {
+    const actual = roomFinish.clusters[id];
+    return !actual
+      || actual.kind !== kind
+      || actual.rootName !== rootName
+      || !finiteBox(actual.root)
+      || actual.bounds.some((b) => !finiteBox(b))
+      || [...actual.names].sort().join('|') !== [...names].sort().join('|');
+  });
+  check('all five ordinary bedrooms publish a distinct named functional cluster',
+    badClusters.length === 0,
+    badClusters.length ? JSON.stringify(Object.fromEntries(badClusters)) : JSON.stringify(roomFinish.clusters));
 
   check('the Squatch logo art slots are declared for the apartment gear pipeline',
     media.slots >= 16, `${media.slots} slots`);
@@ -2470,6 +2916,9 @@ try {
   const theatreRun = await page.evaluate(() => {
     const t = window.mansion.theatre;
     const before = t.lights;
+    const occupied = t.occupied;
+    const available = t.available;
+    const stoveSeatBlocked = t.sit(1);
     const sat = t.sit(0);
     window.mansion.tick(1);
     const sitting = t.sitting;
@@ -2481,7 +2930,7 @@ try {
     t.toggle();
     const restored = t.lights;
     return {
-      seats: t.seats, sat, sitting, stood, before, on, showing, dimmed,
+      seats: t.seats, occupied, available, stoveSeatBlocked, sat, sitting, stood, before, on, showing, dimmed,
       off: t.on, restored,
     };
   });
@@ -2489,8 +2938,14 @@ try {
     theatreRun.on === true && theatreRun.off === false
       && theatreRun.showing === 'REEL 1: THE GODFATHER',
     JSON.stringify(theatreRun));
-  check('all twelve theatre chairs are usable and return the player to their aisle',
-    theatreRun.seats === 12 && theatreRun.sat === true
+  check('the preview theatre reserves its three cast chairs while an open chair returns the player to its aisle',
+    theatreRun.seats === 12 && theatreRun.available === 9
+      && JSON.stringify(theatreRun.occupied) === JSON.stringify([
+        { index: 1, occupant: 'oldStove' },
+        { index: 3, occupant: 'seff' },
+        { index: 5, occupant: 'lag' },
+      ])
+      && theatreRun.stoveSeatBlocked === false && theatreRun.sat === true
       && theatreRun.sitting === 0 && theatreRun.stood === true,
     JSON.stringify(theatreRun));
   check('the projector dims four house sconces but preserves four low aisle lights',
@@ -3074,11 +3529,8 @@ try {
   /* ---- S6: HE BLEEDS.
    *
    * Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."* There
-   * was none — the man simply fell over. `bleed()` reuses two effects this
-   * repository already has: THE SILVER CASE's pooled arterial decal
-   * (`BulletHoles(scene, 'blood')`, attached to the body so the wound travels
-   * with him) and this scene's own floor `stain()`, the one the pool under
-   * xXx is made of.
+   * was none — the man simply fell over. The scene now preserves the real ray
+   * record into the shared BloodImpactSystem and DeathBloodPool.
    *
    * Asserted on what it LEAVES BEHIND rather than on a flag: decals that
    * exist, a pool that is actually opaque by the time he has landed, and the
@@ -3088,14 +3540,23 @@ try {
     const L = window.mansion.lab;
     const aubbie = L.scientists[0];
     const before = { marks: L.inventory.bloodMarks, pools: L.inventory.bloodPools };
-    aubbie.shot({ x: aubbie.position.x, z: aubbie.position.z + 3 });
+    const hitObject = aubbie.fig.chest;
+    const point = hitObject.getWorldPosition(new T.Vector3());
+    aubbie.shot({
+      point,
+      object: hitObject,
+      normal: new T.Vector3(0, 0, 1),
+      from: point.clone().add(new T.Vector3(0, 0, 3)),
+    });
     aubbie.collapse();
     window.mansion.tick(3);
     let poolOpacity = 0;
     let onBody = 0;
     window.mansion.scene.traverse((o) => {
-      if (o.name === 'ss-blood-pool') poolOpacity = Math.max(poolOpacity, o.material.opacity);
-      if (o.name === 'ss-blood-wound' && o.visible) {
+      if (o.name.startsWith('blood.death-pool.') && o.visible) {
+        poolOpacity = Math.max(poolOpacity, o.material.opacity);
+      }
+      if (o.name === 'blood.impact' && o.visible && o.userData.hitOwner === aubbie) {
         /* Still attached to him, not left hanging where he was standing. */
         const at = o.getWorldPosition(new T.Vector3());
         if (Math.hypot(at.x - aubbie.position.x, at.z - aubbie.position.z) < 1.6) onBody++;
@@ -3111,7 +3572,7 @@ try {
   });
   check('shooting Aubbie leaves blood — a wound on him, spatter behind him and a pool under him',
     bleeding.before.marks === 0 && bleeding.before.pools === 0
-      && bleeding.marks >= 4 && bleeding.pools >= 1
+      && bleeding.marks >= 2 && bleeding.pools === 1
       && bleeding.poolOpacity > 0.5 && bleeding.onBody >= 1,
     JSON.stringify(bleeding));
 
@@ -3353,7 +3814,7 @@ try {
 
   /* ---- The fit-out, against the brief's own lists. */
   check('the sealed lab is fitted out as the brief describes it',
-    lab.inventory.workstations === 6 && lab.inventory.roboticArms >= 2
+    lab.inventory.workstations === 6 && lab.inventory.roboticArms === 0
       && lab.inventory.chemicalTanks >= 3 && lab.inventory.coolantTubes >= 4
       && lab.inventory.gasVents >= 4 && lab.inventory.coreRings === 3
       && lab.inventory.hasFatSquatchEmblem === true,
@@ -3587,18 +4048,44 @@ try {
 
   const evening = await page.evaluate(() => {
     const M = window.mansion;
-    M.tick(12);
+    const advance = (seconds) => {
+      for (let t = 0; t < seconds; t += 1 / 30) M.tick(1 / 30);
+    };
+    advance(12);
+    const secondHeadBefore = M.cast.evening.poolComposition
+      .find(({ id }) => id === 'poolPerformer1')?.headX;
     const first = M.cast.usePoolGirl();
-    M.tick(4.2);
+    advance(4.2);
     const second = M.cast.usePoolGirl();
-    M.tick(6.2);
+    advance(6.2);
     const third = M.cast.usePoolGirl();
-    M.tick(3.2);
+    advance(3.2);
+
+    const otherHello = M.cast.useSecondPoolGirl();
+    advance(4.2);
+    const otherFlirt = M.cast.useSecondPoolGirl();
+    advance(6.8);
+    const otherStart = M.cast.useSecondPoolGirl();
+    M.tick(1 / 30);
+    const timingShown = document.querySelector('.ss-timing')?.classList.contains('show') === true;
+    M.cast.setSecondPoolDressTarget(false);
+    const otherMiss = M.cast.useSecondPoolGirl();
+    const otherPulls = [];
+    for (let i = 0; i < 7; i++) {
+      M.cast.setSecondPoolDressTarget(true);
+      otherPulls.push(M.cast.useSecondPoolGirl());
+    }
+    advance(3.2);
     const stove = M.cast.useOldStove();
-    M.tick(4.5);
+    advance(4.5);
+    const state = M.cast.evening;
     return {
       first, second, third, stove,
-      state: M.cast.evening,
+      otherHello, otherFlirt, otherStart, otherMiss, otherPulls, timingShown,
+      secondHeadBefore,
+      secondHeadAfter: state.poolComposition.find(({ id }) => id === 'poolPerformer1')?.headX,
+      stoveSeat: M.cast.seats.find(({ id }) => id === 'oldStove') ?? null,
+      state,
       said: M.cast.said,
     };
   });
@@ -3613,15 +4100,74 @@ try {
       && evening.state?.poolPhase === 'done' && evening.state?.dressHelped === true
       && eveningCues.every((cue) => evening.said.includes(cue)),
     JSON.stringify(evening));
+  const secondDressCues = evening.state?.secondDress?.cues ?? [];
+  check('the other recliner uses the shared seven-pull TimingBar with miss, foley and payoff',
+    evening.otherHello && evening.otherFlirt && evening.otherStart
+      && evening.otherMiss === false && evening.otherPulls.length === 7
+      && evening.otherPulls.every(Boolean) && evening.timingShown
+      && evening.state?.secondDressHelped === true
+      && evening.state?.secondDress?.hits === 7 && evening.state?.secondDress?.misses === 1
+      && secondDressCues.filter(({ kind, name }) => kind === 'play' && /^moan\./.test(name)).length === 7
+      && secondDressCues.filter(({ kind, name }) => kind === 'play' && name === 'clap.wet.finish').length === 1
+      && JSON.stringify(secondDressCues.filter(({ kind }) => kind === 'loop').map(({ name }) => name))
+        === JSON.stringify(['clap.wet.loop.1', 'clap.wet.loop.2', 'clap.wet.loop.3']),
+    JSON.stringify({
+      hello: evening.otherHello, flirt: evening.otherFlirt, start: evening.otherStart,
+      miss: evening.otherMiss, pulls: evening.otherPulls, timing: evening.timingShown,
+      dress: evening.state?.secondDress,
+    }));
+  check('the two pool performers keep distinct stable heads across the full interaction',
+    Number.isFinite(evening.secondHeadBefore)
+      && Math.abs(evening.secondHeadAfter - evening.secondHeadBefore) < 0.001,
+    JSON.stringify({ before: evening.secondHeadBefore, after: evening.secondHeadAfter }));
   check('the pool scene keeps two women reclined on loungers and a third in the water',
     evening.state?.poolComposition?.length === 3
       && evening.state.poolComposition.filter(({ pose }) => pose === 'reclined').length === 2
       && evening.state.poolComposition.filter(({ pose }) => pose === 'in-water').length === 1,
     JSON.stringify(evening.state?.poolComposition));
+  check('the three pool women resolve to the existing Bada Bing performer looks, not invented cast',
+    JSON.stringify(evening.state?.poolComposition?.map(({ identity }) => identity)) === JSON.stringify([
+      { source: 'BADA_BING_PERFORMERS', index: 0, look: 'platinum tied hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 2, look: 'black long hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 1, look: 'brunette long hair' },
+    ]),
+    JSON.stringify(evening.state?.poolComposition));
   check('Old Stove is present in the theatre and encourages the player to put on a picture',
     evening.stove && evening.state?.oldStovePresent === true
       && evening.said.includes('vo.silentsquatch.evening.stove.putsomethingon'),
     JSON.stringify(evening));
+  check('the quiet-evening theatre seats Old Stove with Seff and Lag in real back-row recliners',
+    evening.state?.theatreStaged === true
+      && JSON.stringify(evening.state.theatreComposition) === JSON.stringify([
+        { id: 'oldStove', name: 'Old Stove', seat: 1, job: 'sit' },
+        { id: 'seff', name: 'Seff', seat: 3, job: 'sit' },
+        { id: 'lag', name: 'Lag', seat: 5, job: 'sit' },
+      ]),
+    JSON.stringify(evening.state?.theatreComposition));
+  const eveningTheatreSeats = await page.evaluate(() => {
+    const t = window.mansion.theatre;
+    const blocked = [1, 3, 5].map((index) => t.sit(index));
+    const open = t.sit(0);
+    window.mansion.tick(1);
+    const sitting = t.sitting;
+    const stood = t.stand();
+    return {
+      blocked, open, sitting, stood, occupied: t.occupied, available: t.available,
+    };
+  });
+  check('the player cannot sit inside Old Stove, Seff or Lag but an open theatre chair still works',
+    JSON.stringify(eveningTheatreSeats.blocked) === JSON.stringify([false, false, false])
+      && eveningTheatreSeats.open === true && eveningTheatreSeats.sitting === 0
+      && eveningTheatreSeats.stood === true && eveningTheatreSeats.available === 9
+      && JSON.stringify(eveningTheatreSeats.occupied) === JSON.stringify([
+        { index: 1, occupant: 'oldStove' },
+        { index: 3, occupant: 'seff' },
+        { index: 5, occupant: 'lag' },
+      ]),
+    JSON.stringify(eveningTheatreSeats));
+  check('Old Stove is visibly seated on the recliner surface rather than standing near it',
+    evening.stoveSeat?.seat !== null && Math.abs(evening.stoveSeat?.gap ?? 99) <= 0.08,
+    JSON.stringify(evening.stoveSeat));
 
   /* M11 -- LOU'S SHIRT HUGS HIS TORSO THROUGH ANIMATION.
    *
@@ -3821,7 +4367,14 @@ try {
     const rightCode = run.enterCode('6969');
     until(() => run.instruction === INSTRUCTIONS.ELIMINATE_AUBBIE, 100);
     const aubbieSide = theLab.scientists[SCIENTIST_INDEX.AUBBIE].side;
-    run.shootAubbie(true);
+    const T = window.mansion.THREE;
+    const previewTarget = new T.Group();
+    run.shootAubbie({
+      point: new T.Vector3(0, 1.2, 0),
+      normal: new T.Vector3(0, 0, 1),
+      object: previewTarget,
+      from: new T.Vector3(0, 1.2, 3),
+    });
     until(() => run.instruction === INSTRUCTIONS.SILENT_NIGHT, 200);
     run.pullSilentNight();
     until(() => run.fsm.name === machine.S.EXIT, 300);
@@ -4126,6 +4679,57 @@ try {
     suiteShot.some((b, i) => i > 64 && b > 24), `${suiteShot.length} bytes`);
   await page.evaluate(() => window.mansion.setRendering(false));
 
+  /* ALL FOUR BEDROOMS, DRAWN. Each view aims at the detail that distinguishes
+   * that room from the shared bedroom shell: the new open folio, the tagged
+   * steamer trunk, the lake art and the second Booski/Death portrait pair.
+   * Geometry checks alone cannot catch a shader/material regression that
+   * leaves one whole room black, while a generic foyer screenshot cannot see
+   * any of these four wings. */
+  const bedroomViews = [
+    ['bedWestFront', 'gothic-open-folio-left'],
+    ['bedEastFront', 'oldtime-travel-tag'],
+    ['bedWestRear', 'lake-room-bed-art'],
+    ['bedEastRear', 'booski-death-room-booski-accent'],
+  ];
+  for (const [roomId, targetName] of bedroomViews) {
+    const aimed = await page.evaluate(({ roomId: id, targetName: target }) => {
+      const m = window.mansion;
+      const T = m.THREE;
+      const room = m.roomTable[id];
+      const mesh = m.scene.getObjectByName(target);
+      if (!room || !mesh) return { error: `missing ${id}/${target}` };
+      m.teleport(room.anchor.x, room.floor, room.anchor.z, 0);
+      const centre = new T.Box3().setFromObject(mesh).getCenter(new T.Vector3());
+      const pl = m.player;
+      const dx = centre.x - pl.position.x;
+      const dz = centre.z - pl.position.z;
+      const dy = centre.y - pl.position.y;
+      pl.yaw = Math.atan2(-dx, -dz);
+      pl.pitch = Math.max(-1.25, Math.min(1.25, Math.atan2(dy, Math.hypot(dx, dz))));
+      m.tick(0.35);
+      m.scene.updateMatrixWorld(true);
+      m.camera.updateMatrixWorld(true);
+      const ndc = centre.clone().project(m.camera);
+      return {
+        room: id,
+        target,
+        shown: mesh.visible !== false && mesh.material?.visible !== false,
+        ndc: { x: ndc.x, y: ndc.y, z: ndc.z },
+      };
+    }, { roomId, targetName });
+    const before = await page.evaluate(() => window.mansion.framesRendered);
+    await page.evaluate(() => window.mansion.setRendering(true));
+    await page.waitForFunction((n) => window.mansion.framesRendered > n + 2, before, { timeout: 180000 });
+    const bedroomShot = await page.screenshot({ type: 'png', timeout: 120000 });
+    await page.evaluate(() => window.mansion.setRendering(false));
+    check(`${roomId} renders its authored bedroom detail in front of the camera`,
+      !aimed.error && aimed.shown
+        && Math.abs(aimed.ndc.x) <= 0.92 && Math.abs(aimed.ndc.y) <= 0.92
+        && aimed.ndc.z >= -1 && aimed.ndc.z <= 1
+        && bedroomShot.some((byte, index) => index > 64 && byte > 24),
+      JSON.stringify({ ...aimed, bytes: bedroomShot.length }));
+  }
+
   await teleport(0, GROUND_Y, 44.4, NORTH);
   await settle(0.5);
   const framesBefore = await page.evaluate(() => window.mansion.framesRendered);
@@ -4194,6 +4798,15 @@ try {
     /* The beat AFTER the gassing, which is the one Snow is called down for. */
     {
       id: 'silent_night', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0, snowDown: true,
+    },
+    /* Beat 11 is the one checkpoint whose acceptance action is a person,
+     * not another laboratory prop. This cold load starts at the authored
+     * EXIT state, advances the wall-close leg, then walks the real Player a
+     * short distance to Lou, aims the real interaction ray and presses E on
+     * his body. A direct `reportToLou()` call would merely re-test the state
+     * machine and would miss the owner-visible bug this block exists for. */
+    {
+      id: 'clear', state: 'EXIT', hasCase: false, locked: true, lifeSigns: 0, louReport: true,
     },
     {
       id: 'suite', state: 'ARRIVAL', hasCase: true, stairOpen: true,
@@ -4374,6 +4987,97 @@ try {
           off.length === 0,
           off.join(' | ') || `prompt "${handOff.prompt}" at ${handOff.standOff} m, case ${handOff.off} m from the anchor`);
       }
+
+      /* ---- S11: WALK TO THE REAL LOU AND PRESS THE REAL E TARGET.
+       *
+       * The contract-lab intentionally has no office and therefore completes
+       * BACK_TO_LOU by itself. That is useful for a pure state-machine test,
+       * but it cannot prove the production complaint: Lou is visible and the
+       * player cannot talk to him. This uses the actual cold-loaded house,
+       * actual cast body, Player movement keys, the actual crosshair owner and
+       * InteractionSystem.press(). */
+      if (want.louReport && !bad.length) {
+        const lou = await cpPage.evaluate(() => {
+          const T = window.mansion.THREE;
+          const m = window.mansion;
+
+          const left = m.mission.leave();
+          for (let i = 0; i < 2400 && m.mission.state !== 'BACK_TO_LOU'; i++) m.tick(1 / 60);
+
+          let body = null;
+          m.scene.traverse((object) => {
+            if (!body && object.userData?.npc?.name === 'Big Uncle Lou') body = object;
+          });
+          if (!body) return { error: 'Big Uncle Lou has no production body', left, state: m.mission.state };
+
+          const bounds = new T.Box3().setFromObject(body);
+          const chest = bounds.getCenter(new T.Vector3());
+          chest.y = bounds.min.y + (bounds.max.y - bounds.min.y) * 0.62;
+
+          /* Lou stands east of his desk. Approach him from that open side so
+           * the short movement is real and the desk collider cannot swallow
+           * it. At 2.5 m the body is already inside the interaction system's
+           * 2.7 m reach; walking closes that distance without entering him. */
+          const stand = new T.Vector3(chest.x + 2.5, m.interior.rooms.office.floor, chest.z);
+          m.teleport(stand.x, stand.y, stand.z, 0);
+          const pl = m.player;
+          let dx = chest.x - pl.position.x;
+          let dz = chest.z - pl.position.z;
+          let dy = chest.y - pl.position.y;
+          pl.yaw = Math.atan2(-dx, -dz);
+          pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+          const beforeWalk = pl.position.clone();
+          pl.setKey('KeyW', true);
+          m.tick(0.16);
+          pl.setKey('KeyW', false);
+          m.tick(0.08);
+          const walked = beforeWalk.distanceTo(pl.position);
+
+          /* Aim again from the moved position; this is what an actual mouse
+           * move would update before E. */
+          dx = chest.x - pl.position.x;
+          dz = chest.z - pl.position.z;
+          dy = chest.y - pl.position.y;
+          pl.yaw = Math.atan2(-dx, -dz);
+          pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+          m.tick(0.25);
+
+          const owner = m.interaction.current;
+          const prompt = document.getElementById('prompt').classList.contains('hidden')
+            ? null : document.getElementById('promptLabel').textContent;
+          const stateBeforePress = m.mission.state;
+          m.interaction.press();
+          m.interaction.release();
+          for (let i = 0; i < 3600 && m.mission.state !== 'COMPLETE'; i++) m.tick(1 / 60);
+          const report = m.mission.report();
+          return {
+            left,
+            walked: +walked.toFixed(3),
+            stateBeforePress,
+            onLou: owner === body,
+            ownerName: owner?.userData?.npc?.name ?? owner?.name ?? null,
+            prompt,
+            stateAfterPress: m.mission.state,
+            reported: report.reportedToLou,
+            history: report.history,
+          };
+        });
+        const off = [];
+        if (lou.error) off.push(lou.error);
+        if (lou.left !== true) off.push(`leave() returned ${lou.left}`);
+        if (lou.stateBeforePress !== 'BACK_TO_LOU') off.push(`arrived at ${lou.stateBeforePress}, not BACK_TO_LOU`);
+        if (!(lou.walked >= 0.08)) off.push(`Player moved only ${lou.walked ?? 0} m`);
+        if (!lou.onLou) off.push(`crosshair owner is ${lou.ownerName || 'nothing'}`);
+        if (!/report to lou/i.test(lou.prompt || '')) off.push(`prompt reads "${lou.prompt}"`);
+        if (lou.stateAfterPress !== 'COMPLETE') off.push(`E left mission at ${lou.stateAfterPress}`);
+        if (!lou.reported) off.push('mission did not record the report to Lou');
+        if (!lou.history?.includes('BACK_TO_LOU') || !lou.history?.includes('COMPLETE')) {
+          off.push(`history is ${(lou.history || []).join(' > ')}`);
+        }
+        check('the player walks up, aims at Big Uncle Lou and presses E to finish Silent Squatch',
+          off.length === 0,
+          off.join(' | ') || `walked ${lou.walked} m, prompt "${lou.prompt}", ${lou.stateBeforePress} -> ${lou.stateAfterPress}`);
+      }
     } catch (error) {
       cpFails.push(`${want.id}: ${String(error).slice(0, 120)}`);
     }
@@ -4412,6 +5116,254 @@ try {
         && strayErrors.length === 0,
       JSON.stringify({ ...stray, errors: strayErrors.length }));
     await strayPage.close();
+  }
+
+  /* The full preview deliberately enables the quiet evening, which used to
+   * hide two production bugs at once: both visible pool women lost their E
+   * target during the actual in-progress mission, and verifier-only direct
+   * calls skipped the InteractionSystem entirely. Cold-load the ordinary
+   * campaign page (no preview query), walk the real Player a short distance,
+   * aim the real crosshair at the OTHER performer and drive every press
+   * through InteractionSystem. The first take is abandoned after one landed
+   * pull, then the same production adapter must reset the strap, head, HUD and
+   * audio loop before a clean miss + seven-hit retry. */
+  {
+    const campaignPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
+    const campaignErrors = [];
+    campaignPage.on('pageerror', (error) => campaignErrors.push(error.message));
+    campaignPage.on('console', (message) => {
+      if (message.type() === 'error') campaignErrors.push(message.text().slice(0, 240));
+    });
+    try {
+      await campaignPage.goto(`http://localhost:${PORT}/mansion.html`, {
+        waitUntil: 'load', timeout: 180000,
+      });
+      await campaignPage.waitForFunction(() => window.mansion?.player, null, { timeout: 180000 });
+      await campaignPage.evaluate(() => document.getElementById('startBtn').click());
+      await campaignPage.waitForFunction(() => window.mansion.running === true, null, { timeout: 120000 });
+      const poolE = await campaignPage.evaluate(() => {
+        const M = window.mansion;
+        const T = M.THREE;
+        M.setRendering(false);
+        M.tick(12);
+
+        const campaign = {
+          preview: M.campaign?.preview,
+          missionStatus: M.campaign?.state?.()?.missions?.silent_squatch?.status ?? null,
+          theatreStaged: M.cast?.evening?.theatreStaged ?? null,
+        };
+        const rig = M.cast?.poolPerformerRig?.(1) ?? null;
+        const strap = rig?.strap ?? null;
+        const owner = rig?.target ?? null;
+        const npc = owner?.userData?.npc ?? null;
+        const head = rig?.head ?? null;
+        if (!strap || !owner || !head) {
+          return {
+            error: 'the second pool performer has no real interaction owner/strap/head rig',
+            campaign,
+            found: { strap: Boolean(strap), owner: Boolean(owner), head: Boolean(head) },
+          };
+        }
+
+        M.scene.updateMatrixWorld(true);
+        const bounds = new T.Box3().setFromObject(owner);
+        const chest = bounds.getCenter(new T.Vector3());
+        chest.y = bounds.min.y + (bounds.max.y - bounds.min.y) * 0.62;
+        const poolAt = M.rooms.poolPatio;
+        const outward = new T.Vector3(chest.x - poolAt.x, 0, chest.z - poolAt.z);
+        if (outward.lengthSq() < 1e-6) outward.set(1, 0, 0);
+        outward.normalize();
+        const stand = new T.Vector3(chest.x, poolAt.y, chest.z).addScaledVector(outward, 2.45);
+        M.teleport(stand.x, poolAt.y, stand.z, 0);
+
+        const aim = () => {
+          const p = M.player;
+          const dx = chest.x - p.position.x;
+          const dz = chest.z - p.position.z;
+          const dy = chest.y - p.position.y;
+          p.yaw = Math.atan2(-dx, -dz);
+          p.pitch = Math.max(-1.35, Math.min(1.35, Math.atan2(dy, Math.hypot(dx, dz))));
+          M.tick(0.25);
+          return Math.hypot(dx, dz);
+        };
+        const pressE = () => {
+          M.interaction.press();
+          M.interaction.release();
+        };
+        const promptText = () => (document.getElementById('prompt').classList.contains('hidden')
+          ? null : document.getElementById('promptLabel').textContent);
+
+        aim();
+        const beforeWalk = M.player.position.clone();
+        M.player.setKey('KeyW', true);
+        M.tick(0.14);
+        M.player.setKey('KeyW', false);
+        M.tick(0.08);
+        const walked = beforeWalk.distanceTo(M.player.position);
+        const standOff = aim();
+        const initial = {
+          campaignPreview: campaign.preview,
+          missionStatus: campaign.missionStatus,
+          theatreStaged: campaign.theatreStaged,
+          enabled: owner.userData.interact.enabled?.() !== false,
+          onOwner: M.interaction.current === owner,
+          ownerName: owner.userData?.npc?.name ?? owner.name ?? null,
+          prompt: promptText(),
+          walked,
+          standOff,
+        };
+        const strapStart = { y: strap.position.y, z: strap.rotation.z };
+        const headStart = head.rotation.x;
+
+        pressE();
+        M.tick(8);
+        aim();
+        const helloPhase = M.cast.evening.secondDressPhase;
+        pressE();
+        M.tick(8);
+        aim();
+        const flirtPhase = M.cast.evening.secondDressPhase;
+        pressE();
+        M.tick(1 / 30);
+        const started = {
+          phase: M.cast.evening.secondDressPhase,
+          active: M.cast.evening.secondDress.active,
+          timing: M.mission?.hud?.().timing ?? '',
+          instruction: M.mission?.hud?.().instruction ?? '',
+        };
+
+        M.cast.setSecondPoolDressTarget(true);
+        pressE();
+        const afterFirstHit = {
+          hits: M.cast.evening.secondDress.hits,
+          strapMoved: Math.abs(strap.position.y - strapStart.y) > 1e-5,
+        };
+        /* The player's production abandon path is Escape in main.js. Drive
+         * that DOM event rather than calling the verifier adapter directly. */
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
+        M.tick(0.08);
+        const afterAbandonState = M.cast.evening;
+        const afterAbandon = {
+          accepted: afterAbandonState.secondDressPhase === 'ready'
+            && afterAbandonState.secondDress.active === false,
+          phase: afterAbandonState.secondDressPhase,
+          helped: afterAbandonState.secondDressHelped,
+          active: afterAbandonState.secondDress.active,
+          hits: afterAbandonState.secondDress.hits,
+          misses: afterAbandonState.secondDress.misses,
+          clapStage: afterAbandonState.secondDress.clapStage,
+          view: afterAbandonState.secondDress.view,
+          cueCount: afterAbandonState.secondDress.cues.length,
+          stopped: afterAbandonState.secondDress.cues.some(
+            ({ kind, name }) => kind === 'stop' && name === 'margo.dress.clap',
+          ),
+          strapY: strap.position.y,
+          strapZ: strap.rotation.z,
+          headX: head.rotation.x,
+          hud: M.mission?.hud?.() ?? null,
+          prompt: promptText(),
+        };
+
+        /* The real owner is still under the crosshair and READY again. */
+        aim();
+        pressE();
+        M.tick(1 / 30);
+        const retryActive = M.cast.evening.secondDress.active;
+        M.cast.setSecondPoolDressTarget(false);
+        pressE();
+        const missCount = M.cast.evening.secondDress.misses;
+        for (let i = 0; i < 7; i++) {
+          M.cast.setSecondPoolDressTarget(true);
+          pressE();
+        }
+        M.tick(0.08);
+        const final = M.cast.evening;
+        const retryCues = final.secondDress.cues.slice(afterAbandon.cueCount);
+        return {
+          initial,
+          helloPhase,
+          flirtPhase,
+          started,
+          afterFirstHit,
+          strapStart,
+          headStart,
+          afterAbandon,
+          retryActive,
+          missCount,
+          final: {
+            phase: final.secondDressPhase,
+            helped: final.secondDressHelped,
+            active: final.secondDress.active,
+            hits: final.secondDress.hits,
+            misses: final.secondDress.misses,
+            headX: head.rotation.x,
+            hud: M.mission?.hud?.() ?? null,
+          },
+          retryAudio: {
+            moans: retryCues.filter(({ kind, name }) => kind === 'play' && /^moan\./.test(name)).length,
+            finish: retryCues.filter(({ kind, name }) => kind === 'play' && name === 'clap.wet.finish').length,
+            loops: retryCues.filter(({ kind }) => kind === 'loop').map(({ name }) => name),
+            stopped: retryCues.some(({ kind, name }) => kind === 'stop' && name === 'margo.dress.clap'),
+          },
+        };
+      });
+
+      const poolOff = [];
+      if (poolE.error) poolOff.push(poolE.error);
+      if (poolE.initial?.campaignPreview !== false) poolOff.push('the proof page is still preview mode');
+      if (poolE.initial?.missionStatus !== 'in_progress') poolOff.push(`campaign is ${poolE.initial?.missionStatus}`);
+      if (poolE.initial?.theatreStaged !== false) poolOff.push('the quiet-evening preview gate is active');
+      if (!poolE.initial?.enabled) poolOff.push('the visible performer E target is disabled');
+      if (!poolE.initial?.onOwner) poolOff.push(`crosshair owner is ${poolE.initial?.ownerName || 'nothing'}`);
+      if (!/other dancer/i.test(poolE.initial?.prompt || '')) poolOff.push(`prompt reads "${poolE.initial?.prompt}"`);
+      if (!(poolE.initial?.walked >= 0.08)) poolOff.push(`Player moved only ${poolE.initial?.walked ?? 0} m`);
+      if (poolE.helloPhase !== 'flirt' || poolE.flirtPhase !== 'ready') {
+        poolOff.push(`real E prelude reached ${poolE.helloPhase} > ${poolE.flirtPhase}`);
+      }
+      if (!poolE.started?.active || poolE.started?.phase !== 'helping'
+        || !poolE.started?.timing || !/TIME THE PULL/i.test(poolE.started?.instruction || '')) {
+        poolOff.push(`real E never entered the shared sequence: ${JSON.stringify(poolE.started)}`);
+      }
+      if (poolE.afterFirstHit?.hits !== 1 || !poolE.afterFirstHit?.strapMoved) {
+        poolOff.push(`the abandoned take did not visibly land: ${JSON.stringify(poolE.afterFirstHit)}`);
+      }
+      if (!poolE.afterAbandon?.accepted || poolE.afterAbandon?.phase !== 'ready'
+        || poolE.afterAbandon?.helped !== false || poolE.afterAbandon?.active !== false
+        || poolE.afterAbandon?.hits !== 0 || poolE.afterAbandon?.misses !== 0
+        || poolE.afterAbandon?.clapStage !== 0 || poolE.afterAbandon?.view !== null
+        || !poolE.afterAbandon?.stopped
+        || Math.abs(poolE.afterAbandon?.strapY - poolE.strapStart?.y) > 1e-8
+        || Math.abs(poolE.afterAbandon?.strapZ - poolE.strapStart?.z) > 1e-8
+        || Math.abs(poolE.afterAbandon?.headX - poolE.headStart) > 0.001
+        || poolE.afterAbandon?.hud?.timing || poolE.afterAbandon?.hud?.instruction
+        || !/help fix her dress strap/i.test(poolE.afterAbandon?.prompt || '')) {
+        poolOff.push(`abandon did not reset the adapter: ${JSON.stringify(poolE.afterAbandon)}`);
+      }
+      if (!poolE.retryActive || poolE.missCount !== 1
+        || poolE.final?.phase !== 'done' || poolE.final?.helped !== true
+        || poolE.final?.active !== false || poolE.final?.hits !== 7 || poolE.final?.misses !== 1
+        || Math.abs(poolE.final?.headX - poolE.headStart) > 0.001
+        || poolE.final?.hud?.timing || poolE.final?.hud?.instruction
+        || poolE.retryAudio?.moans !== 7 || poolE.retryAudio?.finish !== 1
+        || JSON.stringify(poolE.retryAudio?.loops) !== JSON.stringify([
+          'clap.wet.loop.1', 'clap.wet.loop.2', 'clap.wet.loop.3',
+        ]) || !poolE.retryAudio?.stopped) {
+        poolOff.push(`retry did not complete cleanly: ${JSON.stringify({
+          retryActive: poolE.retryActive,
+          missCount: poolE.missCount,
+          final: poolE.final,
+          audio: poolE.retryAudio,
+        })}`);
+      }
+      if (campaignErrors.length) poolOff.push(`runtime errors: ${campaignErrors.join(' | ')}`);
+      check('normal campaign E on the other pool performer supports abandon, full reset and exact seven-pull retry',
+        poolOff.length === 0,
+        poolOff.join(' | ') || `walked ${poolE.initial.walked.toFixed(3)} m; real E; reset; 7/7 retry`);
+    } catch (error) {
+      check('normal campaign E on the other pool performer supports abandon, full reset and exact seven-pull retry',
+        false, String(error).slice(0, 240));
+    }
+    await campaignPage.close();
   }
   await page.evaluate(() => window.mansion.resume?.());
 
@@ -4514,6 +5466,19 @@ try {
     // `Box3.setFromObject` walks a group's whole subtree either way.
     out.bustVsTrophy = worstOverlap(boxes('sasquatch-bust'), boxes('silent-trophy'));
 
+    // The Great Includer plinth is a real 3D block. A missing third size
+    // component silently collapsed its depth to the helper fallback while
+    // the old Y-only coplanar check remained green.
+    const includerPlinth = boxes('includer-plinth')[0] ?? null;
+    const includerSize = includerPlinth?.getSize(new THREE.Vector3()) ?? null;
+    out.greatIncluderPlinth = includerSize ? {
+      x: includerSize.x,
+      y: includerSize.y,
+      z: includerSize.z,
+      finite: [includerSize.x, includerSize.y, includerSize.z]
+        .every((value) => Number.isFinite(value) && value > 0),
+    } : null;
+
     // M1: the office bookcase is a case with real shelves now, not a slab
     // with books floating in front of it -- and the secret-stair bookcase
     // (a different function entirely, `bookcaseBay()`) is unaffected.
@@ -4554,6 +5519,10 @@ try {
   check('M10 -- the marble bust does not clip the hunting trophy mounted beside it',
     punchList.bustVsTrophy && !punchList.bustVsTrophy.hit,
     JSON.stringify(punchList.bustVsTrophy));
+  check('the Great Includer plinth has finite 3D bounds and keeps its full 1.9 m depth',
+    punchList.greatIncluderPlinth?.finite === true
+      && punchList.greatIncluderPlinth.z >= 1.89,
+    JSON.stringify(punchList.greatIncluderPlinth));
   check('M1 -- the office bookcase is built with real shelves, not books floating on a slab',
     punchList.officeBookcase.shelves >= 4 && punchList.officeBookcase.back >= 1 && punchList.officeBookcase.ends >= 2,
     JSON.stringify(punchList.officeBookcase));
@@ -4584,6 +5553,78 @@ try {
     fireVisibleFar.visible === true,
     JSON.stringify(fireVisibleFar));
 
+  /* Exercise the shared apartment bong only after ordinary navigation checks:
+   * its real intoxication effect deliberately slows movement for several
+   * minutes and must not distort the traversal measurements above. */
+  const bong = await page.evaluate(() => {
+    const M = window.mansion;
+    const b = M.lan.bong;
+    const before = { uses: b.uses, weed: b.weed };
+    const used = b.use();
+    M.tick(0.12);
+    return {
+      groupName: b.groupName,
+      targetName: b.targetName,
+      registered: b.registered,
+      used,
+      before,
+      after: { uses: b.uses, weed: b.weed, visiblePuffs: b.visiblePuffs },
+    };
+  });
+  check('the LAN-room bong is the named reusable apartment bong and actually produces a high and smoke',
+    bong.groupName === 'bong.interactive'
+      && bong.targetName === 'bong.interactive.target'
+      && bong.registered === true && bong.used === true
+      && bong.after.uses === bong.before.uses + 1
+      && bong.after.weed > bong.before.weed
+      && bong.after.visiblePuffs >= 10,
+    JSON.stringify(bong));
+
+  /* One REAL firearm path: a catalog 9mm, fired by WeaponSystem through the
+   * camera ray and tracer impact callback into xXx's one published aim mesh. */
+  await teleport(lab.anchors.xxx.x, LAB_Y, lab.anchors.xxx.z, WEST);
+  await aimAt('xxx');
+  await settle(0.2);
+  const xxxGunDeath = await page.evaluate(() => {
+    const M = window.mansion;
+    const w = M.weapons;
+    w.resupply('pistol9');
+    const took = w.take('pistol9');
+    const impactsBefore = w.stats.impacts;
+    const shot = w.fire();
+    M.tick(0.8);
+    const gunMarks = M.lab.xxx.fatalMarks;
+    const sharedMarks = gunMarks.length >= 2
+      && gunMarks.every((mark) => mark.visible && mark.userData.reusableSystem === 'blood');
+    const result = {
+      took,
+      fired: shot?.fired === true,
+      impacts: w.stats.impacts - impactsBefore,
+      alive: M.lab.xxx.alive,
+      cause: M.lab.xxx.deathCause,
+      fatalPool: M.lab.xxx.fatalPool.visible,
+      sharedMarks,
+      markLabels: gunMarks.map((mark) => mark.name),
+      woundOnBody: gunMarks.some((mark) => mark.userData.bloodEffect === 'impact'
+        && mark.parent === M.lab.xxx.figure.torso),
+      aimFate: M.lab.xxx.aim.userData.xxxFate ?? null,
+    };
+    M.tick(8);
+    result.persisted = M.lab.xxx.alive === false
+      && M.lab.xxx.deathCause === 'firearm'
+      && M.lab.xxx.fatalPool.visible === true
+      && gunMarks.every((mark) => mark.visible && mark.userData.reusableSystem === 'blood');
+    w.put();
+    return result;
+  });
+  check('one real 9mm impact kills xXx and leaves a persistent bloody corpse and pool',
+    xxxGunDeath.took === true && xxxGunDeath.fired === true && xxxGunDeath.impacts === 1
+      && xxxGunDeath.alive === false && xxxGunDeath.cause === 'firearm'
+      && xxxGunDeath.fatalPool === true && xxxGunDeath.sharedMarks === true
+      && xxxGunDeath.woundOnBody === true
+      && xxxGunDeath.aimFate?.alive === false && xxxGunDeath.persisted === true,
+    JSON.stringify(xxxGunDeath));
+
   const contextHealth = await page.evaluate(() => {
     const gl = window.mansion.renderer.getContext();
     const debug = gl.getExtension('WEBGL_debug_renderer_info');
@@ -4599,16 +5640,74 @@ try {
     contextHealth.lost === false,
     JSON.stringify(contextHealth));
 
-  /* The film that has not landed yet is allowed to 404 and nothing else is.
-   * A blanket "ignore 404s" would let a missing texture or a missing module
-   * through; naming the file keeps the seam honest in both directions. */
-  const strayNotFound = notFound.filter((p) => !p.endsWith('/the-feature.mp4'));
-  check('the only resource the house cannot find is the film nobody has delivered yet',
-    strayNotFound.length === 0,
+  /* A fresh scene proves the OTHER fatal route without resetting or
+   * resurrecting the firearm corpse above. These are real cast swings and
+   * real simulation landings; only the mouse aiming is bypassed. */
+  await page.evaluate(() => {
+    window.mansion.setRendering(false);
+    window.mansion.pause();
+  });
+  const whipPage = await browser.newPage({ viewport: { width: 480, height: 300 } });
+  whipPage.on('response', (r) => {
+    if (r.status() === 404) notFound.push(new URL(r.url()).pathname);
+  });
+  whipPage.on('pageerror', (error) => problems.push(error.message));
+  whipPage.on('console', (message) => {
+    if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+  });
+  await whipPage.goto(`http://localhost:${PORT}/mansion.html?preview=1`, {
+    waitUntil: 'load', timeout: 180000,
+  });
+  await whipPage.waitForFunction(() => window.mansion?.player, null, { timeout: 120000 });
+  await whipPage.evaluate(() => document.getElementById('startBtn').click());
+  await whipPage.waitForFunction(() => window.mansion.running === true, null, { timeout: 120000 });
+  const xxxWhipDeath = await whipPage.evaluate(() => {
+    const M = window.mansion;
+    M.setRendering(false);
+    const tookCord = M.cast.takeCord();
+    const accepted = [];
+    for (let i = 0; i < 10; i++) {
+      accepted.push(M.cast.swingAtXxx());
+      M.tick(1.0);
+    }
+    const whipMarks = M.lab.xxx.fatalMarks;
+    const sharedMarks = whipMarks.length >= 2
+      && whipMarks.every((mark) => mark.visible && mark.userData.reusableSystem === 'blood');
+    const result = {
+      tookCord,
+      accepted,
+      swings: M.cast.xxxFate?.swings ?? null,
+      alive: M.lab.xxx.alive,
+      cause: M.lab.xxx.deathCause,
+      fatalPool: M.lab.xxx.fatalPool.visible,
+      sharedMarks,
+      markLabels: whipMarks.map((mark) => mark.name),
+      woundOnBody: whipMarks.some((mark) => mark.userData.bloodEffect === 'impact'
+        && mark.parent === M.lab.xxx.figure.torso),
+      eleventh: M.cast.swingAtXxx(),
+    };
+    M.tick(12);
+    result.persisted = M.lab.xxx.alive === false
+      && M.lab.xxx.deathCause === 'whip'
+      && M.lab.xxx.fatalPool.visible === true
+      && whipMarks.every((mark) => mark.visible && mark.userData.reusableSystem === 'blood');
+    return result;
+  });
+  check('the tenth real landed whip kills xXx once and leaves persistent welts, corpse and blood pool',
+    xxxWhipDeath.tookCord === true
+      && xxxWhipDeath.accepted.length === 10 && xxxWhipDeath.accepted.every(Boolean)
+      && xxxWhipDeath.swings === 10 && xxxWhipDeath.alive === false
+      && xxxWhipDeath.cause === 'whip' && xxxWhipDeath.fatalPool === true
+      && xxxWhipDeath.sharedMarks === true && xxxWhipDeath.woundOnBody === true
+      && xxxWhipDeath.eleventh === false
+      && xxxWhipDeath.persisted === true,
+    JSON.stringify(xxxWhipDeath));
+  await whipPage.close();
+
+  check('every Mansion resource requested by the full tour exists',
+    notFound.length === 0,
     `missing: ${[...new Set(notFound)].join(', ') || 'nothing'}`);
-  const strayErrors = problems.filter(
-    (p) => !(/Failed to load resource/.test(p) && strayNotFound.length === 0),
-  );
+  const strayErrors = [...problems];
   check('no runtime console errors occurred', strayErrors.length === 0, strayErrors.join(' | '));
 } finally {
   await browser.close();

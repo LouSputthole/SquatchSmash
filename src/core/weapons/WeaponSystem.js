@@ -308,7 +308,12 @@ export class WeaponSystem {
     // An existing, recorded cue. Nothing new is asked for here.
     this.audio?.play('heist.bullet.impact', { volume: 0.32, position: hit.point });
     this.onImpact?.({
-      point: hit.point.clone(), normal: hit.face?.normal ?? null, object: hit.object, weapon: def.id,
+      point: hit.point.clone(),
+      normal: hit.face?.normal ?? null,
+      object: hit.object,
+      weapon: def.id,
+      damage: def.damage,
+      penetration: def.penetration,
     });
   }
 

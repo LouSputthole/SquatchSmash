@@ -31,7 +31,10 @@ const MARK_LOOK = Object.freeze({
   build: 1.34,
   dress: 'suit',
   shirt: 0x16191c,
-  hair: 'slick',
+  /* The shared cast accepts a bounded style vocabulary. `slick` used to fall
+   * through every branch and render Mark bald; `short` preserves the authored
+   * dark, close-styled look using real shared hair geometry. */
+  hair: 'short',
   hairColour: 0x17110e,
   skin: 0xac744e,
   beard: true,

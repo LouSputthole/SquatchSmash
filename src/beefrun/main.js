@@ -23,6 +23,7 @@ import { Radio } from '../core/radio.js';
 import { createAirstripStory } from '../core/airstrip-story.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { previewBeefRunCheckpointForLocation } from '../core/preview-mode.js';
 import { roomEnvironment } from '../world/textures.js';
 
@@ -502,15 +503,13 @@ const pauseMenu = createPauseMenu({
     last = performance.now();
     requestLock();
   },
-  /* There is always a recoverable choice in Tab: before flight creates a
-   * checkpoint it restarts the scene; afterwards it restores the authored
-   * checkpoint. R belongs only to the cockpit receiver; it never restarts. */
-  onRestart: () => {
-    if (mission.checkpoint) mission.requestRestart();
-    else window.location.reload();
-  },
-  restartLabel: () => mission.checkpoint ? 'Restart from checkpoint' : 'Restart scene',
-  canRestart: () => game.started && !mission.finished,
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.AIRSTRIP_SMUGGLING,
+    location: window.location,
+    restartCheckpoint: () => mission.requestRestart(),
+    canRestartCheckpoint: () => Boolean(mission.checkpoint),
+  }),
 });
 
 /* ------------------------------------------------------------------ */

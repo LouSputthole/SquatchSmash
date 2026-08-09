@@ -1149,14 +1149,20 @@ export function buildSquatchfatherScene(scene, renderer) {
   // blank block peering through the porthole.
   function makeBystander(x, z, facing, coat, skin, face = {}) {
     const g = new THREE.Group();
-    g.add(box(0.5, 0.75, 0.3, lam(coat), 0, 1.15, 0));
+    g.name = 'sf.bystander.cook';
+    const addPart = (name, part) => {
+      part.name = name;
+      g.add(part);
+      return part;
+    };
+    addPart('sf.bystander.coat', box(0.5, 0.75, 0.3, lam(coat), 0, 1.15, 0));
     const head = buildHead({ skin, bulk: 0.95, ...face });
     head.group.position.set(0, 1.5, 0);
     g.add(head.group);
-    g.add(box(0.13, 0.6, 0.16, lam(coat), -0.31, 1.15, 0));
-    g.add(box(0.13, 0.6, 0.16, lam(coat), 0.31, 1.15, 0));
-    g.add(box(0.2, 0.78, 0.2, lam(0x22242c), -0.13, 0.39, 0));
-    g.add(box(0.2, 0.78, 0.2, lam(0x22242c), 0.13, 0.39, 0));
+    addPart('sf.bystander.sleeve.left', box(0.13, 0.6, 0.16, lam(coat), -0.31, 1.15, 0));
+    addPart('sf.bystander.sleeve.right', box(0.13, 0.6, 0.16, lam(coat), 0.31, 1.15, 0));
+    addPart('sf.bystander.trouser.left', box(0.2, 0.78, 0.2, lam(0x22242c), -0.13, 0.39, 0));
+    addPart('sf.bystander.trouser.right', box(0.2, 0.78, 0.2, lam(0x22242c), 0.13, 0.39, 0));
     g.position.set(x, 0, z);
     g.rotation.y = facing;
     scene.add(g);

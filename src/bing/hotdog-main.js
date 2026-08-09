@@ -37,6 +37,8 @@ import {
   buildHotDogPartySequence,
 } from './second-visit.js';
 import { isPreviewMode } from '../core/preview-mode.js';
+import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -161,6 +163,7 @@ const sequence = buildHotDogPartySequence();
 const state = {
   phase: 'menu',
   started: false,
+  paused: false,
   room: 'outside',
   elapsed: 0,
   director: {
@@ -1235,22 +1238,53 @@ startButton.addEventListener('click', async () => {
   }
 });
 
+const pauseMenu = createPauseMenu({
+  title: 'The HotDog Incident',
+  canPause: () => state.phase === 'active' && !state.endingShown,
+  getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
+    || 'Finish the cleanup and load Billy for the graveyard.',
+  instructions: [
+    'W A S D — move. Shift — hurry. Space — jump.',
+    'E or Click — interact; hold when the cleanup prompt asks for it.',
+    'During the attack, follow the on-screen strike prompt.',
+    'B — bloom. Tab — pause or resume.',
+  ],
+  onPause: () => {
+    state.paused = true;
+    player.enabled = false;
+    player.clearKeys();
+    interaction.release();
+    interaction.setPaused(true);
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    state.paused = false;
+    interaction.setPaused(state.cinematic.active);
+    audio.ctx?.resume?.();
+    lastTime = performance.now();
+    requestGamePointerLock();
+  },
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.BADA_BING_TWO,
+    location,
+  }),
+});
+
 document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active') player.enabled = document.pointerLockElement === canvas;
+  if (state.phase === 'active' && !state.paused) {
+    player.enabled = document.pointerLockElement === canvas;
+  }
 });
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
 });
 document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
-  if (state.phase !== 'active') return;
+  if (state.phase !== 'active' || state.paused) return;
   player.setKey(event.code, true);
   if (event.code === 'KeyE') interaction.press();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-  if (event.code === 'Tab') {
-    event.preventDefault();
-    objectivesRoot.classList.toggle('hidden');
-  }
 });
 document.addEventListener('keyup', (event) => {
   player.setKey(event.code, false);
@@ -1263,7 +1297,9 @@ document.addEventListener('mouseup', (event) => {
   if (event.button === 0) interaction.release();
 });
 canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && document.pointerLockElement !== canvas) requestGamePointerLock();
+  if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
+    requestGamePointerLock();
+  }
 });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -1277,8 +1313,8 @@ function animate(now) {
   requestAnimationFrame(animate);
   const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
   lastTime = now;
-  state.elapsed += dt;
-  if (state.phase === 'active') {
+  if (!state.paused) state.elapsed += dt;
+  if (state.phase === 'active' && !state.paused) {
     if (!state.cinematic.active) {
       player.update(dt);
       interaction.update(dt);
@@ -1301,8 +1337,10 @@ function animate(now) {
     attack.update(dt);
     applyCinematicCamera(dt);
   }
-  club.update(dt, player.position);
-  clock.update(dt);
+  if (!state.paused) {
+    club.update(dt, player.position);
+    clock.update(dt);
+  }
   hud.setClock(clock.day, clock.clock12, clock.elapsedReal);
   postfx.render();
   postfx.sample(dt);

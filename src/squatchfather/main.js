@@ -35,6 +35,7 @@ import { createSquatchfatherStory } from '../core/squatchfather-story.js';
 import { prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
 // ---------------------------------------------------------------- boot
 
@@ -198,7 +199,11 @@ sharedPauseMenu = createPauseMenu({
     clock.getDelta();
     lockPointer();
   },
-  onRestart: () => hardRestart(),
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.SQUATCHFATHER,
+    location: window.location,
+  }),
 });
 
 renderer.domElement.addEventListener('mousedown', (e) => {

@@ -14,7 +14,7 @@ import { AircraftPhysics } from '../src/beefrun/physics.js';
 import { stageRemoteDeparture } from '../src/beefrun/remote-departure.js';
 import { CAPTAIN_LOU_SASOLE } from '../src/core/wardrobe.js';
 
-function wingHeightsAfter(keyCode) {
+function flightResponseAfter(keyCode) {
   const input = new FlightInput();
   input.pollGamepad = () => null;
   input.key(keyCode, true);
@@ -33,22 +33,27 @@ function wingHeightsAfter(keyCode) {
   input.applyTo(physics.controls);
   for (let i = 0; i < 60; i++) physics.step(1 / 120);
 
-  /* Measure the aeroplane the player is moving, not the sign of an internal
-   * control axis.  Brushrunner's authored body frame is nose +Z, right wing
-   * +X (aircraft.js), so the opposite tip is the left wing. */
-  const rightWing = new THREE.Vector3(1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
-  const leftWing = new THREE.Vector3(-1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
-  return { leftY: leftWing.y, rightY: rightWing.y, rollDeg: physics.rollDeg };
+  /* Measure the aeroplane the player sees, not an internal control sign.
+   * From the left cockpit seat, nose +Z means the pilot's LEFT is +X and his
+   * RIGHT is -X (aircraft.js). Heading therefore increases into a left turn. */
+  const leftWing = new THREE.Vector3(1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+  const rightWing = new THREE.Vector3(-1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+  const headingDelta = ((physics.headingDeg + 540) % 360) - 180;
+  return { leftY: leftWing.y, rightY: rightWing.y, headingDelta, rollDeg: physics.rollDeg };
 }
 
-test('A lowers the left wing and D lowers the right wing', () => {
-  const a = wingHeightsAfter('KeyA');
-  const d = wingHeightsAfter('KeyD');
+test('A banks and turns horizontally left while D banks and turns right', () => {
+  const a = flightResponseAfter('KeyA');
+  const d = flightResponseAfter('KeyD');
 
   assert.ok(a.leftY < a.rightY,
     `A showed a right bank: ${JSON.stringify(a)}`);
+  assert.ok(a.headingDelta > 0,
+    `A turned right instead of left: ${JSON.stringify(a)}`);
   assert.ok(d.rightY < d.leftY,
     `D showed a left bank: ${JSON.stringify(d)}`);
+  assert.ok(d.headingDelta < 0,
+    `D turned left instead of right: ${JSON.stringify(d)}`);
 });
 
 test('the terminal high-approach warning cannot repeat forever', () => {
@@ -170,9 +175,9 @@ test('gamepad right roll matches the right-wing-down D control', () => {
   left.pollGamepad = () => ({ axes: [-1, 0, -1, 0], buttons: [] });
   left.update(0.016);
 
-  assert.ok(right.axes.roll > 0, `right-stick roll was ${right.axes.roll}`);
+  assert.ok(right.axes.roll < 0, `right-stick roll was ${right.axes.roll}`);
   assert.ok(right.axes.yaw < 0, `right-stick rudder was ${right.axes.yaw}`);
-  assert.ok(left.axes.roll < 0, `left-stick roll was ${left.axes.roll}`);
+  assert.ok(left.axes.roll > 0, `left-stick roll was ${left.axes.roll}`);
   assert.ok(left.axes.yaw > 0, `left-stick rudder was ${left.axes.yaw}`);
 });
 
@@ -330,4 +335,25 @@ test('Sasole lean keeps both forearms and hands outside his torso', () => {
       assert.ok(overlap.isEmpty(), `arm ${index} ${part} still passes through Sasole's torso`);
     }
   }
+});
+
+test('Sasole wears his watch above and visibly proud of the bomber cuff', () => {
+  const lou = makeFigure({
+    ...fromWardrobe(CAPTAIN_LOU_SASOLE),
+    name: 'captain_lou_sasole',
+  });
+  lou.group.updateMatrixWorld(true);
+
+  const watch = lou.group.getObjectByName('captain_lou_sasole-watch');
+  const cuff = lou.group.getObjectByName('captain_lou_sasole-cuff-left');
+  assert.ok(watch, 'the canonical gold watch is present');
+  assert.ok(cuff, 'the bomber has its left knit cuff');
+
+  const watchBox = new THREE.Box3().setFromObject(watch);
+  const cuffBox = new THREE.Box3().setFromObject(cuff);
+  const overlap = watchBox.clone().intersect(cuffBox);
+  assert.ok(overlap.isEmpty(),
+    `the watch is still embedded in the cuff (${JSON.stringify(overlap.getSize(new THREE.Vector3()).toArray())})`);
+  assert.ok(watchBox.max.z > cuffBox.max.z + 0.005,
+    `the watch face is not visible beyond the cuff (${watchBox.max.z} <= ${cuffBox.max.z})`);
 });

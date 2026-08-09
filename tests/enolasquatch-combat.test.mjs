@@ -29,6 +29,7 @@ import { AC_ENOLA } from '../src/enolasquatch/config.js';
 import { Autopilot, ROLL_LIMIT, HARD_LIMIT, REENGAGE_DELAY } from '../src/enolasquatch/systems/Autopilot.js';
 import { Interceptors, MAX_ENGAGED, FIGHTER_HEALTH } from '../src/enolasquatch/combat/Interceptors.js';
 import { Defense } from '../src/enolasquatch/combat/Defense.js';
+import { MissionController } from '../src/enolasquatch/mission/MissionController.js';
 import {
   blastLuminance, blastWhiteout, shockRadiusAt, shellOpacity, shockPass, BLAST,
 } from '../src/enolasquatch/vfx/Detonation.js';
@@ -374,6 +375,81 @@ test('a burst does damage as a function of how close it actually was', () => {
   assert.ok(defense.hitCount > before, 'a burst ten metres away did nothing at all');
   assert.equal(reported.length, 2);
   assert.ok(reported[1].severity > reported[0].severity, 'closer has to be worse');
+});
+
+/* ------------------------------------------------------------------ */
+/* The committed bomb-bay reset                                       */
+/* ------------------------------------------------------------------ */
+
+test('once the bomb-bay reset starts, steering cannot cancel its eight-second clock', () => {
+  const played = [];
+  const mission = Object.assign(Object.create(MissionController.prototype), {
+    phase: 'idle',
+    phaseTime: 0,
+    missionTime: 0,
+    _t: 0,
+    paused: false,
+    finished: false,
+    physics: {
+      position: new THREE.Vector3(7400, 550, -500),
+      headingDeg: 90,
+      rollDeg: 0,
+      pitchDeg: 0,
+      onGround: false,
+      tas: 62,
+      agl: 300,
+    },
+    flags: { enginesEverStarted: false },
+    engines: { fuel: 1000 },
+    score: { fuelRemaining: 0, lowestClearance: Infinity, flightTime: 0 },
+    payload: { released: false, impacted: false },
+    detonation: { live: false },
+    targeting: { aligned: false, readyToRelease: false },
+    _dropCam: 0,
+    _pendingInstruction: null,
+    dialogue: {
+      busy: false,
+      queue: [],
+      play: (id) => played.push(id),
+    },
+    flightHud: {
+      setObjective() {},
+      setNav() {},
+      setDirection() {},
+    },
+    bombBayOpen: false,
+  });
+
+  mission.setPhase('bombMalfunction');
+
+  // A real pause still pauses the authored clock.
+  mission.paused = true;
+  for (let i = 0; i < 8; i++) mission.update(0.25);
+  assert.equal(mission.phaseTime, 0);
+  assert.equal(mission.phase, 'bombMalfunction');
+  mission.paused = false;
+
+  // Once play resumes, even aggressive corrections and lost alignment cannot
+  // undo elapsed reset time. Stay just short of eight active seconds first.
+  for (let i = 0; i < 31; i++) {
+    mission.physics.rollDeg = i % 2 ? 24 : -24;
+    mission.physics.pitchDeg = i % 3 ? 14 : -14;
+    mission.targeting.aligned = false;
+    mission.targeting.readyToRelease = false;
+    mission.update(0.25);
+  }
+  mission.update(0.24);
+  assert.equal(mission.phase, 'bombMalfunction', 'the reset completed before eight active seconds');
+
+  mission.update(0.02);
+  assert.equal(mission.phase, 'release', 'steering cancelled a committed bomb-bay reset');
+  assert.equal(mission.bombBayOpen, true);
+
+  // Waiting at the release-line choice cannot re-enter the completed reset.
+  for (let i = 0; i < 40; i++) mission.update(0.25);
+  assert.equal(mission.phase, 'release');
+  assert.equal(played.filter((id) => id === 'bomb.doorsFixed').length, 1);
+  assert.equal(mission.chooseReleaseLine('3'), true, 'the authored release-line choice was not preserved');
 });
 
 /* ------------------------------------------------------------------ */

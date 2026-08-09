@@ -977,6 +977,59 @@ try {
   });
   check('holding 090 for real transitions climbTurn into cruise', cruiseEntry === 'cruise', cruiseEntry);
 
+  /* ---- Flight controls: actual browser A/D events, shared input, real
+   * Enola physics and the authored wing frame. This guards the player-facing
+   * polarity rather than merely checking the value written into `controls`:
+   * A must bank/turn left and D must bank/turn right. Each direction starts
+   * from the same high, level cruise pose so weather, ground contact and a
+   * previous maneuver cannot contaminate the comparison. ---- */
+  const flyEnolaKey = async (code) => {
+    await page.evaluate(() => {
+      const h = window.__enolaSquatch;
+      h.go('cruise');
+      h.input.clear();
+      h.mission.autopilot.disengage(null);
+      const { x, z } = h.physics.position;
+      h.physics.setPose(h.physics.position.clone().set(x, h.groundHeight(x, z) + 900, z), 0, 68);
+      h.engines.forceRunning();
+      h.mission.flags.enginesEverStarted = true;
+      h.physics.controls.parkingBrake = false;
+      h.tick(0);
+    });
+    await page.keyboard.down(code);
+    let result;
+    try {
+      result = await page.evaluate(() => {
+        const h = window.__enolaSquatch;
+        h.tick(1);
+        h.aircraft.group.updateMatrixWorld(true);
+        const left = h.aircraft.group.getObjectByName('air-brake-left');
+        const right = h.aircraft.group.getObjectByName('air-brake-right');
+        const signedHeading = ((h.physics.headingDeg + 540) % 360) - 180;
+        return {
+          controlRoll: h.physics.controls.roll,
+          rollDeg: h.physics.rollDeg,
+          signedHeading,
+          leftY: left?.matrixWorld.elements[13] ?? null,
+          rightY: right?.matrixWorld.elements[13] ?? null,
+        };
+      });
+    } finally {
+      await page.keyboard.up(code);
+    }
+    return result;
+  };
+  const aTurn = await flyEnolaKey('KeyA');
+  const dTurn = await flyEnolaKey('KeyD');
+  check('real A input banks the Enola Squatch left through its physics and visible wing frame',
+    aTurn.controlRoll > 0.5 && aTurn.rollDeg > 2 && aTurn.signedHeading > 0.02
+      && aTurn.leftY < aTurn.rightY,
+    JSON.stringify(aTurn));
+  check('real D input banks the Enola Squatch right through its physics and visible wing frame',
+    dTurn.controlRoll < -0.5 && dTurn.rollDeg < -2 && dTurn.signedHeading < -0.02
+      && dTurn.leftY > dTurn.rightY,
+    JSON.stringify(dTurn));
+
   /* ---- The camera hint: the owner's requested twenty-seconds-after-takeoff
    * reminder must be a real visible control, and using the control must both
    * change the view and dismiss the reminder. `state().cameraTip` is painted
@@ -1813,11 +1866,104 @@ try {
     targetingReal.onHeading && targetingReal.onAltitude && Number.isFinite(targetingReal.distance),
     JSON.stringify(targetingReal));
 
-  const bombMalfunctionEntry = await page.evaluate(() => window.__enolaSquatch.go('bombMalfunction'));
-  check('go("bombMalfunction") stages the bomb-bay-doors-stuck beat', bombMalfunctionEntry === 'bombMalfunction');
+  /* Once the doors jam, the reset is committed for eight ACTIVE seconds. Use
+   * real A/D browser input throughout, deliberately exceed the old 12-degree
+   * attitude gate, and keep the mission paused between deterministic steps so
+   * the page's autonomous RAF cannot smuggle time into the 7.99/8.01 boundary.
+   * The pause is the one exception: it must still stop the authored clock. */
+  const jamSetup = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    /* Stage and pause in the same browser task. Otherwise the autonomous RAF
+     * can advance a few milliseconds between two Playwright evaluations and
+     * make an exact 7.99/8.01 boundary a race. */
+    const entry = h.go('bombMalfunction');
+    h.mission.paused = true;
+    const { x, z } = h.physics.position;
+    h.physics.setPose(h.physics.position.clone().set(x, h.groundHeight(x, z) + 900, z), 90, 68);
+    h.engines.forceRunning();
+    h.mission.flags.enginesEverStarted = true;
+    h.mission.autopilot.disengage(null);
+    h.input.clear();
+    return {
+      entry,
+      phase: h.mission.phase,
+      timer: h.mission._malfHoldT,
+      objective: h.mission.objective,
+    };
+  });
+  check('go("bombMalfunction") stages the bomb-bay-doors-stuck beat',
+    jamSetup.entry === 'bombMalfunction' && jamSetup.phase === 'bombMalfunction',
+    JSON.stringify(jamSetup));
+  await page.evaluate(() => window.__enolaSquatch.tick(2));
+  const pausedJam = await page.evaluate(() => ({
+    phase: window.__enolaSquatch.mission.phase,
+    timer: window.__enolaSquatch.mission._malfHoldT,
+  }));
 
-  const releaseEntry = await page.evaluate(() => window.__enolaSquatch.go('release'));
-  check('go("release") arms the release choice', releaseEntry === 'release');
+  let maxAbsRoll = 0;
+  const committedStep = async (code, seconds) => {
+    await page.keyboard.down(code);
+    try {
+      return await page.evaluate((dt) => {
+        const h = window.__enolaSquatch;
+        h.mission.paused = false;
+        h.tick(dt);
+        h.mission.paused = true;
+        return {
+          phase: h.mission.phase,
+          timer: h.mission._malfHoldT,
+          rollDeg: h.physics.rollDeg,
+          pitchDeg: h.physics.pitchDeg,
+          objective: h.mission.objective,
+          bombBayOpen: h.mission.bombBayOpen,
+          releaseStep: h.mission._releaseStep,
+        };
+      }, seconds);
+    } finally {
+      await page.keyboard.up(code);
+    }
+  };
+  let jamProgress = jamSetup;
+  for (let i = 0; i < 8; i++) {
+    jamProgress = await committedStep(i % 2 ? 'KeyD' : 'KeyA', 0.98);
+    maxAbsRoll = Math.max(maxAbsRoll, Math.abs(jamProgress.rollDeg));
+  }
+  const beforeRelease = await committedStep('KeyA', 0.15); // 7.99 active seconds
+  maxAbsRoll = Math.max(maxAbsRoll, Math.abs(beforeRelease.rollDeg));
+  const releaseEntry = await committedStep('KeyD', 0.02); // 8.01 active seconds
+  maxAbsRoll = Math.max(maxAbsRoll, Math.abs(releaseEntry.rollDeg));
+  await page.evaluate(() => { window.__enolaSquatch.mission.paused = false; });
+
+  check('a real pause remains the only thing that stops the committed bomb-bay reset clock',
+    jamSetup.phase === 'bombMalfunction' && jamSetup.timer === 0
+      && pausedJam.phase === 'bombMalfunction' && pausedJam.timer === 0,
+    JSON.stringify({ jamSetup, pausedJam }));
+  check('steering past the old attitude limit cannot finish or cancel the reset before eight active seconds',
+    maxAbsRoll > 12 && beforeRelease.phase === 'bombMalfunction'
+      && beforeRelease.timer >= 7.98 && beforeRelease.timer < 8,
+    JSON.stringify({ maxAbsRoll, beforeRelease }));
+  check('the same uninterrupted reset reaches the release choice at eight active seconds',
+    releaseEntry.phase === 'release' && releaseEntry.timer >= 8
+      && releaseEntry.bombBayOpen && releaseEntry.releaseStep === 'awaitChoice',
+    JSON.stringify(releaseEntry));
+
+  /* The steering proof above intentionally throws the aeroplane well off the
+   * bombing line. Restore the same canonical release pose that the older
+   * `go("release")` shortcut supplied, without re-entering/restarting the
+   * release phase, so the existing independent impact/accuracy proof still
+   * tests the bomb rather than inheriting our deliberate control excursion. */
+  await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const x = 9000 - 700;
+    const z = -500;
+    h.input.clear();
+    h.physics.setPose(h.physics.position.clone().set(x, h.groundHeight(x, z) + 350, z), 90, 60);
+    h.engines.forceRunning();
+    h.mission.flags.enginesEverStarted = true;
+    h.input.throttle = 0.6;
+    h.physics.controls.parkingBrake = false;
+    h.tick(0);
+  });
 
   /* ---- Release: a real 1-5 choice, the payload actually detaches, mass drops. ---- */
   const beforeMass = await page.evaluate(() => window.__enolaSquatch.physics.mass);

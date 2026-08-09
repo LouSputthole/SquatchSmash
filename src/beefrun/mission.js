@@ -24,6 +24,7 @@ import { evaluateLineupGate } from './lineup-gate.js';
 import { stageRunwayStartup } from './runway-start.js';
 import { selectApproachCall } from './approach-coaching.js';
 import { stageRemoteDeparture } from './remote-departure.js';
+import { armTakeoffRecordIntro, takeoffRecordIntroVolume } from './audio.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 
 /** The four places the mission will put you back. */
@@ -125,9 +126,8 @@ export class MissionController {
       runwayStaged: false,
       lineupReady: false,
       rotateCalled: false,
-      /* Deliberately NOT reset on a checkpoint restore, unlike `rotateCalled`:
-       * the record is once per playthrough, and a restart of the same roll is
-       * the same departure. */
+      /* A restored takeoff checkpoint resets this flag so the restarted roll
+       * gets its opening record again. Later checkpoints leave it alone. */
       knockingCued: false,
       clearCalled: false,
       landmarksSeen: new Set(),
@@ -257,14 +257,19 @@ export class MissionController {
   playTakeoffRecord() {
     const engine = this.audio?.engine;
     if (!engine) return Promise.resolve(null);
-    return playSignatureTrack(engine, SIGNATURE_TRACKS.cantYouHearMeKnocking, {
+    const track = SIGNATURE_TRACKS.cantYouHearMeKnocking;
+    return playSignatureTrack(engine, track, {
       // A record, not a sting: it runs its three minutes and stops. `ambience`
       // keeps it on the music bus, under the headset and under the dialogue.
       // `replace` so a checkpoint-restored roll starts the song over instead
       // of finding the previous attempt's handle and doing nothing.
+      volume: takeoffRecordIntroVolume(track.volume),
       loop: false,
       ambience: true,
       replace: true,
+    }).then((handle) => {
+      armTakeoffRecordIntro(handle, engine.ctx, track.volume);
+      return handle;
     }).catch(() => null);
   }
 

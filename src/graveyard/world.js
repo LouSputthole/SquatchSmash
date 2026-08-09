@@ -4,6 +4,7 @@ import { Npc } from '../bing/cast.js';
 import { assetUrl, inlineManifest } from '../core/assets.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
+import { SNOW } from '../core/wardrobe.js';
 import { box, collider, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { GRAVES } from './mission.js';
 
@@ -556,8 +557,8 @@ export function buildGraveyard(scene) {
     name: 'Snow', tier: 'hero', job: 'stand', x: -2.1, z: -15.7, yaw: 0.25,
     colliders,
     model: {
-      height: 1.7, build: 0.95, dress: 'work', shirt: 0x303a44,
-      hairColour: 0x9a9a9a, skin: 0xf0cba6, face: 'assets/faces/snow.png',
+      ...SNOW,
+      face: 'assets/faces/snow.png',
     },
   });
   snow.characterId = 'snow';

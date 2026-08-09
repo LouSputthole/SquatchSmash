@@ -13,6 +13,7 @@ import { box, boxFrom, cylinder, plane, mat, collider, group, yawToward } from '
 import { makeMaterials } from './materials.js';
 import * as T from './textures.js';
 import * as P from './props.js';
+import { buildInteractiveBong, registerInteractiveBong } from './bong.js';
 import { resolveGear } from './gear.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { loadModels } from './models.js';
@@ -697,12 +698,11 @@ export async function buildApartment(ctx) {
   }
 
   const bongPos = coffeeAt(0.24, -0.07, table.top);
-  const bong = P.makeBong(M, { x: bongPos.x, y: bongPos.y, z: bongPos.z, rotY: coffeeRotation - 0.7 });
-  root.add(bong.group);
-  const bongHit = box({
-    size: [0.20, 0.42, 0.20], pos: [bongPos.x, bongPos.y + 0.20, bongPos.z],
-    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  const bong = buildInteractiveBong(M, {
+    x: bongPos.x, y: bongPos.y, z: bongPos.z, rotY: coffeeRotation - 0.7,
   });
+  root.add(bong.group);
+  const bongHit = bong.target;
   root.add(bongHit);
 
   /* Clear of the pizza box and bong in the table's local layout, so all three
@@ -718,12 +718,7 @@ export async function buildApartment(ctx) {
   });
   root.add(shroomHit);
 
-  interaction.register(bongHit, {
-    label: () => 'Pack a <b>bowl</b>',
-    hold: 0.9,
-    holdLabel: () => 'Hold it…',
-    onUse: () => ctx.onBong?.(),
-  });
+  registerInteractiveBong(interaction, bong, { onUse: () => ctx.onBong?.() });
   interaction.register(shroomHit, {
     label: () => 'Take some <b>mushrooms</b>',
     hold: 1.1,

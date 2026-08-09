@@ -244,6 +244,26 @@ try {
     attacked.colliders > clean.colliders,
     `clean ${clean.colliders} -> under_attack ${attacked.colliders}`);
 
+  const sharedSmoke = await evaluate(() => {
+    const smoke = window.mansionSiege.dressing.props.smoke;
+    const puffs = smoke.sharedSystem?.puffs ?? [];
+    const fireColumns = window.mansionSiege.dressing.props.fires.all
+      .map((fire) => fire.smoke?.group)
+      .filter(Boolean);
+    return {
+      mode: smoke.mode,
+      pool: puffs.length,
+      tagged: puffs.filter((puff) => puff.sprite?.userData?.reusableSystem === 'smoke').length,
+      legacyHidden: fireColumns.every((column) => column.visible === false),
+    };
+  });
+  check('siege fires reuse the canonical pooled billboard smoke system',
+    sharedSmoke.mode === 'shared-pooled-billboards'
+      && sharedSmoke.pool === 64
+      && sharedSmoke.tagged === sharedSmoke.pool
+      && sharedSmoke.legacyHidden,
+    JSON.stringify(sharedSmoke));
+
   const backToClean = await evaluate(() => {
     window.mansionSiege.setState('clean');
     return window.mansionSiege.collidersCount;
@@ -660,6 +680,220 @@ try {
   check('every attacker arrives from outside the building, not in the room with you',
     waveOne.spawned.length > 0 && outside.length === waveOne.spawned.length,
     `${outside.length}/${waveOne.spawned.length} outside`);
+
+  /* THE PLAYER'S REAL TRIGGER PATH. A previous verifier proved the gun was
+   * equipped and that attackers existed, but never joined those facts with a
+   * canvas press. That let the shared Firearm consume ammunition while the
+   * Siege handed `undefined` damage to the actor resolver: muzzle flash, sound,
+   * tracer, no wound. These helpers only arrange a clear public crosshair ray;
+   * every round below still starts with an actual canvas mouse event. */
+  const aimAtAttacker = (id) => evaluate(async (targetId) => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const s = window.mansionSiege;
+    const target = s.attackers.entry(targetId);
+    window.__siegeShootingPoses ??= new Map();
+    if (!window.__siegeShootingPoses.has(targetId)) {
+      window.__siegeShootingPoses.set(targetId, {
+        position: target.root.position.clone(),
+        active: target.active,
+        visible: target.root.visible,
+        baseY: target.figure.baseY,
+        actor: target.actor.snapshot(),
+      });
+    }
+    /* A public player shot is what is under test, not whether this particular
+     * wave role chose cover. Hold one real spawned body in the open forecourt,
+     * four metres from the camera, then use the complete architecture+actor
+     * target list to prove there is no wall silently taking the round. */
+    target.active = false;
+    target.root.visible = true;
+    /* The turnaround from z 27..34 is deliberately left clear for the front-
+     * door assault. Keep both muzzle and target there so the verifier tests a
+     * gunshot, not the facade's player-collision correction. */
+    target.root.position.set(0, 0, 33);
+    target.figure.baseY = 0;
+    target.root.updateMatrixWorld(true);
+    const chest = target.figure.parts.body.getObjectByName('ribcage') ?? target.figure.parts.body;
+    const aim = new THREE.Box3().setFromObject(chest)
+      .getCenter(new THREE.Vector3());
+    s.teleport(0, 0, 29, 180);
+    s.player.clearKeys();
+    s.player.velocity.set(0, 0, 0);
+    s.player.update(1 / 60);
+    let origin = s.camera.position.clone();
+    let direction = new THREE.Vector3();
+    for (let i = 0; i < 3; i++) {
+      direction.copy(aim).sub(origin).normalize();
+      s.player.yaw = Math.atan2(-direction.x, -direction.z);
+      s.player.pitch = Math.asin(direction.y);
+      s.player.update(1 / 60);
+      s.scene.updateMatrixWorld(true);
+      const rig = s.camera.getObjectByName('weapons.viewmodel');
+      const model = rig?.children.find((node) => node.visible && node.userData?.muzzle);
+      origin = model
+        ? model.localToWorld(model.userData.muzzle.clone())
+        : s.camera.getWorldPosition(new THREE.Vector3());
+    }
+    direction = s.camera.getWorldDirection(new THREE.Vector3());
+    const ray = new THREE.Raycaster();
+    const targets = [...s.interior.occluders, ...s.grounds.occluders, s.attackers.root];
+    ray.set(origin, direction);
+    const hit = ray.intersectObjects(targets, true)[0] ?? null;
+    const aimed = hit
+      ? s.attackers.actorFor(hit.object)?.userData?.combatActor?.id ?? null
+      : null;
+    return {
+      id: targetId,
+      aimed,
+      eye: s.camera.position.toArray(),
+      muzzle: origin.toArray(),
+      first: hit?.object?.name ?? null,
+      distance: hit ? +hit.distance.toFixed(3) : null,
+    };
+  }, id);
+  const combatSnapshot = (id) => evaluate((targetId) => {
+    const s = window.mansionSiege;
+    const target = s.attackers.entry(targetId);
+    const reticle = document.getElementById('reticle');
+    return {
+      id: targetId,
+      health: target.actor.health,
+      rounds: s.loadout.checkpoint().ammo.carbine.rounds,
+      hits: s.playerHits,
+      shots: s.weaponStats().shots,
+      impacts: s.weaponStats().impacts,
+      hitConfirm: reticle?.dataset.confirmed === 'true' && !!reticle.style.filter,
+      nudge: s.hud().nudge,
+      pointerRejected: s.pointerLockRejected,
+      locked: document.pointerLockElement === s.renderer.domElement,
+    };
+  }, id);
+  const restoreShootingPose = (id) => evaluate((targetId) => {
+    const s = window.mansionSiege;
+    const poses = window.__siegeShootingPoses;
+    const pose = poses?.get(targetId);
+    if (!pose) return false;
+    const entry = s.attackers.entry(targetId);
+    entry.root.position.copy(pose.position);
+    entry.root.visible = pose.visible;
+    entry.active = pose.active;
+    entry.figure.baseY = pose.baseY;
+    entry.actor.restore(pose.actor);
+    entry.root.updateMatrixWorld(true);
+    poses.delete(targetId);
+    s.scene.updateMatrixWorld(true);
+    return true;
+  }, id);
+
+  const combatIds = await evaluate(() => [...window.mansionSiege.mission.waves.one.standing]);
+  /* 1A slots 0 and 2 share the authored front-steps spawn. Use the two
+   * court-north slots so a still-walking sibling cannot occupy the staged
+   * crosshair before the verifier has a chance to isolate and restore it. */
+  const fallbackId = combatIds[1];
+  const automaticId = combatIds[3];
+  await evaluate(() => {
+    window.mansionSiege.equip('carbine');
+    window.mansionSiege.player.pitch = 1.2;
+    window.mansionSiege.player.update(1 / 60);
+    document.exitPointerLock?.();
+  });
+  await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10000 });
+  /* Normalize through a real successful capture first. That clears any
+   * rejection left by beginSiege's post-audio request and makes the simulated
+   * rejected click below unambiguously the first failed gesture. */
+  await page.mouse.click(240, 150);
+  await page.waitForFunction(() => (
+    document.pointerLockElement === window.mansionSiege.renderer.domElement
+      && window.mansionSiege.pointerLockRejected === false
+  ), null, { timeout: 10000 });
+  await evaluate(() => document.exitPointerLock?.());
+  await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10000 });
+
+  /* First prove recovery from the browser's pointerlockerror event. The first
+   * click reports the rejection; the next deliberate unlocked click both
+   * retries capture and fires one fallback round at the current crosshair. */
+  const fallbackAim = await aimAtAttacker(fallbackId);
+  const fallbackBefore = await combatSnapshot(fallbackId);
+  await evaluate(() => {
+    const canvas = window.mansionSiege.renderer.domElement;
+    window.__siegePointerLockOwn = Object.getOwnPropertyDescriptor(canvas, 'requestPointerLock');
+    Object.defineProperty(canvas, 'requestPointerLock', {
+      configurable: true,
+      value: () => queueMicrotask(() => document.dispatchEvent(new Event('pointerlockerror'))),
+    });
+  });
+  await page.mouse.click(240, 150);
+  await page.waitForFunction(() => window.mansionSiege.pointerLockRejected, null, { timeout: 10000 });
+  const rejected = await combatSnapshot(fallbackId);
+  await page.mouse.click(240, 150);
+  await settle(0.07);
+  const fallbackAfter = await combatSnapshot(fallbackId);
+  check('pointer-lock rejection is visible and does not consume the rejected click',
+    rejected.pointerRejected && /blocked/i.test(rejected.nudge ?? '')
+      && rejected.rounds === fallbackBefore.rounds,
+    JSON.stringify({ before: fallbackBefore, rejected }));
+  check('the next unlocked canvas click retries capture and still lands a fallback shot',
+    fallbackAim.aimed === fallbackId
+      && fallbackAfter.rounds === fallbackBefore.rounds - 1
+      && fallbackAfter.health < fallbackBefore.health
+      && fallbackAfter.hits === fallbackBefore.hits + 1,
+    JSON.stringify({ aim: fallbackAim, before: fallbackBefore, after: fallbackAfter }));
+  await restoreShootingPose(fallbackId);
+
+  await evaluate(() => {
+    const canvas = window.mansionSiege.renderer.domElement;
+    if (window.__siegePointerLockOwn) {
+      Object.defineProperty(canvas, 'requestPointerLock', window.__siegePointerLockOwn);
+    } else {
+      delete canvas.requestPointerLock;
+    }
+    window.mansionSiege.player.pitch = 1.2;
+    window.mansionSiege.player.update(1 / 60);
+  });
+  /* This recovery click may deliberately fire into the ceiling while it also
+   * succeeds in re-locking. The automatic assertions take their own baseline
+   * after it, so only rounds fired by the held trigger count below. */
+  await page.mouse.click(240, 150);
+  await page.waitForFunction(() => (
+    document.pointerLockElement === window.mansionSiege.renderer.domElement
+      && window.mansionSiege.pointerLockRejected === false
+  ), null, { timeout: 10000 });
+  await settle(0.20);
+
+  const automaticAim = await aimAtAttacker(automaticId);
+  const shotBefore = await combatSnapshot(automaticId);
+  await page.mouse.down({ button: 'left' });
+  await settle(0.06);
+  const openingShot = await combatSnapshot(automaticId);
+  await aimAtAttacker(automaticId);
+  /* The carbine's 0.08 s cadence means another 0.03 s crosses the cooldown
+   * after the opening 0.06 s. Release immediately after that automatic round,
+   * then give a possible tracer its fixed 0.05 s arrival window. */
+  await settle(0.03);
+  await page.mouse.up({ button: 'left' });
+  await settle(0.06);
+  const heldShot = await combatSnapshot(automaticId);
+  check('a real pointer-locked canvas press damages the attacker under the crosshair',
+    automaticAim.aimed === automaticId
+      && openingShot.rounds === shotBefore.rounds - 1
+      && openingShot.health < shotBefore.health
+      && openingShot.hits === shotBefore.hits + 1,
+    JSON.stringify({ aim: automaticAim, before: shotBefore, opening: openingShot }));
+  check('a later held-automatic round independently consumes ammo and damages him again',
+    heldShot.rounds < openingShot.rounds
+      && heldShot.health < openingShot.health
+      && heldShot.hits > openingShot.hits,
+    JSON.stringify({ opening: openingShot, held: heldShot }));
+  check('player-visible hit confirmation activates for landed rounds',
+    openingShot.hitConfirm && heldShot.hitConfirm,
+    JSON.stringify({ opening: openingShot.hitConfirm, held: heldShot.hitConfirm }));
+  await settle(0.25);
+  const confirmCleared = await combatSnapshot(automaticId);
+  check('and the hit confirmation clears after its brief feedback window',
+    confirmCleared.hitConfirm === false,
+    JSON.stringify(confirmCleared));
+  await restoreShootingPose(automaticId);
+  await evaluate(() => { delete window.__siegeShootingPoses; });
 
   /* ---------------------------------------------------------------- */
   /* 7a. THE FRONT DOOR IS THE WAY IN                                   */
@@ -1398,6 +1632,82 @@ try {
     await jump.close();
   }
 
+  /* A carried loadout may have been deliberately stowed in the Mansion.
+   * Starting the firefight with five visible slots and nothing in hand made a
+   * healthy trigger look broken. Seed the preview runtime before any module
+   * executes, preserving exact ammunition, and prove Siege selects the loaded
+   * owned gun without inventing a round or rewriting the slots. */
+  {
+    const storageKey = 'squatchsmash.finalArcLoadout.v1';
+    const stored = {
+      version: 1,
+      slots: ['revolver', null, 'carbine', null, null],
+      selected: 0,
+      equipped: null,
+      ammo: {
+        revolver: { rounds: 0, reserve: 0 },
+        carbine: { rounds: 7, reserve: 11 },
+      },
+    };
+    const inherited = await browser.newContext({ viewport: { width: 400, height: 260 } });
+    await inherited.addInitScript(({ key, value, signature }) => {
+      const values = new Map([[key, JSON.stringify(value)]]);
+      const storage = {
+        get length() { return values.size; },
+        clear() { values.clear(); },
+        getItem(name) { return values.get(String(name)) ?? null; },
+        key(index) { return [...values.keys()][index] ?? null; },
+        removeItem(name) { values.delete(String(name)); },
+        setItem(name, next) { values.set(String(name), String(next)); },
+      };
+      globalThis.__squatchLifePreviewRuntime = {
+        signature,
+        sceneId: 'mansion_siege',
+        apartmentVariant: null,
+        storage,
+        seeded: false,
+      };
+    }, {
+      key: storageKey,
+      value: stored,
+      signature: '/mansion-siege.html?preview=1&checkpoint=wake',
+    });
+    const inheritedPage = await inherited.newPage();
+    const inheritedErrors = [];
+    inheritedPage.on('pageerror', (error) => inheritedErrors.push(error.message));
+    try {
+      await inheritedPage.goto(`http://localhost:${PORT}/mansion-siege.html?preview=1&checkpoint=wake`,
+        { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await inheritedPage.waitForFunction(() => window.mansionSiege?.scene, null, { timeout: 120000 });
+      await inheritedPage.evaluate(() => window.mansionSiege.setRendering(false));
+      await inheritedPage.click('#startBtn');
+      await inheritedPage.waitForFunction(() => (
+        window.mansionSiege.running && window.mansionSiege.beat === 'WAKE'
+      ), null, { timeout: 30000 });
+      const restored = await inheritedPage.evaluate(() => ({
+        ...window.mansionSiege.loadout.checkpoint(),
+        equippedInHands: window.mansionSiege.equipped,
+        beat: window.mansionSiege.beat,
+        checkpoint: window.mansionSiege.checkpoint,
+      }));
+      check('owned-but-stowed arrival equips a loaded slot without manufacturing ammunition',
+        JSON.stringify(restored.slots) === JSON.stringify(stored.slots)
+          && restored.selected === 2
+          && restored.equipped === 'carbine'
+          && restored.equippedInHands === 'carbine'
+          && restored.ammo.revolver.rounds === 0
+          && restored.ammo.revolver.reserve === 0
+          && restored.ammo.carbine.rounds === 7
+          && restored.ammo.carbine.reserve === 11
+          && restored.beat === 'WAKE'
+          && restored.checkpoint === 'wake',
+        JSON.stringify(restored));
+      for (const message of inheritedErrors) problems.push(`[stowed-loadout] ${message}`);
+    } finally {
+      await inherited.close();
+    }
+  }
+
   /* ---------------------------------------------------------------- */
   /* DRAW CALLS, from two poses the mission actually stands in          */
   /*                                                                    */
@@ -1449,9 +1759,9 @@ try {
     contextHealth.lost === false,
     JSON.stringify(contextHealth));
 
-  const strayNotFound = notFound.filter((p) => !p.endsWith('/the-feature.mp4'));
-  check('nothing the scene asks for is missing except the film nobody delivered',
-    strayNotFound.length === 0, `missing: ${[...new Set(notFound)].join(', ') || 'nothing'}`);
+  const strayNotFound = [...new Set(notFound)];
+  check('nothing the scene asks for is missing',
+    strayNotFound.length === 0, `missing: ${strayNotFound.join(', ') || 'nothing'}`);
   const strayErrors = problems.filter(
     (p) => !(/Failed to load resource/.test(p) && strayNotFound.length === 0),
   );

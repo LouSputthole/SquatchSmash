@@ -17,6 +17,7 @@ import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { PostFX } from '../core/postfx.js';
 import { SCENE_IDS, createCampaign } from '../core/campaign.js';
@@ -218,6 +219,7 @@ const silverCaseCampaign = createFinalArcRuntimeSession({
   spawn: 'car_ride',
   storyFactory: createSilverCaseCampaignStory,
 });
+const silverCaseRecoveryCampaign = silverCaseCampaign.campaign ?? createCampaign();
 let silverCaseCampaignComplete = false;
 if (previewCheckpoint) {
   const label = SILVERCASE_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
@@ -584,7 +586,15 @@ const pauseMenu = createPauseMenu({
     clock.getDelta();
     lockPointer();
   },
-  onRestart: () => window.location.reload(),
+  recovery: createCampaignSceneRecovery({
+    campaign: silverCaseRecoveryCampaign,
+    sceneId: SCENE_IDS.SILVER_CASE,
+    location: window.location,
+    restartCheckpoint: () => window.location.reload(),
+    canRestartCheckpoint: () => Boolean(
+      silverCaseRecoveryCampaign.state.missions[MISSION_IDS.SILVER_CASE].checkpoint,
+    ),
+  }),
 });
 
 // ---------------------------------------------------------------- mission state

@@ -76,8 +76,10 @@ page.on('pageerror', (e) => problems.push(`${e.message}`));
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text().slice(0, 240)); });
 
 const results = [];
+const failuresOnly = process.env.SQUATCH_VERIFY_FAILURES_ONLY === '1';
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
+  if (failuresOnly && ok) return;
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
@@ -343,7 +345,7 @@ const playbackProbe = await page.evaluate((cues) => {
 }, voicedSurfaces);
 check('representative Bing voice recordings are decoded before playback',
   playbackProbe.started.every(Boolean) && playbackProbe.longest > 0,
-  JSON.stringify(playbackProbe));
+  JSON.stringify({ started: playbackProbe.started.map(Boolean), longest: playbackProbe.longest }));
 /* SwiftShader plus the scene's full audio decode can delay an ended event even
  * after the decoded duration has elapsed. Poll the actual playback contract
  * with a bounded allowance instead of racing it with a fixed wall-clock nap. */
@@ -1447,6 +1449,12 @@ check('a lapsed Family thread resumes; a finished one replays',
 await walkTo(-17.3, 1.5, Math.PI / 2);
 const yellTiming = await page.evaluate(() => {
   const b = window.__bing;
+  const wasPaused = b.game.paused;
+  /* This is a deterministic timer probe. Pause the autonomous frame loop so
+   * it cannot consume the last fraction of the tail between Playwright
+   * evaluations while the same production Dialogue.update path is stepped
+   * below. */
+  b.game.paused = true;
   b.dialogue.start(b.familyScripts.booski, 'open', b.family.byId.booski, { resume: true });
   b.dialogue.choose(0);
   /* Walk the real dialogue timers until the yell starts, but stop at the
@@ -1461,6 +1469,8 @@ const yellTiming = await page.evaluate(() => {
   return {
     leadIn,
     cueSeconds: b.audio.buffers.get('vo.bing.booski.shot.yell')?.[0]?.duration || 0,
+    holdSeconds: b.dialogue.timer,
+    wasPaused,
     active: b.dialogue.active,
     node: b.dialogue.nodeId,
     beatStarted: !!b.game.beat,
@@ -1468,11 +1478,12 @@ const yellTiming = await page.evaluate(() => {
   };
 });
 check('the Booski yell owns the floor before the bartender is allowed to begin',
-  yellTiming.active && yellTiming.node === 'yell' && !yellTiming.beatStarted && !yellTiming.markedDone,
+  yellTiming.active && yellTiming.node === 'yell' && !yellTiming.beatStarted && !yellTiming.markedDone
+    && yellTiming.holdSeconds >= yellTiming.cueSeconds + 0.44,
   JSON.stringify(yellTiming));
 /* Dialogue's cue-aware hold is recording duration plus 0.45 seconds. Advance
  * past the recording but not its tail: the delivery must still be absent. */
-await tick(Math.max(0.5, yellTiming.cueSeconds + 0.2));
+await tick(Math.max(0.5, yellTiming.cueSeconds + 0.2), 0.05);
 const yellTail = await page.evaluate(() => {
   const b = window.__bing;
   return {
@@ -1485,7 +1496,8 @@ const yellTail = await page.evaluate(() => {
 check('the bartender cannot interrupt the tail of the thirty-second recording',
   yellTail.active && yellTail.node === 'yell' && !yellTail.beatStarted && !yellTail.markedDone,
   JSON.stringify(yellTail));
-await tick(0.6);
+await tick(0.6, 0.05);
+await page.evaluate((wasPaused) => { window.__bing.game.paused = wasPaused; }, yellTiming.wasPaused);
 await tickBeat(1.1, 0.1);
 const midBeat = await page.evaluate(() => {
   const b = window.__bing;
@@ -3037,14 +3049,15 @@ check('tipping the runway puts money in the air',
   const texts = punchHud.objectives.map((o) => o.text);
   const primary = punchHud.objectives.filter((o) => !o.optional && !o.rule).map((o) => o.text);
   const optional = punchHud.objectives.filter((o) => o.optional).map((o) => o.text);
-  check('the objective card carries the three jobs and the optional evening',
+  check('the objective card carries the four required jobs and the optional evening',
     primary.some((t) => /Lou/.test(t))
       && primary.some((t) => /cute girl at the bar/.test(t))
       && primary.some((t) => /shot with Booski/.test(t))
+      && primary.some((t) => t.includes('Help Au Gratin in the back room'))
       && optional.some((t) => /\d+\/\d+.*squatches/.test(t))
-      && ['Play the slots', 'Play blackjack', 'Tip the performers', 'Order a drink from the bar',
-        'See what Gratin needs in the service room']
+      && ['Play the slots', 'Play blackjack', 'Tip the performers', 'Order a drink from the bar']
         .every((want) => optional.some((t) => t.includes(want)))
+      && !optional.some((t) => /Gratin|service room/.test(t))
       && punchHud.objectives.some((o) => o.rule),
     JSON.stringify(texts));
 }

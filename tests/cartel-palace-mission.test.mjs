@@ -216,6 +216,257 @@ test('the palace is its own traversable compound with every clue physically stag
     'night interiors remain readable instead of rendering as black geometry');
 });
 
+test('every playable estate zone has a finished ceiling below the exterior roof', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const ceilingNames = [
+    'estate-entry-ceiling',
+    'mark-office-ceiling',
+    'guest-suite-ceiling',
+    'security-room-ceiling',
+    'service-corridor-ceiling',
+    'portrait-gallery-ceiling',
+    'final-dining-ceiling',
+  ];
+
+  for (const name of ceilingNames) {
+    const ceiling = world.root.getObjectByName(name);
+    assert.ok(ceiling, `${name} is missing above a playable estate zone`);
+    const bounds = new THREE.Box3().setFromObject(ceiling);
+    assert.ok(bounds.min.y >= 4.3 && bounds.max.y < 5.1,
+      `${name} sits outside the finished interior shell (${bounds.min.y}..${bounds.max.y})`);
+  }
+
+  const ceilingRoot = world.root.getObjectByName('estate-interior-ceilings');
+  const coverage = ceilingRoot.children.map((ceiling) => new THREE.Box3().setFromObject(ceiling));
+  const playableRects = [
+    [-17.5, 10.2, -14.5, 1.0],
+    [10.8, 17.5, -33.8, 11.5],
+    [-17.5, 10.2, -33.8, -15.4],
+    [-17.5, 17.5, -49.5, -34.5],
+  ];
+  for (const [x0, x1, z0, z1] of playableRects) {
+    for (let x = x0; x <= x1; x += 0.55) {
+      for (let z = z0; z <= z1; z += 0.55) {
+        const covered = coverage.some((bounds) => (
+          x >= bounds.min.x && x <= bounds.max.x && z >= bounds.min.z && z <= bounds.max.z
+        ));
+        assert.equal(covered, true,
+          `exterior roof is visible above playable floor at x=${x.toFixed(2)}, z=${z.toFixed(2)}`);
+      }
+    }
+  }
+});
+
+test('the final dining room is a furnished combat stage with two clear flanking lanes', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const stage = world.root.getObjectByName('final-dining-refinement');
+  assert.ok(stage, 'the final room has no authored furnishing layer');
+
+  const names = [];
+  stage.traverse((object) => names.push(object.name));
+  assert.ok(names.filter((name) => name.startsWith('dining-chair.')).length >= 6,
+    'the palace table has no readable chair rhythm');
+  assert.ok(names.filter((name) => name.startsWith('dining-place-setting.')).length >= 8,
+    'the final table is not set for a cartel dinner');
+  assert.ok(names.includes('dining-chandelier'), 'the final room has no overhead focal fixture');
+  assert.ok(names.filter((name) => name === 'dining-coffer-beam').length >= 8,
+    'the final room ceiling is still an empty slab');
+  assert.ok(names.filter((name) => name === 'dining-wall-panel').length >= 6,
+    'blank partition faces still dominate the boss room');
+
+  for (const x of [-7.2, 7.2]) {
+    for (let z = -35.2; z >= -49.2; z -= 0.4) {
+      const point = new THREE.Vector3(x, 0.9, z);
+      const blocker = world.colliders.find((collider) => collider.containsPoint(point));
+      assert.equal(blocker, undefined,
+        `dining combat lane x=${x} is blocked by ${blocker?.name ?? 'unknown'} at z=${z}`);
+    }
+  }
+});
+
+test('the dining chandelier is physically supported and the final-room light budget does not clip', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const stage = world.root.getObjectByName('final-dining-refinement');
+  const names = [];
+  stage.traverse((object) => names.push(object.name));
+  assert.ok(names.filter((name) => name === 'dining-chandelier-arm').length >= 8,
+    'the chandelier bulbs still float without visible arms');
+  assert.ok(names.filter((name) => name === 'dining-rear-wall-panel').length >= 6,
+    'the large rear wall faces are still blank');
+
+  const finalLights = world.lights.filter((light) => light.position.z <= -40 && light.position.z >= -45);
+  const intensity = finalLights.reduce((total, light) => total + light.intensity, 0);
+  assert.ok(intensity >= 20 && intensity <= 36,
+    `final-room practicals total ${intensity}, outside the readable non-clipping budget`);
+  assert.ok(finalLights.every((light) => light.position.y >= 2.6),
+    'a final-room practical is detached below its visible ceiling fixture');
+});
+
+test('each evidence clue sits in a distinct furnished room and remains reachable on foot', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  for (const [groupName, prefix] of [
+    ['mark-office-refinement', 'office-detail.'],
+    ['guest-suite-refinement', 'guest-suite-detail.'],
+    ['security-room-refinement', 'security-detail.'],
+  ]) {
+    const room = world.root.getObjectByName(groupName);
+    assert.ok(room, `${groupName} is missing`);
+    const details = [];
+    room.traverse((object) => {
+      if (object.name.startsWith(prefix)) details.push(object.name);
+    });
+    assert.ok(new Set(details).size >= 6,
+      `${groupName} has only ${new Set(details).size} distinct authored details`);
+  }
+
+  const standingPositions = {
+    [EVIDENCE_IDS.BELONGINGS]: new THREE.Vector3(4.7, 0.9, -4.9),
+    [EVIDENCE_IDS.PAYMENT_LEDGER]: new THREE.Vector3(-10.6, 0.9, -5.1),
+    [EVIDENCE_IDS.SECURITY_STILL]: new THREE.Vector3(14.9, 0.9, -8.0),
+  };
+  for (const [id, target] of Object.entries(world.evidence)) {
+    const standing = standingPositions[id];
+    const blocker = world.colliders.find((collider) => collider.containsPoint(standing));
+    assert.equal(blocker, undefined,
+      `${id} standing position is blocked by ${blocker?.name ?? 'unknown'}`);
+    assert.ok(standing.distanceTo(target.getWorldPosition(new THREE.Vector3()).setY(0.9)) <= 2.5,
+      `${id} cannot be inspected from its clear standing position`);
+  }
+});
+
+test('the courtyard reads as a palace and its solid waterworks do not seal the service route', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const courtyard = world.root.getObjectByName('courtyard-refinement');
+  assert.ok(courtyard, 'the courtyard has no authored refinement layer');
+  const names = [];
+  courtyard.traverse((object) => names.push(object.name));
+  assert.ok(names.filter((name) => name === 'courtyard-fountain-tier').length >= 2,
+    'the fountain is still a single shallow cylinder');
+  assert.ok(names.filter((name) => name === 'courtyard-water-jet').length >= 6,
+    'the fountain has no visible moving-water silhouette');
+  assert.ok(names.filter((name) => name === 'reflecting-pool-border').length >= 4,
+    'the reflecting pool has no raised stone edge');
+  assert.ok(names.filter((name) => name === 'estate-facade-bay').length >= 6,
+    'the estate approach is still a blank stucco wall');
+  assert.ok(names.filter((name) => name === 'courtyard-wall-lantern').length >= 4,
+    'the powered-down courtyard has no readable practical-light rhythm');
+
+  assert.ok(world.colliders.some((collider) => collider.name === 'courtyard-fountain-collider'));
+  assert.ok(world.colliders.some((collider) => collider.name === 'reflecting-pool-collider'));
+
+  world.doors.openServiceGate();
+  world.doors.openEstateDoor();
+  const route = [
+    new THREE.Vector3(14, 0.9, 57.4),
+    new THREE.Vector3(8.5, 0.9, 56.0),
+    new THREE.Vector3(8.5, 0.9, 40.0),
+    new THREE.Vector3(8.5, 0.9, 20.0),
+    new THREE.Vector3(12.4, 0.9, 13.2),
+    new THREE.Vector3(13.5, 0.9, 11.2),
+  ];
+  for (let index = 1; index < route.length; index++) {
+    const from = route[index - 1];
+    const to = route[index];
+    const distance = from.distanceTo(to);
+    for (let travelled = 0; travelled <= distance; travelled += 0.35) {
+      const point = from.clone().lerp(to, travelled / distance);
+      const blocker = world.colliders.find((collider) => collider.containsPoint(point));
+      assert.equal(blocker, undefined,
+        `opened service route is blocked by ${blocker?.name ?? 'unknown'} at ${point.x.toFixed(2)},${point.z.toFixed(2)}`);
+    }
+  }
+});
+
+test('cutting the exterior power actually blacks out the facade lanterns', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const facadeLights = world.lights.filter((light) => light.name === 'courtyard-wall-lantern-light');
+  const facadeBulbs = [];
+  world.root.traverse((object) => {
+    if (object.name === 'courtyard-lantern-bulb') facadeBulbs.push(object);
+  });
+  assert.equal(facadeLights.length, 4);
+  assert.equal(facadeBulbs.length, 4);
+  assert.ok(facadeLights.every((light) => light.intensity >= 4),
+    'the powered approach has no visible facade practicals');
+
+  assert.equal(world.doors.openServiceGate(), true);
+  assert.ok(facadeLights.every((light) => light.intensity === 0),
+    'facade point lights remain bright after the power cut');
+  assert.ok(facadeBulbs.every((bulb) => bulb.material.color.getHex() === 0x080909),
+    'facade bulbs remain visibly emissive after the power cut');
+});
+
+test('the portrait gallery has architectural depth without narrowing the final approach', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const gallery = world.root.getObjectByName('portrait-gallery-refinement');
+  assert.ok(gallery, 'the gallery has no authored refinement layer');
+  const names = [];
+  gallery.traverse((object) => names.push(object.name));
+  assert.ok(names.filter((name) => name === 'gallery-wall-panel').length >= 8,
+    'the portraits still float against blank or missing wall surfaces');
+  assert.ok(names.filter((name) => name === 'gallery-picture-light').length >= 8,
+    'the portrait sequence has no readable light rhythm');
+  assert.ok(names.filter((name) => name === 'gallery-ceiling-beam').length >= 8,
+    'the long gallery ceiling has no depth');
+  assert.ok(names.filter((name) => name === 'gallery-bench').length >= 2,
+    'the gallery has no furnishing silhouette');
+
+  for (let z = -15.6; z >= -33.6; z -= 0.35) {
+    const point = new THREE.Vector3(0, 0.9, z);
+    const blocker = world.colliders.find((collider) => collider.containsPoint(point));
+    assert.equal(blocker, undefined,
+      `central gallery approach is blocked by ${blocker?.name ?? 'unknown'} at z=${z.toFixed(2)}`);
+  }
+});
+
+test('the portrait-gallery practical lights the art without blowing out the finished ceiling', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const galleryLights = world.lights.filter((light) => (
+    light.position.z <= -23 && light.position.z >= -27 && Math.abs(light.position.x) <= 5
+  ));
+  assert.ok(galleryLights.length >= 1, 'the long gallery has no authored practical light');
+  const intensity = galleryLights.reduce((total, light) => total + light.intensity, 0);
+  assert.ok(intensity <= 14, `gallery practical intensity ${intensity} still clips the ceiling`);
+  assert.ok(galleryLights.every((light) => light.position.y >= 3.2),
+    'gallery practical hangs below the finished ceiling treatment');
+});
+
+test('the public environment inventory reports the real scene graph and every refined zone', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  assert.equal(typeof world.inspectEnvironment, 'function');
+  const inventory = world.inspectEnvironment();
+
+  let meshes = 0;
+  let groups = 0;
+  let namedMeshes = 0;
+  world.root.traverse((object) => {
+    if (object.isMesh) {
+      meshes++;
+      if (object.name) namedMeshes++;
+    }
+    if (object.isGroup) groups++;
+  });
+  assert.equal(inventory.meshes, meshes, 'mesh count is not derived from the live scene graph');
+  assert.equal(inventory.groups, groups, 'group count is not derived from the live scene graph');
+  assert.equal(inventory.namedMeshes, namedMeshes);
+  assert.equal(inventory.colliders, world.colliders.length);
+  assert.ok(inventory.namedMeshes / inventory.meshes >= 0.85,
+    'too much palace geometry is anonymous to audit reliably');
+
+  assert.deepEqual(Object.keys(inventory.zones).sort(), [
+    'ceilings', 'courtyard', 'dining', 'gallery', 'guestSuite', 'office', 'security',
+  ]);
+  for (const [name, zone] of Object.entries(inventory.zones)) {
+    assert.ok(zone.meshes > 0, `${name} inventory is disconnected from its geometry`);
+    assert.ok(zone.bounds.min.every(Number.isFinite) && zone.bounds.max.every(Number.isFinite),
+      `${name} inventory has non-finite world bounds`);
+    assert.ok(zone.names.length > 0, `${name} inventory has no semantic names`);
+  }
+  assert.deepEqual(inventory.solidWaterworks.sort(), [
+    'courtyard-fountain-collider', 'reflecting-pool-collider',
+  ]);
+});
+
 test('Mark is a real armored boss and Sauce waits armed at his table', () => {
   const root = new THREE.Group();
   const cast = buildPalaceCast(root);
@@ -229,6 +480,19 @@ test('Mark is a real armored boss and Sauce waits armed at his table', () => {
   assert.equal(cast.sauce.armed, true);
   assert.ok(cast.sauce.root.position.distanceTo(PALACE_ANCHORS.sauce) < 0.01);
   assert.ok(cast.mark.root.position.distanceTo(PALACE_ANCHORS.mark) < 0.01);
+});
+
+test('Mark has supported styled hair instead of silently rendering bald', () => {
+  const cast = buildPalaceCast(new THREE.Group());
+  const hair = [];
+  cast.mark.root.traverse((object) => {
+    if (object.name.startsWith('person.hair.')) hair.push(object);
+  });
+
+  assert.ok(hair.length >= 3,
+    `Mark's authored hair token produced only ${hair.length} shared hair pieces`);
+  assert.ok(hair.every((piece) => piece.material?.color?.getHex() === 0x17110e),
+    'Mark lost his authored dark hair colour when the style was normalized');
 });
 
 test('cutting power materially helps stealth and a silent takedown does not raise the alarm', () => {

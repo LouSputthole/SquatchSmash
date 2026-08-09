@@ -48,15 +48,26 @@ import {
   HEIST_PREPARATION_ITEMS,
   createApartmentStory,
 } from './core/apartment-story.js';
+import {
+  apartmentRecoveryBeatId,
+  createApartmentRecoverySkipAdapter,
+} from './core/apartment-recovery.js';
 import { createPauseMenu } from './core/pause-menu.js';
+import { createSceneRecovery } from './core/scene-recovery.js';
 import { DayNight } from './core/daynight.js';
-import { SmokeSystem } from './world/smoke.js';
+import { SmokeSystem, emitCigaretteExhale } from './world/smoke.js';
+import { createBongBehavior } from './world/bong.js';
 import { StreamSystem } from './world/stream.js';
 import { ShowerSystem } from './world/shower.js';
 import { SplatSystem } from './world/splat.js';
 import { TimingBar } from './core/timingbar.js';
 import {
-  makeHeldCigarette, makeHeldDrinks, makeHeldSlice, makeRevolver, makePhone,
+  createDressHelpSequence,
+  DRESS_HELP_CUES,
+  DRESS_HELP_FINISH_CUE,
+} from './world/dress-help.js';
+import {
+  makeHeldCigarette, makeHeldDrinks, poseHeldDrink, makeHeldSlice, makeRevolver, makePhone,
 } from './world/props.js';
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
@@ -404,33 +415,7 @@ camera.add(heldDrinks.group);
 
 /** Pose whichever drink is up, from 0 (at rest) to 1 (at the mouth). */
 function poseDrink(which, k) {
-  const can = heldDrinks.can;
-  const bottle = heldDrinks.bottle;
-  const jug = heldDrinks.jug;
-  can.visible = which === 'can';
-  bottle.visible = which === 'bottle';
-  jug.visible = which === 'jug';
-  const m = which === 'can' ? can : which === 'bottle' ? bottle : which === 'jug' ? jug : null;
-  if (!m) return;
-  // Ease so it settles at the lips instead of arriving at constant speed.
-  const e = k * k * (3 - 2 * k);
-  m.position.set(-0.10 * e, 0.26 * e, 0.09 * e);
-  /* Tipped BACK past level, so the base finishes above the mouth and the thing
-   * is actually pouring, and rolled slightly in.
-   *
-   * Both models are built standing up, mouth at +Y. A camera looks down -Z, so
-   * +Z is the drinker's own face, and a POSITIVE rotation about X is the one
-   * that swings the mouth back onto his lip and the base up over it -- the same
-   * sign the held phone uses to tip its screen back toward him. This was
-   * negative, which is the identical motion played backwards: the base came
-   * back and the neck went out, so a swig of Jack read as pouring it on the
-   * carpet in front of you.
-   *
-   * Past a right angle rather than up to one, too. At 1.30 the bottle only
-   * reached level -- mouth at the lip but still the high end of it, which is
-   * how you hold a bottle you are about to drink from and not how you hold one
-   * you are drinking from. */
-  m.rotation.set(1.95 * e, 0, 0.34 * e);
+  poseHeldDrink(heldDrinks, which, k);
 }
 
 /* The slice in hand. Same rig as the drinks, and it is the whole reason the
@@ -668,7 +653,7 @@ async function boot() {
    * it. */
   interaction.register(apartment.margo.helpTarget, {
     label: () => 'Help Margo with the <b>dress</b>',
-    enabled: () => game.margoScene?.awaitingHelp === true && !margoDress.running,
+    enabled: () => game.margoScene?.awaitingHelp === true && !margoDress.active,
     onUse: () => startMargoDressHelp(),
   });
 
@@ -871,7 +856,7 @@ function apartmentStartupCueNames() {
      * won for the exact same reason. */
     for (const cue of MARGO_DRESS_IMPACT_CUES) names.add(cue);
     // And the bar's own takes, which are the beat rather than a garnish on it.
-    for (const cue of MARGO_DRESS_CUES) names.add(cue);
+    for (const cue of DRESS_HELP_CUES) names.add(cue);
   }
   return [...names];
 }
@@ -1108,6 +1093,28 @@ const pauseMenu = createPauseMenu({
     'At the computer, Tab exits the current app to SquatchOS; Q leaves the desk.',
     'Away from the computer, Tab — pause or resume.',
   ],
+  recovery: createSceneRecovery({
+    sceneId: () => apartmentRecoveryBeatId(campaign.state),
+    location,
+    // The apartment save itself is checkpoint zero. Both actions reload the
+    // hub without erasing campaign facts; only their retry counters differ.
+    restartCheckpoint: () => {
+      location.reload();
+      return { ok: true, checkpoint: 'apartment_entry' };
+    },
+    restartScene: () => {
+      location.reload();
+      return { ok: true, sceneId: SCENE_IDS.APARTMENT };
+    },
+    completeAndSkip: createApartmentRecoverySkipAdapter({
+      campaign,
+      story: apartmentStory,
+      getActivities: activityContext,
+      completeActivity: completeApartmentRecoveryActivity,
+      settleBlockingBeat: settleApartmentRecoveryBeat,
+      navigate: leaveForMission,
+    }),
+  }),
   onPause: () => {
     game.paused = true;
     player.enabled = false;
@@ -1201,8 +1208,8 @@ document.addEventListener('keydown', (e) => {
    * the way out of it, and the way out finishes the beat rather than
    * cancelling it -- nothing in this morning is allowed to leave him in the
    * bed with no key that does anything. */
-  if (margoDress.running) {
-    if (e.code === 'KeyE') { margoDress.bar.press(); e.preventDefault(); return; }
+  if (margoDress.active) {
+    if (e.code === 'KeyE') { margoDress.press(); e.preventDefault(); return; }
     if (e.code === 'KeyQ') { abandonMargoDressHelp(); e.preventDefault(); return; }
   }
 
@@ -1993,21 +2000,7 @@ function wispFromEmber(dt, rate) {
 function exhaleCloud() {
   camera.getWorldPosition(_v);
   camera.getWorldDirection(_dir);
-  // Far enough ahead that the cloud reads as a plume rather than fog on the
-  // lens, and quick enough that it clears the view on its own.
-  _v.addScaledVector(_dir, 0.55);
-  _v.y -= 0.07;
-  // Many small billows travelling fast reads as a plume; a few big ones just
-  // fog the lens.
-  smoke.emit(_v, _dir, {
-    count: 18, speed: 2.20, spread: 0.26,
-    size0: 0.045, size1: 0.38, life: 2.8, peak: 0.22, rise: 0.24,
-  });
-  // A second, slower burst so the plume has a tail rather than one pop.
-  smoke.emit(_v, _dir, {
-    count: 10, speed: 0.90, spread: 0.18,
-    size0: 0.035, size1: 0.32, life: 4.0, peak: 0.14, rise: 0.18,
-  });
+  emitCigaretteExhale(smoke, _v, _dir);
 }
 
 /* ------------------------------------------------------------------ */
@@ -2163,18 +2156,18 @@ function updateZyn() {
  * A bowl. The world slows down, you slow down, and the camera takes its time
  * catching up with the mouse.
  */
+const apartmentBongBehavior = createBongBehavior({
+  blocked: () => game.passingOut,
+  audio,
+  highs,
+  smoke,
+  origin: () => camera.position,
+  direction: cameraForward,
+  hud,
+});
+
 function hitBong() {
-  if (game.passingOut) return;
-  audio.play('cig.light', { volume: 0.6 });
-  audio.play('bong.bubble', { volume: 0.8, delay: 0.5 });
-  audio.play('cig.exhale', { volume: 0.6, delay: 2.6 });
-  audio.say('bong', { chance: 0.8, delay: 3.4 });
-  highs.smokeBong();
-  smoke.emit(camera.position, cameraForward(), { count: 14, spread: 0.5, speed: 0.7 });
-  hud.toast('That is going to take a minute', 'good');
-  hud.say(highs.weed > 0.6
-    ? 'Everything has slowed down and you are fine with it.'
-    : 'The room gets softer at the edges.', 5200);
+  return apartmentBongBehavior.use();
 }
 
 /** A cap. Nothing happens for a minute and a half, and then it does. */
@@ -2556,7 +2549,7 @@ function updateGluing(dt) {
   /* Two power bars in this flat share one HUD element, and this one runs later
    * in the frame than Margo's does. Without the bail it clears her bar to null
    * every frame and the fourth morning sweeps an invisible marker. */
-  if (margoDress.running) return;
+  if (margoDress.active) return;
   if (glue.bar.active) {
     glue.bar.update(dt);
     hud.setTiming(glue.bar.view);
@@ -2573,7 +2566,7 @@ function updateGluing(dt) {
     audio.play('glue.burst', { volume: 0.9, position: apartment.gluePos });
     /* The wet one-shot the dress beat also lands on. Two fixing games, one
      * bottle, one noise -- the rhyme is what makes the second one funny. */
-    audio.play(WET_CLAP_FINISH, { volume: 0.66, position: apartment.gluePos, delay: 0.06 });
+    audio.play(DRESS_HELP_FINISH_CUE, { volume: 0.66, position: apartment.gluePos, delay: 0.06 });
     /* All over the frame he was trying to straighten, which is the point:
      * the mess lands on the thing the job was about. */
     splat.spray(-0.10, 2.20, 12);
@@ -2655,6 +2648,39 @@ function activityContext() {
     pcUsed: apartment.state.pcEverOn === true,
     playedGame: (apartment.state.csDeaths || 0) >= CS_ROUNDS,
   };
+}
+
+const APARTMENT_RECOVERY_ACTIVITY_EVENTS = Object.freeze({
+  eaten: TIME_EVENT_IDS.EAT,
+  showered: TIME_EVENT_IDS.SHOWER,
+  peed: TIME_EVENT_IDS.PEE,
+  pooped: TIME_EVENT_IDS.POOP,
+  changedClothes: TIME_EVENT_IDS.CHANGE_CLOTHES,
+});
+
+/** Normalize one required hub activity immediately before a recovery leave. */
+function completeApartmentRecoveryActivity(activityId) {
+  if (activityId === 'whiskeyRelaxed') {
+    campaign.update((state) => { state.activities.whiskeyRelaxed = true; });
+    updateObjectives();
+    return true;
+  }
+  const timeEventId = APARTMENT_RECOVERY_ACTIVITY_EVENTS[activityId];
+  if (!timeEventId) return false;
+  if (activityId === 'eaten') apartment.state.fed = true;
+  if (activityId === 'showered') apartment.state.showered = true;
+  if (activityId === 'peed') game.peed = true;
+  if (activityId === 'pooped') game.pooped = true;
+  if (activityId === 'changedClothes') apartment.state.dressed = true;
+  completeApartmentActivity(activityId, timeEventId);
+  return campaign.state.activities[activityId] === true;
+}
+
+/** Settle the current apartment-only cutscene before leaving its chapter. */
+function settleApartmentRecoveryBeat() {
+  if (apartmentStory.margoComeHomeOwed()) apartmentStory.margoComeHomeDone();
+  if (apartmentStory.margoWakeOwed()) apartmentStory.margoWakeDone();
+  return true;
 }
 
 /**
@@ -3713,58 +3739,57 @@ function playMargoDressImpact() {
  * order every time, which is what makes it a written gag rather than a
  * shuffle.
  */
-const MARGO_DRESS_MOANS = Object.freeze([
-  'moan.1', 'moan.3', 'moan.4', 'moan.5', 'moan.6', 'moan.3', 'moan.5',
-]);
-/** The continuous bed, in the order the beat climbs through it. */
-const MARGO_DRESS_CLAP_LOOPS = Object.freeze([
-  'clap.wet.loop.1', 'clap.wet.loop.2', 'clap.wet.loop.3',
-]);
-const MARGO_DRESS_CLAP_KEY = 'margo.dress.clap';
-/** The one-shot both fixing games land on. */
-const WET_CLAP_FINISH = 'clap.wet.finish';
-/** Every cue the beat needs decoded before it starts, for the preloader. */
-const MARGO_DRESS_CUES = Object.freeze([
-  ...new Set([...MARGO_DRESS_MOANS, ...MARGO_DRESS_CLAP_LOOPS, WET_CLAP_FINISH]),
-]);
-
-const margoDress = {
-  bar: new TimingBar({
-    /* Slightly kinder than the glue bar -- he is doing this for somebody else,
-     * from his back, and the takes want room to land. Seven at 1.13 ends
-     * around a 70ms window, which is losing it without being unfair. */
-    hits: MARGO_DRESS_MOANS.length,
-    window: [0.72, 0.87],
-    speed: 0.74,
-    ramp: 1.13,
-    onHit: onMargoDressHit,
-    onMiss: onMargoDressMiss,
-    onDone: () => finishMargoDressHelp({ earned: true }),
-  }),
-  running: false,
-  clapStage: 0,
+/* The seven written pulls, the rising wet-clap bed and the common payoff now
+ * live in one shared sequence. The adapter below is only the apartment's
+ * staging: Margo's pose, its HUD and its chapter-specific continuation. */
+const margoDressAudio = {
+  position: () => apartment.margo.group.position,
+  play: (name, options) => audio.play(name, options),
+  startLoop: (key, options) => audio.startLoop(key, options),
+  stopLoop: (key, fade) => audio.stopLoop(key, fade),
 };
 
-/**
- * Bring the continuous bed up to `stage`, or take it away at 0.
- *
- * Keyed rather than named, so swapping variants mid-beat replaces the bed
- * instead of stacking a second one on top of it.
- */
-function setMargoDressClap(stage) {
-  if (margoDress.clapStage === stage) return;
-  if (margoDress.clapStage) audio.stopLoop(MARGO_DRESS_CLAP_KEY, stage ? 0.22 : 0.34);
-  margoDress.clapStage = stage;
-  if (!stage) return;
-  audio.startLoop(MARGO_DRESS_CLAP_KEY, {
-    name: MARGO_DRESS_CLAP_LOOPS[stage - 1],
-    volume: 0.20 + stage * 0.12,
-    position: apartment.margo.group.position,
-    ref: 0.9,
-    maxDist: 6,
-    fade: 0.35,
-  });
-}
+const margoDress = createDressHelpSequence({
+  timingBar: TimingBar,
+  audio: margoDressAudio,
+  rig: {
+    begin() {
+      const scene = game.margoScene;
+      const margo = apartment.margo;
+      margo.setPose('kneeling');
+      margo.setDressHelpProgress(0);
+      if (scene) scene.aim = MARGO_HELP_LOOK;
+      interaction.setPaused(true);
+      hud.hidePrompt();
+      hud.setPosture('let her do it');
+    },
+    onHit({ index, total }) {
+      const scene = game.margoScene;
+      if (!scene) return;
+      const progress = index / total;
+      /* The authored body-impact takes stay on the same two thresholds and
+       * happen after the pull and clap-stage change, exactly as before. */
+      while (scene.dressImpactStep < MARGO_DRESS_IMPACT_THRESHOLDS.length
+        && progress >= MARGO_DRESS_IMPACT_THRESHOLDS[scene.dressImpactStep]) {
+        scene.dressImpactHistory.push(playMargoDressImpact());
+        scene.dressImpactStep++;
+      }
+      if (index !== total) hud.toast(`${index}/${total}`, index >= total - 1 ? 'good' : '');
+    },
+    finish() {
+      hud.setTiming(null);
+      hud.setPosture(null);
+    },
+  },
+  onProgress({ progress }) {
+    const scene = game.margoScene;
+    if (!scene) return;
+    scene.dressProgress = progress;
+    apartment.margo.setDressHelpProgress(progress);
+  },
+  onComplete: () => settleMargoDressHelp({ earned: true }),
+  onAbandon: () => settleMargoDressHelp({ earned: false }),
+});
 
 /**
  * Pressing [E] on her hands over the fastening -- and puts her in the pose
@@ -3775,63 +3800,11 @@ function setMargoDressClap(stage) {
  */
 function startMargoDressHelp() {
   const scene = game.margoScene;
-  if (!scene?.awaitingHelp || margoDress.running) return false;
-  apartment.margo.setPose('kneeling');
-  apartment.margo.setDressHelpProgress(0);
-  scene.aim = MARGO_HELP_LOOK;
-  margoDress.running = true;
-  margoDress.bar.start();
-  /* The bar owns the keyboard from here, the same way the glue bar does at the
-   * desk -- and unlike the offer that led here, THIS beat does take the room:
-   * he is committed to the fastening, so the rest of the flat goes quiet
-   * until it is done. */
-  interaction.setPaused(true);
-  hud.hidePrompt();
-  hud.setPosture('let her do it');
-  setMargoDressClap(1);
-  audio.play('cloth.snap', {
-    volume: 0.42, position: apartment.margo.group.position, ref: 0.8, maxDist: 5,
-  });
+  if (!scene?.awaitingHelp || margoDress.active) return false;
+  if (!margoDress.start()) return false;
   hud.say('That fastening has never once gone first time.<br>'
     + '<em>Right.</em> Time it and pull.', 5200);
   return true;
-}
-
-function onMargoDressHit(n, total) {
-  const scene = game.margoScene;
-  if (!scene) return;
-  const margo = apartment.margo;
-  const p = n / total;
-  scene.dressProgress = p;
-  margo.setDressHelpProgress(p);
-
-  // One take per pull, in the written order. No shuffle, no random.
-  audio.play(MARGO_DRESS_MOANS[(n - 1) % MARGO_DRESS_MOANS.length], {
-    volume: 0.60 + p * 0.30,
-    position: margo.group.position,
-    ref: 0.9,
-    maxDist: 6,
-  });
-  // And the bed underneath it climbs with the bar.
-  setMargoDressClap(p > 0.70 ? 3 : p > 0.38 ? 2 : 1);
-
-  /* The four authored body-impact takes still ride the same two thresholds
-   * they always did -- they are the fastening, not the performance, and the
-   * beat is poorer without them. */
-  while (scene.dressImpactStep < MARGO_DRESS_IMPACT_THRESHOLDS.length
-    && p >= MARGO_DRESS_IMPACT_THRESHOLDS[scene.dressImpactStep]) {
-    scene.dressImpactHistory.push(playMargoDressImpact());
-    scene.dressImpactStep++;
-  }
-
-  if (n === total) return;
-  hud.toast(`${n}/${total}`, n >= total - 1 ? 'good' : '');
-}
-
-function onMargoDressMiss() {
-  audio.play('cloth.snap', {
-    volume: 0.30, rate: 1.22, position: apartment.margo.group.position, ref: 0.8, maxDist: 5,
-  });
 }
 
 /**
@@ -3841,19 +3814,8 @@ function onMargoDressMiss() {
  *   only difference between the two ways out: the payoff is identical, because
  *   a beat the player can accidentally skip past is a beat nobody has seen.
  */
-function finishMargoDressHelp({ earned = true } = {}) {
-  if (!margoDress.running) return false;
-  margoDress.running = false;
-  margoDress.bar.stop();
-  hud.setTiming(null);
-  hud.setPosture(null);
-  setMargoDressClap(0);
-
+function settleMargoDressHelp({ earned = true } = {}) {
   const scene = game.margoScene;
-  const margo = apartment.margo;
-  audio.play(WET_CLAP_FINISH, {
-    volume: 0.92, position: margo.group.position, ref: 1.0, maxDist: 7,
-  });
   /* And the glue lands on the thing the job was about, exactly the way it
    * lands on the picture he was trying to straighten. Ramped in by
    * `updateMargoWake` rather than switched on here, because the bottle gives
@@ -3867,7 +3829,7 @@ function finishMargoDressHelp({ earned = true } = {}) {
       : 'Wood glue. <em>On the dress.</em> The same bottle, the same nozzle, '
         + 'and she is due at a kitchen in three hours.')
     : '<em>Fine.</em> She has got it. She has mostly got it.', 5400);
-  completeMargoDressHelp();
+  completeMargoDressHelp({ playSnap: false });
   return true;
 }
 
@@ -3875,7 +3837,7 @@ function finishMargoDressHelp({ earned = true } = {}) {
  * [Q]. She finishes it herself, and the morning carries on regardless.
  *
  * Reached only while the bar is actually running (the keydown handler gates
- * it on `margoDress.running`, same as [E] feeding the bar): once she is
+ * it on `margoDress.active`, same as [E] feeding the bar): once she is
  * merely OFFERING, there is nothing to abandon -- the player is free to walk
  * off and come back, and nothing is waiting on him to say so. The second
  * branch here stays for the same reason `startMargoDressHelp` is idempotent:
@@ -3883,7 +3845,7 @@ function finishMargoDressHelp({ earned = true } = {}) {
  * do nothing.
  */
 function abandonMargoDressHelp() {
-  if (margoDress.running) return finishMargoDressHelp({ earned: false });
+  if (margoDress.active) return margoDress.abandon();
   if (!game.margoScene?.awaitingHelp) return false;
   hud.say('<em>Fine.</em> She has got it.', 3200);
   return completeMargoDressHelp();
@@ -3891,9 +3853,8 @@ function abandonMargoDressHelp() {
 
 /** Sweep the bar while it is up. Nothing else in the flat owns the HUD here. */
 function updateMargoDressHelp(dt) {
-  if (!margoDress.running) return;
-  margoDress.bar.update(dt);
-  hud.setTiming(margoDress.bar.view);
+  if (!margoDress.active) return;
+  hud.setTiming(margoDress.update(dt));
 }
 
 /**
@@ -3953,9 +3914,7 @@ function newMargoScene(kind) {
 function startMargoWake() {
   if (game.margoScene) return false;
   game.margoScene = newMargoScene('wake');
-  margoDress.bar.reset();
-  margoDress.running = false;
-  margoDress.clapStage = 0;
+  margoDress.reset();
   /* Pull the dress foley now, while she is still lying down.
    *
    * The startup decode happens on the Start card, and on the normal route
@@ -3974,7 +3933,7 @@ function startMargoWake() {
    * for exactly the same reason -- they are the performance, and a performance
    * that arrives after the beat is over is not one. */
   audio.loadAdditional?.({
-    names: [...MARGO_DRESS_IMPACT_CUES, ...MARGO_DRESS_CUES],
+    names: [...MARGO_DRESS_IMPACT_CUES, ...DRESS_HELP_CUES],
   })?.catch?.(() => {});
   const margo = apartment.margo;
   margo.setPose('lying');
@@ -4036,11 +3995,9 @@ function startMargoComeHome() {
   game.margoScene = newMargoScene('comeHome');
   game.margoScene.walk = 0;
   game.margoScene.entry = true;
-  margoDress.bar.reset();
-  margoDress.running = false;
-  margoDress.clapStage = 0;
+  margoDress.reset();
   audio.loadAdditional?.({
-    names: [...MARGO_DRESS_IMPACT_CUES, ...MARGO_DRESS_CUES],
+    names: [...MARGO_DRESS_IMPACT_CUES, ...DRESS_HELP_CUES],
   })?.catch?.(() => {});
   margo.setPose('standing');
   margo.setDressHelpProgress(0);
@@ -4087,7 +4044,7 @@ function startMargoComeHomeTalk() {
  */
 function offerMargoDressHelp() {
   const scene = game.margoScene;
-  if (!scene || scene.awaitingHelp || scene.walk !== null || margoDress.running) return false;
+  if (!scene || scene.awaitingHelp || scene.walk !== null || margoDress.active) return false;
   if (scene.departAt !== null) return false;
   const margo = apartment.margo;
   margo.setPose('standing');
@@ -4108,25 +4065,22 @@ function offerMargoDressHelp() {
  * (the morning) or put her to bed (the night she came home) -- `scene.kind`
  * is the only fork in this whole beat.
  */
-function completeMargoDressHelp() {
+function completeMargoDressHelp({ playSnap = true } = {}) {
   const scene = game.margoScene;
   if (!scene?.awaitingHelp) return false;
-  margoDress.running = false;
-  margoDress.bar.stop();
   hud.setTiming(null);
   hud.setPosture(null);
-  setMargoDressClap(0);
   scene.awaitingHelp = false;
   scene.dressProgress = 1;
   apartment.margo.setDressHelpProgress(1);
   interaction.setExclusiveTarget(null);
-  audio.play('cloth.snap', { volume: 0.55 });
+  if (playSnap) audio.play('cloth.snap', { volume: 0.55 });
 
   if (scene.kind === 'comeHome') {
     /* G1 (2026-08-06 playtest): this used to fall straight through to
      * `finishMargoComeHome` here -- lying down, asleep, in the same tick the
      * fastening finished, before the bottle he just emptied on her back had
-     * so much as appeared. `finishMargoDressHelp` (the caller) has just set
+     * so much as appeared. `settleMargoDressHelp` (the callback) has just set
      * `scene.dressGlueTarget = 1`; unless he skipped past the offer with [Q]
      * before she ever went down (the one path where no glue was ever
      * coming, and `dressGlueTarget` is still its initial 0), stay right
@@ -4158,11 +4112,9 @@ function completeMargoDressHelp() {
  */
 function finishMargoComeHome() {
   game.margoScene = null;
-  margoDress.running = false;
-  margoDress.bar.stop();
+  margoDress.reset();
   hud.setTiming(null);
   hud.setPosture(null);
-  setMargoDressClap(0);
   interaction.setExclusiveTarget(null);
   interaction.setPaused(false);
   apartment.margo.setPose('lying');
@@ -4175,11 +4127,9 @@ function finishMargoComeHome() {
 function finishMargoWake() {
   if (!game.margoScene) return;
   game.margoScene = null;
-  margoDress.running = false;
-  margoDress.bar.stop();
+  margoDress.reset();
   hud.setTiming(null);
   hud.setPosture(null);
-  setMargoDressClap(0);
   interaction.setExclusiveTarget(null);
   apartment.margo.group.visible = false;
   apartment.frontDoorPivot.rotation.y = 0;
@@ -4299,7 +4249,7 @@ function updateMargoWake(dt) {
    * fours instead of sending her to bed, precisely so the glue ramping in
    * just above has somewhere to land before she is asleep. This is the only
    * place that hold ends -- once the ramp has actually CAUGHT the target
-   * `finishMargoDressHelp` set (not merely nonzero: a scene that never
+   * `settleMargoDressHelp` set (not merely nonzero: a scene that never
    * triggered the glue, `dressGlueTarget` still 0, must not finish here on
    * its very first frame), the effect's own state is the gate, not a fixed
    * delay standing in for it. */

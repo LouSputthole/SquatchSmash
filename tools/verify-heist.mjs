@@ -140,12 +140,271 @@ const shot = async (name) => {
   await page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
 };
 
+async function verifyManagerAndActorRecovery() {
+  const managerPage = await browser.newPage({ viewport: { width: 960, height: 540 } });
+  managerPage.on('pageerror', (error) => problems.push(`manager-recovery: ${error.message}`));
+  await managerPage.addInitScript((value) => {
+    localStorage.setItem('squatchlife.campaign', value);
+  }, SENTINEL);
+  const startManagerPreview = async () => {
+    await managerPage.goto(`http://localhost:${PORT}/heist.html?preview=1&checkpoint=bank_lobby`,
+      { waitUntil: 'load' });
+    await managerPage.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 60000 });
+    await managerPage.evaluate(() => document.getElementById('start').click());
+    await managerPage.waitForFunction(() => window.__heistDebug.snapshot().phase === 'bank',
+      null, { timeout: 60000 });
+  };
+  const managerSnapshot = () => managerPage.evaluate(() => window.__heistDebug.snapshot());
+  const managerUse = async (name) => {
+    const result = await managerPage.evaluate((target) => window.__heistDebug.use(target), name);
+    if (!result.ok) throw new Error(`manager interaction ${name}: ${JSON.stringify(result)}`);
+  };
+
+  try {
+    await startManagerPreview();
+    const hostageAim = await managerPage.evaluate(() => window.__heistDebug.aimAt('hostage_7'));
+    const hostageBefore = await managerSnapshot();
+    await managerPage.mouse.click(480, 270);
+    await managerPage.waitForTimeout(120);
+    let recoveryState = await managerSnapshot();
+    check('a real carbine round can incapacitate every ordinary lobby civilian',
+      hostageAim.ok
+        && recoveryState.inventory.magazine === hostageBefore.inventory.magazine - 1
+        && recoveryState.lobbyActors.hostages.hostage_7.incapacitated === true
+        && recoveryState.hostageStates[6] === 'down',
+      JSON.stringify({ aim: hostageAim, before: hostageBefore.inventory.magazine,
+        after: recoveryState.inventory.magazine, actor: recoveryState.lobbyActors.hostages.hostage_7,
+        state: recoveryState.hostageStates[6] }));
+
+    await managerPage.evaluate(() => window.__heistDebug.fail('civilian_actor_restore_probe'));
+    await managerPage.waitForFunction(() => window.__heistDebug.state === 'FAILED',
+      null, { timeout: 30000 });
+    await managerPage.waitForFunction(() => window.__heistDebug.state === 'LOBBY_CONTROL',
+      null, { timeout: 60000 });
+    const civilianRestored = await managerSnapshot();
+    await managerPage.evaluate(() => window.__heistDebug.aimAt('hostage_7'));
+    await managerPage.mouse.click(480, 270);
+    await managerPage.waitForTimeout(120);
+    recoveryState = await managerSnapshot();
+    check('checkpoint recovery restores civilian combat health as well as the standing pose',
+      civilianRestored.hostageStates[6] !== 'down'
+        && civilianRestored.lobbyActors.hostages.hostage_7.incapacitated === false
+        && recoveryState.lobbyActors.hostages.hostage_7.health
+          < civilianRestored.lobbyActors.hostages.hostage_7.health
+        && recoveryState.objective.civilianCasualties === 1,
+      JSON.stringify({ restoredState: civilianRestored.hostageStates[6],
+        restoredActor: civilianRestored.lobbyActors.hostages.hostage_7,
+        afterRetry: recoveryState.lobbyActors.hostages.hostage_7,
+        casualties: recoveryState.objective.civilianCasualties }));
+
+    await startManagerPreview();
+    await managerUse('bank-crowd');
+    await managerUse('bank-rear-guard');
+    const managerAim = await managerPage.evaluate(() => window.__heistDebug.aimAt('bank_manager'));
+    const managerBefore = await managerSnapshot();
+    await managerPage.mouse.click(480, 270);
+    await managerPage.waitForTimeout(120);
+    const managerFatal = await managerSnapshot();
+    check('the manager is killable and a fatal player shot immediately enters checkpoint recovery',
+      managerAim.ok
+        && managerFatal.inventory.magazine === managerBefore.inventory.magazine - 1
+        && managerFatal.lobbyActors.manager.incapacitated === true
+        && managerFatal.state === 'FAILED'
+        && managerFatal.failure?.reason === 'manager_incapacitated',
+      JSON.stringify({ aim: managerAim, before: managerBefore.inventory.magazine,
+        after: managerFatal.inventory.magazine, actor: managerFatal.lobbyActors.manager,
+        state: managerFatal.state, failure: managerFatal.failure }));
+    if (managerFatal.state !== 'FAILED') {
+      await managerPage.evaluate(() => window.__heistDebug.fail('manager_fatality_probe_cleanup'));
+    }
+    await managerPage.waitForFunction(() => window.__heistDebug.state === 'LOBBY_CONTROL',
+      null, { timeout: 60000 });
+    const managerRestored = await managerSnapshot();
+    check('manager-fatality recovery restores a living manager and a playable lobby checkpoint',
+      managerRestored.lobbyActors.manager.health === managerRestored.lobbyActors.manager.maxHealth
+        && managerRestored.lobbyActors.manager.incapacitated === false
+        && managerRestored.managerPose === 'stand'
+        && managerRestored.objective.civilianCasualties === 0
+        && managerRestored.state === 'LOBBY_CONTROL',
+      JSON.stringify({ actor: managerRestored.lobbyActors.manager,
+        pose: managerRestored.managerPose, casualties: managerRestored.objective.civilianCasualties,
+        state: managerRestored.state }));
+
+    /* Health/state green is not enough: prove the restored objective chain can
+     * still be played. The room-wide volume is invoked directly; both required
+     * people are acquired through a real unobstructed interaction ray and the
+     * production E-key path. */
+    await managerUse('bank-crowd');
+    const rearApproach = await managerPage.evaluate(
+      () => window.__heistDebug.approachInteraction('bank-rear-guard'),
+    );
+    if (!rearApproach.ok) throw new Error(`rear-guard approach: ${JSON.stringify(rearApproach)}`);
+    await managerPage.keyboard.press('KeyE');
+    await managerPage.waitForFunction(() => window.__heistDebug.state === 'GUARDS_SECURED',
+      null, { timeout: 60000 });
+    const managerApproach = await managerPage.evaluate(
+      () => window.__heistDebug.approachInteraction('bank-manager'),
+    );
+    if (!managerApproach.ok) throw new Error(`manager approach: ${JSON.stringify(managerApproach)}`);
+    await managerPage.keyboard.press('KeyE');
+    await managerPage.waitForFunction(() => {
+      const snapshot = window.__heistDebug.snapshot();
+      return snapshot.state === 'MANAGER_ESCORT' && snapshot.managerEscortProgress > 0;
+    }, null, { timeout: 120000, polling: 250 });
+    const playableAfterRecovery = await managerSnapshot();
+    check('manager-fatality recovery can replay the lobby and start the manager escort',
+      playableAfterRecovery.state === 'MANAGER_ESCORT'
+        && playableAfterRecovery.managerEscortProgress > 0
+        && playableAfterRecovery.lobbyActors.manager.incapacitated === false,
+      JSON.stringify({ rearApproach, managerApproach, state: playableAfterRecovery.state,
+        progress: playableAfterRecovery.managerEscortProgress,
+        manager: playableAfterRecovery.lobbyActors.manager }));
+  } finally {
+    await managerPage.close();
+  }
+}
+
+async function verifyPoliceCombatAndRecycle() {
+  const policePage = await browser.newPage({ viewport: { width: 960, height: 540 } });
+  policePage.on('pageerror', (error) => problems.push(`police-recycle: ${error.message}`));
+  await policePage.addInitScript((value) => {
+    localStorage.setItem('squatchlife.campaign', value);
+  }, SENTINEL);
+  const policeSnapshot = () => policePage.evaluate(() => window.__heistDebug.snapshot());
+
+  try {
+    await policePage.goto(`http://localhost:${PORT}/heist.html?preview=1&checkpoint=street_withdrawal`,
+      { waitUntil: 'load' });
+    await policePage.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 60000 });
+    await policePage.evaluate(() => document.getElementById('start').click());
+    await policePage.waitForFunction(() => {
+      const snapshot = window.__heistDebug.snapshot();
+      return snapshot.phase === 'street'
+        && snapshot.policeActors.some((actor) => actor.phaseId === 'street'
+          && actor.visible && !actor.incapacitated);
+    }, null, { timeout: 60000 });
+
+    let policeState = await policeSnapshot();
+    const target = policeState.policeActors.find((actor) => actor.phaseId === 'street'
+      && actor.visible && !actor.incapacitated);
+    const firstAim = await policePage.evaluate(
+      (actorId) => window.__heistDebug.aimAt(actorId), target.id,
+    );
+    const firstMagazine = policeState.inventory.magazine;
+    const firstHealth = target.health;
+    await policePage.mouse.click(480, 270);
+    await policePage.waitForFunction(([actorId, health]) => {
+      const actor = window.__heistDebug.snapshot().policeActors
+        .find((candidate) => candidate.id === actorId);
+      return actor && actor.health < health;
+    }, [target.id, firstHealth], { timeout: 30000 }).catch(() => {});
+    policeState = await policeSnapshot();
+    const wounded = policeState.policeActors.find((actor) => actor.id === target.id);
+    check('a real carbine round damages an ordinary spawned street officer',
+      firstAim.ok
+        && policeState.inventory.magazine === firstMagazine - 1
+        && wounded.health < firstHealth
+        && wounded.incapacitated === false,
+      JSON.stringify({ aim: firstAim, before: { health: firstHealth, magazine: firstMagazine },
+        after: { actor: wounded, magazine: policeState.inventory.magazine } }));
+
+    const recycled = await policePage.evaluate(
+      (actorId) => window.__heistDebug.probePoliceRecycle(actorId), target.id,
+    );
+    policeState = await policeSnapshot();
+    const fresh = policeState.policeActors.find((actor) => actor.id === recycled.actorId);
+    check('the real officer pool recycles the same root as a fresh aiming combatant',
+      recycled.ok
+        && recycled.sameRoot
+        && recycled.pose === 'aiming'
+        && recycled.health === recycled.maxHealth
+        && recycled.incapacitated === false
+        && recycled.active
+        && recycled.directorUnchanged
+        && recycled.checkpointUnchanged
+        && recycled.activeCountUnchanged
+        && fresh?.rootUuid === recycled.rootUuid
+        && fresh?.pose === 'aiming'
+        && fresh?.health === fresh?.maxHealth
+        && fresh?.incapacitated === false,
+      JSON.stringify({ recycled, fresh }));
+
+    const secondAim = await policePage.evaluate(
+      (actorId) => window.__heistDebug.aimAt(actorId), recycled.actorId,
+    );
+    await policePage.waitForFunction(
+      () => window.__heistDebug.snapshot().inventory.weaponCooldown === 0,
+      null, { timeout: 30000 },
+    );
+    policeState = await policeSnapshot();
+    const secondMagazine = policeState.inventory.magazine;
+    const secondHealth = fresh.health;
+    await policePage.mouse.click(480, 270);
+    await policePage.waitForFunction(([actorId, health]) => {
+      const actor = window.__heistDebug.snapshot().policeActors
+        .find((candidate) => candidate.id === actorId);
+      return actor && actor.health < health;
+    }, [recycled.actorId, secondHealth], { timeout: 30000 }).catch(() => {});
+    policeState = await policeSnapshot();
+    const hitAgain = policeState.policeActors.find((actor) => actor.id === recycled.actorId);
+    check('the recycled officer is targetable and loses health to a second real shot',
+      secondAim.ok
+        && policeState.inventory.magazine === secondMagazine - 1
+        && hitAgain.rootUuid === recycled.rootUuid
+        && hitAgain.health < secondHealth
+        && hitAgain.incapacitated === false,
+      JSON.stringify({ aim: secondAim, before: { health: secondHealth, magazine: secondMagazine },
+        after: { actor: hitAgain, magazine: policeState.inventory.magazine } }));
+  } finally {
+    await policePage.close();
+  }
+}
+
 try {
+  if (process.env.HEIST_MANAGER_ONLY === '1') {
+    await verifyManagerAndActorRecovery();
+  } else if (process.env.HEIST_POLICE_ONLY === '1') {
+    await verifyPoliceCombatAndRecycle();
+  } else {
   await page.goto(`http://localhost:${PORT}/heist.html?preview=1&checkpoint=safehouse`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 120000 });
   await page.evaluate(() => document.getElementById('start').click());
   await page.waitForFunction(() => window.__heistDebug.state === 'CREW_INTRO', null, { timeout: 120000 });
   let state = await snapshot();
+  const canonicalCrewPhysical = Object.freeze({
+    snow: Object.freeze({
+      height: 1.70, outfit: 'work', gender: 'unspecified', bodyShape: 'average',
+      photoFace: true, proceduralFace: false, hair: false, beard: false, glasses: false,
+      plateCarrier: true, weapon: 'carbine', weaponSling: true,
+      maskPresent: false, maskVisible: false,
+    }),
+    rippinflow: Object.freeze({
+      height: 1.77, outfit: 'tee', gender: 'unspecified', bodyShape: 'average',
+      photoFace: true, proceduralFace: false, hair: false, beard: false, glasses: false,
+      plateCarrier: true, weapon: 'sidearm', weaponSling: true,
+      maskPresent: false, maskVisible: false,
+    }),
+    shubenator: Object.freeze({
+      height: 1.84, outfit: 'tee', gender: 'unspecified', bodyShape: 'average',
+      photoFace: true, proceduralFace: false, hair: false, beard: false, glasses: false,
+      plateCarrier: true, weapon: 'sidearm', weaponSling: true,
+      maskPresent: false, maskVisible: false,
+    }),
+    deathmegatron: Object.freeze({
+      height: 1.79, outfit: 'suit', gender: 'female', bodyShape: 'curvy',
+      photoFace: true, proceduralFace: false, hair: false, beard: false, glasses: false,
+      plateCarrier: true, weapon: 'carbine', weaponSling: true,
+      maskPresent: false, maskVisible: false,
+    }),
+    numbskull: Object.freeze({
+      height: 1.95, outfit: 'tee', gender: 'unspecified', bodyShape: 'average',
+      photoFace: false, proceduralFace: true, hair: false, beard: false, glasses: true,
+      plateCarrier: true, weapon: 'sidearm', weaponSling: true,
+      maskPresent: false, maskVisible: false,
+    }),
+  });
+  const physicalPresentationMatches = (actor, expected) => expected
+    && Object.entries(expected).every(([key, value]) => actor.physical?.[key] === value);
   check('safehouse opens with five named crew plus the human player',
     state.phase === 'safehouse'
       && Object.keys(state.squadAnchors).length === 5
@@ -153,16 +412,32 @@ try {
       && state.geometry.floorZones > 0
       && state.presentation.crew.every((actor) => actor.facingDot > 0.65)
       && state.presentation.numbskullFace
+      && state.presentation.numbskullGlasses
       && state.presentation.lockers === 3,
     JSON.stringify(state.presentation));
 
+  check('every fixed crew member has canonical anatomy plus real heist overlays',
+    state.presentation.crew.length === Object.keys(canonicalCrewPhysical).length
+      && state.presentation.crew.every((actor) => physicalPresentationMatches(
+        actor, canonicalCrewPhysical[actor.id],
+      )),
+    JSON.stringify(state.presentation.crew.map(({ id, physical }) => ({ id, physical }))));
+
   /* ---- scale: the owner's first note, in every phase ---- */
+  const canonicalCrewHeights = Object.freeze({
+    snow: 1.70,
+    rippinflow: 1.77,
+    shubenator: 1.84,
+    deathmegatron: 1.79,
+    numbskull: 1.95,
+  });
   check('nobody in THE TAKE is a giant any more',
-    state.scale.crew.every((actor) => actor.height >= 1.7 && actor.height <= 1.9)
+    state.scale.crew.length === Object.keys(canonicalCrewHeights).length
+      && state.scale.crew.every((actor) => actor.height === canonicalCrewHeights[actor.id])
       && state.scale.civilians.every((height) => height >= 1.55 && height <= 1.95)
       && state.scale.guard <= 1.95 && state.scale.manager <= 1.95
       && Math.max(...state.scale.crew.map((a) => a.height))
-        - Math.min(...state.scale.civilians) < 0.32,
+        - Math.min(...state.scale.civilians) < 0.4,
     JSON.stringify(state.scale));
 
   check('THE TAKE starts with five visible slots while packed weapons remain on the table',
@@ -266,6 +541,28 @@ try {
   await page.waitForTimeout(100);
   await shot('02b-hands-carbine');
 
+  /* The briefing-table frame cannot prove that the escape vehicle stopped
+   * being a car. Frame the rear leaves before boarding, and tie that frame to
+   * measured named geometry so a sharp screenshot of the wrong corner fails. */
+  await pose('safehouse_van');
+  state = await snapshot();
+  const cargoVan = state.geometry.evidence.safehouseCargoVan;
+  check('safehouse evidence frames a full-height cargo van backed through its loading bay',
+    state.evidenceFrame?.name === 'safehouse_van'
+      && state.evidenceFrame.focus.length === 3
+      && state.evidenceFrame.focus.every((item) => item.present && item.inFrame)
+      && cargoVan.kind === 'cargo-van'
+      && cargoVan.size[2] >= 5.8
+      && cargoVan.size[2] > cargoVan.size[0] * 1.65
+      && cargoVan.size[1] >= 2.55
+      && cargoVan.rearDoorCenter[2] < cargoVan.center[2]
+      && cargoVan.minZ < cargoVan.loadingBayZ
+      && cargoVan.maxZ > cargoVan.loadingBayZ
+      && cargoVan.rearParts === 4
+      && cargoVan.loadingBayParts === 3,
+    JSON.stringify({ frame: state.evidenceFrame, cargoVan }));
+  await shot('02c-safehouse-cargo-van');
+
   await use('van-door');
   state = await snapshot();
   check('safehouse checkpoint is durable before the van ride',
@@ -287,8 +584,15 @@ try {
     state.state === 'MASKS_ON'
       && state.inventory.maskWorn === true
       && state.inventory.items[2] === 'zip_ties'
+      && state.presentation.crew.every((actor) => actor.physical.maskPresent
+        && actor.physical.maskVisible)
       && /balaclava/i.test(vanPrompt ?? ''),
-    JSON.stringify({ vanPrompt, vanTarget, state: state.state, mask: state.inventory.maskWorn }));
+    JSON.stringify({
+      vanPrompt, vanTarget, state: state.state, mask: state.inventory.maskWorn,
+      crewMasks: state.presentation.crew.map(({ id, physical }) => ({
+        id, present: physical.maskPresent, visible: physical.maskVisible,
+      })),
+    }));
   await shot('03-van-interior');
   /* And the doors, from the same seat: at 2.7 m of reach the rear door itself
    * was never in range either. */
@@ -514,6 +818,19 @@ try {
   await page.evaluate(() => window.__heistDebug.neutralizePolice());
   await use('garage-entry');
   await shot('08-mercer-garage');
+  await pose('garage_transfer');
+  state = await snapshot();
+  const garageTransfer = state.geometry.evidence.garageTransfer;
+  check('garage transfer evidence frames the escape sedan, marked bay, and lit tool cart',
+    state.evidenceFrame?.name === 'garage_transfer'
+      && state.evidenceFrame.focus.length === 3
+      && state.evidenceFrame.focus.every((item) => item.present && item.inFrame)
+      && garageTransfer.transferZone
+      && garageTransfer.sedan
+      && garageTransfer.toolCart
+      && garageTransfer.taskLight,
+    JSON.stringify({ frame: state.evidenceFrame, garageTransfer }));
+  await shot('08b-garage-transfer');
   await page.evaluate(() => window.__heistDebug.neutralizePolice());
   await use('garage-hold');
   await use('garage-hold');
@@ -604,6 +921,19 @@ try {
     JSON.stringify({ visible: state.vehicle.pursuitVisible, spoken: state.voice.spoken.slice(-5) }));
   await page.evaluate(() => window.__heistDebug.poseForEvidence('vehicle_swap'));
   await shot('10-vehicle-swap');
+  await pose('vehicle_swap_workbench');
+  state = await snapshot();
+  const swapWorkbench = state.geometry.evidence.vehicleSwapWorkbench;
+  check('vehicle-swap evidence frames the workbench, sorting tarp, and cleanup tools',
+    state.evidenceFrame?.name === 'vehicle_swap_workbench'
+      && state.evidenceFrame.focus.length === 4
+      && state.evidenceFrame.focus.every((item) => item.present && item.inFrame)
+      && swapWorkbench.workbench
+      && swapWorkbench.sortingTarp
+      && swapWorkbench.cleanCarBay
+      && swapWorkbench.taskLights === 2,
+    JSON.stringify({ frame: state.evidenceFrame, swapWorkbench }));
+  await shot('10b-vehicle-swap-workbench');
 
   for (const target of [
     'swap-trunk', 'swap-bags', 'swap-aid', 'swap-masks',
@@ -805,6 +1135,11 @@ try {
     JSON.stringify(cleanState));
   await cleanPage.close();
 
+  /* This focused story is also independently runnable with
+   * HEIST_MANAGER_ONLY=1 for a fast RED/GREEN loop. */
+  await verifyManagerAndActorRecovery();
+  await verifyPoliceCombatAndRecycle();
+
   const resumeCases = [
     ['safehouse_ready', 'VAN_APPROACH', 'van'],
     ['bank_secured', 'MANAGER_ESCORT', 'bank'],
@@ -852,6 +1187,7 @@ try {
     resumed === resumeCases.length, `${resumed}/${resumeCases.length}`);
   check('browser completed without page, console, or request failures', problems.length === 0,
     problems.join(' | ').slice(0, 600));
+  }
 } finally {
   await browser.close();
   server.close();

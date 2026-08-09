@@ -40,6 +40,10 @@ class MemoryStorage {
 }
 
 const DT = 1 / 30;
+const REAL_HIT = () => ({
+  point: { isVector3: true },
+  object: { isObject3D: true },
+});
 
 /** A rig: a lab, a mission, and a hand on the clock. */
 function rig({ story = null, zones = null } = {}) {
@@ -114,7 +118,7 @@ function playThrough(r, hooks = {}) {
 
   assert.ok(atInstruction(INSTRUCTIONS.ELIMINATE_AUBBIE, 100), 'never told to handle it');
   at('execution');
-  assert.equal(mission.shootAubbie(true), true);
+  assert.equal(mission.shootAubbie(REAL_HIT()), true);
 
   assert.ok(atInstruction(INSTRUCTIONS.SILENT_NIGHT, 200), 'never offered the switch');
   at('silentNight');
@@ -148,7 +152,7 @@ function playThroughToExit(r) {
   atInstruction(INSTRUCTIONS.KEYPAD, 400);
   mission.enterCode('6969');
   atInstruction(INSTRUCTIONS.ELIMINATE_AUBBIE, 100);
-  mission.shootAubbie(true);
+  mission.shootAubbie(REAL_HIT());
   atInstruction(INSTRUCTIONS.SILENT_NIGHT, 200);
   mission.pullSilentNight();
   assert.ok(atState(S.EXIT, 300), 'the gassing never finished');
@@ -376,7 +380,7 @@ test('he cannot be shot while he is still inside the lab', () => {
   mission.fsm.go(S.EXECUTION);
   mission.update(DT);
   assert.equal(mission.aubbieOutside, false);
-  assert.equal(mission.shootAubbie(true), false, 'he was killed through the glass');
+  assert.equal(mission.shootAubbie(REAL_HIT()), false, 'he was killed through the glass');
   assert.equal(mission.report().aubbie.killed, false);
 });
 
@@ -385,7 +389,8 @@ test('a shot that finds a console is not a shot that finds Aubbie', () => {
   const { mission } = r;
   playThrough(r, {
     execution: () => {
-      assert.equal(mission.shootAubbie(false), false);
+      assert.equal(mission.shootAubbie(true), false,
+        'a boolean aim result was accepted without a ray hit point');
       assert.equal(mission.report().aubbie.killed, false);
       assert.equal(mission.report().aubbie.missedShots, 1);
     },
@@ -527,7 +532,7 @@ test('every line of Aubbie\'s comes out of Aubbie, including the ones after he w
  * and the lines nobody has recorded yet. Asserted as a number rather than as
  * "louder than before", because "before" is not available to a check.
  */
-test('Aubbie is played at his profile\'s gain, and nobody else is moved', () => {
+test('Aubbie is audible through sealed glass while his dry profile stays at +20%', () => {
   const r = rig();
   playThrough(r);
   const { lab } = r;
@@ -536,9 +541,16 @@ test('Aubbie is played at his profile\'s gain, and nobody else is moved', () => 
   assert.equal(gainForVoice('booski'), 1);
   assert.equal(gainForVoice('nobody-by-this-name'), 1);
 
+  assert.equal(+gainForVoice('aubbie', { sealed: true }).toFixed(2), 5.4,
+    'the reinforced-glass route lost its Aubbie compensation');
+
   const aubbie = lab.scientists[SCIENTIST_INDEX.AUBBIE];
-  const levels = new Set(aubbie.takes.map((take) => take.volume));
-  assert.deepEqual([...levels], [1.08], 'every line of his leaves at 0.9 x 1.2');
+  const sealed = aubbie.takes.filter((take) => take.dry !== true);
+  const dry = aubbie.takes.filter((take) => take.dry === true);
+  assert.deepEqual([...new Set(sealed.map((take) => +take.volume.toFixed(2)))], [4.86],
+    'his lines behind glass did not get the observation-distance compensation');
+  assert.deepEqual([...new Set(dry.map((take) => +take.volume.toFixed(2)))], [1.08],
+    'his out-of-lab lines should remain at the authored +20% profile');
 
   /* The other five are on the same route and are NOT boosted, which is what
    * makes this a per-voice gain rather than a louder laboratory. */
@@ -636,7 +648,7 @@ test('nothing can be done out of turn', () => {
   assert.equal(mission.pressBustSwitch(), false);
   assert.equal(mission.deliverCase(), false);
   assert.equal(mission.enterCode('6969'), false);
-  assert.equal(mission.shootAubbie(true), false);
+  assert.equal(mission.shootAubbie(REAL_HIT()), false);
   assert.equal(mission.pullSilentNight(), false);
   assert.equal(mission.leave(), false);
   assert.equal(lab.doorLocked, false);
@@ -664,6 +676,74 @@ test('the mission walks on the player\'s own feet when the scene gives it zones'
   mission.update(DT, { position: { x: 0, z: 19 } });
   r.step(0.2);
   assert.equal(mission.fsm.name, S.LOU_OFFICE);
+});
+
+test('xXx barks come from his living body and a dead xXx never gets queued', () => {
+  const lab = createContractLab();
+  const bodyTakes = [];
+  const plainTakes = [];
+  lab.xxx = {
+    alive: true,
+    say(cue, options) {
+      bodyTakes.push({ cue, options });
+      return 0.25;
+    },
+    cough() { return this.alive; },
+  };
+  const living = createSilentSquatchMission({
+    lab,
+    playCue: (cue) => { plainTakes.push(cue); return 0.25; },
+  });
+
+  assert.equal(living.arrive('xxx'), true);
+  assert.equal(living.barked.has('xxx'), true);
+  assert.equal(bodyTakes[0]?.cue, SEQUENCES.xxxHanging[0].cue,
+    'the corridor voice bypassed xXx\'s real body');
+  assert.equal(plainTakes.length, 0,
+    'xXx was played as a plain room cue instead of from his body');
+
+  lab.xxx.alive = false;
+  const deadLines = [];
+  const dead = createSilentSquatchMission({
+    lab,
+    onLine: (line) => deadLines.push(line),
+    playCue: (cue) => { plainTakes.push(cue); return 0.25; },
+  });
+  assert.equal(dead.arrive('xxx'), true, 'the dead threshold itself should remain a valid one-shot');
+  assert.equal(dead.barked.has('xxx'), false, 'a dead xXx still queued his inbound bark');
+  assert.equal(deadLines.some((line) => line.speaker === 'XXX'), false);
+  assert.equal(bodyTakes.length, 1, 'a dead xXx spoke through his body');
+  assert.equal(plainTakes.length, 0, 'a dead xXx spoke through the fallback bus');
+});
+
+test('the xXx threshold rearms for a living exit bark, but never for his corpse', () => {
+  const make = (alive) => {
+    const lab = createContractLab();
+    lab.xxx = { alive, say: () => 0.25, cough: () => alive };
+    const mission = createSilentSquatchMission({
+      lab,
+      zones: { xxx: { x: 0, y: -7, z: 0, r: 2, verticalTolerance: 1 } },
+    });
+    /* The inbound walk already consumed the physical threshold and its own
+     * bark before the mission reaches the return trip. */
+    mission.zonesEntered.add('xxx');
+    mission.barked.add('xxx');
+    mission.fsm.start(S.EXIT);
+    return mission;
+  };
+
+  const living = make(true);
+  assert.equal(living.zonesEntered.has('xxx'), false,
+    'the return trip never rearmed the already-consumed xXx threshold');
+  assert.equal(living.arrive('xxx'), true);
+  assert.equal(living.barked.has('xxxOut'), true,
+    'walking back past a living xXx did not queue his authored exit line');
+
+  const dead = make(false);
+  assert.equal(dead.zonesEntered.has('xxx'), true,
+    'the mission rearmed a talk trigger for xXx\'s corpse');
+  assert.equal(dead.arrive('xxx'), false);
+  assert.equal(dead.barked.has('xxxOut'), false);
 });
 
 /* ------------------------------------------------------------------ */

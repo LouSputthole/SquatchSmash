@@ -70,6 +70,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { PostFX } from '../core/postfx.js';
 import { roomEnvironment } from '../world/textures.js';
 import { resolveGear } from '../world/gear.js';
@@ -204,6 +205,7 @@ const enolaCampaign = createFinalArcRuntimeSession({
   spawn: 'airfield',
   storyFactory: createEnolaSquatchCampaignStory,
 });
+const enolaRecoveryCampaign = enolaCampaign.campaign ?? createCampaign();
 let enolaCampaignComplete = false;
 if (previewCheckpoint) {
   const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
@@ -2056,12 +2058,13 @@ const pauseMenu = createPauseMenu({
     last = performance.now();
     requestLock();
   },
-  onRestart: () => {
-    if (mission.checkpoint) mission.requestRestart();
-    else window.location.reload();
-  },
-  restartLabel: () => (mission.checkpoint ? 'Restart from checkpoint' : 'Restart scene'),
-  canRestart: () => game.started && !mission.finished,
+  recovery: createCampaignSceneRecovery({
+    campaign: enolaRecoveryCampaign,
+    sceneId: SCENE_IDS.ENOLA_SQUATCH,
+    location: window.location,
+    restartCheckpoint: () => mission.requestRestart(),
+    canRestartCheckpoint: () => Boolean(mission.checkpoint),
+  }),
 });
 
 $('es-again')?.addEventListener('click', () => {

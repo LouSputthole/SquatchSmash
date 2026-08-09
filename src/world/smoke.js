@@ -14,6 +14,27 @@ const POOL = 64;
 
 let _texture = null;
 
+/**
+ * The cigarette exhale shared by every scene where Tony can light one.
+ *
+ * Keeping the complete plume behind this interface matters: callers should
+ * not need to know that the apartment effect is one fast cloud followed by a
+ * slower tail, or remember the camera-clearance offset that keeps it off the
+ * lens. The caller-owned vectors are never mutated.
+ */
+export function emitCigaretteExhale(smoke, origin, direction) {
+  const at = origin.clone().addScaledVector(direction, 0.55);
+  at.y -= 0.07;
+  smoke.emit(at, direction, {
+    count: 18, speed: 2.20, spread: 0.26,
+    size0: 0.045, size1: 0.38, life: 2.8, peak: 0.22, rise: 0.24,
+  });
+  smoke.emit(at, direction, {
+    count: 10, speed: 0.90, spread: 0.18,
+    size0: 0.035, size1: 0.32, life: 4.0, peak: 0.14, rise: 0.18,
+  });
+}
+
 /** Soft, slightly lumpy radial falloff. A clean gradient reads as a ball. */
 function smokeTexture() {
   if (_texture) return _texture;
@@ -67,6 +88,8 @@ export class SmokeSystem {
         fog: true,
       });
       const s = new THREE.Sprite(mat);
+      s.name = `shared-smoke-puff-${String(i + 1).padStart(2, '0')}`;
+      s.userData.reusableSystem = 'smoke';
       s.visible = false;
       s.renderOrder = 5;
       scene.add(s);

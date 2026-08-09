@@ -60,6 +60,7 @@ export function buildHead(opts = {}) {
   const b = o.bulk;
   const browColor = o.brow ?? Math.max(0, (o.hair & 0xfefefe) >> 1); // darker than the hair
   const head = new THREE.Group();
+  head.name = 'sf.head';
 
   const put = (name, w, h, d, color, x, y, z, rotZ = 0) => {
     const m = box(w, h, d, color, x, y, z);
@@ -81,6 +82,7 @@ export function buildHead(opts = {}) {
   // The jaw is a group so the chin and the lower lip drop with it when he
   // talks. Its rest height is what the talk animation returns to.
   const jaw = new THREE.Group();
+  jaw.name = 'sf.face.jaw.pivot';
   jaw.position.set(0, 0.065, 0.008);
   jaw.userData.baseY = jaw.position.y;
   head.add(jaw);
@@ -176,29 +178,43 @@ const SIT_SHIN_STRETCH = 1.2;
 export function buildFigure(opts = {}) {
   const o = { ...DEFAULTS, ...opts };
   const g = new THREE.Group();
+  g.name = 'sf.figure';
   const bw = 0.52 * o.bulk;
   const bd = 0.3 * o.bulk;
 
   // `root` tips the whole body in the character's own frame — used for falling.
   const root = new THREE.Group();
+  root.name = 'sf.root';
   g.add(root);
 
   const pelvis = new THREE.Group();
+  pelvis.name = 'sf.pelvis';
   pelvis.position.y = STAND_PELVIS;
   root.add(pelvis);
-  pelvis.add(box(bw * 0.92, 0.2, bd, o.coat, 0, -0.04, 0));
+  const pelvisCoat = box(bw * 0.92, 0.2, bd, o.coat, 0, -0.04, 0);
+  pelvisCoat.name = 'sf.pelvis.coat';
+  pelvis.add(pelvisCoat);
 
   // ---- Legs: hip pivot → thigh → knee pivot → shin → shoe
   function leg(side) {
+    const sideName = side < 0 ? 'left' : 'right';
     const hip = new THREE.Group();
+    hip.name = `sf.leg.${sideName}.hip`;
     hip.position.set(side * 0.15 * o.bulk, -0.1, 0);
     pelvis.add(hip);
-    hip.add(box(0.2 * o.bulk, 0.4, 0.21, o.coat, 0, -0.2, 0));
+    const thigh = box(0.2 * o.bulk, 0.4, 0.21, o.coat, 0, -0.2, 0);
+    thigh.name = `sf.leg.${sideName}.thigh`;
+    hip.add(thigh);
     const knee = new THREE.Group();
+    knee.name = `sf.leg.${sideName}.knee`;
     knee.position.set(0, -0.4, 0);
     hip.add(knee);
-    knee.add(box(0.18 * o.bulk, 0.37, 0.19, o.coat, 0, -0.185, 0));
-    knee.add(box(0.19 * o.bulk, 0.1, 0.3, 0x14141a, 0, -0.37, 0.06)); // toes on the face side
+    const shin = box(0.18 * o.bulk, 0.37, 0.19, o.coat, 0, -0.185, 0);
+    shin.name = `sf.leg.${sideName}.shin`;
+    knee.add(shin);
+    const shoe = box(0.19 * o.bulk, 0.1, 0.3, 0x14141a, 0, -0.37, 0.06);
+    shoe.name = `sf.leg.${sideName}.shoe`;
+    knee.add(shoe); // toes on the face side
     return { hip, knee };
   }
   const legL = leg(-1);
@@ -206,22 +222,52 @@ export function buildFigure(opts = {}) {
 
   // ---- Torso
   const torso = new THREE.Group();
+  torso.name = 'sf.torso';
   torso.position.set(0, 0.04, 0);
   pelvis.add(torso);
 
-  const chest = box(bw, 0.62 * o.height, bd, o.coat, 0, 0.31 * o.height, 0);
-  torso.add(chest);
-  torso.add(box(bw * 0.44, 0.5 * o.height, bd * 0.62, o.shirt, 0, 0.34 * o.height, bd * 0.4));
-  const tie = box(bw * 0.13, 0.4 * o.height, 0.03, o.tie, 0, 0.3 * o.height, bd * 0.6);
-  torso.add(tie);
-  const lapelL = box(bw * 0.2, 0.4 * o.height, 0.06, o.coat, -bw * 0.24, 0.36 * o.height, bd * 0.45);
+  // Pivot the complete fitted suit at the chest centre. Breathing this one
+  // rig preserves the original coat motion while the shirt, tie and lapels
+  // remain registered to it instead of hovering as static torso siblings.
+  const torsoGarments = new THREE.Group();
+  torsoGarments.name = 'sf.torso.garments';
+  torsoGarments.position.y = 0.31 * o.height;
+  torso.add(torsoGarments);
+
+  const chest = box(bw, 0.62 * o.height, bd, o.coat);
+  chest.name = 'sf.torso.chest';
+  torsoGarments.add(chest);
+  const shirt = box(
+    bw * 0.44, 0.5 * o.height, bd * 0.62, o.shirt,
+    0, 0.03 * o.height, bd * 0.4,
+  );
+  shirt.name = 'sf.torso.shirt';
+  torsoGarments.add(shirt);
+  const tie = box(
+    bw * 0.13, 0.4 * o.height, 0.03, o.tie,
+    0, -0.01 * o.height, bd * 0.6,
+  );
+  tie.name = 'sf.torso.tie';
+  torsoGarments.add(tie);
+  const lapelL = box(
+    bw * 0.2, 0.4 * o.height, 0.06, o.coat,
+    -bw * 0.24, 0.05 * o.height, bd * 0.45,
+  );
+  lapelL.name = 'sf.torso.lapel.left';
   const lapelR = lapelL.clone();
   lapelR.position.x = bw * 0.24;
-  torso.add(lapelL, lapelR);
-  torso.add(box(bw * 1.18, 0.16, bd * 1.05, o.coat, 0, 0.6 * o.height, 0));
+  lapelR.name = 'sf.torso.lapel.right';
+  torsoGarments.add(lapelL, lapelR);
+  const shoulderBar = box(
+    bw * 1.18, 0.16, bd * 1.05, o.coat,
+    0, 0.29 * o.height, 0,
+  );
+  shoulderBar.name = 'sf.torso.shoulders';
+  torsoGarments.add(shoulderBar);
 
   // ---- Head
   const neck = new THREE.Group();
+  neck.name = 'sf.neck';
   neck.position.set(0, 0.68 * o.height, 0);
   torso.add(neck);
   const headKit = buildHead(o);
@@ -230,15 +276,23 @@ export function buildFigure(opts = {}) {
 
   // ---- Arms
   function arm(side) {
+    const sideName = side < 0 ? 'left' : 'right';
     const shoulder = new THREE.Group();
+    shoulder.name = `sf.arm.${sideName}.shoulder`;
     shoulder.position.set(side * bw * 0.62, 0.55 * o.height, 0);
     torso.add(shoulder);
-    shoulder.add(box(0.15 * o.bulk, 0.34, 0.16, o.coat, 0, -0.17, 0));
+    const upperSleeve = box(0.15 * o.bulk, 0.34, 0.16, o.coat, 0, -0.17, 0);
+    upperSleeve.name = `sf.arm.${sideName}.sleeve.upper`;
+    shoulder.add(upperSleeve);
     const elbow = new THREE.Group();
+    elbow.name = `sf.arm.${sideName}.elbow`;
     elbow.position.set(0, -0.34, 0);
     shoulder.add(elbow);
-    elbow.add(box(0.13 * o.bulk, 0.32, 0.14, o.coat, 0, -0.16, 0));
+    const forearmSleeve = box(0.13 * o.bulk, 0.32, 0.14, o.coat, 0, -0.16, 0);
+    forearmSleeve.name = `sf.arm.${sideName}.sleeve.forearm`;
+    elbow.add(forearmSleeve);
     const hand = box(0.13, 0.13, 0.15, o.skin, 0, -0.36, 0.02);
+    hand.name = `sf.arm.${sideName}.hand`;
     elbow.add(hand);
     return { shoulder, elbow, hand };
   }
@@ -246,8 +300,9 @@ export function buildFigure(opts = {}) {
   const armR = arm(1);
 
   return {
-    group: g, root, pelvis, torso, neck, jaw, mouth, hair, eyes,
-    head: headKit.group, chest, tie, legL, legR, armL, armR,
+    group: g, root, pelvis, torso, torsoGarments, neck, jaw, mouth, hair, eyes,
+    head: headKit.group, chest, shirt, tie, lapelL, lapelR, shoulderBar,
+    legL, legR, armL, armR,
   };
 }
 
@@ -327,6 +382,14 @@ export class Figure {
   leanForward(on) { this.leanTarget = on ? 0.3 : 0; }
   playGesture(name, dur = 1.8) { this.gesture = name; this.gestureT = dur; }
   hit() { this.hitT = 0.22; this.gestureT = 0; this.talkT = 0; }
+
+  // One transition point for deaths and checkpoint resets. Both directions
+  // leave the garment rig neutral; living updates may resume breathing on
+  // the next frame, while down updates keep it frozen there.
+  setDown(down) {
+    this.down = Boolean(down);
+    this.torsoGarments.scale.set(1, 1, 1);
+  }
 
   // Down on the floor, knees up, arms wrapped over the head, shaking — and
   // held there. Eases in from WHATEVER pose he was in (seated diners slide
@@ -408,9 +471,15 @@ export class Figure {
   }
 
   update(dt) {
+    if (this.down) {
+      this.torsoGarments.scale.set(1, 1, 1);
+      this.deathT += dt;
+      return; // controllers drive their own collapse
+    }
+
     this.t += dt;
     const breathe = Math.sin(this.t * 1.6) * 0.012;
-    this.chest.scale.set(1, 1 + breathe, 1 + breathe * 0.6);
+    this.torsoGarments.scale.set(1, 1 + breathe, 1 + breathe * 0.6);
 
     if (this.hitT > 0) {
       this.hitT -= dt;
@@ -418,10 +487,6 @@ export class Figure {
       this.torso.rotation.x = -0.45 * k;
       this.neck.rotation.x = -0.3 * k;
       return;
-    }
-    if (this.down) {
-      this.deathT += dt;
-      return; // controllers drive their own collapse
     }
     if (this.cowering) {
       this.#cowerPose(dt);

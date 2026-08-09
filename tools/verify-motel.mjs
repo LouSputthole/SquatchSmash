@@ -17,6 +17,7 @@ const SCREENSHOT_DIR = process.env.MOTEL_SCREENSHOT_DIR
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.mp3': 'audio/mpeg',
   '.png': 'image/png',
@@ -56,10 +57,14 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
 
 const problems = [];
+const notFound = [];
 function trackRuntimeErrors(target) {
   target.on('pageerror', (error) => problems.push(error.message));
   target.on('console', (message) => {
     if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+  });
+  target.on('response', (response) => {
+    if (response.status() === 404) notFound.push(response.url());
   });
 }
 trackRuntimeErrors(page);
@@ -337,17 +342,69 @@ try {
   check('the direct Motel preview exposes a playable start',
     await previewPage.locator('#startBtn').isVisible()
       && await previewPage.locator('#squatch-preview-notice').isVisible());
+  const packagePrimer = await previewPage.locator('#dealPrimer').innerText();
+  check('the opening primer distinguishes your money from their meat',
+    /YOUR PACKAGE[\s\S]*\$40,000/i.test(packagePrimer)
+      && /THEIR SAMPLE[\s\S]*One Reserve strip/i.test(packagePrimer)
+      && /THEIR PACKAGES[\s\S]*Eight sealed packages/i.test(packagePrimer),
+    JSON.stringify(packagePrimer));
 
   await previewPage.click('#startBtn');
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'car');
-  const motelInventory = await previewPage.evaluate(() => ({
-    visible: Boolean(document.querySelector('#hotbar'))
-      && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',
-    slots: document.querySelectorAll('#hotbar .slot').length,
-  }));
+  const motelInventory = await previewPage.evaluate(() => {
+    const hands = document.querySelector('#hotbar');
+    const gear = document.querySelector('#gearBox');
+    const a = hands?.getBoundingClientRect();
+    const b = gear?.getBoundingClientRect();
+    const slotRects = [...document.querySelectorAll('#hotbar .slot')].map((slot) => {
+      const rect = slot.getBoundingClientRect();
+      return {
+        left: Number(rect.left.toFixed(1)),
+        right: Number(rect.right.toFixed(1)),
+        width: Number(rect.width.toFixed(1)),
+        height: Number(rect.height.toFixed(1)),
+      };
+    });
+    const overlaps = a && b
+      ? a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+      : null;
+    return {
+      visible: Boolean(document.querySelector('#hotbar'))
+        && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',
+      slots: document.querySelectorAll('#hotbar .slot').length,
+      overlapsGearDescription: overlaps,
+      centerDelta: a ? Math.abs((a.left + a.right) / 2 - innerWidth / 2) : null,
+      width: a?.width ?? null,
+      slotRects,
+    };
+  });
   check('the Motel uses the shared five-slot bottom inventory',
-    motelInventory.visible && motelInventory.slots === 5,
+    motelInventory.visible
+      && motelInventory.slots === 5
+      && motelInventory.overlapsGearDescription === false
+      && motelInventory.centerDelta < 2
+      && motelInventory.width >= 230
+      && motelInventory.slotRects.every((rect) => rect.width >= 40
+        && rect.height >= 40 && rect.left >= 0 && rect.right <= 1280),
     JSON.stringify(motelInventory));
+  await previewPage.waitForTimeout(700);
+  const surveyBrief = await previewPage.evaluate(() => {
+    const element = document.getElementById('surveyBrief');
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      text: element.textContent.trim(),
+      opacity: Number(style.opacity),
+      visible: style.visibility,
+      width: rect.width,
+    };
+  });
+  check('a large opening HUD message offers surveying or going straight in',
+    surveyBrief.text === 'Survey the Motel before going into your meeting or go right into it'
+      && surveyBrief.opacity > 0.5
+      && surveyBrief.visible === 'visible'
+      && surveyBrief.width >= 500,
+    JSON.stringify(surveyBrief));
   // SwiftShader can need several frames to compile the first motel materials.
   // Capture after that warm-up, but before the opening dialogue wheel appears.
   await previewPage.waitForTimeout(800);
@@ -502,6 +559,29 @@ try {
   await capture(previewPage, 'after-car-first-person');
 
   await answerWheel(previewPage, 'calm');
+  await previewPage.waitForFunction(() => {
+    const motel = window.MOTEL;
+    const cue = motel.voice.cueForLine('Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.');
+    return motel.voice.played.some((entry) => entry.cue === cue);
+  }, null, { timeout: 45000, polling: 80 }).catch(() => {});
+  const snowOffer = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const cue = motel.voice.cueForLine('Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.');
+    const commander = motel.interactableList.find((entry) => entry.id === 'silverback');
+    return {
+      cue,
+      spoken: motel.S.snowGunOfferSpoken,
+      played: motel.voice.played.filter((entry) => entry.cue === cue),
+      enabled: commander.enabled(),
+      label: commander.label(),
+    };
+  });
+  check('Snow audibly calls attention to the optional Commander handoff',
+    snowOffer.spoken
+      && snowOffer.played.length === 1
+      && snowOffer.enabled
+      && /Snow offers/i.test(snowOffer.label),
+    JSON.stringify(snowOffer));
   await previewPage.evaluate(() => window.MOTEL.forceInteract('exitCar'));
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot');
 
@@ -554,6 +634,92 @@ try {
   check('real WASD input moves Tony forward without a collider trap',
     motion.distance > 0.4 && motion.forwardProgress > 0.35 && !motion.blocked,
     JSON.stringify(motion));
+
+  /* A point prompt must obey the same three-dimensional reach and wall
+   * occlusion as every physical target in the shared InteractionSystem. The
+   * Motel still owns a legacy point list, so these two probes exercise its
+   * adapter directly: first a room-nine prompt one storey above the player,
+   * then the shipment through room eleven's solid rear wall. */
+  await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const door9 = motel.interactableList.find((entry) => entry.id === 'door9');
+    motel.teleport(-19, -1.0, motel.level.DECK_Y);
+    motel.face(door9.x, door9.z);
+  });
+  await previewPage.waitForTimeout(180);
+  const verticalReach = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const door9 = motel.interactableList.find((entry) => entry.id === 'door9');
+    return {
+      active: motel.activeInteract(),
+      targetY: door9.y,
+      playerFeetY: motel.feetY,
+      playerInteractionY: motel.feetY + 1.4,
+    };
+  });
+  check('a second-floor listener cannot use the room-nine prompt below',
+    verticalReach.active !== 'door9', JSON.stringify(verticalReach));
+
+  await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    motel.teleport(motel.refs.crates.x, -17.0);
+    motel.face(motel.refs.crates.x, motel.refs.crates.z);
+  });
+  await previewPage.waitForTimeout(180);
+  const shipmentWall = await previewPage.evaluate(() => ({
+    active: window.MOTEL.activeInteract(),
+    crates: { x: window.MOTEL.refs.crates.x, z: window.MOTEL.refs.crates.z },
+    player: { x: window.MOTEL.pos.x, z: window.MOTEL.pos.z },
+  }));
+  check('the room-eleven rear wall blocks the shipment interaction',
+    shipmentWall.active !== 'crates', JSON.stringify(shipmentWall));
+  await capture(previewPage, 'after-shipment-wall');
+  await previewPage.evaluate(() => {
+    window.MOTEL.teleport(-12, -19.5);
+    window.MOTEL.face(-12, -15.35);
+  });
+  await previewPage.waitForTimeout(120);
+  await capture(previewPage, 'after-rear-window-11');
+  await previewPage.evaluate(() => {
+    window.MOTEL.teleport(3.3, -19.5);
+    window.MOTEL.face(3.3, -15.35);
+  });
+  await previewPage.waitForTimeout(120);
+  await capture(previewPage, 'after-rear-window-12');
+
+  await waitQuiet(previewPage);
+  await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    motel.teleport(-44, -1.0);
+    motel.face(-44, -6.2);
+  });
+  await previewPage.waitForTimeout(180);
+  await capture(previewPage, 'after-office-door-open');
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('clerk'));
+  await previewPage.waitForFunction(() => {
+    const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
+    return clerk?.state === 'idle';
+  }, null, { timeout: 10000, polling: 80 }).catch(() => {});
+  const clerkStoppedA = await previewPage.evaluate(() => {
+    const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
+    return clerk ? { x: clerk.position.x, z: clerk.position.z, state: clerk.state } : null;
+  });
+  await previewPage.waitForTimeout(450);
+  const clerkStoppedB = await previewPage.evaluate(() => {
+    const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
+    return clerk ? { x: clerk.position.x, z: clerk.position.z, state: clerk.state } : null;
+  });
+  check('the cowed clerk reaches the wall and stops his running animation',
+    clerkStoppedA?.state === 'idle'
+      && clerkStoppedB?.state === 'idle'
+      && Math.hypot(clerkStoppedB.x - clerkStoppedA.x, clerkStoppedB.z - clerkStoppedA.z) < 0.03,
+    JSON.stringify({ first: clerkStoppedA, second: clerkStoppedB }));
+  await capture(previewPage, 'after-clerk-stopped');
+
+  await previewPage.evaluate(() => {
+    window.MOTEL.teleport(-5.4, 16.0);
+    window.MOTEL.face(0, 0);
+  });
 
   /* The HUD shows what he is carrying, and grows a row when he picks
    * something up. */
@@ -760,10 +926,35 @@ try {
       && ricoPresentation.mouthOpen
       && ricoPresentation.talkRemaining > 0,
     JSON.stringify(ricoPresentation));
+  await previewPage.evaluate(() => {
+    window.MOTEL.teleport(0, -2.6);
+    window.MOTEL.face(0, -5.4);
+  });
   /* Answer him for real rather than setting `doorOpened` by hand: the door
    * opening is a consequence of a chosen line, and the objective that follows
    * is the thing this scene keeps failing to deliver. */
   await answerWheel(previewPage, 'calm');
+  await previewPage.waitForFunction(
+    () => document.getElementById('subtitle').textContent.includes('Come in before'),
+    null,
+    { timeout: 45000 },
+  );
+  await previewPage.waitForTimeout(80);
+  const invitation = await previewPage.evaluate(() => {
+    const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
+    return {
+      objective: window.MOTEL.objective,
+      active: window.MOTEL.activeInteract(),
+      voiceBusy: window.MOTEL.voice.busy(),
+      rico: rico ? { x: rico.position.x, z: rico.position.z, state: rico.state } : null,
+    };
+  });
+  check('Rico steps aside and the [E] doorway prompt is live while he says come in',
+    invitation.voiceBusy
+      && invitation.objective.sub.includes('[E]')
+      && invitation.active === 'enterRoom'
+      && Math.abs(invitation.rico?.x || 0) >= 0.8,
+    JSON.stringify(invitation));
   await previewPage.waitForFunction(
     () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Step inside'),
     null,
@@ -778,6 +969,19 @@ try {
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'room');
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-room-first-person');
+  const meetingGate = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const enabled = Object.fromEntries(['sample', 'jerkyCase', 'placeMoney'].map((id) => {
+      const target = motel.interactableList.find((entry) => entry.id === id);
+      return [id, target ? target.enabled() : null];
+    }));
+    return { sampleOut: motel.S.sampleOut, active: motel.activeInteract(), enabled };
+  });
+  check('the three transaction objects wait for the spoken package briefing',
+    !meetingGate.sampleOut
+      && Object.values(meetingGate.enabled).every((enabled) => enabled === false)
+      && !['sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
+    JSON.stringify(meetingGate));
 
   /* ---- the transaction, step by step ----
    *
@@ -791,6 +995,14 @@ try {
   const sampleStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
+    packageBeatOrder: [
+      ['Chino', 'Door stays shut. Air conditioning.'],
+      ['Rico', 'Mountain reserve. Eleven-year cure. No fillers.'],
+      ['Prospect', 'Eight in their case. One on the table. Neither of them is mine yet.'],
+      ['Rico', 'Meat first. Money second. That is how this works.'],
+    ].map(([speaker, line]) => window.MOTEL.voice.played.findIndex((entry) => (
+      entry.cue === window.MOTEL.voice.cueForLine(speaker, line)
+    ))),
   }));
   check('step one names their sample, the table and the button',
     sampleStep.deal.step === 'sample'
@@ -800,6 +1012,10 @@ try {
       && sampleStep.deal.board?.yours.includes('$40,000')
       && sampleStep.deal.board.order === 'Meat first. Money second.',
     JSON.stringify(sampleStep));
+  check('the meeting establishes their sample, their eight packages, and the transaction order out loud',
+    sampleStep.packageBeatOrder.every((index) => index >= 0)
+      && sampleStep.packageBeatOrder.every((index, i, all) => i === 0 || index > all[i - 1]),
+    JSON.stringify(sampleStep.packageBeatOrder));
 
   /* Rico pushes the money back once if nothing has been checked. Meat first is
    * the rule of the room and a character says it, rather than the game simply
@@ -821,12 +1037,28 @@ try {
 
   await waitQuiet(previewPage);
   await previewPage.evaluate(() => window.MOTEL.forceInteract('sample'));
+  const roomClockBeforeInspection = await previewPage.evaluate(() => window.MOTEL.roomClock);
+  await previewPage.waitForTimeout(500);
+  const roomClockDuringInspection = await previewPage.evaluate(() => window.MOTEL.roomClock);
+  check('inspection and dialogue pause the slow-burn room clock',
+    Math.abs(roomClockDuringInspection - roomClockBeforeInspection) < 0.02,
+    JSON.stringify({ before: roomClockBeforeInspection, during: roomClockDuringInspection }));
+  await capture(previewPage, 'after-inspection-options');
   await previewPage.evaluate(() => window.MOTEL.inspect(window.MOTEL.inspection.available()[0].id));
   await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'count', null, { timeout: 60000 });
   const countStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
     label: window.MOTEL.interactableList.find((entry) => entry.id === 'jerkyCase').label(),
+    sellerReplyPlayed: window.MOTEL.voice.played.some((entry) => (
+      entry.cue === window.MOTEL.voice.cueForLine('Rico', 'I told you.')
+    )),
+    choices: [...document.querySelectorAll('#inspectList .insp')].map((button) => ({
+      id: button.dataset.id,
+      key: button.dataset.key,
+      label: button.textContent.trim(),
+      disabled: button.disabled,
+    })),
   }));
   check('checking the sample moves the deal on to counting their case of eight',
     countStep.deal.sampleChecked
@@ -835,6 +1067,19 @@ try {
       && /their case of eight/i.test(countStep.objective.title)
       && /count their case of eight/i.test(countStep.label),
     JSON.stringify(countStep));
+  check('inspection choices stay centered, numbered and grey in their authored slots',
+    countStep.choices.length === 8
+      && countStep.choices[0]?.id === 'smell'
+      && countStep.choices[0]?.key === '1'
+      && countStep.choices[0]?.disabled
+      && countStep.choices[0]?.label.includes('Smell it')
+      && countStep.choices[1]?.id === 'bend'
+      && countStep.choices[1]?.key === '2'
+      && !countStep.choices[1]?.disabled,
+    JSON.stringify(countStep.choices));
+  check('a seller answers the inspection before the deal advances',
+    countStep.sellerReplyPlayed, JSON.stringify({ played: countStep.sellerReplyPlayed }));
+  await capture(previewPage, 'after-inspection-selected');
 
   /* "i keep repeating 8 packages line". The count had no gate at all, so every
    * [E] at the case said the same sentence again and stacked six suspicion and
@@ -1140,6 +1385,18 @@ try {
       && headlights.pool?.visible === true,
     JSON.stringify(headlights));
 
+  const webgl = await previewPage.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    const gl = canvas?.getContext('webgl2') || canvas?.getContext('webgl');
+    return {
+      kind: gl?.constructor?.name || null,
+      contextLost: gl?.isContextLost?.() ?? true,
+      error: gl?.getError?.() ?? -1,
+    };
+  });
+  check('the final Motel WebGL context remains healthy',
+    !!webgl.kind && !webgl.contextLost && webgl.error === 0, JSON.stringify(webgl));
+
   await previewPage.close();
 
   await page.goto(`http://localhost:${PORT}/motel.html`, { waitUntil: 'load' });
@@ -1209,6 +1466,7 @@ try {
       && home.scene.spawn === 'front_door'
       && home.mission.status === 'complete',
     JSON.stringify(home));
+  check('the Motel loads without missing resources', notFound.length === 0, JSON.stringify(notFound));
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {
   await browser.close();

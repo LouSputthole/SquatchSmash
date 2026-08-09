@@ -112,10 +112,37 @@ import {
   MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../core/wardrobe.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { TimingBar } from '../core/timingbar.js';
 import { box, cylinder, group, mat } from '../world/build.js';
+import { createDressHelpSequence } from '../world/dress-help.js';
 import { mountLilTomCruze } from './dog.js';
 import { DialogueController } from './mission/DialogueController.js';
 import { createMissionHud } from './mission/hud.js';
+
+/** The cast owns who is sitting in a theatre chair; the Mansion composition
+ * owns whether the player may use it. Publish that ownership on the chair so
+ * both halves read the same fact instead of keeping parallel seat lists. */
+export function theatreSeatOccupant(seat) {
+  const id = seat?.userData?.theatreSeat?.occupiedBy;
+  return typeof id === 'string' && id.length > 0 ? id : null;
+}
+
+export function markTheatreSeatOccupied(seat, occupantId) {
+  const data = seat?.userData?.theatreSeat;
+  if (!data || typeof occupantId !== 'string' || occupantId.length === 0) return false;
+  data.occupiedBy = occupantId;
+  return true;
+}
+
+export function theatreSeatAvailable(seat, {
+  activeSeat = null,
+  playerMode = 'walk',
+} = {}) {
+  return Boolean(seat?.userData?.theatreSeat)
+    && theatreSeatOccupant(seat) === null
+    && activeSeat === null
+    && playerMode === 'walk';
+}
 import { INSTRUCTIONS, SEQUENCES } from './script.js';
 
 /* ================================================================== */
@@ -315,6 +342,7 @@ const _seatRay = new THREE.Raycaster();
 const _seatDown = new THREE.Vector3(0, -1, 0);
 const _seatBox = new THREE.Box3();
 const _seatAt = new THREE.Vector3();
+const _seatMeshes = [];
 /** How far a correction is allowed to move somebody. Anything larger is a
  * figure over a hole in the floor rather than a pose that needs 8 cm. */
 const SEAT_MAX_LIFT = 0.35;
@@ -351,7 +379,15 @@ function seatUnder(scene, npc) {
   _seatBox.getCenter(_seatAt);
   _seatRay.set(new THREE.Vector3(_seatAt.x, top + 0.35, _seatAt.z), _seatDown);
   _seatRay.far = 1.6;
-  const hit = _seatRay.intersectObject(scene, true)
+  /* Raycast only tangible mesh geometry. The scene also owns HUD labels and
+   * smoke sprites; Three's Sprite.raycast requires a camera on the raycaster,
+   * while this strictly vertical construction probe intentionally has none.
+   * Seats, cushions, floors and instanced fixtures are all meshes. */
+  _seatMeshes.length = 0;
+  scene.traverse((object) => {
+    if (object.isMesh) _seatMeshes.push(object);
+  });
+  const hit = _seatRay.intersectObjects(_seatMeshes, false)
     .find((candidate) => !partOfSomebody(candidate.object) && candidate.point.y <= top);
   return { hips: underside, seat: hit ? hit.point.y : null };
 }
@@ -583,6 +619,8 @@ export function mountMansionCast(scene, world = {}, {
   suite = null,
   /** `grounds.props.poolPatio` — its actual loungers, waterline and basin. */
   pool = null,
+  /** `interior.props.theatre` — its real recliners and screen. */
+  theatre = null,
   hud = null,
   hasCase = null,
   /**
@@ -1333,6 +1371,7 @@ export function mountMansionCast(scene, world = {}, {
    * present in the laboratory below. These five were the living names still
    * absent from the house: they now use five rooms rather than collecting in
    * another bar-shaped knot. All models come from the canonical Family row. */
+  let theatreEveningStaged = false;
   const conference = at('conferenceTable', { x: 0, y: UPPER_Y, z: 58 });
   post('seff', {
     name: 'Seff',
@@ -1342,7 +1381,9 @@ export function mountMansionCast(scene, world = {}, {
     y: conference.y,
     z: conference.z + 0.4,
     yaw: yawToward(conference.x - 7.15, conference.z + 0.4, conference.x, conference.z),
-    look: 'Seff, monitoring the conference-room phone nobody is meant to call.',
+    look: () => (theatreEveningStaged
+      ? 'Seff, sunk into a back-row recliner with the conference phone beside him.'
+      : 'Seff, monitoring the conference-room phone nobody is meant to call.'),
   });
 
   const lan = at('lanRoomCenter', { x: 6.4, y: BASEMENT_Y, z: 71.15 });
@@ -1353,7 +1394,9 @@ export function mountMansionCast(scene, world = {}, {
     y: lan.y,
     z: lan.z + 2.4,
     yaw: yawToward(lan.x, lan.z + 2.4, lan.x, lan.z),
-    look: 'Lag, standing behind five live machines and blaming the one with the best connection.',
+    look: () => (theatreEveningStaged
+      ? 'Lag, watching the movie half a beat behind everybody else.'
+      : 'Lag, standing behind five live machines and blaming the one with the best connection.'),
   });
 
   const ballroom = at('ballroomCenter', { x: 0, y: GROUND_Y, z: 66 });
@@ -1378,7 +1421,7 @@ export function mountMansionCast(scene, world = {}, {
     look: 'Sauce, checking a buffet that nobody asked him to check.',
   });
 
-  const theatre = at('theatreCenter', { x: -2.85, y: BASEMENT_Y, z: 72.6 });
+  const theatreAt = at('theatreCenter', { x: -2.85, y: BASEMENT_Y, z: 72.6 });
   const theatreLines = () => {
     const channel = String(theatreChannel?.() ?? '').toUpperCase();
     if (channel.includes('GOODFELLAS')) return SEQUENCES.oldStoveGoodfellas;
@@ -1387,17 +1430,87 @@ export function mountMansionCast(scene, world = {}, {
     if (channel.includes('GODFATHER')) return SEQUENCES.oldStoveGodfather;
     return SEQUENCES.oldStoveTheatre;
   };
-  post('oldStove', {
+  /* Old Stove is already watching the theatre during the mission; only Seff
+   * and Lag join him for the quiet post-mission evening. Seat him from mount,
+   * on the actual published recliner, so a normal in-progress campaign visit
+   * cannot leave him standing beside it while preview mode happens to pass. */
+  const oldStoveSeatIndex = 1;
+  const oldStoveSeat = theatre?.seats?.[oldStoveSeatIndex] ?? null;
+  oldStoveSeat?.updateWorldMatrix?.(true, false);
+  const oldStoveSeatAt = oldStoveSeat?.getWorldPosition?.(new THREE.Vector3())
+    ?? new THREE.Vector3(theatreAt.x - 3.6, theatreAt.y, theatreAt.z - 4.4);
+  const oldStoveScreenAt = theatre?.screen?.getWorldPosition?.(new THREE.Vector3())
+    ?? new THREE.Vector3(theatreAt.x, theatreAt.y + 1.5, theatreAt.z + 4);
+  const oldStoveNpc = post('oldStove', {
     name: 'Old Stove',
     model: withFace(familyModel(CHARACTER_IDS.OLD_STOVE), FACES.stove),
-    x: theatre.x - 3.6,
-    y: theatre.y,
-    z: theatre.z - 4.4,
-    yaw: yawToward(theatre.x - 3.6, theatre.z - 4.4, theatre.x, theatre.z),
-    look: () => `Old Stove, waiting on ${theatreChannel?.() || 'a picture'}.`,
-    interactEnabled: () => eveningEnabled(),
+    job: 'sit',
+    x: oldStoveSeatAt.x,
+    y: seatBase(oldStoveSeatAt.y, 0.56),
+    z: oldStoveSeatAt.z + 0.02,
+    yaw: yawToward(oldStoveSeatAt.x, oldStoveSeatAt.z, oldStoveScreenAt.x, oldStoveScreenAt.z),
+    look: () => (theatreEveningStaged
+      ? `Old Stove, holding court through ${theatreChannel?.() || 'the picture'} with Seff and Lag.`
+      : `Old Stove, waiting on ${theatreChannel?.() || 'a picture'}.`),
+    /* Old Stove is already seated here during the job. Preview and the quiet
+     * evening only add Seff and Lag, so neither may be a hidden permission
+     * switch for the visible man's own E prompt. */
+    interactEnabled: () => true,
     onUse: () => { dialogue.interject(theatreLines()); return true; },
   });
+  oldStoveNpc.inFixture = 'theatre recliner';
+  oldStoveNpc.theatreSeat = oldStoveSeatIndex;
+  markTheatreSeatOccupied(oldStoveSeat, 'oldStove');
+
+  /* Once the mission gives way to the quiet evening, the theatre stops being
+   * a room with one man waiting beside twelve empty chairs. No new cast is
+   * invented: Seff leaves the conference phone and Lag leaves the LAN room,
+   * and both join Old Stove in the back row. Earlier mission staging remains
+   * unchanged because this transition only runs after `eveningEnabled()`. */
+  const THEATRE_COMPANIONS = Object.freeze([
+    Object.freeze({ id: 'oldStove', seat: 1 }),
+    Object.freeze({ id: 'seff', seat: 3 }),
+    Object.freeze({ id: 'lag', seat: 5 }),
+  ]);
+  function stageTheatreEvening() {
+    if (theatreEveningStaged || !eveningEnabled()) return theatreEveningStaged;
+    const seats = theatre?.seats ?? [];
+    if (seats.length < 6) return false;
+    const screenAt = theatre?.screen?.getWorldPosition?.(new THREE.Vector3())
+      ?? new THREE.Vector3(theatreAt.x, theatreAt.y + 1.5, theatreAt.z + 4);
+    for (const assignment of THEATRE_COMPANIONS) {
+      const npc = people[assignment.id];
+      const seat = seats[assignment.seat];
+      if (!npc || !seat) continue;
+      seat.updateWorldMatrix(true, false);
+      const atSeat = seat.getWorldPosition(new THREE.Vector3());
+      npc.baseY = seatBase(atSeat.y, 0.56);
+      npc.homeX = atSeat.x;
+      npc.homeZ = atSeat.z + 0.02;
+      npc.homeYaw = yawToward(atSeat.x, atSeat.z, screenAt.x, screenAt.z);
+      npc.group.position.set(npc.homeX, npc.baseY, npc.homeZ);
+      npc.group.rotation.y = npc.homeYaw;
+      npc.job = 'sit';
+      /* These three become seated AFTER the mount-time seat pass. Merely
+       * changing `job` folds the legs on the next update, but it never adds
+       * the body to the measured-seat registry and never corrects different
+       * body heights against this recliner's actual pad. Apply the pose now,
+       * register the dynamic sitter once, then run the same geometry-derived
+       * correction every original sitter receives. */
+      npc.sit();
+      if (!seated.some((entry) => entry.id === assignment.id)) {
+        seated.push({ id: assignment.id, npc });
+      }
+      scene.updateMatrixWorld(true);
+      const lift = sitOnTheSeat(scene, npc);
+      if (lift !== null) seatLifts[assignment.id] = lift;
+      npc.inFixture = 'theatre recliner';
+      npc.theatreSeat = assignment.seat;
+      markTheatreSeatOccupied(seat, assignment.id);
+    }
+    theatreEveningStaged = true;
+    return true;
+  }
 
   /* ================================================================ */
   /* THE THIRD FLOOR                                                   */
@@ -1472,17 +1585,27 @@ export function mountMansionCast(scene, world = {}, {
     x: poolAt.x + 10.6, y: poolAt.y, z: poolAt.z + 0.8, yaw: -Math.PI / 2,
   });
   const poolRecliners = [];
+  const POOL_PERFORMER_IDENTITIES = Object.freeze({
+    poolPerformer0: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 0, look: 'platinum tied hair' }),
+    poolPerformer1: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 2, look: 'black long hair' }),
+    poolPerformer2: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 1, look: 'brunette long hair' }),
+  });
   function posePoolRecliner(npc) {
     if (!npc?.parts) return;
     npc.parts.body.rotation.x = -0.46;
-    npc.parts.head.rotation.x += 0.2;
+    /* Npc.update resets the shared pose first, but this assignment is still
+     * deliberate: a fixture pose must never accumulate if that reset changes. */
+    npc.parts.head.rotation.x = 0.2;
     npc.parts.armL.rotation.set(-0.28, 0, -0.28);
     npc.parts.armR.rotation.set(-0.28, 0, 0.28);
   }
-  const poolEvening = { phase: 'hello', greetedSecond: false, dressHelped: false };
+  const poolEvening = {
+    phase: 'hello', greetedSecond: false, dressHelped: false,
+    secondPhase: 'hello', secondDressHelped: false,
+  };
   let dressStrap = null;
   const primaryPoolGirl = post('poolPerformer0', {
-    name: 'a dancer by the pool',
+    name: 'the Bada Bing platinum performer',
     tier: 'ambient',
     job: 'sit',
     x: firstLounger.x,
@@ -1499,7 +1622,10 @@ export function mountMansionCast(scene, world = {}, {
       if (poolEvening.phase === 'strap') return 'Help fix her dress strap';
       return 'Her dress strap is fixed. Useful beats smooth.';
     },
-    interactEnabled: () => eveningEnabled(),
+    /* They are already staged on the pool deck during the job. Preview and
+     * post-mission evening state may add theatre company, but it must not be
+     * the hidden permission switch for a visible performer's E prompt. */
+    interactEnabled: () => true,
     onUse: () => {
       if (dialogue.busy) return false;
       if (poolEvening.phase === 'hello') {
@@ -1522,6 +1648,7 @@ export function mountMansionCast(scene, world = {}, {
   });
   primaryPoolGirl.inFixture = 'pool lounger';
   primaryPoolGirl.poolPose = 'reclined';
+  primaryPoolGirl.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer0;
   poolRecliners.push(primaryPoolGirl);
   posePoolRecliner(primaryPoolGirl);
   dressStrap = box({
@@ -1535,7 +1662,7 @@ export function mountMansionCast(scene, world = {}, {
   primaryPoolGirl.parts.body.add(dressStrap);
 
   const secondPoolGirl = post('poolPerformer1', {
-    name: 'a dancer by the pool',
+    name: 'the Bada Bing black-haired performer',
     tier: 'ambient',
     job: 'sit',
     x: secondLounger.x,
@@ -1546,26 +1673,116 @@ export function mountMansionCast(scene, world = {}, {
       role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
       height: 1.71, build: 1.06, dress: 'bikini', ...BADA_BING_PERFORMERS[2],
     },
-    look: () => (poolEvening.greetedSecond
-      ? 'One of the girls from the club, enjoying the quiet.'
-      : 'Say hello to the other dancer'),
-    interactEnabled: () => eveningEnabled() && !poolEvening.greetedSecond,
+    look: () => {
+      if (poolEvening.secondPhase === 'hello') return 'Say hello to the other dancer';
+      if (poolEvening.secondPhase === 'flirt') return 'Try flirting with her';
+      if (poolEvening.secondPhase === 'ready') return 'Help fix her dress strap';
+      if (poolEvening.secondPhase === 'helping') return 'Time the pull';
+      return 'Her dress strap is fixed.';
+    },
+    interactEnabled: () => poolEvening.secondPhase !== 'done',
     onUse: () => {
-      if (dialogue.busy || poolEvening.greetedSecond) return false;
-      poolEvening.greetedSecond = true;
-      dialogue.play(SEQUENCES.poolGirlHello);
+      if (secondDressSequence?.active) return secondDressSequence.press();
+      if (dialogue.busy) return false;
+      if (poolEvening.secondPhase === 'hello') {
+        poolEvening.greetedSecond = true;
+        poolEvening.secondPhase = 'flirt';
+        dialogue.play(SEQUENCES.poolGirlHello);
+      } else if (poolEvening.secondPhase === 'flirt') {
+        poolEvening.secondPhase = 'ready';
+        dialogue.play(SEQUENCES.poolGirlFlirt);
+      } else if (poolEvening.secondPhase === 'ready') {
+        poolEvening.secondPhase = 'helping';
+        secondDressSequence.start();
+      } else return false;
       return true;
     },
   });
   secondPoolGirl.inFixture = 'pool lounger';
   secondPoolGirl.poolPose = 'reclined';
+  secondPoolGirl.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer1;
   poolRecliners.push(secondPoolGirl);
   posePoolRecliner(secondPoolGirl);
+
+  const secondDressStrap = box({
+    size: [0.045, 0.42, 0.025], pos: [0.2, 1.34, 0.13],
+    mat: mat({ color: 0x351125, roughness: 0.7 }), rotZ: -0.68,
+    cast: false, name: 'pool-performer-2-dress-strap',
+  });
+  secondPoolGirl.parts.body.add(secondDressStrap);
+  const secondDressStart = {
+    y: secondDressStrap.position.y,
+    rotation: secondDressStrap.rotation.z,
+  };
+  const secondDressCueLog = [];
+  const secondDressAudio = {
+    position: () => secondPoolGirl.group.getWorldPosition(new THREE.Vector3()),
+    play: (name, options) => {
+      secondDressCueLog.push({ kind: 'play', name });
+      return audio?.play?.(name, options) ?? null;
+    },
+    startLoop: (key, options) => {
+      secondDressCueLog.push({ kind: 'loop', name: options.name });
+      return audio?.startLoop?.(key, options) ?? null;
+    },
+    stopLoop: (key, fade) => {
+      secondDressCueLog.push({ kind: 'stop', name: key });
+      return audio?.stopLoop?.(key, fade) ?? null;
+    },
+  };
+  const secondDressSequence = createDressHelpSequence({
+    timingBar: TimingBar,
+    audio: secondDressAudio,
+    rig: {
+      begin() {
+        secondDressStrap.position.y = secondDressStart.y;
+        secondDressStrap.rotation.z = secondDressStart.rotation;
+        screen?.setInstruction?.('TIME THE PULL WITH E');
+      },
+      onHit({ index, total }) {
+        const progress = index / total;
+        secondDressStrap.rotation.z = THREE.MathUtils.lerp(secondDressStart.rotation, 0.18, progress);
+        secondDressStrap.position.y = secondDressStart.y + progress * 0.08;
+      },
+      onMiss() {
+        secondDressStrap.rotation.z = Math.min(0.28, secondDressStrap.rotation.z + 0.04);
+      },
+      finish() {
+        screen?.setTiming?.(null);
+        screen?.setInstruction?.(null);
+      },
+      reset() {
+        secondDressStrap.position.y = secondDressStart.y;
+        secondDressStrap.rotation.z = secondDressStart.rotation;
+      },
+    },
+    onComplete() {
+      poolEvening.secondPhase = 'done';
+      poolEvening.secondDressHelped = true;
+      dialogue.play(SEQUENCES.poolGirlDressHelp);
+    },
+    onAbandon() {
+      poolEvening.secondPhase = 'ready';
+    },
+  });
+
+  /* A Mansion abandon is a retry, not a chapter transition. Let the shared
+   * sequence perform its authored abandon payoff first, then reset the shared
+   * TimingBar and this room's strap rig before returning the prompt to READY.
+   * Keeping this lifecycle in one production adapter prevents preview/tests
+   * from quietly doing extra cleanup the player's Q path never receives. */
+  function abandonSecondPoolDress() {
+    if (!secondDressSequence.abandon()) return false;
+    secondDressSequence.reset();
+    poolEvening.secondPhase = 'ready';
+    poolEvening.secondDressHelped = false;
+    return true;
+  }
 
   const water = pool?.pool ?? { x0: -7, x1: 7, z0: 81, z1: 89 };
   const waterY = pool?.waterY ?? poolAt.y - 0.2;
   const poolGirlInWater = post('poolPerformer2', {
-    name: 'a dancer in the pool',
+    name: 'the Bada Bing brunette performer',
     tier: 'ambient',
     x: (water.x0 + water.x1) / 2 + 2.2,
     y: waterY - 1.15,
@@ -1580,6 +1797,7 @@ export function mountMansionCast(scene, world = {}, {
   });
   poolGirlInWater.inFixture = 'the pool';
   poolGirlInWater.poolPose = 'in-water';
+  poolGirlInWater.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer2;
 
   /* ---- LIL TOM CRUZE ---------------------------------------------------
    *
@@ -1758,6 +1976,8 @@ export function mountMansionCast(scene, world = {}, {
       handed: false,
       /** How many times it has landed. Picks which thing xXx says. */
       swings: 0,
+      /** Scene-local only. The campaign state machine never reads this. */
+      deathCause: null,
       /** −1 when the cord is not moving; 0→1 across one swing. */
       swing: -1,
       landed: false,
@@ -1784,10 +2004,11 @@ export function mountMansionCast(scene, world = {}, {
     if (interaction && hangingMesh?.isObject3D) {
       interaction.register(hangingMesh, {
         label: () => {
+          if (lab?.xxx?.alive === false) return 'xXx is dead';
           if (!torture.handed) return 'xXx, who is still talking';
           return 'Swing the <b>cord</b>';
         },
-        enabled: () => enabled(),
+        enabled: () => enabled() && lab?.xxx?.alive !== false,
         onUse: () => swingAtHim(),
       });
       torture.target = hangingMesh;
@@ -1811,7 +2032,7 @@ export function mountMansionCast(scene, world = {}, {
   /*                                                                      */
   /*   press GRATIN -> he hands it to you. Once. The house rule is the    */
   /*                   answer to asking for a SECOND handover.            */
-  /*   press xXx    -> you swing it. As often as you like, forever.        */
+  /*   press xXx    -> you swing it. Ten landed blows are fatal.           */
   /*                                                                       */
   /* The mechanic underneath is still the club's, imported whole: the same  */
   /* cord geometry, the same `poseCord` lag-and-pay-out, the same 0.72 s    */
@@ -1868,20 +2089,42 @@ export function mountMansionCast(scene, world = {}, {
     SEQUENCES.tortureSwingThree,
     SEQUENCES.tortureSwingFour,
   ];
+  const XXX_FATAL_WHIP_HITS = 10;
+
+  function killXxx(cause, hit = null) {
+    if (!torture || lab?.xxx?.alive === false) return false;
+    if (lab?.xxx?.kill?.(cause, hit) !== true) return false;
+    torture.deathCause = cause;
+    dialogue.clear();
+    screen?.hideLine?.();
+    return true;
+  }
+
+  /** Accept only the aim volume WeaponSystem actually struck. */
+  function hitXxxWithFirearm(hit) {
+    if (!torture?.target || lab?.xxx?.alive === false) return false;
+    let part = hit?.object;
+    while (part && part !== torture.target) part = part.parent;
+    if (part !== torture.target) return false;
+    /* The weapon owns the shot and tracer. This owns only its consequence. */
+    burstAtHim();
+    burstAtHim();
+    return killXxx('firearm', hit);
+  }
 
   /**
    * Swing it at him. The player's decision, at the moment he makes it, and he
-   * can make it as many times as he likes.
+   * can keep making it until the tenth landed hit kills him.
    *
    * IT CANNOT MISS AND IT CANNOT REACH ANYBODY ELSE, and not because it is
    * filtered: this function is only ever reached from the interaction handler
    * registered on `lab.xxx.aim`, and there is no ray, no target list and no
-   * damage model in this module for it to reach anything else through. xXx
-   * survives the night regardless — `lab.xxx.alive` is a hard true — so the
-   * cord costs him something to say and nothing else.
+   * damage model in this module for it to reach anything else through. A
+   * dead xXx cannot start another swing.
    */
   function swingAtHim() {
     if (!torture) return false;
+    if (lab?.xxx?.alive === false) return false;
     /* Not holding it yet: he has to ask Gratin first, and the prompt on
      * Gratin already says so. Consume nothing. */
     if (!torture.handed) return false;
@@ -1916,6 +2159,17 @@ export function mountMansionCast(scene, world = {}, {
     audio?.play('bing.grill.cord.whip', { volume: 0.8 });
     /* 2. the blood and the impact effect, at the body's measured middle. */
     burstAtHim();
+    if (torture.swings >= XXX_FATAL_WHIP_HITS) {
+      const from = playerPosition().clone?.() ?? new THREE.Vector3(
+        playerPosition().x, playerPosition().y, playerPosition().z,
+      );
+      killXxx('whip', {
+        point: strikePoint().clone(),
+        object: torture.target,
+        from,
+      });
+      return;
+    }
     /* 3. the noise, then the line — both inside the sequence, in that order.
      *
      * `play`, NOT `interject`. Interjecting only jumps the QUEUE; it waits for
@@ -1932,11 +2186,10 @@ export function mountMansionCast(scene, world = {}, {
   /*                                                                    */
   /* Owner: "a blood and impact effect as well."                       */
   /*                                                                    */
-  /* BUILT HERE, ON PURPOSE. `scenes/SilentSquatch.js` owns xXx, his    */
-  /* chain, his figure and the pool of blood already under him, and it  */
-  /* is not edited by this pass — so this reads what it needs off the   */
-  /* published `lab.xxx` handle and adds its own meshes to the scene    */
-  /* beside them. It never writes to anything the environment owns.     */
+  /* BUILT IN TWO LAYERS, ON PURPOSE. `scenes/SilentSquatch.js` owns     */
+  /* every persistent wound and pool through the shared blood adapter.   */
+  /* This module owns only the transient contact welt/spray and calls the */
+  /* one `lab.xxx.kill()` seam, so there is never a second floor decal.   */
   /*                                                                     */
   /* WHERE the cord lands is MEASURED rather than authored: the world     */
   /* box of `lab.xxx.aim` is the body as it is actually built and hung,   */
@@ -1944,7 +2197,6 @@ export function mountMansionCast(scene, world = {}, {
   /* cannot drift if the rig is re-hung.                                   */
   /* ---------------------------------------------------------------- */
   const M_BLOOD = mat({ color: 0x5e0d0d, roughness: 0.32, metalness: 0.02 });
-  const M_BLOOD_WET = mat({ color: 0x3a0707, roughness: 0.18, metalness: 0.04 });
   /* `unique`, because this one's opacity is animated and a shared material
    * would fade whatever else happened to be built from the same parameters. */
   /* NOT A WHITE FLASH (owner playtest: *"the white flash when I hit him — it
@@ -1968,12 +2220,9 @@ export function mountMansionCast(scene, world = {}, {
     opacity: 1,
     unique: true,
   });
-  /** Droplets in flight, floor marks that have landed, and the flash. */
+  /** Droplets in flight and the transient contact welt. */
   const spray = [];
-  const marks = [];
   let flash = null;
-  /** Floor marks are permanent, so they are capped and recycled. */
-  const MAX_MARKS = 28;
   const strike = new THREE.Vector3();
   const bodyBox = new THREE.Box3();
 
@@ -1991,19 +2240,13 @@ export function mountMansionCast(scene, world = {}, {
     return strike.set(a.x, (lab?.xxx?.rig?.ankleY ?? (a.y + 1.6)) - 0.95, a.z);
   }
 
-  /** The floor he is hanging over, for the marks to land on. */
-  function floorUnderHim() {
-    return (lab?.xxx?.at?.y ?? BASEMENT_Y) + 0.012;
-  }
-
   /**
    * One hit: a flash of contact, and blood off it.
    *
    * The droplets are thrown with real velocity and fall under gravity, so
-   * they land where the physics puts them rather than where somebody decided
-   * a spatter looks good — and each one that reaches the floor leaves a mark
-   * that stays for the rest of the night. Six swings and the floor tells you
-   * how many, which is the same job Snow's cart is foreshadowing.
+   * they fall where physics puts them rather than where somebody decided a
+   * spatter looks good. They are transient; the shared adapter alone owns the
+   * persistent wound and fatal pool.
    */
   function burstAtHim() {
     const at = strikePoint();
@@ -2053,7 +2296,7 @@ export function mountMansionCast(scene, world = {}, {
       if (flash.userData.life <= 0) flash.visible = false;
     }
     if (!spray.length) return;
-    const floorY = floorUnderHim();
+    const floorY = (lab?.xxx?.at?.y ?? BASEMENT_Y) + 0.012;
     for (let i = spray.length - 1; i >= 0; i--) {
       const drop = spray[i];
       const v = drop.userData.vel;
@@ -2064,22 +2307,6 @@ export function mountMansionCast(scene, world = {}, {
       if (!landed && drop.userData.life > 0) continue;
       spray.splice(i, 1);
       drop.parent?.remove(drop);
-      if (!landed) continue;
-      /* It hit the floor. Leave something behind. */
-      const mark = cylinder({
-        r: 0.05 + Math.random() * 0.11,
-        h: 0.006,
-        pos: [drop.position.x, floorY, drop.position.z],
-        mat: M_BLOOD_WET,
-        cast: false,
-      });
-      mark.name = 'mansion.whipBloodMark';
-      scene.add(mark);
-      marks.push(mark);
-      while (marks.length > MAX_MARKS) {
-        const oldest = marks.shift();
-        oldest?.parent?.remove(oldest);
-      }
     }
   }
 
@@ -2417,15 +2644,25 @@ export function mountMansionCast(scene, world = {}, {
      * `takeCord` is Gratin; `swing` is xXx, and it works every time. */
     takeCord: () => handTheCordOver(),
     swing: () => swingAtHim(),
+    hitXxxWithFirearm: (hit) => hitXxxWithFirearm(hit),
+    get dressHelpActive() { return secondDressSequence.active; },
+    abandonDressHelp: () => abandonSecondPoolDress(),
 
     update(dt) {
       if (!enabled()) return;
+      stageTheatreEvening();
       const p = playerPosition();
       for (const key of Object.keys(people)) people[key].update(dt, p);
       /* Npc.update deliberately restores the neutral torso pose every frame;
        * the loungers are a fixture-specific rest pose, so apply it after the
        * shared animation has done its work. */
       for (const npc of poolRecliners) posePoolRecliner(npc);
+      const dressTiming = secondDressSequence.update(dt);
+      /* TimingBar deliberately retains its last view after stop so a caller
+       * can inspect the seven landed hits. That snapshot is not an active HUD:
+       * republishing it every cast frame resurrected PULL 7 / 7 after
+       * rig.finish() had cleared the overlay for the payoff subtitle. */
+      screen?.setTiming?.(secondDressSequence.active ? dressTiming : null);
       /* The dog walks his own route rather than a `post`'s: he is not a
        * person, he has no lines, and his gate is a door rather than a bark
        * range. Ticked unconditionally so his own `enabled` decides, not this
@@ -2485,19 +2722,47 @@ export function mountMansionCast(scene, world = {}, {
           poolPhase: poolEvening.phase,
           poolSecondGreeted: poolEvening.greetedSecond,
           dressHelped: poolEvening.dressHelped,
+          secondDressPhase: poolEvening.secondPhase,
+          secondDressHelped: poolEvening.secondDressHelped,
+          secondDress: {
+            active: secondDressSequence.active,
+            hits: secondDressSequence.hits,
+            misses: secondDressSequence.misses,
+            clapStage: secondDressSequence.clapStage,
+            view: secondDressSequence.debug.view,
+            cues: [...secondDressCueLog],
+          },
           poolComposition: ['poolPerformer0', 'poolPerformer1', 'poolPerformer2']
             .map((id) => ({
               id,
+              name: people[id]?.name ?? '',
+              identity: people[id]?.performerIdentity ?? null,
               pose: people[id]?.poolPose ?? '',
+              headX: Number(people[id]?.parts?.head?.rotation?.x?.toFixed?.(4) ?? 0),
               x: Number(people[id]?.group?.position?.x?.toFixed?.(2) ?? 0),
               y: Number(people[id]?.group?.position?.y?.toFixed?.(2) ?? 0),
               z: Number(people[id]?.group?.position?.z?.toFixed?.(2) ?? 0),
             })),
           oldStovePresent: Boolean(people.oldStove),
           theatreChannel: theatreChannel?.() ?? '',
+          theatreStaged: theatreEveningStaged,
+          theatreComposition: THEATRE_COMPANIONS.map(({ id, seat }) => ({
+            id,
+            name: people[id]?.name ?? '',
+            seat: people[id]?.theatreSeat ?? seat,
+            job: people[id]?.job ?? '',
+          })),
         };
       },
+      stageTheatreEvening: () => stageTheatreEvening(),
       usePoolGirl: () => people.poolPerformer0?.group?.userData?.interact?.onUse?.() === true,
+      useSecondPoolGirl: () => people.poolPerformer1?.group?.userData?.interact?.onUse?.() === true,
+      abandonSecondPoolDress: () => abandonSecondPoolDress(),
+      get secondPoolDress() { return secondDressSequence; },
+      setSecondPoolDressTarget(on = true) {
+        secondDressSequence.debug.bar.pos = on ? 0.8 : 0.1;
+        return secondDressSequence.debug.bar.onTarget;
+      },
       useOldStove: () => people.oldStove?.group?.userData?.interact?.onUse?.() === true,
       get spoken() { return [...dialogue.cueLog]; },
       get stages() { return [...stages]; },
@@ -2515,9 +2780,13 @@ export function mountMansionCast(scene, world = {}, {
           /** In shot, as opposed to owned. The stow the owner asked for. */
           cordInHand,
           cordVisible: Boolean(torture.cord?.root?.visible),
-          /** Blood on the floor under him, one mark per droplet that got
-           * there — the effect proved by its result rather than by a flag. */
-          bloodMarks: marks.length,
+          alive: lab?.xxx?.alive !== false,
+          deathCause: torture.deathCause,
+          fatalWhipHits: XXX_FATAL_WHIP_HITS,
+          fatalPoolVisible: Boolean(lab?.xxx?.fatalPool?.visible),
+          fatalWoundsVisible: Boolean(lab?.xxx?.fatalMarks?.some?.((mark) => mark.visible)),
+          /** Persistent blood belongs to the lab's shared reusable adapter. */
+          bloodMarks: lab?.inventory?.bloodMarks ?? 0,
         };
       },
       /**
@@ -2533,6 +2802,7 @@ export function mountMansionCast(scene, world = {}, {
       get whipTargets() { return torture?.target ? ['lab.xxx.aim'] : []; },
       takeCord: () => handTheCordOver(),
       swing: () => swingAtHim(),
+      hitXxxWithFirearm: (hit = null) => hitXxxWithFirearm(hit),
       hud: () => screen?.text?.() ?? null,
     },
 

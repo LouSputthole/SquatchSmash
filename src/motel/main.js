@@ -14,7 +14,8 @@ import {
 } from './audio.js';
 import {
   NODES, STYLES, STYLE_LABEL, SELLER_BARKS, PROSPECT_BARKS, SNOW_BARKS,
-  FIGHT_BARKS, SNOW_FIGHT_BARKS, ENDING,
+  FIGHT_BARKS, SNOW_FIGHT_BARKS, ENDING, SNOW_GUN_HANDOFF,
+  INSPECTION_MEETING_BEATS, ROOM_ENTRY_BEATS,
 } from './dialogue.js';
 import { rollShipment, Inspection, Freshness } from './jerky.js';
 import {
@@ -28,8 +29,14 @@ import { createMotelStory } from '../core/motel-story.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { motelVoiceCue } from './voice.js';
 import { motelVoiceCueSet } from './voice-catalog.js';
-import { DialogueFloor, nextLineDelayMs, resolveLineHold } from './dialogue-timing.js';
+import {
+  DialogueFloor,
+  dialogueBeatLeadSeconds,
+  nextLineDelayMs,
+  resolveLineHold,
+} from './dialogue-timing.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -157,6 +164,7 @@ const S = {
   knocked: false,
   enteredRoom: false,
   dealStarted: false,
+  sampleOut: false,
   betrayed: false,
   betrayalT: 0,
   fightStarted: false,
@@ -169,6 +177,7 @@ const S = {
    * Tony opened rather than answered, which is the only way anybody walks out
    * of room twelve in under five seconds. */
   silverbackTaken: false,
+  snowGunOfferSpoken: false,
   silverbackDrawn: false,
   silverbackFast: false,
   snowSignalled: false,
@@ -348,7 +357,7 @@ window.addEventListener('keydown', (e) => {
     case 'Digit5': case 'Digit6': case 'Digit7': case 'Digit8': {
       const n = Number(e.code.slice(5));
       if (dialogue && n <= 4) pickDialogue(STYLES[n - 1]);
-      else if (inspecting) runInspectionByIndex(n - 1);
+      else if (inspecting) runInspectionByKey(n);
       break;
     }
     case 'Enter':
@@ -437,7 +446,11 @@ sharedPauseMenu = createPauseMenu({
     const pending = renderer.domElement.requestPointerLock?.();
     pending?.catch?.(() => {});
   },
-  actions: [{ label: 'Walk away', onSelect: () => finishScene('walked') }],
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.JERKY_MOTEL,
+    location,
+  }),
 });
 
 // Touch controls
@@ -625,6 +638,24 @@ function resetSpeechFloor() {
 /** Give the current take ownership of the voice floor before continuing. */
 function afterLine(holdSeconds, next, gapSeconds = undefined) {
   return setTimeout(next, nextLineDelayMs(holdSeconds, gapSeconds));
+}
+
+/** Play an authored multi-speaker exchange on the Motel's one voice floor. */
+function speakAuthoredBeats(beats, priorHold, done, index = 0) {
+  const beat = beats?.[index];
+  if (!beat) {
+    afterLine(priorHold, done);
+    return;
+  }
+  afterLine(priorHold, () => {
+    if (phase === 'end') return;
+    const hold = say(beat.speaker, beat.line, beat.seconds);
+    if (index + 1 < beats.length) {
+      speakAuthoredBeats(beats, hold, done, index + 1);
+    } else {
+      afterLine(hold, done);
+    }
+  }, dialogueBeatLeadSeconds(beat));
 }
 
 /**
@@ -990,7 +1021,7 @@ addInteract({
   label: () => (S.silverbackTaken
     ? 'The Commander rides under your coat'
     : 'Snow offers you the Silverback Commander'),
-  enabled: () => phase === 'car',
+  enabled: () => phase === 'car' || phase === 'lot',
   act: () => {
     if (S.silverbackTaken) {
       say('Prospect', 'It is under my coat. It stays under my coat.', 3.0);
@@ -999,9 +1030,14 @@ addInteract({
     S.silverbackTaken = true;
     addRead(6);
     sfx.select();
-    sayThenInstruct(ALLY, 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.', 5.4, () => {
+    sayThenInstruct(
+      SNOW_GUN_HANDOFF.transfer.speaker,
+      SNOW_GUN_HANDOFF.transfer.line,
+      SNOW_GUN_HANDOFF.transfer.seconds,
+      () => {
       toast('SILVERBACK COMMANDER', 'warn', 'Concealed · press X to draw · it is loud and it is ours');
-    });
+      },
+    );
   },
 });
 
@@ -1215,6 +1251,7 @@ addInteract({
     return 'Take the Reserve';
   },
   enabled: () => onFoot() && phase !== 'lot'
+    && (phase !== 'room' || S.sampleOut)
     && !S.carryingJerky && !S.caseInPool && !S.caseBurned && refs.jerkyCase.group.visible,
   act: () => {
     if (phase !== 'room') { takeJerkyCase(); return; }
@@ -1249,7 +1286,8 @@ addInteract({
     if (!S.sampleChecked) return 'Put your case on the table (he wants the meat looked at first)';
     return 'Put your case on the table';
   },
-  enabled: () => phase === 'room' && (S.carryingMoney || S.moneyOnTable) && !S.moneyOpened,
+  enabled: () => phase === 'room' && S.sampleOut
+    && (S.carryingMoney || S.moneyOnTable) && !S.moneyOpened,
   act: () => {
     if (!S.moneyOnTable) {
       /* Meat first, money second — Snow says it in the car and Rico enforces
@@ -1709,6 +1747,26 @@ function openTheDoor() {
   return rico;
 }
 
+/** Clear the threshold while the door conversation finishes. */
+function moveRicoAsideForEntry() {
+  if (!rico || phase !== 'door') return;
+  /* Actor.goto considers anything within one metre arrived. Aim beyond the
+   * jamb so that its actual stopping point clears Rico's body from the door. */
+  const aside = { x: 2.35, z: -5.4 };
+  rico.anchor = { ...aside };
+  rico.target = { ...aside };
+  rico.afterGoto = 'deal';
+  rico.state = 'goto';
+}
+
+/** Make the invitation actionable on the same beat that Rico says it. */
+function inviteIntoRoomTwelve() {
+  if (phase !== 'door') return;
+  setObjective('reach', 'Step inside room twelve. [E] at the doorway.');
+  toast('DOOR OPEN', '', 'Go in when you are ready — nobody is pushing you');
+  updateInteract();
+}
+
 function knockOnTwelve() {
   if (S.knocked) return;
   S.knocked = true;
@@ -1742,6 +1800,8 @@ function enterRoom() {
   openTheDoor();
   rico.anchor = { x: 1.2, z: -8.3 };
   rico.state = 'deal';
+  rico.target = null;
+  rico.afterGoto = null;
   rico.group.position.set(1.2, 0, -8.3);
   chino = spawnActor({ ...CAST.chino(), x: -1.2, z: -7.8, state: 'guard' });
   chino.anchor = { x: -1.2, z: -7.8 };
@@ -1754,25 +1814,20 @@ function enterRoom() {
   setTimeout(() => {
     closeDoor(refs.frontDoor);
     sfx.doorSlam();
-    const doorHold = say('Chino', 'Door stays shut. Air conditioning.', 3);
     addHeat(6);
     addRead(10);
-    afterLine(doorHold, () => {
+    sfx.packaging();
+    /* Establish all three objects, in words, before the inspection becomes
+     * clickable: their sample, their case of eight, and Lou's money case.
+     * These are existing recorded Motel takes played by the shared floor. */
+    speakAuthoredBeats(ROOM_ENTRY_BEATS, 0, () => {
       if (phase !== 'room' || S.betrayed) return;
       S.sampleOut = true;
-      sfx.packaging();
-      /* Rico lays it down and says what it is; the screen says which button
-       * only once he has stopped talking. Both on the same frame is the game
-       * talking over its own cast. */
-      sayThenInstruct('Rico', 'Mountain reserve. Eleven-year cure. No fillers.', 4, () => {
-        if (phase !== 'room' || S.betrayed) return;
-        advanceDeal();
-        toast('THEIR SAMPLE IS ON THE TABLE', '', 'One strip. [E] at the table to work it over.');
-      });
+      advanceDeal();
+      toast('THEIR SAMPLE IS ON THE TABLE', '', 'One strip. [E] at the table to work it over.');
+      scheduleRoomEvents();
     });
   }, 1400);
-
-  scheduleRoomEvents();
 }
 
 // Slow-burn suspicion beats while the deal runs.
@@ -1883,6 +1938,7 @@ function pickDialogue(style) {
   if (nodeId === 'atDoor') {
     S.doorOpened = true;
     openDoor(refs.frontDoor);
+    moveRicoAsideForEntry();
   }
 
   if (nodeId === 'sample' && opt.nervous) {
@@ -1908,14 +1964,11 @@ function pickDialogue(style) {
   }
   const afterReply = () => {
     if (phase === 'end') return;
-    /* Rico invites him in, and only after that does the screen say the door is
-     * open and that nobody is rushing him. */
+    /* The invitation and its [E] prompt are the same beat. Rico has already
+     * spent Tony's answer and his own reply walking clear of the threshold. */
     if (nodeId === 'atDoor') {
-      sayThenInstruct('Rico', 'Come in before the neighbours smell it.', 3, () => {
-        if (phase !== 'door') return;
-        setObjective('reach', 'Step inside room twelve. [E] at the doorway.');
-        toast('DOOR OPEN', '', 'Go in when you are ready — nobody is pushing you');
-      });
+      inviteIntoRoomTwelve();
+      say('Rico', 'Come in before the neighbours smell it.', 3);
     }
     if (nodeId === 'sample' && opt.nervous && !S.betrayed) {
       say('Chino', 'Rico. He is asking who handled it.', 3);
@@ -1923,8 +1976,24 @@ function pickDialogue(style) {
     if (opt.demandStash && !S.betrayed) maybeBetray('counterfeit');
     if (nodeId === 'getaway') startDrive();
     if (nodeId === 'snowBrief' && phase === 'car') {
-      setObjective('reach', 'Get out of the car. [E] on the door.');
-      toast('THE JOB', '', 'Meat first, money second — look the lot over before you knock');
+      const briefReady = () => {
+        if (phase !== 'car' && phase !== 'lot') return;
+        setObjective('reach', phase === 'car'
+          ? 'Get out of the car. [E] on the door.'
+          : 'Knock on room twelve. Survey the motel first, or go straight to the meeting.');
+        toast('SNOW HAS SOMETHING FOR YOU', '', 'Look at Snow and press [E], or get out and survey the motel first');
+      };
+      if (!S.snowGunOfferSpoken) {
+        S.snowGunOfferSpoken = true;
+        sayThenInstruct(
+          SNOW_GUN_HANDOFF.offer.speaker,
+          SNOW_GUN_HANDOFF.offer.line,
+          SNOW_GUN_HANDOFF.offer.seconds,
+          briefReady,
+        );
+      } else {
+        briefReady();
+      }
     }
   };
 
@@ -1972,19 +2041,11 @@ function closeInspection() {
 }
 
 function renderInspection() {
-  const list = [];
-  const all = inspection.available();
-  const done = [...inspection.done];
-  let idx = 0;
-  for (const spec of [...all]) {
-    idx++;
-    list.push(`<button class="insp" data-id="${spec.id}"><span class="k">${idx}</span>${spec.label}</button>`);
-  }
-  for (const d of done) {
-    list.push(`<button class="insp done" disabled><span class="k">✔</span>${d}</button>`);
-  }
-  inspectListEl.innerHTML = list.join('');
-  inspectListEl.querySelectorAll('.insp[data-id]').forEach((b) => {
+  inspectListEl.innerHTML = inspection.choices().map((choice) => (
+    `<button class="insp${choice.selected ? ' done' : ''}" data-id="${choice.id}" data-key="${choice.key}"${choice.disabled ? ' disabled' : ''}>`
+      + `<span class="k">${choice.selected ? '✔' : choice.key}</span>${choice.label}</button>`
+  )).join('');
+  inspectListEl.querySelectorAll('.insp[data-id]:not(:disabled)').forEach((b) => {
     b.addEventListener('click', () => runInspection(b.dataset.id));
   });
   if (inspection.verdictKnown) {
@@ -1998,9 +2059,9 @@ function renderInspection() {
   }
 }
 
-function runInspectionByIndex(i) {
-  const all = inspection.available();
-  if (i >= 0 && i < all.length) runInspection(all[i].id);
+function runInspectionByKey(key) {
+  const choice = inspection.choices().find((row) => row.key === String(key));
+  if (choice && !choice.disabled) runInspection(choice.id);
 }
 
 function runInspection(id) {
@@ -2047,7 +2108,12 @@ function runInspection(id) {
   afterLine(inspectionHold, () => {
     if (!res.prospect) { finishInspectionBeat(); return; }
     const prospectHold = say('Prospect', res.prospect, 3.4);
-    afterLine(prospectHold, finishInspectionBeat);
+    const sellerBeats = INSPECTION_MEETING_BEATS[id] || [];
+    if (sellerBeats.length) {
+      speakAuthoredBeats(sellerBeats, prospectHold, finishInspectionBeat);
+    } else {
+      afterLine(prospectHold, finishInspectionBeat);
+    }
   });
 }
 
@@ -3070,6 +3136,7 @@ function updateInteract() {
   }
   const fx = Math.sin(camYaw);
   const fz = Math.cos(camYaw);
+  const playerInteractionY = feetY + 1.4;
   let best = null;
   let bestScore = -Infinity;
   for (const it of interactables) {
@@ -3078,10 +3145,21 @@ function updateInteract() {
     if (!p) continue;
     const dx = p.x - pos.x;
     const dz = p.z - pos.z;
-    const d = Math.hypot(dx, dz);
+    const targetY = Number.isFinite(p.y) ? p.y : playerInteractionY;
+    const d = Math.hypot(dx, dz, targetY - playerInteractionY);
     if (d > (it.r || 3.2)) continue;
-    const dot = d < 0.6 ? 1 : (dx * fx + dz * fz) / d;
+    const horizontalDistance = Math.hypot(dx, dz);
+    const dot = horizontalDistance < 0.6 ? 1 : (dx * fx + dz * fz) / horizontalDistance;
     if (dot < -0.2) continue;
+    /* The Motel predates core/InteractionSystem and stores authored prompt
+     * points rather than raycast meshes. Keep its adapter on the same physical
+     * contract: prompts are three-dimensional and solid level colliders
+     * occlude them. Endpoint hits at >= .95 are the door/prop itself; an
+     * earlier hit is a wall between Tony and the target. */
+    if (segmentBlocked(
+      pos.x, pos.z, playerInteractionY,
+      p.x, p.z, targetY,
+    ) < 0.95) continue;
     const score = dot * 2 - d * 0.12;
     if (score > bestScore) { bestScore = score; best = it; }
   }
@@ -3809,6 +3887,9 @@ function updateAmbient(dt) {
 
 function updateRoomBeats(dt) {
   if (phase !== 'room' || S.betrayed) return;
+  /* Dialogue and inspection are authored thinking time, not a hidden fuse.
+   * Only quiet, player-controlled room time advances the slow-burn schedule. */
+  if (inspecting || dialogue || speechFloor.busy()) return;
   roomT += dt;
   /* One beat at a time, and never on top of somebody who is mid-sentence.
    * These used to fire on the clock regardless, so a player working through
@@ -4008,6 +4089,7 @@ window.MOTEL = {
   get ending() { return lastEndingKind; },
   get campaignState() { return campaign.state; },
   get pos() { return pos; },
+  get feetY() { return feetY; },
   get objectives() { return { done: [...objDone], failed: [...objFailed] }; },
   /* What the HUD is asking for right now, and where the transaction is up to.
    * A verifier that can only see `phase` cannot tell whether the scene ever
@@ -4037,6 +4119,7 @@ window.MOTEL = {
         : null,
     };
   },
+  get roomClock() { return roomT; },
   get dialogue() {
     return dialogue
       ? { nodeId: dialogue.nodeId, ready: dialogueReady(), speaker: dialogue.node.speaker }
@@ -4081,7 +4164,10 @@ window.MOTEL = {
   },
   isBlocked: (x, z, y = feetY, radius = PLAYER_R) => blocked(x, z, y, radius),
   start: startScene,
-  teleport: (x, z) => { pos.set(x, 0, z); feetY = level.floorAt(x, z, 0); },
+  teleport: (x, z, yHint = 0) => {
+    pos.set(x, 0, z);
+    feetY = level.floorAt(x, z, yHint);
+  },
   face: (x, z) => { camYaw = Math.atan2(x - pos.x, z - pos.z); },
   get hostiles() { return actors.filter((a) => a.alive && a.hostile).map((a) => a.name); },
   use: () => onUse(),

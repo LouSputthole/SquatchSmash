@@ -121,6 +121,8 @@ test('an engine event on the ground cannot trigger Sasole\'s stall bark', () => 
 test('leaving the aircraft immediately clears the stall horn and warning panel', () => {
   const horn = [];
   const warningSets = [];
+  const interactionPauses = [];
+  let inputCleared = false;
   const fake = {
     flags: { inCockpit: true },
     flightHud: {
@@ -128,14 +130,14 @@ test('leaving the aircraft immediately clears the stall horn and warning panel',
       setDirection() {},
       setWarnings: (warnings) => warningSets.push([...warnings]),
     },
-    interaction: { setPaused() {} },
+    interaction: { setPaused: (paused) => interactionPauses.push(paused) },
     audio: {
       setHeadset() {},
       setStallHorn: (on) => horn.push(on),
       setAirspeed() {},
     },
     dialogue: { setHeadset() {} },
-    input: { rudderKeys: true, clear() {} },
+    input: { rudderKeys: true, clear() { inputCleared = true; } },
     physics: {
       position: new THREE.Vector3(0, 10, 0),
       quat: new THREE.Quaternion(),
@@ -156,6 +158,13 @@ test('leaving the aircraft immediately clears the stall horn and warning panel',
   assert.equal(horn.at(-1), false);
   assert.deepEqual(warningSets.at(-1), []);
   assert.equal(fake.flags.inCockpit, false);
+  assert.equal(fake.player.enabled, true, 'the completed pilot must regain movement');
+  assert.equal(fake.player.mode, 'walk');
+  assert.ok(fake.player.position.x >= 3,
+    `the pilot remained inside the fuselage at x=${fake.player.position.x}`);
+  assert.equal(fake.player.velocity.lengthSq(), 0);
+  assert.equal(interactionPauses.at(-1), false);
+  assert.equal(inputCleared, true);
 });
 
 test('fast taxi uses the authored ground warning instead of an airborne smooth-flight bark', () => {

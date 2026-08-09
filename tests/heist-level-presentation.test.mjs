@@ -292,3 +292,241 @@ test('the garage puts the player on clear floor looking at the car, not inside t
   assert.ok(Math.abs(spawn.z - sedan.max.z - nearest) < 1.5,
     'the first thing straight ahead of the garage spawn is not the car');
 });
+
+test('safehouse boarding uses the rear of a cargo van backed into a physical loading bay', () => {
+  /* Owner: "Getting in the van is still a car and its the wrong side. It
+   * should just be like a big van backed up to the area." This assertion uses
+   * the level's public geometry, because names or a prompt that says "van"
+   * cannot make a sedan-shaped mesh read as one. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const safehouse = level.phases.safehouse;
+  safehouse.group.updateMatrixWorld(true);
+
+  const van = safehouse.group.getObjectByName('primary-van');
+  const rearDoorTarget = safehouse.interactables.van;
+  const loadingBay = safehouse.group.getObjectByName('safehouse-loading-bay');
+  assert.ok(van && rearDoorTarget && loadingBay, 'the backed-in van staging is incomplete');
+
+  const vanBounds = new THREE.Box3().setFromObject(van);
+  const vanSize = vanBounds.getSize(new THREE.Vector3());
+  assert.ok(vanSize.z >= 5.8 && vanSize.z > vanSize.x * 1.65,
+    `primary van still has car proportions: ${vanSize.x.toFixed(2)}w x ${vanSize.z.toFixed(2)}l`);
+  assert.ok(vanSize.y >= 2.55, `primary van is only ${vanSize.y.toFixed(2)} m tall`);
+  for (const part of ['primary-van-cargo-box', 'primary-van-cab',
+    'primary-van-rear-door-left', 'primary-van-rear-door-right']) {
+    assert.ok(van.getObjectByName(part), `${part} is missing from the van silhouette`);
+  }
+
+  const doorBounds = new THREE.Box3().setFromObject(rearDoorTarget);
+  const doorCenter = doorBounds.getCenter(new THREE.Vector3());
+  const vanCenter = vanBounds.getCenter(new THREE.Vector3());
+  assert.ok(doorCenter.z < vanCenter.z,
+    `boarding target is not on the room-facing rear: door z ${doorCenter.z}, van z ${vanCenter.z}`);
+  assert.ok(vanBounds.min.z < loadingBay.position.z && vanBounds.max.z > loadingBay.position.z,
+    'the van is parked in the room instead of backed through the loading bay');
+
+  const bodyPoint = new THREE.Vector3(safehouse.spawn.x, 1, safehouse.spawn.z);
+  assert.equal(vanBounds.containsPoint(bodyPoint), false, 'safehouse spawn starts inside the van');
+  assert.equal(safehouse.colliders.some((solid) => solid.containsPoint(bodyPoint)), false,
+    'safehouse spawn starts inside a collider');
+  assert.ok(Math.hypot(safehouse.spawn.x - doorCenter.x, safehouse.spawn.z - doorCenter.z) <= 2.7,
+    'the rear doors are outside the interaction reach from the loading apron');
+
+  assert.ok(loadingBay.getObjectByName('loading-bay-header'));
+  assert.ok(loadingBay.getObjectByName('loading-bay-jamb-left'));
+  assert.ok(loadingBay.getObjectByName('loading-bay-jamb-right'));
+  assert.ok(safehouse.group.getObjectByName('loading-apron-stripe-left'));
+  assert.ok(safehouse.group.getObjectByName('loading-apron-stripe-right'));
+});
+
+test('safehouse lighting has a bounded hierarchy from room fill to van task lights', () => {
+  const safehouse = buildHeistLevel(new THREE.Scene()).phases.safehouse;
+  const points = [];
+  safehouse.group.traverse((object) => { if (object.isPointLight) points.push(object); });
+
+  // Six measured pools are enough for this 18 x 14 m room. Adding one point
+  // light per prop would turn the visual fix into a render-cost regression.
+  assert.equal(points.length, 6, `safehouse has ${points.length} point lights`);
+  const overheads = points.filter((light) => light.name.startsWith('safehouse-overhead-'));
+  const loading = points.filter((light) => light.name.startsWith('loading-bay-task-light-'));
+  assert.equal(overheads.length, 2, 'the room key lights are anonymous or missing');
+  assert.equal(loading.length, 2, 'the rear doors have no deliberate task-light pair');
+  assert.ok(overheads.every((light) => light.intensity === 2.8 && light.distance === 11));
+  assert.ok(loading.every((light) => light.intensity === 2.5 && light.distance === 8));
+  assert.ok(safehouse.group.getObjectByName('safehouse-camera-fill'));
+  assert.ok(safehouse.group.getObjectByName('safehouse-crew-fill'));
+  assert.ok(Math.max(...loading.map((light) => light.distance))
+    < Math.min(...overheads.map((light) => light.distance)),
+  'loading lights spill farther than the room keys');
+});
+
+test('Mercer garage gives the transfer car a lit work zone and a clear approach', () => {
+  const garage = buildHeistLevel(new THREE.Scene()).phases.garage;
+  garage.group.updateMatrixWorld(true);
+
+  const pointLights = [];
+  const spotLights = [];
+  garage.group.traverse((object) => {
+    if (object.isPointLight) pointLights.push(object);
+    if (object.isSpotLight) spotLights.push(object);
+  });
+  assert.equal(pointLights.length, 5, 'garage TLC inflated the existing point-light budget');
+  assert.equal(pointLights.filter((light) => light.name.startsWith('garage-overhead-')).length, 5,
+    'the garage ceiling pools are not a measurable hierarchy');
+  assert.equal(spotLights.filter((light) => light.name === 'garage-sedan-task-light').length, 1,
+    'the cash-transfer surface has no directed task light');
+
+  const transfer = garage.group.getObjectByName('garage-transfer-zone');
+  const cart = garage.group.getObjectByName('garage-tool-cart');
+  assert.ok(transfer && cart, 'the escape car is still sitting in an undressed void');
+  for (const part of ['garage-transfer-stripe-left', 'garage-transfer-stripe-right',
+    'garage-transfer-stop-line', 'garage-wheel-stop-left', 'garage-wheel-stop-right',
+    'garage-work-lamp']) {
+    assert.ok(garage.group.getObjectByName(part), `${part} is missing`);
+  }
+
+  const cartCenter = new THREE.Box3().setFromObject(cart).getCenter(new THREE.Vector3());
+  assert.ok(garage.colliders.some((solid) => solid.containsPoint(cartCenter)),
+    'the tool cart can be walked through');
+
+  // The center-line route from the arrival spawn to the trunk interaction
+  // remains player-width clear. The route stops just before the sedan body.
+  const approach = new THREE.Box3(
+    new THREE.Vector3(-0.32, 0.1, -6.65),
+    new THREE.Vector3(0.32, 1.8, garage.spawn.z),
+  );
+  const blockers = garage.colliders.filter((solid) => solid.intersectsBox(approach));
+  assert.deepEqual(blockers, [], `garage transfer approach is blocked by ${blockers.length} collider(s)`);
+});
+
+test('swap yard is a lit physical evidence-transfer station with every action reachable', () => {
+  const driving = buildHeistLevel(new THREE.Scene()).phases.driving;
+  driving.group.updateMatrixWorld(true);
+
+  const points = [];
+  const spots = [];
+  driving.group.traverse((object) => {
+    if (object.isPointLight) points.push(object);
+    if (object.isSpotLight) spots.push(object);
+  });
+  assert.equal(points.length, 13, 'swap-yard polish inflated the driving point-light budget');
+  assert.equal(points.filter((light) => light.name === 'swap-yard-fill').length, 1,
+    'the swap fill is anonymous or missing');
+  assert.deepEqual(spots.filter((light) => light.name.startsWith('swap-task-light-'))
+    .map((light) => light.name).sort(), ['swap-task-light-car', 'swap-task-light-workbench']);
+
+  for (const name of ['swap-workbench', 'swap-sorting-tarp', 'swap-clean-car-bay',
+    'swap-yard-light-pole', 'swap-bollard-left', 'swap-bollard-right']) {
+    assert.ok(driving.group.getObjectByName(name), `${name} is missing`);
+  }
+  assert.ok(driving.colliders.length >= 4, 'the swap-yard obstacles are all walk-through');
+
+  const benchTop = new THREE.Box3()
+    .setFromObject(driving.group.getObjectByName('swap-workbench-top')).max.y;
+  for (const key of ['aid', 'masks', 'wipe']) {
+    const bottom = new THREE.Box3().setFromObject(driving.interactables[key]).min.y;
+    assert.ok(Math.abs(bottom - benchTop) <= 0.025,
+      `${key} floats ${Math.abs(bottom - benchTop).toFixed(3)} m off the workbench`);
+  }
+
+  /* Grid the public walking bounds at half-metre resolution. A target passes
+   * only if the player can walk from the authored swap spawn to within normal
+   * interaction reach without entering any collider. */
+  const STEP = 0.5;
+  const RADIUS = 0.3;
+  const limits = { minX: 14, maxX: 26, minZ: -659, maxZ: -645 };
+  const blocked = (x, z) => driving.colliders.some((solid) => (
+    x >= solid.min.x - RADIUS && x <= solid.max.x + RADIUS
+    && z >= solid.min.z - RADIUS && z <= solid.max.z + RADIUS
+    && solid.max.y >= 0.1
+  ));
+  const key = (x, z) => `${x.toFixed(1)},${z.toFixed(1)}`;
+  const start = [20, -650];
+  const queue = [start];
+  const visited = new Set([key(...start)]);
+  while (queue.length) {
+    const [x, z] = queue.shift();
+    for (const [dx, dz] of [[STEP, 0], [-STEP, 0], [0, STEP], [0, -STEP]]) {
+      const nx = x + dx;
+      const nz = z + dz;
+      const id = key(nx, nz);
+      if (nx < limits.minX || nx > limits.maxX || nz < limits.minZ || nz > limits.maxZ
+        || visited.has(id) || blocked(nx, nz)) continue;
+      visited.add(id);
+      queue.push([nx, nz]);
+    }
+  }
+  for (const [name, target] of Object.entries(driving.interactables)) {
+    if (name === 'swap') continue;
+    const center = new THREE.Box3().setFromObject(target).getCenter(new THREE.Vector3());
+    const inReach = [...visited].some((cell) => {
+      const [x, z] = cell.split(',').map(Number);
+      return Math.hypot(x - center.x, z - center.z) <= 2.35;
+    });
+    assert.equal(inReach, true, `${name} has no collider-clear interaction approach`);
+  }
+});
+
+test('van interior uses two bounded light pools to reveal its benches and rear doors', () => {
+  const van = buildHeistLevel(new THREE.Scene()).phases.van;
+  van.group.updateMatrixWorld(true);
+
+  // This scene is a transition, not another outdoor level. Two local pools
+  // are the budget: one for the occupied cabin and one for the exit beat.
+  const pointLights = [];
+  const otherLights = [];
+  van.group.traverse((object) => {
+    if (object.isPointLight) pointLights.push(object);
+    else if (object.isLight) otherLights.push(object);
+  });
+  assert.deepEqual(pointLights.map((light) => light.name).sort(),
+    ['van-dome-task-light', 'van-rear-task-light']);
+  assert.equal(otherLights.length, 0, 'van adds another unbudgeted light type');
+  assert.ok(pointLights.every((light) => light.distance <= 7));
+  assert.ok(pointLights.reduce((sum, light) => sum + light.intensity, 0) <= 5,
+    'van local light intensity exceeds its two-pool budget');
+  for (const fixture of ['van-dome-fixture', 'van-dome-lens',
+    'van-rear-task-fixture', 'van-rear-task-lens']) {
+    assert.ok(van.group.getObjectByName(fixture), `${fixture} is missing`);
+  }
+
+  const srgbLuma = (mesh) => {
+    const hex = mesh.material.color.getHex();
+    const r = (hex >> 16 & 0xff) / 255;
+    const g = (hex >> 8 & 0xff) / 255;
+    const b = (hex & 0xff) / 255;
+    return r * 0.2126 + g * 0.7152 + b * 0.0722;
+  };
+  for (const panel of ['van-wall-left', 'van-wall-right', 'van-interior-door']) {
+    const mesh = van.group.getObjectByName(panel);
+    assert.ok(mesh, `${panel} has no authored readable surface`);
+    assert.ok(srgbLuma(mesh) >= 0.28, `${panel} albedo is still effectively black`);
+  }
+  for (const side of ['left', 'right']) {
+    assert.ok(van.group.getObjectByName(`van-bench-${side}`));
+    assert.ok(van.group.getObjectByName(`van-bench-cushion-${side}`));
+    assert.ok(van.group.getObjectByName(`van-bench-back-${side}`));
+  }
+  for (const part of ['van-rear-door-panel-left', 'van-rear-door-panel-right',
+    'van-rear-door-reflector-left', 'van-rear-door-reflector-right', 'van-aisle-runner']) {
+    assert.ok(van.group.getObjectByName(part), `${part} is missing`);
+  }
+
+  // Presentation changes cannot move the player, the collision shell, or the
+  // soft interaction volumes that make the mask/door sequence reachable.
+  assert.deepEqual(van.spawn.toArray(), [0, 1.66, 1.9]);
+  assert.deepEqual(Object.fromEntries(Object.entries(van.interactables)
+    .map(([key, object]) => [key, object.name])), {
+    van: 'van-interior-door', cabin: 'van-cabin', kit: 'van-equipment-case',
+  });
+  const colliderSignature = van.colliders.map((solid) => (
+    `${solid.min.toArray().map((n) => n.toFixed(2)).join(',')}|${solid.max.toArray().map((n) => n.toFixed(2)).join(',')}`
+  ));
+  assert.deepEqual(colliderSignature, [
+    '-1.80,0.00,3.06|1.80,2.80,3.20',
+    '-1.80,0.00,-3.20|-1.66,2.80,3.20',
+    '1.66,0.00,-3.20|1.80,2.80,3.20',
+    '-1.63,0.23,-2.30|-1.01,0.85,2.50',
+    '1.01,0.23,-2.30|1.63,0.85,2.50',
+  ]);
+});

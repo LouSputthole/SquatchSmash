@@ -4,8 +4,9 @@ import { clamp, lerp, smoothstep } from './util.js';
 
 // AircraftPhysics — arcade-realistic flight model on a fixed timestep.
 //
-// Body frame: +X right wing, +Y up, +Z nose forward.
-//   torque +X = nose down, +Y = nose right, +Z = roll left.
+// Body frame: +Y up and +Z nose forward. Facing that nose from the cockpit,
+// +X is the pilot's left wing and -X is his right; input/player-facing labels
+// must use that authored view rather than a conventional model-frame guess.
 // Deliberately simplified: one lifting surface, three contact points, and
 // coefficients tuned by feel rather than by wind tunnel.
 

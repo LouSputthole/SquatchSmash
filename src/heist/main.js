@@ -12,6 +12,8 @@ import { createBankHeistStory } from '../core/bank-heist-story.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 /* The shared weapon sound bank: five cue slots per gun for all six guns in
  * the game, each with a real recording standing in until the wanted cue
  * lands. THE TAKE was playing its own carbine recording for both of its
@@ -88,6 +90,60 @@ const campaign = createCampaign();
 campaign.enter(SCENE_IDS.BANK_HEIST);
 const story = createBankHeistStory({ campaign });
 const level = buildHeistLevel(scene);
+
+/* Static, named geometry evidence for the browser verifier. A screenshot of a
+ * room can be perfectly sharp while missing the object it claims to prove;
+ * these measurements make the frame answer to the built cargo van and the two
+ * transfer work zones rather than to a filename. */
+const HEIST_EVIDENCE_GEOMETRY = (() => {
+  const safehouse = level.phases.safehouse;
+  const garage = level.phases.garage;
+  const driving = level.phases.driving;
+  safehouse.group.updateMatrixWorld(true);
+  garage.group.updateMatrixWorld(true);
+  driving.group.updateMatrixWorld(true);
+
+  const van = safehouse.group.getObjectByName('primary-van');
+  const rearDoors = safehouse.interactables.van;
+  const loadingBay = safehouse.group.getObjectByName('safehouse-loading-bay');
+  const vanBounds = new THREE.Box3().setFromObject(van);
+  const vanSize = vanBounds.getSize(new THREE.Vector3());
+  const vanCenter = vanBounds.getCenter(new THREE.Vector3());
+  const doorCenter = new THREE.Box3().setFromObject(rearDoors).getCenter(new THREE.Vector3());
+  const namesPresent = (root, names) => names.filter((name) => root.getObjectByName(name)).length;
+
+  return Object.freeze({
+    safehouseCargoVan: Object.freeze({
+      kind: van?.userData.kind ?? null,
+      size: vanSize.toArray(),
+      center: vanCenter.toArray(),
+      minZ: vanBounds.min.z,
+      maxZ: vanBounds.max.z,
+      rearDoorCenter: doorCenter.toArray(),
+      loadingBayZ: loadingBay?.position.z ?? null,
+      rearParts: namesPresent(van, [
+        'primary-van-cargo-box', 'primary-van-cab',
+        'primary-van-rear-door-left', 'primary-van-rear-door-right',
+      ]),
+      loadingBayParts: namesPresent(loadingBay, [
+        'loading-bay-header', 'loading-bay-jamb-left', 'loading-bay-jamb-right',
+      ]),
+    }),
+    garageTransfer: Object.freeze({
+      transferZone: !!garage.group.getObjectByName('garage-transfer-zone'),
+      sedan: !!garage.group.getObjectByName('escape-sedan'),
+      toolCart: !!garage.group.getObjectByName('garage-tool-cart'),
+      taskLight: !!garage.group.getObjectByName('garage-sedan-task-light'),
+    }),
+    vehicleSwapWorkbench: Object.freeze({
+      workbench: !!driving.group.getObjectByName('swap-workbench'),
+      sortingTarp: !!driving.group.getObjectByName('swap-sorting-tarp'),
+      cleanCarBay: !!driving.group.getObjectByName('swap-clean-car-bay'),
+      taskLights: ['swap-task-light-workbench', 'swap-task-light-car']
+        .filter((name) => driving.group.getObjectByName(name)).length,
+    }),
+  });
+})();
 const player = new Player(camera, level.world);
 player.mode = 'walk';
 player.position.set(0, 1.66, 4);
@@ -180,6 +236,21 @@ const managerActor = new CombatActor({
   id: 'bank_manager', faction: FACTIONS.CIVILIAN, maxHealth: 40, armor: 0,
 });
 level.phases.bank.interactables.manager.userData.combatActor = managerActor;
+
+/** Return a scene-owned actor to the state a fresh bank build gives it. */
+function resetLobbyCombatActor(actor) {
+  actor.restore({
+    id: actor.id,
+    health: actor.maxHealth,
+    armor: 0,
+    injury: 'none',
+    incapacitated: false,
+    suppression: 0,
+    role: null,
+    anchor: null,
+    carrying: null,
+  });
+}
 
 const CREW_ROLE_LABEL = Object.freeze({
   leader: 'LEAD', driver: 'WHEELS', technical: 'SYSTEMS', heavy: 'BAGS', control: 'LOBBY',
@@ -675,6 +746,7 @@ window.__heistDebug = {
   start: () => begin(),
   use: (name) => debugUse(name),
   neutralizePolice: () => debugNeutralizePolice(),
+  probePoliceRecycle: (id) => debugProbePoliceRecycle(id),
   driveToNextNode: () => debugDriveToNextNode(),
   forceDriveRecovery: () => debugForceDriveRecovery(),
   poseForEvidence: (name) => debugPoseForEvidence(name),
@@ -685,6 +757,7 @@ window.__heistDebug = {
   selectSlot: (index) => selectSlot(index),
   cycleSlot: (direction = 1) => cycleSlot(direction),
   aimAt: (id) => debugAimAt(id),
+  approachInteraction: (name) => debugApproachInteraction(name),
   hostageVerb: (id, verb) => debugHostageVerb(id, verb),
   shootHostage: (id) => debugShootHostage(id),
   /**
@@ -793,9 +866,47 @@ window.__heistDebug = {
  * them, and a verifier that thinks it is aiming at hostage_1 while the ray is
  * stopped by hostage_9 proves nothing.
  */
-function debugAimAt(hostageId) {
-  const root = level.phases.bank.civilians
-    .find((figure) => figure.userData.hostageId === hostageId);
+function debugAimAtPolice(entry) {
+  if (!entry || entry.root.userData.phaseId !== activePhase) {
+    return { ok: false, reason: 'missing' };
+  }
+  const root = entry.root;
+  const world = root.getWorldPosition(new THREE.Vector3());
+  for (const radius of [3.2, 4.8, 6.4]) {
+    for (let i = 0; i < 36; i++) {
+      const angle = (i / 36) * Math.PI * 2;
+      player.position.set(
+        world.x + Math.cos(angle) * radius,
+        1.66,
+        world.z + Math.sin(angle) * radius,
+      );
+      player.velocity.set(0, 0, 0);
+      const dx = world.x - player.position.x;
+      const dz = world.z - player.position.z;
+      const horizontal = Math.max(0.001, Math.hypot(dx, dz));
+      player.yaw = Math.atan2(-dx, -dz);
+      player.pitch = Math.atan2(1.15 - player.position.y, horizontal);
+      player.update(1 / 60);
+      camera.updateMatrixWorld(true);
+      raycaster.setFromCamera(SCREEN_CENTER, camera);
+      const hit = raycaster.intersectObject(level.phases[activePhase].group, true)[0];
+      if (hit && actorFor(hit.object) === root) {
+        return { ok: true, id: entry.actor.id, distance: horizontal, rootUuid: root.uuid };
+      }
+    }
+  }
+  return { ok: false, reason: 'no_clear_shot', id: entry.actor.id };
+}
+
+function debugAimAt(actorId) {
+  const policeEntry = policeFigures.find((entry) => entry.actor.id === actorId);
+  if (policeEntry) return debugAimAtPolice(policeEntry);
+  const root = actorId === managerActor.id
+    ? level.phases.bank.interactables.manager
+    : actorId === rearGuardActor.id
+      ? level.phases.bank.interactables.rearGuard
+      : level.phases.bank.civilians
+        .find((figure) => figure.userData.hostageId === actorId);
   if (!root || activePhase !== 'bank') return { ok: false, reason: 'missing' };
   const world = root.getWorldPosition(new THREE.Vector3());
   /* Stand somewhere the crosshair can only be on THIS person. A queue in a
@@ -805,8 +916,10 @@ function debugAimAt(hostageId) {
   const others = [
     ...level.phases.bank.civilians.filter((figure) => figure !== root),
     ...[...crew.values()].map((actor) => actor.group),
-    level.phases.bank.interactables.manager,
-    level.phases.bank.interactables.rearGuard,
+    ...[
+      level.phases.bank.interactables.manager,
+      level.phases.bank.interactables.rearGuard,
+    ].filter((figure) => figure !== root),
   ].map((figure) => figure.getWorldPosition(new THREE.Vector3()));
   let best = null;
   for (let i = 0; i < 24; i++) {
@@ -836,6 +949,71 @@ function debugAimAt(hostageId) {
   player.pitch = 0;
   player.update(1 / 60);
   return { ok: true, distance: Math.hypot(dx, dz), clearance: best.clearance };
+}
+
+/**
+ * Find a real, unobstructed first-person interaction ray to a named target.
+ *
+ * Browser verification still presses the production E key. This helper only
+ * removes camera-placement luck from crowded rooms by sampling legal nearby
+ * viewpoints and asking the live InteractionSystem which object it sees.
+ */
+function debugApproachInteraction(name) {
+  const target = interaction.targets.find((mesh) => mesh.name === name);
+  if (!target) {
+    return { ok: false, reason: 'missing_target', names: interaction.targets.map((mesh) => mesh.name) };
+  }
+  const descriptor = target.userData.interact;
+  if (descriptor.enabled && !descriptor.enabled()) return { ok: false, reason: 'disabled' };
+
+  target.updateWorldMatrix(true, true);
+  const bounds = new THREE.Box3().setFromObject(target);
+  const center = bounds.getCenter(new THREE.Vector3());
+  const height = Math.max(0.1, bounds.max.y - bounds.min.y);
+  const aimHeights = [
+    center.y,
+    bounds.min.y + height * 0.68,
+    bounds.min.y + height * 0.42,
+  ];
+
+  for (const radius of [1.35, 1.7, 2.05, 2.35]) {
+    for (let i = 0; i < 48; i++) {
+      const angle = (i / 48) * Math.PI * 2;
+      player.position.set(
+        center.x + Math.cos(angle) * radius,
+        1.66,
+        center.z + Math.sin(angle) * radius,
+      );
+      player.velocity.set(0, 0, 0);
+      player.pitch = 0;
+      player.update(1 / 60);
+
+      for (const aimY of aimHeights) {
+        const dx = center.x - camera.position.x;
+        const dz = center.z - camera.position.z;
+        const horizontal = Math.max(0.001, Math.hypot(dx, dz));
+        player.yaw = Math.atan2(-dx, -dz);
+        player.pitch = Math.atan2(aimY - camera.position.y, horizontal);
+        player.update(1 / 60);
+        camera.updateMatrixWorld(true);
+        interaction.update(1 / 60);
+        if (interaction.current === target) {
+          return {
+            ok: true,
+            name,
+            distance: camera.position.distanceTo(center),
+            current: interaction.current.name,
+          };
+        }
+      }
+    }
+  }
+  return {
+    ok: false,
+    reason: 'no_clear_interaction_ray',
+    name,
+    current: interaction.current?.name ?? null,
+  };
 }
 
 function debugHostageVerb(hostageId, verb) {
@@ -870,19 +1048,34 @@ function debugProbeCollision() {
   return { available: true, resolved: distance >= 0.299 };
 }
 
+let lastEvidenceFrame = null;
+let lastPoliceRecycleProbe = null;
+
 /** Deterministic camera marks used only by browser evidence capture. */
 function debugPoseForEvidence(name) {
   const poses = {
     briefing: { phase: 'safehouse', position: [0, 1.66, 2.55], yaw: 0, pitch: -0.28 },
     armor: { phase: 'safehouse', position: [-5.5, 1.66, 4.45], yaw: 0, pitch: -0.18 },
     loadout: { phase: 'safehouse', position: [4.7, 1.66, 4.25], yaw: 0, pitch: -0.38 },
+    safehouse_van: {
+      phase: 'safehouse', position: [-4.6, 1.66, 0.9], yaw: -2.125, pitch: -0.05,
+      focus: ['primary-van-rear-door-left', 'primary-van-rear-door-right', 'loading-bay-header'],
+    },
     bank_guard: { phase: 'bank', position: [0, 1.66, 8.5], yaw: 0.9273 },
     bank_lobby: { phase: 'bank', position: [-0.6, 1.66, 5.6], yaw: -0.88, pitch: -0.1 },
     bank_hostages: { phase: 'bank', position: [0.2, 1.66, 5.4], yaw: 0.05, pitch: -0.08 },
     bank_vault: { phase: 'bank', position: [0, 1.66, -6.0], yaw: 0, pitch: -0.05 },
     bank_exit: { phase: 'street', position: [-4, 1.66, 28], yaw: -2.5536 },
     downtown_firefight: { phase: 'street', position: [0, 1.66, 27], yaw: 0 },
+    garage_transfer: {
+      phase: 'garage', position: [-6.5, 1.66, -2], yaw: -0.826, pitch: -0.1,
+      focus: ['escape-sedan', 'garage-transfer-zone', 'garage-tool-cart'],
+    },
     vehicle_swap: { phase: 'driving', position: [14, 1.66, -657], yaw: -2.158 },
+    vehicle_swap_workbench: {
+      phase: 'driving', position: [14.8, 1.66, -650], yaw: -0.763, pitch: -0.15,
+      focus: ['swap-workbench', 'swap-sorting-tarp', 'swap-aid', 'swap-wipe'],
+    },
   };
   const pose = poses[name];
   if (!pose || activePhase !== pose.phase) return false;
@@ -891,6 +1084,25 @@ function debugPoseForEvidence(name) {
   player.yaw = pose.yaw;
   player.pitch = pose.pitch ?? 0;
   player.update(1 / 60);
+  camera.updateMatrixWorld(true);
+  const phase = level.phases[pose.phase];
+  phase.group.updateMatrixWorld(true);
+  lastEvidenceFrame = {
+    name,
+    focus: (pose.focus ?? []).map((objectName) => {
+      const object = phase.group.getObjectByName(objectName);
+      if (!object) return { name: objectName, present: false, inFrame: false };
+      const ndc = new THREE.Box3().setFromObject(object)
+        .getCenter(new THREE.Vector3())
+        .project(camera);
+      return {
+        name: objectName,
+        present: true,
+        inFrame: ndc.z >= -1 && ndc.z <= 1 && Math.abs(ndc.x) <= 0.92 && Math.abs(ndc.y) <= 0.92,
+        ndc: [ndc.x, ndc.y, ndc.z].map((value) => Number(value.toFixed(3))),
+      };
+    }),
+  };
   return true;
 }
 
@@ -943,6 +1155,53 @@ function debugNeutralizePolice() {
   return removed;
 }
 
+/** Exercise the real bounded officer-recycle path without spending a wave. */
+function debugProbePoliceRecycle(actorId) {
+  if (!['street', 'garage'].includes(activePhase)) {
+    return { ok: false, reason: 'wrong_phase', phase: activePhase };
+  }
+  const entry = policeFigures.find((candidate) => candidate.actor.id === actorId
+    && candidate.root.userData.phaseId === activePhase);
+  if (!entry) return { ok: false, reason: 'missing_actor', actorId };
+
+  const root = entry.root;
+  const originalRootUuid = root.uuid;
+  const originalPosition = root.position.toArray();
+  const block = root.userData.block;
+  const phaseId = root.userData.phaseId;
+  const directorBefore = police.capture();
+  const checkpointBefore = latestCheckpoint;
+  const activeBefore = activePoliceMeshes().length;
+
+  entry.actor.restore({
+    ...entry.actor.snapshot(), health: 0, armor: 0, incapacitated: true, injury: 'severe',
+  });
+  entry.figure.setState('down', { blend: false, roll: -0.6 });
+  root.userData.down = true;
+  root.position.set(player.position.x + 24, 0, player.position.z);
+
+  const recycledRoot = addPoliceFigure({
+    id: `${actorId}_recycled`, block, phaseId, position: originalPosition, recycle: true,
+  });
+  const recycledEntry = policeEntryFor(recycledRoot);
+  const directorAfter = police.capture();
+  lastPoliceRecycleProbe = {
+    ok: !!recycledEntry,
+    sameRoot: recycledRoot === root && recycledRoot?.uuid === originalRootUuid,
+    rootUuid: recycledRoot?.uuid ?? null,
+    actorId: recycledEntry?.actor.id ?? null,
+    health: recycledEntry?.actor.health ?? null,
+    maxHealth: recycledEntry?.actor.maxHealth ?? null,
+    incapacitated: recycledEntry?.actor.incapacitated ?? null,
+    pose: recycledEntry?.figure.pose ?? null,
+    active: recycledRoot ? activePoliceMeshes().includes(recycledRoot) : false,
+    directorUnchanged: JSON.stringify(directorAfter) === JSON.stringify(directorBefore),
+    checkpointUnchanged: latestCheckpoint === checkpointBefore,
+    activeCountUnchanged: activePoliceMeshes().length === activeBefore,
+  };
+  return structuredClone(lastPoliceRecycleProbe);
+}
+
 function debugDriveToNextNode() {
   if (!driving) return { ok: false, reason: 'not_driving' };
   /* `updateDriving` returns at its first line during a route recovery, so a
@@ -974,7 +1233,9 @@ function debugSnapshot() {
   const heistPlaybacks = audio.playbacks.filter((entry) => HEIST_VOICE_CUES.includes(entry.name));
   return {
     state: machine.state,
+    failure: machine.failure ? { ...machine.failure } : null,
     phase: activePhase,
+    evidenceFrame: lastEvidenceFrame ? structuredClone(lastEvidenceFrame) : null,
     checkpoint: latestCheckpoint,
     health: playerActor.health,
     bags: loot.summary(),
@@ -983,6 +1244,17 @@ function debugSnapshot() {
     officersDown,
     policeActive: activePoliceMeshes().length,
     policeTotal: policeFigures.length,
+    policeActors: policeFigures.map((entry) => ({
+      ...entry.actor.snapshot(),
+      maxHealth: entry.actor.maxHealth,
+      pose: entry.figure.pose,
+      rootUuid: entry.root.uuid,
+      visible: entry.root.visible,
+      down: entry.root.userData.down === true,
+      phaseId: entry.root.userData.phaseId,
+    })),
+    policeRecycleProbe: lastPoliceRecycleProbe
+      ? structuredClone(lastPoliceRecycleProbe) : null,
     routeIndex,
     vehicle: {
       ...vehicle.snapshot(),
@@ -1014,6 +1286,7 @@ function debugSnapshot() {
       handsVisible: viewModel.current
         ? viewModel.holders.get(viewModel.current).visible === true : false,
       magazine: loadout.activeWeapon?.magazine ?? null,
+      weaponCooldown: loadout.activeWeapon?.cooldown ?? null,
       weaponName: loadout.activeWeapon?.definition.name ?? null,
     },
     hostages: hostages.summary(),
@@ -1069,6 +1342,7 @@ function debugSnapshot() {
       routeNodes: level.phases.driving.route.length,
       routeBarriers: level.phases.driving.barriers.length,
       drivingObstacles: level.phases.driving.obstacles.length,
+      evidence: HEIST_EVIDENCE_GEOMETRY,
     },
     civilianStates: hostages.hostages.map((person) => person.state),
     civilianVisualStates: level.phases.bank.civilians.map((civilian) => civilian.userData.visualState ?? 'stand'),
@@ -1076,6 +1350,18 @@ function debugSnapshot() {
     guardFailures,
     managerEscortProgress,
     managerPosition: level.phases.bank.interactables.manager.position.toArray(),
+    lobbyActors: {
+      manager: { ...managerActor.snapshot(), maxHealth: managerActor.maxHealth },
+      rearGuard: { ...rearGuardActor.snapshot(), maxHealth: rearGuardActor.maxHealth },
+      hostages: Object.fromEntries(
+        [...hostageActors].map(([id, actor]) => [id, {
+          ...actor.snapshot(), maxHealth: actor.maxHealth,
+        }]),
+      ),
+    },
+    managerPose: level.phases.bank.interactables.manager.userData.visualState
+      ?? level.phases.bank.figures.manager.pose
+      ?? 'stand',
     interactionTargets: interaction.targets.map((target) => ({
       name: target.name,
       label: typeof target.userData.interact?.label === 'string' ? target.userData.interact.label : null,
@@ -1091,16 +1377,38 @@ function debugSnapshot() {
         const dx = target.x - actor.group.position.x;
         const dz = target.z - actor.group.position.z;
         const length = Math.max(0.001, Math.hypot(dx, dz));
+        const { head, body, profile } = actor.figure.parts;
+        const physicalWeapon = body.getObjectByName('crew-carbine') ? 'carbine'
+          : body.getObjectByName('crew-sidearm') ? 'sidearm' : null;
+        const mask = head.getObjectByName('heist-mask');
         return {
           id: actor.id,
           name: actor.identity.subtitleName,
           role: actor.role,
           facingDot: (Math.sin(actor.group.rotation.y) * dx + Math.cos(actor.group.rotation.y) * dz) / length,
           introduced: crewIntroduced.has(actor.id),
+          physical: {
+            height: profile.height,
+            outfit: profile.outfit,
+            gender: profile.gender,
+            bodyShape: profile.bodyShape,
+            photoFace: head.getObjectByName('person.face.photo-skull') != null,
+            proceduralFace: head.getObjectByName('person.face.skull') != null,
+            hair: head.getObjectByName('person.hair.crown') != null,
+            beard: head.getObjectByName('person.face.beard') != null,
+            glasses: head.getObjectByName('person.glasses.bridge') != null,
+            plateCarrier: body.getObjectByName('crew-plate-carrier') != null,
+            weapon: physicalWeapon,
+            weaponSling: body.getObjectByName('crew-weapon-sling') != null,
+            maskPresent: mask != null,
+            maskVisible: mask?.visible === true,
+          },
         };
       }),
       numbskullFace: crew.get(CHARACTER_IDS.NUMBSKULL)?.group.userData.proceduralFace?.treatment
         === 'round_glasses',
+      numbskullGlasses: crew.get(CHARACTER_IDS.NUMBSKULL)?.figure.parts.head
+        .getObjectByName('person.glasses.bridge')?.visible === true,
       armorVisible: level.phases.safehouse.group.getObjectByName('armor-vest-body')?.visible === true,
       carbineVisible: level.phases.safehouse.group.getObjectByName('loadout-carbine-receiver')?.visible === true,
       lockers: (() => {
@@ -2613,7 +2921,7 @@ function addPoliceFigure({
     spare.root.visible = visible;
     spare.root.position.set(position[0], 0, position[2]);
     spare.root.rotation.y = Math.PI;
-    spare.figure.braced?.();
+    spare.figure.aiming?.();
     window.__heistDebug.policeActive = activePoliceMeshes().length;
     return spare.root;
   }
@@ -2696,6 +3004,15 @@ function fireWeapon() {
   const result = registerActorHit(owner, actor, shot.damage, shot.penetration);
   if (!result?.applied) { emitImpact(hit.point); return; }
   emitBlood(hit.point, camera.getWorldDirection(new THREE.Vector3()), result.fatal);
+  if (actor === managerActor && result.fatal) {
+    /* The manager is a civilian, not an immortal objective prop. Killing him
+     * is allowed to land and read as a real casualty, but the vault sequence
+     * cannot continue without him. Restore the last safe lobby checkpoint
+     * immediately instead of leaving a corpse as the required interaction. */
+    announceObjective('The manager is down. Restoring the last safe lobby checkpoint.');
+    failMission('manager_incapacitated');
+    return;
+  }
   if (actor === lobbyGuardActor && result.fatal) {
     neutralizeLobbyGuard('player_shot');
     return;
@@ -2714,7 +3031,7 @@ function fireWeapon() {
   }
   if (actor.faction === FACTIONS.POLICE && result.fatal) {
     const entry = policeEntryFor(owner);
-    if (entry) entry.figure.fallen({ roll: Math.random() > 0.5 ? 0.6 : -0.6 });
+    if (entry) entry.figure.setState('down', { roll: Math.random() > 0.5 ? 0.6 : -0.6 });
     officersDown++;
     objective.noteOfficerDown();
     police.remove(owner.userData.block);
@@ -2937,6 +3254,13 @@ checkpoints.register('mission-local', {
     preparation: preparation.capture(), bankBagsStaged, carryingBag, droppedBagDecision,
     lobbyControlled, rearGuardSecured, managerEscortProgress,
     guardThreat: guardThreat.capture(), lobbyGuardActor: lobbyGuardActor.snapshot(),
+    lobbyCombatActors: {
+      rearGuard: rearGuardActor.snapshot(),
+      manager: managerActor.snapshot(),
+      hostages: Object.fromEntries(
+        [...hostageActors].map(([id, actor]) => [id, actor.snapshot()]),
+      ),
+    },
     officersDown, driving, roadblockHit, routeIndex, offroadHitCooldown,
     driveCollisionCooldown, policeFireClock, swapProgress: { ...swapProgress },
     driveInvalidFor, driveStuckFor, drivingRecovery,
@@ -2962,8 +3286,12 @@ checkpoints.register('mission-local', {
     policeFireClock = 0.8;
     Object.keys(swapProgress).forEach((key) => { swapProgress[key] = false; });
     suppression.value = 0;
+    resetLobbyCombatActor(rearGuardActor);
+    resetLobbyCombatActor(managerActor);
+    for (const actor of hostageActors.values()) resetLobbyCombatActor(actor);
     resetLobbyGuardThreat();
     level.phases.bank.interactables.rearGuard.userData.resetThreatPose?.();
+    level.phases.bank.figures.manager.setState('stand', { blend: false });
     level.phases.bank.interactables.manager.userData.setEscortProgress?.(0);
     syncSafehousePresentation();
   },
@@ -2989,13 +3317,24 @@ checkpoints.register('mission-local', {
     suppression.value = snapshot.suppression ?? 0;
     guardThreat.restore(snapshot.guardThreat);
     if (snapshot.lobbyGuardActor) lobbyGuardActor.restore(snapshot.lobbyGuardActor);
+    const actorSnapshots = snapshot.lobbyCombatActors ?? {};
+    if (actorSnapshots.rearGuard) rearGuardActor.restore(actorSnapshots.rearGuard);
+    if (actorSnapshots.manager) managerActor.restore(actorSnapshots.manager);
+    for (const [id, actor] of hostageActors) {
+      if (actorSnapshots.hostages?.[id]) actor.restore(actorSnapshots.hostages[id]);
+    }
     level.phases.bank.interactables.guard.userData.resetThreatPose?.();
-    if (guardThreat.state === 'neutralized') level.phases.bank.interactables.guard.userData.setNeutralized?.();
+    if (guardThreat.state === 'neutralized') {
+      level.phases.bank.interactables.guard.userData.setNeutralized?.({ blend: false });
+    }
     else if (guardThreat.state === 'drawing') {
       level.phases.bank.interactables.guard.userData.setThreatProgress?.(guardThreat.snapshot().progress);
     }
     level.phases.bank.interactables.rearGuard.userData.resetThreatPose?.();
-    if (rearGuardSecured) level.phases.bank.interactables.rearGuard.userData.setNeutralized?.();
+    if (rearGuardSecured) {
+      level.phases.bank.interactables.rearGuard.userData.setNeutralized?.({ blend: false });
+    }
+    level.phases.bank.figures.manager.setState('stand', { blend: false });
     level.phases.bank.interactables.manager.userData.setEscortProgress?.(managerEscortProgress);
     syncSafehousePresentation();
   },
@@ -3099,8 +3438,8 @@ function resumePersistedCheckpoint(checkpoint) {
     }
     lobbyControlled = true;
     rearGuardSecured = true;
-    level.phases.bank.interactables.rearGuard.userData.setNeutralized?.();
-    level.phases.bank.interactables.guard.userData.setNeutralized?.();
+    level.phases.bank.interactables.rearGuard.userData.setNeutralized?.({ blend: false });
+    level.phases.bank.interactables.guard.userData.setNeutralized?.({ blend: false });
     guardThreat.restore({ state: 'neutralized', elapsed: 0 });
   }
   if (setup.injury) crew.get(CHARACTER_IDS.RIPPINFLOW).injury = setup.injury;
@@ -3224,8 +3563,8 @@ async function begin() {
 }
 
 document.getElementById('start').addEventListener('click', begin);
-function setSimulationPaused(value) {
-  if (isPreviewMode()) return;
+function setSimulationPaused(value, { force = false } = {}) {
+  if (isPreviewMode() && !force) return;
   simulationPaused = value === true;
   if (simulationPaused) {
     player.clearKeys();
@@ -3234,18 +3573,54 @@ function setSimulationPaused(value) {
   interaction.setPaused(simulationPaused || driving);
 }
 
+const pauseMenu = createPauseMenu({
+  title: 'The Take',
+  canPause: () => started && !missionCompleted,
+  getObjective: () => hud.objective?.textContent?.trim()
+    || 'Follow Snow’s current order and keep the crew moving.',
+  instructions: [
+    'W A S D — move. E — interact. Mouse — aim. Click — fire.',
+    '1–5 or [ / ] — select gear. R — reload. Q — drop a carried bag.',
+    'F — reassure a hostage. G — issue the hard order.',
+    'During the escape, W/S — throttle, A/D — steer, Space — brake.',
+    'Tab — pause or resume.',
+  ],
+  onPause: () => {
+    setSimulationPaused(true, { force: true });
+    player.enabled = false;
+    interaction.release();
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    setSimulationPaused(false, { force: true });
+    audio.ctx?.resume?.();
+    clock.getDelta();
+    if (!driving && !isPreviewMode()) canvas.requestPointerLock?.();
+  },
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.BANK_HEIST,
+    location,
+    restartCheckpoint: () => failMission('player_requested_restart'),
+    canRestartCheckpoint: () => Boolean(recoveryCheckpoint ?? latestCheckpoint),
+  }),
+});
+
 canvas.addEventListener('click', () => {
-  if (!started) return;
+  if (!started || pauseMenu.isPaused()) return;
   setSimulationPaused(false);
   if (!driving) canvas.requestPointerLock?.();
 });
 document.addEventListener('pointerlockchange', () => {
   player.enabled = document.pointerLockElement === canvas && !driving;
-  if (started && !driving) setSimulationPaused(document.pointerLockElement !== canvas);
+  if (started && !driving && !isPreviewMode()) {
+    if (document.pointerLockElement !== canvas) pauseMenu.pause();
+    else if (!pauseMenu.isPaused()) setSimulationPaused(false);
+  }
 });
-addEventListener('blur', () => { if (started) setSimulationPaused(true); });
+addEventListener('blur', () => { if (started) pauseMenu.pause(); });
 document.addEventListener('visibilitychange', () => {
-  if (started && document.hidden) setSimulationPaused(true);
+  if (started && document.hidden) pauseMenu.pause();
 });
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas && !driving) player.handleMouseMove(event.movementX, event.movementY);
@@ -3256,6 +3631,7 @@ const SLOT_KEYS = Object.freeze({
 });
 
 document.addEventListener('keydown', (event) => {
+  if (simulationPaused) return;
   if (event.repeat && ['KeyE', 'KeyR', 'KeyQ', 'KeyF', 'KeyG'].includes(event.code)) return;
   player.setKey(event.code, true);
   if (event.code in SLOT_KEYS) { selectSlot(SLOT_KEYS[event.code]); return; }

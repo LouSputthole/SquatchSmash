@@ -234,8 +234,11 @@ try {
   check('the launcher exposes every canonical apartment iteration',
     linksMatchExpected(launcher.apartments, expectedApartmentLinks),
     JSON.stringify(launcher.apartments));
-  check('the launcher exposes the wardrobe inspection tool',
-    linksMatchExpected(launcher.tools, { wardrobe: 'wardrobe.html' }),
+  check('the launcher exposes both development tools',
+    linksMatchExpected(launcher.tools, {
+      wardrobe: 'wardrobe.html',
+      combat: 'combatlab.html?preview=1',
+    }),
     JSON.stringify(launcher.tools));
   check('opening the launcher leaves the canonical save untouched',
     unchanged(await storageSnapshot()));

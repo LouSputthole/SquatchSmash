@@ -20,6 +20,49 @@ const MAX_RPM = 2450;
 const SFX_DIR = 'assets/sfx/';
 const MUSIC_DIR = 'assets/music/';
 
+/** Beef Run's takeoff record opens above its established mix, then settles. */
+export const KNOCKING_INTRO_BOOST = Object.freeze({
+  multiplier: 1.3,
+  seconds: 24,
+});
+
+export function takeoffRecordIntroVolume(baseVolume) {
+  return baseVolume * KNOCKING_INTRO_BOOST.multiplier;
+}
+
+/**
+ * Return the takeoff record to its established level on the WebAudio clock.
+ *
+ * The clock starts on `playing`, not when the manifest lookup or play request
+ * starts, so an autoplay retry cannot consume the louder 24 seconds in
+ * silence. AudioParam automation also stays in step when the render loop
+ * stalls, unlike a frame counter or wall-clock timeout.
+ */
+export function armTakeoffRecordIntro(handle, ctx, baseVolume) {
+  const element = handle?.element;
+  const gain = handle?.gain?.gain;
+  if (!element?.addEventListener || !gain?.setValueAtTime || !ctx) return false;
+
+  let armed = true;
+  const settle = () => {
+    if (!armed || handle.released) return;
+    armed = false;
+    const elapsed = Math.max(0, Number(element.currentTime) || 0);
+    const remaining = Math.max(0, KNOCKING_INTRO_BOOST.seconds - elapsed);
+    const at = ctx.currentTime + remaining;
+    gain.setValueAtTime(baseVolume, at);
+    handle.beefIntroBoost = {
+      baseVolume,
+      boostedVolume: takeoffRecordIntroVolume(baseVolume),
+      seconds: KNOCKING_INTRO_BOOST.seconds,
+      settlesAt: at,
+    };
+  };
+
+  element.addEventListener('playing', settle, { once: true });
+  return true;
+}
+
 /* One-off recordings shared with the apartment that Beef Run calls by name.
  * Keeping this list beside the scene-specific engine makes an accidental new
  * cue visible in review instead of quietly re-expanding the resident bank to

@@ -111,7 +111,10 @@ class SilentSquatchMission {
    * @param {object} opts.lab      the laboratory contract (required)
    * @param {object} [opts.story]  campaign boundary — see silent-squatch-story.js
    * @param {object} [opts.hud]    { setObjective, setInstruction, setCallout }
-   * @param {object} [opts.zones]  { id: {x, z, r} } proximity triggers
+   * @param {object} [opts.zones]  { id: {x, y?, z, r, verticalTolerance?} }
+   *   proximity triggers. Mansion is a stacked house, so authored 3D zones
+   *   must not fire through a floor. Legacy harness zones without `y` remain
+   *   horizontal-only for backwards compatibility.
    * @param {Function} [opts.onLine]    subtitle in
    * @param {Function} [opts.onLineEnd] subtitle out
    * @param {Function} [opts.onStage]   cosmetic stage directions for the scene
@@ -361,9 +364,9 @@ class SilentSquatchMission {
    * this side of the glass, in full view of the five people behind it. If he
    * is somehow still inside, this refuses.
    */
-  shootAubbie(hit = true) {
+  shootAubbie(hit = null) {
     if (!this.#at(S.EXECUTION) || this.aubbieKilled) return false;
-    if (!hit) {
+    if (!hit?.point?.isVector3 || !hit.object?.isObject3D) {
       this.aubbieMissedShots++;
       this.dialogue.interject(SEQUENCES.executionMiss);
       return false;
@@ -381,7 +384,7 @@ class SilentSquatchMission {
      * where the shot came from so the wound faces the shooter; the mission
      * does not know where the player is standing, so the scene resolves it
      * against his own body when it is not told. */
-    aubbie?.shot?.(null);
+    aubbie?.shot?.(hit);
     this.bloodShed = true;
     aubbie?.collapse?.();
     this.dialogue.play(SEQUENCES.executionDone, {
@@ -538,13 +541,27 @@ class SilentSquatchMission {
    * body and `lab.glassAudio`; in the observation room it is a plain cue. */
   #speak(cue, voice, line, playCue) {
     if (!cue) return 0;
+    /* xXx is a real body in the corridor, not a room-wide fallback cue. This
+     * route gives his mouth and spatial source the take while he is alive and
+     * makes death authoritative at the final audio boundary: even a line that
+     * was queued a frame before the fatal hit cannot come out of a corpse. */
+    if (line.speaker === 'XXX') {
+      if (this.lab.xxx?.alive === false) return 0;
+      if (this.lab.xxx?.say) {
+        const gain = gainForVoice(voice, { sealed: false });
+        return this.lab.xxx.say(cue, {
+          volume: LAB_BODY_VOLUME * gain,
+          dry: true,
+        }) || 0;
+      }
+    }
     const index = SCIENTIST_INDEX[line.speaker];
     /* Owner playtest: "Aubbie volume +20%". Per PROFILE, so it reaches him on
      * both of his routes and on the lines nobody has recorded yet. See
      * `VOICE_GAIN` in ../script.js. `LAB_BODY_VOLUME` is the level the
      * laboratory plays a body's line at when nobody says otherwise; it is
      * restated here because this is the caller that now says otherwise. */
-    const gain = gainForVoice(voice);
+    const gain = gainForVoice(voice, { sealed: line.muffled });
     const volume = LAB_BODY_VOLUME * gain;
     if (line.muffled) {
       this.glassRouted++;
@@ -635,6 +652,9 @@ class SilentSquatchMission {
       case 'glass.chair':
         this.chairBent = true;
         break;
+      case 'xxx.cough':
+        if (this.lab.xxx?.alive !== false) this.lab.xxx?.cough?.();
+        break;
       case 'case.open':
         this.onCase('open');
         break;
@@ -660,10 +680,24 @@ class SilentSquatchMission {
 
   #checkZones(position) {
     const px = position.x;
+    const py = position.y;
     const pz = position.z;
     if (!Number.isFinite(px) || !Number.isFinite(pz)) return;
     for (const [id, zone] of Object.entries(this.zones)) {
       if (!zone || this.zonesEntered.has(id)) continue;
+      /* Every authored Mansion anchor has a world-space Y. The west wing is
+       * directly above the lab corridor, so an X/Z-only check consumed the
+       * lower doorway while the player was still upstairs and even let xXx
+       * bark through the floor. A zone that supplies Y is therefore a real
+       * short trigger cylinder; old unit/contract callers that omit Y retain
+       * their original planar behavior. */
+      if (Number.isFinite(zone.y)) {
+        if (!Number.isFinite(py)) continue;
+        const verticalTolerance = Number.isFinite(zone.verticalTolerance)
+          ? Math.max(0, zone.verticalTolerance)
+          : 1.25;
+        if (Math.abs(py - zone.y) > verticalTolerance) continue;
+      }
       const r = zone.r ?? 2.5;
       if ((px - zone.x) ** 2 + (pz - zone.z) ** 2 <= r * r) this.arrive(id);
     }
@@ -715,6 +749,7 @@ class SilentSquatchMission {
         if (this.fsm.is(S.STAIRWELL)) this.fsm.go(S.INTERROGATION);
         break;
       case 'xxx':
+        if (this.lab.xxx?.alive === false) break;
         if (this.fsm.is(S.EXIT)) this.#bark('xxxOut', SEQUENCES.xxxOnTheWayOut);
         else this.#bark('xxx', SEQUENCES.xxxHanging);
         break;
@@ -827,8 +862,9 @@ class SilentSquatchMission {
             onDone: () => {
               /* With no xXx trigger volume, he still gets his lines: he is
                * hanging in the middle of the only corridor there is. */
-              if (!this.zones.xxx) this.#bark('xxx', SEQUENCES.xxxHanging);
-              this.#bark('booskiShout', SEQUENCES.booskiShouts);
+              if (!this.zones.xxx && this.lab.xxx?.alive !== false) {
+                this.#bark('xxx', SEQUENCES.xxxHanging);
+              }
             },
           });
         },
@@ -836,13 +872,14 @@ class SilentSquatchMission {
           /* The corridor is one straight run and the observation area is the
            * far end of it. A scene that gave us a trigger volume down there
            * uses it; a scene that did not moves him on once he has heard
-           * Irish, xXx and Booski shouting rather than stranding him in a
-           * corridor with a man hanging in it. */
+           * Irish and xXx rather than stranding him in a corridor with a man
+           * hanging in it. Booski belongs to the far threshold and is queued
+           * only by OBSERVATION below. */
           if (!this.zones.observation && !this.dialogue.busy && this.fsm.time > 4) {
             go(S.OBSERVATION);
             return;
           }
-          this.#stalls(dt, 26, [SEQUENCES.irishIdle, SEQUENCES.booskiShouts]);
+          this.#stalls(dt, 26, [SEQUENCES.irishIdle]);
         },
       },
 
@@ -851,7 +888,10 @@ class SilentSquatchMission {
       /* ============================================================== */
       [S.OBSERVATION]: {
         enter: () => {
-          this.dialogue.play(SEQUENCES.observationArrival, {
+          /* The player has now crossed the threshold beyond xXx. Keep
+           * Booski's call, the room reaction and the case greeting in one
+           * ordered queue so none of them overlap or leak up the stair. */
+          this.dialogue.play([...SEQUENCES.booskiShouts, ...SEQUENCES.observationArrival], {
             onDone: () => {
               this.#sayThenInstruct(SEQUENCES.deliveryGreeting, INSTRUCTIONS.DELIVER_CASE);
             },
@@ -1005,6 +1045,12 @@ class SilentSquatchMission {
       [S.EXIT]: {
         enter: () => {
           if (this.leaving) return;
+          /* The inbound corridor crossing already spent this one-shot zone.
+           * Rearm it for the authored return bark only while its speaker is
+           * still alive; a corpse never owns an interaction volume. */
+          if (this.zones.xxx && this.lab.xxx?.alive !== false) {
+            this.zonesEntered.delete('xxx');
+          }
           /* Booski says "Upstairs. Lou's still awake."; the objective names
            * Lou; the instruction says which stair. All three agree, which is
            * the whole of the owner's flow note. */

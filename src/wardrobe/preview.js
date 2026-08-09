@@ -194,6 +194,16 @@ export const MARKS = {
 
 export const MARK_ORDER = ['full', 'face', 'chest', 'wrist', 'waist', 'feet'];
 
+/** Distance that fits a lineup both across and from ground to tallest head. */
+export function lineupCameraDistance({ width, tallest, targetY, aspect, fov }) {
+  const halfV = THREE.MathUtils.degToRad(fov) / 2;
+  const halfH = Math.atan(Math.tan(halfV) * aspect);
+  const horizontal = (width / 2) / Math.tan(halfH) * 1.06;
+  const verticalSpan = Math.max(targetY, tallest - targetY);
+  const vertical = verticalSpan / Math.tan(halfV) * 1.06;
+  return Math.max(horizontal, vertical);
+}
+
 /* ------------------------------------------------------------------ */
 /* The comparison, computed rather than written                        */
 /* ------------------------------------------------------------------ */
@@ -248,6 +258,7 @@ export function compare(appearances) {
  * can drive it frame by frame while the browser drives it with a mouse.
  */
 const _aim = new THREE.Vector3();
+const _aimBounds = new THREE.Box3();
 
 export function createFittingRoom(canvas, { faces = new Set() } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -554,9 +565,13 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
    * was shot into a 370px column between two panels, which cut seven people
    * off the ends. */
   function frameLineup() {
-    const halfV = THREE.MathUtils.degToRad(camera.fov) / 2;
-    const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
-    state.dist = (state.lineupWidth / 2) / Math.tan(halfH) * 1.06;
+    state.dist = lineupCameraDistance({
+      width: state.lineupWidth,
+      tallest: Math.max(0, ...state.row.map((entry) => entry.model.height ?? 1.78)),
+      targetY: state.target.y,
+      aspect: camera.aspect,
+      fov: camera.fov,
+    });
   }
 
   /** The first part on the list that this figure actually has, or null. */
@@ -581,7 +596,15 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
       /* Into the stand's own space, so the turntable carries the camera round
        * with the detail instead of leaving it pointed where the watch was. */
       stand.updateMatrixWorld(true);
-      part.getWorldPosition(state.target);
+      /* Several detail targets are groups whose useful geometry is offset
+       * from a neutral origin. `necklace.chain`, for example, owns links at
+       * chest height but the group itself sits at (0, 0, 0); aiming at the
+       * transform origin framed Lou's trousers instead of his pinstripe
+       * chest. Aim at the rendered part's bounds, falling back to its origin
+       * only for an intentionally empty marker group. */
+      _aimBounds.setFromObject(part);
+      if (_aimBounds.isEmpty()) part.getWorldPosition(state.target);
+      else _aimBounds.getCenter(state.target);
       stand.worldToLocal(state.target);
     } else {
       state.target.set(mark.x, mark.y * h, 0);
@@ -660,13 +683,59 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
     });
   }
 
+  /**
+   * Geometry evidence for the people currently on the stand.
+   *
+   * This intentionally measures the rendered makePerson result rather than
+   * trusting the wardrobe recipe's requested height/build. The exhaustive
+   * screenshot tool records it beside every distinct appearance so a blank,
+   * collapsed or non-finite figure fails as data instead of looking like a
+   * suspiciously small PNG in a folder.
+   */
+  function measureRow() {
+    stand.updateMatrixWorld(true);
+    return state.row.map((entry) => {
+      const bounds = new THREE.Box3().setFromObject(entry.person.group);
+      const size = bounds.getSize(new THREE.Vector3());
+      const centre = bounds.getCenter(new THREE.Vector3());
+      let meshCount = 0;
+      let vertexCount = 0;
+      let nonFiniteTransforms = 0;
+      entry.person.group.traverse((node) => {
+        if (node.isMesh) {
+          meshCount += 1;
+          vertexCount += node.geometry?.getAttribute?.('position')?.count ?? 0;
+        }
+        if (node.matrixWorld?.elements?.some((value) => !Number.isFinite(value))) {
+          nonFiniteTransforms += 1;
+        }
+      });
+      return {
+        key: entry.key ?? null,
+        label: entry.label,
+        requested: {
+          height: entry.model.height ?? 1.78,
+          build: entry.model.build ?? 1,
+          dress: entry.model.dress ?? null,
+        },
+        bounds: {
+          min: bounds.min.toArray(), max: bounds.max.toArray(),
+          size: size.toArray(), centre: centre.toArray(),
+        },
+        meshCount,
+        vertexCount,
+        nonFiniteTransforms,
+      };
+    });
+  }
+
   applyRig('bing');
   showSolo(0);
 
   return {
     scene, camera, renderer, state, stand,
     showSolo, showLineup, showScene, showCharacter, showAppearance,
-    applyMark, applyRig, resize, render, labelPositions,
+    applyMark, applyRig, resize, render, labelPositions, measureRow,
     current: () => RAIL[state.index],
     keys: () => RAIL.map((entry) => entry.key),
     /* What is on the stand, whatever put it there. */

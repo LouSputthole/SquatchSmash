@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { BILLY_HOTDOG_MODEL } from '../src/core/hotdog-model.js';
 import { measureWrappedBody } from '../src/core/props/wrapped-body.js';
+import { SNOW } from '../src/core/wardrobe.js';
 import * as graveyardMissionModule from '../src/graveyard/mission.js';
 import {
   GraveyardMission,
@@ -14,8 +15,10 @@ import {
 import {
   BABS_BENCH_PRESENTATION,
   GRAVE_ART_PRESENTATION,
+  buildGraveyard,
   hotDogBody,
 } from '../src/graveyard/world.js';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
 test('authored grave portraits map to their markers without duplicating Colton\'s carved name', () => {
   assert.deepEqual(Object.keys(GRAVE_ART_PRESENTATION), [
@@ -67,6 +70,26 @@ test('Snow owns the arrival voice floor through the end of his recorded opening'
   assert.equal(prospect.who, 'Prospect');
   assert.equal(resolveGraveyardLineHold(snow, 5.7), 6.05);
   assert.equal(resolveGraveyardLineHold(prospect, 0), prospect.seconds);
+});
+
+test('graveyard Snow wears his canonical work clothes and belt without losing the burial staging', async () => {
+  ensureDomShim();
+  const THREE = await import('three');
+  const graveyard = buildGraveyard(new THREE.Scene());
+  const { snow } = graveyard;
+
+  assert.equal(snow.parts.profile.height, SNOW.height);
+  assert.equal(snow.parts.profile.outfit, SNOW.dress);
+  assert.equal(snow.parts.body.getObjectByName('ribcage').material.color.getHex(), SNOW.shirt);
+  assert.equal(snow.parts.head.getObjectByName('person.neck').material.color.getHex(), SNOW.skin);
+  assert.ok(snow.parts.body.getObjectByName('belt.strap'), 'Snow lost his canonical leather belt');
+
+  assert.deepEqual(snow.group.position.toArray(), [-2.1, 0, -15.7]);
+  assert.equal(snow.group.rotation.y, 0.25);
+  assert.ok(snow.parts.body.children.some((node) => node.geometry?.type === 'TorusGeometry'),
+    'Snow lost the graveyard key ring');
+  assert.ok(snow.parts.body.children.some((node) => node.geometry?.type === 'CylinderGeometry'),
+    'Snow lost the graveyard flashlight');
 });
 
 test('the graveyard body is the shared wrapped body, cut to Billy HotDog\'s canonical size', () => {

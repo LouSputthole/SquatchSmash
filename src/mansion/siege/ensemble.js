@@ -24,8 +24,9 @@
  *
  * ## THE TWO LOUS ARE TWO MEN
  *
- * `lou` is Big Uncle Lou Sputthole -- `lou1`, `BIG_UNCLE_LOU`, `lou.png`,
- * behind the desk in his own office. `captain_lou_sasole` is Captain Lou
+ * `lou` is Big Uncle Lou Sputthole -- `lou1`, `BIG_UNCLE_LOU_MANSION`,
+ * `lou.png`, still in the same clothes behind the desk in his own office.
+ * `captain_lou_sasole` is Captain Lou
  * Sasole -- `lou2`, `CAPTAIN_LOU_SASOLE`, `sasole.png`, a flight jacket, and
  * he is not in the building until the aftermath. Different wardrobe entry,
  * different photograph, different voice profile, different beat. They must
@@ -87,7 +88,7 @@ import { playWeaponCue } from '../../core/weapons/audio.js';
 import { WEAPON_CATALOG } from '../../core/weapons/catalog.js';
 import { buildWeaponModel } from '../../core/weapons/models.js';
 import {
-  AUBBIE, BIG_UNCLE_LOU, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
+  AUBBIE, BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
   HOG_MAMA, IRISH, MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../../core/wardrobe.js';
 /* WILLY is deliberately not imported. He held the office door in an earlier
@@ -342,7 +343,7 @@ const ROSTER = Object.freeze([
   Object.freeze({
     id: 'lou',
     name: 'Big Uncle Lou',
-    model: () => withFace(BIG_UNCLE_LOU, FACES.lou),
+    model: () => withFace(BIG_UNCLE_LOU_MANSION, FACES.lou),
     routine: Object.freeze(['phone', 'window', 'callout']),
     posts: Object.freeze({
       TO_OFFICE: P(1.05, 72.6, 0, 63),

@@ -4,6 +4,7 @@ import {
   previewNavigationHref,
 } from './preview-mode.js';
 import { FINAL_ARC_LOADOUT_STORAGE_KEY } from './final-arc-loadout-storage.js';
+import { SCENE_RECOVERY_STORAGE_KEY } from './scene-recovery-storage.js';
 
 /**
  * Stable IDs shared by every scene. Display names and voice-provider aliases
@@ -2352,6 +2353,21 @@ class Campaign {
         // The fresh campaign remains authoritative even when a hostile
         // storage shim refuses cleanup. A later final-arc page will still be
         // gated by the reset story before it can expose this adapter state.
+      }
+      try {
+        this.storage.removeItem?.(SCENE_RECOVERY_STORAGE_KEY);
+      } catch {
+        // A fresh campaign must not inherit an unlocked recovery skip. The
+        // primary save is still authoritative if optional cleanup is denied.
+      }
+      const preview = getPreviewRuntime();
+      if (preview?.storage === this.storage) {
+        try {
+          globalThis.sessionStorage?.removeItem?.(SCENE_RECOVERY_STORAGE_KEY);
+        } catch {
+          // Preview retry state is isolated already; denied session cleanup
+          // must not make the in-memory New Game itself fail.
+        }
       }
     }
     this._state = fresh;

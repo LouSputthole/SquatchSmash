@@ -31,6 +31,34 @@ const VIDEO_DIR = 'assets/video/';
 /** Seconds of snow when the channel changes. */
 const SWITCH = 0.45;
 
+/**
+ * One spatial contract for every television carrying audible video.
+ *
+ * A PannerNode's inverse model never reaches silence: the old 3m / 26m /
+ * 1.1 setup bottomed out at about 10.6% gain, so a television stayed plainly
+ * audible after the player left its room. Linear rolloff preserves the
+ * authored mix in the near field and reaches silence at the room boundary.
+ * Keep this object and `tvGainAtDistance()` together; the latter is the
+ * deterministic seam used by tests and diagnostics for the browser-owned
+ * PannerNode curve.
+ */
+export const TV_AUDIO_SPATIAL_PROFILE = Object.freeze({
+  distanceModel: 'linear',
+  refDistance: 3,
+  maxDistance: 14,
+  rolloffFactor: 1,
+  outsideRoomDistance: 14,
+});
+
+/** Expected PannerNode amplitude at a listener/source distance in metres. */
+export function tvGainAtDistance(distance) {
+  const { refDistance, maxDistance, rolloffFactor } = TV_AUDIO_SPATIAL_PROFILE;
+  const d = Number.isFinite(distance) ? Math.max(0, distance) : Infinity;
+  if (d <= refDistance) return 1;
+  if (d >= maxDistance) return Math.max(0, 1 - rolloffFactor);
+  return Math.max(0, 1 - rolloffFactor * ((d - refDistance) / (maxDistance - refDistance)));
+}
+
 /* ------------------------------------------------------------------ */
 /* Placeholder channels                                                */
 /* ------------------------------------------------------------------ */
@@ -306,6 +334,7 @@ export function videoChannel({ name, file, files, card, glow, startAt = 0 }) {
   const playlist = files ?? [file];
   let el = null;
   let wired = false;
+  let audioGraph = null;
   let failed = false;
   let index = 0;
   let pendingSeek = false;
@@ -375,10 +404,10 @@ export function videoChannel({ name, file, files, card, glow, startAt = 0 }) {
           gain.gain.value = 0.9;
           const panner = ctx.createPanner();
           panner.panningModel = 'HRTF';
-          panner.distanceModel = 'inverse';
-          panner.refDistance = 3.0;
-          panner.maxDistance = 26;
-          panner.rolloffFactor = 1.1;
+          panner.distanceModel = TV_AUDIO_SPATIAL_PROFILE.distanceModel;
+          panner.refDistance = TV_AUDIO_SPATIAL_PROFILE.refDistance;
+          panner.maxDistance = TV_AUDIO_SPATIAL_PROFILE.maxDistance;
+          panner.rolloffFactor = TV_AUDIO_SPATIAL_PROFILE.rolloffFactor;
           if (panner.positionX) {
             panner.positionX.value = position.x;
             panner.positionY.value = position.y;
@@ -390,12 +419,23 @@ export function videoChannel({ name, file, files, card, glow, startAt = 0 }) {
           tone.connect(gain);
           gain.connect(panner);
           panner.connect(audio.busMusic);
+          audioGraph = {
+            ctx,
+            source: src,
+            tone,
+            gain,
+            panner,
+            destination: audio.busMusic,
+            sourcePosition: { x: position.x, y: position.y, z: position.z },
+            connected: true,
+          };
           /* It may have been switched on once before the audio context was
            * running, and played muted. Now there is somewhere to send it. */
           el.muted = false;
           wired = true;
         } catch {
           el.muted = true;    // ponytail: one graph per element, so this only ever fails once
+          audioGraph = { connected: false };
           wired = true;
         }
       }
@@ -417,6 +457,91 @@ export function videoChannel({ name, file, files, card, glow, startAt = 0 }) {
     leave() {
       pendingPlay = false;
       try { el?.pause(); } catch { /* never started */ }
+    },
+    /**
+     * Read-only live WebAudio proof for scene diagnostics.
+     *
+     * This reports the nodes and AudioParams that are actually carrying this
+     * video element; it does not accept a camera position or a guessed
+     * distance. That distinction matters in multi-room scenes: the pure
+     * `tvGainAtDistance()` contract can be green while a forgotten
+     * `audio.updateListener(camera)` leaves the real listener at the origin.
+     */
+    debugAudio() {
+      const panner = audioGraph?.panner ?? null;
+      const listenerNode = audioGraph?.ctx?.listener ?? null;
+      const number = (param) => (Number.isFinite(param?.value) ? Number(param.value) : null);
+      const source = panner?.positionX
+        ? {
+          x: number(panner.positionX),
+          y: number(panner.positionY),
+          z: number(panner.positionZ),
+        }
+        : (audioGraph?.sourcePosition ? { ...audioGraph.sourcePosition } : null);
+      const listener = listenerNode?.positionX
+        ? {
+          x: number(listenerNode.positionX),
+          y: number(listenerNode.positionY),
+          z: number(listenerNode.positionZ),
+        }
+        : null;
+      const distance = source && listener
+        && Object.values(source).every(Number.isFinite)
+        && Object.values(listener).every(Number.isFinite)
+        ? Math.hypot(
+          source.x - listener.x,
+          source.y - listener.y,
+          source.z - listener.z,
+        )
+        : null;
+      const pannerProfile = panner ? {
+        distanceModel: panner.distanceModel,
+        refDistance: panner.refDistance,
+        maxDistance: panner.maxDistance,
+        rolloffFactor: panner.rolloffFactor,
+        outsideRoomDistance: TV_AUDIO_SPATIAL_PROFILE.outsideRoomDistance,
+      } : null;
+      let spatialGain = null;
+      if (pannerProfile && Number.isFinite(distance)) {
+        const d = Math.min(
+          pannerProfile.maxDistance,
+          Math.max(pannerProfile.refDistance, distance),
+        );
+        if (pannerProfile.distanceModel === 'linear') {
+          spatialGain = Math.max(0, 1 - pannerProfile.rolloffFactor
+            * ((d - pannerProfile.refDistance)
+              / (pannerProfile.maxDistance - pannerProfile.refDistance)));
+        } else if (pannerProfile.distanceModel === 'inverse') {
+          spatialGain = pannerProfile.refDistance
+            / (pannerProfile.refDistance
+              + pannerProfile.rolloffFactor * (d - pannerProfile.refDistance));
+        } else if (pannerProfile.distanceModel === 'exponential') {
+          spatialGain = (d / pannerProfile.refDistance) ** -pannerProfile.rolloffFactor;
+        }
+      }
+      const mediaGain = number(audioGraph?.gain?.gain);
+      return {
+        wired,
+        graphConnected: audioGraph?.connected === true,
+        contextState: audioGraph?.ctx?.state ?? null,
+        failed,
+        video: {
+          exists: Boolean(el),
+          muted: el?.muted ?? null,
+          playing: Boolean(el && el.paused === false && el.ended !== true && !failed),
+          readyState: el?.readyState ?? null,
+          src: el?.currentSrc || el?.src || null,
+        },
+        source,
+        listener,
+        distance,
+        mediaGain,
+        panner: pannerProfile,
+        spatialGain,
+        effectiveGain: Number.isFinite(mediaGain) && Number.isFinite(spatialGain)
+          ? mediaGain * spatialGain
+          : null,
+      };
     },
     draw(g, t) {
       g.fillStyle = '#050608';

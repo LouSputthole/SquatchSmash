@@ -3,7 +3,8 @@
  *
  * An aging twin-piston utility aeroplane, built the way everything else in
  * this project is built: out of boxes and cylinders, with the paint and the
- * placards drawn onto canvases at runtime. Nose points +Z, right wing +X.
+ * placards drawn onto canvases at runtime. Nose points +Z; from the seated
+ * pilot's view the left wing is +X and the right wing is -X.
  *
  * The group is a single rigid body driven by AircraftPhysics; everything that
  * moves relative to it — propellers, control surfaces, gear legs, the

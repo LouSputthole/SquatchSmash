@@ -3402,9 +3402,10 @@ export function buildMansionGrounds(scene = null) {
     ]) {
       root.add(box({
         size: [cx1 - cx0, 0.05, cz1 - cz0],
-        pos: [(cx0 + cx1) / 2, GROUND_Y + 0.015, (cz0 + cz1) / 2],
+        pos: [(cx0 + cx1) / 2, GROUND_Y + 0.045, (cz0 + cz1) / 2],
         mat: M_GOLD,
         cast: false,
+        name: 'pool-gold-coping',
       }));
     }
 

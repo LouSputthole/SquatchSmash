@@ -96,7 +96,7 @@ export class McClawskyController {
     this.drawT = -1;
     this.onDrawComplete = null;
     this.fig.hit();
-    setTimeout(() => { this.fig.down = true; }, 220);
+    setTimeout(() => { this.fig.setDown(true); }, 220);
   }
 
   // Checkpoint restart: back in his chair, hand nowhere near the coat.
@@ -108,7 +108,7 @@ export class McClawskyController {
     this.gun.visible = false;
     this.mode = 'seated';
     const f = this.fig;
-    f.down = false;
+    f.setDown(false);
     f.deathT = 0;
     f.hitT = 0;
     f.talkT = 0;

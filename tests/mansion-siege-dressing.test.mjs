@@ -26,20 +26,23 @@ ensureDomShim();
 
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const {
-  buildMansionGrounds, CELLAR_HALL, COURT_CENTRE, COURT_RADIUS, GROUND_Y, BASEMENT_Y,
+  buildMansionGrounds, BUILDING, CELLAR_HALL, COURT_CENTRE, COURT_RADIUS, GROUND_Y, BASEMENT_Y,
 } = await import('../src/mansion/scenes/MansionGrounds.js');
-const { buildMansionInterior } = await import('../src/mansion/scenes/MansionInterior.js');
+const {
+  buildMansionInterior, FOYER, GALLERY, CONFERENCE, OFFICE,
+} = await import('../src/mansion/scenes/MansionInterior.js');
 const {
   buildSiegeDressing, CORRIDOR_NAV, FOYER_ROUTE, ROUTE_HALF_WIDTH,
   SMOKE_FLOOR_CLEARANCE, SMOKE_MAX_OPACITY, SIEGE_ANCHORS, fallenYaw,
 } = await import('../src/mansion/siege/dressing.js');
 const { buildSiegeGlass, SIEGE_GLASS } = await import('../src/mansion/siege/glass.js');
+const { buildSiegeNight } = await import('../src/mansion/siege/night.js');
 
 /**
  * One built house with the siege over it. Built ONCE -- the two builders are
  * about half a second together and every test below reads the same geometry.
  */
-function siege() {
+function siege({ smokeSystem = null } = {}) {
   const grounds = buildMansionGrounds(null);
   const interior = buildMansionInterior({ grounds });
   const colliders = [...grounds.colliders, ...interior.colliders];
@@ -47,7 +50,7 @@ function siege() {
   const damage = new MansionDamageState({ colliders });
   const registered = [];
   const dressing = buildSiegeDressing({
-    damage, grounds, interior, registerLight: (l) => registered.push(l),
+    damage, grounds, interior, smokeSystem, registerLight: (l) => registered.push(l),
   });
   const glass = buildSiegeGlass({ damage, grounds, interior });
   return {
@@ -495,6 +498,130 @@ test('the foyer fire has movement, light and smoke, and no way to put it out', (
   assert.ok(fire.lumps.some((l, i) => l.mesh.scale.y !== sizes[i]), 'the flame does not move');
   /* There is no extinguisher mechanic, so nothing here may expose one. */
   assert.equal(typeof fire.extinguish, 'undefined');
+});
+
+test('battle damage reads continuously from the facade to Lou\'s office without blocking the route', () => {
+  const { damage, dressing, colliders } = WORLD;
+  const baseCount = colliders.length;
+  const architecture = dressing.props.architecture;
+  assert.ok(architecture, 'the damage layer exposes its architectural battle pass');
+
+  damage.apply('under_attack');
+  const zones = architecture.zones;
+  assert.deepEqual(Object.keys(zones).sort(), ['facade', 'foyer', 'gallery', 'office']);
+  for (const [name, zone] of Object.entries(zones)) {
+    assert.ok(zone.group.visible, `${name} damage is visible during the fight`);
+    assert.ok(zone.markCount >= 6, `${name} carries a readable cluster, not one token mark`);
+  }
+
+  const facade = worldBox(zones.facade.group);
+  assert.ok(facade.min.z >= BUILDING.z0 - 0.12 && facade.max.z <= BUILDING.z0 + 0.12,
+    'facade damage stays on the front elevation');
+  const foyer = worldBox(zones.foyer.group);
+  assert.ok(foyer.min.x >= FOYER.x0 && foyer.max.x <= FOYER.x1
+    && foyer.min.z >= FOYER.z0 && foyer.max.z <= FOYER.z1,
+  'foyer damage stays in the foyer');
+  const gallery = worldBox(zones.gallery.group);
+  assert.ok(gallery.min.x >= GALLERY.x0 && gallery.max.x <= GALLERY.x1
+    && gallery.min.z >= GALLERY.z0 && gallery.max.z <= GALLERY.z1,
+  'gallery damage stays on the defence floor');
+  const office = worldBox(zones.office.group);
+  assert.ok(office.min.x >= OFFICE.x0 && office.max.x <= OFFICE.x1
+    && office.min.z >= OFFICE.z0 && office.max.z <= OFFICE.z1,
+  'office damage stays in Lou\'s room');
+
+  assert.equal(colliders.length, baseCount,
+    'the architectural read is surface dressing and adds no invisible blockers');
+  damage.apply('clean');
+  assert.equal(architecture.group.visible, false, 'the walking tour remains pristine');
+});
+
+test('the family has physical command, radio, triage and resupply stations instead of miming the jobs', () => {
+  const { damage, dressing } = WORLD;
+  const stations = dressing.props.defenceStations;
+  assert.ok(stations, 'the battle layer exposes the operational dressing');
+  assert.deepEqual(Object.keys(stations.zones).sort(), ['officeCommand', 'radio', 'resupply', 'triage']);
+
+  damage.apply('under_attack');
+  for (const [name, station] of Object.entries(stations.zones)) {
+    assert.ok(station.group.visible, `${name} is present during the defence`);
+    assert.ok(station.meshCount >= 5, `${name} is a real station, not a token box`);
+    const visibleNames = [];
+    station.group.traverse((object) => { if (object.isMesh) visibleNames.push(object.name); });
+    assert.ok(visibleNames.some((part) => new RegExp(station.role, 'i').test(part)),
+      `${name} visibly carries its ${station.role} equipment`);
+  }
+
+  const { officeCommand, radio, triage, resupply } = stations.zones;
+  assert.ok(officeCommand.anchor.x > OFFICE.x0 && officeCommand.anchor.x < OFFICE.x1
+    && officeCommand.anchor.z > OFFICE.z0 && officeCommand.anchor.z < OFFICE.z1);
+  assert.ok(radio.anchor.x > CONFERENCE.x0 && radio.anchor.x < CONFERENCE.x1
+    && radio.anchor.z > CONFERENCE.z0 && radio.anchor.z < CONFERENCE.z1);
+  for (const station of [triage, resupply]) {
+    assert.ok(station.anchor.x > GALLERY.x0 && station.anchor.x < GALLERY.x1
+      && station.anchor.z > GALLERY.z0 && station.anchor.z < GALLERY.z1);
+    assert.ok(Math.abs(station.anchor.x) >= 3.2,
+      'gallery operations stay outside the central attacker/player lane');
+  }
+  assert.deepEqual(stations.colliders, []);
+  assert.equal(damage.entry('siege.stations').colliders.length, 0,
+    'operational set dressing never becomes invisible combat navigation');
+
+  damage.apply('clean');
+  assert.equal(stations.group.visible, false, 'the clean walking tour has no siege stations');
+});
+
+test('battle lighting separates the cold breach, the firing rail and the warm command room', () => {
+  const damage = new MansionDamageState({ colliders: [] });
+  const registered = [];
+  const night = buildSiegeNight({ damage, registerLight: (light) => registered.push(light) });
+  assert.deepEqual(Object.keys(night.accents).sort(), ['breach', 'command', 'gallery']);
+  assert.equal(registered.filter((light) => light.userData.siegeAccent).length, 3,
+    'the hierarchy costs exactly three bounded practical lights');
+
+  const { breach, gallery, command } = night.accents;
+  assert.ok(breach.light.color.b > breach.light.color.r, 'the broken entrance reads cold');
+  assert.ok(gallery.light.color.b > gallery.light.color.r, 'the firing rail carries a cold rim');
+  assert.ok(command.light.color.r > command.light.color.b, 'Lou\'s command pool stays warm');
+  assert.ok(breach.anchor.z <= BUILDING.z0 + 1, 'the breach light belongs to the front elevation');
+  assert.ok(gallery.anchor.z >= GALLERY.z0 && gallery.anchor.z <= GALLERY.z1);
+  assert.ok(command.anchor.z >= OFFICE.z0 && command.anchor.z <= OFFICE.z1);
+
+  damage.apply('clean');
+  assert.equal(night.accentRoot.visible, false);
+  damage.apply('under_attack');
+  assert.equal(night.accentRoot.visible, true);
+});
+
+test('fire smoke uses the shared pooled billboard system and clears it outside the battle layer', () => {
+  const sharedSmoke = {
+    puffs: Array.from({ length: 8 }, () => ({ sprite: { visible: false } })),
+    emits: [],
+    updates: [],
+    emit(origin, direction, options) {
+      this.emits.push({ origin: origin.clone(), direction: direction.clone(), options });
+      this.puffs[0].sprite.visible = true;
+    },
+    update(dt) { this.updates.push(dt); },
+  };
+  const { damage, dressing } = siege({ smokeSystem: sharedSmoke });
+  assert.equal(dressing.props.smoke.sharedSystem, sharedSmoke);
+  assert.equal(dressing.props.smoke.mode, 'shared-pooled-billboards');
+  assert.ok(dressing.props.fires.all.every((fire) => fire.smoke.group.visible === false),
+    'legacy smoke balls are not drawn over the shared sprites');
+
+  damage.apply('under_attack');
+  for (let i = 0; i < 8; i++) dressing.update(0.1);
+  assert.ok(sharedSmoke.emits.length >= 2, 'both bounded fires emit through the shared pool');
+  assert.equal(sharedSmoke.updates.length, 8, 'the shared pool advances on the scene clock');
+  assert.ok(sharedSmoke.emits.every((entry) => entry.options.peak <= SMOKE_MAX_OPACITY));
+
+  damage.apply('clean');
+  const before = sharedSmoke.emits.length;
+  dressing.update(0.1);
+  assert.equal(sharedSmoke.emits.length, before, 'clean/repaired states emit no fire smoke');
+  assert.ok(sharedSmoke.puffs.every((puff) => puff.sprite.visible === false),
+    'a repaired house cannot retain a pooled siege puff');
 });
 
 test('the siege owns every collider it adds, and hands none of them over twice', () => {

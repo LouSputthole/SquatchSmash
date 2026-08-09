@@ -173,6 +173,21 @@ test('the HotDog runtime uses canonical faces and one Snow/Lawnmower body', () =
   assert.doesNotMatch(source, /makeNpc\(scene, club, \{\s*name: 'Lawnmower'/);
 });
 
+test('closed-party Lou wears the canonical Bing three-piece without moving his party mark', () => {
+  const source = fs.readFileSync(new URL('../src/bing/hotdog-party.js', import.meta.url), 'utf8');
+  const start = source.indexOf('const lou = makeNpc(scene, club, {');
+  const end = source.indexOf('const hotdog = makeNpc', start);
+  assert.ok(start >= 0 && end > start, 'the closed-party Lou call site is missing');
+  const lou = source.slice(start, end);
+
+  assert.match(source, /import \{[^}]*BIG_UNCLE_LOU_BING[^}]*\} from '\.\.\/core\/wardrobe\.js';/s);
+  assert.match(lou, /x: -16\.2, z: 2\.0, yaw: 2\.25, job: 'stand'/,
+    'Lou moved or changed pose during the wardrobe reuse');
+  assert.match(lou, /model: \{ \.\.\.BIG_UNCLE_LOU_BING, face: faces\.has\('lou\.png'\) \? 'assets\/faces\/lou\.png' : null \}/,
+    'closed-party Lou is not the Bing variant with the existing face decision');
+  assert.doesNotMatch(lou, /\.\.\.BIG_UNCLE_LOU(?:[, }])/, 'the plain Lou model returned');
+});
+
 test('completed cleanup tasks restore every matching party prop and pad', () => {
   const visible = () => ({ visible: true });
   const party = {

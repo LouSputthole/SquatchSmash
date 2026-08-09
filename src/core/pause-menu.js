@@ -117,6 +117,11 @@ function installStyle() {
     [data-scene-pause] button:hover,
     [data-scene-pause] button:focus-visible { background: #845bdd; outline: 2px solid #d8c9ff; }
     [data-scene-pause] button.secondary { background: rgba(255, 255, 255, .06); }
+    [data-scene-pause] button:disabled {
+      opacity: .42;
+      cursor: not-allowed;
+    }
+    [data-scene-pause] button:disabled:hover { background: rgba(255, 255, 255, .06); outline: none; }
     [data-scene-pause] .scene-pause-foot {
       margin: 18px 0 0;
       color: #747e93;
@@ -149,6 +154,7 @@ function read(value, fallback = '') {
  * @param {function(): void} [options.onRestart]
  * @param {string|function(): string} [options.restartLabel]
  * @param {function(): boolean} [options.canRestart]
+ * @param {{getState: function(): object, restartFromCheckpoint: function(): *, restartScene: function(): *, skipScene: function(): *}} [options.recovery]
  * @param {{label: string, onSelect: function(): void, secondary?: boolean, close?: boolean}[]} [options.actions]
  */
 export function createPauseMenu({
@@ -162,6 +168,7 @@ export function createPauseMenu({
   onRestart = null,
   restartLabel = 'Restart scene',
   canRestart = () => true,
+  recovery = null,
   actions: extraActions = [],
 } = {}) {
   installStyle();
@@ -192,8 +199,33 @@ export function createPauseMenu({
   const actions = root.querySelector('.scene-pause-actions');
   const resumeButton = root.querySelector('[data-scene-pause-resume]');
 
+  const recoveryButtons = {};
+  if (recovery?.getState
+    && recovery?.restartFromCheckpoint
+    && recovery?.restartScene
+    && recovery?.skipScene) {
+    for (const [id, label, method] of [
+      ['checkpoint', 'Restart from checkpoint', 'restartFromCheckpoint'],
+      ['scene', 'Restart scene', 'restartScene'],
+      ['skip', 'Skip scene', 'skipScene'],
+    ]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary';
+      button.dataset.sceneRecoveryAction = id;
+      button.textContent = label;
+      button.addEventListener('click', () => {
+        if (button.disabled || button.hidden) return;
+        resume();
+        recovery[method]();
+      });
+      recoveryButtons[id] = button;
+      actions.appendChild(button);
+    }
+  }
+
   let restartButton = null;
-  if (onRestart) {
+  if (!recovery && onRestart) {
     restartButton = document.createElement('button');
     restartButton.type = 'button';
     restartButton.className = 'secondary';
@@ -223,6 +255,17 @@ export function createPauseMenu({
 
   function refresh() {
     objective.textContent = read(getObjective, 'Review the instructions, then return when you are ready.');
+    if (recoveryButtons.checkpoint) {
+      const state = recovery.getState();
+      recoveryButtons.checkpoint.disabled = !state.checkpointAvailable;
+      recoveryButtons.checkpoint.title = state.checkpointAvailable
+        ? 'Return to the latest durable checkpoint'
+        : 'No checkpoint is available in this scene yet';
+      recoveryButtons.scene.disabled = !state.sceneRestartAvailable;
+      recoveryButtons.skip.hidden = !state.skipAvailable;
+      recoveryButtons.skip.disabled = !state.skipAvailable;
+      recoveryButtons.skip.setAttribute('aria-hidden', String(!state.skipAvailable));
+    }
     if (restartButton) {
       const available = Boolean(canRestart());
       restartButton.textContent = read(restartLabel, 'Restart scene');

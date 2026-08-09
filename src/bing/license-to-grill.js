@@ -9,18 +9,17 @@
  *
  * ---- what the scene is actually about ----
  *
- * The joke has a mechanic under it. Hitting Blond does nothing — he has been
- * trained for it and, more to the point, he enjoys the audience. Every
- * physical option in here is deliberately near-worthless, and the scene is
- * written so the player works out on their own that the man does not care
- * about his body at all and cares enormously about his things. The watch, the
- * camera, the pistol, the jacket: each one moves him. The car finishes him.
+ * The joke has a mechanic under it. Hitting Blond never extracts information
+ * — he has been trained for it and, more to the point, he enjoys the audience.
+ * Seven landed blows kill the source instead. The successful route is to
+ * destroy one of the things he actually values: the watch, camera, pistol or
+ * jacket. Threatening the car remains an alternate unconditional break.
  *
  * So `pressure` is not a health bar. It is how close the player is to noticing
- * what Blond is. Beating him raises it a trickle; touching his property raises
- * it properly; mentioning the Harrington ends the conversation. A player who
- * only ever swings the cord can still get there, slowly, and will feel stupid
- * when they find the keys, which is the correct feeling.
+ * what Blond is. Beating him raises it a trickle but cannot make him talk;
+ * breaking property or threatening the Harrington resolves the information
+ * route. Body violence and property leverage are mutually exclusive outcomes:
+ * whichever one resolves first owns the scene.
  *
  * ---- structure ----
  *
@@ -43,7 +42,7 @@ export const INFORMANT_MEET = 'behind the laundromat, Thursdays';
 export const QUEST = Object.freeze({
   id: 'license_to_grill',
   door: 'Help Au Gratin with a delicate matter',
-  objective: 'Make James Blond talk',
+  objective: 'Help Au Gratin in the back room',
   title: 'License to Grill',
 });
 
@@ -54,11 +53,10 @@ export const SHUBES_INTERRUPTION_AT = 40;
  * Everything the player can do to him, and what it is worth.
  *
  * The numbers are the argument: `chair` and `strike` are almost free and buy
- * almost nothing, and the two of them together cannot break him inside a
- * player's patience. `sauce` is the best of the physical options because it is
- * the only one that surprises him. Property is worth three to five times a
- * beating, and the car is not on this table at all — it is not a nudge, it is
- * the end.
+ * almost nothing as interrogation pressure. `sauce` is the best physical
+ * surprise, but seven landed body hits still end in death rather than
+ * information. Handling property reveals leverage; destroying one valid
+ * belonging resolves it. The car is an alternate end, not another nudge.
  */
 export const PRESSURE = Object.freeze({
   chair: 3,
@@ -74,15 +72,9 @@ export const PRESSURE = Object.freeze({
   /**
    * And breaking one of his things, on top of having picked it up.
    *
-   * Deliberately the smallest number on this table except the cord, and that
-   * is the argument, not an oversight. What moves him is a stranger holding
-   * the thing and deciding. Once it is in pieces the decision has been made
-   * and there is nothing left of it to threaten him with — which is the same
-   * lesson the repeat rule teaches about the cart, and the reason the car
-   * works: the car is still in one piece when he talks.
-   *
-   * Counted once per object, so a full table of smashed effects is worth 24 —
-   * meaningful, and still nothing beside walking towards the door.
+   * The numeric gain remains useful for the reaction ledger, but a first valid
+   * break now also sets the successful information state immediately. It is
+   * counted once per object; repeat clicks cannot replay the resolution.
    */
   smash: 6,
 });
@@ -147,18 +139,13 @@ export const BELONGINGS = Object.freeze([
 /**
  * The cart, the same way the table works.
  *
- * Owner's playtest note: he picked the meat tenderiser off the cart menu and
- * nothing showed up in his hands, and there was no way to use it on Blond —
- * the old `cart` options fired `apply()` the instant they were chosen, off a
- * line in a menu, which is the exact interface problem the table's own note
- * describes: *"each one you pick up triggers the voice dialogue and then you
- * have the option to smash it,"* except the cart never got the "pick up"
- * half at all. So a cart tool works exactly like the cord now: choosing one
- * puts it in Tony's hands (`takeTool`), and using it on Blond — standing over
- * him, the same reach the cord swings at — is what fires `node`, which is the
- * exchange that already existed for it. `sauce` is worth the most precisely
- * because it is the one thing on this cart he does not have a joke ready
- * for; see `PRESSURE`.
+ * Owner's playtest note: the cart used to be a dialogue menu, so picking the
+ * tenderiser neither removed a physical object nor produced a usable held
+ * tool. Each entry is now the single rules identity shared by the visible
+ * [E] pickup, the first-person model and the left-click impact. `node` is only
+ * the reaction after that impact; it never applies the hit itself. `sauce` is
+ * worth the most pressure precisely because it is the one thing on this cart
+ * he does not have a joke ready for.
  */
 export const CART_TOOLS = Object.freeze([
   Object.freeze({
@@ -178,11 +165,23 @@ export const CART_TOOLS = Object.freeze([
 /** How many landed swings of the cord before Gratin points at the table. */
 export const SWINGS_BEFORE_THE_TABLE = 3;
 
-/** The three ways it ends. */
+/**
+ * Blond can endure a beating, but he is not invulnerable.
+ *
+ * Seven landed body hits is the owner's chosen failure line: the seventh
+ * kills him and permanently closes the information route. Misses (`chair`)
+ * and smashed property are not body hits. Repeated tools still count here
+ * even when their interrogation-pressure trick has already been spent.
+ */
+export const FATAL_HITS = 7;
+const BODY_HITS = new Set(['strike', ...CART_TOOLS.map((tool) => tool.id)]);
+
+/** The four ways it ends. */
 export const ENDINGS = Object.freeze({
   LEFT: 'left_tied',
   UNTIED: 'untied_one_hand',
   SHOT: 'finished',
+  BEATEN: 'beaten_to_death',
 });
 
 /**
@@ -202,6 +201,10 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
     smashed: new Set(),
     /** Landed swings of the cord, which is how Gratin knows when to stop you. */
     swings: 0,
+    /** Every landed blow to Blond's body, regardless of repeated technique. */
+    hits: 0,
+    /** A dead informant cannot give up a name. */
+    dead: false,
     shubesSeen: false,
     carThreatened: false,
     broken: false,
@@ -213,12 +216,29 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
 
   /** He notices a thing being done to him, and mostly does not mind. */
   function apply(kind) {
+    if (state.broken || state.dead) {
+      return {
+        gain: 0, repeat: true, pressure: state.pressure, hits: state.hits,
+        fatal: false, dead: state.dead,
+      };
+    }
     const gain = PRESSURE[kind] ?? 0;
+    const bodyHit = BODY_HITS.has(kind);
+    let fatal = false;
+    if (bodyHit && !state.dead) {
+      state.hits += 1;
+      if (state.hits >= FATAL_HITS) {
+        state.dead = true;
+        fatal = true;
+      }
+    }
     if (state.used.has(kind) && kind !== 'chair' && kind !== 'strike') {
       /* A trick only works the first time. Repeating an environmental option
        * is not punished, it is simply worth nothing, which is the same lesson
        * the scene is teaching about the beating. */
-      return { gain: 0, repeat: true, pressure: state.pressure };
+      return {
+        gain: 0, repeat: true, pressure: state.pressure, hits: state.hits, fatal, dead: state.dead,
+      };
     }
     state.used.add(kind);
     /* Only swings that LAND. A cord that cracks on the floor is `chair`, and
@@ -228,7 +248,9 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
     if (kind === 'strike') state.swings += 1;
     if (BELONGINGS.some((item) => item.id === kind)) state.handled.add(kind);
     state.pressure = Math.min(100, state.pressure + gain);
-    return { gain, repeat: false, pressure: state.pressure };
+    return {
+      gain, repeat: false, pressure: state.pressure, hits: state.hits, fatal, dead: state.dead,
+    };
   }
 
   /**
@@ -243,21 +265,38 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
    */
   function smash(id) {
     if (!BELONGINGS.some((item) => item.id === id && item.smashNode)) {
-      return { gain: 0, repeat: false, pressure: state.pressure };
+      return {
+        gain: 0, repeat: false, pressure: state.pressure, broke: false,
+      };
     }
     if (state.smashed.has(id)) {
-      return { gain: 0, repeat: true, pressure: state.pressure };
+      return {
+        gain: 0, repeat: true, pressure: state.pressure, broke: false,
+      };
     }
     state.smashed.add(id);
     state.used.add(`smashed:${id}`);
     state.pressure = Math.min(100, state.pressure + PRESSURE.smash);
-    return { gain: PRESSURE.smash, repeat: false, pressure: state.pressure };
+    /* This is the successful route. The object in Tony's hands is the thing
+     * Blond actually values, and destroying it proves the threat is real in a
+     * way another body blow never can. A dead Blond stays silent forever. */
+    const broke = !state.broken && !state.dead;
+    if (broke) {
+      state.broken = true;
+      state.pressure = 100;
+      onBreak();
+    }
+    return {
+      gain: PRESSURE.smash, repeat: false, pressure: state.pressure, broke,
+    };
   }
 
   return {
     get state() { return state; },
     get pressure() { return state.pressure; },
     get broken() { return state.broken; },
+    get dead() { return state.dead; },
+    get hits() { return state.hits; },
 
     apply,
     smash,
@@ -271,7 +310,8 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
 
     /** Shubes walks in once, and only when it is at its worst. */
     shubesDue() {
-      return !state.shubesSeen && !state.broken && state.pressure >= SHUBES_INTERRUPTION_AT;
+      return !state.shubesSeen && !state.broken && !state.dead
+        && state.pressure >= SHUBES_INTERRUPTION_AT;
     },
     markShubes() { state.shubesSeen = true; },
 
@@ -280,9 +320,9 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
      * the discovery is earned rather than handed over, and unconditional once
      * it is — no threshold, no roll. He breaks.
      */
-    carAvailable() { return state.handled.size > 0 && !state.broken; },
+    carAvailable() { return state.handled.size > 0 && !state.broken && !state.dead; },
     threatenCar() {
-      if (state.broken) return false;
+      if (state.broken || state.dead) return false;
       state.carThreatened = true;
       state.broken = true;
       state.pressure = 100;
@@ -309,9 +349,9 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
     /** What the campaign keeps. Deliberately small and all facts. */
     persist() {
       return {
-        completed: state.broken,
-        informant: state.broken ? INFORMANT_NAME : null,
-        meet: state.broken ? INFORMANT_MEET : null,
+        completed: state.broken || state.dead,
+        informant: state.broken && !state.dead ? INFORMANT_NAME : null,
+        meet: state.broken && !state.dead ? INFORMANT_MEET : null,
         ending: state.ending,
         compassion: state.compassion,
         gratinRespect: state.respect,
@@ -348,7 +388,8 @@ const PROSPECT = 'Prospect';
  *   shubesLeaves()   the floor has the room back; he is not in it any more
  *   answerCounter()  respond to his pitch
  *   finish(ending)   end the scene
- *   broken()         has he given the name up yet
+ *   broken()         has the information route been secured
+ *   markNamed()      the spoken name has finished and re-entry may advance
  *   handled()        how many of his things have been turned over
  *   handOff(node)    leave whoever you are talking to and go back to Blond,
  *                    at the named node, once the current line has finished
@@ -366,6 +407,7 @@ export function buildLicenseToGrillScript({
   answerCounter = () => 0,
   finish = () => {},
   broken = () => false,
+  markNamed = () => {},
   handled = () => 0,
   handOff = () => {},
 } = {}) {
@@ -390,6 +432,10 @@ export function buildLicenseToGrillScript({
    * whole joke is that he arrives at the wrong moment.
    */
   const backToTable = () => {
+    /* Destroying one of his possessions is the successful interrogation
+     * route. Let its authored reaction finish, then move directly into the
+     * information instead of stranding the player beside the wreckage. */
+    if (broken()) return 'breaks';
     if (shubesDue()) { markShubes(); return 'shubesEnters'; }
     return null;
   };
@@ -452,13 +498,11 @@ export function buildLicenseToGrillScript({
       who: GRATIN,
       line: 'Here. Off the fryer. It was a cord before it was anything else, so nobody has to explain it later.',
       hold: 6.2,
-      options: [
-        {
-          tone: 'Take',
-          text: 'Take the cord.',
-          next: () => { takeCord(); return 'cordInHand'; },
-        },
-      ],
+      /* A physical handoff is not a timed dialogue decision. Putting it in
+       * inventory as the line begins means walking away, waiting, or using
+       * another interaction cannot permanently lose the cord. */
+      enter: () => { takeCord(); },
+      next: 'cordInHand',
     },
     cordInHand: {
       who: GRATIN,
@@ -703,8 +747,7 @@ export function buildLicenseToGrillScript({
     },
     useTenderizer: {
       who: BLOND,
-      enter: () => { apply('tenderizer'); },
-        line: 'Surely that violates some international convention.',
+      line: 'Surely that violates some international convention.',
       hold: 3.4,
       next: 'tenderizerGratin',
     },
@@ -716,8 +759,7 @@ export function buildLicenseToGrillScript({
     },
     useIce: {
       who: BLOND,
-      enter: () => { apply('ice'); },
-        line: 'Cold.',
+      line: 'Cold.',
       hold: 1.8,
       next: 'iceGratin',
     },
@@ -729,8 +771,7 @@ export function buildLicenseToGrillScript({
     },
     useTongs: {
       who: BLOND,
-      enter: () => { apply('tongs'); },
-        line: 'Let’s not be theatrical.',
+      line: 'Let’s not be theatrical.',
       hold: 2.6,
       next: 'tongsGratin',
     },
@@ -742,8 +783,7 @@ export function buildLicenseToGrillScript({
     },
     useSauce: {
       who: GRATIN,
-      enter: () => { apply('sauce'); },
-        line: 'This is either hot sauce or fryer cleaner. Label fell off.',
+      line: 'This is either hot sauce or fryer cleaner. Label fell off.',
       hold: 4.0,
       next: 'sauceBlond',
     },
@@ -926,6 +966,7 @@ export function buildLicenseToGrillScript({
       who: GRATIN,
       line: 'Numbskull, is there a pen. There’s a pen. I’m using the menu.',
       hold: 4.2,
+      enter: () => { markNamed(); },
       next: 'afterTheName',
     },
     afterTheName: {

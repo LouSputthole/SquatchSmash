@@ -13,6 +13,8 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { StreamSystem } from '../world/stream.js';
 import { graveyardAudioLoadOptions } from './audio.js';
 import { createPrimaryGraveControl } from './controls.js';
@@ -106,6 +108,7 @@ clock.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
 
 const state = {
   phase: 'menu',
+  paused: false,
   elapsed: 0,
   lines: [],
   activeLine: null,
@@ -531,18 +534,54 @@ startButton.addEventListener('click', async () => {
   }
 });
 
+const pauseMenu = createPauseMenu({
+  title: 'The Squatch Graveyard',
+  canPause: () => state.phase === 'active' && !state.endingShown,
+  getObjective: () => [objectiveEl.textContent, objectiveDetailEl.textContent]
+    .filter(Boolean).join(' — ') || 'Carry Billy to the open grave and bury him.',
+  instructions: [
+    'W A S D — move. Shift — hurry. Space — jump unless carrying Billy.',
+    'E or Click — interact; hold E for carrying, placement, burial, and grave actions.',
+    'Brawny and Whiplash automatically use the disrespect action.',
+    'Q — stop the disrespect action. B — bloom. Tab — pause or resume.',
+  ],
+  onPause: () => {
+    state.paused = true;
+    player.enabled = false;
+    player.clearKeys();
+    primaryControl.release();
+    interaction.release();
+    interaction.setPaused(true);
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    state.paused = false;
+    interaction.setPaused(false);
+    audio.ctx?.resume?.();
+    lastTime = performance.now();
+    requestGamePointerLock();
+  },
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.SQUATCH_GRAVEYARD,
+    location,
+  }),
+});
+
 motelButton.addEventListener('click', () => {
   story.continueAfterCompletion({ location });
 });
 
 document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active') player.enabled = document.pointerLockElement === canvas;
+  if (state.phase === 'active' && !state.paused) {
+    player.enabled = document.pointerLockElement === canvas;
+  }
 });
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
 });
 document.addEventListener('keydown', (event) => {
-  if (state.phase !== 'active') return;
+  if (state.phase !== 'active' || state.paused) return;
   if (event.code === 'Space') event.preventDefault();
   if (mission.state === 'carried'
     && ['Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
@@ -571,7 +610,9 @@ document.addEventListener('mouseup', (event) => {
   if (event.button === 0) primaryControl.release();
 });
 canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && document.pointerLockElement !== canvas) requestGamePointerLock();
+  if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
+    requestGamePointerLock();
+  }
 });
 
 addEventListener('resize', () => {
@@ -586,8 +627,8 @@ function animate(now) {
   requestAnimationFrame(animate);
   const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
   lastTime = now;
-  state.elapsed += dt;
-  if (state.phase === 'active') {
+  if (!state.paused) state.elapsed += dt;
+  if (state.phase === 'active' && !state.paused) {
     player.update(dt);
     interaction.update(dt);
     updatePee(dt);
@@ -598,9 +639,11 @@ function animate(now) {
     const traitor = currentTraitorGrave();
     peeHint.classList.toggle('hidden', !traitor || state.pee.active);
   }
-  updateDialogue(dt);
-  graveyard.update(dt, state.elapsed, player.position);
-  clock.update(dt);
+  if (!state.paused) {
+    updateDialogue(dt);
+    graveyard.update(dt, state.elapsed, player.position);
+    clock.update(dt);
+  }
   hud.setClock(clock.day, clock.clock12, clock.elapsedReal);
   postfx.render();
   postfx.sample(dt);

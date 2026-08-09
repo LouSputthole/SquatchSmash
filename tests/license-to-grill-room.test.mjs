@@ -15,23 +15,32 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import * as THREE from 'three';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
 import { isBingPreloadCue } from '../src/bing/audio.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
-import { PRESSURE, SWINGS_BEFORE_THE_TABLE } from '../src/bing/license-to-grill.js';
+import {
+  ENDINGS,
+  FATAL_HITS,
+  PRESSURE,
+  SWINGS_BEFORE_THE_TABLE,
+} from '../src/bing/license-to-grill.js';
 import { createLicenseToGrill } from '../src/bing/license-to-grill-runtime.js';
+
+ensureDomShim();
 
 /** The store room's real coordinates, from src/bing/club.js. */
 const CHAIR = { x: 9.6, z: -12.3 };
 const DOOR = { x: 6.75, z: -9.5 };
 const TABLE = { x: 9.9, y: 0.815, z: -10.15 };
 
-function harness() {
+function harness({ inventoryRejects = false, initialPersisted = null } = {}) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera();
   const played = [];
   const said = [];
   const started = [];
+  const toasts = [];
 
   const audio = {
     play: (name) => played.push(name),
@@ -45,11 +54,12 @@ function harness() {
     hand: null,
     lines: said,
     say: (text) => said.push(text),
-    toast: () => {},
+    toast: (text) => toasts.push(text),
     setHand(item) { this.hand = item; },
   };
   const dialogue = {
     active: false,
+    ended: null,
     log: started,
     start(tree, at) {
       started.push(at);
@@ -59,6 +69,7 @@ function harness() {
       tree?.[at]?.enter?.();
     },
     finish() { this.active = false; },
+    end(reason = 'done') { this.active = false; this.ended = reason; },
   };
   const player = { position: new THREE.Vector3(0, 0, 0), yaw: 0 };
   const registered = [];
@@ -81,11 +92,21 @@ function harness() {
       [CHARACTER_IDS.SHUBENATOR]: member(-5, 6),
     },
   };
-  const inventory = { added: [], add(id) { this.added.push(id); return true; } };
+  const inventory = {
+    added: [],
+    attempted: [],
+    add(id) {
+      this.attempted.push(id);
+      if (inventoryRejects) return false;
+      this.added.push(id);
+      return true;
+    },
+  };
   const club = {
     colliders: [],
     anchors: {
       grillTable: new THREE.Vector3(TABLE.x, TABLE.y, TABLE.z),
+      grillCart: new THREE.Vector3(8.2, 0.82, -12.85),
       storeRadio: new THREE.Vector3(13.05, 1.32, -12.8),
     },
     storeroom: { table: { rotation: { y: 0.05 } } },
@@ -104,6 +125,7 @@ function harness() {
     family,
     shubenator: { scripted() {} },
     inventory,
+    initialPersisted,
     items: { cord: { icon: '🪢', name: 'The cord' } },
     onPersist: () => {},
   });
@@ -129,7 +151,7 @@ function harness() {
 
   return {
     quest, scene, camera, audio, hud, dialogue, player, interaction, family,
-    inventory, club, played, said, started, registered, standAt, swingThrough, padFor,
+    inventory, club, played, said, started, toasts, registered, standAt, swingThrough, padFor,
   };
 }
 
@@ -139,6 +161,15 @@ function walkIn(h) {
   h.standAt(CHAIR.x, CHAIR.z + 1.3, CHAIR);
   h.quest.update(0.05);
   h.dialogue.finish();
+  return h;
+}
+
+/** Drive Gratin's automatic handoff at the real dialogue node. */
+function receiveCord(h) {
+  const node = h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord;
+  assert.equal(node.options, undefined, 'the cord handoff regressed to a numbered choice');
+  node.enter();
+  assert.equal(node.next, 'cordInHand');
   return h;
 }
 
@@ -192,6 +223,27 @@ test('opening the door does not teleport anybody', () => {
   assert.equal(h.player.yaw, yaw);
 });
 
+test('a completed saved result keeps the required objective closed on reload', () => {
+  const saved = {
+    completed: true,
+    informant: 'Vincent Mallard',
+    meet: 'Every Thursday behind the laundromat',
+    ending: ENDINGS.LEFT,
+  };
+  const h = harness({ initialPersisted: saved });
+  assert.equal(h.quest.phase, 'done');
+  assert.deepEqual(h.quest.persisted, saved);
+  assert.equal(h.quest.available(), false);
+  assert.equal(h.quest.open(), false, 'reload reopened the completed objective');
+  h.standAt(DOOR.x, DOOR.z + 0.4);
+  h.quest.update(0.05);
+  assert.deepEqual(h.started, [], 'completed reload replayed Gratin through the door');
+
+  const malformed = harness({ initialPersisted: 'not a payload' });
+  assert.equal(malformed.quest.phase, 'closed', 'malformed persistence blocked a fresh quest');
+  assert.equal(malformed.quest.open(), true);
+});
+
 test('the conversation waits until he has actually walked up to the chair', () => {
   const h = harness();
   h.standAt(DOOR.x, DOOR.z + 0.4);
@@ -205,6 +257,24 @@ test('the conversation waits until he has actually walked up to the chair', () =
   h.dialogue.finish();
   h.quest.update(0.05);
   assert.equal(h.started.filter((id) => id === 'open').length, 1);
+});
+
+test('Blond is visibly cuffed ankle-to-ankle while seated in the chair', () => {
+  const h = walkIn(harness());
+  const rig = h.quest.restraints;
+  assert.ok(rig, 'Blond has no ankle restraint rig');
+  assert.equal(rig.cuffs.length, 2, 'both ankles need steel cuffs');
+  assert.ok(rig.links.length >= 5, 'the cuffs are not joined by a readable chain');
+  assert.ok(rig.cuffs.every((cuff) => /ankle-cuff/.test(cuff.name)));
+  assert.ok(rig.links.every((link) => /ankle-chain-link/.test(link.name)));
+
+  h.scene.updateMatrixWorld(true);
+  const first = rig.links[0].getWorldPosition(new THREE.Vector3());
+  const last = rig.links.at(-1).getWorldPosition(new THREE.Vector3());
+  const ends = rig.cuffs.map((cuff) => cuff.getWorldPosition(new THREE.Vector3()));
+  const direct = first.distanceTo(ends[0]) + last.distanceTo(ends[1]);
+  const crossed = first.distanceTo(ends[1]) + last.distanceTo(ends[0]);
+  assert.ok(Math.min(direct, crossed) < 0.18, 'the chain stops short of the ankle cuffs');
 });
 
 test('Gratin shouts through the door before it is ever opened', () => {
@@ -238,8 +308,7 @@ test('the cord goes into the inventory and into his hands', () => {
   /* Owner's note: *"Gratin should hand me the cord and let it come to my
    * inventory like an item, make sure its detailed like a whip."* */
   const h = walkIn(harness());
-  const take = h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0];
-  take.next();
+  receiveCord(h);
   assert.deepEqual(h.inventory.added, ['cord']);
   assert.equal(h.quest.hasCord, true);
   const cord = h.quest.cord;
@@ -260,7 +329,7 @@ test('the button is only offered once Gratin has finished handing it over', () =
   /* The tone doctrine: a character speaks first, the HUD clarifies afterwards,
    * never both at once. */
   const h = walkIn(harness());
-  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  receiveCord(h);
   h.dialogue.active = true;
   const before = h.said.length;
   h.quest.update(0.05);
@@ -274,11 +343,25 @@ test('the button is only offered once Gratin has finished handing it over', () =
   assert.ok(h.said.some((line) => /License to Grill/.test(line)), 'the title card was dropped');
 });
 
+test('a full inventory cannot make the automatic cord handoff fail', () => {
+  const h = walkIn(harness({ inventoryRejects: true }));
+  receiveCord(h);
+  assert.deepEqual(h.inventory.attempted, ['cord']);
+  assert.deepEqual(h.inventory.added, [], 'the harness did not reject the inventory slot');
+  assert.equal(h.quest.hasCord, true, 'inventory rejection discarded the quest weapon');
+  assert.equal(h.quest.cord.root.parent, h.camera, 'the rejected cord never reached his hands');
+  assert.ok(h.toasts.some((line) => /inventory full/i.test(line)), 'the fallback was silent');
+
+  h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
+  h.swingThrough();
+  assert.equal(h.quest.state.hits, 1, 'the fallback cord could not be used');
+});
+
 test('the whip lands when he is standing over the man, and not when he is not', () => {
   /* Owner's note: *"I want to be able to whip him on command."* No prompt, no
    * timing bar: the button swings, and where he is standing decides. */
   const h = walkIn(harness());
-  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  receiveCord(h);
 
   // Across the room: the cord cracks on the floor and buys almost nothing.
   h.standAt(7.0, -10.2, CHAIR);
@@ -302,7 +385,7 @@ test('the whip lands when he is standing over the man, and not when he is not', 
 
 test('the third landed swing is where Gratin points at the table', () => {
   const h = walkIn(harness());
-  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  receiveCord(h);
   h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
   const nodes = [];
   for (let i = 0; i < SWINGS_BEFORE_THE_TABLE; i++) {
@@ -364,7 +447,8 @@ test('breaking it fires the reaction, leaves wreckage, and cannot be done twice'
   const before = h.quest.state.pressure;
   assert.equal(h.quest.press(), true);
   assert.equal(h.started.at(-1), 'smashWatch');
-  assert.equal(h.quest.state.pressure, before + PRESSURE.smash);
+  assert.equal(h.quest.state.pressure, 100, 'breaking his property did not secure the information');
+  assert.equal(h.quest.state.broken, true);
   assert.equal(h.quest.held, null);
   const wreck = h.quest.table.get('watch').wreck;
   assert.ok(wreck, 'the watch simply vanished');
@@ -372,13 +456,29 @@ test('breaking it fires the reaction, leaves wreckage, and cannot be done twice'
   assert.equal(h.quest.table.get('watch').group.visible, false);
   // And the pad refuses to hand it back.
   assert.equal(h.padFor('what is left').userData.interact.enabled(), false);
+
+  /* If the reaction lapses, Blond must resume at the information itself — not
+   * reopen the interrogation floor, and not skip Vincent Mallard as though the
+   * name had already played. */
+  h.dialogue.finish();
+  const blond = h.registered.find((mesh) => /hear .*blond/i.test(mesh.userData.interact?.label?.() ?? ''));
+  assert.ok(blond, 'successful break did not leave a durable information interaction');
+  blond.userData.interact.onUse();
+  assert.equal(h.started.at(-1), 'breaks');
+
+  /* Only the final written-down beat marks the name as delivered. */
+  h.dialogue.start(h.quest.script[CHARACTER_IDS.JAMES_BLOND], 'writtenDown');
+  h.dialogue.finish();
+  assert.match(blond.userData.interact.label(), /settle up/i);
+  blond.userData.interact.onUse();
+  assert.equal(h.started.at(-1), 'afterTheName');
 });
 
 test('the cord never takes the left button outside the store room', () => {
   /* He keeps it for the rest of the evening, and out on the floor left click
    * is the club's second interact key: a slot machine has to stay clickable. */
   const h = walkIn(harness());
-  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  receiveCord(h);
   h.standAt(-8, 2);                       // the dance floor
   assert.equal(h.quest.press(), false);
   h.standAt(6.9, 1.0);                    // the hallway
@@ -387,12 +487,15 @@ test('the cord never takes the left button outside the store room', () => {
   assert.equal(h.quest.press(), true);
 });
 
-test('the cord is the fallback for the left button, and the thing in his hands wins', () => {
+test('left mouse stays the attack button in the store room and never falls through to E', () => {
   const h = walkIn(harness());
   h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
-  // Before Gratin hands it over, the left button belongs to the club.
-  assert.equal(h.quest.press(), false);
-  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  /* Empty hands still consume the click. Returning false here makes main.js
+   * call InteractionSystem.press(), which turns left mouse into the same
+   * pickup/talk button as E at exactly the moment the player expects attack. */
+  assert.equal(h.quest.press(), true);
+  assert.equal(h.quest.state.pressure, 0, 'an empty-handed attack invented a hit');
+  receiveCord(h);
   assert.equal(h.quest.press(), true, 'the cord does not swing');
   for (let i = 0; i < 20; i++) h.quest.update(0.05);
   h.padFor('pistol').userData.interact.onUse();
@@ -403,24 +506,153 @@ test('the cord is the fallback for the left button, and the thing in his hands w
 
 /* ---------------- the cart, in his hands ---------------- */
 
-/** Pick a tool off the cart's own menu, the way the player actually does. */
+test('every torture-cart tool is a physical E pickup in the room', () => {
+  const h = walkIn(harness());
+  for (const word of ['meat tenderiser', 'ice bucket', 'tongs', 'no label']) {
+    const target = h.padFor(word);
+    assert.ok(target, `${word} only exists in a dialogue menu`);
+    assert.equal(target.userData.interact.enabled(), true, `${word} cannot be picked up`);
+  }
+});
+
+test('every reusable cart-tool part has a stable semantic inspection name', () => {
+  const h = walkIn(harness());
+  for (const [id, state] of h.quest.cart) {
+    const anonymous = [];
+    state.group.traverse((part) => {
+      if (!part.name) anonymous.push(part.type);
+      if (part !== state.group) {
+        assert.match(part.name, new RegExp(`^grill\\.tool\\.${id}\\.`),
+          `${id} contains a non-semantic child name: ${part.name}`);
+      }
+    });
+    assert.deepEqual(anonymous, [], `${id} contains anonymous Object3D parts`);
+  }
+});
+
+test('E lifts the tenderiser off the cart and Q puts that same tool back', () => {
+  const h = walkIn(harness());
+  const target = h.padFor('meat tenderiser');
+  const worldTool = h.quest.cart.get('tenderizer').group;
+  target.userData.interact.onUse();
+  assert.equal(h.quest.tool, 'tenderizer');
+  assert.equal(worldTool.visible, false, 'the tenderiser remained on the cart while held');
+  assert.ok(h.camera.getObjectByName('grill.tool.tenderizer'), 'the tenderiser never reached his hands');
+  assert.equal(h.quest.state.pressure, 0, 'picking a tool up counted as hitting Blond');
+
+  assert.equal(h.quest.stepBack(), true);
+  assert.equal(h.quest.tool, null);
+  assert.equal(worldTool.visible, true, 'Q did not return the tenderiser to the cart');
+});
+
+test('left click visibly swings a cart tool and applies the hit only at impact', () => {
+  const h = walkIn(harness());
+  h.padFor('meat tenderiser').userData.interact.onUse();
+  h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
+  const held = h.camera.getObjectByName('grill.tool.tenderizer');
+  const rest = held.rotation.toArray().slice(0, 3);
+
+  assert.equal(h.quest.press(), true);
+  assert.equal(h.quest.state.pressure, 0, 'click applied damage before the tool arrived');
+  h.quest.update(0.12);
+  assert.notDeepEqual(held.rotation.toArray().slice(0, 3), rest, 'the held tenderiser never swung');
+  assert.equal(h.quest.state.pressure, 0, 'damage landed during the wind-up');
+
+  for (let i = 0; i < 20; i++) h.quest.update(0.05);
+  assert.equal(h.quest.state.pressure, PRESSURE.tenderizer);
+  assert.equal(h.quest.state.hits, 1);
+  assert.equal(h.started.at(-1), 'useTenderizer');
+});
+
+test('every landed cart-tool hit leaves pooled impact blood on Blond', () => {
+  const h = walkIn(harness());
+  h.padFor('meat tenderiser').userData.interact.onUse();
+  h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
+  h.quest.press();
+  for (let i = 0; i < 20; i++) h.quest.update(0.05);
+
+  const blood = h.quest.blood;
+  assert.ok(blood, 'the room did not mount the shared blood systems');
+  assert.ok(blood.impacts.marksOn(h.quest.blond) >= 2, 'the landed blow left no wound and spatter');
+  assert.equal(blood.pools.visibleCount, 0, 'a non-fatal hit created a death pool');
+});
+
+test('putting a tool down or closing during wind-up cancels the pending impact', () => {
+  for (const cancel of ['put-back', 'close']) {
+    const h = walkIn(harness());
+    h.padFor('meat tenderiser').userData.interact.onUse();
+    h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
+    h.quest.press();
+    h.quest.update(0.08);
+    if (cancel === 'put-back') h.quest.stepBack();
+    else h.quest.close();
+    h.quest.update(1);
+    assert.equal(h.quest.state.hits, 0, `${cancel} left a ghost hit queued`);
+    assert.equal(h.quest.blood.impacts.marksOn(h.quest.blond), 0, `${cancel} left ghost blood`);
+  }
+});
+
+test('the seventh landed blow kills Blond, pools blood, and persists no information', () => {
+  const h = walkIn(harness());
+  h.padFor('meat tenderiser').userData.interact.onUse();
+  h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
+
+  for (let hit = 1; hit <= FATAL_HITS; hit++) {
+    h.dialogue.finish();
+    h.quest.press();
+    for (let frame = 0; frame < 20; frame++) h.quest.update(0.05);
+    assert.equal(h.quest.state.hits, hit, `landed blow ${hit} was not counted once`);
+  }
+
+  assert.equal(h.quest.phase, 'done');
+  assert.equal(h.quest.state.dead, true);
+  assert.equal(h.quest.persisted.ending, ENDINGS.BEATEN);
+  assert.equal(h.quest.persisted.informant, null);
+  assert.equal(h.quest.persisted.meet, null);
+  assert.ok(h.toasts.some((line) => /information dies with him/i.test(line)),
+    'fatal outcome never explained the lost information');
+  assert.equal(h.dialogue.ended, 'fatal', 'fatal impact left stale dialogue options active');
+  assert.equal(h.quest.blood.pools.visibleCount, 1, 'fatal blow left no floor pool');
+  assert.equal(h.quest.blond.group.userData.dead, true, 'Blond still presents as alive');
+  assert.ok(Math.abs(h.quest.blond.parts.body.rotation.z) > 0.2, 'fatal close reset him upright');
+
+  /* The torso rotates in the fatal pose, but the shin-parented cuffs do not.
+   * The chain must remain measured between the cuffs after that rotation. */
+  h.scene.updateMatrixWorld(true);
+  const rig = h.quest.restraints;
+  const first = rig.links[0].getWorldPosition(new THREE.Vector3());
+  const last = rig.links.at(-1).getWorldPosition(new THREE.Vector3());
+  const ends = rig.cuffs.map((cuff) => cuff.getWorldPosition(new THREE.Vector3()));
+  const direct = first.distanceTo(ends[0]) + last.distanceTo(ends[1]);
+  const crossed = first.distanceTo(ends[1]) + last.distanceTo(ends[0]);
+  assert.ok(Math.min(direct, crossed) < 0.18, 'fatal slump detached the chain from his cuffs');
+
+  const pool = h.quest.blood.pools.meshes.find((mesh) => mesh.visible);
+  const initialOpacity = pool.material.opacity;
+  h.quest.update(0.8);
+  assert.ok(pool.material.opacity > initialOpacity, 'death pool stopped growing after phase done');
+  const hits = h.quest.state.hits;
+  assert.equal(h.quest.press(), true, 'dead-room click fell through to E');
+  assert.equal(h.quest.state.hits, hits);
+});
+
+/** Press E on one of the cart's physical interaction targets. */
 function takeCartTool(h, word) {
-  const options = h.quest.script[CHARACTER_IDS.JAMES_BLOND].cart.options();
-  const take = options.find((o) => new RegExp(word, 'i').test(o.text));
-  assert.ok(take, `${word} is not on the cart`);
-  return take.next();
+  const target = h.padFor(word);
+  assert.ok(target, `${word} is not on the physical cart`);
+  target.userData.interact.onUse();
+  return target;
 }
 
-test('a cart tool comes to his hands instead of applying itself off the menu', () => {
+test('a cart tool comes to his hands instead of applying itself on pickup', () => {
   /* Owner's playtest note: he picked the meat tenderiser off the cart and
    * nothing showed up in his hands, and it could not be used on Blond. Before
    * this fix, choosing it from the menu fired `apply('tenderizer')` on the
-   * spot -- so the regression test for that bug is that picking it up costs
+   * spot -- so the regression test for that bug is that an E pickup costs
    * him NOTHING until it actually lands on Blond. */
   const h = walkIn(harness());
   const before = h.quest.state.pressure;
-  const result = takeCartTool(h, 'tenderiser');
-  assert.equal(result, null, 'taking a tool ends the thread, the same as taking the cord');
+  takeCartTool(h, 'tenderiser');
   assert.equal(h.quest.tool, 'tenderizer');
   assert.equal(h.quest.state.pressure, before, 'the menu line must not be the hit');
   const model = h.camera.getObjectByName('grill.tool.tenderizer');
@@ -435,19 +667,23 @@ test('a cart tool lands only when he is standing over the man, same as the cord'
   // Across the room: nothing happens, and nothing is spent.
   h.standAt(7.0, -10.2, CHAIR);
   assert.equal(h.quest.press(), true, 'the press was not taken by the room');
+  for (let i = 0; i < 20; i++) h.quest.update(0.05);
   assert.notEqual(h.started.at(-1), 'useTenderizer');
   assert.equal(h.quest.state.pressure, 0);
 
   // Over the chair: the exchange that was always written for it plays.
+  h.dialogue.finish();
   h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
   assert.equal(h.quest.press(), true);
+  assert.notEqual(h.started.at(-1), 'useTenderizer', 'the hit landed before impact');
+  for (let i = 0; i < 20; i++) h.quest.update(0.05);
   assert.equal(h.started.at(-1), 'useTenderizer');
   assert.equal(h.quest.state.pressure, PRESSURE.tenderizer);
 });
 
 test('only one thing lives in his hands at a time', () => {
   const h = walkIn(harness());
-  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  receiveCord(h);
   takeCartTool(h, 'ice bucket');
   assert.equal(h.quest.tool, 'ice');
   // The cord is put away while a tool is in his hands.
@@ -465,12 +701,15 @@ test('only one thing lives in his hands at a time', () => {
   assert.equal(h.quest.cord.root.visible, true);
 });
 
-test('swapping cart tools puts the old one down — neither is his property', () => {
+test('Q returns one cart tool before E can take another', () => {
   const h = walkIn(harness());
   takeCartTool(h, 'tongs');
   assert.equal(h.quest.tool, 'tongs');
+  const sauce = h.padFor('no label');
+  assert.equal(sauce.userData.interact.enabled(), false, 'E offered a second tool with full hands');
+  assert.equal(h.quest.stepBack(), true);
   takeCartTool(h, 'no label');
-  assert.equal(h.quest.tool, 'sauce', 'the second tool did not replace the first');
+  assert.equal(h.quest.tool, 'sauce', 'the second tool did not come off the cart');
   assert.equal(h.camera.getObjectByName('grill.tool.tongs'), undefined, 'the tongs are still modelled in his hand');
   assert.ok(h.camera.getObjectByName('grill.tool.sauce'), 'the bottle never arrived');
 });
@@ -522,7 +761,7 @@ test('the room is put back the way it was found, and the cord is kept', () => {
   walkIn(h);
   assert.notDeepEqual(gratin.group.position.toArray(), home.toArray(),
     'Gratin never came off the floor');
-  h.quest.script[CHARACTER_IDS.JAMES_BLOND].handOverCord.options[0].next();
+  receiveCord(h);
   h.padFor('wristwatch').userData.interact.onUse();
   h.quest.close();
   assert.deepEqual(gratin.group.position.toArray(), home.toArray(), 'Gratin never went back to his booth');

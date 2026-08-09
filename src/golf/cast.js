@@ -19,6 +19,7 @@ import { Npc } from '../bing/cast.js';
 import { mat } from '../world/build.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { getCharacter } from '../core/characters.js';
+import { BIG_UNCLE_LOU, ERIC, RIPPINFLOW } from '../core/wardrobe.js';
 import { FOURSOME_BY_ID } from './course.js';
 import { heightAt } from './field.js';
 
@@ -51,50 +52,69 @@ import { heightAt } from './field.js';
  * authoritative without it — the docs are explicit about that and this is the
  * scene where it reads most clearly: he is not working this morning.
  */
-const WARDROBE = {
-  [CHARACTER_IDS.LOU]: {
-    height: 1.80, build: 1.12, dress: 'argyle', hair: 'receding',
+const BODY_FIELDS = Object.freeze([
+  'height', 'build', 'gut', 'skin', 'hair', 'hairColour',
+  'gender', 'bodyShape', 'beard', 'adult',
+]);
+
+/**
+ * The part a golf uniform cannot change. This deliberately does not spread
+ * suit tailoring such as `threePiece`, `luxury` or `trouserFit`: Silver Pines
+ * owns the argyle costume, while the canonical wardrobe still owns the body,
+ * skin and hair wearing it.
+ */
+function canonicalBody(model) {
+  return Object.fromEntries(BODY_FIELDS
+    .filter((field) => Object.hasOwn(model, field))
+    .map((field) => [field, model[field]]));
+}
+
+export const GOLF_WARDROBE = Object.freeze({
+  [CHARACTER_IDS.LOU]: Object.freeze({
+    ...canonicalBody(BIG_UNCLE_LOU),
+    dress: 'argyle',
     shirt: 0x1f5138, shirtAccent: 0xf2efe2,
-    argyle: { a: 0xf2efe2, b: 0xe0c46a, line: 0x0b2a1c },
+    argyle: Object.freeze({ a: 0xf2efe2, b: 0xe0c46a, line: 0x0b2a1c }),
     knickers: true, trouserColour: 0x7a7452, shoeStyle: 'saddle',
     hat: 'flatcap', hatColour: 0x5e5a3e,
     /* The jewellery is not scene dressing, it is him — same corno, same
      * watch, same bracelet as the Bing and the mansion. */
     chain: 'gold', chainStyle: 'single', pendant: true, pendantStyle: 'horn',
     watch: 'gold', bracelet: 'gold',
-    skin: 0xd7a67e, hairColour: 0x17110d,
     face: 'assets/faces/lou.png', bandana: false,
-  },
-  [CHARACTER_IDS.RIPPINFLOW]: {
-    height: 1.83, build: 1.05, dress: 'argyle', hair: 'crop',
+  }),
+  [CHARACTER_IDS.RIPPINFLOW]: Object.freeze({
+    ...canonicalBody(RIPPINFLOW),
+    dress: 'argyle',
     shirt: 0x7b3f95, shirtAccent: 0xf4f1e8,
-    argyle: { a: 0xf4f1e8, b: 0xf0b83c, line: 0x37134f },
+    argyle: Object.freeze({ a: 0xf4f1e8, b: 0xf0b83c, line: 0x37134f }),
     knickers: true, trouserColour: 0x8a7f9c, shoeStyle: 'saddle',
     hat: 'flatcap', hatColour: 0x6a4f80,
     /* The thin silver line and nothing hanging off it, exactly as everywhere
      * else. A different man saying a different thing with his neck. */
     chain: 'silver', pendant: false, watch: 'silver',
     face: 'assets/faces/rippinflow.png', bandana: false,
-  },
-  [CHARACTER_IDS.ERIC]: {
-    height: 1.76, build: 0.98, dress: 'argyle', hair: 'short',
+  }),
+  [CHARACTER_IDS.ERIC]: Object.freeze({
+    ...canonicalBody(ERIC),
+    dress: 'argyle',
     shirt: 0x39465c, shirtAccent: 0xeceef2,
-    argyle: { a: 0xc9d3df, b: 0x8fa2bb, line: 0x161d2a },
+    argyle: Object.freeze({ a: 0xc9d3df, b: 0x8fa2bb, line: 0x161d2a }),
     knickers: true, trouserColour: 0x5c6472, shoeStyle: 'saddle',
     hat: 'flatcap', hatColour: 0x424b5a,
     watch: 'silver',
     face: 'assets/faces/erican.png', bandana: false,
-  },
-  [CHARACTER_IDS.PROSPECT]: {
+  }),
+  [CHARACTER_IDS.PROSPECT]: Object.freeze({
     /* No face photo and no bandana. He has not earned either. */
     height: 1.79, build: 1.0, dress: 'argyle', hair: 'short',
     shirt: 0x8a2f34, shirtAccent: 0xf0ece0,
-    argyle: { a: 0x2f6b46, b: 0xe8d9a8, line: 0x2c1a18 },
+    argyle: Object.freeze({ a: 0x2f6b46, b: 0xe8d9a8, line: 0x2c1a18 }),
     knickers: true, trouserColour: 0x8d8a68, shoeStyle: 'saddle',
     hat: 'flatcap', hatColour: 0x6b6a4e,
     bandana: false,
-  },
-};
+  }),
+});
 
 /* ------------------------------------------------------------------ */
 /* The club in his hands                                               */
@@ -514,7 +534,7 @@ export class Golfer {
       x, z, y: heightAt(x, z), yaw,
       job: 'stand',
       look: true,
-      model: { ...WARDROBE[id], role: who.role },
+      model: { ...GOLF_WARDROBE[id], role: who.role },
     });
     this.parts = this.npc.parts;
     this.group = this.npc.group;

@@ -2,11 +2,10 @@
  * LICENSE TO GRILL — the rules under the joke.
  *
  * The scene is a comedy, but it has an argument and the numbers carry it:
- * hitting James Blond is worth almost nothing because he does not care about
- * his body, and touching his belongings is worth a great deal because he cares
- * enormously about his things. The car is not a nudge, it is the end. If the
- * economy ever inverts, the scene stops teaching the player anything and turns
- * into an ordinary beating with better dialogue.
+ * hitting James Blond does not extract information because he does not care
+ * about his body; seven landed hits only kill the source. Destroying one of
+ * his belongings is the successful route because he cares enormously about
+ * his things. The car remains an alternate unconditional break.
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -15,7 +14,9 @@ import { CHARACTER_IDS } from '../src/core/campaign.js';
 import { CHARACTER_REGISTRY } from '../src/core/characters.js';
 import {
   BELONGINGS,
+  CART_TOOLS,
   ENDINGS,
+  FATAL_HITS,
   INFORMANT_NAME,
   PRESSURE,
   QUEST,
@@ -39,13 +40,24 @@ test('James Blond is a registered identity, not a scene-local walk-on', () => {
   assert.equal(blond.role, 'outsider', 'he is neither Family nor a bystander');
 });
 
-test('beating him is deliberately close to worthless', () => {
+test('seven landed physical hits kill Blond and close off the information', () => {
   const grill = createInterrogation();
-  // Twenty swings of the cord, alternating, which is more patience than anyone
-  // will actually spend.
-  for (let i = 0; i < 10; i++) { grill.apply('chair'); grill.apply('strike'); }
-  assert.ok(grill.pressure < 100, 'a player can beat him into breaking');
-  assert.equal(grill.broken, false, 'physical force alone must never break him');
+  assert.equal(FATAL_HITS, 7);
+  for (let i = 1; i < FATAL_HITS; i++) {
+    const hit = grill.apply(i % 2 ? 'strike' : 'tenderizer');
+    assert.equal(hit.hits, i);
+    assert.equal(hit.fatal, false);
+    assert.equal(grill.dead, false);
+  }
+  const fatal = grill.apply('strike');
+  assert.equal(fatal.hits, FATAL_HITS);
+  assert.equal(fatal.fatal, true);
+  assert.equal(grill.dead, true);
+  assert.equal(grill.broken, false, 'killing him is not extracting the name');
+  const out = grill.finish(ENDINGS.BEATEN);
+  assert.equal(out.completed, true, 'the side objective is resolved even though it failed');
+  assert.equal(out.informant, null);
+  assert.equal(out.meet, null);
 });
 
 test('his things are worth several times his body', () => {
@@ -209,9 +221,16 @@ test('the tenderiser gets a line off him and a better one off Gratin', () => {
   assert.match(valueOf(tree.tenderizerGratin.line), /own conventions/);
 });
 
+test('tool dialogue reacts to a landed runtime impact without counting it twice', () => {
+  for (const tool of CART_TOOLS) {
+    assert.equal(tree[tool.node].enter, undefined,
+      `${tool.id} mutates the interrogation again when its reaction line starts`);
+  }
+});
+
 test('the door line and the objective read the way the quest is named', () => {
   assert.equal(QUEST.door, 'Help Au Gratin with a delicate matter');
-  assert.equal(QUEST.objective, 'Make James Blond talk');
+  assert.equal(QUEST.objective, 'Help Au Gratin in the back room');
   assert.match(valueOf(script.licenseToGrillDoor.knocking.line), /second set of hands/);
 });
 
@@ -257,11 +276,60 @@ test('a thing can only be broken once, and only if it can be broken at all', () 
   assert.equal(grill.isSmashed('keys'), false);
 });
 
+test('breaking one of Blond’s possessions gets the information without killing him', () => {
+  const grill = createInterrogation();
+  grill.apply('watch');
+  const result = grill.smash('watch');
+  assert.equal(result.broke, true);
+  assert.equal(grill.broken, true);
+  assert.equal(grill.dead, false);
+  const out = grill.persist();
+  assert.equal(out.completed, true);
+  assert.equal(out.informant, INFORMANT_NAME);
+  assert.ok(out.meet);
+});
+
+test('the first resolved route wins: property information cannot turn into a late killing', () => {
+  const grill = createInterrogation();
+  grill.apply('watch');
+  assert.equal(grill.smash('watch').broke, true);
+  for (let i = 0; i < FATAL_HITS + 2; i++) grill.apply('strike');
+  assert.equal(grill.dead, false, 'body attacks remained live after the informant broke');
+  assert.equal(grill.hits, 0, 'post-resolution clicks were counted as interrogation hits');
+  assert.equal(grill.persist().informant, INFORMANT_NAME);
+});
+
+test('a smashed possession routes directly into Blond giving up the information', () => {
+  const brokenTree = buildLicenseToGrillScript({ broken: () => true })[CHARACTER_IDS.JAMES_BLOND];
+  const lastReaction = {
+    watch: 'smashWatchGratin',
+    camera: 'smashCamera',
+    pistol: 'smashPistolNumbskull',
+    jacket: 'smashJacket',
+  };
+  for (const [id, node] of Object.entries(lastReaction)) {
+    assert.equal(valueOf(brokenTree[node].next), 'breaks',
+      `${id} strands the successful property route after its reaction`);
+  }
+});
+
+test('the runtime only marks the name known after Blond has actually delivered it', () => {
+  let named = false;
+  const hooked = buildLicenseToGrillScript({ markNamed: () => { named = true; } })[
+    CHARACTER_IDS.JAMES_BLOND
+  ];
+  assert.equal(named, false);
+  assert.equal(typeof hooked.writtenDown.enter, 'function',
+    'there is no durable boundary after the spoken name');
+  hooked.writtenDown.enter();
+  assert.equal(named, true);
+});
+
 test('breaking things is recorded in methods rather than in a new saved field', () => {
   const grill = createInterrogation();
   grill.apply('watch');
-  grill.smash('watch');
   grill.apply('jacket');
+  grill.smash('watch');
   grill.threatenCar();
   const out = grill.finish(ENDINGS.LEFT);
   assert.deepEqual(Object.keys(out).sort(), [
@@ -316,14 +384,14 @@ test('every smashable thing has its own reaction, and the keys deliberately do n
 });
 
 test('the cord is handed over as a thing, and the three swings after it are authored', () => {
-  const take = (valueOf(tree.handOverCord.options) || [])[0];
-  assert.equal(take.tone, 'Take');
   let handed = false;
   const withHook = buildLicenseToGrillScript({ takeCord: () => { handed = true; } });
   const hooked = withHook[CHARACTER_IDS.JAMES_BLOND];
-  const option = (valueOf(hooked.handOverCord.options) || [])[0];
-  assert.equal(option.next(), 'cordInHand', 'taking it must lead somewhere');
-  assert.equal(handed, true, 'taking the cord never reaches the runtime');
+  assert.equal(valueOf(hooked.handOverCord.options), undefined,
+    'the handoff must not depend on a transient numbered dialogue choice');
+  hooked.handOverCord.enter();
+  assert.equal(hooked.handOverCord.next, 'cordInHand', 'the automatic handoff must lead somewhere');
+  assert.equal(handed, true, 'hearing the handoff never reaches the runtime inventory');
   /* One line per landed swing, in order, and the third is where he gives up on
    * the beating and points at the table. */
   assert.ok(tree.afterSwing && tree.swingTwo && tree.swingThree);

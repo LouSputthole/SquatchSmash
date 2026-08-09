@@ -49,7 +49,8 @@ const browser = await chromium.launch({
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: [
-    '--use-gl=swiftshader',
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
   ],
@@ -289,7 +290,35 @@ try {
       && started.radio.tracks > 0,
     JSON.stringify(started.radio));
 
-  const earlyRestart = await page.evaluate(() => {
+  const knockingIntro = await page.evaluate(async () => {
+    const b = window.__beefrun;
+    const handle = await b.mission.playTakeoffRecord();
+    for (let i = 0; i < 40 && !handle?.beefIntroBoost; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const authored = handle?.beefIntroBoost ?? null;
+    const result = {
+      startedVolume: handle?.volume ?? null,
+      baseVolume: authored?.baseVolume ?? null,
+      boostedVolume: authored?.boostedVolume ?? null,
+      seconds: authored?.seconds ?? null,
+      audibleSecondsRemaining: authored
+        ? authored.settlesAt - b.audio.engine.ctx.currentTime
+          + (Number(handle.element?.currentTime) || 0)
+        : null,
+    };
+    b.audio.engine.stopLoop('music.knocking', 0);
+    return result;
+  });
+  check('Can’t You Hear Me Knocking opens 30% louder for exactly 24 audible seconds',
+    Math.abs(knockingIntro.startedVolume - 0.39) < 0.0001
+      && Math.abs(knockingIntro.baseVolume - 0.30) < 0.0001
+      && Math.abs(knockingIntro.boostedVolume - 0.39) < 0.0001
+      && knockingIntro.seconds === 24
+      && Math.abs(knockingIntro.audibleSecondsRemaining - 24) < 0.15,
+    JSON.stringify(knockingIntro));
+
+  const earlyRestart = await page.evaluate(async () => {
     const b = window.__beefrun;
     window.dispatchEvent(new KeyboardEvent('keydown', {
       code: 'Tab', bubbles: true, cancelable: true,
@@ -302,13 +331,22 @@ try {
       opened: !!menu && !menu.classList.contains('hidden'),
       restartVisible: !!button && !button.hidden && !button.disabled,
     };
+    /* A player cannot hit Resume in the same event turn that Tab requested
+     * pointer-lock exit. Let that real browser event settle first; otherwise
+     * its delayed `pointerlockchange` arrives after resume and quite correctly
+     * reopens the pause menu, freezing every later verifier action. */
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     window.__scenePause?.resume();
+    await new Promise((resolve) => setTimeout(resolve, 100));
     state.closed = !!menu && menu.classList.contains('hidden');
+    state.missionPaused = b.mission.paused;
+    state.pauseLayer = window.__scenePause?.isPaused() ?? null;
     return state;
   });
   check('Tab always exposes a scene restart before the first flight checkpoint',
     earlyRestart.checkpoint === null
-      && earlyRestart.opened && earlyRestart.restartVisible && earlyRestart.closed,
+      && earlyRestart.opened && earlyRestart.restartVisible && earlyRestart.closed
+      && earlyRestart.missionPaused === false && earlyRestart.pauseLayer === false,
     JSON.stringify(earlyRestart));
 
   const genericChromeShift = await page.evaluate(() => {
@@ -864,15 +902,78 @@ const chain = await page.evaluate(() => {
   });
   check('being located by the patrol persists on the mission record', detected === true);
 
-  const completed = await page.evaluate(() => {
-    window.__beefrun.mission.runEnding();
-    const state = window.__beefrun.campaignState;
+  const completed = await page.evaluate(async () => {
+    const b = window.__beefrun;
+    const m = b.mission;
+    const p = b.physics;
+    const beforeTransition = {
+      pauseLayer: window.__scenePause?.isPaused() ?? null,
+      missionPaused: m.paused,
+      completeUp: b.flightHud.completeUp,
+      pointerLocked: document.pointerLockElement === b.renderer.domElement,
+    };
+    /* Exercise the authored landed flow instead of calling the ending. A real
+     * stopped touchdown advances final -> shutdown; a real stop at the hangar
+     * advances shutdown -> ending and is what invokes runEnding(). */
+    m.finished = false;
+    m.phase = 'final';
+    p.position.x = m.airfield.anchors.lineUp.x;
+    p.onGround = true;
+    p.groundSpeed = 0;
+    p.velocity.set(0, 0, 0);
+    m.updateFinal(0.016);
+    const phaseAfterLanding = m.phase;
+
+    const hangar = m.airfield.anchors.hangarDoor;
+    p.setPose(new b.THREE.Vector3(
+      hangar.x,
+      p.getHeight(hangar.x, hangar.z) + p.ac.gearY,
+      hangar.z,
+    ), m.airfield.anchors.parkingHeading, 0);
+    p.onGround = true;
+    p.groundSpeed = 0;
+    b.aircraft.syncTo(p);
+    m.updateShutdown(0.016);
+    const phaseAfterTaxi = m.phase;
+
+    b.aircraft.group.updateMatrixWorld(true);
+    const aircraftLocal = b.aircraft.group.worldToLocal(b.player.position.clone());
+    const colliderHits = b.player.world.colliders.filter((box) => {
+      const position = b.player.position;
+      if (position.y + 0.05 < box.min.y
+        || position.y - b.player.eyeHeight > box.max.y) return false;
+      const cx = Math.max(box.min.x, Math.min(box.max.x, position.x));
+      const cz = Math.max(box.min.z, Math.min(box.max.z, position.z));
+      return (position.x - cx) ** 2 + (position.z - cz) ** 2 < 0.30 ** 2;
+    }).length;
+    const beforeWalk = b.player.position.clone();
+    b.player.keys.add('KeyW');
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    b.player.keys.delete('KeyW');
+    const state = b.campaignState;
     return {
       status: state.missions.airstrip_smuggling.status,
       landingQuality: state.missions.airstrip_smuggling.landingQuality,
       day: state.story.day,
       timeMinutes: state.story.timeMinutes,
       timeEvents: state.story.timeEvents,
+      exit: {
+        beforeTransition,
+        phaseAfterLanding,
+        phaseAfterTaxi,
+        finished: m.finished,
+        pauseLayer: window.__scenePause?.isPaused() ?? null,
+        missionPaused: m.paused,
+        completeUp: b.flightHud.completeUp,
+        pointerLocked: document.pointerLockElement === b.renderer.domElement,
+        inCockpit: b.mission.flags.inCockpit,
+        enabled: b.player.enabled,
+        mode: b.player.mode,
+        aircraftLocal: aircraftLocal.toArray(),
+        colliderHits,
+        moved: b.player.position.distanceTo(beforeWalk),
+        cameraDistance: b.camera.position.distanceTo(b.player.position),
+      },
     };
   });
   check('the ending records durable completion with a landing quality',
@@ -885,6 +986,18 @@ const chain = await page.evaluate(() => {
       && completed.timeMinutes === 20 * 60 + 30
       && completed.timeEvents.includes('mission.airstrip'),
     JSON.stringify({ day: completed.day, timeMinutes: completed.timeMinutes }));
+  check('completion puts the player outside the fuselage with walking and camera control',
+    completed.exit.phaseAfterLanding === 'shutdown'
+      && completed.exit.phaseAfterTaxi === 'ending'
+      && completed.exit.finished === true
+      && completed.exit.inCockpit === false
+      && completed.exit.enabled === true
+      && completed.exit.mode === 'walk'
+      && Math.abs(completed.exit.aircraftLocal[0]) > 2.5
+      && completed.exit.colliderHits === 0
+      && completed.exit.moved > 0.2
+      && completed.exit.cameraDistance < 0.2,
+    JSON.stringify(completed.exit));
 
   await page.evaluate(() => {
     // The real end-card path: releases pointer lock and shows the buttons.
@@ -1455,6 +1568,96 @@ const chain = await page.evaluate(() => {
     taxiRoute.every((part) => part.found),
     JSON.stringify(taxiRoute));
 
+  const riverCourse = await resumePage.evaluate(() => {
+    const river = window.__beefrun.mission.landmarks.marks.river.group;
+    const THREE = window.__beefrun.THREE;
+    const surface = river.getObjectByName('river-course-surface');
+    const waterSurfaces = [];
+    river.updateMatrixWorld(true);
+    river.traverse((part) => {
+      if (part.isMesh && part.name.endsWith('-surface')) waterSurfaces.push(part.name);
+    });
+    const position = surface?.geometry?.getAttribute('position');
+    const vertices = position?.count || 0;
+    const centres = [];
+    for (let vertex = 0; vertex < vertices; vertex += 2) {
+      const leftX = position.getX(vertex);
+      const leftZ = position.getZ(vertex);
+      const rightX = position.getX(vertex + 1);
+      const rightZ = position.getZ(vertex + 1);
+      centres.push({
+        x: (leftX + rightX) * 0.5,
+        z: (leftZ + rightZ) * 0.5,
+        halfWidth: Math.hypot(leftX - rightX, leftZ - rightZ) * 0.5,
+      });
+    }
+    let minSegmentMetres = Infinity;
+    let maxTurnDegrees = 0;
+    let maxTurnRow = -1;
+    for (let row = 1; row < centres.length - 1; row++) {
+      const ax = centres[row].x - centres[row - 1].x;
+      const az = centres[row].z - centres[row - 1].z;
+      const bx = centres[row + 1].x - centres[row].x;
+      const bz = centres[row + 1].z - centres[row].z;
+      const aLength = Math.hypot(ax, az);
+      const bLength = Math.hypot(bx, bz);
+      minSegmentMetres = Math.min(minSegmentMetres, aLength, bLength);
+      if (aLength <= 0.01 || bLength <= 0.01) continue;
+      const cosine = Math.max(-1, Math.min(1, (ax * bx + az * bz) / (aLength * bLength)));
+      const turnDegrees = Math.acos(cosine) * 180 / Math.PI;
+      if (turnDegrees > maxTurnDegrees) {
+        maxTurnDegrees = turnDegrees;
+        maxTurnRow = row;
+      }
+    }
+    let gravelBarCount = 0;
+    let maxBarGapMetres = -Infinity;
+    let maxBarGapName = null;
+    river.traverse((part) => {
+      if (!part.isMesh || !/-bar-\d+$/.test(part.name)) return;
+      gravelBarCount++;
+      const centre = river.worldToLocal(part.getWorldPosition(new THREE.Vector3()));
+      const scale = part.getWorldScale(new THREE.Vector3());
+      const radius = part.geometry.parameters.radius * Math.max(scale.x, scale.y, scale.z);
+      let nearest = { distance: Infinity, halfWidth: 0 };
+      for (const row of centres) {
+        const distance = Math.hypot(centre.x - row.x, centre.z - row.z);
+        if (distance < nearest.distance) nearest = { distance, halfWidth: row.halfWidth };
+      }
+      const gap = nearest.distance - nearest.halfWidth - radius;
+      if (gap > maxBarGapMetres) {
+        maxBarGapMetres = gap;
+        maxBarGapName = part.name;
+      }
+    });
+    return {
+      waterSurfaces,
+      vertices,
+      indices: surface?.geometry?.index?.count || 0,
+      rotation: surface ? [surface.rotation.x, surface.rotation.y, surface.rotation.z] : null,
+      minSegmentMetres,
+      maxTurnDegrees,
+      maxTurnRow,
+      gravelBarCount,
+      maxBarGapMetres,
+      maxBarGapName,
+      reaches: ['river-upstream', 'river-horseshoe', 'river-downstream']
+        .map((name) => !!river.getObjectByName(name)),
+    };
+  });
+  check('the horseshoe and both reaches share one contiguous ribbon with no rotated rectangles, seams, folded tangent, or detached gravel',
+    riverCourse.waterSurfaces.length === 1
+      && riverCourse.waterSurfaces[0] === 'river-course-surface'
+      && riverCourse.vertices > 300
+      && riverCourse.indices === (riverCourse.vertices / 2 - 1) * 6
+      && riverCourse.rotation.every((angle) => Math.abs(angle) < 0.000001)
+      && riverCourse.minSegmentMetres > 0.01
+      && riverCourse.maxTurnDegrees < 90
+      && riverCourse.gravelBarCount > 0
+      && riverCourse.maxBarGapMetres <= 0
+      && riverCourse.reaches.every(Boolean),
+    JSON.stringify(riverCourse));
+
   const rollKeys = await resumePage.evaluate(async () => {
     const { FlightInput } = await import('/src/beefrun/input.js');
     const { AircraftPhysics } = await import('/src/beefrun/physics.js');
@@ -1473,9 +1676,12 @@ const chain = await page.evaluate(() => {
       physics.controls.parkingBrake = false;
       input.applyTo(physics.controls);
       for (let i = 0; i < 60; i++) physics.step(1 / 120);
-      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
-      const left = new THREE.Vector3(-1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
-      return { ...axes, leftY: left.y, rightY: right.y };
+      /* Brushrunner's visible nose is +Z. Seen from its left pilot seat, +X
+       * is therefore the player's left wing and -X is the right one. */
+      const left = new THREE.Vector3(1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+      const right = new THREE.Vector3(-1, 0, 0).applyQuaternion(physics.quat).add(physics.position);
+      const headingDelta = ((physics.headingDeg + 540) % 360) - 180;
+      return { ...axes, leftY: left.y, rightY: right.y, headingDelta };
     };
     return {
       a: fly({ code: 'KeyA' }),
@@ -1484,14 +1690,18 @@ const chain = await page.evaluate(() => {
       gamepadLeft: fly({ padX: -1, padYaw: -1 }),
     };
   });
-  check('A lowers the authored left wing and D lowers the authored right wing',
+  check('from the pilot view A banks and turns left while D banks and turns right',
     rollKeys.a.leftY < rollKeys.a.rightY
-      && rollKeys.d.rightY < rollKeys.d.leftY,
+      && rollKeys.a.headingDelta > 0
+      && rollKeys.d.rightY < rollKeys.d.leftY
+      && rollKeys.d.headingDelta < 0,
     JSON.stringify({ a: rollKeys.a, d: rollKeys.d }));
   check('gamepad bank matches the same player-facing wing movement and rudder polarity',
     rollKeys.gamepadRight.rightY < rollKeys.gamepadRight.leftY
+      && rollKeys.gamepadRight.headingDelta < 0
       && rollKeys.gamepadRight.yaw < 0
       && rollKeys.gamepadLeft.leftY < rollKeys.gamepadLeft.rightY
+      && rollKeys.gamepadLeft.headingDelta > 0
       && rollKeys.gamepadLeft.yaw > 0,
     JSON.stringify({ right: rollKeys.gamepadRight, left: rollKeys.gamepadLeft }));
 
@@ -1896,6 +2106,10 @@ const chain = await page.evaluate(() => {
       for (let p = n; p; p = p.parent) if (FIXTURE_NAMES.includes(p.name)) return true;
       return false;
     };
+    const fixtureName = (n) => {
+      for (let p = n; p; p = p.parent) if (FIXTURE_NAMES.includes(p.name)) return p.name;
+      return n.name || '(unnamed)';
+    };
     const distPointBox = (p, bx) => {
       const dx = Math.max(bx.min.x - p.x, 0, p.x - bx.max.x);
       const dy = Math.max(bx.min.y - p.y, 0, p.y - bx.max.y);
@@ -1912,19 +2126,24 @@ const chain = await page.evaluate(() => {
 
       const camPos = b.camera.position.clone();
 
-      /* Sasole's own body box: mesh geometry only, so his floating name-tag
-       * sprite (`nameTag()` in npc.js, a metre above his head) cannot
-       * inflate it, and visible geometry only, so his hidden coffee cup
-       * (`f.cup`, hidden the moment he boards) cannot either. */
-      const louBox = new THREE.Box3();
-      let louMeshes = 0;
+      /* Sasole's visible body geometry, one box per mesh. A single union box
+       * spans the empty air between his rotated limbs and torso, which can
+       * falsely report a nearby lever as clipping him. Mesh geometry also
+       * excludes his floating name-tag sprite, while the visibility walk
+       * excludes his hidden coffee cup once he boards. */
+      const louBodyMeshes = [];
+      const bodyPartName = (n) => {
+        for (let p = n; p && p !== lou.group; p = p.parent) {
+          if (p.name) return p.name;
+        }
+        return '(unnamed body mesh)';
+      };
       lou.group.traverse((n) => {
         if (!n.isMesh || !n.geometry) return;
         for (let p = n; p; p = p.parent) if (p.visible === false) return;
         box.setFromObject(n);
         if (!Number.isFinite(box.min.x)) return;
-        louBox.union(box);
-        louMeshes++;
+        louBodyMeshes.push({ name: bodyPartName(n), box: box.clone() });
       });
 
       const camNear = [];
@@ -1939,12 +2158,20 @@ const chain = await page.evaluate(() => {
           const d = distPointBox(camPos, box);
           if (d < CAM_RADIUS) camNear.push({ name: n.name || '(unnamed)', metres: +d.toFixed(3) });
         }
-        if (louMeshes && isFixture(n)) {
-          const ox = Math.min(box.max.x, louBox.max.x) - Math.max(box.min.x, louBox.min.x);
-          const oy = Math.min(box.max.y, louBox.max.y) - Math.max(box.min.y, louBox.min.y);
-          const oz = Math.min(box.max.z, louBox.max.z) - Math.max(box.min.z, louBox.min.z);
-          if (ox > MIN_OVERLAP && oy > MIN_OVERLAP && oz > MIN_OVERLAP) {
-            louOverlaps.push({ name: n.name, cubicMetres: +(ox * oy * oz).toFixed(5) });
+        if (louBodyMeshes.length && isFixture(n)) {
+          for (const body of louBodyMeshes) {
+            const ox = Math.min(box.max.x, body.box.max.x) - Math.max(box.min.x, body.box.min.x);
+            const oy = Math.min(box.max.y, body.box.max.y) - Math.max(box.min.y, body.box.min.y);
+            const oz = Math.min(box.max.z, body.box.max.z) - Math.max(box.min.z, body.box.min.z);
+            if (ox > MIN_OVERLAP && oy > MIN_OVERLAP && oz > MIN_OVERLAP) {
+              louOverlaps.push({
+                fixture: fixtureName(n),
+                mesh: n.name || '(unnamed fixture mesh)',
+                body: body.name,
+                overlap: [ox, oy, oz].map((value) => +value.toFixed(5)),
+                cubicMetres: +(ox * oy * oz).toFixed(7),
+              });
+            }
           }
         }
       });
@@ -1956,7 +2183,7 @@ const chain = await page.evaluate(() => {
   check('no cockpit fixture comes within 0.35 m of the pilot camera on any flight-phase checkpoint (shell/canopy excluded by name)',
     cockpitClipping.every((c) => !c.error && c.camNear.length === 0),
     JSON.stringify(cockpitClipping.map((c) => ({ checkpoint: c.checkpoint, camNear: c.camNear }))));
-  check("no cockpit fixture intersects Capt Sasole's body box on any flight-phase checkpoint, however he is turned (his own seat excluded)",
+  check("no cockpit fixture intersects Capt Sasole's visible body geometry on any flight-phase checkpoint, however he is turned (his own seat excluded)",
     cockpitClipping.every((c) => !c.error && c.louOverlaps.length === 0),
     JSON.stringify(cockpitClipping.map((c) => ({ checkpoint: c.checkpoint, louOverlaps: c.louOverlaps }))));
 

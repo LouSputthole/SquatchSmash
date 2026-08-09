@@ -157,9 +157,10 @@ test('final-arc launcher links preserve preview isolation and expose Cartel Pala
   );
 });
 
-test('the preview launcher exposes the wardrobe inspection tool', () => {
+test('the preview launcher exposes the wardrobe and combat development tools', () => {
   const html = fs.readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
   assert.match(html, /data-preview-tool="wardrobe"[^>]+href="wardrobe\.html"/i);
+  assert.match(html, /data-preview-tool="combat"[^>]+href="combatlab\.html\?preview=1"/i);
 });
 
 test('motel preview starts unlocked without reading or writing canonical localStorage', () => {

@@ -68,7 +68,7 @@ import { Figure } from '../../squatchfather/characters/Figure.js';
 import { makeCase } from '../../silvercase/props/case.js';
 /* The pooled arterial decal THE SILVER CASE puts on every man it shoots. Used
  * here for the execution -- see `bleed()`. */
-import { BulletHoles } from '../../world/bullets.js';
+import { BloodImpactSystem, DeathBloodPool } from '../../world/blood.js';
 import { BASEMENT_Y, SECRET_DOOR } from './MansionGrounds.js';
 
 /* ================================================================== */
@@ -535,6 +535,7 @@ function puffTexture() {
 function makeGlassAudio(audio) {
   const OPEN = { volume: 1, cutoff: 20000, wet: 0 };
   const SEALED = { volume: 0.34, cutoff: 620, wet: 0.42 };
+  const VOICE_PANNER = { ref: 2.2, max: 26, rolloff: 1.4 };
 
   let nodes = null;
   let engaged = false;
@@ -658,6 +659,15 @@ function makeGlassAudio(audio) {
   return {
     /** True once the lab is sealed; every path below changes shape with it. */
     get engaged() { return engaged; },
+    /** Estimate the level that reaches a listener after the production glass
+     * send and AudioEngine inverse-distance panner. This is a deterministic
+     * verifier seam over those exact constants, not another gain path. */
+    audibleVoiceGain(input, distance = 0) {
+      const d = THREE.MathUtils.clamp(Number(distance) || 0, VOICE_PANNER.ref, VOICE_PANNER.max);
+      const positional = VOICE_PANNER.ref
+        / (VOICE_PANNER.ref + VOICE_PANNER.rolloff * (d - VOICE_PANNER.ref));
+      return input * (engaged ? SEALED.volume : OPEN.volume) * positional;
+    },
     /** The lock calls this. `secs` is the crossfade, not a delay. */
     setEngaged(on, secs = 0.45) {
       engaged = !!on;
@@ -837,6 +847,23 @@ export function buildSilentSquatch({
 } = {}) {
   const root = new THREE.Group();
   root.name = 'SilentSquatch';
+  /* One shared adapter owns every lethal Mansion mark. It is created once
+   * with the scene and reused for both the execution and xXx, so neither
+   * path can fall back to a guessed chest decal or its own private disc. */
+  const bloodImpacts = new BloodImpactSystem(root);
+  const deathPools = new DeathBloodPool(root, { capacity: 12 });
+  function nearestBodyGroup(object, actorRoot, fallback) {
+    let part = object;
+    let nearest = null;
+    while (part) {
+      if (!nearest && part.isGroup) nearest = part;
+      if (part === actorRoot) return nearest ?? fallback;
+      part = part.parent;
+    }
+    /* Aim proxies live beside the actor rig, not under it. Never anchor a
+     * wound to the scene root merely because the ray struck that proxy. */
+    return fallback;
+  }
   const colliders = [];
   const occluders = [];
   const lights = [];
@@ -997,8 +1024,11 @@ export function buildSilentSquatch({
     body.add(box({ size: [0.13, 0.13, 0.34], pos: [0, 0, 0], mat: M_BLACK }));
     body.add(cylinder({ r: 0.055, h: 0.09, pos: [0, 0, 0.2], rotX: Math.PI / 2, mat: M_STEEL }));
     body.add(box({ size: [0.03, 0.03, 0.03], pos: [0.05, 0.08, -0.1], mat: M_RED_LAMP, cast: false }));
-    body.lookAt(new THREE.Vector3(aim[0] - x, aim[1] - y, aim[2] - z));
     root.add(g);
+    /* Object3D.lookAt consumes a WORLD target. The former local delta
+     * subtracted the camera position twice once the parent was translated. */
+    root.updateMatrixWorld(true);
+    body.lookAt(new THREE.Vector3(aim[0], aim[1], aim[2]));
     return g;
   }
   /**
@@ -2325,7 +2355,8 @@ export function buildSilentSquatch({
   /* skin-toned crown still reads as a hat), heavy brow, hooded lids,       */
   /* broad jaw, thick neck, heavy build, blue jeans, black tank top, both   */
   /* torn and both bloodied. He hangs upside down by the ankles over the    */
-  /* pool, badly beaten and barely conscious, and he survives this.         */
+  /* pool, badly beaten and barely conscious. His fate stays scene-local:   */
+  /* the cast can kill him without writing campaign state or rebuilding him. */
   /*                                                                         */
   /* Driven by a local update rather than `Figure.update()`: that            */
   /* controller eases the arms back to a standing rest every frame, which    */
@@ -2598,53 +2629,6 @@ export function buildSilentSquatch({
       ankleY: HOOK_Y + ankles[0].y,
     };
 
-    /* ---- The pool of blood he is hanging over. Large, still wet, and
-     * ON THE FLOOR.
-     *
-     * It was authored at LAB_Y + 0.011 and the lower level's floor finish
-     * tops out at LAB_Y + 0.012, so the whole thing -- pool, rim and the
-     * seven spatters round it -- was one millimetre under the slab and had
-     * never once been visible. Four overlapping discs at four heights rather
-     * than one circle, so it reads as something that ran rather than
-     * something that was drawn with a compass. */
-    const poolMat = mat({ color: 0x3d080c, roughness: 0.2, metalness: 0.06, unique: true });
-    const poolRim = new THREE.Mesh(
-      new THREE.RingGeometry(1.15, 1.52, 28),
-      mat({
-        color: 0x2a0709, roughness: 0.55, transparent: true, opacity: 0.62, unique: true,
-      }),
-    );
-    poolRim.rotation.x = -Math.PI / 2;
-    poolRim.position.set(XXX_AT.x, LAB_FLOOR + 0.005, XXX_AT.z);
-    poolRim.name = 'xxx-blood-pool-rim';
-    root.add(poolRim);
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.15, 28), poolMat);
-    pool.rotation.x = -Math.PI / 2;
-    pool.position.set(XXX_AT.x, LAB_FLOOR + 0.008, XXX_AT.z);
-    pool.name = 'xxx-blood-pool';
-    root.add(pool);
-    // Lobes: where it spread further, including toward the drainage channel.
-    for (const [lx, lz, lr, ly] of [
-      [0.62, 0.34, 0.72, 0.011], [-0.48, -0.55, 0.6, 0.014], [0.18, 0.86, 0.55, 0.017],
-    ]) {
-      const lobe = new THREE.Mesh(new THREE.CircleGeometry(lr, 20), poolMat);
-      lobe.rotation.x = -Math.PI / 2;
-      lobe.position.set(XXX_AT.x + lx, LAB_FLOOR + ly, XXX_AT.z + lz);
-      lobe.name = 'xxx-blood-pool-lobe';
-      root.add(lobe);
-    }
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2 + 0.6;
-      stain(XXX_AT.x + Math.cos(a) * (1.5 + (i % 3) * 0.4),
-        XXX_AT.z + Math.sin(a) * (1.5 + (i % 3) * 0.4), LAB_FLOOR, 0.7, 30 + i, 0.55);
-    }
-    // A drip, mid-air, permanently about to land. Moved in update().
-    const drip = sphere({
-      r: 0.022, pos: [XXX_AT.x, LAB_Y + 0.4, XXX_AT.z], mat: M_BLOOD, cast: false,
-    });
-    drip.name = 'xxx-drip'; // build.js's sphere() takes no name
-    root.add(drip);
-
     /* A generous hit volume, so aiming at a man reads as aiming at a man
      * rather than as threading a crosshair between a forearm and a rope.
      * Sized to the body he actually has: soles at LAB_Y + 2.42, knuckles at
@@ -2659,8 +2643,54 @@ export function buildSilentSquatch({
     aim.name = 'xxx-aim';
     root.add(aim);
 
+    const fate = { alive: true, cause: null, marks: [], pool: null };
+    function kill(cause = 'unknown', hit = null) {
+      if (!fate.alive) return false;
+      fate.alive = false;
+      fate.cause = cause;
+      root.updateMatrixWorld(true);
+      const point = hit?.point?.clone?.() ?? aim.getWorldPosition(new THREE.Vector3());
+      const anchor = nearestBodyGroup(hit?.object, fig.group, fig.torso);
+      const marked = bloodImpacts.hit({
+        actor: fate,
+        anchor,
+        spatterAnchor: fig.torso,
+        point,
+        normal: hit?.normal ?? null,
+        from: hit?.from ?? null,
+      });
+      fate.marks = [marked.wound, marked.spatter].filter(Boolean);
+      fate.pool = deathPools.spill(point, {
+        floorY: LAB_FLOOR,
+        size: cause === 'whip' ? 1.62 : 1.36,
+        opacity: 0.9,
+        delay: cause === 'whip' ? 0.2 : 0.7,
+        seed: cause === 'whip' ? 10 : 11,
+      });
+      fig.talkT = 0;
+      fig.voiceMouth.stop();
+      fig.neck.rotation.x = -0.48;
+      fig.head.rotation.z = 0.18;
+      fig.armL.shoulder.rotation.x = 2.94;
+      fig.armR.shoulder.rotation.x = 2.94;
+      fig.armL.elbow.rotation.x = -0.05;
+      fig.armR.elbow.rotation.x = -0.05;
+      aim.userData.xxxFate = { alive: false, cause };
+      return true;
+    }
+
     return {
-      fig, hang, chain, shackle, pool, drip, aim, hookY: HOOK_Y, chainSpan,
+      fig, hang, chain, shackle, aim,
+      hookY: HOOK_Y, chainSpan, kill,
+      resetBlood() {
+        fate.marks = [];
+        fate.pool = null;
+      },
+      get alive() { return fate.alive; },
+      get deathCause() { return fate.cause; },
+      get fatalMarks() { return fate.marks; },
+      get fatalPool() { return fate.pool; },
+      bloodActor: fate,
     };
   }
   const xxx = buildXxx();
@@ -3268,34 +3298,10 @@ export function buildSilentSquatch({
       stations.push(g);
     }
 
-    /* ---- Robotic arms: two on gantries over the core, one on a bench. */
+    /* The old decorative arms had no bench or gantry: their small yellow
+     * bases floated almost a metre above the slab. Keep the inventory seam,
+     * but do not manufacture unsupported machinery. */
     const arms = [];
-    function roboticArm(x, y, z, scale = 1) {
-      const g = group('ss-robot-arm');
-      g.position.set(x, y, z);
-      g.scale.setScalar(scale);
-      root.add(g);
-      g.add(cylinder({ r: 0.16, h: 0.12, pos: [0, 0, 0], mat: M_STEEL_DULL }));
-      const j1 = group('j1');
-      g.add(j1);
-      j1.add(box({ size: [0.16, 0.8, 0.16], pos: [0, 0.4, 0], mat: mat({ color: 0xc8b03a, roughness: 0.5, metalness: 0.5 }) }));
-      const j2 = group('j2');
-      j2.position.y = 0.8;
-      j1.add(j2);
-      j2.add(box({ size: [0.13, 0.66, 0.13], pos: [0, 0.33, 0], mat: M_STEEL }));
-      const j3 = group('j3');
-      j3.position.y = 0.66;
-      j2.add(j3);
-      j3.add(box({ size: [0.09, 0.24, 0.09], pos: [0, 0.12, 0], mat: M_STEEL_DULL }));
-      for (const sx of [-0.05, 0.05]) {
-        j3.add(box({ size: [0.02, 0.14, 0.03], pos: [sx, 0.3, 0], mat: M_STEEL, cast: false }));
-      }
-      arms.push({ group: g, j1, j2, j3, phase: Math.random() * 6.28 });
-      return g;
-    }
-    roboticArm(CORE_AT.x - 2.1, LAB_Y + 1.1, CORE_AT.z + 1.5, 1.1);
-    roboticArm(CORE_AT.x + 2.1, LAB_Y + 1.1, CORE_AT.z - 1.4, 1.1);
-    roboticArm(R.x0 + 3.3, LAB_Y + 0.98, R.z1 - 1.5, 0.7);
 
     /* ---- Chemical tanks along the west wall, with radiation placards. */
     const tanks = [];
@@ -4260,6 +4266,16 @@ export function buildSilentSquatch({
         poseFallen(self, 1);
         separateFallen(self);
         poseFallen(self, 0);
+        if (!self.deathPool) {
+          const deathPoint = fig.torso.getWorldPosition(new THREE.Vector3());
+          self.deathPool = deathPools.spill(deathPoint, {
+            floorY: LAB_FLOOR,
+            size: 0.78,
+            opacity: 0.78,
+            delay: 0.45,
+            seed: 20 + i,
+          });
+        }
         lifeSigns = Math.max(0, lifeSigns - 1);
         paintLifeSigns();
         return self;
@@ -4297,6 +4313,14 @@ export function buildSilentSquatch({
       stepOut(x = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2, z = GLASS_WALL.z1 + 1.5) {
         self.inside = false;
         self.stage = 'walking';
+        /* A reach gesture leaves shoulder Z behind in Figure's walk pose.
+         * Clear it at the state boundary so Aubbie cannot walk into the
+         * execution with his hand embedded in his chest. */
+        fig.gesture = null;
+        fig.gestureT = 0;
+        fig.setPose('stand');
+        fig.armL.shoulder.rotation.z = 0;
+        fig.armR.shoulder.rotation.z = 0;
         /* Through the doorway first, then out. One straight line from the
          * core to the observation area clips the door jamb and he arrives
          * walking through the glass. */
@@ -4316,12 +4340,14 @@ export function buildSilentSquatch({
        * in that order. A lab that has not grown this method still plays — the
        * mission calls it with `?.()` — and the man still falls over.
        *
-       * `from` is where the shot came from, so the wound faces the shooter.
+      * The full hit record is preserved from the camera ray. Its point is
+      * where the shared wound is attached; no guessed chest fallback exists.
        */
-      shot(from = null) {
-        if (self._bled) return self;
+      shot(hit = null) {
+        if (self._bled || !hit?.point?.isVector3) return self;
         self._bled = true;
-        bleed(fig, figScale, from);
+        self.blood = bleedAtHit(self, fig, hit);
+        self.deathPool = self.blood.pool;
         return self;
       },
       /** Beat 8: he is killed in the observation area, in full view. */
@@ -4336,60 +4362,10 @@ export function buildSilentSquatch({
   /** Speech from somebody who is NOT behind the glass. */
   function plainSay(cue, opts) { return audio?.play?.(cue, opts) ?? null; }
 
-  /* ================================================================== */
-  /* BLOOD                                                               */
-  /*                                                                      */
-  /* Owner playtest, 2026-08-06: *"Blood effect when Aubbie is shot."*    */
-  /* There was none. The only thing that happened when the player carried  */
-  /* out the execution was that the man fell over.                          */
-  /*                                                                        */
-  /* NOTHING NEW IS DRAWN HERE. Two effects this repository already has:     */
-  /*                                                                         */
-  /*   `BulletHoles(scene, 'blood')` — src/world/bullets.js, the pooled       */
-  /*     arterial decal THE SILVER CASE puts on every man it shoots           */
-  /*     (`ImpactKit.body`), attached to the BODY so the wound travels with    */
-  /*     him as he goes down rather than hanging in the air where he was;      */
-  /*   `stain()` — this file's own floor decal, the one the pool under xXx     */
-  /*     and the marks down the interrogation corridor are made of.            */
-  /*                                                                            */
-  /* The wound is on him, the spatter is on the floor behind him along the       */
-  /* line of the shot, and the pool arrives underneath him as he lands rather    */
-  /* than the instant the trigger goes — it takes a second for a man to bleed    */
-  /* onto concrete, and the fall takes about that long.                          */
-  /* ================================================================== */
-  /** Built on the first shot: a scene where nobody is shot pays nothing. */
-  let blood = null;
-  /** Pools that are still fading up, with their target opacity. */
-  const bloodPools = [];
-  const bloodMarks = [];
-
-  function bloodPool() {
-    if (blood) return blood;
-    /* Into this module's own group rather than the scene's root, so the marks
-     * belong to the laboratory the way everything else here does. */
-    blood = new BulletHoles(root, 'blood');
-    /* Its muzzle flash is a PointLight, and this scene meters its lights
-     * (`registerLight`). Nothing here calls `muzzle()` — the weapon system
-     * owns the flash at the player's end — so the light comes straight back
-     * out rather than sitting in every shader in the basement forever.
-     * `update()` returns on the first line without it. */
-    blood.flash?.parent?.remove(blood.flash);
-    return blood;
-  }
-
-  /**
-   * He was hit. `from` is where the round came from, so the wound faces the
-   * shooter and the spatter goes out the other side.
-   */
-  function bleed(fig, figScale, from = null) {
-    const kit = bloodPool();
-    const body = fig.group.position;
-    /* THE ROOM'S HALF OF THE SHOT (owner playtest: "gunshots with room tone").
-     * The weapon system owns the report at the muzzle; this is the crack
-     * coming back off twelve centimetres of glass, the case landing, the man
-     * landing, and the ring that is left when it has all stopped. Positioned
-     * on the body rather than on the player so it pans across as he falls. */
-    const heard = new THREE.Vector3(body.x, LAB_Y + 1.3, body.z);
+  /* The shared blood adapter owns placement and pooling. This scene owns only
+   * its five authored room-tail sounds and the death rule. */
+  function bleedAtHit(actor, fig, hit) {
+    const heard = hit.point.clone();
     sfx('silent.gunshot.observation', {
       volume: 0.95, position: heard, ref: 4, maxDist: 40,
     });
@@ -4405,40 +4381,19 @@ export function buildSilentSquatch({
     sfx('silent.gunshot.tail', {
       volume: 0.55, delay: 0.2, position: heard, ref: 6, maxDist: 40,
     });
-    const chestY = body.y + 1.28 * figScale;
-    const toward = new THREE.Vector3(
-      (from?.x ?? body.x) - body.x, 0, (from?.z ?? body.z + 1) - body.z,
-    );
-    if (toward.lengthSq() < 1e-6) toward.set(0, 0, 1);
-    toward.normalize();
-
-    /* The wound, on him, facing the man who fired. Attached to the torso
-     * GROUP rather than to a mesh: `Figure`'s boxes carry real geometry but
-     * the group is where a decal belongs, and it is uniformly scaled. */
-    const entry = new THREE.Vector3(body.x, chestY, body.z).addScaledVector(toward, 0.16);
-    const wound = kit.punchAttached(fig.torso, entry, toward);
-    wound.name = 'ss-blood-wound';
-    bloodMarks.push(wound);
-
-    /* Spatter, out the back, on the floor. Same pool, laid flat. */
-    const behind = toward.clone().negate();
-    for (let i = 0; i < 3; i++) {
-      const at = new THREE.Vector3(body.x, LAB_FLOOR + 0.004, body.z)
-        .addScaledVector(behind, 0.55 + i * 0.42 + Math.random() * 0.3);
-      at.x += (Math.random() - 0.5) * 0.5;
-      at.z += (Math.random() - 0.5) * 0.5;
-      const mark = kit.punch(at, new THREE.Vector3(0, 1, 0));
-      mark.name = 'ss-blood-spatter';
-      bloodMarks.push(mark);
-    }
-
-    /* And the pool, under him, arriving over the second it takes him to land.
-     * `stain()` is this file's own — the same decal the corridor is covered
-     * in, so the floor of this basement reads as one continuous night. */
-    const pool = stain(body.x, body.z, LAB_FLOOR, 0.62, 3, 0);
-    pool.name = 'ss-blood-pool';
-    bloodPools.push({ mesh: pool, t: 0, to: 0.88 });
-    return pool;
+    const anchor = nearestBodyGroup(hit.object, fig.group, fig.torso);
+    const marks = bloodImpacts.hit({
+      actor,
+      anchor,
+      spatterAnchor: fig.torso,
+      point: hit.point,
+      normal: hit.normal ?? null,
+      from: hit.from ?? null,
+    });
+    const pool = deathPools.spill(hit.point, {
+      floorY: LAB_FLOOR, size: 0.92, opacity: 0.88, delay: 0.85, seed: 3,
+    });
+    return { ...marks, pool, point: hit.point.clone() };
   }
 
   /**
@@ -5269,7 +5224,8 @@ export function buildSilentSquatch({
      * points them at the ceiling. */
     {
       const f = xxx.fig;
-      const sway = Math.sin(time * 0.55) * 0.035 + Math.sin(time * 0.23) * 0.02;
+      const swayScale = xxx.alive ? 1 : 0.28;
+      const sway = (Math.sin(time * 0.55) * 0.035 + Math.sin(time * 0.23) * 0.02) * swayScale;
       /* One pendulum and one slow turn, BOTH on the group whose origin is the
        * hook. `rotation.z` leaves the local Z axis alone, and the top chain
        * link sits on it, so the chain cannot come off the eye; `rotation.y`
@@ -5283,9 +5239,9 @@ export function buildSilentSquatch({
       xxx.hang.rotation.z = sway * 0.55;
       xxx.hang.rotation.y = XXX_FACING + sway * 0.9;
       // Shallow, painful breathing.
-      const br = Math.sin(time * 0.9);
+      const br = xxx.alive ? Math.sin(time * 0.9) : 0;
       f.chest.scale.set(1, 1 + br * 0.02, 1 + br * 0.012);
-      f.torso.rotation.x = 0.1 + br * 0.02;
+      f.torso.rotation.x = (xxx.alive ? 0.1 : 0.18) + br * 0.02;
       /* Talking, when the mission gives him a line. The jaw and the lip are
        * `Figure`'s own shared mouth driver, run from here because this block
        * replaces `Figure.update()` entirely for him -- what used to be here
@@ -5293,11 +5249,6 @@ export function buildSilentSquatch({
        * number of seconds. It is the take now (src/core/mouth.js). */
       if (f.talkT > 0) f.talkT -= dt;
       f.voiceMouth.update(dt);
-      // The drip. Falls off his head, lands in the pool, restarts. Its top is
-      // his hairline (LAB_Y + 0.51) and its bottom is the pool's own surface.
-      const fall = (time * 0.32) % 1;
-      xxx.drip.position.y = THREE.MathUtils.lerp(LAB_Y + 0.5, LAB_FLOOR + 0.03, fall);
-      xxx.drip.visible = fall < 0.94;
     }
 
     /* ---- THE 2026-08-06 SFX PASS: the two one-shots that live on a clock.
@@ -5438,6 +5389,11 @@ export function buildSilentSquatch({
         f.legR.knee.rotation.x += (1.6 - f.legR.knee.rotation.x) * k;
       } else {
         f.update(dt);
+        if (!f.gesture) {
+          const settle = Math.min(1, dt * 12);
+          f.armL.shoulder.rotation.z *= 1 - settle;
+          f.armR.shoulder.rotation.z *= 1 - settle;
+        }
       }
       if (s.stage === 'coughing' || s.stage === 'crawling') {
         s._cough -= dt;
@@ -5483,15 +5439,8 @@ export function buildSilentSquatch({
       }
     }
 
-    /* ---- the pool under the man who was shot, arriving as he lands. */
-    for (const p of bloodPools) {
-      if (p.t >= 1) continue;
-      p.t = Math.min(1, p.t + dt * 0.85);
-      p.mesh.material.opacity = p.t * p.to;
-      /* It spreads as well as darkens; a disc that only fades up reads as a
-       * decal switching on. */
-      p.mesh.scale.setScalar(0.55 + p.t * 0.45);
-    }
+    bloodImpacts.update(dt);
+    deathPools.update(dt);
 
     /* ---- handprints fading up on the inside of the glass. */
     for (const h of handprints) {
@@ -5651,6 +5600,35 @@ export function buildSilentSquatch({
   };
   const anchors = {
     corridorWestEnd: { x: -14.6, y: CELLAR_Y, z: 65.85 },
+    /* Mission thresholds are real places on the walked route. They are kept
+     * separate from camera/checkpoint anchors so stepping onto the bottom
+     * tread does not summon Irish, and Booski cannot shout from the far room
+     * until the player has physically passed xXx. */
+    cellar: { x: -15.15, y: CELLAR_Y, z: 65.85, r: 0.9 },
+    corridor: {
+      x: (STAIRWELL.x0 + STAIRWELL.x1) / 2,
+      y: LAB_Y,
+      z: INTERROGATION.z1 - 1.8,
+      r: 0.85,
+    },
+    observation: {
+      x: OBSERVATION.x1 - 0.9,
+      y: LAB_Y,
+      z: 53.4,
+      r: 1.0,
+    },
+    stairs: {
+      x: (STAIRWELL.x0 + STAIRWELL.x1) / 2,
+      y: (CELLAR_Y + LAB_Y) / 2,
+      z: (STAIRWELL.z0 + STAIRWELL.z1) / 2,
+      r: 0.9,
+    },
+    cellarTop: {
+      x: (STAIRWELL.x0 + STAIRWELL.x1) / 2,
+      y: CELLAR_Y,
+      z: STAIRWELL.z1 - 0.35,
+      r: 0.8,
+    },
     bust: {
       x: SECRET_DOOR.x1 + 0.95, y: CELLAR_Y, z: SECRET_DOOR.z0 - 0.5,
     },
@@ -5821,9 +5799,12 @@ export function buildSilentSquatch({
        */
       rig: { ...xxx.chainSpan },
       chain: xxx.chain,
-      pool: xxx.pool,
+      /* A fatal pool is supplied only by the shared DeathBloodPool. */
+      get pool() { return xxx.fatalPool; },
+      kill: (cause, hit) => xxx.kill(cause, hit),
       /** He is barely conscious, so this is a rasp, not a delivery. */
       say: (cue, opts = {}) => {
+        if (!xxx.alive) return false;
         const secs = opts.seconds ?? 2.2;
         if (!cue) {
           xxx.fig.speak(secs);
@@ -5841,11 +5822,15 @@ export function buildSilentSquatch({
         return true;
       },
       cough: () => {
+        if (!xxx.alive) return false;
         xxx.fig.speak(0.5);
         return true;
       },
-      /** He survives. Nothing in this module can change that. */
-      get alive() { return true; },
+      get alive() { return xxx.alive; },
+      get deathCause() { return xxx.deathCause; },
+      get fatalMarks() { return xxx.fatalMarks; },
+      get fatalPool() { return xxx.fatalPool; },
+      get bloodActor() { return xxx.bloodActor; },
     },
     /** What the crosshair currently reads, and the readout element's text. */
     get crosshairText() { return crosshairNames?.text ?? null; },
@@ -5893,7 +5878,7 @@ export function buildSilentSquatch({
       },
       entertainment: { ...innocent.entertainment },
     },
-    datums: { CELLAR_Y, LAB_Y, LAB_CEIL, LANDING_CEIL },
+    datums: { CELLAR_Y, LAB_Y, LAB_FLOOR, LAB_CEIL, LANDING_CEIL },
     code: LAB_CODE,
     /** Cue names + prompts, so a verifier can prove they were authored. */
     cues: SILENT_SQUATCH_CUES.map(([name, prompt]) => ({ name, prompt })),
@@ -5913,10 +5898,12 @@ export function buildSilentSquatch({
       wineRacks: innocent.wine.racks.length,
       decorArt: decorArt.length,
       get handprints() { return handprints.length; },
-      /** Wound and spatter decals on the man the player shot, plus the pool
-       * under him. The owner's blood effect, proved by what it left behind. */
-      get bloodMarks() { return bloodMarks.filter((m) => m.visible).length; },
-      get bloodPools() { return bloodPools.length; },
+      /** Shared wounds and pools, counted from the actual reusable systems. */
+      get bloodMarks() {
+        return scientists.reduce((n, scientist) => n + bloodImpacts.marksOn(scientist), 0)
+          + bloodImpacts.marksOn(xxx.bloodActor);
+      },
+      get bloodPools() { return deathPools.visibleCount; },
       get chairBent() { return chairBent; },
       coreRings: core.rings.length,
       hasFatSquatchEmblem: !!core.emblem,
@@ -5927,6 +5914,20 @@ export function buildSilentSquatch({
       maskCabinetHeight: +(sealed.maskCab.position.y - 0.31 - LAB_Y).toFixed(2),
       get masksReachable() {
         return (sealed.maskCab.position.y - 0.31 - LAB_Y) < 2.4;
+      },
+    },
+    blood: {
+      impacts: bloodImpacts,
+      deathPools,
+      reset() {
+        bloodImpacts.reset();
+        deathPools.reset();
+        for (const scientist of scientists) {
+          scientist._bled = false;
+          scientist.blood = null;
+          scientist.deathPool = null;
+        }
+        xxx.resetBlood();
       },
     },
   };
