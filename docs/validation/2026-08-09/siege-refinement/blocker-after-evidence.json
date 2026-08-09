@@ -1,0 +1,249 @@
+{
+  "pass": "blocker-after",
+  "views": [
+    "blocker-after-forecourt.png",
+    "blocker-after-foyer.png",
+    "blocker-after-dead-performer.png",
+    "blocker-after-east-stair-ascent.png",
+    "blocker-after-east-stair-defenders.png",
+    "blocker-after-east-stair-head.png",
+    "blocker-after-foyer-fire.png",
+    "blocker-after-gallery.png",
+    "blocker-after-gallery-operations.png",
+    "blocker-after-office.png"
+  ],
+  "inventory": {
+    "state": "under_attack",
+    "groups": {
+      "glass.foyer.south.west.shards": 20,
+      "glass.living.west.north.shards": 20,
+      "glass.lounge.bay.east.mid.shards": 20,
+      "glass.particles": 48,
+      "glass.upper.east.front.shards": 20,
+      "night.accents": 6,
+      "night.emergency": 27,
+      "siege.architecture.damage": 127,
+      "siege.attackers": 517,
+      "siege.body.guard": 75,
+      "siege.body.performer": 62,
+      "siege.centrepiece.wreck": 27,
+      "siege.debris.cellar": 52,
+      "siege.debris.foyer": 149,
+      "siege.debris.lounge": 28,
+      "siege.ensemble": 1923,
+      "siege.fire.foyer": 19,
+      "siege.stations": 38,
+      "siege.step": 66,
+      "siege.wreck.burning": 36,
+      "siege.wreck.burnt": 24,
+      "siege.wreck.drive": 16,
+      "siege.wreck.kerbed": 16,
+      "siege.wreck.stalled": 16
+    },
+    "visibleLights": 19,
+    "framesRendered": 200,
+    "contextLost": false,
+    "geometry": {
+      "eastPartition": {
+        "min": [
+          8.85,
+          1.2,
+          36
+        ],
+        "max": [
+          9.15,
+          10.2,
+          48
+        ]
+      },
+      "galleryRoster": {
+        "min": [
+          9.8,
+          7.41,
+          48.18
+        ],
+        "max": [
+          13,
+          8.69,
+          48.18
+        ]
+      },
+      "austinMajor": {
+        "min": [
+          9.1445,
+          2.965,
+          39.365
+        ],
+        "max": [
+          9.2,
+          4.235,
+          40.635
+        ]
+      },
+      "worklamp": {
+        "min": [
+          2.832,
+          5.995,
+          45.35
+        ],
+        "max": [
+          3.288,
+          7.6183,
+          45.75
+        ]
+      },
+      "performer": {
+        "min": [
+          -7.8665,
+          1.2,
+          36.7942
+        ],
+        "max": [
+          -6.5552,
+          1.9169,
+          38.6395
+        ]
+      },
+      "performerBlood": {
+        "min": [
+          -8.0065,
+          1.206,
+          36.9213
+        ],
+        "max": [
+          -6.4153,
+          1.206,
+          38.5125
+        ]
+      }
+    },
+    "ensemble": [
+      {
+        "id": "lou",
+        "visible": true,
+        "x": -1.679,
+        "y": 6,
+        "z": 68.578
+      },
+      {
+        "id": "booski",
+        "visible": true,
+        "x": 6.101,
+        "y": 6,
+        "z": 50.563
+      },
+      {
+        "id": "rippinflow",
+        "visible": true,
+        "x": -5.985,
+        "y": 6,
+        "z": 48.736
+      },
+      {
+        "id": "snow",
+        "visible": true,
+        "x": -12.8,
+        "y": 6,
+        "z": 50.2
+      },
+      {
+        "id": "shubenator",
+        "visible": true,
+        "x": -2.978,
+        "y": 6,
+        "z": 55.601
+      },
+      {
+        "id": "eric",
+        "visible": true,
+        "x": 8.074,
+        "y": 6,
+        "z": 49.109
+      },
+      {
+        "id": "aubbie",
+        "visible": true,
+        "x": 2.809,
+        "y": 6,
+        "z": 51.812
+      },
+      {
+        "id": "irish",
+        "visible": true,
+        "x": -8.4,
+        "y": 6,
+        "z": 49.4
+      },
+      {
+        "id": "deathmegatron",
+        "visible": true,
+        "x": 6.484,
+        "y": 6,
+        "z": 63.541
+      },
+      {
+        "id": "numbskull",
+        "visible": true,
+        "x": -7.9,
+        "y": 6,
+        "z": 49.22
+      },
+      {
+        "id": "hogmama",
+        "visible": true,
+        "x": 2.322,
+        "y": 6,
+        "z": 54.405
+      },
+      {
+        "id": "captain_lou_sasole",
+        "visible": false,
+        "x": 3.4,
+        "y": 6,
+        "z": 52
+      },
+      {
+        "id": "guard_0",
+        "visible": true,
+        "x": -4.6,
+        "y": 6,
+        "z": 48.7
+      },
+      {
+        "id": "guard_1",
+        "visible": true,
+        "x": 4.6,
+        "y": 6,
+        "z": 48.7
+      },
+      {
+        "id": "guard_2",
+        "visible": true,
+        "x": -9.461,
+        "y": 6,
+        "z": 51.433
+      },
+      {
+        "id": "guard_wounded",
+        "visible": true,
+        "x": 3.934,
+        "y": 6,
+        "z": 58.976
+      }
+    ],
+    "landingDefenders": [
+      "booski",
+      "rippinflow",
+      "snow",
+      "eric",
+      "aubbie",
+      "irish",
+      "numbskull",
+      "guard_0",
+      "guard_1",
+      "guard_2"
+    ]
+  },
+  "notFound": [],
+  "pageErrors": []
+}

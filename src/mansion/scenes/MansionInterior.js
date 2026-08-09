@@ -3009,9 +3009,13 @@ export function buildMansionInterior(shell = null) {
 
     /* Owner-authored Austin Major portrait: the clear south bay of the
      * billiard-room inner wall, visible as soon as the foyer opens into it. */
+    /* `wallArt`'s frame extends 35.5 mm behind its hang point and the shared
+     * sconce backplate extends 30 mm. Both used to be authored 140-200 mm
+     * proud of this wall, leaving unmistakable air and shadow behind them.
+     * One shared 30 mm mount datum seats both pieces on the plaster. */
     const loungeCowboy = wallArt(
       'mansion.lounge.cowboy',
-      r.x0 + 0.14,
+      r.x0 + 0.03,
       GY + 2.4,
       40.0,
       Math.PI / 2,
@@ -3021,7 +3025,7 @@ export function buildMansionInterior(shell = null) {
         title: ['AUSTIN'], footer: 'MAJOR', ink: '#d8b23a', bg: '#1c1420',
       }),
     );
-    sconce(r.x0 + 0.2, GY + 3.25, 40.0, Math.PI / 2, 1.9);
+    sconce(r.x0 + 0.03, GY + 3.25, 40.0, Math.PI / 2, 1.9);
 
     /* ---- The set on the bar, and the television at the room's front end.
      * Both are cabinets here; core/radio.js and core/tv.js drive them from
@@ -4124,8 +4128,13 @@ export function buildMansionInterior(shell = null) {
     }));
     sconce(-11.4, UY + 3.0, Z_GALLERY_S + 0.2, 0, 1.9);
 
+    /* The east flight occupies x 5.5..8.85 right up to this edge. The old
+     * x=7.4 put the whole 3.2 m picture, its bezel and its lamp across that
+     * open stair mouth with no wall behind any of them. Use the matching
+     * masonry bay opposite `galleryPride`; it is the same gallery wall, just
+     * east of the stair rather than hanging over it. */
     const galleryRoster = flatArt('mansion.gallery.roster', {
-      x: 7.4,
+      x: 11.4,
       y: UY + 2.05,
       z: Z_GALLERY_S + 0.18,
       rotY: 0,
@@ -4140,9 +4149,9 @@ export function buildMansionInterior(shell = null) {
       }),
     });
     root.add(box({
-      size: [3.4, 1.46, 0.05], pos: [7.4, UY + 2.05, Z_GALLERY_S + 0.14], mat: M_GOLD, cast: false,
+      size: [3.4, 1.46, 0.05], pos: [11.4, UY + 2.05, Z_GALLERY_S + 0.14], mat: M_GOLD, cast: false,
     }));
-    sconce(7.4, UY + 3.05, Z_GALLERY_S + 0.2, 0, 1.9);
+    sconce(11.4, UY + 3.05, Z_GALLERY_S + 0.2, 0, 1.9);
 
     const lights = [];
     for (const px of [-12, -4, 4, 12]) {

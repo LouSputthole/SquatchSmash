@@ -15,7 +15,7 @@ const {
   buildMansionGrounds, GROUND_Y, POOL, UPPER_Y, VAULT,
 } = await import('../src/mansion/scenes/MansionGrounds.js');
 const {
-  buildMansionInterior, MANSION_ART_SLOTS,
+  buildMansionInterior, LOUNGE, MANSION_ART_SLOTS, STAIR_EAST,
 } = await import('../src/mansion/scenes/MansionInterior.js');
 const { buildSilentSquatch } = await import('../src/mansion/scenes/SilentSquatch.js');
 const {
@@ -59,6 +59,60 @@ test('all ten owner-authored Mansion photographs are recovered and hung in their
       `${slot} is duplicated outside its one authored room`);
   }
   assert.equal(new Set(expected.values()).size, 10, 'one recovered image was reused in place of another');
+});
+
+test('the Flamingo-Mega gallery roster and paired lamp hang beside the east stair, never over it', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  interior.root.updateMatrixWorld(true);
+
+  const roster = interior.props.gallery.roster;
+  const rosterBox = new THREE.Box3().setFromObject(roster);
+  assert.ok(rosterBox.min.x > STAIR_EAST.x1 + 0.2,
+    `the gallery roster spans x ${rosterBox.min.x.toFixed(3)}..${rosterBox.max.x.toFixed(3)} `
+    + `over the east stair ending at x ${STAIR_EAST.x1.toFixed(3)}`);
+
+  const pairedLamp = interior.lights.find((light) => (
+    Math.abs(light.position.x - roster.position.x) < 0.25
+    && Math.abs(light.position.z - roster.position.z) < 0.4
+    && light.position.y > roster.position.y + 0.7
+  ));
+  assert.ok(pairedLamp, 'the gallery roster lost its paired picture lamp');
+  assert.ok(pairedLamp.position.x > STAIR_EAST.x1 + 0.2,
+    `the gallery roster lamp still hangs over the east stair at x ${pairedLamp.position.x.toFixed(3)}`);
+});
+
+test('the framed Austin portrait and its sconce contact the billiard-room wall', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  interior.root.updateMatrixWorld(true);
+
+  const cowboy = new THREE.Box3().setFromObject(interior.props.lounge.cowboy.group);
+  const pictureGap = cowboy.min.x - LOUNGE.x0;
+  assert.ok(pictureGap >= -0.015 && pictureGap <= 0.015,
+    `the Austin frame is ${pictureGap.toFixed(4)} m from the billiard-room wall`);
+
+  const backplates = interior.root.getObjectByName('sconce-backplate');
+  assert.ok(backplates?.isInstancedMesh, 'the shared sconce backplate batch is missing');
+  backplates.geometry.computeBoundingBox();
+  const localBox = backplates.geometry.boundingBox;
+  const instance = new THREE.Matrix4();
+  const world = new THREE.Matrix4();
+  let pairedPlate = null;
+  for (let index = 0; index < backplates.count; index += 1) {
+    backplates.getMatrixAt(index, instance);
+    world.multiplyMatrices(backplates.matrixWorld, instance);
+    const box = localBox.clone().applyMatrix4(world);
+    const centre = box.getCenter(new THREE.Vector3());
+    if (Math.abs(centre.z - 40) < 0.05 && Math.abs(centre.y - (1.2 + 3.25)) < 0.05) {
+      pairedPlate = box;
+      break;
+    }
+  }
+  assert.ok(pairedPlate, 'the Austin portrait lost its paired billiard-room sconce');
+  const plateGap = pairedPlate.min.x - LOUNGE.x0;
+  assert.ok(plateGap >= -0.015 && plateGap <= 0.015,
+    `the Austin sconce backplate is ${plateGap.toFixed(4)} m from the wall`);
 });
 
 test('the bedroom pass makes the lower room the Prospect\'s and gives every bed its authored art', () => {

@@ -41,6 +41,7 @@ const PORT = Number(process.env.PORT) || 5231;
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
 };
@@ -311,6 +312,63 @@ try {
       && arrivalLoadout.hotbarHidden === false && arrivalLoadout.slots.includes('revolver')
       && arrivalLoadout.equipped === 'revolver' && arrivalLoadout.equippedInHands === 'revolver',
     JSON.stringify(arrivalLoadout));
+
+  const arrivalHealth = await evaluate(() => {
+    const view = window.mansionSiege.hud().health;
+    const root = document.querySelector('.combat-status-hud');
+    return {
+      view,
+      visible: Boolean(root) && !root.classList.contains('hidden'),
+      value: root?.dataset.health ?? null,
+      maximum: root?.dataset.maxHealth ?? null,
+      aria: root?.getAttribute('aria-label') ?? null,
+      fill: root?.querySelector('.combat-status-fill')?.style.transform ?? null,
+    };
+  });
+  check('shared CombatActor health is visible as a readable bar and number from the first playable frame',
+    arrivalHealth.visible
+      && arrivalHealth.view.current === 100
+      && arrivalHealth.value === '100'
+      && arrivalHealth.maximum === '100'
+      && arrivalHealth.aria === 'Health 100 of 100'
+      && arrivalHealth.fill === 'scaleX(1)',
+    JSON.stringify(arrivalHealth));
+
+  const arrivalHudLayout = await evaluate(() => {
+    const bounds = (node) => {
+      const rect = node?.getBoundingClientRect();
+      return rect ? {
+        left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        width: rect.width, height: rect.height,
+      } : null;
+    };
+    const overlaps = (a, b) => Boolean(a && b
+      && a.left < b.right && a.right > b.left
+      && a.top < b.bottom && a.bottom > b.top);
+    const hotbar = bounds(document.getElementById('hotbar'));
+    const ammo = bounds(document.getElementById('ammo'));
+    const health = bounds(document.querySelector('.combat-status-hud'));
+    return {
+      hotbar,
+      ammo,
+      health,
+      overlaps: {
+        hotbarAmmo: overlaps(hotbar, ammo),
+        hotbarHealth: overlaps(hotbar, health),
+        ammoHealth: overlaps(ammo, health),
+      },
+      hotbarCenterDelta: hotbar
+        ? Math.abs(((hotbar.left + hotbar.right) / 2) - (window.innerWidth / 2))
+        : null,
+    };
+  });
+  check('health, the bottom-centred five-slot loadout, and ammunition occupy three non-overlapping lanes',
+    arrivalHudLayout.hotbar?.width > 0
+      && arrivalHudLayout.ammo?.width > 0
+      && arrivalHudLayout.health?.width > 0
+      && Object.values(arrivalHudLayout.overlaps).every((value) => value === false)
+      && arrivalHudLayout.hotbarCenterDelta <= 1,
+    JSON.stringify(arrivalHudLayout));
 
   await page.keyboard.press('KeyQ');
   await settle(0.1);
@@ -623,6 +681,131 @@ try {
   check('the line does not fire twice', said.second === false);
 
   /* ---------------------------------------------------------------- */
+  /* Capture the real incoming-hit state at the player's 1440x900 test
+   * resolution. The structural verifier begins at 480x300 to keep its first
+   * frame budget honest; this larger frame is the human-readable HUD proof. */
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incoming = await evaluate(() => {
+    const s = window.mansionSiege;
+    const snapshot = s.attackers.snapshot();
+    const originalRandom = Math.random;
+    const shooterId = [...s.mission.waves.one.standing][0];
+    const shooter = s.attackers.entry(shooterId);
+    s.playerActor.health = s.playerActor.maxHealth;
+    s.playerActor.incapacitated = false;
+    s.playerActor.injury = 'none';
+    s.combatHud.update();
+    const before = s.playerHealth;
+    const beforeEvents = s.playerDamageEvents;
+    try {
+      for (const entry of s.attackers.all()) {
+        entry.active = entry === shooter;
+        entry.root.visible = entry === shooter;
+      }
+      s.teleport(0, 6, 46.3, 0);
+      shooter.root.position.set(0, 6, 47.3);
+      shooter.floorY = 6;
+      shooter.path.length = 0;
+      shooter.goal.copy(shooter.root.position);
+      shooter.awareness = 1;
+      shooter.sinceThink = 1;
+      shooter.weapon.magazine = shooter.weapon.definition.magazineSize;
+      shooter.weapon.cooldown = 0;
+      shooter.weapon.reloading = 0;
+      shooter.root.updateMatrixWorld(true);
+      s.player.clearKeys();
+      Math.random = () => 0;
+      for (let i = 0; i < 600 && s.playerDamageEvents === beforeEvents; i++) s.tick(1 / 60);
+      const health = s.hud().health;
+      const root = document.querySelector('.combat-status-hud');
+      return {
+        shooterId,
+        before,
+        after: s.playerHealth,
+        beforeEvents,
+        afterEvents: s.playerDamageEvents,
+        rounds: shooter.roundsFired,
+        health,
+        visibleValue: root?.dataset.health ?? null,
+        hitFlash: root?.classList.contains('hit') ?? false,
+        lastShot: shooter.lastShot,
+      };
+    } finally {
+      Math.random = originalRandom;
+      s.attackers.restore(snapshot);
+    }
+  });
+  check('a real attacker round on the occupied landing damages the player through shared ballistics',
+    incoming.after < incoming.before
+      && incoming.afterEvents === incoming.beforeEvents + 1
+      && incoming.lastShot?.damage > 0,
+    JSON.stringify(incoming));
+  check('the same incoming round updates the shared health readout and flashes the hit card',
+    incoming.health.current === Math.ceil(incoming.after)
+      && incoming.visibleValue === String(Math.ceil(incoming.after))
+      && incoming.hitFlash,
+    JSON.stringify(incoming));
+  const hitFrameBefore = await evaluate((health) => {
+    const s = window.mansionSiege;
+    window.__siegeHitFrameAttackers = s.attackers.snapshot();
+    for (const entry of s.attackers.all()) entry.active = false;
+    s.playerActor.health = health;
+    s.playerActor.incapacitated = false;
+    s.playerActor.injury = 'minor';
+    s.combatHud.update();
+    s.setInvulnerable(true);
+    s.setRendering(true);
+    return s.framesRendered;
+  }, incoming.after);
+  await page.waitForFunction(
+    (before) => window.mansionSiege.framesRendered >= before + 2,
+    hitFrameBefore,
+    { timeout: 180000 },
+  );
+  const hitCaptureStarted = await evaluate(() => {
+    window.mansionSiege.combatHud.noteDamage(20.7);
+    return document.querySelector('.combat-status-hud')?.classList.contains('hit') ?? false;
+  });
+  const combatValidationDir = path.join(
+    ROOT, 'docs', 'validation', '2026-08-09', 'siege-refinement',
+  );
+  const hitFramePath = path.join(combatValidationDir, 'after-combat-health-hud.png');
+  fs.mkdirSync(path.dirname(hitFramePath), { recursive: true });
+  await page.screenshot({ path: hitFramePath, animations: 'disabled', timeout: 300000 });
+  const hitFrameLayout = await evaluate(() => {
+    const rect = (selector) => {
+      const box = document.querySelector(selector)?.getBoundingClientRect();
+      return box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom } : null;
+    };
+    const overlaps = (a, b) => Boolean(a && b
+      && a.left < b.right && a.right > b.left
+      && a.top < b.bottom && a.bottom > b.top);
+    const health = rect('.combat-status-hud');
+    const hotbar = rect('#hotbar');
+    const ammo = rect('#ammo');
+    if (window.__siegeHitFrameAttackers) {
+      window.mansionSiege.attackers.restore(window.__siegeHitFrameAttackers);
+      delete window.__siegeHitFrameAttackers;
+    }
+    window.mansionSiege.setRendering(false);
+    return {
+      health,
+      hotbar,
+      ammo,
+      hit: document.querySelector('.combat-status-hud')?.classList.contains('hit') ?? false,
+      value: document.querySelector('.combat-status-value')?.textContent ?? null,
+      overlaps: [overlaps(health, hotbar), overlaps(health, ammo), overlaps(hotbar, ammo)],
+    };
+  });
+  check('the captured real-hit frame keeps health, loadout, and ammunition readable without overlap',
+    hitCaptureStarted
+      && hitFrameLayout.value === String(Math.ceil(incoming.after))
+      && hitFrameLayout.overlaps.every((value) => value === false)
+      && fs.statSync(hitFramePath).size > 10_000,
+    JSON.stringify({ ...hitFrameLayout, screenshot: hitFramePath }));
+  await page.setViewportSize({ width: 480, height: 300 });
+
+  /* ---------------------------------------------------------------- */
   /* 7. Waves: shape, staging, and nobody out of thin air               */
   /*                                                                     */
   /* DYING IS TESTED FIRST, AND THEN SWITCHED OFF. Standing on the        */
@@ -691,6 +874,7 @@ try {
     const THREE = await import('/vendor/three.module.min.js');
     const s = window.mansionSiege;
     const target = s.attackers.entry(targetId);
+    window.__siegeShootingPoolSnapshot ??= s.attackers.snapshot();
     window.__siegeShootingPoses ??= new Map();
     if (!window.__siegeShootingPoses.has(targetId)) {
       window.__siegeShootingPoses.set(targetId, {
@@ -705,8 +889,14 @@ try {
      * wave role chose cover. Hold one real spawned body in the open forecourt,
      * four metres from the camera, then use the complete architecture+actor
      * target list to prove there is no wall silently taking the round. */
-    target.active = false;
-    target.root.visible = true;
+    /* Keep the staged body the only actor on this ray. A live wave member can
+     * otherwise cross behind it between the opening and held-fire samples,
+     * receive the second applied hit, and make this target's health look
+     * unchanged even though ammo, impact and global damage counters advance. */
+    for (const entry of s.attackers.all()) {
+      entry.active = false;
+      entry.root.visible = entry === target;
+    }
     /* The turnaround from z 27..34 is deliberately left clear for the front-
      * door assault. Keep both muzzle and target there so the verifier tests a
      * gunshot, not the facade's player-collision correction. */
@@ -763,6 +953,9 @@ try {
       shots: s.weaponStats().shots,
       impacts: s.weaponStats().impacts,
       hitConfirm: reticle?.dataset.confirmed === 'true' && !!reticle.style.filter,
+      weaponPlayback: s.audio.playbacks
+        .map((playback) => playback.name)
+        .filter((name) => name.startsWith('weapon.') || name.startsWith('heist.weapon.')),
       nudge: s.hud().nudge,
       pointerRejected: s.pointerLockRejected,
       locked: document.pointerLockElement === s.renderer.domElement,
@@ -813,6 +1006,7 @@ try {
    * click reports the rejection; the next deliberate unlocked click both
    * retries capture and fires one fallback round at the current crosshair. */
   const fallbackAim = await aimAtAttacker(fallbackId);
+  await evaluate(() => window.mansionSiege.audio.clearPlaybackLog());
   const fallbackBefore = await combatSnapshot(fallbackId);
   await evaluate(() => {
     const canvas = window.mansionSiege.renderer.domElement;
@@ -838,6 +1032,10 @@ try {
       && fallbackAfter.health < fallbackBefore.health
       && fallbackAfter.hits === fallbackBefore.hits + 1,
     JSON.stringify({ aim: fallbackAim, before: fallbackBefore, after: fallbackAfter }));
+  check('that public carbine shot plays the delivered canonical weapon recording, not its legacy stand-in',
+    fallbackAfter.weaponPlayback.includes('weapon.carbine.fire')
+      && !fallbackAfter.weaponPlayback.includes('heist.weapon.carbine.indoor'),
+    JSON.stringify(fallbackAfter.weaponPlayback));
   await restoreShootingPose(fallbackId);
 
   await evaluate(() => {
@@ -861,6 +1059,7 @@ try {
   await settle(0.20);
 
   const automaticAim = await aimAtAttacker(automaticId);
+  await evaluate(() => window.mansionSiege.audio.clearPlaybackLog());
   const shotBefore = await combatSnapshot(automaticId);
   await page.mouse.down({ button: 'left' });
   await settle(0.06);
@@ -892,8 +1091,14 @@ try {
   check('and the hit confirmation clears after its brief feedback window',
     confirmCleared.hitConfirm === false,
     JSON.stringify(confirmCleared));
-  await restoreShootingPose(automaticId);
-  await evaluate(() => { delete window.__siegeShootingPoses; });
+  await evaluate(() => {
+    const s = window.mansionSiege;
+    if (window.__siegeShootingPoolSnapshot) {
+      s.attackers.restore(window.__siegeShootingPoolSnapshot);
+      delete window.__siegeShootingPoolSnapshot;
+    }
+    delete window.__siegeShootingPoses;
+  });
 
   /* ---------------------------------------------------------------- */
   /* 7a. THE FRONT DOOR IS THE WAY IN                                   */
@@ -1411,6 +1616,7 @@ try {
     ]);
     return {
       weaponCueNames: weapons.weaponCueNames(),
+      canonicalWeaponCueNames: weapons.weaponWantedCueNames(),
       siegeCueNames: siege.siegeCueNames(),
       siegeEffectCueNames: siege.siegeEffectCueNames(),
     };
@@ -1461,6 +1667,30 @@ try {
       missing: siegeAudioResidency.missing.slice(0, 5),
       unexpected: siegeAudioResidency.unexpected.slice(0, 5),
     }));
+  const canonicalWeaponDecode = await evaluate((wanted) => ({
+    decoded: wanted.filter((name) => window.mansionSiege.audio?.buffers.has(name)),
+    missing: wanted.filter((name) => !window.mansionSiege.audio?.buffers.has(name)),
+  }), siegeCueLists.canonicalWeaponCueNames);
+  check('all 30 delivered canonical weapon recordings decode in the live Siege audio engine',
+    siegeCueLists.canonicalWeaponCueNames.length === 30
+      && canonicalWeaponDecode.decoded.length === 30
+      && canonicalWeaponDecode.missing.length === 0,
+    JSON.stringify(canonicalWeaponDecode));
+  const combatAudioEvidencePath = path.join(combatValidationDir, 'after-combat-audio-evidence.json');
+  fs.mkdirSync(path.dirname(combatAudioEvidencePath), { recursive: true });
+  fs.writeFileSync(combatAudioEvidencePath, `${JSON.stringify({
+    scene: 'mansion_siege',
+    input: 'public canvas click',
+    weapon: 'carbine',
+    requestedCue: 'weapon.carbine.fire',
+    observedRequestedCue: fallbackAfter.weaponPlayback.includes('weapon.carbine.fire'),
+    observedPlaybacks: fallbackAfter.weaponPlayback,
+    legacyFallbackCue: 'heist.weapon.carbine.indoor',
+    legacyFallback: fallbackAfter.weaponPlayback.includes('heist.weapon.carbine.indoor'),
+    canonicalDecoded: canonicalWeaponDecode.decoded,
+    canonicalDecodedCount: canonicalWeaponDecode.decoded.length,
+    canonicalMissing: canonicalWeaponDecode.missing,
+  }, null, 2)}\n`, 'utf8');
   const siegeCueTrace = await evaluate(() => window.mansionSiege.missionAudio.cueTrace());
   const recurringGameplayCues = [
     'siege.alarm.tone',

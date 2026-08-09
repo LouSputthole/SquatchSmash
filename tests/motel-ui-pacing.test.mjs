@@ -4,6 +4,7 @@ import test from 'node:test';
 import { Inspection, rollShipment } from '../src/motel/jerky.js';
 
 const html = fs.readFileSync(new URL('../motel.html', import.meta.url), 'utf8');
+const main = fs.readFileSync(new URL('../src/motel/main.js', import.meta.url), 'utf8');
 
 function cssRule(selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -41,14 +42,18 @@ test('starting the Motel raises the requested large survey-or-meeting brief', ()
     .replace(/\s+/g, ' ')
     .trim();
   const banner = cssRule('#surveyBrief');
-  const shown = cssRule('#hud.visible #surveyBrief');
+  const shown = cssRule('#hud.visible.control-ready #surveyBrief');
 
   assert.equal(message,
     'Survey the Motel before going into your meeting or go right into it');
   assert.match(banner, /font-size:\s*clamp\(22px,\s*3vw,\s*36px\)/);
   assert.match(banner, /left:\s*50%/);
   assert.match(shown, /animation:\s*surveyBriefIn\s+10s/,
-    'the banner should get a fresh readable hold when the HUD becomes visible');
+    'the banner should get a fresh readable hold when playable control begins');
+  assert.doesNotMatch(html, /#hud\.visible #surveyBrief\s*\{/,
+    'the ten-second banner still starts during the non-playable pull-in');
+  assert.match(main, /function finishArrival\(\)[\s\S]*?classList\.add\('control-ready'\)/,
+    'the survey banner is not started at the playable passenger-seat handoff');
 });
 
 test('the meeting primer distinguishes the player package from every supplier package before play', () => {

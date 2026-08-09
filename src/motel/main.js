@@ -37,6 +37,7 @@ import {
 } from './dialogue-timing.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { selectPointInteraction } from './point-interaction.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -47,12 +48,20 @@ import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 // ---------------------------------------------------------------------------
 
 const PLAYER_SCALE = 0.85;
+const CAMERA_FOV = 62;
+const ARRIVAL_CAMERA_FOV = 75;
+const PLAYER_SEATED_SCALE = 0.66;
+const SNOW_SEATED_SCALE_FACTOR = 0.74;
+const SNOW_HEAD_GLANCE = Math.PI / 2;
+const SNOW_ARM_PITCH = -1.05;
+const ARRIVAL_SNOW_BLEND = 0.35;
 const PLAYER_R = 0.42;
 const PLAYER_EYE = 1.62;
 const GRAVITY = 26;
 const JUMP_V = 9.2;
 const WALK = 4.8;
 const RUN = 7.6;
+const ARRIVAL_SECONDS = 4.4;
 /** The road across the top of the lot — the way out, and the way trouble comes. */
 const ROAD_Z = 34;
 /* The man in the car is Snow, of the Family: his photo, his voice profile, and
@@ -77,7 +86,7 @@ renderer.toneMappingExposure = 1.15;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(CAMERA_FOV, window.innerWidth / window.innerHeight, 0.1, 400);
 
 const level = buildMotel(scene, renderer);
 const { colliders, refs } = level;
@@ -142,10 +151,13 @@ const dealOrderEl = $('dealOrder');
 const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 
 // ---------- Game state ----------
-let phase = 'menu';   // menu | car | lot | door | room | fight | recover | escape | drive | end
+let phase = 'menu';   // menu | arrival | car | lot | door | room | fight | recover | escape | drive | end
 let paused = false;
 let timeScale = 1;
 let sharedPauseMenu = null;
+let arrivalT = 0;
+let arrivalCameraMode = 'passenger';
+let openingVoiceReady = false;
 
 const S = {
   hp: 100,
@@ -178,6 +190,9 @@ const S = {
    * of room twelve in under five seconds. */
   silverbackTaken: false,
   snowGunOfferSpoken: false,
+  arrivalComplete: false,
+  snowSeated: false,
+  snowExitedCar: false,
   silverbackDrawn: false,
   silverbackFast: false,
   snowSignalled: false,
@@ -341,6 +356,9 @@ window.addEventListener('keydown', (e) => {
       else if (phase !== 'menu') tryJump();
       break;
     case 'KeyE': e.preventDefault(); onUse(); break;
+    case 'KeyQ':
+      if (phase === 'car') { e.preventDefault(); exitCar(); }
+      break;
     case 'KeyF': onAttack(); break;
     case 'KeyR': onRanged(); break;
     case 'KeyX': drawSilverback(); break;
@@ -426,6 +444,7 @@ sharedPauseMenu = createPauseMenu({
   canPause: () => phase !== 'menu' && phase !== 'end',
   getObjective: () => objTitleEl.textContent?.trim() || 'Reach room twelve and inspect the jerky deal.',
   instructions: [
+    'Q - get out when you are seated in Snow\'s car.',
     'W A S D — move. Shift — sprint. Space — jump.',
     'E — interact. F or left click — attack. R or right click — ranged attack.',
     'X — draw the Silverback Commander, if Snow gave it to you. It is loud, it is fast, and it is optional.',
@@ -840,6 +859,80 @@ function renderDealBoard() {
   dealOrderEl.textContent = 'Meat first. Money second.';
 }
 
+function syncArrivalSeats() {
+  const passenger = refs.manCar.passengerPosition();
+  pos.set(passenger.x, 0, passenger.z);
+  feetY = 0;
+  if (snow && S.snowSeated) {
+    const forward = refs.manCar.forwardYaw();
+    const towardTony = refs.manCar.driverFacingPassengerYaw();
+    const glance = THREE.MathUtils.clamp(
+      Math.atan2(Math.sin(towardTony - forward), Math.cos(towardTony - forward)),
+      -SNOW_HEAD_GLANCE,
+      SNOW_HEAD_GLANCE,
+    );
+    snow.sitAt(refs.manCar.driverActorPosition(), forward, {
+      scaleFactor: SNOW_SEATED_SCALE_FACTOR,
+      headYaw: glance,
+      armPitch: SNOW_ARM_PITCH,
+    });
+  }
+}
+
+/** Mostly windscreen, with Snow retained as a readable three-quarter profile. */
+function frameSnowFromPassenger() {
+  camYaw = refs.manCar.passengerArrivalYaw(ARRIVAL_SNOW_BLEND);
+  camPitch = 0.04;
+}
+
+function maybeOpenCarBrief() {
+  if (!openingVoiceReady || phase !== 'car' || dialogue || S.dealStarted) return;
+  openDialogue('snowBrief');
+}
+
+function finishArrival() {
+  if (phase !== 'arrival') return;
+  refs.manCar.placeArrival(1);
+  syncArrivalSeats();
+  phase = 'car';
+  camera.fov = CAMERA_FOV;
+  camera.updateProjectionMatrix();
+  S.arrivalComplete = true;
+  arrivalCameraMode = 'passenger';
+  S.snowSeated = false;
+  S.snowExitedCar = true;
+  refs.manCar.group.getObjectByName('cockpit.seat.driver').userData.occupant = null;
+  refs.manCar.headlights.forEach((light) => { light.intensity = 0; });
+  sfx.setEngineSpeed(0);
+  sfx.stopEngine();
+  sfx.carDoor();
+
+  const outside = refs.manCar.driverExitPosition();
+  outside.y = level.floorAt(outside.x, outside.z, 0);
+  snow?.standAt(outside, Math.PI);
+  camYaw = refs.manCar.forwardYaw();
+  camPitch = -0.06;
+  setObjective('reach', 'Parked with Snow outside. [Q] to get out anywhere, or [E] on the passenger door.');
+  // This is the first playable frame. Start the requested ten-second survey
+  // message here, not while Tony is locked into the pull-in composition.
+  hudEl.classList.add('control-ready');
+  maybeOpenCarBrief();
+}
+
+function updateArrival(dt) {
+  if (phase !== 'arrival') return;
+  arrivalT = Math.min(ARRIVAL_SECONDS, arrivalT + dt);
+  const linear = arrivalT / ARRIVAL_SECONDS;
+  const eased = linear * linear * (3 - 2 * linear);
+  refs.manCar.placeArrival(eased);
+  syncArrivalSeats();
+  // This non-playable pull-in introduces the driver: Snow faces Tony and his
+  // photographed face remains readable beside (not behind) the steering wheel.
+  frameSnowFromPassenger();
+  sfx.setEngineSpeed(0.35 + Math.sin(linear * Math.PI) * 0.35);
+  if (linear >= 1) finishArrival();
+}
+
 // ---------- Scene flow ----------
 function startScene() {
   const started = motelStory.begin();
@@ -865,25 +958,38 @@ function startScene() {
   sfx.startAmbience();
   sfx.setMusic('tense');
   $('menu').classList.add('hidden');
+  hudEl.classList.remove('control-ready');
   hudEl.classList.add('visible');
   sceneInventory.show();
-  phase = 'car';
+  phase = 'arrival';
+  camera.fov = ARRIVAL_CAMERA_FOV;
+  camera.updateProjectionMatrix();
+  arrivalCameraMode = 'passenger';
+  arrivalT = 0;
+  openingVoiceReady = false;
+  S.arrivalComplete = false;
+  S.snowSeated = true;
+  S.snowExitedCar = false;
+  refs.manCar.collider.enabled = false;
+  refs.manCar.placeArrival(0);
   S.carryingMoney = true;
-  setObjective('reach', 'In the car with Snow, outside the Flamingo. Room twelve, tonight.');
+  setObjective('reach', 'Pulling into the Flamingo with Snow. Room twelve, tonight.');
   renderObjectiveList();
   updateGear();
 
-  // Seat Prospect in the passenger seat
-  pos.set(-7.55, 0, 16.4);
-  feetY = 0.55;
-  camYaw = Math.PI * 0.98;
+  // Tony owns the passenger camera; the shared car supplies its world pose.
+  syncArrivalSeats();
+  frameSnowFromPassenger();
 
   // Cast
   /* Everybody is posed at somewhere they have a reason to be looking. The
    * road runs across the top of the lot at z = 34; the motel is at -z. */
-  snow = spawnActor({ ...CAST.snow(), x: -10.6, z: 16.4, state: 'idle' });
-  snow.anchor = { x: -10.6, z: 16.4 };
-  snow.faceAt(pos.x, pos.z);            // leaning in, talking to Tony
+  const snowSeat = refs.manCar.driverActorPosition();
+  snow = spawnActor({ ...CAST.snow(), x: snowSeat.x, z: snowSeat.z, state: 'seated' });
+  syncArrivalSeats();
+  refs.manCar.group.getObjectByName('cockpit.seat.driver').userData.occupant = 'snow';
+  refs.manCar.group.getObjectByName('cockpit.seat.passenger').userData.occupant = 'tony';
+  frameSnowFromPassenger();
   lookout = spawnActor({ ...CAST.lookout(), x: 21.4, z: -0.6, state: 'idle' });
   lookout.faceAt(21.4, ROAD_Z);          // watching the road, not the lot
   watcher = spawnActor({ ...CAST.watcher(), x: 6, z: -1.6, state: 'idle' });
@@ -902,8 +1008,10 @@ function startScene() {
    * the index fetch and one decode land at 8.7 s while the first materials are
    * still compiling; on a real GPU it is a fraction of a second. If it does
    * expire the wheel still opens — a late subtitle beats a stuck car. */
+  sfx.carStart();
   primeMotelVoice([OPENING_CUE], { timeoutMs: 12000 }).finally(() => {
-    if (phase === 'car' && !dialogue && !S.dealStarted) openDialogue('snowBrief');
+    openingVoiceReady = true;
+    maybeOpenCarBrief();
   });
   clock.getDelta();
   return true;
@@ -961,8 +1069,11 @@ function onFoot() {
 // -- car phase --
 addInteract({
   id: 'talkAlly', x: -10.6, y: 1.6, z: 16.4, r: 4.2,
+  requiresAim: true,
   label: () => 'Speak to Snow',
-  enabled: () => (phase === 'car' || phase === 'lot') && !dialogue,
+  follow: () => (snow ? { x: snow.position.x, y: snow.position.y + 1.4, z: snow.position.z } : null),
+  enabled: () => (phase === 'car' || phase === 'lot') && !dialogue
+    && (phase !== 'car' || !S.snowGunOfferSpoken || S.silverbackTaken),
   act: () => {
     if (!S.dealStarted && phase === 'car') openDialogue('snowBrief');
     else {
@@ -974,7 +1085,9 @@ addInteract({
 
 addInteract({
   id: 'moneyCase', x: -7.6, y: 1.2, z: 15.2, r: 3.4,
+  requiresAim: true,
   label: () => (S.couponOnly ? 'Your case: cash out, coupon in' : 'Look inside your case'),
+  follow: () => refs.manCar.moneyCasePosition(),
   enabled: () => phase === 'car',
   act: () => {
     if (!S.couponOnly) {
@@ -998,7 +1111,9 @@ addInteract({
 
 addInteract({
   id: 'glovebox', x: -6.2, y: 1.1, z: 17.6, r: 3.0,
+  requiresAim: true,
   label: () => 'Check your weapon',
+  follow: () => refs.manCar.gloveboxPosition(),
   enabled: () => phase === 'car',
   act: () => {
     say('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.', 3.6);
@@ -1018,9 +1133,11 @@ addInteract({
  * room, and the fast way out stays a choice the player makes with [X]. */
 addInteract({
   id: 'silverback', x: -9.2, y: 1.1, z: 17.2, r: 3.0,
+  requiresAim: true,
   label: () => (S.silverbackTaken
     ? 'The Commander rides under your coat'
     : 'Snow offers you the Silverback Commander'),
+  follow: () => (snow ? { x: snow.position.x, y: snow.position.y + 1.1, z: snow.position.z } : null),
   enabled: () => phase === 'car' || phase === 'lot',
   act: () => {
     if (S.silverbackTaken) {
@@ -1043,7 +1160,9 @@ addInteract({
 
 addInteract({
   id: 'exitCar', x: -5.6, y: 1.0, z: 16.4, r: 3.2,
-  label: () => 'Get out of the car',
+  requiresAim: true,
+  label: () => 'Open the passenger door and get out',
+  follow: () => refs.manCar.passengerDoorPosition(),
   enabled: () => phase === 'car',
   act: () => exitCar(),
 });
@@ -1718,6 +1837,7 @@ addInteract({
 
 // ---------- Phase transitions ----------
 function exitCar() {
+  if (phase !== 'car') return;
   phase = 'lot';
   /* Getting out IS an answer. The wheel is deliberately not modal, so a player
    * could step out mid-briefing and leave `dialogue` set forever — and the
@@ -1725,8 +1845,18 @@ function exitCar() {
    * and the scene had no way to say why. Measured: knock disabled, Rico never
    * spawned, no prompt, no explanation. */
   closeDialogue();
-  pos.set(-5.4, 0, 16.0);
-  feetY = 0;
+  const outside = refs.manCar.passengerExitPosition();
+  feetY = level.floorAt(outside.x, outside.z, 0);
+  pos.set(outside.x, 0, outside.z);
+  refs.manCar.collider.enabled = true;
+  refs.manCar.group.getObjectByName('cockpit.seat.passenger').userData.occupant = null;
+  player.group.scale.setScalar(PLAYER_SCALE);
+  player.legL.rotation.x = 0;
+  player.legR.rotation.x = 0;
+  player.armL.rotation.x = 0;
+  player.armR.rotation.x = 0;
+  player.head.rotation.set(0, 0, 0);
+  sfx.carDoor();
   /* He says he is facing the exit, so he faces the exit. The road is +z. */
   if (snow) snow.faceAt(snow.group.position.x, ROAD_Z);
   sayThenInstruct(ALLY, 'Right here. Facing the exit.', 3.2, () => {
@@ -1979,7 +2109,7 @@ function pickDialogue(style) {
       const briefReady = () => {
         if (phase !== 'car' && phase !== 'lot') return;
         setObjective('reach', phase === 'car'
-          ? 'Get out of the car. [E] on the door.'
+          ? 'Get out with [Q], or look at the passenger door and press [E].'
           : 'Knock on room twelve. Survey the motel first, or go straight to the meeting.');
         toast('SNOW HAS SOMETHING FOR YOU', '', 'Look at Snow and press [E], or get out and survey the motel first');
       };
@@ -2261,7 +2391,7 @@ function snowJoins(reason) {
 
 // ---------- Combat ----------
 function onAttack() {
-  if (phase === 'menu' || phase === 'end' || paused) return;
+  if (phase === 'menu' || phase === 'arrival' || phase === 'car' || phase === 'end' || paused) return;
   if (grapple) { mashGrapple(); return; }
   if (attackCd > 0 || stunT > 0) return;
   const st = WEAPON_STATS[S.weapon] || WEAPON_STATS.fists;
@@ -2310,7 +2440,7 @@ function resolvePlayerHit(st) {
 }
 
 function onRanged() {
-  if (phase === 'menu' || phase === 'end' || paused || grapple) return;
+  if (phase === 'menu' || phase === 'arrival' || phase === 'car' || phase === 'end' || paused || grapple) return;
   const st = WEAPON_STATS[S.weapon];
   if (!st) return;
   if (!st.ranged) { throwWeapon(); return; }
@@ -3001,7 +3131,7 @@ function surfaceUnderfoot() {
 }
 
 function tryJump() {
-  if (grapple || phase === 'car' || phase === 'menu' || phase === 'drive') return;
+  if (grapple || phase === 'arrival' || phase === 'car' || phase === 'menu' || phase === 'drive') return;
   const ground = level.floorAt(pos.x, pos.z, feetY);
   if (Math.abs(feetY - ground) < 0.12) {
     vy = JUMP_V;
@@ -3010,8 +3140,20 @@ function tryJump() {
 }
 
 function updatePlayer(dt) {
-  if (phase === 'car' || phase === 'boarding') {
-    if (phase === 'boarding') pos.set(-6.9, 0, 16.4);
+  if (phase === 'arrival' || phase === 'car') {
+    syncArrivalSeats();
+    player.group.position.copy(refs.manCar.passengerActorPosition());
+    player.group.scale.setScalar(PLAYER_SEATED_SCALE);
+    player.group.rotation.y = refs.manCar.forwardYaw();
+    player.legL.rotation.x = -1.15;
+    player.legR.rotation.x = -1.15;
+    player.armL.rotation.x = -0.55;
+    player.armR.rotation.x = -0.55;
+    player.head.rotation.set(0, 0, 0);
+    return;
+  }
+  if (phase === 'boarding') {
+    pos.set(-6.9, 0, 16.4);
     player.group.position.set(pos.x, 0.55, pos.z);
     player.group.rotation.y = Math.PI;
     return;
@@ -3087,13 +3229,22 @@ function updateCamera(dt) {
   if (keys.has('lookU')) camPitch = Math.min(0.5, camPitch + dt * 1.2);
   if (keys.has('lookD')) camPitch = Math.max(-0.85, camPitch - dt * 1.2);
 
+  if (phase === 'arrival' && arrivalCameraMode === 'exterior') {
+    camera.position.copy(refs.manCar.exteriorCameraPosition());
+    camera.lookAt(refs.manCar.cabinCenterPosition());
+    player.group.visible = true;
+    refs.moon.position.set(pos.x - 40, 60, pos.z + 35);
+    refs.moon.target.position.set(pos.x, 0, pos.z);
+    return;
+  }
+
   const dirX = Math.sin(camYaw) * Math.cos(camPitch);
   const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
   const dirY = Math.sin(camPitch);
-  const bodyBob = phase === 'car' || phase === 'boarding'
+  const bodyBob = phase === 'arrival' || phase === 'car' || phase === 'boarding'
     ? 0
     : Math.max(-0.06, Math.min(0.08, player.group.position.y - feetY));
-  const eyeY = (phase === 'car' || phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE)
+  const eyeY = (phase === 'arrival' || phase === 'car' || phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE)
     + bodyBob * 0.45;
 
   // Motel play is first-person in every walkable phase. The old trailing
@@ -3130,15 +3281,18 @@ let activeInteract = null;
 
 function updateInteract() {
   activeInteract = null;
-  if (phase === 'menu' || phase === 'end' || phase === 'drive' || phase === 'boarding' || grapple) {
+  if (phase === 'menu' || phase === 'arrival' || phase === 'end' || phase === 'drive' || phase === 'boarding' || grapple) {
     promptEl.classList.remove('show');
     return;
   }
-  const fx = Math.sin(camYaw);
-  const fz = Math.cos(camYaw);
+  const facing = {
+    x: Math.sin(camYaw) * Math.cos(camPitch),
+    y: Math.sin(camPitch),
+    z: Math.cos(camYaw) * Math.cos(camPitch),
+  };
   const playerInteractionY = feetY + 1.4;
-  let best = null;
-  let bestScore = -Infinity;
+  const aimEyeY = phase === 'car' || phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE;
+  const candidates = [];
   for (const it of interactables) {
     if (it.enabled && !it.enabled()) continue;
     const p = it.follow ? it.follow() : it;
@@ -3148,9 +3302,6 @@ function updateInteract() {
     const targetY = Number.isFinite(p.y) ? p.y : playerInteractionY;
     const d = Math.hypot(dx, dz, targetY - playerInteractionY);
     if (d > (it.r || 3.2)) continue;
-    const horizontalDistance = Math.hypot(dx, dz);
-    const dot = horizontalDistance < 0.6 ? 1 : (dx * fx + dz * fz) / horizontalDistance;
-    if (dot < -0.2) continue;
     /* The Motel predates core/InteractionSystem and stores authored prompt
      * points rather than raycast meshes. Keep its adapter on the same physical
      * contract: prompts are three-dimensional and solid level colliders
@@ -3160,9 +3311,22 @@ function updateInteract() {
       pos.x, pos.z, playerInteractionY,
       p.x, p.z, targetY,
     ) < 0.95) continue;
-    const score = dot * 2 - d * 0.12;
-    if (score > bestScore) { bestScore = score; best = it; }
+    candidates.push({
+      id: it.id,
+      point: { x: p.x, y: targetY, z: p.z },
+      r: it.r,
+      distance: d,
+      requiresAim: it.requiresAim,
+      minDot: it.minDot,
+      priority: it.priority,
+      interact: it,
+    });
   }
+  const best = selectPointInteraction({
+    eye: { x: pos.x, y: aimEyeY, z: pos.z },
+    facing,
+    targets: candidates,
+  })?.interact ?? null;
   activeInteract = best;
   if (best) {
     promptEl.innerHTML = `<b>[E]</b> ${best.label()}`;
@@ -4006,6 +4170,7 @@ function tick() {
     blindT = Math.max(0, blindT - dt);
     if (player.consumeImpact() && pendingHit) { resolvePlayerHit(pendingHit); pendingHit = null; }
 
+    updateArrival(dt);
     updatePlayer(dt);
     updateViewmodel();
     updateViewmodelSway(dt, playerMoving);
@@ -4086,6 +4251,24 @@ tick();
 window.MOTEL = {
   S, level, refs, actors, shipment, inspection, freshness, campaign, story: motelStory, player,
   get phase() { return phase; },
+  get arrival() {
+    const driver = refs.manCar.driverActorPosition();
+    const passenger = refs.manCar.passengerPosition();
+    const passengerActor = refs.manCar.passengerActorPosition();
+    return {
+      progress: Math.min(1, arrivalT / ARRIVAL_SECONDS),
+      complete: S.arrivalComplete,
+      snowSeated: S.snowSeated,
+      snowExitedCar: S.snowExitedCar,
+      car: refs.manCar.group.position.toArray(),
+      park: refs.manCar.park.toArray(),
+      driver: driver.toArray(),
+      passenger: passenger.toArray(),
+      passengerActor: passengerActor.toArray(),
+      cameraMode: arrivalCameraMode,
+      colliderEnabled: refs.manCar.collider.enabled,
+    };
+  },
   get ending() { return lastEndingKind; },
   get campaignState() { return campaign.state; },
   get pos() { return pos; },
@@ -4168,7 +4351,24 @@ window.MOTEL = {
     pos.set(x, 0, z);
     feetY = level.floorAt(x, z, yHint);
   },
-  face: (x, z) => { camYaw = Math.atan2(x - pos.x, z - pos.z); },
+  face: (x, z, y = null) => {
+    const dx = x - pos.x;
+    const dz = z - pos.z;
+    camYaw = Math.atan2(dx, dz);
+    if (Number.isFinite(y)) {
+      const eyeY = phase === 'car' || phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE;
+      camPitch = THREE.MathUtils.clamp(
+        Math.atan2(y - eyeY, Math.hypot(dx, dz)),
+        -0.85,
+        0.5,
+      );
+    }
+  },
+  completeArrival: () => finishArrival(),
+  setArrivalCameraMode: (mode) => {
+    arrivalCameraMode = mode === 'exterior' ? 'exterior' : 'passenger';
+    return arrivalCameraMode;
+  },
   get hostiles() { return actors.filter((a) => a.alive && a.hostile).map((a) => a.name); },
   use: () => onUse(),
   attack: () => onAttack(),

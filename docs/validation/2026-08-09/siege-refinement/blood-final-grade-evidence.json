@@ -1,0 +1,237 @@
+{
+  "pass": "blood-final-grade",
+  "views": [
+    "blood-final-grade-dead-performer.png"
+  ],
+  "inventory": {
+    "state": "under_attack",
+    "groups": {
+      "glass.foyer.south.west.shards": 20,
+      "glass.living.west.north.shards": 20,
+      "glass.lounge.bay.east.mid.shards": 20,
+      "glass.particles": 48,
+      "glass.upper.east.front.shards": 20,
+      "night.accents": 6,
+      "night.emergency": 27,
+      "siege.architecture.damage": 127,
+      "siege.attackers": 517,
+      "siege.body.guard": 75,
+      "siege.body.performer": 62,
+      "siege.centrepiece.wreck": 27,
+      "siege.debris.cellar": 52,
+      "siege.debris.foyer": 149,
+      "siege.debris.lounge": 28,
+      "siege.ensemble": 1923,
+      "siege.fire.foyer": 19,
+      "siege.stations": 38,
+      "siege.step": 66,
+      "siege.wreck.burning": 36,
+      "siege.wreck.burnt": 24,
+      "siege.wreck.drive": 16,
+      "siege.wreck.kerbed": 16,
+      "siege.wreck.stalled": 16
+    },
+    "visibleLights": 19,
+    "framesRendered": 49,
+    "contextLost": false,
+    "geometry": {
+      "eastPartition": {
+        "min": [
+          8.85,
+          1.2,
+          36
+        ],
+        "max": [
+          9.15,
+          10.2,
+          48
+        ]
+      },
+      "galleryRoster": {
+        "min": [
+          9.8,
+          7.41,
+          48.18
+        ],
+        "max": [
+          13,
+          8.69,
+          48.18
+        ]
+      },
+      "austinMajor": {
+        "min": [
+          9.1445,
+          2.965,
+          39.365
+        ],
+        "max": [
+          9.2,
+          4.235,
+          40.635
+        ]
+      },
+      "worklamp": {
+        "min": [
+          2.832,
+          5.995,
+          45.35
+        ],
+        "max": [
+          3.288,
+          7.6183,
+          45.75
+        ]
+      },
+      "performer": {
+        "min": [
+          -7.8665,
+          1.2,
+          36.7942
+        ],
+        "max": [
+          -6.5552,
+          1.9169,
+          38.6395
+        ]
+      },
+      "performerBlood": {
+        "min": [
+          -7.7861,
+          1.236,
+          36.3217
+        ],
+        "max": [
+          -5.8357,
+          1.236,
+          38.2721
+        ]
+      }
+    },
+    "ensemble": [
+      {
+        "id": "lou",
+        "visible": true,
+        "x": -1.721,
+        "y": 6,
+        "z": 68.517
+      },
+      {
+        "id": "booski",
+        "visible": true,
+        "x": 0.507,
+        "y": 6,
+        "z": 59.753
+      },
+      {
+        "id": "rippinflow",
+        "visible": true,
+        "x": -5.986,
+        "y": 6,
+        "z": 48.736
+      },
+      {
+        "id": "snow",
+        "visible": true,
+        "x": -12.8,
+        "y": 6,
+        "z": 50.2
+      },
+      {
+        "id": "shubenator",
+        "visible": true,
+        "x": -2.978,
+        "y": 6,
+        "z": 55.6
+      },
+      {
+        "id": "eric",
+        "visible": true,
+        "x": 7.726,
+        "y": 6,
+        "z": 49.116
+      },
+      {
+        "id": "aubbie",
+        "visible": true,
+        "x": 3.171,
+        "y": 6,
+        "z": 59.999
+      },
+      {
+        "id": "irish",
+        "visible": true,
+        "x": -8.4,
+        "y": 6,
+        "z": 49.4
+      },
+      {
+        "id": "deathmegatron",
+        "visible": true,
+        "x": 6.511,
+        "y": 6,
+        "z": 62.296
+      },
+      {
+        "id": "numbskull",
+        "visible": true,
+        "x": -7.9,
+        "y": 6,
+        "z": 49.219
+      },
+      {
+        "id": "hogmama",
+        "visible": true,
+        "x": -2.147,
+        "y": 6,
+        "z": 66.135
+      },
+      {
+        "id": "captain_lou_sasole",
+        "visible": false,
+        "x": 3.4,
+        "y": 6,
+        "z": 52
+      },
+      {
+        "id": "guard_0",
+        "visible": true,
+        "x": -4.6,
+        "y": 6,
+        "z": 48.699
+      },
+      {
+        "id": "guard_1",
+        "visible": true,
+        "x": 4.6,
+        "y": 6,
+        "z": 48.699
+      },
+      {
+        "id": "guard_2",
+        "visible": true,
+        "x": -5.463,
+        "y": 6,
+        "z": 52.389
+      },
+      {
+        "id": "guard_wounded",
+        "visible": true,
+        "x": 3.971,
+        "y": 6,
+        "z": 59.799
+      }
+    ],
+    "landingDefenders": [
+      "rippinflow",
+      "snow",
+      "eric",
+      "irish",
+      "numbskull",
+      "guard_0",
+      "guard_1"
+    ]
+  },
+  "notFound": [],
+  "pageErrors": []
+}

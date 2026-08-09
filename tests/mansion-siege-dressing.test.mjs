@@ -26,7 +26,8 @@ ensureDomShim();
 
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const {
-  buildMansionGrounds, BUILDING, CELLAR_HALL, COURT_CENTRE, COURT_RADIUS, GROUND_Y, BASEMENT_Y,
+  buildMansionGrounds, BASEMENT_SHAFT, BUILDING, CELLAR_HALL, COURT_CENTRE, COURT_RADIUS,
+  FOUNTAIN_POS, GROUND_Y, BASEMENT_Y,
 } = await import('../src/mansion/scenes/MansionGrounds.js');
 const {
   buildMansionInterior, FOYER, GALLERY, CONFERENCE, OFFICE,
@@ -37,6 +38,8 @@ const {
 } = await import('../src/mansion/siege/dressing.js');
 const { buildSiegeGlass, SIEGE_GLASS } = await import('../src/mansion/siege/glass.js');
 const { buildSiegeNight } = await import('../src/mansion/siege/night.js');
+const { ANCHORS, anchorById, crossingFor } = await import('../src/mansion/siege/nav.js');
+const { BLOOD_POOL_NAME } = await import('../src/world/blood.js');
 
 /**
  * One built house with the siege over it. Built ONCE -- the two builders are
@@ -360,6 +363,281 @@ test('the dead performer is clear of the foyer fight, not in the middle of it', 
   assert.ok(names.some((n) => n.includes('performer.glass')), 'no dropped glass');
 });
 
+test('the dead performer leaves a readable shared blood pool beneath her body', () => {
+  const { dressing, damage, interior } = WORLD;
+  damage.apply('under_attack');
+  interior.root.updateMatrixWorld(true);
+  const performer = dressing.props.bodies.performer;
+  const pools = [];
+  performer.group.traverse((object) => {
+    if (object.name?.startsWith(BLOOD_POOL_NAME) && object.visible) pools.push(object);
+  });
+  assert.equal(pools.length, 1, 'the foyer corpse does not use the shared death-pool system');
+
+  const pool = pools[0];
+  assert.equal(pool.userData.reusableSystem, 'blood');
+  assert.equal(pool.userData.bloodEffect, 'death-pool');
+  const body = performer.figureBounds;
+  const poolBox = worldBox(pool);
+  const poolCentre = poolBox.getCenter(new THREE.Vector3());
+  assert.ok(poolCentre.x >= body.min.x && poolCentre.x <= body.max.x
+    && poolCentre.z >= body.min.z && poolCentre.z <= body.max.z,
+  'the blood pool is offset beyond the corpse instead of beneath it');
+  const poolSize = poolBox.getSize(new THREE.Vector3());
+  assert.ok(poolSize.x >= 1.75 && poolSize.z >= 1.75
+    && poolSize.x <= 2.15 && poolSize.z <= 2.15,
+    `the fatal pool is only ${poolSize.x.toFixed(2)} x ${poolSize.z.toFixed(2)} m`);
+  const exposedEdges = [
+    body.min.x - poolBox.min.x,
+    poolBox.max.x - body.max.x,
+    body.min.z - poolBox.min.z,
+    poolBox.max.z - body.max.z,
+  ].filter((distance) => distance >= 0.25);
+  assert.ok(exposedEdges.length >= 2,
+    `the pool remains hidden under the gown; edge exposure is only `
+    + `${[
+      body.min.x - poolBox.min.x,
+      poolBox.max.x - body.max.x,
+      body.min.z - poolBox.min.z,
+      poolBox.max.z - body.max.z,
+    ].map((n) => n.toFixed(2)).join(', ')} m`);
+  assert.ok(poolBox.max.x - body.max.x >= 0.55
+    && body.min.z - poolBox.min.z >= 0.45,
+  `the pool does not emerge on the foyer/player side of the body (east `
+    + `${(poolBox.max.x - body.max.x).toFixed(2)} m, south `
+    + `${(body.min.z - poolBox.min.z).toFixed(2)} m)`);
+  assert.ok(pool.material.emissive?.getHex() !== 0
+    && pool.material.emissiveIntensity >= 0.25
+    && pool.material.emissiveIntensity <= 0.55,
+  `the fatal pool low-light grade is missing or glowing at ${pool.material.emissiveIntensity}`);
+  let finishedTop = -Infinity;
+  interior.root.traverse((object) => {
+    if (!/^(foyer-floor|foyer-border)$/.test(object.name)) return;
+    const surface = worldBox(object);
+    if (!overlapsXZ(poolBox, surface)) return;
+    finishedTop = Math.max(finishedTop, surface.max.y);
+  });
+  assert.ok(Number.isFinite(finishedTop), 'the finished foyer surface could not be measured');
+  assert.ok(poolBox.min.y >= finishedTop + 0.004 && poolBox.max.y <= finishedTop + 0.012,
+    `the fatal pool is hidden under the ${finishedTop.toFixed(3)} m finished foyer surface `
+    + `(${poolBox.min.y.toFixed(3)}..${poolBox.max.y.toFixed(3)})`);
+  assert.equal(performer.group.getObjectByName('siege.body.performer.blood'), undefined,
+    'the old opaque blood rectangle still sits under the shared irregular pool');
+});
+
+test('the firing-step worklamp clamp physically grips the east balcony rail', () => {
+  const { damage, dressing, interior } = WORLD;
+  damage.apply('under_attack');
+  dressing.root.updateMatrixWorld(true);
+  interior.root.updateMatrixWorld(true);
+  const clamp = dressing.props.firingStep.group
+    .getObjectByName('siege.step.worklamp.clamp');
+  assert.ok(clamp, 'the firing step lost its worklamp clamp');
+  const clampBox = worldBox(clamp);
+
+  /* The railing system batches all turned shafts. Measure every real instance
+   * in world space rather than comparing the lamp to a duplicated coordinate. */
+  const shafts = interior.root.getObjectByName('baluster-shaft');
+  assert.ok(shafts?.isInstancedMesh, 'the shared balcony baluster batch is missing');
+  shafts.geometry.computeBoundingBox();
+  const localBox = shafts.geometry.boundingBox;
+  const instance = new THREE.Matrix4();
+  const world = new THREE.Matrix4();
+  let nearest = null;
+  for (let index = 0; index < shafts.count; index += 1) {
+    shafts.getMatrixAt(index, instance);
+    world.multiplyMatrices(shafts.matrixWorld, instance);
+    const box = localBox.clone().applyMatrix4(world);
+    const dx = Math.max(box.min.x - clampBox.max.x, clampBox.min.x - box.max.x, 0);
+    const dy = Math.max(box.min.y - clampBox.max.y, clampBox.min.y - box.max.y, 0);
+    const dz = Math.max(box.min.z - clampBox.max.z, clampBox.min.z - box.max.z, 0);
+    const gap = Math.hypot(dx, dy, dz);
+    if (!nearest || gap < nearest.gap) nearest = { box, gap };
+  }
+  assert.ok(nearest, 'the clamp has no balcony support to attach to');
+  assert.ok(nearest.gap <= 0.01,
+    `the worklamp clamp hangs ${nearest.gap.toFixed(3)} m from its nearest rail support; `
+    + `clamp x ${clampBox.min.x.toFixed(3)}..${clampBox.max.x.toFixed(3)}, `
+    + `support x ${nearest.box.min.x.toFixed(3)}..${nearest.box.max.x.toFixed(3)}`);
+});
+
+test('the two foyer cover carcasses clear the stair masonry, supported floor and authored nav', () => {
+  const { damage, dressing, interior } = WORLD;
+  damage.apply('under_attack');
+  dressing.root.updateMatrixWorld(true);
+  interior.root.updateMatrixWorld(true);
+
+  const spandrels = { west: [], east: [] };
+  interior.root.traverse((object) => {
+    const side = /^horseshoe-(west|east)-spandrel$/.exec(object.name)?.[1];
+    if (side) spandrels[side].push(worldBox(object));
+  });
+  assert.equal(spandrels.west.length, 24, 'the west stair lost part of its solid spandrel');
+  assert.equal(spandrels.east.length, 24, 'the east stair lost part of its solid spandrel');
+
+  const faults = [];
+  const coverBoxes = [];
+  for (const [key, side] of [['sideboard', 'west'], ['settle', 'east']]) {
+    const piece = dressing.props.debris.foyer[key];
+    const carcass = piece.group.getObjectByName(`siege.debris.foyer.${key}.carcass`);
+    const carcassBox = worldBox(carcass);
+    assert.ok(Math.abs(carcassBox.min.y - GROUND_Y) <= 0.001,
+      `${key} no longer rests on the foyer marble`);
+    const penetrations = spandrels[side].map((base) => ({
+      x: Math.min(carcassBox.max.x, base.max.x) - Math.max(carcassBox.min.x, base.min.x),
+      y: Math.min(carcassBox.max.y, base.max.y) - Math.max(carcassBox.min.y, base.min.y),
+      z: Math.min(carcassBox.max.z, base.max.z) - Math.max(carcassBox.min.z, base.min.z),
+    })).filter((overlap) => overlap.x > 0.01 && overlap.y > 0.01 && overlap.z > 0.01)
+      .sort((a, b) => (b.x * b.y * b.z) - (a.x * a.y * a.z));
+    if (penetrations.length) {
+      faults.push(`${key} penetrates the ${side} stair by `
+        + `${penetrations[0].x.toFixed(3)} x ${penetrations[0].y.toFixed(3)} x `
+        + `${penetrations[0].z.toFixed(3)} m`);
+    }
+    const coverBox = piece.collider;
+    const overShaft = coverBox.max.x > BASEMENT_SHAFT.x0
+      && coverBox.min.x < BASEMENT_SHAFT.x1
+      && coverBox.max.z > BASEMENT_SHAFT.z0
+      && coverBox.min.z < BASEMENT_SHAFT.z1;
+    if (overShaft) faults.push(`${key} stands over the open basement stair shaft`);
+    coverBoxes.push({ key, box: coverBox });
+  }
+
+  /* This is the verifier's own 30 cm anchor / 25 cm edge clearance. A cover
+   * prop that clears the stair but captures the authored route simply trades
+   * a visible penetration for an invisible combat blocker. */
+  const solidTo = (box, y) => box.max.y > y + 0.25 && box.min.y < y + 1.75;
+  const anchorFaults = new Set();
+  for (const anchor of ANCHORS) {
+    const y = anchor.y ?? GROUND_Y;
+    for (const { box } of coverBoxes) {
+      if (!solidTo(box, y)) continue;
+      if (anchor.x < box.min.x - 0.3 || anchor.x > box.max.x + 0.3) continue;
+      if (anchor.z < box.min.z - 0.3 || anchor.z > box.max.z + 0.3) continue;
+      anchorFaults.add(anchor.id);
+    }
+  }
+  if (anchorFaults.size) faults.push(`cover captures nav anchors ${[...anchorFaults].join(', ')}`);
+
+  const edgeFaults = new Set();
+  const seen = new Set();
+  for (const anchor of ANCHORS) {
+    for (const id of anchor.neighbors) {
+      const other = anchorById(id);
+      const key = [anchor.id, id].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const crossing = crossingFor(
+        { x: anchor.x, z: anchor.z, y: anchor.y },
+        { x: other.x, z: other.z, y: other.y },
+      );
+      if (crossing?.opening.glass) continue;
+      const floor = Math.min(anchor.y ?? GROUND_Y, other.y ?? GROUND_Y);
+      const dx = other.x - anchor.x;
+      const dz = other.z - anchor.z;
+      for (const { box } of coverBoxes) {
+        if (!solidTo(box, floor)) continue;
+        let t0 = 0;
+        let t1 = 1;
+        let clear = false;
+        for (const [from, delta, lo, hi] of [
+          [anchor.x, dx, box.min.x - 0.25, box.max.x + 0.25],
+          [anchor.z, dz, box.min.z - 0.25, box.max.z + 0.25],
+        ]) {
+          if (Math.abs(delta) < 1e-6) {
+            if (from < lo || from > hi) { clear = true; break; }
+            continue;
+          }
+          let near = (lo - from) / delta;
+          let far = (hi - from) / delta;
+          if (near > far) [near, far] = [far, near];
+          if (near > t0) t0 = near;
+          if (far < t1) t1 = far;
+          if (t0 > t1) { clear = true; break; }
+        }
+        if (!clear) edgeFaults.add(`${anchor.id}->${id}`);
+      }
+    }
+  }
+  if (edgeFaults.size) faults.push(`cover blocks nav edges ${[...edgeFaults].join(', ')}`);
+  assert.deepEqual(faults, [], faults.join('; '));
+});
+
+test('the broken foyer lamp shade rests on the marble instead of entering it', () => {
+  const { damage, dressing } = WORLD;
+  damage.apply('under_attack');
+  dressing.root.updateMatrixWorld(true);
+  const shade = dressing.props.debris.foyer.group
+    .getObjectByName('siege.debris.foyer.lamp.shade');
+  const shadeBox = worldBox(shade);
+  assert.ok(shadeBox.min.y >= GROUND_Y - 0.001,
+    `the fallen lamp shade is ${(GROUND_Y - shadeBox.min.y).toFixed(3)} m inside the foyer floor`);
+  assert.ok(shadeBox.min.y <= GROUND_Y + 0.01,
+    `the fallen lamp shade floats ${(shadeBox.min.y - GROUND_Y).toFixed(3)} m above the foyer floor`);
+});
+
+test('the fallen cellar bin fits between the fixed brick piers and wall', () => {
+  const { damage, dressing, grounds, interior } = WORLD;
+  damage.apply('under_attack');
+  for (const root of [dressing.root, grounds.root, interior.root]) root.updateMatrixWorld(true);
+  const bin = dressing.props.debris.cellar.bin;
+  const fixed = [];
+  for (const root of [grounds.root, interior.root]) {
+    root.traverse((object) => {
+      if (!object.isMesh || object.isInstancedMesh || !object.visible) return;
+      if (/floor|rug|runner/i.test(object.name)) return;
+      fixed.push({ name: object.name || 'unnamed fixed masonry', box: worldBox(object) });
+    });
+  }
+
+  const faults = [];
+  for (const partName of ['siege.debris.cellar.bin.body', 'siege.debris.cellar.bin.lid']) {
+    const part = bin.getObjectByName(partName);
+    const partBox = worldBox(part);
+    for (const base of fixed) {
+      const x = Math.min(partBox.max.x, base.box.max.x) - Math.max(partBox.min.x, base.box.min.x);
+      const y = Math.min(partBox.max.y, base.box.max.y) - Math.max(partBox.min.y, base.box.min.y);
+      const z = Math.min(partBox.max.z, base.box.max.z) - Math.max(partBox.min.z, base.box.min.z);
+      if (x > 0.01 && y > 0.01 && z > 0.01) {
+        faults.push(`${part.name} enters ${base.name} by ${x.toFixed(3)} x ${y.toFixed(3)} x ${z.toFixed(3)} m`);
+      }
+    }
+  }
+  assert.deepEqual(faults, [], faults.join('; '));
+});
+
+test('the gallery triage and resupply stations occupy clear floor, not base furnishings', () => {
+  const { damage, dressing, interior } = WORLD;
+  damage.apply('under_attack');
+  dressing.root.updateMatrixWorld(true);
+  interior.root.updateMatrixWorld(true);
+  const fixed = [];
+  interior.root.traverse((object) => {
+    if (!object.isMesh || object.isInstancedMesh || !object.visible) return;
+    fixed.push({ name: object.name || object.parent?.name || 'unnamed gallery furnishing', box: worldBox(object) });
+  });
+
+  const faults = [];
+  for (const stationName of ['triage', 'resupply']) {
+    const station = dressing.props.defenceStations.zones[stationName].group;
+    station.traverse((part) => {
+      if (!part.isMesh || !part.visible) return;
+      const partBox = worldBox(part);
+      for (const base of fixed) {
+        const x = Math.min(partBox.max.x, base.box.max.x) - Math.max(partBox.min.x, base.box.min.x);
+        const y = Math.min(partBox.max.y, base.box.max.y) - Math.max(partBox.min.y, base.box.min.y);
+        const z = Math.min(partBox.max.z, base.box.max.z) - Math.max(partBox.min.z, base.box.min.z);
+        /* Floor/rug support is at most 20 mm. Anything thicker is one prop
+         * authored through another prop, which is what this pass is fixing. */
+        if (x > 0.025 && y > 0.025 && z > 0.025) {
+          faults.push(`${part.name} enters ${base.name} by ${x.toFixed(3)} x ${y.toFixed(3)} x ${z.toFixed(3)} m`);
+        }
+      }
+    });
+  }
+  assert.deepEqual(faults, [], faults.join('; '));
+});
+
 /**
  * THE FAULT: three chairs hovering 0.19 m over the foyer marble.
  *
@@ -455,6 +733,123 @@ test('no wreck is parked inside the fountain, a lamp post or another wreck', () 
         + `${base.min.toArray().map((n) => n.toFixed(1))}`);
     }
   }
+});
+
+test('the burning and burnt motor-court wrecks clear the fountain stonework mesh', () => {
+  const { damage, dressing, grounds } = WORLD;
+  damage.apply('under_attack');
+  grounds.root.updateMatrixWorld(true);
+  dressing.root.updateMatrixWorld(true);
+
+  /* The walk collider deliberately covers only the fountain's upper tiers;
+   * the widest 6 m apron is 40 cm high and walkable. That makes a collider-
+   * only check blind to a car authored through the visible stone. Measure the
+   * actual apron and every solid car mesh instead. */
+  const apron = grounds.root.children.find((object) => {
+    if (!object.isMesh || object.geometry?.type !== 'CylinderGeometry') return false;
+    const box = worldBox(object);
+    const size = box.getSize(new THREE.Vector3());
+    const centre = box.getCenter(new THREE.Vector3());
+    return Math.abs(centre.x - FOUNTAIN_POS.x) < 0.01
+      && Math.abs(centre.z - FOUNTAIN_POS.z) < 0.01
+      && Math.abs(size.x - 12) < 0.01
+      && Math.abs(size.y - 0.4) < 0.01;
+  });
+  assert.ok(apron, 'the fountain apron mesh could not be measured');
+  const apronBox = worldBox(apron);
+  const radius = apronBox.getSize(new THREE.Vector3()).x / 2;
+  const faults = [];
+  for (const id of ['burning', 'burnt']) {
+    dressing.props.wrecks[id].car.group.traverse((part) => {
+      if (!part.isMesh || !part.visible) return;
+      const box = worldBox(part);
+      const vertical = Math.min(box.max.y, apronBox.max.y)
+        - Math.max(box.min.y, apronBox.min.y);
+      const nearestX = THREE.MathUtils.clamp(FOUNTAIN_POS.x, box.min.x, box.max.x);
+      const nearestZ = THREE.MathUtils.clamp(FOUNTAIN_POS.z, box.min.z, box.max.z);
+      const radial = Math.hypot(nearestX - FOUNTAIN_POS.x, nearestZ - FOUNTAIN_POS.z);
+      if (vertical > 0.025 && radial < radius - 0.01) {
+        faults.push(`${part.name} enters the fountain apron by `
+          + `${(radius - radial).toFixed(3)} m in plan and ${vertical.toFixed(3)} m vertically`);
+      }
+    });
+  }
+  assert.deepEqual(faults, [], faults.join('; '));
+});
+
+test('the gate-bound abandoned sedan follows the drive without entering its curb or planting', () => {
+  const { damage, dressing, grounds } = WORLD;
+  damage.apply('under_attack');
+  grounds.root.updateMatrixWorld(true);
+  dressing.root.updateMatrixWorld(true);
+  const driveCar = dressing.props.wrecks.drive.car.group;
+  const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(driveCar.quaternion).normalize();
+  assert.ok(forward.z < -0.95,
+    `the gate-bound sedan points across the drive (${forward.toArray().map((n) => n.toFixed(3))})`);
+
+  const fixed = [];
+  grounds.root.traverse((object) => {
+    if (!object.isMesh || object.isInstancedMesh || !object.visible) return;
+    const box = worldBox(object);
+    /* The paved slab tops out at 5 cm and is the surface supporting the car.
+     * Curbs, planting beds and vegetation are taller and must be cleared. */
+    if (box.max.y <= 0.065) return;
+    fixed.push({
+      name: object.name || `${object.geometry?.type ?? 'mesh'}#${object.parent?.children.indexOf(object)}`,
+      box,
+    });
+  });
+  const faults = [];
+  driveCar.traverse((part) => {
+    if (!part.isMesh || !part.visible) return;
+    const box = worldBox(part);
+    for (const base of fixed) {
+      const x = Math.min(box.max.x, base.box.max.x) - Math.max(box.min.x, base.box.min.x);
+      const y = Math.min(box.max.y, base.box.max.y) - Math.max(box.min.y, base.box.min.y);
+      const z = Math.min(box.max.z, base.box.max.z) - Math.max(box.min.z, base.box.min.z);
+      if (x > 0.025 && y > 0.025 && z > 0.025) {
+        faults.push(`${part.name} enters ${base.name} by `
+          + `${x.toFixed(3)} x ${y.toFixed(3)} x ${z.toFixed(3)} m`);
+      }
+    }
+  });
+  assert.deepEqual(faults, [], faults.join('; '));
+});
+
+test('the run-off compact clears the west curb instead of burying a wheel through it', () => {
+  const { damage, dressing, grounds } = WORLD;
+  damage.apply('under_attack');
+  grounds.root.updateMatrixWorld(true);
+  dressing.root.updateMatrixWorld(true);
+  const curb = grounds.root.children.find((object) => {
+    if (!object.isMesh || object.geometry?.type !== 'BoxGeometry') return false;
+    const box = worldBox(object);
+    const size = box.getSize(new THREE.Vector3());
+    const centre = box.getCenter(new THREE.Vector3());
+    return Math.abs(centre.x + 4.15) < 0.01
+      && Math.abs(size.x - 0.3) < 0.01
+      && Math.abs(size.y - 0.1) < 0.01
+      && Math.abs(size.z - 23) < 0.01;
+  });
+  assert.ok(curb, 'the west drive curb could not be measured');
+  const curbBox = worldBox(curb);
+  const compact = dressing.props.wrecks.kerbed.car.group;
+  const compactBox = worldBox(compact);
+  assert.ok(compactBox.min.x < curbBox.min.x - 0.35,
+    'the compact no longer visibly ran off the west side of the drive');
+  const faults = [];
+  compact.traverse((part) => {
+    if (!part.isMesh || !part.visible) return;
+    const box = worldBox(part);
+    const x = Math.min(box.max.x, curbBox.max.x) - Math.max(box.min.x, curbBox.min.x);
+    const y = Math.min(box.max.y, curbBox.max.y) - Math.max(box.min.y, curbBox.min.y);
+    const z = Math.min(box.max.z, curbBox.max.z) - Math.max(box.min.z, curbBox.min.z);
+    if (x > 0.01 && y > 0.01 && z > 0.01) {
+      faults.push(`${part.name} enters the curb by `
+        + `${x.toFixed(3)} x ${y.toFixed(3)} x ${z.toFixed(3)} m`);
+    }
+  });
+  assert.deepEqual(faults, [], faults.join('; '));
 });
 
 test('the wrecked centrepiece takes over from whatever the house is standing there', () => {

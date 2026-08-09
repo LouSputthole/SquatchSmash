@@ -54,6 +54,7 @@ import { makeCar, makeVehicleCollider } from '../../bing/vehicles.js';
  * which is the difference between a corpse on a couch and a corpse inside a
  * couch. Nothing here re-derives a proportion. */
 import { HeistFigure } from '../../heist/people.js';
+import { DeathBloodPool } from '../../world/blood.js';
 import {
   GROUND_Y, BASEMENT_Y, UPPER_Y, BUILDING, CELLAR_HALL,
   COURT_CENTRE, COURT_RADIUS, FRONT_DOOR,
@@ -648,7 +649,10 @@ export function buildSiegeDressing({
       id: 'burning',
       kind: 'suv',
       colour: 0x241d18,
-      x: -7.5,
+      /* At -7.5 the inner tyre and steel rim passed 30 cm into the visible
+       * six-metre fountain apron. This keeps the same south-lobe composition
+       * while putting the entire shell beyond the stone. */
+      x: -8.75,
       z: 24.8,
       yaw: 0.35,
       condition: 'burning',
@@ -658,7 +662,9 @@ export function buildSiegeDressing({
       id: 'burnt',
       kind: 'sedan',
       colour: 0x17161a,
-      x: 7.5,
+      /* The sedan's sill sat 40 mm inside the apron while its inner wheel was
+       * buried through all 40 cm of stone. Mirror the safe west-side datum. */
+      x: 8.75,
       z: 24.8,
       yaw: -0.35,
       condition: 'burnt',
@@ -678,7 +684,9 @@ export function buildSiegeDressing({
       id: 'kerbed',
       kind: 'compact',
       colour: 0x2c2f36,
-      x: -2.6,
+      /* Keep the body visibly over the west verge, but pull the inboard tyre
+       * 5 cm off the curb it used to pass through. */
+      x: -2.55,
       z: 13.0,
       yaw: -0.42,
       condition: 'abandoned',
@@ -688,9 +696,12 @@ export function buildSiegeDressing({
       id: 'drive',
       kind: 'sedan',
       colour: 0x33232a,
-      x: 3.0,
+      x: 2.9,
       z: 12.4,
-      yaw: 0.10,
+      /* Local +X is the bonnet. The old 0.10 rad yaw laid this 5 m sedan
+       * broadside across the drive, through the east curb, hedge bed and four
+       * flowers despite describing it as nose-to-gate. */
+      yaw: Math.PI / 2,
       condition: 'abandoned',
       note: 'nose to the gate, driver gone',
     },
@@ -1240,45 +1251,46 @@ export function buildSiegeDressing({
     }), 'siege.station.radio.antenna'));
   });
 
-  defenceStation('triage', 'triage', { x: 3.85, y: UY, z: 52.15 }, (g) => {
-    /* Aubbie's open field case, against the gallery's north wall and beside
-     * his authored position, not in the firing step. */
+  defenceStation('triage', 'triage', { x: 3.85, y: UY, z: 50.65 }, (g) => {
+    /* Aubbie's open field case on the east gallery flank, beside his authored
+     * position and outside the firing step. It used to occupy the exact floor
+     * footprint of the +3.4 gallery plant. */
     g.add(box({
       name: 'siege.station.triage.case',
-      size: [1.0, 0.28, 0.56], pos: [3.85, UY + 0.14, 52.15], mat: M_RADIO,
+      size: [1.0, 0.28, 0.56], pos: [3.85, UY + 0.14, 50.65], mat: M_RADIO,
     }));
     g.add(box({
       name: 'siege.station.triage.lid',
-      size: [1.0, 0.06, 0.55], pos: [3.85, UY + 0.58, 52.42], mat: M_RADIO, rotX: -0.18,
+      size: [1.0, 0.06, 0.55], pos: [3.85, UY + 0.58, 50.92], mat: M_RADIO, rotX: -0.18,
     }));
     g.add(box({
       name: 'siege.station.triage.cross.h',
-      size: [0.34, 0.025, 0.1], pos: [3.85, UY + 0.62, 52.14], mat: M_MARKER_RED, cast: false,
+      size: [0.34, 0.025, 0.1], pos: [3.85, UY + 0.62, 50.64], mat: M_MARKER_RED, cast: false,
     }));
     g.add(box({
       name: 'siege.station.triage.cross.v',
-      size: [0.1, 0.025, 0.34], pos: [3.85, UY + 0.62, 52.14], mat: M_MARKER_RED, cast: false,
+      size: [0.1, 0.025, 0.34], pos: [3.85, UY + 0.62, 50.64], mat: M_MARKER_RED, cast: false,
     }));
     for (let i = 0; i < 4; i++) {
       g.add(named(cylinder({
-        r: 0.055, h: 0.22, pos: [3.55 + i * 0.2, UY + 0.36, 52.02],
+        r: 0.055, h: 0.22, pos: [3.55 + i * 0.2, UY + 0.36, 50.52],
         mat: M_MEDICAL, rotZ: Math.PI / 2, cast: false,
       }), `siege.station.triage.bandage.${i}`));
     }
     g.add(box({
       name: 'siege.station.triage.dressing',
-      size: [0.42, 0.07, 0.32], pos: [4.15, UY + 0.34, 52.05], mat: M_MEDICAL, cast: false,
+      size: [0.42, 0.07, 0.32], pos: [4.15, UY + 0.34, 50.55], mat: M_MEDICAL, cast: false,
     }));
   });
 
-  defenceStation('resupply', 'resupply', { x: -4.25, y: UY, z: 52.1 }, (g) => {
+  defenceStation('resupply', 'resupply', { x: -4.25, y: UY, z: 50.75 }, (g) => {
     /* The centre firing step keeps its belt boxes. This smaller flank cache
      * supports the people holding the west rail without duplicating a second
      * hero position. */
     for (const [i, x, y, z, yaw] of [
-      [0, -4.48, UY + 0.18, 52.1, 0.08],
-      [1, -4.05, UY + 0.18, 52.08, -0.06],
-      [2, -4.27, UY + 0.52, 52.13, 0.12],
+      [0, -4.48, UY + 0.18, 50.75, 0.08],
+      [1, -4.05, UY + 0.18, 50.73, -0.06],
+      [2, -4.27, UY + 0.52, 50.78, 0.12],
     ]) {
       g.add(box({
         name: `siege.station.resupply.ammo-can.${i}`,
@@ -1293,7 +1305,7 @@ export function buildSiegeDressing({
       g.add(box({
         name: `siege.station.resupply.magazine.${i}`,
         size: [0.09, 0.24, 0.045],
-        pos: [-3.78 + i * 0.1, UY + 0.12, 51.9 + (i % 2) * 0.07],
+        pos: [-3.78 + i * 0.1, UY + 0.12, 50.55 + (i % 2) * 0.07],
         mat: M_RADIO, rotZ: -0.22 + i * 0.08, cast: false,
       }));
     }
@@ -1542,13 +1554,40 @@ export function buildSiegeDressing({
       }),
       cast: false,
     }));
-    g.add(box({
-      name: 'siege.body.performer.blood',
-      size: [0.9, 0.012, 0.7],
-      pos: [a.x - 0.2, GY + 0.034, a.z + 0.15],
-      mat: M_BLOOD_DRY,
-      cast: false,
-    }));
+    /* The old 0.9 x 0.7 opaque rectangle began at the body's north edge and
+     * disappeared under the dark gown. Use the campaign's shared irregular
+     * floor pool, centred from the actual fallen figure bounds, and advance
+     * this pre-existing death to its fully spread state before first frame. */
+    her.root.updateMatrixWorld(true);
+    const bloodAt = new THREE.Box3().setFromObject(her.root).getCenter(new THREE.Vector3());
+    /* Let the irregular edge emerge past the gown on three sides. The exact
+     * figure-centre pool was technically present but completely occluded by
+     * the dark dress in the real under-attack frame. */
+    bloodAt.x += 0.4;
+    bloodAt.z -= 0.42;
+    const deathBlood = new DeathBloodPool(g, {
+      capacity: 1,
+      growthSeconds: 0.01,
+      random: () => 0.37,
+    });
+    const bloodPool = deathBlood.spill(bloodAt, {
+      /* `GY` is the structural slab datum. The foyer's 20 mm marble topping
+       * and 30 mm border sit above it, so a shared pool at plain GY renders
+       * under the finished floor. Pass the actual highest local finish; the
+       * shared system adds its own 6 mm decal lift. */
+      floorY: GY + 0.03,
+      size: 1.9,
+      opacity: 1,
+      seed: 47,
+    });
+    deathBlood.update(1);
+    /* Scene-specific low-light grade on the shared pooled mesh. This is a
+     * bounded deep-red lift, not a glowing replacement decal; the shared
+     * alpha-cut texture still owns the irregular silhouette. */
+    bloodPool.material.emissive.setHex(0x420006);
+    bloodPool.material.emissiveIntensity = 0.4;
+    bloodPool.material.roughness = 0.42;
+    bloodPool.material.needsUpdate = true;
     /* One shoe, off, a metre away, lying on its side. Rolled about y rather
      * than z: a rotZ of 1.4 on a 9 cm heel swings 5 cm of it under the
      * marble, which is the same arithmetic that buried the guard's magazine. */
@@ -1564,6 +1603,7 @@ export function buildSiegeDressing({
     g.updateMatrixWorld(true);
     foyerBody.figure = her;
     foyerBody.group = g;
+    foyerBody.blood = { system: deathBlood, pool: bloodPool };
     foyerBody.bounds = new THREE.Box3().setFromObject(g);
     foyerBody.figureBounds = new THREE.Box3().setFromObject(her.root);
   }
@@ -1643,20 +1683,21 @@ export function buildSiegeDressing({
   /* -- The foyer: two pieces of cover and the floor of a firefight. ------ */
   {
     const g = group('siege.debris.foyer');
-    /* A sideboard shoved out from the rear-hall wall to make cover facing the
-     * front door. It stands at x = -6.4, which is 1.3 m clear of the west
-     * flight's own footprint and 2.4 m clear of FOYER_ROUTE's west leg. */
+    /* A sideboard shoved behind the west flight to make cover facing the
+     * front door. Its x remains in the west pocket, but it is north of the
+     * `foyer_under -> foyer_arch_west` line: z=48.85 cleared the stair only by
+     * replacing the visible penetration with a chest-high nav blocker. */
     const sideboard = overturned({
       name: 'siege.debris.foyer.sideboard',
-      x: -6.55, z: 46.4, floorY: GY, w: 2.1, h: 0.62, d: 1.05, yaw: 0.28,
+      x: -6.55, z: 51.0, floorY: GY, w: 2.1, h: 0.62, d: 1.05, yaw: 0.28,
     });
     g.add(sideboard.group);
-    /* And its opposite number on the east, against the lounge arch mouth --
-     * the route wave 1B comes through. Pushed ACROSS the mouth, not into it:
-     * the arch is 3.2 m and this is 1.9, so there is 1.3 m of gap. */
+    /* And its opposite number in the supported pocket between the centreline
+     * and the open basement shaft. The former x=7.1,z=49.35 position captured
+     * `foyer_arch_east` and both edges through the lounge mouth. */
     const settle = overturned({
       name: 'siege.debris.foyer.settle',
-      x: 7.1, z: 46.9, floorY: GY, w: 1.9, h: 0.58, d: 1.0, yaw: -0.36, material: M_UPHOLSTERY,
+      x: 4.2, z: 51.4, floorY: GY, w: 1.9, h: 0.58, d: 1.0, yaw: -0.36, material: M_UPHOLSTERY,
     });
     g.add(settle.group);
     /* Chairs on their backs. NO COLLIDERS, and that is deliberate: this engine
@@ -1720,7 +1761,9 @@ export function buildSiegeDressing({
       r: 0.022, h: 1.32, pos: [0.42, 0.16, 0], mat: M_STEEL, rotZ: Math.PI / 2 - 0.22,
     }), 'siege.debris.foyer.lamp.stem'));
     lamp.add(named(cylinder({
-      rTop: 0.3, rBottom: 0.2, h: 0.32, pos: [1.24, 0.2, 0.16], mat: M_FABRIC_BURNT, rotZ: 1.35,
+      /* At this roll the 0.3 m rim contributes 0.293 m of vertical extent;
+       * y=.2 buried that rim 128 mm through the marble. */
+      rTop: 0.3, rBottom: 0.2, h: 0.32, pos: [1.24, 0.328, 0.16], mat: M_FABRIC_BURNT, rotZ: 1.35,
     }), 'siege.debris.foyer.lamp.shade'));
     lamp.add(named(sphere({
       r: 0.045, pos: [1.02, 0.2, 0.1], mat: M_ASH,
@@ -1766,10 +1809,13 @@ export function buildSiegeDressing({
       r: 0.24, h: 0.66, pos: [0, 0.24, 0], mat: M_STEEL, rotZ: Math.PI / 2,
     }), 'siege.debris.cellar.bin.body'));
     bin.add(named(cylinder({
-      r: 0.25, h: 0.03, pos: [0.35, 0.02, 0.22], mat: M_STEEL, cast: false,
+      r: 0.25, h: 0.03, pos: [0.42, 0.02, 0], mat: M_STEEL, cast: false,
     }), 'siege.debris.cellar.bin.lid'));
-    bin.position.set(-8.4, BY, CELLAR_HALL.z0 + 0.34);
-    bin.rotation.y = 0.5;
+    /* Between the -8.5 and -6.2 brick piers, parallel to the wall. At the old
+     * -8.4/0.5-rad placement the whole 0.48 m body passed through a pier and
+     * its back 60 mm passed through the dado. */
+    bin.position.set(-7.35, BY, CELLAR_HALL.z0 + 0.31);
+    bin.rotation.y = 0;
     g.add(bin);
     /* Emergency-light spill is `night.js`'s job. What belongs here is the
      * smoke that has drifted down the stair from the fight upstairs -- thin,
@@ -1941,7 +1987,10 @@ export function buildSiegeDressing({
     const worklamp = addLight(new THREE.PointLight(0xffd08a, 5.2, 9.5, 2));
     worklamp.position.set(0.22, 1.34, 0);
     lampGroup.add(worklamp);
-    lampGroup.position.set(2.62, UY, 45.62);
+    /* Seat the clamp around the first east-balcony baluster. The old x=2.62
+     * left 294 mm of open air between the clamp and the closest shaft even
+     * though this practical is explicitly rail-mounted. */
+    lampGroup.position.set(2.94, UY, 45.55);
     g.add(lampGroup);
 
     /* Casings, so the step reads as somewhere that has been used rather than
