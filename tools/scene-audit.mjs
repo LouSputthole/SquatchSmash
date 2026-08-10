@@ -50,49 +50,17 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  SCENE_AUDIT_SCENES as SCENES,
+  countVisibleAuditMeshes,
+  findCoplanarAuditPairs,
+  installKnownSceneRoots,
+} from './scene-audit-scenes.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5388;
 const AS_JSON = process.argv.includes('--json');
 const ONLY = process.argv.slice(2).filter((a) => !a.startsWith('--'));
-
-/**
- * Every playable scene, with how to get past its menu.
- *
- * `start` is a selector to click; `ready` is a predicate that resolves once
- * the world exists. Scenes that build on load need neither.
- */
-const SCENES = [
-  { id: 'apartment', url: 'index.html', start: '#start-btn, #startBtn', ready: () => Boolean(globalThis.game || globalThis.apartment) },
-  { id: 'bing', url: 'bing.html', start: '#start-btn, #startBtn', ready: () => Boolean(globalThis.__bing) },
-  { id: 'mansion', url: 'mansion.html', start: '#startBtn', ready: () => Boolean(globalThis.mansion) },
-  { id: 'golf', url: 'golf.html', start: '#start-btn, #startBtn' },
-  { id: 'silver', url: 'silver.html', start: '#start-btn, #startBtn' },
-  /* `?preview=1`, and it matters.
-   *
-   * NO WAKE is a campaign mission: on a fresh save `story.canBegin()` is false,
-   * so Start does not start it -- it navigates back to the apartment. This
-   * audit then measured the APARTMENT and filed the results under "nowake",
-   * which is why its findings used to include `heistCase.floor`. A gate that
-   * quietly measures a different scene is worse than no gate (see
-   * `docs/ENGINE-TRAPS.md` #5). Preview seeds the campaign so the boat is
-   * really entered and the meshes counted are really this boat's. */
-  { id: 'nowake', url: 'nowake.html?preview=1', start: '#start-btn, #startBtn' },
-  { id: 'enolasquatch', url: 'enolasquatch.html', start: '#start-btn, #startBtn' },
-  { id: 'heist', url: 'heist.html', start: '#start-btn, #startBtn' },
-  { id: 'motel', url: 'motel.html', start: '#start-btn, #startBtn' },
-  { id: 'graveyard', url: 'graveyard.html', start: '#start-btn, #startBtn' },
-  { id: 'beefrun', url: 'beefrun.html', start: '#start-btn, #startBtn' },
-  { id: 'silvercase', url: 'silvercase.html', start: '#start-btn, #startBtn' },
-  { id: 'squatchfather', url: 'squatchfather.html', start: '#start-btn, #startBtn' },
-  { id: 'initiation', url: 'initiation.html', start: '#start-btn, #startBtn' },
-  /* The same house on the worst night it ever has. Audited SEPARATELY from
-   * `mansion` and not instead of it: the siege's overlay is only standing once
-   * the mission has applied `under_attack`, which happens on the first frame
-   * after WAKE UP -- so a clean-house audit can never see a wreck, a fire, a
-   * body or a shattered pane, and those are exactly the meshes this scene owns. */
-  { id: 'mansion-siege', url: 'mansion-siege.html', start: '#startBtn', ready: () => Boolean(globalThis.mansionSiege) },
-];
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -114,6 +82,7 @@ const TYPES = {
 const AUDIT = `(() => {
   const THREE = globalThis.__auditTHREE;
   const roots = globalThis.__auditRoots;
+  const findCoplanarAuditPairs = ${findCoplanarAuditPairs.toString()};
   const out = { counted: 0, findings: [] };
   const box = new THREE.Box3();
   const size = new THREE.Vector3();
@@ -242,59 +211,16 @@ const AUDIT = `(() => {
    */
   const FLAT = 0.0006;
   const AREA = 0.25;
-  const planes = { x: new Map(), y: new Map(), z: new Map() };
-  const key = (v) => Math.round(v / FLAT);
-  for (const it of items) {
-    for (const axis of ['x', 'y', 'z']) {
-      if (it.size[axis] > 0.02) {
-        /* A thick box has two faces; a thin plate is one surface. Only the
-         * faces of thin things reliably fight, so index both faces of
-         * everything and let the area test do the filtering. */
-      }
-      for (const face of ['min', 'max']) {
-        const k = axis + ':' + key(it[face][axis]);
-        if (!planes[axis].has(k)) planes[axis].set(k, []);
-        planes[axis].get(k).push(it);
-      }
-    }
-  }
-  const seenPair = new Set();
-  for (const axis of ['x', 'y', 'z']) {
-    const [u, v] = axis === 'x' ? ['y', 'z'] : axis === 'y' ? ['x', 'z'] : ['x', 'y'];
-    for (const group of planes[axis].values()) {
-      if (group.length < 2 || group.length > 60) continue;
-      for (let i = 0; i < group.length; i++) {
-        for (let j = i + 1; j < group.length; j++) {
-          const a = group[i]; const b = group[j];
-          /* A zero-thickness plate -- a sign face, a decal, a text plate --
-           * indexes its min and its max into the SAME plane bucket, so it used
-           * to be reported as coplanar with itself. Every such finding named
-           * one mesh twice ("harbor office sign x harbor office sign"), which
-           * is not a flicker: it is one surface. */
-          /* A MESH CANNOT Z-FIGHT WITH ITSELF. Every item is indexed under
-           * both its min and its max face, so a ZERO-THICKNESS surface -- a
-           * PlaneGeometry television screen, a CircleGeometry floor inlay, a
-           * RingGeometry border -- lands in the same bucket twice and was
-           * being reported against itself, with its own area, on every plate
-           * in the game bigger than a quarter of a square metre. That is why
-           * the mansion's list carried rows like "cellarTv.screen x
-           * cellarTv.screen": one mesh, no flicker, pure noise. */
-          if (a === b) continue;
-          const ou = Math.min(a.max[u], b.max[u]) - Math.max(a.min[u], b.min[u]);
-          const ov = Math.min(a.max[v], b.max[v]) - Math.max(a.min[v], b.min[v]);
-          if (ou <= 0 || ov <= 0 || ou * ov < AREA) continue;
-          const pk = [a.name, b.name, axis].join('|');
-          if (seenPair.has(pk)) continue;
-          seenPair.add(pk);
-          out.findings.push({
-            cls: 'COPLANAR',
-            name: (a.name || '(unnamed)') + '  ×  ' + (b.name || '(unnamed)'),
-            at: [+a.min.x.toFixed(2), +a.min.y.toFixed(2), +a.min.z.toFixed(2)],
-            detail: 'share the ' + axis + ' plane over ' + (ou * ov).toFixed(2) + ' m² -- this is the flicker',
-          });
-        }
-      }
-    }
+  for (const { a, b, axis, area } of findCoplanarAuditPairs(items, {
+    flat: FLAT,
+    minArea: AREA,
+  })) {
+    out.findings.push({
+      cls: 'COPLANAR',
+      name: (a.name || '(unnamed)') + '  ×  ' + (b.name || '(unnamed)'),
+      at: [+a.min.x.toFixed(2), +a.min.y.toFixed(2), +a.min.z.toFixed(2)],
+      detail: 'share the ' + axis + ' plane over ' + area.toFixed(2) + ' m² -- this is the flicker',
+    });
   }
 
   return out;
@@ -347,12 +273,18 @@ for (const scene of SCENES) {
      * end or wastes the other. Handles nest one level (NO_WAKE.scene,
      * __heistDebug.world.scene), so the walk looks one property deep too. */
     let found = 0;
+    let rootCount = 0;
     const rootDeadline = Date.now() + 90_000;
     while (!found && Date.now() < rootDeadline) {
-      found = await page.evaluate(async () => {
+      await page.evaluate(async () => {
         if (!globalThis.__auditTHREE) {
           globalThis.__auditTHREE = await import('./vendor/three.module.min.js');
         }
+      });
+      if (scene.rootPaths?.length) {
+        rootCount = await page.evaluate(installKnownSceneRoots, { paths: scene.rootPaths });
+      } else {
+        rootCount = await page.evaluate(() => {
         const roots = [];
         const seen = new Set();
         const consider = (v, depth) => {
@@ -374,11 +306,18 @@ for (const scene of SCENES) {
         }
         globalThis.__auditRoots = [...new Set(roots)];
         return globalThis.__auditRoots.length;
-      });
+        });
+      }
+      found = await page.evaluate(countVisibleAuditMeshes);
       if (!found) await page.waitForTimeout(1000);
     }
     if (!found) {
-      report.push({ scene: scene.id, error: 'no THREE.Scene reachable from a global -- scene not audited' });
+      report.push({
+        scene: scene.id,
+        error: rootCount
+          ? 'THREE.Scene root stayed empty -- scene not audited'
+          : 'no THREE.Scene reachable from a global -- scene not audited',
+      });
       await page.close();
       continue;
     }

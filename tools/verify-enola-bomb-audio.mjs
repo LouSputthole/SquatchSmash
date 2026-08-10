@@ -59,6 +59,16 @@ const FALL_TOLERANCE = 0.3;
 const BOOM_TOLERANCE = 0.05;
 /** Seconds after the boom that the long clip must still be making sound. */
 const AUDIBLE_AT = 30;
+const REQUIRED_BOMB_CUES = Object.freeze([
+  'enola.bomb.falling',
+  'enola.blast.a',
+  'enola.blast.b',
+  'enola.blast.c',
+]);
+/** The background load is assigned immediately after AudioEngine.init(). */
+const MANIFEST_START_TIMEOUT_MS = 15000;
+/** Decoding the complete Enola bank is normally much quicker than this. */
+const MANIFEST_LOAD_TIMEOUT_MS = 120000;
 
 let chromium;
 try {
@@ -85,7 +95,8 @@ const browser = await chromium.launch({
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: [
-    '--use-gl=swiftshader',
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     // The page starts its AudioContext from the Start click, but the click is
     // synthetic; without this the context stays suspended and its clock never
@@ -109,16 +120,91 @@ try {
     if (message.type() === 'error') problems.push(message.text().slice(0, 240));
   });
 
-  await page.goto(`http://localhost:${PORT}/enolasquatch.html`, { waitUntil: 'load', timeout: 180000 });
+  /* Preview is a page-local campaign with no localStorage reads or writes.
+   * Ordinary entry is intentionally locked until the preceding campaign
+   * scenes are complete; using it here made Start return before startAudio(). */
+  await page.goto(`http://localhost:${PORT}/enolasquatch.html?preview=1`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.__squatch?.enolaSquatch === true, null, { timeout: 180000 });
-  await page.evaluate(() => document.getElementById('start-btn').click());
+  const entry = await page.evaluate(() => {
+    document.getElementById('start-btn').click();
+    const E = window.__enolaSquatch;
+    return {
+      preview: E?.campaign?.preview === true,
+      phase: E?.mission?.phase ?? null,
+      playerEnabled: E?.player?.enabled === true,
+      overlayHidden: document.getElementById('overlay')?.classList.contains('hidden') === true,
+    };
+  });
+  const enteredMission = entry.preview && entry.phase === 'walkaround'
+    && entry.playerEnabled && entry.overlayHidden;
+  check('Start enters the isolated preview mission before audio verification',
+    enteredMission, JSON.stringify(entry));
+  if (!enteredMission) {
+    throw new Error(`[enola-bomb-audio] Start did not enter the save-free preview mission: ${JSON.stringify(entry)}`);
+  }
 
-  /* ---- 1. the delivered clips are decoded on this page ---- */
-  await page.waitForFunction(() => {
-    const b = window.__enolaSquatch?.audio?.engine?.buffers;
-    return !!b && ['enola.bomb.falling', 'enola.blast.a', 'enola.blast.b', 'enola.blast.c']
-      .every((n) => (b.get(n)?.length ?? 0) > 0);
-  }, null, { timeout: 180000 });
+  /* ---- 1. the delivered clips are decoded on this page ----
+   *
+   * `startAudio()` intentionally starts this bank in the background. Await
+   * that exact operation instead of polling four Map entries: a poll turns a
+   * rejected, never-started, or stalled load into the same opaque 180-second
+   * timeout. The structured result below says which state actually occurred. */
+  const residency = await page.evaluate(async ({ required, startTimeout, loadTimeout }) => {
+    const engine = window.__enolaSquatch?.audio?.engine;
+    const diagnostics = (reason = null) => ({
+      ok: !reason,
+      reason,
+      contextState: engine?.ctx?.state ?? null,
+      ready: engine?.ready === true,
+      preloadStats: engine?.preloadStats ?? null,
+      loadedCount: engine?.loadedCount ?? 0,
+      residentCount: engine?.buffers?.size ?? 0,
+      missing: required.filter((name) => (engine?.buffers?.get(name)?.length ?? 0) === 0),
+    });
+    if (!engine) return diagnostics('Enola AudioEngine was not exposed');
+
+    const startedAt = performance.now();
+    while (!engine._manifestLoadPromise && performance.now() - startedAt < startTimeout) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    if (!engine._manifestLoadPromise) {
+      return diagnostics(`audio manifest load did not start within ${startTimeout} ms`);
+    }
+
+    let timer = null;
+    const settled = await Promise.race([
+      engine._manifestLoadPromise.then(
+        (value) => ({ kind: 'loaded', value }),
+        (error) => ({ kind: 'rejected', error: error?.message || String(error) }),
+      ),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve({ kind: 'timeout' }), loadTimeout);
+      }),
+    ]);
+    if (timer !== null) clearTimeout(timer);
+
+    if (settled.kind === 'timeout') {
+      return diagnostics(`audio manifest load did not settle within ${loadTimeout} ms`);
+    }
+    if (settled.kind === 'rejected') {
+      return diagnostics(`audio manifest load rejected: ${settled.error}`);
+    }
+    const state = diagnostics();
+    state.loadResult = settled.value ?? null;
+    if (state.missing.length) {
+      state.ok = false;
+      state.reason = `required bomb clips were absent after the manifest settled: ${state.missing.join(', ')}`;
+    }
+    return state;
+  }, {
+    required: REQUIRED_BOMB_CUES,
+    startTimeout: MANIFEST_START_TIMEOUT_MS,
+    loadTimeout: MANIFEST_LOAD_TIMEOUT_MS,
+  });
+  if (!residency.ok) {
+    const pageDetail = problems.length ? `; page diagnostics: ${problems.slice(0, 3).join(' | ')}` : '';
+    throw new Error(`[enola-bomb-audio] ${residency.reason}; audio residency ${JSON.stringify(residency)}${pageDetail}`);
+  }
   const decoded = await page.evaluate(() => {
     const b = window.__enolaSquatch.audio.engine.buffers;
     return ['enola.bomb.falling', 'enola.blast.a', 'enola.blast.b', 'enola.blast.c']

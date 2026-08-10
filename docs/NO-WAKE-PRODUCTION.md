@@ -210,7 +210,7 @@ hull speed and enclosure — because a recorded stem plays at one rpm forever an
 cannot answer the levers. Its levels were raised with the redesign: the owner's
 complaint was that the engines and the water were thin.
 
-Five effects were authored with the redesign and are not recorded yet:
+The five effects authored with the redesign are now delivered and indexed:
 `ambience.ocean.night` (the inlet bed), `boat.engine.rev` (the throttle
 answering), `water.lap.hull` (water on the fiberglass heard from the cabin),
 `boat.bag.zip` and `boat.ballast.chain`. Both call sites of every conditional
@@ -218,10 +218,10 @@ bed are spelled out with literal cue names, because `tools/check.mjs` reads
 those call sites to prove a cue exists — and a cue it cannot see is a cue that
 can never be given a recording.
 
-The whole 37-line voice bank is unrecorded: the redesign rewrote every line in
-the mission. The one line that kept a near-identical meaning took a NEW cue id
-(`cruise.willy.sideways`, not `cruise.willy.motel`) precisely so the old
-delivered take of different words cannot play under it.
+The whole 37-line redesigned voice bank is also delivered and indexed. The one
+line that kept a near-identical meaning took a NEW cue id
+(`cruise.willy.sideways`, not `cruise.willy.motel`) so the old take with
+different words cannot play under it.
 
 ## Verification
 

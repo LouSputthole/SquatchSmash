@@ -2752,6 +2752,18 @@ export function mountMansionCast(scene, world = {}, {
         ignoreBlockers,
       });
       const commitVoice = () => speechGate?.commit(entry.id);
+      /* `inside` was accepted above with cooldown disabled. If the shared gate
+       * now refuses a cast-owned bark before this post has spoken, another
+       * controller already committed this same real speaker. The mounted
+       * mission owns both Eric sequences in that case; synchronize the post
+       * instead of replaying its arrival when the cooldown expires, followed
+       * by its identical idle line. A missionless cast has no prior commit and
+       * still takes this bark normally. */
+      if (!entry.said && entry.bark && speechGate && !voiceReady()) {
+        entry.said = true;
+        entry.saidIdle = true;
+        continue;
+      }
       if (!entry.said && (entry.bark || entry.onArrive) && voiceReady()) {
         entry.said = true;
         commitVoice();
@@ -2889,10 +2901,9 @@ export function mountMansionCast(scene, world = {}, {
     /** The headless surface, the same shape the mission's `debug` has. */
     debug: {
       /**
-       * Deterministic browser-verifier ledger for the requested ambient cast.
-       * Kate is deliberately an explicit absence: no campaign identity, body,
-       * face or delivered voice exists to author from, so this records the
-       * content gap without silently inventing or substituting a person.
+       * Deterministic browser-verifier ledger for the real ambient cast.
+       * Only catalogued Mansion characters with bodies and delivered cues
+       * belong here; an absent name is not a character-content requirement.
        */
       get ambientSpeakers() {
         const sauceCues = SAUCE_MANSION_BARK.map((line) => line.cue).filter(Boolean);
@@ -2904,10 +2915,6 @@ export function mountMansionCast(scene, world = {}, {
           {
             id: 'eric', present: Boolean(people.eric),
             cues: [...ERIC_MANSION_AMBIENT_CUES], count: ERIC_MANSION_AMBIENT_CUES.length,
-          },
-          {
-            id: 'kate', present: false, cues: [], count: 0,
-            reason: 'identity-not-catalogued',
           },
         ];
       },

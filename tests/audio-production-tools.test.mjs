@@ -7,8 +7,12 @@ import { fileURLToPath } from 'node:url';
 
 import { buildAudioTodo, normalizeAudioTodo } from '../tools/audio-todo-lib.mjs';
 import { isFutureInitiationCue } from '../tools/audio-scope.mjs';
+import { buildNoWakeAudioLedger } from '../tools/no-wake-audio-ledger.mjs';
 import { voiceProfileFor } from '../src/core/characters.js';
+import { Radio } from '../src/core/radio.js';
 import { ALL_HEIST_DIALOGUE } from '../src/heist/script.js';
+import { isNoWakeAudioPreloadCue } from '../src/nowake/audio.js';
+import { allNoWakeVoiceLines } from '../src/nowake/dialogue.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -289,6 +293,45 @@ test('NO WAKE and THE TAKE production briefs have delivered indexed recordings',
         `${name} must leave the pickup list after delivery`);
     }
   }
+});
+
+test('the NO WAKE verifier audio ledger derives zero pending pickups from delivered files', () => {
+  const readJson = (relative) => JSON.parse(fs.readFileSync(path.join(ROOT, relative), 'utf8'));
+  const soundManifest = readJson('assets/sfx/manifest.json');
+  const soundIndex = readJson('assets/sfx/index.json');
+  const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
+  const radio = new Radio(
+    { ready: false },
+    { setRadio() {}, toast() {} },
+    { hour: 12.75 },
+    { canPlayNotice: () => false },
+  );
+  const radioCueNames = radio.preloadCueNames({ hours: [12.75, 15, 17] });
+  const selectedCues = soundManifest.sfx
+    .filter((cue) => isNoWakeAudioPreloadCue(cue, radioCueNames));
+
+  const ledger = buildNoWakeAudioLedger({
+    authoredVoice: allNoWakeVoiceLines(),
+    soundIndex,
+    recordingSheet,
+    selectedCues,
+  });
+
+  assert.deepEqual(ledger.missingVoiceFiles, []);
+  assert.deepEqual(ledger.recordingSheetVoiceFiles, []);
+  assert.deepEqual(ledger.pendingSelectedNames, []);
+
+  const omitted = selectedCues.find((cue) => cue.name.startsWith('vo.nowake.'));
+  const omittedFile = omitted.file || `${omitted.name}.mp3`;
+  const missingLedger = buildNoWakeAudioLedger({
+    authoredVoice: allNoWakeVoiceLines(),
+    soundIndex: { files: soundIndex.files.filter((file) => file !== omittedFile) },
+    recordingSheet: `${recordingSheet}\n\`${omittedFile}\`\n`,
+    selectedCues,
+  });
+  assert.deepEqual(missingLedger.missingVoiceFiles, [omittedFile]);
+  assert.deepEqual(missingLedger.recordingSheetVoiceFiles, [omittedFile]);
+  assert.deepEqual(missingLedger.pendingSelectedNames, [omitted.name]);
 });
 
 test('every THE TAKE spoken line has exact text and role-specific casting in the manifest', () => {

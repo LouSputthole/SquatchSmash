@@ -66,7 +66,9 @@ import {
 import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
-import { MANSION_RETURN_REPORT, mansionVisitMode } from './campaign.js';
+import {
+  MANSION_RETURN_REPORT, mansionReturnObjective, mansionVisitMode,
+} from './campaign.js';
 import { createNpcSpeechGate } from './npc-speech-gate.js';
 import { StreamSystem } from '../world/stream.js';
 import { SmokeSystem } from '../world/smoke.js';
@@ -1723,8 +1725,10 @@ function lockPointer() {
 const sharedPauseMenu = createPauseMenu({
   title: "Lou's Mansion",
   canPause: () => running,
-  getObjective: () => silentSquatch?.mission.objective
-    || 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, the west wing and the Great Includer, the lower level behind the armory, and the walled garden and hedge maze behind the pool.',
+  getObjective: () => mansionVisit === 'return' && !mansionPreview
+    ? mansionReturnObjective(mansionCampaign.story?.mission?.status)
+    : silentSquatch?.mission.objective
+      || 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, the west wing and the Great Includer, the lower level behind the armory, and the walled garden and hedge maze behind the pool.',
   instructions: [
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'E, or click -- look at something notable for a one-line note.',

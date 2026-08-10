@@ -160,8 +160,10 @@ export function openCabin(car, { from, to } = {}) {
    * A roof, four pillars and the band of body colour under the side glass.
    * The glass box that was always there is untouched and still fills the gap
    * between them from outside. */
-  const glassY0 = bodyY1 + s.cabinH * 0.12 - (s.cabinH * 0.56) / 2;   // 1.666
-  const glassY1 = bodyY1 + s.cabinH * 0.12 + (s.cabinH * 0.56) / 2;   // 2.170
+  const glassCenterY = bodyY1 + s.cabinH / 2 + s.cabinH * 0.12;
+  const glassHalfH = (s.cabinH * 0.56) / 2;
+  const glassY0 = glassCenterY - glassHalfH;                           // 1.666
+  const glassY1 = glassCenterY + glassHalfH;                           // 2.170
   const cx0 = s.cabinOff - s.cabinL / 2;
   const cx1 = s.cabinOff + s.cabinL / 2;
   panel('car.roof', cx0, glassY1, -cabinHalfW, cx1, cabinY1, cabinHalfW);
