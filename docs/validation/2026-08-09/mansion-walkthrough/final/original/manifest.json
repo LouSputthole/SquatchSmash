@@ -1,0 +1,2641 @@
+{
+  "label": "final",
+  "generatedAt": "2026-08-10T01:35:17.221Z",
+  "url": "http://127.0.0.1:54949/mansion.html?preview=1",
+  "external": false,
+  "exactResolution": {
+    "width": 1920,
+    "height": 1080,
+    "deviceScaleFactor": 1
+  },
+  "frameQualityThresholds": {
+    "blackChannel": 12,
+    "minimumNonBlackFraction": 0.08,
+    "minimumMeanLuminance": 4,
+    "minimumLuminanceRange": 18,
+    "minimumChannelRange": 24
+  },
+  "capturePlan": {
+    "resume": true,
+    "captureIds": [
+      "kitchen-service-landing"
+    ],
+    "recaptureIds": [
+      "kitchen-service-landing"
+    ],
+    "reusedIds": [
+      "driveway-arrival",
+      "fountain-clearance",
+      "front-door-guard",
+      "pool-room-cases",
+      "pool-room-art",
+      "pool-recliner",
+      "pool-swimmer",
+      "pool-dress-focus",
+      "kitchen-appliances",
+      "garden-arch",
+      "garden-accepted-area",
+      "winter-garden-fountain",
+      "trophy-room-entry",
+      "great-includer",
+      "trophy-room-cases",
+      "family-fireplace",
+      "modern-bedroom",
+      "modern-bedroom-placard",
+      "upstairs-bathroom-regression",
+      "classic-bedroom",
+      "gothic-bedroom",
+      "gothic-bedroom-placard",
+      "lake-bedroom",
+      "lake-wall-front",
+      "lake-wall-side",
+      "lake-bedroom-placard",
+      "conference-room-regression",
+      "lou-suite-bar",
+      "upstairs-balcony-arrival",
+      "cellar-wall-object",
+      "cellar-armory-wine-bottles",
+      "cellar-wine-bottles",
+      "vault-art-front",
+      "vault-art-side",
+      "prospect-room",
+      "prospect-boots",
+      "prospect-bust-corridor-east",
+      "prospect-bust-corridor-north",
+      "prospect-bust-doorway",
+      "sauce-post",
+      "eric-post"
+    ]
+  },
+  "coverage": [
+    {
+      "section": 1,
+      "area": "Front driveway / exterior arrival",
+      "checks": [
+        "every authored driveway fixture has one powered light with consistent throw",
+        "front flowers are grounded, human-scaled, and clear of lamp hardware",
+        "the motor court and shortened approach beds leave useful fountain clearance",
+        "all three patrols remain clear of solids through a three-minute simulation",
+        "the front-door guard is wholly outside the facade glazing"
+      ],
+      "views": [
+        "driveway-arrival",
+        "fountain-clearance",
+        "front-door-guard"
+      ]
+    },
+    {
+      "section": 2,
+      "area": "Global NPC voice-line policy",
+      "checks": [
+        "Rippin, Eric, and Sauce publish real-body speech positions; Kate is explicitly catalogued unavailable",
+        "each present proximity speaker is audible nearby and rejected by distance and floor separation",
+        "a real nearby bark commits the shared cooldown and remains positional",
+        "an actual Mansion wall produces an occluded speech result"
+      ],
+      "views": []
+    },
+    {
+      "section": 3,
+      "area": "Pool room",
+      "checks": [
+        "all lounge display trophies are complete connected objects seated on shelves",
+        "pool-room artwork is visible clear of its bar and architecture",
+        "both reclining performers expose real thigh, shin, and foot meshes with no significant lounger penetration",
+        "the swimmer treads, bobs, and drifts inside the pool bounds",
+        "the dress interaction is entered through real E, focuses the fastening, accepts direct E, and exits cleanly"
+      ],
+      "views": [
+        "pool-room-cases",
+        "pool-room-art",
+        "pool-recliner",
+        "pool-swimmer",
+        "pool-dress-focus"
+      ]
+    },
+    {
+      "section": 4,
+      "area": "Bar area",
+      "checks": [
+        "the picture behind the bar is fully above the back-bar carcass"
+      ],
+      "views": [
+        "pool-room-art"
+      ]
+    },
+    {
+      "section": 5,
+      "area": "Kitchen",
+      "checks": [
+        "the refrigerator faces the room at mansion scale with two doors and handles",
+        "the microwave has a window, handle, panel, display, and button grid",
+        "the working sink still turns on and off",
+        "the exterior stair meets a supported flush landing at the kitchen doorway"
+      ],
+      "views": [
+        "kitchen-appliances",
+        "kitchen-service-landing"
+      ]
+    },
+    {
+      "section": 6,
+      "area": "Outdoor garden / Squatch trophy area",
+      "checks": [
+        "the rose-garden arch is the entrance and has no redundant wall cap",
+        "its full player corridor is clear of solids and flowers",
+        "the accepted putting green and smaller garden remain present"
+      ],
+      "views": [
+        "garden-arch",
+        "garden-accepted-area"
+      ]
+    },
+    {
+      "section": 7,
+      "area": "Garden room",
+      "checks": [
+        "every full planter Box3 has measurable air from all ten actual named fountain kerb/body meshes"
+      ],
+      "views": [
+        "winter-garden-fountain"
+      ]
+    },
+    {
+      "section": 8,
+      "area": "Trophy room",
+      "checks": [
+        "the widened three-arch entrance retains supporting piers and clear collision",
+        "the Great Includer handles are upright, closed, and connected to the cup",
+        "no unrelated statue or floor lamp crowds the monument",
+        "all hall-case trophies are complete and shelf-seated"
+      ],
+      "views": [
+        "trophy-room-entry",
+        "great-includer",
+        "trophy-room-cases"
+      ]
+    },
+    {
+      "section": 9,
+      "area": "Family / fireplace room",
+      "checks": [
+        "the fireplace has animated emissive flames and room glow",
+        "the fireplace wall has a curated family-art group"
+      ],
+      "views": [
+        "family-fireplace"
+      ]
+    },
+    {
+      "section": 10,
+      "area": "Modern bedroom",
+      "checks": [
+        "the TV-side table and dressing bench have useful separation",
+        "the removed booski-death-room-deathmegatron-accent object is absent, while the one accepted Booski accent portrait clears the wardrobe",
+        "the Booski / DeathMegatron placard is outside above the doorway"
+      ],
+      "views": [
+        "modern-bedroom",
+        "modern-bedroom-placard"
+      ]
+    },
+    {
+      "section": 11,
+      "area": "Upstairs bathroom (frozen)",
+      "checks": [
+        "both accepted upstairs bathrooms and their working fixture contracts remain present"
+      ],
+      "views": [
+        "upstairs-bathroom-regression"
+      ]
+    },
+    {
+      "section": 12,
+      "area": "Classic bedroom",
+      "checks": [
+        "the weight set is in the back window corner",
+        "the TV is diagonally angled",
+        "the chair and pedestal clear the wardrobe and bed"
+      ],
+      "views": [
+        "classic-bedroom"
+      ]
+    },
+    {
+      "section": 13,
+      "area": "Gothic room",
+      "checks": [
+        "the chair, wardrobe, bed, and packing cluster have deliberate clearance",
+        "the Old Chapel placard is outside above the doorway"
+      ],
+      "views": [
+        "gothic-bedroom",
+        "gothic-bedroom-placard"
+      ]
+    },
+    {
+      "section": 14,
+      "area": "Lake room",
+      "checks": [
+        "the bed art, paddles, life ring, and recognizable white cross sit within 5mm of actual gallery-north-solid wall geometry",
+        "the chair, little table, and writing cluster have useful clearance, with no plant anywhere in the Lake-room rect",
+        "the outside placard reads LAKE ROOM"
+      ],
+      "views": [
+        "lake-bedroom",
+        "lake-wall-front",
+        "lake-wall-side",
+        "lake-bedroom-placard"
+      ]
+    },
+    {
+      "section": 15,
+      "area": "Conference room (frozen)",
+      "checks": [
+        "the accepted conference room and its table/head anchors remain present and enterable"
+      ],
+      "views": [
+        "conference-room-regression"
+      ]
+    },
+    {
+      "section": 16,
+      "area": "Uncle Lou's suite",
+      "checks": [
+        "exactly one deliberately lowered bar light remains",
+        "no decorative beam crosses either table"
+      ],
+      "views": [
+        "lou-suite-bar"
+      ]
+    },
+    {
+      "section": 17,
+      "area": "Upstairs balcony",
+      "checks": [
+        "the railing chain is physically continuous from both stair tops around the balcony"
+      ],
+      "views": [
+        "upstairs-balcony-arrival"
+      ]
+    },
+    {
+      "section": 18,
+      "area": "Cellar",
+      "checks": [
+        "the pegboard and every mounted tool contact the actual named basement-wall-panel-north assembly without penetration or floating",
+        "racked wine bottles publish body, shoulder, neck, cork, and label geometry",
+        "the vault picture has measurable air from actual cellar-rooms-solid structure and the white doorway architrave"
+      ],
+      "views": [
+        "cellar-wall-object",
+        "cellar-armory-wine-bottles",
+        "cellar-wine-bottles",
+        "vault-art-front",
+        "vault-art-side"
+      ]
+    },
+    {
+      "section": 19,
+      "area": "Prospect room",
+      "checks": [
+        "the room wall object has an explicit readable identity or is absent",
+        "the boots are character-scaled",
+        "the bust clears the red pier from all three authored inspection views"
+      ],
+      "views": [
+        "prospect-room",
+        "prospect-boots",
+        "prospect-bust-corridor-east",
+        "prospect-bust-corridor-north",
+        "prospect-bust-doorway"
+      ]
+    },
+    {
+      "section": 20,
+      "area": "Character voice content",
+      "checks": [
+        "Sauce and Eric publish authored Mansion ambient/proximity cues",
+        "Kate is explicitly unavailable because no Mansion identity is catalogued, never substituted",
+        "all present speakers use the same non-global proximity policy"
+      ],
+      "views": [
+        "sauce-post",
+        "eric-post"
+      ]
+    },
+    {
+      "section": 21,
+      "area": "Final Mansion validation",
+      "checks": [
+        "the production page is HTTP 200 with real rendered frames and a healthy WebGL2 context",
+        "there are no page errors, console errors, failed requests, or HTTP 404s",
+        "the seven repeated blockers each have a hard geometry check and original-resolution view",
+        "all named changed routes remain walkable under the real Player and collider systems"
+      ],
+      "views": [
+        "vault-art-side",
+        "prospect-bust-doorway",
+        "great-includer",
+        "trophy-room-cases",
+        "lake-wall-side",
+        "front-door-guard",
+        "winter-garden-fountain"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "driveway-arrival",
+      "section": 1,
+      "file": "01-driveway-arrival.png",
+      "bytes": 457970,
+      "sha256": "24cbac472113f0b414cebfeb33ebfca78f5021d39e9beaf986787ac1f14760d3",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          238,
+          235
+        ],
+        "channelRange": [
+          255,
+          238,
+          235
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 237.912,
+        "luminanceRange": 237.912,
+        "meanLuminance": 22.129,
+        "nonBlackPixels": 865305,
+        "nonBlackFraction": 0.417296,
+        "ok": true
+      },
+      "from": [
+        0,
+        0,
+        4
+      ],
+      "target": [
+        0.37022592533846777,
+        5.884687793099572,
+        26.956081539570096
+      ],
+      "targetName": "silver-sasquatch-statue",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "fountain-clearance",
+      "section": 1,
+      "file": "01-fountain-clearance.png",
+      "bytes": 507709,
+      "sha256": "4695c0b2e1ec19c9423ebda4be62e2a7d394fecc73cf4ec64fd82dbb8ec0bc72",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          250
+        ],
+        "channelRange": [
+          255,
+          255,
+          250
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254.639,
+        "luminanceRange": 254.639,
+        "meanLuminance": 25.539,
+        "nonBlackPixels": 915571,
+        "nonBlackFraction": 0.441537,
+        "ok": true
+      },
+      "from": [
+        -11,
+        0,
+        17
+      ],
+      "target": [
+        0.37022592533846777,
+        5.884687793099572,
+        26.956081539570096
+      ],
+      "targetName": "silver-sasquatch-statue",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "front-door-guard",
+      "section": 1,
+      "file": "01-front-door-guard.png",
+      "bytes": 715488,
+      "sha256": "ba730b8f003d63fc164736fa242704797cdad2540941b502acf2a1d60d3e91cc",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0.213,
+        "luminanceMax": 255,
+        "luminanceRange": 254.787,
+        "meanLuminance": 67.983,
+        "nonBlackPixels": 1858630,
+        "nonBlackFraction": 0.89633,
+        "ok": true
+      },
+      "from": [
+        -5,
+        1.2,
+        29.5
+      ],
+      "target": [
+        2.4,
+        2.25,
+        35.25
+      ],
+      "targetName": "npc:gateMan",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "pool-room-cases",
+      "section": 3,
+      "file": "03-pool-room-cases.png",
+      "bytes": 996651,
+      "sha256": "4d96ac37680d45182c974879af5b8139de643f48a09630b05cfce9475a3317b9",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          254
+        ],
+        "channelRange": [
+          255,
+          255,
+          254
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254.928,
+        "luminanceRange": 254.928,
+        "meanLuminance": 79.774,
+        "nonBlackPixels": 2041983,
+        "nonBlackFraction": 0.984753,
+        "ok": true
+      },
+      "from": [
+        13,
+        1.2,
+        43.4
+      ],
+      "target": [
+        9.5,
+        2.15,
+        43.4
+      ],
+      "targetName": "path:interior.props.lounge.cases",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "pool-room-art",
+      "section": 3,
+      "file": "03-pool-room-art.png",
+      "bytes": 714170,
+      "sha256": "fef95f33828a4d4d211e485eccdd20663c8073dac1ad303a5e5a27f77c37ce0c",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          253,
+          250
+        ],
+        "channelRange": [
+          255,
+          253,
+          250
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 252.783,
+        "luminanceRange": 252.783,
+        "meanLuminance": 49.229,
+        "nonBlackPixels": 1823687,
+        "nonBlackFraction": 0.879479,
+        "ok": true
+      },
+      "from": [
+        10.7,
+        1.2,
+        43.3
+      ],
+      "target": [
+        20.44,
+        4.62,
+        49.9
+      ],
+      "targetName": "path:interior.props.lounge.bayShield",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "pool-recliner",
+      "section": 3,
+      "file": "03-pool-recliner.png",
+      "bytes": 403865,
+      "sha256": "970cb86007eb648e94fe705d516eb91e7acd762d70f031c60585b407ccee4efb",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          254
+        ],
+        "channelRange": [
+          255,
+          255,
+          254
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254.928,
+        "luminanceRange": 254.928,
+        "meanLuminance": 59.681,
+        "nonBlackPixels": 1311024,
+        "nonBlackFraction": 0.632245,
+        "ok": true
+      },
+      "from": [
+        6.2,
+        1.2,
+        82
+      ],
+      "target": [
+        10.6,
+        2.066,
+        85.8
+      ],
+      "targetName": "npc:poolPerformer1",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "pool-swimmer",
+      "section": 3,
+      "file": "03-pool-swimmer.png",
+      "bytes": 678622,
+      "sha256": "e7c66cc5790acc870993ca71eb11be38a49da27aee48d0911f659398a9d7f5f2",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          253,
+          253
+        ],
+        "channelRange": [
+          255,
+          253,
+          253
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 253,
+        "luminanceRange": 253,
+        "meanLuminance": 54.726,
+        "nonBlackPixels": 1444416,
+        "nonBlackFraction": 0.696574,
+        "ok": true
+      },
+      "from": [
+        0,
+        1.2,
+        79
+      ],
+      "target": [
+        2.352,
+        0.928,
+        85.677
+      ],
+      "targetName": "npc:poolPerformer2",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "pool-dress-focus",
+      "section": 3,
+      "file": "03-pool-dress-focus.png",
+      "bytes": 549639,
+      "sha256": "fff138db15d302c66e9b1f0215453ea144f416f5dc5b224350ab2fc34144840a",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          254
+        ],
+        "channelRange": [
+          255,
+          255,
+          254
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254.928,
+        "luminanceRange": 254.928,
+        "meanLuminance": 97.5,
+        "nonBlackPixels": 1871275,
+        "nonBlackFraction": 0.902428,
+        "ok": true
+      },
+      "from": [
+        6.2,
+        1.2,
+        82
+      ],
+      "target": [
+        11.047108321611265,
+        2.232685735510008,
+        85.97007128839903
+      ],
+      "targetName": "pool-performer-2-dress-strap",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "kitchen-appliances",
+      "section": 5,
+      "file": "05-kitchen-appliances.png",
+      "bytes": 591633,
+      "sha256": "98bfac918f5be24a63328d26202bd414bcb7f5d5d2152f672b59a315d655d0e8",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          254,
+          252
+        ],
+        "channelRange": [
+          255,
+          254,
+          252
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 253.856,
+        "luminanceRange": 253.856,
+        "meanLuminance": 91.146,
+        "nonBlackPixels": 1949353,
+        "nonBlackFraction": 0.940082,
+        "ok": true
+      },
+      "from": [
+        12,
+        1.2,
+        67.3
+      ],
+      "target": [
+        12.609875,
+        2.3324999999999996,
+        61.775
+      ],
+      "targetName": "midpoint:interior.props.kitchen.refrigerator|interior.props.kitchen.microwave",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "kitchen-service-landing",
+      "section": 5,
+      "file": "05-kitchen-service-landing.png",
+      "bytes": 170724,
+      "sha256": "797352ce016218c6696e0d9c1aac96aec8727d519ea856c947b10943a335eaef",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          252,
+          249
+        ],
+        "channelRange": [
+          255,
+          252,
+          249
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 251.924,
+        "luminanceRange": 251.924,
+        "meanLuminance": 13.451,
+        "nonBlackPixels": 1202699,
+        "nonBlackFraction": 0.580005,
+        "ok": true
+      },
+      "from": [
+        22,
+        0,
+        66
+      ],
+      "target": [
+        17.2,
+        1.1099999999999999,
+        66
+      ],
+      "targetName": "service-landing-platform",
+      "runtime": null,
+      "source": "recaptured"
+    },
+    {
+      "id": "garden-arch",
+      "section": 6,
+      "file": "06-garden-arch.png",
+      "bytes": 392643,
+      "sha256": "55212b0fb905532a59f72ad0ea57ba5cb60c31fac6be684db596d1764ea6e7e5",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254.856,
+        "luminanceRange": 254.856,
+        "meanLuminance": 9.879,
+        "nonBlackPixels": 592662,
+        "nonBlackFraction": 0.285813,
+        "ok": true
+      },
+      "from": [
+        12.3,
+        0,
+        111
+      ],
+      "target": [
+        9.4,
+        2.614999997615814,
+        111
+      ],
+      "targetName": "rose-garden-entry-arch",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "garden-accepted-area",
+      "section": 6,
+      "file": "06-garden-accepted-area.png",
+      "bytes": 383348,
+      "sha256": "2b60cc241cb8195327cfd42b2ff73ac9f21247f8f12cf7caf2da4a22a512eff0",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 41.356,
+        "nonBlackPixels": 1531566,
+        "nonBlackFraction": 0.738602,
+        "ok": true
+      },
+      "from": [
+        13.5,
+        0,
+        83
+      ],
+      "target": [
+        23.5,
+        0.035,
+        75
+      ],
+      "targetName": "putting-green",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "winter-garden-fountain",
+      "section": 7,
+      "file": "07-winter-garden-fountain.png",
+      "bytes": 858328,
+      "sha256": "5b6880bd3f6d993507407efded98f79e49a932b25c39fb22eda6cac30d73ff2d",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 58.889,
+        "nonBlackPixels": 1943522,
+        "nonBlackFraction": 0.937269,
+        "ok": true
+      },
+      "from": [
+        -16.3,
+        1.2,
+        60.8
+      ],
+      "target": [
+        -20.1,
+        2.46,
+        65
+      ],
+      "targetName": "winter-fountain-bowl",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "trophy-room-entry",
+      "section": 8,
+      "file": "08-trophy-room-entry.png",
+      "bytes": 825212,
+      "sha256": "558b464459d4c7730107baed6929a370183f662c212cf91ac440da0cf1e15915",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          254
+        ],
+        "channelRange": [
+          255,
+          255,
+          254
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254.928,
+        "luminanceRange": 254.928,
+        "meanLuminance": 51.682,
+        "nonBlackPixels": 1923257,
+        "nonBlackFraction": 0.927497,
+        "ok": true
+      },
+      "from": [
+        -13.3,
+        1.2,
+        41.5
+      ],
+      "target": [
+        -20.1,
+        2.3,
+        48.6
+      ],
+      "targetName": null,
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "great-includer",
+      "section": 8,
+      "file": "08-great-includer.png",
+      "bytes": 745882,
+      "sha256": "adb0a549528f1ad52f2595c7e5b698aa34f0ed9fc4e32503a704756f708be216",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          1,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          254,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0.213,
+        "luminanceMax": 255,
+        "luminanceRange": 254.787,
+        "meanLuminance": 80.556,
+        "nonBlackPixels": 1978912,
+        "nonBlackFraction": 0.954336,
+        "ok": true
+      },
+      "from": [
+        -16.5,
+        1.2,
+        48.6
+      ],
+      "target": [
+        -20.1,
+        4.409471334843735,
+        53.6
+      ],
+      "targetName": "great-includer-trophy",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "trophy-room-cases",
+      "section": 8,
+      "file": "08-trophy-room-cases.png",
+      "bytes": 564964,
+      "sha256": "9540824aafd33480a9643c0d90f8281bafd13c9ac8e2be3c5ac051f98891bbf7",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          253,
+          249
+        ],
+        "channelRange": [
+          255,
+          253,
+          249
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 252.924,
+        "luminanceRange": 252.924,
+        "meanLuminance": 70.88,
+        "nonBlackPixels": 1992452,
+        "nonBlackFraction": 0.960866,
+        "ok": true
+      },
+      "from": [
+        -19.1,
+        1.2,
+        52.6
+      ],
+      "target": [
+        -23.65,
+        2.156500000745058,
+        45.28
+      ],
+      "targetName": "trophy-hall-display-trophy",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "family-fireplace",
+      "section": 9,
+      "file": "09-family-fireplace.png",
+      "bytes": 1223807,
+      "sha256": "ab32bb5b4773c1fa9f2645ba07e9429be43344267f3c0edb352e93cfaa6d5682",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          254,
+          251
+        ],
+        "channelRange": [
+          255,
+          254,
+          251
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 253.996,
+        "luminanceRange": 253.996,
+        "meanLuminance": 51.759,
+        "nonBlackPixels": 1941979,
+        "nonBlackFraction": 0.936525,
+        "ok": true
+      },
+      "from": [
+        -10,
+        1.2,
+        51.5
+      ],
+      "target": [
+        -15.92,
+        1.85,
+        52.6
+      ],
+      "targetName": "fireplace-firebox-back",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "modern-bedroom",
+      "section": 10,
+      "file": "10-modern-bedroom.png",
+      "bytes": 901083,
+      "sha256": "8ea75f188159f06e93b652db22372c24908e1acde04600e5ad76ec1b25c31469",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          254,
+          253
+        ],
+        "channelRange": [
+          255,
+          254,
+          253
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 253.928,
+        "luminanceRange": 253.928,
+        "meanLuminance": 80.625,
+        "nonBlackPixels": 2021607,
+        "nonBlackFraction": 0.974926,
+        "ok": true
+      },
+      "from": [
+        10.7,
+        6,
+        61.7
+      ],
+      "target": [
+        11.065,
+        7.165,
+        62.9
+      ],
+      "targetName": "modern-dressing-cluster",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "modern-bedroom-placard",
+      "section": 10,
+      "file": "10-modern-bedroom-placard.png",
+      "bytes": 985498,
+      "sha256": "e46e6740cea07d1e59a22a44406b9804d3d5e8aeb68d7ea9f378a9dae22a444c",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 57.027,
+        "nonBlackPixels": 1965979,
+        "nonBlackFraction": 0.948099,
+        "ok": true
+      },
+      "from": [
+        13,
+        6,
+        63
+      ],
+      "target": [
+        14,
+        8.76,
+        52.97
+      ],
+      "targetName": "booski-death-room-exterior-placard",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "upstairs-bathroom-regression",
+      "section": 11,
+      "file": "11-upstairs-bathroom-regression.png",
+      "bytes": 1443235,
+      "sha256": "bba28f61c0bbb76f3fbaf2e153cb6218abf9e57a516911067ada88478ca7e0b5",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          248,
+          245
+        ],
+        "channelRange": [
+          255,
+          248,
+          245
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 247.996,
+        "luminanceRange": 247.996,
+        "meanLuminance": 94.318,
+        "nonBlackPixels": 2056408,
+        "nonBlackFraction": 0.991709,
+        "ok": true
+      },
+      "from": [
+        12.5,
+        6,
+        68
+      ],
+      "target": [
+        12.5,
+        7.1,
+        70.5
+      ],
+      "targetName": null,
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "classic-bedroom",
+      "section": 12,
+      "file": "12-classic-bedroom.png",
+      "bytes": 579605,
+      "sha256": "fbef4b9d27eceb6692aad7e5e2ecc8fef9325cea9539900bec8c6b86173ac7ea",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          248,
+          241
+        ],
+        "channelRange": [
+          255,
+          248,
+          241
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 248.132,
+        "luminanceRange": 248.132,
+        "meanLuminance": 41.637,
+        "nonBlackPixels": 2031705,
+        "nonBlackFraction": 0.979796,
+        "ok": true
+      },
+      "from": [
+        11,
+        6,
+        42.5
+      ],
+      "target": [
+        9.65,
+        6.675873021909455,
+        46.1
+      ],
+      "targetName": "oldtime-washstand-cluster",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "gothic-bedroom",
+      "section": 13,
+      "file": "13-gothic-bedroom.png",
+      "bytes": 791950,
+      "sha256": "19c4d82380e0c96f3f2a22423b79f6727bad6578726373f70e00261202a08e02",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          250,
+          244
+        ],
+        "channelRange": [
+          255,
+          250,
+          244
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 250.205,
+        "luminanceRange": 250.205,
+        "meanLuminance": 23.9,
+        "nonBlackPixels": 1349138,
+        "nonBlackFraction": 0.650626,
+        "ok": true
+      },
+      "from": [
+        -14.493,
+        6,
+        37.896
+      ],
+      "target": [
+        -11.1,
+        6.77,
+        43.295008601114986
+      ],
+      "targetName": "gothic-packing-cluster",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "gothic-bedroom-placard",
+      "section": 13,
+      "file": "13-gothic-bedroom-placard.png",
+      "bytes": 380264,
+      "sha256": "1fee7e769efc5d5a80801bdb2150a6918af01018436077a1ec457e6d6d705c50",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          252,
+          250
+        ],
+        "channelRange": [
+          255,
+          252,
+          250
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 252.281,
+        "luminanceRange": 252.281,
+        "meanLuminance": 78.945,
+        "nonBlackPixels": 1745214,
+        "nonBlackFraction": 0.841635,
+        "ok": true
+      },
+      "from": [
+        -13,
+        6,
+        47
+      ],
+      "target": [
+        -14,
+        8.76,
+        48.03
+      ],
+      "targetName": "old-chapel-room-placard",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "lake-bedroom",
+      "section": 14,
+      "file": "14-lake-bedroom.png",
+      "bytes": 999313,
+      "sha256": "ea5c0c9feb08f96b6dea41c9f51210f82e0f62c025f7b676bc2278a421efb0e2",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          249,
+          243
+        ],
+        "channelRange": [
+          255,
+          249,
+          243
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 249.205,
+        "luminanceRange": 249.205,
+        "meanLuminance": 35.838,
+        "nonBlackPixels": 1889270,
+        "nonBlackFraction": 0.911106,
+        "ok": true
+      },
+      "from": [
+        -10.5,
+        6,
+        62
+      ],
+      "target": [
+        -12.2,
+        6.6425000017881395,
+        62.5625
+      ],
+      "targetName": "lake-writing-cluster",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "lake-wall-front",
+      "section": 14,
+      "file": "14-lake-wall-front.png",
+      "bytes": 517371,
+      "sha256": "6355461cadbfbe8b64c3da6268ace341ec2185a58a6ec2c265d2611e0673713d",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          254,
+          254
+        ],
+        "channelRange": [
+          255,
+          254,
+          254
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254,
+        "luminanceRange": 254,
+        "meanLuminance": 47.767,
+        "nonBlackPixels": 1614212,
+        "nonBlackFraction": 0.778459,
+        "ok": true
+      },
+      "from": [
+        -12.5,
+        6,
+        63.5
+      ],
+      "target": [
+        -11.524999999999999,
+        9.55,
+        53.1705
+      ],
+      "targetName": "lake-white-cross",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "lake-wall-side",
+      "section": 14,
+      "file": "14-lake-wall-side.png",
+      "bytes": 504515,
+      "sha256": "6200b202b5493fe1d36e3d0a4156abdfc35f89d0155ee2a650639bcbafb72a0f",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          254,
+          254
+        ],
+        "channelRange": [
+          255,
+          254,
+          254
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254,
+        "luminanceRange": 254,
+        "meanLuminance": 55.81,
+        "nonBlackPixels": 1769357,
+        "nonBlackFraction": 0.853278,
+        "ok": true
+      },
+      "from": [
+        -10.3,
+        6,
+        62.5
+      ],
+      "target": [
+        -12.624999999999998,
+        8.4,
+        53.213
+      ],
+      "targetName": "lake-life-ring",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "lake-bedroom-placard",
+      "section": 14,
+      "file": "14-lake-bedroom-placard.png",
+      "bytes": 280491,
+      "sha256": "44e7245e9ac11aad8637d696361c6253bc64c8069465191ad3f20a69e454a743",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          253,
+          253
+        ],
+        "channelRange": [
+          255,
+          253,
+          253
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 252.787,
+        "luminanceRange": 252.787,
+        "meanLuminance": 68.669,
+        "nonBlackPixels": 1722064,
+        "nonBlackFraction": 0.830471,
+        "ok": true
+      },
+      "from": [
+        -14,
+        6,
+        50.782000000000004
+      ],
+      "target": [
+        -14,
+        8.76,
+        52.782
+      ],
+      "targetName": "lake-room-placard",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "conference-room-regression",
+      "section": 15,
+      "file": "15-conference-room-regression.png",
+      "bytes": 414712,
+      "sha256": "ed14aadc2b6100a21f6ee8de9211dbc70a4a140fdd3042ba14f584fc3fbf2f15",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 22.745,
+        "nonBlackPixels": 1323357,
+        "nonBlackFraction": 0.638193,
+        "ok": true
+      },
+      "from": [
+        0,
+        6,
+        57.9
+      ],
+      "target": [
+        0,
+        7.1,
+        58
+      ],
+      "targetName": null,
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "lou-suite-bar",
+      "section": 16,
+      "file": "16-lou-suite-bar.png",
+      "bytes": 558546,
+      "sha256": "404cc8b6b91380b516394b9290858f0b12856dd4694f7b2edabf4e043894b13e",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 52.391,
+        "nonBlackPixels": 1852290,
+        "nonBlackFraction": 0.893273,
+        "ok": true
+      },
+      "from": [
+        -3.8939999999999992,
+        10.6,
+        70.971
+      ],
+      "target": [
+        -8.79,
+        12.299999999999999,
+        71
+      ],
+      "targetName": "suite-bar-mirror",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "upstairs-balcony-arrival",
+      "section": 17,
+      "file": "17-upstairs-balcony-arrival.png",
+      "bytes": 1172670,
+      "sha256": "b883d59ceb71f40c7d549bb2041d3f90d55005bcc067779e81f9b3489c50a2ec",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 41.468,
+        "nonBlackPixels": 1775581,
+        "nonBlackFraction": 0.856279,
+        "ok": true
+      },
+      "from": [
+        -6.675,
+        6,
+        48.1
+      ],
+      "target": [
+        -4.25,
+        6.98,
+        48
+      ],
+      "targetName": "gallery-edge-west-rail",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "cellar-wall-object",
+      "section": 18,
+      "file": "18-cellar-wall-object.png",
+      "bytes": 1101045,
+      "sha256": "9ae096986f31df6d494e26127aa4abf972a6bb27641ea2f40233d1d4f2c259d6",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 35.415,
+        "nonBlackPixels": 1655749,
+        "nonBlackFraction": 0.79849,
+        "ok": true
+      },
+      "from": [
+        4.193999999999999,
+        -2.8,
+        60.29
+      ],
+      "target": [
+        4.2,
+        -1.2999999999999998,
+        63.779999999999994
+      ],
+      "targetName": "cellar-tool-pegboard",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "cellar-armory-wine-bottles",
+      "section": 18,
+      "file": "18-cellar-armory-wine-bottles.png",
+      "bytes": 1210865,
+      "sha256": "476d9de6a043837cd020132c79231e5734da59b1abc63457cbe00d34b7849c83",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          244,
+          234
+        ],
+        "channelRange": [
+          255,
+          244,
+          234
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 244.128,
+        "luminanceRange": 244.128,
+        "meanLuminance": 21.751,
+        "nonBlackPixels": 1425176,
+        "nonBlackFraction": 0.687296,
+        "ok": true
+      },
+      "from": [
+        -3.4,
+        -2.8,
+        59.5
+      ],
+      "target": [
+        -3.45,
+        -2.396,
+        63.44775
+      ],
+      "targetName": "cellar-wine-bottle",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "cellar-wine-bottles",
+      "section": 18,
+      "file": "18-cellar-wine-bottles.png",
+      "bytes": 665683,
+      "sha256": "9838b96e1f567bf97f47ca4c832c7ff668f647894d42227d49327d890cf93cd0",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          230,
+          220
+        ],
+        "channelRange": [
+          255,
+          230,
+          220
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 214.768,
+        "luminanceRange": 214.768,
+        "meanLuminance": 15.805,
+        "nonBlackPixels": 1235647,
+        "nonBlackFraction": 0.595895,
+        "ok": true
+      },
+      "from": [
+        0.7249999999999996,
+        -2.8,
+        52.75
+      ],
+      "target": [
+        4.944999999999999,
+        -2.38,
+        50.65
+      ],
+      "targetName": "cellar-wine-bottle",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "vault-art-front",
+      "section": 18,
+      "file": "18-vault-art-front.png",
+      "bytes": 493775,
+      "sha256": "0b2f63fb8c75f2ecea9b0445cebf10cbdc04a65ce20a92df12af16d754deb70c",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          1,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          254
+        ],
+        "channelRange": [
+          254,
+          255,
+          254
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0.213,
+        "luminanceMax": 254.928,
+        "luminanceRange": 254.715,
+        "meanLuminance": 57.65,
+        "nonBlackPixels": 1780774,
+        "nonBlackFraction": 0.858784,
+        "ok": true
+      },
+      "from": [
+        7.5,
+        -2.8,
+        65.85
+      ],
+      "target": [
+        11.84,
+        -0.8999999999999999,
+        67.30000000000001
+      ],
+      "targetName": "path:interior.props.vault.mark",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "vault-art-side",
+      "section": 18,
+      "file": "18-vault-art-side.png",
+      "bytes": 682072,
+      "sha256": "914b9fc77789c3c2e5e62f4d070561aed5cedbed6367772bb1e270b0bec437d2",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 87.519,
+        "nonBlackPixels": 1701575,
+        "nonBlackFraction": 0.82059,
+        "ok": true
+      },
+      "from": [
+        11.399999999999999,
+        -2.8,
+        66.4
+      ],
+      "target": [
+        11.84,
+        -0.8999999999999999,
+        67.30000000000001
+      ],
+      "targetName": "path:interior.props.vault.mark",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "prospect-room",
+      "section": 19,
+      "file": "19-prospect-room.png",
+      "bytes": 585877,
+      "sha256": "ab144191412491b455cc1e1105a6ae0f8863625132199046a3747b56e3a6f608",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          3,
+          1,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          252,
+          254,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 1.353,
+        "luminanceMax": 255,
+        "luminanceRange": 253.647,
+        "meanLuminance": 72.665,
+        "nonBlackPixels": 1818703,
+        "nonBlackFraction": 0.877075,
+        "ok": true
+      },
+      "from": [
+        -9.55,
+        -2.8,
+        71.9
+      ],
+      "target": [
+        -7.95625,
+        -1.13,
+        73.82
+      ],
+      "targetName": "prospect-work-jacket",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "prospect-boots",
+      "section": 19,
+      "file": "19-prospect-boots.png",
+      "bytes": 912069,
+      "sha256": "1880d0717e9d77ab5cfeb7fcac59a6af7e01c0e66324004eefcc2825a488551c",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          254,
+          252
+        ],
+        "channelRange": [
+          255,
+          254,
+          252
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 254.068,
+        "luminanceRange": 254.068,
+        "meanLuminance": 51.943,
+        "nonBlackPixels": 1728732,
+        "nonBlackFraction": 0.833686,
+        "ok": true
+      },
+      "from": [
+        -10.35,
+        -2.8,
+        70.4
+      ],
+      "target": [
+        -9.25,
+        -2.6704,
+        73.78999999999999
+      ],
+      "targetName": "prospect-work-boots",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "prospect-bust-corridor-east",
+      "section": 19,
+      "file": "19-prospect-bust-corridor-east.png",
+      "bytes": 686867,
+      "sha256": "1c044cbbbf1cb8bfcf5e4ffbf4fb1af284496a7642e8bbbaa3be5a409b0753cb",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          1,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          252,
+          253
+        ],
+        "channelRange": [
+          254,
+          252,
+          253
+        ],
+        "maximumChannelRange": 254,
+        "luminanceMin": 0.213,
+        "luminanceMax": 252.072,
+        "luminanceRange": 251.86,
+        "meanLuminance": 95.454,
+        "nonBlackPixels": 2049557,
+        "nonBlackFraction": 0.988405,
+        "ok": true
+      },
+      "from": [
+        -11.2,
+        -2.8,
+        65.1
+      ],
+      "target": [
+        -13.634999999999998,
+        -1.9349999999999998,
+        64.765
+      ],
+      "targetName": "sasquatch-bust",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "prospect-bust-corridor-north",
+      "section": 19,
+      "file": "19-prospect-bust-corridor-north.png",
+      "bytes": 813507,
+      "sha256": "98ef52532575af654e63f53cefe14c80721fb12dd7e89c1c2189c1ab3d5cdf43",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          2,
+          1,
+          1
+        ],
+        "channelMax": [
+          255,
+          254,
+          255
+        ],
+        "channelRange": [
+          253,
+          253,
+          254
+        ],
+        "maximumChannelRange": 254,
+        "luminanceMin": 1.213,
+        "luminanceMax": 254.072,
+        "luminanceRange": 252.86,
+        "meanLuminance": 83.463,
+        "nonBlackPixels": 1989548,
+        "nonBlackFraction": 0.959466,
+        "ok": true
+      },
+      "from": [
+        -13.3,
+        -2.8,
+        66.89999999999999
+      ],
+      "target": [
+        -13.634999999999998,
+        -1.9349999999999998,
+        64.765
+      ],
+      "targetName": "sasquatch-bust",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "prospect-bust-doorway",
+      "section": 19,
+      "file": "19-prospect-bust-doorway.png",
+      "bytes": 955861,
+      "sha256": "f4696ed6f05e0771455f66b9e5d44e9a82b9178ed9621ab337b19760083a4a4a",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 55.67,
+        "nonBlackPixels": 2043207,
+        "nonBlackFraction": 0.985343,
+        "ok": true
+      },
+      "from": [
+        -15.25,
+        -2.8,
+        65.75
+      ],
+      "target": [
+        -13.634999999999998,
+        -1.9349999999999998,
+        64.765
+      ],
+      "targetName": "sasquatch-bust",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "sauce-post",
+      "section": 20,
+      "file": "20-sauce-post.png",
+      "bytes": 1184427,
+      "sha256": "e136c1c6e8673a5491d30551b20f504a923400b527a683c07b5efc1123f96db4",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          255,
+          255
+        ],
+        "channelRange": [
+          255,
+          255,
+          255
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 255,
+        "luminanceRange": 255,
+        "meanLuminance": 38.526,
+        "nonBlackPixels": 1909758,
+        "nonBlackFraction": 0.920987,
+        "ok": true
+      },
+      "from": [
+        8.4,
+        1.2,
+        68.60000000000001
+      ],
+      "target": [
+        6.4,
+        2.25,
+        67.2
+      ],
+      "targetName": "npc:sauce",
+      "runtime": null,
+      "source": "validated-existing"
+    },
+    {
+      "id": "eric-post",
+      "section": 20,
+      "file": "20-eric-post.png",
+      "bytes": 984390,
+      "sha256": "015b7729c3e604b30280d06f810ab0f0fb294a53628fcfe08f0568bc4959d04d",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "quality": {
+        "decoded": true,
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "channels": 3,
+        "channelMin": [
+          0,
+          0,
+          0
+        ],
+        "channelMax": [
+          255,
+          254,
+          252
+        ],
+        "channelRange": [
+          255,
+          254,
+          252
+        ],
+        "maximumChannelRange": 255,
+        "luminanceMin": 0,
+        "luminanceMax": 253.856,
+        "luminanceRange": 253.856,
+        "meanLuminance": 24.156,
+        "nonBlackPixels": 1565125,
+        "nonBlackFraction": 0.754786,
+        "ok": true
+      },
+      "from": [
+        -9,
+        0.8,
+        67.4
+      ],
+      "target": [
+        -11,
+        1.85,
+        66
+      ],
+      "targetName": "npc:eric",
+      "runtime": null,
+      "source": "validated-existing"
+    }
+  ],
+  "boot": {
+    "frames": 11,
+    "contextType": "webgl2",
+    "lost": false,
+    "error": 0,
+    "drawingBuffer": [
+      1920,
+      1080
+    ]
+  },
+  "gl": {
+    "lost": false,
+    "error": 0,
+    "drawingBuffer": [
+      1920,
+      1080
+    ],
+    "losses": [],
+    "frames": 26
+  },
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": [],
+  "httpErrors": []
+}

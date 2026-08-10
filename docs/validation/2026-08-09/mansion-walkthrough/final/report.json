@@ -1,0 +1,4193 @@
+{
+  "label": "final",
+  "url": "http://127.0.0.1:54948/mansion.html?preview=1",
+  "external": false,
+  "generatedAt": "2026-08-10T01:33:24.535Z",
+  "coverage": [
+    {
+      "section": 1,
+      "area": "Front driveway / exterior arrival",
+      "checks": [
+        "every authored driveway fixture has one powered light with consistent throw",
+        "front flowers are grounded, human-scaled, and clear of lamp hardware",
+        "the motor court and shortened approach beds leave useful fountain clearance",
+        "all three patrols remain clear of solids through a three-minute simulation",
+        "the front-door guard is wholly outside the facade glazing"
+      ],
+      "views": [
+        "driveway-arrival",
+        "fountain-clearance",
+        "front-door-guard"
+      ],
+      "availableViews": [
+        "driveway-arrival",
+        "fountain-clearance",
+        "front-door-guard"
+      ],
+      "assertions": 6,
+      "passed": 6,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 2,
+      "area": "Global NPC voice-line policy",
+      "checks": [
+        "Rippin, Eric, and Sauce publish real-body speech positions; Kate is explicitly catalogued unavailable",
+        "each present proximity speaker is audible nearby and rejected by distance and floor separation",
+        "a real nearby bark commits the shared cooldown and remains positional",
+        "an actual Mansion wall produces an occluded speech result"
+      ],
+      "views": [],
+      "availableViews": [],
+      "assertions": 5,
+      "passed": 5,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 3,
+      "area": "Pool room",
+      "checks": [
+        "all lounge display trophies are complete connected objects seated on shelves",
+        "pool-room artwork is visible clear of its bar and architecture",
+        "both reclining performers expose real thigh, shin, and foot meshes with no significant lounger penetration",
+        "the swimmer treads, bobs, and drifts inside the pool bounds",
+        "the dress interaction is entered through real E, focuses the fastening, accepts direct E, and exits cleanly"
+      ],
+      "views": [
+        "pool-room-cases",
+        "pool-room-art",
+        "pool-recliner",
+        "pool-swimmer",
+        "pool-dress-focus"
+      ],
+      "availableViews": [
+        "pool-room-cases",
+        "pool-room-art",
+        "pool-recliner",
+        "pool-swimmer",
+        "pool-dress-focus"
+      ],
+      "assertions": 7,
+      "passed": 7,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 4,
+      "area": "Bar area",
+      "checks": [
+        "the picture behind the bar is fully above the back-bar carcass"
+      ],
+      "views": [
+        "pool-room-art"
+      ],
+      "availableViews": [
+        "pool-room-art"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 5,
+      "area": "Kitchen",
+      "checks": [
+        "the refrigerator faces the room at mansion scale with two doors and handles",
+        "the microwave has a window, handle, panel, display, and button grid",
+        "the working sink still turns on and off",
+        "the exterior stair meets a supported flush landing at the kitchen doorway"
+      ],
+      "views": [
+        "kitchen-appliances",
+        "kitchen-service-landing"
+      ],
+      "availableViews": [
+        "kitchen-appliances",
+        "kitchen-service-landing"
+      ],
+      "assertions": 5,
+      "passed": 5,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 6,
+      "area": "Outdoor garden / Squatch trophy area",
+      "checks": [
+        "the rose-garden arch is the entrance and has no redundant wall cap",
+        "its full player corridor is clear of solids and flowers",
+        "the accepted putting green and smaller garden remain present"
+      ],
+      "views": [
+        "garden-arch",
+        "garden-accepted-area"
+      ],
+      "availableViews": [
+        "garden-arch",
+        "garden-accepted-area"
+      ],
+      "assertions": 4,
+      "passed": 4,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 7,
+      "area": "Garden room",
+      "checks": [
+        "every full planter Box3 has measurable air from all ten actual named fountain kerb/body meshes"
+      ],
+      "views": [
+        "winter-garden-fountain"
+      ],
+      "availableViews": [
+        "winter-garden-fountain"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 8,
+      "area": "Trophy room",
+      "checks": [
+        "the widened three-arch entrance retains supporting piers and clear collision",
+        "the Great Includer handles are upright, closed, and connected to the cup",
+        "no unrelated statue or floor lamp crowds the monument",
+        "all hall-case trophies are complete and shelf-seated"
+      ],
+      "views": [
+        "trophy-room-entry",
+        "great-includer",
+        "trophy-room-cases"
+      ],
+      "availableViews": [
+        "trophy-room-entry",
+        "great-includer",
+        "trophy-room-cases"
+      ],
+      "assertions": 5,
+      "passed": 5,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 9,
+      "area": "Family / fireplace room",
+      "checks": [
+        "the fireplace has animated emissive flames and room glow",
+        "the fireplace wall has a curated family-art group"
+      ],
+      "views": [
+        "family-fireplace"
+      ],
+      "availableViews": [
+        "family-fireplace"
+      ],
+      "assertions": 2,
+      "passed": 2,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 10,
+      "area": "Modern bedroom",
+      "checks": [
+        "the TV-side table and dressing bench have useful separation",
+        "the removed booski-death-room-deathmegatron-accent object is absent, while the one accepted Booski accent portrait clears the wardrobe",
+        "the Booski / DeathMegatron placard is outside above the doorway"
+      ],
+      "views": [
+        "modern-bedroom",
+        "modern-bedroom-placard"
+      ],
+      "availableViews": [
+        "modern-bedroom",
+        "modern-bedroom-placard"
+      ],
+      "assertions": 2,
+      "passed": 2,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 11,
+      "area": "Upstairs bathroom (frozen)",
+      "checks": [
+        "both accepted upstairs bathrooms and their working fixture contracts remain present"
+      ],
+      "views": [
+        "upstairs-bathroom-regression"
+      ],
+      "availableViews": [
+        "upstairs-bathroom-regression"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 12,
+      "area": "Classic bedroom",
+      "checks": [
+        "the weight set is in the back window corner",
+        "the TV is diagonally angled",
+        "the chair and pedestal clear the wardrobe and bed"
+      ],
+      "views": [
+        "classic-bedroom"
+      ],
+      "availableViews": [
+        "classic-bedroom"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 13,
+      "area": "Gothic room",
+      "checks": [
+        "the chair, wardrobe, bed, and packing cluster have deliberate clearance",
+        "the Old Chapel placard is outside above the doorway"
+      ],
+      "views": [
+        "gothic-bedroom",
+        "gothic-bedroom-placard"
+      ],
+      "availableViews": [
+        "gothic-bedroom",
+        "gothic-bedroom-placard"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 14,
+      "area": "Lake room",
+      "checks": [
+        "the bed art, paddles, life ring, and recognizable white cross sit within 5mm of actual gallery-north-solid wall geometry",
+        "the chair, little table, and writing cluster have useful clearance, with no plant anywhere in the Lake-room rect",
+        "the outside placard reads LAKE ROOM"
+      ],
+      "views": [
+        "lake-bedroom",
+        "lake-wall-front",
+        "lake-wall-side",
+        "lake-bedroom-placard"
+      ],
+      "availableViews": [
+        "lake-bedroom",
+        "lake-wall-front",
+        "lake-wall-side",
+        "lake-bedroom-placard"
+      ],
+      "assertions": 3,
+      "passed": 3,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 15,
+      "area": "Conference room (frozen)",
+      "checks": [
+        "the accepted conference room and its table/head anchors remain present and enterable"
+      ],
+      "views": [
+        "conference-room-regression"
+      ],
+      "availableViews": [
+        "conference-room-regression"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 16,
+      "area": "Uncle Lou's suite",
+      "checks": [
+        "exactly one deliberately lowered bar light remains",
+        "no decorative beam crosses either table"
+      ],
+      "views": [
+        "lou-suite-bar"
+      ],
+      "availableViews": [
+        "lou-suite-bar"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 17,
+      "area": "Upstairs balcony",
+      "checks": [
+        "the railing chain is physically continuous from both stair tops around the balcony"
+      ],
+      "views": [
+        "upstairs-balcony-arrival"
+      ],
+      "availableViews": [
+        "upstairs-balcony-arrival"
+      ],
+      "assertions": 1,
+      "passed": 1,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 18,
+      "area": "Cellar",
+      "checks": [
+        "the pegboard and every mounted tool contact the actual named basement-wall-panel-north assembly without penetration or floating",
+        "racked wine bottles publish body, shoulder, neck, cork, and label geometry",
+        "the vault picture has measurable air from actual cellar-rooms-solid structure and the white doorway architrave"
+      ],
+      "views": [
+        "cellar-wall-object",
+        "cellar-armory-wine-bottles",
+        "cellar-wine-bottles",
+        "vault-art-front",
+        "vault-art-side"
+      ],
+      "availableViews": [
+        "cellar-wall-object",
+        "cellar-armory-wine-bottles",
+        "cellar-wine-bottles",
+        "vault-art-front",
+        "vault-art-side"
+      ],
+      "assertions": 3,
+      "passed": 3,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 19,
+      "area": "Prospect room",
+      "checks": [
+        "the room wall object has an explicit readable identity or is absent",
+        "the boots are character-scaled",
+        "the bust clears the red pier from all three authored inspection views"
+      ],
+      "views": [
+        "prospect-room",
+        "prospect-boots",
+        "prospect-bust-corridor-east",
+        "prospect-bust-corridor-north",
+        "prospect-bust-doorway"
+      ],
+      "availableViews": [
+        "prospect-room",
+        "prospect-boots",
+        "prospect-bust-corridor-east",
+        "prospect-bust-corridor-north",
+        "prospect-bust-doorway"
+      ],
+      "assertions": 4,
+      "passed": 4,
+      "blocked": [],
+      "failed": []
+    },
+    {
+      "section": 20,
+      "area": "Character voice content",
+      "checks": [
+        "Sauce and Eric publish authored Mansion ambient/proximity cues",
+        "Kate is explicitly unavailable because no Mansion identity is catalogued, never substituted",
+        "all present speakers use the same non-global proximity policy"
+      ],
+      "views": [
+        "sauce-post",
+        "eric-post"
+      ],
+      "availableViews": [
+        "sauce-post",
+        "eric-post"
+      ],
+      "assertions": 3,
+      "passed": 2,
+      "blocked": [
+        {
+          "name": "Kate Mansion ambient content is unavailable",
+          "detail": "identity-not-catalogued"
+        }
+      ],
+      "failed": []
+    },
+    {
+      "section": 21,
+      "area": "Final Mansion validation",
+      "checks": [
+        "the production page is HTTP 200 with real rendered frames and a healthy WebGL2 context",
+        "there are no page errors, console errors, failed requests, or HTTP 404s",
+        "the seven repeated blockers each have a hard geometry check and original-resolution view",
+        "all named changed routes remain walkable under the real Player and collider systems"
+      ],
+      "views": [
+        "vault-art-side",
+        "prospect-bust-doorway",
+        "great-includer",
+        "trophy-room-cases",
+        "lake-wall-side",
+        "front-door-guard",
+        "winter-garden-fountain"
+      ],
+      "availableViews": [
+        "vault-art-side",
+        "prospect-bust-doorway",
+        "great-includer",
+        "trophy-room-cases",
+        "lake-wall-side",
+        "front-door-guard",
+        "winter-garden-fountain"
+      ],
+      "assertions": 7,
+      "passed": 7,
+      "blocked": [],
+      "failed": []
+    }
+  ],
+  "results": [
+    {
+      "section": 21,
+      "name": "production page returns HTTP 200",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": 21,
+      "name": "real scene renders frames on a connected canvas",
+      "ok": true,
+      "detail": "{\"frames\":11,\"canvasCount\":1}"
+    },
+    {
+      "section": 21,
+      "name": "WebGL2 context is live with a non-empty drawing buffer",
+      "ok": true,
+      "detail": "{\"title\":\"Lou's Mansion — SquatchSmash\",\"canvasCount\":1,\"rendererCanvasConnected\":true,\"frames\":11,\"contextType\":\"webgl2\",\"contextLost\":false,\"glError\":0,\"drawingBuffer\":[1280,720],\"losses\":[],\"overlay\":null}"
+    },
+    {
+      "section": 21,
+      "name": "no browser framework error overlay is present",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "section": 1,
+      "name": "every intended driveway fixture has one live light",
+      "ok": true,
+      "detail": "{\"fixtures\":10,\"live\":10}"
+    },
+    {
+      "section": 1,
+      "name": "driveway lights share useful brightness and radius",
+      "ok": true,
+      "detail": "{\"intensity\":9,\"distance\":18}"
+    },
+    {
+      "section": 1,
+      "name": "front flowers are grounded, scaled, and clear of lamps",
+      "ok": true,
+      "detail": "{\"count\":92,\"faults\":[]}"
+    },
+    {
+      "section": 1,
+      "name": "fountain motor court and shortened beds have useful clearance",
+      "ok": true,
+      "detail": "{\"radius\":15.2,\"approachBeds\":3,\"northBeds\":[{\"shortenedBy\":0.8999999999999986,\"clearance\":3.2591287885364197},{\"shortenedBy\":0.8999999999999986,\"clearance\":3.2591287885364197}]}"
+    },
+    {
+      "section": 1,
+      "name": "front guard routes and facade-clear door post are published",
+      "ok": true,
+      "detail": "{\"exists\":true,\"maxZ\":35.50446622313773,\"facadeFace\":35.6,\"routeCount\":3,\"routeLengths\":[4,4,4]}"
+    },
+    {
+      "section": 3,
+      "name": "all pool-room display trophies are connected and shelf-seated",
+      "ok": true,
+      "detail": "[{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16},{\"complete\":true,\"baseStemAir\":2.2053716630665576e-9,\"stemCupAir\":-0.0049999945163727855,\"shelfAir\":-2.220446049250313e-16}]"
+    },
+    {
+      "section": 3,
+      "name": "pool-room artwork has visible air above the bar",
+      "ok": true,
+      "detail": "{\"shieldClearance\":0.22000001192092888,\"shield\":{\"name\":\"\",\"artPiece\":\"mansion.bay.shield\",\"resolved\":true,\"box\":{\"min\":{\"x\":20.44,\"y\":3.920000011920929,\"z\":49.37500002384186},\"max\":{\"x\":20.44,\"y\":5.319999988079071,\"z\":50.42499997615814}}},\"frame\":{\"name\":\"bay-shield-frame\",\"box\":{\"min\":{\"x\":20.455000000000005,\"y\":3.84,\"z\":49.3},\"max\":{\"x\":20.505000000000003,\"y\":5.4,\"z\":50.5}},\"clearance\":0.13999999999999968},\"backBar\":{\"name\":\"back-bar\",\"box\":{\"min\":{\"x\":20.460000000000004,\"y\":1.2000000000000002,\"z\":44.6},\"max\":{\"x\":20.62,\"y\":3.7,\"z\":51.4}}},\"overlap\":{\"x\":0,\"y\":0,\"z\":0}}"
+    },
+    {
+      "section": 4,
+      "name": "bar artwork is intentionally framed above the back bar",
+      "ok": true,
+      "detail": "{\"shieldClearance\":0.22000001192092888,\"shield\":{\"name\":\"\",\"artPiece\":\"mansion.bay.shield\",\"resolved\":true,\"box\":{\"min\":{\"x\":20.44,\"y\":3.920000011920929,\"z\":49.37500002384186},\"max\":{\"x\":20.44,\"y\":5.319999988079071,\"z\":50.42499997615814}}},\"frame\":{\"name\":\"bay-shield-frame\",\"box\":{\"min\":{\"x\":20.455000000000005,\"y\":3.84,\"z\":49.3},\"max\":{\"x\":20.505000000000003,\"y\":5.4,\"z\":50.5}},\"clearance\":0.13999999999999968},\"backBar\":{\"name\":\"back-bar\",\"box\":{\"min\":{\"x\":20.460000000000004,\"y\":1.2000000000000002,\"z\":44.6},\"max\":{\"x\":20.62,\"y\":3.7,\"z\":51.4}}},\"overlap\":{\"x\":0,\"y\":0,\"z\":0}}"
+    },
+    {
+      "section": 5,
+      "name": "refrigerator faces the room at Mansion scale with two handled doors",
+      "ok": true,
+      "detail": "{\"x\":0.8675000000000015,\"y\":2.1499999999999995,\"z\":1.0499999999999972}"
+    },
+    {
+      "section": 5,
+      "name": "microwave publishes all appliance details",
+      "ok": true,
+      "detail": "{\"parts\":[true,true,true,true],\"buttons\":12}"
+    },
+    {
+      "section": 5,
+      "name": "kitchen exterior stair meets a supported flush landing",
+      "ok": true,
+      "detail": "{\"landing\":{\"x0\":16.4,\"x1\":18,\"z0\":64.8,\"z1\":67.2,\"y\":1.2},\"ramp\":{\"x0\":18,\"x1\":22,\"z0\":64.98,\"z1\":67.02,\"axis\":\"x\",\"highAt\":\"min\"},\"supports\":2,\"door\":{\"x\":16,\"y\":1.2,\"z\":66,\"z0\":64.8,\"z1\":67.2,\"y0\":1.2,\"y1\":3.5999999999999996,\"x0\":16,\"x1\":16.4,\"open\":true},\"samples\":{\"landing\":1.2,\"head\":1.2,\"middle\":0.6,\"foot\":0}}"
+    },
+    {
+      "section": 5,
+      "name": "accepted working sink still toggles cleanly",
+      "ok": true,
+      "detail": "{\"before\":false,\"on\":true,\"after\":false}"
+    },
+    {
+      "section": 6,
+      "name": "garden arch is widened and is the entrance itself",
+      "ok": true,
+      "detail": "{\"gate\":{\"x\":9.4,\"z\":111,\"w\":2.76},\"arch\":true,\"redundantHead\":false,\"redundantCoping\":false,\"colliderBlocks\":0,\"flowerBlocks\":0,\"puttingGreen\":true,\"maze\":true}"
+    },
+    {
+      "section": 6,
+      "name": "garden-arch player corridor is clear of solids and flowers",
+      "ok": true,
+      "detail": "{\"colliders\":0,\"flowers\":0}"
+    },
+    {
+      "section": 6,
+      "name": "accepted smaller garden and putting green remain present",
+      "ok": true,
+      "detail": "{\"puttingGreen\":true,\"maze\":true}"
+    },
+    {
+      "section": 7,
+      "name": "every winter-garden planter Box3 clears all actual named fountain structure",
+      "ok": true,
+      "detail": "{\"plantCount\":5,\"plantNames\":[\"winter-garden-planter\",\"winter-garden-planter\",\"winter-garden-planter\",\"winter-garden-planter\",\"winter-garden-planter\"],\"structureCount\":10,\"structureNames\":[\"winter-fountain-kerb\",\"winter-fountain-kerb\",\"winter-fountain-kerb\",\"winter-fountain-kerb\",\"winter-fountain-kerb\",\"winter-fountain-kerb\",\"winter-fountain-kerb\",\"winter-fountain-kerb\",\"winter-fountain-pedestal\",\"winter-fountain-bowl\"],\"pairs\":[{\"plant\":0,\"fixture\":0,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":6.246091945978745},{\"plant\":0,\"fixture\":1,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.159685484628241},{\"plant\":0,\"fixture\":2,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.014395495573439},{\"plant\":0,\"fixture\":3,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":5.512576317667751},{\"plant\":0,\"fixture\":4,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.9053059017343656},{\"plant\":0,\"fixture\":5,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.1341014590260414},{\"plant\":0,\"fixture\":6,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.4470195859531394},{\"plant\":0,\"fixture\":7,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.886366863594103},{\"plant\":0,\"fixture\":8,\"fixtureName\":\"winter-fountain-pedestal\",\"intersects\":false,\"planAir\":5.431810796487141},{\"plant\":0,\"fixture\":9,\"fixtureName\":\"winter-fountain-bowl\",\"intersects\":false,\"planAir\":5.053991742771802},{\"plant\":1,\"fixture\":0,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":5.668205687071428},{\"plant\":1,\"fixture\":1,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.170024864977115},{\"plant\":1,\"fixture\":2,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.1876995972200515},{\"plant\":1,\"fixture\":3,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":6.012560422895135},{\"plant\":1,\"fixture\":4,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.529185622646643},{\"plant\":1,\"fixture\":5,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.328077201479569},{\"plant\":1,\"fixture\":6,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.289730828429718},{\"plant\":1,\"fixture\":7,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.060935271138042},{\"plant\":1,\"fixture\":8,\"fixtureName\":\"winter-fountain-pedestal\",\"intersects\":false,\"planAir\":5.456951830164953},{\"plant\":1,\"fixture\":9,\"fixtureName\":\"winter-fountain-bowl\",\"intersects\":false,\"planAir\":5.129501756525123},{\"plant\":2,\"fixture\":0,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.988835426624592},{\"plant\":2,\"fixture\":1,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.563316590037705},{\"plant\":2,\"fixture\":2,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.2615752406410223},{\"plant\":2,\"fixture\":3,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.032779683349361},{\"plant\":2,\"fixture\":4,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":5.640050099282746},{\"plant\":2,\"fixture\":5,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.141869277188434},{\"plant\":2,\"fixture\":6,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.284617274979067},{\"plant\":2,\"fixture\":7,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":6.358878207823178},{\"plant\":2,\"fixture\":8,\"fixtureName\":\"winter-fountain-pedestal\",\"intersects\":false,\"planAir\":5.556120765060946},{\"plant\":2,\"fixture\":9,\"fixtureName\":\"winter-fountain-bowl\",\"intersects\":false,\"planAir\":5.179494062736082},{\"plant\":3,\"fixture\":0,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.17196082286722},{\"plant\":3,\"fixture\":1,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.4007563801588816},{\"plant\":3,\"fixture\":2,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.4378645832374697},{\"plant\":3,\"fixture\":3,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.628993868602008},{\"plant\":3,\"fixture\":4,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":6.117339359521003},{\"plant\":3,\"fixture\":5,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.298456282400141},{\"plant\":3,\"fixture\":6,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":7.281050416706293},{\"plant\":3,\"fixture\":7,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":5.779231238800605},{\"plant\":3,\"fixture\":8,\"fixtureName\":\"winter-fountain-pedestal\",\"intersects\":false,\"planAir\":5.567828825095559},{\"plant\":3,\"fixture\":9,\"fixtureName\":\"winter-fountain-bowl\",\"intersects\":false,\"planAir\":5.2405273082543005},{\"plant\":4,\"fixture\":0,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.6857818753508433},{\"plant\":4,\"fixture\":1,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":2.179741616376738},{\"plant\":4,\"fixture\":2,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":0.5724712004433599},{\"plant\":4,\"fixture\":3,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":0.17634667750564859},{\"plant\":4,\"fixture\":4,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":1.7836170934390339},{\"plant\":4,\"fixture\":5,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.3349384954455408},{\"plant\":4,\"fixture\":6,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":3.9427610892916376},{\"plant\":4,\"fixture\":7,\"fixtureName\":\"winter-fountain-kerb\",\"intersects\":false,\"planAir\":4.090865411866468},{\"plant\":4,\"fixture\":8,\"fixtureName\":\"winter-fountain-pedestal\",\"intersects\":false,\"planAir\":2.508908513393211},{\"plant\":4,\"fixture\":9,\"fixtureName\":\"winter-fountain-bowl\",\"intersects\":false,\"planAir\":2.0598090856822884}],\"minimumPlanAir\":0.17634667750564859,\"intersections\":[]}"
+    },
+    {
+      "section": 8,
+      "name": "trophy entrance is grander, supported, and collision-clear",
+      "ok": true,
+      "detail": "{\"handles\":[{\"upright\":true,\"closed\":true,\"connected\":true},{\"upright\":true,\"closed\":true,\"connected\":true}],\"statues\":0,\"floorLights\":0,\"entranceWidths\":[1.5,1.6199999999999974,1.5],\"entrancePiers\":[0.19000000000000483,0.18999999999999773],\"entranceColliderBlocks\":0}"
+    },
+    {
+      "section": 8,
+      "name": "Great Includer handles are upright, closed, and connected",
+      "ok": true,
+      "detail": "[{\"upright\":true,\"closed\":true,\"connected\":true},{\"upright\":true,\"closed\":true,\"connected\":true}]"
+    },
+    {
+      "section": 8,
+      "name": "unrelated trophy-room statue and lamp are gone",
+      "ok": true,
+      "detail": "{\"statues\":0,\"floorLights\":0}"
+    },
+    {
+      "section": 8,
+      "name": "all hall-case trophies are connected and shelf-seated",
+      "ok": true,
+      "detail": "[{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0},{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0},{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0},{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0},{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0},{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0},{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0},{\"complete\":true,\"baseStemAir\":-3.5762788286319847e-9,\"stemCupAir\":-0.005000005066394753,\"shelfAir\":0}]"
+    },
+    {
+      "section": 9,
+      "name": "family fireplace has animated emissive flames and room glow",
+      "ok": true,
+      "detail": "{\"glow\":{\"intensity\":4.2,\"distance\":20},\"flames\":5,\"emissive\":true,\"animated\":true,\"galleryArt\":2}"
+    },
+    {
+      "section": 9,
+      "name": "family fireplace wall has curated secondary art",
+      "ok": true,
+      "detail": "2 pieces"
+    },
+    {
+      "section": 10,
+      "name": "modern room placard is outside and above the doorway",
+      "ok": true,
+      "detail": "[{\"id\":\"westFront\",\"expectedName\":\"old-chapel-room-placard\",\"actualName\":\"old-chapel-room-placard\",\"outside\":true,\"above\":true,\"contractOutside\":true},{\"id\":\"eastFront\",\"expectedName\":\"old-country-room-placard\",\"actualName\":\"old-country-room-placard\",\"outside\":true,\"above\":true,\"contractOutside\":true},{\"id\":\"westRear\",\"expectedName\":\"lake-room-placard\",\"actualName\":\"lake-room-placard\",\"outside\":true,\"above\":true,\"contractOutside\":true},{\"id\":\"eastRear\",\"expectedName\":\"booski-death-room-exterior-placard\",\"actualName\":\"booski-death-room-exterior-placard\",\"outside\":true,\"above\":true,\"contractOutside\":true}]"
+    },
+    {
+      "section": 10,
+      "name": "modern TV furniture and portraits clear the wardrobe",
+      "ok": true,
+      "detail": "{\"tableBench\":true,\"portraitsClear\":true,\"accentPortraits\":[\"booski-death-room-booski-accent\"],\"removedDeathMegatronAccentCount\":0}"
+    },
+    {
+      "section": 11,
+      "name": "accepted upstairs bathrooms remain intact",
+      "ok": true,
+      "detail": "{\"bathrooms\":2,\"toilets\":2,\"conferenceRoom\":true}"
+    },
+    {
+      "section": 12,
+      "name": "classic bedroom furniture has requested spacing and angle",
+      "ok": true,
+      "detail": "{\"chairWardrobe\":true,\"tableBed\":true,\"tvAngle\":0.28,\"weight\":{\"x\":15,\"z\":45.25}}"
+    },
+    {
+      "section": 13,
+      "name": "Gothic furniture clears and Old Chapel placard is outside",
+      "ok": true,
+      "detail": "{\"chairWardrobe\":true,\"tableBed\":true,\"clusterWardrobe\":true}"
+    },
+    {
+      "section": 14,
+      "name": "Lake plant audit excludes the existing ground-floor plant and finds no upstairs occupant",
+      "ok": true,
+      "detail": "{\"volume\":{\"floor\":6,\"ceiling\":10.2},\"occupants\":[],\"excludedLowerPlants\":[{\"name\":\"plant\",\"position\":{\"x\":-10.2,\"y\":1.2,\"z\":55.6},\"box\":{\"min\":{\"x\":-10.776079059095562,\"y\":1.2000000081062316,\"z\":55.008480157049014},\"max\":{\"x\":-9.605735027463231,\"y\":2.935277792248299,\"z\":56.26142481996566}}}]}"
+    },
+    {
+      "section": 14,
+      "name": "lake wall decorations and white cross sit flush to actual gallery-north-solid geometry",
+      "ok": true,
+      "detail": "{\"chairCluster\":true,\"tableCluster\":true,\"plants\":[],\"plantVolume\":{\"floor\":6,\"ceiling\":10.2},\"excludedLowerPlants\":[{\"name\":\"plant\",\"position\":{\"x\":-10.2,\"y\":1.2,\"z\":55.6},\"box\":{\"min\":{\"x\":-10.776079059095562,\"y\":1.2000000081062316,\"z\":55.008480157049014},\"max\":{\"x\":-9.605735027463231,\"y\":2.935277792248299,\"z\":56.26142481996566}}}],\"wallName\":\"gallery-north-solid\",\"wallMeshes\":7,\"mounts\":[{\"id\":\"picture\",\"name\":\"frame\",\"wallTargets\":1,\"penetrates\":false,\"gap\":0.0030000000000001137},{\"id\":\"paddle-0\",\"name\":\"lake-paddle\",\"wallTargets\":1,\"penetrates\":false,\"gap\":0.0009999999999976694},{\"id\":\"paddle-1\",\"name\":\"lake-paddle\",\"wallTargets\":1,\"penetrates\":false,\"gap\":0.0049999999999954525},{\"id\":\"life-ring\",\"name\":\"lake-life-ring\",\"wallTargets\":1,\"penetrates\":false,\"gap\":0.0030000000000001137},{\"id\":\"white-cross\",\"name\":\"lake-white-cross\",\"wallTargets\":1,\"penetrates\":false,\"gap\":0.0030000000000001137}],\"whiteCross\":{\"name\":\"lake-white-cross\",\"vertical\":true,\"horizontal\":true,\"connected\":true,\"adjacentIntersections\":[]}}"
+    },
+    {
+      "section": 14,
+      "name": "LAKE ROOM placard is outside above the doorway",
+      "ok": true,
+      "detail": "{\"id\":\"westRear\",\"expectedName\":\"lake-room-placard\",\"actualName\":\"lake-room-placard\",\"outside\":true,\"above\":true,\"contractOutside\":true}"
+    },
+    {
+      "section": 15,
+      "name": "accepted conference room anchors remain published",
+      "ok": true,
+      "detail": "{\"bathrooms\":2,\"toilets\":2,\"conferenceRoom\":true}"
+    },
+    {
+      "section": 16,
+      "name": "Lou suite has one lowered bar light and no crossing beam",
+      "ok": true,
+      "detail": "{\"barLights\":1,\"beams\":0,\"lightHeight\":2.51}"
+    },
+    {
+      "section": 17,
+      "name": "balcony railing is continuous from both stair tops",
+      "ok": true,
+      "detail": "[{\"from\":\"horseshoe-west-rail\",\"to\":\"gallery-edge-west-rail\",\"connected\":true},{\"from\":\"gallery-edge-west-rail\",\"to\":\"balcony-west-rail\",\"connected\":true},{\"from\":\"balcony-west-rail\",\"to\":\"balcony-south-rail\",\"connected\":true},{\"from\":\"balcony-south-rail\",\"to\":\"balcony-east-rail\",\"connected\":true},{\"from\":\"balcony-east-rail\",\"to\":\"gallery-edge-east-rail\",\"connected\":true},{\"from\":\"gallery-edge-east-rail\",\"to\":\"horseshoe-east-rail\",\"connected\":true}]"
+    },
+    {
+      "section": 18,
+      "name": "cellar pegboard is named, wall-mounted, and carries its tools",
+      "ok": true,
+      "detail": "{\"pegboard\":{\"name\":\"cellar-tool-pegboard\",\"box\":{\"min\":{\"x\":3.2,\"y\":-1.8499999999999999,\"z\":63.75999999999999},\"max\":{\"x\":5.2,\"y\":-0.7499999999999998,\"z\":63.8}},\"wall\":{\"name\":\"basement-wall-panel-north\",\"box\":{\"min\":{\"x\":-8.85,\"y\":-2.8,\"z\":63.8},\"max\":{\"x\":5.229999999999999,\"y\":-0.3500000000000001,\"z\":63.84}}},\"wallOverlap\":{\"x\":2,\"y\":1.1},\"gap\":0,\"tools\":[{\"index\":0,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":3.3700000000000006,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":3.43,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":1,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":3.6900000000000004,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":3.75,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":2,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.01,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":4.07,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":3,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.33,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":4.390000000000001,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":4,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.65,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":4.710000000000001,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":5,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.97,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":5.03,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true}]},\"armoryBottles\":18,\"armoryBottleFaults\":0,\"innocentBottles\":48,\"innocentBottleFaults\":0,\"vaultWallTargets\":1,\"vaultWallClearances\":[0.09999999999999432],\"vaultMinimumWallClearance\":0.09999999999999432,\"vaultMark\":{\"name\":\"\",\"artPiece\":\"mansion.vault.mark\",\"resolved\":true,\"box\":{\"min\":{\"x\":11.490000005960464,\"y\":-1.2499999940395354,\"z\":67.30000000000001},\"max\":{\"x\":12.189999994039535,\"y\":-0.5500000059604644,\"z\":67.30000000000001}}},\"vaultJambTargets\":12,\"vaultJambClearance\":0.11401754721481652,\"vaultJambs\":[{\"index\":9,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":12.280000000000001,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":12.415,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":0.11401754721481652},{\"index\":11,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":12.280000000000001,\"y\":-0.7149999999999997,\"z\":67.37},\"max\":{\"x\":14.420000000000002,\"y\":-0.5799999999999997,\"z\":67.73000000000002}},\"gap\":0.11401754721481652},{\"index\":10,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":14.285,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":14.419999999999998,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":2.096169130813243},{\"index\":7,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":7.385000000000001,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":7.5200000000000005,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":3.9706170864647827},{\"index\":8,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":5.28,\"y\":-0.7149999999999997,\"z\":67.37},\"max\":{\"x\":7.5200000000000005,\"y\":-0.5799999999999997,\"z\":67.73000000000002}},\"gap\":3.9706170864647827},{\"index\":6,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":5.28,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":5.415,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":6.075403284755642}],\"vaultVisibleIntersections\":[],\"vaultRoomInset\":0.29000000596046505}"
+    },
+    {
+      "section": 18,
+      "name": "both cellar wine racks contain complete multi-part bottles",
+      "ok": true,
+      "detail": "{\"pegboard\":{\"name\":\"cellar-tool-pegboard\",\"box\":{\"min\":{\"x\":3.2,\"y\":-1.8499999999999999,\"z\":63.75999999999999},\"max\":{\"x\":5.2,\"y\":-0.7499999999999998,\"z\":63.8}},\"wall\":{\"name\":\"basement-wall-panel-north\",\"box\":{\"min\":{\"x\":-8.85,\"y\":-2.8,\"z\":63.8},\"max\":{\"x\":5.229999999999999,\"y\":-0.3500000000000001,\"z\":63.84}}},\"wallOverlap\":{\"x\":2,\"y\":1.1},\"gap\":0,\"tools\":[{\"index\":0,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":3.3700000000000006,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":3.43,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":1,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":3.6900000000000004,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":3.75,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":2,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.01,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":4.07,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":3,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.33,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":4.390000000000001,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":4,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.65,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":4.710000000000001,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true},{\"index\":5,\"name\":\"cellar-pegboard-tool\",\"box\":{\"min\":{\"x\":4.97,\"y\":-1.4999999999999998,\"z\":63.72},\"max\":{\"x\":5.03,\"y\":-1.16,\"z\":63.769999999999996}},\"contacts\":true}]},\"armoryBottles\":18,\"armoryBottleFaults\":0,\"innocentBottles\":48,\"innocentBottleFaults\":0,\"vaultWallTargets\":1,\"vaultWallClearances\":[0.09999999999999432],\"vaultMinimumWallClearance\":0.09999999999999432,\"vaultMark\":{\"name\":\"\",\"artPiece\":\"mansion.vault.mark\",\"resolved\":true,\"box\":{\"min\":{\"x\":11.490000005960464,\"y\":-1.2499999940395354,\"z\":67.30000000000001},\"max\":{\"x\":12.189999994039535,\"y\":-0.5500000059604644,\"z\":67.30000000000001}}},\"vaultJambTargets\":12,\"vaultJambClearance\":0.11401754721481652,\"vaultJambs\":[{\"index\":9,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":12.280000000000001,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":12.415,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":0.11401754721481652},{\"index\":11,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":12.280000000000001,\"y\":-0.7149999999999997,\"z\":67.37},\"max\":{\"x\":14.420000000000002,\"y\":-0.5799999999999997,\"z\":67.73000000000002}},\"gap\":0.11401754721481652},{\"index\":10,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":14.285,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":14.419999999999998,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":2.096169130813243},{\"index\":7,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":7.385000000000001,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":7.5200000000000005,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":3.9706170864647827},{\"index\":8,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":5.28,\"y\":-0.7149999999999997,\"z\":67.37},\"max\":{\"x\":7.5200000000000005,\"y\":-0.5799999999999997,\"z\":67.73000000000002}},\"gap\":3.9706170864647827},{\"index\":6,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":5.28,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":5.415,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":6.075403284755642}],\"vaultVisibleIntersections\":[],\"vaultRoomInset\":0.29000000596046505}"
+    },
+    {
+      "section": 18,
+      "name": "vault art clears actual named cellar structure and the white jamb",
+      "ok": true,
+      "detail": "{\"wallTargets\":1,\"wallClearances\":[0.09999999999999432],\"jambTargets\":12,\"jambClearance\":0.11401754721481652,\"mark\":{\"name\":\"\",\"artPiece\":\"mansion.vault.mark\",\"resolved\":true,\"box\":{\"min\":{\"x\":11.490000005960464,\"y\":-1.2499999940395354,\"z\":67.30000000000001},\"max\":{\"x\":12.189999994039535,\"y\":-0.5500000059604644,\"z\":67.30000000000001}}},\"jambs\":[{\"index\":9,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":12.280000000000001,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":12.415,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":0.11401754721481652},{\"index\":11,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":12.280000000000001,\"y\":-0.7149999999999997,\"z\":67.37},\"max\":{\"x\":14.420000000000002,\"y\":-0.5799999999999997,\"z\":67.73000000000002}},\"gap\":0.11401754721481652},{\"index\":10,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":14.285,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":14.419999999999998,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":2.096169130813243},{\"index\":7,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":7.385000000000001,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":7.5200000000000005,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":3.9706170864647827},{\"index\":8,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":5.28,\"y\":-0.7149999999999997,\"z\":67.37},\"max\":{\"x\":7.5200000000000005,\"y\":-0.5799999999999997,\"z\":67.73000000000002}},\"gap\":3.9706170864647827},{\"index\":6,\"name\":\"cellar-rooms-case\",\"box\":{\"min\":{\"x\":5.28,\"y\":-2.8,\"z\":67.37},\"max\":{\"x\":5.415,\"y\":-0.5799999999999996,\"z\":67.73000000000002}},\"gap\":6.075403284755642}],\"roomInset\":0.29000000596046505,\"visibleIntersections\":[]}"
+    },
+    {
+      "section": 19,
+      "name": "Prospect wall object is an explicit complete work jacket",
+      "ok": true,
+      "detail": "{\"belongings\":[\"prospect-footlocker\",\"prospect-work-jacket\",\"prospect-work-boots\"],\"jacketBody\":true,\"jacketSleeves\":2,\"jacketParts\":[true,true,true,true],\"jacketConnected\":true,\"jacketWallGap\":-0.03500000000000014,\"bootsSize\":{\"x\":0.4176000000000002,\"y\":0.2591999999999999,\"z\":0.4823999999999984},\"bootsFloorGap\":0,\"bust\":{\"pier\":\"(unnamed)\",\"intersection\":{\"x\":0,\"y\":0,\"z\":0},\"clearance\":0.4700000000000024,\"minimum\":0.12,\"viewIds\":[\"corridor-east\",\"corridor-north\",\"doorway\"],\"structureOverlaps\":[]}}"
+    },
+    {
+      "section": 19,
+      "name": "Prospect boots are character-scaled and floor-seated",
+      "ok": true,
+      "detail": "{\"size\":{\"x\":0.4176000000000002,\"y\":0.2591999999999999,\"z\":0.4823999999999984},\"floorGap\":0}"
+    },
+    {
+      "section": 19,
+      "name": "Prospect bust clears the red pier and all Mansion structure",
+      "ok": true,
+      "detail": "{\"pier\":\"(unnamed)\",\"intersection\":{\"x\":0,\"y\":0,\"z\":0},\"clearance\":0.4700000000000024,\"minimum\":0.12,\"viewIds\":[\"corridor-east\",\"corridor-north\",\"doorway\"],\"structureOverlaps\":[]}"
+    },
+    {
+      "section": 19,
+      "name": "Prospect bust publishes all three required inspection views",
+      "ok": true,
+      "detail": "[\"corridor-east\",\"corridor-north\",\"doorway\"]"
+    },
+    {
+      "section": 5,
+      "name": "real Player walks road → stair → landing → kitchen",
+      "ok": true,
+      "detail": "{\"contract\":{\"landing\":{\"x0\":16.4,\"x1\":18,\"z0\":64.8,\"z1\":67.2,\"y\":1.2},\"door\":{\"x0\":16,\"x1\":16.4,\"z0\":64.8,\"z1\":67.2},\"doorDepth\":0.3999999999999986,\"kitchenRect\":{\"x0\":9.15,\"x1\":16,\"z0\":58.15,\"z1\":75},\"roomFloor\":1.2,\"insideBoundary\":15.600000000000001,\"oldEarlyPoint\":{\"x\":16.09,\"z\":66,\"inside\":false,\"floor\":null}},\"toLanding\":{\"ok\":true,\"steps\":4,\"state\":{\"x\":17.311,\"y\":1.2,\"z\":66,\"ground\":1.2,\"interiorFloor\":null,\"enabled\":true}},\"intoKitchen\":{\"ok\":true,\"steps\":4,\"state\":{\"x\":15.13,\"y\":1.2,\"z\":66,\"ground\":1.2,\"interiorFloor\":1.2,\"enabled\":true}},\"settled\":{\"x\":15.096,\"y\":1.2,\"z\":66,\"ground\":1.2,\"interiorFloor\":1.2,\"enabled\":true},\"floor\":{\"sample\":{\"x\":15.096413907966616,\"z\":66,\"feetY\":1.2},\"room\":1.2,\"interior\":1.2,\"service\":null,\"resolved\":1.2}}"
+    },
+    {
+      "section": 6,
+      "name": "real Player walks through the garden arch",
+      "ok": true,
+      "detail": "{\"ok\":true,\"steps\":4,\"state\":{\"x\":9.162,\"y\":0,\"z\":111,\"ground\":0,\"interiorFloor\":null,\"enabled\":true}}"
+    },
+    {
+      "section": 8,
+      "name": "real Player walks through the widened trophy entrance",
+      "ok": true,
+      "detail": "{\"ok\":true,\"steps\":2,\"state\":{\"x\":-16.993,\"y\":1.2,\"z\":43.9,\"ground\":1.2,\"interiorFloor\":1.2,\"enabled\":true}}"
+    },
+    {
+      "section": 1,
+      "name": "front patrols run for three simulated minutes without entering solids",
+      "ok": true,
+      "detail": "{\"travelled\":{\"patrol0\":182.43954721162123,\"patrol1\":182.33276242827048,\"patrol2\":179.98812562835323},\"collisions\":[]}"
+    },
+    {
+      "section": 3,
+      "name": "pool NPC visibly treads, bobs, and drifts inside the water",
+      "ok": true,
+      "detail": "{\"composition\":{\"id\":\"poolPerformer2\",\"name\":\"the Bada Bing brunette performer\",\"identity\":{\"source\":\"BADA_BING_PERFORMERS\",\"index\":1,\"look\":\"brunette long hair\"},\"pose\":\"in-water\",\"motion\":\"treading\",\"headX\":-0.0368,\"x\":2.36,\"y\":-0.19,\"z\":85.38},\"x\":[1.86,2.54],\"y\":[-0.19,-0.12],\"z\":[85.12,85.61]}"
+    },
+    {
+      "section": 3,
+      "name": "both pool recliners expose visible thigh/shin/foot meshes clear of their actual loungers",
+      "ok": true,
+      "detail": "[{\"id\":\"poolPerformer0\",\"published\":true,\"actualChair\":true,\"counts\":{\"left\":{\"thigh\":1,\"shin\":2,\"foot\":3},\"right\":{\"thigh\":1,\"shin\":2,\"foot\":3}},\"hits\":[],\"violations\":[]},{\"id\":\"poolPerformer1\",\"published\":true,\"actualChair\":true,\"counts\":{\"left\":{\"thigh\":1,\"shin\":2,\"foot\":3},\"right\":{\"thigh\":1,\"shin\":2,\"foot\":3}},\"hits\":[],\"violations\":[]}]"
+    },
+    {
+      "section": 3,
+      "name": "real InteractionSystem E enters the shared dress-focus lifecycle",
+      "ok": true,
+      "detail": "{\"interactionPose\":{\"x\":12.35,\"y\":1.016,\"z\":85.8,\"label\":\"Say hello to the other dancer\"},\"before\":{\"position\":{\"x\":10.6,\"y\":1.0157910850804688,\"z\":85.8},\"yaw\":-1.5707963267948963},\"active\":{\"active\":true,\"focus\":{\"active\":true,\"aim\":{\"yaw\":-2.853503826521791,\"pitch\":-0.61207805036459,\"distance\":1.5957545305729686},\"marker\":{\"x\":10.6,\"y\":2.86,\"z\":84.66},\"markerDistance\":0,\"targetDistance\":1.6041710525430848,\"interactionPaused\":true,\"playerEnabled\":false},\"actorStaging\":{\"active\":true,\"marker\":{\"x\":10.48,\"y\":0.7365168539325841,\"z\":85.8,\"pitch\":0,\"yaw\":-1.3907963267948964,\"roll\":0},\"markerDistance\":0,\"yawError\":0},\"playerEnabled\":false,\"interactionPaused\":true,\"blocking\":[],\"performer\":{\"position\":{\"x\":10.48,\"y\":0.7365168539325841,\"z\":85.8},\"yaw\":-1.3907963267948964}},\"abandoned\":{\"active\":false,\"playerEnabled\":true,\"interactionPaused\":false,\"performer\":{\"position\":{\"x\":10.6,\"y\":1.0157910850804688,\"z\":85.8},\"yaw\":-1.5707963267948963}},\"restarted\":{\"active\":true,\"focus\":{\"active\":true,\"aim\":{\"yaw\":-2.848960260772134,\"pitch\":-0.6096213330547889,\"distance\":1.6104904954159651},\"marker\":{\"x\":10.6,\"y\":2.86,\"z\":84.66},\"markerDistance\":0,\"targetDistance\":1.6130647725948128,\"interactionPaused\":true,\"playerEnabled\":false},\"actorStaging\":{\"active\":true,\"marker\":{\"x\":10.48,\"y\":0.7365168539325841,\"z\":85.8,\"pitch\":0,\"yaw\":-1.3907963267948964,\"roll\":0},\"markerDistance\":0,\"yawError\":0}},\"done\":{\"active\":false,\"helped\":true,\"hits\":7,\"focus\":{\"active\":false,\"aim\":{\"yaw\":-2.848960260772134,\"pitch\":-0.6096213330547889,\"distance\":1.6104904954159651},\"marker\":{\"x\":10.6,\"y\":2.86,\"z\":84.66},\"markerDistance\":2.0634921855921826,\"targetDistance\":1.3600927880190914,\"interactionPaused\":false,\"playerEnabled\":true},\"actorStaging\":{\"active\":false,\"marker\":{\"x\":10.48,\"y\":0.7365168539325841,\"z\":85.8,\"pitch\":0,\"yaw\":-1.3907963267948964,\"roll\":0},\"markerDistance\":0.3039639718506815,\"yawError\":0.17999999999999994},\"playerEnabled\":true,\"interactionPaused\":false,\"performer\":{\"position\":{\"x\":10.6,\"y\":1.0157910850804688,\"z\":85.8},\"yaw\":-1.5707963267948963}}}"
+    },
+    {
+      "section": 3,
+      "name": "real Q restores the performer and one real E restarts the shared lifecycle",
+      "ok": true,
+      "detail": "{\"abandoned\":{\"active\":false,\"playerEnabled\":true,\"interactionPaused\":false,\"performer\":{\"position\":{\"x\":10.6,\"y\":1.0157910850804688,\"z\":85.8},\"yaw\":-1.5707963267948963}},\"restarted\":{\"active\":true,\"focus\":{\"active\":true,\"aim\":{\"yaw\":-2.848960260772134,\"pitch\":-0.6096213330547889,\"distance\":1.6104904954159651},\"marker\":{\"x\":10.6,\"y\":2.86,\"z\":84.66},\"markerDistance\":0,\"targetDistance\":1.6130647725948128,\"interactionPaused\":true,\"playerEnabled\":false},\"actorStaging\":{\"active\":true,\"marker\":{\"x\":10.48,\"y\":0.7365168539325841,\"z\":85.8,\"pitch\":0,\"yaw\":-1.3907963267948964,\"roll\":0},\"markerDistance\":0,\"yawError\":0}}}"
+    },
+    {
+      "section": 3,
+      "name": "seven direct real E pulls finish and restore player, interaction, and performer",
+      "ok": true,
+      "detail": "{\"active\":false,\"helped\":true,\"hits\":7,\"focus\":{\"active\":false,\"aim\":{\"yaw\":-2.848960260772134,\"pitch\":-0.6096213330547889,\"distance\":1.6104904954159651},\"marker\":{\"x\":10.6,\"y\":2.86,\"z\":84.66},\"markerDistance\":2.0634921855921826,\"targetDistance\":1.3600927880190914,\"interactionPaused\":false,\"playerEnabled\":true},\"actorStaging\":{\"active\":false,\"marker\":{\"x\":10.48,\"y\":0.7365168539325841,\"z\":85.8,\"pitch\":0,\"yaw\":-1.3907963267948964,\"roll\":0},\"markerDistance\":0.3039639718506815,\"yawError\":0.17999999999999994},\"playerEnabled\":true,\"interactionPaused\":false,\"performer\":{\"position\":{\"x\":10.6,\"y\":1.0157910850804688,\"z\":85.8},\"yaw\":-1.5707963267948963}}"
+    },
+    {
+      "section": 2,
+      "name": "all required proximity speakers publish real body positions",
+      "ok": true,
+      "detail": "{\"rippin\":{\"speaker\":{\"x\":10.45,\"y\":1.2,\"z\":47.6},\"near\":{\"radius\":0.9,\"angle\":1.3744467859455345,\"listener\":{\"x\":10.625581289814514,\"y\":1.2,\"z\":48.48270675236291},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.8999999999999992,\"vertical\":0,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.000000000000004,\"vertical\":0.18000000000000016},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.07000000000000028,\"vertical\":5.819999999999999}},\"eric\":{\"speaker\":{\"x\":-11,\"y\":0.7999999999999998,\"z\":66},\"near\":{\"radius\":0.9,\"angle\":0,\"listener\":{\"x\":-10.1,\"y\":1.2,\"z\":66},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.9000000000000004,\"vertical\":0.40000000000000013,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.010797571092883,\"vertical\":0.05999999999999983},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.46999999999999886,\"vertical\":5.88}},\"sauce\":{\"speaker\":{\"x\":6.4,\"y\":1.2,\"z\":67.2},\"near\":{\"radius\":0.9,\"angle\":0,\"listener\":{\"x\":7.300000000000001,\"y\":1.2,\"z\":67.2},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.9000000000000004,\"vertical\":0,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.020000000000003,\"vertical\":0.18000000000000016},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.46999999999999886,\"vertical\":6.074829545454546}}}"
+    },
+    {
+      "section": 2,
+      "name": "required speakers are nearby-only and floor-aware",
+      "ok": true,
+      "detail": "{\"rippin\":{\"speaker\":{\"x\":10.45,\"y\":1.2,\"z\":47.6},\"near\":{\"radius\":0.9,\"angle\":1.3744467859455345,\"listener\":{\"x\":10.625581289814514,\"y\":1.2,\"z\":48.48270675236291},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.8999999999999992,\"vertical\":0,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.000000000000004,\"vertical\":0.18000000000000016},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.07000000000000028,\"vertical\":5.819999999999999}},\"eric\":{\"speaker\":{\"x\":-11,\"y\":0.7999999999999998,\"z\":66},\"near\":{\"radius\":0.9,\"angle\":0,\"listener\":{\"x\":-10.1,\"y\":1.2,\"z\":66},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.9000000000000004,\"vertical\":0.40000000000000013,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.010797571092883,\"vertical\":0.05999999999999983},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.46999999999999886,\"vertical\":5.88}},\"sauce\":{\"speaker\":{\"x\":6.4,\"y\":1.2,\"z\":67.2},\"near\":{\"radius\":0.9,\"angle\":0,\"listener\":{\"x\":7.300000000000001,\"y\":1.2,\"z\":67.2},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.9000000000000004,\"vertical\":0,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.020000000000003,\"vertical\":0.18000000000000016},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.46999999999999886,\"vertical\":6.074829545454546}}}"
+    },
+    {
+      "section": 2,
+      "name": "actual Mansion geometry can occlude a nearby speaker",
+      "ok": true,
+      "detail": "{\"id\":\"rippin\",\"radius\":1.9999999999999998,\"angle\":2.8797932657906435,\"speaker\":{\"x\":10.45,\"y\":1.2,\"z\":47.6},\"listener\":{\"x\":8.518148347421864,\"y\":1.2,\"z\":48.11763809020504},\"floor\":1.2,\"result\":{\"allowed\":false,\"reason\":\"occluded\",\"distance\":1.9999999999999982,\"vertical\":0},\"blocker\":{\"index\":527,\"box\":{\"min\":{\"x\":8.83,\"y\":1.2,\"z\":35.98},\"max\":{\"x\":9.17,\"y\":10.2,\"z\":48.02}},\"sources\":[{\"scope\":\"interior\",\"index\":8}],\"meshMatches\":[{\"name\":\"east-partition-front-solid\",\"box\":{\"min\":{\"x\":8.85,\"y\":1.1999999999999993,\"z\":36},\"max\":{\"x\":9.15,\"y\":10.2,\"z\":48}},\"extentDelta\":0.08000000000000607},{\"name\":\"oldtime-paper\",\"box\":{\"min\":{\"x\":9.040000000000001,\"y\":7.125,\"z\":36.099999999999994},\"max\":{\"x\":9.08,\"y\":8.475,\"z\":47.75}},\"extentDelta\":8.34},{\"name\":\"south-solid\",\"box\":{\"min\":{\"x\":8.8,\"y\":1.1999999999999993,\"z\":35.599999999999994},\"max\":{\"x\":9.2,\"y\":10.2,\"z\":36}},\"extentDelta\":12.460000000000004},{\"name\":\"bed-east-front-floor\",\"box\":{\"min\":{\"x\":9.149999999999999,\"y\":6,\"z\":36},\"max\":{\"x\":16,\"y\":6.02,\"z\":47.849999999999994}},\"extentDelta\":16.32000000000001},{\"name\":\"east-partition-mid-solid\",\"box\":{\"min\":{\"x\":8.85,\"y\":1.2000000000000002,\"z\":48},\"max\":{\"x\":9.15,\"y\":6,\"z\":48.5}},\"extentDelta\":16.74},{\"name\":\"horseshoe-east-spandrel\",\"box\":{\"min\":{\"x\":5.5,\"y\":1.2000000000000002,\"z\":47.73},\"max\":{\"x\":8.85,\"y\":5.840000000000001,\"z\":48.02}},\"extentDelta\":19.759999999999998}]}}"
+    },
+    {
+      "section": 2,
+      "name": "a real nearby bark commits the shared cooldown",
+      "ok": true,
+      "detail": "{\"id\":\"rippin\",\"remaining\":10.016666666665088,\"heard\":true}"
+    },
+    {
+      "section": 2,
+      "name": "Kate is explicitly catalogued unavailable and has no substituted body",
+      "ok": true,
+      "detail": "{\"id\":\"kate\",\"present\":false,\"cues\":[],\"count\":0,\"reason\":\"identity-not-catalogued\"}"
+    },
+    {
+      "section": 20,
+      "name": "Sauce and Eric publish authored Mansion ambient cue coverage",
+      "ok": true,
+      "detail": "{\"voiceCounts\":{\"sauce\":1,\"eric\":2},\"authored\":[{\"id\":\"sauce\",\"present\":true,\"cues\":[\"vo.bing.full.sauce.open.line.ggzxjv\"],\"count\":1},{\"id\":\"eric\",\"present\":true,\"cues\":[\"vo.silentsquatch.arrival.eric.mood\",\"vo.silentsquatch.arrival.eric.dontsitdown\"],\"count\":2},{\"id\":\"kate\",\"present\":false,\"cues\":[],\"count\":0,\"reason\":\"identity-not-catalogued\"}]}"
+    },
+    {
+      "section": 20,
+      "name": "present ambient speakers use the same proximity policy",
+      "ok": true,
+      "detail": "{\"rippin\":{\"speaker\":{\"x\":10.45,\"y\":1.2,\"z\":47.6},\"near\":{\"radius\":0.9,\"angle\":1.3744467859455345,\"listener\":{\"x\":10.625581289814514,\"y\":1.2,\"z\":48.48270675236291},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.8999999999999992,\"vertical\":0,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.000000000000004,\"vertical\":0.18000000000000016},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.07000000000000028,\"vertical\":5.819999999999999}},\"eric\":{\"speaker\":{\"x\":-11,\"y\":0.7999999999999998,\"z\":66},\"near\":{\"radius\":0.9,\"angle\":0,\"listener\":{\"x\":-10.1,\"y\":1.2,\"z\":66},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.9000000000000004,\"vertical\":0.40000000000000013,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.010797571092883,\"vertical\":0.05999999999999983},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.46999999999999886,\"vertical\":5.88}},\"sauce\":{\"speaker\":{\"x\":6.4,\"y\":1.2,\"z\":67.2},\"near\":{\"radius\":0.9,\"angle\":0,\"listener\":{\"x\":7.300000000000001,\"y\":1.2,\"z\":67.2},\"floor\":1.2,\"result\":{\"allowed\":true,\"reason\":\"audible\",\"distance\":0.9000000000000004,\"vertical\":0,\"remaining\":0}},\"far\":{\"allowed\":false,\"reason\":\"distance\",\"distance\":24.020000000000003,\"vertical\":0.18000000000000016},\"floor\":{\"allowed\":false,\"reason\":\"floor\",\"distance\":0.46999999999999886,\"vertical\":6.074829545454546}}}"
+    },
+    {
+      "section": 20,
+      "name": "Kate Mansion ambient content is unavailable",
+      "ok": null,
+      "status": "content-blocked",
+      "detail": "identity-not-catalogued"
+    },
+    {
+      "section": 21,
+      "name": "WebGL remains healthy after the full simulated walkthrough",
+      "ok": true,
+      "detail": "{\"contextLost\":false,\"error\":0,\"drawingBuffer\":[1280,720],\"losses\":[],\"frames\":20}"
+    },
+    {
+      "section": 21,
+      "name": "no page errors, console errors, failed requests, or HTTP errors occurred",
+      "ok": true,
+      "detail": "{\"pageErrors\":[],\"consoleErrors\":[],\"failedRequests\":[],\"httpErrors\":[]}"
+    },
+    {
+      "section": 21,
+      "name": "all seven repeatedly reported blockers have explicit green geometry proof",
+      "ok": true,
+      "detail": "[{\"name\":\"vault art clears actual named cellar structure and the white jamb\",\"ok\":true},{\"name\":\"Prospect bust clears the red pier and all Mansion structure\",\"ok\":true},{\"name\":\"Great Includer handles are upright, closed, and connected\",\"ok\":true},{\"name\":\"all hall-case trophies are connected and shelf-seated\",\"ok\":true},{\"name\":\"lake wall decorations and white cross sit flush to actual gallery-north-solid geometry\",\"ok\":true},{\"name\":\"front guard routes and facade-clear door post are published\",\"ok\":true},{\"name\":\"every winter-garden planter Box3 clears all actual named fountain structure\",\"ok\":true}]"
+    }
+  ],
+  "boot": {
+    "title": "Lou's Mansion — SquatchSmash",
+    "canvasCount": 1,
+    "rendererCanvasConnected": true,
+    "frames": 11,
+    "contextType": "webgl2",
+    "contextLost": false,
+    "glError": 0,
+    "drawingBuffer": [
+      1280,
+      720
+    ],
+    "losses": [],
+    "overlay": null
+  },
+  "finalGl": {
+    "contextLost": false,
+    "error": 0,
+    "drawingBuffer": [
+      1280,
+      720
+    ],
+    "losses": [],
+    "frames": 20
+  },
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": [],
+  "httpErrors": [],
+  "audits": {
+    "static": {
+      "lamps": {
+        "fixtures": 10,
+        "matches": [
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          },
+          {
+            "intensity": 9,
+            "distance": 18
+          }
+        ],
+        "flowerCount": 92,
+        "flowerFaults": []
+      },
+      "court": {
+        "radius": 15.2,
+        "approachBeds": 3,
+        "northBeds": [
+          {
+            "shortenedBy": 0.8999999999999986,
+            "clearance": 3.2591287885364197
+          },
+          {
+            "shortenedBy": 0.8999999999999986,
+            "clearance": 3.2591287885364197
+          }
+        ]
+      },
+      "guard": {
+        "exists": true,
+        "maxZ": 35.50446622313773,
+        "facadeFace": 35.6,
+        "routeCount": 3,
+        "routeLengths": [
+          4,
+          4,
+          4
+        ]
+      },
+      "trophies": {
+        "lounge": [
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          },
+          {
+            "complete": true,
+            "baseStemAir": 2.2053716630665576e-9,
+            "stemCupAir": -0.0049999945163727855,
+            "shelfAir": -2.220446049250313e-16
+          }
+        ],
+        "hall": [
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          },
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          },
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          },
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          },
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          },
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          },
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          },
+          {
+            "complete": true,
+            "baseStemAir": -3.5762788286319847e-9,
+            "stemCupAir": -0.005000005066394753,
+            "shelfAir": 0
+          }
+        ]
+      },
+      "artResolution": {
+        "ready": true,
+        "productionSeam": true,
+        "resolvedSlots": [
+          "mansion.foyer.crest",
+          "mansion.lounge.banner",
+          "mansion.bay.shield",
+          "mansion.conference.crest",
+          "mansion.gallery.pride",
+          "mansion.ballroom.backdrop",
+          "mansion.office.shield",
+          "mansion.office.hogmama",
+          "mansion.basement.shield",
+          "mansion.trophy.crest",
+          "mansion.winter.shield",
+          "mansion.cellar.crest",
+          "mansion.theatre.banner",
+          "mansion.lan.banner",
+          "mansion.guest.art",
+          "mansion.guest.crest",
+          "mansion.vault.mark",
+          "mansion.bedroom.booski-death.crest",
+          "mansion.bedroom.booski-death.booski",
+          "mansion.bedroom.booski-death.deathmegatron",
+          "mansion.suite.crest",
+          "mansion.lan.chairs",
+          "mansion.gallery.roster",
+          "mansion.ballroom.major",
+          "mansion.lounge.cowboy",
+          "mansion.conference.stacks",
+          "mansion.office.boss",
+          "mansion.winter.almighty",
+          "mansion.cellar.bus",
+          "mansion.guest.dog",
+          "mansion.theatre.lockup",
+          "mansion.lan.denver"
+        ]
+      },
+      "bar": {
+        "shieldClearance": 0.22000001192092888,
+        "shield": {
+          "name": "",
+          "artPiece": "mansion.bay.shield",
+          "resolved": true,
+          "box": {
+            "min": {
+              "x": 20.44,
+              "y": 3.920000011920929,
+              "z": 49.37500002384186
+            },
+            "max": {
+              "x": 20.44,
+              "y": 5.319999988079071,
+              "z": 50.42499997615814
+            }
+          }
+        },
+        "frame": {
+          "name": "bay-shield-frame",
+          "box": {
+            "min": {
+              "x": 20.455000000000005,
+              "y": 3.84,
+              "z": 49.3
+            },
+            "max": {
+              "x": 20.505000000000003,
+              "y": 5.4,
+              "z": 50.5
+            }
+          },
+          "clearance": 0.13999999999999968
+        },
+        "backBar": {
+          "name": "back-bar",
+          "box": {
+            "min": {
+              "x": 20.460000000000004,
+              "y": 1.2000000000000002,
+              "z": 44.6
+            },
+            "max": {
+              "x": 20.62,
+              "y": 3.7,
+              "z": 51.4
+            }
+          }
+        },
+        "overlap": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "kitchen": {
+        "fridgeSize": {
+          "x": 0.8675000000000015,
+          "y": 2.1499999999999995,
+          "z": 1.0499999999999972
+        },
+        "fridgeDoors": 2,
+        "fridgeHandles": 2,
+        "microwaveParts": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "microwaveButtons": 12,
+        "service": {
+          "landing": {
+            "x0": 16.4,
+            "x1": 18,
+            "z0": 64.8,
+            "z1": 67.2,
+            "y": 1.2
+          },
+          "ramp": {
+            "x0": 18,
+            "x1": 22,
+            "z0": 64.98,
+            "z1": 67.02,
+            "axis": "x",
+            "highAt": "min"
+          },
+          "supports": 2,
+          "door": {
+            "x": 16,
+            "y": 1.2,
+            "z": 66,
+            "z0": 64.8,
+            "z1": 67.2,
+            "y0": 1.2,
+            "y1": 3.5999999999999996,
+            "x0": 16,
+            "x1": 16.4,
+            "open": true
+          },
+          "samples": {
+            "landing": 1.2,
+            "head": 1.2,
+            "middle": 0.6,
+            "foot": 0
+          }
+        }
+      },
+      "garden": {
+        "gate": {
+          "x": 9.4,
+          "z": 111,
+          "w": 2.76
+        },
+        "arch": true,
+        "redundantHead": false,
+        "redundantCoping": false,
+        "colliderBlocks": 0,
+        "flowerBlocks": 0,
+        "puttingGreen": true,
+        "maze": true
+      },
+      "winter": {
+        "plantCount": 5,
+        "plantNames": [
+          "winter-garden-planter",
+          "winter-garden-planter",
+          "winter-garden-planter",
+          "winter-garden-planter",
+          "winter-garden-planter"
+        ],
+        "structureCount": 10,
+        "structureNames": [
+          "winter-fountain-kerb",
+          "winter-fountain-kerb",
+          "winter-fountain-kerb",
+          "winter-fountain-kerb",
+          "winter-fountain-kerb",
+          "winter-fountain-kerb",
+          "winter-fountain-kerb",
+          "winter-fountain-kerb",
+          "winter-fountain-pedestal",
+          "winter-fountain-bowl"
+        ],
+        "pairs": [
+          {
+            "plant": 0,
+            "fixture": 0,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 6.246091945978745
+          },
+          {
+            "plant": 0,
+            "fixture": 1,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.159685484628241
+          },
+          {
+            "plant": 0,
+            "fixture": 2,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.014395495573439
+          },
+          {
+            "plant": 0,
+            "fixture": 3,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 5.512576317667751
+          },
+          {
+            "plant": 0,
+            "fixture": 4,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.9053059017343656
+          },
+          {
+            "plant": 0,
+            "fixture": 5,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.1341014590260414
+          },
+          {
+            "plant": 0,
+            "fixture": 6,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.4470195859531394
+          },
+          {
+            "plant": 0,
+            "fixture": 7,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.886366863594103
+          },
+          {
+            "plant": 0,
+            "fixture": 8,
+            "fixtureName": "winter-fountain-pedestal",
+            "intersects": false,
+            "planAir": 5.431810796487141
+          },
+          {
+            "plant": 0,
+            "fixture": 9,
+            "fixtureName": "winter-fountain-bowl",
+            "intersects": false,
+            "planAir": 5.053991742771802
+          },
+          {
+            "plant": 1,
+            "fixture": 0,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 5.668205687071428
+          },
+          {
+            "plant": 1,
+            "fixture": 1,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.170024864977115
+          },
+          {
+            "plant": 1,
+            "fixture": 2,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.1876995972200515
+          },
+          {
+            "plant": 1,
+            "fixture": 3,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 6.012560422895135
+          },
+          {
+            "plant": 1,
+            "fixture": 4,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.529185622646643
+          },
+          {
+            "plant": 1,
+            "fixture": 5,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.328077201479569
+          },
+          {
+            "plant": 1,
+            "fixture": 6,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.289730828429718
+          },
+          {
+            "plant": 1,
+            "fixture": 7,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.060935271138042
+          },
+          {
+            "plant": 1,
+            "fixture": 8,
+            "fixtureName": "winter-fountain-pedestal",
+            "intersects": false,
+            "planAir": 5.456951830164953
+          },
+          {
+            "plant": 1,
+            "fixture": 9,
+            "fixtureName": "winter-fountain-bowl",
+            "intersects": false,
+            "planAir": 5.129501756525123
+          },
+          {
+            "plant": 2,
+            "fixture": 0,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.988835426624592
+          },
+          {
+            "plant": 2,
+            "fixture": 1,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.563316590037705
+          },
+          {
+            "plant": 2,
+            "fixture": 2,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.2615752406410223
+          },
+          {
+            "plant": 2,
+            "fixture": 3,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.032779683349361
+          },
+          {
+            "plant": 2,
+            "fixture": 4,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 5.640050099282746
+          },
+          {
+            "plant": 2,
+            "fixture": 5,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.141869277188434
+          },
+          {
+            "plant": 2,
+            "fixture": 6,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.284617274979067
+          },
+          {
+            "plant": 2,
+            "fixture": 7,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 6.358878207823178
+          },
+          {
+            "plant": 2,
+            "fixture": 8,
+            "fixtureName": "winter-fountain-pedestal",
+            "intersects": false,
+            "planAir": 5.556120765060946
+          },
+          {
+            "plant": 2,
+            "fixture": 9,
+            "fixtureName": "winter-fountain-bowl",
+            "intersects": false,
+            "planAir": 5.179494062736082
+          },
+          {
+            "plant": 3,
+            "fixture": 0,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.17196082286722
+          },
+          {
+            "plant": 3,
+            "fixture": 1,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.4007563801588816
+          },
+          {
+            "plant": 3,
+            "fixture": 2,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.4378645832374697
+          },
+          {
+            "plant": 3,
+            "fixture": 3,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.628993868602008
+          },
+          {
+            "plant": 3,
+            "fixture": 4,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 6.117339359521003
+          },
+          {
+            "plant": 3,
+            "fixture": 5,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.298456282400141
+          },
+          {
+            "plant": 3,
+            "fixture": 6,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 7.281050416706293
+          },
+          {
+            "plant": 3,
+            "fixture": 7,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 5.779231238800605
+          },
+          {
+            "plant": 3,
+            "fixture": 8,
+            "fixtureName": "winter-fountain-pedestal",
+            "intersects": false,
+            "planAir": 5.567828825095559
+          },
+          {
+            "plant": 3,
+            "fixture": 9,
+            "fixtureName": "winter-fountain-bowl",
+            "intersects": false,
+            "planAir": 5.2405273082543005
+          },
+          {
+            "plant": 4,
+            "fixture": 0,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.6857818753508433
+          },
+          {
+            "plant": 4,
+            "fixture": 1,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 2.179741616376738
+          },
+          {
+            "plant": 4,
+            "fixture": 2,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 0.5724712004433599
+          },
+          {
+            "plant": 4,
+            "fixture": 3,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 0.17634667750564859
+          },
+          {
+            "plant": 4,
+            "fixture": 4,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 1.7836170934390339
+          },
+          {
+            "plant": 4,
+            "fixture": 5,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.3349384954455408
+          },
+          {
+            "plant": 4,
+            "fixture": 6,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 3.9427610892916376
+          },
+          {
+            "plant": 4,
+            "fixture": 7,
+            "fixtureName": "winter-fountain-kerb",
+            "intersects": false,
+            "planAir": 4.090865411866468
+          },
+          {
+            "plant": 4,
+            "fixture": 8,
+            "fixtureName": "winter-fountain-pedestal",
+            "intersects": false,
+            "planAir": 2.508908513393211
+          },
+          {
+            "plant": 4,
+            "fixture": 9,
+            "fixtureName": "winter-fountain-bowl",
+            "intersects": false,
+            "planAir": 2.0598090856822884
+          }
+        ],
+        "minimumPlanAir": 0.17634667750564859,
+        "intersections": []
+      },
+      "trophyHall": {
+        "handles": [
+          {
+            "upright": true,
+            "closed": true,
+            "connected": true
+          },
+          {
+            "upright": true,
+            "closed": true,
+            "connected": true
+          }
+        ],
+        "statues": 0,
+        "floorLights": 0,
+        "entranceWidths": [
+          1.5,
+          1.6199999999999974,
+          1.5
+        ],
+        "entrancePiers": [
+          0.19000000000000483,
+          0.18999999999999773
+        ],
+        "entranceColliderBlocks": 0
+      },
+      "living": {
+        "glow": {
+          "intensity": 4.2,
+          "distance": 20
+        },
+        "flames": 5,
+        "emissive": true,
+        "animated": true,
+        "galleryArt": 2
+      },
+      "bedrooms": {
+        "placards": [
+          {
+            "id": "westFront",
+            "expectedName": "old-chapel-room-placard",
+            "actualName": "old-chapel-room-placard",
+            "outside": true,
+            "above": true,
+            "contractOutside": true
+          },
+          {
+            "id": "eastFront",
+            "expectedName": "old-country-room-placard",
+            "actualName": "old-country-room-placard",
+            "outside": true,
+            "above": true,
+            "contractOutside": true
+          },
+          {
+            "id": "westRear",
+            "expectedName": "lake-room-placard",
+            "actualName": "lake-room-placard",
+            "outside": true,
+            "above": true,
+            "contractOutside": true
+          },
+          {
+            "id": "eastRear",
+            "expectedName": "booski-death-room-exterior-placard",
+            "actualName": "booski-death-room-exterior-placard",
+            "outside": true,
+            "above": true,
+            "contractOutside": true
+          }
+        ],
+        "gothic": {
+          "chairWardrobe": true,
+          "tableBed": true,
+          "clusterWardrobe": true
+        },
+        "classic": {
+          "chairWardrobe": true,
+          "tableBed": true,
+          "tvAngle": 0.28,
+          "weight": {
+            "x": 15,
+            "z": 45.25
+          }
+        },
+        "lake": {
+          "chairCluster": true,
+          "tableCluster": true,
+          "plants": [],
+          "plantVolume": {
+            "floor": 6,
+            "ceiling": 10.2
+          },
+          "excludedLowerPlants": [
+            {
+              "name": "plant",
+              "position": {
+                "x": -10.2,
+                "y": 1.2,
+                "z": 55.6
+              },
+              "box": {
+                "min": {
+                  "x": -10.776079059095562,
+                  "y": 1.2000000081062316,
+                  "z": 55.008480157049014
+                },
+                "max": {
+                  "x": -9.605735027463231,
+                  "y": 2.935277792248299,
+                  "z": 56.26142481996566
+                }
+              }
+            }
+          ],
+          "wallName": "gallery-north-solid",
+          "wallMeshes": 7,
+          "mounts": [
+            {
+              "id": "picture",
+              "name": "frame",
+              "wallTargets": 1,
+              "penetrates": false,
+              "gap": 0.0030000000000001137
+            },
+            {
+              "id": "paddle-0",
+              "name": "lake-paddle",
+              "wallTargets": 1,
+              "penetrates": false,
+              "gap": 0.0009999999999976694
+            },
+            {
+              "id": "paddle-1",
+              "name": "lake-paddle",
+              "wallTargets": 1,
+              "penetrates": false,
+              "gap": 0.0049999999999954525
+            },
+            {
+              "id": "life-ring",
+              "name": "lake-life-ring",
+              "wallTargets": 1,
+              "penetrates": false,
+              "gap": 0.0030000000000001137
+            },
+            {
+              "id": "white-cross",
+              "name": "lake-white-cross",
+              "wallTargets": 1,
+              "penetrates": false,
+              "gap": 0.0030000000000001137
+            }
+          ],
+          "whiteCross": {
+            "name": "lake-white-cross",
+            "vertical": true,
+            "horizontal": true,
+            "connected": true,
+            "adjacentIntersections": []
+          }
+        },
+        "modern": {
+          "tableBench": true,
+          "portraitsClear": true,
+          "accentPortraits": [
+            "booski-death-room-booski-accent"
+          ],
+          "removedDeathMegatronAccentCount": 0
+        }
+      },
+      "frozen": {
+        "bathrooms": 2,
+        "toilets": 2,
+        "conferenceRoom": true
+      },
+      "suite": {
+        "barLights": 1,
+        "beams": 0,
+        "lightHeight": 2.51
+      },
+      "balcony": [
+        {
+          "from": "horseshoe-west-rail",
+          "to": "gallery-edge-west-rail",
+          "connected": true
+        },
+        {
+          "from": "gallery-edge-west-rail",
+          "to": "balcony-west-rail",
+          "connected": true
+        },
+        {
+          "from": "balcony-west-rail",
+          "to": "balcony-south-rail",
+          "connected": true
+        },
+        {
+          "from": "balcony-south-rail",
+          "to": "balcony-east-rail",
+          "connected": true
+        },
+        {
+          "from": "balcony-east-rail",
+          "to": "gallery-edge-east-rail",
+          "connected": true
+        },
+        {
+          "from": "gallery-edge-east-rail",
+          "to": "horseshoe-east-rail",
+          "connected": true
+        }
+      ],
+      "cellar": {
+        "pegboard": {
+          "name": "cellar-tool-pegboard",
+          "box": {
+            "min": {
+              "x": 3.2,
+              "y": -1.8499999999999999,
+              "z": 63.75999999999999
+            },
+            "max": {
+              "x": 5.2,
+              "y": -0.7499999999999998,
+              "z": 63.8
+            }
+          },
+          "wall": {
+            "name": "basement-wall-panel-north",
+            "box": {
+              "min": {
+                "x": -8.85,
+                "y": -2.8,
+                "z": 63.8
+              },
+              "max": {
+                "x": 5.229999999999999,
+                "y": -0.3500000000000001,
+                "z": 63.84
+              }
+            }
+          },
+          "wallOverlap": {
+            "x": 2,
+            "y": 1.1
+          },
+          "gap": 0,
+          "tools": [
+            {
+              "index": 0,
+              "name": "cellar-pegboard-tool",
+              "box": {
+                "min": {
+                  "x": 3.3700000000000006,
+                  "y": -1.4999999999999998,
+                  "z": 63.72
+                },
+                "max": {
+                  "x": 3.43,
+                  "y": -1.16,
+                  "z": 63.769999999999996
+                }
+              },
+              "contacts": true
+            },
+            {
+              "index": 1,
+              "name": "cellar-pegboard-tool",
+              "box": {
+                "min": {
+                  "x": 3.6900000000000004,
+                  "y": -1.4999999999999998,
+                  "z": 63.72
+                },
+                "max": {
+                  "x": 3.75,
+                  "y": -1.16,
+                  "z": 63.769999999999996
+                }
+              },
+              "contacts": true
+            },
+            {
+              "index": 2,
+              "name": "cellar-pegboard-tool",
+              "box": {
+                "min": {
+                  "x": 4.01,
+                  "y": -1.4999999999999998,
+                  "z": 63.72
+                },
+                "max": {
+                  "x": 4.07,
+                  "y": -1.16,
+                  "z": 63.769999999999996
+                }
+              },
+              "contacts": true
+            },
+            {
+              "index": 3,
+              "name": "cellar-pegboard-tool",
+              "box": {
+                "min": {
+                  "x": 4.33,
+                  "y": -1.4999999999999998,
+                  "z": 63.72
+                },
+                "max": {
+                  "x": 4.390000000000001,
+                  "y": -1.16,
+                  "z": 63.769999999999996
+                }
+              },
+              "contacts": true
+            },
+            {
+              "index": 4,
+              "name": "cellar-pegboard-tool",
+              "box": {
+                "min": {
+                  "x": 4.65,
+                  "y": -1.4999999999999998,
+                  "z": 63.72
+                },
+                "max": {
+                  "x": 4.710000000000001,
+                  "y": -1.16,
+                  "z": 63.769999999999996
+                }
+              },
+              "contacts": true
+            },
+            {
+              "index": 5,
+              "name": "cellar-pegboard-tool",
+              "box": {
+                "min": {
+                  "x": 4.97,
+                  "y": -1.4999999999999998,
+                  "z": 63.72
+                },
+                "max": {
+                  "x": 5.03,
+                  "y": -1.16,
+                  "z": 63.769999999999996
+                }
+              },
+              "contacts": true
+            }
+          ]
+        },
+        "armoryBottles": 18,
+        "armoryBottleFaults": 0,
+        "innocentBottles": 48,
+        "innocentBottleFaults": 0,
+        "vaultWallTargets": 1,
+        "vaultWallClearances": [
+          0.09999999999999432
+        ],
+        "vaultMinimumWallClearance": 0.09999999999999432,
+        "vaultMark": {
+          "name": "",
+          "artPiece": "mansion.vault.mark",
+          "resolved": true,
+          "box": {
+            "min": {
+              "x": 11.490000005960464,
+              "y": -1.2499999940395354,
+              "z": 67.30000000000001
+            },
+            "max": {
+              "x": 12.189999994039535,
+              "y": -0.5500000059604644,
+              "z": 67.30000000000001
+            }
+          }
+        },
+        "vaultJambTargets": 12,
+        "vaultJambClearance": 0.11401754721481652,
+        "vaultJambs": [
+          {
+            "index": 9,
+            "name": "cellar-rooms-case",
+            "box": {
+              "min": {
+                "x": 12.280000000000001,
+                "y": -2.8,
+                "z": 67.37
+              },
+              "max": {
+                "x": 12.415,
+                "y": -0.5799999999999996,
+                "z": 67.73000000000002
+              }
+            },
+            "gap": 0.11401754721481652
+          },
+          {
+            "index": 11,
+            "name": "cellar-rooms-case",
+            "box": {
+              "min": {
+                "x": 12.280000000000001,
+                "y": -0.7149999999999997,
+                "z": 67.37
+              },
+              "max": {
+                "x": 14.420000000000002,
+                "y": -0.5799999999999997,
+                "z": 67.73000000000002
+              }
+            },
+            "gap": 0.11401754721481652
+          },
+          {
+            "index": 10,
+            "name": "cellar-rooms-case",
+            "box": {
+              "min": {
+                "x": 14.285,
+                "y": -2.8,
+                "z": 67.37
+              },
+              "max": {
+                "x": 14.419999999999998,
+                "y": -0.5799999999999996,
+                "z": 67.73000000000002
+              }
+            },
+            "gap": 2.096169130813243
+          },
+          {
+            "index": 7,
+            "name": "cellar-rooms-case",
+            "box": {
+              "min": {
+                "x": 7.385000000000001,
+                "y": -2.8,
+                "z": 67.37
+              },
+              "max": {
+                "x": 7.5200000000000005,
+                "y": -0.5799999999999996,
+                "z": 67.73000000000002
+              }
+            },
+            "gap": 3.9706170864647827
+          },
+          {
+            "index": 8,
+            "name": "cellar-rooms-case",
+            "box": {
+              "min": {
+                "x": 5.28,
+                "y": -0.7149999999999997,
+                "z": 67.37
+              },
+              "max": {
+                "x": 7.5200000000000005,
+                "y": -0.5799999999999997,
+                "z": 67.73000000000002
+              }
+            },
+            "gap": 3.9706170864647827
+          },
+          {
+            "index": 6,
+            "name": "cellar-rooms-case",
+            "box": {
+              "min": {
+                "x": 5.28,
+                "y": -2.8,
+                "z": 67.37
+              },
+              "max": {
+                "x": 5.415,
+                "y": -0.5799999999999996,
+                "z": 67.73000000000002
+              }
+            },
+            "gap": 6.075403284755642
+          }
+        ],
+        "vaultVisibleIntersections": [],
+        "vaultRoomInset": 0.29000000596046505
+      },
+      "prospect": {
+        "belongings": [
+          "prospect-footlocker",
+          "prospect-work-jacket",
+          "prospect-work-boots"
+        ],
+        "jacketBody": true,
+        "jacketSleeves": 2,
+        "jacketParts": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "jacketConnected": true,
+        "jacketWallGap": -0.03500000000000014,
+        "bootsSize": {
+          "x": 0.4176000000000002,
+          "y": 0.2591999999999999,
+          "z": 0.4823999999999984
+        },
+        "bootsFloorGap": 0,
+        "bust": {
+          "pier": "(unnamed)",
+          "intersection": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "clearance": 0.4700000000000024,
+          "minimum": 0.12,
+          "viewIds": [
+            "corridor-east",
+            "corridor-north",
+            "doorway"
+          ],
+          "structureOverlaps": []
+        }
+      },
+      "art": {
+        "total": 80,
+        "vaultMark": true
+      },
+      "colliderClearanceHelperSample": 3.48
+    },
+    "routes": {
+      "kitchenService": {
+        "contract": {
+          "landing": {
+            "x0": 16.4,
+            "x1": 18,
+            "z0": 64.8,
+            "z1": 67.2,
+            "y": 1.2
+          },
+          "door": {
+            "x0": 16,
+            "x1": 16.4,
+            "z0": 64.8,
+            "z1": 67.2
+          },
+          "doorDepth": 0.3999999999999986,
+          "kitchenRect": {
+            "x0": 9.15,
+            "x1": 16,
+            "z0": 58.15,
+            "z1": 75
+          },
+          "roomFloor": 1.2,
+          "insideBoundary": 15.600000000000001,
+          "oldEarlyPoint": {
+            "x": 16.09,
+            "z": 66,
+            "inside": false,
+            "floor": null
+          }
+        },
+        "toLanding": {
+          "ok": true,
+          "steps": 4,
+          "state": {
+            "x": 17.311,
+            "y": 1.2,
+            "z": 66,
+            "ground": 1.2,
+            "interiorFloor": null,
+            "enabled": true
+          }
+        },
+        "intoKitchen": {
+          "ok": true,
+          "steps": 4,
+          "state": {
+            "x": 15.13,
+            "y": 1.2,
+            "z": 66,
+            "ground": 1.2,
+            "interiorFloor": 1.2,
+            "enabled": true
+          }
+        },
+        "settled": {
+          "x": 15.096,
+          "y": 1.2,
+          "z": 66,
+          "ground": 1.2,
+          "interiorFloor": 1.2,
+          "enabled": true
+        },
+        "floor": {
+          "sample": {
+            "x": 15.096413907966616,
+            "z": 66,
+            "feetY": 1.2
+          },
+          "room": 1.2,
+          "interior": 1.2,
+          "service": null,
+          "resolved": 1.2
+        }
+      },
+      "gardenArch": {
+        "ok": true,
+        "steps": 4,
+        "state": {
+          "x": 9.162,
+          "y": 0,
+          "z": 111,
+          "ground": 0,
+          "interiorFloor": null,
+          "enabled": true
+        }
+      },
+      "trophyEntrance": {
+        "ok": true,
+        "steps": 2,
+        "state": {
+          "x": -16.993,
+          "y": 1.2,
+          "z": 43.9,
+          "ground": 1.2,
+          "interiorFloor": 1.2,
+          "enabled": true
+        }
+      }
+    },
+    "guards": {
+      "seconds": 180,
+      "traces": {
+        "patrol0": [
+          {
+            "x": 2.387,
+            "y": 0,
+            "z": 7.374
+          },
+          {
+            "x": -2.012,
+            "y": 0.008,
+            "z": 7.146
+          },
+          {
+            "x": -2.177,
+            "y": 0.012,
+            "z": 11.743
+          },
+          {
+            "x": -2.341,
+            "y": 0.01,
+            "z": 16.34
+          },
+          {
+            "x": 0.9,
+            "y": 0.003,
+            "z": 17.876
+          },
+          {
+            "x": 2.131,
+            "y": 0.005,
+            "z": 14.52
+          },
+          {
+            "x": 2.295,
+            "y": 0.011,
+            "z": 9.923
+          },
+          {
+            "x": 0.361,
+            "y": 0.011,
+            "z": 7.227
+          },
+          {
+            "x": -2.086,
+            "y": 0.006,
+            "z": 9.216
+          },
+          {
+            "x": -2.25,
+            "y": 0.003,
+            "z": 13.813
+          },
+          {
+            "x": -1.622,
+            "y": 0.01,
+            "z": 17.669
+          },
+          {
+            "x": 2.04,
+            "y": 0.012,
+            "z": 17.048
+          },
+          {
+            "x": 2.205,
+            "y": 0.008,
+            "z": 12.451
+          },
+          {
+            "x": 2.369,
+            "y": 0,
+            "z": 7.854
+          },
+          {
+            "x": -1.702,
+            "y": 0.008,
+            "z": 7.058
+          },
+          {
+            "x": -2.16,
+            "y": 0.012,
+            "z": 11.285
+          },
+          {
+            "x": -2.324,
+            "y": 0.01,
+            "z": 15.882
+          },
+          {
+            "x": 0.441,
+            "y": 0.003,
+            "z": 17.839
+          },
+          {
+            "x": 2.114,
+            "y": 0.005,
+            "z": 14.98
+          },
+          {
+            "x": 2.279,
+            "y": 0.011,
+            "z": 10.383
+          },
+          {
+            "x": 0.82,
+            "y": 0.011,
+            "z": 7.265
+          },
+          {
+            "x": -2.069,
+            "y": 0.006,
+            "z": 8.756
+          },
+          {
+            "x": -2.234,
+            "y": 0.002,
+            "z": 13.353
+          },
+          {
+            "x": -2.08,
+            "y": 0.01,
+            "z": 17.631
+          },
+          {
+            "x": 2.024,
+            "y": 0.012,
+            "z": 17.508
+          },
+          {
+            "x": 2.188,
+            "y": 0.008,
+            "z": 12.911
+          },
+          {
+            "x": 2.353,
+            "y": 0,
+            "z": 8.314
+          },
+          {
+            "x": -1.243,
+            "y": 0.008,
+            "z": 7.095
+          },
+          {
+            "x": -2.143,
+            "y": 0.012,
+            "z": 10.825
+          },
+          {
+            "x": -2.308,
+            "y": 0.01,
+            "z": 15.422
+          },
+          {
+            "x": -0.017,
+            "y": 0.003,
+            "z": 17.801
+          },
+          {
+            "x": 2.098,
+            "y": 0.005,
+            "z": 15.439
+          },
+          {
+            "x": 2.263,
+            "y": 0.011,
+            "z": 10.842
+          },
+          {
+            "x": 1.278,
+            "y": 0.011,
+            "z": 7.303
+          },
+          {
+            "x": -2.053,
+            "y": 0.006,
+            "z": 8.297
+          },
+          {
+            "x": -2.217,
+            "y": 0.002,
+            "z": 12.894
+          },
+          {
+            "x": -2.382,
+            "y": 0.009,
+            "z": 17.491
+          },
+          {
+            "x": 2.008,
+            "y": 0,
+            "z": 17.968
+          },
+          {
+            "x": 2.172,
+            "y": 0.008,
+            "z": 13.371
+          },
+          {
+            "x": 2.337,
+            "y": 0.001,
+            "z": 8.774
+          },
+          {
+            "x": -0.785,
+            "y": 0.007,
+            "z": 7.133
+          },
+          {
+            "x": -2.127,
+            "y": 0.012,
+            "z": 10.365
+          },
+          {
+            "x": -2.291,
+            "y": 0.01,
+            "z": 14.962
+          },
+          {
+            "x": -0.476,
+            "y": 0.004,
+            "z": 17.763
+          },
+          {
+            "x": 2.082,
+            "y": 0.005,
+            "z": 15.899
+          },
+          {
+            "x": 2.246,
+            "y": 0.011,
+            "z": 11.302
+          }
+        ],
+        "patrol1": [
+          {
+            "x": -28.247,
+            "y": 0.012,
+            "z": 29.637
+          },
+          {
+            "x": -23.656,
+            "y": 0.01,
+            "z": 29.955
+          },
+          {
+            "x": -23.221,
+            "y": 0.003,
+            "z": 25.683
+          },
+          {
+            "x": -23.042,
+            "y": 0.005,
+            "z": 21.087
+          },
+          {
+            "x": -26.877,
+            "y": 0.011,
+            "z": 20.117
+          },
+          {
+            "x": -28.258,
+            "y": 0.011,
+            "z": 23.321
+          },
+          {
+            "x": -28.425,
+            "y": 0.006,
+            "z": 27.918
+          },
+          {
+            "x": -25.618,
+            "y": 0.002,
+            "z": 29.811
+          },
+          {
+            "x": -23.279,
+            "y": 0.01,
+            "z": 27.675
+          },
+          {
+            "x": -23.112,
+            "y": 0.012,
+            "z": 23.078
+          },
+          {
+            "x": -24.888,
+            "y": 0.008,
+            "z": 20.261
+          },
+          {
+            "x": -28.185,
+            "y": 0.001,
+            "z": 21.329
+          },
+          {
+            "x": -28.352,
+            "y": 0.008,
+            "z": 25.926
+          },
+          {
+            "x": -27.606,
+            "y": 0.012,
+            "z": 29.667
+          },
+          {
+            "x": -23.351,
+            "y": 0.01,
+            "z": 29.667
+          },
+          {
+            "x": -23.184,
+            "y": 0.003,
+            "z": 25.07
+          },
+          {
+            "x": -23.017,
+            "y": 0.005,
+            "z": 20.473
+          },
+          {
+            "x": -27.488,
+            "y": 0.011,
+            "z": 20.073
+          },
+          {
+            "x": -28.28,
+            "y": 0.011,
+            "z": 23.934
+          },
+          {
+            "x": -28.447,
+            "y": 0.006,
+            "z": 28.531
+          },
+          {
+            "x": -25.006,
+            "y": 0.002,
+            "z": 29.855
+          },
+          {
+            "x": -23.257,
+            "y": 0.009,
+            "z": 27.062
+          },
+          {
+            "x": -23.09,
+            "y": 0.012,
+            "z": 22.465
+          },
+          {
+            "x": -25.5,
+            "y": 0.008,
+            "z": 20.217
+          },
+          {
+            "x": -28.207,
+            "y": 0.001,
+            "z": 21.942
+          },
+          {
+            "x": -28.374,
+            "y": 0.007,
+            "z": 26.539
+          },
+          {
+            "x": -26.994,
+            "y": 0.012,
+            "z": 29.711
+          },
+          {
+            "x": -23.329,
+            "y": 0.01,
+            "z": 29.054
+          },
+          {
+            "x": -23.162,
+            "y": 0.004,
+            "z": 24.457
+          },
+          {
+            "x": -23.511,
+            "y": 0.005,
+            "z": 20.361
+          },
+          {
+            "x": -28.099,
+            "y": 0.011,
+            "z": 20.029
+          },
+          {
+            "x": -28.302,
+            "y": 0.011,
+            "z": 24.547
+          },
+          {
+            "x": -28.469,
+            "y": 0.006,
+            "z": 29.144
+          },
+          {
+            "x": -24.395,
+            "y": 0.002,
+            "z": 29.899
+          },
+          {
+            "x": -23.234,
+            "y": 0.009,
+            "z": 26.449
+          },
+          {
+            "x": -23.067,
+            "y": 0.012,
+            "z": 21.852
+          },
+          {
+            "x": -26.111,
+            "y": 0.009,
+            "z": 20.173
+          },
+          {
+            "x": -28.23,
+            "y": 0.001,
+            "z": 22.555
+          },
+          {
+            "x": -28.397,
+            "y": 0.007,
+            "z": 27.152
+          },
+          {
+            "x": -26.383,
+            "y": 0.012,
+            "z": 29.755
+          },
+          {
+            "x": -23.307,
+            "y": 0.01,
+            "z": 28.441
+          },
+          {
+            "x": -23.14,
+            "y": 0.004,
+            "z": 23.845
+          },
+          {
+            "x": -24.123,
+            "y": 0.005,
+            "z": 20.317
+          },
+          {
+            "x": -28.157,
+            "y": 0.011,
+            "z": 20.563
+          },
+          {
+            "x": -28.324,
+            "y": 0.012,
+            "z": 25.159
+          },
+          {
+            "x": -28.371,
+            "y": 0.006,
+            "z": 29.612
+          }
+        ],
+        "patrol2": [
+          {
+            "x": 19.723,
+            "y": 0.012,
+            "z": 31.711
+          },
+          {
+            "x": 17.779,
+            "y": 0.01,
+            "z": 29.271
+          },
+          {
+            "x": 17.64,
+            "y": 0.004,
+            "z": 24.673
+          },
+          {
+            "x": 17.778,
+            "y": 0.005,
+            "z": 20.348
+          },
+          {
+            "x": 20.202,
+            "y": 0.011,
+            "z": 22.231
+          },
+          {
+            "x": 20.342,
+            "y": 0.011,
+            "z": 26.828
+          },
+          {
+            "x": 20.482,
+            "y": 0.006,
+            "z": 31.426
+          },
+          {
+            "x": 17.813,
+            "y": 0.002,
+            "z": 30.267
+          },
+          {
+            "x": 17.673,
+            "y": 0.009,
+            "z": 25.67
+          },
+          {
+            "x": 17.533,
+            "y": 0.012,
+            "z": 21.072
+          },
+          {
+            "x": 20.172,
+            "y": 0.009,
+            "z": 21.234
+          },
+          {
+            "x": 20.312,
+            "y": 0.001,
+            "z": 25.832
+          },
+          {
+            "x": 20.452,
+            "y": 0.007,
+            "z": 30.43
+          },
+          {
+            "x": 17.844,
+            "y": 0.012,
+            "z": 31.264
+          },
+          {
+            "x": 17.703,
+            "y": 0.01,
+            "z": 26.666
+          },
+          {
+            "x": 17.563,
+            "y": 0.004,
+            "z": 22.068
+          },
+          {
+            "x": 20.141,
+            "y": 0.005,
+            "z": 20.238
+          },
+          {
+            "x": 20.281,
+            "y": 0.011,
+            "z": 24.836
+          },
+          {
+            "x": 20.422,
+            "y": 0.012,
+            "z": 29.434
+          },
+          {
+            "x": 18.131,
+            "y": 0.006,
+            "z": 31.919
+          },
+          {
+            "x": 17.734,
+            "y": 0.002,
+            "z": 27.662
+          },
+          {
+            "x": 17.593,
+            "y": 0.009,
+            "z": 23.064
+          },
+          {
+            "x": 19.375,
+            "y": 0.012,
+            "z": 20.144
+          },
+          {
+            "x": 20.251,
+            "y": 0.009,
+            "z": 23.84
+          },
+          {
+            "x": 20.391,
+            "y": 0.001,
+            "z": 28.438
+          },
+          {
+            "x": 19.119,
+            "y": 0.007,
+            "z": 31.793
+          },
+          {
+            "x": 17.764,
+            "y": 0.012,
+            "z": 28.658
+          },
+          {
+            "x": 17.624,
+            "y": 0.01,
+            "z": 24.06
+          },
+          {
+            "x": 18.386,
+            "y": 0.004,
+            "z": 20.27
+          },
+          {
+            "x": 20.221,
+            "y": 0.005,
+            "z": 22.844
+          },
+          {
+            "x": 20.361,
+            "y": 0.011,
+            "z": 27.442
+          },
+          {
+            "x": 20.108,
+            "y": 0.012,
+            "z": 31.667
+          },
+          {
+            "x": 17.795,
+            "y": 0.007,
+            "z": 29.654
+          },
+          {
+            "x": 17.654,
+            "y": 0.002,
+            "z": 25.057
+          },
+          {
+            "x": 17.514,
+            "y": 0.009,
+            "z": 20.459
+          },
+          {
+            "x": 20.19,
+            "y": 0.012,
+            "z": 21.847
+          },
+          {
+            "x": 20.331,
+            "y": 0.009,
+            "z": 26.445
+          },
+          {
+            "x": 20.471,
+            "y": 0.001,
+            "z": 31.043
+          },
+          {
+            "x": 17.825,
+            "y": 0.007,
+            "z": 30.651
+          },
+          {
+            "x": 17.685,
+            "y": 0.012,
+            "z": 26.053
+          },
+          {
+            "x": 17.544,
+            "y": 0.011,
+            "z": 21.455
+          },
+          {
+            "x": 20.16,
+            "y": 0.004,
+            "z": 20.851
+          },
+          {
+            "x": 20.3,
+            "y": 0.004,
+            "z": 25.449
+          },
+          {
+            "x": 20.44,
+            "y": 0.011,
+            "z": 30.047
+          },
+          {
+            "x": 17.855,
+            "y": 0.012,
+            "z": 31.647
+          },
+          {
+            "x": 17.715,
+            "y": 0.007,
+            "z": 27.049
+          }
+        ]
+      },
+      "travelled": {
+        "patrol0": 182.43954721162123,
+        "patrol1": 182.33276242827048,
+        "patrol2": 179.98812562835323
+      },
+      "collisions": []
+    },
+    "speech": {
+      "speakers": {
+        "rippin": {
+          "speaker": {
+            "x": 10.45,
+            "y": 1.2,
+            "z": 47.6
+          },
+          "near": {
+            "radius": 0.9,
+            "angle": 1.3744467859455345,
+            "listener": {
+              "x": 10.625581289814514,
+              "y": 1.2,
+              "z": 48.48270675236291
+            },
+            "floor": 1.2,
+            "result": {
+              "allowed": true,
+              "reason": "audible",
+              "distance": 0.8999999999999992,
+              "vertical": 0,
+              "remaining": 0
+            }
+          },
+          "far": {
+            "allowed": false,
+            "reason": "distance",
+            "distance": 24.000000000000004,
+            "vertical": 0.18000000000000016
+          },
+          "floor": {
+            "allowed": false,
+            "reason": "floor",
+            "distance": 0.07000000000000028,
+            "vertical": 5.819999999999999
+          }
+        },
+        "eric": {
+          "speaker": {
+            "x": -11,
+            "y": 0.7999999999999998,
+            "z": 66
+          },
+          "near": {
+            "radius": 0.9,
+            "angle": 0,
+            "listener": {
+              "x": -10.1,
+              "y": 1.2,
+              "z": 66
+            },
+            "floor": 1.2,
+            "result": {
+              "allowed": true,
+              "reason": "audible",
+              "distance": 0.9000000000000004,
+              "vertical": 0.40000000000000013,
+              "remaining": 0
+            }
+          },
+          "far": {
+            "allowed": false,
+            "reason": "distance",
+            "distance": 24.010797571092883,
+            "vertical": 0.05999999999999983
+          },
+          "floor": {
+            "allowed": false,
+            "reason": "floor",
+            "distance": 0.46999999999999886,
+            "vertical": 5.88
+          }
+        },
+        "sauce": {
+          "speaker": {
+            "x": 6.4,
+            "y": 1.2,
+            "z": 67.2
+          },
+          "near": {
+            "radius": 0.9,
+            "angle": 0,
+            "listener": {
+              "x": 7.300000000000001,
+              "y": 1.2,
+              "z": 67.2
+            },
+            "floor": 1.2,
+            "result": {
+              "allowed": true,
+              "reason": "audible",
+              "distance": 0.9000000000000004,
+              "vertical": 0,
+              "remaining": 0
+            }
+          },
+          "far": {
+            "allowed": false,
+            "reason": "distance",
+            "distance": 24.020000000000003,
+            "vertical": 0.18000000000000016
+          },
+          "floor": {
+            "allowed": false,
+            "reason": "floor",
+            "distance": 0.46999999999999886,
+            "vertical": 6.074829545454546
+          }
+        }
+      },
+      "occluded": {
+        "id": "rippin",
+        "radius": 1.9999999999999998,
+        "angle": 2.8797932657906435,
+        "speaker": {
+          "x": 10.45,
+          "y": 1.2,
+          "z": 47.6
+        },
+        "listener": {
+          "x": 8.518148347421864,
+          "y": 1.2,
+          "z": 48.11763809020504
+        },
+        "floor": 1.2,
+        "result": {
+          "allowed": false,
+          "reason": "occluded",
+          "distance": 1.9999999999999982,
+          "vertical": 0
+        },
+        "blocker": {
+          "index": 527,
+          "box": {
+            "min": {
+              "x": 8.83,
+              "y": 1.2,
+              "z": 35.98
+            },
+            "max": {
+              "x": 9.17,
+              "y": 10.2,
+              "z": 48.02
+            }
+          },
+          "sources": [
+            {
+              "scope": "interior",
+              "index": 8
+            }
+          ],
+          "meshMatches": [
+            {
+              "name": "east-partition-front-solid",
+              "box": {
+                "min": {
+                  "x": 8.85,
+                  "y": 1.1999999999999993,
+                  "z": 36
+                },
+                "max": {
+                  "x": 9.15,
+                  "y": 10.2,
+                  "z": 48
+                }
+              },
+              "extentDelta": 0.08000000000000607
+            },
+            {
+              "name": "oldtime-paper",
+              "box": {
+                "min": {
+                  "x": 9.040000000000001,
+                  "y": 7.125,
+                  "z": 36.099999999999994
+                },
+                "max": {
+                  "x": 9.08,
+                  "y": 8.475,
+                  "z": 47.75
+                }
+              },
+              "extentDelta": 8.34
+            },
+            {
+              "name": "south-solid",
+              "box": {
+                "min": {
+                  "x": 8.8,
+                  "y": 1.1999999999999993,
+                  "z": 35.599999999999994
+                },
+                "max": {
+                  "x": 9.2,
+                  "y": 10.2,
+                  "z": 36
+                }
+              },
+              "extentDelta": 12.460000000000004
+            },
+            {
+              "name": "bed-east-front-floor",
+              "box": {
+                "min": {
+                  "x": 9.149999999999999,
+                  "y": 6,
+                  "z": 36
+                },
+                "max": {
+                  "x": 16,
+                  "y": 6.02,
+                  "z": 47.849999999999994
+                }
+              },
+              "extentDelta": 16.32000000000001
+            },
+            {
+              "name": "east-partition-mid-solid",
+              "box": {
+                "min": {
+                  "x": 8.85,
+                  "y": 1.2000000000000002,
+                  "z": 48
+                },
+                "max": {
+                  "x": 9.15,
+                  "y": 6,
+                  "z": 48.5
+                }
+              },
+              "extentDelta": 16.74
+            },
+            {
+              "name": "horseshoe-east-spandrel",
+              "box": {
+                "min": {
+                  "x": 5.5,
+                  "y": 1.2000000000000002,
+                  "z": 47.73
+                },
+                "max": {
+                  "x": 8.85,
+                  "y": 5.840000000000001,
+                  "z": 48.02
+                }
+              },
+              "extentDelta": 19.759999999999998
+            }
+          ]
+        }
+      },
+      "cooldown": {
+        "id": "rippin",
+        "remaining": 10.016666666665088,
+        "heard": true
+      },
+      "authored": [
+        {
+          "id": "sauce",
+          "present": true,
+          "cues": [
+            "vo.bing.full.sauce.open.line.ggzxjv"
+          ],
+          "count": 1
+        },
+        {
+          "id": "eric",
+          "present": true,
+          "cues": [
+            "vo.silentsquatch.arrival.eric.mood",
+            "vo.silentsquatch.arrival.eric.dontsitdown"
+          ],
+          "count": 2
+        },
+        {
+          "id": "kate",
+          "present": false,
+          "cues": [],
+          "count": 0,
+          "reason": "identity-not-catalogued"
+        }
+      ]
+    },
+    "performers": {
+      "swimmer": [
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0013,
+          "x": 2.52,
+          "y": -0.14,
+          "z": 85.61
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0034,
+          "x": 2.53,
+          "y": -0.15,
+          "z": 85.6
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0066,
+          "x": 2.54,
+          "y": -0.16,
+          "z": 85.58
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0106,
+          "x": 2.54,
+          "y": -0.18,
+          "z": 85.56
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0152,
+          "x": 2.54,
+          "y": -0.19,
+          "z": 85.54
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0203,
+          "x": 2.53,
+          "y": -0.19,
+          "z": 85.52
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0256,
+          "x": 2.52,
+          "y": -0.18,
+          "z": 85.5
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0308,
+          "x": 2.5,
+          "y": -0.16,
+          "z": 85.48
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0358,
+          "x": 2.48,
+          "y": -0.14,
+          "z": 85.46
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0403,
+          "x": 2.46,
+          "y": -0.12,
+          "z": 85.44
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0441,
+          "x": 2.43,
+          "y": -0.12,
+          "z": 85.41
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0471,
+          "x": 2.4,
+          "y": -0.12,
+          "z": 85.39
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0491,
+          "x": 2.37,
+          "y": -0.12,
+          "z": 85.37
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.05,
+          "x": 2.33,
+          "y": -0.13,
+          "z": 85.34
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0497,
+          "x": 2.29,
+          "y": -0.14,
+          "z": 85.32
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0484,
+          "x": 2.26,
+          "y": -0.14,
+          "z": 85.3
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.046,
+          "x": 2.22,
+          "y": -0.15,
+          "z": 85.28
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0426,
+          "x": 2.18,
+          "y": -0.17,
+          "z": 85.26
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0385,
+          "x": 2.14,
+          "y": -0.18,
+          "z": 85.24
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0337,
+          "x": 2.1,
+          "y": -0.19,
+          "z": 85.22
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0286,
+          "x": 2.07,
+          "y": -0.19,
+          "z": 85.2
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0233,
+          "x": 2.03,
+          "y": -0.18,
+          "z": 85.19
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0181,
+          "x": 2,
+          "y": -0.16,
+          "z": 85.17
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0132,
+          "x": 1.97,
+          "y": -0.14,
+          "z": 85.16
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0088,
+          "x": 1.94,
+          "y": -0.12,
+          "z": 85.15
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0051,
+          "x": 1.92,
+          "y": -0.12,
+          "z": 85.14
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0024,
+          "x": 1.9,
+          "y": -0.12,
+          "z": 85.13
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0006,
+          "x": 1.88,
+          "y": -0.13,
+          "z": 85.13
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": 0,
+          "x": 1.87,
+          "y": -0.13,
+          "z": 85.12
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0005,
+          "x": 1.86,
+          "y": -0.14,
+          "z": 85.12
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0021,
+          "x": 1.86,
+          "y": -0.15,
+          "z": 85.12
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0047,
+          "x": 1.86,
+          "y": -0.16,
+          "z": 85.12
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0082,
+          "x": 1.87,
+          "y": -0.17,
+          "z": 85.13
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0125,
+          "x": 1.88,
+          "y": -0.18,
+          "z": 85.13
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0174,
+          "x": 1.89,
+          "y": -0.19,
+          "z": 85.14
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0225,
+          "x": 1.91,
+          "y": -0.19,
+          "z": 85.15
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0278,
+          "x": 1.93,
+          "y": -0.17,
+          "z": 85.16
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.033,
+          "x": 1.96,
+          "y": -0.15,
+          "z": 85.17
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0378,
+          "x": 1.99,
+          "y": -0.13,
+          "z": 85.18
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0421,
+          "x": 2.02,
+          "y": -0.12,
+          "z": 85.2
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0455,
+          "x": 2.06,
+          "y": -0.12,
+          "z": 85.22
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0481,
+          "x": 2.09,
+          "y": -0.12,
+          "z": 85.23
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0496,
+          "x": 2.13,
+          "y": -0.13,
+          "z": 85.25
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.05,
+          "x": 2.17,
+          "y": -0.13,
+          "z": 85.27
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0493,
+          "x": 2.21,
+          "y": -0.14,
+          "z": 85.3
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0474,
+          "x": 2.25,
+          "y": -0.15,
+          "z": 85.32
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0446,
+          "x": 2.29,
+          "y": -0.16,
+          "z": 85.34
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0409,
+          "x": 2.32,
+          "y": -0.17,
+          "z": 85.36
+        }
+      ],
+      "legReports": [
+        {
+          "id": "poolPerformer0",
+          "published": true,
+          "actualChair": true,
+          "counts": {
+            "left": {
+              "thigh": 1,
+              "shin": 2,
+              "foot": 3
+            },
+            "right": {
+              "thigh": 1,
+              "shin": 2,
+              "foot": 3
+            }
+          },
+          "hits": [],
+          "violations": []
+        },
+        {
+          "id": "poolPerformer1",
+          "published": true,
+          "actualChair": true,
+          "counts": {
+            "left": {
+              "thigh": 1,
+              "shin": 2,
+              "foot": 3
+            },
+            "right": {
+              "thigh": 1,
+              "shin": 2,
+              "foot": 3
+            }
+          },
+          "hits": [],
+          "violations": []
+        }
+      ],
+      "pool": {
+        "x0": -7,
+        "x1": 7,
+        "z0": 81,
+        "z1": 89,
+        "y": -0.10000000000000009
+      },
+      "composition": [
+        {
+          "id": "poolPerformer0",
+          "name": "the Bada Bing platinum performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 0,
+            "look": "platinum tied hair"
+          },
+          "pose": "reclined",
+          "motion": "reclined-rest",
+          "headX": 0.2062,
+          "x": 10.6,
+          "y": 1.01,
+          "z": 79.4
+        },
+        {
+          "id": "poolPerformer1",
+          "name": "the Bada Bing black-haired performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 2,
+            "look": "black long hair"
+          },
+          "pose": "reclined",
+          "motion": "reclined-rest",
+          "headX": 0.2211,
+          "x": 10.6,
+          "y": 1.02,
+          "z": 85.8
+        },
+        {
+          "id": "poolPerformer2",
+          "name": "the Bada Bing brunette performer",
+          "identity": {
+            "source": "BADA_BING_PERFORMERS",
+            "index": 1,
+            "look": "brunette long hair"
+          },
+          "pose": "in-water",
+          "motion": "treading",
+          "headX": -0.0368,
+          "x": 2.36,
+          "y": -0.19,
+          "z": 85.38
+        }
+      ]
+    },
+    "dress": {
+      "interactionPose": {
+        "x": 12.35,
+        "y": 1.016,
+        "z": 85.8,
+        "label": "Say hello to the other dancer"
+      },
+      "before": {
+        "position": {
+          "x": 10.6,
+          "y": 1.0157910850804688,
+          "z": 85.8
+        },
+        "yaw": -1.5707963267948963
+      },
+      "active": {
+        "active": true,
+        "focus": {
+          "active": true,
+          "aim": {
+            "yaw": -2.853503826521791,
+            "pitch": -0.61207805036459,
+            "distance": 1.5957545305729686
+          },
+          "marker": {
+            "x": 10.6,
+            "y": 2.86,
+            "z": 84.66
+          },
+          "markerDistance": 0,
+          "targetDistance": 1.6041710525430848,
+          "interactionPaused": true,
+          "playerEnabled": false
+        },
+        "actorStaging": {
+          "active": true,
+          "marker": {
+            "x": 10.48,
+            "y": 0.7365168539325841,
+            "z": 85.8,
+            "pitch": 0,
+            "yaw": -1.3907963267948964,
+            "roll": 0
+          },
+          "markerDistance": 0,
+          "yawError": 0
+        },
+        "playerEnabled": false,
+        "interactionPaused": true,
+        "blocking": [],
+        "performer": {
+          "position": {
+            "x": 10.48,
+            "y": 0.7365168539325841,
+            "z": 85.8
+          },
+          "yaw": -1.3907963267948964
+        }
+      },
+      "abandoned": {
+        "active": false,
+        "playerEnabled": true,
+        "interactionPaused": false,
+        "performer": {
+          "position": {
+            "x": 10.6,
+            "y": 1.0157910850804688,
+            "z": 85.8
+          },
+          "yaw": -1.5707963267948963
+        }
+      },
+      "restarted": {
+        "active": true,
+        "focus": {
+          "active": true,
+          "aim": {
+            "yaw": -2.848960260772134,
+            "pitch": -0.6096213330547889,
+            "distance": 1.6104904954159651
+          },
+          "marker": {
+            "x": 10.6,
+            "y": 2.86,
+            "z": 84.66
+          },
+          "markerDistance": 0,
+          "targetDistance": 1.6130647725948128,
+          "interactionPaused": true,
+          "playerEnabled": false
+        },
+        "actorStaging": {
+          "active": true,
+          "marker": {
+            "x": 10.48,
+            "y": 0.7365168539325841,
+            "z": 85.8,
+            "pitch": 0,
+            "yaw": -1.3907963267948964,
+            "roll": 0
+          },
+          "markerDistance": 0,
+          "yawError": 0
+        }
+      },
+      "done": {
+        "active": false,
+        "helped": true,
+        "hits": 7,
+        "focus": {
+          "active": false,
+          "aim": {
+            "yaw": -2.848960260772134,
+            "pitch": -0.6096213330547889,
+            "distance": 1.6104904954159651
+          },
+          "marker": {
+            "x": 10.6,
+            "y": 2.86,
+            "z": 84.66
+          },
+          "markerDistance": 2.0634921855921826,
+          "targetDistance": 1.3600927880190914,
+          "interactionPaused": false,
+          "playerEnabled": true
+        },
+        "actorStaging": {
+          "active": false,
+          "marker": {
+            "x": 10.48,
+            "y": 0.7365168539325841,
+            "z": 85.8,
+            "pitch": 0,
+            "yaw": -1.3907963267948964,
+            "roll": 0
+          },
+          "markerDistance": 0.3039639718506815,
+          "yawError": 0.17999999999999994
+        },
+        "playerEnabled": true,
+        "interactionPaused": false,
+        "performer": {
+          "position": {
+            "x": 10.6,
+            "y": 1.0157910850804688,
+            "z": 85.8
+          },
+          "yaw": -1.5707963267948963
+        }
+      }
+    }
+  }
+}

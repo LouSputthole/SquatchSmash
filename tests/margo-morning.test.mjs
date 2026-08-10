@@ -34,6 +34,12 @@ test('dress help has a composed kneeling pose and articulated silhouette', () =>
 
   margo.setPose('kneeling');
   assert.equal(margo.pose, 'kneeling');
+  /* The shared actor-stage extraction must be measurement-equivalent to the
+   * established Margo placement; this is the cross-scene reuse contract. */
+  assert.deepEqual(margo.group.position.toArray(), [-2.80, 0.50, -3.02]);
+  assert.ok(Math.abs(margo.group.rotation.x) < 1e-12);
+  assert.ok(Math.abs(margo.group.rotation.y - 1.90) < 1e-12);
+  assert.ok(Math.abs(margo.group.rotation.z) < 1e-12);
   // Knees folded to lay the shins flat, torso down over them: on all fours.
   assert.ok(margo.knees.every((knee) => knee.rotation.x > 1.3));
   assert.ok(margo.upper.rotation.x > 1.3);

@@ -32,6 +32,42 @@ const bingMainSource = readFileSync(new URL('../src/bing/main.js', import.meta.u
 const mansionVerifierSource = readFileSync(new URL('../tools/verify-mansion.mjs', import.meta.url), 'utf8');
 const artManifest = JSON.parse(readFileSync(new URL('../assets/art/manifest.json', import.meta.url), 'utf8'));
 
+test('the canonical Mansion verifier accepts the grounds-owned front guard routes anchor', () => {
+  const grounds = buildMansionGrounds(null);
+  assert.equal(grounds.anchors.frontGuardRoutes, grounds.props.frontGuardRoutes,
+    'the patrol route contract is not the same object published through grounds anchors');
+  assert.equal(grounds.anchors.frontGuardRoutes.length, 3);
+
+  const expectedAnchorBlock = mansionVerifierSource.match(
+    /const EXPECTED_ANCHORS = \[([\s\S]*?)\n  \];/,
+  )?.[1] ?? '';
+  assert.match(expectedAnchorBlock, /'frontGuardRoutes'/,
+    'the canonical exact-anchor allowlist drifted behind the production grounds contract');
+});
+
+test('the canonical Mansion verifier preserves and repeats exact failure details at exit', () => {
+  assert.match(mansionVerifierSource, /results\.push\(\{ name, ok, detail \}\)/,
+    'check() discards the detail before the final failure summary');
+  assert.match(mansionVerifierSource,
+    /for \(const \{ name, detail \} of failed\)[\s\S]*console\.error\(`  FAIL  \$\{name\}/,
+    'the epilogue does not print each failed check and its retained detail');
+});
+
+test('the canonical booth check proves the exact durable caption instead of racing the shared HUD', () => {
+  assert.match(mansionMainSource, /get captions\(\)[\s\S]*captionLog/,
+    'the public cast evidence surface does not expose dispatched captions');
+  const boothContract = mansionVerifierSource.match(
+    /\/\* ---- S12: THE MAN IN THE BOOTH ACTUALLY SPEAKS\.[\s\S]*?\/\* THE CASE IS A THING/,
+  )?.[0] ?? '';
+  assert.match(boothContract, /window\.mansion\.cast\?\.captions/);
+  assert.match(boothContract, /caption\.cue === 'vo\.silentsquatch\.gate\.booth\.stopthere'/);
+  assert.match(boothContract, /caption\.speaker === 'BOOTH'/);
+  assert.match(boothContract, /caption\.speakerName === 'The man on the gate'/);
+  assert.match(boothContract, /caption\.text === 'Stop there\. Name\.'/);
+  assert.doesNotMatch(boothContract, /mission\?\.hud/,
+    'the check still samples whichever controller happens to own the shared bar');
+});
+
 test('all ten owner-authored Mansion photographs are recovered and hung in their original rooms', () => {
   const expected = new Map([
     ['mansion.gallery.roster', 'austin-major-2025-roster.jpg'],
@@ -140,8 +176,21 @@ test('the bedroom pass makes the lower room the Prospect\'s and gives every bed 
   }
   assert.equal(bedrooms.westRear.art.name, 'lake-room-bed-art');
   assert.equal(bedrooms.westRear.art.userData.theme, 'lake');
-  assert.equal(bedrooms.eastRear.identity?.accentPortraits?.length, 2,
-    'Booski and DeathMegatron only have the original pair of portraits');
+  assert.deepEqual(
+    bedrooms.eastRear.identity?.accentPortraits?.map(({ name }) => name),
+    ['booski-death-room-booski-accent'],
+    'the reported DeathMegatron accent picture was not removed cleanly',
+  );
+  assert.equal(interior.root.getObjectByName('booski-death-room-deathmegatron-accent'), undefined,
+    'the modern room still contains the removed DeathMegatron accent');
+  const canonicalSharedRoom = mansionVerifierSource.match(
+    /check\('Booski and DeathMegatron share one physically named bedroom',[\s\S]*?JSON\.stringify\(sharedBedroom\)\);/,
+  )?.[0] ?? '';
+  assert.match(canonicalSharedRoom, /sharedBedroom\.accentPortraits\.length === 1/,
+    'the canonical verifier still requires the intentionally removed duplicate accent');
+  assert.match(canonicalSharedRoom,
+    /sharedBedroom\.accentPortraits\.map\(\(portrait\) => portrait\.name\)\.join\('\|'\)[\s\S]*booski-death-room-booski-accent/,
+    'the canonical verifier does not lock the one accepted Booski accent by name');
   assert.deepEqual(
     bedrooms.westFront.details?.map((piece) => piece.name),
     ['gothic-open-folio-left', 'gothic-open-folio-right', 'gothic-folio-ribbon'],

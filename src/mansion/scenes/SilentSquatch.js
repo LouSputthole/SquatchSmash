@@ -130,6 +130,28 @@ export const CONSOLE_BANKS = Object.freeze([
 /** The keypad code. Booski's, not mine. */
 export const LAB_CODE = '6969';
 
+/**
+ * The Prospect-room bust's authored display position and browser-inspection
+ * contract. The three floor-level views let the Mansion verifier inspect the
+ * whole silhouette from the corridor, the doorway, and the north side rather
+ * than accepting one flattering camera angle.
+ */
+export const PROSPECT_BUST_DISPLAY = Object.freeze({
+  id: 'prospect-room-bust-display',
+  objectName: 'sasquatch-bust',
+  position: Object.freeze({
+    x: SECRET_DOOR.x1 + 1.9,
+    y: CELLAR_Y,
+    z: SECRET_DOOR.z0 - 0.05,
+  }),
+  minimumStructureClearance: 0.12,
+  inspectionViews: Object.freeze([
+    Object.freeze({ id: 'corridor-east', x: SECRET_DOOR.x1 + 4.4, y: CELLAR_Y, z: SECRET_DOOR.z0 + 0.25 }),
+    Object.freeze({ id: 'corridor-north', x: SECRET_DOOR.x1 + 2.3, y: CELLAR_Y, z: SECRET_DOOR.z0 + 2.05 }),
+    Object.freeze({ id: 'doorway', x: SECRET_DOOR.x1 + 0.35, y: CELLAR_Y, z: SECRET_DOOR.z0 + 0.9 }),
+  ]),
+});
+
 /* ================================================================== */
 /* AUDIO CUES                                                          */
 /*                                                                      */
@@ -1114,8 +1136,45 @@ export function buildSilentSquatch({
     const BY = CELLAR_Y;
     const M_WINE = mat({ color: 0x1c3320, roughness: 0.32, metalness: 0.1 });
     const M_WINE_RED = mat({ color: 0x2a1016, roughness: 0.3, metalness: 0.08 });
+    const M_WINE_CORK = mat({ color: 0x9a7749, roughness: 0.94 });
+    const M_WINE_LABELS = Object.freeze([
+      mat({ color: 0xe0d2ad, roughness: 0.92 }),
+      mat({ color: 0xb8954f, roughness: 0.86 }),
+      mat({ color: 0xd7c9bc, roughness: 0.9 }),
+    ]);
     const M_LEATHER = mat({ map: fabricTex('#2a1a18'), roughness: 0.82, unique: true });
     const M_FELT = mat({ color: 0x14432c, roughness: 0.95 });
+
+    /** One complete bottle, authored upright locally and laid into its rack.
+     * The previous prop was one anonymous cylinder: no neck, shoulder, cork,
+     * or label, so forty-eight bottles read as lengths of pipe. Keeping the
+     * same 0.33 m footprint preserves the rack aisle and collider contract. */
+    function rackedWineBottle(x, y, z, glass, label) {
+      const bottle = group('cellar-wine-bottle');
+      bottle.position.set(x, y, z);
+      bottle.rotation.z = Math.PI / 2;
+      bottle.add(cylinder({
+        r: 0.055, h: 0.21, pos: [0, -0.055, 0], mat: glass,
+        name: 'cellar-wine-bottle-body', cast: false,
+      }));
+      bottle.add(cylinder({
+        rBottom: 0.055, rTop: 0.027, h: 0.055, pos: [0, 0.0775, 0], mat: glass,
+        name: 'cellar-wine-bottle-shoulder', cast: false,
+      }));
+      bottle.add(cylinder({
+        r: 0.027, h: 0.045, pos: [0, 0.1275, 0], mat: glass,
+        name: 'cellar-wine-bottle-neck', cast: false,
+      }));
+      bottle.add(cylinder({
+        r: 0.023, h: 0.02, pos: [0, 0.16, 0], mat: M_WINE_CORK,
+        name: 'cellar-wine-bottle-cork', cast: false,
+      }));
+      bottle.add(cylinder({
+        r: 0.057, h: 0.075, pos: [0, -0.055, 0], mat: label,
+        name: 'cellar-wine-bottle-label', cast: false,
+      }));
+      return bottle;
+    }
 
     /* ---- The wine cellar: two racked bays against the stair's stringer. */
     /* z 50.9..54.6, not 51.3..55.4. The first placement left 0.48 m between
@@ -1143,6 +1202,7 @@ export function buildSilentSquatch({
      * cellar with no visible wine. Same footprint, same collider, same
      * bottles; they are just in a rack now instead of in a log. */
     const racks = [];
+    const wineBottles = [];
     for (const [rz, rot] of [[wineZ0 + 0.55, 0], [wineZ1 - 0.55, Math.PI]]) {
       const g = group('wine-rack');
       g.position.set(wineX1 - 0.42, BY, rz);
@@ -1158,14 +1218,16 @@ export function buildSilentSquatch({
           size: [0.56, 0.03, 1.9], pos: [0.02, 0.42 + row * 0.42 - 0.07, 0], mat: M_WOOD_DK, cast: false,
         }));
         for (let col = 0; col < 6; col++) {
-          g.add(cylinder({
-            r: 0.055,
-            h: 0.32,
-            pos: [0.02, 0.42 + row * 0.42, -0.8 + col * 0.32],
-            rotZ: Math.PI / 2,
-            mat: (row + col) % 3 === 0 ? M_WINE_RED : M_WINE,
-            cast: false,
-          }));
+          const variant = row * 6 + col;
+          const bottle = rackedWineBottle(
+            0.02,
+            0.42 + row * 0.42,
+            -0.8 + col * 0.32,
+            (row + col) % 3 === 0 ? M_WINE_RED : M_WINE,
+            M_WINE_LABELS[variant % M_WINE_LABELS.length],
+          );
+          g.add(bottle);
+          wineBottles.push(bottle);
         }
       }
       root.add(g);
@@ -1338,7 +1400,10 @@ export function buildSilentSquatch({
     light(0xffd0a0, 3.0, 7.5, (entX0 + entX1) / 2, BY + 2.15, (entZ0 + entZ1) / 2);
 
     return {
-      wine: { x0: wineX0, x1: wineX1, z0: wineZ0, z1: wineZ1, racks, sign: cellarSign },
+      wine: {
+        x0: wineX0, x1: wineX1, z0: wineZ0, z1: wineZ1,
+        racks, bottles: wineBottles, sign: cellarSign,
+      },
       entertainment: { x0: entX0, x1: entX1, z0: entZ0, z1: entZ1 },
       /** The set in the entertainment area. `main.js` paints the screen; the
        * cellar guard is posted off `at` so he faces the thing he watches. */
@@ -1475,7 +1540,7 @@ export function buildSilentSquatch({
      * Tucked against the wall stub south of the opening so it never stands
      * in the doorway. `prop` rather than `solid`: it is furniture, and its
      * top is nowhere near a floor datum. */
-    /* PULLED OUT FROM THE WALL, PAST THE TROPHY HEAD IT WAS STANDING IN.
+    /* PULLED CLEAR OF THE WALL, THE RED PIER, AND THE TROPHY HEAD.
      *
      * Owner playtest 2026-08-06: "a large statue has a smaller statue
      * clipped into its front corner." Measured on the built scene: the
@@ -1487,12 +1552,15 @@ export function buildSilentSquatch({
      * the bust is the freestanding one of the pair -- the trophy has to stay
      * flush on the wall it is mounted to -- so it is the one that moves.
      *
-     * At `d.x1 + 1.0` the marble's near face is x -14.88, 218 mm clear of
-     * the trophy's x -15.098, and the switch beneath it (below) is still
-     * reachable from the same spot in the corridor it always was. */
-    const bustX = d.x1 + 1.0;
-    const bustZ = d.z0 - 0.5;
+     * Pulling it only to `d.x1 + 1.0` fixed that trophy overlap but put its
+     * visible Box3 0.430 x 1.730 x 0.330 m inside the cellar hall's red brick
+     * pier, while its back still crossed the south wall finish. The display
+     * contract below moves it forward into the room on both axes: its whole
+     * silhouette is now clear of the pier and wall from every inspection
+     * angle, and the centre of the 2 m secret-door lane remains unobstructed. */
+    const { x: bustX, z: bustZ } = PROSPECT_BUST_DISPLAY.position;
     const plinth = group('sasquatch-bust');
+    plinth.userData.displayId = PROSPECT_BUST_DISPLAY.id;
     plinth.position.set(bustX, CELLAR_Y, bustZ);
     root.add(plinth);
     plinth.add(box({ size: [0.56, 0.06, 0.56], pos: [0, 0.03, 0], mat: M_MARBLE_WHITE }));
@@ -1544,8 +1612,8 @@ export function buildSilentSquatch({
     switchTarget.material.depthWrite = false;
     plinth.add(switchTarget);
 
-    // A lamp over the display, so the wall reads as a display.
-    light(0xffd8a8, 3.6, 7, d.x1 + 0.5, CELLAR_Y + 2.2, pz);
+    // A lamp over the display, so the newly freestanding silhouette reads.
+    light(0xffd8a8, 3.6, 7, bustX, CELLAR_Y + 2.2, bustZ);
 
     // The mechanism, visible only once the wall is out of the way: rails in
     // the floor and the ceiling of the landing, and a hydraulic ram.
@@ -5629,9 +5697,7 @@ export function buildSilentSquatch({
       z: STAIRWELL.z1 - 0.35,
       r: 0.8,
     },
-    bust: {
-      x: SECRET_DOOR.x1 + 0.95, y: CELLAR_Y, z: SECRET_DOOR.z0 - 0.5,
-    },
+    bust: { ...PROSPECT_BUST_DISPLAY.position },
     doorway: {
       x: (SECRET_DOOR.x0 + SECRET_DOOR.x1) / 2, y: CELLAR_Y, z: (SECRET_DOOR.z0 + SECRET_DOOR.z1) / 2,
     },
@@ -5682,6 +5748,10 @@ export function buildSilentSquatch({
       rect: { ...SECRET_DOOR },
       panel: hiddenWall.panel,
       bust: hiddenWall.plinth,
+      bustDisplay: {
+        ...PROSPECT_BUST_DISPLAY,
+        object: hiddenWall.plinth,
+      },
       switchTarget: hiddenWall.switchTarget,
     },
 
@@ -5877,6 +5947,16 @@ export function buildSilentSquatch({
         x0: innocent.wine.x0, x1: innocent.wine.x1, z0: innocent.wine.z0, z1: innocent.wine.z1,
       },
       entertainment: { ...innocent.entertainment },
+    },
+    /** Innocent-basement display objects exposed from the built graph for the
+     * walkthrough verifier. These are live groups, not copied dimensions. */
+    innocent: {
+      wine: {
+        racks: innocent.wine.racks,
+        bottles: innocent.wine.bottles,
+        sign: innocent.wine.sign,
+      },
+      tv: innocent.tv,
     },
     datums: { CELLAR_Y, LAB_Y, LAB_FLOOR, LAB_CEIL, LANDING_CEIL },
     code: LAB_CODE,
