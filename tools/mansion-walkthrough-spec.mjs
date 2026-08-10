@@ -23,7 +23,7 @@ export const MANSION_WALKTHROUGH_COVERAGE = Object.freeze([
     section: 2,
     area: 'Global NPC voice-line policy',
     checks: [
-      'Rippin, Eric, and Sauce publish real-body speech positions; Kate is explicitly catalogued unavailable',
+      'Rippin, Eric, and Sauce publish real-body speech positions',
       'each present proximity speaker is audible nearby and rejected by distance and floor separation',
       'a real nearby bark commits the shared cooldown and remains positional',
       'an actual Mansion wall produces an occluded speech result',
@@ -180,8 +180,8 @@ export const MANSION_WALKTHROUGH_COVERAGE = Object.freeze([
     area: 'Character voice content',
     checks: [
       'Sauce and Eric publish authored Mansion ambient/proximity cues',
-      'Kate is explicitly unavailable because no Mansion identity is catalogued, never substituted',
-      'all present speakers use the same non-global proximity policy',
+      'the ambient ledger contains exactly the present, catalogued Sauce and Eric characters',
+      'Sauce and Eric use the same non-global proximity policy',
     ],
     views: ['sauce-post', 'eric-post'],
   },

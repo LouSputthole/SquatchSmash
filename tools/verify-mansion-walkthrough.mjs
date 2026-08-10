@@ -1632,13 +1632,6 @@ try {
     speechAudit.cooldown?.heard === true && speechAudit.cooldown?.remaining > 0,
     JSON.stringify(speechAudit.cooldown));
 
-  const kateLedger = Array.isArray(speechAudit.authored)
-    ? speechAudit.authored.find(({ id }) => id === 'kate') : null;
-  check(2, 'Kate is explicitly catalogued unavailable and has no substituted body',
-    kateLedger?.present === false && kateLedger?.count === 0
-      && kateLedger?.reason === 'identity-not-catalogued',
-    JSON.stringify(kateLedger));
-
   const authoredFor = (id) => {
     const source = speechAudit.authored;
     if (!source) return null;
@@ -1652,21 +1645,25 @@ try {
     if (Number.isFinite(value.count)) return value.count;
     return 0;
   };
-  const voiceCounts = Object.fromEntries(['sauce', 'eric'].map((id) => [id, authoredFor(id)]));
+  const ambientIds = ['sauce', 'eric'];
+  const ambientLedger = Array.isArray(speechAudit.authored) ? speechAudit.authored : [];
+  const voiceCounts = Object.fromEntries(ambientIds.map((id) => [id, authoredFor(id)]));
   check(20, 'Sauce and Eric publish authored Mansion ambient cue coverage',
     Object.values(voiceCounts).every((count) => Number.isFinite(count) && count > 0),
     JSON.stringify({ voiceCounts, authored: speechAudit.authored }));
-  check(20, 'present ambient speakers use the same proximity policy',
-    ['sauce', 'eric'].every((id) => {
+  check(20, 'Sauce and Eric are the complete present real-character ambient ledger',
+    ambientLedger.length === ambientIds.length
+      && new Set(ambientLedger.map(({ id }) => id)).size === ambientIds.length
+      && ambientIds.every((id) => {
+        const entry = ambientLedger.find((candidate) => candidate?.id === id);
+        return entry?.present === true && Array.isArray(entry.cues)
+          && entry.cues.length > 0 && entry.count === entry.cues.length;
+      }), JSON.stringify(ambientLedger));
+  check(20, 'Sauce and Eric use the same proximity policy',
+    ambientIds.every((id) => {
       const entry = speechAudit.speakers[id];
       return entry?.near?.result?.allowed && entry?.far?.reason === 'distance' && entry?.floor?.reason === 'floor';
     }), JSON.stringify(speechAudit.speakers));
-  if (kateLedger?.present === false && kateLedger?.reason === 'identity-not-catalogued') {
-    blocked(20, 'Kate Mansion ambient content is unavailable', kateLedger.reason);
-  } else {
-    check(20, 'Kate Mansion ambient content blocker is truthful', false,
-      JSON.stringify(kateLedger));
-  }
 
   const beforeFinalFrame = await page.evaluate(() => window.mansion.framesRendered);
   await page.evaluate(() => window.mansion.setRendering(true));

@@ -14,6 +14,7 @@ const { mountMansionCast, MANSION_CAST_CUE_NAMES } = await import('../src/mansio
 const { mountSilentSquatch } = await import('../src/mansion/mission/mount.js');
 const { buildMansionGrounds } = await import('../src/mansion/scenes/MansionGrounds.js');
 const { buildSilentSquatch } = await import('../src/mansion/scenes/SilentSquatch.js');
+const { MANSION_WALKTHROUGH_COVERAGE } = await import('../tools/mansion-walkthrough-spec.mjs');
 
 function point(x, y, z) {
   return { x, y, z };
@@ -225,7 +226,7 @@ test('Mansion cast barks commit the shared cooldown and play from the speaker bo
   ) < 0.01, 'the panner is not attached to Numbskull\'s body');
 });
 
-test('Sauce and Eric reuse delivered authored lines only at their real bodies while Kate stays explicitly uncast', () => {
+test('Sauce and Eric are the complete real-character Mansion ambient ledger', () => {
   const scene = new THREE.Scene();
   const grounds = buildMansionGrounds(null);
   scene.add(grounds.root);
@@ -266,10 +267,6 @@ test('Sauce and Eric reuse delivered authored lines only at their real bodies wh
       ],
       count: 2,
     },
-    {
-      id: 'kate', present: false, cues: [], count: 0,
-      reason: 'identity-not-catalogued',
-    },
   ]);
   assert.ok(MANSION_CAST_CUE_NAMES.includes('vo.bing.full.sauce.open.line.ggzxjv'),
     'the reused recorded Sauce take is not resident at Mansion boot');
@@ -308,6 +305,118 @@ test('Sauce and Eric reuse delivered authored lines only at their real bodies wh
   assert.ok(ericLine.options?.position?.distanceTo(eric) < 0.01,
     'Eric audio is not attached to Eric');
   assert.equal(gate.debug.heard('eric'), true);
+});
+
+test('walkthrough voice requirements pass on Sauce and Eric without inventing a content blocker', () => {
+  const section2 = MANSION_WALKTHROUGH_COVERAGE.find(({ section }) => section === 2);
+  const section20 = MANSION_WALKTHROUGH_COVERAGE.find(({ section }) => section === 20);
+  const requirements = [...section2.checks, ...section20.checks].join('\n');
+  const verifier = fs.readFileSync(new URL('../tools/verify-mansion-walkthrough.mjs', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(requirements, /\bkate\b/i);
+  assert.deepEqual(section20.views, ['sauce-post', 'eric-post']);
+  assert.match(requirements, /Sauce and Eric/);
+  assert.doesNotMatch(verifier, /\bkateLedger\b|Kate Mansion|Kate is explicitly/i);
+  assert.doesNotMatch(verifier, /blocked\(20,/);
+  assert.match(verifier, /check\(20, 'Sauce and Eric/);
+});
+
+test('the mounted mission owns Eric arrival and idle speech without a cast replay after cooldown', () => {
+  const built = buildSilentSquatch();
+  const scene = new THREE.Scene();
+  scene.add(built.root);
+  const grounds = buildMansionGrounds(null);
+  scene.add(grounds.root);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+  const player = { eyeHeight: 1.66, position: new THREE.Vector3(999, 1.66, 999) };
+  const anchors = {
+    ...grounds.anchors,
+    diningTable: point(-12.5, 0, 66),
+  };
+  const played = [];
+  let cast = null;
+  const gate = createNpcSpeechGate({
+    listener: () => point(
+      player.position.x,
+      player.position.y - player.eyeHeight,
+      player.position.z,
+    ),
+    speaker: (id) => cast?.people?.[id]?.group?.position ?? null,
+    blockers: () => [],
+    cooldown: 12,
+  });
+  const audio = {
+    hasSample: () => true,
+    play(name, options) { played.push({ name, options }); return null; },
+    sampleDuration: () => 0.05,
+  };
+  const hud = {
+    setObjective() {}, setInstruction() {}, setCallout() {},
+    showLine() {}, hideLine() {}, setKeypad() {}, setKeypadDigits() {},
+    text: () => ({}),
+  };
+
+  const mounted = mountSilentSquatch({
+    THREE,
+    scene,
+    camera,
+    player,
+    lab: built.lab,
+    anchors,
+    speechGate: gate,
+    audio,
+    missionHud: hud,
+  });
+  cast = mountMansionCast(scene, { colliders: [] }, {
+    player,
+    anchors,
+    pool: grounds.props.poolPatio,
+    speechGate: gate,
+    audio,
+    hud,
+  });
+
+  const eric = cast.people.eric.group.position;
+  player.position.set(eric.x, eric.y + player.eyeHeight, eric.z + 1.5);
+  const tick = () => {
+    const dt = 1 / 60;
+    gate.update(dt);
+    mounted.update(dt);
+    cast.update(dt);
+  };
+
+  const arrivalCue = 'vo.silentsquatch.arrival.eric.mood';
+  const idleCue = 'vo.silentsquatch.arrival.eric.dontsitdown';
+  const missionCueCount = (cue) => mounted.mission.report().cues
+    .filter((playedCue) => playedCue === cue).length;
+
+  /* The mission's second-pass rotation waits for eighteen seconds of silence.
+   * Stay at the actual mounted body until that public mission ledger records
+   * Eric's idle line, rather than stopping after only the arrival cooldown. */
+  for (let frame = 0; frame < 30 * 60 && missionCueCount(idleCue) === 0; frame++) {
+    tick();
+  }
+  assert.equal(missionCueCount(idleCue), 1,
+    'the real mounted mission never delivered Eric\'s authored idle line');
+
+  /* Keep him in range for one complete cooldown after the idle commit. This
+   * is the window in which a cast controller that failed to synchronize its
+   * arrival/idle ownership would replay either authored line. */
+  for (let frame = 0; frame <= 12 * 60; frame++) tick();
+
+  assert.equal(mounted.mission.barked.has('eric'), true,
+    'the player never entered the real mounted Eric mission zone');
+  for (const cue of [arrivalCue, idleCue]) {
+    assert.equal(missionCueCount(cue), 1,
+      `the mission did not own exactly one ${cue} delivery`);
+    assert.equal(played.filter(({ name }) => name === cue).length, 1,
+      `Eric replayed ${cue} after the shared 12-second cooldown`);
+  }
+  assert.deepEqual(
+    cast.dialogue.cueLog.filter((cue) => cue === arrivalCue || cue === idleCue),
+    [],
+    'the cast controller still claimed an Eric line after the mission committed it',
+  );
 });
 
 test('the production mission mount gates room anchors on real bodies and spatializes their cues', () => {

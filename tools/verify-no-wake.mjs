@@ -31,6 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { NO_WAKE_CABIN_SCRIPT, allNoWakeVoiceLines } from '../src/nowake/dialogue.js';
 import { isNoWakeAudioPreloadCue } from '../src/nowake/audio.js';
 import { CABIN, CABIN_STAGING, DECK } from '../src/nowake/deck-collision.js';
+import { buildNoWakeAudioLedger } from './no-wake-audio-ledger.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CABIN_HEIGHT = CABIN.height;
@@ -116,20 +117,22 @@ check(`all ${AUTHORED_LINE_COUNT} redesigned NO WAKE lines have stable cue ids, 
     }),
   JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
 
-/* The redesign rewrote every line in the mission, so the whole bank is owed.
- * This list is a statement about what is still outstanding: a line that gets
- * recorded has to come out of it, and a line authored later has to go in, or
- * the sheet stops being the thing the owner records from (engine trap #3). */
+/* The recording sheet is generated from the manifest and index. The verifier
+ * derives delivery from those same files so a landed take cannot remain
+ * hard-coded as "owed" here (engine trap #3). */
 const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
-const expectedNoWakePickups = authoredVoice.map((line) => `vo.nowake.${line.cue}.1.mp3`).sort();
-const noWakePickupFiles = authoredVoice
-  .map((line) => `vo.nowake.${line.cue}.1.mp3`)
-  .filter((file) => recordingSheet.includes(`\`${file}\``))
-  .sort();
-check(`the recording sheet still owes every one of the ${AUTHORED_LINE_COUNT} redesigned lines`,
-  JSON.stringify(noWakePickupFiles) === JSON.stringify(expectedNoWakePickups)
-    && authoredVoice.every((line) => !indexedFiles.has(`vo.nowake.${line.cue}.1.mp3`)),
-  JSON.stringify({ owed: noWakePickupFiles.length, expected: expectedNoWakePickups.length }));
+const voiceLedger = buildNoWakeAudioLedger({
+  authoredVoice,
+  soundIndex,
+  recordingSheet,
+});
+check(`all ${AUTHORED_LINE_COUNT} redesigned NO WAKE voice files are delivered and absent from the recording sheet`,
+  voiceLedger.missingVoiceFiles.length === 0
+    && voiceLedger.recordingSheetVoiceFiles.length === 0,
+  JSON.stringify({
+    missing: voiceLedger.missingVoiceFiles.length,
+    listed: voiceLedger.recordingSheetVoiceFiles.length,
+  }));
 
 /* A reworded line must not inherit a delivered take of different words. The old
  * build shipped `vo.nowake.cruise.willy.motel.1.mp3`; the redesign's equivalent
@@ -201,9 +204,10 @@ try {
   const expectedResidentNames = selectedNoWakeCues
     .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
     .map((cue) => cue.name).sort();
-  const pendingNoWakeNames = selectedNoWakeCues
-    .filter((cue) => !indexedFiles.has(cue.file || `${cue.name}.mp3`))
-    .map((cue) => cue.name).sort();
+  const pendingNoWakeNames = buildNoWakeAudioLedger({
+    soundIndex,
+    selectedCues: selectedNoWakeCues,
+  }).pendingSelectedNames;
   await page.evaluate(() => window.NO_WAKE.postfx?.disable?.());
 
   /* A trusted browser gesture, aimed with coordinates rather than a locator: a
@@ -254,18 +258,12 @@ try {
       && residency.missing.length === 0 && residency.unexpected.length === 0,
     JSON.stringify({ ...residency, selected: selectedNoWakeCues.length, pending: pendingNoWakeNames.length }));
 
-  /* Five effects were authored with the redesign and none is recorded yet: the
-   * inlet bed, the throttle blip, the water on the hull heard from the cabin,
-   * the bag closing and the ballast. Everything else this boat asks for is on
-   * disk. An approved-pending list is a statement about what is owed. */
-  const expectedPendingNoWakeNames = [
-    'ambience.ocean.night', 'boat.bag.zip', 'boat.ballast.chain',
-    'boat.engine.rev', 'water.lap.hull',
-    ...authoredVoice.map((line) => `vo.nowake.${line.cue}.1`),
-  ].sort();
-  check('only the approved NO WAKE production pickups remain pending',
-    JSON.stringify(pendingNoWakeNames) === JSON.stringify(expectedPendingNoWakeNames),
-    JSON.stringify({ pending: pendingNoWakeNames.length, expected: expectedPendingNoWakeNames.length }));
+  /* Delivery is derived from the manifest-selected residency plan and the
+   * index. A release verifier must fail when any selected cue lacks its file;
+   * it must never carry a hand-maintained exception list after delivery. */
+  check('every selected NO WAKE production cue has a delivered indexed file',
+    pendingNoWakeNames.length === 0,
+    JSON.stringify({ pending: pendingNoWakeNames }));
 
   const inventory = await page.evaluate(() => ({
     visible: Boolean(document.querySelector('#hotbar'))

@@ -14,19 +14,12 @@ const index = JSON.parse(fs.readFileSync(new URL('../assets/sfx/index.json', imp
 const available = new Set(index.files || []);
 const recorded = (manifest.sfx || [])
   .filter((cue) => available.has(cue.file || `${cue.name}.mp3`));
-/**
- * Scene voice banks that legitimately have nothing recorded yet.
- *
- * The whole of NO WAKE's script was rewritten for the redesign
- * (`docs/NO-WAKE-REDESIGN.md`), so its 37 lines are all new cues awaiting
- * takes. The assertions below still have to hold -- an unrecorded bank must
- * not leak into the Apartment either -- but "this bank has at least one
- * delivered take" is a statement about delivery, not about isolation, and it
- * is false for this scene until the voice run happens.
- *
- * EMPTY THIS ONCE THE TAKES LAND.
- */
-const SCENE_BANKS_AWAITING_RECORDING = new Set(['vo.nowake.']);
+
+function recordedSceneBank(prefix, catalog = recorded) {
+  const bank = catalog.filter((cue) => cue.name.startsWith(prefix));
+  assert.ok(bank.length > 0, `${prefix} must name a recorded standalone-scene bank`);
+  return bank;
+}
 
 const golfOnlyEffectNames = new Set([
   'ambience.course',
@@ -203,10 +196,7 @@ test('standalone mission banks stay out while apartment heist cleanup remains re
   ];
 
   for (const prefix of missionVoicePrefixes) {
-    const bank = recorded.filter((cue) => cue.name.startsWith(prefix));
-    if (!SCENE_BANKS_AWAITING_RECORDING.has(prefix)) {
-      assert.ok(bank.length > 0, `${prefix} must name a recorded standalone-scene bank`);
-    }
+    const bank = recordedSceneBank(prefix);
     assert.ok(!apartmentRuntimeSource.includes(prefix), `${prefix} is referenced by Apartment runtime source`);
     assert.ok(bank.every((cue) => !isApartmentPreloadCue(cue)), `${prefix} leaked into Apartment`);
   }
@@ -227,6 +217,13 @@ test('standalone mission banks stay out while apartment heist cleanup remains re
     'Silver Pines effects leaked into Apartment');
 });
 
+test('the delivered NO WAKE bank cannot be exempted from source checks', () => {
+  assert.throws(
+    () => recordedSceneBank('vo.nowake.', []),
+    /vo\.nowake\. must name a recorded standalone-scene bank/,
+  );
+});
+
 test('shared non-voice recordings stay available while scene-only banks stay out', () => {
   const nonVoice = recorded.filter((cue) => !cue.name.startsWith('vo.')
     && (!cue.name.startsWith('heist.') || cue.name.startsWith('heist.apartment.'))
@@ -241,10 +238,7 @@ test('shared non-voice recordings stay available while scene-only banks stay out
   assert.ok(nonVoice.length > 100);
   assert.ok(nonVoice.every(isApartmentPreloadCue));
   for (const prefix of excludedPrefixes) {
-    const bank = recorded.filter((cue) => cue.name.startsWith(prefix));
-    if (!SCENE_BANKS_AWAITING_RECORDING.has(prefix)) {
-      assert.ok(bank.length > 0, `${prefix} must name a real recorded scene bank`);
-    }
+    const bank = recordedSceneBank(prefix);
     assert.ok(!apartmentRuntimeSource.includes(prefix), `${prefix} is referenced by Apartment runtime source`);
     assert.ok(bank.every((cue) => !isApartmentPreloadCue(cue)), `${prefix} leaked into Apartment`);
   }
