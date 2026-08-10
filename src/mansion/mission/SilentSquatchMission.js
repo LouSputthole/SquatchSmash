@@ -123,6 +123,12 @@ class SilentSquatchMission {
    *   (see `VOICE_GAIN` in ../script.js) and is 1 for everybody without a row.
    * @param {Function} [opts.onCase]    'carry' | 'desk' | 'open' | 'close' | 'slide' | 'table' | 'gone'
    * @param {Function} [opts.onBeat]    (state, beatNumber) whenever a beat starts
+   * @param {Function} [opts.canEnterZone] optional organic trigger gate. It is
+   *   called after the player's feet enter a zone but before its one-shot id is
+   *   consumed. Direct `arrive(id)` calls remain explicit stage/debug commands.
+   * @param {Function} [opts.canIdleBark] `(speakerId) => boolean`.
+   * @param {Function} [opts.onNpcBark] `(speakerId, kind)` after a zone or idle
+   *   bark is actually committed to the dialogue floor.
    */
   constructor({
     lab,
@@ -138,6 +144,9 @@ class SilentSquatchMission {
      * The mission has no idea what a weapon is; see `sidearm.give`. */
     onSidearm = null,
     onBeat = null,
+    canEnterZone = null,
+    canIdleBark = null,
+    onNpcBark = null,
   } = {}) {
     if (!lab) throw new TypeError('the Silent Squatch mission needs a lab');
     this.lab = lab;
@@ -152,6 +161,9 @@ class SilentSquatchMission {
     this.onCase = onCase ?? noop;
     this.onSidearm = onSidearm ?? noop;
     this.onBeat = onBeat ?? noop;
+    this.canEnterZone = canEnterZone;
+    this.canIdleBark = canIdleBark;
+    this.onNpcBark = onNpcBark;
 
     this.dialogue = new DialogueController({
       onLine,
@@ -608,7 +620,7 @@ class SilentSquatchMission {
      */
     const body = index === undefined ? null : this.lab.scientists?.[index];
     if (body?.say) return body.say(cue, { volume, dry: true }) || 0;
-    return playCue?.(cue, voice, gain) || 0;
+    return playCue?.(cue, voice, gain, line) || 0;
   }
 
   /** Stage directions written into the script. The lab ones are performed
@@ -699,7 +711,14 @@ class SilentSquatchMission {
         if (Math.abs(py - zone.y) > verticalTolerance) continue;
       }
       const r = zone.r ?? 2.5;
-      if ((px - zone.x) ** 2 + (pz - zone.z) ** 2 <= r * r) this.arrive(id);
+      if ((px - zone.x) ** 2 + (pz - zone.z) ** 2 > r * r) continue;
+      /* A room anchor says the player reached the room. It does not prove the
+       * PERSON whose line this is can hear him: Rippin stands 2.93 m off his
+       * lounge anchor, and the old 3.2 m cylinder therefore fired more than
+       * six metres from his body. A refused organic entry is not consumed, so
+       * walking up to the real speaker can still get the line. */
+      if (this.canEnterZone?.(id, position, zone) === false) continue;
+      this.arrive(id);
     }
   }
 
@@ -708,6 +727,7 @@ class SilentSquatchMission {
     if (this.barked.has(key)) return;
     this.barked.add(key);
     this.dialogue.interject(sequence);
+    this.onNpcBark?.(key, 'arrival');
   }
 
   #onZone(zoneId) {
@@ -1102,9 +1122,31 @@ class SilentSquatchMission {
   /** Beat 1's second pass — the men who have not said their line yet say it
    * if he stands around, so the house is never silent at him. */
   #idleBarks(dt) {
-    this.#stalls(dt, 18, [
-      SEQUENCES.rippinIdle, SEQUENCES.ericIdle, SEQUENCES.shubesIdle, SEQUENCES.snowIdle,
-    ]);
+    if (this.dialogue.busy) { this.stall = 0; return; }
+    this.stall += dt;
+    if (this.stall < 18) return;
+    const candidates = [
+      ['rippin', SEQUENCES.rippinIdle],
+      ['eric', SEQUENCES.ericIdle],
+      ['shubes', SEQUENCES.shubesIdle],
+      ['snow', SEQUENCES.snowIdle],
+    ];
+    /* The old loop chose a voice globally every eighteen seconds. A player in
+     * the drive therefore heard Rippin in the lounge, then Eric upstairs, at
+     * full level. Keep the authored rotation, but put a line down only for a
+     * real speaker the shared Mansion gate says is audible now. Leave the
+     * timer charged when nobody is: approaching somebody should make the
+     * house responsive, not impose a fresh eighteen-second wait. */
+    for (let offset = 0; offset < candidates.length; offset++) {
+      const index = (this.stallIndex + offset) % candidates.length;
+      const [speakerId, sequence] = candidates[index];
+      if (this.canIdleBark?.(speakerId) === false) continue;
+      this.stall = 0;
+      this.stallIndex += offset + 1;
+      this.dialogue.interject(sequence);
+      this.onNpcBark?.(speakerId, 'idle');
+      return;
+    }
   }
 
   /**

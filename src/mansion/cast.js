@@ -102,7 +102,7 @@
  */
 import * as THREE from 'three';
 import { Npc, BADA_BING_PERFORMERS } from '../bing/cast.js';
-import { FAMILY } from '../bing/family.js';
+import { FAMILY, buildFamilyScripts } from '../bing/family.js';
 import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
 } from '../bing/license-to-grill-runtime.js';
@@ -115,7 +115,10 @@ import { CHARACTER_IDS } from '../core/campaign.js';
 import { TimingBar } from '../core/timingbar.js';
 import { box, cylinder, group, mat } from '../world/build.js';
 import { createDressHelpSequence } from '../world/dress-help.js';
+import { createDressHelpFocus } from '../world/dress-help-focus.js';
+import { createDressHelpActorStaging } from '../world/dress-help-staging.js';
 import { mountLilTomCruze } from './dog.js';
+import { createPoolTreadingMotion, createSeatedPerformerMotion } from './performer-motion.js';
 import { DialogueController } from './mission/DialogueController.js';
 import { createMissionHud } from './mission/hud.js';
 
@@ -157,22 +160,32 @@ import { INSTRUCTIONS, SEQUENCES } from './script.js';
 /* centimetres off a floor he is standing on; an import that cannot run    */
 /* headless takes the whole module with it.                               */
 /* ================================================================== */
+const sauceOpen = buildFamilyScripts()[CHARACTER_IDS.SAUCE]?.open ?? null;
+const authoredValue = (value) => (typeof value === 'function' ? value() : value);
+const SAUCE_MANSION_BARK = Object.freeze([Object.freeze({
+  speaker: 'SAUCE',
+  text: authoredValue(sauceOpen?.line),
+  cue: authoredValue(sauceOpen?.cue),
+  hold: sauceOpen?.hold ?? 5.8,
+})]);
+
+const ERIC_MANSION_AMBIENT_CUES = Object.freeze([
+  ...SEQUENCES.ericTable,
+  ...SEQUENCES.ericIdle,
+].map((line) => line?.cue).filter(Boolean));
+
 /**
- * Sound effects this module plays that are not dialogue and not the
- * armoury's -- the torture cord's handoff, swing and impact. `main.js`'s
- * `audio.loadManifest()` call scopes to `vo.silentsquatch.` plus
- * `weaponCueNames()`/`silentSquatchCueNames()`, which is every OTHER sound
- * this scene makes but not these three: they are recorded (see
- * assets/sfx/manifest.json) and were falling through to the procedural synth
- * because nothing ever asked for them by name, the same class of gap the
- * mansion's voice lines had before the 2026-08-06 fix above. Named here,
- * beside the three `audio.play()` call sites that use them, rather than
- * typed a second time at the loader.
+ * Recorded cast-owned cues outside the Mansion's `vo.silentsquatch.` boot
+ * prefix. The cord trio are local effects; Sauce's one safe Mansion bark is
+ * the existing authored Bing opener, not a newly invented line. Keeping that
+ * exact generated cue here makes it resident before the proximity gate asks
+ * `AudioEngine.play()` for it.
  */
 export const MANSION_CAST_CUE_NAMES = Object.freeze([
   'bing.grill.cord.handoff',
   'bing.grill.cord.swing',
   'bing.grill.cord.whip',
+  SAUCE_MANSION_BARK[0].cue,
 ]);
 
 /** The podium the house stands on. */
@@ -622,6 +635,11 @@ export function mountMansionCast(scene, world = {}, {
   /** `interior.props.theatre` — its real recliners and screen. */
   theatre = null,
   hud = null,
+  /** Shared real-body distance/floor/wall/cooldown policy from main.js. */
+  speechGate = null,
+  /** `(speakerId) => Box3[] | Set<Box3> | null`. Exact fixture blockers a
+   * speaker owns and may project through; all unrelated LOS stays intact. */
+  speechOcclusionExceptions = null,
   hasCase = null,
   /**
    * Told when Gratin hands the cord over, and when it goes back.
@@ -678,11 +696,21 @@ export function mountMansionCast(scene, world = {}, {
     onLine: (line) => { screen?.showLine?.(line); },
     onLineEnd: () => screen?.hideLine?.(),
     onStage: (stageName) => { stages.push(stageName); },
-    playCue: (cue) => {
+    playCue: (cue, _voice, line) => {
       /* Cue names are data, never a literal at a call site: none of this
        * scene's voice cues have recordings yet, so this is silence plus a
        * subtitle until they land and needs no code change when they do. */
-      if (cue && audio?.hasSample?.(cue)) audio.play(cue);
+      if (!cue || !audio?.hasSample?.(cue)) return;
+      const mouth = speakerFor(line?.speaker);
+      const source = mouth?.group ?? mouth?.root ?? null;
+      const position = source?.getWorldPosition?.(new THREE.Vector3())
+        ?? source?.position
+        ?? null;
+      audio.play(cue, position ? {
+        position,
+        ref: 1.2,
+        maxDist: 14,
+      } : undefined);
     },
   });
   const stages = [];
@@ -756,8 +784,11 @@ export function mountMansionCast(scene, world = {}, {
   /* Off the centre line so he is beside the doorway rather than in it, and a
    * metre north of the anchor, which is the top tread — that puts him on the
    * portico slab. Derived from the anchor rather than typed, so he moves with
-   * the facade if it moves again. */
-  const gateAt = { x: doorPost.x + 2.4, y: doorPost.y ?? GROUND_Y, z: doorPost.z + 1.15 };
+   * the facade if it moves again.
+   *
+   * QA correction: the old +1.15 offset buried 30 cm of his back in the
+   * glazing. +0.75 retains the top-tread position with clear air behind him. */
+  const gateAt = { x: doorPost.x + 2.4, y: doorPost.y ?? GROUND_Y, z: doorPost.z + 0.75 };
   post('gateMan', {
     name: 'the man on the door',
     model: MANSION_DOOR_MAN,
@@ -826,7 +857,14 @@ export function mountMansionCast(scene, world = {}, {
   const PERIMETER_BARKS = [
     SEQUENCES.guardPathBark, SEQUENCES.guardCameraBark, SEQUENCES.guardLapBark,
   ];
-  PATROL_ROUTES.forEach((route, i) => {
+  /* The grounds publish the live routes beside the geometry they avoid. The
+   * legacy constant remains only as a fallback for isolated cast fixtures
+   * that intentionally mount without MansionGrounds. */
+  const perimeterRoutes = Array.isArray(anchors?.frontGuardRoutes)
+    && anchors.frontGuardRoutes.length === PATROL_ROUTES.length
+    ? anchors.frontGuardRoutes
+    : PATROL_ROUTES;
+  perimeterRoutes.forEach((route, i) => {
     post(`patrol${i}`, {
       name: 'a guard',
       model: MANSION_GUARDS[i],
@@ -1249,6 +1287,8 @@ export function mountMansionCast(scene, world = {}, {
     y: ericAt.y,
     z: ericAt.z,
     yaw: yawToward(ericAt.x, ericAt.z, dining.x, dining.z),
+    bark: SEQUENCES.ericTable,
+    idle: SEQUENCES.ericIdle,
     look: 'Eric, at a table nobody has eaten at.',
   });
 
@@ -1418,6 +1458,7 @@ export function mountMansionCast(scene, world = {}, {
     y: ballroom.y,
     z: ballroom.z + 1.2,
     yaw: yawToward(ballroom.x + 6.4, ballroom.z + 1.2, ballroom.x, ballroom.z),
+    bark: SAUCE_MANSION_BARK,
     look: 'Sauce, checking a buffet that nobody asked him to check.',
   });
 
@@ -1533,6 +1574,7 @@ export function mountMansionCast(scene, world = {}, {
   /* than guessed: `heightScale` is not known until `makePerson` has run.      */
   /* ================================================================ */
   const tubSeats = suite?.tubSeats ?? [];
+  const suitePerformers = [];
   tubSeats.slice(0, 2).forEach((seat, i) => {
     const look = BADA_BING_PERFORMERS[i === 0 ? 3 : 1];
     const npc = post(`suitePerformer${i}`, {
@@ -1558,6 +1600,8 @@ export function mountMansionCast(scene, world = {}, {
      * flag says so on the body, so the check can skip exactly the bodies that
      * mean it rather than being loosened for everybody. */
     npc.inFixture = 'the hot tub';
+    npc.performerMotion = 'seated-social';
+    suitePerformers.push(npc);
   });
 
   /* ---- The pool-deck evening -----------------------------------------
@@ -1592,6 +1636,15 @@ export function mountMansionCast(scene, world = {}, {
   });
   function posePoolRecliner(npc) {
     if (!npc?.parts) return;
+    /* A dining-chair sit folds the shin vertical at the knee. On a sun
+     * lounger that vertical shin went through the deck slats by their full
+     * 45 mm thickness. Extend both legs down the cushion instead: the thigh
+     * lifts gently from the hip and the positive knee bend returns the lower
+     * leg almost parallel to the deck, without hyperextending it. */
+    npc.parts.legL.rotation.x = -1.75;
+    npc.parts.legR.rotation.x = -1.75;
+    npc.parts.shinL.rotation.x = 0.25;
+    npc.parts.shinR.rotation.x = 0.25;
     npc.parts.body.rotation.x = -0.46;
     /* Npc.update resets the shared pose first, but this assignment is still
      * deliberate: a fixture pose must never accumulate if that reset changes. */
@@ -1648,6 +1701,7 @@ export function mountMansionCast(scene, world = {}, {
   });
   primaryPoolGirl.inFixture = 'pool lounger';
   primaryPoolGirl.poolPose = 'reclined';
+  primaryPoolGirl.performerMotion = 'reclined-rest';
   primaryPoolGirl.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer0;
   poolRecliners.push(primaryPoolGirl);
   posePoolRecliner(primaryPoolGirl);
@@ -1700,6 +1754,7 @@ export function mountMansionCast(scene, world = {}, {
   });
   secondPoolGirl.inFixture = 'pool lounger';
   secondPoolGirl.poolPose = 'reclined';
+  secondPoolGirl.performerMotion = 'reclined-rest';
   secondPoolGirl.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer1;
   poolRecliners.push(secondPoolGirl);
   posePoolRecliner(secondPoolGirl);
@@ -1714,6 +1769,39 @@ export function mountMansionCast(scene, world = {}, {
     y: secondDressStrap.position.y,
     rotation: secondDressStrap.rotation.z,
   };
+  /* The chair is long on its local Z and narrow on local X. Stand on its
+   * clear north-side aisle, 1.14 m off centre: chair half-width 0.39 m + the
+   * player's 0.32 m radius still leaves 0.43 m of honest air. Deriving the
+   * direction from the published chair yaw keeps the mark attached if the
+   * grounds composition rotates this row later. */
+  const secondDressMarker = Object.freeze({
+    x: secondLounger.x - Math.cos(secondLounger.yaw) * 1.14,
+    y: secondLounger.y + (player?.eyeHeight ?? 1.66),
+    z: secondLounger.z + Math.sin(secondLounger.yaw) * 1.14,
+  });
+  /* Margo's dress beat first snaps HER to a measured actor marker/orientation,
+   * then articulates the interaction pose. Reuse that actor-first staging here
+   * rather than locking the player's camera on a performer left wherever her
+   * ambient loop happened to be. Twelve centimetres down the real lounger and
+   * a small three-quarter turn are still fully supported by its cushion, but
+   * visibly compose her fastening toward the authored player-side aisle. */
+  const secondDressActorMarker = Object.freeze({
+    x: secondPoolGirl.group.position.x + Math.sin(secondLounger.yaw) * 0.12,
+    y: secondPoolGirl.group.position.y,
+    z: secondPoolGirl.group.position.z + Math.cos(secondLounger.yaw) * 0.12,
+    yaw: secondLounger.yaw + 0.18,
+  });
+  const secondDressActorStaging = createDressHelpActorStaging({
+    actor: secondPoolGirl,
+    marker: secondDressActorMarker,
+  });
+  const secondDressFocusAt = new THREE.Vector3();
+  const secondDressFocus = createDressHelpFocus({
+    player,
+    interaction,
+    target: () => secondDressStrap.getWorldPosition(secondDressFocusAt),
+    marker: secondDressMarker,
+  });
   const secondDressCueLog = [];
   const secondDressAudio = {
     position: () => secondPoolGirl.group.getWorldPosition(new THREE.Vector3()),
@@ -1735,8 +1823,10 @@ export function mountMansionCast(scene, world = {}, {
     audio: secondDressAudio,
     rig: {
       begin() {
+        secondDressActorStaging.begin();
         secondDressStrap.position.y = secondDressStart.y;
         secondDressStrap.rotation.z = secondDressStart.rotation;
+        secondDressFocus.begin();
         screen?.setInstruction?.('TIME THE PULL WITH E');
       },
       onHit({ index, total }) {
@@ -1748,12 +1838,20 @@ export function mountMansionCast(scene, world = {}, {
         secondDressStrap.rotation.z = Math.min(0.28, secondDressStrap.rotation.z + 0.04);
       },
       finish() {
+        secondDressActorStaging.end();
+        posePoolRecliner(secondPoolGirl);
+        secondDressFocus.end();
         screen?.setTiming?.(null);
         screen?.setInstruction?.(null);
       },
       reset() {
+        secondDressActorStaging.end();
+        secondDressFocus.end();
         secondDressStrap.position.y = secondDressStart.y;
         secondDressStrap.rotation.z = secondDressStart.rotation;
+        /* Abandon hands the fixture pose back in a known frame; the bounded
+         * recliner rest motion resumes on the next cast tick. */
+        posePoolRecliner(secondPoolGirl);
       },
     },
     onComplete() {
@@ -1797,7 +1895,21 @@ export function mountMansionCast(scene, world = {}, {
   });
   poolGirlInWater.inFixture = 'the pool';
   poolGirlInWater.poolPose = 'in-water';
+  poolGirlInWater.performerMotion = 'treading';
   poolGirlInWater.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer2;
+  const seatedPerformerMotions = [
+    ...suitePerformers.map((npc, index) => createSeatedPerformerMotion(npc, {
+      kind: 'tub', phase: index * 1.9,
+    })),
+    ...poolRecliners.map((npc, index) => createSeatedPerformerMotion(npc, {
+      kind: 'recliner', phase: index * 1.25,
+    })),
+  ].filter(Boolean);
+  const poolTreadingMotion = createPoolTreadingMotion(poolGirlInWater, {
+    water,
+    waterY,
+    phase: 0.7,
+  });
 
   /* ---- LIL TOM CRUZE ---------------------------------------------------
    *
@@ -2314,6 +2426,7 @@ export function mountMansionCast(scene, world = {}, {
   /* Barks                                                             */
   /* ---------------------------------------------------------------- */
   const here = new THREE.Vector3();
+  const hearingPoint = { x: 0, y: 0, z: 0 };
   function playerPosition() {
     if (player?.position) return player.position;
     if (camera?.position) return camera.position;
@@ -2397,6 +2510,7 @@ export function mountMansionCast(scene, world = {}, {
       case 'IRISH': return people.irish;
       case 'RIPPIN': return people.rippin;
       case 'ERIC': return people.eric;
+      case 'SAUCE': return people.sauce;
       case 'SHUBES': return people.shubes;
       case 'SASOLE': return people.sasole;
       case 'NUMBSKULL': return people.numbskull;
@@ -2518,6 +2632,39 @@ export function mountMansionCast(scene, world = {}, {
     return out;
   }
 
+  /** Actual visible leg meshes and occupied fixture for runtime geometry QA. */
+  function poolPerformerRig(index = 0) {
+    const npc = people[`poolPerformer${index}`];
+    if (!npc?.group) return null;
+    const classify = (leg, shin) => {
+      const parts = { thigh: [], shin: [], foot: [] };
+      const below = (node, ancestor) => {
+        for (let at = node; at; at = at.parent) if (at === ancestor) return true;
+        return false;
+      };
+      leg?.traverse?.((mesh) => {
+        if (!mesh?.isMesh || !mesh.visible) return;
+        if (mesh.name.startsWith('shoe.') || mesh.name === 'foot.bare') parts.foot.push(mesh);
+        else if (below(mesh, shin)) parts.shin.push(mesh);
+        else parts.thigh.push(mesh);
+      });
+      return parts;
+    };
+    const chairIndex = index === 0 ? 4 : index === 1 ? 6 : null;
+    return {
+      target: npc.group,
+      strap: npc.parts?.body?.getObjectByName?.(
+        index === 1 ? 'pool-performer-2-dress-strap' : 'pool-performer-dress-strap',
+      ) ?? null,
+      head: npc.parts?.head ?? null,
+      chair: chairIndex === null ? null : pool?.chairs?.[chairIndex] ?? null,
+      legs: {
+        left: classify(npc.parts?.legL, npc.parts?.shinL),
+        right: classify(npc.parts?.legR, npc.parts?.shinR),
+      },
+    };
+  }
+
   /**
    * Gratin's whole approach, in one run: he tells you to give him a minute,
    * the Prospect points out that it is always him, he explains that he is good
@@ -2561,13 +2708,30 @@ export function mountMansionCast(scene, world = {}, {
      * of them is stacked in the same XZ column, so a man in the basement must
      * not greet somebody standing on the landing above him. */
     const feetY = p.y - (player?.eyeHeight ?? 1.66);
+    hearingPoint.x = p.x;
+    hearingPoint.y = feetY;
+    hearingPoint.z = p.z;
     for (const entry of posts) {
       const d = Math.hypot(
         entry.npc.group.position.x - p.x,
         entry.npc.group.position.z - p.z,
       );
-      const inside = d <= entry.range
-        && Math.abs(entry.npc.group.position.y - feetY) < 2.4;
+      const ignoreBlockers = typeof speechOcclusionExceptions === 'function'
+        ? speechOcclusionExceptions(entry.id)
+        : null;
+      const inside = speechGate
+        ? speechGate.inspect(entry.id, {
+          listenerPosition: hearingPoint,
+          speakerPosition: entry.npc.group.position,
+          range: entry.range,
+          verticalTolerance: 2.4,
+          ignoreBlockers,
+          /* Physical presence is independent from a line's cooldown. Gratin
+           * must not receive onLeave while the player is still beside him just
+           * because his greeting has put his voice on cooldown. */
+          cooldown: false,
+        }).allowed
+        : d <= entry.range && Math.abs(entry.npc.group.position.y - feetY) < 2.4;
       if (!inside) {
         if (entry.near > 0) entry.onLeave?.();
         entry.near = 0;
@@ -2580,8 +2744,17 @@ export function mountMansionCast(scene, world = {}, {
        * stops reading as a man standing a post. Patrols never turn: they are
        * walking a route and the route is the character. */
       const turn = () => { if (entry.npc.job !== 'patrol') entry.npc.faceToward(p.x, p.z); };
-      if (!entry.said && (entry.bark || entry.onArrive)) {
+      const voiceReady = () => !speechGate || speechGate.canSpeak(entry.id, {
+        listenerPosition: hearingPoint,
+        speakerPosition: entry.npc.group.position,
+        range: entry.range,
+        verticalTolerance: 2.4,
+        ignoreBlockers,
+      });
+      const commitVoice = () => speechGate?.commit(entry.id);
+      if (!entry.said && (entry.bark || entry.onArrive) && voiceReady()) {
         entry.said = true;
+        commitVoice();
         turn();
         if (entry.onArrive) entry.onArrive();
         else dialogue.interject(entry.bark);
@@ -2591,8 +2764,10 @@ export function mountMansionCast(scene, world = {}, {
        * one. Interjected while a run is going it lands in the MIDDLE of it —
        * Gratin's offer came out as greeting, gag, "take your turn or don't",
        * and then the question, in that order. */
-      if (!entry.saidIdle && entry.idle && entry.near >= IDLE_SECONDS && !dialogue.busy) {
+      if (!entry.saidIdle && entry.idle && entry.near >= IDLE_SECONDS
+        && !dialogue.busy && voiceReady()) {
         entry.saidIdle = true;
+        commitVoice();
         turn();
         dialogue.interject(entry.idle);
       }
@@ -2638,6 +2813,8 @@ export function mountMansionCast(scene, world = {}, {
     },
     /** Every seated body, and how it is sitting. See `seatReport`. */
     seats: () => seatReport(),
+    /** Real limb meshes + actual occupied chair; no re-derived proxy geometry. */
+    poolPerformerRig: (index = 0) => poolPerformerRig(index),
     /** Lil Tom Cruze, or null in a house with no third floor in it. */
     dog,
     /** The two verbs, for a caller that wants to drive them without a mouse.
@@ -2646,6 +2823,7 @@ export function mountMansionCast(scene, world = {}, {
     swing: () => swingAtHim(),
     hitXxxWithFirearm: (hit) => hitXxxWithFirearm(hit),
     get dressHelpActive() { return secondDressSequence.active; },
+    pressDressHelp: () => secondDressSequence.press(),
     abandonDressHelp: () => abandonSecondPoolDress(),
 
     update(dt) {
@@ -2657,7 +2835,10 @@ export function mountMansionCast(scene, world = {}, {
        * the loungers are a fixture-specific rest pose, so apply it after the
        * shared animation has done its work. */
       for (const npc of poolRecliners) posePoolRecliner(npc);
+      for (const motion of seatedPerformerMotions) motion.update(dt);
+      poolTreadingMotion?.update(dt);
       const dressTiming = secondDressSequence.update(dt);
+      if (secondDressSequence.active) secondDressActorStaging.apply();
       /* TimingBar deliberately retains its last view after stop so a caller
        * can inspect the seven landed hits. That snapshot is not an active HUD:
        * republishing it every cast frame resurrected PULL 7 / 7 after
@@ -2707,6 +2888,29 @@ export function mountMansionCast(scene, world = {}, {
 
     /** The headless surface, the same shape the mission's `debug` has. */
     debug: {
+      /**
+       * Deterministic browser-verifier ledger for the requested ambient cast.
+       * Kate is deliberately an explicit absence: no campaign identity, body,
+       * face or delivered voice exists to author from, so this records the
+       * content gap without silently inventing or substituting a person.
+       */
+      get ambientSpeakers() {
+        const sauceCues = SAUCE_MANSION_BARK.map((line) => line.cue).filter(Boolean);
+        return [
+          {
+            id: 'sauce', present: Boolean(people.sauce),
+            cues: [...sauceCues], count: sauceCues.length,
+          },
+          {
+            id: 'eric', present: Boolean(people.eric),
+            cues: [...ERIC_MANSION_AMBIENT_CUES], count: ERIC_MANSION_AMBIENT_CUES.length,
+          },
+          {
+            id: 'kate', present: false, cues: [], count: 0,
+            reason: 'identity-not-catalogued',
+          },
+        ];
+      },
       get roster() {
         return Object.entries(people).map(([id, npc]) => ({
           id,
@@ -2731,6 +2935,8 @@ export function mountMansionCast(scene, world = {}, {
             clapStage: secondDressSequence.clapStage,
             view: secondDressSequence.debug.view,
             cues: [...secondDressCueLog],
+            focus: secondDressFocus.debug,
+            actorStaging: secondDressActorStaging.debug,
           },
           poolComposition: ['poolPerformer0', 'poolPerformer1', 'poolPerformer2']
             .map((id) => ({
@@ -2738,10 +2944,19 @@ export function mountMansionCast(scene, world = {}, {
               name: people[id]?.name ?? '',
               identity: people[id]?.performerIdentity ?? null,
               pose: people[id]?.poolPose ?? '',
+              motion: people[id]?.performerMotion ?? '',
               headX: Number(people[id]?.parts?.head?.rotation?.x?.toFixed?.(4) ?? 0),
               x: Number(people[id]?.group?.position?.x?.toFixed?.(2) ?? 0),
               y: Number(people[id]?.group?.position?.y?.toFixed?.(2) ?? 0),
               z: Number(people[id]?.group?.position?.z?.toFixed?.(2) ?? 0),
+            })),
+          suiteComposition: ['suitePerformer0', 'suitePerformer1']
+            .filter((id) => people[id])
+            .map((id) => ({
+              id,
+              motion: people[id]?.performerMotion ?? '',
+              y: Number(people[id]?.group?.position?.y?.toFixed?.(3) ?? 0),
+              bodyZ: Number(people[id]?.parts?.body?.rotation?.z?.toFixed?.(4) ?? 0),
             })),
           oldStovePresent: Boolean(people.oldStove),
           theatreChannel: theatreChannel?.() ?? '',

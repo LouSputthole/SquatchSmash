@@ -28,6 +28,24 @@ import { LAB_DOOR_CODE, SCIENTIST_INDEX } from '../script.js';
 
 const ZONE_RADIUS = 3.2;
 const ZONE_VERTICAL_TOLERANCE = 1.2;
+const ARRIVAL_SPEAKERS = new Set(['rippin', 'eric', 'shubes', 'snow']);
+const HOUSE_SPEAKER_IDS = Object.freeze({
+  GATE: 'gateMan',
+  BOOTH: 'booth',
+  BARTENDER: 'bartender',
+  SNOW: 'snow',
+  GRATIN: 'gratin',
+  LOU: 'lou',
+  BOOSKI: 'booski',
+  DEATHMEGATRON: 'deathmegatron',
+  IRISH: 'irish',
+  RIPPIN: 'rippin',
+  ERIC: 'eric',
+  SHUBES: 'shubes',
+  SASOLE: 'sasole',
+  NUMBSKULL: 'numbskull',
+  HOGMAMA: 'hogmama',
+});
 
 /** Where the upstairs cast stand, if nobody has told us. These are the house's
  * own room anchors, so beat 1 populates the rooms that exist today. */
@@ -63,6 +81,7 @@ export function mountSilentSquatch({
   interaction,
   player,
   audio = null,
+  speechGate = null,
   story = null,
   lab,
   anchors = null,
@@ -442,6 +461,25 @@ export function mountSilentSquatch({
       setCallout: (text) => hud.setCallout(text),
     },
     zones: missionZones,
+    canEnterZone: (id, position, zone) => {
+      if (!speechGate || !ARRIVAL_SPEAKERS.has(id)) return true;
+      return speechGate.canSpeak(id, {
+        listenerPosition: position,
+        range: zone.r ?? ZONE_RADIUS,
+        verticalTolerance: zone.verticalTolerance ?? ZONE_VERTICAL_TOLERANCE,
+      });
+    },
+    canIdleBark: (id) => {
+      if (!speechGate) return true;
+      const zone = missionZones[id] ?? {};
+      return speechGate.canSpeak(id, {
+        range: zone.r ?? ZONE_RADIUS,
+        verticalTolerance: zone.verticalTolerance ?? ZONE_VERTICAL_TOLERANCE,
+      });
+    },
+    onNpcBark: (id) => {
+      if (ARRIVAL_SPEAKERS.has(id)) speechGate?.commit(id);
+    },
     onLine: (line) => hud.showLine(line),
     onLineEnd: () => hud.hideLine(),
     onCase,
@@ -480,7 +518,7 @@ export function mountSilentSquatch({
           break;
       }
     },
-    playCue: (cue, voice, gain = 1) => {
+    playCue: (cue, voice, gain = 1, line = null) => {
       /* A dry line, from somebody standing in the room. Cue names are data
        * here, never a literal at a call site.
        *
@@ -498,7 +536,12 @@ export function mountSilentSquatch({
        * Applied here rather than baked into a take so it reaches his
        * unrecorded lines too. */
       if (!audio?.hasSample?.(cue)) return 0;
-      audio.play(cue, { volume: gain });
+      const speakerId = HOUSE_SPEAKER_IDS[line?.speaker] ?? null;
+      const position = speakerId ? speechGate?.position?.(speakerId) ?? null : null;
+      audio.play(cue, {
+        volume: gain,
+        ...(position ? { position, ref: 1.2, maxDist: 14 } : {}),
+      });
       return audio.sampleDuration?.(cue) ?? 0;
     },
   });

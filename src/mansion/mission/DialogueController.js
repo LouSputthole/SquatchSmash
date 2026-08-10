@@ -37,6 +37,10 @@ export class DialogueController {
     /** Every cue this controller attempted, in order — the hook a headless
      * verifier reads to prove wiring without needing a recording. */
     this.cueLog = [];
+    /** Every spoken line successfully dispatched through the subtitle hook.
+     * Unlike the shared HUD's current text, this cannot be overwritten by the
+     * other Mansion dialogue controller before a verifier samples it. */
+    this.captionLog = [];
     /** Every stage direction performed, in order. */
     this.stageLog = [];
   }
@@ -88,7 +92,16 @@ export class DialogueController {
     const speaker = SPEAKERS[line.speaker] || { name: line.speaker, voice: null };
     if (line.cue) this.cueLog.push(line.cue);
     const spoken = this.playCue?.(line.cue ?? null, speaker.voice, line);
-    this.onLine?.({ ...line, speakerName: speaker.name });
+    const caption = { ...line, speakerName: speaker.name };
+    if (this.onLine) {
+      this.onLine(caption);
+      this.captionLog.push(Object.freeze({
+        speaker: line.speaker ?? null,
+        speakerName: speaker.name,
+        text: line.text ?? '',
+        cue: line.cue ?? null,
+      }));
+    }
 
     /* HOLD FOR THE RECORDING, not for the guess.
      *

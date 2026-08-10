@@ -21,6 +21,7 @@ import * as THREE from 'three';
 import { box, cylinder, group, mat, plane, sphere } from './build.js';
 import { restyleMargoHead } from '../silver/margo.js';
 import { BLOB_HEAD_Y, createGlueBlobMaterial } from './splat.js';
+import { placeDressHelpActor } from './dress-help-staging.js';
 
 /** The campaign's chapters, in the order sleeping walks through them. */
 export const CHAPTER_ORDER = Object.freeze([
@@ -1975,8 +1976,13 @@ export function makeMorningGuest(M) {
        * shins reach back to -3.43 and the frame's east face is at -3.45 --
        * and it lifts her clear of the duvet with room to spare.
        */
-      g.position.set(-2.80, 0.50, -3.02);
-      g.rotation.set(0, 1.90, 0);
+      /* Shared actor-first dress staging. These are the exact established
+       * Margo numbers; only the transform operation moved into the primitive
+       * the Mansion adapter now reuses. Her geometry and limb pose below are
+       * byte-for-byte the existing authored rig. */
+      placeDressHelpActor(rig, {
+        x: -2.80, y: 0.50, z: -3.02, yaw: 1.90,
+      });
       thighs.forEach((thigh, i) => {
         thigh.rotation.x = 0.06 + i * 0.03;
       });

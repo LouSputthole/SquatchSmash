@@ -111,7 +111,7 @@ page.on('console', (message) => {
 
 const results = [];
 function check(name, ok, detail = '') {
-  results.push({ name, ok });
+  results.push({ name, ok, detail });
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` - ${detail}` : ''}`);
 }
 
@@ -237,7 +237,7 @@ try {
     // grounds
     'gate', 'spawn', 'spawnYaw', 'fountainFront', 'frontDoorOutside', 'securityBooth',
     'poolPatio', 'poolDoorOutside', 'poolSteps', 'serviceRoadEntrance', 'rosePavilion',
-    'billiardBay',
+    'billiardBay', 'frontGuardRoutes',
     // grounds -- the rear garden
     'gardenCrossWalk', 'gardenStairsTop', 'mazeEntrance', 'mazeHeart', 'mazeExit',
     'roseGardenGate', 'gardenPavilion', 'firePit', 'outdoorKitchen',
@@ -2414,11 +2414,16 @@ try {
       && sharedBedroom.portraits.every((art) => art?.real === true)
       && sharedBedroom.portraits.map((art) => art.file).join('|')
         === 'shrine-booski-podium.jpg|family-portrait-deathmegatron.webp'
-      && sharedBedroom.accentPortraits.length === 2
+      /* The main pair above is retained. The wardrobe-side duplicate reported
+       * by playtest was removed only for DeathMegatron; Booski's one small
+       * companion accent remains at the far end of the room. */
+      && sharedBedroom.accentPortraits.length === 1
       && sharedBedroom.accentPortraits.every((portrait) => portrait.art?.real === true
         && portrait.mapped && portrait.shown)
+      && sharedBedroom.accentPortraits.map((portrait) => portrait.name).join('|')
+        === 'booski-death-room-booski-accent'
       && sharedBedroom.accentPortraits.map((portrait) => portrait.art.file).join('|')
-        === 'shrine-booski-podium.jpg|family-portrait-deathmegatron.webp',
+        === 'shrine-booski-podium.jpg',
     JSON.stringify(sharedBedroom));
 
   /* ================================================================ */
@@ -4051,6 +4056,7 @@ try {
     const advance = (seconds) => {
       for (let t = 0; t < seconds; t += 1 / 30) M.tick(1 / 30);
     };
+    const poolHeadsBefore = [0, 1].map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
     advance(12);
     const secondHeadBefore = M.cast.evening.poolComposition
       .find(({ id }) => id === 'poolPerformer1')?.headX;
@@ -4079,11 +4085,14 @@ try {
     const stove = M.cast.useOldStove();
     advance(4.5);
     const state = M.cast.evening;
+    const poolHeadsAfter = [0, 1].map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
     return {
       first, second, third, stove,
       otherHello, otherFlirt, otherStart, otherMiss, otherPulls, timingShown,
       secondHeadBefore,
       secondHeadAfter: state.poolComposition.find(({ id }) => id === 'poolPerformer1')?.headX,
+      poolHeadsBefore,
+      poolHeadsAfter,
       stoveSeat: M.cast.seats.find(({ id }) => id === 'oldStove') ?? null,
       state,
       said: M.cast.said,
@@ -4117,9 +4126,17 @@ try {
       dress: evening.state?.secondDress,
     }));
   check('the two pool performers keep distinct stable heads across the full interaction',
-    Number.isFinite(evening.secondHeadBefore)
-      && Math.abs(evening.secondHeadAfter - evening.secondHeadBefore) < 0.001,
-    JSON.stringify({ before: evening.secondHeadBefore, after: evening.secondHeadAfter }));
+    evening.poolHeadsBefore?.length === 2
+      && evening.poolHeadsBefore.every(Boolean)
+      && evening.poolHeadsBefore[0] !== evening.poolHeadsBefore[1]
+      && JSON.stringify(evening.poolHeadsAfter) === JSON.stringify(evening.poolHeadsBefore)
+      && Number.isFinite(evening.secondHeadBefore) && Number.isFinite(evening.secondHeadAfter)
+      && Math.abs(evening.secondHeadBefore - 0.2) <= 0.023
+      && Math.abs(evening.secondHeadAfter - 0.2) <= 0.023,
+    JSON.stringify({
+      idsBefore: evening.poolHeadsBefore, idsAfter: evening.poolHeadsAfter,
+      angleBefore: evening.secondHeadBefore, angleAfter: evening.secondHeadAfter,
+    }));
   check('the pool scene keeps two women reclined on loungers and a third in the water',
     evening.state?.poolComposition?.length === 3
       && evening.state.poolComposition.filter(({ pose }) => pose === 'reclined').length === 2
@@ -4253,7 +4270,7 @@ try {
    * nothing: the fault was entirely about the path a player actually takes. */
   await teleport(rooms.spawn.x, 0, rooms.spawn.z, (rooms.spawnYaw * 180) / Math.PI);
   const boothHeard = [];
-  const boothSubtitles = [];
+  const boothCaptions = [];
   for (let leg = 0; leg < 26; leg++) {
     await walk(0.5);
     /* TWO DIFFERENT QUESTIONS, and only one of them is a race.
@@ -4266,22 +4283,32 @@ try {
      * perfectly well, because the mission's own idle line had the bar. */
     const seen = await page.evaluate(() => ({
       said: window.mansion.cast?.said ?? [],
-      hud: window.mansion.mission?.hud?.() ?? null,
+      captions: window.mansion.cast?.captions ?? [],
     }));
     for (const cue of seen.said) if (!boothHeard.includes(cue)) boothHeard.push(cue);
-    if (seen.hud?.subtitle && !boothSubtitles.some((s2) => s2.text === seen.hud.subtitle)) {
-      boothSubtitles.push({ who: seen.hud.speaker, text: seen.hud.subtitle });
+    for (const caption of seen.captions) {
+      if (!boothCaptions.some((prior) => prior.cue === caption.cue
+        && prior.speaker === caption.speaker && prior.text === caption.text)) {
+        boothCaptions.push(caption);
+      }
     }
   }
   const challenged = boothHeard.includes('vo.silentsquatch.gate.booth.stopthere');
-  const subtitled = boothSubtitles.some((entry) => /gate/i.test(entry.who || ''));
+  const boothCaption = boothCaptions.find((caption) => (
+    caption.cue === 'vo.silentsquatch.gate.booth.stopthere'
+      && caption.speaker === 'BOOTH'
+      && caption.speakerName === 'The man on the gate'
+      && caption.text === 'Stop there. Name.'
+  ));
+  const subtitled = Boolean(boothCaption);
   check('walking up the drive from the spawn makes the man in the booth challenge you, with subtitles',
     challenged && subtitled,
     [
       challenged ? '' : `he never said it — heard: ${boothHeard.slice(0, 4).join(', ') || 'nothing'}`,
-      subtitled ? '' : `no subtitle from him — bar showed: ${boothSubtitles.map((e) => e.who).join(', ') || 'nothing'}`,
+      subtitled ? '' : `exact caption was not dispatched — saw: ${boothCaptions
+        .slice(0, 4).map((entry) => `${entry.speakerName}: ${entry.text}`).join(' | ') || 'nothing'}`,
     ].filter(Boolean).join(' | ')
-      || `"Stop there. Name." on the walk up, subtitled as ${boothSubtitles.find((e) => /gate/i.test(e.who || '')).who}`);
+      || `"${boothCaption.text}" on the walk up, subtitled as ${boothCaption.speakerName}`);
 
   /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
    * like one: "I spawn in holding it but can put it away and see it in my
@@ -5124,9 +5151,9 @@ try {
    * calls skipped the InteractionSystem entirely. Cold-load the ordinary
    * campaign page (no preview query), walk the real Player a short distance,
    * aim the real crosshair at the OTHER performer and drive every press
-   * through InteractionSystem. The first take is abandoned after one landed
-   * pull, then the same production adapter must reset the strap, head, HUD and
-   * audio loop before a clean miss + seven-hit retry. */
+   * through the production KeyE route. The first take is abandoned after one
+   * landed pull, then the same production adapter must reset the strap, head,
+   * HUD and audio loop before a clean miss + seven-hit retry. */
   {
     const campaignPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
     const campaignErrors = [];
@@ -5187,8 +5214,16 @@ try {
           return Math.hypot(dx, dz);
         };
         const pressE = () => {
-          M.interaction.press();
-          M.interaction.release();
+          /* Once the shared Margo focus begins, ordinary InteractionSystem
+           * look-at work is deliberately paused and main.js routes KeyE
+           * straight to the timing bar. Dispatch the player's real key path
+           * for both the prelude and pulls instead of bypassing that router. */
+          window.dispatchEvent(new KeyboardEvent('keydown', {
+            code: 'KeyE', key: 'e', bubbles: true,
+          }));
+          window.dispatchEvent(new KeyboardEvent('keyup', {
+            code: 'KeyE', key: 'e', bubbles: true,
+          }));
         };
         const promptText = () => (document.getElementById('prompt').classList.contains('hidden')
           ? null : document.getElementById('promptLabel').textContent);
@@ -5213,6 +5248,7 @@ try {
           standOff,
         };
         const strapStart = { y: strap.position.y, z: strap.rotation.z };
+        const headIdStart = head.uuid;
         const headStart = head.rotation.x;
 
         pressE();
@@ -5242,6 +5278,12 @@ try {
          * that DOM event rather than calling the verifier adapter directly. */
         window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
         M.tick(0.08);
+        /* Rendering is suspended for this long simulation. A real frame
+         * refreshes camera/actor matrixWorld after focus restores both local
+         * transforms; reproduce that boundary before asking InteractionSystem
+         * whether the original aimed pose has been reacquired. */
+        M.scene.updateMatrixWorld(true);
+        M.interaction.update(0);
         const afterAbandonState = M.cast.evening;
         const afterAbandon = {
           accepted: afterAbandonState.secondDressPhase === 'ready'
@@ -5259,6 +5301,7 @@ try {
           ),
           strapY: strap.position.y,
           strapZ: strap.rotation.z,
+          headId: head.uuid,
           headX: head.rotation.x,
           hud: M.mission?.hud?.() ?? null,
           prompt: promptText(),
@@ -5286,6 +5329,7 @@ try {
           started,
           afterFirstHit,
           strapStart,
+          headIdStart,
           headStart,
           afterAbandon,
           retryActive,
@@ -5296,6 +5340,7 @@ try {
             active: final.secondDress.active,
             hits: final.secondDress.hits,
             misses: final.secondDress.misses,
+            headId: head.uuid,
             headX: head.rotation.x,
             hud: M.mission?.hud?.() ?? null,
           },
@@ -5309,6 +5354,8 @@ try {
       });
 
       const poolOff = [];
+      const isAuthoredReclinerHead = (value) => Number.isFinite(value)
+        && Math.abs(value - 0.2) <= 0.022 + 1e-9;
       if (poolE.error) poolOff.push(poolE.error);
       if (poolE.initial?.campaignPreview !== false) poolOff.push('the proof page is still preview mode');
       if (poolE.initial?.missionStatus !== 'in_progress') poolOff.push(`campaign is ${poolE.initial?.missionStatus}`);
@@ -5334,7 +5381,9 @@ try {
         || !poolE.afterAbandon?.stopped
         || Math.abs(poolE.afterAbandon?.strapY - poolE.strapStart?.y) > 1e-8
         || Math.abs(poolE.afterAbandon?.strapZ - poolE.strapStart?.z) > 1e-8
-        || Math.abs(poolE.afterAbandon?.headX - poolE.headStart) > 0.001
+        || !poolE.headIdStart || poolE.afterAbandon?.headId !== poolE.headIdStart
+        || !isAuthoredReclinerHead(poolE.headStart)
+        || !isAuthoredReclinerHead(poolE.afterAbandon?.headX)
         || poolE.afterAbandon?.hud?.timing || poolE.afterAbandon?.hud?.instruction
         || !/help fix her dress strap/i.test(poolE.afterAbandon?.prompt || '')) {
         poolOff.push(`abandon did not reset the adapter: ${JSON.stringify(poolE.afterAbandon)}`);
@@ -5342,7 +5391,8 @@ try {
       if (!poolE.retryActive || poolE.missCount !== 1
         || poolE.final?.phase !== 'done' || poolE.final?.helped !== true
         || poolE.final?.active !== false || poolE.final?.hits !== 7 || poolE.final?.misses !== 1
-        || Math.abs(poolE.final?.headX - poolE.headStart) > 0.001
+        || poolE.final?.headId !== poolE.headIdStart
+        || !isAuthoredReclinerHead(poolE.final?.headX)
         || poolE.final?.hud?.timing || poolE.final?.hud?.instruction
         || poolE.retryAudio?.moans !== 7 || poolE.retryAudio?.finish !== 1
         || JSON.stringify(poolE.retryAudio?.loops) !== JSON.stringify([
@@ -5717,6 +5767,9 @@ try {
 const failed = results.filter((r) => !r.ok);
 if (failed.length) {
   console.error(`\n${failed.length}/${results.length} Mansion checks failed.`);
+  for (const { name, detail } of failed) {
+    console.error(`  FAIL  ${name}${detail ? ` - ${detail}` : ''}`);
+  }
   process.exit(1);
 }
 console.log(`\nAll ${results.length} Mansion checks passed.`);

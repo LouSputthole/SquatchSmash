@@ -67,6 +67,7 @@ import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
 import { MANSION_RETURN_REPORT, mansionVisitMode } from './campaign.js';
+import { createNpcSpeechGate } from './npc-speech-gate.js';
 import { StreamSystem } from '../world/stream.js';
 import { SmokeSystem } from '../world/smoke.js';
 import { createBongBehavior, registerInteractiveBong } from '../world/bong.js';
@@ -293,7 +294,7 @@ function inRectXZ(r, x, z) {
 }
 
 const { steps: frontSteps, portico: frontPortico } = grounds.props.frontEntry;
-const { ramp: serviceRamp } = grounds.props.serviceRoad;
+const serviceAccess = grounds.props.serviceRoad;
 
 /*
  * The pool deck used to be unreachable on foot -- a flat 1.2 m platform with
@@ -324,10 +325,8 @@ function exteriorGroundAt(x, z) {
     return THREE.MathUtils.lerp(0, GROUND_Y, t);
   }
   if (inRectXZ(frontPortico, x, z)) return GROUND_Y;
-  if (inRectXZ(serviceRamp, x, z)) {
-    const t = THREE.MathUtils.clamp((z - serviceRamp.z0) / (serviceRamp.z1 - serviceRamp.z0), 0, 1);
-    return THREE.MathUtils.lerp(0, GROUND_Y, t);
-  }
+  const serviceHeight = serviceAccess.groundAt(x, z);
+  if (serviceHeight !== null) return serviceHeight;
   if (inRectXZ(poolSteps, x, z)) {
     const t = THREE.MathUtils.clamp((x - poolSteps.x0) / (poolSteps.x1 - poolSteps.x0), 0, 1);
     return THREE.MathUtils.lerp(0, GROUND_Y, t);
@@ -761,6 +760,24 @@ function useRadioSet(set) {
 const world = { colliders, floorZones: [], groundAt: () => 0 };
 const player = new Player(camera, world);
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
+
+/* One service owns whether a PERSON can be heard. The mission is mounted
+ * before the cast so they can share one subtitle bar, therefore the resolver
+ * is a mutable handle rather than a closure over the later `const cast` (which
+ * would be a temporal-dead-zone boot failure). */
+let speechCast = null;
+const speechListener = { x: 0, y: 0, z: 0 };
+const npcSpeech = createNpcSpeechGate({
+  listener: () => {
+    speechListener.x = player.position.x;
+    speechListener.y = player.position.y - player.eyeHeight;
+    speechListener.z = player.position.z;
+    return speechListener;
+  },
+  speaker: (id) => speechCast?.people?.[id]?.group?.position ?? null,
+  blockers: () => world.colliders,
+  cooldown: 12,
+});
 
 /* PROJECT SILENT SQUATCH lives west of and under the cellar corridor, and it
  * is built further down this file because it needs the InteractionSystem.
@@ -1445,6 +1462,7 @@ if (lab && night.play) {
     interaction,
     player,
     audio,
+    speechGate: npcSpeech,
     lab,
     anchors,
     /* The case is a thing he is carrying, so it lives in a slot like anything
@@ -1554,6 +1572,13 @@ const cast = mountMansionCast(scene, world, {
   camera,
   player,
   audio,
+  speechGate: npcSpeech,
+  /* The booth guard speaks through his own glazed fixture. Ignore only the
+   * four exact booth-wall Box3 identities; gate piers and every other Mansion
+   * wall still occlude through the shared speech service. */
+  speechOcclusionExceptions: (id) => (id === 'booth'
+    ? grounds.props.securityBooth.speechOccluders
+    : null),
   anchors,
   lab,
   suite: interior.props.masterSuite,
@@ -1584,6 +1609,7 @@ const cast = mountMansionCast(scene, world, {
   theatreChannel: () => (theatreTv?.on ? theatreTv.channel?.name ?? '' : ''),
   enabled: () => running,
 });
+speechCast = cast;
 /* Build smoke only AFTER the cast's one-time seat raycasts. THREE.Sprite's
  * raycast path needs a camera, while that furniture probe is intentionally a
  * camera-free downward ray; putting pooled smoke in the scene before the
@@ -1796,7 +1822,9 @@ async function beginTour() {
    * `MANSION_CAST_CUE_NAMES` (./cast.js) is the third gap of the same kind:
    * Gratin's cord handoff/swing and xXx's impact are recorded but were never
    * in this list, so a torture session ran on the procedural synth even
-   * though the real take was sitting in assets/sfx. */
+   * though the real take was sitting in assets/sfx. It also owns the one
+   * Mansion ambient line reused from a different recorded prefix (Sauce's
+   * existing Bing opener), which a `vo.silentsquatch.` prefix cannot load. */
   audio.loadManifest({
     names: [
       ...weaponCueNames(),
@@ -1829,14 +1857,20 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  /* The other pool performer uses the same seven-pull TimingBar contract as
-   * the apartment dress-help scene. Escape abandons that sequence before it
-   * reaches pointer-lock/pause handling, leaving the performer available to
-   * try again. */
-  if (e.code === 'Escape' && cast?.dressHelpActive) {
-    cast.abandonDressHelp();
-    e.preventDefault();
-    return;
+  /* The other pool performer uses Margo's direct timing-bar controls while
+   * ordinary look-at interaction is intentionally paused. Keep E on the bar
+   * and let either Q or Escape abandon without leaking a movement key. */
+  if (cast?.dressHelpActive && !e.repeat) {
+    if (e.code === 'KeyE') {
+      cast.pressDressHelp();
+      e.preventDefault();
+      return;
+    }
+    if (e.code === 'KeyQ' || e.code === 'Escape') {
+      cast.abandonDressHelp();
+      e.preventDefault();
+      return;
+    }
   }
   if (e.code === 'Space') e.preventDefault();
   player.setKey(e.code, true);
@@ -1952,6 +1986,7 @@ function updateGame(dt) {
   }
   syncTheatreLights();
   houseRadio.update(dt);
+  npcSpeech.update(dt);
   /* The mission, if the house has a laboratory in it. It moves the beat on,
    * plays the writing, and drives the lab; it never moves the camera. */
   silentSquatch?.update(dt);
@@ -2248,6 +2283,19 @@ window.mansion = {
   player,
   interaction,
   audio,
+  /** Public evidence for the shared real-body hearing policy. */
+  npcSpeech: {
+    inspect: (id, options = {}) => ({ ...npcSpeech.inspect(id, options) }),
+    physical: (id, options = {}) => ({
+      ...npcSpeech.inspect(id, { ...options, cooldown: false }),
+    }),
+    speaker: (id) => {
+      const at = npcSpeech.position(id);
+      return at ? { x: at.x, y: at.y, z: at.z } : null;
+    },
+    heard: (id) => npcSpeech.debug.heard(id),
+    remaining: (id) => npcSpeech.debug.remaining(id),
+  },
   grounds,
   interior,
   doors,
@@ -2429,9 +2477,18 @@ window.mansion = {
      * race, and the bar is checked separately for the subtitle.
      */
     get said() { return [...(cast?.dialogue?.cueLog ?? [])]; },
+    /** Captions that actually passed through the cast controller's subtitle
+     * hook. This durable event history cannot be erased when the mission's
+     * other controller replaces the shared bar a frame later. */
+    get captions() {
+      return (cast?.dialogue?.captionLog ?? []).map((caption) => ({ ...caption }));
+    },
     /** Optional-evening proof surface: authored roster positions and the
      * deterministic theatre/pool interactions exposed by cast.js itself. */
     get roster() { return cast?.debug?.roster ?? []; },
+    /** Exact authored proximity speaker/cue ledger. An absent identity stays
+     * explicit here instead of being replaced by an unrelated cast member. */
+    get ambientSpeakers() { return cast?.debug?.ambientSpeakers ?? []; },
     get evening() { return cast?.debug?.evening ?? null; },
     get xxxFate() { return cast?.debug?.gratin ?? null; },
     /** Stable browser-verifier seam to the ACTUAL registered performer body.
@@ -2439,15 +2496,7 @@ window.mansion = {
      * range, aim the crosshair and press InteractionSystem E. It only avoids
      * guessing a nested dress mesh out of the entire scene graph. */
     poolPerformerRig: (index = 0) => {
-      const npc = cast?.people?.[`poolPerformer${index}`];
-      if (!npc?.group) return null;
-      return {
-        target: npc.group,
-        strap: npc.parts?.body?.getObjectByName?.(
-          index === 1 ? 'pool-performer-2-dress-strap' : 'pool-performer-dress-strap',
-        ) ?? null,
-        head: npc.parts?.head ?? null,
-      };
+      return cast?.poolPerformerRig?.(index) ?? null;
     },
     takeCord: () => cast?.takeCord?.() === true,
     swingAtXxx: () => cast?.swing?.() === true,

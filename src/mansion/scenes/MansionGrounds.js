@@ -359,7 +359,7 @@ export const REAR_DOOR = Object.freeze({
  * facade line). Both numbers now move with the facade -- see FORECOURT_SHIFT
  * -- so the rim still stops a clear metre short of the steps. */
 export const COURT_CENTRE = Object.freeze({ x: 0, z: 35 - FORECOURT_SHIFT });
-/* 14.2, not 12 (owner playtest, verbatim: "Widen the driveway around the front
+/* 15.2, not 12 (owner playtest, verbatim: "Widen the driveway around the front
  * fountain -- it needs more room").
  *
  * MEASURED BEFORE MOVING ANYTHING, because "it feels tight" is a symptom and
@@ -372,9 +372,10 @@ export const COURT_CENTRE = Object.freeze({ x: 0, z: 35 - FORECOURT_SHIFT });
  *   east/west   sqrt(144-9) - 6 = 5.6 m
  *   north arc   12 + 3 - 6 = 9.0 m
  *
- * Three metres is one car's width with nothing either side of it. At 14.2 the
- * same three numbers are 5.2 / 7.9 / 11.2, and the parked pair moves out with
- * it (see CAR_SPOTS) so the two walking corridors past the basin widen too.
+ * Three metres is one car's width with nothing either side of it. The first
+ * widening to 14.2 still felt pinched in the walkthrough. At 15.2 the same
+ * three numbers are 6.2 / 8.9 / 12.2, leaving a visibly generous arrival
+ * apron without moving the fountain or redesigning the court.
  *
  * WHY THE RADIUS AND NOT THE CENTRE. Re-centring the basin on the court would
  * have levelled all three arcs at 8.2 m, and it is the more obvious fix -- but
@@ -383,10 +384,10 @@ export const COURT_CENTRE = Object.freeze({ x: 0, z: 35 - FORECOURT_SHIFT });
  * basin north moves where the walk stops. The basin stays where the facade
  * pass put it; the paving grows around it.
  *
- * The north edge lands at z = 44.2, which is 8 m INSIDE the building line
+ * The north edge lands at z = 45.2, which is 9.2 m INSIDE the building line
  * (BUILDING.z0 = 36) -- the circle has always run under the podium and the
- * front steps, and the extra 2.2 m is hidden under the same masonry. */
-export const COURT_RADIUS = 14.2;
+ * front steps, and that overlap is hidden under the same masonry. */
+export const COURT_RADIUS = 15.2;
 export const FOUNTAIN_POS = Object.freeze({ x: 0, z: 32 - FORECOURT_SHIFT });
 export const POOL = Object.freeze({
   x0: -7, x1: 7, z0: 81, z1: 89, y: GROUND_Y - 1.3,
@@ -1246,11 +1247,11 @@ export function buildMansionGrounds(scene = null) {
   root.add(box({ size: [8, 0.06, 12], pos: [-18, 0.02, 26], mat: paverMaterial(8, 12) }));
 
   /* ---------------------------------------------------------------- */
-  /* Lamp posts -- only a handful of the standard driveway row carry a  */
-  /* real PointLight. A couple of dedicated extra posts near the parked  */
-  /* vehicle clusters are always lit (see CAR_SPOTS, below): those cars   */
-  /* have real modelled glass/chrome/lights but sat far enough from every */
-  /* light in this scene to render as near-pure-black silhouettes.       */
+  /* Lamp posts. Every fixture on the driveway is a working fixture. The  */
+  /* old alternating pattern built eight globes but powered only three of */
+  /* them, which is why the approach looked broken rather than deliberately */
+  /* subdued. The motor-court pair uses the same output and throw so the   */
+  /* whole arrival reads as one maintained lighting scheme.               */
   /* ---------------------------------------------------------------- */
   function lampPost(x, z, lit, intensity = 5.5) {
     const postH = 3.2;
@@ -1263,7 +1264,7 @@ export function buildMansionGrounds(scene = null) {
       }),
     }));
     if (lit) {
-      const l = new THREE.PointLight(0xffc98a, intensity, 16, 2);
+      const l = new THREE.PointLight(0xffc98a, intensity, 18, 2);
       l.position.set(x, postH + 0.1, z);
       root.add(l);
     }
@@ -1272,7 +1273,7 @@ export function buildMansionGrounds(scene = null) {
   const LAMP_POSITIONS = [
     [-4.6, 4], [4.6, 4], [-4.6, 10], [4.6, 10], [-4.6, 16], [4.6, 16], [-4.6, 21], [4.6, 21],
   ];
-  LAMP_POSITIONS.forEach(([x, z], i) => lampPost(x, z, i % 3 === 1));
+  LAMP_POSITIONS.forEach(([x, z]) => lampPost(x, z, true, 9));
 
   // Dedicated lamps for the two parked-vehicle clusters: (10.3,34) lights
   // the east pair at x=9/9.5 (z=30/37.6); (-14.25,28.5) sits roughly
@@ -1288,7 +1289,7 @@ export function buildMansionGrounds(scene = null) {
   // south with the forecourt, and the third (side-lot) post was dropped
   // because the west one now stands within five metres of the side lot too.
   const CAR_LAMP_POSITIONS = [[14.0, 33 - FORECOURT_SHIFT], [-14.0, 33 - FORECOURT_SHIFT]];
-  CAR_LAMP_POSITIONS.forEach(([x, z]) => lampPost(x, z, true, 11));
+  CAR_LAMP_POSITIONS.forEach(([x, z]) => lampPost(x, z, true, 9));
 
   /* ---------------------------------------------------------------- */
   /* Fountain -- tiered basin, silver Bigfoot statue, water, spray       */
@@ -1518,10 +1519,9 @@ export function buildMansionGrounds(scene = null) {
    * front of the steps. The pair nearest the drive sit further out at 11.5 m
    * so that corridor stays about 1.6 m wide rather than a squeeze.
    *
-   * The radius moved out with COURT_RADIUS (12 -> 14.2). A car left where it
-   * was would have taken the whole of the widening back: the point of a wider
-   * court is a wider corridor between the basin and the parked cars, and that
-   * corridor is measured from the CAR, not from the kerb.
+   * The cars moved out with the first COURT_RADIUS widening (12 -> 14.2).
+   * The current 15.2 m court adds a metre of paved outer shoulder without
+   * pushing the parked pair back into either walking corridor.
    */
   function courtSpot(deg, r, kind, color) {
     const t = THREE.MathUtils.degToRad(deg);
@@ -1622,6 +1622,11 @@ export function buildMansionGrounds(scene = null) {
     const w = 2;
     const d = 2;
     const h = 2.2;
+    /* Exact world blockers owned by the booth shell. The guard speaks from
+     * inside this fixture, so the shared speech gate may ignore these four
+     * references for him without weakening line-of-sight through any other
+     * wall, pier, vehicle or floor in the grounds. */
+    const speechOccluders = [];
 
     /* THE WEIRD YELLOW THING (owner playtest, verbatim: "the weird yellow
      * thing near the guard booth at the entrance").
@@ -1802,10 +1807,12 @@ export function buildMansionGrounds(scene = null) {
      * (every side is closed at waist height), and nobody standing at the
      * counter is inside anything. */
     const t = 0.14;
-    solid(cx - w / 2, cx - w / 2 + t, 0, h, cz - d / 2, cz + d / 2);
-    solid(cx + w / 2 - t, cx + w / 2, 0, h, cz - d / 2, cz + d / 2);
-    solid(cx - w / 2, cx + w / 2, 0, h, cz - d / 2, cz - d / 2 + t);
-    solid(cx - w / 2, cx + w / 2, 0, h, cz + d / 2 - t, cz + d / 2);
+    speechOccluders.push(
+      solid(cx - w / 2, cx - w / 2 + t, 0, h, cz - d / 2, cz + d / 2),
+      solid(cx + w / 2 - t, cx + w / 2, 0, h, cz - d / 2, cz + d / 2),
+      solid(cx - w / 2, cx + w / 2, 0, h, cz - d / 2, cz - d / 2 + t),
+      solid(cx - w / 2, cx + w / 2, 0, h, cz + d / 2 - t, cz + d / 2),
+    );
     solid(postX - 0.11, postX + 0.11, 0, 1.35, postZ - 0.11, postZ + 0.11);
 
     return {
@@ -1819,6 +1826,7 @@ export function buildMansionGrounds(scene = null) {
        * booth can be moved without leaving him standing in the lawn. */
       post: new THREE.Vector3(cx + 0.32, 0, cz - 0.18),
       lookAt: new THREE.Vector3(cx - 6, 0, cz - 1.2),
+      speechOccluders: Object.freeze(speechOccluders),
     };
   }
   const securityBooth = buildSecurityBooth();
@@ -1901,7 +1909,26 @@ export function buildMansionGrounds(scene = null) {
     mat({ color: 0xd06bb8, roughness: 0.75 }), // pink
     mat({ color: 0x8a5fd0, roughness: 0.75 }), // lavender
   ];
-  const landscape = { beds: [], hedges: [], urns: [], clumps: 0 };
+  const M_BLOOM_CENTRE = mat({ color: 0xe4bd43, roughness: 0.7 });
+  /* One shared five-petal silhouette. The old flower heads were plain spheres
+   * dropped into foliage, which read as swollen bulbs (and, at the old upper
+   * scale, as fruit). A shallow petalled head plus a visible centre remains
+   * cheap while reading unmistakably as a flower from the driveway. */
+  const bloomShape = new THREE.Shape();
+  for (let i = 0; i <= 30; i++) {
+    const a = (i / 30) * Math.PI * 2;
+    const r = 0.052 + Math.cos(a * 5) * 0.018;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) bloomShape.moveTo(x, y);
+    else bloomShape.lineTo(x, y);
+  }
+  const BLOOM_HEAD_GEOMETRY = new THREE.ShapeGeometry(bloomShape);
+  const landscape = {
+    beds: [], hedges: [], urns: [], clumps: 0,
+    /** Physical QA data for the arrival planting only (not the rear garden). */
+    flowers: [],
+  };
 
   /** A rectangular planting bed: recessed soil inside a low stone edge. */
   function bed(x0, x1, z0, z1, y = 0) {
@@ -1947,22 +1974,49 @@ export function buildMansionGrounds(scene = null) {
     });
   }
 
-  /** One flowering plant: a foliage mound with a few bloom heads over it. */
-  function bloomClump(x, z, y = 0, scale = 1, tint = null) {
+  /** One flowering plant: a compact foliage mound with complete petalled heads. */
+  function bloomClump(x, z, y = 0, scale = 1, tint = null, trackFront = false) {
     const paint = tint ?? BLOOM_MATS[(Math.random() * BLOOM_MATS.length) | 0];
-    root.add(sphere({
-      r: 0.26 * scale, ry: 0.17 * scale, pos: [x, y + 0.12 * scale, z], mat: M_FOLIAGE, cast: false,
+    const plant = group(trackFront ? 'mansion-front-flower-clump' : 'mansion-garden-flower-clump');
+    plant.position.set(x, y, z);
+    plant.add(sphere({
+      r: 0.26 * scale, ry: 0.13 * scale,
+      pos: [0, 0.14 * scale, 0], mat: M_FOLIAGE, cast: false,
     }));
     const heads = 3;
     for (let i = 0; i < heads; i++) {
       const a = (i / heads) * Math.PI * 2 + Math.random();
-      const r = 0.05 + Math.random() * 0.15;
-      root.add(sphere({
-        r: 0.065 * scale,
-        pos: [x + Math.cos(a) * r * scale, y + (0.24 + Math.random() * 0.08) * scale, z + Math.sin(a) * r * scale],
-        mat: paint,
+      const radius = 0.05 + Math.random() * 0.11;
+      const px = Math.cos(a) * radius * scale;
+      const pz = Math.sin(a) * radius * scale;
+      const py = (0.23 + Math.random() * 0.05) * scale;
+      plant.add(cylinder({
+        r: 0.01 * scale,
+        h: py - 0.04 * scale,
+        pos: [px, (py - 0.04 * scale) / 2, pz],
+        mat: M_FOLIAGE,
         cast: false,
       }));
+      const head = new THREE.Mesh(BLOOM_HEAD_GEOMETRY, paint);
+      head.name = 'flower-petals';
+      head.rotation.x = -Math.PI / 2;
+      head.scale.setScalar(scale);
+      head.position.set(px, py, pz);
+      head.castShadow = false;
+      plant.add(head);
+      plant.add(sphere({
+        r: 0.018 * scale, ry: 0.012 * scale,
+        pos: [px, py + 0.008, pz], mat: M_BLOOM_CENTRE, cast: false,
+        name: 'flower-centre',
+      }));
+    }
+    root.add(plant);
+    if (trackFront) {
+      landscape.flowers.push({
+        x, z, baseY: y, scale,
+        radius: 0.26 * scale,
+        height: 0.325 * scale,
+      });
     }
     landscape.clumps++;
   }
@@ -1976,7 +2030,16 @@ export function buildMansionGrounds(scene = null) {
       for (let j = 0; j < nz; j++) {
         const px = x0 + ((i + 0.5) * (x1 - x0)) / nx + (Math.random() - 0.5) * 0.22;
         const pz = z0 + ((j + 0.5) * (z1 - z0)) / nz + (Math.random() - 0.5) * 0.22;
-        bloomClump(px, pz, y + 0.1, 0.85 + Math.random() * 0.35, Math.random() < 0.78 ? tint : null);
+        /* Posts stand inside the planted verge, but flowers do not grow
+         * through their bases. Keep a visible maintenance ring around every
+         * driveway fixture. */
+        if (LAMP_POSITIONS.some(([lx, lz]) => Math.hypot(px - lx, pz - lz) < 0.7)) continue;
+        bloomClump(
+          px, pz, y + 0.1,
+          0.78 + Math.random() * 0.2,
+          Math.random() < 0.78 ? tint : null,
+          true,
+        );
       }
     }
   }
@@ -2027,16 +2090,19 @@ export function buildMansionGrounds(scene = null) {
         }));
         bed(-6.7, -4.35, 1.5, 3.55);
         plantBed(-6.55, -4.5, 1.8, 3.3, 1.2);
-        bed(-6.7, -4.35, 10.45, 22);
-        plantBed(-6.55, -4.5, 10.7, 21.7, 1.5);
-        hedge(-7.0, -6.7, 10.45, 22, 0.8);
+        /* Stop 0.9 m (2.95 ft) sooner at the court. At z=22 the fountain's
+         * six-metre apron left only about one metre between stone and bed;
+         * ending at 21.1 opens more than three metres before the turn. */
+        bed(-6.7, -4.35, 10.45, 21.1);
+        plantBed(-6.55, -4.5, 10.7, 20.85, 1.5);
+        hedge(-7.0, -6.7, 10.45, 21.1, 0.8);
         continue;
       }
-      bed(side > 0 ? 4.35 : -6.7, side > 0 ? 6.7 : -4.35, 1.5, 22);
-      plantBed(side > 0 ? 4.5 : -6.55, side > 0 ? 6.55 : -4.5, 1.8, 21.7, 1.5);
+      bed(side > 0 ? 4.35 : -6.7, side > 0 ? 6.7 : -4.35, 1.5, 21.1);
+      plantBed(side > 0 ? 4.5 : -6.55, side > 0 ? 6.55 : -4.5, 1.8, 20.85, 1.5);
       // The hedge starts at z=6, north of the security booth and its barrier
       // arm, rather than running straight through them.
-      hedge(side > 0 ? 6.7 : -7.0, side > 0 ? 7.0 : -6.7, 6, 22, 0.8);
+      hedge(side > 0 ? 6.7 : -7.0, side > 0 ? 7.0 : -6.7, 6, 21.1, 0.8);
     }
 
     // 2. The two front-lawn parterres either side of the drive: a box-hedge
@@ -2226,51 +2292,122 @@ export function buildMansionGrounds(scene = null) {
    */
   function buildServiceRoad() {
     root.add(box({ size: [28 - 22, 0.06, 70], pos: [25, 0.02, 35], mat: M_ASPHALT }));
-    const x0 = BUILDING.x1 + WALL_T; // 16.4 -- the flight starts AT the house
-    const x1 = 22;
-    const zBot = 63;
-    const zTop = REAR_DOOR.z; // 66
-    const steps = 6;
-    const depth = (zTop - zBot) / steps + 0.05;
-    /** Tread tops, so the kerb below can rake with the flight rather than
-     * guess at it. */
-    const treads = [];
-    for (let i = 0; i < steps; i++) {
-      const t = i / steps;
-      treads.push({
-        z: THREE.MathUtils.lerp(zBot, zTop, t),
-        top: THREE.MathUtils.lerp(0, GROUND_Y, t),
-        depth,
+    const wallFace = BUILDING.x1 + WALL_T; // 16.4, outside face of the east wall
+    const threshold = Object.freeze({
+      x0: BUILDING.x1,
+      x1: wallFace,
+      z0: REAR_DOOR.z0,
+      z1: REAR_DOOR.z1,
+      y: GROUND_Y,
+    });
+    /* The wall opening is 40 cm deep. The kitchen podium owns coordinates
+     * only through its inside face (x=16), while the exterior landing starts
+     * at the outside face (x=16.4). Give that wall band its own real slab and
+     * public walking contract so the service door cannot briefly resolve as
+     * street grade while the player crosses it. */
+    root.add(box({
+      size: [threshold.x1 - threshold.x0, 0.18, threshold.z1 - threshold.z0],
+      pos: [
+        (threshold.x0 + threshold.x1) / 2,
+        threshold.y - 0.09,
+        (threshold.z0 + threshold.z1) / 2,
+      ],
+      mat: M_ASPHALT,
+      name: 'service-door-threshold',
+    }));
+    const landing = Object.freeze({
+      x0: wallFace,
+      x1: 18.0,
+      z0: REAR_DOOR.z0,
+      z1: REAR_DOOR.z1,
+      y: GROUND_Y,
+    });
+    /* A real top landing, flush to the whole service opening. The old flight
+     * climbed north along z even though this doorway faces east, so its broad
+     * side touched the wall and the player had to turn off the top tread to
+     * find the door. */
+    root.add(box({
+      size: [landing.x1 - landing.x0, 0.18, landing.z1 - landing.z0],
+      pos: [
+        (landing.x0 + landing.x1) / 2,
+        landing.y - 0.09,
+        (landing.z0 + landing.z1) / 2,
+      ],
+      mat: M_ASPHALT,
+      name: 'service-landing-platform',
+    }));
+
+    /* Two masonry posts and an under-beam make the raised platform visibly
+     * load-bearing instead of a slab suspended 1.02 m above the ground. */
+    const supportTop = landing.y - 0.18;
+    const supports = [];
+    for (const z of [landing.z0 + 0.3, landing.z1 - 0.3]) {
+      const post = box({
+        size: [0.24, supportTop, 0.24],
+        pos: [landing.x1 - 0.28, supportTop / 2, z],
+        mat: M_MARBLE_DK,
+        name: 'service-landing-support',
       });
+      root.add(post);
+      supports.push(post);
+      solid(
+        landing.x1 - 0.4, landing.x1 - 0.16,
+        0, supportTop,
+        z - 0.12, z + 0.12,
+      );
     }
-    // The nosing at the head of the run: flush with the kitchen threshold, so
-    // the last thing you step onto going out is the floor you just left.
-    treads.push({ z: zTop - 0.14, top: GROUND_Y, depth: 0.28 });
-    for (const tr of treads) {
+    const underBeam = box({
+      size: [0.24, 0.22, landing.z1 - landing.z0 - 0.24],
+      pos: [landing.x1 - 0.28, supportTop - 0.11, (landing.z0 + landing.z1) / 2],
+      mat: M_MARBLE_DK,
+      name: 'service-landing-underbeam',
+    });
+    root.add(underBeam);
+
+    /* The flight now runs perpendicular to the east-wall doorway: road at
+     * x=22, stair head at x=18, then the landing and kitchen threshold. Each
+     * tread is a grounded block, so neither it nor its riser can float. */
+    const ramp = Object.freeze({
+      x0: landing.x1,
+      x1: 22,
+      z0: REAR_DOOR.z0 + 0.18,
+      z1: REAR_DOOR.z1 - 0.18,
+      axis: 'x',
+      highAt: 'min',
+    });
+    const steps = 6;
+    const run = (ramp.x1 - ramp.x0) / steps;
+    for (let i = 0; i < steps; i++) {
+      const x1 = ramp.x1 - i * run;
+      const x0 = x1 - run;
+      const top = ((i + 1) / steps) * GROUND_Y;
       root.add(box({
-        size: [x1 - x0, 0.14, tr.depth],
-        pos: [(x0 + x1) / 2, tr.top - 0.07, tr.z],
+        size: [x1 - x0, top, ramp.z1 - ramp.z0],
+        pos: [(x0 + x1) / 2, top / 2, (ramp.z0 + ramp.z1) / 2],
         mat: M_ASPHALT,
         name: 'service-ramp-tread',
       }));
     }
-    /* Kerb on the ramp's OUTER edge only. The inner one used to run the full
-     * length at x0-0.25, which was harmless when the ramp started at x=15
-     * (inside the podium) but is a wall across the rear service door now that
-     * it starts at the building line -- the door is at x:16..16.4, z:64.8..
-     * 67.2, and the verifier's walk from the road duly stopped dead 1.3 m
-     * short of it. The inner edge needs no kerb: it IS the house. */
-    solid(x1, x1 + 0.25, 0, GROUND_Y + 0.2, zBot, zTop);
-    for (const tr of treads) {
-      root.add(box({
-        size: [0.25, 0.16, tr.depth],
-        pos: [x1 + 0.125, tr.top + 0.08, tr.z],
-        mat: M_CURB,
-        cast: false,
-        name: 'service-ramp-kerb',
-      }));
-    }
-    return { road: { x0: 22, x1: 28, z0: 0, z1: 70 }, ramp: { x0, x1, z0: zBot, z1: zTop } };
+    const groundAt = (x, z) => {
+      if (x >= threshold.x0 && x <= threshold.x1 && z >= threshold.z0 && z <= threshold.z1) {
+        return threshold.y;
+      }
+      if (x >= landing.x0 && x <= landing.x1 && z >= landing.z0 && z <= landing.z1) {
+        return landing.y;
+      }
+      if (x < ramp.x0 || x > ramp.x1 || z < ramp.z0 || z > ramp.z1) return null;
+      const t = THREE.MathUtils.clamp((ramp.x1 - x) / (ramp.x1 - ramp.x0), 0, 1);
+      return THREE.MathUtils.lerp(0, GROUND_Y, t);
+    };
+    return {
+      road: { x0: 22, x1: 28, z0: 0, z1: 70 },
+      ramp,
+      threshold,
+      landing,
+      supports,
+      underBeam,
+      groundAt,
+    };
   }
   const serviceRoad = buildServiceRoad();
 
@@ -2291,6 +2428,15 @@ export function buildMansionGrounds(scene = null) {
   const BAY_ARCH_TOP = GROUND_Y + 3.4;
   /** ...and of the arcade from the living room into the west wing. */
   const WING_ARCH_TOP = GROUND_Y + 3.6;
+  const TROPHY_ENTRANCE = Object.freeze({
+    x0: BUILDING.x0 - WALL_T,
+    x1: BUILDING.x0,
+    arches: Object.freeze([
+      Object.freeze({ id: 'livingToTrophySouth', z0: 41.40, z1: 42.90 }),
+      Object.freeze({ id: 'livingToTrophyMid', z0: 43.09, z1: 44.71 }),
+      Object.freeze({ id: 'livingToTrophyNorth', z0: 44.90, z1: 46.40 }),
+    ]),
+  });
 
   function buildShell() {
     const zS0 = BUILDING.z0 - WALL_T;
@@ -2486,9 +2632,9 @@ export function buildMansionGrounds(scene = null) {
          * on. The middle arch is centred on z=43.9, which is the line the
          * walk-in test drives -- put the piers on that line instead and the
          * hall is entered by squeezing past a column. */
-        { id: 'livingToTrophySouth', u0: 41.4, u1: 42.8, y0: GROUND_Y, y1: WING_ARCH_TOP },
-        { id: 'livingToTrophyMid', u0: 43.2, u1: 44.6, y0: GROUND_Y, y1: WING_ARCH_TOP },
-        { id: 'livingToTrophyNorth', u0: 45.0, u1: 46.4, y0: GROUND_Y, y1: WING_ARCH_TOP },
+        ...TROPHY_ENTRANCE.arches.map((arch) => ({
+          id: arch.id, u0: arch.z0, u1: arch.z1, y0: GROUND_Y, y1: WING_ARCH_TOP,
+        })),
         {
           id: 'livingWest', u0: 47.6, u1: 50.8, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
         },
@@ -3985,7 +4131,8 @@ export function buildMansionGrounds(scene = null) {
 
     /* ---- 6. The walled rose garden, east compartment. */
     const R = ROSE_GARDEN;
-    const GATE_W = 2.6;
+    /* Six-inch walkthrough correction: 2.60 + 0.16 = 2.76 m. */
+    const GATE_W = 2.76;
     const gateZ = (R.z0 + R.z1) / 2;
     // West wall (facing the axis), broken by a moon-gate arch.
     for (const [wz0, wz1] of [[R.z0, gateZ - GATE_W / 2], [gateZ + GATE_W / 2, R.z1]]) {
@@ -3999,52 +4146,22 @@ export function buildMansionGrounds(scene = null) {
       }));
       solid(R.x0 - R.t / 2, R.x0 + R.t / 2, 0, R.wall, wz0, wz1);
     }
-    /* The arch head over the gate: a half-torus of brick, which is what makes
-     * an opening in a garden wall read as a gate rather than a hole.
-     *
-     * AND THE HEAD THAT CARRIES IT. The arch springs at y = wall - 0.5 = 1.8
-     * and is a full half-round of radius 1.3, so its crown reaches 3.35 --
-     * measured -- against a wall that stops at 2.30 and a coping at 2.42. The
-     * top metre of the arch stood out of the top of the wall in open air, and
-     * the box that was supposed to close the spandrel above it was authored
-     * with a NEGATIVE height: `wall - (wall - 0.5) - GATE_W/2 + 0.6` evaluates
-     * to -0.2, and `box()` scales a shared unit cube, so a negative size is a
-     * mirrored cube -- wound inside out and therefore invisible from the
-     * garden. It was the one inverted mesh in the whole scene.
-     *
-     * A gateway in a garden wall carries its arch in a RAISED HEAD, so that is
-     * what this is now: a block of the same brick from the wall head up over
-     * the crown, wider than the opening, with the wall's own coping course
-     * carried across it. Positive dimensions throughout. */
+    /* The opening is a freestanding half-torus moon gate. A previous repair
+     * added a rectangular brick head and a second coping course above it;
+     * that made the entrance read as wall-on-wall and narrowed its silhouette.
+     * Keep the flanking wall supported, but let the arch itself be the entry. */
     {
       const arch = new THREE.Mesh(
         new THREE.TorusGeometry(GATE_W / 2, R.t / 2, 8, 22, Math.PI),
         brickMaterial(4, 1),
       );
+      arch.name = 'rose-garden-entry-arch';
       arch.position.set(R.x0, R.wall - 0.5, gateZ);
       arch.rotation.y = Math.PI / 2;
       root.add(arch);
-      /* Top of the arch's own TUBE, not of its centre line: the half-torus has
-       * radius GATE_W/2 and tube R.t/2, so its outer profile reaches 3.35 at
-       * the crown and is still 2.64 -- above the wall -- out at the springing.
-       * The head is therefore 0.6 m wider than the opening (the tube spreads
-       * to +/-1.55 of the centre line) and stands 25 cm proud of the crown. */
-      const archTop = (R.wall - 0.5) + GATE_W / 2 + R.t / 2; // 3.35
-      const headTop = archTop + 0.25;
-      const headW = GATE_W + 0.6;
-      root.add(box({
-        size: [R.t, headTop - R.wall, headW],
-        pos: [R.x0, (R.wall + headTop) / 2, gateZ],
-        mat: brickMaterial(headW, headTop - R.wall),
-        name: 'rose-gate-head',
-      }));
-      root.add(box({
-        size: [R.t + 0.18, 0.12, headW + 0.2],
-        pos: [R.x0, headTop + 0.06, gateZ],
-        mat: M_COPING,
-        cast: false,
-        name: 'rose-gate-coping',
-      }));
+      /* The torus is the entrance. The former rectangular head and coping
+       * boxed it into another wall above the wall and defeated the moon-gate
+       * silhouette the arch was meant to provide. */
       const gateLamp = new THREE.PointLight(0xffca7a, 6, 12, 2);
       gateLamp.position.set(R.x0 - 0.9, 2.5, gateZ);
       root.add(gateLamp);
@@ -4768,6 +4885,34 @@ export function buildMansionGrounds(scene = null) {
   }
   const rearGarden = buildRearGarden();
 
+  /* Front security routes belong to the grounds that own their obstacles.
+   * The old cast-local rectangles had three deterministic faults: patrol 0
+   * walked straight through both driveway hedges at z=19, patrol 1 crossed
+   * the palm at (-26.5, 33), and patrol 2 spawned against the matching facade
+   * palm. These compact loops stay in open maintained ground and are published
+   * through `anchors`, so moving a bed or tree cannot leave a second, stale
+   * map hidden in cast.js. */
+  const frontGuardRoutes = Object.freeze([
+    Object.freeze([
+      Object.freeze({ x: -2.4, z: 18.0 }),
+      Object.freeze({ x: 2.4, z: 18.0 }),
+      Object.freeze({ x: 2.4, z: 7.0 }),
+      Object.freeze({ x: -2.4, z: 7.0 }),
+    ]),
+    Object.freeze([
+      Object.freeze({ x: -23.0, z: 20.0 }),
+      Object.freeze({ x: -28.5, z: 20.0 }),
+      Object.freeze({ x: -28.5, z: 30.0 }),
+      Object.freeze({ x: -23.0, z: 30.0 }),
+    ]),
+    Object.freeze([
+      Object.freeze({ x: 17.5, z: 20.0 }),
+      Object.freeze({ x: 20.5, z: 20.0 }),
+      Object.freeze({ x: 20.5, z: 32.0 }),
+      Object.freeze({ x: 17.5, z: 32.0 }),
+    ]),
+  ]);
+
   /* ---------------------------------------------------------------- */
   /* Anchors                                                            */
   /* ---------------------------------------------------------------- */
@@ -4803,6 +4948,8 @@ export function buildMansionGrounds(scene = null) {
     gardenPavilion: new THREE.Vector3(PAVILION.x, 0, PAVILION.z - 5.4),
     firePit: new THREE.Vector3(rearGarden.firePit.x, 0, rearGarden.firePit.z - 5),
     outdoorKitchen: new THREE.Vector3(18.0, 0, 84),
+    /** Three obstacle-checked loops consumed directly by mansion/cast.js. */
+    frontGuardRoutes,
   };
 
   /* ---------------------------------------------------------------- */
@@ -4882,6 +5029,8 @@ export function buildMansionGrounds(scene = null) {
     serviceRoad,
     poolPatio,
     rearGarden,
+    frontGuardRoutes,
+    trophyEntrance: TROPHY_ENTRANCE,
     landscaping,
     lamps: [...LAMP_POSITIONS, ...CAR_LAMP_POSITIONS],
     palmSpots: PALM_SPOTS,
