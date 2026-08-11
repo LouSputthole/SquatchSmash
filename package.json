@@ -42,6 +42,7 @@
     "verify:silvercase": "node tools/verify-silvercase.mjs",
     "verify:mouths": "node tools/verify-mouths.mjs",
     "verify:mansion": "node tools/verify-mansion.mjs",
+    "verify:mansion-art": "node tools/verify-mansion-art.mjs final all",
     "verify:mansion-return": "node tools/verify-mansion-return.mjs",
     "verify:mansion-siege": "node tools/verify-mansion-siege.mjs",
     "probe:siege": "node tools/probe-siege-balcony.mjs",

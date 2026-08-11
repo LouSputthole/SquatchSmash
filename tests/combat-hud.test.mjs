@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { combatVitals } from '../src/core/combat/hud.js';
+import { combatArmor, combatVitals } from '../src/core/combat/hud.js';
 
 test('the shared combat HUD view reports readable health from a CombatActor', () => {
   const view = combatVitals({ health: 64.2, maxHealth: 100, incapacitated: false });
@@ -36,5 +36,19 @@ test('the shared combat HUD view clamps malformed values and makes downed state 
     down: true,
     label: 'HEALTH',
     aria: 'Health 0 of 1, down',
+  });
+});
+
+test('the shared combat HUD exposes readable mechanical armor beside health', () => {
+  assert.deepEqual(combatArmor({ armor: 30, maxArmor: 40 }), {
+    armor: 30,
+    maxArmor: 40,
+    current: 30,
+    maximum: 40,
+    ratio: 0.75,
+    percent: 75,
+    visible: true,
+    label: 'ARMOR',
+    aria: 'Armor 30 of 40',
   });
 });

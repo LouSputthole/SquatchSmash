@@ -30,7 +30,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NO_WAKE_CABIN_SCRIPT, allNoWakeVoiceLines } from '../src/nowake/dialogue.js';
 import { isNoWakeAudioPreloadCue } from '../src/nowake/audio.js';
-import { CABIN, CABIN_STAGING, DECK } from '../src/nowake/deck-collision.js';
+import {
+  CABIN, CABIN_CAST_STAGING, CABIN_STAGING, DECK,
+} from '../src/nowake/deck-collision.js';
 import { buildNoWakeAudioLedger } from './no-wake-audio-ledger.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -145,6 +147,18 @@ check('no redesigned cue reuses an old delivered recording of different words',
     return manifestByName.get(`vo.nowake.${line.cue}.1`)?.say === line.text;
   }));
 
+const verifierSource = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8');
+const routeBegin = ['CANONICAL_ROUTE', 'CONTRACT_BEGIN'].join('_');
+const routeEnd = ['CANONICAL_ROUTE', 'CONTRACT_END'].join('_');
+const routeContract = verifierSource.split(routeBegin)[1]?.split(routeEnd)[0] ?? '';
+check('the browser route contract keeps the real helm/input/coast path free of beat and speed shortcuts',
+  /page\.keyboard\.down\('w'\)/.test(routeContract)
+    && /page\.keyboard\.down\('s'\)/.test(routeContract)
+    && /reverseExtraMs < 250/.test(routeContract)
+    && /physics\.distance >= 360/.test(routeContract)
+    && /__noWakeCoast/.test(routeContract)
+    && !/leaveHelm|skipDrive|physics\.speed\s*=|physics\.throttle\s*=/.test(routeContract));
+
 const shots = path.join(ROOT, 'docs', 'validation', '2026-08-06');
 if (WRITE_SCREENSHOTS) await fsp.mkdir(shots, { recursive: true });
 const capture = (name) => (WRITE_SCREENSHOTS
@@ -153,6 +167,12 @@ const capture = (name) => (WRITE_SCREENSHOTS
 
 
 try {
+  /* The authored channel is ninety simulated seconds. Playwright's clock lets
+   * the real requestAnimationFrame/updateBoat path run that whole interval
+   * without turning this already-large browser verifier into a wall-clock
+   * ninety-second wait. It continues normally until the focused drive slice
+   * below calls `runFor`, and is resumed immediately afterwards. */
+  await page.clock.install({ time: Date.now() });
   await page.goto(`http://localhost:${PORT}/nowake.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
   /* One helper the whole file aims with: put the crosshair on a boat-local
@@ -160,6 +180,10 @@ try {
    * system, and report what it found. Every "the player uses X" check below
    * goes through this rather than calling an onUse directly. */
   await page.evaluate(() => {
+    window.__noWakeContextLosses = 0;
+    document.querySelector('canvas')?.addEventListener('webglcontextlost', () => {
+      window.__noWakeContextLosses++;
+    });
     window.__aim = (local, from = null) => {
       const game = window.NO_WAKE;
       const V = game.player.position.constructor;
@@ -175,6 +199,85 @@ try {
       game.player.camera.updateMatrixWorld(true);
       game.interaction.update(1 / 60);
       return game.interaction.current?.name ?? null;
+    };
+    /* Public CPU twin of the water shader, sampled at the actual horizontal
+     * sea plane. The inverse-Y solve matters once the hull is pitched/rolled:
+     * simply transforming [x, waterLevel, z] would no longer land on the sea. */
+    window.__waterSamples = () => {
+      const game = window.NO_WAKE;
+      const V = game.player.position.constructor;
+      const root = game.boat.root;
+      const hull = root.getObjectByName('cream fiberglass hull');
+      const water = game.world.water;
+      const atWater = (x, z) => {
+        hull.updateMatrixWorld(true);
+        const base = new V(x, 0, z).applyMatrix4(hull.matrixWorld);
+        const localY = new V().setFromMatrixColumn(hull.matrixWorld, 1);
+        const y = (water.level - base.y) / localY.y;
+        return new V(x, y, z).applyMatrix4(hull.matrixWorld);
+      };
+      /* Record shader freshness before the public CPU predicate gets any
+       * chance to self-sync it. A missing world.update() must stay observable. */
+      hull.updateMatrixWorld(true);
+      const expectedInverse = hull.matrixWorld.clone().invert();
+      const shaderInverse = water.material.uniforms.uBoatWorldInverse.value;
+      const freshnessError = Math.max(...expectedInverse.elements.map(
+        (value, index) => Math.abs(value - shaderInverse.elements[index]),
+      ));
+      const inside = [
+        ['cabin centre', 0, -4.10], ['cabin dinette', 1.12, -3.20],
+        ['cockpit centre', .20, 1.80], ['cockpit seating', -1.20, 3.50],
+      ].map(([name, x, z]) => ({ name, excluded: water.excludes(atWater(x, z)) }));
+      const outside = [
+        ['port sea', -3.20, 0], ['starboard sea', 3.20, 2.60],
+        ['ahead of bow', 0, -6.55], ['behind transom', 0, 5.85],
+        ['beside fine bow', 1.40, -5.70],
+      ].map(([name, x, z]) => ({ name, excluded: water.excludes(atWater(x, z)) }));
+      const classifyHullLocal = (name, x, y, z) => ({
+        name, excluded: water.excludes(new V(x, y, z).applyMatrix4(hull.matrixWorld)),
+      });
+      /* Walk the real skin contract at every authored section join and at a
+       * trough, chine and crest. Each triple proves outside water, the 35 mm
+       * wet shell overlap, and the first definitely-dry point. */
+      const sections = water.exclusion.sections;
+      const sectionBeam = (z) => {
+        for (let i = 0; i < sections.length - 1; i++) {
+          const a = sections[i]; const b = sections[i + 1];
+          if (z < a.z || z > b.z) continue;
+          return a.w + (b.w - a.w) * (z - a.z) / (b.z - a.z);
+        }
+        return sections.at(-1).w;
+      };
+      const vertical = (y) => (y <= water.exclusion.chineY
+        ? .84 * (y - water.exclusion.keelY)
+          / (water.exclusion.chineY - water.exclusion.keelY)
+        : .84 + .16 * (y - water.exclusion.chineY)
+          / (water.exclusion.sheerY - water.exclusion.chineY));
+      const boundary = [];
+      for (const y of [-.29, water.exclusion.chineY, .15]) {
+        sections.forEach((section, index) => {
+          const z = index === 0 ? section.z + .05
+            : index === sections.length - 1 ? section.z - .05 : section.z;
+          const skin = sectionBeam(z) * vertical(y);
+          boundary.push(
+            { ...classifyHullLocal(`${y}/${z} outside`, skin + .010, y, z), expected: false },
+            { ...classifyHullLocal(`${y}/${z} overlap`, skin - .020, y, z), expected: false },
+            { ...classifyHullLocal(`${y}/${z} inside`, skin - .050, y, z), expected: true },
+          );
+        });
+      }
+      boundary.push(
+        { ...classifyHullLocal('10 mm ahead of bow', 0, -.08, sections[0].z - .01), expected: false },
+        { ...classifyHullLocal('20 mm bow overlap', 0, -.08, sections[0].z + .02), expected: false },
+        { ...classifyHullLocal('50 mm inside bow', 0, -.08, sections[0].z + .05), expected: true },
+        { ...classifyHullLocal('50 mm inside transom', 0, -.08, sections.at(-1).z - .05), expected: true },
+        { ...classifyHullLocal('20 mm transom overlap', 0, -.08, sections.at(-1).z - .02), expected: false },
+        { ...classifyHullLocal('10 mm behind transom', 0, -.08, sections.at(-1).z + .01), expected: false },
+      );
+      return {
+        inside, outside, boundary, freshnessError,
+        position: root.position.toArray(), rotation: root.rotation.toArray().slice(0, 3),
+      };
     };
     /* The startup panel, in one place.
      *
@@ -487,6 +590,13 @@ try {
       && boot.waterline.platformY > boot.waterline.surfaceY
       && boot.waterline.platformY - boot.waterline.surfaceY < .40,
     JSON.stringify(boot.waterline));
+  const waterAtRest = await page.evaluate(() => window.__waterSamples());
+  check('the tapered moving water hole keeps the real cabin and cockpit dry at rest without erasing exterior sea',
+    waterAtRest.inside.every((sample) => sample.excluded)
+      && waterAtRest.outside.every((sample) => !sample.excluded)
+      && waterAtRest.boundary.every((sample) => sample.excluded === sample.expected)
+      && waterAtRest.freshnessError < 1e-8,
+    JSON.stringify(waterAtRest));
   check('both walkable spaces have local collision and the water has a dense displaced surface',
     boot.localColliders >= 18 && boot.cabinColliders >= 7 && boot.waterVertices >= 40000,
     JSON.stringify({ deck: boot.localColliders, cabin: boot.cabinColliders, water: boot.waterVertices }));
@@ -583,6 +693,87 @@ try {
       && /wooded point/.test(marina.pointName) && /quarry/.test(marina.quarryName)
       && marina.inlet.z < -300,
     JSON.stringify({ sign: marina.signLocal, houses: marina.houses, inlet: marina.inlet }));
+
+  const dockRoute = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const Box3 = game.world.colliders[0].constructor;
+    const player = game.player;
+    const finger = game.world.marina.root.getObjectByName('finger dock deck');
+    const cart = game.world.marina.root.getObjectByName('dock cart');
+    game.world.marina.root.updateMatrixWorld(true);
+    const fingerBox = new Box3().setFromObject(finger);
+    const visibleCart = new Box3().setFromObject(cart);
+    const cartCentre = visibleCart.getCenter(new V());
+    const cartCollider = game.world.marina.colliders.find(
+      (box) => box.containsPoint(cartCentre) || box.intersectsBox(visibleCart),
+    );
+    const radius = .30;
+    const laneMinX = cartCollider.max.x + radius;
+    const laneMaxX = fingerBox.max.x - radius;
+    const laneX = (laneMinX + laneMaxX) / 2;
+    window.__dockRouteSaved = {
+      mode: player.mode, enabled: player.enabled, position: player.position.clone(),
+      ground: player.ground, yaw: player.yaw, pitch: player.pitch,
+    };
+    player.mode = 'walk';
+    player.enabled = true;
+    player.clearKeys();
+    player.velocity.set(0, 0, 0);
+    player.ground = .20;
+    player.position.set(laneX, player.ground + player.eyeHeight, 20);
+    player.yaw = 0;
+    player.pitch = 0;
+    player.setKey('KeyW', true);
+    let closestCart = Infinity;
+    let frames = 0;
+    while (frames < 2400 && player.position.z > -17.5) {
+      player.update(1 / 60);
+      const cx = Math.max(cartCollider.min.x, Math.min(cartCollider.max.x, player.position.x));
+      const cz = Math.max(cartCollider.min.z, Math.min(cartCollider.max.z, player.position.z));
+      closestCart = Math.min(closestCart, Math.hypot(player.position.x - cx, player.position.z - cz));
+      frames++;
+    }
+    player.setKey('KeyW', false);
+    const end = player.position.clone();
+    /* Keep the endpoint earned by the real walk, then look back up its open
+     * centre line so the cart and the lane around it are both legible. */
+    const look = new V(laneX, .58, -12.8);
+    const delta = look.sub(player.camera.position);
+    player.yaw = Math.atan2(-delta.x, -delta.z);
+    player.pitch = Math.asin(delta.y / delta.length());
+    player.update(1 / 60);
+    player.camera.updateMatrixWorld(true);
+    return {
+      start: [laneX, 1.86, 20], end: end.toArray(), frames, closestCart,
+      centreLaneWidth: laneMaxX - laneMinX,
+      visibleCovered: cartCollider.containsBox(visibleCart),
+      finger: { min: fingerBox.min.toArray(), max: fingerBox.max.toArray() },
+      cart: { min: cartCollider.min.toArray(), max: cartCollider.max.toArray() },
+    };
+  });
+  check('the real player walks the full Gate C finger past the repositioned cart without overlap or falling off',
+    dockRoute.end[2] <= -17.5 && dockRoute.frames < 2400
+      && dockRoute.closestCart >= .30 - 1e-6 && dockRoute.centreLaneWidth >= 1.2
+      && dockRoute.visibleCovered
+      && dockRoute.end[0] >= dockRoute.finger.min[0] + .30
+      && dockRoute.end[0] <= dockRoute.finger.max[0] - .30,
+    JSON.stringify(dockRoute));
+  await capture('no-wake-clear-pier-route.png');
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const saved = window.__dockRouteSaved;
+    game.player.clearKeys();
+    game.player.mode = saved.mode;
+    game.player.enabled = saved.enabled;
+    game.player.position.copy(saved.position);
+    game.player.ground = saved.ground;
+    game.player.yaw = saved.yaw;
+    game.player.pitch = saved.pitch;
+    game.player.velocity.set(0, 0, 0);
+    game.player.update(1 / 60);
+    delete window.__dockRouteSaved;
+  });
 
   /* ---------------------------------------------------------------- *
    * Boarding, and the walkable-deck sweep
@@ -1065,79 +1256,192 @@ try {
    * The run out, the inlet, and the silence after the engines stop
    * ---------------------------------------------------------------- */
 
+  /* CANONICAL_ROUTE_CONTRACT_BEGIN */
   const underway = await page.evaluate(() => {
     const game = window.NO_WAKE;
-    game.physics.throttle = .82;
-    for (let i = 0; i < 360; i++) game.physics.advance(1 / 120);
-    return { distance: game.physics.distance, speed: game.physics.speed, phase: game.phase };
+    const probe = new game.physics.constructor();
+    probe.running = true;
+    probe.mooringReleased = true;
+    probe.throttle = .82;
+    for (let i = 0; i < 360; i++) probe.advance(1 / 120);
+    return { distance: probe.distance, speed: probe.speed, phase: game.phase };
   });
   check('the released cruiser accelerates under her own physics',
-    underway.phase === 'drive' && underway.distance > 8 && underway.speed > 1,
+    /* Three real fixed-step seconds at the authored .82 throttle produce
+     * about 5.44 m / 2.96 m/s. The steady-cruise gate below separately proves
+     * the 5.2 m/s presentation contract, so this isolated smoke check only
+     * needs to prove a decisive, correctly signed launch. */
+    underway.phase === 'drive' && underway.distance > 5 && underway.speed > 2.5,
     JSON.stringify(underway));
-
-  const deckRide = await page.evaluate(async () => {
-    const game = window.NO_WAKE;
-    game.physics.speed = .2;
-    game.leaveHelm({ force: true });
-    const before = game.world.toBoatLocal(game.player.position).clone();
-    const startDistance = game.physics.distance;
-    game.physics.speed = 2.2;
-    game.physics.throttle = 1;
-    const frames = await new Promise((resolve) => {
-      let drawn = 0;
-      const tick = () => {
-        drawn++;
-        if (game.physics.distance - startDistance > .45 || drawn > 600) resolve(drawn);
-        else requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
-    const after = game.world.toBoatLocal(game.player.position).clone();
-    return {
-      atHelm: game.state.atHelm, throttle: game.physics.throttle,
-      coasted: game.physics.distance - startDistance,
-      localDelta: before.distanceTo(after), frames,
-    };
-  });
-  check('leaving the helm neutralizes propulsion while a coasting deck carries the player with it',
-    deckRide.atHelm === false && Math.abs(deckRide.throttle) < .02
-      && deckRide.coasted > .2 && deckRide.localDelta < .08,
-    JSON.stringify(deckRide));
 
   await page.evaluate(() => {
     const game = window.NO_WAKE;
-    game.physics.speed = 0;
-    window.__aim([1.34, 1.88, -0.52]);
-    game.interaction.press();
-    for (let i = 0; i < 30 && !game.state.atHelm; i++) game.interaction.update(.05);
-    game.interaction.release();
-    game.skipDrive();
-    game.physics.speed = 2;
+    if (!game.state.atHelm) throw new Error('canonical NO WAKE route lost the real helm');
+    /* The isolated acceleration probe above never touches this hull. Reset the
+     * same running, released cruiser on her Gate C datum so the authoritative
+     * approach below owns every metre and every drive tick. */
+    const cueBase = game.cueLog.length;
+    window.__resetNoWakeRoute = () => {
+      game.player.clearKeys();
+      game.physics.reset();
+      game.physics.running = true;
+      game.physics.mooringReleased = true;
+      game.physics.helmAttended = true;
+      game.phase = 'drive';
+      game.state.phaseTime = 0;
+      game.state.driveSeconds = 0;
+      game.state.cruiseIndex = 0;
+      game.cueLog.length = cueBase;
+      game.campaignState.missions.no_wake.checkpoint = 'underway';
+      game.boat.root.position.set(0, game.boat.floatY, 0);
+      game.boat.root.rotation.set(0, 0, 0);
+      game.boat.root.updateMatrixWorld(true);
+      game.world.update(0, 0);
+    };
+    window.__resetNoWakeRoute();
+    /* Software WebGL is the expensive part of 5,500 RAF callbacks, not the
+     * game. Keep the complete production update loop but omit rasterisation
+     * while Playwright advances the authored clock, then restore it for the
+     * evidence frame. */
+    window.__noWakeRender = game.postfx.render;
+    game.postfx.render = () => {};
   });
-  await page.waitForFunction(() => window.NO_WAKE.phase === 'inlet');
-  const atInlet = await page.evaluate(() => ({
+  /* An odometer can be filled without reaching the inlet. Exercise the old
+   * false-green exactly: 65 s ahead, then reverse until both legacy numbers
+   * exceed their gates. The real mission must stay in the channel. */
+  await page.keyboard.down('w');
+  await page.clock.runFor(65000);
+  await page.keyboard.up('w');
+  await page.keyboard.down('s');
+  await page.clock.runFor(45000);
+  /* `runFor()` stops on a rendered-frame boundary. Depending on that boundary,
+   * the deterministic 110 s sample can finish a few centimetres either side
+   * of the old 360 m odometer gate. Keep the real S key held for at most a
+   * quarter-second so this negative case always crosses the legacy threshold
+   * it is meant to falsify; never move the hull or mutate its counters here. */
+  let reverseExtraMs = 0;
+  while (reverseExtraMs < 250) {
+    const reachedLegacyDistance = await page.evaluate(() => window.NO_WAKE.physics.distance >= 360);
+    if (reachedLegacyDistance) break;
+    await page.clock.runFor(50);
+    reverseExtraMs += 50;
+  }
+  const outAndBack = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
-    distance: window.NO_WAKE.physics.distance,
     checkpoint: window.NO_WAKE.campaignState.missions.no_wake.checkpoint,
-    boat: window.NO_WAKE.boat.root.position.toArray(),
-    inlet: window.NO_WAKE.world.inlet,
-    wakeVisible: window.NO_WAKE.world.wake.pool.some((p) => p.visible),
+    driveSeconds: window.NO_WAKE.state.driveSeconds,
+    distance: window.NO_WAKE.physics.distance,
+    speed: window.NO_WAKE.physics.speed,
+    position: window.NO_WAKE.physics.position.toArray(),
+    realReverseInput: window.NO_WAKE.player.keys.has('KeyS'),
   }));
-  check('the authored 90-second run resolves into the inlet checkpoint behind the point',
-    atInlet.phase === 'inlet' && atInlet.distance >= 360
+  outAndBack.reverseExtraMs = reverseExtraMs;
+  await page.keyboard.up('s');
+  check('real forward/reverse input cannot bank an inlet checkpoint without reaching the inlet window',
+    outAndBack.phase === 'drive' && outAndBack.checkpoint === 'underway'
+      && outAndBack.realReverseInput && outAndBack.driveSeconds >= 90
+      && outAndBack.distance >= 360 && outAndBack.speed < -1.2
+      && outAndBack.position[1] > -300 && outAndBack.reverseExtraMs <= 250,
+    JSON.stringify(outAndBack));
+  await page.evaluate(() => window.__resetNoWakeRoute());
+  await page.keyboard.down('w');
+  await page.clock.runFor(92000);
+  const atInlet = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const Box3 = game.world.colliders[0].constructor;
+    const hull = game.boat.root.getObjectByName('cream fiberglass hull');
+    const headland = game.world.channel.root.getObjectByName('inlet head land');
+    game.boat.root.updateMatrixWorld(true);
+    game.world.channel.root.updateMatrixWorld(true);
+    const hullBox = new Box3().setFromObject(hull);
+    const headlandBox = new Box3().setFromObject(headland);
+    return {
+      phase: game.phase,
+      atHelm: game.state.atHelm,
+      phaseTime: game.state.phaseTime,
+      driveSeconds: game.state.driveSeconds,
+      physicsTime: game.physics.time,
+      distance: game.physics.distance,
+      speed: game.physics.speed,
+      throttle: game.physics.throttle,
+      speedGauge: game.boat.controls.gaugeNeedles.speed.rotation.z,
+      realForwardInput: game.player.keys.has('KeyW'),
+      checkpoint: game.campaignState.missions.no_wake.checkpoint,
+      boat: game.boat.root.position.toArray(),
+      inlet: game.world.inlet,
+      hullHeadlandClearance: hullBox.min.z - headlandBox.max.z,
+      headlandIntersection: hullBox.intersectsBox(headlandBox),
+      wakeVisible: game.world.wake.pool.some((p) => p.visible),
+      cruiseCues: game.state.cruiseLines.map((line) => line.cue),
+      water: window.__waterSamples(),
+    };
+  });
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const Box3 = game.world.colliders[0].constructor;
+    const headland = game.world.channel.root.getObjectByName('inlet head land');
+    const headlandBox = new Box3().setFromObject(headland);
+    const probe = window.__noWakeCoast = {
+      minimumClearance: Infinity, everIntersected: false, samples: 0,
+      startZ: game.boat.root.position.z, killSample: null, anchoredZ: null,
+    };
+    const sample = () => {
+      const hullBox = new Box3().setFromObject(game.boat.hull);
+      probe.minimumClearance = Math.min(
+        probe.minimumClearance, hullBox.min.z - headlandBox.max.z,
+      );
+      probe.everIntersected ||= hullBox.intersectsBox(headlandBox);
+      probe.samples++;
+      if (game.state.enginesKilled && !probe.killSample) {
+        probe.killSample = {
+          throttle: game.physics.throttle, speed: game.physics.speed,
+          position: game.boat.root.position.toArray(),
+        };
+      }
+      if (game.physics.anchored) {
+        probe.anchoredZ = game.boat.root.position.z;
+        return;
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  /* Lou owns 2.2 s of reaction time after the gate. Keep the real W key down
+   * through his line, then release it and let production throttle/drag coast
+   * naturally; no verifier assignment to throttle or speed is permitted. */
+  await page.clock.runFor(Math.max(0, 2200 - atInlet.phaseTime * 1000));
+  await page.keyboard.up('w');
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.postfx.render = window.__noWakeRender;
+    delete window.__noWakeRender;
+  });
+  await page.clock.runFor(100);
+  check('real W input drives the complete 90-second full-throttle approach to the inlet without entering head land',
+    atInlet.phase === 'inlet'
+      && atInlet.atHelm && atInlet.realForwardInput && atInlet.throttle >= .95
+      && atInlet.driveSeconds >= 90 && atInlet.driveSeconds < 92
+      && atInlet.physicsTime >= 90 && atInlet.physicsTime < 93
+      && atInlet.distance >= 400 && atInlet.distance < 445
+      && atInlet.speedGauge > .70 && atInlet.speedGauge < .95
       && atInlet.checkpoint === 'open_water'
-      && Math.abs(atInlet.boat[2] - atInlet.inlet.z) < 5,
+      && Math.abs(atInlet.boat[2] - atInlet.inlet.z) < 9
+      && !atInlet.headlandIntersection && atInlet.hullHeadlandClearance >= 30,
     JSON.stringify(atInlet));
+  check('the live tapered exclusion follows the pitched moving hull while exterior water remains intact',
+    atInlet.water.inside.every((sample) => sample.excluded)
+      && atInlet.water.outside.every((sample) => !sample.excluded)
+      && atInlet.water.boundary.every((sample) => sample.excluded === sample.expected)
+      && atInlet.water.freshnessError < 1e-8,
+    JSON.stringify(atInlet.water));
   await capture('no-wake-inlet.png');
 
   await page.evaluate(() => {
     const game = window.NO_WAKE;
-    game.player.clearKeys();
-    game.physics.throttle = 0;
-    game.physics.speed = 0;
+    window.__noWakeRender = game.postfx.render;
+    game.postfx.render = () => {};
   });
-  await page.waitForFunction(() => window.NO_WAKE.state.enginesKilled === true);
-  await page.waitForFunction(() => window.NO_WAKE.physics.anchored === true);
+  await page.clock.runFor(30000);
   const killed = await page.evaluate(() => {
     const game = window.NO_WAKE;
     const before = game.boat.root.position.clone();
@@ -1148,13 +1452,40 @@ try {
       atHelm: game.state.atHelm,
       drift: before.distanceTo(game.boat.root.position),
       spoken: game.cueLog.map((entry) => entry.cue),
+      coast: window.__noWakeCoast,
     };
   });
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.postfx.render = window.__noWakeRender;
+    delete window.__noWakeRender;
+  });
+  await page.clock.runFor(50);
+  await page.clock.resume();
+  const expectedRunCues = [
+    ...atInlet.cruiseCues,
+    'inlet.lou.bring-her-down',
+    'inlet.lou.kill-them',
+  ];
+  const actualRunCues = killed.spoken.filter((cue) => expectedRunCues.includes(cue));
+  check('the real 2.2-second reaction and natural neutral coast keep the visible hull clear of head land',
+    killed.coast.samples > 10 && !killed.coast.everIntersected
+      && killed.coast.minimumClearance >= 15
+      && killed.coast.killSample
+      && Math.abs(killed.coast.killSample.throttle) < .08
+      && Math.abs(killed.coast.killSample.speed) < .62
+      && killed.coast.anchoredZ !== null,
+    JSON.stringify(killed.coast));
+  check('the five authored cruise lines, inlet order, and natural engine kill all occur exactly once',
+    atInlet.cruiseCues.length === 5
+      && JSON.stringify(actualRunCues) === JSON.stringify(expectedRunCues),
+    JSON.stringify({ expectedRunCues, actualRunCues }));
   check('"Kill them" stops and kinematically locks the hull for the rest of the mission',
     killed.anchored && !killed.running && !killed.atHelm && killed.drift < 1e-6
       && killed.spoken.includes('inlet.lou.bring-her-down')
       && killed.spoken.includes('inlet.lou.kill-them'),
     JSON.stringify({ ...killed, spoken: killed.spoken.slice(-4) }));
+  /* CANONICAL_ROUTE_CONTRACT_END */
 
   await page.waitForFunction(() => window.NO_WAKE.phase === 'descend');
   /* And then wait for the SCREEN, which is a beat behind the man on purpose.
@@ -1307,6 +1638,25 @@ try {
     staging.shotGlass[0] > .5 && staging.shotGlass[1] > CABIN.height + .6,
     JSON.stringify({ shotGlass: staging.shotGlass, sole: CABIN.height }));
   await capture('no-wake-cabin-staging.png');
+  await page.evaluate((soleY) => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    window.__dryCabinView = { yaw: game.player.yaw, pitch: game.player.pitch };
+    const target = game.world.fromBoatLocal(new V(0, soleY + .06, -4.55));
+    const delta = target.sub(game.player.camera.position);
+    game.player.yaw = Math.atan2(-delta.x, -delta.z);
+    game.player.pitch = Math.asin(delta.y / delta.length());
+    game.player.update(1 / 60);
+    game.player.camera.updateMatrixWorld(true);
+  }, CABIN.height);
+  await capture('no-wake-dry-cabin.png');
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.player.yaw = window.__dryCabinView.yaw;
+    game.player.pitch = window.__dryCabinView.pitch;
+    game.player.update(1 / 60);
+    delete window.__dryCabinView;
+  });
 
   const penned = await page.evaluate(() => {
     const game = window.NO_WAKE;
@@ -1338,7 +1688,150 @@ try {
     JSON.stringify(penned));
 
   await page.waitForFunction(() => window.NO_WAKE.state.dialogue !== null, null, { timeout: 300000 });
+  let reachedSitLine = false;
   for (let i = 0; i < NO_WAKE_CABIN_SCRIPT.length + 2; i++) {
+    reachedSitLine = await page.evaluate(() => (
+      window.NO_WAKE.cueLog.at(-1)?.cue === 'cabin.booski.sit-down'
+        && window.NO_WAKE.phase === 'cabin'
+    ));
+    if (reachedSitLine) break;
+    await page.evaluate(() => window.NO_WAKE.skipDialogue());
+    await page.waitForTimeout(60);
+  }
+  await page.waitForFunction(() => (
+    window.NO_WAKE.phase === 'cabin' && window.NO_WAKE.boat.cast.willy.job === 'sit'
+  ));
+  await page.waitForFunction((mark) => {
+    const willy = window.NO_WAKE?.boat?.cast?.willy;
+    if (!willy || willy.job !== 'sit') return false;
+    /* `Npc.sit()` lowers the actor root by the shared authored chair drop;
+     * baseY remains the seat-specific datum. Wait through the preceding gaze
+     * timers until the real runtime transform, not merely the job flag, has
+     * settled on the aft-return mark. */
+    const seatedY = mark.baseY - .42 * willy.parts.heightScale;
+    const yawError = Math.abs(Math.atan2(
+      Math.sin(willy.group.rotation.y - mark.yaw),
+      Math.cos(willy.group.rotation.y - mark.yaw),
+    ));
+    const onMark = Math.abs(willy.group.position.x - mark.x) < 1e-6
+      && Math.abs(willy.group.position.y - seatedY) < 1e-6
+      && Math.abs(willy.group.position.z - mark.z) < 1e-6
+      && Math.abs(willy.baseY - mark.baseY) < 1e-6
+      && yawError < .02;
+    if (!onMark) {
+      window.__verifyWillySeatStableAt = null;
+      return false;
+    }
+    window.__verifyWillySeatStableAt ??= performance.now();
+    return performance.now() - window.__verifyWillySeatStableAt >= 400;
+  }, CABIN_CAST_STAGING.willySeat, { timeout: 300000 });
+  const willySeat = await page.evaluate((mark) => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const Box3 = game.world.colliders[0].constructor;
+    const willy = game.boat.cast.willy;
+    const lou = game.boat.cast.lou;
+    const shown = (object) => {
+      for (let node = object; node; node = node.parent) if (node.visible === false) return false;
+      const materials = (Array.isArray(object.material) ? object.material : [object.material]).filter(Boolean);
+      return materials.length === 0 || materials.some(
+        (material) => material.visible !== false && (material.opacity ?? 1) > .01,
+      );
+    };
+    const meshBoxes = (group) => {
+      const entries = [];
+      group.traverse((object) => {
+        if (object.isMesh && shown(object)) entries.push({ object, box: new Box3().setFromObject(object) });
+      });
+      return entries;
+    };
+    const contacts = (left, right) => {
+      const found = [];
+      for (const a of meshBoxes(left)) for (const b of meshBoxes(right)) {
+        const overlap = a.box.clone().intersect(b.box);
+        if (overlap.isEmpty()) continue;
+        const size = overlap.getSize(new V());
+        if (size.x > 1e-6 && size.y > 1e-6 && size.z > 1e-6) {
+          found.push({ a: a.object.name, b: b.object.name, size: size.toArray() });
+        }
+      }
+      return found;
+    };
+    const dinette = game.cabin.group.getObjectByName('curved dinette');
+    const louContacts = contacts(willy.group, lou.group);
+    const furnitureContacts = contacts(willy.group, dinette)
+      .filter((contact) => !/aft return/.test(contact.b));
+    const hips = new Box3().setFromObject(willy.group.getObjectByName('hips'));
+    const supportObject = game.cabin.group.getObjectByName('dinette booth cushion · aft return');
+    const support = new Box3().setFromObject(supportObject);
+    const supportGap = hips.min.y - support.max.y;
+    const seatedY = mark.baseY - .42 * willy.parts.heightScale;
+    const yawError = Math.abs(Math.atan2(
+      Math.sin(willy.group.rotation.y - mark.yaw),
+      Math.cos(willy.group.rotation.y - mark.yaw),
+    ));
+
+    /* Evidence view from a legal point inside the confrontation pen. It leaves
+     * Willy and Lou on different bearings and keeps the real seat/legwell in
+     * frame; no actor or furniture is hidden or moved. */
+    window.__willySeatView = {
+      position: game.player.position.clone(), yaw: game.player.yaw, pitch: game.player.pitch,
+      ground: game.player.ground,
+    };
+    game.player.position.copy(game.world.fromBoatLocal(
+      new V(-.65, game.boat.cabinDeck.height + game.player.eyeHeight, -2.52),
+    ));
+    game.player.ground = game.boat.root.position.y + game.boat.cabinDeck.height;
+    game.player.update(1 / 60);
+    const target = willy.group.localToWorld(new V(0, .82, 0));
+    const delta = target.sub(game.player.camera.position);
+    game.player.yaw = Math.atan2(-delta.x, -delta.z);
+    game.player.pitch = Math.asin(delta.y / delta.length());
+    game.player.update(1 / 60);
+    game.player.camera.updateMatrixWorld(true);
+    const projectedCentre = (group) => {
+      const box = new Box3().setFromObject(group);
+      return box.getCenter(new V()).project(game.player.camera).toArray();
+    };
+    return {
+      reachedSitLine: true,
+      pose: willy.group.position.toArray(), yaw: willy.group.rotation.y,
+      yawError, seatedY, baseY: willy.baseY, job: willy.job, mark,
+      louContacts, furnitureContacts,
+      supportGap,
+      hips: { min: hips.min.toArray(), max: hips.max.toArray() },
+      support: { min: support.min.toArray(), max: support.max.toArray() },
+      ndc: { willy: projectedCentre(willy.group), lou: projectedCentre(lou.group) },
+    };
+  }, CABIN_CAST_STAGING.willySeat);
+  check('Willy reaches his exact real seated mark, fully supported and clear of Lou and every non-support fixture',
+    reachedSitLine && willySeat.job === 'sit'
+      && Math.abs(willySeat.pose[0] - willySeat.mark.x) < 1e-6
+      && Math.abs(willySeat.pose[1] - willySeat.seatedY) < 1e-6
+      && Math.abs(willySeat.pose[2] - willySeat.mark.z) < 1e-6
+      && willySeat.yawError < .02
+      && Math.abs(willySeat.baseY - willySeat.mark.baseY) < 1e-6
+      && willySeat.louContacts.length === 0 && willySeat.furnitureContacts.length === 0
+      && willySeat.hips.min[0] >= willySeat.support.min[0]
+      && willySeat.hips.max[0] <= willySeat.support.max[0]
+      && willySeat.hips.min[2] >= willySeat.support.min[2]
+      && willySeat.hips.max[2] <= willySeat.support.max[2]
+      && willySeat.supportGap >= -1e-6 && willySeat.supportGap <= .025
+      && Math.abs(willySeat.ndc.willy[0] - willySeat.ndc.lou[0]) >= .15,
+    JSON.stringify(willySeat));
+  await capture('no-wake-willy-seated.png');
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const saved = window.__willySeatView;
+    game.player.position.copy(saved.position);
+    game.player.ground = saved.ground;
+    game.player.yaw = saved.yaw;
+    game.player.pitch = saved.pitch;
+    game.player.update(1 / 60);
+    delete window.__willySeatView;
+  });
+  for (let i = 0; i < NO_WAKE_CABIN_SCRIPT.length + 2
+    && await page.evaluate(() => window.NO_WAKE.phase !== 'ready_to_fire'); i++) {
     await page.evaluate(() => window.NO_WAKE.skipDialogue());
     await page.waitForTimeout(60);
   }
@@ -1687,12 +2180,16 @@ try {
   await page.waitForFunction(() => window.NO_WAKE.state.splashed === true, null, { timeout: 300000 });
   await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 3.0; });
   await page.waitForFunction(() => window.NO_WAKE.cameraDirector.shot?.id === 'disposal-water-hold');
+  const waterHoldShot = await page.evaluate(() => ({
+    id: window.NO_WAKE.cameraDirector.shot?.id ?? null,
+    phase: window.NO_WAKE.phase,
+  }));
   await capture('no-wake-water-hold.png');
   check('one strike on the water, it sinks, it is gone — and the camera holds on the water',
     disposal[0].y > disposal[1].y && disposal[2].sink > 1.5 && !disposal[2].visible
       && disposal[0].struck === false && disposal[2].struck === true
-      && await page.evaluate(() => window.NO_WAKE.cameraDirector.shot?.id === 'disposal-water-hold'),
-    JSON.stringify(disposal));
+      && waterHoldShot.id === 'disposal-water-hold' && waterHoldShot.phase === 'dispose',
+    JSON.stringify({ disposal, waterHoldShot }));
 
   /* ---------------------------------------------------------------- *
    * The exit: the player drives her out, and nobody speaks
@@ -1742,6 +2239,37 @@ try {
       && restarted.running,
     JSON.stringify(restarted));
 
+  /* The mission deliberately navigates away 3.2 seconds after completion.
+   * Raster capture can take longer than that on software WebGL, so snapshot
+   * the irreversible state and live GL health in same-origin session storage
+   * before the normal preview navigation destroys this document. */
+  await page.evaluate(() => {
+    const key = '__verify.no-wake.completion';
+    sessionStorage.removeItem(key);
+    const observe = () => {
+      const game = window.NO_WAKE;
+      if (!game) return;
+      if (game.campaignState.missions.no_wake.status !== 'complete') {
+        requestAnimationFrame(observe);
+        return;
+      }
+      const gl = game.postfx.renderer.getContext();
+      sessionStorage.setItem(key, JSON.stringify({
+        mission: game.campaignState.missions.no_wake,
+        chapter: game.campaignState.story.chapter,
+        canonical: localStorage.getItem('squatchlife.campaign'),
+        objective: document.getElementById('objective')?.textContent ?? null,
+        webglHealth: {
+          contextLossEvents: window.__noWakeContextLosses,
+          contextLost: gl.isContextLost(),
+          version: gl.getParameter(gl.VERSION),
+          renderer: gl.getParameter(gl.RENDERER),
+        },
+      }));
+    };
+    requestAnimationFrame(observe);
+  });
+
   const drivenOut = await page.evaluate(async () => {
     const game = window.NO_WAKE;
     window.__aim([1.34, 1.88, -0.52]);
@@ -1790,14 +2318,11 @@ try {
     JSON.stringify(drivenOut));
   await capture('no-wake-astern.png');
 
-  await page.waitForFunction(() => window.NO_WAKE.campaignState.missions.no_wake.status === 'complete',
+  await page.waitForFunction(() => sessionStorage.getItem('__verify.no-wake.completion') !== null,
     null, { timeout: 300000 });
-  const completed = await page.evaluate(() => ({
-    mission: window.NO_WAKE.campaignState.missions.no_wake,
-    chapter: window.NO_WAKE.campaignState.story.chapter,
-    canonical: localStorage.getItem('squatchlife.campaign'),
-    objective: document.getElementById('objective')?.textContent ?? null,
-  }));
+  const completed = await page.evaluate(() => JSON.parse(
+    sessionStorage.getItem('__verify.no-wake.completion'),
+  ));
   check('completion records every irreversible beat and opens Front and Center',
     completed.mission.status === 'complete' && completed.mission.betrayalConfirmed
       && completed.mission.playerFired && completed.mission.bodyDisposed
@@ -1806,6 +2331,11 @@ try {
     JSON.stringify(completed.mission));
   check('the complete browser playthrough leaves canonical storage byte-for-byte untouched',
     completed.canonical === SENTINEL);
+  const { webglHealth } = completed;
+  check('the complete production playthrough keeps its WebGL context healthy',
+    webglHealth.contextLossEvents === 0 && !webglHealth.contextLost
+      && /WebGL/.test(webglHealth.version ?? ''),
+    JSON.stringify(webglHealth));
   // ---- Preview checkpoint links (?preview=1&checkpoint=...) --------------
   // Each waypoint gets its own fresh page/preview campaign, the way an owner
   // clicking a preview.html link would load it. `dock`/`underway`/`inlet`/

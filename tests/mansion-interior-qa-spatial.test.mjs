@@ -420,6 +420,105 @@ test('the cellar work wall, wine rack, and vault mark are mounted and visually c
   'the relocated vault mark runs through a vault side wall');
 });
 
+test('the Casa Bonita picture across from the vault clears the white cellar chair rail', () => {
+  const dressedInterior = buildMansionInterior({ grounds });
+  assert.deepEqual(
+    dressedInterior.applyResolvedArt(resolvedArt('mansion.cellar.crest', 768 / 1024)),
+    ['mansion.cellar.crest'],
+  );
+  dressedInterior.root.updateMatrixWorld(true);
+
+  const picture = dressedInterior.props.cellarHall.crest;
+  const pictureBox = new THREE.Box3().setFromObject(picture);
+  const intersectingWhiteTrim = [];
+  const whiteRailClearances = [];
+  dressedInterior.root.traverse((object) => {
+    if (!object.isMesh || object.isInstancedMesh || object === picture || !object.visible) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    if (!materials.some((material) => material?.color?.getHex() === 0xf0e9d8)) return;
+    const trimBox = new THREE.Box3().setFromObject(object);
+    if (trimBox.intersectsBox(pictureBox)) {
+      intersectingWhiteTrim.push({
+        name: object.name || '(unnamed white trim)',
+        minY: trimBox.min.y,
+        maxY: trimBox.max.y,
+      });
+    }
+    const trimSize = trimBox.getSize(new THREE.Vector3());
+    const sharesWallRun = trimBox.max.x >= pictureBox.min.x && trimBox.min.x <= pictureBox.max.x
+      && trimBox.max.z >= pictureBox.min.z - 0.01 && trimBox.min.z <= pictureBox.max.z + 0.01;
+    if (sharesWallRun && trimSize.y <= 0.12 && trimBox.max.y <= pictureBox.min.y) {
+      whiteRailClearances.push(pictureBox.min.y - trimBox.max.y);
+    }
+  });
+
+  assert.deepEqual(
+    intersectingWhiteTrim,
+    [],
+    `white cellar trim still cuts through Casa Bonita: ${JSON.stringify(intersectingWhiteTrim)}`,
+  );
+  assert.ok(whiteRailClearances.length > 0, 'the Casa Bonita check did not resolve the actual white cellar rail');
+  assert.ok(Math.min(...whiteRailClearances) >= 0.04,
+    `Casa Bonita has only ${Math.min(...whiteRailClearances).toFixed(3)} m above the white cellar rail`);
+});
+
+test("Lou's boss-shirt photograph has a fully clear readable face from the office floor", () => {
+  const dressedInterior = buildMansionInterior({ grounds });
+  assert.deepEqual(
+    dressedInterior.applyResolvedArt(resolvedArt('mansion.office.boss', 1005 / 1200)),
+    ['mansion.office.boss'],
+  );
+  dressedInterior.root.updateMatrixWorld(true);
+
+  const picture = dressedInterior.props.office.boss.art;
+  picture.geometry.computeBoundingBox();
+  const local = picture.geometry.boundingBox;
+  const centre = new THREE.Box3().setFromObject(picture).getCenter(new THREE.Vector3());
+  const eye = new THREE.Vector3(centre.x, 7.66, 66.6);
+  const raycaster = new THREE.Raycaster();
+  const sightlineMeshes = [];
+  dressedInterior.root.traverse((object) => {
+    if (object.isMesh && !object.isSkinnedMesh && object.geometry && object.material) {
+      sightlineMeshes.push(object);
+    }
+  });
+  const shown = (object) => {
+    for (let node = object; node; node = node.parent) {
+      if (node.visible === false) return false;
+    }
+    return true;
+  };
+  const opaque = (object) => {
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    return materials.some((material) => material?.visible !== false
+      && (!material.transparent || (material.opacity ?? 1) >= 0.5));
+  };
+  const blockers = [];
+  for (const fy of [-0.45, -0.225, 0, 0.225, 0.45]) {
+    for (const fx of [-0.45, -0.225, 0, 0.225, 0.45]) {
+      const point = new THREE.Vector3(
+        THREE.MathUtils.lerp(local.min.x, local.max.x, fx + 0.5),
+        THREE.MathUtils.lerp(local.min.y, local.max.y, fy + 0.5),
+        0,
+      ).applyMatrix4(picture.matrixWorld);
+      const direction = point.clone().sub(eye);
+      const distance = direction.length();
+      raycaster.set(eye, direction.normalize());
+      raycaster.far = distance + 0.08;
+      const hit = raycaster.intersectObjects(sightlineMeshes, false)
+        .find(({ object }) => shown(object) && opaque(object));
+      if (hit?.object !== picture) blockers.push({
+        fx, fy,
+        name: hit?.object?.name || '(unnamed mesh)',
+        parent: hit?.object?.parent?.name || '(unnamed parent)',
+      });
+    }
+  }
+
+  assert.deepEqual(blockers, [],
+    `office furniture still covers the real boss-shirt photograph: ${JSON.stringify(blockers)}`);
+});
+
 test('the Prospect wall object reads as a hung work jacket and his boots are human scale', () => {
   const [footlocker, jacket, boots] = interior.props.guestRoom.identity.belongings;
   assert.equal(footlocker.name, 'prospect-footlocker');

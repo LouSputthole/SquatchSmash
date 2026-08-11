@@ -52,7 +52,7 @@ import {
 } from '../../core/final-arc-loadout.js';
 import { FACTIONS, FactionMatrix } from '../../core/combat/factions.js';
 import { CombatActor } from '../../core/combat/actors.js';
-import { CombatStatusHud } from '../../core/combat/hud.js';
+import { combatArmor, CombatStatusHud } from '../../core/combat/hud.js';
 import { SuppressionModel } from '../../core/combat/suppression.js';
 import { SCENE_IDS, createCampaign } from '../../core/campaign.js';
 import {
@@ -65,6 +65,7 @@ import { SmokeSystem } from '../../world/smoke.js';
 
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
+import { isSiegeLineWeapon, resolveArmoryTake } from './armory-policy.js';
 import { SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeVoiceCueNames } from './script.js';
 import { REQUIRED_SIEGE_EFFECT_CUES, SiegeMissionAudio } from './audio.js';
 import {
@@ -339,7 +340,22 @@ const suppression = new SuppressionModel();
 const playerActor = new CombatActor({
   id: 'prospect', faction: FACTIONS.CREW, maxHealth: 100, armor: 0,
 });
+const SIEGE_PLAYER_ARMOR = 40;
+playerActor.maxArmor = SIEGE_PLAYER_ARMOR;
 const combatHud = new CombatStatusHud({ actor: playerActor, visible: false });
+
+function grantSiegeArmor() {
+  playerActor.maxArmor = SIEGE_PLAYER_ARMOR;
+  playerActor.armor = Math.max(playerActor.armor, SIEGE_PLAYER_ARMOR);
+  combatHud.update();
+  return playerActor.armor;
+}
+
+function completeArmoryPickup(id) {
+  if (mission.beat !== B.ARM || !isSiegeLineWeapon(id)) return false;
+  grantSiegeArmor();
+  return mission.weaponTaken(id);
+}
 
 const finalArcLoadout = createFinalArcLoadout();
 const loadoutBar = new SceneInventoryBar({ catalog: FINAL_ARC_WEAPON_CATALOG, visible: true });
@@ -426,23 +442,6 @@ const playerTarget = {
 /* ================================================================== */
 /* The armory                                                            */
 /* ================================================================== */
-/**
- * What he must leave the armory holding: a primary AND the little friend.
- *
- * Ids come from `core/weapons/catalog.js` WEAPON_IDS and nowhere else. The
- * first version of this listed five plausible machine-gun ids -- m60, minigun,
- * lmg, rpk, saw -- of which exactly one exists. Four of them were a set that
- * could never match, which is the quietest kind of wrong: the gate simply
- * never opened and the line never fired, with nothing anywhere to say why.
- *
- * The belt-fed SAW is the little friend. The Barrett is an anti-materiel
- * rifle -- a fine thing to hold a staircase with and not what the line is
- * about, so it counts as a primary.
- */
-const HEAVY_IDS = new Set([WEAPON_IDS.SAW]);
-const PRIMARY_TAKEN = new Set();
-let heavyTaken = false;
-
 const armory = mountArmory({
   parent: scene,
   system: weaponSystem,
@@ -470,27 +469,23 @@ const armory = mountArmory({
       return;
     }
     if (event.type !== 'take') return;
-    const owned = finalArcLoadout.acquire(event.id, weaponSystem.firearm(event.id).snapshot());
-    if (!owned.ok) {
+    const acquisition = finalArcLoadout.acquire(
+      event.id,
+      weaponSystem.firearm(event.id).snapshot(),
+    );
+    const loadout = finalArcLoadout.checkpoint();
+    const decision = resolveArmoryTake({ takenId: event.id, acquisition, loadout });
+    if (!decision.keepTaken) {
       armory.put();
-      nudge('Five slots are full. Stow or return a gun before taking another.');
-      return;
     }
-    captureSiegeLoadout();
-    if (HEAVY_IDS.has(event.id)) heavyTaken = true;
-    else PRIMARY_TAKEN.add(event.id);
-    const done = mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
-    /* HALF-ARMED IS THE QUIET FAILURE. The beat needs BOTH, and a player who
-     * takes one gun and walks gets no refusal at all -- the objective simply
-     * does not advance. He can be on the top floor, at Lou's door, before
-     * anything tells him why the office is not reacting to him, and the rack
-     * he needs is two storeys behind him by then. So the rack says it while
-     * he is still standing at it. */
-    if (!done && mission.beat === B.ARM) {
-      nudge(heavyTaken
-        ? 'That is the belt-fed. Take a rifle off the rack as well — the swap is what the rack is for.'
-        : 'That is your primary. Now the belt-fed, the big one — you are not holding a staircase with that.');
+    if (!decision.advance) return;
+    if (!acquisition.ok && decision.equipSlot >= 0) {
+      finalArcLoadout.select(decision.equipSlot, weaponSystem);
     }
+    if (acquisition.ok) captureSiegeLoadout();
+    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+    completeArmoryPickup(decision.weaponId);
+    if (decision.nudge) nudge(decision.nudge);
   },
 });
 /* The shared weapon ray now sees people and architecture in one sorted list.
@@ -500,8 +495,6 @@ siegeWeaponHitTargets.push(attackers.root);
 for (const id of finalArcLoadout.items) {
   if (!id) continue;
   armory.claim(id);
-  if (HEAVY_IDS.has(id)) heavyTaken = true;
-  else PRIMARY_TAKEN.add(id);
 }
 
 /* ================================================================== */
@@ -625,7 +618,8 @@ const mission = new SiegeMission({
     if (beat === B.WAVE_ONE) missionAudio.waveIncoming('one');
     if (beat === B.WAVE_TWO) missionAudio.waveIncoming('two');
     const sequence = BEAT_SEQUENCE[beat];
-    if (sequence) dialogue.play(sequence);
+    if (sequence === 'briefing') dialogue.playBriefing(weaponSystem.equipped);
+    else if (sequence) dialogue.play(sequence);
     if (beat === B.COMPLETE) {
       siegeCampaignComplete = siegeCampaign.complete({
         attackersDown: mission.attackersDown,
@@ -704,12 +698,16 @@ mission
     restore: (ids) => glass.restoreBroken(ids ?? []),
   })
   .provide('objectives', {
-    capture: () => ({ heavy: heavyTaken, primaries: [...PRIMARY_TAKEN] }),
-    restore: (value) => {
-      heavyTaken = value?.heavy === true;
-      PRIMARY_TAKEN.clear();
-      for (const id of value?.primaries ?? []) PRIMARY_TAKEN.add(id);
-    },
+    capture: () => ({
+      text: mission.objective,
+      hint: mission.hint,
+      done: mission.objectiveDone,
+    }),
+    restore: (value) => mission.onObjective?.(
+      value?.text ?? null,
+      value?.hint ?? null,
+      value?.done === true,
+    ),
   })
   .provide('activeWave', {
     /* The wave rosters live inside the mission's own snapshot; what the SCENE
@@ -893,7 +891,6 @@ function onPlayerDown() {
   attackers.despawnAll();
   mission.restoreCheckpoint();
   playerActor.health = playerActor.maxHealth;
-  playerActor.armor = 0;
   playerActor.incapacitated = false;
   playerActor.injury = 'none';
   suppression.value = 0;
@@ -931,7 +928,6 @@ function updateTriggers(dt) {
   if (mission.beat === B.TO_ARMORY) {
     if (inRect(BASEMENT_ROOM, x, z) && feet < GROUND_Y - 1) {
       mission.enteredArmory();
-      mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
       return;
     }
     /* Out of the bedroom and into the corridor: Booski, on the house radio,
@@ -993,7 +989,7 @@ window.addEventListener('keydown', (e) => {
     ammoDirty = true;
     e.preventDefault();
   }
-  /* The line. Once, ever, and only with the heavy up on the landing. */
+  /* The line. Once, ever, with any catalog gun up on the landing. */
   if (e.code === 'KeyF' && !e.repeat) tryTheLine();
   /* Skip the rest of whoever is talking. Enter, deliberately: Space is jump,
    * and putting "skip the briefing" on the jump key means a first-time player
@@ -1114,12 +1110,9 @@ window.addEventListener('mouseup', (e) => {
 /* sentence on his HUD is the one he has just decided is lying to him,    */
 /* and the gun he is holding is the reason, and nothing anywhere says so. */
 /*                                                                       */
-/* The reachable version of that is not exotic. `mountArmory` swaps       */
-/* rather than stacks -- `take()` puts the equipped weapon back before it */
-/* hands over the next -- so the player carries ONE long gun, and the     */
-/* mission's own gate is "took a primary AND the heavy" without caring    */
-/* which of the two he walked out with. Take them in the other order and  */
-/* the belt-fed is on the rack, two floors down, and F is dead.           */
+/* The gun in the player's hands is the gun the mission accepts. Sending  */
+/* somebody two floors back for one specific rack gun after already       */
+/* advancing them out of the armory is a softlock wearing an objective.   */
 /*                                                                       */
 /* So a failed press answers. It borrows the hint line rather than adding */
 /* a fourth HUD element: that line is the sentence being corrected, the   */
@@ -1158,7 +1151,7 @@ function updateNudge(dt) {
 /**
  * "Say hello to my little friend."
  *
- * Conditions, all of them: the briefing is over, the heavy is in his hands,
+ * Conditions, all of them: the briefing is over, a weapon is in his hands,
  * and he is standing on the firing step. Then the line plays, full control
  * stays with the player, and wave 1A comes through the door. `sayHello()`
  * returns true exactly once in a playthrough -- a checkpoint restore after
@@ -1166,8 +1159,8 @@ function updateNudge(dt) {
  */
 function tryTheLine() {
   if (mission.beat !== B.LITTLE_FRIEND) return false;
-  if (!HEAVY_IDS.has(weaponSystem.equipped ?? '')) {
-    nudge('Not that gun — the belt-fed. It is still on the armory rack, down the cellar stair.');
+  if (!isSiegeLineWeapon(weaponSystem.equipped)) {
+    nudge('Bring a gun up first — any weapon from the armory will do.');
     return false;
   }
   const { x, z } = player.position;
@@ -1341,7 +1334,7 @@ const pauseMenu = createPauseMenu({
   instructions: [
     'W A S D -- move. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'Left mouse fires. R reloads. E takes or returns a rack weapon. 1–5 select; Q stows.',
-    'F -- say it, once, from the top of the stairs with the heavy in your hands.',
+    'F -- say it, once, from the top of the stairs with any weapon in your hands.',
     'E -- held, next to somebody on the floor, gets them back on their feet.',
     'Enter skips the rest of a line. Tab pauses and resumes.',
     'Escape releases the mouse, which also pauses.',
@@ -1403,7 +1396,7 @@ const CHECKPOINT_ENTRIES = Object.freeze({
   }),
   armed: Object.freeze({
     label: 'ARMED',
-    blurb: 'Out of the armory with a primary and the belt-fed, on the way up to Lou.',
+    blurb: 'Out of the armory with a weapon, on the way up to Lou.',
     /* At the foot of the basement stair, facing the way up. */
     at: Object.freeze({ x: 7.2, y: BASEMENT_Y, z: 55.5, yaw: 0 }),
   }),
@@ -1463,13 +1456,11 @@ function jumpToCheckpoint(id) {
     mission.wokeUp();
     mission.enteredArmory();
     equipOwnedWeapon(WEAPON_IDS.CARBINE);
-    PRIMARY_TAKEN.add(WEAPON_IDS.CARBINE);
-    heavyTaken = true;
-    mission.armed({ primary: true, heavy: true });
+    completeArmoryPickup(WEAPON_IDS.CARBINE);
     if (id === 'armed') return true;
 
     mission.enteredOffice();
-    dialogue.play('briefing');
+    dialogue.playBriefing(weaponSystem.equipped);
     dialogue.finish();
     equipOwnedWeapon(WEAPON_IDS.SAW);
     if (id === 'briefed') return true;
@@ -1739,6 +1730,7 @@ window.mansionSiege = {
   missionAudio,
   combatHud,
   interaction,
+  armory,
   grounds,
   interior,
   colliders,
@@ -1760,7 +1752,7 @@ window.mansionSiege = {
   beats: {
     wake: () => mission.wokeUp(),
     armory: () => mission.enteredArmory(),
-    arm: () => mission.armed({ primary: true, heavy: true }),
+    arm: (id = WEAPON_IDS.CARBINE) => completeArmoryPickup(id),
     office: () => mission.enteredOffice(),
     briefed: () => mission.briefingEnded(),
     line: () => tryTheLine(),
@@ -1792,6 +1784,7 @@ window.mansionSiege = {
     counter: waveCountEl?.hidden ? null
       : `${waveRemainingEl?.textContent ?? ''} ${waveLabelEl?.textContent ?? ''}`.trim(),
     health: combatHud.update(),
+    armor: combatArmor(playerActor),
     complete: missionCardEl ? !missionCardEl.classList.contains('hidden') : false,
   }),
   /** Checkpoint entry, as the ?checkpoint= URLs drive it. */

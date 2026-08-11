@@ -5431,7 +5431,12 @@ export function buildMansionInterior(shell = null) {
       makePortraitTexture('lou-office', 'BIG UNCLE LOU', '#2a1c14'));
     const officeBoss = wallArt(
       'mansion.office.boss',
-      -6.9,
+      /* The resolved owner's photograph is 0.86 m wide. At x -6.9 its
+       * leftmost fifth sat behind the longcase trunk/cornice at x -7.8..
+       * -7.1 when viewed from the room. Shift only this frame 900 mm east to
+       * the clear south-wall bay: its frame now has 600 mm from the clock's
+       * cornice and 230 mm from the adjacent BIG UNCLE LOU frame. */
+      -6.0,
       UY + 2.4,
       r.z0 + 0.2,
       0,
@@ -10778,9 +10783,17 @@ const M_GOLD_BAR = mat({
      * end of a lit corridor is the one place in this house a door could be
      * that nobody would read as a door. Nothing is hung on it, nothing stands
      * in front of it, and the runner stops short of it. */
+    /* Casa Bonita is the picture ACROSS THE CORRIDOR from the vault, not the
+     * `mansion.vault.mark` print beside its door. The 0.95 m resolved WebP is
+     * 3:4, so the old BY + 1.60 centre put its bottom at BY + 0.967 while the
+     * white cellar chair rail occupies BY + 1.035 .. BY + 1.125. The rail
+     * visibly cut a 90 mm stripe through the photograph even though every
+     * vault-mark clearance check stayed green. Lift this picture 210 mm: its
+     * real bottom now clears the rail by 52 mm and its top retains 117 mm of
+     * air below the cellar ceiling. */
     const cellarCrest = flatArt('mansion.cellar.crest', {
       x: 10.5,
-      y: BY + 1.6,
+      y: BY + 1.81,
       z: r.z0 + 0.08,
       rotY: 0,
       w: 0.95,

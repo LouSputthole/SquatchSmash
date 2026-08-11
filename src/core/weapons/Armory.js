@@ -311,6 +311,16 @@ export function mountArmory({
   function take(id, index = null) {
     const stand = stands.get(id);
     if (!stand) return false;
+    /* A retaining armory's hidden copy is the durable gun the player already
+     * owns. Clicking another visible copy of that same id must select the
+     * owned gun, not hide a second copy and overwrite `stand.taken` -- doing
+     * that loses the first copy forever when the gun is later returned. */
+    if (retainTaken && stand.taken !== null) {
+      if (system.equipped && system.equipped !== id) system.stow();
+      system.equip(id);
+      emit({ type: 'take', id, index: stand.taken, existing: true });
+      return true;
+    }
     // A legacy rack swaps. A durable inventory merely stows the previous gun.
     if (system.equipped && system.equipped !== id) {
       if (retainTaken) system.stow();
