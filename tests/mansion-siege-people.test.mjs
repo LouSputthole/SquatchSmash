@@ -39,6 +39,7 @@ const { CombatActor } = await import('../src/core/combat/actors.js');
 const { FACTIONS, FactionMatrix } = await import('../src/core/combat/factions.js');
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const { BIG_UNCLE_LOU_MANSION } = await import('../src/core/wardrobe.js');
+const { BLOOD_POOL_NAME } = await import('../src/world/blood.js');
 const {
   COMBAT_BOUNDARY, ENCOUNTERS, ROLES, STAGING, WaveDirector,
 } = await import('../src/mansion/siege/waves.js');
@@ -326,6 +327,21 @@ test('a body falls on the floor he was standing on, not the one he spawned on', 
     `he settled at y ${floorOf(inTheForecourt).toFixed(2)} instead of on the gravel`);
 });
 
+test('a downed attacker does not keep a gun welded to his hand', () => {
+  const { pool } = harness();
+  const order = releaseWave(pool, 'one')[0];
+  const entry = pool.entry(order.id);
+  assert.equal(entry.gun.visible, true);
+
+  pool.registerHit(entry.figure.parts.head, 9999);
+  assert.equal(entry.figure.pose, 'fallen');
+  assert.equal(entry.gun.visible, false, 'the fallen body still carries a floating long gun');
+
+  pool.spawn(order);
+  assert.equal(entry.figure.pose, 'aiming');
+  assert.equal(entry.gun.visible, true, 'recycled attacker did not get his weapon back');
+});
+
 test('a whole wave reports every man once and only once', () => {
   const { pool, downs } = harness();
   const orders = releaseWave(pool, 'two');
@@ -473,6 +489,143 @@ test('a name driven to nothing goes on the floor instead of dying', () => {
     'a man face down is still being offered to the cartel as a target');
 });
 
+test('a downed name stays visibly fallen when the mission advances a beat', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  const booski = ensemble.members.get('booski');
+  booski.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  ensemble.update(0.1, {});
+  const fallenAt = booski.root.position.clone();
+
+  ensemble.stage('LULL');
+
+  assert.equal(ensemble.downed().some((member) => member.id === 'booski'), true);
+  assert.equal(booski.figure.pose, 'fallen',
+    'the revive prompt still names a man whose rig was stood back up');
+  assert.ok(booski.root.position.distanceTo(fallenAt) < 1e-6,
+    'the beat transition teleported a downed man to his next posting');
+});
+
+test('reviving after a beat transition sends the ally to that beat posting', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  const reference = buildSiegeEnsemble({
+    scene: new THREE.Scene(),
+    damage: new MansionDamageState({ colliders: [], state: 'under_attack' }),
+    matrix: new FactionMatrix(),
+  });
+  reference.stage('LULL');
+  const lullPost = reference.members.get('booski').goal.clone();
+
+  ensemble.stage('WAVE_ONE');
+  const booski = ensemble.members.get('booski');
+  booski.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  for (let i = 0; i < 10; i++) ensemble.update(0.1, {});
+  const fallenAt = booski.root.position.clone();
+  const blood = booski.bloodPool;
+
+  ensemble.stage('LULL');
+  assert.ok(booski.root.position.distanceTo(fallenAt) < 1e-6,
+    'the beat transition moved the body before the player revived him');
+  assert.equal(booski.figure.pose, 'fallen');
+  assert.equal(blood?.visible, true);
+  assert.equal(blood?.userData.memberId, 'booski');
+
+  assert.equal(ensemble.revive('booski'), true);
+  for (let i = 0; i < 20; i++) ensemble.update(0.1, { hostiles: [] });
+  assert.ok(booski.root.position.distanceTo(lullPost) <= 0.23,
+    `revived Booski stayed at ${booski.root.position.toArray()} instead of rejoining ${lullPost.toArray()}`);
+});
+
+test('a revivable cast member lies in an owner-tagged readable blood pool', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  const booski = ensemble.members.get('booski');
+  booski.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  for (let i = 0; i < 14; i++) ensemble.update(0.1, {});
+  scene.updateMatrixWorld(true);
+
+  const pools = [];
+  scene.traverse((object) => {
+    if (object.visible && object.name?.startsWith(BLOOD_POOL_NAME)
+        && object.userData.memberId === 'booski') pools.push(object);
+  });
+  assert.equal(pools.length, 1, 'the man asking for help has no blood beneath him');
+  const pool = pools[0];
+  const bodyBox = new THREE.Box3().setFromObject(booski.root);
+  const poolBox = new THREE.Box3().setFromObject(pool);
+  assert.ok(poolBox.max.x >= bodyBox.min.x && poolBox.min.x <= bodyBox.max.x
+    && poolBox.max.z >= bodyBox.min.z && poolBox.min.z <= bodyBox.max.z,
+  'the blood pool is not beneath the fallen body');
+  assert.ok(pool.material.opacity >= 0.7 && pool.scale.x >= 0.9,
+    `the blood is not readable (${pool.material.opacity.toFixed(2)} opacity, ${pool.scale.x.toFixed(2)} m)`);
+  /* Opacity and metres were a false green on the mansion's dark walnut floor:
+   * the physically lit texture rendered almost black beneath a navy body.
+   * Require a wet highlight plus enough red self-light to survive that actual
+   * low-light surface. This is a material/radiance contract, not a name tag. */
+  const emittedRed = pool.material.emissive.r * pool.material.emissiveIntensity;
+  const emittedGreen = pool.material.emissive.g * pool.material.emissiveIntensity;
+  const emittedBlue = pool.material.emissive.b * pool.material.emissiveIntensity;
+  const poolWidth = poolBox.max.x - poolBox.min.x;
+  const poolDepth = poolBox.max.z - poolBox.min.z;
+  const overlapWidth = Math.max(0,
+    Math.min(poolBox.max.x, bodyBox.max.x) - Math.max(poolBox.min.x, bodyBox.min.x));
+  const overlapDepth = Math.max(0,
+    Math.min(poolBox.max.z, bodyBox.max.z) - Math.max(poolBox.min.z, bodyBox.min.z));
+  const exposedPoolArea = poolWidth * poolDepth - overlapWidth * overlapDepth;
+  assert.ok(pool.material.roughness <= 0.35,
+    `the blood has no wet highlight (roughness ${pool.material.roughness.toFixed(2)})`);
+  assert.ok(pool.scale.x >= 2.1 && exposedPoolArea >= 0.75,
+    `the ${pool.scale.x.toFixed(2)} m pool is hidden by the body (${exposedPoolArea.toFixed(2)} m2 exposed)`);
+  assert.ok(emittedRed >= 0.55
+    && emittedRed >= emittedGreen * 6
+    && emittedRed >= emittedBlue * 3,
+  `the blood cannot read red in low light (emissive ${emittedRed.toFixed(3)}, ${emittedGreen.toFixed(3)}, ${emittedBlue.toFixed(3)})`);
+  assert.ok(pool.position.y >= booski.root.position.y + 0.004
+    && pool.position.y <= booski.root.position.y + 0.012,
+  'the blood is not on the same finished floor as the body');
+});
+
+test('blood-pool rollover never steals the pool under somebody still down', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  const lou = ensemble.members.get('lou');
+  const booski = ensemble.members.get('booski');
+  const knockDown = (member) => {
+    member.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+    ensemble.update(0.1, {});
+  };
+
+  knockDown(lou);
+  for (let fall = 0; fall < ensemble.members.size; fall++) {
+    knockDown(booski);
+    if (fall < ensemble.members.size - 1) assert.equal(ensemble.revive('booski'), true);
+  }
+  for (let i = 0; i < 8; i++) ensemble.update(0.1, {});
+  scene.updateMatrixWorld(true);
+
+  const visiblePools = [];
+  scene.traverse((object) => {
+    if (object.visible && object.name?.startsWith(BLOOD_POOL_NAME)) visiblePools.push(object);
+  });
+  assert.ok(visiblePools.length <= ensemble.members.size,
+    `${visiblePools.length} blood meshes escaped a ${ensemble.members.size}-body bound`);
+  for (const { id } of ensemble.downed()) {
+    const member = ensemble.members.get(id);
+    const owned = visiblePools.filter((pool) => pool.userData.memberId === id);
+    assert.equal(owned.length, 1,
+      `${id} is still down but owns ${owned.length} visible blood pools after rollover`);
+    const bodyBox = new THREE.Box3().setFromObject(member.root);
+    const poolBox = new THREE.Box3().setFromObject(owned[0]);
+    assert.ok(poolBox.max.x >= bodyBox.min.x && poolBox.min.x <= bodyBox.max.x
+      && poolBox.max.z >= bodyBox.min.z && poolBox.min.z <= bodyBox.max.z,
+    `${id}'s surviving blood pool was recycled under somebody else`);
+  }
+});
+
 test('he bleeds, he asks for help, and he is still alive four minutes later', () => {
   const { scene, damage, matrix } = harness();
   const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
@@ -505,6 +658,28 @@ test('picking him up costs him most of his health and can happen twice', () => {
   assert.equal(ensemble.downed().length, 1);
   ensemble.revive('rippinflow');
   assert.equal(rippin.revivedCount, 2);
+});
+
+test('cast weapons stow for hands-busy and downed poses, then return on revive', () => {
+  const { scene, colliders, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('BRIEFING');
+  const lou = ensemble.members.get('lou');
+  ensemble.update(0.1, { player: makePlayer(), colliders, hostiles: [] });
+  assert.equal(lou.businessKey, 'phone');
+  assert.equal(lou.gun.visible, false, 'Lou is holding a pistol in his phone hand');
+
+  ensemble.stage('WAVE_ONE');
+  const booski = ensemble.members.get('booski');
+  assert.equal(booski.gun.visible, true, 'a standing defender entered the fight unarmed');
+  booski.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  ensemble.update(0.1, {});
+  assert.equal(booski.figure.pose, 'fallen');
+  assert.equal(booski.gun.visible, false, 'a fallen man still has a gun welded to his forearm');
+
+  assert.equal(ensemble.revive('booski'), true);
+  assert.equal(booski.figure.pose, 'stand');
+  assert.equal(booski.gun.visible, true, 'revive did not return his fighting stance and weapon');
 });
 
 test('a checkpoint does not stand a bleeding man up', () => {
@@ -1313,6 +1488,109 @@ test('every attacker carries a gun off the shared catalog', () => {
     const entry = pool.entry(order.id);
     assert.ok(catalog.has(entry.plan.weapon), `${entry.plan.weapon} is not in the catalog`);
     assert.ok(entry.weapon.definition.magazineSize > 0);
+  }
+});
+
+test('all eight cartel roles wear readable silhouettes and keep the red headband', () => {
+  const { scene, pool } = harness();
+  for (const role of Object.keys(ROLES)) {
+    pool.spawn({ id: `wardrobe_${role}`, role, staging: 'front_steps' });
+  }
+
+  const silhouettes = new Set();
+  for (const entry of pool.all()) {
+    scene.updateMatrixWorld(true);
+    const bandana = [];
+    const outfit = [];
+    entry.root.traverse((object) => {
+      if (object.isMesh && object.name?.startsWith('person.bandana.')) bandana.push(object);
+      if (object.isMesh && object.userData.cartelOutfitPiece) outfit.push(object);
+    });
+
+    assert.ok(bandana.length >= 2, `${entry.role.id} lost the wrap or tail of his headband`);
+    const bandanaBox = new THREE.Box3();
+    for (const mesh of bandana) {
+      bandanaBox.expandByObject(mesh);
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      assert.ok(materials.some((material) => {
+        const colour = material?.color;
+        return colour && colour.r > 0.55 && colour.r > colour.g * 1.55
+          && colour.r > colour.b * 1.35;
+      }), `${entry.role.id}'s headband is not visibly red`);
+    }
+    const bandanaSize = bandanaBox.getSize(new THREE.Vector3());
+    assert.ok(bandanaSize.x >= 0.14 && bandanaSize.y >= 0.04,
+      `${entry.role.id}'s red headband is too small to read`);
+
+    assert.ok(outfit.length > 0, `${entry.role.id} has no role-readable outfit geometry`);
+    const outfitBox = new THREE.Box3();
+    for (const mesh of outfit) outfitBox.expandByObject(mesh);
+    const size = outfitBox.getSize(new THREE.Vector3());
+    assert.ok(size.x >= 0.1 && size.y >= 0.08 && size.z >= 0.02,
+      `${entry.role.id}'s role kit is buried in the body`);
+    silhouettes.add([
+      outfit.length,
+      Math.round(size.x / 0.03),
+      Math.round(size.y / 0.03),
+      Math.round(size.z / 0.03),
+    ].join(':'));
+  }
+  assert.equal(silhouettes.size, Object.keys(ROLES).length,
+    `only ${silhouettes.size} built cartel outfit silhouettes for eight roles`);
+});
+
+test('every visible siege gun is held at its grip and long guns are supported', () => {
+  const { scene, damage, matrix, pool } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  releaseWave(pool, 'one');
+  releaseWave(pool, 'two');
+  const longGuns = new Set(['carbine', 'ak47', 'saw', 'barrett']);
+  const holders = [
+    ...pool.all().map((entry) => ({ label: entry.id, ...entry })),
+    ...[...ensemble.members.values()].map((entry) => ({ label: entry.id, ...entry })),
+  ].filter((entry) => entry.gun?.visible);
+  assert.ok(holders.length >= 10, `only ${holders.length} armed holders were built`);
+  assert.deepEqual(new Set(holders.map((holder) => holder.weaponId ?? holder.plan.weapon)),
+    new Set(['revolver', 'pistol9', 'carbine', 'ak47', 'saw']));
+
+  for (const holder of holders) {
+    scene.updateMatrixWorld(true);
+    const findHand = (forearm) => {
+      let hand = null;
+      forearm.traverse((object) => {
+        if (!hand && object.isMesh && /(^|\.)hand$/.test(object.name ?? '')) hand = object;
+      });
+      return hand;
+    };
+    const rightHand = findHand(holder.figure.parts.foreR);
+    const leftHand = findHand(holder.figure.parts.foreL);
+    let primaryGrip = null;
+    holder.gun.traverse((object) => {
+      if (!primaryGrip && object.name?.includes('grip') && !object.name.includes('foregrip')) {
+        primaryGrip = object;
+      }
+    });
+    assert.ok(rightHand && leftHand && primaryGrip, `${holder.label} has no measurable hand/grip geometry`);
+    const rightBox = new THREE.Box3().setFromObject(rightHand);
+    const gripBox = new THREE.Box3().setFromObject(primaryGrip);
+    assert.equal(rightBox.intersectsBox(gripBox), true,
+      `${holder.label}'s firing hand misses the ${holder.weaponId ?? holder.plan.weapon} grip`);
+
+    if (longGuns.has(holder.weaponId ?? holder.plan.weapon)) {
+      const gunBox = new THREE.Box3().setFromObject(holder.gun);
+      const leftCentre = new THREE.Box3().setFromObject(leftHand).getCenter(new THREE.Vector3());
+      assert.ok(gunBox.distanceToPoint(leftCentre) <= 0.04,
+        `${holder.label}'s support hand is ${gunBox.distanceToPoint(leftCentre).toFixed(3)} m off the gun`);
+    }
+
+    const muzzle = holder.gun.localToWorld(holder.gun.userData.muzzle.clone());
+    const origin = holder.gun.getWorldPosition(new THREE.Vector3());
+    const direction = muzzle.sub(origin).normalize();
+    const forward = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(holder.root.getWorldQuaternion(new THREE.Quaternion()));
+    assert.ok(direction.dot(forward) >= 0.9,
+      `${holder.label}'s muzzle points away from his fighting stance`);
   }
 });
 

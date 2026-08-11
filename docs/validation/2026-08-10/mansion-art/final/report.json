@@ -1,0 +1,1743 @@
+{
+  "generatedAt": "2026-08-11T14:24:28.298Z",
+  "entry": "mansion.html?preview=1",
+  "mode": "all",
+  "provenance": {
+    "schema": 1,
+    "mode": "all",
+    "capture": {
+      "schema": 1,
+      "entry": "mansion.html?preview=1",
+      "runtime": {
+        "sha256": "72b2d8536ff43d946b2495d4350b596673a2e3b38612b7769685e0eca2379eac",
+        "entries": [
+          {
+            "path": "game/src/player.js",
+            "bytes": 10876,
+            "sha256": "bfef972240da2d9b3c31a55f76cd6feed0dc1514635f40c9e61b6f0ec2a6e5ae"
+          },
+          {
+            "path": "mansion.html",
+            "bytes": 10150,
+            "sha256": "7ed5138d03b11a19e9b836b15effcc4d8d704745a7d67a72139bb9b53d9404f3"
+          },
+          {
+            "path": "src/bing/cast.js",
+            "bytes": 172584,
+            "sha256": "3d8b868017a96ccb295c308a3ab0490023145c6da82c4ca7018acde1ec70d3f2"
+          },
+          {
+            "path": "src/bing/family-ape.js",
+            "bytes": 966,
+            "sha256": "49272499c70a99bbe58e23dc1c6860c389be8aa447afa5d12ff97dc0785a723d"
+          },
+          {
+            "path": "src/bing/family.js",
+            "bytes": 36523,
+            "sha256": "44fbb4756925d81afba2f97aa1fc42976b77bea62851ab2d3022ae89da9ce34c"
+          },
+          {
+            "path": "src/bing/kit.js",
+            "bytes": 18155,
+            "sha256": "92f4f58d10b576b6b85589b4d6af81dd5e264d3b70267f1b4d75dde68c81c0c1"
+          },
+          {
+            "path": "src/bing/license-to-grill-runtime.js",
+            "bytes": 81090,
+            "sha256": "33c521e118156a18b0946f6b9152451572ca76519325816f929d03e27116850c"
+          },
+          {
+            "path": "src/bing/license-to-grill.js",
+            "bytes": 49014,
+            "sha256": "bb65e9ad24572cdabf66c472dd4f124faa01c810af20e78ade1dcfa9d5d8528a"
+          },
+          {
+            "path": "src/bing/script.js",
+            "bytes": 31213,
+            "sha256": "61c1ba7a8a6bb4178f2400146bb58b7407b858c91ad0140c32ec902ac4df9c1f"
+          },
+          {
+            "path": "src/bing/vehicles.js",
+            "bytes": 29117,
+            "sha256": "48fcfcd6dc877d1ae9d756d957fd951590e17ac632267a526c00633a34aeadb2"
+          },
+          {
+            "path": "src/core/airstrip-story.js",
+            "bytes": 7415,
+            "sha256": "fd5b1cab8b21b827faa8028fd2cdba62328764c8a3298fa5c2dd1d71748dfb53"
+          },
+          {
+            "path": "src/core/assets.js",
+            "bytes": 1568,
+            "sha256": "cf2b192efd96ddc0c589861f1178cb7e07d9bd5c3c0d5dc696f52aaf287e34cb"
+          },
+          {
+            "path": "src/core/audio.js",
+            "bytes": 128662,
+            "sha256": "bfceb0cba8e4350f5b967491f9ff4adc6f9f5de2adcdc01d53a5a331876d9df6"
+          },
+          {
+            "path": "src/core/bada-bing-two-story.js",
+            "bytes": 3920,
+            "sha256": "292c05959cf7283c264ac9418fd34f3ef05bf0ddf060517494a91047aaf26cae"
+          },
+          {
+            "path": "src/core/bank-heist-story.js",
+            "bytes": 7772,
+            "sha256": "ad2e66c4aa5437d01a4e4612a166af4a951f155771fe45670f1f1480a1c77c33"
+          },
+          {
+            "path": "src/core/boot-guard.js",
+            "bytes": 1666,
+            "sha256": "9b461f1bc7c7371603febea4bab584a951ee6f5c3ae2180d36b0408c496702f2"
+          },
+          {
+            "path": "src/core/campaign-scene-skip.js",
+            "bytes": 30779,
+            "sha256": "639792d3004fae3e08b0f436c508ad71093ba4c0a81ef076028c84fd44c8e75b"
+          },
+          {
+            "path": "src/core/campaign.js",
+            "bytes": 127407,
+            "sha256": "96a5dceeaebbebbfe9a001237cd56a9edee758aa4e5b07f8345cbd850be61e35"
+          },
+          {
+            "path": "src/core/characters.js",
+            "bytes": 9520,
+            "sha256": "b17e992eb9b6acd112bb6a6de4c43e75c668beedfd15aaaaa265f34f5e7845c0"
+          },
+          {
+            "path": "src/core/combat/tracers.js",
+            "bytes": 5894,
+            "sha256": "e1f87725061247a3588ef4525e73c863c945747b0664d402f69105f8f9dd0d90"
+          },
+          {
+            "path": "src/core/final-arc-loadout-storage.js",
+            "bytes": 308,
+            "sha256": "327dd4646b5e3bef84929267a5834254b5b4630a5d0eeb61fb1c24bf54ed923e"
+          },
+          {
+            "path": "src/core/final-arc-loadout.js",
+            "bytes": 6959,
+            "sha256": "d6fa4a275b82e7bb65e2d59bd561e4abbca482943ee22d9ba14e5b985e5e8951"
+          },
+          {
+            "path": "src/core/final-arc-runtime.js",
+            "bytes": 2959,
+            "sha256": "43fdb7a6d4c2ef922a8534f64e9f45ffb120582a63604ae299ffbced50deaca9"
+          },
+          {
+            "path": "src/core/final-arc-story.js",
+            "bytes": 13784,
+            "sha256": "26c4043f438e10d96dd66f56499fc0fe618281c98fadb8f9a88279b35466cffd"
+          },
+          {
+            "path": "src/core/focus-rush.js",
+            "bytes": 1419,
+            "sha256": "7219bc231a71eb482d4200b6e390aa66fea58cfe08a3ad10cc11adce9da246c2"
+          },
+          {
+            "path": "src/core/golf-story.js",
+            "bytes": 6070,
+            "sha256": "8f08b58fb7934981e7ab84a7201e255ed892eb96d3b8726a8fb12b5e80c2894d"
+          },
+          {
+            "path": "src/core/graveyard-story.js",
+            "bytes": 4621,
+            "sha256": "fc1d08594d927829f99bbe6ef2a9a9e803aebd1532bb8c49eb4033e45dcf627d"
+          },
+          {
+            "path": "src/core/highs.js",
+            "bytes": 6816,
+            "sha256": "4ed3828d5f1248b3a0ec8f50ee04938054313e36a94066e942182e7fdde2157a"
+          },
+          {
+            "path": "src/core/interaction.js",
+            "bytes": 6045,
+            "sha256": "c0f5bc026a938494101658949faeb764db55149e44417af06431e48b8849a5f0"
+          },
+          {
+            "path": "src/core/inventory-view.js",
+            "bytes": 949,
+            "sha256": "21b0ff19fbd84409eca162cf00d27bdd3cb3d6540e45cd32d75c26fb22a2b6aa"
+          },
+          {
+            "path": "src/core/inventory.js",
+            "bytes": 5933,
+            "sha256": "164a1faa9ba37db6811bffc813898fa653fa44f07943bfaabe603001c46758f2"
+          },
+          {
+            "path": "src/core/load-queue.js",
+            "bytes": 938,
+            "sha256": "db38f790829316b25c3b57a9781538602eca90f82188ab1f6fa76e4c16e64d02"
+          },
+          {
+            "path": "src/core/motel-story.js",
+            "bytes": 1684,
+            "sha256": "29031da5f48756beccb01b63d793584af88b680b0287be110895e443bc92b5d7"
+          },
+          {
+            "path": "src/core/mouth.js",
+            "bytes": 18746,
+            "sha256": "4a8e5f6b4c5e21b950f8095b4bc7a1f73ce442715153ec7e7a6da676b0937e21"
+          },
+          {
+            "path": "src/core/no-wake-story.js",
+            "bytes": 3751,
+            "sha256": "efff9877f29a032db00998c39895443976680419e445d64dc3243e4e3a1b6e7f"
+          },
+          {
+            "path": "src/core/pause-menu.js",
+            "bytes": 11058,
+            "sha256": "82c0c2ec41b2a9b75e0697011acdfe8dff4f643107d8882ee092132d8021b23d"
+          },
+          {
+            "path": "src/core/pee-system.js",
+            "bytes": 3854,
+            "sha256": "d6afd8be6f6176b93750ee7d0049d334fcba29ffa1f98f5e8d58bdc3563b05a1"
+          },
+          {
+            "path": "src/core/player.js",
+            "bytes": 15901,
+            "sha256": "f36620af7e59a6d1fae5ee8f5079a3dbeebaec62050410bc2f8b44ddd328d500"
+          },
+          {
+            "path": "src/core/postfx.js",
+            "bytes": 6775,
+            "sha256": "9162060c6a5be772b1570385055a0e5043aef6572421f484ff477073118a0789"
+          },
+          {
+            "path": "src/core/preview-mode.js",
+            "bytes": 10770,
+            "sha256": "5feee16842fbd56ac793b6f4f10f0232d92e3ed45f9a87780fcee5a9bece7b6d"
+          },
+          {
+            "path": "src/core/radio.js",
+            "bytes": 34452,
+            "sha256": "a41120f9583ebcffb56118fd264c1d70a8291a39b47643bf1821194b0f8ff852"
+          },
+          {
+            "path": "src/core/scene-inventory.js",
+            "bytes": 2558,
+            "sha256": "1655dee5e5f426ea21fa4347a42b287ec261fd77dee4ffaccc543da10a72d1fe"
+          },
+          {
+            "path": "src/core/scene-recovery-storage.js",
+            "bytes": 77,
+            "sha256": "6987b87b461b0e0bb39fb8ab309185c14c247853d7f09a589fd657d06c5d155a"
+          },
+          {
+            "path": "src/core/scene-recovery.js",
+            "bytes": 5406,
+            "sha256": "7aa38f80c567c35034fb9502504e510a56f4dff42bdd46c834cd9e39aed1f9cc"
+          },
+          {
+            "path": "src/core/shubenator-signature.js",
+            "bytes": 4766,
+            "sha256": "3c5e04e55c5d39551e8e51b078fe88d622e870bd365d4c66f3482e66472e49b6"
+          },
+          {
+            "path": "src/core/signature-music.js",
+            "bytes": 10550,
+            "sha256": "8fe4ea3fdddd333453d493cbca1a156f60c85a161af557a87732ec813c0ad683"
+          },
+          {
+            "path": "src/core/silent-squatch-story.js",
+            "bytes": 7823,
+            "sha256": "053ebc562bae33f548aa30d5bb873fca487629f05ee17dda2164d2014c6b2ea1"
+          },
+          {
+            "path": "src/core/silver-story.js",
+            "bytes": 4992,
+            "sha256": "28c2e19692d3f2be88589138bed4b62146c204c29e4157aebf2d16b3ffc4331d"
+          },
+          {
+            "path": "src/core/squatchfather-story.js",
+            "bytes": 1882,
+            "sha256": "54c2b53cc9ac9e0d88f3d4917963a398f8872066cba5cf84c13b02a894412b7a"
+          },
+          {
+            "path": "src/core/stations.js",
+            "bytes": 32198,
+            "sha256": "330a0687989ae14e79aba84e38a62e861cb93df0127cad81ac3d97b3e5ae0a23"
+          },
+          {
+            "path": "src/core/timingbar.js",
+            "bytes": 3919,
+            "sha256": "92c2af6390c2a4bc18e36110a0176102587555c6346baf0c956b01eff65a2ed3"
+          },
+          {
+            "path": "src/core/tv.js",
+            "bytes": 25934,
+            "sha256": "d12d39b0219a5bb015a62e82c315201626454b14e5c83a5f2cc017be69a2913d"
+          },
+          {
+            "path": "src/core/wardrobe.js",
+            "bytes": 16506,
+            "sha256": "db8d28a305ad7c529fbdfb52f80abb037abbbf60791787751e28c968ed9f593f"
+          },
+          {
+            "path": "src/core/weapons/Armory.js",
+            "bytes": 16385,
+            "sha256": "a8c0211bd8e15008e1afbc533322447a68a50be38d66f7583a63a86f7485c6e2"
+          },
+          {
+            "path": "src/core/weapons/Ejecta.js",
+            "bytes": 5887,
+            "sha256": "ce2e09f9bb6fbbd9ab83f92001d75833bdb7e3aafa8e627f2052fe76d4855db2"
+          },
+          {
+            "path": "src/core/weapons/Firearm.js",
+            "bytes": 9685,
+            "sha256": "e707e07e170dc390e279aad70cb32ce0a7154e999f487dc4de46a46c99559ca8"
+          },
+          {
+            "path": "src/core/weapons/WeaponSystem.js",
+            "bytes": 19784,
+            "sha256": "000f37ba629d50346a785b52388c7879afc18d312b377b519ad43456fb5918f8"
+          },
+          {
+            "path": "src/core/weapons/audio.js",
+            "bytes": 8566,
+            "sha256": "061a237f022cb883109c9e673d936a8cd5714300e1748b6d93c4588662177f3d"
+          },
+          {
+            "path": "src/core/weapons/build.js",
+            "bytes": 4825,
+            "sha256": "d79a37cf0159bc14cc54e721aad5123383832459c2d9095fae7f1d0c8794b181"
+          },
+          {
+            "path": "src/core/weapons/catalog.js",
+            "bytes": 8175,
+            "sha256": "7d86d2edb1cdb34dee39b0226ad4383d069cb577105859f2c5a0ee64ac6c4332"
+          },
+          {
+            "path": "src/core/weapons/models.js",
+            "bytes": 47706,
+            "sha256": "0dcf4b66dd89702828d151bf3ef9da8a40d51ea2249508bb01cc5f7888d99435"
+          },
+          {
+            "path": "src/mansion/campaign.js",
+            "bytes": 652,
+            "sha256": "921e40191aaba8b05c23ebc1022df57fb295a71fde677eb446d2725e6e7c9fa5"
+          },
+          {
+            "path": "src/mansion/cast.js",
+            "bytes": 148985,
+            "sha256": "de1ecf7a068dcaeae2cad1865323573c5894ffd22cd68a9c59b63e4f8ae73bd8"
+          },
+          {
+            "path": "src/mansion/dog.js",
+            "bytes": 34669,
+            "sha256": "1d416b1fac34c932e3e59cbc4a6232a1e981b4cefd465f92edd9db23315a0d3c"
+          },
+          {
+            "path": "src/mansion/loadout.js",
+            "bytes": 9302,
+            "sha256": "b397c1c95628555f0f23d584a340a410fc54ef2683532a7caea4dfa929489c40"
+          },
+          {
+            "path": "src/mansion/main.js",
+            "bytes": 133125,
+            "sha256": "a27511a00e8c5088c9c9d634fdc919797e6cc35ce31c6ba22a688c9c197bab23"
+          },
+          {
+            "path": "src/mansion/mission/DialogueController.js",
+            "bytes": 4718,
+            "sha256": "415bb840734897b2415e2c921446238ec3864a37f08ffdab17bb91f913067b95"
+          },
+          {
+            "path": "src/mansion/mission/SilentSquatchMission.js",
+            "bytes": 48855,
+            "sha256": "365a79d9187b2908b3509aa1746ec2cca5264294b9e00d55815ae433b74654c2"
+          },
+          {
+            "path": "src/mansion/mission/SilentSquatchStateMachine.js",
+            "bytes": 5823,
+            "sha256": "7b055297ff064c7ffce604bddd6d32ca92aadae2328ebe8064c8609a1d34d3eb"
+          },
+          {
+            "path": "src/mansion/mission/hud.js",
+            "bytes": 8912,
+            "sha256": "ed4a7f5de5d1e0e2428095ef0f37c5fcdf7fac9741a47e8c0fb7eed74f3ca0bc"
+          },
+          {
+            "path": "src/mansion/mission/mount.js",
+            "bytes": 35485,
+            "sha256": "10f59106f78a7e0a0e1ef0fe38d3e4f9bea02942785602877ed35b745cd74e33"
+          },
+          {
+            "path": "src/mansion/npc-speech-gate.js",
+            "bytes": 6396,
+            "sha256": "8fe31d321f0c722c2e2be80f7dba79adc596eeb3467342a42be194cc9cde9f52"
+          },
+          {
+            "path": "src/mansion/perf.js",
+            "bytes": 7157,
+            "sha256": "25cd4b977e321b3c90b2491ca721f3904728f82b5a8f4ffea1dc8390ff9cf058"
+          },
+          {
+            "path": "src/mansion/performer-motion.js",
+            "bytes": 5039,
+            "sha256": "665691d7f5d8bea66145d0c2ec20c19d7402f293cb6ab00f69376c855dffc030"
+          },
+          {
+            "path": "src/mansion/scenes/MansionGrounds.js",
+            "bytes": 237128,
+            "sha256": "5acd483dd2831e68a2ba2024df40a1cf8eb110884632966a49d8b04d72fceb98"
+          },
+          {
+            "path": "src/mansion/scenes/MansionInterior.js",
+            "bytes": 593508,
+            "sha256": "a899b2fed47a4c4ae4a647f10368700b2c0bfb8997567750e0d11be733899514"
+          },
+          {
+            "path": "src/mansion/scenes/SilentSquatch.js",
+            "bytes": 279499,
+            "sha256": "e8d796a8d2c853eeb28b44766eee1bd059edb6132debbbf57adb80bdd8647cc6"
+          },
+          {
+            "path": "src/mansion/script.js",
+            "bytes": 74946,
+            "sha256": "53c797fb465e14f728c7bba5ff3a43212365cdc17825877385eb550f899c844f"
+          },
+          {
+            "path": "src/silver/margo.js",
+            "bytes": 8670,
+            "sha256": "9bc5eded56ed513130760335028d0aa958b3af5fd6c3886091a87e56fd09e220"
+          },
+          {
+            "path": "src/silvercase/props/case.js",
+            "bytes": 7166,
+            "sha256": "289f3f82bfbaebe8760a1fc2bb86488dd707bbaeb13de6536ca7165cd4a25b5e"
+          },
+          {
+            "path": "src/squatchfather/characters/Figure.js",
+            "bytes": 23044,
+            "sha256": "1e7ddfdddc2be6b10e883c95afae89c28bfa6984365573b6d223493c86b6937b"
+          },
+          {
+            "path": "src/world/blood.js",
+            "bytes": 10757,
+            "sha256": "4ada793030c8404827a6ae41ae352d25b6570d8f1b848518c3d5ddd4d11c1c26"
+          },
+          {
+            "path": "src/world/bong.js",
+            "bytes": 3198,
+            "sha256": "e1b1d30a1241cd202f48ed61f5e09d3b04be5a66f242e06c1c873319cdeae849"
+          },
+          {
+            "path": "src/world/build.js",
+            "bytes": 6277,
+            "sha256": "4e364e775bf8d40e6b8fe3c4dfc03c258fa86c869eb1c51b7a824a1a0f3e627c"
+          },
+          {
+            "path": "src/world/bullets.js",
+            "bytes": 7394,
+            "sha256": "c13bc50fb4cc9bb72a4fddefc1db45ab981d3a7b4327713dd6c01d4422051e81"
+          },
+          {
+            "path": "src/world/dress-help-focus.js",
+            "bytes": 4971,
+            "sha256": "60a79f92e85a2bbe3870252185f4e10d141ddc4ea948aefa6308679e029f9328"
+          },
+          {
+            "path": "src/world/dress-help-staging.js",
+            "bytes": 4641,
+            "sha256": "32dc2cc8f736ace308cefccd7ab9693f60e2781e2d94e5113dedc1912cb8c566"
+          },
+          {
+            "path": "src/world/dress-help.js",
+            "bytes": 4637,
+            "sha256": "063cb2cd2bed5a98ff03263825094eaa9261624677a4e05e45da84e4d4d8bfa5"
+          },
+          {
+            "path": "src/world/gear.js",
+            "bytes": 9964,
+            "sha256": "d3e87a774d3b73e2a5ef348703df5789a943619660cecb16b398f40f0ff62818"
+          },
+          {
+            "path": "src/world/materials.js",
+            "bytes": 3333,
+            "sha256": "dd05c1d4cb14da6e1bac82d3a31e6e959be256c67928313472f9119a5f68dfde"
+          },
+          {
+            "path": "src/world/props.js",
+            "bytes": 146037,
+            "sha256": "ca6423ea9c188c025adfb4d098145469d73b00ffc8311c6cad77419a66d1427a"
+          },
+          {
+            "path": "src/world/smoke.js",
+            "bytes": 6473,
+            "sha256": "3d27e14c51553b888aeabb74d671ee66322a4ad7281894dbb93b93e5c1de9a22"
+          },
+          {
+            "path": "src/world/stream.js",
+            "bytes": 10310,
+            "sha256": "076689aff0a0b3b48a2317441509e5422f811740b5bd7fe41da57b43c5e8fac1"
+          },
+          {
+            "path": "src/world/textures.js",
+            "bytes": 20124,
+            "sha256": "4d859b348510f7ec81b837fdc8c0917f146593ce6a17987a136a7303cb30bd63"
+          },
+          {
+            "path": "vendor/addons/postprocessing/EffectComposer.js",
+            "bytes": 4882,
+            "sha256": "0dbb9c044721be861e8b7f17a273475c47388cee6fd16474c56d715df2fe65b2"
+          },
+          {
+            "path": "vendor/addons/postprocessing/MaskPass.js",
+            "bytes": 2335,
+            "sha256": "b0360737a0fa5a3416f062915a16b0448a93f26e01d0e559d9c9cfac8b9cf46d"
+          },
+          {
+            "path": "vendor/addons/postprocessing/OutputPass.js",
+            "bytes": 2621,
+            "sha256": "e040260fd6c8c26f155432e181b407b35c43e44314b9aad1c56222a2655aa51c"
+          },
+          {
+            "path": "vendor/addons/postprocessing/Pass.js",
+            "bytes": 1801,
+            "sha256": "e142845fdd6a19d979c6f064dd71e5f5b7a4d35bd6eb4f5af46edf2eabff9da9"
+          },
+          {
+            "path": "vendor/addons/postprocessing/RenderPass.js",
+            "bytes": 2040,
+            "sha256": "d57f1aa0e21be0f0969547006560ecf1678fdf2de18251b5a70b76a62390de7d"
+          },
+          {
+            "path": "vendor/addons/postprocessing/ShaderPass.js",
+            "bytes": 1653,
+            "sha256": "84d3854fd7e42a4a0aeddd6c58c902ad0b3aea82bf7d5e7cb76c24248acfb0b7"
+          },
+          {
+            "path": "vendor/addons/postprocessing/UnrealBloomPass.js",
+            "bytes": 12825,
+            "sha256": "9cfd2ff389368709af19c0f55171bf80aa8126c9215611ee608a902a0846813b"
+          },
+          {
+            "path": "vendor/addons/shaders/CopyShader.js",
+            "bytes": 616,
+            "sha256": "5827504ed05e7ae252e75f53b3fb10caa96ec21e70a78143e9ef90d430f1107e"
+          },
+          {
+            "path": "vendor/addons/shaders/LuminosityHighPassShader.js",
+            "bytes": 1211,
+            "sha256": "58830498f7c6eafbfa2874319cfc79aa8d1ccf68b46fd5ab1c0d409ebef2eb62"
+          },
+          {
+            "path": "vendor/addons/shaders/OutputShader.js",
+            "bytes": 1575,
+            "sha256": "b20bb58821aa527f80a052f36e18c188f9202c6edaabf895c665594cd54c8320"
+          },
+          {
+            "path": "vendor/three.module.min.js",
+            "bytes": 687464,
+            "sha256": "6acdfc5e7d095fb6b1c54a45e70fe277ddc863a99b56d1f0d48b900114ae51ab"
+          }
+        ]
+      },
+      "manifest": {
+        "path": "assets/art/manifest.json",
+        "bytes": 27260,
+        "sha256": "a9048f9fbf7ee68be13f6d6d584a1a4725190c3d5a543df4890bff69e0d7b51a"
+      },
+      "shots": {
+        "sha256": "8c1f5f72e06052d94fdb233675ab9a2c9f0eeb3cba29f13082eeccc72c68e3a1",
+        "entries": [
+          {
+            "name": "01-gallery-roster",
+            "room": "Upper gallery",
+            "slot": "mansion.gallery.roster",
+            "file": "austin-major-2025-roster.jpg",
+            "position": [
+              11.4,
+              6,
+              51.6
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "02-ballroom-major",
+            "room": "Ballroom",
+            "slot": "mansion.ballroom.major",
+            "file": "austin-major-cowboy-banner.jpg",
+            "position": [
+              -4.6,
+              1.2,
+              72.9
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "03-lounge-cowboy",
+            "room": "Billiards lounge",
+            "slot": "mansion.lounge.cowboy",
+            "file": "austin-major-cowboy.jpg",
+            "position": [
+              13.5,
+              1.2,
+              40
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "04-conference-stacks",
+            "room": "Conference room",
+            "slot": "mansion.conference.stacks",
+            "file": "logo-5-years-of-stacks.jpg",
+            "position": [
+              4.7,
+              6,
+              59.9
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "05-office-boss",
+            "room": "Lou's office",
+            "slot": "mansion.office.boss",
+            "file": "boss-camp-shirt.jpg",
+            "position": [
+              -6,
+              6,
+              66.6
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "06-winter-almighty",
+            "room": "Winter garden",
+            "slot": "mansion.winter.almighty",
+            "file": "squatch-almighty.jpg",
+            "position": [
+              -20.1,
+              1.2,
+              66.2
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "07-cellar-party-bus",
+            "room": "Cellar hall",
+            "slot": "mansion.cellar.bus",
+            "file": "party-bus-night.jpg",
+            "position": [
+              -10.5,
+              -2.8,
+              66.4
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "08-guest-dog",
+            "room": "Lower guest room",
+            "slot": "mansion.guest.dog",
+            "file": "house-dog.jpg",
+            "position": [
+              -10,
+              -2.8,
+              72.6
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "09-theatre-lockup",
+            "room": "Theatre",
+            "slot": "mansion.theatre.lockup",
+            "file": "austin-major-lockup.jpg",
+            "position": [
+              -0.5,
+              -2.8,
+              73.5
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": false
+          },
+          {
+            "name": "10-lan-denver",
+            "room": "LAN room",
+            "slot": "mansion.lan.denver",
+            "file": "logo-denver-2026.jpg",
+            "position": [
+              8,
+              -2.8,
+              73.2
+            ],
+            "railProof": false,
+            "allowPerimeterOcclusion": true
+          },
+          {
+            "name": "11-vault-facing-casa-bonita",
+            "room": "Cellar hall, across from vault",
+            "slot": "mansion.cellar.crest",
+            "file": "casabonita.webp",
+            "position": [
+              10.5,
+              -2.8,
+              66.4
+            ],
+            "railProof": true,
+            "allowPerimeterOcclusion": false
+          }
+        ]
+      },
+      "art": {
+        "sha256": "4ef227048460467abb91368afc6e7214a528b99cab9adfaf318c53a3b0418f88",
+        "entries": [
+          {
+            "slot": "mansion.gallery.roster",
+            "file": "austin-major-2025-roster.jpg",
+            "path": "assets/art/austin-major-2025-roster.jpg",
+            "bytes": 464494,
+            "sha256": "849ef9ac9f8ff8904d526dd5108ead0ad5bfda10746c513603c3635c09b7e6eb"
+          },
+          {
+            "slot": "mansion.ballroom.major",
+            "file": "austin-major-cowboy-banner.jpg",
+            "path": "assets/art/austin-major-cowboy-banner.jpg",
+            "bytes": 155019,
+            "sha256": "187e7191c5baf5be412d6f7f389c9efe0edce1d7ddc784600f50cc71a4a65b8b"
+          },
+          {
+            "slot": "mansion.lounge.cowboy",
+            "file": "austin-major-cowboy.jpg",
+            "path": "assets/art/austin-major-cowboy.jpg",
+            "bytes": 244898,
+            "sha256": "471d06a3f123b991e419a2c9740e7745a1cba05e5ea8d859f31e1d6851841cea"
+          },
+          {
+            "slot": "mansion.conference.stacks",
+            "file": "logo-5-years-of-stacks.jpg",
+            "path": "assets/art/logo-5-years-of-stacks.jpg",
+            "bytes": 295216,
+            "sha256": "eb1c4628e321197db628f0ff4e4b6f87eae1a7774fa880a68b84560026da3dda"
+          },
+          {
+            "slot": "mansion.office.boss",
+            "file": "boss-camp-shirt.jpg",
+            "path": "assets/art/boss-camp-shirt.jpg",
+            "bytes": 217605,
+            "sha256": "0ad22578e328363c5bae251472505a3116df8de35e162307c53434d5c440ce25"
+          },
+          {
+            "slot": "mansion.winter.almighty",
+            "file": "squatch-almighty.jpg",
+            "path": "assets/art/squatch-almighty.jpg",
+            "bytes": 501616,
+            "sha256": "282b14232ba942ba7e4a299430ea3de53eee2c1ef81bfa63ba9db6abafbafd74"
+          },
+          {
+            "slot": "mansion.cellar.bus",
+            "file": "party-bus-night.jpg",
+            "path": "assets/art/party-bus-night.jpg",
+            "bytes": 251468,
+            "sha256": "0a7dfe553ba6a68115e1959e3a69ea11d384f285fbc7ec653963e4752af76f8a"
+          },
+          {
+            "slot": "mansion.guest.dog",
+            "file": "house-dog.jpg",
+            "path": "assets/art/house-dog.jpg",
+            "bytes": 341570,
+            "sha256": "c9e44951592370bbdec7874338bdc7a89c5c764d820a8f65c66198f84ae77fb5"
+          },
+          {
+            "slot": "mansion.theatre.lockup",
+            "file": "austin-major-lockup.jpg",
+            "path": "assets/art/austin-major-lockup.jpg",
+            "bytes": 95654,
+            "sha256": "1ade8020738ec0657ac988e6ee6fecb42dca4dc273e61da0ab0816b2fdaa1399"
+          },
+          {
+            "slot": "mansion.lan.denver",
+            "file": "logo-denver-2026.jpg",
+            "path": "assets/art/logo-denver-2026.jpg",
+            "bytes": 281073,
+            "sha256": "4c69dd10484104f578b0ff9f5115b80d3a4717530324c18bf9c8ad3e03866528"
+          },
+          {
+            "slot": "mansion.cellar.crest",
+            "file": "casabonita.webp",
+            "path": "assets/art/casabonita.webp",
+            "bytes": 138920,
+            "sha256": "6de03b7159d53cfc6411782ab40d7d43c7acdf7dd68a16e24d4b5bdef91eacbe"
+          }
+        ]
+      },
+      "tools": {
+        "sha256": "1f459bd68b471c71e320b280631ab1ef3711c361de3f6fccc65f87cd4d0fbb65",
+        "entries": [
+          {
+            "path": "tools/verify-mansion-art.mjs",
+            "bytes": 19481,
+            "sha256": "e5fbbfd035f232418f949395d4193f4711ef7c2e19467175bd3f33ffc76604e2"
+          },
+          {
+            "path": "tools/mansion-art-evidence-contract.mjs",
+            "bytes": 3222,
+            "sha256": "b6c0ddb2161aa646da2bf0243f864ff4505fa9b04f31a7e5236a487c3f86bb80"
+          },
+          {
+            "path": "tools/mansion-art-evidence-provenance.mjs",
+            "bytes": 6779,
+            "sha256": "430a54c39287f27cc5b95c5c47b2e81b82fe382fefc622acf7d0a6d313a33192"
+          }
+        ]
+      },
+      "fingerprint": "0d78ffacc69b3e186b93c79ce4d5c54bf206cee1bcd9556150d59b5a705ec813"
+    },
+    "evidence": [
+      {
+        "name": "01-gallery-roster",
+        "file": "01-gallery-roster.png",
+        "bytes": 292067,
+        "width": 1280,
+        "height": 720,
+        "sha256": "7b4f34ea4c7fe36d1a9ab24872d9985b1d21d022ae5923fa9dc966c9ee639f98"
+      },
+      {
+        "name": "02-ballroom-major",
+        "file": "02-ballroom-major.png",
+        "bytes": 222532,
+        "width": 1280,
+        "height": 720,
+        "sha256": "573d123dca753267d8c0768518fef3b4b8d5d9ee7607f2d6a7931078d4eb464a"
+      },
+      {
+        "name": "03-lounge-cowboy",
+        "file": "03-lounge-cowboy.png",
+        "bytes": 373079,
+        "width": 1280,
+        "height": 720,
+        "sha256": "744e41894f5806116ef4470368a1f7138c32079ef68e8cda098cc88504c2acbe"
+      },
+      {
+        "name": "04-conference-stacks",
+        "file": "04-conference-stacks.png",
+        "bytes": 216182,
+        "width": 1280,
+        "height": 720,
+        "sha256": "904ced7588313428ca77cdb3d9da20cbe6c437187bbd437314de4da42d3602db"
+      },
+      {
+        "name": "05-office-boss",
+        "file": "05-office-boss.png",
+        "bytes": 118912,
+        "width": 1280,
+        "height": 720,
+        "sha256": "4966f2c26864bf41f4aaf45f8adf567142dbed82592ea10cbbb39964764347d5"
+      },
+      {
+        "name": "06-winter-almighty",
+        "file": "06-winter-almighty.png",
+        "bytes": 360906,
+        "width": 1280,
+        "height": 720,
+        "sha256": "b5770eaaa0269cffbe4ed5d551201f79f13ae508a579eec070b39e0aa5b4aeba"
+      },
+      {
+        "name": "07-cellar-party-bus",
+        "file": "07-cellar-party-bus.png",
+        "bytes": 228654,
+        "width": 1280,
+        "height": 720,
+        "sha256": "93efa9b646b59f02f39541d3c7a2748e425db231523dbea93c4cfe766fcd1d0d"
+      },
+      {
+        "name": "08-guest-dog",
+        "file": "08-guest-dog.png",
+        "bytes": 193780,
+        "width": 1280,
+        "height": 720,
+        "sha256": "2d5cf1974e228b6309d128e4f525f1170b8a4bc6182cdf119ecf8c26f82c6bd7"
+      },
+      {
+        "name": "09-theatre-lockup",
+        "file": "09-theatre-lockup.png",
+        "bytes": 478042,
+        "width": 1280,
+        "height": 720,
+        "sha256": "e48f0882cb18444f0cf77bb7a4ed36462f50e67d4b4ead4fbe42d75352eb5305"
+      },
+      {
+        "name": "10-lan-denver",
+        "file": "10-lan-denver.png",
+        "bytes": 253530,
+        "width": 1280,
+        "height": 720,
+        "sha256": "1b9c818c0cf8ff40cf67ded8fdf586e1b1738bdf3d219df5e339b10d4a4f763a"
+      },
+      {
+        "name": "11-vault-facing-casa-bonita",
+        "file": "11-vault-facing-casa-bonita.png",
+        "bytes": 321298,
+        "width": 1280,
+        "height": 720,
+        "sha256": "7766cc1d22bec78ce1f6f894ef65bc8da85b98cc41f7510e2086dfe2b5e45ff4"
+      }
+    ],
+    "evidenceFingerprint": "eaed8e045f50cac3ac610f44a46c05650159996bea1d03b1b8377dbee229c0ce"
+  },
+  "pictures": [
+    {
+      "name": "01-gallery-roster",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\01-gallery-roster.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Upper gallery",
+      "slot": "mansion.gallery.roster",
+      "expectedFile": "austin-major-2025-roster.jpg",
+      "actualFile": "austin-major-2025-roster.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        2600,
+        1040
+      ],
+      "shown": true,
+      "player": [
+        11.4,
+        7.66,
+        51.6
+      ],
+      "target": [
+        11.4,
+        8.05,
+        48.18
+      ],
+      "screen": {
+        "width": 506.85055904550694,
+        "height": 197.27885005155434,
+        "centre": [
+          -4.303617006558788e-16,
+          0,
+          0.9541188938345395
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "02-ballroom-major",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\02-ballroom-major.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Ballroom",
+      "slot": "mansion.ballroom.major",
+      "expectedFile": "austin-major-cowboy-banner.jpg",
+      "actualFile": "austin-major-cowboy-banner.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        2048,
+        683
+      ],
+      "shown": true,
+      "player": [
+        -6.02,
+        2.86,
+        72.9
+      ],
+      "target": [
+        -8.69,
+        4.5,
+        72.9
+      ],
+      "screen": {
+        "width": 639.6057129737251,
+        "height": 166.01357226685496,
+        "centre": [
+          -0.0001291150628567848,
+          0.00032878617157451286,
+          0.9495448638058003
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "03-lounge-cowboy",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\03-lounge-cowboy.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Billiards lounge",
+      "slot": "mansion.lounge.cowboy",
+      "expectedFile": "austin-major-cowboy.jpg",
+      "actualFile": "austin-major-cowboy.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1400,
+        1400
+      ],
+      "shown": true,
+      "player": [
+        13.668366761120517,
+        2.86,
+        39.999365738412365
+      ],
+      "target": [
+        9.184,
+        3.5999999999999996,
+        40
+      ],
+      "screen": {
+        "width": 143.99500275311053,
+        "height": 139.06423081650166,
+        "centre": [
+          -0.000553496161977242,
+          0.0009450243258183443,
+          0.9654062920316037
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "04-conference-stacks",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\04-conference-stacks.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Conference room",
+      "slot": "mansion.conference.stacks",
+      "expectedFile": "logo-5-years-of-stacks.jpg",
+      "actualFile": "logo-5-years-of-stacks.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1400,
+        1400
+      ],
+      "shown": true,
+      "player": [
+        4.7,
+        7.66,
+        59.9
+      ],
+      "target": [
+        8.706,
+        8.4,
+        59.9
+      ],
+      "screen": {
+        "width": 154.6308589319322,
+        "height": 148.2571060827563,
+        "centre": [
+          -2.827827726851148e-8,
+          6.461464125501147e-8,
+          0.9613278673661744
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "05-office-boss",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\05-office-boss.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Lou's office",
+      "slot": "mansion.office.boss",
+      "expectedFile": "boss-camp-shirt.jpg",
+      "actualFile": "boss-camp-shirt.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1005,
+        1200
+      ],
+      "shown": true,
+      "player": [
+        -6,
+        7.66,
+        66.6
+      ],
+      "target": [
+        -6,
+        8.4,
+        63.354
+      ],
+      "screen": {
+        "width": 142.76140852945662,
+        "height": 160.68922559576137,
+        "centre": [
+          -1.386920516493942e-12,
+          3.1419660166193634e-12,
+          0.9525423663613083
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "06-winter-almighty",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\06-winter-almighty.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Winter garden",
+      "slot": "mansion.winter.almighty",
+      "expectedFile": "squatch-almighty.jpg",
+      "actualFile": "squatch-almighty.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1119,
+        1400
+      ],
+      "shown": true,
+      "player": [
+        -20.308021868713688,
+        2.86,
+        65.92014701827371
+      ],
+      "target": [
+        -16.484,
+        3.9000000000000004,
+        66.2
+      ],
+      "screen": {
+        "width": 161.8048420727139,
+        "height": 189.8116378522488,
+        "centre": [
+          -0.0008428153057357879,
+          -0.0007303609518154377,
+          0.9603238321513581
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "07-cellar-party-bus",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\07-cellar-party-bus.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Cellar hall",
+      "slot": "mansion.cellar.bus",
+      "expectedFile": "party-bus-night.jpg",
+      "actualFile": "party-bus-night.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1050,
+        1400
+      ],
+      "shown": true,
+      "player": [
+        -10.5,
+        -1.14,
+        66.4
+      ],
+      "target": [
+        -10.5,
+        -1.0499999999999998,
+        64.384
+      ],
+      "screen": {
+        "width": 192.4670388629895,
+        "height": 253.67633664345297,
+        "centre": [
+          -2.1092233975450423e-7,
+          -1.89195473711636e-7,
+          0.9213050596470707
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "08-guest-dog",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\08-guest-dog.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Lower guest room",
+      "slot": "mansion.guest.dog",
+      "expectedFile": "house-dog.jpg",
+      "actualFile": "house-dog.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        900,
+        1200
+      ],
+      "shown": true,
+      "player": [
+        -10,
+        -1.14,
+        72.6
+      ],
+      "target": [
+        -8.044,
+        -1.0999999999999999,
+        72.6
+      ],
+      "screen": {
+        "width": 169.8740907657865,
+        "height": 225.4774692990581,
+        "centre": [
+          -1.7294251046276513e-11,
+          -1.5526125049056492e-11,
+          0.9188079102947095
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "09-theatre-lockup",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\09-theatre-lockup.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Theatre",
+      "slot": "mansion.theatre.lockup",
+      "expectedFile": "austin-major-lockup.jpg",
+      "actualFile": "austin-major-lockup.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1400,
+        1400
+      ],
+      "shown": true,
+      "player": [
+        -0.5,
+        -1.14,
+        73.5
+      ],
+      "target": [
+        1.7599999999999998,
+        -1.0999999999999999,
+        73.5
+      ],
+      "screen": {
+        "width": 225.1543116205987,
+        "height": 224.28498721423512,
+        "centre": [
+          0,
+          -1.3107469185384474e-15,
+          0.9298084132251067
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": null
+    },
+    {
+      "name": "10-lan-denver",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\10-lan-denver.png",
+      "allowPerimeterOcclusion": true,
+      "room": "LAN room",
+      "slot": "mansion.lan.denver",
+      "expectedFile": "logo-denver-2026.jpg",
+      "actualFile": "logo-denver-2026.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1400,
+        1400
+      ],
+      "shown": true,
+      "player": [
+        8.02,
+        -1.14,
+        73.2
+      ],
+      "target": [
+        10.76,
+        -1.2999999999999998,
+        73.2
+      ],
+      "screen": {
+        "width": 176.69752125496743,
+        "height": 174.72381882427388,
+        "centre": [
+          -0.000434414153075253,
+          -0.00047310377684191463,
+          0.942303862249089
+        ]
+      },
+      "grid": {
+        "clear": 24,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": [
+          {
+            "fx": 0.225,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "ancestry": [
+                "desk",
+                "MansionInterior"
+              ],
+              "artSlot": null,
+              "material": [
+                {
+                  "name": "(unnamed material)",
+                  "color": "#4a4d52",
+                  "transparent": false,
+                  "opacity": 1
+                }
+              ],
+              "box": {
+                "min": [
+                  10.705,
+                  -1.7321410511899438,
+                  73.32639994250246
+                ],
+                "max": [
+                  10.775,
+                  -1.5878589488100556,
+                  73.42960005749754
+                ],
+                "size": [
+                  0.07000000000000028,
+                  0.14428210237988814,
+                  0.10320011499507586
+                ]
+              }
+            },
+            "nullRetry": null
+          }
+        ]
+      },
+      "rail": null
+    },
+    {
+      "name": "11-vault-facing-casa-bonita",
+      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\11-vault-facing-casa-bonita.png",
+      "allowPerimeterOcclusion": false,
+      "room": "Cellar hall, across from vault",
+      "slot": "mansion.cellar.crest",
+      "expectedFile": "casabonita.webp",
+      "actualFile": "casabonita.webp",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        768,
+        1024
+      ],
+      "shown": true,
+      "player": [
+        10.5,
+        -1.14,
+        66.4
+      ],
+      "target": [
+        10.5,
+        -0.9899999999999998,
+        64.38
+      ],
+      "screen": {
+        "width": 256.25199638077027,
+        "height": 333.0203297057009,
+        "centre": [
+          -2.409071928693051e-7,
+          -2.6208810286952764e-7,
+          0.9216008237272906
+        ]
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "centreClear": true,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blockersArePerimeterOnly": true,
+        "blocked": []
+      },
+      "rail": {
+        "intersections": [],
+        "clearance": 0.05166667461395269,
+        "pictureBox": {
+          "min": [
+            10.025000005960464,
+            -1.6233333253860471,
+            64.38
+          ],
+          "max": [
+            10.974999994039536,
+            -0.3566666746139524,
+            64.38
+          ]
+        }
+      }
+    }
+  ],
+  "checks": [
+    {
+      "label": "Upper gallery: mansion.gallery.roster is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "austin-major-2025-roster.jpg",
+        "image": [
+          2600,
+          1040
+        ],
+        "screen": [
+          507,
+          197
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Ballroom: mansion.ballroom.major is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "austin-major-cowboy-banner.jpg",
+        "image": [
+          2048,
+          683
+        ],
+        "screen": [
+          640,
+          166
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Billiards lounge: mansion.lounge.cowboy is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "austin-major-cowboy.jpg",
+        "image": [
+          1400,
+          1400
+        ],
+        "screen": [
+          144,
+          139
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Conference room: mansion.conference.stacks is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "logo-5-years-of-stacks.jpg",
+        "image": [
+          1400,
+          1400
+        ],
+        "screen": [
+          155,
+          148
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Lou's office: mansion.office.boss is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "boss-camp-shirt.jpg",
+        "image": [
+          1005,
+          1200
+        ],
+        "screen": [
+          143,
+          161
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Winter garden: mansion.winter.almighty is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "squatch-almighty.jpg",
+        "image": [
+          1119,
+          1400
+        ],
+        "screen": [
+          162,
+          190
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Cellar hall: mansion.cellar.bus is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "party-bus-night.jpg",
+        "image": [
+          1050,
+          1400
+        ],
+        "screen": [
+          192,
+          254
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Lower guest room: mansion.guest.dog is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "house-dog.jpg",
+        "image": [
+          900,
+          1200
+        ],
+        "screen": [
+          170,
+          225
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "Theatre: mansion.theatre.lockup is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "austin-major-lockup.jpg",
+        "image": [
+          1400,
+          1400
+        ],
+        "screen": [
+          225,
+          224
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "perimeterException": false,
+        "blockers": []
+      }
+    },
+    {
+      "label": "LAN room: mansion.lan.denver is real, decoded, and has a fully clear readable core",
+      "ok": true,
+      "payload": {
+        "file": "logo-denver-2026.jpg",
+        "image": [
+          1400,
+          1400
+        ],
+        "screen": [
+          177,
+          175
+        ],
+        "clearSamples": "24/25",
+        "coreSamples": "9/9",
+        "perimeterException": true,
+        "blockers": [
+          {
+            "fx": 0.225,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "ancestry": [
+                "desk",
+                "MansionInterior"
+              ],
+              "artSlot": null,
+              "material": [
+                {
+                  "name": "(unnamed material)",
+                  "color": "#4a4d52",
+                  "transparent": false,
+                  "opacity": 1
+                }
+              ],
+              "box": {
+                "min": [
+                  10.705,
+                  -1.7321410511899438,
+                  73.32639994250246
+                ],
+                "max": [
+                  10.775,
+                  -1.5878589488100556,
+                  73.42960005749754
+                ],
+                "size": [
+                  0.07000000000000028,
+                  0.14428210237988814,
+                  0.10320011499507586
+                ]
+              }
+            },
+            "nullRetry": null
+          }
+        ]
+      }
+    },
+    {
+      "label": "Casa Bonita across from the vault is real, decoded and centre-clear",
+      "ok": true,
+      "payload": {
+        "file": "casabonita.webp",
+        "image": [
+          768,
+          1024
+        ],
+        "clearSamples": "25/25",
+        "coreSamples": "9/9",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Casa Bonita clears the actual white cellar chair rail by at least 40 mm",
+      "ok": true,
+      "payload": {
+        "intersections": [],
+        "clearance": 0.05166667461395269,
+        "pictureBox": {
+          "min": [
+            10.025000005960464,
+            -1.6233333253860471,
+            64.38
+          ],
+          "max": [
+            10.974999994039536,
+            -0.3566666746139524,
+            64.38
+          ]
+        }
+      }
+    },
+    {
+      "label": "live Mansion WebGL stayed healthy with no missing/runtime resources",
+      "ok": true,
+      "payload": {
+        "gl": {
+          "lost": false,
+          "drawingBuffer": [
+            1280,
+            720
+          ]
+        },
+        "errors": [],
+        "notFound": []
+      }
+    }
+  ],
+  "gl": {
+    "lost": false,
+    "drawingBuffer": [
+      1280,
+      720
+    ]
+  },
+  "errors": [],
+  "notFound": []
+}

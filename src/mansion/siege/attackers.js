@@ -90,6 +90,7 @@ import { playWeaponCue } from '../../core/weapons/audio.js';
 import { WEAPON_CATALOG } from '../../core/weapons/catalog.js';
 import { buildWeaponModel } from '../../core/weapons/models.js';
 import { HeistFigure } from '../../heist/people.js';
+import { braceSiegeWeapon, mountSiegeWeapon } from './armed-pose.js';
 import {
   BASEMENT_Y, GROUND_Y, SiegeNavigator, UPPER_Y, anchorById, laneWaypoints, roomAt,
 } from './nav.js';
@@ -194,13 +195,132 @@ const CARTEL_LOOKS = Object.freeze([
   Object.freeze({ ...CARTEL_KIT, height: 1.77, build: 1.40, hair: 'bald', skin: 0xa9764f, beard: true }),
 ]);
 
-/* The armoured man and the leader read differently before they are shot at,
- * which is the point of putting them in a wave: the player should be able to
- * see which one is the problem. */
+/* Wardrobe topology is role information, not just a palette swap. The base
+ * clothes provide four immediately different reads (work shirt, bare-armed
+ * tee, tracksuit and outerwear/camp shirt); the local kit geometry below then
+ * says what each man does while the red headband keeps the whole group on the
+ * same side at a glance. */
 const ROLE_DRESS = Object.freeze({
-  armored: Object.freeze({ shirt: 0x1b1e22, jacketColour: 0x15171a, build: 1.46, height: 1.9 }),
-  leader: Object.freeze({ shirt: 0x3a2f22, jacketColour: 0x2c2419, watch: 'silver', trim: true }),
-  gunner: Object.freeze({ shirt: 0x232a20, build: 1.36 }),
+  rifle: Object.freeze({ dress: 'work', shirt: 0x30352a }),
+  smg: Object.freeze({ dress: 'tracksuit', shirt: 0x252b25, jacketColour: 0x20251f }),
+  shotgun: Object.freeze({ dress: 'tee', shirt: 0x3a3428, build: 1.22 }),
+  flanker: Object.freeze({ dress: 'bomber', shirt: 0x313a2d, jacketColour: 0x293328, patches: true }),
+  suppressor: Object.freeze({ dress: 'work', shirt: 0x252922, jacketColour: 0x20241e }),
+  armored: Object.freeze({
+    dress: 'bomber', shirt: 0x1b1e22, jacketColour: 0x15171a, build: 1.46, height: 1.9,
+  }),
+  leader: Object.freeze({
+    dress: 'camp', shirt: 0x463a29, shirtAccent: 0xb09a73, pattern: true,
+    jacketColour: 0x2c2419, watch: 'silver', trim: true,
+  }),
+  gunner: Object.freeze({ dress: 'tee', shirt: 0x232a20, build: 1.36 }),
+});
+
+const kitBox = (size, pos, material, rotation = null) => Object.freeze({
+  shape: 'box', size: Object.freeze(size), pos: Object.freeze(pos), material,
+  rotation: rotation ? Object.freeze(rotation) : null,
+});
+const kitRound = (radius, height, pos, material, rotation = null) => Object.freeze({
+  shape: 'round', radius, height, pos: Object.freeze(pos), material,
+  rotation: rotation ? Object.freeze(rotation) : null,
+});
+
+/**
+ * Public authored seam for the cartel wardrobe. Tests still inspect the real
+ * built meshes and their world bounds; this table is exposed so a later scene
+ * can reuse the same role language instead of inventing another cartel.
+ */
+export const CARTEL_ROLE_KITS = Object.freeze({
+  rifle: Object.freeze({
+    label: 'magazine webbing',
+    pieces: Object.freeze([
+      kitBox([0.045, 0.38, 0.026], [-0.075, 1.31, 0.205], 'web', [0, 0, -0.25]),
+      kitBox([0.045, 0.38, 0.026], [0.075, 1.31, 0.205], 'web', [0, 0, 0.25]),
+      kitBox([0.072, 0.105, 0.06], [-0.082, 1.12, 0.205], 'pouch'),
+      kitBox([0.072, 0.105, 0.06], [0, 1.12, 0.205], 'pouch'),
+      kitBox([0.072, 0.105, 0.06], [0.082, 1.12, 0.205], 'pouch'),
+    ]),
+  }),
+  smg: Object.freeze({
+    label: 'compact chest rig',
+    pieces: Object.freeze([
+      kitBox([0.29, 0.17, 0.06], [0, 1.31, 0.21], 'black'),
+      kitBox([0.075, 0.13, 0.09], [-0.19, 1.18, 0.10], 'pouch'),
+      kitBox([0.075, 0.13, 0.09], [0.19, 1.18, 0.10], 'pouch'),
+    ]),
+  }),
+  shotgun: Object.freeze({
+    label: 'shell bandolier',
+    pieces: Object.freeze([
+      kitBox([0.06, 0.57, 0.032], [0, 1.31, 0.21], 'web', [0, 0, -0.55]),
+      ...[-0.13, -0.078, -0.026, 0.026, 0.078, 0.13].map((x, index) => kitRound(
+        0.014, 0.074, [x, 1.43 - index * 0.05, 0.238], 'shell', [0, 0, -0.55],
+      )),
+    ]),
+  }),
+  flanker: Object.freeze({
+    label: 'assault pack',
+    pieces: Object.freeze([
+      kitBox([0.34, 0.40, 0.17], [0, 1.29, -0.18], 'olive'),
+      kitBox([0.36, 0.10, 0.13], [0, 1.535, -0.18], 'roll'),
+      kitBox([0.05, 0.45, 0.028], [-0.03, 1.31, 0.205], 'web', [0, 0, 0.35]),
+    ]),
+  }),
+  suppressor: Object.freeze({
+    label: 'heavy chest rig and knee pads',
+    pieces: Object.freeze([
+      kitBox([0.39, 0.25, 0.075], [0, 1.31, 0.21], 'olive'),
+      ...[-0.12, -0.04, 0.04, 0.12].map((x) => kitBox(
+        [0.066, 0.14, 0.065], [x, 1.255, 0.258], 'pouch', [0.08, 0, 0],
+      )),
+      kitBox([0.15, 0.15, 0.065], [-0.105, 0.64, 0.125], 'black', [-0.18, 0, 0]),
+      kitBox([0.15, 0.15, 0.065], [0.105, 0.64, 0.125], 'black', [-0.18, 0, 0]),
+    ]),
+  }),
+  armored: Object.freeze({
+    label: 'plate carrier',
+    pieces: Object.freeze([
+      kitBox([0.43, 0.48, 0.11], [0, 1.31, 0.19], 'plate'),
+      kitBox([0.43, 0.45, 0.09], [0, 1.31, -0.18], 'plate'),
+      kitBox([0.18, 0.15, 0.25], [-0.29, 1.45, 0], 'plate'),
+      kitBox([0.18, 0.15, 0.25], [0.29, 1.45, 0], 'plate'),
+    ]),
+  }),
+  leader: Object.freeze({
+    label: 'command radio and shoulder boards',
+    pieces: Object.freeze([
+      kitBox([0.04, 0.48, 0.026], [-0.03, 1.31, 0.215], 'web', [0, 0, 0.38]),
+      kitBox([0.115, 0.18, 0.075], [0.18, 1.31, 0.205], 'radio'),
+      kitBox([0.17, 0.035, 0.18], [-0.15, 1.49, 0], 'leader'),
+      kitBox([0.17, 0.035, 0.18], [0.15, 1.49, 0], 'leader'),
+      kitBox([0.15, 0.11, 0.075], [-0.19, 1.06, 0.09], 'pouch'),
+    ]),
+  }),
+  gunner: Object.freeze({
+    label: 'linked ammunition and box',
+    pieces: Object.freeze([
+      kitBox([0.08, 0.63, 0.035], [0, 1.28, 0.21], 'web', [0, 0, 0.58]),
+      ...[-0.19, -0.15, -0.11, -0.07, -0.03, 0.01, 0.05, 0.09, 0.13, 0.17].map(
+        (x, index) => kitRound(
+          0.013, 0.07, [x, 1.44 - index * 0.04, 0.242], 'shell', [0, 0, 0.58],
+        ),
+      ),
+      kitBox([0.21, 0.25, 0.15], [0.245, 1.04, 0.06], 'ammo'),
+    ]),
+  }),
+});
+
+const CARTEL_KIT_MATERIALS = Object.freeze({
+  web: new THREE.MeshStandardMaterial({ color: 0x4a3a26, roughness: 0.96 }),
+  pouch: new THREE.MeshStandardMaterial({ color: 0x32372a, roughness: 0.94 }),
+  black: new THREE.MeshStandardMaterial({ color: 0x15191a, roughness: 0.92 }),
+  olive: new THREE.MeshStandardMaterial({ color: 0x3b442d, roughness: 0.96 }),
+  roll: new THREE.MeshStandardMaterial({ color: 0x5a5540, roughness: 0.98 }),
+  plate: new THREE.MeshStandardMaterial({ color: 0x292e30, roughness: 0.88 }),
+  radio: new THREE.MeshStandardMaterial({ color: 0x111617, roughness: 0.82 }),
+  leader: new THREE.MeshStandardMaterial({ color: 0x8e7246, roughness: 0.74 }),
+  shell: new THREE.MeshStandardMaterial({ color: 0xb87932, metalness: 0.54, roughness: 0.42 }),
+  ammo: new THREE.MeshStandardMaterial({ color: 0x485039, roughness: 0.9 }),
 });
 
 /* ================================================================== */
@@ -742,6 +862,27 @@ export function createAttackerPool({
     }
   }
 
+  function dressCartelRole(figure, roleId) {
+    const kit = CARTEL_ROLE_KITS[roleId];
+    if (!kit) throw new Error(`No cartel outfit kit for ${roleId}`);
+    for (let index = 0; index < kit.pieces.length; index++) {
+      const piece = kit.pieces[index];
+      const geometry = piece.shape === 'round'
+        ? new THREE.CylinderGeometry(piece.radius, piece.radius, piece.height, 8)
+        : new THREE.BoxGeometry(...piece.size);
+      const mesh = new THREE.Mesh(geometry, CARTEL_KIT_MATERIALS[piece.material]);
+      mesh.name = `cartel.outfit.${roleId}.${index}`;
+      mesh.position.set(...piece.pos);
+      if (piece.rotation) mesh.rotation.set(...piece.rotation);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData.cartelOutfitPiece = true;
+      mesh.userData.cartelRole = roleId;
+      mesh.userData.cartelKit = kit.label;
+      figure.parts.body.add(mesh);
+    }
+  }
+
   function buildFigure(order, index) {
     const look = CARTEL_LOOKS[index % CARTEL_LOOKS.length];
     const model = { ...look, ...(ROLE_DRESS[order.role.id] ?? {}) };
@@ -752,6 +893,7 @@ export function createAttackerPool({
       model,
     });
     tagHitZones(figure);
+    dressCartelRole(figure, order.role.id);
 
     /* A real gun off the shared catalog, in his hand, pointing where he is
      * pointing. Same convention every other scene uses: the model runs down
@@ -763,19 +905,11 @@ export function createAttackerPool({
       gun = buildWeaponModel(plan.weapon);
     } catch { gun = null; }
     if (gun) {
-      gun.name = `cartel-${order.id}-weapon`;
-      gun.position.set(0, -0.3, 0.05);
-      gun.rotation.x = -Math.PI / 2;
-      gun.scale.setScalar(0.85);
-      figure.parts.foreR.add(gun);
+      mountSiegeWeapon(figure, plan.weapon, gun, { name: `cartel-${order.id}-weapon` });
     }
-    /* Braced two-handed. Lifted from `makePoliceFigure`, because a man behind
-     * a car door and a man behind a wrecked console stand the same way. */
-    figure.parts.armR.rotation.set(-1.28, 0, 0.16);
-    figure.parts.foreR.rotation.set(-0.16, 0, 0);
-    figure.parts.armL.rotation.set(-1.2, 0, -0.34);
-    figure.parts.foreL.rotation.set(-0.3, 0.3, 0);
-    figure.pose = 'aiming';
+    /* Braced two-handed, with the support hand solved onto this gun rather
+     * than copied from a silhouette that did not know its dimensions. */
+    if (gun) braceSiegeWeapon(figure, gun);
     return { figure, gun };
   }
 
@@ -1365,6 +1499,10 @@ export function createAttackerPool({
      * rather than at spawn because the whole point is that he moved. */
     entry.figure.baseY = entry.root.position.y;
     entry.figure.fallen({ roll: Math.random() > 0.5 ? 0.62 : -0.58 });
+    /* The catalog model is parented to the forearm, so leaving it visible
+     * turns a fallen pose into a rifle welded through the wrist. The corpse
+     * owns no active weapon; pooled respawn explicitly returns it below. */
+    if (entry.gun) entry.gun.visible = false;
     entry.root.userData.down = true;
     entry.target = null;
     entry.path.length = 0;
@@ -1567,13 +1705,12 @@ export function createAttackerPool({
     entry.root.visible = true;
     entry.root.userData.down = false;
     entry.figure.stand();
-    /* Braced again -- `stand()` clears the arms, and a man who arrives at a
-     * firefight with his hands by his sides is a man in the wrong scene. */
-    entry.figure.parts.armR.rotation.set(-1.28, 0, 0.16);
-    entry.figure.parts.foreR.rotation.set(-0.16, 0, 0);
-    entry.figure.parts.armL.rotation.set(-1.2, 0, -0.34);
-    entry.figure.parts.foreL.rotation.set(-0.3, 0.3, 0);
-    entry.figure.pose = 'aiming';
+    /* `stand()` clears the arms; restore the same contact-tested ready pose
+     * used at build time whenever this pooled actor is spawned again. */
+    if (entry.gun) {
+      entry.gun.visible = true;
+      braceSiegeWeapon(entry.figure, entry.gun);
+    }
     /* Facing the way he is about to walk. */
     const first = entry.path[0];
     if (first) {

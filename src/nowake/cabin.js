@@ -235,8 +235,19 @@ export function buildCabin(root) {
   const dinette = new THREE.Group();
   dinette.name = 'curved dinette';
   group.add(dinette);
-  dinette.add(box('dinette booth base', [.86, .40, 1.50], veneerDark, 1.60, SOLE + .205, -3.65));
-  dinette.add(box('dinette booth cushion', [.86, .10, 1.50], vinyl, 1.60, BOOTH_SEAT + .06, -3.65));
+  /* The main run is an L, not a solid rectangle. Its outboard spine retains
+   * the full back of the booth and its inboard-forward remnant meets the
+   * forward return; the inboard-aft quarter is the legwell for the man seated
+   * on the aft return. A single 0.86 x 1.50 m moulding filled that quarter and
+   * put Willy's thighs, shins and shoes inside the furniture. */
+  dinette.add(box('dinette booth base · outboard spine', [.53, .40, 1.50],
+    veneerDark, 1.765, SOLE + .205, -3.65));
+  dinette.add(box('dinette booth cushion · outboard spine', [.53, .10, 1.50],
+    vinyl, 1.765, BOOTH_SEAT + .06, -3.65));
+  dinette.add(box('dinette booth base · forward inboard remnant', [.33, .40, .70],
+    veneerDark, 1.335, SOLE + .205, -4.05));
+  dinette.add(box('dinette booth cushion · forward inboard remnant', [.33, .10, .70],
+    vinyl, 1.335, BOOTH_SEAT + .06, -4.05));
   // Curved: two return cushions close the booth at each end.
   /* The returns sit 2 cm lower than the run they meet. They overlap it — the
    * booth is one moulding, not three — and at exactly the same height the
@@ -248,10 +259,10 @@ export function buildCabin(root) {
   dinette.add(box('dinette booth base · aft return', [.84, .40, .38], veneerDark, 1.44, SOLE + .185, -3.10));
   // A low back, on purpose: the man in this booth stays visible over it.
   dinette.add(box('dinette booth back rest', [.12, .42, 1.86], vinylDark, 1.97, SOLE + .68, -3.65));
-  dinette.add(box('dinette table pedestal', [.10, .74, .10], steel, 1.24, SOLE + .37, -3.65));
-  dinette.add(box('dinette table top', [.66, .05, 1.20], veneer, 1.32, TABLE_TOP, -3.65));
+  dinette.add(box('dinette table pedestal', [.10, .74, .10], steel, 1.24, SOLE + .37, -3.80));
+  dinette.add(box('dinette table top', [.66, .05, .80], veneer, 1.32, TABLE_TOP, -3.85));
   dinette.add(box('dinette table fiddle rail', [.70, .04, .03], brass, 1.32, TABLE_TOP + .04, -4.25));
-  const ashtray = cylinder('dinette ashtray', .07, .03, mat(0x5c6163, .5), 1.16, TABLE_TOP + .04, -3.30, 14);
+  const ashtray = cylinder('dinette ashtray', .07, .03, mat(0x5c6163, .5), 1.16, TABLE_TOP + .04, -3.75, 14);
   dinette.add(ashtray);
 
   /* ---- forward: the V-berth, behind its curtain ---- */

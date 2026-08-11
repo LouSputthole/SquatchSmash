@@ -87,6 +87,7 @@ import { BurstController, WeaponController } from '../../core/combat/weapon.js';
 import { playWeaponCue } from '../../core/weapons/audio.js';
 import { WEAPON_CATALOG } from '../../core/weapons/catalog.js';
 import { buildWeaponModel } from '../../core/weapons/models.js';
+import { DeathBloodPool } from '../../world/blood.js';
 import {
   AUBBIE, BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
   HOG_MAMA, IRISH, MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
@@ -98,6 +99,7 @@ import {
  * the scenes that come before the one he dies in. */
 import { HeistFigure } from '../../heist/people.js';
 import { segmentBlocked } from './attackers.js';
+import { mountSiegeWeapon, syncSiegeWeaponPose } from './armed-pose.js';
 
 /* ================================================================== */
 /* THE HOUSE, AS NUMBERS                                                */
@@ -692,7 +694,16 @@ export const KILL_BUDGET = Object.freeze({
 /* Presentation on top of `HeistFigure`, which owns the rig, the floor    */
 /* settling and the fallen pose. Nothing below decides anything.          */
 /* ================================================================== */
-function poseFor(figure, pose) {
+const STOWED_WEAPON_POSES = new Set([
+  'down', 'wounded', 'kneel', 'offer', 'phone', 'radio', 'flinch',
+]);
+const SUPPORTED_WEAPON_POSES = new Set(['stand', 'scan', 'peer']);
+
+function poseFor(figure, pose, gun = null) {
+  /* A prop parented to the right forearm follows that hand literally. Hide
+   * it while the authored action needs the hand somewhere else, instead of
+   * turning a telephone, a wounded body or a first-aid pose into gun mime. */
+  if (gun) gun.visible = !STOWED_WEAPON_POSES.has(pose);
   const p = figure.parts;
   if (pose === 'kneel') { figure.kneeling(); return pose; }
   if (pose === 'down') {
@@ -779,6 +790,9 @@ function poseFor(figure, pose) {
       break;
   }
   figure.pose = pose;
+  if (gun?.visible) {
+    syncSiegeWeaponPose(figure, gun, { support: SUPPORTED_WEAPON_POSES.has(pose) });
+  }
   return pose;
 }
 
@@ -806,6 +820,27 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
   root.name = 'siege.ensemble';
   scene?.add?.(root);
   damage?.group?.('siege.ensemble', { object: root, layers: ['battle', 'aftermath'] });
+  /* One bounded slot OWNED by each authored body. A revive leaves that stain
+   * visible but releases it; only the same member's next fall can recycle it.
+   * A shared ring let repeated Booski revives wrap onto Lou's still-active
+   * slot, leaving a man on the floor with somebody else's blood under him. */
+  const bloodByMember = new Map(ROSTER.map((definition) => {
+    const pool = new DeathBloodPool(root, { capacity: 1, growthSeconds: 0.8 });
+    const mesh = pool.meshes[0];
+    mesh.name = `${mesh.name}.${definition.id}`;
+    /* Mansion walnut plus the navy cast wardrobe swallowed the shared dark
+     * stain even at 86% opacity. Keep this treatment local to Siege: a pale
+     * diffuse tint preserves the irregular texture, the low roughness catches
+     * the room lights like wet blood, and restrained deep-red self-light keeps
+     * the pool readable without turning every blood user in the game neon. */
+    mesh.material.color.setHex(0xffb0b0);
+    mesh.material.emissive.setHex(0xb50917);
+    mesh.material.emissiveIntensity = 1.35;
+    mesh.material.roughness = 0.28;
+    mesh.material.metalness = 0.02;
+    mesh.material.needsUpdate = true;
+    return [definition.id, pool];
+  }));
 
   const members = new Map();
   const barkCursor = new Map();
@@ -817,6 +852,29 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
   let killBudget = 0;
   let friendlyKills = 0;
   let context = { audio: null, onBark: null };
+
+  function spillFor(member) {
+    if (member.bloodPool?.visible
+        && member.bloodPool.userData.memberId === member.id
+        && member.bloodPool.userData.activeDown === true) return member.bloodPool;
+    member.root.updateMatrixWorld(true);
+    const centre = new THREE.Box3().setFromObject(member.root).getCenter(new THREE.Vector3());
+    const pool = bloodByMember.get(member.id).spill(centre, {
+      floorY: member.root.position.y,
+      /* A 1.08 m square lived entirely inside a fallen 1.62 x 2.13 m body
+       * bound, so even a brighter material could not appear in the frame.
+       * 2.2 m leaves an authored wet perimeter outside the silhouette while
+       * remaining a flat, non-collider effect on this member's own lease. */
+      size: 2.2,
+      opacity: 0.86,
+      seed: member.index + 1 + member.revivedCount * ROSTER.length,
+    });
+    pool.userData.memberId = member.id;
+    pool.userData.revivable = member.actor.core === true;
+    pool.userData.activeDown = true;
+    member.bloodPool = pool;
+    return pool;
+  }
 
   function bark(member, key) {
     const lines = BARKS[key];
@@ -851,11 +909,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     if (weaponId) {
       try { gun = buildWeaponModel(weaponId); } catch { gun = null; }
       if (gun) {
-        gun.name = `siege-${definition.id}-weapon`;
-        gun.position.set(0, -0.3, 0.05);
-        gun.rotation.x = -Math.PI / 2;
-        gun.scale.setScalar(0.85);
-        figure.parts.foreR.add(gun);
+        mountSiegeWeapon(figure, weaponId, gun, { name: `siege-${definition.id}-weapon` });
       }
     }
 
@@ -933,6 +987,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       staged: false,
       /** Set the first time he goes down, so nobody is counted twice. */
       reportedDown: false,
+      bloodPool: null,
     };
 
     figure.root.userData.combatActor = actor;
@@ -944,7 +999,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     if (definition.id === 'snow') figure.root.userData.neverTargeted = true;
     figure.root.visible = false;
     root.add(figure.root);
-    poseFor(figure, member.wounded ? 'wounded' : 'stand');
+    poseFor(figure, member.wounded ? 'wounded' : 'stand', member.gun);
     members.set(definition.id, member);
   });
 
@@ -997,6 +1052,25 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     for (const member of members.values()) {
       const post = member.posts[name] ?? null;
       member.post = post;
+      /* A beat changes the job of somebody who is still on his feet. It does
+       * not move a body to the next mark or stand a protected man up while
+       * `downed()` still offers him to the player's revive prompt. Keep the
+       * body where it fell, but retarget its goal now so an explicit revive
+       * sends him to the CURRENT beat's posting rather than the old one. */
+      if (member.staged && (member.downed || member.actor.incapacitated)) {
+        if (post) {
+          const target = inHouse(keepClear({ x: post.x, y: post.y, z: post.z }));
+          member.goal.set(target.x, target.y, target.z);
+          member.lookAt.set(post.lookX ?? post.x, post.lookZ ?? post.z - 4);
+        } else {
+          member.goal.copy(member.root.position);
+        }
+        member.root.visible = true;
+        member.businessKey = null;
+        member.businessLeft = 0;
+        poseFor(member.figure, 'down', member.gun);
+        continue;
+      }
       if (!post) {
         member.root.visible = false;
         member.staged = false;
@@ -1019,7 +1093,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       member.businessLeft = 0;
       member.businessClock = (member.index * 0.83) % 3.4;
       if (!member.actor.incapacitated) {
-        poseFor(member.figure, member.wounded ? 'wounded' : 'stand');
+        poseFor(member.figure, member.wounded ? 'wounded' : 'stand', member.gun);
       }
     }
     return name;
@@ -1063,7 +1137,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         bark(member, 'reload');
         member.businessKey = 'reload';
         member.businessLeft = BUSINESS.reload.seconds;
-        poseFor(member.figure, 'reload');
+        poseFor(member.figure, 'reload', member.gun);
         playWeaponCue(ctx.audio, member.weaponId, 'reload.out', {
           position: member.root.position, volume: 0.4,
         });
@@ -1210,7 +1284,8 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         member.downed = true;
         member.downSeconds = 0;
         member.actor.setInjury('severe');
-        poseFor(member.figure, 'down');
+        poseFor(member.figure, 'down', member.gun);
+        spillFor(member);
         bark(member, 'downed');
         ctx.onFriendlyDown?.(member.id);
       }
@@ -1235,7 +1310,8 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
          * `guardsDown` for its checkpoint and a double count is a
          * checkpoint that restores the wrong number of bodies. */
         if (member.figure.pose !== 'fallen') {
-          poseFor(member.figure, 'down');
+          poseFor(member.figure, 'down', member.gun);
+          spillFor(member);
           if (!member.reportedDown) {
             member.reportedDown = true;
             bark(member, 'hit');
@@ -1294,7 +1370,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         member.businessClock -= step;
         if (member.businessKey) {
           member.businessKey = null;
-          poseFor(member.figure, 'stand');
+          poseFor(member.figure, 'stand', member.gun);
         }
         if (member.businessClock <= 0 && !best) {
           const key = nextBusiness(member);
@@ -1302,7 +1378,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
           if (plan) {
             member.businessKey = key;
             member.businessLeft = plan.seconds;
-            poseFor(member.figure, plan.pose);
+            poseFor(member.figure, plan.pose, member.gun);
             if (key === 'callout') bark(member, 'threat');
             if (key === 'tend') bark(member, 'wounded');
             if (key === 'passMag') bark(member, 'ammo');
@@ -1326,10 +1402,11 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       if (!best || member.wounded || !member.weapon) continue;
       if (member.businessKey === 'reload' || member.businessKey === 'tend') continue;
       if (member.suppression.value > 0.8) continue;
-      if (member.figure.pose !== 'stand') poseFor(member.figure, 'stand');
+      if (member.figure.pose !== 'stand') poseFor(member.figure, 'stand', member.gun);
       const canFire = member.weapon.reloading <= 0 && member.weapon.cooldown <= 0;
       if (member.burst.update(step, canFire)) fireAt(member, best, frame);
     }
+    for (const pool of bloodByMember.values()) pool.update(step);
   }
 
   /* ---------------------------------------------------------------- */
@@ -1396,6 +1473,8 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
   function restore(snap) {
     if (!snap) return false;
     if (snap.beat) stage(snap.beat);
+    for (const pool of bloodByMember.values()) pool.reset();
+    for (const member of members.values()) member.bloodPool = null;
     killBudget = Number.isFinite(snap.killBudget) ? snap.killBudget : killBudget;
     friendlyKills = Math.max(0, Math.round(snap.friendlyKills ?? 0));
     for (const record of snap.members ?? []) {
@@ -1421,8 +1500,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       member.downed = record.downed === true;
       member.downSeconds = Number(record.downSeconds) || 0;
       member.revivedCount = Math.max(0, Math.round(record.revivedCount ?? 0));
-      if (member.actor.incapacitated || member.downed) poseFor(member.figure, 'down');
-      else poseFor(member.figure, member.wounded ? 'wounded' : 'stand');
+      if (member.actor.incapacitated || member.downed) {
+        poseFor(member.figure, 'down', member.gun);
+        spillFor(member);
+      } else poseFor(member.figure, member.wounded ? 'wounded' : 'stand', member.gun);
     }
     return true;
   }
@@ -1527,7 +1608,14 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       member.actor.armor = 0;
       member.actor.setInjury('moderate');
       member.reportedDown = false;
-      poseFor(member.figure, 'stand');
+      poseFor(member.figure, 'stand', member.gun);
+      /* The stain is evidence, not a status light. Leave it on the floor but
+       * mark this member's lease inactive so his own later fall may recycle
+       * it without ever taking the live pool from somebody still down. */
+      if (member.bloodPool?.userData.memberId === member.id) {
+        member.bloodPool.userData.activeDown = false;
+      }
+      member.bloodPool = null;
       bark(member, 'revived');
       return true;
     },
@@ -1554,7 +1642,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         if (!member.wounded) {
           member.businessKey = 'flinch';
           member.businessLeft = BUSINESS.flinch.seconds;
-          poseFor(member.figure, 'flinch');
+          poseFor(member.figure, 'flinch', member.gun);
         }
         touched++;
       }

@@ -61,6 +61,60 @@
   transition: transform 0.16s ease, background 0.16s ease;
 }
 
+.combat-status-armor {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 2px 8px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(143, 173, 205, 0.24);
+}
+
+.combat-status-armor.hidden { display: none; }
+
+.combat-status-armor-label {
+  color: #9fb2c6;
+  font: 800 10px/1.2 "Trebuchet MS", "Segoe UI", sans-serif;
+  letter-spacing: 2px;
+}
+
+.combat-status-armor-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.combat-status-armor-value {
+  color: #d6e5f4;
+  font: 900 17px/1 "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.combat-status-armor-maximum {
+  color: rgba(214, 229, 244, 0.5);
+  font: 800 11px/1 "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.combat-status-armor-track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.combat-status-armor-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6f8ca9, #b8d2e9);
+  transform: scaleX(1);
+  transform-origin: left center;
+  transition: transform 0.16s ease;
+}
+
 .combat-status-hud[data-state="hurt"] .combat-status-fill {
   background: linear-gradient(90deg, #bd7b33, #e1b65e);
 }
