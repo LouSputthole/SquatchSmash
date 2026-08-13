@@ -176,6 +176,10 @@ const M_ASH = mat({ color: 0x4a463f, roughness: 1 });
 const M_SCORCH = mat({ color: 0x2b2119, roughness: 1 });
 const M_RUST = mat({ color: 0x5a3a24, roughness: 0.95 });
 const M_STEEL = mat({ color: 0x6b6d74, roughness: 0.55, metalness: 0.7 });
+/* Local safety enamel for the rail practical. The clamp stays bare steel so
+ * its support reads honestly; only the post and housing get the high-value
+ * coat that separates them from the brass baluster behind the fixture. */
+const M_WORKLAMP_SAFETY = mat({ color: 0xffb31a, roughness: 0.72, metalness: 0.12 });
 const M_BRASS = mat({ color: 0xb08b3a, roughness: 0.35, metalness: 0.85 });
 const M_GLASSY = mat({
   color: 0x9fc4d2, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.55,
@@ -649,11 +653,11 @@ export function buildSiegeDressing({
       id: 'burning',
       kind: 'suv',
       colour: 0x241d18,
-      /* At -7.5 the inner tyre and steel rim passed 30 cm into the visible
-       * six-metre fountain apron. This keeps the same south-lobe composition
-       * while putting the entire shell beyond the stone. */
-      x: -8.75,
-      z: 24.8,
+      /* Park the shell beyond both the r=6 apron and the 0.6 m actor lane,
+       * and south of the base motor-court car.  The old -8.75/24.8 datum left
+       * no body-width channel between its collider and the fountain. */
+      x: -11.5,
+      z: 22.0,
       yaw: 0.35,
       condition: 'burning',
       note: 'a guest\'s car, slewed and alight in the turnaround',
@@ -662,10 +666,9 @@ export function buildSiegeDressing({
       id: 'burnt',
       kind: 'sedan',
       colour: 0x17161a,
-      /* The sedan's sill sat 40 mm inside the apron while its inner wheel was
-       * buried through all 40 cm of stone. Mirror the safe west-side datum. */
-      x: 8.75,
-      z: 24.8,
+      /* Mirror the west-side route-clear datum. */
+      x: 11.5,
+      z: 22.0,
       yaw: -0.35,
       condition: 'burnt',
       note: 'burnt out and cold -- this one went up before he woke',
@@ -675,7 +678,10 @@ export function buildSiegeDressing({
       kind: 'lincoln',
       colour: 0x1d1d24,
       x: 0,
-      z: 18.4,
+      /* Leave a real standing-capsule bay between this cross-drive wreck and
+       * the fountain's r=6 south apron.  At z18.4 its shell reached the only
+       * safe spawn strip and every court_north attacker began inside steel. */
+      z: 17.0,
       yaw: 0.18,
       condition: 'abandoned',
       note: 'stopped dead in the drive, both doors open',
@@ -1311,6 +1317,47 @@ export function buildSiegeDressing({
     }
   });
 
+  /* The rail worklamp is a supported practical and stays the hero fixture,
+   * but it is south of the LITTLE_FRIEND tableau. A compact battery flood on
+   * the existing north-console top supplies the camera-facing side of both
+   * figures without changing the room exposure or adding another floor prop.
+   * Its battery is the stand: the base sits directly on the already-solid
+   * console, so this battle-only layer still owns no navigation collider. */
+  const taskFloodGroup = group('siege.gallery.task-flood');
+  taskFloodGroup.add(box({
+    name: 'siege.gallery.task-flood.battery',
+    size: [0.44, 0.22, 0.26], pos: [0, 0.11, 0], mat: M_RADIO,
+  }));
+  for (const side of [-1, 1]) {
+    taskFloodGroup.add(box({
+      name: `siege.gallery.task-flood.yoke.${side < 0 ? 'left' : 'right'}`,
+      size: [0.035, 0.23, 0.035], pos: [side * 0.17, 0.275, 0], mat: M_STEEL,
+    }));
+  }
+  taskFloodGroup.add(box({
+    name: 'siege.gallery.task-flood.housing',
+    size: [0.36, 0.22, 0.16], pos: [0, 0.36, -0.035], mat: M_STEEL,
+  }));
+  taskFloodGroup.add(box({
+    name: 'siege.gallery.task-flood.lens',
+    size: [0.29, 0.15, 0.018], pos: [0, 0.36, -0.124],
+    mat: mat({
+      color: 0x000000, emissive: 0xffe2aa, emissiveIntensity: 3.2, roughness: 1,
+    }),
+    cast: false,
+  }));
+  const taskFloodLight = addLight(new THREE.PointLight(0xffdfaa, 18, 10, 2));
+  taskFloodLight.position.set(0, 0.38, -0.14);
+  taskFloodGroup.add(taskFloodLight);
+  taskFloodGroup.position.set(5.2, UY + 0.84, 52.44);
+  nameSubtree(taskFloodGroup, 'siege.gallery.task-flood');
+  defenceStations.group.add(taskFloodGroup);
+  defenceStations.taskFlood = {
+    group: taskFloodGroup,
+    light: taskFloodLight,
+    support: Object.freeze({ x: 5.2, y: UY + 0.84, z: 52.44 }),
+  };
+
   enrol('siege.stations', defenceStations.group);
 
   /* ================================================================== */
@@ -1529,6 +1576,11 @@ export function buildSiegeDressing({
         castShadow: false,
       },
     });
+    /* GY is the slab datum; the visible foyer marble spans 1.20..1.22.
+     * fallen() settles to baseY, so binding it to plain GY embedded the whole
+     * rendered body 20 mm through the finish while the blood correctly sat
+     * above it. */
+    her.baseY = GY + 0.02;
     her.fallen({ roll: HER_ROLL });
     her.update(0, { fear: 0 });
     nameSubtree(her.root, 'siege.body.performer.figure');
@@ -1969,13 +2021,14 @@ export function buildSiegeDressing({
      * onto a balcony and why nothing is under it. */
     const lampGroup = group('siege.step.worklamp');
     lampGroup.add(named(cylinder({
-      r: 0.035, h: 1.45, pos: [0, 0.72, 0], mat: M_STEEL,
+      r: 0.035, h: 1.45, pos: [0, 0.72, 0], mat: M_WORKLAMP_SAFETY,
     }), 'siege.step.worklamp.post'));
     lampGroup.add(named(cylinder({
       r: 0.06, h: 0.14, pos: [0, 0.07, 0], mat: M_STEEL,
     }), 'siege.step.worklamp.clamp'));
     lampGroup.add(named(cylinder({
-      rTop: 0.2, rBottom: 0.11, h: 0.22, pos: [0.12, 1.42, 0], mat: M_STEEL, rotZ: -0.55,
+      rTop: 0.2, rBottom: 0.11, h: 0.22, pos: [0.12, 1.42, 0],
+      mat: M_WORKLAMP_SAFETY, rotZ: -0.55,
     }), 'siege.step.worklamp.shade'));
     lampGroup.add(named(sphere({
       r: 0.07, pos: [0.19, 1.36, 0],
@@ -1984,13 +2037,18 @@ export function buildSiegeDressing({
       }),
       cast: false,
     }), 'siege.step.worklamp.bulb'));
-    const worklamp = addLight(new THREE.PointLight(0xffd08a, 5.2, 9.5, 2));
+    /* This is a local practical, not a room-wide exposure change. At 24 / 16
+     * it wins the ten-light camera budget even while both nearby alarm
+     * fittings are inside a live pulse, and throws a readable warm edge on
+     * the two east-bay defenders; inverse-square decay still leaves the rest
+     * of the floor under the authored siege night. */
+    const worklamp = addLight(new THREE.PointLight(0xffd08a, 24, 16, 2));
     worklamp.position.set(0.22, 1.34, 0);
     lampGroup.add(worklamp);
-    /* Seat the clamp around the first east-balcony baluster. The old x=2.62
-     * left 294 mm of open air between the clamp and the closest shaft even
-     * though this practical is explicitly rail-mounted. */
-    lampGroup.position.set(2.94, UY, 45.55);
+    /* Seat the clamp around the east gallery-edge baluster beside the two
+     * LITTLE_FRIEND posts. This keeps the practical on real rail hardware
+     * while putting its inverse-square throw where the tableau actually is. */
+    lampGroup.position.set(5.083, UY, 48);
     g.add(lampGroup);
 
     /* Casings, so the step reads as somewhere that has been used rather than

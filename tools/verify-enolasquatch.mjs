@@ -732,9 +732,13 @@ try {
       // 24 m, so nobody should be further than 14 m from the CG.
       distances: Object.fromEntries(h.crew.all.map((f) => [f.group.name, +dist(f).toFixed(1)])),
       gunnerInTurret: (() => {
-        const seat = h.aircraft.anchors.rearGunSeat;
-        const g = h.crew.shubes.group.position;
-        return Math.hypot(g.x - seat.x, g.z - seat.z) < 1.2;
+        /* The seat and Shubes now traverse with the real turret, so neither
+         * position is in aircraft-local coordinates here. Compare their world
+         * origins instead of a nested group position against the legacy
+         * zero-traverse compatibility anchor. */
+        const seat = h.aircraft.parts.rearGunSeatMount.getWorldPosition(h.physics.position.clone());
+        const g = world(h.crew.shubes);
+        return Math.hypot(g.x - seat.x, g.y - seat.y, g.z - seat.z) < 0.6;
       })(),
       bombardierInNose: (() => {
         const st = h.aircraft.anchors.bombardierStation;
@@ -745,7 +749,14 @@ try {
   });
   check('all four crew are seated inside the airframe — Shubes in the tail turret, Numbskull in the nose',
     seated.allParented && seated.allSitting && seated.gunnerInTurret && seated.bombardierInNose
-      && Object.values(seated.distances).every((d) => d < 14),
+      /* The repaired rear-gun cup is a real aft station at ~17.3 m from CG,
+       * clear of the rudder/elevator envelope. Its exact seat-anchor check
+       * above is authoritative; the old blanket 14 m bound described the
+       * shorter pre-repair tail and falsely rejected the correctly seated
+       * gunner. Everyone in the inhabited fuselage still stays inside 14 m. */
+      && Object.entries(seated.distances).every(([name, d]) => (
+        name === 'shubes' ? d < 19 : d < 14
+      )),
     JSON.stringify(seated));
 
   /* ---- The rear gun exists as a station, and it moves ---- */
@@ -1592,8 +1603,8 @@ try {
 
     const before = { autopilot: h.autopilot.engaged };
     const took = h.gunToggle();
-    const seat = h.aircraft.anchors.rearGunSeat.clone().applyMatrix4(h.aircraft.group.matrixWorld);
-    const camAtTurret = h.camera.position.distanceTo(seat) < 2.5;
+    const eye = h.aircraft.rearGunEyeWorld();
+    const camAtTurret = h.camera.position.distanceTo(eye) < 0.05;
     const hudUp = document.getElementById('enola-combat')?.style.display;
     // While the player has it, the mission's own gunner state follows the
     // player's trigger and not the Shubenator's burst timer.

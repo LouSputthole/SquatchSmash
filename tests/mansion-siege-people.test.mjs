@@ -28,6 +28,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { ensureThreeShim, ensureDomShim } from '../tools/three-shim.mjs';
 
@@ -40,7 +41,18 @@ const { FACTIONS, FactionMatrix } = await import('../src/core/combat/factions.js
 const { WEAPON_CATALOG } = await import('../src/core/weapons/catalog.js');
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const { BIG_UNCLE_LOU_MANSION } = await import('../src/core/wardrobe.js');
-const { BLOOD_POOL_NAME } = await import('../src/world/blood.js');
+const { BLOOD_POOL_NAME, DeathBloodPool } = await import('../src/world/blood.js');
+const { mountArmory } = await import('../src/core/weapons/Armory.js');
+const { buildMansionGrounds } = await import('../src/mansion/scenes/MansionGrounds.js');
+const { buildMansionInterior } = await import('../src/mansion/scenes/MansionInterior.js');
+const { buildSiegeDressing } = await import('../src/mansion/siege/dressing.js');
+const { buildSiegeGlass } = await import('../src/mansion/siege/glass.js');
+const siegeNight = await import('../src/mansion/siege/night.js');
+const {
+  diagnoseWorklampComposition, evaluateWorklampComposition,
+  isEvidenceBodyMesh, isEvidenceOpaqueIntersection,
+  selectEvidenceTextureSamples,
+} = await import('../tools/mansion-siege-evidence-contract.mjs');
 const {
   COMBAT_BOUNDARY, ENCOUNTERS, ROLES, STAGING, WaveDirector,
 } = await import('../src/mansion/siege/waves.js');
@@ -48,7 +60,7 @@ const {
   ANCHORS, GROUND_Y, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
 } = await import('../src/mansion/siege/nav.js');
 const {
-  createAttackerPool, segmentBlocked, HIT_ZONES, ROLE_PLAN,
+  createAttackerPool, groundHeightAt, segmentBlocked, HIT_ZONES, ROLE_PLAN,
 } = await import('../src/mansion/siege/attackers.js');
 const {
   buildSiegeEnsemble, KEEP_CLEAR, HOUSE_BOUNDS, KILL_BUDGET, SURVIVES_THE_SIEGE,
@@ -94,6 +106,121 @@ function run(pool, ensemble, seconds, ctx) {
     ensemble?.update(1 / 60, ctx.ensembleCtx());
     ctx.after?.();
   }
+}
+
+function authoredWorklampEvidenceView() {
+  const source = fs.readFileSync(
+    new URL('../tools/shots-mansion-siege.mjs', import.meta.url), 'utf8',
+  );
+  const match = source.match(
+    /id:\s*'worklamp-eric-flinch',\s*x:\s*([-\d.]+),\s*y:\s*([-\d.]+),\s*z:\s*([-\d.]+),\s*target:\s*\[\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\s*\],\s*crouch:\s*true/,
+  );
+  assert.ok(match, 'the crouched worklamp evidence camera is not statically auditable');
+  const [, x, y, z, targetX, targetY, targetZ] = match.map(Number);
+  return { source, x, y, z, targetX, targetY, targetZ };
+}
+
+function renderedBodyBox(entry) {
+  const box = new THREE.Box3();
+  entry.root.updateMatrixWorld(true);
+  entry.root.traverse((object) => {
+    if (object.visible && isEvidenceBodyMesh(object, entry.root, entry.gun)) {
+      box.union(new THREE.Box3().setFromObject(object));
+    }
+  });
+  return box;
+}
+
+/**
+ * The union AABB above is useful for support, but it is not a collision
+ * shape.  A rotated arm and leg can leave empty space between their boxes;
+ * treating that empty space as body made the route audit reject walls the
+ * rendered rig never touched.  Keep the same real rendered-mesh predicate,
+ * but retain one world box per mesh for the collision broad phase.
+ */
+function renderedBodyMeshBoxes(entry) {
+  const parts = [];
+  entry.root.updateMatrixWorld(true);
+  entry.root.traverse((object) => {
+    if (!object.visible || !isEvidenceBodyMesh(object, entry.root, entry.gun)) return;
+    const box = new THREE.Box3().setFromObject(object);
+    if (!box.isEmpty()) parts.push({ name: object.name || object.type, box });
+  });
+  return parts;
+}
+
+function captureWeaponMount(entry) {
+  return {
+    parent: entry.gun.parent,
+    index: entry.gun.parent?.children.indexOf(entry.gun) ?? -1,
+    position: entry.gun.position.toArray(),
+    quaternion: entry.gun.quaternion.toArray(),
+    scale: entry.gun.scale.toArray(),
+  };
+}
+
+function assertWeaponMount(entry, mount, label) {
+  assert.equal(entry.gun.parent, mount.parent, `${label} changed weapon parent`);
+  assert.equal(entry.gun.parent?.children.indexOf(entry.gun), mount.index,
+    `${label} changed weapon child index`);
+  assert.deepEqual(entry.gun.position.toArray(), mount.position, `${label} changed weapon position`);
+  assert.deepEqual(entry.gun.quaternion.toArray(), mount.quaternion, `${label} changed weapon rotation`);
+  assert.deepEqual(entry.gun.scale.toArray(), mount.scale, `${label} changed weapon scale`);
+}
+
+function firstVisibleSupport(scene, excludedRoot, x, y, z, { walkableOnly = false } = {}) {
+  const meshes = [];
+  scene.updateMatrixWorld(true);
+  scene.traverse((object) => {
+    if (!object.isMesh || !object.visible) return;
+    if (walkableOnly && object.userData?.siegeWalkableSupport !== true) return;
+    for (let node = object; node; node = node.parent) {
+      if (node === excludedRoot) return;
+    }
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    if (!materials.some((material) => material?.visible !== false
+        && (material?.transparent !== true || material.opacity > 0.001))) return;
+    meshes.push(object);
+  });
+  const ray = new THREE.Raycaster(
+    new THREE.Vector3(x, y + 0.3, z), new THREE.Vector3(0, -1, 0), 0, 1,
+  );
+  const normal = new THREE.Vector3();
+  return ray.intersectObjects(meshes, false).find((hit) => {
+    if (hit.point.y > y + 0.205 || hit.point.y < y - 0.5) return false;
+    if (!hit.face) return false;
+    normal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+    return normal.y >= 0.75;
+  }) ?? null;
+}
+
+function highestWalkableSupport(scene, excludedRoot, x, z, ceilingY = 2.2) {
+  const meshes = [];
+  scene.updateMatrixWorld(true);
+  scene.traverse((object) => {
+    if (!object.isMesh || !object.visible
+        || object.userData?.siegeWalkableSupport !== true) return;
+    for (let node = object; node; node = node.parent) if (node === excludedRoot) return;
+    meshes.push(object);
+  });
+  const ray = new THREE.Raycaster(
+    new THREE.Vector3(x, ceilingY, z), new THREE.Vector3(0, -1, 0), 0, 5,
+  );
+  const normal = new THREE.Vector3();
+  return ray.intersectObjects(meshes, false).find((hit) => {
+    if (!hit.face) return false;
+    normal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+    return normal.y >= 0.75;
+  }) ?? null;
+}
+
+/** Match the live Mansion/Siege floor contract: the highest authored interior
+ * surface gets first refusal, then the exact front-entry boxes, then grade. */
+function mansionGroundAt(grounds, interior) {
+  return (x, z, y) => interior.floorAt(x, z, y)
+    ?? grounds.props.siegeBreachGroundAt(x, z)
+    ?? grounds.props.frontEntry.groundAt(x, z)
+    ?? 0;
 }
 
 /* ================================================================== */
@@ -168,6 +295,35 @@ test('an attacker activates at his staging zone, not in the foyer', () => {
       `${order.id} stands on his zone's z`);
   }
   assert.deepEqual(pool.spawnedInsideView(), []);
+});
+
+test('the real court-north spawn keeps each braced rig out of the stalled Lincoln', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const dressing = buildSiegeDressing({ damage, grounds, interior });
+  scene.add(dressing.root);
+  damage.apply('under_attack');
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const stalled = dressing.props.wrecks.stalled.collider;
+  const positiveVolume = (left, right) => {
+    const overlap = left.clone().intersect(right);
+    if (overlap.isEmpty()) return 0;
+    const size = overlap.getSize(new THREE.Vector3());
+    return size.x * size.y * size.z;
+  };
+
+  for (const role of ['smg', 'suppressor']) {
+    const entry = pool.spawn({ id: `court-spawn-${role}`, role, staging: 'court_north' },
+      { silent: true });
+    const contacts = renderedBodyMeshBoxes(entry)
+      .map((part) => ({ name: part.name, volume: positiveVolume(part.box, stalled) }))
+      .filter(({ volume }) => volume > 1e-6);
+    assert.deepEqual(contacts, [], `${role} spawns through the stalled Lincoln`);
+  }
 });
 
 test('every wave staging zone is outside the foyer the player is looking at', () => {
@@ -304,43 +460,597 @@ test('onDown fires exactly once when a FRIENDLY kills an attacker', () => {
   assert.deepEqual(downs, [entry.id], 'and only once');
 });
 
-test('a body falls on the floor he was standing on, not the one he spawned on', () => {
-  /* `HeistFigure.fallen()` settles the posed body against `figure.baseY`. A
-   * man who came in off the forecourt at y 0 and died six metres up on the
-   * gallery settled six metres below the landing -- a body in the foyer
-   * ceiling. Both floors, both directions. */
-  const { pool } = harness();
-  const orders = releaseWave(pool, 'one');
-  const floorOf = (entry) => {
+test('a cartel body settles on the actual visible route surface under him', () => {
+  /* The route's navigation y is not uniformly the visible surface. Drive
+   * pavers are 50 mm above y=0, the two stair systems have discrete treads,
+   * interior finish is 20/22 mm above its slab, and lawns/portico use the
+   * datum itself. A single +20 mm rule is wrong in every other location. */
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({
+    colliders: [...grounds.colliders, ...interior.colliders], state: 'under_attack',
+  });
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const order = { id: 'surface-probe', role: 'rifle', staging: 'court_north' };
+  const surfaces = [
+    ['driveway', 0, 0, 20.5, 0.05, null],
+    ['west lawn', -28.5, 0, 44.4, 0, null],
+    ['front tread', 0, 0, 34, 0.16, null],
+    ['portico', 0, 1.2, 35.75, 1.2, null],
+    ['foyer runner', 0, 1.2, 40, 1.222, /^foyer-threshold-runner$/],
+    ['east flight runner', 7, 3.6, 45, 3.76, /^horseshoe-east-runner$/],
+    ['gallery runner', 7, 6, 49, 6.022, /^gallery-runner-rug$/],
+    ['cellar runner', -4, -2.8, 65.8, -2.776, /^cellar-hall-runner$/],
+  ];
+  for (const [label, x, y, z, expectedY, expectedName] of surfaces) {
+    const entry = pool.spawn(order, { silent: true });
+    entry.root.position.set(x, y, z);
     entry.root.updateMatrixWorld(true);
-    return new THREE.Box3().setFromObject(entry.root).min.y;
-  };
-  const onTheGallery = pool.entry(orders[0].id);
-  onTheGallery.root.position.set(7, 6.0, 49);
-  pool.registerHit(onTheGallery.figure.parts.head, 9999);
-  assert.ok(Math.abs(floorOf(onTheGallery) - 6.0) < 0.25,
-    `he settled at y ${floorOf(onTheGallery).toFixed(2)} instead of on the gallery`);
-
-  const inTheForecourt = pool.entry(orders[1].id);
-  inTheForecourt.root.position.set(0, 0, 28);
-  pool.registerHit(inTheForecourt.figure.parts.head, 9999);
-  assert.ok(Math.abs(floorOf(inTheForecourt)) < 0.25,
-    `he settled at y ${floorOf(inTheForecourt).toFixed(2)} instead of on the gravel`);
+    const support = firstVisibleSupport(scene, entry.root, x, y, z);
+    assert.ok(support, `${label} has no positive-footprint visible support under the route`);
+    assert.ok(Math.abs(support.point.y - expectedY) <= 0.001,
+      `${label} support moved to ${support.point.y.toFixed(3)} m`);
+    if (expectedName) assert.match(support.object.name, expectedName);
+    pool.registerHit(entry.figure.parts.head, 9999);
+    const body = renderedBodyBox(entry);
+    const gap = body.min.y - support.point.y;
+    assert.ok(Math.abs(gap) <= 0.005,
+      `${label} body is ${(gap * 1000).toFixed(1)} mm from its real visible support`);
+  }
 });
 
-test('a downed attacker does not keep a gun welded to his hand', () => {
-  const { pool } = harness();
-  const order = releaseWave(pool, 'one')[0];
-  const entry = pool.entry(order.id);
-  assert.equal(entry.gun.visible, true);
+test('cartel corpse support ignores blood and resolves the authored walkable finish', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const blood = new DeathBloodPool(scene, { capacity: 1, growthSeconds: 0.001 });
+  const stain = blood.spill(new THREE.Vector3(7, 6.022, 49), {
+    floorY: 6.022, size: 1.8, opacity: 0.88, seed: 17,
+  });
+  blood.update(1);
+  assert.ok(Math.abs(stain.position.y - 6.028) <= 1e-9,
+    'the falsifier no longer sits above the gallery runner');
 
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const entry = pool.spawn({ id: 'blood-support-probe', role: 'rifle', staging: 'court_north' },
+    { silent: true });
+  entry.root.position.set(7, 6, 49);
+  entry.root.updateMatrixWorld(true);
   pool.registerHit(entry.figure.parts.head, 9999);
-  assert.equal(entry.figure.pose, 'fallen');
-  assert.equal(entry.gun.visible, false, 'the fallen body still carries a floating long gun');
+  const bodyGap = renderedBodyBox(entry).min.y - 6.022;
+  assert.ok(Math.abs(bodyGap) <= 0.001,
+    `blood/VFX was mistaken for structural support and floated the body ${(bodyGap * 1000).toFixed(1)} mm`);
+});
 
-  pool.spawn(order);
-  assert.equal(entry.figure.pose, 'aiming');
-  assert.equal(entry.gun.visible, true, 'recycled attacker did not get his weapon back');
+test('standing cartel roots follow the real discrete front treads and the portico has no hole', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({
+    colliders: [...grounds.colliders, ...interior.colliders], state: 'under_attack',
+  });
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const probes = [
+    ['steps_centre', 34.2],
+    ['porch_centre', 35.1],
+  ];
+  for (const [label, z] of probes) {
+    const support = firstVisibleSupport(scene, null, 0, groundHeightAt(0, z), z);
+    assert.ok(support, `${label} has no real tread under it`);
+    const entry = pool.spawn({
+      id: `standing-${label}`,
+      role: 'rifle',
+      staging: { id: `standing-${label}`, x: 0, z, entry: label },
+    }, { silent: true });
+    const rootGap = entry.root.position.y - support.point.y;
+    assert.ok(Math.abs(rootGap) <= 0.005,
+      `${label} standing root penetrates the tread by ${(-rootGap * 1000).toFixed(1)} mm`);
+    const bodyGap = renderedBodyBox(entry).min.y - support.point.y;
+    assert.ok(Math.abs(bodyGap) <= 0.005,
+      `${label} rendered feet penetrate the tread by ${(-bodyGap * 1000).toFixed(1)} mm`);
+  }
+
+  /* The sixth tread ended at z=35.405 while the portico began at 35.500.
+   * Probe the seam itself: the route must never drop 1.14 m onto the court
+   * paving for a 95 mm strip between the two pieces of entry architecture. */
+  const seam = firstVisibleSupport(scene, null, 0, 1.18, 35.45);
+  assert.ok(seam && seam.point.y >= 1.15,
+    `front-entry seam drops to ${seam?.point.y.toFixed(3) ?? 'no'} m instead of joining the portico`);
+});
+
+test('a moving cartel attacker never eases his rendered feet through a front tread', () => {
+  /* Spawn support is not enough. act() used to ease root.y toward the next
+   * discrete tread, so the same man who began exactly on the paving was
+   * 312 mm inside one tread and 420 mm inside another while walking up. This
+   * runs the real graph route and measures the real first visible surface on
+   * every transition frame. */
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const entry = pool.spawn({
+    id: 'moving-front-step-probe', role: 'rifle', staging: 'front_steps',
+  }, { silent: true });
+  const player = makePlayer(0, 1.2, 40);
+  const measured = [];
+  for (let frame = 0; frame < 120; frame += 1) {
+    pool.update(1 / 60, { player, colliders, alive: [] });
+    if (Math.abs(entry.root.position.x) > 6
+        || entry.root.position.z < 33.84 || entry.root.position.z > 35.5) continue;
+    const support = firstVisibleSupport(
+      scene, entry.root, entry.root.position.x, entry.root.position.y, entry.root.position.z,
+      { walkableOnly: true },
+    );
+    assert.ok(support, `frame ${frame} has no real front-entry support`);
+    const gap = renderedBodyBox(entry).min.y - support.point.y;
+    measured.push({ frame, z: entry.root.position.z, supportY: support.point.y, gap });
+    assert.ok(gap >= -0.005 && gap <= 0.005,
+      `frame ${frame} z=${entry.root.position.z.toFixed(3)} rendered feet are `
+      + `${(-gap * 1000).toFixed(1)} mm inside the ${support.object.name || 'unnamed tread'}`);
+  }
+  assert.ok(measured.length >= 30, `only ${measured.length} front-entry movement frames were measured`);
+  assert.ok(Math.max(...measured.map(({ supportY }) => supportY)) >= 1.16,
+    'the moving probe never reached the upper front treads');
+});
+
+test('both real flank breach routes climb physical support and clear the window opening', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const glass = buildSiegeGlass({ damage, grounds, interior });
+  scene.add(glass.root);
+  damage.apply('under_attack');
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  releaseWave(pool, 'two');
+  const flankers = pool.all().filter(({ staging }) => (
+    staging.id === 'lounge_bay' || staging.id === 'living_west'
+  ));
+  assert.equal(flankers.length, 4, 'the route sweep no longer covers the whole 2B flank group');
+  const records = new Map(flankers.map((entry) => [entry.id, {
+    side: entry.staging.id === 'lounge_bay' ? 'east' : 'west',
+    samples: 0,
+    supports: new Set(),
+  }]));
+  const breachStructures = [];
+  grounds.root.updateMatrixWorld(true);
+  grounds.root.traverse((object) => {
+    if (!object.isMesh || !/^(?:bay-east|wing-west)-solid$|^(?:bay|wing)-podium$/.test(object.name)) return;
+    breachStructures.push({ object, box: new THREE.Box3().setFromObject(object) });
+  });
+  const positiveVolume = (left, right) => {
+    const overlap = left.clone().intersect(right);
+    if (overlap.isEmpty()) return 0;
+    const size = overlap.getSize(new THREE.Vector3());
+    return size.x * size.y * size.z;
+  };
+  const paneForOpening = new Map(
+    [...glass.panes.values()].map((pane) => [pane.window, pane]),
+  );
+  for (let frame = 0; frame < 720; frame += 1) {
+    pool.update(1 / 60, {
+      colliders,
+      alive: [],
+      onBreach: ({ id, opening }) => {
+        const pane = paneForOpening.get(opening);
+        assert.ok(pane, `${id} reports unknown breach pane ${opening}`);
+        const changed = glass.shatter(pane.id);
+        assert.ok(changed || pane.state === 'broken', `${opening} failed to open idempotently`);
+      },
+    });
+    for (const entry of flankers) {
+      const { x, z } = entry.root.position;
+      const record = records.get(entry.id);
+      const inBreachRun = record.side === 'east'
+        ? x >= 19.0 && x <= 23.7 && z >= 42.9 && z <= 44.6
+        : x >= -27.5 && x <= -22.4 && z >= 43.0 && z <= 45.8;
+      if (!inBreachRun) continue;
+      const support = highestWalkableSupport(scene, entry.root, x, z);
+      assert.ok(support, `${entry.id} ${record.side} frame ${frame} has no physical breach support`);
+      const body = renderedBodyBox(entry);
+      const gap = body.min.y - support.point.y;
+      record.samples += 1;
+      record.supports.add(`${support.object.name}:${support.point.y.toFixed(3)}`);
+      assert.ok(gap >= -0.005 && gap <= 0.005,
+        `${entry.id} ${record.side} frame ${frame} x=${x.toFixed(3)} body is `
+        + `${(-gap * 1000).toFixed(1)} mm inside ${support.object.name}`);
+      for (const structure of breachStructures) {
+        const volume = positiveVolume(body, structure.box);
+        assert.ok(volume <= 1e-6,
+          `${entry.id} ${record.side} frame ${frame} root=[${x.toFixed(4)},${entry.root.position.y.toFixed(4)},${z.toFixed(4)}] `
+          + `body occupies ${volume.toFixed(6)} m3 of ${structure.object.name}`);
+      }
+    }
+  }
+  for (const [id, record] of records) {
+    assert.ok(record.samples >= 35, `${id}/${record.side} produced only ${record.samples} breach samples`);
+    assert.ok(record.supports.size >= 5,
+      `${id}/${record.side} crossed only ${record.supports.size} physical support levels`);
+  }
+});
+
+test('the east flanker clears the south bay jamb before handing off from bay_arch', () => {
+  assert.equal(anchorById('bay_arch').arrival, 0.25,
+    'bay_arch lost the full-rig clearance handoff');
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const glass = buildSiegeGlass({ damage, grounds, interior });
+  scene.add(glass.root);
+  damage.apply('under_attack');
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  /* Preserve the real actor index/lane while isolating this route's geometry. */
+  releaseWave(pool, 'one');
+  pool.despawnAll();
+  releaseWave(pool, 'two');
+  const entry = pool.entry('two_2B_2');
+  for (const peer of pool.all()) {
+    if (peer === entry) continue;
+    peer.active = false;
+    peer.root.visible = false;
+  }
+  const southJamb = colliders.find((box) => (
+    Math.abs(box.min.x - 15.98) < 0.001 && Math.abs(box.max.x - 16.42) < 0.001
+    && Math.abs(box.min.z - 44.58) < 0.001 && Math.abs(box.max.z - 45.62) < 0.001
+  ));
+  assert.ok(southJamb, 'the real south bay jamb collider was not found');
+  const paneForOpening = new Map(
+    [...glass.panes.values()].map((pane) => [pane.window, pane]),
+  );
+  const contacts = [];
+  let approachedBayArch = false;
+  let clearedBayArch = false;
+  for (let frame = 0; frame < 1800 && entry.path.length; frame += 1) {
+    const before = entry.path[0]?.anchor?.id ?? entry.path[0]?.anchor;
+    pool.update(1 / 60, {
+      colliders, alive: [],
+      onBreach: ({ opening }) => {
+        const pane = paneForOpening.get(opening);
+        assert.ok(pane, `unknown breach pane ${opening}`);
+        glass.shatter(pane.id);
+      },
+    });
+    const after = entry.path[0]?.anchor?.id ?? entry.path[0]?.anchor;
+    if (before === 'bay_arch') approachedBayArch = true;
+    if (approachedBayArch && after !== 'bay_arch') clearedBayArch = true;
+    if (entry.root.position.x < 14 || entry.root.position.x > 17
+        || entry.root.position.z < 42 || entry.root.position.z > 46) continue;
+    for (const part of renderedBodyMeshBoxes(entry)) {
+      const overlap = part.box.clone().intersect(southJamb);
+      if (overlap.isEmpty()) continue;
+      const size = overlap.getSize(new THREE.Vector3());
+      const volume = size.x * size.y * size.z;
+      if (volume > 1e-6) contacts.push({ frame, part: part.name, volume });
+    }
+  }
+  assert.equal(approachedBayArch, true, 'the focused flanker never reached bay_arch');
+  assert.equal(clearedBayArch, true, 'the focused flanker never handed off from bay_arch');
+  assert.deepEqual(contacts, [], `the flanker entered the south bay jamb: ${JSON.stringify(contacts)}`);
+});
+
+test('all 22 lane-expanded routes keep a real capsule and rendered body out of active geometry', (t) => {
+  /* Combat think/turn timing uses Math.random.  A geometry contract cannot
+   * pass or fail according to which random yaw happened to be sampled on a
+   * given run, so this full-route sweep owns and restores a deterministic
+   * stream.  Separate worst-yaw coverage below protects the complete rig
+   * envelope rather than relying on this one animation trace. */
+  const originalRandom = Math.random;
+  let randomState = 0x51e9d35b;
+  Math.random = () => {
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+    return randomState / 0x100000000;
+  };
+  t.after(() => { Math.random = originalRandom; });
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const dressing = buildSiegeDressing({ damage, grounds, interior });
+  const glass = buildSiegeGlass({ damage, grounds, interior });
+  scene.add(dressing.root, glass.root);
+  damage.apply('under_attack');
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  /* The mission never releases wave two until wave one is clear. Running all
+   * 22 simultaneously lets wave-two's two authored threshold hold posts plug
+   * the door in front of a wave-one climber -- a checkpoint state the actual
+   * director cannot create. Keep one deterministic sweep and all 22 records,
+   * but exercise each live wave in its real lifecycle order. */
+  const entries = [];
+  const paneForOpening = new Map(
+    [...glass.panes.values()].map((pane) => [pane.window, pane]),
+  );
+  const breachedAt = new Map();
+  const completedAt = new Map();
+  const routeContacts = new Map();
+  const radius = 0.3;
+  const capsuleTop = 1.7;
+  const positiveVolume = (left, right) => {
+    const overlap = left.clone().intersect(right);
+    if (overlap.isEmpty()) return 0;
+    const size = overlap.getSize(new THREE.Vector3());
+    return size.x * size.y * size.z;
+  };
+  const capsuleDistance = (entry, foot, box) => {
+    if (box.max.y <= foot + 0.005 || box.min.y >= foot + capsuleTop) return Infinity;
+    const x = entry.root.position.x;
+    const z = entry.root.position.z;
+    const dx = Math.max(box.min.x - x, 0, x - box.max.x);
+    const dz = Math.max(box.min.z - z, 0, z - box.max.z);
+    return Math.hypot(dx, dz);
+  };
+  const recordContact = (kind, entry, frame, index, obstacle, detail) => {
+    const key = `${kind}:${index}`;
+    const current = routeContacts.get(key);
+    if (current) {
+      current.ids.add(entry.id);
+      current.maxPenetrationMm = Math.max(
+        current.maxPenetrationMm ?? 0, detail.penetrationMm ?? 0,
+      );
+      current.maxVolume = Math.max(current.maxVolume ?? 0, detail.volume ?? 0);
+      return;
+    }
+    routeContacts.set(key, {
+      kind, ids: new Set([entry.id]), frame, index,
+      position: entry.root.position.toArray(), yaw: entry.root.rotation.y,
+      goal: entry.goal.toArray(), next: entry.path[0]?.anchor?.id ?? entry.path[0]?.anchor ?? 'none',
+      collider: [obstacle.min.toArray(), obstacle.max.toArray()],
+      firstPart: detail.part ?? null,
+      maxPenetrationMm: detail.penetrationMm ?? 0,
+      maxVolume: detail.volume ?? 0,
+    });
+  };
+  const maxFrames = 2400;
+  let elapsedFrames = 0;
+  for (const waveId of ['one', 'two']) {
+    if (entries.length) pool.despawnAll();
+    const phaseEntries = releaseWave(pool, waveId).map(({ id }) => pool.entry(id));
+    entries.push(...phaseEntries);
+    const phaseCompleted = new Set();
+    let phaseFrame = 0;
+    for (; phaseFrame < maxFrames && phaseCompleted.size < phaseEntries.length; phaseFrame += 1) {
+      const frame = elapsedFrames + phaseFrame;
+      pool.update(1 / 60, {
+        colliders,
+        alive: [],
+        onBreach: ({ id, opening }) => {
+          const pane = paneForOpening.get(opening);
+          assert.ok(pane, `${id} reports unknown breach pane ${opening}`);
+          const changed = glass.shatter(pane.id);
+          assert.ok(changed || pane.state === 'broken', `${opening} failed to open idempotently`);
+          breachedAt.set(id, { frame, opening, pane });
+        },
+      });
+      for (const entry of phaseEntries) {
+        if (!entry.active || entry.actor.incapacitated || phaseCompleted.has(entry.id)) continue;
+        if (!entry.path.length) {
+          phaseCompleted.add(entry.id);
+          completedAt.set(entry.id, frame);
+          continue;
+        }
+        const body = renderedBodyBox(entry);
+        const parts = renderedBodyMeshBoxes(entry);
+        for (let index = 0; index < colliders.length; index += 1) {
+          const obstacle = colliders[index];
+          const capsuleGap = capsuleDistance(entry, body.min.y, obstacle) - radius;
+          if (capsuleGap < -1e-6) {
+            recordContact('capsule', entry, frame, index, obstacle, {
+              penetrationMm: -capsuleGap * 1000,
+            });
+          }
+          /* Only descend into the per-mesh boxes when the cheap union broad
+           * phase overlaps. This keeps the whole-route test fast while
+           * refusing the empty-space false positives of one giant rig AABB. */
+          if (positiveVolume(body, obstacle) <= 1e-6) continue;
+          for (const part of parts) {
+            const volume = positiveVolume(part.box, obstacle);
+            if (volume <= 1e-6) continue;
+            recordContact('mesh', entry, frame, index, obstacle, {
+              part: part.name, volume,
+            });
+          }
+        }
+      }
+    }
+    elapsedFrames += phaseFrame;
+    assert.equal(phaseCompleted.size, phaseEntries.length,
+      `${waveId} routes did not finish inside ${maxFrames} frames: ${phaseEntries
+        .filter((entry) => !phaseCompleted.has(entry.id))
+        .map((entry) => (
+          `${entry.id}:${entry.path[0]?.anchor?.id ?? entry.path[0]?.anchor ?? 'none'}`
+          + `@[${entry.root.position.x.toFixed(4)},${entry.root.position.z.toFixed(4)}]`
+        )).join(', ')}`);
+  }
+  assert.equal(entries.length, 22);
+  assert.equal(completedAt.size, entries.length,
+    `routes did not finish inside ${maxFrames} frames: ${entries
+      .filter((entry) => !completedAt.has(entry.id))
+      .map((entry) => (
+        `${entry.id}:${entry.path[0]?.anchor?.id ?? entry.path[0]?.anchor ?? 'none'}`
+        + `@[${entry.root.position.x.toFixed(4)},${entry.root.position.z.toFixed(4)}]`
+        + ` goal=[${entry.goal.x.toFixed(4)},${entry.goal.z.toFixed(4)}]`
+        + ` path=${entry.path.length} blocked=${entry.blocked} recovered=${entry.recovered}`
+        + ` peers=${entries.filter((peer) => peer !== entry)
+          .map((peer) => ({ id: peer.id, d: peer.root.position.distanceTo(entry.root.position) }))
+          .sort((a, b) => a.d - b.d).slice(0, 3)
+          .map(({ id, d }) => `${id}:${d.toFixed(4)}`).join('|')}`
+      ))
+      .join(', ')}`);
+  const contactReport = [...routeContacts.values()].map((record) => ({
+    ...record, ids: [...record.ids].sort(),
+  }));
+  assert.deepEqual(contactReport, [],
+    `real route contacts:\n${JSON.stringify(contactReport, null, 2)}`);
+  for (const entry of entries.filter(({ staging }) => (
+    staging.id === 'living_west' || staging.id === 'lounge_bay'
+  ))) {
+    const breach = breachedAt.get(entry.id);
+    assert.ok(breach, `${entry.id} never broke its pane`);
+    assert.equal(breach.pane.state, 'broken');
+    assert.equal(colliders.includes(breach.pane.box), false,
+      `${entry.id} left ${breach.opening}'s collider active`);
+  }
+});
+
+test('moving cartel feet stay on both horseshoe flights and the basement treads', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const routes = [
+    ['east horseshoe', 7.0, 1.36, 42.125, 7.0, 6.0, 47.9, /^horseshoe-east-(tread|runner)$/],
+    ['west horseshoe', -7.0, 1.36, 42.125, -7.0, 6.0, 47.9, /^horseshoe-west-(tread|runner)$/],
+    ['basement stair', 7.2, 1.2, 51.159, 7.2, -2.8, 57.84, /^basement-stair-tread$/],
+  ];
+  for (const [label, x0, y0, z0, x1, y1, z1, supportName] of routes) {
+    const entry = pool.spawn({
+      id: `moving-${label.replaceAll(' ', '-')}`, role: 'rifle', staging: 'front_steps',
+    }, { silent: true });
+    entry.root.position.set(x0, y0, z0);
+    entry.goal.set(x1, y1, z1);
+    entry.path = [{ x: x1, y: y1, z: z1, anchor: null }];
+    entry.floorY = null;
+    entry.sinceThink = -1000;
+    const levels = new Set();
+    let samples = 0;
+    for (let frame = 0; frame < 240; frame += 1) {
+      pool.update(1 / 60, { colliders, alive: [] });
+      const support = firstVisibleSupport(
+        scene, entry.root, entry.root.position.x, entry.root.position.y, entry.root.position.z,
+        { walkableOnly: true },
+      );
+      if (!support || !supportName.test(support.object.name)) continue;
+      samples += 1;
+      levels.add(support.point.y.toFixed(3));
+      const gap = renderedBodyBox(entry).min.y - support.point.y;
+      assert.ok(gap >= -0.005 && gap <= 0.005,
+        `${label} frame ${frame} z=${entry.root.position.z.toFixed(3)} feet are `
+        + `${(-gap * 1000).toFixed(1)} mm inside ${support.object.name}`);
+    }
+    assert.ok(samples >= 60, `${label} measured only ${samples} moving support frames`);
+    assert.ok(levels.size >= 12, `${label} crossed only ${levels.size} discrete support levels`);
+  }
+});
+
+test('moving cartel feet honor foyer, gallery, and cellar finish offsets', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const probes = [
+    ['foyer', 'front_steps', [0, 1.2, 39], [2, 1.2, 39], 1.222, /^foyer-threshold-runner$/],
+    ['gallery', 'front_steps', [7, 6, 49], [9, 6, 50], 6.022, /^gallery-runner-rug$/],
+    ['cellar', 'cellar_hall', [-4, -2.8, 65.8], [0, -2.8, 65.8], -2.776, /^cellar-hall-runner$/],
+  ];
+  for (const [label, staging, start, end, expectedY, supportName] of probes) {
+    const entry = pool.spawn({ id: `moving-${label}-finish`, role: 'rifle', staging },
+      { silent: true });
+    entry.root.position.fromArray(start);
+    entry.goal.fromArray(end);
+    entry.path = [{ x: end[0], y: end[1], z: end[2], anchor: null }];
+    entry.sinceThink = -1000;
+    for (let frame = 0; frame < 45; frame += 1) {
+      pool.update(1 / 60, { colliders, alive: [] });
+      const support = firstVisibleSupport(
+        scene, entry.root, entry.root.position.x, entry.root.position.y, entry.root.position.z,
+        { walkableOnly: true },
+      );
+      assert.ok(support && supportName.test(support.object.name),
+        `${label} frame ${frame} resolved ${support?.object.name || 'no support'}`);
+      assert.ok(Math.abs(support.point.y - expectedY) <= 0.001,
+        `${label} support moved to ${support.point.y.toFixed(3)} m`);
+      const gap = renderedBodyBox(entry).min.y - support.point.y;
+      assert.ok(gap >= -0.005 && gap <= 0.005,
+        `${label} frame ${frame} feet are ${(-gap * 1000).toFixed(1)} mm inside the finish`);
+    }
+  }
+});
+
+test('static support indexing never forces a whole mansion matrix update per attacker frame', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const originalUpdate = scene.updateMatrixWorld.bind(scene);
+  let wholeSceneUpdates = 0;
+  scene.updateMatrixWorld = (force) => {
+    wholeSceneUpdates += 1;
+    return originalUpdate(force);
+  };
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  for (let index = 0; index < 22; index += 1) {
+    pool.spawn({ id: `support-perf-${index}`, role: 'rifle', staging: 'front_steps' },
+      { silent: true });
+  }
+  assert.equal(wholeSceneUpdates, 1, 'the static support index was rebuilt during spawn');
+  wholeSceneUpdates = 0;
+  for (let frame = 0; frame < 30; frame += 1) {
+    pool.update(1 / 60, { colliders, alive: [] });
+  }
+  assert.equal(wholeSceneUpdates, 0,
+    `${wholeSceneUpdates} forced whole-scene matrix updates occurred during 30 live frames`);
+});
+
+test('all 22 wave attackers ground rendered bodies without changing pooled weapon mounts', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({
+    colliders: [...grounds.colliders, ...interior.colliders], state: 'under_attack',
+  });
+  const pool = createAttackerPool({ scene, damage, matrix: new FactionMatrix() });
+  const orders = [...releaseWave(pool, 'one'), ...releaseWave(pool, 'two')];
+  assert.equal(orders.length, 22);
+  assert.deepEqual(new Set(orders.map((order) => order.role.id)), new Set(Object.keys(ROLE_PLAN)),
+    'the body-support sweep no longer covers every cartel role');
+
+  const records = orders.map((order) => {
+    const entry = pool.entry(order.id);
+    entry.root.position.set(7, 6, 49);
+    entry.root.updateMatrixWorld(true);
+    return { order, entry, mount: captureWeaponMount(entry) };
+  });
+  for (const { entry } of records) pool.registerHit(entry.figure.parts.head, 9999);
+
+  for (const { order, entry, mount } of records) {
+    const gap = renderedBodyBox(entry).min.y - 6.02;
+    assert.ok(Math.abs(gap) <= 0.005,
+      `${order.id}/${order.role.id}/${ROLE_PLAN[order.role.id].weapon} body is `
+      + `${(gap * 1000).toFixed(1)} mm from the gallery finish`);
+    assert.equal(entry.figure.pose, 'fallen');
+    assert.equal(entry.gun.visible, false,
+      `${order.id}/${order.role.id} keeps a gun welded through the fallen pose`);
+    assertWeaponMount(entry, mount, `${order.id}/${order.role.id} down`);
+
+    pool.spawn(order, { silent: true });
+    assert.equal(entry.figure.pose, 'aiming', `${order.id}/${order.role.id} did not stand on respawn`);
+    assert.equal(entry.gun.visible, true, `${order.id}/${order.role.id} did not recover its weapon`);
+    assertWeaponMount(entry, mount, `${order.id}/${order.role.id} respawn`);
+  }
 });
 
 test('a whole wave reports every man once and only once', () => {
@@ -440,6 +1150,32 @@ test('the ensemble restores a dead guard as a dead guard', () => {
   assert.equal(ensemble.beat, 'WAVE_TWO');
   assert.equal(ensemble.members.get('guard_0').actor.incapacitated, true);
   assert.equal(ensemble.members.get('guard_0').figure.pose, 'fallen');
+});
+
+test('an ensemble checkpoint keeps its recorded facing through a same-floor restage', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('BRIEFING');
+  const snapshot = ensemble.snapshot();
+  const expectedYaw = new Map(snapshot.members
+    .filter((record) => record.id === 'eric' || record.id === 'guard_1')
+    .map((record) => [record.id, record.yaw]));
+  assert.equal(expectedYaw.size, 2, 'the checkpoint omitted the worklamp tableau pair');
+
+  ensemble.stage('AFTERMATH');
+  assert.equal(ensemble.restore(snapshot), true);
+  for (const [id, yaw] of expectedYaw) {
+    assert.equal(ensemble.members.get(id).root.rotation.y, yaw,
+      `${id}'s restored root no longer owns its checkpoint facing`);
+  }
+
+  /* LITTLE_FRIEND retargets both men on the same gallery floor. It therefore
+   * inherits the restored facing and lets the live turn system settle it. */
+  ensemble.stage('LITTLE_FRIEND');
+  for (const [id, yaw] of expectedYaw) {
+    assert.equal(ensemble.members.get(id).root.rotation.y, yaw,
+      `${id}'s same-floor restage inherited a poisoned checkpoint facing`);
+  }
 });
 
 test('the ensemble reports a friendly going down exactly once', () => {
@@ -578,15 +1314,675 @@ test('a revivable cast member lies in an owner-tagged readable blood pool', () =
   const exposedPoolArea = poolWidth * poolDepth - overlapWidth * overlapDepth;
   assert.ok(pool.material.roughness <= 0.35,
     `the blood has no wet highlight (roughness ${pool.material.roughness.toFixed(2)})`);
-  assert.ok(pool.scale.x >= 2.1 && exposedPoolArea >= 0.75,
+  assert.ok(pool.scale.x >= 1.75 && exposedPoolArea >= 0.55,
     `the ${pool.scale.x.toFixed(2)} m pool is hidden by the body (${exposedPoolArea.toFixed(2)} m2 exposed)`);
   assert.ok(emittedRed >= 0.55
     && emittedRed >= emittedGreen * 6
     && emittedRed >= emittedBlue * 3,
   `the blood cannot read red in low light (emissive ${emittedRed.toFixed(3)}, ${emittedGreen.toFixed(3)}, ${emittedBlue.toFixed(3)})`);
-  assert.ok(pool.position.y >= booski.root.position.y + 0.004
-    && pool.position.y <= booski.root.position.y + 0.012,
+  assert.ok(pool.position.y >= booski.root.position.y + 0.024
+    && pool.position.y <= booski.root.position.y + 0.032,
   'the blood is not on the same finished floor as the body');
+});
+
+test('an upper-gallery blood pool sits above the real finished floor, not inside its slab', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const matrix = new FactionMatrix();
+  const ensemble = buildSiegeEnsemble({
+    scene, damage, matrix, groundAt: mansionGroundAt(grounds, interior),
+  });
+  ensemble.stage('LITTLE_FRIEND');
+
+  const eric = ensemble.members.get('eric');
+  eric.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  ensemble.update(0.1, {});
+  for (let step = 0; step < 8; step++) ensemble.update(0.1, {});
+  scene.updateMatrixWorld(true);
+
+  const floorMeshes = [];
+  interior.root.traverse((object) => {
+    if (object.name === 'gallery-runner-rug') floorMeshes.push(object);
+  });
+  const support = floorMeshes.map((object) => new THREE.Box3().setFromObject(object))
+    .find((box) => eric.root.position.x >= box.min.x && eric.root.position.x <= box.max.x
+      && eric.root.position.z >= box.min.z && eric.root.position.z <= box.max.z);
+  assert.ok(support, 'Eric has no real gallery runner beneath his authored post');
+  const poolBox = new THREE.Box3().setFromObject(eric.bloodPool);
+  const finishGap = poolBox.min.y - support.max.y;
+  assert.ok(finishGap >= 0.004 && finishGap <= 0.008,
+    `Eric's visible blood is ${finishGap.toFixed(3)} m from the topmost rendered support`);
+});
+
+test('every armed fallen rig grounds its visible body, not its hidden weapon', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const matrix = new FactionMatrix();
+  const ensemble = buildSiegeEnsemble({
+    scene, damage, matrix, groundAt: mansionGroundAt(grounds, interior),
+  });
+  ensemble.stage('LITTLE_FRIEND');
+
+  const representatives = [
+    ['pistol', 'booski'], ['carbine', 'guard_1'],
+    ['AK', 'eric'], ['SAW', 'deathmegatron'],
+  ].map(([weapon, id]) => {
+    const member = ensemble.members.get(id);
+    return {
+      weapon,
+      member,
+      parent: member.gun.parent,
+      position: member.gun.position.toArray(),
+      quaternion: member.gun.quaternion.toArray(),
+      scale: member.gun.scale.toArray(),
+    };
+  });
+  for (const { member } of representatives) {
+    member.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  }
+  ensemble.update(0.1, { colliders, hostiles: [] });
+  scene.updateMatrixWorld(true);
+
+  const visibleBodyBox = (member) => {
+    const box = new THREE.Box3();
+    member.root.traverse((object) => {
+      if (isEvidenceBodyMesh(object, member.root, member.gun) && object.visible) {
+        box.union(new THREE.Box3().setFromObject(object));
+      }
+    });
+    return box;
+  };
+  for (const entry of representatives) {
+    const { weapon, member, parent, position, quaternion, scale } = entry;
+    const supportY = interior.floorAt(
+      member.root.position.x, member.root.position.z, member.root.position.y,
+    );
+    assert.ok(Number.isFinite(supportY), `${weapon} representative has no rendered support beneath him`);
+    const gap = visibleBodyBox(member).min.y - supportY;
+    assert.ok(Math.abs(gap) <= 0.005,
+      `${weapon} fallen body is ${(gap * 1000).toFixed(1)} mm off the gallery finish`);
+    assert.equal(member.gun.visible, false, `${weapon} stayed visible on the fallen rig`);
+    assert.equal(member.gun.parent, parent, `${weapon} was not returned to its original hand mount`);
+    assert.deepEqual(member.gun.position.toArray(), position, `${weapon} local position changed`);
+    assert.deepEqual(member.gun.quaternion.toArray(), quaternion, `${weapon} local rotation changed`);
+    assert.deepEqual(member.gun.scale.toArray(), scale, `${weapon} local scale changed`);
+  }
+
+  const pistol = representatives[0];
+  const downSnapshot = ensemble.snapshot();
+  assert.equal(ensemble.revive(pistol.member.id), true);
+  assert.equal(pistol.member.figure.pose, 'stand');
+  assert.equal(pistol.member.gun.visible, true);
+  assert.equal(pistol.member.gun.parent, pistol.parent,
+    'revive did not preserve the original weapon mount');
+  assert.equal(ensemble.restore(downSnapshot), true);
+  assert.equal(pistol.member.figure.pose, 'fallen');
+  assert.equal(pistol.member.gun.visible, false);
+  assert.equal(pistol.member.gun.parent, pistol.parent,
+    'checkpoint restore detached the hidden weapon from its hand');
+});
+
+test('the LITTLE_FRIEND tableau gives fallen Eric, his blood and the live guard clear gallery space', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const matrix = new FactionMatrix();
+  const ensemble = buildSiegeEnsemble({
+    scene, damage, matrix, groundAt: mansionGroundAt(grounds, interior),
+  });
+  const eric = ensemble.members.get('eric');
+  const guard = ensemble.members.get('guard_1');
+
+  assert.deepEqual(eric.posts.LITTLE_FRIEND,
+    { x: 7.65, y: 6, z: 50.4, lookX: 2.9, lookZ: 48.8 },
+    'Eric is still staged against the east partition instead of the clear gallery bay');
+  assert.deepEqual(guard.posts.LITTLE_FRIEND,
+    { x: 4.8, y: 6, z: 50.45, lookX: 6.0612, lookZ: 54.246 },
+    'the flinching guard is still swallowed by the stair rail/newel silhouette');
+
+  ensemble.stage('LITTLE_FRIEND');
+  eric.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  ensemble.update(0.1, { colliders, hostiles: [] });
+  for (let step = 0; step < 8; step++) ensemble.update(0.1, { colliders, hostiles: [] });
+  ensemble.noteImpact(guard.root.position.clone(), 0.1);
+  guard.businessLeft = 30;
+  scene.updateMatrixWorld(true);
+
+  const bodyBox = (member) => {
+    const result = new THREE.Box3();
+    member.root.traverse((object) => {
+      if (isEvidenceBodyMesh(object, member.root, member.gun)) {
+        result.union(new THREE.Box3().setFromObject(object));
+      }
+    });
+    return result;
+  };
+  const ericBody = bodyBox(eric);
+  const guardBody = bodyBox(guard);
+  const eastPartition = new THREE.Box3().setFromObject(
+    interior.root.getObjectByName('east-partition-front-solid'),
+  );
+  assert.ok(ericBody.distanceToPoint(eastPartition.clampPoint(
+    ericBody.getCenter(new THREE.Vector3()), new THREE.Vector3(),
+  )) >= 1.2,
+  'Eric still reads as one black mass with the east partition');
+  assert.ok(ericBody.distanceToPoint(guardBody.clampPoint(
+    ericBody.getCenter(new THREE.Vector3()), new THREE.Vector3(),
+  )) >= 0.35,
+  'the fallen body and live guard no longer have readable negative space');
+  const firingStep = KEEP_CLEAR.find(({ label }) => label.includes('balcony bay'));
+  const firingStepVolume = new THREE.Box3(
+    new THREE.Vector3(firingStep.x0, 5.5, firingStep.z0),
+    new THREE.Vector3(firingStep.x1, 8.5, firingStep.z1),
+  );
+  const guardGun = new THREE.Box3().setFromObject(guard.gun);
+  for (const [name, box] of [
+    ['Eric', ericBody], ['guard', guardBody], ['guard carbine', guardGun],
+  ]) {
+    assert.equal(box.intersectsBox(firingStepVolume), false,
+      `${name} intrudes into the player's firing-step approach`);
+  }
+
+  const bloodBox = new THREE.Box3().setFromObject(eric.bloodPool);
+  const bloodSize = bloodBox.getSize(new THREE.Vector3());
+  const bodySize = ericBody.getSize(new THREE.Vector3());
+  const bloodToBodyPlanArea = (bloodSize.x * bloodSize.z) / (bodySize.x * bodySize.z);
+  assert.ok(bloodToBodyPlanArea >= 0.7 && bloodToBodyPlanArea <= 1.1,
+    `the blood/body plan-area ratio is ${bloodToBodyPlanArea.toFixed(3)} `
+      + `(blood ${bloodSize.x.toFixed(3)} x ${bloodSize.z.toFixed(3)}, `
+      + `body ${bodySize.x.toFixed(3)} x ${bodySize.z.toFixed(3)}; readable stain, not giant field)`);
+  const bloodEdge = eric.bloodPool.getObjectByName('siege-eric-blood-edge');
+  assert.ok(bloodEdge?.isMesh, 'Eric has no local absorbent edge separating blood from the red runner');
+  assert.equal(bloodEdge.userData.memberId, 'eric', 'the readable edge is not owned by Eric');
+  assert.equal(bloodEdge.userData.collider, false, 'the blood readability layer became collision geometry');
+  assert.equal(bloodEdge.material.map, eric.bloodPool.material.map,
+    'the local edge no longer follows Eric\'s irregular blood texture');
+  assert.ok(bloodEdge.scale.x === 1 && bloodEdge.material.roughness >= 0.95
+      && bloodEdge.material.emissiveIntensity === 0,
+  'Eric\'s edge is not a dark absorbent underlay');
+});
+
+test('the authored gallery practicals win the full production light budget throughout the alarm cycle', () => {
+  assert.equal(typeof siegeNight.scoreSiegeLight, 'function',
+    'the light scheduler has no auditable world-space score');
+  const mainSource = fs.readFileSync(
+    new URL('../src/mansion/siege/main.js', import.meta.url), 'utf8',
+  );
+  assert.match(mainSource, /scoreSiegeLight\(entry\.light, camera\.position/,
+    'the live scheduler still ranks nested lights by local coordinates');
+
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'under_attack' });
+  const localLights = [];
+  /* Match production construction order and candidate population exactly:
+   * the nine pulsing emergency fittings and three attack accents register
+   * before the dressing.  Leaving the night rig out concealed the real
+   * renderer result at the final evidence eye. */
+  const night = siegeNight.buildSiegeNight({
+    damage, registerLight: (light) => localLights.push(light),
+  });
+  scene.add(night.root);
+  const dressing = buildSiegeDressing({
+    damage, grounds, interior, registerLight: (light) => localLights.push(light),
+  });
+  scene.add(dressing.root);
+  createAttackerPool({
+    scene, damage, matrix: new FactionMatrix(),
+    registerLight: (light) => localLights.push(light),
+  });
+  mountArmory({
+    parent: scene,
+    system: {},
+    interaction: { register() {} },
+    racks: interior.props.basement.armoryRacks,
+    addLight: (light) => localLights.push(light),
+  });
+  scene.updateMatrixWorld(true);
+
+  const worklamp = dressing.props.firingStep.lamp;
+  assert.ok(worklamp.intensity >= 24 && worklamp.distance >= 15,
+    `the local practical is only intensity ${worklamp.intensity}, range ${worklamp.distance}`);
+  const taskFlood = dressing.props.defenceStations.taskFlood?.light;
+  assert.ok(taskFlood?.isPointLight, 'the real dressing did not register its gallery task flood');
+  assert.deepEqual(
+    { intensity: taskFlood.intensity, distance: taskFlood.distance, decay: taskFlood.decay },
+    { intensity: 18, distance: 10, decay: 2 },
+    'the supported battery flood is no longer a bounded local practical',
+  );
+  const authoredView = authoredWorklampEvidenceView();
+  const evidenceSupportY = interior.floorAt(
+    authoredView.x, authoredView.z, authoredView.y,
+  );
+  assert.equal(evidenceSupportY, 6.02,
+    'the light-budget proof no longer resolves the real gallery finish under the shot');
+  const exactEvidenceEye = new THREE.Vector3(
+    authoredView.x, evidenceSupportY + 1.02, authoredView.z,
+  );
+  const camera = exactEvidenceEye;
+  assert.ok(camera.distanceTo(new THREE.Vector3(7.2276, 7.04, 52.2684)) <= 1e-12,
+    `the authored crouched shot eye drifted to ${camera.toArray()}`);
+  const lightPool = [...grounds.lights, ...interior.lights, ...localLights];
+  assert.equal(lightPool.length, 256,
+    'the regression fixture drifted from the real house + night + dressing + attacker + armory pool');
+  const practicals = [
+    ['rail worklamp', worklamp],
+    ['north-console battery flood', taskFlood],
+  ];
+  const assertLocalPracticalsActive = (phase) => {
+    const ranked = lightPool
+      .map((light) => ({ light, score: siegeNight.scoreSiegeLight(light, camera) }))
+      .sort((left, right) => left.score - right.score);
+    for (let index = 0; index < ranked.length; index++) {
+      ranked[index].light.visible = index < 10;
+    }
+    for (const [name, light] of practicals) {
+      const rank = ranked.findIndex((entry) => entry.light === light) + 1;
+      assert.ok(rank > 0 && rank <= 10,
+        `${phase}: ${name} rank ${rank}/256 makes production lightStatus.visible false`);
+      assert.equal(light.visible, true,
+        `${phase}: production's ten-light visibility assignment switched off ${name}`);
+    }
+  };
+
+  night.alarm.phase = 0;
+  night.update(0);
+  assert.ok(night.posts.every(({ light }) => light.intensity === 0),
+    'the alarm-off sample did not exercise zero-intensity semantics');
+  assert.ok(night.posts.every(({ light }) => (
+    siegeNight.scoreSiegeLight(light, camera) === Infinity
+  )), 'an extinguished alarm fitting still consumed a production light slot');
+  assertLocalPracticalsActive('alarm off');
+  let sawPositiveAlarm = false;
+  const alarmSamples = 32;
+  for (let sample = 1; sample <= alarmSamples; sample++) {
+    night.update(night.alarm.period / alarmSamples);
+    const peak = Math.max(...night.posts.map(({ light }) => light.intensity));
+    sawPositiveAlarm ||= peak > 0;
+    assertLocalPracticalsActive(`alarm sample ${sample}/${alarmSamples} at intensity ${peak.toFixed(6)}`);
+  }
+  assert.equal(sawPositiveAlarm, true, 'the alarm-cycle regression never sampled a live alarm light');
+
+  const lightWorld = worklamp.getWorldPosition(new THREE.Vector3());
+  const taskWorld = taskFlood.getWorldPosition(new THREE.Vector3());
+  assert.ok(taskWorld.distanceTo(new THREE.Vector3(5.2, 7.22, 52.3)) <= 1e-12,
+    `the supported battery flood moved to ${taskWorld.toArray()}`);
+  for (const [name, subject] of [
+    ['Eric', new THREE.Vector3(7.641214239265063, 6, 50.18914174236149)],
+    ['guard', new THREE.Vector3(3.801604527355416, 6, 50.37501442511014)],
+  ]) {
+    const distance = lightWorld.distanceTo(subject);
+    assert.ok(distance <= worklamp.distance / 2,
+      `${name} is ${distance.toFixed(3)} m from the authored practical`);
+    const taskDistance = taskWorld.distanceTo(subject);
+    const cameraVector = camera.clone().sub(subject);
+    const taskVector = taskWorld.clone().sub(subject);
+    const facingCosine = cameraVector.dot(taskVector)
+      / (cameraVector.length() * taskVector.length());
+    assert.ok(taskDistance <= 4,
+      `${name} is ${taskDistance.toFixed(3)} m from the north-console task flood`);
+    assert.ok(facingCosine > 0,
+      `${name}'s task flood is behind the camera-facing hemisphere (${facingCosine.toFixed(3)})`);
+  }
+});
+
+test('the authored worklamp evidence camera is legal and frames every real subject volume', () => {
+  const { source, x, y, z, targetX, targetY, targetZ } = authoredWorklampEvidenceView();
+  const restoreIndex = source.indexOf(
+    'siege.ensemble.restore(window.__mansionTargetBaseline)',
+  );
+  const restageIndex = source.indexOf(
+    "siege.ensemble.stage('LITTLE_FRIEND')", restoreIndex,
+  );
+  const settleIndex = source.indexOf(
+    'for (let step = 0; step < 8; step++) siege.tick(0.1)', restoreIndex,
+  );
+  assert.ok(restoreIndex >= 0 && restageIndex > restoreIndex && restageIndex < settleIndex,
+    'the shot restores BRIEFING positions but never retargets the LITTLE_FRIEND posts before settling');
+
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const colliders = [...grounds.colliders, ...interior.colliders];
+  const damage = new MansionDamageState({ colliders, state: 'clean' });
+  const dressing = buildSiegeDressing({ damage, grounds, interior });
+  scene.add(dressing.root);
+  const ensemble = buildSiegeEnsemble({
+    scene, damage, matrix: new FactionMatrix(), groundAt: mansionGroundAt(grounds, interior),
+  });
+  damage.apply('under_attack');
+  ensemble.stage('BRIEFING');
+  const baseline = ensemble.snapshot();
+  ensemble.stage('AFTERMATH');
+  assert.equal(ensemble.restore(baseline), true,
+    'the browser shot could not restore its clean BRIEFING baseline');
+  ensemble.stage('LITTLE_FRIEND');
+
+  /* This is the real settle sequence the browser shot runs before it creates
+   * the injury. Let both people reach their authored posts while the attackers
+   * are absent, then leave the live movement system in charge. */
+  const eric = ensemble.members.get('eric');
+  const guard = ensemble.members.get('guard_1');
+  /* Let the live movement system reach the LITTLE_FRIEND posts before the
+   * diagnostic injury. Otherwise the verifier would down Eric halfway out of
+   * the BRIEFING mark and never exercise the authored clear-bay tableau. */
+  eric.actor.incapacitated = false;
+  eric.actor.health = eric.actor.maxHealth;
+  eric.downed = false;
+  /* `shot()` teleports to the authored floor datum, then the production
+   * Player snaps to the rendered gallery finish before crouching.  That
+   * finish is 20 mm above the room datum, so the screenshot eye is 7.04,
+   * not the 7.02 shortcut this test used to certify. */
+  const evidenceSupportY = interior.floorAt(x, z, y);
+  assert.equal(evidenceSupportY, 6.02,
+    'the exact production evidence point no longer stands on the gallery finish');
+  const evidenceEye = new THREE.Vector3(x, evidenceSupportY + 1.02, z);
+  const evidencePlayer = makePlayer(evidenceEye.x, evidenceEye.y, evidenceEye.z);
+  const tick = (seconds, step = 1 / 60) => {
+    for (let elapsed = 0; elapsed < seconds; elapsed += step) {
+      ensemble.update(Math.min(step, seconds - elapsed), {
+        player: evidencePlayer, colliders, hostiles: [],
+      });
+    }
+  };
+  for (let frame = 0; frame < 8; frame++) tick(0.1);
+  eric.actor.health = 1;
+  tick(0.1);
+  tick(0.8);
+  ensemble.noteImpact(guard.root.position.clone(), 0.1);
+  guard.businessLeft = 30;
+  tick(0.05);
+  guard.businessLeft = 30;
+  scene.updateMatrixWorld(true);
+
+  const expectedEric = new THREE.Vector3(7.641214239265063, 6, 50.18914174236149);
+  const expectedGuard = new THREE.Vector3(4.772163120392648, 6, 50.24818262284667);
+  assert.ok(eric.root.position.distanceTo(expectedEric) <= 1e-9,
+    `exact restored shot chain settled Eric at ${eric.root.position.toArray()}`);
+  assert.ok(guard.root.position.distanceTo(expectedGuard) <= 1e-9,
+    `exact restored shot chain settled guard at ${guard.root.position.toArray()}`);
+  assert.ok(guard.root.rotation.y >= 0.30 && guard.root.rotation.y <= 0.34,
+    `the guard's supported carbine is not turned broadside (${guard.root.rotation.y} rad)`);
+  assert.ok(Math.abs(guard.figure.parts.body.rotation.x - 0.64) <= 1e-12,
+    `the live guard no longer ducks behind the supported carbine (${guard.figure.parts.body.rotation.x} rad)`);
+  assert.ok(eric.figure.parts.legL.rotation.z <= -0.4,
+    `Eric's near leg was folded back under the far leg (${eric.figure.parts.legL.rotation.z} rad)`);
+  const worklampLight = dressing.props.firingStep.lamp;
+  assert.deepEqual(
+    { intensity: worklampLight.intensity, distance: worklampLight.distance, decay: worklampLight.decay },
+    { intensity: 24, distance: 16, decay: 2 },
+    'the mount correction must retain the existing local practical power and decay',
+  );
+  const worklampLightWorld = worklampLight.getWorldPosition(new THREE.Vector3());
+  for (const [name, member] of [['Eric', eric], ['guard', guard]]) {
+    const distance = worklampLightWorld.distanceTo(member.root.position);
+    assert.ok(distance <= 4,
+      `${name} settles ${distance.toFixed(3)} m from the real worklamp light `
+      + `at ${worklampLightWorld.toArray().map((value) => value.toFixed(3))}`);
+  }
+  assert.equal(dressing.props.firingStep.colliders.length, 3,
+    'relocating the supported practical must not add a route collider');
+  const ericSupportY = interior.floorAt(
+    eric.root.position.x, eric.root.position.z, eric.root.position.y,
+  );
+  assert.ok(Number.isFinite(ericSupportY), 'exact restored shot has no rendered support under Eric');
+  const visibleEricBody = new THREE.Box3();
+  eric.root.traverse((object) => {
+    if (isEvidenceBodyMesh(object, eric.root, eric.gun) && object.visible) {
+      visibleEricBody.union(new THREE.Box3().setFromObject(object));
+    }
+  });
+  const bodyFloorGap = visibleEricBody.min.y - ericSupportY;
+  assert.ok(Math.abs(bodyFloorGap) <= 0.005,
+    `exact restored shot leaves Eric ${(bodyFloorGap * 1000).toFixed(1)} mm above the visible floor`);
+  const positiveColliderContacts = colliders.map((box, index) => ({
+    index,
+    overlap: new THREE.Box3().copy(visibleEricBody).intersect(box),
+  })).filter(({ overlap }) => !overlap.isEmpty()).map(({ index, overlap }) => ({
+    index,
+    size: overlap.getSize(new THREE.Vector3()),
+  })).filter(({ size }) => size.x > 1e-6 && size.y > 1e-6 && size.z > 1e-6);
+  assert.deepEqual(positiveColliderContacts, [],
+    `exact player-yield body intersects real colliders: ${JSON.stringify(positiveColliderContacts)}`);
+
+  const worklamp = dressing.props.firingStep.group.getObjectByName('siege.step.worklamp');
+  const camera = new THREE.PerspectiveCamera(68, 1920 / 1080, 0.08, 260);
+  const eye = evidenceEye;
+  camera.position.copy(eye);
+  camera.lookAt(Number(targetX), Number(targetY), Number(targetZ));
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+
+  const shown = (object) => {
+    for (let current = object; current; current = current.parent) {
+      if (current.visible === false) return false;
+    }
+    return true;
+  };
+  const projection = (root, { bodyRoot = null, weaponRoot = null } = {}) => {
+    const points = [];
+    const local = new THREE.Vector3();
+    root.traverse((object) => {
+      const selected = bodyRoot
+        ? isEvidenceBodyMesh(object, bodyRoot, weaponRoot) : object.isMesh === true;
+      if (!selected || !shown(object)) return;
+      const position = object.geometry?.getAttribute?.('position');
+      if (!position?.count) return;
+      for (let index = 0; index < position.count; index++) {
+        local.fromBufferAttribute(position, index);
+        if (object.isSkinnedMesh) object.applyBoneTransform(index, local);
+        points.push(local.clone().applyMatrix4(object.matrixWorld).project(camera));
+      }
+    });
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const zs = points.map((point) => point.z);
+    return {
+      intersects: Math.min(...xs) <= 1 && Math.max(...xs) >= -1
+        && Math.min(...ys) <= 1 && Math.max(...ys) >= -1,
+      fullyInside: points.every((point) => Math.abs(point.x) <= 1
+        && Math.abs(point.y) <= 1 && point.z >= -1 && point.z <= 1),
+      ndc: {
+        minX: Math.min(...xs), maxX: Math.max(...xs),
+        minY: Math.min(...ys), maxY: Math.max(...ys),
+      },
+    };
+  };
+  const visibleRayMeshes = [];
+  scene.traverse((object) => {
+    if (object.isMesh && object.geometry && shown(object)) visibleRayMeshes.push(object);
+  });
+  const paintedAlphaAtUv = (seed, inputUv) => {
+    let state = (Math.trunc(seed) || 1) >>> 0;
+    const random = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 0x100000000;
+    };
+    const pixelX = inputUv.x * 128;
+    const pixelY = (1 - inputUv.y) * 128;
+    let alpha = 0;
+    for (let index = 0; index < 26; index += 1) {
+      random(); random(); random();
+      const sourceAlpha = 0.22 + random() * 0.5;
+      const centreX = 64 + (random() - 0.5) * 74;
+      const centreY = 64 + (random() - 0.5) * 74;
+      const radiusX = 6 + random() * 34;
+      const radiusY = 5 + random() * 30;
+      const angle = random() * 3;
+      const dx = pixelX - centreX;
+      const dy = pixelY - centreY;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const localX = cos * dx + sin * dy;
+      const localY = -sin * dx + cos * dy;
+      /* Stay a full texel inside each analytical ellipse so Canvas edge
+       * antialiasing cannot turn this deterministic probe into a false hit. */
+      if ((localX / radiusX) ** 2 + (localY / radiusY) ** 2 <= 0.94) {
+        alpha = sourceAlpha + alpha * (1 - sourceAlpha);
+      }
+    }
+    return alpha;
+  };
+  const paintedBloodScreenSamples = (mesh) => {
+    const candidates = [];
+    const local = new THREE.Vector3();
+    const point = new THREE.Vector3();
+    for (let row = 0; row < 128; row += 1) {
+      for (let column = 0; column < 128; column += 1) {
+        const u = (column + 0.5) / 128;
+        const v = (row + 0.5) / 128;
+        if (paintedAlphaAtUv(mesh.userData.seed, { x: u, y: v })
+            * mesh.material.opacity < 0.5) continue;
+        local.set(u - 0.5, v - 0.5, 0);
+        point.copy(local).applyMatrix4(mesh.matrixWorld).project(camera);
+        candidates.push({ u, v, x: point.x, y: point.y });
+      }
+    }
+    return {
+      samples: selectEvidenceTextureSamples(candidates, 25),
+      candidateCount: candidates.length,
+    };
+  };
+  const blood = eric.bloodPool;
+  const visibility = (
+    root, proof, { bodyRoot = null, weaponRoot = null, paintedBlood = false } = {},
+  ) => {
+    const targetMeshes = new Set();
+    root.traverse((object) => {
+      const selected = bodyRoot
+        ? isEvidenceBodyMesh(object, bodyRoot, weaponRoot) : object.isMesh === true;
+      if (selected && shown(object)) targetMeshes.add(object);
+    });
+    const painted = paintedBlood ? paintedBloodScreenSamples(root) : null;
+    const samples = painted ? painted.samples
+      : Array.from({ length: 25 }, (_, index) => ({
+        x: THREE.MathUtils.lerp(
+          proof.ndc.minX, proof.ndc.maxX, (index % 5 + 0.5) / 5,
+        ),
+        y: THREE.MathUtils.lerp(
+          proof.ndc.minY, proof.ndc.maxY, (Math.floor(index / 5) + 0.5) / 5,
+        ),
+      }));
+    assert.equal(samples.length, 25, 'the real blood texture has fewer than 25 painted texels');
+    const raycaster = new THREE.Raycaster();
+    const ndcPoint = new THREE.Vector2();
+    let targetHits = 0;
+    for (const sample of samples) {
+      ndcPoint.set(sample.x, sample.y);
+      raycaster.setFromCamera(ndcPoint, camera);
+      const first = raycaster.intersectObjects(visibleRayMeshes, false).find((hit) => {
+        if (!shown(hit.object)) return false;
+        if (hit.object === blood) {
+          return paintedAlphaAtUv(blood.userData.seed, hit.uv) * blood.material.opacity >= 0.5;
+        }
+        return isEvidenceOpaqueIntersection(hit);
+      });
+      if (first && targetMeshes.has(first.object)) targetHits += 1;
+    }
+    return {
+      sampleCount: 25,
+      targetHits,
+      hitRatio: targetHits / 25,
+      sampleMode: paintedBlood ? 'painted-texture' : 'uniform-grid',
+      paintedCandidateCount: painted?.candidateCount ?? null,
+    };
+  };
+  const ericBody = projection(eric.root, { bodyRoot: eric.root, weaponRoot: eric.gun });
+  const ericBlood = projection(blood);
+  const guardBody = projection(guard.root, { bodyRoot: guard.root, weaponRoot: guard.gun });
+  const guardGun = projection(guard.gun);
+  const lampProof = projection(worklamp);
+  ericBody.visibility = visibility(eric.root, ericBody, {
+    bodyRoot: eric.root, weaponRoot: eric.gun,
+  });
+  ericBlood.visibility = visibility(blood, ericBlood, { paintedBlood: true });
+  guardBody.visibility = visibility(guard.root, guardBody, {
+    bodyRoot: guard.root, weaponRoot: guard.gun,
+  });
+  guardGun.visibility = visibility(guard.gun, guardGun);
+  lampProof.visibility = visibility(worklamp, lampProof);
+  const partVisibility = {};
+  for (const [name, member, partRoot] of [
+    ['eric.head', eric, eric.figure.parts.head],
+    ['eric.torso', eric, eric.figure.parts.torso],
+    ['eric.armLeft', eric, eric.figure.parts.armL],
+    ['eric.armRight', eric, eric.figure.parts.armR],
+    ['eric.legLeft', eric, eric.figure.parts.legL],
+    ['eric.legRight', eric, eric.figure.parts.legR],
+    ['guard.head', guard, guard.figure.parts.head],
+    ['guard.torso', guard, guard.figure.parts.torso],
+    ['guard.armLeft', guard, guard.figure.parts.armL],
+    ['guard.armRight', guard, guard.figure.parts.armR],
+    ['guard.legLeft', guard, guard.figure.parts.legL],
+    ['guard.legRight', guard, guard.figure.parts.legR],
+  ]) {
+    const partProof = projection(partRoot, {
+      bodyRoot: member.root, weaponRoot: member.gun,
+    });
+    partVisibility[name] = visibility(partRoot, partProof, {
+      bodyRoot: member.root, weaponRoot: member.gun,
+    }).targetHits;
+  }
+  for (const [name, targetHits] of Object.entries(partVisibility)) {
+    assert.ok(targetHits >= 1,
+      `${name} has no first-hit body sample in the real worklamp camera: ${JSON.stringify(partVisibility)}`);
+  }
+  const composition = {
+    eric: {
+      body: ericBody,
+      blood: ericBlood,
+      bloodOwner: blood.userData.memberId,
+      bloodOpacity: blood.material.opacity,
+      bloodEmissiveRed: blood.material.emissive.r * blood.material.emissiveIntensity,
+    },
+    guard: {
+      body: guardBody,
+      gun: guardGun,
+    },
+    worklamp: lampProof,
+  };
+  const wholeSubjectHits = [
+    ericBody.visibility.targetHits,
+    ericBlood.visibility.targetHits,
+    guardBody.visibility.targetHits,
+    guardGun.visibility.targetHits,
+    lampProof.visibility.targetHits,
+  ];
+  assert.ok(wholeSubjectHits.every((hits, index) => hits >= [5, 5, 5, 3, 3][index]),
+    `the production player-yield transform lost a real first-hit proof: ${wholeSubjectHits}`);
+  assert.equal(ericBlood.visibility.paintedCandidateCount, 6016,
+    'the settled stain no longer exposes the same real alpha-painted sample field');
+  const capsuleContacts = colliders.filter((box) => {
+    if (eye.y + 0.05 < box.min.y || eye.y - 1.02 > box.max.y) return false;
+    const nearestX = Math.max(box.min.x, Math.min(eye.x, box.max.x));
+    const nearestZ = Math.max(box.min.z, Math.min(eye.z, box.max.z));
+    return (eye.x - nearestX) ** 2 + (eye.z - nearestZ) ** 2 < 0.3 ** 2;
+  });
+  assert.equal(capsuleContacts.length, 0, 'the evidence camera starts in solid geometry');
+  const promptDistance = eye.distanceTo(eric.root.position);
+  /* Bind the evidence camera to the live 2.4 m revive radius while allowing
+   * it to clear the 1.8 m floor stain instead of certifying a near-plane crop. */
+  assert.ok(promptDistance <= 2.4,
+    `the production player context puts Eric ${promptDistance.toFixed(6)} m from the prompt camera`);
+  assert.equal(evaluateWorklampComposition(composition), true,
+    `the evidence camera clips or shrinks a required subject: ${JSON.stringify({
+      diagnostic: diagnoseWorklampComposition(composition), composition,
+    })}`);
 });
 
 test('blood-pool rollover never steals the pool under somebody still down', () => {
@@ -978,15 +2374,24 @@ test('the lane spreads a group across the leg rather than along it', () => {
    * arrived as a single file of one. The offset is now perpendicular to the
    * leg, which is the difference between five men abreast and five men in a
    * queue. */
-  const from = { x: -4, z: 50.4, y: null };
+  /* Use a deliberately broad gallery post. The rear foyer arch lanes are now
+   * zero on purpose: furniture leaves a single measured centreline there. */
+  const fromAnchor = anchorById('gallery_centre');
+  const from = { x: fromAnchor.x, z: fromAnchor.z, y: fromAnchor.y };
   const spread = [-1, 0, 1].map((laneT) => laneWaypoints(
-    ['foyer_under', 'foyer_arch_east'], { from, laneT },
+    ['gallery_east'], { from, laneT },
   ));
-  const [low, mid, high] = spread.map((points) => points[1]);
-  /* The leg runs east across the back of the foyer, so the spread is in z. */
-  assert.ok(Math.abs(low.z - high.z) > 1.2, `only ${Math.abs(low.z - high.z).toFixed(2)}m apart`);
-  assert.ok(Math.abs(low.x - high.x) < 0.2, 'and not along the leg');
-  const anchor = anchorById('foyer_arch_east');
+  const [low, mid, high] = spread.map((points) => points[0]);
+  const spreadVector = new THREE.Vector2(high.x - low.x, high.z - low.z);
+  const legVector = new THREE.Vector2(
+    anchorById('gallery_east').x - anchorById('gallery_centre').x,
+    anchorById('gallery_east').z - anchorById('gallery_centre').z,
+  ).normalize();
+  assert.ok(spreadVector.length() > 1.8,
+    `only ${spreadVector.length().toFixed(2)}m apart`);
+  assert.ok(Math.abs(spreadVector.clone().normalize().dot(legVector)) < 0.01,
+    'the lane spread is not perpendicular to the travel leg');
+  const anchor = anchorById('gallery_east');
   assert.ok(Math.abs(mid.z - anchor.z) < 0.01, 'the middle lane is the anchor itself');
   assert.ok(Math.abs(mid.x - anchor.x) < 0.01);
 });
@@ -1491,6 +2896,60 @@ test('authored movement slides against solid boxes and separates squadmates', ()
   assert.ok(a.root.position.distanceTo(b.root.position) >= 0.48, 'the squadmates remained stacked');
 });
 
+test('squadmate congestion queues at a tight waypoint without destroying either route', () => {
+  const { colliders, pool } = harness();
+  const entries = Array.from({ length: 4 }, (_, index) => pool.spawn({
+    id: `queue-${index}`, role: ROLES.smg, staging: STAGING.front_steps,
+  }));
+  for (const [index, entry] of entries.entries()) {
+    entry.root.position.set(0, 1.2, 40 - index * 0.52);
+    entry.floorY = 1.2;
+    entry.path = [{
+      x: 0, y: 1.2, z: 44, anchor: 'court_step_turn_west',
+      kind: 'transit', arrival: 0.05,
+    }];
+  }
+
+  for (let i = 0; i < 600; i++) pool.update(1 / 60, {
+    player: null, colliders, alive: [],
+  });
+
+  assert.deepEqual(entries.map(({ recovered }) => recovered), [0, 0, 0, 0],
+    'ordinary squad traffic was mistaken for a broken authored route');
+  assert.ok(entries.some(({ path }) => path.length === 0), 'the head of the queue never arrived');
+  assert.ok(entries.some(({ path }) => path.length === 1), 'the queue did not remain queued');
+});
+
+test('peer congestion may consume only a non-final transit waypoint', () => {
+  const { colliders, pool } = harness();
+  const entries = ['transit', 'transit-peer', 'final', 'final-peer'].map((id) => (
+    pool.spawn({ id, role: ROLES.smg, staging: STAGING.front_steps })
+  ));
+  const [transit, transitPeer, final, finalPeer] = entries;
+  for (const [entry, x, z] of [
+    [transit, 0, 40], [transitPeer, 0, 39.7],
+    [final, 3, 40], [finalPeer, 3, 39.7],
+  ]) {
+    entry.root.position.set(x, 1.2, z);
+    entry.floorY = 1.2;
+    entry.goal.set(x, 1.2, 40.4);
+  }
+  transit.path = [
+    { x: 0, y: 1.2, z: 40.4, anchor: 'tight-transit', arrival: 0.05 },
+    { x: 0, y: 1.2, z: 44, anchor: 'final', arrival: 0.05 },
+  ];
+  final.path = [{ x: 3, y: 1.2, z: 40.4, anchor: 'final', arrival: 0.05 }];
+  transitPeer.path = [];
+  finalPeer.path = [];
+
+  pool.update(1 / 60, { player: null, colliders, alive: [] });
+
+  assert.equal(transit.path[0].anchor, 'final',
+    'peer-separated actor did not clear a body-width transit queue');
+  assert.equal(final.path[0].anchor, 'final',
+    'peer congestion weakened a final destination arrival contract');
+});
+
 test('body hits interrupt aim and limb hits have tactical consequences', () => {
   const { pool } = harness();
   const entry = pool.spawn({ id: 'wounds', role: ROLES.rifle, staging: STAGING.front_steps });
@@ -1843,6 +3302,67 @@ test('friendlies acquire through shared LOS and fire only from their rendered bo
   assert.equal(shooter.targetVisible, false);
   assert.equal(shooter.aimAligned, false);
   ensemble.dispose();
+});
+
+test('a live defender flinches with his gun, never as the hands-up owner of another ally\'s revive prompt', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('LITTLE_FRIEND');
+
+  /* Reproduce the exact stair composition: Eric is the protected man on the
+   * floor while the nearer east-side guard reacts to a hit on the house. */
+  const eric = ensemble.members.get('eric');
+  eric.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
+  ensemble.update(0.1, {});
+  const guard = ensemble.members.get('guard_1');
+  const prompt = ensemble.nearestDowned(new THREE.Vector3(6.8, 7.02, 51.3), 2.4);
+  assert.equal(prompt?.id, 'eric', 'the revive prompt no longer belongs to the fallen man');
+  ensemble.noteImpact(guard.root.position.clone(), 0.1);
+
+  /* Injury readability remains unchanged: Eric is alive but visibly fallen,
+   * bleeding and disarmed. The live guard is a separate readable armed state. */
+  assert.equal(eric.downed, true);
+  assert.equal(eric.actor.incapacitated, false);
+  assert.equal(eric.figure.pose, 'fallen');
+  assert.equal(eric.gun.visible, false);
+  assert.equal(eric.bloodPool?.visible, true);
+  assert.equal(guard.downed, false);
+  assert.equal(guard.actor.incapacitated, false);
+  assert.equal(guard.businessKey, 'flinch');
+  assert.equal(guard.figure.pose, 'flinch');
+  assert.equal(guard.gun.visible, true,
+    'the live guard drops his carbine and reads as a hands-up surrender beside Eric\'s revive prompt');
+
+  const handMesh = (forearm) => {
+    let hand = null;
+    forearm.traverse((object) => {
+      if (!hand && object.isMesh && /(^|\.)hand$/.test(object.name ?? '')) hand = object;
+    });
+    return hand;
+  };
+  scene.updateMatrixWorld(true);
+  const leftHand = handMesh(guard.figure.parts.foreL);
+  const rightHand = handMesh(guard.figure.parts.foreR);
+  let primaryGrip = null;
+  guard.gun.traverse((object) => {
+    if (!primaryGrip && object.name?.includes('grip') && !object.name.includes('foregrip')) {
+      primaryGrip = object;
+    }
+  });
+  assert.ok(leftHand && rightHand && primaryGrip, 'the flinching guard lost measurable hand/grip geometry');
+  const rightBox = new THREE.Box3().setFromObject(rightHand);
+  const gripBox = new THREE.Box3().setFromObject(primaryGrip);
+  assert.equal(rightBox.intersectsBox(gripBox), true,
+    'the flinching guard keeps a visible carbine but loses its firing grip');
+  const gunBox = new THREE.Box3().setFromObject(guard.gun);
+  const leftCentre = new THREE.Box3().setFromObject(leftHand).getCenter(new THREE.Vector3());
+  assert.ok(gunBox.distanceToPoint(leftCentre) <= 0.04,
+    `the flinching guard's support hand is ${gunBox.distanceToPoint(leftCentre).toFixed(3)} m off the carbine`);
+  const headY = new THREE.Box3().setFromObject(guard.figure.parts.head)
+    .getCenter(new THREE.Vector3()).y;
+  const rightY = rightBox.getCenter(new THREE.Vector3()).y;
+  assert.equal(leftCentre.y > headY && rightY > headY, false,
+    'both live hands are still raised above his head like a surrender pose');
 });
 
 test('friendlies fire, wound and suppress -- and do not outkill the player', () => {

@@ -255,11 +255,11 @@ function diningChair(parent, colliders, x, z, yaw, index) {
 function diningPlaceSetting(parent, x, z, index) {
   const setting = new THREE.Group();
   setting.name = `dining-place-setting.${index}`;
-  setting.position.set(x, 0.92, z);
-  const plate = cylinder(0.23, 0.026, [0, 0, 0], M.white, 'dining-plate', 18);
-  const innerPlate = cylinder(0.15, 0.012, [0, 0.022, 0], M.floorAccent, 'dining-plate-rim', 18);
-  const glass = cylinder(0.055, 0.17, [0.28, 0.09, 0], M.glass, 'dining-glass', 12);
-  const napkin = box([0.19, 0.022, 0.28], [-0.28, 0.025, 0], M.textile, 'dining-napkin');
+  setting.position.set(x, 0.88, z);
+  const plate = cylinder(0.23, 0.026, [0, 0.013, 0], M.white, 'dining-plate', 18);
+  const innerPlate = cylinder(0.15, 0.012, [0, 0.032, 0], M.floorAccent, 'dining-plate-rim', 18);
+  const glass = cylinder(0.055, 0.17, [0.28, 0.085, 0], M.glass, 'dining-glass', 12);
+  const napkin = box([0.19, 0.022, 0.28], [-0.28, 0.011, 0], M.textile, 'dining-napkin');
   setting.add(plate, innerPlate, glass, napkin);
   parent.add(setting);
   return setting;
@@ -395,6 +395,9 @@ export function buildCartelPalace(scene) {
   const cabinet = box([0.72, 1.05, 0.26], [0, 0, 0], M.iron, 'power-cabinet');
   cabinet.userData.actionTarget = 'power';
   powerBox.add(cabinet);
+  for (const x of [-0.24, 0.24]) {
+    powerBox.add(box([0.1, 0.65, 0.14], [x, -0.85, 0], M.iron, 'power-cabinet-support'));
+  }
   const powerLight = box([0.1, 0.1, 0.03], [0.2, 0.28, -0.15], M.screen, 'power-status', { cast: false });
   powerBox.add(powerLight);
   root.add(powerBox);
@@ -622,6 +625,9 @@ export function buildCartelPalace(scene) {
     box([0.72, 0.88, 0.12], [0, 1.0, -0.32], M.wood, 'office-chair-back'),
     box([0.58, 0.18, 0.58], [0, 0.61, 0], M.textile, 'office-chair-cushion'),
   );
+  for (const [x, z] of [[-0.26, -0.26], [0.26, -0.26], [-0.26, 0.26], [0.26, 0.26]]) {
+    officeChair.add(box([0.08, 0.38, 0.08], [x, 0.275, z], M.wood, 'office-chair-leg'));
+  }
   officeDetails.add(officeChair);
 
   const officeLamp = new THREE.Group();
@@ -813,9 +819,10 @@ export function buildCartelPalace(scene) {
   diningStage.add(box([14.8, 0.04, 11.5], [0, 0.07, -42.15], M.textile, 'final-dining-rug', { cast: false }));
 
   const finalTable = table(diningStage, colliders, 0, -42.4, 9.8, 2.2, 'mark-dining-table');
-  finalTable.add(box([8.7, 0.024, 0.54], [0, 0.9, 0], M.floorAccent, 'dining-table-runner', { cast: false }));
-  for (let x = -3.9; x <= 3.9; x += 1.3) {
-    finalTable.add(cylinder(0.045, 0.32, [x, 1.06, 0], M.brass, 'dining-candle', 8));
+  finalTable.add(box([8.7, 0.024, 0.54], [0, 0.892, 0], M.floorAccent, 'dining-table-runner', { cast: false }));
+  for (let candleIndex = -3; candleIndex <= 3; candleIndex++) {
+    const x = candleIndex * 1.3;
+    finalTable.add(cylinder(0.045, 0.32, [x, 1.064, 0], M.brass, 'dining-candle', 8));
   }
   let settingIndex = 0;
   for (const z of [-0.62, 0.62]) {

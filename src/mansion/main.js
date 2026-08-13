@@ -277,25 +277,17 @@ const anchors = { ...grounds.anchors, ...interior.anchors };
 /* Player instance and reconstruct that third argument from its own last-  */
 /* known eye height. Applied here.                                        */
 /*                                                                         */
-/* `interior.floorAt` returns null outside every room rect it knows about   */
-/* -- Phase 2's own docs call this "not my problem, use the exterior        */
-/* default". `buildMansionGrounds()` does not export a floor resolver of    */
-/* its own (the brief anticipated a flat 0 fallback), but a *literal* flat  */
-/* 0 breaks the one exterior feature every tour of this property actually   */
-/* uses: the raised front entry. Phase 1 built the front steps/portico and  */
-/* the service-road ramp as lerp-stepped geometry (see MansionGrounds.js's  */
-/* `buildFrontEntry()`/`buildServiceRoad()`) and exported their exact rects  */
-/* via `grounds.props.frontEntry`/`grounds.props.serviceRoad` specifically   */
-/* so a caller could resolve height across them -- so this does that, using */
-/* only those exported rects (no new geometry, no edits to either phase's    */
-/* file). Everywhere else outside the building footprint still falls back   */
-/* to flat street grade (0), per the brief.                                 */
+/* `interior.floorAt` returns null outside the house. The grounds builder    */
+/* owns exact height resolvers for its rendered entry, service road, pool,   */
+/* and garden stairs; consume those shared contracts rather than inventing  */
+/* a smooth ramp through the front entry's six discrete marble treads.       */
+/* Everywhere else outside the building footprint remains street grade 0.   */
 /* ================================================================== */
 function inRectXZ(r, x, z) {
   return x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
 }
 
-const { steps: frontSteps, portico: frontPortico } = grounds.props.frontEntry;
+const frontEntry = grounds.props.frontEntry;
 const serviceAccess = grounds.props.serviceRoad;
 
 /*
@@ -308,13 +300,6 @@ const serviceAccess = grounds.props.serviceRoad;
  * and the service ramp already are.
  */
 const poolPatio = grounds.props.poolPatio;
-const poolDeck = poolPatio.deck;
-const poolSteps = poolPatio.steps;
-/* The two flights off the terrace's north edge into the formal garden. Same
- * treatment as the front steps and the service ramp: lerp-stepped geometry
- * built by MansionGrounds, resolved here from the rects it exports. Without
- * this the garden stairs are geometry you fall through. */
-const gardenStairs = grounds.props.poolPatio.gardenStairs;
 
 function exteriorGroundAt(x, z) {
   /* The deck rect encloses the pool's hole, so its real basin/step surface
@@ -322,23 +307,12 @@ function exteriorGroundAt(x, z) {
    * keeps walking at deck height over the water. */
   const poolSurface = poolPatio.groundAt(x, z);
   if (poolSurface !== null) return poolSurface;
-  if (inRectXZ(frontSteps, x, z)) {
-    const t = THREE.MathUtils.clamp((z - frontSteps.z0) / (frontSteps.z1 - frontSteps.z0), 0, 1);
-    return THREE.MathUtils.lerp(0, GROUND_Y, t);
-  }
-  if (inRectXZ(frontPortico, x, z)) return GROUND_Y;
+  const breachHeight = grounds.props.siegeBreachGroundAt(x, z);
+  if (breachHeight !== null) return breachHeight;
+  const frontHeight = frontEntry.groundAt(x, z);
+  if (frontHeight !== null) return frontHeight;
   const serviceHeight = serviceAccess.groundAt(x, z);
   if (serviceHeight !== null) return serviceHeight;
-  if (inRectXZ(poolSteps, x, z)) {
-    const t = THREE.MathUtils.clamp((x - poolSteps.x0) / (poolSteps.x1 - poolSteps.x0), 0, 1);
-    return THREE.MathUtils.lerp(0, GROUND_Y, t);
-  }
-  for (const st of gardenStairs) {
-    if (!inRectXZ(st, x, z)) continue;
-    const t = THREE.MathUtils.clamp((z - st.z0) / (st.z1 - st.z0), 0, 1);
-    return THREE.MathUtils.lerp(GROUND_Y, 0, t);
-  }
-  if (inRectXZ(poolDeck, x, z)) return GROUND_Y;
   return 0;
 }
 
@@ -759,7 +733,9 @@ function useRadioSet(set) {
 /* ================================================================== */
 /* Player + world                                                       */
 /* ================================================================== */
-const world = { colliders, floorZones: [], groundAt: () => 0 };
+const world = {
+  colliders, floorZones: [], groundAt: () => 0, snapGroundToSurface: true,
+};
 const player = new Player(camera, world);
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 

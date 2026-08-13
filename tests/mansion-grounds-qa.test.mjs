@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import * as THREE from 'three';
@@ -89,9 +90,17 @@ test('the fountain approach opens into a wider court before either driveway bed 
   const northRuns = approachBeds.filter((bed) => bed.z1 > 10);
   assert.equal(northRuns.length, 2, 'the north end of one driveway border is missing');
   for (const bed of northRuns) {
-    const shortenedBy = 22 - bed.z1;
-    assert.ok(shortenedBy >= 0.75 && shortenedBy <= 0.95,
-      `driveway bed was shortened ${shortenedBy.toFixed(2)} m instead of roughly 2-3 feet`);
+    /* The fountain's real lower apron is radius 6. Its crossed collision
+     * cover begins at z=fountain.z-6, so an ornamental bed ending at that
+     * same plane leaves no capsule-width entrance into the court. Require a
+     * deliberate 100 mm reveal before the masonry, not an obsolete cosmetic
+     * shortening measured from the old uncollided fountain. */
+    const apronSouth = FOUNTAIN_POS.z - 6;
+    assert.ok(bed.z1 <= apronSouth - 0.1 + 1e-6,
+      `driveway bed ends at z=${bed.z1.toFixed(2)}, inside the fountain apron approach`);
+    const flare = apronSouth - bed.z1;
+    assert.ok(flare >= 2.0 && flare <= 2.2,
+      `driveway-to-court flare is ${flare.toFixed(2)} m instead of the authored capsule-clear opening`);
     const dz = bed.z1 - FOUNTAIN_POS.z;
     const fountainHalfWidth = Math.sqrt(Math.max(0, 6 ** 2 - dz ** 2));
     const innerEdge = bed.x0 > 0 ? bed.x0 : -bed.x1;
@@ -185,10 +194,10 @@ test('kitchen exterior access is stairs to a supported landing flush with the do
   const centerZ = (door.z0 + door.z1) / 2;
   assert.equal(access.groundAt((landing.x0 + landing.x1) / 2, centerZ), 1.2);
   assert.equal(access.groundAt(ramp.x0, centerZ), 1.2);
-  assert.ok(access.groundAt((ramp.x0 + ramp.x1) / 2, centerZ) > 0.5
-    && access.groundAt((ramp.x0 + ramp.x1) / 2, centerZ) < 0.7,
-  'the physical stair resolver does not descend from landing to road');
-  assert.equal(access.groundAt(ramp.x1, centerZ), 0);
+  assert.ok(Math.abs(access.groundAt((ramp.x0 + ramp.x1) / 2, centerZ) - 0.8) <= 1e-9,
+    'the physical stair resolver does not use the highest rendered tread at its shared nosing');
+  assert.ok(Math.abs(access.groundAt(ramp.x1, centerZ) - 0.2) <= 1e-9,
+    'the road-end tread is not the first real 200 mm rise');
   assert.equal(access.groundAt(ramp.x1 + 0.5, centerZ), null);
 });
 
@@ -245,6 +254,195 @@ test('a real player crosses the kitchen service threshold without dropping to gr
     `player never crossed into the kitchen (stopped at x=${player.position.x.toFixed(3)})`);
   assert.ok(minimumGround >= 1.19,
     `player fell toward grade while crossing the threshold (minimum ${minimumGround.toFixed(3)} m)`);
+});
+
+test('round fountain colliders block visible stone without ejecting players from clear paving', () => {
+  const grounds = buildMansionGrounds(null);
+  const tiers = grounds.props.fountain.colliderTiers;
+  const capsuleRadius = 0.3;
+  assert.equal(tiers.length, 3, 'the fountain does not publish its three physical stone tiers');
+
+  const probe = (tier, radius, angle) => {
+    const player = new Player(new THREE.PerspectiveCamera(), {
+      colliders: tier.colliders, floorZones: [], groundAt: () => tier.y0,
+    });
+    player.enabled = true;
+    player.mode = 'walk';
+    player.ground = tier.y0;
+    player.position.set(
+      FOUNTAIN_POS.x + Math.cos(angle) * radius,
+      tier.y0 + player.eyeHeight,
+      FOUNTAIN_POS.z + Math.sin(angle) * radius,
+    );
+    const before = player.position.clone();
+    for (let frame = 0; frame < 4; frame += 1) player.update(1 / 60);
+    return { player, moved: player.position.distanceTo(before) };
+  };
+
+  for (const tier of tiers) {
+    for (let degrees = 0; degrees < 360; degrees += 2) {
+      const angle = THREE.MathUtils.degToRad(degrees);
+      const clear = probe(tier, tier.radius + capsuleRadius + 0.001, angle);
+      assert.ok(clear.moved <= 1e-6,
+        `${tier.name} invisible collider pushed clear paving ${(clear.moved * 1000).toFixed(1)} mm at ${degrees}°`);
+
+      const inside = probe(tier, tier.radius - 0.05, angle);
+      const finalRadius = Math.hypot(
+        inside.player.position.x - FOUNTAIN_POS.x,
+        inside.player.position.z - FOUNTAIN_POS.z,
+      );
+      assert.ok(finalRadius >= tier.radius - 0.005,
+        `${tier.name} lets the player remain ${(tier.radius - finalRadius).toFixed(3)} m inside stone at ${degrees}°`);
+    }
+  }
+});
+
+test('both Mansion players ride the authored siege breach stairs instead of walking through them', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const breachGroundAt = grounds.props.siegeBreachGroundAt;
+
+  assert.equal(typeof breachGroundAt, 'function',
+    'the two breach stair contracts have no shared player ground resolver');
+  assert.equal(grounds.props.siegeBreachEntries.length, 2,
+    'the shared breach resolver is not backed by both authored entrances');
+
+  for (const entry of grounds.props.siegeBreachEntries) {
+    for (const surface of entry.surfaces) {
+      const x = (surface.x0 + surface.x1) / 2;
+      const z = (surface.z0 + surface.z1) / 2;
+      assert.ok(Math.abs(breachGroundAt(x, z) - surface.y) <= 1e-9,
+        `${entry.id} player support disagrees with ${surface.name}`);
+    }
+
+    let player;
+    const surfaces = entry.surfaces;
+    const first = surfaces[0];
+    const last = surfaces.at(-1);
+    const direction = Math.sign(((last.x0 + last.x1) - (first.x0 + first.x1)) / 2);
+    const z = (first.z0 + first.z1) / 2;
+    const startX = (first.x0 + first.x1) / 2;
+    const endX = (last.x0 + last.x1) / 2 + direction * 0.2;
+    const world = {
+      colliders: [],
+      floorZones: [],
+      snapGroundToSurface: true,
+      groundAt: (x, worldZ) => (
+        interior.floorAt(x, worldZ, player.position.y - player.eyeHeight)
+        ?? breachGroundAt(x, worldZ)
+        ?? 0
+      ),
+    };
+    player = new Player(new THREE.PerspectiveCamera(), world);
+    player.mode = 'walk';
+    player.enabled = true;
+    player.ground = breachGroundAt(startX, z);
+    player.position.set(startX, player.ground + player.eyeHeight, z);
+    player.yaw = direction < 0 ? Math.PI / 2 : -Math.PI / 2;
+    player.setKey('KeyW', true);
+
+    let worstPenetration = 0;
+    for (let frame = 0; frame < 300; frame += 1) {
+      player.update(1 / 60);
+      const renderedSupport = world.groundAt(player.position.x, player.position.z);
+      worstPenetration = Math.max(worstPenetration, renderedSupport - player.ground);
+      if ((direction < 0 && player.position.x <= endX)
+          || (direction > 0 && player.position.x >= endX)) break;
+    }
+
+    assert.ok((direction < 0 && player.position.x <= endX)
+      || (direction > 0 && player.position.x >= endX),
+    `${entry.id} player never crossed the breach stair run`);
+    assert.ok(worstPenetration <= 0.005,
+      `${entry.id} player feet entered a visible tread by ${(worstPenetration * 1000).toFixed(1)} mm`);
+  }
+
+  for (const path of ['../src/mansion/main.js', '../src/mansion/siege/main.js']) {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+    assert.match(source, /siegeBreachGroundAt/,
+      `${path} never consumes the shared siege breach player resolver`);
+  }
+});
+
+test('tour players ride the exact service, pool, and garden tread tops', () => {
+  const grounds = buildMansionGrounds(null);
+  const patio = grounds.props.poolPatio;
+  const flights = [
+    {
+      id: 'service',
+      surfaces: grounds.props.serviceRoad.ramp.surfaces,
+      groundAt: grounds.props.serviceRoad.groundAt,
+    },
+    { id: 'pool-west', surfaces: patio.steps.surfaces, groundAt: patio.groundAt },
+    ...patio.gardenStairs.map((flight) => ({
+      id: `garden-${flight.id}`, surfaces: flight.surfaces, groundAt: patio.groundAt,
+    })),
+  ];
+
+  for (const flight of flights) {
+    assert.ok(Array.isArray(flight.surfaces) && flight.surfaces.length >= 6,
+      `${flight.id} does not publish its discrete rendered tread tops`);
+    for (const surface of flight.surfaces) {
+      const mesh = grounds.root.getObjectByName(surface.name);
+      assert.ok(mesh, `${surface.name} has no named rendered tread`);
+      const box = new THREE.Box3().setFromObject(mesh);
+      const x = (surface.x0 + surface.x1) / 2;
+      const z = (surface.z0 + surface.z1) / 2;
+      assert.ok(Math.abs(box.max.y - surface.y) <= 1e-9,
+        `${surface.name} contract is not its rendered top`);
+      assert.ok(Math.abs(box.min.x - surface.x0) <= 1e-9
+        && Math.abs(box.max.x - surface.x1) <= 1e-9
+        && Math.abs(box.min.z - surface.z0) <= 1e-9
+        && Math.abs(box.max.z - surface.z1) <= 1e-9,
+      `${surface.name} contract omits its rendered nosing footprint`);
+      assert.ok(box.min.y <= 1e-9,
+        `${surface.name} is a floating slab ${box.min.y.toFixed(3)} m above grade`);
+      assert.ok(Math.abs(flight.groundAt(x, z) - surface.y) <= 1e-9,
+        `${flight.id} player support disagrees with ${surface.name}`);
+      for (const edgeX of [surface.x0 + 1e-5, surface.x1 - 1e-5]) {
+        for (const edgeZ of [surface.z0 + 1e-5, surface.z1 - 1e-5]) {
+          assert.ok(flight.groundAt(edgeX, edgeZ) >= surface.y - 1e-9,
+            `${flight.id} support drops below ${surface.name} at its rendered nosing`);
+        }
+      }
+    }
+
+    for (const reverse of [false, true]) {
+      const ordered = reverse ? [...flight.surfaces].reverse() : flight.surfaces;
+      const first = ordered[0];
+      const last = ordered.at(-1);
+      const startX = (first.x0 + first.x1) / 2;
+      const startZ = (first.z0 + first.z1) / 2;
+      const endX = (last.x0 + last.x1) / 2;
+      const endZ = (last.z0 + last.z1) / 2;
+      const dx = endX - startX;
+      const dz = endZ - startZ;
+      let player;
+      const world = {
+        colliders: [], floorZones: [], snapGroundToSurface: true,
+        groundAt: flight.groundAt,
+      };
+      player = new Player(new THREE.PerspectiveCamera(), world);
+      player.enabled = true;
+      player.mode = 'walk';
+      player.ground = flight.groundAt(startX, startZ);
+      player.position.set(startX, player.ground + player.eyeHeight, startZ);
+      player.yaw = Math.atan2(-dx, -dz);
+      player.setKey('KeyW', true);
+
+      let worstError = 0;
+      for (let frame = 0; frame < 360; frame += 1) {
+        player.update(1 / 60);
+        const support = flight.groundAt(player.position.x, player.position.z);
+        if (support !== null) worstError = Math.max(worstError, Math.abs(support - player.ground));
+        if (Math.hypot(player.position.x - endX, player.position.z - endZ) < 0.12) break;
+      }
+      assert.ok(Math.hypot(player.position.x - endX, player.position.z - endZ) < 0.12,
+        `${flight.id} player did not finish the ${reverse ? 'descent' : 'ascent'}`);
+      assert.ok(worstError <= 0.005,
+        `${flight.id} player differs from rendered support by ${(worstError * 1000).toFixed(1)} mm`);
+    }
+  }
 });
 
 test('the Squatch-side brick garden uses the arch itself as a clear entrance', () => {

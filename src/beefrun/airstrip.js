@@ -64,10 +64,22 @@ function makeHut(seed) {
 }
 
 /** The open-sided shelter the armed men sit under. */
-function makeShelter() {
+function makeShelter(worldX, worldZ, yaw) {
   const g = group('shelter');
   const post = solid(0x6b5432, { roughness: 1 });
   const tin = solid(0x9a9488, { roughness: 0.65, metalness: 0.45 });
+  const furniture = solid(0x8a6a42, { roughness: 1 });
+  const originY = terrainHeight(worldX, worldZ);
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  const supportToTerrain = (x, z, topY, width, depth, name) => {
+    const footX = worldX + x * c + z * s;
+    const footZ = worldZ - x * s + z * c;
+    const bottomY = terrainHeight(footX, footZ) - originY;
+    const height = topY - bottomY;
+    const leg = mesh(boxGeo(width, height, depth), furniture, x, bottomY + height / 2, z);
+    leg.name = name;
+    return leg;
+  };
   for (const sx of [-3.4, 3.4]) {
     for (const sz of [-2.4, 2.4]) {
       g.add(mesh(boxGeo(0.2, 2.6, 0.2), post, sx, 1.3, sz));
@@ -77,9 +89,23 @@ function makeShelter() {
   roof.rotation.x = 0.1;
   g.add(roof);
   // A bench, a table, a radio.
-  g.add(mesh(boxGeo(4, 0.14, 0.5), solid(0x8a6a42, { roughness: 1 }), -1, 0.5, -1.6));
-  g.add(mesh(boxGeo(1.6, 0.12, 1.0), solid(0x8a6a42, { roughness: 1 }), 1.8, 0.8, 0.4));
-  g.add(mesh(boxGeo(0.5, 0.3, 0.34), solid(0x3a3a3e, { roughness: 0.7 }), 1.8, 1.0, 0.4));
+  const benchSeat = mesh(boxGeo(4, 0.14, 0.5), furniture, -1, 0.5, -1.6);
+  benchSeat.name = 'shelter-bench-seat';
+  g.add(benchSeat);
+  for (const x of [-2.35, 0.35]) {
+    g.add(supportToTerrain(x, -1.6, 0.43, 0.16, 0.4, 'shelter-bench-leg'));
+  }
+  const tableTop = mesh(boxGeo(1.6, 0.12, 1.0), furniture, 1.8, 0.8, 0.4);
+  tableTop.name = 'shelter-table-top';
+  g.add(tableTop);
+  for (const x of [1.15, 2.45]) {
+    for (const z of [0.05, 0.75]) {
+      g.add(supportToTerrain(x, z, 0.74, 0.1, 0.1, 'shelter-table-leg'));
+    }
+  }
+  const radio = mesh(boxGeo(0.5, 0.3, 0.34), solid(0x3a3a3e, { roughness: 0.7 }), 1.8, 1.0, 0.4);
+  radio.name = 'shelter-radio';
+  g.add(radio);
   return g;
 }
 
@@ -279,13 +305,13 @@ export function buildAirstrip(scene) {
     camp.push(hut);
   }
 
-  const shelterX = EH.x - 22, shelterZ = EH.zHigh + 34;
-  place(makeShelter(), shelterX, shelterZ, 0.15);
+  const shelterX = EH.x - 22, shelterZ = EH.zHigh + 34, shelterYaw = 0.15;
+  place(makeShelter(shelterX, shelterZ, shelterYaw), shelterX, shelterZ, shelterYaw);
   /* Four posts, not one box. The shelter is open on every side and the men sit
    * under it — a collider on the roof footprint walls the player out of a
    * space they are supposed to be able to walk into, and traps the guards. */
   {
-    const c = Math.cos(0.15), s = Math.sin(0.15);
+    const c = Math.cos(shelterYaw), s = Math.sin(shelterYaw);
     for (const sx of [-3.4, 3.4]) {
       for (const sz of [-2.4, 2.4]) {
         addCollider(shelterX + sx * c + sz * s, shelterZ - sx * s + sz * c, 0.2, 0.2, 2.6);

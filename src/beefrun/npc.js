@@ -82,6 +82,9 @@ const TAG_Y = 2.16;               // metres: clear of the tallest hat
 const _tagPos = new THREE.Vector3();
 const _lookLocal = new THREE.Vector3();
 const _lookMat = new THREE.Matrix4();
+const _seatedHipsInverse = new THREE.Quaternion();
+const _seatedLegRoot = new THREE.Vector3();
+const _seatedLegPose = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.45, 0, 0));
 
 /* How far a head turns. A standing figure gets the old 1.1 rad; a man strapped
  * into a seat gets more, because turning to face the left seat from the right
@@ -707,6 +710,21 @@ export function updateFigure(f, dt, camPos = null) {
     }
   }
 
+  /* Captain Sasole's torso can lean and twist without lifting both feet off
+   * the pedal deck. Marked seated rigs counter-rotate only their leg roots in
+   * hips space (and counter-position the two hip sockets), preserving all
+   * upper-body life while keeping the planted legs in the aircraft frame.
+   * Other seated characters retain their authored poses unless they opt in. */
+  if (f.pose === 'sit' && f.plantSeatedFeet) {
+    _seatedHipsInverse.copy(f.hips.quaternion).invert();
+    for (const [index, leg] of f.legs.entries()) {
+      leg.hip.quaternion.copy(_seatedHipsInverse).multiply(_seatedLegPose);
+      leg.hip.position.copy(_seatedLegRoot
+        .set(index === 0 ? -0.12 : 0.12, 0, 0)
+        .applyQuaternion(_seatedHipsInverse));
+    }
+  }
+
   /* The name tag rides in the group, so walking carries it. All that is left
    * to decide is how much of it there is: full strength at talking distance,
    * thinning out from there, and switched off entirely for the figures nobody
@@ -777,6 +795,7 @@ export function makeLou() {
     face: 'assets/faces/sasole.png',
     faceCrop: [0.08, 0.28, 0.84, 0.63],
   });
+  f.plantSeatedFeet = true;
   setPose(f, 'lean');
   // The cup. It goes where he goes until he gets in the aeroplane.
   const cup = mesh(cylGeo(0.045, 0.04, 0.11, 10), solid(0xe8e2d4, { roughness: 0.8 }), 0, -0.4, 0.06);

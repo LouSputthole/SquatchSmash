@@ -337,11 +337,31 @@ test('the walk from the front door to either flight is never blocked', () => {
 });
 
 test('the dead performer is clear of the foyer fight, not in the middle of it', () => {
-  const { dressing } = WORLD;
+  const { dressing, interior } = WORLD;
   const b = dressing.props.bodies.performer.bounds;
   assert.ok(b.min.y >= GROUND_Y - 0.001,
     `something in the tableau is ${(GROUND_Y - b.min.y).toFixed(3)} m under the marble`);
-  assert.ok(dressing.props.bodies.performer.figureBounds.min.y >= GROUND_Y - 0.001);
+  const figure = dressing.props.bodies.performer.figureBounds;
+  const figureCentre = figure.getCenter(new THREE.Vector3());
+  const supports = [];
+  interior.root.updateMatrixWorld(true);
+  interior.root.traverse((object) => {
+    if (object.name !== 'foyer-floor') return;
+    const surface = worldBox(object);
+    if (figureCentre.x >= surface.min.x && figureCentre.x <= surface.max.x
+        && figureCentre.z >= surface.min.z && figureCentre.z <= surface.max.z) supports.push(surface);
+  });
+  assert.ok(supports.length, 'the performer has no real foyer finish beneath her body');
+  const finishedTop = Math.max(...supports.map((surface) => surface.max.y));
+  const supportGap = figure.min.y - finishedTop;
+  assert.ok(Math.abs(supportGap) <= 0.005,
+    `the performer body is ${(supportGap * 1000).toFixed(1)} mm from the marble finish`);
+  for (const surface of supports) {
+    const penetration = Math.min(figure.max.y, surface.max.y)
+      - Math.max(figure.min.y, surface.min.y);
+    assert.ok(penetration <= 0.001,
+      `the performer body penetrates foyer finish by ${(penetration * 1000).toFixed(1)} mm`);
+  }
   /* She has no collider -- a body is something you walk over -- so the test is
    * not "does she block a route", it is "is she underfoot". Half a metre more
    * than the route needs, which puts her in the pocket beside the door rather
@@ -425,7 +445,7 @@ test('the dead performer leaves a readable shared blood pool beneath her body', 
     'the old opaque blood rectangle still sits under the shared irregular pool');
 });
 
-test('the firing-step worklamp clamp physically grips the east balcony rail', () => {
+test('the firing-step worklamp clamp physically grips the east gallery-edge rail', () => {
   const { damage, dressing, interior } = WORLD;
   damage.apply('under_attack');
   dressing.root.updateMatrixWorld(true);
@@ -433,6 +453,17 @@ test('the firing-step worklamp clamp physically grips the east balcony rail', ()
   const clamp = dressing.props.firingStep.group
     .getObjectByName('siege.step.worklamp.clamp');
   assert.ok(clamp, 'the firing step lost its worklamp clamp');
+  const post = dressing.props.firingStep.group
+    .getObjectByName('siege.step.worklamp.post');
+  const shade = dressing.props.firingStep.group
+    .getObjectByName('siege.step.worklamp.shade');
+  assert.ok(post && shade, 'the supported worklamp lost its housing');
+  assert.equal(post.material.color.getHex(), 0xffb31a,
+    'the practical post no longer has distinct safety enamel');
+  assert.equal(shade.material.color.getHex(), 0xffb31a,
+    'the practical shade no longer has distinct safety enamel');
+  assert.notEqual(clamp.material, post.material,
+    'the safety paint covered the steel clamp instead of preserving its rail grip');
   const clampBox = worldBox(clamp);
 
   /* The railing system batches all turned shafts. Measure every real instance
@@ -452,13 +483,59 @@ test('the firing-step worklamp clamp physically grips the east balcony rail', ()
     const dy = Math.max(box.min.y - clampBox.max.y, clampBox.min.y - box.max.y, 0);
     const dz = Math.max(box.min.z - clampBox.max.z, clampBox.min.z - box.max.z, 0);
     const gap = Math.hypot(dx, dy, dz);
-    if (!nearest || gap < nearest.gap) nearest = { box, gap };
+    if (!nearest || gap < nearest.gap) nearest = { box, gap, index };
   }
   assert.ok(nearest, 'the clamp has no balcony support to attach to');
   assert.ok(nearest.gap <= 0.01,
     `the worklamp clamp hangs ${nearest.gap.toFixed(3)} m from its nearest rail support; `
     + `clamp x ${clampBox.min.x.toFixed(3)}..${clampBox.max.x.toFixed(3)}, `
     + `support x ${nearest.box.min.x.toFixed(3)}..${nearest.box.max.x.toFixed(3)}`);
+  const supportCentre = nearest.box.getCenter(new THREE.Vector3());
+  assert.ok(Math.abs(supportCentre.x - 5.143) <= 0.001
+      && Math.abs(supportCentre.z - 48) <= 0.001,
+  `the practical grips baluster ${nearest.index} at ${supportCentre.toArray()}, `
+    + 'not the east gallery-edge support');
+  assert.equal(dressing.props.firingStep.colliders.length, 3,
+    'mounting the practical on the gallery rail must not create a fourth route collider');
+});
+
+test('the north-gallery battery flood rests on the real console without adding a route collider', () => {
+  const { damage, dressing, interior } = WORLD;
+  damage.apply('under_attack');
+  dressing.root.updateMatrixWorld(true);
+  interior.root.updateMatrixWorld(true);
+  const taskFlood = dressing.props.defenceStations.taskFlood;
+  assert.ok(taskFlood?.group && taskFlood?.light,
+    'the battle layer has no auditable north-gallery task flood');
+  assert.equal(taskFlood.group.name, 'siege.gallery.task-flood');
+  const battery = taskFlood.group.getObjectByName('siege.gallery.task-flood.battery');
+  assert.ok(battery, 'the task flood has no physical battery base');
+  const batteryBox = worldBox(battery);
+  const footprint = batteryBox.getCenter(new THREE.Vector3());
+  let support = null;
+  interior.root.traverse((object) => {
+    if (!object.isMesh || object.isInstancedMesh || !object.visible) return;
+    const box = worldBox(object);
+    if (footprint.x < box.min.x || footprint.x > box.max.x
+        || footprint.z < box.min.z || footprint.z > box.max.z
+        || box.max.y > batteryBox.min.y + 0.005) return;
+    if (!support || box.max.y > support.box.max.y) support = { object, box };
+  });
+  assert.ok(support, 'the task flood has no visible furniture support beneath it');
+  const gap = batteryBox.min.y - support.box.max.y;
+  assert.ok(gap >= -0.001 && gap <= 0.005,
+    `the task-flood battery is ${(gap * 1000).toFixed(1)} mm above its console support`);
+  assert.ok(Math.abs(support.box.max.y - 6.84) <= 0.001,
+    `the task flood rests on y=${support.box.max.y.toFixed(3)}, not the north console top`);
+  assert.ok(batteryBox.min.x >= support.box.min.x && batteryBox.max.x <= support.box.max.x
+      && batteryBox.min.z >= support.box.min.z && batteryBox.max.z <= support.box.max.z,
+  `the task-flood battery overhangs its console: battery ${JSON.stringify({
+    min: batteryBox.min.toArray(), max: batteryBox.max.toArray(),
+  })}, support ${JSON.stringify({ min: support.box.min.toArray(), max: support.box.max.toArray() })}`);
+  assert.deepEqual(dressing.props.defenceStations.colliders, [],
+    'the battery flood expanded the route collider set');
+  assert.equal(damage.entry('siege.stations').colliders.length, 0,
+    'the battery flood enrolled an invisible battle collider');
 });
 
 test('the two foyer cover carcasses clear the stair masonry, supported floor and authored nav', () => {

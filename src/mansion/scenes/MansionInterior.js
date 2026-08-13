@@ -593,6 +593,14 @@ export function buildMansionInterior(shell = null) {
     return mesh;
   }
 
+  /** Opt-in support surface for Siege actor grounding. A material/normal
+   * heuristic also admits bodies, props and transparent VFX, so the builder
+   * marks only architecture intended to carry a person. */
+  function siegeWalkable(mesh) {
+    mesh.userData.siegeWalkableSupport = true;
+    return mesh;
+  }
+
   /** Push a blocker. Walls and furniture only -- never a floor slab. */
   function solid(x0, x1, y0, y1, z0, z1) {
     const c = collider(
@@ -781,24 +789,27 @@ export function buildMansionInterior(shell = null) {
   }
 
   /** Thin decorative floor topping over an already-solid slab. No collider. */
-  function topping(x0, x1, y, z0, z1, material, tag = 'floor') {
-    root.add(box({
+  function topping(x0, x1, y, z0, z1, material, tag = 'floor', walkable = true) {
+    const surface = box({
       size: [x1 - x0, 0.02, z1 - z0],
       pos: [(x0 + x1) / 2, y, (z0 + z1) / 2],
       mat: material,
       name: tag,
       cast: false,
-    }));
+    });
+    root.add(walkable ? siegeWalkable(surface) : surface);
+    return surface;
   }
 
   /** A rug: a flat quad, laid a centimetre over the floor. */
-  function rug(x, z, w, d, y, material, rotY = 0) {
+  function rug(x, z, w, d, y, material, rotY = 0, name = '') {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material);
+    m.name = name;
     m.rotation.x = -Math.PI / 2;
     m.rotation.z = rotY;
     m.position.set(x, y + 0.012, z);
     m.receiveShadow = true;
-    root.add(m);
+    root.add(siegeWalkable(m));
     return m;
   }
 
@@ -979,12 +990,12 @@ export function buildMansionInterior(shell = null) {
       const t = i / steps;
       const z = rect.z0 + depth * (i + 0.5);
       const y = THREE.MathUtils.lerp(yBottom, yTop, t);
-      root.add(box({
+      root.add(siegeWalkable(box({
         size: [rect.x1 - rect.x0, 0.14, depth + 0.05],
         pos: [(rect.x0 + rect.x1) / 2, y + 0.07, z],
         mat: M_MARBLE,
         name: `${tag}-tread`,
-      }));
+      })));
       // Riser: the face you actually see from below, in the darker stone.
       root.add(box({
         size: [rect.x1 - rect.x0, Math.abs(yTop - yBottom) / steps, 0.05],
@@ -997,13 +1008,13 @@ export function buildMansionInterior(shell = null) {
         name: `${tag}-riser`,
       }));
       // Runner, held by a brass stair rod at every third tread.
-      root.add(box({
+      root.add(siegeWalkable(box({
         size: [(rect.x1 - rect.x0) * 0.62, 0.02, depth + 0.05],
         pos: [(rect.x0 + rect.x1) / 2, y + 0.15, z],
         mat: M_CARPET_HALL,
         cast: false,
         name: `${tag}-runner`,
-      }));
+      })));
       if (i % 4 === 0) {
         root.add(cylinder({
           r: 0.016,
@@ -1425,6 +1436,10 @@ export function buildMansionInterior(shell = null) {
   /* check from now on, not something to be spotted in a playtest.         */
   /* ================================================================== */
   const artPieces = [];
+  /* `makeFrame`'s bezel reaches 35.5 mm behind its group datum. Wall-hung
+   * owner photographs use this one value so their actual rear surface, not
+   * merely the zero-thickness art plane, is what seats on the finish. */
+  const FRAME_REAR = 0.0355;
 
   /** Record a hung piece's world box so the doorway sweep can see it. */
   function recordArt(id, x, y, z, rotY, w, h, depth = 0.14) {
@@ -1880,12 +1895,12 @@ export function buildMansionInterior(shell = null) {
     const inlay = new THREE.Mesh(new THREE.CircleGeometry(2.9, 40), M_MARBLE_DK);
     inlay.rotation.x = -Math.PI / 2;
     inlay.position.set(0, GY + 0.022, inlayZ);
-    root.add(inlay);
+    root.add(siegeWalkable(inlay));
     for (const [rIn, rOut] of [[2.3, 2.55], [1.1, 1.2]]) {
       const ring = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 40), M_GOLD);
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(0, GY + 0.03, inlayZ);
-      root.add(ring);
+      root.add(siegeWalkable(ring));
     }
     // Compass points, in gold, radiating out of the inlay.
     for (let i = 0; i < 8; i++) {
@@ -1899,7 +1914,8 @@ export function buildMansionInterior(shell = null) {
       }));
     }
     // A runner from the threshold to the foot of the horseshoe.
-    rug(0, (FOYER.z0 + 42) / 2 + 0.4, 3.6, 42 - FOYER.z0 - 1.6, GY, M_CARPET_HALL);
+    rug(0, (FOYER.z0 + 42) / 2 + 0.4, 3.6, 42 - FOYER.z0 - 1.6,
+      GY + 0.01, M_CARPET_HALL, 0, 'foyer-threshold-runner');
 
     // ---- The horseshoe: two flights, rising to the gallery slab at z=48.
     stairFlight(STAIR_WEST, GY, UY, 'horseshoe-west', 'east');
@@ -1936,28 +1952,28 @@ export function buildMansionInterior(shell = null) {
         const zc = STAIR_WEST.z0 - 0.5 + i * 0.28;
         const cx0 = openDir > 0 ? fx0 : fx0 - grow;
         const cx1 = openDir > 0 ? fx1 + grow : fx1;
-        root.add(box({
+        root.add(siegeWalkable(box({
           size: [cx1 - cx0, 0.16, 0.32],
           pos: [(cx0 + cx1) / 2, y + 0.08, zc],
           mat: M_MARBLE,
           name: 'horseshoe-curtail',
-        }));
-        root.add(box({
+        })));
+        root.add(siegeWalkable(box({
           size: [(cx1 - cx0) * 0.62, 0.02, 0.32],
           pos: [(fx0 + fx1) / 2, y + 0.17, zc],
           mat: M_CARPET_HALL,
           cast: false,
-        }));
+        })));
       }
     }
 
     // ---- The balcony in the middle, cantilevered out over the void.
-    root.add(box({
+    root.add(siegeWalkable(box({
       size: [BALCONY.x1 - BALCONY.x0, 0.24, BALCONY.z1 - BALCONY.z0],
       pos: [(BALCONY.x0 + BALCONY.x1) / 2, UY - 0.12, (BALCONY.z0 + BALCONY.z1) / 2],
       mat: M_MARBLE,
       name: 'balcony-floor',
-    }));
+    })));
     // Corbels under it, so it is held up by something.
     for (const cx of [-2.3, 0, 2.3]) {
       root.add(box({
@@ -2018,7 +2034,7 @@ export function buildMansionInterior(shell = null) {
     // of the screen, from an invisible wall.
     buildSmallStatue(-5.6, 39.0, GY, M_SILVER);
     buildSmallStatue(5.6, 39.0, GY, M_SILVER);
-    rug(0, 50.6, 6.0, 4.2, GY, M_RUG_LIVING);
+    rug(0, 50.6, 6.0, 4.2, GY + 0.01, M_RUG_LIVING, 0, 'foyer-centre-rug');
 
     /* SOMETHING IN THE MAIN ROOM (owner playtest 2026-08-04: "Need something
      * in that main room when you walk in").
@@ -2264,12 +2280,12 @@ export function buildMansionInterior(shell = null) {
     for (let i = 0; i < steps; i++) {
       const z = z0 + depth * (i + 0.5);
       const y = stairY(z0 + depth * i);
-      root.add(box({
+      root.add(siegeWalkable(box({
         size: [treadX1 - treadX0, 0.13, depth + 0.05],
         pos: [(treadX0 + treadX1) / 2, y + 0.065, z],
         mat: M_MARBLE_DK,
         name: 'basement-stair-tread',
-      }));
+      })));
       root.add(box({
         size: [treadX1 - treadX0, (GY - BY) / steps, 0.05],
         pos: [(treadX0 + treadX1) / 2, y - (GY - BY) / (steps * 2), z - depth / 2],
@@ -2482,11 +2498,19 @@ export function buildMansionInterior(shell = null) {
     const r = LIVING;
     trimRoom(r, GY, UY - 0.3);
     topping(r.x0, r.x1, GY + 0.01, r.z0, r.z1, M_PARQUET, 'living-floor');
-    rug(-12.5, 47.5, 6.4, 5.4, GY, M_RUG_LIVING);
+    rug(-12.5, 47.5, 6.4, 5.4, GY + 0.01, M_RUG_LIVING, 0, 'living-room-rug');
 
     function makeCouch(x, z, yaw, len = 2.4) {
       const g = new THREE.Group();
       g.add(box({ size: [len, 0.45, 0.95], pos: [0, 0.3, 0], mat: M_FABRIC_COUCH, name: 'couch-base' }));
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        g.add(box({
+          size: [0.12, 0.055, 0.12],
+          pos: [sx * (len / 2 - 0.18), 0.0475, sz * 0.32],
+          mat: M_WOOD_DK,
+          name: 'couch-foot',
+        }));
+      }
       g.add(box({ size: [len, 0.62, 0.2], pos: [0, 0.72, -0.37], mat: M_FABRIC_COUCH, name: 'couch-back' }));
       g.add(box({ size: [0.2, 0.38, 0.95], pos: [-len / 2 + 0.1, 0.58, 0], mat: M_LEATHER_RED }));
       g.add(box({ size: [0.2, 0.38, 0.95], pos: [len / 2 - 0.1, 0.58, 0], mat: M_LEATHER_RED }));
@@ -2501,14 +2525,18 @@ export function buildMansionInterior(shell = null) {
       solid(x - hx, x + hx, GY, GY + 0.95, z - hz, z + hz);
       return g;
     }
-    makeCouch(-12.5, 45.3, 0);
+    /* Keep the authored west-flank aisle south of the seating group.  At
+     * z45.3 the couch collider reached to44.76 and caught a full rendered
+     * shoulder even on the route's clear side; 700 mm north preserves the
+     * conversation grouping and opens a real body-width passage. */
+    makeCouch(-12.5, 46.0, 0);
     makeCouch(-15.1, 47.8, Math.PI / 2, 2.1);
     makeCouch(-9.9, 47.8, -Math.PI / 2, 2.1);
 
     const M_PILLOW_GOLD = mat({ map: fabricTex('#c9a13a'), roughness: 0.85 });
     const M_PILLOW_CREAM = mat({ map: fabricTex('#e8ddc4'), roughness: 0.85 });
     for (const [px, pz, yaw, pmat] of [
-      [-13.3, 45.5, 0.32, M_PILLOW_GOLD], [-11.7, 45.5, -0.22, M_PILLOW_CREAM],
+      [-13.3, 46.2, 0.32, M_PILLOW_GOLD], [-11.7, 46.2, -0.22, M_PILLOW_CREAM],
       [-15.1, 47.4, Math.PI / 2 + 0.28, M_PILLOW_CREAM], [-9.9, 48.2, -Math.PI / 2 - 0.24, M_PILLOW_GOLD],
       [-15.1, 48.4, Math.PI / 2 - 0.2, M_PILLOW_GOLD],
     ]) {
@@ -2785,7 +2813,7 @@ export function buildMansionInterior(shell = null) {
     const r = LOUNGE;
     trimRoom(r, GY, UY - 0.3);
     topping(r.x0, r.x1, GY + 0.01, r.z0, r.z1, M_PARQUET, 'lounge-floor');
-    rug(12.5, 45.5, 5.4, 4.4, GY, M_RUG_LIVING);
+    rug(12.5, 45.5, 5.4, 4.4, GY + 0.01, M_RUG_LIVING, 0, 'lounge-south-rug');
 
     // ---- Billiard table. Moved 3 m south now the room has a front half:
     // it sits centred between the three bay arches rather than crowded up
@@ -2928,7 +2956,7 @@ export function buildMansionInterior(shell = null) {
     ]) topping(ix0, ix1, GY + 0.02, iz0, iz1, M_MARBLE_DK, 'bay-border');
     trimRoom(bay, GY, GY + 3.9);
     // Coffered ceiling over the bay, in gold.
-    topping(bay.x0, bay.x1, GY + 3.98, bay.z0, bay.z1, M_WALL_WARM, 'bay-ceiling');
+    topping(bay.x0, bay.x1, GY + 3.98, bay.z0, bay.z1, M_WALL_WARM, 'bay-ceiling', false);
     for (let i = 0; i < 5; i++) {
       root.add(box({
         size: [bay.x1 - bay.x0, 0.12, 0.14],
@@ -3147,7 +3175,7 @@ export function buildMansionInterior(shell = null) {
      * One shared 30 mm mount datum seats both pieces on the plaster. */
     const loungeCowboy = wallArt(
       'mansion.lounge.cowboy',
-      r.x0 + 0.03,
+      r.x0 + FRAME_REAR,
       GY + 2.4,
       40.0,
       Math.PI / 2,
@@ -3157,7 +3185,8 @@ export function buildMansionInterior(shell = null) {
         title: ['AUSTIN'], footer: 'MAJOR', ink: '#d8b23a', bg: '#1c1420',
       }),
     );
-    sconce(r.x0 + 0.03, GY + 3.25, 40.0, Math.PI / 2, 1.9);
+    /* Keep the lower backplate flange 10 mm clear of the frame's top bezel. */
+    sconce(r.x0 + 0.03, GY + 3.27, 40.0, Math.PI / 2, 1.9);
 
     /* ---- The set on the bar, and the television at the room's front end.
      * Both are cabinets here; core/radio.js and core/tv.js drive them from
@@ -3194,7 +3223,7 @@ export function buildMansionInterior(shell = null) {
     root.add(cylinder({ r: 0.46, h: 0.06, pos: [11.5, GY + 0.44, 39.7], mat: M_MARBLE }));
     root.add(cylinder({ r: 0.14, h: 0.42, pos: [11.5, GY + 0.21, 39.7], mat: M_BRONZE }));
     solid(11.04, 11.96, GY, GY + 0.47, 39.24, 40.16);
-    rug(11.6, 39.6, 4.2, 3.6, GY, M_RUG_LIVING);
+    rug(11.6, 39.6, 4.2, 3.6, GY + 0.01, M_RUG_LIVING, 0, 'lounge-seating-rug');
 
     curtains('z', r.z0 + 0.2, 12.5, GY + 0.1, 6.0, 3.6);
     ceilingLight(12.4, 40.0, UY - 0.4, 0xffdca0, 5.0, 15);
@@ -3516,26 +3545,25 @@ export function buildMansionInterior(shell = null) {
         }));
       }
     }
-    const majorBanner = flatArt('mansion.ballroom.major', {
-      x: r.x0 + 0.16,
-      y: GY + 3.3,
-      z: 72.9,
-      rotY: Math.PI / 2,
-      w: 3.4,
-      h: 1.14,
-      material: mat({
-        map: squatchArt('mansion-ballroom-major', {
-          title: ['AUSTIN MAJOR'], footer: 'THE HOUSE WENT', ink: '#c9a2ff', bg: '#1a1226',
-        }),
-        roughness: 0.9,
-        unique: true,
+    /* This used to be an unframed plane 160 mm off the west wall, with a
+     * disconnected rod above it. The first framed pass put its right edge
+     * through a west-wall pilaster; the next clear-looking north-wall box was
+     * behind the stage curtains. The south-east wall bay is physically clear,
+     * outside the central doorway, and directly readable from the dance floor. */
+    const majorBanner = wallArt(
+      'mansion.ballroom.major',
+      5.0,
+      GY + 3.3,
+      r.z0 + FRAME_REAR,
+      0,
+      3.4,
+      1.14,
+      squatchArt('mansion-ballroom-major', {
+        title: ['AUSTIN MAJOR'], footer: 'THE HOUSE WENT', ink: '#c9a2ff', bg: '#1a1226',
       }),
-    });
-    root.add(cylinder({
-      r: 0.03, h: 3.6, pos: [r.x0 + 0.12, GY + 3.92, 72.9], mat: M_GOLD, rotX: Math.PI / 2,
-    }));
+    );
     return {
-      stageLight, stageStack, backdrop: stageBackdrop, major: majorBanner,
+      stageLight, stageStack, backdrop: stageBackdrop, major: majorBanner.art,
     };
   }
   const ballroomProps = buildBallroom();
@@ -3547,7 +3575,7 @@ export function buildMansionInterior(shell = null) {
     const r = DINING;
     trimRoom(r, GY, UY - 0.3);
     topping(r.x0, r.x1, GY + 0.01, r.z0, r.z1, M_PARQUET, 'dining-floor');
-    rug(-12.5, 66, 6.4, 8.4, GY, M_RUG_LIVING);
+    rug(-12.5, 66, 6.4, 8.4, GY + 0.01, M_RUG_LIVING, 0, 'dining-room-rug');
 
     const tx = -12.5;
     root.add(box({
@@ -4259,7 +4287,7 @@ export function buildMansionInterior(shell = null) {
   function buildGallery() {
     const r = GALLERY;
     topping(r.x0, r.x1, UY + 0.01, r.z0, r.z1, M_PARQUET, 'gallery-floor');
-    rug(0, 50.5, 26, 3.0, UY, M_CARPET_HALL);
+    rug(0, 50.5, 26, 3.0, UY + 0.01, M_CARPET_HALL, 0, 'gallery-runner-rug');
     trimRoom(r, UY, UCY - 0.3);
 
     // Portraits of the founders down the gallery's north wall, between doors.
@@ -4322,9 +4350,11 @@ export function buildMansionInterior(shell = null) {
      * masonry bay opposite `galleryPride`; it is the same gallery wall, just
      * east of the stair rather than hanging over it. */
     const galleryRoster = flatArt('mansion.gallery.roster', {
-      x: 11.4,
+      x: 11.0,
       y: UY + 2.05,
-      z: Z_GALLERY_S + 0.18,
+      /* The gold backing's rear is on the gallery-visible wall face and the
+       * print sits 4.5 mm ahead of its front, like makeFrame's art layer. */
+      z: Z_GALLERY_S + HT + FRAME_REAR + 0.004,
       rotY: 0,
       w: 3.2,
       h: 1.28,
@@ -4337,9 +4367,15 @@ export function buildMansionInterior(shell = null) {
       }),
     });
     root.add(box({
-      size: [3.4, 1.46, 0.05], pos: [11.4, UY + 2.05, Z_GALLERY_S + 0.14], mat: M_GOLD, cast: false,
+      size: [3.4, 1.46, 0.035],
+      pos: [11.0, UY + 2.05, Z_GALLERY_S + HT + 0.0175],
+      mat: M_GOLD,
+      cast: false,
     }));
-    sconce(11.4, UY + 3.05, Z_GALLERY_S + 0.2, 0, 1.9);
+    /* The backplate reaches 30 mm behind this datum. Seat that rear face on
+     * the same z=48.15 masonry plane as the roster frame: +0.20 left a
+     * visible 20 mm air gap when approached from the east stair. */
+    sconce(11.0, UY + 3.05, Z_GALLERY_S + 0.18, 0, 1.9);
 
     const lights = [];
     for (const px of [-12, -4, 4, 12]) {
@@ -4368,7 +4404,7 @@ export function buildMansionInterior(shell = null) {
       [r.x0 + 0.7, r.x0 + 0.95, r.z0 + 0.7, r.z1 - 0.7],
       [r.x1 - 0.95, r.x1 - 0.7, r.z0 + 0.7, r.z1 - 0.7],
     ]) topping(bx0, bx1, UY + 0.02, bz0, bz1, M_MARBLE_DK, 'conference-border');
-    rug(0, 58, 11.4, 6.6, UY, M_CARPET_HALL);
+    rug(0, 58, 11.4, 6.6, UY + 0.01, M_CARPET_HALL, 0, 'conference-room-rug');
 
     /* Panelled walls: this is the room the family is photographed in.
      *
@@ -4629,11 +4665,14 @@ export function buildMansionInterior(shell = null) {
       squatchArt('mansion-conference-crest', {
         title: ['SILVER', 'SASQUATCHES'], footer: 'EST. THE OLD DAYS', ink: '#d8b23a', bg: '#141018',
       }));
+    /* The complete frame belongs inside one raised-panel bay, not buried
+     * through the panel, bead mouldings and dado. Centre it between the
+     * panel's four beads and seat its rear on the visible panel face. */
     const conferenceStacks = wallArt(
       'mansion.conference.stacks',
-      r.x1 - 0.14,
-      UY + 2.4,
-      59.9,
+      r.x1 - 0.06 - FRAME_REAR,
+      UY + 2.0,
+      59.8,
       -Math.PI / 2,
       1.15,
       1.15,
@@ -4645,7 +4684,8 @@ export function buildMansionInterior(shell = null) {
     /* Coffered ceiling, in gold on the warm plaster: a beam grid over the
      * middle of the room with the two fittings hung inside it. A boardroom
      * with a flat ceiling and two lamps on a stick is a meeting room. */
-    topping(r.x0 + 0.6, r.x1 - 0.6, UCY - 0.16, r.z0 + 0.6, r.z1 - 0.6, M_WALL_WARM, 'conference-ceiling');
+    topping(r.x0 + 0.6, r.x1 - 0.6, UCY - 0.16, r.z0 + 0.6, r.z1 - 0.6,
+      M_WALL_WARM, 'conference-ceiling', false);
     for (const bx of [-5.4, -1.8, 1.8, 5.4]) {
       root.add(box({
         size: [0.16, 0.2, r.z1 - r.z0 - 1.2], pos: [bx, UCY - 0.26, 58], mat: M_GOLD, cast: false, name: 'conference-coffer',
@@ -4735,8 +4775,8 @@ export function buildMansionInterior(shell = null) {
       [r.x0 + 0.6, r.x0 + 0.85, r.z0 + 0.6, r.z1 - 0.6],
       [r.x1 - 0.85, r.x1 - 0.6, r.z0 + 0.6, r.z1 - 0.6],
     ]) topping(bx0, bx1, UY + 0.02, bz0, bz1, M_MARBLE_DK, 'office-border');
-    rug(0, 70.4, 10.5, 7.6, UY, M_RUG_LIVING);
-    rug(-4.9, 72.6, 4.4, 3.4, UY + 0.004, M_CARPET_HALL);
+    rug(0, 70.4, 10.5, 7.6, UY + 0.01, M_RUG_LIVING, 0, 'office-main-rug');
+    rug(-4.9, 72.6, 4.4, 3.4, UY + 0.01, M_CARPET_HALL, 0, 'office-small-rug');
 
     /* Panelling, floor to cornice, on both long walls: a fielded panel in dark
      * wood inside a gilt bead, with a dado rail over the run. It used to be
@@ -5468,7 +5508,7 @@ export function buildMansionInterior(shell = null) {
        * cornice and 230 mm from the adjacent BIG UNCLE LOU frame. */
       -6.0,
       UY + 2.4,
-      r.z0 + 0.2,
+      r.z0 + FRAME_REAR,
       0,
       0.86,
       1.03,
@@ -5550,7 +5590,7 @@ export function buildMansionInterior(shell = null) {
       [r.x0 + 0.5, hallX, r.z0 + 0.5, r.z1 - 0.5],
       [hallX, r.x1 - 0.5, r.z0 + 0.5, hallZ0],
       [hallX, r.x1 - 0.5, hallZ1, r.z1 - 0.5],
-    ]) topping(cx0, cx1, UCY - 0.18, cz0, cz1, M_WALL_WARM, 'office-ceiling');
+    ]) topping(cx0, cx1, UCY - 0.18, cz0, cz1, M_WALL_WARM, 'office-ceiling', false);
     for (const bx of [-5.6, -1.9, 1.9, 5.6]) {
       root.add(box({
         size: [0.18, 0.22, r.z1 - r.z0 - 1.0], pos: [bx, UCY - 0.29, (r.z0 + r.z1) / 2], mat: M_GOLD, cast: false, name: 'office-coffer',
@@ -5814,12 +5854,12 @@ export function buildMansionInterior(shell = null) {
         const top = yBase + k * RISER;
         const near = dir > 0 ? rect.z0 + (k - 1) * GOING : rect.z1 - (k - 1) * GOING;
         const zc = near + dir * GOING / 2;
-        root.add(box({
+        root.add(siegeWalkable(box({
           size: [w, 0.12, GOING + 0.04],
           pos: [cx, top - 0.06, zc],
           mat: M_MARBLE,
           name: `${tag}-tread`,
-        }));
+        })));
         /* Bottom of the riser on the tread below it (and, for the first
          * one, on the floor), rather than 60 mm under it in mid-air. */
         root.add(box({
@@ -5837,13 +5877,13 @@ export function buildMansionInterior(shell = null) {
           cast: false,
           name: `${tag}-nosing`,
         }));
-        root.add(box({
+        root.add(siegeWalkable(box({
           size: [w * 0.66, 0.015, GOING + 0.04],
           pos: [cx, top + 0.012, zc],
           mat: M_SUITE_VELVET,
           cast: false,
           name: `${tag}-runner`,
-        }));
+        })));
       }
       /* Two honest sloping stringers, not one flat full-width black box.
        * That old slab was visible between every tread and read as a giant
@@ -5869,12 +5909,12 @@ export function buildMansionInterior(shell = null) {
 
     // The half-landing, and the marble lobby at the foot.
     const L = SUITE_HALF_LANDING;
-    root.add(box({
+    root.add(siegeWalkable(box({
       size: [L.x1 - L.x0, 0.16, L.z1 - L.z0 + LAP],
       pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.08, (L.z0 + L.z1) / 2 + LAP / 2],
       mat: M_MARBLE,
       name: 'suite-stair-landing',
-    }));
+    })));
     root.add(box({
       size: [L.x1 - L.x0 - 0.14, 0.16, L.z1 - L.z0 + LAP - 0.14],
       pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.2, (L.z0 + L.z1) / 2 + LAP / 2],
@@ -6181,7 +6221,8 @@ export function buildMansionInterior(shell = null) {
 
     /* ---- Ceiling: a shallow tray inside the cove, in warm plaster. */
     topping(r.x0 + coveInset + 0.12, r.x1 - coveInset - 0.12, SCY - 0.18,
-      r.z0 + coveInset + 0.12, r.z1 - coveInset - 0.12, M_WALL_WARM, 'suite-ceiling');
+      r.z0 + coveInset + 0.12, r.z1 - coveInset - 0.12,
+      M_WALL_WARM, 'suite-ceiling', false);
 
     /* ================================================================ */
     /* THE CANOPY BED                                                    */
@@ -9601,7 +9642,8 @@ export function buildMansionInterior(shell = null) {
       root.add(pw);
       solid(px - 0.32, px + 0.32, UY, UY + 1.4, pz - 0.32, pz + 0.32);
     }
-    rug(cx, cz + 0.2, 1.2, 0.8, UY, mat({ color: 0xcdd8d2, roughness: 1 }));
+    rug(cx, cz + 0.2, 1.2, 0.8, UY + 0.02,
+      mat({ color: 0xcdd8d2, roughness: 1 }), 0, `${name}-mat`);
     /* Lighting: the flush fitting stays as the room's key, with two small
      * downlights over the shower and the tub so neither is a dark corner. */
     const key = ceilingLight(cx, cz, UCY - 0.35, 0xf2f6ff, 4.2, 12);
@@ -10104,7 +10146,7 @@ const M_GOLD_BAR = mat({
     topping(r.x0 + 1.1, r.x1 - 1.1, GY + 0.02, r.z0 + 1.1, r.z1 - 1.1, M_MARBLE, 'trophy-floor-inner');
     trimRoom(r, GY, CEIL);
     // Long crimson runner from the arcade to the foot of the dais.
-    rug(cx, 49.6, 3.0, 11.6, GY, M_CARPET_HALL);
+    rug(cx, 49.6, 3.0, 11.6, GY + 0.02, M_CARPET_HALL, 0, 'trophy-hall-runner');
 
     /* The order: engaged columns down both long walls, a full entablature
      * over them, and a coffered ceiling between. A hall this size with flat
@@ -10343,13 +10385,20 @@ const M_GOLD_BAR = mat({
      * living room's own glazing runs z:47.6..50.8 through it. A portrait at
      * 48.4 would be hung across a window from the far side -- caught by the
      * art sweep, which does not care which room a piece thinks it is in. */
-    wallArt('trophy-founder-east', r.x1 - 0.14, GY + 2.7, 52.0, -Math.PI / 2, 1.1, 1.5,
+    wallArt('trophy-founder-east', r.x1 - 0.14, GY + 2.7, 53.75, -Math.PI / 2, 1.1, 1.5,
       makePortraitTexture('includer-shubes', 'THE SHUBENATOR', '#221a18'));
 
     /* Display cases down the long walls: the silverware that is not the point
      * of the room, kept where it can watch the thing that is. */
-    for (const [dz, label] of [[44.6, 'A'], [51.8, 'B']]) {
-      makeDisplayCase(r.x0 + 0.55, GY, dz, Math.PI / 2, 2.2, 2.1, 0.6, (g, w, h, d) => {
+    /* Case A used to stand directly behind the designated west breach pane,
+     * leaving no body-width path through the glass.  Keep both four-trophy
+     * cases, but put A in the clear east-wall bay between the two living-room
+     * windows; B remains on the west wall. */
+    for (const [caseX, dz, yaw, label] of [
+      [r.x1 - 0.55, 52.0, -Math.PI / 2, 'A'],
+      [r.x0 + 0.55, 51.8, Math.PI / 2, 'B'],
+    ]) {
+      makeDisplayCase(caseX, GY, dz, yaw, 2.2, 2.1, 0.6, (g, w, h, d) => {
         const shelfHeight = 0.05;
         const shelfY = h * 0.34;
         g.add(box({
@@ -10367,7 +10416,7 @@ const M_GOLD_BAR = mat({
         void label;
       });
       const caseLight = new THREE.PointLight(0xffe6c0, 3.2, 6, 2);
-      caseLight.position.set(r.x0 + 1.2, GY + 1.9, dz);
+      caseLight.position.set(caseX + (label === 'A' ? -0.65 : 0.65), GY + 1.9, dz);
       root.add(caseLight);
     }
     // A visitors' book on a lectern, at the mouth of the hall.
@@ -10594,7 +10643,8 @@ const M_GOLD_BAR = mat({
 
     const winterAlmighty = wallArt(
       'mansion.winter.almighty',
-      r.x1 - 0.48,
+      /* The wing's inner finish is 400 mm west of the main-block datum. */
+      r.x1 - 0.4 - FRAME_REAR,
       GY + 2.7,
       66.2,
       -Math.PI / 2,
@@ -10731,7 +10781,8 @@ const M_GOLD_BAR = mat({
     const cz = (r.z0 + r.z1) / 2;
     topping(r.x0, r.x1, BY + 0.012, r.z0, r.z1, concreteMaterial(r.x1 - r.x0, r.z1 - r.z0), 'cellar-hall-floor');
     // A runner down the middle, so it is a hallway and not a plant room.
-    rug(0, cz, r.x1 - r.x0 - 2.4, 1.9, BY, M_CARPET_HALL);
+    rug(0, cz, r.x1 - r.x0 - 2.4, 1.9, BY + 0.012,
+      M_CARPET_HALL, 0, 'cellar-hall-runner');
     // Brick dado to waist height on both long walls, plaster above.
     /* Notched round every one of the five doorways this corridor serves --
      * four rooms on its north side and the armory on its south. */
@@ -10821,26 +10872,26 @@ const M_GOLD_BAR = mat({
      * vault-mark clearance check stayed green. Lift this picture 210 mm: its
      * real bottom now clears the rail by 52 mm and its top retains 117 mm of
      * air below the cellar ceiling. */
-    const cellarCrest = flatArt('mansion.cellar.crest', {
-      x: 10.5,
-      y: BY + 1.81,
-      z: r.z0 + 0.08,
-      rotY: 0,
-      w: 0.95,
-      h: 1.2,
-      material: mat({
-        map: squatchArt('mansion-cellar-crest', {
-          title: ['LOWER', 'LEVEL'], footer: 'MEMBERS AND GUESTS', ink: '#c8a24a', bg: '#141014',
-        }),
-        roughness: 0.95,
-        unique: true,
+    const cellarCrest = wallArt(
+      'mansion.cellar.crest',
+      10.5,
+      /* The delivered 3:4 photograph is 1.2667 m high at 0.95 m wide. Lift
+       * the now-matching full frame 35 mm so its bezel retains 51.7 mm over
+       * the white rail instead of solving aspect fit by crossing the trim. */
+      BY + 1.845,
+      r.z0 + FRAME_REAR,
+      0,
+      0.95,
+      0.95 / (3 / 4),
+      squatchArt('mansion-cellar-crest', {
+        title: ['LOWER', 'LEVEL'], footer: 'MEMBERS AND GUESTS', ink: '#c8a24a', bg: '#141014',
       }),
-    });
+    );
     const cellarBus = wallArt(
       'mansion.cellar.bus',
       -10.5,
       BY + 1.75,
-      r.z0 + 0.08,
+      r.z0 + FRAME_REAR,
       0,
       0.72,
       0.96,
@@ -10865,7 +10916,7 @@ const M_GOLD_BAR = mat({
       }));
     }
     return {
-      crest: cellarCrest, bus: cellarBus, prospectSign, lights,
+      crest: cellarCrest.art, bus: cellarBus, prospectSign, lights,
     };
   }
   const cellarHallProps = buildCellarHall();
@@ -11121,7 +11172,7 @@ const M_GOLD_BAR = mat({
     guestCrest.name = 'mansion.guest.crest';
     const guestDog = wallArt(
       'mansion.guest.dog',
-      r.x1 - 0.14,
+      r.x1 - FRAME_REAR,
       BY + 1.7,
       72.6,
       -Math.PI / 2,
@@ -11325,23 +11376,23 @@ const M_GOLD_BAR = mat({
       lights.push(l);
       aisleLights.push(l);
     }
-    const theatreLockup = flatArt('mansion.theatre.lockup', {
-      x: r.x1 - 0.14,
-      y: BY + 1.7,
-      z: 73.5,
-      rotY: -Math.PI / 2,
-      w: 0.95,
-      h: 0.95,
-      material: mat({
-        map: squatchArt('mansion-theatre-lockup', {
-          title: ['AUSTIN'], footer: 'MAJOR', ink: '#c9a2ff', bg: '#0f0b16',
-        }),
-        roughness: 0.9,
-        unique: true,
+    const theatreLockup = wallArt(
+      'mansion.theatre.lockup',
+      /* `lineRoom(..., 0.09)` brings the visible acoustic face 90 mm in. */
+      r.x1 - 0.09 - FRAME_REAR,
+      /* The acoustic liner ends at y=-0.600; this keeps the full bezel,
+       * rather than only the square print, on that visible finish. */
+      BY + 1.69,
+      73.5,
+      -Math.PI / 2,
+      0.95,
+      0.95,
+      squatchArt('mansion-theatre-lockup', {
+        title: ['AUSTIN'], footer: 'MAJOR', ink: '#c9a2ff', bg: '#0f0b16',
       }),
-    });
+    );
     return {
-      screen, banner: theatreBanner, lockup: theatreLockup, seats, lights, houseLights, aisleLights,
+      screen, banner: theatreBanner, lockup: theatreLockup.art, seats, lights, houseLights, aisleLights,
     };
   }
   const theatreProps = buildTheatre();
@@ -11627,23 +11678,21 @@ const M_GOLD_BAR = mat({
     rgbGlow.position.set(cx, BY + 1.1, cz);
     root.add(rgbGlow);
     lights.push(rgbGlow);
-    const lanDenver = flatArt('mansion.lan.denver', {
-      x: r.x1 - 0.14,
-      y: BY + 1.5,
-      z: 73.2,
-      rotY: -Math.PI / 2,
-      w: 0.9,
-      h: 0.9,
-      material: mat({
-        map: squatchArt('mansion-lan-denver', {
-          title: ['DENVER'], footer: '2026', ink: '#7fd0ff', bg: '#101625',
-        }),
-        roughness: 0.9,
-        unique: true,
+    const lanDenver = wallArt(
+      'mansion.lan.denver',
+      /* `lineRoom(..., 0.04)` is the actual visible blue wall finish. */
+      r.x1 - 0.04 - FRAME_REAR,
+      BY + 1.5,
+      73.2,
+      -Math.PI / 2,
+      0.9,
+      0.9,
+      squatchArt('mansion-lan-denver', {
+        title: ['DENVER'], footer: '2026', ink: '#7fd0ff', bg: '#101625',
       }),
-    });
+    );
     return {
-      stations, chairBacks, banner: lanBanner, denver: lanDenver, lights,
+      stations, chairBacks, banner: lanBanner, denver: lanDenver.art, lights,
       fridge, fridgeDrinks, zynTins, bong,
     };
   }
@@ -12024,20 +12073,91 @@ const M_GOLD_BAR = mat({
   /* where it beat every tread on the way down.                           */
   /* ================================================================== */
   const STEP_TOLERANCE = 0.85;
+  const FLOOR_BUCKET_SIZE = 2;
+  const floorRay = new THREE.Raycaster();
+  const floorRayOrigin = new THREE.Vector3();
+  const floorRayDown = new THREE.Vector3(0, -1, 0);
+  const floorNormal = new THREE.Vector3();
+  const floorBounds = new THREE.Box3();
+  const floorBuckets = new Map();
+  let floorIndexReady = false;
+
+  function effectiveSupportVisible(object) {
+    for (let current = object; current; current = current.parent) {
+      if (current.visible === false) return false;
+    }
+    return true;
+  }
+
+  function buildFloorIndex() {
+    if (floorIndexReady) return;
+    root.updateMatrixWorld(true);
+    root.traverse((object) => {
+      if (!object.isMesh || object.userData?.siegeWalkableSupport !== true
+          || !effectiveSupportVisible(object)) return;
+      floorBounds.setFromObject(object);
+      if (floorBounds.isEmpty()) return;
+      const x0 = Math.floor((floorBounds.min.x - 1e-6) / FLOOR_BUCKET_SIZE);
+      const x1 = Math.floor((floorBounds.max.x + 1e-6) / FLOOR_BUCKET_SIZE);
+      const z0 = Math.floor((floorBounds.min.z - 1e-6) / FLOOR_BUCKET_SIZE);
+      const z1 = Math.floor((floorBounds.max.z + 1e-6) / FLOOR_BUCKET_SIZE);
+      for (let ix = x0; ix <= x1; ix += 1) {
+        for (let iz = z0; iz <= z1; iz += 1) {
+          const key = `${ix},${iz}`;
+          const bucket = floorBuckets.get(key) ?? [];
+          if (!floorBuckets.has(key)) floorBuckets.set(key, bucket);
+          bucket.push(object);
+        }
+      }
+    });
+    floorIndexReady = true;
+  }
+
+  /** The visible mesh is the floor contract.  The old arithmetic treated
+   * every staircase as a ramp and every decorated slab as its bare datum,
+   * putting feet 60--221 mm through treads and 20--22 mm through finishes.
+   * This bounded static index samples only builder-tagged support, never a
+   * prop/body/VFX heuristic, and therefore follows rugs, runners and boxes. */
+  function renderedFloorAt(x, z, y) {
+    buildFloorIndex();
+    const bucket = floorBuckets.get(
+      `${Math.floor(x / FLOOR_BUCKET_SIZE)},${Math.floor(z / FLOOR_BUCKET_SIZE)}`,
+    ) ?? [];
+    if (!bucket.length) return null;
+    floorRayOrigin.set(x, y + STEP_TOLERANCE + 1e-4, z);
+    floorRay.set(floorRayOrigin, floorRayDown);
+    floorRay.near = 0;
+    floorRay.far = 30;
+    for (const hit of floorRay.intersectObjects(bucket, false)) {
+      if (hit.point.y > y + STEP_TOLERANCE + 1e-6
+          || !effectiveSupportVisible(hit.object) || !hit.face) continue;
+      const material = Array.isArray(hit.object.material)
+        ? hit.object.material[hit.face.materialIndex]
+        : hit.object.material;
+      if (!material || material.visible === false || material.colorWrite === false
+          || (material.transparent === true && !(material.opacity > 0.001))) continue;
+      floorNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+      if (floorNormal.y >= 0.75) return hit.point.y;
+    }
+    return null;
+  }
+
   function floorAt(x, z, y) {
+    const rendered = renderedFloorAt(x, z, y);
+    if (rendered !== null) return rendered;
     const cands = [];
     const inShaft = inRect(BASEMENT_STAIR, x, z);
     const inBuilding = inRect(BUILDING, x, z);
 
-    if (inRect(BASEMENT_ROOM, x, z)) cands.push(BY);
+    if (inRect(BASEMENT_ROOM, x, z)) cands.push(BY + 0.022);
     /* The lower level, offered over its whole FOOTPRINT rather than room by
      * room. A rect per room leaves every wall band and every threshold with
      * no candidate at all, and floorAt's "nothing here" answer is the podium
      * four metres overhead -- so a doorway would fire you up into the
      * ballroom. The rooms' own rects are for the verifier; this is for feet. */
-    if (inRect(BASEMENT_WING, x, z)) cands.push(BY);
+    if (inRect(BASEMENT_WING, x, z)) cands.push(BY + 0.022);
     // ...and the theatre's rear riser, which is stepped up off that floor.
-    if (inRect(THEATRE_TIER, x, z)) cands.push(BY + THEATRE_TIER.y);
+    if (inRect(THEATRE_TIER, x, z)) cands.push(BY + THEATRE_TIER.y + 0.022);
     if (inShaft) {
       const t = THREE.MathUtils.clamp(
         (z - BASEMENT_STAIR.z0) / (BASEMENT_STAIR.z1 - BASEMENT_STAIR.z0), 0, 1,
@@ -12050,11 +12170,11 @@ const M_GOLD_BAR = mat({
        * of its own, so both have to be offered here as well -- without this
        * their floors resolve to street grade and you drop 1.2 m walking
        * through the archway. */
-      cands.push(GY);
+      cands.push(GY + 0.02);
     }
 
-    if (inBuilding && !inRect(FOYER_VOID, x, z)) cands.push(UY); // the upper slab
-    if (inRect(BALCONY, x, z)) cands.push(UY);
+    if (inBuilding && !inRect(FOYER_VOID, x, z)) cands.push(UY + 0.02); // finished upper slab
+    if (inRect(BALCONY, x, z)) cands.push(UY + 0.02);
     for (const flight of [STAIR_WEST, STAIR_EAST]) {
       if (inRect(flight, x, z)) {
         const t = THREE.MathUtils.clamp((z - flight.z0) / (flight.z1 - flight.z0), 0, 1);
@@ -12077,7 +12197,7 @@ const M_GOLD_BAR = mat({
      * Each flight is a straight lerp between the heights its own treads
      * actually reach, and `buildSecretStair` hands `rakingRail` the same two
      * functions for the handrails — one arithmetic, two consumers. */
-    if (inRect(MASTER_SUITE, x, z) && !inRect(SUITE_STAIR_WELL, x, z)) cands.push(SUITE_Y);
+    if (inRect(MASTER_SUITE, x, z) && !inRect(SUITE_STAIR_WELL, x, z)) cands.push(SUITE_Y + 0.031);
     if (inRect(SUITE_FLIGHT_A, x, z)) {
       const t = THREE.MathUtils.clamp(
         (z - SUITE_FLIGHT_A.z0) / (SUITE_FLIGHT_A.z1 - SUITE_FLIGHT_A.z0), 0, 1,

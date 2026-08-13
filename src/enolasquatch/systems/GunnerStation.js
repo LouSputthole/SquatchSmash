@@ -48,6 +48,7 @@ const ELEVATION = { down: -0.38, up: 0.58 };
 const MUZZLE_SPEED = 860;
 
 const _eye = new THREE.Vector3();
+const _eyeLocal = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -130,10 +131,15 @@ export class GunnerStation {
   pointAt(target) {
     this.aircraft.group.updateWorldMatrix(true, false);
     const local = this.aircraft.group.worldToLocal(target.clone());
-    const seat = this.aircraft.anchors.rearGunSeat;
-    const dx = local.x - seat.x;
-    const dy = local.y - (seat.y + 0.52);
-    const dz = local.z - (seat.z - 0.3);
+    const eye = this.aircraft.rearGunEyeLocal?.(_eyeLocal)
+      ?? _eyeLocal.set(
+        this.aircraft.anchors.rearGunSeat.x,
+        this.aircraft.anchors.rearGunSeat.y + 0.52,
+        this.aircraft.anchors.rearGunSeat.z - 0.3,
+      );
+    const dx = local.x - eye.x;
+    const dy = local.y - eye.y;
+    const dz = local.z - eye.z;
     const wantYaw = Math.atan2(-dx, -dz);
     const wantPitch = Math.atan2(dy, Math.hypot(dx, dz));
     this.yaw = clamp(wantYaw, -TRAVERSE, TRAVERSE);
@@ -149,6 +155,7 @@ export class GunnerStation {
 
   /** The gunner's eye, in world space. */
   eyeWorld(out = new THREE.Vector3()) {
+    if (this.aircraft.rearGunEyeWorld) return this.aircraft.rearGunEyeWorld(out);
     const seat = this.aircraft.anchors.rearGunSeat;
     out.set(seat.x, seat.y + 0.52, seat.z - 0.3);
     this.aircraft.group.updateWorldMatrix(true, false);
@@ -244,10 +251,16 @@ export class GunnerStation {
     this._kick = 1;
     this.onShot?.();
 
-    this.eyeWorld(_eye);
     this.aimWorld(_dir);
-    // The muzzle is a couple of metres out in front of the glass.
-    _muzzle.copy(_eye).addScaledVector(_dir, 2.6);
+    /* Fire from the steel the player can see, not an eye-relative estimate.
+     * The old 2.6 m eye offset agreed only at neutral (and was still 0.46 m
+     * short); at the elevation stops it separated from the modeled flashes by
+     * 1.45..2.85 m. */
+    if (this.aircraft.rearGunMuzzleWorld) this.aircraft.rearGunMuzzleWorld(_muzzle);
+    else {
+      this.eyeWorld(_eye);
+      _muzzle.copy(_eye).addScaledVector(_dir, 2.6);
+    }
     // Dispersion: a real cone, wider as the barrels heat up.
     const spread = 0.0022 + this.heat * 0.005;
     _dir.x += (Math.random() - 0.5) * spread * 2;

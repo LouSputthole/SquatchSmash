@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import * as THREE from 'three';
 
 import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
+import {
+  MANSION_ART_EVIDENCE_SHOTS,
+  MANSION_OWNER_PICTURE_COUNT,
+} from '../tools/mansion-art-evidence-contract.mjs';
 
 ensureThreeShim();
 ensureDomShim();
@@ -44,6 +49,93 @@ function resolvedArt(slot, aspect) {
     file: `${slot}.test-art`,
   }]]);
 }
+
+function boxCentre(object) {
+  return new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3());
+}
+
+test('Mansion ground and interior floor resolvers return the actual rendered support tops', () => {
+  const frontEntry = grounds.props.frontEntry;
+  assert.equal(typeof frontEntry.groundAt, 'function',
+    'the shared front-entry geometry publishes no exact discrete support resolver');
+  const frontTreads = descendantsNamed(grounds.root, 'front-entry-tread-0')
+    .concat(...Array.from({ length: 5 }, (_, index) => (
+      descendantsNamed(grounds.root, `front-entry-tread-${index + 1}`)
+    )));
+  assert.equal(frontTreads.length, 6);
+  for (const tread of frontTreads) {
+    const box = new THREE.Box3().setFromObject(tread);
+    const centre = box.getCenter(new THREE.Vector3());
+    assert.ok(Math.abs(frontEntry.groundAt(centre.x, centre.z) - box.max.y) <= 1e-6,
+      `${tread.name} resolves ${(frontEntry.groundAt(centre.x, centre.z) - box.max.y) * 1000} mm from its top`);
+  }
+  for (const path of ['../src/mansion/main.js', '../src/mansion/siege/main.js']) {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+    assert.match(source, /frontEntry\.groundAt|frontEntry\.groundAt\(x, z\)/,
+      `${path} does not consume the grounds-owned discrete front-entry resolver`);
+  }
+
+  const flatProbes = [
+    ['foyer-floor', 4, 40],
+    ['gallery-floor', 14, 50],
+    ['cellar-hall-floor', null, null],
+  ];
+  for (const [name, authoredX, authoredZ] of flatProbes) {
+    const mesh = interior.root.getObjectByName(name);
+    assert.ok(mesh, `missing ${name}`);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const x = authoredX ?? box.max.x - 0.1;
+    const z = authoredZ ?? box.min.z + 0.1;
+    assert.ok(Math.abs(interior.floorAt(x, z, box.max.y) - box.max.y) <= 1e-6,
+      `${name} floorAt is ${((interior.floorAt(x, z, box.max.y) - box.max.y) * 1000).toFixed(1)} mm from its visible top`);
+  }
+
+  const steppedNames = [
+    'horseshoe-west-runner', 'horseshoe-east-runner', 'basement-stair-tread',
+    'suite-stair-a-runner', 'suite-stair-b-runner', 'suite-stair-landing',
+  ];
+  for (const name of steppedNames) {
+    const pieces = descendantsNamed(interior.root, name);
+    assert.ok(pieces.length > 0, `missing ${name}`);
+    for (const piece of pieces) {
+      const box = new THREE.Box3().setFromObject(piece);
+      const centre = boxCentre(piece);
+      const resolved = interior.floorAt(centre.x, centre.z, box.max.y);
+      assert.ok(Math.abs(resolved - box.max.y) <= 1e-6,
+        `${name} at z=${centre.z.toFixed(3)} resolves ${((resolved - box.max.y) * 1000).toFixed(1)} mm from its visible top`);
+    }
+  }
+});
+
+test('every formerly buried Mansion rug is named and above every intersecting opaque floor finish', () => {
+  const rugNames = [
+    'foyer-threshold-runner', 'foyer-centre-rug', 'living-room-rug',
+    'lounge-south-rug', 'lounge-seating-rug', 'dining-room-rug',
+    'gallery-runner-rug', 'conference-room-rug', 'office-main-rug',
+    'office-small-rug', 'bath-west-mat', 'bath-east-mat',
+    'trophy-hall-runner', 'cellar-hall-runner',
+  ];
+  const floorMeshes = [];
+  interior.root.traverse((object) => {
+    if (!object.isMesh || object.visible === false) return;
+    if (/(floor|mosaic)/.test(object.name ?? '')) floorMeshes.push(object);
+  });
+  for (const name of rugNames) {
+    const rug = interior.root.getObjectByName(name);
+    assert.ok(rug?.isMesh, `${name} is missing or not independently auditable`);
+    const rugBox = new THREE.Box3().setFromObject(rug);
+    const overlaps = floorMeshes.filter((floor) => floor !== rug).map((floor) => ({
+      floor,
+      box: new THREE.Box3().setFromObject(floor),
+    })).filter(({ box }) => box.max.x > rugBox.min.x && box.min.x < rugBox.max.x
+      && box.max.z > rugBox.min.z && box.min.z < rugBox.max.z
+      && box.max.y <= rugBox.max.y + 0.05 && box.max.y >= rugBox.max.y - 0.05);
+    assert.ok(overlaps.length > 0, `${name} has no real floor finish beneath it`);
+    const highest = Math.max(...overlaps.map(({ box }) => box.max.y));
+    assert.ok(rug.position.y >= highest + 0.001,
+      `${name} is ${((highest - rug.position.y) * 1000).toFixed(1)} mm under its highest intersecting finish`);
+  }
+});
 
 test('every Mansion display trophy is one connected object resting on its case shelf', () => {
   const loungeTrophies = descendantsNamed(interior.root, 'lounge-display-trophy');
@@ -430,6 +522,40 @@ test('the Casa Bonita picture across from the vault clears the white cellar chai
 
   const picture = dressedInterior.props.cellarHall.crest;
   const pictureBox = new THREE.Box3().setFromObject(picture);
+  const framePanel = picture.parent?.name === 'framePanel' ? picture.parent : null;
+  const frame = framePanel?.parent?.name === 'frame' ? framePanel.parent : null;
+  assert.ok(frame, 'Casa Bonita is still an unframed plane floating across from the vault');
+  const frameBoxes = framePanel.children
+    .filter((child) => child.isMesh && child.geometry?.type === 'BoxGeometry')
+    .sort((a, b) => (b.geometry.parameters?.depth ?? 0) - (a.geometry.parameters?.depth ?? 0));
+  const [bezel, board] = frameBoxes;
+  assert.ok(bezel && board, 'Casa Bonita has no real bezel and mount board around the delivered art');
+  const bezelBox = new THREE.Box3().setFromObject(bezel);
+  const boardBox = new THREE.Box3().setFromObject(board);
+  const fullFrameBox = new THREE.Box3().setFromObject(framePanel);
+  const boardMargins = {
+    left: pictureBox.min.x - boardBox.min.x,
+    right: boardBox.max.x - pictureBox.max.x,
+    bottom: pictureBox.min.y - boardBox.min.y,
+    top: boardBox.max.y - pictureBox.max.y,
+  };
+  const bezelMargins = {
+    left: pictureBox.min.x - bezelBox.min.x,
+    right: bezelBox.max.x - pictureBox.max.x,
+    bottom: pictureBox.min.y - bezelBox.min.y,
+    top: bezelBox.max.y - pictureBox.max.y,
+  };
+  assert.ok(boardMargins.left >= 0.0055 && boardMargins.right >= 0.0055
+    && boardMargins.bottom >= 0.0055 && boardMargins.top >= 0.0055,
+    `Casa Bonita protrudes past its mount board: ${JSON.stringify(boardMargins)}`);
+  assert.ok(bezelMargins.left >= 0.0345 && bezelMargins.right >= 0.0345
+    && bezelMargins.bottom >= 0.0345 && bezelMargins.top >= 0.0345,
+  `Casa Bonita does not have a complete four-sided bezel: ${JSON.stringify(bezelMargins)}`);
+  assert.ok(Math.abs(boardMargins.left - boardMargins.right) <= 0.0005
+    && Math.abs(boardMargins.bottom - boardMargins.top) <= 0.0005
+    && Math.abs(bezelMargins.left - bezelMargins.right) <= 0.0005
+    && Math.abs(bezelMargins.bottom - bezelMargins.top) <= 0.0005,
+  `Casa Bonita is asymmetric inside its frame: board=${JSON.stringify(boardMargins)} bezel=${JSON.stringify(bezelMargins)}`);
   const intersectingWhiteTrim = [];
   const whiteRailClearances = [];
   dressedInterior.root.traverse((object) => {
@@ -437,7 +563,7 @@ test('the Casa Bonita picture across from the vault clears the white cellar chai
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     if (!materials.some((material) => material?.color?.getHex() === 0xf0e9d8)) return;
     const trimBox = new THREE.Box3().setFromObject(object);
-    if (trimBox.intersectsBox(pictureBox)) {
+    if (trimBox.intersectsBox(fullFrameBox)) {
       intersectingWhiteTrim.push({
         name: object.name || '(unnamed white trim)',
         minY: trimBox.min.y,
@@ -445,10 +571,10 @@ test('the Casa Bonita picture across from the vault clears the white cellar chai
       });
     }
     const trimSize = trimBox.getSize(new THREE.Vector3());
-    const sharesWallRun = trimBox.max.x >= pictureBox.min.x && trimBox.min.x <= pictureBox.max.x
-      && trimBox.max.z >= pictureBox.min.z - 0.01 && trimBox.min.z <= pictureBox.max.z + 0.01;
-    if (sharesWallRun && trimSize.y <= 0.12 && trimBox.max.y <= pictureBox.min.y) {
-      whiteRailClearances.push(pictureBox.min.y - trimBox.max.y);
+    const sharesWallRun = trimBox.max.x >= fullFrameBox.min.x && trimBox.min.x <= fullFrameBox.max.x
+      && trimBox.max.z >= fullFrameBox.min.z - 0.01 && trimBox.min.z <= fullFrameBox.max.z + 0.01;
+    if (sharesWallRun && trimSize.y <= 0.12 && trimBox.max.y <= fullFrameBox.min.y) {
+      whiteRailClearances.push(fullFrameBox.min.y - trimBox.max.y);
     }
   });
 
@@ -458,8 +584,214 @@ test('the Casa Bonita picture across from the vault clears the white cellar chai
     `white cellar trim still cuts through Casa Bonita: ${JSON.stringify(intersectingWhiteTrim)}`,
   );
   assert.ok(whiteRailClearances.length > 0, 'the Casa Bonita check did not resolve the actual white cellar rail');
-  assert.ok(Math.min(...whiteRailClearances) >= 0.04,
-    `Casa Bonita has only ${Math.min(...whiteRailClearances).toFixed(3)} m above the white cellar rail`);
+  assert.ok(Math.min(...whiteRailClearances) >= 0.05,
+    `Casa Bonita's full frame has only ${Math.min(...whiteRailClearances).toFixed(3)} m above the white cellar rail`);
+
+  const wall = descendantsNamed(grounds.root, 'cellar-wing-south')
+    .map((object) => ({ object, box: new THREE.Box3().setFromObject(object) }))
+    .find(({ box }) => box.max.x >= fullFrameBox.max.x && box.min.x <= fullFrameBox.min.x
+      && box.max.y >= fullFrameBox.max.y && box.min.y <= fullFrameBox.min.y);
+  assert.ok(wall, 'the Casa Bonita mount check did not resolve the actual cellar south wall');
+  const rearGap = bezelBox.min.z - wall.box.max.z;
+  assert.ok(rearGap >= -0.0005 && rearGap <= 0.005,
+    `Casa Bonita's real frame rear is ${(rearGap * 1000).toFixed(1)} mm from its cellar wall`);
+});
+
+test('all ten owner pictures are wall-mounted, volume-clear, and core-readable from the proof camera', () => {
+  const ownerShots = MANSION_ART_EVIDENCE_SHOTS.slice(0, MANSION_OWNER_PICTURE_COUNT);
+  const targets = new Map([
+    ['mansion.gallery.roster', interior.props.gallery.roster],
+    ['mansion.ballroom.major', interior.props.ballroom.major],
+    ['mansion.lounge.cowboy', interior.props.lounge.cowboy?.art],
+    ['mansion.conference.stacks', interior.props.conference.stacks?.art],
+    ['mansion.office.boss', interior.props.office.boss?.art],
+    ['mansion.winter.almighty', interior.props.winterGarden.almighty?.art],
+    ['mansion.cellar.bus', interior.props.cellarHall.bus?.art],
+    ['mansion.guest.dog', interior.props.guestRoom.dog?.art],
+    ['mansion.theatre.lockup', interior.props.theatre.lockup],
+    ['mansion.lan.denver', interior.props.lanRoom.denver],
+  ]);
+  const sceneMeshes = [];
+  const sceneCollisionVolumes = [];
+  const sightlineMeshes = [];
+  for (const sceneRoot of [grounds.root, interior.root]) {
+    sceneRoot.updateMatrixWorld(true);
+    sceneRoot.traverse((object) => {
+      if (object.isMesh && !object.isInstancedMesh && object.visible) {
+        sceneMeshes.push(object);
+        sceneCollisionVolumes.push({
+          mesh: object,
+          instanceId: null,
+          box: new THREE.Box3().setFromObject(object),
+        });
+      } else if (object.isInstancedMesh && object.visible) {
+        object.geometry.computeBoundingBox();
+        const matrix = new THREE.Matrix4();
+        for (let instanceId = 0; instanceId < object.count; instanceId += 1) {
+          object.getMatrixAt(instanceId, matrix);
+          matrix.premultiply(object.matrixWorld);
+          sceneCollisionVolumes.push({
+            mesh: object,
+            instanceId,
+            box: object.geometry.boundingBox.clone().applyMatrix4(matrix),
+          });
+        }
+      }
+      if (object.isMesh && !object.isSkinnedMesh && object.geometry && object.material) {
+        sightlineMeshes.push(object);
+      }
+    });
+  }
+
+  const projection = (box, normal) => {
+    const values = [];
+    for (const x of [box.min.x, box.max.x]) {
+      for (const y of [box.min.y, box.max.y]) {
+        for (const z of [box.min.z, box.max.z]) values.push(normal.dot(new THREE.Vector3(x, y, z)));
+      }
+    }
+    return { min: Math.min(...values), max: Math.max(...values) };
+  };
+  const tangentContains = (outer, inner, normal, tolerance = 0.006) => Math.abs(normal.x) > 0.9
+    ? outer.min.y <= inner.min.y + tolerance && outer.max.y >= inner.max.y - tolerance
+      && outer.min.z <= inner.min.z + tolerance && outer.max.z >= inner.max.z - tolerance
+    : outer.min.y <= inner.min.y + tolerance && outer.max.y >= inner.max.y - tolerance
+      && outer.min.x <= inner.min.x + tolerance && outer.max.x >= inner.max.x - tolerance;
+  const tangentSize = (box, normal) => Math.abs(normal.x) > 0.9
+    ? [box.max.y - box.min.y, box.max.z - box.min.z]
+    : [box.max.y - box.min.y, box.max.x - box.min.x];
+  const shown = (object) => {
+    for (let node = object; node; node = node.parent) if (node.visible === false) return false;
+    return true;
+  };
+  const opaque = (object) => {
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    return materials.some((material) => material?.visible !== false
+      && (!material.transparent || (material.opacity ?? 1) >= 0.5));
+  };
+
+  const rows = ownerShots.map((shot) => {
+    const art = targets.get(shot.slot);
+    assert.ok(art, `${shot.slot} has no built art mesh`);
+    art.updateWorldMatrix(true, false);
+    const normal = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(art.getWorldQuaternion(new THREE.Quaternion())).normalize();
+    const artBox = new THREE.Box3().setFromObject(art);
+    const artProjection = projection(artBox, normal);
+    const family = new Set();
+    let ancestor = art;
+    while (ancestor && ancestor !== interior.root) {
+      family.add(ancestor);
+      ancestor = ancestor.parent;
+    }
+    const panel = art.parent?.name === 'framePanel' ? art.parent : null;
+    const bezel = panel?.children
+      .filter((child) => child.isMesh && child.geometry?.type === 'BoxGeometry')
+      .sort((a, b) => (b.geometry.parameters?.depth ?? 0) - (a.geometry.parameters?.depth ?? 0))[0] ?? null;
+    let mount = bezel;
+    let mountKind = bezel ? 'makeFrame-bezel' : 'missing';
+    if (!mount) {
+      const artTangents = tangentSize(artBox, normal);
+      mount = sceneMeshes
+        .map((mesh) => ({ mesh, box: new THREE.Box3().setFromObject(mesh) }))
+        .filter(({ mesh, box }) => mesh !== art && !family.has(mesh)
+          && mesh.geometry?.type === 'BoxGeometry'
+          && tangentContains(box, artBox, normal)
+          && projection(box, normal).max <= artProjection.min + 0.006
+          && tangentSize(box, normal).every((size, index) => size <= artTangents[index] + 0.4)
+          && projection(box, normal).max - projection(box, normal).min <= 0.08)
+        .sort((a, b) => projection(b.box, normal).max - projection(a.box, normal).max)[0]?.mesh ?? null;
+      if (mount) mountKind = 'manual-backing';
+    }
+    const mountBox = mount ? new THREE.Box3().setFromObject(mount) : artBox;
+    if (mount) family.add(mount);
+    const ownMountMeshes = new Set([art]);
+    if (panel) {
+      panel.traverse((object) => {
+        if (object.isMesh) ownMountMeshes.add(object);
+      });
+    } else if (mount) {
+      ownMountMeshes.add(mount);
+    }
+    const fullMountBox = panel
+      ? new THREE.Box3().setFromObject(panel)
+      : new THREE.Box3().copy(artBox).union(mountBox);
+    const mountProjection = projection(mountBox, normal);
+    const wall = sceneMeshes
+      .map((mesh) => ({ mesh, box: new THREE.Box3().setFromObject(mesh) }))
+      .filter(({ mesh, box }) => mesh !== art && mesh !== mount && !family.has(mesh)
+        && tangentContains(box, fullMountBox, normal, 0.0005)
+        && projection(box, normal).max <= artProjection.min + 0.006
+        && projection(box, normal).max - projection(box, normal).min >= 0.035)
+      .sort((a, b) => projection(b.box, normal).max - projection(a.box, normal).max)[0] ?? null;
+    assert.ok(wall, `${shot.slot} has no intended wall behind its complete visible area`);
+    const signedRearGap = mountProjection.min - projection(wall.box, normal).max;
+    const occluders = sceneCollisionVolumes
+      .filter(({ mesh }) => !ownMountMeshes.has(mesh) && mesh !== wall.mesh)
+      .map(({ mesh, instanceId, box }) => {
+        const overlap = new THREE.Box3().copy(fullMountBox)
+          .intersect(box);
+        const size = overlap.getSize(new THREE.Vector3());
+        return {
+          mesh,
+          instanceId,
+          overlap: size,
+        };
+      })
+      .filter(({ overlap }) => overlap.x > 0.0005
+        && overlap.y > 0.0005 && overlap.z > 0.0005)
+      .map(({ mesh, instanceId, overlap }) => ({
+        name: mesh.name || '(unnamed finish)',
+        parent: mesh.parent?.name || '(unnamed parent)',
+        instanceId,
+        overlap: overlap.toArray().map((value) => Number(value.toFixed(4))),
+      }));
+    const centre = artBox.getCenter(new THREE.Vector3());
+    const eye = new THREE.Vector3(shot.position[0], shot.position[1] + 1.66, shot.position[2]);
+    art.geometry.computeBoundingBox();
+    const artLocal = art.geometry.boundingBox;
+    const raycaster = new THREE.Raycaster();
+    const blockedCore = [];
+    for (const fy of [-0.3, 0, 0.3]) {
+      for (const fx of [-0.3, 0, 0.3]) {
+        const point = new THREE.Vector3(
+          THREE.MathUtils.lerp(artLocal.min.x, artLocal.max.x, fx + 0.5),
+          THREE.MathUtils.lerp(artLocal.min.y, artLocal.max.y, fy + 0.5),
+          0,
+        ).applyMatrix4(art.matrixWorld);
+        const direction = point.clone().sub(eye);
+        const distance = direction.length();
+        raycaster.set(eye, direction.normalize());
+        raycaster.far = distance + 0.08;
+        const first = raycaster.intersectObjects(sightlineMeshes, false)
+          .find(({ object }) => shown(object) && opaque(object));
+        if (first?.object !== art) blockedCore.push({
+          fx,
+          fy,
+          name: first?.object?.name || '(no opaque hit)',
+          parent: first?.object?.parent?.name || '(unnamed parent)',
+          distance: first ? Number(first.distance.toFixed(4)) : null,
+        });
+      }
+    }
+    return {
+      slot: shot.slot,
+      mountKind,
+      wall: wall.mesh.name || '(unnamed finish)',
+      signedRearGap: Number(signedRearGap.toFixed(4)),
+      separation: Number(Math.max(0, signedRearGap).toFixed(4)),
+      cameraDot: Number(normal.dot(eye.clone().sub(centre).normalize()).toFixed(4)),
+      occluders,
+      blockedCore,
+    };
+  });
+  const failures = rows.filter((row) => row.mountKind === 'missing'
+    || row.signedRearGap < -0.005 || row.signedRearGap > 0.005 || row.cameraDot <= 0
+    || row.occluders.length > 0 || row.blockedCore.length > 0);
+  if (process.env.MANSION_MOUNT_AUDIT_REPORT === '1') {
+    console.log(`MANSION_MOUNT_AUDIT ${JSON.stringify(rows)}`);
+  }
+  assert.deepEqual(failures, [], `owner-picture mount audit:\n${JSON.stringify(rows, null, 2)}`);
 });
 
 test("Lou's boss-shirt photograph has a fully clear readable face from the office floor", () => {

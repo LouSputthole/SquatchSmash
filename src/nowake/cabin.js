@@ -259,7 +259,7 @@ export function buildCabin(root) {
   dinette.add(box('dinette booth base · aft return', [.84, .40, .38], veneerDark, 1.44, SOLE + .185, -3.10));
   // A low back, on purpose: the man in this booth stays visible over it.
   dinette.add(box('dinette booth back rest', [.12, .42, 1.86], vinylDark, 1.97, SOLE + .68, -3.65));
-  dinette.add(box('dinette table pedestal', [.10, .74, .10], steel, 1.24, SOLE + .37, -3.80));
+  dinette.add(box('dinette table pedestal', [.10, .795, .10], steel, 1.24, SOLE + .3975, -3.80));
   dinette.add(box('dinette table top', [.66, .05, .80], veneer, 1.32, TABLE_TOP, -3.85));
   dinette.add(box('dinette table fiddle rail', [.70, .04, .03], brass, 1.32, TABLE_TOP + .04, -4.25));
   const ashtray = cylinder('dinette ashtray', .07, .03, mat(0x5c6163, .5), 1.16, TABLE_TOP + .04, -3.75, 14);

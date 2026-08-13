@@ -66,6 +66,34 @@ function positiveVolumeContacts(a, b, epsilon = 1e-6) {
   return contacts;
 }
 
+function triangleBoxContacts(actor, fixture) {
+  const fixtureBoxes = visibleMeshBoxes(fixture)
+    .filter(({ object }) => /galley (cabinet carcass|counter top|counter fiddle rail)/.test(object.name));
+  const contacts = new Set();
+  for (const { object } of visibleMeshBoxes(actor)) {
+    const position = object.geometry?.getAttribute?.('position');
+    if (!position) continue;
+    const index = object.geometry.index;
+    object.updateWorldMatrix(true, false);
+    const at = (triangleIndex, corner) => {
+      const vertexIndex = index ? index.getX(triangleIndex * 3 + corner) : triangleIndex * 3 + corner;
+      return new THREE.Vector3().fromBufferAttribute(position, vertexIndex).applyMatrix4(object.matrixWorld);
+    };
+    const triangles = (index?.count ?? position.count) / 3;
+    for (let triangleIndex = 0; triangleIndex < triangles; triangleIndex++) {
+      const triangle = new THREE.Triangle(
+        at(triangleIndex, 0), at(triangleIndex, 1), at(triangleIndex, 2),
+      );
+      for (const fixtureMesh of fixtureBoxes) {
+        if (fixtureMesh.box.intersectsTriangle(triangle)) {
+          contacts.add(`${object.name} -> ${fixtureMesh.object.name}`);
+        }
+      }
+    }
+  }
+  return [...contacts].sort();
+}
+
 test('Willy sits forward on the aft return without touching Uncle Lou', () => {
   const world = buildNoWakeWorld(new THREE.Scene());
   const { boat } = world;
@@ -107,6 +135,27 @@ test('Willy has a real legwell instead of intersecting the booth or table', () =
     .filter((contact) => !/aft return/.test(contact.b));
   assert.deepEqual(contacts, [],
     'non-support booth/table geometry still passes through seated Willy');
+});
+
+test('Booski stands beside the galley instead of passing visible triangles through it', () => {
+  const world = buildNoWakeWorld(new THREE.Scene());
+  const { boat } = world;
+  poseAtMark(boat.cast.booski, CABIN_CAST_STAGING.booski);
+  poseAtMark(boat.cast.lou, CABIN_CAST_STAGING.lou);
+  poseAtMark(boat.cast.willy, CABIN_CAST_STAGING.willyStanding);
+  boat.root.updateMatrixWorld(true);
+
+  assert.equal(CABIN_CAST_STAGING.booski.x, -0.95);
+  assert.equal(CABIN_CAST_STAGING.booski.z, -4.60);
+  assert.equal(CABIN_CAST_STAGING.booski.yaw, 1.42);
+  assert.equal(CABIN_CAST_STAGING.booski.job, 'stand');
+  const galley = boat.cabin.group.getObjectByName('galley and wet bar');
+  const contacts = triangleBoxContacts(boat.cast.booski.group, galley);
+  assert.deepEqual(contacts, [], `Booski intersects the built galley:\n${contacts.join('\n')}`);
+  assert.deepEqual(positiveVolumeContacts(boat.cast.booski.group, boat.cast.lou.group), [],
+    'moving Booski clear of the galley put him into Uncle Lou');
+  assert.deepEqual(positiveVolumeContacts(boat.cast.booski.group, boat.cast.willy.group), [],
+    'moving Booski clear of the galley put him into standing Willy');
 });
 
 test('the notched visible dinette and its player colliders are the same layout', () => {
@@ -166,4 +215,28 @@ test('the notched visible dinette and its player colliders are the same layout',
     assert.ok(penetration.depth <= 1e-6,
       `the cabin centre route hits ${penetration.name} by ${penetration.depth.toFixed(6)} m at z ${z.toFixed(2)}`);
   }
+});
+
+test('the dinette table is carried by its pedestal with matching player geometry', () => {
+  const world = buildNoWakeWorld(new THREE.Scene());
+  const { boat } = world;
+  boat.root.updateMatrixWorld(true);
+
+  const visiblePedestal = new THREE.Box3().setFromObject(
+    boat.cabin.group.getObjectByName('dinette table pedestal'),
+  );
+  const visibleTop = new THREE.Box3().setFromObject(
+    boat.cabin.group.getObjectByName('dinette table top'),
+  );
+  const visibleGap = visibleTop.min.y - visiblePedestal.max.y;
+
+  const pedestalCollider = CABIN_COLLIDERS.find(({ name }) => name.endsWith('table pedestal'));
+  const topCollider = CABIN_COLLIDERS.find(({ name }) => name.endsWith('table top'));
+  assert.ok(pedestalCollider && topCollider, 'dinette table lost its public collider pair');
+  const colliderGap = topCollider.min[1] - pedestalCollider.max[1];
+
+  assert.ok(visibleGap >= -0.005 && visibleGap <= 0.005,
+    `dinette table pedestal leaves a ${(visibleGap * 1000).toFixed(1)} mm air gap`);
+  assert.ok(Math.abs(colliderGap - visibleGap) <= 1e-6,
+    `table collider gap ${(colliderGap * 1000).toFixed(1)} mm does not match visible gap ${(visibleGap * 1000).toFixed(1)} mm`);
 });

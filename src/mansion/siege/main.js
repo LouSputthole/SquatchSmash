@@ -78,7 +78,7 @@ import { REQUIRED_SIEGE_EFFECT_CUES, SiegeMissionAudio } from './audio.js';
 import {
   COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS, totalAttackers,
 } from './waves.js';
-import { buildSiegeNight } from './night.js';
+import { buildSiegeNight, scoreSiegeLight } from './night.js';
 import { buildSiegeDressing } from './dressing.js';
 import { buildSiegeGlass } from './glass.js';
 import { createAttackerPool } from './attackers.js';
@@ -231,10 +231,27 @@ function updateLightRig(dt) {
   if (_lightTimer > 0) return;
   _lightTimer = 0.2;
   for (const entry of _lightRank) {
-    entry.score = entry.light.position.distanceTo(camera.position) - (entry.light.distance || 0);
+    entry.score = scoreSiegeLight(entry.light, camera.position);
   }
   _lightRank.sort((a, b) => a.score - b.score);
   for (let i = 0; i < _lightRank.length; i++) _lightRank[i].light.visible = i < ACTIVE_LIGHTS;
+}
+
+/* Read-only production evidence surface.  Rank is the scheduler's actual
+ * latest ordering, not a verifier-side reconstruction of a partial pool. */
+function lightStatus(light) {
+  const index = _lightRank.findIndex((entry) => entry.light === light);
+  const entry = index >= 0 ? _lightRank[index] : null;
+  return {
+    candidate: entry !== null,
+    visible: light?.visible === true,
+    intensity: Number(light?.intensity ?? 0),
+    distance: Number(light?.distance ?? 0),
+    rank: index >= 0 ? index + 1 : null,
+    activeLimit: ACTIVE_LIGHTS,
+    candidateCount: _lightRank.length,
+    score: Number.isFinite(entry?.score) ? Number(entry.score.toFixed(5)) : null,
+  };
 }
 
 /* ================================================================== */
@@ -272,7 +289,9 @@ const SIEGE_COMBAT_CUES = Object.freeze([...new Set([
 /* ================================================================== */
 /* Player and world                                                      */
 /* ================================================================== */
-const world = { colliders, floorZones: [], groundAt: () => 0 };
+const world = {
+  colliders, floorZones: [], groundAt: () => 0, snapGroundToSurface: true,
+};
 const player = new Player(camera, world);
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
@@ -281,20 +300,15 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
  *
  * The tour's `exteriorGroundAt` also resolves the pool steps, the service
  * ramp and four garden stairs, because the tour is a walk round the whole
- * property. This mission happens indoors from the guest room to the gallery;
- * the only exterior the player can reach is the front portico, and the only
- * slope on it is the front steps. Anything past that is where the attackers
- * come from, and the combat boundary turns the player round before he gets
- * there. See src/mansion/main.js for the full version if this scene ever
- * grows a reason to walk the garden at night.
+ * property. This mission happens indoors from the guest room to the gallery,
+ * so it needs the front entry plus the two break-in stairs that become open
+ * player routes once their panes shatter. The pool, service, and garden runs
+ * remain tour-only; see src/mansion/main.js for that full exterior resolver.
  */
-const FRONT_STEPS = Object.freeze({ x0: -6, x1: 6, z0: 32.2, z1: 36 });
 function exteriorGroundAt(x, z) {
-  if (x >= FRONT_STEPS.x0 && x <= FRONT_STEPS.x1 && z >= FRONT_STEPS.z0 && z <= FRONT_STEPS.z1) {
-    const t = THREE.MathUtils.clamp((z - FRONT_STEPS.z0) / (FRONT_STEPS.z1 - FRONT_STEPS.z0), 0, 1);
-    return THREE.MathUtils.lerp(0, GROUND_Y, t);
-  }
-  return 0;
+  return grounds.props.siegeBreachGroundAt(x, z)
+    ?? grounds.props.frontEntry.groundAt(x, z)
+    ?? 0;
 }
 
 world.groundAt = (x, z) => {
@@ -770,7 +784,10 @@ attackers = createAttackerPool({
   },
 });
 
-const ensemble = buildSiegeEnsemble({ scene, damage, matrix, audio: combatAdapterAudio });
+const ensemble = buildSiegeEnsemble({
+  scene, damage, matrix, audio: combatAdapterAudio,
+  groundAt: (x, z, y) => interior.floorAt(x, z, y) ?? exteriorGroundAt(x, z),
+});
 
 /**
  * The player, in the shape the attackers' target list wants.
@@ -2365,6 +2382,7 @@ window.mansionSiege = {
   camera,
   renderer,
   postfx,
+  lightStatus,
   player,
   playerActor,
   audio,

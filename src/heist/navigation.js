@@ -92,4 +92,17 @@ export class SquadDirector {
     const anchor = actor ? this.graph.recovery(actor.anchor, actorId) : null;
     return { recover: Boolean(anchor), anchor, offscreenOnly: true };
   }
+
+  /** Real travel breaks a blocked streak; separate waypoint pauses do not add. */
+  noteMoving(actorId) {
+    this.blockedFor.delete(actorId);
+  }
+
+  /**
+   * Squad traffic is not a broken route. Clear obstruction patience while a
+   * peer owns the next body-width, without claiming that the actor travelled.
+   */
+  noteCongested(actorId) {
+    this.blockedFor.delete(actorId);
+  }
 }

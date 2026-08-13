@@ -136,6 +136,19 @@ const FOYER_VOID = Object.freeze({ x0: -8.85, x1: 8.85, z0: 36, z1: 48 });
  */
 const STEP_Z = 34;
 const STEP_TOP_Z = 35.5;
+const STEP_COUNT = 6;
+const STEP_RUN = (STEP_TOP_Z - STEP_Z) / STEP_COUNT;
+const STEP_DEPTH = STEP_RUN + 0.06;
+const STEP_HALF_DEPTH = STEP_DEPTH / 2;
+const PORTICO_Z = STEP_TOP_Z - 0.1;
+/** Break a flank pane while the actor is still outside it.  The old event
+ * waited for the inside waypoint's 1.1 m arrival slack, so the body crossed
+ * half a metre of intact glass before the callback withdrew its collider. */
+export const BREACH_TRIGGER_DISTANCE = 1.05;
+const GROUND_INTERIOR_ROOMS = new Set([
+  'foyer', 'living', 'lounge', 'ballroom', 'dining', 'kitchen',
+  'trophy', 'winter', 'bay',
+]);
 
 /**
  * The staging zones that are below the house rather than in front of it.
@@ -147,11 +160,34 @@ const STEP_TOP_Z = 35.5;
  */
 const BASEMENT_STAGING = Object.freeze(new Set(['cellar_hall', 'cellar_vault']));
 
-/** Floor height at a point on the ground level. */
+/** Visible standing surface at a point on the ground level. The six entry
+ * blocks are treads, not a ramp; overlapping tread boxes take the higher top.
+ * Outside them, distinguish the raised house from the two lawns instead of
+ * treating every z north of the portico as y=1.2. */
 export function groundHeightAt(x, z) {
-  if (z >= STEP_TOP_Z) return GROUND_Y;
-  if (z <= STEP_Z) return 0;
-  return GROUND_Y * ((z - STEP_Z) / (STEP_TOP_Z - STEP_Z));
+  if (Math.abs(x) <= 6) {
+    if (z >= PORTICO_Z && z <= 36) return GROUND_Y;
+    const tread = Math.min(STEP_COUNT - 1, Math.floor(
+      (z - STEP_Z + STEP_HALF_DEPTH) / STEP_RUN,
+    ));
+    if (tread >= 0) {
+      const centre = STEP_Z + tread * STEP_RUN;
+      if (z >= centre - STEP_HALF_DEPTH - 1e-9
+          && z <= centre + STEP_HALF_DEPTH + 1e-9) {
+        return 0.16 + tread * (GROUND_Y / STEP_COUNT);
+      }
+    }
+  }
+
+  const room = roomAt({ x, y: GROUND_Y, z });
+  if (GROUND_INTERIOR_ROOMS.has(room)) return GROUND_Y;
+
+  /* Drive box, turnaround plane and east service road, in that visible-top
+   * order where their footprints overlap. Side lawns remain y=0. */
+  if (Math.abs(x) <= 4 && z >= 0 && z <= 23) return 0.05;
+  if (x >= 22 && x <= 28 && z >= 0 && z <= 70) return 0.05;
+  if (Math.hypot(x, z - 30) <= 15.2) return 0.02;
+  return 0;
 }
 
 /* ================================================================== */
@@ -1554,6 +1590,22 @@ export function createAttackerPool({
     entry.targetDistance = Infinity;
   }
 
+  function reportBreach(entry, opening, ctx) {
+    if (!opening || entry.breached) return false;
+    entry.breached = true;
+    const breach = {
+      id: entry.id,
+      staging: entry.staging.id,
+      opening: opening.id,
+      x: opening.x,
+      y: entry.root.position.y,
+      z: opening.z,
+    };
+    breaches.push(breach);
+    ctx.onBreach?.(breach);
+    return true;
+  }
+
   function think(entry, ctx, targets) {
     if (entry.actor.incapacitated) return;
 
@@ -1773,6 +1825,19 @@ export function createAttackerPool({
     if (entry.actor.incapacitated) return;
     const position = entry.root.position;
 
+    /* The glass must be gone before the leading capsule reaches its plane.
+     * `breaks` lives on the first inside waypoint, so it is already the exact
+     * opening/point computed by the nav graph.  Report it on approach instead
+     * of when that waypoint is accepted after the crossing. */
+    const approaching = entry.path[0];
+    if (approaching?.breaks && !entry.breached
+        && Math.hypot(
+          position.x - approaching.breaks.x,
+          position.z - approaching.breaks.z,
+        ) <= BREACH_TRIGGER_DISTANCE) {
+      reportBreach(entry, approaching.breaks, ctx);
+    }
+
     /* --- move --- */
     _step.copy(entry.goal).sub(position);
     _step.y = 0;
@@ -1780,7 +1845,10 @@ export function createAttackerPool({
     const speed = entry.plan.speed
       * (1 - entry.suppression.value * 0.45)
       * entry.impairments.speedScale;
-    const wantsMove = planar > 0.35;
+    /* Some authored choke-point anchors require a 25 cm arrival. The old
+     * 35 cm movement cutoff stopped a man ten centimetres short forever;
+     * movement owns a numerical epsilon while the waypoint owns arrival. */
+    const wantsMove = planar > 0.02;
     const beforeX = position.x;
     const beforeY = position.y;
     const beforeZ = position.z;
@@ -1792,7 +1860,7 @@ export function createAttackerPool({
         bounds: null,
       });
     }
-    SIEGE_COMBAT_SPACE.separate(entry, entries.values(), {
+    const separation = SIEGE_COMBAT_SPACE.separate(entry, entries.values(), {
       boxes: ctx.colliders,
       bounds: null,
       positionOf: attackerPosition,
@@ -1801,8 +1869,11 @@ export function createAttackerPool({
     });
     const movedDistance = Math.hypot(position.x - beforeX, position.z - beforeZ);
     entry.moving = movedDistance > 1e-4;
-    entry.blocked = wantsMove && movedDistance < Math.min(0.02, speed * dt * 0.2);
-    if (entry.moving) navigator.director.blockedFor.delete(entry.id);
+    const congested = separation.overlaps > 0;
+    entry.blocked = wantsMove && !congested
+      && movedDistance < Math.min(0.02, speed * dt * 0.2);
+    if (congested) navigator.congested(entry.id);
+    else if (entry.moving) navigator.moving(entry.id);
     /* Height is authored, not simulated.
      *
      * `floorY` null means "follow the ground", which is what carries a man up
@@ -1813,7 +1884,17 @@ export function createAttackerPool({
     const wantedY = entry.path[0]?.y
       ?? entry.floorY
       ?? groundHeightAt(position.x, position.z);
-    position.y += (wantedY - position.y) * Math.min(1, dt * 3.5);
+    const supportY = walkableSupportY(entry);
+    if (supportY == null) {
+      position.y += (wantedY - position.y) * Math.min(1, dt * 3.5);
+    } else {
+      /* A staircase is six/24 discrete boxes, not a ramp. Easing Y makes the
+       * rendered shoes spend every rise inside the next tread. The figure's
+       * spawn-time foot offset is stable while standing, so snap that visible
+       * foot to the real authored surface and keep route Y only as fallback
+       * for headless/no-geometry callers. */
+      position.y = supportY - (entry.supportOffset ?? 0);
+    }
 
     /* --- the boundary --- *
      * An attacker who walks into the hedge maze strands the wave-cleared
@@ -1832,7 +1913,16 @@ export function createAttackerPool({
        * inside the front door and therefore out on the portico, shooting at
        * the landing through two storeys of entrance glazing. Half a metre on
        * the final waypoint puts him in the hall he was sent to. */
-      const slack = entry.path.length > 1 ? 1.1 : 0.5;
+      const authoredSlack = next.arrival ?? (entry.path.length > 1 ? 1.1 : 0.5);
+      /* A transit mark is not a parking space. At a tight turn, live bodies
+       * settle one configured separation apart; requiring all of them to put
+       * their roots within a smaller authored radius creates a stable queue
+       * around the mark. Let only a peer-congested, non-final traveller hand
+       * off inside one body spacing. Final destinations and wall blockage keep
+       * their authored arrival contract. */
+      const slack = congested && entry.path.length > 1
+        ? Math.max(authoredSlack, AGENT_SEPARATION)
+        : authoredSlack;
       const reached = Math.hypot(next.x - position.x, next.z - position.z) < slack;
       if (reached) {
         entry.path.shift();
@@ -1855,19 +1945,7 @@ export function createAttackerPool({
          * service DOOR as a broken window, and the glass owner would have
          * shattered a door. `breaks` is set on a waypoint only when the leg
          * that reached it crossed an opening declared `glass: true`. */
-        if (next.breaks && !entry.breached) {
-          entry.breached = true;
-          const breach = {
-            id: entry.id,
-            staging: entry.staging.id,
-            opening: next.breaks.id,
-            x: next.breaks.x,
-            y: position.y,
-            z: next.breaks.z,
-          };
-          breaches.push(breach);
-          ctx.onBreach?.(breach);
-        }
+        reportBreach(entry, next.breaks, ctx);
       }
     }
 
@@ -2003,6 +2081,109 @@ export function createAttackerPool({
   /* Down                                                              */
   /* ---------------------------------------------------------------- */
 
+  const supportRay = new THREE.Raycaster();
+  const supportOrigin = new THREE.Vector3();
+  const supportDirection = new THREE.Vector3(0, -1, 0);
+  const supportNormal = new THREE.Vector3();
+  const supportMeshes = [];
+  const supportBuckets = new Map();
+  const supportBounds = new THREE.Box3();
+  const SUPPORT_CELL = 2;
+
+  let supportMeshesReady = false;
+
+  const supportBucketKey = (x, z) => `${Math.floor(x / SUPPORT_CELL)},${Math.floor(z / SUPPORT_CELL)}`;
+
+  function collectWalkableSupportMeshes() {
+    if (supportMeshesReady || !scene?.traverse || !scene?.updateMatrixWorld) return;
+    /* Mansion architecture is static. Resolve its world matrices and spatial
+     * index once; doing a forced full-scene matrix walk for every attacker
+     * was 22 whole mansion traversals per rendered frame. */
+    scene.updateMatrixWorld(true);
+    scene.traverse((object) => {
+      if (!object.isMesh || object.visible === false
+          || object.userData?.siegeWalkableSupport !== true) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      if (!materials.some((material) => material?.visible !== false
+          && (material?.transparent !== true || material.opacity > 0.001))) return;
+      supportMeshes.push(object);
+      supportBounds.setFromObject(object);
+      const x0 = Math.floor((supportBounds.min.x - 1e-6) / SUPPORT_CELL);
+      const x1 = Math.floor((supportBounds.max.x + 1e-6) / SUPPORT_CELL);
+      const z0 = Math.floor((supportBounds.min.z - 1e-6) / SUPPORT_CELL);
+      const z1 = Math.floor((supportBounds.max.z + 1e-6) / SUPPORT_CELL);
+      for (let ix = x0; ix <= x1; ix += 1) {
+        for (let iz = z0; iz <= z1; iz += 1) {
+          const key = `${ix},${iz}`;
+          const bucket = supportBuckets.get(key) ?? [];
+          if (!supportBuckets.has(key)) supportBuckets.set(key, bucket);
+          bucket.push(object);
+        }
+      }
+    });
+    supportMeshesReady = true;
+  }
+
+  /** Resolve the authored walkable surface under the actor's current feet.
+   * The mansion's route datum is deliberately not a floor mesh: drive pavers
+   * are +50 mm, front/horse-shoe treads are discrete, indoor finishes are
+   * +20/22 mm and lawns/portico use the datum. Only builders may apply the
+   * support tag: accepting every visible horizontal mesh also accepts blood,
+   * bodies, furniture and VFX. */
+  function walkableSupportY(entry) {
+    const position = entry.root.position;
+    collectWalkableSupportMeshes();
+    if (!supportMeshes.length) return null;
+    const candidates = supportBuckets.get(supportBucketKey(position.x, position.z)) ?? [];
+    if (!candidates.length) return null;
+    supportOrigin.set(position.x, position.y + 0.3, position.z);
+    supportRay.set(supportOrigin, supportDirection);
+    supportRay.near = 0;
+    supportRay.far = 1;
+    for (const hit of supportRay.intersectObjects(candidates, false)) {
+      if (hit.point.y > position.y + 0.205 || hit.point.y < position.y - 0.5) continue;
+      if (!hit.face) continue;
+      const material = Array.isArray(hit.object.material)
+        ? hit.object.material[hit.face.materialIndex]
+        : hit.object.material;
+      if (material?.visible === false
+          || (material?.transparent === true && !(material.opacity > 0.001))) continue;
+      supportNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+      if (supportNormal.y >= 0.75) return hit.point.y;
+    }
+    return null;
+  }
+
+  /** Run one pose measurement without letting the hand-mounted weapon enter
+   * Box3, then restore the exact pooled parent/index/local transform. */
+  function withoutMountedWeapon(entry, work, visibleAfter = entry.gun?.visible === true) {
+    const gun = entry.gun;
+    const gunParent = gun?.parent ?? null;
+    const gunIndex = gunParent?.children.indexOf(gun) ?? -1;
+    const gunPosition = gun?.position.clone() ?? null;
+    const gunQuaternion = gun?.quaternion.clone() ?? null;
+    const gunScale = gun?.scale.clone() ?? null;
+    if (gun) gun.visible = false;
+    if (gunParent) gunParent.remove(gun);
+    try {
+      return work();
+    } finally {
+      if (gunParent) {
+        gunParent.add(gun);
+        if (gunIndex >= 0 && gunIndex < gunParent.children.length - 1) {
+          gunParent.children.splice(gunParent.children.indexOf(gun), 1);
+          gunParent.children.splice(gunIndex, 0, gun);
+        }
+      }
+      if (gun) {
+        gun.position.copy(gunPosition);
+        gun.quaternion.copy(gunQuaternion);
+        gun.scale.copy(gunScale);
+        gun.visible = visibleAfter;
+      }
+    }
+  }
+
   /**
    * He is out of the fight.
    *
@@ -2020,7 +2201,7 @@ export function createAttackerPool({
      * died on the gallery at y 6 would settle six metres below the landing,
      * which is a body in the foyer ceiling. One line, and it has to be here
      * rather than at spawn because the whole point is that he moved. */
-    entry.figure.baseY = entry.root.position.y;
+    const floorY = walkableSupportY(entry) ?? entry.root.position.y;
     let roll = Math.random() > 0.5 ? 0.62 : -0.58;
     if (direction?.isVector3 && direction.lengthSq() > 1e-12) {
       const localDirection = direction.clone().normalize().applyQuaternion(
@@ -2032,11 +2213,14 @@ export function createAttackerPool({
         roll = localDirection.x > 0 ? -0.62 : 0.62;
       }
     }
-    entry.figure.fallen({ roll });
-    /* The catalog model is parented to the forearm, so leaving it visible
-     * turns a fallen pose into a rifle welded through the wrist. The corpse
-     * owns no active weapon; pooled respawn explicitly returns it below. */
-    if (entry.gun) entry.gun.visible = false;
+    /* Box3.setFromObject includes invisible descendants. Hiding the catalog
+     * model after fallen() therefore grounds the weapon and leaves the
+     * rendered body 39..382 mm in the air. Detach only for the pose measure,
+     * then restore the exact pooled hand mount while keeping it hidden. */
+    withoutMountedWeapon(entry, () => {
+      entry.figure.baseY = floorY;
+      entry.figure.fallen({ roll });
+    }, false);
     entry.root.userData.down = true;
     resetPerception(entry, entry.awareness);
     entry.areaTarget = null;
@@ -2198,6 +2382,8 @@ export function createAttackerPool({
         holdReleased: true,
         /** null means "follow the ground"; a number pins him to a floor. */
         floorY: null,
+        /** Visible standing-foot height relative to the navigation root. */
+        supportOffset: 0,
         index: entries.size,
         active: false,
       };
@@ -2334,6 +2520,15 @@ export function createAttackerPool({
         first.x - entry.root.position.x, first.z - entry.root.position.z,
       );
     }
+    /* The root follows the route surface, but the generated shoes extend a
+     * few millimetres below that origin. Settle the rendered rig, excluding
+     * its hand-mounted gun, so a correct root cannot hide feet in a tread. */
+    const supportY = walkableSupportY(entry) ?? y;
+    withoutMountedWeapon(entry, () => {
+      entry.figure.baseY = supportY;
+      entry.figure._ground();
+    }, true);
+    entry.supportOffset = supportY - entry.root.position.y;
     if (!silent) bark(entry, entry.plan.tactic === 'flank' ? 'flank' : 'push');
     return entry;
   }

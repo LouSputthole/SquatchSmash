@@ -142,7 +142,7 @@ const cabinCastMark = (x, z, yaw, baseY = CABIN.height, job = 'stand') => Object
  */
 export const CABIN_CAST_STAGING = Object.freeze({
   lou: cabinCastMark(1.20, -4.80, 0),
-  booski: cabinCastMark(-1.05, -4.60, 1.42),
+  booski: cabinCastMark(-0.95, -4.60, 1.42),
   willyStanding: cabinCastMark(0.20, -4.30, Math.PI * 0.86),
   willySeat: cabinCastMark(1.20, -3.05, Math.PI, CABIN.height + 0.056348315, 'sit'),
 });
@@ -236,7 +236,7 @@ export const CABIN_COLLIDERS = [
   { name: 'cabin · dinette booth · forward return', min: [1.02, -0.535, -4.41], max: [1.86, -0.03, -3.99] },
   { name: 'cabin · dinette booth · aft return support', min: [1.02, -0.535, -3.29], max: [1.86, -0.03, -2.91] },
   { name: 'cabin · dinette booth backrest', min: [1.91, -0.05, -4.58], max: [2.03, 0.37, -2.72] },
-  { name: 'cabin · dinette table pedestal', min: [1.19, -0.52, -3.85], max: [1.29, 0.22, -3.75] },
+  { name: 'cabin · dinette table pedestal', min: [1.19, -0.52, -3.85], max: [1.29, 0.275, -3.75] },
   { name: 'cabin · dinette table top', min: [0.99, 0.275, -4.25], max: [1.65, 0.325, -3.45] },
   { name: 'cabin · aft bulkhead · mid-berth', min: [-2.08, -0.62, -2.90], max: [-1.20, 1.56, -1.90] },
   { name: 'cabin · aft bulkhead · head', min: [0.70, -0.62, -2.80], max: [2.08, 1.56, -1.90] },
