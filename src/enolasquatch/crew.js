@@ -225,6 +225,7 @@ export function createCrew() {
   crew.takeSeats = (aircraft) => {
     if (crew.aboard) return;
     crew.aboard = true;
+    crew.aircraft = aircraft;
     const seats = aircraft.anchors.seats || {};
     const sit = (f, parent, x, y, z, facing = 0, headYaw = 0) => {
       setPose(f, 'sit');
@@ -241,32 +242,59 @@ export function createCrew() {
       if (f.tag) f.tag.visible = false;
     };
     /* Sasole, in the right-hand seat, turned toward the man flying — which is
-     * the whole fix for "his face is missing". He also sits 0.12 m higher than
-     * the pan drop the others use: the owner is happy to be taller than his
-     * captain ("Thats okay"), but half a metre of it made Sasole read as sunk
-     * into the floor rather than as a shorter man in the next seat. */
-    if (seats.copilot) sit(sasole, seats.copilot, 0.04, -SEAT_DROP + 0.12, SEAT_FORWARD, 0.16, HEAD_TURN_INBOARD);
+     * the whole fix for "his face is missing". Keep the shared `SEAT_DROP`
+     * contact datum: raising his whole rig to change apparent height left the
+     * visible torso floating 120 mm above the pan. */
+    if (seats.copilot) sit(sasole, seats.copilot, 0.04, -SEAT_DROP, SEAT_FORWARD, 0.16, HEAD_TURN_INBOARD);
     /* Irish faces his chart table, which the seat itself is already turned
      * toward — so his head only needs a nudge back up the cabin toward the
      * flight deck he is calling headings to. */
-    if (seats.navigator) sit(irish, seats.navigator, 0, -SEAT_DROP, SEAT_FORWARD, 0, 0.5);
-    /* Numbskull rides the bombardier's station in the nose glazing: prone
-     * behind the sight rather than in a seat, which is why he is placed off
-     * the anchor directly instead of off a seat group.
+    if (seats.navigator) {
+      sit(irish, seats.navigator, 0, -SEAT_DROP, SEAT_FORWARD, 0, 0.5);
+      /* The stock sit pose hangs both hands below desk height. At this rotated
+       * station that drove all four forearm/hand meshes through the table's
+       * raised edge. Bring his elbows forward and up so he works over the
+       * chart instead of through the furniture. */
+      for (const arm of irish.arms) {
+        arm.shoulder.rotation.x = -1.15;
+        arm.elbow.rotation.x = -0.5;
+      }
+    }
+    /* The generic sit pose was authored for chairs above open ground. On the
+     * Enola's raised flight-deck finish it left every front boot 346.9 mm
+     * through the floor. Fold the knees for this cramped bomber cabin; the
+     * boot soles then meet the actual deck without moving either torso off its
+     * pan. */
+    for (const member of [sasole, irish]) {
+      for (const leg of member.legs) {
+        leg.hip.rotation.x = -2.325;
+        leg.knee.rotation.x = 2.4;
+      }
+    }
+    /* Numbskull rides the bombardier's station crouched inside the nose
+     * glazing rather than on one of the flight-deck seats, which is why he is
+     * placed off the anchor directly instead of off a seat group.
      *
      * Owner: "a lot of clipping and intersecting." He was one of them — sat
      * upright inside a nose cone that had tapered to about a metre across by
      * then, so his shoulders and the crown of his head stood out through the
      * skin. The cone now stops at the collar and the glasshouse in front of it
      * is a real, hollow, 1.25 m bubble (see `EnolaSquatch.build()`), so he
-     * drops into it: crown just under the glass, boots just inside it. */
+     * occupies its measured centre: the former 1.12 m drop put his right boot
+     * 113.7 mm through the sphere. A 0.60 m drop balances crown and boots with
+     * at least 0.36 m of radial clearance for the complete visible rig. */
     const bomb = aircraft.anchors.bombardierStation;
-    sit(numbskull, aircraft.group, bomb.x, bomb.y - 1.12, bomb.z - 0.1, 0);
-    /* The Shubenator, in the tail turret, facing aft. Dropped 0.2 m for the
-     * same reason: the turret dome is 0.86 m of radius about y 0.05, and his
-     * head was crowning out through the top of it. */
-    const gun = aircraft.anchors.rearGunSeat;
-    sit(shubes, aircraft.group, gun.x, gun.y - 0.62, gun.z - 0.1, Math.PI);
+    sit(numbskull, aircraft.group, bomb.x, bomb.y - 0.60, bomb.z - 0.1, 0);
+    /* The Shubenator, in the tail turret, facing aft. Use the same measured
+     * pan contact as every other seated crewman; the former extra 0.2 m drop
+     * drove his torso 120 mm through the cushion. His legs fold tighter below
+     * so the complete seated rig stays inside the turret glazing. */
+    const gun = aircraft.parts.rearGunSeatMount;
+    sit(shubes, gun, 0, -SEAT_DROP, -0.25, Math.PI);
+    for (const leg of shubes.legs) {
+      leg.hip.rotation.x = -1.8;
+      leg.knee.rotation.x = 1.2;
+    }
   };
 
   /**
@@ -274,7 +302,40 @@ export function createCrew() {
    * and, on the apron, who they are looking at.
    */
   crew.update = (dt, camPos = null) => {
-    for (const f of crew.all) updateFigure(f, dt, crew.aboard ? null : camPos);
+    for (const f of crew.all) {
+      updateFigure(f, dt, crew.aboard ? null : camPos);
+      /* Breathing belongs above the waist in a strapped-in aeroplane. The
+       * shared block rig lifts the hips ±12 mm, which makes every boot and pan
+       * alternately penetrate and hover. Hold the seated root at its authored
+       * 0.52 m datum; neck/talk/face life continues independently. */
+      if (crew.aboard && f.pose === 'sit') f.hips.position.y = 0.52;
+    }
+    if (crew.aboard && crew.aircraft?.parts?.rearGunYoke) {
+      /* Shubes keeps hold of the reachable spade arc. These three measured
+       * poses are continuous linear functions of the gun's real elevation;
+       * interpolating through neutral gives the shoulder/elbow follow a human
+       * gunner actually makes without adding a second skeleton system. */
+      const pitch = crew.aircraft.parts.rearGunYoke.rotation.x;
+      const down = Math.max(0, Math.min(1, -pitch / 0.38));
+      const up = Math.max(0, Math.min(1, pitch / 0.58));
+      const shoulderX = -0.83 + down * (-1.45 + 0.83) + up * (-0.595 + 0.83);
+      const elbowX = -1.51 + down * (-0.95 + 1.51) + up * (-0.92 + 1.51);
+      for (const arm of shubes.arms) {
+        arm.shoulder.rotation.x = shoulderX;
+        arm.elbow.rotation.x = elbowX;
+      }
+    }
+  };
+
+  /**
+   * First-person ownership of the tail gun puts the camera at Shubes' eyes.
+   * Keep his seated torso/arms visible through the glass, but hide the neck
+   * subtree (head, helmet and headset) for that view and restore it verbatim
+   * when the player hands the station back.
+   */
+  crew.setRearGunnerManned = (manned) => {
+    shubes.neck.visible = !manned;
+    return !!manned;
   };
 
   /**

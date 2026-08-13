@@ -506,10 +506,19 @@ export function buildMotel(scene, renderer) {
   refs.table = { group: tableGroup, collider: tableCol, x: 1.4, z: -6.4, kicked: false };
 
   const chairs = [];
-  for (const [cx, cz] of [[-0.4, -6.4], [3.0, -6.4]]) {
+  for (const [chairIndex, [cx, cz]] of [[-0.4, -6.4], [3.0, -6.4]].entries()) {
     const ch = new THREE.Group();
-    ch.add(boxMesh(0.7, 0.1, 0.7, 0x5c4630, 0, 0.45, 0));
-    ch.add(boxMesh(0.7, 0.8, 0.1, 0x5c4630, 0, 0.85, -0.3));
+    ch.name = `motel-room12-dining-chair.${chairIndex}`;
+    const seat = boxMesh(0.7, 0.1, 0.7, 0x5c4630, 0, 0.45, 0);
+    seat.name = 'motel-dining-chair-seat';
+    const back = boxMesh(0.7, 0.8, 0.1, 0x5c4630, 0, 0.85, -0.3);
+    back.name = 'motel-dining-chair-back';
+    ch.add(seat, back);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const foot = boxMesh(0.08, 0.38, 0.08, 0x4a3a22, sx * 0.27, 0.21, sz * 0.27);
+      foot.name = 'motel-dining-chair-foot';
+      ch.add(foot);
+    }
     ch.position.set(cx, 0, cz);
     scene.add(ch);
     chairs.push(ch);
@@ -625,7 +634,8 @@ export function buildMotel(scene, renderer) {
   // Stacked shipment crates — the real product
   const crates = new THREE.Group();
   for (let i = 0; i < 5; i++) {
-    const crate = boxMesh(1.2, 0.8, 0.9, 0x2a2620, -15 + (i % 2) * 1.4, 0.4 + Math.floor(i / 2) * 0.85, -14);
+    const crate = boxMesh(1.2, 0.8, 0.9, 0x2a2620, -15 + (i % 2) * 1.4, 0.42 + Math.floor(i / 2) * 0.8, -14);
+    crate.name = 'motel-shipment-crate';
     crates.add(crate);
   }
   scene.add(crates);
@@ -769,8 +779,23 @@ export function buildMotel(scene, renderer) {
 
   function makeLoungeChair(x, y, z, yaw = 0, tipped = false) {
     const chair = new THREE.Group();
-    chair.add(boxMesh(0.7, 0.1, 1.8, 0x2f7f78, 0, 0.25, 0));
-    chair.add(boxMesh(0.7, 0.1, 0.8, 0x2f7f78, 0, 0.55, -0.9));
+    chair.name = 'motel-pool-lounge';
+    const seat = boxMesh(0.7, 0.1, 1.8, 0x2f7f78, 0, 0.25, 0);
+    seat.name = 'motel-pool-lounge-seat';
+    chair.add(seat);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const foot = boxMesh(0.08, 0.18, 0.08, 0x245f5b, sx * 0.27, 0.11, sz * 0.70);
+      foot.name = 'motel-pool-lounge-foot';
+      chair.add(foot);
+    }
+    const backHinge = new THREE.Group();
+    backHinge.name = 'motel-pool-lounge-back-hinge';
+    backHinge.position.set(0, 0.30, -0.55);
+    backHinge.rotation.x = 0.65;
+    const back = boxMesh(0.7, 0.1, 0.8, 0x2f7f78, 0, 0, -0.4);
+    back.name = 'motel-pool-lounge-back';
+    backHinge.add(back);
+    chair.add(backHinge);
     chair.position.set(x, y, z);
     chair.rotation.set(tipped ? 0.3 : 0, yaw, tipped ? -0.5 : 0);
     scene.add(chair);
@@ -782,8 +807,10 @@ export function buildMotel(scene, renderer) {
   // props that can read as parking-lot placement bugs.
   const westLounge = makeLoungeChair(12.55, 0.04, 10.0, 0);
   const eastLounge = makeLoungeChair(31.35, 0.04, 15.8, Math.PI);
-  // Tipped against the shallow-corner wall, not standing mid-pool.
-  const poolDebris = makeLoungeChair(15.4, POOL.y, 7.6, 0.7, true);
+  // Tipped against the shallow-corner wall, not standing mid-pool. Its
+  // rotated rendered vertices extend 0.2589 m below the group origin, so this
+  // authored offset leaves the lowest triangle tangent to the liner at +0.02.
+  const poolDebris = makeLoungeChair(15.4, POOL.y + 0.2589, 7.6, 0.7, true);
   refs.poolFurniture = [
     { id: 'west-lounge', group: westLounge, x: 12.55, z: 10.0, deck: true },
     { id: 'east-lounge', group: eastLounge, x: 31.35, z: 15.8, deck: true },

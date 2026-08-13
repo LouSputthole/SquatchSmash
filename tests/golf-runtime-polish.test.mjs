@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 
 import { completedRoundAction, connectGolfFootsteps } from '../src/golf/runtime.js';
 import { CourseAudio } from '../src/golf/audio.js';
@@ -8,6 +9,35 @@ import { BALL_STATE } from '../src/golf/ball.js';
 import { CueQueue } from '../src/golf/dialogue.js';
 import { HOLE } from '../src/golf/hole.js';
 import { SEQUENCES } from '../src/golf/script.js';
+
+function installGolfCanvasDocument() {
+  const previous = globalThis.document;
+  const context = new Proxy({}, {
+    get(_target, key) {
+      if (key === 'createLinearGradient' || key === 'createRadialGradient') {
+        return () => ({ addColorStop() {} });
+      }
+      if (key === 'createImageData' || key === 'getImageData') {
+        return (width = 1, height = 1) => ({
+          data: new Uint8ClampedArray(Math.max(1, width * height * 4)),
+        });
+      }
+      if (key === 'measureText') return () => ({ width: 10 });
+      return () => {};
+    },
+    set() { return true; },
+  });
+  globalThis.document = {
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      return { width: 0, height: 0, style: {}, getContext: () => context };
+    },
+  };
+  return () => {
+    if (previous === undefined) delete globalThis.document;
+    else globalThis.document = previous;
+  };
+}
 
 test('Golf footsteps resolve the live course surface and carry a positional snapshot', () => {
   const calls = [];
@@ -32,6 +62,31 @@ test('Golf footsteps resolve the live course surface and carry a positional snap
     1.15,
     { x: 14, y: 2.2, z: -36 },
   ]]);
+});
+
+test('near-player grass publishes only invertible transforms for rendered tufts', async () => {
+  const restoreDocument = installGolfCanvasDocument();
+  let course = null;
+  try {
+    const { Course } = await import('../src/golf/terrain.js');
+    course = new Course(new THREE.Scene(), null);
+    const tee = HOLE.teeMarks.ball;
+    course.update(0, new THREE.Vector3(tee.x, course.groundAt(tee.x, tee.z), tee.z));
+
+    const grass = course.grass.mesh;
+    assert.ok(grass.count > 0, 'the rough around the tee lost all grass detail');
+    assert.ok(grass.count < course.grass.count,
+      'non-grass samples still occupy rendered instance slots');
+    const matrix = new THREE.Matrix4();
+    for (let index = 0; index < grass.count; index++) {
+      grass.getMatrixAt(index, matrix);
+      assert.ok(Math.abs(matrix.determinant()) > 1e-8,
+        `rendered grass instance ${index} has a singular transform`);
+    }
+  } finally {
+    course?.dispose();
+    restoreDocument();
+  }
 });
 
 test('CourseAudio plays the resolved footstep as a positional course cue', () => {

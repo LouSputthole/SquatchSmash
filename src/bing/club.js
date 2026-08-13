@@ -1877,11 +1877,46 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.visitorSeat = { x: dx - 0.45, z: dz + 1.5, yaw: 0 };
 
     // Lou's chair, and two for whoever he is making wait
-    add(group('lou-chair',
-      box({ size: [0.62, 0.12, 0.6], pos: [dx, 0.48, dz - 0.9], mat: M_LEATHER_DARK }),
-      box({ size: [0.62, 0.95, 0.14], pos: [dx, 1.0, dz - 1.18], mat: M_LEATHER_DARK }),
-      cylinder({ r: 0.05, h: 0.42, pos: [dx, 0.24, dz - 0.9], mat: mat({ color: 0x18181e, roughness: 0.6 }) }),
-    ));
+    const louChairX = dx;
+    const louChairZ = dz - 0.9;
+    const louChairFrame = mat({ color: 0x18181e, roughness: 0.6 });
+    const louChair = group('lou-chair',
+      box({
+        size: [0.62, 0.12, 0.6], pos: [louChairX, 0.48, louChairZ],
+        mat: M_LEATHER_DARK, name: 'lou-chair-seat',
+      }),
+      box({
+        size: [0.62, 0.95, 0.14], pos: [louChairX, 1.0, louChairZ - 0.28],
+        mat: M_LEATHER_DARK, name: 'lou-chair-back',
+      }),
+      cylinder({
+        r: 0.05, h: 0.42, pos: [louChairX, 0.24, louChairZ],
+        mat: louChairFrame, name: 'lou-chair-column',
+      }),
+      cylinder({
+        r: 0.09, h: 0.08, pos: [louChairX, 0.07, louChairZ],
+        mat: louChairFrame, name: 'lou-chair-base-hub',
+      }),
+    );
+    for (let i = 0; i < 5; i++) {
+      const angle = i * Math.PI * 2 / 5;
+      const ux = Math.cos(angle);
+      const uz = Math.sin(angle);
+      louChair.add(box({
+        size: [0.24, 0.04, 0.05],
+        pos: [louChairX + ux * 0.12, 0.06, louChairZ + uz * 0.12],
+        rotY: -angle,
+        mat: louChairFrame,
+        name: 'lou-chair-base-arm',
+      }));
+      louChair.add(cylinder({
+        r: 0.035, h: 0.05,
+        pos: [louChairX + ux * 0.25, 0.029, louChairZ + uz * 0.25],
+        mat: louChairFrame,
+        name: 'lou-chair-foot',
+      }));
+    }
+    add(louChair);
     add(makeChair(M, { x: dx - 0.45, z: dz + 1.5, rotY: Math.PI }));
     add(makeChair(M, { x: dx + 0.75, z: dz + 1.5, rotY: Math.PI }));
 

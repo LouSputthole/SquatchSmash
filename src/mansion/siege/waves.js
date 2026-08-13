@@ -72,18 +72,23 @@
  * cannot quietly drift inside a wall.
  */
 export const STAGING = Object.freeze({
-  /* Up the drive, north of the abandoned Lincoln at (0, 18.4) and clear of
+  /* Up the drive, north of the abandoned Lincoln at (0, 17.0) and clear of
    * the lamp posts standing in the carriageway at x +/-4.6. He walks past the
    * fountain and the burning cars to the steps. */
   court_north: Object.freeze({
-    id: 'court_north', x: 0, z: 20.5, indoor: false,
+    /* The root is 3.8 m south of the fountain's real r=6 apron and 1.52 m
+     * north of the stalled Lincoln's hull. At z=19.8 the capsule itself was
+     * clear, but a rifleman's rear hand entered that car as he turned west. */
+    id: 'court_north', x: 0, z: 20.2, indoor: false,
     entry: 'drive_head', label: 'the drive',
   }),
   /* The bottom of the front steps (z 34..35.5), straight up and in through
    * FRONT_DOOR at (0, 36). The turnaround's north arc, z 27..34, is left
    * empty by `dressing.js` precisely so this walk-in reads. */
   front_steps: Object.freeze({
-    id: 'front_steps', x: 0, z: 33.0, indoor: false,
+    /* North of the r=6 fountain apron plus the standing capsule, with half a
+     * metre of turnaround before the first physical tread at z=34. */
+    id: 'front_steps', x: 0, z: 33.5, indoor: false,
     entry: 'steps_centre', label: 'the front steps',
   }),
   /* THE EAST FLANK, and it is one group in one wave. Outside the east bay,
@@ -92,7 +97,7 @@ export const STAGING = Object.freeze({
    * the house he is about to break into. He stands on the service-road verge
    * beyond it and comes through `bayEastMid`. */
   lounge_bay: Object.freeze({
-    id: 'lounge_bay', x: 26.5, z: 43.75, indoor: false,
+    id: 'lounge_bay', x: 26.5, z: 43.55, indoor: false,
     entry: 'lawn_bay', label: 'the lounge bay glass',
   }),
   /* The west flank, and it is NOT the west living room's windows.
@@ -110,7 +115,7 @@ export const STAGING = Object.freeze({
    * longer route and a better one: the flanker arrives behind the player's
    * shoulder instead of through a wall he was already watching. */
   living_west: Object.freeze({
-    id: 'living_west', x: -28.5, z: 44.4, indoor: false,
+    id: 'living_west', x: -28.5, z: 44.0, indoor: false,
     entry: 'lawn_trophy', label: 'the trophy hall glass',
   }),
   /* The cellar corridor itself -- the two men already in the house. */

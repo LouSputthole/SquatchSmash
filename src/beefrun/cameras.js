@@ -19,6 +19,7 @@ const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
+const COCKPIT_HEAD_TRAVEL = 0.02;
 
 export class CameraManager {
   constructor(camera) {
@@ -89,12 +90,19 @@ export class CameraManager {
     body.updateMatrixWorld();
 
     if (this.view === 'cockpit') {
-      _v.copy(eye).applyMatrix4(body.matrixWorld);
       // Head movement: the body leans into acceleration and the seat shakes.
       const bump = (this.shake + roughness * 0.5) * 0.03;
       this._bob += dt * (8 + p.groundSpeed * 0.4);
-      _v.y += Math.sin(this._bob * 3.1) * bump + (gLoad - 1) * -0.012;
-      _v.x += Math.cos(this._bob * 2.3) * bump * 0.7;
+      const headY = Math.sin(this._bob * 3.1) * bump + (gLoad - 1) * -0.012;
+      const headX = Math.cos(this._bob * 2.3) * bump * 0.7;
+      /* Apply shake in the aeroplane's frame, then keep the head inside the
+       * curved turtledeck envelope. The old world-Y offsets went through the
+       * skin in a bank and full touchdown shake put the camera 7.9 cm inside
+       * the old opaque box roof. */
+      _v.copy(eye);
+      _v.y += clamp(headY, -COCKPIT_HEAD_TRAVEL, COCKPIT_HEAD_TRAVEL);
+      _v.x += clamp(headX, -COCKPIT_HEAD_TRAVEL, COCKPIT_HEAD_TRAVEL);
+      _v.applyMatrix4(body.matrixWorld);
       cam.position.copy(_v);
 
       /* Face the nose. A camera looks down its own -Z and the aeroplane's

@@ -25,6 +25,7 @@ const WATER_LEVEL = -0.18;
  * balancing on the chine.
  */
 const BOAT_FLOAT_Y = -0.10;
+const CRUISER_HULL_MESH_Y = 0.02;
 
 /**
  * The same stations that build the cruiser's skin also bound its water hole.
@@ -33,7 +34,7 @@ const BOAT_FLOAT_Y = -0.10;
  */
 export const CRUISER_HULL_SECTIONS = Object.freeze([
   Object.freeze({ z: -6.25, w: .12 }), Object.freeze({ z: -5.70, w: .86 }),
-  Object.freeze({ z: -4.85, w: 1.74 }), Object.freeze({ z: -3.70, w: 2.24 }),
+  Object.freeze({ z: -4.85, w: 1.98 }), Object.freeze({ z: -3.70, w: 2.24 }),
   Object.freeze({ z: -2.15, w: 2.46 }), Object.freeze({ z: 0.00, w: 2.54 }),
   Object.freeze({ z: 2.60, w: 2.56 }), Object.freeze({ z: 4.60, w: 2.46 }),
   Object.freeze({ z: 5.55, w: 2.26 }),
@@ -312,7 +313,7 @@ function buildMarina(scene) {
     pedestal.add(box(`shore-power panel ${i + 1}`, [.30, .16, .04], mat(0x1d3035), 0, .62, .175));
     pedestal.add(cylinder(`shore-power lamp green ${i + 1}`, .045, .055, mat(0x3b9d62), -.10, .62, .25, 12));
     pedestal.add(cylinder(`shore-power lamp amber ${i + 1}`, .045, .055, mat(0xd3b343), .10, .62, .25, 12));
-    pedestal.position.set(-6.35, .2, z);
+    pedestal.position.set(-6.35, .1125, z);
     dock.add(pedestal);
   }
   const hose = mesh('dock water hose coil', new THREE.TorusGeometry(.34, .045, 8, 24), mat(0x24513f), -6.15, .76, 5.7);
@@ -331,7 +332,7 @@ function buildMarina(scene) {
   cart.add(box('dock cart handle port', [.08, .72, .08], steel, -.53, .72, -.3));
   cart.add(box('dock cart handle starboard', [.08, .72, .08], steel, -.53, .72, .3));
   for (const [i, [x, z]] of [[-.48, -.28], [-.48, .28], [.48, -.28], [.48, .28]].entries()) {
-    const wheel = cylinder(`dock cart wheel ${i + 1}`, .12, .07, rubber, x, .30, z, 14);
+    const wheel = cylinder(`dock cart wheel ${i + 1}`, .12, .07, rubber, x, .36, z, 14);
     wheel.rotation.z = Math.PI / 2;
     cart.add(wheel);
   }
@@ -413,7 +414,7 @@ function buildMarina(scene) {
       }
       other.add(box(`neighbor outdrive ${side}`, [.34, .58, .42], mat(0x242a2c), sx * .48, .20, 4.72));
       for (const [j, cleatZ] of [-3.45, 3.52].entries()) {
-        other.add(box(`neighbor cleat ${side} ${j + 1}`, [.34, .055, .10], steel, sx * 1.42, .73, cleatZ));
+        other.add(box(`neighbor cleat ${side} ${j + 1}`, [.34, .055, .10], steel, sx * 1.42, .6975, cleatZ));
       }
     }
     other.add(box('neighbor transom platform', [2.42, .18, .72], mat(0xb0aca1), 0, .88, 3.17));
@@ -612,6 +613,67 @@ function cruiserHullGeometry() {
 }
 
 /**
+ * One applied trim band that follows the same longitudinal stations as the
+ * visible hull instead of carrying a full-length box past the fine bow.
+ *
+ * `supportY` is in boat-root space. The hull mesh itself sits 20 mm above that
+ * root, so every station samples the visible skin at `supportY - .02`. The
+ * outer face uses the band's bounded `proud` projection; the remaining
+ * thickness beds into the moulding. This keeps every band visibly attached
+ * while preserving the authored vertical size/material and a real,
+ * outward-wound exterior face. The rubber rail projects 10 mm beyond the
+ * cream cap so their overlapping vertical profiles never z-fight.
+ */
+function cruiserHullTrimGeometry({
+  side, y, height, thickness, supportY = y, proud = .045, startZ, endZ,
+}) {
+  const stationZ = [
+    startZ,
+    ...CRUISER_HULL_SECTIONS.map((section) => section.z)
+      .filter((z) => z > startZ && z < endZ),
+    endZ,
+  ];
+  const yMin = y - height / 2;
+  const yMax = y + height / 2;
+  const rings = stationZ.map((z) => {
+    const skin = cruiserHullHalfBeamAt(supportY - CRUISER_HULL_MESH_Y, z);
+    const outer = skin + proud;
+    const inner = Math.max(.02, outer - thickness);
+    const at = (radius, atY) => [side * radius, atY, z];
+    return {
+      ib: at(inner, yMin), ob: at(outer, yMin),
+      it: at(inner, yMax), ot: at(outer, yMax),
+    };
+  });
+  const positions = [];
+  const tri = (a, b, c) => {
+    const ordered = side > 0 ? [a, b, c] : [a, c, b];
+    positions.push(...ordered[0], ...ordered[1], ...ordered[2]);
+  };
+  for (let i = 0; i < rings.length - 1; i++) {
+    const a = rings[i]; const b = rings[i + 1];
+    /* Outboard, inboard, top and bottom faces. */
+    tri(a.ob, a.ot, b.ot); tri(a.ob, b.ot, b.ob);
+    tri(a.ib, b.it, a.it); tri(a.ib, b.ib, b.it);
+    tri(a.it, b.it, b.ot); tri(a.it, b.ot, a.ot);
+    tri(a.ib, b.ob, b.ib); tri(a.ib, a.ob, b.ob);
+  }
+  const first = rings[0]; const last = rings.at(-1);
+  tri(first.ib, first.it, first.ot); tri(first.ib, first.ot, first.ob);
+  tri(last.ib, last.ob, last.ot); tri(last.ib, last.ot, last.it);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  geometry.userData.hullTrim = {
+    supportY: supportY - CRUISER_HULL_MESH_Y,
+    proud,
+    stations: stationZ,
+  };
+  return geometry;
+}
+
+/**
  * The boat.
  *
  * "A fictional 35-36 ft express cabin cruiser, laid out like a stretched 270
@@ -648,15 +710,24 @@ function buildBoat(scene, marina) {
   });
   const castIron = mat(0x2c2f31, .88, .18);
 
-  const hull = mesh('cream fiberglass hull', cruiserHullGeometry(), cream, 0, .02, 0);
+  const hull = mesh('cream fiberglass hull', cruiserHullGeometry(), cream, 0, CRUISER_HULL_MESH_Y, 0);
   root.add(hull);
   // The stripe. Burgundy, because Lou paid cash.
   for (const sx of [-1, 1]) {
     const side = sx < 0 ? 'port' : 'starboard';
-    root.add(box(`burgundy sheer stripe ${side}`, [.10, .17, 10.8], burgundy, sx * 2.50, .40, -.05));
-    root.add(box(`burgundy accent stripe ${side}`, [.09, .07, 10.8], burgundy, sx * 2.52, .60, -.05));
-    root.add(box(`rub strip ${side}`, [.13, .16, 11.4], rubber, sx * 2.52, .74, -.10));
-    root.add(box(`gunwale cap ${side}`, [.30, .12, 11.4], creamDeep, sx * 2.42, .80, -.10));
+    const trim = (name, material, options) => {
+      const object = mesh(name, cruiserHullTrimGeometry({ side: sx, ...options }), material);
+      object.userData.hullTrim = object.geometry.userData.hullTrim;
+      root.add(object);
+    };
+    trim(`burgundy sheer stripe ${side}`, burgundy,
+      { y: .40, height: .17, thickness: .10, startZ: -5.45, endZ: 5.35 });
+    trim(`burgundy accent stripe ${side}`, burgundy,
+      { y: .60, height: .07, thickness: .09, startZ: -5.45, endZ: 5.35 });
+    trim(`rub strip ${side}`, rubber,
+      { y: .74, height: .16, thickness: .13, proud: .055, startZ: -5.80, endZ: 5.50 });
+    trim(`gunwale cap ${side}`, creamDeep,
+      { y: .80, height: .12, thickness: .30, supportY: .74, startZ: -5.80, endZ: 5.50 });
   }
   root.add(box('transom face', [4.52, .82, .12], cream, 0, .36, 5.56));
   const transomName = textPlate('transom name sign', 'NO WAKE  ·  SOUTH HARBOR', 2.5, .26, {
@@ -1394,8 +1465,8 @@ function buildBoat(scene, marina) {
   let detailMeshes = 0;
   root.traverse((object) => { if (object.isMesh) detailMeshes++; });
   root.userData.detailMeshes = detailMeshes;
-  const keelY = BOAT_FLOAT_Y + .02 - .98;
-  const sheerY = BOAT_FLOAT_Y + .02 + .74;
+  const keelY = BOAT_FLOAT_Y + CRUISER_HULL_MESH_Y - .98;
+  const sheerY = BOAT_FLOAT_Y + CRUISER_HULL_MESH_Y + .74;
   root.userData.waterline = {
     surfaceY: WATER_LEVEL,
     restingY: BOAT_FLOAT_Y,
@@ -1446,30 +1517,94 @@ function buildBuoys(scene) {
   return buoys;
 }
 
+const WAKE_LIMITS = Object.freeze({
+  poolSize: 72,
+  emitInterval: .11,
+  minSpeed: 1.2,
+  lifetime: 2.8,
+  startWidth: .72,
+  startLength: 2.4,
+  maxWidth: 1.45,
+  maxLength: 4.4,
+  startOpacity: .38,
+});
+
+function wakeSmoothstep(edge0, edge1, value) {
+  const t = THREE.MathUtils.clamp((value - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+/** One small shared alpha field: opaque foam core, fully transparent perimeter. */
+function wakeFoamTexture(size = 64) {
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    const v = ((y + .5) / size) * 2 - 1;
+    for (let x = 0; x < size; x++) {
+      const u = ((x + .5) / size) * 2 - 1;
+      const elliptical = Math.hypot(u / .88, v);
+      const feather = 1 - wakeSmoothstep(.66, .98, elliptical);
+      const ridge = .78 + .22 * (1 - Math.min(1, Math.abs(u)));
+      const ripple = .90 + .10 * Math.sin(v * 19 + u * 7.5);
+      const border = x === 0 || y === 0 || x === size - 1 || y === size - 1;
+      const alpha = border ? 0 : Math.round(255 * THREE.MathUtils.clamp(
+        feather * ridge * ripple, 0, 1,
+      ));
+      const index = (y * size + x) * 4;
+      data[index] = 224;
+      data[index + 1] = 242;
+      data[index + 2] = 240;
+      data[index + 3] = alpha;
+    }
+  }
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.UnsignedByteType);
+  texture.name = 'procedural feathered wake foam';
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 class WakePool {
   constructor(scene) {
+    this.scene = scene;
     this.pool = [];
     this.cursor = 0;
+    this.limits = WAKE_LIMITS;
+    this.texture = wakeFoamTexture();
+    this.geometry = new THREE.PlaneGeometry(WAKE_LIMITS.startWidth, WAKE_LIMITS.startLength);
     const wakeMat = new THREE.MeshBasicMaterial({
-      color: 0xbcd4d4, transparent: true, opacity: .30, depthWrite: false,
+      color: 0xd9ecea,
+      map: this.texture,
+      transparent: true,
+      opacity: WAKE_LIMITS.startOpacity,
+      alphaTest: .01,
+      depthWrite: false,
       side: THREE.DoubleSide,
     });
-    for (let i = 0; i < 72; i++) {
-      const p = mesh(`wake quad ${i + 1}`, new THREE.PlaneGeometry(.78, 3.2), wakeMat.clone());
+    for (let i = 0; i < WAKE_LIMITS.poolSize; i++) {
+      const p = mesh(`wake quad ${i + 1}`, this.geometry, wakeMat.clone());
       p.rotation.x = -Math.PI / 2;
       p.visible = false;
       p.userData.life = 0;
+      p.userData.age = 0;
       p.castShadow = false;
       scene.add(p);
       this.pool.push(p);
     }
+    wakeMat.dispose();
     this.timer = 0;
+    this.disposed = false;
   }
 
   emit(at, heading, speed, dt) {
+    if (this.disposed) return;
     this.timer -= dt;
-    if (speed < 1.2 || this.timer > 0) return;
-    this.timer = .11;
+    if (speed < this.limits.minSpeed || this.timer > 0) return;
+    this.timer = this.limits.emitInterval;
     for (const side of [-1, 1]) {
       const p = this.pool[this.cursor++ % this.pool.length];
       /* Abeam of the hull's own heading. Forward is the boat mesh's -Z rotated
@@ -1480,21 +1615,42 @@ class WakePool {
       p.position.y = -.12;
       p.rotation.z = heading + side * .48;
       p.scale.set(1, 1, 1);
-      p.material.opacity = .34;
+      p.material.opacity = this.limits.startOpacity;
+      p.userData.age = 0;
       p.userData.life = 1;
       p.visible = true;
     }
   }
 
   update(dt) {
+    if (this.disposed) return;
     for (const p of this.pool) {
       if (!p.visible) continue;
-      p.userData.life -= dt * .24;
-      p.scale.x *= 1 + dt * .54;
-      p.scale.y *= 1 + dt * .31;
-      p.material.opacity = Math.max(0, p.userData.life * .32);
-      if (p.userData.life <= 0) p.visible = false;
+      p.userData.age += dt;
+      const progress = THREE.MathUtils.clamp(p.userData.age / this.limits.lifetime, 0, 1);
+      const spread = wakeSmoothstep(0, 1, progress);
+      const width = THREE.MathUtils.lerp(this.limits.startWidth, this.limits.maxWidth, spread);
+      const length = THREE.MathUtils.lerp(this.limits.startLength, this.limits.maxLength, spread);
+      p.scale.set(width / this.limits.startWidth, length / this.limits.startLength, 1);
+      p.userData.life = 1 - progress;
+      p.material.opacity = this.limits.startOpacity * (1 - spread);
+      if (progress >= 1) {
+        p.material.opacity = 0;
+        p.visible = false;
+      }
     }
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const p of this.pool) {
+      p.visible = false;
+      this.scene.remove(p);
+      p.material.dispose();
+    }
+    this.geometry.dispose();
+    this.texture.dispose();
   }
 }
 

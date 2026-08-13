@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import {
+  evaluateCasaFrameContract,
   MANSION_ART_EVIDENCE_SHOTS,
   MANSION_OWNER_PICTURE_COUNT,
   parseMansionArtEvidenceRun,
@@ -217,6 +218,13 @@ try {
           .find(({ object }) => shown(object) && opaque(object));
         return hit?.object ?? null;
       };
+      const isOwnFrameBacking = (object) => {
+        if (!object || object === target || !target.parent) return false;
+        for (let node = object; node; node = node.parent) {
+          if (node === target.parent) return true;
+        }
+        return false;
+      };
 
       target.geometry.computeBoundingBox();
       const local = target.geometry.boundingBox;
@@ -231,13 +239,16 @@ try {
           const primary = firstOpaqueTo(worldSample(fx, fy));
           let first = primary;
           let nullRetry = null;
-          if (primary === null) {
+          const primaryIsOwnBacking = isOwnFrameBacking(primary);
+          if (primary === null || primaryIsOwnBacking) {
             const epsilon = 1e-5;
             const retries = [
               [fx - epsilon, fy], [fx + epsilon, fy],
               [fx, fy - epsilon], [fx, fy + epsilon],
             ].map(([retryX, retryY]) => firstOpaqueTo(worldSample(retryX, retryY)));
-            first = resolveMansionArtNullSightline({ primary, target, retries });
+            first = resolveMansionArtNullSightline({
+              primary, primaryIsOwnBacking, target, retries,
+            });
             nullRetry = retries.map((hit) => (hit === target ? 'target' : describe(hit)));
           }
           grid.push({
@@ -267,25 +278,70 @@ try {
       let rail = null;
       if (railProof) {
         const pictureBox = new T.Box3().setFromObject(target);
+        const framePanel = target.parent?.name === 'framePanel' ? target.parent : null;
+        const frameParts = framePanel?.children
+          ?.filter((child) => child.isMesh && child.geometry?.type === 'BoxGeometry')
+          .sort((left, right) => (right.geometry.parameters?.depth ?? 0)
+            - (left.geometry.parameters?.depth ?? 0)) ?? [];
+        const [bezel, board] = frameParts;
+        const fullFrameBox = framePanel ? new T.Box3().setFromObject(framePanel) : pictureBox;
+        const bezelBox = bezel ? new T.Box3().setFromObject(bezel) : null;
+        const boardBox = board ? new T.Box3().setFromObject(board) : null;
+        const belongsToFrame = (object) => {
+          for (let node = object; node; node = node.parent) if (node === framePanel) return true;
+          return false;
+        };
+        const boxData = (bounds) => (bounds ? {
+          min: bounds.min.toArray(), max: bounds.max.toArray(),
+        } : null);
         const intersections = [];
         const clearances = [];
         m.interior.root.traverse((object) => {
-          if (!object.isMesh || object.isInstancedMesh || object === target || !shown(object)) return;
+          if (!object.isMesh || object.isInstancedMesh || belongsToFrame(object) || !shown(object)) return;
           if (!materials(object).some((material) => material.color?.getHex() === 0xf0e9d8)) return;
           const trimBox = new T.Box3().setFromObject(object);
           const trimSize = trimBox.getSize(new T.Vector3());
-          if (trimBox.intersectsBox(pictureBox)) intersections.push(describe(object));
-          const sharesWallRun = trimBox.max.x >= pictureBox.min.x && trimBox.min.x <= pictureBox.max.x
-            && trimBox.max.z >= pictureBox.min.z - 0.01
-            && trimBox.min.z <= pictureBox.max.z + 0.01;
-          if (sharesWallRun && trimSize.y <= 0.12 && trimBox.max.y <= pictureBox.min.y) {
-            clearances.push(pictureBox.min.y - trimBox.max.y);
+          if (trimBox.intersectsBox(fullFrameBox)) intersections.push(describe(object));
+          const sharesWallRun = trimBox.max.x >= fullFrameBox.min.x && trimBox.min.x <= fullFrameBox.max.x
+            && trimBox.max.z >= fullFrameBox.min.z - 0.01
+            && trimBox.min.z <= fullFrameBox.max.z + 0.01;
+          if (sharesWallRun && trimSize.y <= 0.12 && trimBox.max.y <= fullFrameBox.min.y) {
+            clearances.push(fullFrameBox.min.y - trimBox.max.y);
           }
         });
+        const wallCandidates = [];
+        m.grounds.root.traverse((object) => {
+          if (!object.isMesh || object.name !== 'cellar-wing-south') return;
+          const wallBox = new T.Box3().setFromObject(object);
+          if (wallBox.max.x < fullFrameBox.max.x || wallBox.min.x > fullFrameBox.min.x
+              || wallBox.max.y < fullFrameBox.max.y || wallBox.min.y > fullFrameBox.min.y) return;
+          wallCandidates.push({
+            name: object.name,
+            frameRearGap: bezelBox ? bezelBox.min.z - wallBox.max.z : null,
+            box: boxData(wallBox),
+          });
+        });
+        wallCandidates.sort((left, right) => (
+          Math.abs(left.frameRearGap ?? Infinity) - Math.abs(right.frameRearGap ?? Infinity)
+        ));
         rail = {
           intersections,
           clearance: clearances.length ? Math.min(...clearances) : null,
-          pictureBox: { min: pictureBox.min.toArray(), max: pictureBox.max.toArray() },
+          pictureBox: boxData(pictureBox),
+          frame: boxData(fullFrameBox),
+          bezel: boxData(bezelBox),
+          board: boxData(boardBox),
+          containment: bezelBox && boardBox ? {
+            boardLeft: pictureBox.min.x - boardBox.min.x,
+            boardRight: boardBox.max.x - pictureBox.max.x,
+            boardBottom: pictureBox.min.y - boardBox.min.y,
+            boardTop: boardBox.max.y - pictureBox.max.y,
+            bezelLeft: pictureBox.min.x - bezelBox.min.x,
+            bezelRight: bezelBox.max.x - pictureBox.max.x,
+            bezelBottom: pictureBox.min.y - bezelBox.min.y,
+            bezelTop: bezelBox.max.y - pictureBox.max.y,
+          } : null,
+          nearestStructuralWall: wallCandidates[0] ?? null,
         };
       }
 
@@ -369,6 +425,10 @@ try {
   }
 
   const casa = evidence.at(-1);
+  const casaFrameContract = evaluateCasaFrameContract({
+    ...casa.rail,
+    railClearance: casa.rail?.clearance,
+  });
   check('Casa Bonita across from the vault is real, decoded and centre-clear',
     casa.actualFile === CASA.file && casa.real && casa.mapped && casa.decoded && casa.shown
       && casa.grid.centreClear && casa.grid.clear === casa.grid.total,
@@ -379,9 +439,15 @@ try {
       coreSamples: `${casa.grid.coreClear}/${casa.grid.coreTotal}`,
       blockers: casa.grid.blocked,
     });
-  check('Casa Bonita clears the actual white cellar chair rail by at least 40 mm',
-    casa.rail?.intersections.length === 0 && casa.rail?.clearance >= 0.04,
-    casa.rail);
+  check('Casa Bonita has a complete, symmetric frame containing the resolved art',
+    casaFrameContract.frameComplete && casaFrameContract.artContained && casaFrameContract.symmetric,
+    { contract: casaFrameContract, proof: casa.rail });
+  check('Casa Bonita full frame clears the actual white cellar chair rail by at least 50 mm',
+    casaFrameContract.railClear,
+    { contract: casaFrameContract, proof: casa.rail });
+  check('Casa Bonita real bezel rear is mounted within 5 mm of the cellar wall',
+    casaFrameContract.wallMounted,
+    { contract: casaFrameContract, proof: casa.rail });
 
   const gl = await page.evaluate(() => {
     const context = window.mansion.renderer.getContext();

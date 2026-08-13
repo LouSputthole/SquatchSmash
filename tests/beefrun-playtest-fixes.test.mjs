@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 import * as THREE from 'three';
 
+import { buildAirstrip } from '../src/beefrun/airstrip.js';
 import { buildLandmarks } from '../src/beefrun/landmarks.js';
 import { MissionController } from '../src/beefrun/mission.js';
 import { BIG_UNCLE_LOU, CAPTAIN_LOU_SASOLE } from '../src/core/wardrobe.js';
@@ -121,6 +122,57 @@ test('every gravel bar overlaps the river instead of becoming a detached patch',
   assert.ok(worst.gap <= 0,
     `${worst.name} has ${worst.gap.toFixed(2)} m of dry ground between it and the river `
       + `(centre ${worst.distance.toFixed(2)} m away; overlap reach ${worst.reach.toFixed(2)} m)`);
+});
+
+test('the El Hueso shelter bench and table are visibly supported to the terrain', () => {
+  const scene = new THREE.Scene();
+  const airstrip = buildAirstrip(scene);
+  const shelter = airstrip.root.getObjectByName('shelter');
+  assert.ok(shelter, 'El Hueso lost its open-sided shelter');
+
+  const meshes = [];
+  shelter.traverse((object) => {
+    if (object.isMesh) meshes.push(object);
+  });
+  const furniture = [
+    ['bench', 'shelter-bench-seat', 'shelter-bench-leg', 2],
+    ['table', 'shelter-table-top', 'shelter-table-leg', 4],
+  ];
+  scene.updateMatrixWorld(true);
+  const defects = [];
+
+  for (const [label, surfaceName, legName, expectedLegs] of furniture) {
+    const surface = shelter.getObjectByName(surfaceName);
+    const legs = meshes.filter((object) => object.name === legName);
+    assert.ok(surface?.isMesh, `the shelter lost its ${label} surface`);
+    assert.equal(legs.length, expectedLegs, `the shelter ${label} has ${legs.length}/${expectedLegs} visible supports`);
+    const surfaceBounds = new THREE.Box3().setFromObject(surface);
+    const surfaceWidth = surface.geometry.parameters.width;
+    const surfaceDepth = surface.geometry.parameters.depth;
+
+    for (const [index, leg] of legs.entries()) {
+      const legBounds = new THREE.Box3().setFromObject(leg);
+      const foot = leg.getWorldPosition(new THREE.Vector3());
+      const terrainY = airstrip.groundAt(foot.x, foot.z);
+      const footDelta = legBounds.min.y - terrainY;
+      const topGap = surfaceBounds.min.y - legBounds.max.y;
+      const localFoot = surface.worldToLocal(foot.clone());
+      const halfLegWidth = leg.geometry.parameters.width / 2;
+      const halfLegDepth = leg.geometry.parameters.depth / 2;
+      const insideFootprint = (
+        Math.abs(localFoot.x) + halfLegWidth <= surfaceWidth / 2 + 0.001
+        && Math.abs(localFoot.z) + halfLegDepth <= surfaceDepth / 2 + 0.001
+      );
+      if (Math.abs(footDelta) > 0.001 || Math.abs(topGap) > 0.001 || !insideFootprint) {
+        defects.push(
+          `${label} support ${index + 1}: foot ${footDelta.toFixed(4)} m, `
+          + `top ${topGap.toFixed(4)} m, footprint ${insideFootprint ? 'inside' : 'outside'}`,
+        );
+      }
+    }
+  }
+
+  assert.deepEqual(defects, [], defects.join('; '));
 });
 
 /* ---------------- 1. "why does it not take my pointer?" ---------------- */

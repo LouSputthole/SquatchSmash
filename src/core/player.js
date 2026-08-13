@@ -349,8 +349,16 @@ export class Player {
 
     // Ride whatever floor is under him -- the stage, a step, otherwise zero.
     const ground = this.world.groundAt ? this.world.groundAt(this.position.x, this.position.z) : 0;
-    this.ground += (ground - this.ground) * Math.min(1, dt * 9);
-    if (Math.abs(ground - this.ground) < 0.002) this.ground = ground;
+    if (this.world.snapGroundToSurface === true) {
+      /* Discrete authored treads are not a smooth ramp.  Mansion opts into
+       * exact support so the player cannot spend several frames inside a new
+       * riser (or floating after stepping down) while the camera eases toward
+       * the floor.  Other worlds retain the original soft vertical response. */
+      this.ground = ground;
+    } else {
+      this.ground += (ground - this.ground) * Math.min(1, dt * 9);
+      if (Math.abs(ground - this.ground) < 0.002) this.ground = ground;
+    }
 
     const jumpPressed = k.has('Space');
     if (jumpPressed && !this._jumpHeld && this.grounded && !this.crouching) {

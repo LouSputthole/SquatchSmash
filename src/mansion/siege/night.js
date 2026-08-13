@@ -16,6 +16,28 @@
  */
 import * as THREE from 'three';
 
+const _lightWorld = new THREE.Vector3();
+
+/**
+ * Rank a practical against the camera in the same coordinate space.
+ *
+ * Most house lights sit directly under a scene root, but attack dressing
+ * lights are parented to the prop that owns them. Reading `.position` ranked
+ * those nested lights at their centimetre-scale local coordinates and could
+ * turn off the worklamp while the player was standing beside it.
+ */
+export function scoreSiegeLight(light, cameraPosition) {
+  if (!light?.getWorldPosition || !cameraPosition?.distanceTo) return Infinity;
+  /* An extinguished practical has no contribution to rank.  In particular,
+   * the nine alarm PointLights sit at intensity zero between pulses; letting
+   * their generous ranges outrank a live worklamp spends renderer slots on
+   * lights that emit nothing.  A later pulse makes them eligible again on the
+   * next ordinary scheduler pass. */
+  if (!(Number(light.intensity) > 0)) return Infinity;
+  return light.getWorldPosition(_lightWorld).distanceTo(cameraPosition)
+    - (Number(light.distance) || 0);
+}
+
 /**
  * Where the emergency fittings are, and how bright each one throws.
  *

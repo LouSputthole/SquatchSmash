@@ -543,6 +543,15 @@ function named(mesh, name) {
   return mesh;
 }
 
+/** Explicit structural support for the Siege actor ground ray. This tag is
+ * intentionally opt-in: a broad "visible horizontal mesh" test also accepts
+ * blood decals, car roofs, props and bodies as floors. */
+function siegeWalkable(mesh, name = null) {
+  if (name) mesh.name = name;
+  mesh.userData.siegeWalkableSupport = true;
+  return mesh;
+}
+
 const M_COPING = mat({ color: 0xd6cfb8, roughness: 0.55 });
 const M_GRAVEL = mat({ map: tiled(tileTex(6, '#4b463c', '#8d8676'), 26, 26), roughness: 0.98, unique: true });
 const M_YEW = mat({ color: 0x1c3f24, roughness: 1 });
@@ -977,21 +986,30 @@ export function buildMansionGrounds(scene = null) {
   /* armory looking up at the underside of the front garden. The four    */
   /* segments meet the podium's own sides flush, so nothing gaps.        */
   /* ---------------------------------------------------------------- */
-  for (const [gx0, gx1, gz0, gz1] of [
-    [-35, BUILDING.x0, -5, 95],
-    [BUILDING.x1, 35, -5, 95],
+  const bayOuterX = LOUNGE_BAY.x1 + WALL_T;
+  for (const [groundIndex, [gx0, gx1, gz0, gz1]] of [
+    /* The annex podiums are real raised volumes. The old two broad lawn
+     * strips continued underneath both, invisible but raycastable, so an
+     * attacker inside the billiard/trophy rooms could still claim lawn y=0
+     * as support. Split the lawn around their exact footprints. */
+    [-35, WEST_WING.x0, -5, 95],
+    [WEST_WING.x0, BUILDING.x0, -5, WEST_WING.z0],
+    [WEST_WING.x0, BUILDING.x0, WEST_WING.z1, 95],
+    [bayOuterX, 35, -5, 95],
+    [BUILDING.x1, bayOuterX, -5, LOUNGE_BAY.z0 - WALL_T],
+    [BUILDING.x1, bayOuterX, LOUNGE_BAY.z1 + WALL_T, 95],
     [BUILDING.x0, BUILDING.x1, -5, BUILDING.z0],
     [BUILDING.x0, BUILDING.x1, BUILDING.z1, 95],
     /* The rear garden's own ground. The property used to stop at the pool's
      * north coping; the formal garden behind it (see buildRearGarden) runs to
      * z=126 inside a brick estate wall, so the lawn has to reach it. */
     [-35, 35, 95, GARDEN.z1 + 4],
-  ]) {
-    root.add(box({
+  ].entries()) {
+    root.add(siegeWalkable(box({
       size: [gx1 - gx0, 0.06, gz1 - gz0],
       pos: [(gx0 + gx1) / 2, -0.03, (gz0 + gz1) / 2],
       mat: M_GRASS,
-    }));
+    }), `estate-ground-${groundIndex}`));
   }
 
   /* ---------------------------------------------------------------- */
@@ -1248,7 +1266,9 @@ export function buildMansionGrounds(scene = null) {
     return m;
   }
 
-  root.add(box({ size: [8, 0.06, 23], pos: [0, 0.02, 11.5], mat: paverMaterial(8, 23) }));
+  root.add(siegeWalkable(box({
+    size: [8, 0.06, 23], pos: [0, 0.02, 11.5], mat: paverMaterial(8, 23),
+  }), 'driveway-pavers'));
   root.add(box({ size: [0.3, 0.1, 23], pos: [-4.15, 0.05, 11.5], mat: M_CURB }));
   root.add(box({ size: [0.3, 0.1, 23], pos: [4.15, 0.05, 11.5], mat: M_CURB }));
 
@@ -1258,11 +1278,15 @@ export function buildMansionGrounds(scene = null) {
   turnaround.rotation.x = -Math.PI / 2;
   turnaround.position.set(COURT_CENTRE.x, 0.02, COURT_CENTRE.z);
   turnaround.receiveShadow = true;
-  root.add(turnaround);
+  root.add(siegeWalkable(turnaround, 'turnaround-pavers'));
 
   // Side spur (x:[-22,-14], z:[20,32]) plus a short connector to the turnaround
-  root.add(box({ size: [3, 0.06, 4], pos: [-12.5, 0.02, 26], mat: paverMaterial(3, 4) }));
-  root.add(box({ size: [8, 0.06, 12], pos: [-18, 0.02, 26], mat: paverMaterial(8, 12) }));
+  root.add(siegeWalkable(box({
+    size: [3, 0.06, 4], pos: [-12.5, 0.02, 26], mat: paverMaterial(3, 4),
+  }), 'side-spur-connector'));
+  root.add(siegeWalkable(box({
+    size: [8, 0.06, 12], pos: [-18, 0.02, 26], mat: paverMaterial(8, 12),
+  }), 'side-spur-pavers'));
 
   /* ---------------------------------------------------------------- */
   /* Lamp posts. Every fixture on the driveway is a working fixture. The  */
@@ -1447,27 +1471,13 @@ export function buildMansionGrounds(scene = null) {
     });
     spray.start();
 
-    // Collision: height-tiered to the basin's *actual* per-tier radius rather
-    // than one box sized to the widest tier (the r=6 base apron) across the
-    // whole 0..3.6 height. That single oversized box (fixed in an earlier
-    // pass) fully engulfed the front-entry steps/portico, 6m away, making the
-    // entrance unreachable on foot from any angle. Two things make the tiered
-    // version correct instead of just smaller:
-    //   1. The base apron (r=6, h=0.4) needs no collider at all: it is
-    //      entirely below a standing player's feet (GROUND_Y=1.2), and
-    //      core/player.js's own _resolve() already treats a collider whose
-    //      top is below the walker's feet as walkable-over -- that 0.4 m
-    //      curb was never actually the thing blocking anyone.
-    //   2. What a walking tour can actually bump into is the riser + upper
-    //      basin body (true radius 3.5-4, y 0.4-2.1) and the narrower
-    //      pedestal + statue above it (radius ~1.2-1.3) -- both much smaller
-    //      than the apron's r=6. Merging the riser/upper-basin into one r=3.6
-    //      tier (rounding up slightly to cover the wider upper-basin flare
-    //      without a third box) keeps the fountain at its spec'd (0,0,35)
-    //      position -- no redesign of the "decided" coordinate -- while
-    //      shrinking the blocked footprint enough that the front steps (see
-    //      buildFrontEntry(), moved back to spec-adjacent z:39-40.5) clear it
-    //      with room to spare.
+    // Collision is tiered to the actual stone. Exterior feet are at y=0,
+    // not the house's GROUND_Y=1.2; omitting the r=6, y0..0.4 apron therefore
+    // let both player and attackers walk through visible masonry. The earlier
+    // two-box cross still projected as much as 1.38 m of invisible collision
+    // into diagonal paving. These narrow, INSCRIBED x/z slices approximate the
+    // round footprint from both axes: no box extends outside the real radius,
+    // while the player's own 300 mm capsule closes the sub-centimetre chords.
     /* Uplights at the basin rim. The statue is a polished-silver metal, which
      * at night with no light on it is simply a black silhouette against the
      * sky -- the centrepiece of the whole approach, unreadable. Four small
@@ -1484,15 +1494,51 @@ export function buildMansionGrounds(scene = null) {
     }
     void statueLights;
 
-    const fountainColliderBody = solid(fx - 3.6, fx + 3.6, 0.3, 2.2, fz - 3.6, fz + 3.6);
-    const fountainColliderPedestal = solid(fx - 1.3, fx + 1.3, 2.2, 7.4, fz - 1.3, fz + 1.3);
+    const colliderTiers = [];
+    const roundTier = (name, radius, y0, y1) => {
+      const slices = 48;
+      const step = (radius * 2) / slices;
+      const boxes = [];
+      const addExact = (x0, x1, z0, z1) => {
+        const box = new THREE.Box3(
+          new THREE.Vector3(fx + x0, y0, fz + z0),
+          new THREE.Vector3(fx + x1, y1, fz + z1),
+        );
+        colliders.push(box);
+        boxes.push(box);
+      };
+      for (let i = 0; i < slices; i += 1) {
+        const a = -radius + i * step;
+        const b = a + step;
+        const edge = Math.max(Math.abs(a), Math.abs(b));
+        const halfChord = Math.sqrt(Math.max(0, radius * radius - edge * edge));
+        if (halfChord <= 1e-6) continue;
+        addExact(a, b, -halfChord, halfChord);
+        addExact(-halfChord, halfChord, a, b);
+      }
+      const tier = Object.freeze({
+        name, radius, y0, y1, slices, colliders: Object.freeze(boxes),
+      });
+      colliderTiers.push(tier);
+      return boxes;
+    };
+    const fountainColliders = [
+      ...roundTier('lower-apron', 6, 0, 0.4),
+      ...roundTier('lower-basin', 3.5, 0.4, 1.6),
+      ...roundTier('upper-basin', 4, 1.6, 2.1),
+    ];
+    const fountainColliderPedestal = solid(
+      fx - 1.3, fx + 1.3, 2.1, 7.4, fz - 1.3, fz + 1.3,
+    );
+    fountainColliders.push(fountainColliderPedestal);
 
     return {
       statue,
       lowerWater,
       upperWater,
       spray,
-      colliders: [fountainColliderBody, fountainColliderPedestal],
+      colliders: fountainColliders,
+      colliderTiers,
       position: new THREE.Vector3(fx, 0, fz),
     };
   }
@@ -2108,19 +2154,19 @@ export function buildMansionGrounds(scene = null) {
         }));
         bed(-6.7, -4.35, 1.5, 3.55);
         plantBed(-6.55, -4.5, 1.8, 3.3, 1.2);
-        /* Stop 0.9 m (2.95 ft) sooner at the court. At z=22 the fountain's
-         * six-metre apron left only about one metre between stone and bed;
-         * ending at 21.1 opens more than three metres before the turn. */
-        bed(-6.7, -4.35, 10.45, 21.1);
-        plantBed(-6.55, -4.5, 10.7, 20.85, 1.5);
-        hedge(-7.0, -6.7, 10.45, 21.1, 0.8);
+        /* Flare the drive before the r=6 fountain apron.  The former hedge
+         * end at z21.1 overlapped the stone's z21 edge and made a literal
+         * wall across the only route from the drive into the court. */
+        bed(-6.7, -4.35, 10.45, 18.9);
+        plantBed(-6.55, -4.5, 10.7, 18.65, 1.5);
+        hedge(-7.0, -6.7, 10.45, 18.9, 0.8);
         continue;
       }
-      bed(side > 0 ? 4.35 : -6.7, side > 0 ? 6.7 : -4.35, 1.5, 21.1);
-      plantBed(side > 0 ? 4.5 : -6.55, side > 0 ? 6.55 : -4.5, 1.8, 20.85, 1.5);
+      bed(side > 0 ? 4.35 : -6.7, side > 0 ? 6.7 : -4.35, 1.5, 18.9);
+      plantBed(side > 0 ? 4.5 : -6.55, side > 0 ? 6.55 : -4.5, 1.8, 18.65, 1.5);
       // The hedge starts at z=6, north of the security booth and its barrier
       // arm, rather than running straight through them.
-      hedge(side > 0 ? 6.7 : -7.0, side > 0 ? 7.0 : -6.7, 6, 21.1, 0.8);
+      hedge(side > 0 ? 6.7 : -7.0, side > 0 ? 7.0 : -6.7, 6, 18.9, 0.8);
     }
 
     // 2. The two front-lawn parterres either side of the drive: a box-hedge
@@ -2222,27 +2268,33 @@ export function buildMansionGrounds(scene = null) {
     const zBot = 39 - FORECOURT_SHIFT;
     const zTop = 40.5 - FORECOURT_SHIFT;
     const steps = 6;
+    const stepDepth = (zTop - zBot) / steps + 0.06;
     for (let i = 0; i < steps; i++) {
       const t = i / steps;
       const z = THREE.MathUtils.lerp(zBot, zTop, t);
       const y = THREE.MathUtils.lerp(0, GROUND_Y, t);
-      const depth = (zTop - zBot) / steps + 0.06;
-      root.add(box({
-        size: [x1 - x0, 0.16, depth], pos: [0, y + 0.08, z], mat: M_MARBLE,
-      }));
+      root.add(siegeWalkable(box({
+        size: [x1 - x0, 0.16, stepDepth], pos: [0, y + 0.08, z], mat: M_MARBLE,
+        name: `front-entry-tread-${i}`,
+      })));
     }
     solid(x0 - 0.3, x0, 0, GROUND_Y + 0.2, zBot, zTop);
     solid(x1, x1 + 0.3, 0, GROUND_Y + 0.2, zBot, zTop);
 
     // Portico landing -- runs from the top of the stairs to the front door
     // (a short 0.5 m landing), matching the spec's implied door approach.
-    const porticoZ0 = zTop;
+    /* The last tread's 310 mm box ends at z=35.405. Starting the landing at
+     * plain zTop=35.500 left a 95 mm strip where the route dropped through to
+     * turnaround paving. Lap the two pieces by 5 mm; the 40 mm rise from the
+     * final tread to the landing remains a readable final step. */
+    const porticoZ0 = zTop - 0.1;
     const porticoZ1 = BUILDING.z0;
-    root.add(box({
+    root.add(siegeWalkable(box({
       size: [x1 - x0, 0.2, porticoZ1 - porticoZ0],
       pos: [0, GROUND_Y - 0.1, (porticoZ0 + porticoZ1) / 2],
       mat: M_MARBLE,
-    }));
+      name: 'front-entry-portico',
+    })));
 
     // Side parapets: railing + base skirt, hiding the crawlspace under the
     // landing and stopping anyone from stepping off its elevated sides.
@@ -2267,7 +2319,22 @@ export function buildMansionGrounds(scene = null) {
         }));
       }
     }
-    return { steps: { x0, x1, z0: zBot, z1: zTop }, portico: { x0, x1, z0: porticoZ0, z1: porticoZ1 } };
+    const stepRect = { x0, x1, z0: zBot, z1: zTop };
+    const portico = { x0, x1, z0: porticoZ0, z1: porticoZ1 };
+    /** Exact top of the rendered boxes.  The entry is six overlapping level
+     * treads, not a smooth ramp; both Mansion runtimes consume this same
+     * resolver so the camera and the marble cannot disagree. */
+    const groundAt = (x, z) => {
+      if (x < x0 || x > x1) return null;
+      if (z >= portico.z0 && z <= portico.z1) return GROUND_Y;
+      for (let i = steps - 1; i >= 0; i -= 1) {
+        const centre = THREE.MathUtils.lerp(zBot, zTop, i / steps);
+        if (z < centre - stepDepth / 2 || z > centre + stepDepth / 2) continue;
+        return THREE.MathUtils.lerp(0, GROUND_Y, i / steps) + 0.16;
+      }
+      return null;
+    };
+    return { steps: stepRect, portico, groundAt };
   }
   const frontEntry = buildFrontEntry();
 
@@ -2309,7 +2376,9 @@ export function buildMansionGrounds(scene = null) {
    * across the ground outside this very door.
    */
   function buildServiceRoad() {
-    root.add(box({ size: [28 - 22, 0.06, 70], pos: [25, 0.02, 35], mat: M_ASPHALT }));
+    root.add(siegeWalkable(box({
+      size: [28 - 22, 0.06, 70], pos: [25, 0.02, 35], mat: M_ASPHALT,
+    }), 'east-service-road'));
     const wallFace = BUILDING.x1 + WALL_T; // 16.4, outside face of the east wall
     const threshold = Object.freeze({
       x0: BUILDING.x1,
@@ -2385,27 +2454,34 @@ export function buildMansionGrounds(scene = null) {
     /* The flight now runs perpendicular to the east-wall doorway: road at
      * x=22, stair head at x=18, then the landing and kitchen threshold. Each
      * tread is a grounded block, so neither it nor its riser can float. */
-    const ramp = Object.freeze({
+    const ramp = {
       x0: landing.x1,
       x1: 22,
       z0: REAR_DOOR.z0 + 0.18,
       z1: REAR_DOOR.z1 - 0.18,
       axis: 'x',
       highAt: 'min',
-    });
+      surfaces: [],
+    };
     const steps = 6;
     const run = (ramp.x1 - ramp.x0) / steps;
     for (let i = 0; i < steps; i++) {
       const x1 = ramp.x1 - i * run;
       const x0 = x1 - run;
       const top = ((i + 1) / steps) * GROUND_Y;
+      const name = `service-ramp-tread-${i}`;
       root.add(box({
         size: [x1 - x0, top, ramp.z1 - ramp.z0],
         pos: [(x0 + x1) / 2, top / 2, (ramp.z0 + ramp.z1) / 2],
         mat: M_ASPHALT,
-        name: 'service-ramp-tread',
+        name,
+      }));
+      ramp.surfaces.push(Object.freeze({
+        name, x0, x1, z0: ramp.z0, z1: ramp.z1, y: top,
       }));
     }
+    ramp.surfaces = Object.freeze(ramp.surfaces);
+    Object.freeze(ramp);
     const groundAt = (x, z) => {
       if (x >= threshold.x0 && x <= threshold.x1 && z >= threshold.z0 && z <= threshold.z1) {
         return threshold.y;
@@ -2413,9 +2489,12 @@ export function buildMansionGrounds(scene = null) {
       if (x >= landing.x0 && x <= landing.x1 && z >= landing.z0 && z <= landing.z1) {
         return landing.y;
       }
-      if (x < ramp.x0 || x > ramp.x1 || z < ramp.z0 || z > ramp.z1) return null;
-      const t = THREE.MathUtils.clamp((ramp.x1 - x) / (ramp.x1 - ramp.x0), 0, 1);
-      return THREE.MathUtils.lerp(0, GROUND_Y, t);
+      let y = null;
+      for (const surface of ramp.surfaces) {
+        if (x < surface.x0 || x > surface.x1 || z < surface.z0 || z > surface.z1) continue;
+        y = Math.max(y ?? -Infinity, surface.y);
+      }
+      return y;
     };
     return {
       road: { x0: 22, x1: 28, z0: 0, z1: 70 },
@@ -2467,6 +2546,85 @@ export function buildMansionGrounds(scene = null) {
     const xE1 = BUILDING.x1 + WALL_T; // east wall band
 
     const windows = [];
+    const siegeBreachEntries = [];
+
+    /**
+     * A pane that attackers are scripted to breach must have a real approach,
+     * not a route which borrows the lawn hidden under a raised podium.  These
+     * are discrete masonry treads: each rise is below the support resolver's
+     * 205 mm step budget, the top tread meets the structural podium, and a
+     * 20 mm threshold carries the route through the wall band onto the real
+     * interior finish.  Low cheek curbs are colliders; the walking surfaces
+     * deliberately are not, for the same reason as the front entry (floors
+     * are resolved vertically and must not eject a player sideways).
+     */
+    function buildSiegeBreachEntry({
+      id, direction, outerEdge, thresholdInner, z0, z1, exteriorY,
+    }) {
+      const count = 7;
+      /* Reach full podium height before a standing rig's leading shoulder
+       * enters the podium face.  A longer 400 mm tread left the feet on the
+       * penultimate rise while the visible body already occupied the plinth. */
+      const run = 0.32;
+      const topY = GROUND_Y;
+      const curb = 0.1;
+      const surfaces = [];
+      for (let i = 0; i < count; i++) {
+        const a = outerEdge + direction * run * i;
+        const b = outerEdge + direction * run * (i + 1);
+        const x0 = Math.min(a, b);
+        const x1 = Math.max(a, b);
+        const y = THREE.MathUtils.lerp(exteriorY, topY, (i + 1) / count);
+        const name = `siege-breach-${id}-tread-${i}`;
+        root.add(siegeWalkable(box({
+          size: [x1 - x0, y - exteriorY, z1 - z0],
+          pos: [(x0 + x1) / 2, exteriorY + (y - exteriorY) / 2, (z0 + z1) / 2],
+          mat: M_MARBLE,
+          name,
+        })));
+        surfaces.push(Object.freeze({ name, x0, x1, z0, z1, y }));
+        for (const [cz0, cz1] of [[z0 - curb, z0], [z1, z1 + curb]]) {
+          const curbTop = y + 0.14;
+          root.add(box({
+            size: [x1 - x0, curbTop - exteriorY, cz1 - cz0],
+            pos: [(x0 + x1) / 2, exteriorY + (curbTop - exteriorY) / 2, (cz0 + cz1) / 2],
+            mat: M_MARBLE_DK,
+            name: `siege-breach-${id}-curb-${i}`,
+          }));
+          solid(x0, x1, exteriorY, curbTop, cz0, cz1);
+        }
+      }
+
+      const thresholdOuter = outerEdge + direction * run * count;
+      const tx0 = Math.min(thresholdOuter - direction * 0.05, thresholdInner);
+      const tx1 = Math.max(thresholdOuter - direction * 0.05, thresholdInner);
+      const thresholdY = GROUND_Y + 0.02;
+      const thresholdName = `siege-breach-${id}-threshold`;
+      root.add(siegeWalkable(box({
+        size: [tx1 - tx0, 0.02, z1 - z0],
+        pos: [(tx0 + tx1) / 2, GROUND_Y + 0.01, (z0 + z1) / 2],
+        mat: M_MARBLE,
+        name: thresholdName,
+      })));
+      surfaces.push(Object.freeze({
+        name: thresholdName, x0: tx0, x1: tx1, z0, z1, y: thresholdY,
+      }));
+      const entry = Object.freeze({
+        id,
+        opening: id === 'east' ? 'bayEastSouth' : 'trophyWestSouth',
+        surfaces: Object.freeze(surfaces),
+        groundAt(x, z) {
+          let y = null;
+          for (const surface of surfaces) {
+            if (x < surface.x0 || x > surface.x1 || z < surface.z0 || z > surface.z1) continue;
+            y = Math.max(y ?? -Infinity, surface.y);
+          }
+          return y;
+        },
+      });
+      siegeBreachEntries.push(entry);
+      return entry;
+    }
 
     /**
      * One exterior wall plane, built as the COMPLEMENT of its openings.
@@ -2745,7 +2903,10 @@ export function buildMansionGrounds(scene = null) {
       tag: 'bay-east',
       openings: [
         {
-          id: 'bayEastSouth', u0: 41.6, u1: 44.4, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+          /* Wave 2B comes through this pane.  Its glass still blocks the
+           * intact house, but the masonry opening reaches the finished floor
+           * so shattering it creates a doorway rather than exposing a sill. */
+          id: 'bayEastSouth', u0: 41.6, u1: 44.4, y0: GROUND_Y, y1: GLASS_TOP, glass: true,
         },
         {
           id: 'bayEastMid', u0: 45.8, u1: 49.2, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
@@ -2763,6 +2924,10 @@ export function buildMansionGrounds(scene = null) {
       mat: M_PODIUM,
       name: 'bay-podium',
     }));
+    buildSiegeBreachEntry({
+      id: 'east', direction: -1, outerEdge: 23.8, thresholdInner: 19.0,
+      z0: 42.7, z1: 44.3, exteriorY: 0.05,
+    });
     // Flat roof with a deep gilded cornice -- the bay is the one part of the
     // house you see head-on from the service gate.
     root.add(box({
@@ -2812,7 +2977,9 @@ export function buildMansionGrounds(scene = null) {
       tag: 'wing-west',
       openings: [
         {
-          id: 'trophyWestSouth', u0: 43.0, u1: 46.4, y0: GLASS_SILL + 0.9, y1: GLASS_TOP + 0.5, glass: true,
+          /* The west flank's designated break-in pane: floor-to-head glass,
+           * not a decorative window over a 1.05 m solid sill. */
+          id: 'trophyWestSouth', u0: 43.0, u1: 46.4, y0: GROUND_Y, y1: GLASS_TOP + 0.5, glass: true,
         },
         {
           id: 'trophyWestNorth', u0: 50.2, u1: 53.6, y0: GLASS_SILL + 0.9, y1: GLASS_TOP + 0.5, glass: true,
@@ -2857,6 +3024,10 @@ export function buildMansionGrounds(scene = null) {
       mat: M_PODIUM,
       name: 'wing-podium',
     }));
+    buildSiegeBreachEntry({
+      id: 'west', direction: 1, outerEdge: -27.4, thresholdInner: -22.3,
+      z0: 43.2, z1: 45.6, exteriorY: 0,
+    });
     /* Overhang on three sides only: the east edge stops on the building line.
      * An eave reaching past it at this height would cross the bottom of the
      * upper storey's west windows. */
@@ -3316,6 +3487,7 @@ export function buildMansionGrounds(scene = null) {
     return {
       wallRects,
       windows,
+      siegeBreachEntries,
       slabs: {
         podium: podiumSegs.map((s) => ({ ...s, y0: 0, y1: GROUND_Y })),
         upperFloor: upperSegs.map((s) => ({ ...s, y0: UPPER_Y - 0.28, y1: UPPER_Y })),
@@ -3337,6 +3509,18 @@ export function buildMansionGrounds(scene = null) {
     };
   }
   const shellMeta = buildShell();
+  /** One nullable resolver shared by every player-facing Mansion runtime.
+   * Attackers already consume the individual entry surfaces through the
+   * walkable-support ray cache; the player needs the same authored tops rather
+   * than falling back to estate grade underneath the two raised podiums. */
+  const siegeBreachGroundAt = (x, z) => {
+    let y = null;
+    for (const entry of shellMeta.siegeBreachEntries) {
+      const entryY = entry.groundAt(x, z);
+      if (entryY !== null) y = Math.max(y ?? -Infinity, entryY);
+    }
+    return y;
+  };
 
   /* ---------------------------------------------------------------- */
   /* Pool patio (behind the mansion, z > 75)                            */
@@ -3699,18 +3883,33 @@ export function buildMansionGrounds(scene = null) {
     const stepsX1 = POOL.x0 - pad;
     const stepsZ0 = 83;
     const stepsZ1 = 87;
-    for (let i = 0; i < 6; i++) {
-      const t = i / 6;
+    const poolSteps = {
+      id: 'west', x0: stepsX0, x1: stepsX1, z0: stepsZ0, z1: stepsZ1, surfaces: [],
+    };
+    const poolStepCount = 6;
+    const poolStepRun = (stepsX1 - stepsX0) / poolStepCount;
+    for (let i = 0; i < poolStepCount; i++) {
+      const x0 = stepsX0 + i * poolStepRun;
+      const x1 = x0 + poolStepRun;
+      const top = GROUND_Y * ((i + 1) / poolStepCount);
+      const name = `pool-west-tread-${i}`;
       root.add(box({
-        size: [(stepsX1 - stepsX0) / 6 + 0.06, 0.16, stepsZ1 - stepsZ0],
-        pos: [
-          THREE.MathUtils.lerp(stepsX0, stepsX1, t),
-          THREE.MathUtils.lerp(0, GROUND_Y, t) + 0.08,
-          (stepsZ0 + stepsZ1) / 2,
-        ],
+        size: [poolStepRun + 0.05, top, stepsZ1 - stepsZ0],
+        pos: [(x0 + x1) / 2, top / 2, (stepsZ0 + stepsZ1) / 2],
         mat: M_DECK,
+        name,
+      }));
+      poolSteps.surfaces.push(Object.freeze({
+        name,
+        x0: x0 - 0.025,
+        x1: x1 + 0.025,
+        z0: stepsZ0,
+        z1: stepsZ1,
+        y: top,
       }));
     }
+    poolSteps.surfaces = Object.freeze(poolSteps.surfaces);
+    Object.freeze(poolSteps);
     for (const sz of [stepsZ0, stepsZ1]) {
       root.add(box({
         size: [stepsX1 - stepsX0, GROUND_Y + 0.5, 0.22],
@@ -3758,21 +3957,33 @@ export function buildMansionGrounds(scene = null) {
      * have. The centre line stays exactly as it was.
      */
     const gardenStairs = [
-      { x0: -8.8, x1: -5.2, z0: deckRect.z1, z1: deckRect.z1 + 4.0 },
-      { x0: 5.2, x1: 8.8, z0: deckRect.z1, z1: deckRect.z1 + 4.0 },
+      { id: 'west', x0: -8.8, x1: -5.2, z0: deckRect.z1, z1: deckRect.z1 + 4.0, surfaces: [] },
+      { id: 'east', x0: 5.2, x1: 8.8, z0: deckRect.z1, z1: deckRect.z1 + 4.0, surfaces: [] },
     ];
     for (const st of gardenStairs) {
       const treads = 8;
+      const treadRun = (st.z1 - st.z0) / treads;
       for (let i = 0; i < treads; i++) {
-        const t = i / treads;
-        const z = THREE.MathUtils.lerp(st.z0, st.z1, t);
+        const z0 = st.z0 + i * treadRun;
+        const z1 = z0 + treadRun;
+        const top = GROUND_Y * ((treads - i) / treads);
+        const name = `garden-${st.id}-tread-${i}`;
         root.add(box({
-          size: [st.x1 - st.x0, 0.16, (st.z1 - st.z0) / treads + 0.06],
-          pos: [(st.x0 + st.x1) / 2, THREE.MathUtils.lerp(GROUND_Y, 0, t) + 0.08, z],
+          size: [st.x1 - st.x0, top, treadRun + 0.06],
+          pos: [(st.x0 + st.x1) / 2, top / 2, (z0 + z1) / 2],
           mat: M_DECK,
-          name: 'garden-step',
+          name,
+        }));
+        st.surfaces.push(Object.freeze({
+          name,
+          x0: st.x0,
+          x1: st.x1,
+          z0: z0 - 0.03,
+          z1: z1 + 0.03,
+          y: top,
         }));
       }
+      st.surfaces = Object.freeze(st.surfaces);
       // Raking cheek walls with a ball finial on each newel, both sides.
       for (const cx of [st.x0 - 0.22, st.x1 + 0.22]) {
         for (let i = 0; i < 8; i++) {
@@ -3904,6 +4115,19 @@ export function buildMansionGrounds(scene = null) {
         if (x >= level.x0 && x <= level.x1 && z >= level.z0 && z <= level.z1) return level.y;
       }
       if (x >= POOL.x0 && x <= POOL.x1 && z >= POOL.z0 && z <= POOL.z1) return POOL.y;
+      let y = null;
+      for (const surface of poolSteps.surfaces) {
+        if (x < surface.x0 || x > surface.x1 || z < surface.z0 || z > surface.z1) continue;
+        y = Math.max(y ?? -Infinity, surface.y);
+      }
+      for (const flight of gardenStairs) {
+        for (const surface of flight.surfaces) {
+          if (x < surface.x0 || x > surface.x1 || z < surface.z0 || z > surface.z1) continue;
+          y = Math.max(y ?? -Infinity, surface.y);
+        }
+      }
+      if (y !== null) return y;
+      if (x >= deckRect.x0 && x <= deckRect.x1 && z >= deckRect.z0 && z <= deckRect.z1) return GROUND_Y;
       return null;
     };
 
@@ -3919,12 +4143,8 @@ export function buildMansionGrounds(scene = null) {
       deck: deckRect,
       entrySteps,
       groundAt,
-      steps: {
-        x0: stepsX0, x1: stepsX1, z0: stepsZ0, z1: stepsZ1,
-      },
-      /** The two flights down off the north edge into the formal garden.
-       * Resolved by src/mansion/main.js's exteriorGroundAt, like every other
-       * lerp-stepped run on this property. */
+      steps: poolSteps,
+      /** The two exact, grounded flights down off the north edge. */
       gardenStairs,
       skirt: skirtSegs.map(([sx0, sx1, sz0, sz1]) => ({
         x0: sx0, x1: sx1, z0: sz0, z1: sz1, y0: 0, y1: GROUND_Y,
@@ -5021,6 +5241,8 @@ export function buildMansionGrounds(scene = null) {
     bayRoofY0: BAY_ROOF_Y0,
     westWing: { ...WEST_WING },
     wingRoofY0: WING_ROOF_Y0,
+    siegeBreachEntries: shellMeta.siegeBreachEntries,
+    siegeBreachGroundAt,
     basementWing: { ...BASEMENT_WING },
     atrium: { ...ATRIUM },
     walls: shellMeta.wallRects,
@@ -5049,6 +5271,8 @@ export function buildMansionGrounds(scene = null) {
     rearGarden,
     frontGuardRoutes,
     trophyEntrance: TROPHY_ENTRANCE,
+    siegeBreachEntries: shellMeta.siegeBreachEntries,
+    siegeBreachGroundAt,
     landscaping,
     lamps: [...LAMP_POSITIONS, ...CAR_LAMP_POSITIONS],
     palmSpots: PALM_SPOTS,

@@ -780,6 +780,15 @@ const mission = new MissionController({
   player, interaction, preflight, crew, city,
   getHeight: groundHeightCombined,
 });
+/* The static airfield boxes cannot represent a rotated aircraft with working
+ * doors. Player already exposes a scene-local resolver seam; keep it wired to
+ * the real current door/bay state during the walkaround. */
+world.resolvePlayer = (walker, axis, radius) => aircraft.resolveWalkaroundPlayer(
+  walker, axis, radius, {
+    crewDoorOpen: aircraft.crewDoorOpen,
+    bombBayOpen: mission.bombBayOpen,
+  },
+);
 mission.onCheckpoint = (id, snapshot) => {
   enolaCampaign.checkpoint(id, {
     payloadReleased: snapshot?.payloadReleased === true,

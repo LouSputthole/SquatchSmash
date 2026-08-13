@@ -45,10 +45,18 @@ const PURPLE_LIGHT = 0x8a6fd9;
  * ../config.js). Everything below is derived from these five numbers, so the
  * proportions moved as one piece rather than drifting part by part. */
 const FUSE_W = 3.2, FUSE_H = 3.4, FUSE_LEN = 15.5;
+const CABIN_FLOOR_Y = -0.12;
+const CABIN_FLOOR_TOP = CABIN_FLOOR_Y + 0.03;
+const CREW_DOOR_SILL_Y = CABIN_FLOOR_TOP;
+const CREW_DOOR_TOP_Y = 1.52;
 const BAY_Z = 0.4;               // ventral bomb-bay centre, mid-fuselage
 const BAY_LEN = 6.4;
 const BAY_WIDTH = 3.0;
 const BELLY_Y = -FUSE_H / 2;
+const ASTRODOME_Z = 3.1;
+const ASTRODOME_OPEN_HALF = 0.38;
+const DORSAL_TURRET_Z = -2.75;
+const DORSAL_OPEN_HALF = 0.75;
 /* Nacelle stations. `AC_ENOLA.engineArm` is the average of |x| over one side's
  * pair and must be kept in step with these. */
 const NACELLE_X = [-13.4, -6.4, 6.4, 13.4];
@@ -194,6 +202,10 @@ function strutBetween(material, from, to, r = 0.07, name = 'strut') {
 
 /** Scratch vector for the rear gun's aim conversion — one, not one a frame. */
 const _aim = new THREE.Vector3();
+const _gunEyeLocal = new THREE.Vector3();
+const _walkLocal = new THREE.Vector3();
+const _walkWorld = new THREE.Vector3();
+const _walkVelocity = new THREE.Vector3();
 
 export class EnolaSquatch {
   constructor({ withCockpit = true } = {}) {
@@ -253,10 +265,135 @@ export class EnolaSquatch {
 
     const g = this.group;
 
-    // ---- Fuselage ----
-    const body = mesh(boxGeo(FUSE_W, FUSE_H, FUSE_LEN), skin, 0, 0, 0);
-    g.add(body);
-    this.parts.fuselage = body;
+    /* ---- Fuselage ----
+     *
+     * This used to be one opaque `BoxGeometry` with windows, blisters, bomb
+     * doors and the crew door merely drawn over it. From inside, FrontSide
+     * culling made the box disappear and disguised the problem; from outside,
+     * every pane led straight into metal and the open entry route was still a
+     * wall. Build the same 3.2 x 3.4 x 15.5 m skin as explicit thin sheets,
+     * omitting only the apertures that the visible glazing/doors occupy. */
+    const fuselage = group('fuselage-open-shell');
+    g.add(fuselage);
+    this.parts.fuselage = fuselage;
+    this.parts.fuselageShell = fuselage;
+    const HALF_W = FUSE_W / 2;
+    const HALF_H = FUSE_H / 2;
+    const HALF_L = FUSE_LEN / 2;
+    const SKIN_T = 0.08;
+    const addSideSkin = (sx, openings) => {
+      const ys = [-HALF_H, HALF_H, ...openings.flatMap((opening) => [opening.y0, opening.y1])]
+        .sort((a, b) => a - b).filter((value, index, values) => index === 0 || value !== values[index - 1]);
+      const zs = [-HALF_L, HALF_L, ...openings.flatMap((opening) => [opening.z0, opening.z1])]
+        .sort((a, b) => a - b).filter((value, index, values) => index === 0 || value !== values[index - 1]);
+      let panelIndex = 0;
+      for (let yi = 0; yi < ys.length - 1; yi++) {
+        for (let zi = 0; zi < zs.length - 1; zi++) {
+          const [y0, y1] = [ys[yi], ys[yi + 1]];
+          const [z0, z1] = [zs[zi], zs[zi + 1]];
+          const cy = (y0 + y1) / 2;
+          const cz = (z0 + z1) / 2;
+          if (openings.some((opening) => cy > opening.y0 && cy < opening.y1
+            && cz > opening.z0 && cz < opening.z1)) continue;
+          const panel = mesh(
+            boxGeo(SKIN_T, y1 - y0, z1 - z0), skin,
+            sx * (HALF_W - SKIN_T / 2), cy, cz,
+          );
+          panel.name = `fuselage-skin-${sx < 0 ? 'starboard' : 'port'}-${++panelIndex}`;
+          fuselage.add(panel);
+        }
+      }
+    };
+    const cockpitOpening = { y0: 0.8, y1: 1.5, z0: 6.4, z1: HALF_L };
+    const waistOpening = { y0: -0.8, y1: 0.4, z0: -6.05, z1: -4.75 };
+    addSideSkin(1, [cockpitOpening, waistOpening]);
+    addSideSkin(-1, [
+      cockpitOpening,
+      waistOpening,
+      { y0: CREW_DOOR_SILL_Y, y1: CREW_DOOR_TOP_Y, z0: -3.8, z1: -3.0 },
+    ]);
+
+    /* The blister and dome skins are curved, while their panel-builder cuts
+     * above are necessarily rectangular. Close the unused corners with a
+     * fitted opaque annulus so those cuts are not open holes around a round
+     * piece of glass. The central ellipse remains the actual aperture. */
+    const apertureAnnulus = ({ name, outerX, outerY, holeX, holeY, x, y, z, rotationY = 0, rotationX = 0 }) => {
+      const shape = new THREE.Shape();
+      shape.moveTo(-outerX, -outerY);
+      shape.lineTo(outerX, -outerY);
+      shape.lineTo(outerX, outerY);
+      shape.lineTo(-outerX, outerY);
+      shape.closePath();
+      const hole = new THREE.Path();
+      hole.absellipse(0, 0, holeX, holeY, 0, Math.PI * 2, false, 0);
+      shape.holes.push(hole);
+      const panel = mesh(new THREE.ShapeGeometry(shape, 28), skin, x, y, z);
+      panel.name = name;
+      panel.rotation.x = rotationX;
+      panel.rotation.y = rotationY;
+      fuselage.add(panel);
+      return panel;
+    };
+    for (const sx of [-1, 1]) {
+      apertureAnnulus({
+        name: `fuselage-waist-annulus-${sx < 0 ? 'starboard' : 'port'}`,
+        /* A 10 mm lap on every edge is the riveted seam; it also keeps the
+         * exact panel boundary from being a zero-width ray crack. */
+        outerX: 0.66, outerY: 0.61, holeX: 0.55, holeY: 0.48,
+        x: sx * HALF_W, y: -0.2, z: -5.4,
+        rotationY: sx * Math.PI / 2,
+      });
+    }
+
+    const addRoofRun = (x0, x1, z0, z1, name) => {
+      const panel = mesh(boxGeo(x1 - x0, SKIN_T, z1 - z0), skin,
+        (x0 + x1) / 2, HALF_H - SKIN_T / 2, (z0 + z1) / 2);
+      panel.name = name;
+      fuselage.add(panel);
+    };
+    addRoofRun(-HALF_W, HALF_W, -HALF_L,
+      DORSAL_TURRET_Z - DORSAL_OPEN_HALF, 'fuselage-roof-aft');
+    addRoofRun(-HALF_W, -0.7, DORSAL_TURRET_Z - DORSAL_OPEN_HALF,
+      DORSAL_TURRET_Z + DORSAL_OPEN_HALF, 'fuselage-roof-dorsal-starboard');
+    addRoofRun(0.7, HALF_W, DORSAL_TURRET_Z - DORSAL_OPEN_HALF,
+      DORSAL_TURRET_Z + DORSAL_OPEN_HALF, 'fuselage-roof-dorsal-port');
+    addRoofRun(-HALF_W, HALF_W, DORSAL_TURRET_Z + DORSAL_OPEN_HALF,
+      ASTRODOME_Z - ASTRODOME_OPEN_HALF, 'fuselage-roof-centre');
+    addRoofRun(-HALF_W, -0.36, ASTRODOME_Z - ASTRODOME_OPEN_HALF,
+      ASTRODOME_Z + ASTRODOME_OPEN_HALF, 'fuselage-roof-astrodome-starboard');
+    addRoofRun(0.36, HALF_W, ASTRODOME_Z - ASTRODOME_OPEN_HALF,
+      ASTRODOME_Z + ASTRODOME_OPEN_HALF, 'fuselage-roof-astrodome-port');
+    addRoofRun(-HALF_W, HALF_W, ASTRODOME_Z + ASTRODOME_OPEN_HALF, HALF_L, 'fuselage-roof-forward');
+    apertureAnnulus({
+      name: 'fuselage-roof-astrodome-annulus',
+      outerX: ASTRODOME_OPEN_HALF + 0.01, outerY: ASTRODOME_OPEN_HALF + 0.01,
+      holeX: 0.28, holeY: 0.28,
+      x: 0, y: HALF_H, z: ASTRODOME_Z,
+      rotationX: -Math.PI / 2,
+    });
+    apertureAnnulus({
+      name: 'fuselage-roof-dorsal-annulus',
+      outerX: 0.71, outerY: DORSAL_OPEN_HALF + 0.01,
+      holeX: 0.48, holeY: 0.48,
+      x: 0, y: HALF_H, z: DORSAL_TURRET_Z,
+      rotationX: -Math.PI / 2,
+    });
+
+    const addBelly = (x0, x1, z0, z1, name) => {
+      const panel = mesh(boxGeo(x1 - x0, SKIN_T, z1 - z0), skin,
+        (x0 + x1) / 2, -HALF_H + SKIN_T / 2, (z0 + z1) / 2);
+      panel.name = name;
+      fuselage.add(panel);
+    };
+    const bayAft = BAY_Z - BAY_LEN / 2;
+    const bayForward = BAY_Z + BAY_LEN / 2;
+    addBelly(-HALF_W, HALF_W, -HALF_L, bayAft, 'fuselage-belly-aft');
+    addBelly(-HALF_W, -BAY_WIDTH / 2, bayAft, bayForward, 'fuselage-bomb-bay-starboard-edge');
+    addBelly(BAY_WIDTH / 2, HALF_W, bayAft, bayForward, 'fuselage-bomb-bay-port-edge');
+    addBelly(-HALF_W, HALF_W, bayForward, HALF_L, 'fuselage-belly-forward');
+    const aftCap = mesh(boxGeo(FUSE_W, FUSE_H, SKIN_T), skin, 0, 0, -HALF_L + SKIN_T / 2);
+    aftCap.name = 'fuselage-aft-cap';
+    fuselage.add(aftCap);
 
     // "Several suspicious repairs" — three mismatched patch panels, riveted
     // over the skin in colours and finishes that do not match it or each
@@ -318,10 +455,23 @@ export class EnolaSquatch {
       }
     }
     // A rounded spine and a rounded keel, so the top and bottom read curved.
-    const spine = mesh(cylGeo(0.5, 0.5, FUSE_LEN - 0.6, 12, true), chamferMat, 0, FUSE_H / 2 - 0.42, 0);
-    spine.rotation.x = Math.PI / 2;
-    spine.scale.set(2.6, 1, 1);
-    g.add(spine);
+    // The spine is upper-half surface runs, broken at both roof apertures. A
+    // full cylinder hung its lower arc through the side windows; one unbroken
+    // half-cylinder still roofed over the navigator's astrodome.
+    const spineEnds = FUSE_LEN / 2 - 0.3;
+    for (const [index, [z0, z1]] of [
+      [-spineEnds, DORSAL_TURRET_Z - DORSAL_OPEN_HALF],
+      [DORSAL_TURRET_Z + DORSAL_OPEN_HALF, ASTRODOME_Z - ASTRODOME_OPEN_HALF],
+      [ASTRODOME_Z + ASTRODOME_OPEN_HALF, spineEnds],
+    ].entries()) {
+      const spine = mesh(new THREE.CylinderGeometry(
+        0.5, 0.5, z1 - z0, 12, 1, true, Math.PI * 0.75, Math.PI / 2,
+      ), chamferMat, 0, FUSE_H / 2 - 0.42, (z0 + z1) / 2);
+      spine.name = `fuselage-spine-${index + 1}`;
+      spine.rotation.x = Math.PI / 2;
+      spine.scale.set(2.6, 1, 1);
+      g.add(spine);
+    }
 
     /* Nose cone, tapered, with a glazed bombardier bubble in front of it. The
      * bubble is where Numbskull actually sits.
@@ -338,7 +488,21 @@ export class EnolaSquatch {
     const GLASS_Z = FUSE_LEN / 2 + 3.55;      // 11.30 — glasshouse centre
     const GLASS_Y = -0.35;
     const GLASS_R = 1.25;
-    const nose = mesh(cylGeo(1.06, FUSE_W / 2, NOSE_JOIN - (FUSE_LEN / 2 - 0.1), 16), skin,
+    /* This shell overlaps the fuselage at its rear, so an end cap there is
+     * both invisible from outside and catastrophic from inside: the pilot eye
+     * is 50 mm behind it and sees aluminium before the windshield. Keep the
+     * tapered side skin, but leave the overlapping ends open so the authored
+     * flight deck really looks into its glasshouse. */
+    /* Leave the upper windshield sector out of the tapered shell. An open end
+     * alone did not help: the curved side skin still crossed the exterior
+     * pilot sightline 0.37 m behind the transparent windshield. */
+    const nose = mesh(new THREE.CylinderGeometry(
+      1.06, FUSE_W / 2, NOSE_JOIN - (FUSE_LEN / 2 - 0.1), 16, 1, true,
+      /* Widen the missing windshield sector through the side-pane forward
+       * corners too. The former angular edges sat 0.217..0.366 m behind the
+       * transparent panes even though the centre sightlines were clear. */
+      4.35, Math.PI * 2 - 4.35 + 1.93,
+    ), skin,
       0, 0.1, (NOSE_JOIN + FUSE_LEN / 2 - 0.1) / 2);
     nose.rotation.x = Math.PI / 2;
     nose.name = 'nose-cone';
@@ -362,21 +526,23 @@ export class EnolaSquatch {
      * either side of the nose in ONE plane: a three-bladed prop bolted to the
      * front of the aeroplane, exactly as reported.
      *
-     * A glasshouse's frames are meridians. They stand UP the nose and fan
-     * about the fore-aft axis, which is `rotation.z = ang` on its own — one
-     * upright centre rib and two raked either side of it. */
+     * A glasshouse's frames are meridians, but they must follow its surface.
+     * The three former cylinders were still straight diameters through the
+     * centre of the occupied bubble: Numbskull's cap intersected the centre
+     * rib even though his whole rig cleared the glass shell. Great-circle
+     * torus frames retain the same upright/raked read outside the sphere and
+     * leave its actual crew volume hollow. */
     for (const ang of [0, 0.72, -0.72]) {
-      const rib = mesh(cylGeo(0.035, 0.035, GLASS_R * 1.9, 6), trim, 0, GLASS_Y, GLASS_Z);
+      const rib = mesh(new THREE.TorusGeometry(GLASS_R + 0.02, 0.025, 6, 32), trim, 0, GLASS_Y, GLASS_Z);
+      rib.rotation.y = Math.PI / 2;
       rib.rotation.z = ang;
       rib.name = 'nose-glazing-rib';
       g.add(rib);
     }
-    /* The collar where the glazing meets the nose cone. Also mis-rolled: with
-     * no rotation a `cylGeo` disc lies FLAT, so this was a 2.2 m pancake
-     * skewered through the nose at eye height rather than a ring standing
-     * across the fuselage axis. */
-    const noseCollar = mesh(cylGeo(1.1, 1.1, 0.06, 16), trim, 0, -0.16, NOSE_JOIN);
-    noseCollar.rotation.x = Math.PI / 2;
+    /* The collar where the glazing meets the nose cone is an annulus, not a
+     * capped cylinder. A cap at this occupied seam sealed the bombardier off
+     * from the aeroplane and presented an opaque wall from either side. */
+    const noseCollar = mesh(new THREE.TorusGeometry(1.1, 0.05, 8, 32), trim, 0, GLASS_Y, NOSE_JOIN);
     noseCollar.name = 'nose-glazing-collar';
     g.add(noseCollar);
 
@@ -388,6 +554,7 @@ export class EnolaSquatch {
     // ---- Wing: shoulder-mounted, four-engine spar ----
     const halfSpan = AC_ENOLA.span / 2;
     const wing = mesh(boxGeo(AC_ENOLA.span, 0.62, AC_ENOLA.chord), skin, 0, 1.1, 0.3);
+    wing.name = 'main-wing';
     g.add(wing);
     this.parts.wing = wing;
     // Outer panels, thinner and swept a touch back — a straight slab of wing is
@@ -546,6 +713,7 @@ export class EnolaSquatch {
 
     // ---- Tail: single tall fin, and a broad stabiliser ----
     const fin = mesh(boxGeo(0.28, 5.0, 3.9), skin, 0, 2.8, -FUSE_LEN / 2 - 4.4);
+    fin.name = 'vertical-fin';
     g.add(fin);
     // Fin root fillet running forward onto the spine.
     const fillet = mesh(coneGeo(0.7, 4.2, 6), skin, 0, FUSE_H / 2 - 0.2, -FUSE_LEN / 2 - 1.6);
@@ -559,6 +727,7 @@ export class EnolaSquatch {
     this.parts.rudder = rudderPivot;
 
     const stab = mesh(boxGeo(11.6, 0.32, 2.6), skin, 0, 1.0, -FUSE_LEN / 2 - 4.7);
+    stab.name = 'horizontal-stabilizer';
     g.add(stab);
     const elevPivot = new THREE.Group();
     elevPivot.position.set(0, 1.0, -FUSE_LEN / 2 - 5.9);
@@ -992,12 +1161,35 @@ export class EnolaSquatch {
      * the one part of the aeroplane a stranded player has to be able to pick
      * out, so it is deliberately the highest-contrast thing on this flank:
      * dark frame, mismatched panel, white boarding stencil. */
-    const doorFrame = mesh(boxGeo(0.06, 1.8, 1.05), trim, -PANEL_X, -0.35, -3.4);
+    const doorMidY = (CREW_DOOR_SILL_Y + CREW_DOOR_TOP_Y) / 2;
+    const doorHeight = CREW_DOOR_TOP_Y - CREW_DOOR_SILL_Y;
+    const doorFrame = group('crew-door-frame');
+    for (const [name, y] of [
+      ['sill', CREW_DOOR_SILL_Y - 0.035],
+      ['header', CREW_DOOR_TOP_Y + 0.035],
+    ]) {
+      const rail = mesh(boxGeo(0.06, 0.07, 1.05), trim, -PANEL_X, y, -3.4);
+      rail.name = `crew-door-frame-${name}`;
+      doorFrame.add(rail);
+    }
+    for (const [name, z] of [['aft', -3.9], ['forward', -2.9]]) {
+      const jamb = mesh(boxGeo(0.06, doorHeight, 0.07), trim, -PANEL_X, doorMidY, z);
+      jamb.name = `crew-door-frame-${name}-jamb`;
+      doorFrame.add(jamb);
+    }
     g.add(doorFrame);
-    const doorPanel = mesh(boxGeo(0.05, 1.5, 0.8), patch, -PANEL_X - 0.05, -0.35, -3.4);
-    g.add(doorPanel);
+
+    /* A real side-hinged leaf. Closed, it occupies exactly the cut aperture;
+     * open, it swings outboard around the aft jamb and leaves a person-sized
+     * route from the ladder into the cabin. */
+    const doorHinge = group('crew-door-hinge');
+    doorHinge.position.set(-PANEL_X - 0.05, doorMidY, -3.8);
+    const doorPanel = mesh(boxGeo(0.05, doorHeight, 0.8), patch, 0, 0, 0.4);
+    doorPanel.name = 'crew-door-leaf';
+    doorHinge.add(doorPanel);
     doorPanel.add(mesh(boxGeo(0.06, 0.09, 0.26), metal, -0.03, -0.1, 0.24));
     doorPanel.add(rivets());
+    g.add(doorHinge);
     // "CREW ENTRY" stencilled over the sill — the door has to be findable.
     const doorStencil = flatMesh(
       planeGeo(0.86, 0.28),
@@ -1005,11 +1197,14 @@ export class EnolaSquatch {
         map: signTexture(['CREW ENTRY'], { w: 512, h: 160, bg: '#d8d2de', fg: '#241a3a', border: '#4a2f8f', rough: true }),
         roughness: 0.85, transparent: true, unique: true,
       }),
-      -PANEL_X - 0.1, 0.72, -3.4,
+      -0.031, 0.72 - doorMidY, 0.4,
     );
     doorStencil.rotation.y = -Math.PI / 2;
-    g.add(doorStencil);
+    doorHinge.add(doorStencil);
+    this.parts.crewDoorFrame = doorFrame;
+    this.parts.crewDoorHinge = doorHinge;
     this.parts.crewDoor = doorPanel;
+    this.crewDoorOpen = false;
     this.anchors.crewDoor = new THREE.Vector3(-FUSE_W / 2 - 0.6, -0.6, -3.4);
     this.anchors.stepDown = new THREE.Vector3(-FUSE_W / 2 - 3.4, 0, -3.4);
     /* ---- Boarding ladder, hooked over the sill ----
@@ -1030,7 +1225,7 @@ export class EnolaSquatch {
      * (y -1.15, the bottom of `doorPanel`) and the tarmac. The whole assembly
      * is one group raked out at the bottom, so the rails, the treads and the
      * feet cannot drift out of line with each other. */
-    const SILL_Y = -1.15;
+    const SILL_Y = CREW_DOOR_SILL_Y;
     const LADDER_RAKE = -0.22;           // rad; negative takes the FOOT outboard
     const LADDER_LEN = (SILL_Y - (-AC_ENOLA.gearY)) / Math.cos(LADDER_RAKE);
     const ladder = group('boarding-ladder');
@@ -1063,9 +1258,17 @@ export class EnolaSquatch {
     // Not manned — they are what makes the tail gun read as one station on a
     // bomber rather than the only gun on a cargo plane.
     const dorsal = group('dorsal-turret');
-    dorsal.position.set(0, FUSE_H / 2 + 0.3, -0.9);
-    dorsal.add(mesh(cylGeo(0.62, 0.68, 0.42, 14), trim, 0, 0, 0));
-    dorsal.add(mesh(sphereGeo(0.6, 12, 8), glassMat, 0, 0.12, 0));
+    /* A roof opening cannot pass through the main-wing carry-through. The old
+     * z=-0.9 station sat over the 4.4 m wing slab, so even after cutting the
+     * skin there was solid structure directly under the cup. Mount it behind
+     * the wing's -1.9 m trailing edge, with a full dome-radius margin. */
+    dorsal.position.set(0, FUSE_H / 2 + 0.3, DORSAL_TURRET_Z);
+    const dorsalBase = mesh(cylGeo(0.62, 0.68, 0.42, 14, true), trim, 0, 0, 0);
+    dorsalBase.name = 'dorsal-turret-ring';
+    dorsal.add(dorsalBase);
+    const dorsalGlass = mesh(sphereGeo(0.6, 12, 8), glassMat, 0, 0.12, 0);
+    dorsalGlass.name = 'dorsal-turret-glazing';
+    dorsal.add(dorsalGlass);
     const dorsalGun = mesh(cylGeo(0.045, 0.045, 1.2, 6), metal, 0, 0.16, 0.7);
     dorsalGun.rotation.x = Math.PI / 2 - 0.25;
     dorsal.add(dorsalGun);
@@ -1075,6 +1278,7 @@ export class EnolaSquatch {
       const blister = mesh(sphereGeo(0.55, 12, 8), glassMat, sx * (FUSE_W / 2 - 0.05), -0.2, -5.4);
       blister.scale.set(0.6, 1, 1.1);
       blister.castShadow = false;
+      blister.name = `waist-blister-${sx < 0 ? 'starboard' : 'port'}`;
       g.add(blister);
     }
 
@@ -1090,9 +1294,13 @@ export class EnolaSquatch {
     pitot.rotation.x = Math.PI / 2;
     pitot.name = 'pitot-mast';
     g.add(pitot);
-    const astrodome = mesh(sphereGeo(0.34, 10, 7), glassMat, 0, FUSE_H / 2 + 0.05, 2.4);
+    /* Ahead of the wing's 2.5 m leading edge. At z=2.4 the glass and both
+     * roof cuts were real, but the main-wing slab still sealed the opening
+     * 0.27 m below it. */
+    const astrodome = mesh(sphereGeo(0.34, 10, 7), glassMat, 0, FUSE_H / 2 + 0.05, ASTRODOME_Z);
     astrodome.scale.y = 0.7;
     astrodome.castShadow = false;
+    astrodome.name = 'navigator-astrodome';
     g.add(astrodome);
 
     /* Inside the glasshouse now that there is an inside — see the nose-cone
@@ -1111,6 +1319,80 @@ export class EnolaSquatch {
     this.parts.beacon = beacon;
 
     this.buildRearGun(g, { skin, trim, metal, glassMat });
+  }
+
+  /** Put the crew-entry leaf in its exact closed or boarding position. */
+  setCrewDoorOpen(open) {
+    this.crewDoorOpen = !!open;
+    if (this.parts.crewDoorHinge) {
+      this.parts.crewDoorHinge.rotation.y = this.crewDoorOpen ? -Math.PI / 2 : 0;
+    }
+    return this.crewDoorOpen;
+  }
+
+  /**
+   * Resolve the on-foot capsule against the parked airframe in aircraft-local
+   * space. This is intentionally the inhabited fuselage only—not one giant
+   * aircraft AABB—so wings, landing gear and the open payload bay retain their
+   * authored walk-under routes.
+   */
+  resolveWalkaroundPlayer(player, axis, radius = 0.3, {
+    bombBayOpen = false,
+    crewDoorOpen = this.crewDoorOpen,
+  } = {}) {
+    this.group.updateWorldMatrix(true, false);
+    _walkLocal.copy(player.position);
+    this.group.worldToLocal(_walkLocal);
+    const eyeLocal = _walkLocal.y;
+    const feetLocal = eyeLocal - (player.eyeHeight ?? 1.66);
+    const shellBottom = -FUSE_H / 2;
+    const shellTop = FUSE_H / 2;
+    if (eyeLocal + 0.05 < shellBottom || feetLocal > shellTop) return false;
+
+    const halfW = FUSE_W / 2;
+    const halfL = FUSE_LEN / 2;
+    if (Math.abs(_walkLocal.z) > halfL + radius || Math.abs(_walkLocal.x) > halfW + radius) return false;
+
+    const inOpenBay = bombBayOpen
+      && Math.abs(_walkLocal.x) < BAY_WIDTH / 2 - radius
+      && _walkLocal.z > BAY_Z - BAY_LEN / 2 + radius
+      && _walkLocal.z < BAY_Z + BAY_LEN / 2 - radius
+      && eyeLocal <= CABIN_FLOOR_TOP;
+    const inOpenDoor = crewDoorOpen
+      && _walkLocal.x < 0
+      && feetLocal >= CREW_DOOR_SILL_Y - 0.05
+      && eyeLocal <= CREW_DOOR_TOP_Y + 0.05
+      && _walkLocal.z > -3.8 + radius
+      && _walkLocal.z < -3.0 - radius;
+    if (inOpenBay || inOpenDoor) return false;
+
+    const outX = halfW + radius;
+    const outZ = halfL + radius;
+    /* Player resolves one WORLD axis at a time, but this parked aircraft is
+     * normally yawed 90 degrees. Treating the incoming `axis` string as an
+     * aircraft-local axis ejected a diagonal approach to the crew door toward
+     * the tail on the second half of every movement frame. Resolve the actual
+     * local OBB by its shallowest penetration instead; that is independent of
+     * heading and leaves the other local component free to slide along skin. */
+    const xPenetration = outX - Math.abs(_walkLocal.x);
+    const zPenetration = outZ - Math.abs(_walkLocal.z);
+    const inverse = new THREE.Matrix4().copy(this.group.matrixWorld).invert();
+    _walkVelocity.copy(player.velocity).transformDirection(inverse);
+    if (xPenetration <= zPenetration) {
+      const side = _walkLocal.x < 0 || (_walkLocal.x === 0 && _walkVelocity.x < 0) ? -1 : 1;
+      _walkLocal.x = side * outX;
+      _walkVelocity.x = 0;
+    } else {
+      const side = _walkLocal.z < 0 || (_walkLocal.z === 0 && _walkVelocity.z < 0) ? -1 : 1;
+      _walkLocal.z = side * outZ;
+      _walkVelocity.z = 0;
+    }
+    player.velocity.copy(_walkVelocity).transformDirection(this.group.matrixWorld);
+    void axis;
+    _walkWorld.copy(_walkLocal);
+    this.group.localToWorld(_walkWorld);
+    player.position.copy(_walkWorld);
+    return true;
   }
 
   /* ---------------------------------------------------------------- */
@@ -1136,7 +1418,15 @@ export class EnolaSquatch {
   buildRearGun(g, { skin, trim, metal, glassMat }) {
     const station = group('rear-gun-station');
     // Right at the back of the boom, on the aeroplane's centreline.
-    const Z = -FUSE_LEN / 2 - 6.6;
+    /* The cup must sit behind the rudder/elevator envelope. At the former
+     * -6.6 station its 1.72 m-wide glazing occupied all four fixed/moving tail
+     * surfaces; only the tapered fairing is allowed to run forward into the
+     * tail structure. */
+    /* The fairing's former forward lip shared 120 mm of the neutral rudder
+     * and 56.1 mm of the raised elevator. Carry the complete station one metre
+     * aft: its forward lip now meets the tail-control envelope across a real
+     * 0.20 m service seam instead of occupying it. */
+    const Z = -FUSE_LEN / 2 - 9.75;
     station.position.set(0, 0.05, Z);
     g.add(station);
     this.parts.rearGunStation = station;
@@ -1144,9 +1434,13 @@ export class EnolaSquatch {
     // The fairing that carries the turret, faired into the boom.
     const shell = mesh(cylGeo(0.62, 0.9, 1.6, 14), skin, 0, 0, 0.85);
     shell.rotation.x = Math.PI / 2;
+    shell.name = 'rear-gun-fairing';
     station.add(shell);
-    // Armour ring behind the gunner's back.
-    station.add(mesh(cylGeo(0.66, 0.66, 0.12, 14), trim, 0, 0, 0.1));
+    // Armour annulus behind the gunner's back. This must be a ring, not the
+    // capped horizontal cylinder that used to plate over the firing opening.
+    const armourRing = mesh(new THREE.TorusGeometry(0.6, 0.06, 8, 24), trim, 0, 0, 0.1);
+    armourRing.name = 'rear-gun-armour-ring';
+    station.add(armourRing);
 
     /* The traversing part. `rotation.y` is traverse; the yoke inside it takes
      * elevation on `rotation.x`, which is the only way the two axes stay
@@ -1160,35 +1454,62 @@ export class EnolaSquatch {
     const dome = mesh(sphereGeo(0.86, 16, 12), glassMat, 0, 0, 0);
     dome.castShadow = false;
     turret.add(dome);
-    for (const ang of [0, Math.PI / 2]) {
-      const rib = mesh(cylGeo(0.03, 0.03, 1.74, 6), trim, 0, 0, 0);
-      rib.rotation.z = Math.PI / 2;
-      rib.rotation.y = ang;
+    /* Curved glazing frames hug the bubble. The old pair were straight 1.74 m
+     * rods through its centre, and the down-traverse sightline hit one before
+     * leaving the cup. Offset meridians plus an equator retain a readable
+     * cage while leaving the gunner's firing cone open. */
+    for (const [name, rotateX, rotateY] of [
+      ['equator', Math.PI / 2, 0],
+      ['meridian-left', 0, Math.PI / 4],
+      ['meridian-right', 0, -Math.PI / 4],
+    ]) {
+      const rib = mesh(new THREE.TorusGeometry(0.88, 0.022, 6, 28), trim, 0, 0, 0);
+      rib.name = `rear-gun-frame-${name}`;
+      rib.rotation.x = rotateX;
+      rib.rotation.y = rotateY;
       turret.add(rib);
     }
-    turret.add(mesh(cylGeo(0.87, 0.87, 0.05, 16), trim, 0, 0, 0.15));
+    const glazingRing = mesh(new THREE.TorusGeometry(0.82, 0.05, 8, 28), trim, 0, 0, 0.15);
+    glazingRing.name = 'rear-gun-glazing-ring';
+    turret.add(glazingRing);
 
     // The yoke: what the barrels are actually bolted to.
     const yoke = group('rear-gun-yoke');
-    yoke.position.set(0, -0.06, -0.3);
+    /* Keep the elevation pivot ahead of and above the gunner's folded legs.
+     * At the former y=-0.06/z=-0.30 datum, full up-elevation swept both
+     * barrels through his shins and boots. This measured datum clears the
+     * complete body at the real -0.38..+0.58 control limits while putting the
+     * hand controls back at his wrists. */
+    yoke.position.set(0, 0.1, -0.5);
     turret.add(yoke);
     this.parts.rearGunYoke = yoke;
-    yoke.add(mesh(boxGeo(0.62, 0.16, 0.2), trim, 0, 0, 0));
+    /* Two side trunnions carry the barrels. A single 0.62 m cross-block put
+     * opaque steel across the central gun sight at full down elevation. */
+    for (const sx of [-1, 1]) {
+      const trunnion = mesh(boxGeo(0.18, 0.16, 0.2), trim, sx * 0.22, 0, 0);
+      trunnion.name = `rear-gun-${sx < 0 ? 'left' : 'right'}-trunnion`;
+      yoke.add(trunnion);
+    }
 
     this.parts.gunFlash = [];
     this.parts.gunBarrels = [];
     for (const sx of [-1, 1]) {
       const barrel = mesh(cylGeo(0.055, 0.07, 1.9, 8), metal, sx * 0.21, 0, -0.95);
+      barrel.name = `rear-gun-${sx < 0 ? 'left' : 'right'}-barrel`;
       barrel.rotation.x = Math.PI / 2;
       yoke.add(barrel);
       this.parts.gunBarrels.push(barrel);
       // Perforated cooling jacket.
       const jacket = mesh(cylGeo(0.1, 0.1, 0.8, 10), trim, sx * 0.21, 0, -0.55);
+      jacket.name = `rear-gun-${sx < 0 ? 'left' : 'right'}-cooling-jacket`;
       jacket.rotation.x = Math.PI / 2;
       yoke.add(jacket);
       // Ammunition can and the belt going into it.
-      yoke.add(mesh(boxGeo(0.22, 0.26, 0.34), solid(0x4a5240, { roughness: 0.95 }), sx * 0.44, -0.02, 0.28));
-      const belt = mesh(boxGeo(0.06, 0.05, 0.44), solid(0xa8873a, { roughness: 0.6, metalness: 0.5 }), sx * 0.32, -0.02, 0.1);
+      const ammoCan = mesh(boxGeo(0.22, 0.26, 0.34), solid(0x4a5240, { roughness: 0.95 }), sx * 0.52, -0.02, 0.28);
+      ammoCan.name = `rear-gun-${sx < 0 ? 'left' : 'right'}-ammo-can`;
+      yoke.add(ammoCan);
+      const belt = mesh(boxGeo(0.06, 0.05, 0.44), solid(0xa8873a, { roughness: 0.6, metalness: 0.5 }), sx * 0.39, -0.02, 0.1);
+      belt.name = `rear-gun-${sx < 0 ? 'left' : 'right'}-ammo-belt`;
       belt.rotation.y = -sx * 0.5;
       yoke.add(belt);
       // Muzzle flash — off until the gun fires.
@@ -1207,7 +1528,11 @@ export class EnolaSquatch {
     yoke.add(mesh(sphereGeo(0.02, 6, 4), metal, 0, 0.16, -1.0));
     // Spade grips.
     for (const sx of [-1, 1]) {
-      const grip = mesh(boxGeo(0.05, 0.24, 0.06), solid(0x241c16, { roughness: 1 }), sx * 0.19, -0.16, 0.16);
+      /* Put the handles on an arc both of Shubes' articulated arms can reach
+       * at every elevation stop. The former low pivot forced the full-up grip
+       * 318 mm past a two-segment human arm even with both joints straight. */
+      const grip = mesh(boxGeo(0.05, 0.24, 0.06), solid(0x241c16, { roughness: 1 }), sx * 0.31, 0.08, 0.5);
+      grip.name = 'rear-gun-spade-grip';
       yoke.add(grip);
     }
     // Brass chute out of the belly of the fairing, and the spent-case bag.
@@ -1216,11 +1541,44 @@ export class EnolaSquatch {
     station.add(mesh(boxGeo(0.34, 0.36, 0.42), solid(0x4a4238, { roughness: 1 }), 0, -0.66, 0.45));
 
     // The seat, and the point a seated gunner's hips go.
-    station.add(mesh(boxGeo(0.5, 0.08, 0.46), solid(0x3a3228, { roughness: 0.95 }), 0, -0.44, 0.55));
-    station.add(mesh(boxGeo(0.5, 0.52, 0.09), solid(0x3a3228, { roughness: 0.95 }), 0, -0.18, 0.8));
-    this.anchors.rearGunSeat = new THREE.Vector3(0, station.position.y - 0.42, Z + 0.6);
+    const rearSeatMount = group('rear-gun-seat-mount');
+    rearSeatMount.position.set(0, -0.47, 0.7);
+    turret.add(rearSeatMount);
+    this.parts.rearGunSeatMount = rearSeatMount;
+    const rearSeatPan = mesh(boxGeo(0.56, 0.14, 0.46), solid(0x3a3228, { roughness: 0.95 }), 0, 0, 0);
+    rearSeatPan.name = 'rear-gun-seat-pan';
+    rearSeatMount.add(rearSeatPan);
+    const rearSeatBack = mesh(boxGeo(0.5, 0.52, 0.09), solid(0x3a3228, { roughness: 0.95 }), 0, 0.29, 0.25);
+    rearSeatBack.name = 'rear-gun-seat-back';
+    rearSeatMount.add(rearSeatBack);
+    const rearGunEye = group('rear-gun-eye');
+    rearGunEye.position.set(0, 0.87, -0.25);
+    rearSeatMount.add(rearGunEye);
+    this.parts.rearGunEye = rearGunEye;
+    this.anchors.rearGunSeat = new THREE.Vector3(0, station.position.y - 0.47, Z + 0.55);
     /** Where the barrels leave the aeroplane, for tracer origins. */
     this.anchors.rearGunMuzzle = new THREE.Vector3(0, station.position.y - 0.01, Z - 2.4);
+  }
+
+  /** Current gunner eye after the traversing seat has followed the turret. */
+  rearGunEyeWorld(out = new THREE.Vector3()) {
+    this.parts.rearGunEye.updateWorldMatrix(true, false);
+    return this.parts.rearGunEye.getWorldPosition(out);
+  }
+
+  /** Midpoint of the two visible muzzle flashes, after traverse/elevation. */
+  rearGunMuzzleWorld(out = new THREE.Vector3()) {
+    out.set(0, 0, 0);
+    for (const flash of this.parts.gunFlash ?? []) {
+      out.add(flash.getWorldPosition(new THREE.Vector3()));
+    }
+    return out.multiplyScalar(1 / Math.max(1, this.parts.gunFlash?.length ?? 0));
+  }
+
+  /** Current gunner eye expressed in the aeroplane frame. */
+  rearGunEyeLocal(out = new THREE.Vector3()) {
+    this.rearGunEyeWorld(out);
+    return this.group.worldToLocal(out);
   }
 
   /**
@@ -1435,7 +1793,7 @@ export class EnolaSquatch {
     const FWD = FUSE_LEN / 2 + 0.5;      // 8.25 — under the windshield
     const AFT = -4.6;
     const IN_X = FUSE_W / 2 - 0.06;      // 1.54
-    const FLOOR_Y = -0.12;
+    const FLOOR_Y = CABIN_FLOOR_Y;
     const ROOF_Y = 1.66;
     const cabinLen = FWD - AFT;
     const cabinMid = (FWD + AFT) / 2;
@@ -1461,7 +1819,11 @@ export class EnolaSquatch {
     /* ---- Roof. Three panels: the flight deck, the bay section between the
      * astrodome and the dorsal turret, and the aft section behind the turret.
      * The two gaps are the two things that are genuinely holes. ---- */
-    const roofRuns = [[2.78, FWD], [-0.30, 2.02], [AFT, -1.55]];
+    const roofRuns = [
+      [ASTRODOME_Z + ASTRODOME_OPEN_HALF, FWD],
+      [DORSAL_TURRET_Z + DORSAL_OPEN_HALF, ASTRODOME_Z - ASTRODOME_OPEN_HALF],
+      [AFT, DORSAL_TURRET_Z - DORSAL_OPEN_HALF],
+    ];
     this.parts.cabinRoof = [];
     for (const [a, b] of roofRuns) {
       const panel = mesh(boxGeo(FUSE_W - 0.14, 0.05, b - a), liner, 0, ROOF_Y, (a + b) / 2);
@@ -1501,9 +1863,10 @@ export class EnolaSquatch {
         // …except on the starboard side, where the crew door is.
         wall(sx, -2.75, 6.2, FLOOR_Y, ROOF_Y);
         wall(sx, AFT, -4.05, FLOOR_Y, ROOF_Y);
-        // Above and below the doorway itself.
-        wall(sx, -4.05, -2.75, FLOOR_Y, -1.05);
-        wall(sx, -4.05, -2.75, 0.52, ROOF_Y);
+        // Only above the doorway itself. The old lower panel was authored with
+        // a negative height and the upper panel began 0.61 m above the cabin
+        // finish; together they made the ladder lead into an opaque wall.
+        wall(sx, -4.05, -2.75, CREW_DOOR_TOP_Y, ROOF_Y);
       }
     }
 
@@ -1633,6 +1996,7 @@ export class EnolaSquatch {
 
     // Windshield, stepped up above the nose glazing, with real framing.
     const windshield = mesh(boxGeo(2.5, 1.15, 0.1), glassMat, 0, 1.35, FUSE_LEN / 2 + 1.2);
+    windshield.name = 'cockpit-windshield';
     windshield.rotation.x = -0.3;
     windshield.castShadow = false;
     g.add(windshield);
@@ -1640,15 +2004,21 @@ export class EnolaSquatch {
     const frame = solid(0x2a2c30, { roughness: 0.7 });
     for (const sx of [-0.85, 0, 0.85]) {
       const post = mesh(boxGeo(0.06, 1.2, 0.12), frame, sx, 1.35, FUSE_LEN / 2 + 1.18);
+      post.name = `cockpit-windshield-frame-post-${sx < 0 ? 'starboard' : sx > 0 ? 'port' : 'centre'}`;
       post.rotation.x = -0.3;
       g.add(post);
     }
-    g.add(mesh(boxGeo(2.56, 0.1, 0.14), frame, 0, 1.9, FUSE_LEN / 2 + 1.02));
+    const windshieldHeader = mesh(boxGeo(2.56, 0.1, 0.14), frame, 0, 1.9, FUSE_LEN / 2 + 1.02);
+    windshieldHeader.name = 'cockpit-windshield-frame-header';
+    g.add(windshieldHeader);
     // Side windows for the two front seats.
+    this.parts.sideWindows = [];
     for (const sx of [-1, 1]) {
       const side = mesh(boxGeo(0.06, 0.7, 1.5), glassMat, sx * (FUSE_W / 2 - 0.02), 1.15, FUSE_LEN / 2 - 0.6);
+      side.name = `cockpit-side-window-${sx < 0 ? 'starboard' : 'port'}`;
       side.castShadow = false;
       g.add(side);
+      this.parts.sideWindows.push(side);
     }
 
     // The inside of the aeroplane — see `buildCabin()`. Built before the
@@ -1666,25 +2036,120 @@ export class EnolaSquatch {
     panelTex.colorSpace = THREE.SRGBColorSpace;
     this.parts.panelTex = panelTex;
 
-    const panel = mesh(boxGeo(2.3, 0.95, 0.12), panelDark, 0, 0.82, FUSE_LEN / 2 + 0.7);
+    /* Keep a measured control gap without crowding the windshield: the panel
+     * moved 70 mm forward and the yokes 100 mm aft below, leaving the former
+     * 56.2 mm full-forward grip penetration as real air on both sides. */
+    const panel = mesh(boxGeo(2.3, 0.95, 0.12), panelDark, 0, 0.82, FUSE_LEN / 2 + 0.77);
+    panel.name = 'cockpit-instrument-panel';
     panel.rotation.x = 0.14;
     g.add(panel);
     const face = flatMesh(new THREE.PlaneGeometry(2.14, 0.86), new THREE.MeshBasicMaterial({ map: panelTex }), 0, 0, -0.062);
+    face.name = 'cockpit-instrument-face';
     face.rotation.y = Math.PI;
     panel.add(face);
+    this.parts.instrumentPanel = panel;
+    this.parts.instrumentFace = face;
+    this.parts.instrumentPanelSupports = [];
+    for (const sx of [-1, 1]) {
+      const supportHeight = 0.49;
+      const support = mesh(
+        boxGeo(0.07, supportHeight, 0.08), frame,
+        sx * 0.96, CABIN_FLOOR_TOP + supportHeight / 2, panel.position.z,
+      );
+      support.name = `cockpit-instrument-panel-support-${sx < 0 ? 'starboard' : 'port'}`;
+      g.add(support);
+      this.parts.instrumentPanelSupports.push(support);
+    }
 
     // The throttle quadrant between the seats: four levers for four engines,
     // which is the one thing on the flight deck that says how many there are.
-    const pedestal = mesh(boxGeo(0.44, 0.34, 0.9), panelDark, 0, 0.55, FUSE_LEN / 2 - 0.35);
+    // Keep it just to the pilot side of centre. At x=0 its full-height box
+    // occupied 106 mm of Sasole's inboard upper arm, plus his forearm/watch.
+    const throttleX = 0.25;
+    const pedestal = mesh(boxGeo(0.44, 0.34, 0.9), panelDark, throttleX, 0.55, FUSE_LEN / 2 - 0.35);
+    pedestal.name = 'cockpit-throttle-quadrant';
     g.add(pedestal);
+    this.parts.throttleQuadrant = pedestal;
+    this.parts.throttleQuadrantSupports = [];
+    for (const sx of [-1, 1]) {
+      const supportHeight = 0.47;
+      const support = mesh(
+        boxGeo(0.065, supportHeight, 0.1), frame,
+        throttleX + sx * 0.14, CABIN_FLOOR_TOP + supportHeight / 2, pedestal.position.z,
+      );
+      support.name = `cockpit-throttle-quadrant-support-${sx < 0 ? 'starboard' : 'port'}`;
+      g.add(support);
+      this.parts.throttleQuadrantSupports.push(support);
+    }
     this.parts.throttleLevers = [];
     for (let i = 0; i < 4; i++) {
       const lever = new THREE.Group();
-      lever.position.set(-0.15 + i * 0.1, 0.72, FUSE_LEN / 2 - 0.5);
+      lever.name = `cockpit-throttle-lever-${i + 1}`;
+      lever.position.set(throttleX - 0.15 + i * 0.1, 0.72, FUSE_LEN / 2 - 0.5);
       lever.add(mesh(boxGeo(0.045, 0.32, 0.05), solid(0x1e2024, { roughness: 0.7 }), 0, 0.16, 0));
       lever.add(mesh(sphereGeo(0.05, 8, 6), solid(0xd8c07a, { roughness: 0.5 }), 0, 0.34, 0));
       g.add(lever);
       this.parts.throttleLevers.push(lever);
+    }
+
+    /* Twin control columns. The flight deck previously had four throttle
+     * levers but no primary controls at either front seat. Each column is one
+     * deck-mounted assembly: a fixed shoe on the real cabin finish, a pitch
+     * pivot rising between the pilot's knees, and a two-handed yoke. */
+    this.parts.controlYokes = [];
+    for (const [role, x] of [['pilot', 0.55], ['copilot', -0.55]]) {
+      const assembly = group(`${role}-control-yoke`);
+      assembly.position.set(x, CABIN_FLOOR_TOP, FUSE_LEN / 2 + 0.2);
+
+      const base = mesh(boxGeo(0.18, 0.08, 0.24), frame, 0, 0.04, 0);
+      base.name = 'control-yoke-base';
+      assembly.add(base);
+
+      const pitchPivot = group('control-yoke-pitch-pivot');
+      pitchPivot.rotation.x = 0.28;
+      const column = mesh(cylGeo(0.045, 0.045, 0.72, 8), frame, 0, 0.36, 0);
+      column.name = 'control-yoke-column';
+      pitchPivot.add(column);
+
+      const wheel = group('control-yoke-wheel');
+      wheel.position.y = 0.72;
+      const hub = mesh(boxGeo(0.14, 0.1, 0.08), frame, 0, 0, 0);
+      hub.name = 'control-yoke-hub';
+      wheel.add(hub);
+      const bar = mesh(boxGeo(0.42, 0.055, 0.065), frame, 0, 0, 0);
+      bar.name = 'control-yoke-bar';
+      wheel.add(bar);
+      for (const sx of [-1, 1]) {
+        const grip = mesh(boxGeo(0.07, 0.22, 0.07), solid(0x241c16, { roughness: 1 }), sx * 0.18, 0.1, 0);
+        grip.name = 'control-yoke-grip';
+        wheel.add(grip);
+      }
+      pitchPivot.add(wheel);
+      assembly.add(pitchPivot);
+      g.add(assembly);
+      this.parts.controlYokes.push({ assembly, pitchPivot, wheel });
+    }
+
+    /* Two complete rudder stations. Each pedal is carried by its own deck
+     * bracket and slides fore/aft against the other pedal, which is the motion
+     * the actual yaw control below drives. They sit forward of the boots and
+     * below the panel, clear of both moving yokes. */
+    this.parts.rudderPedals = [];
+    for (const [role, stationX] of [['pilot', 0.55], ['copilot', -0.55]]) {
+      for (const [side, sideSign] of [['left', 1], ['right', -1]]) {
+        const x = stationX + sideSign * 0.15;
+        const mount = mesh(boxGeo(0.07, 0.12, 0.2), frame, x, CABIN_FLOOR_TOP + 0.06, FUSE_LEN / 2 + 0.43);
+        mount.name = `${role}-rudder-pedal-${side}-mount`;
+        g.add(mount);
+        const pedal = mesh(boxGeo(0.16, 0.25, 0.055), solid(0x24262a, { roughness: 0.85 }),
+          x, CABIN_FLOOR_TOP + 0.18, FUSE_LEN / 2 + 0.47);
+        pedal.name = `${role}-rudder-pedal-${side}`;
+        pedal.rotation.x = -0.32;
+        pedal.userData.restZ = pedal.position.z;
+        pedal.userData.rudderSign = sideSign;
+        g.add(pedal);
+        this.parts.rudderPedals.push(pedal);
+      }
     }
 
     /* Four seats: the two up front (Prospect flying, Captain Sasole beside
@@ -1696,11 +2161,31 @@ export class EnolaSquatch {
       const s = group('seat');
       s.position.set(x, y, z);
       s.rotation.y = facing;
-      s.add(mesh(boxGeo(0.6, 0.14, 0.6), seatMat, 0, 0, 0));
-      s.add(mesh(boxGeo(0.6, 0.8, 0.14), seatMat, 0, 0.4, -0.3));
+      const pan = mesh(boxGeo(0.6, 0.14, 0.6), seatMat, 0, 0, 0);
+      pan.name = 'cockpit-seat-pan';
+      s.add(pan);
+      const back = mesh(boxGeo(0.6, 0.8, 0.14), seatMat, 0, 0.4, -0.3);
+      back.name = 'cockpit-seat-back';
+      s.add(back);
+      const panBottom = y - 0.07;
+      const legHeight = panBottom - CABIN_FLOOR_TOP;
+      const legLocalY = CABIN_FLOOR_TOP - y + legHeight / 2;
+      for (const lx of [-0.14, 0.14]) {
+        for (const lz of [-0.18, 0.18]) {
+          const leg = mesh(boxGeo(0.06, legHeight, 0.06), frame, lx, legLocalY, lz);
+          leg.name = 'cockpit-seat-leg';
+          s.add(leg);
+        }
+      }
       // Head armour and a lap belt, so an empty seat still reads as a seat.
-      s.add(mesh(boxGeo(0.4, 0.3, 0.06), solid(0x2a2c30, { roughness: 0.8 }), 0, 0.9, -0.3));
-      s.add(mesh(boxGeo(0.5, 0.05, 0.08), solid(0x6b5a3a, { roughness: 0.95 }), 0, 0.12, 0.18));
+      const headArmour = mesh(boxGeo(0.4, 0.3, 0.06), solid(0x2a2c30, { roughness: 0.8 }), 0, 0.9, -0.3);
+      headArmour.name = 'cockpit-seat-head-armour';
+      s.add(headArmour);
+      /* Put the belt's lower face on the cushion. At y=0.12 it floated 25 mm
+       * above every pan, conspicuous on the empty pilot seat. */
+      const lapBelt = mesh(boxGeo(0.5, 0.05, 0.08), solid(0x6b5a3a, { roughness: 0.95 }), 0, 0.095, 0.18);
+      lapBelt.name = 'cockpit-seat-lap-belt';
+      s.add(lapBelt);
       g.add(s);
       return s;
     };
@@ -1792,6 +2277,26 @@ export class EnolaSquatch {
     const c = phys.controls;
     const engList = engines?.engines;
 
+    /* The controls the player moves are the controls the crew can see. Aft
+     * stick brings the columns back toward the seats; lateral stick turns the
+     * two wheels together. Damping leaves them heavy without letting their
+     * geometry drift from the actual control state. */
+    for (const { pitchPivot, wheel } of this.parts.controlYokes ?? []) {
+      pitchPivot.rotation.x = damp(pitchPivot.rotation.x, 0.28 - c.pitch * 0.12, 12, dt);
+      wheel.rotation.z = damp(wheel.rotation.z, c.roll * 0.65, 14, dt);
+    }
+    for (const pedal of this.parts.rudderPedals ?? []) {
+      const travel = c.yaw * pedal.userData.rudderSign * 0.055;
+      pedal.position.z = damp(pedal.position.z, pedal.userData.restZ + travel, 14, dt);
+      pedal.rotation.x = damp(pedal.rotation.x, -0.32 - c.yaw * pedal.userData.rudderSign * 0.12, 14, dt);
+    }
+    for (let i = 0; i < (this.parts.throttleLevers?.length ?? 0); i += 1) {
+      const bank = i < 2 ? c.throttleL : c.throttleR;
+      this.parts.throttleLevers[i].rotation.x = damp(
+        this.parts.throttleLevers[i].rotation.x, -0.5 + bank * 0.9, 10, dt,
+      );
+    }
+
     for (let i = 0; i < 4; i++) {
       const e = engList ? engList[engList.length === 4 ? i : i < 2 ? 0 : 1] : null;
       const rpm = e ? e.rpm : 0;
@@ -1827,8 +2332,11 @@ export class EnolaSquatch {
     // Bomb-bay doors: `state.bombBayOpen` is the target (0 closed .. 1 open),
     // set by the mission phase, not decided here.
     a.bombBay = damp(a.bombBay, state.bombBayOpen ? 1 : 0, 2.6, dt);
-    this.parts.bombBayDoors[0].rotation.z = a.bombBay * 1.35;
-    this.parts.bombBayDoors[1].rotation.z = -a.bombBay * 1.35;
+    /* Each leaf is modelled inward from its outboard hinge. The old signs
+     * rotated both centres UP into the payload bay by 0.751 m; reverse them so
+     * the real command lets gravity's side of the doors clear the aeroplane. */
+    this.parts.bombBayDoors[0].rotation.z = -a.bombBay * 1.35;
+    this.parts.bombBayDoors[1].rotation.z = a.bombBay * 1.35;
 
     this.updateRearGun(dt, phys, state);
 
@@ -1874,6 +2382,11 @@ export class EnolaSquatch {
        * the yaw is measured from -Z, not +Z. */
       _aim.copy(state.gunAim);
       this.group.worldToLocal(_aim);
+      /* `gunAim` is a line from the gunner's eye, not from the aeroplane
+       * origin seventeen metres ahead. Removing that origin offset eliminates
+       * the remaining 1.48-degree parallax at the traverse stops. */
+      this.rearGunEyeLocal(_gunEyeLocal);
+      _aim.sub(_gunEyeLocal);
       wantYaw = Math.atan2(-_aim.x, -_aim.z);
       wantPitch = Math.atan2(_aim.y, Math.hypot(_aim.x, _aim.z));
     } else {
@@ -1886,7 +2399,10 @@ export class EnolaSquatch {
     a.gunYaw = damp(a.gunYaw, clamp(wantYaw, -1.15, 1.15), rate, dt);
     a.gunPitch = damp(a.gunPitch, clamp(wantPitch, -0.45, 0.65), rate, dt);
     turret.rotation.y = a.gunYaw;
-    yoke.rotation.x = -a.gunPitch;
+    /* GunnerStation.applyCamera()/aimWorld use positive local X for positive
+     * elevation. Keep the steel on that same convention so the reticle,
+     * barrels and modeled muzzle are one line rather than mirrored in pitch. */
+    yoke.rotation.x = a.gunPitch;
 
     // Muzzle flash and recoil, on a 12-rounds-a-second cadence.
     if (firing) {

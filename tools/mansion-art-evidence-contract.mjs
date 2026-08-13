@@ -17,25 +17,64 @@ export function parseMansionArtEvidenceRun(args = [], env = {}) {
   return { label, mode: 'all' };
 }
 
-export function resolveMansionArtNullSightline({ primary, target, retries }) {
-  if (primary !== null) return primary;
+export function resolveMansionArtNullSightline({
+  primary, primaryIsOwnBacking = false, target, retries,
+}) {
+  /* A ray aimed exactly at PlaneGeometry's shared triangle edge can miss both
+   * triangles numerically and continue into that picture's own mount board.
+   * Treat only that known self-backing case like a null hit. An unrelated
+   * opaque primary blocker remains authoritative and cannot borrow retries. */
+  if (primary !== null && !primaryIsOwnBacking) return primary;
   if (retries.length !== 4) {
-    throw new Error('A null art ray requires exactly four micro-neighborhood retries.');
+    throw new Error('A recoverable art ray requires exactly four micro-neighborhood retries.');
   }
   const failed = retries.findIndex((hit) => hit !== target);
   return failed === -1 ? target : retries[failed];
+}
+
+/**
+ * Pure semantic gate for the vault-facing Casa Bonita evidence. Browser code
+ * supplies real Box3 measurements; keeping the pass/fail policy here makes it
+ * unit-testable and binds the policy into the capture provenance fingerprint.
+ */
+export function evaluateCasaFrameContract(proof) {
+  const containment = proof?.containment;
+  const frameComplete = Boolean(proof?.frame && proof?.bezel && proof?.board && containment);
+  const artContained = frameComplete
+    && containment.boardLeft >= 0.0055 && containment.boardRight >= 0.0055
+    && containment.boardBottom >= 0.0055 && containment.boardTop >= 0.0055
+    && containment.bezelLeft >= 0.0345 && containment.bezelRight >= 0.0345
+    && containment.bezelBottom >= 0.0345 && containment.bezelTop >= 0.0345;
+  const symmetric = frameComplete
+    && Math.abs(containment.boardLeft - containment.boardRight) <= 0.0005
+    && Math.abs(containment.boardBottom - containment.boardTop) <= 0.0005
+    && Math.abs(containment.bezelLeft - containment.bezelRight) <= 0.0005
+    && Math.abs(containment.bezelBottom - containment.bezelTop) <= 0.0005;
+  const railClear = Array.isArray(proof?.intersections)
+    && proof.intersections.length === 0
+    && Number.isFinite(proof?.railClearance) && proof.railClearance >= 0.05;
+  const rearGap = proof?.nearestStructuralWall?.frameRearGap;
+  const wallMounted = Number.isFinite(rearGap) && rearGap >= -0.0005 && rearGap <= 0.005;
+  return {
+    frameComplete,
+    artContained,
+    symmetric,
+    railClear,
+    wallMounted,
+    ok: frameComplete && artContained && symmetric && railClear && wallMounted,
+  };
 }
 
 const OWNER_PICTURES = [
   {
     name: '01-gallery-roster', room: 'Upper gallery',
     slot: 'mansion.gallery.roster', file: 'austin-major-2025-roster.jpg',
-    position: [11.4, 6.0, 51.6],
+    position: [11.0, 6.0, 51.6],
   },
   {
     name: '02-ballroom-major', room: 'Ballroom',
     slot: 'mansion.ballroom.major', file: 'austin-major-cowboy-banner.jpg',
-    position: [-4.6, 1.2, 72.9],
+    position: [5.0, 1.2, 62.0],
   },
   {
     name: '03-lounge-cowboy', room: 'Billiards lounge',
@@ -45,7 +84,7 @@ const OWNER_PICTURES = [
   {
     name: '04-conference-stacks', room: 'Conference room',
     slot: 'mansion.conference.stacks', file: 'logo-5-years-of-stacks.jpg',
-    position: [4.7, 6.0, 59.9],
+    position: [4.7, 6.0, 59.8],
   },
   {
     name: '05-office-boss', room: "Lou's office",

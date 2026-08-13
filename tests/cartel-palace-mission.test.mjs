@@ -216,6 +216,37 @@ test('the palace is its own traversable compound with every clue physically stag
     'night interiors remain readable instead of rendering as black geometry');
 });
 
+test('the service power cabinet has visible supports tangent to cabinet and land', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const cabinet = world.root.getObjectByName('power-cabinet');
+  const land = world.root.getObjectByName('palace-surrounding-land');
+  const supports = [];
+  world.root.getObjectByName('service-power-box')?.traverse((object) => {
+    if (object.name === 'power-cabinet-support') supports.push(object);
+  });
+
+  assert.ok(cabinet?.isMesh, 'the exterior power interaction lost its cabinet');
+  assert.ok(land?.isMesh, 'the cabinet support datum lost the surrounding land');
+  assert.equal(supports.length, 2, 'the freestanding cabinet does not have two visible supports');
+  const cabinetBounds = new THREE.Box3().setFromObject(cabinet);
+  const landBounds = new THREE.Box3().setFromObject(land);
+  for (const [index, support] of supports.entries()) {
+    assert.ok(support.isMesh && support.visible && support.material?.visible !== false,
+      `power cabinet support ${index} is not rendered geometry`);
+    const supportBounds = new THREE.Box3().setFromObject(support);
+    const overlapX = Math.min(supportBounds.max.x, cabinetBounds.max.x)
+      - Math.max(supportBounds.min.x, cabinetBounds.min.x);
+    const overlapZ = Math.min(supportBounds.max.z, cabinetBounds.max.z)
+      - Math.max(supportBounds.min.z, cabinetBounds.min.z);
+    assert.ok(overlapX > 1e-4 && overlapZ > 1e-4,
+      `power cabinet support ${index} misses the cabinet footprint`);
+    assert.ok(Math.abs(supportBounds.max.y - cabinetBounds.min.y) <= 1e-4,
+      `power cabinet support ${index} leaves a gap below the cabinet`);
+    assert.ok(Math.abs(supportBounds.min.y - landBounds.max.y) <= 1e-4,
+      `power cabinet support ${index} leaves a gap above the land`);
+  }
+});
+
 test('every playable estate zone has a finished ceiling below the exterior roof', () => {
   const world = buildCartelPalace(new THREE.Scene());
   const ceilingNames = [
@@ -332,6 +363,51 @@ test('each evidence clue sits in a distinct furnished room and remains reachable
     assert.ok(standing.distanceTo(target.getWorldPosition(new THREE.Vector3()).setY(0.9)) <= 2.5,
       `${id} cannot be inspected from its clear standing position`);
   }
+});
+
+test('the Mark office desk chair is one visible assembly supported by its rug', () => {
+  const world = buildCartelPalace(new THREE.Scene());
+  const chair = world.root.getObjectByName('office-detail.desk-chair');
+  const rug = world.root.getObjectByName('office-detail.rug');
+  assert.ok(chair, 'the Mark office lost its desk chair');
+  assert.ok(rug?.isMesh, 'the Mark office lost its rug support surface');
+
+  world.root.updateMatrixWorld(true);
+  const parts = [];
+  chair.traverse((object) => {
+    if (object.isMesh) parts.push({ object, bounds: new THREE.Box3().setFromObject(object) });
+  });
+  const seatIndex = parts.findIndex(({ object }) => object.name === 'office-chair-seat');
+  assert.notEqual(seatIndex, -1, 'the office chair lost its visible seat');
+
+  const boxGap = (a, b) => Math.hypot(
+    Math.max(a.min.x - b.max.x, b.min.x - a.max.x, 0),
+    Math.max(a.min.y - b.max.y, b.min.y - a.max.y, 0),
+    Math.max(a.min.z - b.max.z, b.min.z - a.max.z, 0),
+  );
+  const connected = new Set([seatIndex]);
+  let expanded = true;
+  while (expanded) {
+    expanded = false;
+    for (let left = 0; left < parts.length; left++) {
+      for (let right = left + 1; right < parts.length; right++) {
+        if (boxGap(parts[left].bounds, parts[right].bounds) > 0.006) continue;
+        if (connected.has(left) === connected.has(right)) continue;
+        connected.add(left);
+        connected.add(right);
+        expanded = true;
+      }
+    }
+  }
+
+  const rugBounds = new THREE.Box3().setFromObject(rug);
+  const supported = [...connected].some((index) => (
+    parts[index].bounds.min.y <= rugBounds.max.y + 0.002
+    && parts[index].bounds.max.y >= rugBounds.max.y - 0.002
+  ));
+  const lowestConnectedBottom = Math.min(...[...connected].map((index) => parts[index].bounds.min.y));
+  assert.equal(supported, true,
+    `the chair's connected visible assembly stops ${(lowestConnectedBottom - rugBounds.max.y).toFixed(4)} m above its rug`);
 });
 
 test('the courtyard reads as a palace and its solid waterworks do not seal the service route', () => {

@@ -42,10 +42,55 @@ function installCanvasDocument() {
 function buildLevel() {
   const restoreDocument = installCanvasDocument();
   try {
-    return buildMotel(new THREE.Scene());
+    const scene = new THREE.Scene();
+    return { ...buildMotel(scene), scene };
   } finally {
     restoreDocument();
   }
+}
+
+function boundsOf(object) {
+  object.updateWorldMatrix(true, false);
+  return new THREE.Box3().setFromObject(object);
+}
+
+function positiveFootprintOverlap(a, b, epsilon = 1e-4) {
+  return Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x) > epsilon
+    && Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z) > epsilon;
+}
+
+function horizontalFloorBoxes(scene) {
+  const floors = [];
+  scene.updateMatrixWorld(true);
+  scene.traverse((object) => {
+    if (!object.isMesh || object.geometry?.type !== 'PlaneGeometry') return;
+    const box = boundsOf(object);
+    if (Math.abs(box.max.y - box.min.y) <= 1e-4) floors.push(box);
+  });
+  return floors;
+}
+
+function renderedVertexYRange(root) {
+  root.updateWorldMatrix(true, true);
+  const point = new THREE.Vector3();
+  let min = Infinity;
+  let max = -Infinity;
+  root.traverse((object) => {
+    if (!object.isMesh || !object.geometry?.attributes?.position) return;
+    for (let ancestor = object; ancestor; ancestor = ancestor.parent) {
+      if (!ancestor.visible) return;
+    }
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    if (!materials.some((material) => material?.visible !== false
+      && (!material.transparent || material.opacity > 0))) return;
+    const positions = object.geometry.attributes.position;
+    for (let index = 0; index < positions.count; index++) {
+      point.fromBufferAttribute(positions, index).applyMatrix4(object.matrixWorld);
+      min = Math.min(min, point.y);
+      max = Math.max(max, point.y);
+    }
+  });
+  return { min, max };
 }
 
 test('the clerk office entrance looks open whenever its doorway has no blocker', () => {
@@ -75,6 +120,90 @@ test('the rear windows of rooms eleven and twelve reveal the rooms behind them',
       `${name} rear pane does not read as glass`);
     assert.equal(pane.material.depthWrite, false,
       `${name} rear pane hides the room while writing its transparent depth`);
+  }
+});
+
+test('both room-twelve dining chairs have four visible legs joined from carpet to seat', () => {
+  const { refs, scene } = buildLevel();
+  const floors = horizontalFloorBoxes(scene);
+  assert.equal(refs.chairs.length, 2);
+
+  for (const [chairIndex, chair] of refs.chairs.entries()) {
+    const seat = chair.children.find((child) => child.geometry?.parameters?.depth === 0.7);
+    assert.ok(seat, `dining chair ${chairIndex} lost its seat`);
+    const seatBox = boundsOf(seat);
+    const feet = chair.children.filter((child) => child.name === 'motel-dining-chair-foot');
+    assert.equal(feet.length, 4, `dining chair ${chairIndex} does not have four legs`);
+    for (const [footIndex, foot] of feet.entries()) {
+      const footBox = boundsOf(foot);
+      assert.ok(positiveFootprintOverlap(seatBox, footBox),
+        `dining chair ${chairIndex} leg ${footIndex} leaves the seat footprint`);
+      assert.ok(Math.abs(footBox.max.y - seatBox.min.y) <= 1e-4,
+        `dining chair ${chairIndex} leg ${footIndex} does not meet the seat`);
+      assert.ok(floors.some((floor) => positiveFootprintOverlap(footBox, floor)
+        && Math.abs(footBox.min.y - floor.max.y) <= 1e-4),
+      `dining chair ${chairIndex} leg ${footIndex} does not meet the carpet`);
+    }
+  }
+});
+
+test('both upright pool loungers are continuous supported assemblies on the concrete deck', () => {
+  const { refs, scene } = buildLevel();
+  const decks = refs.poolDeck.map(boundsOf);
+  const upright = refs.poolFurniture.filter((item) => item.deck);
+  assert.equal(upright.length, 2);
+
+  for (const item of upright) {
+    const seat = item.group.children.find((child) => child.name === 'motel-pool-lounge-seat'
+      || child.geometry?.parameters?.depth === 1.8);
+    const back = item.group.getObjectByName('motel-pool-lounge-back')
+      || item.group.children.find((child) => child.geometry?.parameters?.depth === 0.8);
+    const feet = item.group.children.filter((child) => child.name === 'motel-pool-lounge-foot');
+    assert.ok(seat, `${item.id} lost its seat`);
+    assert.ok(back, `${item.id} lost its back`);
+    assert.equal(feet.length, 4, `${item.id} does not have four legs`);
+    const seatBox = boundsOf(seat);
+    const backBox = boundsOf(back);
+    assert.ok(seatBox.intersectsBox(backBox), `${item.id} back is disconnected from its seat`);
+    for (const [footIndex, foot] of feet.entries()) {
+      const footBox = boundsOf(foot);
+      assert.ok(Math.abs(footBox.max.y - seatBox.min.y) <= 1e-4,
+        `${item.id} leg ${footIndex} does not meet the seat`);
+      assert.ok(decks.some((deck) => positiveFootprintOverlap(footBox, deck)
+        && Math.abs(footBox.min.y - deck.max.y) <= 1e-4),
+      `${item.id} leg ${footIndex} does not meet the pool deck`);
+    }
+  }
+});
+
+test('the tipped pool lounge rests on the visible liner instead of clipping through it', () => {
+  const { refs } = buildLevel();
+  const debris = refs.poolFurniture.find((item) => item.id === 'pool-debris');
+  assert.ok(debris?.group, 'the authored pool-bottom debris is missing');
+
+  const linerY = refs.pool.y + 0.02;
+  const range = renderedVertexYRange(debris.group);
+  assert.ok(Number.isFinite(range.min) && range.max > linerY,
+    'the debris has no visible triangles above the pool liner');
+  assert.ok(Math.abs(range.min - linerY) <= 1e-4,
+    `the debris penetrates the visible pool liner by ${(linerY - range.min).toFixed(4)} m`);
+});
+
+test('every room-eleven shipment crate rests on its floor or a crate directly beneath it', () => {
+  const { refs, scene } = buildLevel();
+  const floors = horizontalFloorBoxes(scene);
+  const crates = refs.crates.group.children;
+  assert.equal(crates.length, 5);
+  const boxes = crates.map(boundsOf);
+
+  for (const [index, item] of boxes.entries()) {
+    const floorSupported = floors.some((floor) => positiveFootprintOverlap(item, floor)
+      && Math.abs(item.min.y - floor.max.y) <= 1e-4);
+    const crateSupported = boxes.some((support, supportIndex) => supportIndex !== index
+      && positiveFootprintOverlap(item, support)
+      && Math.abs(item.min.y - support.max.y) <= 1e-4);
+    assert.ok(floorSupported || crateSupported,
+      `shipment crate ${index} has no tangent floor or crate support`);
   }
 });
 

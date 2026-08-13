@@ -285,3 +285,52 @@ test('the real player capsule has a plainly walkable lane past the visible dock 
   assert.ok(closestCart >= PLAYER_RADIUS - 1e-6,
     `real Player overlapped the cart by ${(PLAYER_RADIUS - closestCart).toFixed(3)} m`);
 });
+
+test('dock furniture is visibly supported without taking back the clear cart lane', () => {
+  const world = buildNoWakeWorld(new THREE.Scene());
+  world.update(0, 0);
+  const finger = world.marina.root.getObjectByName('finger dock deck');
+  const cart = world.marina.root.getObjectByName('dock cart');
+  assert.ok(finger && cart, 'real Gate C finger/cart geometry is missing');
+  world.marina.root.updateMatrixWorld(true);
+
+  const plankBoxes = [];
+  world.marina.root.traverse((object) => {
+    if (/^finger dock plank /.test(object.name)) {
+      plankBoxes.push(new THREE.Box3().setFromObject(object));
+    }
+  });
+  const supportingPlankTop = (box) => Math.max(...plankBoxes
+    .filter((plank) => plank.max.x >= box.min.x && plank.min.x <= box.max.x
+      && plank.max.z >= box.min.z && plank.min.z <= box.max.z)
+    .map((plank) => plank.max.y));
+
+  const supportErrors = [];
+  for (let i = 1; i <= 3; i++) {
+    const body = new THREE.Box3().setFromObject(
+      world.marina.root.getObjectByName(`shore-power body ${i}`),
+    );
+    const gap = body.min.y - supportingPlankTop(body);
+    if (Math.abs(gap) > 0.005) supportErrors.push({ object: `shore-power body ${i}`, gap });
+  }
+  for (let i = 1; i <= 4; i++) {
+    const wheel = new THREE.Box3().setFromObject(
+      world.marina.root.getObjectByName(`dock cart wheel ${i}`),
+    );
+    const gap = wheel.min.y - supportingPlankTop(wheel);
+    if (Math.abs(gap) > 0.005) supportErrors.push({ object: `dock cart wheel ${i}`, gap });
+  }
+
+  const fingerBox = new THREE.Box3().setFromObject(finger);
+  const cartBox = new THREE.Box3().setFromObject(cart);
+  const cartCentre = cartBox.getCenter(new THREE.Vector3());
+  const collider = world.marina.colliders.find(
+    (box) => box.containsPoint(cartCentre) || box.intersectsBox(cartBox),
+  );
+  assert.ok(collider?.containsBox(cartBox), 'support correction escaped the cart collider');
+  const laneWidth = fingerBox.max.x - PLAYER_RADIUS - (collider.max.x + PLAYER_RADIUS);
+  assert.ok(laneWidth >= 1.2, `supported cart leaves only ${laneWidth.toFixed(3)} m of clear lane`);
+  assert.deepEqual(supportErrors, [], supportErrors
+    .map(({ object, gap }) => `${object}: ${(gap * 1000).toFixed(1)} mm ${gap > 0 ? 'above' : 'below'} the visible planks`)
+    .join('\n'));
+});

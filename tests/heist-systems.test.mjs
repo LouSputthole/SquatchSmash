@@ -94,6 +94,40 @@ test('authored squad graph selects alternate anchors and offscreen recovery posi
   });
 });
 
+test('real movement clears intermittent blocked time before recovery can accumulate', () => {
+  const graph = new AuthoredNavigationGraph([
+    { id: 'start', zone: 'inside', neighbors: ['recover'] },
+    { id: 'recover', zone: 'outside', recovery: true, neighbors: ['start'] },
+  ]);
+  const actors = new Map([['snow', { id: 'snow', role: 'leader', anchor: 'start' }]]);
+  const squad = new SquadDirector({ graph, actors });
+
+  /* Six ordinary waypoint pauses separated by real travel used to add up to
+   * 3 s and send a moving actor backwards to the offscreen recovery anchor. */
+  for (let waypoint = 0; waypoint < 6; waypoint += 1) {
+    assert.deepEqual(squad.noteBlocked('snow', 0.5), { recover: false });
+    squad.noteMoving('snow');
+  }
+  assert.deepEqual(squad.noteBlocked('snow', 0.5), { recover: false });
+});
+
+test('peer congestion clears obstruction time without disabling real blocked recovery', () => {
+  const graph = new AuthoredNavigationGraph([
+    { id: 'start', zone: 'inside', neighbors: ['recover'] },
+    { id: 'recover', zone: 'outside', recovery: true, neighbors: ['start'] },
+  ]);
+  const actors = new Map([['snow', { id: 'snow', role: 'leader', anchor: 'start' }]]);
+  const squad = new SquadDirector({ graph, actors });
+
+  assert.deepEqual(squad.noteBlocked('snow', 2.4), { recover: false });
+  squad.noteCongested('snow');
+  assert.deepEqual(squad.noteBlocked('snow', 0.2), { recover: false },
+    'traffic inherited a stale obstruction timer');
+  assert.deepEqual(squad.noteBlocked('snow', 2.4), {
+    recover: true, anchor: 'recover', offscreenOnly: true,
+  }, 'a genuine obstruction stopped recovering after traffic cleared');
+});
+
 test('police wave budgets are finite and never choose a visible spawn gate', () => {
   const police = new PoliceDirector({
     bank_avenue: { budget: 3, gates: ['north', 'east'] },

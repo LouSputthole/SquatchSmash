@@ -1236,6 +1236,7 @@ window.CARTEL_PALACE = {
   loadout,
   loadoutStorageKey: FINAL_ARC_LOADOUT_STORAGE_KEY,
   renderer,
+  postfx,
   get phase() { return state.phase; },
   get campaignState() { return campaign.state; },
   get checkpoint() { return state.lastCheckpoint; },

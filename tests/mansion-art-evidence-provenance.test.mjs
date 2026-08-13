@@ -11,6 +11,7 @@ import {
   collectMansionArtEvidence,
 } from '../tools/mansion-art-evidence-provenance.mjs';
 import {
+  evaluateCasaFrameContract,
   MANSION_ART_EVIDENCE_SHOTS,
   parseMansionArtEvidenceRun,
   resolveMansionArtNullSightline,
@@ -46,6 +47,7 @@ test('the package Mansion-art command explicitly requests only a full capture', 
 test('a null art ray is clear only when all four micro-neighborhood retries hit the target', () => {
   const target = { name: 'picture' };
   const blocker = { name: 'clock' };
+  const ownBacking = { name: 'mount-board' };
 
   assert.equal(resolveMansionArtNullSightline({ primary: target, target, retries: [] }), target);
   assert.equal(resolveMansionArtNullSightline({
@@ -63,10 +65,74 @@ test('a null art ray is clear only when all four micro-neighborhood retries hit 
     target,
     retries: [target, target, null, target],
   }), null, 'a second raycast miss was weakened into a clear sample');
+  assert.equal(resolveMansionArtNullSightline({
+    primary: ownBacking,
+    primaryIsOwnBacking: true,
+    target,
+    retries: [target, target, target, target],
+  }), target, 'an exact triangle-seam miss did not recover past its own mount board');
+  assert.equal(resolveMansionArtNullSightline({
+    primary: ownBacking,
+    primaryIsOwnBacking: true,
+    target,
+    retries: [target, target, blocker, target],
+  }), blocker, 'an external blocker beside the frame seam was weakened into clear art');
+  assert.equal(resolveMansionArtNullSightline({
+    primary: blocker,
+    primaryIsOwnBacking: false,
+    target,
+    retries: [target, target, target, target],
+  }), blocker, 'an unrelated opaque primary blocker was allowed to borrow recovery rays');
   assert.throws(
     () => resolveMansionArtNullSightline({ primary: null, target, retries: [target] }),
     /exactly four micro-neighborhood retries/i,
   );
+});
+
+test('the authoritative Casa evidence contract requires the complete mounted frame and full-frame rail clearance', () => {
+  const valid = {
+    frame: { min: [-1, -1, -0.04], max: [1, 1, 0.02] },
+    bezel: { min: [-1, -1, -0.04], max: [1, 1, -0.005] },
+    board: { min: [-0.95, -0.95, 0], max: [0.95, 0.95, 0.004] },
+    containment: {
+      boardLeft: 0.006,
+      boardRight: 0.006,
+      boardBottom: 0.006,
+      boardTop: 0.006,
+      bezelLeft: 0.035,
+      bezelRight: 0.035,
+      bezelBottom: 0.035,
+      bezelTop: 0.035,
+    },
+    intersections: [],
+    railClearance: 0.051667,
+    nearestStructuralWall: { frameRearGap: 0 },
+  };
+  assert.deepEqual(evaluateCasaFrameContract(valid), {
+    frameComplete: true,
+    artContained: true,
+    symmetric: true,
+    railClear: true,
+    wallMounted: true,
+    ok: true,
+  });
+
+  for (const [label, mutation, failedGate] of [
+    ['unframed art plane', (proof) => { proof.frame = null; }, 'frameComplete'],
+    ['art outside mount board', (proof) => { proof.containment.boardTop = -0.001; }, 'artContained'],
+    ['art outside mount board horizontally', (proof) => { proof.containment.boardRight = -0.001; }, 'artContained'],
+    ['asymmetric bezel', (proof) => { proof.containment.bezelTop = 0.033; }, 'symmetric'],
+    ['asymmetric horizontal bezel', (proof) => { proof.containment.bezelRight = 0.033; }, 'symmetric'],
+    ['rail through full frame', (proof) => { proof.intersections = ['cellar chair rail']; }, 'railClear'],
+    ['frame too close to rail', (proof) => { proof.railClearance = 0.049; }, 'railClear'],
+    ['frame floating off wall', (proof) => { proof.nearestStructuralWall.frameRearGap = 0.006; }, 'wallMounted'],
+  ]) {
+    const proof = structuredClone(valid);
+    mutation(proof);
+    const result = evaluateCasaFrameContract(proof);
+    assert.equal(result[failedGate], false, `${label} passed ${failedGate}`);
+    assert.equal(result.ok, false, `${label} certified stale Casa evidence`);
+  }
 });
 
 test('evidence collection binds all eleven PNGs by bytes, dimensions, and SHA-256', async () => {

@@ -1215,11 +1215,12 @@ class GrassDetail {
       const s = surfaceAt(x, z);
       // Only where grass is actually long enough to see.
       const tall = s === SURFACE.ROUGH || s === SURFACE.DEEP_ROUGH;
+      if (!tall) continue;
       d.position.set(x, heightAt(x, z), z);
       d.rotation.set(0, a * 3.1, 0);
-      d.scale.setScalar(tall ? (s === SURFACE.DEEP_ROUGH ? 1.0 : 0.7) : 0);
+      d.scale.setScalar(s === SURFACE.DEEP_ROUGH ? 1.0 : 0.7);
       d.updateMatrix();
-      this.mesh.setMatrixAt(i, d.matrix);
+      this.mesh.setMatrixAt(n, d.matrix);
       n++;
     }
     this.mesh.count = n;

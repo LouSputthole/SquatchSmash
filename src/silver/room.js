@@ -1301,12 +1301,21 @@ export function buildRoom(scene, { renderer } = {}) {
     for (const sz of [-8, -11, -13]) {
       const g = group('shelving');
       for (let s = 0; s < 5; s++) {
-        g.add(box({ size: [3.4, 0.05, 0.65], pos: [0, 0.3 + s * 0.44, 0], mat: M_STEEL_D }));
+        const shelf = box({ size: [3.4, 0.05, 0.65], pos: [0, 0.3 + s * 0.44, 0], mat: M_STEEL_D });
+        shelf.name = 'dry-store-shelf-board';
+        g.add(shelf);
         for (let t = 0; t < 8; t++) {
           g.add(cylinder({
             r: 0.075, h: 0.16, pos: [-1.5 + t * 0.43, 0.4 + s * 0.44, rand(-0.16, 0.16)],
             mat: mat({ color: pick([0xa8a29a, 0x8a7050, 0x9a4a3a]), roughness: 0.55, metalness: 0.4 }),
           }));
+        }
+      }
+      for (const ux of [-1.62, 1.62]) {
+        for (const uz of [-0.28, 0.28]) {
+          const upright = box({ size: [0.06, 2.085, 0.06], pos: [ux, 1.0425, uz], mat: M_STEEL_D });
+          upright.name = 'dry-store-shelf-upright';
+          g.add(upright);
         }
       }
       /* Racked against the west wall rather than down the middle of the room.
@@ -1762,7 +1771,7 @@ export function buildRoom(scene, { renderer } = {}) {
         for (let i = 0; i < 2; i++) {
           add(box({
             name: 'produce-crate', size: [0.52, 0.26, 0.4],
-            pos: [bx - 0.6 + i * 1.2, 0.14 + (i % 2) * 0.27, bz], mat: mat({ color: 0x2f5a3a, roughness: 0.85 }),
+            pos: [bx - 0.6 + i * 1.2, 0.13, bz], mat: mat({ color: 0x2f5a3a, roughness: 0.85 }),
           }));
         }
       }
@@ -2486,8 +2495,17 @@ export function buildRoom(scene, { renderer } = {}) {
     // Banquettes down the east wall
     for (let i = 0; i < 5; i++) {
       const bz = -3 + i * 5.2;
-      add(box({ size: [1.5, 0.45, 3.6], pos: [8.6, 0.28, bz], mat: M_BURGUNDY }));
-      add(box({ size: [0.35, 1.15, 3.6], pos: [9.4, 0.62, bz], mat: M_BURGUNDY_D }));
+      const banquetteBase = box({ size: [1.5, 0.45, 3.6], pos: [8.6, 0.28, bz], mat: M_BURGUNDY });
+      banquetteBase.name = 'east-banquette-seat-base';
+      add(banquetteBase);
+      const banquetteBack = box({ size: [0.35, 1.15, 3.6], pos: [9.4, 0.62, bz], mat: M_BURGUNDY_D });
+      banquetteBack.name = 'east-banquette-back';
+      add(banquetteBack);
+      const banquettePlinth = box({
+        size: [1.36, 0.055, 3.42], pos: [8.66, 0.0275, bz], mat: M_DARKWOOD,
+      });
+      banquettePlinth.name = 'east-banquette-plinth';
+      add(banquettePlinth);
       solid(7.85, bz - 1.8, 9.6, bz + 1.8, 0, 0.75);
       anchors.tables.push(new THREE.Vector3(7.2, 0, bz));
       diningTable(7.0, bz, 2, { r: 0.6 });

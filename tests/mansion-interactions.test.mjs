@@ -97,7 +97,7 @@ test('all ten owner-authored Mansion photographs are recovered and hung in their
   assert.equal(new Set(expected.values()).size, 10, 'one recovered image was reused in place of another');
 });
 
-test('the Flamingo-Mega gallery roster and paired lamp hang beside the east stair, never over it', () => {
+test('the Flamingo-Mega gallery roster and every part of its lamp are wall-supported beside the east stair', () => {
   const grounds = buildMansionGrounds(null);
   const interior = buildMansionInterior({ grounds });
   interior.root.updateMatrixWorld(true);
@@ -116,6 +116,111 @@ test('the Flamingo-Mega gallery roster and paired lamp hang beside the east stai
   assert.ok(pairedLamp, 'the gallery roster lost its paired picture lamp');
   assert.ok(pairedLamp.position.x > STAIR_EAST.x1 + 0.2,
     `the gallery roster lamp still hangs over the east stair at x ${pairedLamp.position.x.toFixed(3)}`);
+
+  const boxGap = (a, b) => Math.hypot(
+    Math.max(a.min.x - b.max.x, b.min.x - a.max.x, 0),
+    Math.max(a.min.y - b.max.y, b.min.y - a.max.y, 0),
+    Math.max(a.min.z - b.max.z, b.min.z - a.max.z, 0),
+  );
+  const instanceBox = (batch, index) => {
+    batch.geometry.computeBoundingBox();
+    const instance = new THREE.Matrix4();
+    batch.getMatrixAt(index, instance);
+    instance.premultiply(batch.matrixWorld);
+    return batch.geometry.boundingBox.clone().applyMatrix4(instance);
+  };
+
+  /* The picture faces into the reachable gallery and its backing touches the
+   * real masonry bay east of the stair, rather than spanning the stair mouth. */
+  const rosterNormal = new THREE.Vector3(0, 0, 1)
+    .applyQuaternion(roster.getWorldQuaternion(new THREE.Quaternion()));
+  assert.ok(rosterNormal.dot(new THREE.Vector3(0, 0, 1)) > 0.999,
+    `the gallery roster faces ${rosterNormal.toArray().map((n) => n.toFixed(4)).join(', ')}, not into the gallery`);
+  let rosterFrame = null;
+  interior.root.traverse((object) => {
+    if (rosterFrame || !object.isMesh || object === roster || object.isInstancedMesh) return;
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    const centre = box.getCenter(new THREE.Vector3());
+    if (Math.abs(size.x - 3.4) < 1e-4 && Math.abs(size.y - 1.46) < 1e-4
+        && Math.abs(size.z - 0.035) < 1e-4 && centre.distanceTo(roster.position) < 0.1) {
+      rosterFrame = box;
+    }
+  });
+  assert.ok(rosterFrame, 'the gallery roster lost its physical frame/backing');
+  const galleryWalls = [];
+  interior.root.traverse((object) => {
+    if (object.name === 'gallery-south-solid') galleryWalls.push(new THREE.Box3().setFromObject(object));
+  });
+  const supportingWall = galleryWalls.find((wall) => (
+    wall.min.x <= rosterFrame.min.x && wall.max.x >= rosterFrame.max.x
+    && wall.min.y <= rosterFrame.min.y && wall.max.y >= rosterFrame.max.y
+  ));
+  assert.ok(supportingWall, 'the gallery roster has no complete masonry bay behind its frame');
+  assert.ok(boxGap(rosterFrame, supportingWall) <= 0.001,
+    `the gallery roster frame is ${boxGap(rosterFrame, supportingWall).toFixed(4)} m off its wall`);
+  const rightCaseBoxes = [];
+  interior.root.traverse((object) => {
+    if (object.name === 'gallery-south-case') rightCaseBoxes.push(new THREE.Box3().setFromObject(object));
+  });
+  const rightCaseCandidates = rightCaseBoxes
+    .filter((box) => box.min.x > rosterFrame.getCenter(new THREE.Vector3()).x)
+    .map((box) => box.min.x);
+  assert.ok(rightCaseCandidates.length > 0, 'the gallery roster check did not resolve the right display case');
+  const rightCaseMinX = Math.min(...rightCaseCandidates);
+  assert.ok(rosterFrame.min.x - STAIR_EAST.x1 >= 0.25,
+    `the gallery roster frame leaves only ${(rosterFrame.min.x - STAIR_EAST.x1).toFixed(3)} m past the stair edge`);
+  assert.ok(rightCaseMinX - rosterFrame.max.x >= 0.25,
+    `the gallery roster frame leaves only ${(rightCaseMinX - rosterFrame.max.x).toFixed(3)} m before the right display case`);
+
+  /* The fixture is ten shared instanced parts. Resolve the real instance at
+   * this picture, prove the complete visible assembly is one connected
+   * object, then prove its backplate actually reaches the same wall. */
+  const backplates = interior.root.getObjectByName('sconce-backplate');
+  assert.ok(backplates?.isInstancedMesh, 'the shared sconce backplate batch is missing');
+  const expectedPlateCentre = new THREE.Vector3(11.0, 9.05, 48.175);
+  let fixtureIndex = -1;
+  let fixtureDistance = Infinity;
+  for (let index = 0; index < backplates.count; index += 1) {
+    const distance = instanceBox(backplates, index).getCenter(new THREE.Vector3())
+      .distanceTo(expectedPlateCentre);
+    if (distance < fixtureDistance) { fixtureDistance = distance; fixtureIndex = index; }
+  }
+  assert.ok(fixtureDistance <= 0.001,
+    `the paired gallery sconce is ${fixtureDistance.toFixed(4)} m from its authored mount`);
+  const fixtureParts = [];
+  interior.root.traverse((object) => {
+    if (!object.isInstancedMesh || object.count !== backplates.count) return;
+    const box = instanceBox(object, fixtureIndex);
+    if (box.getCenter(new THREE.Vector3()).distanceTo(expectedPlateCentre) <= 0.6) fixtureParts.push(box);
+  });
+  assert.equal(fixtureParts.length, 10,
+    `the gallery sconce resolves to ${fixtureParts.length} visible parts instead of all ten`);
+  const connected = new Set([0]);
+  let added = true;
+  while (added) {
+    added = false;
+    for (let left = 0; left < fixtureParts.length; left += 1) {
+      for (let right = left + 1; right < fixtureParts.length; right += 1) {
+        if (boxGap(fixtureParts[left], fixtureParts[right]) > 0.002) continue;
+        if (connected.has(left) === connected.has(right)) continue;
+        connected.add(left);
+        connected.add(right);
+        added = true;
+      }
+    }
+  }
+  assert.equal(connected.size, 10,
+    `only ${connected.size}/10 gallery sconce parts are physically connected`);
+  const fixtureBox = fixtureParts.reduce((bounds, part) => bounds.union(part), new THREE.Box3().makeEmpty());
+  assert.ok(fixtureBox.min.x - STAIR_EAST.x1 >= 0.25,
+    `the paired gallery sconce leaves only ${(fixtureBox.min.x - STAIR_EAST.x1).toFixed(3)} m past the stair edge`);
+  assert.ok(rightCaseMinX - fixtureBox.max.x >= 0.25,
+    `the paired gallery sconce leaves only ${(rightCaseMinX - fixtureBox.max.x).toFixed(3)} m before the right display case`);
+  const plate = instanceBox(backplates, fixtureIndex);
+  const plateGap = boxGap(plate, supportingWall);
+  assert.ok(plateGap <= 0.005,
+    `the gallery sconce backplate floats ${plateGap.toFixed(4)} m in front of its wall`);
 });
 
 test('the framed Austin portrait and its sconce contact the billiard-room wall', () => {
@@ -504,7 +609,8 @@ test('the pool publishes a walkable stair down to a real basin floor', () => {
     assert.equal(patio.groundAt(x, z), level.y, `no walking surface on tread at z=${z}`);
   }
   assert.equal(patio.groundAt(x, (POOL.z0 + POOL.z1) / 2), POOL.y);
-  assert.equal(patio.groundAt(POOL.x1 + 1, (POOL.z0 + POOL.z1) / 2), null);
+  assert.equal(patio.groundAt(POOL.x1 + 1, (POOL.z0 + POOL.z1) / 2), GROUND_Y,
+    'the patio resolver does not publish the visible deck surrounding the basin');
 
   const mouthZ = (patio.entrySteps.z0 + POOL.z0) / 2;
   const mouthBlockers = grounds.colliders.filter((collider) => collider.min.x < x + 0.3

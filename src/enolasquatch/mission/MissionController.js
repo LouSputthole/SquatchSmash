@@ -644,6 +644,7 @@ export class MissionController {
       return false;
     }
     this.gunner.take();
+    this.crew?.setRearGunnerManned?.(true);
     this.gunFiring = false;
     this.dialogue.play('gun.take', { once: true });
     this.cameras?.setView?.('cockpit');
@@ -723,6 +724,7 @@ export class MissionController {
   leaveGun() {
     if (!this.gunner.manned) return false;
     this.gunner.leave();
+    this.crew?.setRearGunnerManned?.(false);
     this.gunFiring = false;
     this.dialogue.play('gun.leave', { once: true });
     if (this.autopilot.engaged) this.autopilot.disengage(null);
@@ -858,6 +860,9 @@ export class MissionController {
    */
   armBoardingTarget() {
     if (this.boardTarget || !this.interaction) return;
+    /* The interaction is a route into the aeroplane, not a magic cut through
+     * its paint. Open the authored leaf before guiding the player onto it. */
+    this.aircraft.setCrewDoorOpen?.(true);
     const anchor = this.aircraft.anchors.crewDoor;
     const hit = new THREE.Mesh(
       new THREE.BoxGeometry(3.4, 3.0, 3.4),
@@ -919,6 +924,7 @@ export class MissionController {
     this.player && (this.player.mode = 'frozen');
     this.interaction?.setPaused?.(true);
     this.crew?.takeSeats?.(this.aircraft);
+    this.aircraft.setCrewDoorOpen?.(false);
     /* The boarding ladder comes off with the last man up it. It hangs on the
      * sill as a child of the airframe (see `EnolaSquatch.build()`), so leaving
      * it drawn is the same fault as the chocks the owner watched fly to
@@ -2825,6 +2831,7 @@ export class MissionController {
      * left over from the attempt before is a wave the player never earned. */
     this.interceptors.clear();
     this.gunner.reset();
+    this.crew?.setRearGunnerManned?.(false);
     this.autopilot.disengage(null);
     this.autopilot.lockout = 0;
     /* Nor the one authored engine problem — `engines.reset(false)` below (when
@@ -3016,6 +3023,7 @@ export class MissionController {
     this.audio?.endFallingWhistle?.(0.15);
     this.gunFiring = false;
     this.gunner.leave();
+    this.crew?.setRearGunnerManned?.(false);
     this.autopilot.disengage(null);
     this.dialogue.clear();
     this.hud?.say?.(`<em>${reason}</em> Open the Tab menu and choose Restart from checkpoint to return to the ${this.checkpoint} checkpoint.`, 12000);

@@ -194,6 +194,10 @@ function frozenShotBlocker(value) {
 /* ================================================================== */
 const GROUND_Y = 1.2;
 const UPPER_Y = 6.0;
+/* MansionInterior's walkable floor datums are the base of a 20 mm visible
+ * finish. Cast roots use those datums, while a transparent floor stain has to
+ * sit above the finish's top face or the slab wins the depth test. */
+const FINISHED_FLOOR_TOP = 0.02;
 
 /** `MansionInterior.BALCONY` -- the firing step the player is given. */
 const BALCONY = Object.freeze({ x0: -3, x1: 3, z0: 45.2, z1: 48 });
@@ -546,7 +550,10 @@ const ROSTER = Object.freeze([
     posts: Object.freeze({
       TO_OFFICE: P(7.6, 49.2, 7.6, 45),
       BRIEFING: P(7.6, 49.2, 7.6, 45),
-      LITTLE_FRIEND: P(7.9, 49.0, 7.9, 44),
+      /* Turn three-quarters across the landing: when Eric falls this exposes
+       * his head and all four limbs around the torso, but keeps the stain's
+       * long edge out of the player's near plane. */
+      LITTLE_FRIEND: P(7.65, 50.4, 2.9, 48.8),
       WAVE_ONE: P(7.9, 49.0, 7.9, 44),
       LULL: P(7.2, 50.4, 7.2, 45),
       WAVE_TWO: P(7.9, 49.0, 7.9, 44),
@@ -703,7 +710,10 @@ const ROSTER = Object.freeze([
     posts: Object.freeze({
       TO_OFFICE: P(4.6, 49.0, 4.6, 45),
       BRIEFING: P(4.6, 49.0, 4.6, 45),
-      LITTLE_FRIEND: P(4.6, 48.5, 4.6, 43),
+      /* East of the dark stair mass, turned toward the live firing lane. This
+       * keeps the supported carbine broadside to Eric's revive approach while
+       * leaving real negative space between the two defenders. */
+      LITTLE_FRIEND: P(4.8, 50.45, 6.0612, 54.246),
       WAVE_ONE: P(4.6, 48.5, 4.6, 43),
       LULL: P(4.2, 50.2, 4.2, 46),
       WAVE_TWO: P(4.6, 48.5, 4.6, 43),
@@ -778,9 +788,12 @@ export const KILL_BUDGET = Object.freeze({
 /* settling and the fallen pose. Nothing below decides anything.          */
 /* ================================================================== */
 const STOWED_WEAPON_POSES = new Set([
-  'down', 'wounded', 'kneel', 'offer', 'phone', 'radio', 'flinch',
+  'down', 'wounded', 'kneel', 'offer', 'phone', 'radio',
 ]);
-const SUPPORTED_WEAPON_POSES = new Set(['stand', 'scan', 'peer']);
+/* A flinch is a live defender ducking behind his weapon, not a surrender.
+ * Keep the shared two-hand mount while the head and torso take the hit; the
+ * down/wounded paths above remain the only injury poses that disarm him. */
+const SUPPORTED_WEAPON_POSES = new Set(['stand', 'scan', 'peer', 'flinch']);
 
 function poseFor(figure, pose, gun = null) {
   /* A prop parented to the right forearm follows that hand literally. Hide
@@ -790,12 +803,46 @@ function poseFor(figure, pose, gun = null) {
   const p = figure.parts;
   if (pose === 'kneel') { figure.kneeling(); return pose; }
   if (pose === 'down') {
-    /* Settle him against the floor he is ON, not the one he was built on --
-     * `fallen()` measures the posed body's lowest world point against
-     * `baseY`, and a guard who moved between beats would otherwise sink by
-     * the difference. See the same line in `attackers.js`. */
-    figure.baseY = figure.root.position.y;
-    figure.fallen({ roll: -0.5 });
+    /* A Siege weapon is parented under foreR. Box3.setFromObject includes
+     * invisible descendants, so merely hiding it makes fallen() ground the
+     * pistol/carbine/AK/SAW instead of the rendered body -- up to 389 mm in
+     * the air. Detach only for the one pose measurement, then restore the
+     * exact hand parent/local transform while it remains hidden. */
+    const gunParent = gun?.parent ?? null;
+    const gunIndex = gunParent?.children.indexOf(gun) ?? -1;
+    if (gunParent) gunParent.remove(gun);
+    try {
+      /* Posts store navigation datums, while the rendered support may be a
+       * finish, runner, rug, or discrete tread above that datum. The body and
+       * its blood both rest on the same topmost authored surface. */
+      const resolvedFloor = figure.root.userData?.siegeSupportY?.();
+      figure.baseY = Number.isFinite(resolvedFloor)
+        ? resolvedFloor : figure.root.position.y + FINISHED_FLOOR_TOP;
+      figure.fallen({ roll: -0.5 });
+      /* The generic fallen pose throws this arm back beneath the torso from
+       * the gallery approach. Fold it a little farther out and down so the
+       * elbow/hand remain attached to the shoulder but form a readable limb
+       * around the body instead of a fully buried duplicate silhouette. */
+      figure.parts.armL.rotation.set(-2.5, 0, -1.18);
+      figure.parts.foreL.rotation.set(-0.85, 0, 0);
+      /* Eric's near leg used to lie directly under the far thigh and shin in
+       * the evidence view. Splay only his left leg: it remains a supported
+       * fallen pose, but the limb now owns a distinct silhouette. */
+      if (figure.root.userData?.memberId === 'eric') {
+        p.legL.rotation.set(-0.45, 0, -0.42);
+        p.shinL.rotation.set(0.72, 0, 0);
+      }
+      figure._settle();
+    } finally {
+      if (gunParent) {
+        gunParent.add(gun);
+        if (gunIndex >= 0 && gunIndex < gunParent.children.length - 1) {
+          gunParent.children.splice(gunParent.children.indexOf(gun), 1);
+          gunParent.children.splice(gunIndex, 0, gun);
+        }
+        gun.visible = false;
+      }
+    }
     return pose;
   }
   if (pose === 'wounded') {
@@ -850,8 +897,12 @@ function poseFor(figure, pose, gun = null) {
       p.head.rotation.y = 0.34;
       break;
     case 'flinch':
-      p.body.rotation.x = 0.24;
+      /* The east-gallery guard ducks behind the supported carbine instead of
+       * raising his upper silhouette into the camera's ceiling padding. */
+      p.body.rotation.x = figure.root.userData?.memberId === 'guard_1' ? 0.64 : 0.24;
       p.head.rotation.x = 0.3;
+      /* Keep the authored ducking arm pose; the supported mount below snaps
+       * both hands onto the carbine after the reaction pose is applied. */
       p.armL.rotation.set(-1.9, 0, -0.5);
       p.armR.rotation.set(-1.85, 0, 0.5);
       p.foreL.rotation.x = -1.1;
@@ -897,7 +948,7 @@ function poseFor(figure, pose, gun = null) {
  *           context. Every friendly shot and reload goes through
  *           `playWeaponCue`, so the family's guns are the catalog's guns.
  */
-export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {}) {
+export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, groundAt = null } = {}) {
   const factionMatrix = matrix ?? DEFAULT_FACTION_MATRIX;
   const root = new THREE.Group();
   root.name = 'siege.ensemble';
@@ -921,6 +972,36 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     mesh.material.emissiveIntensity = 1.35;
     mesh.material.roughness = 0.28;
     mesh.material.metalness = 0.02;
+    /* Preserve the readable 1.8 m body-length while trimming only the
+     * cross-body spread; a wound pool is an oval, not a room-sized square. */
+    if (definition.id === 'eric') {
+      mesh.userData.siegePlanAspect = 0.80;
+      /* The gallery runner is crimson, so a bright red pool alone loses its
+       * outer contour. A slightly larger, non-emissive copy of the same alpha
+       * painting provides a dark absorbent edge beneath Eric only. */
+      const edgeMaterial = mesh.material.clone();
+      edgeMaterial.color.setHex(0x190306);
+      edgeMaterial.emissive.setHex(0x000000);
+      edgeMaterial.emissiveIntensity = 0;
+      edgeMaterial.roughness = 1;
+      edgeMaterial.metalness = 0;
+      edgeMaterial.opacity = 0;
+      edgeMaterial.polygonOffsetFactor = -2;
+      edgeMaterial.polygonOffsetUnits = -2;
+      const edge = new THREE.Mesh(mesh.geometry, edgeMaterial);
+      edge.name = 'siege-eric-blood-edge';
+      edge.position.z = -0.001;
+      /* The same-alpha underlay changes the translucent edge composite without
+       * expanding the authored 1.8 m injury toward the camera padding. */
+      edge.scale.set(1, 1, 1);
+      edge.renderOrder = 2;
+      edge.userData.reusableSystem = 'blood';
+      edge.userData.bloodEffect = 'siege-readable-edge';
+      edge.userData.memberId = 'eric';
+      edge.userData.collider = false;
+      mesh.add(edge);
+      mesh.userData.siegeBloodEdge = edge;
+    }
     mesh.material.needsUpdate = true;
     return [definition.id, pool];
   }));
@@ -949,17 +1030,30 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         && member.bloodPool.userData.memberId === member.id
         && member.bloodPool.userData.activeDown === true) return member.bloodPool;
     member.root.updateMatrixWorld(true);
-    const centre = new THREE.Box3().setFromObject(member.root).getCenter(new THREE.Vector3());
+    /* Centre the floor stain under the torso, not the whole spread-eagle
+     * hierarchy. A flung hand or long accessory otherwise drags the pool away
+     * from the body mass (and, at the gallery camera, into the near plane). */
+    const bloodAnchor = member.figure?.parts?.torso ?? member.root;
+    const centre = new THREE.Box3().setFromObject(bloodAnchor)
+      .getCenter(new THREE.Vector3());
+    const resolvedFloor = member.root.userData?.siegeSupportY?.();
     const pool = bloodByMember.get(member.id).spill(centre, {
-      floorY: member.root.position.y,
+      floorY: Number.isFinite(resolvedFloor)
+        ? resolvedFloor : member.root.position.y + FINISHED_FLOOR_TOP,
       /* A 1.08 m square lived entirely inside a fallen 1.62 x 2.13 m body
        * bound, so even a brighter material could not appear in the frame.
-       * 2.2 m leaves an authored wet perimeter outside the silhouette while
-       * remaining a flat, non-collider effect on this member's own lease. */
-      size: 2.2,
+       * 1.8 m leaves a wet perimeter outside the silhouette without turning
+       * the readable injury into a room-sized red field. */
+      size: 1.8,
       opacity: 0.86,
       seed: member.index + 1 + member.revivedCount * ROSTER.length,
     });
+    const edge = pool.userData.siegeBloodEdge;
+    if (edge) {
+      edge.material.map = pool.material.map;
+      edge.material.opacity = 0;
+      edge.material.needsUpdate = true;
+    }
     pool.userData.memberId = member.id;
     pool.userData.revivable = member.actor.core === true;
     pool.userData.activeDown = true;
@@ -1131,6 +1225,13 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     figure.root.userData.combatant = member;
     figure.root.userData.memberId = definition.id;
     figure.root.userData.faction = FACTIONS.CREW;
+    figure.root.userData.siegeSupportY = () => {
+      const resolved = groundAt?.(
+        figure.root.position.x, figure.root.position.z, figure.root.position.y,
+      );
+      return Number.isFinite(resolved)
+        ? resolved : figure.root.position.y + FINISHED_FLOOR_TOP;
+    };
     /* THE HARD LOCK. Read by `attackers.js` BEFORE the faction matrix, so
      * Snow is not in the hostile target list at all rather than being
      * rejected from it. */
@@ -1723,7 +1824,15 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       const canFire = !member.weapon.reloading && member.weapon.cooldown <= 0;
       if (member.burst.update(step, canFire)) fireAt(member, best, frame);
     }
-    for (const pool of bloodByMember.values()) pool.update(step);
+    for (const pool of bloodByMember.values()) {
+      pool.update(step);
+      for (const mesh of pool.meshes) {
+        const aspect = mesh.userData.siegePlanAspect;
+        if (Number.isFinite(aspect)) mesh.scale.y = mesh.scale.x * aspect;
+        const edge = mesh.userData.siegeBloodEdge;
+        if (edge) edge.material.opacity = mesh.material.opacity * 0.92;
+      }
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -1850,7 +1959,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         pitch: record.aimPitch,
         aimError: record.aimError,
         boreError: record.boreError,
-      }, { root: member.root, weaponController: member.weapon });
+      }, { weaponController: member.weapon });
       member.aimFrame = null;
       member.aimAligned = false;
       member.aimError = member.weaponAim.aimError;
