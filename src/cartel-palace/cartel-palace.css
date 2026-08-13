@@ -28,12 +28,43 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 @keyframes alarmPulse { 50% { opacity: .18; } }
 
 #hud { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+#suppression-pressure {
+  --suppression: 0;
+  position: absolute; inset: 0; opacity: 0;
+  background:
+    radial-gradient(circle at 50% 48%, transparent 0 36%, rgba(116, 12, 17, .34) 72%, rgba(62, 3, 8, .82) 100%),
+    repeating-linear-gradient(108deg, transparent 0 18px, rgba(255, 236, 213, .025) 19px 20px);
+  mix-blend-mode: screen; transition: opacity .08s linear;
+}
+#damage-direction {
+  --bearing: 0rad;
+  position: absolute; left: 50%; top: 50%; width: 176px; height: 176px;
+  margin: -88px; opacity: 0; transform: rotate(var(--bearing));
+  transition: opacity .1s linear;
+}
+#damage-direction i {
+  position: absolute; left: 50%; top: -7px; width: 52px; height: 7px;
+  transform: translateX(-50%); border-radius: 6px;
+  background: linear-gradient(90deg, transparent, #ff5b4f 28% 72%, transparent);
+  box-shadow: 0 0 12px rgba(255, 49, 39, .9);
+}
+#damage-direction.active { opacity: .96; }
+#armor-break {
+  position: absolute; left: 50%; top: calc(50% + 116px); opacity: 0;
+  transform: translate(-50%, 8px); color: #b9e1ff; text-shadow: 0 0 12px #1c7ec8;
+  font: 900 12px/1 inherit; letter-spacing: .2em; transition: opacity .1s, transform .12s;
+}
+#armor-break.active { opacity: 1; transform: translate(-50%, 0); }
 #crosshair {
   position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px;
   border: 1px solid rgba(245, 235, 213, .82); border-radius: 50%;
   box-shadow: 0 0 6px rgba(0, 0, 0, .8);
 }
 #crosshair.active { border-color: var(--brass); box-shadow: 0 0 9px rgba(214, 173, 89, .62); }
+#crosshair[data-confirmed="hit"] { border-color: #ff655f; box-shadow: 0 0 8px #b82020; }
+#crosshair[data-confirmed="armor"] { border-color: #8bc9ff; box-shadow: 0 0 8px #327bb5; }
+#crosshair[data-confirmed="headshot"] { border-color: #fff; box-shadow: 0 0 11px #e52a24; }
+#crosshair[data-confirmed="kill"] { border-color: #ff453d; box-shadow: 0 0 13px #ff2921; }
 
 #prompt {
   position: absolute; left: 50%; bottom: 126px; transform: translateX(-50%);
@@ -78,7 +109,9 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 #health { top: 88px; }
 #stealth .meter, #health .meter { height: 4px; margin: 6px 0 4px; background: rgba(255,255,255,.12); overflow: hidden; }
 #stealth .meter i, #health .meter i { display: block; width: 0; height: 100%; background: #e2b757; transition: width .12s; }
-#health .meter i { width: 100%; background: #65a873; }
+#health .health-meter i { width: 100%; background: #65a873; }
+#health .armor-meter { margin-top: 8px; }
+#health .armor-meter i { width: 100%; background: #6aa9d8; }
 #stealth span, #health span { color: #d2d4ce; font-size: 10px; letter-spacing: .12em; }
 
 #ammo {
@@ -148,5 +181,5 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
   #mission-card { top: 12px; left: 12px; width: calc(100vw - 24px); }
   #stealth { top: 140px; left: 12px; right: auto; width: 145px; }
   #health { top: 140px; right: 12px; width: 145px; }
-  #boss { top: 202px; width: calc(100vw - 24px); }
+  #boss { top: 226px; width: calc(100vw - 24px); }
 }

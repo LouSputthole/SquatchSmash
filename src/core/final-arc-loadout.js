@@ -62,6 +62,11 @@ function normalize(value) {
   return base;
 }
 
+/** Bounded JSON-safe projection used by campaign checkpoint schemas. */
+export function normalizeFinalArcLoadoutSnapshot(value) {
+  return normalize(value);
+}
+
 export class FinalArcLoadout {
   constructor({ storage = undefined } = {}) {
     this.storage = storage === undefined ? browserStorage() : storage;

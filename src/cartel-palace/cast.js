@@ -6,6 +6,7 @@ import { SAUCE } from '../core/wardrobe.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { buildWeaponModel } from '../core/weapons/models.js';
 import { HeistFigure } from '../heist/people.js';
+import { CombatArmorPresentation } from '../world/combat-armor.js';
 import { PALACE_ANCHORS } from './world.js';
 
 export const PALACE_GUARD_POSTS = Object.freeze([
@@ -64,9 +65,16 @@ function armedPose(figure) {
 
 function tagHitZones(figure) {
   figure.parts.head.userData.hitZone = 'head';
+  figure.parts.head.userData.hitPart = 'head';
   figure.parts.body.userData.hitZone = 'chest';
-  for (const limb of [figure.parts.armL, figure.parts.armR, figure.parts.legL, figure.parts.legR]) {
+  figure.parts.body.userData.hitPart = 'chest';
+  for (const limb of [figure.parts.armL, figure.parts.armR]) {
     limb.userData.hitZone = 'limb';
+    limb.userData.hitPart = 'arm';
+  }
+  for (const limb of [figure.parts.legL, figure.parts.legR]) {
+    limb.userData.hitZone = 'limb';
+    limb.userData.hitPart = 'leg';
   }
 }
 
@@ -98,7 +106,18 @@ function makeCombatant({
     active: role === 'guard',
     down: false,
   };
+  entry.armorPresentation = armor > 0
+    ? new CombatArmorPresentation({
+      body: figure.parts.body,
+      actor,
+      tier: role === 'boss' || armor >= 20 ? 'heavy' : 'light',
+    })
+    : null;
   figure.root.userData.palaceCombatant = entry;
+  /* Shared Located-hit protocol. The legacy Palace tag remains while older
+   * authored interactions finish migrating to the game-wide Combat Adapter. */
+  figure.root.userData.combatant = entry;
+  figure.root.userData.combatActor = actor;
   figure.root.userData.faction = FACTIONS.CARTEL;
   return entry;
 }
@@ -143,12 +162,14 @@ export function buildPalaceCast(parent) {
     return true;
   }
 
-  function markDown(entry) {
+  function markDown(entry, { reaction = null } = {}) {
     if (!entry || entry.down) return false;
     entry.down = true;
     entry.active = false;
-    entry.figure.setState?.('down', { blend: true });
-    if (!entry.figure.setState) entry.figure.fallen({ roll: entry.id === 'mark' ? -0.42 : 0.38 });
+    const roll = Number.isFinite(reaction?.roll)
+      ? reaction.roll : entry.id === 'mark' ? -0.42 : 0.38;
+    entry.figure.setState?.('down', { blend: true, roll });
+    if (!entry.figure.setState) entry.figure.fallen({ roll });
     if (entry.weaponModel) entry.weaponModel.visible = false;
     return true;
   }

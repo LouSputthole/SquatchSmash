@@ -966,6 +966,12 @@ test('the family has physical command, radio, triage and resupply stations inste
   assert.equal(stations.group.visible, false, 'the clean walking tour has no siege stations');
 });
 
+test('the firing-step ammunition crates are exposed as a usable interaction surface', () => {
+  const { dressing } = WORLD;
+  assert.equal(dressing.props.firingStep.ammo?.name, 'siege.step.ammo');
+  assert.ok(dressing.props.firingStep.ammo?.getObjectByName('siege.step.ammo.crate.low'));
+});
+
 test('battle lighting separates the cold breach, the firing rail and the warm command room', () => {
   const damage = new MansionDamageState({ colliders: [] });
   const registered = [];

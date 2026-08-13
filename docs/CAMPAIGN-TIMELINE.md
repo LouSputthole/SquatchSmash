@@ -1,6 +1,6 @@
-# Campaign timeline — current production flow (updated 2026-08-08)
+# Campaign timeline — current production flow (updated 2026-08-11)
 
-The owner's connected campaign route implemented by campaign schema v14. The
+The owner's connected campaign route implemented by campaign schema v16. The
 original four-day apartment spine remains intact; the final chapter now starts
 after THE TAKE cleanup and connects The Silver Case, PROJECT SILENT SQUATCH,
 Mansion Under Siege, Enola Squatch, the repaired-mansion briefing, and Cartel

@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import * as THREE from 'three';
+
 import { ensureDomShim } from '../tools/three-shim.mjs';
 
 ensureDomShim();
 
 const { buildMansionGrounds } = await import('../src/mansion/scenes/MansionGrounds.js');
 const { buildMansionInterior } = await import('../src/mansion/scenes/MansionInterior.js');
+const { AabbCombatSpace, resolveMaterialPath } = await import('../src/core/combat/index.js');
 const {
   MANSION_RETURN_REPORT,
   mansionVisitMode,
@@ -18,6 +21,40 @@ test('the quiet-evening guest bed is an exposed physical interaction target', ()
 
   assert.ok(interior.props.guestRoom.bed?.isObject3D);
   assert.match(interior.props.guestRoom.bed.name, /guest.*bed/i);
+});
+
+test('the built Siege mansion exposes a real thin hardwood combat surface and collider', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const post = interior.root.getObjectByName('newel');
+  const wood = interior.colliders.find((box) => (
+    (box.userData?.combatMaterial ?? box.combatMaterial) === 'wood_thin'
+    && Math.min(
+      box.max.x - box.min.x,
+      box.max.y - box.min.y,
+      box.max.z - box.min.z,
+    ) <= 0.35
+  ));
+
+  assert.ok(post?.isMesh, 'the authored hardwood newel is missing');
+  assert.equal(post.userData.combatMaterial, 'wood_thin',
+    'the visible hardwood surface is not tagged for combat rays');
+  assert.ok(wood, 'no live thin-wood collider reached the Siege collision list');
+
+  const center = wood.getCenter(new THREE.Vector3());
+  const from = center.clone();
+  const to = center.clone();
+  from.x = wood.min.x - 0.2;
+  to.x = wood.max.x + 0.2;
+  const contacts = new AabbCombatSpace({ boxes: [wood] }).traceAll(from, to);
+  const path = resolveMaterialPath(contacts, { penetration: 1, energy: 100 });
+
+  assert.equal(contacts.length, 1);
+  assert.equal(contacts[0].material, 'wood_thin');
+  assert.ok(contacts[0].thickness <= 0.35);
+  assert.equal(path.contacts[0].penetrated, true);
+  assert.equal(path.blocked, false);
+  assert.ok(path.remainingEnergy > 0 && path.remainingEnergy < 100);
 });
 
 test('the repaired return visit is explicit and carries only approved briefing facts', () => {

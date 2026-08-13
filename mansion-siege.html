@@ -95,13 +95,16 @@
   }
   @media (max-width: 680px) {
     /* Three cards cannot share one 480px row. Keep health/ammo at the lower
-     * corners and lift the centred loadout into its own compact lane. */
-    body #scene-inventory-hands { bottom: 112px; }
+     * corners and lift the centred loadout clear of the two-row armor card. */
+    body #scene-inventory-hands { bottom: 128px; }
     #ammo { right: 12px; bottom: 12px; }
   }
   #reticle {
     position: fixed; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
     pointer-events: none; z-index: 4;
+    --combat-bloom: 1;
+    transform: scale(var(--combat-bloom));
+    transition: transform 80ms ease-out, filter 90ms ease-out;
   }
   #reticle::before, #reticle::after {
     content: ''; position: absolute; background: rgba(242, 238, 225, .8);
@@ -109,6 +112,12 @@
   }
   #reticle::before { left: 50%; top: 0; width: 1px; height: 22px; margin-left: -.5px; }
   #reticle::after { top: 50%; left: 0; height: 1px; width: 22px; margin-top: -.5px; }
+  #reticle[data-aimed="true"]::before,
+  #reticle[data-aimed="true"]::after { background: rgba(255, 244, 204, .94); }
+  #reticle[data-confirmed="hit"] { filter: drop-shadow(0 0 5px rgba(255, 104, 72, .95)); }
+  #reticle[data-confirmed="armor"] { filter: drop-shadow(0 0 6px rgba(90, 190, 255, 1)); }
+  #reticle[data-confirmed="headshot"] { filter: drop-shadow(0 0 7px rgba(255, 220, 92, 1)); }
+  #reticle[data-confirmed="kill"] { filter: drop-shadow(0 0 8px rgba(255, 52, 36, 1)); }
 
   /* ---------------- Start / menu overlay ---------------- */
   .overlay {
@@ -323,9 +332,9 @@
       <h3>CONTROLS</h3>
       <div><b>WASD</b> Move &nbsp;&middot;&nbsp; <b>Mouse</b> Look (click to capture)</div>
       <div><b>Shift</b> Sprint &nbsp;&middot;&nbsp; <b>C</b> Crouch &nbsp;&middot;&nbsp; <b>Space</b> Jump</div>
-      <div><b>Left mouse</b> Fire &nbsp;&middot;&nbsp; <b>R</b> Reload &nbsp;&middot;&nbsp; <b>1&ndash;5</b> Weapon</div>
+      <div><b>Left mouse</b> Fire &nbsp;&middot;&nbsp; <b>Right mouse</b> Aim &nbsp;&middot;&nbsp; <b>R</b> Reload</div>
       <div><b>E</b> Take / return a rack weapon &nbsp;&middot;&nbsp; <b>1–5</b> Select &nbsp;&middot;&nbsp; <b>Q</b> Stow</div>
-      <div><b>E / Click</b> Talk, use, interact &nbsp;&middot;&nbsp; <b>Hold E</b> Pick somebody up</div>
+      <div><b>E / Click</b> Talk, interact, triage, resupply &nbsp;&middot;&nbsp; <b>Hold E</b> Pick somebody up</div>
       <div><b>F</b> Say it &mdash; once, from the rail, with any weapon up</div>
       <div><b>Enter</b> Skip a line &nbsp;&middot;&nbsp; <b>Tab</b> Pause &nbsp;&middot;&nbsp; <b>Esc</b> Release mouse</div>
     </div>

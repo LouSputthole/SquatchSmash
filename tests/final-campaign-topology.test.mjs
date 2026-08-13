@@ -8,6 +8,7 @@ import {
   SCENE_IDS,
   createCampaign,
   navigateCampaign,
+  normalizeCartelPalaceCheckpointSnapshot,
 } from '../src/core/campaign.js';
 import {
   HEIST_CLEANUP_ITEMS,
@@ -64,7 +65,7 @@ test('the final arc has stable scene ids, URLs, spawns, and no edge past Initiat
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 14);
+  assert.equal(CAMPAIGN_VERSION, 16);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');
@@ -81,7 +82,7 @@ test('a fresh schema carries locked durable records for every final-arc mission'
     apeFinishedChester: false, apeFinishedWinston: false,
   });
   assert.deepEqual(state.missions[MISSION_IDS.MANSION_SIEGE], {
-    status: 'locked', checkpoint: null, attackersDown: 0,
+    status: 'locked', checkpoint: null, checkpointSnapshot: null, attackersDown: 0,
     littleFriendSaid: false, sasoleMet: false,
   });
   assert.deepEqual(state.missions[MISSION_IDS.ENOLA_SQUATCH], {
@@ -93,11 +94,181 @@ test('a fresh schema carries locked durable records for every final-arc mission'
     sauceMissingConfirmed: false, palaceLocationKnown: false,
   });
   assert.deepEqual(state.missions[MISSION_IDS.CARTEL_PALACE], {
-    status: 'locked', checkpoint: null, evidenceFound: [],
+    status: 'locked', checkpoint: null, checkpointSnapshot: null, evidenceFound: [],
     sauceBetrayalConfirmed: false, alarmRaised: false, alarmReason: null,
     markEliminated: false,
     sauceEliminated: false, outcome: null,
   });
+});
+
+test('a valid v14 Siege save gains the compact checkpoint field without corruption recovery', () => {
+  const storage = new MemoryStorage();
+  const legacy = createCampaign({ storage: new MemoryStorage() }).state;
+  legacy.version = 14;
+  legacy.revision = 37;
+  legacy.scene = { id: SCENE_IDS.MANSION_SIEGE, spawn: 'guest_suite' };
+  legacy.story.chapter = 'mansion_siege';
+  Object.assign(legacy.missions[MISSION_IDS.MANSION_SIEGE], {
+    status: 'in_progress',
+    checkpoint: 'briefed',
+    attackersDown: 5,
+    littleFriendSaid: true,
+    sasoleMet: false,
+  });
+  delete legacy.missions[MISSION_IDS.MANSION_SIEGE].checkpointSnapshot;
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
+
+  const migrated = createCampaign({ storage });
+  assert.equal(migrated.recoveredNow, false);
+  assert.equal(migrated.recovery, null);
+  assert.equal(migrated.state.version, 16);
+  assert.equal(migrated.state.revision, 37);
+  assert.deepEqual(migrated.state.scene, {
+    id: SCENE_IDS.MANSION_SIEGE,
+    spawn: 'guest_suite',
+  });
+  assert.equal(migrated.state.story.chapter, 'mansion_siege');
+  assert.deepEqual(migrated.state.missions[MISSION_IDS.MANSION_SIEGE], {
+    status: 'in_progress',
+    checkpoint: 'briefed',
+    checkpointSnapshot: null,
+    attackersDown: 5,
+    littleFriendSaid: true,
+    sasoleMet: false,
+  });
+});
+
+test('a valid v15 Palace save gains combat durability without changing its facts or revision', () => {
+  const storage = new MemoryStorage();
+  const legacy = createCampaign({ storage: new MemoryStorage() }).state;
+  legacy.version = 15;
+  legacy.revision = 52;
+  legacy.scene = { id: SCENE_IDS.CARTEL_PALACE, spawn: 'approach' };
+  legacy.story.chapter = 'cartel_palace';
+  Object.assign(legacy.missions[MISSION_IDS.CARTEL_PALACE], {
+    status: 'in_progress',
+    checkpoint: 'estate',
+    evidenceFound: ['sauce_belongings'],
+    sauceBetrayalConfirmed: false,
+    alarmRaised: true,
+    alarmReason: 'guard_contact',
+    markEliminated: false,
+    sauceEliminated: false,
+    outcome: null,
+  });
+  delete legacy.missions[MISSION_IDS.CARTEL_PALACE].checkpointSnapshot;
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
+
+  const migrated = createCampaign({ storage });
+  assert.equal(migrated.recoveredNow, false);
+  assert.equal(migrated.recovery, null);
+  assert.equal(migrated.state.version, 16);
+  assert.equal(migrated.state.revision, 52);
+  assert.deepEqual(migrated.state.scene, {
+    id: SCENE_IDS.CARTEL_PALACE,
+    spawn: 'approach',
+  });
+  assert.equal(migrated.state.story.chapter, 'cartel_palace');
+  assert.deepEqual(migrated.state.missions[MISSION_IDS.CARTEL_PALACE], {
+    status: 'in_progress',
+    checkpoint: 'estate',
+    checkpointSnapshot: null,
+    evidenceFound: ['sauce_belongings'],
+    sauceBetrayalConfirmed: false,
+    alarmRaised: true,
+    alarmReason: 'guard_contact',
+    markEliminated: false,
+    sauceEliminated: false,
+    outcome: null,
+  });
+});
+
+function palaceCombatCheckpoint(name = 'estate') {
+  return normalizeCartelPalaceCheckpointSnapshot({
+    version: 1,
+    name,
+    player: {
+      actor: {
+        version: 1, id: 'prospect', health: 43, armor: 9, maxArmor: 30,
+        injury: 'minor', incapacitated: false, suppression: 0, role: null,
+      },
+      suppression: { version: 1, value: 0.37 },
+    },
+    loadout: {
+      version: 1,
+      slots: ['pistol9', 'carbine', null, null, null],
+      selected: 1,
+      equipped: 'carbine',
+      ammo: { pistol9: { rounds: 8, reserve: 41 }, carbine: { rounds: 17, reserve: 63 } },
+    },
+    security: {
+      version: 1,
+      alarm: true,
+      alarmReason: 'guard_contact',
+      stats: {
+        takedowns: 1, alerts: 1, roundsFired: 7, targetsDown: ['gate-one'],
+        blockedMoves: 2, nearMisses: 3,
+      },
+      fireControl: { version: 1, whizCooldown: 0.14 },
+      entries: [{
+        id: 'gate-one', active: false, down: true, phase: null,
+        position: [9.2, 0, 54], yaw: Math.PI, patrolIndex: 1,
+        actor: {
+          version: 1, id: 'palace-gate-one', health: 0, armor: 0, maxArmor: 8,
+          injury: 'severe', incapacitated: true, suppression: 0, role: 'guard',
+        },
+        firearm: { id: 'pistol9', rounds: 6, reserve: 45 },
+        perception: { version: 1, awareness: 1, memory: 1.2, lastSeen: [8, 1.5, 48] },
+        impairments: { stagger: 0.2, armWound: 0.4, legWound: 0.1 },
+        aim: {
+          yaw: 0.4, desiredYaw: 0.5, pitch: 0.1, desiredPitch: 0.12,
+          aimError: 0.08, boreError: 0.09,
+        },
+        shotClock: 0.62,
+      }],
+    },
+  }, name);
+}
+
+test('Cartel Palace combat checkpoint round-trips player, loadout, suppression, and guards', () => {
+  const storage = new MemoryStorage();
+  let campaign = createCampaign({ storage });
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.CARTEL_PALACE].status = 'available';
+  });
+  let story = createCartelPalaceCampaignStory({ campaign });
+  assert.deepEqual(story.begin(), { ok: true, resumed: false });
+  const checkpointSnapshot = palaceCombatCheckpoint();
+  assert.ok(checkpointSnapshot);
+  assert.equal(story.checkpoint('estate', {
+    evidenceFound: ['sauce_belongings'],
+    checkpointSnapshot,
+  }), true);
+
+  campaign = createCampaign({ storage });
+  story = createCartelPalaceCampaignStory({ campaign });
+  assert.deepEqual(story.begin(), {
+    ok: true,
+    resumed: true,
+    checkpoint: 'estate',
+    checkpointSnapshot,
+  });
+  assert.equal(story.mission.checkpointSnapshot.player.actor.health, 43);
+  assert.equal(story.mission.checkpointSnapshot.player.actor.armor, 9);
+  assert.equal(story.mission.checkpointSnapshot.player.suppression.value, 0.37);
+  assert.equal(story.mission.checkpointSnapshot.loadout.ammo.carbine.rounds, 17);
+  assert.equal(story.mission.checkpointSnapshot.security.entries[0].down, true);
+
+  const updated = palaceCombatCheckpoint();
+  updated.player.actor.health = 31;
+  updated.loadout.ammo.carbine.rounds = 11;
+  assert.equal(story.checkpoint('estate', { checkpointSnapshot: updated }), true,
+    'same-beat checkpoints must refresh combat durability');
+  const refreshed = createCartelPalaceCampaignStory({
+    campaign: createCampaign({ storage }),
+  }).begin();
+  assert.equal(refreshed.checkpointSnapshot.player.actor.health, 31);
+  assert.equal(refreshed.checkpointSnapshot.loadout.ammo.carbine.rounds, 11);
 });
 
 function legacyV12(overrides = {}) {
@@ -262,12 +433,28 @@ test('Mansion Under Siege persists its campaign summary and opens Enola Squatch'
   });
   campaign.enter(SCENE_IDS.MANSION_SIEGE, { spawn: 'guest_suite' });
 
-  const story = createMansionSiegeCampaignStory({ campaign });
+  let story = createMansionSiegeCampaignStory({ campaign });
   assert.deepEqual(story.begin(), { ok: true, resumed: false });
+  const checkpointSnapshot = {
+    name: 'briefed',
+    health: 38.5,
+    armor: 12,
+    supplies: { triageCharges: 1, resupplyCharges: 0 },
+  };
   assert.equal(story.checkpoint('briefed', {
     attackersDown: 5,
     littleFriendSaid: true,
+    checkpointSnapshot,
   }), true);
+
+  campaign = createCampaign({ storage });
+  story = createMansionSiegeCampaignStory({ campaign });
+  assert.deepEqual(story.begin(), {
+    ok: true,
+    resumed: true,
+    checkpoint: 'briefed',
+    checkpointSnapshot,
+  });
   assert.equal(story.complete({
     attackersDown: 27,
     littleFriendSaid: true,
@@ -278,6 +465,7 @@ test('Mansion Under Siege persists its campaign summary and opens Enola Squatch'
   assert.deepEqual(campaign.state.missions[MISSION_IDS.MANSION_SIEGE], {
     status: 'complete',
     checkpoint: 'wave_one',
+    checkpointSnapshot: null,
     attackersDown: 27,
     littleFriendSaid: true,
     sasoleMet: true,
@@ -378,6 +566,7 @@ test('Cartel Palace records the betrayal and only opens Initiation after the fin
   assert.deepEqual(state.missions[MISSION_IDS.CARTEL_PALACE], {
     status: 'complete',
     checkpoint: 'clear',
+    checkpointSnapshot: null,
     evidenceFound: ['sauce_belongings', 'sauce_payment_ledger', 'sauce_security_still'],
     sauceBetrayalConfirmed: true,
     alarmRaised: false,

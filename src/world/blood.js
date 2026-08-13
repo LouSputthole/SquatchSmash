@@ -108,6 +108,20 @@ export class BloodImpactSystem {
     this._marks = new Map();
   }
 
+  /** Transfer one recycled mesh into exactly one bounded ownership ledger. */
+  _claim(mark, actor) {
+    const previous = mark.userData.hitOwner;
+    if (previous && previous !== actor) {
+      const oldMarks = this._marks.get(previous);
+      oldMarks?.delete(mark);
+      if (oldMarks?.size === 0) this._marks.delete(previous);
+    }
+    const marks = this._marks.get(actor) ?? new Set();
+    marks.add(mark);
+    this._marks.set(actor, marks);
+    mark.userData.hitOwner = actor;
+  }
+
   /**
    * Mark one real body hit.
    *
@@ -125,14 +139,11 @@ export class BloodImpactSystem {
     if (!anchor?.isObject3D) throw new TypeError('BloodImpactSystem.hit requires a body anchor');
     if (!finiteVector(point)) throw new TypeError('BloodImpactSystem.hit requires the ray hit point');
     const facing = directionFor({ point, normal, from });
-    const marks = this._marks.get(actor) ?? [];
-
     const wound = this.wounds.punchAttached(anchor, point, facing);
     wound.name = BLOOD_MARK_NAME;
     wound.userData.reusableSystem = 'blood';
     wound.userData.bloodEffect = 'impact';
-    wound.userData.hitOwner = actor;
-    marks.push(wound);
+    this._claim(wound, actor);
 
     let secondary = null;
     if (spatter) {
@@ -147,15 +158,13 @@ export class BloodImpactSystem {
       secondary.name = BLOOD_SPATTER_NAME;
       secondary.userData.reusableSystem = 'blood';
       secondary.userData.bloodEffect = 'spatter';
-      secondary.userData.hitOwner = actor;
-      marks.push(secondary);
+      this._claim(secondary, actor);
     }
-    this._marks.set(actor, marks);
     return { wound, spatter: secondary };
   }
 
   marksFor(actor) {
-    return (this._marks.get(actor) ?? []).filter(
+    return [...(this._marks.get(actor) ?? [])].filter(
       (mark) => mark.visible && mark.userData.hitOwner === actor,
     );
   }
@@ -186,6 +195,9 @@ export class BloodImpactSystem {
   }
 
   reset() {
+    for (const mark of [...this.wounds.pool, ...this.spatter.pool]) {
+      delete mark.userData.hitOwner;
+    }
     this.wounds.reset();
     this.spatter.reset();
     this._marks.clear();

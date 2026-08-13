@@ -15,6 +15,23 @@ export class SuppressionModel {
     return this.value;
   }
 
+  /** JSON-safe state for missions that deliberately preserve pressure. */
+  snapshot() {
+    return { version: 1, value: this.value };
+  }
+
+  /** Restore pressure without carrying any presentation or weapon references. */
+  restore(snapshot = {}) {
+    const value = typeof snapshot === 'number' ? snapshot : snapshot?.value;
+    this.value = Math.max(0, Math.min(1, Number(value) || 0));
+    return this;
+  }
+
+  reset() {
+    this.value = 0;
+    return this;
+  }
+
   get aimStability() { return 1 - this.value * 0.38; }
   get vignette() { return this.value * 0.32; }
 }

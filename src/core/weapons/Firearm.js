@@ -27,6 +27,8 @@
  *                             player lost, and on the revolver it is how many
  *                             cases hit the floor.
  *   {type:'loaded', loaded}   a fresh magazine is seated and the gun is ready.
+ *   {type:'cycle', kind}      a timed action completed after a shot; the pump
+ *                             shotgun reports one ejected shell here.
  *
  * The dry click is not one of these: it is a REFUSAL, not something that
  * happens on a timer, so it comes back from `fire()` as `reason: 'empty'` —
@@ -61,6 +63,10 @@ export class Firearm {
     this.shots = 0;
     this.cooldown = 0;
     this.recoil = 0;
+    /* A pump cycle is a timed presentation event, independent of the reload
+     * state. It is transient for the same reason recoil is transient. */
+    this._cycleTimer = 0;
+    this._cyclePending = false;
     this.triggerHeld = false;
     /* A semi-automatic will not fire again until the trigger is released.
      * Without this, "click to fire" on a 5.5 rps pistol is a 5.5 rps pistol
@@ -103,7 +109,7 @@ export class Firearm {
    *   is 'clicked'. The others are silent too, because a gun that clicks every
    *   frame you hold a dead trigger is unbearable.
    */
-  fire() {
+  fire(spreadOptions = {}) {
     if (this.state !== READY) return { fired: false, reason: 'reloading' };
     if (!this.def.auto && this._triggerConsumed) return { fired: false, reason: 'semi' };
     if (this.cooldown > 0) return { fired: false, reason: 'cooldown' };
@@ -120,12 +126,50 @@ export class Firearm {
     this._triggerConsumed = true;
     this.cooldown = 1 / Math.max(0.05, this.def.rps);
     this.recoil = Math.min(1, this.recoil + this.def.recoil * 6);
-    return { fired: true, tracer, rounds: this.rounds, spread: this.spreadNow() };
+    const cycleSeconds = Math.max(0, Number(this.def.cycleSeconds) || 0);
+    if (cycleSeconds > 0) {
+      this._cycleTimer = cycleSeconds;
+      this._cyclePending = true;
+    }
+    return {
+      fired: true,
+      tracer,
+      rounds: this.rounds,
+      projectiles: Math.max(1, Math.trunc(Number(this.def.projectiles) || 1)),
+      spread: this.spreadNow(spreadOptions),
+    };
   }
 
-  /** The cone the next round leaves in, widened by what recoil is left. */
-  spreadNow() {
-    return this.def.spread * (1 + this.recoil * 1.4);
+  /**
+   * The cone the next round leaves in, widened by recoil and suppression.
+   * Calling with no options preserves the original hip-fire cone exactly.
+   */
+  spreadNow(options = {}) {
+    const { aimed = false, aimStability = 1 } = options || {};
+    const stability = Math.max(0, Math.min(
+      1,
+      Number.isFinite(Number(aimStability)) ? Number(aimStability) : 1,
+    ));
+    const adsMultiplier = aimed === true ? 0.48 : 1;
+    const suppressionMultiplier = 1 + (1 - stability) * 1.8;
+    return this.def.spread
+      * (1 + this.recoil * 1.4)
+      * adsMultiplier
+      * suppressionMultiplier;
+  }
+
+  /**
+   * Add loose rounds without exceeding this weapon's catalog carry limit.
+   * @returns {number} the number of rounds actually accepted.
+   */
+  resupply(amount) {
+    const requested = Math.max(0, Math.trunc(Number(amount) || 0));
+    const maximum = Math.max(0, Math.trunc(Number(this.def.reserve) || 0));
+    const space = Math.max(0, maximum - this.reserve);
+    const added = Math.min(space, requested);
+    if (added <= 0) return 0;
+    this.reserve += added;
+    return added;
   }
 
   /**
@@ -168,6 +212,15 @@ export class Firearm {
     const events = [];
     this.cooldown = Math.max(0, this.cooldown - step);
     this.recoil = Math.max(0, this.recoil - step * 2.6);
+    if (this._cyclePending) {
+      this._cycleTimer = Math.max(0, this._cycleTimer - step);
+      if (this._cycleTimer <= 0) {
+        this._cyclePending = false;
+        const kind = this.def.cycleEject ?? 'action';
+        if (this.def.cycleEject) this.spent = Math.max(0, this.spent - 1);
+        events.push({ type: 'cycle', kind, rounds: this.def.cycleEject ? 1 : 0 });
+      }
+    }
     if (this.state === READY) return events;
 
     this.timer -= step;
@@ -230,11 +283,14 @@ export class Firearm {
     const reserve = Number.isFinite(snapshot.reserve) ? Math.trunc(snapshot.reserve) : this.reserve;
     this.rounds = Math.max(0, Math.min(this.capacity, rounds));
     this.reserve = Math.max(0, reserve);
+    this.shots = Math.max(0, Math.trunc(Number(snapshot.shots) || 0));
     this.state = READY;
     this.timer = 0;
     this.spent = 0;
     this.cooldown = 0;
     this.recoil = 0;
+    this._cycleTimer = 0;
+    this._cyclePending = false;
     this.triggerHeld = false;
     this._triggerConsumed = false;
     this._clicked = false;

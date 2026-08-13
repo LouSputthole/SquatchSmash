@@ -4,6 +4,10 @@ import {
   previewNavigationHref,
 } from './preview-mode.js';
 import { FINAL_ARC_LOADOUT_STORAGE_KEY } from './final-arc-loadout-storage.js';
+import {
+  FINAL_ARC_WEAPON_CATALOG,
+  normalizeFinalArcLoadoutSnapshot,
+} from './final-arc-loadout.js';
 import { SCENE_RECOVERY_STORAGE_KEY } from './scene-recovery-storage.js';
 
 /**
@@ -391,7 +395,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 14;
+export const CAMPAIGN_VERSION = 16;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -463,6 +467,28 @@ export const SILVER_CASE_CHECKPOINT_IDS = Object.freeze([
 export const MANSION_SIEGE_CHECKPOINT_IDS = Object.freeze([
   'wake', 'armed', 'briefed', 'wave_one',
 ]);
+
+/** The small combat subset that must survive a full page/campaign reload. */
+export function normalizeMansionSiegeCheckpointSnapshot(snapshot, expectedName = null) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const name = MANSION_SIEGE_CHECKPOINT_IDS.includes(snapshot.name)
+    ? snapshot.name : null;
+  if (!name || (expectedName && name !== expectedName)) return null;
+  const health = Number(snapshot.health);
+  const armor = Number(snapshot.armor);
+  const triageCharges = Number(snapshot.supplies?.triageCharges);
+  const resupplyCharges = Number(snapshot.supplies?.resupplyCharges);
+  if (![health, armor, triageCharges, resupplyCharges].every(Number.isFinite)) return null;
+  return {
+    name,
+    health: Math.max(1, Math.min(100, health)),
+    armor: Math.max(0, Math.min(75, armor)),
+    supplies: {
+      triageCharges: Math.max(0, Math.min(2, Math.trunc(triageCharges))),
+      resupplyCharges: Math.max(0, Math.min(2, Math.trunc(resupplyCharges))),
+    },
+  };
+}
 
 export const ENOLA_SQUATCH_CHECKPOINT_IDS = Object.freeze([
   'takeoff', 'turnOnCourse', 'preRelease', 'return',
@@ -574,6 +600,195 @@ export const CARTEL_PALACE_OUTCOMES = Object.freeze([
   'clean', 'hard_exit', 'costly_success',
 ]);
 
+const CARTEL_PALACE_COMBAT_VERSION = 1;
+const CARTEL_PALACE_SECURITY_ALARM_REASONS = Object.freeze([
+  ...CARTEL_PALACE_ALARM_REASONS,
+  'dining_room',
+]);
+const CARTEL_PALACE_INJURY_GRADES = Object.freeze([
+  'none', 'minor', 'moderate', 'severe',
+]);
+
+function palaceFinite(value, min, max, fallback = null, integer = false) {
+  if (!Number.isFinite(value)) return fallback;
+  const bounded = Math.max(min, Math.min(max, value));
+  return integer ? Math.trunc(bounded) : bounded;
+}
+
+function palaceIdentifier(value, { prefix = '', max = 96 } = {}) {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= max
+    && (!prefix || value.startsWith(prefix))
+    ? value : null;
+}
+
+function palacePoint(value, limit = 1000) {
+  if (!Array.isArray(value) || value.length < 3) return null;
+  const point = value.slice(0, 3).map((axis) => palaceFinite(axis, -limit, limit));
+  return point.every((axis) => axis !== null) ? point : null;
+}
+
+function normalizePalaceActor(snapshot, expectedId = null) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const id = palaceIdentifier(snapshot.id);
+  if (!id || (expectedId && id !== expectedId)) return null;
+  const health = palaceFinite(snapshot.health, 0, 10000);
+  const armor = palaceFinite(snapshot.armor, 0, 10000);
+  const maxArmor = palaceFinite(snapshot.maxArmor, 0, 10000);
+  if ([health, armor, maxArmor].some((value) => value === null)) return null;
+  const role = snapshot.role == null ? null : palaceIdentifier(snapshot.role, { max: 48 });
+  return {
+    version: 1,
+    id,
+    health,
+    armor: Math.min(armor, Math.max(maxArmor, armor)),
+    maxArmor: Math.max(maxArmor, armor),
+    injury: CARTEL_PALACE_INJURY_GRADES.includes(snapshot.injury)
+      ? snapshot.injury : 'none',
+    incapacitated: snapshot.incapacitated === true,
+    suppression: palaceFinite(snapshot.suppression, 0, 1, 0),
+    role,
+  };
+}
+
+function normalizePalaceFirearm(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const id = palaceIdentifier(snapshot.id);
+  const rounds = palaceFinite(snapshot.rounds, 0, 100000, null, true);
+  const reserve = palaceFinite(snapshot.reserve, 0, 100000, null, true);
+  if (!id || !FINAL_ARC_WEAPON_CATALOG[id]
+    || rounds === null || reserve === null) return null;
+  return { id, rounds, reserve };
+}
+
+function normalizePalacePerception(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const awareness = palaceFinite(snapshot.awareness, 0, 1);
+  const memory = palaceFinite(snapshot.memory, 0, 3600);
+  const lastSeen = snapshot.lastSeen == null ? null : palacePoint(snapshot.lastSeen);
+  if (awareness === null || memory === null
+    || (snapshot.lastSeen != null && !lastSeen)) return null;
+  return { version: 1, awareness, memory, lastSeen };
+}
+
+function normalizePalaceImpairments(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const stagger = palaceFinite(snapshot.stagger, 0, 3600);
+  const armWound = palaceFinite(snapshot.armWound, 0, 1);
+  const legWound = palaceFinite(snapshot.legWound, 0, 1);
+  if ([stagger, armWound, legWound].some((value) => value === null)) return null;
+  return { stagger, armWound, legWound };
+}
+
+function normalizePalaceAim(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const yaw = palaceFinite(snapshot.yaw, -Math.PI * 8, Math.PI * 8);
+  const desiredYaw = palaceFinite(snapshot.desiredYaw, -Math.PI * 8, Math.PI * 8);
+  const pitch = palaceFinite(snapshot.pitch, -Math.PI / 2, Math.PI / 2);
+  const desiredPitch = palaceFinite(snapshot.desiredPitch, -Math.PI / 2, Math.PI / 2);
+  const aimError = snapshot.aimError == null
+    ? null : palaceFinite(snapshot.aimError, 0, Math.PI * 2);
+  const boreError = snapshot.boreError == null
+    ? null : palaceFinite(snapshot.boreError, 0, Math.PI * 2);
+  if ([yaw, desiredYaw, pitch, desiredPitch].some((value) => value === null)
+    || (snapshot.aimError != null && aimError === null)
+    || (snapshot.boreError != null && boreError === null)) return null;
+  return { yaw, desiredYaw, pitch, desiredPitch, aimError, boreError };
+}
+
+function normalizePalaceSecurity(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.entries)) return null;
+  const entries = [];
+  const seen = new Set();
+  for (const record of snapshot.entries.slice(0, 32)) {
+    if (!record || typeof record !== 'object') continue;
+    const id = palaceIdentifier(record.id);
+    const position = palacePoint(record.position);
+    const actor = id ? normalizePalaceActor(record.actor, `palace-${id}`) : null;
+    const firearm = normalizePalaceFirearm(record.firearm);
+    const perception = normalizePalacePerception(record.perception);
+    const impairments = normalizePalaceImpairments(record.impairments);
+    const suppressionValue = palaceFinite(record.suppression?.value, 0, 1, 0);
+    const aim = normalizePalaceAim(record.aim);
+    const yaw = palaceFinite(record.yaw, -Math.PI * 8, Math.PI * 8);
+    const patrolIndex = palaceFinite(record.patrolIndex, 0, 10000, 0, true);
+    const shotClock = palaceFinite(record.shotClock, 0, 3600, 0);
+    const tacticTime = palaceFinite(record.tacticTime, 0, 3600, 0);
+    const tacticalPost = record.tacticalPost == null
+      ? null : palaceIdentifier(record.tacticalPost, { max: 96 });
+    if (!id || seen.has(id) || !position || !actor || !firearm
+      || !perception || !impairments || !aim || yaw === null) continue;
+    seen.add(id);
+    entries.push({
+      id,
+      active: record.active === true,
+      down: record.down === true,
+      phase: record.phase == null ? null : palaceIdentifier(record.phase, { max: 48 }),
+      position,
+      yaw,
+      patrolIndex,
+      actor,
+      firearm,
+      perception,
+      impairments,
+      suppression: { version: 1, value: suppressionValue },
+      aim,
+      shotClock,
+      tacticTime,
+      tacticalPost,
+    });
+  }
+  if (!entries.length && snapshot.entries.length) return null;
+  const stats = snapshot.stats && typeof snapshot.stats === 'object' ? snapshot.stats : {};
+  const targetsDown = uniqueStrings(stats.targetsDown)
+    .filter((id) => palaceIdentifier(id))
+    .slice(0, 32);
+  return {
+    version: 1,
+    alarm: snapshot.alarm === true,
+    alarmReason: CARTEL_PALACE_SECURITY_ALARM_REASONS.includes(snapshot.alarmReason)
+      ? snapshot.alarmReason : null,
+    stats: {
+      takedowns: palaceFinite(stats.takedowns, 0, 1000000, 0, true),
+      alerts: palaceFinite(stats.alerts, 0, 1000000, 0, true),
+      roundsFired: palaceFinite(stats.roundsFired, 0, 1000000, 0, true),
+      targetsDown,
+      blockedMoves: palaceFinite(stats.blockedMoves, 0, 1000000, 0, true),
+      nearMisses: palaceFinite(stats.nearMisses, 0, 1000000, 0, true),
+    },
+    fireControl: {
+      version: 1,
+      whizCooldown: palaceFinite(snapshot.fireControl?.whizCooldown, 0, 3600, 0),
+    },
+    entries,
+  };
+}
+
+/** Versioned JSON-safe Palace checkpoint spanning every durable combat owner. */
+export function normalizeCartelPalaceCheckpointSnapshot(snapshot, expectedName = null) {
+  if (!snapshot || typeof snapshot !== 'object'
+    || snapshot.version !== CARTEL_PALACE_COMBAT_VERSION) return null;
+  const name = CARTEL_PALACE_CHECKPOINT_IDS.includes(snapshot.name)
+    ? snapshot.name : null;
+  if (!name || (expectedName && name !== expectedName)) return null;
+  const actor = normalizePalaceActor(snapshot.player?.actor, CHARACTER_IDS.PROSPECT);
+  const suppressionValue = palaceFinite(snapshot.player?.suppression?.value, 0, 1);
+  const security = normalizePalaceSecurity(snapshot.security);
+  if (!actor || suppressionValue === null || !snapshot.loadout
+    || typeof snapshot.loadout !== 'object' || !security) return null;
+  return {
+    version: CARTEL_PALACE_COMBAT_VERSION,
+    name,
+    player: {
+      actor,
+      suppression: { version: 1, value: suppressionValue },
+    },
+    loadout: normalizeFinalArcLoadoutSnapshot(snapshot.loadout),
+    security,
+  };
+}
+
 function initialFinalArcMissions() {
   return {
     [MISSION_IDS.SILVER_CASE]: {
@@ -588,6 +803,7 @@ function initialFinalArcMissions() {
     [MISSION_IDS.MANSION_SIEGE]: {
       status: 'locked',
       checkpoint: null,
+      checkpointSnapshot: null,
       attackersDown: 0,
       littleFriendSaid: false,
       sasoleMet: false,
@@ -612,6 +828,7 @@ function initialFinalArcMissions() {
     [MISSION_IDS.CARTEL_PALACE]: {
       status: 'locked',
       checkpoint: null,
+      checkpointSnapshot: null,
       evidenceFound: [],
       sauceBetrayalConfirmed: false,
       alarmRaised: false,
@@ -1551,6 +1768,40 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  14(saved) {
+    /* Schema 15 adds the compact Mansion Siege combat checkpoint. Official
+     * v14 saves never carried it, so initialise only that field and preserve
+     * every other mission/story value verbatim. Doing this as a migration is
+     * important: adding the field during normalisation at the same version
+     * would make every valid v14 save look structurally corrupt. */
+    return {
+      ...saved,
+      version: 15,
+      missions: {
+        ...(saved.missions ?? {}),
+        [MISSION_IDS.MANSION_SIEGE]: {
+          ...(saved.missions?.[MISSION_IDS.MANSION_SIEGE] ?? {}),
+          checkpointSnapshot: null,
+        },
+      },
+    };
+  },
+  15(saved) {
+    /* Schema 16 adds Palace combat durability. Existing v15 saves preserve
+     * their exact story/loadout facts and resume from authored checkpoint
+     * staging until the next real Palace checkpoint writes this field. */
+    return {
+      ...saved,
+      version: 16,
+      missions: {
+        ...(saved.missions ?? {}),
+        [MISSION_IDS.CARTEL_PALACE]: {
+          ...(saved.missions?.[MISSION_IDS.CARTEL_PALACE] ?? {}),
+          checkpointSnapshot: null,
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -1944,6 +2195,11 @@ function normalize(saved) {
         status: mansionSiegeStatus,
         checkpoint: MANSION_SIEGE_CHECKPOINT_IDS.includes(mansionSiege.checkpoint)
           ? mansionSiege.checkpoint : null,
+        checkpointSnapshot: MANSION_SIEGE_CHECKPOINT_IDS.includes(mansionSiege.checkpoint)
+          ? normalizeMansionSiegeCheckpointSnapshot(
+            mansionSiege.checkpointSnapshot,
+            mansionSiege.checkpoint,
+          ) : null,
         attackersDown: boundedNumber(mansionSiege.attackersDown, 0, 99, 0, true),
         littleFriendSaid: mansionSiege.littleFriendSaid === true,
         sasoleMet: mansionSiege.sasoleMet === true,
@@ -1979,6 +2235,11 @@ function normalize(saved) {
         status: cartelPalaceStatus,
         checkpoint: CARTEL_PALACE_CHECKPOINT_IDS.includes(cartelPalace.checkpoint)
           ? cartelPalace.checkpoint : null,
+        checkpointSnapshot: CARTEL_PALACE_CHECKPOINT_IDS.includes(cartelPalace.checkpoint)
+          ? normalizeCartelPalaceCheckpointSnapshot(
+            cartelPalace.checkpointSnapshot,
+            cartelPalace.checkpoint,
+          ) : null,
         evidenceFound: uniqueStrings(cartelPalace.evidenceFound)
           .filter((id) => CARTEL_PALACE_EVIDENCE_IDS.includes(id)),
         sauceBetrayalConfirmed: cartelPalace.sauceBetrayalConfirmed === true,

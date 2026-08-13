@@ -1,5 +1,5 @@
 /**
- * The six weapons, as numbers.
+ * The seven weapons, as numbers.
  *
  * One table, no THREE, no DOM, no audio engine — so a test can read it and so
  * a scene that only wants to know how many rounds a SAW holds does not have
@@ -39,6 +39,7 @@
 /** Stable ids. Every other module keys off these strings. */
 export const WEAPON_IDS = Object.freeze({
   REVOLVER: 'revolver',
+  SHOTGUN: 'shotgun',
   PISTOL9: 'pistol9',
   CARBINE: 'carbine',
   SAW: 'saw',
@@ -49,6 +50,7 @@ export const WEAPON_IDS = Object.freeze({
 /** Rack order, left to right along the armory wall. */
 export const WEAPON_ORDER = Object.freeze([
   WEAPON_IDS.REVOLVER,
+  WEAPON_IDS.SHOTGUN,
   WEAPON_IDS.PISTOL9,
   WEAPON_IDS.CARBINE,
   WEAPON_IDS.AK47,
@@ -64,6 +66,12 @@ export const WEAPON_CUE_SLOTS = Object.freeze([
   'fire', 'reload.out', 'reload.in', 'empty', 'mag.floor',
 ]);
 
+/** Pump guns add the action cycling between the shot and the next chamber. */
+export const SHOTGUN_CUE_SLOTS = Object.freeze([
+  ...WEAPON_CUE_SLOTS,
+  'cycle',
+]);
+
 const def = (o) => Object.freeze({
   auto: false,
   partialLoss: true,
@@ -72,6 +80,9 @@ const def = (o) => Object.freeze({
   spread: 0.02,
   damage: 30,
   penetration: 0.3,
+  projectiles: 1,
+  cycleSeconds: 0,
+  cycleEject: null,
   ...o,
   tracer: Object.freeze({ colour: 0xfff0a0, width: 0.012, speed: 620, every: 1, ...(o.tracer || {}) }),
   rack: Object.freeze({ copies: 3, spacing: 0.34, mount: 'vertical', ...(o.rack || {}) }),
@@ -102,6 +113,35 @@ export const WEAPON_CATALOG = Object.freeze({
     tracer: { colour: 0xffd27a, width: 0.014, speed: 400, every: 1 },
     rack: { copies: 4, spacing: 0.30, mount: 'horizontal' },
     note: 'A Colt-pattern .45 on a long frame. Six, slow, and it settles arguments.',
+  }),
+  /* --------------------------------------------------------------- */
+  [WEAPON_IDS.SHOTGUN]: def({
+    id: WEAPON_IDS.SHOTGUN,
+    name: '12-gauge pump shotgun',
+    short: '12 GA',
+    kind: 'shotgun',
+    capacity: 6,
+    reserve: 36,
+    rps: 1.35,
+    auto: false,
+    reloadOut: 0.65,
+    reloadIn: 2.15,
+    eject: 'shells',
+    partialLoss: false,
+    recoil: 0.105,
+    spread: 0.085,
+    damage: 18,
+    penetration: 0.12,
+    projectiles: 7,
+    /* Seven independently-resolved pellets may overlap one body, but one
+     * trigger is not seven point-blank rifle rounds. Scene Adapters spend the
+     * cap across results in pellet order, preserving one damage transition. */
+    triggerDamageCap: 72,
+    cycleSeconds: 0.48,
+    cycleEject: 'shotgun-shell',
+    tracer: { colour: 0xffd79a, width: 0.011, speed: 440, every: 1 },
+    rack: { copies: 3, spacing: 0.38, mount: 'vertical' },
+    note: 'Six shells in the tube, seven pellets in the cone, and a visible pump between shots.',
   }),
   /* --------------------------------------------------------------- */
   [WEAPON_IDS.PISTOL9]: def({
@@ -220,11 +260,16 @@ export function weaponDef(id) {
   return WEAPON_CATALOG[id] ?? null;
 }
 
-/** Every cue name the six weapons want recorded — thirty of them. */
+/** Cue slots for one weapon; the pump gun alone owns an audible cycle. */
+export function weaponCueSlots(id) {
+  return id === WEAPON_IDS.SHOTGUN ? SHOTGUN_CUE_SLOTS : WEAPON_CUE_SLOTS;
+}
+
+/** Every cue name the seven weapons want recorded (the pump owns one extra cycle). */
 export function allWeaponCueNames() {
   const out = [];
   for (const id of WEAPON_ORDER) {
-    for (const slot of WEAPON_CUE_SLOTS) out.push(weaponCue(id, slot));
+    for (const slot of weaponCueSlots(id)) out.push(weaponCue(id, slot));
   }
   return out;
 }

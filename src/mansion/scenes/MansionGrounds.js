@@ -455,6 +455,16 @@ const M_MULLION = mat({ color: 0x2a2620, roughness: 0.5, metalness: 0.35 });
 /** The basement's ceiling soffit -- poured concrete, not the podium's stone. */
 const M_BASEMENT_CEIL = mat({ color: 0x2b2925, roughness: 0.97 });
 
+/** Explicit combat-surface language; visual names never grant penetration. */
+function combatMaterialFor(material) {
+  if (material === M_GLASS_TINT || material === M_GLASS_FROST) return 'glass';
+  if (material === M_MULLION || material === M_IRON
+    || material === M_BRONZE || material === M_GOLD) return 'metal';
+  if (material === M_STUCCO || material === M_BASEMENT_CEIL
+    || material === M_MARBLE || material === M_MARBLE_DK) return 'concrete';
+  return null;
+}
+
 const M_MARBLE = mat({ color: 0xe6e0d2, roughness: 0.32 });
 const M_MARBLE_DK = mat({ color: 0xb7ae98, roughness: 0.4 });
 const M_BRONZE = mat({ color: 0x8a5a2e, roughness: 0.35, metalness: 0.65 });
@@ -919,7 +929,15 @@ export function buildMansionGrounds(scene = null) {
     });
     root.add(m);
     occluders.push(m);
-    if (addCollider) solid(x0, x1, y0, y1, z0, z1);
+    const combatMaterial = combatMaterialFor(material);
+    if (combatMaterial) m.userData.combatMaterial = combatMaterial;
+    if (addCollider) {
+      const contact = solid(x0, x1, y0, y1, z0, z1);
+      if (combatMaterial) {
+        contact.combatMaterial = combatMaterial;
+        contact.userData = { ...(contact.userData ?? {}), combatMaterial };
+      }
+    }
     wallRects.push({ tag, x0, x1, y0, y1, z0, z1 });
     return m;
   }

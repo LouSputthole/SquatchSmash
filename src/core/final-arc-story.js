@@ -3,10 +3,12 @@ import {
   CARTEL_PALACE_CHECKPOINT_IDS,
   CARTEL_PALACE_EVIDENCE_IDS,
   CARTEL_PALACE_OUTCOMES,
+  normalizeCartelPalaceCheckpointSnapshot,
   ENOLA_SQUATCH_CHECKPOINT_IDS,
   normalizeEnolaCheckpointSnapshot,
   ITEM_IDS,
   MANSION_SIEGE_CHECKPOINT_IDS,
+  normalizeMansionSiegeCheckpointSnapshot,
   MISSION_IDS,
   SILVER_CASE_CHECKPOINT_IDS,
   TIME_EVENT_IDS,
@@ -100,7 +102,12 @@ class MansionSiegeCampaignStory {
     if (this.mission.status === 'complete') return { ok: false, reason: 'already_complete' };
     if (this.mission.status === 'locked') return { ok: false, reason: 'locked' };
     if (this.mission.status === 'in_progress') {
-      return { ok: true, resumed: true, checkpoint: this.mission.checkpoint };
+      return {
+        ok: true,
+        resumed: true,
+        checkpoint: this.mission.checkpoint,
+        checkpointSnapshot: this.mission.checkpointSnapshot,
+      };
     }
     this.campaign.update((state) => {
       state.missions[MISSION_IDS.MANSION_SIEGE].status = 'in_progress';
@@ -114,9 +121,18 @@ class MansionSiegeCampaignStory {
       || this.mission.status !== 'in_progress') return false;
     const reached = MANSION_SIEGE_CHECKPOINT_IDS.indexOf(id);
     const current = MANSION_SIEGE_CHECKPOINT_IDS.indexOf(this.mission.checkpoint);
+    const checkpointSnapshot = normalizeMansionSiegeCheckpointSnapshot(
+      facts.checkpointSnapshot,
+      id,
+    );
     this.campaign.update((state) => {
       const mission = state.missions[MISSION_IDS.MANSION_SIEGE];
-      if (reached > current) mission.checkpoint = id;
+      if (reached > current) {
+        mission.checkpoint = id;
+        mission.checkpointSnapshot = checkpointSnapshot;
+      } else if (reached === current && checkpointSnapshot) {
+        mission.checkpointSnapshot = checkpointSnapshot;
+      }
       if (Number.isFinite(facts.attackersDown)) {
         mission.attackersDown = Math.max(mission.attackersDown, Math.round(facts.attackersDown));
       }
@@ -132,6 +148,10 @@ class MansionSiegeCampaignStory {
       const mission = state.missions[MISSION_IDS.MANSION_SIEGE];
       mission.status = 'complete';
       mission.checkpoint = 'wave_one';
+      mission.checkpointSnapshot = normalizeMansionSiegeCheckpointSnapshot(
+        mission.checkpointSnapshot,
+        'wave_one',
+      );
       if (Number.isFinite(report.attackersDown)) {
         mission.attackersDown = Math.max(mission.attackersDown, Math.round(report.attackersDown));
       }
@@ -278,7 +298,12 @@ class CartelPalaceCampaignStory {
     if (this.mission.status === 'complete') return { ok: false, reason: 'already_complete' };
     if (this.mission.status === 'locked') return { ok: false, reason: 'locked' };
     if (this.mission.status === 'in_progress') {
-      return { ok: true, resumed: true, checkpoint: this.mission.checkpoint };
+      return {
+        ok: true,
+        resumed: true,
+        checkpoint: this.mission.checkpoint,
+        checkpointSnapshot: this.mission.checkpointSnapshot ?? null,
+      };
     }
     this.campaign.advanceTime(TIME_EVENT_IDS.DEPART_CARTEL_PALACE, (state) => {
       state.missions[MISSION_IDS.CARTEL_PALACE].status = 'in_progress';
@@ -292,9 +317,18 @@ class CartelPalaceCampaignStory {
       || this.mission.status !== 'in_progress') return false;
     const reached = CARTEL_PALACE_CHECKPOINT_IDS.indexOf(id);
     const current = CARTEL_PALACE_CHECKPOINT_IDS.indexOf(this.mission.checkpoint);
+    const checkpointSnapshot = normalizeCartelPalaceCheckpointSnapshot(
+      facts.checkpointSnapshot,
+      id,
+    );
     this.campaign.update((state) => {
       const mission = state.missions[MISSION_IDS.CARTEL_PALACE];
-      if (reached > current) mission.checkpoint = id;
+      if (reached > current) {
+        mission.checkpoint = id;
+        mission.checkpointSnapshot = checkpointSnapshot;
+      } else if (reached === current && checkpointSnapshot) {
+        mission.checkpointSnapshot = checkpointSnapshot;
+      }
       mission.evidenceFound = mergedStrings(mission.evidenceFound, facts.evidenceFound ?? [])
         .filter((evidenceId) => CARTEL_PALACE_EVIDENCE_IDS.includes(evidenceId));
       mission.sauceBetrayalConfirmed ||= facts.sauceBetrayalConfirmed === true;
@@ -323,6 +357,10 @@ class CartelPalaceCampaignStory {
       const mission = state.missions[MISSION_IDS.CARTEL_PALACE];
       mission.status = 'complete';
       mission.checkpoint = 'clear';
+      mission.checkpointSnapshot = normalizeCartelPalaceCheckpointSnapshot(
+        mission.checkpointSnapshot,
+        'clear',
+      );
       mission.evidenceFound = mergedStrings(mission.evidenceFound, report.evidenceFound ?? [])
         .filter((evidenceId) => CARTEL_PALACE_EVIDENCE_IDS.includes(evidenceId));
       mission.sauceBetrayalConfirmed = true;

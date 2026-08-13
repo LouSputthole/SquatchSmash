@@ -15,6 +15,9 @@
   <div id="alarm-wash" aria-hidden="true"></div>
 
   <div id="hud" aria-hidden="true">
+    <div id="suppression-pressure"></div>
+    <div id="damage-direction"><i></i></div>
+    <div id="armor-break">ARMOR BROKEN</div>
     <div id="crosshair"><span></span></div>
     <div id="prompt" class="hidden">
       <kbd class="key">E</kbd><span class="label">Interact</span><div class="holdbar"><i></i></div>
@@ -41,7 +44,9 @@
     </section>
 
     <section id="health">
-      <small>TONY</small><div class="meter"><i></i></div><span>100</span>
+      <small>TONY</small>
+      <div class="meter health-meter"><i></i></div><span id="health-value">100 HP</span>
+      <div class="meter armor-meter"><i></i></div><span id="armor-value">30 ARMOR</span>
     </section>
 
     <section id="ammo" class="hidden">
@@ -66,7 +71,7 @@
       <button id="start-btn">Begin the approach</button>
       <ul class="controls">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>C</kbd> crouch · <kbd>Space</kbd> jump</li>
-        <li><kbd>E</kbd> interact / quiet takedown · mouse aim · click fire · <kbd>R</kbd> reload</li>
+        <li><kbd>E</kbd> interact / quiet takedown · mouse aim · right-click ADS · click fire · <kbd>R</kbd> reload</li>
         <li><kbd>1</kbd>–<kbd>5</kbd> final-raid loadout · <kbd>Q</kbd> empty hands · <kbd>Tab</kbd> objective and controls</li>
         <li>Cut power, work through the service wing, and let the evidence tell you what Sauce did.</li>
       </ul>

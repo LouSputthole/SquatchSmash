@@ -37,6 +37,7 @@ ensureDomShim();
 const THREE = await import('three');
 const { CombatActor } = await import('../src/core/combat/actors.js');
 const { FACTIONS, FactionMatrix } = await import('../src/core/combat/factions.js');
+const { WEAPON_CATALOG } = await import('../src/core/weapons/catalog.js');
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const { BIG_UNCLE_LOU_MANSION } = await import('../src/core/wardrobe.js');
 const { BLOOD_POOL_NAME } = await import('../src/world/blood.js');
@@ -44,7 +45,7 @@ const {
   COMBAT_BOUNDARY, ENCOUNTERS, ROLES, STAGING, WaveDirector,
 } = await import('../src/mansion/siege/waves.js');
 const {
-  ANCHORS, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
+  ANCHORS, GROUND_Y, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
 } = await import('../src/mansion/siege/nav.js');
 const {
   createAttackerPool, segmentBlocked, HIT_ZONES, ROLE_PLAN,
@@ -830,6 +831,61 @@ test('no leg of any route is a straight line through a room he is not in', () =>
   }
 });
 
+test('the foyer encounter holds its reveal posts until the player reaches the ground floor', () => {
+  const { pool } = harness();
+  const entries = ENCOUNTERS.foyer.members.map((order) => pool.spawn(order));
+  assert.ok(entries.every((entry) => entry.order.holdUntil === 'player_ground_floor'));
+
+  const starts = new Map(entries.map((entry) => [entry.id, {
+    position: entry.root.position.clone(),
+    pathLength: entry.path.length,
+  }]));
+  const player = makePlayer(0, -1.14, 55);
+  const context = { player, colliders: [], alive: [], playerDamageScale: 0 };
+  for (let i = 0; i < 360; i++) pool.update(1 / 60, context);
+  for (const entry of entries) {
+    assert.equal(entry.holdReleased, false, `${entry.id} released while the player was below`);
+    assert.ok(entry.root.position.distanceTo(starts.get(entry.id).position) < 1e-9,
+      `${entry.id} left the authored reveal post while the player was below`);
+    assert.equal(entry.path.length, starts.get(entry.id).pathLength,
+      `${entry.id} consumed its route before the reveal`);
+  }
+
+  /* This is the armed-checkpoint shape: spawned in the armory, still held. */
+  const armedSnapshot = pool.snapshot();
+  assert.ok(armedSnapshot.attackers.every((record) => record.holdReleased === false));
+
+  player.position.y = GROUND_Y + 1.66;
+  for (let i = 0; i < 90; i++) pool.update(1 / 60, context);
+  assert.ok(entries.every((entry) => entry.holdReleased),
+    'the real ground-floor player did not release the foyer encounter');
+  assert.ok(entries.some((entry) => (
+    entry.root.position.distanceTo(starts.get(entry.id).position) > 0.25
+  )), 'the released encounter did not resume its authored routes');
+  const contactSnapshot = pool.snapshot();
+  assert.ok(contactSnapshot.attackers.every((record) => record.holdReleased === true));
+
+  pool.restore(armedSnapshot);
+  assert.ok(entries.every((entry) => entry.holdReleased === false),
+    'restoring the armed checkpoint did not restore the pre-reveal hold');
+  pool.update(1 / 60, context);
+  assert.ok(entries.every((entry) => entry.holdReleased === true),
+    'a ground-floor player did not release a restored armed checkpoint');
+
+  pool.restore(contactSnapshot);
+  player.position.y = -1.14;
+  pool.update(1 / 60, context);
+  assert.ok(entries.every((entry) => entry.holdReleased === true),
+    'returning downstairs re-armed a hold that had already released');
+
+  const legacyArmed = structuredClone(armedSnapshot);
+  for (const record of legacyArmed.attackers) delete record.holdReleased;
+  pool.restore(legacyArmed);
+  pool.update(1 / 60, context);
+  assert.ok(entries.every((entry) => entry.holdReleased === false),
+    'a legacy armed snapshot released actors still standing at their reveal posts');
+});
+
 test('every route ends up where the player is standing, or holding the room under him', () => {
   /* THE DIRECTION, AS AN ASSERTION. "I want the main fight to take place from
    * the balcony as they come up the stairs or come in the front door." A man
@@ -1094,6 +1150,111 @@ test('an attacker who has climbed the flight can shoot over the rail', () => {
   assert.ok(hits > 0, 'and the landing is not a safe box');
 });
 
+test('close misses share one rate-limited bullet-whiz voice', () => {
+  const { colliders, pool } = harness();
+  const entry = pool.spawn({
+    id: 'whiz-gunner', role: ROLES.gunner, staging: STAGING.front_steps,
+  });
+  entry.root.position.set(0, 1.2, 40);
+  entry.floorY = 1.2;
+  entry.path.length = 0;
+  entry.root.rotation.y = 0;
+  entry.awareness = 1;
+  entry.sinceThink = 1;
+
+  const player = makePlayer(0, 1.2, 48);
+  player.suppression = {
+    value: 0,
+    misses: 0,
+    noteNearMiss() { this.misses++; return this.value; },
+  };
+  let elapsed = 0;
+  const whizzes = [];
+  const audio = {
+    hasSample: () => true,
+    play: (cue) => {
+      if (cue === 'heist.bullet.whiz') whizzes.push(elapsed);
+    },
+  };
+
+  const random = Math.random;
+  Math.random = () => 0.5; // Fires, misses by exactly the whiz threshold.
+  try {
+    for (let i = 0; i < 180; i++) {
+      elapsed = i / 60;
+      pool.update(1 / 60, {
+        player, colliders, alive: [], audio, playerDamageScale: 0,
+      });
+    }
+  } finally {
+    Math.random = random;
+  }
+
+  assert.ok(entry.roundsFired >= 6, `only ${entry.roundsFired} rounds exercised the limiter`);
+  assert.ok(whizzes.length >= 2, `only ${whizzes.length} whiz cue exercised the cooldown recovery`);
+  assert.ok(whizzes.length < entry.roundsFired,
+    `${whizzes.length} whizzes were emitted for ${entry.roundsFired} rounds`);
+  for (let i = 1; i < whizzes.length; i++) {
+    assert.ok(whizzes[i] - whizzes[i - 1] >= 0.2,
+      `whizzes were only ${(whizzes[i] - whizzes[i - 1]).toFixed(3)}s apart`);
+  }
+});
+
+test('blocked rounds end on the obstruction while clean misses end beside the player', () => {
+  const shoot = ({ player, boxes }) => {
+    const { pool } = harness();
+    const entry = pool.spawn({
+      id: 'endpoint-gunner', role: ROLES.gunner, staging: STAGING.front_steps,
+    });
+    entry.root.position.set(0, 1.2, 40);
+    entry.floorY = 1.2;
+    entry.path.length = 0;
+    entry.root.rotation.y = 0;
+    entry.awareness = 1;
+    entry.sinceThink = 1;
+    for (let i = 0; i < 240 && !entry.lastShot; i++) {
+      pool.update(1 / 60, {
+        player, colliders: boxes, alive: [], playerDamageScale: 0,
+      });
+    }
+    assert.ok(entry.lastShot, 'the deterministic shooter never fired');
+    return { entry, shot: entry.lastShot };
+  };
+
+  const rail = new THREE.Box3(
+    new THREE.Vector3(-4, 5.9, 45), new THREE.Vector3(4, 7.05, 45.5),
+  );
+  const random = Math.random;
+  Math.random = () => 0.5; // Gunner fires; its normal accuracy roll misses.
+  let blocked;
+  let missed;
+  try {
+    blocked = shoot({ player: makePlayer(0, 7, 46.3), boxes: [rail] });
+    missed = shoot({ player: makePlayer(0, 1.2, 48), boxes: [] });
+  } finally {
+    Math.random = random;
+  }
+
+  assert.equal(blocked.shot.areaFire, true, 'cover did not select fixed-position suppression');
+  assert.equal(blocked.shot.blocked, true, 'the rail was not recorded as the obstruction');
+  assert.equal(blocked.shot.onTarget, false, 'an area-fire round became a player hit');
+  /* Shared fire control traces the ACTUAL dispersed round, not the centre aim
+   * ray. Extend the recorded trajectory through the rail and independently
+   * recover the same first contact. */
+  const direction = blocked.shot.end.clone().sub(blocked.shot.origin).normalize();
+  const beyondRail = blocked.shot.end.clone().addScaledVector(direction, 10);
+  const obstruction = segmentBlocked(blocked.shot.origin, beyondRail, [rail]);
+  assert.ok(obstruction, 'the recorded blocked shot has no matching obstruction');
+  const expectedStop = obstruction.point;
+  assert.ok(blocked.shot.end.distanceTo(expectedStop) <= 1e-6,
+    `blocked endpoint missed the rail intersection by ${blocked.shot.end.distanceTo(expectedStop)}m`);
+
+  assert.equal(missed.shot.blocked, false);
+  assert.equal(missed.shot.onTarget, false);
+  assert.ok(missed.shot.end.distanceTo(missed.entry.aimPoint) >= 0.45,
+    `miss endpoint stayed on the player (${missed.shot.end.distanceTo(missed.entry.aimPoint)}m)`);
+});
+
 test('segmentBlocked finds the wall between two points and not the empty air', () => {
   const box = new THREE.Box3(
     new THREE.Vector3(-1, 0, 4), new THREE.Vector3(1, 3, 4.4),
@@ -1106,13 +1267,17 @@ test('segmentBlocked finds the wall between two points and not the empty air', (
   assert.equal(segmentBlocked(a, new THREE.Vector3(8, 1.5, 0), [box]), null);
   /* A man standing against his own cover is not blinded by it. */
   assert.equal(segmentBlocked(new THREE.Vector3(0, 1.5, 4.2), b, [box]), null);
+  /* Near cover is not inside cover. The old 45 cm exemption let this muzzle
+   * shoot straight through the wall it was merely standing beside. */
+  const nearWall = segmentBlocked(new THREE.Vector3(0, 1.5, 3.56), b, [box]);
+  assert.ok(nearWall, 'a shooter beside the wall ignored the whole wall');
 });
 
 /* ================================================================== */
 /* LOCATION-BASED DAMAGE                                                */
 /* ================================================================== */
 
-test('a headshot is worth more than a chest and a chest more than a leg', () => {
+test('a headshot is lethal once, while chest and limb hits retain scaled damage', () => {
   const { pool } = harness();
   const orders = releaseWave(pool, 'one');
   const damageAt = (part) => {
@@ -1125,7 +1290,331 @@ test('a headshot is worth more than a chest and a chest more than a leg', () => 
   const leg = damageAt('legL');
   assert.ok(head > chest, `head ${head} vs chest ${chest}`);
   assert.ok(chest > leg, `chest ${chest} vs leg ${leg}`);
-  assert.equal(head / chest, HIT_ZONES.head);
+  assert.ok(head >= chest * HIT_ZONES.head);
+});
+
+test('the weakest sidearm kills every attacker role with one headshot', () => {
+  const { pool } = harness();
+  for (const [id, role] of Object.entries(ROLES)) {
+    const entry = pool.spawn({ id: `head-${id}`, role, staging: STAGING.front_steps });
+    const resolved = pool.registerHit(entry.figure.parts.head, 28, 0.16);
+    assert.equal(resolved[0]?.zone, 'head', `${id} lost its hit zone`);
+    assert.equal(resolved[0]?.result?.fatal, true, `${id} survived a headshot`);
+    assert.equal(entry.actor.incapacitated, true, `${id} stayed active after a headshot`);
+  }
+});
+
+test('a complete WeaponSystem impact keeps its exact pre-fall Located hit record', () => {
+  const { scene, pool } = harness();
+  const entry = pool.spawn({
+    id: 'located-head', role: ROLES.armored, staging: STAGING.front_steps,
+  });
+  scene.updateMatrixWorld(true);
+  const anchor = entry.figure.parts.head;
+  const expectedLocal = new THREE.Vector3(0.035, 0.08, -0.025);
+  const point = anchor.localToWorld(expectedLocal.clone());
+  const origin = point.clone().add(new THREE.Vector3(0.2, 0.05, 4));
+  const direction = point.clone().sub(origin).normalize();
+  const impact = {
+    point,
+    normal: direction.clone().negate(),
+    origin,
+    direction,
+    distance: origin.distanceTo(point),
+    object: anchor,
+    weapon: 'pistol9',
+    damage: 28,
+    penetration: 0.16,
+  };
+
+  const resolved = pool.registerHit(impact);
+  assert.equal(resolved.length, 1, 'the Siege return stopped being a one-contact array');
+  const hit = resolved[0];
+  assert.equal(entry.root.userData.combatant, entry);
+  assert.equal(hit.impact.object, anchor);
+  assert.equal(hit.impact.weapon, 'pistol9');
+  assert.equal(hit.impact.penetration, 0.16);
+  assert.ok(hit.impact.point.distanceTo(point) < 1e-12);
+  assert.ok(hit.impact.origin.distanceTo(origin) < 1e-12);
+  assert.ok(hit.impact.direction.distanceTo(direction) < 1e-12);
+  assert.ok(hit.anchorLocalPoint.distanceTo(expectedLocal) < 1e-9,
+    'the fatal pose moved the stored body-local contact');
+  assert.equal(hit.anchor, anchor);
+  assert.equal(hit.hitAnchor, anchor);
+  assert.equal(hit.spatterAnchor, anchor);
+  assert.equal(hit.result.fatal, true);
+  assert.equal(Object.isFrozen(hit.impact), true);
+  assert.equal(Object.isFrozen(hit.impact.point), true);
+});
+
+test('the Located player-impact path preserves the pool faction matrix', () => {
+  const { matrix, pool } = harness();
+  const entry = pool.spawn({
+    id: 'matrix-protected', role: ROLES.rifle, staging: STAGING.front_steps,
+  });
+  matrix.canDamage = () => false;
+  const health = entry.actor.health;
+  const [hit] = pool.registerHit(entry.figure.parts.body, 9999, 0.4);
+  assert.equal(hit.actor, entry.actor, 'the compatibility hit exposed an actor facade');
+  assert.equal(hit.result.applied, false);
+  assert.equal(hit.result.reason, 'protected');
+  assert.equal(entry.actor.health, health);
+});
+
+test('the pool snapshots shared fire-control state with flat checkpoint fallback', () => {
+  const { pool } = harness();
+  pool.fireControl.whizCooldown = 0.18;
+  const snapshot = JSON.parse(JSON.stringify(pool.snapshot()));
+  assert.deepEqual(snapshot.fireControl, { version: 1, whizCooldown: 0.18 });
+  assert.equal(snapshot.whizCooldown, 0.18);
+
+  pool.fireControl.whizCooldown = 0;
+  assert.equal(pool.restore(snapshot), true);
+  assert.equal(pool.fireControl.whizCooldown, 0.18);
+
+  delete snapshot.fireControl;
+  snapshot.whizCooldown = 0.11;
+  assert.equal(pool.restore(snapshot), true);
+  assert.equal(pool.fireControl.whizCooldown, 0.11);
+});
+
+test('walls block target acquisition until the target is genuinely visible', () => {
+  const { colliders, pool } = harness();
+  const entry = pool.spawn({ id: 'los-rifle', role: ROLES.rifle, staging: STAGING.front_steps });
+  entry.root.position.set(0, 1.2, 40);
+  entry.floorY = 1.2;
+  entry.path.length = 0;
+  entry.root.rotation.y = 0;
+  const player = makePlayer(0, 1.2, 54);
+  const wall = new THREE.Box3(
+    new THREE.Vector3(-3, 1.1, 46), new THREE.Vector3(3, 4, 46.5),
+  );
+  colliders.push(wall);
+  for (let i = 0; i < 120; i++) pool.update(1 / 60, { player, colliders, alive: [] });
+  assert.equal(entry.targetVisible, false);
+  assert.equal(entry.target, null, 'the target was acquired through the wall');
+  assert.equal(entry.roundsFired, 0);
+
+  colliders.length = 0;
+  for (let i = 0; i < 120; i++) pool.update(1 / 60, { player, colliders, alive: [] });
+  assert.equal(entry.targetVisible, true);
+  assert.equal(entry.target?.actor, player.actor);
+});
+
+test('an attacker does not acquire a clear target outside his field of view', () => {
+  const { colliders, pool } = harness();
+  const entry = pool.spawn({ id: 'fov-rifle', role: ROLES.rifle, staging: STAGING.front_steps });
+  entry.root.position.set(0, 1.2, 40);
+  entry.floorY = 1.2;
+  entry.path.length = 0;
+  entry.goal.copy(entry.root.position);
+  entry.root.rotation.y = Math.PI;
+  const player = makePlayer(0, 1.2, 54);
+
+  for (let i = 0; i < 60; i++) pool.update(1 / 60, { player, colliders, alive: [] });
+  assert.equal(entry.targetVisible, false);
+  assert.equal(entry.target, null, 'the target behind him became a live target');
+  assert.equal(entry.memory, 0, 'a never-seen target created last-seen memory');
+
+  entry.root.rotation.y = 0;
+  for (let i = 0; i < 30 && !entry.targetVisible; i++) {
+    pool.update(1 / 60, { player, colliders, alive: [] });
+  }
+  assert.equal(entry.targetVisible, true, 'turning toward the target did not acquire it');
+  assert.equal(entry.target?.actor, player.actor);
+  const saved = pool.snapshot().attackers.find((record) => record.id === entry.id);
+  assert.deepEqual(saved.perception.lastSeen, entry.lastSeen.toArray());
+  assert.doesNotThrow(() => JSON.stringify(saved.perception));
+});
+
+test('an attacker must turn and settle his weapon on the aim point before firing', () => {
+  const { scene, colliders, pool } = harness();
+  const entry = pool.spawn({ id: 'aim-rifle', role: ROLES.rifle, staging: STAGING.front_steps });
+  entry.root.position.set(0, 1.2, 40);
+  entry.floorY = 1.2;
+  entry.path.length = 0;
+  entry.root.rotation.y = 0;
+  entry.awareness = 1;
+  entry.sinceThink = 1;
+  const player = makePlayer(0, 4.2, 48);
+  pool.update(1 / 60, { player, colliders, alive: [] });
+  assert.equal(entry.targetVisible, true, 'the target was not acquired before the turn test');
+  entry.root.rotation.y = Math.PI;
+  entry.weaponAim.reset();
+  entry.aimFrame = null;
+  entry.lastShot = null;
+  for (let i = 0; i < 240 && !entry.lastShot; i++) {
+    pool.update(1 / 60, { player, colliders, alive: [] });
+  }
+  assert.ok(entry.lastShot, 'the aligned attacker never fired');
+  assert.equal(entry.aimAligned, true, 'the public alignment gate did not admit the shot');
+  assert.ok(entry.lastShot.aimError <= 0.14, `shot fired ${entry.lastShot.aimError} rad off target`);
+  assert.ok(Math.abs(entry.aimPitch) > 0.05, 'the weapon stayed level at an elevated target');
+
+  /* The values above used to describe only the actor root and a synthetic
+   * pitch. The rendered gun could still be thirteen degrees off while the
+   * tracer began in his chest. Read the catalog model's authored muzzle and
+   * local -Z bore so the regression covers what the player actually sees. */
+  scene.updateMatrixWorld(true);
+  const renderedMuzzle = entry.gun.localToWorld(entry.gun.userData.muzzle.clone());
+  const renderedBore = new THREE.Vector3(0, 0, -1)
+    .applyQuaternion(entry.gun.getWorldQuaternion(new THREE.Quaternion()))
+    .normalize();
+  const towardAim = entry.aimPoint.clone().sub(renderedMuzzle).normalize();
+  const renderedError = renderedBore.angleTo(towardAim);
+  assert.ok(renderedError <= 0.14, `rendered bore fired ${renderedError} rad off target`);
+  assert.ok(entry.lastShot.boreError <= 0.14,
+    `shot record admitted a ${entry.lastShot.boreError} rad bore error`);
+  /* `figure.update()` runs after the shot in the same pool tick and adds a
+   * sub-millimetre breathing offset, so compare at visual rather than float
+   * identity precision. */
+  assert.ok(entry.lastShot.origin.distanceTo(renderedMuzzle) <= 1e-3,
+    `tracer began ${entry.lastShot.origin.distanceTo(renderedMuzzle)}m from the rendered muzzle`);
+});
+
+test('authored movement slides against solid boxes and separates squadmates', () => {
+  const { colliders, pool } = harness();
+  const wall = new THREE.Box3(
+    new THREE.Vector3(-2, 1.1, 44), new THREE.Vector3(2, 4, 45),
+  );
+  colliders.push(wall);
+  const a = pool.spawn({ id: 'clip-a', role: ROLES.smg, staging: STAGING.front_steps });
+  const b = pool.spawn({ id: 'clip-b', role: ROLES.smg, staging: STAGING.front_steps });
+  for (const [entry, x] of [[a, -0.03], [b, 0.03]]) {
+    entry.root.position.set(x, 1.2, 40);
+    entry.floorY = 1.2;
+    entry.path = [{ x: 0, y: 1.2, z: 50, anchor: 'test', kind: 'transit' }];
+  }
+  for (let i = 0; i < 240; i++) pool.update(1 / 60, { player: null, colliders, alive: [] });
+  assert.ok(a.root.position.z <= wall.min.z - 0.29, `a crossed the wall to z ${a.root.position.z}`);
+  assert.ok(b.root.position.z <= wall.min.z - 0.29, `b crossed the wall to z ${b.root.position.z}`);
+  assert.ok(a.root.position.distanceTo(b.root.position) >= 0.48, 'the squadmates remained stacked');
+});
+
+test('body hits interrupt aim and limb hits have tactical consequences', () => {
+  const { pool } = harness();
+  const entry = pool.spawn({ id: 'wounds', role: ROLES.rifle, staging: STAGING.front_steps });
+  const readyArm = entry.figure.parts.armR.quaternion.clone();
+  const chest = pool.registerHit(entry.figure.parts.body, 8, 0.1)[0];
+  assert.equal(chest.zone, 'chest');
+  assert.ok(entry.stagger > 0.3, 'the chest hit did not interrupt aim');
+  let peakArmDeviation = 0;
+  for (let i = 0; i < 40; i++) {
+    pool.update(1 / 60, { player: null, colliders: [], alive: [] });
+    peakArmDeviation = Math.max(
+      peakArmDeviation,
+      readyArm.angleTo(entry.figure.parts.armR.quaternion),
+    );
+  }
+  assert.ok(peakArmDeviation <= 0.37,
+    `stagger corkscrewed the weapon arm by ${peakArmDeviation} radians`);
+  assert.ok(readyArm.angleTo(entry.figure.parts.armR.quaternion) < 1e-6,
+    'the weapon arm did not recover its authored braced pose');
+
+  pool.spawn({ id: 'wounds', role: ROLES.rifle, staging: STAGING.front_steps });
+  const leg = pool.registerHit(entry.figure.parts.legL, 8, 0.1)[0];
+  assert.equal(leg.part, 'leg');
+  assert.ok(entry.legWound > 0, 'the leg hit did not slow movement');
+
+  pool.spawn({ id: 'wounds', role: ROLES.rifle, staging: STAGING.front_steps });
+  const arm = pool.registerHit(entry.figure.parts.armR, 8, 0.1)[0];
+  assert.equal(arm.part, 'arm');
+  assert.ok(entry.armWound > 0, 'the arm hit did not disturb accuracy');
+});
+
+test('a leg wound measurably slows the same attacker on the same route', () => {
+  const { pool } = harness();
+  const order = { id: 'leg-speed', role: ROLES.smg, staging: STAGING.front_steps };
+  const travel = (wounded) => {
+    const entry = pool.spawn(order);
+    if (wounded) pool.registerHit(entry.figure.parts.legL, 8, 0.1);
+    /* Isolate locomotion from the hit's separate stagger and suppression
+     * reactions: this comparison is about the durable leg impairment. */
+    entry.suppression.value = 0;
+    entry.stagger = 0;
+    entry.sinceMove = 0;
+    entry.root.position.set(0, 1.2, 40);
+    entry.floorY = 1.2;
+    entry.path = [{ x: 0, y: 1.2, z: 60, anchor: 'speed', kind: 'transit' }];
+    entry.goal.copy(entry.root.position);
+    entry.sinceThink = 1;
+    const start = entry.root.position.clone();
+    for (let i = 0; i < 60; i++) {
+      pool.update(1 / 60, { player: null, colliders: [], alive: [] });
+    }
+    return {
+      distance: start.distanceTo(entry.root.position),
+      legWound: entry.legWound,
+    };
+  };
+
+  const baseline = travel(false);
+  const wounded = travel(true);
+  assert.equal(baseline.legWound, 0);
+  assert.ok(wounded.legWound > 0, 'the hit did not leave a durable leg wound');
+  assert.ok(wounded.distance < baseline.distance * 0.95,
+    `wounded ${wounded.distance.toFixed(3)}m vs baseline ${baseline.distance.toFixed(3)}m`);
+});
+
+test('an arm wound settles aim slower and turns a matched hit into a miss', () => {
+  const engage = (wounded) => {
+    const { colliders, pool } = harness();
+    const entry = pool.spawn({
+      id: wounded ? 'arm-wounded' : 'arm-baseline',
+      role: ROLES.rifle,
+      staging: STAGING.front_steps,
+    });
+    if (wounded) pool.registerHit(entry.figure.parts.armR, 8, 0.1);
+    /* Hold everything except the durable arm impairment equal. */
+    entry.suppression.value = 0;
+    entry.stagger = 0;
+    entry.sinceMove = 0;
+    entry.root.position.set(0, 1.2, 40);
+    entry.floorY = 1.2;
+    entry.path.length = 0;
+    entry.goal.copy(entry.root.position);
+    entry.root.rotation.y = 0;
+    entry.awareness = 1;
+    entry.sinceThink = 1;
+    entry.aimPitch = 0;
+    entry.lastShot = null;
+    const player = makePlayer(0, 8, 44);
+    let earlyAimError = Infinity;
+    let frames = 0;
+    for (; frames < 180 && !entry.lastShot; frames++) {
+      pool.update(1 / 60, {
+        player, colliders, alive: [], playerDamageScale: 0,
+      });
+      if (frames === 3) earlyAimError = entry.aimError;
+    }
+    assert.ok(entry.lastShot, `${entry.id} never completed an aimed shot`);
+    return {
+      armWound: entry.armWound,
+      earlyAimError,
+      frames,
+      onTarget: entry.lastShot.onTarget,
+    };
+  };
+
+  const random = Math.random;
+  Math.random = () => 0.28; // Inside rifle baseline accuracy, outside wounded accuracy.
+  let baseline;
+  let wounded;
+  try {
+    baseline = engage(false);
+    wounded = engage(true);
+  } finally {
+    Math.random = random;
+  }
+
+  assert.equal(baseline.armWound, 0);
+  assert.ok(wounded.armWound > 0, 'the hit did not leave a durable arm wound');
+  assert.ok(wounded.earlyAimError > baseline.earlyAimError,
+    `wounded early error ${wounded.earlyAimError} vs baseline ${baseline.earlyAimError}`);
+  assert.ok(wounded.frames > baseline.frames,
+    `wounded fired in ${wounded.frames} frames vs baseline ${baseline.frames}`);
+  assert.equal(baseline.onTarget, true, 'the controlled baseline accuracy roll missed');
+  assert.equal(wounded.onTarget, false, 'the arm wound did not spoil the same accuracy roll');
 });
 
 test('armour absorbs, and the armoured man takes more killing', () => {
@@ -1280,6 +1769,80 @@ test('the house being hit makes people flinch', () => {
   assert.ok(near.length > 0, 'somebody was actually close to it');
   assert.ok(near.every((member) => member.suppression.value > 0),
     'and everybody that close is pinned');
+});
+
+test('friendlies acquire through shared LOS and fire only from their rendered bore', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  const shooter = [...ensemble.members.values()]
+    .find((member) => member.staged && member.weapon && !member.wounded);
+  assert.ok(shooter, 'the staged ensemble has no armed shooter');
+  for (const member of ensemble.members.values()) {
+    if (member !== shooter) member.wounded = true;
+  }
+  shooter.root.position.set(0, 1.2, 40);
+  shooter.goal.copy(shooter.root.position);
+  shooter.root.rotation.y = 0;
+  shooter.businessClock = 999;
+  shooter.businessKey = null;
+  shooter.sinceThink = 1;
+  shooter.perception.restore({ awareness: 1, memory: 0, lastSeen: null });
+
+  const hostileRoot = new THREE.Group();
+  hostileRoot.position.set(0, 1.2, 48);
+  const hostileActor = new CombatActor({
+    id: 'ensemble-los-target', faction: FACTIONS.CARTEL, maxHealth: 1000,
+  });
+  hostileRoot.userData.combatActor = hostileActor;
+  scene.add(hostileRoot);
+  const hostile = { root: hostileRoot, actor: hostileActor };
+  const wall = new THREE.Box3(
+    new THREE.Vector3(-2, 1.1, 44), new THREE.Vector3(2, 4, 44.5),
+  );
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    for (let frame = 0; frame < 90; frame++) {
+      ensemble.update(1 / 60, { player: null, hostiles: [hostile], colliders: [wall] });
+    }
+    assert.equal(shooter.targetVisible, false, 'a friendly acquired through the wall');
+    assert.equal(shooter.shotsFired, 0, 'a friendly fired through unseen cover');
+
+    shooter.sinceThink = 1;
+    for (let frame = 0; frame < 360 && !shooter.lastShot; frame++) {
+      ensemble.update(1 / 60, { player: null, hostiles: [hostile], colliders: [] });
+    }
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  assert.equal(shooter.targetVisible, true);
+  assert.ok(shooter.lastShot, 'the exposed target never produced an aligned shot');
+  assert.ok(shooter.lastShot.aimError <= 0.14);
+  assert.ok(shooter.lastShot.boreError <= 0.14);
+  scene.updateMatrixWorld(true);
+  const muzzle = shooter.gun.localToWorld(shooter.gun.userData.muzzle.clone());
+  assert.ok(shooter.lastShot.origin.distanceTo(muzzle) <= 1e-3,
+    'friendly fire did not originate at the rendered catalog muzzle');
+  const checkpoint = JSON.parse(JSON.stringify(ensemble.snapshot()));
+  const saved = checkpoint.members.find((record) => record.id === shooter.id);
+  shooter.weapon.rounds = 0;
+  shooter.weapon.setTrigger(true);
+  shooter.perception.target = hostile;
+  shooter.perception.targetVisible = true;
+  shooter.target = hostile;
+  shooter.targetVisible = true;
+  shooter.weaponAim.aligned = true;
+  shooter.aimAligned = true;
+  assert.equal(ensemble.restore(checkpoint), true);
+  assert.equal(shooter.weapon.rounds, saved.weapon.rounds);
+  assert.equal(shooter.weapon.triggerHeld, false);
+  assert.equal(shooter.perception.target, null);
+  assert.equal(shooter.target, null);
+  assert.equal(shooter.targetVisible, false);
+  assert.equal(shooter.aimAligned, false);
+  ensemble.dispose();
 });
 
 test('friendlies fire, wound and suppress -- and do not outkill the player', () => {
@@ -1483,7 +2046,7 @@ test('an attacker\'s health and armour come from the role table, unedited', () =
 test('every attacker carries a gun off the shared catalog', () => {
   const { pool } = harness();
   const orders = releaseWave(pool, 'two');
-  const catalog = new Set(['revolver', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett']);
+  const catalog = new Set(Object.keys(WEAPON_CATALOG));
   for (const order of orders) {
     const entry = pool.entry(order.id);
     assert.ok(catalog.has(entry.plan.weapon), `${entry.plan.weapon} is not in the catalog`);
@@ -1545,14 +2108,14 @@ test('every visible siege gun is held at its grip and long guns are supported', 
   ensemble.stage('WAVE_ONE');
   releaseWave(pool, 'one');
   releaseWave(pool, 'two');
-  const longGuns = new Set(['carbine', 'ak47', 'saw', 'barrett']);
+  const longGuns = new Set(['shotgun', 'carbine', 'ak47', 'saw', 'barrett']);
   const holders = [
     ...pool.all().map((entry) => ({ label: entry.id, ...entry })),
     ...[...ensemble.members.values()].map((entry) => ({ label: entry.id, ...entry })),
   ].filter((entry) => entry.gun?.visible);
   assert.ok(holders.length >= 10, `only ${holders.length} armed holders were built`);
   assert.deepEqual(new Set(holders.map((holder) => holder.weaponId ?? holder.plan.weapon)),
-    new Set(['revolver', 'pistol9', 'carbine', 'ak47', 'saw']));
+    new Set(['revolver', 'shotgun', 'pistol9', 'carbine', 'ak47', 'saw']));
 
   for (const holder of holders) {
     scene.updateMatrixWorld(true);
@@ -1594,6 +2157,100 @@ test('every visible siege gun is held at its grip and long guns are supported', 
   }
 });
 
+test('live aim keeps every active long-gun support hand on the weapon', () => {
+  const { scene, colliders, damage, matrix, pool } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('WAVE_ONE');
+  releaseWave(pool, 'one');
+  const player = makePlayer();
+  const originalRandom = Math.random;
+  Math.random = () => 0.999;
+  try {
+    /* This is deliberately not another spawn-pose check. Both factions run
+     * their real frame loops, including CombatWeaponAim pose adaptation and
+     * rendered-bore steering, before any hand geometry is measured. */
+    for (let frame = 0; frame < 30; frame++) {
+      pool.update(1 / 60, {
+        player, colliders, alive: ensemble.targets(), playerDamageScale: 0,
+      });
+      ensemble.update(1 / 60, {
+        player, colliders, hostiles: pool.living(),
+      });
+    }
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  const longGuns = new Set(['shotgun', 'carbine', 'ak47', 'saw', 'barrett']);
+  const holders = [
+    ...pool.living(),
+    ...[...ensemble.members.values()].filter((member) => member.staged),
+  ].filter((holder) => longGuns.has(holder.weaponId ?? holder.plan?.weapon)
+      && holder.gun?.visible);
+  assert.ok(holders.length >= 8, `only ${holders.length} live long-gun actors were exercised`);
+  scene.updateMatrixWorld(true);
+  for (const holder of holders) {
+    assert.ok(holder.aimFrame, `${holder.id} never ran CombatWeaponAim`);
+    let hand = null;
+    holder.figure.parts.foreL.traverse((object) => {
+      if (!hand && object.isMesh && /(^|\.)hand$/.test(object.name ?? '')) hand = object;
+    });
+    assert.ok(hand, `${holder.id} has no support-hand geometry`);
+    const handCentre = new THREE.Box3().setFromObject(hand).getCenter(new THREE.Vector3());
+    const gap = new THREE.Box3().setFromObject(holder.gun).distanceToPoint(handCentre);
+    const supportPoint = holder.gun.localToWorld(
+      new THREE.Vector3().fromArray(holder.gun.userData.siegeMount.support),
+    );
+    const targetGap = handCentre.distanceTo(supportPoint);
+    assert.ok(gap <= 0.04,
+      `${holder.id}'s live support hand is ${gap.toFixed(4)}m off the weapon `
+      + `(${targetGap.toFixed(4)}m from support, tracked `
+      + `${holder.gun.userData.siegeSupportTrack?.supported})`);
+  }
+});
+
+test('live steep aim keeps the cellar attackers firing hands on their grips', () => {
+  const { scene, colliders, pool } = harness();
+  const entries = ENCOUNTERS.corridor.members.map((order) => pool.spawn(order));
+  const player = makePlayer(0, 7.66, 46.5);
+  const originalRandom = Math.random;
+  Math.random = () => 0.999;
+  try {
+    /* These are the production actors and the production height difference
+     * that exposed the receiver-origin pivot: both guns aim from the cellar
+     * at an upper-floor target before their rendered grip contact is read. */
+    for (let frame = 0; frame < 18; frame++) {
+      pool.update(1 / 60, { player, colliders, alive: [], playerDamageScale: 0 });
+    }
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  scene.updateMatrixWorld(true);
+  for (const entry of entries) {
+    assert.ok(entry.aimFrame?.origin, `${entry.id} never ran live bore aim`);
+    let hand = null;
+    let grip = null;
+    entry.figure.parts.foreR.traverse((object) => {
+      if (!hand && object.isMesh && /(^|\.)hand$/.test(object.name ?? '')) hand = object;
+    });
+    entry.gun.traverse((object) => {
+      if (!grip && object.name?.includes('grip') && !object.name.includes('foregrip')) {
+        grip = object;
+      }
+    });
+    assert.ok(hand && grip, `${entry.id} has no measurable firing hand/grip`);
+    const handBox = new THREE.Box3().setFromObject(hand);
+    const gripBox = new THREE.Box3().setFromObject(grip);
+    assert.equal(handBox.intersectsBox(gripBox), true,
+      `${entry.id}'s live firing hand misses the ${entry.plan.weapon} grip`);
+    const renderedMuzzle = entry.gun.localToWorld(entry.gun.userData.muzzle.clone());
+    const originGap = renderedMuzzle.distanceTo(entry.aimFrame.origin);
+    assert.ok(originGap < 0.001,
+      `${entry.id}'s shot origin is ${originGap.toFixed(6)}m off its rendered muzzle`);
+  }
+});
+
 test('despawnAll puts the whole pool away without losing anybody', () => {
   const { pool, downs } = harness();
   const orders = releaseWave(pool, 'one');
@@ -1614,9 +2271,10 @@ test('the pool and the ensemble are damage-state layers, not a mission chore', (
   assert.equal(pool.root.visible, true);
   assert.equal(ensemble.root.visible, true);
   damage.apply('damaged');
-  assert.equal(pool.root.visible, false, 'the fight is over');
+  assert.equal(pool.root.visible, true, 'the aftermath lost all of its fallen bodies');
   assert.equal(ensemble.root.visible, true, 'the family is still standing in it');
   damage.apply('post_battle');
+  assert.equal(pool.root.visible, true, 'the bodies vanished while the blood pools remained');
   assert.equal(ensemble.root.visible, true);
   damage.apply('repaired');
   assert.equal(pool.root.visible, false);

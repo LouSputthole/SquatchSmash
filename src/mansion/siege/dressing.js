@@ -2006,6 +2006,10 @@ export function buildSiegeDressing({
 
     enrol('siege.step', g, { boxes });
     firingStep.group = g;
+    /* Exposed as the real interaction surface: this was authored as the
+     * firing-step ammunition point, so resupply belongs on these crates rather
+     * than on an invisible proxy beside them. */
+    firingStep.ammo = ammo;
     firingStep.lamp = worklamp;
     firingStep.colliders = boxes;
     firingStep.bay = BALCONY;

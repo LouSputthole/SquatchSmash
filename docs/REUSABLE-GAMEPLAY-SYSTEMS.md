@@ -20,14 +20,14 @@ A shared-system adoption is complete only when all four are present:
 
 | Capability | Canonical Module | Canonical status | Existing consumers |
 | --- | --- | --- | --- |
-| Bullet wounds and death blood | `src/world/blood.js`, over `src/world/bullets.js` | Canonical shared high-level Interface | Mansion Silent Squatch; Silver Case remains the reference older Implementation being consolidated |
+| Bullet wounds and death blood | `src/world/blood.js`, over `src/world/bullets.js` | Canonical shared high-level Interface | Mansion Silent Squatch, Mansion Siege and Cartel Palace; Silver Case remains an older Implementation to migrate |
 | Held beer/drink model and motion | `src/world/props.js` | Canonical visual Interface; use-state orchestration still needs extraction | Apartment and Silver Pines share `poseHeldDrink`; Bing and Silver still carry local motion |
 | Dress-help interaction | `src/world/dress-help.js` | Canonical shared sequence with scene rig Adapters | Apartment Margo and the second Mansion pool performer |
 | TV playback and attenuation | `src/core/tv.js`, with `src/core/audio.js` listener state | Canonical | Apartment and Mansion televisions, including the Mansion theatre |
 | Smoke and cigarette exhale | `src/world/smoke.js` | Canonical | Apartment, Silver Pines, Enola Squatch, Mansion bong behavior |
 | Functioning bong | `src/world/bong.js` | Canonical | Apartment and Mansion LAN room |
-| Weapon operation | `src/core/weapons/index.js` | Canonical | Combat Lab, Cartel Palace, Mansion, Mansion Siege; Heist shares selected weapon models/audio |
-| Damage, factions and ballistics | `src/core/combat/` | Canonical | Combat Lab, Heist, Cartel Palace, Mansion Siege and its attackers/ensemble |
+| Weapon operation | `src/core/weapons/index.js` | Canonical; `Firearm` is the state authority | Cartel Palace, Mansion and Mansion Siege; CombatLab verifies; Heist shares selected models/audio and still carries a compatibility debt |
+| Ground-combat truth | `src/core/combat/` | Canonical Modules behind scene Adapters | Mansion Siege and Cartel Palace are green production Adapters; Mansion's ensemble also proves friendly perception/aim/fire reuse; CombatLab is verification only |
 | Player inventory | `src/core/inventory.js` | Canonical | Apartment, Bing, Silver, Silver Pines and Mansion final-arc loadout |
 | Look/hold interactions | `src/core/interaction.js` | Canonical | All first-person scenes that use world-object prompts |
 | Pause and failure recovery | `src/core/pause-menu.js`, `src/core/scene-recovery.js`, `src/core/campaign-scene-skip.js` | Canonical | Campaign scenes listed by `RECOVERABLE_CAMPAIGN_SCENES`; Apartment uses its hub Adapter |
@@ -83,6 +83,10 @@ from the wound point so a chest hit cannot create a pool in mid-air.
   and xXx use body-attached shared marks, all six fatal scientists plus xXx
   create exactly one shared floor pool each, and both Mansion recovery paths
   reset pooled visuals and actor blood ownership.
+- Mansion Siege and Cartel Palace both consume `BloodImpactSystem` for an
+  applied Located hit and `DeathBloodPool` for an actual fatal result. Their
+  checkpoint/restart Adapters reset both pools rather than saving decals as
+  durable combat state.
 - `src/heist/main.js` has scene-local blood particles and floor circles. Keep
   particles as scene flavor if wanted, but move persistent wounds and death
   pools to the shared Module.
@@ -94,9 +98,14 @@ proves exact hit placement, attachment through body motion, bounded pooling,
 explicit floor placement, deterministic pool growth and safe ownership when a
 pooled wound is recycled.
 
-One weapon Seam must be corrected during migration: `WeaponSystem._impact`
-currently publishes `hit.face.normal` in mesh-local coordinates. Transform it
-through the hit object's normal matrix before handing it to blood.
+`WeaponSystem._impact` now publishes a complete per-shot world-space record
+with owned origin, direction, point and normal vectors. At fire time it also
+captures frozen local point/normal contacts for every hit-object ancestor, so
+`CombatImpactResolver` can select the authored body anchor after visible tracer
+travel without converting the old world point through a moving target's new
+transform. Scene Adapters can therefore attach blood at the exact resolved hit
+point without guessing; the resolver freezes the world record before applying
+damage.
 
 ## Beer and held drinks
 
@@ -305,46 +314,483 @@ must import these Modules. Do not reuse only `makeBong` geometry and leave a
 dead prop. `tests/mansion-interactions.test.mjs` proves apartment/Mansion bong
 parity; `tests/smoke-system.test.mjs` proves pooled smoke labels and lifetime.
 
-## Weapons and combat
+## Ground-combat architecture
 
-### Canonical Modules
+### Vocabulary and ownership
 
-- `src/core/weapons/index.js` is the canonical preferred import surface for
-  weapon catalog, models, `Firearm`, `WeaponSystem`, audio, armory and tracer
-  exports. Some older scene compositions still import its constituent Modules
-  directly and should migrate when next touched.
-- `src/core/combat/actors.js` owns `CombatActor` health, armor, protection,
-  injury and snapshot state.
-- `src/core/combat/ballistics.js` owns distance ordering, penetration and
-  faction-safe hit resolution through `resolveBallisticHits`.
-- `src/core/combat/factions.js` owns factions and damage permission.
+Use these terms literally in combat work:
 
-### Public Interface
+| Term | Meaning in this architecture |
+| --- | --- |
+| Module | A reusable owner of one piece of mechanical truth under `src/core/combat/`, `src/core/weapons/` or `src/world/blood.js`. |
+| Interface | The public constructor, methods, returned data and stable `userData` protocol documented below. |
+| Implementation | The code behind an Interface. A mission must not fork an Implementation to change story behavior. |
+| Seam | A small, explicit data boundary: a full weapon impact, a Located hit, a copied perception point or a snapshot. |
+| Adapter | Scene code that builds cast records, supplies authored geometry, translates Module results into mission and presentation behavior, and saves durable state. |
+| Depth | Mechanical complexity hidden behind a compact Interface: collision sweeps, visibility, bore alignment, armor, ammo and shot truth. |
+| Leverage | The number of missions and bug classes fixed by changing the canonical Module once. |
+| Locality | Mission facts remain beside the mission: waves, tactics, story consequences, cover anchors, dialogue and visual staging do not move into generic Modules. |
+
+The architecture deliberately puts high-Depth, high-Leverage mechanics in
+Modules while preserving high Locality in each Adapter. The data flow is:
+
+```text
+player input -> WeaponSystem/Firearm -> immutable trigger and projectile paths
+                                      -> material penetration / terminal contacts
+                                      -> CombatImpactResolver -> CombatActor
+                                                              -> CombatImpairments
+                                                              -> blood / armor / audio Adapters
+
+truthful missed paths -> CombatSuppressionField -> exposed SuppressionModels
+terminal world contact -> BallisticImpactSystem -> bounded mark + material audio
+
+CombatPerception -> copied sampled point -> CombatWeaponAim
+                                        -> CombatFireControl -> CombatActor
+
+AabbCombatSpace supplies the same blocker truth to movement, sight and shots.
+```
+
+`src/core/weapons/index.js` is the preferred weapon import surface.
+`src/core/combat/index.js` is the preferred combat import surface when the
+required export is available there. Direct constituent imports remain valid
+for existing Adapters, but they are not permission to create scene-local
+copies.
+
+### WeaponSystem and Firearm Interface
+
+`WeaponSystem` is the player-weapon composition Module. `Firearm` is the
+canonical per-gun state Module used inside it and directly by NPC Adapters.
 
 ```js
 const weapons = new WeaponSystem({
   camera, world, audio, groundAt, hitTargets, range, onImpact, onEvent,
 });
+weapons.firearm(id);
 weapons.equip(id);
-weapons.stow();
+weapons.stow({ silent });
+weapons.setAimed(on);
+weapons.setSuppression(valueOrObject, aimStability);
 weapons.setTrigger(down);
 weapons.triggerPress();
 weapons.reload();
+weapons.cancelPendingImpacts();
 weapons.update(dt, { speed });
 weapons.hud();
+weapons.feedback();
 weapons.dispose();
 
-const actor = new CombatActor({ id, faction, maxHealth, armor, core });
-actor.applyHit({ amount, attacker, playerShot, matrix });
-resolveBallisticHits(hits, { attacker, damage, penetration, playerShot, matrix });
+const firearm = new Firearm(idOrDefinition, { rounds, reserve });
+firearm.setTrigger(down);
+firearm.fire({ aimed, aimStability });
+firearm.spreadNow({ aimed, aimStability });
+firearm.resupply(rounds);
+firearm.reload();
+firearm.cancelReload();
+firearm.update(dt);
+firearm.snapshot();
+firearm.restore(snapshot);
 ```
 
-`WeaponSystem` owns operation of the gun and its world ray. It intentionally
-does not own a cast list. A scene Adapter maps a hit Object3D to `CombatActor`,
-then calls `resolveBallisticHits`; resolved non-protected hits feed
-`BloodImpactSystem`, and fatal results feed `DeathBloodPool`.
+`WeaponSystem.onImpact` is the only player-ray Seam. It publishes a complete
+per-projectile world-space record with owned vector values:
 
-### Stable labels and consumers
+```js
+{
+  point, normal, origin, direction, distance,
+  object, weapon, damage, penetration,
+  material, penetrated, stopped,
+  remainingEnergy, remainingPenetration,
+  triggerId, projectileIndex, projectiles, triggerDamageCap,
+  localContacts,
+}
+```
+
+The existing `fire` event publishes immediate immutable Shot truth even when
+the projectile reaches empty air. A single-projectile gun exposes one path;
+the pump shotgun exposes seven frozen `shot.pellets` paths while spending one
+shell and emitting one blast, recoil, flash and pump-cycle event. Each pellet
+is raycast, penetrated and clipped independently. Scene Adapters aggregate a
+trigger's actor damage against `triggerDamageCap`, de-duplicate physical audio
+and near-miss pressure per actor, and allow only one fatal transition.
+
+`localContacts` is frozen fire-time transport metadata: one `{ anchor, point,
+normal }` sample for each Object3D ancestor of the ray hit. It is not a second
+world-space impact record. `CombatImpactResolver` consumes the sample matching
+its selected body anchor, while synchronous/custom impacts without the field
+retain the ordinary world-to-local fallback.
+
+No Adapter may discard the actual `object`, substitute a guessed body point,
+reconstruct the ray from the current camera after tracer travel, or convert the
+world normal twice. Hidden ancestors are filtered before an object can stop a
+round. `CombatImpactResolver` clones and freezes the complete record before any
+fatal pose can move the victim.
+
+`WeaponSystem.feedback()` returns exactly
+`{ aimed, aimBlend, spread, bloom, suppression }`; reticle and camera
+presentation read that data but do not own accuracy. `Firearm` owns magazine
+and reserve counts, semi/automatic trigger rules, cooldown, recoil, dry-click
+latching and phased reload behavior. Its restore Interface intentionally keeps
+durable ammunition but clears reload timers, recoil, cooldown and held-trigger
+latches.
+
+There is remaining migration debt in `src/core/combat/weapon.js`:
+`WeaponController` overlaps `Firearm` and is still used directly by Heist.
+Mansion Siege hostiles and its friendly ensemble have migrated to canonical
+`Firearm`; do not reintroduce a second ammunition/reload authority there.
+Future Adapters must translate old trigger/burst calls to `Firearm` first and
+avoid adding new behavior to both classes in the meantime.
+
+### CombatActor Interface: health, armor and lethal hits
+
+```js
+const actor = new CombatActor({
+  id, faction, maxHealth, armor, maxArmor, core,
+});
+actor.applyHit({ amount, attacker, playerShot, matrix, lethal });
+actor.heal(amount);
+actor.replenishArmor(amount);
+actor.setInjury(grade);
+actor.snapshot();
+actor.restore(snapshot);
+actor.durableSnapshot();
+actor.restoreDurable(snapshot);
+```
+
+`CombatActor` is the sole health and armor authority. Ordinary damage absorbs
+up to 55 percent of raw damage from remaining armor, reports the exact absorbed
+amount and `armorBroken`, then reduces health. A Located head hit passes
+`lethal: true`: it bypasses armor but still obeys faction permission and core
+protection. A protected core fatal attempt remains at one health and reports
+`fatal: false`, `fatalPrevented: true` and `protectedCore: true`; `lethal` still
+records the requested hit-location rule. A presentation Adapter therefore
+cannot mistake that surviving actor for a corpse or death pool.
+
+`applyHit` returns the mechanical truth, including `applied`, `reason`, `raw`,
+`damage`, `absorbed`, `armorBefore`, `armorAfter`, `armorBroken`,
+`healthBefore`, `healthAfter`, `lethal`, `fatal` and, when applicable,
+`fatalPrevented`/`protectedCore`. `fatal` always means the actor actually became
+incapacitated. Scene code must branch on this result rather than subtracting
+health or armor itself. `FactionMatrix` remains the damage-permission Module;
+`resolveBallisticHits` remains the lower-level ordered penetration Interface
+for a genuinely multi-hit round.
+
+### AabbCombatSpace, perception and visible aim
+
+```js
+const space = new AabbCombatSpace({
+  boxes, bounds, radius, height, separation, verticalSeparation,
+  floorClearance, headClearance,
+});
+space.trace(from, to, { boxes, skipRadius, ignore });
+space.move(position, displacement, { boxes, bounds });
+space.separate(subject, peers, {
+  boxes, bounds, separation, verticalSeparation,
+  positionOf, idOf, eligible, id,
+});
+
+const perception = new CombatPerception({
+  range, fov, memorySeconds, awareness, awarenessGain,
+  memoryAwarenessFloor, memoryAwarenessLoss, lostAwarenessLoss,
+  samplePoint, eligible, score, idOf, space, trace,
+});
+perception.scan({
+  origin, forward, candidates, boxes, range, fov,
+  samplePoint, eligible, score, idOf, space, trace,
+});
+perception.tick(dt);
+perception.snapshot();
+perception.restore(snapshot);
+
+const aim = new CombatWeaponAim(options);
+aim.update(dt, {
+  root, weaponModel, weaponController, targetPoint,
+  muzzleHeight, settleScale, interrupted, pose,
+});
+aim.snapshot();
+aim.restore(snapshot, { root, weaponController });
+```
+
+`AabbCombatSpace.trace` returns the deterministic nearest blocker with cloned
+world data and a stable collider identity. It ignores the collider containing
+the origin. `move` performs swept horizontal-axis movement with wall sliding,
+bounds clamping and no tunneling through thin objects. `separate` resolves
+crowds in stable id order and reuses collision checks, so separation cannot
+push an actor through a wall. The scene Adapter remains responsible for
+authoring the correct boxes, bounds and walk-over clearances.
+
+`CombatPerception` can select only an eligible candidate inside range and FOV
+with an unblocked trace. It copies the sampled aim point; memory may retain that
+copy, but it never follows a hidden actor through a live object reference.
+Deterministic score and id ordering resolve ties. Its public truth is
+`target`, `targetVisible`, `sampledPoint`, `lastSeen`, `distance`, `memory` and
+`awareness`.
+
+`CombatWeaponAim` turns the actual actor root, drives pitch and an optional pose
+callback, and derives the weapon model's world muzzle and local negative-Z
+bore. `aligned` becomes true only when both the body aim and actual bore are
+inside tolerance and the actor is not interrupted. A restored snapshot never
+restores firing permission; the next update must prove alignment again. An NPC
+that is shooting must therefore visibly face and point its weapon at the point
+it sampled.
+
+### Located impacts and hostile shot truth
+
+```js
+const impacts = new CombatImpactResolver();
+const unregister = impacts.register(root, {
+  actor, combatant, zoneOf, partOf, anchorOf, materialOf,
+});
+impacts.resolve(impact, {
+  attacker, playerShot, damage, lethalHeadshots, damageScale,
+});
+unregister();
+
+const fireControl = new CombatFireControl({
+  random, space, colliders, alignmentTolerance, targetTolerance,
+  nearMissRadius, whizCooldown, missMin, missMax,
+});
+fireControl.resolveShot({
+  origin, boreDirection, aimPoint,
+  target, targetPoint, targetVisible,
+  attacker, damage, damageScale, accuracy, playerShot,
+  areaFire, colliders, space, trace,
+});
+fireControl.update(dt);
+fireControl.snapshot();
+fireControl.restore(snapshot);
+```
+
+`CombatImpactResolver.register` walks a ray-hit object's ancestors to find the
+registered combatant. Descriptor values may be constants or functions. The
+Located-hit result preserves the frozen full impact record and adds `root`,
+`combatant`, `actor`, `zone`, `part`, `anchor`, `material`,
+`anchorLocalPoint`, `anchorLocalNormal`, `result`, `applied`, `lethal` and
+`fatal`. WeaponSystem-supplied anchor-local point and normal are captured when
+the shot is fired; synchronous callers are captured immediately before
+`applyHit`. Target motion during tracer travel and a fatal fall therefore
+cannot drag the wound back to an old world-space pose. The default humanoid
+`head` zone requests a lethal hit. Invisible, inactive, down,
+incapacitated and unregistered targets are rejected honestly. This Module
+never creates blood, emits audio or calls mission callbacks.
+
+`CombatFireControl` is data-only hostile-shot truth. It fires only along an
+aligned actual bore. Actor damage additionally requires an explicitly visible
+target whose current point remains within tolerance of the copied sampled aim
+point. Area fire has no actor and can never damage one. A collider ends the
+round at the blocker; a clean miss ends off the target; a wall prevents a
+through-wall near miss. The shared pool-wide whiz cooldown makes `whiz` a
+rate-limited permission rather than an audio side effect. Results carry cloned
+`origin`, `direction`, `boreDirection` and `end` plus `fired`, `reason`,
+`blocked`, `blocker`, `hit`, `nearMiss`, `whiz`, `distance`, `missDistance`,
+`damage`, `applied`, `fatal`, `result`, `targetId`, `actor`, `areaFire` and
+`boreError`. The Adapter alone turns those facts into tracers, impact particles,
+sound, suppression and HUD feedback.
+
+### Impairment, suppression, supplies and combat HUD
+
+```js
+const impairments = new CombatImpairments(options);
+impairments.applyResolvedHit(locatedHit);
+impairments.update(dt);
+impairments.snapshot();
+impairments.restore(snapshot);
+
+const suppression = new SuppressionModel({ decay });
+suppression.noteNearMiss(distance, energy);
+suppression.update(dt);
+suppression.snapshot();
+suppression.restore(snapshotOrValue);
+suppression.reset();
+suppression.value;
+suppression.aimStability;
+suppression.vignette;
+
+const supplies = new CombatSupplyState({
+  triageCharges, resupplyCharges, triageHeal,
+  armorPerUse, magazinesPerWeapon,
+});
+supplies.useTriage(actor, { heal });
+supplies.useResupply({ actor, firearms });
+supplies.snapshot();
+supplies.restore(snapshot);
+```
+
+`CombatImpairments` accepts only an applied Located hit. Stagger temporarily
+interrupts aim; leg wounds reduce `speedScale`; arm wounds reduce
+`accuracyScale` and `aimSettleScale`. The Adapter feeds those scales into
+movement, `Firearm` and `CombatWeaponAim`; it does not reproduce their math.
+
+`SuppressionModel` grows only from honest near misses and decays over time. It
+reduces aim stability and exposes vignette strength without taking control from
+the player. `snapshot()` returns the JSON-safe `{ version: 1, value }` record;
+`restore(snapshotOrValue)` accepts that record or the legacy scalar, clamps the
+value to `[0, 1]`, and returns the Module. `reset()` clears pressure to zero and
+also returns the Module. None of these Interfaces serializes presentation or
+the Module instance.
+
+`CombatSupplyState` owns finite triage and resupply charges. Triage consumes a
+charge only when `CombatActor.heal` actually restores health. Resupply consumes
+a charge only when it restores actor armor or adds bounded reserve ammunition
+through `Firearm.resupply`. It cannot overfill either authority. Armor/health
+display comes from the shared `combatVitals()` view model. Mansion Siege mounts
+the complete `CombatStatusHud`, including its directional damage wedge. Cartel
+Palace keeps its authored DOM/CSS Adapter but consumes `combatVitals()` rather
+than duplicating health/armor math or inventing a second armor total.
+
+### Ballistic material, suppression and presentation Interfaces
+
+`AabbCombatSpace.traceAll()` returns deterministic ordered entry/exit contacts.
+Only an explicit `combatMaterial` tag grants material behavior; transparency,
+mesh names and render materials never imply penetration. `resolveMaterialPath`
+spends penetration and energy through declared thin `glass`, `drywall`,
+`wood_thin` and `car_door` contacts, while unknown geometry and concrete stop
+at the truthful first point. Vision blocking remains an independent Adapter
+decision.
+
+`CombatSuppressionField.applyPlayerShot({ shot, combatants })` consumes the
+finite terminal segment from Shot truth. It can call an exposed combatant's
+existing `SuppressionModel.noteNearMiss` once per trigger, but cannot damage,
+extend beyond a blocker, reach through side cover, or pressure an actor hit by
+another projectile from the same trigger.
+
+`CombatProjectilePattern` samples normalized independent rays for the shared
+pump shotgun. It owns cone geometry only. `WeaponSystem` and
+`CombatFireControl` still own ray/path resolution; `Firearm` remains the one
+shell and cycle authority; each Adapter owns only actor aggregation and local
+presentation.
+
+`BallisticImpactSystem` maintains a bounded pool of exact-point, exact-normal
+surface marks and selects material audio. Flesh stays exclusively with
+`BloodImpactSystem`. `CombatArmorPresentation` consumes live `CombatActor`
+armor and a resolved hit, builds a readable plate silhouette, presents one
+break transition, and reconstructs from actor state after checkpoint restore.
+
+`CombatAudio` maps mechanical truth to semantic positional cues: flesh/head/
+armor impact, armor break, caliber whiz, material strike, supply use, ejecta,
+takedown and body-fall surface. `CombatStepCadence` uses actual post-collision
+travel per combatant and enforces both per-source cadence and a global voice
+budget. Scene Adapters preload `GROUND_COMBAT_AUDIO_CUES`; dialogue and voiced
+barks remain story-local and are never invented by these Modules.
+
+### Stable `userData` protocol and body anchors
+
+Every hittable humanoid Adapter uses this protocol:
+
+```js
+root.userData.combatant = sceneCombatant;
+root.userData.combatActor = combatActor;
+
+bodyAnchor.userData.hitZone = 'head' | 'chest' | 'limb';
+bodyAnchor.userData.hitPart = 'head' | 'chest' | 'arm' | 'leg';
+```
+
+| Field | Stable meaning |
+| --- | --- |
+| `combatant` | Scene record containing identity and authored state such as `active`, `down`, role, root and figure. |
+| `combatActor` | The canonical `CombatActor` health/armor authority. |
+| `hitZone` | Damage-location category. `head` is lethal by default; `chest` and `limb` are ordinary armor-aware hits. |
+| `hitPart` | Consequence category consumed by `CombatImpairments`: `arm` affects aim, `leg` affects movement. |
+| body anchor | The nearest plain or uniformly scaled Object3D carrying `hitZone`/`hitPart`, or the value returned by the registration's `anchorOf`. It is the attachment frame for blood. |
+
+A ray may hit any descendant mesh; ancestor walking supplies this protocol.
+Do not make a non-uniformly scaled render mesh the body anchor. Do not require
+scene-only aliases such as `palaceCombatant` for shared resolution. An Adapter
+may keep an alias temporarily, but the stable fields above must also exist.
+
+### Durable state rules
+
+Checkpoint state stores model truth, never object-graph or presentation truth:
+
+Cartel Palace stores one versioned `checkpointSnapshot` beside its existing
+story checkpoint. That compound record owns the player's durable actor,
+suppression scalar, five-slot loadout/ammunition and the Palace security
+snapshot; v15 campaigns migrate to schema v16 with that field null and retain
+the authored legacy staging fallback until the next real checkpoint.
+
+- Use `CombatActor.snapshot()` only for an in-memory Runtime checkpoint that is
+  allowed to retain authored relationships. Save `CombatActor.durableSnapshot()`
+  and `Firearm.snapshot()` by stable id across a page or campaign Seam;
+  `restoreDurable()` preserves the live `anchor`/`carrying` relationships while
+  restoring only bounded scalar combat state.
+  `Firearm.restore` deliberately restarts ready with no trigger latch, recoil,
+  cooldown or half-finished reload.
+- Save `CombatPerception.snapshot()`, `CombatWeaponAim.snapshot()`,
+  `CombatImpairments.snapshot()`, `CombatFireControl.snapshot()` and
+  `CombatSupplyState.snapshot()`. Perception restore clears the live target;
+  aim restore clears `aligned`.
+- Save `SuppressionModel.snapshot()` only where a mission requires durable
+  pressure; its record contains the scalar `value`, restore clamps it and reset
+  clears transient pressure at a retry boundary.
+- Rebuild `AabbCombatSpace` from authored colliders and rebuild every
+  `CombatImpactResolver` registration from the live cast. Do not serialize
+  colliders, Object3D references, registry entries, actor references or target
+  references.
+- Call `WeaponSystem.cancelPendingImpacts()` before restoring actors. A delayed
+  tracer from the discarded timeline must not damage the restored checkpoint.
+- Blood marks, spatter, death pools, muzzle flashes, tracers, hit confirms,
+  camera recoil, whiz audio and damage wedges are transient presentation.
+  Reset pooled blood and feedback; never save them as story state.
+- `CombatActor.anchor` and `carrying` are Runtime relationships and are never in
+  Durable combat state. A separate mission-owned id may be stored when a story
+  actually needs to reconstruct one of those relationships.
+
+### Production Adapters, verification and scene-authored Locality
+
+Mansion Siege and Cartel Palace are the two production ground-combat Adapters.
+That reuse claim is proven for both player/hostile and hostile/player paths;
+Mansion's friendly ensemble additionally proves the shared perception, rendered
+aim, fire-control and impact stack without moving its authored cast or kill
+budget into core. CombatLab is verification only: it demonstrates Modules and
+catches regressions but is not a campaign Implementation and must not own
+alternate rules.
+
+| Adapter | Shared mechanical composition | Scene-authored Locality |
+| --- | --- | --- |
+| Mansion Siege | Player `WeaponSystem`, hostile pool and friendly ensemble use canonical `Firearm`, `CombatActor`, `AabbCombatSpace`, `CombatPerception`, `CombatWeaponAim`, `CombatImpairments`, `CombatImpactResolver`, `CombatFireControl`, `SuppressionModel`, `CombatSuppressionField`, `CombatSupplyState`, material impacts, armor presentation, combat audio and shared blood. | Waves, breach routes, room graph, tactical roles, Lou's ensemble, armory placement, difficulty scale, checkpoints, authored barks, hit-confirm styling, floor lookup and fatal pose. |
+| Cartel Palace | Player `WeaponSystem` and hostile security use `Firearm`, `CombatActor`, `AabbCombatSpace`, `CombatPerception`, `CombatWeaponAim`, `CombatImpairments`, `CombatImpactResolver`, `CombatFireControl`, `SuppressionModel`, `CombatSuppressionField`, material impacts, armor presentation, combat audio and shared blood. Scripted allies do not constitute a generic friendly-combat Adapter. | Patrol and cover/flank posts, blackout sight tuning, stealth/alarm escalation, Mark phases, Sauce timing, takedown permission, callbacks, presentation and extraction objectives. |
+
+What stays scene-authored in every Adapter: cast and faction membership, spawn
+and wave timing, patrol/navigation anchors, cover and tactical choices,
+objective consequences, dialogue/barks, difficulty multipliers, destructible or
+penetrable material rules, floor lookup, body-fall pose, tracer/audio choices,
+blood-pool floor placement, hit-confirm/HUD mounting and checkpoint composition.
+Those choices consume Module results; they may not contradict collision, LOS,
+alignment, ammo, armor or damage truth.
+
+The deterministic contracts are `tests/weapons-core.test.mjs`,
+`tests/combat-core.test.mjs`, `tests/combat-spatial-perception.test.mjs`,
+`tests/combat-aim-impairments.test.mjs`,
+`tests/combat-impact-fire.test.mjs`, `tests/combat-supplies.test.mjs`,
+`tests/combat-hud.test.mjs`, `tests/blood-effects.test.mjs` and
+`tests/ground-combat-adapters.test.mjs`. `npm run verify:ground-combat` is the
+repeatable cross-Adapter gate. Production proof
+also requires the real Adapter tests and browser verifiers:
+`tests/mansion-siege-people.test.mjs`, `tests/mansion-siege.test.mjs`,
+`tools/verify-mansion-siege.mjs`, `tests/cartel-palace-combat.test.mjs`,
+`tests/cartel-palace-runtime.test.mjs` and
+`tools/verify-cartel-palace.mjs`. A static import or CombatLab-only check is not
+production proof.
+
+### Remaining migration matrix and order
+
+Migrate in this order. The ordering maximizes Leverage while keeping each
+Adapter change local enough to verify:
+
+| Order | Scene / current Implementation | Required Adapter migration | Acceptance boundary |
+| --- | --- | --- | --- |
+| 1 | Heist / THE TAKE: shared actors and selected ballistics, but `HeistLoadout` and hostile weapons still use `WeaponController`; blood remains scene-local. | Put `Firearm` behind a compatibility Adapter first, then adopt common spatial/perception/aim/fire-control/impact Seams and shared blood. Keep hostages, police phases, threat escalation, objectives and authored navigation local. | No wall or hostage damage without an honest trace; NPC bore alignment is visible; ammo/armor restore; applied/fatal impacts create bounded shared blood; focused and browser Heist proof. |
+| 2 | Motel: `S.weapon`/`S.ammo`, cone selection, `segmentBlocked`, direct actor/player damage and local gun feedback. | Move gun state to `Firearm`, register actors, then route movement/LOS/aim/hostile rounds/player impacts through the shared Modules. Preserve the authored Silverback consequences and combat/story state machine. Represent the intentional bathroom-wall shot as an explicit material Adapter, not a global exception that lets colliders leak damage. | Exact blocker/miss endpoints, no sight or damage through ordinary walls, visible NPC alignment, armor/head/limb behavior, shared blood, checkpoint-safe ammo and acceptable fight performance. |
+| 3a | Silver Case: older `ShotResolver`/`ImpactKit` and reaction windows. | Replace its impact and blood Seam first; adopt `WeaponSystem`/`Firearm` only where the player actually owns ammo/reload. Keep reaction-window and narrative outcome logic local. | Real world hit point and body anchor survive motion; lethal/armor rules agree with `CombatActor`; no duplicate blood authority. |
+| 3b | Regular Mansion / Silent Squatch: shared blood is already mounted, but the scripted firearm path and figure mapping remain scene-specific. | Register the cast with the stable protocol and feed the full `WeaponSystem` impact into `CombatImpactResolver`. Do not turn a stealth/scripted sequence into generic siege AI. | Exact wound and one fatal pool, stable reset, protected cast remains protected, existing mission timing unchanged. |
+| 3c | Other scripted firearm scenes, beginning with Squatchfather's guessed eye-point `BulletHoles`. | Preserve the script, but replace guessed impacts with the full impact/Located-hit Seam and shared blood. Add `Firearm` only when ammunition is gameplay state. | A miss stays a miss, blockers own endpoints, actor hits use actual intersections, and recovery clears transient effects. |
+
+Air combat, arcade combat/targeting and cinematic Initiation are explicitly out
+of scope. Enola flight weapons, vehicle/arcade rules and authored cinematic gun
+beats are not ground-combat Adapters unless a later design explicitly introduces
+ordinary on-foot hostile combat. Do not force this architecture into them merely
+to increase the consumer count.
+
+### Stable visual labels
 
 - Held root: `weapons.viewmodel`.
 - Flash: `weapons.muzzleflash`.
@@ -353,14 +799,8 @@ then calls `resolveBallisticHits`; resolved non-protected hits feed
   `armory-lamp-<weapon-id>`.
 - Model roots use catalog names: `revolver`, `pistol9`, `heist-carbine`, `saw`,
   `barrett`, `ak47`.
-
-Combat Lab is the verification consumer, not a competing combat framework.
-Cartel Palace, Mansion and Mansion Siege use `WeaponSystem`; Heist and Mansion
-Siege use `CombatActor` and shared ballistic rules. Scene-local mission logic
-may decide objectives, but it must not reimplement ammo, reload, penetration,
-faction protection or hit permission. `tests/weapons-core.test.mjs`,
-`tests/combat-core.test.mjs` and `tests/combatlab-tool.test.mjs` are the core
-contracts.
+- Blood labels remain those in the blood section above. Ground-combat Adapters
+  consume them; they do not create scene-prefixed blood Implementations.
 
 ## Inventory
 
@@ -501,7 +941,9 @@ the threshold, durability and preview isolation.
 
 1. Move Bing and Silver drink motion to `poseHeldDrink`; then extract the
    apartment held-consumable sequence once for all four drinking scenes.
-2. Transform `WeaponSystem` impact normals to world space and feed resolved
-   combat hits into the shared blood Module.
+2. Complete ground-combat Adapters in the matrix order above: Heist, Motel,
+   then Silver Case, regular Mansion and other scripted firearm scenes. This
+   includes moving remaining applied hits to shared blood; air, arcade and
+   cinematic Initiation combat remain excluded.
 3. Continue replacing scene-local prop approximations with `world/props.js`
    builders plus the stable `reusableProp` vocabulary.

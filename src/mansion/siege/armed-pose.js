@@ -5,8 +5,10 @@
  * different places in their receivers. A universal forearm offset therefore
  * put the long-gun grips 12-13 cm outside the firing hand and left the support
  * hand more than half a metre away. These per-model anchors name the actual
- * grip and the useful part of the fore-end; the tiny CCD pass moves only the
- * support arm and runs only when a pose is authored, never per frame.
+ * grip and the useful part of the fore-end. Authored poses get the full CCD
+ * solve; live aim uses a bounded warm-started correction only when the hand
+ * has actually drifted, so steering the rendered bore cannot tear the support
+ * hand loose or add the full authoring cost to every frame.
  */
 import * as THREE from 'three';
 
@@ -18,6 +20,12 @@ export const SIEGE_WEAPON_MOUNTS = Object.freeze({
     rotation: Object.freeze([RX, 0, 0]),
     grip: Object.freeze([0, -0.0153926682, 0.0662709406]),
     support: null,
+  }),
+  shotgun: Object.freeze({
+    scale: 0.80,
+    rotation: Object.freeze([RX, 0, 0]),
+    grip: Object.freeze([0, -0.05, 0.09]),
+    support: Object.freeze([0, -0.002, -0.31]),
   }),
   pistol9: Object.freeze({
     scale: 0.85,
@@ -57,6 +65,7 @@ const _joint = new THREE.Vector3();
 const _hand = new THREE.Vector3();
 const _toHand = new THREE.Vector3();
 const _toTarget = new THREE.Vector3();
+const _bore = new THREE.Vector3();
 const _delta = new THREE.Quaternion();
 const _world = new THREE.Quaternion();
 const _parent = new THREE.Quaternion();
@@ -91,6 +100,8 @@ function alignPrimaryGrip(figure, weaponId, gun) {
     support: config.support ? [...config.support] : null,
     scale: config.scale,
   };
+  /* A newly authored pose invalidates the cheap live-aim signature below. */
+  gun.userData.siegeSupportTrack = null;
   return gun;
 }
 
@@ -102,15 +113,23 @@ function alignPrimaryGrip(figure, weaponId, gun) {
  * floating. Eight two-joint passes converge below a millimetre on every
  * authored Siege body while retaining the braced pose as the starting bend.
  */
-function solveSupportHand(figure, gun, support) {
+function solveSupportHand(figure, gun, support, {
+  passes = 8,
+  tolerance = 0.012,
+} = {}) {
   const fore = figure.parts.foreL;
   const upper = figure.parts.armL;
   const hand = handMesh(fore);
   if (!hand) return false;
+  const passLimit = Math.max(1, Math.min(8, Math.trunc(Number(passes) || 1)));
+  const wantedTolerance = Math.max(0.001, Number(tolerance) || 0.012);
+  figure.root.updateMatrixWorld(true);
   _target.fromArray(support);
   gun.localToWorld(_target);
+  hand.getWorldPosition(_hand);
+  if (_hand.distanceTo(_target) <= wantedTolerance) return true;
 
-  for (let pass = 0; pass < 8; pass++) {
+  for (let pass = 0; pass < passLimit; pass++) {
     for (const joint of [fore, upper]) {
       figure.root.updateMatrixWorld(true);
       joint.getWorldPosition(_joint);
@@ -126,7 +145,7 @@ function solveSupportHand(figure, gun, support) {
     }
   }
   figure.root.updateMatrixWorld(true);
-  return hand.getWorldPosition(_hand).distanceTo(_target) <= 0.012;
+  return hand.getWorldPosition(_hand).distanceTo(_target) <= wantedTolerance;
 }
 
 /** Attach a newly built catalog model and align its primary grip. */
@@ -161,8 +180,73 @@ export function syncSiegeWeaponPose(figure, gun, { support = true } = {}) {
     }
   }
   alignPrimaryGrip(figure, weaponId, gun);
+  if (support) {
+    /* Live bore steering rotates the weapon inside this forearm frame. Keep
+     * the authored shoulder frame separately so a combat adapter can restore
+     * it without resetting the gun quaternion or repeating the mount solve. */
+    gun.userData.siegeAimArmR = figure.parts.armR.quaternion.clone();
+  }
   if (!support || !config.support) return true;
   return solveSupportHand(figure, gun, config.support);
+}
+
+/**
+ * Keep both authored hands on a gun while live aim steers its visible bore.
+ * The primary grip is translated back into the firing hand and a long gun's
+ * independent support arm is solved afterward. This deliberately does not call
+ * `alignPrimaryGrip`: resetting the weapon quaternion after CombatWeaponAim
+ * would make the hand look right by making the shot point wrong.
+ */
+export function trackSiegeWeaponSupport(figure, gun, {
+  passes = 8,
+  tolerance = 0.003,
+  aimFrame = null,
+} = {}) {
+  const weaponId = gun?.userData?.siegeWeaponId;
+  if (!weaponId || !gun.visible) return false;
+  const config = configFor(weaponId);
+  const joints = [
+    gun, figure.parts.armR, figure.parts.foreR, figure.parts.armL, figure.parts.foreL,
+  ];
+  const previous = gun.userData.siegeSupportTrack;
+  /* Root motion rotates both the gun and both hands together, so only these
+   * local joint quaternions can change their relationship. Avoid even a world
+   * matrix walk when live aim has settled and those locals are unchanged. */
+  const unchanged = previous?.supported === true
+    && joints.every((joint, index) => (
+      1 - Math.abs(joint.quaternion.dot(previous.quaternions[index])) <= 1e-7
+  ));
+  if (unchanged) return true;
+
+  /* CombatWeaponAim has to rotate the catalog model around its receiver
+   * origin to own the rendered bore. Every primary grip is offset from that
+   * origin, so the rotation also swings the grip out of the firing hand.
+   * Translate only -- never rotate -- to put that real grip back in the hand
+   * without changing the bore direction. */
+  const firingHand = handMesh(figure.parts.foreR);
+  if (!firingHand) return false;
+  _grip.fromArray(config.grip).multiply(gun.scale).applyQuaternion(gun.quaternion);
+  gun.position.copy(firingHand.position).sub(_grip);
+  figure.root.updateMatrixWorld(true);
+
+  /* The shot/tracer frame must start at the muzzle that is actually rendered
+   * after that translation. Direction is sampled too so this helper cannot
+   * turn a presentation correction into a stale fire-control endpoint. */
+  if (aimFrame?.origin?.isVector3 && gun.userData.muzzle?.isVector3) {
+    gun.localToWorld(aimFrame.origin.copy(gun.userData.muzzle));
+    if (aimFrame.direction?.isVector3) {
+      gun.getWorldQuaternion(_world);
+      aimFrame.direction.copy(_bore.set(0, 0, -1).applyQuaternion(_world).normalize());
+    }
+  }
+
+  const supported = !config.support
+    || solveSupportHand(figure, gun, config.support, { passes, tolerance });
+  gun.userData.siegeSupportTrack = {
+    supported,
+    quaternions: joints.map((joint) => joint.quaternion.clone()),
+  };
+  return supported;
 }
 
 /** The common ready stance used when a cartel actor is spawned/recycled. */

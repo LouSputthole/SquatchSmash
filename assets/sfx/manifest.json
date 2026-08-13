@@ -20172,6 +20172,156 @@
       "name": "vo.door.refusal.whiskey.1",
       "voice": "player",
       "say": "Take one pull of whiskey. You earned the nerves."
+    },
+    {
+      "name": "combat.bullet.impact.flesh",
+      "duration": 0.75,
+      "loop": false,
+      "prompt": "One rifle round striking clothed flesh: a dry fabric snap and dense body thud with restrained wet detail, close and physical, no muzzle report, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.flesh.heavy",
+      "duration": 0.95,
+      "loop": false,
+      "prompt": "One large-caliber heavy round striking clothed flesh: a forceful fabric tear, deep body impact and short pressure slap, restrained detail, no muzzle report, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.head",
+      "duration": 0.8,
+      "loop": false,
+      "prompt": "One rifle round striking a human head: a compact skull crack under hair and a short dense impact, restrained rather than exaggerated gore, no muzzle report, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.armor",
+      "duration": 0.75,
+      "loop": false,
+      "prompt": "One rifle bullet stopped by a hard ballistic armor plate: sharp ceramic and steel tick over a dense panel thump and nylon shift, no muzzle report, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.armor.heavy",
+      "duration": 0.95,
+      "loop": false,
+      "prompt": "One large-caliber round smashing into heavy body armor: violent plate clang, deep carrier thump and stressed ceramic grit, no muzzle report, no ricochet flight, no voice, no music."
+    },
+    {
+      "name": "combat.armor.break",
+      "duration": 1.1,
+      "loop": false,
+      "prompt": "A final ceramic ballistic plate fracture: brittle layered crack, crushed insert fragments and one short nylon carrier snap, close and dry, no bullet report, no voice, no music."
+    },
+    {
+      "name": "combat.armor.plate.drop",
+      "duration": 1.25,
+      "loop": false,
+      "prompt": "A broken armor plate and several ceramic fragments dropping from a carrier onto a hard floor, heavy flat clack followed by small gritty pieces settling, no voice, no music."
+    },
+    {
+      "name": "combat.player.hit.flesh",
+      "duration": 0.9,
+      "loop": false,
+      "prompt": "First-person player body hit with no armor: close clothing snap, dense chest-level body thud and a brief low internal pressure impact, no muzzle report, no breath, no voice, no music."
+    },
+    {
+      "name": "combat.takedown.quiet",
+      "duration": 1.8,
+      "loop": false,
+      "prompt": "A quiet takedown grapple and controlled lowering of an armed guard: jacket grip, boot scuff, shifting equipment and muted body weight reaching the floor, no strike, no voice, no music."
+    },
+    {
+      "name": "combat.triage.bandage",
+      "duration": 1.6,
+      "loop": false,
+      "prompt": "Fast field dressing treatment: sterile wrapper ripped open, gauze pulled and wrapped firmly, then one short medical tape tear, close and practical, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.wood",
+      "duration": 1,
+      "loop": false,
+      "prompt": "One bullet striking thick mansion hardwood: sharp splinter crack, small wood chips scattering and a short warm interior reflection, no muzzle report, no ricochet, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.metal",
+      "duration": 1.1,
+      "loop": false,
+      "prompt": "One bullet striking a steel railing or doorframe: hard metallic ping, brief ricochet zip and a short ringing decay, no muzzle report, no second impact, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.glass",
+      "duration": 1,
+      "loop": false,
+      "prompt": "One bullet making a localized star crack in a glass pane: tight sharp puncture, radiating glass ticks and a few tiny fragments, not a full window shatter, no muzzle report, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.impact.dirt",
+      "duration": 0.9,
+      "loop": false,
+      "prompt": "One bullet burying into dry packed dirt and soil: compact dusty thump, small grit spray and loose earth pattering back down, no muzzle report, no ricochet, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.whiz.pistol",
+      "duration": 0.8,
+      "loop": false,
+      "prompt": "A single 9mm pistol bullet passing close to the listener: light fast air zip and small supersonic snap, no muzzle report, no impact, no ricochet, no voice, no music."
+    },
+    {
+      "name": "combat.bullet.whiz.heavy",
+      "duration": 1.1,
+      "loop": false,
+      "prompt": "A single .50-caliber or belt-fed heavy round passing dangerously close: violent ballistic crack, chest-level pressure slap and low tearing rush of air, no muzzle report, no impact, no voice, no music."
+    },
+    {
+      "name": "combat.body.fall.gravel",
+      "duration": 1.3,
+      "loop": false,
+      "prompt": "An armed adult body falling onto loose gravel: weighted body and equipment thud, sharp stone crunch and several pebbles skittering to rest, no vocalization, no gore, no music."
+    },
+    {
+      "name": "combat.body.fall.grass",
+      "duration": 1.25,
+      "loop": false,
+      "prompt": "An armed adult body falling onto damp grass and lawn soil: soft heavy landing, compressed turf and clothing and equipment rustle settling, no vocalization, no gore, no music."
+    },
+    {
+      "name": "combat.shell.floor.wood",
+      "duration": 0.75,
+      "loop": false,
+      "prompt": "One hot brass cartridge casing dropping onto a hardwood floor: bright small metal tick, quick low wooden bounce and a short rolling settle, isolated, no gunshot, no voice, no music."
+    },
+    {
+      "name": "weapon.shotgun.fire",
+      "duration": 1.8,
+      "loop": false,
+      "prompt": "One 12-gauge pump shotgun fired inside a large mansion room: deep concussive blast, hard architectural slap and short heavy tail; action remains closed, no pump cycle, no voice, no music."
+    },
+    {
+      "name": "weapon.shotgun.reload.out",
+      "duration": 1.1,
+      "loop": false,
+      "prompt": "A pump shotgun action opened and chamber checked at the start of a reload: solid fore-end travel, steel bolt clack and one empty tube-gate click, close and dry, no shell landing, no voice, no music."
+    },
+    {
+      "name": "weapon.shotgun.reload.in",
+      "duration": 2.2,
+      "loop": false,
+      "prompt": "Several 12-gauge shotgun shells pushed one by one through the loading gate into the magazine tube, distinct brass and spring clicks, then the action closed, close and dry, no voice, no music."
+    },
+    {
+      "name": "weapon.shotgun.empty",
+      "duration": 0.7,
+      "loop": false,
+      "prompt": "The trigger of an empty pump-action shotgun pulled on an empty chamber: one heavy dry hammer click with a short steel receiver ring, close and isolated, no pump, no voice, no music."
+    },
+    {
+      "name": "weapon.shotgun.mag.floor",
+      "duration": 1,
+      "loop": false,
+      "prompt": "One spent plastic-and-brass shotgun shell dropping onto a hard concrete floor: hollow plastic knock, brass rim tick, short bounce and settle, isolated, no gunshot, no voice, no music."
+    },
+    {
+      "name": "weapon.shotgun.cycle",
+      "duration": 1,
+      "loop": false,
+      "prompt": "One complete pump-action shotgun cycle after firing: fore-end pulled sharply back, heavy bolt clack, shell ejected without a floor landing, then fore-end driven forward and locked, no shot, no voice, no music."
     }
   ]
 }

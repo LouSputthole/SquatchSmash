@@ -1,5 +1,5 @@
 /**
- * The six guns, modelled once, for every scene.
+ * The seven guns, modelled once, for every scene.
  *
  * THREE of these already existed and are LIFTED here rather than rebuilt:
  *
@@ -20,10 +20,10 @@
  * transcribed number for number; what changed is where it lives and that it
  * is now DOM-free (see `./build.js` for why that matters).
  *
- * THREE are new: the belt-fed SAW, the Barrett-style anti-materiel rifle and
- * the AK-47.
+ * Four are new: the pump shotgun, the belt-fed SAW, the Barrett-style
+ * anti-materiel rifle and the AK-47.
  *
- * ONE CONVENTION, SIX GUNS. Every model points down local **-Z**, sits with
+ * ONE CONVENTION, SEVEN GUNS. Every model points down local **-Z**, sits with
  * the bore roughly on local y≈0.03, and hands back the same `userData`:
  *
  *   muzzle          THREE.Vector3, local — where the flash is and where a
@@ -203,7 +203,103 @@ export function buildRevolver() {
 }
 
 /* ================================================================== */
-/* 2. The 9mm semi-automatic                                           */
+/* 2. The 12-gauge pump shotgun                                        */
+/* ================================================================== */
+function makeShotgunShell() {
+  const shell = group('shotgun-shell');
+  shell.add(cylinder({ r: 0.009, h: 0.052, pos: [0, 0, 0], mat: M.bakelite, seg: 10 }));
+  shell.add(cylinder({ r: 0.0096, h: 0.010, pos: [0, -0.026, 0], mat: M.brass, seg: 10 }));
+  return shell;
+}
+
+/** Long barrel, tube magazine and a separate fore-end that can visibly pump. */
+export function buildShotgun() {
+  const g = group('shotgun');
+
+  g.add(cylinder({
+    r: 0.0105, h: 0.66, pos: [0, 0.036, -0.34], rotX: Math.PI / 2,
+    mat: M.parkerized, name: 'shotgun-barrel', seg: 12,
+  }));
+  g.add(cylinder({
+    r: 0.0068, h: 0.014, pos: [0, 0.036, -0.675], rotX: Math.PI / 2,
+    mat: M.bore, name: 'shotgun-muzzle', seg: 12,
+  }));
+  g.add(box({ size: [0.010, 0.006, 0.56], pos: [0, 0.050, -0.35], mat: M.dark, name: 'shotgun-rib' }));
+  g.add(sphere({ r: 0.004, pos: [0, 0.052, -0.625], mat: M.brass, name: 'shotgun-bead' }));
+
+  g.add(cylinder({
+    r: 0.013, h: 0.48, pos: [0, -0.002, -0.36], rotX: Math.PI / 2,
+    mat: M.parkerized, name: 'shotgun-magazine-tube', seg: 12,
+  }));
+  g.add(cylinder({
+    r: 0.0145, h: 0.025, pos: [0, -0.002, -0.605], rotX: Math.PI / 2,
+    mat: M.dark, name: 'shotgun-tube-cap', seg: 12,
+  }));
+  for (const z of [-0.13, -0.55]) {
+    g.add(box({
+      size: [0.038, 0.054, 0.016], pos: [0, 0.016, z],
+      mat: M.steel, name: `shotgun-barrel-clamp-${z < -0.3 ? 'front' : 'rear'}`,
+    }));
+  }
+
+  const pump = group('shotgun-pump');
+  pump.position.set(0, -0.002, -0.31);
+  pump.add(box({ size: [0.050, 0.052, 0.19], pos: [0, 0, 0], mat: M.wood, name: 'shotgun-pump-body' }));
+  for (let z = -0.07; z <= 0.07; z += 0.028) {
+    pump.add(box({ size: [0.054, 0.004, 0.010], pos: [0, 0.027, z], mat: M.dark, cast: false }));
+  }
+  g.add(pump);
+
+  g.add(box({ size: [0.060, 0.076, 0.24], pos: [0, 0.020, 0.02], mat: M.parkerized, name: 'shotgun-receiver' }));
+  const port = box({
+    size: [0.006, 0.030, 0.080], pos: [0.032, 0.034, -0.015],
+    mat: M.inset, name: 'shotgun-ejection-port',
+  });
+  g.add(port);
+  g.add(box({
+    size: [0.034, 0.006, 0.10], pos: [0, -0.021, -0.015],
+    mat: M.inset, name: 'shotgun-loading-port',
+  }));
+  for (const z of [-0.025, 0.065]) {
+    g.add(cylinder({
+      r: 0.005, h: 0.066, pos: [0, 0.021, z], rotZ: Math.PI / 2,
+      mat: M.dark, name: 'shotgun-receiver-pin', seg: 8,
+    }));
+  }
+  g.add(sphere({ r: 0.006, pos: [-0.032, 0.008, 0.075], mat: M.dark, name: 'shotgun-safety' }));
+  g.add(box({ size: [0.008, 0.026, 0.008], pos: [0, -0.026, 0.075], mat: M.dark, name: 'shotgun-trigger' }));
+  g.add(torus({
+    r: 0.024, tube: 0.004, seg: 6, ring: 12, arc: Math.PI,
+    mat: M.parkerized, pos: [0, -0.028, 0.072], ...GUARD_ROT,
+  }));
+
+  const stock = group('shotgun-stock');
+  stock.position.set(0, 0.005, 0.13);
+  stock.add(box({ size: [0.054, 0.090, 0.36], pos: [0, 0.006, 0.18], mat: M.wood, name: 'shotgun-stock-body' }));
+  stock.add(box({ size: [0.062, 0.112, 0.024], pos: [0, -0.004, 0.368], mat: M.dark, name: 'shotgun-buttpad' }));
+  g.add(stock);
+  // The stock wrist is the firing-hand grip. Naming the real contact geometry
+  // keeps the shared Siege hand-mount verifier honest for this long gun.
+  g.add(box({
+    size: [0.045, 0.070, 0.10], pos: [0, -0.030, 0.09], rotX: -0.18,
+    mat: M.wood, name: 'shotgun-grip',
+  }));
+
+  g.userData.muzzle = new THREE.Vector3(0, 0.036, -0.682);
+  g.userData.ejectPort = new THREE.Vector3(0.034, 0.034, -0.015);
+  g.userData.magWell = new THREE.Vector3(0, -0.02, 0.02);
+  g.userData.magazine = null;
+  g.userData.magazineRest = null;
+  g.userData.makeMagazine = () => null;
+  g.userData.makeCase = makeShotgunShell;
+  g.userData.moving = { pump, port };
+  g.userData.length = 1.08;
+  g.traverse((object) => { if (object.isMesh) object.receiveShadow = false; });
+  return g;
+}
+
+/* ================================================================== */
+/* 3. The 9mm semi-automatic                                           */
 /* ================================================================== */
 /** The pistol's detachable double-stack magazine, on its own. */
 function makeNineMagazine() {
@@ -863,6 +959,7 @@ export function buildSpeedloader() {
 /** Every builder, by catalog id. `catalog.js` names the ids. */
 export const WEAPON_MODEL_BUILDERS = Object.freeze({
   revolver: buildRevolver,
+  shotgun: buildShotgun,
   pistol9: buildNineMillimeter,
   carbine: () => buildCarbine({ sling: true }),
   saw: buildSaw,
