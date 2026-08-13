@@ -1265,10 +1265,8 @@ const weaponSystem = new WeaponSystem({
   ].filter(Boolean),
   range: 70,
   onImpact: (hit) => {
-    const normal = hit.normal?.clone?.().transformDirection(hit.object.matrixWorld) ?? null;
     applyXxxFirearmImpact({
       ...hit,
-      normal,
       from: camera.getWorldPosition(new THREE.Vector3()),
     });
   },

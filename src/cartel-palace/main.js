@@ -7,9 +7,18 @@ import {
   createCampaign,
   navigateCampaign,
 } from '../core/campaign.js';
-import { CombatActor } from '../core/combat/actors.js';
-import { FACTIONS } from '../core/combat/factions.js';
-import { TracerPool } from '../core/combat/tracers.js';
+import {
+  CombatActor,
+  CombatAudio,
+  CombatStepCadence,
+  CombatSuppressionField,
+  FACTIONS,
+  GROUND_COMBAT_AUDIO_CUES,
+  SuppressionModel,
+  TracerPool,
+  combatVitals,
+  resolveCombatFeedback,
+} from '../core/combat/index.js';
 import {
   FINAL_ARC_LOADOUT_STORAGE_KEY,
   FINAL_ARC_SLOT_COUNT,
@@ -25,7 +34,10 @@ import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
+import { playWeaponCue } from '../core/weapons/audio.js';
 import { WEAPON_IDS, weaponDef } from '../core/weapons/catalog.js';
+import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
+import { BallisticImpactSystem } from '../world/impacts.js';
 
 import { buildPalaceCast } from './cast.js';
 import { EVIDENCE_IDS, PALACE_BEATS, CartelPalaceMission } from './mission.js';
@@ -33,7 +45,7 @@ import {
   previewPalaceCheckpointForLocation,
   previewSnapshotForCheckpoint,
 } from './preview.js';
-import { PalaceSecurity } from './security.js';
+import { PALACE_COMBAT_POSTS, PalaceSecurity } from './security.js';
 import { PALACE_ANCHORS, buildCartelPalace } from './world.js';
 
 const canvas = document.getElementById('scene');
@@ -46,6 +58,7 @@ const initiationButton = document.getElementById('initiation-btn');
 const loading = document.getElementById('loading');
 
 const ui = {
+  crosshair: document.getElementById('crosshair'),
   objective: document.getElementById('objective'),
   objectiveKicker: document.getElementById('objective-kicker'),
   objectiveDetail: document.getElementById('objective-detail'),
@@ -54,8 +67,10 @@ const ui = {
   stealth: document.getElementById('stealth'),
   stealthFill: document.querySelector('#stealth .meter i'),
   stealthState: document.querySelector('#stealth > span'),
-  healthFill: document.querySelector('#health .meter i'),
-  healthText: document.querySelector('#health > span'),
+  healthFill: document.querySelector('#health .health-meter i'),
+  healthText: document.getElementById('health-value'),
+  armorFill: document.querySelector('#health .armor-meter i'),
+  armorText: document.getElementById('armor-value'),
   ammo: document.getElementById('ammo'),
   ammoName: document.getElementById('ammo-name'),
   ammoMag: document.getElementById('ammo-mag'),
@@ -65,6 +80,9 @@ const ui = {
   bossArmor: document.querySelector('#boss .armor i'),
   bossLife: document.querySelector('#boss .life i'),
   bossState: document.querySelector('#boss > span'),
+  damageDirection: document.getElementById('damage-direction'),
+  armorBreak: document.getElementById('armor-break'),
+  suppression: document.getElementById('suppression-pressure'),
 };
 
 /* ------------------------------------------------------------------ */
@@ -148,6 +166,81 @@ const world = {
   groundAt: palace.groundAt,
 };
 
+/** Fixed hostile-flash pool. Every flash root sits on the sampled world-space muzzle. */
+class HostileMuzzleFlashPool {
+  constructor(parent, { capacity = 12 } = {}) {
+    this.parent = parent;
+    this.capacity = Math.max(1, Math.trunc(Number(capacity) || 12));
+    this.pool = [];
+    this.next = 0;
+    this.lastOrigin = null;
+    const geometry = new THREE.SphereGeometry(0.065, 7, 5);
+    for (let index = 0; index < this.capacity; index++) {
+      const root = new THREE.Group();
+      root.name = `palace-hostile-muzzle-flash-${index}`;
+      root.visible = false;
+      const flare = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+        color: 0xffcf72,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }));
+      const light = new THREE.PointLight(0xffb85f, 0, 6, 2);
+      root.add(flare, light);
+      parent.add(root);
+      this.pool.push({ root, flare, light, time: 0, peak: 7 });
+    }
+  }
+
+  flash(origin, { heavy = false } = {}) {
+    if (!origin?.isVector3) return null;
+    const slot = this.pool[this.next % this.pool.length];
+    this.next++;
+    slot.root.position.copy(origin);
+    slot.root.scale.setScalar(heavy ? 1.45 : 1);
+    slot.root.visible = true;
+    slot.flare.material.opacity = 0.95;
+    slot.peak = heavy ? 11 : 7;
+    slot.light.intensity = slot.peak;
+    slot.time = 0.065;
+    this.lastOrigin = origin.clone();
+    return slot.root;
+  }
+
+  update(dt) {
+    const step = Math.max(0, Number(dt) || 0);
+    for (const slot of this.pool) {
+      if (slot.time <= 0) continue;
+      slot.time = Math.max(0, slot.time - step);
+      const strength = slot.time / 0.065;
+      slot.flare.material.opacity = strength * 0.95;
+      slot.light.intensity = strength * slot.peak;
+      if (slot.time <= 0) slot.root.visible = false;
+    }
+  }
+
+  reset() {
+    for (const slot of this.pool) {
+      slot.time = 0;
+      slot.root.visible = false;
+      slot.flare.material.opacity = 0;
+      slot.light.intensity = 0;
+    }
+    this.next = 0;
+    this.lastOrigin = null;
+  }
+
+  report() {
+    return Object.freeze({
+      capacity: this.capacity,
+      active: this.pool.filter((slot) => slot.root.visible).length,
+      lastOrigin: this.lastOrigin?.toArray() ?? null,
+    });
+  }
+}
+
 const hud = new Hud();
 const player = new Player(camera, world);
 player.mode = 'walk';
@@ -158,7 +251,15 @@ player.pitch = -0.06;
 const interaction = new InteractionSystem(camera, hud);
 interaction.setOccluders([palace.root]);
 const audio = new AudioEngine();
-player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
+const combatAudio = new CombatAudio({ audio });
+player.onFootstep = (_surface, intensity) => combatAudio.step({
+  surface: palaceSurfaceAt(player.position),
+  intensity,
+});
+const combatSteps = new CombatStepCadence({ audio: combatAudio });
+const ballisticImpacts = new BallisticImpactSystem(scene, { audio: combatAudio, capacity: 32 });
+const suppressionField = new CombatSuppressionField({ colliders: palace.colliders });
+const hostileMuzzleFlashes = new HostileMuzzleFlashPool(scene, { capacity: 12 });
 
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
@@ -170,6 +271,9 @@ if (postfx.bloom) {
 
 const tracers = new TracerPool(scene, 80, { minLength: 0.75 });
 const playerActor = new CombatActor({ id: 'prospect', faction: FACTIONS.CREW, maxHealth: 100, armor: 30 });
+const suppression = new SuppressionModel();
+const bloodImpacts = new BloodImpactSystem(scene);
+const deathBloodPools = new DeathBloodPool(scene, { capacity: 12 });
 
 /* ------------------------------------------------------------------ */
 /* Five-slot final-raid loadout                                        */
@@ -201,15 +305,178 @@ function combatantFromObject(object) {
 }
 
 let security;
+let hitConfirmTimer = 0;
+let incomingFeedbackTimer = 0;
+let armorBreakTimer = 0;
+let lastCombatFeedback = null;
+let lastPlayerSuppression = null;
+const playerTriggerDamage = new Map();
+
+function confirmCombatHit(kind) {
+  ui.crosshair.dataset.confirmed = kind;
+  hitConfirmTimer = kind === 'headshot' || kind === 'kill' ? 0.28 : 0.18;
+}
+
+function combatMaterialFromObject(object, fallback = 'concrete') {
+  let node = object;
+  while (node) {
+    if (node.userData?.combatMaterial) return node.userData.combatMaterial;
+    node = node.parent;
+  }
+  return fallback;
+}
+
+function weaponCaliber(id) {
+  if ([WEAPON_IDS.PISTOL9, WEAPON_IDS.REVOLVER].includes(id)) return 'pistol';
+  if ([WEAPON_IDS.SAW, WEAPON_IDS.BARRETT, WEAPON_IDS.SHOTGUN].includes(id)) return 'heavy';
+  return 'rifle';
+}
+
+function palaceSurfaceAt(position) {
+  if (position?.z < -35 && Math.abs(position.x) < 8) return 'rug';
+  if (position?.z < 12 && Math.abs(position.x) < 19) return 'tile';
+  return 'concrete';
+}
+
+/* WeaponSystem still owns gun handling, but the Palace Adapter owns contact
+ * classification. Suppress only its legacy generic contact cue so a delayed
+ * actor/world contact produces one truthful physical sound below. */
+const weaponPlayback = {
+  hasSample: (name) => audio.hasSample(name),
+  play: (name, options) => (
+    name === 'heist.bullet.impact' ? null : audio.play(name, options)
+  ),
+};
+
+function playerSuppressionCandidates(excluded = new Set()) {
+  return cast.all.filter((entry) => !excluded.has(entry.id)).map((entry) => ({
+    id: entry.id,
+    actor: entry.actor,
+    active: entry.active && !entry.down,
+    incapacitated: entry.down || entry.actor.incapacitated,
+    point: entry.root.position.clone().add(new THREE.Vector3(0, 1.35, 0)),
+    suppression: entry.suppression,
+  }));
+}
+
+function routePlayerShotTruth(shot) {
+  if (shot?.fired !== true) return null;
+  const pellets = shot.pellets?.length ? shot.pellets : [shot];
+  const hitIds = new Set();
+  for (const pellet of pellets) {
+    for (const contact of pellet.contacts ?? []) {
+      const entry = combatantFromObject(contact.object);
+      if (entry?.id) hitIds.add(entry.id);
+    }
+  }
+  const suppressedIds = new Set(hitIds);
+  const pelletResults = [];
+  const suppressed = [];
+  for (const pellet of pellets) {
+    const hitCombatant = (pellet.contacts ?? [])
+      .some((contact) => combatantFromObject(contact.object));
+    const result = suppressionField.applyPlayerShot({
+      shot: { ...pellet, hit: hitCombatant },
+      combatants: playerSuppressionCandidates(suppressedIds),
+    });
+    pelletResults.push(result);
+    for (const record of result.suppressed) {
+      suppressedIds.add(record.id);
+      suppressed.push(record);
+    }
+  }
+  lastPlayerSuppression = Object.freeze({
+    applied: suppressed.length > 0,
+    triggerId: shot.triggerId ?? null,
+    projectiles: pellets.length,
+    suppressed: Object.freeze(suppressed),
+    pellets: Object.freeze(pelletResults),
+  });
+  return lastPlayerSuppression;
+}
+
+function triggerDamageState(impact) {
+  if (impact?.triggerId == null) return null;
+  const key = `${impact.weapon ?? 'weapon'}:${impact.triggerId}`;
+  let record = playerTriggerDamage.get(key);
+  if (!record) {
+    const cap = Math.max(0, Number(impact.triggerDamageCap) || Number(impact.damage) || 0);
+    record = { key, cap, spent: 0, audioActors: new Set() };
+    playerTriggerDamage.set(key, record);
+    while (playerTriggerDamage.size > 64) {
+      playerTriggerDamage.delete(playerTriggerDamage.keys().next().value);
+    }
+  }
+  return record;
+}
+
+function applyCappedPlayerImpact(impact) {
+  const budget = triggerDamageState(impact);
+  const remaining = budget ? Math.max(0, budget.cap - budget.spent) : Infinity;
+  if (remaining <= 1e-9) {
+    return {
+      located: { applied: false, fatal: false, reason: 'trigger-damage-cap' },
+      budget,
+      submitted: impact,
+    };
+  }
+  const submitted = Number.isFinite(remaining)
+    ? { ...impact, damage: Math.min(Math.max(0, Number(impact.damage) || 0), remaining) }
+    : impact;
+  const located = security?.applyPlayerImpact(submitted) ?? null;
+  if (budget && located?.applied) {
+    budget.spent = Math.min(budget.cap,
+      budget.spent + Math.max(0, Number(located.result?.raw) || 0));
+  }
+  return { located, budget, submitted };
+}
+
 const weapons = new WeaponSystem({
   camera,
   world: scene,
-  audio,
+  audio: weaponPlayback,
   groundAt: palace.groundAt,
   hitTargets: [palace.root, ...cast.hitTargets],
   range: 95,
-  onImpact: ({ object, weapon }) => security?.applyPlayerShot(object, weapon),
+  onImpact: (impact) => {
+    const combatant = combatantFromObject(impact.object);
+    if (combatant) {
+      const { located, budget, submitted } = applyCappedPlayerImpact(impact);
+      if (!located?.applied) return located;
+      showPalaceBlood(located, submitted);
+      const firstPhysicalHit = !budget || !budget.audioActors.has(combatant.id);
+      if (firstPhysicalHit || located.result?.armorBroken) {
+        combatAudio.impact({
+          target: 'enemy',
+          zone: located.zone,
+          caliber: weaponCaliber(impact.weapon),
+          position: located.point ?? impact.point,
+          result: located.result,
+        });
+      }
+      budget?.audioActors.add(combatant.id);
+      confirmCombatHit(located.zone === 'head' ? 'headshot'
+        : located.fatal ? 'kill'
+          : located.result?.absorbed > 0 ? 'armor' : 'hit');
+      return located;
+    }
+    const def = weaponDef(impact.weapon);
+    return ballisticImpacts.hit({
+      point: impact.point,
+      normal: impact.normal,
+      direction: impact.direction,
+      material: impact.material ?? combatMaterialFromObject(impact.object),
+      energy: def?.damage ? impact.damage / def.damage : 1,
+      object: impact.object,
+    });
+  },
   onEvent: (event) => {
+    if (event?.type === 'fire' && event.id) {
+      const kick = weapons.firearm(event.id).def.recoil * 0.48;
+      player.pitch = THREE.MathUtils.clamp(player.pitch + kick, player.pitchMin, player.pitchMax);
+      player.yaw += (Math.random() - 0.5) * kick * 0.22;
+      routePlayerShotTruth(event.shot);
+    }
     if (['equip', 'stow', 'fire', 'loaded'].includes(event.type)) {
       loadout?.capture(weapons);
     }
@@ -219,6 +486,86 @@ const weapons = new WeaponSystem({
     }
   },
 });
+
+function updatePlayerStatus() {
+  const view = combatVitals(playerActor);
+  ui.healthFill.style.width = `${view.percent}%`;
+  ui.armorFill.style.width = `${view.armorPercent}%`;
+  ui.healthText.textContent = `${view.current} HP`;
+  ui.armorText.textContent = `${view.armorCurrent} ARMOR`;
+}
+updatePlayerStatus();
+
+function presentIncomingCombatFeedback(feedback) {
+  lastCombatFeedback = feedback;
+  incomingFeedbackTimer = feedback.fatal ? 0.8 : 0.48;
+  ui.damageDirection.dataset.sector = feedback.sector;
+  ui.damageDirection.style.setProperty('--bearing', `${feedback.bearing}rad`);
+  ui.damageDirection.classList.add('active');
+  if (feedback.kind === 'armor-break') {
+    armorBreakTimer = 1.15;
+    ui.armorBreak.classList.add('active');
+  }
+}
+
+function updateCombatFeedback(dt = 0) {
+  incomingFeedbackTimer = Math.max(0, incomingFeedbackTimer - Math.max(0, dt));
+  armorBreakTimer = Math.max(0, armorBreakTimer - Math.max(0, dt));
+  ui.damageDirection.classList.toggle('active', incomingFeedbackTimer > 0);
+  ui.armorBreak.classList.toggle('active', armorBreakTimer > 0);
+  const pressure = suppression.vignette;
+  ui.suppression.style.setProperty('--suppression', pressure.toFixed(3));
+  ui.suppression.style.opacity = Math.min(0.68, pressure * 1.9).toFixed(3);
+  ui.suppression.classList.toggle('active', pressure > 0.005);
+  ui.suppression.dataset.pressure = pressure.toFixed(3);
+}
+
+function resetCombatFeedback() {
+  incomingFeedbackTimer = 0;
+  armorBreakTimer = 0;
+  lastCombatFeedback = null;
+  ui.damageDirection.classList.remove('active');
+  ui.damageDirection.removeAttribute('data-sector');
+  ui.damageDirection.style.removeProperty('--bearing');
+  ui.armorBreak.classList.remove('active');
+  ui.suppression.classList.remove('active');
+  ui.suppression.style.setProperty('--suppression', '0');
+  ui.suppression.style.opacity = '0';
+  ui.suppression.dataset.pressure = '0.000';
+}
+
+function showPalaceBlood(located, impact) {
+  const { actor, anchor } = located;
+  if (!actor || !anchor?.isObject3D) return false;
+  anchor.updateWorldMatrix?.(true, false);
+  const point = located.anchorLocalPoint?.isVector3
+    ? anchor.localToWorld(located.anchorLocalPoint.clone())
+    : located.point ?? impact.point;
+  const normal = located.anchorLocalNormal?.isVector3
+    ? located.anchorLocalNormal.clone().applyNormalMatrix(
+      new THREE.Matrix3().getNormalMatrix(anchor.matrixWorld),
+    ).normalize()
+    : located.normal ?? impact.normal;
+  bloodImpacts.hit({
+    actor,
+    anchor,
+    point,
+    normal,
+    from: located.origin ?? impact.origin,
+    spatter: true,
+    spatterAnchor: anchor,
+  });
+  if (located.fatal) {
+    const root = located.root ?? located.combatant?.root ?? anchor;
+    const at = root.getWorldPosition(new THREE.Vector3());
+    deathBloodPools.spill(at, {
+      floorY: palace.groundAt(at.x, at.z),
+      seed: String(actor.id).split('')
+        .reduce((seed, char) => ((seed * 31) + char.charCodeAt(0)) >>> 0, 11),
+    });
+  }
+  return true;
+}
 
 loadout = createFinalArcLoadout();
 const inheritedLoadout = loadout.checkpoint();
@@ -256,10 +603,24 @@ function repaintEvidence() {
   ui.evidenceText.textContent = `Evidence ${count} / ${Object.keys(EVIDENCE_IDS).length}`;
 }
 
+function captureCombatCheckpoint(name = mission.beat) {
+  loadout?.capture(weapons);
+  return {
+    version: 1,
+    name,
+    player: {
+      actor: playerActor.durableSnapshot(),
+      suppression: suppression.snapshot(),
+    },
+    loadout: loadout?.checkpoint() ?? null,
+    security: security?.snapshot() ?? null,
+  };
+}
+
 function persistCheckpoint(id, facts = {}) {
   state.lastCheckpoint = id;
-  loadout?.capture(weapons);
-  campaignStory.checkpoint(id, facts);
+  const checkpointSnapshot = captureCombatCheckpoint(id);
+  campaignStory.checkpoint(id, { ...facts, checkpointSnapshot });
 }
 
 const mission = new CartelPalaceMission({
@@ -282,6 +643,7 @@ const mission = new CartelPalaceMission({
     player.clearKeys();
     interaction.setPaused(true);
     weapons.setTrigger(false);
+    weapons.setAimed(false);
     document.exitPointerLock?.();
     ending.classList.remove('hidden');
   },
@@ -290,15 +652,51 @@ const mission = new CartelPalaceMission({
 security = new PalaceSecurity({
   cast,
   colliders: palace.colliders,
+  combatPosts: PALACE_COMBAT_POSTS,
+  playerActor,
   onAlarm: (reason) => {
     document.body.classList.add('alarm');
     audio.play('alarm.chirp', { volume: 0.58 });
     if (reason !== 'dining_room') mission.raiseAlarm(reason);
     if (reason === 'guard_contact') hud.say('<em>CONTACT.</em> The quiet route is gone.', 3000);
   },
-  onEnemyFire: ({ entry, from, to, hit }) => {
+  onWeaponEvent: (event) => {
+    const position = event.origin ?? event.position ?? event.entry?.root?.position ?? null;
+    const volume = event.entry?.role === 'boss' ? 0.72 : 0.55;
+    if (event.type === 'shot') {
+      playWeaponCue(audio, event.weapon, 'fire', { volume, position });
+    } else if (event.type === 'empty') {
+      playWeaponCue(audio, event.weapon, 'empty', { volume: 0.42, position });
+    } else if (event.type === 'reload-start') {
+      playWeaponCue(audio, event.weapon, 'reload.out', { volume: 0.42, position });
+    } else if (event.type === 'eject') {
+      playWeaponCue(audio, event.weapon, 'mag.floor', {
+        volume: 0.36,
+        delay: 0.18,
+        position: event.entry?.root?.position ?? position,
+      });
+      playWeaponCue(audio, event.weapon, 'reload.in', { volume: 0.4, position });
+    } else if (event.type === 'cycle') {
+      playWeaponCue(audio, event.weapon, 'cycle', { volume: 0.44, position });
+    }
+  },
+  onStep: ({ id, dt, position, moving, entry }) => {
+    combatSteps.update({
+      id: `palace-${id}`,
+      dt,
+      position: position,
+      surface: palaceSurfaceAt(position),
+      intensity: entry?.role === 'boss' ? 1.2 : 0.82,
+      moving,
+    });
+  },
+  onEnemyFire: ({
+    entry, from, to, hit, whiz, blocked, blocker, nearMiss, missDistance, direction,
+  }) => {
     const def = weaponDef(entry.weapon);
-    audio.play(`weapon.${entry.weapon}.fire`, { volume: entry.role === 'boss' ? 0.72 : 0.55, position: from });
+    hostileMuzzleFlashes.flash(from, {
+      heavy: ['boss', 'traitor'].includes(entry.role) || weaponCaliber(entry.weapon) === 'heavy',
+    });
     tracers.fire({
       from,
       to,
@@ -306,24 +704,53 @@ security = new PalaceSecurity({
       colour: def?.tracer.colour ?? 0xffd27a,
       width: def?.tracer.width ?? 0.012,
     });
-    if (!hit) audio.play('heist.bullet.impact', { volume: 0.16, position: to });
+    if (whiz) combatAudio.whiz({ caliber: weaponCaliber(entry.weapon), position: to });
+    if (nearMiss) suppression.noteNearMiss(missDistance, entry.role === 'boss' ? 1.2 : 0.85);
+    if (!hit && blocked) {
+      ballisticImpacts.hit({
+        point: to,
+        normal: direction?.clone?.().negate() ?? new THREE.Vector3(0, 0, 1),
+        direction,
+        material: blocker?.material ?? 'concrete',
+        energy: entry.role === 'boss' ? 1 : 0.7,
+      });
+    }
   },
-  onPlayerHit: ({ amount }) => {
-    const hit = playerActor.applyHit({ amount, attacker: { faction: FACTIONS.CARTEL } });
-    const health = Math.max(0, Math.round(playerActor.health));
-    ui.healthFill.style.width = `${health}%`;
-    ui.healthText.textContent = String(health);
+  onPlayerHit: ({ id, result: hit, shot }) => {
+    const attacker = cast.all.find((entry) => entry.id === id) ?? null;
+    combatAudio.impact({
+      target: 'player',
+      zone: 'chest',
+      caliber: weaponCaliber(attacker?.weapon),
+      position: player.position,
+      result: hit,
+    });
+    const feedback = resolveCombatFeedback({
+      damage: hit.damage,
+      absorbed: hit.absorbed,
+      armorBroken: hit.armorBroken,
+      fatal: hit.fatal,
+      fromPosition: shot?.origin,
+      listenerPosition: player.position,
+      listenerYaw: player.yaw,
+    });
+    presentIncomingCombatFeedback(feedback);
+    updatePlayerStatus();
     if (hit.fatal || playerActor.incapacitated) {
       state.phase = 'dead';
       player.enabled = false;
       player.clearKeys();
       interaction.setPaused(true);
       weapons.setTrigger(false);
+      weapons.setAimed(false);
       document.exitPointerLock?.();
       death.classList.remove('hidden');
     }
   },
   onTargetDown: (entry, { silent }) => {
+    const position = entry.root.position.clone();
+    if (silent) combatAudio.takedown({ position });
+    combatAudio.bodyFall({ surface: palaceSurfaceAt(position), position });
     if (entry.role === 'guard') {
       hud.toast(silent ? 'Guard down · quiet' : 'Guard down', silent ? 'good' : '');
       return;
@@ -449,6 +876,65 @@ function placeAtCheckpoint(id) {
   player.update(0);
 }
 
+function clearCombatInput() {
+  player.clearKeys();
+  interaction.cancel();
+  weapons.setTrigger(false);
+  weapons.setAimed(false);
+}
+
+function clearCombatTransients() {
+  clearCombatInput();
+  weapons.cancelPendingImpacts();
+  tracers.clear();
+  combatAudio.reset();
+  combatSteps.reset();
+  ballisticImpacts.reset();
+  suppressionField.reset();
+  hostileMuzzleFlashes.reset();
+  playerTriggerDamage.clear();
+  bloodImpacts.reset();
+  deathBloodPools.reset();
+  lastPlayerSuppression = null;
+  resetCombatFeedback();
+  hitConfirmTimer = 0;
+  delete ui.crosshair.dataset.confirmed;
+  ui.crosshair.style.transform = 'scale(1)';
+}
+
+function restoreCombatCheckpoint(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  const legacySecurity = !snapshot.security && Array.isArray(snapshot.entries);
+  const complete = snapshot.player?.actor?.id === playerActor.id
+    && snapshot.loadout && typeof snapshot.loadout === 'object'
+    && snapshot.security && typeof snapshot.security === 'object';
+  if (!legacySecurity && !complete) return false;
+  clearCombatTransients();
+
+  /* Keep the short-lived pre-v16 authoring seam usable: an old raw security
+   * snapshot restores only guards and never manufactures player/loadout data. */
+  if (legacySecurity) {
+    security.restore(snapshot);
+    updatePlayerStatus();
+    return security;
+  }
+
+  playerActor.restoreDurable(snapshot.player.actor);
+  suppression.restore(snapshot.player.suppression);
+  loadout.restore(snapshot.loadout, weapons);
+  weapons.setTrigger(false);
+  weapons.setAimed(false);
+  weapons.setSuppression(suppression);
+  security.restore(snapshot.security);
+  syncLoadout();
+  updatePlayerStatus();
+  updateAmmo();
+  updateStealth();
+  updateBoss();
+  updateCombatFeedback(0);
+  return security;
+}
+
 function stageWorldForCheckpoint(id) {
   const progress = mission.snapshot();
   if (id !== 'approach') {
@@ -495,12 +981,15 @@ function restoreMissionProgress() {
     const restoredCheckpoint = mission.beat;
     stageWorldForCheckpoint(restoredCheckpoint);
     state.lastCheckpoint = restoredCheckpoint;
-    return restoredCheckpoint;
+    return {
+      checkpoint: restoredCheckpoint,
+      checkpointSnapshot: previewCheckpoint ? null : progress.checkpointSnapshot,
+    };
   }
   mission.begin();
   persistCheckpoint('approach');
   stageWorldForCheckpoint('approach');
-  return 'approach';
+  return { checkpoint: 'approach', checkpointSnapshot: null };
 }
 
 /* ------------------------------------------------------------------ */
@@ -521,7 +1010,7 @@ const pauseMenu = createPauseMenu({
   instructions: [
     'WASD move · Shift sprint · C crouch · Space jump · mouse look',
     'E interacts and performs a quiet takedown when a guard is unaware',
-    'Click fires · R reloads · 1–5 selects the final-raid loadout · Q stows it',
+    'Click fires · right-click ADS · R reloads · 1–5 selects the final-raid loadout · Q stows it',
     'Cutting power shortens guard sight. Gunfire ends the clean route.',
   ],
   getObjective: () => state.objective,
@@ -570,17 +1059,19 @@ startButton.addEventListener('click', async () => {
   await audio.loadManifest({
     prefixes: ['weapon.', 'footstep.'],
     names: [
+      ...GROUND_COMBAT_AUDIO_CUES,
       'ambience.rain', 'ambience.city.night', 'alarm.chirp',
       'door.creak', 'door.locked', 'heist.bullet.impact',
     ],
   });
   audio.startLoop('palace-night', { name: 'ambience.rain', volume: 0.052, ambience: true, fade: 1.4 });
-  restoreMissionProgress();
+  const restored = restoreMissionProgress();
   state.phase = 'active';
   interaction.setPaused(false);
   player.enabled = true;
   inventoryBar.show();
   loadout.apply(weapons);
+  if (restored.checkpointSnapshot) restoreCombatCheckpoint(restored.checkpointSnapshot);
   syncLoadout();
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
@@ -602,6 +1093,7 @@ document.addEventListener('pointerlockchange', () => {
   if (state.phase === 'active' && !state.paused) {
     player.enabled = document.pointerLockElement === canvas;
   }
+  if (document.pointerLockElement !== canvas) clearCombatInput();
 });
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
@@ -629,10 +1121,18 @@ document.addEventListener('keyup', (event) => {
 document.addEventListener('mousedown', (event) => {
   if (event.button === 0 && state.phase === 'active' && !state.paused
     && document.pointerLockElement === canvas) weapons.setTrigger(true);
+  if (event.button === 2 && state.phase === 'active' && !state.paused
+    && document.pointerLockElement === canvas) weapons.setAimed(true);
 });
 document.addEventListener('mouseup', (event) => {
   if (event.button === 0) weapons.setTrigger(false);
+  if (event.button === 2) weapons.setAimed(false);
 });
+addEventListener('blur', () => {
+  if (state.phase === 'active' && !state.paused) player.enabled = false;
+  clearCombatInput();
+});
+canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 canvas.addEventListener('click', () => {
   if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
     requestGamePointerLock();
@@ -678,6 +1178,10 @@ function animate(now) {
   const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
   last = now;
   if (state.phase === 'active' && !state.paused) {
+    if (hitConfirmTimer > 0) {
+      hitConfirmTimer = Math.max(0, hitConfirmTimer - dt);
+      if (hitConfirmTimer <= 0) delete ui.crosshair.dataset.confirmed;
+    }
     player.update(dt);
     interaction.update(dt);
     security.update(dt, {
@@ -686,15 +1190,26 @@ function animate(now) {
       crouching: player.crouching,
       finalEncounter: mission.beat === PALACE_BEATS.DINING_ROOM,
     });
+    suppression.update(dt);
+    weapons.setSuppression(suppression);
     weapons.update(dt, { speed: Math.hypot(player.velocity.x, player.velocity.z) });
+    const feedback = weapons.feedback();
+    document.getElementById('crosshair').style.transform = `scale(${(1 + feedback.bloom * 60).toFixed(3)})`;
     tracers.update(dt);
+    bloodImpacts.update(dt);
+    deathBloodPools.update(dt);
     updateStealth();
     updateAmmo();
     updateBoss();
   } else {
     player.update(dt);
     tracers.update(dt);
+    bloodImpacts.update(dt);
+    deathBloodPools.update(dt);
   }
+  ballisticImpacts.update(dt);
+  hostileMuzzleFlashes.update(dt);
+  updateCombatFeedback(dt);
   postfx.render();
   postfx.sample(dt);
 }
@@ -708,6 +1223,15 @@ window.CARTEL_PALACE = {
   palace,
   cast,
   security,
+  playerActor,
+  suppression,
+  combatAudio,
+  combatSteps,
+  ballisticImpacts,
+  suppressionField,
+  hostileMuzzleFlashes,
+  bloodImpacts,
+  deathBloodPools,
   weapons,
   loadout,
   loadoutStorageKey: FINAL_ARC_LOADOUT_STORAGE_KEY,
@@ -716,6 +1240,36 @@ window.CARTEL_PALACE = {
   get campaignState() { return campaign.state; },
   get checkpoint() { return state.lastCheckpoint; },
   snapshot: () => mission.snapshot(),
+  combatSnapshot: () => captureCombatCheckpoint(mission.beat),
+  combatRestore: restoreCombatCheckpoint,
+  combatImpact: (impact) => {
+    const located = security.applyPlayerImpact(impact);
+    if (located?.applied) {
+      showPalaceBlood(located, impact);
+      combatAudio.impact({
+        target: 'enemy',
+        zone: located.zone,
+        caliber: weaponCaliber(impact.weapon),
+        position: located.point ?? impact.point,
+        result: located.result,
+      });
+      confirmCombatHit(located.zone === 'head' ? 'headshot'
+        : located.fatal ? 'kill'
+          : located.result?.absorbed > 0 ? 'armor' : 'hit');
+    }
+    return located;
+  },
+  combatFeedback: () => ({
+    incoming: lastCombatFeedback,
+    incomingVisible: incomingFeedbackTimer > 0,
+    armorBreakVisible: armorBreakTimer > 0,
+    suppression: suppression.vignette,
+    playerSuppression: lastPlayerSuppression,
+  }),
+  resetCombatBlood: () => {
+    bloodImpacts.reset();
+    deathBloodPools.reset();
+  },
   evidence: () => Object.fromEntries(Object.entries(palace.evidence).map(([id, target]) => [id, target.userData.collected === true])),
   geometry: () => ({ ...palace.inspectEnvironment(), drawCalls: renderer.info.render.calls }),
 };

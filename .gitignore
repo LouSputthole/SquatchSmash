@@ -2,6 +2,12 @@ node_modules
 package-lock.json
 _*.mjs
 
+# Local provider credentials. Keep an example file explicitly opt-in if one is
+# ever added; generated-audio keys must never enter source control.
+.env
+.env.*
+!.env.example
+
 # Single-file builds from `npm run bundle`. A few megabytes of base64, and
 # rebuildable in one command, so they do not belong in the history.
 dist/

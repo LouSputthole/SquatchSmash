@@ -56,6 +56,16 @@ const M = Object.freeze({
   blackout: new THREE.MeshBasicMaterial({ color: 0x080909 }),
 });
 
+function combatMaterialFor(material) {
+  if (material === M.glass || material === M.window) return 'glass';
+  if (material === M.plaster) return 'drywall';
+  if (material === M.wood || material === M.woodLight) return 'wood_thin';
+  if (material === M.iron || material === M.brass) return 'metal';
+  if (material === M.stone || material === M.stoneLight) return 'stone';
+  if (material === M.stucco || material === M.stuccoDark) return 'concrete';
+  return null;
+}
+
 function box(size, position, material, name = '', { cast = true, receive = true } = {}) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
   mesh.position.fromArray(position);
@@ -88,6 +98,12 @@ function solid(parent, colliders, size, position, material, name = '') {
   parent.add(mesh);
   const collider = addCollider(colliders, position, size, name);
   mesh.userData.collider = collider;
+  const combatMaterial = combatMaterialFor(material);
+  if (combatMaterial) {
+    mesh.userData.combatMaterial = combatMaterial;
+    collider.combatMaterial = combatMaterial;
+    collider.userData = { ...(collider.userData ?? {}), combatMaterial };
+  }
   return mesh;
 }
 

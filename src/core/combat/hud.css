@@ -3,7 +3,7 @@
   left: 26px;
   bottom: 26px;
   z-index: 6;
-  width: 210px;
+  width: 224px;
   padding: 10px 14px 12px;
   border: 1px solid rgba(232, 194, 104, 0.34);
   border-radius: 10px;
@@ -61,19 +61,88 @@
   transition: transform 0.16s ease, background 0.16s ease;
 }
 
-.combat-status-hud[data-state="hurt"] .combat-status-fill {
+.combat-status-hud[data-state="hurt"] .combat-status-health-fill {
   background: linear-gradient(90deg, #bd7b33, #e1b65e);
 }
 
-.combat-status-hud[data-state="critical"] .combat-status-fill,
-.combat-status-hud[data-state="down"] .combat-status-fill {
+.combat-status-hud[data-state="critical"] .combat-status-health-fill,
+.combat-status-hud[data-state="down"] .combat-status-health-fill {
   background: linear-gradient(90deg, #9f2929, #e35b48);
+}
+
+.combat-status-armor {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 2px 8px;
+  margin-top: 8px;
+}
+
+.combat-status-armor.hidden { display: none; }
+
+.combat-status-armor-label,
+.combat-status-armor-value {
+  color: #9fbad4;
+  font: 800 10px/1.2 "Trebuchet MS", "Segoe UI", sans-serif;
+  letter-spacing: 1.8px;
+}
+
+.combat-status-armor-value {
+  color: #d8e9f5;
+  letter-spacing: 0.4px;
+}
+
+.combat-status-armor-track { grid-column: 1 / -1; height: 5px; }
+
+.combat-status-armor-fill {
+  background: linear-gradient(90deg, #557caa, #a9d7f5);
+}
+
+.combat-status-hud[data-armor-state="low"] .combat-status-armor-fill {
+  background: linear-gradient(90deg, #596b82, #91a9be);
+}
+
+.combat-status-hud[data-armor-state="broken"] .combat-status-armor-fill {
+  background: #44505d;
 }
 
 .combat-status-hud.hit {
   border-color: rgba(255, 90, 70, 0.92);
   background: rgba(62, 11, 13, 0.9);
   transform: translateX(3px);
+}
+
+.combat-status-hud.armor-hit {
+  border-color: rgba(143, 207, 255, 0.95);
+  background: rgba(13, 35, 59, 0.92);
+}
+
+.combat-status-hud.armor-break {
+  box-shadow: 0 0 22px rgba(129, 201, 255, 0.72);
+}
+
+.combat-status-direction {
+  --combat-damage-bearing: 0rad;
+  position: fixed;
+  z-index: 7;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 34px;
+  opacity: 0;
+  background: linear-gradient(180deg, rgba(255, 230, 218, 0.96), rgba(210, 44, 34, 0));
+  clip-path: polygon(50% 0, 100% 72%, 50% 54%, 0 72%);
+  transform: translate(-50%, -50%) rotate(var(--combat-damage-bearing)) translateY(-92px);
+  transform-origin: 50% 50%;
+  transition: opacity 0.12s ease;
+}
+
+.combat-status-direction.hidden { display: none; }
+
+.combat-status-direction.active { opacity: 0.92; }
+
+.combat-status-direction.armor-hit {
+  background: linear-gradient(180deg, rgba(190, 229, 255, 0.98), rgba(72, 144, 208, 0));
 }
 
 @media (max-width: 680px) {

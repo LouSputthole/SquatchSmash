@@ -52,8 +52,13 @@ import {
 } from '../../core/final-arc-loadout.js';
 import { FACTIONS, FactionMatrix } from '../../core/combat/factions.js';
 import { CombatActor } from '../../core/combat/actors.js';
+import {
+  CombatAudio, CombatStepCadence, GROUND_COMBAT_AUDIO_CUES,
+} from '../../core/combat/audio.js';
 import { CombatStatusHud } from '../../core/combat/hud.js';
 import { SuppressionModel } from '../../core/combat/suppression.js';
+import { CombatSuppressionField } from '../../core/combat/suppression-field.js';
+import { CombatSupplyState } from '../../core/combat/supplies.js';
 import { SCENE_IDS, createCampaign } from '../../core/campaign.js';
 import {
   createFinalArcRuntimeSession,
@@ -62,6 +67,8 @@ import {
 import { createMansionSiegeCampaignStory } from '../../core/final-arc-story.js';
 import { isPreviewMode } from '../../core/preview-mode.js';
 import { SmokeSystem } from '../../world/smoke.js';
+import { BloodImpactSystem, DeathBloodPool } from '../../world/blood.js';
+import { BallisticImpactSystem } from '../../world/impacts.js';
 
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
@@ -253,6 +260,13 @@ scene.add(glass.root);
 /* ================================================================== */
 const audio = new AudioEngine();
 const missionAudio = new SiegeMissionAudio(audio);
+const SIEGE_COMBAT_CUES = Object.freeze([...new Set([
+  ...GROUND_COMBAT_AUDIO_CUES,
+  'heist.player.hit',
+  'heist.gear.armor.pickup',
+  'heist.bullet.whiz',
+  'heist.bullet.impact',
+])]);
 
 /* ================================================================== */
 /* Player and world                                                      */
@@ -337,39 +351,366 @@ interaction.setOccluders([...grounds.occluders, ...interior.occluders]);
 const matrix = new FactionMatrix();
 const suppression = new SuppressionModel();
 const playerActor = new CombatActor({
-  id: 'prospect', faction: FACTIONS.CREW, maxHealth: 100, armor: 0,
+  id: 'prospect', faction: FACTIONS.CREW, maxHealth: 100, armor: 0, maxArmor: 75,
 });
 const combatHud = new CombatStatusHud({ actor: playerActor, visible: false });
+const combatSupplies = new CombatSupplyState({
+  triageCharges: 2,
+  resupplyCharges: 2,
+  triageHeal: 45,
+  armorPerUse: 45,
+  magazinesPerWeapon: 2,
+});
+const combatAudio = new CombatAudio({ audio });
+const combatSteps = new CombatStepCadence({ audio: combatAudio });
+const ballisticImpacts = new BallisticImpactSystem(scene, { audio: combatAudio });
+const suppressionField = new CombatSuppressionField({ colliders });
+const bloodImpacts = new BloodImpactSystem(scene);
+const deathBloodPools = new DeathBloodPool(scene, { capacity: 14 });
+
+/* WeaponSystem and the two cast Adapters still own their catalog fire/reload
+ * cues. Physical combat presentation belongs to the shared Modules above, so
+ * suppress only the three legacy catch-all cues at that boundary. The same
+ * selected events are then replayed once, from truthful result/material data. */
+const LEGACY_COMBAT_PRESENTATION_CUES = new Set([
+  'heist.bullet.impact',
+  'heist.bullet.whiz',
+  'heist.player.hit',
+]);
+const combatAdapterAudio = Object.freeze({
+  hasSample(cue) {
+    return audio.hasSample(cue);
+  },
+  play(cue, options) {
+    if (LEGACY_COMBAT_PRESENTATION_CUES.has(cue)) return null;
+    return audio.play(cue, options);
+  },
+});
 
 const finalArcLoadout = createFinalArcLoadout();
 const loadoutBar = new SceneInventoryBar({ catalog: FINAL_ARC_WEAPON_CATALOG, visible: true });
 let captureSiegeLoadout = () => {};
 let attackers = null;
 let hitConfirmTimer = 0;
+let hitConfirmKind = null;
 let playerHitCount = 0;
 let playerDamageEvents = 0;
 let pointerLockRejected = false;
+let lastPlayerSuppression = null;
+const playerTriggerDamage = new Map();
+const playerTriggerPresentation = new Map();
+const pendingBodyFalls = new Map();
+let combatBarkTimer = 0;
 const siegeWeaponHitTargets = [...interior.occluders, ...grounds.occluders];
+
+function confirmCombatHit(kind) {
+  hitConfirmKind = kind;
+  hitConfirmTimer = kind === 'kill' || kind === 'headshot' ? 0.28 : 0.18;
+  if (reticleEl) reticleEl.dataset.confirmed = kind;
+}
+
+function floorBelow(point) {
+  return interior.floorAt(point.x, point.z, point.y)
+    ?? exteriorGroundAt(point.x, point.z);
+}
+
+function ancestorData(object, key) {
+  let node = object ?? null;
+  while (node) {
+    if (node.userData?.[key] != null) return node.userData[key];
+    node = node.parent ?? null;
+  }
+  return null;
+}
+
+function combatantForObject(object) {
+  return ancestorData(object, 'combatant') ?? null;
+}
+
+function actorForObject(object) {
+  return ancestorData(object, 'combatActor')
+    ?? combatantForObject(object)?.actor
+    ?? null;
+}
+
+function combatMaterialForImpact(impact = {}) {
+  return impact.material
+    ?? ancestorData(impact.object, 'combatMaterial')
+    ?? 'concrete';
+}
+
+function combatCaliber(weapon) {
+  if (weapon === WEAPON_IDS.SAW) return 'lmg';
+  if (weapon === WEAPON_IDS.BARRETT) return '.50';
+  if (weapon === WEAPON_IDS.REVOLVER || weapon === WEAPON_IDS.PISTOL9) return 'pistol';
+  if (weapon === WEAPON_IDS.SHOTGUN) return 'heavy';
+  return 'rifle';
+}
+
+/** Coarse authored floor language for moving bodies; impact material stays exact. */
+function combatSurfaceAt(position) {
+  if (!position) return 'concrete';
+  const inside = position.x >= BUILDING.x0 && position.x <= BUILDING.x1
+    && position.z >= BUILDING.z0 && position.z <= BUILDING.z1;
+  if (!inside) return position.z <= BUILDING.z0 ? 'gravel' : 'grass';
+  if (position.y >= UPPER_Y - 0.6) return 'wood';
+  if (position.y >= GROUND_Y - 0.6) return 'marble';
+  return 'concrete';
+}
+
+function resolvedPresentationContact(resolved, impact = {}) {
+  const anchor = resolved?.anchor ?? resolved?.hitAnchor ?? null;
+  anchor?.updateWorldMatrix?.(true, false);
+  const point = resolved?.anchorLocalPoint?.isVector3 && anchor?.localToWorld
+    ? anchor.localToWorld(resolved.anchorLocalPoint.clone())
+    : resolved?.point ?? impact.point ?? null;
+  const normal = resolved?.anchorLocalNormal?.isVector3 && anchor?.matrixWorld
+    ? resolved.anchorLocalNormal.clone().applyNormalMatrix(
+      new THREE.Matrix3().getNormalMatrix(anchor.matrixWorld),
+    ).normalize()
+    : resolved?.normal ?? impact.normal ?? null;
+  return { anchor, point, normal };
+}
+
+function presentWorldImpact(impact = {}) {
+  if (!impact.point || impact.actor || actorForObject(impact.object)) return null;
+  const direction = impact.direction?.isVector3
+    ? impact.direction
+    : impact.from?.isVector3
+      ? impact.point.clone().sub(impact.from).normalize()
+      : null;
+  return ballisticImpacts.hit({
+    point: impact.point,
+    normal: impact.normal,
+    direction,
+    material: combatMaterialForImpact(impact),
+    energy: impact.remainingEnergy ?? impact.damage ?? impact.energy ?? 1,
+    object: impact.object?.isObject3D ? impact.object : null,
+  });
+}
+
+function presentActorImpact(resolved, impact) {
+  const result = resolved?.result ?? resolved;
+  if (result?.applied !== true) return [];
+  const contact = resolvedPresentationContact(resolved, impact);
+  return combatAudio.impact({
+    target: 'enemy',
+    zone: resolved?.zone ?? impact?.zone ?? 'chest',
+    caliber: combatCaliber(impact?.weapon ?? resolved?.weapon),
+    position: contact.point,
+    result,
+  });
+}
+
+function queueBodyFall(id, root) {
+  if (!id || !root?.getWorldPosition || pendingBodyFalls.has(id)) return false;
+  const position = root.getWorldPosition(new THREE.Vector3());
+  pendingBodyFalls.set(id, { position, surface: combatSurfaceAt(position) });
+  return true;
+}
+
+function flushBodyFalls() {
+  for (const fall of pendingBodyFalls.values()) combatAudio.bodyFall(fall);
+  pendingBodyFalls.clear();
+}
+
+function playerImpactBudget(impact) {
+  const combatant = combatantForObject(impact?.object);
+  const actor = combatant?.actor ?? actorForObject(impact?.object);
+  const projectileCount = Math.max(1, Math.trunc(Number(impact?.projectiles) || 1));
+  const triggerId = impact?.triggerId;
+  if (!actor || triggerId == null || projectileCount <= 1) {
+    return { impact, exhausted: false, commit() {} };
+  }
+
+  let trigger = playerTriggerDamage.get(triggerId);
+  if (!trigger) {
+    trigger = new Map();
+    playerTriggerDamage.set(triggerId, trigger);
+    /* Trigger ids are monotonic in WeaponSystem. Keep enough history for the
+     * longest visible tracer flight without turning telemetry into save data. */
+    while (playerTriggerDamage.size > 32) {
+      playerTriggerDamage.delete(playerTriggerDamage.keys().next().value);
+    }
+  }
+  const cap = Math.max(0, Number(impact.triggerDamageCap) || Number(impact.damage) || 0);
+  const spent = trigger.get(actor) ?? 0;
+  const damage = Math.min(Math.max(0, Number(impact.damage) || 0), Math.max(0, cap - spent));
+  if (damage <= 0) return { impact, exhausted: true, commit() {} };
+  const adjusted = damage === impact.damage ? impact : { ...impact, damage };
+  return {
+    impact: adjusted,
+    exhausted: false,
+    commit(hits) {
+      const applied = hits.find((hit) => hit?.result?.applied)?.result;
+      if (applied) trigger.set(actor, spent + Math.max(0, Number(applied.raw) || damage));
+    },
+  };
+}
+
+function preparePlayerTriggerPresentation(shot, pellets) {
+  const triggerId = shot?.triggerId ?? pellets[0]?.triggerId;
+  const projectileCount = Math.max(1, Math.trunc(Number(shot?.projectiles) || pellets.length || 1));
+  if (triggerId == null || projectileCount <= 1) return;
+  const actors = new Map();
+  for (const pellet of pellets) {
+    for (const contact of pellet.contacts ?? []) {
+      const actor = actorForObject(contact.object);
+      if (!actor) continue;
+      const state = actors.get(actor) ?? { expected: 0, seen: 0, hits: [] };
+      state.expected++;
+      actors.set(actor, state);
+    }
+  }
+  if (actors.size) playerTriggerPresentation.set(triggerId, actors);
+  while (playerTriggerPresentation.size > 32) {
+    playerTriggerPresentation.delete(playerTriggerPresentation.keys().next().value);
+  }
+}
+
+function presentPlayerTriggerImpact(impact, hits) {
+  const trigger = playerTriggerPresentation.get(impact?.triggerId);
+  const actor = actorForObject(impact?.object);
+  const state = trigger?.get(actor);
+  if (!state) return false;
+  state.seen++;
+  for (const hit of hits) {
+    if (hit?.result?.applied) state.hits.push({ hit, impact });
+  }
+  if (state.seen < state.expected) return true;
+  trigger.delete(actor);
+  if (!trigger.size) playerTriggerPresentation.delete(impact.triggerId);
+  if (!state.hits.length) return true;
+
+  const first = state.hits[0];
+  const last = state.hits.at(-1);
+  const selected = state.hits.find(({ hit }) => hit.zone === 'head')
+    ?? state.hits.find(({ hit }) => hit.result?.fatal)
+    ?? state.hits.find(({ hit }) => hit.result?.armorBroken)
+    ?? first;
+  const result = {
+    ...first.hit.result,
+    applied: true,
+    raw: state.hits.reduce((sum, item) => sum + (item.hit.result.raw ?? 0), 0),
+    damage: state.hits.reduce((sum, item) => sum + (item.hit.result.damage ?? 0), 0),
+    absorbed: state.hits.reduce((sum, item) => sum + (item.hit.result.absorbed ?? 0), 0),
+    armorAfter: last.hit.result.armorAfter,
+    armorBroken: state.hits.some((item) => item.hit.result.armorBroken === true),
+    healthAfter: last.hit.result.healthAfter,
+    fatal: state.hits.some((item) => item.hit.result.fatal === true),
+  };
+  presentActorImpact({ ...selected.hit, result }, selected.impact);
+  return true;
+}
+
+function applyPlayerShotSuppression(shot) {
+  const pellets = shot?.pellets?.length ? shot.pellets : shot ? [shot] : [];
+  preparePlayerTriggerPresentation(shot, pellets);
+  const triggerHitActors = new Set(pellets.flatMap((pellet) => (
+    pellet.contacts?.map((contact) => actorForObject(contact.object)).filter(Boolean) ?? []
+  )));
+  const livingCombatants = attackers?.living?.()
+    ?.map((root) => root?.userData?.combatant ?? root)
+    .filter((combatant) => combatant && !triggerHitActors.has(combatant.actor)) ?? [];
+  const alreadySuppressed = new Set();
+  const results = [];
+  for (const pellet of pellets) {
+    const hit = pellet.contacts?.some((contact) => actorForObject(contact.object)) === true;
+    const combatants = livingCombatants.filter((combatant) => !alreadySuppressed.has(combatant));
+    const result = suppressionField.applyPlayerShot({
+      shot: { ...pellet, hit },
+      combatants,
+      colliders,
+    });
+    for (const suppressed of result.suppressed) alreadySuppressed.add(suppressed.combatant);
+    results.push(result);
+  }
+  lastPlayerSuppression = Object.freeze({
+    applied: results.some((result) => result.applied),
+    suppressed: Object.freeze(results.flatMap((result) => result.suppressed)),
+    pellets: Object.freeze(results),
+  });
+  return lastPlayerSuppression;
+}
+
+function showEnemyBlood(resolved, impact) {
+  const result = resolved?.result;
+  if (!result?.applied) return;
+  const actor = resolved.actor ?? resolved.entry?.actor ?? null;
+  const { anchor, point, normal } = resolvedPresentationContact(resolved, impact);
+  if (actor && anchor?.isObject3D && point) {
+    bloodImpacts.hit({
+      actor,
+      anchor,
+      point,
+      normal,
+      from: resolved.from ?? impact.origin ?? impact.from ?? null,
+      spatter: true,
+      spatterAnchor: resolved.spatterAnchor ?? anchor,
+    });
+  }
+  if (!result.fatal) return;
+  const root = resolved.entry?.root ?? resolved.root ?? anchor;
+  if (!root?.getWorldPosition) return;
+  const at = root.getWorldPosition(new THREE.Vector3());
+  deathBloodPools.spill(at, {
+    floorY: Number.isFinite(resolved.floorY) ? resolved.floorY : floorBelow(at),
+    seed: String(actor?.id ?? resolved.entry?.id ?? '').split('')
+      .reduce((seed, char) => ((seed * 31) + char.charCodeAt(0)) >>> 0, 7),
+  });
+}
+
+function resolvePlayerWeaponImpact(impact) {
+  if (!attackers || !impact?.object) return [];
+  const combatant = combatantForObject(impact.object);
+  if (!combatant) {
+    presentWorldImpact(impact);
+    return [];
+  }
+  const budget = playerImpactBudget(impact);
+  if (budget.exhausted) {
+    presentPlayerTriggerImpact(impact, []);
+    return [];
+  }
+  const hits = attackers.registerHit(budget.impact);
+  budget.commit(hits);
+  const applied = hits.filter((hit) => hit?.result?.applied);
+  const groupedPresentation = presentPlayerTriggerImpact(impact, hits);
+  if (!applied.length) return hits;
+  for (const hit of applied) {
+    if (!groupedPresentation) presentActorImpact(hit, budget.impact);
+    showEnemyBlood(hit, budget.impact);
+  }
+  playerHitCount += applied.length;
+  const best = applied.find((hit) => hit.zone === 'head')
+    ?? applied.find((hit) => hit.result?.fatal)
+    ?? applied.find((hit) => (hit.result?.absorbed ?? 0) > 0)
+    ?? applied[0];
+  const kind = best.zone === 'head' ? 'headshot'
+    : best.result?.fatal ? 'kill'
+      : (best.result?.absorbed ?? 0) > 0 ? 'armor' : 'hit';
+  confirmCombatHit(kind);
+  return hits;
+}
+
 const weaponSystem = new WeaponSystem({
   camera,
   world: scene,
-  audio,
+  audio: combatAdapterAudio,
   groundAt: (x, z) => interior.floorAt(x, z, player.position.y - player.eyeHeight)
     ?? exteriorGroundAt(x, z),
   hitTargets: siegeWeaponHitTargets,
   range: 70,
-  onImpact: ({ object, damage: shotDamage, penetration }) => {
-    if (!attackers || !object) return;
-    const resolved = attackers.registerHit(object, shotDamage, penetration);
-    if (!resolved[0]?.result?.applied) return;
-    playerHitCount++;
-    hitConfirmTimer = 0.18;
-    if (reticleEl) {
-      reticleEl.dataset.confirmed = 'true';
-      reticleEl.style.filter = 'drop-shadow(0 0 5px rgba(255, 104, 72, .95))';
+  onImpact: resolvePlayerWeaponImpact,
+  onEvent: (event) => {
+    /* Recoil changes the next camera ray, not only the viewmodel. The catalog
+     * remains the single source of per-weapon kick. */
+    if (event?.type === 'fire' && event.id) {
+      const kick = weaponSystem.firearm(event.id).def.recoil * 0.48;
+      player.pitch = THREE.MathUtils.clamp(player.pitch + kick, player.pitchMin, player.pitchMax);
+      player.yaw += (Math.random() - 0.5) * kick * 0.22;
+      if (event.shot) applyPlayerShotSuppression(event.shot);
     }
-  },
-  onEvent: () => {
     ammoDirty = true;
     captureSiegeLoadout();
   },
@@ -394,20 +735,22 @@ attackers = createAttackerPool({
   scene,
   damage,
   matrix,
-  audio,
+  audio: combatAdapterAudio,
   registerLight: registerLocalLight,
   onDown: (id) => {
+    queueBodyFall(id, attackers?.entry(id)?.root);
     mission.noteDown(id);
     waveDirty = true;
   },
   /* Where a cartel round landed. The dressing owns the mark; the ensemble
    * owns the flinch. Nothing else can see it happen. */
-  onImpact: ({ point, radius = 5 } = {}) => {
-    if (point) ensemble.noteImpact(point, radius);
+  onImpact: (impact = {}) => {
+    if (impact.point) ensemble.noteImpact(impact.point, impact.radius ?? 5);
+    presentWorldImpact(impact);
   },
 });
 
-const ensemble = buildSiegeEnsemble({ scene, damage, matrix, audio });
+const ensemble = buildSiegeEnsemble({ scene, damage, matrix, audio: combatAdapterAudio });
 
 /**
  * The player, in the shape the attackers' target list wants.
@@ -422,6 +765,15 @@ const playerTarget = {
   actor: playerActor,
   suppression,
 };
+
+function incomingBearing(source) {
+  if (!source || !Number.isFinite(source.x) || !Number.isFinite(source.z)) return null;
+  const dx = source.x - player.position.x;
+  const dz = source.z - player.position.z;
+  const right = dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw);
+  const forward = -dx * Math.sin(player.yaw) - dz * Math.cos(player.yaw);
+  return Math.atan2(right, forward);
+}
 
 /* ================================================================== */
 /* The armory                                                            */
@@ -442,6 +794,30 @@ const playerTarget = {
 const HEAVY_IDS = new Set([WEAPON_IDS.SAW]);
 const PRIMARY_TAKEN = new Set();
 let heavyTaken = false;
+
+function grantSiegeArmor() {
+  const added = playerActor.replenishArmor(playerActor.maxArmor);
+  combatHud.update();
+  if (added > 0 && running && checkpointReconstructionDepth === 0) {
+    combatAudio.resupply({ armor: added, position: player.position });
+  }
+  return added;
+}
+
+/** Armor is part of completing the armory, before the armed checkpoint saves. */
+function finishArming({ primary, heavy }) {
+  /* Grant the plate only on the one legal ARM -> TO_OFFICE transition.
+   * Rack events can still happen later in the mission; letting those call the
+   * grant before `mission.armed()` refused the beat made the armory an
+   * unlimited armor refill. */
+  if (mission.beat !== B.ARM || !primary || !heavy) return false;
+  const armorAdded = grantSiegeArmor();
+  const finished = mission.armed({ primary, heavy });
+  if (finished && armorAdded > 0 && running && checkpointReconstructionDepth === 0) {
+    nudge(`Plate carrier secured — ${Math.round(playerActor.armor)} armor.`, 2.8);
+  }
+  return finished;
+}
 
 const armory = mountArmory({
   parent: scene,
@@ -479,7 +855,7 @@ const armory = mountArmory({
     captureSiegeLoadout();
     if (HEAVY_IDS.has(event.id)) heavyTaken = true;
     else PRIMARY_TAKEN.add(event.id);
-    const done = mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
+    const done = finishArming({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
     /* HALF-ARMED IS THE QUIET FAILURE. The beat needs BOTH, and a player who
      * takes one gun and walks gets no refusal at all -- the objective simply
      * does not advance. He can be on the top floor, at Lou's door, before
@@ -502,6 +878,70 @@ for (const id of finalArcLoadout.items) {
   armory.claim(id);
   if (HEAVY_IDS.has(id)) heavyTaken = true;
   else PRIMARY_TAKEN.add(id);
+}
+
+function ownedFirearms() {
+  return [...new Set(finalArcLoadout.items.filter(Boolean))]
+    .map((id) => weaponSystem.firearm(id));
+}
+
+function useTriageStation() {
+  const result = combatSupplies.useTriage(playerActor);
+  if (!result.used) {
+    nudge(result.remaining <= 0
+      ? 'The field case is empty.'
+      : 'Save the bandages. You are already at full health.', 2.4);
+    return result;
+  }
+  combatAudio.triage({ position: player.position });
+  combatHud.update();
+  nudge(`Treated ${Math.round(result.healed)} health. ${result.remaining} field dressing${result.remaining === 1 ? '' : 's'} left.`, 2.8);
+  return result;
+}
+
+function useResupplyStation() {
+  const result = combatSupplies.useResupply({
+    actor: playerActor,
+    firearms: ownedFirearms(),
+  });
+  if (!result.used) {
+    nudge(result.remaining <= 0
+      ? 'The firing-step ammunition is spent.'
+      : 'Armor and carried ammunition are already full.', 2.4);
+    return result;
+  }
+  combatAudio.resupply({
+    ammunition: result.ammunition,
+    armor: result.armor,
+    position: player.position,
+  });
+  captureSiegeLoadout();
+  combatHud.update();
+  ammoDirty = true;
+  nudge(`Resupplied ${Math.round(result.ammunition)} rounds and ${Math.round(result.armor)} armor. ${result.remaining} cache use${result.remaining === 1 ? '' : 's'} left.`, 3);
+  return result;
+}
+
+const triageSurface = dressing.props.defenceStations.zones.triage.group;
+const resupplySurfaces = [
+  dressing.props.firingStep.ammo,
+  dressing.props.defenceStations.zones.resupply.group,
+].filter(Boolean);
+interaction.register(triageSurface, {
+  label: () => combatSupplies.triageCharges > 0
+    ? `Use <b>triage</b> &mdash; ${combatSupplies.triageCharges} dressing${combatSupplies.triageCharges === 1 ? '' : 's'} left`
+    : '<b>Triage</b> &mdash; empty',
+  enabled: () => running && triageSurface.visible,
+  onUse: useTriageStation,
+});
+for (const surface of resupplySurfaces) {
+  interaction.register(surface, {
+    label: () => combatSupplies.resupplyCharges > 0
+      ? `Resupply <b>armor and ammunition</b> &mdash; ${combatSupplies.resupplyCharges} use${combatSupplies.resupplyCharges === 1 ? '' : 's'} left`
+      : '<b>Resupply</b> &mdash; empty',
+    enabled: () => running && surface.visible,
+    onUse: useResupplyStation,
+  });
 }
 
 /* ================================================================== */
@@ -558,6 +998,7 @@ const dialogue = new SiegeDialogue({
   audio,
   onLine: (line) => {
     if (!subtitleEl) return;
+    combatBarkTimer = 0;
     subtitleEl.hidden = false;
     subtitleWhoEl.textContent = (SIEGE_SPEAKER_NAMES[line.speaker] ?? line.speaker).toUpperCase();
     subtitleTextEl.textContent = line.say;
@@ -571,6 +1012,23 @@ const dialogue = new SiegeDialogue({
     if (sequence === 'sasole') mission.metSasole();
   },
 });
+
+/** Barks are already authored by the cast Adapters; this only renders them. */
+function renderCombatBark(event = {}) {
+  const line = typeof event.line === 'string' ? event.line.trim() : '';
+  if (!line || dialogue.line || !subtitleEl) return false;
+  subtitleEl.hidden = false;
+  subtitleWhoEl.textContent = String(event.name ?? event.role ?? event.id ?? '').toUpperCase();
+  subtitleTextEl.textContent = line;
+  combatBarkTimer = THREE.MathUtils.clamp(line.length * 0.055, 1.4, 3.2);
+  return true;
+}
+
+function updateCombatBark(dt) {
+  if (dialogue.line || combatBarkTimer <= 0) return;
+  combatBarkTimer = Math.max(0, combatBarkTimer - Math.max(0, Number(dt) || 0));
+  if (combatBarkTimer === 0 && subtitleEl) subtitleEl.hidden = true;
+}
 
 /**
  * Which sequence a beat opens with.
@@ -590,11 +1048,26 @@ const BEAT_SEQUENCE = Object.freeze({
 
 function recordSiegeCheckpoint(id) {
   if (checkpointReconstructionDepth > 0) return;
+  const capturedHealth = mission.checkpoint?.id === id
+    ? mission.checkpoint.scene?.health
+    : null;
+  const capturedSupplies = mission.checkpoint?.id === id
+    ? mission.checkpoint.scene?.supplies
+    : null;
   missionAudio.checkpoint(id);
   siegeCampaign.checkpoint(id, {
     attackersDown: mission.attackersDown,
     littleFriendSaid: mission.littleFriendSaid,
     sasoleMet: mission.beat === B.COMPLETE,
+    /* The large scene checkpoint stays in memory. These four bounded numbers
+     * are the combat state a full campaign/page reload cannot reconstruct
+     * honestly from the checkpoint name alone. */
+    checkpointSnapshot: {
+      name: id,
+      health: capturedHealth?.health ?? playerActor.health,
+      armor: capturedHealth?.armor ?? playerActor.armor,
+      supplies: capturedSupplies ?? combatSupplies.snapshot(),
+    },
   });
   checkpointEl.textContent = (CHECKPOINTS[id]?.label ?? 'CHECKPOINT').toUpperCase();
   checkpointEl.classList.add('show');
@@ -664,7 +1137,7 @@ const mission = new SiegeMission({
 });
 
 /**
- * The eleven things a checkpoint restores.
+ * The original eleven mission fields plus finite combat-station supplies.
  *
  * `mission.saveCheckpoint()` throws if any of these is missing, which is the
  * point: a checkpoint that quietly forgot the broken glass would put the
@@ -732,7 +1205,36 @@ mission
       dialogue.restore(value);
       if (subtitleEl) subtitleEl.hidden = true;
     },
+  })
+  .provide('supplies', {
+    capture: () => combatSupplies.snapshot(),
+    restore: (snapshot) => combatSupplies.restore(snapshot),
   });
+
+/** Apply the campaign-safe combat subset to the canonical rebuilt checkpoint. */
+function restoreDurableCombatCheckpoint(snapshot, checkpointId) {
+  if (!snapshot || snapshot.name !== checkpointId) return false;
+  playerActor.restoreDurable({
+    ...playerActor.durableSnapshot(),
+    health: snapshot.health,
+    armor: snapshot.armor,
+    incapacitated: false,
+  });
+  /* Refresh the derived injury grade after replacing raw health. */
+  playerActor.heal(0);
+  combatSupplies.restore(snapshot.supplies);
+  combatHud.reset();
+  resetCombatPresentation();
+
+  /* Future in-page death restores use SiegeMission's full snapshot. Patch the
+   * same values into it so a campaign resume cannot be followed by a rewind
+   * that manufactures the resources we just restored. */
+  if (mission.checkpoint?.id === checkpointId) {
+    mission.checkpoint.scene.health = playerActor.snapshot();
+    mission.checkpoint.scene.supplies = combatSupplies.snapshot();
+  }
+  return true;
+}
 
 /* ================================================================== */
 /* PICKING PEOPLE BACK UP                                               */
@@ -884,19 +1386,28 @@ function onPlayerDown() {
     playerActor.health = playerActor.maxHealth;
     playerActor.incapacitated = false;
     playerActor.injury = 'none';
+    combatHud.reset();
     return;
   }
   if (reviving || !mission.checkpoint) return;
   reviving = true;
+  combatAudio.bodyFall({ surface: combatSurfaceAt(player.position), position: player.position });
   weaponSystem.setTrigger(false);
+  weaponSystem.setAimed(false);
+  weaponSystem.cancelPendingImpacts();
   player.clearKeys?.();
   attackers.despawnAll();
   mission.restoreCheckpoint();
   playerActor.health = playerActor.maxHealth;
-  playerActor.armor = 0;
   playerActor.incapacitated = false;
   playerActor.injury = 'none';
-  suppression.value = 0;
+  combatHud.reset();
+  resetCombatPresentation();
+  bloodImpacts.reset();
+  deathBloodPools.reset();
+  hitConfirmKind = null;
+  hitConfirmTimer = 0;
+  if (reticleEl) delete reticleEl.dataset.confirmed;
   ammoDirty = true;
   waveDirty = true;
   reviving = false;
@@ -931,7 +1442,7 @@ function updateTriggers(dt) {
   if (mission.beat === B.TO_ARMORY) {
     if (inRect(BASEMENT_ROOM, x, z) && feet < GROUND_Y - 1) {
       mission.enteredArmory();
-      mission.armed({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
+      finishArming({ primary: PRIMARY_TAKEN.size > 0, heavy: heavyTaken });
       return;
     }
     /* Out of the bedroom and into the corridor: Booski, on the house radio,
@@ -983,11 +1494,13 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
   if (e.code === 'KeyR' && !e.repeat) { weaponSystem.reload(); ammoDirty = true; }
   if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
+    weaponSystem.setAimed(false);
     finalArcLoadout.stow(weaponSystem);
     loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
     ammoDirty = true;
   }
   if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
+    weaponSystem.setAimed(false);
     finalArcLoadout.select(Number(e.code.slice(5)) - 1, weaponSystem);
     loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
     ammoDirty = true;
@@ -1014,6 +1527,7 @@ window.addEventListener('wheel', (e) => {
   for (let tries = 0; tries < occupied.length; tries++) {
     index = (index + (e.deltaY > 0 ? 1 : -1) + occupied.length) % occupied.length;
     if (!occupied[index]) continue;
+    weaponSystem.setAimed(false);
     finalArcLoadout.select(index, weaponSystem);
     loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
     ammoDirty = true;
@@ -1028,6 +1542,7 @@ window.addEventListener('blur', () => {
   player.clearKeys();
   interaction.release();
   weaponSystem.setTrigger(false);
+  weaponSystem.setAimed(false);
 });
 window.addEventListener('pagehide', () => captureSiegeLoadout());
 window.addEventListener('mousemove', (e) => {
@@ -1068,17 +1583,25 @@ document.addEventListener('pointerlockchange', () => {
     return;
   }
   weaponSystem.setTrigger(false);
+  weaponSystem.setAimed(false);
 });
 document.addEventListener('pointerlockerror', () => {
   pointerLockRejected = true;
   weaponSystem.setTrigger(false);
+  weaponSystem.setAimed(false);
   if (running && !pauseMenu.isPaused()) {
     nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
   }
 });
 
 renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running || e.button !== 0 || pauseMenu.isPaused()) return;
+  if (!running || pauseMenu.isPaused()) return;
+  if (e.button === 2) {
+    e.preventDefault();
+    if (weaponSystem.equipped) weaponSystem.setAimed(true);
+    return;
+  }
+  if (e.button !== 0) return;
   if (document.pointerLockElement !== renderer.domElement) {
     /* After an explicit browser rejection, do not turn every later click into
      * another invisible no-op. A deliberate click still fires one round; the
@@ -1101,7 +1624,9 @@ renderer.domElement.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mouseup', (e) => {
   if (e.button === 0) weaponSystem.setTrigger(false);
+  if (e.button === 2) weaponSystem.setAimed(false);
 });
+renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ================================================================== */
 /* THE NUDGE -- why the key you just pressed did nothing                 */
@@ -1340,9 +1865,9 @@ const pauseMenu = createPauseMenu({
   getObjective: () => mission.objective ?? 'Hold the house.',
   instructions: [
     'W A S D -- move. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
-    'Left mouse fires. R reloads. E takes or returns a rack weapon. 1–5 select; Q stows.',
+    'Left mouse fires. Right mouse aims. R reloads. 1–5 select; Q stows.',
     'F -- say it, once, from the top of the stairs with the heavy in your hands.',
-    'E -- held, next to somebody on the floor, gets them back on their feet.',
+    'E uses triage and ammunition stations; held by a downed ally, it revives.',
     'Enter skips the rest of a line. Tab pauses and resumes.',
     'Escape releases the mouse, which also pauses.',
   ],
@@ -1370,6 +1895,7 @@ const pauseMenu = createPauseMenu({
   onPause: () => {
     interaction.setPaused(true);
     weaponSystem.setTrigger(false);
+    weaponSystem.setAimed(false);
     player.clearKeys();
     if (audio.ctx?.state === 'running') audio.ctx.suspend();
   },
@@ -1459,13 +1985,13 @@ function withCheckpointReconstruction(run) {
 
 function jumpToCheckpoint(id) {
   if (id === 'wake' || !CHECKPOINT_ENTRIES[id]) return false;
-  return withCheckpointReconstruction(() => {
+  const restored = withCheckpointReconstruction(() => {
     mission.wokeUp();
     mission.enteredArmory();
     equipOwnedWeapon(WEAPON_IDS.CARBINE);
     PRIMARY_TAKEN.add(WEAPON_IDS.CARBINE);
     heavyTaken = true;
-    mission.armed({ primary: true, heavy: true });
+    finishArming({ primary: true, heavy: true });
     if (id === 'armed') return true;
 
     mission.enteredOffice();
@@ -1488,6 +2014,8 @@ function jumpToCheckpoint(id) {
     waveDirty = true;
     return mission.beat === B.LULL;
   });
+  if (restored) resetCombatPresentation();
+  return restored;
 }
 
 /* ================================================================== */
@@ -1525,7 +2053,9 @@ async function beginSiege() {
      * once the mission begins. Decode those playable banks before starting so a
      * real recording is never replaced by a one-shot synth fallback. */
     await audio.loadManifest({ names: siegeEffectCueNames() }).catch(() => {});
-    await audio.loadAdditional({ names: [...weaponCueNames(), ...siegeVoiceCueNames()] }).catch(() => {});
+    await audio.loadAdditional({
+      names: [...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames()],
+    }).catch(() => {});
     /* A direct/legacy entry still gets the nightstand .45. Campaign entry keeps
      * the exact guns, selected slot and ammunition brought out of the previous
      * Mansion scene instead of replacing them at boot. A stowed weapon is a
@@ -1556,6 +2086,7 @@ async function beginSiege() {
         return jumpToCheckpoint(entryCheckpoint);
       });
       if (!restored) throw new Error(`Could not restore Siege checkpoint: ${entryCheckpoint}`);
+      restoreDurableCombatCheckpoint(campaignEntry.checkpointSnapshot, entryCheckpoint);
       recordSiegeCheckpoint(entryCheckpoint);
       const at = CHECKPOINT_ENTRIES[entryCheckpoint].at;
       if (at) teleport(at.x, at.y, at.z, at.yaw);
@@ -1601,8 +2132,100 @@ export function siegeEffectCueNames() {
   return [...REQUIRED_SIEGE_EFFECT_CUES];
 }
 
+export function siegeCombatCueNames() {
+  return [...SIEGE_COMBAT_CUES];
+}
+
 export function siegeCueNames() {
-  return [...siegeEffectCueNames(), ...siegeVoiceCueNames()];
+  return [...siegeEffectCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames()];
+}
+
+function presentCombatStep(event = {}, dt = 0) {
+  return combatSteps.update({
+    id: event.id,
+    dt,
+    position: event.position,
+    surface: event.surface ?? combatSurfaceAt(event.position),
+    intensity: event.intensity ?? (event.gait === 'run' ? 1 : 0.72),
+    moving: event.moving !== false,
+  });
+}
+
+function targetForCombatEvent(side, id) {
+  if (!id) return null;
+  if (side === 'friendly') return attackers?.entry?.(id) ?? null;
+  return ensemble?.members?.get?.(id) ?? null;
+}
+
+function presentCombatWeaponEvent(event = {}, side) {
+  if (event.type === 'cycle' && event.kind) {
+    combatAudio.ejecta({
+      kind: event.kind,
+      surface: combatSurfaceAt(event.position),
+      position: event.position,
+    });
+  }
+  if (event.type !== 'shot') return;
+  const pellets = event.pellets?.length ? event.pellets : [];
+
+  /* One physical near-miss voice per trigger, even for the shotgun's seven
+   * truthful pellet paths. CombatFireControl already owns the pool cooldown. */
+  const whiz = side === 'hostile'
+    ? pellets.find((pellet) => pellet.targetIsPlayer === true && pellet.whiz === true)
+    : null;
+  if (whiz) {
+    combatAudio.whiz({
+      caliber: combatCaliber(event.weapon),
+      position: whiz.end ?? event.position,
+    });
+  }
+
+  /* Aggregate one trigger's actor layer by target. Damage has already been
+   * applied per projectile by FireControl; this keeps seven close pellets from
+   * becoming seven simultaneous flesh sounds while preserving an armor break. */
+  const byTarget = new Map();
+  for (const pellet of pellets) {
+    if (!pellet.result?.applied || pellet.targetIsPlayer === true || !pellet.target) continue;
+    const target = targetForCombatEvent(side, pellet.target);
+    if (!target) continue;
+    const group = byTarget.get(pellet.target) ?? { target, pellets: [] };
+    group.pellets.push(pellet);
+    byTarget.set(pellet.target, group);
+  }
+  for (const { target, pellets: hits } of byTarget.values()) {
+    const first = hits[0];
+    const last = hits.at(-1);
+    const result = {
+      ...first.result,
+      applied: true,
+      raw: hits.reduce((sum, pellet) => sum + (pellet.result.raw ?? 0), 0),
+      damage: hits.reduce((sum, pellet) => sum + (pellet.result.damage ?? 0), 0),
+      absorbed: hits.reduce((sum, pellet) => sum + (pellet.result.absorbed ?? 0), 0),
+      armorAfter: last.result.armorAfter,
+      armorBroken: hits.some((pellet) => pellet.result.armorBroken === true),
+      healthAfter: last.result.healthAfter,
+      fatal: hits.some((pellet) => pellet.result.fatal === true),
+    };
+    const point = first.end ?? target.root?.position ?? event.position;
+    presentActorImpact(
+      { result, point, zone: 'chest', weapon: event.weapon },
+      { point, weapon: event.weapon },
+    );
+  }
+}
+
+function resetCombatPresentation() {
+  combatAudio.reset();
+  combatSteps.reset();
+  ballisticImpacts.reset();
+  suppressionField.reset();
+  suppression.reset?.();
+  lastPlayerSuppression = null;
+  playerTriggerDamage.clear();
+  playerTriggerPresentation.clear();
+  pendingBodyFalls.clear();
+  combatBarkTimer = 0;
+  if (!dialogue.line && subtitleEl) subtitleEl.hidden = true;
 }
 
 /* ================================================================== */
@@ -1618,15 +2241,24 @@ function updateGame(dt) {
   updateLightRig(dt);
   updateTriggers(dt);
   interaction.update();
+  suppression.update(dt);
+  weaponSystem.setSuppression(suppression);
   weaponSystem.update(dt, { speed: player.velocity?.length?.() ?? 0 });
+  const weaponFeedback = weaponSystem.feedback();
+  if (reticleEl) {
+    reticleEl.dataset.aimed = String(weaponFeedback.aimed);
+    reticleEl.dataset.spread = String(Number(weaponFeedback.spread.toFixed(5)));
+    reticleEl.dataset.suppression = String(Number(weaponFeedback.suppression.toFixed(3)));
+    const reticleBloom = 1 + Math.min(2.4, weaponFeedback.bloom * 60);
+    reticleEl.style.setProperty('--combat-bloom', String(Number(reticleBloom.toFixed(3))));
+  }
   if (hitConfirmTimer > 0) {
     hitConfirmTimer = Math.max(0, hitConfirmTimer - dt);
-    if (hitConfirmTimer === 0 && reticleEl) {
-      delete reticleEl.dataset.confirmed;
-      reticleEl.style.filter = '';
+    if (hitConfirmTimer === 0) {
+      if (reticleEl) delete reticleEl.dataset.confirmed;
+      hitConfirmKind = null;
     }
   }
-  suppression.update(dt);
   mission.update(dt);
   /* AFTER the mission, not before: a sequence's `onDone` advances the beat,
    * and a beat advanced before `mission.update()` has run its wave director
@@ -1640,6 +2272,9 @@ function updateGame(dt) {
   });
   dressing.update(dt);
   glass.update(dt);
+  ballisticImpacts.update(dt);
+  bloodImpacts.update(dt);
+  deathBloodPools.update(dt);
   /* `alive` is the crew the cartel may engage, and it is deliberately
    * `ensemble.targets()` rather than `ensemble.members` -- that call is the
    * Snow-free list, and it is the first of the two locks keeping him out of
@@ -1649,11 +2284,28 @@ function updateGame(dt) {
     player: playerTarget,
     colliders,
     alive: () => ensemble.targets(),
-    onPlayerHit: ({ damage: hitDamage, fatal }) => {
+    audio: combatAdapterAudio,
+    onBark: renderCombatBark,
+    onWeaponEvent: (event) => presentCombatWeaponEvent(event, 'hostile'),
+    onStep: (_entry, event) => presentCombatStep(event, dt),
+    onPlayerHit: (hit = {}) => {
+      const hitDamage = hit.damage ?? 0;
       playerDamageEvents++;
       combatHud.update();
-      combatHud.noteDamage(hitDamage);
-      if (fatal) onPlayerDown();
+      combatHud.noteDamage(hitDamage, {
+        absorbed: hit.absorbed ?? 0,
+        bearing: incomingBearing(
+          hit.fromPosition ?? hit.from ?? hit.shooterPosition ?? hit.shooter?.position,
+        ),
+      });
+      combatAudio.impact({
+        target: 'player',
+        zone: hit.zone ?? 'chest',
+        caliber: combatCaliber(hit.weapon),
+        position: player.position,
+        result: { ...hit, applied: true },
+      });
+      if (hit.fatal) onPlayerDown();
     },
     /* A man came through a window: break it for real, so the hole he used is
      * a hole the player can shoot back through. The pool reports WHERE he
@@ -1666,8 +2318,16 @@ function updateGame(dt) {
     player: playerTarget,
     colliders,
     attackers,
+    audio: combatAdapterAudio,
+    onBark: renderCombatBark,
+    onWeaponEvent: (event) => presentCombatWeaponEvent(event, 'friendly'),
+    onStep: (_member, event) => presentCombatStep(event, dt),
+    onImpact: (impact) => presentWorldImpact(impact),
     onHostileDown: (id) => { mission.noteDown(id); waveDirty = true; },
+    onFriendlyDown: (id) => queueBodyFall(id, ensemble.members.get(id)?.root),
   });
+  updateCombatBark(dt);
+  flushBodyFalls();
   grounds.update?.(dt);
   interior.update?.(dt);
 
@@ -1737,6 +2397,10 @@ window.mansionSiege = {
   playerActor,
   audio,
   missionAudio,
+  combatAudio,
+  combatSteps,
+  ballisticImpacts,
+  suppressionField,
   combatHud,
   interaction,
   grounds,
@@ -1760,7 +2424,7 @@ window.mansionSiege = {
   beats: {
     wake: () => mission.wokeUp(),
     armory: () => mission.enteredArmory(),
-    arm: () => mission.armed({ primary: true, heavy: true }),
+    arm: () => finishArming({ primary: true, heavy: true }),
     office: () => mission.enteredOffice(),
     briefed: () => mission.briefingEnded(),
     line: () => tryTheLine(),
@@ -1801,6 +2465,26 @@ window.mansionSiege = {
   /** The people. */
   attackers,
   ensemble,
+  /** Deterministic seams over the same adapters gameplay uses. */
+  combatFeedback: () => ({ ...weaponSystem.feedback(), confirm: hitConfirmKind }),
+  setAimed(on) {
+    weaponSystem.setAimed(on === true);
+    return weaponSystem.feedback();
+  },
+  combatImpact: (impact) => resolvePlayerWeaponImpact(impact),
+  supplies: {
+    snapshot: () => combatSupplies.snapshot(),
+    useTriage: () => useTriageStation(),
+    useResupply: () => useResupplyStation(),
+  },
+  blood: {
+    marks(id) {
+      const actor = attackers.entry(id)?.actor;
+      return actor ? bloodImpacts.marksOn(actor) : 0;
+    },
+    get pools() { return deathBloodPools.visibleCount; },
+    reset() { bloodImpacts.reset(); deathBloodPools.reset(); },
+  },
   /** Who is on the floor, and picking one up. Nobody in here ever dies. */
   downed: () => ensemble.downed(),
   revive: (id) => ensemble.revive(id),
@@ -1845,6 +2529,7 @@ window.mansionSiege = {
   get pointerLockRejected() { return pointerLockRejected; },
   weaponStats: () => ({ ...weaponSystem.stats }),
   get playerHealth() { return playerActor.health; },
+  get playerArmor() { return playerActor.armor; },
   get playerDown() { return playerActor.incapacitated; },
   /** Headless only -- see the note on `invulnerable`. */
   setInvulnerable(on) { invulnerable = on !== false; return invulnerable; },

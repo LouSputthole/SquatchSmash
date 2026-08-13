@@ -167,16 +167,21 @@ export class InteractionSystem {
     const target = this.current;
     const tapped = this.holding && desc?.hold && desc.onTap && this.holdTime < desc.hold;
     // Cleared first: the handler may pause the system, which calls back in here.
+    this.cancel();
+    if (tapped) desc.onTap(target);
+  }
+
+  /** Abandon held input without converting it into an authored tap action. */
+  cancel() {
     this.holding = false;
     this.holdTime = 0;
     this.hud.setHold(null);
-    if (tapped) desc.onTap(target);
   }
 
   setPaused(v) {
     this.paused = v;
     if (v) {
-      this.release();
+      this.cancel();
       this.hud.hidePrompt();
       this.current = null;
     }

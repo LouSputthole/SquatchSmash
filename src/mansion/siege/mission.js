@@ -6,7 +6,7 @@
  * THREE and no scene: the scene tells it what the player did, it tells the
  * scene what state the house should be in and what the objective says.
  *
- * WHY THE CHECKPOINT TAKES PROVIDERS. The brief lists eleven things a
+ * WHY THE CHECKPOINT TAKES PROVIDERS. The original brief lists eleven things a
  * checkpoint must restore, and most of them -- weapon, health, ammunition,
  * who is dead, which panes are out -- live in systems this file must not
  * import. So the scene registers a named provider for each, and `capture()`
@@ -147,6 +147,9 @@ export const CHECKPOINT_FIELDS = Object.freeze([
   'activeWave',
   'friendlies',
   'dialogue',
+  /* Combat stations are finite resources. Saving their charges separately
+   * keeps a checkpoint rewind from manufacturing bandages or ammunition. */
+  'supplies',
 ]);
 
 /** How long the lull between the two waves lasts, in seconds. */

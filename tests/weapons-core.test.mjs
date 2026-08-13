@@ -3,13 +3,14 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import {
-  WEAPON_CATALOG, WEAPON_CUE_SLOTS, WEAPON_ORDER,
-  allWeaponCueNames, weaponCue, weaponDef,
+  WEAPON_CATALOG, WEAPON_ORDER,
+  allWeaponCueNames, weaponCue, weaponCueSlots, weaponDef,
 } from '../src/core/weapons/catalog.js';
 import { WEAPON_SFX, WEAPON_SFX_STANDINS, playWeaponCue, weaponStandInCueNames } from '../src/core/weapons/audio.js';
 import { Firearm, READY, RELOAD_IN, RELOAD_OUT } from '../src/core/weapons/Firearm.js';
 import { EjectaPool } from '../src/core/weapons/Ejecta.js';
 import { WeaponSystem } from '../src/core/weapons/WeaponSystem.js';
+import { CombatActor, CombatImpactResolver, FACTIONS } from '../src/core/combat/index.js';
 import { TracerPool } from '../src/core/combat/tracers.js';
 import { buildWeaponModel } from '../src/core/weapons/models.js';
 import { makeHeistCarbine } from '../src/heist/weapons.js';
@@ -18,10 +19,10 @@ import { makeHeistCarbine } from '../src/heist/weapons.js';
 /* The catalog                                                         */
 /* ------------------------------------------------------------------ */
 
-test('all six weapons the owner asked for are in the catalog, and they differ', () => {
+test('all seven weapons are in the catalog, and they differ', () => {
   assert.deepEqual(
     [...WEAPON_ORDER].sort(),
-    ['ak47', 'barrett', 'carbine', 'pistol9', 'revolver', 'saw'],
+    ['ak47', 'barrett', 'carbine', 'pistol9', 'revolver', 'saw', 'shotgun'],
   );
   for (const id of WEAPON_ORDER) assert.ok(WEAPON_CATALOG[id], `${id} missing`);
   // Six magazine sizes, six rates of fire — not one gun with six models on it.
@@ -32,7 +33,9 @@ test('all six weapons the owner asked for are in the catalog, and they differ', 
   assert.equal(WEAPON_CATALOG.barrett.capacity, 10);
   // The three the owner called out as automatic weapons are automatic.
   assert.ok(WEAPON_CATALOG.saw.auto && WEAPON_CATALOG.carbine.auto && WEAPON_CATALOG.ak47.auto);
-  assert.ok(!WEAPON_CATALOG.revolver.auto && !WEAPON_CATALOG.barrett.auto);
+  assert.ok(!WEAPON_CATALOG.revolver.auto
+    && !WEAPON_CATALOG.shotgun.auto
+    && !WEAPON_CATALOG.barrett.auto);
 });
 
 test('the revolver keeps its live rounds on a reload and the box guns do not', () => {
@@ -157,6 +160,19 @@ test('the last reload takes whatever the reserve has left, not a whole magazine'
   assert.equal(f.reserve, 0);
 });
 
+test('ADS tightens the cone, suppression widens it, and a resupply is capped', () => {
+  const f = new Firearm('carbine', { rounds: 12, reserve: 0 });
+  const hip = f.spreadNow();
+  const aimed = f.spreadNow({ aimed: true });
+  const suppressed = f.spreadNow({ aimed: true, aimStability: 0.35 });
+  assert.ok(aimed < hip, `aimed ${aimed} did not tighten hip ${hip}`);
+  assert.ok(suppressed > aimed, `suppressed ${suppressed} did not widen aimed ${aimed}`);
+  assert.equal(f.resupply(f.capacity * 2), f.capacity * 2);
+  assert.equal(f.resupply(9999), f.def.reserve - f.capacity * 2);
+  assert.equal(f.reserve, f.def.reserve);
+  assert.equal(f.resupply(1), 0);
+});
+
 test('tracer spacing follows the catalog, so a belt is not solid tracer', () => {
   const saw = new Firearm('saw');
   const seen = [];
@@ -204,24 +220,360 @@ test('every shared weapon impact carries its catalog damage through click and he
   for (const impact of impacts) {
     assert.equal(impact.damage, WEAPON_CATALOG.saw.damage);
     assert.equal(impact.penetration, WEAPON_CATALOG.saw.penetration);
+    assert.ok(impact.origin?.isVector3, 'impact lost the muzzle origin');
+    assert.ok(impact.direction?.isVector3, 'impact lost the world shot direction');
+    assert.ok(impact.normal?.isVector3, 'impact lost the world-space surface normal');
+    assert.ok(Number.isFinite(impact.distance) && impact.distance > 0);
+    assert.ok(Math.abs(impact.direction.length() - 1) < 1e-6);
+    assert.ok(Math.abs(impact.normal.length() - 1) < 1e-6);
   }
+});
+
+test('player rays penetrate only explicitly tagged thin materials with truthful ordered impacts', () => {
+  const panel = (id, z, depth, material = undefined) => {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(8, 8, depth),
+      new THREE.MeshBasicMaterial(),
+    );
+    mesh.name = id;
+    mesh.position.z = z;
+    if (material !== undefined) mesh.userData.combatMaterial = material;
+    return mesh;
+  };
+  const fireThrough = (surfaces, actorId) => {
+    const camera = new THREE.PerspectiveCamera(68, 1, 0.08, 100);
+    camera.updateMatrixWorld(true);
+    const world = new THREE.Group();
+    const targetMesh = panel(`${actorId}.chest`, -8, 0.2);
+    targetMesh.userData.hitZone = 'chest';
+    targetMesh.userData.hitPart = 'chest';
+    const actor = new CombatActor({
+      id: actorId,
+      faction: FACTIONS.CARTEL,
+      maxHealth: 200,
+    });
+    const combatant = { id: actorId, active: true, root: targetMesh, actor };
+    targetMesh.userData.combatant = combatant;
+    targetMesh.userData.combatActor = actor;
+    world.add(...surfaces, targetMesh);
+    world.updateMatrixWorld(true);
+
+    const resolver = new CombatImpactResolver();
+    resolver.register(targetMesh, { actor, combatant });
+    const impacts = [];
+    const located = [];
+    const weapons = new WeaponSystem({
+      camera,
+      world,
+      /* Deliberately repeat the target. A raycaster may report duplicate
+       * mesh/triangle contacts, but one round may damage one combatant once. */
+      hitTargets: [...surfaces, targetMesh, targetMesh],
+      onImpact: (impact) => {
+        impacts.push(impact);
+        const hit = resolver.resolve(impact, {
+          attacker: { faction: FACTIONS.CREW },
+          playerShot: true,
+        });
+        if (hit.applied) located.push(hit);
+      },
+    });
+    weapons.equip('carbine');
+    const shot = weapons.triggerPress();
+    assert.equal(shot.fired, true);
+    const liveTracer = weapons.tracers.rounds.find(Boolean);
+    assert.ok(liveTracer, 'the production shot did not create its tracer');
+    const tracerEnd = liveTracer.to.clone();
+    assert.equal(actor.health, 200, 'damage arrived before the tracer');
+    for (let i = 0; i < 12; i++) weapons.update(1 / 60);
+    weapons.dispose();
+    return { actor, impacts, located, targetMesh, tracerEnd };
+  };
+  const assertTruthfulImpacts = (fixture) => {
+    for (const impact of fixture.impacts) {
+      assert.equal(Object.isFrozen(impact), true, 'the full impact record is mutable');
+      assert.equal(Object.isFrozen(impact.point), true, 'the impact point is mutable');
+      assert.equal(Object.isFrozen(impact.origin), true, 'the impact origin is mutable');
+      assert.equal(Object.isFrozen(impact.direction), true, 'the impact direction is mutable');
+      const projected = impact.origin.clone()
+        .addScaledVector(impact.direction, impact.distance);
+      assert.ok(projected.distanceTo(impact.point) < 1e-8,
+        `${impact.object.name} impact point was not on its recorded world ray`);
+      assert.ok(Math.abs(impact.normal.length() - 1) < 1e-8);
+      assert.equal(Object.isFrozen(impact.localContacts), true);
+    }
+    assert.ok(fixture.tracerEnd.distanceTo(fixture.impacts.at(-1).point) < 1e-8,
+      'the tracer did not end at the final truthful impact');
+  };
+
+  const glass = panel('thin-glass', -2, 0.1, 'glass');
+  const wood = panel('thin-wood', -4, 0.2, 'wood_thin');
+  const clear = fireThrough([glass, wood], 'guard-through-panels');
+  assert.deepEqual(clear.impacts.map(({ object }) => object), [
+    glass, wood, clear.targetMesh,
+  ]);
+  assert.deepEqual(clear.impacts.map(({ material }) => material), [
+    'glass', 'wood_thin', null,
+  ]);
+  assert.deepEqual(clear.impacts.map(({ penetrated }) => penetrated), [
+    true, true, false,
+  ]);
+  assert.ok(clear.impacts[1].damage < clear.impacts[0].damage);
+  assert.ok(clear.impacts[2].damage < clear.impacts[1].damage);
+  assert.ok(clear.impacts[2].damage > 0);
+  assert.equal(clear.located.length, 1, 'one round damaged the combatant more than once');
+  assert.equal(clear.actor.health, 200 - clear.impacts[2].damage);
+  assertTruthfulImpacts(clear);
+
+  const passGlass = panel('pass-glass', -2, 0.1, 'glass');
+  const concrete = panel('concrete-stop', -4, 0.2, 'concrete');
+  const stopped = fireThrough([passGlass, concrete], 'guard-behind-concrete');
+  assert.deepEqual(stopped.impacts.map(({ object }) => object), [passGlass, concrete]);
+  assert.deepEqual(stopped.impacts.map(({ penetrated }) => penetrated), [true, false]);
+  assert.equal(stopped.located.length, 0);
+  assert.equal(stopped.actor.health, 200);
+  assertTruthfulImpacts(stopped);
+
+  const looksLikeGlass = panel('glass-looking-but-untagged', -2, 0.1);
+  const untagged = fireThrough([looksLikeGlass], 'guard-behind-untagged');
+  assert.deepEqual(untagged.impacts.map(({ object }) => object), [looksLikeGlass]);
+  assert.equal(untagged.impacts[0].material, null);
+  assert.equal(untagged.impacts[0].penetrated, false);
+  assert.equal(untagged.located.length, 0);
+  assert.equal(untagged.actor.health, 200);
+  assertTruthfulImpacts(untagged);
+});
+
+test('the existing fire event carries immediate immutable truth for blocked and empty-air shots', () => {
+  const panel = (id, z, depth, material) => {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(8, 8, depth),
+      new THREE.MeshBasicMaterial(),
+    );
+    mesh.name = id;
+    mesh.position.z = z;
+    mesh.userData.combatMaterial = material;
+    return mesh;
+  };
+  const fire = ({ targets = [], range = 30 } = {}) => {
+    const camera = new THREE.PerspectiveCamera(68, 1, 0.08, 100);
+    camera.updateMatrixWorld(true);
+    const world = new THREE.Group();
+    if (targets.length) world.add(...targets);
+    world.updateMatrixWorld(true);
+    const events = [];
+    const impacts = [];
+    const weapons = new WeaponSystem({
+      camera,
+      world,
+      range,
+      hitTargets: targets,
+      onEvent: (event) => events.push(event),
+      onImpact: (impact) => impacts.push(impact),
+    });
+    weapons.equip('carbine');
+    const fired = weapons.triggerPress();
+    const event = events.find((candidate) => candidate.type === 'fire');
+    const result = { event, impacts, weapons };
+    assert.equal(fired.fired, true);
+    assert.ok(event, 'a fired round did not emit the existing fire event');
+    assert.deepEqual(impacts, [], 'the tracer-delayed impact fired synchronously');
+    return result;
+  };
+
+  const glass = panel('event-glass', -3, 0.1, 'glass');
+  const concrete = panel('event-concrete', -7, 0.3, 'concrete');
+  const blocked = fire({ targets: [concrete, glass] });
+  const shot = blocked.event.shot;
+  assert.ok(shot, 'the existing fire event did not gain all-shot truth');
+  assert.equal(Object.isFrozen(shot), true);
+  assert.equal(Object.isFrozen(shot.origin), true);
+  assert.equal(Object.isFrozen(shot.direction), true);
+  assert.equal(Object.isFrozen(shot.end), true);
+  assert.equal(Object.isFrozen(shot.contacts), true);
+  assert.equal(shot.fired, true);
+  assert.equal(shot.weapon, 'carbine');
+  assert.equal(shot.damage, WEAPON_CATALOG.carbine.damage);
+  assert.equal(shot.penetration, WEAPON_CATALOG.carbine.penetration);
+  assert.equal(shot.blocked, true);
+  assert.equal(shot.stopped, true);
+  assert.deepEqual(shot.contacts.map(({ object, material, penetrated }) => (
+    [object, material, penetrated]
+  )), [
+    [glass, 'glass', true],
+    [concrete, 'concrete', false],
+  ]);
+  for (const contact of shot.contacts) {
+    assert.equal(Object.isFrozen(contact), true);
+    assert.equal(Object.isFrozen(contact.point), true);
+    assert.equal(Object.isFrozen(contact.normal), true);
+    const projected = shot.origin.clone()
+      .addScaledVector(shot.direction, contact.distance);
+    assert.ok(projected.distanceTo(contact.point) < 1e-8);
+  }
+  assert.ok(shot.end.distanceTo(shot.contacts.at(-1).point) < 1e-8);
+  assert.ok(Math.abs(shot.distance - shot.origin.distanceTo(shot.end)) < 1e-8);
+  assert.ok(shot.remainingEnergy > 0 && shot.remainingEnergy < shot.damage);
+  const frozenEnd = shot.end.clone();
+  concrete.position.z = -20;
+  concrete.updateMatrixWorld(true);
+  assert.ok(shot.end.distanceTo(frozenEnd) < 1e-12,
+    'the event shot endpoint followed mutable scene geometry');
+  blocked.weapons.dispose();
+
+  const empty = fire({ range: 24 });
+  assert.equal(empty.event.shot.fired, true);
+  assert.equal(empty.event.shot.blocked, false);
+  assert.equal(empty.event.shot.stopped, false);
+  assert.deepEqual(empty.event.shot.contacts, []);
+  assert.ok(Math.abs(empty.event.shot.distance - 24) < 1e-8);
+  assert.ok(Math.abs(empty.event.shot.origin.distanceTo(empty.event.shot.end) - 24) < 1e-8);
+  assert.equal(empty.event.shot.remainingEnergy, WEAPON_CATALOG.carbine.damage);
+  assert.equal(empty.event.shot.remainingPenetration, WEAPON_CATALOG.carbine.penetration);
+  empty.weapons.dispose();
+});
+
+test('the player shotgun resolves seven independent truthful pellet paths from one shell and one pump', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.08, 100);
+  camera.updateMatrixWorld(true);
+  const world = new THREE.Group();
+  const backstop = new THREE.Mesh(
+    new THREE.BoxGeometry(12, 12, 0.25),
+    new THREE.MeshBasicMaterial(),
+  );
+  backstop.name = 'shotgun-backstop';
+  backstop.position.z = -6;
+  backstop.userData.combatMaterial = 'concrete';
+  world.add(backstop);
+  world.updateMatrixWorld(true);
+
+  const events = [];
+  const impacts = [];
+  const weapons = new WeaponSystem({
+    camera,
+    world,
+    hitTargets: [backstop],
+    onEvent: (event) => events.push(event),
+    onImpact: (impact) => impacts.push(impact),
+  });
+  weapons.equip('shotgun');
+  const firearm = weapons.firearm('shotgun');
+  const roundsBefore = firearm.rounds;
+  const originalRandom = Math.random;
+  let seed = 0x5a17;
+  Math.random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+  try {
+    const result = weapons.triggerPress();
+    assert.equal(result.fired, true);
+    assert.equal(firearm.rounds, roundsBefore - 1, 'a trigger spent more than one shell');
+    const fire = events.find((event) => event.type === 'fire');
+    assert.ok(fire);
+    assert.equal(fire.shot.projectiles, 7);
+    assert.equal(fire.shot.pellets.length, 7);
+    assert.equal(Object.isFrozen(fire.shot.pellets), true);
+    assert.equal(new Set(fire.shot.pellets.map((pellet) => (
+      pellet.direction.toArray().map((value) => value.toFixed(8)).join(',')
+    ))).size, 7, 'the seven pellets collapsed onto one ray');
+    for (const [index, pellet] of fire.shot.pellets.entries()) {
+      assert.equal(pellet.projectileIndex, index);
+      assert.equal(Object.isFrozen(pellet), true);
+      assert.equal(Object.isFrozen(pellet.contacts), true);
+      assert.equal(pellet.contacts.at(-1)?.object, backstop);
+      assert.ok(pellet.end.distanceTo(pellet.contacts.at(-1).point) < 1e-8);
+    }
+    for (let frame = 0; frame < 90; frame++) weapons.update(1 / 60);
+    assert.equal(impacts.length, 7, 'not every pellet delivered its own truthful impact');
+    assert.deepEqual(impacts.map(({ projectileIndex }) => projectileIndex), [0, 1, 2, 3, 4, 5, 6]);
+    assert.equal(new Set(impacts.map(({ triggerId }) => triggerId)).size, 1);
+    assert.equal(events.filter((event) => event.type === 'cycle').length, 1,
+      'the player shotgun did not publish exactly one completed pump cycle');
+    assert.equal(weapons.cueLog.filter((cue) => cue === 'weapon.shotgun.fire').length, 1);
+    assert.equal(weapons.cueLog.filter((cue) => cue === 'weapon.shotgun.cycle').length, 1);
+    assert.equal(weapons.cueLog.filter((cue) => cue === 'weapon.shotgun.mag.floor').length, 1);
+  } finally {
+    Math.random = originalRandom;
+    weapons.dispose();
+  }
+});
+
+test('hidden geometry and children of hidden pools do not stop a shared weapon ray', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.08, 100);
+  camera.updateMatrixWorld(true);
+  const world = new THREE.Group();
+  const hiddenPool = new THREE.Group();
+  hiddenPool.visible = false;
+  const hidden = new THREE.Mesh(
+    new THREE.BoxGeometry(8, 8, 0.4),
+    new THREE.MeshBasicMaterial(),
+  );
+  hidden.position.z = -3;
+  hiddenPool.add(hidden);
+  const visible = new THREE.Mesh(
+    new THREE.BoxGeometry(8, 8, 0.4),
+    new THREE.MeshBasicMaterial(),
+  );
+  visible.position.z = -6;
+  world.add(hiddenPool, visible);
+  world.updateMatrixWorld(true);
+
+  const impacts = [];
+  const weapons = new WeaponSystem({
+    camera,
+    world,
+    hitTargets: [hiddenPool, visible],
+    onImpact: (impact) => impacts.push(impact),
+  });
+  weapons.equip('revolver');
+  weapons.triggerPress();
+  for (let i = 0; i < 10; i++) weapons.update(1 / 60);
+
+  assert.equal(impacts.length, 1);
+  assert.equal(impacts[0].object, visible, 'an invisible pooled child caught the round');
+});
+
+test('cancelling pending impacts prevents an old tracer callback after a rewind', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.08, 100);
+  camera.updateMatrixWorld(true);
+  const world = new THREE.Group();
+  const target = new THREE.Mesh(
+    new THREE.BoxGeometry(100, 100, 0.4),
+    new THREE.MeshBasicMaterial(),
+  );
+  target.position.z = -60;
+  world.add(target);
+  world.updateMatrixWorld(true);
+  const impacts = [];
+  const weapons = new WeaponSystem({
+    camera,
+    world,
+    hitTargets: [target],
+    onImpact: (impact) => impacts.push(impact),
+  });
+  weapons.equip('revolver');
+  weapons.triggerPress();
+  assert.equal(weapons.tracers.live, 1);
+  assert.equal(weapons.cancelPendingImpacts(), 1);
+  for (let i = 0; i < 240; i++) weapons.update(1 / 60);
+  assert.equal(impacts.length, 0, 'a cancelled pre-rewind shot still landed');
 });
 
 /* ------------------------------------------------------------------ */
 /* Sound                                                               */
 /* ------------------------------------------------------------------ */
 
-test('every weapon asks for all five of its cues, and every one has a stand-in', () => {
+test('every weapon cue has a stand-in, including the pump shotgun cycle', () => {
   const names = allWeaponCueNames();
-  assert.equal(names.length, 30, 'six weapons times five slots');
-  assert.equal(new Set(names).size, 30);
+  assert.equal(names.length, 36, 'six five-cue weapons plus the shotgun six');
+  assert.equal(new Set(names).size, 36);
   for (const id of WEAPON_ORDER) {
-    for (const slot of WEAPON_CUE_SLOTS) {
+    for (const slot of weaponCueSlots(id)) {
       assert.ok(names.includes(weaponCue(id, slot)), `${id} is missing ${slot}`);
       assert.ok(WEAPON_SFX_STANDINS[`${id}.${slot}`], `${id}.${slot} has no stand-in`);
     }
   }
-  assert.equal(Object.keys(WEAPON_SFX).length, 30);
+  assert.equal(Object.keys(WEAPON_SFX).length, 36);
 });
 
 test('every stand-in is a cue that is really in the sfx manifest and really has a file', async () => {
@@ -236,13 +588,16 @@ test('every stand-in is a cue that is really in the sfx manifest and really has 
   }
 });
 
-test('all thirty canonical weapon recordings are declared, indexed, hashed, and non-trivial on disk', async () => {
+test('the thirty delivered weapon recordings remain declared, indexed, hashed, and non-trivial', async () => {
   const { readFileSync, statSync } = await import('node:fs');
   const manifest = JSON.parse(readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'));
   const index = JSON.parse(readFileSync(new URL('../assets/sfx/index.json', import.meta.url), 'utf8'));
   const declared = new Set(manifest.sfx.map((c) => c.name));
   const files = new Set(index.files);
-  const wanted = allWeaponCueNames();
+  /* Shotgun production cues are a separate queued audio contract. The
+   * stand-ins above keep the pump gun audible until those six takes land. */
+  const wanted = allWeaponCueNames()
+    .filter((cue) => !cue.startsWith('weapon.shotgun.'));
   assert.equal(wanted.length, 30);
 
   /* Being in the manifest is what puts a cue on the recording sheet, so all
@@ -287,7 +642,7 @@ test('playWeaponCue prefers a delivered recording and otherwise plays the stand-
   // its canonical recording rather than silently routing to a legacy cue.
   fake.delivered = new Set(allWeaponCueNames());
   for (const id of WEAPON_ORDER) {
-    for (const slot of WEAPON_CUE_SLOTS) {
+    for (const slot of weaponCueSlots(id)) {
       const before = played.length;
       assert.equal(playWeaponCue(fake, id, slot), true, `${id}.${slot} played nothing`);
       assert.equal(played.length, before + 1, `${id}.${slot} emitted the wrong number of cues`);
@@ -300,7 +655,7 @@ test('playWeaponCue prefers a delivered recording and otherwise plays the stand-
 /* Models                                                              */
 /* ------------------------------------------------------------------ */
 
-test('all six models build, point down -Z, and carry the shared userData', () => {
+test('all seven models build, point down -Z, and carry the shared userData', () => {
   for (const id of WEAPON_ORDER) {
     const gun = buildWeaponModel(id);
     let meshes = 0;
@@ -327,10 +682,12 @@ test('every magazine-fed weapon has a REAL magazine object fitted, and can build
     const fresh = gun.userData.makeMagazine();
     assert.ok(fresh && fresh !== mag, `${id} cannot build a replacement magazine`);
   }
-  // And the revolver deliberately has none.
-  const revolver = buildWeaponModel('revolver');
-  assert.equal(revolver.userData.magazine, null);
-  assert.equal(revolver.userData.makeMagazine(), null);
+  // Cylinder and tube-fed guns deliberately have no detachable magazine.
+  for (const id of ['revolver', 'shotgun']) {
+    const gun = buildWeaponModel(id);
+    assert.equal(gun.userData.magazine, null, id);
+    assert.equal(gun.userData.makeMagazine(), null, id);
+  }
 });
 
 test('lifting the carbine into core did not change THE TAKE’s carbine', () => {
@@ -347,7 +704,12 @@ test('lifting the carbine into core did not change THE TAKE’s carbine', () => 
   assert.ok(heist.userData.muzzle.equals(new THREE.Vector3(0, 0.028, -0.43)));
 });
 
-test('the new three are recognisably what they are', () => {
+test('the new four are recognisably what they are', () => {
+  const shotgun = buildWeaponModel('shotgun');
+  assert.ok(shotgun.getObjectByName('shotgun-pump'), 'the shotgun has no pump');
+  assert.ok(shotgun.getObjectByName('shotgun-magazine-tube'), 'the shotgun has no tube');
+  assert.equal(shotgun.userData.moving.pump?.name, 'shotgun-pump');
+
   const saw = buildWeaponModel('saw');
   assert.ok(saw.getObjectByName('saw-bipod'), 'the SAW has no bipod');
   assert.ok(saw.getObjectByName('saw-ammo-box'), 'the SAW has no box magazine');

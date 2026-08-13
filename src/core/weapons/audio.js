@@ -17,17 +17,18 @@
  *     be a real recording rather than quietly falling through to the
  *     synthesiser. A stand-in with no file is not a stand-in.
  *
- * WHY EACH WEAPON GETS ITS OWN FIVE. A SAW and a .45 sharing one `gun.shot`
- * is the thing that makes a rack of six guns read as one gun with six models
- * on it. The five slots are the five events a player can actually hear the
+ * WHY EACH WEAPON GETS ITS OWN EVENTS. A SAW and a .45 sharing one `gun.shot`
+ * is the thing that makes a rack of seven guns read as one gun with seven
+ * models on it. The common five slots are the events a player can actually hear the
  * difference in: the shot, the magazine coming out, the magazine going in,
- * the dry click, and the discarded magazine hitting the floor.
+ * the dry click, and the discarded magazine hitting the floor. The pump adds
+ * its mechanically distinct cycle.
  */
-import { WEAPON_CUE_SLOTS, WEAPON_ORDER, weaponCue } from './catalog.js';
+import { WEAPON_ORDER, weaponCue, weaponCueSlots } from './catalog.js';
 
 /** Every cue this system wants recorded, keyed `weapon.<id>.<slot>`. */
 export const WEAPON_SFX = Object.freeze(Object.fromEntries(
-  WEAPON_ORDER.flatMap((id) => WEAPON_CUE_SLOTS.map((slot) => [`${id}.${slot}`, weaponCue(id, slot)])),
+  WEAPON_ORDER.flatMap((id) => weaponCueSlots(id).map((slot) => [`${id}.${slot}`, weaponCue(id, slot)])),
 ));
 
 /**
@@ -45,6 +46,13 @@ export const WEAPON_SFX_STANDINS = Object.freeze({
   'revolver.reload.in': 'heist.weapon.check',
   'revolver.empty': 'gun.dry',
   'revolver.mag.floor': 'ice.drop',
+
+  'shotgun.fire': 'gun.shot',
+  'shotgun.reload.out': 'heist.weapon.reload',
+  'shotgun.reload.in': 'heist.weapon.check',
+  'shotgun.empty': 'gun.dry',
+  'shotgun.mag.floor': 'ice.drop',
+  'shotgun.cycle': 'heist.weapon.check',
 
   'pistol9.fire': 'boat.gunshot.deck',
   'pistol9.reload.out': 'heist.swap.weapons',
@@ -115,6 +123,14 @@ export function playWeaponCue(audio, id, slot, opts = {}) {
     case 'revolver.empty': audio.play('gun.dry', opts); return true;
     // Brass on concrete, standing in as a bright small metallic clink.
     case 'revolver.mag.floor': audio.play('ice.drop', { ...opts, rate: 1.5 }); return true;
+
+    /* ---- the 12-gauge pump: one action sound in addition to the common five ---- */
+    case 'shotgun.fire': audio.play('gun.shot', { ...opts, rate: 0.76 }); return true;
+    case 'shotgun.reload.out': audio.play('heist.weapon.reload', { ...opts, rate: 0.9 }); return true;
+    case 'shotgun.reload.in': audio.play('heist.weapon.check', { ...opts, rate: 0.82 }); return true;
+    case 'shotgun.empty': audio.play('gun.dry', { ...opts, rate: 0.85 }); return true;
+    case 'shotgun.mag.floor': audio.play('ice.drop', { ...opts, rate: 0.75 }); return true;
+    case 'shotgun.cycle': audio.play('heist.weapon.check', { ...opts, rate: 0.72 }); return true;
 
     /* ---- the 9mm ---- */
     case 'pistol9.fire': audio.play('boat.gunshot.deck', opts); return true;

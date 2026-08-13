@@ -353,6 +353,22 @@ const M_PARQUET = mat({ map: tiled(woodFloor(), 14, 14), roughness: 0.55, unique
 const M_CARPET_HALL = mat({ map: tiled(fabricTex('#5a1a24'), 6, 3), roughness: 1, unique: true });
 const M_DESKTOP = mat({ map: laminate('#2b2118'), roughness: 0.42, unique: true });
 
+/** Explicit material tags consumed by combat rays; object names stay cosmetic. */
+function combatMaterialFor(material) {
+  if (material === M_GLASS_CASE || material === M_CRYSTAL) return 'glass';
+  if (material === M_WOOD || material === M_WOOD_DK
+    || material === M_CRATE || material === M_DESKTOP) return 'wood_thin';
+  if (material === M_STEEL || material === M_RACK || material === M_RACK_BACK
+    || material === M_GOLD || material === M_SILVER || material === M_CHROME
+    || material === M_BRONZE) return 'metal';
+  if (material === M_WALL || material === M_WALL_WARM || material === M_WALL_DEEP) {
+    return 'drywall';
+  }
+  if (material === M_MARBLE || material === M_MARBLE_DK
+    || material === M_SUITE_MARBLE) return 'concrete';
+  return null;
+}
+
 /* ---- The third floor's own palette. Gold, marble, velvet, and two
  * emissives — the LED cove and the water in the tub.
  *
@@ -642,10 +658,15 @@ export function buildMansionInterior(shell = null) {
     });
     root.add(m);
     occluders.push(m);
+    const combatMaterial = combatMaterialFor(material) ?? 'concrete';
+    m.userData.combatMaterial = combatMaterial;
     /* Mesh full height, collider clear of the floor above. See the note above
      * `wallColliderTop` -- this one line is the whole fix for the invisible
      * wall across the upper floor. */
-    return solid(x0, x1, y0, wallColliderTop(y1), z0, z1);
+    const contact = solid(x0, x1, y0, wallColliderTop(y1), z0, z1);
+    contact.combatMaterial = combatMaterial;
+    contact.userData = { ...(contact.userData ?? {}), combatMaterial };
+    return contact;
   }
 
   /**
@@ -823,14 +844,23 @@ export function buildMansionInterior(shell = null) {
 
   /** A newel post with a ball finial -- what makes a run read as ending. */
   function newel(x, yBase, z, height = RAIL_H + 0.22) {
-    root.add(box({
+    const post = box({
       size: [0.16, height, 0.16], pos: [x, yBase + height / 2, z], mat: M_WOOD_DK, name: 'newel',
-    }));
+    });
+    /* The 160 mm hardwood post is a real thin penetrable surface, unlike the
+     * marble flights and structural partitions around it. Keep the visible
+     * mesh and its slightly wider player-clearance collider on the same
+     * explicit combat material so both ray and AABB combat paths agree. */
+    const combatMaterial = combatMaterialFor(M_WOOD_DK);
+    post.userData.combatMaterial = combatMaterial;
+    root.add(post);
     root.add(box({
       size: [0.2, 0.06, 0.2], pos: [x, yBase + height - 0.03, z], mat: M_GOLD, cast: false,
     }));
     root.add(sphere({ r: 0.1, pos: [x, yBase + height + 0.09, z], mat: M_GOLD }));
-    solid(x - 0.1, x + 0.1, yBase, yBase + height, z - 0.1, z + 0.1);
+    const contact = solid(x - 0.1, x + 0.1, yBase, yBase + height, z - 0.1, z + 0.1);
+    contact.combatMaterial = combatMaterial;
+    contact.userData = { ...(contact.userData ?? {}), combatMaterial };
   }
 
   /**

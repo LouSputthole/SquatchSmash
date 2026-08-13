@@ -31,6 +31,8 @@ test('Cartel Palace is a first-class runtime built on the shared game systems', 
   }
   assert.match(main, /createCartelPalaceCampaignStory/);
   assert.match(main, /createFinalArcLoadout/);
+  assert.match(main, /combatVitals\(playerActor\)/,
+    'the Palace HUD must consume the canonical health and armor view model');
   assert.doesNotMatch(main, /new Inventory\(/, 'scene must not fork final-arc loadout persistence');
   assert.match(main, /KeyQ[\s\S]{0,180}loadout\.stow\(weapons\)/,
     'Q must share the final-arc empty-hands contract');

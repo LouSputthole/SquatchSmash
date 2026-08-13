@@ -90,8 +90,33 @@ test('a recycled wound belongs only to its current actor', () => {
 
   assert.equal(blood.marksOn(actors[0]), 0, 'the recycled decal still answered to its old owner');
   assert.equal(blood.marksOn(actors[8]), 1);
-  assert.equal(blood.clearActor(actors[0]), true);
+  assert.equal(blood.clearActor(actors[0]), false,
+    'the recycled owner kept an empty ledger entry');
   assert.equal(blood.marksOn(actors[8]), 1, 'clearing an old owner hid the recycled live wound');
+});
+
+test('repeated hits on one actor keep a bounded, duplicate-free wound ledger', () => {
+  const scene = new THREE.Scene();
+  const anchor = new THREE.Group();
+  scene.add(anchor);
+  scene.updateMatrixWorld(true);
+  const actor = { id: 'repeat-target' };
+  const blood = new BloodImpactSystem(scene, { random: () => 0.5 });
+
+  for (let i = 0; i < blood.wounds.pool.length * 4; i++) {
+    blood.hit({
+      actor,
+      anchor,
+      point: new THREE.Vector3(0, 1 + i * 0.001, 0),
+      normal: new THREE.Vector3(0, 0, 1),
+      spatter: false,
+    });
+  }
+
+  assert.equal(blood.marksOn(actor), blood.wounds.pool.length);
+  assert.equal(blood._marks.get(actor).size, blood.wounds.pool.length);
+  assert.equal(blood.clearActor(actor), true);
+  assert.equal(blood.wounds.pool.filter((mark) => mark.visible).length, 0);
 });
 
 test('death pools use an explicit floor point, grow deterministically, and stay bounded', () => {

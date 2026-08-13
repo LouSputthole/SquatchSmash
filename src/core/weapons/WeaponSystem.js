@@ -1,5 +1,5 @@
 /**
- * The shared weapon runtime: one of these per scene, six guns behind it.
+ * The shared weapon runtime: one of these per scene, seven guns behind it.
  *
  * A scene hands over a camera, a parent for world objects, an AudioEngine and
  * a way to ask where the floor is; it gets back something it can hold a gun
@@ -14,8 +14,10 @@
  *
  * WHAT THIS DOES NOT DO, ON PURPOSE. It resolves nothing about people. A shot
  * produces a tracer, a muzzle flash, a noise and an impact point against
- * WORLD GEOMETRY, and stops there. Any scene that wants a round to hurt
- * somebody supplies its own `onImpact` and decides that itself, with its own
+ * WORLD GEOMETRY, and stops there. A multi-projectile trigger publishes one
+ * immutable path per pellet while still spending one shell and emitting one
+ * weapon event. Any scene that wants a round to hurt somebody supplies its
+ * own `onImpact` and decides that itself, with its own
  * roster in front of it — which is also the only way the standing rule that
  * **Snow never enters player-hostile targeting or damage logic** can be kept
  * by a system that has never heard of Snow. There is no actor list in this
@@ -27,6 +29,8 @@
  * and one draw call.
  */
 import * as THREE from 'three';
+import { resolveMaterialPath } from '../combat/ballistics.js';
+import { CombatProjectilePattern } from '../combat/projectile-pattern.js';
 import { TracerPool } from '../combat/tracers.js';
 import { EjectaPool } from './Ejecta.js';
 import { Firearm } from './Firearm.js';
@@ -53,6 +57,152 @@ const _dir = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 
+function worldHitNormal(hit, fallbackDirection) {
+  let normal = fallbackDirection.clone().negate();
+  if (hit?.face?.normal?.isVector3 && hit.object?.matrixWorld) {
+    normal = hit.face.normal.clone().applyNormalMatrix(
+      new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld),
+    );
+  }
+  if (normal.lengthSq() <= 1e-12) normal.copy(fallbackDirection).negate();
+  return normal.normalize();
+}
+
+/**
+ * A tracer may arrive after its target has moved. Preserve the contact in the
+ * local space of every current ancestor so CombatImpactResolver can select its
+ * authored body anchor later without re-projecting an old world point through
+ * the target's new transform.
+ */
+function captureLocalContacts(object, point, normal) {
+  if (!object?.isObject3D || !point?.isVector3) return Object.freeze([]);
+  const contacts = [];
+  let anchor = object;
+  while (anchor?.isObject3D) {
+    anchor.updateWorldMatrix?.(true, false);
+    const localPoint = anchor.worldToLocal(point.clone());
+    let localNormal = null;
+    if (normal?.isVector3 && anchor.matrixWorld) {
+      localNormal = normal.clone().applyMatrix3(
+        new THREE.Matrix3().setFromMatrix4(anchor.matrixWorld).transpose(),
+      ).normalize();
+    }
+    contacts.push(Object.freeze({
+      anchor,
+      point: Object.freeze(localPoint),
+      normal: localNormal ? Object.freeze(localNormal) : null,
+    }));
+    anchor = anchor.parent ?? null;
+  }
+  return Object.freeze(contacts);
+}
+
+/** Three's raycaster does not treat `visible = false` as non-collidable. */
+function isWorldVisible(object) {
+  let node = object;
+  while (node) {
+    if (node.visible === false) return false;
+    node = node.parent;
+  }
+  return true;
+}
+
+function taggedAncestor(object, key) {
+  let node = object ?? null;
+  while (node) {
+    const value = node.userData?.[key] ?? node[key];
+    if (value != null) return { node, value };
+    node = node.parent ?? null;
+  }
+  return null;
+}
+
+function contactOwner(object, materialTag) {
+  if (materialTag?.node) return materialTag.node;
+  return taggedAncestor(object, 'combatant')?.node
+    ?? taggedAncestor(object, 'combatActor')?.node
+    ?? object;
+}
+
+function contactId(owner, order) {
+  const id = owner?.userData?.combatId ?? owner?.userData?.combatant?.id
+    ?? owner?.userData?.combatActor?.id ?? owner?.combatId
+    ?? owner?.name ?? owner?.uuid;
+  return id == null || id === '' ? `~${String(order).padStart(10, '0')}` : String(id);
+}
+
+function rayObjectInterval(object, origin, direction, range) {
+  const explicit = Number(
+    object?.userData?.combatThickness ?? object?.combatThickness,
+  );
+  if (Number.isFinite(explicit) && explicit >= 0) {
+    return { thickness: explicit, exitDistance: null };
+  }
+  object?.updateWorldMatrix?.(true, true);
+  const bounds = new THREE.Box3().setFromObject(object);
+  if (bounds.isEmpty()) return { thickness: 0, exitDistance: null };
+  let near = 0;
+  let far = Math.max(0, Number(range) || 0);
+  for (const axis of ['x', 'y', 'z']) {
+    const component = direction[axis];
+    if (Math.abs(component) <= 1e-9) {
+      if (origin[axis] < bounds.min[axis] || origin[axis] > bounds.max[axis]) {
+        return { thickness: 0, exitDistance: null };
+      }
+      continue;
+    }
+    let entry = (bounds.min[axis] - origin[axis]) / component;
+    let exit = (bounds.max[axis] - origin[axis]) / component;
+    if (entry > exit) [entry, exit] = [exit, entry];
+    near = Math.max(near, entry);
+    far = Math.min(far, exit);
+    if (near > far) return { thickness: 0, exitDistance: null };
+  }
+  return {
+    thickness: Math.max(0, far - near),
+    exitDistance: Math.max(0, far),
+  };
+}
+
+function orderedRayContacts(hits, origin, direction, range) {
+  const contacts = [];
+  const seen = new Set();
+  const ordered = [...hits].sort((a, b) => a.distance - b.distance);
+  for (const [order, hit] of ordered.entries()) {
+    const materialTag = taggedAncestor(hit.object, 'combatMaterial');
+    const owner = contactOwner(hit.object, materialTag);
+    if (seen.has(owner)) continue;
+    seen.add(owner);
+    const interval = rayObjectInterval(owner, origin, direction, range);
+    const distance = Math.max(0, Number(hit.distance) || origin.distanceTo(hit.point));
+    const exitDistance = interval.exitDistance == null
+      ? distance + interval.thickness
+      : Math.max(distance, interval.exitDistance);
+    const normal = worldHitNormal(hit, direction);
+    contacts.push({
+      hit,
+      box: owner,
+      object: hit.object,
+      id: contactId(owner, order),
+      distance,
+      exitDistance,
+      thickness: Math.max(0, exitDistance - distance),
+      point: hit.point.clone(),
+      exitPoint: origin.clone().addScaledVector(direction, exitDistance),
+      normal,
+      material: typeof materialTag?.value === 'string' && materialTag.value.trim()
+        ? materialTag.value.trim()
+        : null,
+      localContacts: captureLocalContacts(hit.object, hit.point, normal),
+    });
+  }
+  return contacts;
+}
+
+function immutableVector(value) {
+  return value?.isVector3 ? Object.freeze(value.clone()) : null;
+}
+
 export class WeaponSystem {
   /**
    * @param {object} o
@@ -65,9 +215,18 @@ export class WeaponSystem {
    * @param {THREE.Object3D[]} [o.hitTargets] geometry a round can stop on. A
    *   round that hits nothing simply runs to `range`.
    * @param {number} [o.range]             metres a round travels unobstructed.
-   * @param {Function} [o.onImpact]        ({point, normal, object, weapon}) —
-   *   the scene's own business. See the note above about actors.
+   * @param {Function} [o.onImpact]        Receives one complete immutable
+   *   contact per ordered surface reached by the shot: `{point, normal,
+   *   origin, direction, distance, object, weapon, damage, penetration,
+   *   material, penetrated, stopped, remainingEnergy, remainingPenetration,
+   *   localContacts}`. Damage is the energy arriving at that contact, after
+   *   any declared thin material in front of it. The ray vectors are frozen
+   *   world-space copies; `localContacts` is frozen fire-time transport
+   *   metadata for ancestor/body-anchor attachment. Mapping a contact to a
+   *   Combatant remains the scene Adapter's responsibility.
    * @param {Function} [o.onEvent]         ({type, ...}) for HUD/telemetry.
+   *   The existing `fire` event includes an immediate frozen `shot` record,
+   *   including empty-air rounds; impact callbacks remain tracer-delayed.
    */
   constructor({
     camera, world, audio = null, groundAt = () => 0,
@@ -120,6 +279,12 @@ export class WeaponSystem {
     this.swap = 0;
     this.sway = 0;
     this.enabled = true;
+    this.aimed = false;
+    this.aimBlend = 0;
+    this.suppression = 0;
+    this.aimStability = 1;
+    this._baseFov = Number.isFinite(Number(camera?.fov)) ? Number(camera.fov) : null;
+    this._managingFov = false;
 
     /** Counters a verifier can read without watching pixels. */
     this.stats = { shots: 0, dryClicks: 0, reloads: 0, ejections: 0, impacts: 0 };
@@ -187,6 +352,9 @@ export class WeaponSystem {
     if (this.model) this.model.visible = false;
     this.current = null;
     this.model = null;
+    this.aimed = false;
+    this.aimBlend = 0;
+    this._restoreBaseFov();
     this._flashTime = 0;
     if (!silent) playWeaponStow(this.audio, { volume: 0.45 });
     this._emit({ type: 'stow', id });
@@ -197,10 +365,59 @@ export class WeaponSystem {
   /* Trigger and reload                                                 */
   /* ---------------------------------------------------------------- */
 
+  /** Enter or leave aim-down-sights. The visual transition is driven by update(). */
+  setAimed(value) {
+    const next = value === true;
+    if (next && !this.aimed && this.aimBlend <= 0.001
+      && Number.isFinite(Number(this.camera?.fov))) {
+      // Respect a scene-selected field of view at the moment ADS begins.
+      this._baseFov = Number(this.camera.fov);
+      this._managingFov = true;
+    }
+    this.aimed = next;
+    return this.aimed;
+  }
+
+  /**
+   * Feed the shared suppression model into weapon handling.
+   * Accepts a 0..1 suppression value, a SuppressionModel-like object, or an
+   * explicit second aim-stability value for adapters that already computed it.
+   */
+  setSuppression(value = 0, aimStability = null) {
+    let level = value;
+    let stability = aimStability;
+    if (value && typeof value === 'object') {
+      level = value.value;
+      stability = value.aimStability;
+      if (!Number.isFinite(Number(level)) && Number.isFinite(Number(stability))) {
+        level = (1 - Number(stability)) / 0.38;
+      }
+    }
+    this.suppression = Math.max(0, Math.min(1, Number(level) || 0));
+    this.aimStability = Number.isFinite(Number(stability))
+      ? Math.max(0, Math.min(1, Number(stability)))
+      : 1 - this.suppression * 0.38;
+    return this.suppression;
+  }
+
   setTrigger(down) {
     if (!this.current) return;
     this.firearm(this.current).setTrigger(down);
     if (down) this._pullTrigger();
+  }
+
+  /**
+   * Cancel rounds whose visual flight has not reached its recorded impact.
+   * Checkpoint rewinds must call this before restoring actors, or an old
+   * tracer's delayed callback can damage the newly restored timeline.
+   */
+  cancelPendingImpacts() {
+    const cancelled = this.tracers.live;
+    this.tracers.clear();
+    this._flashTime = 0;
+    this.flash.visible = false;
+    this.flashLight.intensity = 0;
+    return cancelled;
   }
 
   /** One deliberate shot — a click, or a verifier asking for exactly one. */
@@ -227,7 +444,7 @@ export class WeaponSystem {
   _pullTrigger() {
     if (!this.enabled || !this.current) return null;
     const f = this.firearm(this.current);
-    const shot = f.fire();
+    const shot = f.fire({ aimed: this.aimed, aimStability: this.aimStability });
     if (shot.fired) { this._onShot(f, shot); return shot; }
     if (shot.reason === 'empty') {
       /* The dry click, and only on the transition. `fire()` returns 'semi'
@@ -247,6 +464,7 @@ export class WeaponSystem {
     this.stats.shots++;
     const def = firearm.def;
     const model = this.model;
+    const triggerId = this.stats.shots;
 
     // Muzzle, in world space, off the model's own userData.
     const muzzleLocal = model?.userData?.muzzle ?? _v.set(0, 0, -0.3);
@@ -257,68 +475,211 @@ export class WeaponSystem {
      * is pointing — the model sits low and right of the eye so it does not
      * cover the screen, and a player who aims at a light switch expects to
      * hit the light switch. Spread is applied about that ray. */
-    this.camera.getWorldDirection(_dir);
+    this.camera.getWorldDirection(_dir).normalize();
     _right.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(_q));
     _up.set(0, 1, 0).applyQuaternion(_q);
     const spread = shot.spread ?? def.spread;
-    if (spread > 0) {
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * spread;
-      _dir.addScaledVector(_right, Math.cos(a) * r).addScaledVector(_up, Math.sin(a) * r).normalize();
-    }
-
-    // Where it stops.
-    let end = _v2.copy(origin).addScaledVector(_dir, this.range).clone();
-    let hit = null;
-    if (this.hitTargets.length) {
-      this.raycaster.set(origin, _dir);
-      this.raycaster.far = this.range;
-      const hits = this.raycaster.intersectObjects(this.hitTargets, true);
-      if (hits.length) { hit = hits[0]; end = hit.point.clone(); }
-    }
-
-    if (shot.tracer) {
-      this.tracers.fire({
-        from: origin,
-        to: end,
-        speed: def.tracer.speed,
-        colour: def.tracer.colour,
-        width: def.tracer.width,
-        onArrive: hit ? () => this._impact(hit, def) : null,
+    const projectileCount = Math.max(1, Math.trunc(Number(shot.projectiles) || 1));
+    let projectileRays;
+    if (projectileCount > 1) {
+      projectileRays = new CombatProjectilePattern({ random: Math.random }).sample({
+        origin,
+        direction: _dir.clone(),
+        right: _right.clone(),
+        up: _up.clone(),
+        count: projectileCount,
+        spread,
+        range: this.range,
       });
-    } else if (hit) {
-      this._impact(hit, def);
+    } else {
+      const direction = _dir.clone();
+      if (spread > 0) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(Math.random()) * spread;
+        direction.addScaledVector(_right, Math.cos(a) * r)
+          .addScaledVector(_up, Math.sin(a) * r).normalize();
+      }
+      projectileRays = [{
+        index: 0,
+        origin: origin.clone(),
+        direction,
+        end: origin.clone().addScaledVector(direction, this.range),
+      }];
     }
+
+    const pelletTruths = [];
+    for (const projectile of projectileRays) {
+      const direction = projectile.direction.clone().normalize();
+      let end = projectile.end.clone();
+      let materialPath = resolveMaterialPath([], {
+        penetration: def.penetration,
+        energy: def.damage,
+      });
+      if (this.hitTargets.length) {
+        this.raycaster.set(origin, direction);
+        this.raycaster.far = this.range;
+        /* Glass panes and pooled actors are hidden rather than removed. Three's
+         * raycaster still returns their child meshes, so filter the complete
+         * ancestor chain before choosing what actually stops the round. */
+        const hits = this.raycaster.intersectObjects(this.hitTargets, true)
+          .filter((candidate) => isWorldVisible(candidate.object));
+        materialPath = resolveMaterialPath(
+          orderedRayContacts(hits, origin, direction, this.range),
+          { penetration: def.penetration, energy: def.damage },
+        );
+        if (materialPath.blocked && materialPath.end?.isVector3) {
+          end = materialPath.end.clone();
+        }
+      }
+
+      /* Tracers arrive later. Freeze one fire-time transport record per
+       * projectile/contact rather than closing over scratch vectors or moving
+       * scene transforms. */
+      const impactPlan = Object.freeze(materialPath.contacts.map((contact) => Object.freeze({
+        hit: contact.hit,
+        damage: contact.energyBefore,
+        material: contact.material,
+        penetrated: contact.penetrated === true,
+        stopped: contact.stopped === true,
+        remainingEnergy: contact.energyAfter,
+        remainingPenetration: contact.penetrationAfter,
+        projectileIndex: projectile.index,
+        projectiles: projectileCount,
+        triggerId,
+        triggerDamageCap: Number(def.triggerDamageCap) || def.damage * projectileCount,
+        ray: Object.freeze({
+          point: immutableVector(contact.point),
+          origin: immutableVector(origin),
+          direction: immutableVector(direction),
+          distance: contact.distance,
+          normal: immutableVector(contact.normal),
+          localContacts: contact.localContacts ?? Object.freeze([]),
+        }),
+      })));
+      const shotContacts = Object.freeze(materialPath.contacts.map((contact) => Object.freeze({
+        id: contact.id ?? null,
+        object: contact.object ?? contact.hit?.object ?? null,
+        point: immutableVector(contact.point),
+        normal: immutableVector(contact.normal),
+        distance: Math.max(0, Number(contact.distance) || 0),
+        thickness: Math.max(0, Number(contact.thickness) || 0),
+        material: contact.material ?? null,
+        penetrated: contact.penetrated === true,
+        stopped: contact.stopped === true,
+        damage: Math.max(0, Number(contact.energyBefore) || 0),
+        remainingEnergy: Math.max(0, Number(contact.energyAfter) || 0),
+        remainingPenetration: Math.max(0, Number(contact.penetrationAfter) || 0),
+      })));
+      const pelletTruth = Object.freeze({
+        fired: true,
+        projectileIndex: projectile.index,
+        projectiles: projectileCount,
+        triggerId,
+        origin: immutableVector(origin),
+        direction: immutableVector(direction),
+        end: immutableVector(end),
+        distance: origin.distanceTo(end),
+        contacts: shotContacts,
+        blocked: materialPath.blocked,
+        stopped: materialPath.blocked,
+        weapon: def.id,
+        damage: def.damage,
+        penetration: def.penetration,
+        remainingEnergy: materialPath.remainingEnergy,
+        remainingPenetration: materialPath.remainingPenetration,
+      });
+      pelletTruths.push(pelletTruth);
+
+      const arrive = impactPlan.length ? () => {
+        for (const planned of impactPlan) this._impact(planned.hit, def, planned.ray, planned);
+      } : null;
+      if (shot.tracer) {
+        this.tracers.fire({
+          from: origin,
+          to: end,
+          speed: def.tracer.speed,
+          colour: def.tracer.colour,
+          width: def.tracer.width,
+          onArrive: arrive,
+        });
+      } else if (arrive) {
+        arrive();
+      }
+    }
+
+    const pellets = Object.freeze(pelletTruths);
+    const primary = pellets[0];
+    const shotTruth = Object.freeze({
+      ...primary,
+      projectiles: projectileCount,
+      triggerDamageCap: Number(def.triggerDamageCap) || def.damage * projectileCount,
+      pellets,
+    });
 
     // Flash, kick, brass.
     this._flashTime = 0.055;
     this.flash.position.copy(model ? _v.copy(muzzleLocal).applyMatrix4(model.matrix) : _v.set(0, 0, -0.3));
     this.flashLight.position.copy(this.flash.position);
     this.recoilKick = Math.min(1.4, this.recoilKick + 0.55 + def.recoil * 3);
-    this._ejectCase(firearm);
+    if (!def.cycleEject) this._ejectCase(firearm);
 
     this._cue('fire', { volume: 0.75 });
     this._emit({
-      type: 'fire', id: firearm.id, rounds: firearm.rounds, reserve: firearm.reserve, tracer: shot.tracer,
+      type: 'fire', id: firearm.id, rounds: firearm.rounds, reserve: firearm.reserve,
+      tracer: shot.tracer, shot: shotTruth,
     });
   }
 
-  _impact(hit, def) {
+  _impact(hit, def, ray = null, contact = null) {
     this.stats.impacts++;
+    const point = ray?.point?.isVector3 ? ray.point.clone() : hit.point.clone();
+    const direction = ray?.direction?.isVector3
+      ? ray.direction.clone().normalize()
+      : this.camera.getWorldDirection(new THREE.Vector3()).normalize();
+    const rayDistance = Number.isFinite(Number(ray?.distance))
+      ? Math.max(0, Number(ray.distance))
+      : Math.max(0, Number(hit.distance) || 0);
+    const origin = ray?.origin?.isVector3
+      ? ray.origin.clone()
+      : point.clone().addScaledVector(direction, -rayDistance);
+    const distance = rayDistance > 0 ? rayDistance : origin.distanceTo(point);
+    const normal = ray?.normal?.isVector3
+      ? ray.normal.clone().normalize()
+      : worldHitNormal(hit, direction);
     // An existing, recorded cue. Nothing new is asked for here.
-    this.audio?.play('heist.bullet.impact', { volume: 0.32, position: hit.point });
-    this.onImpact?.({
-      point: hit.point.clone(),
-      normal: hit.face?.normal ?? null,
+    this.audio?.play('heist.bullet.impact', { volume: 0.32, position: point });
+    const impact = Object.freeze({
+      point: immutableVector(point),
+      normal: immutableVector(normal),
+      origin: immutableVector(origin),
+      direction: immutableVector(direction),
+      distance,
       object: hit.object,
       weapon: def.id,
-      damage: def.damage,
+      damage: Number.isFinite(Number(contact?.damage)) ? Number(contact.damage) : def.damage,
       penetration: def.penetration,
+      material: contact?.material ?? null,
+      penetrated: contact?.penetrated === true,
+      stopped: contact?.stopped !== false,
+      remainingEnergy: Number.isFinite(Number(contact?.remainingEnergy))
+        ? Number(contact.remainingEnergy)
+        : def.damage,
+      remainingPenetration: Number.isFinite(Number(contact?.remainingPenetration))
+        ? Number(contact.remainingPenetration)
+        : def.penetration,
+      projectileIndex: Math.max(0, Math.trunc(Number(contact?.projectileIndex) || 0)),
+      projectiles: Math.max(1, Math.trunc(Number(contact?.projectiles) || 1)),
+      triggerId: contact?.triggerId ?? null,
+      triggerDamageCap: Number.isFinite(Number(contact?.triggerDamageCap))
+        ? Math.max(0, Number(contact.triggerDamageCap))
+        : def.damage,
+      localContacts: ray?.localContacts ?? Object.freeze([]),
     });
+    this.onImpact?.(impact);
   }
 
   /** One spent case out of the ejection port, for the guns that throw brass. */
-  _ejectCase(firearm) {
+  _ejectCase(firearm, { onLand = null } = {}) {
     const model = this.model;
     if (!model?.userData?.makeCase || !model.userData.ejectPort) return;
     // A revolver holds its brass until the ejector rod dumps it.
@@ -330,7 +691,19 @@ export class WeaponSystem {
     const vel = _right.clone().multiplyScalar(1.7 + Math.random() * 0.9)
       .addScaledVector(_up, 1.5 + Math.random() * 0.6);
     this.ejecta.drop(model.userData.makeCase(), {
-      position: at, velocity: vel, spin: 22, radius: 0.008,
+      position: at, velocity: vel, spin: 22, radius: 0.008, onLand,
+    });
+  }
+
+  _onCycle(firearm, event) {
+    this.stats.ejections++;
+    this._ejectCase(firearm, {
+      onLand: () => this._cue('mag.floor', { volume: 0.48 }),
+    });
+    this._cue('cycle', { volume: 0.68 });
+    this._emit({
+      type: 'cycle', id: firearm.id, kind: event.kind, rounds: event.rounds,
+      ammunition: firearm.rounds, reserve: firearm.reserve,
     });
   }
 
@@ -428,6 +801,7 @@ export class WeaponSystem {
       for (const event of f.update(step)) {
         if (event.type === 'eject') this._onEject(f, event);
         else if (event.type === 'loaded') this._onLoaded(f, event);
+        else if (event.type === 'cycle') this._onCycle(f, event);
       }
       // Automatics keep going while the trigger is held.
       if (f.def.auto && f.triggerHeld) this._pullTrigger();
@@ -448,21 +822,44 @@ export class WeaponSystem {
     this.swap = Math.max(0, this.swap - step * 3.6);
     this.recoilKick = Math.max(0, this.recoilKick - step * 7);
     this.sway += step * (1.5 + Math.min(4, speed));
+    const aimTarget = this.aimed && this.current ? 1 : 0;
+    const aimEase = 1 - Math.exp(-step * 12);
+    this.aimBlend += (aimTarget - this.aimBlend) * aimEase;
+    if (Math.abs(aimTarget - this.aimBlend) < 0.001) this.aimBlend = aimTarget;
+    this._applyAimFov();
     const model = this.model;
     if (!model) return;
+    const pump = model.userData.moving?.pump;
+    if (pump) {
+      if (!Number.isFinite(pump.userData.combatRestZ)) {
+        pump.userData.combatRestZ = pump.position.z;
+      }
+      const firearm = this.firearm(id);
+      const cycle = Math.max(0, Number(firearm.def.cycleSeconds) || 0);
+      const elapsed = cycle > 0 && firearm._cyclePending
+        ? 1 - THREE.MathUtils.clamp(firearm._cycleTimer / cycle, 0, 1)
+        : 0;
+      pump.position.z = pump.userData.combatRestZ + Math.sin(elapsed * Math.PI) * 0.15;
+    }
     const hold = model.userData.hold;
     const bob = Math.min(1, speed / 4);
     const reloadDip = this.firearm(id).reloading ? 0.09 : 0;
+    const hipX = hold.position[0] + Math.sin(this.sway) * 0.006 * bob;
+    const hipY = hold.position[1] + Math.abs(Math.cos(this.sway)) * 0.007 * bob
+      - this.swap * 0.18 - reloadDip + this.recoilKick * 0.008;
+    const hipZ = hold.position[2] + this.recoilKick * 0.03;
     model.position.set(
-      hold.position[0] + Math.sin(this.sway) * 0.006 * bob,
-      hold.position[1] + Math.abs(Math.cos(this.sway)) * 0.007 * bob
-        - this.swap * 0.18 - reloadDip + this.recoilKick * 0.008,
-      hold.position[2] + this.recoilKick * 0.03,
+      THREE.MathUtils.lerp(hipX, 0, this.aimBlend),
+      THREE.MathUtils.lerp(hipY, -0.135 + this.recoilKick * 0.004, this.aimBlend),
+      THREE.MathUtils.lerp(hipZ, hold.position[2] + 0.08 + this.recoilKick * 0.018, this.aimBlend),
     );
+    const hipRotX = hold.rotation[0] - this.recoilKick * 0.10 + this.swap * 0.32 + reloadDip * 2.4;
+    const hipRotY = hold.rotation[1] + Math.sin(this.sway * 0.6) * 0.008 * bob;
+    const hipRotZ = hold.rotation[2] - this.swap * 0.38;
     model.rotation.set(
-      hold.rotation[0] - this.recoilKick * 0.10 + this.swap * 0.32 + reloadDip * 2.4,
-      hold.rotation[1] + Math.sin(this.sway * 0.6) * 0.008 * bob,
-      hold.rotation[2] - this.swap * 0.38,
+      THREE.MathUtils.lerp(hipRotX, -this.recoilKick * 0.055, this.aimBlend),
+      THREE.MathUtils.lerp(hipRotY, 0, this.aimBlend),
+      THREE.MathUtils.lerp(hipRotZ, 0, this.aimBlend),
     );
   }
 
@@ -476,6 +873,55 @@ export class WeaponSystem {
     return this.firearm(this.current).snapshot();
   }
 
+  /** Stable reticle/HUD feedback independent of Three.js presentation nodes. */
+  feedback() {
+    const firearm = this.current ? this.firearm(this.current) : null;
+    if (!firearm) {
+      return {
+        aimed: this.aimed,
+        aimBlend: this.aimBlend,
+        spread: 0,
+        bloom: 0,
+        suppression: this.suppression,
+      };
+    }
+    const spread = firearm.spreadNow({
+      aimed: this.aimed,
+      aimStability: this.aimStability,
+    });
+    const settled = firearm.def.spread * (this.aimed ? 0.48 : 1);
+    return {
+      aimed: this.aimed,
+      aimBlend: this.aimBlend,
+      spread,
+      bloom: Math.max(0, spread - settled),
+      suppression: this.suppression,
+    };
+  }
+
+  _applyAimFov() {
+    if (!this._managingFov
+      || this._baseFov === null
+      || !Number.isFinite(Number(this.camera?.fov))) return;
+    const fov = this._baseFov * (1 - this.aimBlend * 0.16);
+    if (Math.abs(Number(this.camera.fov) - fov) > 1e-5) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix?.();
+    }
+    if (!this.aimed && this.aimBlend === 0) this._managingFov = false;
+  }
+
+  _restoreBaseFov() {
+    if (!this._managingFov
+      || this._baseFov === null
+      || !Number.isFinite(Number(this.camera?.fov))) return;
+    if (Math.abs(Number(this.camera.fov) - this._baseFov) > 1e-5) {
+      this.camera.fov = this._baseFov;
+      this.camera.updateProjectionMatrix?.();
+    }
+    this._managingFov = false;
+  }
+
   _cue(slot, opts) {
     if (!this.current) return;
     this.cueLog.push(weaponCue(this.current, slot));
@@ -487,6 +933,9 @@ export class WeaponSystem {
 
   dispose() {
     this.stow({ silent: true });
+    this.aimed = false;
+    this.aimBlend = 0;
+    this._restoreBaseFov();
     this.tracers.dispose();
     this.ejecta.dispose();
     this.rig.parent?.remove(this.rig);

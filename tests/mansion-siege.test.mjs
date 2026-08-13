@@ -362,6 +362,7 @@ test('every field the brief said a checkpoint must restore has a provider slot',
   for (const field of [
     'weapon', 'health', 'ammunition', 'enemiesDown', 'guardsDown',
     'damageProps', 'brokenGlass', 'objectives', 'activeWave', 'friendlies', 'dialogue',
+    'supplies',
   ]) {
     assert.ok(CHECKPOINT_FIELDS.includes(field), `${field} is not saved`);
   }

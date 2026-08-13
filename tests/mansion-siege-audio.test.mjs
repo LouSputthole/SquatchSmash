@@ -106,13 +106,18 @@ test('checkpoint reconstruction suppresses intermediate story effects and restor
 });
 
 test('the playable Siege and its verifier use the observable mission-audio boundary', () => {
+  const combatAdapterRegion = siegeMainSource.slice(
+    siegeMainSource.indexOf('const combatAdapterAudio = Object.freeze({'),
+    siegeMainSource.indexOf('const finalArcLoadout ='),
+  );
   assert.match(siegeMainSource, /new SiegeMissionAudio\(audio\)/);
   assert.match(siegeMainSource,
     /await audio\.loadManifest\(\{ names: siegeEffectCueNames\(\) \}\)/,
     'required effects must decode before the wake checkpoint requests them');
   assert.match(siegeMainSource,
-    /await audio\.loadAdditional\(\{ names: \[\.\.\.weaponCueNames\(\), \.\.\.siegeVoiceCueNames\(\)\] \}\)/,
-    'the playable weapon and voice bank must finish before checkpoint dialogue can request it');
+    /names: \[\.\.\.weaponCueNames\(\), \.\.\.siegeVoiceCueNames\(\), \.\.\.siegeCombatCueNames\(\)\]/,
+    'the playable weapon, voice and combat-feedback bank must finish before combat begins');
+  assert.match(siegeMainSource, /export function siegeCombatCueNames\(\)/);
   assert.match(siegeMainSource, /withCheckpointReconstruction\(\(\) => \{/,
     'checkpoint reconstruction must not replay every intermediate chime and wave cue');
   assert.match(siegeMainSource, /dialogue\.withSuppressedPlayback\(run\)/,
@@ -130,6 +135,12 @@ test('the playable Siege and its verifier use the observable mission-audio bound
   assert.match(siegeMainSource, /missionAudio\.friendlyRevived\(/);
   assert.match(siegeMainSource, /missionAudio\.updateEnvironment\(\{/);
   assert.doesNotMatch(siegeMainSource, /audio\.play\?\.\('siege\./);
+  assert.match(combatAdapterRegion,
+    /hasSample\(cue\)\s*\{\s*return audio\.hasSample\(cue\);\s*\}/,
+    'the combat facade must expose decoded canonical weapon cues to playWeaponCue');
+  assert.match(combatAdapterRegion,
+    /if \(LEGACY_COMBAT_PRESENTATION_CUES\.has\(cue\)\) return null;/,
+    'forwarding sample availability must not re-enable duplicate legacy impact cues');
 
   assert.match(siegeVerifierSource, /window\.mansionSiege\.missionAudio\.cueTrace\(\)/);
   assert.match(siegeVerifierSource, /every required Siege effect is requested by gameplay/);

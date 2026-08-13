@@ -58,7 +58,7 @@
  *   They DO NOT   outkill the player          -- `killBudget`, per beat
  *                 stand in the player's line  -- `_yieldToPlayer`
  *                 block the staircase         -- `KEEP_CLEAR`, asserted
- *                 fire without reloading      -- shared WeaponController
+ *                 fire without reloading      -- canonical Firearm
  *                 ignore incoming rounds      -- SuppressionModel + flinch
  *                 become invulnerable         -- `SURVIVES_THE_SIEGE`, which
  *                                                is a mission flag on this
@@ -79,13 +79,17 @@
  */
 import * as THREE from 'three';
 
+import { CombatWeaponAim } from '../../core/combat/aim.js';
 import { CombatActor } from '../../core/combat/actors.js';
-import { resolveBallisticHits } from '../../core/combat/ballistics.js';
 import { DEFAULT_FACTION_MATRIX, FACTIONS } from '../../core/combat/factions.js';
+import { CombatFireControl } from '../../core/combat/fire-control.js';
+import { CombatImpactResolver } from '../../core/combat/impact.js';
+import { CombatPerception } from '../../core/combat/perception.js';
+import { AabbCombatSpace } from '../../core/combat/spatial.js';
 import { SuppressionModel } from '../../core/combat/suppression.js';
-import { BurstController, WeaponController } from '../../core/combat/weapon.js';
+import { BurstController } from '../../core/combat/weapon.js';
+import { Firearm } from '../../core/weapons/Firearm.js';
 import { playWeaponCue } from '../../core/weapons/audio.js';
-import { WEAPON_CATALOG } from '../../core/weapons/catalog.js';
 import { buildWeaponModel } from '../../core/weapons/models.js';
 import {
   AUBBIE, BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
@@ -97,7 +101,84 @@ import {
  * cabin of a boat. The wardrobe entry stays -- he is still a character, in
  * the scenes that come before the one he dies in. */
 import { HeistFigure } from '../../heist/people.js';
-import { segmentBlocked } from './attackers.js';
+
+const ENSEMBLE_COMBAT_SPACE = new AabbCombatSpace();
+const ENSEMBLE_AIM_TOLERANCE = 0.14;
+const ENSEMBLE_THINK_INTERVAL = 1 / 9;
+
+/** Scene-local diagnostic bridge; Firearm remains the only state owner. */
+function npcFirearm(id) {
+  const firearm = new Firearm(id);
+  const legacyDefinition = Object.freeze({
+    magazineSize: firearm.capacity,
+    reserveMagazines: Math.max(0, Math.ceil(firearm.def.reserve / firearm.capacity)),
+    roundsPerSecond: firearm.def.rps,
+    reloadSeconds: firearm.def.reloadOut + firearm.def.reloadIn,
+    recoilPerShot: firearm.def.recoil,
+    hipSpread: firearm.def.spread,
+    aimedSpread: firearm.def.spread * 0.4,
+    damage: firearm.def.damage,
+    penetration: firearm.def.penetration,
+  });
+  Object.defineProperties(firearm, {
+    magazine: {
+      configurable: true,
+      get() { return this.rounds; },
+      set(value) {
+        this.rounds = Math.max(0, Math.min(this.capacity, Math.trunc(Number(value) || 0)));
+      },
+    },
+    reserveMagazines: {
+      configurable: true,
+      get() { return Math.ceil(this.reserve / Math.max(1, this.capacity)); },
+      set(value) {
+        this.reserve = Math.max(0, Math.trunc(Number(value) || 0)) * this.capacity;
+      },
+    },
+    definition: { configurable: true, value: legacyDefinition },
+  });
+  return firearm;
+}
+
+function fireNpcWeapon(firearm, options = {}) {
+  firearm.setTrigger(false);
+  firearm.setTrigger(true);
+  const event = firearm.fire(options);
+  firearm.setTrigger(false);
+  return event.fired ? {
+    ...event,
+    shot: firearm.shots,
+    damage: firearm.def.damage,
+    penetration: firearm.def.penetration,
+    remaining: firearm.rounds,
+  } : event;
+}
+
+function restoreNpcWeapon(firearm, snapshot = {}) {
+  if (Number.isFinite(Number(snapshot?.rounds))) return firearm.restore(snapshot);
+  return firearm.restore({
+    id: firearm.id,
+    rounds: Math.max(0, Math.trunc(Number(snapshot?.magazine) || 0)),
+    reserve: Math.max(0, Math.trunc(Number(snapshot?.reserveMagazines) || 0))
+      * firearm.capacity,
+    shots: Math.max(0, Math.trunc(Number(snapshot?.shotsFired) || 0)),
+  });
+}
+
+function ensembleSurface(position) {
+  return position.y >= 5.5 ? 'wood' : 'marble';
+}
+
+function frozenShotVector(value) {
+  return value?.isVector3 ? Object.freeze(value.clone()) : null;
+}
+
+function frozenShotBlocker(value) {
+  return value ? Object.freeze({
+    ...value,
+    point: frozenShotVector(value.point),
+  }) : null;
+}
 
 /* ================================================================== */
 /* THE HOUSE, AS NUMBERS                                                */
@@ -242,7 +323,7 @@ const ARMS = Object.freeze({
 /* ================================================================== */
 const BUSINESS = Object.freeze({
   /* Working the magazine. This one is not decorative -- it is driven by
-   * the shared WeaponController actually being empty, so a man who has
+   * the canonical Firearm actually being empty, so a man who has
    * fired thirty rounds reloads and a man who has not, does not. */
   reload: Object.freeze({ seconds: 2.0, pose: 'reload' }),
   /* Turning to a window and looking out at the grounds. */
@@ -812,11 +893,19 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
   const _from = new THREE.Vector3();
   const _to = new THREE.Vector3();
   const _step = new THREE.Vector3();
+  const _viewForward = new THREE.Vector3();
+  const impactResolver = new CombatImpactResolver();
+  const impactRegistrations = [];
+  const fireControl = new CombatFireControl({
+    random: () => Math.random(),
+    space: ENSEMBLE_COMBAT_SPACE,
+    alignmentTolerance: ENSEMBLE_AIM_TOLERANCE,
+  });
 
   let beat = null;
   let killBudget = 0;
   let friendlyKills = 0;
-  let context = { audio: null, onBark: null };
+  let context = { audio: null, onBark: null, onWeaponEvent: null };
 
   function bark(member, key) {
     const lines = BARKS[key];
@@ -829,9 +918,36 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     return line;
   }
 
+  function weaponEvent(member, type, details = {}) {
+    const event = {
+      type,
+      id: member.id,
+      weapon: member.weaponId,
+      position: member.root.getWorldPosition(new THREE.Vector3()),
+      ...details,
+    };
+    context.onWeaponEvent?.(event);
+    return event;
+  }
+
   /* ---------------------------------------------------------------- */
   /* The people                                                        */
   /* ---------------------------------------------------------------- */
+
+  function tagHitZones(figure) {
+    figure.parts.head.userData.hitZone = 'head';
+    figure.parts.head.userData.hitPart = 'head';
+    figure.parts.body.userData.hitZone = 'chest';
+    figure.parts.body.userData.hitPart = 'chest';
+    for (const limb of [figure.parts.armL, figure.parts.armR]) {
+      limb.userData.hitZone = 'limb';
+      limb.userData.hitPart = 'arm';
+    }
+    for (const limb of [figure.parts.legL, figure.parts.legR]) {
+      limb.userData.hitZone = 'limb';
+      limb.userData.hitPart = 'leg';
+    }
+  }
 
   ROSTER.forEach((definition, index) => {
     const first = definition.posts.BRIEFING ?? definition.posts.AFTERMATH ?? P(0, 60, 0, 56);
@@ -842,6 +958,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       tier: index < 8 ? 'hero' : 'ambient',
       model: definition.model(),
     });
+    tagHitZones(figure);
 
     /* Everyone still alive is armed -- so the gun is a real model off the
      * shared catalog, in his hand, not a silhouette. The wounded man is the
@@ -874,7 +991,6 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     actor.role = definition.id;
     if (definition.wounded) actor.setInjury('severe');
 
-    const catalogue = weaponId ? WEAPON_CATALOG[weaponId] : null;
     const member = {
       id: definition.id,
       name: definition.name,
@@ -882,23 +998,33 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       figure,
       root: figure.root,
       gun,
+      restGunQuaternion: gun?.quaternion.clone() ?? null,
       actor,
       posts: definition.posts,
       weaponId,
-      weapon: catalogue ? new WeaponController({
-        magazineSize: catalogue.capacity,
-        reserveMagazines: Math.max(1, Math.round(catalogue.reserve / catalogue.capacity)),
-        roundsPerSecond: catalogue.rps,
-        reloadSeconds: catalogue.reloadOut + catalogue.reloadIn,
-        recoilPerShot: catalogue.recoil,
-        recoilRecovery: 1.7,
-        hipSpread: catalogue.spread,
-        aimedSpread: catalogue.spread * 0.4,
-        damage: catalogue.damage,
-        penetration: catalogue.penetration,
-      }) : null,
+      weapon: weaponId ? npcFirearm(weaponId) : null,
       burst: new BurstController({ min: 2, max: 4, pause: 1.4 + (index % 5) * 0.22 }),
       suppression: new SuppressionModel({ decay: 0.62 }),
+      perception: new CombatPerception({
+        range: 34,
+        fov: Math.PI * 2,
+        memorySeconds: 1.8,
+        awareness: 1,
+        space: ENSEMBLE_COMBAT_SPACE,
+      }),
+      weaponAim: new CombatWeaponAim({ tolerance: ENSEMBLE_AIM_TOLERANCE }),
+      aimFrame: null,
+      aimPoint: new THREE.Vector3(),
+      lastSeen: new THREE.Vector3(),
+      target: null,
+      targetVisible: false,
+      targetDistance: Infinity,
+      aimAligned: false,
+      aimError: Infinity,
+      boreError: Infinity,
+      aimPitch: 0,
+      sinceThink: (index % 9) * (ENSEMBLE_THINK_INTERVAL / 9),
+      lastShot: null,
       post: null,
       goal: new THREE.Vector3(first.x, first.y, first.z),
       lookAt: new THREE.Vector2(first.lookX, first.lookZ),
@@ -935,7 +1061,17 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       reportedDown: false,
     };
 
+    member.impactActor = {
+      get id() { return member.actor.id; },
+      get faction() { return member.actor.faction; },
+      get incapacitated() { return member.actor.incapacitated; },
+      applyHit: (options = {}) => member.actor.applyHit({
+        ...options,
+        matrix: factionMatrix,
+      }),
+    };
     figure.root.userData.combatActor = actor;
+    figure.root.userData.combatant = member;
     figure.root.userData.memberId = definition.id;
     figure.root.userData.faction = FACTIONS.CREW;
     /* THE HARD LOCK. Read by `attackers.js` BEFORE the faction matrix, so
@@ -943,6 +1079,11 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
      * rejected from it. */
     if (definition.id === 'snow') figure.root.userData.neverTargeted = true;
     figure.root.visible = false;
+    impactRegistrations.push(impactResolver.register(figure.root, {
+      actor: () => member.impactActor,
+      combatant: () => member,
+      materialOf: 'flesh',
+    }));
     root.add(figure.root);
     poseFor(figure, member.wounded ? 'wounded' : 'stand');
     members.set(definition.id, member);
@@ -1018,6 +1159,15 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       member.businessKey = null;
       member.businessLeft = 0;
       member.businessClock = (member.index * 0.83) % 3.4;
+      member.perception.restore({ awareness: 1, memory: 0, lastSeen: null });
+      mirrorPerception(member);
+      member.weaponAim.reset();
+      member.aimFrame = null;
+      member.aimAligned = false;
+      member.lastShot = null;
+      if (member.gun && member.restGunQuaternion) {
+        member.gun.quaternion.copy(member.restGunQuaternion);
+      }
       if (!member.actor.incapacitated) {
         poseFor(member.figure, member.wounded ? 'wounded' : 'stand');
       }
@@ -1042,9 +1192,42 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       if (!factionMatrix.canTarget(FACTIONS.CREW, actor.faction)) continue;
       const position = candidate?.position ?? node?.position ?? null;
       if (!position || !Number.isFinite(position.x)) continue;
-      out.push({ actor, position, node });
+      out.push({
+        id: actor.id ?? node?.userData?.attackerId ?? node?.name,
+        actor,
+        position,
+        node,
+        eye: 1.4,
+        visible: node?.visible !== false,
+      });
     }
     return out;
+  }
+
+  function mirrorPerception(member) {
+    member.target = member.perception.target;
+    member.targetVisible = member.perception.targetVisible;
+    member.targetDistance = member.perception.distance;
+    if (member.perception.lastSeen) member.lastSeen.copy(member.perception.lastSeen);
+    else member.lastSeen.set(0, 0, 0);
+  }
+
+  function scanForTarget(member, candidates, colliders, player) {
+    _from.copy(member.root.position);
+    _from.y += 1.4;
+    _viewForward.set(
+      Math.sin(member.root.rotation.y), 0, Math.cos(member.root.rotation.y),
+    );
+    const best = member.perception.scan({
+      origin: _from,
+      forward: _viewForward,
+      candidates: candidates.filter((target) => !playerInTheWay(member, target, player)),
+      boxes: colliders,
+    });
+    mirrorPerception(member);
+    if (best) member.aimPoint.copy(best.point);
+    else if (member.perception.lastSeen) member.aimPoint.copy(member.perception.lastSeen);
+    return best;
   }
 
   /**
@@ -1057,9 +1240,13 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
    */
   function fireAt(member, target, ctx) {
     if (!member.weapon) return null;
-    const shot = member.weapon.fire();
+    const shot = fireNpcWeapon(member.weapon, {
+      aimed: member.aimAligned,
+      aimStability: 1 - member.suppression.value * 0.6,
+    });
     if (!shot.fired) {
-      if (shot.reason === 'empty' && member.weapon.beginReload()) {
+      if (shot.reason === 'empty' && member.weapon.reload()) {
+        weaponEvent(member, 'reload-start');
         bark(member, 'reload');
         member.businessKey = 'reload';
         member.businessLeft = BUSINESS.reload.seconds;
@@ -1072,44 +1259,97 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     }
     member.shotsFired++;
 
-    _from.copy(member.root.position);
-    _from.y += 1.4;
-    _to.copy(target.position);
-    _to.y += 1.4;
+    const aimFrame = member.aimFrame;
+    if (aimFrame?.origin?.isVector3) _from.copy(aimFrame.origin);
+    else {
+      _from.copy(member.root.position);
+      _from.y += 1.4;
+    }
+    _to.copy(member.aimPoint);
     const distance = _from.distanceTo(_to);
-    const blocked = segmentBlocked(_from, _to, ctx.colliders);
+    const livePoint = target.position.clone();
+    livePoint.y += target.eye ?? 1.4;
 
     /* Deliberately poor. Seven people with a 10% base chance at a moving man
      * behind a wrecked console is a room full of gunfire in which the player
      * is still the one who has to do the work. */
     const chance = 0.1 * (1 - member.suppression.value * 0.6)
       * (1 - Math.min(0.7, Math.max(0, distance - 14) / 30));
-    let onTarget = !blocked && Math.random() < chance;
-
-    /* Would this be the last round on him? Then it needs a budget. */
+    /* Would this be the last round on him? Then it needs a budget. Shared
+     * fire control still owns the random outcome; zero accuracy means this
+     * trigger resolves truthfully into wall or air instead of applying it. */
     const expected = shot.damage - Math.min(target.actor.armor, shot.damage * 0.55);
-    if (onTarget && target.actor.health - expected <= 0) {
-      if (killBudget <= 0) onTarget = false;
-    }
-
-    const hits = blocked
-      ? [{ distance: blocked.distance, material: 'concrete', thickness: 0.4 }]
-      : onTarget
-        ? [{ distance, actor: target.actor, material: 'flesh' }]
-        : [{ distance, material: 'plaster', thickness: 0.5 }];
-
-    const resolved = resolveBallisticHits(hits, {
+    const needsKillBudget = target.actor.health - expected <= 0 && killBudget <= 0;
+    const resolved = fireControl.resolveShot({
+      origin: _from,
+      boreDirection: aimFrame?.direction ?? _to.clone().sub(_from).normalize(),
+      aimPoint: _to,
+      targetPoint: livePoint,
+      target: {
+        id: target.id,
+        actor: target.actor,
+        point: livePoint,
+        visible: member.targetVisible && member.target === target,
+      },
+      targetVisible: member.targetVisible && member.target === target,
       attacker: member.actor,
       damage: shot.damage,
       penetration: shot.penetration,
+      accuracy: needsKillBudget ? 0 : chance,
+      colliders: ctx.colliders,
       matrix: factionMatrix,
       playerShot: false,
     });
-    playWeaponCue(ctx.audio, member.weaponId, 'fire', {
-      position: _from, volume: 0.55, ref: 3, maxDist: 55,
+    if (!resolved.fired) return null;
+    const pellets = Object.freeze([Object.freeze({
+      index: 0,
+      fired: true,
+      origin: frozenShotVector(resolved.origin),
+      direction: frozenShotVector(resolved.direction),
+      boreDirection: frozenShotVector(resolved.boreDirection),
+      end: frozenShotVector(resolved.end),
+      blocked: resolved.blocked,
+      blocker: frozenShotBlocker(resolved.blocker),
+      hit: resolved.hit,
+      nearMiss: resolved.nearMiss,
+      whiz: resolved.whiz,
+      missDistance: resolved.missDistance,
+      damage: resolved.damage,
+      fatal: resolved.fatal,
+      result: resolved.result,
+      target: target.id,
+      material: resolved.hit ? 'flesh' : (resolved.blocker?.material ?? 'plaster'),
+    })]);
+    weaponEvent(member, 'shot', {
+      rounds: member.weapon.rounds,
+      projectiles: 1,
+      pellets,
     });
+    playWeaponCue(ctx.audio, member.weaponId, 'fire', {
+      position: resolved.origin, volume: 0.55, ref: 3, maxDist: 55,
+    });
+    if (ctx.onImpact && (resolved.blocked || resolved.hit)) {
+      ctx.onImpact({
+        point: resolved.end.clone(),
+        normal: resolved.direction.clone().negate(),
+        material: resolved.hit ? 'flesh' : (resolved.blocker?.material ?? 'plaster'),
+        actor: resolved.hit ? target.actor : null,
+        object: resolved.hit ? target.node : (resolved.blocker?.box ?? null),
+        from: resolved.origin.clone(),
+      });
+    }
 
-    const result = resolved.find((hit) => hit.result)?.result ?? null;
+    const result = resolved.result ?? null;
+    member.lastShot = {
+      origin: resolved.origin.clone(),
+      end: resolved.end.clone(),
+      blocked: resolved.blocked,
+      onTarget: resolved.hit,
+      damage: resolved.damage,
+      aimError: member.aimError,
+      boreError: resolved.boreError,
+      pellets,
+    };
     if (result?.fatal) {
       killBudget = Math.max(0, killBudget - 1);
       friendlyKills++;
@@ -1166,7 +1406,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     /* Reload is honest: he only does it if the shared controller says the
      * magazine is short. Otherwise he does the next thing on his list. */
     if (key === 'reload' && member.weapon
-      && member.weapon.magazine > member.weapon.definition.magazineSize * 0.4) {
+      && member.weapon.rounds > member.weapon.capacity * 0.4) {
       return routine[(member.routineAt++) % routine.length];
     }
     return key;
@@ -1192,14 +1432,20 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
    */
   function update(dt, ctx = {}) {
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
-    context = { audio: ctx.audio ?? audio, onBark: ctx.onBark ?? null };
+    context = {
+      audio: ctx.audio ?? audio,
+      onBark: ctx.onBark ?? null,
+      onWeaponEvent: ctx.onWeaponEvent ?? null,
+    };
     const frame = {
       audio: context.audio,
       colliders: ctx.colliders ?? [],
       onHostileDown: ctx.onHostileDown ?? null,
+      onImpact: ctx.onImpact ?? null,
     };
     const player = ctx.player ?? null;
     const hostiles = hostilesFrom(ctx);
+    fireControl.update(step);
 
     for (const member of members.values()) {
       if (!member.staged || !member.post) continue;
@@ -1247,6 +1493,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       }
 
       /* --- move to the posting --- */
+      const from = member.root.position.clone();
       _step.copy(member.goal).sub(member.root.position);
       _step.y = 0;
       const planar = _step.length();
@@ -1258,28 +1505,54 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         * Math.min(1, step * 4);
       yieldToPlayer(member, player);
       inHouse(member.root.position);
+      const movedDistance = from.distanceTo(member.root.position);
+      if (movedDistance > 1e-4 && !member.actor.incapacitated) {
+        const to = member.root.position.clone();
+        ctx.onStep?.(member, {
+          id: member.id,
+          position: to.clone(),
+          from,
+          to,
+          moving: true,
+          gait: 'walk',
+          surface: ensembleSurface(to),
+          intensity: 0.72,
+        });
+      }
 
       /* --- reload, suppression, weapon clock --- */
-      if (member.weapon?.update(step)) {
-        playWeaponCue(frame.audio, member.weaponId, 'reload.in', {
-          position: member.root.position, volume: 0.35,
-        });
+      for (const event of member.weapon?.update(step) ?? []) {
+        if (event.type === 'loaded') {
+          weaponEvent(member, 'loaded', { rounds: event.rounds, loaded: event.loaded });
+          playWeaponCue(frame.audio, member.weaponId, 'reload.in', {
+            position: member.root.position, volume: 0.35,
+          });
+        } else if (event.type === 'cycle') {
+          weaponEvent(member, 'cycle', event);
+          playWeaponCue(frame.audio, member.weaponId, 'cycle', {
+            position: member.root.position, volume: 0.35,
+          });
+        }
       }
       member.suppression.update(step);
       member.actor.suppression = member.suppression.value;
 
       /* --- who --- */
-      let best = null;
-      let bestDistance = Infinity;
-      if (!member.wounded) {
-        for (const target of hostiles) {
-          const d = member.root.position.distanceTo(target.position);
-          if (d > 34) continue;
-          if (playerInTheWay(member, target, player)) continue;
-          if (d < bestDistance) { bestDistance = d; best = target; }
-        }
+      member.sinceThink += step;
+      if (!member.wounded && member.sinceThink >= ENSEMBLE_THINK_INTERVAL) {
+        scanForTarget(member, hostiles, frame.colliders, player);
+        member.sinceThink = 0;
+      } else if (member.wounded) {
+        member.perception.restore({ awareness: 0, memory: 0, lastSeen: null });
+        mirrorPerception(member);
       }
-      member.target = best;
+      member.perception.tick(step);
+      mirrorPerception(member);
+      if (!member.targetVisible && member.perception.lastSeen) {
+        member.aimPoint.copy(member.perception.lastSeen);
+      }
+      const best = member.targetVisible ? member.target : null;
+      const bestDistance = best ? member.targetDistance : Infinity;
 
       /* Incoming. A hostile inside twenty metres with a line on him is a man
        * being shot at, and being shot at is the whole reason a friendly ever
@@ -1306,28 +1579,65 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
             if (key === 'callout') bark(member, 'threat');
             if (key === 'tend') bark(member, 'wounded');
             if (key === 'passMag') bark(member, 'ammo');
-            if (key === 'reload') member.weapon?.beginReload();
+            if (key === 'reload' && member.weapon?.reload()) {
+              weaponEvent(member, 'reload-start');
+              playWeaponCue(frame.audio, member.weaponId, 'reload.out', {
+                position: member.root.position, volume: 0.35,
+              });
+            }
           }
           member.businessClock = 3.6 + (member.index % 7) * 0.6 + Math.random() * 2.4;
         }
       }
 
-      /* --- turn --- */
-      const lookX = best ? best.position.x : member.lookAt.x;
-      const lookZ = best ? best.position.z : member.lookAt.y;
-      const yaw = Math.atan2(lookX - member.root.position.x, lookZ - member.root.position.z);
-      let delta = yaw - member.root.rotation.y;
-      while (delta > Math.PI) delta -= Math.PI * 2;
-      while (delta < -Math.PI) delta += Math.PI * 2;
-      member.root.rotation.y += delta * Math.min(1, step * 5);
+      /* --- turn and actual rendered bore --- */
+      const hasAim = member.targetVisible || member.perception.hasMemory;
+      const interrupted = member.businessKey === 'reload'
+        || member.businessKey === 'tend'
+        || member.businessKey === 'flinch';
+      if (!hasAim) {
+        const yaw = Math.atan2(
+          member.lookAt.x - member.root.position.x,
+          member.lookAt.y - member.root.position.z,
+        );
+        let delta = yaw - member.root.rotation.y;
+        while (delta > Math.PI) delta -= Math.PI * 2;
+        while (delta < -Math.PI) delta += Math.PI * 2;
+        member.root.rotation.y += delta * Math.min(1, step * 5);
+      } else if (!interrupted && member.figure.pose !== 'stand') {
+        poseFor(member.figure, 'stand');
+      }
+      member.aimFrame = member.weaponAim.update(step, {
+        root: member.root,
+        weaponModel: member.gun,
+        weaponController: member.weapon,
+        targetPoint: hasAim ? member.aimPoint : null,
+        muzzleHeight: 1.4,
+        settleScale: 1 - member.suppression.value * 0.55,
+        interrupted,
+        pose: (aim) => {
+          member.figure.parts.head.rotation.x = -aim.pitch * 0.4;
+          if (!interrupted && aim.hasTarget) {
+            member.figure.parts.armR.rotation.set(-1.26 - aim.pitch, 0, 0.15);
+            member.figure.parts.armL.rotation.set(-1.18 - aim.pitch, 0, -0.32);
+          }
+          if (member.gun && (!aim.hasTarget || aim.interrupted)) {
+            member.gun.rotation.set(-Math.PI / 2 - aim.pitch * 0.2, 0, 0);
+          }
+        },
+      });
+      member.aimAligned = member.aimFrame.aligned;
+      member.aimError = member.aimFrame.aimError;
+      member.boreError = member.aimFrame.boreError;
+      member.aimPitch = member.aimFrame.pitch;
 
       /* --- fire --- */
       member.figure.update(step, { fear: member.suppression.value * 0.6 });
       if (!best || member.wounded || !member.weapon) continue;
       if (member.businessKey === 'reload' || member.businessKey === 'tend') continue;
       if (member.suppression.value > 0.8) continue;
-      if (member.figure.pose !== 'stand') poseFor(member.figure, 'stand');
-      const canFire = member.weapon.reloading <= 0 && member.weapon.cooldown <= 0;
+      if (!member.aimAligned) continue;
+      const canFire = !member.weapon.reloading && member.weapon.cooldown <= 0;
       if (member.burst.update(step, canFire)) fireAt(member, best, frame);
     }
   }
@@ -1359,11 +1669,26 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
       .map((member) => member.root);
   }
 
+  /** Complete incoming-hit seam for shared Combat Adapters. */
+  function registerHit(impact, { attacker = { faction: FACTIONS.CARTEL } } = {}) {
+    const located = impactResolver.resolve(impact, {
+      attacker,
+      playerShot: false,
+      damage: impact?.damage,
+      lethalHeadshots: true,
+    });
+    if (located.applied && located.combatant) {
+      located.combatant.suppression.noteNearMiss(0.2, 1);
+    }
+    return located;
+  }
+
   function snapshot() {
     return {
       beat,
       killBudget,
       friendlyKills,
+      fireControl: fireControl.snapshot(),
       members: [...members.values()].map((member) => ({
         id: member.id,
         actor: member.actor.snapshot(),
@@ -1373,6 +1698,25 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
         visible: member.root.visible,
         staged: member.staged,
         suppression: member.suppression.value,
+        perception: member.perception.snapshot(),
+        weaponAim: member.weaponAim.snapshot(),
+        aimPoint: member.aimPoint.toArray(),
+        aimPitch: member.aimPitch,
+        aimError: Number.isFinite(member.aimError) ? member.aimError : null,
+        boreError: Number.isFinite(member.boreError) ? member.boreError : null,
+        sinceThink: member.sinceThink,
+        lastShot: member.lastShot ? {
+          ...member.lastShot,
+          origin: member.lastShot.origin?.toArray?.() ?? null,
+          end: member.lastShot.end?.toArray?.() ?? null,
+          pellets: member.lastShot.pellets?.map((pellet) => ({
+            ...pellet,
+            origin: pellet.origin?.toArray?.() ?? null,
+            direction: pellet.direction?.toArray?.() ?? null,
+            boreDirection: pellet.boreDirection?.toArray?.() ?? null,
+            end: pellet.end?.toArray?.() ?? null,
+          })) ?? [],
+        } : null,
         kills: member.kills,
         shotsFired: member.shotsFired,
         reportedDown: member.reportedDown,
@@ -1398,16 +1742,54 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     if (snap.beat) stage(snap.beat);
     killBudget = Number.isFinite(snap.killBudget) ? snap.killBudget : killBudget;
     friendlyKills = Math.max(0, Math.round(snap.friendlyKills ?? 0));
+    fireControl.restore(snap.fireControl);
     for (const record of snap.members ?? []) {
       const member = members.get(record.id);
       if (!member) continue;
       member.actor.restore(record.actor);
-      if (record.weapon) member.weapon?.restore(record.weapon);
+      if (record.weapon && member.weapon) restoreNpcWeapon(member.weapon, record.weapon);
       member.root.position.fromArray(record.position);
       member.root.rotation.y = Number(record.yaw) || 0;
       member.root.visible = record.visible === true;
       member.staged = record.staged === true;
       member.suppression.value = Number(record.suppression) || 0;
+      member.perception.restore(record.perception ?? {
+        awareness: 1, memory: 0, lastSeen: null,
+      });
+      mirrorPerception(member);
+      if (Array.isArray(record.aimPoint)) member.aimPoint.fromArray(record.aimPoint);
+      else if (member.perception.lastSeen) member.aimPoint.copy(member.perception.lastSeen);
+      member.weaponAim.restore(record.weaponAim ?? {
+        yaw: record.yaw,
+        pitch: record.aimPitch,
+        aimError: record.aimError,
+        boreError: record.boreError,
+      }, { root: member.root, weaponController: member.weapon });
+      member.aimFrame = null;
+      member.aimAligned = false;
+      member.aimError = member.weaponAim.aimError;
+      member.boreError = member.weaponAim.boreError;
+      member.aimPitch = member.weaponAim.pitch;
+      member.sinceThink = Math.max(0, Number(record.sinceThink) || 0);
+      member.lastShot = record.lastShot ? {
+        ...record.lastShot,
+        origin: Array.isArray(record.lastShot.origin)
+          ? new THREE.Vector3().fromArray(record.lastShot.origin) : null,
+        end: Array.isArray(record.lastShot.end)
+          ? new THREE.Vector3().fromArray(record.lastShot.end) : null,
+        pellets: Object.freeze((record.lastShot.pellets ?? []).map((pellet) => Object.freeze({
+          ...pellet,
+          origin: Array.isArray(pellet.origin) ? new THREE.Vector3().fromArray(pellet.origin) : null,
+          direction: Array.isArray(pellet.direction)
+            ? new THREE.Vector3().fromArray(pellet.direction) : null,
+          boreDirection: Array.isArray(pellet.boreDirection)
+            ? new THREE.Vector3().fromArray(pellet.boreDirection) : null,
+          end: Array.isArray(pellet.end) ? new THREE.Vector3().fromArray(pellet.end) : null,
+        }))),
+      } : null;
+      if (member.gun && member.restGunQuaternion) {
+        member.gun.quaternion.copy(member.restGunQuaternion);
+      }
       member.kills = Math.max(0, Math.round(record.kills ?? 0));
       member.shotsFired = Math.max(0, Math.round(record.shotsFired ?? 0));
       member.goal.copy(member.root.position);
@@ -1427,6 +1809,11 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     return true;
   }
 
+  function dispose() {
+    for (const unregister of impactRegistrations.splice(0)) unregister();
+    root.parent?.remove(root);
+  }
+
   return {
     root,
     members,
@@ -1434,6 +1821,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null } = {})
     update,
     snapshot,
     restore,
+    registerHit,
+    dispose,
+    fireControl,
+    impactResolver,
 
     /* ---- everything below is diagnostics, not the contract ---- */
     /** Crew a hostile may engage. Snow is never on it. */

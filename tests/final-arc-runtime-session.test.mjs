@@ -97,6 +97,7 @@ test('an in-progress final-arc entry returns its durable checkpoint token', () =
       SCENE_IDS.MANSION_SIEGE,
       'briefed',
       createMansionSiegeCampaignStory,
+      { checkpointSnapshot: null },
     ],
     [
       MISSION_IDS.ENOLA_SQUATCH,
@@ -110,6 +111,7 @@ test('an in-progress final-arc entry returns its durable checkpoint token', () =
       SCENE_IDS.CARTEL_PALACE,
       'betrayal',
       createCartelPalaceCampaignStory,
+      { checkpointSnapshot: null },
     ],
   ];
 
@@ -359,6 +361,7 @@ test('Cartel Palace checkpoints preserve partial evidence, alarm, targets, and h
     ok: true,
     resumed: true,
     checkpoint: 'clear',
+    checkpointSnapshot: null,
   });
   assert.deepEqual(reloaded.story.mission.evidenceFound, [
     'sauce_belongings',
