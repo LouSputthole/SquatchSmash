@@ -54,10 +54,10 @@ export const BEATS = Object.freeze({
     hint: 'East along the cellar hall, then south through the last door',
     state: 'under_attack',
   }),
-  /** At the rack. A primary, a heavy, and ammunition for both. */
+  /** At the rack. Any real weapon take is enough to keep the mission moving. */
   ARM: Object.freeze({
     objective: 'Arm yourself',
-    hint: 'E takes a weapon off the rack. Take a primary AND the belt-fed.',
+    hint: 'E takes a weapon off the rack. Pick any one you want, then get upstairs.',
     state: 'under_attack',
   }),
   /** Up the cellar stair, through the foyer, up the horseshoe. */
@@ -70,10 +70,10 @@ export const BEATS = Object.freeze({
   BRIEFING: Object.freeze({
     objective: null, hint: null, state: 'under_attack', checkpoint: 'briefed',
   }),
-  /** The heavy comes up at the top of the stairs. The line. Once. */
+  /** A weapon comes up at the top of the stairs. The line. Once. */
   LITTLE_FRIEND: Object.freeze({
     objective: 'Hold the house',
-    hint: 'Take the lit firing step on the gallery rail. Belt-fed up, then press F.',
+    hint: 'Take the lit firing step on the gallery rail. Weapon up, then press F.',
     state: 'under_attack',
   }),
   WAVE_ONE: Object.freeze({
@@ -308,13 +308,9 @@ export class SiegeMission {
     return true;
   }
 
-  /**
-   * Took a primary and the heavy off the rack. Both, deliberately: leaving
-   * the armory with only the rifle means arriving at the staircase without
-   * the little friend, and the line has nowhere to live.
-   */
-  armed({ primary = false, heavy = false } = {}) {
-    if (this.beat !== B.ARM || !primary || !heavy) return false;
+  /** The player took one real weapon from the basement armory. */
+  weaponTaken(id) {
+    if (this.beat !== B.ARM || typeof id !== 'string' || id.length === 0) return false;
     this._enter(B.TO_OFFICE);
     this.saveCheckpoint('armed');
     return true;
@@ -335,7 +331,7 @@ export class SiegeMission {
   }
 
   /**
-   * The player is on the landing with the heavy up. Returns true exactly
+   * The player is on the landing with a weapon up. Returns true exactly
    * once in a playthrough -- the caller plays the line on true and does
    * nothing on false, so a checkpoint restore cannot replay it.
    */

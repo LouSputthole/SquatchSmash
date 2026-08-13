@@ -12,7 +12,9 @@
  * satisfies both, and the player pinned there with his velocity cancelled. So
  * this file holds the class of bug shut rather than the instances:
  *
- *  1. No two solids may leave a channel narrower than the capsule.
+ *  1. No two solids may leave an unclassified through-channel narrower than
+ *     the capsule. Concave fixture bays are exact-snapshotted and must pass
+ *     the same settle-and-escape sweep as every other point.
  *  2. Dropped anywhere walkable, the capsule must settle at a stable point,
  *     with no residual overlap and no oscillation.
  *  3. From every point it settles at, the player must be able to walk away.
@@ -35,6 +37,7 @@ import test from 'node:test';
 import {
   CABIN,
   CABIN_COLLIDERS,
+  CABIN_CONCAVE_FIXTURE_CHANNELS,
   CABIN_STAGING,
   CAPSULE_RADIUS,
   DECK,
@@ -121,9 +124,14 @@ const deck = space('deck', DECK_COLLIDERS, DECK);
 const cabin = space('cabin', CABIN_COLLIDERS, CABIN);
 
 for (const list of [DECK_COLLIDERS, CABIN_COLLIDERS]) {
-  test(`no two solids leave a channel narrower than the player capsule (${list === DECK_COLLIDERS ? 'deck' : 'cabin'})`, () => {
-    assert.deepEqual(narrowChannels(list), [],
-      'a channel under 0.60 m has no position that satisfies both sides; widen one box or overlap them');
+  test(`no unclassified channel is narrower than the player capsule (${list === DECK_COLLIDERS ? 'deck' : 'cabin'})`, () => {
+    const expected = list === CABIN_COLLIDERS
+      ? CABIN_CONCAVE_FIXTURE_CHANNELS.map(({ reason: _reason, ...channel }) => channel)
+      : [];
+    assert.deepEqual(narrowChannels(list), expected,
+      'a new or changed channel under 0.60 m needs a measured route classification');
+    assert.ok(CABIN_CONCAVE_FIXTURE_CHANNELS.every((channel) => channel.reason.length > 0),
+      'every concave fixture gap needs an explicit non-route reason');
   });
 }
 
@@ -256,7 +264,10 @@ test('the cabin is a salon a confrontation fits in, not a bathroom', () => {
   assert.ok(headroom >= 2.05, `${headroom.toFixed(2)} m of headroom is a crawl space`);
 
   // Beam to beam between the two furniture runs: the width of the salon floor.
-  const clearWidth = at('cabin · dinette booth').min.x - at('cabin · galley counter').max.x;
+  const dinetteEdge = Math.min(...cabin.boxes
+    .filter((box) => box.name.startsWith('cabin · dinette'))
+    .map((box) => box.min.x));
+  const clearWidth = dinetteEdge - at('cabin · galley counter').max.x;
   assert.ok(clearWidth >= 2.0,
     `only ${clearWidth.toFixed(2)} m of clear sole between the galley and the dinette`);
 

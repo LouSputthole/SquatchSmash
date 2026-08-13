@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CombatStatusHud, combatVitals } from '../src/core/combat/hud.js';
+import { combatArmor, CombatStatusHud, combatVitals } from '../src/core/combat/hud.js';
 
 function fakeClassList(...initial) {
   const values = new Set(initial);
@@ -9,6 +9,22 @@ function fakeClassList(...initial) {
     add: (...names) => names.forEach((name) => values.add(name)),
     remove: (...names) => names.forEach((name) => values.delete(name)),
     contains: (name) => values.has(name),
+    toggle: (name, force) => {
+      const on = force === undefined ? !values.has(name) : Boolean(force);
+      if (on) values.add(name);
+      else values.delete(name);
+      return on;
+    },
+  };
+}
+
+function fakeHudNode(...classes) {
+  return {
+    classList: fakeClassList(...classes),
+    dataset: {},
+    style: {},
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = String(value); },
   };
 }
 
@@ -104,4 +120,57 @@ test('checkpoint reset clears all discarded damage feedback and refreshes vitals
 
   assert.deepEqual(hud.clear(), { state: 'healthy' });
   assert.equal(updates, 2);
+});
+
+test('the shared combat HUD exposes readable mechanical armor beside health', () => {
+  assert.deepEqual(combatArmor({ armor: 30, maxArmor: 40 }), {
+    armor: 30,
+    maxArmor: 40,
+    current: 30,
+    maximum: 40,
+    ratio: 0.75,
+    percent: 75,
+    visible: true,
+    label: 'ARMOR',
+    aria: 'Armor 30 of 40',
+  });
+});
+
+test('armor capacity stays readable at zero before pickup and after a break', () => {
+  const actor = {
+    health: 100,
+    maxHealth: 100,
+    armor: 0,
+    maxArmor: 75,
+    incapacitated: false,
+  };
+  const hud = Object.create(CombatStatusHud.prototype);
+  hud.actor = actor;
+  hud.root = fakeHudNode();
+  hud.value = {};
+  hud.maximum = {};
+  hud.fill = { style: {} };
+  hud.track = fakeHudNode();
+  hud.armorRoot = fakeHudNode('hidden');
+  hud.armorValue = {};
+  hud.armorMaximum = {};
+  hud.armorFill = { style: {} };
+  hud.armorTrack = fakeHudNode();
+  hud._signature = '';
+
+  hud.update();
+  assert.equal(hud.armorRoot.classList.contains('hidden'), false);
+  assert.equal(hud.armorValue.textContent, '0');
+  assert.equal(hud.armorMaximum.textContent, '/ 75');
+  assert.equal(hud.root.dataset.armorState, 'broken');
+  assert.equal(hud.root.attributes['aria-label'], 'Health 100 of 100, armor 0 of 75');
+
+  actor.armor = 3;
+  hud.update();
+  actor.armor = 0;
+  hud.update();
+  assert.equal(combatArmor(actor).visible, false);
+  assert.equal(hud.armorRoot.classList.contains('hidden'), false);
+  assert.equal(hud.armorValue.textContent, '0');
+  assert.equal(hud.root.dataset.armorState, 'broken');
 });

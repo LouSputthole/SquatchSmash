@@ -278,6 +278,12 @@ export function buildShotgun() {
   stock.add(box({ size: [0.054, 0.090, 0.36], pos: [0, 0.006, 0.18], mat: M.wood, name: 'shotgun-stock-body' }));
   stock.add(box({ size: [0.062, 0.112, 0.024], pos: [0, -0.004, 0.368], mat: M.dark, name: 'shotgun-buttpad' }));
   g.add(stock);
+  // The stock wrist is the firing-hand grip. Naming the real contact geometry
+  // keeps the shared Siege hand-mount verifier honest for this long gun.
+  g.add(box({
+    size: [0.045, 0.070, 0.10], pos: [0, -0.030, 0.09], rotX: -0.18,
+    mat: M.wood, name: 'shotgun-grip',
+  }));
 
   g.userData.muzzle = new THREE.Vector3(0, 0.036, -0.682);
   g.userData.ejectPort = new THREE.Vector3(0.034, 0.034, -0.015);

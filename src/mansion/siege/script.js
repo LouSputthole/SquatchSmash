@@ -43,6 +43,8 @@
  * a sequence is subtitles and audio over live gameplay, never a camera move
  * and never a lock. The only thing a sequence does to the mission is finish.
  */
+import { WEAPON_IDS } from '../../core/weapons/catalog.js';
+
 
 /**
  * Speaker -> voice profile in `assets/sfx/manifest.json`.
@@ -130,7 +132,7 @@ export const SEQUENCES = Object.freeze({
       'Kid — armory. East end of the cellar hall, then south through the door. Move.'),
   ]),
 
-  /** The moment the rack has given him a primary and the little friend. */
+  /** The moment the rack has given him a weapon. */
   guide_office: Object.freeze([
     say('guide.booski.office', 'booski',
       'Now get up here. Basement stair, straight over the foyer, up the horseshoe — Lou is on the top floor.'),
@@ -214,6 +216,12 @@ export const SEQUENCES = Object.freeze({
   ]),
 });
 
+/** Keep the recorded heavy order truthful without shortening other briefings. */
+export function briefingLinesForWeapon(weaponId) {
+  if (weaponId === WEAPON_IDS.SAW) return SEQUENCES.briefing;
+  return SEQUENCES.briefing.filter((line) => line.id !== 'briefing.lou.heavy');
+}
+
 /** Every recordable line in the mission, flat, in authored order. */
 export function allSiegeLines() {
   const out = [];
@@ -263,8 +271,8 @@ export class SiegeDialogue {
    * been played, or does not exist -- so a caller can put this behind a room
    * trigger and let it run every frame without a flag of its own.
    */
-  play(id, { replay = false } = {}) {
-    const lines = SEQUENCES[id];
+  play(id, { replay = false, lines = null } = {}) {
+    lines ??= SEQUENCES[id];
     if (!lines || (!replay && this.played.has(id))) return false;
     if (this.sequence === id) return false;
     this.played.add(id);
@@ -274,6 +282,14 @@ export class SiegeDialogue {
     this.hold = 0;
     this._next();
     return true;
+  }
+
+  /** Play Lou's office briefing with the recorded heavy order only for a SAW. */
+  playBriefing(weaponId, { replay = false } = {}) {
+    return this.play('briefing', {
+      replay,
+      lines: briefingLinesForWeapon(weaponId),
+    });
   }
 
   /**

@@ -23,7 +23,9 @@
  *     so the player cannot slide out of a corner.
  *
  * Both are handled structurally below, and `narrowChannels()` fails the build
- * over (1) rather than waiting for a playtest to find it.
+ * over any new or changed instance of (1) rather than waiting for a playtest
+ * to find it. Concave furniture bays are retained as an exact measured list
+ * and must also pass the full settle-and-escape sweep.
  *
  * ## The redesign's shape, and why the numbers are what they are
  *
@@ -127,6 +129,24 @@ export const CABIN_STAGING = Object.freeze({
   minX: -0.82, maxX: 0.35, minZ: -3.80, maxZ: -2.50,
 });
 
+const cabinCastMark = (x, z, yaw, baseY = CABIN.height, job = 'stand') => Object.freeze({
+  x, z, yaw, baseY, job,
+});
+
+/**
+ * Authored confrontation marks in the same boat-local frame as the cabin.
+ *
+ * Willy's seated `baseY` is intentionally precise: the shared sit rig lowers
+ * its group another 0.401123596 m. This value leaves the visible hips 20 mm
+ * over the named aft-return cushion instead of hovering 344 mm above it.
+ */
+export const CABIN_CAST_STAGING = Object.freeze({
+  lou: cabinCastMark(1.20, -4.80, 0),
+  booski: cabinCastMark(-1.05, -4.60, 1.42),
+  willyStanding: cabinCastMark(0.20, -4.30, Math.PI * 0.86),
+  willySeat: cabinCastMark(1.20, -3.05, Math.PI, CABIN.height + 0.056348315, 'sit'),
+});
+
 /** Player capsule radius (`RADIUS` in src/core/player.js). Its diameter is the
  * number every channel on this boat has to clear. */
 export const CAPSULE_RADIUS = 0.30;
@@ -185,8 +205,8 @@ export const DECK_COLLIDERS = [
  * an authored move for the same reason going down is.
  *
  * The furniture is what makes the salon, so it is what N1 changed. The galley
- * is 0.94 m deep against the port liner and the dinette 1.10 m against the
- * starboard one, on a room 0.72 m wider than it was, which leaves 2.12 m of
+ * is 0.94 m deep against the port liner and the dinette 1.09 m against the
+ * starboard one, on a room 0.72 m wider than it was, which leaves 2.13 m of
  * clear sole between them running 2.33 m from the galley's forward end to the
  * companionway sill. Standing room, with the table beside you rather than
  * against your knees.
@@ -207,13 +227,47 @@ export const CABIN_COLLIDERS = [
   { name: 'cabin · starboard hull side', min: [1.98, -0.62, -6.05], max: [2.66, 1.56, -1.90] },
   { name: 'cabin · V-berth', min: [-2.08, -0.62, -5.95], max: [2.08, 0.24, -5.10] },
   { name: 'cabin · galley counter', min: [-2.08, -0.62, -4.45], max: [-1.14, 0.46, -2.90] },
-  /* Seat, table and low back. The dinette has to be something the player shoots
-   * over, not a wall the composition hides Willy behind. */
-  { name: 'cabin · dinette booth', min: [0.98, -0.62, -4.45], max: [2.08, 0.44, -2.80] },
+  /* The dinette follows the visible moulding exactly. Its inboard-aft quarter
+   * is a real legwell for the aft-return seat, rather than the old monolithic
+   * box that occupied Willy's legs. Each touching piece remains one solid
+   * player obstacle, while the named aft return stays the seat support. */
+  { name: 'cabin · dinette booth · outboard spine', min: [1.50, -0.515, -4.40], max: [2.03, -0.01, -2.90] },
+  { name: 'cabin · dinette booth · forward inboard remnant', min: [1.17, -0.515, -4.40], max: [1.50, -0.01, -3.70] },
+  { name: 'cabin · dinette booth · forward return', min: [1.02, -0.535, -4.41], max: [1.86, -0.03, -3.99] },
+  { name: 'cabin · dinette booth · aft return support', min: [1.02, -0.535, -3.29], max: [1.86, -0.03, -2.91] },
+  { name: 'cabin · dinette booth backrest', min: [1.91, -0.05, -4.58], max: [2.03, 0.37, -2.72] },
+  { name: 'cabin · dinette table pedestal', min: [1.19, -0.52, -3.85], max: [1.29, 0.22, -3.75] },
+  { name: 'cabin · dinette table top', min: [0.99, 0.275, -4.25], max: [1.65, 0.325, -3.45] },
   { name: 'cabin · aft bulkhead · mid-berth', min: [-2.08, -0.62, -2.90], max: [-1.20, 1.56, -1.90] },
   { name: 'cabin · aft bulkhead · head', min: [0.70, -0.62, -2.80], max: [2.08, 1.56, -1.90] },
   { name: 'cabin · companionway sill', min: [-1.26, -0.62, -2.12], max: [0.76, -0.10, -1.90] },
 ];
+
+/**
+ * Exact sub-capsule gaps reported by the pairwise audit for the concave
+ * starboard fixture. None is a through-route: each is either bridged by a
+ * third piece of the same moulding, outside the walkable perimeter, or an
+ * inboard-open furniture bay. Keeping the full measured records here means a
+ * newly introduced gap cannot disappear into a broad allow-list; the cabin
+ * sweep still has to clear and escape every sampled position.
+ */
+export const CABIN_CONCAVE_FIXTURE_CHANNELS = Object.freeze([
+  { axis: 'x', gap: 0.48, a: 'cabin · starboard hull side', b: 'cabin · dinette booth · forward inboard remnant', span: [-4.4, -3.7], reason: 'outboard recess is filled by the overlapping spine' },
+  { axis: 'x', gap: 0.12, a: 'cabin · starboard hull side', b: 'cabin · dinette booth · forward return', span: [-4.41, -3.99], reason: 'outboard recess is filled by the overlapping spine' },
+  { axis: 'x', gap: 0.12, a: 'cabin · starboard hull side', b: 'cabin · dinette booth · aft return support', span: [-3.29, -2.91], reason: 'outboard recess is filled by the overlapping spine' },
+  { axis: 'x', gap: 0.33, a: 'cabin · starboard hull side', b: 'cabin · dinette table top', span: [-4.25, -3.45], reason: 'table overlaps the spine in plan and does not form a passage' },
+  { axis: 'z', gap: 0.52, a: 'cabin · V-berth', b: 'cabin · dinette booth backrest', span: [1.91, 2.03], reason: 'perimeter pocket is outside the capsule-centre envelope' },
+  { axis: 'x', gap: 0.21, a: 'cabin · dinette booth · outboard spine', b: 'cabin · dinette table pedestal', span: [-3.85, -3.75], reason: 'pedestal pocket is covered by the table top' },
+  { axis: 'z', gap: 0.1, a: 'cabin · dinette booth · outboard spine', b: 'cabin · aft bulkhead · head', span: [1.5, 2.03], reason: 'backrest bridges the booth to the aft fixture' },
+  { axis: 'z', gap: 0.41, a: 'cabin · dinette booth · forward inboard remnant', b: 'cabin · dinette booth · aft return support', span: [1.17, 1.5], reason: 'intended legwell is an inboard-open bay, not a through-channel' },
+  { axis: 'x', gap: 0.41, a: 'cabin · dinette booth · forward inboard remnant', b: 'cabin · dinette booth backrest', span: [-4.4, -3.7], reason: 'outboard recess is filled by the overlapping spine' },
+  { axis: 'x', gap: 0.05, a: 'cabin · dinette booth · forward return', b: 'cabin · dinette booth backrest', span: [-4.41, -3.99], reason: 'outboard seam is filled by the overlapping spine' },
+  { axis: 'z', gap: 0.14, a: 'cabin · dinette booth · forward return', b: 'cabin · dinette table pedestal', span: [1.19, 1.29], reason: 'pedestal pocket is covered by the table top' },
+  { axis: 'x', gap: 0.05, a: 'cabin · dinette booth · aft return support', b: 'cabin · dinette booth backrest', span: [-3.29, -2.91], reason: 'outboard seam is filled by the overlapping spine' },
+  { axis: 'z', gap: 0.46, a: 'cabin · dinette booth · aft return support', b: 'cabin · dinette table pedestal', span: [1.19, 1.29], reason: 'intended legwell is an inboard-open bay, not a through-channel' },
+  { axis: 'z', gap: 0.11, a: 'cabin · dinette booth · aft return support', b: 'cabin · aft bulkhead · head', span: [1.02, 1.86], reason: 'aft seam opens inboard and the capsule resolver exits laterally' },
+  { axis: 'x', gap: 0.26, a: 'cabin · dinette booth backrest', b: 'cabin · dinette table top', span: [-4.25, -3.45], reason: 'table overlaps the spine in plan and does not form a passage' },
+].map((channel) => Object.freeze({ ...channel, span: Object.freeze(channel.span) })));
 
 /** Plain `{min,max}` boxes with `.x/.y/.z` members -- the same shape as a
  * THREE.Box3, so the resolver runs against either. */
@@ -239,12 +293,42 @@ export function colliderInPlayerHeight(box, eyeY, eyeHeight) {
   return !(eyeY + .05 < box.min.y || eyeY - eyeHeight > box.max.y);
 }
 
-function strictlyInside(box, x, z) {
-  return x > box.min.x && x < box.max.x && z > box.min.z && z < box.max.z;
-}
-
 function onWalkableDeck(x, z, deck) {
   return Math.abs(x) <= deck.halfBeam && z >= deck.bow && z <= deck.stern;
+}
+
+/** Nearest axis-aligned position where the whole capsule clears every solid.
+ * Used only for an opposing-push squeeze: ordinary surface contact still
+ * slides through the iterative resolver below. */
+function nearestClearPosition(boxes, x, z, radius, eyeY, eyeHeight, deck) {
+  const xs = [x];
+  const zs = [z];
+  for (const box of boxes) {
+    if (!colliderInPlayerHeight(box, eyeY, eyeHeight)) continue;
+    xs.push(box.min.x - radius, box.max.x + radius);
+    zs.push(box.min.z - radius, box.max.z + radius);
+  }
+  const candidates = [];
+  for (const candidateX of xs) candidates.push({ x: candidateX, z });
+  for (const candidateZ of zs) candidates.push({ x, z: candidateZ });
+  /* A concave corner can require clearing one face on each axis. These are
+   * invalid-state recovery candidates, not ordinary movement, so a bounded
+   * cross-product is preferable to leaving the capsule embedded. */
+  for (const candidateX of xs) {
+    for (const candidateZ of zs) candidates.push({ x: candidateX, z: candidateZ });
+  }
+  let nearest = null;
+  let nearestDistance = Infinity;
+  for (const candidate of candidates) {
+    if (!onWalkableDeck(candidate.x, candidate.z, deck)) continue;
+    if (deckPenetration(boxes, candidate.x, candidate.z, radius, eyeY, eyeHeight).depth > 1e-6) continue;
+    const distance = Math.hypot(candidate.x - x, candidate.z - z);
+    if (distance < nearestDistance) {
+      nearest = candidate;
+      nearestDistance = distance;
+    }
+  }
+  return nearest;
 }
 
 /**
@@ -270,7 +354,16 @@ function ejectFromInside(box, x, z, radius, boxes, eyeY, eyeHeight, deck) {
     for (const other of boxes) {
       if (other === box) continue;
       if (!colliderInPlayerHeight(other, eyeY, eyeHeight)) continue;
-      if (strictlyInside(other, candidate.x, candidate.z)) { blocked = true; break; }
+      const closestX = clamp(candidate.x, other.min.x, other.max.x);
+      const closestZ = clamp(candidate.z, other.min.z, other.max.z);
+      /* A candidate is free only when the whole capsule is free. Merely
+       * putting its centre outside `other` can park it in a concave furniture
+       * bay that is narrower than its diameter, where the next pass receives
+       * equal opposing surface pushes and cannot leave. */
+      if (Math.hypot(candidate.x - closestX, candidate.z - closestZ) < radius - 1e-9) {
+        blocked = true;
+        break;
+      }
     }
     if (!blocked) return { dx: candidate.x - x, dz: candidate.z - z };
   }
@@ -356,8 +449,19 @@ export function resolveOnDeck(boxes, x, z, radius, eyeY, eyeHeight, deck = DECK,
      * step, which is stable, instead of bouncing off each wall in turn forever. */
     let stepX = posX + negX;
     let stepZ = posZ + negZ;
-    if (posX > 0 && negX < 0) { stepX *= .5; squeezed = true; }
-    if (posZ > 0 && negZ < 0) { stepZ *= .5; squeezed = true; }
+    const squeezedX = posX > 0 && negX < 0;
+    const squeezedZ = posZ > 0 && negZ < 0;
+    if (squeezedX || squeezedZ) {
+      squeezed = true;
+      const escape = nearestClearPosition(boxes, x, z, radius, eyeY, eyeHeight, deck);
+      if (escape) {
+        x = escape.x;
+        z = escape.z;
+        continue;
+      }
+    }
+    if (squeezedX) stepX *= .5;
+    if (squeezedZ) stepZ *= .5;
     if (Math.abs(stepX) < 1e-5 && Math.abs(stepZ) < 1e-5) break;
     x += stepX;
     z += stepZ;
@@ -373,9 +477,10 @@ export function resolveOnDeck(boxes, x, z, radius, eyeY, eyeHeight, deck = DECK,
 /**
  * Every pair of solids that leaves a channel too narrow for the capsule.
  *
- * Reported as `{ axis, gap, a, b, span }`. An empty result is the contract this
- * boat ships under, on deck and below; `tests/no-wake-deck.test.mjs` asserts it
- * for both tables.
+ * Reported as `{ axis, gap, a, b, span }`. The deck ships with an empty result.
+ * The cabin's concave dinette has an exact classified result: any additional
+ * or dimensionally changed entry fails, and the settle/escape sweeps prove the
+ * classified bays are not routes or traps.
  */
 export function narrowChannels(list = DECK_COLLIDERS, clearance = CAPSULE_RADIUS * 2) {
   const boxes = deckColliderBoxes(list);

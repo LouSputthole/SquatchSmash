@@ -148,6 +148,22 @@ test('a sequence plays its lines in order and finishes exactly once', () => {
   assert.equal(runner.active, false);
 });
 
+test('the briefing only queues the delivered heavy line when the SAW is equipped', () => {
+  assert.ok(SEQUENCES.briefing.some((line) => line.id === 'briefing.lou.heavy'),
+    'the delivered cue stays in the authored voice inventory');
+
+  const playBriefing = (weaponId) => {
+    const seen = [];
+    const runner = new SiegeDialogue({ onLine: (line) => seen.push(line.id) });
+    assert.equal(runner.playBriefing(weaponId), true);
+    for (let i = 0; i < 400 && runner.active; i++) runner.update(0.25);
+    return seen;
+  };
+
+  assert.equal(playBriefing('carbine').includes('briefing.lou.heavy'), false);
+  assert.equal(playBriefing('saw').includes('briefing.lou.heavy'), true);
+});
+
 test('a sequence never plays twice, so a checkpoint restore cannot replay it', () => {
   const runner = new SiegeDialogue();
   assert.equal(runner.play('lull'), true);

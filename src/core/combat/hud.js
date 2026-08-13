@@ -72,6 +72,30 @@ export function combatVitals(actor = {}) {
   };
 }
 
+/** A deterministic, DOM-free view of the armor carried by one CombatActor. */
+export function combatArmor(actor = {}) {
+  const rawArmor = Number(actor?.armor);
+  const armor = Number.isFinite(rawArmor) ? Math.max(0, rawArmor) : 0;
+  const rawMaximum = Number(actor?.maxArmor);
+  const maxArmor = Number.isFinite(rawMaximum)
+    ? Math.max(1, rawMaximum, armor)
+    : Math.max(1, armor);
+  const ratio = Math.max(0, Math.min(1, armor / maxArmor));
+  const current = Math.ceil(armor);
+  const maximum = Math.ceil(maxArmor);
+  return {
+    armor,
+    maxArmor,
+    current,
+    maximum,
+    ratio,
+    percent: Math.round(ratio * 100),
+    visible: armor > 0,
+    label: 'ARMOR',
+    aria: `Armor ${current} of ${maximum}`,
+  };
+}
+
 function span(doc, className, text = '') {
   const node = doc.createElement('span');
   node.className = className;
@@ -106,13 +130,18 @@ export class CombatStatusHud {
     const readout = span(doc, 'combat-status-readout');
     readout.append(this.value, this.maximum);
 
-    this.armorRow = span(doc, 'combat-status-armor');
+    this.armorRoot = span(doc, 'combat-status-armor hidden');
+    // Keep the original row name as an adapter alias for existing scenes.
+    this.armorRow = this.armorRoot;
     this.armorLabel = span(doc, 'combat-status-armor-label', 'ARMOR');
-    this.armorValue = span(doc, 'combat-status-armor-value', '0 / 0');
+    this.armorValue = span(doc, 'combat-status-armor-value', '0');
+    this.armorMaximum = span(doc, 'combat-status-armor-maximum', '/ 0');
     this.armorTrack = span(doc, 'combat-status-track combat-status-armor-track');
     this.armorFill = span(doc, 'combat-status-fill combat-status-armor-fill');
     this.armorTrack.append(this.armorFill);
-    this.armorRow.append(this.armorLabel, this.armorValue, this.armorTrack);
+    const armorReadout = span(doc, 'combat-status-armor-readout');
+    armorReadout.append(this.armorValue, this.armorMaximum);
+    this.armorRoot.append(this.armorLabel, armorReadout, this.armorTrack);
 
     /* This must be a body-level sibling, not a child of the card. The card's
      * hit animation uses `transform`, which would otherwise make it the
@@ -121,7 +150,7 @@ export class CombatStatusHud {
     this.direction = span(doc, 'combat-status-direction');
     this.direction.setAttribute('aria-hidden', 'true');
 
-    this.root.replaceChildren(this.label, readout, this.track, this.armorRow);
+    this.root.replaceChildren(this.label, readout, this.track, this.armorRoot);
     if (!root) (mount || doc.body)?.append(this.root);
     (doc.body || mount)?.append(this.direction);
     this.root.classList.toggle('hidden', !visible);
@@ -139,31 +168,43 @@ export class CombatStatusHud {
 
   update(actor = this.actor) {
     const view = combatVitals(actor);
+    const armor = combatArmor(actor);
+    /* Capacity is player-facing combat information even when the vest is
+     * empty. Keep 0 / max readable before the first pickup and after a break;
+     * `combatArmor().visible` remains the mechanical "currently plated"
+     * signal for callers that need that distinction. */
+    const showArmor = view.maxArmor > 0;
     const signature = `${view.current}|${view.maximum}|${view.percent}|${view.state}`
-      + `|${view.armorCurrent}|${view.armorMaximum}|${view.armorPercent}`;
+      + `|${armor.current}|${armor.maximum}|${armor.percent}|${showArmor}`;
     if (signature === this._signature) return view;
     this._signature = signature;
     this.value.textContent = String(view.current);
     this.maximum.textContent = `/ ${view.maximum}`;
     this.fill.style.transform = `scaleX(${view.ratio})`;
-    this.armorValue.textContent = `${view.armorCurrent} / ${view.armorMaximum}`;
-    this.armorFill.style.transform = `scaleX(${view.armorRatio})`;
-    this.armorRow.classList.toggle('hidden', view.maxArmor <= 0);
     this.root.dataset.state = view.state;
     this.root.dataset.armorState = view.maxArmor <= 0
       ? 'none' : view.armor <= 0 ? 'broken' : view.armorRatio <= 0.35 ? 'low' : 'armored';
     this.root.dataset.health = String(view.current);
     this.root.dataset.maxHealth = String(view.maximum);
-    this.root.dataset.armor = String(view.armorCurrent);
-    this.root.dataset.maxArmor = String(view.armorMaximum);
-    this.root.setAttribute('aria-label', view.aria);
+    this.root.setAttribute(
+      'aria-label',
+      showArmor
+        ? view.aria
+        : `Health ${view.current} of ${view.maximum}${view.down ? ', down' : ''}`,
+    );
     this.track.setAttribute('aria-valuemin', '0');
     this.track.setAttribute('aria-valuemax', String(view.maximum));
     this.track.setAttribute('aria-valuenow', String(view.current));
-    this.armorTrack.setAttribute('aria-label', view.armorLabel);
+    this.armorRoot.classList.toggle('hidden', !showArmor);
+    this.armorValue.textContent = String(armor.current);
+    this.armorMaximum.textContent = `/ ${armor.maximum}`;
+    this.armorFill.style.transform = `scaleX(${armor.ratio})`;
+    this.root.dataset.armor = String(armor.current);
+    this.root.dataset.maxArmor = String(armor.maximum);
+    this.armorTrack.setAttribute('aria-label', armor.aria);
     this.armorTrack.setAttribute('aria-valuemin', '0');
-    this.armorTrack.setAttribute('aria-valuemax', String(view.armorMaximum));
-    this.armorTrack.setAttribute('aria-valuenow', String(view.armorCurrent));
+    this.armorTrack.setAttribute('aria-valuemax', String(armor.maximum));
+    this.armorTrack.setAttribute('aria-valuenow', String(armor.current));
     return view;
   }
 

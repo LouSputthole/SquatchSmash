@@ -2,8 +2,17 @@ import * as THREE from 'three';
 
 const FIXED_STEP = 1 / 120;
 const MAX_STEPS = 10;
+export const BOAT_FORWARD_TARGET_SPEED = 5.2;
+export const BOAT_REVERSE_TARGET_SPEED = 2.9;
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/** One presentation/handling scale for every consumer of hull speed. */
+export const boatSpeedFraction = (speed) => {
+  const value = Number(speed) || 0;
+  const target = value < 0 ? BOAT_REVERSE_TARGET_SPEED : BOAT_FORWARD_TARGET_SPEED;
+  return clamp(Math.abs(value) / target, 0, 1);
+};
 
 /** Weighty displacement-hull handling on the Beef Run fixed-step pattern. */
 export class BoatPhysics {
@@ -66,7 +75,13 @@ export class BoatPhysics {
   step(dt) {
     this.time += dt;
     const requested = this.running && this.mooringReleased ? this.throttle : 0;
-    const targetSpeed = requested >= 0 ? requested * 8.6 : requested * 2.9;
+    /* The authored run is 90 seconds to the inlet at z -430. An 8.6 m/s
+     * target carried the swept bow through inlet-head land around minute one.
+     * 5.2 m/s is the measured displacement-cruise target: the fixed-step hull
+     * reaches the inlet at 90 s with forty metres still ahead of its bow. */
+    const targetSpeed = requested >= 0
+      ? requested * BOAT_FORWARD_TARGET_SPEED
+      : requested * BOAT_REVERSE_TARGET_SPEED;
     // Twin diesels move a 42-foot cruiser, not a jet ski. Neutral coasts down
     // instead of applying an invisible brake, while reverse builds sooner.
     const thrustResponse = requested === 0 ? 3.4 : requested > 0 ? 2.35 : 1.75;
@@ -82,7 +97,7 @@ export class BoatPhysics {
     this.speed *= Math.exp(-dt * (0.032 + Math.abs(this.steer) * 0.022 + (unattended ? 0.42 : 0)));
 
     // Rudder authority grows with flow, but a turning hull carries inertia.
-    const authority = clamp(Math.abs(this.speed) / 5.2, 0.035, 1);
+    const authority = Math.max(.035, boatSpeedFraction(this.speed));
     const desiredYaw = unattended
       ? 0 : -this.steer * authority * 0.31 * Math.sign(this.speed || 1);
     this.yawRate += (desiredYaw - this.yawRate) * (1 - Math.exp(-dt / (unattended ? .34 : .92)));
@@ -107,7 +122,7 @@ export class BoatPhysics {
   motion() {
     const waveA = Math.sin(this.time * 1.15 + this.position.y * 0.018);
     const waveB = Math.sin(this.time * 1.83 + this.position.x * 0.027 + 1.7);
-    const speedK = clamp(Math.abs(this.speed) / 8.6, 0, 1);
+    const speedK = boatSpeedFraction(this.speed);
     return {
       heave: waveA * .065 + waveB * .028 + speedK * .075,
       roll: waveB * .014 - this.yawRate * .10,

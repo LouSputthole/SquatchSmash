@@ -45,10 +45,13 @@ import {
 } from './dialogue.js';
 import { NoWakeEngineAudio, noWakeAudioLoadOptions } from './audio.js';
 import { NoWakeCameraDirector } from './camera-director.js';
-import { BoatPhysics } from './physics.js';
+import { BoatPhysics, boatSpeedFraction } from './physics.js';
+import {
+  NO_WAKE_DRIVE_SECONDS, shouldReachNoWakeInlet, takeDueCruiseLines,
+} from './route-policy.js';
 import { buildNoWakeWorld } from './world.js';
 import { createBodyRig } from './body.js';
-import { CABIN_STAGING } from './deck-collision.js';
+import { CABIN_CAST_STAGING, CABIN_STAGING } from './deck-collision.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -173,7 +176,7 @@ const DECK_H = boat.deck.height;
 const FOREDECK_H = boat.deck.foredeckHeight;
 const CABIN_H = boat.cabinDeck.height;
 /** Ninety seconds of channel, the same gate the old build shipped with. */
-const DRIVE_SECONDS = 90;
+const DRIVE_SECONDS = NO_WAKE_DRIVE_SECONDS;
 
 /**
  * The shot glass, on the dinette table and then on the sole.
@@ -851,11 +854,11 @@ function beginCabinScene() {
 }
 
 function placeCabinCast() {
-  const put = (npc, x, z, yaw, y = CABIN_H) => {
-    npc.group.position.set(x, y, z);
-    npc.group.rotation.y = yaw;
-    npc.baseY = y;
-    npc.job = 'stand';
+  const put = (npc, mark) => {
+    npc.group.position.set(mark.x, mark.baseY, mark.z);
+    npc.group.rotation.y = mark.yaw;
+    npc.baseY = mark.baseY;
+    npc.job = mark.job;
     npc._syncJob(true);
   };
   /* The salon is 0.72 m wider and 0.80 m longer than the room these three
@@ -875,9 +878,9 @@ function placeCabinCast() {
    * are 1.8-2.7 m forward of the player's mark now and inside 35° of his eye
    * line, which is a composition instead of a crowd, and the verifier measures
    * both the sight line and the NDC. */
-  put(boat.cast.lou, 1.20, -4.80, 0);
-  put(boat.cast.booski, -1.05, -4.60, 1.42);
-  put(boat.cast.willy, .20, -4.30, Math.PI * .86);
+  put(boat.cast.lou, CABIN_CAST_STAGING.lou);
+  put(boat.cast.booski, CABIN_CAST_STAGING.booski);
+  put(boat.cast.willy, CABIN_CAST_STAGING.willyStanding);
   // Irish never abandons his lookout. He is on the bow the whole time.
   boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.80);
   boat.cast.irish.group.rotation.y = Math.PI;
@@ -951,10 +954,11 @@ function runCabinBeat(beat, when) {
          * Without this, sitting Willy down lands after he has been shot and
          * puts him back on the booth. */
         if (state.phase !== 'cabin') return;
-        willy.group.position.set(1.35, CABIN_H + .38, -4.15);
-        willy.group.rotation.y = Math.PI;
-        willy.job = 'sit';
-        willy.baseY = CABIN_H + .38;
+        const mark = CABIN_CAST_STAGING.willySeat;
+        willy.group.position.set(mark.x, mark.baseY, mark.z);
+        willy.group.rotation.y = mark.yaw;
+        willy.job = mark.job;
+        willy.baseY = mark.baseY;
         willy._syncJob(true);
         audio.play('chair.scrape.wood', { volume: .8, rate: .9 });
       }, 900);
@@ -1623,11 +1627,11 @@ function updateBoat(dt) {
     const rev = -.95 + Math.abs(physics.throttle) * 1.9;
     boat.controls.gaugeNeedles.tachPort.rotation.z = rev;
     boat.controls.gaugeNeedles.tachStarboard.rotation.z = rev * .98;
-    boat.controls.gaugeNeedles.speed.rotation.z = -.95 + Math.min(1, Math.abs(physics.speed) / 8.5) * 1.9;
+    const propulsion = boatSpeedFraction(physics.speed);
+    boat.controls.gaugeNeedles.speed.rotation.z = -.95 + propulsion * 1.9;
     boat.controls.gaugeNeedles.depth.rotation.z = -.30;
     const wakeAt = world.fromBoatLocal(local.set(0, 0, 6.55));
     world.wake.emit(wakeAt, physics.heading, Math.abs(physics.speed), dt);
-    const propulsion = Math.min(1, Math.abs(physics.speed) / 8.5);
     if (Math.abs(physics.speed) > .25) {
       audio.startLoop('underway', { name: 'boat.engine.underway', volume: .08, fade: .45 });
       audio.startLoop('wake', { name: 'boat.hull.wake', volume: .04, fade: .55 });
@@ -1651,12 +1655,17 @@ function updateBoat(dt) {
 
     if (state.phase === 'drive') {
       if (state.atHelm && Math.abs(physics.speed) > .8) state.driveSeconds += dt;
-      const next = state.cruiseLines[state.cruiseIndex];
-      if (next && state.driveSeconds >= next.at) {
-        speak(next);
-        state.cruiseIndex++;
-      }
-      if (state.driveSeconds >= DRIVE_SECONDS && physics.distance >= 360) reachInlet();
+      const cruise = takeDueCruiseLines(
+        state.cruiseLines, state.cruiseIndex, state.driveSeconds,
+      );
+      for (const line of cruise.due) speak(line);
+      state.cruiseIndex = cruise.nextIndex;
+      if (shouldReachNoWakeInlet({
+        driveSeconds: state.driveSeconds,
+        x: physics.position.x,
+        z: physics.position.y,
+        inlet: world.inlet,
+      })) reachInlet();
     } else if (state.phase === 'inlet' && !state.enginesKilled
       && Math.abs(physics.throttle) < .08 && Math.abs(physics.speed) < .62) {
       killEngines();

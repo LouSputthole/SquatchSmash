@@ -12,6 +12,9 @@ import { anchorById } from '../src/mansion/siege/nav.js';
 import {
   SiegeMission, BEATS, B, CHECKPOINT_FIELDS, CHECKPOINTS, LULL_SECONDS,
 } from '../src/mansion/siege/mission.js';
+import {
+  isSiegeLineWeapon, resolveArmoryTake,
+} from '../src/mansion/siege/armory-policy.js';
 
 /* ================================================================== */
 /* The CARTEL faction                                                   */
@@ -375,6 +378,47 @@ test('a checkpoint refuses to save while a field has nobody reading it', () => {
   assert.throws(() => m.start(), /cannot save without/);
 });
 
+test('taking any one armory weapon advances to the office and saves the armed checkpoint', () => {
+  for (const id of ['revolver', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett']) {
+    const { m } = mission();
+    m.start();
+    m.wokeUp();
+    m.enteredArmory();
+
+    assert.equal(m.weaponTaken(id), true, `${id} should be enough to leave the armory`);
+    assert.equal(m.beat, B.TO_OFFICE);
+    assert.equal(m.objective, "Reach Lou's office");
+    assert.equal(m.checkpoint.id, 'armed');
+    assert.equal(m.weaponTaken(id), false, 'the transition only happens once');
+  }
+});
+
+test('a full inherited loadout falls back to an owned gun and still advances', () => {
+  const decision = resolveArmoryTake({
+    takenId: 'barrett',
+    acquisition: { ok: false, reason: 'full' },
+    loadout: {
+      slots: ['revolver', 'pistol9', 'carbine', 'ak47', 'saw'],
+      selected: 2,
+    },
+  });
+
+  assert.deepEqual(decision, {
+    advance: true,
+    keepTaken: false,
+    equipSlot: 2,
+    weaponId: 'carbine',
+    nudge: 'You are already carrying five guns. You are armed - get upstairs.',
+  });
+});
+
+test('every armory catalog gun satisfies the firing-step weapon gate', () => {
+  for (const id of ['revolver', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett']) {
+    assert.equal(isSiegeLineWeapon(id), true, `${id} should satisfy F`);
+  }
+  assert.equal(isSiegeLineWeapon(null), false, 'empty hands still refuse the line');
+});
+
 test('the mission walks the brief\'s objective chain in order', () => {
   const { m } = mission();
   m.start();
@@ -387,8 +431,7 @@ test('the mission walks the brief\'s objective chain in order', () => {
 
   m.enteredArmory();
   assert.equal(m.objective, 'Arm yourself');
-  assert.equal(m.armed({ primary: true }), false, 'the heavy is not optional');
-  assert.equal(m.armed({ primary: true, heavy: true }), true);
+  assert.equal(m.weaponTaken('carbine'), true);
   assert.equal(m.objective, "Reach Lou's office");
 
   m.enteredOffice();
@@ -401,7 +444,7 @@ test('the house is under attack from the first frame and stays that way', () => 
   const { m, damage } = mission();
   m.start();
   assert.equal(damage.state, 'under_attack');
-  m.wokeUp(); m.enteredArmory(); m.armed({ primary: true, heavy: true });
+  m.wokeUp(); m.enteredArmory(); m.weaponTaken('carbine');
   m.enteredOffice(); m.briefingEnded();
   assert.equal(damage.state, 'under_attack');
 });
@@ -409,7 +452,7 @@ test('the house is under attack from the first frame and stays that way', () => 
 test('the line is said once, and a checkpoint restore does not hand it back', () => {
   const { m } = mission();
   m.start(); m.wokeUp(); m.enteredArmory();
-  m.armed({ primary: true, heavy: true });
+  m.weaponTaken('carbine');
   m.enteredOffice(); m.briefingEnded();
 
   assert.equal(m.sayHello(), true);
@@ -432,7 +475,7 @@ test('the line is said once, and a checkpoint restore does not hand it back', ()
 test('the lull is a breath, not a tea ceremony', () => {
   const { m } = mission();
   m.start(); m.wokeUp(); m.enteredArmory();
-  m.armed({ primary: true, heavy: true });
+  m.weaponTaken('carbine');
   m.enteredOffice(); m.briefingEnded(); m.sayHello();
   for (const id of [...m.waves.one.standing]) m.noteDown(id);
   m.update(0.1);
@@ -449,7 +492,7 @@ test('restoring the wave-one checkpoint does not respawn wave one', () => {
   const spawned = [];
   const { m } = mission({ onSpawn: (o) => spawned.push(o.id) });
   m.start(); m.wokeUp(); m.enteredArmory();
-  m.armed({ primary: true, heavy: true });
+  m.weaponTaken('carbine');
   m.enteredOffice(); m.briefingEnded(); m.sayHello();
   for (const id of [...m.waves.one.standing]) m.noteDown(id);
   m.update(0.1);
@@ -470,7 +513,7 @@ test('a checkpoint carries the scene fields back with it', () => {
   scene.weapon = 'heavy';
   scene.health = 61;
   scene.brokenGlass = ['foyer.w2', 'lounge.bay.3'];
-  m.armed({ primary: true, heavy: true });
+  m.weaponTaken('carbine');
   assert.equal(m.checkpoint.id, 'armed');
 
   scene.weapon = 'pistol';
@@ -486,7 +529,7 @@ test('a checkpoint carries the scene fields back with it', () => {
 test('the siege ends by handing the player to Captain Sasole', () => {
   const { m, damage } = mission();
   m.start(); m.wokeUp(); m.enteredArmory();
-  m.armed({ primary: true, heavy: true });
+  m.weaponTaken('carbine');
   m.enteredOffice(); m.briefingEnded(); m.sayHello();
   for (const wave of ['one', 'two']) {
     while (!m.waves[wave].cleared) {

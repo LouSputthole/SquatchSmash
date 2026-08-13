@@ -75,24 +75,40 @@
   grid-template-columns: 1fr auto;
   align-items: end;
   gap: 2px 8px;
-  margin-top: 8px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(143, 173, 205, 0.24);
 }
 
 .combat-status-armor.hidden { display: none; }
 
-.combat-status-armor-label,
-.combat-status-armor-value {
-  color: #9fbad4;
+.combat-status-armor-label {
+  color: #9fb2c6;
   font: 800 10px/1.2 "Trebuchet MS", "Segoe UI", sans-serif;
-  letter-spacing: 1.8px;
+  letter-spacing: 2px;
+}
+
+.combat-status-armor-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
 }
 
 .combat-status-armor-value {
-  color: #d8e9f5;
-  letter-spacing: 0.4px;
+  color: #d6e5f4;
+  font: 900 17px/1 "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
-.combat-status-armor-track { grid-column: 1 / -1; height: 5px; }
+.combat-status-armor-maximum {
+  color: rgba(214, 229, 244, 0.5);
+  font: 800 11px/1 "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.combat-status-armor-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+}
 
 .combat-status-armor-fill {
   background: linear-gradient(90deg, #557caa, #a9d7f5);
@@ -150,5 +166,19 @@
     left: 12px;
     bottom: 12px;
     width: 170px;
+  }
+}
+
+/* The Mansion's five-slot hotbar occupies the middle lane on short gameplay
+ * viewports. Compact only the card's framing here; the health and 0 / max
+ * armor type, tracks, and values stay at their readable sizes. */
+@media (max-width: 680px) and (max-height: 360px) {
+  .combat-status-hud {
+    padding: 8px 12px 10px;
+  }
+
+  .combat-status-armor {
+    margin-top: 7px;
+    padding-top: 6px;
   }
 }

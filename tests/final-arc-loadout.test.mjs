@@ -196,6 +196,31 @@ test('a retaining armory keeps each earned rack gun off the wall while another i
   assert.equal(system.equipped, 'carbine');
 });
 
+test('taking an inherited owned rack gun is idempotent and returns its one claimed copy', () => {
+  const system = fakeWeapons();
+  const events = [];
+  const armory = mountArmory({
+    parent: new THREE.Group(),
+    system,
+    interaction: { register() {}, unregister() {} },
+    racks: [{ id: 'pistol9', x: 0, z: 0 }],
+    retainTaken: true,
+    onEvent: (event) => events.push(event.type),
+  });
+  const copies = armory.report().pistol9.copies;
+
+  assert.equal(armory.claim('pistol9'), true);
+  assert.equal(armory.report().pistol9.onWall, copies - 1);
+  assert.equal(armory.take('pistol9'), true);
+  assert.equal(system.equipped, 'pistol9');
+  assert.equal(armory.report().pistol9.onWall, copies - 1,
+    'taking the already-claimed gun hid a second wall copy');
+  assert.equal(armory.put(), true);
+  assert.equal(armory.report().pistol9.onWall, copies,
+    'returning the inherited gun left its original claimed copy hidden');
+  assert.deepEqual(events, ['take', 'rack']);
+});
+
 test('Siege consumes the durable five-slot contract and the shared rounds HUD field', async () => {
   const source = await readFile(new URL('../src/mansion/siege/main.js', import.meta.url), 'utf8');
   assert.match(source, /createFinalArcLoadout/);
@@ -203,6 +228,8 @@ test('Siege consumes the durable five-slot contract and the shared rounds HUD fi
   assert.match(source, /Digit\[1-5\]/);
   assert.match(source, /hud\.rounds/);
   assert.doesNotMatch(source, /hud\.mag/);
+  assert.match(source, /F -- say it, once, from the top of the stairs with any weapon in your hands\./);
+  assert.doesNotMatch(source, /F --[^\n]*heavy in your hands/);
 });
 
 test('Enola displays durable carry without treating the tail gun as a hotbar weapon', async () => {

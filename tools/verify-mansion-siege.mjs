@@ -38,6 +38,9 @@ import { inspectRequiredAudioBank } from './required-audio-bank.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5231;
+const SIEGE_VALIDATION_DIR = path.join(
+  ROOT, 'docs', 'validation', '2026-08-09', 'siege-refinement',
+);
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -143,6 +146,21 @@ async function walkUntil(done, keys = ['KeyW'], cap = 20, bite = 0.35) {
   for (const k of keys) await page.keyboard.up(k);
   await settle(0.2);
   return { ...(await at()), seconds: Number(elapsed.toFixed(2)) };
+}
+
+/** Steer real W input to one floor-plan point, re-aiming around small drift. */
+async function walkTo(tx, tz, { steps = 34, tol = 0.75 } = {}) {
+  let where = await at();
+  for (let i = 0; i < steps; i++) {
+    const dx = tx - where.x;
+    const dz = tz - where.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < tol) return { ok: true, where, steps: i };
+    await faceDeg((Math.atan2(-dx, -dz) * 180) / Math.PI);
+    await walk(Math.min(0.55, Math.max(0.2, distance / 3)));
+    where = await at();
+  }
+  return { ok: Math.hypot(tx - where.x, tz - where.z) < tol, where, steps };
 }
 
 try {
@@ -493,24 +511,59 @@ try {
     `${foyerMen} standing`);
 
   /* ---------------------------------------------------------------- */
-  /* 4. Arming, and the heavy not being optional                        */
+  /* 4. One real rack pickup arms him, protects him, and moves the job  */
   /* ---------------------------------------------------------------- */
-  const halfArmed = await evaluate(() => window.mansionSiege.mission.armed({ primary: true }));
-  check('a rifle alone does not get you out of the armory', halfArmed === false);
+  const pistolTarget = await evaluate(() => {
+    const s = window.mansionSiege;
+    const holder = s.scene.getObjectByName('armory-pistol9-0');
+    let target = null;
+    holder?.traverse((object) => { if (!target && object.userData?.interact) target = object; });
+    if (!target) return null;
+    const at = target.getWorldPosition(new s.THREE.Vector3());
+    return { x: at.x, y: at.y, z: at.z };
+  });
+  check('a real 9mm copy in the siege armory owns the pickup surface', !!pistolTarget,
+    JSON.stringify(pistolTarget));
+  if (pistolTarget) {
+    const standOff = 1.05;
+    await teleport(pistolTarget.x, BASEMENT_Y, pistolTarget.z + standOff, 0);
+    await evaluate(([targetY, distance]) => {
+      const s = window.mansionSiege;
+      s.player.pitch = Math.atan2(targetY - (s.player.ground + s.player.eyeHeight), distance);
+    }, [pistolTarget.y, standOff]);
+    await settle(0.5);
+    await evaluate(() => {
+      const s = window.mansionSiege;
+      s.scene.updateMatrixWorld(true);
+      s.camera.updateMatrixWorld(true);
+      s.interaction.update(1 / 60);
+    });
+  }
+  const rackPrompt = await evaluate(() => (
+    document.getElementById('prompt').classList.contains('hidden')
+      ? null : document.getElementById('promptLabel').textContent
+  ));
+  check('looking at that gun offers a real E pickup', /9mm/i.test(rackPrompt ?? ''),
+    JSON.stringify({ rackPrompt }));
+  await page.keyboard.press('KeyE');
+  await settle(0.4);
   const armed = await evaluate(() => {
     const s = window.mansionSiege;
-    const ok = s.beats.arm();
-    const view = s.hud().health;
     const root = document.querySelector('.combat-status-hud');
+    const armorRoot = document.querySelector('.combat-status-armor');
+    const view = s.hud().health;
     return {
-      ok,
       beat: s.beat,
+      objective: s.objective,
       checkpoint: s.checkpoint,
+      equipped: s.equipped,
       health: s.playerActor.health,
       armor: s.playerActor.armor,
       maxArmor: s.playerActor.maxArmor,
       savedArmor: s.mission.checkpoint?.scene?.health?.armor ?? null,
       view,
+      armorVisible: armorRoot ? !armorRoot.classList.contains('hidden') : false,
+      armorText: armorRoot?.textContent ?? null,
       dom: {
         armor: root?.dataset.armor ?? null,
         maxArmor: root?.dataset.maxArmor ?? null,
@@ -520,8 +573,12 @@ try {
       },
     };
   });
-  check('taking a primary and the heavy completes the objective and takes a checkpoint',
-    armed.ok && armed.beat === 'TO_OFFICE' && armed.checkpoint === 'armed',
+  check('one real weapon pickup advances to the office and takes the armed checkpoint',
+    armed.beat === 'TO_OFFICE' && armed.objective === "Reach Lou's office"
+      && armed.checkpoint === 'armed' && armed.equipped === 'pistol9',
+    JSON.stringify(armed));
+  check('the same pickup gives the player visible mechanical armor',
+    armed.armor > 0 && armed.armorVisible && /armor/i.test(armed.armorText ?? ''),
     JSON.stringify(armed));
   check('leaving the armory grants a full vest before the armed checkpoint is captured',
     armed.armor > 0
@@ -688,8 +745,314 @@ try {
     JSON.stringify(supplyUse));
 
   /* ---------------------------------------------------------------- */
-  /* 5. Foyer to the office, on foot up the horseshoe                   */
+  /* 5. Out of the basement, into the live foyer, then up the horseshoe */
   /* ---------------------------------------------------------------- */
+  /* This used to teleport from the rack straight to the ground-floor   */
+  /* foyer. That skipped the exact player-facing failure this route is  */
+  /* supposed to catch: an armed player leaves the cellar and finds an  */
+  /* inert house. Every leg below is real W input from the rack, through */
+  /* the lower hall and back to the stair mouth, then up the flight.     */
+  const basementStart = await at();
+  const lowerWaypoints = [
+    [-2.0, 55.5, 'armory centre'],
+    [3.8, 59.5, 'east service lane'],
+    [3.8, 61.8, 'past the caged store'],
+    [6.2, 61.8, 'cellar doorway approach'],
+    [6.2, 65.9, 'cellar hall'],
+  ];
+  const lowerWalk = [];
+  for (const [x, z, label] of lowerWaypoints) {
+    const result = await walkTo(x, z, { steps: 38, tol: 0.8 });
+    lowerWalk.push({ label, ...result });
+  }
+  const cellarReached = await at();
+  check('the chosen rack gun can be carried on foot through the real lower-level route',
+    lowerWalk.every((leg) => leg.ok)
+      && inRect(cellarReached, route.cellarHall)
+      && Math.abs(cellarReached.ground - BASEMENT_Y) < 0.25,
+    JSON.stringify({ from: basementStart, to: cellarReached, legs: lowerWalk }));
+
+  const returnedToStair = [];
+  for (const [x, z, label] of [
+    [6.2, 61.8, 'back through the cellar door'],
+    [7.2, 59.2, 'bottom of the cellar stair'],
+  ]) {
+    const result = await walkTo(x, z, { steps: 34, tol: 0.75 });
+    returnedToStair.push({ label, ...result });
+  }
+  const stairExit = await walkTo(7.2, 49.6, { steps: 52, tol: 0.8 });
+  const foyerArrival = await at();
+  check('the basement stair climbs on foot into the foyer instead of ending in a dead scene',
+    returnedToStair.every((leg) => leg.ok)
+      && stairExit.ok
+      && basementStart.ground < -2.5
+      && Math.abs(foyerArrival.ground - GROUND_Y) < 0.25
+      && foyerArrival.z < 51,
+    JSON.stringify({ approach: returnedToStair, stairExit, arrived: foyerArrival }));
+
+  /* Capture the encounter at the first real ground-floor arrival. The player
+   * still has to walk round the east spandrel to see into the open hall, but
+   * spending those verifier-only seconds with live AI used to let the reveal
+   * actors run through their opening composition before the camera could see
+   * it. Keep their roots rendered, freeze only their simulation, and restore
+   * this exact combat snapshot after the real walk. */
+  const foyerRevealFreeze = await evaluate(() => {
+    const s = window.mansionSiege;
+    const ids = (s.encounters.foyer?.members ?? []).map((order) => order.id);
+    window.__siegeFoyerRevealSnapshot = s.attackers.snapshot();
+    const entries = ids.map((id) => s.attackers.entry(id)).filter(Boolean);
+    const before = entries.map((entry) => ({
+      id: entry.id,
+      active: entry.active,
+      visible: entry.root.visible,
+      x: +entry.root.position.x.toFixed(2),
+      y: +entry.root.position.y.toFixed(2),
+      z: +entry.root.position.z.toFixed(2),
+    }));
+    for (const entry of entries) entry.active = false;
+    return { expected: ids.length, frozen: entries.length, before };
+  });
+
+  /* The cellar stair opens behind the east flight of the horseshoe. A frame
+   * taken on its top landing looks straight into the flight's masonry even
+   * though the foyer encounter is alive. Keep walking with real W input round
+   * the inside end of that flight and into the open hall before asking the
+   * screenshot to prove contact. */
+  const foyerOpeningWalk = [];
+  for (const [x, z, label] of [
+    [4.7, 49.4, 'round the east-flight landing'],
+    [2.5, 50.2, 'open foyer overview'],
+  ]) {
+    const result = await walkTo(x, z, { steps: 30, tol: 0.65 });
+    foyerOpeningWalk.push({ label, ...result });
+  }
+  check('the basement route continues on foot round the horseshoe into the open foyer',
+    foyerOpeningWalk.every((leg) => leg.ok)
+      && Math.abs(foyerOpeningWalk.at(-1).where.ground - GROUND_Y) < 0.25,
+    JSON.stringify(foyerOpeningWalk));
+
+  const foyerContact = await evaluate(() => {
+    const s = window.mansionSiege;
+    const revealSnapshot = window.__siegeFoyerRevealSnapshot;
+    const revealRestored = !!revealSnapshot && s.attackers.restore(revealSnapshot) === true;
+    delete window.__siegeFoyerRevealSnapshot;
+    const entries = (s.encounters.foyer?.members ?? []).map((order) => {
+      const entry = s.attackers.entry(order.id);
+      return entry ? {
+        id: entry.id,
+        active: entry.active,
+        visible: entry.root.visible,
+        down: entry.actor.incapacitated,
+        x: +entry.root.position.x.toFixed(2),
+        y: +entry.root.position.y.toFixed(2),
+        z: +entry.root.position.z.toFixed(2),
+      } : { id: order.id, missing: true };
+    });
+    return { beat: s.beat, objective: s.objective, revealRestored, entries };
+  });
+  check('all three foyer attackers are visibly active when the player emerges from the basement',
+    foyerRevealFreeze.expected === 3
+      && foyerRevealFreeze.frozen === 3
+      && foyerContact.revealRestored
+      && foyerContact.entries.length === 3
+      && foyerContact.entries.every((entry) => entry.active && entry.visible && !entry.down),
+    JSON.stringify({ freeze: foyerRevealFreeze, contact: foyerContact }));
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const foyerFrame = await evaluate(() => {
+    const s = window.mansionSiege;
+    /* Clear accumulated route damage/suppression without moving or removing
+     * the encounter. The actors are restored before the visibility proof and
+     * screenshot; this merely makes the proof readable instead of red-washed. */
+    const attackerSnapshot = s.attackers.snapshot();
+    for (const entry of s.attackers.all()) entry.active = false;
+    s.playerActor.health = s.playerActor.maxHealth;
+    s.playerActor.incapacitated = false;
+    s.playerActor.injury = 'none';
+    s.combatHud.update();
+    s.tick(2);
+    s.attackers.restore(attackerSnapshot);
+
+    /* Real Q: keep the evidence frame about the encounter, not a pistol that
+     * happens to occupy its lower-right quarter. */
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ', bubbles: true }));
+
+    const live = (s.encounters.foyer?.members ?? [])
+      .map((order) => s.attackers.entry(order.id))
+      .filter((entry) => entry?.active && entry.root.visible && !entry.actor.incapacitated);
+    const centres = live.map((entry) => new s.THREE.Box3()
+      .setFromObject(entry.figure.parts.body)
+      .getCenter(new s.THREE.Vector3()));
+    const raycaster = new s.THREE.Raycaster();
+    const belongsTo = (object, root) => {
+      for (let node = object; node; node = node.parent) if (node === root) return true;
+      return false;
+    };
+    const visiblyRendered = (object) => {
+      for (let node = object; node; node = node.parent) if (node.visible === false) return false;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      return materials.some((material) => material && material.visible !== false
+        && (!material.transparent || material.opacity >= 0.2));
+    };
+    /* Do not recurse through cameras, sprites or helper objects: some Three
+     * raycasters require a camera and throw when Raycaster.camera is null.
+     * The first *opaque mesh* is the occlusion contract this frame needs. */
+    const rayTargets = [];
+    s.scene.traverse((object) => {
+      if (object.isMesh && object.geometry && visiblyRendered(object)) rayTargets.push(object);
+    });
+    /* Do not choose the evidence camera from projected centres alone. The
+     * merged combat AI may pull one foyer actor behind the east spandrel while
+     * the player walks the real cellar route. A centre can still project into
+     * the frame through that wall, which made the former yaw sweep choose a
+     * visually empty pair. Score actual first-owned torso/head rays at every
+     * legal first-person yaw and keep the same two-unobstructed-actors bar. */
+    const aim = centres.reduce((sum, point) => sum.add(point), new s.THREE.Vector3())
+      .multiplyScalar(1 / Math.max(1, centres.length));
+    const dx = aim.x - s.player.position.x;
+    const dz = aim.z - s.player.position.z;
+    s.player.yaw = Math.atan2(-dx, -dz);
+    s.player.pitch = Math.atan2(aim.y - s.player.position.y, Math.hypot(dx, dz));
+    const seedYaw = s.player.yaw;
+    let bestYaw = seedYaw;
+    let bestScore = Infinity;
+    let bestReadablePair = null;
+    s.scene.updateMatrixWorld(true);
+    s.camera.updateProjectionMatrix();
+    const firstOwnedAt = (target, root) => {
+      const projected = target.clone().project(s.camera);
+      const direction = target.clone().sub(s.camera.position);
+      const distance = direction.length();
+      raycaster.set(s.camera.position, direction.normalize());
+      raycaster.far = distance + 0.25;
+      const first = raycaster.intersectObjects(rayTargets, false)[0] ?? null;
+      return {
+        projected,
+        firstHit: first?.object?.name ?? null,
+        owned: !!first && belongsTo(first.object, root),
+      };
+    };
+    for (let step = -180; step <= 180; step++) {
+      s.player.yaw = seedYaw + step * (Math.PI / 180);
+      s.player.update(0);
+      s.camera.updateMatrixWorld(true);
+      const samples = live.map((entry) => {
+        const bodyBox = new s.THREE.Box3().setFromObject(entry.figure.parts.body);
+        const headBox = new s.THREE.Box3().setFromObject(entry.figure.parts.head);
+        const body = firstOwnedAt(bodyBox.getCenter(new s.THREE.Vector3()), entry.root);
+        const head = firstOwnedAt(headBox.getCenter(new s.THREE.Vector3()), entry.root);
+        return { id: entry.id, body, head };
+      });
+      for (let a = 0; a < samples.length; a++) for (let b = a + 1; b < samples.length; b++) {
+        const pair = [samples[a], samples[b]];
+        if (pair.some((sample) => !sample.body.owned || !sample.head.owned)) continue;
+        const points = pair.flatMap((sample) => [sample.body.projected, sample.head.projected]);
+        if (points.some((point) => point.z < -1 || point.z > 1
+          || Math.abs(point.x) > 0.82 || Math.abs(point.y) > 0.82)) continue;
+        const separation = Math.abs(pair[0].body.projected.x - pair[1].body.projected.x);
+        if (separation < 0.10) continue;
+        const score = Math.max(...points.map((point) => Math.abs(point.x))) - separation * 0.08;
+        if (score < bestScore) {
+          bestScore = score;
+          bestYaw = s.player.yaw;
+          bestReadablePair = pair.map((sample) => sample.id);
+        }
+      }
+    }
+    s.player.yaw = bestYaw;
+    s.player.update(1 / 60);
+    s.scene.updateMatrixWorld(true);
+    s.camera.updateMatrixWorld(true);
+    s.camera.updateProjectionMatrix();
+
+    const clip = new s.THREE.Matrix4().multiplyMatrices(
+      s.camera.projectionMatrix, s.camera.matrixWorldInverse,
+    );
+    const frustum = new s.THREE.Frustum().setFromProjectionMatrix(clip);
+    const projectBox = (box) => {
+      const points = [];
+      for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) {
+        for (const z of [box.min.z, box.max.z]) points.push(
+          new s.THREE.Vector3(x, y, z).project(s.camera),
+        );
+      }
+      const left = Math.min(...points.map((point) => point.x));
+      const right = Math.max(...points.map((point) => point.x));
+      const top = Math.max(...points.map((point) => point.y));
+      const bottom = Math.min(...points.map((point) => point.y));
+      return {
+        left, right, top, bottom,
+        width: right - left,
+        height: top - bottom,
+        inFront: points.every((point) => point.z >= -1 && point.z <= 1),
+        onScreen: points.every((point) => Math.abs(point.x) <= 0.96 && Math.abs(point.y) <= 0.94),
+      };
+    };
+    const visibility = live.map((entry) => {
+      const bodyBox = new s.THREE.Box3().setFromObject(entry.figure.parts.body);
+      const headBox = new s.THREE.Box3().setFromObject(entry.figure.parts.head);
+      const silhouetteBox = bodyBox.clone().union(headBox);
+      const body = firstOwnedAt(bodyBox.getCenter(new s.THREE.Vector3()), entry.root);
+      const head = firstOwnedAt(headBox.getCenter(new s.THREE.Vector3()), entry.root);
+      const silhouette = projectBox(silhouetteBox);
+      const area = silhouette.width * silhouette.height;
+      return {
+        id: entry.id,
+        inFrustum: frustum.intersectsBox(silhouetteBox),
+        onScreen: silhouette.inFront && silhouette.onScreen,
+        torsoFirstHit: body.firstHit,
+        torsoFirstHitOwned: body.owned,
+        headFirstHit: head.firstHit,
+        headFirstHitOwned: head.owned,
+        ndc: [body.projected.x, body.projected.y, body.projected.z]
+          .map((value) => +value.toFixed(3)),
+        silhouette: {
+          width: +silhouette.width.toFixed(3),
+          height: +silhouette.height.toFixed(3),
+          area: +area.toFixed(4),
+          centerX: +((silhouette.left + silhouette.right) / 2).toFixed(3),
+        },
+        readable: frustum.intersectsBox(silhouetteBox)
+          && silhouette.inFront && silhouette.onScreen
+          && body.owned && head.owned
+          && silhouette.width >= 0.035 && silhouette.height >= 0.12 && area >= 0.006,
+      };
+    });
+    const readable = visibility.filter((entry) => entry.readable);
+    let readablePair = null;
+    for (let a = 0; a < readable.length; a++) for (let b = a + 1; b < readable.length; b++) {
+      const separation = Math.abs(readable[a].silhouette.centerX - readable[b].silhouette.centerX);
+      if (separation >= 0.10) readablePair = [readable[a].id, readable[b].id];
+    }
+    s.setRendering(true);
+    return {
+      frame: s.framesRendered,
+      equipped: s.equipped,
+      chosenYaw: +bestYaw.toFixed(3),
+      projectedXScore: +bestScore.toFixed(3),
+      selectedReadablePair: bestReadablePair,
+      visibility,
+      visibleActors: readable.length,
+      readablePair,
+    };
+  });
+  await page.waitForFunction(
+    (before) => window.mansionSiege.framesRendered >= before + 2,
+    foyerFrame.frame,
+    { timeout: 180000 },
+  );
+  const foyerContactPath = path.join(SIEGE_VALIDATION_DIR, 'after-basement-exit-foyer-contact.png');
+  fs.mkdirSync(SIEGE_VALIDATION_DIR, { recursive: true });
+  await page.screenshot({ path: foyerContactPath, animations: 'disabled', timeout: 300000 });
+  await evaluate(() => window.mansionSiege.setRendering(false));
+  check('the foyer-contact frame really contains at least two unobstructed encounter actors',
+    foyerFrame.equipped === null && foyerFrame.visibleActors >= 2 && !!foyerFrame.readablePair,
+    JSON.stringify(foyerFrame));
+  check('the real basement exit publishes a rendered foyer-contact frame',
+    fs.statSync(foyerContactPath).size > 10_000, foyerContactPath);
+  await page.setViewportSize({ width: 480, height: 300 });
+
   /* The east flight of the horseshoe runs z 42..48 at x 5.5..8.85, so the
    * climb is +Z from the foyer floor -- yaw 180. */
   await teleport(7, GROUND_Y, 41, 180);
@@ -823,7 +1186,7 @@ try {
     ontoStep.z <= 46.6, `z 50.4 -> ${ontoStep.z} in ${ontoStep.seconds}s`);
 
   /* ---------------------------------------------------------------- */
-  /* 6. The line. Once, from the step, with the heavy up.               */
+  /* 6. The line. Once, from the step, with any chosen weapon up.       */
   /*                                                                     */
   /* THE WRONG PLACE HAS TO BE PUT THERE ON PURPOSE. This check used to   */
   /* fire from wherever the walk above finished -- which is the middle of  */
@@ -847,7 +1210,7 @@ try {
       nudge: s.hud().nudge,
     };
   });
-  check('the line does not fire from wherever you happen to be standing, even with the heavy up',
+  check('the line does not fire from wherever you happen to be standing, even with a weapon up',
     wrongPlace.fired === false && wrongPlace.beat === 'LITTLE_FRIEND',
     `z ${wrongPlace.z}, post ends at ${post.z1}`);
   /* A REFUSED KEY HAS TO SAY SO. All three of this gate's conditions used to
@@ -860,32 +1223,407 @@ try {
   await teleport((post.x0 + post.x1) / 2, UPPER_Y, (post.z0 + post.z1) / 2 - 0.4, 180);
   await settle(0.3);
 
-  /* THE WRONG GUN ON THE RIGHT STEP, which is the reachable version of this:
-   * `mountArmory` SWAPS rather than stacks, so a player who takes the belt-fed
-   * before the rifle walks out carrying the rifle, and the belt-fed is two
-   * floors below him when the mission asks for it. */
-  const wrongGun = await evaluate(() => {
+  /* The gun the player chose is the right gun. Requiring the SAW here after
+   * accepting any rack pickup downstairs would recreate the same softlock two
+   * floors later. */
+  const chosenGun = await evaluate(() => {
     const s = window.mansionSiege;
     s.equip('carbine');
-    const fired = s.beats.line();
-    return { fired, equipped: s.equipped, beat: s.beat, nudge: s.hud().nudge };
-  });
-  check('the wrong gun on the right step says WHICH gun, and where it was left',
-    wrongGun.fired === false && wrongGun.beat === 'LITTLE_FRIEND'
-      && /belt-fed/i.test(wrongGun.nudge ?? ''), JSON.stringify(wrongGun));
-  const said = await evaluate(() => {
-    /* The heavy has to actually be IN HIS HANDS, not merely ticked off the
-     * armory's list -- that is the gate being tested. */
-    const s = window.mansionSiege;
-    s.equip('saw');
     const equipped = s.equipped;
     const first = s.beats.line();
     const second = s.beats.line();
     return { first, second, equipped, beat: s.beat };
   });
-  check('with the heavy up on the firing step, the line fires and starts wave one',
-    said.first === true && said.beat === 'WAVE_ONE', JSON.stringify(said));
-  check('the line does not fire twice', said.second === false);
+  check('a non-SAW chosen gun starts wave one from the firing step',
+    chosenGun.first === true && chosenGun.equipped === 'carbine' && chosenGun.beat === 'WAVE_ONE',
+    JSON.stringify(chosenGun));
+  check('the line does not fire twice', chosenGun.second === false);
+
+  const heldGuns = await evaluate(() => {
+    const s = window.mansionSiege;
+    const longGuns = new Set(['carbine', 'ak47', 'shotgun', 'saw', 'barrett']);
+    const holders = [
+      ...s.attackers.all().map((entry) => ({ label: entry.id, ...entry })),
+      ...[...s.ensemble.members.values()].map((entry) => ({ label: entry.id, ...entry })),
+    ].filter((entry) => entry.gun?.visible);
+    const failures = [];
+    let firingHands = 0;
+    let supportedLongGuns = 0;
+    s.scene.updateMatrixWorld(true);
+    for (const holder of holders) {
+      const weaponId = holder.weaponId ?? holder.plan?.weapon;
+      const findHand = (forearm) => {
+        let hand = null;
+        forearm?.traverse((object) => {
+          if (!hand && object.isMesh && /(^|\.)hand$/.test(object.name ?? '')) hand = object;
+        });
+        return hand;
+      };
+      const rightHand = findHand(holder.figure?.parts?.foreR);
+      const leftHand = findHand(holder.figure?.parts?.foreL);
+      let primaryGrip = null;
+      holder.gun.traverse((object) => {
+        if (!primaryGrip && object.name?.includes('grip') && !object.name.includes('foregrip')) {
+          primaryGrip = object;
+        }
+      });
+      if (!rightHand || !leftHand || !primaryGrip) {
+        failures.push(`${holder.label}:missing hand/grip geometry`);
+        continue;
+      }
+      const rightBox = new s.THREE.Box3().setFromObject(rightHand);
+      const gripBox = new s.THREE.Box3().setFromObject(primaryGrip);
+      if (rightBox.intersectsBox(gripBox)) firingHands++;
+      else failures.push(`${holder.label}:firing hand misses ${weaponId}`);
+      if (longGuns.has(weaponId)) {
+        const gunBox = new s.THREE.Box3().setFromObject(holder.gun);
+        const leftCentre = new s.THREE.Box3().setFromObject(leftHand)
+          .getCenter(new s.THREE.Vector3());
+        const gap = gunBox.distanceToPoint(leftCentre);
+        if (gap <= 0.04) supportedLongGuns++;
+        else failures.push(`${holder.label}:support hand ${gap.toFixed(3)}m off ${weaponId}`);
+      }
+    }
+    return {
+      holders: holders.length,
+      firingHands,
+      longGuns: holders.filter((holder) => longGuns.has(holder.weaponId ?? holder.plan?.weapon)).length,
+      supportedLongGuns,
+      weapons: [...new Set(holders.map((holder) => holder.weaponId ?? holder.plan?.weapon))],
+      failures,
+    };
+  });
+  check('every visible cast gun is held at its grip and every long gun has a support hand',
+    heldGuns.holders >= 10
+      && heldGuns.firingHands === heldGuns.holders
+      && heldGuns.supportedLongGuns === heldGuns.longGuns
+      && heldGuns.failures.length === 0,
+    JSON.stringify(heldGuns));
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const downedCast = await evaluate(() => {
+    const s = window.mansionSiege;
+    /* Pick the protected ally whose live WAVE_ONE post has the most honest
+     * clearance from another body or a waist-high solid. Hardcoding Booski
+     * put Eric's legs through the evidence frame; choosing from the actual
+     * staged scene proves a gameplay moment that can really occur. */
+    const protectedIds = new Set([
+      'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'aubbie',
+    ]);
+    const staged = [...s.ensemble.members.values()]
+      .filter((entry) => protectedIds.has(entry.id)
+        && entry.root.visible && !entry.downed && !entry.actor.incapacitated);
+    const horizontalDistance = (point, box) => Math.hypot(
+      point.x < box.min.x ? box.min.x - point.x : point.x > box.max.x ? point.x - box.max.x : 0,
+      point.z < box.min.z ? box.min.z - point.z : point.z > box.max.z ? point.z - box.max.z : 0,
+    );
+    const clearanceCandidates = staged.map((entry) => {
+      const p = entry.root.position;
+      const nearestAlly = Math.min(...[...s.ensemble.members.values()]
+        .filter((other) => other !== entry && other.root.visible)
+        .map((other) => Math.hypot(p.x - other.root.position.x, p.z - other.root.position.z)));
+      const blockingSolids = s.colliders.filter((box) => box.max.y > p.y + 0.2
+        && box.min.y < p.y + 1.4);
+      const nearestSolid = blockingSolids.length
+        ? Math.min(...blockingSolids.map((box) => horizontalDistance(p, box)))
+        : 99;
+      return {
+        entry,
+        nearestAlly,
+        nearestSolid,
+        clearance: Math.min(nearestAlly, nearestSolid),
+      };
+    }).sort((a, b) => b.clearance - a.clearance);
+    const selected = clearanceCandidates[0];
+    const member = selected?.entry ?? null;
+    const hostile = s.attackers.all().find((entry) => entry.active)?.actor;
+    const hit = member?.actor.applyHit({ amount: 9999, attacker: hostile });
+    for (let i = 0; i < 14; i++) s.ensemble.update(0.1, {});
+    const fallenAt = member.root.position.clone();
+    s.ensemble.stage('LULL');
+    /* Let every standing ally reach his real current-beat post. The chosen
+     * downed body stays exactly where it fell; this removes transient crowding
+     * without hiding or teleporting anybody. */
+    for (let i = 0; i < 100; i++) s.ensemble.update(0.1, { hostiles: [] });
+    window.__siegeEvidenceMemberId = member.id;
+
+    /* Freeze hostile simulation just for the evidence frame and let the real
+     * suppression model clear. The roots stay visible. Restore this snapshot
+     * immediately after capture so later combat checks see the same fight. */
+    window.__siegeDownedAttackerSnapshot = s.attackers.snapshot();
+    for (const entry of s.attackers.all()) entry.active = false;
+    s.playerActor.health = s.playerActor.maxHealth;
+    s.playerActor.incapacitated = false;
+    s.playerActor.injury = 'none';
+    s.combatHud.update();
+    s.tick(2);
+
+    /* Use the player's actual stow input. A first-person gun over the body is
+     * not evidence that the body, blood and revive prompt read together. */
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ', bubbles: true }));
+
+    s.scene.updateMatrixWorld(true);
+    const pools = [];
+    s.scene.traverse((object) => {
+      if (object.visible && object.name?.startsWith('blood.death-pool')
+          && object.userData.memberId === member.id) pools.push(object);
+    });
+    const pool = pools[0] ?? null;
+    const bodyBox = new s.THREE.Box3().setFromObject(member.root);
+    const poolBox = pool ? new s.THREE.Box3().setFromObject(pool) : null;
+    const overlap = !!poolBox
+      && poolBox.max.x >= bodyBox.min.x && poolBox.min.x <= bodyBox.max.x
+      && poolBox.max.z >= bodyBox.min.z && poolBox.min.z <= bodyBox.max.z;
+    const poolArea = poolBox
+      ? (poolBox.max.x - poolBox.min.x) * (poolBox.max.z - poolBox.min.z)
+      : 0;
+    const overlapX = poolBox
+      ? Math.max(0, Math.min(poolBox.max.x, bodyBox.max.x) - Math.max(poolBox.min.x, bodyBox.min.x))
+      : 0;
+    const overlapZ = poolBox
+      ? Math.max(0, Math.min(poolBox.max.z, bodyBox.max.z) - Math.max(poolBox.min.z, bodyBox.min.z))
+      : 0;
+    const exposedPoolArea = poolArea - overlapX * overlapZ;
+
+    const screenObjectBounds = (root, rounded = false) => {
+      if (!root) return null;
+      const points = [];
+      const vertex = new s.THREE.Vector3();
+      const effectivelyVisible = (object) => {
+        for (let node = object; node; node = node.parent) if (node.visible === false) return false;
+        return true;
+      };
+      root.traverse((object) => {
+        const position = object.geometry?.attributes?.position;
+        if (!object.isMesh || !position || !effectivelyVisible(object)) return;
+        object.updateWorldMatrix(true, false);
+        for (let i = 0; i < position.count; i++) {
+          vertex.fromBufferAttribute(position, i).applyMatrix4(object.matrixWorld).project(s.camera);
+          points.push({ x: (vertex.x + 1) / 2, y: (1 - vertex.y) / 2, z: vertex.z });
+        }
+      });
+      if (!points.length) return null;
+      const left = Math.min(...points.map((point) => point.x));
+      const right = Math.max(...points.map((point) => point.x));
+      const top = Math.min(...points.map((point) => point.y));
+      const bottom = Math.max(...points.map((point) => point.y));
+      const result = {
+        left, right, top, bottom,
+        width: right - left, height: bottom - top,
+        inFront: points.every((point) => point.z >= -1 && point.z <= 1),
+        fullyOnScreen: points.every((point) => point.x >= 0.01 && point.x <= 0.99
+          && point.y >= 0.01 && point.y <= 0.99),
+      };
+      if (!rounded) return result;
+      return Object.fromEntries(Object.entries(result).map(([key, value]) => [
+        key, typeof value === 'number' ? +value.toFixed(3) : value,
+      ]));
+    };
+
+    /* Search only legal first-person poses: the real crouch key, several
+     * radii inside the production 2.4 m 3-D revive sphere, production FOV,
+     * and the player's own camera update. The winning pose must keep the
+     * actual rendered vertices of both body and pool inside the frame. */
+    const bodyCentre = bodyBox.getCenter(new s.THREE.Vector3());
+    const radii = [1.75, 1.9, 2.05, 2.15];
+    s.teleport(member.root.position.x, member.root.position.y,
+      member.root.position.z + radii.at(-1), 0);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', bubbles: true }));
+    s.tick(0.5);
+    let cameraChoice = null;
+    for (const radius of radii) for (let angleStep = 0; angleStep < 32; angleStep++) {
+      const angle = angleStep * Math.PI * 2 / 32;
+      const candidateX = member.root.position.x + Math.cos(angle) * radius;
+      const candidateZ = member.root.position.z + Math.sin(angle) * radius;
+      for (let pitchStep = 0; pitchStep <= 40; pitchStep++) {
+        s.player.position.x = candidateX;
+        s.player.position.z = candidateZ;
+        const viewDx = bodyCentre.x - s.player.position.x;
+        const viewDz = bodyCentre.z - s.player.position.z;
+        s.player.yaw = Math.atan2(-viewDx, -viewDz);
+        s.player.pitch = -1.0 + pitchStep * 0.025;
+        s.player.update(0);
+        s.scene.updateMatrixWorld(true);
+        s.camera.updateMatrixWorld(true);
+        s.camera.updateProjectionMatrix();
+        const body = screenObjectBounds(member.root);
+        const blood = screenObjectBounds(pool);
+        if (!body || !blood) continue;
+        const distance = s.player.position.distanceTo(member.root.position);
+        if (distance >= 2.39) continue;
+        const overflow = [
+          0.02 - body.left, body.right - 0.98, 0.02 - body.top, body.bottom - 0.98,
+          0.02 - blood.left, blood.right - 0.98, 0.02 - blood.top, blood.bottom - 0.98,
+        ].reduce((sum, value) => sum + Math.max(0, value), 0);
+        const extensions = [
+          body.left - blood.left, blood.right - body.right,
+          body.top - blood.top, blood.bottom - body.bottom,
+        ];
+        const exposedSides = extensions.filter((value) => value >= 0.04).length;
+        if (!body.inFront || !body.fullyOnScreen
+            || body.width < 0.18 || body.height < 0.12
+            || !blood.inFront || !blood.fullyOnScreen || blood.width < 0.2
+            || exposedSides < 2) continue;
+        const centrePenalty = Math.abs((blood.left + blood.right) / 2 - 0.5)
+          + Math.abs((Math.min(body.top, blood.top) + Math.max(body.bottom, blood.bottom)) / 2 - 0.5);
+        const score = overflow * 100 + centrePenalty;
+        if (!cameraChoice || score < cameraChoice.score) cameraChoice = {
+          score, x: s.player.position.x, z: s.player.position.z,
+          yaw: s.player.yaw, pitch: s.player.pitch, distance,
+          overflow, exposedSides, extensions,
+        };
+      }
+    }
+    s.player.position.x = cameraChoice.x;
+    s.player.position.z = cameraChoice.z;
+    s.player.yaw = cameraChoice.yaw;
+    s.player.pitch = cameraChoice.pitch;
+    /* Real scene tick: this is the production `updateRevive` path publishing
+     * the production Hold-E prompt, not a verifier writing the DOM. */
+    s.tick(0.2);
+    s.scene.updateMatrixWorld(true);
+    s.camera.updateMatrixWorld(true);
+    s.camera.updateProjectionMatrix();
+
+    const helping = document.getElementById('helping');
+    const bodyScreen = screenObjectBounds(member.root, true);
+    const bloodScreen = screenObjectBounds(pool, true);
+    const screenExtensions = bodyScreen && bloodScreen ? [
+      bodyScreen.left - bloodScreen.left,
+      bloodScreen.right - bodyScreen.right,
+      bodyScreen.top - bloodScreen.top,
+      bloodScreen.bottom - bodyScreen.bottom,
+    ] : [];
+    s.setRendering(true);
+    return {
+      applied: hit?.applied === true,
+      selectedId: member.id,
+      selectedName: member.name,
+      clearance: selected.clearance,
+      clearanceCandidates: clearanceCandidates.map((row) => ({
+        id: row.entry.id,
+        nearestAlly: +row.nearestAlly.toFixed(3),
+        nearestSolid: +row.nearestSolid.toFixed(3),
+        clearance: +row.clearance.toFixed(3),
+      })),
+      cameraChoice,
+      downed: s.ensemble.downed().some((entry) => entry.id === member.id),
+      pose: member.figure.pose,
+      gunVisible: member.gun.visible,
+      stayedDownAcrossBeat: member.root.position.distanceTo(fallenAt) < 1e-6,
+      bloodPools: pools.length,
+      bloodOwner: pool?.userData.memberId ?? null,
+      bloodOpacity: pool?.material?.opacity ?? 0,
+      bloodScale: pool?.scale.x ?? 0,
+      bloodRoughness: pool?.material?.roughness ?? null,
+      bloodEmissive: pool?.material?.emissive?.getHexString?.() ?? null,
+      bloodEmissiveRed: pool
+        ? (pool.material?.emissive?.r ?? 0) * (pool.material?.emissiveIntensity ?? 1)
+        : 0,
+      bloodEmissiveIntensity: pool?.material?.emissiveIntensity ?? 0,
+      bloodOverlapsBody: overlap,
+      bloodPoolArea: poolArea,
+      bloodExposedArea: exposedPoolArea,
+      equipped: s.equipped,
+      crouching: s.player.crouching,
+      eyeHeight: s.player.eyeHeight,
+      playerDistance: s.player.position.distanceTo(member.root.position),
+      helpingVisible: !!helping && !helping.hidden,
+      helpingText: helping?.textContent?.replace(/\s+/g, ' ').trim() ?? null,
+      screenExtensions,
+      exposedScreenSides: screenExtensions.filter((value) => value >= 0.04).length,
+      bodyScreen,
+      bloodScreen,
+      frame: s.framesRendered,
+    };
+  });
+  await page.waitForFunction(
+    (before) => window.mansionSiege.framesRendered >= before + 2,
+    downedCast.frame,
+    { timeout: 180000 },
+  );
+  const downedCastPath = path.join(SIEGE_VALIDATION_DIR, 'siege-downed-cast-blood.png');
+  await page.screenshot({ path: downedCastPath, animations: 'disabled', timeout: 300000 });
+  const revivedCast = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.setRendering(false);
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', bubbles: true }));
+    if (window.__siegeDownedAttackerSnapshot) {
+      s.attackers.restore(window.__siegeDownedAttackerSnapshot);
+      delete window.__siegeDownedAttackerSnapshot;
+    }
+    const memberId = window.__siegeEvidenceMemberId;
+    delete window.__siegeEvidenceMemberId;
+    const member = s.ensemble.members.get(memberId);
+    const corpse = member.root.position.clone();
+    const currentBeat = s.ensemble.beat;
+    const currentGoal = member.goal.clone();
+    const beforeGoalDistance = corpse.distanceTo(currentGoal);
+    const revived = s.ensemble.revive(memberId);
+    let steps = 0;
+    while (steps < 120 && member.root.position.distanceTo(currentGoal) > 0.23) {
+      s.ensemble.update(0.1, { hostiles: [] });
+      steps++;
+    }
+    const result = {
+      revived,
+      memberId,
+      currentBeat,
+      currentGoal: currentGoal.toArray(),
+      position: member.root.position.toArray(),
+      beforeGoalDistance,
+      goalDistance: member.root.position.distanceTo(currentGoal),
+      corpseDistance: member.root.position.distanceTo(corpse),
+      simulatedSeconds: steps / 10,
+      pose: member.figure.pose,
+      gunVisible: member.gun.visible,
+    };
+    s.ensemble.stage('WAVE_ONE');
+    s.tick(0.1);
+    return result;
+  });
+  check('a downed ally stays fallen in readable owner-tagged blood with his gun stowed',
+    downedCast.applied
+      && downedCast.downed
+      && downedCast.pose === 'fallen'
+      && downedCast.gunVisible === false
+      && downedCast.stayedDownAcrossBeat
+      && downedCast.bloodPools === 1
+      && downedCast.bloodOwner === downedCast.selectedId
+      && downedCast.bloodOpacity >= 0.7
+      && downedCast.bloodScale >= 2.1
+      && downedCast.bloodRoughness <= 0.3
+      && downedCast.bloodEmissiveRed >= 0.55
+      && downedCast.bloodOverlapsBody
+      && downedCast.bloodExposedArea >= 0.75
+      && downedCast.exposedScreenSides >= 2
+      && downedCast.equipped === null
+      && downedCast.crouching
+      && downedCast.eyeHeight <= 1.05
+      && downedCast.playerDistance < 2.4
+      && downedCast.helpingVisible
+      && /hold\s+e/i.test(downedCast.helpingText ?? '')
+      && (downedCast.helpingText ?? '').toLowerCase().includes(downedCast.selectedName.toLowerCase())
+      && downedCast.bodyScreen?.inFront
+      && downedCast.bodyScreen.fullyOnScreen
+      && downedCast.bodyScreen.width >= 0.18
+      && downedCast.bodyScreen.height >= 0.12
+      && downedCast.bloodScreen?.inFront
+      && downedCast.bloodScreen.fullyOnScreen
+      && downedCast.bloodScreen.width >= 0.2,
+    JSON.stringify({ ...downedCast, screenshot: downedCastPath }));
+  check('reviving that ally returns his weapon and sends him to the current LULL post',
+    revivedCast.revived
+      && revivedCast.currentBeat === 'LULL'
+      && revivedCast.pose !== 'fallen'
+      && revivedCast.gunVisible
+      && revivedCast.corpseDistance > 0.25
+      && revivedCast.beforeGoalDistance - revivedCast.goalDistance > 0.25
+      && revivedCast.goalDistance <= 0.23,
+    JSON.stringify(revivedCast));
+  check('the downed ally evidence is a rendered frame, not a source-only assertion',
+    fs.statSync(downedCastPath).size > 10_000, downedCastPath);
 
   /* ---------------------------------------------------------------- */
   /* Capture the real incoming-hit state at the player's 1440x900 test
@@ -907,6 +1645,7 @@ try {
     s.playerActor.injury = 'none';
     s.combatHud.update();
     const before = s.playerHealth;
+    const armorBefore = s.playerActor.armor;
     const beforeEvents = s.playerDamageEvents;
     try {
       for (const entry of s.attackers.all()) {
@@ -914,10 +1653,15 @@ try {
         entry.root.visible = entry === shooter;
       }
       s.teleport(0, 6, 46.3, 0);
-      shooter.root.position.set(0, 6, 47.3);
+      /* A rendered long-gun muzzle sits roughly a metre ahead of the actor.
+       * The former 47.3 fixture put that muzzle on top of the player at 46.3,
+       * so the shared bore-alignment gate correctly refused an impossible
+       * near-field shot. Keep both actors on the same open balcony/gallery
+       * axis, but leave enough real distance for the catalog rifle to aim. */
+      shooter.root.position.set(0, 6, 51);
       /* The shared perception Module now enforces a real 180-degree FOV.
-       * This deterministic incoming-fire probe stages the player one metre
-       * behind the shooter's prior authored facing, so explicitly turn the
+       * This deterministic incoming-fire probe stages the player several
+       * metres behind the shooter's prior authored facing, so explicitly turn the
        * actor toward that player and discard any earlier friendly memory.
        * Otherwise the strict AI correctly selects a visible family member in
        * front and this probe measures somebody else's shot. */
@@ -947,13 +1691,15 @@ try {
         shooterId,
         before,
         after: s.playerHealth,
-        armorBefore: 3,
-        armorAfter: s.playerArmor,
+        armorBefore,
+        armorAfter: s.playerActor.armor,
         beforeEvents,
         afterEvents: s.playerDamageEvents,
         rounds: shooter.roundsFired,
         health,
         visibleValue: root?.dataset.health ?? null,
+        visibleArmor: root?.dataset.armor ?? null,
+        armorVisible: !root?.querySelector('.combat-status-armor')?.classList.contains('hidden'),
         hitFlash: root?.classList.contains('hit') ?? false,
         armorHit: root?.classList.contains('armor-hit') ?? false,
         armorBreak: root?.classList.contains('armor-break') ?? false,
@@ -978,6 +1724,19 @@ try {
     incoming.after < incoming.before
       && incoming.afterEvents === incoming.beforeEvents + 1
       && incoming.lastShot?.damage > 0,
+    JSON.stringify(incoming));
+  check('the same round spends visible armor and reduces the damage that reaches health',
+    incoming.armorBefore === 3
+      && incoming.armorAfter < incoming.armorBefore
+      /* `lastShot.damage` is intentionally post-armor health damage, matching
+       * CombatActor.applyHit(). The raw round is that reported damage plus
+       * the durability the vest absorbed; comparing health loss with
+       * `lastShot.damage` as though it were raw inverted the contract. */
+      && Math.abs((incoming.before - incoming.after) - incoming.lastShot.damage) < 1e-6
+      && incoming.before - incoming.after
+        < incoming.lastShot.damage + incoming.armorBefore - incoming.armorAfter
+      && incoming.visibleArmor === String(Math.ceil(incoming.armorAfter))
+      && incoming.armorVisible === true,
     JSON.stringify(incoming));
   check('the same incoming round updates the shared health readout and flashes the hit card',
     incoming.health.current === Math.ceil(incoming.after)
@@ -1019,10 +1778,7 @@ try {
     window.mansionSiege.combatHud.noteDamage(20.7);
     return document.querySelector('.combat-status-hud')?.classList.contains('hit') ?? false;
   });
-  const combatValidationDir = path.join(
-    ROOT, 'docs', 'validation', '2026-08-09', 'siege-refinement',
-  );
-  const hitFramePath = path.join(combatValidationDir, 'after-combat-health-hud.png');
+  const hitFramePath = path.join(SIEGE_VALIDATION_DIR, 'after-combat-health-hud.png');
   fs.mkdirSync(path.dirname(hitFramePath), { recursive: true });
   await page.screenshot({ path: hitFramePath, animations: 'disabled', timeout: 300000 });
   const hitFrameLayout = await evaluate(() => {
@@ -1869,6 +2625,7 @@ try {
   const playerShotgunTarget = automaticId;
   await evaluate(async (targetId) => {
     const { WeaponSystem } = await import('/src/core/weapons/WeaponSystem.js');
+    const { CombatProjectilePattern } = await import('/src/core/combat/projectile-pattern.js');
     const s = window.mansionSiege;
     const target = s.attackers.entry(targetId);
     s.equip('shotgun');
@@ -1899,7 +2656,8 @@ try {
     const originalPlay = s.audio.play;
     const originalEmit = WeaponSystem.prototype._emit;
     window.__siegeShotgunProbe = {
-      log, originalRegisterHit, originalPlay, originalEmit, WeaponSystem,
+      log, originalRegisterHit, originalPlay, originalEmit,
+      WeaponSystem, CombatProjectilePattern,
     };
     WeaponSystem.prototype._emit = function emitShotgunProbe(event) {
       if (event?.type === 'fire' && event.id === 'shotgun' && event.shot) {
@@ -1975,8 +2733,15 @@ try {
     /* Keep this trigger repeatable without collapsing the production cone to
      * one ray. The first pellet uses the exact crosshair and the other six use
      * distinct, very small radii around it; all seven still traverse the real
-     * projectile sampler, raycaster, delayed impacts and shared damage cap. */
+     * projectile sampler, raycaster, delayed impacts and shared damage cap.
+     *
+     * Do not replace global Math.random here. A live frame can consume that
+     * sequence for recoil, a casing or ambient combat before the projectile
+     * sampler reads it. Inject the sequence only into the production sampler
+     * for the duration of this one real canvas click, then restore its
+     * prototype immediately. */
     await evaluate(() => {
+      const probe = window.__siegeShotgunProbe;
       const values = [
         0, 0,
         0.0004, 0,
@@ -1986,17 +2751,28 @@ try {
         0.0004, 4 / 6,
         0.0004, 5 / 6,
       ];
-      let cursor = 0;
-      window.__siegeShotgunOriginalRandom = Math.random;
-      Math.random = () => values[cursor++ % values.length];
+      const prototype = probe.CombatProjectilePattern.prototype;
+      const originalSample = prototype.sample;
+      probe.originalProjectileSample = originalSample;
+      prototype.sample = function sampleDeterministicShotgunPattern(options) {
+        let cursor = 0;
+        const originalRandom = this.random;
+        this.random = () => values[cursor++ % values.length];
+        try {
+          return originalSample.call(this, options);
+        } finally {
+          this.random = originalRandom;
+        }
+      };
     });
     try {
       await page.mouse.click(240, 150);
     } finally {
       await evaluate(() => {
-        if (window.__siegeShotgunOriginalRandom) {
-          Math.random = window.__siegeShotgunOriginalRandom;
-          delete window.__siegeShotgunOriginalRandom;
+        const probe = window.__siegeShotgunProbe;
+        if (probe?.originalProjectileSample) {
+          probe.CombatProjectilePattern.prototype.sample = probe.originalProjectileSample;
+          delete probe.originalProjectileSample;
         }
         /* The real canvas handler refuses a paused scene. Freeze immediately
          * after the admitted click instead, before the ambient frame can
@@ -3151,6 +3927,93 @@ try {
     aftermath.sequence === 'aftermath' && !!aftermath.hud.subtitle,
     JSON.stringify({ sequence: aftermath.sequence, said: aftermath.hud.subtitle }));
 
+  const cartelLooks = await evaluate(() => {
+    const s = window.mansionSiege;
+    const byRole = new Map();
+    for (const entry of s.attackers.all()) {
+      if (entry.role?.id && !byRole.has(entry.role.id)) byRole.set(entry.role.id, entry);
+    }
+    s.scene.updateMatrixWorld(true);
+    const rows = [];
+    const silhouettes = new Set();
+    /* These checks run after the battle, when the representative for a role
+     * may be lying on either side. A world-axis AABB made the same 18.5 cm
+     * headband report as 13.1 cm after that rotation. Measure the actual
+     * rendered geometry in its authored head/body space: the size contract
+     * stays unchanged, while death pose and world yaw cannot falsify it. */
+    const boundsIn = (objects, anchor) => {
+      const bounds = new s.THREE.Box3().makeEmpty();
+      const inverse = anchor.matrixWorld.clone().invert();
+      const transform = new s.THREE.Matrix4();
+      const point = new s.THREE.Vector3();
+      for (const object of objects) {
+        object.geometry.computeBoundingBox();
+        const box = object.geometry.boundingBox;
+        if (!box) continue;
+        transform.multiplyMatrices(inverse, object.matrixWorld);
+        for (const x of [box.min.x, box.max.x]) {
+          for (const y of [box.min.y, box.max.y]) {
+            for (const z of [box.min.z, box.max.z]) {
+              bounds.expandByPoint(point.set(x, y, z).applyMatrix4(transform));
+            }
+          }
+        }
+      }
+      return bounds;
+    };
+    for (const [role, entry] of byRole) {
+      const bandana = [];
+      const outfit = [];
+      entry.root.traverse((object) => {
+        if (object.isMesh && object.name?.startsWith('person.bandana.')) bandana.push(object);
+        if (object.isMesh && object.userData.cartelOutfitPiece) outfit.push(object);
+      });
+      let allRed = bandana.length >= 2;
+      for (const mesh of bandana) {
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        allRed &&= materials.some((material) => {
+          const colour = material?.color;
+          return colour && colour.r > 0.55 && colour.r > colour.g * 1.55
+            && colour.r > colour.b * 1.35;
+        });
+      }
+      const bandanaBox = boundsIn(bandana, entry.figure.parts.head);
+      const bandanaSize = bandanaBox.getSize(new s.THREE.Vector3());
+      const outfitBox = boundsIn(outfit, entry.figure.parts.body);
+      const outfitSize = outfitBox.getSize(new s.THREE.Vector3());
+      const silhouette = [
+        outfit.length,
+        Math.round(outfitSize.x / 0.03),
+        Math.round(outfitSize.y / 0.03),
+        Math.round(outfitSize.z / 0.03),
+      ].join(':');
+      silhouettes.add(silhouette);
+      rows.push({
+        role,
+        bandanaPieces: bandana.length,
+        allRed,
+        bandanaWidth: +bandanaSize.x.toFixed(3),
+        bandanaHeight: +bandanaSize.y.toFixed(3),
+        outfitPieces: outfit.length,
+        outfitSize: [outfitSize.x, outfitSize.y, outfitSize.z].map((n) => +n.toFixed(3)),
+        silhouette,
+      });
+    }
+    return { rows, distinctSilhouettes: silhouettes.size };
+  });
+  check('all eight cartel roles keep visible red headbands and distinct outfit silhouettes',
+    cartelLooks.rows.length === 8
+      && cartelLooks.distinctSilhouettes === 8
+      && cartelLooks.rows.every((row) => row.bandanaPieces >= 2
+        && row.allRed
+        && row.bandanaWidth >= 0.14
+        && row.bandanaHeight >= 0.04
+        && row.outfitPieces > 0
+        && Math.max(row.outfitSize[0], row.outfitSize[2]) >= 0.1
+        && row.outfitSize[1] >= 0.08
+        && Math.min(row.outfitSize[0], row.outfitSize[2]) >= 0.02),
+    JSON.stringify(cartelLooks));
+
   const toSasole = await evaluate(() => {
     const s = window.mansionSiege;
     for (let t = 0; t < 120 && s.beat === 'AFTERMATH'; t += 0.5) s.tick(0.5);
@@ -3584,7 +4447,7 @@ try {
       catalog: siegeCueLists.canonicalWeaponCueNames.length,
       pending: pendingCanonicalWeaponNames,
     }));
-  const combatAudioEvidencePath = path.join(combatValidationDir, 'after-combat-audio-evidence.json');
+  const combatAudioEvidencePath = path.join(SIEGE_VALIDATION_DIR, 'after-combat-audio-evidence.json');
   fs.mkdirSync(path.dirname(combatAudioEvidencePath), { recursive: true });
   fs.writeFileSync(combatAudioEvidencePath, `${JSON.stringify({
     scene: 'mansion_siege',
@@ -3795,12 +4658,15 @@ try {
     const storageKey = 'squatchsmash.finalArcLoadout.v1';
     const stored = {
       version: 1,
-      slots: ['revolver', null, 'carbine', null, null],
+      slots: ['revolver', 'pistol9', 'carbine', 'ak47', 'saw'],
       selected: 0,
       equipped: null,
       ammo: {
         revolver: { rounds: 0, reserve: 0 },
+        pistol9: { rounds: 0, reserve: 0 },
         carbine: { rounds: 7, reserve: 11 },
+        ak47: { rounds: 0, reserve: 0 },
+        saw: { rounds: 0, reserve: 0 },
       },
     };
     const inherited = await browser.newContext({ viewport: { width: 400, height: 260 } });
@@ -3856,6 +4722,61 @@ try {
           && restored.beat === 'WAKE'
           && restored.checkpoint === 'wake',
         JSON.stringify(restored));
+      const fullArmory = await inheritedPage.evaluate(() => {
+        const s = window.mansionSiege;
+        s.beats.wake();
+        s.beats.armory();
+        const before = s.loadout.checkpoint();
+        const used = s.armory.take('barrett');
+        const after = s.loadout.checkpoint();
+        const armorBeforeRestore = s.playerActor.armor;
+        const nudge = s.hud().nudge;
+        s.killPlayer();
+        return {
+          used,
+          before,
+          after,
+          equipped: s.equipped,
+          beat: s.beat,
+          checkpoint: s.checkpoint,
+          armor: s.playerActor.armor,
+          maxArmor: s.playerActor.maxArmor,
+          armorBeforeRestore,
+          armorVisible: !document.querySelector('.combat-status-armor')?.classList.contains('hidden'),
+          barrettOnWall: s.armory.report().barrett.onWall,
+          nudge,
+        };
+      });
+      check('a full inherited loadout cannot softlock the armory pickup',
+        fullArmory.used === true
+          && JSON.stringify(fullArmory.after.slots) === JSON.stringify(fullArmory.before.slots)
+          && fullArmory.equipped === 'carbine'
+          && fullArmory.beat === 'TO_OFFICE'
+          && fullArmory.checkpoint === 'armed'
+          && fullArmory.maxArmor > 0
+          && fullArmory.armorBeforeRestore === fullArmory.maxArmor
+          && fullArmory.armor === fullArmory.maxArmor
+          && fullArmory.armorVisible === true
+          && fullArmory.barrettOnWall === 2
+          && /get upstairs/i.test(fullArmory.nudge ?? ''),
+        JSON.stringify(fullArmory));
+      const duplicateOwnedRack = await inheritedPage.evaluate(() => {
+        const s = window.mansionSiege;
+        const before = s.armory.report().pistol9;
+        const selected = s.armory.take('pistol9');
+        const afterTake = s.armory.report().pistol9;
+        const returned = s.armory.put();
+        const afterPut = s.armory.report().pistol9;
+        return { before, selected, afterTake, returned, afterPut };
+      });
+      check('selecting an inherited-owned duplicate does not consume a second rack copy',
+        duplicateOwnedRack.selected === true
+          && duplicateOwnedRack.afterTake.onWall === duplicateOwnedRack.before.onWall
+          && duplicateOwnedRack.afterTake.taken === duplicateOwnedRack.before.taken
+          && duplicateOwnedRack.returned === true
+          && duplicateOwnedRack.afterPut.onWall === duplicateOwnedRack.before.copies
+          && duplicateOwnedRack.afterPut.taken === null,
+        JSON.stringify(duplicateOwnedRack));
       for (const message of inheritedErrors) problems.push(`[stowed-loadout] ${message}`);
     } finally {
       await inherited.close();

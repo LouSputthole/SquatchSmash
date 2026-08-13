@@ -181,11 +181,20 @@ export const ENCOUNTERS = Object.freeze({
      * All three stage INDOORS. They were in the house before he came up the
      * basement stair -- that is what the brief means by "already past the
      * door" -- and staging the third of them on the far lawn made him arrive
-     * ninety seconds into a fight that is supposed to be over in twenty. */
+    * ninety seconds into a fight that is supposed to be over in twenty. */
     members: Object.freeze([
-      Object.freeze({ id: 'foyer_1', role: 'rifle', staging: 'foyer_floor', cover: 'centrepiece' }),
-      Object.freeze({ id: 'foyer_2', role: 'smg', staging: 'foyer_door_line', cover: 'front_door' }),
-      Object.freeze({ id: 'foyer_3', role: 'flanker', staging: 'lounge_inside', cover: 'lounge_arch' }),
+      Object.freeze({
+        id: 'foyer_1', role: 'rifle', staging: 'foyer_floor', cover: 'centrepiece',
+        holdUntil: 'player_ground_floor',
+      }),
+      Object.freeze({
+        id: 'foyer_2', role: 'smg', staging: 'foyer_door_line', cover: 'front_door',
+        holdUntil: 'player_ground_floor',
+      }),
+      Object.freeze({
+        id: 'foyer_3', role: 'flanker', staging: 'lounge_inside', cover: 'lounge_arch',
+        holdUntil: 'player_ground_floor',
+      }),
     ]),
   }),
 });

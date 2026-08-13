@@ -26,10 +26,72 @@ const WATER_LEVEL = -0.18;
  */
 const BOAT_FLOAT_Y = -0.10;
 
+/**
+ * The same stations that build the cruiser's skin also bound its water hole.
+ * A rectangle around the boat would erase sea beside the fine bow and behind
+ * the transom; these stations taper the exclusion with the real hull instead.
+ */
+export const CRUISER_HULL_SECTIONS = Object.freeze([
+  Object.freeze({ z: -6.25, w: .12 }), Object.freeze({ z: -5.70, w: .86 }),
+  Object.freeze({ z: -4.85, w: 1.74 }), Object.freeze({ z: -3.70, w: 2.24 }),
+  Object.freeze({ z: -2.15, w: 2.46 }), Object.freeze({ z: 0.00, w: 2.54 }),
+  Object.freeze({ z: 2.60, w: 2.56 }), Object.freeze({ z: 4.60, w: 2.46 }),
+  Object.freeze({ z: 5.55, w: 2.26 }),
+]);
+
+export const CRUISER_WATER_EXCLUSION = Object.freeze({
+  sections: CRUISER_HULL_SECTIONS,
+  keelY: -.98,
+  chineY: -.24,
+  sheerY: .74,
+  /* Leave a narrow shell overlap so the discard can never become a visible
+   * dry moat beside the hull at a grazing camera angle. */
+  inset: .035,
+});
+
+export function cruiserHullSectionHalfBeam(z) {
+  const sections = CRUISER_WATER_EXCLUSION.sections;
+  if (!Number.isFinite(z) || z < sections[0].z || z > sections.at(-1).z) return 0;
+  for (let i = 0; i < sections.length - 1; i++) {
+    const a = sections[i]; const b = sections[i + 1];
+    if (z < a.z || z > b.z) continue;
+    const k = (z - a.z) / (b.z - a.z);
+    return THREE.MathUtils.lerp(a.w, b.w, k);
+  }
+  return sections.at(-1).w;
+}
+
+export function cruiserHullVerticalScale(y) {
+  const { keelY, chineY, sheerY } = CRUISER_WATER_EXCLUSION;
+  if (!Number.isFinite(y) || y < keelY || y > sheerY) return 0;
+  if (y <= chineY) return .84 * (y - keelY) / (chineY - keelY);
+  return THREE.MathUtils.lerp(.84, 1, (y - chineY) / (sheerY - chineY));
+}
+
+export function cruiserHullHalfBeamAt(y, z) {
+  return cruiserHullSectionHalfBeam(z) * cruiserHullVerticalScale(y);
+}
+
+function excludesBoatLocalWater(point) {
+  const sections = CRUISER_WATER_EXCLUSION.sections;
+  const inset = CRUISER_WATER_EXCLUSION.inset;
+  if (point.z < sections[0].z + inset || point.z > sections.at(-1).z - inset) return false;
+  const halfBeam = cruiserHullHalfBeamAt(point.y, point.z) - CRUISER_WATER_EXCLUSION.inset;
+  return halfBeam > 0 && Math.abs(point.x) <= halfBeam;
+}
+
 /** Where the inlet is, in world metres from Gate C. */
 export const INLET = Object.freeze({ x: 0, z: -430 });
+export const INLET_HEADLAND = Object.freeze({
+  centerZ: INLET.z - 64,
+  depth: 46,
+  nearZ: INLET.z - 64 + 46 / 2,
+});
 
 function buildWater(scene) {
+  const boatWorldInverse = new THREE.Matrix4();
+  const localPoint = new THREE.Vector3();
+  let boatFrame = null;
   const material = new THREE.ShaderMaterial({
     transparent: false,
     uniforms: {
@@ -38,6 +100,18 @@ function buildWater(scene) {
       uDeep: { value: new THREE.Color(0x0b3445) },
       uShallow: { value: new THREE.Color(0x2f7684) },
       uSky: { value: new THREE.Color(0xe4f2f5) },
+      uBoatWorldInverse: { value: boatWorldInverse },
+      uHullSections: {
+        value: CRUISER_HULL_SECTIONS.map(({ z, w }) => new THREE.Vector2(z, w)),
+      },
+      uHullVertical: {
+        value: new THREE.Vector3(
+          CRUISER_WATER_EXCLUSION.keelY,
+          CRUISER_WATER_EXCLUSION.chineY,
+          CRUISER_WATER_EXCLUSION.sheerY,
+        ),
+      },
+      uHullInset: { value: CRUISER_WATER_EXCLUSION.inset },
     },
     vertexShader: `
       varying vec3 vWorld;
@@ -67,7 +141,46 @@ function buildWater(scene) {
       uniform vec3 uDeep;
       uniform vec3 uShallow;
       uniform vec3 uSky;
+      uniform mat4 uBoatWorldInverse;
+      uniform vec2 uHullSections[${CRUISER_HULL_SECTIONS.length}];
+      uniform vec3 uHullVertical;
+      uniform float uHullInset;
+
+      float hullSectionHalfBeam(float z) {
+        if (z < uHullSections[0].x + uHullInset
+          || z > uHullSections[${CRUISER_HULL_SECTIONS.length - 1}].x - uHullInset) {
+          return -1.0;
+        }
+        float width = -1.0;
+        for (int i = 0; i < ${CRUISER_HULL_SECTIONS.length - 1}; i++) {
+          vec2 a = uHullSections[i];
+          vec2 b = uHullSections[i + 1];
+          if (z >= a.x && z <= b.x) {
+            float k = clamp((z - a.x) / (b.x - a.x), 0.0, 1.0);
+            width = mix(a.y, b.y, k);
+          }
+        }
+        return width;
+      }
+
+      float hullVerticalScale(float y) {
+        if (y < uHullVertical.x || y > uHullVertical.z) return 0.0;
+        if (y <= uHullVertical.y) {
+          return .84 * (y - uHullVertical.x) / (uHullVertical.y - uHullVertical.x);
+        }
+        return mix(.84, 1.0,
+          (y - uHullVertical.y) / (uHullVertical.z - uHullVertical.y));
+      }
+
       void main() {
+        /* The sea is still one global displaced plane. Only fragments inside
+         * the actual moving hull volume are discarded, in the boat's full
+         * translated/yawed/pitched/rolled frame. */
+        vec3 boatLocal = (uBoatWorldInverse * vec4(vWorld, 1.0)).xyz;
+        float hullWidth = hullSectionHalfBeam(boatLocal.z)
+          * hullVerticalScale(boatLocal.y) - uHullInset;
+        if (hullWidth > 0.0 && abs(boatLocal.x) <= hullWidth) discard;
+
         float rippleA = sin(vSurface.x * .51 + vSurface.y * .19 + uTime * 2.15);
         float rippleB = sin(vSurface.y * .72 - vSurface.x * .13 - uTime * 2.75);
         float micro = rippleA * rippleB;
@@ -93,7 +206,32 @@ function buildWater(scene) {
   water.position.y = WATER_LEVEL;
   water.receiveShadow = true;
   scene.add(water);
-  return { mesh: water, material, level: WATER_LEVEL };
+  const syncExclusion = () => {
+    if (!boatFrame) return false;
+    /* The frame is the visible hull mesh, not its parent group. Updating
+     * parents first carries the root's complete translation/yaw/pitch/roll;
+     * the mesh matrix then adds the authored +.02 m hull placement. */
+    boatFrame.updateWorldMatrix(true, false);
+    boatWorldInverse.copy(boatFrame.matrixWorld).invert();
+    return true;
+  };
+  return {
+    mesh: water,
+    material,
+    level: WATER_LEVEL,
+    exclusion: CRUISER_WATER_EXCLUSION,
+    bindBoat(frame) {
+      boatFrame = frame?.isObject3D ? frame : null;
+      return syncExclusion();
+    },
+    syncExclusion,
+    /** CPU/public twin of the shader predicate, using the exact uploaded inverse. */
+    excludes(point) {
+      if (!point || !boatFrame) return false;
+      localPoint.copy(point).applyMatrix4(boatWorldInverse);
+      return excludesBoatLocalWater(localPoint);
+    },
+  };
 }
 
 /** A small tapered runabout hull, for the two boats left on the finger. */
@@ -197,8 +335,15 @@ function buildMarina(scene) {
     wheel.rotation.z = Math.PI / 2;
     cart.add(wheel);
   }
-  cart.position.set(-5.4, 0, -14.4);
+  /* Park against the inboard edge instead of straddling the 3.35 m finger.
+   * The visible cart remains fully on the planks, while its outboard face now
+   * leaves 1.415 m of capsule-centre lane after both 0.30 m radii are paid. */
+  cart.position.set(-6.35, 0, -14.4);
   dock.add(cart);
+  const cartCollider = new THREE.Box3(
+    new THREE.Vector3(-7.01, .16, -14.82),
+    new THREE.Vector3(-5.69, 1.10, -13.98),
+  );
 
   /* The single dock cleat the spring line lands on. The redesign's startup
    * checklist reads "battery, blower, fuel check, port engine, starboard
@@ -308,7 +453,7 @@ function buildMarina(scene) {
   const colliders = [
     new THREE.Box3(new THREE.Vector3(-23, -.5, 19.7), new THREE.Vector3(-7.1, 3.4, 25.5)),
     new THREE.Box3(new THREE.Vector3(-6.75, .15, 16.0), new THREE.Vector3(-5.9, 2.0, 16.65)),
-    new THREE.Box3(new THREE.Vector3(-6.2, .1, -14.9), new THREE.Vector3(-4.55, 1.4, -13.9)),
+    cartCollider,
   ];
   return { root: dock, dockCleat, colliders, neighborBoats };
 }
@@ -416,7 +561,8 @@ function buildChannel(scene) {
   channel.add(quarry);
 
   /* A back wall so the inlet is a pocket and not a corridor. */
-  channel.add(box('inlet head land', [180, 12, 46], mat(0x1a231e), 0, 2.6, INLET.z - 64));
+  channel.add(box('inlet head land', [180, 12, INLET_HEADLAND.depth], mat(0x1a231e),
+    0, 2.6, INLET_HEADLAND.centerZ));
   const HEAD_TOP = 2.6 + 6;
   for (let i = 0; i < 18; i++) {
     const tx = -78 + i * 9;
@@ -436,11 +582,7 @@ function buildChannel(scene) {
  * had to come from. `deck-collision.js` carries the matching walkable extents.
  */
 function cruiserHullGeometry() {
-  const sections = [
-    { z: -6.25, w: .12 }, { z: -5.70, w: .86 }, { z: -4.85, w: 1.74 },
-    { z: -3.70, w: 2.24 }, { z: -2.15, w: 2.46 }, { z: 0.00, w: 2.54 },
-    { z: 2.60, w: 2.56 }, { z: 4.60, w: 2.46 }, { z: 5.55, w: 2.26 },
-  ];
+  const sections = CRUISER_HULL_SECTIONS;
   const positions = [];
   const tri = (a, b, c) => positions.push(...a, ...b, ...c);
   for (let i = 0; i < sections.length - 1; i++) {
@@ -1267,6 +1409,7 @@ function buildBoat(scene, marina) {
 
   return {
     root,
+    hull,
     targets,
     controls,
     cast,
@@ -1372,6 +1515,7 @@ export function buildNoWakeWorld(scene) {
   const marina = buildMarina(scene);
   const channel = buildChannel(scene);
   const boat = buildBoat(scene, marina);
+  water.bindBoat(boat.hull);
   const buoys = buildBuoys(scene);
   const wake = new WakePool(scene);
   const colliders = [...marina.colliders];
@@ -1472,6 +1616,9 @@ export function buildNoWakeWorld(scene) {
     },
     update(t, dt) {
       water.material.uniforms.uTime.value = t;
+      /* `main.js` applies BoatPhysics immediately before this call. Sync here,
+       * after heave/yaw/pitch/roll, so the shader never uses last frame's hull. */
+      water.syncExclusion();
       if (boat.bodyMarker.visible) {
         boat.bodyMarker.rotation.y += dt * .6;
       }

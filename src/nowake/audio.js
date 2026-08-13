@@ -9,6 +9,8 @@
  * `VOICE-LINES-TODO.md` until somebody records them; everything else on this
  * list is already on disk.
  */
+import { boatSpeedFraction } from './physics.js';
+
 export const NO_WAKE_AUDIO_CUE_NAMES = Object.freeze([
   'ambience.harbor',
   'ambience.ocean.night',
@@ -224,7 +226,7 @@ export class NoWakeEngineAudio {
     const t = this.ctx.currentTime;
     const load = clamp(Math.abs(throttle), 0, 1);
     const turning = clamp((rpm - 700) / 3600, 0, 1);
-    const way = clamp(Math.abs(speed) / 8.6, 0, 1);
+    const way = boatSpeedFraction(speed);
     for (let i = 0; i < this.nodes.engines.length; i++) {
       const e = this.nodes.engines[i];
       // Port engine a shade slower than starboard, permanently.
