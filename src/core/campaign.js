@@ -234,6 +234,10 @@ export const TIME_EVENT_IDS = Object.freeze({
   DEPART_SILVER_CASE: 'travel.silver_case',
   COMPLETE_SILVER_CASE: 'mission.silver_case',
   DEPART_INITIATION: 'travel.initiation',
+  /* The rites at the pines, start to anointing. Written by the Initiation's
+   * temporary exit (gap G1 minimal relief) so the ceremony puts hours on the
+   * clock exactly once however many times a failed prospect retries. */
+  COMPLETE_INITIATION: 'mission.initiation',
   /* The drive up to Lou's house with the case on the passenger seat, and the
    * hours it takes to hand it over, watch it get built, and clean up after. */
   DEPART_MANSION: 'travel.mansion',
@@ -367,6 +371,9 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 19 * 60 }),
   }),
+  /* Speech, quiz, execution, gauntlet, roar, anointing: a long evening at the
+   * bonfire. Exact-once, so replaying a failed rite never farms hours. */
+  [TIME_EVENT_IDS.COMPLETE_INITIATION]: Object.freeze({ minutes: 110 }),
   /* PROJECT SILENT SQUATCH follows the now-routed Silver Case.  The drive is
    * twenty-five minutes and the night in the basement is a little over two
    * hours.  Eight hours in Lou's guest room wakes Tony at 4:10 AM on calendar
@@ -949,14 +956,17 @@ const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.MANSION]),
   }),
   /* The Initiation is registered so the apartment door can route to it through
-   * ordinary campaign state. The scene itself is deliberately untouched: it
-   * does not read the campaign, claim the scene, or report completion yet, so
-   * it has no outbound edge and nothing here waits on one. */
+   * ordinary campaign state. Gap G1 minimal relief (see
+   * docs/GAME-FLOW-AND-FINISH-PLAN-2026-08-05.md §7 phase 1): the scene now
+   * claims itself on boot, writes COMPLETE_INITIATION at the anointing, and
+   * this TEMPORARY edge home means no save can ever be trapped in a terminal
+   * scene. The story itself is still the frozen, owner-gated build — the
+   * approved rewrite replaces this edge with the real one. */
   [SCENE_IDS.INITIATION]: Object.freeze({
     href: 'initiation.html',
     defaultSpawn: 'gathering',
     spawns: Object.freeze(['gathering']),
-    next: Object.freeze([]),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   /* Lou's mansion. One scene, three spawns: the gate he is dropped at, the
    * foyer, and the cellar -- which is a resume point rather than a route, for
@@ -2460,6 +2470,11 @@ class Campaign {
     return Boolean(this.storage);
   }
 
+  /** True while the last save write failed and the next one will retry. */
+  get saveFailing() {
+    return Boolean(this._saveFailing);
+  }
+
   addItem(itemId, { concealed = false } = {}) {
     const bucket = concealed ? 'concealed' : 'carried';
     const other = concealed ? 'carried' : 'concealed';
@@ -2641,13 +2656,63 @@ class Campaign {
     if (!this.storage) return false;
     try {
       this.storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(this._state));
+      if (this._saveFailing) {
+        // A later write went through — the quota was cleared, the frame was
+        // unblocked. Progress is persisting again; take the warning down.
+        this._saveFailing = false;
+        updateSaveFailureNotice(false);
+      }
       return true;
     } catch {
-      // Sandboxed frames and privacy modes can expose localStorage but reject
-      // writes. The current page still gets a coherent in-memory campaign.
-      this.storage = null;
+      // Sandboxed frames, privacy modes, and full quotas can expose
+      // localStorage but reject writes. The current page still gets a
+      // coherent in-memory campaign — but this used to null the storage
+      // handle, permanently and silently, so one transient quota error meant
+      // the whole session played on looking fine while persisting nothing.
+      // Keep the handle and retry on the next save, and say so on screen.
+      this._saveFailing = true;
+      updateSaveFailureNotice(true);
       return false;
     }
+  }
+}
+
+/**
+ * The player-visible "progress is not saving" banner.
+ *
+ * Owned here rather than by any scene because every scene saves through
+ * `Campaign#save` and none of them can see a `setItem` throw from where they
+ * stand. DOM-optional: unit tests and node tools construct campaigns with no
+ * document, and a page whose DOM shim cannot build the banner still keeps its
+ * coherent in-memory campaign.
+ */
+const SAVE_FAILURE_NOTICE_ID = 'campaign-save-failure-notice';
+function updateSaveFailureNotice(failing) {
+  try {
+    const doc = globalThis.document;
+    if (!doc?.body || typeof doc.createElement !== 'function') return;
+    const existing = doc.getElementById?.(SAVE_FAILURE_NOTICE_ID) ?? null;
+    if (!failing) {
+      existing?.remove?.();
+      return;
+    }
+    if (existing) return;
+    const el = doc.createElement('div');
+    el.id = SAVE_FAILURE_NOTICE_ID;
+    el.setAttribute?.('role', 'alert');
+    el.textContent = 'Progress is not saving — browser storage is full or blocked. '
+      + 'The game keeps playing and will retry on the next save.';
+    // Above the pause menu (z 100000): a player deciding whether to stop here
+    // is exactly the player who needs to know nothing is being kept.
+    if (el.style) {
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100001;'
+        + 'padding:10px 16px;background:#7a1f1f;color:#ffe9e9;'
+        + 'font:700 13px/1.4 "Trebuchet MS","Segoe UI",Verdana,sans-serif;'
+        + 'letter-spacing:.04em;text-align:center;pointer-events:none;';
+    }
+    doc.body.appendChild(el);
+  } catch {
+    // No DOM, or a hostile shim: the in-memory campaign is still coherent.
   }
 }
 
@@ -3359,6 +3424,102 @@ export function createCampaign(options = {}) {
   }
   if (preview) installPreviewNotice();
   return campaign;
+}
+
+/**
+ * Dump the persisted campaign exactly as it is stored.
+ *
+ * The raw string on purpose: a playtester handing a BROKEN save to a
+ * developer is half the reason this exists, so the export must not repair,
+ * normalise, or even parse what it ships. A save that never made it to disk
+ * has nothing to export — `raw` is null then and the UI says so.
+ *
+ * The recovery record rides along when one exists, because for a save that
+ * has already been repaired the recovery copy IS the broken data worth
+ * looking at.
+ */
+export function exportCampaignSave({ storage = browserStorage() } = {}) {
+  let raw = null;
+  let recovery = null;
+  try {
+    raw = storage?.getItem?.(CAMPAIGN_STORAGE_KEY) ?? null;
+  } catch {
+    raw = null;
+  }
+  try {
+    recovery = storage?.getItem?.(CAMPAIGN_RECOVERY_KEY) ?? null;
+  } catch {
+    recovery = null;
+  }
+  /* `text` is the file/clipboard payload: a wrapper naming what it is, with
+   * the save carried VERBATIM as a string. `importCampaignSave` unwraps this
+   * form and also accepts a bare pasted save, so a hand-copied
+   * `squatchlife.campaign` value round-trips just as well. */
+  const text = raw === null ? null : JSON.stringify({
+    squatchlifeExport: 1,
+    exportedAt: new Date().toISOString(),
+    save: raw,
+    recovery,
+  }, null, 2);
+  return { raw, recovery, text };
+}
+
+/**
+ * Restore a campaign from exported JSON, through the ONE existing door.
+ *
+ * The pasted text goes down the same `migrate()` + `normalize()` path a
+ * stored save takes at load, so an old export is brought forward through
+ * every migration and a save from a newer build is refused rather than
+ * half-read (`unsupported_version`). Nothing is written unless the whole
+ * pipeline succeeds; the page should reload after a successful import so
+ * every live system re-reads the new save.
+ */
+export function importCampaignSave(json, { storage = browserStorage() } = {}) {
+  if (typeof json !== 'string' || !json.trim()) {
+    return { ok: false, reason: 'empty' };
+  }
+  if (!storage) return { ok: false, reason: 'no_storage' };
+  let saved;
+  try {
+    saved = JSON.parse(json);
+  } catch {
+    return { ok: false, reason: 'invalid_json' };
+  }
+  /* An exported file wraps the save as a verbatim string — unwrap it. A bare
+   * pasted save object goes straight through. */
+  if (saved && typeof saved === 'object' && !Array.isArray(saved)
+    && typeof saved.squatchlifeExport === 'number'
+    && typeof saved.save === 'string') {
+    try {
+      saved = JSON.parse(saved.save);
+    } catch {
+      return { ok: false, reason: 'invalid_json' };
+    }
+  }
+  const migrated = migrate(saved);
+  if (!migrated.ok) return { ok: false, reason: migrated.reason };
+  const state = normalize(migrated.value);
+  try {
+    storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    return { ok: false, reason: 'write_failed' };
+  }
+  /* Same cleanup as a deliberate reset: the recovery record, loadout, and
+   * unlocked recovery skip all describe the save being replaced, not the one
+   * just imported. The new primary stays authoritative even when a hostile
+   * storage shim refuses the optional cleanup. */
+  for (const key of [
+    CAMPAIGN_RECOVERY_KEY,
+    FINAL_ARC_LOADOUT_STORAGE_KEY,
+    SCENE_RECOVERY_STORAGE_KEY,
+  ]) {
+    try {
+      storage.removeItem?.(key);
+    } catch {
+      // Optional cleanup only.
+    }
+  }
+  return { ok: true, state: clone(state) };
 }
 
 /**

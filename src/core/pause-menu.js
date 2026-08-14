@@ -7,6 +7,8 @@
  * the narrow Adapter between that rule and each scene's existing pause flag.
  */
 
+import { exportCampaignSave, importCampaignSave } from './campaign.js';
+
 const STYLE_ID = 'squatch-scene-pause-style';
 
 function installStyle() {
@@ -129,6 +131,41 @@ function installStyle() {
       letter-spacing: .08em;
       text-transform: uppercase;
     }
+    [data-scene-pause] .scene-pause-save {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(207, 212, 224, .14);
+    }
+    [data-scene-pause] .scene-pause-save button {
+      min-width: 0;
+      padding: 9px 14px;
+      font-size: 11px;
+    }
+    [data-scene-pause-save-status] {
+      margin: 10px 0 0;
+      color: #c9cfdb;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    [data-scene-pause-save-status].bad { color: #ff9d9d; }
+    [data-scene-pause-import-panel] { margin-top: 12px; }
+    [data-scene-pause-import-panel] textarea {
+      width: 100%;
+      min-height: 110px;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid rgba(207, 212, 224, .28);
+      border-radius: 5px;
+      color: #eef1f7;
+      background: rgba(5, 7, 13, .8);
+      font: 12px/1.5 Consolas, Menlo, monospace;
+      resize: vertical;
+    }
+    [data-scene-pause-import-panel] input[type="file"] {
+      margin-bottom: 10px;
+      color: #c9cfdb;
+      font-size: 12px;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -190,6 +227,23 @@ export function createPauseMenu({
       <div class="scene-pause-actions">
         <button type="button" data-scene-pause-resume>Resume</button>
       </div>
+      <div class="scene-pause-save">
+        <div class="scene-pause-label">Save data</div>
+        <div class="scene-pause-actions">
+          <button type="button" class="secondary" data-scene-pause-export>Export save</button>
+          <button type="button" class="secondary" data-scene-pause-import>Import save</button>
+        </div>
+        <div data-scene-pause-save-status hidden></div>
+        <div data-scene-pause-import-panel hidden>
+          <textarea data-scene-pause-import-text spellcheck="false"
+            placeholder="Paste an exported save here, or choose the downloaded file below"></textarea>
+          <input type="file" data-scene-pause-import-file accept=".json,application/json">
+          <div class="scene-pause-actions">
+            <button type="button" data-scene-pause-import-load>Load save</button>
+            <button type="button" class="secondary" data-scene-pause-import-cancel>Cancel</button>
+          </div>
+        </div>
+      </div>
       <p class="scene-pause-foot">Tab pauses and resumes</p>
     </div>
   `;
@@ -250,6 +304,101 @@ export function createPauseMenu({
     actions.appendChild(button);
   }
 
+  /* ---------------------------------------------------------------- */
+  /* Save data — export/import for every scene that pauses.            */
+  /*                                                                   */
+  /* The campaign JSON is the only progress there is, and until this   */
+  /* section existed nothing could dump or restore it: a playtester    */
+  /* with a broken save had no way to hand it over, and a Tauri build  */
+  /* has no shared localStorage to inherit. Export ships the persisted */
+  /* save verbatim; import goes through the campaign's own             */
+  /* migrate+normalize door and reloads the page so every live system  */
+  /* re-reads the result.                                              */
+  /* ---------------------------------------------------------------- */
+  const saveStatus = root.querySelector('[data-scene-pause-save-status]');
+  const importPanel = root.querySelector('[data-scene-pause-import-panel]');
+  const importText = root.querySelector('[data-scene-pause-import-text]');
+  const importFile = root.querySelector('[data-scene-pause-import-file]');
+
+  function showSaveStatus(message, bad = false) {
+    saveStatus.textContent = message;
+    saveStatus.hidden = !message;
+    saveStatus.classList.toggle('bad', Boolean(bad));
+  }
+
+  root.querySelector('[data-scene-pause-export]').addEventListener('click', () => {
+    const { text } = exportCampaignSave();
+    if (!text) {
+      showSaveStatus('No saved campaign to export yet.', true);
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const name = `squatchlife-save-${stamp}.json`;
+    let downloaded = false;
+    try {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      downloaded = true;
+    } catch {
+      // Some embeds refuse programmatic downloads; the clipboard below still works.
+    }
+    showSaveStatus(downloaded
+      ? `Save exported — ${name}`
+      : 'Download blocked — copying to the clipboard instead.');
+    navigator.clipboard?.writeText?.(text).then(
+      () => showSaveStatus(downloaded
+        ? `Save exported — ${name} (also copied to the clipboard)`
+        : 'Save copied to the clipboard.'),
+      () => {},
+    );
+  });
+
+  root.querySelector('[data-scene-pause-import]').addEventListener('click', () => {
+    importPanel.hidden = !importPanel.hidden;
+    showSaveStatus('');
+    if (!importPanel.hidden) importText.focus({ preventScroll: true });
+  });
+
+  root.querySelector('[data-scene-pause-import-cancel]').addEventListener('click', () => {
+    importPanel.hidden = true;
+    importText.value = '';
+    importFile.value = '';
+    showSaveStatus('');
+  });
+
+  importFile.addEventListener('change', () => {
+    const file = importFile.files?.[0];
+    if (!file) return;
+    file.text().then(
+      (contents) => { importText.value = contents; },
+      () => showSaveStatus('Could not read that file.', true),
+    );
+  });
+
+  const IMPORT_FAILURES = {
+    empty: 'Paste an exported save or choose a file first.',
+    invalid_json: 'That is not a save file.',
+    invalid_shape: 'That is not a save file.',
+    unsupported_version: 'That save is from a newer build than this one, and importing it would damage it.',
+    migration_failed: 'That save could not be brought forward to this build.',
+    no_storage: 'This browser is not letting the game store anything.',
+    write_failed: 'The browser refused to store the save — storage may be full.',
+  };
+
+  root.querySelector('[data-scene-pause-import-load]').addEventListener('click', () => {
+    const result = importCampaignSave(importText.value);
+    if (!result.ok) {
+      showSaveStatus(IMPORT_FAILURES[result.reason] ?? 'The save could not be imported.', true);
+      return;
+    }
+    showSaveStatus('Save imported — reloading…');
+    setTimeout(() => window.location.reload(), 400);
+  });
+
   document.body.appendChild(root);
   let open = false;
 
@@ -296,6 +445,8 @@ export function createPauseMenu({
     if (!open) return false;
     open = false;
     root.classList.add('hidden');
+    importPanel.hidden = true;
+    showSaveStatus('');
     onResume();
     return true;
   }
@@ -306,6 +457,10 @@ export function createPauseMenu({
 
   function onKeyDown(event) {
     if (event.code !== 'Tab' || event.repeat) return;
+    /* Typing in the import textarea (or its file picker) must not close the
+     * menu out from under the paste. */
+    const tag = event.target?.tagName;
+    if (open && (tag === 'TEXTAREA' || tag === 'INPUT')) return;
     if (!canHandleTab()) return;
     event.preventDefault();
     event.stopImmediatePropagation();

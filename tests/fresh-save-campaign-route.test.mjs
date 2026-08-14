@@ -394,8 +394,10 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   });
   route(campaign, SCENE_IDS.INITIATION, 'gathering', 'initiation.html');
 
-  // The current Initiation build is intentionally a terminal work-in-progress:
-  // it can be entered through the story, but must never be reported complete.
+  // The current Initiation build is still the frozen, owner-gated scene: it is
+  // entered through the story and arrives in progress, not complete. (Its
+  // completion and temporary exit are exercised below, after these assertions
+  // pin the arrival state.)
   campaign = reload(storage);
   assert.equal(campaign.state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].status, 'complete');
@@ -430,8 +432,25 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   ]) {
     assert.equal(campaign.state.story.timeEvents.includes(eventId), true, eventId);
   }
-  assert.throws(
-    () => campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'wake' }),
-    /Cannot transition from "initiation" to "apartment"/,
+  /* Gap G1 minimal relief: the anointing writes COMPLETE_INITIATION exactly
+   * once and the end card has ONE temporary edge home, so no save can be
+   * trapped in a terminal scene. The owner-gated rewrite replaces this exit
+   * with the real one; when it does, this block moves with it. */
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_INITIATION, (state) => {
+    state.missions[MISSION_IDS.INITIATION].status = 'complete';
+  });
+  const repeat = campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_INITIATION);
+  assert.equal(repeat.applied, false, 'a replayed ceremony must not farm hours');
+  route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
+
+  campaign = reload(storage);
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'complete');
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.COMPLETE_INITIATION),
+    true,
   );
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.APARTMENT,
+    spawn: 'front_door',
+  });
 });

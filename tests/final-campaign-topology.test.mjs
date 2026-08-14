@@ -58,10 +58,15 @@ test('the final arc has stable scene ids, URLs, spawns, and no edge past Initiat
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
 
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
+  /* Past the Initiation there is only the gap G1 temporary exit home — one
+   * edge, to the apartment, so no save is trapped in a terminal scene. The
+   * arc itself still ends here until the owner-gated rewrite routes it. */
   assert.throws(
-    () => campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'wake' }),
-    /Cannot transition from "initiation" to "apartment"/,
+    () => campaign.transition(SCENE_IDS.MANSION, { spawn: 'gate' }),
+    /Cannot transition from "initiation" to "mansion"/,
   );
+  follow(campaign, SCENE_IDS.APARTMENT, 'index.html');
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {

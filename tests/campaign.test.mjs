@@ -13,6 +13,8 @@ import {
   TIME_EVENT_IDS,
   createCampaign,
   createCampaignRadioAdapter,
+  exportCampaignSave,
+  importCampaignSave,
   navigateCampaign,
 } from '../src/core/campaign.js';
 import { FINAL_ARC_LOADOUT_STORAGE_KEY } from '../src/core/final-arc-loadout-storage.js';
@@ -428,12 +430,18 @@ test('the apartment door is a registered route to the Initiation', () => {
     id: SCENE_IDS.INITIATION,
     spawn: 'gathering',
   });
-  // The unchanged Initiation build never navigates anywhere, so it has no
-  // outbound edge and must not be given one by accident.
+  /* Gap G1 minimal relief: the Initiation now has exactly ONE outbound edge,
+   * the temporary exit home, so no save can be trapped in a terminal scene.
+   * Anything else stays unreachable from it until the owner-gated rewrite. */
   assert.throws(
-    () => campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'wake' }),
-    /Cannot transition from "initiation" to "apartment"/,
+    () => campaign.transition(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' }),
+    /Cannot transition from "initiation" to "cartel_palace"/,
   );
+  campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.APARTMENT,
+    spawn: 'front_door',
+  });
 });
 
 test('an exposed Initiation implies Booskibro’s big-night call already landed', () => {
@@ -561,6 +569,69 @@ test('blocked browser storage falls back to the live in-memory campaign', () => 
     /could not be saved/i,
   );
   assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+});
+
+test('a transient quota failure is announced, retried, and healed on the next save', () => {
+  /* The old behaviour was `this.storage = null` on the first setItem throw:
+   * one full disk and the rest of the session silently persisted nothing.
+   * Now the handle is kept, the failure is visible on `saveFailing`, a
+   * banner goes up for the player, and the next successful write both
+   * persists the CURRENT state and takes the banner down. */
+  const values = new Map();
+  let failing = true;
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem(key, value) {
+      if (failing) throw new Error('QuotaExceededError');
+      values.set(key, String(value));
+    },
+  };
+
+  /* A minimal document so the player-visible half is observable. Restored
+   * before the test returns; the shared shim has no `body`, so the notice
+   * code never runs for any other test in this process. */
+  const realDocument = globalThis.document;
+  const nodes = [];
+  const fakeDocument = {
+    body: { appendChild: (el) => { nodes.push(el); } },
+    getElementById: (id) => nodes.find((el) => el.id === id) ?? null,
+    createElement: () => {
+      const el = {
+        id: '', textContent: '', style: {},
+        setAttribute() {},
+        remove() {
+          const at = nodes.indexOf(el);
+          if (at !== -1) nodes.splice(at, 1);
+        },
+      };
+      return el;
+    },
+  };
+
+  try {
+    globalThis.document = fakeDocument;
+    const campaign = createCampaign({ storage });
+
+    campaign.update((state) => {
+      state.activities.eaten = true;
+    });
+    assert.equal(campaign.persistent, true);
+    assert.equal(campaign.saveFailing, true);
+    assert.equal(nodes.length, 1);
+    assert.match(nodes[0].textContent, /not saving/i);
+
+    failing = false;
+    campaign.update((state) => {
+      state.activities.showered = true;
+    });
+    assert.equal(campaign.saveFailing, false);
+    assert.equal(nodes.length, 0);
+    const persisted = JSON.parse(values.get(CAMPAIGN_STORAGE_KEY));
+    assert.equal(persisted.activities.eaten, true);
+    assert.equal(persisted.activities.showered, true);
+  } finally {
+    globalThis.document = realDocument;
+  }
 });
 
 test('apartment readiness and learned story context survive a reload', () => {
@@ -844,7 +915,19 @@ test('a failed navigation rollback exposes the hard save mismatch', () => {
     JSON.parse(values.get(CAMPAIGN_STORAGE_KEY)).scene.id,
     SCENE_IDS.BADA_BING_ONE,
   );
-  assert.equal(campaign.persistent, false);
+  /* A failed write no longer permanently disables saving: the handle is kept,
+   * the failure is exposed, and the very next successful save heals the
+   * persisted mismatch instead of leaving it on disk for the session. */
+  assert.equal(campaign.persistent, true);
+  assert.equal(campaign.saveFailing, true);
+  campaign.update((state) => {
+    state.activities.eaten = true;
+  });
+  assert.equal(campaign.saveFailing, false);
+  assert.equal(
+    JSON.parse(values.get(CAMPAIGN_STORAGE_KEY)).scene.id,
+    SCENE_IDS.APARTMENT,
+  );
 });
 
 test('storage read failures fall back to a coherent in-memory campaign', () => {
@@ -906,7 +989,10 @@ test('a failed repaired-save write preserves both the damaged primary and its ba
     raw,
   });
   assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
-  assert.equal(campaign.persistent, false);
+  /* The recovery backup was preserved, so the primary keeps being retried
+   * rather than permanently disabled — and the failure is visible. */
+  assert.equal(campaign.persistent, true);
+  assert.equal(campaign.saveFailing, true);
 });
 
 test('a damaged recovery record does not hide a valid primary save', () => {
@@ -920,4 +1006,88 @@ test('a damaged recovery record does not hide a valid primary save', () => {
   const reloaded = createCampaign({ storage });
   assert.equal(reloaded.state.activities.eaten, true);
   assert.equal(reloaded.recovery, null);
+});
+
+test('export ships the persisted save verbatim and import round-trips it', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  campaign.update((state) => {
+    state.activities.eaten = true;
+    state.story.meetingKnown = true;
+  });
+  const raw = storage.getItem(CAMPAIGN_STORAGE_KEY);
+
+  const exported = exportCampaignSave({ storage });
+  assert.equal(exported.raw, raw);
+  assert.equal(typeof exported.text, 'string');
+  const wrapper = JSON.parse(exported.text);
+  assert.equal(wrapper.squatchlifeExport, 1);
+  assert.equal(wrapper.save, raw);
+
+  // The downloaded file restores into a different browser's storage.
+  const other = new MemoryStorage();
+  const imported = importCampaignSave(exported.text, { storage: other });
+  assert.equal(imported.ok, true);
+  const restored = createCampaign({ storage: other });
+  assert.equal(restored.state.activities.eaten, true);
+  assert.equal(restored.state.story.meetingKnown, true);
+  assert.equal(restored.recoveredNow, false);
+
+  // A hand-copied bare save value works exactly as well as the wrapper.
+  const bare = new MemoryStorage();
+  assert.equal(importCampaignSave(raw, { storage: bare }).ok, true);
+  assert.equal(createCampaign({ storage: bare }).state.activities.eaten, true);
+});
+
+test('export with no persisted save says so instead of inventing one', () => {
+  const exported = exportCampaignSave({ storage: new MemoryStorage() });
+  assert.equal(exported.raw, null);
+  assert.equal(exported.text, null);
+});
+
+test('import refuses what the loader would refuse, and writes nothing when it does', () => {
+  const storage = new MemoryStorage();
+  assert.equal(importCampaignSave('', { storage }).reason, 'empty');
+  assert.equal(importCampaignSave('{not json', { storage }).reason, 'invalid_json');
+  assert.equal(importCampaignSave('[1,2,3]', { storage }).reason, 'invalid_shape');
+  assert.equal(
+    importCampaignSave(JSON.stringify({ version: CAMPAIGN_VERSION + 10 }), { storage }).reason,
+    'unsupported_version',
+  );
+  assert.equal(storage.getItem(CAMPAIGN_STORAGE_KEY), null);
+});
+
+test('an old exported save comes forward through the migrations on import', () => {
+  const storage = new MemoryStorage();
+  const legacy = JSON.stringify({
+    version: 2,
+    revision: 4,
+    scene: { id: SCENE_IDS.APARTMENT, spawn: 'wake' },
+    inventory: { carried: [], concealed: [ITEM_IDS.LOU_PACKAGE] },
+    events: {},
+    missions: {},
+  });
+  const result = importCampaignSave(legacy, { storage });
+  assert.equal(result.ok, true);
+  const persisted = JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY));
+  assert.equal(persisted.version, CAMPAIGN_VERSION);
+  const campaign = createCampaign({ storage });
+  assert.equal(campaign.state.version, CAMPAIGN_VERSION);
+  assert.equal(campaign.recoveredNow, false);
+});
+
+test('a deliberate import replaces the save being described by any old recovery record', () => {
+  const storage = new MemoryStorage();
+  storage.setItem(CAMPAIGN_RECOVERY_KEY, JSON.stringify({ reason: 'invalid_json', raw: '{' }));
+  storage.setItem(FINAL_ARC_LOADOUT_STORAGE_KEY, JSON.stringify({ slots: ['carbine'] }));
+  const donor = new MemoryStorage();
+  createCampaign({ storage: donor }).update((state) => {
+    state.activities.showered = true;
+  });
+
+  const result = importCampaignSave(exportCampaignSave({ storage: donor }).text, { storage });
+  assert.equal(result.ok, true);
+  assert.equal(storage.getItem(CAMPAIGN_RECOVERY_KEY), null);
+  assert.equal(storage.getItem(FINAL_ARC_LOADOUT_STORAGE_KEY), null);
+  assert.equal(createCampaign({ storage }).state.activities.showered, true);
 });
