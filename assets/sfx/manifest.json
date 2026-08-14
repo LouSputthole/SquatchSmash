@@ -337,11 +337,7 @@
       "stability": 0.45,
       "similarity": 0.8,
       "style": 0.4,
-      "recast": {
-        "on": "2026-08-08",
-        "was": "miqykcv8BCUvQnRlIGUV",
-        "reason": "Featured date waiter recast; the existing vo.silver.waiter.* takes are the prior actor."
-      }
+      "_recastHistory": "Recast on 2026-08-08 from miqykcv8BCUvQnRlIGUV; all twelve vo.silver.waiter.* takes re-rendered with this actor on 2026-08-13."
     },
     "waiter": {
       "id": "miqykcv8BCUvQnRlIGUV",
@@ -7538,9 +7534,7 @@
       "voice": "booski",
       "say": "Get my man a shot. Thirty fuckin’ seconds. That’s generous, baby.",
       "duration": 4,
-      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him.",
-      "needsRerecord": true,
-      "rerecordReason": "The indexed take is the retired high-pitched AY performance. Replace it with this calmer no-AY wording, then remove needsRerecord."
+      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him."
     },
     {
       "name": "vo.bing.booski.shot.handoff",

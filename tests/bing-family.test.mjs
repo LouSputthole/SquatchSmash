@@ -84,7 +84,10 @@ test('Booski shot demand keeps source, manifest, and rerecord debt synchronized'
 
   assert.ok(cue, `${node.cue} is absent from the sound manifest`);
   assert.equal(cue.say, node.line);
-  assert.equal(cue.needsRerecord, true,
-    'the indexed file is the retired AY take and must remain recording debt until replaced');
-  assert.match(cue.rerecordReason, /retired high-pitched AY performance/i);
+  /* The retired AY take was replaced on 2026-08-13 with the calm no-AY
+   * delivery, paying the debt this test used to hold open. The marker must
+   * stay gone so the line never re-enters the recording sheet. */
+  assert.equal(cue.needsRerecord, undefined,
+    'the shot yell was re-recorded; its rerecord debt must stay cleared');
+  assert.equal(cue.rerecordReason, undefined);
 });
