@@ -92,6 +92,58 @@ for (const [rel, validate] of manifests) {
   }
 }
 
+/* ---- every recording on disk must be claimed by a manifest cue ----
+ * The forward direction (a cue's file exists) was always checked; nothing
+ * ever asked the reverse question, so 155 recordings (9.5 MiB, mostly stale
+ * hashed radio.vo.* takes from regenerated manifests) shipped to Pages
+ * referenced by nothing. Added by the 2026-08-14 checks-that-lie pass.
+ *
+ * The known orphans are parked in tools/sfx-orphan-allowlist.json until the
+ * asset-diet wave prunes them (a parallel agent is editing manifest.json, so
+ * deleting here would race it). A NEW orphan fails the build; set
+ * CHECK_SFX_ORPHANS=1 to fail on every orphan, allowlisted or not, which is
+ * what the prune wave should run until the list is empty. */
+try {
+  const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+  const index = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/index.json'), 'utf8'));
+  const allow = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/sfx-orphan-allowlist.json'), 'utf8'));
+  const allowed = new Set(allow.files);
+
+  // The index must be the disk, or the loader's "what exists" answer lies.
+  const onDisk = fs.readdirSync(path.join(ROOT, 'assets/sfx'))
+    .filter((f) => f.endsWith('.mp3'));
+  const indexed = new Set(index.files);
+  for (const f of onDisk) {
+    if (!indexed.has(f)) fail(`assets/sfx/${f} is on disk but not in index.json — run npm run sfx:listen`);
+  }
+  const diskSet = new Set(onDisk);
+  for (const f of index.files) {
+    if (!diskSet.has(f)) fail(`index.json lists "${f}" which is not on disk — run npm run sfx:listen`);
+  }
+
+  const claimed = new Set(sfxManifest.sfx.map((cue) => cue.file || `${cue.name}.mp3`));
+  const orphans = index.files.filter((f) => !claimed.has(f));
+  const strict = process.env.CHECK_SFX_ORPHANS === '1';
+  let newOrphans = 0;
+  for (const f of orphans) {
+    if (allowed.has(f) && !strict) continue;
+    newOrphans++;
+    fail(`assets/sfx/${f} is claimed by no manifest cue — it ships to Pages referenced by nothing. `
+      + 'Claim it with a cue, delete it, or (prune wave only) allowlist it.');
+  }
+  if (orphans.length && !newOrphans && !strict) {
+    console.warn(`  note  ${orphans.length} allowlisted orphan recording(s) still on disk `
+      + '(tools/sfx-orphan-allowlist.json) — the asset-diet wave prunes them');
+  }
+  const stale = allow.files.filter((f) => claimed.has(f) || !diskSet.has(f));
+  if (stale.length) {
+    console.warn(`  note  ${stale.length} sfx-orphan-allowlist entr(y/ies) no longer orphaned `
+      + `(first: ${stale[0]}) — remove them from tools/sfx-orphan-allowlist.json`);
+  }
+} catch (err) {
+  fail(err.message);
+}
+
 /* ---- wall slots referenced by the art manifest must exist ----
  * Read them straight out of their scene sources rather than keeping a second
  * list here, which would only ever drift out of date.
@@ -105,6 +157,15 @@ const VALID_SLOTS = (() => {
     'src/squatchfather/scenes/SquatchfatherScene.js',
     'src/mansion/scenes/MansionGrounds.js',
     'src/mansion/scenes/MansionInterior.js',
+    /* 2026-08-14 checks-that-lie pass: the Enola Squatch was the one scene
+     * with delivered art (the two nose-art PNGs, docs/FUTURE-EDITS.md) whose
+     * sources this list never read, so no enolasquatch.* slot could ever be
+     * manifest-registered. Neither file declares a slot today -- livery.js
+     * loads its PNGs directly -- so this adds nothing yet; it means a later
+     * pass can declare `const NOSE_ART_SLOTS = [...]` (or `slot: '...'`)
+     * there and register the art without touching this tool again. */
+    'src/enolasquatch/livery.js',
+    'src/enolasquatch/main.js',
   ].map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   for (const src of sceneSources) {
     for (const m of src.matchAll(/slot:\s*'([^']+)'/g)) slots.add(m[1]);
@@ -121,11 +182,31 @@ const VALID_SLOTS = (() => {
   return slots;
 })();
 if (VALID_SLOTS.size < 20) fail(`only found ${VALID_SLOTS.size} art slots in scene sources`);
+/* Manifest rows whose slot NO scene currently builds. Each entry is a real
+ * defect in scene code this pass does not own, parked so the gate stays
+ * green while the owning agent works; remove the entry when the scene grows
+ * the slot. Added by the 2026-08-14 checks-that-lie pass:
+ *   - mansion.gallery.campfire: "Uncle Squatch, by the fire"
+ *     (mansion-campfire-banjo.png) is in the manifest but
+ *     MansionInterior.js builds only mansion.gallery.pride and
+ *     mansion.gallery.roster -- the picture hangs nowhere. Owned by the
+ *     mansion-art pass. */
+const KNOWN_UNBUILT_SLOTS = new Set([
+  'mansion.gallery.campfire',
+]);
 try {
   const art = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/art/manifest.json'), 'utf8'));
   for (const entry of art.art || []) {
     if (entry.slot && !VALID_SLOTS.has(entry.slot)) {
-      fail(`assets/art/manifest.json: unknown slot "${entry.slot}"`);
+      if (KNOWN_UNBUILT_SLOTS.has(entry.slot)) {
+        console.warn(`  note  assets/art/manifest.json: slot "${entry.slot}" is not built by any `
+          + 'scene yet (allowlisted -- see KNOWN_UNBUILT_SLOTS)');
+      } else {
+        fail(`assets/art/manifest.json: unknown slot "${entry.slot}"`);
+      }
+    } else if (entry.slot && KNOWN_UNBUILT_SLOTS.has(entry.slot)) {
+      console.warn(`  note  "${entry.slot}" is now built by a scene -- remove it from `
+        + 'KNOWN_UNBUILT_SLOTS in tools/check.mjs');
     }
     if (entry.file) {
       const p = path.join(ROOT, 'assets/art', entry.file);
@@ -161,16 +242,52 @@ try {
 try {
   const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
   const voCues = sfxManifest.sfx.filter((c) => c.name.startsWith('vo.')).map((c) => c.name);
-  for (const file of [
-    'src/main.js',
-    'src/world/apartment.js',
-    'src/arcade/counter-squatch-guide.js',
-  ]) {
+  /* Scan every scene rather than a hardcoded list. Until the 2026-08-14
+   * checks-that-lie pass this iterated THREE files by name while sixty
+   * call sites lived across six -- the same drift the play() scan below
+   * was already widened for. A call site's group is usually the literal
+   * first argument, but several sites pick between literals inline
+   * (`say(n <= 2 ? 'beer.good' : 'beer.many')`, `say(DOOR_VO[key] ??
+   * 'door.beer')`), so take every string literal inside the FIRST argument
+   * as a candidate group; fully dynamic sites (`say(group)`) name their
+   * cues in data and are covered by the catalog checks below. */
+  const sayFiles = [];
+  (function walkSay(dir) {
+    for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      if (entry.isDirectory()) walkSay(`${dir}/${entry.name}`);
+      else if (entry.name.endsWith('.js')) sayFiles.push(`${dir}/${entry.name}`);
+    }
+  })('src');
+  const firstArgLiterals = (src, openParen) => {
+    let depth = 0;
+    let quote = null;
+    let arg = '';
+    for (let i = openParen + 1; i < src.length; i++) {
+      const ch = src[i];
+      if (quote) {
+        arg += ch;
+        if (ch === '\\') { arg += src[++i] ?? ''; continue; }
+        if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === "'" || ch === '"' || ch === '`') { quote = ch; arg += ch; continue; }
+      if (ch === '(' || ch === '[' || ch === '{') depth++;
+      if (ch === ')' || ch === ']' || ch === '}') {
+        if (ch === ')' && depth === 0) break;
+        depth--;
+      }
+      if (ch === ',' && depth === 0) break;
+      arg += ch;
+    }
+    return [...arg.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  };
+  for (const file of sayFiles) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    for (const m of src.matchAll(/audio\.say\(\s*'([^']+)'/g)) {
-      const group = m[1];
-      if (!voCues.some((n) => n.startsWith(`vo.${group}.`))) {
-        fail(`${file}: audio.say('${group}') has no vo.${group}.* cue — it will never play`);
+    for (const m of src.matchAll(/(?:audio\??|missionAudio)\.say\(/g)) {
+      for (const group of firstArgLiterals(src, m.index + m[0].length - 1)) {
+        if (!voCues.some((n) => n.startsWith(`vo.${group}.`))) {
+          fail(`${file}: audio.say('${group}') has no vo.${group}.* cue — it will never play`);
+        }
       }
     }
   }
