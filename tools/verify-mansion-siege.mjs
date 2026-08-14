@@ -1185,6 +1185,47 @@ try {
   check('and he can walk onto it from the gallery without going round anything',
     ontoStep.z <= 46.6, `z 50.4 -> ${ontoStep.z} in ${ontoStep.seconds}s`);
 
+  /* THE PROMPT RENDERS ITS MARKUP. Owner, playtest 2026-08-13: "Healing
+   * crate shows a bunch of underneath coding instead of it". It was never
+   * the crate: every interaction label in this repo is a small HTML
+   * fragment, and the siege HUD assigned it to `textContent`, so the triage
+   * case's prompt printed `Use <b>triage</b> &mdash; 2 dressings left`
+   * literally. Stand at the case, let the production interaction system
+   * publish the prompt, and read what the PLAYER reads. */
+  const triagePrompt = await evaluate(() => {
+    const s = window.mansionSiege;
+    const zone = s.dressing.props.defenceStations.zones.triage.group;
+    s.scene.updateMatrixWorld(true);
+    const at = new s.THREE.Box3().setFromObject(zone)
+      .getCenter(new s.THREE.Vector3());
+    return { x: at.x, y: at.y, z: at.z };
+  });
+  await teleport(triagePrompt.x, UPPER_Y, triagePrompt.z + 1.1, 0);
+  await evaluate(([targetY, distance]) => {
+    const s = window.mansionSiege;
+    s.player.pitch = Math.atan2(targetY - (s.player.ground + s.player.eyeHeight), distance);
+  }, [triagePrompt.y, 1.1]);
+  await settle(0.4);
+  const triageLabel = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.scene.updateMatrixWorld(true);
+    s.camera.updateMatrixWorld(true);
+    s.interaction.update(1 / 60);
+    const el = document.getElementById('promptLabel');
+    return {
+      hidden: document.getElementById('prompt').classList.contains('hidden'),
+      rendered: el?.textContent ?? null,
+      boldChildren: el?.querySelectorAll?.('b').length ?? 0,
+    };
+  });
+  check('the triage case prompt renders as a sentence, never as source markup',
+    triageLabel.hidden === false
+      && /triage/i.test(triageLabel.rendered ?? '')
+      && /dressings? left|empty/i.test(triageLabel.rendered ?? '')
+      && !/[<>]|&\w+;/.test(triageLabel.rendered ?? '')
+      && triageLabel.boldChildren > 0,
+    JSON.stringify(triageLabel));
+
   /* ---------------------------------------------------------------- */
   /* 6. The line. Once, from the step, with any chosen weapon up.       */
   /*                                                                     */
@@ -1249,9 +1290,19 @@ try {
     const failures = [];
     let firingHands = 0;
     let supportedLongGuns = 0;
+    let sightsUp = 0;
     s.scene.updateMatrixWorld(true);
     for (const holder of holders) {
       const weaponId = holder.weaponId ?? holder.plan?.weapon;
+      /* Owner, 2026-08-13: "all the main characters are holding their guns
+       * upsidedown". A catalog model's +Y is its sights/rib; a held weapon
+       * whose world up-vector points below the horizon is being carried
+       * upside down whatever else is true about the hands. */
+      const worldUp = new s.THREE.Vector3(0, 1, 0).applyQuaternion(
+        holder.gun.getWorldQuaternion(new s.THREE.Quaternion()),
+      );
+      if (worldUp.y > 0.05) sightsUp++;
+      else failures.push(`${holder.label}:${weaponId} upside down (upY ${worldUp.y.toFixed(2)})`);
       const findHand = (forearm) => {
         let hand = null;
         forearm?.traverse((object) => {
@@ -1287,16 +1338,18 @@ try {
     return {
       holders: holders.length,
       firingHands,
-      longGuns: holders.filter((holder) => longGuns.has(holder.weaponId ?? holder.plan?.weapon)).length,
       supportedLongGuns,
+      sightsUp,
+      longGuns: holders.filter((holder) => longGuns.has(holder.weaponId ?? holder.plan?.weapon)).length,
       weapons: [...new Set(holders.map((holder) => holder.weaponId ?? holder.plan?.weapon))],
       failures,
     };
   });
-  check('every visible cast gun is held at its grip and every long gun has a support hand',
+  check('every visible cast gun is held at its grip, sights up, and every long gun has a support hand',
     heldGuns.holders >= 10
       && heldGuns.firingHands === heldGuns.holders
       && heldGuns.supportedLongGuns === heldGuns.longGuns
+      && heldGuns.sightsUp === heldGuns.holders
       && heldGuns.failures.length === 0,
     JSON.stringify(heldGuns));
 
@@ -1308,7 +1361,7 @@ try {
      * put Eric's legs through the evidence frame; choosing from the actual
      * staged scene proves a gameplay moment that can really occur. */
     const protectedIds = new Set([
-      'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'aubbie',
+      'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'gratin',
     ]);
     const staged = [...s.ensemble.members.values()]
       .filter((entry) => protectedIds.has(entry.id)
