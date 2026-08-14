@@ -3552,6 +3552,14 @@ async function begin() {
     resumePersistedCheckpoint(opening.checkpoint);
   } else {
     activatePhase('safehouse');
+    /* A real fresh start, not a resume or a preview link: the crew's actual
+     * morning, before any of it goes wrong. Owner: a needle-drop for the
+     * safehouse prep, same "record on in the corner" mechanism as Lou's
+     * office. Once only, on the way in -- `returnSafehouse()` and the
+     * preview/resume paths above deliberately do not call this again. */
+    audio.startMusicLoop('heist.morning.radio', 'assets/music/codename-sasquatch.mp3', {
+      volume: 0.14, ambience: true, fade: 1.6,
+    });
     refreshObjective();
     setTimeout(() => {
       advanceTo('CREW_INTRO');

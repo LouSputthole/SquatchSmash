@@ -2450,6 +2450,22 @@ export function buildClub(scene, { renderer } = {}) {
     office.safe = safe;
     anchors.safe = new THREE.Vector3(O.x1 - 0.75, 1.85, O.z0 + 1.2);
 
+    /* Owner's own taste, not a family photo: a spy-noir "Uncle Squatch
+     * Beats" print. East wall, the open run south of the safe picture
+     * (z -8.3, half-width 0.31) and well north of the south wall (z1
+     * -4.625) -- clear of both by well over a metre either way, and clear
+     * of the coat stand, which sits at the room's west side (kx O.x0+1.7). */
+    const noirPic = makeFrame(M, {
+      x: WALLS.east - 0.045, y: 1.8, z: O.z0 + 3.3, rotY: -Math.PI / 2, w: 0.48, h: 0.33,
+      texture: printed('bing-office-noir-placeholder', ['UNCLE SQUATCH', 'BEATS'], {
+        w: 512, h: 352, bg: '#1a1420', fg: '#d8b878', font: '800 40px "Trebuchet MS", sans-serif',
+      }),
+      tint: 0x241a28,
+    });
+    artSticker(noirPic.art, 'bing.office.noir_print', 0.48);
+    add(noirPic);
+    office.noirPicture = noirPic.group;
+
     const officeClock = makeWallClock(M, { x: dx - 0.9, y: 2.1, z: O.z0 + 0.1, rotY: 0, r: 0.16 });
     add(officeClock);
     clocks.push(officeClock);
