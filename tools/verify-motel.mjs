@@ -843,31 +843,129 @@ try {
   // Public interaction path: return the crosshair to the glovebox and press E.
   await aimPublicInteract(previewPage, 'glovebox');
   await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForTimeout(120);
+  /* The .45 is the SHARED .45 — owner: "Lets used the shared guns we already
+   * have built." The view model must be the catalog revolver mounted by
+   * `WeaponSystem` on this camera, right-side up at its siege/Palace hold
+   * pose, not a bespoke box sculpture and not a line of HUD text. Equipping
+   * plays a short raise animation (the swap dip), so wait for the gun to
+   * settle at the hold before measuring where it sits on screen. */
+  await previewPage.waitForFunction(() => {
+    const model = window.MOTEL.heldModel;
+    return model && model.position.y > -0.27;
+  }, null, { timeout: 30000, polling: 80 });
   const revolverPresentation = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
+    const THREE = motel.three;
     motel.scene.updateMatrixWorld(true);
-    const held = motel.camera.children.find((child) => child.type === 'Group')?.children[0];
-    const partNames = [];
-    held?.traverse((node) => { if (node.name) partNames.push(node.name); });
+    motel.camera.updateMatrixWorld(true);
+    const view = motel.viewmodel;
+    const model = motel.heldModel;
     const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
+    let screenBox = null;
+    let up = null;
+    if (model) {
+      /* Project the model's own bounding-box corners: the claim is that the
+       * gun overlaps the frame, and a corner test survives a hold pose that
+       * deliberately tucks the grip below the bottom edge. */
+      const box = new THREE.Box3().setFromObject(model);
+      const xs = [];
+      const ys = [];
+      const zs = [];
+      for (const x of [box.min.x, box.max.x]) {
+        for (const y of [box.min.y, box.max.y]) {
+          for (const z of [box.min.z, box.max.z]) {
+            const p = new THREE.Vector3(x, y, z).project(motel.camera);
+            xs.push(p.x);
+            ys.push(p.y);
+            zs.push(p.z);
+          }
+        }
+      }
+      screenBox = {
+        minX: Number(Math.min(...xs).toFixed(2)),
+        maxX: Number(Math.max(...xs).toFixed(2)),
+        minY: Number(Math.min(...ys).toFixed(2)),
+        maxY: Number(Math.max(...ys).toFixed(2)),
+        minZ: Number(Math.min(...zs).toFixed(2)),
+      };
+      /* Right-side up: the model's local +Y, taken to world and back through
+       * the view, still points up the screen. An upside-down mount flips it. */
+      const q = model.getWorldQuaternion(new THREE.Quaternion());
+      const camQ = motel.camera.getWorldQuaternion(new THREE.Quaternion());
+      up = new THREE.Vector3(0, 1, 0).applyQuaternion(q)
+        .applyQuaternion(camQ.invert());
+    }
+    const rounds = model?.userData?.moving?.rounds ?? [];
     return {
-      kind: motel.viewmodel.kind,
-      visible: motel.viewmodel.visible,
-      partNames,
+      kind: view.kind,
+      shared: view.shared,
+      visible: view.visible,
+      inCamera: view.inCamera,
+      systemEquipped: motel.weapons.equipped,
+      hud: motel.weapons.hud,
+      parts: view.parts,
+      visibleRounds: rounds.filter((round) => round.visible).length,
+      screenBox,
+      screenUpY: up ? Number(up.y.toFixed(2)) : null,
       inventoryText: item?.text || '',
       selected: item?.selected === true,
     };
   });
-  check('the glovebox revolver is a readable equipped gun with ammo in the shared inventory',
+  check('the glovebox revolver is the shared catalog .45, in hand and right-side up',
     revolverPresentation.kind === 'revolver'
+      && revolverPresentation.shared === 'revolver'
       && revolverPresentation.visible
-      && revolverPresentation.selected
+      && revolverPresentation.inCamera
+      && revolverPresentation.systemEquipped === 'revolver'
+      && revolverPresentation.hud?.rounds === 6
+      && revolverPresentation.hud?.capacity === 6
+      && revolverPresentation.visibleRounds === 6
+      && ['revolver-barrel', 'revolver-cylinder', 'revolver-grip', 'revolver-trigger',
+        'revolver-ejector-rod'].every((name) => revolverPresentation.parts.includes(name))
+      && revolverPresentation.screenBox
+      && revolverPresentation.screenBox.maxY > -1
+      && revolverPresentation.screenBox.minY < 1
+      && revolverPresentation.screenBox.maxX > -1
+      && revolverPresentation.screenBox.minX < 1
+      && revolverPresentation.screenBox.minZ > -1
+      && revolverPresentation.screenUpY > 0.7
       && revolverPresentation.inventoryText.includes('EQUIPPED')
       && revolverPresentation.inventoryText.includes('6/6')
-      && ['revolver.barrel', 'revolver.cylinder', 'revolver.grip', 'revolver.muzzle']
-        .every((name) => revolverPresentation.partNames.includes(name)),
+      && revolverPresentation.selected,
     JSON.stringify(revolverPresentation));
+  await capture(previewPage, 'shared-revolver-viewmodel-car');
+
+  /* Owner: "I check revolver and he just keeps saying the voice line over and
+   * over." The pickup line is delivered exactly once; every later press gets
+   * a different, throttled sentence and no re-equip. Pressed here the way a
+   * player does it — real [E], twice more, on the same prompt — and only
+   * after the recording is decoded, so a repeat would be COUNTED rather than
+   * lost to a download race. */
+  await previewPage.waitForFunction(() => window.MOTEL.voiceReadyFor(
+    window.MOTEL.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'),
+  ), null, { timeout: 45000, polling: 120 });
+  await previewPage.keyboard.press('KeyE');
+  await previewPage.waitForTimeout(150);
+  await previewPage.keyboard.press('KeyE');
+  await previewPage.waitForTimeout(150);
+  const gloveboxRepeat = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const pickupCue = motel.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.');
+    const glovebox = motel.interactableList.find((entry) => entry.id === 'glovebox');
+    return {
+      weaponChecked: motel.S.weaponChecked,
+      label: glovebox.label(),
+      pickupPlays: motel.voice.played.filter((entry) => entry.cue === pickupCue).length,
+    };
+  });
+  check('the glovebox pickup line refuses to repeat, however many times [E] lands',
+    /* <= 1, not === 1: the FIRST press may have beaten the download, in which
+     * case the line was subtitled silent. What a regression produces here is
+     * 2+, because the decoded take replays on the later presses. */
+    gloveboxRepeat.weaponChecked
+      && gloveboxRepeat.pickupPlays <= 1
+      && /already out/i.test(gloveboxRepeat.label),
+    JSON.stringify(gloveboxRepeat));
   const clerkSpawn = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const clerk = motel.actors.find((actor) => actor.identity === 'clerk');
@@ -1036,6 +1134,9 @@ try {
     await qPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
     await qPage.evaluate(() => window.MOTEL.completeArrival());
     await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 5000 });
+    /* Take the .45 with him: this context is closed after the probes below,
+     * so it is the safe place to actually pull a trigger. */
+    await qPage.evaluate(() => window.MOTEL.forceInteract('glovebox'));
     const beforeQ = await qPage.evaluate(() => ({
       phase: window.MOTEL.phase,
       snowExitedCar: window.MOTEL.arrival.snowExitedCar,
@@ -1068,6 +1169,64 @@ try {
         && afterQ.colliderEnabled,
       JSON.stringify({ beforeQ, afterQ }));
     await capture(qPage, 'after-independent-q-exit');
+
+    /* ---- the shared .45, fired and reloaded for real ----
+     *
+     * One trigger pull spends one round out of the shared Firearm, logs the
+     * shared cue, and costs Tony what a gunshot costs in this scene; one [R]
+     * runs the catalog's two-phase reload — brass out, six back in, reserve
+     * down by what the cylinder was short. This context is disposable, so
+     * the police heat and Snow's reaction stay out of the main run. */
+    await qPage.evaluate(() => window.MOTEL.face(0, -12));
+    await qPage.waitForTimeout(200);
+    await capture(qPage, 'shared-revolver-viewmodel-lot');
+    const beforeFire = await qPage.evaluate(() => ({
+      ammo: window.MOTEL.S.ammo,
+      shots: window.MOTEL.weapons.stats.shots,
+      viewmodel: window.MOTEL.viewmodel,
+    }));
+    await qPage.evaluate(() => window.MOTEL.fire());
+    const afterFire = await qPage.evaluate(() => ({
+      ammo: window.MOTEL.S.ammo,
+      hud: window.MOTEL.weapons.hud,
+      shots: window.MOTEL.weapons.stats.shots,
+      cues: window.MOTEL.weapons.cues,
+      firedWeapon: window.MOTEL.S.firedWeapon,
+      noshotFailed: window.MOTEL.objectives.failed.includes('noshot'),
+    }));
+    check('one trigger pull spends one shared round and logs the shared fire cue',
+      beforeFire.viewmodel.shared === 'revolver'
+        && beforeFire.viewmodel.visible
+        && beforeFire.ammo === 6
+        && afterFire.ammo === 5
+        && afterFire.hud?.rounds === 5
+        && afterFire.shots === beforeFire.shots + 1
+        && afterFire.cues.includes('weapon.revolver.fire')
+        && afterFire.firedWeapon
+        && afterFire.noshotFailed,
+      JSON.stringify({ beforeFire, afterFire }));
+
+    await qPage.evaluate(() => window.MOTEL.reload());
+    await qPage.waitForFunction(
+      () => window.MOTEL.S.ammo === 6 && !window.MOTEL.weapons.reloading,
+      null,
+      { timeout: 60000, polling: 100 },
+    ).catch(() => { /* reported by the assertion below */ });
+    const reloaded = await qPage.evaluate(() => ({
+      ammo: window.MOTEL.S.ammo,
+      hud: window.MOTEL.weapons.hud,
+      reserve: window.MOTEL.weapons.reserve,
+      reloads: window.MOTEL.weapons.stats.reloads,
+      cues: window.MOTEL.weapons.cues,
+    }));
+    check('[R] runs the shared two-phase reload back to six, out of twelve loose',
+      reloaded.ammo === 6
+        && reloaded.hud?.rounds === 6
+        && reloaded.reserve === 11
+        && reloaded.reloads >= 1
+        && reloaded.cues.includes('weapon.revolver.reload.out')
+        && reloaded.cues.includes('weapon.revolver.reload.in'),
+      JSON.stringify(reloaded));
   } finally {
     await qContext.close();
   }
@@ -1309,6 +1468,47 @@ try {
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-pool-layout');
 
+  /* THE ONLY DOOR IN THE SCENE IS SOLID WHILE IT IS SHUT.
+   *
+   * Owner: "we need to make sure there is collision because you can easily
+   * break thro it and it breaks the whole scene." Measured before the fix:
+   * hold W from the lot at (0, 2) and Tony walked to (0, -11) — inside room
+   * twelve, phase `lot`, nobody knocked, the entire script stranded. Walked
+   * here rather than probed (docs/ENGINE-TRAPS.md entry 5): if the player
+   * walks somewhere, the check walks there. */
+  await previewPage.evaluate(() => {
+    window.MOTEL.teleport(0, 2.0);
+    window.MOTEL.face(0, -12);
+  });
+  /* Walk until the doorway is within reach, then keep pushing on it. The body
+   * radius stops a legal walk at about z = -3.8; a walked-through door sails
+   * past -4.5 into the room, and the extra shove is what would carry him. */
+  await previewPage.keyboard.down('KeyW');
+  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.4, null, { timeout: 30000, polling: 60 })
+    .catch(() => { /* reported by the assertion below */ });
+  await previewPage.waitForTimeout(1400);
+  await previewPage.keyboard.up('KeyW');
+  await previewPage.waitForTimeout(100);
+  const closedDoorState = await previewPage.evaluate(() => ({
+    phase: window.MOTEL.phase,
+    knocked: window.MOTEL.S.knocked,
+    enteredRoom: window.MOTEL.S.enteredRoom,
+    insideRoom: window.MOTEL.level.insideRoom12(window.MOTEL.pos.x, window.MOTEL.pos.z),
+    doorOpen: window.MOTEL.refs.frontDoor.open,
+    doorSolid: window.MOTEL.refs.frontDoor.collider.enabled,
+    z: Number(window.MOTEL.pos.z.toFixed(2)),
+  }));
+  check('the shut door of room twelve stops a player walking straight at it',
+    closedDoorState.phase === 'lot'
+      && !closedDoorState.knocked
+      && !closedDoorState.enteredRoom
+      && !closedDoorState.insideRoom
+      && !closedDoorState.doorOpen
+      && closedDoorState.doorSolid
+      && closedDoorState.z < -3.0
+      && closedDoorState.z > -4.6,
+    JSON.stringify(closedDoorState));
+
   /* Room twelve answers the door even when the player walked away from a
    * conversation. This is the soft-lock that made the scene unfinishable and
    * this verifier unrunnable: the wheel is deliberately not modal, so leaving
@@ -1341,6 +1541,54 @@ try {
   check('knocking brings Rico to the door of room twelve',
     await previewPage.evaluate(() => window.MOTEL.phase === 'door'
       && window.MOTEL.actors.some((actor) => actor.name === 'Rico')));
+  /* Owner: "Going to the door takes too long they should open the door right
+   * after you knock on it." The leaf swings when Rico answers — within a
+   * second of the knuckles, on the wall clock the setTimeout actually runs on
+   * — and does not wait for the doorstep wheel. The timestamps are recorded
+   * by the scene at both ends, so this measures the door and not the
+   * rasteriser. */
+  const knockAnswer = await previewPage.evaluate(() => ({
+    doorOpen: window.MOTEL.refs.frontDoor.open,
+    doorSolid: window.MOTEL.refs.frontDoor.collider.enabled,
+    thresholdHeld: window.MOTEL.refs.roomTwelveThreshold.enabled,
+    answeredAfterMs: Math.round(window.MOTEL.S.doorAnsweredAt - window.MOTEL.S.knockedAt),
+  }));
+  check('room twelve opens its door within a second of the knock',
+    knockAnswer.doorOpen
+      && !knockAnswer.doorSolid
+      && knockAnswer.thresholdHeld
+      && knockAnswer.answeredAfterMs > 0
+      && knockAnswer.answeredAfterMs <= 1000,
+    JSON.stringify(knockAnswer));
+
+  /* Open is not the same as clear: until the doorstep wheel is answered, the
+   * man filling the doorway is a wall. Walked, again. */
+  await previewPage.evaluate(() => {
+    window.MOTEL.teleport(0, -3.4);
+    window.MOTEL.face(0, -12);
+  });
+  /* From -3.4 the threshold body stops him at about -4.08. Push on it: the
+   * wheel is up, so time runs slow, and every extra frame of held W is
+   * another frame a hole would let him through. */
+  await previewPage.keyboard.down('KeyW');
+  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.8, null, { timeout: 30000, polling: 60 })
+    .catch(() => { /* reported by the assertion below */ });
+  await previewPage.waitForTimeout(1400);
+  await previewPage.keyboard.up('KeyW');
+  await previewPage.waitForTimeout(100);
+  const heldDoorway = await previewPage.evaluate(() => ({
+    phase: window.MOTEL.phase,
+    enteredRoom: window.MOTEL.S.enteredRoom,
+    doorOpened: window.MOTEL.S.doorOpened,
+    z: Number(window.MOTEL.pos.z.toFixed(2)),
+  }));
+  check('Rico holds the doorway until the doorstep conversation is answered',
+    heldDoorway.phase === 'door'
+      && !heldDoorway.enteredRoom
+      && !heldDoorway.doorOpened
+      && heldDoorway.z < -3.7
+      && heldDoorway.z > -4.4,
+    JSON.stringify(heldDoorway));
   await previewPage.evaluate(() => {
     const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
     rico.talkT = 1.2;
@@ -1402,8 +1650,30 @@ try {
     doorObjective.sub.includes('Step inside') && doorObjective.sub.includes('[E]'),
     JSON.stringify(doorObjective));
 
-  await previewPage.evaluate(() => window.MOTEL.forceInteract('enterRoom'));
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'room');
+  /* Step in by WALKING in. Crossing the threshold runs the same `enterRoom()`
+   * the [E] prompt runs — there is no way to be inside room twelve that did
+   * not go through the state machine, and this proves the doorway really is
+   * passable once Rico has been answered. */
+  await previewPage.evaluate(() => {
+    window.MOTEL.teleport(0, -2.6);
+    window.MOTEL.face(0, -12);
+  });
+  await previewPage.keyboard.down('KeyW');
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'room', null, { timeout: 45000, polling: 60 })
+    .catch(() => { /* reported by the assertion below */ });
+  await previewPage.keyboard.up('KeyW');
+  const walkedIn = await previewPage.evaluate(() => ({
+    phase: window.MOTEL.phase,
+    enteredRoom: window.MOTEL.S.enteredRoom,
+    dealStarted: window.MOTEL.S.dealStarted,
+    insideRoom: window.MOTEL.level.insideRoom12(window.MOTEL.pos.x, window.MOTEL.pos.z),
+  }));
+  check('walking through the answered door IS stepping inside',
+    walkedIn.phase === 'room'
+      && walkedIn.enteredRoom
+      && walkedIn.dealStarted
+      && walkedIn.insideRoom,
+    JSON.stringify(walkedIn));
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-room-first-person');
   const meetingGate = await previewPage.evaluate(() => {
