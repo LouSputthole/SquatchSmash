@@ -1658,6 +1658,9 @@ renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 /* when the nudge expires.                                                */
 /* ================================================================== */
 let nudgeTimer = 0;
+/* One announcement per wave when its remnant starts hunting; reset between
+ * waves so wave two's ending gets the same telegraph as wave one's. */
+let huntAnnounced = false;
 
 function nudge(text, seconds = 4) {
   if (!objectiveHintEl) return false;
@@ -2290,9 +2293,20 @@ function updateGame(dt) {
    * Snow-free list, and it is the first of the two locks keeping him out of
    * hostile targeting. The second is `userData.neverTargeted` on his own
    * root, which the pool checks before it ever reaches the faction matrix. */
+  /* "four attacks left cant find them": when the active wave is a remnant
+   * with nothing left to release, the pool converts this into men who stop
+   * holding standoffs and walk at the player -- audible feet, visible
+   * muzzles. The one-time nudge tells the player the shape has changed. */
+  const huntActive = mission.huntActive;
+  if (huntActive && !huntAnnounced) {
+    huntAnnounced = true;
+    nudge('The last of them are coming to you. Hold the rail.', 5);
+  }
+  if (!huntActive && !mission.activeWave) huntAnnounced = false;
   attackers.update(dt, {
     player: playerTarget,
     colliders,
+    hunt: huntActive,
     alive: () => ensemble.targets(),
     audio: combatAdapterAudio,
     onBark: renderCombatBark,

@@ -10,7 +10,7 @@ import {
 } from '../src/mansion/siege/waves.js';
 import { anchorById } from '../src/mansion/siege/nav.js';
 import {
-  SiegeMission, BEATS, B, CHECKPOINT_FIELDS, CHECKPOINTS, LULL_SECONDS,
+  SiegeMission, BEATS, B, CHECKPOINT_FIELDS, CHECKPOINTS, HUNT_REMNANT, LULL_SECONDS,
 } from '../src/mansion/siege/mission.js';
 import {
   isSiegeLineWeapon, resolveArmoryTake,
@@ -438,6 +438,44 @@ test('the mission walks the brief\'s objective chain in order', () => {
   assert.equal(m.beat, B.BRIEFING);
   m.briefingEnded();
   assert.equal(m.objective, 'Hold the house');
+});
+
+test('the last few attackers hunt instead of hiding, and only the last few', () => {
+  /* Owner, playtest 2026-08-13: "four attacks left cant find them". The
+   * mission flips `huntActive` when the active wave has released everything
+   * and its remnant is at most HUNT_REMNANT; the pool converts that flag
+   * into men who drop their standoffs and walk at the player. */
+  const { m } = mission();
+  m.start(); m.wokeUp(); m.enteredArmory(); m.weaponTaken('carbine');
+  m.enteredOffice(); m.briefingEnded(); m.sayHello();
+  assert.equal(m.beat, B.WAVE_ONE);
+  assert.equal(m.huntActive, false, 'a full first group is not a remnant');
+
+  /* Kill 1A so 1B releases by attrition; nothing may hunt while a group is
+   * still pending -- the "remnant" would be reinforced mid-hunt. */
+  const firstGroup = [...m.waves.one.standing];
+  for (const id of firstGroup) {
+    m.noteDown(id);
+    m.update(0.01);
+    if (m.waves.one.pendingGroups.length === 0) break;
+    assert.equal(m.huntActive, false,
+      `hunt engaged at ${m.waves.one.standing.size} standing with a group still pending`);
+  }
+  assert.equal(m.waves.one.pendingGroups.length, 0, '1B never released');
+
+  /* Now walk the released wave down to the remnant. */
+  while (m.waves.one.standing.size > HUNT_REMNANT) {
+    m.noteDown([...m.waves.one.standing][0]);
+    m.update(0.01);
+  }
+  assert.equal(m.huntActive, true,
+    `${m.waves.one.standing.size} standing, all groups released: the remnant must hunt`);
+
+  /* And the flag drops with the wave, not before. */
+  for (const id of [...m.waves.one.standing]) m.noteDown(id);
+  m.update(0.01);
+  assert.equal(m.beat, B.LULL);
+  assert.equal(m.huntActive, false, 'no wave, no hunt');
 });
 
 test('the house is under attack from the first frame and stays that way', () => {

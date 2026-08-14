@@ -99,8 +99,10 @@ import { buildWeaponModel } from '../../core/weapons/models.js';
 import { HeistFigure } from '../../heist/people.js';
 import { CombatArmorPresentation } from '../../world/combat-armor.js';
 import {
+  SIEGE_WEAPON_MOUNT_ROLL,
   braceSiegeWeapon, mountSiegeWeapon, trackSiegeWeaponSupport,
 } from './armed-pose.js';
+import { blendSiegeFall, siegeFallenPose } from './fallen.js';
 import {
   BASEMENT_Y, GROUND_Y, SiegeNavigator, UPPER_Y, anchorById, laneWaypoints, roomAt,
 } from './nav.js';
@@ -786,6 +788,15 @@ const BARKS = Object.freeze({
     'They got him!',
     'He is hit!',
   ]),
+  /* The wave's remnant calling the search as it closes -- the audible half
+   * of the hunt ("four attacks left cant find them"). One man at a time, on
+   * the pool's own cadence, so four survivors do not talk over each other. */
+  hunt: Object.freeze([
+    'Find him! He is still in the house!',
+    'No more waiting — everyone inside!',
+    'He is on that landing. Go and get him!',
+    'Last push. Finish it!',
+  ]),
 });
 
 /* ================================================================== */
@@ -1022,6 +1033,8 @@ export function createAttackerPool({
   const barkCursor = new Map();
   /** Everything the pool has done that the scene may want to react to. */
   const breaches = [];
+  /** Seconds until the next hunt call. 0 fires on the first hunted frame. */
+  let huntBarkClock = 0;
 
   /* Scratch vectors. Allocating inside a per-frame loop over twenty-two men
    * is how a fight becomes a garbage-collection stutter. */
@@ -1679,8 +1692,24 @@ export function createAttackerPool({
     }
 
     entry.holding = true;
+    /* THE LAST MEN COME TO YOU.
+     *
+     * Owner, playtest 2026-08-13: *"four attacks left cant find them"*. The
+     * roles that hold a standoff -- the suppressor set up on the door line at
+     * 28 m, the gunner at 26, a leader holding his doorway -- are correct
+     * tactics for a full wave and a hide-and-seek ending for its remnant: the
+     * gallery has no window onto the forecourt, so a man holding position out
+     * on the drive is invisible, inaudible and unfindable from the firing
+     * step. When the scene says the wave is nearly done (`ctx.hunt`), every
+     * wave attacker still standing drops his standoff and pushes at the
+     * player -- which also makes him AUDIBLE: walking men emit real footsteps
+     * through CombatStepCadence and closing men open fire. */
+    const hunted = ctx.hunt === true && !!entry.order.wave;
+    const huntTarget = hunted
+      ? targets.find((target) => target.isPlayer) ?? null
+      : null;
     /* A remembered point is a place to investigate, never a live actor. */
-    const tacticalTarget = entry.target ?? (
+    const tacticalTarget = huntTarget ?? entry.target ?? (
       entry.memory > 0 && entry.lastSeen.lengthSq() > 0
         ? { position: entry.lastSeen }
         : null
@@ -1703,7 +1732,11 @@ export function createAttackerPool({
      * seconds is a man deciding to take the stairs, not a man reconsidering
      * sixty times a second. */
     const climbGap = tacticalTarget.position.y - entry.root.position.y;
-    if (entry.plan.climbs && Math.abs(climbGap) > 2 && entry.sinceReplan > 4) {
+    /* A hunted man climbs whatever his role says: `climbs: false` is how the
+     * pin/support roles hold their standoff, and the standoff is the thing
+     * the hunt exists to cancel. He also re-plans more eagerly. */
+    if ((entry.plan.climbs || hunted) && Math.abs(climbGap) > 2
+        && entry.sinceReplan > (hunted ? 2.5 : 4)) {
       entry.sinceReplan = 0;
       const here = navigator.nearestAnchor(entry.root.position, entry.anchor);
       navigator.enter(entry.id, here, entry.side);
@@ -1751,6 +1784,18 @@ export function createAttackerPool({
     const distance = entry.targetDistance;
     const hold = () => aimGoalAt(entry, entry.root.position.x, entry.root.position.z);
     const at = (target) => aimGoalAt(entry, target.position.x, target.position.z);
+
+    if (hunted) {
+      /* No standoff, no cover clock, no patience: walk at the man. The
+       * geometric distance is used rather than `targetDistance` because a
+       * hunted player may be out of sight -- that is the whole problem. */
+      const planarGap = Math.hypot(
+        tacticalTarget.position.x - entry.root.position.x,
+        tacticalTarget.position.z - entry.root.position.z,
+      );
+      if (planarGap > 3.2) at(tacticalTarget); else hold();
+      return;
+    }
 
     if (tactic === 'rush' || tactic === 'close') {
       /* Straight at him. No cover, no repositioning, no patience. */
@@ -1997,7 +2042,12 @@ export function createAttackerPool({
           entry.figure.parts.armR.quaternion.copy(entry.gun.userData.siegeAimArmR);
         }
         if (entry.gun && (!frame.hasTarget || frame.interrupted)) {
-          entry.gun.rotation.set(-Math.PI / 2 - frame.pitch * 0.2, 0, 0);
+          /* The mount's roll, not zero. `Euler.set(x, 0, PI)` is XYZ order, so
+           * the roll happens about the model's own bore first and only the
+           * gun's UP changes -- see armed-pose.js on holding it upside down. */
+          entry.gun.rotation.set(
+            -Math.PI / 2 - frame.pitch * 0.2, 0, SIEGE_WEAPON_MOUNT_ROLL,
+          );
         }
         if (frame.interrupted) {
           const reaction = entry.impairments.reaction;
@@ -2214,12 +2264,23 @@ export function createAttackerPool({
       }
     }
     /* Box3.setFromObject includes invisible descendants. Hiding the catalog
-     * model after fallen() therefore grounds the weapon and leaves the
+     * model after the pose therefore grounds the weapon and leaves the
      * rendered body 39..382 mm in the air. Detach only for the pose measure,
      * then restore the exact pooled hand mount while keeping it hidden. */
     withoutMountedWeapon(entry, () => {
       entry.figure.baseY = floorY;
-      entry.figure.fallen({ roll });
+      /* Flat, not fallen()'s propped incline -- see ./fallen.js on "float
+       * like a foot above the ground". The entry index varies the limbs so a
+       * cleared wave is not eight copies of one corpse. A live kill falls
+       * through the short shared blend; a checkpoint restore (`silent`)
+       * snaps, because that fall happened before the checkpoint. */
+      const pose = () => siegeFallenPose(entry.figure, { roll, variant: entry.index ?? 0 });
+      if (silent) {
+        entry.figure._poseFrom = null;
+        pose();
+      } else {
+        blendSiegeFall(entry.figure, pose, { duration: 0.4 });
+      }
     }, false);
     entry.root.userData.down = true;
     resetPerception(entry, entry.awareness);
@@ -2505,6 +2566,8 @@ export function createAttackerPool({
     entry.aimPoint.y += entry.muzzleHeight;
     entry.root.visible = true;
     entry.root.userData.down = false;
+    /* A pooled body may still be mid-fall from its previous life. */
+    entry.figure._poseFrom = null;
     entry.figure.stand();
     /* `stand()` clears the arms; restore the same contact-tested ready pose
      * used at build time whenever this pooled actor is spawned again. */
@@ -2685,6 +2748,10 @@ export function createAttackerPool({
       audio: context.audio,
       colliders: ctx.colliders ?? [],
       player: ctx.player ?? null,
+      /* The scene raises this when the active wave is nearly done: every
+       * wave attacker still standing drops his standoff and pushes at the
+       * player. See the note in `think()`. */
+      hunt: ctx.hunt === true,
       onBreach: context.onBreach,
       onPlayerHit: context.onPlayerHit,
       onStep: ctx.onStep ?? null,
@@ -2752,6 +2819,25 @@ export function createAttackerPool({
       act(entry, step, frame);
       entry.figure.update(step, { fear: entry.suppression.value * 0.55 });
       entry.actor.suppression = entry.suppression.value;
+    }
+
+    /* THE HUNT IS AUDIBLE. Pushing at the player already buys real footsteps
+     * (CombatStepCadence) and gunfire; this adds the voice -- one hunted man
+     * every few seconds calling the search, immediately on the first hunted
+     * frame so the change of shape is announced, never two at once. */
+    if (frame.hunt) {
+      huntBarkClock -= step;
+      if (huntBarkClock <= 0) {
+        const hunter = active.find(
+          (entry) => !entry.actor.incapacitated && entry.order.wave,
+        );
+        if (hunter) {
+          bark(hunter, 'hunt');
+          huntBarkClock = 6.5;
+        }
+      }
+    } else {
+      huntBarkClock = 0;
     }
   }
 

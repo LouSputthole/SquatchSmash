@@ -179,6 +179,51 @@ test('aim frames own their world vectors instead of leaking mutable scratch stat
   assert.deepEqual(first.targetPoint.toArray(), firstValues.targetPoint);
 });
 
+test('a steered weapon keeps its sights up — roll is a decision, not a remainder', () => {
+  /* Owner, playtest 2026-08-13: "all the main characters are holding their
+   * guns upsidedown". The mount in Mansion Siege parents the model under a
+   * raised forearm, and `setFromUnitVectors`' shortest arc from the bore to
+   * the aim landed the model's +Y (sights, rib, top strap) pointing at the
+   * floor for exactly that parent frame. This is that frame, in miniature:
+   * root -> raised arm -> forearm -> gun, the same chain both siege adapters
+   * build, with the arm angles the braced pose uses. */
+  const root = new THREE.Group();
+  root.rotation.y = 0.4;
+  const arm = new THREE.Group();
+  arm.rotation.set(-1.26, 0, 0.15);
+  const fore = new THREE.Group();
+  fore.rotation.set(-0.18, 0, 0);
+  fore.position.y = -0.28;
+  arm.position.y = 1.45;
+  root.add(arm);
+  arm.add(fore);
+  const gun = new THREE.Group();
+  /* The siege mount: bore down the forearm, rolled so the sights face the
+   * back of the hand. See src/mansion/siege/armed-pose.js. */
+  gun.rotation.set(-Math.PI / 2, 0, Math.PI);
+  gun.userData.muzzle = new THREE.Vector3(0, 0, -0.6);
+  fore.add(gun);
+
+  const aim = new CombatWeaponAim();
+  const targetPoint = new THREE.Vector3(2, 1.35, 10);
+  let frame = null;
+  for (let i = 0; i < 240 && !frame?.aligned; i++) {
+    frame = aim.update(1 / 60, {
+      root, weaponModel: gun, targetPoint, muzzleHeight: 1.35,
+    });
+  }
+  assert.equal(frame?.aligned, true, 'the weapon never aligned in the siege frame');
+
+  root.updateMatrixWorld(true);
+  const worldUp = new THREE.Vector3(0, 1, 0)
+    .applyQuaternion(gun.getWorldQuaternion(new THREE.Quaternion()));
+  assert.ok(worldUp.y > 0.5,
+    `sights are not up: the steered weapon's world up-vector is ${worldUp.y.toFixed(3)}`);
+  /* And the fix did not buy the roll by bending the bore: the shot contract
+   * is untouched. */
+  assert.ok(frame.boreError <= aim.tolerance);
+});
+
 test('aim snapshots restore yaw and pitch but never grant stale firing alignment', () => {
   const root = new THREE.Group();
   root.rotation.y = 1.7;

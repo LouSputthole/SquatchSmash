@@ -130,6 +130,9 @@ test('fatal impacts from opposite sides produce mirrored Mansion falls', () => {
       penetration: 0.16,
     });
     assert.equal(hit.result.fatal, true);
+    /* A fatal hit starts a 0.4 s crumple blend now (src/mansion/siege/
+     * fallen.js); walk the rig to its rest before reading which way it went. */
+    for (let i = 0; i < 36; i++) entry.figure.update(1 / 60);
     return entry.figure.tilt.rotation.z;
   };
 
