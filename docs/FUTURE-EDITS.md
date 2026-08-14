@@ -122,9 +122,26 @@ Written down rather than fixed, because none of them is a mouth.
 
 | Edit | Problem | Why | Scenes | Geom | Nav | Art only | Priority | Dup risk | When |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Play Silver Pines' conversation-tree cues | `new Dialogue(...)` in `src/golf/main.js` has **no `onLine` hook**, so every `cue` authored on a conversation node is looked up for its LENGTH (`cueSeconds`) and then never played. The banter cues go through `CueQueue.say` and are fine; the trees — which is the whole Lou conversation — are subtitle-only over recordings that exist. Exactly the shape of ENGINE-TRAPS.md entry 3, one layer further in: the generator ran, the manifest has the cue, the file is on disk, and nothing calls `play()` | 353 golf cues are recorded and an unknown share of them have never been audible | Silver Pines | no | no | no | **high** | low — one hook | next golf pass; check `verify:golf` does not assert the silence |
-| A `hush()` for the Bing's `Dialogue` | `Dialogue.end()` clears the subtitle and leaves the speaker's mouth running to the end of its take. Correct while a mouth was a timer nobody could see; now that it is the take, a conversation the player walks out of leaves a man finishing his sentence at a wall. Arguably right, arguably not — it is a direction call | Reads as a bug or as good manners depending on the beat | Bing, Silver Room, Silver Pines | no | no | no | low | low | when somebody watches it happen |
 | NO WAKE's execution flinch no longer twitches a lip | `npc.speaking = .2` on each shot used to flap the shooter's mouth for a fifth of a second, because `speaking` drove the mouth as well as the head. It now drives only the head and hands, which is what it was for. Nobody has looked at the beat since | A man firing a revolver is not talking, so this is probably an improvement — but it is a change and it has not been seen | NO WAKE | no | no | yes | low | low | with the NO WAKE playtest |
+
+Two rows from this table were closed by the 2026-08-14 audio pass:
+
+- **Silver Pines' conversation-tree cues.** Measured rather than assumed
+  (`tools/probe-golf-dialogue-audio.mjs`): the trees' spoken beats route
+  through `CueQueue.say` → `playRecordedGolfCue`, and the Prospect's replies
+  through `onChoice` → `playRecordedGolfChoice` — both paths PLAY their
+  recordings. What was genuinely missing was the `onLine` hook itself (any
+  authored spoken node would have been length-only) and any verifier
+  assertion that lines are audible. Both are in now: `src/golf/main.js`
+  wires `onLine` on the Bing pattern, and `verify:golf` asserts every
+  conversation line it drives produced a real buffer playback, plus
+  `failedCues.length === 0`.
+- **`Dialogue.hush()`.** `src/bing/dialogue.js` keeps the take `onLine` /
+  `onChoice` return and `hush()` stops it; the Bing, the Silver Room and
+  Silver Pines call it from `onEnd` for every lapse reason (`walked-away`,
+  `interrupted`, seat-pauses) and leave a `done` thread alone, since a done
+  thread has already had its full cue hold. The Motel and the mansion use
+  their own dialogue machinery and were left to their owners.
 
 ---
 
