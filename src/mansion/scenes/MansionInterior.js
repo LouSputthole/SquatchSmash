@@ -5695,13 +5695,13 @@ export function buildMansionInterior(shell = null) {
       size: [1.63, 1.24, 0.05], pos: [4.4, UY + 2.45, r.z0 + 0.16], mat: M_GOLD, cast: false,
     }));
     sconce(4.4, UY + 3.3, r.z0 + 0.06, 0, 1.8);
-    /* Hog Mama, on the north pier. `assets/art/lou-office-hog-mama.png` was
+    /* Hog Mama, on the north pier. `assets/art/lou-office-hog-mama.jpg` was
      * named for this room and made for it and had never been hung anywhere in
      * the project -- one of only three files in assets/art/ placed nowhere at
      * all. It goes on the 3.2 m of solid wall between the office's two north
      * windows (the shell glazes x -6.4..-1.6 and 1.6..6.4, so x 0 is the one
      * unbroken pier on that wall), facing back down the room at the desk.
-     * 0.9 x 1.35 because the file is 2000 x 3000 and `dressArtSlots` rebuilds
+     * 0.9 x 1.35 because the file is 1067 x 1600 and `dressArtSlots` rebuilds
      * the plate to the image's own aspect -- declaring it square here would
      * make the swap visibly resize the picture. */
     const officeHogMama = wallArt('mansion.office.hogmama', 0, UY + 2.25, r.z1 - 0.12, Math.PI, 0.9, 1.35,

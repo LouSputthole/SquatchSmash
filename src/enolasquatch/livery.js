@@ -135,7 +135,7 @@ export function applyCrest(meshes, texture) {
  *
  * Two paintings, delivered as 1024x1536 portrait PNGs:
  *
- *   enola-squatch-nose-art.png    the pin-up — olive halter and shorts, red
+ *   enola-squatch-nose-art.webp   the pin-up — olive halter and shorts, red
  *                                 heels, dog tags, a stein in one hand and a
  *                                 lit joint in the other, ENOLA SQUATCH on the
  *                                 garrison cap. Painted on a warm brown
@@ -189,7 +189,7 @@ const ART_DIR = 'assets/art/';
 
 /** The two files, by the name the caller asks for. */
 const NOSE_ART_FILES = {
-  pinup: 'enola-squatch-nose-art.png',
+  pinup: 'enola-squatch-nose-art.webp',
   name: 'enola-squatch-nose-name.png',
 };
 
@@ -271,7 +271,7 @@ export function prepareArt(image, which) {
      * eats the model is not an improvement on one. */
     if (which !== 'name') {
       console.warn('[livery] nose art arrived with an opaque background and cannot be keyed safely; '
-        + 'export enola-squatch-nose-art.png with its alpha channel.');
+        + 'export enola-squatch-nose-art.webp with its alpha channel.');
       return null;
     }
     keyGreyField(px, w, h);

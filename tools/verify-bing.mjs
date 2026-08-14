@@ -2448,7 +2448,7 @@ check('the twelve supplied Family portraits make the rear-hall gallery to Lou’
   hallwayGallery.length === 12
     && hallwayGallery.every((portrait) => portrait.real && portrait.wallBound)
     && hallwayGallery.map((portrait) => portrait.file).join(',')
-      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp,family-portrait-deathmegatron.webp',
+      === 'bing-hallway-uncle-lou.webp,bing-hallway-rippinflow.webp,bing-hallway-booskibro.webp,bing-hallway-shubenator.webp,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp,family-portrait-deathmegatron.webp',
   JSON.stringify(hallwayGallery));
 
 /* ---- 14 to 21: Lou's office ---- */

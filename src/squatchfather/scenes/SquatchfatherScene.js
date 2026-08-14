@@ -862,10 +862,10 @@ export function buildSquatchfatherScene(scene, renderer) {
   // gallery. Two rows keep all eleven readable without crowding the dining
   // room's hero print on the opposite wall.
   const familyPortraits = [
-    ['squatchfather.portrait.uncle_lou', 'bing-hallway-uncle-lou.png', 2.32, 1.8],
-    ['squatchfather.portrait.rippinflow', 'bing-hallway-rippinflow.png', 2.32, 3.2],
-    ['squatchfather.portrait.booskibro', 'bing-hallway-booskibro.png', 2.32, 4.6],
-    ['squatchfather.portrait.shubenator', 'bing-hallway-shubenator.png', 2.32, 6.0],
+    ['squatchfather.portrait.uncle_lou', 'bing-hallway-uncle-lou.webp', 2.32, 1.8],
+    ['squatchfather.portrait.rippinflow', 'bing-hallway-rippinflow.webp', 2.32, 3.2],
+    ['squatchfather.portrait.booskibro', 'bing-hallway-booskibro.webp', 2.32, 4.6],
+    ['squatchfather.portrait.shubenator', 'bing-hallway-shubenator.webp', 2.32, 6.0],
     ['squatchfather.portrait.sauce', 'family-portrait-sauce.webp', 2.32, 7.4],
     ['squatchfather.portrait.lag', 'family-portrait-lag.webp', 2.32, 8.8],
     ['squatchfather.portrait.hogmama', 'family-portrait-hogmama.webp', 1.25, 2.45],
@@ -1250,7 +1250,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   // The scene builds synchronously; the supplied print lands after its image
   // request resolves. The canvas texture remains as a fallback if it fails.
   const suppliedArt = [
-    { slot: 'squatchfather.dining.coast', file: 'squatchfather-coast-squatch.png', width: 3.8, ...coastPicture },
+    { slot: 'squatchfather.dining.coast', file: 'squatchfather-coast-squatch.webp', width: 3.8, ...coastPicture },
     ...familyPortraits.map((portrait) => ({
       slot: portrait.slot,
       ...portrait,

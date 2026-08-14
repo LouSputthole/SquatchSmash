@@ -1360,7 +1360,7 @@ test('the immutable bootstrap materializes the exact closure before authoritativ
   });
   assert.equal(bootstrap.manifest.schema, 'squatch-cockpit-immutable-bootstrap/v1');
   assert.ok(bootstrap.manifest.materializedFiles >= 100);
-  assert.equal(fs.existsSync(path.join(destination, 'assets/art/enola-squatch-nose-art.png')), true);
+  assert.equal(fs.existsSync(path.join(destination, 'assets/art/enola-squatch-nose-art.webp')), true);
   assert.equal(fs.existsSync(path.join(destination, 'vendor/three.module.min.js')), true);
   const stagedContractUrl = `${pathToFileURL(path.join(
     destination, 'tools/cockpit-visual-evidence-contract.mjs',
@@ -1653,7 +1653,7 @@ test('source provenance binds every harness component and both public cockpit ru
   assert.match(snapshot.sourceSnapshotSha256, /^[a-f0-9]{64}$/);
   const capturedAssets = snapshot.servedSources.filter(({ kind }) => kind === 'runtime-asset');
   assert.deepEqual(capturedAssets.map(({ file }) => file), [
-    'assets/art/enola-squatch-nose-art.png',
+    'assets/art/enola-squatch-nose-art.webp',
     'assets/art/enola-squatch-nose-name.png',
     'assets/art/logo-crest.png',
     'assets/art/sticker-pinup.png',
