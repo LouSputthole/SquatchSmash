@@ -621,9 +621,69 @@
     },
     {
       "slot": "mansion.gallery.campfire",
-      "file": "mansion-campfire-banjo.png",
+      "file": "mansion-campfire-banjo.jpg",
       "title": "Uncle Squatch, by the fire",
-      "caption": "East end of the gallery's south wall, mirrored to the crowd shot on the west end."
+      "caption": "On the dynasty wall, third bay, between the estate at sunset and the General. One tune, all night."
+    },
+    {
+      "slot": "mansion.gallery.dynasty-crest",
+      "file": "mansion/dynasty-crest.jpg",
+      "title": "The family crest",
+      "caption": "Silver on slate, two squatch supporters, a crown nobody voted on. West end of the dynasty wall."
+    },
+    {
+      "slot": "mansion.gallery.dynasty-estate",
+      "file": "mansion/dynasty-estate-sunset.jpg",
+      "title": "The Silverback Range",
+      "caption": "The estate from the high road at sunset, the manor down in the valley. Painted before the second wing."
+    },
+    {
+      "slot": "mansion.gallery.dynasty-general",
+      "file": "mansion/dynasty-general.jpg",
+      "title": "The General",
+      "caption": "Full dress, nine medals, no record of service. East end of the dynasty wall."
+    },
+    {
+      "slot": "mansion.living.fireside",
+      "file": "mansion/dynasty-patriarch-fireside.jpg",
+      "title": "The old man",
+      "caption": "Smoking jacket, cigar, his own fireplace over his shoulder. Hung in the room with the fire in it."
+    },
+    {
+      "slot": "mansion.lounge.club-apex",
+      "file": "mansion/dynasty-club-apex.jpg",
+      "title": "Legend after dark",
+      "caption": "Club Apex, est. 1981. Live tonight. The bill hangs where the bar is."
+    },
+    {
+      "slot": "mansion.conference.council",
+      "file": "mansion/dynasty-council.jpg",
+      "title": "The sit-down",
+      "caption": "Seven of the Family round the long table, and nobody is smiling. On the wall the real table faces."
+    },
+    {
+      "slot": "mansion.office.patriarch",
+      "file": "mansion/dynasty-patriarch-study.jpg",
+      "title": "The study, before",
+      "caption": "The patriarch in his own study with a glass. Same chair. West pier of the office's north wall."
+    },
+    {
+      "slot": "mansion.office.estate-map",
+      "file": "mansion/dynasty-estate-map.jpg",
+      "title": "Survey of the grounds",
+      "caption": "The Silver Sasquatch Domain, est. time immemorial, main house 1897. A man hangs a map of what he owns."
+    },
+    {
+      "slot": "mansion.theatre.noir",
+      "file": "mansion/dynasty-noir.jpg",
+      "title": "Rain, downtown",
+      "caption": "Black and white, wet trench coat, one street lamp. The only one of the ten that is a movie."
+    },
+    {
+      "slot": "mansion.suite.abstract",
+      "file": "mansion/dynasty-abstract-peak.jpg",
+      "title": "The mark",
+      "caption": "Silver on slate: the ridge line, the claw rake, the footprint. The one modern picture, in the one modern room."
     },
     {
       "slot": "mansion.ballroom.backdrop",

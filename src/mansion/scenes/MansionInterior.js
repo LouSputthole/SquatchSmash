@@ -157,6 +157,21 @@ export const MANSION_ART_SLOTS = [
   'mansion.guest.dog',
   'mansion.theatre.lockup',
   'mansion.lan.denver',
+  /* The DYNASTY SET: the ten commissioned Mansion paintings recovered
+   * 2026-08-13 (assets/art/mansion/), plus Uncle Squatch by the fire.
+   * Four on the gallery's own north wall, the rest each in the room it
+   * is a picture OF — see the placement notes at each hanging. */
+  'mansion.gallery.dynasty-crest',
+  'mansion.gallery.dynasty-estate',
+  'mansion.gallery.campfire',
+  'mansion.gallery.dynasty-general',
+  'mansion.living.fireside',
+  'mansion.lounge.club-apex',
+  'mansion.conference.council',
+  'mansion.office.patriarch',
+  'mansion.office.estate-map',
+  'mansion.theatre.noir',
+  'mansion.suite.abstract',
 ];
 
 /* ================================================================== */
@@ -2748,6 +2763,34 @@ export function buildMansionInterior(shell = null) {
     }));
     sconce(r.x1 - 0.09, GY + 3.72, 43.2, -Math.PI / 2, 2.0);
 
+    /* THE OLD MAN, hung at the north end of the same wall run, past the
+     * group above and clear of the archway at the far end.
+     *
+     * One of the owner's ten: the patriarch in a smoking jacket in front of
+     * a fire, which is the picture a family hangs in the room its own fire
+     * is in. It joins the composed run rather than starting a second one --
+     * same wall, same picture line, one frame's worth of air between it and
+     * BIG UNCLE LOU at z 45.2.
+     *
+     * `r.x1 - FRAME_REAR` seats the rear bezel on the wall's measured face
+     * at x -9.15. The three older frames use the `- 0.12` datum and stand
+     * 85 mm proud of it; matching a landed group's error is not a reason to
+     * repeat it, and 85 mm on a 12 m wall is not a visible step. */
+    const livingFireside = wallArt(
+      'mansion.living.fireside',
+      r.x1 - FRAME_REAR,
+      GY + 2.45,
+      47.2,
+      -Math.PI / 2,
+      0.9,
+      // 1122 x 1402
+      1.1246,
+      squatchArt('mansion-living-fireside', {
+        title: ['THE', 'OLD MAN'], footer: 'NOBODY COMMISSIONED IT', ink: '#c8a24a', bg: '#1a1210',
+      }),
+    );
+    sconce(r.x1 - 0.09, GY + 3.5, 47.2, -Math.PI / 2, 1.9);
+
     // Two smaller family photographs flank the mantel clock. They turn the
     // fireplace breast into a composed secondary wall instead of leaving the
     // room's entire art collection in one distant row.
@@ -2797,6 +2840,7 @@ export function buildMansionInterior(shell = null) {
       fireGlow,
       flames,
       galleryArt,
+      fireside: livingFireside,
       updateFire,
     };
   }
@@ -3188,6 +3232,31 @@ export function buildMansionInterior(shell = null) {
     /* Keep the lower backplate flange 10 mm clear of the frame's top bezel. */
     sconce(r.x0 + 0.03, GY + 3.27, 40.0, Math.PI / 2, 1.9);
 
+    /* CLUB APEX, beside it on the same wall -- one of the owner's ten. A
+     * 1981 nightclub bill (martini, champagne, LIVE TONIGHT) belongs in the
+     * room with the bar and the billiard table, not on the gallery run with
+     * the family portraits.
+     *
+     * z = 41.8 is the only bay on this wall that measured clean: a door
+     * case runs proud of the panelling from about z 42.2 northwards and
+     * catches the bottom rail of a frame anywhere past it. Same seating as
+     * the Austin portrait, `r.x0 + FRAME_REAR`, on the same fixture line,
+     * with 0.65 m of clear panelling between the two bezels. */
+    const loungeClubApex = wallArt(
+      'mansion.lounge.club-apex',
+      r.x0 + FRAME_REAR,
+      GY + 2.4,
+      41.8,
+      Math.PI / 2,
+      0.95,
+      // 1122 x 1402
+      1.1871,
+      squatchArt('mansion-lounge-club-apex', {
+        title: ['LEGEND', 'AFTER DARK'], footer: 'CLUB APEX, EST. 1981', ink: '#c9a2ff', bg: '#150f22',
+      }),
+    );
+    sconce(r.x0 + 0.03, GY + 3.27, 41.8, Math.PI / 2, 1.9);
+
     /* ---- The set on the bar, and the television at the room's front end.
      * Both are cabinets here; core/radio.js and core/tv.js drive them from
      * the composition root. */
@@ -3234,6 +3303,7 @@ export function buildMansionInterior(shell = null) {
       banner,
       bayShield,
       cowboy: loungeCowboy,
+      clubApex: loungeClubApex,
       jackDaniels,
       radio: loungeRadio,
       tv: loungeTvSet,
@@ -4302,6 +4372,65 @@ export function buildMansionInterior(shell = null) {
         makePortraitTexture(key, name, tint));
       sconce(px, UY + 2.85, Z_GALLERY_N - 0.22, Math.PI, 1.9);
     }
+
+    /* ================================================================
+     * THE DYNASTY WALL.
+     *
+     * Four of the owner's ten commissioned Mansion pictures. This is the
+     * house's own gallery and these are the house's own subjects -- the
+     * crest, the estate at sunset, Uncle Squatch by the fire, and the
+     * General -- so they hang here rather than being spread as filler.
+     * The other six are in the rooms they are pictures OF; see
+     * the placement notes on each hanging: living room, billiard lounge,
+     * conference room, Lou's office (two), theatre and the master suite.
+     *
+     * WHERE, AND WHY EXACTLY THERE. The four bays used are the ones the
+     * founders' portraits and the three doorways in this wall leave
+     * open, measured off the built scene rather than eyeballed: the run
+     * either side is masonry at every corner of every frame, and each
+     * box clears the 0.34 m reveal `tools/verify-mansion.mjs` grows out
+     * of every opening before it intersects the art list. Two portraits
+     * on the ends, two landscapes flanking the conference doorway.
+     *
+     * z IS NOT THE FOUNDERS' -0.18. This wall's visible face is at
+     * `Z_GALLERY_N - HT` (52.85) and `makeFrame`'s rear bezel reaches
+     * FRAME_REAR behind its datum, so the seating that puts the bezel
+     * ON the plaster is `52.85 - FRAME_REAR`. The founders sit 5.5 mm
+     * inside the plaster, which is invisible and not worth moving four
+     * portraits to correct; a new picture should still be right.
+     *
+     * Every `h` below is `w / (pixel width / pixel height)` of the file
+     * the manifest actually names, so `applyResolvedArt`'s aspect
+     * rebuild is a no-op and the box `recordArt` registered for the
+     * doorway sweep is the box the player sees. Get this wrong and the
+     * sweep checks a frame that is not there.
+     * ================================================================ */
+    const Z_DYNASTY_N = Z_GALLERY_N - HT - FRAME_REAR;
+    const dynastyWall = {};
+    for (const [slot, px, w, h, art] of [
+      // 1122x1402 portrait -> h = w / 0.80028
+      ['mansion.gallery.dynasty-crest', -11.7, 0.86, 1.0746,
+        { title: ['THE FAMILY', 'CREST'], footer: 'SILVER SASQUATCHES', ink: '#cfc4ee', bg: '#171225' }],
+      // 1402x1122 landscape -> h = w / 1.24955
+      ['mansion.gallery.dynasty-estate', -3.9, 1.5, 1.2004,
+        { title: ['THE SILVERBACK', 'RANGE'], footer: 'FROM THE HIGH ROAD', ink: '#e8b96a', bg: '#1d1610' }],
+      // 1536x1024 landscape -> h = w / 1.5
+      ['mansion.gallery.campfire', 3.9, 1.5, 1.0,
+        { title: ['UNCLE SQUATCH', 'BY THE FIRE'], footer: 'ONE TUNE, ALL NIGHT', ink: '#e0a24a', bg: '#101a1c' }],
+      ['mansion.gallery.dynasty-general', 11.7, 0.86, 1.0746,
+        { title: ['THE', 'GENERAL'], footer: 'NO RECORD OF SERVICE', ink: '#d8c07a', bg: '#141520' }],
+    ]) {
+      const frame = wallArt(slot, px, UY + 1.9, Z_DYNASTY_N, Math.PI, w, h,
+        squatchArt(slot.replaceAll('.', '-'), { ...art }));
+      dynastyWall[slot] = frame.art;
+      /* The founders' own fixture line, so this wall keeps ONE line of
+       * lamps rather than two. It still clears every top bezel here by
+       * more than the 10 mm the billiard-room fixture was moved for: the
+       * backplate reaches 0.2 m below its mount (8.65) and the tallest
+       * of these four tops out at 8.535. */
+      sconce(px, UY + 2.85, Z_GALLERY_N - 0.22, Math.PI, 1.9);
+    }
+
     /* Console tables and urns against the north wall -- NOT down the middle
      * of the run, where an earlier pass had them: the gallery is the only
      * route between the two wings and the conference room, and a 1.6 m
@@ -4381,7 +4510,9 @@ export function buildMansionInterior(shell = null) {
     for (const px of [-12, -4, 4, 12]) {
       lights.push(ceilingLight(px, 50.5, UCY - 0.3, 0xffdca0, 5.2, 15));
     }
-    return { lights, pride: galleryPride, roster: galleryRoster };
+    return {
+      lights, pride: galleryPride, roster: galleryRoster, dynasty: dynastyWall,
+    };
   }
   const galleryProps = buildGallery();
 
@@ -4681,6 +4812,33 @@ export function buildMansionInterior(shell = null) {
       }),
     );
 
+    /* THE SIT-DOWN, on the north wall this room's own table faces.
+     *
+     * Seven of the Family round a table in suits, which is the picture of
+     * the thing that happens in here, so it hangs in here and not on the
+     * gallery run with the rest of the dynasty set.
+     *
+     * x = -5.0 and not 0: the door through to Lou's office is the middle
+     * of this wall, and the sweep grows every opening 0.34 m out of its
+     * own face before intersecting. This is the centre of the western
+     * masonry bay. `r.z1 - FRAME_REAR` seats the rear bezel on the wall's
+     * measured face at z 62.85; h is 1.7 / (1402/1122). */
+    const conferenceCouncil = wallArt(
+      'mansion.conference.council',
+      -5.0,
+      UY + 2.2,
+      r.z1 - FRAME_REAR,
+      Math.PI,
+      1.7,
+      1.3605,
+      squatchArt('mansion-conference-council', {
+        title: ['THE', 'SIT-DOWN'], footer: 'NOBODY IS SMILING', ink: '#d8b23a', bg: '#17120e',
+      }),
+    );
+    /* Between the frame's top bezel (8.915) and this room's picture rail
+     * (9.715): backplate 8.95..9.35, shade head 9.525. */
+    sconce(-5.0, UY + 3.15, r.z1 - 0.22, Math.PI, 1.9);
+
     /* Coffered ceiling, in gold on the warm plaster: a beam grid over the
      * middle of the room with the two fittings hung inside it. A boardroom
      * with a flat ceiling and two lamps on a stick is a meeting room. */
@@ -4732,6 +4890,7 @@ export function buildMansionInterior(shell = null) {
       lights,
       crest: conferenceCrest,
       stacks: conferenceStacks,
+      council: conferenceCouncil,
     };
   }
   const conferenceProps = buildConference();
@@ -5548,6 +5707,48 @@ export function buildMansionInterior(shell = null) {
     const officeHogMama = wallArt('mansion.office.hogmama', 0, UY + 2.25, r.z1 - 0.12, Math.PI, 0.9, 1.35,
       makePortraitTexture('lou-hogmama', 'HOG MAMA', '#2a1a1e'));
     sconce(0, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
+    /* ---- THE STUDY PAIR, on the two outer piers of the same north wall.
+     *
+     * Two of the owner's ten: the patriarch in his own study with a glass,
+     * and the 1897 survey of the estate. A study is where a man hangs a
+     * picture of himself in a study and a map of what he owns, so they go
+     * here rather than on the gallery run.
+     *
+     * The glazing takes x -6.06..-1.94 and 1.94..6.06 out of this wall, so
+     * the piers that remain are -8.85..-6.06 and 6.06..8.85 -- 2.79 m each,
+     * centred at -7.5 and 7.5, and every corner of both frames reads solid
+     * masonry on the built scene. `r.z1 - FRAME_REAR` seats each rear bezel
+     * on the wall's own face at z 75.0; Hog Mama beside them is on the
+     * older `- 0.12` datum and stands 85 mm proud, which is not worth
+     * moving a landed picture to match. */
+    const officePatriarch = wallArt(
+      'mansion.office.patriarch',
+      -7.5,
+      UY + 2.25,
+      r.z1 - FRAME_REAR,
+      Math.PI,
+      0.9,
+      // 1122 x 1402
+      1.1246,
+      squatchArt('mansion-office-patriarch', {
+        title: ['THE STUDY,', 'BEFORE'], footer: 'SAME CHAIR', ink: '#d8b070', bg: '#181009',
+      }),
+    );
+    const officeEstateMap = wallArt(
+      'mansion.office.estate-map',
+      7.5,
+      UY + 2.25,
+      r.z1 - FRAME_REAR,
+      Math.PI,
+      1.5,
+      // 1402 x 1122
+      1.2004,
+      squatchArt('mansion-office-estate-map', {
+        title: ['SURVEY OF', 'THE GROUNDS'], footer: '1897', ink: '#c9a86a', bg: '#171208',
+      }),
+    );
+    sconce(-7.5, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
+    sconce(7.5, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
     // Lou, again, over his own safe -- the east wall has no opening in it
     // anywhere, so this one is as far from a doorway as art gets in here.
     /* 0.18 OFF THE WALL, NOT 0.11 — the same 40 mm of panel bead that had the
@@ -5634,6 +5835,8 @@ export function buildMansionInterior(shell = null) {
       desk, deskLight, ceilingLight: ceil, fireGlow, shield: officeShield,
       boss: officeBoss,
       hogMama: officeHogMama,
+      patriarch: officePatriarch,
+      estateMap: officeEstateMap,
       /** The desk TOP, for putting things on. See the note at its build. */
       caseSpot,
     };
@@ -7052,6 +7255,44 @@ export function buildMansionInterior(shell = null) {
       sconce(px, SY + 2.5, r.z0 + 0.19, 0, 1.2);
     }
     sconce(r.x1 - 0.05, SY + 2.5, 69.7, -Math.PI / 2, 1.2);
+
+    /* THE MARK, in the fielded panel at x -2.59 — the last of the owner's
+     * ten: silver-on-slate abstract, claw rake and footprint. The one
+     * modern picture in the set goes in the one modern room.
+     *
+     * INSIDE the panel, not over it. The south wall's fielded panelling
+     * puts a gilt bead border round every bay (beads at px ±0.62 and
+     * y 12.15 ±1.05); this panel's clear field is 1.19 m wide by 2.05 m
+     * tall and the frame's outer bezel (1.04 x 1.26) sits within it with
+     * 75 mm to each vertical bead. The bays either side are taken: the
+     * bed's tester reaches x -1.56, the Lou accent owns -6.17..-5.13,
+     * and the dressing run has x 1.95..5.95.
+     *
+     * Seating is on the PANELLING's own face, not the room wall behind
+     * it: the 70 mm panel board's front is r.z0 + 0.085, so the rear
+     * bezel lands there with `+ FRAME_REAR`. The glass sheen stands
+     * 15 mm proud of the surrounding bead, which is what a picture
+     * hung on panelling does.
+     *
+     * No new fixture over it, deliberately: this room runs cove light
+     * plus sconces dimmed to 1.2 ("a bedroom is not a gallery" — see the
+     * lighting note above), and the house sconce at x -4.0 already
+     * catches the frame. The Lou accent's brass bar is the precedent
+     * for extra metal on this wall and one of those is enough. */
+    const suiteAbstract = wallArt(
+      'mansion.suite.abstract',
+      -2.59,
+      SY + 1.55,
+      r.z0 + 0.085 + FRAME_REAR,
+      0,
+      0.9,
+      // 1122 x 1402
+      1.1246,
+      squatchArt('mansion-suite-abstract', {
+        title: ['THE', 'MARK'], footer: 'NO FRAME COULD HOLD IT. THIS ONE TRIES.', ink: '#cfc8dd', bg: '#14121b',
+      }),
+    );
+    props.abstract = suiteAbstract;
 
     /* One chandelier, hung clear of the tester — the bed's canopy tops out at
      * 12.95 and this hangs at 12.5 over the middle of the floor, which is the
@@ -11391,8 +11632,41 @@ const M_GOLD_BAR = mat({
         title: ['AUSTIN'], footer: 'MAJOR', ink: '#c9a2ff', bg: '#0f0b16',
       }),
     );
+    /* RAIN, DOWNTOWN -- one of the owner's ten, and the only one of them
+     * that is a MOVIE: a black-and-white squatch in a wet trench coat under
+     * a street lamp. It hangs where a cinema hangs a one-sheet, on the side
+     * wall of the auditorium, and NOT on the north wall, which is the screen.
+     *
+     * Same wall and same seating as the Austin lockup opposite the aisle
+     * (`r.x1 - 0.09 - FRAME_REAR`, off the acoustic liner's visible face),
+     * and between the two house sconces at z 69.4 and 72.4 rather than on
+     * top of either. `BY + 1.60` puts the bezel's top at y = -0.634, which
+     * keeps the WHOLE frame on the acoustic liner -- that finish stops at
+     * y = -0.600, and the lockup carries the same note. No lamp over it,
+     * for the reason the lockup has none: a fifth practical on this wall
+     * is a fifth thing to dim when the projector runs. */
+    const theatreNoir = wallArt(
+      'mansion.theatre.noir',
+      r.x1 - 0.09 - FRAME_REAR,
+      BY + 1.60,
+      70.6,
+      -Math.PI / 2,
+      0.85,
+      // 1122 x 1402
+      1.0621,
+      squatchArt('mansion-theatre-noir', {
+        title: ['RAIN,', 'DOWNTOWN'], footer: 'NOBODY HERE OWNS THAT COAT', ink: '#cfd6e0', bg: '#0b0d12',
+      }),
+    );
     return {
-      screen, banner: theatreBanner, lockup: theatreLockup.art, seats, lights, houseLights, aisleLights,
+      screen,
+      banner: theatreBanner,
+      lockup: theatreLockup.art,
+      noir: theatreNoir,
+      seats,
+      lights,
+      houseLights,
+      aisleLights,
     };
   }
   const theatreProps = buildTheatre();
@@ -12332,6 +12606,21 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.guest.dog', mesh: guestProps.dog?.art, w: 0.62 },
     { slot: 'mansion.theatre.lockup', mesh: theatreProps.lockup, w: 0.95 },
     { slot: 'mansion.lan.denver', mesh: lanProps.denver, w: 0.9 },
+    /* The dynasty set. Every authored frame height is already
+     * `w / (file width / file height)` of the file its manifest row
+     * names, so this aspect rebuild is a no-op and the box `recordArt`
+     * registered for the doorway sweep stays the box the player sees. */
+    { slot: 'mansion.gallery.dynasty-crest', mesh: galleryProps.dynasty?.['mansion.gallery.dynasty-crest'], w: 0.86 },
+    { slot: 'mansion.gallery.dynasty-estate', mesh: galleryProps.dynasty?.['mansion.gallery.dynasty-estate'], w: 1.5 },
+    { slot: 'mansion.gallery.campfire', mesh: galleryProps.dynasty?.['mansion.gallery.campfire'], w: 1.5 },
+    { slot: 'mansion.gallery.dynasty-general', mesh: galleryProps.dynasty?.['mansion.gallery.dynasty-general'], w: 0.86 },
+    { slot: 'mansion.living.fireside', mesh: livingProps.fireside?.art, w: 0.9 },
+    { slot: 'mansion.lounge.club-apex', mesh: loungeProps.clubApex?.art, w: 0.95 },
+    { slot: 'mansion.conference.council', mesh: conferenceProps.council?.art, w: 1.7 },
+    { slot: 'mansion.office.patriarch', mesh: officeProps.patriarch?.art, w: 0.9 },
+    { slot: 'mansion.office.estate-map', mesh: officeProps.estateMap?.art, w: 1.5 },
+    { slot: 'mansion.theatre.noir', mesh: theatreProps.noir?.art, w: 0.85 },
+    { slot: 'mansion.suite.abstract', mesh: suiteProps.abstract?.art, w: 0.9 },
   ];
   const applyResolvedArt = (gear) => {
     const dressed = [];

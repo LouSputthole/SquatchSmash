@@ -1,0 +1,1575 @@
+{
+  "generatedAt": "2026-08-14T13:18:59.391Z",
+  "entry": "mansion.html?preview=1",
+  "pictures": [
+    {
+      "name": "01-gallery-dynasty-crest",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\01-gallery-dynasty-crest.png",
+      "room": "Upper gallery, dynasty wall",
+      "slot": "mansion.gallery.dynasty-crest",
+      "expectedFile": "mansion/dynasty-crest.jpg",
+      "actualFile": "mansion/dynasty-crest.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1122,
+        1402
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 171.51364985093574,
+        "height": 210.29454706049154
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "02-gallery-dynasty-estate",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\02-gallery-dynasty-estate.png",
+      "room": "Upper gallery, dynasty wall",
+      "slot": "mansion.gallery.dynasty-estate",
+      "expectedFile": "mansion/dynasty-estate-sunset.jpg",
+      "actualFile": "mansion/dynasty-estate-sunset.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1402,
+        1122
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 324.3822898948258,
+        "height": 253.40368943087446
+      },
+      "grid": {
+        "clear": 23,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": [
+          {
+            "fx": -0.45,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "artSlot": null
+            }
+          },
+          {
+            "fx": -0.225,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "artSlot": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "03-gallery-campfire",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\03-gallery-campfire.png",
+      "room": "Upper gallery, dynasty wall",
+      "slot": "mansion.gallery.campfire",
+      "expectedFile": "mansion-campfire-banjo.jpg",
+      "actualFile": "mansion-campfire-banjo.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1536,
+        1024
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 323.24681242585655,
+        "height": 211.0670109276484
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "04-gallery-dynasty-general",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\04-gallery-dynasty-general.png",
+      "room": "Upper gallery, dynasty wall",
+      "slot": "mansion.gallery.dynasty-general",
+      "expectedFile": "mansion/dynasty-general.jpg",
+      "actualFile": "mansion/dynasty-general.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1122,
+        1402
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "gallery-north-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 171.51364985093574,
+        "height": 210.29454706049154
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "05-living-fireside",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\05-living-fireside.png",
+      "room": "Living room, east wall",
+      "slot": "mansion.living.fireside",
+      "expectedFile": "mansion/dynasty-patriarch-fireside.jpg",
+      "actualFile": "mansion/dynasty-patriarch-fireside.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1122,
+        1402
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "west-partition-front-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 173.99851898827393,
+        "height": 210.46787267800107
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "06-lounge-club-apex",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\06-lounge-club-apex.png",
+      "room": "Billiards lounge, west wall",
+      "slot": "mansion.lounge.club-apex",
+      "expectedFile": "mansion/dynasty-club-apex.jpg",
+      "actualFile": "mansion/dynasty-club-apex.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1122,
+        1402
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "east-partition-front-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 160.43603050798737,
+        "height": 188.18604340053753
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "07-conference-council",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\07-conference-council.png",
+      "room": "Conference room, north wall",
+      "slot": "mansion.conference.council",
+      "expectedFile": "mansion/dynasty-council.jpg",
+      "actualFile": "mansion/dynasty-council.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1402,
+        1122
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "conference-north-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 263.05351472669514,
+        "height": 202.59353990892546
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "08-office-patriarch",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\08-office-patriarch.png",
+      "room": "Lou's office, west window pier",
+      "slot": "mansion.office.patriarch",
+      "expectedFile": "mansion/dynasty-patriarch-study.jpg",
+      "actualFile": "mansion/dynasty-patriarch-study.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1122,
+        1402
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 136.58132620543634,
+        "height": 164.46577953217172
+      },
+      "grid": {
+        "clear": 24,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": [
+          {
+            "fx": 0.225,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "artSlot": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "09-office-estate-map",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\09-office-estate-map.png",
+      "room": "Lou's office, east window pier",
+      "slot": "mansion.office.estate-map",
+      "expectedFile": "mansion/dynasty-estate-map.jpg",
+      "actualFile": "mansion/dynasty-estate-map.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1402,
+        1122
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "north-solid",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "north-solid",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 215.5869649695137,
+        "height": 166.64161797441315
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "10-theatre-noir",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\10-theatre-noir.png",
+      "room": "Theatre, east wall",
+      "slot": "mansion.theatre.noir",
+      "expectedFile": "mansion/dynasty-noir.jpg",
+      "actualFile": "mansion/dynasty-noir.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1122,
+        1402
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "(unnamed)",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 170.84186101423506,
+        "height": 212.0818095221387
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    },
+    {
+      "name": "11-suite-abstract",
+      "screenshot": "docs\\validation\\2026-08-13-mansion-art\\11-suite-abstract.png",
+      "room": "Master suite, south panelling",
+      "slot": "mansion.suite.abstract",
+      "expectedFile": "mansion/dynasty-abstract-peak.jpg",
+      "actualFile": "mansion/dynasty-abstract-peak.jpg",
+      "real": true,
+      "mapped": true,
+      "decoded": true,
+      "image": [
+        1122,
+        1402
+      ],
+      "seating": {
+        "backing": [
+          {
+            "du": -0.49,
+            "dv": -0.49,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": -0.49,
+            "dv": 0.49,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": -0.49,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": 0,
+            "dv": 0.49,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": -0.49,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          },
+          {
+            "du": 0.49,
+            "dv": 0.49,
+            "wall": "suite-panelling",
+            "gap": 0.0395
+          }
+        ],
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "missingBacking": 0
+      },
+      "sweep": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      },
+      "screen": {
+        "width": 150.10269971009475,
+        "height": 185.5751545331883
+      },
+      "grid": {
+        "clear": 25,
+        "total": 25,
+        "coreClear": 9,
+        "coreTotal": 9,
+        "blocked": []
+      }
+    }
+  ],
+  "checks": [
+    {
+      "label": "Upper gallery, dynasty wall: mansion.gallery.dynasty-crest resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-crest.jpg",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-crest rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "gallery-north-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-crest is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-crest is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          172,
+          210
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Upper gallery, dynasty wall: mansion.gallery.dynasty-estate resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-estate-sunset.jpg",
+        "image": [
+          1402,
+          1122
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-estate rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "gallery-north-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-estate is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-estate is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          324,
+          253
+        ],
+        "clearSamples": "23/25",
+        "blockers": [
+          {
+            "fx": -0.45,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "artSlot": null
+            }
+          },
+          {
+            "fx": -0.225,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "artSlot": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "label": "Upper gallery, dynasty wall: mansion.gallery.campfire resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion-campfire-banjo.jpg",
+        "image": [
+          1536,
+          1024
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.campfire rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "gallery-north-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.campfire is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.gallery.campfire is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          323,
+          211
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Upper gallery, dynasty wall: mansion.gallery.dynasty-general resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-general.jpg",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-general rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "gallery-north-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-general is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.gallery.dynasty-general is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          172,
+          210
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Living room, east wall: mansion.living.fireside resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-patriarch-fireside.jpg",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "mansion.living.fireside rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "west-partition-front-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.living.fireside is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.living.fireside is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          174,
+          210
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Billiards lounge, west wall: mansion.lounge.club-apex resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-club-apex.jpg",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "mansion.lounge.club-apex rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "east-partition-front-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.lounge.club-apex is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.lounge.club-apex is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          160,
+          188
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Conference room, north wall: mansion.conference.council resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-council.jpg",
+        "image": [
+          1402,
+          1122
+        ]
+      }
+    },
+    {
+      "label": "mansion.conference.council rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "conference-north-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.conference.council is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.conference.council is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          263,
+          203
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Lou's office, west window pier: mansion.office.patriarch resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-patriarch-study.jpg",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "mansion.office.patriarch rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "north-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.office.patriarch is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.office.patriarch is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          137,
+          164
+        ],
+        "clearSamples": "24/25",
+        "blockers": [
+          {
+            "fx": 0.225,
+            "fy": -0.45,
+            "clear": false,
+            "blocker": {
+              "name": "(unnamed mesh)",
+              "artSlot": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "label": "Lou's office, east window pier: mansion.office.estate-map resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-estate-map.jpg",
+        "image": [
+          1402,
+          1122
+        ]
+      }
+    },
+    {
+      "label": "mansion.office.estate-map rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "north-solid"
+        ]
+      }
+    },
+    {
+      "label": "mansion.office.estate-map is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.office.estate-map is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          216,
+          167
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Theatre, east wall: mansion.theatre.noir resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-noir.jpg",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "mansion.theatre.noir rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "(unnamed)"
+        ]
+      }
+    },
+    {
+      "label": "mansion.theatre.noir is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.theatre.noir is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          171,
+          212
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "Master suite, south panelling: mansion.suite.abstract resolves to the delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "mansion/dynasty-abstract-peak.jpg",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "mansion.suite.abstract rear bezel is seated on real masonry (gap band -46..-30 mm)",
+      "ok": true,
+      "payload": {
+        "gapMin": 0.0395,
+        "gapMax": 0.0395,
+        "walls": [
+          "suite-panelling"
+        ]
+      }
+    },
+    {
+      "label": "mansion.suite.abstract is registered with the sweep and clashes with no opening or other piece",
+      "ok": true,
+      "payload": {
+        "recorded": true,
+        "openingClash": [],
+        "artClash": []
+      }
+    },
+    {
+      "label": "mansion.suite.abstract is readable from the proof camera (core clear, >=22/25 samples)",
+      "ok": true,
+      "payload": {
+        "screen": [
+          150,
+          186
+        ],
+        "clearSamples": "25/25",
+        "blockers": []
+      }
+    },
+    {
+      "label": "live Mansion WebGL stayed healthy with no missing/runtime resources",
+      "ok": true,
+      "payload": {
+        "gl": {
+          "lost": false,
+          "drawingBuffer": [
+            1280,
+            720
+          ]
+        },
+        "errors": [],
+        "notFound": []
+      }
+    }
+  ],
+  "gl": {
+    "lost": false,
+    "drawingBuffer": [
+      1280,
+      720
+    ]
+  },
+  "errors": [],
+  "notFound": []
+}

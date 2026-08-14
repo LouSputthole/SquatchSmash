@@ -1577,7 +1577,11 @@ test('the authored gallery practicals win the full production light budget throu
   assert.ok(camera.distanceTo(new THREE.Vector3(7.2276, 7.04, 52.2684)) <= 1e-12,
     `the authored crouched shot eye drifted to ${camera.toArray()}`);
   const lightPool = [...grounds.lights, ...interior.lights, ...localLights];
-  assert.equal(lightPool.length, 256,
+  /* 265 = the 256 the fixture pinned on 2026-08-13 plus the nine picture
+   * sconces the dynasty-art pass hung with the owner's ten Mansion
+   * paintings (living room 1, billiard lounge 1, gallery dynasty wall 4,
+   * conference 1, Lou's office 2 — see MansionInterior.js). */
+  assert.equal(lightPool.length, 265,
     'the regression fixture drifted from the real house + night + dressing + attacker + armory pool');
   const practicals = [
     ['rail worklamp', worklamp],
@@ -1593,7 +1597,7 @@ test('the authored gallery practicals win the full production light budget throu
     for (const [name, light] of practicals) {
       const rank = ranked.findIndex((entry) => entry.light === light) + 1;
       assert.ok(rank > 0 && rank <= 10,
-        `${phase}: ${name} rank ${rank}/256 makes production lightStatus.visible false`);
+        `${phase}: ${name} rank ${rank}/${lightPool.length} makes production lightStatus.visible false`);
       assert.equal(light.visible, true,
         `${phase}: production's ten-light visibility assignment switched off ${name}`);
     }
