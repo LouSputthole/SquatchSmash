@@ -13,6 +13,7 @@
     "sfx": "node tools/generate-sfx.mjs",
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
     "check": "node tools/check.mjs",
+    "lint": "eslint .",
     "check:flight": "node tools/flight-test.mjs",
     "check:line-presence": "node tools/check-line-presence.mjs",
     "verify:art": "node tools/verify-art.mjs",
@@ -104,6 +105,7 @@
     "verify:silver-story": "node tools/verify-silver-story.mjs"
   },
   "devDependencies": {
+    "eslint": "^9.39.5",
     "playwright": "^1.49.0"
   }
 }
