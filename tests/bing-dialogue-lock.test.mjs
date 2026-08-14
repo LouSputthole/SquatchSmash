@@ -97,3 +97,74 @@ test('a reply-only dialogue node makes its choices visible', () => {
   assert.equal(nodes.options.classList.contains('hidden'), false);
   globalThis.document = priorDocument;
 });
+
+test('hush() stops the take the current line is being spoken on, once', () => {
+  const stopped = [];
+  const dialogue = new Dialogue(ui(), {
+    onLine: () => ({ audio: {}, source: { stop: () => stopped.push('line') } }),
+  });
+  dialogue.start(tree, 'brief');
+
+  assert.equal(dialogue.hush(), true);
+  assert.deepEqual(stopped, ['line']);
+  // The take is released on the first call; a second hush finds nothing.
+  assert.equal(dialogue.hush(), false);
+  assert.deepEqual(stopped, ['line']);
+});
+
+test('walking away hushes the trailing take through the scene onEnd hook', () => {
+  const stopped = [];
+  const speaker = { name: 'Lou', group: { position: { x: 40, z: 40 } }, say() {} };
+  const dialogue = new Dialogue(ui(), {
+    onLine: () => ({ audio: {}, source: { stop: () => stopped.push('stopped') } }),
+    /* The scenes' convention: every lapse hushes, a completed thread is
+     * left to finish its cue hold. */
+    onEnd: (reason) => { if (reason !== 'done') dialogue.hush(); },
+  });
+  dialogue.start(tree, 'brief', speaker);
+  assert.deepEqual(stopped, []);
+
+  dialogue.update(0.016, { x: 0, z: 0 }); // far outside conversation range
+  assert.equal(dialogue.lastEndReason, 'walked-away');
+  assert.deepEqual(stopped, ['stopped'],
+    'the recording must stop when the conversation lapses, not just the subtitle');
+});
+
+test('a thread that runs to done is not hushed by the lapse convention', () => {
+  const stopped = [];
+  const dialogue = new Dialogue(ui(), {
+    onLine: () => ({ audio: {}, source: { stop: () => stopped.push('stopped') } }),
+    onEnd: (reason) => { if (reason !== 'done') dialogue.hush(); },
+  });
+  dialogue.start({ brief: { line: 'Listen close.', hold: 0.5, next: null } }, 'brief');
+  dialogue.update(1.0);
+
+  assert.equal(dialogue.active, false);
+  assert.equal(dialogue.lastEndReason, 'done');
+  assert.deepEqual(stopped, [], 'a finished line has had its full cue hold already');
+});
+
+test("a chosen reply's take replaces the node's as what hush() stops", () => {
+  const priorDocument = globalThis.document;
+  globalThis.document = {
+    createElement: () => ({ className: '', innerHTML: '' }),
+  };
+  const stopped = [];
+  const takeFor = (tag) => ({ audio: {}, source: { stop: () => stopped.push(tag) } });
+  const dialogue = new Dialogue(ui(), {
+    onLine: () => takeFor('line'),
+    onChoice: () => takeFor('reply'),
+  });
+  dialogue.start({
+    ask: {
+      line: 'Well?',
+      options: [{ text: 'Fine.', next: null }],
+    },
+  }, 'ask');
+  assert.equal(dialogue.choose(0), true);
+
+  assert.equal(dialogue.hush(), true);
+  assert.deepEqual(stopped, ['reply'],
+    'after a reply is chosen, hush() must stop the reply, not the finished node line');
+  globalThis.document = priorDocument;
+});

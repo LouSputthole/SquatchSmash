@@ -26,7 +26,9 @@ export class Dialogue {
    *   `onLine(text, who, node)` starts the line's recording and may RETURN THE
    *   TAKE — `{ audio, source }` from `AudioEngine.play()` — which is handed
    *   straight to the speaker's `say()` so his mouth runs on the sound rather
-   *   than on a guess. Returning nothing is still valid.
+   *   than on a guess. Returning nothing is still valid. `onChoice(opt, index)`
+   *   may return the reply's take the same way; whichever take arrived last is
+   *   what `hush()` stops.
    */
   constructor(ui, hooks = {}) {
     this.ui = ui;
@@ -39,6 +41,10 @@ export class Dialogue {
     this.timer = 0;
     this.active = false;
     this.lastEndReason = null;
+    /* The take the floor is currently held on — whatever onLine or onChoice
+     * last returned — kept so hush() can stop the actual sound and not just
+     * the subtitle. */
+    this._take = null;
     this.history = new Set();
     /* Where each tree lapsed, keyed by the tree itself. Walking off
      * mid-sentence used to mean the whole conversation started over next
@@ -123,6 +129,7 @@ export class Dialogue {
        * `onLine` returns nothing lose nothing — the mouth falls back to a
        * synthesised envelope for the same number of seconds it always had. */
       const take = this.hooks.onLine?.(text, who, node) || null;
+      this._take = take;
       this.speaker?.say?.(
         this._cueHold(node, Math.max(1.6, text.length / 22)),
         take,
@@ -177,7 +184,9 @@ export class Dialogue {
     this.ui.options.classList.add('hidden');
     this.ui.name.textContent = 'PROSPECT';
     this.ui.line.innerHTML = opt.text;
-    this.hooks.onChoice?.(opt, index);
+    /* The reply's take, when the scene returns one, replaces the node's as
+     * the thing hush() would stop — the reply owns the floor now. */
+    this._take = this.hooks.onChoice?.(opt, index) || null;
     this.options = [];
     const nextId = typeof opt.next === 'function' ? opt.next() : opt.next;
     this.timer = this._cueHold(opt, opt.hold ?? Math.max(1.4, opt.text.length / 22));
@@ -186,6 +195,25 @@ export class Dialogue {
      * which left those replies on screen until the player walked off. */
     this._pending = { id: nextId ?? null };
     opt.effect?.();
+    return true;
+  }
+
+  /**
+   * Stop the take the floor is being held on.
+   *
+   * end() clears the SUBTITLE; since mouths became audio-driven
+   * (src/core/mouth.js) the recording itself kept playing, so a conversation
+   * the player walked out of left the speaker finishing his sentence at a
+   * wall. Whether that is rude or realistic is a direction call, so the class
+   * does not hush itself: the scene decides in its onEnd hook — lapses
+   * (walked-away, interrupted, a seat-pause) hush; a thread that ran to
+   * 'done' has already had its full cue hold and needs nothing stopped.
+   */
+  hush() {
+    const source = this._take?.source;
+    this._take = null;
+    if (!source?.stop) return false;
+    try { source.stop(); } catch { /* never started, or already ended */ }
     return true;
   }
 
