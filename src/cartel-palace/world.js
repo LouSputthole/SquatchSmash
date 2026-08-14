@@ -117,13 +117,23 @@ function arch(parent, x, z, width = 3.2, height = 3.8, depth = 0.5) {
     box([0.44, height, depth], [x - width / 2, height / 2, z], M.stoneLight, 'carved-arch-pillar'),
     box([0.44, height, depth], [x + width / 2, height / 2, z], M.stoneLight, 'carved-arch-pillar'),
   );
+  /* The crown is a half torus, and `TorusGeometry(..., Math.PI)` is already the
+   * UPPER half. Rotating it by PI turned the arch upside down: instead of
+   * springing off the jambs and rising, it hung into the opening as a stone
+   * band whose lowest point sat at 1.53 m -- chest height, dead centre in the
+   * only door into the service wing. Walking in meant walking through it.
+   *
+   * Right way up, and dropped by its own radius so the head is inscribed in
+   * the opening and crowns level with the jamb tops instead of bursting out
+   * through a 4.8 m wall. Head clearance is 3.55 m at the centre and 2.35 m at
+   * the jambs. */
+  const radius = width / 2;
   const curve = new THREE.Mesh(
-    new THREE.TorusGeometry(width / 2, 0.22, 8, 28, Math.PI),
+    new THREE.TorusGeometry(radius, 0.22, 8, 28, Math.PI),
     M.stoneLight,
   );
   curve.name = 'carved-arch-crown';
-  curve.position.set(x, height - 0.05, z);
-  curve.rotation.z = Math.PI;
+  curve.position.set(x, height - 0.05 - radius, z);
   curve.castShadow = true;
   parent.add(curve);
 }
@@ -428,8 +438,20 @@ export function buildCartelPalace(scene) {
   root.add(box([12, 0.3, 8], [-11, -0.12, 19], M.stoneLight, 'pool-coping'));
   // Re-add a visible water plane slightly above the coping top.
   pool.position.y = 0.08;
-  for (const [x, z] of [[-18, 54], [-18, 32], [18, 31], [-18, 8], [18, 8]]) palm(root, x, z, 0.9);
-  for (const x of [-16, -13, 13, 16]) cypress(root, x, 10, 4.6);
+  /* Courtyard planting, and it has to STAY in the courtyard.
+   *
+   * The estate front wall is at z = 12 and its only opening is the service
+   * doorway between x 11.5 and 15.5. The palms at z = 8 and the whole cypress
+   * row at z = 10 were therefore planted INSIDE the building: one cypress stood
+   * dead centre in the doorway and a second a metre behind it, so stepping
+   * through the door put you inside a 4.6 m tree, with palm fronds hanging
+   * through the corridor ceiling above. Nothing was solid, so it did not stop
+   * you -- it just filled the entry with foliage you had to walk through.
+   *
+   * They now stand in front of the facade at z = 13.8, and the pair that
+   * frames the door sits clear of the 11.5-15.5 lane on either side. */
+  for (const [x, z] of [[-18, 54], [-18, 32], [18, 31], [-18, 16], [18, 16]]) palm(root, x, z, 0.9);
+  for (const x of [-16, -12, 10, 17]) cypress(root, x, 13.8, 4.6);
 
   const courtyardDetails = new THREE.Group();
   courtyardDetails.name = 'courtyard-refinement';
