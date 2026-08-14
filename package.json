@@ -50,6 +50,7 @@
     "probe:siege-anchors": "node tools/probe-siege-anchors.mjs",
     "verify:enolasquatch": "node tools/verify-enolasquatch.mjs",
     "verify:cartel-palace": "node tools/verify-cartel-palace.mjs",
+    "soak:cartel-palace": "node tools/soak-cartel-palace.mjs",
     "verify:final-arc-reloads": "node tools/verify-final-arc-reloads.mjs",
     "verify:enola-bomb-audio": "node tools/verify-enola-bomb-audio.mjs",
     "preverify:bundle": "node tools/bundle-preview.mjs",

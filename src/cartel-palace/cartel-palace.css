@@ -66,10 +66,18 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 #crosshair[data-confirmed="headshot"] { border-color: #fff; box-shadow: 0 0 11px #e52a24; }
 #crosshair[data-confirmed="kill"] { border-color: #ff453d; box-shadow: 0 0 13px #ff2921; }
 
+/* `top: auto` and `right: auto` here are load-bearing, not tidying.
+ *
+ * src/style.css anchors the prompt with `top: calc(50% + 34px)`. Re-anchoring
+ * it to `bottom` without releasing that `top` leaves an absolutely positioned
+ * box with BOTH edges pinned and `height: auto`, which resolves to the gap
+ * between them -- 200px of empty panel on a 720px screen with one 16px line
+ * of text floating in the middle of it. That is the "massive" interact box.
+ * `min-width: 240px` was widening the short prompts on top of it. */
 #prompt {
-  position: absolute; left: 50%; bottom: 126px; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 10px; min-width: 240px; max-width: min(620px, 72vw);
-  padding: 10px 16px; border: 1px solid rgba(214, 173, 89, .42); border-radius: 7px;
+  position: absolute; left: 50%; top: auto; bottom: 126px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: min(620px, 72vw);
+  padding: 8px 14px; border: 1px solid rgba(214, 173, 89, .42); border-radius: 7px;
   background: rgba(8, 13, 14, .9); box-shadow: 0 12px 34px rgba(0, 0, 0, .48);
 }
 #prompt .key, .controls kbd {
@@ -78,7 +86,7 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 }
 #prompt .label { font-size: 14px; }
 #prompt .label b { color: #ffd98c; }
-#prompt .holdbar { position: absolute; left: 12px; right: 12px; bottom: -6px; height: 3px; overflow: hidden; background: rgba(255,255,255,.12); }
+#prompt .holdbar { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 3px; overflow: hidden; background: rgba(255,255,255,.12); }
 #prompt .holdbar i { display: block; width: 0; height: 100%; background: var(--brass); }
 
 #subtitle {
@@ -131,7 +139,10 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 #boss .life i { background: #9c3030; }
 #boss > span { display: block; margin-top: 5px; color: #cab78f; font-size: 10px; letter-spacing: .15em; }
 
-#hands { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); }
+/* Same trap as #prompt: src/style.css pins #hands to `right: 22px`, so
+ * centring it with `left: 50%` alone stretched the row across most of the
+ * screen and left the five loadout slots sitting well right of the crosshair. */
+#hands { position: absolute; left: 50%; right: auto; bottom: 20px; transform: translateX(-50%); }
 #hand-item, #radio-osd, #clock, #bladder { display: none; }
 
 .panel {

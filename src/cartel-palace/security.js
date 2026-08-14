@@ -14,13 +14,75 @@ import {
 import { Firearm } from '../core/weapons/Firearm.js';
 import { weaponDef } from '../core/weapons/catalog.js';
 
+/*
+ * Sight.
+ *
+ * The old numbers were 14 m lit / 8.5 m blacked out across a forty-metre
+ * courtyard, which meant a guard could not see a man walking up the middle of
+ * his own drive. Detection was also a flat ramp, so anything he COULD see he
+ * resolved in six tenths of a second whatever the distance -- long sight and a
+ * flat ramp together would have deleted the stealth route, so the ramp now
+ * scales with how much of his range the contact is using. Cutting the power
+ * still roughly halves what he can see, and crouching still takes a third off
+ * that again.
+ */
 const VISION = Object.freeze({
-  poweredDistance: 14,
-  blackoutDistance: 8.5,
+  poweredDistance: 24,
+  /* 11 m, and the 0.72 crouch factor takes it to 7.92 -- deliberately under
+   * the eight metres `tests/cartel-palace-mission.test.mjs` walks up to. The
+   * mission's whole stealth promise is that cutting the power buys you the
+   * approach; longer sight must not be bought out of that. */
+  blackoutDistance: 11,
   crouchFactor: 0.72,
-  fov: 116 * Math.PI / 180,
-  memorySeconds: 2.2,
+  fov: 132 * Math.PI / 180,
+  memorySeconds: 6,
+  poweredGain: 1.5,
+  blackoutGain: 0.9,
+  /* Floor on the distance term, so a contact at maximum range still resolves. */
+  minimumGainScale: 0.32,
+  loss: 0.72,
 });
+
+/*
+ * Movement, per role.
+ *
+ * `advance` and `strafe` are metres per second. The previous values were 0.62
+ * patrolling and 0.7 in a firefight -- half the speed of the slowest man in
+ * Mansion Siege -- and inside 6.5 m every hostile switched to a sideways
+ * shuffle at 0.29 m/s, which is what "the AI is retarded" looks like from the
+ * player's side: they orbit you at walking-pace-divided-by-five and never
+ * arrive.
+ *
+ * `standoff` is the range each role wants to fight at. Outside the band he
+ * closes, inside it he backs off, and only within it does he sidestep -- so
+ * repositioning reads as a decision rather than a stuck animation.
+ */
+const ROLE_TACTICS = Object.freeze({
+  guard: Object.freeze({ patrol: 1.15, advance: 2.2, strafe: 1.25, standoff: 5.5 }),
+  traitor: Object.freeze({ patrol: 0.95, advance: 1.9, strafe: 1.1, standoff: 6.5 }),
+  boss: Object.freeze({ patrol: 0.8, advance: 1.35, strafe: 0.85, standoff: 4.5 }),
+});
+
+/*
+ * Contact calls.
+ *
+ * The single worst behaviour in the mission: `update` only moved a hostile
+ * when it had a REMEMBERED point of its own, and memory only existed if that
+ * hostile had personally seen the player. So an alarm -- a gunshot, a body
+ * found, the dining-room doors -- activated eight guards who then stood
+ * exactly where they were posted for the rest of the mission. Sixty seconds of
+ * soak with the alarm up produced zero rounds fired.
+ *
+ * A sighting, and the alarm itself, now publish one shared last-known point.
+ * It is a POSITION, not a target: nobody shoots at it, they walk to it, and it
+ * goes stale on its own. Anyone who arrives and finds nothing falls back to
+ * their post.
+ */
+const CONTACT_MEMORY_SECONDS = 14;
+const CONTACT_RESPONSE_RANGE = 46;
+/* Awareness at which a guard who has lost sight goes and looks rather than
+ * carrying on with his round. */
+const INVESTIGATE_AWARENESS = 0.35;
 
 const HIT_ZONE_MULTIPLIER = Object.freeze({ head: 1, chest: 1, limb: 0.62 });
 const UP = new THREE.Vector3(0, 1, 0);
@@ -136,6 +198,11 @@ export class PalaceSecurity {
     this.onBossPhase = onBossPhase;
     this.alarm = false;
     this.alarmReason = null;
+    /* Shared last-known player position and how stale it is. Runtime only:
+     * a checkpoint restore clears it along with live targets and alignment. */
+    this.contactPoint = null;
+    this.contactAge = Infinity;
+    this.playerPoint = null;
     this.space = new AabbCombatSpace({
       boxes: colliders,
       radius: 0.31,
@@ -248,6 +315,7 @@ export class PalaceSecurity {
     point.y = crouching ? 0.96 : 1.5;
     let range = powerCut ? VISION.blackoutDistance : VISION.poweredDistance;
     if (crouching) range *= VISION.crouchFactor;
+    runtime.sightRange = range;
     const forward = new THREE.Vector3(0, 0, 1)
       .applyAxisAngle(UP, entry.root.rotation.y);
     const candidate = {
@@ -268,8 +336,30 @@ export class PalaceSecurity {
     if (seen) {
       entry.aimPoint.copy(seen.point);
       entry.lastSeen.copy(seen.point);
+      this._noteContact(seen.point);
     }
     return seen;
+  }
+
+  /**
+   * Publish one shared last-known player position.
+   *
+   * This is deliberately a point and not a target: `_fire` still requires the
+   * shooter's own unblocked sight, so a contact call moves people and never
+   * puts a round through a wall.
+   */
+  _noteContact(point) {
+    if (!point?.isVector3) return null;
+    (this.contactPoint ??= new THREE.Vector3()).copy(point);
+    this.contactAge = 0;
+    return this.contactPoint;
+  }
+
+  /** The shared point, if it is fresh enough and near enough to be this one's problem. */
+  _sharedContact(entry) {
+    if (!this.contactPoint || this.contactAge > CONTACT_MEMORY_SECONDS) return null;
+    if (entry.root.position.distanceTo(this.contactPoint) > CONTACT_RESPONSE_RANGE) return null;
+    return this.contactPoint;
   }
 
   canSee(entry, playerPosition, options = {}) {
@@ -284,6 +374,9 @@ export class PalaceSecurity {
     this.stats.alerts++;
     this.onAlarm(reason);
     for (const guard of this.cast.guards) guard.active = !guard.down;
+    /* Whatever raised it -- a gunshot, a contact, the dining-room doors --
+     * happened where the player is standing. Everyone gets that address. */
+    this._noteContact(this.playerPoint);
     return true;
   }
 
@@ -451,6 +544,10 @@ export class PalaceSecurity {
     return result;
   }
 
+  _tactics(entry) {
+    return ROLE_TACTICS[entry?.role] ?? ROLE_TACTICS.guard;
+  }
+
   _patrol(entry, dt, speedScale = 1) {
     if (!entry.patrol.length) return;
     const goal = entry.patrol[entry.patrolIndex % entry.patrol.length];
@@ -460,10 +557,36 @@ export class PalaceSecurity {
       entry.patrolIndex = (entry.patrolIndex + 1) % entry.patrol.length;
       return;
     }
-    direction.multiplyScalar(Math.min(distance, dt * 0.62 * speedScale) / distance);
+    const speed = this._tactics(entry).patrol;
+    direction.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
     const runtime = this._runtime(entry);
     this._moveWithDetour(entry, direction, runtime, dt);
     if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(direction.x, direction.z);
+  }
+
+  /**
+   * Go and look, before anyone has shouted.
+   *
+   * A guard who half-saw something used to finish the sentence by walking the
+   * rest of his patrol loop. He now walks to where he last saw it and stands
+   * there until his memory runs out, which is what makes breaking line of
+   * sight a decision rather than an off switch.
+   */
+  _investigate(entry, dt, point, speedScale = 1) {
+    if (!point?.isVector3) return;
+    const runtime = this._runtime(entry);
+    const toward = point.clone().sub(entry.root.position).setY(0);
+    const distance = toward.length();
+    if (distance <= 1.2) {
+      if (!entry.aimAligned && distance > 1e-6) {
+        entry.root.rotation.y = Math.atan2(toward.x, toward.z);
+      }
+      return;
+    }
+    const speed = this._tactics(entry).patrol * 1.3;
+    toward.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
+    this._moveWithDetour(entry, toward, runtime, dt);
+    if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(toward.x, toward.z);
   }
 
   _combatMove(entry, dt, targetPoint, speedScale = 1) {
@@ -494,19 +617,28 @@ export class PalaceSecurity {
     const tacticalGoal = runtime.tacticalPost?.position ?? null;
     if (tacticalGoal && runtime.tacticalPost.kind === 'cover'
       && tacticalGoal.distanceTo(entry.root.position) <= 0.48) return;
-    const movementTarget = tacticalGoal
-      && tacticalGoal.distanceTo(entry.root.position) > 0.48
-      ? tacticalGoal : targetPoint;
+    const holdingPost = Boolean(tacticalGoal
+      && tacticalGoal.distanceTo(entry.root.position) > 0.48);
+    const movementTarget = holdingPost ? tacticalGoal : targetPoint;
     const toward = movementTarget.clone().sub(entry.root.position).setY(0);
     const distance = toward.length();
     if (distance < 0.001) return;
     toward.multiplyScalar(1 / distance);
+    const tactics = this._tactics(entry);
     let direction = toward;
-    let speed = entry.role === 'boss' ? 0.48 : 0.7;
-    if (distance <= 6.5) {
-      const side = String(entry.id).split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 2 ? 1 : -1;
-      direction = new THREE.Vector3(toward.z * side, 0, -toward.x * side);
-      speed *= 0.42;
+    let speed = tactics.advance;
+    /* Standoff discipline, but never while a detour is in progress: a man
+     * already walking round a wall must finish that before he starts having
+     * opinions about range, or he sidesteps into the wall he was avoiding. */
+    if (!holdingPost && runtime.detourTime <= 0) {
+      if (distance < tactics.standoff - 2) {
+        direction = toward.clone().negate();
+        speed = tactics.strafe;
+      } else if (distance <= tactics.standoff + 1.5) {
+        const side = runtime.detourSide;
+        direction = new THREE.Vector3(toward.z * side, 0, -toward.x * side);
+        speed = tactics.strafe;
+      }
     }
     this._moveWithDetour(
       entry,
@@ -635,6 +767,8 @@ export class PalaceSecurity {
     if (!playerPosition?.isVector3) return;
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
     this.fireControl.update(step);
+    (this.playerPoint ??= new THREE.Vector3()).copy(playerPosition);
+    this.contactAge += step;
     for (const entry of this.cast.all) {
       const runtime = this._runtime(entry);
       const weaponEvents = runtime.firearm.update(step);
@@ -654,9 +788,18 @@ export class PalaceSecurity {
       const seen = this._scan(entry, playerPosition, { powerCut, crouching });
       runtime.perception.tick(step);
       if (!this.alarm && entry.role === 'guard') {
+        /* A shape at the far edge of what he can see takes longer to become a
+         * man than one at four metres. Without this term the longer sight
+         * range would simply have deleted the stealth approach. */
+        const gain = seen
+          ? (powerCut ? VISION.blackoutGain : VISION.poweredGain) * THREE.MathUtils.clamp(
+            1 - (seen.distance / Math.max(1, runtime.sightRange ?? VISION.poweredDistance)),
+            VISION.minimumGainScale,
+            1,
+          )
+          : 0;
         runtime.perception.awareness = THREE.MathUtils.clamp(
-          runtime.perception.awareness
-            + (seen ? step * (powerCut ? 0.88 : 1.65) : -step * 0.72),
+          runtime.perception.awareness + (seen ? step * gain : -step * VISION.loss),
           0,
           1,
         );
@@ -668,10 +811,19 @@ export class PalaceSecurity {
       }
       entry.awareness = runtime.perception.awareness;
 
-      const remembered = seen?.point ?? runtime.perception.lastSeen;
+      /* Own eyes first, own memory second, the shared contact call last. */
+      const remembered = seen?.point
+        ?? runtime.perception.lastSeen
+        ?? this._sharedContact(entry);
       const beforeMove = entry.root.position.clone();
       if (!this.alarm && entry.role === 'guard') {
-        this._patrol(entry, step, runtime.impairments.speedScale);
+        if (runtime.perception.hasMemory
+          && runtime.perception.awareness >= INVESTIGATE_AWARENESS) {
+          this._investigate(entry, step, runtime.perception.lastSeen,
+            runtime.impairments.speedScale);
+        } else {
+          this._patrol(entry, step, runtime.impairments.speedScale);
+        }
       } else if ((this.alarm || finalEncounter) && remembered) {
         this._combatMove(entry, step, remembered, runtime.impairments.speedScale);
       }
@@ -689,7 +841,13 @@ export class PalaceSecurity {
         moving: moved > 1e-6,
       });
 
-      const targetPoint = seen?.point ?? runtime.perception.lastSeen;
+      /* Weapon up and pointed where he is going, including at a contact call
+       * he has not seen for himself. `_fire` below still demands his own
+       * unblocked sight, so facing a called position never becomes shooting
+       * at one. */
+      const targetPoint = (this.alarm || finalEncounter)
+        ? remembered
+        : (seen?.point ?? runtime.perception.lastSeen);
       const frame = runtime.aim.update(step, {
         root: entry.root,
         weaponModel: entry.weaponModel,
@@ -756,6 +914,11 @@ export class PalaceSecurity {
     };
     this.fireControl.restore(snapshot.fireControl);
     this.tacticalReservations.clear();
+    /* A contact call is live runtime state, like a live target or a settled
+     * bore: restoring a checkpoint has to forget it rather than resurrect a
+     * position from the discarded timeline. */
+    this.contactPoint = null;
+    this.contactAge = Infinity;
     const records = new Map((snapshot.entries ?? []).map((record) => [record.id, record]));
     for (const entry of this.cast.all) {
       const record = records.get(entry.id);

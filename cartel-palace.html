@@ -102,7 +102,12 @@
     <strong data-boot-title></strong><span data-boot-detail></span>
     <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./preview.html">SCENE PREVIEW</a></div>
   </div>
-  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="CARTEL PALACE" data-scene="CARTEL PALACE"></script>
+  <!-- data-ready is the NAME OF THE GLOBAL the scene publishes, not a title.
+       It read "CARTEL PALACE" while the runtime publishes window.CARTEL_PALACE,
+       so boot-guard's thirty-second watchdog found nothing and dropped its
+       opaque "did not finish loading" panel over a mission that was running
+       perfectly well underneath. That is the thirty-second "crash". -->
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="CARTEL_PALACE" data-scene="CARTEL PALACE"></script>
   <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s)s.textContent=t;};</script>
   <script type="module" src="src/cartel-palace/main.js" onerror="window.__squatchSceneFail('Could not load Cartel Palace','src/cartel-palace/main.js failed to load.')"></script>
 </body>
