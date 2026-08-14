@@ -55,9 +55,9 @@ export const RAIL = [
   { key: 'booski', name: 'Booskibro', photo: 'booski.png', model: WARDROBE.booski,
     note: 'Old money by comparison — the same gold, but on a knit, and the chain is layered rather than loud.' },
   { key: 'deathmegatron', name: 'DeathMegatron', photo: 'deathmegatron.png', model: WARDROBE.deathmegatron,
-    note: 'One of the FIVE. Boss, not crew: a sharp midnight suit and the luxury finish, and none of the men’s gold — no chain, no watch.' },
+    note: 'One of the FIVE. A midnight gown with the gold ribbing and the cinched gold belt, and still none of the men’s gold — no chain, no watch.' },
   { key: 'ape', name: 'Ape', photo: 'ape.png', model: APE_FAMILY_MEMBER.model,
-    note: 'The one who does the work. Black tee, boots and a belt, and nothing else.' },
+    note: 'The one who does the work, dressed like it: dark shirt front, open canvas work vest, silver chain and watch — never the founders’ gold.' },
   { key: 'snow', name: 'Snow', photo: 'snow.png', model: WARDROBE.snow,
     note: 'Cleans up after people. A belt and boots and nothing else, and that is the point.' },
   { key: 'shubenator', name: 'Shubenator', photo: 'shubes.png', model: WARDROBE.shubenator,
@@ -107,6 +107,7 @@ export function describe(model) {
   push('jacketColour', model.jacketColour !== undefined ? hex(model.jacketColour) : null);
   push('patches', model.patches ? 'squadron' : false);
   push('trim', model.trim ? 'collar, placket, buttons, cuffs' : false);
+  push('workVest', model.workVest ? 'open canvas, snaps, breast pocket' : false);
   push('belt', model.belt);
   push('trouserFit', model.trouserFit && model.trouserFit !== 'plain' ? model.trouserFit : false);
   push('watch', model.watch);

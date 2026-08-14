@@ -134,7 +134,7 @@ inventory of what actually renders, not a demand that every outfit is final.
 
 | Character | Current Bing outfit and silhouette |
 |---|---|
-| DeathMegatron | Slate suit; broad founder/muscle build. |
+| DeathMegatron | Midnight gown with thin gold ribbing, a wide structured strap and a cinched gold belt (owner-directed 2026-08-13 redress from her earlier suit); founder/muscle build and no jewellery unchanged. |
 | Seff | Oxblood-brown suit; medium, clean silhouette. |
 | Irish | Dark forest open shirt, short hair and beard. |
 | Gratin | Olive-brown shirt; broad seated silhouette. |
@@ -142,7 +142,7 @@ inventory of what actually renders, not a demand that every outfit is final.
 | Lag | Dark green tracksuit, cropped hair and glasses. |
 | Eric | Steel-blue shirt with warm brown hair. |
 | Willy | Deep-purple shirt and the roster's deliberately largest belly. |
-| Ape | Black tee, broad standing build and open-elbow guard stance. |
+| Ape | Dark shirt front (trimmed tee), open canvas work vest with snaps and a breast pocket, thin silver chain and silver watch (owner-directed 2026-08-13 detail pass); broad standing build and open-elbow guard stance unchanged. |
 | Hog Mama | Wine shirt, curvy adult silhouette and authoritative face photo. |
 | The Shubenator | Bright blue tee and the broadest founder build. |
 | Rippinflow | Deep-purple tee with one thin silver chain and no pendant. |

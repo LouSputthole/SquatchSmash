@@ -131,7 +131,13 @@ const BASE_SHOTS = [
 
   { name: 'deathmegatron-full', who: 'deathmegatron', rig: 'studio', mark: 'full', spin: 0.5 },
   { name: 'deathmegatron-chest', who: 'deathmegatron', rig: 'studio', mark: 'chest', yaw: 0.12 },
+  /* The 2026-08-13 pass: her gown's belt line and Ape's vest are new, so both
+   * get the close camera the tux and the chains already had. */
+  { name: 'deathmegatron-waist', who: 'deathmegatron', rig: 'studio', mark: 'waist', yaw: 0.2 },
+  { name: 'deathmegatron-bing', who: 'deathmegatron', rig: 'bing', mark: 'full', spin: 0.5 },
   { name: 'ape-full', who: 'ape', rig: 'studio', mark: 'full', spin: 0.5 },
+  { name: 'ape-chest', who: 'ape', rig: 'studio', mark: 'chest', yaw: 0.12 },
+  { name: 'ape-bing', who: 'ape', rig: 'bing', mark: 'full', spin: 0.5 },
   { name: 'snow-full', who: 'snow', rig: 'studio', mark: 'full', spin: 0.5 },
   { name: 'rippinflow-chain', who: 'rippinflow', rig: 'studio', mark: 'chest', yaw: 0.12 },
   { name: 'numbskull-full', who: 'numbskull', rig: 'studio', mark: 'full', spin: 0.5 },
