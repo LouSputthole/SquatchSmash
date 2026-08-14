@@ -777,6 +777,10 @@ const SILVERCASE_APE = Object.freeze({
   dress: 'suit', shirt: 0xf2efe7, shirtAccent: 0xf2efe7,
   jacketColour: 0x111116, trouserColour: 0x111116, tieColour: 0x09090c,
   pocketSquare: false, trim: true, trouserFit: 'creased',
+  /* The Family row's work vest and silver metal stay on the club floor; the
+   * Pulp Fiction suit turns them off explicitly. Mirrors the overlay in
+   * src/silvercase/cast/ape.js, which the test walks field by field. */
+  workVest: false, chain: false, watch: false,
   face: 'assets/faces/ape.png',
 });
 const SILVERCASE_DEKE = Object.freeze({

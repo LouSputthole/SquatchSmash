@@ -163,17 +163,27 @@ export const BOOSKI = Object.freeze({
  * stays — `trim` and `luxury` are what actually mark her as elevated above
  * the rank and file, the same two flags Lou and Booski carry and the ordinary
  * floor regulars do not — and the jewellery comes off rather than getting
- * reassigned to a smaller version of itself. What is left is a sharp, fitted
- * midnight suit with one accessory, which is `docs/OUTCOMES-AND-NPCS.md`'s
- * own read on her: THE MUSCLE, "few words, all physical," not a woman who
- * needs a chain to be taken seriously in this room.
+ * reassigned to a smaller version of itself.
+ *
+ * Owner, second pass (2026-08-13): put her in a dress. `dress: 'gown'` is the
+ * same skirt-and-bodice build the Silver Room already dresses Margo and its
+ * diners in — a garment the roster owns, not one invented for her. What keeps
+ * her herself and not a copy of Margo is everything the suit already said:
+ * near-black midnight instead of colour, `luxury`'s thin gold ribbing on the
+ * bodice standing in for the jewellery she still does not wear, the gold belt
+ * cinching the gown at the bodice/skirt seam where a waistband used to sit,
+ * and a wide structured strap (`gownStrapWidth`) built rather than a thin one
+ * slipped into. `docs/OUTCOMES-AND-NPCS.md`'s read on her does not move: THE
+ * MUSCLE, "few words, all physical." She is exactly that in a dress, which is
+ * the point of playing it straight rather than hedging it.
  */
 export const DEATHMEGATRON = Object.freeze({
   height: 1.79,
   build: 1.12,
   gender: 'female',
   bodyShape: 'curvy',
-  dress: 'suit',
+  dress: 'gown',
+  gownStrapWidth: 0.058,
   shirt: 0x1a1d2a,
   shirtAccent: 0xc7a66a,
   hair: 'tied',
@@ -182,7 +192,6 @@ export const DEATHMEGATRON = Object.freeze({
   luxury: true,
   trim: true,
   belt: 'gold',
-  trouserFit: 'creased',
 });
 
 export const SNOW = Object.freeze({

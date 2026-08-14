@@ -149,7 +149,20 @@ differences computed rather than described.
 `chef`, `porter`, `gown`, `bikini`, `bomber`, and now `argyle` and `camp`);
 `tuxedo`, `neckline`, `luxury`, `bowtie`, `watch`, `bracelet`, `chainStyle`,
 `pendantStyle`, `hat`, `pinstripe`, `threePiece`, `knickers`, `pattern`,
-`shoeStyle`, `bandana` and `barefoot` layer on top of it.
+`shoeStyle`, `bandana`, `barefoot`, `workVest` and `gownStrapWidth` layer on
+top of it.
+
+- `workVest` is an open sleeveless canvas layer over whatever `dress` already
+  is — two `frontPanel`s with a turned edge, steel snaps and a breast pocket,
+  strapped over the shoulder. Built for Ape's detail pass; the deliberate gap
+  between the fronts shows the garment underneath, which is the point of
+  wearing it over something.
+- `gownStrapWidth` widens a gown's shoulder strap: 0.03 is a thin evening
+  slip strap, ~0.06 reads as a structured dress. DeathMegatron's gown is the
+  wide case; the Silver Room's women keep the thin default.
+- A `belt` on a `gown` moves up to the bodice/skirt seam and deepens to clear
+  both the skirt's top ring and the breathing bodice — the hip line it sits
+  on for everyone else is inside the skirt (rule 8 again).
 
 - `argyle` is a sweater vest over a collared shirt. It takes an `{ a, b, line }`
   colourway, and **both diamond colours have to contrast with the vest field**
@@ -187,8 +200,13 @@ that the horn clears the belly on the widest man who wears one, that every
 visible part of the watch stands proud of the sleeve at every build on the
 roster, that the bracelet is on the other wrist, that the waistcoat and the
 chalk stripes are in front of the belly they are worn over, and that the
-stockings are cut from the vest's colourway. "It exists" is the easy half;
-"you can see it" is the half that kept regressing.
+stockings are cut from the vest's colourway. The August 2026 pass added the
+same class of assertion for Ape's work vest (over the shirt front, the gap
+showing the placket, snaps proud of the cloth, pocket on his own left) and
+for DeathMegatron's belted gown (band above the skirt's top ring, proud of
+the bodice at full inhale, ribbing in front of the bodice, and still no chain
+and no watch). "It exists" is the easy half; "you can see it" is the half
+that kept regressing.
 
 ## The worked example
 

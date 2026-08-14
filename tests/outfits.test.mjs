@@ -26,6 +26,8 @@ import { ensureDomShim } from '../tools/three-shim.mjs';
 ensureDomShim();
 
 import { BADA_BING_PERFORMERS, makePerson, Npc } from '../src/bing/cast.js';
+import { APE_FAMILY_MEMBER } from '../src/bing/family-ape.js';
+import { SILVERCASE_APE_OUTFIT } from '../src/silvercase/cast/ape.js';
 import {
   appearancesOf,
   PROCEDURAL_APPEARANCE_TEMPLATES,
@@ -1017,6 +1019,10 @@ const NAMED_DRESS_MATRIX = [
   ['chef', { dress: 'chef' }],
   ['porter', { dress: 'porter' }],
   ['gown', { dress: 'gown', gender: 'female', bodyShape: 'curvy', adult: true }],
+  // DeathMegatron's exact look: the one belted, gold-ribbed gown on the roster.
+  ['gown-belted', DEATHMEGATRON],
+  // Ape's exact look: the trimmed tee under the open canvas work vest.
+  ['tee-workvest', APE_FAMILY_MEMBER.model],
   ['bikini', {
     dress: 'bikini', gender: 'female', bodyShape: 'curvy', adult: true,
   }],
@@ -1179,4 +1185,133 @@ test('a knee-length knicker leaves a stocking, not a bare shin', () => {
     'the stocking starts under the knickers rather than over them',
   );
   assert.ok(stocking.min.y < 0.2, 'and runs down to the shoe');
+});
+
+/* ------------------------------------------------------------------ */
+/* The August 2026 detail pass: Ape's work vest, DeathMegatron's gown  */
+/* ------------------------------------------------------------------ */
+
+test('Ape wears the open work vest over a trimmed tee, and every piece is visible', () => {
+  const { group } = makePerson(APE_FAMILY_MEMBER.model);
+  group.updateMatrixWorld(true);
+
+  for (const part of [
+    'workvest.front.left', 'workvest.front.right',
+    'workvest.front.left.edge', 'workvest.front.right.edge',
+    'workvest.pocket', 'workvest.pocket.flap',
+    'workvest.strap.left', 'workvest.strap.right',
+  ]) {
+    assert.ok(group.getObjectByName(part), `no ${part}`);
+  }
+  const snaps = [];
+  group.traverse((m) => { if (m.name === 'workvest.snap') snaps.push(m); });
+  assert.equal(snaps.length, 4, 'two snap studs per front');
+
+  /* The vest hangs OVER the shirt front, and the gap between its fronts is
+   * where the shirt shows: placket and buttons on the centreline, panels
+   * clear of it either side. */
+  const left = boxOf(group, 'workvest.front.left');
+  const right = boxOf(group, 'workvest.front.right');
+  const placket = boxOf(group, 'shirt.placket');
+  assert.ok(placket, 'the trimmed tee has a shirt front under the vest');
+  assert.ok(
+    left.max.z > placket.max.z && right.max.z > placket.max.z,
+    'the vest is worn over the shirt front, not behind it',
+  );
+  assert.ok(
+    left.max.x < placket.min.x && right.min.x > placket.max.x,
+    'the open gap between the fronts leaves the placket and buttons visible',
+  );
+  /* Snaps stand proud of the cloth they fasten — measured in the panel's OWN
+   * frame, because the panel is tilted to drape on his heavy trunk and a
+   * world-z box comparison across a tilted panel compares two different
+   * heights of it. The stud is a child of the panel group, so its local z
+   * against the published cloth face is exactly the question. */
+  for (const snap of snaps) {
+    const face = snap.parent.userData.faceZ;
+    assert.ok(Number.isFinite(face), 'the vest panel publishes its cloth face');
+    assert.ok(
+      snap.position.z - 0.003 >= face - 1e-6,
+      `a snap is buried in the vest cloth (stud back ${(snap.position.z - 0.003).toFixed(4)}, face ${face.toFixed(4)})`,
+    );
+  }
+  // The pocket is on his own left, which is +X — the pocket-square rule.
+  const pocket = boxOf(group, 'workvest.pocket');
+  assert.ok(pocket.getCenter(new THREE.Vector3()).x > 0, 'the pocket is on his left front');
+
+  /* The metal is Rippinflow's silver, never the founders' gold: a thin
+   * silver line with nothing hanging off it, and a silver watch. */
+  assert.ok(group.getObjectByName('necklace.chain.silver'), 'the thin silver chain');
+  assert.equal(group.getObjectByName('necklace.chain'), undefined, 'no gold rope');
+  assert.equal(group.getObjectByName('necklace.pendant'), undefined, 'nothing hangs off it');
+  const band = boxOf(group, 'person.watch.band.silver');
+  assert.ok(band, 'the silver watch');
+  assert.ok(band.getCenter(new THREE.Vector3()).x > 0, 'worn on his left wrist');
+});
+
+test('the Silver Case suit keeps Ape\'s vest and metal off, explicitly', () => {
+  /* The scene outfit spreads ON TOP of the Family row, so the black-tailoring
+   * beat only stays black tailoring while it turns the new layers off. */
+  const { group } = makePerson({ ...APE_FAMILY_MEMBER.model, ...SILVERCASE_APE_OUTFIT });
+  assert.equal(group.getObjectByName('workvest.front.left'), undefined, 'no canvas over the suit');
+  assert.equal(group.getObjectByName('necklace.chain.silver'), undefined, 'no chain on this job');
+  assert.equal(group.getObjectByName('person.watch.dial'), undefined, 'no watch on this job');
+});
+
+test('DeathMegatron\'s gown cinches with the gold belt, clear of the skirt and the breathing bodice', () => {
+  const person = makePerson(DEATHMEGATRON);
+  const { group } = person;
+  group.updateMatrixWorld(true);
+
+  const skirt = boxOf(group, 'gown.skirt');
+  const bodice = boxOf(group, 'gown.bodice');
+  const strap = boxOf(group, 'belt.strap');
+  const buckle = boxOf(group, 'belt.buckle');
+  assert.ok(skirt && bodice && strap && buckle, 'the gown and its belt are reusable by name');
+
+  /* The hip line everyone else's belt sits on is INSIDE this skirt — the
+   * skirt's top ring is deeper than the band. The gown belt therefore rides
+   * above the skirt, on the bodice, at the seam a dress actually cinches. */
+  assert.ok(
+    strap.min.y > skirt.max.y,
+    `the belt clears the skirt top (belt bottom ${strap.min.y.toFixed(4)}, skirt top ${skirt.max.y.toFixed(4)})`,
+  );
+  assert.ok(strap.min.y > bodice.min.y && strap.max.y < bodice.max.y,
+    'the band lies on the bodice');
+  assert.ok(buckle.max.z > strap.max.z, 'the buckle stands proud of the band');
+
+  // And it stays proud of the bodice at full inhale — the bodice breathes
+  // with torsoWrap and the belt does not.
+  person.torsoWrap.scale.set(1.02, 1, 1.02);
+  group.updateMatrixWorld(true);
+  const inhaleBodice = boxOf(group, 'gown.bodice');
+  const inhaleStrap = boxOf(group, 'belt.strap');
+  assert.ok(
+    inhaleStrap.max.z > inhaleBodice.max.z,
+    `the belt is swallowed by the bodice at full inhale `
+    + `(belt ${inhaleStrap.max.z.toFixed(4)}, bodice ${inhaleBodice.max.z.toFixed(4)})`,
+  );
+  person.torsoWrap.scale.set(1, 1, 1);
+  group.updateMatrixWorld(true);
+
+  /* The gold that marks her stays fabric-and-buckle, never jewellery: the
+   * luxury ribbing stands proud of the bodice, and there is still no chain
+   * and no watch — the men's vocabulary is not hers. */
+  const ribs = [];
+  group.traverse((m) => { if (m.name === 'shirt.luxury.rib') ribs.push(m); });
+  assert.ok(ribs.length >= 6, 'the bodice carries the gold ribbing');
+  for (const rib of ribs) {
+    assert.ok(new THREE.Box3().setFromObject(rib).max.z > bodice.max.z,
+      'a rib is drawn inside the bodice');
+  }
+  assert.equal(group.getObjectByName('necklace.chain'), undefined, 'no chain');
+  assert.equal(group.getObjectByName('person.watch.dial'), undefined, 'no watch');
+
+  // The strap is the built, structured one — not the slip default.
+  const gownStrap = boxOf(group, 'gown.strap.left');
+  const strapWidth = gownStrap.getSize(new THREE.Vector3()).x;
+  assert.ok(
+    strapWidth > 0.045,
+    `the strap is a structured ${(strapWidth * 1000).toFixed(1)}mm, not a slip strap`,
+  );
 });

@@ -364,9 +364,15 @@ export function makePerson(o = {}) {
      *              or false when the scene calls for plain, severe tailoring
      *   jacketColour override the garment colour independently of `shirt`,
      *             which a bomber needs because its knits are the accent
-     *   patches   squadron patches on a bomber's shoulder and chest */
+     *   patches   squadron patches on a bomber's shoulder and chest
+     *   workVest  an open, sleeveless canvas layer over whatever `dress`
+     *             already is -- unbuttoned, strapped over the shoulder, with a
+     *             breast pocket. Two `frontPanel`s, exactly the camp shirt's
+     *             own technique, so it drapes on a gut or over a belt instead
+     *             of floating at a fixed depth in front of either */
     trim = false, belt = false, trouserFit = 'plain',
     jacketColour: jacketColourOption = null, waistcoatColour = 0x191920, patches = false,
+    workVest = false, workVestColour = 0x33362a,
     /* Headwear, tailoring and the golf course. All off by default, because
      * every one of them is meshes on a figure and the room behind Lou does
      * not need a hat band.
@@ -377,10 +383,14 @@ export function makePerson(o = {}) {
      *   argyle     { a, b, line } diamonds, for the vest and the stockings
      *   knickers   plus-fours, so the sock is the leg from the knee down
      *   pattern    a repeating motif on a camp shirt's two front panels
-     *   shoeStyle  'saddle' is the two-tone golf shoe */
+     *   shoeStyle  'saddle' is the two-tone golf shoe
+     *   gownStrapWidth  metres, the shoulder strap on `dress: 'gown'` -- 0.03
+     *              is a thin evening strap; wider reads as a structured dress
+     *              strap rather than a slip, without touching the bodice or
+     *              skirt any other gown on the roster already relies on */
     hat = false, hatColour = null, pinstripe = false, threePiece = false,
     argyle = null, knickers = false, pattern = false, shoeStyle = 'plain',
-    trouserColour = null,
+    trouserColour = null, gownStrapWidth = 0.03,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -1826,14 +1836,22 @@ export function makePerson(o = {}) {
       }));
     }
   }
-  if (belt && !performanceWear && dress !== 'gown') {
+  if (belt && !performanceWear) {
     /* A waistband and a buckle. This is the join the figure has never had --
      * shirt above, trousers below, and nothing saying where one stopped. On
      * Lou it is also the only gold on him below the neck, so it is worth the
      * four boxes.
      *
      * It sits on the hip line and is deliberately a shade darker than the
-     * trousers even in leather, because a belt that matches is a stripe. */
+     * trousers even in leather, because a belt that matches is a stripe.
+     *
+     * A gown has no trousers to join to a shirt, and its skirt swallows the
+     * hip line entirely -- the skirt's top radius is DEEPER than this band, so
+     * a belt left at 1.145 is drawn inside the cloth and the buckle never
+     * appears (rule 8: measure, do not assume). The gown's own waist is the
+     * bodice/skirt seam just above it, so the band moves up onto the bodice,
+     * clear of the skirt's top ring, and reads as a cinched dress belt. See
+     * DeathMegatron, the one gown on the roster that wears one. */
     const gold = belt === 'gold';
     const strapMat = mat({
       color: gold ? 0x3a2a18 : 0x1a1416, roughness: 0.66, metalness: 0.04,
@@ -1841,25 +1859,106 @@ export function makePerson(o = {}) {
     const buckleMat = mat({
       color: gold ? 0xd9b64a : 0xb9bec6, roughness: 0.2, metalness: 0.95,
     });
-    const beltY = 1.145 + gutOn * 0.02;
+    const beltY = dress === 'gown' ? 1.19 : 1.145 + gutOn * 0.02;
+    /* The bodice under a gown belt is on the BREATHING wrap and is itself
+     * proud of the ribcage, so the band needs extra depth: at full inhale the
+     * bodice front reaches D * 1.025 * 1.02, and a band at the suit depth
+     * would be swallowed once a breath. Everyone else's belt sits on the
+     * static hips and keeps the depth it always had. */
+    const beltDeep = dress === 'gown' ? 1.045 : 1;
     body.add(box({
       name: 'belt.strap',
-      size: [0.352 * t, 0.044, D * 2.09], pos: [0, beltY, 0], mat: strapMat,
+      size: [0.352 * t, 0.044, D * 2.09 * beltDeep], pos: [0, beltY, 0], mat: strapMat,
     }));
     body.add(box({
       name: 'belt.buckle',
-      size: [0.062, 0.052, 0.014], pos: [0, beltY, D * 1.07], mat: buckleMat,
+      size: [0.062, 0.052, 0.014], pos: [0, beltY, D * 1.07 * beltDeep], mat: buckleMat,
     }));
     body.add(box({
       name: 'belt.buckle.tongue',
-      size: [0.010, 0.030, 0.006], pos: [0, beltY, D * 1.085], mat: strapMat,
+      size: [0.010, 0.030, 0.006], pos: [0, beltY, D * 1.085 * beltDeep], mat: strapMat,
     }));
     // Two keepers, so the strap reads as threaded rather than painted on.
     for (const side of [-1, 1]) {
       body.add(box({
         name: 'belt.keeper',
-        size: [0.014, 0.050, D * 2.11],
+        size: [0.014, 0.050, D * 2.11 * beltDeep],
         pos: [side * 0.098 * t, beltY, 0], mat: mat({ color: 0x120e10, roughness: 0.8 }),
+      }));
+    }
+  }
+
+  if (workVest && !performanceWear) {
+    /* ---- an open work vest ----
+     *
+     * A sleeveless canvas layer over whatever `dress` already built --
+     * unbuttoned, strapped over the shoulder rather than sewn to it, with a
+     * breast pocket. It is the camp shirt's own two-front technique
+     * (`frontPanel` measures the torso at top and bottom and tilts each panel
+     * to lie on it) without the camp shirt's collar or undershirt swap: a
+     * vest has no collar, and what shows through the deliberate gap between
+     * the fronts is the garment underneath, which is the whole point of
+     * wearing this over something rather than instead of it.
+     *
+     * Ape is the wearer this was built for: the one who does the work,
+     * dressed like it -- canvas, steel snaps, a pocket that holds something
+     * -- rather than dressed like nothing. */
+    const workVestMat = mat({ color: workVestColour, roughness: 0.86 });
+    const workVestEdgeMat = mat({
+      color: new THREE.Color(workVestColour).lerp(new THREE.Color(0x000000), 0.3).getHex(),
+      roughness: 0.88,
+    });
+    const workVestSnapMat = mat({ color: 0x9a978c, roughness: 0.4, metalness: 0.55 });
+    const vestTop = 1.498;
+    const vestBottom = 1.048;
+    const vestX = 0.128 * t;
+    for (const side of [-1, 1]) {
+      const width = 0.148 * t;
+      // `frontPanel` parents itself to `torsoWrap` -- see its own note.
+      const panel = frontPanel({
+        name: `workvest.front.${side < 0 ? 'left' : 'right'}`,
+        width, yTop: vestTop, yBottom: vestBottom,
+        thickness: 0.020, mat: workVestMat, lift: 0.024,
+        x: side * vestX, splay: side * 0.06,
+      });
+      const face = panel.userData.faceZ;
+      // The turned edge of the open placket, same shape as the camp shirt's.
+      panel.add(box({
+        name: `workvest.front.${side < 0 ? 'left' : 'right'}.edge`,
+        size: [0.016, panel.userData.halfHeight * 2, 0.022],
+        pos: [-side * (width / 2 - 0.008), 0, 0.004], mat: workVestEdgeMat,
+      }));
+      // Two snap studs down the open edge -- a vest that fastens, worn open.
+      for (const dy of [panel.userData.halfHeight * 0.35, -panel.userData.halfHeight * 0.35]) {
+        panel.add(cylinder({
+          name: 'workvest.snap',
+          r: 0.008, h: 0.006, seg: 8, rotX: Math.PI / 2,
+          pos: [-side * (width / 2 - 0.016), dy, face + 0.004], mat: workVestSnapMat,
+        }));
+      }
+      // A patch pocket with a flap, on his left front -- the figures face +Z,
+      // so a character's own left is +X (the pocket-square rule).
+      if (side > 0) {
+        panel.add(box({
+          name: 'workvest.pocket',
+          size: [width * 0.5, 0.072, 0.012],
+          pos: [0, panel.userData.halfHeight * 0.3, face + 0.006], mat: workVestMat,
+        }));
+        panel.add(box({
+          name: 'workvest.pocket.flap',
+          size: [width * 0.56, 0.024, 0.014],
+          pos: [0, panel.userData.halfHeight * 0.3 + 0.042, face + 0.008], mat: workVestEdgeMat,
+        }));
+      }
+    }
+    /* Shoulder straps, directly above each front so the vest hangs FROM them
+     * -- the gown strap's own height and depth, which already clears the
+     * head on every build on the roster; only width, x and colour differ. A
+     * vest with no sleeves still has to be held up by something. */
+    for (const side of [-1, 1]) {
+      wearOnTorso(box({
+        name: `workvest.strap.${side < 0 ? 'left' : 'right'}`,
+        size: [0.080, 0.14, 0.02], pos: [side * vestX, 1.47, D * 0.4], mat: workVestMat,
       }));
     }
   }
@@ -1983,11 +2082,14 @@ export function makePerson(o = {}) {
       name: 'gown.bodice',
       size: [0.31 * t, 0.34, D * 2.05], pos: [0, 1.32, 0], mat: gownMat,
     }));
-    // Straps, and the neckline they imply
+    /* Straps, and the neckline they imply. Width is the one thing that
+     * differs gown to gown -- see `gownStrapWidth` above -- because a thin
+     * strap reads as an evening slip and a wide one reads as a built dress,
+     * and both are correct on different women. */
     for (const [side, sx] of [['left', -1], ['right', 1]]) {
       wearOnTorso(box({
         name: `gown.strap.${side}`,
-        size: [0.03, 0.14, 0.02], pos: [sx * 0.09, 1.47, D * 0.4], mat: gownMat,
+        size: [gownStrapWidth, 0.14, 0.02], pos: [sx * 0.09, 1.47, D * 0.4], mat: gownMat,
       }));
     }
   }
