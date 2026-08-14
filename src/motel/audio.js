@@ -1,5 +1,10 @@
 // Procedural audio for THE JERKY MOTEL — humid, cheap, tense.
 // Same WebAudio-only approach as the campground scene: no asset files.
+//
+// One exception, and it is deliberate: the .45 Tony carries is the shared
+// weapon system's .45, so its shot, its reload and its dry click come out of
+// `assets/sfx` through `weaponAudio` below rather than out of an oscillator.
+import { WEAPON_IDS, weaponCue, weaponCueSlots } from '../core/weapons/catalog.js';
 
 let ctx = null;
 let master = null;
@@ -36,15 +41,53 @@ export function init(options = {}) {
   loadVoiceIndex(options.priorityVoice || []);
 }
 
+/**
+ * The .45's own five recordings, plus the stand-ins `playWeaponCue` falls back
+ * to and the two handling noises `equip`/`stow` play.
+ *
+ * Named from the catalog rather than typed out, so a slot added to the shared
+ * weapon system arrives here as well. ONLY THE REVOLVER: the Motel racks one
+ * gun off `src/core/weapons/`, and preloading the other six weapons' banks
+ * would be fifty files this scene never plays. Every name below is a file that
+ * exists in `assets/sfx` — a 404 here is a 404 the Motel's own verifier fails
+ * on, which is the correct place for that to hurt.
+ */
+const WEAPON_CUES = [
+  ...weaponCueSlots(WEAPON_IDS.REVOLVER).map((slot) => weaponCue(WEAPON_IDS.REVOLVER, slot)),
+  'gun.shot', 'gun.reload', 'gun.dry', 'heist.weapon.check',
+  'gun.pickup', 'heist.weapon.down',
+];
+
 /* Recorded cues this scene prefers over its own synthesis. Everything here
  * keeps its procedural fallback, so a missing file costs nothing. */
-const SAMPLE_CUES = [
+const SAMPLE_CUES = [...new Set([
   'car.engine.start', 'car.engine.idle', 'car.engine.rev',
   'car.tire.skid', 'car.horn', 'car.impact.metal', 'gun.shot',
   // The motel was synthesising all of these while the recordings sat on disk.
   'door.locked', 'car.door', 'ice.drop', 'pipe.knock.cistern',
   'footstep.tile', 'footstep.wood', 'footstep.rug', 'footstep.street.wet',
-];
+  ...WEAPON_CUES,
+])];
+
+/**
+ * What `src/core/weapons/` calls an AudioEngine.
+ *
+ * Two methods, and the Motel has both already: can this recording be played,
+ * and play it. The scene's own synthesis is deliberately NOT a fallback here —
+ * `playWeaponCue` already owns that decision and falls through to a verified
+ * stand-in recording, and a synthesised blip standing in for a .45 is exactly
+ * the "one gun with seven models on it" the shared bank exists to avoid.
+ */
+export const weaponAudio = {
+  hasSample: (name) => samples.get(name) != null,
+  play: (name, { volume = 1, rate = 1, delay = 0 } = {}) => {
+    if (delay > 0) {
+      setTimeout(() => playSample(name, { volume, rate }), delay * 1000);
+      return true;
+    }
+    return playSample(name, { volume, rate });
+  },
+};
 
 // ---------- Recorded samples ----------
 // Preferred when decoded; every caller keeps its synth fallback, so nothing

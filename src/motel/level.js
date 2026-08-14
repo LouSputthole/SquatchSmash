@@ -398,14 +398,31 @@ export function buildMotel(scene, renderer) {
   wall(2.0, 4.0, R.z1, R.z1 + 0.3, 2.6, DECK_Y, C.wall);     // over the window
   wall(4.0, R.x1, R.z1, R.z1 + 0.3, 0, DECK_Y, C.wall);
 
-  // The front door itself — hinged, and it closes behind you
+  /* The front door itself — hinged, and it starts SHUT.
+   *
+   * It used to be built open with its blocker disabled, which made the only
+   * door in the scene a hole in the wall from the moment the level loaded:
+   * hold W from the lot at (0, 2) and Tony walked straight into room twelve
+   * in phase `lot`, with `knocked` false and `enteredRoom` false — and every
+   * scripted beat of the scene is downstream of a knock that never happened.
+   *
+   * Closed is solid; `openDoor()` disables the blocker when the leaf swings. */
   const frontDoor = makeDoor(1.9, 2.7, C.door);
   frontDoor.group.position.set(-1.05, 0.02, R.z1 + 0.15);
   scene.add(frontDoor.group);
   frontDoor.collider = block(-1.1, 1.0, R.z1, R.z1 + 0.3, 0, 2.7, 'door12');
-  frontDoor.collider.enabled = false;
-  frontDoor.open = true;
+  frontDoor.open = false;
   refs.frontDoor = frontDoor;
+
+  /* The man standing in the open doorway.
+   *
+   * Between the knock and the answered doorstep wheel the leaf is open and
+   * Rico is filling the opening. Actors do not collide with the player in this
+   * scene, so his body is this box: the runtime enables it for exactly that
+   * window and nothing else touches it. */
+  const threshold = block(-1.1, 1.0, R.z1 - 0.5, R.z1, 0, 2.4, 'door12-threshold');
+  threshold.enabled = false;
+  refs.roomTwelveThreshold = threshold;
 
   // Front window of room twelve — smashable, and Snow can see you through it
   const win12 = boxMesh(1.98, 1.48, 0.12, C.glass, 3.0, 1.85, R.z1 + 0.15, { emissive: 0x16303a });

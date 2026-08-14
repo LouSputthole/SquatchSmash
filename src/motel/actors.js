@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { lambert } from '../../game/src/world.js';
 import { Mouth } from '../core/mouth.js';
+import { weaponDef } from '../core/weapons/catalog.js';
+import { buildRevolver } from '../core/weapons/models.js';
 
 // ---------------------------------------------------------------------------
 // Everybody in the motel who is not Prospect.
@@ -509,44 +511,37 @@ const WEAPON_BUILDERS = {
     g.add(hammer);
     return g;
   },
+  /* THE .45 IS THE SHARED .45.
+   *
+   * Owner, on the old one: "WHat the fuck is this revolver? Lets used the
+   * shared guns we already have built." It was six boxes and a torus, half a
+   * metre of barrel, no trigger and no rounds — the only gun in the game that
+   * was not `src/core/weapons/models.js`, which is where the mansion armory,
+   * the siege and the Palace all get theirs.
+   *
+   * `buildRevolver()` is the real Colt-pattern .45: fluted cylinder with six
+   * visible brass rounds, ejector rod, crane, trigger inside its guard, and a
+   * grip that rakes the right way. It is modelled at life size (0.30 m)
+   * pointing down -Z, the convention the whole weapon system holds, aims and
+   * ejects brass against — so nothing here touches its transform. The prop
+   * scale is applied only where the Motel needs it read on a dark carpet at
+   * arm's length; the first-person copy is mounted by `WeaponSystem` at its
+   * own scale. */
   revolver: () => {
     const g = new THREE.Group();
     g.name = 'revolver';
-    const frame = box(0.13, 0.2, 0.22, 0x3a3a42);
-    frame.name = 'revolver.frame';
-    g.add(frame);
-    const barrel = box(0.09, 0.1, 0.42, 0x55555f);
-    barrel.name = 'revolver.barrel';
-    barrel.position.set(0, 0.08, 0.3);
-    g.add(barrel);
-    const drum = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.105, 0.105, 0.18, 12),
-      lambert(0x6a6a72, { emissive: 0x18181c }),
-    );
-    drum.name = 'revolver.cylinder';
-    drum.rotation.z = Math.PI / 2;
-    drum.position.set(0, 0.04, 0.09);
-    g.add(drum);
-    const grip = box(0.12, 0.32, 0.16, 0x4b2b1c);
-    grip.name = 'revolver.grip';
-    grip.position.set(0, -0.23, -0.01);
-    grip.rotation.x = -0.22;
-    g.add(grip);
-    const muzzle = new THREE.Mesh(
-      new THREE.TorusGeometry(0.045, 0.012, 6, 14),
-      lambert(0x24242a, { emissive: 0x0b0b0d }),
-    );
-    muzzle.name = 'revolver.muzzle';
-    muzzle.position.set(0, 0.08, 0.515);
-    g.add(muzzle);
-    const hammer = box(0.07, 0.09, 0.08, 0x303038);
-    hammer.name = 'revolver.hammer';
-    hammer.position.set(0, 0.15, -0.05);
-    hammer.rotation.x = -0.35;
-    g.add(hammer);
+    const gun = buildRevolver();
+    gun.scale.setScalar(REVOLVER_PROP_SCALE);
+    g.add(gun);
     return g;
   },
 };
+
+/** A life-size .45 lying in a motel car park is two inches of grey. */
+const REVOLVER_PROP_SCALE = 1.9;
+
+/** The shared catalog's heavy-frame .45 — six, slow, and it settles arguments. */
+const SHARED_REVOLVER = weaponDef('revolver');
 
 export const WEAPON_STATS = {
   fists:        { name: 'Sasquatch fists', dmg: 26, reach: 3.0, lethal: false, rate: 0.45, improvised: true },
@@ -560,7 +555,22 @@ export const WEAPON_STATS = {
   crowbar:      { name: 'Trunk crowbar', dmg: 38, reach: 3.3, lethal: false, rate: 0.5, improvised: true },
   thermometer:  { name: 'Meat thermometer', dmg: 14, reach: 2.6, lethal: false, rate: 0.4, improvised: true },
   pistol:       { name: 'Pistol', dmg: 30, reach: 26, lethal: true, rate: 1.5, ranged: true },
-  revolver:     { name: 'Compact revolver', dmg: 45, reach: 30, lethal: true, rate: 0.9, ranged: true, ammo: 6 },
+  /* THE ONE GUN THIS SCENE RACKS OFF THE SHARED SYSTEM.
+   *
+   * `shared` is the catalog id, and it is what makes the difference: the
+   * model, the six-round cylinder, the two-phase reload that dumps brass, the
+   * muzzle flash and all five recordings come from `src/core/weapons/`.
+   * Capacity and cadence are READ from that catalog rather than typed again
+   * here, so the gun in Tony's hands and the gun in the armory cannot drift.
+   *
+   * What stays local is what the shared system says is not its business:
+   * damage against this scene's actors, and the reach the Motel's own hitscan
+   * uses. He still calls it a compact revolver, because he would. */
+  revolver:     {
+    name: 'Compact revolver', shared: SHARED_REVOLVER.id,
+    dmg: 45, reach: 30, lethal: true,
+    rate: 1 / SHARED_REVOLVER.rps, ranged: true, ammo: SHARED_REVOLVER.capacity,
+  },
   handcannon:   { name: 'Sasquatch hand cannon', dmg: 90, reach: 34, lethal: true, rate: 1.3, ranged: true, ammo: 4 },
   /* Seven rounds, one man each, and every one of them audible from the road.
    * It out-damages the compact revolver and comes up faster than anything else

@@ -18,6 +18,10 @@ import { motelSpokenWords, motelVoiceCue, motelVoiceProfile } from './voice.js';
 export const MOTEL_STORY_LINES = Object.freeze([
   ['Prospect', 'The coupon expired in March. So did my patience.'],
   ['Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'],
+  /* Going back to the glovebox a second time. The line above is the pickup and
+   * happens once; this is what a man says when he checks a gun he already
+   * knows the contents of, and it will not repeat inside its cooldown. */
+  ['Prospect', 'Still six. They do not breed in there.'],
   /* The Silverback Commander: Snow hands it over in the car, it rides
    * concealed through the whole transaction, and Rico only finds out it exists
    * if Tony chooses to open the room with it. */
