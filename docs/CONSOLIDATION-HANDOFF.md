@@ -108,7 +108,7 @@ bcd5b81 Import the finished Beef Run and align its cast with campaign canon
 4b055ea Connect the Beef Run to the campaign spine
 ```
 
-## Latest focused verification â€” 2026-07-31
+## Latest focused verification — 2026-07-31
 
 The focused audio/phone follow-up was verified against the current production
 base before publication:
