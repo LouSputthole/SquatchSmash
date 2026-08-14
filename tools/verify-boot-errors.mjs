@@ -137,26 +137,29 @@ const CASES = [
     // A dev tool launched from the preview menu goes back to the menu.
     recovery: 'preview.html',
   },
+  /* The three noRecovery allowlist entries that used to sit here are gone:
+   * heist.html now carries the shared boot guard + onerror like every other
+   * scene page, and roster/wardrobe had their inline modules extracted to
+   * external entries (src/roster/main.js, src/wardrobe/main.js) specifically
+   * so a blocked import fires the script element's onerror instead of dying
+   * silently. All three are real assertions now. */
   {
     page: 'heist.html',
     module: 'src/heist/main.js',
     scene: 'THE TAKE',
-    noRecovery: 'heist.html has no boot guard and no onerror on its module script; '
-      + 'a blocked src/heist/main.js leaves a start card whose BEGIN does nothing',
   },
   {
     page: 'roster.html',
-    module: 'src/core/characters.js',
+    module: 'src/roster/main.js',
     scene: 'Roster tool',
-    noRecovery: 'roster.html renders from an inline module with no guard; '
-      + 'a blocked import dies silently',
+    // A dev tool launched from the preview menu goes back to the menu.
+    recovery: './preview.html',
   },
   {
     page: 'wardrobe.html',
-    module: 'src/wardrobe/preview.js',
+    module: 'src/wardrobe/main.js',
     scene: 'Wardrobe tool',
-    noRecovery: 'wardrobe.html renders from an inline module with no guard; '
-      + 'a blocked import dies silently',
+    recovery: './preview.html',
   },
   {
     page: 'preview.html',
