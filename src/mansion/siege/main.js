@@ -326,9 +326,60 @@ function exteriorGroundAt(x, z) {
     ?? 0;
 }
 
+/**
+ * THE FIFTEEN CENTIMETRES THAT ATE THE CLIMB.
+ *
+ * Measured (probe over `interior.floorAt`): the horseshoe's top tread tops
+ * out at z 48.05 and the gallery's rendered slab starts at 48.20, and inside
+ * that strip the rendered-floor ray sails past both and reports the FOYER
+ * floor, 4.7 m down. The conference-to-office door threshold carries the
+ * same kind of strip at z ~63. With `snapGroundToSurface` on, one blipped
+ * probe is not a stumble, it is `position.y = ground + eyeHeight` -- a
+ * player cresting either flight was slammed to the ground floor mid-stride,
+ * walked on north UNDER the gallery, and finished his climb by falling down
+ * the open cellar stair, which is how `verify:mansion-siege`'s office leg
+ * ended at ground -2.78. Reproduced identically at ce98ccd, so these are
+ * the base house's seams, not a siege regression; the overlay may not edit
+ * `MansionInterior.js`, so the siege makes its own walk seam-tolerant.
+ *
+ * The rule: a probe that says the floor just vanished more than 1.6 m from
+ * under feet that were standing on it is asked to prove it. Four shoulder
+ * samples 22 cm out re-ask the same resolver; if any of them still stands
+ * within a step of the previous support, the player is straddling a seam
+ * and rides the far side across. If the whole neighbourhood agrees the
+ * floor is gone -- the cellar shaft, the gallery edge, a real hole -- the
+ * drop is accepted unchanged. Cost: four extra queries, only on the frame a
+ * cliff appears.
+ */
+const GROUND_SEAM_REACH = 0.22;
+const GROUND_SEAM_DROP = 1.6;
+const GROUND_SEAM_STEP = 0.9;
+let lastResolvedGround = null;
+const resolveFloor = (x, z, feetY) => interior.floorAt(x, z, feetY) ?? exteriorGroundAt(x, z);
+
 world.groundAt = (x, z) => {
   const feetY = player.position.y - player.eyeHeight;
-  return interior.floorAt(x, z, feetY) ?? exteriorGroundAt(x, z);
+  const floor = resolveFloor(x, z, feetY);
+  const previous = lastResolvedGround;
+  const suddenCliff = previous !== null && floor !== null
+    && previous - floor > GROUND_SEAM_DROP
+    && Math.abs(feetY - previous) <= GROUND_SEAM_STEP;
+  if (!suddenCliff) {
+    lastResolvedGround = floor;
+    return floor;
+  }
+  for (const [dx, dz] of [
+    [GROUND_SEAM_REACH, 0], [-GROUND_SEAM_REACH, 0],
+    [0, GROUND_SEAM_REACH], [0, -GROUND_SEAM_REACH],
+  ]) {
+    const near = resolveFloor(x + dx, z + dz, feetY);
+    if (near !== null && Math.abs(near - previous) <= GROUND_SEAM_STEP) {
+      lastResolvedGround = near;
+      return near;
+    }
+  }
+  lastResolvedGround = floor;
+  return floor;
 };
 
 /**
@@ -551,16 +602,31 @@ function presentActorImpact(resolved, impact) {
   });
 }
 
+/**
+ * The thud waits for the body. A fall is a 0.4-0.55 s crumple blend now
+ * (src/mansion/siege/fallen.js), and a body-fall sample played on the frame
+ * of the fatal hit landed half a second before the man did -- gunshot,
+ * thud, and THEN a body still folding. The delay matches the blends'
+ * midpoint-to-rest, so the impact sound arrives as the weight does.
+ */
+const BODY_FALL_DELAY = 0.45;
+
 function queueBodyFall(id, root) {
   if (!id || !root?.getWorldPosition || pendingBodyFalls.has(id)) return false;
   const position = root.getWorldPosition(new THREE.Vector3());
-  pendingBodyFalls.set(id, { position, surface: combatSurfaceAt(position) });
+  pendingBodyFalls.set(id, {
+    position, surface: combatSurfaceAt(position), delay: BODY_FALL_DELAY,
+  });
   return true;
 }
 
-function flushBodyFalls() {
-  for (const fall of pendingBodyFalls.values()) combatAudio.bodyFall(fall);
-  pendingBodyFalls.clear();
+function flushBodyFalls(dt = 0) {
+  for (const [id, fall] of pendingBodyFalls) {
+    fall.delay -= Math.max(0, Number(dt) || 0);
+    if (fall.delay > 0) continue;
+    combatAudio.bodyFall(fall);
+    pendingBodyFalls.delete(id);
+  }
 }
 
 function playerImpactBudget(impact) {
@@ -2351,7 +2417,7 @@ function updateGame(dt) {
     onFriendlyDown: (id) => queueBodyFall(id, ensemble.members.get(id)?.root),
   });
   updateCombatBark(dt);
-  flushBodyFalls();
+  flushBodyFalls(dt);
   grounds.update?.(dt);
   interior.update?.(dt);
 
