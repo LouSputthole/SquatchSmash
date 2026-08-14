@@ -390,8 +390,14 @@ try {
       plateCarrier: true, weapon: 'sidearm', weaponSling: true,
       maskPresent: false, maskVisible: false,
     }),
+    /* `outfit: 'gown'` mirrors the canonical wardrobe — "Put DeathMegatron
+     * in a gown" (a1ef9ac5, 2026-08-13) changed her one canonical model, and
+     * the heist crew reuse those models BY IDENTITY (see
+     * tests/appearances.test.mjs's strictEqual): the scene owns only the
+     * plate carrier, mask, weapon and face. The 'suit' this row used to pin
+     * predated the gown and was the stale side of the disagreement. */
     deathmegatron: Object.freeze({
-      height: 1.79, outfit: 'suit', gender: 'female', bodyShape: 'curvy',
+      height: 1.79, outfit: 'gown', gender: 'female', bodyShape: 'curvy',
       photoFace: true, proceduralFace: false, hair: false, beard: false, glasses: false,
       plateCarrier: true, weapon: 'carbine', weaponSling: true,
       maskPresent: false, maskVisible: false,

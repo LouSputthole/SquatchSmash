@@ -3042,6 +3042,28 @@ export class Npc {
     for (const mesh of occlusion.always) mesh.visible = false;
     for (const mesh of occlusion.seated) mesh.visible = !seated;
     for (const mesh of occlusion.visibleBelowHem) mesh.visible = true;
+    /* A gown PERCHED on a bar stool hangs its hem at the footrest, not the
+     * floor. The authored skirt is floor-length (hem 0.23, top 1.16 in figure
+     * space — pinned by tests/outfits.test.mjs on standing AND chair-seated
+     * builds, neither of which this touches): on a dining chair a floor-length
+     * hem still reaches the floor, which is correct fabric. On a stool the
+     * figure sits from a raised base (`STOOL_SIT`) and the same tube hung past
+     * the brass ring nearly to the floor — which is how DeathMegatron's gown
+     * became the lowest geometry on a woman whose feet were correctly on the
+     * footrest. Real fabric on a perched body breaks over the knees and stops
+     * around the ring, so the perched hem stops at the footrest line the way
+     * everyone else's trouser cuffs do (0.36 local puts it level with the
+     * seated shoe soles). Top edge stays put under the bodice. */
+    const skirt = this.group.getObjectByName('gown.skirt');
+    if (skirt) {
+      const top = 1.16;
+      const standHem = 0.23;
+      const perchedHem = 0.36;
+      const perched = this.baseY > 0.1;
+      const hem = seated && perched ? perchedHem : standHem;
+      skirt.scale.y = (top - hem) / (top - standHem);
+      skirt.position.y = top - (top - standHem) * skirt.scale.y / 2;
+    }
   }
 
   _splayCurvyArms(minimum = CURVY_REST_ARM_SPLAY) {
