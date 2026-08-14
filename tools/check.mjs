@@ -185,15 +185,8 @@ if (VALID_SLOTS.size < 20) fail(`only found ${VALID_SLOTS.size} art slots in sce
 /* Manifest rows whose slot NO scene currently builds. Each entry is a real
  * defect in scene code this pass does not own, parked so the gate stays
  * green while the owning agent works; remove the entry when the scene grows
- * the slot. Added by the 2026-08-14 checks-that-lie pass:
- *   - mansion.gallery.campfire: "Uncle Squatch, by the fire"
- *     (mansion-campfire-banjo.png) is in the manifest but
- *     MansionInterior.js builds only mansion.gallery.pride and
- *     mansion.gallery.roster -- the picture hangs nowhere. Owned by the
- *     mansion-art pass. */
-const KNOWN_UNBUILT_SLOTS = new Set([
-  'mansion.gallery.campfire',
-]);
+ * the slot. */
+const KNOWN_UNBUILT_SLOTS = new Set([]);
 try {
   const art = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/art/manifest.json'), 'utf8'));
   for (const entry of art.art || []) {
