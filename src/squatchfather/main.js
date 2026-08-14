@@ -158,6 +158,13 @@ window.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => {
   for (const k of Object.keys(keys)) keys[k] = false;
 });
+/* A hidden tab must not keep simulating the restaurant and playing its audio
+ * at nobody: route through the pause menu, whose onPause already clears the
+ * keys and suspends the audio. pause() refuses politely before the scene is
+ * running. (Registered after the menu exists — see the module's load order.) */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) sharedPauseMenu?.pause();
+});
 
 const SENS = 0.0022;
 document.addEventListener('mousemove', (e) => {

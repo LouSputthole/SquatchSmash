@@ -2162,6 +2162,14 @@ document.addEventListener('mousedown', (event) => {
 document.addEventListener('mouseup', (event) => {
   if (event.button === 0) interaction.release();
 });
+/* Alt-tab safety. The visibilitychange handler above only minds the radio; a
+ * window that loses focus never gets the keyup, so without this the last held
+ * key steers the boat for as long as the tab is away (the pattern in
+ * src/silver/main.js and src/bing/main.js). */
+window.addEventListener('blur', () => {
+  player.clearKeys();
+  interaction.release();
+});
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;

@@ -134,7 +134,14 @@ player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const terrain = new TerrainStreamingSystem(scene);
-const weather = new WeatherSystem(scene, renderer);
+/* `?airSeed=<number>` pins the gust field so a verifier flies the same air
+ * every run (docs/ENGINE-TRAPS.md entry 7). Absent — every normal flight —
+ * the weather seeds itself randomly, as it always has. */
+const airSeedRaw = new URLSearchParams(window.location.search).get('airSeed');
+const airSeed = airSeedRaw === null ? null : Number(airSeedRaw);
+const weather = new WeatherSystem(scene, renderer, {
+  seed: Number.isFinite(airSeed) ? airSeed : null,
+});
 const landmarks = buildLandmarks(scene);
 const airfield = buildAirfield(scene, { terrain });
 const airstrip = buildAirstrip(scene);

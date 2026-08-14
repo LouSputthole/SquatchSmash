@@ -159,6 +159,13 @@ const ENGINE_OUT_HEALTH_FLOOR = 0.72;
 const BLAST_TURB_SECONDS = 5.5;
 const BASE_TURB = 0.4;
 
+/* The gyro's AGL floor: with the autopilot holding an altitude over rising
+ * ground, clearance under this puts the red TERRAIN lamp up and has the crew
+ * call it out. See the warning block in `updateFlightCommon` for why the
+ * floor is this generous and why it is a warning rather than a control
+ * change. */
+const AUTOPILOT_TERRAIN_FLOOR_AGL = 250;
+
 /* THE DROP CAMERA. Owner: "Maybe we experiment with moving the camera to the
  * third person automatically when you drop the bomb."
  *
@@ -2604,6 +2611,27 @@ export class MissionController {
        * Same for `BARKS.lowFuel` below. Both are wired to the condition their
        * own words describe, which is the condition the HUD warning beside them
        * was already computing. */
+      this.dialogue.bark('terrainClose');
+    }
+    /* The gyro's AGL floor. An autopilot holds an ALTITUDE and the eastbound
+     * route CLIMBS — 153 m to 481 m across the three kilometres covered in
+     * forty-five seconds of cruise — so the ground comes up under a perfectly
+     * level aeroplane until the physics reports `onGround` and the gyro walks
+     * out at the exact moment nothing can be done about it. The descending
+     * check above never fires on that profile: vspeed is ~0 the whole way in.
+     * This is the beat that INVITES the player into the tail turret, so the
+     * floor is generous — the clearance closes at roughly 13 m/s on that leg,
+     * and 250 m buys the fifteen-odd seconds he needs to climb out of the
+     * turret and take her back. Deliberately a WARNING and not a control
+     * change: an autopilot that quietly climbed for him would be worse than
+     * one that gives up, and the drop-out is honest. What was missing was the
+     * seconds before the hill. (docs/ENGINE-TRAPS.md entry 7,
+     * docs/FUTURE-EDITS.md "the autopilot has no idea the ground is coming
+     * up".) `bark()` has a per-pool cooldown, so the call every frame is the
+     * callout repeating on the pool's own schedule while the floor is broken,
+     * which is what a proximity warning does. */
+    if (!p.onGround && this.autopilot.engaged && p.agl < AUTOPILOT_TERRAIN_FLOOR_AGL) {
+      warn.add('terrain');
       this.dialogue.bark('terrainClose');
     }
     if (this.engines.engines.some((e) => e.temp > 245)) warn.add('hot');

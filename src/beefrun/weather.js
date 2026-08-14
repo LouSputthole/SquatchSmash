@@ -16,7 +16,15 @@ const CLOUD_COUNT = 44;
 const RAIN_COUNT = 1400;
 
 export class WeatherSystem {
-  constructor(scene, renderer) {
+  /**
+   * `seed` pins the gust field. Left unset (the default) each page load flies
+   * different air, which is what a player should get. A verifier measuring a
+   * forty-five-second altitude hold, though, has to fly the SAME air every
+   * run — unseeded weather was cause #1 of two sessions of "flaky" autopilot
+   * checks (docs/ENGINE-TRAPS.md entry 7). Pass any finite number and two
+   * systems built with it produce identical air for identical inputs.
+   */
+  constructor(scene, renderer, { seed = null } = {}) {
     this.scene = scene;
     this.renderer = renderer;
     this.t = 0;
@@ -44,7 +52,10 @@ export class WeatherSystem {
 
     this.wind = new THREE.Vector3();
     this.gust = new THREE.Vector3();
-    this._gustPhase = new THREE.Vector3(Math.random() * 100, Math.random() * 100, Math.random() * 100);
+    /* The phase offsets `sampleAir` feeds into its noise field. Seeded when a
+     * seed is given, random otherwise — see the constructor comment. */
+    const rand = Number.isFinite(seed) ? rng(seed) : Math.random;
+    this._gustPhase = new THREE.Vector3(rand() * 100, rand() * 100, rand() * 100);
 
     this.sky = new THREE.Color(0x9fc4e8);
     this.fog = new THREE.Fog(0x9fc4e8, 300, 2600);
@@ -164,10 +175,12 @@ export class WeatherSystem {
     // Valley thermals: warm air over low ground, mid-morning onward.
     const thermal = (fbm(pos.x / 900, pos.z / 900, 2) - 0.5) * 4 * smoothstep(1400, 300, hHere);
 
-    // Rolling gust field.
-    const gx = (fbm(pos.x / s + t * 0.06, pos.z / s, 3) - 0.5) * 2;
-    const gy = (fbm(pos.x / s + 31, pos.z / s + t * 0.05, 3) - 0.5) * 2;
-    const gz = (fbm(pos.x / s - 17, pos.z / s + 53 + t * 0.04, 3) - 0.5) * 2;
+    // Rolling gust field, phase-shifted per system so the air is a different
+    // function of time on every unseeded load and the SAME one under a seed.
+    const p = this._gustPhase;
+    const gx = (fbm(pos.x / s + t * 0.06 + p.x, pos.z / s, 3) - 0.5) * 2;
+    const gy = (fbm(pos.x / s + 31 + p.y, pos.z / s + t * 0.05, 3) - 0.5) * 2;
+    const gz = (fbm(pos.x / s - 17 + p.z, pos.z / s + 53 + t * 0.04, 3) - 0.5) * 2;
     const rough = this.turbulence * this.gustScale;
 
     out.wind.set(this.crosswind, 0, 0);

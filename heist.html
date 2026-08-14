@@ -6,6 +6,24 @@
 <title>THE TAKE — Squatch Life</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128176;</text></svg>" />
 <link rel="stylesheet" href="src/heist/heist.css" />
+<style>
+  /* The shared boot-recovery surface (see src/core/boot-guard.js). Styled
+     here like the other scene pages so a blocked module never leaves a dead
+     BEGIN card with no way out. */
+  .boot-failure {
+    position: fixed; inset: 0; z-index: 100; display: grid; place-content: center;
+    gap: 14px; padding: 32px; text-align: center; background: rgba(5, 7, 13, .97);
+    color: #eef1f7; font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+  }
+  .boot-failure[hidden] { display: none; }
+  .boot-failure strong { font-size: 30px; color: #ff9d9d; }
+  .boot-failure span { max-width: 620px; line-height: 1.55; color: #c9cfdb; }
+  .boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+  .boot-failure button, .boot-failure a {
+    border: 1px solid #57c7b8; border-radius: 6px; padding: 10px 16px;
+    background: #101827; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+  }
+</style>
 <script type="importmap">
 {
   "imports": {
@@ -55,6 +73,20 @@
 <div id="debrief-board" class="hidden"></div>
 <div id="mission-card" class="hidden"></div>
 
-<script type="module" src="src/heist/main.js"></script>
+<div id="bootFailure" class="boot-failure" hidden role="alert">
+  <strong data-boot-title></strong>
+  <span data-boot-detail></span>
+  <div class="actions">
+    <button type="button" data-boot-reload>RELOAD</button>
+    <a href="./index.html">APARTMENT</a>
+  </div>
+</div>
+
+<script src="./src/core/boot-guard.js"
+  data-target="bootFailure"
+  data-ready="__heistDebug"
+  data-scene="THE TAKE"></script>
+<script type="module" src="src/heist/main.js"
+  onerror="window.__squatchSceneFail('Could not load the scene', 'src/heist/main.js failed to load.')"></script>
 </body>
 </html>

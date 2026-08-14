@@ -21,6 +21,13 @@ import {
   QUIZ_OPTIONS,
 } from './dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import {
+  MISSION_IDS,
+  SCENE_IDS,
+  TIME_EVENT_IDS,
+  createCampaign,
+  navigateCampaign,
+} from '../core/campaign.js';
 
 // ============================================================
 // THE INITIATION — current chapter endpoint.
@@ -39,6 +46,37 @@ const BASE_FOV = 55;
 // as every other campaign scene. Scene loadouts replace these contents; the
 // inventory language itself never changes underneath the player.
 const sceneInventory = new SceneInventoryBar({ slots: 5, visible: true });
+
+/* ------------------------------------------------------------------
+ * Gap G1 minimal relief (docs/GAME-FLOW-AND-FINISH-PLAN-2026-08-05.md §7,
+ * phase 1). Three things and NOTHING else — the rites themselves stay the
+ * frozen, owner-gated build:
+ *   1. claim the scene, so a reload lands back here instead of wherever the
+ *      save last was;
+ *   2. write a completion event at the anointing, exactly once;
+ *   3. give the end card a real exit home, so no save is ever trapped in a
+ *      terminal scene.
+ * The approved rewrite replaces all three with the real thing.
+ * ------------------------------------------------------------------ */
+const campaign = createCampaign();
+if (campaign.state.scene.id !== SCENE_IDS.INITIATION) {
+  campaign.enter(SCENE_IDS.INITIATION, { spawn: 'gathering' });
+}
+
+let initiationRecorded = false;
+function recordInitiationComplete() {
+  if (initiationRecorded) return;
+  initiationRecorded = true;
+  try {
+    /* Exact-once by the time-event ledger, so a replayed ceremony never
+     * farms hours or re-announces itself. */
+    campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_INITIATION, (state) => {
+      state.missions[MISSION_IDS.INITIATION].status = 'complete';
+    });
+  } catch (error) {
+    console.error('[initiation] completion could not be recorded', error);
+  }
+}
 
 const MAX_HP = 100;
 const STOP_HP = MAX_HP / 5; // the Circle stops the beating at one fifth
@@ -936,6 +974,17 @@ function isSprinting() {
 // ---------- Buttons / flow ----------
 $('retryBtn').addEventListener('click', retry);
 $('replayBtn').addEventListener('click', () => location.reload());
+$('goHomeBtn').addEventListener('click', () => {
+  /* The temporary G1 exit, through the campaign's own transition so the save
+   * goes home with him. If the write is refused the save-failure banner is
+   * already up — still let him leave rather than trapping him on the card. */
+  try {
+    navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+  } catch (error) {
+    console.error('[initiation] campaign exit could not be saved', error);
+    location.assign('./index.html');
+  }
+});
 
 // Browsers only allow audio after a real input on this page, so the drums
 // kick in on the first keypress or click after arriving from the apartment.
@@ -1599,6 +1648,7 @@ function updatePhase(dt) {
     }
     if (inductionK >= 1 && phaseT > 3.2) {
       sfx.chime();
+      recordInitiationComplete();
       $('complete').classList.remove('hidden');
       setPhase('complete');
     }

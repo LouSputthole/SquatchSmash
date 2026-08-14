@@ -8,7 +8,7 @@
  * src/arcade/ for that one.
  */
 import * as THREE from 'three';
-import { ApartmentAudioEngine } from './core/apartment-audio.js';
+import { ApartmentAudioEngine, closedNightCuePrefixes } from './core/apartment-audio.js';
 import { chooseNoImmediateRepeat } from './core/audio-variant-bank.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
@@ -1503,7 +1503,19 @@ function sleepInBed() {
   const storySleep = apartmentStory.sleep();
   // Commit the next chapter's physical dressing with its campaign checkpoint.
   // Reapplying it on wake remains idempotent and the blackout hides the swap.
-  if (storySleep.ok) apartment.applyChapterDressing(storySleep.chapter);
+  if (storySleep.ok) {
+    apartment.applyChapterDressing(storySleep.chapter);
+    /* The chapter turn is also the eviction point for decoded one-shot beat
+     * banks. The exact-once ledger is the authority: a bank is dropped only
+     * once its time event proves the beat can never fire again, and
+     * `AudioEngine.forget` keeps re-decode possible so even a wrong entry in
+     * that table costs a re-fetch, never a silent line. This is the first
+     * release valve on the apartment's ~480 MB resident decoded plan
+     * (docs/WEB-PERFORMANCE-AND-PWA.md). */
+    for (const prefix of closedNightCuePrefixes(campaign.state.story.timeEvents)) {
+      audio.forget(prefix);
+    }
+  }
   /* Named by the chapter that is ENDING, not hardcoded to the first one. This
    * said "Day One is done" on every night in the campaign, so going to bed on
    * Day Two and again before the big night both announced a day that was two

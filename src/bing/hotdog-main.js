@@ -1296,6 +1296,20 @@ document.addEventListener('mousedown', (event) => {
 document.addEventListener('mouseup', (event) => {
   if (event.button === 0) interaction.release();
 });
+/* Alt-tab safety. A window that loses focus never gets the keyup, so without
+ * this the last held key walks the player into the club wall for as long as
+ * the tab is away (the pattern in src/silver/main.js and src/bing/main.js). */
+window.addEventListener('blur', () => {
+  player.clearKeys();
+  interaction.release();
+});
+/* And a hidden tab should not keep simulating the party at nobody: route
+ * through the pause menu, whose onPause already clears keys, suspends the
+ * audio context, and freezes the sim. pause() refuses politely outside the
+ * active phase. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseMenu.pause();
+});
 canvas.addEventListener('click', () => {
   if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
     requestGamePointerLock();
