@@ -674,6 +674,14 @@ export function mountMansionCast(scene, world = {}, {
   /** Quiet-evening gate and the reel currently in the theatre projector. */
   eveningEnabled = () => true,
   theatreChannel = () => '',
+  /**
+   * Which visit this mount dresses: 'mission' (the night of PROJECT SILENT
+   * SQUATCH) or 'return' (the morning after the Enola, when the wire has
+   * just said the Cartel took Sauce). The cast module never reads the URL or
+   * the campaign — the composition root says which morning it is, the same
+   * way it passes every other verb down.
+   */
+  visit = 'mission',
   enabled = () => true,
 } = {}) {
   if (!scene) return null;
@@ -1450,17 +1458,23 @@ export function mountMansionCast(scene, world = {}, {
     yaw: yawToward(ballroom.x - 6.4, ballroom.z + 1.2, ballroom.x, ballroom.z),
     look: 'Ape, keeping to the edge of the ballroom and keeping his hands where everybody can see them.',
   });
-  post('sauce', {
-    name: 'Sauce',
-    model: familyModel(CHARACTER_IDS.SAUCE),
-    job: 'work',
-    x: ballroom.x + 6.4,
-    y: ballroom.y,
-    z: ballroom.z + 1.2,
-    yaw: yawToward(ballroom.x + 6.4, ballroom.z + 1.2, ballroom.x, ballroom.z),
-    bark: SAUCE_MANSION_BARK,
-    look: 'Sauce, checking a buffet that nobody asked him to check.',
-  });
+  /* Sauce is at his buffet on the mission night ONLY. The return visit is
+   * the morning Lou's briefing announces the Cartel took him — a Sauce
+   * checking canapés in the ballroom while the player is told he was
+   * kidnapped is a continuity hole, not a cameo. */
+  if (visit !== 'return') {
+    post('sauce', {
+      name: 'Sauce',
+      model: familyModel(CHARACTER_IDS.SAUCE),
+      job: 'work',
+      x: ballroom.x + 6.4,
+      y: ballroom.y,
+      z: ballroom.z + 1.2,
+      yaw: yawToward(ballroom.x + 6.4, ballroom.z + 1.2, ballroom.x, ballroom.z),
+      bark: SAUCE_MANSION_BARK,
+      look: 'Sauce, checking a buffet that nobody asked him to check.',
+    });
+  }
 
   const theatreAt = at('theatreCenter', { x: -2.85, y: BASEMENT_Y, z: 72.6 });
   const theatreLines = () => {
@@ -3043,9 +3057,11 @@ export function mountMansionCast(scene, world = {}, {
        * bodies. It belongs to the laboratory and is only borrowed. */
       if (torture?.target) interaction?.unregister?.(torture.target);
       cart.parent?.remove(cart);
-      /* The blood, in the air and on the floor, and the flash. */
+      /* The blood in the air, and the flash. Persistent marks belong to the
+       * lab's shared adapter, not this module — there is no local collection
+       * of them to tear down (a phantom `marks` here once threw and abandoned
+       * the rest of this teardown). */
       for (const drop of spray.splice(0)) drop.parent?.remove(drop);
-      for (const mark of marks.splice(0)) mark.parent?.remove(mark);
       flash?.parent?.remove(flash);
       flash = null;
       M_IMPACT.dispose?.();

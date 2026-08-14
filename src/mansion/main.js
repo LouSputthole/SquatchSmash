@@ -1583,6 +1583,10 @@ const cast = mountMansionCast(scene, world, {
   eveningEnabled: () => mansionPreview
     || mansionCampaign.story?.mission?.status === 'complete',
   theatreChannel: () => (theatreTv?.on ? theatreTv.channel?.name ?? '' : ''),
+  /* Scene dressing, not campaign state, so preview return visits get the
+   * same morning: the return is the one where the wire says the Cartel took
+   * Sauce, and the cast hides him accordingly. */
+  visit: mansionVisit,
   enabled: () => running,
 });
 speechCast = cast;
@@ -1888,6 +1892,13 @@ window.addEventListener('blur', () => {
   interaction.release();
   mansionPee.stop();
   weaponSystem.setTrigger(false);
+});
+/* A hidden tab must not keep simulating the house and playing its audio at
+ * nobody: route through the pause menu, whose onPause already clears keys,
+ * stows the trigger, and suspends the audio context. pause() refuses politely
+ * before the scene is running. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) sharedPauseMenu.pause();
 });
 window.addEventListener('pagehide', () => captureMansionLoadout());
 window.addEventListener('mousemove', (e) => {
