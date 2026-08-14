@@ -7,6 +7,7 @@
  * self-contained mission pages that this page can never request.
  */
 import { AudioEngine } from './audio.js';
+import { TIME_EVENT_IDS } from './campaign.js';
 import { isBundled, loadJson } from './assets.js';
 import { loadOnceRetriable } from './load-queue.js';
 
@@ -56,6 +57,38 @@ const APARTMENT_STARTUP_CUE_PREFIXES = Object.freeze([
   'vo.getup.',
   'heist.apartment.',
 ]);
+
+/**
+ * Beat banks whose decoded PCM can be evicted once their night has closed.
+ *
+ * The Apartment's resident bank is the ~480 MB of decoded audio the
+ * performance doc measures, and none of it was ever released. The safe subset
+ * to release is the one this list names: banks gated by a ONE-SHOT time event
+ * in the campaign's exact-once ledger, which is durable proof the beat has
+ * fired and can never fire again. Anything gated on a chapter alone is not
+ * safe (heist_day repeats Margo's morning line, for instance), so the ledger
+ * is the only authority consulted.
+ *
+ * Read at the chapter turn (`sleepInBed` in src/main.js) and fed to
+ * `AudioEngine.forget`, which is a prefix drop, not a delete: a wrong guess
+ * costs a re-decode out of the HTTP cache, never a silent line.
+ */
+const CLOSED_NIGHT_CUE_BANKS = Object.freeze([
+  /* Margo coming home the night of the Silver Room. */
+  Object.freeze({ event: TIME_EVENT_IDS.MARGO_COME_HOME, prefix: 'vo.margo.comehome.' }),
+  /* Margo waking beside him on the fourth morning, and the dress-help beat
+   * that only exists inside it. */
+  Object.freeze({ event: TIME_EVENT_IDS.MARGO_WAKE, prefix: 'vo.margo.wake.' }),
+  Object.freeze({ event: TIME_EVENT_IDS.MARGO_WAKE, prefix: 'margo.dress.' }),
+]);
+
+/** Cue prefixes that can never sound again given this exact-once ledger. */
+export function closedNightCuePrefixes(timeEvents) {
+  const done = new Set(timeEvents || []);
+  return CLOSED_NIGHT_CUE_BANKS
+    .filter((bank) => done.has(bank.event))
+    .map((bank) => bank.prefix);
+}
 
 /** True when a recorded cue can belong in the Apartment's resident bank. */
 export function isApartmentPreloadCue(cue) {

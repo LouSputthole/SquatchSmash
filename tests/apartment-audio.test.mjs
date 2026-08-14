@@ -4,10 +4,12 @@ import test from 'node:test';
 
 import {
   ApartmentAudioEngine,
+  closedNightCuePrefixes,
   isApartmentPreloadCue,
   isApartmentStartupCue,
   planApartmentAudioPreload,
 } from '../src/core/apartment-audio.js';
+import { TIME_EVENT_IDS } from '../src/core/campaign.js';
 
 const manifest = JSON.parse(fs.readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'));
 const index = JSON.parse(fs.readFileSync(new URL('../assets/sfx/index.json', import.meta.url), 'utf8'));
@@ -242,4 +244,42 @@ test('shared non-voice recordings stay available while scene-only banks stay out
     assert.ok(!apartmentRuntimeSource.includes(prefix), `${prefix} is referenced by Apartment runtime source`);
     assert.ok(bank.every((cue) => !isApartmentPreloadCue(cue)), `${prefix} leaked into Apartment`);
   }
+});
+
+test('closed one-shot nights release their beat banks, open ones keep them', () => {
+  // Nothing in the ledger: nothing may be forgotten — the beats are still owed.
+  assert.deepEqual(closedNightCuePrefixes([]), []);
+  assert.deepEqual(closedNightCuePrefixes(null), []);
+
+  // The come-home night closes on its own, before the fourth morning exists.
+  assert.deepEqual(
+    closedNightCuePrefixes([TIME_EVENT_IDS.MARGO_COME_HOME]),
+    ['vo.margo.comehome.'],
+  );
+
+  // The fourth morning releases the wake beat and its dress-help foley.
+  const after = closedNightCuePrefixes([
+    TIME_EVENT_IDS.MARGO_COME_HOME,
+    TIME_EVENT_IDS.MARGO_WAKE,
+  ]);
+  assert.deepEqual(after, ['vo.margo.comehome.', 'vo.margo.wake.', 'margo.dress.']);
+
+  // Every prefix names real recorded cues, so the eviction is not decorative,
+  // and never names margo.snore, which later nights still play.
+  for (const prefix of after) {
+    assert.ok(recorded.some((cue) => cue.name.startsWith(prefix)),
+      `${prefix} names no recorded cue — the eviction list has gone stale`);
+    assert.ok(!'margo.snore'.startsWith(prefix), `${prefix} would evict margo.snore`);
+  }
+
+  // And forget() actually clears decoded PCM for those prefixes.
+  const engine = new ApartmentAudioEngine();
+  engine.buffers.set('vo.margo.wake.1', {});
+  engine.buffers.set('margo.dress.body-impact.1', {});
+  engine.buffers.set('margo.snore', {});
+  let dropped = 0;
+  for (const prefix of after) dropped += engine.forget(prefix);
+  assert.equal(dropped, 2);
+  assert.ok(engine.buffers.has('margo.snore'));
+  assert.ok(!engine.buffers.has('vo.margo.wake.1'));
 });
