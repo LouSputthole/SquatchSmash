@@ -7,6 +7,15 @@ import { CHARACTER_IDS } from '../../core/campaign.js';
  * a clean white shirt front, and a straight black tie. This is a scene outfit,
  * not a second Ape. His height, build, head, hair, beard, skin and supplied
  * face still come from the canonical Family row below.
+ *
+ * The Family row now dresses him in an open canvas work vest and the silver
+ * chain and watch (August 2026 wardrobe pass) — right on the club floor and
+ * wrong here, because `dress: 'suit'` below spreads ON TOP of
+ * `APE_FAMILY_MEMBER.model`, not in place of it. Left alone, a `frontPanel`
+ * vest cut for a bare tee would lie over a suit jacket built by an entirely
+ * different block, and the stark black-tailoring read this scene is going for
+ * would grow a canvas layer and jewellery nobody asked for. So the overlay
+ * turns them off explicitly, and this suit stays exactly what it was.
  */
 export const SILVERCASE_APE_OUTFIT = Object.freeze({
   dress: 'suit',
@@ -18,6 +27,9 @@ export const SILVERCASE_APE_OUTFIT = Object.freeze({
   pocketSquare: false,
   trim: true,
   trouserFit: 'creased',
+  workVest: false,
+  chain: false,
+  watch: false,
 });
 
 /**
