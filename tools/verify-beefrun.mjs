@@ -144,7 +144,9 @@ try {
   const unchanged = (snapshot) => JSON.stringify(snapshot)
     === JSON.stringify({ 'squatchlife.campaign': SENTINEL });
 
-  await page.goto(`http://localhost:${PORT}/beefrun.html?preview=1`, { waitUntil: 'load' });
+  /* airSeed pins the gust field -- unseeded weather was cause #1 of "flaky"
+   autopilot runs (docs/ENGINE-TRAPS.md entry 7). Any fixed number does. */
+  await page.goto(`http://localhost:${PORT}/beefrun.html?preview=1&airSeed=1977`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__beefrun?.story, null, { timeout: 60000 });
 
   const booted = await page.evaluate(() => {
@@ -1080,7 +1082,7 @@ const chain = await page.evaluate(() => {
     };
     localStorage.setItem('squatchlife.campaign', JSON.stringify(save));
   });
-  await resumePage.goto(`http://localhost:${PORT}/beefrun.html`, { waitUntil: 'load' });
+  await resumePage.goto(`http://localhost:${PORT}/beefrun.html?airSeed=1977`, { waitUntil: 'load' });
   await resumePage.waitForFunction(() => window.__beefrun?.story, null, { timeout: 60000 });
   await resumePage.evaluate(() => document.getElementById('start-btn').click());
   await resumePage.waitForFunction(

@@ -659,7 +659,14 @@ scene.add(toolCart);
   toolCart.rotation.y = 0.6;
 }
 
-const weather = new WeatherSystem(scene, renderer);
+/* `?airSeed=<number>` pins the gust field so a verifier flies the same air
+ * every run (docs/ENGINE-TRAPS.md entry 7). Absent — every normal flight —
+ * the weather seeds itself randomly, as it always has. */
+const airSeedRaw = new URLSearchParams(window.location.search).get('airSeed');
+const airSeed = airSeedRaw === null ? null : Number(airSeedRaw);
+const weather = new WeatherSystem(scene, renderer, {
+  seed: Number.isFinite(airSeed) ? airSeed : null,
+});
 // No towers along this route — see the report on this phase for why (no
 // eastbound landmark-prop builder exists to reuse or build in this phase's
 // scope). DetectionSystem's tower-proximity term simply never contributes;

@@ -101,7 +101,9 @@ try {
    * nothing about the mission. Ninety seconds costs nothing when the page is
    * quick and is the difference between a red run and a real one when it is
    * not. */
-  await page.goto(`http://localhost:${PORT}/enolasquatch.html?preview=1`, { waitUntil: 'load', timeout: 90000 });
+  /* airSeed pins the gust field -- unseeded weather was cause #1 of two
+   sessions of "flaky" autopilot checks (docs/ENGINE-TRAPS.md entry 7). */
+  await page.goto(`http://localhost:${PORT}/enolasquatch.html?preview=1&airSeed=1945`, { waitUntil: 'load', timeout: 90000 });
   await page.waitForFunction(() => window.__squatch?.enolaSquatch === true, null, { timeout: 90000 });
   check('the page boots and signals the watchdog', true);
 
@@ -1510,7 +1512,12 @@ try {
      * So the window is still air. That is what "can it hold an altitude"
      * means, and holding one in a gust that only exists on some runs is not a
      * check, it is a coin. Restored immediately after, so everything below
-     * still meets real weather. */
+     * still meets real weather.
+     *
+     * Since then WeatherSystem grew a seed and this page is loaded with
+     * `?airSeed=1945`, so "real weather" below is now the SAME real weather
+     * every run. Still air here stays: this window measures the control law
+     * in isolation, seeded or not. */
     const airBefore = { turbulence: h.weather.turbulence, crosswind: h.weather.crosswind };
     h.weather.setConditions({ turbulence: 0, crosswind: 0 });
     h.tick(1.5);
@@ -1568,6 +1575,56 @@ try {
     autopilot.kicked.engaged === false && autopilot.kicked.lockout
       && autopilot.refused === false && autopilot.after === true,
     JSON.stringify({ kicked: autopilot.kicked, refusedDuringLockout: autopilot.refused, afterLockout: autopilot.after }));
+
+  /* ---- The gyro's AGL floor ----
+   *
+   * The defect the flaky-autopilot investigation actually found: the gyro
+   * holds an ALTITUDE, the eastbound route CLIMBS, and the first warning used
+   * to be the autopilot leaving — "on the ground", at cruise, with the player
+   * in the tail turret the mission had just invited him into. The fix is a
+   * warning, deliberately not a control change: under the floor the TERRAIN
+   * lamp goes red and the crew call it out, and the aeroplane still does
+   * exactly what it was told. */
+  const terrainFloor = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    /* Level flight with clearance under the floor — the profile the
+     * descending-only terrain check can never fire on (vspeed ~ 0). Shooting
+     * and flak are stilled so the 1.5 s window measures the floor and not a
+     * lucky hit knocking the gyro off; both are restored by the next block,
+     * which stages its own battlefield. */
+    h.interceptors.clear();
+    h.defense.suppress();
+    const at = h.physics.position.clone();
+    at.y = h.groundHeight(at.x, at.z) + 180;
+    h.physics.setPose(at, 90, 66);
+    h.physics.omega.set(0, 0, 0);
+    h.input.throttle = 0.7;
+    if (!h.autopilot.engaged) h.autopilotToggle();
+    const engagedBefore = h.autopilot.engaged;
+    const altitudeBefore = h.physics.position.y;
+    const barked = [];
+    const dialogue = h.mission.dialogue;
+    const realBark = dialogue.bark.bind(dialogue);
+    dialogue.bark = (pool, opts) => {
+      barked.push(pool);
+      return realBark(pool, opts);
+    };
+    h.tick(1.5);
+    dialogue.bark = realBark;
+    h.defense.intensity = 1;
+    return {
+      engagedBefore,
+      engagedAfter: h.autopilot.engaged,
+      climbed: +(h.physics.position.y - altitudeBefore).toFixed(1),
+      agl: +h.physics.agl.toFixed(0),
+      lampUp: [...(h.flightHud._warnState || [])].includes('terrain'),
+      calledOut: barked.includes('terrainClose'),
+    };
+  });
+  check('the gyro calls the rising ground BEFORE it arrives: red TERRAIN lamp and the crew callout under the AGL floor, and no quiet climb',
+    terrainFloor.engagedBefore && terrainFloor.lampUp && terrainFloor.calledOut
+      && terrainFloor.engagedAfter && Math.abs(terrainFloor.climbed) < 40,
+    JSON.stringify(terrainFloor));
 
   /* ---- The tail gun, manned by the player ----
    *
