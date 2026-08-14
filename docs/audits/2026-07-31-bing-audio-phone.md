@@ -1,4 +1,4 @@
-# Bing audio and phone follow-up â€” 2026-07-31
+# Bing audio and phone follow-up — 2026-07-31
 
 Base audited: `origin/main@d49a506ef70cab9727fa0267e8ed012cad3ff0d5`.
 

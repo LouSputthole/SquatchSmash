@@ -1,6 +1,7 @@
 node_modules
-package-lock.json
 _*.mjs
+# package-lock.json is COMMITTED (un-ignored 2026-08-14): the Verify workflow
+# runs `npm ci`, which requires it, and a pinned tree is the point of CI.
 
 # Local provider credentials. Keep an example file explicitly opt-in if one is
 # ever added; generated-audio keys must never enter source control.
