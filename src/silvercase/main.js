@@ -20,7 +20,7 @@ import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { PostFX } from '../core/postfx.js';
-import { SCENE_IDS, createCampaign } from '../core/campaign.js';
+import { SCENE_IDS, MISSION_IDS, createCampaign } from '../core/campaign.js';
 import {
   createFinalArcRuntimeSession,
   restoreCompletedFinalArcEntry,
@@ -1696,6 +1696,13 @@ window.addEventListener('keyup', (e) => {
 });
 window.addEventListener('blur', () => {
   player.clearKeys();
+});
+/* A hidden tab must not keep simulating the mission and talking to nobody:
+ * route through the pause menu, whose onPause already suspends the audio
+ * context and freezes the sim. pause() refuses politely before the scene
+ * is running. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseMenu.pause();
 });
 
 document.addEventListener('mousemove', (e) => {

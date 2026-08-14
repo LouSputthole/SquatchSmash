@@ -2919,6 +2919,12 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'KeyE') interaction.release();
 });
 window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
+/* A hidden tab must not keep playing the evening at nobody: route through the
+ * pause menu, whose onPause already clears keys, pauses the performance, and
+ * suspends the audio context. pause() refuses politely outside the show. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseMenu.pause();
+});
 
 canvas.addEventListener('click', () => {
   if (!game.started || game.paused) return;
