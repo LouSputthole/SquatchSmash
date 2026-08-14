@@ -1,0 +1,71 @@
+# Verify pull requests.
+#
+# Until the 2026-08-14 checks-that-lie pass, NO workflow ran on pull requests
+# at all: pages.yml triggers only on push-to-main, and it never runs `npm ci`,
+# so Playwright was never installed and not one of the 40+ verify:* browser
+# gates could ever run in CI. Every PR landed unverified and the deploy job
+# was the first thing to notice a red test — after merge.
+#
+# This job installs the real dependency tree and runs:
+#   - npm test              183 suites / ~1,900 assertions, node-only
+#   - npm run check         static manifests/cues/slots/orphans gate
+#   - npm run check:flight  the Brushrunner flight-model bench, node-only
+#   - npm run verify:campaign-route   fresh-save campaign topology, node-only
+#   - npm run verify:boot-errors      the ONE curated browser gate
+#
+# Why only boot-errors from the browser set: it is the cheapest verifier per
+# page covered — it aborts each staged page's entry module and asserts the
+# recovery surface, so no scene ever actually boots, and it still touches all
+# 20 staged pages. The other verify:* gates each boot full scenes under
+# swiftshader for minutes apiece; they stay local/manual for now. Promote more
+# here one at a time if they prove fast enough.
+#
+# `npm run lint` is NOT wired in yet, deliberately: it currently fails on two
+# real, pre-existing ReferenceErrors it exposed (src/mansion/cast.js `marks`,
+# src/silvercase/main.js `MISSION_IDS`). Wire it in the moment those are
+# fixed; do not wire it in by silencing them.
+name: Verify
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests
+        run: npm test
+
+      - name: Static checks
+        run: npm run check
+
+      - name: Flight-model bench
+        run: npm run check:flight
+
+      - name: Fresh-save campaign route
+        run: npm run verify:campaign-route
+
+      - name: Boot-failure recovery on every staged page
+        run: npm run verify:boot-errors
