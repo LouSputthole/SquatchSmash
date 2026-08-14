@@ -11,6 +11,11 @@ import {
   primeVoice as primeMotelVoice,
   stopVoice as stopMotelVoice,
   voiceTap as motelVoiceTap,
+  /* Named rather than reached through `sfx.` because it is not a cue: the
+   * production-queue scanner reads every `sfx.<name>` in this directory as a
+   * sound the code plays, and this is an adapter the shared weapon system
+   * plays sounds THROUGH. */
+  weaponAudio as motelWeaponAudio,
 } from './audio.js';
 import {
   NODES, STYLES, STYLE_LABEL, SELLER_BARKS, PROSPECT_BARKS, SNOW_BARKS,
@@ -35,6 +40,8 @@ import {
   nextLineDelayMs,
   resolveLineHold,
 } from './dialogue-timing.js';
+import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
+import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { selectPointInteraction } from './point-interaction.js';
@@ -174,7 +181,17 @@ const S = {
   moneyRecovered: true,
   sat: false,
   knocked: false,
+  /* When the knuckles landed and when the door actually swung, in
+   * `performance.now()` milliseconds. Recorded rather than inferred so the
+   * door's promptness is something a check can measure instead of sleeping
+   * through (see docs/ENGINE-TRAPS.md, entry 2). */
+  knockedAt: 0,
+  doorAnsweredAt: 0,
+  /** Rico has stepped aside: the doorstep wheel was answered and the way in is clear. */
+  doorOpened: false,
   enteredRoom: false,
+  /** The glovebox has been opened once. Opening it again is not news. */
+  weaponChecked: false,
   dealStarted: false,
   sampleOut: false,
   betrayed: false,
@@ -347,8 +364,23 @@ const KEYMAP = {
 };
 const touch = { active: false, x: 0, y: 0 };
 
+/* Keys whose default the page always eats, repeat or not. */
+const SWALLOWED_CODES = new Set(['Space', 'KeyE', 'Tab']);
+
 window.addEventListener('keydown', (e) => {
   if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
+  /* AUTO-REPEAT IS ONE HELD KEY, NOT A STREAM OF PRESSES.
+   *
+   * Nothing below wants it. Held [E] re-ran the focused interaction at the
+   * operating system's repeat rate — which is the owner's "i check revolver
+   * and he just keeps saying the voice line over and over", and it applied to
+   * every prompt in the scene, not only the glovebox. Held SPACE likewise beat
+   * a grapple on its own. Movement, above, is the one thing that reads the
+   * key's STATE rather than its edges, so it is handled before this returns. */
+  if (e.repeat) {
+    if (SWALLOWED_CODES.has(e.code)) e.preventDefault();
+    return;
+  }
   switch (e.code) {
     case 'Space':
       e.preventDefault();
@@ -360,7 +392,11 @@ window.addEventListener('keydown', (e) => {
       if (phase === 'car') { e.preventDefault(); exitCar(); }
       break;
     case 'KeyF': onAttack(); break;
-    case 'KeyR': onRanged(); break;
+    /* [R] is reload, the way it is in the siege, the Palace and the combat
+     * lab. It used to be a third way to fire — behind left click and behind
+     * [F], which already routes a ranged weapon — on a scene whose only gun
+     * could not be reloaded at all. */
+    case 'KeyR': onReload(); break;
     case 'KeyX': drawSilverback(); break;
     case 'KeyG': dropWeapon(); break;
     case 'Tab': e.preventDefault(); togglePause(); break;
@@ -446,7 +482,8 @@ sharedPauseMenu = createPauseMenu({
   instructions: [
     'Q - get out when you are seated in Snow\'s car.',
     'W A S D — move. Shift — sprint. Space — jump.',
-    'E — interact. F or left click — attack. R or right click — ranged attack.',
+    'E — interact. F or left click — attack. Right click — fire what you are holding.',
+    'R — reload the .45. Six in the cylinder, twelve loose in the coat.',
     'X — draw the Silverback Commander, if Snow gave it to you. It is loud, it is fast, and it is optional.',
     'G — drop the held weapon.',
     'During dialogue or inspection: number keys — choose.',
@@ -646,7 +683,30 @@ function say(who, line, seconds = 3.4, cue = null) {
   return slot.totalSeconds;
 }
 
+/**
+ * A line that refuses to repeat itself inside a cooldown.
+ *
+ * The scene's props are authored points, and a player lining one up presses
+ * [E] more than once — so any prop whose only response is a sentence needs a
+ * refractory period or it becomes a man stuck on a word. `jerkyCase` solved
+ * its own instance of this with a one-shot flag; this is the same idea for the
+ * lines that are allowed to come round again, just not immediately.
+ *
+ * @returns {number} the hold in seconds, or 0 if the line was suppressed.
+ */
+const lastSpokenAt = new Map();
+const REPEAT_COOLDOWN_SECONDS = 6;
+
+function sayThrottled(key, who, line, seconds = 3, cooldown = REPEAT_COOLDOWN_SECONDS) {
+  const now = performance.now() / 1000;
+  const last = lastSpokenAt.get(key);
+  if (last !== undefined && now - last < cooldown) return 0;
+  lastSpokenAt.set(key, now);
+  return say(who, line, seconds);
+}
+
 function resetSpeechFloor() {
+  lastSpokenAt.clear();
   for (const timer of speechTimers) clearTimeout(timer);
   speechTimers.clear();
   speechFloor.reset();
@@ -1077,8 +1137,10 @@ addInteract({
   act: () => {
     if (!S.dealStarted && phase === 'car') openDialogue('snowBrief');
     else {
+      /* Throttled: Snow has eight things to say and a player holding [E] at
+       * him got all eight, stacked, in under a second. */
       const i = Math.floor(Math.random() * SNOW_BARKS.length);
-      say(ALLY, SNOW_BARKS[i], 3.4, cueFor(ALLY, `bark.${i}`));
+      sayThrottled('snow.bark', ALLY, SNOW_BARKS[i], 3.4);
     }
   },
 });
@@ -1097,7 +1159,7 @@ addInteract({
       addRead(4);
       S.moneyChecked = true;
     } else {
-      say('Prospect', 'The coupon expired in March. So did my patience.', 3);
+      sayThrottled('coupon.again', 'Prospect', 'The coupon expired in March. So did my patience.', 3);
     }
     if (S.moneyChecked && !S.couponOnly && S.moneyCheckedTwice) {
       S.couponOnly = true;
@@ -1109,17 +1171,28 @@ addInteract({
   },
 });
 
+/* The glovebox. Opened once.
+ *
+ * Owner: "I check revolver and he just keeps saying the voice line over and
+ * over." Two causes, both fixed: held [E] repeated at the keyboard's auto-
+ * repeat rate (see the keydown handler), and the act itself had no gate at
+ * all, so every deliberate press re-delivered the same sentence and
+ * re-equipped a gun that was already in his hand. The pickup happens once;
+ * going back to it afterwards gets a different, throttled line. */
 addInteract({
   id: 'glovebox', x: -6.2, y: 1.1, z: 17.6, r: 3.0,
   requiresAim: true,
-  label: () => 'Check your weapon',
+  label: () => (S.weaponChecked ? 'The .45 is already out' : 'Check your weapon'),
   follow: () => refs.manCar.gloveboxPosition(),
   enabled: () => phase === 'car',
   act: () => {
+    if (S.weaponChecked) {
+      sayThrottled('glovebox.again', 'Prospect', 'Still six. They do not breed in there.', 2.6);
+      return;
+    }
+    S.weaponChecked = true;
     say('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.', 3.6);
-    S.weapon = 'revolver';
-    S.ammo = 6;
-    updateGear();
+    equipWeapon('revolver');
   },
 });
 
@@ -1141,7 +1214,7 @@ addInteract({
   enabled: () => phase === 'car' || phase === 'lot',
   act: () => {
     if (S.silverbackTaken) {
-      say('Prospect', 'It is under my coat. It stays under my coat.', 3.0);
+      sayThrottled('silverback.again', 'Prospect', 'It is under my coat. It stays under my coat.', 3.0);
       return;
     }
     S.silverbackTaken = true;
@@ -1327,6 +1400,24 @@ addInteract({
   label: () => 'Step inside',
   enabled: () => phase === 'door' && S.doorOpened,
   act: () => enterRoom(),
+});
+
+/* And the way back out of it.
+ *
+ * The door shuts behind you and its blocker comes back on, which is right —
+ * "Door stays shut. Air conditioning." — but once the room has turned, that
+ * left exactly two exits, both of them undocumented: punch the door off its
+ * hinges, or be thrown through it. A handle is a handle. */
+addInteract({
+  id: 'openFrontDoor', x: 0, y: 1.3, z: -5.0, r: 3.0,
+  label: () => 'Open the door and get out',
+  enabled: () => (phase === 'fight' || phase === 'recover' || phase === 'escape')
+    && insideRoom() && !refs.frontDoor.open && !S.doorBroken,
+  act: () => {
+    openDoor(refs.frontDoor);
+    sfx.doorOpen();
+    toast('DOOR OPEN', '', 'The lot is on the other side of it');
+  },
 });
 
 // -- inside the room --
@@ -1870,6 +1961,13 @@ function exitCar() {
 function openTheDoor() {
   if (rico) return rico;
   sfx.doorOpen();
+  /* The DOOR opens here, on the knock — not four lines later when the
+   * doorstep conversation has been answered. Owner: "Going to the door takes
+   * too long they should open the door right after you knock on it." What the
+   * answer still buys is the way through: Rico is standing in the opening
+   * until he steps aside, and `refs.roomTwelveThreshold` is his body. */
+  openDoor(refs.frontDoor);
+  S.doorAnsweredAt = performance.now();
   rico = spawnActor({ ...CAST.rico(), x: 0, z: -4.9, state: 'deal' });
   rico.anchor = { x: 0, z: -4.9 };
   rico.faceAt(0, 16);          // out through his own doorway, at Tony
@@ -1897,20 +1995,35 @@ function inviteIntoRoomTwelve() {
   updateInteract();
 }
 
+/**
+ * How long room twelve takes to answer, in milliseconds.
+ *
+ * A beat, not a wait: enough for the knock to stop ringing and for Rico to
+ * cross his own room, and nothing more. It was 1100 ms, and the door itself
+ * did not move until the doorstep wheel had been answered on top of that —
+ * minimum four seconds of standing at a shut door, which the owner called
+ * out: the door opens right after the knock now.
+ */
+const KNOCK_ANSWER_MS = 420;
+
 function knockOnTwelve() {
   if (S.knocked) return;
   S.knocked = true;
   closeDialogue();
   phase = 'door';
   sfx.knock();
+  S.knockedAt = performance.now();
   setObjective('reach', 'Answer him. 1–4 when the options come up.');
   setTimeout(() => {
     openTheDoor();
     openDialogue('atDoor');
-  }, 1100);
+  }, KNOCK_ANSWER_MS);
 }
 
 function enterRoom() {
+  /* Two callers now — the [E] prompt and the doorway itself — so this has to
+   * be safe to run twice on the same frame. It spawns three actors. */
+  if (S.enteredRoom || phase === 'room') return;
   phase = 'room';
   S.enteredRoom = true;
   S.dealStarted = true;
@@ -2378,7 +2491,11 @@ function snowJoins(reason) {
   const barkIdx = Math.floor(Math.random() * SNOW_FIGHT_BARKS.length);
   const entranceHold = say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
   toast('SNOW IS IN', '', `He heard ${reason}`);
-  if (!S.windowBroken && !refs.frontDoor.open) breakWindow(true);
+  /* He lets himself in through the window only when the room has actually
+   * turned. The front door starts closed now, so without the `betrayed` test
+   * a warning shot in the LOT would blow the window out of a room nobody has
+   * entered yet — glass first, deal second. */
+  if (S.betrayed && !S.windowBroken && !refs.frontDoor.open) breakWindow(true);
   // He brings the crowbar from the trunk — thrown to you if you're
   // empty-handed, kept and visibly wielded if you're not.
   if (S.weapon === 'fists') {
@@ -2433,7 +2550,12 @@ function resolvePlayerHit(st) {
     const tz = pos.z + fz * 2.4;
     if (!S.windowBroken && Math.hypot(tx - 3.0, tz + 4.4) < 2.0) breakWindow();
     else if (!refs.tv.broken && Math.hypot(tx - refs.tv.x, tz - refs.tv.z) < 1.8) smashTV();
-    else if (!S.doorBroken && refs.frontDoor.collider.enabled && Math.hypot(tx - 0, tz + 4.5) < 2.2) breakFrontDoor();
+    /* Taking the door off its hinges is a way OUT of room twelve, not a way
+     * in: without `enteredRoom` a player could stand in the lot and punch the
+     * deal open before knocking, which is the walk-through defect again with
+     * an extra step. */
+    else if (!S.doorBroken && S.enteredRoom && refs.frontDoor.collider.enabled
+      && Math.hypot(tx - 0, tz + 4.5) < 2.2) breakFrontDoor();
     else sfx.whiff();
   }
   hitStop = Math.max(hitStop, hitAny ? 0.05 : 0);
@@ -2444,19 +2566,69 @@ function onRanged() {
   const st = WEAPON_STATS[S.weapon];
   if (!st) return;
   if (!st.ranged) { throwWeapon(); return; }
+  if (st.shared) { fireSharedWeapon(st); return; }
   if (S.ammo <= 0) { sfx.dryFire(); toast('EMPTY', 'warn', 'Nothing left in the wheel'); return; }
   if (attackCd > 0) return;
   attackCd = st.rate;
   S.ammo--;
+  spendRangedShot();
+  sfx.gunshot();
+  resolveRangedHit(st);
+}
+
+/**
+ * One trigger pull on a gun the shared system owns.
+ *
+ * `WeaponSystem` decides whether the gun fires at all — cadence, the
+ * semi-auto trigger latch, a reload in progress, an empty cylinder and its
+ * one dry click per pull all belong to `Firearm`, not to this scene. It also
+ * produces the flash, the tracer, the recoil and the recording. What comes
+ * back here is only the answer to "did a round leave the gun", and this scene
+ * spends that round on its own actors, its own suspicion and its own police
+ * attention — which the shared system is deliberately incapable of knowing
+ * about (no actor list in `src/core/weapons/`, ever).
+ */
+function fireSharedWeapon(st) {
+  const shot = weapons.triggerPress();
+  syncSharedAmmo();
+  if (!shot?.fired) {
+    if (shot?.reason === 'empty') {
+      toast('EMPTY', 'warn', `Six out · [R] to reload · ${weapons.firearm(st.shared).reserve} loose`);
+    }
+    return;
+  }
+  attackCd = st.rate;
+  spendRangedShot();
+  resolveRangedHit(st);
+}
+
+/** [R]: dump the brass and put six more in. */
+function onReload() {
+  if (phase === 'menu' || phase === 'end' || paused || grapple) return;
+  const st = WEAPON_STATS[S.weapon];
+  if (!st?.shared) return;
+  const firearm = weapons.firearm(st.shared);
+  if (firearm.rounds >= firearm.capacity) {
+    toast('FULL', '', `${st.name} · ${firearm.rounds}/${firearm.capacity}`);
+    return;
+  }
+  if (firearm.reserve <= 0) { toast('NO ROUNDS LEFT', 'warn', 'Nothing to put in it'); return; }
+  if (weapons.reload()) toast('RELOADING', '', 'Rod out, brass on the carpet, six back in');
+}
+
+/** What one round costs Tony, whoever it hit. */
+function spendRangedShot() {
   S.firedWeapon = true;
   S.usedNonImprovised = true;
   S.policeHeat += 12;
   failObjective('noshot');
-  sfx.gunshot();
   shake = Math.max(shake, 0.45);
   updateGear();
   if (!S.snowInside) snowJoins('gunfire');
+}
 
+/** Where the round went, against this scene's roster. */
+function resolveRangedHit(st) {
   const fx = Math.sin(camYaw);
   const fz = Math.cos(camYaw);
   let best = null;
@@ -2526,12 +2698,36 @@ function dropWeapon() {
   toast('DROPPED', '', WEAPON_STATS[dropped].name);
 }
 
-function pickUpWeapon(kind) {
+/**
+ * Put something in Tony's hands.
+ *
+ * One door for everything he can hold, so the HUD count, the view model and —
+ * for the .45 — the shared `Firearm`'s own idea of what is in the cylinder
+ * cannot disagree. Ammunition for a shared gun is READ from that firearm and
+ * never assigned: it survives being holstered, thrown in an ice machine and
+ * picked back up, because the round you did not fire is still in there.
+ */
+function equipWeapon(kind) {
   S.weapon = kind;
-  const st = WEAPON_STATS[kind];
-  S.ammo = st.ammo || 0;
-  if (st.improvised === false || st.ranged) S.usedNonImprovised = true;
+  const st = WEAPON_STATS[kind] || WEAPON_STATS.fists;
+  S.ammo = st.shared ? weapons.firearm(st.shared).rounds : (st.ammo || 0);
   updateGear();
+}
+
+/** Carry the shared firearm's round count back into this scene's HUD. */
+function syncSharedAmmo() {
+  const shared = sharedWeaponId(S.weapon);
+  if (!shared) return;
+  const rounds = weapons.firearm(shared).rounds;
+  if (rounds === S.ammo) return;
+  S.ammo = rounds;
+  updateGear();
+}
+
+function pickUpWeapon(kind) {
+  const st = WEAPON_STATS[kind];
+  equipWeapon(kind);
+  if (st.improvised === false || st.ranged) S.usedNonImprovised = true;
   toast('PICKED UP', '', st.name);
   sfx.select();
 }
@@ -3055,6 +3251,56 @@ function updateDoors(dt) {
   }
 }
 
+/**
+ * ROOM TWELVE HAS ONE WAY IN, AND THE SCENE OWNS IT.
+ *
+ * Three things together, because any one of them alone leaves a hole:
+ *
+ *   1. Shut is solid. `level.js` builds the front door closed with its
+ *      blocker live, so the lot cannot be walked out of and into the deal.
+ *   2. Open is not the same as clear. Between the knock and the answered
+ *      wheel Rico is standing in the opening, and `refs.roomTwelveThreshold`
+ *      is his body — actors do not collide with the player in this scene, so
+ *      without it the doorstep conversation is walkable-past.
+ *   3. Crossing the threshold IS stepping inside. Once he has moved, walking
+ *      through the door runs `enterRoom()` — the same function [E] runs.
+ *      There is no path into that room that does not go through the state
+ *      machine.
+ */
+function doorwayIsHeld() {
+  return phase === 'door' && !S.doorOpened && !S.doorBroken;
+}
+
+function updateRoomTwelveThreshold() {
+  const guard = refs.roomTwelveThreshold;
+  if (guard) guard.enabled = doorwayIsHeld();
+}
+
+/** Phases in which Tony has no business being inside room twelve at all. */
+function beforeTheDeal() {
+  return phase === 'menu' || phase === 'arrival' || phase === 'car' || phase === 'lot';
+}
+
+/**
+ * Walking in is entering; being in without entering is impossible.
+ *
+ * The first half is the feature — the doorway is a doorway, and [E] on it is
+ * a convenience rather than the only key. The second half is the seatbelt: if
+ * a collider is ever disabled at the wrong moment, or a future prop opens a
+ * hole in that wall, the player is put back on the walkway instead of
+ * standing in a room whose script has not started.
+ */
+function enforceRoomTwelveEntry(prevX, prevZ) {
+  if (!insideRoom()) return;
+  if (phase === 'door' && S.doorOpened) { enterRoom(); return; }
+  if (!beforeTheDeal() && phase !== 'door') return;
+  const backOut = level.insideRoom12(prevX, prevZ) ? { x: 0, z: -3.4 } : { x: prevX, z: prevZ };
+  pos.set(backOut.x, 0, backOut.z);
+  feetY = level.floorAt(backOut.x, backOut.z, 0);
+  vy = 0;
+  player.group.position.set(pos.x, feetY, pos.z);
+}
+
 // ---------- Player down / captured ----------
 function onProspectDown(source) {
   if (phase === 'end') return;
@@ -3206,6 +3452,7 @@ function updatePlayer(dt) {
   }
 
   player.group.position.set(pos.x, feetY + bob, pos.z);
+  enforceRoomTwelveEntry(prevX, prevZ);
 
   // Trip hazard: the vacuum-sealer cord catches enemies, not you
   if (S.cordArmed) {
@@ -3352,11 +3599,84 @@ function onUse() {
 // the held item hangs off the camera, so it rides the view for free. The motel
 // is first person in every walkable phase and showed nothing at all in his
 // hands, which made an equipped revolver a line of HUD text and not a gun.
+//
+// TWO KINDS OF THING GO IN THAT HAND, and they are held by different owners.
+//
+//   The .45 comes off the shared rack. `WeaponSystem` mounts it on its own rig
+//   on this camera, at the hold pose it uses in the siege and the Palace, and
+//   owns everything about it that a gun does: the six rounds visible in the
+//   cylinder, the muzzle flash, the recoil kick, the brass, the two-phase
+//   reload and the five recordings. Nothing about it is authored here.
+//
+//   Everything else in this scene is a cleaver, a crowbar or a lamp. Those are
+//   Motel props with no catalog entry and no ammunition, and `viewmodel` below
+//   is still what holds them.
+//
+// `heldKind()` is the one answer to "what is in his hand" for both.
 
 scene.add(camera);
 const viewmodel = new THREE.Group();
 viewmodel.visible = false;
 camera.add(viewmodel);
+
+/* Built after the prop group, so the Motel's own view model stays the first
+ * Group on the camera and nothing that walks `camera.children` shifts under
+ * this change. */
+const weapons = new WeaponSystem({
+  camera,
+  world: scene,
+  audio: motelWeaponAudio,
+  groundAt: (x, z) => level.floorAt(x, z, 0),
+  /* Deliberately empty. `WeaponSystem` casts against world geometry to place
+   * impacts, and this scene already answers that question its own way — with
+   * `segmentBlocked` against the level's boxes and `Actor.damage` against a
+   * roster the shared system is not allowed to know about. Handing it the
+   * whole graph would resolve every round twice. */
+  hitTargets: [],
+  range: WEAPON_STATS.revolver.reach,
+});
+/* Six in the wheel and twelve loose in a coat pocket. The catalog's thirty-six
+ * is an armory number, and this is a man with a glovebox. */
+weapons.firearm(WEAPON_IDS.REVOLVER).reserve = 12;
+
+/* The lot is lit for a parking lot at night, and the catalog's PBR metals go
+ * near-black with no environment map — the Squatchfather's prospect hit the
+ * same wall and re-materialed the same gun for its own lighting. Here it gets
+ * the trick the Motel's own prop view model already uses: a faint self-glow,
+ * cloned scene-side per mesh, so what he is holding reads at the lens without
+ * putting light on the motel. `src/core/weapons/` is untouched. */
+weapons.modelFor(WEAPON_IDS.REVOLVER).traverse((node) => {
+  if (!node.isMesh) return;
+  node.castShadow = false;
+  node.receiveShadow = false;
+  node.material = node.material.clone();
+  if (node.material.emissive) {
+    node.material.emissive.copy(node.material.color).multiplyScalar(0.55);
+  }
+});
+
+/** The catalog id behind a Motel weapon name, or null if it is a prop. */
+function sharedWeaponId(kind) {
+  return (kind && WEAPON_STATS[kind]?.shared) || null;
+}
+
+/** What is in Tony's hand right now, shared or improvised, or null. */
+function heldKind() {
+  return S.weapon && S.weapon !== 'fists' ? S.weapon : null;
+}
+
+/** The Object3D actually being drawn at the lens, or null. */
+function heldModel() {
+  const kind = heldKind();
+  if (!kind) return null;
+  return sharedWeaponId(kind) ? weapons.model : (viewmodel.children[0] ?? null);
+}
+
+/** Phases where a held thing belongs on screen at all. */
+function viewmodelShown() {
+  return phase !== 'menu' && phase !== 'end'
+    && phase !== 'drive' && phase !== 'boarding' && !inspecting;
+}
 
 let viewmodelKind = null;
 let viewSway = 0;
@@ -3367,7 +3687,15 @@ const _viewBox = new THREE.Box3();
 const _viewCentre = new THREE.Vector3();
 
 function updateViewmodel() {
-  const kind = S.weapon && S.weapon !== 'fists' ? S.weapon : null;
+  const held = heldKind();
+  const sharedId = sharedWeaponId(held);
+  /* The shared rack first: give it the gun or take it back, and let it decide
+   * everything about how the gun looks. */
+  if (sharedId) weapons.equip(sharedId);
+  else weapons.stow({ silent: true });
+  weapons.rig.visible = !!sharedId && viewmodelShown();
+
+  const kind = sharedId ? null : held;
   if (kind !== viewmodelKind) {
     viewmodelKind = kind;
     viewmodel.clear();
@@ -3401,8 +3729,7 @@ function updateViewmodel() {
       viewmodel.userData.equippedWeapon = kind;
     }
   }
-  viewmodel.visible = !!kind && phase !== 'menu' && phase !== 'end'
-    && phase !== 'drive' && phase !== 'boarding' && !inspecting;
+  viewmodel.visible = !!kind && viewmodelShown();
 }
 
 /** A little weight on the end of his arm: bob while walking, lag while turning. */
@@ -4171,9 +4498,17 @@ function tick() {
     if (player.consumeImpact() && pendingHit) { resolvePlayerHit(pendingHit); pendingHit = null; }
 
     updateArrival(dt);
+    /* Before the player moves, not after: the doorway blocker has to be right
+     * for the step that is about to be resolved against it. */
+    updateRoomTwelveThreshold();
     updatePlayer(dt);
     updateViewmodel();
     updateViewmodelSway(dt, playerMoving);
+    /* The shared rack runs its own frame: reload timers, brass, tracers, the
+     * flash decay and the hold pose. `syncSharedAmmo` is what carries the
+     * round count back into this scene's HUD. */
+    weapons.update(dt, { speed: playerMoving ? (keys.has('sprint') ? RUN : WALK) : 0 });
+    syncSharedAmmo();
     updateRoomBeats(dt);
     updateFightLogic(dt);
 
@@ -4336,15 +4671,42 @@ window.MOTEL = {
   },
   /* The HUD inventory and the thing in his hands, for the verifier. */
   get inventory() { return inventoryItems(); },
+  /* What is in his hand, whichever of the two owners is holding it. `kind` is
+   * the Motel's name for it; `shared` is the catalog id when the shared
+   * weapon system supplied it, and null when it is a Motel prop. */
   get viewmodel() {
+    const kind = heldKind();
+    const shared = sharedWeaponId(kind);
+    const model = heldModel();
+    const host = shared ? weapons.rig : viewmodel;
+    const parts = [];
+    model?.traverse((node) => { if (node.name) parts.push(node.name); });
     return {
-      kind: viewmodelKind,
-      visible: viewmodel.visible,
-      children: viewmodel.children.length,
-      inCamera: viewmodel.parent === camera,
-      position: viewmodel.position.toArray().map((n) => Number(n.toFixed(3))),
+      kind,
+      shared,
+      visible: !!model && host.visible && model.visible !== false,
+      children: model ? model.children.length : 0,
+      parts,
+      inCamera: host.parent === camera,
+      position: (model ?? host).position.toArray().map((n) => Number(n.toFixed(3))),
     };
   },
+  /** The Object3D itself, for a check that wants to project it. */
+  get heldModel() { return heldModel(); },
+  /** The shared weapon system, read-only, for ammunition and cue assertions. */
+  get weapons() {
+    return {
+      equipped: weapons.equipped,
+      hud: weapons.hud(),
+      stats: { ...weapons.stats },
+      cues: [...weapons.cueLog],
+      rigInCamera: weapons.rig.parent === camera,
+      reserve: weapons.firearm(WEAPON_IDS.REVOLVER).reserve,
+      reloading: weapons.equipped ? weapons.firearm(weapons.equipped).reloading : false,
+    };
+  },
+  reload: () => onReload(),
+  fire: () => onRanged(),
   isBlocked: (x, z, y = feetY, radius = PLAYER_R) => blocked(x, z, y, radius),
   start: startScene,
   teleport: (x, z, yHint = 0) => {

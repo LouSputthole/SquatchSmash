@@ -342,13 +342,34 @@ test('the Motel hit flash scales from and returns to the authored body size', ()
   assert.equal(rico.group.scale.x, base, 'the actor returns to his authored scale after the flash');
 });
 
-test('the first-person revolver reads as a complete gun, not two boxes', () => {
+test('the Motel revolver prop is the shared catalog .45, not a box sculpture', () => {
+  /* Owner: "WHat the fuck is this revolver? Lets used the shared guns we
+   * already have built." The Motel's world/prop mesh now wraps
+   * `src/core/weapons/models.js`'s `buildRevolver()` — the same gun the
+   * armory racks — so the parts asserted here are the shared model's own,
+   * including the trigger and the six visible rounds the old sculpture never
+   * had. (The first-person copy is mounted separately by `WeaponSystem`.) */
   const revolver = buildWeaponMesh('revolver');
   const parts = new Set();
   revolver.traverse((node) => {
     if (node.name) parts.add(node.name);
   });
-  for (const part of ['revolver.barrel', 'revolver.cylinder', 'revolver.grip', 'revolver.muzzle']) {
+  for (const part of [
+    'revolver-barrel', 'revolver-cylinder', 'revolver-grip', 'revolver-muzzle',
+    'revolver-trigger', 'revolver-ejector-rod', 'revolver-round-0', 'revolver-round-5',
+  ]) {
     assert.equal(parts.has(part), true, `${part} is visible in the held model`);
   }
+});
+
+test('the Motel revolver stats stay bound to the shared catalog', async () => {
+  const { WEAPON_STATS } = await import('../src/motel/actors.js');
+  const { weaponDef } = await import('../src/core/weapons/catalog.js');
+  const shared = weaponDef('revolver');
+  assert.equal(WEAPON_STATS.revolver.shared, shared.id,
+    'the Motel revolver names the shared catalog id');
+  assert.equal(WEAPON_STATS.revolver.ammo, shared.capacity,
+    'HUD capacity is read from the catalog, not typed again');
+  assert.ok(Math.abs(WEAPON_STATS.revolver.rate - 1 / shared.rps) < 1e-9,
+    'cadence is read from the catalog, not typed again');
 });

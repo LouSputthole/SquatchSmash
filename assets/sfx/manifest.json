@@ -17826,6 +17826,11 @@
       "say": "Now. Where is my meat."
     },
     {
+      "name": "vo.motel.prospect.1nexwwk.1",
+      "voice": "player",
+      "say": "Still six. They do not breed in there."
+    },
+    {
       "name": "vo.motel.prospect.1nfytw8.1",
       "voice": "player",
       "say": "Eight in their case. One on the table. Neither of them is mine yet."
