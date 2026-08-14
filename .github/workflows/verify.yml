@@ -20,10 +20,11 @@
 # swiftshader for minutes apiece; they stay local/manual for now. Promote more
 # here one at a time if they prove fast enough.
 #
-# `npm run lint` is NOT wired in yet, deliberately: it currently fails on two
-# real, pre-existing ReferenceErrors it exposed (src/mansion/cast.js `marks`,
-# src/silvercase/main.js `MISSION_IDS`). Wire it in the moment those are
-# fixed; do not wire it in by silencing them.
+# `npm run lint` is wired in as of the campaign/robustness pass: the two real
+# ReferenceErrors it was blocked on (src/mansion/cast.js `marks`,
+# src/silvercase/main.js `MISSION_IDS`) are fixed, so the gate that would have
+# caught them at authoring time now runs on every PR. `--max-warnings` is NOT
+# set: warnings stay advisory, errors fail the build.
 name: Verify
 
 on:
@@ -54,6 +55,9 @@ jobs:
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: Lint
+        run: npm run lint
 
       - name: Tests
         run: npm test
