@@ -74,7 +74,7 @@ import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
 import { isSiegeLineWeapon, resolveArmoryTake } from './armory-policy.js';
 import { SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeVoiceCueNames } from './script.js';
-import { REQUIRED_SIEGE_EFFECT_CUES, SiegeMissionAudio } from './audio.js';
+import { REQUIRED_SIEGE_EFFECT_CUES, SIEGE_AMBIENCE_CUES, SiegeMissionAudio } from './audio.js';
 import {
   COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS, totalAttackers,
 } from './waves.js';
@@ -120,12 +120,23 @@ const helpingEl = $('helping');
 const helpingNameEl = $('helpingName');
 const helpingBarEl = $('helpingBar');
 
-/** The InteractionSystem's HUD contract: showPrompt / hidePrompt / setHold. */
+/**
+ * The InteractionSystem's HUD contract: showPrompt / hidePrompt / setHold.
+ *
+ * THE LABEL IS MARKUP, NOT TEXT. Every descriptor in this repo writes its
+ * prompt as a small fragment of HTML -- `Use <b>triage</b> &mdash; 2 dressings
+ * left` -- and `src/core/interaction.js` documents it that way at the top of
+ * the file. `src/core/hud.js` and `src/heist/hud.js` both assign it to
+ * `innerHTML`. This one assigned it to `textContent`, so the player standing at
+ * the medical case read the tag and the entity literally off his own HUD:
+ * owner, verbatim, *"Healing crate shows a bunch of underneath coding instead
+ * of it"*. It was never the crate; it was the sentence in front of it.
+ */
 const tinyHud = {
   showPrompt(label, key = 'E') {
     if (!promptEl) return;
     promptKeyEl.textContent = key;
-    promptLabelEl.textContent = label;
+    promptLabelEl.innerHTML = label;
     promptEl.classList.remove('hidden');
   },
   hidePrompt() { promptEl?.classList.add('hidden'); },
@@ -284,6 +295,10 @@ const SIEGE_COMBAT_CUES = Object.freeze([...new Set([
   'heist.gear.armor.pickup',
   'heist.bullet.whiz',
   'heist.bullet.impact',
+  /* The night bed and the off-screen battle (see ./audio.js). They decode with
+   * the combat bank rather than with the six required effects because they are
+   * atmosphere: a missing one costs a synth hum, not a missing story beat. */
+  ...SIEGE_AMBIENCE_CUES,
 ])]);
 
 /* ================================================================== */
@@ -2229,7 +2244,10 @@ function updateGame(dt) {
   holdTheLine();
   updateLightRig(dt);
   updateTriggers(dt);
-  interaction.update();
+  /* `dt` matters the day a Siege target grows a `hold`: without it the hold
+   * clock accumulates `undefined` and the bar never fills. Nothing here holds
+   * today, which is exactly why the omission was invisible. */
+  interaction.update(dt);
   suppression.update(dt);
   weaponSystem.setSuppression(suppression);
   weaponSystem.update(dt, { speed: player.velocity?.length?.() ?? 0 });
@@ -2258,6 +2276,9 @@ function updateGame(dt) {
     alarmActive: damage.activeLayers.has('alarm'),
     alarmStruck: night.alarm.struck,
     fireActive: damage.activeLayers.has('battle'),
+    /* The night bed and the off-screen battle scatter run on the mission's own
+     * clock, so a stalled tab does not fire eight distant bursts at once. */
+    dt,
   });
   dressing.update(dt);
   glass.update(dt);
