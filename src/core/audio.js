@@ -54,6 +54,12 @@ export class AudioEngine {
     this.playbackAnalysers = new WeakMap();
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
+    /* Every cue that was SUPPOSED to decode and did not: a 404, a truncated
+     * file, a decode failure. `loadedCount` only ever counts successes, so
+     * without this a corrupted mp3 is indistinguishable from a cue that was
+     * never recorded — permanently silent, and nothing anywhere says so.
+     * Verifiers assert this stays empty ({ name, reason } per failure). */
+    this.failedCues = [];
     this._manifestLoadPromise = null;
     this._availableFiles = null;
     this._additionalLoads = new Map();
@@ -227,20 +233,84 @@ export class AudioEngine {
       // changes whenever a recording is regenerated under the same name --
       // force-cache is then never a way to keep hearing last week's take.
       const version = this._fileVersions?.[file];
-      const raw = /^data:/.test(file)
-        ? decodeDataUri(file)
-        : await fetch(assetUrl(SFX_DIR, file) + (version ? `?v=${version}` : ''), { cache: 'force-cache' })
-          .then((res) => (res.ok ? res.arrayBuffer() : null));
-      if (!raw) return;
-      if (raw.byteLength < 512) return; // placeholder / empty file
+      let raw;
+      if (/^data:/.test(file)) {
+        raw = decodeDataUri(file);
+        if (!raw) return this._noteFailedCue(cue.name, 'unreadable data: URI');
+      } else {
+        const res = await fetch(
+          assetUrl(SFX_DIR, file) + (version ? `?v=${version}` : ''),
+          { cache: 'force-cache' },
+        );
+        if (!res.ok) return this._noteFailedCue(cue.name, `HTTP ${res.status} for ${file}`);
+        raw = await res.arrayBuffer();
+      }
+      if (raw.byteLength < 512) {
+        return this._noteFailedCue(cue.name,
+          `placeholder or truncated file (${raw.byteLength} bytes in ${file})`);
+      }
       const buf = await this.ctx.decodeAudioData(raw);
       const list = this.buffers.get(cue.name) || [];
       list.push(buf);
       this.buffers.set(cue.name, list);
       this.loadedCount++;
-    } catch {
-      /* fall back to the synth for this cue */
+    } catch (error) {
+      this._noteFailedCue(cue.name, `decode failed: ${error?.message || error}`);
     }
+    return undefined;
+  }
+
+  /**
+   * Playback still degrades to the synth (or, for voice, to subtitles), but a
+   * cue that reached the loader and did not decode is a delivery defect and
+   * must be visible: everything that lands here was selected because the
+   * manifest names it AND the file index says its bytes exist.
+   */
+  _noteFailedCue(name, reason) {
+    this.failedCues.push({ name, reason });
+    console.warn(`AudioEngine: cue "${name}" failed to load — ${reason}`);
+  }
+
+  /**
+   * Drop every decoded buffer whose cue name starts with `prefix`.
+   *
+   * Decoded PCM is enormous next to the mp3s it came from (~480 MB resident in
+   * the apartment alone — docs/WEB-PERFORMANCE-AND-PWA.md), and nothing else
+   * in this module ever lets go of a buffer. Chapter and scene boundaries call
+   * this for banks that cannot sound again — deliberately a prefix drop, not
+   * an LRU. Re-decode stays possible: `loadAdditional` skips only names still
+   * present in `buffers`, so a forgotten bank can be requested again and the
+   * bytes come back out of the HTTP cache.
+   *
+   * @returns {number} how many cue banks were dropped
+   */
+  forget(prefix) {
+    if (!prefix) return 0;
+    let dropped = 0;
+    for (const name of [...this.buffers.keys()]) {
+      if (!name.startsWith(prefix)) continue;
+      this.buffers.delete(name);
+      dropped++;
+    }
+    if (!dropped) return 0;
+    /* The memoised loadAdditional scopes would otherwise answer "already
+     * decoded" forever; clearing them costs one cheap re-filter on the next
+     * request and makes the reload real. */
+    this._additionalLoads.clear();
+    /* The Apartment engine keeps its own per-file receipt set
+     * (src/core/apartment-audio.js); forgetting a bank must forget the
+     * receipts too or its re-decode is skipped at the dedupe gate. Keys are
+     * `${name}\0${file}`, so the name prefix test holds. */
+    if (this._apartmentLoadedCueFiles) {
+      for (const key of [...this._apartmentLoadedCueFiles]) {
+        if (key.startsWith(prefix)) this._apartmentLoadedCueFiles.delete(key);
+      }
+    }
+    /* say()'s per-group banks may still name buffers that are gone — and a
+     * stale pick would fall through play()'s bank check into the SYNTH, which
+     * for a voice line is worse than silence. Force a rebuild. */
+    this._voBanksAt = undefined;
+    return dropped;
   }
 
   /* ---------------------------------------------------------------- */

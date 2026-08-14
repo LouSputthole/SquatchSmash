@@ -440,7 +440,13 @@ const dialogue = new Dialogue(ui.dialogue, {
    * nothing else has to move. */
   onChoice: (opt) => voiceCue(nodeCue(opt)),
   cueSeconds,
-  onEnd: () => {
+  onEnd: (reason) => {
+    /* A conversation that lapsed — walked away, interrupted by another
+     * speaker, paused by sitting down — stops its take as well as its
+     * subtitle; the mouth runs on the sound (src/core/mouth.js), so without
+     * this she finishes her sentence to a man who left. 'done' has already
+     * had its full cue hold. */
+    if (reason !== 'done') dialogue.hush();
     performance_.setDucked(false);
     game.talkingTo = null;
   },

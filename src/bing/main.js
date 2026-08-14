@@ -437,7 +437,12 @@ const dialogue = new Dialogue(ui.dialogue, {
     /* Handed back so Dialogue can give it to the speaker's mouth. */
     return take;
   },
-  onChoice: (opt) => { voiceCue(nodeCue(opt)); layoutTalk(true); },
+  onChoice: (opt) => {
+    const take = voiceCue(nodeCue(opt));
+    layoutTalk(true);
+    /* Returned so the reply's take is the thing dialogue.hush() stops. */
+    return take;
+  },
   onPaint: () => layoutTalk(true),
   onMovementLock: (locked) => {
     if (locked) {
@@ -466,7 +471,12 @@ const dialogue = new Dialogue(ui.dialogue, {
     if (on) ui.subtitle?.classList.add('hidden');
     layoutTalk(true);
   },
-  onEnd: () => {
+  onEnd: (reason) => {
+    /* Walking out of (or interrupting) a conversation stops the take as well
+     * as the subtitle — the mouth runs on the sound (src/core/mouth.js), so
+     * without this a man finishes his sentence to nobody. A thread that ran
+     * to 'done' has already had its full cue hold; nothing to stop. */
+    if (reason !== 'done') dialogue.hush();
     game.louTalking = false;
     if (game.louBriefing) {
       game.louBriefing = false;

@@ -98,6 +98,90 @@ test('large scenes can prefetch a later audio chapter without decoding it at sta
   assert.equal(decoded.length, 3);
 });
 
+test('a cue that fails to fetch or decode is counted, named, and warned about', async (t) => {
+  const engine = new AudioEngine();
+  engine.ctx = {
+    decodeAudioData: async (raw) => {
+      if (raw.byteLength === 4096) throw new Error('bad mp3 frame');
+      return { duration: 1.2 };
+    },
+  };
+  const realFetch = globalThis.fetch;
+  const realWarn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => warnings.push(args.join(' '));
+  globalThis.fetch = async (url) => {
+    const name = String(url);
+    if (name.includes('vo.gone.1.mp3')) return { ok: false, status: 404 };
+    const bytes = name.includes('vo.corrupt.1.mp3') ? 4096
+      : name.includes('vo.stub.1.mp3') ? 96 : 8192;
+    return { ok: true, arrayBuffer: async () => new ArrayBuffer(bytes) };
+  };
+  t.after(() => { globalThis.fetch = realFetch; console.warn = realWarn; });
+
+  await engine._loadOne({ name: 'vo.gone.1' });     // the index lied: 404
+  await engine._loadOne({ name: 'vo.corrupt.1' });  // bytes arrive, decode fails
+  await engine._loadOne({ name: 'vo.stub.1' });     // an empty placeholder shipped
+  await engine._loadOne({ name: 'vo.fine.1' });     // and one that is healthy
+
+  assert.equal(engine.loadedCount, 1);
+  assert.equal(engine.hasSample('vo.fine.1'), true);
+  assert.deepEqual(engine.failedCues.map((f) => f.name),
+    ['vo.gone.1', 'vo.corrupt.1', 'vo.stub.1']);
+  assert.match(engine.failedCues[0].reason, /HTTP 404/);
+  assert.match(engine.failedCues[1].reason, /decode failed: bad mp3 frame/);
+  assert.match(engine.failedCues[2].reason, /placeholder or truncated/);
+  assert.equal(warnings.length, 3, 'every failure warns once on the console');
+  assert.ok(warnings.every((w) => /failed to load/.test(w)));
+});
+
+test('forget(prefix) drops a decoded bank and a later request decodes it again', async () => {
+  const engine = new AudioEngine();
+  engine.manifest = {
+    sfx: [
+      { name: 'vo.golf.h2.rippin.which_side' },
+      { name: 'vo.golf.h2.lou.dont_copy_me' },
+      { name: 'vo.golf.h3.lou.anybody_know_youre_here' },
+    ],
+  };
+  engine._manifestLoadPromise = Promise.resolve({ total: 3, loaded: 3 });
+  engine._availableFiles = new Set(engine.manifest.sfx.map((cue) => `${cue.name}.mp3`));
+  const decoded = [];
+  engine._loadWanted = async (wanted) => {
+    for (const cue of wanted) {
+      decoded.push(cue.name);
+      engine.buffers.set(cue.name, [{ duration: 1 }]);
+      engine.loadedCount++;
+    }
+  };
+  await engine.loadAdditional({ prefixes: ['vo.golf.h2.', 'vo.golf.h3.'] });
+  assert.equal(decoded.length, 3);
+  /* The Apartment engine's per-file receipts (apartment-audio.js) must be
+   * released along with the bank or its reload is skipped at the dedupe gate. */
+  engine._apartmentLoadedCueFiles = new Set([
+    'vo.golf.h2.rippin.which_side\0vo.golf.h2.rippin.which_side.mp3',
+    'vo.golf.h3.lou.anybody_know_youre_here\0vo.golf.h3.lou.anybody_know_youre_here.mp3',
+  ]);
+
+  assert.equal(engine.forget('vo.golf.h2.'), 2);
+  assert.equal(engine.hasSample('vo.golf.h2.rippin.which_side'), false);
+  assert.equal(engine.hasSample('vo.golf.h3.lou.anybody_know_youre_here'), true,
+    'a forget is a prefix drop, not a purge');
+  assert.deepEqual([...engine._apartmentLoadedCueFiles],
+    ['vo.golf.h3.lou.anybody_know_youre_here\0vo.golf.h3.lou.anybody_know_youre_here.mp3']);
+
+  // Re-decode stays possible: the same scope decodes the forgotten bank again.
+  await engine.loadAdditional({ prefixes: ['vo.golf.h2.', 'vo.golf.h3.'] });
+  assert.deepEqual(decoded.slice(3).sort(), [
+    'vo.golf.h2.lou.dont_copy_me',
+    'vo.golf.h2.rippin.which_side',
+  ]);
+
+  // A prefix that owns nothing decoded is a no-op.
+  assert.equal(engine.forget('vo.nothing.'), 0);
+  assert.equal(engine.forget(''), 0);
+});
+
 function audioParam(value = 0) {
   return {
     value,
