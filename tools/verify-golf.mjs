@@ -107,6 +107,43 @@ check('1a. the visible start button enters the round', !startError,
   startError ? startError.split('\n')[0] : 'opening card dismissed');
 await page.waitForFunction('window.__golf.round.beat !== undefined', null, { timeout: 30000 });
 
+/* ------------------------------------------------------------------ */
+/* 1h · the recorded bank really decodes                               */
+/*                                                                     */
+/* ENGINE-TRAPS.md 3, one layer further in: a cue can be authored,      */
+/* manifested, and on disk, and still be permanently silent if it never */
+/* decodes. `loadedCount` only counts successes; `failedCues` is the    */
+/* ledger of everything that was supposed to decode and did not.        */
+/* ------------------------------------------------------------------ */
+
+const voResidency = await page.evaluate(async () => {
+  const g = window.__golf;
+  /* boot() awaits this before opening play; awaiting it again is free and
+   * guards these reads against a mid-decode snapshot. */
+  await g.audio._manifestLoadPromise;
+  const manifest = await (await fetch('/assets/sfx/manifest.json')).json();
+  const index = await (await fetch('/assets/sfx/index.json')).json();
+  const available = new Set(index.files || []);
+  const recordedH1 = (manifest.sfx || [])
+    .filter((cue) => cue.name.startsWith('vo.golf.h1.')
+      && available.has(cue.file || `${cue.name}.mp3`))
+    .map((cue) => cue.name);
+  const missing = recordedH1.filter((name) => (g.audio.buffers.get(name)?.length ?? 0) === 0);
+  return {
+    recordedH1: recordedH1.length,
+    resident: recordedH1.length - missing.length,
+    missing: missing.slice(0, 8),
+    failed: g.audio.failedCues.map((f) => `${f.name}: ${f.reason}`),
+  };
+});
+check('1v. every recorded Hole 1 voice take is decoded and resident before play',
+  voResidency.recordedH1 > 0 && voResidency.resident === voResidency.recordedH1,
+  `${voResidency.resident}/${voResidency.recordedH1} resident`
+  + (voResidency.missing.length ? `; missing ${voResidency.missing.join(', ')}` : ''));
+check('1w. not one requested recording failed to decode (failedCues is empty)',
+  voResidency.failed.length === 0,
+  voResidency.failed.slice(0, 5).join(' | ') || 'failedCues empty');
+
 const beforePause = await page.evaluate(() => ({
   beat: window.__golf.round.beat,
   x: window.__golf.player.position.x,
@@ -679,6 +716,34 @@ await page.evaluate((pos) => {
 
 const reachedTee = await page.evaluate(async () => {
   const g = window.__golf;
+  /* Lines must PLAY, not merely subtitle (ENGINE-TRAPS.md 3). Tap the real
+   * paths for the duration of this drive: every cue the queue puts on the
+   * floor, every reply the harness chooses, and every vo.golf.* playback the
+   * engine actually schedules on a decoded buffer. */
+  const voPlayed = [];
+  const linesSaid = [];
+  const chosenCues = [];
+  const origPlay = g.audio.play.bind(g.audio);
+  g.audio.play = (name, opts) => {
+    const src = origPlay(name, opts);
+    if (String(name).startsWith('vo.golf.') && src) voPlayed.push(name);
+    return src;
+  };
+  const origSay = g.cues.hooks.say;
+  g.cues.hooks.say = (cue, seconds) => {
+    linesSaid.push(cue.id);
+    return origSay?.(cue, seconds);
+  };
+  const origChoose = g.dialogue.choose.bind(g.dialogue);
+  g.dialogue.choose = (index) => {
+    const opt = g.dialogue.options[index];
+    const ok = origChoose(index);
+    if (ok && opt?.cue) {
+      chosenCues.push(typeof opt.cue === 'function' ? opt.cue() : opt.cue);
+    }
+    return ok;
+  };
+
   // Skip the arrival conversation the way a player does: by answering it.
   for (let i = 0; i < 400 && g.dialogue.active; i++) {
     if (g.dialogue.options.length) g.dialogue.choose(0);
@@ -708,6 +773,9 @@ const reachedTee = await page.evaluate(async () => {
       g.dialogue.choose(0);
     }
   }
+  g.audio.play = origPlay;
+  g.cues.hooks.say = origSay;
+  g.dialogue.choose = origChoose;
   return {
     beat: g.round.beat,
     heardInvitation: g.round.heardInvitation,
@@ -718,6 +786,9 @@ const reachedTee = await page.evaluate(async () => {
     dialogue: g.dialogue.active,
     options: g.dialogue.options.length,
     footsteps,
+    voPlayed,
+    linesSaid,
+    chosenCues,
   };
 });
 check('2. the player can reach the first tee',
@@ -727,6 +798,18 @@ check('2a. walking the live Player produces course-surface footsteps',
   reachedTee.footsteps.join(', ') || 'no footsteps');
 check('22. dialogue choices work and are recorded',
   reachedTee.heardInvitation === true, 'answered "You needed a fourth"');
+const silentSaid = reachedTee.linesSaid
+  .filter((id) => !reachedTee.voPlayed.includes(`vo.${id}`));
+const silentChosen = reachedTee.chosenCues
+  .filter((id) => !reachedTee.voPlayed.includes(`vo.${id}`));
+check('22a. every conversation line driven here PLAYS its recording — none is subtitle-only',
+  reachedTee.linesSaid.length > 0 && reachedTee.chosenCues.length > 0
+    && reachedTee.voPlayed.length >= reachedTee.linesSaid.length
+    && silentSaid.length === 0 && silentChosen.length === 0,
+  `${reachedTee.voPlayed.length} takes played for ${reachedTee.linesSaid.length} queued lines`
+  + ` + ${reachedTee.chosenCues.length} chosen replies`
+  + (silentSaid.length || silentChosen.length
+    ? `; SILENT: ${[...silentSaid, ...silentChosen].join(', ')}` : ''));
 
 /* ------------------------------------------------------------------ */
 /* 23 · the input rule                                                 */
@@ -1644,6 +1727,12 @@ const played = await page.evaluate(async () => {
     built: g.round.holes, visuals, effectCounts,
     h2GreenExpected,
     h2GreenSpoken: spokenCueOrder.filter((id) => h2GreenExpected.includes(id)),
+    voBanks: {
+      h1: [...g.audio.buffers.keys()].filter((n) => n.startsWith('vo.golf.h1.')).length,
+      h2: [...g.audio.buffers.keys()].filter((n) => n.startsWith('vo.golf.h2.')).length,
+      h3: [...g.audio.buffers.keys()].filter((n) => n.startsWith('vo.golf.h3.')).length,
+    },
+    failedCues: g.audio.failedCues.map((f) => `${f.name}: ${f.reason}`),
     replayVisible: document.getElementById('endcard-again')?.hidden === false,
     dialogueState: {
       active: g.dialogue.active,
@@ -1707,6 +1796,12 @@ check('28c. every hole builds its authored visual anchors',
     && visualByHole.get(2)?.names.includes('next-tee-hint')
     && !visualByHole.get(3)?.names.includes('next-tee-hint'),
   played.visuals.map((visual) => `H${visual.hole}: ${visual.names.join(', ')}`).join(' | '));
+check('28c1. spent hole banks are evicted at the chapter edge — h2 gone, h1 kept for callbacks',
+  played.voBanks.h2 === 0 && played.voBanks.h1 > 0 && played.voBanks.h3 > 0,
+  `resident after the round: h1 ${played.voBanks.h1}, h2 ${played.voBanks.h2}, h3 ${played.voBanks.h3}`);
+check('28c2. the whole round — start slice plus both prefetched holes — decoded without one failure',
+  played.failedCues.length === 0,
+  played.failedCues.slice(0, 5).join(' | ') || 'failedCues empty');
 const lastVisual = visualByHole.get(3);
 check('28d. Hole 3 renders the clubhouse even though it has no car park',
   lastVisual?.hasLot === false && !!lastVisual.clubhouse

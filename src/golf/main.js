@@ -527,13 +527,34 @@ const cues = new CueQueue({
 });
 
 const dialogue = new Dialogue(ui.dialogue, {
+  /* A node that SPEAKS — `line` text with a `cue` on it — plays its exact
+   * recording, the same convention as the Bing (src/bing/main.js). The tree
+   * beats built by `beat()` route through CueQueue and never reach this hook;
+   * this is the path for any authored spoken node, and the take is RETURNED
+   * so Dialogue hands it to the speaker's mouth (src/core/mouth.js) instead
+   * of a guessed envelope. Unrecorded lines stay subtitle-only on purpose —
+   * a synthesised voice would be worse than silence. */
+  onLine: (text, who, node) => {
+    const cueId = typeof node?.cue === 'function' ? node.cue() : node?.cue;
+    if (!cueId) return null;
+    activeVoice?.stop?.();
+    activeVoice = playRecordedGolfCue(audio, cueId, { volume: 0.92 });
+    return activeVoice ? { audio, source: activeVoice } : null;
+  },
   onChoice: (option) => {
     audio.play('ui.select', { volume: 0.4 });
     activeVoice?.stop?.();
     activeVoice = playRecordedGolfChoice(audio, option, { volume: 0.92 });
+    /* Returned so the reply's take is the thing dialogue.hush() stops. */
+    return activeVoice ? { audio, source: activeVoice } : null;
   },
   cueSeconds: (cueId) => recordedGolfClip(audio, cueId)?.duration ?? 0,
-  onEnd: () => { cues.suppressBanter(false); },
+  onEnd: (reason) => {
+    /* A conversation he walked out of stops talking to nobody; a thread that
+     * reached 'done' has already had its full cue hold, nothing to stop. */
+    if (reason !== 'done') dialogue.hush();
+    cues.suppressBanter(false);
+  },
 });
 
 /* ------------------------------------------------------------------ */
@@ -557,7 +578,17 @@ const round = new Round({
       if (kind === 'stop' && data.id === CHARACTER_IDS.PROSPECT) paintCard();
     },
     onHoleComplete: (summary, next) => showHoleCard(summary, next),
-    onLoadHole: (n) => { course.load(n); wireSideCooler(); restockSquatchBeer(); },
+    onLoadHole: (n) => {
+      course.load(n);
+      wireSideCooler();
+      restockSquatchBeer();
+      /* Hole 2's tree, sequences and banter cannot fire again once Hole 3 is
+       * on the ground, so its decoded PCM goes with it (AudioEngine.forget —
+       * prefix eviction at chapter edges). Hole 1's bank deliberately STAYS
+       * resident: the cart ride and every past-mission callback are authored
+       * on golf.h1.* ids and fire on later holes. */
+      if (n === 3) audio.forget('vo.golf.h2.');
+    },
     onRoundComplete: (summary) => showEndCard(summary),
   },
 });
@@ -2394,9 +2425,14 @@ function showStartBlocked(result = {}) {
   return { ok: false, reason };
 }
 
-function prefetchLaterGolfAudio() {
+function prefetchLaterGolfAudio(fromHole = 1) {
   void (async () => {
-    for (const scope of GOLF_LATER_AUDIO_SCOPES) {
+    for (const [i, scope] of GOLF_LATER_AUDIO_SCOPES.entries()) {
+      /* Scope i covers hole i+2. A resumed round never prefetches the holes
+       * already behind it — those are exactly the banks hole transitions
+       * evict (see onLoadHole), and re-decoding them here would quietly undo
+       * the eviction. */
+      if (i + 2 <= fromHole) continue;
       await audio.loadAdditional?.(scope).catch?.(() => {});
     }
   })();
@@ -2499,7 +2535,7 @@ async function boot() {
     round.begin();
   }
   prefetchCartRadioAudio();
-  prefetchLaterGolfAudio();
+  prefetchLaterGolfAudio(resumeHole ?? 1);
   running = true;
   paintCard();
   paintGuide();
