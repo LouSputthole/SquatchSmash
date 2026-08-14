@@ -249,7 +249,7 @@
     },
     {
       "slot": "fridge.magnet",
-      "file": "sticker-austin-2025.png",
+      "file": "sticker-austin-2025.webp",
       "title": "Austin Major 2025",
       "caption": "Held on by one magnet, at an angle nobody has ever corrected."
     },
@@ -285,7 +285,7 @@
     },
     {
       "slot": "sticker.tower",
-      "file": "sticker-pinup-silver.png",
+      "file": "sticker-pinup-silver.webp",
       "title": "Tower sticker",
       "caption": "On the side panel, over the case badge it came with."
     },
@@ -369,7 +369,7 @@
     },
     {
       "slot": "bing.office.squatches_bing",
-      "file": "lou-office-squatches-bing.png",
+      "file": "lou-office-squatches-bing.jpg",
       "title": "Silver Sasquatches at the Bada Bing",
       "caption": "Framed behind Big Uncle Lou's desk."
     },
@@ -399,7 +399,7 @@
     },
     {
       "slot": "bing.office.noir_print",
-      "file": "bing-office-noir.png",
+      "file": "bing-office-noir.jpg",
       "title": "Uncle Squatch Beats",
       "caption": "A spy-noir print of Lou's DJ alter ego, east wall of the office."
     },
@@ -411,55 +411,55 @@
     },
     {
       "slot": "squatchfather.dining.coast",
-      "file": "squatchfather-coast-squatch.png",
+      "file": "squatchfather-coast-squatch.webp",
       "title": "Coast of the Family",
       "caption": "The big one in the dining room."
     },
     {
       "slot": "bing.hallway.uncle_lou",
-      "file": "bing-hallway-uncle-lou.png",
+      "file": "bing-hallway-uncle-lou.webp",
       "title": "Big Uncle Lou",
       "caption": "The first portrait on the walk to Uncle Lou's office."
     },
     {
       "slot": "bing.hallway.rippinflow",
-      "file": "bing-hallway-rippinflow.png",
+      "file": "bing-hallway-rippinflow.webp",
       "title": "Rippinflow",
       "caption": "A Family portrait in the rear hall."
     },
     {
       "slot": "bing.hallway.booskibro",
-      "file": "bing-hallway-booskibro.png",
+      "file": "bing-hallway-booskibro.webp",
       "title": "Booskibro",
       "caption": "A Family portrait in the rear hall."
     },
     {
       "slot": "bing.hallway.shubenator",
-      "file": "bing-hallway-shubenator.png",
+      "file": "bing-hallway-shubenator.webp",
       "title": "Shubenator",
       "caption": "A Family portrait in the rear hall."
     },
     {
       "slot": "squatchfather.portrait.uncle_lou",
-      "file": "bing-hallway-uncle-lou.png",
+      "file": "bing-hallway-uncle-lou.webp",
       "title": "Big Uncle Lou",
       "caption": "The Family portrait on the dining-room wall."
     },
     {
       "slot": "squatchfather.portrait.rippinflow",
-      "file": "bing-hallway-rippinflow.png",
+      "file": "bing-hallway-rippinflow.webp",
       "title": "Rippinflow",
       "caption": "The Family portrait on the dining-room wall."
     },
     {
       "slot": "squatchfather.portrait.booskibro",
-      "file": "bing-hallway-booskibro.png",
+      "file": "bing-hallway-booskibro.webp",
       "title": "Booskibro",
       "caption": "The Family portrait on the dining-room wall."
     },
     {
       "slot": "squatchfather.portrait.shubenator",
-      "file": "bing-hallway-shubenator.png",
+      "file": "bing-hallway-shubenator.webp",
       "title": "Shubenator",
       "caption": "The Family portrait on the dining-room wall."
     },
@@ -699,7 +699,7 @@
     },
     {
       "slot": "mansion.office.hogmama",
-      "file": "lou-office-hog-mama.png",
+      "file": "lou-office-hog-mama.jpg",
       "title": "Hog Mama, in Lou's office",
       "caption": "On the north pier between the two windows, facing the desk."
     },
