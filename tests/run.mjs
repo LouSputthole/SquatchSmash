@@ -192,6 +192,8 @@ const TEST_MODULES = [
   './inventory.test.mjs',
   './inventory-view.test.mjs',
   './player.test.mjs',
+  './settings.test.mjs',
+  './mansion-dialogue-hush.test.mjs',
   './check-line-presence.test.mjs',
 ];
 

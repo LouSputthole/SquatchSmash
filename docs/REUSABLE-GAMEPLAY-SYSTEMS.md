@@ -31,6 +31,7 @@ A shared-system adoption is complete only when all four are present:
 | Player inventory | `src/core/inventory.js` | Canonical | Apartment, Bing, Silver, Silver Pines and Mansion final-arc loadout |
 | Look/hold interactions | `src/core/interaction.js` | Canonical | All first-person scenes that use world-object prompts |
 | Pause and failure recovery | `src/core/pause-menu.js`, `src/core/scene-recovery.js`, `src/core/campaign-scene-skip.js` | Canonical | Campaign scenes listed by `RECOVERABLE_CAMPAIGN_SCENES`; Apartment uses its hub Adapter |
+| Player settings (subtitles, shake, assist, volume, sensitivity, keymap) | `src/core/settings.js`, rendered by `src/core/pause-menu.js` | Canonical | Every scene that mounts the pause menu (all campaign scenes, Initiation, Combat Lab); the Silver Room start screen delegates to it; `AudioEngine` and the Motel/Squatchfather/Initiation audio modules honour its volume; the shared `Player`, Beef Run cameras and the Enola gunner honour its sensitivity |
 
 ## Blood impact and death pools
 
@@ -908,6 +909,18 @@ createPauseMenu({
 });
 ```
 
+The menu also renders the shared settings store, `src/core/settings.js`:
+`get(name)`, `set(name, value)`, `subscribe(fn)`, `applyBody()` (the
+`body.nosubs` / `body.bigsubs` classes and the shared subtitle rules), plus
+`shakeScale()`, `lookSensitivity(base)` / `bindLookSensitivity(target, base)`,
+`bindAudioVolume(engine)` and the keymap (`getKeymap()`, `bindKey()`,
+`resetKeys()`, `translateKey(code)`). Storage keys are the Silver Room's
+`squatch.*`. Scenes that forward keys to the shared `Player` pass them through
+`translateKey` so a rebound key arrives as the code the Player reads; scenes
+with bespoke movement keys (Motel, Squatchfather, Initiation) do not yet read
+the keymap. Camera shake is multiplied by `shakeScale()` at the point it is
+applied to the camera.
+
 The recovery Interface is `getState()`, `restartFromCheckpoint()`,
 `restartScene()` and `skipScene()`. Skip unlocks after either two checkpoint
 restarts or two scene restarts. The persistent key is
@@ -921,6 +934,10 @@ storage and must not touch the canonical campaign.
 - Checkpoint restart: `[data-scene-recovery-action="checkpoint"]`.
 - Scene restart: `[data-scene-recovery-action="scene"]`.
 - Skip: `[data-scene-recovery-action="skip"]`.
+- Settings block: `[data-scene-settings]`; each control
+  `[data-scene-setting="subtitles|bigSubtitles|reduceShake|assist|volume|sensitivity"]`;
+  rebind buttons `[data-scene-rebind="forward|back|left|right|sprint|crouch|jump"]`;
+  `[data-scene-rebind-reset]`. Proved by `npm run verify:settings`.
 
 ### Campaign completion rule and migration
 

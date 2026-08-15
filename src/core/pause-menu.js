@@ -5,9 +5,14 @@
  * input rule and the menu: Tab pauses, shows the current objective and the
  * complete controls, then Tab or Resume hands control back. The callbacks are
  * the narrow Adapter between that rule and each scene's existing pause flag.
+ *
+ * It also renders the shared settings (src/core/settings.js): subtitles,
+ * larger subtitles, reduce shake, assist, master volume, mouse sensitivity and
+ * the movement keys — so a scene that mounts this menu has them for free.
  */
 
 import { exportCampaignSave, importCampaignSave } from './campaign.js';
+import * as settings from './settings.js';
 
 const STYLE_ID = 'squatch-scene-pause-style';
 
@@ -166,6 +171,84 @@ function installStyle() {
       color: #c9cfdb;
       font-size: 12px;
     }
+    [data-scene-settings] {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(207, 212, 224, .14);
+    }
+    [data-scene-settings] .scene-settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px 22px;
+      margin: 0 0 14px;
+      color: #dfe4ee;
+      font-size: 14px;
+    }
+    [data-scene-settings] label.scene-setting {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+    }
+    [data-scene-settings] label.scene-setting input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: #a983ff;
+    }
+    [data-scene-settings] label.scene-setting.slider {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 2px 10px;
+    }
+    [data-scene-settings] label.scene-setting.slider input[type="range"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      accent-color: #a983ff;
+    }
+    [data-scene-settings] label.scene-setting.slider output {
+      min-width: 44px;
+      color: #a983ff;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-align: right;
+    }
+    [data-scene-settings] .scene-settings-keys {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 6px 18px;
+      margin: 0 0 12px;
+    }
+    [data-scene-settings] .scene-settings-keys > div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #c9cfdb;
+      font-size: 13px;
+    }
+    [data-scene-settings] button[data-scene-rebind] {
+      min-width: 96px;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, .06);
+      font-size: 11px;
+    }
+    [data-scene-settings] button[data-scene-rebind].listening {
+      background: #6944bd;
+      outline: 2px solid #d8c9ff;
+    }
+    [data-scene-settings] button[data-scene-rebind-reset] {
+      min-width: 0;
+      padding: 8px 14px;
+      font-size: 11px;
+    }
+    [data-scene-settings-note] {
+      margin: 8px 0 0;
+      color: #8d97ab;
+      font-size: 12px;
+      line-height: 1.4;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -226,6 +309,25 @@ export function createPauseMenu({
       <ul data-scene-pause-instructions></ul>
       <div class="scene-pause-actions">
         <button type="button" data-scene-pause-resume>Resume</button>
+      </div>
+      <div data-scene-settings>
+        <div class="scene-pause-label">Settings</div>
+        <div class="scene-settings-grid">
+          <label class="scene-setting"><input type="checkbox" data-scene-setting="subtitles"> Subtitles</label>
+          <label class="scene-setting"><input type="checkbox" data-scene-setting="bigSubtitles"> Larger subtitles</label>
+          <label class="scene-setting"><input type="checkbox" data-scene-setting="reduceShake"> Reduce camera shake</label>
+          <label class="scene-setting"><input type="checkbox" data-scene-setting="assist"> Assist — wider timing windows</label>
+          <label class="scene-setting slider"><span>Master volume</span><output data-scene-setting-value="volume"></output>
+            <input type="range" min="0" max="100" step="1" data-scene-setting="volume"></label>
+          <label class="scene-setting slider"><span>Mouse sensitivity</span><output data-scene-setting-value="sensitivity"></output>
+            <input type="range" min="20" max="300" step="5" data-scene-setting="sensitivity"></label>
+        </div>
+        <div class="scene-pause-label">Controls</div>
+        <div class="scene-settings-keys" data-scene-settings-keys></div>
+        <div class="scene-pause-actions">
+          <button type="button" class="secondary" data-scene-rebind-reset>Reset controls</button>
+        </div>
+        <p data-scene-settings-note>Click a key to change it, then press the new key. Esc cancels. Tab always pauses.</p>
       </div>
       <div class="scene-pause-save">
         <div class="scene-pause-label">Save data</div>
@@ -399,10 +501,98 @@ export function createPauseMenu({
     setTimeout(() => window.location.reload(), 400);
   });
 
+  /* ---------------------------------------------------------------- */
+  /* Settings — one shared store (src/core/settings.js), rendered here  */
+  /* so every scene that pauses has the same switches in the same place.*/
+  /* ---------------------------------------------------------------- */
+  settings.applyBody();
+  const settingInputs = {};
+  for (const input of root.querySelectorAll('[data-scene-setting]')) {
+    const name = input.dataset.sceneSetting;
+    settingInputs[name] = input;
+    if (input.type === 'checkbox') {
+      input.addEventListener('change', () => { settings.set(name, input.checked); });
+    } else {
+      input.addEventListener('input', () => { settings.set(name, Number(input.value) / 100); });
+    }
+  }
+  const settingOutputs = {};
+  for (const output of root.querySelectorAll('[data-scene-setting-value]')) {
+    settingOutputs[output.dataset.sceneSettingValue] = output;
+  }
+  const keyRows = root.querySelector('[data-scene-settings-keys]');
+  const rebindButtons = {};
+  for (const [action, label] of settings.KEY_ACTIONS) {
+    const row = document.createElement('div');
+    const name = document.createElement('span');
+    name.textContent = label;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.sceneRebind = action;
+    button.addEventListener('click', () => beginRebind(action));
+    row.append(name, button);
+    keyRows.appendChild(row);
+    rebindButtons[action] = button;
+  }
+  root.querySelector('[data-scene-rebind-reset]').addEventListener('click', () => {
+    endRebind();
+    settings.resetKeys();
+    refreshSettings();
+  });
+
+  /* Which action is waiting for its new key, if any. While one is, every
+   * keydown is the answer (Esc: no change) and none of it reaches the scene
+   * or the Tab handler below. */
+  let rebinding = null;
+  function beginRebind(action) {
+    endRebind();
+    rebinding = action;
+    rebindButtons[action].classList.add('listening');
+    rebindButtons[action].textContent = 'Press a key…';
+    window.addEventListener('keydown', onRebindKey, true);
+  }
+  function endRebind() {
+    if (!rebinding) return;
+    rebindButtons[rebinding]?.classList.remove('listening');
+    rebinding = null;
+    window.removeEventListener('keydown', onRebindKey, true);
+    refreshSettings();
+  }
+  function onRebindKey(event) {
+    if (!rebinding) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.code === 'Tab' || event.code === 'Escape' || !event.code) {
+      endRebind();
+      return;
+    }
+    settings.bindKey(rebinding, event.code);
+    endRebind();
+  }
+
+  function refreshSettings() {
+    for (const [name, input] of Object.entries(settingInputs)) {
+      const value = settings.get(name);
+      if (input.type === 'checkbox') input.checked = Boolean(value);
+      else input.value = String(Math.round(Number(value) * 100));
+    }
+    for (const [name, output] of Object.entries(settingOutputs)) {
+      output.textContent = `${Math.round(Number(settings.get(name)) * 100)}%`;
+    }
+    const keymap = settings.getKeymap();
+    for (const [action, button] of Object.entries(rebindButtons)) {
+      if (rebinding === action) continue;
+      button.textContent = settings.keyLabel(keymap[action]);
+      button.title = keymap[action];
+    }
+  }
+  const unsubscribeSettings = settings.subscribe(() => refreshSettings());
+
   document.body.appendChild(root);
   let open = false;
 
   function refresh() {
+    refreshSettings();
     objective.textContent = read(getObjective, 'Review the instructions, then return when you are ready.');
     if (recoveryButtons.checkpoint) {
       const state = recovery.getState();
@@ -444,6 +634,7 @@ export function createPauseMenu({
   function resume() {
     if (!open) return false;
     open = false;
+    endRebind();
     root.classList.add('hidden');
     importPanel.hidden = true;
     showSaveStatus('');
@@ -456,7 +647,7 @@ export function createPauseMenu({
   }
 
   function onKeyDown(event) {
-    if (event.code !== 'Tab' || event.repeat) return;
+    if (event.code !== 'Tab' || event.repeat || rebinding) return;
     /* Typing in the import textarea (or its file picker) must not close the
      * menu out from under the paste. */
     const tag = event.target?.tagName;
@@ -478,6 +669,8 @@ export function createPauseMenu({
     refresh,
     isPaused: () => open,
     destroy() {
+      endRebind();
+      unsubscribeSettings();
       window.removeEventListener('keydown', onKeyDown, true);
       root.remove();
     },

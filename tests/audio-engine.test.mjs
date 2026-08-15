@@ -631,3 +631,26 @@ test('a recorded loop is re-pitched by its playback rate, and an absent one refu
   // frame and the beds are only alive during the escape.
   assert.equal(engine.setLoopRate('heist.vehicle.engine.load', 2), false);
 });
+
+test('the master gain is the scene level times the player volume setting, and a mute toggle keeps both', () => {
+  const { engine, ctx } = loopMixHarness();
+  engine.master = audioNode({ gain: timelineParam(0.9) });
+
+  engine.setUserVolume(0.5);
+  assert.ok(Math.abs(engine.master.gain.at(0.15) - 0.45) < 1e-9, 'a half volume setting halves the 0.9 master');
+
+  /* What every scene's mute toggle does: 0 to mute, 0.9 to unmute. The unmute
+   * used to land at 0.9 flat, over the top of whatever the player had chosen. */
+  ctx.currentTime = 1;
+  engine.setMasterVolume(0);
+  assert.ok(engine.master.gain.at(1.15) < 1e-9);
+  ctx.currentTime = 2;
+  engine.setMasterVolume(0.9);
+  assert.ok(Math.abs(engine.master.gain.at(2.15) - 0.45) < 1e-9, 'unmuting restores the level under the setting');
+
+  ctx.currentTime = 3;
+  engine.setUserVolume(7);
+  assert.ok(Math.abs(engine.master.gain.at(3.15) - 0.9) < 1e-9, 'the setting is clamped to 1');
+  engine.setUserVolume(-1);
+  assert.equal(engine.userVolume, 0);
+});
