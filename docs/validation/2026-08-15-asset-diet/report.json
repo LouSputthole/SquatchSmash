@@ -1,0 +1,926 @@
+{
+  "generated": "2026-08-15T12:53:28.008Z",
+  "ok": true,
+  "shots": [
+    {
+      "scene": "bing",
+      "name": "01-bing-hallway-first-four",
+      "room": "Bing rear hall, first four portraits",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/01-bing-hallway-first-four.png",
+      "slots": [
+        {
+          "slot": "bing.hallway.uncle_lou",
+          "file": "bing-hallway-uncle-lou.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -8.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.rippinflow",
+          "file": "bing-hallway-rippinflow.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -7.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.booskibro",
+          "file": "bing-hallway-booskibro.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -6.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.shubenator",
+          "file": "bing-hallway-shubenator.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -5.75
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "bing",
+      "name": "02-bing-hallway-down-the-row",
+      "room": "Bing rear hall, down the gallery",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/02-bing-hallway-down-the-row.png",
+      "slots": [
+        {
+          "slot": "bing.hallway.rippinflow",
+          "file": "bing-hallway-rippinflow.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -7.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.sauce",
+          "file": "family-portrait-sauce.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -4.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.hogmama",
+          "file": "family-portrait-hogmama.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -2.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.eric",
+          "file": "family-portrait-eric.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -0.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.seff",
+          "file": "family-portrait-seff.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            1.25
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "bing",
+      "name": "03-bing-hallway-family-webps",
+      "room": "Bing rear hall, re-encoded family portraits",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/03-bing-hallway-family-webps.png",
+      "slots": [
+        {
+          "slot": "bing.hallway.sauce",
+          "file": "family-portrait-sauce.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -4.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.lag",
+          "file": "family-portrait-lag.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -3.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.hogmama",
+          "file": "family-portrait-hogmama.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -2.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.ape",
+          "file": "family-portrait-ape.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -1.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.eric",
+          "file": "family-portrait-eric.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            -0.75
+          ]
+        },
+        {
+          "slot": "bing.hallway.irish",
+          "file": "family-portrait-irish.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            0.25
+          ]
+        },
+        {
+          "slot": "bing.hallway.seff",
+          "file": "family-portrait-seff.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            5.734,
+            1.82,
+            1.25
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "bing",
+      "name": "04-bing-office-squatches-bing",
+      "room": "Lou's office at the Bing, behind the desk",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/04-bing-office-squatches-bing.png",
+      "slots": [
+        {
+          "slot": "bing.office.squatches_bing",
+          "file": "lou-office-squatches-bing.jpg",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1448,
+            1086
+          ],
+          "centre": [
+            12.66,
+            1.75,
+            -9.326
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "bing",
+      "name": "05-bing-office-noir",
+      "room": "Lou's office at the Bing, east wall",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/05-bing-office-noir.png",
+      "slots": [
+        {
+          "slot": "bing.office.noir_print",
+          "file": "bing-office-noir.jpg",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1672,
+            941
+          ],
+          "centre": [
+            13.726,
+            1.8,
+            -6.2
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "squatchfather",
+      "name": "06-squatchfather-coast",
+      "room": "Squatchfather dining room, coast print",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/06-squatchfather-coast.png",
+      "slots": [
+        {
+          "slot": "squatchfather.dining.coast",
+          "file": "squatchfather-coast-squatch.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1600,
+            900
+          ],
+          "centre": [
+            -6.948,
+            1.72,
+            8.35
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "squatchfather",
+      "name": "07-squatchfather-portraits-upper",
+      "room": "Squatchfather dining room, upper portrait row",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/07-squatchfather-portraits-upper.png",
+      "slots": [
+        {
+          "slot": "squatchfather.portrait.uncle_lou",
+          "file": "bing-hallway-uncle-lou.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            2.32,
+            1.8
+          ]
+        },
+        {
+          "slot": "squatchfather.portrait.rippinflow",
+          "file": "bing-hallway-rippinflow.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            2.32,
+            3.2
+          ]
+        },
+        {
+          "slot": "squatchfather.portrait.booskibro",
+          "file": "bing-hallway-booskibro.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            2.32,
+            4.6
+          ]
+        },
+        {
+          "slot": "squatchfather.portrait.shubenator",
+          "file": "bing-hallway-shubenator.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            2.32,
+            6
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "squatchfather",
+      "name": "08-squatchfather-portraits-lower",
+      "room": "Squatchfather dining room, lower portrait row",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/08-squatchfather-portraits-lower.png",
+      "slots": [
+        {
+          "slot": "squatchfather.portrait.hogmama",
+          "file": "family-portrait-hogmama.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            1.25,
+            2.45
+          ]
+        },
+        {
+          "slot": "squatchfather.portrait.ape",
+          "file": "family-portrait-ape.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            1.25,
+            3.85
+          ]
+        },
+        {
+          "slot": "squatchfather.portrait.eric",
+          "file": "family-portrait-eric.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            1.25,
+            5.25
+          ]
+        },
+        {
+          "slot": "squatchfather.portrait.irish",
+          "file": "family-portrait-irish.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            1.25,
+            6.65
+          ]
+        },
+        {
+          "slot": "squatchfather.portrait.seff",
+          "file": "family-portrait-seff.webp",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1122,
+            1402
+          ],
+          "centre": [
+            6.948,
+            1.25,
+            8.05
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "mansion",
+      "name": "09-mansion-office-hog-mama",
+      "room": "Lou's office in the Mansion, north pier",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/09-mansion-office-hog-mama.png",
+      "slots": [
+        {
+          "slot": "mansion.office.hogmama",
+          "file": "lou-office-hog-mama.jpg",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1067,
+            1600
+          ],
+          "centre": [
+            0,
+            8.25,
+            74.876
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "mansion",
+      "name": "10-mansion-gallery-roster",
+      "room": "Mansion upper gallery, roster",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/10-mansion-gallery-roster.png",
+      "slots": [
+        {
+          "slot": "mansion.gallery.roster",
+          "file": "austin-major-2025-roster.jpg",
+          "real": true,
+          "mapped": true,
+          "image": [
+            2048,
+            819
+          ],
+          "centre": [
+            11,
+            8.05,
+            48.189
+          ]
+        }
+      ]
+    },
+    {
+      "scene": "mansion",
+      "name": "11-mansion-winter-almighty",
+      "room": "Mansion winter garden, the Almighty",
+      "screenshot": "docs/validation/2026-08-15-asset-diet/11-mansion-winter-almighty.png",
+      "slots": [
+        {
+          "slot": "mansion.winter.almighty",
+          "file": "squatch-almighty.jpg",
+          "real": true,
+          "mapped": true,
+          "image": [
+            1119,
+            1400
+          ],
+          "centre": [
+            -16.439,
+            3.9,
+            66.2
+          ]
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "label": "01-bing-hallway-first-four: bing.hallway.uncle_lou carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-uncle-lou.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "01-bing-hallway-first-four: bing.hallway.rippinflow carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-rippinflow.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "01-bing-hallway-first-four: bing.hallway.booskibro carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-booskibro.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "01-bing-hallway-first-four: bing.hallway.shubenator carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-shubenator.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "02-bing-hallway-down-the-row: bing.hallway.rippinflow carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-rippinflow.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "02-bing-hallway-down-the-row: bing.hallway.sauce carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-sauce.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "02-bing-hallway-down-the-row: bing.hallway.hogmama carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-hogmama.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "02-bing-hallway-down-the-row: bing.hallway.eric carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-eric.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "02-bing-hallway-down-the-row: bing.hallway.seff carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-seff.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "03-bing-hallway-family-webps: bing.hallway.sauce carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-sauce.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "03-bing-hallway-family-webps: bing.hallway.lag carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-lag.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "03-bing-hallway-family-webps: bing.hallway.hogmama carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-hogmama.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "03-bing-hallway-family-webps: bing.hallway.ape carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-ape.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "03-bing-hallway-family-webps: bing.hallway.eric carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-eric.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "03-bing-hallway-family-webps: bing.hallway.irish carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-irish.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "03-bing-hallway-family-webps: bing.hallway.seff carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-seff.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "04-bing-office-squatches-bing: bing.office.squatches_bing carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "lou-office-squatches-bing.jpg",
+        "image": [
+          1448,
+          1086
+        ]
+      }
+    },
+    {
+      "label": "05-bing-office-noir: bing.office.noir_print carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-office-noir.jpg",
+        "image": [
+          1672,
+          941
+        ]
+      }
+    },
+    {
+      "label": "06-squatchfather-coast: squatchfather.dining.coast carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "squatchfather-coast-squatch.webp",
+        "image": [
+          1600,
+          900
+        ]
+      }
+    },
+    {
+      "label": "07-squatchfather-portraits-upper: squatchfather.portrait.uncle_lou carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-uncle-lou.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "07-squatchfather-portraits-upper: squatchfather.portrait.rippinflow carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-rippinflow.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "07-squatchfather-portraits-upper: squatchfather.portrait.booskibro carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-booskibro.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "07-squatchfather-portraits-upper: squatchfather.portrait.shubenator carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "bing-hallway-shubenator.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "08-squatchfather-portraits-lower: squatchfather.portrait.hogmama carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-hogmama.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "08-squatchfather-portraits-lower: squatchfather.portrait.ape carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-ape.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "08-squatchfather-portraits-lower: squatchfather.portrait.eric carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-eric.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "08-squatchfather-portraits-lower: squatchfather.portrait.irish carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-irish.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "08-squatchfather-portraits-lower: squatchfather.portrait.seff carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "family-portrait-seff.webp",
+        "image": [
+          1122,
+          1402
+        ]
+      }
+    },
+    {
+      "label": "09-mansion-office-hog-mama: mansion.office.hogmama carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "lou-office-hog-mama.jpg",
+        "image": [
+          1067,
+          1600
+        ]
+      }
+    },
+    {
+      "label": "10-mansion-gallery-roster: mansion.gallery.roster carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "austin-major-2025-roster.jpg",
+        "image": [
+          2048,
+          819
+        ]
+      }
+    },
+    {
+      "label": "11-mansion-winter-almighty: mansion.winter.almighty carries its delivered file, decoded",
+      "ok": true,
+      "payload": {
+        "file": "squatch-almighty.jpg",
+        "image": [
+          1119,
+          1400
+        ]
+      }
+    },
+    {
+      "label": "bing: no 404s and no runtime errors while the art loaded",
+      "ok": true,
+      "payload": {
+        "notFound": [],
+        "errors": []
+      }
+    },
+    {
+      "label": "squatchfather: no 404s and no runtime errors while the art loaded",
+      "ok": true,
+      "payload": {
+        "notFound": [],
+        "errors": []
+      }
+    },
+    {
+      "label": "mansion: no 404s and no runtime errors while the art loaded",
+      "ok": true,
+      "payload": {
+        "notFound": [],
+        "errors": []
+      }
+    }
+  ]
+}
