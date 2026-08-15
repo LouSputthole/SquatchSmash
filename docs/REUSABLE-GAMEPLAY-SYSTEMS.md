@@ -935,7 +935,10 @@ storage and must not touch the canonical campaign.
 - Scene restart: `[data-scene-recovery-action="scene"]`.
 - Skip: `[data-scene-recovery-action="skip"]`.
 - Settings block: `[data-scene-settings]`; each control
-  `[data-scene-setting="subtitles|bigSubtitles|reduceShake|assist|volume|sensitivity"]`;
+  `[data-scene-setting="subtitles|bigSubtitles|reduceShake|volume|sensitivity"]`,
+  plus `assist` only in a scene that passes `assist: true` to
+  `createPauseMenu` (today: The Silver Room's sway, the one thing that reads
+  the setting — an accessibility switch that does nothing is worse than none);
   rebind buttons `[data-scene-rebind="forward|back|left|right|sprint|crouch|jump"]`;
   `[data-scene-rebind-reset]`. Proved by `npm run verify:settings`.
 

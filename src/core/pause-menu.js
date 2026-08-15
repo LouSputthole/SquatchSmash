@@ -290,6 +290,11 @@ export function createPauseMenu({
   canRestart = () => true,
   recovery = null,
   actions: extraActions = [],
+  /* Does this scene HAVE an assist? Only The Silver Room's sway reads the
+   * setting, and a switch that does nothing in the other eighteen scenes is
+   * worse than no switch at all, so the checkbox is rendered where the scene
+   * says it means something. */
+  assist = false,
 } = {}) {
   installStyle();
 
@@ -316,7 +321,7 @@ export function createPauseMenu({
           <label class="scene-setting"><input type="checkbox" data-scene-setting="subtitles"> Subtitles</label>
           <label class="scene-setting"><input type="checkbox" data-scene-setting="bigSubtitles"> Larger subtitles</label>
           <label class="scene-setting"><input type="checkbox" data-scene-setting="reduceShake"> Reduce camera shake</label>
-          <label class="scene-setting"><input type="checkbox" data-scene-setting="assist"> Assist — wider timing windows</label>
+          <label class="scene-setting" data-scene-setting-row="assist"><input type="checkbox" data-scene-setting="assist"> Assist — wider timing windows</label>
           <label class="scene-setting slider"><span>Master volume</span><output data-scene-setting-value="volume"></output>
             <input type="range" min="0" max="100" step="1" data-scene-setting="volume"></label>
           <label class="scene-setting slider"><span>Mouse sensitivity</span><output data-scene-setting-value="sensitivity"></output>
@@ -506,6 +511,8 @@ export function createPauseMenu({
   /* so every scene that pauses has the same switches in the same place.*/
   /* ---------------------------------------------------------------- */
   settings.applyBody();
+  // Removed before the inputs are collected, so nothing below can drive it.
+  if (!assist) root.querySelector('[data-scene-setting-row="assist"]')?.remove();
   const settingInputs = {};
   for (const input of root.querySelectorAll('[data-scene-setting]')) {
     const name = input.dataset.sceneSetting;
@@ -570,14 +577,27 @@ export function createPauseMenu({
     endRebind();
   }
 
+  /* A range input SNAPS whatever is written to it onto its own min/step, and
+   * the store holds arbitrary numbers: sensitivity 1.23 put the knob at 125
+   * (min 20, step 5) while the label read 123%. Snap here so the number the
+   * knob shows is the number that gets read back out for the label. */
+  function snapToStep(input, percent) {
+    const min = Number(input.min);
+    const max = Number(input.max);
+    const step = Number(input.step) || 1;
+    const clamped = Math.min(max, Math.max(min, percent));
+    return Math.min(max, min + Math.round((clamped - min) / step) * step);
+  }
+
   function refreshSettings() {
     for (const [name, input] of Object.entries(settingInputs)) {
       const value = settings.get(name);
       if (input.type === 'checkbox') input.checked = Boolean(value);
-      else input.value = String(Math.round(Number(value) * 100));
+      else input.value = String(snapToStep(input, Number(value) * 100));
     }
     for (const [name, output] of Object.entries(settingOutputs)) {
-      output.textContent = `${Math.round(Number(settings.get(name)) * 100)}%`;
+      const input = settingInputs[name];
+      output.textContent = `${input ? input.value : Math.round(Number(settings.get(name)) * 100)}%`;
     }
     const keymap = settings.getKeymap();
     for (const [action, button] of Object.entries(rebindButtons)) {
@@ -649,9 +669,11 @@ export function createPauseMenu({
   function onKeyDown(event) {
     if (event.code !== 'Tab' || event.repeat || rebinding) return;
     /* Typing in the import textarea (or its file picker) must not close the
-     * menu out from under the paste. */
-    const tag = event.target?.tagName;
-    if (open && (tag === 'TEXTAREA' || tag === 'INPUT')) return;
+     * menu out from under the paste. Named precisely: the settings panel is
+     * five more inputs, and blanket-excusing INPUT stopped Tab resuming as
+     * soon as the player touched a checkbox or a slider. */
+    const target = event.target;
+    if (open && (target?.tagName === 'TEXTAREA' || target === importFile)) return;
     if (!canHandleTab()) return;
     event.preventDefault();
     event.stopImmediatePropagation();

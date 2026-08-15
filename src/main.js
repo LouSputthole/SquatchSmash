@@ -4730,8 +4730,15 @@ function frame() {
 
       // Intoxication first: the player controller reads sway/impair this frame.
       if (drunk.update(dt)) passOut();
+      const felt = shakeScale();
       player.sway = drunk.sway;
-      player.impair = game.passingOut ? 0 : Math.max(0, (drunk.level - 0.34) / 0.66);
+      /* The drunk veer is scaled too. It is the same motion the sway is —
+       * the Bing and the Silver Room already reduce their `impair` with the
+       * setting, and a player who asked for less of this got less of it in
+       * two scenes out of three. */
+      player.impair = game.passingOut
+        ? 0
+        : Math.max(0, (drunk.level - 0.34) / 0.66) * felt;
       arcade.setImpairment?.(drunk.swayStrength);
       applyDrunkFx();
 
@@ -4741,7 +4748,6 @@ function frame() {
       player.sway.roll += highs.sway.roll;
       /* "Reduce camera shake" scales what reaches the camera. In place is
        * fine: drunk.update() recomputes the sway from scratch every frame. */
-      const felt = shakeScale();
       if (felt !== 1) {
         player.sway.yaw *= felt;
         player.sway.pitch *= felt;

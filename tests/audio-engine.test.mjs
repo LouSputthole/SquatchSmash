@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AudioEngine } from '../src/core/audio.js';
 import { loadOnceRetriable, runWorkerPool } from '../src/core/load-queue.js';
+import * as settings from '../src/core/settings.js';
 
 test('concurrent and repeated manifest loads share one immutable result', async () => {
   const owner = { pending: null };
@@ -653,4 +654,25 @@ test('the master gain is the scene level times the player volume setting, and a 
   assert.ok(Math.abs(engine.master.gain.at(3.15) - 0.9) < 1e-9, 'the setting is clamped to 1');
   engine.setUserVolume(-1);
   assert.equal(engine.userVolume, 0);
+});
+
+/* Both halves of one defect: three engines in this file set `ready` by hand
+ * and never build a graph, and every engine used to subscribe to the settings
+ * store from its constructor. So the FIRST volume change in the process threw
+ * `Cannot read properties of undefined (reading 'gain')` once per leaked
+ * engine — inside set()'s try/catch, which turned it into console noise
+ * nobody was reading. */
+test('a volume setting does not reach an engine that never opened a context', () => {
+  const engine = new AudioEngine();
+  engine.ready = true;
+
+  // The guard itself: no master gain, so there is nothing to ramp.
+  assert.doesNotThrow(() => engine.setUserVolume(0.4));
+
+  try {
+    settings.set('volume', 0.25);
+    assert.equal(engine.userVolume, 0.4, 'an un-inited engine is not a subscriber');
+  } finally {
+    settings.reload();
+  }
 });

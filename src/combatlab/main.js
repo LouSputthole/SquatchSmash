@@ -411,6 +411,15 @@ function state() {
   };
 }
 
+/* Chrome returns a promise from requestPointerLock and REJECTS it inside its
+ * re-lock throttle — which is exactly what a resume from the pause menu hits.
+ * An unhandled rejection here is a console error the boot-errors gate reads,
+ * so it is caught, the way src/main.js's requestLock() catches it. */
+function lockPointer() {
+  const p = renderer.domElement.requestPointerLock?.();
+  if (p && typeof p.catch === 'function') p.catch(() => {});
+}
+
 function begin() {
   if (running) return Promise.resolve(true);
   running = true;
@@ -421,7 +430,7 @@ function begin() {
   player.enabled = true;
   player.mode = 'walk';
   reset();
-  renderer.domElement.requestPointerLock?.();
+  lockPointer();
   /* Input becomes responsive immediately. Audio can finish loading behind it;
    * a development tool should never look frozen because a sample is decoding. */
   audio.init()
@@ -454,7 +463,7 @@ createPauseMenu({
   onResume: () => {
     paused = false;
     player.enabled = true;
-    renderer.domElement.requestPointerLock?.();
+    lockPointer();
   },
 });
 
@@ -480,7 +489,7 @@ window.addEventListener('mousemove', (event) => {
 });
 renderer.domElement.addEventListener('mousedown', (event) => {
   if (!running || event.button !== 0) return;
-  if (document.pointerLockElement !== renderer.domElement) renderer.domElement.requestPointerLock?.();
+  if (document.pointerLockElement !== renderer.domElement) lockPointer();
   if (selected === 'whip') swingWhip();
   else weaponSystem.setTrigger(true);
 });

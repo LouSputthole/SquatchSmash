@@ -2801,6 +2801,9 @@ function fallBackToDragLook() {
 
 const pauseMenu = createPauseMenu({
   title: 'Front and Center',
+  // The sway reads `settings.assist` for its timing window; this is the one
+  // scene the switch does anything in, so it is the one that renders it.
+  assist: true,
   canPause: () => game.started && !game.over,
   getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
     || 'Stay with Margo and finish the evening.',

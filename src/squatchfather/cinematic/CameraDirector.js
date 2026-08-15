@@ -11,6 +11,13 @@ export const FOV = {
   pressure: 49, // train bearing down during the final exchange
 };
 
+/* Scratch for the scaled shake. `update()` runs every frame of a cinematic
+ * camera, and building a fresh six-key object there was 3,600 short-lived
+ * objects a minute in the one place a GC hitch is most visible. */
+const _felt = {
+  x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0,
+};
+
 export class CameraDirector {
   constructor(camera, ui) {
     this.camera = camera;
@@ -75,7 +82,16 @@ export class CameraDirector {
      * "reduce camera shake" setting is honoured at the one place it lands. */
     const felt = shakeScale();
     const o = this.shake.offset;
-    const s = felt === 1 ? o : { x: o.x * felt, y: o.y * felt, z: o.z * felt, yaw: o.yaw * felt, pitch: o.pitch * felt, roll: o.roll * felt };
+    let s = o;
+    if (felt !== 1) {
+      _felt.x = o.x * felt;
+      _felt.y = o.y * felt;
+      _felt.z = o.z * felt;
+      _felt.yaw = o.yaw * felt;
+      _felt.pitch = o.pitch * felt;
+      _felt.roll = o.roll * felt;
+      s = _felt;
+    }
     const rumble = this.extraShake * felt;
     const rx = rumble ? (Math.sin(dt * 0 + performance.now() * 0.021) * 0.0026 * rumble) : 0;
     const ry = rumble ? (Math.sin(performance.now() * 0.017) * 0.0022 * rumble) : 0;

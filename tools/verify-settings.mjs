@@ -19,9 +19,10 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-let chromium;
+let launchChromium;
 try {
-  ({ chromium } = await import('playwright'));
+  await import('playwright');
+  ({ launchChromium } = await import('./launch-chromium.mjs'));
 } catch {
   console.error('playwright is not installed; cannot verify the settings menu.');
   process.exit(1);
@@ -69,7 +70,10 @@ const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
-const SETTING_NAMES = ['subtitles', 'bigSubtitles', 'reduceShake', 'assist', 'volume', 'sensitivity'];
+/* Every scene renders these five. `assist` is NOT among them: only The Silver
+ * Room's sway reads that setting, so only a scene that passes the capability
+ * to createPauseMenu renders the switch. */
+const SETTING_NAMES = ['subtitles', 'bigSubtitles', 'reduceShake', 'volume', 'sensitivity'];
 const ACTIONS = ['forward', 'back', 'left', 'right', 'sprint', 'crouch', 'jump'];
 
 /** Open the shared menu and read back what it renders. */
@@ -141,22 +145,28 @@ async function screenshot(page, name) {
   await page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
 }
 
-function commonChecks(scene, menu) {
+function commonChecks(scene, menu, { assist = false } = {}) {
   check(`${scene}: the shared pause menu opens`, menu.opened === true && menu.resume);
   check(`${scene}: the settings block is rendered with every control`,
     menu.settingsBlock && menu.reset
       && SETTING_NAMES.every((name) => name in menu.inputs)
       && ACTIONS.every((action) => action in menu.rebinds),
     JSON.stringify({ inputs: Object.keys(menu.inputs), rebinds: Object.keys(menu.rebinds) }));
+  check(`${scene}: the assist switch is offered only where an assist exists`,
+    ('assist' in menu.inputs) === assist,
+    JSON.stringify({ rendered: 'assist' in menu.inputs, expected: assist }));
 }
 
 let browser;
 try {
   await listen();
-  browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM
-      || (process.env.PLAYWRIGHT_BROWSERS_PATH
-        ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
+  /* The shared launcher: it tries the pinned build first and, only if that
+   * fails, finds the real Chromium under the browsers path
+   * (`<root>/chromium-<rev>/chrome-linux/chrome`). The hand-rolled fallback
+   * this replaces joined `<root>/chromium`, which is not an executable
+   * anywhere, so a browser-cache mismatch ENOENTed instead of falling back. */
+  browser = await launchChromium({
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
     args: [
       '--use-gl=angle',
       '--use-angle=swiftshader',
@@ -182,7 +192,7 @@ try {
     commonChecks('graveyard', menu);
     check('graveyard: defaults — subtitles on, everything else off, volume and sensitivity at 100%',
       menu.inputs.subtitles === true && menu.inputs.bigSubtitles === false
-        && menu.inputs.reduceShake === false && menu.inputs.assist === false
+        && menu.inputs.reduceShake === false
         && menu.inputs.volume === 100 && menu.inputs.sensitivity === 100,
       JSON.stringify(menu.inputs));
     check('graveyard: the rebind buttons show the shared Player defaults',
