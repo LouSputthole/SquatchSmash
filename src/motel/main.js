@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { buildMotel, makeJerkyCase, BOUNDS } from './level.js';
 import { Actor, CAST, WEAPON_STATS, buildWeaponMesh } from './actors.js';
 import { Person } from '../core/person.js';
@@ -83,9 +84,9 @@ const motelStory = createMotelStory({ campaign });
 let lastEndingKind = null;
 
 // ---------- Renderer / scene ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+attachPixelRatio(renderer);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

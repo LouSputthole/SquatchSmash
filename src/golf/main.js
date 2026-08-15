@@ -19,6 +19,7 @@ import { AuthoredClock } from '../core/authored-clock.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { attachPixelRatio } from '../core/pixel-ratio.js';
 import {
   SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
 } from '../core/campaign.js';
@@ -212,7 +213,7 @@ try {
   window.__squatchSceneFail?.('This machine cannot open WebGL', String(err?.message || err));
   throw err;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+attachPixelRatio(renderer);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;

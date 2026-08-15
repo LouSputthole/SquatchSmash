@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import {
   SCENE_IDS,
   createCampaign,
@@ -71,7 +72,7 @@ try {
 // the expensive part of the frame. A 2x retina backbuffer turned the direct
 // preview into a 3 FPS slideshow on ordinary laptops, so cap it at a practical
 // quality level instead of spending four times the pixels on the same scene.
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+attachPixelRatio(renderer, { cap: PIXEL_RATIO_CAP_HEAVY });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;

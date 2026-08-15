@@ -13,6 +13,7 @@ import { chooseNoImmediateRepeat } from './core/audio-variant-bank.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
 import { Player } from './core/player.js';
+import { attachPixelRatio } from './core/pixel-ratio.js';
 import { Radio } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
@@ -120,7 +121,7 @@ try {
   );
   throw err;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+attachPixelRatio(renderer);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;

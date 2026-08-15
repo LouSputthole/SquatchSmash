@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
@@ -135,9 +136,15 @@ const FEATURED = [
 const CROWD_ROW2 = [130, 150, 190, 210, 230];
 
 // ---------- Renderer / scene / bloom ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+attachPixelRatio(renderer, {
+  // The bloom chain below has its own composer; keep its buffers at the renderer's ratio.
+  onChange: () => {
+    composer.setPixelRatio(renderer.getPixelRatio());
+    composer.setSize(window.innerWidth, window.innerHeight);
+  },
+});
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

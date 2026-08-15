@@ -32,6 +32,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createNoWakeStory } from '../core/no-wake-story.js';
 import { Player } from '../core/player.js';
+import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { Radio } from '../core/radio.js';
 import { BulletHoles } from '../world/bullets.js';
@@ -140,7 +141,7 @@ const story = createNoWakeStory({ campaign });
 let entry = story.canBegin();
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
+attachPixelRatio(renderer, { cap: PIXEL_RATIO_CAP_HEAVY });
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

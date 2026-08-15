@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { makeCord, poseCord, SWING_SECONDS } from '../bing/license-to-grill-runtime.js';
 import { AudioEngine } from '../core/audio.js';
 import { Player } from '../core/player.js';
+import { attachPixelRatio } from '../core/pixel-ratio.js';
 import {
   WeaponSystem, weaponCueNames, WEAPON_IDS, weaponDef,
 } from '../core/weapons/index.js';
@@ -31,9 +32,9 @@ const ammoReadoutEl = $('ammoReadout');
 const feedbackEl = $('feedback');
 const targetsEl = $('targets');
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+attachPixelRatio(renderer);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;

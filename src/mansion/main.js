@@ -35,6 +35,7 @@ import {
 import { buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
+import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { Highs } from '../core/highs.js';
@@ -149,9 +150,9 @@ const tinyHud = {
 /* ================================================================== */
 /* Renderer / camera / scene                                            */
 /* ================================================================== */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+attachPixelRatio(renderer);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
