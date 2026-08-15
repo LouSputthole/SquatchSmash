@@ -6,7 +6,6 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { inflateSync } from 'node:zlib';
 
-import { chromium } from 'playwright';
 import { bindScreenshotArtifact } from './screenshot-artifact-contract.mjs';
 import { beginEvidenceDirectoryTransaction } from './evidence-directory-transaction.mjs';
 import { resolveEvidenceOutputRoot } from './evidence-directory-transaction.mjs';
@@ -3265,8 +3264,13 @@ export async function captureGlobalGeometryEvidence(
   const sourceSnapshot = currentGlobalGeometryEvidenceSourceIdentities();
   const servedSourceStart = snapshotGlobalGeometryServedSourceBytes();
   const servedDiskUniverseStart = servedSourceStart.identities;
+  /* playwright is a devDependency and the Pages deploy runs `npm test` with no
+   * node_modules at all -- a top-level `import { chromium } from 'playwright'`
+   * here made this module unimportable there, which failed the suite and reds
+   * the deploy on every push. Load it where it is actually used instead; the
+   * tests inject launchBrowser and never reach this line. */
   const launchBrowser = dependencies.launchBrowser
-    ?? (() => chromium.launch({ headless: true }));
+    ?? (async () => (await import('playwright')).chromium.launch({ headless: true }));
   const createServer = dependencies.createServer ?? createGlobalGeometryImmutableServer;
   const listenServer = dependencies.listenServer ?? listenGlobalGeometryImmutableServer;
   const closeServer = dependencies.closeServer ?? closeGlobalGeometryImmutableServer;
