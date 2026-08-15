@@ -2155,12 +2155,26 @@ function openDialogue(nodeId) {
   }, 0);
 }
 
+/** Stop the take the open wheel's prompt is being spoken on, and its subtitle. */
+function hushDialogue() {
+  stopMotelVoice();
+  subtitleT = 0;
+  subtitleEl.classList.remove('show');
+}
+
 /** True once the four answers are on screen and the player may pick one. */
 function dialogueReady() {
   return !!dialogue && performance.now() >= dialogue.readyAt;
 }
 
 function closeDialogue() {
+  /* A wheel closed while its prompt is still being spoken is a conversation
+   * the player walked out of — got out of the car mid-briefing, walked through
+   * the door, drew — and the mouth runs on the take (src/core/mouth.js), so
+   * without this Rico finishes his question to nobody. Same rule as
+   * Dialogue.hush() in src/bing/dialogue.js: a lapse stops the take; an
+   * answered wheel (readyAt has passed) has nothing left to stop. */
+  if (dialogue && performance.now() < dialogue.readyAt) hushDialogue();
   dialogue = null;
   wheelEl.classList.remove('show');
   wheelEl.classList.remove('pending');

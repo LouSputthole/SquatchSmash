@@ -538,11 +538,13 @@ export function mountSilentSquatch({
       if (!audio?.hasSample?.(cue)) return 0;
       const speakerId = HOUSE_SPEAKER_IDS[line?.speaker] ?? null;
       const position = speakerId ? speechGate?.position?.(speakerId) ?? null : null;
-      audio.play(cue, {
+      const source = audio.play(cue, {
         volume: gain,
         ...(position ? { position, ref: 1.2, maxDist: 14 } : {}),
       });
-      return audio.sampleDuration?.(cue) ?? 0;
+      /* The take as well as its length, so `DialogueController.hush()` can
+       * stop a line that is cut off (see there). */
+      return { duration: audio.sampleDuration?.(cue) ?? 0, source };
     },
   });
 
