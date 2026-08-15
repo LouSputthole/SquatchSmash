@@ -22,6 +22,25 @@ const FRICTION = 11;
 const JUMP_SPEED = 4.65;
 const JUMP_GRAVITY = 13.5;
 
+/**
+ * How high an obstacle he walks UP ONTO rather than into.
+ *
+ * `_resolve` used to skip a collider only when its top was below the feet, so
+ * anything resting on a floor -- a crate, a kerb, a low wall of sandbags -- was
+ * a wall however low it was, and the combat scenes could not build cover you
+ * shoot over and walk round. A collider whose top is within this much of the
+ * ground he is standing on is stepped over instead: it does not push, and if
+ * it lies under him it becomes his floor (`_stepSupport`).
+ *
+ * 0.40 m. The eye stands at 1.66, so he is about 1.8 m tall and this is a
+ * shade under knee height -- the Source-engine 18-unit (0.457 m) and Unreal
+ * 45 cm step heights are the same idea for the same size of body, and 0.40
+ * keeps chair seats, benches and coffee tables (0.45 m and up) as things you
+ * go ROUND, which is what the low-cover brief asked for. It is well under
+ * JUMP_SPEED²/2g = 0.80 m, so a jump still clears more than a step does.
+ */
+export const STEP_HEIGHT = 0.40;
+
 export class Player {
   constructor(camera, world) {
     this.camera = camera;
@@ -353,8 +372,10 @@ export class Player {
     this.bobPhase += moved * 3.4;
     this.rollTarget = -strafe * 0.014 * (this.sprinting ? 1.5 : 1);
 
-    // Ride whatever floor is under him -- the stage, a step, otherwise zero.
-    const ground = this.world.groundAt ? this.world.groundAt(this.position.x, this.position.z) : 0;
+    // Ride whatever floor is under him -- the stage, a step, otherwise zero --
+    // or a low collider he has stepped up onto (STEP_HEIGHT).
+    const worldGround = this.world.groundAt ? this.world.groundAt(this.position.x, this.position.z) : 0;
+    const ground = Math.max(worldGround, this._stepSupport(worldGround));
     if (this.world.snapGroundToSurface === true) {
       /* Discrete authored treads are not a smooth ramp.  Mansion opts into
        * exact support so the player cannot spend several frames inside a new
@@ -410,6 +431,9 @@ export class Player {
     const colliders = this.world.colliders;
     const grid = this._grid;
     grid.sync(colliders);
+    /* Measured from the supporting floor, not the airborne feet, so a jump
+     * does not turn a 1.2 m wall into a step. */
+    const stepTop = this.ground + STEP_HEIGHT;
     let start = 0;
     scan: for (;;) {
       const list = grid.query(p.x, p.z, RADIUS, _cands);
@@ -418,6 +442,8 @@ export class Player {
         if (i < start) continue;
         const box = colliders[i];
         if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
+        // Low enough to step over from the floor he is on: not a wall.
+        if (box.max.y <= stepTop) continue;
 
         const cx = clamp(p.x, box.min.x, box.max.x);
         const cz = clamp(p.z, box.min.z, box.max.z);
@@ -457,6 +483,30 @@ export class Player {
     }
     /* Moving/rotated scenes resolve the capsule in their own local frame. */
     this.world.resolvePlayer?.(this, axis, RADIUS);
+  }
+
+  /**
+   * The top of the highest low collider directly under the player's centre,
+   * or -Infinity. A box that `_resolve` lets him walk over (its top within
+   * STEP_HEIGHT of the floor he is on) is a floor when he is over it: this
+   * is what makes a crate something you stand on rather than sink through.
+   * Only tops above the world's own floor count, so a wall from the storey
+   * below whose top grazes this floor is not a bump.
+   */
+  _stepSupport(worldGround) {
+    const p = this.position;
+    const colliders = this.world.colliders;
+    const limit = this.ground + STEP_HEIGHT;
+    const list = this._grid.query(p.x, p.z, 0, _cands);
+    let best = -Infinity;
+    for (let k = 0; k < list.length; k++) {
+      const box = colliders[list[k]];
+      const top = box.max.y;
+      if (top <= worldGround || top > limit || top <= best) continue;
+      if (p.x < box.min.x || p.x > box.max.x || p.z < box.min.z || p.z > box.max.z) continue;
+      best = top;
+    }
+    return best;
   }
 
   /** Which floor material the player is standing on (drives footstep cue). */

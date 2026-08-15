@@ -36,6 +36,7 @@
     "verify:preview": "node tools/verify-preview.mjs",
     "verify:combat-system": "node tools/verify-combatlab.mjs",
     "verify:ground-combat": "node --test --test-isolation=none tests/combat-core.test.mjs tests/combat-spatial-perception.test.mjs tests/combat-aim-impairments.test.mjs tests/combat-impact-fire.test.mjs tests/combat-material-suppression-contract.test.mjs tests/combat-presentation-contract.test.mjs tests/combat-audio-contract.test.mjs tests/combat-shotgun-telegraph-contract.test.mjs tests/ground-combat-adapters.test.mjs tests/ground-combat-composition-contract.test.mjs tests/combat-supplies.test.mjs tests/combat-hud.test.mjs tests/blood-effects.test.mjs tests/weapons-core.test.mjs tests/mansion-siege-people.test.mjs tests/cartel-palace-combat.test.mjs",
+    "verify:step-over": "node tools/verify-step-over.mjs",
     "verify:beefrun": "node tools/verify-beefrun.mjs",
     "verify:beefrun-checkpoints": "node tools/verify-beefrun-checkpoints.mjs",
     "verify:silver": "node tools/verify-silver.mjs",

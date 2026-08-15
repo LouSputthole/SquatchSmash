@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { Player } from '../src/core/player.js';
+import { Player, STEP_HEIGHT } from '../src/core/player.js';
 import { ColliderGrid } from '../src/core/collider-broadphase.js';
 
 /* ------------------------------------------------------------------ */
@@ -13,15 +13,18 @@ function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 
 /**
  * Brute-force resolve over EVERY collider in array order, exactly as
- * src/core/player.js did before the broadphase. Runs on a plain state object
- * so it cannot share code with the thing under test.
+ * src/core/player.js did before the broadphase, plus the step-over rule
+ * (a top within STEP_HEIGHT of the supporting floor is not a wall). Runs on a
+ * plain state object so it cannot share code with the thing under test.
  * @returns {Set<number>} indices that actually pushed the capsule
  */
 function bruteResolve(state, axis) {
   const p = state.position;
   const pushed = new Set();
+  const stepTop = state.ground + STEP_HEIGHT;
   state.world.colliders.forEach((box, i) => {
     if (p.y + 0.05 < box.min.y || p.y - state.eyeHeight > box.max.y) return;
+    if (box.max.y <= stepTop) return;
     const cx = clamp(p.x, box.min.x, box.max.x);
     const cz = clamp(p.z, box.min.z, box.max.z);
     const dx = p.x - cx;
@@ -51,10 +54,11 @@ function bruteResolve(state, axis) {
 }
 
 /** Every index the brute force would collide with at (p) WITHOUT moving. */
-function bruteTouches(colliders, p, eyeHeight) {
+function bruteTouches(colliders, p, eyeHeight, ground = 0) {
   const out = [];
   colliders.forEach((box, i) => {
     if (p.y + 0.05 < box.min.y || p.y - eyeHeight > box.max.y) return;
+    if (box.max.y <= ground + STEP_HEIGHT) return;
     const cx = clamp(p.x, box.min.x, box.max.x);
     const cz = clamp(p.z, box.min.z, box.max.z);
     const dx = p.x - cx;
@@ -123,6 +127,7 @@ function stateOf(player) {
     position: player.position.clone(),
     velocity: player.velocity.clone(),
     eyeHeight: player.eyeHeight,
+    ground: player.ground,
     world: player.world,
   };
 }
@@ -150,7 +155,9 @@ function placeRandom(rand, player, colliders, span) {
     player.position.set((rand() - 0.5) * span, 1.66, (rand() - 0.5) * span);
   }
   player.eyeHeight = rand() < 0.2 ? 1.02 : 1.66;
-  if (rand() < 0.3) player.position.y = player.eyeHeight + rand() * 1.5; // airborne / on a stage
+  player.ground = rand() < 0.3 ? rand() * 1.2 : 0; // on a stage / up a step
+  player.position.y = player.ground + player.eyeHeight;
+  if (rand() < 0.3) player.position.y += rand() * 0.8; // airborne
   player.velocity.set((rand() - 0.5) * 4, 0, (rand() - 0.5) * 4);
 }
 
@@ -171,7 +178,7 @@ test('broadphase candidates are a superset of every collider the brute force wou
         p.z = b.min.z - 0.5 + rand() * (b.max.z - b.min.z + 1);
       }
       const eye = 1.66;
-      const need = bruteTouches(colliders, p, eye);
+      const need = bruteTouches(colliders, p, eye, rand() < 0.5 ? 0 : rand());
       const got = new Set(grid.query(p.x, p.z, RADIUS));
       for (const i of need) assert.ok(got.has(i), `world ${world} trial ${trial}: index ${i} touched by brute force but not a candidate`);
       const list = grid.query(p.x, p.z, RADIUS);
@@ -320,4 +327,109 @@ test('the y-band test still applies to candidates (a table top is walked under, 
   player.position.set(0, 1.66, 1.9);
   player._resolve('z');
   assert.ok(player.position.z <= 2 - RADIUS + 1e-9, 'the wall does');
+});
+
+/* ------------------------------------------------------------------ */
+/* Step-over                                                           */
+/* ------------------------------------------------------------------ */
+
+function walker(colliders, extra = {}) {
+  const player = makePlayer(colliders, { groundAt: () => 0, ...extra });
+  player.position.set(0, player.eyeHeight, 0);
+  player.ground = 0;
+  player.yaw = Math.PI; // forward is +z (a forward press moves along -sin/-cos yaw)
+  return player;
+}
+
+function hold(player, seconds, keys = ['KeyW']) {
+  for (const k of keys) player.setKey(k, true);
+  const dt = 1 / 60;
+  for (let t = 0; t < seconds; t += dt) player.update(dt);
+  for (const k of keys) player.setKey(k, false);
+}
+
+test('step-over: a low crate is walked up onto and off again; a wall still stops him', () => {
+  const crate = box(-1, 0, 2, 1, STEP_HEIGHT - 0.05, 4);   // 35 cm high, two metres deep, across the path
+  const wall = box(-1, 0, 8, 1, 1.2, 8.4);                  // 1.2 m: not a step
+  const player = walker([crate, wall]);
+  hold(player, 1.6);
+  assert.ok(player.position.z > 2.6 && player.position.z < 3.9, `should be standing on the crate, z=${player.position.z.toFixed(2)}`);
+  assert.ok(Math.abs(player.ground - (STEP_HEIGHT - 0.05)) < 1e-6, `ground rides the crate top, got ${player.ground}`);
+  hold(player, 1.2);
+  assert.ok(player.position.z > 4.5, 'walked off the far side');
+  assert.equal(player.ground, 0, 'back on the floor');
+  hold(player, 3);
+  assert.ok(player.position.z < 8 - 0.29, `the 1.2 m wall stops him, z=${player.position.z.toFixed(3)}`);
+  assert.ok(player.position.z > 7.5, 'and he got right up to it');
+});
+
+test('step-over: exactly STEP_HEIGHT is a step, a hair more is a wall', () => {
+  const step = walker([box(-1, 0, 1, 1, STEP_HEIGHT, 2)]);
+  hold(step, 1.5);
+  assert.ok(step.position.z > 1.4, 'a step of exactly STEP_HEIGHT is climbed');
+  const wall = walker([box(-1, 0, 1, 1, STEP_HEIGHT + 0.01, 2)]);
+  hold(wall, 1.5);
+  assert.ok(wall.position.z < 1 - 0.29, 'one centimetre over is a wall');
+});
+
+test('step-over: a run of low risers is a staircase', () => {
+  const risers = [];
+  for (let i = 0; i < 5; i++) risers.push(box(-1, 0, 1 + i * 0.6, 1, (i + 1) * 0.3, 1 + (i + 1) * 0.6));
+  const player = walker(risers);
+  let highest = 0;
+  player.setKey('KeyW', true);
+  for (let t = 0; t < 3.5; t += 1 / 60) {
+    player.update(1 / 60);
+    highest = Math.max(highest, player.ground);
+  }
+  player.setKey('KeyW', false);
+  assert.ok(player.position.z > 4, `walked the whole flight, z=${player.position.z.toFixed(2)}`);
+  /* The eased ground is still converging when he steps off the top riser
+   * (0.26 s per tread at walking pace), so ask for most of it, not all. */
+  assert.ok(highest > 1.4 && highest <= 1.5, `stood on the top riser on the way, highest ground=${highest}`);
+  assert.equal(player.ground, 0, 'and came down off the end');
+});
+
+test('step-over: the height is measured from the floor, so a jump does not turn a wall into a step', () => {
+  const wall = box(-1, 0, 1.2, 1, 1.0, 1.6);   // 1 m: never a step, even at the top of an 0.8 m jump
+  const player = walker([wall]);
+  player.setKey('Space', true);
+  player.update(1 / 60);          // leaves the ground
+  player.setKey('Space', false);
+  hold(player, 0.6);              // through the apex, into the wall
+  assert.ok(player.position.z < 1.2 - 0.29, `the wall held, z=${player.position.z.toFixed(3)}`);
+});
+
+test('step-over: the world floor wins over a lower collider top', () => {
+  /* The stage is a world floor: `groundAt` lifts him 0.6 with no step limit,
+   * as the Bing's stage always has. On it lies a rug whose collider top is
+   * 2 cm above the stage (support: he rides it), and under it a kerb whose top
+   * is below the stage's floor line (irrelevant: never a bump). */
+  const stage = { groundAt: (x, z) => (z > 1 ? 0.6 : 0) };
+  const rug = box(-2, 0.6, 1.5, 2, 0.62, 9);
+  const kerb = box(-2, 0, 1, 2, 0.3, 4);
+  const player = walker([rug, kerb], stage);
+  hold(player, 2);
+  assert.ok(player.position.z > 2, `walked onto the stage and over the rug's edge, z=${player.position.z.toFixed(2)}`);
+  assert.ok(Math.abs(player.ground - 0.62) < 1e-6, `rides the rug on the stage, ground=${player.ground}`);
+});
+
+test('Player._resolve with step-over is still bit-identical to the reference scan', () => {
+  const rand = rng(77);
+  let stepped = 0;
+  for (let world = 0; world < 8; world++) {
+    const colliders = randomWorld(rand, 60 + Math.floor(rand() * 200));
+    const player = makePlayer(colliders);
+    for (let trial = 0; trial < 200; trial++) {
+      placeRandom(rand, player, colliders, 60);
+      const ref = stateOf(player);
+      const touched = bruteTouches(colliders, ref.position, ref.eyeHeight, -Infinity).length
+        - bruteTouches(colliders, ref.position, ref.eyeHeight, ref.ground).length;
+      stepped += touched;
+      bruteResolve(ref, 'x');
+      player._resolve('x');
+      assertSame(player, ref, `step world ${world} trial ${trial}`);
+    }
+  }
+  assert.ok(stepped > 20, `the random worlds must contain things low enough to step over (got ${stepped})`);
 });
