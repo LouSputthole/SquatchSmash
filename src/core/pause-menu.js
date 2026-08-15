@@ -577,14 +577,27 @@ export function createPauseMenu({
     endRebind();
   }
 
+  /* A range input SNAPS whatever is written to it onto its own min/step, and
+   * the store holds arbitrary numbers: sensitivity 1.23 put the knob at 125
+   * (min 20, step 5) while the label read 123%. Snap here so the number the
+   * knob shows is the number that gets read back out for the label. */
+  function snapToStep(input, percent) {
+    const min = Number(input.min);
+    const max = Number(input.max);
+    const step = Number(input.step) || 1;
+    const clamped = Math.min(max, Math.max(min, percent));
+    return Math.min(max, min + Math.round((clamped - min) / step) * step);
+  }
+
   function refreshSettings() {
     for (const [name, input] of Object.entries(settingInputs)) {
       const value = settings.get(name);
       if (input.type === 'checkbox') input.checked = Boolean(value);
-      else input.value = String(Math.round(Number(value) * 100));
+      else input.value = String(snapToStep(input, Number(value) * 100));
     }
     for (const [name, output] of Object.entries(settingOutputs)) {
-      output.textContent = `${Math.round(Number(settings.get(name)) * 100)}%`;
+      const input = settingInputs[name];
+      output.textContent = `${input ? input.value : Math.round(Number(settings.get(name)) * 100)}%`;
     }
     const keymap = settings.getKeymap();
     for (const [action, button] of Object.entries(rebindButtons)) {
