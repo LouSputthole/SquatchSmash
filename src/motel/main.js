@@ -43,6 +43,7 @@ import {
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { shakeScale, lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { selectPointInteraction } from './point-interaction.js';
 
@@ -435,8 +436,8 @@ renderer.domElement.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
-  camYaw -= e.movementX * 0.0022;
-  camPitch = THREE.MathUtils.clamp(camPitch - e.movementY * 0.0018, -0.85, 0.5);
+  camYaw -= e.movementX * lookSensitivity(0.0022);
+  camPitch = THREE.MathUtils.clamp(camPitch - e.movementY * lookSensitivity(0.0018), -0.85, 0.5);
 });
 
 $('startBtn').addEventListener('click', () => startScene());
@@ -1014,6 +1015,7 @@ function startScene() {
    * which is the whole difference between a recorded opening and a subtitle
    * with nothing behind it. */
   sfx.init({ priorityVoice: [OPENING_CUE] });
+  bindAudioVolume(sfx);
   sfx.resume();
   sfx.startAmbience();
   sfx.setMusic('tense');
@@ -3503,9 +3505,10 @@ function updateCamera(dt) {
 
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.6);
-    camera.position.x += (Math.random() - 0.5) * shake;
-    camera.position.y += (Math.random() - 0.5) * shake * 0.6;
-    camera.position.z += (Math.random() - 0.5) * shake;
+    const felt = shake * shakeScale();
+    camera.position.x += (Math.random() - 0.5) * felt;
+    camera.position.y += (Math.random() - 0.5) * felt * 0.6;
+    camera.position.z += (Math.random() - 0.5) * felt;
   }
 
   _lookAt.set(
@@ -4146,8 +4149,9 @@ function updateDrive(dt) {
   camera.lookAt(drive.x + seatX - steer * 0.8, 0.75, -16);
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.8);
-    camera.position.x += (Math.random() - 0.5) * shake;
-    camera.position.y += (Math.random() - 0.5) * shake;
+    const felt = shake * shakeScale();
+    camera.position.x += (Math.random() - 0.5) * felt;
+    camera.position.y += (Math.random() - 0.5) * felt;
   }
 
   // HUD

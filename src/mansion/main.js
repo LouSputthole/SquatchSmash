@@ -35,6 +35,7 @@ import {
 import { buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { Highs } from '../core/highs.js';
@@ -1855,7 +1856,7 @@ window.addEventListener('keydown', (e) => {
     }
   }
   if (e.code === 'Space') e.preventDefault();
-  player.setKey(e.code, true);
+  player.setKey(translateKey(e.code), true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
   /* R and Q only mean anything with a gun in your hands, and neither is a
    * browser accelerator on its own — the Beef Run's Ctrl lesson applies to
@@ -1881,7 +1882,7 @@ window.addEventListener('wheel', (e) => {
   loadout.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
 window.addEventListener('keyup', (e) => {
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (e.code === 'KeyE') {
     interaction.release();
     mansionPee.stop();

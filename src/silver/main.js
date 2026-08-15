@@ -40,6 +40,7 @@ import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
+import * as prefs from '../core/settings.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
  * class gates the evening on the Motel being finished and on Margo having
@@ -173,10 +174,11 @@ inventory.onChange = (inv) => {
 /**
  * Accessibility.
  *
- * Four switches on the start screen. The project has no options menu — the
- * flat has one screen and so does the Bing — so bolting one on would be a
- * bigger change than the mission it is for. These live in localStorage under
- * `squatch.*`, so when the flat and the Bing want them they are already there.
+ * Four switches on the start screen. They were this scene's own model, kept
+ * in localStorage under `squatch.*` "so when the flat and the Bing want them
+ * they are already there" — and now they are: src/core/settings.js owns the
+ * store (same keys, same encoding) and the shared pause menu renders it in
+ * every scene. The start-screen switches stay, and delegate.
  *
  * Two things are honoured without a switch, because they should not be
  * optional: every intelligible line is subtitled (the dialogue box *is* the
@@ -185,36 +187,29 @@ inventory.onChange = (inv) => {
  * ringing is a visible pulse as well as a sound, and the stage cue is a
  * lighting change the player is looking at.
  */
-const settings = {
-  subtitles: localStorage.getItem('squatch.subs') !== '0',
-  bigSubtitles: localStorage.getItem('squatch.bigsubs') === '1',
-  reduceShake: localStorage.getItem('squatch.reduceShake') === '1',
-  assist: localStorage.getItem('squatch.assist') === '1',
-};
+/* The live view of the shared store: `settings.assist` reads it, and
+ * `settings.assist = true` (the verifier does this) writes through. */
+const settings = prefs.live;
 
-function applySettings() {
-  document.body.classList.toggle('nosubs', !settings.subtitles);
-  document.body.classList.toggle('bigsubs', settings.bigSubtitles);
-}
-
-for (const [id, key, store] of [
-  ['opt-subs', 'subtitles', 'squatch.subs'],
-  ['opt-bigsubs', 'bigSubtitles', 'squatch.bigsubs'],
-  ['opt-shake', 'reduceShake', 'squatch.reduceShake'],
-  ['opt-assist', 'assist', 'squatch.assist'],
+for (const [id, key] of [
+  ['opt-subs', 'subtitles'],
+  ['opt-bigsubs', 'bigSubtitles'],
+  ['opt-shake', 'reduceShake'],
+  ['opt-assist', 'assist'],
 ]) {
   const el = document.getElementById(id);
   if (!el) continue;
   el.checked = settings[key];
-  el.addEventListener('change', () => {
-    settings[key] = el.checked;
-    try {
-      localStorage.setItem(store, el.checked ? '1' : '0');
-    } catch { /* private browsing; it still applies this session */ }
-    applySettings();
-  });
+  el.addEventListener('change', () => { settings[key] = el.checked; });
 }
-applySettings();
+/* Changed from the pause menu, the start-screen switches follow. */
+prefs.subscribe((key) => {
+  const el = document.getElementById({
+    subtitles: 'opt-subs', bigSubtitles: 'opt-bigsubs', reduceShake: 'opt-shake', assist: 'opt-assist',
+  }[key] ?? '');
+  if (el) el.checked = settings[key];
+});
+prefs.applyBody();
 
 const game = {
   started: false,
@@ -2882,7 +2877,7 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.code === 'Space') e.preventDefault();
   keys.add(e.code);
-  player.setKey(e.code, true);
+  player.setKey(prefs.translateKey(e.code), true);
 
   if (e.code === 'KeyE') pressInteract();
   if (e.code === 'KeyQ') {
@@ -2915,7 +2910,7 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
   keys.delete(e.code);
-  player.setKey(e.code, false);
+  player.setKey(prefs.translateKey(e.code), false);
   if (e.code === 'KeyE') interaction.release();
 });
 window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
@@ -3165,9 +3160,11 @@ function frame() {
 
   drunk.update(raw);
   highs.update(raw);
-  player.sway.yaw = drunk.sway.yaw + highs.sway.yaw;
-  player.sway.pitch = drunk.sway.pitch + highs.sway.pitch;
-  player.sway.roll = drunk.sway.roll + highs.sway.roll;
+  /* Reduce shake softens the camera sway as well as the drift below. */
+  const felt = prefs.shakeScale();
+  player.sway.yaw = (drunk.sway.yaw + highs.sway.yaw) * felt;
+  player.sway.pitch = (drunk.sway.pitch + highs.sway.pitch) * felt;
+  player.sway.roll = (drunk.sway.roll + highs.sway.roll) * felt;
   player.impair = drunk.swayStrength * (settings.reduceShake ? 0.3 : 0.8);
   player.moveScale = highs.moveScale;
   fxDrunk.style.setProperty('--blur', `${drunk.blur.toFixed(2)}px`);

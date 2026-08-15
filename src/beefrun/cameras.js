@@ -12,6 +12,7 @@
  */
 import * as THREE from 'three';
 import { clamp, lerp, damp } from './util.js';
+import { bindLookSensitivity, shakeScale } from '../core/settings.js';
 
 const VIEWS = ['cockpit', 'chase', 'landing'];
 
@@ -29,7 +30,7 @@ export class CameraManager {
 
     this.lookYaw = 0;
     this.lookPitch = 0;
-    this.sensitivity = 0.0022;
+    bindLookSensitivity(this, 0.0022); // × the player's sensitivity setting, live
 
     this.shake = 0;
     this.shakeDecay = 2.6;
@@ -89,9 +90,12 @@ export class CameraManager {
     // Every view is built from the aeroplane's own frame.
     body.updateMatrixWorld();
 
+    /* The player's "reduce camera shake" setting, read once per frame and
+     * applied wherever the camera adds motion on top of the view. */
+    const felt = shakeScale();
     if (this.view === 'cockpit') {
       // Head movement: the body leans into acceleration and the seat shakes.
-      const bump = (this.shake + roughness * 0.5) * 0.03;
+      const bump = (this.shake + roughness * 0.5) * 0.03 * felt;
       this._bob += dt * (8 + p.groundSpeed * 0.4);
       const headY = Math.sin(this._bob * 3.1) * bump + (gLoad - 1) * -0.012;
       const headX = Math.cos(this._bob * 2.3) * bump * 0.7;
@@ -148,11 +152,11 @@ export class CameraManager {
 
     // Shake goes on top of whatever the view decided.
     if (this.shake > 0.001) {
-      const s = this.shake * 0.02;
+      const s = this.shake * 0.02 * felt;
       cam.position.x += (Math.random() - 0.5) * s;
       cam.position.y += (Math.random() - 0.5) * s;
       cam.position.z += (Math.random() - 0.5) * s;
-      cam.rotateZ((Math.random() - 0.5) * this.shake * 0.01);
+      cam.rotateZ((Math.random() - 0.5) * this.shake * 0.01 * felt);
     }
     cam.updateProjectionMatrix();
   }

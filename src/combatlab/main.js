@@ -10,6 +10,8 @@ import * as THREE from 'three';
 import { makeCord, poseCord, SWING_SECONDS } from '../bing/license-to-grill-runtime.js';
 import { AudioEngine } from '../core/audio.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 import {
   WeaponSystem, weaponCueNames, WEAPON_IDS, weaponDef,
 } from '../core/weapons/index.js';
@@ -431,10 +433,35 @@ function begin() {
 startBtn.addEventListener('click', begin);
 resetBtn.addEventListener('click', reset);
 
+/* The shared pause menu (Tab): a development range still wants the settings
+ * — sensitivity and the keymap most of all — in the same place as everywhere. */
+let paused = false;
+createPauseMenu({
+  title: 'Combat Lab',
+  canPause: () => running,
+  getObjective: 'Shoot the range. Compare the numbers.',
+  instructions: [
+    'W A S D — move. Shift — sprint. C — crouch. Space — jump.',
+    '1 — carbine. 2 — revolver. 3 — whip. R — reload. X — reset the range.',
+    'Click — fire or swing. Tab — pause or resume.',
+  ],
+  onPause: () => {
+    paused = true;
+    player.enabled = false;
+    player.clearKeys();
+    weaponSystem.setTrigger(false);
+  },
+  onResume: () => {
+    paused = false;
+    player.enabled = true;
+    renderer.domElement.requestPointerLock?.();
+  },
+});
+
 window.addEventListener('keydown', (event) => {
-  if (!running) return;
+  if (!running || paused) return;
   if (event.code === 'Space') event.preventDefault();
-  player.setKey(event.code, true);
+  player.setKey(translateKey(event.code), true);
   if (event.repeat) return;
   if (event.code === 'Digit1') equip(WEAPON_IDS.CARBINE);
   else if (event.code === 'Digit2') equip(WEAPON_IDS.REVOLVER);
@@ -442,7 +469,7 @@ window.addEventListener('keydown', (event) => {
   else if (event.code === 'KeyR' && selected !== 'whip') weaponSystem.reload();
   else if (event.code === 'KeyX') reset();
 });
-window.addEventListener('keyup', (event) => player.setKey(event.code, false));
+window.addEventListener('keyup', (event) => player.setKey(translateKey(event.code), false));
 window.addEventListener('blur', () => {
   player.clearKeys();
   weaponSystem.setTrigger(false);
@@ -472,7 +499,7 @@ let renderEnabled = true;
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
-  if (running && automaticSimulation) update(dt);
+  if (running && automaticSimulation && !paused) update(dt);
   if (renderEnabled) renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);

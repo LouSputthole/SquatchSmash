@@ -19,6 +19,7 @@ import { AuthoredClock } from '../core/authored-clock.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey, lookSensitivity } from '../core/settings.js';
 import {
   SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
 } from '../core/campaign.js';
@@ -1785,12 +1786,12 @@ window.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== canvas) return;
   if (camMode === CAM.ADDRESS) {
     // Aim only. He does not move his feet while he is over the ball.
-    aimYaw -= e.movementX * 0.0016;
+    aimYaw -= e.movementX * lookSensitivity(0.0016);
     return;
   }
   if (camMode === CAM.CART) {
-    player.yawOffset -= e.movementX * 0.0022;
-    player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - e.movementY * 0.0022));
+    player.yawOffset -= e.movementX * lookSensitivity(0.0022);
+    player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - e.movementY * lookSensitivity(0.0022)));
     return;
   }
   player.handleMouseMove(e.movementX, e.movementY);
@@ -1928,12 +1929,12 @@ window.addEventListener('keydown', (e) => {
       hud.toast(audio.muted ? 'Muted' : 'Sound on');
       break;
     default:
-      player.setKey(e.code, true);
+      player.setKey(translateKey(e.code), true);
   }
 });
 
 window.addEventListener('keyup', (e) => {
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (e.code === 'KeyE') interaction.release();
   if (e.code === 'KeyF') cancelItemUse();
 });

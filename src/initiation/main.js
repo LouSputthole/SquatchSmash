@@ -21,6 +21,8 @@ import {
   QUIZ_OPTIONS,
 } from './dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { shakeScale, bindAudioVolume } from '../core/settings.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
@@ -896,6 +898,7 @@ function roarAction() {
 }
 
 window.addEventListener('keydown', (e) => {
+  if (paused) return;
   if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
   if (e.code === 'Space') { e.preventDefault(); smashAction(); }
   if (e.code === 'KeyR') roarAction();
@@ -908,10 +911,35 @@ window.addEventListener('keyup', (e) => {
   if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]);
 });
 window.addEventListener('mousedown', (e) => {
-  if (e.target.closest('button, a, .touch-btn')) return;
+  if (paused || e.target.closest('button, a, .touch-btn')) return;
   if (e.button === 0) smashAction();
 });
 window.addEventListener('blur', () => keys.clear());
+
+/* The shared pause menu (Tab): objective, controls, settings, save data. The
+ * ceremony is not a recoverable campaign scene, so there are no restart or
+ * skip buttons here — a failed trial already offers its own retry. */
+let paused = false;
+createPauseMenu({
+  title: 'The Initiation',
+  canPause: () => phase !== 'complete' && phase !== 'failed',
+  getObjective: () => objectiveEl.textContent || 'Walk into the pines and take your place in the line.',
+  instructions: [
+    'W A S D or arrows — move. Shift — hurry.',
+    'Space or Click — smash. R — roar, when the trial asks for it.',
+    'When you are asked a question: 1, 2 or 3 — answer.',
+    'M — mute. Tab — pause or resume.',
+  ],
+  onPause: () => {
+    paused = true;
+    keys.clear();
+    sfx.suspend();
+  },
+  onResume: () => {
+    paused = false;
+    sfx.resume();
+  },
+});
 
 muteBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
 function toggleMute() {
@@ -990,6 +1018,7 @@ $('goHomeBtn').addEventListener('click', () => {
 // kick in on the first keypress or click after arriving from the apartment.
 function ensureAudio() {
   sfx.init();
+  bindAudioVolume(sfx);
   sfx.startDrums(); // the ceremony is already underway, somewhere ahead
 }
 window.addEventListener('keydown', ensureAudio, { once: true });
@@ -1512,9 +1541,10 @@ function updateCamera(dt) {
 
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.4);
-    camera.position.x += (Math.random() - 0.5) * shake * 0.8;
-    camera.position.y += (Math.random() - 0.5) * shake * 0.8;
-    camera.position.z += (Math.random() - 0.5) * shake * 0.8;
+    const felt = shake * 0.8 * shakeScale();
+    camera.position.x += (Math.random() - 0.5) * felt;
+    camera.position.y += (Math.random() - 0.5) * felt;
+    camera.position.z += (Math.random() - 0.5) * felt;
   }
   camera.lookAt(_lookTarget);
 
@@ -1677,6 +1707,7 @@ function onStep() {
 function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05);
+  if (paused) return; // the menu covers the frame; nothing moves under it
   flameT += dt;
 
   // Dialog auto-advance

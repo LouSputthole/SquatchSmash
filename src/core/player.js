@@ -8,6 +8,7 @@
  *   'frozen' - cutscene / transition, no input
  */
 import * as THREE from 'three';
+import { bindLookSensitivity } from './settings.js';
 
 const EYE_STAND = 1.66;
 const EYE_CROUCH = 1.02;
@@ -57,7 +58,7 @@ export class Player {
     this.yawCenter = null;
     this.yawRange = Math.PI;
 
-    this.sensitivity = 0.0022;
+    bindLookSensitivity(this, 0.0022); // 0.0022 × the player's sensitivity setting, live
     this.enabled = false;
     this.keys = new Set();
     this.onFootstep = null;

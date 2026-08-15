@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
 import {
   SCENE_IDS,
   createCampaign,
@@ -570,13 +571,13 @@ document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const code = input.keyEvent(e, true);
   if (code === 'Space' || code === 'Shift') e.preventDefault();
-  player.setKey(e.code, true);
+  player.setKey(translateKey(e.code), true);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.press();
 }, true);
 
 document.addEventListener('keyup', (e) => {
   const code = input.keyEvent(e, false);
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.release();
 }, true);
 

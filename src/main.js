@@ -13,6 +13,7 @@ import { chooseNoImmediateRepeat } from './core/audio-variant-bank.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
 import { Player } from './core/player.js';
+import { translateKey, shakeScale } from './core/settings.js';
 import { Radio } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
@@ -1241,7 +1242,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  player.setKey(e.code, true);
+  player.setKey(translateKey(e.code), true);
 
   switch (e.code) {
     case 'KeyE':
@@ -1321,7 +1322,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keyup', (e) => {
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (e.code === 'KeyE' && !game.seated) interaction.release();
 });
 
@@ -4738,6 +4739,14 @@ function frame() {
       player.sway.yaw += highs.sway.yaw;
       player.sway.pitch += highs.sway.pitch;
       player.sway.roll += highs.sway.roll;
+      /* "Reduce camera shake" scales what reaches the camera. In place is
+       * fine: drunk.update() recomputes the sway from scratch every frame. */
+      const felt = shakeScale();
+      if (felt !== 1) {
+        player.sway.yaw *= felt;
+        player.sway.pitch *= felt;
+        player.sway.roll *= felt;
+      }
       player.moveScale = highs.moveScale;
       player.lookDrag = highs.lookDrag;
 
