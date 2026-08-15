@@ -8,6 +8,7 @@
  *   'frozen' - cutscene / transition, no input
  */
 import * as THREE from 'three';
+import { ColliderGrid } from './collider-broadphase.js';
 
 const EYE_STAND = 1.66;
 const EYE_CROUCH = 1.02;
@@ -76,6 +77,11 @@ export class Player {
 
     // Transition tween state.
     this._tween = null;
+
+    /* Broadphase over `world.colliders` -- see collider-broadphase.js. It
+     * follows the array (replace, push, splice, in-place moves) by itself, so
+     * scenes need do nothing; `_resolve` syncs it before it asks. */
+    this._grid = new ColliderGrid();
   }
 
   /* ---------------------------------------------------------------- */
@@ -387,43 +393,67 @@ export class Player {
     }
   }
 
-  /** Push the player capsule out of any collider it is overlapping. */
+  /**
+   * Push the player capsule out of any collider it is overlapping.
+   *
+   * The boxes are visited in ascending array order and every push moves the
+   * capsule before the next box is tested, exactly as the original loop over
+   * the whole array did; the grid only decides which indices are worth
+   * visiting. After a push the capsule has moved, so the candidate list is
+   * fetched again from the new position and the walk resumes past the box
+   * that pushed -- a box earlier in the array is never revisited, a box later
+   * in it is tested where the capsule now is, which is what the brute-force
+   * scan did too.
+   */
   _resolve(axis) {
     const p = this.position;
-    for (const box of this.world.colliders) {
-      if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
+    const colliders = this.world.colliders;
+    const grid = this._grid;
+    grid.sync(colliders);
+    let start = 0;
+    scan: for (;;) {
+      const list = grid.query(p.x, p.z, RADIUS, _cands);
+      for (let k = 0; k < list.length; k++) {
+        const i = list[k];
+        if (i < start) continue;
+        const box = colliders[i];
+        if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
 
-      const cx = clamp(p.x, box.min.x, box.max.x);
-      const cz = clamp(p.z, box.min.z, box.max.z);
-      const dx = p.x - cx;
-      const dz = p.z - cz;
-      const d2 = dx * dx + dz * dz;
-      if (d2 >= RADIUS * RADIUS) continue;
+        const cx = clamp(p.x, box.min.x, box.max.x);
+        const cz = clamp(p.z, box.min.z, box.max.z);
+        const dx = p.x - cx;
+        const dz = p.z - cz;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= RADIUS * RADIUS) continue;
 
-      if (d2 > 1e-8) {
-        const d = Math.sqrt(d2);
-        const push = RADIUS - d;
-        if (axis === 'x') {
-          p.x += (dx / d) * push;
-          this.velocity.x = 0;
+        if (d2 > 1e-8) {
+          const d = Math.sqrt(d2);
+          const push = RADIUS - d;
+          if (axis === 'x') {
+            p.x += (dx / d) * push;
+            this.velocity.x = 0;
+          } else {
+            p.z += (dz / d) * push;
+            this.velocity.z = 0;
+          }
         } else {
-          p.z += (dz / d) * push;
+          // Dead centre inside the box: eject along the shallowest axis.
+          const toMinX = p.x - box.min.x;
+          const toMaxX = box.max.x - p.x;
+          const toMinZ = p.z - box.min.z;
+          const toMaxZ = box.max.z - p.z;
+          const m = Math.min(toMinX, toMaxX, toMinZ, toMaxZ);
+          if (m === toMinX) p.x = box.min.x - RADIUS;
+          else if (m === toMaxX) p.x = box.max.x + RADIUS;
+          else if (m === toMinZ) p.z = box.min.z - RADIUS;
+          else p.z = box.max.z + RADIUS;
+          this.velocity.x = 0;
           this.velocity.z = 0;
         }
-      } else {
-        // Dead centre inside the box: eject along the shallowest axis.
-        const toMinX = p.x - box.min.x;
-        const toMaxX = box.max.x - p.x;
-        const toMinZ = p.z - box.min.z;
-        const toMaxZ = box.max.z - p.z;
-        const m = Math.min(toMinX, toMaxX, toMinZ, toMaxZ);
-        if (m === toMinX) p.x = box.min.x - RADIUS;
-        else if (m === toMaxX) p.x = box.max.x + RADIUS;
-        else if (m === toMinZ) p.z = box.min.z - RADIUS;
-        else p.z = box.max.z + RADIUS;
-        this.velocity.x = 0;
-        this.velocity.z = 0;
+        start = i + 1;
+        continue scan;
       }
+      break;
     }
     /* Moving/rotated scenes resolve the capsule in their own local frame. */
     this.world.resolvePlayer?.(this, axis, RADIUS);
@@ -471,6 +501,8 @@ export class Player {
 
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _tmpV = new THREE.Vector3();
+/** Scratch list for the broadphase query; refilled on every call. */
+const _cands = [];
 
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function len2(x, z) { return x * x + z * z; }

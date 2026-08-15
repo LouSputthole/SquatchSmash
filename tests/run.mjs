@@ -192,6 +192,7 @@ const TEST_MODULES = [
   './inventory.test.mjs',
   './inventory-view.test.mjs',
   './player.test.mjs',
+  './collider-broadphase.test.mjs',
   './check-line-presence.test.mjs',
 ];
 
