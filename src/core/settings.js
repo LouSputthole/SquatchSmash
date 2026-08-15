@@ -86,7 +86,12 @@ const SCHEMA = {
   sensitivity: number('squatch.sensitivity', 1, 0.2, 3),
   keys: {
     store: 'squatch.keys',
-    fallback: {},
+    /* A GETTER, not one shared `{}`. readStored hands the fallback straight
+     * back as the live cached value, so a single literal would alias the
+     * schema default to the store: one caller mutating what get('keys')
+     * returned would rewrite the default for the rest of the process, and
+     * reload() would re-serve the polluted object — across tests included. */
+    get fallback() { return {}; },
     decode: (raw) => {
       try {
         const parsed = JSON.parse(raw);

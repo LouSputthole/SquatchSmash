@@ -100,6 +100,23 @@ test('persisted values round-trip through a fresh load, including a saved Silver
   });
 });
 
+/* The keymap default used to be ONE shared `{}` that readStored handed back
+ * as the live cached value, so the schema default and the store aliased each
+ * other: a caller that mutated what get('keys') returned rewrote the default
+ * for the rest of the process, reload() included. */
+test('the empty keymap a caller is handed is its own object, not the schema default', () => {
+  withStorage({}, () => {
+    const keys = settings.get('keys');
+    assert.deepEqual(keys, {});
+    keys.forward = 'KeyJ';
+    assert.deepEqual(settings.reload().keys, {}, 'a reload re-reads an unpolluted default');
+  });
+  withStorage({}, () => {
+    assert.deepEqual(settings.get('keys'), {}, 'and so does the next page');
+    assert.deepEqual(settings.getKeymap(), { ...settings.DEFAULT_KEYS });
+  });
+});
+
 test('volume and sensitivity are clamped and coerced; subscribers hear the stored value', () => {
   withStorage({}, (storage) => {
     const heard = [];

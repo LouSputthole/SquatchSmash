@@ -19,9 +19,10 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-let chromium;
+let launchChromium;
 try {
-  ({ chromium } = await import('playwright'));
+  await import('playwright');
+  ({ launchChromium } = await import('./launch-chromium.mjs'));
 } catch {
   console.error('playwright is not installed; cannot verify the settings menu.');
   process.exit(1);
@@ -159,10 +160,13 @@ function commonChecks(scene, menu, { assist = false } = {}) {
 let browser;
 try {
   await listen();
-  browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM
-      || (process.env.PLAYWRIGHT_BROWSERS_PATH
-        ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
+  /* The shared launcher: it tries the pinned build first and, only if that
+   * fails, finds the real Chromium under the browsers path
+   * (`<root>/chromium-<rev>/chrome-linux/chrome`). The hand-rolled fallback
+   * this replaces joined `<root>/chromium`, which is not an executable
+   * anywhere, so a browser-cache mismatch ENOENTed instead of falling back. */
+  browser = await launchChromium({
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
     args: [
       '--use-gl=angle',
       '--use-angle=swiftshader',

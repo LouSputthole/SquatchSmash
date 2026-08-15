@@ -35,7 +35,7 @@ import {
 import { buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
+import { translateKey, shakeScale } from '../core/settings.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { Highs } from '../core/highs.js';
@@ -1943,9 +1943,13 @@ function updateGame(dt) {
   suiteFocus.update(dt);
   suiteFocus.apply(camera, player);
   mansionHighs.update(dt);
-  player.sway.yaw = mansionHighs.sway.yaw;
-  player.sway.pitch = mansionHighs.sway.pitch;
-  player.sway.roll = mansionHighs.sway.roll;
+  /* "Reduce camera shake" scales what reaches the camera, here as everywhere
+   * else — this sway is the strongest camera motion in the mansion, and it
+   * was the one place the setting was advertised and then ignored. */
+  const felt = shakeScale();
+  player.sway.yaw = mansionHighs.sway.yaw * felt;
+  player.sway.pitch = mansionHighs.sway.pitch * felt;
+  player.sway.roll = mansionHighs.sway.roll * felt;
   player.moveScale = mansionHighs.moveScale;
   player.lookDrag = mansionHighs.lookDrag;
   player.update(dt);

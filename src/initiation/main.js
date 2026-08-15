@@ -1016,7 +1016,14 @@ $('goHomeBtn').addEventListener('click', () => {
 
 // Browsers only allow audio after a real input on this page, so the drums
 // kick in on the first keypress or click after arriving from the apartment.
+let audioArmed = false;
 function ensureAudio() {
+  /* TWO independent `{ once: true }` listeners below, so this body can run
+   * twice — a click after a keypress. init() and startDrums() each refuse a
+   * second call, but bindAudioVolume() does not: it would leave a second
+   * permanent subscriber on the settings store. */
+  if (audioArmed) return;
+  audioArmed = true;
   sfx.init();
   bindAudioVolume(sfx);
   sfx.startDrums(); // the ceremony is already underway, somewhere ahead
