@@ -60,7 +60,7 @@ const {
   ANCHORS, GROUND_Y, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
 } = await import('../src/mansion/siege/nav.js');
 const {
-  createAttackerPool, groundHeightAt, segmentBlocked, HIT_ZONES, ROLE_PLAN,
+  createAttackerPool, groundHeightAt, segmentBlocked, HIT_ZONES, HUNT_SPEED, ROLE_PLAN,
 } = await import('../src/mansion/siege/attackers.js');
 const {
   buildSiegeEnsemble, KEEP_CLEAR, HOUSE_BOUNDS, KILL_BUDGET, SURVIVES_THE_SIEGE,
@@ -366,9 +366,11 @@ test('a hunted standoff man drops his post, closes on the player, and calls it',
   const entry = pool.entry(order.id);
   const player = makePlayer();
   const barks = [];
+  const steps = [];
   const ctx = (hunt) => ({
     player, colliders: [], alive: () => [], hunt,
     onBark: (event) => barks.push(event),
+    onStep: (who, event) => steps.push({ id: who.id, hunt, ...event }),
   });
 
   /* Twenty seconds without the flag: he sets up and stays a standoff man. */
@@ -377,14 +379,31 @@ test('a hunted standoff man drops his post, closes on the player, and calls it',
   assert.ok(held > 12,
     `the suppressor closed to ${held.toFixed(1)} m without being hunted`);
   assert.ok(!barks.some((b) => b.key === 'hunt'), 'hunt called before the hunt');
+  assert.equal(entry.hunting, false, 'flagged as hunting before the hunt');
+  /* His own pace is a walk (1.2 m/s), so nothing he did so far was a run. */
+  const hisStepsBefore = steps.filter((step) => step.id === entry.id);
+  assert.ok(hisStepsBefore.length > 0, 'the suppressor never took a step setting up');
+  assert.ok(hisStepsBefore.every((step) => step.gait === 'walk'),
+    'a suppressor setting up ran');
 
   /* Forty seconds with it: he is closing, and somebody said so. */
+  steps.length = 0;
   for (let i = 0; i < 60 * 40; i++) pool.update(1 / 60, ctx(true));
   const closed = entry.actor.incapacitated
     ? 0 : entry.root.position.distanceTo(player.position);
   assert.ok(closed < held - 4,
     `hunted, he closed only ${(held - closed).toFixed(1)} m (from ${held.toFixed(1)})`);
   assert.ok(barks.some((b) => b.key === 'hunt'), 'nobody called the hunt');
+  /* THE AUDIBLE HALF. A hunted man jogs (HUNT_SPEED floors his pace), and
+   * the step event grades gait and intensity off that pace -- so his feet,
+   * which the player steers by, are RUNNING feet at full intensity, not the
+   * standoff shuffle at half volume he was making a moment ago. */
+  assert.ok(HUNT_SPEED > 2.25, 'the hunt floor must clear the run-gait line');
+  assert.equal(entry.hunting, true, 'the flag did not reach the man');
+  const hisStepsHunted = steps.filter((step) => step.id === entry.id);
+  assert.ok(hisStepsHunted.length > 0, 'a hunted suppressor took no steps');
+  assert.ok(hisStepsHunted.some((step) => step.gait === 'run' && step.intensity >= 0.99),
+    `hunted, he never ran: gaits ${[...new Set(hisStepsHunted.map((s) => s.gait))]}`);
 });
 
 test('wave one comes in the front door, every man of it', () => {

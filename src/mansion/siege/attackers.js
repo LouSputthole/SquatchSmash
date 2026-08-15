@@ -147,6 +147,14 @@ const PORTICO_Z = STEP_TOP_Z - 0.1;
  * waited for the inside waypoint's 1.1 m arrival slack, so the body crossed
  * half a metre of intact glass before the callback withdrew its collider. */
 export const BREACH_TRIGGER_DISTANCE = 1.05;
+
+/**
+ * The floor on a HUNTED man's pace, metres per second. Above the 2.25 m/s
+ * line the step event calls a run, so the remnant closing on the player is
+ * audible as running feet -- the tell behind "four attacks left cant find
+ * them". See `act()`.
+ */
+export const HUNT_SPEED = 2.4;
 const GROUND_INTERIOR_ROOMS = new Set([
   'foyer', 'living', 'lounge', 'ballroom', 'dining', 'kitchen',
   'trophy', 'winter', 'bay',
@@ -1887,7 +1895,19 @@ export function createAttackerPool({
     _step.copy(entry.goal).sub(position);
     _step.y = 0;
     const planar = _step.length();
-    const speed = entry.plan.speed
+    /* THE REMNANT JOGS. A hunted man (see `think`) has dropped his standoff
+     * and is walking at the player -- but the roles that hold standoffs are
+     * the slow ones (the suppressor at 1.2 m/s, the gunner at 1.4), and a
+     * suppressor ambling in from 28 m at walking pace is a hunt the player
+     * spends twenty-five seconds waiting for, at a footstep volume he cannot
+     * hear over the alarm. So the hunt floors the pace at a jog: fast enough
+     * to be a push, and -- because the step event below grades gait and
+     * intensity off `speed` -- loud enough to be the audible tell the hunt
+     * exists to give ("four attacks left cant find them"). Suppression and
+     * a wounded leg still slow him; they just slow him from a jog. */
+    const hunted = ctx.hunt === true && !!entry.order?.wave;
+    entry.hunting = hunted;
+    const speed = (hunted ? Math.max(entry.plan.speed, HUNT_SPEED) : entry.plan.speed)
       * (1 - entry.suppression.value * 0.45)
       * entry.impairments.speedScale;
     /* Some authored choke-point anchors require a 25 cm arrival. The old
@@ -2418,6 +2438,8 @@ export function createAttackerPool({
         awareness: 0,
         moving: false,
         blocked: false,
+        /** True while the wave's remnant hunt has this man pushing at the player. */
+        hunting: false,
         holding: false,
         sinceMove: 0,
         sinceThink: Math.random() * 0.12,
@@ -2545,6 +2567,7 @@ export function createAttackerPool({
     entry.aimFrame = null;
     entry.moving = false;
     entry.blocked = false;
+    entry.hunting = false;
     entry.lastShot = null;
     entry.holdReleased = !order.holdUntil;
     entry.impairments.reset();

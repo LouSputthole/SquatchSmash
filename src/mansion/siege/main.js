@@ -102,6 +102,7 @@ const objectiveHintEl = $('objectiveHint');
 const waveCountEl = $('waveCount');
 const waveRemainingEl = $('waveRemaining');
 const waveLabelEl = $('waveLabel');
+const huntPipEl = $('huntPip');
 const checkpointEl = $('checkpoint');
 const subtitleEl = $('subtitle');
 const subtitleWhoEl = $('subtitleWho');
@@ -1801,7 +1802,16 @@ function refreshAmmo() {
   ammoNameEl.textContent = hud.name ?? '';
   ammoMagEl.textContent = String(hud.rounds ?? 0);
   ammoReserveEl.textContent = String(hud.reserve ?? 0);
-  ammoStateEl.textContent = hud.state ?? '';
+  /* RELOAD CLARITY. This line used to print the Firearm's raw phase id --
+   * "ready", "reload-out", "reload-in" -- under the count, which is a state
+   * machine talking to itself, not a HUD talking to a player under fire. The
+   * base house's own card (src/mansion/main.js) already says it the way a
+   * player reads it, and the page's `#ammo.dry` rule was written for a class
+   * nothing here ever set. Same words, same class, one house. */
+  ammoEl.classList.toggle('dry', (hud.rounds ?? 0) === 0);
+  ammoStateEl.textContent = hud.reloading
+    ? 'RELOADING'
+    : ((hud.rounds ?? 0) === 0 ? ((hud.reserve ?? 0) === 0 ? 'NO ROUNDS' : 'EMPTY — R') : '');
 }
 
 /**
@@ -1843,6 +1853,76 @@ function refreshWaveCount() {
   waveCountEl.hidden = false;
   const left = wave.totalCount - wave.down.size;
   waveRemainingEl.textContent = String(left);
+}
+
+/* ================================================================== */
+/* THE HUNT PIP                                                          */
+/*                                                                       */
+/* Owner, playtest 2026-08-13: "four attacks left cant find them".        */
+/* mission.huntActive is the mechanical half of the answer (the remnant  */
+/* drops its standoffs and walks at the player -- src/mansion/siege/     */
+/* attackers.js) and this is the legible half: while the hunt is on, one */
+/* small amber chevron on a ring around the crosshair points at the      */
+/* nearest wave attacker still standing. Nothing else on the HUD says    */
+/* which way a man behind a wall is, and a man on the far flight is a    */
+/* direction long before he is a silhouette.                             */
+/*                                                                       */
+/* It is a DIRECTION, not a marker: no distance, no through-wall body    */
+/* outline, no minimap. Off between hunts and off the moment the wave    */
+/* clears, so the balcony fight itself is fought by eye and ear.         */
+/* ================================================================== */
+/** How the last pip reading was published; the verifier reads it too. */
+let huntPip = { active: false, id: null, bearing: null, distance: null, sector: null };
+
+function nearestStandingWaveAttacker() {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const entry of attackers.all()) {
+    if (!entry.active || entry.actor?.incapacitated || !entry.order?.wave) continue;
+    const distance = entry.root.position.distanceTo(player.position);
+    if (distance < bestDistance) { best = entry; bestDistance = distance; }
+  }
+  return best ? { entry: best, distance: bestDistance } : null;
+}
+
+function bearingSector(angle) {
+  return Math.abs(angle) <= Math.PI / 4 ? 'front'
+    : Math.abs(angle) >= Math.PI * 3 / 4 ? 'back'
+      : angle > 0 ? 'right' : 'left';
+}
+
+function updateHuntPip(huntActive) {
+  const nearest = huntActive ? nearestStandingWaveAttacker() : null;
+  const bearing = nearest ? incomingBearing(nearest.entry.root.position) : null;
+  const active = nearest !== null && Number.isFinite(bearing);
+  huntPip = active
+    ? {
+      active: true,
+      id: nearest.entry.id,
+      bearing: Number(bearing.toFixed(4)),
+      distance: Number(nearest.distance.toFixed(2)),
+      sector: bearingSector(bearing),
+    }
+    : { active: false, id: null, bearing: null, distance: null, sector: null };
+  waveCountEl?.classList.toggle('hunt', huntActive === true);
+  if (!huntPipEl) return huntPip;
+  if (!active) {
+    if (!huntPipEl.hidden) {
+      huntPipEl.classList.remove('active');
+      huntPipEl.hidden = true;
+      delete huntPipEl.dataset.bearing;
+      delete huntPipEl.dataset.sector;
+      delete huntPipEl.dataset.target;
+    }
+    return huntPip;
+  }
+  huntPipEl.hidden = false;
+  huntPipEl.classList.add('active');
+  huntPipEl.style.setProperty('--hunt-bearing', `${bearing}rad`);
+  huntPipEl.dataset.bearing = String(huntPip.bearing);
+  huntPipEl.dataset.sector = huntPip.sector;
+  huntPipEl.dataset.target = huntPip.id;
+  return huntPip;
 }
 
 /* ================================================================== */
@@ -2369,6 +2449,7 @@ function updateGame(dt) {
     nudge('The last of them are coming to you. Hold the rail.', 5);
   }
   if (!huntActive && !mission.activeWave) huntAnnounced = false;
+  updateHuntPip(huntActive);
   attackers.update(dt, {
     player: playerTarget,
     colliders,
@@ -2547,8 +2628,27 @@ window.mansionSiege = {
     subtitle: subtitleEl?.hidden ? null : subtitleTextEl?.textContent ?? null,
     counter: waveCountEl?.hidden ? null
       : `${waveRemainingEl?.textContent ?? ''} ${waveLabelEl?.textContent ?? ''}`.trim(),
+    /* The hunt pip, as published: which way the nearest remnant man is,
+     * and whether the element the player sees agrees with the reading. */
+    huntPip: {
+      ...huntPip,
+      shown: !!huntPipEl && !huntPipEl.hidden && huntPipEl.classList.contains('active'),
+      counterHunting: !!waveCountEl?.classList.contains('hunt'),
+    },
     health: combatHud.update(),
     armor: combatArmor(playerActor),
+    /* The ammunition card, as rendered: the count and the one line under it
+     * that says what the gun is doing ("RELOADING", "EMPTY — R", "NO
+     * ROUNDS"), plus the dry state the count turns orange for. */
+    ammo: ammoEl && !ammoEl.classList.contains('hidden')
+      ? {
+        name: ammoNameEl?.textContent ?? '',
+        mag: Number(ammoMagEl?.textContent ?? NaN),
+        reserve: Number(ammoReserveEl?.textContent ?? NaN),
+        state: ammoStateEl?.textContent ?? '',
+        dry: ammoEl.classList.contains('dry'),
+      }
+      : null,
     complete: missionCardEl ? !missionCardEl.classList.contains('hidden') : false,
   }),
   /** Checkpoint entry, as the ?checkpoint= URLs drive it. */
@@ -2621,6 +2721,8 @@ window.mansionSiege = {
   get playerDamageEvents() { return playerDamageEvents; },
   get pointerLockRejected() { return pointerLockRejected; },
   weaponStats: () => ({ ...weaponSystem.stats }),
+  /** The player's guns, for the verifier. Firearm stays the only ammo owner. */
+  weapons: weaponSystem,
   get playerHealth() { return playerActor.health; },
   get playerArmor() { return playerActor.armor; },
   get playerDown() { return playerActor.incapacitated; },

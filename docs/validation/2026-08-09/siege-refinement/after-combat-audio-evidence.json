@@ -5,7 +5,6 @@
   "requestedCue": "weapon.carbine.fire",
   "observedRequestedCue": true,
   "observedPlaybacks": [
-    "weapon.carbine.fire",
     "weapon.carbine.fire"
   ],
   "legacyFallbackCue": "heist.weapon.carbine.indoor",
