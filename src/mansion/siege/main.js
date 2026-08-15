@@ -40,6 +40,7 @@ import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
 import { PostFX } from '../../core/postfx.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
+import { translateKey } from '../../core/settings.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
@@ -1484,7 +1485,7 @@ function holdTheLine() {
 window.addEventListener('keydown', (e) => {
   if (!running) return;
   if (e.code === 'Space') e.preventDefault();
-  player.setKey(e.code, true);
+  player.setKey(translateKey(e.code), true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
   if (e.code === 'KeyR' && !e.repeat) { weaponSystem.reload(); ammoDirty = true; }
   if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
@@ -1529,7 +1530,7 @@ window.addEventListener('wheel', (e) => {
   }
 }, { passive: true });
 window.addEventListener('keyup', (e) => {
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (e.code === 'KeyE') interaction.release();
 });
 window.addEventListener('blur', () => {

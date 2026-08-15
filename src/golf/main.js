@@ -1860,6 +1860,12 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
+  /* Movement is registered whatever else this key also does. It used to sit
+   * in the `default:` arm, so a movement action rebound onto one of the keys
+   * the switch already names (F, M, R, T, N, G, Q, E, Escape) never got a
+   * key-down — while the keyup below cleared it unconditionally. */
+  player.setKey(translateKey(e.code), true);
+
   switch (e.code) {
     case 'KeyE':
       if (camMode === CAM.ADDRESS) return;
@@ -1929,7 +1935,7 @@ window.addEventListener('keydown', (e) => {
       hud.toast(audio.muted ? 'Muted' : 'Sound on');
       break;
     default:
-      player.setKey(translateKey(e.code), true);
+      break;
   }
 });
 

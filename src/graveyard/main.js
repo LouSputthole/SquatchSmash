@@ -584,15 +584,19 @@ document.addEventListener('mousemove', (event) => {
 document.addEventListener('keydown', (event) => {
   if (state.phase !== 'active' || state.paused) return;
   if (event.code === 'Space') event.preventDefault();
+  /* The carry restriction is about the ACTIONS, so it tests the translated
+   * key: jump rebound to KeyJ has to be refused too, and physical Space that
+   * is no longer jump must not print a refusal for a key that does nothing. */
+  const key = translateKey(event.code);
   if (mission.state === 'carried'
-    && ['Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
-    player.setKey(translateKey(event.code), false);
-    if (event.code === 'Space' && !event.repeat) {
+    && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
+    player.setKey(key, false);
+    if (key === 'Space' && !event.repeat) {
       hud.say('Not with HotDog in both arms.', 2200);
     }
     return;
   }
-  player.setKey(translateKey(event.code), true);
+  player.setKey(key, true);
   // A completed hold resets InteractionSystem.holding before the physical key
   // comes up. Ignore OS autorepeat so it cannot begin a second hold whose
   // eventual release would also be misread as a fresh tap.
