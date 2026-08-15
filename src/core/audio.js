@@ -77,7 +77,12 @@ export class AudioEngine {
      * player chose rather than to 0.9. */
     this.masterLevel = 0.9;
     this.userVolume = 1;
-    bindAudioVolume(this);
+    /* Subscribed from init(), not from here: a subscription taken in the
+     * constructor is never released, so every engine ever built stays in the
+     * settings store's listener set for the life of the process — three of
+     * them at once in the test runner, each answering a volume change on a
+     * context it never opened. */
+    this._unbindVolume = null;
   }
 
   /** Must be called from a user gesture (browsers block autoplay otherwise). */
@@ -88,6 +93,11 @@ export class AudioEngine {
     }
     const Ctx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctx();
+
+    /* Before the master gain is created below, so it opens at the volume the
+     * player chose. One subscription per engine that really opened a context;
+     * `_unbindVolume` releases it. */
+    this._unbindVolume ??= bindAudioVolume(this);
 
     this.master = this.ctx.createGain();
     this.master.gain.value = this.masterLevel * this.userVolume;
@@ -1064,7 +1074,12 @@ export class AudioEngine {
   }
 
   _applyMaster() {
-    if (this.ready) this._rampParam(this.master.gain, this.masterLevel * this.userVolume, 0.15);
+    /* `ready` is set by init(), but tests and mixing harnesses set it by hand
+     * on an engine that has no graph; the gain is the thing being written, so
+     * it is the thing to check for. */
+    if (this.ready && this.master) {
+      this._rampParam(this.master.gain, this.masterLevel * this.userVolume, 0.15);
+    }
   }
 }
 
