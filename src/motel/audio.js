@@ -10,6 +10,8 @@ let ctx = null;
 let master = null;
 let noiseBuf = null;
 let muted = false;
+/** The player's master-volume setting, 0..1 (src/core/settings.js). */
+let userVolume = 1;
 
 // Ambience nodes (started once, gain-tweened by tension)
 let amb = null;
@@ -31,7 +33,7 @@ export function init(options = {}) {
   if (!AC) return;
   ctx = new AC();
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 1;
+  master.gain.value = muted ? 0 : userVolume;
   master.connect(ctx.destination);
   const len = ctx.sampleRate * 1.5;
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -365,7 +367,13 @@ export function resume() {
 
 export function setMuted(m) {
   muted = m;
-  if (master) master.gain.value = m ? 0 : 1;
+  if (master) master.gain.value = m ? 0 : userVolume;
+}
+
+/** Same shape as `AudioEngine.setUserVolume`, so `bindAudioVolume` drives it. */
+export function setUserVolume(v) {
+  userVolume = Math.min(1, Math.max(0, Number(v) || 0));
+  if (master && !muted) master.gain.setTargetAtTime(userVolume, ctx.currentTime, 0.05);
 }
 
 export function isMuted() {

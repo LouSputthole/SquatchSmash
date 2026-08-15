@@ -43,6 +43,7 @@ import {
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { shakeScale, lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { selectPointInteraction } from './point-interaction.js';
 
@@ -435,8 +436,8 @@ renderer.domElement.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
-  camYaw -= e.movementX * 0.0022;
-  camPitch = THREE.MathUtils.clamp(camPitch - e.movementY * 0.0018, -0.85, 0.5);
+  camYaw -= e.movementX * lookSensitivity(0.0022);
+  camPitch = THREE.MathUtils.clamp(camPitch - e.movementY * lookSensitivity(0.0018), -0.85, 0.5);
 });
 
 $('startBtn').addEventListener('click', () => startScene());
@@ -1014,6 +1015,7 @@ function startScene() {
    * which is the whole difference between a recorded opening and a subtitle
    * with nothing behind it. */
   sfx.init({ priorityVoice: [OPENING_CUE] });
+  bindAudioVolume(sfx);
   sfx.resume();
   sfx.startAmbience();
   sfx.setMusic('tense');
@@ -2153,12 +2155,26 @@ function openDialogue(nodeId) {
   }, 0);
 }
 
+/** Stop the take the open wheel's prompt is being spoken on, and its subtitle. */
+function hushDialogue() {
+  stopMotelVoice();
+  subtitleT = 0;
+  subtitleEl.classList.remove('show');
+}
+
 /** True once the four answers are on screen and the player may pick one. */
 function dialogueReady() {
   return !!dialogue && performance.now() >= dialogue.readyAt;
 }
 
 function closeDialogue() {
+  /* A wheel closed while its prompt is still being spoken is a conversation
+   * the player walked out of — got out of the car mid-briefing, walked through
+   * the door, drew — and the mouth runs on the take (src/core/mouth.js), so
+   * without this Rico finishes his question to nobody. Same rule as
+   * Dialogue.hush() in src/bing/dialogue.js: a lapse stops the take; an
+   * answered wheel (readyAt has passed) has nothing left to stop. */
+  if (dialogue && performance.now() < dialogue.readyAt) hushDialogue();
   dialogue = null;
   wheelEl.classList.remove('show');
   wheelEl.classList.remove('pending');
@@ -3503,9 +3519,10 @@ function updateCamera(dt) {
 
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.6);
-    camera.position.x += (Math.random() - 0.5) * shake;
-    camera.position.y += (Math.random() - 0.5) * shake * 0.6;
-    camera.position.z += (Math.random() - 0.5) * shake;
+    const felt = shake * shakeScale();
+    camera.position.x += (Math.random() - 0.5) * felt;
+    camera.position.y += (Math.random() - 0.5) * felt * 0.6;
+    camera.position.z += (Math.random() - 0.5) * felt;
   }
 
   _lookAt.set(
@@ -4146,8 +4163,9 @@ function updateDrive(dt) {
   camera.lookAt(drive.x + seatX - steer * 0.8, 0.75, -16);
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.8);
-    camera.position.x += (Math.random() - 0.5) * shake;
-    camera.position.y += (Math.random() - 0.5) * shake;
+    const felt = shake * shakeScale();
+    camera.position.x += (Math.random() - 0.5) * felt;
+    camera.position.y += (Math.random() - 0.5) * felt;
   }
 
   // HUD

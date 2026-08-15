@@ -69,6 +69,7 @@ import * as THREE from 'three';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { PostFX } from '../core/postfx.js';
@@ -2144,7 +2145,7 @@ document.addEventListener('keydown', (e) => {
   }
   const code = input.keyEvent(e, true);
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
-  player.setKey(e.code, true);
+  player.setKey(translateKey(e.code), true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
   // The flashing camera hint goes away the first time the player uses the key
   // it is pointing at. `KeyC` itself is `FlightInput`'s own 'camera' action,
@@ -2191,7 +2192,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('keyup', (e) => {
   input.keyEvent(e, false);
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.release();
 }, true);
 

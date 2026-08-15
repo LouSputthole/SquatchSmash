@@ -33,6 +33,10 @@ export class DialogueController {
     this.active = null;
     this.timer = 0;
     this._onDone = null;
+    /* The take the active line is being spoken on, when `playCue` returned
+     * one (`{ duration, source }`) rather than a bare length — kept so hush()
+     * can stop the actual sound and not just the subtitle. */
+    this._take = null;
 
     /** Every cue this controller attempted, in order — the hook a headless
      * verifier reads to prove wiring without needing a recording. */
@@ -51,6 +55,10 @@ export class DialogueController {
 
   /** Queue a sequence, replacing anything queued. Calls onDone once drained. */
   play(sequence, { onDone } = {}) {
+    /* A spoken line replaced by another spoken line is an interruption, and
+     * the take goes with the subtitle. Replaced by a stage direction it may
+     * finish under the business, the way its caption stays up. */
+    if (this.active && sequence[0] && !sequence[0].stage) this.hush();
     this.queue = sequence.slice();
     this._onDone = onDone || null;
     this._advance();
@@ -64,9 +72,29 @@ export class DialogueController {
 
   /** Drop everything, without firing the pending onDone. */
   clear() {
+    this.hush();
     this.queue = [];
     this.active = null;
     this._onDone = null;
+  }
+
+  /**
+   * Stop the take the active line is being spoken on.
+   *
+   * Same contract as `Dialogue.hush()` in src/bing/dialogue.js: since mouths
+   * became audio-driven (src/core/mouth.js) a line that was cut off — a
+   * sequence replaced mid-sentence, a man killed mid-plea — kept sounding
+   * after its subtitle went. A line that ran its full hold has already
+   * finished and needs nothing stopped. Only takes returned through
+   * `playCue` as `{ duration, source }` can be reached; a body that plays its
+   * own line (`lab.scientists[i].say`) owns its own stop.
+   */
+  hush() {
+    const source = this._take?.source;
+    this._take = null;
+    if (!source?.stop) return false;
+    try { source.stop(); } catch { /* never started, or already ended */ }
+    return true;
   }
 
   _advance() {
@@ -74,6 +102,7 @@ export class DialogueController {
     if (!line) {
       const prev = this.active;
       this.active = null;
+      this._take = null;
       const done = this._onDone;
       this._onDone = null;
       this.onLineEnd?.(prev);
@@ -85,13 +114,20 @@ export class DialogueController {
     this.timer = authored;
 
     if (line.stage) {
+      this._take = null;
       this.stageLog.push(line.stage);
       this.onStage?.(line.stage, line);
       return;
     }
     const speaker = SPEAKERS[line.speaker] || { name: line.speaker, voice: null };
     if (line.cue) this.cueLog.push(line.cue);
-    const spoken = this.playCue?.(line.cue ?? null, speaker.voice, line);
+    const played = this.playCue?.(line.cue ?? null, speaker.voice, line);
+    /* `playCue` answers with the take's length, or with the take itself
+     * (`{ duration, source }`) when the caller can hand the source over — the
+     * only way hush() can reach the sound. Either way the hold below reads a
+     * number. */
+    this._take = played && typeof played === 'object' ? played : null;
+    const spoken = this._take ? Number(this._take.duration) || 0 : played;
     const caption = { ...line, speakerName: speaker.name };
     if (this.onLine) {
       this.onLine(caption);

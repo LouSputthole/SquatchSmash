@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey, shakeScale, get as getSetting } from '../core/settings.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { FocusRush } from '../core/focus-rush.js';
@@ -3043,7 +3044,7 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.code === 'Space') e.preventDefault();
   keys.add(e.code);
-  player.setKey(e.code, true);
+  player.setKey(translateKey(e.code), true);
 
   if (e.code === 'KeyE') {
     /* The phone takes [E] first while it is out. Same rule as the flat: a
@@ -3165,7 +3166,7 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
   keys.delete(e.code);
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (e.code === 'KeyE') interaction.release();
 });
 window.addEventListener('wheel', (e) => {
@@ -3514,10 +3515,13 @@ function frame() {
 
   drunk.update(raw);
   highs.update(raw);
-  player.sway.yaw = drunk.sway.yaw + highs.sway.yaw;
-  player.sway.pitch = drunk.sway.pitch + highs.sway.pitch;
-  player.sway.roll = drunk.sway.roll + highs.sway.roll;
-  player.impair = drunk.swayStrength * 0.8;
+  /* Drink and weed both move the camera; "reduce camera shake" scales what
+   * reaches it, the way the Silver Room already softens the drift. */
+  const felt = shakeScale();
+  player.sway.yaw = (drunk.sway.yaw + highs.sway.yaw) * felt;
+  player.sway.pitch = (drunk.sway.pitch + highs.sway.pitch) * felt;
+  player.sway.roll = (drunk.sway.roll + highs.sway.roll) * felt;
+  player.impair = drunk.swayStrength * (getSetting('reduceShake') ? 0.3 : 0.8);
   player.moveScale = highs.moveScale;
   player.lookDrag = highs.lookDrag;
   focusTick(raw);

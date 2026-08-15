@@ -11,6 +11,7 @@ import {
 import { createBankHeistStory } from '../core/bank-heist-story.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey, shakeScale } from '../core/settings.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
@@ -3641,7 +3642,7 @@ const SLOT_KEYS = Object.freeze({
 document.addEventListener('keydown', (event) => {
   if (simulationPaused) return;
   if (event.repeat && ['KeyE', 'KeyR', 'KeyQ', 'KeyF', 'KeyG'].includes(event.code)) return;
-  player.setKey(event.code, true);
+  player.setKey(translateKey(event.code), true);
   if (event.code in SLOT_KEYS) { selectSlot(SLOT_KEYS[event.code]); return; }
   if (event.code === 'BracketLeft') { cycleSlot(-1); return; }
   if (event.code === 'BracketRight') { cycleSlot(1); return; }
@@ -3656,7 +3657,7 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'F9' && isPreviewMode()) failMission('preview_failure_test');
 });
 document.addEventListener('keyup', (event) => {
-  player.setKey(event.code, false);
+  player.setKey(translateKey(event.code), false);
   if (event.code === 'KeyE') interaction.release();
 });
 addEventListener('wheel', (event) => {
@@ -3837,7 +3838,7 @@ function updatePursuit(dt, forwardX, forwardZ) {
     if (severity > 0.002) vehicle.applyCollision({ severity, windshield: false });
     audio.play('heist.vehicle.impact', { volume: 0.85, rate: 0.94 });
     suppression.noteNearMiss(0.4, 1);
-    camera.rotation.z += (Math.random() - 0.5) * 0.09;
+    camera.rotation.z += (Math.random() - 0.5) * 0.09 * shakeScale();
     pursuitPressure = Math.max(0, pursuitPressure - 0.45);
     const now = performance.now() / 1000;
     if (now > ramBarkAt) { ramBarkAt = now + 7; say('rippin_pursuit_ram'); }
@@ -3985,7 +3986,7 @@ function updateDriving(dt) {
     vehicle.z + forwardZ * (7 + speedRatio * 6) + forwardX * slipLead * 1.6,
   );
   camera.lookAt(chaseLook);
-  camera.rotation.z += vehicle.bodyRoll * 0.35 + suppression.value * 0.01;
+  camera.rotation.z += (vehicle.bodyRoll * 0.35 + suppression.value * 0.01) * shakeScale();
   const targetFov = 72 + speedRatio * 14 + handbrake * 3;
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3.2);
   camera.updateProjectionMatrix();

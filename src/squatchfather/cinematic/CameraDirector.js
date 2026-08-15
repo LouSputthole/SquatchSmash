@@ -1,4 +1,5 @@
 import { CameraShake } from '../effects/CameraShake.js';
+import { shakeScale } from '../../core/settings.js';
 
 // Owns the final camera transform: rides Prospect's eye, applies the shake
 // stack, drives field of view, and can steer the aim toward a target (the
@@ -69,8 +70,13 @@ export class CameraDirector {
     if (clamp) prospect.look(0, 0, clamp);
 
     this.shake.update(dt);
-    const s = this.shake.offset;
-    const rumble = this.extraShake;
+    /* One multiplier on everything the camera adds on top of where he is
+     * looking — the trauma shake and the train rumble both — so the player's
+     * "reduce camera shake" setting is honoured at the one place it lands. */
+    const felt = shakeScale();
+    const o = this.shake.offset;
+    const s = felt === 1 ? o : { x: o.x * felt, y: o.y * felt, z: o.z * felt, yaw: o.yaw * felt, pitch: o.pitch * felt, roll: o.roll * felt };
+    const rumble = this.extraShake * felt;
     const rx = rumble ? (Math.sin(dt * 0 + performance.now() * 0.021) * 0.0026 * rumble) : 0;
     const ry = rumble ? (Math.sin(performance.now() * 0.017) * 0.0022 * rumble) : 0;
 

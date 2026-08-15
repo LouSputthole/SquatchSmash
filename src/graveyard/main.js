@@ -11,6 +11,7 @@ import { createGraveyardStory } from '../core/graveyard-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -585,13 +586,13 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
   if (mission.state === 'carried'
     && ['Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
-    player.setKey(event.code, false);
+    player.setKey(translateKey(event.code), false);
     if (event.code === 'Space' && !event.repeat) {
       hud.say('Not with HotDog in both arms.', 2200);
     }
     return;
   }
-  player.setKey(event.code, true);
+  player.setKey(translateKey(event.code), true);
   // A completed hold resets InteractionSystem.holding before the physical key
   // comes up. Ignore OS autorepeat so it cannot begin a second hold whose
   // eventual release would also be misread as a fresh tap.
@@ -600,7 +601,7 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
 });
 document.addEventListener('keyup', (event) => {
-  player.setKey(event.code, false);
+  player.setKey(translateKey(event.code), false);
   if (event.code === 'KeyE') primaryControl.release();
 });
 document.addEventListener('mousedown', (event) => {

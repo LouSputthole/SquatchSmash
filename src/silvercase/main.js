@@ -14,6 +14,7 @@ import {
 import { silverCaseAudioLoadOptions } from './audio.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -1684,14 +1685,14 @@ const DIGIT_KEY = {
 };
 
 window.addEventListener('keydown', (e) => {
-  player.setKey(e.code, true);
+  player.setKey(translateKey(e.code), true);
   if (e.code === 'KeyE') interactions.press();
   if (DIGIT_KEY[e.code] && dialogue.choice) dialogue.chooseKey(DIGIT_KEY[e.code]);
   if (e.code === 'Escape') pauseMenu.toggle();
   if (e.code === 'KeyM') toggleMute();
 });
 window.addEventListener('keyup', (e) => {
-  player.setKey(e.code, false);
+  player.setKey(translateKey(e.code), false);
   if (e.code === 'KeyE') interactions.release();
 });
 window.addEventListener('blur', () => {

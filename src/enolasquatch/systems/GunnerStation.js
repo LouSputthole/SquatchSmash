@@ -33,6 +33,7 @@
  */
 import * as THREE from 'three';
 import { clamp } from '../../beefrun/util.js';
+import { bindLookSensitivity, shakeScale } from '../../core/settings.js';
 
 /** How far off the round's path a fighter can be and still be hit, in metres. */
 export const HIT_RADIUS = 12;
@@ -84,7 +85,7 @@ export class GunnerStation {
     this.kills = 0;
     this._roundT = 0;
     this._kick = 0;
-    this.sensitivity = 0.0016;
+    bindLookSensitivity(this, 0.0016); // × the player's sensitivity setting, live
 
     this.onShot = null;        // () => void — for the audio
     this.onHit = null;         // (fighter, result) => void
@@ -193,10 +194,11 @@ export class GunnerStation {
     camera.quaternion.copy(this.aircraft.group.quaternion).multiply(_q);
     if (this._kick > 0.001) {
       // The gun shakes the man holding it, not the aeroplane.
+      const kick = this._kick * shakeScale();
       _shake.setFromEuler(new THREE.Euler(
-        (Math.random() - 0.5) * this._kick * 0.05,
-        (Math.random() - 0.5) * this._kick * 0.05,
-        (Math.random() - 0.5) * this._kick * 0.06,
+        (Math.random() - 0.5) * kick * 0.05,
+        (Math.random() - 0.5) * kick * 0.05,
+        (Math.random() - 0.5) * kick * 0.06,
         'YXZ',
       ));
       camera.quaternion.multiply(_shake);

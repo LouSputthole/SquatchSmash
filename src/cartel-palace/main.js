@@ -29,6 +29,7 @@ import { createCartelPalaceCampaignStory } from '../core/final-arc-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
@@ -1101,7 +1102,7 @@ document.addEventListener('mousemove', (event) => {
 document.addEventListener('keydown', (event) => {
   if (state.phase !== 'active' || state.paused) return;
   if (event.code === 'Space') event.preventDefault();
-  player.setKey(event.code, true);
+  player.setKey(translateKey(event.code), true);
   if (event.code === 'KeyE' && !event.repeat) interaction.press();
   if (event.code === 'KeyR' && !event.repeat) weapons.reload();
   if (event.code === 'KeyQ' && !event.repeat) {
@@ -1115,7 +1116,7 @@ document.addEventListener('keydown', (event) => {
   }
 });
 document.addEventListener('keyup', (event) => {
-  player.setKey(event.code, false);
+  player.setKey(translateKey(event.code), false);
   if (event.code === 'KeyE') interaction.release();
 });
 document.addEventListener('mousedown', (event) => {

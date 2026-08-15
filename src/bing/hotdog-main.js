@@ -14,6 +14,7 @@ import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { translateKey, shakeScale } from '../core/settings.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { buildClub, roomAt } from './club.js';
@@ -319,7 +320,7 @@ function applyCinematicCamera(dt = 0) {
   const shot = state.cinematic;
   camera.position.copy(shot.eye);
   if (shot.shake > 0) {
-    const intensity = shot.shake;
+    const intensity = shot.shake * shakeScale();
     camera.position.x += Math.sin(state.elapsed * 77) * intensity;
     camera.position.y += Math.cos(state.elapsed * 101) * intensity * 0.55;
     camera.position.z += Math.sin(state.elapsed * 63) * intensity * 0.35;
@@ -1282,12 +1283,12 @@ document.addEventListener('mousemove', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
   if (state.phase !== 'active' || state.paused) return;
-  player.setKey(event.code, true);
+  player.setKey(translateKey(event.code), true);
   if (event.code === 'KeyE') interaction.press();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
 });
 document.addEventListener('keyup', (event) => {
-  player.setKey(event.code, false);
+  player.setKey(translateKey(event.code), false);
   if (event.code === 'KeyE') interaction.release();
 });
 document.addEventListener('mousedown', (event) => {

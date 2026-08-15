@@ -13,6 +13,8 @@ let duckFilter = null;
 let duckGain = null;
 let noiseBuf = null;
 let muted = false;
+/** The player's master-volume setting, 0..1 (src/core/settings.js). */
+let userVolume = 1;
 let ringOsc = null;
 let ringOsc2 = null;
 let ringGain = null;
@@ -40,7 +42,7 @@ export function init() {
   ctx = new AC();
 
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 1;
+  master.gain.value = muted ? 0 : userVolume;
   master.connect(ctx.destination);
 
   duckGain = ctx.createGain();
@@ -264,7 +266,13 @@ export const noiseBuffer = () => noiseBuf;
 
 export function setMuted(m) {
   muted = m;
-  if (master) master.gain.setTargetAtTime(m ? 0 : 1, ctx.currentTime, 0.02);
+  if (master) master.gain.setTargetAtTime(m ? 0 : userVolume, ctx.currentTime, 0.02);
+}
+
+/** Same shape as `AudioEngine.setUserVolume`, so `bindAudioVolume` drives it. */
+export function setUserVolume(v) {
+  userVolume = Math.min(1, Math.max(0, Number(v) || 0));
+  if (master && !muted) master.gain.setTargetAtTime(userVolume, ctx.currentTime, 0.05);
 }
 
 export const isMuted = () => muted;

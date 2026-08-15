@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { loadJson, assetUrl, isBundled } from './assets.js';
 import { loadOnceRetriable, runWorkerPool } from './load-queue.js';
+import { bindAudioVolume } from './settings.js';
 
 const SFX_DIR = 'assets/sfx/';
 
@@ -70,6 +71,13 @@ export class AudioEngine {
      * both for the browser verifier and for finding a future accidental
      * interruption without pretending a headless browser can hear speakers. */
     this.playbacks = [];
+    /* Two numbers multiply into the master gain: the scene's own level (its
+     * mute toggles call setMasterVolume) and the player's volume setting
+     * (src/core/settings.js), so an unmute puts the level back to what the
+     * player chose rather than to 0.9. */
+    this.masterLevel = 0.9;
+    this.userVolume = 1;
+    bindAudioVolume(this);
   }
 
   /** Must be called from a user gesture (browsers block autoplay otherwise). */
@@ -82,7 +90,7 @@ export class AudioEngine {
     this.ctx = new Ctx();
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.9;
+    this.master.gain.value = this.masterLevel * this.userVolume;
 
     // A gentle limiter keeps stacked cues from clipping.
     this.limiter = this.ctx.createDynamicsCompressor();
@@ -1043,8 +1051,20 @@ export class AudioEngine {
     );
   }
 
+  /** The scene's level (mute toggles and the like); the setting multiplies it. */
   setMasterVolume(v) {
-    if (this.ready) this.master.gain.linearRampToValueAtTime(v, this.ctx.currentTime + 0.15);
+    this.masterLevel = Math.max(0, Number(v) || 0);
+    this._applyMaster();
+  }
+
+  /** The player's master-volume setting, 0..1. Driven by src/core/settings.js. */
+  setUserVolume(v) {
+    this.userVolume = Math.min(1, Math.max(0, Number(v) || 0));
+    this._applyMaster();
+  }
+
+  _applyMaster() {
+    if (this.ready) this._rampParam(this.master.gain, this.masterLevel * this.userVolume, 0.15);
   }
 }
 

@@ -32,6 +32,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createNoWakeStory } from '../core/no-wake-story.js';
 import { Player } from '../core/player.js';
+import { translateKey } from '../core/settings.js';
 import { PostFX } from '../core/postfx.js';
 import { Radio } from '../core/radio.js';
 import { BulletHoles } from '../world/bullets.js';
@@ -2140,7 +2141,7 @@ function sayWhyNothingHappened() {
 document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
   if (state.paused) return;
-  player.setKey(event.code, true);
+  player.setKey(translateKey(event.code), true);
   if (event.code === 'KeyE') {
     const onSomething = Boolean(interaction.current);
     interaction.press();
@@ -2151,7 +2152,7 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'KeyQ' && state.atHelm) leaveHelm();
 });
 document.addEventListener('keyup', (event) => {
-  player.setKey(event.code, false);
+  player.setKey(translateKey(event.code), false);
   if (event.code === 'KeyE') interaction.release();
 });
 document.addEventListener('mousedown', (event) => {

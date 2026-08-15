@@ -5,6 +5,8 @@ let ctx = null;
 let master = null;
 let noiseBuf = null;
 let muted = false;
+/** The player's master-volume setting, 0..1 (src/core/settings.js). */
+let userVolume = 1;
 
 const VOICE_PREFIX = 'vo.initiation.';
 const voiceFiles = new Set();
@@ -19,7 +21,7 @@ export function init() {
   if (!AC) return;
   ctx = new AC();
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 1;
+  master.gain.value = muted ? 0 : userVolume;
   master.connect(ctx.destination);
   const len = ctx.sampleRate * 1.5;
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -97,7 +99,22 @@ export function voiceCoverage() {
 
 export function setMuted(m) {
   muted = m;
-  if (master) master.gain.value = m ? 0 : 1;
+  if (master) master.gain.value = m ? 0 : userVolume;
+}
+
+/** Same shape as `AudioEngine.setUserVolume`, so `bindAudioVolume` drives it. */
+export function setUserVolume(v) {
+  userVolume = Math.min(1, Math.max(0, Number(v) || 0));
+  if (master && !muted) master.gain.setTargetAtTime(userVolume, ctx.currentTime, 0.05);
+}
+
+/** Hold every sound while the scene is paused; `resume` picks it back up. */
+export function suspend() {
+  if (ctx && ctx.state === 'running') ctx.suspend();
+}
+
+export function resume() {
+  if (ctx && ctx.state === 'suspended') ctx.resume();
 }
 
 export function isMuted() {

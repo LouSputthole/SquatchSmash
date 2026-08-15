@@ -293,12 +293,9 @@ body.cutscene #objectives { transition: opacity 0.5s; }
 #access input { accent-color: var(--silver); width: 13px; height: 13px; }
 #overlay.ending #access { display: none; }
 
-/* Larger subtitles: one class, and everything that is a subtitle honours it. */
-body.bigsubs #subtitle { font-size: 20px; line-height: 1.6; }
-body.bigsubs #dialogue .line { font-size: 21px; }
-body.bigsubs #dialogue .opt { font-size: 16px; }
-body.bigsubs #dialogue .who { font-size: 13px; }
-body.nosubs #subtitle { display: none; }
+/* Larger subtitles / no subtitles: `body.bigsubs` and `body.nosubs` are set
+   and styled by the shared settings store (src/core/settings.js), which
+   carries these rules for every scene's #subtitle and #dialogue. */
 
 /* Every state on the Woo strip is also carried by the number and the label,
    never by the colour alone. */

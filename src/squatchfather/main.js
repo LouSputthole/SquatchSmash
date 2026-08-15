@@ -35,6 +35,7 @@ import { createSquatchfatherStory } from '../core/squatchfather-story.js';
 import { prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
 // ---------------------------------------------------------------- boot
@@ -166,11 +167,11 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) sharedPauseMenu?.pause();
 });
 
-const SENS = 0.0022;
+const SENS = 0.0022; // × the player's sensitivity setting, read per move
 document.addEventListener('mousemove', (e) => {
   if (!pointerLocked || paused || !running) return;
-  const dx = e.movementX * SENS;
-  const dy = e.movementY * SENS;
+  const dx = e.movementX * lookSensitivity(SENS);
+  const dy = e.movementY * lookSensitivity(SENS);
   if (Math.abs(dx) + Math.abs(dy) > 0.001) seated.playerMoved();
   prospect.look(dx, dy, seated.clamp);
 });
@@ -1304,6 +1305,7 @@ $('againBtn').addEventListener('click', returnToApartment);
 // suspended until the start click, but the recordings fetch and decode now,
 // so the first spoken line is a clip rather than a reading-beat hold.
 audio.init();
+bindAudioVolume(audio);
 
 Promise.all([loadDialogue(), loadVoiceCues()]).then(([data, voCues]) => {
   wire(data, voCues);
