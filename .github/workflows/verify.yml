@@ -63,6 +63,11 @@ jobs:
         run: npm test
 
       - name: Static checks
+        # Strict orphan gate: tools/sfx-orphan-allowlist.json was emptied by the
+        # 2026-08-14 asset diet, so every recording on disk must be claimed by a
+        # manifest cue and nothing can be parked in the allowlist again quietly.
+        env:
+          CHECK_SFX_ORPHANS: '1'
         run: npm run check
 
       - name: Flight-model bench

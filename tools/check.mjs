@@ -98,11 +98,11 @@ for (const [rel, validate] of manifests) {
  * hashed radio.vo.* takes from regenerated manifests) shipped to Pages
  * referenced by nothing. Added by the 2026-08-14 checks-that-lie pass.
  *
- * The known orphans are parked in tools/sfx-orphan-allowlist.json until the
- * asset-diet wave prunes them (a parallel agent is editing manifest.json, so
- * deleting here would race it). A NEW orphan fails the build; set
- * CHECK_SFX_ORPHANS=1 to fail on every orphan, allowlisted or not, which is
- * what the prune wave should run until the list is empty. */
+ * The 155 known orphans were parked in tools/sfx-orphan-allowlist.json until
+ * the 2026-08-14 asset-diet wave deleted them and regenerated index.json; the
+ * list is EMPTY now and must stay that way. Any orphan fails the build unless
+ * it is listed; CHECK_SFX_ORPHANS=1 fails on every orphan, allowlisted or not,
+ * and is what CI should run so nothing can be parked there again quietly. */
 try {
   const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
   const index = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/index.json'), 'utf8'));

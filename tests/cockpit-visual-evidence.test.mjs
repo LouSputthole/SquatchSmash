@@ -1662,7 +1662,12 @@ test('source provenance binds every harness component and both public cockpit ru
     'assets/faces/shubes.png',
     'assets/faces/stove.png',
   ]);
-  assert.equal(capturedAssets.reduce((sum, { bytes }) => sum + bytes, 0), 7_015_817);
+  /* Pinned byte total of the eight captured runtime assets. 7,015,817 before
+   * the 2026-08-14 asset diet; the pin-up went PNG -> WebP (2,622,896 ->
+   * 100,890), the name plate was losslessly repacked (2,237,259 -> 852,824)
+   * and sasole.png was downscaled (1,493,346 -> 110,945). Re-pin honestly
+   * whenever a captured asset is re-encoded — never by re-inflating the file. */
+  assert.equal(capturedAssets.reduce((sum, { bytes }) => sum + bytes, 0), 1_726_975);
   assert.ok(capturedAssets.every(({ reasons }) => Array.isArray(reasons) && reasons.length > 0));
   assert.ok([...snapshot.tools, ...snapshot.runtimeSources].every((entry) => (
     entry.bytes > 0 && /^[a-f0-9]{64}$/.test(entry.sha256)
