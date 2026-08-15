@@ -95,8 +95,8 @@ export class AudioEngine {
     this.ctx = new Ctx();
 
     /* Before the master gain is created below, so it opens at the volume the
-     * player chose. One subscription per engine that really opened a context;
-     * `_unbindVolume` releases it. */
+     * player chose. The kept handle is both the once-guard and the only way
+     * to release the subscription. */
     this._unbindVolume ??= bindAudioVolume(this);
 
     this.master = this.ctx.createGain();

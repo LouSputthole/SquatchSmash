@@ -670,7 +670,7 @@ export function createPauseMenu({
     if (event.code !== 'Tab' || event.repeat || rebinding) return;
     /* Typing in the import textarea (or its file picker) must not close the
      * menu out from under the paste. Named precisely: the settings panel is
-     * six more inputs, and blanket-excusing INPUT stopped Tab resuming as
+     * five more inputs, and blanket-excusing INPUT stopped Tab resuming as
      * soon as the player touched a checkbox or a slider. */
     const target = event.target;
     if (open && (target?.tagName === 'TEXTAREA' || target === importFile)) return;
