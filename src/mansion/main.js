@@ -1201,10 +1201,11 @@ for (const { tv, prop } of interactiveTvs) registerTvInteraction({ tv, prop });
 /* will be reusing these in other scenes, but for now just put them in   */
 /* the armory in the basement of the mansion."                           */
 /*                                                                        */
-/* NONE OF IT IS BUILT HERE. `src/core/weapons/` owns the six weapons,    */
+/* NONE OF IT IS BUILT HERE. `src/core/weapons/` owns the seven weapons   */
+/* (the owner's six plus the pump shotgun the ground-combat pass added),  */
 /* their ammunition, their reloads, their tracers, their sound and the    */
 /* racks; this file supplies a camera, a scene, an audio engine and the   */
-/* six mount points the basement declares, and wires three keys to it.    */
+/* seven mount points the basement declares, and wires three keys to it.  */
 /* THE TAKE is the next scene to mount the same module, and when it does  */
 /* it will import exactly what is imported at the top of this file.       */
 /*                                                                        */

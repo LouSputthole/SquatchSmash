@@ -1577,11 +1577,13 @@ test('the authored gallery practicals win the full production light budget throu
   assert.ok(camera.distanceTo(new THREE.Vector3(7.2276, 7.04, 52.2684)) <= 1e-12,
     `the authored crouched shot eye drifted to ${camera.toArray()}`);
   const lightPool = [...grounds.lights, ...interior.lights, ...localLights];
-  /* 265 = the 256 the fixture pinned on 2026-08-13 plus the nine picture
+  /* 266 = the 256 the fixture pinned on 2026-08-13 plus the nine picture
    * sconces the dynasty-art pass hung with the owner's ten Mansion
    * paintings (living room 1, billiard lounge 1, gallery dynasty wall 4,
-   * conference 1, Lou's office 2 — see MansionInterior.js). */
-  assert.equal(lightPool.length, 265,
+   * conference 1, Lou's office 2 — see MansionInterior.js) plus the strip
+   * lamp over the pump shotgun's rack, mounted 2026-08-15 when the basement
+   * got a mount point for the seventh catalogue weapon (`armoryRacks`). */
+  assert.equal(lightPool.length, 266,
     'the regression fixture drifted from the real house + night + dressing + attacker + armory pool');
   const practicals = [
     ['rail worklamp', worklamp],

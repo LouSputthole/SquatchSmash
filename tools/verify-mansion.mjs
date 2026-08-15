@@ -273,7 +273,8 @@ try {
   /* The merged list is grounds + interior + the armory's racks + Silent
    * Squatch. Every contributor is counted, not waved through: a rack you can
    * walk through is a rack whose guns are decoration, and a lab wall you can
-   * walk through is a lab with no glass in it. */
+   * walk through is a lab with no glass in it. Seven racks since the pump
+   * shotgun (catalogue ed405ced, 2026-08-12) got its basement mount point. */
   const colliderInfo = await page.evaluate(() => ({
     collidersCount: window.mansion.collidersCount,
     actualLength: window.mansion.colliders.length,
@@ -288,7 +289,7 @@ try {
       && colliderInfo.collidersCount
         === colliderInfo.groundsLen + colliderInfo.interiorLen
           + colliderInfo.armoryLen + colliderInfo.labLen + colliderInfo.castLen
-      && colliderInfo.armoryLen === 6
+      && colliderInfo.armoryLen === 7
       && colliderInfo.labLen > 40
       && colliderInfo.collidersCount > 50,
     JSON.stringify(colliderInfo));
@@ -409,10 +410,13 @@ try {
     JSON.stringify(s));
 
   // 2. Up the driveway. The whole forecourt moved 5 m south with the facade
-  // (see FORECOURT_SHIFT), so the fountain now sits at z=27 with a 3.6 m
-  // collision radius: a straight walk up the centreline is stopped short of
-  // it and has to go round -- a real fountain in a real turnaround. This
-  // asserts both the progress and the block.
+  // (see FORECOURT_SHIFT), so the fountain now sits at z=27, and since the
+  // geometry pass (79c5a75c, 2026-08-13) its collision is the stone itself:
+  // the r=6 knee-high apron, the r=3.5 basin, the r=4 upper bowl, tiered to
+  // height (tests/mansion-grounds-qa.test.mjs pins all three tiers). A
+  // straight walk up the centreline is stopped short of the apron and has to
+  // go round -- a real fountain in a real turnaround. This asserts both the
+  // progress and the block.
   await teleport(0, 0, 6, NORTH);
   const beforeDrive = await state();
   await walk(10);
@@ -422,18 +426,26 @@ try {
     JSON.stringify({ beforeDrive, afterDrive }));
 
   // 3. Round the fountain and up the front steps, on foot the whole way.
-  // The basin blocks x:-3.7..3.7 / z:28.4..35.6, so this goes round it to the
-  // east, up the far side of the forecourt, and back onto the steps -- which
-  // is what a player does, and what proves the way in is not sealed.
+  // The apron reaches x = +/-6 at its equator (z=27), and the planters and
+  // urns that dress the east side of the court start at x = 6.38 a few metres
+  // further north -- so the way round is a real corridor, hugged the way a
+  // player hugs it: up the apron's east flank, back in across its north
+  // shoulder to the foot of the steps, and up. Steered waypoint by waypoint
+  // on held W (`walkTo`, re-aiming as it goes) rather than as fixed headings
+  // held for fixed times, because the fixed-heading version was written for
+  // the old r=3.6 body and now walks the player straight into the apron; a
+  // player, seeing the stone, walks round it. Nothing but held keys moves
+  // him at any point, which is what the climb assertion below depends on.
   await teleport(0, 0, 19, NORTH);
   await settle(0.3);
   const atStreetGrade = await state();
-  await faceDeg(EAST);
-  await walk(2.4); // into the corridor east of the basin
-  await faceDeg(NORTH);
-  await walk(8); // up past the basin to the foot of the steps
-  await faceDeg(WEST);
-  await walk(2.4); // back to the centreline
+  const APPROACH = [
+    [6.7, 21.0], // into the corridor east of the apron
+    [6.7, 29.6], // up its east flank, past the equator
+    [5.3, 32.9], // across the north shoulder, inside the first urn
+    [0.0, 33.4], // to the centreline at the foot of the steps
+  ];
+  for (const [ax, az] of APPROACH) await walkTo(ax, az, { steps: 40, tol: 0.6 });
   await faceDeg(NORTH);
   await walk(2.2); // up the steps onto the raised entry
   await settle(0.5);
@@ -1410,18 +1422,18 @@ try {
   /* click sound, full sound effects. I want them fully wired and       */
   /* usable."                                                           */
   /*                                                                     */
-  /* So this does not check that six racks render. It takes a gun off    */
+  /* So this does not check that seven racks render. It takes a gun off  */
   /* the wall ON FOOT with a real keypress, fires it and watches the     */
   /* count go down, reloads it and watches a REAL magazine object leave  */
   /* the gun and fall to the concrete, empties it and watches the dry    */
   /* click happen exactly once, puts it back, and then does the whole    */
-  /* count-fire-reload run again for all six. A verifier that only       */
+  /* count-fire-reload run again for all seven. A verifier that only     */
   /* proves the racks render is not evidence they work.                 */
   /* ================================================================ */
   /* Every step below drives the guns through the page. A step that throws —
    * because an earlier one left nothing in the player's hands, say — must
    * report a failed CHECK rather than take the whole verifier down with it,
-   * or one broken gun hides the state of the other five. */
+   * or one broken gun hides the state of the other six. */
   async function armoryStep(fn, arg) {
     try {
       return await page.evaluate(fn, arg);
@@ -1430,10 +1442,16 @@ try {
     }
   }
 
+  /* Seven, not six. The owner named six on 2026-08-04; the reusable
+   * ground-combat pass (ed405ced, 2026-08-12) added the 12-gauge pump to the
+   * shared catalogue's `WEAPON_ORDER` with a rack spec of its own, and
+   * MANSION-SIEGE-NIGHT.md's armory loadout lists an "optional shotgun".
+   * `weapons.order` IS that catalogue order, so the wall has to carry all
+   * seven -- and the basement's mount points now do (MansionInterior.js). */
   const WEAPONS = await page.evaluate(() => window.mansion.weapons.order);
-  check('all six weapons the owner named are racked in the basement armory',
-    WEAPONS.length === 6
-      && ['revolver', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett']
+  check('all seven catalogue weapons — the owner\'s six plus the pump shotgun — are racked in the basement armory',
+    WEAPONS.length === 7
+      && ['revolver', 'shotgun', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett']
         .every((id) => WEAPONS.includes(id)),
     JSON.stringify(WEAPONS));
 
@@ -1443,7 +1461,11 @@ try {
     thinModels.length === 0,
     JSON.stringify(models.map((m) => `${m.id}:${m.meshes}`)));
 
-  const magsFitted = models.filter((m) => m.id !== 'revolver' && !m.hasMagazine);
+  /* The revolver loads from a speedloader and the pump gun from a tube under
+   * the barrel (`buildShotgun` publishes `magazine: null` and ejects shells,
+   * not a box); neither has a detachable magazine to be fitted. */
+  const TUBE_OR_CYLINDER_FED = ['revolver', 'shotgun'];
+  const magsFitted = models.filter((m) => !TUBE_OR_CYLINDER_FED.includes(m.id) && !m.hasMagazine);
   check('every magazine-fed weapon on the wall has a real magazine fitted to it',
     magsFitted.length === 0, JSON.stringify(magsFitted));
 
@@ -1651,7 +1673,7 @@ try {
   check('the ammunition crate under the rack refills the spare rounds',
     resupplied.reserve === 75, JSON.stringify(resupplied));
 
-  /* ---- And now every one of the six, end to end. ---- */
+  /* ---- And now every one of the seven, end to end. ---- */
   const runAll = await armoryStep((ids) => {
     const w = window.mansion.weapons;
     const out = {};
@@ -1695,8 +1717,10 @@ try {
         && !!r.reloaded && r.refilled === r.capacity && r.state === 'ready',
       JSON.stringify(r));
   }
+  /* Six distinct loads across seven guns: the revolver's six and the pump
+   * gun's six-shell tube share a number and nothing else. */
   const capacities = WEAPONS.map((id) => runAll[id]?.capacity ?? null);
-  check('the six weapons have genuinely different magazines, not one gun in six shapes',
+  check('the seven weapons have genuinely different loads, not one gun in seven shapes',
     new Set(capacities).size >= 5 && !capacities.includes(null), JSON.stringify(capacities));
   check('every weapon asked for its own fire cue rather than a shared one',
     WEAPONS.every((id) => runAll[id]?.cues?.includes(`weapon.${id}.fire`)),
@@ -5201,6 +5225,19 @@ try {
         if (outward.lengthSq() < 1e-6) outward.set(1, 0, 0);
         outward.normalize();
         const stand = new T.Vector3(chest.x, poolAt.y, chest.z).addScaledVector(outward, 2.45);
+        /* Keep the mark ON the terrace. Her lounger (chair 6, x=10.6) is 2.4 m
+         * inside the deck's east edge, and 2.45 m straight out from the
+         * pool's centre through her chest lands 2 cm past the boards -- at
+         * grade, with the deck skirt between the player and her, which is
+         * where this check used to put him and then wonder why he could not
+         * take a step toward her. The other performer's chair has enough
+         * deck behind it for the same arithmetic to land on the boards; hers
+         * does not. The claim being made is "a player standing on the deck
+         * can walk up to her and press E", so stand him on the deck. */
+        const deck = M.grounds.props.poolPatio.deck;
+        const deckInset = 0.6;
+        stand.x = Math.min(Math.max(stand.x, deck.x0 + deckInset), deck.x1 - deckInset);
+        stand.z = Math.min(Math.max(stand.z, deck.z0 + deckInset), deck.z1 - deckInset);
         M.teleport(stand.x, poolAt.y, stand.z, 0);
 
         const aim = () => {
