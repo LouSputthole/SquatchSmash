@@ -141,6 +141,7 @@ export default [
   {
     ignores: [
       'node_modules/',
+      '.claude/',          // agent worktrees live here; each is its own checkout
       'vendor/',           // three.js and addons, minified upstream code
       'lib/',              // three.js example modules, vendored
       'game/lib/',         // same, for the arcade build
