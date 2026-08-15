@@ -799,7 +799,7 @@ const COCKPIT_DYNAMIC_RESOURCE_REASONS = Object.freeze({
   'assets/faces/stove.png': Object.freeze(['Beef Stove name-tag portrait']),
   'assets/faces/irish.png': Object.freeze(['Enola Irish name-tag portrait']),
   'assets/faces/shubes.png': Object.freeze(['Enola Shubes name-tag portrait']),
-  'assets/art/enola-squatch-nose-art.png': Object.freeze(['Enola nose-art TextureLoader']),
+  'assets/art/enola-squatch-nose-art.webp': Object.freeze(['Enola nose-art TextureLoader']),
   'assets/art/enola-squatch-nose-name.png': Object.freeze(['Enola nose-name TextureLoader']),
   'assets/art/manifest.json': Object.freeze(['Enola crest.round manifest selector']),
   'assets/music/manifest.json': Object.freeze(['Beef radio boot manifest']),

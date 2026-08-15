@@ -111,47 +111,26 @@ function imageDim(b) {
 const IMAGE_BYTE_BUDGET = 400 * 1024;
 const IMAGE_EDGE_BUDGET = 2048;
 
-/* Every image over budget on 2026-08-14, pinned at its CURRENT size so it
- * can shrink but never grow. docs/WEB-PERFORMANCE-AND-PWA.md item 5 is the
- * asset-diet wave that re-renders these and empties this list; this test's
- * job today is only to stop NEW oversized art from landing. Do not add an
- * entry to silence a failure — resize the image. */
+/* Images allowed over budget, pinned at their CURRENT size so they can
+ * shrink but never grow. The 2026-08-14 asset-diet wave re-rendered the
+ * whole 27-entry backlog down to this ONE hold-out. Do not add an entry to
+ * silence a failure — resize the image.
+ *
+ * enola-squatch-nose-name.png cannot go lossy: livery.js's recoverGlow()
+ * reads the RGB stored UNDER alpha-0 pixels to rebuild the lettering's
+ * yellow halo, and every lossy encoder (JPEG has no alpha; WebP smears
+ * colour across the matte) corrupts exactly those invisible pixels into
+ * spurious glow. The shipped file is already the diet's best lossless
+ * result: downscaled 1024x1536 -> 938x1407 (keeping the runtime's own
+ * 768 px ink edge), halo pre-baked with recoverGlow's verbatim formula,
+ * invisible field flattened, halo alpha quantized — 2,237,259 -> 852,824
+ * bytes with a pixel-identical runtime render. */
 const OVERSIZED_BYTES = new Map(Object.entries({
-  'art/lou-office-hog-mama.png': 7_575_362,
-  'art/squatchfather-coast-squatch.png': 3_477_298,
-  'art/mansion-campfire-banjo.png': 3_467_919,
-  'arcade/counter-squatch-teamplay.png': 2_795_618,
-  'arcade/counter-squatch-baiters-brain.png': 2_738_030,
-  'art/enola-squatch-nose-art.png': 2_622_896,
-  'art/bing-office-noir.png': 2_536_573,
-  'art/lou-office-squatches-bing.png': 2_518_120,
-  'art/bing-hallway-booskibro.png': 2_256_926,
-  'art/enola-squatch-nose-name.png': 2_237_259,
-  'art/bing-hallway-uncle-lou.png': 2_174_223,
-  'art/bing-hallway-rippinflow.png': 2_165_510,
-  'art/bing-hallway-shubenator.png': 2_120_697,
-  'faces/silver-waiter.png': 2_047_043,
-  'art/family-portrait-lag.webp': 1_554_350,
-  'art/family-portrait-sauce.webp': 1_526_792,
-  'art/family-portrait-hogmama.webp': 1_502_328,
-  'art/family-portrait-ape.webp': 1_500_114,
-  'art/family-portrait-seff.webp': 1_497_488,
-  'faces/sasole.png': 1_493_346,
-  'art/family-portrait-irish.webp': 1_454_044,
-  'art/family-portrait-eric.webp': 1_434_848,
-  'art/sticker-austin-2025.png': 757_132,
-  'art/sticker-pinup-silver.png': 717_157,
-  'art/squatch-almighty.jpg': 501_616,
-  'arcade/counter-squatch-match-result.jpg': 466_232,
-  'art/austin-major-2025-roster.jpg': 464_494,
+  'art/enola-squatch-nose-name.png': 852_824,
 }));
 
-/* Same idea for dimensions. */
-const OVERSIZED_EDGES = new Map(Object.entries({
-  'art/lou-office-hog-mama.png': 3000,
-  'art/austin-major-2025-roster.jpg': 2600,
-  'art/closet-cowboy.jpg': 2116,
-}));
+/* Same idea for dimensions. Empty since the 2026-08-14 asset diet. */
+const OVERSIZED_EDGES = new Map();
 
 function shippedImages() {
   const out = [];
