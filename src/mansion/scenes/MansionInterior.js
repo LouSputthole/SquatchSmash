@@ -12347,6 +12347,15 @@ const M_GOLD_BAR = mat({
   /* where it beat every tread on the way down.                           */
   /* ================================================================== */
   const STEP_TOLERANCE = 0.85;
+  /* How far BELOW the feet a rendered support may lie and still be read as
+   * THIS storey's floor. The storeys are 4.0 m (basement -> ground) and 4.8 m
+   * (ground -> upper) apart, a jump reaches 0.8 m and the tallest authored
+   * step-down indoors is the theatre's 0.3 m rake, so 1.2 m sits clear of
+   * every real drop and well short of the next slab down. The siege's own
+   * copy of this lookup (`walkableSupportY` in siege/attackers.js) has had a
+   * band like this from the start; the player's did not, and see below for
+   * what that did. */
+  const DROP_TOLERANCE = 1.2;
   const FLOOR_BUCKET_SIZE = 2;
   const floorRay = new THREE.Raycaster();
   const floorRayOrigin = new THREE.Vector3();
@@ -12391,7 +12400,22 @@ const M_GOLD_BAR = mat({
    * every staircase as a ramp and every decorated slab as its bare datum,
    * putting feet 60--221 mm through treads and 20--22 mm through finishes.
    * This bounded static index samples only builder-tagged support, never a
-   * prop/body/VFX heuristic, and therefore follows rugs, runners and boxes. */
+   * prop/body/VFX heuristic, and therefore follows rugs, runners and boxes.
+   *
+   * IT ANSWERS FOR ONE STOREY ONLY. The tagged finishes stop at each room's
+   * rect, so every wall band and door threshold -- the 150 mm between the
+   * top tread of the horseshoe and the gallery parquet, the 300 mm under the
+   * ballroom doors, every bedroom and bathroom door upstairs -- has no
+   * tagged support at the walker's own level. When this ray was allowed to
+   * run 30 m it found the tagged floor of the storey BELOW through that
+   * band and reported it as the floor: the player stepping off the top of
+   * either flight dropped 4.8 m to the foyer, and walking through the
+   * ballroom doors dropped 4 m into the armory (verify:mansion, 2026-08-15,
+   * seventeen reds with this one cause; introduced with the index on
+   * 2026-08-13). So a hit more than DROP_TOLERANCE below the feet is not this
+   * storey's floor and is not an answer: the caller falls through to the
+   * slab arithmetic below, which offers the upper slab over the whole
+   * footprint and knows nothing about where the finishes stop. */
   function renderedFloorAt(x, z, y) {
     buildFloorIndex();
     const bucket = floorBuckets.get(
@@ -12401,9 +12425,10 @@ const M_GOLD_BAR = mat({
     floorRayOrigin.set(x, y + STEP_TOLERANCE + 1e-4, z);
     floorRay.set(floorRayOrigin, floorRayDown);
     floorRay.near = 0;
-    floorRay.far = 30;
+    floorRay.far = STEP_TOLERANCE + DROP_TOLERANCE + 1e-3;
     for (const hit of floorRay.intersectObjects(bucket, false)) {
       if (hit.point.y > y + STEP_TOLERANCE + 1e-6
+          || hit.point.y < y - DROP_TOLERANCE
           || !effectiveSupportVisible(hit.object) || !hit.face) continue;
       const material = Array.isArray(hit.object.material)
         ? hit.object.material[hit.face.materialIndex]
