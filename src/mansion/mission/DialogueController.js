@@ -114,7 +114,11 @@ export class DialogueController {
     this.timer = authored;
 
     if (line.stage) {
-      this._take = null;
+      /* The take is KEPT, not dropped. A stage direction is business the
+       * previous line may finish under (see play()), so the sound is still
+       * running — and dropping the handle here orphaned it: no later hush()
+       * or clear() could reach it, and it kept sounding under whatever spoke
+       * next, with mouth.js driving both mouths. */
       this.stageLog.push(line.stage);
       this.onStage?.(line.stage, line);
       return;

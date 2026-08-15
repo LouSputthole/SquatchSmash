@@ -61,6 +61,19 @@ test('a line that ran its full hold is not hushed when the next one starts', () 
   assert.equal(dialogue.hush(), false, 'and the drained controller holds no take');
 });
 
+/* The other half of the cutaway: it may finish, but the mission must still be
+ * able to stop it. The stage arm used to drop the take handle, so a line cut
+ * away from kept sounding and nothing could reach it. */
+test('a take a stage direction cut away from can still be stopped', () => {
+  const log = [];
+  const dialogue = controller(log);
+  dialogue.play([spoken('one', 6)]);
+  dialogue.play([{ speaker: 'HUD', stage: 'case.open', hold: 2.6 }, spoken('two')]);
+  assert.deepEqual(log, [], 'the business does not cut the line short');
+  dialogue.clear();
+  assert.deepEqual(log, ['stop:one'], 'but the mission can still stop it');
+});
+
 test('a bare duration from playCue still holds the line and cannot be hushed', () => {
   const log = [];
   const dialogue = new DialogueController({ playCue: () => 1.2 });

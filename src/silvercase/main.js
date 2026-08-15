@@ -579,6 +579,11 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     paused = true;
+    /* The same clear every other scene's onPause does. Without it a key held
+     * across a rebind stays down forever: the keyup translates to the NEW
+     * binding and deletes that, leaving the old code in player.keys walking
+     * the player into a wall until the window loses focus. */
+    player.clearKeys();
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
@@ -1685,10 +1690,12 @@ const DIGIT_KEY = {
 };
 
 window.addEventListener('keydown', (e) => {
+  // Escape is the key that resumes, so it is read whether paused or not.
+  if (e.code === 'Escape') { pauseMenu.toggle(); return; }
+  if (paused) return;
   player.setKey(translateKey(e.code), true);
   if (e.code === 'KeyE') interactions.press();
   if (DIGIT_KEY[e.code] && dialogue.choice) dialogue.chooseKey(DIGIT_KEY[e.code]);
-  if (e.code === 'Escape') pauseMenu.toggle();
   if (e.code === 'KeyM') toggleMute();
 });
 window.addEventListener('keyup', (e) => {
