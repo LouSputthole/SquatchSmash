@@ -1301,10 +1301,35 @@ const chain = await page.evaluate(() => {
         mist: falls.userData.mist?.length || 0,
         foliagePieces: falls.getObjectByName('waterfall-foliage')?.children.length || 0,
       },
-      jungle: {
-        trunks: m.airstrip.root.getObjectByName('el-hueso-jungle-trunks')?.count || 0,
-        crowns: m.airstrip.root.getObjectByName('el-hueso-jungle-canopy')?.count || 0,
-      },
+      jungle: await (async () => {
+        const j = m.airstrip.jungle;
+        const trees = [...(j?.palms ?? []), ...(j?.canopy ?? [])];
+        /* Grounding, checked against the surface the chunk MESH draws at the
+         * two detail levels the strip is drawn at (and the heightfield), not
+         * against the airstrip's own arithmetic -- a base above any of them
+         * is a trunk on air from some seat. Exclusion, checked with the
+         * airstrip's own predicate at zero margin. */
+        const T = await import('/src/beefrun/terrain.js');
+        const drawnGround = (x, z) => Math.min(
+          T.terrainHeight(x, z),
+          T.terrainMeshHeight(x, z, T.TERRAIN_DETAIL[0]),
+          T.terrainMeshHeight(x, z, T.TERRAIN_DETAIL[1]),
+        );
+        return {
+          trunks: m.airstrip.root.getObjectByName('el-hueso-jungle-trunks')?.count || 0,
+          crowns: m.airstrip.root.getObjectByName('el-hueso-jungle-canopy')?.count || 0,
+          palmTrunks: m.airstrip.root.getObjectByName('el-hueso-palm-trunks')?.count || 0,
+          palmFronds: m.airstrip.root.getObjectByName('el-hueso-palm-fronds')?.count || 0,
+          planted: trees.length,
+          floating: trees.filter((t) => t.y > drawnGround(t.x, t.z) + 1e-6).length,
+          onSurface: trees.filter((t) => j.onOperatingSurface(t.x, t.z, 0)).length,
+          nearestToCentreline: Math.min(...trees.map((t) => Math.abs(t.x - m.airstrip.anchors.threshold.x))),
+          sizes: (() => {
+            const ss = trees.map((t) => t.s);
+            return { min: Math.min(...ss), max: Math.max(...ss) };
+          })(),
+        };
+      })(),
       airport: {
         huts: m.airstrip.root.children.filter((part) => part.name === 'hut').length,
         shelters: m.airstrip.root.children.filter((part) => part.name === 'shelter').length,
@@ -1348,8 +1373,18 @@ const chain = await page.evaluate(() => {
       && remotePresentation.falls.mist >= 6
       && remotePresentation.falls.foliagePieces >= 30,
     JSON.stringify(remotePresentation.falls));
-  check('El Hueso has a low-draw-call secondary jungle wall',
-    remotePresentation.jungle.trunks === 44 && remotePresentation.jungle.crowns === 44,
+  check('El Hueso has a low-draw-call jungle: instanced palms and an instanced canopy wall',
+    remotePresentation.jungle.trunks >= 44
+      && remotePresentation.jungle.crowns === remotePresentation.jungle.trunks
+      && remotePresentation.jungle.palmTrunks >= 60
+      && remotePresentation.jungle.palmFronds === remotePresentation.jungle.palmTrunks * 7,
+    JSON.stringify(remotePresentation.jungle));
+  check('every El Hueso tree is rooted at or under the drawn ground, off the strip, turnaround, apron and camp, and not all one size',
+    remotePresentation.jungle.planted > 100
+      && remotePresentation.jungle.floating === 0
+      && remotePresentation.jungle.onSurface === 0
+      && remotePresentation.jungle.nearestToCentreline >= 12
+      && remotePresentation.jungle.sizes.max / remotePresentation.jungle.sizes.min > 1.6,
     JSON.stringify(remotePresentation.jungle));
   check('El Hueso already has a complete working airport camp, not an empty destination pad',
     remotePresentation.airport.huts === 4

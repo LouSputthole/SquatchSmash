@@ -11,11 +11,11 @@
  */
 import * as THREE from 'three';
 import {
-  solid, unlit, mat, boxGeo, cylGeo, coneGeo, planeGeo,
+  solid, unlit, mat, boxGeo, cylGeo, planeGeo,
   mesh, flatMesh, group, signTexture, rng, clamp, damp,
 } from './util.js';
 import { EH } from './config.js';
-import { terrainHeight } from './terrain.js';
+import { terrainHeight, terrainMeshHeight, terrainNormal, TERRAIN_DETAIL } from './terrain.js';
 import { makeChicken, updateChicken, makeGuard, makeCecilio } from './npc.js';
 
 /** Rutted dirt with tyre tracks down the middle. */
@@ -396,80 +396,197 @@ export function buildAirstrip(scene) {
   cecilio.group.rotation.y = 1.3;
   root.add(cecilio.group);
 
-  /* ---- Jungle immediately beside the strip: it is not scenery, it is a wall ---- */
-  const palmTrunk = cylGeo(0.28, 0.42, 9, 6);
-  const palmFrond = boxGeo(0.28, 0.1, 4.4);
-  const trunkMat = solid(0x4a3a24, { roughness: 1 });
-  const frondMat = solid(0x2f6b34, { roughness: 1 });
-  /* The z-span used to run 90 m past `zHigh - 30`, which put its far tail
-   * 60 m past `zLow` -- past the runway's low end and onto the cliff
-   * `terrainHeight`'s `elHuesoShape` drops there (down toward `elevLow - 300`
-   * for anything more than ten metres past `zLow`). A palm rooted at its own
-   * true ground height in that zone lands thirty-odd storeys under the ones
-   * either side of it: not floating, planted in a canyon nobody flies into.
-   * `+15` keeps the whole run short of `zLow` instead of over it. */
-  for (let i = 0; i < 90; i++) {
-    const side = rand() < 0.5 ? -1 : 1;
-    const x = EH.x + side * (EH.rwyWidth + 4 + rand() * 26);
-    const z = EH.zHigh - 30 + rand() * (stripLen + 15);
-    if (side < 0 && x > EH.x - 46 && z < EH.zHigh + 130 && z > EH.zHigh + 10) continue;  // keep the camp clear
-    const y = terrainHeight(x, z);
-    const t = mesh(palmTrunk, trunkMat, x, y + 4.5, z);
-    t.rotation.z = (rand() - 0.5) * 0.24;
-    root.add(t);
-    for (let f = 0; f < 5; f++) {
-      const frond = mesh(palmFrond, frondMat, x, y + 8.8, z);
-      frond.rotation.y = (f / 5) * Math.PI * 2 + rand();
-      frond.rotation.z = -0.32 - rand() * 0.2;
-      frond.position.x += Math.cos(frond.rotation.y) * 2.1;
-      frond.position.z += Math.sin(frond.rotation.y) * 2.1;
-      root.add(frond);
-    }
-  }
+  /* ---- The jungle: palms hard against the strip, a canopy wall behind ----
+   *
+   * Owner, 2026-08-05: "fix the trees at the mountain airport". Both stands
+   * used to be planted at the HEIGHTFIELD's height, but the ground the player
+   * sees is the chunk MESH -- a plane between vertices 18-28 m apart -- and on
+   * this valley wall the two disagree by a metre and more, so trunks stood
+   * on air and crowns placed from the same number sat a metre off their own
+   * trunks. Every trunk was vertical, every palm's fronds were planks offset
+   * SIDEWAYS from the top rather than radiating from it, and 44 near-identical
+   * cones stood in a band like a plantation. The rules now, in the order
+   * docs/FUTURE-EDITS.md lists them:
+   *   1. grounding   -- base at the lowest of the heightfield and the two
+   *                     mesh detail levels the strip is drawn at, sunk a
+   *                     little further, so nothing floats at any LOD;
+   *   2. slope tilt  -- a fraction of the ground normal, capped;
+   *   3. variance    -- skewed sizes, crown widths, clumps rather than a band;
+   *   4. exclusion   -- runway, turnaround, apron and camp are kept clear by
+   *                     one predicate, `onOperatingSurface`;
+   *   5. popping     -- everything is instanced, so it is drawn or not as a
+   *                     whole under the fog rather than in rings.
+   * Crowns and fronds are built from the trunk's own top, not from a shared
+   * y, so a tree can no longer split.
+   */
+  const stripCentre = { x: EH.x, zHigh: EH.zHigh, zLow: EH.zLow };
+  const turnaround = { x: EH.x, z: EH.zHigh - 20, r: 24 };
+  /** The ground the aircraft and the men use. Nothing grows here. */
+  const onOperatingSurface = (x, z, margin = 4) => {
+    const dx = x - stripCentre.x;
+    if (Math.abs(dx) <= EH.rwyWidth + margin && z >= stripCentre.zHigh - 60 && z <= stripCentre.zLow + 60) return true;
+    if (Math.hypot(x - turnaround.x, z - turnaround.z) <= turnaround.r + margin) return true;
+    // Apron: the parking spot and the walk between it and the shelter.
+    if (Math.abs(dx) <= 14 + margin && z >= EH.zHigh + 4 && z <= EH.zHigh + 46) return true;
+    // The camp, the drums, the lorries, the antenna: the whole west shelf.
+    if (dx < -8 && dx > -50 - margin && z > EH.zHigh + 8 && z < EH.zHigh + 132) return true;
+    // The shirt windsock and the chickens' run beside it.
+    if (Math.abs(x - (EH.x + 16)) < 5 + margin && Math.abs(z - (EH.zHigh + 30)) < 6 + margin) return true;
+    return false;
+  };
+  /**
+   * Where the ground actually is for something planted at (x, z): the lowest
+   * of the heightfield and the mesh at the two detail levels a chunk on the
+   * strip is drawn at (28 segments underfoot, 24 one ring out). Taking the
+   * minimum means a trunk sunk from here is under the surface at whichever
+   * of them is showing; the coarser rings only ever draw this from a
+   * kilometre away.
+   */
+  const plantedGround = (x, z) => Math.min(
+    terrainHeight(x, z),
+    terrainMeshHeight(x, z, TERRAIN_DETAIL[0]),
+    terrainMeshHeight(x, z, TERRAIN_DETAIL[1]),
+  );
+  const _up = new THREE.Vector3(0, 1, 0);
+  const _n = new THREE.Vector3();
+  const _lean = new THREE.Vector3();
+  const _qTilt = new THREE.Quaternion();
+  const _qYaw = new THREE.Quaternion();
+  const _ident = new THREE.Quaternion();
+  /** A little of the slope, never more than ~12 degrees; trees mostly grow up. */
+  const slopeTilt = (x, z, amount, out) => {
+    terrainNormal(x, z, _n);
+    _lean.copy(_up).lerp(_n, amount).normalize();
+    out.setFromUnitVectors(_up, _lean);
+    const angle = Math.acos(clamp(_lean.y, -1, 1));
+    if (angle > 0.21) out.slerp(_ident, 1 - 0.21 / angle);
+    return out;
+  };
+  const _m = new THREE.Matrix4();
+  const _pos = new THREE.Vector3();
+  const _scl = new THREE.Vector3();
+  const _q = new THREE.Quaternion();
+  const _top = new THREE.Vector3();
+  const _mFrond = new THREE.Matrix4();
+  const _qFrond = new THREE.Quaternion();
+  const _qDroop = new THREE.Quaternion();
+  const _axisY = new THREE.Vector3(0, 1, 0);
+  const _axisX = new THREE.Vector3(1, 0, 0);
+  const jungleReport = { palms: [], canopy: [] };
 
-  /* A second, broader canopy line gives El Hueso an actual jungle wall rather
-   * than ninety identical palms floating in otherwise bare terrain. It is
-   * instanced (two draw calls total), so the richer silhouette does not turn
-   * final approach into hundreds more scene objects. */
-  const jungleCount = 44;
-  const jungleTrunks = new THREE.InstancedMesh(
-    cylGeo(0.45, 0.7, 8, 6),
-    solid(0x443522, { roughness: 1 }),
-    jungleCount,
-  );
-  jungleTrunks.name = 'el-hueso-jungle-trunks';
-  const jungleCrowns = new THREE.InstancedMesh(
-    coneGeo(5.2, 13, 7),
-    solid(0x245f32, { roughness: 1 }),
-    jungleCount,
-  );
-  jungleCrowns.name = 'el-hueso-jungle-canopy';
-  /* Same cliff bug as the palms above, worse: this loop's tail used to reach
-   * 100 m past `zLow`, deep enough into `elHuesoShape`'s ramp
-   * (`smoothstep(zLow+10, zLow+120, z)`) to plant trees within a hair of the
-   * full 300 m drop. `+45` stops the range short of `zLow` instead. */
-  const tree = new THREE.Object3D();
-  for (let i = 0; i < jungleCount; i++) {
-    let side; let x; let z; let tries = 0;
-    do {
-      side = rand() < 0.5 ? -1 : 1;
-      x = EH.x + side * (EH.rwyWidth + 34 + rand() * 44);
-      z = EH.zHigh - 60 + rand() * (stripLen + 45);
-      tries++;
-    } while (side < 0 && x > EH.x - 78 && z < EH.zHigh + 145 && z > EH.zHigh && tries < 12);
-    const y = terrainHeight(x, z);
-    const scale = 0.78 + rand() * 0.58;
-    tree.position.set(x, y + 4 * scale, z);
-    tree.rotation.set(0, rand() * Math.PI * 2, (rand() - 0.5) * 0.08);
-    tree.scale.set(scale, scale, scale);
-    tree.updateMatrix();
-    jungleTrunks.setMatrixAt(i, tree.matrix);
-    tree.position.set(x, y + 11.7 * scale, z);
-    tree.rotation.set(0, rand() * Math.PI * 2, 0);
-    tree.scale.set(scale * (0.9 + rand() * 0.25), scale, scale * (0.9 + rand() * 0.25));
-    tree.updateMatrix();
-    jungleCrowns.setMatrixAt(i, tree.matrix);
+  /* Palms right beside the strip: it is not scenery, it is a wall. Same
+   * z-span rule as before -- the run stops short of `zLow` so no palm is
+   * rooted on the cliff drop `elHuesoShape` opens past it. */
+  const PALM_H = 9;
+  const PALM_SINK = 1.4;
+  const FRONDS = 7;
+  const palmCount = 96;
+  const palmTrunkGeo = new THREE.CylinderGeometry(0.26, 0.44, PALM_H + PALM_SINK, 7);
+  palmTrunkGeo.translate(0, (PALM_H + PALM_SINK) / 2 - PALM_SINK, 0);   // origin at the ground point
+  const frondGeo = new THREE.BoxGeometry(0.62, 0.05, 4.6);
+  frondGeo.translate(0, 0, 2.3);                                         // origin at the inner end
+  const palmTrunks = new THREE.InstancedMesh(palmTrunkGeo, solid(0x4a3a24, { roughness: 1 }), palmCount);
+  palmTrunks.name = 'el-hueso-palm-trunks';
+  const palmFronds = new THREE.InstancedMesh(frondGeo, mat({ color: 0x2f6b34, roughness: 1, side: THREE.DoubleSide }), palmCount * FRONDS);
+  palmFronds.name = 'el-hueso-palm-fronds';
+  let palmsPlaced = 0;
+  for (let i = 0; i < palmCount * 6 && palmsPlaced < palmCount; i++) {
+    const side = rand() < 0.5 ? -1 : 1;
+    const x = EH.x + side * (EH.rwyWidth + 4 + Math.pow(rand(), 1.3) * 26);
+    const z = EH.zHigh - 30 + rand() * (stripLen + 15);
+    if (onOperatingSurface(x, z, 3)) continue;
+    const s = 0.72 + Math.pow(rand(), 1.2) * 0.62;
+    const y = plantedGround(x, z);
+    slopeTilt(x, z, 0.45, _qTilt);
+    // A palm leans a little of its own accord as well, and yaws freely.
+    _qYaw.setFromAxisAngle(_axisY, rand() * Math.PI * 2);
+    _qDroop.setFromAxisAngle(_axisX, (rand() - 0.5) * 0.16);
+    _q.copy(_qTilt).multiply(_qYaw).multiply(_qDroop);
+    _pos.set(x, y, z);
+    _scl.set(s, s, s);
+    _m.compose(_pos, _q, _scl);
+    palmTrunks.setMatrixAt(palmsPlaced, _m);
+    // Fronds radiate from THIS trunk's top, wherever the lean put it.
+    _top.set(0, PALM_H * s, 0).applyQuaternion(_q).add(_pos);
+    for (let f = 0; f < FRONDS; f++) {
+      const yaw = (f / FRONDS) * Math.PI * 2 + (rand() - 0.5) * 0.5;
+      const droop = 0.42 + rand() * 0.5;
+      _qYaw.setFromAxisAngle(_axisY, yaw);
+      _qDroop.setFromAxisAngle(_axisX, droop);
+      _qFrond.copy(_qYaw).multiply(_qDroop);
+      _scl.set(s * (0.9 + rand() * 0.3), s, s * (0.85 + rand() * 0.4));
+      _mFrond.compose(_top, _qFrond, _scl);
+      palmFronds.setMatrixAt(palmsPlaced * FRONDS + f, _mFrond);
+    }
+    jungleReport.palms.push({ x, z, y, s });
+    palmsPlaced++;
   }
+  palmTrunks.count = palmsPlaced;
+  palmFronds.count = palmsPlaced * FRONDS;
+  palmTrunks.instanceMatrix.needsUpdate = true;
+  palmFronds.instanceMatrix.needsUpdate = true;
+  palmTrunks.computeBoundingSphere();
+  palmFronds.computeBoundingSphere();
+  root.add(palmTrunks, palmFronds);
+
+  /* The canopy wall behind the palms: clumps of broad-crowned trees up the
+   * valley wall, so El Hueso reads as a strip cut out of a hillside rather
+   * than a band of cones beside a lawn. Two draw calls however many there
+   * are. The z-range still stops short of `zLow` for the same cliff reason. */
+  const CANOPY_H = 8;
+  const CANOPY_SINK = 1.6;
+  const jungleCount = 120;
+  const jungleTrunkGeo = new THREE.CylinderGeometry(0.42, 0.72, CANOPY_H + CANOPY_SINK, 6);
+  jungleTrunkGeo.translate(0, (CANOPY_H + CANOPY_SINK) / 2 - CANOPY_SINK, 0);
+  const crownGeo = new THREE.ConeGeometry(5.2, 13, 7);
+  crownGeo.translate(0, CANOPY_H - 2.4 + 6.5, 0);           // crown base 2.4 m down the trunk
+  const jungleTrunks = new THREE.InstancedMesh(jungleTrunkGeo, solid(0x443522, { roughness: 1 }), jungleCount);
+  jungleTrunks.name = 'el-hueso-jungle-trunks';
+  const jungleCrowns = new THREE.InstancedMesh(crownGeo, solid(0x245f32, { roughness: 1 }), jungleCount);
+  jungleCrowns.name = 'el-hueso-jungle-canopy';
+  // Clump centres up and down both flanks, then trees around them.
+  const clumps = [];
+  for (let c = 0; c < 22; c++) {
+    const side = c % 2 ? 1 : -1;
+    clumps.push({
+      x: EH.x + side * (EH.rwyWidth + 30 + rand() * 46),
+      z: EH.zHigh - 60 + (c / 22) * (stripLen + 45) + (rand() - 0.5) * 30,
+      r: 8 + rand() * 12,
+    });
+  }
+  let jungled = 0;
+  for (let i = 0; i < jungleCount * 8 && jungled < jungleCount; i++) {
+    let x; let z;
+    if (rand() < 0.8) {
+      const cl = clumps[Math.floor(rand() * clumps.length)];
+      const a = rand() * Math.PI * 2;
+      const d = Math.sqrt(rand()) * cl.r;
+      x = cl.x + Math.cos(a) * d;
+      z = cl.z + Math.sin(a) * d;
+    } else {
+      const side = rand() < 0.5 ? -1 : 1;
+      x = EH.x + side * (EH.rwyWidth + 28 + rand() * 50);
+      z = EH.zHigh - 60 + rand() * (stripLen + 45);
+    }
+    if (Math.abs(x - EH.x) < EH.rwyWidth + 26 || onOperatingSurface(x, z, 8)) continue;
+    const y = plantedGround(x, z);
+    const s = 0.62 + Math.pow(rand(), 1.5) * 1.15;                     // most middling, a few giants
+    slopeTilt(x, z, 0.4, _qTilt);
+    _qYaw.setFromAxisAngle(_axisY, rand() * Math.PI * 2);
+    _q.copy(_qTilt).multiply(_qYaw);
+    _pos.set(x, y, z);
+    _scl.set(s, s * (0.9 + rand() * 0.3), s);
+    _m.compose(_pos, _q, _scl);
+    jungleTrunks.setMatrixAt(jungled, _m);
+    const w = 0.8 + rand() * 0.5;                                        // crown width, independent of height
+    _scl.set(_scl.x * w, _scl.y, _scl.z * w);
+    _m.compose(_pos, _q, _scl);
+    jungleCrowns.setMatrixAt(jungled, _m);
+    jungleReport.canopy.push({ x, z, y, s });
+    jungled++;
+  }
+  jungleTrunks.count = jungled;
+  jungleCrowns.count = jungled;
   jungleTrunks.instanceMatrix.needsUpdate = true;
   jungleCrowns.instanceMatrix.needsUpdate = true;
   jungleTrunks.computeBoundingSphere();
@@ -498,6 +615,8 @@ export function buildAirstrip(scene) {
   return {
     root, colliders, floorZones, anchors, chickens, guards, cecilio, drums, sock,
     stripMidZ, stripMidY,
+    /** Every planted tree (x, z, ground y, scale) and the keep-clear test, for the verifier. */
+    jungle: { ...jungleReport, onOperatingSurface, plantedGround },
 
     /** Where the ground is under a point on the strip. */
     groundAt: (x, z) => terrainHeight(x, z),
