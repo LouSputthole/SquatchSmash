@@ -287,3 +287,40 @@ statement sits behind a `hasSample()` guard: the branch is not taken until the
 audio lands, so the file "worked" for as long as the folder was empty. Grep for
 assignments to names that are never declared; there is no linter in this repo
 that will do it for you.
+
+---
+
+## 9. A floor lookup with no lower bound finds the storey below
+
+**Symptom.** Stepping off the top tread of either horseshoe flight dropped
+the player 4.8 m to the foyer. Walking through the ballroom doors dropped him
+4 m into the armory. Every upstairs doorway did the same. `verify:mansion`
+went 271/298 in one commit and stayed there for two days, the seventeen walk
+reds filed as "pre-existing".
+
+**Mechanism.** The 2026-08-13 geometry pass replaced the interior's rect
+arithmetic with a raycast against builder-tagged floor meshes
+(`renderedFloorAt` in `MansionInterior.js`), so feet follow real treads and
+finishes rather than a ramp. Right idea. But the tagged finishes stop at each
+room's rect, every wall band and door threshold has no tagged support at the
+walker's own level, and the ray was allowed to run 30 m: in that band it hit
+the tagged floor of the storey BELOW and reported it as the floor. Nothing
+was missing from the scene. The lookup simply had no notion of "this
+storey".
+
+The siege's own copy of the same lookup (`walkableSupportY` in
+`siege/attackers.js`, same author, same commit) had a 0.5 m step-down band
+from the start. The player's did not.
+
+**The rule.** A support lookup answers for ONE storey. Bound it below as
+well as above (`DROP_TOLERANCE`, 1.2 m: past any jump or authored step, well
+short of the 4 m to the next slab), and when nothing is found in that band
+say so -- return null and let the slab arithmetic, which knows nothing about
+where the finishes stop, offer the floor. Never let "the nearest surface
+underneath" stand in for "the floor you are on".
+
+**How it hid.** The `floorAt` unit tests sample the tops of named meshes,
+which is exactly where the tagged support exists. The reds were in the
+verifier that walks doorways, and a red that predates you is a red nobody
+owns. Entry 7's rule applies: before filing a red as pre-existing, find out
+what it is measuring. Here it was measuring the floor.

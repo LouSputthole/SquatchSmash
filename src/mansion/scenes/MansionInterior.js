@@ -10012,24 +10012,35 @@ export function buildMansionInterior(shell = null) {
      *
      * The geometry is NOT built here, deliberately. `MansionInterior.js` owns
      * the room; the armory owns the weapons, because the next scene to want
-     * them will not be a mansion. What this file contributes is the six
+     * them will not be a mansion. What this file contributes is the seven
      * MOUNT POINTS — where on which wall each rack hangs — which is a fact
      * about this basement and about nowhere else.
      *
      * Geography, measured against the room (x -9..9, z 50..64) and everything
      * already standing in it:
      *   - the south wall (z = 50.45, facing +Z into the room) carries the four
-     *     small arms and the two carbines. It is the wall you see as you come
-     *     off the bottom of the stair.
+     *     small arms, the two carbines and the pump gun. It is the wall you
+     *     see as you come off the bottom of the stair. East of the AK there
+     *     is 5.9 m of blank lining before the stair shaft's alcove (x 5.4);
+     *     the shotgun's 1.44 m board takes the first of it.
      *   - the west wall (x = -8.55, facing +X) carries the two crew-served
      *     guns, north of the ammunition stacks already at z 51.4 and 53.0 and
      *     south of the caged store at z 60.5.
+     *
+     * THE SHOTGUN. The owner named six on 2026-08-04; the shared catalogue
+     * grew a seventh — the 12-gauge pump — with the reusable ground-combat
+     * pass (ed405ced, 2026-08-12), racked in `WEAPON_ORDER` with a rack spec
+     * of its own, and MANSION-SIEGE-NIGHT.md's armory loadout lists an
+     * "optional shotgun" off this wall. The catalogue got the gun; this room
+     * never got its mount point, so `verify:mansion` found a seventh id with
+     * nothing on the wall for it. Racked here, on the same rail as the rest.
      */
     const armoryRacks = [
       { id: 'revolver', x: -6.7, y: BY, z: r.z0 + 0.45, rotY: 0 },
       { id: 'pistol9', x: -4.9, y: BY, z: r.z0 + 0.45, rotY: 0 },
       { id: 'carbine', x: -2.9, y: BY, z: r.z0 + 0.45, rotY: 0 },
       { id: 'ak47', x: -1.2, y: BY, z: r.z0 + 0.45, rotY: 0 },
+      { id: 'shotgun', x: 0.5, y: BY, z: r.z0 + 0.45, rotY: 0 },
       { id: 'saw', x: r.x0 + 0.45, y: BY, z: 54.6, rotY: Math.PI / 2 },
       { id: 'barrett', x: r.x0 + 0.45, y: BY, z: 56.8, rotY: Math.PI / 2 },
     ];
@@ -12347,6 +12358,15 @@ const M_GOLD_BAR = mat({
   /* where it beat every tread on the way down.                           */
   /* ================================================================== */
   const STEP_TOLERANCE = 0.85;
+  /* How far BELOW the feet a rendered support may lie and still be read as
+   * THIS storey's floor. The storeys are 4.0 m (basement -> ground) and 4.8 m
+   * (ground -> upper) apart, a jump reaches 0.8 m and the tallest authored
+   * step-down indoors is the theatre's 0.3 m rake, so 1.2 m sits clear of
+   * every real drop and well short of the next slab down. The siege's own
+   * copy of this lookup (`walkableSupportY` in siege/attackers.js) has had a
+   * band like this from the start; the player's did not, and see below for
+   * what that did. */
+  const DROP_TOLERANCE = 1.2;
   const FLOOR_BUCKET_SIZE = 2;
   const floorRay = new THREE.Raycaster();
   const floorRayOrigin = new THREE.Vector3();
@@ -12391,7 +12411,22 @@ const M_GOLD_BAR = mat({
    * every staircase as a ramp and every decorated slab as its bare datum,
    * putting feet 60--221 mm through treads and 20--22 mm through finishes.
    * This bounded static index samples only builder-tagged support, never a
-   * prop/body/VFX heuristic, and therefore follows rugs, runners and boxes. */
+   * prop/body/VFX heuristic, and therefore follows rugs, runners and boxes.
+   *
+   * IT ANSWERS FOR ONE STOREY ONLY. The tagged finishes stop at each room's
+   * rect, so every wall band and door threshold -- the 150 mm between the
+   * top tread of the horseshoe and the gallery parquet, the 300 mm under the
+   * ballroom doors, every bedroom and bathroom door upstairs -- has no
+   * tagged support at the walker's own level. When this ray was allowed to
+   * run 30 m it found the tagged floor of the storey BELOW through that
+   * band and reported it as the floor: the player stepping off the top of
+   * either flight dropped 4.8 m to the foyer, and walking through the
+   * ballroom doors dropped 4 m into the armory (verify:mansion, 2026-08-15,
+   * seventeen reds with this one cause; introduced with the index on
+   * 2026-08-13). So a hit more than DROP_TOLERANCE below the feet is not this
+   * storey's floor and is not an answer: the caller falls through to the
+   * slab arithmetic below, which offers the upper slab over the whole
+   * footprint and knows nothing about where the finishes stop. */
   function renderedFloorAt(x, z, y) {
     buildFloorIndex();
     const bucket = floorBuckets.get(
@@ -12401,9 +12436,10 @@ const M_GOLD_BAR = mat({
     floorRayOrigin.set(x, y + STEP_TOLERANCE + 1e-4, z);
     floorRay.set(floorRayOrigin, floorRayDown);
     floorRay.near = 0;
-    floorRay.far = 30;
+    floorRay.far = STEP_TOLERANCE + DROP_TOLERANCE + 1e-3;
     for (const hit of floorRay.intersectObjects(bucket, false)) {
       if (hit.point.y > y + STEP_TOLERANCE + 1e-6
+          || hit.point.y < y - DROP_TOLERANCE
           || !effectiveSupportVisible(hit.object) || !hit.face) continue;
       const material = Array.isArray(hit.object.material)
         ? hit.object.material[hit.face.materialIndex]
