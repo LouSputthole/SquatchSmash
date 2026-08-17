@@ -160,6 +160,39 @@ export function terrainHeight(x, z) {
   return h;
 }
 
+/**
+ * Height of the RENDERED ground at (x, z).
+ *
+ * A chunk is a grid of `segs` quads per 500 m side, each split into two
+ * triangles, and between the vertices the surface is a plane -- not the
+ * heightfield. On the valley wall beside El Hueso the two disagree by a
+ * metre or more (16 m at worst on the cliff), which is a tree standing on
+ * air. Anything planted on the ground should ask THIS, for the detail level
+ * the chunk under it is built at (`TERRAIN_DETAIL[0]` up close), and sink its
+ * roots a little besides. Same triangulation as `build()`: PlaneGeometry's
+ * (a, b, d) / (b, c, d) split, rotated -90 about X, so the diagonal runs from
+ * (x0, z1) to (x1, z0).
+ */
+export function terrainMeshHeight(x, z, segs = DETAIL[0]) {
+  const cx = Math.round(x / CHUNK), cz = Math.round(z / CHUNK);
+  const ox = cx * CHUNK, oz = cz * CHUNK;
+  const step = CHUNK / segs;
+  const lx = clamp(x - ox + CHUNK / 2, 0, CHUNK - 1e-6);
+  const lz = clamp(z - oz + CHUNK / 2, 0, CHUNK - 1e-6);
+  const i = Math.floor(lx / step), j = Math.floor(lz / step);
+  const x0 = ox - CHUNK / 2 + i * step, z0 = oz - CHUNK / 2 + j * step;
+  const u = (x - x0) / step, v = (z - z0) / step;
+  const ha = terrainHeight(x0, z0);
+  const hb = terrainHeight(x0, z0 + step);
+  const hc = terrainHeight(x0 + step, z0 + step);
+  const hd = terrainHeight(x0 + step, z0);
+  if (u + v <= 1) return ha + u * (hd - ha) + v * (hb - ha);
+  return hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc);
+}
+
+/** Segments per chunk side by ring distance from the aircraft; [0] is underfoot. */
+export const TERRAIN_DETAIL = DETAIL;
+
 export function terrainNormal(x, z, out = new THREE.Vector3()) {
   const e = 6;
   const hL = terrainHeight(x - e, z), hR = terrainHeight(x + e, z);
@@ -307,7 +340,11 @@ export class TerrainStreamingSystem {
         if (Math.hypot(hx, hz) > 16) continue;          // too steep
         if (h < 3) continue;                             // in the water
         const s = zone.treeScale * (0.7 + rand() * 0.7);
-        _obj.position.set(wx, h, wz);
+        /* Plant it on the surface this chunk actually draws, not on the
+         * heightfield the surface approximates, and a little under it: a
+         * trunk that reaches half a metre into the hill reads as rooted, one
+         * that stops half a metre above it reads as hung there. */
+        _obj.position.set(wx, Math.min(h, terrainMeshHeight(wx, wz, segs)) - 0.5 * s, wz);
         _obj.rotation.set(0, rand() * Math.PI, 0);
         _obj.scale.setScalar(s);
         _obj.updateMatrix();

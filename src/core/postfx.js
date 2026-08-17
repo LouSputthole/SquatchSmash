@@ -154,6 +154,10 @@ export class PostFX {
   }
 
   setSize(w, h) {
+    /* The renderer's pixel ratio can change under it (core/pixel-ratio.js
+     * steps it down on a slow machine); the composer sizes its targets from
+     * its own copy, so bring that along or bloom keeps drawing full-size. */
+    this.composer?.setPixelRatio(this.renderer.getPixelRatio());
     this.composer?.setSize(w, h);
     this.bloom?.setSize(w, h);
   }

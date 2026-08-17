@@ -17,6 +17,7 @@ import { SilverAudioEngine } from './audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
@@ -103,7 +104,7 @@ try {
 /* The room is already geometry-heavy. Rendering four fragments for every CSS
  * pixel on a 2x display bought almost no visible detail through the film grain
  * and was the largest avoidable GPU cost in this scene. */
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+attachPixelRatio(renderer, { cap: PIXEL_RATIO_CAP_HEAVY });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;

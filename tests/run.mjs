@@ -194,6 +194,8 @@ const TEST_MODULES = [
   './player.test.mjs',
   './settings.test.mjs',
   './mansion-dialogue-hush.test.mjs',
+  './collider-broadphase.test.mjs',
+  './pixel-ratio.test.mjs',
   './check-line-presence.test.mjs',
 ];
 

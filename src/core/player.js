@@ -9,6 +9,7 @@
  */
 import * as THREE from 'three';
 import { bindLookSensitivity } from './settings.js';
+import { ColliderGrid } from './collider-broadphase.js';
 
 const EYE_STAND = 1.66;
 const EYE_CROUCH = 1.02;
@@ -21,6 +22,39 @@ const ACCEL = 12;
 const FRICTION = 11;
 const JUMP_SPEED = 4.65;
 const JUMP_GRAVITY = 13.5;
+
+/**
+ * How high an obstacle he walks UP ONTO rather than into.
+ *
+ * `_resolve` used to skip a collider only when its top was below the feet, so
+ * anything resting on a floor -- a crate, a kerb, a low wall of sandbags -- was
+ * a wall however low it was, and the combat scenes could not build cover you
+ * shoot over and walk round. A collider whose top is within this much of the
+ * ground he is standing on is stepped over instead: it does not push, and if
+ * it lies under him it becomes his floor (`_stepSupport`).
+ *
+ * 0.40 m. The eye stands at 1.66, so he is about 1.8 m tall and this is a
+ * shade under knee height -- the Source-engine 18-unit (0.457 m) and Unreal
+ * 45 cm step heights are the same idea for the same size of body, and 0.40
+ * keeps chair seats, benches and coffee tables (0.45 m and up) as things you
+ * go ROUND, which is what the low-cover brief asked for. It is well under
+ * JUMP_SPEED²/2g = 0.80 m, so a jump still clears more than a step does.
+ */
+export const STEP_HEIGHT = 0.40;
+
+/**
+ * How far outside a steppable box its top still counts as the floor.
+ *
+ * ponytail: a flat slop, sized from the worst measured seam in the game's
+ * decomposed round colliders (77 mm on the mansion fountain's 48-slice
+ * apron) and rounded up. It is a margin for collider shapes that under-cover
+ * their own visible geometry, NOT a step-out ledge: it is a third of the
+ * capsule RADIUS, so the player is never carried more than a boot's width
+ * past an edge. The upgrade path, if a scene ever needs it exact, is for
+ * that scene to publish a support surface (as the mansion interior already
+ * does with `groundAt`) instead of leaning on box decomposition.
+ */
+export const STEP_SUPPORT_SLOP = 0.10;
 
 export class Player {
   constructor(camera, world) {
@@ -77,6 +111,11 @@ export class Player {
 
     // Transition tween state.
     this._tween = null;
+
+    /* Broadphase over `world.colliders` -- see collider-broadphase.js. It
+     * follows the array (replace, push, splice, in-place moves) by itself, so
+     * scenes need do nothing; `_resolve` syncs it before it asks. */
+    this._grid = new ColliderGrid();
   }
 
   /* ---------------------------------------------------------------- */
@@ -348,8 +387,10 @@ export class Player {
     this.bobPhase += moved * 3.4;
     this.rollTarget = -strafe * 0.014 * (this.sprinting ? 1.5 : 1);
 
-    // Ride whatever floor is under him -- the stage, a step, otherwise zero.
-    const ground = this.world.groundAt ? this.world.groundAt(this.position.x, this.position.z) : 0;
+    // Ride whatever floor is under him -- the stage, a step, otherwise zero --
+    // or a low collider he has stepped up onto (STEP_HEIGHT).
+    const worldGround = this.world.groundAt ? this.world.groundAt(this.position.x, this.position.z) : 0;
+    const ground = Math.max(worldGround, this._stepSupport(worldGround));
     if (this.world.snapGroundToSurface === true) {
       /* Discrete authored treads are not a smooth ramp.  Mansion opts into
        * exact support so the player cannot spend several frames inside a new
@@ -388,46 +429,112 @@ export class Player {
     }
   }
 
-  /** Push the player capsule out of any collider it is overlapping. */
+  /**
+   * Push the player capsule out of any collider it is overlapping.
+   *
+   * The boxes are visited in ascending array order and every push moves the
+   * capsule before the next box is tested, exactly as the original loop over
+   * the whole array did; the grid only decides which indices are worth
+   * visiting. After a push the capsule has moved, so the candidate list is
+   * fetched again from the new position and the walk resumes past the box
+   * that pushed -- a box earlier in the array is never revisited, a box later
+   * in it is tested where the capsule now is, which is what the brute-force
+   * scan did too.
+   */
   _resolve(axis) {
     const p = this.position;
-    for (const box of this.world.colliders) {
-      if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
+    const colliders = this.world.colliders;
+    const grid = this._grid;
+    grid.sync(colliders);
+    /* Measured from the supporting floor, not the airborne feet, so a jump
+     * does not turn a 1.2 m wall into a step. */
+    const stepTop = this.ground + STEP_HEIGHT;
+    let start = 0;
+    scan: for (;;) {
+      const list = grid.query(p.x, p.z, RADIUS, _cands);
+      for (let k = 0; k < list.length; k++) {
+        const i = list[k];
+        if (i < start) continue;
+        const box = colliders[i];
+        if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
+        // Low enough to step over from the floor he is on: not a wall.
+        if (box.max.y <= stepTop) continue;
 
-      const cx = clamp(p.x, box.min.x, box.max.x);
-      const cz = clamp(p.z, box.min.z, box.max.z);
-      const dx = p.x - cx;
-      const dz = p.z - cz;
-      const d2 = dx * dx + dz * dz;
-      if (d2 >= RADIUS * RADIUS) continue;
+        const cx = clamp(p.x, box.min.x, box.max.x);
+        const cz = clamp(p.z, box.min.z, box.max.z);
+        const dx = p.x - cx;
+        const dz = p.z - cz;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= RADIUS * RADIUS) continue;
 
-      if (d2 > 1e-8) {
-        const d = Math.sqrt(d2);
-        const push = RADIUS - d;
-        if (axis === 'x') {
-          p.x += (dx / d) * push;
-          this.velocity.x = 0;
+        if (d2 > 1e-8) {
+          const d = Math.sqrt(d2);
+          const push = RADIUS - d;
+          if (axis === 'x') {
+            p.x += (dx / d) * push;
+            this.velocity.x = 0;
+          } else {
+            p.z += (dz / d) * push;
+            this.velocity.z = 0;
+          }
         } else {
-          p.z += (dz / d) * push;
+          // Dead centre inside the box: eject along the shallowest axis.
+          const toMinX = p.x - box.min.x;
+          const toMaxX = box.max.x - p.x;
+          const toMinZ = p.z - box.min.z;
+          const toMaxZ = box.max.z - p.z;
+          const m = Math.min(toMinX, toMaxX, toMinZ, toMaxZ);
+          if (m === toMinX) p.x = box.min.x - RADIUS;
+          else if (m === toMaxX) p.x = box.max.x + RADIUS;
+          else if (m === toMinZ) p.z = box.min.z - RADIUS;
+          else p.z = box.max.z + RADIUS;
+          this.velocity.x = 0;
           this.velocity.z = 0;
         }
-      } else {
-        // Dead centre inside the box: eject along the shallowest axis.
-        const toMinX = p.x - box.min.x;
-        const toMaxX = box.max.x - p.x;
-        const toMinZ = p.z - box.min.z;
-        const toMaxZ = box.max.z - p.z;
-        const m = Math.min(toMinX, toMaxX, toMinZ, toMaxZ);
-        if (m === toMinX) p.x = box.min.x - RADIUS;
-        else if (m === toMaxX) p.x = box.max.x + RADIUS;
-        else if (m === toMinZ) p.z = box.min.z - RADIUS;
-        else p.z = box.max.z + RADIUS;
-        this.velocity.x = 0;
-        this.velocity.z = 0;
+        start = i + 1;
+        continue scan;
       }
+      break;
     }
     /* Moving/rotated scenes resolve the capsule in their own local frame. */
     this.world.resolvePlayer?.(this, axis, RADIUS);
+  }
+
+  /**
+   * The top of the highest low collider under the player's centre, or
+   * -Infinity. A box that `_resolve` lets him walk over (its top within
+   * STEP_HEIGHT of the floor he is on) is a floor when he is over it: this
+   * is what makes a crate something you stand on rather than sink through.
+   * Only tops above the world's own floor count, so a wall from the storey
+   * below whose top grazes this floor is not a bump.
+   *
+   * The lookup is forgiving by STEP_SUPPORT_SLOP because a steppable box
+   * that neither blocks nor supports leaves the player standing INSIDE
+   * visible solid, which is the one state this pair of functions exists to
+   * make impossible. Curved colliders are decomposed into axis-aligned
+   * strips that are INSCRIBED in the true shape, so near a rim there is
+   * visible stone with no box under it at all: measured on the mansion
+   * fountain's 48-slice apron, 29% of the ring 50 mm inside the rim is
+   * uncovered, worst gap 77 mm. Before step-over the strips still pushed him
+   * off that band; now that a 0.40 m apron is climbable, an exact
+   * point-in-box test drops him to grade in the seams.
+   */
+  _stepSupport(worldGround) {
+    const p = this.position;
+    const colliders = this.world.colliders;
+    const limit = this.ground + STEP_HEIGHT;
+    const list = this._grid.query(p.x, p.z, STEP_SUPPORT_SLOP, _cands);
+    let best = -Infinity;
+    for (let k = 0; k < list.length; k++) {
+      const box = colliders[list[k]];
+      const top = box.max.y;
+      if (top <= worldGround || top > limit || top <= best) continue;
+      const dx = p.x - clamp(p.x, box.min.x, box.max.x);
+      const dz = p.z - clamp(p.z, box.min.z, box.max.z);
+      if (dx * dx + dz * dz > STEP_SUPPORT_SLOP * STEP_SUPPORT_SLOP) continue;
+      best = top;
+    }
+    return best;
   }
 
   /** Which floor material the player is standing on (drives footstep cue). */
@@ -472,6 +579,8 @@ export class Player {
 
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _tmpV = new THREE.Vector3();
+/** Scratch list for the broadphase query; refilled on every call. */
+const _cands = [];
 
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function len2(x, z) { return x * x + z * z; }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachPixelRatio } from '../core/pixel-ratio.js';
 import {
   buildSquatchfatherScene,
   PLAYER_START_YAW,
@@ -40,9 +41,9 @@ import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
 // ---------------------------------------------------------------- boot
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+attachPixelRatio(renderer);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

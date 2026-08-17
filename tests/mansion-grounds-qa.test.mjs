@@ -262,7 +262,7 @@ test('round fountain colliders block visible stone without ejecting players from
   const capsuleRadius = 0.3;
   assert.equal(tiers.length, 3, 'the fountain does not publish its three physical stone tiers');
 
-  const probe = (tier, radius, angle) => {
+  const probe = (tier, radius, angle, frames = 4) => {
     const player = new Player(new THREE.PerspectiveCamera(), {
       colliders: tier.colliders, floorZones: [], groundAt: () => tier.y0,
     });
@@ -275,7 +275,7 @@ test('round fountain colliders block visible stone without ejecting players from
       FOUNTAIN_POS.z + Math.sin(angle) * radius,
     );
     const before = player.position.clone();
-    for (let frame = 0; frame < 4; frame += 1) player.update(1 / 60);
+    for (let frame = 0; frame < frames; frame += 1) player.update(1 / 60);
     return { player, moved: player.position.distanceTo(before) };
   };
 
@@ -286,13 +286,31 @@ test('round fountain colliders block visible stone without ejecting players from
       assert.ok(clear.moved <= 1e-6,
         `${tier.name} invisible collider pushed clear paving ${(clear.moved * 1000).toFixed(1)} mm at ${degrees}°`);
 
-      const inside = probe(tier, tier.radius - 0.05, angle);
+      /* The invariant is that no tier ever leaves the player INSIDE stone.
+       * There are two honest ways out, and step-over (`STEP_HEIGHT`, 0.40 m,
+       * backlog #22) decides which one a tier gets: a tier taller than the
+       * step is a wall and ejects him horizontally; a tier at or under it is
+       * a kerb he climbs, and `_stepSupport` carries his feet to its top.
+       * The lower apron is exactly 0.40 m, so it became the second kind --
+       * he stands on the fountain's outer ring instead of being held off it
+       * by an invisible wall, while both water basins (1.2 m and 0.5 m above
+       * their own floor) still push him out. Asserting only the horizontal
+       * ejection would now be asserting the pre-step-over movement model;
+       * asserting "out OR on top" is what "not inside stone" actually means,
+       * and it checks the vertical support the old form never looked at.
+       * Settled over 240 frames because the soft ground response eases the
+       * feet up over ~0.4 s rather than snapping. */
+      const inside = probe(tier, tier.radius - 0.05, angle, 240);
       const finalRadius = Math.hypot(
         inside.player.position.x - FOUNTAIN_POS.x,
         inside.player.position.z - FOUNTAIN_POS.z,
       );
-      assert.ok(finalRadius >= tier.radius - 0.005,
-        `${tier.name} lets the player remain ${(tier.radius - finalRadius).toFixed(3)} m inside stone at ${degrees}°`);
+      const feet = inside.player.position.y - inside.player.eyeHeight;
+      const ejected = finalRadius >= tier.radius - 0.005;
+      const standingOnTop = feet >= tier.y1 - 0.02;
+      assert.ok(ejected || standingOnTop,
+        `${tier.name} left the player ${(tier.radius - finalRadius).toFixed(3)} m inside stone `
+        + `with his feet at ${feet.toFixed(3)} m (top ${tier.y1} m) at ${degrees}°`);
     }
   }
 });
