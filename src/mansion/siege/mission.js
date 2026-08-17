@@ -18,6 +18,14 @@
 import { WaveDirector, WAVES, ENCOUNTERS } from './waves.js';
 
 /**
+ * At how many standing wave attackers the remnant stops holding standoffs
+ * and hunts the player. The owner's own count from the playtest note --
+ * "four attacks left cant find them" -- so the fix starts exactly where the
+ * complaint did.
+ */
+export const HUNT_REMNANT = 4;
+
+/**
  * Every beat, in authored order, with the objective it puts on the HUD.
  *
  * ## THE `hint` FIELD, AND THE PLAYTEST THAT PUT IT THERE
@@ -219,6 +227,28 @@ export class SiegeMission {
     if (this.beat === B.WAVE_ONE) return this.waves.one;
     if (this.beat === B.WAVE_TWO) return this.waves.two;
     return null;
+  }
+
+  /**
+   * Whether the active wave is down to a remnant that should HUNT.
+   *
+   * Owner, playtest 2026-08-13: *"four attacks left cant find them"*. The
+   * standoff roles -- a suppressor set up on the door line, a gunner at
+   * twenty-six metres, a leader holding his doorway -- are correct tactics
+   * for a full wave and a hide-and-seek ending for its remnant, because the
+   * gallery has no window onto the forecourt (PART XIV knows) and a man
+   * holding position out on the drive is invisible and inaudible from the
+   * firing step. So once every group has released and no more are coming,
+   * the last few drop their standoffs and push at the player: the scene
+   * passes this flag to the attacker pool, which converts it into movement,
+   * real footsteps and gunfire the player can steer by.
+   */
+  get huntActive() {
+    const wave = this.activeWave;
+    if (!wave) return false;
+    return wave.pendingGroups.length === 0
+      && wave.standing.size > 0
+      && wave.standing.size <= HUNT_REMNANT;
   }
 
   /**

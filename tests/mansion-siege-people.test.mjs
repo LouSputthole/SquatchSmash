@@ -60,7 +60,7 @@ const {
   ANCHORS, GROUND_Y, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
 } = await import('../src/mansion/siege/nav.js');
 const {
-  createAttackerPool, groundHeightAt, segmentBlocked, HIT_ZONES, ROLE_PLAN,
+  createAttackerPool, groundHeightAt, segmentBlocked, HIT_ZONES, HUNT_SPEED, ROLE_PLAN,
 } = await import('../src/mansion/siege/attackers.js');
 const {
   buildSiegeEnsemble, KEEP_CLEAR, HOUSE_BOUNDS, KILL_BUDGET, SURVIVES_THE_SIEGE,
@@ -354,6 +354,58 @@ test('he walks in: a route off the graph, and he is fighting before he arrives',
   }
 });
 
+test('a hunted standoff man drops his post, closes on the player, and calls it', () => {
+  /* Owner, playtest 2026-08-13: "four attacks left cant find them". The
+   * suppressor is the worst offender: `climbs: false`, standoff 28, set up
+   * out on the door line where the gallery cannot see him. With the scene's
+   * `hunt` flag up he must abandon that standoff and walk at the player --
+   * and one hunted man at a time must call the search out loud. */
+  const { pool } = harness();
+  const orders = releaseWave(pool, 'two');
+  const order = orders.find((o) => o.role.id === 'suppressor');
+  const entry = pool.entry(order.id);
+  const player = makePlayer();
+  const barks = [];
+  const steps = [];
+  const ctx = (hunt) => ({
+    player, colliders: [], alive: () => [], hunt,
+    onBark: (event) => barks.push(event),
+    onStep: (who, event) => steps.push({ id: who.id, hunt, ...event }),
+  });
+
+  /* Twenty seconds without the flag: he sets up and stays a standoff man. */
+  for (let i = 0; i < 60 * 20; i++) pool.update(1 / 60, ctx(false));
+  const held = entry.root.position.distanceTo(player.position);
+  assert.ok(held > 12,
+    `the suppressor closed to ${held.toFixed(1)} m without being hunted`);
+  assert.ok(!barks.some((b) => b.key === 'hunt'), 'hunt called before the hunt');
+  assert.equal(entry.hunting, false, 'flagged as hunting before the hunt');
+  /* His own pace is a walk (1.2 m/s), so nothing he did so far was a run. */
+  const hisStepsBefore = steps.filter((step) => step.id === entry.id);
+  assert.ok(hisStepsBefore.length > 0, 'the suppressor never took a step setting up');
+  assert.ok(hisStepsBefore.every((step) => step.gait === 'walk'),
+    'a suppressor setting up ran');
+
+  /* Forty seconds with it: he is closing, and somebody said so. */
+  steps.length = 0;
+  for (let i = 0; i < 60 * 40; i++) pool.update(1 / 60, ctx(true));
+  const closed = entry.actor.incapacitated
+    ? 0 : entry.root.position.distanceTo(player.position);
+  assert.ok(closed < held - 4,
+    `hunted, he closed only ${(held - closed).toFixed(1)} m (from ${held.toFixed(1)})`);
+  assert.ok(barks.some((b) => b.key === 'hunt'), 'nobody called the hunt');
+  /* THE AUDIBLE HALF. A hunted man jogs (HUNT_SPEED floors his pace), and
+   * the step event grades gait and intensity off that pace -- so his feet,
+   * which the player steers by, are RUNNING feet at full intensity, not the
+   * standoff shuffle at half volume he was making a moment ago. */
+  assert.ok(HUNT_SPEED > 2.25, 'the hunt floor must clear the run-gait line');
+  assert.equal(entry.hunting, true, 'the flag did not reach the man');
+  const hisStepsHunted = steps.filter((step) => step.id === entry.id);
+  assert.ok(hisStepsHunted.length > 0, 'a hunted suppressor took no steps');
+  assert.ok(hisStepsHunted.some((step) => step.gait === 'run' && step.intensity >= 0.99),
+    `hunted, he never ran: gaits ${[...new Set(hisStepsHunted.map((s) => s.gait))]}`);
+});
+
 test('wave one comes in the front door, every man of it', () => {
   /* OWNER DIRECTION: "everyone should funnel in through the main door." Wave
    * one is where that is taught, so it is all door and no exceptions -- and
@@ -494,6 +546,9 @@ test('a cartel body settles on the actual visible route surface under him', () =
       `${label} support moved to ${support.point.y.toFixed(3)} m`);
     if (expectedName) assert.match(support.object.name, expectedName);
     pool.registerHit(entry.figure.parts.head, 9999);
+    /* A live kill FALLS now (blendSiegeFall, 0.4 s); walk the figure through
+     * it before measuring where the body came to rest. */
+    for (let i = 0; i < 36; i++) entry.figure.update(1 / 60);
     const body = renderedBodyBox(entry);
     const gap = body.min.y - support.point.y;
     assert.ok(Math.abs(gap) <= 0.005,
@@ -522,6 +577,8 @@ test('cartel corpse support ignores blood and resolves the authored walkable fin
   entry.root.position.set(7, 6, 49);
   entry.root.updateMatrixWorld(true);
   pool.registerHit(entry.figure.parts.head, 9999);
+  /* Walk the 0.4 s fall blend to its rest before measuring. */
+  for (let i = 0; i < 36; i++) entry.figure.update(1 / 60);
   const bodyGap = renderedBodyBox(entry).min.y - 6.022;
   assert.ok(Math.abs(bodyGap) <= 0.001,
     `blood/VFX was mistaken for structural support and floated the body ${(bodyGap * 1000).toFixed(1)} mm`);
@@ -1034,7 +1091,11 @@ test('all 22 wave attackers ground rendered bodies without changing pooled weapo
     entry.root.updateMatrixWorld(true);
     return { order, entry, mount: captureWeaponMount(entry) };
   });
-  for (const { entry } of records) pool.registerHit(entry.figure.parts.head, 9999);
+  for (const { entry } of records) {
+    pool.registerHit(entry.figure.parts.head, 9999);
+    /* Walk the 0.4 s fall blend to its rest before measuring. */
+    for (let i = 0; i < 36; i++) entry.figure.update(1 / 60);
+  }
 
   for (const { order, entry, mount } of records) {
     const gap = renderedBodyBox(entry).min.y - 6.02;
@@ -1388,7 +1449,8 @@ test('every armed fallen rig grounds its visible body, not its hidden weapon', (
   for (const { member } of representatives) {
     member.actor.applyHit({ amount: 9999, attacker: { faction: FACTIONS.CARTEL }, matrix });
   }
-  ensemble.update(0.1, { colliders, hostiles: [] });
+  /* A fall is a 0.45-0.55 s blend now; walk the world past it. */
+  for (let i = 0; i < 8; i++) ensemble.update(0.1, { colliders, hostiles: [] });
   scene.updateMatrixWorld(true);
 
   const visibleBodyBox = (member) => {
@@ -2105,13 +2167,31 @@ test('a checkpoint does not stand a bleeding man up', () => {
 });
 
 test('nobody who died before the mansion is standing in it', () => {
-  /* Willy is executed on the boat in NO WAKE, which is Day 3; the mansion arc
-   * is after it. He held the office door in this file until 2026-08-05. */
+  /* The campaign's dead, by name and by mission:
+   *   Willy   executed in the cabin of a boat in NO WAKE, Day 3.
+   *   Billy   Billy HotDog, victim of the closed-party incident.
+   *   Aubbie  executed at the end of PROJECT SILENT SQUATCH, Day 5 8:10 PM --
+   *           "Eliminate Aubbie" is the objective -- eight hours before this
+   *           siege starts. He handed out magazines in this file until
+   *           2026-08-13, when the owner's playtest caught him alive.
+   * The mansion arc is after all three. Each is asserted by name against the
+   * live ensemble, the survival flag AND the roster ids, so a future recast
+   * cannot smuggle one back in under any of the three doors. */
   const { scene, damage, matrix } = harness();
   const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
   ensemble.stage('BRIEFING');
-  assert.equal(ensemble.members.has('willy'), false, 'Willy is in the mansion again');
-  assert.equal(SURVIVES_THE_SIEGE.includes('willy'), false);
+  const DEAD = ['willy', 'billy', 'billy_hotdog', 'aubbie'];
+  for (const id of DEAD) {
+    assert.equal(ensemble.members.has(id), false, `${id} is in the mansion again`);
+    assert.equal(SURVIVES_THE_SIEGE.includes(id), false,
+      `${id} is dead and cannot also be mission-protected`);
+  }
+  for (const member of ensemble.members.values()) {
+    for (const id of DEAD) {
+      assert.ok(!member.id.includes(id) && !member.name.toLowerCase().includes(id.split('_')[0]),
+        `${member.id} (${member.name}) resembles the dead ${id}`);
+    }
+  }
 });
 
 test('every role in waves.js has a behaviour plan', () => {
@@ -3214,7 +3294,7 @@ test('they keep doing things through the conversation', () => {
   assert.ok(everything.size >= 4, `only ${everything.size} kinds of business`);
   /* The two the brief names by hand. */
   assert.ok(busy.get('lou')?.has('phone'), 'Lou works the phone');
-  assert.ok(busy.get('aubbie')?.has('tend'), 'Aubbie works on the wounded guard');
+  assert.ok(busy.get('gratin')?.has('tend'), 'Gratin works on the wounded guard');
 });
 
 test('the house being hit makes people flinch', () => {

@@ -5,7 +5,6 @@
   "requestedCue": "weapon.carbine.fire",
   "observedRequestedCue": true,
   "observedPlaybacks": [
-    "weapon.revolver.fire",
     "weapon.carbine.fire"
   ],
   "legacyFallbackCue": "heist.weapon.carbine.indoor",
@@ -52,6 +51,7 @@
   "canonicalMissing": [],
   "canonicalPending": [],
   "combatDelivered": [
+    "ambience.city.night",
     "ammo.take",
     "combat.armor.break",
     "combat.armor.plate.drop",
@@ -72,6 +72,7 @@
     "combat.shell.floor.wood",
     "combat.takedown.quiet",
     "combat.triage.bandage",
+    "crowd.whistle",
     "drunk.collapse",
     "footstep.concrete",
     "footstep.dirt",
@@ -87,10 +88,13 @@
     "heist.body.marble",
     "heist.bullet.impact",
     "heist.bullet.whiz",
+    "heist.crowd.react",
     "heist.gear.armor.pickup",
     "heist.player.hit",
     "silent.body.concrete",
     "silent.shell.concrete",
+    "weapon.ak47.fire",
+    "weapon.carbine.fire",
     "weapon.shotgun.cycle",
     "weapon.shotgun.empty",
     "weapon.shotgun.fire",

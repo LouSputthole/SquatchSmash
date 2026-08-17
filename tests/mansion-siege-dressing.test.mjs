@@ -953,6 +953,44 @@ test('the wrecked centrepiece takes over from whatever the house is standing the
   assert.ok(Math.abs((piece.cover.min.z + piece.cover.max.z) / 2 - SIEGE_ANCHORS.centrepiece.z) < 0.01);
 });
 
+test('the wrecked centrepiece is the table\'s own corpse, not a ghost bubble', () => {
+  /* Owner, playtest 2026-08-13: "main centerpiece in foyer is just like a
+   * ghost bubble not sure what thats supposed to look like". What he saw was
+   * a three-metre translucent ellipsoid at chest height over fragments too
+   * small to read. The wreck is now the round centre table knocked over --
+   * marble top, sheared column, urn, spilled blooms -- every piece opaque,
+   * and the only translucent thing left is a knee-high dust skirt UNDER
+   * the tabletop line. Pinned by name so the bubble cannot come back. */
+  const { dressing } = WORLD;
+  const g = dressing.props.centrepiece.fragments;
+  const named = new Map();
+  g.traverse((node) => { if (node.isMesh && node.name) named.set(node.name, node); });
+  for (const piece of ['top', 'column', 'stump', 'urn', 'base']) {
+    assert.ok(named.has(`siege.centrepiece.${piece}`), `the wreck has no ${piece}`);
+  }
+  assert.ok([...named.keys()].filter((n) => n.startsWith('siege.centrepiece.bloom.')).length >= 8,
+    'the arrangement did not spill');
+  /* Opaque, all of it, except the dust. */
+  const translucent = [...named.values()]
+    .filter((m) => m.material?.transparent === true && (m.material.opacity ?? 1) < 0.95)
+    .map((m) => m.name);
+  assert.deepEqual(translucent, ['siege.centrepiece.dust'], `translucent pieces: ${translucent}`);
+  /* And the dust is a skirt on the floor, not a bubble at chest height. */
+  const dust = named.get('siege.centrepiece.dust');
+  dust.updateWorldMatrix(true, false);
+  const box = new THREE.Box3().setFromObject(dust);
+  const floor = SIEGE_ANCHORS.centrepiece.y;
+  assert.ok(box.max.y - floor <= 0.5, `dust reaches ${(box.max.y - floor).toFixed(2)} m above the inlay`);
+  assert.ok(box.min.y - floor >= -0.05 && box.min.y - floor <= 0.1, 'the dust does not sit on the floor');
+  /* The tabletop is the thing that names it: the biggest opaque piece, and
+   * higher than the dust so it reads over it. */
+  const top = named.get('siege.centrepiece.top');
+  const topBox = new THREE.Box3().setFromObject(top);
+  const topSize = topBox.getSize(new THREE.Vector3());
+  assert.ok(Math.max(topSize.x, topSize.z) >= 2.4, 'the tabletop is not readable as a 2.7 m disc');
+  assert.ok(topBox.max.y > box.max.y, 'the dust rises over the tabletop');
+});
+
 test('the foyer fire has movement, light and smoke, and no way to put it out', () => {
   const { dressing } = WORLD;
   const fire = dressing.props.fires.foyer;

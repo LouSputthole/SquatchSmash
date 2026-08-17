@@ -75,7 +75,7 @@ import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
 import { isSiegeLineWeapon, resolveArmoryTake } from './armory-policy.js';
 import { SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeVoiceCueNames } from './script.js';
-import { REQUIRED_SIEGE_EFFECT_CUES, SiegeMissionAudio } from './audio.js';
+import { REQUIRED_SIEGE_EFFECT_CUES, SIEGE_AMBIENCE_CUES, SiegeMissionAudio } from './audio.js';
 import {
   COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS, totalAttackers,
 } from './waves.js';
@@ -103,6 +103,7 @@ const objectiveHintEl = $('objectiveHint');
 const waveCountEl = $('waveCount');
 const waveRemainingEl = $('waveRemaining');
 const waveLabelEl = $('waveLabel');
+const huntPipEl = $('huntPip');
 const checkpointEl = $('checkpoint');
 const subtitleEl = $('subtitle');
 const subtitleWhoEl = $('subtitleWho');
@@ -121,12 +122,23 @@ const helpingEl = $('helping');
 const helpingNameEl = $('helpingName');
 const helpingBarEl = $('helpingBar');
 
-/** The InteractionSystem's HUD contract: showPrompt / hidePrompt / setHold. */
+/**
+ * The InteractionSystem's HUD contract: showPrompt / hidePrompt / setHold.
+ *
+ * THE LABEL IS MARKUP, NOT TEXT. Every descriptor in this repo writes its
+ * prompt as a small fragment of HTML -- `Use <b>triage</b> &mdash; 2 dressings
+ * left` -- and `src/core/interaction.js` documents it that way at the top of
+ * the file. `src/core/hud.js` and `src/heist/hud.js` both assign it to
+ * `innerHTML`. This one assigned it to `textContent`, so the player standing at
+ * the medical case read the tag and the entity literally off his own HUD:
+ * owner, verbatim, *"Healing crate shows a bunch of underneath coding instead
+ * of it"*. It was never the crate; it was the sentence in front of it.
+ */
 const tinyHud = {
   showPrompt(label, key = 'E') {
     if (!promptEl) return;
     promptKeyEl.textContent = key;
-    promptLabelEl.textContent = label;
+    promptLabelEl.innerHTML = label;
     promptEl.classList.remove('hidden');
   },
   hidePrompt() { promptEl?.classList.add('hidden'); },
@@ -285,6 +297,10 @@ const SIEGE_COMBAT_CUES = Object.freeze([...new Set([
   'heist.gear.armor.pickup',
   'heist.bullet.whiz',
   'heist.bullet.impact',
+  /* The night bed and the off-screen battle (see ./audio.js). They decode with
+   * the combat bank rather than with the six required effects because they are
+   * atmosphere: a missing one costs a synth hum, not a missing story beat. */
+  ...SIEGE_AMBIENCE_CUES,
 ])]);
 
 /* ================================================================== */
@@ -312,9 +328,60 @@ function exteriorGroundAt(x, z) {
     ?? 0;
 }
 
+/**
+ * THE FIFTEEN CENTIMETRES THAT ATE THE CLIMB.
+ *
+ * Measured (probe over `interior.floorAt`): the horseshoe's top tread tops
+ * out at z 48.05 and the gallery's rendered slab starts at 48.20, and inside
+ * that strip the rendered-floor ray sails past both and reports the FOYER
+ * floor, 4.7 m down. The conference-to-office door threshold carries the
+ * same kind of strip at z ~63. With `snapGroundToSurface` on, one blipped
+ * probe is not a stumble, it is `position.y = ground + eyeHeight` -- a
+ * player cresting either flight was slammed to the ground floor mid-stride,
+ * walked on north UNDER the gallery, and finished his climb by falling down
+ * the open cellar stair, which is how `verify:mansion-siege`'s office leg
+ * ended at ground -2.78. Reproduced identically at ce98ccd, so these are
+ * the base house's seams, not a siege regression; the overlay may not edit
+ * `MansionInterior.js`, so the siege makes its own walk seam-tolerant.
+ *
+ * The rule: a probe that says the floor just vanished more than 1.6 m from
+ * under feet that were standing on it is asked to prove it. Four shoulder
+ * samples 22 cm out re-ask the same resolver; if any of them still stands
+ * within a step of the previous support, the player is straddling a seam
+ * and rides the far side across. If the whole neighbourhood agrees the
+ * floor is gone -- the cellar shaft, the gallery edge, a real hole -- the
+ * drop is accepted unchanged. Cost: four extra queries, only on the frame a
+ * cliff appears.
+ */
+const GROUND_SEAM_REACH = 0.22;
+const GROUND_SEAM_DROP = 1.6;
+const GROUND_SEAM_STEP = 0.9;
+let lastResolvedGround = null;
+const resolveFloor = (x, z, feetY) => interior.floorAt(x, z, feetY) ?? exteriorGroundAt(x, z);
+
 world.groundAt = (x, z) => {
   const feetY = player.position.y - player.eyeHeight;
-  return interior.floorAt(x, z, feetY) ?? exteriorGroundAt(x, z);
+  const floor = resolveFloor(x, z, feetY);
+  const previous = lastResolvedGround;
+  const suddenCliff = previous !== null && floor !== null
+    && previous - floor > GROUND_SEAM_DROP
+    && Math.abs(feetY - previous) <= GROUND_SEAM_STEP;
+  if (!suddenCliff) {
+    lastResolvedGround = floor;
+    return floor;
+  }
+  for (const [dx, dz] of [
+    [GROUND_SEAM_REACH, 0], [-GROUND_SEAM_REACH, 0],
+    [0, GROUND_SEAM_REACH], [0, -GROUND_SEAM_REACH],
+  ]) {
+    const near = resolveFloor(x + dx, z + dz, feetY);
+    if (near !== null && Math.abs(near - previous) <= GROUND_SEAM_STEP) {
+      lastResolvedGround = near;
+      return near;
+    }
+  }
+  lastResolvedGround = floor;
+  return floor;
 };
 
 /**
@@ -537,16 +604,31 @@ function presentActorImpact(resolved, impact) {
   });
 }
 
+/**
+ * The thud waits for the body. A fall is a 0.4-0.55 s crumple blend now
+ * (src/mansion/siege/fallen.js), and a body-fall sample played on the frame
+ * of the fatal hit landed half a second before the man did -- gunshot,
+ * thud, and THEN a body still folding. The delay matches the blends'
+ * midpoint-to-rest, so the impact sound arrives as the weight does.
+ */
+const BODY_FALL_DELAY = 0.45;
+
 function queueBodyFall(id, root) {
   if (!id || !root?.getWorldPosition || pendingBodyFalls.has(id)) return false;
   const position = root.getWorldPosition(new THREE.Vector3());
-  pendingBodyFalls.set(id, { position, surface: combatSurfaceAt(position) });
+  pendingBodyFalls.set(id, {
+    position, surface: combatSurfaceAt(position), delay: BODY_FALL_DELAY,
+  });
   return true;
 }
 
-function flushBodyFalls() {
-  for (const fall of pendingBodyFalls.values()) combatAudio.bodyFall(fall);
-  pendingBodyFalls.clear();
+function flushBodyFalls(dt = 0) {
+  for (const [id, fall] of pendingBodyFalls) {
+    fall.delay -= Math.max(0, Number(dt) || 0);
+    if (fall.delay > 0) continue;
+    combatAudio.bodyFall(fall);
+    pendingBodyFalls.delete(id);
+  }
 }
 
 function playerImpactBudget(impact) {
@@ -1644,6 +1726,9 @@ renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 /* when the nudge expires.                                                */
 /* ================================================================== */
 let nudgeTimer = 0;
+/* One announcement per wave when its remnant starts hunting; reset between
+ * waves so wave two's ending gets the same telegraph as wave one's. */
+let huntAnnounced = false;
 
 function nudge(text, seconds = 4) {
   if (!objectiveHintEl) return false;
@@ -1718,7 +1803,16 @@ function refreshAmmo() {
   ammoNameEl.textContent = hud.name ?? '';
   ammoMagEl.textContent = String(hud.rounds ?? 0);
   ammoReserveEl.textContent = String(hud.reserve ?? 0);
-  ammoStateEl.textContent = hud.state ?? '';
+  /* RELOAD CLARITY. This line used to print the Firearm's raw phase id --
+   * "ready", "reload-out", "reload-in" -- under the count, which is a state
+   * machine talking to itself, not a HUD talking to a player under fire. The
+   * base house's own card (src/mansion/main.js) already says it the way a
+   * player reads it, and the page's `#ammo.dry` rule was written for a class
+   * nothing here ever set. Same words, same class, one house. */
+  ammoEl.classList.toggle('dry', (hud.rounds ?? 0) === 0);
+  ammoStateEl.textContent = hud.reloading
+    ? 'RELOADING'
+    : ((hud.rounds ?? 0) === 0 ? ((hud.reserve ?? 0) === 0 ? 'NO ROUNDS' : 'EMPTY — R') : '');
 }
 
 /**
@@ -1760,6 +1854,76 @@ function refreshWaveCount() {
   waveCountEl.hidden = false;
   const left = wave.totalCount - wave.down.size;
   waveRemainingEl.textContent = String(left);
+}
+
+/* ================================================================== */
+/* THE HUNT PIP                                                          */
+/*                                                                       */
+/* Owner, playtest 2026-08-13: "four attacks left cant find them".        */
+/* mission.huntActive is the mechanical half of the answer (the remnant  */
+/* drops its standoffs and walks at the player -- src/mansion/siege/     */
+/* attackers.js) and this is the legible half: while the hunt is on, one */
+/* small amber chevron on a ring around the crosshair points at the      */
+/* nearest wave attacker still standing. Nothing else on the HUD says    */
+/* which way a man behind a wall is, and a man on the far flight is a    */
+/* direction long before he is a silhouette.                             */
+/*                                                                       */
+/* It is a DIRECTION, not a marker: no distance, no through-wall body    */
+/* outline, no minimap. Off between hunts and off the moment the wave    */
+/* clears, so the balcony fight itself is fought by eye and ear.         */
+/* ================================================================== */
+/** How the last pip reading was published; the verifier reads it too. */
+let huntPip = { active: false, id: null, bearing: null, distance: null, sector: null };
+
+function nearestStandingWaveAttacker() {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const entry of attackers.all()) {
+    if (!entry.active || entry.actor?.incapacitated || !entry.order?.wave) continue;
+    const distance = entry.root.position.distanceTo(player.position);
+    if (distance < bestDistance) { best = entry; bestDistance = distance; }
+  }
+  return best ? { entry: best, distance: bestDistance } : null;
+}
+
+function bearingSector(angle) {
+  return Math.abs(angle) <= Math.PI / 4 ? 'front'
+    : Math.abs(angle) >= Math.PI * 3 / 4 ? 'back'
+      : angle > 0 ? 'right' : 'left';
+}
+
+function updateHuntPip(huntActive) {
+  const nearest = huntActive ? nearestStandingWaveAttacker() : null;
+  const bearing = nearest ? incomingBearing(nearest.entry.root.position) : null;
+  const active = nearest !== null && Number.isFinite(bearing);
+  huntPip = active
+    ? {
+      active: true,
+      id: nearest.entry.id,
+      bearing: Number(bearing.toFixed(4)),
+      distance: Number(nearest.distance.toFixed(2)),
+      sector: bearingSector(bearing),
+    }
+    : { active: false, id: null, bearing: null, distance: null, sector: null };
+  waveCountEl?.classList.toggle('hunt', huntActive === true);
+  if (!huntPipEl) return huntPip;
+  if (!active) {
+    if (!huntPipEl.hidden) {
+      huntPipEl.classList.remove('active');
+      huntPipEl.hidden = true;
+      delete huntPipEl.dataset.bearing;
+      delete huntPipEl.dataset.sector;
+      delete huntPipEl.dataset.target;
+    }
+    return huntPip;
+  }
+  huntPipEl.hidden = false;
+  huntPipEl.classList.add('active');
+  huntPipEl.style.setProperty('--hunt-bearing', `${bearing}rad`);
+  huntPipEl.dataset.bearing = String(huntPip.bearing);
+  huntPipEl.dataset.sector = huntPip.sector;
+  huntPipEl.dataset.target = huntPip.id;
+  return huntPip;
 }
 
 /* ================================================================== */
@@ -2230,7 +2394,10 @@ function updateGame(dt) {
   holdTheLine();
   updateLightRig(dt);
   updateTriggers(dt);
-  interaction.update();
+  /* `dt` matters the day a Siege target grows a `hold`: without it the hold
+   * clock accumulates `undefined` and the bar never fills. Nothing here holds
+   * today, which is exactly why the omission was invisible. */
+  interaction.update(dt);
   suppression.update(dt);
   weaponSystem.setSuppression(suppression);
   weaponSystem.update(dt, { speed: player.velocity?.length?.() ?? 0 });
@@ -2259,6 +2426,9 @@ function updateGame(dt) {
     alarmActive: damage.activeLayers.has('alarm'),
     alarmStruck: night.alarm.struck,
     fireActive: damage.activeLayers.has('battle'),
+    /* The night bed and the off-screen battle scatter run on the mission's own
+     * clock, so a stalled tab does not fire eight distant bursts at once. */
+    dt,
   });
   dressing.update(dt);
   glass.update(dt);
@@ -2270,9 +2440,21 @@ function updateGame(dt) {
    * Snow-free list, and it is the first of the two locks keeping him out of
    * hostile targeting. The second is `userData.neverTargeted` on his own
    * root, which the pool checks before it ever reaches the faction matrix. */
+  /* "four attacks left cant find them": when the active wave is a remnant
+   * with nothing left to release, the pool converts this into men who stop
+   * holding standoffs and walk at the player -- audible feet, visible
+   * muzzles. The one-time nudge tells the player the shape has changed. */
+  const huntActive = mission.huntActive;
+  if (huntActive && !huntAnnounced) {
+    huntAnnounced = true;
+    nudge('The last of them are coming to you. Hold the rail.', 5);
+  }
+  if (!huntActive && !mission.activeWave) huntAnnounced = false;
+  updateHuntPip(huntActive);
   attackers.update(dt, {
     player: playerTarget,
     colliders,
+    hunt: huntActive,
     alive: () => ensemble.targets(),
     audio: combatAdapterAudio,
     onBark: renderCombatBark,
@@ -2317,7 +2499,7 @@ function updateGame(dt) {
     onFriendlyDown: (id) => queueBodyFall(id, ensemble.members.get(id)?.root),
   });
   updateCombatBark(dt);
-  flushBodyFalls();
+  flushBodyFalls(dt);
   grounds.update?.(dt);
   interior.update?.(dt);
 
@@ -2447,8 +2629,27 @@ window.mansionSiege = {
     subtitle: subtitleEl?.hidden ? null : subtitleTextEl?.textContent ?? null,
     counter: waveCountEl?.hidden ? null
       : `${waveRemainingEl?.textContent ?? ''} ${waveLabelEl?.textContent ?? ''}`.trim(),
+    /* The hunt pip, as published: which way the nearest remnant man is,
+     * and whether the element the player sees agrees with the reading. */
+    huntPip: {
+      ...huntPip,
+      shown: !!huntPipEl && !huntPipEl.hidden && huntPipEl.classList.contains('active'),
+      counterHunting: !!waveCountEl?.classList.contains('hunt'),
+    },
     health: combatHud.update(),
     armor: combatArmor(playerActor),
+    /* The ammunition card, as rendered: the count and the one line under it
+     * that says what the gun is doing ("RELOADING", "EMPTY — R", "NO
+     * ROUNDS"), plus the dry state the count turns orange for. */
+    ammo: ammoEl && !ammoEl.classList.contains('hidden')
+      ? {
+        name: ammoNameEl?.textContent ?? '',
+        mag: Number(ammoMagEl?.textContent ?? NaN),
+        reserve: Number(ammoReserveEl?.textContent ?? NaN),
+        state: ammoStateEl?.textContent ?? '',
+        dry: ammoEl.classList.contains('dry'),
+      }
+      : null,
     complete: missionCardEl ? !missionCardEl.classList.contains('hidden') : false,
   }),
   /** Checkpoint entry, as the ?checkpoint= URLs drive it. */
@@ -2521,6 +2722,8 @@ window.mansionSiege = {
   get playerDamageEvents() { return playerDamageEvents; },
   get pointerLockRejected() { return pointerLockRejected; },
   weaponStats: () => ({ ...weaponSystem.stats }),
+  /** The player's guns, for the verifier. Firearm stays the only ammo owner. */
+  weapons: weaponSystem,
   get playerHealth() { return playerActor.health; },
   get playerArmor() { return playerActor.armor; },
   get playerDown() { return playerActor.incapacitated; },

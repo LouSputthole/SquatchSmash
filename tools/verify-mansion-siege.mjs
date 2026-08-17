@@ -41,6 +41,10 @@ const PORT = Number(process.env.PORT) || 5231;
 const SIEGE_VALIDATION_DIR = path.join(
   ROOT, 'docs', 'validation', '2026-08-09', 'siege-refinement',
 );
+/* The 2026-08-13 playtest pass keeps its own evidence folder. */
+const SIEGE_PASS_DIR = path.join(
+  ROOT, 'docs', 'validation', '2026-08-13-siege-pass',
+);
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -1185,6 +1189,47 @@ try {
   check('and he can walk onto it from the gallery without going round anything',
     ontoStep.z <= 46.6, `z 50.4 -> ${ontoStep.z} in ${ontoStep.seconds}s`);
 
+  /* THE PROMPT RENDERS ITS MARKUP. Owner, playtest 2026-08-13: "Healing
+   * crate shows a bunch of underneath coding instead of it". It was never
+   * the crate: every interaction label in this repo is a small HTML
+   * fragment, and the siege HUD assigned it to `textContent`, so the triage
+   * case's prompt printed `Use <b>triage</b> &mdash; 2 dressings left`
+   * literally. Stand at the case, let the production interaction system
+   * publish the prompt, and read what the PLAYER reads. */
+  const triagePrompt = await evaluate(() => {
+    const s = window.mansionSiege;
+    const zone = s.dressing.props.defenceStations.zones.triage.group;
+    s.scene.updateMatrixWorld(true);
+    const at = new s.THREE.Box3().setFromObject(zone)
+      .getCenter(new s.THREE.Vector3());
+    return { x: at.x, y: at.y, z: at.z };
+  });
+  await teleport(triagePrompt.x, UPPER_Y, triagePrompt.z + 1.1, 0);
+  await evaluate(([targetY, distance]) => {
+    const s = window.mansionSiege;
+    s.player.pitch = Math.atan2(targetY - (s.player.ground + s.player.eyeHeight), distance);
+  }, [triagePrompt.y, 1.1]);
+  await settle(0.4);
+  const triageLabel = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.scene.updateMatrixWorld(true);
+    s.camera.updateMatrixWorld(true);
+    s.interaction.update(1 / 60);
+    const el = document.getElementById('promptLabel');
+    return {
+      hidden: document.getElementById('prompt').classList.contains('hidden'),
+      rendered: el?.textContent ?? null,
+      boldChildren: el?.querySelectorAll?.('b').length ?? 0,
+    };
+  });
+  check('the triage case prompt renders as a sentence, never as source markup',
+    triageLabel.hidden === false
+      && /triage/i.test(triageLabel.rendered ?? '')
+      && /dressings? left|empty/i.test(triageLabel.rendered ?? '')
+      && !/[<>]|&\w+;/.test(triageLabel.rendered ?? '')
+      && triageLabel.boldChildren > 0,
+    JSON.stringify(triageLabel));
+
   /* ---------------------------------------------------------------- */
   /* 6. The line. Once, from the step, with any chosen weapon up.       */
   /*                                                                     */
@@ -1249,9 +1294,19 @@ try {
     const failures = [];
     let firingHands = 0;
     let supportedLongGuns = 0;
+    let sightsUp = 0;
     s.scene.updateMatrixWorld(true);
     for (const holder of holders) {
       const weaponId = holder.weaponId ?? holder.plan?.weapon;
+      /* Owner, 2026-08-13: "all the main characters are holding their guns
+       * upsidedown". A catalog model's +Y is its sights/rib; a held weapon
+       * whose world up-vector points below the horizon is being carried
+       * upside down whatever else is true about the hands. */
+      const worldUp = new s.THREE.Vector3(0, 1, 0).applyQuaternion(
+        holder.gun.getWorldQuaternion(new s.THREE.Quaternion()),
+      );
+      if (worldUp.y > 0.05) sightsUp++;
+      else failures.push(`${holder.label}:${weaponId} upside down (upY ${worldUp.y.toFixed(2)})`);
       const findHand = (forearm) => {
         let hand = null;
         forearm?.traverse((object) => {
@@ -1287,16 +1342,18 @@ try {
     return {
       holders: holders.length,
       firingHands,
-      longGuns: holders.filter((holder) => longGuns.has(holder.weaponId ?? holder.plan?.weapon)).length,
       supportedLongGuns,
+      sightsUp,
+      longGuns: holders.filter((holder) => longGuns.has(holder.weaponId ?? holder.plan?.weapon)).length,
       weapons: [...new Set(holders.map((holder) => holder.weaponId ?? holder.plan?.weapon))],
       failures,
     };
   });
-  check('every visible cast gun is held at its grip and every long gun has a support hand',
+  check('every visible cast gun is held at its grip, sights up, and every long gun has a support hand',
     heldGuns.holders >= 10
       && heldGuns.firingHands === heldGuns.holders
       && heldGuns.supportedLongGuns === heldGuns.longGuns
+      && heldGuns.sightsUp === heldGuns.holders
       && heldGuns.failures.length === 0,
     JSON.stringify(heldGuns));
 
@@ -1308,7 +1365,7 @@ try {
      * put Eric's legs through the evidence frame; choosing from the actual
      * staged scene proves a gameplay moment that can really occur. */
     const protectedIds = new Set([
-      'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'aubbie',
+      'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'gratin',
     ]);
     const staged = [...s.ensemble.members.values()]
       .filter((entry) => protectedIds.has(entry.id)
@@ -1460,14 +1517,23 @@ try {
           body.left - blood.left, blood.right - body.right,
           body.top - blood.top, blood.bottom - body.bottom,
         ];
-        const exposedSides = extensions.filter((value) => value >= 0.04).length;
+        /* Solve for MORE margin than the assertion demands (0.055 here vs
+         * 0.03 asserted): the downed man is alive and WRITHES -- knee drag,
+         * wound press, a slow rock -- so the silhouette shifts a centimetre
+         * or two between choosing this camera and re-measuring the frame.
+         * A framing chosen at exactly the asserted margin fails on the
+         * wobble alone. */
+        const exposedSides = extensions.filter((value) => value >= 0.055).length;
+        const looseSides = extensions.filter((value) => value >= 0.03).length;
         if (!body.inFront || !body.fullyOnScreen
             || body.width < 0.18 || body.height < 0.12
             || !blood.inFront || !blood.fullyOnScreen || blood.width < 0.2
-            || exposedSides < 2) continue;
+            || looseSides < 2) continue;
         const centrePenalty = Math.abs((blood.left + blood.right) / 2 - 0.5)
           + Math.abs((Math.min(body.top, blood.top) + Math.max(body.bottom, blood.bottom)) / 2 - 0.5);
-        const score = overflow * 100 + centrePenalty;
+        /* A candidate without the full wobble margin is only taken when no
+         * candidate with it exists anywhere in the search space. */
+        const score = (exposedSides < 2 ? 1000 : 0) + overflow * 100 + centrePenalty;
         if (!cameraChoice || score < cameraChoice.score) cameraChoice = {
           score, x: s.player.position.x, z: s.player.position.z,
           yaw: s.player.yaw, pitch: s.player.pitch, distance,
@@ -1532,7 +1598,8 @@ try {
       helpingVisible: !!helping && !helping.hidden,
       helpingText: helping?.textContent?.replace(/\s+/g, ' ').trim() ?? null,
       screenExtensions,
-      exposedScreenSides: screenExtensions.filter((value) => value >= 0.04).length,
+      /* 0.03, not the solve's 0.055: the gap is the writhe's wobble room. */
+      exposedScreenSides: screenExtensions.filter((value) => value >= 0.03).length,
       bodyScreen,
       bloodScreen,
       frame: s.framesRendered,
@@ -1592,7 +1659,11 @@ try {
       && downedCast.bloodPools === 1
       && downedCast.bloodOwner === downedCast.selectedId
       && downedCast.bloodOpacity >= 0.7
-      && downedCast.bloodScale >= 2.1
+      /* 1.7 pins the AUTHORED 1.8 m pool. The old 2.1 was written against a
+       * 2.2 m pool that 79c5a75 deliberately re-tuned down ("a wet perimeter
+       * outside the silhouette without a room-sized red field" -- see
+       * ensemble.js spillFor); the threshold just never followed it. */
+      && downedCast.bloodScale >= 1.7
       && downedCast.bloodRoughness <= 0.3
       && downedCast.bloodEmissiveRed >= 0.55
       && downedCast.bloodOverlapsBody
@@ -1965,6 +2036,168 @@ try {
     headshot.marks >= 1 && headshot.pools === 1 && headshot.confirm === 'headshot',
     JSON.stringify(headshot));
 
+  /* ---------------------------------------------------------------- */
+  /* THE DEAD LIE ON THE FLOOR, NOT A FOOT ABOVE IT                       */
+  /*                                                                     */
+  /* Owner, playtest 2026-08-13: "the attackers when they die float like  */
+  /* a foot above the ground". Measured then: the lowest rendered point   */
+  /* was on the floor -- one hand -- and the body was a plank propped on  */
+  /* it, head 0.35 m up, a leg 0.37. src/mansion/siege/fallen.js lays the  */
+  /* siege dead flat; this kills one man through the real adapter, lets   */
+  /* the crumple blend land, and measures every major part of the corpse  */
+  /* against the floor he died on, on RENDERED meshes only.               */
+  /* ---------------------------------------------------------------- */
+  const corpse = await evaluate(async (targetId) => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const s = window.mansionSiege;
+    /* Held on the window until the rendered evidence frame below is taken;
+     * the second evaluate restores them. */
+    window.__siegeCorpseProbe = {
+      snapshot: s.attackers.snapshot(),
+      waveSnapshot: s.mission.waves.one.snapshot(),
+      ensembleSnapshot: s.ensemble.snapshot(),
+      playerAt: s.player.position.toArray(),
+      yaw: s.player.yaw,
+      pitch: s.player.pitch,
+    };
+    const target = s.attackers.entry(targetId);
+    s.blood.reset();
+    try {
+      for (const entry of s.attackers.all()) {
+        entry.active = entry === target;
+        entry.root.visible = entry === target;
+      }
+      for (const member of s.ensemble.members.values()) {
+        member.staged = false;
+        member.weapon?.setTrigger?.(false);
+      }
+      target.figure.stand();
+      target.root.userData.down = false;
+      target.actor.health = target.actor.maxHealth;
+      target.actor.armor = 0;
+      target.actor.incapacitated = false;
+      /* x 10: open forecourt (see the wall-perception check) -- a body lying
+       * at the foot of the treads on the centre line disappears behind the
+       * first riser from any camera on the drive. */
+      target.root.position.set(10, 0, 33);
+      target.floorY = 0;
+      target.figure.baseY = 0;
+      target.path.length = 0;
+      target.goal.copy(target.root.position);
+      target.sinceThink = -10;
+      target.root.updateMatrixWorld(true);
+      const standingHead = new THREE.Box3().setFromObject(target.figure.parts.head).min.y;
+      for (let i = 0; i < 20 && !target.actor.incapacitated; i++) {
+        s.attackers.registerHit(target.figure.parts.body, 60, 0.35);
+      }
+      const downAtOnce = target.actor.incapacitated === true;
+      /* Let the fall land: the blend is 0.45-0.55 s, then a settle. */
+      s.tick(1.4);
+      target.root.updateMatrixWorld(true);
+      const floor = target.figure.baseY;
+      const parts = {};
+      for (const key of ['head', 'body', 'armL', 'armR', 'foreL', 'foreR', 'legL', 'legR', 'shinL', 'shinR']) {
+        const part = target.figure.parts[key];
+        if (!part) continue;
+        /* Rendered meshes only -- the hidden catalog gun in the hand is not
+         * part of the silhouette and must not decide where the floor is. */
+        let minY = Infinity;
+        let maxY = -Infinity;
+        part.traverse((node) => {
+          if (!node.isMesh) return;
+          let shown = true;
+          for (let n = node; n && n !== target.root; n = n.parent) if (n.visible === false) { shown = false; break; }
+          if (!shown) return;
+          const box = new THREE.Box3().setFromObject(node);
+          if (!Number.isFinite(box.min.y)) return;
+          minY = Math.min(minY, box.min.y);
+          maxY = Math.max(maxY, box.max.y);
+        });
+        if (Number.isFinite(minY)) parts[key] = { low: +(minY - floor).toFixed(3), high: +(maxY - floor).toFixed(3) };
+      }
+      let lowest = Infinity;
+      let highest = -Infinity;
+      target.root.traverse((node) => {
+        if (!node.isMesh) return;
+        let shown = true;
+        for (let n = node; n && n !== target.root; n = n.parent) if (n.visible === false) { shown = false; break; }
+        if (!shown) return;
+        const box = new THREE.Box3().setFromObject(node);
+        if (!Number.isFinite(box.min.y)) return;
+        lowest = Math.min(lowest, box.min.y);
+        highest = Math.max(highest, box.max.y);
+      });
+      return {
+        id: targetId,
+        downAtOnce,
+        pose: target.figure.pose,
+        down: target.root.userData.down === true,
+        floor,
+        /* Where his feet were: the floor the corpse settles on must be the
+         * floor he was standing on, not the staging zone he was built at. */
+        rootY: +target.root.position.y.toFixed(3),
+        standingHeadAbove: +(standingHead - floor).toFixed(3),
+        lowestAbove: +(lowest - floor).toFixed(3),
+        highestAbove: +(highest - floor).toFixed(3),
+        parts,
+        blending: !!target.figure._poseFrom,
+        frame: s.framesRendered,
+      };
+    } finally {
+      /* Frame the body for the evidence shot: three metres off, looking
+       * down at the marble he is lying on. Rendering stays on until the
+       * screenshot below has been taken. */
+      s.teleport(11.0, 0, 30.2, 180);
+      s.player.pitch = -0.46;
+      s.player.update(1 / 60);
+      s.setRendering(true);
+    }
+  }, combatIds[0]);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForFunction(
+    (before) => window.mansionSiege.framesRendered >= before + 2,
+    corpse.frame,
+    { timeout: 180000 },
+  );
+  const corpsePath = path.join(SIEGE_PASS_DIR, 'corpse-flat-on-floor.png');
+  fs.mkdirSync(SIEGE_PASS_DIR, { recursive: true });
+  await page.screenshot({ path: corpsePath, animations: 'disabled', timeout: 300000 });
+  await page.setViewportSize({ width: 480, height: 300 });
+  await evaluate(() => {
+    const s = window.mansionSiege;
+    s.setRendering(false);
+    const held = window.__siegeCorpseProbe;
+    delete window.__siegeCorpseProbe;
+    s.attackers.restore(held.snapshot);
+    s.mission.waves.one.restore(held.waveSnapshot);
+    s.ensemble.restore(held.ensembleSnapshot);
+    s.blood.reset();
+    s.player.position.fromArray(held.playerAt);
+    s.player.yaw = held.yaw;
+    s.player.pitch = held.pitch;
+    s.player.update(1 / 60);
+  });
+  const corpseParts = Object.entries(corpse.parts ?? {});
+  const corpseHighestPart = corpseParts.reduce((worst, [key, part]) => (
+    part.low > (worst?.low ?? -Infinity) ? { key, ...part } : worst
+  ), null);
+  check('a dead attacker lies ON his floor: lowest rendered point on it, the whole body within a body\'s depth of it',
+    corpse.downAtOnce && corpse.down && corpse.pose === 'fallen' && !corpse.blending
+      && Math.abs(corpse.floor - corpse.rootY) <= 0.05
+      && Math.abs(corpse.lowestAbove) <= 0.03
+      /* A man lying flat is a body-depth tall, not a man-height. Standing his
+       * head sat 1.5 m up; fallen, nothing on him clears 0.55 m. */
+      && corpse.highestAbove <= 0.55
+      && corpse.standingHeadAbove > 1.2
+      /* And no part is propped: every major part touches down within a
+       * quarter of a metre -- the old plank had a head at 0.35 and a leg at
+       * 0.37 off the marble. */
+      && corpseParts.length >= 8
+      && corpseParts.every(([, part]) => part.low <= 0.25)
+      && corpse.parts.body && corpse.parts.body.low <= 0.12,
+    JSON.stringify({ ...corpse, highestPart: corpseHighestPart }));
+  check('the corpse evidence is a rendered frame', fs.statSync(corpsePath).size > 10_000, corpsePath);
+
   /* Exercise the two remaining confirmation branches through that same real
    * impact adapter. A light armored chest hit must remain nonfatal and blue;
    * a later unarmored fatal BODY hit must say kill, never headshot. */
@@ -2151,17 +2384,23 @@ try {
     const snapshot = s.attackers.snapshot();
     const originalRandom = Math.random;
     const shooter = s.attackers.entry(targetId);
+    /* East of the centre line on purpose. The lane at x 0 stands the player
+     * INSIDE the fountain basin's collider (a 7.2 m box on (0, 27)) and the
+     * resolver shoved him out to x ~5.8 before the first probe frame -- at
+     * which point the eye line missed the staged wall entirely and the check
+     * measured a shooter with a clean line while claiming he was blocked.
+     * x 10 is open forecourt: no basin, no burning wreck, no lamp posts. */
     const wall = new THREE.Box3(
-      new THREE.Vector3(-2, 0, 30.6),
-      new THREE.Vector3(2, 3.4, 31.4),
+      new THREE.Vector3(8, 0, 30.6),
+      new THREE.Vector3(12, 3.4, 31.4),
     );
     try {
       for (const entry of s.attackers.all()) {
         entry.active = entry === shooter;
         entry.root.visible = entry === shooter;
       }
-      s.teleport(0, 0, 29, 180);
-      shooter.root.position.set(0, 0, 33);
+      s.teleport(10, 0, 29, 180);
+      shooter.root.position.set(10, 0, 33);
       shooter.floorY = 0;
       shooter.figure.baseY = 0;
       shooter.path.length = 0;
@@ -2200,6 +2439,13 @@ try {
         blocked: shooter.blocked,
       };
       context.colliders.length = 0;
+      /* Re-stage the facing the blocked phase started with. While blind he
+       * held and drifted his yaw toward the house (his idle aim goal), which
+       * put the player squarely BEHIND his 180-degree FOV -- and a scan
+       * cannot acquire what it is not allowed to see. The contract under
+       * test is acquire -> turn -> settle -> one aimed shot, so the clear
+       * phase begins from the same off-target-but-in-FOV attitude. */
+      shooter.root.rotation.y = Math.PI * 0.6;
       shooter.sinceThink = 1;
       for (let i = 0; i < 360 && !shooter.lastShot; i++) {
         s.attackers.update(1 / 60, context);
@@ -2601,6 +2847,53 @@ try {
   check('and the hit confirmation clears after its brief feedback window',
     confirmCleared.hitConfirm === false,
     JSON.stringify(confirmCleared));
+
+  /* ---------------------------------------------------------------- */
+  /* RELOAD CLARITY. The line under the count used to print the Firearm's  */
+  /* raw phase id ("ready", "reload-out", "reload-in"). Under fire it has  */
+  /* to say what the player needs: RELOADING while the magazine is out,    */
+  /* nothing when the gun is ready, EMPTY -- R when the mag runs dry with  */
+  /* rounds still in reserve, and the count turns orange on dry. Driven by */
+  /* the real R key and the real trigger on the gun he is holding.         */
+  /* ---------------------------------------------------------------- */
+  const reloadClarity = await evaluate(() => {
+    const s = window.mansionSiege;
+    const firearm = s.weapons.firearm(s.equipped);
+    const before = s.hud().ammo;
+    /* Take a round out so a reload has something to do, then the real key. */
+    if (firearm.rounds === firearm.capacity) firearm.rounds -= 1;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyR', bubbles: true }));
+    s.tick(0.05);
+    const during = { ...s.hud().ammo, reloading: firearm.reloading, state: s.hud().ammo?.state };
+    s.tick(firearm.def.reloadOut + firearm.def.reloadIn + 0.5);
+    const after = { ...s.hud().ammo, reloading: firearm.reloading, rounds: firearm.rounds };
+    /* Now dry: run the magazine down and pull the trigger on nothing. */
+    const reserveBefore = firearm.reserve;
+    firearm.rounds = 0;
+    s.weapons.triggerPress();
+    s.tick(0.05);
+    const empty = { ...s.hud().ammo, rounds: firearm.rounds, reserve: firearm.reserve };
+    /* And put it back the way the combat probes left it. */
+    firearm.reload();
+    s.tick(firearm.def.reloadOut + firearm.def.reloadIn + 0.5);
+    const restored = { ...s.hud().ammo, rounds: firearm.rounds };
+    return { before, during, after, empty, restored, reserveBefore, capacity: firearm.capacity };
+  });
+  check('the ammunition card says RELOADING while the magazine is out, and nothing once it is back',
+    reloadClarity.during.reloading === true && reloadClarity.during.state === 'RELOADING'
+      && reloadClarity.after.reloading === false && reloadClarity.after.state === ''
+      && reloadClarity.after.mag === reloadClarity.after.rounds
+      && reloadClarity.after.rounds === reloadClarity.capacity,
+    JSON.stringify({ during: reloadClarity.during, after: reloadClarity.after }));
+  check('and a dry magazine reads EMPTY \u2014 R with the count gone orange, never a raw phase id',
+    reloadClarity.empty.mag === 0 && reloadClarity.empty.dry === true
+      && reloadClarity.empty.state === 'EMPTY \u2014 R'
+      && reloadClarity.empty.reserve > 0
+      && reloadClarity.restored.dry === false && reloadClarity.restored.state === ''
+      && !/^(ready|reload-out|reload-in)$/.test(reloadClarity.during.state)
+      && !/^(ready|reload-out|reload-in)$/.test(reloadClarity.empty.state),
+    JSON.stringify({ empty: reloadClarity.empty, restored: reloadClarity.restored }));
 
   const readExpandedStoryState = () => evaluate(() => {
     const s = window.mansionSiege;
@@ -3822,6 +4115,172 @@ try {
   });
   check('the second group comes on the clock even if nothing has been shot',
     secondGroup.released.length === 2, secondGroup.released.join('+'));
+
+  /* ---------------------------------------------------------------- */
+  /* 7a. THE REMNANT HUNTS, AND THE HUD SAYS WHICH WAY                    */
+  /*                                                                     */
+  /* Owner, playtest 2026-08-13: "four attacks left cant find them".      */
+  /* Both groups are released and nobody has died. Kill all but the two   */
+  /* FARTHEST men through the real adapter -- the shape of the complaint  */
+  /* is "the ones I could see are dead and the ones I cannot are still    */
+  /* out there" -- and the wave is a remnant with nothing left to         */
+  /* release: `mission.huntActive` flips, every survivor is flagged        */
+  /* `hunting`, the counter changes state, and the amber pip on the ring   */
+  /* round the crosshair points at the nearest of them. Then twelve        */
+  /* seconds of clock, family staged out so nobody but the geometry        */
+  /* decides it, and the survivors must be CLOSER -- the whole point.      */
+  /* ---------------------------------------------------------------- */
+  const hunt = await evaluate(() => {
+    const s = window.mansionSiege;
+    const wave = s.mission.waves.one;
+    const player = s.player.position;
+    const entries = [...wave.standing]
+      .map((id) => s.attackers.entry(id))
+      .filter((entry) => entry && entry.active && !entry.actor.incapacitated)
+      .sort((a, b) => b.root.position.distanceTo(player) - a.root.position.distanceTo(player));
+    const before = { hunt: s.mission.huntActive, pip: s.hud().huntPip, standing: wave.standing.size };
+    const survivors = entries.slice(0, 2);
+    for (const entry of entries.slice(2)) {
+      for (let i = 0; i < 20 && !entry.actor.incapacitated; i++) {
+        s.attackers.registerHit(entry.figure.parts.body, 60, 0.35);
+      }
+    }
+    const ensembleSnapshot = s.ensemble.snapshot();
+    for (const member of s.ensemble.members.values()) {
+      member.staged = false;
+      member.weapon?.setTrigger?.(false);
+    }
+    try {
+      s.tick(0.2);
+      const started = {
+        hunt: s.mission.huntActive,
+        standing: wave.standing.size,
+        pending: wave.pendingGroups.length,
+        pip: s.hud().huntPip,
+        hunting: survivors.map((entry) => entry.hunting === true),
+        counter: s.hud().counter,
+      };
+      /* An independent reading of the bearing the pip should show. */
+      const nearest = survivors.slice()
+        .sort((a, b) => a.root.position.distanceTo(player) - b.root.position.distanceTo(player))[0];
+      const dx = nearest.root.position.x - player.x;
+      const dz = nearest.root.position.z - player.z;
+      const right = dx * Math.cos(s.player.yaw) - dz * Math.sin(s.player.yaw);
+      const forward = -dx * Math.sin(s.player.yaw) - dz * Math.cos(s.player.yaw);
+      const expectedBearing = Math.atan2(right, forward);
+      const pipEl = document.getElementById('huntPip');
+      const pipStyle = pipEl ? getComputedStyle(pipEl) : null;
+      const pipRect = pipEl?.getBoundingClientRect() ?? null;
+      const distancesAtStart = survivors.map((entry) => +entry.root.position.distanceTo(player).toFixed(2));
+      /* Twelve seconds of hunt. Half-second bites so a man who arrives is
+       * still measured on the way, not only where he ends. */
+      let closestSeen = Math.min(...distancesAtStart);
+      let closestPip = Infinity;
+      let pipAlways = true;
+      for (let t = 0; t < 12; t += 0.5) {
+        s.tick(0.5);
+        const pip = s.hud().huntPip;
+        if (!pip.shown && s.mission.huntActive) pipAlways = false;
+        if (Number.isFinite(pip.distance)) closestPip = Math.min(closestPip, pip.distance);
+        for (const entry of survivors) {
+          if (entry.actor.incapacitated) continue;
+          closestSeen = Math.min(closestSeen, entry.root.position.distanceTo(player));
+        }
+      }
+      const distancesAtEnd = survivors.map((entry) => entry.actor.incapacitated
+        ? 0 : +entry.root.position.distanceTo(player).toFixed(2));
+      return {
+        before,
+        started,
+        expectedBearing: +expectedBearing.toFixed(4),
+        pipVisible: !!pipEl && !pipEl.hidden && pipStyle?.display !== 'none' && Number(pipStyle?.opacity) > 0.2,
+        pipRect: pipRect
+          ? { x: +pipRect.x.toFixed(1), y: +pipRect.y.toFixed(1), w: +pipRect.width.toFixed(1), h: +pipRect.height.toFixed(1) }
+          : null,
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        survivors: survivors.map((entry) => ({
+          id: entry.id, role: entry.role.id, tactic: entry.plan.tactic, climbs: entry.plan.climbs,
+        })),
+        distancesAtStart,
+        distancesAtEnd,
+        closestSeen: +closestSeen.toFixed(2),
+        closestPip: Number.isFinite(closestPip) ? +closestPip.toFixed(2) : null,
+        pipAlways,
+        huntAfter: s.mission.huntActive,
+        pipAfter: s.hud().huntPip,
+      };
+    } finally {
+      s.ensemble.restore(ensembleSnapshot);
+    }
+  });
+  const pipOffCentre = hunt.pipRect
+    ? Math.hypot(
+      hunt.pipRect.x + hunt.pipRect.w / 2 - hunt.viewport.w / 2,
+      hunt.pipRect.y + hunt.pipRect.h / 2 - hunt.viewport.h / 2,
+    )
+    : null;
+  check('a wave down to its last two with nothing left to release is a HUNT',
+    hunt.before.hunt === false && hunt.started.hunt === true
+      && hunt.started.standing === 2 && hunt.started.pending === 0
+      && hunt.started.hunting.every(Boolean),
+    JSON.stringify({ before: hunt.before.hunt, started: hunt.started }));
+  check('the hunt pip comes up on the crosshair ring pointing at the nearest remnant man',
+    hunt.before.pip.active === false && hunt.started.pip.active === true
+      && hunt.started.pip.shown === true && hunt.pipVisible
+      && Math.abs(hunt.started.pip.bearing - hunt.expectedBearing) < 0.05
+      && hunt.pipRect && hunt.pipRect.w > 4 && hunt.pipRect.h > 4
+      /* On the ring: near the viewport centre, and not ON the crosshair. */
+      && pipOffCentre !== null && pipOffCentre < 160 && pipOffCentre > 60,
+    JSON.stringify({
+      pip: hunt.started.pip, expected: hunt.expectedBearing, rect: hunt.pipRect,
+      offCentre: pipOffCentre === null ? null : +pipOffCentre.toFixed(1), visible: hunt.pipVisible,
+    }));
+  check('and the attacker counter changes state while the remnant hunts',
+    hunt.started.pip.counterHunting === true && /ATTACKERS/.test(hunt.started.counter ?? ''),
+    String(hunt.started.counter));
+  /* Closer by at least four metres, or already at the rail (six metres is
+   * the "problem at the rail" line the wave check above uses): a man who was
+   * twenty metres out must have come in, and the pip's own nearest reading
+   * must have shrunk with him. */
+  const arrived = (end, start) => end <= 6 || end < start - 4;
+  check('the last men come to the player instead of holding their standoffs',
+    hunt.pipAlways && hunt.distancesAtEnd.every((d, i) => arrived(d, hunt.distancesAtStart[i]))
+      && hunt.closestPip !== null && arrived(hunt.closestPip, Math.min(...hunt.distancesAtStart)),
+    JSON.stringify({
+      start: hunt.distancesAtStart, end: hunt.distancesAtEnd, closestPip: hunt.closestPip,
+      survivors: hunt.survivors, pipAlways: hunt.pipAlways,
+    }));
+
+  /* The pip, rendered: face the player away from the nearest man so the
+   * chevron sits off the crosshair where a screenshot can show it doing its
+   * one job. Evidence for the human, pinned as a non-trivial frame. */
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const huntFrame = await evaluate(() => {
+    const s = window.mansionSiege;
+    const pip = s.hud().huntPip;
+    if (pip.active && Number.isFinite(pip.bearing)) {
+      /* Turn so he is about 110 degrees off the right shoulder. */
+      s.player.yaw -= pip.bearing - (Math.PI * 110) / 180;
+      s.player.update(1 / 60);
+    }
+    s.setRendering(true);
+    s.tick(0.1);
+    return { frame: s.framesRendered, pip: s.hud().huntPip };
+  });
+  await page.waitForFunction(
+    (before) => window.mansionSiege.framesRendered >= before + 2,
+    huntFrame.frame,
+    { timeout: 180000 },
+  );
+  const huntPipPath = path.join(SIEGE_PASS_DIR, 'hunt-pip-remnant.png');
+  fs.mkdirSync(SIEGE_PASS_DIR, { recursive: true });
+  await page.screenshot({ path: huntPipPath, animations: 'disabled', timeout: 300000 });
+  await evaluate(() => window.mansionSiege.setRendering(false));
+  await page.setViewportSize({ width: 480, height: 300 });
+  check('the hunt pip evidence is a rendered frame with the pip off-centre on it',
+    fs.statSync(huntPipPath).size > 10_000 && huntFrame.pip.shown === true
+      && Math.abs(huntFrame.pip.bearing) > 0.6,
+    `${huntPipPath} ${JSON.stringify(huntFrame.pip)}`);
 
   const cleared = await evaluate(() => {
     const s = window.mansionSiege;

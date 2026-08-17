@@ -12,8 +12,13 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = '/home/user/SquatchSmash/.claude/worktrees/agent-a325b4c6ab07f4978';
+/* Serve the checkout this file lives in. It used to be a hardcoded absolute
+ * path into one agent's worktree on one machine, so `npm run probe:siege`
+ * 404'd everywhere else. */
+const ROOT = process.env.PROBE_ROOT
+  || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5931;
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -39,24 +44,45 @@ const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
-  args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
+  /* The same ANGLE-over-SwiftShader path the verifier uses: direct
+   * SwiftShader intermittently fails the first instanced MeshDepthMaterial
+   * link in this shadow-heavy scene. */
+  args: [
+    '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
+    '--autoplay-policy=no-user-gesture-required',
+  ],
 });
 const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
 page.on('pageerror', (e) => console.log('PAGE ERROR', e.message));
 page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text().slice(0, 200)); });
 
+/* Simulated seconds are not wall seconds (docs/ENGINE-TRAPS.md #2): under
+ * swiftshader with other verifiers running, the boot takes what it takes.
+ * Every wait here is a predicate the page publishes with a budget that only
+ * changes how long a genuine failure takes to report. */
+const SIM_WAIT = 240000;
+page.setDefaultTimeout(SIM_WAIT);
+
 try {
-  await page.goto(`http://localhost:${PORT}/mansion-siege.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.mansionSiege?.scene, null, { timeout: 90000 });
+  await page.goto(`http://localhost:${PORT}/mansion-siege.html?preview=1`, { waitUntil: 'load', timeout: SIM_WAIT });
+  await page.waitForFunction(() => window.mansionSiege?.scene, null, { timeout: SIM_WAIT });
+  await page.waitForFunction(() => window.mansionSiege.framesRendered > 3, null, { timeout: SIM_WAIT });
   await page.evaluate(() => window.mansionSiege.setRendering(false));
-  await page.click('#startBtn');
-  await page.waitForFunction(() => window.mansionSiege.running, null, { timeout: 20000 });
+  await page.evaluate(() => window.mansionSiege.start());
+  await page.waitForFunction(() => window.mansionSiege.running === true, null, { timeout: SIM_WAIT });
   await page.evaluate(() => window.mansionSiege.tick(2.4));
 
   const CADENCE = Number(process.env.KILL_EVERY) || 2.5;
-  const report = await page.evaluate(async (cadence) => {
+  /* LOS=1: the player only shoots men he can SEE from the rail -- an eye line
+   * unblocked by the house's colliders. That is the owner's playtest ("four
+   * attacks left cant find them"): whoever holds a standoff out of sight of
+   * the balcony stays alive until he comes in, so this mode measures whether
+   * the remnant actually comes to the player and how long it takes. */
+  const LOS = process.env.LOS === '1';
+  const report = await page.evaluate(async ({ cadence, los }) => {
     const s = window.mansionSiege;
     const nav = await import('/src/mansion/siege/nav.js');
+    const { segmentBlocked } = await import('/src/mansion/siege/attackers.js');
     s.setInvulnerable(true);
     /* Straight to the top of the stairs: armed, briefed, on the step. The
      * route up is verify-mansion-siege.mjs's job; this is about the fight. */
@@ -104,6 +130,8 @@ try {
         alive: rows.length,
         onLanding,
         nearest: near,
+        hunt: s.mission.huntActive,
+        visible: rows.filter((r) => canSee(s.attackers.entry(r.id))).length,
         rooms: rows.reduce((acc, r) => { acc[r.room] = (acc[r.room] ?? 0) + 1; return acc; }, {}),
       });
       return rows;
@@ -116,8 +144,17 @@ try {
     let shotClock = 0;
     const kills = [];
     const eye = { x: player.x, y: player.y, z: player.z };
+    const eyeV = new s.THREE.Vector3(eye.x, eye.y, eye.z);
+    const chestV = new s.THREE.Vector3();
+    const canSee = (e) => {
+      if (!los) return true;
+      chestV.copy(e.root.position);
+      chestV.y += 1.3;
+      return !segmentBlocked(eyeV, chestV, s.colliders);
+    };
     function shoot() {
-      const live = s.attackers.all().filter((e) => e.active && !e.actor.incapacitated);
+      const live = s.attackers.all()
+        .filter((e) => e.active && !e.actor.incapacitated && canSee(e));
       if (!live.length) return;
       live.sort((a, b) => (
         Math.hypot(a.root.position.x - eye.x, a.root.position.y - eye.y, a.root.position.z - eye.z)
@@ -174,13 +211,13 @@ try {
           acc[r] = (acc[r] ?? 0) + 1; return acc;
         }, {}),
     };
-  }, CADENCE);
+  }, { cadence: CADENCE, los: LOS });
 
-  console.log('kill cadence: one man every', report.cadence, 's');
+  console.log('kill cadence: one man every', report.cadence, 's', LOS ? '(line of sight only)' : '(through walls)');
   console.log('player at', report.playerAt, 'line said:', report.said, 'beat', report.beat);
   console.log('\n-- where they are, every five seconds --');
   for (const s of report.samples) {
-    console.log(`${s.label.padEnd(9)} alive ${String(s.alive).padStart(2)}  landing ${String(s.onLanding).padStart(2)}  nearest ${String(s.nearest ?? '-').padStart(5)}m  ${JSON.stringify(s.rooms)}`);
+    console.log(`${s.label.padEnd(9)} alive ${String(s.alive).padStart(2)}  seen ${String(s.visible).padStart(2)}  landing ${String(s.onLanding).padStart(2)}  nearest ${String(s.nearest ?? '-').padStart(5)}m ${s.hunt ? 'HUNT' : '    '} ${JSON.stringify(s.rooms)}`);
   }
   console.log('\nbeats:', report.beats.map((b) => `${b.beat}@${b.at}s`).join(' > '));
   console.log('total clock:', report.elapsed, 's; kills:', report.kills.length);

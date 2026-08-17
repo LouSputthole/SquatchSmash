@@ -200,6 +200,12 @@ const M_PAPER = mat({ color: 0xd8d1b9, roughness: 0.96 });
 const M_MARKER_RED = mat({ color: 0x8e2523, roughness: 0.9 });
 const M_MARKER_BLUE = mat({ color: 0x274f78, roughness: 0.9 });
 const M_MEDICAL = mat({ color: 0xe4e1d8, roughness: 0.96 });
+/* The foyer centre table's arrangement, spilled. The same colours the base
+ * house grows them in -- MansionInterior's foyer blooms -- so the wreck is
+ * recognisably the corpse of the thing the tour stands here. All opaque. */
+const M_BLOOM = mat({ color: 0xf4efe2, roughness: 0.8 });
+const M_BLOOM_GOLD = mat({ color: 0xe0b448, roughness: 0.7 });
+const M_LEAF = mat({ color: 0x2c5f37, roughness: 0.95 });
 
 /* Fire is the one place a material gets mutated per frame, so every flame and
  * every puff gets its OWN material (`unique: true`). build.js shares materials
@@ -927,8 +933,10 @@ export function buildSiegeDressing({
   /*       CENTREPIECE_RADIUS of the anchor and above the floor inlay. If the  */
   /*       overview replaces the table with a fountain, a plinth or a statue,   */
   /*       this suppresses that instead and nothing here needs editing.         */
-  /*   (b) builds its own rubble on the anchor: fragments, dust, a PARTIAL      */
-  /*       cover volume (1.05 m -- crouch cover, not a wall) and impact marks.  */
+  /*   (b) builds the wreck OF THAT OBJECT on the anchor -- the tipped top,    */
+  /*       sheared pedestal, spilled urn and blooms, all opaque -- plus a       */
+  /*       PARTIAL cover volume (1.05 m: crouch cover, not a wall) and impact   */
+  /*       marks. See the block below for the "ghost bubble" playtest note.     */
   /* ================================================================== */
   const centrepiece = { suppressed: [], colliderTaken: false, fragments: null };
   {
@@ -977,12 +985,75 @@ export function buildSiegeDressing({
       layers: ['battle'],
     });
 
-    /* (b) The wreckage. */
+    /* (b) The wreckage -- and it is the wreckage OF THE TABLE THE TOUR
+     * STANDS HERE, not anonymous rubble. Owner, playtest 2026-08-13: *"main
+     * centerpiece in foyer is just like a ghost bubble not sure what thats
+     * supposed to look like"* -- what he was looking at was the old dust
+     * ellipsoid: three metres of translucent haze hanging at chest height
+     * over fragments too small to read, the biggest and brightest thing on
+     * the anchor. The base house stands a round gilded centre table here
+     * (marble top, wooden pedestal, gold urn, a dome of blooms), so the
+     * wreck is now that object knocked over: the marble top tipped against
+     * the sheared pedestal, the urn on its side, the arrangement spilled
+     * across the inlay. Every material is opaque; the only dust left is a
+     * knee-high skirt over the debris, where dust actually settles. */
     const g = group('siege.centrepiece.wreck');
-    /* The base of whatever it was, sheared off and still standing. */
+    /* The pedestal's marble base, still seated on the inlay. */
     g.add(named(cylinder({
-      rTop: 0.44, rBottom: 0.62, h: 0.5, pos: [a.x, GY + 0.25, a.z], mat: M_MARBLE_BROKEN,
+      rTop: 0.62, rBottom: 0.78, h: 0.12, pos: [a.x, GY + 0.06, a.z], mat: M_MARBLE_BROKEN,
+    }), 'siege.centrepiece.base'));
+    /* The wooden column, sheared off at the knee... */
+    g.add(named(cylinder({
+      rTop: 0.3, rBottom: 0.42, h: 0.34, pos: [a.x, GY + 0.29, a.z], mat: M_WOOD_SPLIT,
     }), 'siege.centrepiece.stump'));
+    /* ...with the rest of it thrown down beside the base. */
+    g.add(named(cylinder({
+      rTop: 0.28, rBottom: 0.3, h: 0.42,
+      pos: [a.x + 0.62, GY + 0.16, a.z - 0.72], mat: M_WOOD_SPLIT,
+      rotZ: Math.PI / 2 - 0.12, rotY: 0.5,
+    }), 'siege.centrepiece.column'));
+    /* THE TABLETOP: the 2.7 m marble disc slid off and tipped, one rim on
+     * the floor, the other resting across the pedestal's base. It stays
+     * inside the crouch-cover line and (near enough) the cover collider's
+     * footprint. This is the piece that names the wreck -- one look says
+     * "that was the table". */
+    g.add(named(cylinder({
+      r: 1.35, h: 0.09, pos: [a.x + 0.15, GY + 0.3, a.z + 0.55],
+      mat: M_MARBLE_BROKEN, rotZ: 0.26, rotY: 0.3, seg: 28,
+    }), 'siege.centrepiece.top'));
+    /* The urn, on its side where it rolled, mouth toward the door. */
+    g.add(named(cylinder({
+      rTop: 0.34, rBottom: 0.2, h: 0.44,
+      pos: [a.x - 1.02, GY + 0.28, a.z - 0.58], mat: M_BRASS,
+      rotZ: Math.PI / 2 - 0.08, rotY: 0.35,
+    }), 'siege.centrepiece.urn'));
+    /* The arrangement, spilled out of it: blooms in an arc from the mouth,
+     * a few leaves. Deterministic golden-angle scatter, same as it grew. */
+    for (let i = 0; i < 12; i++) {
+      const ang = 3.6 + i * 2.399963;
+      const dist = 0.35 + (i % 5) * 0.22;
+      g.add(named(sphere({
+        r: 0.055 + (i % 3) * 0.012,
+        pos: [
+          a.x - 1.02 - 0.35 - Math.abs(Math.cos(ang)) * dist * 0.8,
+          GY + 0.07,
+          a.z - 0.58 + Math.sin(ang) * dist,
+        ],
+        mat: i % 6 === 0 ? M_BLOOM_GOLD : M_BLOOM,
+        cast: false,
+      }), `siege.centrepiece.bloom.${i}`));
+    }
+    for (let i = 0; i < 4; i++) {
+      const ang = 1.1 + i * 1.7;
+      g.add(box({
+        name: `siege.centrepiece.leaf.${i}`,
+        size: [0.035, 0.012, 0.2],
+        pos: [a.x - 1.3 - Math.cos(ang) * 0.4, GY + 0.045, a.z - 0.4 + Math.sin(ang) * 0.5],
+        mat: M_LEAF,
+        rotY: ang,
+        cast: false,
+      }));
+    }
     /* Fragments, thrown out on a ring. Deterministic angles, so a screenshot
      * of this hall is the same screenshot every time. */
     const FRAG = [
@@ -1018,11 +1089,11 @@ export function buildSiegeDressing({
         cast: false,
       }));
     }
-    /* Dust still hanging over it -- the only smoke in the house that sits low,
-     * and it is 1.4 m of translucent haze over rubble rather than a layer you
-     * have to see an enemy through. Opacity is a fifth of the cap. */
+    /* Dust where dust settles: a knee-high skirt over the debris, under the
+     * tabletop line. The old version of this was a 3 m translucent ellipsoid
+     * at chest height -- the "ghost bubble" itself. */
     const dust = named(sphere({
-      r: 1.5, ry: 0.55, rz: 1.5, pos: [a.x, GY + 0.9, a.z], mat: M_DUST, cast: false, receive: false,
+      r: 1.9, ry: 0.2, rz: 1.9, pos: [a.x, GY + 0.22, a.z], mat: M_DUST, cast: false, receive: false,
     }), 'siege.centrepiece.dust');
     g.add(dust);
     /* Debris ring on the marble. */
@@ -1163,7 +1234,7 @@ export function buildSiegeDressing({
   /* 4a. DEFENCE OPERATIONS                                               */
   /*                                                                       */
   /* The ensemble already performs four jobs -- Lou works the command desk, */
-  /* Shubenator runs a radio, Aubbie treats a guard and everybody reloads -- */
+  /* Shubenator runs a radio, Gratin treats a guard and everybody reloads -- */
   /* but the baseline frame gave them no physical equipment to work. These  */
   /* are the props those existing authored performances require, not new     */
   /* story. They are low/profile wall-or-table dressing, add no collider and */
@@ -1258,7 +1329,7 @@ export function buildSiegeDressing({
   });
 
   defenceStation('triage', 'triage', { x: 3.85, y: UY, z: 50.65 }, (g) => {
-    /* Aubbie's open field case on the east gallery flank, beside his authored
+    /* Gratin's open field case on the east gallery flank, beside his authored
      * position and outside the firing step. It used to occupy the exact floor
      * footprint of the +3.4 gallery plant. */
     g.add(box({
@@ -1978,7 +2049,7 @@ export function buildSiegeDressing({
 
     /* -- The ammunition point, at the bay's north-west shoulder. ---------
      * Two crates, one open with belts hanging out of it, one closed and used
-     * as a table. It is the thing Aubbie has been handing magazines out of. */
+     * as a table. It is the thing Gratin has been handing magazines out of. */
     const ammo = group('siege.step.ammo');
     ammo.add(box({
       name: 'siege.step.ammo.crate.low',

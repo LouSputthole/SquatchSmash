@@ -67,6 +67,26 @@ test('every speaker resolves to a voice profile the manifest actually has', () =
   }
 });
 
+test('no dead character speaks in the siege', () => {
+  /* Owner, playtest 2026-08-13: "Voice lines from Aubbie in the siege? he
+   * should be dead." He is -- SILENT SQUATCH executes him eight hours before
+   * the siege -- and so are Willy (NO WAKE) and Billy HotDog. None of the
+   * three may own a speaker slot, a voice profile or a line here. */
+  const DEAD = ['aubbie', 'willy', 'billy', 'hotdog'];
+  for (const id of DEAD) {
+    assert.ok(!(id in SIEGE_VOICES), `${id} has a siege speaker slot`);
+    assert.ok(!Object.values(SIEGE_VOICES).includes(id), `${id} is cast as a siege voice`);
+  }
+  for (const line of allSiegeLines()) {
+    for (const id of DEAD) {
+      assert.ok(!String(line.speaker).toLowerCase().includes(id),
+        `${line.name} is spoken by the dead ${id}`);
+      assert.ok(!String(line.voice).toLowerCase().includes(id),
+        `${line.name} uses the dead ${id}'s voice`);
+    }
+  }
+});
+
 test('the two Lous stay two men', () => {
   /* Big Uncle Lou Sputthole is lou1; Captain Lou Sasole is lou2. Different
    * performer, different photograph, different beat. `ensemble.js` carries

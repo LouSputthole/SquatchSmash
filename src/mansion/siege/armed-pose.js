@@ -12,52 +12,83 @@
  */
 import * as THREE from 'three';
 
+/**
+ * WHICH WAY UP A MOUNTED GUN GOES.
+ *
+ * Owner, playtest 2026-08-13: *"all the main characters are holding their guns
+ * upsidedown"*. Measured, and he is right about all of them: before this
+ * change every visible weapon in the house had a world up-vector between
+ * -0.42 (long guns) and -0.99 (pistols).
+ *
+ * `RX` alone -- a -90 degree turn about X -- lays the model's bore (local -Z,
+ * the convention `src/core/weapons/models.js` states at the top) down the
+ * forearm's own -Y, which is right, and takes the model's UP (local +Y: the
+ * rib, the sights, the top strap) round to the forearm's -Z, which is not.
+ * With the arm raised into any aiming pose the forearm's -Z points at the
+ * floor, so the sights did too and the grip stood up out of the fist.
+ *
+ * `RZ` is the missing half: 180 degrees about the model's own bore, applied
+ * BEFORE the X turn, so the barrel direction is untouched and only the roll
+ * changes. Model +Y now lands on the forearm's +Z, which is the back of the
+ * hand -- sights up, grip in the palm.
+ *
+ * Rolling the model over also mirrors its X, so a support point authored at
+ * local x = -0.02 would now sit on the other side of the fore-end. Those x
+ * values are lateral bias on hands that were solved against the old frame, so
+ * they are negated here to keep each support hand on the side of the gun it
+ * was tuned for. Every grip is on x = 0 and is unaffected.
+ */
 const RX = -Math.PI / 2;
+const RZ = Math.PI;
+const MOUNT_ROTATION = Object.freeze([RX, 0, RZ]);
 
 export const SIEGE_WEAPON_MOUNTS = Object.freeze({
   revolver: Object.freeze({
     scale: 0.85,
-    rotation: Object.freeze([RX, 0, 0]),
+    rotation: MOUNT_ROTATION,
     grip: Object.freeze([0, -0.0153926682, 0.0662709406]),
     support: null,
   }),
   shotgun: Object.freeze({
     scale: 0.80,
-    rotation: Object.freeze([RX, 0, 0]),
+    rotation: MOUNT_ROTATION,
     grip: Object.freeze([0, -0.05, 0.09]),
     support: Object.freeze([0, -0.002, -0.31]),
   }),
   pistol9: Object.freeze({
     scale: 0.85,
-    rotation: Object.freeze([RX, 0, 0]),
+    rotation: MOUNT_ROTATION,
     grip: Object.freeze([0, -0.0377123373, 0.0557002539]),
     support: null,
   }),
   carbine: Object.freeze({
     scale: 0.85,
-    rotation: Object.freeze([RX, 0, 0]),
+    rotation: MOUNT_ROTATION,
     grip: Object.freeze([0, -0.0818282691, 0.0815725017]),
-    support: Object.freeze([-0.02, -0.01, 0.04]),
+    support: Object.freeze([0.02, -0.01, 0.04]),
   }),
   saw: Object.freeze({
     scale: 0.80,
-    rotation: Object.freeze([RX, 0, 0]),
+    rotation: MOUNT_ROTATION,
     grip: Object.freeze([0, -0.0638515066, 0.0783417901]),
-    support: Object.freeze([-0.03, 0.025, 0.05]),
+    support: Object.freeze([0.03, 0.025, 0.05]),
   }),
   barrett: Object.freeze({
     scale: 0.72,
-    rotation: Object.freeze([RX, 0, 0]),
+    rotation: MOUNT_ROTATION,
     grip: Object.freeze([0, -0.1005384285, 0.1830228086]),
-    support: Object.freeze([-0.02, 0.03, 0.10]),
+    support: Object.freeze([0.02, 0.03, 0.10]),
   }),
   ak47: Object.freeze({
     scale: 0.85,
-    rotation: Object.freeze([RX, 0, 0]),
+    rotation: MOUNT_ROTATION,
     grip: Object.freeze([0, -0.0756661815, 0.0777549423]),
-    support: Object.freeze([-0.02, 0.012, 0.05]),
+    support: Object.freeze([0.02, 0.012, 0.05]),
   }),
 });
+
+/** The mount's roll, for the two live-aim adapters that re-set it by hand. */
+export const SIEGE_WEAPON_MOUNT_ROLL = RZ;
 
 const _grip = new THREE.Vector3();
 const _target = new THREE.Vector3();

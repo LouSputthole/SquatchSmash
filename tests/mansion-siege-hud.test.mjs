@@ -34,3 +34,43 @@ test('combat acceptance publishes durable screenshot and exact audio-routing evi
   assert.match(verifier, /requestedCue:\s*'weapon\.carbine\.fire'/);
   assert.match(verifier, /legacyFallback:\s*fallbackAfter\.weaponPlayback\.includes/);
 });
+
+test('the hunt pip rides the crosshair ring, quieter than the damage wedge, and the verifier pins it', () => {
+  /* Owner, playtest 2026-08-13: "four attacks left cant find them". The
+   * remnant hunts (mission.huntActive) and this chevron says which way. It
+   * is a direction on the ring round the crosshair, not a marker: centred
+   * on the viewport, rotated by the same relative-bearing convention as
+   * the shared damage wedge, and deliberately less loud than that wedge
+   * (0.92 active) so a threat pip never reads as a hit. */
+  const pip = cssRule('#huntPip');
+  assert.match(pip, /position:\s*fixed/);
+  assert.match(pip, /left:\s*50%/);
+  assert.match(pip, /top:\s*50%/);
+  assert.match(pip, /rotate\(var\(--hunt-bearing\)\)/);
+  assert.match(pip, /translateY\(-\d+px\)/, 'the pip sits out on a ring, not on the crosshair');
+  assert.match(pip, /pointer-events:\s*none/);
+  const active = cssRule('#huntPip.active');
+  const opacity = Number(active.match(/opacity:\s*([\d.]+)/)?.[1]);
+  assert.ok(opacity > 0.3 && opacity <= 0.8, `hunt pip active opacity ${opacity} should be visible but quieter than the 0.92 damage wedge`);
+  assert.match(pip, /drop-shadow/, 'the chevron needs a dark halo to read over the chandelier');
+  assert.match(html, /<div id="huntPip" hidden aria-hidden="true"><\/div>/);
+  assert.match(cssRule('#waveCount.hunt'), /border-color/, 'the counter changes state while the remnant hunts');
+  assert.match(verifier, /'hunt-pip-remnant\.png'/);
+  assert.match(verifier, /huntPip/, 'the verifier reads the pip the player sees');
+});
+
+test('the ammunition card speaks to the player, not the state machine', () => {
+  /* The line under the count is RELOADING / EMPTY -- R / NO ROUNDS, and the
+   * page's own `#ammo.dry` rule finally has a class that sets it. Same
+   * words as the base house's card in src/mansion/main.js. */
+  const main = fs.readFileSync(new URL('../src/mansion/siege/main.js', import.meta.url), 'utf8');
+  assert.match(main, /ammoEl\.classList\.toggle\('dry'/);
+  assert.match(main, /'RELOADING'/);
+  assert.match(main, /'EMPTY — R'/);
+  assert.match(main, /'NO ROUNDS'/);
+  assert.doesNotMatch(main, /ammoStateEl\.textContent = hud\.state/,
+    'the raw Firearm phase id must not be the thing under the count');
+  assert.match(cssRule('#ammo.dry #ammoMag'), /color/);
+  assert.match(verifier, /'RELOADING'/);
+  assert.match(verifier, /'EMPTY \\u2014 R'/, 'the verifier pins the dry line');
+});

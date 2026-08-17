@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+const WORLD_UP = new THREE.Vector3(0, 1, 0);
+const ORIGIN = new THREE.Vector3(0, 0, 0);
+
 const DEFAULTS = Object.freeze({
   turnRate: 6,
   pitchRate: 8,
@@ -50,9 +53,15 @@ export class CombatWeaponAim {
     this._bore = new THREE.Vector3();
     this._aim = new THREE.Vector3();
     this._localAim = new THREE.Vector3();
+    this._localUp = new THREE.Vector3();
+    this._origin = new THREE.Vector3();
+    this._basis = new THREE.Matrix4();
     this._worldQuaternion = new THREE.Quaternion();
     this._parentInverse = new THREE.Quaternion();
     this._targetQuaternion = new THREE.Quaternion();
+    /* The roll-stable basis in `_boreTarget` is built for the catalog's own
+     * -Z bore convention; an exotic bore keeps the plain shortest arc. */
+    this._rollFree = Math.abs(this.localBore.z + 1) < 1e-6;
     this.reset();
   }
 
@@ -141,6 +150,48 @@ export class CombatWeaponAim {
     };
   }
 
+  /**
+   * WHICH WAY UP THE GUN IS, AND WHY IT USED TO BE THE WRONG ONE.
+   *
+   * Owner, playtest 2026-08-13, verbatim: *"all the main characters are holding
+   * their guns upsidedown"*. Measured on the real siege before this change:
+   * thirteen of the fifteen weapons in the house had a world up-vector of
+   * -0.42 (the long guns) to -0.99 (the pistols). Sights down, grip up, on
+   * everybody.
+   *
+   * `setFromUnitVectors(localBore, localAim)` was the whole of it. It returns
+   * the SHORTEST ARC from one direction to another, which pins the bore
+   * exactly and leaves the roll to fall out of the arithmetic -- and the
+   * shortest arc from a model's -Z to an arm's -Y is a -90 degree turn about
+   * X, which lands the model's +Y (its rib, its sights, its ejection port) on
+   * the arm's -Z. That points at the floor for every pose an aiming man holds.
+   *
+   * Aiming does not have one fewer degree of freedom than the model does. A
+   * bore direction plus an UP reference is a complete frame, so this builds
+   * one: `Matrix4.lookAt` gives a basis whose -Z is the aim and whose +Y is as
+   * close to world up as that aim allows. The bore is identical to what the old
+   * line produced -- `boreError` and every alignment/fire contract are
+   * untouched -- and the roll is now a decision rather than a remainder.
+   *
+   * SHARED. Every scene that mounts `CombatWeaponAim` gets this: the Mansion
+   * Siege's hostiles and its friendly ensemble, and the Cartel Palace's
+   * security.
+   */
+  _boreTarget(out, localAim) {
+    if (!this._rollFree) return out.setFromUnitVectors(this.localBore, localAim);
+    /* World up, expressed in the weapon's parent frame -- `_parentInverse` is
+     * already the inverse of the parent's world rotation. */
+    this._localUp.copy(WORLD_UP).applyQuaternion(this._parentInverse);
+    if (Math.abs(this._localUp.dot(localAim)) > 0.999) {
+      /* Straight up or straight down the barrel: no usable up reference, so
+       * keep the minimal arc rather than let lookAt pick one at random. */
+      return out.setFromUnitVectors(this.localBore, localAim);
+    }
+    this._origin.copy(localAim);
+    this._basis.lookAt(ORIGIN, this._origin, this._localUp);
+    return out.setFromRotationMatrix(this._basis);
+  }
+
   _steerAndSample(root, weaponModel, targetPoint, dt, interrupted) {
     const muzzle = weaponModel?.userData?.muzzle;
     if (!muzzle?.isVector3 || !weaponModel?.getWorldQuaternion) return null;
@@ -154,7 +205,7 @@ export class CombatWeaponAim {
       weaponModel.parent.getWorldQuaternion(this._parentInverse).invert();
       this._localAim.copy(this._aim).normalize()
         .applyQuaternion(this._parentInverse).normalize();
-      this._targetQuaternion.setFromUnitVectors(this.localBore, this._localAim);
+      this._boreTarget(this._targetQuaternion, this._localAim);
       weaponModel.quaternion.slerp(
         this._targetQuaternion,
         1 - Math.exp(-dt * this.boreRate),

@@ -1842,17 +1842,21 @@ export const APPEARANCES = Object.freeze([
     evidence: 'model: () => withFace(ERIC, FACES.erican),',
   }),
   row({
-    character: CHARACTER_IDS.AUBBIE,
-    name: 'Aubbie',
+    character: CHARACTER_IDS.GRATIN,
+    name: 'Gratin',
     scene: 'mansion_siege',
     where: 'down beside the wounded guard with both hands on him',
-    model: AUBBIE,
-    from: { wardrobe: 'AUBBIE' },
+    model: GRATIN,
+    from: { wardrobe: 'GRATIN' },
     module: 'src/mansion/siege/ensemble.js',
-    evidence: 'model: () => AUBBIE,',
-    /* No face here even though the rest of the ensemble gets one, because
-     * `aubbie.png` has not landed. The authored head is the fallback and it
-     * is a legitimate look, not a placeholder. */
+    evidence: 'model: () => withFace(GRATIN, FACES.gratin),',
+    /* This post was Aubbie's until the 2026-08-13 playtest: "Voice lines
+     * from Aubbie in the siege? he should be dead." He is -- PROJECT SILENT
+     * SQUATCH ends with the "Eliminate Aubbie" objective eight hours before
+     * the siege starts -- so Gratin, who has no death anywhere in the
+     * campaign, inherits the magazines and the wounded guard.
+     * tests/mansion-siege-people.test.mjs holds the door on the dead by
+     * name. */
   }),
   row({
     character: CHARACTER_IDS.IRISH,

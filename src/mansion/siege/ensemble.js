@@ -3,7 +3,7 @@
  *
  * From the brief, PART V: *"Everyone still alive is armed. This is the shot
  * that says the whole family is in it."* Sixteen people in the fight --
- * twelve of the Family, three of Lou's security, and the wounded man Aubbie
+ * twelve of the Family, three of Lou's security, and the wounded man Gratin
  * is working on -- plus Captain Lou Sasole, who is not in the building until
  * the shooting stops, because his whole job in this mission is what happens
  * next. Seventeen bodies, six rooms.
@@ -93,18 +93,30 @@ import { playWeaponCue } from '../../core/weapons/audio.js';
 import { buildWeaponModel } from '../../core/weapons/models.js';
 import { DeathBloodPool } from '../../world/blood.js';
 import {
-  AUBBIE, BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
-  HOG_MAMA, IRISH, MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
+  BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
+  GRATIN, HOG_MAMA, IRISH, MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../../core/wardrobe.js';
 /* WILLY is deliberately not imported. He held the office door in an earlier
  * version of this file and he cannot: NO WAKE is Day 3, the mansion arc is
  * after it, and NO WAKE is the mission where Lou has him executed in the
  * cabin of a boat. The wardrobe entry stays -- he is still a character, in
- * the scenes that come before the one he dies in. */
+ * the scenes that come before the one he dies in.
+ *
+ * AUBBIE is not imported for the same reason, found by the owner on the
+ * 2026-08-13 playtest: *"Voice lines from Aubbie in the siege? he should be
+ * dead."* He is -- PROJECT SILENT SQUATCH ends with Booski's "Eliminate
+ * Aubbie" objective on Day 5 at 8:10 PM, and this siege starts eight hours
+ * later. GRATIN inherits his post: an established Family member with a landed
+ * face photograph (`src/mansion/cast.js` already runs him in the
+ * interrogation area) who has no death anywhere in the campaign. A test in
+ * tests/mansion-siege-people.test.mjs holds the door for all three dead men
+ * by name. */
 import { HeistFigure } from '../../heist/people.js';
 import {
+  SIEGE_WEAPON_MOUNT_ROLL,
   mountSiegeWeapon, syncSiegeWeaponPose, trackSiegeWeaponSupport,
 } from './armed-pose.js';
+import { blendSiegeFall, siegeFallenPose, updateSiegeDownedWrithe } from './fallen.js';
 
 const ENSEMBLE_COMBAT_SPACE = new AabbCombatSpace();
 const ENSEMBLE_AIM_TOLERANCE = 0.14;
@@ -247,7 +259,7 @@ export const HOUSE_BOUNDS = Object.freeze({
 /* Only photographs that have landed -- assets/faces/index.json is the    */
 /* ledger and every path below is in it. A path to a photo that has not   */
 /* landed is a 404 in the console and `npm run verify:mansion` fails on   */
-/* exactly that. Snow, Aubbie, Numbskull and the security keep the      */
+/* exactly that. Snow and Numbskull and the security keep the           */
 /* authored heads they already have in `src/mansion/cast.js`; they are    */
 /* not being redressed by this pass.                                     */
 /* ================================================================== */
@@ -263,6 +275,7 @@ const FACES = Object.freeze({
   erican: 'assets/faces/erican.png',
   shubes: 'assets/faces/shubes.png',
   hogmama: 'assets/faces/hogmama.png',
+  gratin: 'assets/faces/gratin.png',
 });
 
 /* `makePerson`'s `face` builds an <img>, so a figure with a photograph on it
@@ -287,11 +300,11 @@ const withFace = (model, face) => (CAN_PAINT_FACES && face ? { ...model, face } 
 /* casualty. Nothing was added to `src/core/combat/` to make this work.    */
 /*                                                                        */
 /* THE GUARDS ARE NOT ON THE LIST, deliberately. Somebody has to be able   */
-/* to die tonight or the fight has no stakes, and Aubbie is already        */
+/* to die tonight or the fight has no stakes, and Gratin is already        */
 /* written as working on a wounded one.                                    */
 /* ================================================================== */
 export const SURVIVES_THE_SIEGE = Object.freeze([
-  'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'aubbie',
+  'lou', 'booski', 'rippinflow', 'snow', 'shubenator', 'eric', 'gratin',
   'irish', 'deathmegatron', 'numbskull', 'hogmama',
   'captain_lou_sasole',
 ]);
@@ -310,7 +323,7 @@ const ARMS = Object.freeze({
   snow: 'pistol9',
   shubenator: 'carbine',
   eric: 'ak47',
-  aubbie: 'pistol9',
+  gratin: 'pistol9',
   irish: 'ak47',
   deathmegatron: 'saw',
   numbskull: 'ak47',
@@ -563,14 +576,16 @@ const ROSTER = Object.freeze([
     }),
   }),
 
-  /* ---- Aubbie, magazines and the wounded guard -------------------------
-   * The brief gives him both jobs at once and they are two different poses,
-   * so his routine alternates them: down on one knee with both hands on the
-   * guard, then up, handing a magazine to whoever is nearest the rail. */
+  /* ---- Gratin, magazines and the wounded guard -------------------------
+   * Aubbie's old post; see the import note on why Aubbie cannot be in this
+   * house. The brief gives the job both tasks at once and they are two
+   * different poses, so the routine alternates them: down on one knee with
+   * both hands on the guard, then up, handing a magazine to whoever is
+   * nearest the rail. */
   Object.freeze({
-    id: 'aubbie',
-    name: 'Aubbie',
-    model: () => AUBBIE,
+    id: 'gratin',
+    name: 'Gratin',
+    model: () => withFace(GRATIN, FACES.gratin),
     routine: Object.freeze(['tend', 'passMag', 'tend', 'reload']),
     posts: Object.freeze({
       TO_OFFICE: P(3.4, 65.2, 4.2, 65),
@@ -742,7 +757,7 @@ const ROSTER = Object.freeze([
 
   /* ---- the wounded man --------------------------------------------------
    * Not a prop. He is a `CombatActor` at `severe`, on the floor, and he is
-   * the reason Aubbie has something to do with his hands. He does not fire,
+   * the reason Gratin has something to do with his hands. He does not fire,
    * he is not on the survival list, and if the fight reaches him he dies. */
   Object.freeze({
     id: 'guard_wounded',
@@ -818,19 +833,30 @@ function poseFor(figure, pose, gun = null) {
       const resolvedFloor = figure.root.userData?.siegeSupportY?.();
       figure.baseY = Number.isFinite(resolvedFloor)
         ? resolvedFloor : figure.root.position.y + FINISHED_FLOOR_TOP;
-      figure.fallen({ roll: -0.5 });
-      /* The generic fallen pose throws this arm back beneath the torso from
-       * the gallery approach. Fold it a little farther out and down so the
-       * elbow/hand remain attached to the shoulder but form a readable limb
-       * around the body instead of a fully buried duplicate silhouette. */
-      figure.parts.armL.rotation.set(-2.5, 0, -1.18);
-      figure.parts.foreL.rotation.set(-0.85, 0, 0);
-      /* Eric's near leg used to lie directly under the far thigh and shin in
-       * the evidence view. Splay only his left leg: it remains a supported
-       * fallen pose, but the limb now owns a distinct silhouette. */
-      if (figure.root.userData?.memberId === 'eric') {
+      /* Flat on the boards, not fallen()'s propped incline -- see ./fallen.js
+       * on "float like a foot above the ground". The member id picks the limb
+       * variation so two downed names differ. */
+      const memberId = String(figure.root.userData?.memberId ?? '');
+      const variant = [...memberId].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+      siegeFallenPose(figure, { roll: -0.5, variant });
+      /* Eric is the worklamp evidence tableau and his whole silhouette is
+       * authored by hand against that camera -- every limb, the head and the
+       * torso must catch a first-hit ray from the balcony side, his screen
+       * box must clear the live guard's, and the blood/body ratio is pinned.
+       * He keeps the legacy propped attitude that composition was built on (a
+       * living casualty half-turned toward the light); the anonymous dead lie
+       * flat. */
+      if (memberId === 'eric') {
+        figure.tilt.rotation.set(Math.PI / 2 - 0.12, 0, -0.5);
+        p.head.rotation.set(0.3, 0.4, 0);
+        p.armL.rotation.set(-2.5, 0, -1.18);
+        p.foreL.rotation.set(-0.85, 0, 0);
+        p.armR.rotation.set(-1.9, 0, 0.7);
+        p.foreR.rotation.set(0, 0, 0);
         p.legL.rotation.set(-0.45, 0, -0.42);
         p.shinL.rotation.set(0.72, 0, 0);
+        p.legR.rotation.set(0.2, 0, 0);
+        p.shinR.rotation.set(0, 0, 0);
       }
       figure._settle();
     } finally {
@@ -1312,6 +1338,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
         member.root.visible = true;
         member.businessKey = null;
         member.businessLeft = 0;
+        /* Re-posing a body that is already on the floor is a snap, so any
+         * in-flight crumple is cancelled and the writhe base recaptures. */
+        member.figure._poseFrom = null;
+        if (member.writhe) member.writhe.base = null;
         poseFor(member.figure, 'down', member.gun);
         continue;
       }
@@ -1633,8 +1663,14 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
         member.downed = true;
         member.downSeconds = 0;
         member.actor.setInjury('severe');
-        poseFor(member.figure, 'down', member.gun);
-        spillFor(member);
+        /* A real crumple, not a hard cut -- see ./fallen.js. The blood is
+         * spilled INSIDE the apply so its centre is measured on the posed
+         * body, then the rig rewinds and falls onto its own stain. */
+        blendSiegeFall(member.figure, () => {
+          poseFor(member.figure, 'down', member.gun);
+          spillFor(member);
+        }, { duration: 0.55 });
+        member.writhe = { headLift: 1 };
         bark(member, 'downed');
         ctx.onFriendlyDown?.(member.id);
       }
@@ -1649,8 +1685,24 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
         if (member.businessClock <= 0) {
           member.businessClock = 11 + (member.downSeconds % 3);
           bark(member, 'downed');
+          /* He lifts his head off the boards to shout it. */
+          if (member.writhe) member.writhe.headLift = 1;
         }
         member.figure.update(step, { fear: 0.8 });
+        /* And he never lies still: wound pressed, knee dragging, a slow rock
+         * on the slump side. See ./fallen.js. Eric's silhouette is pinned by
+         * the worklamp evidence contract, so his writhe stays above the
+         * waist -- the composition holds while the man still reads alive. */
+        member.writhe ??= {};
+        /* Eric's silhouette is pinned by the worklamp evidence contract, and
+         * his propped legacy pose GROUNDS ON the reaching right hand -- the
+         * press would float him. He keeps the head lift only. */
+        const pinnedSilhouette = member.id === 'eric';
+        updateSiegeDownedWrithe(member.figure, member.writhe, member.downSeconds, step, {
+          legs: !pinnedSilhouette,
+          rock: !pinnedSilhouette,
+          press: !pinnedSilhouette,
+        });
         continue;
       }
 
@@ -1659,8 +1711,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
          * `guardsDown` for its checkpoint and a double count is a
          * checkpoint that restores the wrong number of bodies. */
         if (member.figure.pose !== 'fallen') {
-          poseFor(member.figure, 'down', member.gun);
-          spillFor(member);
+          blendSiegeFall(member.figure, () => {
+            poseFor(member.figure, 'down', member.gun);
+            spillFor(member);
+          }, { duration: 0.45 });
           if (!member.reportedDown) {
             member.reportedDown = true;
             bark(member, 'hit');
@@ -1802,7 +1856,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
             }
           }
           if (member.gun && (!aim.hasTarget || aim.interrupted)) {
-            member.gun.rotation.set(-Math.PI / 2 - aim.pitch * 0.2, 0, 0);
+            /* The mount roll, not zero -- see armed-pose.js. */
+            member.gun.rotation.set(
+              -Math.PI / 2 - aim.pitch * 0.2, 0, SIEGE_WEAPON_MOUNT_ROLL,
+            );
           }
         },
       });
@@ -1998,6 +2055,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
       member.downed = record.downed === true;
       member.downSeconds = Number(record.downSeconds) || 0;
       member.revivedCount = Math.max(0, Math.round(record.revivedCount ?? 0));
+      /* A restore snaps -- the fall happened before the checkpoint -- so any
+       * in-flight crumple is cancelled and the writhe base recaptures. */
+      member.figure._poseFrom = null;
+      member.writhe = member.downed ? {} : null;
       if (member.actor.incapacitated || member.downed) {
         poseFor(member.figure, 'down', member.gun);
         spillFor(member);
@@ -2042,7 +2103,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
      *
      * The distinction that matters at the end of this mission is ALIVE vs
      * DEAD, not standing vs prone: the twelve names in `SURVIVES_THE_SIEGE`
-     * go DOWN and stay revivable, and a man Aubbie is working on is a man who
+     * go DOWN and stay revivable, and a man Gratin is working on is a man who
      * made it. So `alive` counts everyone not incapacitated, `up` counts the
      * ones on their feet, and the card can say both without either being a
      * lie about the other.
@@ -2115,6 +2176,10 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
       member.actor.armor = 0;
       member.actor.setInjury('moderate');
       member.reportedDown = false;
+      /* Cancel any in-flight crumple and the writhe base: he is being stood
+       * up by hand, and a live blend would drag him back to the floor. */
+      member.figure._poseFrom = null;
+      member.writhe = null;
       poseFor(member.figure, 'stand', member.gun);
       /* The stain is evidence, not a status light. Leave it on the floor but
        * mark this member's lease inactive so his own later fall may recycle

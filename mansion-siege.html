@@ -217,6 +217,40 @@
   }
   #waveCount[hidden] { display: none; }
   #waveCount b { color: #ff8a72; font-size: 19px; }
+  /* The remnant is HUNTING: the counter changes state so the number reads
+   * as "the last of them are on their way", not the same red digit. */
+  #waveCount.hunt { border-color: rgba(255, 196, 96, .55); }
+  #waveCount.hunt b { color: #ffc460; }
+
+  /* ---------------- The hunt pip ----------------
+   * Owner, playtest 2026-08-13: "four attacks left cant find them". When the
+   * active wave is down to its remnant and every group has released, the
+   * last men drop their standoffs and come to the player -- and this small
+   * amber chevron sits on a ring around the crosshair pointing at the
+   * nearest of them, so a man closing from behind a wall is a direction
+   * before he is a silhouette. It is deliberately quieter than the red
+   * damage wedge (src/core/combat/hud.css) it borrows its geometry from:
+   * half the opacity, no fill under the point, a slow breath instead of a
+   * flash. Driven from JS: `--hunt-bearing` is relative radians, zero
+   * ahead, +PI/2 right, the same convention as `--combat-damage-bearing`. */
+  #huntPip {
+    --hunt-bearing: 0rad;
+    position: fixed; z-index: 6; left: 50%; top: 50%;
+    width: 18px; height: 26px; pointer-events: none; opacity: 0;
+    background: linear-gradient(180deg, rgba(255, 214, 140, .96), rgba(255, 176, 64, .22));
+    clip-path: polygon(50% 0, 100% 78%, 50% 60%, 0 78%);
+    /* A dark halo so the chevron still reads over the chandelier. */
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, .9));
+    transform: translate(-50%, -50%) rotate(var(--hunt-bearing)) translateY(-118px);
+    transform-origin: 50% 50%;
+    transition: opacity .35s ease;
+  }
+  #huntPip.active { opacity: .74; animation: huntPipBreath 1.8s ease-in-out infinite; }
+  #huntPip[hidden] { display: none; }
+  @keyframes huntPipBreath {
+    0%, 100% { opacity: .6; }
+    50% { opacity: .88; }
+  }
 
   #checkpoint {
     position: fixed; bottom: 168px; left: 50%; transform: translateX(-50%);
@@ -292,6 +326,7 @@
   </div>
 
   <div id="waveCount" hidden><b id="waveRemaining">0</b> <span id="waveLabel">ATTACKERS</span></div>
+  <div id="huntPip" hidden aria-hidden="true"></div>
 
   <div id="subtitle" hidden>
     <span id="subtitleWho"></span>
