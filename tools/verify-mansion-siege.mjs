@@ -3777,10 +3777,25 @@ try {
         candidate.root.visible = candidate === entry;
       }
       for (const member of s.ensemble.members.values()) member.staged = false;
-      s.teleport(0, 0, 29, 0);
+      /* Ten metres east of the file's usual (0, z) staging, and the only
+       * probe that needs to be: this is the one check that reads an
+       * individual PELLET, so the line between the two men has to be empty
+       * marble. The usual spot is not -- the fountain stands at (0, 27) and
+       * its apron reaches 6 m, so (0, 29) is 2 m from the centre, inside the
+       * apron AND inside the 1.6 m basin. That never mattered while the
+       * 0.40 m apron was a wall the player was simply ejected from; with
+       * step-over (STEP_HEIGHT 0.40, backlog #22) the apron became a kerb he
+       * CLIMBS, so he settled on top of it at y=0.4, 4.3 m off centre, and
+       * the basin ate the shot -- pellet blocked at 2.07 m, twice running.
+       * Measured alternatives: (10, 29) settles at ground 0 with no drift
+       * and nothing in the four-metre corridor; the fountain is 10.2 m away.
+       * The geometry under test (4 m apart, shooter facing south) is
+       * unchanged. */
+      const PROBE_X = 10;
+      s.teleport(PROBE_X, 0, 29, 0);
       s.playerActor.health = s.playerActor.maxHealth;
       s.playerActor.incapacitated = false;
-      entry.root.position.set(0, 0, 33);
+      entry.root.position.set(PROBE_X, 0, 33);
       entry.root.rotation.y = Math.PI;
       entry.floorY = 0;
       entry.figure.baseY = 0;
@@ -4172,12 +4187,24 @@ try {
       const pipStyle = pipEl ? getComputedStyle(pipEl) : null;
       const pipRect = pipEl?.getBoundingClientRect() ?? null;
       const distancesAtStart = survivors.map((entry) => +entry.root.position.distanceTo(player).toFixed(2));
-      /* Twelve seconds of hunt. Half-second bites so a man who arrives is
-       * still measured on the way, not only where he ends. */
+      /* Thirty seconds of hunt. Half-second bites so a man who arrives is
+       * still measured on the way, not only where he ends.
+       *
+       * Was twelve, which was long enough only for the fast tactics. The two
+       * survivors are the two men FURTHEST from the player, so which pair is
+       * measured changes from run to run, and when the draw included a
+       * `flank` or a man starting nearer, twelve seconds cut him off while he
+       * was still walking: measured 9.09 -> 6.36 m, closing the whole time,
+       * about 0.36 m short of the six-metre arm and short of the
+       * `start - 4` arm only because he began closer. That read as "held his
+       * standoff" when the trace says the opposite. At thirty he arrives with
+       * room to spare (10.04 -> 5.32). The assertion below is unchanged --
+       * this is the window it is observed through, not the bar it has to
+       * clear. */
       let closestSeen = Math.min(...distancesAtStart);
       let closestPip = Infinity;
       let pipAlways = true;
-      for (let t = 0; t < 12; t += 0.5) {
+      for (let t = 0; t < 30; t += 0.5) {
         s.tick(0.5);
         const pip = s.hud().huntPip;
         if (!pip.shown && s.mission.huntActive) pipAlways = false;

@@ -39,6 +39,7 @@ import { Player } from '../../core/player.js';
 import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
 import { PostFX } from '../../core/postfx.js';
+import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
 import { translateKey } from '../../core/settings.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
@@ -148,9 +149,16 @@ const tinyHud = {
 /* ================================================================== */
 /* Renderer                                                              */
 /* ================================================================== */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+/* Wave F (#19, #20) reached every scene but this one -- the siege was on its
+ * own branch at the time. Same 1.5 cap it always had, now with the adaptive
+ * ladder under it and the discrete adapter asked for by name. This is the
+ * heaviest scene in the game (a burning house, two waves and the whole
+ * armoury), so it is the one that most needs to be able to climb down.
+ * `attachPixelRatio`'s default onChange fires a resize, which is already
+ * what re-sizes PostFX below, so the composer follows the ratio down. */
+attachPixelRatio(renderer);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
