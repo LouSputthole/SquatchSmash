@@ -51,6 +51,14 @@ function moduleIIFE(path, returns, binding) {
 
 const parts = [
   threeBundle,
+  // pause-menu imports the shared settings module as a namespace, so the
+  // bundle must define `settings` before the pause-menu IIFE runs.
+  moduleIIFE('../src/core/settings.js',
+    ['DEFAULT_KEYS', 'KEY_ACTIONS', 'SETTING_NAMES', 'get', 'getAll', 'set', 'subscribe',
+     'reload', 'live', 'applyBody', 'REDUCED_SHAKE', 'shakeScale', 'lookSensitivity',
+     'bindLookSensitivity', 'bindAudioVolume', 'getKeymap', 'bindKey', 'resetKeys',
+     'translateKey', 'keyLabel'],
+    'settings'),
   moduleIIFE('../src/core/pause-menu.js', ['createPauseMenu'], '{ createPauseMenu }'),
   moduleIIFE('src/audio.js',
     ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime',
