@@ -67,16 +67,16 @@ export const ANCHORS = Object.freeze({
   // The couch's cushions sit at 0.54 and the chair's at 0.53, so both bases
   // are effectively the floor. Handing this rig the cushion height instead
   // parks a man 46 cm in the air.
-  couchSeat: Object.freeze({ x: 8.42, y: 0.01, z: 2.1, yaw: Math.PI }), // heading, faces -z (north)
+  couchSeat: Object.freeze({ x: 8.42, y: 0.01, z: 1.94, yaw: Math.PI }), // heading, faces -z (north)
   chairSeat: Object.freeze({ x: 8, y: 0, z: -1.2, yaw: 0 }), // heading, faces +z (south)
   kitchenSpot: Object.freeze({ x: 10.6, y: 0, z: -0.2, yaw: -Math.PI / 2 }), // Person heading, faces -x
   bathroomDoorway: Object.freeze({ x: 11.2, y: 0, z: -2.4, yaw: 0 }), // Person heading, faces +z (into the room)
   caseSpot: Object.freeze({ x: 9.6, y: 0.05, z: 1.6 }),
   // In FRONT of the couch, not inside it. The couch is a 2.15 m run centred on
-  // x=8 with its front face at z=1.76 (see the COUCH block below); the table is
+  // x=8 with its front face at z=1.60 (see the COUCH block below); the table is
   // 1.20 x 0.62, so at the old (9.0, 1.6) its near half was buried in the
   // cushions and its long axis was hanging off the end of the couch. Centred on
-  // the couch and set back 0.30 m from its front edge — a normal walking gap —
+  // the couch and 0.24 m clear of its front edge — a small flat's knee gap —
   // the whole living half of the flat reads as one arrangement.
   coffeeTableSpot: Object.freeze({ x: 8.0, y: 0, z: 1.05 }),
   tvSpot: Object.freeze({ x: 6.06, y: 1.55, z: -1.6 }),
@@ -572,7 +572,11 @@ export function buildApartmentScene() {
   // rather than positioning a group, so it is built at the origin and then
   // wrapped in a rotated/translated group — the same swapped-half-extents
   // trick makeCoffeeTable already uses internally for its own bounds.
-  const COUCH = { x: 8, z: 2.2 };
+  // z puts the back plane at 2.48, two centimetres clear of the south wall's
+  // inner face (A.z1 = 2.5) — the stand-off the repo's furniture keeps against
+  // walls (docs/NO-WAKE-PRODUCTION.md, "Two centimetres, everywhere") —
+  // rather than 14 cm inside it, rear feet and all.
+  const COUCH = { x: 8, z: 2.04 };
   const COUCH_LEN = 2.15;
   const COUCH_DEPTH = 0.88;
   const couchBuilt = makeCouch(M, { x: 0, z: 0, len: COUCH_LEN, depth: COUCH_DEPTH });
@@ -594,7 +598,7 @@ export function buildApartmentScene() {
   // land on top of the one detail that says these three were not unarmed.
   const couchGrip = group('couchGrip');
   couchGrip.add(box({ size: [0.05, 0.09, 0.03], pos: [0, 0.02, 0], mat: M2.grip, rotZ: 0.5 }));
-  couchGrip.position.set(7.45, 0.53, 1.86);
+  couchGrip.position.set(7.45, 0.53, 1.70);
   root.add(couchGrip);
 
   // A rug under the couch, table and chair, so the living half of the flat

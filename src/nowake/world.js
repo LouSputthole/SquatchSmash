@@ -1534,6 +1534,29 @@ function wakeSmoothstep(edge0, edge1, value) {
   return t * t * (3 - 2 * t);
 }
 
+/**
+ * CPU port of the water vertex shader's four sines, exactly as written there.
+ * The water plane is rotated -PI/2 about x, so the shader's p.x is world x and
+ * its p.y is -world z; `time` must be the same scene clock the shader gets as
+ * uTime. Any drift in a frequency, phase or amplitude puts the foam back under
+ * the crests — the broad swell alone peaks 10.5 cm above rest.
+ */
+function waterSurfaceY(x, z, time) {
+  const sx = x;
+  const sy = -z;
+  return WATER_LEVEL
+    + Math.sin(sx * .043 + time * .72) * .105
+    + Math.sin(sy * .061 - time * .94 + sx * .018) * .068
+    + Math.sin((sx + sy) * .145 + time * 1.8) * .026
+    + Math.sin(sx * .38 - sy * .22 + time * 2.6) * .011;
+}
+
+/* The quads are flat while the surface tilts under them: the combined sine
+ * slopes reach ~1.7 cm/m, which across a grown quad's 2.3 m half-diagonal is
+ * ~4 cm of surface rise at the far corner. This clearance covers that from a
+ * sample taken only at the quad's centre. */
+const WAKE_FOAM_CLEARANCE = .04;
+
 /** One small shared alpha field: opaque foam core, fully transparent perimeter. */
 function wakeFoamTexture(size = 64) {
   const data = new Uint8Array(size * size * 4);
@@ -1597,6 +1620,7 @@ class WakePool {
     }
     wakeMat.dispose();
     this.timer = 0;
+    this.time = 0;
     this.disposed = false;
   }
 
@@ -1612,7 +1636,7 @@ class WakePool {
        * along (-sin, -cos). */
       const lateral = _from.set(Math.cos(heading) * side, 0, -Math.sin(heading) * side);
       p.position.copy(at).addScaledVector(lateral, 1.48);
-      p.position.y = -.12;
+      p.position.y = waterSurfaceY(p.position.x, p.position.z, this.time) + WAKE_FOAM_CLEARANCE;
       p.rotation.z = heading + side * .48;
       p.scale.set(1, 1, 1);
       p.material.opacity = this.limits.startOpacity;
@@ -1622,8 +1646,12 @@ class WakePool {
     }
   }
 
-  update(dt) {
+  update(dt, time) {
     if (this.disposed) return;
+    /* The world hands in its shader clock so foam and crests read one `t`;
+     * a caller without one (the unit tests drive the pool directly) gets the
+     * same deterministic accumulation instead. */
+    this.time = time ?? this.time + dt;
     for (const p of this.pool) {
       if (!p.visible) continue;
       p.userData.age += dt;
@@ -1632,6 +1660,7 @@ class WakePool {
       const width = THREE.MathUtils.lerp(this.limits.startWidth, this.limits.maxWidth, spread);
       const length = THREE.MathUtils.lerp(this.limits.startLength, this.limits.maxLength, spread);
       p.scale.set(width / this.limits.startWidth, length / this.limits.startLength, 1);
+      p.position.y = waterSurfaceY(p.position.x, p.position.z, this.time) + WAKE_FOAM_CLEARANCE;
       p.userData.life = 1 - progress;
       p.material.opacity = this.limits.startOpacity * (1 - spread);
       if (progress >= 1) {
@@ -1782,7 +1811,7 @@ export function buildNoWakeWorld(scene) {
         buoys[i].position.y = Math.sin(t * 1.4 + i) * .09;
         buoys[i].rotation.z = Math.sin(t * .8 + i * 1.3) * .035;
       }
-      wake.update(dt);
+      wake.update(dt, t);
     },
   };
 }

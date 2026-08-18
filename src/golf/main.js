@@ -1067,14 +1067,29 @@ function applyCartCamera() {
 /* HUD                                                                 */
 /* ------------------------------------------------------------------ */
 
+/* Written only on change, same contract as paintGuide below: a textContent
+ * store invalidates the node's layout even when the string is identical, and
+ * this runs every frame. Only the pin distance actually moves per frame; the
+ * rest changes once a stroke. */
+let _cardCopy = '';
+let _cardPin = '';
+
 function paintCard() {
   const hole = getHole(HOLE.number);
   const h = round.card.hole(CHARACTER_IDS.PROSPECT, HOLE.number);
-  ui.hole.textContent = `HOLE ${hole.number} · ${hole.name.toUpperCase()}`;
-  ui.par.textContent = `PAR ${hole.par} · ${hole.yards} YDS`;
-  ui.strokes.textContent = h ? `${h.strokes}` : '0';
+  const copy = `${hole.number}·${h ? h.strokes : 0}`;
+  if (copy !== _cardCopy) {
+    _cardCopy = copy;
+    ui.hole.textContent = `HOLE ${hole.number} · ${hole.name.toUpperCase()}`;
+    ui.par.textContent = `PAR ${hole.par} · ${hole.yards} YDS`;
+    ui.strokes.textContent = h ? `${h.strokes}` : '0';
+  }
   const d = round.distanceToPin();
-  ui.pin.textContent = d < 27 ? `${Math.round(toFeet(d))} ft` : `${Math.round(toYards(d))} yds`;
+  const pin = d < 27 ? `${Math.round(toFeet(d))} ft` : `${Math.round(toYards(d))} yds`;
+  if (pin !== _cardPin) {
+    _cardPin = pin;
+    ui.pin.textContent = pin;
+  }
 }
 
 /* The authored scene can stay quiet; the interaction contract cannot. Each
@@ -1945,9 +1960,24 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'KeyE') interaction.release();
   if (e.code === 'KeyF') cancelItemUse();
 });
+/* Alt-tab safety. A window that loses focus never gets the keyup, so without
+ * this the last held key keeps walking (or driving the cart) for as long as
+ * the window is away — the pattern in src/silver/main.js and
+ * src/nowake/main.js. */
+window.addEventListener('blur', () => {
+  player.clearKeys();
+  interaction.release();
+  cancelItemUse();
+});
+/* A hidden tab must not keep playing the round at nobody: route through the
+ * pause menu, whose onPause clears keys and suspends the audio context. The
+ * radio rides an HTML media element the context suspend does not touch, so it
+ * is paused here — and only resumes if the menu is not still up. */
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) cartRadio.pause();
-  else cartRadio.resume();
+  if (document.hidden) {
+    cartRadio.pause();
+    pauseMenu.pause();
+  } else if (!paused) cartRadio.resume();
 });
 
 function nearBall() {

@@ -491,6 +491,11 @@ let managerEscortProgress = 0;
 let guardFailures = 0;
 let bankBagsStaged = 0;
 let carryingBag = null;
+/* The mesh riding in the player's hand. Held alongside the id because the
+ * street copy of cash_8 is the 'dropped-bag' prop, so the id-derived name
+ * lookup cannot find it — and a per-frame recursive search over a whole phase
+ * group is money spent on nothing. */
+let carriedBagMesh = null;
 let droppedBagDecision = null;
 let officersDown = 0;
 let driving = false;
@@ -1639,7 +1644,9 @@ function updateHostageAim(dt) {
     aimedHostageId = null;
   } else {
     aimRaycaster.setFromCamera(SCREEN_CENTER, camera);
-    const hit = aimRaycaster.intersectObject(level.phases.bank.group, true)[0];
+    /* Only the civilian figures can answer to an aim, so only they are worth
+     * intersecting — the full bank group is hundreds of meshes of furniture. */
+    const hit = aimRaycaster.intersectObjects(level.phases.bank.civilians, true)[0];
     const root = hit ? hostageFor(hit.object) : null;
     const person = root ? hostages.get(root.userData.hostageId) : null;
     aimedHostageId = person && person.interactive ? person.id : null;
@@ -1682,9 +1689,10 @@ function updateHostageAim(dt) {
     }
   }
 
-  objective.syncHostages(hostages.summary());
+  const summary = hostages.summary();
+  objective.syncHostages(summary);
   hud.setLobby(activePhase === 'bank' ? {
-    controlled: hostages.summary().controlled,
+    controlled: summary.controlled,
     total: hostages.hostages.length,
     ties: zipTies,
     casualties: objective.civilianCasualties,
@@ -1700,7 +1708,7 @@ function updateHostageAim(dt) {
     say('snow_control_slipping');
   } else if (control > 0.6) {
     controlWarned = false;
-    if (!lobbyHeldAnnounced && hostages.summary().restrained >= 4) {
+    if (!lobbyHeldAnnounced && summary.restrained >= 4) {
       lobbyHeldAnnounced = true;
       say('numb_lobby_held');
     }
@@ -2137,6 +2145,7 @@ function enterGarage() {
   if (carryingBag) {
     loot.drop(carryingBag, { anchor: 'garage_entry', position: { x: 0, y: 0.3, z: 10 } });
     carryingBag = null;
+    carriedBagMesh = null;
     hud.setBag(0, 0);
   }
   advanceTo('GARAGE_ENTRY');
@@ -2539,6 +2548,7 @@ function refreshInteractions() {
       use(bagMesh, carryingBag ? 'Hands full' : `Take cash bag ${i}`, () => {
         if (machine.state !== 'CASH_LOADING' || carryingBag || !loot.carry(bagId, CHARACTER_IDS.PROSPECT)) return;
         carryingBag = bagId;
+        carriedBagMesh = bagMesh;
         bagMesh.userData.carried = true;
         audio.play('heist.cash.lift');
         hud.setBag(loot.get(bagId).value, 1);
@@ -2552,7 +2562,8 @@ function refreshInteractions() {
           carryingBag = null;
           bankBagsStaged++;
           audio.play('heist.cash.drop');
-          p.bank.group.getObjectByName(bagId.replace('_', '-')).userData.carried = false;
+          if (carriedBagMesh) carriedBagMesh.userData.carried = false;
+          carriedBagMesh = null;
           hud.setBag(0, 0);
           if (bankBagsStaged >= 2) {
             for (let i = 1; i <= 8; i++) {
@@ -2595,6 +2606,7 @@ function refreshInteractions() {
       droppedBagDecision = 'recovered';
       loot.carry('cash_8', CHARACTER_IDS.PROSPECT);
       carryingBag = 'cash_8';
+      carriedBagMesh = p.street.interactables.droppedBag;
       hud.setBag(loot.get('cash_8').value, 1);
       say('numb_bag');
       advanceTo('DROPPED_BAG_DECISION');
@@ -3120,16 +3132,30 @@ function updateBankSequence(dt) {
 
 function dropCarriedBag() {
   if (!carryingBag || driving) return;
-  const phase = level.phases[activePhase];
   const id = carryingBag;
   loot.drop(id, {
     anchor: `${activePhase}_drop`,
     position: { x: player.position.x, y: 0.3, z: player.position.z },
   });
-  const mesh = phase.group.getObjectByName(id.replace('_', '-'));
+  const mesh = carriedBagMesh ?? resolveCarriedBagMesh();
   if (mesh) { mesh.position.set(player.position.x, 0.3, player.position.z); mesh.visible = true; }
   carryingBag = null;
+  carriedBagMesh = null;
   hud.setBag(0, 0);
+}
+
+/**
+ * The bank bags are named for their loot ids ('cash-8'), but the street copy
+ * of cash_8 is the 'dropped-bag' prop — and a checkpoint restore brings back
+ * the carried id without the mesh, since a snapshot cannot hold an object
+ * reference. Both cases land here.
+ */
+function resolveCarriedBagMesh() {
+  const group = level.phases[activePhase]?.group;
+  if (!group || !carryingBag) return null;
+  return group.getObjectByName(carryingBag.replace('_', '-'))
+    ?? group.getObjectByName('dropped-bag')
+    ?? null;
 }
 
 function failMission(reason) {
@@ -3275,6 +3301,7 @@ checkpoints.register('mission-local', {
     managerEscortProgress = 0;
     bankBagsStaged = 0;
     carryingBag = null;
+    carriedBagMesh = null;
     droppedBagDecision = null;
     officersDown = 0;
     driving = false;
@@ -3304,6 +3331,7 @@ checkpoints.register('mission-local', {
     managerEscortProgress = snapshot.managerEscortProgress ?? 0;
     bankBagsStaged = snapshot.bankBagsStaged ?? 0;
     carryingBag = snapshot.carryingBag ?? null;
+    carriedBagMesh = null;
     droppedBagDecision = snapshot.droppedBagDecision ?? null;
     officersDown = snapshot.officersDown ?? 0;
     driving = snapshot.driving === true;
@@ -4121,8 +4149,8 @@ function animate() {
     }
     updateCrew(crew, dt);
     if (carryingBag) {
-      const mesh = level.phases[activePhase].group.getObjectByName(carryingBag.replace('_', '-'));
-      if (mesh) mesh.position.set(player.position.x + 0.45, player.position.y - 1.1, player.position.z + 0.2);
+      if (!carriedBagMesh) carriedBagMesh = resolveCarriedBagMesh();
+      if (carriedBagMesh) carriedBagMesh.position.set(player.position.x + 0.45, player.position.y - 1.1, player.position.z + 0.2);
     }
   }
   renderer.render(scene, camera);
