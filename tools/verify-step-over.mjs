@@ -41,6 +41,7 @@ const TYPES = {
  * into setKey, and a stepped update. `advance(seconds)` is the scene clock. */
 const HARNESS = `<!doctype html>
 <html><head><meta charset="utf-8"><title>step-over harness</title>
+<link rel="icon" href="data:,">
 <script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js" } }</script>
 </head><body>
 <script type="module">
