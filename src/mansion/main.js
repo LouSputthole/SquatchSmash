@@ -1506,6 +1506,13 @@ if (lab && night.play) {
     },
     story: missionStory,
     enabled: () => running,
+    /* NOT at module load. The mount's default `autoStart` dispatched the
+     * mission's opening line while the page was still building -- no start
+     * click, no AudioContext, no decoded bank -- which is how the first line
+     * of the night was a silent subtitle on every run (see `beginTour`).
+     * The tour starts the mission once the voice bank is resident;
+     * `jumpToCheckpoint` starts it for a ladder that cannot wait. */
+    autoStart: false,
   });
 }
 
@@ -1763,8 +1770,9 @@ const sharedPauseMenu = createPauseMenu({
 /* ================================================================== */
 /* Boot gate: AudioContext and pointer lock both need a user gesture      */
 /* ================================================================== */
+let tourBegun = false;
 async function beginTour() {
-  if (running) return;
+  if (running || tourBegun) return;
   if (!mansionCampaignEntry.ok && mansionCampaignEntry.reason !== 'already_complete') {
     const sub = menuEl?.querySelector?.('.sub');
     if (sub) sub.textContent = mansionVisit === 'return'
@@ -1772,8 +1780,14 @@ async function beginTour() {
       : "Lou's mansion is locked until The Silver Case is complete.";
     return;
   }
-  running = true;
+  tourBegun = true;
   menuEl.classList.add('hidden');
+  /* Requested here, before anything is awaited, while this click still
+   * carries real user activation -- the Silver Case/NO WAKE start-button
+   * rule (src/silvercase/main.js): a pointer lock asked for after an awaited
+   * init plus an awaited three-hundred-cue decode is a pointer lock the
+   * browser is free to refuse. */
+  lockPointer();
   await audio.init();
   startAmbience();
   /* The station's own record list. It is loaded but the set stays OFF: this
@@ -1809,8 +1823,21 @@ async function beginTour() {
    * in this list, so a torture session ran on the procedural synth even
    * though the real take was sitting in assets/sfx. It also owns the one
    * Mansion ambient line reused from a different recorded prefix (Sauce's
-   * existing Bing opener), which a `vo.silentsquatch.` prefix cannot load. */
-  audio.loadManifest({
+   * existing Bing opener), which a `vo.silentsquatch.` prefix cannot load.
+   *
+   * AWAITED, which it was not before, and the mission starts only after it
+   * resolves. This is THE FIRST LINE'S OWN BUG that The Silver Case documents
+   * at its own loadManifest call (src/silvercase/main.js) happening here for
+   * the second time: `mountSilentSquatch` used to `mission.start()` at module
+   * load -- before the start click, before `audio.init()`, before a single
+   * cue had decoded -- so the Prospect's opening line ran `playCue()` against
+   * an empty buffer table, `hasSample()` said no, and a take that was on disk
+   * and in the manifest played as a silent subtitle on every single run. And
+   * with the load un-awaited, every bark in the first seconds of the walk
+   * (the gate man is standing at the spawn) raced the decode for the same
+   * silent result. Nothing retries a line's audio; dispatch is the one
+   * chance, so the bank has to be resident before anything can speak. */
+  await audio.loadManifest({
     names: [
       ...weaponCueNames(),
       ...silentSquatchCueNames(),
@@ -1820,8 +1847,15 @@ async function beginTour() {
     ],
     prefixes: ['vo.silentsquatch.'],
   }).catch(() => {});
+  /* PROJECT SILENT SQUATCH begins NOW, with its voice bank decoded -- the
+   * mount no longer autostarts it at module load (see `autoStart: false`
+   * below). `start()` is idempotent, so a `?checkpoint=` jump that outran
+   * these awaits and started the mission itself is left exactly where its
+   * ladder put it. The first beat hands over the case, so he is holding it
+   * before the first playable frame. */
+  silentSquatch?.mission.start();
+  running = true;
   player.enabled = true;
-  lockPointer();
   clock.getDelta();
   if (mansionVisit !== 'return'
     && mansionCampaignEntry.resumed
@@ -2229,6 +2263,13 @@ function jumpToCheckpoint(id) {
   if (!running) beginTour();
   const mission = silentSquatch?.debug ?? null;
   if (cp.play && mission) {
+    /* The ladder below replays real mission verbs, so the mission must be
+     * running. Idempotent: `beginTour` has already started it unless this
+     * jump outran its awaited voice-bank load (the `?checkpoint=` URL path
+     * fires off a rAF while that await is still in flight). The lines the
+     * pump fast-forwards through advance in zero real time, so they race no
+     * recording either way. */
+    silentSquatch.mission.start();
     const DT = 1 / 30;
     const pump = (pred, limit = 400) => {
       for (let t = 0; t < limit; t += DT) {
@@ -2257,8 +2298,12 @@ function jumpToCheckpoint(id) {
   if (mansionPreview && wanted && CHECKPOINTS[wanted]) {
     /* After a frame, so the scene has finished building and the mission has
      * mounted; before that, `silentSquatch` is null and the ladder would run
-     * against nothing. */
-    requestAnimationFrame(() => jumpToCheckpoint(wanted));
+     * against nothing. And AFTER `beginTour()` has resolved, so the voice
+     * bank is decoded and the mission is started before the jump replays it
+     * -- jumping the moment the frame fired left `?checkpoint=arrival` (the
+     * one jump with no ladder) standing at the gate with no mission, no case
+     * and no opening line until the load caught up. */
+    requestAnimationFrame(() => beginTour().then(() => jumpToCheckpoint(wanted)));
   }
 }
 
