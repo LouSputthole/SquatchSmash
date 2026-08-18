@@ -6545,9 +6545,16 @@ export function buildMansionInterior(shell = null) {
     solid(TESTER.x0, TESTER.x1, SY, TESTER_Y + 0.3, TESTER.z0, TESTER.z1);
 
     // Two nightstands with reading lamps, outside the posts and clear of them.
+    /* z 64.22, NOT 63.82. Owner geometry audit 2026-08-18: at 63.82 the east
+     * carcass (x 1.66..2.38, z 63.57..64.07) stood inside the fitted dressing
+     * run's own solid (x 1.95..5.95, z up to 63.83) -- 0.43 x 0.26 m of
+     * nightstand buried in the end of the run. There is no wider x slot (the
+     * tester's collider ends x 1.56, the run starts 1.95), so the pair slides
+     * 0.4 m north together: the east one now clears the run by 0.14 m, both
+     * stay level with the pillows (z 63.88), and the pair stays symmetric. */
     for (const side of [-1, 1]) {
       const nx = side * 2.02;
-      const nz = 63.82;
+      const nz = 64.22;
       caseFurniture(nx, nz, SY, 0.72, 0.5, 0.58, 0, 2, M_SUITE_ONYX);
       root.add(named(cylinder({
         r: 0.05, h: 0.42, pos: [nx, SY + 0.79, nz], mat: M_GOLD,
@@ -6818,10 +6825,14 @@ export function buildMansionInterior(shell = null) {
     shell2(TUB_IN - 0.62, TUB_BENCH - TUB_FLOOR + 0.002,
       (TUB_FLOOR - 0.016 + TUB_BENCH - 0.014) / 2, M_TUB_ONYX, 'suite-tub-bench-riser');
     // Two marble steps up to the coping, on the south side you walk in from.
+    /* Each tread is a full-height block off the floor. The treads do not
+     * overlap in plan, so a second step that was only 0.22 m thick hung with
+     * 0.22 m of open air under it on the exact side you approach from. The
+     * tops are unchanged (0.22 and 0.44). */
     for (let i = 0; i < 2; i++) {
       root.add(box({
-        size: [1.7 - i * 0.3, 0.22, 0.42],
-        pos: [tubX, SY + 0.11 + i * 0.22, tubZ - TUB_R - 0.5 + i * 0.42],
+        size: [1.7 - i * 0.3, 0.22 * (i + 1), 0.42],
+        pos: [tubX, SY + 0.11 * (i + 1), tubZ - TUB_R - 0.5 + i * 0.42],
         mat: M_SUITE_MARBLE,
         name: 'suite-tub-step',
       }));
@@ -7137,13 +7148,49 @@ export function buildMansionInterior(shell = null) {
      * cheval glass standing in it is a thing the player bumps into on the way
      * out of his own bedroom. It is solid, too -- 1.9 m of mirror you can walk
      * through is not a mirror. */
-    root.add(box({
-      size: [0.9, 1.9, 0.06], pos: [6.35, SY + 1.15, r.z0 + 0.62], mat: M_SUITE_MIRROR, rotY: -0.9, name: 'suite-cheval-mirror',
-    }));
-    root.add(box({
-      size: [1.02, 0.08, 0.16], pos: [6.35, SY + 0.17, r.z0 + 0.62], mat: M_GOLD, rotY: -0.9, cast: false,
-    }));
-    solid(5.95, 6.75, SY, SY + 2.1, r.z0 + 0.28, r.z0 + 0.96);
+    /* AND IT IS A CHEVAL, NOT A BARE SLAB. A cheval glass is a mirror
+     * pivoting between two posts on their own feet; what stood here was a
+     * frameless 0.9 x 1.9 m dark slab floating 0.2 m off the floor over a
+     * lone gilt bar, turned 52 degrees out of the corner -- a door-sized
+     * leaf standing ajar on what read as a floor hinge, 2.2 m from where
+     * the stair delivers you. Owner playtest 2026-08-18, verbatim: "there
+     * is still the weird door hinge thing coming out at the top of the
+     * stairs." Turned to -1.2 so the glass faces the room: the corner is
+     * hemmed by the dressing run's carcass (x <= 5.95) on one side and the
+     * floor crest (circle r 0.86 about 7.7, 64.28) on the other, and this
+     * pitch is the one that keeps every foot out of both -- measured
+     * extremes x 5.98..6.72, z 63.20..64.20. */
+    {
+      const cg = new THREE.Group();
+      cg.name = 'suite-cheval';
+      cg.position.set(6.35, SY, r.z0 + 0.55);
+      cg.rotation.y = -1.2;
+      for (const px of [-0.42, 0.42]) {
+        cg.add(named(cylinder({
+          r: 0.035, h: 1.9, pos: [px, 0.95, 0], mat: M_WOOD_DK,
+        }), 'suite-cheval-post'));
+        cg.add(sphere({ r: 0.05, pos: [px, 1.95, 0], mat: M_GOLD, cast: false }));
+        cg.add(box({
+          size: [0.09, 0.07, 0.44], pos: [px, 0.035, 0], mat: M_WOOD_DK, cast: false, name: 'suite-cheval-foot',
+        }));
+        // The trunnion boss the glass tips on, at the frame's mid-height.
+        cg.add(named(cylinder({
+          r: 0.045, h: 0.09, pos: [px, 1.06, 0.015], mat: M_GOLD, rotZ: Math.PI / 2, cast: false,
+        }), 'suite-cheval-pivot'));
+      }
+      cg.add(box({
+        size: [0.9, 0.05, 0.06], pos: [0, 0.14, 0], mat: M_WOOD_DK, cast: false, name: 'suite-cheval-stretcher',
+      }));
+      // The frame laps 5 mm into each post; the glass laps 2 mm into the frame.
+      cg.add(box({
+        size: [0.78, 1.6, 0.05], pos: [0, 1.06, 0.015], mat: M_WOOD_DK, rotX: -0.06, name: 'suite-cheval-frame',
+      }));
+      cg.add(box({
+        size: [0.68, 1.5, 0.02], pos: [0, 1.06, 0.048], mat: M_SUITE_MIRROR, rotX: -0.06, cast: false, name: 'suite-cheval-mirror',
+      }));
+      root.add(cg);
+    }
+    solid(5.95, 6.75, SY, SY + 2.05, r.z0 + 0.1, r.z0 + 1.05);
     root.add(box({
       size: [1.5, 0.16, 0.5], pos: [(drX0 + drX1) / 2, SY + 0.44, r.z0 + 1.3], mat: M_SUITE_VELVET, name: 'suite-dressing-bench',
     }));
@@ -7238,13 +7285,26 @@ export function buildMansionInterior(shell = null) {
     /* ================================================================ */
     /* THE STAIR WELL, FROM ABOVE                                         */
     /*                                                                     */
-    /* A gilt balustrade on the two open edges, standing on the heads of    */
-    /* the hall's own walls — which is why those walls stop at UCY and the  */
+    /* A gilt balustrade on the open edges, standing on the heads of the    */
+    /* hall's own walls — which is why those walls stop at UCY and the      */
     /* roof slab reaches over them. Without this the first thing the suite   */
     /* offers a player arriving in it is a 4.6 m drop onto a staircase.      */
+    /*                                                                        */
+    /* THE SOUTH EDGE IS TWO THINGS AT ONCE: x 7.75..8.85 is the arrival —    */
+    /* flight B lands there and has to stay open — but x 6.55..7.75 is the    */
+    /* suite floor's edge OVER FLIGHT A'S SHAFT, a walkable lip with the       */
+    /* full 4.6 m drop under it (floorAt offers no slab inside the well, so    */
+    /* one step over it is UY). Owner playtest 2026-08-18, verbatim: "there    */
+    /* is still missing balcony at top of stairs going into lous secret        */
+    /* portion of the office." The guard runs newel to newel on posts other    */
+    /* runs already plant — the west rail's corner post at x 6.40 and flight   */
+    /* B's own head newel on its x 7.70 rail line — so `newels` is off:        */
+    /* a second post inside either one is the lump the horseshoe's foot        */
+    /* already taught this file about.                                         */
     /* ================================================================ */
     railing(W.x0 - 0.3, W.x0, W.z0, W.z1, SY, 'suite-well-west', { newels: true });
     railing(W.x0, W.x1, W.z1, W.z1 + 0.3, SY, 'suite-well-north', { newels: true });
+    railing(W.x0 - 0.15, SUITE_FLIGHT_B.x0 - 0.05, W.z0 - 0.04, W.z0 + 0.04, SY, 'suite-well-south', { newels: false });
 
     /* ================================================================ */
     /* GLAZING DRESSING, ART AND THE REMAINING FITTINGS                   */
@@ -8003,22 +8063,33 @@ export function buildMansionInterior(shell = null) {
 
           // Iron candle stands either side of the bed, and a reliquary chest
           // at its foot.
-          for (const sx of [bedX - 1.5, bedX + 1.5]) {
-            root.add(cylinder({ r: 0.24, h: 0.05, pos: [sx, UY + 0.03, bedZ - 1.9], mat: M_GOTHIC_IRON, cast: false }));
-            root.add(cylinder({ r: 0.035, h: 1.3, pos: [sx, UY + 0.68, bedZ - 1.9], mat: M_GOTHIC_IRON }));
+          /* THE EAST STAND IS ON THE ARCADE WALL, NOT AT bedX + 1.5. Owner
+           * geometry audit 2026-08-18: at the mirrored bedX +/- 1.5 foot
+           * placement the east stand stood at x -10.285..-9.765, z 44.09..
+           * 44.61 -- inside the wardrobe (collider -10.05..-9.29, z 42.225..
+           * 44.425) by 0.235 x 0.335 m, base plate through the carcass and
+           * candles inside the door. The strip between the chair (x ends
+           * -10.27) and the wardrobe is 0.2 m wide, so no foot-of-bed spot
+           * exists on that side. It stands in the bay between the wardrobe
+           * (z ends 44.425) and the nightstand (z starts 47.16) instead,
+           * 0.15 m clear of the arcade's colonnettes (x >= -9.255) and
+           * 0.495 m clear of the four-poster's collider (x ends -10.405). */
+          for (const [sx, sz] of [[bedX - 1.5, bedZ - 1.9], [innerX - 0.5, bedZ - 0.9]]) {
+            root.add(cylinder({ r: 0.24, h: 0.05, pos: [sx, UY + 0.03, sz], mat: M_GOTHIC_IRON, cast: false }));
+            root.add(cylinder({ r: 0.035, h: 1.3, pos: [sx, UY + 0.68, sz], mat: M_GOTHIC_IRON }));
             root.add(cylinder({
-              rTop: 0.16, rBottom: 0.1, h: 0.06, pos: [sx, UY + 1.36, bedZ - 1.9], mat: M_GOTHIC_IRON, cast: false,
+              rTop: 0.16, rBottom: 0.1, h: 0.06, pos: [sx, UY + 1.36, sz], mat: M_GOTHIC_IRON, cast: false,
             }));
             for (let i = 0; i < 3; i++) {
               const a = (i / 3) * Math.PI * 2;
               root.add(cylinder({
-                r: 0.026, h: 0.24, pos: [sx + Math.cos(a) * 0.11, UY + 1.5, bedZ - 1.9 + Math.sin(a) * 0.11], mat: M_CARD,
+                r: 0.026, h: 0.24, pos: [sx + Math.cos(a) * 0.11, UY + 1.5, sz + Math.sin(a) * 0.11], mat: M_CARD,
               }));
               root.add(sphere({
-                r: 0.032, pos: [sx + Math.cos(a) * 0.11, UY + 1.64, bedZ - 1.9 + Math.sin(a) * 0.11], mat: M_BULB_WARM, cast: false,
+                r: 0.032, pos: [sx + Math.cos(a) * 0.11, UY + 1.64, sz + Math.sin(a) * 0.11], mat: M_BULB_WARM, cast: false,
               }));
             }
-            solid(sx - 0.26, sx + 0.26, UY, UY + 1.4, bedZ - 2.16, bedZ - 1.64);
+            solid(sx - 0.26, sx + 0.26, UY, UY + 1.4, sz - 0.26, sz + 0.26);
           }
           /* The iron-bound coffer. In the room's south-west corner rather than
            * at the foot of the bed, which is where it obviously belongs and
@@ -8437,58 +8508,60 @@ export function buildMansionInterior(shell = null) {
          * y 6.92..6.98 with nothing beneath it but the bench top at 6.50, so
          * 0.42 m of clear air and a bar floating over it. A bench press is a
          * bench AND two uprights; only the bench had been built. */
-        /* By the exterior window, where the room has open floor. The former
-         * `cx - 1.8` kept the rack beside the wardrobe, dresser and bed even
-         * after its z-only nudge. At `r.x1 - 1.25` the loaded bar stops half a
-         * metre short of the outer wall and the whole set is over two metres
-         * from the bed centre. */
-        const bx = r.x1 - 1.0;
+        /* By the exterior window wall, where the room has open floor. The
+         * former `cx - 1.8` kept the rack beside the wardrobe, dresser and
+         * bed even after its z-only nudge. At `r.x1 - 1.25` the loaded bar
+         * stops half a metre short of the outer wall and the whole set is
+         * over two metres from the bed centre. */
+        const bx = r.x1 - 1.25;
         const weightSet = new THREE.Group();
         weightSet.name = 'oldtime-weight-set';
-        /* MOVED OFF THE ROOM'S OWN ARMCHAIR. Owner playtest 2026-08-06: "the
-         * weight set and a chair sit inside the wardrobe and bed" -- measured
-         * on the built scene, the literal fault is narrower than that but
-         * just as real: `buildBedroom`'s own armchair for this room (its
-         * generic `chairX`/`cz + 2.6` placement, `bed-east-front-chair`) has
-         * always sat at z 44.19..44.86, and this bench was built at the SAME
-         * z the very next pass over, 43.0..44.3 -- 90 mm of the bench pad
-         * and the rack's own footprint genuinely inside the chair's own
-         * collider. `buildBedroom` runs before `extra`, so the generic chair
-         * was already standing there and nothing here ever checked it.
+        /* MOVED OUT OF THE STEAMER TRUNK. Owner playtest 2026-08-18: "the
+         * weight bench in the old classic room is inside of the chest".
+         * Measured, exactly that: the 2026-08-06 chair fix slid this set to
+         * the window corner (collider z 44.65..45.95 at bx = r.x1 - 1.0)
+         * without checking the trunk the theme pass had already stood under
+         * that same window -- trunk collider x 14.85..15.65, z 44.0..45.2.
+         * That is 0.55 x 0.55 m of shared floor: the bench pad and the east
+         * rack upright stood inside the chest, the upright straight through
+         * its lid.
          *
-         * Pulled the whole press 0.55 m south, away from the chair and still
-         * clear of the wardrobe (its collider ends x 10.05, the rack's own
-         * starts x 10.175 -- an x gap this z move does not touch): 42.45..
-         * 43.75 clears the chair's 44.19 start by 440 mm. */
-        weightSet.add(box({ size: [0.4, 0.12, 1.3], pos: [bx, UY + 0.44, 45.25], mat: M_LEATHER_DK, name: 'oldtime-bench-pad' }));
-        for (const bz of [44.75, 45.75]) {
+         * Pulled the whole press 2.2 m south to collider z 42.45..43.75,
+         * still against the window wall: the trunk's 44.0 start is now
+         * 250 mm clear, the dresser (z 38.53..40.53 at x 15.25..15.85) is
+         * 1.9 m clear, and the room's own armchair no longer figures at all
+         * -- the palette parked it at (10.7, 40.2), four metres west. The
+         * bar tips at x 14.0..15.5 clear the curtain panels on this wall
+         * (x >= 15.73) by 230 mm. */
+        weightSet.add(box({ size: [0.4, 0.12, 1.3], pos: [bx, UY + 0.44, 43.05], mat: M_LEATHER_DK, name: 'oldtime-bench-pad' }));
+        for (const bz of [42.55, 43.55]) {
           weightSet.add(box({ size: [0.3, 0.38, 0.1], pos: [bx, UY + 0.19, bz], mat: M_RACK, name: 'oldtime-bench-leg' }));
         }
         for (const ox of [-0.32, 0.32]) {
           weightSet.add(box({
-            size: [0.08, 1.0, 0.08], pos: [bx + ox, UY + 0.5, 44.85], mat: M_RACK, name: 'oldtime-rack-upright',
+            size: [0.08, 1.0, 0.08], pos: [bx + ox, UY + 0.5, 42.65], mat: M_RACK, name: 'oldtime-rack-upright',
           }));
           weightSet.add(box({
-            size: [0.34, 0.05, 0.34], pos: [bx + ox, UY + 0.025, 44.85], mat: M_RACK, cast: false, name: 'oldtime-rack-foot',
+            size: [0.34, 0.05, 0.34], pos: [bx + ox, UY + 0.025, 42.65], mat: M_RACK, cast: false, name: 'oldtime-rack-foot',
           }));
           // The J-hook the bar actually rests in, at bar height.
           weightSet.add(box({
-            size: [0.1, 0.07, 0.17], pos: [bx + ox, UY + 0.955, 44.91], mat: M_RACK, cast: false, name: 'oldtime-rack-hook',
+            size: [0.1, 0.07, 0.17], pos: [bx + ox, UY + 0.955, 42.71], mat: M_RACK, cast: false, name: 'oldtime-rack-hook',
           }));
         }
         weightSet.add(named(cylinder({
-          r: 0.03, h: 1.5, pos: [bx, UY + 0.95, 44.85], mat: M_CHROME, rotZ: Math.PI / 2,
+          r: 0.03, h: 1.5, pos: [bx, UY + 0.95, 42.65], mat: M_CHROME, rotZ: Math.PI / 2,
         }), 'oldtime-barbell'));
         for (const ox of [-0.6, 0.6]) {
           weightSet.add(named(cylinder({
-            r: 0.2, h: 0.1, pos: [bx + ox, UY + 0.95, 44.85], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
+            r: 0.2, h: 0.1, pos: [bx + ox, UY + 0.95, 42.65], mat: M_STOVE_BLACK, rotZ: Math.PI / 2,
           }), 'oldtime-barbell-plate'));
         }
         root.add(weightSet);
         c.weightSet = weightSet;
         // Collider takes the rack's full height -- it is 1 m of steel, not a
         // 0.6 m bench you can walk over the top of.
-        solid(bx - 0.4, bx + 0.4, UY, UY + 1.0, 44.65, 45.95);
+        solid(bx - 0.4, bx + 0.4, UY, UY + 1.0, 42.45, 43.75);
       },
     }),
     westRear: buildBedroom({
@@ -10057,7 +10130,11 @@ export function buildMansionInterior(shell = null) {
     solid(r.x0 + 0.3, 2.4, BY, BY + 2.4, cageZ0 - 0.08, cageZ0 + 0.08);
     root.add(box({ size: [0.14, 0.2, 0.06], pos: [2.3, BY + 1.3, cageZ0 - 0.1], mat: M_GOLD }));
     // Behind the cage: crates and a wine rack.
-    for (const [cx, cz] of [[-6.5, 62.2], [-5.4, 62.6], [-6.0, 61.4], [0.5, 62.4]]) {
+    /* The third crate sits at z 61.25, not 61.4: at 61.4 its 0.9 m box
+     * (z 60.95..61.85) ran 0.10 m into the crate at (-6.5, 62.2), whose own
+     * box starts z 61.75. At 61.25 the stack keeps its jumble and the two
+     * clear each other by 0.05 m. */
+    for (const [cx, cz] of [[-6.5, 62.2], [-5.4, 62.6], [-6.0, 61.25], [0.5, 62.4]]) {
       root.add(box({
         size: [0.9, 0.7, 0.9], pos: [cx, BY + 0.35, cz], mat: M_CRATE, name: 'basement-crate',
       }));
@@ -11515,7 +11592,10 @@ const M_GOLD_BAR = mat({
     const seats = [];
     function recliner(sx, sz, sy) {
       const g = new THREE.Group();
-      g.add(box({ size: [0.72, 0.34, 0.72], pos: [0, 0.28, 0], mat: M_LEATHER_DK }));
+      /* The plinth reaches the floor: at the old 0.34 box centred 0.28 every
+       * recliner's base started 0.11 m up with nothing but air beneath it,
+       * both rows. Same top (0.45), the block just extends down to y 0. */
+      g.add(box({ size: [0.72, 0.45, 0.72], pos: [0, 0.225, 0], mat: M_LEATHER_DK }));
       g.add(box({ size: [0.68, 0.12, 0.66], pos: [0, 0.5, 0.02], mat: M_LEATHER_RED, name: 'recliner-pad' }));
       g.add(box({
         size: [0.7, 0.85, 0.16], pos: [0, 0.86, -0.3], mat: M_LEATHER_RED, rotX: -0.18,
@@ -11862,7 +11942,9 @@ const M_GOLD_BAR = mat({
     fridge.position.set(fridgeX, BY, fridgeZ);
     root.add(fridge);
     const fridgeDrinks = [];
-    for (const [row, y] of [0.08, 0.46].entries()) {
+    /* The upper row stands at 0.41, on the mid shelf (top 0.4075) -- at the
+     * old 0.46 all three upper cans hovered 0.05 m over the glass. */
+    for (const [row, y] of [0.08, 0.41].entries()) {
       for (const [column, z] of [-0.17, 0, 0.17].entries()) {
         const drink = makeBeerCan(M, {
           x: fridgeX + 0.18, y: BY + y, z: fridgeZ + z,

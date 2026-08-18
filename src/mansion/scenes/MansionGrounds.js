@@ -3256,10 +3256,22 @@ export function buildMansionGrounds(scene = null) {
        * middle of. Without it the third floor reads as a shed dropped on a
        * roof; with it the roof reads as a terrace and the suite as the
        * pavilion in the middle of one. Set 1.2 m in off the eaves so it is
-       * clear of the roofline trim already there. */
+       * clear of the roofline trim already there.
+       *
+       * THE NORTH RUN DIES INTO THE PAVILION, IN TWO PIECES. The suite
+       * stands on this same roof at x -9.21..9.21, z 62.79..75.36, and its
+       * floor IS the slab the parapet stands on — so a single north run at
+       * z 73.58..73.80 was 17.7 m of parapet crossing the bedroom 1.2 m in
+       * front of the television wall. Owner playtest 2026-08-18, verbatim:
+       * "There is a railway (looks like a rooftop half wall) going thro the
+       * middle of Lous room by the TV." The run keeps its line on the two
+       * flanking terraces and stops at the pavilion's own outer wall faces
+       * (sx0/sx1); the cope's 70 mm overhang laps into the masonry there,
+       * which is how a parapet meets a wall. */
       for (const [x0, x1, z0, z1] of [
         [BUILDING.x0 + 1.2, BUILDING.x1 - 1.2, BUILDING.z0 + 1.2, BUILDING.z0 + 1.42],
-        [BUILDING.x0 + 1.2, BUILDING.x1 - 1.2, BUILDING.z1 - 1.42, BUILDING.z1 - 1.2],
+        [BUILDING.x0 + 1.2, sx0, BUILDING.z1 - 1.42, BUILDING.z1 - 1.2],
+        [sx1, BUILDING.x1 - 1.2, BUILDING.z1 - 1.42, BUILDING.z1 - 1.2],
         [BUILDING.x0 + 1.2, BUILDING.x0 + 1.42, BUILDING.z0 + 1.2, BUILDING.z1 - 1.2],
         [BUILDING.x1 - 1.42, BUILDING.x1 - 1.2, BUILDING.z0 + 1.2, BUILDING.z1 - 1.2],
       ]) {

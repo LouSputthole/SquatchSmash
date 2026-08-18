@@ -335,9 +335,16 @@ test('all four bedrooms have exterior placards and deliberately separated furnit
   assert.ok(xzClear(classic.chair, classicWardrobe, 0.18), 'the old-timey chair crowds the wardrobe');
   assert.ok(xzClear(classic.sideTable, classic.bed, 0.15), 'the old-timey pedestal intersects the bed');
   assert.ok(Math.abs(classic.tv.rotation.y) >= 0.2, 'the old-timey television is still flat to the wall instead of angled');
+  /* The window-corner placement (z >= 44.5) this once asserted put the set
+   * inside the steamer trunk under the same window -- owner playtest
+   * 2026-08-18. The press lives on the window wall south of the trunk now. */
   const weightCenter = new THREE.Box3().setFromObject(classic.weightSet).getCenter(new THREE.Vector3());
-  assert.ok(weightCenter.x >= 14.5 && weightCenter.z >= 44.5,
-    'the old-timey weight set is not in the back window corner');
+  assert.ok(weightCenter.x >= 14.5 && weightCenter.z >= 42.0 && weightCenter.z <= 44.0,
+    'the old-timey weight set is not on the window wall south of the trunk');
+  const classicTrunk = interior.root.getObjectByName('oldtime-trunk');
+  assert.ok(classicTrunk, 'the old-timey steamer trunk is missing');
+  assert.ok(xzClear(classic.weightSet, classicTrunk, 0.05),
+    'the old-timey weight set intersects the steamer trunk');
 
   const lake = rooms.westRear;
   assert.ok(xzClear(lake.chair, lake.cluster.root, 0.18), 'the lake-room chair crowds the writing cluster');
