@@ -3294,7 +3294,12 @@ try {
   for (const leg of ROUTE) {
     const got = await walkTo(leg.at[0], leg.at[1], { steps: 34, tol: 0.9 });
     if (!got.ok) { routeFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
-    if (leg.note.includes('head of the flight')) stairTopGround = got.s.ground;
+    /* The cellar-floor sample comes from the landing, two metres of flat
+     * concrete from the stair lip. The head-of-flight leg's 0.9 m arrival
+     * tolerance can legally stop a step past the edge, one tread down —
+     * measured 1.8 cm outside the floor tolerance on a run whose walk and
+     * climb-out were both green. */
+    if (leg.note.includes('onto the concrete landing')) stairTopGround = got.s.ground;
     if (leg.room) {
       const r = lab.rooms[leg.room];
       if (!inside(r.rect, got.s, 0.2) || Math.abs(got.s.ground - r.floor) > 0.45) {

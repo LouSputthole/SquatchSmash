@@ -373,10 +373,14 @@ try {
 
   await previewPage.click('#startBtn');
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
+  /* The arrival drive is real-time on this page's own clock: a software
+   * rasteriser takes ~8 s of wall time just to reach 0.18. The budget only
+   * bounds a hang — the upper edge of the window still proves the sample
+   * was taken mid-drive. */
   await previewPage.waitForFunction(
     () => window.MOTEL.arrival.progress > 0.18 && window.MOTEL.arrival.progress < 0.82,
     null,
-    { timeout: 8000, polling: 60 },
+    { timeout: 45000, polling: 60 },
   );
   const arrivalComposition = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -615,7 +619,9 @@ try {
       && arrivalSurveyBrief.width >= 500,
     JSON.stringify(arrivalSurveyBrief));
 
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'car');
+  /* The rest of the drive is the same real-time clock: ~40 s of wall time on
+   * a software rasteriser before the phase turns over. */
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 120000 });
   await previewPage.waitForFunction(() => {
     const element = document.getElementById('surveyBrief');
     return document.getElementById('hud')?.classList.contains('control-ready')
