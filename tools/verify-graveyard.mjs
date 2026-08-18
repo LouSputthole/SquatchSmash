@@ -625,7 +625,17 @@ try {
   await walkTo(0, -6.9, 0.8);
   await walkTo(0.9, -13.6, 0.7);
   await walkTo(1.7, -15.4, 0.5);
-  await aim(1.15, 0.7, -16.6);
+  /* The shovel leans (rotation.z −0.18), so its 3.5 cm handle is not where
+   * upright arithmetic puts it. Aim at the blade the scene actually placed. */
+  const shovelBlade = await page.evaluate(() => {
+    const scene = window.GRAVEYARD.player.camera.parent;
+    const shovel = scene.getObjectByName('burial.shovel');
+    shovel.updateMatrixWorld(true);
+    const blade = shovel.children[1];
+    const point = blade.getWorldPosition(blade.position.clone());
+    return [point.x, point.y, point.z];
+  });
+  await aim(...shovelBlade);
   await page.waitForFunction(() => {
     const prompt = document.getElementById('prompt');
     return !prompt?.classList.contains('hidden') && /fill HotDog/.test(prompt.textContent || '');
