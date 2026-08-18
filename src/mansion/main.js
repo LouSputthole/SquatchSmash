@@ -1835,7 +1835,10 @@ startBtn.addEventListener('click', beginTour);
 /* Input                                                                 */
 /* ================================================================== */
 window.addEventListener('keydown', (e) => {
-  if (!running) return;
+  /* Tab never gets here — the pause menu's own capture-phase listener owns it
+   * (src/core/pause-menu.js). Everything below mutates the live tour, so it
+   * must go dark while the overlay is up. */
+  if (!running || sharedPauseMenu.isPaused()) return;
   /* The laboratory keypad gets first refusal on a keystroke: while it is up,
    * the digits he types are a code rather than a walk. */
   if (silentSquatch?.keydown(e)) {
@@ -1880,7 +1883,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
 window.addEventListener('wheel', (e) => {
-  if (!running) return;
+  if (!running || sharedPauseMenu.isPaused()) return;
   loadout.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
 window.addEventListener('keyup', (e) => {
@@ -1965,15 +1968,15 @@ function updateGame(dt) {
   updateLightRig(dt);
   /* The sets. A television repaints its canvas and re-uploads the texture,
    * which is not free, so a set that is switched off does nothing at all --
-   * `Tv.update` returns immediately when `on` is false, and the texture is
-   * only flagged when it has actually changed. */
+   * `Tv.update` returns immediately when `on` is false, it repaints on its
+   * own ~12 Hz cadence rather than every frame, and the texture is only
+   * flagged on frames it reports actually painting. */
   for (const tv of houseTvs) {
     if (!tv.on) {
       if (tv._glowLight && tv._glowLight.intensity !== 0) tv._glowLight.intensity = 0;
       continue;
     }
-    tv.update(dt);
-    tv._tex.needsUpdate = true;
+    if (tv.update(dt)) tv._tex.needsUpdate = true;
     if (tv._glowLight) {
       const g = tv.glow();
       tv._glowLight.color.setHex(g.colour);

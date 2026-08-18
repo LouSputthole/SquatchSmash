@@ -12,8 +12,13 @@ import { PALACE_ANCHORS } from './world.js';
 export const PALACE_GUARD_POSTS = Object.freeze([
   Object.freeze({ id: 'gate-one', x: 9.2, z: 54, yaw: Math.PI, weapon: WEAPON_IDS.PISTOL9, patrol: [[9.2, 54], [7.2, 48]] }),
   Object.freeze({ id: 'guardhouse', x: 9.1, z: 44, yaw: -Math.PI / 2, weapon: WEAPON_IDS.CARBINE, patrol: [[9.1, 44], [6.5, 39]] }),
-  Object.freeze({ id: 'fountain', x: 5.5, z: 34, yaw: Math.PI * 0.7, weapon: WEAPON_IDS.PISTOL9, patrol: [[5.5, 34], [-4, 34]] }),
-  Object.freeze({ id: 'pool', x: -5.5, z: 22, yaw: Math.PI * 0.2, weapon: WEAPON_IDS.CARBINE, patrol: [[-5.5, 22], [-13, 14]] }),
+  /* Patrols must clear the courtyard water colliders: the fountain basin is
+   * solid across x +-3.2, z 31.8..38.2 and the reflecting pool across
+   * x -17..-5, z 15..23. Legs route around the basins, and since patrolIndex
+   * wraps modulo the list, the routes ping-pong so the closing leg is legal
+   * too. */
+  Object.freeze({ id: 'fountain', x: 5.5, z: 34, yaw: Math.PI * 0.7, weapon: WEAPON_IDS.PISTOL9, patrol: [[5.5, 34], [4.6, 30.4], [-4, 30.4], [4.6, 30.4]] }),
+  Object.freeze({ id: 'pool', x: -4.2, z: 22, yaw: Math.PI * 0.2, weapon: WEAPON_IDS.CARBINE, patrol: [[-4.2, 22], [-4.2, 14], [-13, 14], [-4.2, 14]] }),
   Object.freeze({ id: 'service-door', x: 13.5, z: 15.2, yaw: 0, weapon: WEAPON_IDS.PISTOL9, patrol: [[13.5, 15.2], [8, 18]] }),
   Object.freeze({ id: 'service-hall', x: 14.4, z: -1.5, yaw: Math.PI, weapon: WEAPON_IDS.PISTOL9, patrol: [[14.4, -1.5], [14.4, -12]] }),
   Object.freeze({ id: 'gallery-east', x: 6.4, z: -21.5, yaw: Math.PI, weapon: WEAPON_IDS.CARBINE, patrol: [[6.4, -21.5], [6.4, -30]] }),

@@ -350,15 +350,23 @@ const weaponPlayback = {
   ),
 };
 
+/* Built once per trigger pull, not per pellet: nobody moves between the
+ * pellets of one shot, and the per-pellet rebuild cost two Vector3s per man
+ * per pellet. Each `point` stays a real copy -- it is a sampled position, not
+ * a live reference (CONTEXT.md "Sampled aim point"). */
 function playerSuppressionCandidates(excluded = new Set()) {
-  return cast.all.filter((entry) => !excluded.has(entry.id)).map((entry) => ({
-    id: entry.id,
-    actor: entry.actor,
-    active: entry.active && !entry.down,
-    incapacitated: entry.down || entry.actor.incapacitated,
-    point: entry.root.position.clone().add(new THREE.Vector3(0, 1.35, 0)),
-    suppression: entry.suppression,
-  }));
+  return cast.all.filter((entry) => !excluded.has(entry.id)).map((entry) => {
+    const point = entry.root.position.clone();
+    point.y += 1.35;
+    return {
+      id: entry.id,
+      actor: entry.actor,
+      active: entry.active && !entry.down,
+      incapacitated: entry.down || entry.actor.incapacitated,
+      point,
+      suppression: entry.suppression,
+    };
+  });
 }
 
 function routePlayerShotTruth(shot) {
@@ -372,6 +380,7 @@ function routePlayerShotTruth(shot) {
     }
   }
   const suppressedIds = new Set(hitIds);
+  const candidates = playerSuppressionCandidates(suppressedIds);
   const pelletResults = [];
   const suppressed = [];
   for (const pellet of pellets) {
@@ -379,7 +388,7 @@ function routePlayerShotTruth(shot) {
       .some((contact) => combatantFromObject(contact.object));
     const result = suppressionField.applyPlayerShot({
       shot: { ...pellet, hit: hitCombatant },
-      combatants: playerSuppressionCandidates(suppressedIds),
+      combatants: candidates.filter((candidate) => !suppressedIds.has(candidate.id)),
     });
     pelletResults.push(result);
     for (const record of result.suppressed) {
@@ -1198,7 +1207,12 @@ function animate(now) {
     weapons.setSuppression(suppression);
     weapons.update(dt, { speed: Math.hypot(player.velocity.x, player.velocity.z) });
     const feedback = weapons.feedback();
-    document.getElementById('crosshair').style.transform = `scale(${(1 + feedback.bloom * 60).toFixed(3)})`;
+    /* A per-frame DOM lookup plus an unconditional style write is layout work
+     * on the many frames where bloom sits still at its floor. */
+    const crosshairScale = `scale(${(1 + feedback.bloom * 60).toFixed(3)})`;
+    if (ui.crosshair.style.transform !== crosshairScale) {
+      ui.crosshair.style.transform = crosshairScale;
+    }
     tracers.update(dt);
     bloodImpacts.update(dt);
     deathBloodPools.update(dt);

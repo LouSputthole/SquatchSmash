@@ -87,6 +87,19 @@ const INVESTIGATE_AWARENESS = 0.35;
 const HIT_ZONE_MULTIPLIER = Object.freeze({ head: 1, chest: 1, limb: 0.62 });
 const UP = new THREE.Vector3(0, 1, 0);
 
+/* Scratch vectors, the src/mansion/siege/attackers.js pattern: allocating
+ * inside a per-frame loop over the whole cast is how a firefight becomes a
+ * garbage-collection stutter. None of these is ever handed to code that keeps
+ * the reference -- anything retained (a sampled aim point, perception memory)
+ * stays a real copy made by its owner. */
+const _eye = new THREE.Vector3();
+const _sample = new THREE.Vector3();
+const _look = new THREE.Vector3();
+const _goalStep = new THREE.Vector3();
+const _strafe = new THREE.Vector3();
+const _beforeMove = new THREE.Vector3();
+const _stepPoint = new THREE.Vector3();
+
 /** Authored mechanical posts only; objectives, story anchors and boss phases stay untouched. */
 export const PALACE_COMBAT_POSTS = Object.freeze([
   Object.freeze({ id: 'gate-jamb', kind: 'cover', position: new THREE.Vector3(10.8, 0, 51.4), score: 1.05 }),
@@ -309,14 +322,16 @@ export class PalaceSecurity {
   _scan(entry, playerPosition, { powerCut = false, crouching = false } = {}) {
     const runtime = this._runtime(entry);
     if (!runtime || !entry.active || entry.down) return null;
-    const origin = entry.root.position.clone();
+    /* Scratch is safe here: CombatPerception.scan copies origin, forward and
+     * the sampled point into vectors it owns before remembering anything. */
+    const origin = _eye.copy(entry.root.position);
     origin.y += 1.52;
-    const point = playerPosition.clone();
+    const point = _sample.copy(playerPosition);
     point.y = crouching ? 0.96 : 1.5;
     let range = powerCut ? VISION.blackoutDistance : VISION.poweredDistance;
     if (crouching) range *= VISION.crouchFactor;
     runtime.sightRange = range;
-    const forward = new THREE.Vector3(0, 0, 1)
+    const forward = _look.set(0, 0, 1)
       .applyAxisAngle(UP, entry.root.rotation.y);
     const candidate = {
       id: 'prospect',
@@ -380,6 +395,18 @@ export class PalaceSecurity {
     return true;
   }
 
+  /* A reservation is otherwise only released when the same guard re-picks in
+   * _combatMove, and the dead never re-pick: without this, every death would
+   * permanently retire one of the nine cover posts for the survivors. */
+  _releaseTacticalPost(entry) {
+    const runtime = this._runtime(entry);
+    if (!runtime?.tacticalPost) return;
+    if (this.tacticalReservations.get(runtime.tacticalPost.id) === entry.id) {
+      this.tacticalReservations.delete(runtime.tacticalPost.id);
+    }
+    runtime.tacticalPost = null;
+  }
+
   silentTakedown(id, { distance = Infinity } = {}) {
     const entry = this.cast.guards.find((guard) => guard.id === id);
     if (!entry || entry.down || !entry.active || this.alarm
@@ -392,6 +419,7 @@ export class PalaceSecurity {
     });
     if (!result.applied) return false;
     this.cast.markDown(entry);
+    this._releaseTacticalPost(entry);
     this.stats.takedowns++;
     this.stats.targetsDown.push(entry.id);
     this.onTargetDown(entry, { silent: true, result });
@@ -432,6 +460,7 @@ export class PalaceSecurity {
     }
     if (located.fatal || entry.actor.incapacitated) {
       this.cast.markDown(entry, { reaction });
+      this._releaseTacticalPost(entry);
       if (entry.role === 'boss') {
         entry.phase = 'down';
         this.onBossPhase('down', entry);
@@ -551,7 +580,7 @@ export class PalaceSecurity {
   _patrol(entry, dt, speedScale = 1) {
     if (!entry.patrol.length) return;
     const goal = entry.patrol[entry.patrolIndex % entry.patrol.length];
-    const direction = goal.clone().sub(entry.root.position).setY(0);
+    const direction = _goalStep.copy(goal).sub(entry.root.position).setY(0);
     const distance = direction.length();
     if (distance < 0.22) {
       entry.patrolIndex = (entry.patrolIndex + 1) % entry.patrol.length;
@@ -575,7 +604,7 @@ export class PalaceSecurity {
   _investigate(entry, dt, point, speedScale = 1) {
     if (!point?.isVector3) return;
     const runtime = this._runtime(entry);
-    const toward = point.clone().sub(entry.root.position).setY(0);
+    const toward = _goalStep.copy(point).sub(entry.root.position).setY(0);
     const distance = toward.length();
     if (distance <= 1.2) {
       if (!entry.aimAligned && distance > 1e-6) {
@@ -620,7 +649,7 @@ export class PalaceSecurity {
     const holdingPost = Boolean(tacticalGoal
       && tacticalGoal.distanceTo(entry.root.position) > 0.48);
     const movementTarget = holdingPost ? tacticalGoal : targetPoint;
-    const toward = movementTarget.clone().sub(entry.root.position).setY(0);
+    const toward = _goalStep.copy(movementTarget).sub(entry.root.position).setY(0);
     const distance = toward.length();
     if (distance < 0.001) return;
     toward.multiplyScalar(1 / distance);
@@ -632,11 +661,11 @@ export class PalaceSecurity {
      * opinions about range, or he sidesteps into the wall he was avoiding. */
     if (!holdingPost && runtime.detourTime <= 0) {
       if (distance < tactics.standoff - 2) {
-        direction = toward.clone().negate();
+        direction = _strafe.copy(toward).negate();
         speed = tactics.strafe;
       } else if (distance <= tactics.standoff + 1.5) {
         const side = runtime.detourSide;
-        direction = new THREE.Vector3(toward.z * side, 0, -toward.x * side);
+        direction = _strafe.set(toward.z * side, 0, -toward.x * side);
         speed = tactics.strafe;
       }
     }
@@ -815,7 +844,7 @@ export class PalaceSecurity {
       const remembered = seen?.point
         ?? runtime.perception.lastSeen
         ?? this._sharedContact(entry);
-      const beforeMove = entry.root.position.clone();
+      const beforeMove = _beforeMove.copy(entry.root.position);
       if (!this.alarm && entry.role === 'guard') {
         if (runtime.perception.hasMemory
           && runtime.perception.awareness >= INVESTIGATE_AWARENESS) {
@@ -832,11 +861,14 @@ export class PalaceSecurity {
         id: entry.id,
       });
       const moved = beforeMove.distanceTo(entry.root.position);
+      /* Scratch, valid for the duration of the callback: CombatStepCadence
+       * copies the coordinates it keeps, and positioned audio reads them
+       * synchronously. A listener that wants the point later must copy it. */
       this.onStep({
         id: entry.id,
         entry,
         dt: step,
-        position: entry.root.position.clone(),
+        position: _stepPoint.copy(entry.root.position),
         distance: moved,
         moving: moved > 1e-6,
       });

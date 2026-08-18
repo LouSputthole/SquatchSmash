@@ -1574,7 +1574,10 @@ function holdTheLine() {
 /* error anywhere to say why. It cost this file one verifier run.          */
 /* ================================================================== */
 window.addEventListener('keydown', (e) => {
-  if (!running) return;
+  /* Tab never gets here — the pause menu's own capture-phase listener owns it
+   * (src/core/pause-menu.js). Everything below mutates the live mission, so it
+   * must go dark while the overlay is up, same as the mousedown handler. */
+  if (!running || pauseMenu.isPaused()) return;
   if (e.code === 'Space') e.preventDefault();
   player.setKey(translateKey(e.code), true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
@@ -1606,7 +1609,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
 window.addEventListener('wheel', (e) => {
-  if (!running) return;
+  if (!running || pauseMenu.isPaused()) return;
   const occupied = finalArcLoadout.items;
   if (occupied.filter(Boolean).length <= 1) return;
   let index = finalArcLoadout.selected;

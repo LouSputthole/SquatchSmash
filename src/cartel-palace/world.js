@@ -605,7 +605,10 @@ export function buildCartelPalace(scene) {
   // family cars, account desk, and the crest over the final doors.
   framedPortrait(estate, -17.66, 2.15, -5.8, { scale: 0.82, facing: 'x' });
   framedPortrait(estate, -17.66, 2.15, -24, { scale: 0.82, facing: 'x' });
-  framedPortrait(estate, 0, 2.25, -33.9, { scale: 0.68 });
+  /* On the west dining partition, not centred over the doors: the door gap is
+   * a full-height opening (partitions only cover |x| >= 3.3), so a portrait at
+   * x 0 hangs on nothing and the player walks through it once the doors open. */
+  framedPortrait(estate, -5.2, 2.25, -33.9, { scale: 0.68 });
 
   const evidence = {
     [EVIDENCE_IDS.BELONGINGS]: evidenceBelongings(estate, colliders),
@@ -880,7 +883,10 @@ export function buildCartelPalace(scene) {
 
   solid(diningStage, colliders, [3.8, 1.1, 0.75], [-14.7, 0.55, -43.5], M.wood, 'dining-sideboard-west');
   solid(diningStage, colliders, [3.8, 1.1, 0.75], [14.7, 0.55, -43.5], M.wood, 'dining-sideboard-east');
-  framedPortrait(diningStage, 0, 2.5, -49.65, { scale: 1.05 });
+  /* Hung over the x 6.6 rear-wall panel, east of the extraction opening: the
+   * rear wall segments stop at |x| 3.2, so a portrait at x 0 sits entirely in
+   * the 6.4 m gap the gate reveals. z clears the panel inset's front face. */
+  framedPortrait(diningStage, 6.6, 2.5, -49.53, { scale: 1.05 });
 
   const extractionGate = ironGate(5.4, 3.7, 'terrace-extraction-gate');
   extractionGate.position.set(0, 0, -52.6);

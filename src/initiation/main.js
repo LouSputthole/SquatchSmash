@@ -1323,12 +1323,12 @@ function executeProspect(p, onFinished) {
   });
 }
 
-function nearestMember(maxDist) {
+function nearestMember(maxDist, from = player.position) {
   let best = null;
   let bd = maxDist;
   for (const m of members) {
     if (m.knock) continue;
-    const d = Math.hypot(m.sq.position.x - player.position.x, m.sq.position.z - player.position.z);
+    const d = Math.hypot(m.sq.position.x - from.x, m.sq.position.z - from.z);
     if (d < bd) { bd = d; best = m; }
   }
   return best;
@@ -1348,8 +1348,13 @@ function resolvePlayerImpact() {
   }
 
   if (phase === 'trial_log') {
-    // Swinging near a member fails the initiation even here
-    const bystander = nearestMember(3.0);
+    /* Swinging at a member fails the initiation even here -- measured from
+     * where the fist actually lands, not from the prospect's feet. The log's
+     * push-out ring (r 2.95) leaves him ~1.5 m from the front pair on the
+     * aisle, so a feet-based 3 m radius made every head-on swing at the log
+     * an instant fail with no legal position. 1.8 is the same melee reach
+     * the log and tree impacts accept below. */
+    const bystander = nearestMember(1.8, _impact);
     if (bystander) {
       failFrom = 'trial_log';
       setPhase('fail_swing');
