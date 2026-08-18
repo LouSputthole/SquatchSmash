@@ -413,18 +413,39 @@ function makeViolin() {
    * parented to the forearm bone below (`parts.foreR`, in `makeBand`) and given
    * a LOCAL offset computed once, algebraically, from the same hand point
    * `verify-silver.mjs` already uses for the left hand: `fore.localToWorld(new
-   * THREE.Vector3(0, -0.3, 0.005))`. Solve `bow.position` so that the frog's own
-   * local point (0.012, -0.31, 0), rotated by this bow.rotation.z, lands exactly
-   * on that hand point:
+   * THREE.Vector3(0, -0.3, 0.005))`.
    *
-   *   bowPos = handLocal - Rz(rotZ) * frogLocal = (-0.0612, 0.0041, 0.005)
+   * The first solve of that offset kept the shipped rotation (`rotation.z =
+   * 0.16` relative to the forearm) and only moved the frog into the hand --
+   * which put the hand on the bow and the bow ON THE ARM: 0.16 rad off the
+   * forearm's own axis is a stick lying along the sleeve, pointing 20 degrees
+   * off PARALLEL to the strings and half a metre from them. "His violin bow is
+   * in his arm instead of towards his violin", exactly.
    *
-   * Wherever the forearm goes -- rest pose, mid-stroke, whatever `perform.js`
-   * asks of it next -- the bow is rigidly attached to it, so the hand is on the
-   * bow by construction rather than by a number that happens to land close this
-   * frame. */
-  bow.position.set(-0.0612, 0.0041, 0.005);
-  bow.rotation.z = 0.16;
+   * So both numbers are solved now, against the violin rather than against the
+   * arm. In the instrument's own frame: the hair meets the strings at
+   * (0.05, 0, 0.076) -- just tailpiece-side of the bridge, on the string tops
+   * -- the stick crosses them along (-0.33, 0.94, 0), i.e. ACROSS the strings
+   * and leaning toward the scroll, with its centreline 20mm proud of the plane
+   * so the 22mm of hair is what touches, and the frog sits 0.30m of hair
+   * before the contact. Push that through the violin's mount
+   * (pos (-0.01, 1.35, 0.205), rot (-0.08, 0, -0.12)) and the frog lands at
+   * body-space (0.104, 1.060, 0.325); `perform.js`'s playing pose (armR
+   * (-0.242, -0.459, -0.006), foreR (-1.041, 0, -0.061), solved together with
+   * these numbers) puts the hand point there to 0.4mm. Basis: bow +Y = the
+   * stick direction, bow +X = the string-plane normal negated (hair side
+   * toward the strings), orthogonalised; expressed in foreR's frame and with
+   * the frog pinned to the hand:
+   *
+   *   bowRot = R_fore^-1 * R_bow          = (-1.5992, 1.0348, 2.8501) XYZ
+   *   bowPos = handLocal - bowRot*frogLocal = (-0.0396, -0.2248, 0.3034)
+   *
+   * Measured across the whole stroke (`foreR.x + stroke*0.16`, `armR.x +
+   * stroke*0.08`): the hair stays within 1-39mm of the strings, the contact
+   * point travels 52mm along them past the bridge, and the frog never leaves
+   * the hand (0.1mm). Wherever the forearm goes, the bow goes with it. */
+  bow.position.set(-0.0396, -0.2248, 0.3034);
+  bow.rotation.set(-1.5992, 1.0348, 2.8501);
 
   return { group: violin, bow };
 }

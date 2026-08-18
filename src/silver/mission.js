@@ -449,6 +449,19 @@ export class Mission {
    * How the night ends. Score gets a vote; so do the things that no score
    * should be able to buy back.
    *
+   * The lines moved down on the owner's note — "we want users to get Margo to
+   * want to go home with them. It should be basically very easy." Going home
+   * is `strong` (see `persist`'s `cameHome`), and `strong` used to start at
+   * 80: a number the ordinary evening never touched, so the easy default was
+   * a cab. Now 71 — which, with the seven-hand goal bonus and the ordinary
+   * table beats (`woo.js`, same pass), is where a player who simply does the
+   * evening — dinner, the show, a handful of tips, the salud — lands with
+   * room to spare. Missing it takes actively neglecting her: the negative
+   * events are untouched, and `awkward`/`disaster` now begin low enough that
+   * only a genuinely ignored date falls into them. The bands verify:silver
+   * pins still hold: 84 is strong, 70 is good, 45 is awkward, 20 is a
+   * disaster.
+   *
    * @param {number} score the Woo score
    * @param {string} band  its band key
    */
@@ -461,12 +474,12 @@ export class Mission {
 
     if (f.chaos >= 4 && score >= 50) return 'from-a-distance';
 
-    if (f.invitation === 'none') return score >= 65 ? 'gentleman' : 'polite';
+    if (f.invitation === 'none') return score >= 55 ? 'gentleman' : 'polite';
 
     if (band === 'perfect' && f.drinkOrdered === 'rye' && f.funnyHow) return 'perfect';
-    if (score >= 80) return 'strong';
-    if (score >= 65) return 'good';
-    if (score >= 40) return 'awkward';
+    if (score >= 71) return 'strong';
+    if (score >= 46) return 'good';
+    if (score >= 21) return 'awkward';
     return 'disaster';
   }
 
@@ -540,6 +553,8 @@ export class Mission {
       outcome: this.flags.outcome,
       cameHome: ['perfect', 'strong'].includes(this.flags.outcome),
       seeingHerAgain: ['perfect', 'strong', 'good', 'gentleman'].includes(this.flags.outcome),
+      /* Campaign-wide field name, kept: since the TIP_GOAL change this means
+       * "closed the seven-hand taken-care-of goal", not the full roster. */
       tippedEverybody: w.streak,
       tipsGiven: w.tips.length,
       rememberedDrink: this.flags.drinkOrdered === 'rye',

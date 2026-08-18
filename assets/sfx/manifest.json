@@ -6878,11 +6878,6 @@
       "prompt": "live jazz piano stem, soft comping chords, slow swing ballad at about 92 bpm, supper club stage, no horns no drums, loopable"
     },
     {
-      "name": "band.vocal",
-      "duration": 8,
-      "prompt": "live jazz vocal stem, warm low female scat and held notes, slow swing ballad at about 92 bpm, no accompaniment, loopable"
-    },
-    {
       "name": "ambience.alley",
       "duration": 20,
       "prompt": "night alley behind a busy restaurant, distant city traffic, a extractor fan, light rain on bins, no voices, seamless loop"

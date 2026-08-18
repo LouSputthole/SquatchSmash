@@ -24,8 +24,9 @@ export const SET = [
     cue: 'vo.silver.bandleader.set.opener',
     /* Shorter than it was, twice, and the reason is arithmetic rather than
      * taste. The third number is the one everybody has been told about and it
-     * is a 192-second master that cannot be cut; dessert is gated on it
-     * finishing; and at 52 and 58 the two warm-ups pushed that gate to nine
+     * is a 192-second master that cannot be cut; dessert is gated on its
+     * clock (its final third, since the owner asked for dessert DURING the
+     * back end of it — see ROUND_QUEUE); and at 52 and 58 the two warm-ups pushed that gate to nine
      * and a quarter minutes after sitting down. Cutting them to 38 and 42 was
      * not enough — "let's basically [play] all the sounds once for about a
      * quarter of a number and then just go right into banana phone".
@@ -36,7 +37,7 @@ export const SET = [
      * order, so the third number is still literally the third number — which
      * three separate people in the script promise it will be. */
     dur: 10,
-    stems: { rhythm: 0.5, horns: 0.22, piano: 0.34, vocal: 0 },
+    stems: { rhythm: 0.5, horns: 0.22, piano: 0.34 },
   },
   {
     /* The owner's note: "the band is much better, BUT the 'lady singing
@@ -77,7 +78,14 @@ export const SET = [
     dur: 12,
     // Near silent: this is patter, not a number. A hair of rhythm so the
     // room does not go dead while he talks.
-    stems: { rhythm: 0.04, horns: 0, piano: 0, vocal: 0 },
+    stems: { rhythm: 0.04, horns: 0, piano: 0 },
+    /* "When he's doing the jokes, waiters and shit are talking." While a
+     * patter number is on, the comedian owns the floor: `main.js` holds the
+     * room's overheard barks (and any walk-past hellos) the same way a live
+     * `dialogue.active` does, via `holdingTheFloor` below. Voices only — the
+     * kitchen keeps clattering and the diners keep eating, because a room
+     * that stops WORKING for a joke is a different note entirely. */
+    patter: true,
   },
   {
     /* The one everybody warned you about: a house violinist playing the
@@ -95,21 +103,35 @@ export const SET = [
     trackVolume: 0.42,
     trackDuck: 0.20,
     bpm: 93.75,
-    stems: { rhythm: 0.55, horns: 0.5, piano: 0.3, vocal: 0.3 },
+    /* The fallback mix if the streamed master cannot run. No vocal stem — see
+     * the note on the slow number: the scat loop is retired from playback. */
+    stems: { rhythm: 0.55, horns: 0.5, piano: 0.3 },
     theOne: true,
   },
   {
+    /* Instrumental now, all the way down. This number used to be led by `the
+     * singer` with the `band.vocal` stem at 0.36 — and `band.vocal` is the
+     * "ohhh la la" scat loop the owner has now flagged twice: once bleeding
+     * under Bananaphone (fixed by `_stopStems`), and now on its own merits —
+     * "the 'ohhh la la la' singing sound has got to go. It plays on repeat as
+     * like a stand in band song." There is no singer on this stage — seven
+     * players, none of them a vocalist — so the stem was a voice from nobody.
+     * It is removed from playback entirely rather than turned down: gone from
+     * `STEMS`, gone from every number's mix, and retired from the manifest.
+     * The slow number closes the set on the three instrumental stems the
+     * band already has, which is what seven people with instruments sound
+     * like at two in the morning anyway. */
     id: 'slow',
     title: 'Two In The Morning',
-    lead: 'the singer',
+    lead: 'the bandleader',
     say: null,
     dur: 66,
-    stems: { rhythm: 0.34, horns: 0.1, piano: 0.4, vocal: 0.36 },
+    stems: { rhythm: 0.34, horns: 0.1, piano: 0.4 },
     slow: true,
   },
 ];
 
-const STEMS = ['rhythm', 'horns', 'piano', 'vocal'];
+const STEMS = ['rhythm', 'horns', 'piano'];
 
 export class Performance {
   /**
@@ -153,6 +175,15 @@ export class Performance {
 
   get current() { return this.index >= 0 ? SET[this.index] : null; }
   get onTheOne() { return !!this.current?.theOne; }
+
+  /**
+   * Whether a patter number — the violinist doing the jokes — is on.
+   *
+   * The room's overheard voices treat this exactly like `dialogue.active`:
+   * a bark waits rather than landing in the middle of "take my wife, please".
+   * SFX are not consulted; the kitchen and the cutlery carry on.
+   */
+  get holdingTheFloor() { return this.playing && !this._paused && !!this.current?.patter; }
 
   /** The second cutscene calls this. Curtain, lights, and the first bar. */
   begin() {
@@ -318,7 +349,7 @@ export class Performance {
       this.audio?.setLoopCutoff?.('band.feature', this.duck > 0.05 ? 3200 : 20000, ramp);
       return;
     }
-    const duckByStem = { rhythm: 0, horns: 0.62, piano: 0.3, vocal: 0.8 };
+    const duckByStem = { rhythm: 0, horns: 0.62, piano: 0.3 };
     for (const s of STEMS) {
       const duck = 1 - this.duck * duckByStem[s];
       this.audio?.setLoopVolume(`band.${s}`, n.stems[s] * this.roomMix * duck, ramp);
@@ -636,8 +667,20 @@ export class Performance {
           const vib = Math.sin(this.t * 11.5) * 0.015;
           P.armL.rotation.set(-0.21, -0.28, -0.29);
           P.foreL.rotation.set(-2.30 + vib, 0, 0.06);
-          P.armR.rotation.set(-0.62 - stroke * 0.08, 0.05, 0.65);
-          P.foreR.rotation.set(-1.05 + stroke * 0.28, 0, -0.30);
+          /* The bow arm, solved WITH the bow's attach in `makeViolin` rather
+           * than eyeballed against it. "His violin bow is in his arm instead
+           * of towards his violin": the old pose held the hand half a metre
+           * from the bridge, so the rigidly-attached bow could only lie along
+           * the sleeve. These numbers put the hand at the frog of a bow that
+           * crosses the strings at the bridge -- upper arm hanging, forearm
+           * reaching in under the instrument -- and the same stroke that
+           * always drove this arm now drags the hair 52mm along the strings
+           * (never more than 39mm off them) instead of sawing at the air.
+           * The gains moved with the pose: +0.16/+0.08 is what keeps the
+           * contact ON the string across the whole sweep; the numbers and the
+           * sweep measurements are in the `makeViolin` note. */
+          P.armR.rotation.set(-0.242 + stroke * 0.08, -0.459, -0.006);
+          P.foreR.rotation.set(-1.041 + stroke * 0.16, 0, -0.061);
           P.body.rotation.z = Math.sin(this.t * 1.3) * 0.035;
           break;
         }

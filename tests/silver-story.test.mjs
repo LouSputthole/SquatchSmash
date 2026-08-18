@@ -298,9 +298,14 @@ test('a post-feature restore returns to an honest quiet between-set room', () =>
   assert.equal(performance.current, null);
   assert.equal(band.members[0].group.visible, true);
   assert.equal(calls.some(([kind, amount]) => kind === 'curtain' && amount === 1), true);
-  for (const stem of ['rhythm', 'horns', 'piano', 'vocal']) {
+  /* Three stems, not four: `band.vocal` — the "ohhh la la" scat loop — was
+   * retired from playback entirely on the owner's note ("the singing sound
+   * has got to go"), so a restore has nothing of it to stop. */
+  for (const stem of ['rhythm', 'horns', 'piano']) {
     assert.equal(calls.some(([kind, key]) => kind === 'stopLoop' && key === `band.${stem}`), true);
   }
+  assert.equal(calls.some(([kind, key]) => key === 'band.vocal'), false,
+    'the retired vocal stem is never even addressed');
 });
 
 test('the date cannot end before the featured third number completes across a mission checkpoint', () => {
@@ -336,10 +341,16 @@ test('the date cannot end before the featured third number completes across a mi
  * zero and left running, so every later caller that touched the mix — the
  * dialogue duck, the room crossfade, a checkpoint restore — got another go at
  * deciding what "zero" meant. Stopped is a state; quiet is an opinion.
+ *
+ * The stem roster here is the CURRENT one: `band.vocal` has since been
+ * retired from playback altogether ("the 'ohhh la la la' singing sound has
+ * got to go"), so the strongest version of this test's own complaint now
+ * holds — the vocal cannot bleed under Bananaphone because nothing ever
+ * starts it. The tail of the test pins exactly that.
  */
 test('the featured number stops the house band stems instead of ducking them', () => {
   const third = SET.find((number) => number.id === 'third');
-  const STEMS = ['rhythm', 'horns', 'piano', 'vocal'];
+  const STEMS = ['rhythm', 'horns', 'piano'];
   const calls = [];
   const featureHandle = { element: { currentTime: 0, paused: true }, released: false };
   const audio = {
@@ -384,6 +395,11 @@ test('the featured number stops the house band stems instead of ducking them', (
       && STEMS.some((s) => key === `band.${s}`) && volume > 0,
   );
   assert.deepEqual(raised, [], 'and nothing may raise one either');
+
+  /* The retired stem, held out by name: no start, no volume, no stop —
+   * `band.vocal` is not in this band's vocabulary any more. */
+  assert.deepEqual(calls.filter(([, key]) => key === 'band.vocal'), [],
+    'the retired vocal stem is never addressed at all');
 });
 
 /**
