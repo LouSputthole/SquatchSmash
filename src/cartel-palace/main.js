@@ -928,6 +928,7 @@ function restoreCombatCheckpoint(snapshot) {
    * snapshot restores only guards and never manufactures player/loadout data. */
   if (legacySecurity) {
     security.restore(snapshot);
+    restageEliminatedTargets();
     updatePlayerStatus();
     return security;
   }
@@ -939,6 +940,7 @@ function restoreCombatCheckpoint(snapshot) {
   weapons.setAimed(false);
   weapons.setSuppression(suppression);
   security.restore(snapshot.security);
+  restageEliminatedTargets();
   syncLoadout();
   updatePlayerStatus();
   updateAmmo();
@@ -968,6 +970,17 @@ function stageWorldForCheckpoint(id) {
     security.activateFinalEncounter();
     ui.boss.classList.remove('hidden');
   }
+  restageEliminatedTargets(progress);
+  placeAtCheckpoint(id);
+  repaintEvidence();
+}
+
+/* The mission's eliminated flags are the durable authority on the two
+ * targets. A checkpoint snapshot captured in the same transition that
+ * flipped a flag can still hold Mark or Sauce alive, so both the world
+ * staging and a combat-snapshot restore re-assert the flags afterward —
+ * a reload must never resurrect a man the save says is down. */
+function restageEliminatedTargets(progress = mission.snapshot()) {
   if (progress.markEliminated) {
     cast.mark.actor.health = 0;
     cast.mark.actor.incapacitated = true;
@@ -981,8 +994,6 @@ function stageWorldForCheckpoint(id) {
   if (progress.markEliminated && progress.sauceEliminated) {
     ui.boss.classList.add('hidden');
   }
-  placeAtCheckpoint(id);
-  repaintEvidence();
 }
 
 function restoreMissionProgress() {
