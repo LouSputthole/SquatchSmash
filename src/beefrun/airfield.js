@@ -345,6 +345,9 @@ export function buildAirfield(scene, { terrain } = {}) {
    * walk into the building the mission sends them into. */
   addCollider(-68, 404, 3, 8, 7);
   addCollider(-52, 404, 3, 8, 7);
+  // The piers stop 10 m apart, but the back wall behind the opening is solid —
+  // without this band the player walks out through the north wall at z 412.
+  addCollider(-60, 412, 5, 0.3, 7);
 
   const shack = makeOpsShack();
   shack.position.set(-38, ELEV, 366);
@@ -500,7 +503,11 @@ export function buildAirfield(scene, { terrain } = {}) {
     bugPos[i * 3 + 2] = 366 + (rand() - 0.5) * 10;
   }
   bugGeo.setAttribute('position', new THREE.BufferAttribute(bugPos, 3));
-  const bugs = new THREE.Points(bugGeo, new THREE.PointsMaterial({ color: 0x2a2418, size: 0.06, sizeAttenuation: true }));
+  // Each bug's tether point: the per-frame jitter stays inside a small radius
+  // of home, so hours of it cannot walk the swarm across the apron.
+  const bugHome = bugPos.slice();
+  // The dusk fade writes opacity every frame; an opaque material ignores it.
+  const bugs = new THREE.Points(bugGeo, new THREE.PointsMaterial({ color: 0x2a2418, size: 0.06, sizeAttenuation: true, transparent: true }));
   root.add(bugs);
 
   /* ---- Anchors the mission cares about ---- */
@@ -578,12 +585,12 @@ export function buildAirfield(scene, { terrain } = {}) {
       for (const t of tarps) {
         t.mesh.rotation.x = Math.sin(state.t * 1.6 + t.phase) * 0.14 * (0.4 + wind);
       }
-      // Bugs jitter in place.
+      // Bugs jitter in place, tethered to bugHome.
       const arr = bugs.geometry.attributes.position.array;
       for (let i = 0; i < arr.length; i += 3) {
-        arr[i] += (Math.random() - 0.5) * 0.03;
-        arr[i + 1] += (Math.random() - 0.5) * 0.02;
-        arr[i + 2] += (Math.random() - 0.5) * 0.03;
+        arr[i] = clamp(arr[i] + (Math.random() - 0.5) * 0.03, bugHome[i] - 0.4, bugHome[i] + 0.4);
+        arr[i + 1] = clamp(arr[i + 1] + (Math.random() - 0.5) * 0.02, bugHome[i + 1] - 0.25, bugHome[i + 1] + 0.25);
+        arr[i + 2] = clamp(arr[i + 2] + (Math.random() - 0.5) * 0.03, bugHome[i + 2] - 0.4, bugHome[i + 2] + 0.4);
       }
       bugs.geometry.attributes.position.needsUpdate = true;
       bugs.material.opacity = 1 - state.dusk * 0.8;

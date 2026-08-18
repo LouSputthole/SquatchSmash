@@ -243,7 +243,10 @@ export class EnolaSquatch {
     this.explosion = null;
     this.build();
     if (withCockpit) this.buildCockpit();
-    this.instruments = withCockpit ? new Instruments(this.parts.panelCanvas, { ac: AC_ENOLA }) : null;
+    /* The panel has one RPM/temp pair for four engines; show the inner pair —
+     * the same engines the audio's stereo channels follow — so the scripted
+     * innerRight overheat is on a dial and not only in the sound. */
+    this.instruments = withCockpit ? new Instruments(this.parts.panelCanvas, { ac: AC_ENOLA, engineIndices: [1, 2] }) : null;
   }
 
   /* ---------------------------------------------------------------- */
@@ -2346,7 +2349,9 @@ export class EnolaSquatch {
     for (const l of this.parts.navLights) l.scale.setScalar(0.7 + lit * 0.5);
 
     if (this.instruments) {
-      this.instruments.update(dt, phys, engines ?? { engines: [{ rpm: 0, temp: 40 }, { rpm: 0, temp: 40 }], fuel: AC_ENOLA.fuelMass, anyRunning: false }, state);
+      // The cold stand-in carries all four engines so the inner-pair dials
+      // still have something to read before the real EngineSystem arrives.
+      this.instruments.update(dt, phys, engines ?? { engines: Array.from({ length: 4 }, () => ({ rpm: 0, temp: 40 })), fuel: AC_ENOLA.fuelMass, anyRunning: false }, state);
       if (this.instruments.dirty) {
         this.parts.panelTex.needsUpdate = true;
         this.instruments.dirty = false;

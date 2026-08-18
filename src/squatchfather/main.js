@@ -640,6 +640,8 @@ function buildStates() {
         train.setIntensity(0.3);
         vibration.set(0.12);
         this.prodded = 0;
+        // Re-arm the nag too — a checkpoint retry re-enters this state.
+        this.proddedOnce = false;
         // The train owns the pressure here; the extra horn was an indoor
         // jump-scare immediately after the bathroom, not useful story sound.
       },
@@ -753,6 +755,9 @@ function buildStates() {
         knockGlassOver(glasswareFor(sceneState.props.salGlass));
         roomReacts();
         fsm.go(S.SHOOT_MCCLAWSKY);
+      },
+      exit() {
+        showDrawPrompt(null);
       },
     },
 

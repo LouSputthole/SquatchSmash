@@ -83,10 +83,14 @@ export class FlightInput {
    * @returns {string} the normalized control code
    */
   keyEvent(event, down) {
+    /* The physical code is what the keymap speaks — translateKey's unbind
+     * branch only matches ShiftLeft/ShiftRight, so collapsing to the logical
+     * 'Shift' before translating left the throttle on a Shift the player had
+     * rebound away. The logical name is only the fallback for the paths that
+     * supply no code at all. */
     const key = event?.key;
-    const code = key === 'Shift' ? 'Shift'
-      : key === 'Control' ? 'Control'
-        : event?.code || key || '';
+    const code = event?.code
+      || (key === 'Shift' ? 'Shift' : key === 'Control' ? 'Control' : key || '');
     /* Ctrl and Cmd are still normalized and recorded so the mission can notice
      * a pilot reaching for the old throttle and tell them where it went, but
      * nothing in `update()` reads them any more. */

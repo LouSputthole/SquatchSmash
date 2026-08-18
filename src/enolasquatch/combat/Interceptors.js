@@ -93,6 +93,9 @@ const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
 const _leadPoint = new THREE.Vector3();
 const _muzzle = new THREE.Vector3();
+const _cur = new THREE.Vector3();
+const _axis = new THREE.Vector3();
+const _perchPoint = new THREE.Vector3();
 
 /* ------------------------------------------------------------------ */
 /* The aeroplane                                                       */
@@ -321,8 +324,10 @@ export class Interceptors {
       f.stateT += dt;
       const toUs = _w.subVectors(position, f.position);
       const range = toUs.length();
-      const heading = f.velocity.clone().normalize();
-      const angleOff = range > 1 ? Math.acos(clamp(heading.dot(toUs.clone().normalize()), -1, 1)) : 0;
+      // Angle off the nose from the raw dot product: normalising either vector
+      // in place would corrupt it, and this runs once per fighter per frame.
+      const norm = f.velocity.length() * range;
+      const angleOff = range > 1 && norm > 0 ? Math.acos(clamp(f.velocity.dot(toUs) / norm, -1, 1)) : 0;
 
       switch (f.state) {
         case 'ingress': {
@@ -359,9 +364,11 @@ export class Interceptors {
         }
         case 'breakoff': {
           // Up and across the tail — which is exactly where the rear gun is.
-          _v.copy(position)
-            .addScaledVector(velocity.clone().normalize(), -420)
-            .add(new THREE.Vector3(f.side * 700, 320, f.side * 300));
+          _w.copy(velocity).normalize();
+          _v.copy(position).addScaledVector(_w, -420);
+          _v.x += f.side * 700;
+          _v.y += 320;
+          _v.z += f.side * 300;
           const turn = this._steer(dt, f, _v, 0.85, 160);
           f.orient(dt, turn);
           for (const fl of f.flashes) fl.material.opacity = 0;
@@ -416,14 +423,19 @@ export class Interceptors {
     }
   }
 
-  /** Where a fighter wants to be before it rolls in. */
+  /**
+   * Where a fighter wants to be before it rolls in.
+   *
+   * Returned in module scratch: read it before the next `_perch` call and
+   * never store it across frames.
+   */
   _perch(position, velocity, f) {
-    const fwd = velocity.lengthSq() > 1 ? velocity.clone().normalize() : new THREE.Vector3(0, 0, 1);
-    const side = new THREE.Vector3(-fwd.z, 0, fwd.x).multiplyScalar(f.side * 900);
-    return position.clone()
-      .addScaledVector(fwd, -1500)
-      .add(side)
-      .add(new THREE.Vector3(0, f.high, 0));
+    const fwd = velocity.lengthSq() > 1 ? _w.copy(velocity).normalize() : _w.set(0, 0, 1);
+    _perchPoint.copy(position).addScaledVector(fwd, -1500);
+    _perchPoint.x += -fwd.z * f.side * 900;
+    _perchPoint.z += fwd.x * f.side * 900;
+    _perchPoint.y += f.high;
+    return _perchPoint;
   }
 
   /** Where the bomber will be when the fighter's rounds get there. */
@@ -442,13 +454,13 @@ export class Interceptors {
     const d = _v.length();
     if (d < 1) return 0;
     _v.multiplyScalar(1 / d);
-    const cur = f.velocity.clone().normalize();
+    const cur = _cur.copy(f.velocity).normalize();
     const angle = Math.acos(clamp(cur.dot(_v), -1, 1));
     const step = Math.min(angle, turnRate * dt);
     // Signed, about the world up axis, purely so the model banks the right way.
     const cross = cur.x * _v.z - cur.z * _v.x;
     if (angle > 1e-4) {
-      const axis = new THREE.Vector3().crossVectors(cur, _v).normalize();
+      const axis = _axis.crossVectors(cur, _v).normalize();
       cur.applyAxisAngle(axis, step);
     }
     f.speed = damp(f.speed, speed, 1.2, dt);

@@ -589,7 +589,9 @@ export function buildSquatchfatherScene(scene, renderer) {
     const c = makeCar([0x3a2030, 0x1f3040, 0x40391f, 0x2b2b34][i]);
     const dir = i % 2 ? -1 : 1;
     c.rotation.y = dir > 0 ? 0 : Math.PI;
-    c.position.set(-40 + i * 24, 0, dir > 0 ? -8.6 : -12.4);
+    // Lanes sit 1.6 m off their rail columns (at z -7.0 and -13.4) so car
+    // bodies pass the supports on both sides instead of clipping through.
+    c.position.set(-40 + i * 24, 0, dir > 0 ? -8.6 : -11.8);
     street.add(c);
     traffic.push({ mesh: c, dir, speed: 9 + i * 2.5 });
   }

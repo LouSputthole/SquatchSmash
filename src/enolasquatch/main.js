@@ -2145,7 +2145,9 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   const code = input.keyEvent(e, true);
-  if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
+  // keyEvent keeps the physical ShiftLeft/ShiftRight code for the keymap, so
+  // the modifiers are recognised here by their logical names.
+  if (code === 'Space' || e.key === 'Shift' || e.key === 'Control') e.preventDefault();
   player.setKey(translateKey(e.code), true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
   // The flashing camera hint goes away the first time the player uses the key

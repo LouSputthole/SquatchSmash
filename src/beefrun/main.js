@@ -571,7 +571,9 @@ document.addEventListener('keydown', (e) => {
   if (isBrowserReservedChord(e)) nudgeAwayFromBrowserChord();
   if (e.repeat) return;
   const code = input.keyEvent(e, true);
-  if (code === 'Space' || code === 'Shift') e.preventDefault();
+  // keyEvent keeps the physical ShiftLeft/ShiftRight code for the keymap, so
+  // the modifier is recognised here by its logical name.
+  if (code === 'Space' || e.key === 'Shift') e.preventDefault();
   player.setKey(translateKey(e.code), true);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.press();
 }, true);

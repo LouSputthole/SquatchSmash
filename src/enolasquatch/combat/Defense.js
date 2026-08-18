@@ -82,6 +82,8 @@ const SHELL_SPEED = 720;         // m/s, muzzle — flight time is the whole poi
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
 const _forward = new THREE.Vector3(0, 0, 1);
+// rotateOnAxis never mutates its axis, so one shared X axis serves every yoke.
+const _pitchAxis = new THREE.Vector3(1, 0, 0);
 
 /* ------------------------------------------------------------------ */
 /* Props — cheap, readable, built from the same boxes-and-cylinders     */
@@ -602,7 +604,7 @@ export class Defense {
     let anyOnTarget = false;
     for (const s of this.searchlights) {
       s.sweepPhase += dt * s.sweepSpeed;
-      const toTarget = position ? _v.subVectors(position, s.group.position).clone() : null;
+      const toTarget = position ? _v.subVectors(position, s.group.position) : null;
       const wantYaw = toTarget && toTarget.lengthSq() > 1
         ? Math.atan2(toTarget.x, toTarget.z)
         : s.baseYaw + Math.sin(s.sweepPhase) * 0.9;
@@ -614,7 +616,7 @@ export class Defense {
       s.pitch = damp(s.pitch ?? -0.3, toTarget ? clamp(Math.atan2(toTarget.y, Math.hypot(toTarget.x, toTarget.z)), -1.2, 0.15) : -0.3, 1.4, dt);
       s.yoke.rotation.set(0, s.yaw, 0);
       s.yoke.rotation.x = 0;
-      s.yoke.rotateOnAxis(new THREE.Vector3(1, 0, 0), s.pitch);
+      s.yoke.rotateOnAxis(_pitchAxis, s.pitch);
 
       const onTarget = canSee && dist < 1500
         && Math.abs(((wantYaw - s.yaw + Math.PI) % (Math.PI * 2)) - Math.PI) < 0.12;
@@ -673,7 +675,7 @@ export class Defense {
       if (truck.t < 0) { truck.t = 0; truck.dir = 1; }
       truck.group.position.lerpVectors(truck.from, truck.to, truck.t <= 1 && truck.t >= 0 ? Math.abs(Math.sin(truck.t * Math.PI / 2)) : truck.t);
       const look = (truck.dir === -1 ? truck.from : truck.to);
-      const dir = new THREE.Vector3().subVectors(look, truck.group.position);
+      const dir = _v.subVectors(look, truck.group.position);
       if (dir.lengthSq() > 0.01) truck.group.rotation.y = Math.atan2(dir.x, dir.z);
     }
   }
