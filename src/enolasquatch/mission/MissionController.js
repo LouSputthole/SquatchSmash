@@ -1963,13 +1963,17 @@ export class MissionController {
         this.payload.release(this.scene, this.physics.velocity.clone());
         this.payloadReleased = true;
 
-        /* The pheeeeeew. Started here rather than inside `FatSquatch` because
-         * the payload is a passive prop and knows nothing about audio, and
-         * because the length of the fall is a physics question the mission can
-         * answer and the prop cannot — see `predictFall()`. Handing that to the
-         * whistle means the sweep bottoms out, and the recorded clip ENDS, as
-         * the bomb arrives instead of before or after it. `onPayloadImpact`
-         * cuts it, and so does `restoreCheckpoint`. */
+        /* The pheeeeeew. Started HERE, on the same frame `payload.release()`
+         * lets the mount go — the cue belongs to the release action itself,
+         * never to a later beat (owner playtest, 2026-08-18: "The Pheeeeeww
+         * sound effect needs to play right away when you drop the bomb").
+         * It lives in the mission rather than inside `FatSquatch` because the
+         * payload is a passive prop and knows nothing about audio, and because
+         * the length of the fall is a physics question the mission can answer
+         * and the prop cannot — see `predictFall()`. Handing that length to
+         * the whistle is what lets it be audible from this frame AND still
+         * bottom out as the bomb arrives — see `fallingWhistle`'s own header.
+         * `onPayloadImpact` cuts it, and so does `restoreCheckpoint`. */
         const fall = this.predictFall();
         this.audio?.fallingWhistle?.(fall);
         this._fallSeconds = fall;
@@ -2588,6 +2592,17 @@ export class MissionController {
 
     this.updateEvasion(dt);
     this.updateAirBattle(dt);
+    /* The battery's transient VFX age on the simulated clock, not on the
+     * phase machine. Only the 'defense' and 'bombApproach' handlers drive the
+     * full `defense.update()`; every other flight frame still owes the bursts
+     * already in the air their aging, or the puffs from the last salvo freeze
+     * at fixed world positions the moment the phase moves on and hang in the
+     * sky for the rest of the mission (owner playtest, 2026-08-18: "The decals
+     * from all the flak you take ... still stays floating in the sky").
+     * Guarded so the frames that DO run the full update never tick twice. */
+    if (this.defense.deployed && this.phase !== 'defense' && this.phase !== 'bombApproach') {
+      this.defense.updateEffects(dt, p.position);
+    }
     // The diamond on the city, or the one on the field, or neither.
     this.updateNavMarker();
     // The visible half of the one authored engine problem — see triggerEngineOut().

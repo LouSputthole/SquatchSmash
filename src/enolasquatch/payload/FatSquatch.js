@@ -21,13 +21,31 @@
 import * as THREE from 'three';
 import {
   mat, solid, boxGeo, cylGeo, sphereGeo,
-  mesh, flatMesh, group, rng,
+  mesh, flatMesh, group, rng, clamp,
 } from '../../beefrun/util.js';
 import { crestPlaceholderTexture, applyCrest } from '../livery.js';
 
 const G = 9.81;
 const NOSE_AXIS = new THREE.Vector3(0, 0, 1);
+const DOWN_AXIS = new THREE.Vector3(0, -1, 0);
+/**
+ * The tip-over, on the simulated clock (owner playtest, 2026-08-18: "I want
+ * the bomb to point down as it drops out, it should happen rather quickly
+ * when it comes out of the bay").
+ *
+ * For `TIP_DELAY_SECONDS` the casing rides its release attitude — the time it
+ * takes to drop clear of the bay doors, during which the nose is still lying
+ * along the aeroplane's own flight path. Then the tail catches the airstream
+ * and the nose sweeps to straight down across `TIP_SECONDS`, so the whole
+ * tip-over is finished about 0.65 s after release — crisp, and independent of
+ * frame rate because it is keyed to `fallTime`, never to wall time. From
+ * there it falls nose-first. Only the ATTITUDE obeys these numbers; the
+ * ballistic arc in `update()` is untouched by them.
+ */
+const TIP_DELAY_SECONDS = 0.15;
+const TIP_SECONDS = 0.5;
 const _flightPath = new THREE.Vector3();
+const _noseTarget = new THREE.Vector3();
 const _desiredWorldAttitude = new THREE.Quaternion();
 const _desiredLocalAttitude = new THREE.Quaternion();
 const _parentWorldAttitude = new THREE.Quaternion();
@@ -624,20 +642,27 @@ export class FatSquatch {
     this.velocity.y -= G * dt;
     this.group.position.addScaledVector(this.velocity, dt);
 
-    /* Follow the ballistic path instead of free-tumbling. The casing's +Z
-     * nose turns into the forward velocity, then slowly pitches down as
-     * gravity adds vertical speed. About 95% settles in 2.5 seconds: visible
-     * and deliberate, never a snap. */
+    /* The nose. Out of the doors it lies along the flight path; then the
+     * quick tip-over — see TIP_DELAY_SECONDS / TIP_SECONDS — takes it to
+     * straight down, where it stays for the rest of the fall. The target
+     * direction is a smoothstepped blend from the current flight path to
+     * world-down, so neither end of the sweep snaps, and the slerp toward it
+     * is fast enough (τ ≈ 0.11 s) that the casing tracks the sweep rather
+     * than trailing seconds behind it. Scratch vectors are module-level:
+     * nothing here allocates per frame. */
     if (this.velocity.lengthSq() > 0.01) {
       _flightPath.copy(this.velocity).normalize();
-      _desiredWorldAttitude.setFromUnitVectors(NOSE_AXIS, _flightPath);
+      const tip = clamp((this.fallTime - TIP_DELAY_SECONDS) / TIP_SECONDS, 0, 1);
+      const eased = tip * tip * (3 - 2 * tip);
+      _noseTarget.copy(_flightPath).lerp(DOWN_AXIS, eased).normalize();
+      _desiredWorldAttitude.setFromUnitVectors(NOSE_AXIS, _noseTarget);
       if (this.group.parent) {
         this.group.parent.getWorldQuaternion(_parentWorldAttitude).invert();
         _desiredLocalAttitude.copy(_parentWorldAttitude).multiply(_desiredWorldAttitude);
       } else {
         _desiredLocalAttitude.copy(_desiredWorldAttitude);
       }
-      this.group.quaternion.slerp(_desiredLocalAttitude, 1 - Math.exp(-1.25 * dt));
+      this.group.quaternion.slerp(_desiredLocalAttitude, 1 - Math.exp(-9 * dt));
     }
 
     if (getHeight) {

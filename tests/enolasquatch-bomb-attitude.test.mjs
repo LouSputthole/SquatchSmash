@@ -9,21 +9,36 @@ ensureDomShim();
 const THREE = await import('three');
 const { FatSquatch } = await import('../src/enolasquatch/payload/FatSquatch.js');
 
-test('the released Fat Squatch settles nose-first into its ballistic path', () => {
+/* Owner playtest, 2026-08-18: "I want the bomb to point down as it drops out,
+ * it should happen rather quickly when it comes out of the bay." The contract:
+ * out of the doors the nose still lies along the release path (no snap), the
+ * tip-over to straight down is complete well under a second in, and it falls
+ * nose-first from there — all on the SIMULATED clock. */
+test('the released Fat Squatch tips nose-down fast and falls nose-first', () => {
   const scene = new THREE.Scene();
   const payload = new FatSquatch();
   scene.add(payload.group);
-  payload.release(scene, new THREE.Vector3(92, 0, 0));
+  // Along +Z, the direction the casing's nose is built to face — on the real
+  // mount the release attitude and the carrier velocity agree the same way.
+  payload.release(scene, new THREE.Vector3(0, 0, 92));
 
-  // Four seconds is long enough for a gradual aerodynamic settle, while the
-  // falling path is already clearly pitched down. The old free Euler tumble
-  // points the nose somewhere unrelated to this velocity.
-  for (let i = 0; i < 4 * 60; i++) payload.update(1 / 60);
+  const nose = () => new THREE.Vector3(0, 0, 1).applyQuaternion(payload.group.quaternion).normalize();
+  const step = (seconds) => { for (let i = 0; i < Math.round(seconds * 60); i++) payload.update(1 / 60); };
 
-  const nose = new THREE.Vector3(0, 0, 1).applyQuaternion(payload.group.quaternion).normalize();
+  // Clearing the doors: the nose has not been snapped away from the path.
+  step(0.15);
   const path = payload.velocity.clone().normalize();
-  assert.ok(nose.dot(path) > 0.94,
-    `bomb nose follows the path at only ${nose.dot(path).toFixed(3)}`);
-  assert.ok(nose.y < -0.25,
-    `bomb nose never pitched visibly down (${nose.y.toFixed(3)})`);
+  assert.ok(nose().dot(path) > 0.94,
+    `the nose left the bay off its own path (dot ${nose().dot(path).toFixed(3)})`);
+
+  // One second in the crisp tip-over is done: nose within ~18 degrees of down.
+  step(0.85);
+  assert.ok(nose().y < -0.95,
+    `the tip-over never completed (nose.y ${nose().y.toFixed(3)} at 1.0 s)`);
+
+  // And it STAYS nose-first: seconds later it is still pointed at the ground,
+  // not tumbling and not drifting back toward the horizontal.
+  step(3);
+  assert.ok(nose().y < -0.95,
+    `the nose came back up during the fall (nose.y ${nose().y.toFixed(3)} at 4.0 s)`);
 });

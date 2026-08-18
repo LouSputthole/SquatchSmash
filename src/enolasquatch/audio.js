@@ -235,16 +235,20 @@ export class EnolaMissionAudio extends MissionAudio {
   /**
    * The Fat Squatch on its way down.
    *
-   * Owner: "The falling sound should line up with the bomb fallling."
+   * TWO owner requirements, and both hold at once:
    *
-   * The recording is 4.5 s and the fall the mission computes is eight or nine,
-   * so the clip is scheduled TO END ON IMPACT rather than to start at release
-   * — the whistle arriving with the bomb is the whole point of it, and a clip
-   * started at the mount would finish four seconds of empty sky early. If the
-   * fall is SHORTER than the clip (a low release, or a checkpoint that puts
-   * the aeroplane on the deck) it starts immediately and the front of it is
-   * simply cut off by the impact, which is the right way round: the end of the
-   * clip is the part that has to be in the right place.
+   *   "The falling sound should line up with the bomb fallling" (2026-08-06)
+   *   "The Pheeeeeww sound effect needs to play right away when you drop the
+   *    bomb. It's a few [seconds] delayed." (2026-08-18)
+   *
+   * The recording is 4.5 s and the fall the mission computes is eight or
+   * nine. The first cut of this scheduled the clip to END on the impact,
+   * which meant its START sat four seconds after the release — the delay the
+   * second note is about. So the sampled path now behaves exactly like the
+   * synthesised one always has: it starts ON THE RELEASE FRAME, and the
+   * whole sweep is stretched across the real fall (`playbackRate = clip
+   * length / fall time`) so its bottom still arrives with the bomb. See
+   * `_sampledFall` for the rate bounds.
    *
    * Falls back to the synthesised sweep below when the recording is not
    * decoded — which is also the only version a bundled build has.
@@ -257,30 +261,40 @@ export class EnolaMissionAudio extends MissionAudio {
     return this._sampledFall(seconds) || this._syntheticWhistle(seconds);
   }
 
-  /** The delivered clip, landing on the impact. @returns {boolean} started */
+  /**
+   * The delivered clip: audible from the first frame of the drop, bottoming
+   * out on the impact. @returns {boolean} started
+   */
   _sampledFall(seconds) {
     const ctx = this.ctx;
     const buffer = this.engine?.buffers?.get(FALLING_CUE)?.[0];
     if (!ctx || !buffer || !this.engine.busSfx) return false;
     const t = ctx.currentTime;
     const dur = buffer.duration;
-    const fall = Math.max(0, seconds);
-    // End on impact. A fall shorter than the clip starts now and overlaps.
-    const startAt = t + Math.max(0, fall - dur);
+    const fall = Math.max(0.5, seconds);
+    /* Stretched over the fall so it starts NOW and still ends on the impact.
+     * The bounds keep a degenerate fall from mangling the recording: 0.42 is
+     * enough for any release the route actually flies (a 4.5 s clip covers a
+     * fall of up to ~10.7 s), and 2.5 caps how far a checkpoint-on-the-deck
+     * release can chipmunk it — beyond either bound the impact cut in
+     * `endFallingWhistle` trims whatever no longer lines up. */
+    const rate = clamp(dur / fall, 0.42, 2.5);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
+    src.playbackRate.value = rate;
     const out = ctx.createGain();
     out.gain.value = 0.9;
     src.connect(out).connect(this.engine.busSfx);
-    src.start(startAt);
-    this._whistle = { out, sources: [src], startedAt: startAt, sampled: true };
+    src.start(t);
+    this._whistle = { out, sources: [src], startedAt: t, sampled: true };
     this.lastFall = {
       sampled: true,
       cue: FALLING_CUE,
       plannedFall: fall,
       duration: dur,
-      startAt,
-      endsAt: startAt + dur,
+      rate,
+      startAt: t,
+      endsAt: t + dur / rate,
       scheduledAt: t,
       cutAt: null,
       /* Filled in by `endFallingWhistle`: how much of the clip was still to

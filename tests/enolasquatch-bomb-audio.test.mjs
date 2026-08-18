@@ -177,17 +177,24 @@ test('with no recordings decoded the procedural detonation still fires', () => {
   assert.ok(since().length > 3, 'the synthesised event is still built');
 });
 
-test('the falling clip is scheduled to END on the impact, not to start at the release', () => {
+test('the falling clip starts ON the release frame and is stretched to end on the impact', () => {
   const { audio, ctx, since } = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
   const t0 = ctx.currentTime;
 
   assert.equal(audio.fallingWhistle(8.4), true);
   const fall = audio.lastFall;
   assert.equal(fall.sampled, true);
-  assert.ok(Math.abs(fall.startAt - (t0 + 8.4 - 4.505)) < 1e-9,
-    'it waits out the difference between the fall and the clip');
-  assert.ok(Math.abs(fall.endsAt - (t0 + 8.4)) < 1e-9, 'and lands on the impact');
-  assert.equal(since()[0].startedAt, fall.startAt);
+  /* Both owner notes at once: "play right away when you drop the bomb"
+   * (2026-08-18) is the start, "line up with the bomb fallling" (2026-08-06)
+   * is the end — a 4.5 s clip covers an 8.4 s fall by playing slower, not by
+   * waiting in silence. */
+  assert.equal(fall.startAt, t0, 'audible from the frame the mount lets go');
+  assert.ok(Math.abs(fall.rate - 4.505 / 8.4) < 1e-9,
+    'the stretch is exactly clip length over fall time');
+  assert.ok(Math.abs(fall.endsAt - (t0 + 8.4)) < 1e-9, 'and it still lands on the impact');
+  assert.equal(since()[0].startedAt, t0);
+  assert.ok(Math.abs(since()[0].playbackRate.value - fall.rate) < 1e-9,
+    'the rate reaches the actual source node');
 
   // The impact arrives; the stamp is what the browser check reads.
   ctx.currentTime = t0 + 8.4;
@@ -195,17 +202,30 @@ test('the falling clip is scheduled to END on the impact, not to start at the re
   assert.ok(Math.abs(audio.lastFall.remainingAtCut) < 1e-9);
 });
 
-test('a fall shorter than the clip starts it immediately and accepts the overlap', () => {
+test('a fall shorter than the clip compresses it the same way — start now, end on impact', () => {
   const { audio, ctx } = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
   const t0 = ctx.currentTime;
 
   audio.fallingWhistle(2.2);
-  assert.equal(audio.lastFall.startAt, t0, 'no delay is possible; the end is what matters');
-  // Cut at the real impact, 2.3 s of clip still unplayed. That is the right way
-  // round: the front of a falling whistle is the part you can afford to lose.
+  assert.equal(audio.lastFall.startAt, t0, 'still no delay');
+  assert.ok(Math.abs(audio.lastFall.rate - 4.505 / 2.2) < 1e-9);
+  assert.ok(Math.abs(audio.lastFall.endsAt - (t0 + 2.2)) < 1e-9);
   ctx.currentTime = t0 + 2.2;
   audio.endFallingWhistle(0.03);
-  assert.ok(audio.lastFall.remainingAtCut > 2.2);
+  assert.ok(Math.abs(audio.lastFall.remainingAtCut) < 1e-9);
+});
+
+test('the stretch is bounded, so a degenerate fall cannot mangle the recording', () => {
+  const long = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
+  long.audio.fallingWhistle(30);
+  assert.equal(long.audio.lastFall.rate, 0.42, 'the floor holds for an absurdly long fall');
+
+  const deck = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
+  deck.audio.fallingWhistle(0.2);
+  assert.equal(deck.audio.lastFall.rate, 2.5, 'the ceiling holds for a release on the deck');
+  // Past either bound the impact cut trims what no longer lines up; the START
+  // is the invariant that must never move.
+  assert.equal(deck.audio.lastFall.startAt, deck.ctx.currentTime);
 });
 
 test('with no falling recording the synthesised sweep still runs the whole fall', () => {
