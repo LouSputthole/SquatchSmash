@@ -29,7 +29,7 @@ import { createCartelPalaceCampaignStory } from '../core/final-arc-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
+import { translateKey, shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -474,7 +474,9 @@ const weapons = new WeaponSystem({
   },
   onEvent: (event) => {
     if (event?.type === 'fire' && event.id) {
-      const kick = weapons.firearm(event.id).def.recoil * 0.48;
+      /* Reduce-shake covers the camera the recoil moves, not just the
+       * viewmodel: this kick IS a shake by any reading of the switch. */
+      const kick = weapons.firearm(event.id).def.recoil * 0.48 * shakeScale();
       player.pitch = THREE.MathUtils.clamp(player.pitch + kick, player.pitchMin, player.pitchMax);
       player.yaw += (Math.random() - 0.5) * kick * 0.22;
       routePlayerShotTruth(event.shot);

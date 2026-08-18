@@ -36,7 +36,7 @@ import { createSquatchfatherStory } from '../core/squatchfather-story.js';
 import { prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { lookSensitivity, bindAudioVolume } from '../core/settings.js';
+import { lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
 // ---------------------------------------------------------------- boot
@@ -148,13 +148,15 @@ const KEYMAP = {
 };
 
 window.addEventListener('keydown', (e) => {
-  if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = true; e.preventDefault(); }
+  const bound = KEYMAP[translateKey(e.code)];
+  if (bound) { keys[bound] = true; e.preventDefault(); }
   if (e.code === 'KeyE') { if (!keys.e) ePressed = true; keys.e = true; }
   if (e.code === 'Escape') togglePause();
   if (e.code === 'KeyM') { audio.setMuted(!audio.isMuted()); }
 });
 window.addEventListener('keyup', (e) => {
-  if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false;
+  const bound = KEYMAP[translateKey(e.code)];
+  if (bound) keys[bound] = false;
   if (e.code === 'KeyE') keys.e = false;
 });
 window.addEventListener('blur', () => {

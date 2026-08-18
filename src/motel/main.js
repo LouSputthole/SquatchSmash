@@ -44,7 +44,7 @@ import {
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { shakeScale, lookSensitivity, bindAudioVolume } from '../core/settings.js';
+import { shakeScale, lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { selectPointInteraction } from './point-interaction.js';
 
@@ -370,7 +370,8 @@ const touch = { active: false, x: 0, y: 0 };
 const SWALLOWED_CODES = new Set(['Space', 'KeyE', 'Tab']);
 
 window.addEventListener('keydown', (e) => {
-  if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
+  const bound = KEYMAP[translateKey(e.code)];
+  if (bound) { keys.add(bound); e.preventDefault(); }
   /* AUTO-REPEAT IS ONE HELD KEY, NOT A STREAM OF PRESSES.
    *
    * Nothing below wants it. Held [E] re-ran the focused interaction at the
@@ -422,7 +423,10 @@ window.addEventListener('keydown', (e) => {
     default: break;
   }
 });
-window.addEventListener('keyup', (e) => { if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]); });
+window.addEventListener('keyup', (e) => {
+  const bound = KEYMAP[translateKey(e.code)];
+  if (bound) keys.delete(bound);
+});
 window.addEventListener('blur', () => keys.clear());
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 

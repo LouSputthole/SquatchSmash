@@ -11,6 +11,21 @@
  * has the ramp built into the player's thumb.
  */
 import { clamp, damp } from './util.js';
+import { translateKey } from '../core/settings.js';
+
+/**
+ * The cockpit keys the walk keymap is allowed to move.
+ *
+ * A pilot who rebound "forward" off W -- a stiff finger, a non-QWERTY layout --
+ * cannot fly at all if the yoke still demands W, so the four axis keys and the
+ * throttle-up Shift follow the rebind. Nothing ELSE in here does: Space is the
+ * air brake and KeyZ is throttle down, and both are also somebody's default
+ * jump and somebody's rebound crouch. Translating those would take a control
+ * away from a pilot who never touched a flight key. Membership is checked on
+ * both sides -- the code that arrived and the code it translates to -- so a
+ * rebind gives the new key the axis AND takes it off the old one.
+ */
+const REBINDABLE = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft', 'ShiftRight']);
 
 const RATE = { pitch: 2.1, roll: 2.6, yaw: 2.8 };      // units per second
 const CENTRE = { pitch: 3.2, roll: 4.0, yaw: 5.0 };    // return-to-centre rate
@@ -75,8 +90,10 @@ export class FlightInput {
     /* Ctrl and Cmd are still normalized and recorded so the mission can notice
      * a pilot reaching for the old throttle and tell them where it went, but
      * nothing in `update()` reads them any more. */
-    if (code) this.key(code, down);
-    return code;
+    const bound = code ? translateKey(code) : code;
+    const flight = REBINDABLE.has(bound) || REBINDABLE.has(code) ? bound : code;
+    if (flight) this.key(flight, down);
+    return flight;
   }
 
   action(code) {

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 import { selectApproachCall } from '../src/beefrun/approach-coaching.js';
 import { FlightInput } from '../src/beefrun/input.js';
+import * as settings from '../src/core/settings.js';
 import {
   MissionController,
   resetCheckpointThrottleSplit,
@@ -149,6 +150,40 @@ test('a generic Chrome Shift event raises and releases the throttle', () => {
 
   input.keyEvent({ key: 'Shift', code: '' }, false);
   assert.ok(!input.keys.has('Shift'));
+});
+
+/* A pilot who moved "forward" off W has to be able to fly, and a pilot who
+ * moved "jump" off Space must not lose the air brake for it. Both halves in
+ * one test because the second is what makes the first safe. */
+test('a rebound walk key moves the yoke; a rebound jump leaves the air brake alone', () => {
+  const store = new Map([['squatch.keys', JSON.stringify({ forward: 'KeyI', jump: 'KeyJ' })]]);
+  const previous = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (k) => store.get(String(k)) ?? null,
+    setItem: (k, v) => store.set(String(k), String(v)),
+    removeItem: (k) => store.delete(String(k)),
+  };
+  settings.reload();
+  try {
+    const input = new FlightInput();
+    input.pollGamepad = () => null;
+
+    input.keyEvent({ code: 'KeyI' }, true);
+    assert.ok(input.keys.has('KeyW'), 'the rebound key drives the pitch axis');
+    input.keyEvent({ code: 'KeyW' }, true);
+    assert.ok(input.keys.has('Unbound:KeyW'), 'the vacated key no longer drives an axis');
+    input.update(0.25);
+    assert.ok(input.axes.pitch < -0.1, `pitch was ${input.axes.pitch}`);
+
+    input.keyEvent({ code: 'Space' }, true);
+    assert.ok(input.keys.has('Space'), 'the air brake is not a walk key and does not follow the keymap');
+    input.update(0.016);
+    assert.equal(input.airBrake, 1);
+  } finally {
+    if (previous === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previous;
+    settings.reload();
+  }
 });
 
 test('Q and E use the corrected cockpit rudder polarity', () => {

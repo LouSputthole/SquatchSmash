@@ -22,7 +22,7 @@ import {
   QUIZ_OPTIONS,
 } from './dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
-import { shakeScale, bindAudioVolume } from '../core/settings.js';
+import { shakeScale, bindAudioVolume, translateKey } from '../core/settings.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import {
   MISSION_IDS,
@@ -906,7 +906,8 @@ function roarAction() {
 
 window.addEventListener('keydown', (e) => {
   if (paused) return;
-  if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
+  const bound = KEYMAP[translateKey(e.code)];
+  if (bound) { keys.add(bound); e.preventDefault(); }
   if (e.code === 'Space') { e.preventDefault(); smashAction(); }
   if (e.code === 'KeyR') roarAction();
   if (e.code === 'KeyM') toggleMute();
@@ -915,7 +916,8 @@ window.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('keyup', (e) => {
-  if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]);
+  const bound = KEYMAP[translateKey(e.code)];
+  if (bound) keys.delete(bound);
 });
 window.addEventListener('mousedown', (e) => {
   if (paused || e.target.closest('button, a, .touch-btn')) return;

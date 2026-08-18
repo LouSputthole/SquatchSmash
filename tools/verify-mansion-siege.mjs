@@ -4265,11 +4265,19 @@ try {
   check('and the attacker counter changes state while the remnant hunts',
     hunt.started.pip.counterHunting === true && /ATTACKERS/.test(hunt.started.counter ?? ''),
     String(hunt.started.counter));
-  /* Closer by at least four metres, or already at the rail (six metres is
-   * the "problem at the rail" line the wave check above uses): a man who was
-   * twenty metres out must have come in, and the pip's own nearest reading
-   * must have shrunk with him. */
-  const arrived = (end, start) => end <= 6 || end < start - 4;
+  /* Closer by at least four metres, or already on top of the player: a man
+   * who was twenty metres out must have come in, and the pip's own nearest
+   * reading must have shrunk with him.
+   *
+   * SEVEN metres, not the wave check's six. That six answers a different
+   * question -- is the NEAREST man a problem at the rail -- while this one is
+   * asked of every survivor, including men who were already close when the
+   * remnant started. A man who begins at 9.25 m only passes a flat four-metre
+   * closure by walking to 5.25 m, which is nearer than the rail line itself;
+   * measured 2026-08-17, one survivor ran 9.25 -> 6.36 (hunting, plainly) and
+   * failed on 11 cm. Cover rolls decide which side of that he lands on, the
+   * same dice the balcony check above accepts three-of-four for. */
+  const arrived = (end, start) => end <= 7 || end < start - 4;
   check('the last men come to the player instead of holding their standoffs',
     hunt.pipAlways && hunt.distancesAtEnd.every((d, i) => arrived(d, hunt.distancesAtStart[i]))
       && hunt.closestPip !== null && arrived(hunt.closestPip, Math.min(...hunt.distancesAtStart)),

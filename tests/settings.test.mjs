@@ -189,6 +189,20 @@ test('shake and sensitivity helpers read the store; a bound sensitivity is live'
   });
 });
 
+/* The two scenes whose gunfire moves the CAMERA and not just the viewmodel.
+ * Reduce-shake is worth nothing in a firefight if the shot that punches your
+ * aim upward ignores it, and the punch is one term on one line -- easy to
+ * re-add unscaled. Source scan because the kick only exists mid-firefight. */
+test('camera-moving weapon recoil is scaled by the shake setting', async () => {
+  const { readFile } = await import('node:fs/promises');
+  for (const file of ['src/cartel-palace/main.js', 'src/mansion/siege/main.js']) {
+    const src = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    const line = /const kick = [^\r\n]*[.]def[.]recoil[^\r\n]*/.exec(src)?.[0];
+    assert.ok(line, `${file} no longer has the recoil kick this test guards`);
+    assert.match(line, /shakeScale\(\)/, `${file} kicks the camera without honouring reduceShake`);
+  }
+});
+
 test('bindAudioVolume drives an engine now and on every change', () => {
   withStorage({ 'squatch.volume': '0.4' }, () => {
     const seen = [];

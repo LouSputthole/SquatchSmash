@@ -41,7 +41,7 @@ import { AudioEngine } from '../../core/audio.js';
 import { PostFX } from '../../core/postfx.js';
 import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
-import { translateKey } from '../../core/settings.js';
+import { translateKey, shakeScale } from '../../core/settings.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
@@ -828,10 +828,11 @@ const weaponSystem = new WeaponSystem({
   range: 70,
   onImpact: resolvePlayerWeaponImpact,
   onEvent: (event) => {
-    /* Recoil changes the next camera ray, not only the viewmodel. The catalog
-     * remains the single source of per-weapon kick. */
+    /* Recoil changes the next camera ray, not only the viewmodel -- which is
+     * exactly why reduce-shake scales it. The catalog remains the single
+     * source of per-weapon kick. */
     if (event?.type === 'fire' && event.id) {
-      const kick = weaponSystem.firearm(event.id).def.recoil * 0.48;
+      const kick = weaponSystem.firearm(event.id).def.recoil * 0.48 * shakeScale();
       player.pitch = THREE.MathUtils.clamp(player.pitch + kick, player.pitchMin, player.pitchMax);
       player.yaw += (Math.random() - 0.5) * kick * 0.22;
       if (event.shot) applyPlayerShotSuppression(event.shot);
