@@ -92,18 +92,30 @@ the fixes with tests. Highlights by scene:
   dirty-flagged; the shared interaction ray list is cached instead of spread
   fresh every frame.
 
-## Verifier state (this container)
+## Verifier state (this container, session close)
 
-Full sweep + solo re-runs: every gate green except the five in the final
-quiet pass at session close (mansion, mouths, motel, preview, silvercase) —
-their earlier reds were machine contention or fixed above; results land in
-the next section of this file. `verify:mansion-siege` 304s green in-sweep.
-Unit suite: 1977/1977 before the audit fixes; re-run at close.
+Every gate green after the fixes above: boot-errors, webgl-health,
+direct-entry 27/27, campaign-route, scene-recovery, settings, art, day-one,
+day-two, big-night, computer, squatch-smash 10/10, bing, license-to-grill,
+bing-two, squatchfather, **graveyard 42/42 (new)**, motel **82/82**, no-wake
+(2761 s solo), initiation, preview, combat-system, step-over 9/9,
+pixel-ratio, beefrun, beefrun-checkpoints, silver, silver-story, golf,
+heist, silvercase, mansion **298/298** (reel body self-skips here, see
+below), mansion-return, mansion-siege, enolasquatch, cartel-palace,
+final-arc-reloads **69/69**, enola-bomb-audio. Unit suite after all fixes:
+**1977/1977**.
+
+The one non-green: `verify:mouths` 13/15 here. It is real-time by design
+(its header explains why it cannot step the clock), and this container
+renders The Silver Case at about a frame a second, so two of its sampling
+windows catch 1-3 rendered frames. Its real bug — it predated the scene's
+campaign entry gate and could not boot at all — is fixed; the remaining two
+checks need a machine with a real GPU (the owner's).
 
 Known environment limits of this container (not code bugs): no H.264
-decoder in the pinned Chromium (mansion reel body self-skips), and
-`verify:mouths` is real-time by design, so it needs an otherwise idle
-machine.
+decoder in the pinned Chromium (the mansion reel body self-skips with its
+reason), and several real-time budgets (the Motel arrival drive and clerk
+sprint) were widened to bound a hang instead of the drive.
 
 ## Still open
 
