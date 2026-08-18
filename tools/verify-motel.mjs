@@ -1298,10 +1298,13 @@ try {
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-office-door-open');
   await previewPage.evaluate(() => window.MOTEL.forceInteract('clerk'));
+  /* His panic run is real time on the page's own clock, like the arrival
+   * drive above: under swiftshader the sprint to the wall can outlast the
+   * old 30 s budget with the sample missing idle by a few hundred ms. */
   await previewPage.waitForFunction(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk?.state === 'idle';
-  }, null, { timeout: 30000, polling: 80 }).catch(() => {});
+  }, null, { timeout: 120000, polling: 80 }).catch(() => {});
   const clerkStoppedA = await previewPage.evaluate(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk ? { x: clerk.position.x, z: clerk.position.z, state: clerk.state } : null;
