@@ -536,8 +536,11 @@ const dressing = await page.evaluate(() => {
 
   /* (a) the stairwells read open: from eye height at the top of each ramp,
    * the sight line to eye height at the bottom hits nothing on the way down.
-   * The 300m street plane used to lid both wells at y=-0.02. */
+   * The 300m street plane used to lid both wells at y=-0.02. Sprites (the
+   * kitchen's steam wisps) are not sight blockers, and THREE's Sprite.raycast
+   * throws without a camera on the raycaster — give it one and skip them. */
   const ray = new T.Raycaster();
+  ray.camera = b.camera;
   out.stairs = [
     ['entry ramp', [23, 1.66, 11.6], [15.9, -1.35, 10.6]],
     ['kitchen well', [20.6, 1.66, 1], [15.7, -1.35, 1]],
@@ -548,7 +551,8 @@ const dressing = await page.evaluate(() => {
     const len = dir.length();
     ray.set(o, dir.normalize());
     ray.far = len - 0.05;
-    const hit = ray.intersectObjects(b.scene.children, true).find((h) => h.object.visible);
+    const hit = ray.intersectObjects(b.scene.children, true)
+      .find((h) => h.object.visible && !h.object.isSprite);
     return { name, len: +len.toFixed(2), hit: hit ? +hit.distance.toFixed(2) : null };
   });
 

@@ -38,12 +38,20 @@ const DOWN_AXIS = new THREE.Vector3(0, -1, 0);
  * along the aeroplane's own flight path. Then the tail catches the airstream
  * and the nose sweeps to straight down across `TIP_SECONDS`, so the whole
  * tip-over is finished about 0.65 s after release — crisp, and independent of
- * frame rate because it is keyed to `fallTime`, never to wall time. From
- * there it falls nose-first. Only the ATTITUDE obeys these numbers; the
- * ballistic arc in `update()` is untouched by them.
+ * frame rate because it is keyed to `fallTime`, never to wall time. Only the
+ * ATTITUDE obeys these numbers; the ballistic arc in `update()` is untouched.
+ *
+ * A bomb does not stay pinned to world-down, though: it weathervanes onto its
+ * own airflow. From `CONVERGE_DELAY_SECONDS` the down-bias eases off over
+ * `CONVERGE_SECONDS`, and the nose settles into the falling path itself as
+ * that path steepens — which is what the scene gate asserts ("settles
+ * nose-first into its falling path", nose·path > 0.94 before impact). The
+ * eye still gets the crisp tip-over at the doors; the fall gets the physics.
  */
 const TIP_DELAY_SECONDS = 0.15;
 const TIP_SECONDS = 0.5;
+const CONVERGE_DELAY_SECONDS = 1.2;
+const CONVERGE_SECONDS = 2.5;
 const _flightPath = new THREE.Vector3();
 const _noseTarget = new THREE.Vector3();
 const _desiredWorldAttitude = new THREE.Quaternion();
@@ -654,7 +662,9 @@ export class FatSquatch {
       _flightPath.copy(this.velocity).normalize();
       const tip = clamp((this.fallTime - TIP_DELAY_SECONDS) / TIP_SECONDS, 0, 1);
       const eased = tip * tip * (3 - 2 * tip);
-      _noseTarget.copy(_flightPath).lerp(DOWN_AXIS, eased).normalize();
+      const converge = clamp((this.fallTime - CONVERGE_DELAY_SECONDS) / CONVERGE_SECONDS, 0, 1);
+      const settled = converge * converge * (3 - 2 * converge);
+      _noseTarget.copy(_flightPath).lerp(DOWN_AXIS, eased * (1 - settled)).normalize();
       _desiredWorldAttitude.setFromUnitVectors(NOSE_AXIS, _noseTarget);
       if (this.group.parent) {
         this.group.parent.getWorldQuaternion(_parentWorldAttitude).invert();

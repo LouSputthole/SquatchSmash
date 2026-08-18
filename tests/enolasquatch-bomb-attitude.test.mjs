@@ -36,9 +36,16 @@ test('the released Fat Squatch tips nose-down fast and falls nose-first', () => 
   assert.ok(nose().y < -0.95,
     `the tip-over never completed (nose.y ${nose().y.toFixed(3)} at 1.0 s)`);
 
-  // And it STAYS nose-first: seconds later it is still pointed at the ground,
-  // not tumbling and not drifting back toward the horizontal.
+  // Then it weathervanes: by mid-fall the down-bias has eased off and the
+  // nose has settled INTO the falling path — the scene gate's own contract —
+  // while still pointing well below the horizon, not tumbling and not
+  // drifting back toward level.
   step(3);
-  assert.ok(nose().y < -0.95,
+  const midPath = payload.velocity.clone().normalize();
+  assert.ok(nose().dot(midPath) > 0.94,
+    `the nose never settled into the falling path (dot ${nose().dot(midPath).toFixed(3)} at 4.0 s)`);
+  // Below the horizon by the gate's own floor: at this test's 92 m/s release
+  // the path is only ~23 degrees steep at 4 s, and the nose rides the path.
+  assert.ok(nose().y < -0.2,
     `the nose came back up during the fall (nose.y ${nose().y.toFixed(3)} at 4.0 s)`);
 });
