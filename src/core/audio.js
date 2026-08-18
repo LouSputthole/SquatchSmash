@@ -2416,6 +2416,34 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t + r(0.06), { freq: 1860, dur: r(0.035), gain: 0.09, type: 'square' });
       burst(ctx, dest, t + r(0.13), { dur: r(0.11), type: 'highpass', freq: 3600, q: 0.7, gain: 0.10, sweep: 0.7 });
       break;
+    case 'kitchen.sizzle':
+      // Food hitting hot fat: a hard wet onset that settles into a fast simmer.
+      burst(ctx, dest, t, { dur: r(0.10), type: 'highpass', freq: 4200, q: 0.7, gain: 0.20, sweep: 0.5 });
+      burst(ctx, dest, t + r(0.04), { dur: r(0.9), type: 'bandpass', freq: 5200, q: 0.6, gain: 0.12, sweep: 0.35 });
+      burst(ctx, dest, t + r(0.30), { dur: r(0.5), type: 'bandpass', freq: 3400, q: 0.9, gain: 0.06, sweep: 0.5 });
+      break;
+    case 'kitchen.steam':
+      // Steam off a lid: a hiss that rises, holds a beat, and dies.
+      burst(ctx, dest, t, { dur: r(0.75), type: 'bandpass', freq: 6200, q: 0.7, gain: 0.11, sweep: 1.4 });
+      burst(ctx, dest, t + r(0.05), { dur: r(0.5), type: 'highpass', freq: 7800, q: 0.6, gain: 0.06, sweep: 0.8 });
+      tone(ctx, dest, t + r(0.02), { freq: 2900, to: 2200, dur: r(0.10), gain: 0.02, type: 'sine' });
+      break;
+    case 'kitchen.chop.fast':
+      // A prep run: eight quick chops, the rhythm tightening slightly.
+      for (let i = 0; i < 8; i++) {
+        const at = t + i * (0.135 - i * 0.004);
+        burst(ctx, dest, at, { dur: r(0.014), type: 'highpass', freq: 3200, q: 0.8, gain: 0.09 });
+        tone(ctx, dest, at + 0.003, { freq: 190 + (i % 3) * 14, to: 90, dur: r(0.07), gain: 0.13, type: 'triangle' });
+      }
+      break;
+    case 'kitchen.glasses':
+      // A rack of glasses at a brisk walk: dense small chimes, no casualties.
+      for (let i = 0; i < 9; i++) {
+        const at = t + i * 0.075 + (((i * 37) % 10) / 10) * 0.03;
+        tone(ctx, dest, at, { freq: 2100 + ((i * 53) % 7) * 190, dur: r(0.06), gain: 0.035, type: 'sine' });
+      }
+      burst(ctx, dest, t, { dur: r(0.7), type: 'bandpass', freq: 2900, q: 1.4, gain: 0.05, sweep: 0.4 });
+      break;
 
     /* The floor. Under the band and under the conversation, so every one of
      * these is quiet and short: the note was "not overbearing", and a dining

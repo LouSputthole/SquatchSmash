@@ -182,6 +182,17 @@ export function populate(scene, room) {
     model: { height: 1.73, dress: 'porter', shirt: 0xdad6cc, hair: 'long' },
   }));
 
+  /* The runner: plates out, empties back, all night. His loop is the marked
+   * aisle east of the pass down to the dish pit — the lane the route paints
+   * on the floor, so it is known walkable and clear of the player's own line
+   * through the room. */
+  add('runner', new Npc(scene, {
+    name: 'a runner', tier: 'ambient', job: 'patrol',
+    x: 22.7, z: -8, yaw: 0,
+    route: [{ x: 22.7, z: -5.5 }, { x: 22.7, z: -11.5 }, { x: 24.2, z: -14.6 }, { x: 22.7, z: -8.5 }],
+    model: { height: 1.7, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'short' },
+  }));
+
   /* ---- the corridor ---- */
 
   /* Both corridor stations used to stand their staff at anchor+2.6 — which is

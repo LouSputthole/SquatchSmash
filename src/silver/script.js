@@ -1875,6 +1875,13 @@ export const BARKS = {
     ['a porter', 'Who has taken the good tray. Somebody has taken the good tray.'],
     ['the pass', 'Heard. Heard. Two minutes on the veal.'],
     ['a cook', 'That’s not a garnish, that’s a hedge.'],
+    /* APPENDED, never inserted — same rule as the floor deck: each of these is
+     * `vo.silver.room.kitchen.N` by position and the first six are recorded
+     * against those numbers. */
+    ['the pass', 'Fire twelve! Twelve is a fire, and I want the fish WITH the veal, not chasing it.'],
+    ['a porter', 'Corner! Coming round — corner!'],
+    ['a cook', 'Heard, Chef. It’s in. It’s IN.'],
+    ['the pass', 'Hands! I need hands at the pass — thank you — gone.'],
   ],
   /* Appended for the same reason as the floor, and under the same rule. The
    * corridor is nine metres the player walks slowly, twice. */
@@ -1927,6 +1934,37 @@ export const BARKS = {
     ['a diner', 'Ask me next week. Next week I’ll know, and then I won’t be able to tell you.'],
   ],
 };
+
+/**
+ * The walk-in greetings — the back of house seeing HIM come through.
+ *
+ * The route already had staff you could stop and talk to; what it did not
+ * have was staff who speak FIRST. These fire once each as the player passes
+ * the station, addressed to him by people who know him, which is the thing
+ * she is watching for the whole length of the building. They go through the
+ * same deferred voice floor as everything else, so nobody talks over a
+ * conversation or over each other.
+ *
+ * `npc` is the cast key the trigger measures from; `who` is the speaker as
+ * subtitled and must be a `VOICE_OF` name so the cue lands in the speaker's
+ * own bank. One line each on purpose: a greeting that repeats is a doorman
+ * routine, not a welcome.
+ */
+export const WALK_GREETS = [
+  { npc: 'cellarman', who: 'the cellarman', cue: 'vo.silver.cellarman.walkin.1',
+    line: 'There he is. Go on through, boss — mind the step, it bites.' },
+  { npc: 'prepCook', who: 'a cook', cue: 'vo.silver.cook.walkin.1',
+    line: 'Evening, boss. Good to see you again. Bench is clear — come through.' },
+  { npc: 'chef', who: 'Chef', cue: 'vo.silver.chef.walkin.1',
+    line: 'He’s here — somebody tell the floor. The veal’s going out for you, boss. '
+      + 'You didn’t order it. It’s yours.' },
+  { npc: 'porter', who: 'the porter', cue: 'vo.silver.porter.walkin.1',
+    line: 'Make a hole, make a hole — front table coming through! Evening, boss.' },
+  { npc: 'dishwasher', who: 'the dishwasher', cue: 'vo.silver.dishwasher.walkin.1',
+    line: 'Boss! You came through my end. Nobody comes through my end. Mind the wet bit.' },
+  { npc: 'servicebar', who: 'the service bar', cue: 'vo.silver.servicebar.walkin.1',
+    line: 'Good to see you again, boss. The good rye’s already up. Go sit down, the both of you.' },
+];
 
 /** The narrator, room by room. */
 export const NOTES = {

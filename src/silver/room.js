@@ -2277,7 +2277,15 @@ export function buildRoom(scene, { renderer } = {}) {
     /* ---- the host station ---- */
     const hostDesk = group('host-station');
     hostDesk.add(box({ size: [1.5, 1.12, 0.6], pos: [0, 0.56, 0], mat: M_DARKWOOD }));
-    hostDesk.add(box({ size: [1.62, 0.06, 0.72], pos: [0, 1.15, 0], mat: M_BRASS }));
+    /* Its own brass, duller than the rail stock. The shared M_BRASS is a
+     * 0.28-roughness mirror, and under the desk's own lamp a third of a metre
+     * above it the specular blob cleared the room's 1.35 bloom bar even after
+     * the room-wide pass took a third off the strength — the desk read as a
+     * flare, not a desk. A satin top stays visibly brass and stays under it. */
+    hostDesk.add(box({
+      size: [1.62, 0.06, 0.72], pos: [0, 1.15, 0],
+      mat: mat({ color: 0xb08d3a, roughness: 0.52, metalness: 0.7 }),
+    }));
     // The book. It is the book. The book does not lie.
     hostDesk.add(box({ size: [0.42, 0.05, 0.3], pos: [0, 1.2, 0.02], mat: mat({ color: 0x2a1a12, roughness: 0.8 }) }));
     hostDesk.position.set(0.5, 0, 24.2);
@@ -2287,7 +2295,12 @@ export function buildRoom(scene, { renderer } = {}) {
     anchors.host = new THREE.Vector3(0.5, 0, 24.9);
     anchors.hostMark = new THREE.Vector3(2.2, 0, 23.4);   // where the two of them wait
 
-    const hostLamp = pointLight(0xffc27a, 1.5);
+    /* 0.7, down from 1.5. At 1.5 the lamp is 350mm over the desk top, which
+     * is inverse-square fire whatever the fitting: the hot pool it left on
+     * the brass was the other half of the "bloom on the host desk" note. The
+     * desk stays warmly lit; the book stays readable; nothing else uses this
+     * light. */
+    const hostLamp = pointLight(0xffc27a, 0.7);
     hostLamp.position.set(0.5, 1.5, 24.2);
     hostLamp.distance = 5;
     add(hostLamp);

@@ -59,8 +59,23 @@ const SILVER_SHARED_CUES = new Set([
   'door.locked',
   'glass.set',
   'ice.drop',
+  /* The whole kitchen work table and the floor's little sounds, not only the
+   * two cues the first pass happened to use: recordings exist for most of
+   * these, and a name missing from this list is a recording nobody on this
+   * page ever hears — the engine quietly plays the synth stand-in instead. */
+  'kitchen.chop',
+  'kitchen.chop.fast',
+  'kitchen.clatter',
+  'kitchen.glasses',
+  'kitchen.oven',
   'kitchen.pan',
   'kitchen.plate',
+  'kitchen.sizzle',
+  'kitchen.steam',
+  'kitchen.ticket',
+  'dining.chair',
+  'dining.cutlery',
+  'dining.glass.clink',
   'light.dip',
   'mic.handle',
   'pour',

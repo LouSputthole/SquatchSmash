@@ -25,6 +25,7 @@ import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
 import { makeHeldDrinks } from '../world/props.js';
+import { SmokeSystem } from '../world/smoke.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
 
@@ -34,7 +35,7 @@ import { Date_ } from './date.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS, BACK_OF_HOUSE_TOTAL } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
-import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF } from './script.js';
+import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF, WALK_GREETS } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { enqueueVoiceFloor } from './voice-floor.js';
 import { makeTaxi } from './vehicle.js';
@@ -224,6 +225,7 @@ const game = {
   noted: new Set(),
   known: new Set(),          // things the player has been told and may recall
   greeted: new Set(),
+  passGreeted: new Set(),    // staff who already said hello as he went by
   scene: null,               // the running cutscene, if any
   round: null,               // which conversation round is up
   pausedSeatedRound: null,   // Margo's exact table thread, paused by standing
@@ -2204,6 +2206,7 @@ function saveCheckpoint(state) {
     woo: woo.snapshot(),
     known: [...game.known],
     greeted: [...game.greeted],
+    passGreeted: [...game.passGreeted],
     noted: [...game.noted],
     seated: game.seated,
     round: game.round,
@@ -2243,6 +2246,7 @@ function restoreCheckpoint(cp = game.checkpoint) {
   mission.restore(cp.mission);
   game.known = new Set(cp.known ?? []);
   game.greeted = new Set(cp.greeted ?? []);
+  game.passGreeted = new Set(cp.passGreeted ?? []);
   game.noted = new Set(cp.noted ?? []);
   game.round = cp.round ?? null;
   queueAt = cp.queueAt;
@@ -2543,19 +2547,26 @@ const KITCHEN_WORK = [
   // [cue, x, z, volume, weight]
   ['kitchen.clatter', 20.4, -10.5, 0.42, 5],
   ['kitchen.pan', 20.4, -10.5, 0.38, 4],
+  ['kitchen.sizzle', 20.4, -10.5, 0.40, 5],
+  ['kitchen.sizzle', 23.0, -10.5, 0.36, 3],
   ['kitchen.plate', 19.0, -6.6, 0.34, 4],
   ['kitchen.chop', 18.5, 5.2, 0.40, 3],
+  ['kitchen.chop.fast', 18.5, 5.2, 0.36, 3],
   ['kitchen.oven', 23.0, -10.5, 0.34, 2],
   ['kitchen.ticket', 19.0, -6.9, 0.30, 2],
   ['kitchen.clatter', 26.6, -13.6, 0.36, 4],
+  ['kitchen.steam', 25.4, -13.6, 0.34, 3],
+  ['kitchen.steam', 21.7, -10.5, 0.30, 2],
+  ['kitchen.glasses', 17.5, -13.0, 0.30, 2],
 ];
 const KITCHEN_WEIGHT = KITCHEN_WORK.reduce((n, w) => n + w[4], 0);
+const KITCHEN_ROOMS = ['kitchen', 'prep', 'dish'];
 let kitchenAt = 2.5;
 const _workAt = new THREE.Vector3();
 function kitchenSound(dt) {
   /* Prep and dish count as the kitchen: they are the same room with a
    * different job in them, and the pass is audible from all of it. */
-  if (!['kitchen', 'prep', 'dish'].includes(where) || game.scene) return;
+  if (!KITCHEN_ROOMS.includes(where) || game.scene) return;
   kitchenAt -= dt;
   if (kitchenAt > 0) return;
   /* Close together, because that is what a service sounds like. Two and a
@@ -2570,9 +2581,98 @@ function kitchenSound(dt) {
   }
   const [cue, x, z, volume] = pick;
   _workAt.set(x, 1.0, z);
+  /* Under a conversation, not through it — same rule the dining room's
+   * one-shots follow. The kitchen keeps working while somebody talks to him;
+   * it just stops competing for the sentence. */
+  const busy = dialogue.active ? 0.55 : 1;
   audio.play(cue, {
-    volume: volume * (0.7 + Math.random() * 0.5), position: _workAt, ref: 3, maxDist: 26,
+    volume: volume * busy * (0.7 + Math.random() * 0.5), position: _workAt, ref: 3, maxDist: 26,
   });
+  /* The two heat cues carry their own visible heat. */
+  if (cue === 'kitchen.sizzle' || cue === 'kitchen.steam') {
+    _workAt.y = 1.1;
+    smoke.emit(_workAt, STEAM_UP, {
+      count: 4, speed: 0.55, spread: 0.14, size0: 0.04, size1: 0.42, life: 2.2, peak: 0.16, rise: 0.5,
+    });
+  }
+}
+
+/**
+ * The kitchen, visibly hot.
+ *
+ * The shared pooled sprite system every other scene's smoke uses — nothing
+ * new is built here, and the pool never allocates mid-frame. Steady wisps
+ * off the range line and the dish pit while the player is in the room, so
+ * the stations read as working even between one-shots.
+ */
+const smoke = new SmokeSystem(scene);
+const STEAM_UP = new THREE.Vector3(0, 1, 0);
+const STEAM_AT = [
+  new THREE.Vector3(20.4, 1.08, -10.5),   // the range line
+  new THREE.Vector3(23.0, 1.08, -10.5),   // the second range
+  new THREE.Vector3(25.4, 1.02, -13.9),   // the dish pit
+];
+let steamAt = 0.8;
+function kitchenSteam(dt) {
+  smoke.update(dt);
+  if (!KITCHEN_ROOMS.includes(where) || game.scene) return;
+  steamAt -= dt;
+  if (steamAt > 0) return;
+  steamAt = 0.5 + Math.random() * 1.1;
+  const at = STEAM_AT[(Math.random() * STEAM_AT.length) | 0];
+  smoke.emit(at, STEAM_UP, {
+    count: 2, speed: 0.45, spread: 0.10, size0: 0.03, size1: 0.30, life: 1.9, peak: 0.12, rise: 0.5,
+  });
+}
+
+/**
+ * Staff who see him coming.
+ *
+ * The route already had people you could stop and talk to; this is the other
+ * half of the Copacabana walk — the back of house speaking FIRST, once each,
+ * as he passes their station with her watching. Fired by proximity, gated to
+ * the walk-in states so the room does not greet a man who has lived in it for
+ * an hour, and queued through the same deferred voice floor as everything
+ * else so nobody talks over the mission's own dialogue or over each other.
+ */
+const GREET_REACH = {
+  cellarman: { r: 4.2, rooms: ['cellar'] },
+  prepCook: { r: 3.8, rooms: ['prep', 'kitchen'] },
+  chef: { r: 4.4, rooms: ['kitchen', 'prep'] },
+  porter: { r: 3.8, rooms: ['kitchen', 'dish', 'prep'] },
+  dishwasher: { r: 5.0, rooms: ['dish', 'kitchen'] },
+  servicebar: { r: 4.2, rooms: ['corridor'] },
+};
+const GREET_STATES = new Set(['service-route', 'cellar', 'kitchen', 'corridor']);
+let greetGapAt = 0;
+function walkInGreets() {
+  if (game.scene || dialogue.active || !GREET_STATES.has(mission.state)) return;
+  const now = performance.now();
+  if (now < greetGapAt) return;
+  for (const g of WALK_GREETS) {
+    if (game.passGreeted.has(g.npc)) continue;
+    const npc = cast.byName[g.npc];
+    const reach = GREET_REACH[g.npc];
+    if (!npc || !reach || !reach.rooms.includes(where)) continue;
+    /* Already stopped and spoken to: the hello is spent. */
+    if (game.greeted.has(npc.name)) { game.passGreeted.add(g.npc); continue; }
+    const dx = npc.group.position.x - player.position.x;
+    const dz = npc.group.position.z - player.position.z;
+    if (dx * dx + dz * dz > reach.r * reach.r) continue;
+    game.passGreeted.add(g.npc);
+    /* One at a time with real air between them; a corridor of overlapping
+     * hellos is a receiving line, not a kitchen. */
+    greetGapAt = now + 6000;
+    npc.faceToward(player.position.x, player.position.z);
+    narrate(`<em>${g.who}:</em> ${g.line}`, 4400, {
+      cue: g.cue,
+      volume: 0.85,
+      /* A hello said four rooms later is worse than one never said. */
+      expires: 9000,
+      speaker: { say: (secs, take) => npc.say(secs, take) },
+    });
+    return;
+  }
 }
 
 /**
@@ -2731,6 +2831,8 @@ function evening(dt) {
    * something the headless driver silently does not run, and a kitchen that
    * makes no noise is exactly the kind of thing nobody notices is untested. */
   kitchenSound(dt);
+  kitchenSteam(dt);
+  walkInGreets();
   floorSound(dt);
   arrivalTick(dt);
   flushVoice();
