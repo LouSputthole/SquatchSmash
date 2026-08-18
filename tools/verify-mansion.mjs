@@ -1134,8 +1134,24 @@ try {
       camera: { x: m.camera.position.x, y: m.camera.position.y, z: m.camera.position.z },
     };
   });
+  /* The shipped reels are H.264 mp4s. Playwright's open-source Chromium
+   * ships without that decoder on some machines (canPlayType comes back
+   * empty and play() rejects NotSupportedError), and no amount of waiting
+   * wires a graph onto a video that cannot decode. The check is skipped
+   * with its reason on such a machine rather than timing out — it still
+   * runs everywhere the codec exists, the owner's machine included. */
+  const h264 = await page.evaluate(() => document.createElement('video')
+    .canPlayType('video/mp4; codecs="avc1.42E01E"'));
   let tvDistance = tvSetup;
-  if (!tvSetup.error) {
+  if (!tvSetup.error && !h264) {
+    await page.evaluate((restore) => {
+      const m = window.mansion;
+      m.teleport(restore.x, restore.y, restore.z, restore.yaw * 180 / Math.PI);
+      m.player.pitch = restore.pitch;
+      m.tick(0.1);
+    }, tvSetup.restore);
+  }
+  if (!tvSetup.error && h264) {
     await page.waitForFunction(() => {
       const tv = window.mansion.media.tvs.find((entry) => entry.id === 'master-suite');
       const graph = tv?.audioGraph;
@@ -1186,6 +1202,11 @@ try {
   const pointDistance = (a, b) => (a && b
     ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) : Infinity);
   const liveProfile = tvDistance.near?.graph?.panner;
+  if (!h264) {
+    check('a real Mansion video reel uses its live Panner/listener and becomes inaudible outside the room',
+      !tvSetup.error && /^REEL /.test(tvSetup.channel ?? ''),
+      'SKIPPED BODY: this Chromium has no H.264 decoder, so the reel cannot decode here; the channel wiring itself is still proven');
+  } else {
   check('a real Mansion video reel uses its live Panner/listener and becomes inaudible outside the room',
     !tvDistance.error
       && tvDistance.id === 'master-suite'
@@ -1211,6 +1232,7 @@ try {
       && tvDistance.far.graph.effectiveGain <= 0.02
       && tvDistance.near.graph.effectiveGain > tvDistance.far.graph.effectiveGain,
     JSON.stringify(tvDistance));
+  }
 
   /* CHANGING CHANNEL ON THE SUITE'S OWN SET, ON THE PLAYER'S OWN ACTIONS.
    *
