@@ -902,9 +902,30 @@ export function createLicenseToGrill({
 
   const tree = script[CHARACTER_IDS.JAMES_BLOND];
 
+  /**
+   * Who each of the thread's `who` names is, for Dialogue's mouth wiring.
+   *
+   * Blond's thread is the one conversation in the club with four people in
+   * it, and it used to be started with Blond as its only speaker — so Blond's
+   * jaw ran on Gratin's lines, Numbskull's asides and even Tony's own spoken
+   * questions, while the men actually talking stood with dead faces. The map
+   * names everybody with a face in the room; 'Prospect' is deliberately
+   * absent, because Tony is the camera. Built per start rather than once,
+   * because Gratin and company are borrowed off the floor and the roster can
+   * differ by campaign state.
+   */
+  function storeRoomCast() {
+    return {
+      Blond: runtime.blond,
+      Gratin: family?.byId?.[CHARACTER_IDS.GRATIN] ?? null,
+      Numbskull: family?.byId?.[CHARACTER_IDS.NUMBSKULL] ?? null,
+      'The Shubenator': family?.byId?.[CHARACTER_IDS.SHUBENATOR] ?? null,
+    };
+  }
+
   function resume(node) {
     if (runtime.phase !== 'open') return;
-    dialogue?.start(tree, node, runtime.blond);
+    dialogue?.start(tree, node, runtime.blond, { cast: storeRoomCast() });
   }
 
   /**

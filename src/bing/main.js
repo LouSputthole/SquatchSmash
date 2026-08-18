@@ -556,6 +556,17 @@ function tableSay(group, { chance = 1, delay = 0, gap = 7 } = {}) {
   if (chance < 1 && Math.random() > chance) return false;
   if (!audio.say(group, { delay })) return false;
   lastTableLine = now;
+  /* The man across the felt says his own lines. Every `dealer` group is his
+   * (`bj.dealer.*`, `bing.blackjack.dealer.*`); everything else at this table
+   * is the prospect, who is first person and has no face to move. The mouth
+   * runs on the take say() just started (src/core/mouth.js via Npc.say) —
+   * `spokenSource()` exists exactly for a caller that has to FOLLOW the line —
+   * so a delayed cue keeps his jaw shut until the recording actually sounds. */
+  if (group.includes('dealer')) {
+    const source = audio.spokenSource();
+    const secs = delay + (source?.buffer ? source.buffer.duration : 1.6);
+    cast.byName.dealer?.say(secs, source ? { audio, source } : null);
+  }
   return true;
 }
 
@@ -691,6 +702,11 @@ const blackjack = new Blackjack(scene, { x: club.bj.x, z: club.bj.z }, seat, {
       : kind === 'lose' ? 'vo.bing.blackjack.tony.lose' : null;
     if (dealerCue && performance.now() / 1000 - lastTableLine >= SETTLE) {
       const dealerSpoke = voiceCue(dealerCue, { delay: 0.45 });
+      /* His verdict, his mouth. The take carries the analyser, so the jaw
+       * waits out the 0.45s pickup and closes when the recording does
+       * (src/core/mouth.js). Tony's answer below is the player's own voice —
+       * first person, no head on screen, nothing to animate. */
+      if (dealerSpoke) cast.byName.dealer?.say(dealerSpoke.seconds, dealerSpoke);
       const tonySpoke = tonyCue
         ? voiceCue(tonyCue, {
           delay: 0.45 + (dealerSpoke ? cueSeconds(dealerCue) + 0.35 : 0.55),

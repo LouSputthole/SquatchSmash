@@ -20,6 +20,7 @@
 import * as THREE from 'three';
 import { box, cylinder, group, mat, plane, sphere } from './build.js';
 import { restyleMargoHead } from '../silver/margo.js';
+import { Mouth } from '../core/mouth.js';
 import { BLOB_HEAD_Y, createGlueBlobMaterial } from './splat.js';
 import { placeDressHelpActor } from './dress-help-staging.js';
 
@@ -1853,6 +1854,59 @@ export function makeMorningGuest(M) {
     setPose: null,
     setDressHelpProgress: null,
     setDressGlue: null,
+    /* Seconds left on the line she is currently saying, for anything that
+     * stages her around a line (facing the man she is talking to, above all).
+     * The mouth itself does not read this — it runs on the take. */
+    speakingFor: 0,
+  };
+
+  /* Her mouth, on the shared driver every speaking rig in the game uses
+   * (src/core/mouth.js): analyser-driven while a recorded take is sounding,
+   * a synthesised syllable envelope for exactly the subtitle's length when
+   * the line has no recording yet. `restyleMargoHead` hands back the same
+   * lower-lip mesh the Bing's Margo talks with, and 2.6 is that face's own
+   * opening — one woman, one mouth, whichever scene she is in. */
+  const voiceMouth = new Mouth({ mouth: faceParts.mouth }, { openScale: 2.6 });
+  rig.voiceMouth = voiceMouth;
+
+  /** Start a line: `seconds` is the subtitle's hold, `take` the recording. */
+  rig.say = (seconds = 2, take = null) => {
+    rig.speakingFor = Math.max(0, Number(seconds) || 0);
+    voiceMouth.speak({ seconds: rig.speakingFor, ...(take || {}) });
+  };
+
+  /** Cut the line: the mouth closes from wherever it is. */
+  rig.hush = () => {
+    rig.speakingFor = 0;
+    voiceMouth.stop();
+  };
+
+  /* One talking clock for the head. Not wall time: it only advances while a
+   * line is up, so the nod always starts from the same phase. */
+  let talkT = 0;
+
+  /**
+   * Advance the mouth and the small head-life that goes with it. Called once
+   * a frame from the apartment's own tick list; a silent, settled mouth costs
+   * one comparison (see src/core/mouth.js).
+   */
+  rig.update = (dt) => {
+    const talk = voiceMouth.update(dt);
+    if (rig.speakingFor > 0) {
+      rig.speakingFor = Math.max(0, rig.speakingFor - dt);
+      talkT += dt;
+      /* The nod rides the syllables as well as the clock — the same trick the
+       * Bing's photographed faces use, scaled well down for a head this close
+       * to the camera. Written, not added, and decayed below, so no pose ever
+       * inherits a tilt she finished talking with. */
+      head.rotation.x = Math.sin(talkT * 6) * 0.035 + talk * 0.03;
+    } else {
+      talkT = 0;
+      if (head.rotation.x !== 0) {
+        head.rotation.x += (0 - head.rotation.x) * Math.min(1, dt * 6);
+        if (Math.abs(head.rotation.x) < 0.001) head.rotation.x = 0;
+      }
+    }
   };
 
   const resetLimbs = () => {

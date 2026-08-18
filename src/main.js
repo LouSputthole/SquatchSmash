@@ -46,6 +46,7 @@ import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
   SILVER_ROOM_COME_HOME,
+  SILVER_ROOM_DRESS_ASK,
   HEIST_CLEANUP_ITEMS,
   HEIST_PREPARATION_ITEMS,
   createApartmentStory,
@@ -852,6 +853,7 @@ function apartmentStartupCueNames() {
   if (apartmentStory.margoWakeOwed() || apartmentStory.margoComeHomeOwed()) {
     for (const cue of exactDefinitionCueNames(BIG_NIGHT_MARGO_WAKE)) names.add(cue);
     for (const cue of exactDefinitionCueNames(SILVER_ROOM_COME_HOME)) names.add(cue);
+    for (const cue of exactDefinitionCueNames(SILVER_ROOM_DRESS_ASK)) names.add(cue);
     names.add('cloth.snap');
     /* The dress foley belongs here too. It shipped in 8963415, but it was left
      * to arrive with the background resident bank, and `playMargoDressImpact`
@@ -3559,22 +3561,28 @@ const READ_PER_CHAR = 0.042;
  *
  * @returns {number} seconds the line should hold the floor
  */
-function speakLine(cue, text, { volume = 0.9, subtitle = null } = {}) {
+function speakLine(cue, text, { volume = 0.9, subtitle = null, speaker = null } = {}) {
   const source = audio.play?.(cue, { volume });
   const hold = source?.buffer
     ? source.buffer.duration + 0.4
     : READ_BASE + text.replace(/<[^>]+>/g, '').length * READ_PER_CHAR;
+  /* The mouth, when the line belongs to somebody with a face in the room —
+   * Margo is the case. Handed the TAKE rather than the hold, so a recorded
+   * line runs the jaw on its own amplitude and closes when the recording
+   * does; an unrecorded one animates on the fallback envelope for exactly
+   * the subtitle's length (src/core/mouth.js). */
+  speaker?.say?.(hold, source ? { audio, source } : null);
   hud.say(subtitle ?? text, Math.round(hold * 1000));
   return hold;
 }
 
-/** Play a list of {cue, text} in order, one after the other. */
+/** Play a list of {cue, text[, speaker]} in order, one after the other. */
 function speakSequence(turns, { onDone = null } = {}) {
   let i = 0;
   const step = () => {
     if (i >= turns.length) { onDone?.(); return; }
     const turn = turns[i++];
-    const hold = speakLine(turn.cue, turn.text, { subtitle: turn.subtitle });
+    const hold = speakLine(turn.cue, turn.text, { subtitle: turn.subtitle, speaker: turn.speaker });
     setTimeout(step, Math.round(hold * 1000) + 220);
   };
   step();
@@ -3987,7 +3995,10 @@ function startMargoWake() {
 
   const turns = [];
   BIG_NIGHT_MARGO_WAKE.lines.forEach((line, i) => {
-    turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.${i + 1}`, text: `Margo: ${line}` });
+    /* Her lines carry her as the speaker so her mouth runs on them
+     * (src/core/mouth.js via the rig's own say()); Tony's replies are the
+     * player, first person, and animate nobody. */
+    turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.${i + 1}`, text: `Margo: ${line}`, speaker: margo });
     const reply = BIG_NIGHT_MARGO_WAKE.replies[i];
     if (reply) {
       turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.tony.${i + 1}`, text: `You: ${reply}` });
@@ -4044,7 +4055,12 @@ function startMargoComeHome() {
 function startMargoComeHomeTalk() {
   const turns = [];
   SILVER_ROOM_COME_HOME.lines.forEach((line, i) => {
-    turns.push({ cue: `vo.${SILVER_ROOM_COME_HOME.vo}.${i + 1}`, text: `Margo: ${line}` });
+    /* Same speaker rule as the wake: her lines run her mouth, his run nobody's. */
+    turns.push({
+      cue: `vo.${SILVER_ROOM_COME_HOME.vo}.${i + 1}`,
+      text: `Margo: ${line}`,
+      speaker: apartment.margo,
+    });
     const reply = SILVER_ROOM_COME_HOME.replies[i];
     if (reply) {
       turns.push({ cue: `vo.${SILVER_ROOM_COME_HOME.vo}.tony.${i + 1}`, text: `You: ${reply}` });
@@ -4082,9 +4098,20 @@ function offerMargoDressHelp() {
   scene.dressProgress = 0;
   // Only does anything if he never got up: lets him see her over the duvet.
   scene.cameraLiftTarget = 1;
-  hud.say(scene.kind === 'comeHome'
-    ? '<em>Can you get this?</em> She turns, back to him, reaching for a zip she cannot see.'
-    : '<em>Can you get this?</em> She turns, back to him, waiting on the clasp.', 4400);
+  if (scene.kind === 'comeHome') {
+    /* The night she came home, the ask is HERS — a spoken line with a real
+     * cue, her mouth on the take and her face turned to him for the length
+     * of it (see the speaking-facing block in updateMargoWake), instead of a
+     * stage direction on the subtitle bar. One line, played once: this
+     * function is idempotent per scene. */
+    speakLine(
+      `vo.${SILVER_ROOM_DRESS_ASK.vo}.1`,
+      `Margo: ${SILVER_ROOM_DRESS_ASK.lines[0]}`,
+      { speaker: margo },
+    );
+  } else {
+    hud.say('<em>Can you get this?</em> She turns, back to him, waiting on the clasp.', 4400);
+  }
   return true;
 }
 
@@ -4324,6 +4351,22 @@ function updateMargoWake(dt) {
       if (beat.cue) audio.play(beat.cue, { volume: 0.5 });
       break;
     }
+  }
+
+  /* She talks TO him. While a line of hers is up and she is on her feet --
+   * not mid-walk, not bent over the fastening -- she turns to face wherever
+   * he actually is, instead of delivering it to the wardrobe on the standing
+   * pose's fixed yaw. Eased, so it is a person turning and not a turret; and
+   * only while SPEAKING, so the authored staging (her back to him for the
+   * zip once the ask has landed and he walks around her) is otherwise
+   * untouched. Lying and sitting keep their authored facings entirely. */
+  if (margo.speakingFor > 0 && margo.pose === 'standing'
+    && scene.walk === null && !margoDress.active) {
+    const wantYaw = yawNear(Math.atan2(
+      player.position.x - margo.group.position.x,
+      player.position.z - margo.group.position.z,
+    ), margo.group.rotation.y);
+    margo.group.rotation.y += (wantYaw - margo.group.rotation.y) * Math.min(1, dt * 4);
   }
 
   /* His head, turned toward whatever she is doing -- when there is anything

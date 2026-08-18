@@ -45,6 +45,10 @@ export class Dialogue {
      * last returned — kept so hush() can stop the actual sound and not just
      * the subtitle. */
     this._take = null;
+    /* Multi-speaker trees: who each `who` name is, and whose face the current
+     * line is on. See `start()`'s `cast` option and `_lineBody()`. */
+    this._cast = null;
+    this._body = null;
     this.history = new Set();
     /* Where each tree lapsed, keyed by the tree itself. Walking off
      * mid-sentence used to mean the whole conversation started over next
@@ -77,12 +81,18 @@ export class Dialogue {
    * @param {object} tree  id -> node
    * @param {string} at    starting node id
    * @param {object} speaker the Npc talking, for range and gaze
-   * @param {object} opts  { resume, lockMovement } -- pick the conversation back up at the
+   * @param {object} opts  { resume, lockMovement, cast } -- pick the conversation back up at the
    *   node it lapsed on rather than restarting; only replay from `at` once
    *   the thread has completed. One-shot interjections (a door line, a
    *   package line) start without it and never disturb a saved thread.
+   *   `cast` is for a tree with MORE THAN ONE person in it (License to Grill
+   *   is the case: Blond, Gratin, Numbskull and the Shubenator share one
+   *   thread): a map of each node's `who` name to the body that should mouth
+   *   it. With a cast, only the names in the map animate — so the player's
+   *   own spoken nodes, or a voice behind a door, are simply left out of it.
+   *   Without one, every line belongs to `speaker`, exactly as before.
    */
-  start(tree, at, speaker = null, { resume = false, lockMovement = null } = {}) {
+  start(tree, at, speaker = null, { resume = false, lockMovement = null, cast = null } = {}) {
     /* A package pickup can hand off to a follow-up node while Lou's required
      * brief is still active. An omitted option preserves that live lock; an
      * explicit false releases it. Keep the callback edge-triggered so a
@@ -94,6 +104,7 @@ export class Dialogue {
     this.lastEndReason = null;
     this.tree = tree;
     this.speaker = speaker;
+    this._cast = cast;
     this.active = true;
     this._resumable = resume;
     this._inReplyRange = true;
@@ -130,7 +141,15 @@ export class Dialogue {
        * synthesised envelope for the same number of seconds it always had. */
       const take = this.hooks.onLine?.(text, who, node) || null;
       this._take = take;
-      this.speaker?.say?.(
+      /* The line goes in the mouth of the person who is SAYING it. For a
+       * single-speaker tree that is `speaker`, as it always was; a cast map
+       * resolves the multi-speaker threads, and a `who` of 'Prospect' is the
+       * player — first person, no face on screen — so it animates nobody
+       * instead of putting Tony's words in the other man's mouth. */
+      const body = this._lineBody(who);
+      if (this._body && this._body !== body) this._body.hush?.();
+      this._body = body;
+      body?.say?.(
         this._cueHold(node, Math.max(1.6, text.length / 22)),
         take,
       );
@@ -153,6 +172,22 @@ export class Dialogue {
       authoredHold ?? (text ? Math.max(2.2, text.length / 18) : 0.6),
     );
     return node;
+  }
+
+  /**
+   * Whose face a line is on.
+   *
+   * With a cast map, the map is the whole answer — a name missing from it is
+   * a voice with no body to animate (the player, a man behind a door), which
+   * is the correct amount of nothing. Without one, the tree has one speaker
+   * and every line is his, except the player's own: 'Prospect' is first
+   * person in every scene this class runs in, and his spoken nodes used to
+   * run the OTHER man's mouth for the length of Tony's recording.
+   */
+  _lineBody(who) {
+    if (this._cast) return this._cast[who] ?? null;
+    if (who === 'Prospect') return null;
+    return this.speaker;
   }
 
   _paintOptions() {
@@ -229,6 +264,16 @@ export class Dialogue {
     }
     this.active = false;
     this.lastEndReason = reason;
+    /* A cast-driven thread shuts the current mouth on the way out: unlike the
+     * single-speaker case there may be no follow-up say() on the same body to
+     * supersede a fallback envelope still running. The single-speaker path is
+     * left exactly as it was — the scene's onEnd owns the take, and the mouth
+     * follows the take (src/core/mouth.js). */
+    if (this._cast) {
+      this._body?.hush?.();
+      this._cast = null;
+    }
+    this._body = null;
     this.node = null;
     this.nodeId = null;
     this.options = [];

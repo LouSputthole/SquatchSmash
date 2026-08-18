@@ -8052,6 +8052,11 @@
       "say": "Noted."
     },
     {
+      "name": "vo.margo.comehome.dress.1",
+      "voice": "margo",
+      "say": "The zip. Come here. That is not a request — I am not sleeping in this dress."
+    },
+    {
       "name": "footstep.concrete",
       "duration": 0.5,
       "prompt": "single footstep on bare concrete, hard flat scuff of a rubber sole with a little grit under it, dry, outdoors, no reverb tail, no voice, no music"

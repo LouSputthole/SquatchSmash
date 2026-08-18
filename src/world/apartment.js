@@ -1155,6 +1155,10 @@ export async function buildApartment(ctx) {
    * stayed the night, not a possession he accumulated. */
   const margo = makeMorningGuest(M);
   root.add(margo.group);
+  /* Her mouth and talking head-life, every frame she exists. Costs one
+   * comparison a frame while she is silent or hidden (src/core/mouth.js),
+   * and it is what closes her mouth when a line ends or is cut. */
+  ticks.push((dt) => margo.update(dt));
 
   /** Weather and light for the morning currently on show. */
   let dressAir = dressingFor('day_one').air;

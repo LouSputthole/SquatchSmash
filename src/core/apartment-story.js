@@ -847,6 +847,28 @@ export const SILVER_ROOM_COME_HOME = Object.freeze({
   ]),
 });
 
+/**
+ * The ask itself, the night she comes home: the dress has a fastening she
+ * cannot reach and he is the only other pair of hands in the flat. Spoken by
+ * her rather than narrated — the beat used to be a stage direction on the
+ * subtitle bar, and a woman issuing a playful order is a better scene than a
+ * caption describing one. One line, no reply: what he says back is the help.
+ *
+ * Cued under `margo.comehome.` on purpose, so the come-home night's own
+ * preload and end-of-night eviction (`closedNightCuePrefixes`) cover it with
+ * no further bookkeeping.
+ */
+export const SILVER_ROOM_DRESS_ASK = Object.freeze({
+  characterId: CHARACTER_IDS.MARGO,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'margo.comehome.dress',
+  lines: Object.freeze([
+    'The zip. Come here. That is not a request — I am not sleeping in this dress.',
+  ]),
+  replies: Object.freeze([]),
+});
+
 class ApartmentStory {
   constructor({ campaign, ring }) {
     this.campaign = campaign;
