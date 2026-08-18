@@ -449,6 +449,13 @@ export class Player {
     /* Measured from the supporting floor, not the airborne feet, so a jump
      * does not turn a 1.2 m wall into a step. */
     const stepTop = this.ground + STEP_HEIGHT;
+    /* What the world itself offers here, which is the difference between a
+     * box worth climbing and a box that is plugging a hole. See the second
+     * half of the step test below. */
+    const worldGround = this.world.groundAt ? this.world.groundAt(p.x, p.z) : 0;
+    /* `position.y` is `ground + eyeHeight + jumpHeight`, so this is exactly
+     * the sole of his boot -- no bob in it. */
+    const feet = p.y - this.eyeHeight;
     let start = 0;
     scan: for (;;) {
       const list = grid.query(p.x, p.z, RADIUS, _cands);
@@ -457,8 +464,40 @@ export class Player {
         if (i < start) continue;
         const box = colliders[i];
         if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
-        // Low enough to step over from the floor he is on: not a wall.
-        if (box.max.y <= stepTop) continue;
+        /* Low enough to step over from the floor he is on: not a wall.
+         *
+         * AND high enough to be worth standing on. A box whose top is at or
+         * under the floor the world already gives him here is not a step, it
+         * is CONTAINMENT -- the cap over a hole, drawn flush with the
+         * surface around it. The mansion pool is one: a box from -0.1 (its
+         * bottom) to 1.2 (the deck), which for years was simply a wall you
+         * could not cross. Judged on height alone it reads as a 0 cm step
+         * from a 1.2 m deck, so step-over waved him through and he walked
+         * into the empty pool -- `verify:mansion` caught it on the garden
+         * steps walk, ground 1.2 -> -0.1.
+         *
+         * Two ways to earn the step, and it needs only one:
+         *
+         *   top > worldGround -- it stands PROUD of the floor here, so it is
+         *     something to climb. This is the same question `_stepSupport`
+         *     asks (`top <= worldGround` is not support), which is what keeps
+         *     the two consistent: a box is skipped here only if it could hold
+         *     him up there. It is the WORLD's floor and not `this.ground`
+         *     because while he stands on a kerb his own ground IS that kerb's
+         *     top, and comparing against that would eject him off the thing
+         *     he is standing on.
+         *
+         *   top > feet -- it is over his boot, so whatever the world says, it
+         *     is in his way and low enough to lift a leg over. This is the
+         *     arm that carries a floor TRANSITION: crossing onto the Bing's
+         *     0.6 m stage, `groundAt` reports 0.6 the instant he crosses the
+         *     line while his own feet are still easing up from 0, and a 0.3 m
+         *     kerb he is genuinely stepping over would read as buried under
+         *     the stage and stop him dead.
+         *
+         * Fail both and it is containment: flush with the surface, nothing to
+         * climb, nothing over the boot. */
+        if (box.max.y <= stepTop && (box.max.y > worldGround || box.max.y > feet)) continue;
 
         const cx = clamp(p.x, box.min.x, box.max.x);
         const cz = clamp(p.z, box.min.z, box.max.z);

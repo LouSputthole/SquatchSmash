@@ -211,8 +211,15 @@ try {
   /* ---- lanes D/E: the step limit follows the floor he stands on ---- */
   await page.evaluate(() => window.__stepOver.place(30, 26));
   const stage = await walk(4);
+  /* Back on the stage within a centimetre, the same tolerance lane A uses for
+   * the crate top, and not the 1e-6 this line asked for at first. `walk`
+   * samples the frame the key comes up, and off a 0.95 m crate the soft
+   * ground response is still easing down toward 0.6 -- it only snaps once the
+   * gap is under 2 mm, so the sample can legitimately land a frame early
+   * (measured 0.602). A centimetre cannot confuse the stage with the crate:
+   * they are 35 cm apart, which is the whole point of the check. */
   check('a 35 cm crate on a raised world floor is stepped onto from that floor (0.95 top over a 0.6 stage)',
-    stage.hi > 0.94 && stage.z > 34.5 && Math.abs(stage.ground - 0.6) < 1e-6,
+    stage.hi > 0.94 && stage.z > 34.5 && Math.abs(stage.ground - 0.6) < 0.01,
     fmt(stage));
   await page.evaluate(() => window.__stepOver.place(40, 26));
   const fromBelow = await walk(4);
