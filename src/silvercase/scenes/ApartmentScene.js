@@ -76,9 +76,10 @@ export const ANCHORS = Object.freeze({
   // x=8 with its front face at z=1.60 (see the COUCH block below); the table is
   // 1.20 x 0.62, so at the old (9.0, 1.6) its near half was buried in the
   // cushions and its long axis was hanging off the end of the couch. Centred on
-  // the couch and 0.24 m clear of its front edge — a small flat's knee gap —
-  // the whole living half of the flat reads as one arrangement.
-  coffeeTableSpot: Object.freeze({ x: 8.0, y: 0, z: 1.05 }),
+  // the couch and 0.34 m clear of its front edge — a small flat's knee gap the
+  // player's 0.30 m capsule can still cross — the whole living half of the
+  // flat reads as one arrangement.
+  coffeeTableSpot: Object.freeze({ x: 8.0, y: 0, z: 0.95 }),
   tvSpot: Object.freeze({ x: 6.06, y: 1.55, z: -1.6 }),
   fridgeSpot: Object.freeze({ x: 11.64, y: 0, z: 1.95 }),
   // On the wall's west segment, well clear of the bathroom doorway. The
