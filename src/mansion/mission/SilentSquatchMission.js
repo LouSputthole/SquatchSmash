@@ -409,6 +409,15 @@ class SilentSquatchMission {
   /** Beat 10. Booski lifted the cover. He does not pull it. */
   pullSilentNight() {
     if (!this.#at(S.SILENT_NIGHT)) return false;
+    /* The LEVER, not only the sequence. The mount's registration replaces
+     * the scene's own on the same mesh (`userData.interact` is a single
+     * slot), so without this the physical lever never travelled and the
+     * cover state never latched -- the gas arrived out of a pedestal that
+     * had visibly not been pulled. `pull()` also starts the gas; the
+     * `alarm.start` stage at the head of `silentNightPulled` fires on the
+     * same frame and its second `gas.start()` is a guarded no-op, so the
+     * timing is exactly what it was. */
+    this.lab.silentNight?.pull?.();
     this.#instruct('');
     this.dialogue.play(SEQUENCES.silentNightPulled, {
       onDone: () => this.fsm.go(S.GASSING),
@@ -661,7 +670,24 @@ class SilentSquatchMission {
       case 'alarm.start':
         this.lab.gas?.start?.();
         break;
+      /* Beat 10's set-up: "Booski lifts the cover and does not pull it." The
+       * direction has been in `silentNightOrder` since it was written and
+       * nothing performed it -- the scene's red safety cover stayed shut over
+       * the lever for the whole of beats 10 and 11 while Booski said he had
+       * lifted it. (It also opens the scene's own `silentNight` gate, for a
+       * house running without the mount's registrations.) */
+      case 'cover.lift':
+        this.lab.silentNight?.liftCover?.();
+        break;
       case 'glass.chair':
+        /* The swing as well as the flag. Sokolov's "Move! Move back!" is the
+         * line before this direction, so he is the one with the chair --
+         * `chairStrike()` is the impact on the glass audio path plus the
+         * chair deforming, and until this call the real lab never heard it:
+         * the verifier drove `chairStrike` directly, the mission only set a
+         * bookkeeping flag, and beat 9's one big physical beat played as a
+         * subtitle over silence. */
+        this.lab.scientists?.[SCIENTIST_INDEX.SOKOLOV]?.chairStrike?.();
         this.chairBent = true;
         break;
       case 'xxx.cough':

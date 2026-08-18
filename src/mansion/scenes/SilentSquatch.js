@@ -974,9 +974,15 @@ export function buildSilentSquatch({
     g.rotation.y = rotY;
     g.add(box({ size: [len, 0.06, 0.16], pos: [0, 0, 0], mat: M_TUBE, cast: false }));
     g.add(box({ size: [len + 0.14, 0.07, 0.26], pos: [0, 0.07, 0], mat: M_STEEL_DULL, cast: false }));
+    /* Cage ribs. 0.26 deep, not 0.015: the two longitudinal guard rails below
+     * sit at z +/-0.12, and a rib that stops on the fixture's centreline is a
+     * rib that holds neither of them -- both rails hung in the air 0.105 m
+     * clear of everything, on every fluoro in the basement. Each rib now
+     * spans rail to rail (0.24 + the rail's own 0.015), so the cage is one
+     * connected basket. */
     for (let i = 0; i <= 6; i++) {
       g.add(box({
-        size: [0.015, 0.16, 0.015], pos: [-len / 2 + (len * i) / 6, -0.06, 0], mat: M_STEEL_DULL, cast: false,
+        size: [0.015, 0.16, 0.26], pos: [-len / 2 + (len * i) / 6, -0.06, 0], mat: M_STEEL_DULL, cast: false,
       }));
     }
     for (const sz of [-0.12, 0.12]) {
@@ -1187,9 +1193,16 @@ export function buildSilentSquatch({
     const wineZ1 = 54.6;
 
     // Brick-and-timber lining, so it stops reading as raw armory concrete.
+    /* It stops at x 4.55, not wineX1: the south rack's carcass starts at
+     * x 4.62 (its back board and its southmost bottle bay both cross the
+     * z 50.90..50.98 band this panel occupies), and run full-width the
+     * 80 mm board sliced 60-70 mm through a laid bottle and the rack cheek.
+     * The rack is the thing that has to stand against the stringer, so the
+     * panel is the one that gives way, with 70 mm of clearance. */
+    const liningX1 = wineX1 - 0.8; // 4.55
     root.add(box({
-      size: [wineX1 - wineX0, 2.35, 0.08],
-      pos: [(wineX0 + wineX1) / 2, BY + 1.18, wineZ0 + 0.04],
+      size: [liningX1 - wineX0, 2.35, 0.08],
+      pos: [(wineX0 + liningX1) / 2, BY + 1.18, wineZ0 + 0.04],
       mat: M_WOOD_DK,
       name: 'wine-cellar-lining',
     }));
@@ -1256,8 +1269,12 @@ export function buildSilentSquatch({
       prop(tx - 0.2, tx + 0.2, BY, BY + 0.7, sz - 0.2, sz + 0.2);
     }
     // A barrel and a crate of somebody's allocation.
+    /* BY + 0.34, which is its RADIUS: the barrel lies on its side (rotX), so
+     * the height under its centre is r, not h/2 -- at BY + 0.43 it floated
+     * 90 mm off the floor on the half-height of a barrel that is not
+     * standing up. r 0.34 puts the stave line exactly on the slab. */
     root.add(cylinder({
-      r: 0.34, h: 0.86, pos: [wineX0 + 0.42, BY + 0.43, wineZ1 - 0.5], rotX: Math.PI / 2, mat: M_WOOD_DK,
+      r: 0.34, h: 0.86, pos: [wineX0 + 0.42, BY + 0.34, wineZ1 - 0.5], rotX: Math.PI / 2, mat: M_WOOD_DK,
     }));
     prop(wineX0 + 0.08, wineX0 + 0.76, BY, BY + 0.7, wineZ1 - 0.94, wineZ1 - 0.06);
     root.add(box({
@@ -1302,10 +1319,14 @@ export function buildSilentSquatch({
     // The sectional, along the south edge, facing north at the set.
     const entMid = (entX0 + entX1) / 2;
     const couchZ = entZ0 + 0.45;
-    root.add(box({ size: [3.4, 0.42, 0.85], pos: [entMid, BY + 0.28, couchZ], mat: M_LEATHER }));
+    /* Seat base at BY + 0.21, so its underside (0.42 tall) is ON the slab --
+     * at + 0.28 the whole sectional hovered 70 mm off the floor with no legs
+     * under it. The armrests come down with it (0.55: bottoms 20 mm into the
+     * base's top face at BY + 0.42, so they are seated, not stacked). */
+    root.add(box({ size: [3.4, 0.42, 0.85], pos: [entMid, BY + 0.21, couchZ], mat: M_LEATHER }));
     root.add(box({ size: [3.4, 0.62, 0.22], pos: [entMid, BY + 0.66, couchZ - 0.31], mat: M_LEATHER }));
     for (const sx of [entMid - 1.6, entMid + 1.6]) {
-      root.add(box({ size: [0.24, 0.3, 0.85], pos: [sx, BY + 0.6, couchZ], mat: M_LEATHER }));
+      root.add(box({ size: [0.24, 0.3, 0.85], pos: [sx, BY + 0.55, couchZ], mat: M_LEATHER }));
     }
     prop(entMid - 1.75, entMid + 1.75, BY, BY + 0.72, entZ0 - 0.05, entZ0 + 0.95);
 
@@ -1899,7 +1920,12 @@ export function buildSilentSquatch({
     camera_(L.x0 + 0.35, LANDING_CEIL - 0.45, L.z1 - 0.4,
       [SECRET_DOOR.x0, CELLAR_Y + 1.3, (SECRET_DOOR.z0 + SECRET_DOOR.z1) / 2],
       { mount: LANDING_CEIL });
-    camera_(S.x1 - 0.2, stairSoffitAt(S.z1 - 0.5) - 0.42, S.z1 - 0.5,
+    /* S.x1 - 0.55, not - 0.2: the raked service pipe below runs down the east
+     * side at S.x1 - 0.22 (r 0.06, so x -16.88..-16.76 at the top of the
+     * flight), and at -0.2 the camera's own mounting stem (x -16.84..-16.76)
+     * stood straight through it. At -0.55 the stem is 0.23 m clear and the
+     * camera still reads the whole flight. */
+    camera_(S.x1 - 0.55, stairSoffitAt(S.z1 - 0.5) - 0.42, S.z1 - 0.5,
       [(S.x0 + S.x1) / 2, LAB_Y + 1.2, S.z0],
       { mount: stairSoffitAt(S.z1 - 0.5) });
     // Old blood on the landing, and a longer smear down two treads.
@@ -1914,8 +1940,12 @@ export function buildSilentSquatch({
       stain((S.x0 + S.x1) / 2 + 0.4, zt, stairFloorAt(S.z1 - depth * ti) + 0.12, 0.26, sd, 0.55);
     }
     // A hose on a reel and a bucket, because somebody's job is this room.
+    /* x0 + 0.07, not + 0.34: the reel's axis runs into the west wall (its
+     * face is at L.x0), and at +0.34 the whole drum hung 0.18 m clear of the
+     * masonry with nothing behind it. At +0.07 the drum's back face is 10 mm
+     * inside the wall -- wall-mounted, the way a hose reel is. */
     root.add(cylinder({
-      r: 0.24, h: 0.16, pos: [L.x0 + 0.34, CELLAR_Y + 1.2, L.z1 - 2.3], rotZ: Math.PI / 2, mat: M_RUST,
+      r: 0.24, h: 0.16, pos: [L.x0 + 0.07, CELLAR_Y + 1.2, L.z1 - 2.3], rotZ: Math.PI / 2, mat: M_RUST,
     }));
     root.add(cylinder({
       rTop: 0.19, rBottom: 0.15, h: 0.3, pos: [L.x0 + 0.5, CELLAR_Y + 0.15, L.z1 - 2.9], mat: M_STEEL_DULL,
@@ -3027,7 +3057,10 @@ export function buildSilentSquatch({
     for (const sx of [-0.16, 0.16]) {
       estop.add(cylinder({ r: 0.012, h: 0.3, pos: [sx, 0, -0.14], rotX: Math.PI / 2, mat: M_STEEL, cast: false }));
     }
-    estop.add(box({ size: [0.36, 0.02, 0.02], pos: [0, 0.16, -0.27], mat: M_STEEL, cast: false }));
+    /* The guard's crossbar, ON the ends of the two rods it spans -- the rods
+     * run out to z -0.29 at y 0, and the bar used to sit at (0.16, -0.27):
+     * 160 mm above and clear of both, a bar guarding nothing. */
+    estop.add(box({ size: [0.36, 0.02, 0.02], pos: [0, 0, -0.29], mat: M_STEEL, cast: false }));
 
     /* ---- The mechanical door lock: a wheel and a throw lever on the jamb
      * east of the glass door, and the keypad beside it. */
@@ -3324,7 +3357,13 @@ export function buildSilentSquatch({
       [R.x0 + 1.7, R.z1 - 1.5, Math.PI],
       [R.x0 + 5.1, R.z1 - 1.5, Math.PI],
       [R.x1 - 1.7, R.z1 - 1.5, Math.PI],
-      [R.x0 + 1.5, R.z0 + 2.6, 0],
+      /* x0 + 2.1, not + 1.5. The chemical tanks stand on the west wall at
+       * x0 + 0.7 with r 0.44, so their shells reach x0 + 1.14; a bench at
+       * x0 + 1.5 spans x0 + 0.65..2.35 and drove its top and two legs
+       * 0.3 m through tank #0 (their z ranges overlap: tank at z0 + 2.2,
+       * bench top z0 + 2.225..2.975). At + 2.1 the bench's west edge is
+       * x0 + 1.25 -- 0.11 m clear of the shell. */
+      [R.x0 + 2.1, R.z0 + 2.6, 0],
       [cx, R.z0 + 1.4, 0],
       [R.x1 - 1.5, R.z0 + 2.6, 0],
     ];
@@ -3413,23 +3452,49 @@ export function buildSilentSquatch({
     /* ---- Purple coolant tubes: a run along the ceiling and four drops
      * into the core. These are the room's colour. */
     const coolant = [];
+    const coolantY = LAB_CEIL - 0.42;
     for (const cz of [CORE_AT.z - 2.9, CORE_AT.z + 2.9]) {
       const t = cylinder({
-        r: 0.09, h: R.x1 - R.x0 - 0.6, pos: [cx, LAB_CEIL - 0.42, cz], rotZ: Math.PI / 2, mat: M_COOLANT, cast: false,
+        r: 0.09, h: R.x1 - R.x0 - 0.6, pos: [cx, coolantY, cz], rotZ: Math.PI / 2, mat: M_COOLANT, cast: false,
       });
       root.add(t);
       coolant.push(t);
+      /* Hangers to the soffit. The runs sit 0.42 m below LAB_CEIL and used to
+       * hang on nothing at all -- same rule as pipeRun's brackets: a pipe in
+       * mid-air is a mistake, not a service. Top of pipe is coolantY + 0.09,
+       * so each hanger spans the 0.33 m up to the slab. */
+      /* +/-2.0, inboard of the ceiling fluoros at cx +/- 3.0 (their housings
+       * reach 2.15 m from cx and a hanger through a light is the same bug
+       * this loop exists to fix). */
+      for (const hx of [cx - 2.0, cx, cx + 2.0]) {
+        root.add(box({
+          size: [0.05, LAB_CEIL - (coolantY + 0.09), 0.23],
+          pos: [hx, (LAB_CEIL + coolantY + 0.09) / 2, cz],
+          mat: M_STEEL_DULL,
+          cast: false,
+          name: 'ss-coolant-hanger',
+        }));
+      }
     }
-    for (const [dx, dz] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) {
+    /* The drops. They used to hang at (+/-1.5, +/-1.5) from y -3.77 to -5.1:
+     * 1.4 m off the z of the runs they were meant to tap, stopping 1.5 m
+     * over the floor -- four purple tubes touching nothing at either end.
+     * Each one now leaves a run (top buried in the run's own radius) and
+     * lands on a floor flange, so the loop reads: ceiling run, drop, floor,
+     * and the heavy floor cables carry it the rest of the way to the core. */
+    for (const [dx, dz] of [[-1.5, -2.9], [1.5, -2.9], [-1.5, 2.9], [1.5, 2.9]]) {
       const drop = cylinder({
         r: 0.06,
-        h: LAB_CEIL - 0.42 - (LAB_Y + 1.5),
-        pos: [CORE_AT.x + dx, (LAB_CEIL - 0.42 + LAB_Y + 1.5) / 2, CORE_AT.z + dz],
+        h: coolantY - (LAB_Y + 0.03),
+        pos: [CORE_AT.x + dx, (coolantY + LAB_Y + 0.03) / 2, CORE_AT.z + dz],
         mat: M_COOLANT,
         cast: false,
       });
       root.add(drop);
       coolant.push(drop);
+      root.add(cylinder({
+        r: 0.1, h: 0.06, pos: [CORE_AT.x + dx, LAB_Y + 0.05, CORE_AT.z + dz], mat: M_STEEL_DULL, cast: false,
+      }));
     }
     light(0x7a2ee8, 3.4, 10, cx, LAB_CEIL - 0.6, CORE_AT.z - 2.9);
     light(0x7a2ee8, 3.4, 10, cx, LAB_CEIL - 0.6, CORE_AT.z + 2.9);
@@ -3503,9 +3568,16 @@ export function buildSilentSquatch({
      * stay legible through the glass whatever the light rig is doing
      * outside, so the fixtures are emissive as well as lit. */
     const labTubes = [];
+    /* The fifth tube is 1.2 m north of the core's axis, NOT over it. The
+     * stabiliser rings precess as they spin: with the outer ring (r 1.22 +
+     * 0.04 tube + 0.08 stanchion) pivoting about y -4.88, the sweep is a
+     * 1.30 m sphere, and a fixture centred on the axis at y -3.71 (cage ribs
+     * down to -3.85) is inside it -- the ring carved through the light every
+     * revolution. At z + 1.2 the fixture's nearest point is 1.07 m from the
+     * axis, which at rib height needs only 0.79. */
     for (const [tx, tz] of [
       [cx - 3.0, R.z0 + 2.0], [cx + 3.0, R.z0 + 2.0],
-      [cx - 3.0, R.z1 - 2.0], [cx + 3.0, R.z1 - 2.0], [cx, CORE_AT.z],
+      [cx - 3.0, R.z1 - 2.0], [cx + 3.0, R.z1 - 2.0], [cx, CORE_AT.z + 1.2],
     ]) {
       labTubes.push(fluoro(tx, LAB_CEIL - 0.36, tz, {
         len: 1.7, colour: 0xeaf2ff, intensity: 5.6, range: 12, ceil: LAB_CEIL,
@@ -3562,10 +3634,19 @@ export function buildSilentSquatch({
   /* first and a point light second -- the light rig can drop a PointLight */
   /* when the player wanders off, and the core is not allowed to go out.   */
   /* ================================================================== */
+  /** The roar, in seconds: `complete()` over-revs everything for this long
+   * before the rings ease into their lock. 2.2, so the visual wind-down
+   * begins right on the heels of `silent.core.lock`'s clunks at 1.6 s. */
+  const CORE_CLIMAX_SECS = 2.2;
   const coreState = {
-    phase: 'idle', // idle | building | complete
+    phase: 'idle', // idle | building | climax | complete
     t: 0,
     spin: 0,
+    /** The collar's own accumulator. Separate from `spin` deliberately: the
+     * completion eases `ringSpeed` to zero, and a collar riding the shared
+     * accumulator froze with the rings -- while its own build comment says it
+     * exists "so something visibly turns even when the rings are locked". */
+    collarSpin: 0,
     surge: 0,
     ringSpeed: 0.35,
     glow: 0.55,
@@ -3634,6 +3715,11 @@ export function buildSilentSquatch({
       const holder = group('core-ring');
       holder.position.y = 1.72;
       holder.rotation.set(spec.rotX, 0, spec.rotZ);
+      /* The authored tilt, kept, so the update loop can precess each ring
+       * about its own axis and settle it back EXACTLY here when the core
+       * locks -- a lock that leaves the rings at a random wobble angle is
+       * not a lock. */
+      holder.userData.baseTilt = spec.rotX;
       g.add(holder);
       const ring = new THREE.Mesh(new THREE.TorusGeometry(spec.r, spec.tube, 8, 40), ringMat);
       ring.rotation.x = Math.PI / 2;
@@ -3954,7 +4040,10 @@ export function buildSilentSquatch({
     { x: SEALED_LAB.x0 + 1.7, z: SEALED_LAB.z1 - 2.4, face: 0 },
     { x: SEALED_LAB.x0 + 5.1, z: SEALED_LAB.z1 - 2.4, face: 0 },
     { x: SEALED_LAB.x1 - 1.7, z: SEALED_LAB.z1 - 2.4, face: 0 },
-    { x: SEALED_LAB.x0 + 1.5, z: SEALED_LAB.z0 + 3.5, face: Math.PI },
+    /* x0 + 2.1, with his bench: station 3 moved east off the chemical tanks
+     * (see `layout` in buildSealedLab), and the man who works it stands
+     * where it actually is. */
+    { x: SEALED_LAB.x0 + 2.1, z: SEALED_LAB.z0 + 3.5, face: Math.PI },
     { x: SEALED_LAB.x1 - 1.5, z: SEALED_LAB.z0 + 3.5, face: Math.PI },
   ];
 
@@ -4563,7 +4652,11 @@ export function buildSilentSquatch({
    * up. `chairBend()` is what "the chair bends, the glass does not break"
    * looks like: the chair deforms and the pane is untouched. */
   const labChair = group('ss-lab-chair');
-  labChair.position.set(CORE_AT.x + 2.6, LAB_Y, GLASS_INSIDE_Z - 0.4);
+  /* GLASS_INSIDE_Z - 0.25, not - 0.4: station 2's bench top ends at z 47.875
+   * and at -0.4 the chair's backrest (z 47.825..47.875) sat 50 mm inside its
+   * corner. 150 mm north clears the bench and keeps it an arm's reach from
+   * the glass, which is where beat 9 wants it picked up. */
+  labChair.position.set(CORE_AT.x + 2.6, LAB_Y, GLASS_INSIDE_Z - 0.25);
   root.add(labChair);
   labChair.add(box({ size: [0.44, 0.05, 0.44], pos: [0, 0.46, 0], mat: M_STEEL_DULL }));
   const chairBack = box({ size: [0.44, 0.5, 0.05], pos: [0, 0.73, -0.2], mat: M_STEEL_DULL });
@@ -4961,12 +5054,22 @@ export function buildSilentSquatch({
   };
 
   /* ---- The core. --------------------------------------------------- */
+  /* HOW THE ATOM KNOWS WHAT BEAT IT IS. It never asks: the mission performs
+   * the script's own stage directions at it -- `core.begin` (the BUILD beat's
+   * sequence, script.js) calls `begin()` and `core.complete` (the COMPLETION
+   * beat, spec beat 7) calls `complete()` -- so the phases below ARE the
+   * mission's beats: `idle` for beats 1-6, `building` through the build,
+   * `climax` for the roar the moment beat 7 lands, then `complete` (locked,
+   * glowing) for the rest of the night. See `update()` for what each phase
+   * looks like. */
   const coreApi = {
     get phase() { return coreState.phase; },
     /** Whether the core has finished. `complete()` is the verb; this is the
      * adjective, and they are deliberately not the same name -- a getter and
-     * a method cannot share one key, and the spec's API says `complete()`. */
-    get isComplete() { return coreState.phase === 'complete'; },
+     * a method cannot share one key, and the spec's API says `complete()`.
+     * The climax IS the completion -- it is the roar the lock opens with --
+     * so both phases answer true. */
+    get isComplete() { return coreState.phase === 'climax' || coreState.phase === 'complete'; },
     /** Beat 7: lights flicker, gold surges, purple rings rotate, sound builds. */
     begin() {
       if (coreState.phase !== 'idle') return false;
@@ -4980,9 +5083,18 @@ export function buildSilentSquatch({
       });
       return true;
     },
-    /** ...the core locks, and every monitor turns purple. */
+    /** ...the core locks, and every monitor turns purple.
+     *
+     * Visually it is TWO movements, matching `silent.core.roar`'s own prompt
+     * ("the build breaking into a deep mechanical roar ... then dropping
+     * back to a locked, steady, enormous hum"): a short CLIMAX -- the rings
+     * over-revved past anything the build reached, the gold flaring -- and
+     * then the lock, rings easing to a dead stop on their authored tilts
+     * while the collar keeps turning underneath. The hand-off to `complete`
+     * happens in `update()` at CORE_CLIMAX_SECS, just after the
+     * `silent.core.lock` clunks land at 1.6 s. */
     complete() {
-      coreState.phase = 'complete';
+      coreState.phase = 'climax';
       coreState.t = 0;
       const at = new THREE.Vector3(CORE_AT.x, LAB_Y + 1.7, CORE_AT.z);
       glassAudio.play('silent.core.roar', {
@@ -5017,8 +5129,13 @@ export function buildSilentSquatch({
   /* ---- The monitors. ----------------------------------------------- */
   const monitors = {
     get purple() { return monitorState.purple; },
-    /** Red to purple, in one pass. Beat 7's "every monitor turns purple". */
+    /** Red to purple, in one pass. Beat 7's "every monitor turns purple".
+     * Idempotent: the mission's `core.complete` stage calls this AND
+     * `core.complete()` calls it again on the same frame, and a wall of CRTs
+     * cannot degauss twice in one beat. Repeating the current state is still
+     * `true` -- the caller asked for purple and purple is what there is. */
     setPurple(on = true) {
+      if (monitorState.purple === !!on) return true;
       monitorState.purple = !!on;
       for (const m of obs.monitors) {
         const tex = on ? m.texPurple : m.texRed;
@@ -5131,7 +5248,12 @@ export function buildSilentSquatch({
   const gates = {
     bust: () => true,
     keypad: () => keypadState.armed,
-    drawer: () => true,
+    /* Loaded first. `send()` auto-loads for the mission's staged call, so an
+     * ungated player press CONJURED the Squatchanium container out of an
+     * empty drawer in beat 5, before the case had even arrived. The drawer
+     * is pressable only in the window between Booski loading it and it
+     * going through -- the mission can still widen this via `lab.gates`. */
+    drawer: () => drawerState.loaded,
     silentNight: () => silentNightState.coverUp,
     doorLock: () => !glassDoorState.locked,
   };
@@ -5346,26 +5468,60 @@ export function buildSilentSquatch({
       }
     }
 
-    /* ---- the core. */
+    /* ---- the core.
+     *
+     * The phases below ARE the mission's beats -- the script's `core.begin`
+     * and `core.complete` stage directions (beat 6's build, beat 7's
+     * completion) are the only things that move `phase`, so the atom idles
+     * at a slow turn for the whole walk down, winds up through the build,
+     * breaks into its climax the moment beat 7 lands, and then locks. All
+     * of it is rotations and intensity writes on materials built `unique`;
+     * nothing here allocates. */
     const cs = coreState;
     cs.t += dt;
     if (cs.phase === 'building') {
+      // Beat 6: eighteen seconds of wind-up under the six of them working.
       const k = Math.min(1, cs.t / 18);
       cs.ringSpeed = 0.35 + k * 3.2;
       cs.glow = 0.55 + k * 0.75;
       cs.surge = Math.max(0, Math.sin(cs.t * (2 + k * 8)) * k);
+    } else if (cs.phase === 'climax') {
+      /* Beat 7, first movement: the roar. Everything the build was heading
+       * for at once -- rings over-revved well past the build's 3.55, the
+       * gold flared, the surge hammering -- for the same window the
+       * completion audio spends breaking before it settles. */
+      cs.ringSpeed = 5.8 + Math.sin(cs.t * 17) * 0.4;
+      cs.glow += (2.0 - cs.glow) * Math.min(1, dt * 6);
+      cs.surge = 0.7 + Math.sin(cs.t * 11) * 0.25;
+      if (cs.t >= CORE_CLIMAX_SECS) { cs.phase = 'complete'; cs.t = 0; }
     } else if (cs.phase === 'complete') {
+      // Second movement: the lock. Rings wind down to a dead stop; the glow
+      // settles high and stays there -- the room's people die, this does not.
       cs.ringSpeed += (0 - cs.ringSpeed) * Math.min(1, dt * 1.4);
       cs.glow += (1.55 - cs.glow) * Math.min(1, dt * 0.9);
       cs.surge = 0.35 + Math.sin(cs.t * 1.3) * 0.12;
     } else {
+      // Beats 1-6: at rest, breathing.
       cs.surge = Math.sin(cs.t * 0.9) * 0.12;
     }
+    /* Three rings on one accumulator at three ratios, two of them counter-
+     * rotating, plus a slow precession of each ring's tilt about its authored
+     * axis. The precession amplitude rides `ringSpeed`, so it grows through
+     * the build, is at full wobble in the climax, and eases to ZERO as the
+     * rings lock -- they come to rest exactly on their built tilts. */
     cs.spin += dt * cs.ringSpeed;
     core.rings[0].rotation.y = cs.spin;
     core.rings[1].rotation.y = -cs.spin * 0.8;
     core.rings[2].rotation.y = cs.spin * 1.25;
-    core.collar.rotation.y = cs.spin * 0.5;
+    const wobble = Math.min(1, cs.ringSpeed / 1.4);
+    core.rings[0].rotation.x = core.rings[0].userData.baseTilt + Math.sin(time * 0.21 + 4.2) * 0.12 * wobble;
+    core.rings[1].rotation.x = core.rings[1].userData.baseTilt + Math.sin(time * 0.33) * 0.16 * wobble;
+    core.rings[2].rotation.x = core.rings[2].userData.baseTilt + Math.sin(time * 0.26 + 2.1) * 0.2 * wobble;
+    /* The collar, on its OWN accumulator, with a floor speed: it kept riding
+     * `spin`, which the lock freezes, so the one part built "so something
+     * visibly turns even when the rings are locked" locked with them. */
+    cs.collarSpin += dt * (0.45 + cs.ringSpeed * 0.4);
+    core.collar.rotation.y = cs.collarSpin;
     const pulse = cs.glow * (0.86 + Math.sin(time * 2.2) * 0.14 + cs.surge * 0.5);
     core.goldMat.emissiveIntensity = 2.0 * pulse;
     core.ringMat.emissiveIntensity = 1.7 * (0.8 + cs.glow * 0.5);
@@ -5373,7 +5529,9 @@ export function buildSilentSquatch({
     core.purpleLight.intensity = 2.6 * (0.7 + cs.glow * 0.5);
     core.goldCore.scale.setScalar(1 + cs.surge * 0.05);
     // Gold arcs, blinking, more of them the harder it is working.
-    const arcChance = cs.phase === 'building' ? 0.4 : cs.phase === 'complete' ? 0.16 : 0.05;
+    const arcChance = cs.phase === 'building' ? 0.4
+      : cs.phase === 'climax' ? 0.8
+        : cs.phase === 'complete' ? 0.16 : 0.05;
     for (let i = 0; i < core.arcs.length; i++) {
       const on = Math.sin(time * (7 + i * 1.7) + i) > 1 - arcChance * 2;
       if (on !== core.arcs[i].visible) {
