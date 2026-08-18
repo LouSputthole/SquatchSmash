@@ -676,6 +676,11 @@ async function boot() {
 
   world.colliders = apartment.colliders;
   world.floorZones = apartment.floorZones;
+  /* Prompts stop at walls: without this the 2.7 m ray reads the tub through
+   * the bedroom/bathroom wall. The door leaves stay out of the list -- they
+   * are registered targets, and the nearest hit already lets them shadow
+   * whatever is behind them while staying usable themselves. */
+  interaction.setOccluders(apartment.occluders);
 
   // Wire the arcade canvas onto the monitor. Basic material so the screen is
   // self-lit rather than depending on room lighting.
@@ -1157,6 +1162,11 @@ document.addEventListener('mousedown', (e) => {
   dragging = true;
   if (game.seated) arcade.onClick(true);
   else if (apartment.state.heldItem === 'gun') fireGun();
+  /* Same posture guards as [E] below: a click while he is on the toilet or
+   * mid-stream has to resolve the posture first, not reach whatever target
+   * the ray lands on from that position. */
+  else if (game.onToilet) standFromToilet();
+  else if (game.peeing) stopPee();
   else interaction.press();
 });
 
@@ -2032,15 +2042,19 @@ let nextShoutAt = 0;
 function updateNeighbours(dt) {
   const h = time.hour;
 
+  // Absolute minutes, not minute-of-day: a row that starts at 23:20 has to
+  // survive midnight to run its forty minutes, and one slept past has to end.
+  const nowAbs = time.day * 1440 + time.minutes;
+
   // Kick off once a night, then keep it going for about forty in-game minutes.
   if (h >= ARGUMENT_HOUR && h < ARGUMENT_HOUR + 0.7 && argumentDay !== time.day) {
     argumentDay = time.day;
-    argumentUntil = time.minutes + 40;
+    argumentUntil = nowAbs + 40;
     nextShoutAt = 0;
     hud.say('Upstairs. Or next door. It is hard to tell through the wall.', 5200);
   }
 
-  if (time.minutes > argumentUntil) return;
+  if (nowAbs > argumentUntil) return;
 
   nextShoutAt -= dt;
   if (nextShoutAt <= 0) {
@@ -4455,6 +4469,15 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
   if (game.toiletPee) {
     game.toiletPee = false;
     audio.stopLoop('pee.stream', 0.25);
+  }
+  /* A shower he passes out in ends here, or its completion timer would stand
+   * him out of the bed the blackout is about to put him in, with the water
+   * still running over an empty tub. */
+  if (game.showering !== null) {
+    game.showering = null;
+    audio.stopLoop('shower.run', 0.6);
+    showerFx.stop();
+    hud.setMode('walk');
   }
 
   // Abandon anything mid-drag.

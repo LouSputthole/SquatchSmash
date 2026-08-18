@@ -2423,6 +2423,7 @@ function useMachine() {
 
 function leaveMachine() {
   game.atMachine = false;
+  machineSig = '';
   hud.setPosture(null);
   ui.gamble.classList.add('hidden');
   club.anchors.slotLight.intensity = 9;
@@ -2927,18 +2928,28 @@ function paintGamble(view) {
       : '<kbd>Q</kbd> get up';
 }
 
+/* Called every frame while seated at the cabinet, so it repaints only when
+ * the composed panel actually changed -- same trick as objectivesTick. The
+ * keys line never changes, so it is written once per sit-down (the blackjack
+ * panel shares the element and overwrites it between visits). */
+let machineSig = '';
 function paintMachine() {
   if (!game.atMachine) return;
   ui.gamble.classList.remove('hidden');
   ui.gamble.classList.remove('at-table');
-  ui.gambleTitle.textContent = 'BADA BING · SLOTS';
   const v = slots.view;
   const rows = [`Stake: <b>$${v.wager}</b>`];
   if (v.reels) rows.push(`<span class="felt">${v.reels.join(' · ')}</span>`);
   rows.push(`Spins: <b>${v.spins}</b> · Net: <b>${v.net >= 0 ? '+' : ''}$${v.net}</b>`);
   rows.push('3× squatch pays ×250 · then cherry, bell, bar, cash');
-  ui.gambleBody.innerHTML = rows.join('<br>');
-  ui.gambleKeys.innerHTML = '<kbd>1</kbd>/<kbd>2</kbd> stake · <kbd>E</kbd> spin · <kbd>Q</kbd> step away';
+  const sig = rows.join('<br>');
+  if (sig === machineSig) return;
+  if (!machineSig) {
+    ui.gambleTitle.textContent = 'BADA BING · SLOTS';
+    ui.gambleKeys.innerHTML = '<kbd>1</kbd>/<kbd>2</kbd> stake · <kbd>E</kbd> spin · <kbd>Q</kbd> step away';
+  }
+  machineSig = sig;
+  ui.gambleBody.innerHTML = sig;
 }
 
 /* ------------------------------------------------------------------ */

@@ -269,6 +269,10 @@ export async function buildApartment(ctx) {
   const floorZones = [];
   const ticks = [];        // per-frame updaters
   const addCollider = (b) => colliders.push(collider(b[0], b[1]));
+  /* Wall meshes for `interaction.setOccluders` -- the ray reaches 2.7 m, which
+   * is through the bedroom/bathroom wall to the tub, so prompts need the walls
+   * in the way. Segments only: the doorway gaps stay open by construction. */
+  const occluders = [];
 
   /* ================================================================ */
   /* Shell                                                             */
@@ -283,7 +287,7 @@ export async function buildApartment(ctx) {
 
   // Walls, with openings left for the two doors and the window.
   // North wall (z0): bathroom door at x -1.9..-0.9, otherwise solid.
-  addWallRun(root, M, 'north', [[x0, -1.90], [-0.90, x1]], z0, wall, h);
+  occluders.push(...addWallRun(root, M, 'north', [[x0, -1.90], [-0.90, x1]], z0, wall, h));
   addDoorHeader(root, M, 'north', -1.90, -0.90, z0, wall, h, 2.05);
 
   /* South wall (z1): front door at x 2.30..3.30, and the closet beside it.
@@ -296,15 +300,15 @@ export async function buildApartment(ctx) {
    *
    * It is 60cm wide, which is narrow for a closet and exactly right for the
    * one by the front door that came with the flat. */
-  addWallRun(root, M, 'south', [[x0, 2.30], [3.30, CLOSET.x0], [CLOSET.x1, x1]], z1, wall, h);
+  occluders.push(...addWallRun(root, M, 'south', [[x0, 2.30], [3.30, CLOSET.x0], [CLOSET.x1, x1]], z1, wall, h));
   addDoorHeader(root, M, 'south', 2.30, 3.30, z1, wall, h, 2.05);
   addDoorHeader(root, M, 'south', CLOSET.x0, CLOSET.x1, z1, wall, h, CLOSET.h);
 
   // West wall: solid.
-  addWallRunSide(root, M, 'west', [[z0, z1]], x0, wall, h);
+  occluders.push(...addWallRunSide(root, M, 'west', [[z0, z1]], x0, wall, h));
 
   // East wall: window opening at z -3.90..-2.30, y 0.95..2.15.
-  addWallRunSide(root, M, 'east', [[z0, -3.90], [-2.30, z1]], x1, wall, h);
+  occluders.push(...addWallRunSide(root, M, 'east', [[z0, -3.90], [-2.30, z1]], x1, wall, h));
   root.add(boxFrom(x1, 0, -3.90, x1 + wall, 0.95, -2.30, M.wall, { cast: false }));       // sill wall
   root.add(boxFrom(x1, 2.15, -3.90, x1 + wall, h, -2.30, M.wall, { cast: false }));       // header
 
@@ -314,7 +318,7 @@ export async function buildApartment(ctx) {
   root.add(boxFrom(x0, 0, z0, -1.90, 0.09, z0 + 0.02, skirt, { cast: false }));
   root.add(boxFrom(-0.90, 0, z0, x1, 0.09, z0 + 0.02, skirt, { cast: false }));
   root.add(boxFrom(x0, 0, z1 - 0.02, 2.30, 0.09, z1, skirt, { cast: false }));
-  root.add(boxFrom(3.20, 0, z1 - 0.02, 4.38, 0.09, z1, skirt, { cast: false }));
+  root.add(boxFrom(3.30, 0, z1 - 0.02, 4.38, 0.09, z1, skirt, { cast: false }));
   root.add(boxFrom(x0, 0, z0, x0 + 0.02, 0.09, z1, skirt, { cast: false }));
   root.add(boxFrom(x1 - 0.02, 0, z0, x1, 0.09, z1, skirt, { cast: false }));
 
@@ -410,6 +414,12 @@ export async function buildApartment(ctx) {
   root.add(frontDoor.group);
   const bathDoor = makeDoor(M, { x: -1.40, z: z0 - wall / 2, w: 1.0, rotY: 0, hinge: -1 });
   root.add(bathDoor.group);
+  /* The wall colliders leave the doorway permanently walkable, so the closed
+   * leaf brings its own box. It parks below the floor while the door stands
+   * open -- the broadphase follows boxes moved in place, and the resolver
+   * skips anything wholly under his feet. */
+  addCollider([[-1.90, 0, z0 - wall], [-0.90, 2.05, z0]]);
+  const bathDoorCollider = colliders[colliders.length - 1];
 
   /* ================================================================ */
   /* Bathroom, through the door in the north wall                      */
@@ -428,9 +438,14 @@ export async function buildApartment(ctx) {
   // boards under it instead of a sixteen-centimetre void.
   bath.add(boxFrom(BATH.x0, -0.1, BATH.z0, BATH.x1, 0, z0, M.splash, { cast: false }));
   bath.add(boxFrom(BATH.x0, h, BATH.z0, BATH.x1, h + 0.1, BATH.z1, M.ceiling, { cast: false }));
-  bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z0, M.wall, { cast: false }));
-  bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x0, h, BATH.z1, M.wall, { cast: false }));
-  bath.add(boxFrom(BATH.x1, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z1, M.wall, { cast: false }));
+  for (const bw of [
+    boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z0, M.wall, { cast: false }),
+    boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x0, h, BATH.z1, M.wall, { cast: false }),
+    boxFrom(BATH.x1, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z1, M.wall, { cast: false }),
+  ]) {
+    bath.add(bw);
+    occluders.push(bw);
+  }
 
   // Tiled to shoulder height, painted above.
   for (const [px, py, pz, pw, ph, ry] of [
@@ -2190,7 +2205,12 @@ export async function buildApartment(ctx) {
     audio.say('photo', { delay: deliberate ? 0.35 : 0.55 });
   };
 
+  /* Banners ride in `frames` as well as `banners`, and their own loop below
+   * is the registration that should win -- registering them here too only
+   * writes a descriptor the next loop immediately replaces. */
+  const bannerMeshes = new Set(banners.map((b) => b.mesh));
   for (const f of frames) {
+    if (bannerMeshes.has(f.mesh)) continue;
     /* The one hung too high, which has been crooked for months. Using it
      * starts the fix; the label says nothing about what that involves. */
     if (f.slot === 'cork.above') {
@@ -2227,8 +2247,7 @@ export async function buildApartment(ctx) {
     });
   }
 
-  // Banners are in `frames` too, so this re-registration would otherwise drop
-  // the remark the loop above just attached to them.
+  // The banners' only registration -- the frames loop skips their meshes.
   for (const b of banners) {
     interaction.register(b.mesh, {
       label: () => `Look at <b>${b.info.title}</b>`,
@@ -2278,6 +2297,12 @@ export async function buildApartment(ctx) {
     if (Math.abs(bathDoorTarget - bathDoorT) < 0.0005) bathDoorT = bathDoorTarget;
     // 1.55 rad full open — 1.85 swung the leaf six centimetres into the bath.
     bathDoor.pivot.rotation.y = bathDoorT * 1.55 + bathDoorNudge;
+    /* The doorway is blocked while the leaf still crosses it, and the box
+     * drops out of reach once the swing has cleared the opening. Only y
+     * moves, so the broadphase never has to re-file it. */
+    const leafClear = bathDoorT > 0.5;
+    bathDoorCollider.min.y = leafClear ? -3 : 0;
+    bathDoorCollider.max.y = leafClear ? -2.9 : 2.05;
     bathLight.intensity += ((state.bathLightOn ? 4.6 : 0) - bathLight.intensity) * Math.min(1, dt * 7);
     // Fluorescent tubes never quite settle.
     if (state.bathLightOn) bathLight.intensity *= 0.985 + Math.random() * 0.03;
@@ -2457,6 +2482,7 @@ export async function buildApartment(ctx) {
     root,
     materials: M,
     colliders,
+    occluders,
     floorZones,
     state,
     inventory,
@@ -2688,18 +2714,22 @@ export async function buildApartment(ctx) {
 function addWallRun(root, M, side, ranges, zAt, thick, h) {
   const inner = side === 'north' ? zAt - thick : zAt;
   const outer = side === 'north' ? zAt : zAt + thick;
-  for (const [a, b] of ranges) {
-    root.add(boxFrom(a, 0, inner, b, h, outer, M.wall, { cast: false }));
-  }
+  return ranges.map(([a, b]) => {
+    const w = boxFrom(a, 0, inner, b, h, outer, M.wall, { cast: false });
+    root.add(w);
+    return w;
+  });
 }
 
 /** Build a west/east wall as a set of z-ranges. */
 function addWallRunSide(root, M, side, ranges, xAt, thick, h) {
   const inner = side === 'west' ? xAt - thick : xAt;
   const outer = side === 'west' ? xAt : xAt + thick;
-  for (const [a, b] of ranges) {
-    root.add(boxFrom(inner, 0, a, outer, h, b, M.wall, { cast: false }));
-  }
+  return ranges.map(([a, b]) => {
+    const w = boxFrom(inner, 0, a, outer, h, b, M.wall, { cast: false });
+    root.add(w);
+    return w;
+  });
 }
 
 /** The bit of wall above a door opening. */

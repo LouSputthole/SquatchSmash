@@ -505,13 +505,18 @@ export function buildClub(scene, { renderer } = {}) {
     // Lamp posts: cones of sodium light, the only warm thing out here
     // Two of these are out in the middle of the bays, because a lot lit only
     // round the edges is a lot full of black shapes.
-    for (const [lx, lz] of [[-24, 21], [-24, 41], [17, 41], [26, 26], [0, 50], [-9, 30], [9, 30]]) {
+    // Only the two mid-bay posts and the back one carry a real light --
+    // seven PointLights out here would swamp the forward renderer, and the
+    // edge posts read fine as emissive heads over the spill from these three.
+    for (const [lx, lz, real] of [[-24, 21], [-24, 41], [17, 41], [26, 26], [0, 50, 1], [-9, 30, 1], [9, 30, 1]]) {
       add(cylinder({ r: 0.1, h: 6.6, pos: [lx, 3.3, lz], mat: M_STEEL }));
       add(box({ size: [0.7, 0.16, 0.4], pos: [lx + 0.3, 6.6, lz], mat: M_STEEL }));
       add(box({ size: [0.55, 0.08, 0.32], pos: [lx + 0.35, 6.5, lz], mat: lit(0xffd9a0, 2.6) }));
-      const l = new THREE.PointLight(0xffc98a, 42, 26, 2);
-      l.position.set(lx + 0.35, 6.4, lz);
-      add(l);
+      if (real) {
+        const l = new THREE.PointLight(0xffc98a, 42, 26, 2);
+        l.position.set(lx + 0.35, 6.4, lz);
+        add(l);
+      }
       solid(lx - 0.15, lz - 0.15, lx + 0.15, lz + 0.15, 0, 6.6);
     }
     // Drains, for the water to pretend to go somewhere
@@ -1127,12 +1132,11 @@ export function buildClub(scene, { renderer } = {}) {
       solid(tx - 0.44, tz - 0.44, tx + 0.44, tz + 0.44, 0, 0.82);
       // The candle: a red glass with a small flame in it, not a strip light
       add(cylinder({ r: 0.045, h: 0.1, pos: [tx, 0.86, tz], mat: mat({ color: 0x6a1a1a, roughness: 0.3, transparent: true, opacity: 0.85, emissive: new THREE.Color(0x3a0a06), emissiveIntensity: 1.4 }) }));
+      // Emissive only -- eleven of these in a forward-rendered scene is
+      // eleven real lights too many, and the flame reads without one.
       const flame = cylinder({ rTop: 0.004, rBottom: 0.016, h: 0.05, seg: 6, pos: [tx, 0.93, tz], mat: lit(0xffb060, 4.5) });
       add(flame);
-      const cl = new THREE.PointLight(0xff8a4a, 2.2, 3.2, 2);
-      cl.position.set(tx, 0.95, tz);
-      add(cl);
-      candles.push({ flame, light: cl, phase: rand(0, 6) });
+      candles.push({ flame, phase: rand(0, 6) });
       anchors.tables.push(new THREE.Vector3(tx, 0, tz));
       for (const off of [[-0.85, 0.2], [0.85, -0.2]]) {
         add(makeChair(M, { x: tx + off[0], z: tz + off[1], rotY: Math.atan2(-off[0], -off[1]) }));
@@ -1141,7 +1145,7 @@ export function buildClub(scene, { renderer } = {}) {
     ticking.push((dt, t) => {
       for (const c of candles) {
         const f = 0.85 + Math.sin(t * 9 + c.phase) * 0.1 + Math.sin(t * 21 + c.phase) * 0.05;
-        c.light.intensity = 2.2 * f;
+        c.flame.material.emissiveIntensity = 4.5 * f;
         c.flame.scale.y = f;
       }
     });
