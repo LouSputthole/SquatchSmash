@@ -115,7 +115,21 @@ try {
     const afterLoad = await page.evaluate((key) => localStorage.getItem(key), CAMPAIGN_STORAGE_KEY);
     await page.evaluate((selector) => document.querySelector(selector)?.click(), spec.start);
     await page.waitForTimeout(350);
-    const afterRejectedStart = await page.evaluate((key) => localStorage.getItem(key), CAMPAIGN_STORAGE_KEY);
+    /* A refused Start may legitimately LEAVE — NO WAKE's button becomes
+     * "Return to the apartment" and navigates to index.html. localStorage is
+     * per-origin, so the untouched-save assertion holds across that
+     * navigation; the read just has to survive the document being replaced
+     * under it instead of dying with the old execution context. */
+    let afterRejectedStart = null;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await page.waitForLoadState('load');
+        afterRejectedStart = await page.evaluate((key) => localStorage.getItem(key), CAMPAIGN_STORAGE_KEY);
+        break;
+      } catch (error) {
+        if (attempt >= 3 || !/Execution context was destroyed|navigation/i.test(String(error))) throw error;
+      }
+    }
 
     check(`${spec.label} direct load leaves the fresh campaign untouched`,
       afterLoad === seedJson);

@@ -2061,7 +2061,16 @@ function enterRoom() {
   slicer.group.visible = true;
 
   // The door closes behind you
-  setTimeout(() => {
+  const closeBehind = () => {
+    /* Re-enabling the blocker while the player stands inside its footprint
+     * would wedge them frozen inside the collider, so the slam waits and
+     * retries until the doorway band is clear. */
+    const c = refs.frontDoor.collider;
+    if (c && pos.x > c.x0 - PLAYER_R && pos.x < c.x1 + PLAYER_R
+      && pos.z > c.z0 - PLAYER_R && pos.z < c.z1 + PLAYER_R) {
+      setTimeout(closeBehind, 250);
+      return;
+    }
     closeDoor(refs.frontDoor);
     sfx.doorSlam();
     addHeat(6);
@@ -2077,7 +2086,8 @@ function enterRoom() {
       toast('THEIR SAMPLE IS ON THE TABLE', '', 'One strip. [E] at the table to work it over.');
       scheduleRoomEvents();
     });
-  }, 1400);
+  };
+  setTimeout(closeBehind, 1400);
 }
 
 // Slow-burn suspicion beats while the deal runs.
@@ -4103,9 +4113,11 @@ function updateDrive(dt) {
   const advance = (list) => {
     for (let i = list.length - 1; i >= 0; i--) {
       const c = list[i];
+      // Oncoming traffic drives toward the player while the road scrolls under
+      // both, so closure is the sum of the speeds, not the difference.
       const rel = c.userData.hostile
         ? drive.speed - c.userData.speed
-        : drive.speed - c.userData.speed;
+        : drive.speed + c.userData.speed;
       c.position.z += rel * dt;
       if (c.userData.hostile) {
         // pursuers close in and try to line up a ram

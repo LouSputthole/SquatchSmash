@@ -12,7 +12,6 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5245;
@@ -298,22 +297,38 @@ async function captureScene(name, framing = null) {
   }), framing);
   const evidencePath = path.join(EVIDENCE_DIR, name);
   await fsp.writeFile(evidencePath, Buffer.from(dataUrl.split(',')[1], 'base64'));
-  const { data, info } = await sharp(evidencePath).removeAlpha().raw()
-    .toBuffer({ resolveWithObject: true });
-  let low = 255;
-  let high = 0;
-  let nonBlack = 0;
-  for (let i = 0; i < data.length; i += info.channels) {
-    const light = Math.max(data[i], data[i + 1], data[i + 2]);
-    low = Math.min(low, light);
-    high = Math.max(high, light);
-    if (light > 8) nonBlack += 1;
-  }
+  /* Pixel statistics come from the page's own canvas decode rather than a
+   * native image library: the same PNG, no dependency `npm ci` never
+   * installed (this gate died on a fresh checkout importing `sharp`). */
+  const info = await page.evaluate(async (url) => {
+    const image = new Image();
+    await new Promise((ready, bad) => {
+      image.onload = ready;
+      image.onerror = () => bad(new Error('evidence PNG failed to decode'));
+      image.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const g = canvas.getContext('2d', { willReadFrequently: true });
+    g.drawImage(image, 0, 0);
+    const { data } = g.getImageData(0, 0, canvas.width, canvas.height);
+    let low = 255;
+    let high = 0;
+    let nonBlack = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const light = Math.max(data[i], data[i + 1], data[i + 2]);
+      if (light < low) low = light;
+      if (light > high) high = light;
+      if (light > 8) nonBlack += 1;
+    }
+    return { width: canvas.width, height: canvas.height, low, high, nonBlack };
+  }, dataUrl);
   const pixels = info.width * info.height;
   routeCheck(`visual evidence ${name} contains a readable rendered scene`,
-    info.width === 960 && info.height === 540 && high - low > 24 && nonBlack / pixels > 0.05,
-    JSON.stringify({ width: info.width, height: info.height, range: high - low,
-      nonBlackRatio: Number((nonBlack / pixels).toFixed(4)) }));
+    info.width === 960 && info.height === 540 && info.high - info.low > 24 && info.nonBlack / pixels > 0.05,
+    JSON.stringify({ width: info.width, height: info.height, range: info.high - info.low,
+      nonBlackRatio: Number((info.nonBlack / pixels).toFixed(4)) }));
   await page.evaluate(() => {
     for (const node of document.querySelectorAll('[data-evidence-visibility]')) {
       node.style.visibility = node.dataset.evidenceVisibility ?? '';

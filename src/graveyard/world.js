@@ -428,7 +428,7 @@ export function buildGraveyard(scene) {
     const z = -27 + rng() * 62;
     const s = 0.78 + rng() * 0.58;
     root.add(pine(x, z, s));
-    if (Math.abs(x) < 14) colliders.push(collider([x - 0.22 * s, 0, z - 0.22 * s], [x + 0.22 * s, 5.2 * s, z + 0.22 * s], 0.04));
+    if (Math.abs(x) < 15) colliders.push(collider([x - 0.22 * s, 0, z - 0.22 * s], [x + 0.22 * s, 5.2 * s, z + 0.22 * s], 0.04));
   }
   for (let i = 0; i < 22; i++) {
     const x = -12 + rng() * 24;
@@ -478,8 +478,10 @@ export function buildGraveyard(scene) {
   const freshMound = freshPlot.getObjectByName('grave.hotdog.fresh.mound');
   root.add(freshPlot);
   colliders.push(collider([-0.63, 0, -18.08], [0.63, 1.2, -15.92], 0.02));
-  const temporary = graveMarker('geewiz', 0, -18.55, 0).group;
+  const temporaryMarker = graveMarker('geewiz', 0, -18.55, 0);
+  const temporary = temporaryMarker.group;
   temporary.name = 'hotdog.temporary-marker';
+  colliders.push(temporaryMarker.collider);
   const label = temporary.children.find((child) => child.material?.map);
   if (label) {
     label.material = label.material.clone();
@@ -574,6 +576,9 @@ export function buildGraveyard(scene) {
   const fireflyMat = emissive(0xb8d977, 2.2);
   for (let i = 0; i < 32; i++) {
     const dot = sphere({ r: 0.018, pos: [-10 + rng() * 20, 0.35 + rng() * 2.2, -27 + rng() * 35], mat: fireflyMat, cast: false, receive: false });
+    // The update loop drives emissiveIntensity per dot on its own phase, so a
+    // shared material would collapse every firefly onto one twinkle.
+    dot.material = fireflyMat.clone();
     dot.userData.phase = rng() * Math.PI * 2;
     dot.userData.baseY = dot.position.y;
     root.add(dot);

@@ -456,8 +456,10 @@ export function buildMotel(scene, renderer) {
   refs.curtain = { mesh: curtain, rod: curtainRod, pulled: false };
   const sink = boxMesh(0.9, 0.25, 0.6, 0xe4e8e4, 2.3, 0.9, -14.88);
   scene.add(sink);
+  block(1.85, 2.75, -15.18, -14.58, 0.78, 1.02, 'sink');
   const toilet = boxMesh(0.6, 0.8, 0.8, 0xe4e8e4, 2.2, 0.4, -12.2);
   scene.add(toilet);
+  block(1.9, 2.5, -12.6, -11.8, 0, 0.8, 'toilet');
   const bathLight = new THREE.PointLight(0xcfe6ff, 0.9, 8, 2);
   bathLight.position.set(3.2, 2.6, -13.5);
   scene.add(bathLight);
@@ -492,6 +494,7 @@ export function buildMotel(scene, renderer) {
   // Nightstand + buzzing lamp
   const nightstand = boxMesh(0.9, 0.7, 0.9, C.wood, -3.1, 0.35, -10.5);
   scene.add(nightstand);
+  block(-3.55, -2.65, -10.95, -10.05, 0, 1.7, 'nightstand');
   const lampBase = boxMesh(0.2, 0.5, 0.2, 0x8a7a5a, -3.1, 0.95, -10.5);
   const lampShade = mesh(new THREE.CylinderGeometry(0.36, 0.46, 0.5, 10), lambert(0xe8d9a8, { emissive: 0x6a5a20 }), -3.1, 1.45, -10.5);
   scene.add(lampBase, lampShade);
