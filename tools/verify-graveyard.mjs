@@ -229,10 +229,12 @@ const browser = await launchChromium({
 async function newSeededPage(seed) {
   const context = await browser.newContext({ viewport: { width: 800, height: 500 } });
   if (seed) {
-    await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-      key: CAMPAIGN_STORAGE_KEY,
-      value: seed,
-    });
+    /* Guarded like verify-motel's seed: the init script re-runs on every
+     * navigation in the context, and an unguarded write would stamp the
+     * original seed back over the save the scene just transitioned. */
+    await context.addInitScript(({ key, value }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, value);
+    }, { key: CAMPAIGN_STORAGE_KEY, value: seed });
   }
   const page = await context.newPage();
   const problems = [];
@@ -364,17 +366,44 @@ try {
     player._lookPitch = 0;
   }, [x, y, z]);
 
-  const walkTo = async (x, z, radius = 0.6) => {
+  /* Steer toward the waypoint with the held key, and when a collider face
+   * square to the aim stops all progress, sidestep the way a player would.
+   * The predicate stays the game's own position, never wall-clock progress. */
+  const walkTo = async (x, z, radius = 0.6, budgetMs = 240000) => {
+    const started = Date.now();
     await page.keyboard.down('KeyW');
     try {
-      await page.waitForFunction(([tx, tz, r]) => {
-        const player = window.GRAVEYARD.player;
-        const dx = tx - player.position.x;
-        const dz = tz - player.position.z;
-        player.yaw = Math.atan2(-dx, -dz);
-        player.pitch = 0;
-        return Math.hypot(dx, dz) <= r;
-      }, [x, z, radius], { polling: 100 });
+      let last = null;
+      let stalled = 0;
+      let nudges = 0;
+      for (;;) {
+        const now = await page.evaluate(([tx, tz]) => {
+          const player = window.GRAVEYARD.player;
+          const dx = tx - player.position.x;
+          const dz = tz - player.position.z;
+          player.yaw = Math.atan2(-dx, -dz);
+          player.pitch = 0;
+          return { x: player.position.x, z: player.position.z, d: Math.hypot(dx, dz) };
+        }, [x, z]);
+        if (now.d <= radius) return now;
+        if (Date.now() - started > budgetMs) {
+          throw new Error(`walkTo(${x}, ${z}) never arrived: ${fmt(now)}`);
+        }
+        if (last && Math.hypot(now.x - last.x, now.z - last.z) < 0.04) {
+          stalled += 1;
+          if (stalled >= 2) {
+            const side = (nudges++ % 2) ? 'KeyA' : 'KeyD';
+            await page.keyboard.down(side);
+            await page.waitForTimeout(700);
+            await page.keyboard.up(side);
+            stalled = 0;
+          }
+        } else {
+          stalled = 0;
+        }
+        last = now;
+        await page.waitForTimeout(250);
+      }
     } finally {
       await page.keyboard.up('KeyW');
     }
@@ -543,7 +572,10 @@ try {
     sauceKind === 'reserved', fmt({ sauceKind }));
 
   /* Babs, walked and held. Walking into her stone doubles as the headstone
-   * collision check. */
+   * collision check. The route takes the centre aisle north and the lane in
+   * front of the first row, the way a player reads the yard, instead of a
+   * straight line through two headstones. */
+  await walkTo(0, -6.8, 0.8);
   await walkTo(-6, -2.6, 0.5);
   const babsStop = await walkBlocked(0);
   check("Babs's monument stops him at its face",
@@ -590,6 +622,8 @@ try {
     fmt(tributeBoard));
 
   /* -- the burial ---------------------------------------------------- */
+  await walkTo(0, -6.9, 0.8);
+  await walkTo(0.9, -13.6, 0.7);
   await walkTo(1.7, -15.4, 0.5);
   await aim(1.15, 0.7, -16.6);
   await page.waitForFunction(() => {
@@ -660,7 +694,10 @@ try {
   check('after the burial Snow barks him to the car',
     Boolean(await bark.jsonValue()));
 
-  await walkTo(0.4, 18.9, 0.7);
+  await walkTo(0, -6.8, 0.8);
+  await walkTo(2.4, 11.5, 0.8); // around the parked car again
+  await walkTo(2.4, 18.4, 0.7);
+  await walkTo(0.5, 19.0, 0.7);
   await aim(0, 1.0, 17.4);
   await page.waitForFunction(() => {
     const prompt = document.getElementById('prompt');
