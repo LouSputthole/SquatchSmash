@@ -227,6 +227,15 @@ const state = {
   cueLog: [],
   phaseTime: 0,
   executionShots: 0,
+  /* The volley, as a schedule stepped by the frame loop -- the same simulated
+   * clock everything else in the scene runs on -- so a slow rasteriser slows
+   * the beat instead of letting wall-clock timers finish it unseen. */
+  executionPlan: null,
+  executionClock: 0,
+  tracers: [],
+  willyHit: 0,
+  willyHitSide: 1,
+  willySlump: 0,
   stagingLocked: false,
   carriedBallast: false,
   bodyDisposed: false,
@@ -988,12 +997,86 @@ function runCabinBeat(beat, when) {
  * The execution
  * ------------------------------------------------------------------ */
 
+/**
+ * WHICH WAY UP A HELD PISTOL GOES.
+ *
+ * Owner, playtest 2026-08-18: *"The guns in No wake in Lou and Booskis hands
+ * are upside down."* Measured, and he is right: the guns were attached to
+ * `foreR` with an identity-ish rotation, and a forearm's own axes are not a
+ * gun's. In the raised execution pose the bore (model local -Z,
+ * `src/core/weapons/models.js`'s stated convention) pointed (0.03, -1.00,
+ * -0.06) in the shooter's frame -- straight down at the sole -- and the top
+ * strap pointed (-0.08, 0.06, -1.00), back at the shooter's own chest, with
+ * the grip stuck out toward Willy.
+ *
+ * Same fix as `src/mansion/siege/armed-pose.js` (`MOUNT_ROTATION`), which
+ * settled this exact bug class for the mansion: -90 degrees about X lays the
+ * bore down the forearm's -Y, the direction the arm points, and the 180 about
+ * the model's own bore -- applied before the X turn, so it changes only roll
+ * -- lands model +Y on the forearm's +Z, the back of the hand. Aimed, the
+ * bore now runs (0.08, -0.11, 0.99) at Willy with the sights up (-0.02, 0.99,
+ * 0.11); at rest the muzzle hangs at the floor. The grip anchor is the siege
+ * mount's own measured pistol9 grip point, so the palm holds the grip rather
+ * than the trigger guard.
+ */
+const GUN_MOUNT_ROTATION = new THREE.Euler(-Math.PI / 2, 0, Math.PI);
+const NINE_MM_GRIP = new THREE.Vector3(0, -0.0377123373, 0.0557002539);
+/** The hand slab's centre inside `foreR` -- src/bing/cast.js's arm(). */
+const HAND_IN_FOREARM = new THREE.Vector3(0, -0.30, 0.005);
+
+const MUZZLE_FLASH_SECONDS = .10;
+const TRACER_SECONDS = .12;
+
+/**
+ * A visible flash at the bore, on the gun so it rides the recoil.
+ *
+ * Two additive petals crossed along the bore -- readable from the side, which
+ * is where the player stands relative to Lou and Booski -- following the
+ * unlit-card treatment `src/core/weapons/WeaponSystem.js` uses for its own
+ * muzzle flash. The room's point-light splash stays `blood.muzzle()`'s job;
+ * this is only the part of a shot you can point at.
+ */
+function buildMuzzleFlash(gun) {
+  const flash = new THREE.Group();
+  flash.name = `${gun.name} muzzle flash`;
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffd487, transparent: true, opacity: 0, toneMapped: false,
+    depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  /* Long axis down the bore (group -Z side), normals on X and on Y, so the
+   * cross reads from the side and from above alike. */
+  for (const orient of [[0, Math.PI / 2, Math.PI / 2], [Math.PI / 2, 0, 0]]) {
+    const petal = new THREE.Mesh(new THREE.PlaneGeometry(.05, .16), material);
+    petal.rotation.set(...orient);
+    flash.add(petal);
+  }
+  flash.position.copy(gun.userData.muzzle);
+  flash.position.z -= .05;
+  flash.visible = false;
+  gun.userData.flash = flash;
+  gun.userData.flashMaterial = material;
+  gun.userData.flashTtl = 0;
+  gun.add(flash);
+  return flash;
+}
+
+/** Light the flash for MUZZLE_FLASH_SECONDS of simulated time. */
+function flashMuzzle(gun) {
+  if (!gun?.userData.flash) return;
+  gun.userData.flashTtl = MUZZLE_FLASH_SECONDS;
+  gun.userData.flash.visible = true;
+  gun.userData.flash.rotation.z = Math.random() * Math.PI;
+  gun.userData.flashMaterial.opacity = 1;
+  gun.userData.flash.scale.setScalar(1.1);
+}
+
 function executionGun(model, name, calibre, scale = 1) {
   const gun = model.group;
   gun.name = name;
   gun.scale.setScalar(scale);
   gun.userData.weaponModel = calibre;
   gun.userData.muzzle = model.muzzle.clone();
+  buildMuzzleFlash(gun);
   return gun;
 }
 
@@ -1010,11 +1093,11 @@ function prepareGuns() {
   );
   boat.cast.lou.parts.foreR.add(state.louGun);
   boat.cast.booski.parts.foreR.add(state.booskiGun);
-  state.louGun.position.set(0, -.20, -.10);
-  state.louGun.rotation.set(-.05, 0, 0);
-  state.booskiGun.position.copy(state.louGun.position);
-  state.booskiGun.rotation.copy(state.louGun.rotation);
   for (const gun of [state.louGun, state.booskiGun]) {
+    gun.rotation.copy(GUN_MOUNT_ROTATION);
+    // Grip in the palm: gun origin = hand centre minus the mounted grip point.
+    const grip = NINE_MM_GRIP.clone().multiplyScalar(gun.scale.x).applyEuler(GUN_MOUNT_ROTATION);
+    gun.position.copy(HAND_IN_FOREARM).sub(grip);
     gun.userData.basePosition = gun.position.clone();
     gun.userData.baseRotation = gun.rotation.clone();
     gun.userData.recoil = 0;
@@ -1053,17 +1136,41 @@ function fireExecution() {
   executionPrompt.classList.add('hidden');
   story.checkpoint('execution');
   setObjective('', '');
-  /* All three fire on the same beat, and all three keep firing: the owner's
+  /* All three shooters fire, and all three are SEEN to fire: the owner's
    * complaint about the old scene was that Lou and Booski were not visibly
-   * shooting. Three or four rounds each, over about a second, and then it
-   * stops. */
-  const volleys = [0, 220, 470, 760];
-  for (const [i, delay] of volleys.entries()) {
-    setTimeout(() => playerShot(), delay + 0);
-    setTimeout(() => npcShot(boat.cast.lou, state.louGun), delay + 45);
-    setTimeout(() => npcShot(boat.cast.booski, state.booskiGun), delay + 90);
-    if (i === volleys.length - 1) setTimeout(dropWilly, delay + 320);
+   * shooting, and packing twelve rounds into one second with every shooter
+   * inside the same tenth of it left nothing for the eye to attribute. Each
+   * volley is the player, then Lou, then Booski, far enough apart that each
+   * man's flash, kick and tracer is his own -- the player always first, held
+   * in the aimed pose the whole time. Seconds of simulated time, stepped by
+   * `updateExecution()`, never wall clock. */
+  const volleys = [0, .65, 1.30, 1.90];
+  const stagger = .22;
+  state.executionClock = 0;
+  state.executionPlan = [];
+  for (const [i, beat] of volleys.entries()) {
+    state.executionPlan.push({ at: beat, fire: () => playerShot() });
+    state.executionPlan.push({ at: beat + stagger, fire: () => npcShot(boat.cast.lou, state.louGun) });
+    state.executionPlan.push({ at: beat + stagger * 2, fire: () => npcShot(boat.cast.booski, state.booskiGun) });
+    if (i === volleys.length - 1) {
+      state.executionPlan.push({ at: beat + stagger * 2 + .35, fire: dropWilly });
+    }
   }
+}
+
+/**
+ * One shot has landed; the seated man answers it.
+ *
+ * A flinch per round and a slump that only accumulates -- restrained on
+ * purpose ("no exaggerated gasp, no double take" is the scene's own tone
+ * rule), but present between every volley, so the rounds visibly arrive in a
+ * man rather than a prop. Applied in `updateCast()` after the cast update,
+ * which clears `parts` rotations each mover tick.
+ */
+function hitWilly() {
+  state.willyHit = 1;
+  state.willyHitSide = -state.willyHitSide;
+  state.willySlump = Math.min(1, state.willySlump + 1 / 9);
 }
 
 function playerShot() {
@@ -1074,6 +1181,7 @@ function playerShot() {
   audio.play('boat.gunshot.deck', { volume: 1 });
   const muzzle = state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone());
   blood.muzzle(muzzle);
+  flashMuzzle(state.playerGun);
   showShotTracer(muzzle, impact, 0xffe2a3);
   /* On the man, not in the air where he was standing -- so the wounds ride his
    * fall and go over the side inside the bag. Not on every round: "no excessive
@@ -1083,6 +1191,7 @@ function playerShot() {
   }
   state.executionShots++;
   state.playerGun.rotation.x = .32;
+  hitWilly();
 }
 
 function npcShot(npc, gun) {
@@ -1090,6 +1199,7 @@ function npcShot(npc, gun) {
   const muzzle = gun.localToWorld(gun.userData.muzzle.clone());
   audio.play('boat.gunshot.deck', { volume: .94, position: muzzle });
   blood.muzzle(muzzle);
+  flashMuzzle(gun);
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(
     (Math.random() - .5) * .18, .95 + Math.random() * .30, .14,
   ));
@@ -1101,6 +1211,7 @@ function npcShot(npc, gun) {
   }
   state.executionShots++;
   gun.userData.recoil = 1;
+  hitWilly();
 }
 
 function showShotTracer(from, to, colour) {
@@ -1110,26 +1221,65 @@ function showShotTracer(from, to, colour) {
   );
   tracer.name = 'no-wake-shot-tracer';
   tracer.renderOrder = 1200;
+  tracer.userData.ttl = TRACER_SECONDS;
   scene.add(tracer);
-  setTimeout(() => {
-    scene.remove(tracer);
-    tracer.geometry.dispose();
-    tracer.material.dispose();
-  }, 95);
+  state.tracers.push(tracer);
 }
 
 function poseExecutionShooter(npc, gun, dt) {
   if (!npc || !gun) return;
-  npc.parts.armR.rotation.set(-1.18, 0, .08);
-  npc.parts.foreR.rotation.set(-.28, 0, 0);
-  npc.parts.armL.rotation.set(-1.00, 0, -.18);
-  npc.parts.foreL.rotation.set(-.72, 0, 0);
   gun.userData.recoil = Math.max(0, (gun.userData.recoil ?? 0) - dt * 7.5);
   const kick = gun.userData.recoil;
+  // Recoil travels up the arm, not just the wrist: the shoulder rides the kick.
+  npc.parts.armR.rotation.set(-1.18 - kick * .14, 0, .08);
+  npc.parts.foreR.rotation.set(-.28 - kick * .10, 0, 0);
+  npc.parts.armL.rotation.set(-1.00, 0, -.18);
+  npc.parts.foreL.rotation.set(-.72, 0, 0);
   gun.position.copy(gun.userData.basePosition);
-  gun.position.z -= kick * .075;
+  /* Forearm +Y runs from the hand back to the elbow, so this is the gun
+   * driven rearward along the bore; the X turn is muzzle climb about the
+   * mounted frame (see GUN_MOUNT_ROTATION). */
+  gun.position.y += kick * .075;
   gun.rotation.copy(gun.userData.baseRotation);
   gun.rotation.x -= kick * .34;
+}
+
+/**
+ * Step the execution beat on the frame loop's dt -- the scene's simulated
+ * clock -- and age everything a shot leaves behind: flash petals, tracer
+ * lines, Willy's flinch. Due entries fire in authored order even when one
+ * slow frame covers several, so the round count and the final `dropWilly()`
+ * cannot be starved by frame rate.
+ */
+function updateExecution(dt) {
+  if (state.executionPlan && state.phase === 'execution') {
+    state.executionClock += dt;
+    while (state.executionPlan.length && state.executionPlan[0].at <= state.executionClock) {
+      state.executionPlan.shift().fire();
+    }
+    if (!state.executionPlan.length) state.executionPlan = null;
+  }
+  state.willyHit = Math.max(0, state.willyHit - dt * 6);
+  for (const gun of [state.louGun, state.booskiGun, state.playerGun]) {
+    if (!gun || gun.userData.flashTtl <= 0) continue;
+    gun.userData.flashTtl = Math.max(0, gun.userData.flashTtl - dt);
+    const glow = gun.userData.flashTtl / MUZZLE_FLASH_SECONDS;
+    gun.userData.flash.visible = glow > 0;
+    gun.userData.flash.scale.setScalar(.6 + .5 * glow);
+    gun.userData.flashMaterial.opacity = glow;
+  }
+  for (let i = state.tracers.length - 1; i >= 0; i--) {
+    const tracer = state.tracers[i];
+    tracer.userData.ttl -= dt;
+    if (tracer.userData.ttl <= 0) {
+      scene.remove(tracer);
+      tracer.geometry.dispose();
+      tracer.material.dispose();
+      state.tracers.splice(i, 1);
+    } else {
+      tracer.material.opacity = .95 * tracer.userData.ttl / TRACER_SECONDS;
+    }
+  }
 }
 
 /**
@@ -1696,6 +1846,14 @@ function updateCast(dt) {
     poseExecutionShooter(boat.cast.lou, state.louGun, dt);
     poseExecutionShooter(boat.cast.booski, state.booskiGun, dt);
   }
+  if (state.phase === 'execution') {
+    /* After the cast update, which clears these rotations each mover tick.
+     * `dropWilly()` owns everything from the 'body' phase on. */
+    const willy = boat.cast.willy;
+    willy.parts.body.rotation.x = .06 + state.willyHit * .10 + state.willySlump * .20;
+    willy.parts.body.rotation.z = state.willyHitSide * state.willyHit * .06;
+    willy.parts.head.rotation.x = state.willyHit * .10 + state.willySlump * .26;
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1785,8 +1943,8 @@ function resumeCheckpoint() {
  * to route them through the way `resumeCheckpoint()`, above, routes
  * `underway`/`open_water`/past-execution resumes. `body` calls
  * `readyToFire()` then `fireExecution()`, the exact functions a played run
- * calls, and lets `fireExecution()`'s own real (non-frame-bound) timers drop
- * Willy on their own schedule. `weighted` mirrors `resumeCheckpoint()`'s own
+ * calls, then settles the volley's simulated-clock plan synchronously so the
+ * preview lands past the shot. `weighted` mirrors `resumeCheckpoint()`'s own
  * `checkpoint === 'weighted'` branch exactly: the body wrapped and
  * ballasted without sitting through the shooting. `return` continues past
  * that into the same real state `updateDisposal()` reaches right before it
@@ -1873,9 +2031,12 @@ function jumpToPreviewCheckpoint(id) {
   if (id === 'body') {
     readyToFire();
     fireExecution();
-    // fireExecution()'s own volley timers (real setTimeout, not frame-bound)
-    // call dropWilly() about a second later, landing `state.phase` on
-    // 'body' exactly as a played run reaches it.
+    // The volley runs on the scene's simulated clock, and a preview jump is
+    // a pose, not a playthrough -- the same reasoning resumeCheckpoint()'s
+    // post-execution branch uses when it calls dropWilly() without any
+    // shooting. Settle the whole plan here so the page lands on 'body'
+    // regardless of how slowly its frames are being drawn.
+    while (state.executionPlan) updateExecution(.25);
     return;
   }
 
@@ -2196,6 +2357,7 @@ function animate(now) {
   clampToStaging();
   interaction.update(dt);
   updateCast(dt);
+  updateExecution(dt);
   updateGlassRoll(dt);
   updateCarry(dt);
   updateDisposal();
