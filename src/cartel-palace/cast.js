@@ -32,6 +32,46 @@ const GUARD_LOOKS = Object.freeze([
   Object.freeze({ height: 1.75, build: 1.32, dress: 'work', shirt: 0x32372e, hair: 'crop', skin: 0xd9a97f }),
 ]);
 
+/*
+ * The begging trio at Mark's table — owner's 2026-08-19 direction: "the wife
+ * and the two short people should beg you not to kill Mark or kill anyone."
+ * They are CIVILIANS, not Combatants: no weapons, no faction, never in the
+ * cast's `all` list, so PalaceSecurity builds no firearm/perception runtime
+ * for them, a combat checkpoint never records them, and no guard ever aims
+ * at them. Their roots ARE hit targets — the player's fire can put them down,
+ * with full blood, and the mission does not count them either way.
+ */
+const PALACE_CIVILIAN_POSTS = Object.freeze([
+  /* Mark's wife, at his shoulder by the west sideboard. Cartel money: the
+   * gown, the gold, the luxury ribbing — the roster's own glamour kit. */
+  Object.freeze({
+    id: 'wife', x: -6.6, z: -44.6, yaw: 0.32,
+    look: Object.freeze({
+      height: 1.72, build: 0.98, gender: 'female', bodyShape: 'curvy',
+      dress: 'gown', gownStrapWidth: 0.034, shirt: 0x7c1228, shirtAccent: 0xd8b46a,
+      hair: 'long', hairColour: 0x1a0f0a, skin: 0xd9a97f,
+      luxury: true, trim: true, belt: 'gold', watch: 'gold', chain: 'gold',
+    }),
+  }),
+  /* The double act: visibly short (~1.5 m against a 1.9 m boss), matching
+   * midnight suits so they read as one unit finishing each other's
+   * sentences. Big Paco has two centimetres on Little Paco, and it matters. */
+  Object.freeze({
+    id: 'short-one', x: 5.9, z: -44.8, yaw: -0.28,
+    look: Object.freeze({
+      height: 1.5, build: 1.18, dress: 'suit', shirt: 0x232a38, trim: true,
+      threePiece: true, hair: 'crop', hairColour: 0x17110e, skin: 0xb87a4e, beard: true,
+    }),
+  }),
+  Object.freeze({
+    id: 'short-two', x: 7.3, z: -44.4, yaw: -0.42,
+    look: Object.freeze({
+      height: 1.48, build: 1.08, dress: 'suit', shirt: 0x232a38, trim: true,
+      threePiece: true, hair: 'bald', skin: 0x8d5a3a,
+    }),
+  }),
+]);
+
 const MARK_LOOK = Object.freeze({
   height: 1.9,
   build: 1.34,
@@ -127,6 +167,31 @@ function makeCombatant({
   return entry;
 }
 
+/** One begging civilian: a body with hit zones, health, and no gun. */
+function makeCivilian({ id, x, z, yaw, look }) {
+  const figure = new HeistFigure({
+    /* Ambient tier, like the guards: three more shadow-casting rigs is real
+     * frame cost on the software-GL verifier for people who spend the whole
+     * mission behind a sealed door. */
+    name: `palace-${id}`, x, z, yaw, model: look, tier: 'ambient',
+  });
+  tagHitZones(figure);
+  const entry = {
+    id,
+    role: 'civilian',
+    root: figure.root,
+    figure,
+    /* A plain pool, not a CombatActor: civilians are outside faction combat
+     * and outside Durable combat state. One centre-mass rifle round or any
+     * head hit ends them — this is not a fight, it is a consequence. */
+    health: 40,
+    down: false,
+    active: true,
+  };
+  figure.root.userData.palaceCivilian = entry;
+  return entry;
+}
+
 /** Cast for the final mission: patrols on the route, then Mark and Sauce. */
 export function buildPalaceCast(parent) {
   const guards = PALACE_GUARD_POSTS.map((post, index) => makeCombatant({
@@ -158,8 +223,13 @@ export function buildPalaceCast(parent) {
   });
   sauce.active = false;
 
+  /* Present at the table from the first frame: the dining room is sealed
+   * until the betrayal beat opens its doors, so the trio is simply already
+   * at dinner when the player arrives — no staging hook to miss. */
+  const civilians = PALACE_CIVILIAN_POSTS.map((post) => makeCivilian(post));
+
   const all = [...guards, mark, sauce];
-  for (const entry of all) parent.add(entry.root);
+  for (const entry of [...all, ...civilians]) parent.add(entry.root);
 
   function activateFinalEncounter() {
     mark.active = !mark.down;
@@ -179,14 +249,25 @@ export function buildPalaceCast(parent) {
     return true;
   }
 
+  /** Put a begging civilian on the floor. Presentation only: no mission call. */
+  function civilianDown(entry, { roll = 0.42 } = {}) {
+    if (!entry || entry.role !== 'civilian' || entry.down) return false;
+    entry.down = true;
+    entry.active = false;
+    entry.figure.setState?.('down', { blend: true, roll });
+    return true;
+  }
+
   return {
     root: parent,
     all,
     guards,
     mark,
     sauce,
-    hitTargets: all.map((entry) => entry.root),
+    civilians,
+    hitTargets: [...all, ...civilians].map((entry) => entry.root),
     activateFinalEncounter,
     markDown,
+    civilianDown,
   };
 }

@@ -43,6 +43,7 @@ import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
 import { BallisticImpactSystem } from '../world/impacts.js';
 
 import { buildPalaceCast } from './cast.js';
+import { PalaceFinaleDirector } from './finale.js';
 import { EVIDENCE_IDS, PALACE_BEATS, CartelPalaceMission } from './mission.js';
 import {
   previewPalaceCheckpointForLocation,
@@ -280,6 +281,18 @@ const suppression = new SuppressionModel();
 const bloodImpacts = new BloodImpactSystem(scene);
 const deathBloodPools = new DeathBloodPool(scene, { capacity: 12 });
 
+/* The staged dining-room confrontation. Engagement stays player-paced: the
+ * script hands combat over on Tony's verdict line, and any shot the player
+ * fires first interrupts the speech and engages immediately — the words
+ * never take the trigger away. `security` is assigned below; the callback
+ * runs only once the dining doors are open, long after construction. */
+const finale = new PalaceFinaleDirector({
+  cast,
+  hud,
+  audio,
+  onEngage: () => security.activateFinalEncounter(),
+});
+
 /* ------------------------------------------------------------------ */
 /* Five-slot final-raid loadout                                        */
 /* ------------------------------------------------------------------ */
@@ -307,6 +320,25 @@ function combatantFromObject(object) {
     node = node.parent;
   }
   return null;
+}
+
+function civilianFromObject(object) {
+  let node = object;
+  while (node) {
+    if (node.userData?.palaceCivilian) return node.userData.palaceCivilian;
+    node = node.parent;
+  }
+  return null;
+}
+
+/** The tagged body group a civilian hit landed on, for wound attachment. */
+function civilianHitAnchor(object, figure) {
+  let node = object;
+  while (node) {
+    if (node.userData?.hitZone) return { anchor: node, zone: node.userData.hitZone };
+    node = node.parent;
+  }
+  return { anchor: figure.parts.body, zone: 'chest' };
 }
 
 let security;
@@ -453,6 +485,8 @@ const weapons = new WeaponSystem({
   hitTargets: [palace.root, ...cast.hitTargets],
   range: 95,
   onImpact: (impact) => {
+    const civilian = civilianFromObject(impact.object);
+    if (civilian) return applyCivilianImpact(impact, civilian);
     const combatant = combatantFromObject(impact.object);
     if (combatant) {
       const { located, budget, submitted } = applyCappedPlayerImpact(impact);
@@ -497,6 +531,10 @@ const weapons = new WeaponSystem({
       loadout?.capture(weapons);
     }
     if (event.type !== 'fire' || state.phase !== 'active') return;
+    /* A shot during the confrontation is the player's answer to it: the
+     * speech stops mid-sentence and the room engages. The kills stay
+     * player-driven — the script never fires first. */
+    if (mission.beat === PALACE_BEATS.DINING_ROOM) finale.interrupt();
     if (![PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR].includes(mission.beat)) {
       security?.raiseAlarm('gunshot');
     }
@@ -595,6 +633,56 @@ function showPalaceBlood(located, impact) {
     });
   }
   return true;
+}
+
+/*
+ * A player round into one of the begging trio. Civilians sit outside
+ * PalaceSecurity entirely — no Combatant, no Durable combat state — so their
+ * hits resolve here: full blood through the shared systems (this game rewards
+ * gore), a head hit or a spent 40-point pool puts them down for good, the
+ * room reacts, and the MISSION DOES NOT MOVE. Killing the wife or the short
+ * men can never soft-lock or fail the palace; Mark and Sauce remain the only
+ * two names the mission counts.
+ */
+function applyCivilianImpact(impact, entry) {
+  const { anchor, zone } = civilianHitAnchor(impact.object, entry.figure);
+  bloodImpacts.hit({
+    actor: entry,
+    anchor,
+    point: impact.point,
+    normal: impact.normal,
+    from: impact.origin,
+    spatter: true,
+    spatterAnchor: anchor,
+  });
+  combatAudio.impact({
+    target: 'enemy',
+    zone,
+    caliber: weaponCaliber(impact.weapon),
+    position: impact.point,
+  });
+  let fatal = false;
+  if (!entry.down) {
+    const def = weaponDef(impact.weapon);
+    const damage = Math.max(0, Number(impact.damage) || def?.damage || 25)
+      * (zone === 'limb' ? 0.62 : 1);
+    entry.health = zone === 'head' ? 0 : Math.max(0, entry.health - damage);
+    fatal = entry.health <= 0;
+    if (fatal) {
+      cast.civilianDown(entry, { roll: entry.id === 'wife' ? -0.36 : 0.44 });
+      const at = entry.root.getWorldPosition(new THREE.Vector3());
+      deathBloodPools.spill(at, {
+        floorY: palace.groundAt(at.x, at.z),
+        seed: String(entry.id).split('')
+          .reduce((seed, char) => ((seed * 31) + char.charCodeAt(0)) >>> 0, 11),
+      });
+      combatAudio.bodyFall({ surface: palaceSurfaceAt(at), position: at });
+      finale.onCivilianDown(entry);
+      hud.toast('They were begging · the job does not care', 'bad', 2800);
+    }
+  }
+  confirmCombatHit(zone === 'head' ? 'headshot' : fatal ? 'kill' : 'hit');
+  return { applied: true, fatal, zone, entry };
 }
 
 loadout = createFinalArcLoadout();
@@ -782,6 +870,9 @@ security = new PalaceSecurity({
     mission.registerTargetDown(entry.id);
     if (entry.id === 'mark') hud.toast('Mark eliminated', 'good', 3200);
     if (entry.id === 'sauce') hud.toast('Sauce eliminated', 'good', 3200);
+    /* The table reacts to the kill: the wife's scream, the double act's
+     * rehearsed dive, and the cursing-out once both bodies are down. */
+    finale.onTargetDown(entry.id);
   },
   onBossPhase: (phase) => {
     if (phase === 'exposed') hud.say('<em>MARK\'S ARMOR IS GONE.</em>', 2200);
@@ -851,9 +942,15 @@ interaction.register(palace.targets.diningDoor, {
   onUse: () => {
     if (!palace.doors.openDiningRoom() || !mission.enterDiningRoom()) return;
     audio.play('door.creak', { volume: 0.7, position: PALACE_ANCHORS.diningRoom });
-    security.activateFinalEncounter();
     ui.boss.classList.remove('hidden');
-    hud.say('<em>MARK AND SAUCE.</em> No rescue. No speech. Finish it.', 3600);
+    /* The confrontation the evidence earned, in place of the old two-line
+     * hand-off. Combat activates on Tony's verdict line — or instantly on
+     * the player's first shot, whichever comes first. */
+    const progress = mission.snapshot();
+    finale.beginConfrontation({
+      evidenceFound: progress.evidenceFound,
+      alarmRaised: progress.alarmRaised,
+    });
   },
 });
 
@@ -927,6 +1024,9 @@ function clearCombatTransients() {
   playerTriggerDamage.clear();
   bloodImpacts.reset();
   deathBloodPools.reset();
+  /* A restore discards the timeline the current subtitle came from; the
+   * confrontation's phase and reactions are re-derived by the caller. */
+  finale.clearLines();
   lastPlayerSuppression = null;
   resetCombatFeedback();
   hitConfirmTimer = 0;
@@ -996,6 +1096,11 @@ function stageWorldForCheckpoint(id) {
   if (['dining_room', 'clear'].includes(id)) {
     security.activateFinalEncounter();
     ui.boss.classList.remove('hidden');
+    /* Resuming inside a live (or cleared) dining room never replays the
+     * speech: the encounter is already activated above, so the director only
+     * stages the trio to match — braced for a fight, or in the aftermath. */
+    if (id === 'clear') finale.stageAftermath();
+    else finale.skipConfrontation();
   }
   restageEliminatedTargets(progress);
   placeAtCheckpoint(id);
@@ -1117,7 +1222,10 @@ startButton.addEventListener('click', async () => {
   startButton.textContent = 'Loading final operation…';
   await audio.init();
   await audio.loadManifest({
-    prefixes: ['weapon.', 'footstep.'],
+    /* 'vo.palace.' is the finale confrontation bank. Unrecorded cues cost
+     * nothing — the index filter skips absent files — and recorded takes
+     * start playing the day they land, with no code change. */
+    prefixes: ['weapon.', 'footstep.', 'vo.palace.'],
     names: [
       ...GROUND_COMBAT_AUDIO_CUES,
       'ambience.rain', 'ambience.city.night', 'alarm.chirp',
@@ -1305,6 +1413,7 @@ function animate(now) {
     }
     player.update(dt);
     interaction.update(dt);
+    finale.update(dt);
     security.update(dt, {
       playerPosition: player.position,
       powerCut: state.powerCut,
@@ -1348,6 +1457,7 @@ window.CARTEL_PALACE = {
   interaction,
   palace,
   cast,
+  finale,
   security,
   playerActor,
   suppression,
