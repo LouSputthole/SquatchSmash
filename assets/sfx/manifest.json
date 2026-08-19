@@ -8638,6 +8638,18 @@
       "duration": 0.6
     },
     {
+      "name": "enola.interceptor.scream",
+      "_note": "A night fighter's engine screaming — played when one is wounded and runs for home (pitched up by the caller: over-revving to get away) and again on a kill (pitched down: on its way in). Optional; the WebAudio synth covers it until this is generated.",
+      "prompt": "a single piston aircraft engine screaming at maximum rpm and doppler-falling in pitch as it passes and recedes, supercharger whine over a ragged detonating roar, heard from another aircraft at night, three seconds, no music, no voice",
+      "duration": 3.0
+    },
+    {
+      "name": "enola.interceptor.breakup",
+      "_note": "A fighter coming apart under cannon fire — the kill payoff for the tail turret. Optional; the WebAudio synth covers it until this is generated.",
+      "prompt": "an aircraft breaking up in mid air heard from a few hundred metres, a heavy structural crunch and metallic tearing of aluminium skin, a whump of fuel igniting, small debris whistling away, wind wash tail, no ground impact, no music, no voice",
+      "duration": 2.5
+    },
+    {
       "name": "ambience.kitchen.line",
       "_note": "The Silver Room kitchen bed: gas and a simmer under the extraction fan. The thing everybody in there shouts over.",
       "prompt": "a busy restaurant kitchen line ambience, steady gas burner hiss and a low simmer under a constant extraction fan hum, occasional distant pot clatter, no voices, no music, seamless loop",

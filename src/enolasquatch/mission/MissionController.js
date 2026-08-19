@@ -555,10 +555,23 @@ export class MissionController {
       this.cameras?.addShake?.(0.18);
       this.dialogue.bark('fighterNearMiss');
     };
-    this.interceptors.onHit = (severity) => this.onFighterHit(severity);
+    this.interceptors.onHit = (severity, fighter) => this.onFighterHit(severity, fighter);
     this.interceptors.onKill = () => {
       this.score.fightersDestroyed++;
       this.dialogue.play('fighters.down', { once: false });
+      /* THE SEND-OFF. A kill is the whole payoff of the turret, so it gets a
+       * breakup and an engine screaming its way down. Both cues are optional
+       * recordings (`assets/sfx/manifest.json`, `enola.interceptor.*`) with
+       * synth fallbacks in `src/core/audio.js` — a missing file degrades to
+       * the synth, never to silence, never to a broken scene. */
+      this.audio?.play?.('enola.interceptor.breakup', { volume: 0.7, rate: 0.95 + Math.random() * 0.1 });
+      this.audio?.play?.('enola.interceptor.scream', { volume: 0.55, rate: 0.96 + Math.random() * 0.08 });
+    };
+    this.interceptors.onWounded = () => {
+      /* Hurt past the threshold: it lights up and runs for home. The scream
+       * is quieter and higher — an engine over-revving to get away, not one
+       * on its way in. */
+      this.audio?.play?.('enola.interceptor.scream', { volume: 0.4, rate: 1.08 });
     };
 
     /* The autopilot, and what it costs. */
@@ -768,16 +781,24 @@ export class MissionController {
    * shooting live. Everything below it is what being hit COSTS, and that is the
    * half the owner asked to be turned off; see `LIVE_FIRE` in `../config.js`.
    */
-  onFighterHit(severity) {
+  onFighterHit(severity, fighter = null) {
     this.cameras?.addShake?.(0.35 + severity * 0.5);
     this.audio?.shrapnel?.(severity);
     this.dialogue.bark('fighterHitUs');
     if (!LIVE_FIRE.fighters) return;
     this.physics.damage.wing = clamp(this.physics.damage.wing + severity * 0.05, 0, 1);
     if (Math.random() < 0.34 * severity) {
-      const alive = this.defense.damage.engines.map((d, i) => (d ? -1 : i)).filter((i) => i >= 0);
-      if (alive.length) this.defense.damageEngine(alive[Math.floor(Math.random() * alive.length)]);
-      else this.defense.damageElectrical();
+      /* A priority-profile fighter (`Interceptors.js`, THE PROFILES) came in
+       * with a specific healthy nacelle in mind — bill the hit to it. Anyone
+       * else's rounds land wherever the roll says. */
+      const aimed = fighter?.targetEngine ?? -1;
+      if (aimed >= 0 && !this.defense.damage.engines[aimed]) {
+        this.defense.damageEngine(aimed);
+      } else {
+        const alive = this.defense.damage.engines.map((d, i) => (d ? -1 : i)).filter((i) => i >= 0);
+        if (alive.length) this.defense.damageEngine(alive[Math.floor(Math.random() * alive.length)]);
+        else this.defense.damageElectrical();
+      }
     }
     if (this.autopilot.engaged && Math.random() < 0.45) this.autopilot.disengage('hit');
   }
@@ -2474,7 +2495,25 @@ export class MissionController {
   updateAirBattle(dt) {
     const p = this.physics;
     this.interceptors.setPredictability(this.autopilot.engaged ? this.autopilot.predictability : 0);
-    this.interceptors.update(dt, { position: p.position, velocity: p.velocity, evasion: this.evasion });
+    /* What the fighters are allowed to read off the aeroplane: the tail
+     * turret's real state (the harasser waits for a jam, an overheat or a dry
+     * belt; the priority profile attacks the quarter the gunner watches
+     * least) and which engines are already dead (so a priority attacker aims
+     * at a live one). See THE PROFILES in `../combat/Interceptors.js`. */
+    this.interceptors.setTurretStatus({
+      manned: this.gunner.manned,
+      firing: this.gunFiring,
+      jammed: this.gunner.jammed > 0,
+      heat: this.gunner.heat,
+      rounds: this.gunner.rounds,
+      yaw: this.gunner.yaw,
+    });
+    this.interceptors.update(dt, {
+      position: p.position,
+      velocity: p.velocity,
+      evasion: this.evasion,
+      engines: this.defense.damage.engines,
+    });
     const state = this.gunner.update(dt);
     if (state?.manned) {
       this.score.gunnerSeconds += dt;

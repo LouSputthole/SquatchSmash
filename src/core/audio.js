@@ -2382,6 +2382,27 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t + r(0.01), { dur: r(0.09), type: 'bandpass', freq: 520, q: 1.1, gain: 0.16, sweep: 0.4 });
       burst(ctx, dest, t + r(0.05), { dur: r(0.30), type: 'lowpass', freq: 900, q: 0.5, gain: 0.07, sweep: 0.5 });
       break;
+    /* A night fighter's engine screaming — wounded and running, or on its way
+     * down. The caller pitches it: up for the runner, down for the kill. A
+     * long sawtooth falling most of an octave with the supercharger whine an
+     * octave and a half over it, both under a widening wind wash. */
+    case 'enola.interceptor.scream':
+      tone(ctx, dest, t, { freq: 620, to: 260, dur: r(2.4), gain: 0.16, type: 'sawtooth' });
+      tone(ctx, dest, t + r(0.03), { freq: 1900, to: 760, dur: r(2.2), gain: 0.07, type: 'sine' });
+      tone(ctx, dest, t + r(0.05), { freq: 92, to: 46, dur: r(2.4), gain: 0.14, type: 'triangle' });
+      burst(ctx, dest, t + r(0.2), { dur: r(2.2), type: 'bandpass', freq: 900, q: 0.6, gain: 0.08, sweep: 1.4 });
+      break;
+    /* A fighter coming apart under cannon fire: the structural crunch, the
+     * tear of skin, the whump of fuel, and the small stuff whistling away. */
+    case 'enola.interceptor.breakup':
+      tone(ctx, dest, t, { freq: 120, to: 32, dur: r(0.5), gain: 0.5, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.16), type: 'lowpass', freq: 420, gain: 0.6, sweep: 0.4 });
+      burst(ctx, dest, t + r(0.05), { dur: r(0.6), type: 'bandpass', freq: 2300, q: 1.4, gain: 0.26, sweep: 0.8 });
+      burst(ctx, dest, t + r(0.24), { dur: r(0.7), type: 'lowpass', freq: 240, gain: 0.34, sweep: 0.7 });
+      tone(ctx, dest, t + r(0.5), { freq: 3200, to: 900, dur: r(0.9), gain: 0.05, type: 'sine' });
+      tone(ctx, dest, t + r(0.8), { freq: 2600, to: 700, dur: r(1.0), gain: 0.04, type: 'sine' });
+      burst(ctx, dest, t + r(0.4), { dur: r(1.4), type: 'bandpass', freq: 700, q: 0.5, gain: 0.1, sweep: 1.2 });
+      break;
 
     /* -------- the Silver Room's kitchen, and its dining room --------
      *
