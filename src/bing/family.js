@@ -550,7 +550,7 @@ export function buildFamilyScripts({
 
   const captain_lou_sasole = hangout('Captain Lou Sasole', 'sasole', {
     line1: 'Ground people, Tony. Everyone in here. Beautiful souls, zero situational awareness.',
-    reply: { text: 'They’re alright.' },
+    reply: { text: 'They’re alive, which this week counts.' },
     line2: 'You flew with me once and you walked away from the landing. That puts you top five pilots in this room.',
     last: 'Top five? Who’s ahead of me?',
     lastCue: 'vo.bing.hang.sasole.tony.1',
@@ -597,7 +597,7 @@ export function buildFamilyScripts({
 
   const ape = hangout('Ape', 'ape', {
     line1: 'Statements made in this establishment are for entertainment purposes only.',
-    reply: { text: 'Noted for the record.' },
+    reply: { text: 'I’ll write that on my hand.' },
     line2: 'I am having a nice time. This is my nice-time face. It is load-bearing.',
     aside: {
       tone: 'Ask', ask: 'Load-bearing how?',

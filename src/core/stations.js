@@ -180,8 +180,8 @@ export function newsSegmentsFor(state) {
 /* 97.8 THE SQUATCH                                                    */
 /* ------------------------------------------------------------------ */
 
-/** The 60-second station commercial, beat by beat. */
-const COMMERCIAL = [
+/** The station's own promo, beat by beat. */
+const COMMERCIAL_STATION = [
   seg('…', 'radio.riff'),
   seg('Tired of boring radio stations that care about "facts" and "professionalism"?'),
   seg('Then tune your dial to 97.8… THE SQUATCH!', 'radio.airhorn'),
@@ -204,6 +204,75 @@ const COMMERCIAL = [
     + 'the building… and somehow they are.'),
   seg('Eat those pasture raised eggs folks!'),
   seg('97.8 THE SQUATCH. "If it’s on the air… it probably shouldn’t be."', 'radio.jingle'),
+];
+
+/** Lou's jerky, sold the way a family business sells anything. */
+const COMMERCIAL_JERKY = [
+  seg('…', 'radio.riff'),
+  seg('A word about LOU’S ORIGINAL JERKY.'),
+  seg('Three generations. One smokehouse. Same building on Route 9 since '
+    + 'nineteen fifty-one, and the same recipe, because nobody has ever been '
+    + 'allowed to write it down.'),
+  seg('Big Uncle Lou still comes in at four in the morning to check the racks '
+    + 'himself. Ask anybody. They’ll tell you. They’ll tell you quickly.'),
+  seg('No fillers. No additives. Nothing in it that wasn’t walking around this '
+    + 'county a week ago.'),
+  seg('LOU’S ORIGINAL JERKY. Available at fine retailers, and at several '
+    + 'retailers who have not been asked.'),
+  seg('Because family is everything.', 'radio.jingle'),
+];
+
+/** A criminal defence attorney's personal injury ad. */
+const COMMERCIAL_ATTORNEY = [
+  seg('…', 'radio.riff'),
+  seg('Have you been hurt? Have you hurt somebody? Either one. Call the number.'),
+  seg('I’m Vincent Marrow, and for twenty-two years I have stood beside the '
+    + 'people of this county at what I would describe as the worst moment of '
+    + 'their lives.'),
+  seg('Slip and fall. Dog bite. Boating accident with an unclear number of '
+    + 'people on the boat when it left and when it came back.'),
+  seg('I don’t judge. I have never judged. Judging is somebody else’s job in '
+    + 'that building and frankly they are not good at it either.'),
+  seg('No fee unless we win. No questions at all, ever, about anything, at any '
+    + 'point in our relationship.'),
+  seg('MARROW AND ASSOCIATES. There are no associates.'),
+  seg('Do not talk to anyone. Talk to me.', 'radio.jingle'),
+];
+
+/** A man screaming about financing, until he stops. */
+const COMMERCIAL_DEALERSHIP = [
+  seg('…', 'radio.airhorn'),
+  seg('SUNDAY! SUNDAY! SUNDAY! at BUDDY GRAVES AUTOMOTIVE on the Old Post Road!'),
+  seg('EVERY TRUCK ON THE LOT! EVERY CAR ON THE LOT! EVERY VEHICLE MY WIFE’S '
+    + 'BROTHER LEFT ON THE LOT!'),
+  seg('ZERO DOWN! ZERO INTEREST! ZERO CREDIT CHECK! ZERO PAPERWORK OF ANY KIND '
+    + 'THAT COULD LATER BE PRODUCED!'),
+  seg('WE WILL BEAT ANY PRICE! WE WILL BEAT ANY OFFER! WE HAVE BEATEN OFFERS '
+    + 'THAT WERE NEVER MADE!'),
+  seg('IF YOU CAN GET HERE, YOU CAN DRIVE HOME! IF YOU CANNOT GET HERE, WE WILL '
+    + 'COME AND GET YOU, AND WE HAVE.'),
+  seg('BUDDY GRAVES AUTOMOTIVE! OLD POST ROAD! SUNDAY!', 'radio.airhorn'),
+  seg('…'),
+  seg('Come down and see me. Please. Anybody. Come down and see me on Sunday.'),
+];
+
+/**
+ * The ad break rotates. One commercial on a loop is the tell that a radio
+ * station is scenery; four is a station that has advertisers, and the ad break
+ * is where this world gets to be as crude as it likes, because nobody in an
+ * advert is a character in a scene.
+ *
+ * `live` is what separates a written break from an aired one. Every break here
+ * is indexed and therefore queued for recording, but only a live one reaches
+ * the running order -- a break whose takes have not been delivered would air as
+ * silence, and NO WAKE in particular is gated on preloading nothing it cannot
+ * play. Flip `live` to true once the lines are in `assets/sfx/index.json`.
+ */
+const COMMERCIALS = [
+  { id: 'station', live: true, segments: COMMERCIAL_STATION },
+  { id: 'jerky', live: false, segments: COMMERCIAL_JERKY },
+  { id: 'attorney', live: false, segments: COMMERCIAL_ATTORNEY },
+  { id: 'dealership', live: false, segments: COMMERCIAL_DEALERSHIP },
 ];
 
 /**
@@ -725,7 +794,7 @@ export const STATIONS = [
     ident: 'radio.ident.squatch',
     shows: SQUATCH_SHOWS,
     overnight: OVERNIGHT,
-    commercial: COMMERCIAL,
+    commercials: COMMERCIALS,
     /** This station reads the community notice. */
     notices: true,
     /**
@@ -910,7 +979,11 @@ function buildVoiceIndex() {
     };
     for (const show of st.shows ?? []) walk(show);
     walk(st.overnight);
-    for (const seg of st.commercial ?? []) add(seg.line, 'announcer');
+    /* Every authored break is indexed, live or not: that is what puts an
+     * unrecorded ad on the booth sheet in the first place. */
+    for (const ad of st.commercials ?? []) {
+      for (const seg of ad.segments) add(seg.line, 'announcer');
+    }
     if (st.notices) for (const seg of MEETING_NOTICE) add(seg.line, 'announcer');
     /* The news minute belongs to the station that reads the wire. Every
      * segment is indexed whether or not its event has happened -- eligibility

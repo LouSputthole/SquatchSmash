@@ -52,6 +52,43 @@ Both are marked in the sheet and both should go regardless of which tone wins:
 `docs/TONE-AND-PARODY.md` rules out all four: the player supplies the
 recognition, the scene never points at it, and a character never reads the HUD.
 
+## When a pick is accepted
+
+Filling in PICK is not the end of it — the line has to reach the booth. The
+2026-08-19 pass is the worked example of the whole route:
+
+1. **The words change at their source, not in the manifest.** Almost every
+   spoken line is authored in a scene file (`src/bing/script.js`,
+   `src/squatchfather/dialogue/dialogue.json`, `src/core/stations.js`, …) and
+   derived into `assets/sfx/manifest.json` by that scene's `tools/*-vo.mjs`.
+   Edit the manifest and the next `npm run vo:sync` overwrites you.
+2. **Some cue ids change with the words.** Cue ids under `vo.bing.full.*` and
+   `vo.silver.*` embed an FNV hash of the line, so new words mean a new id and
+   therefore a new filename. Those need no marking — the new cue has no
+   recording, so it appears in `VOICE-LINES-NEEDED.md` on its own. Their
+   superseded takes are dead files and get deleted; `assets/sfx/rerecord.json`
+   records what they were under `retired`.
+3. **Every other changed line has to be marked, or the booth sheet lies.** A
+   stable cue id keeps its filename, so the old take stays indexed and every
+   report keeps saying the line is done. Add it to `lines` in
+   `assets/sfx/rerecord.json`; `npm run vo:rerecord` stamps `needsRerecord`
+   onto the manifest and both `VOICE-LINES-NEEDED.md` and `VOICE-LINES-TODO.md`
+   pick it up as **[RE-RECORD]**.
+4. **The queue lives outside the manifest on purpose.** A scene generator
+   rewrites its whole manifest block, so a flag typed into the manifest is
+   silently dropped the next time anybody runs `npm run vo:golf`. `vo:sync`
+   ends with `vo:rerecord` to put them back, and `npm run check` fails on any
+   queued line that is not marked.
+5. **Remove the entry once the replacement take is indexed.** The queue is a
+   list of debts, not a history.
+
+```
+npm run vo:sync        # regenerate every scene's cues, then re-stamp the queue
+npm run vo:rerecord    # stamp the queue on its own
+npm run check:rerecord # report drift without writing
+npm run voice:needed   # what the booth actually has to say
+```
+
 ## How to change what is in here
 
 Do not edit the workbook and expect it to survive — it is generated.
@@ -62,6 +99,21 @@ Do not edit the workbook and expect it to survive — it is generated.
   Fix it there and rerun.
 - **Want a scene covered that is not yet?** Add a file to `punchups/` in the same
   shape: `scene`, `reference`, `diagnosis`, `lines[]`.
+
+## What has shipped
+
+The PUNCH-UP tab's Status column is the record. As of 2026-08-19, 47 picks are
+**ACCEPTED** and queued for the booth: 36 marked for re-recording under their
+existing filenames, 11 retired to new cue ids.
+
+Three new 97.8 THE SQUATCH ad breaks were written at the same time — Lou's
+jerky, the attorney, and the dealership — and the station's ad slot now
+rotates instead of looping one commercial. All three are indexed, so their 20
+lines are on the booth sheet, but they carry `live: false` in
+`src/core/stations.js` and stay off the running order until their takes are
+delivered. An ad that airs before it is recorded is sixty seconds of silence,
+and NO WAKE preloads this station and is gated on never doing that. Flip `live`
+to true once the files are in `assets/sfx/index.json`.
 
 ## What is not covered yet
 

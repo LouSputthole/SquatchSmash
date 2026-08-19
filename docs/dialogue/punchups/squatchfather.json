@@ -6,13 +6,16 @@
     {
       "cue": "vo.sf.greeting.1",
       "character": "mcclawsky",
-      "current": "Come on, Squatch. They're waiting.",
+      "current": "Let's go, big man. The meter's running, and I've got a wife who thinks I'm at a prayer group.",
       "why": "Bellhop politeness from a bent cop. He is escorting a kid to a table where he expects him to fold; that should be in his mouth.",
       "house": "Move, ape. He's been sat in there forty minutes with nothing in front of him but a glass of water and his own opinions.",
       "tarantino": "Forty minutes he's been in that booth. No food, no paper, nothing to look at. You know what a man does with forty empty minutes? He starts deciding things. Let's get in there before he finishes.",
       "mcdonagh": "Come on to fuck. He gets worse the longer he sits, and he started out fairly bad.",
       "houser": "Let's go, big man. Table's under a name neither of us can spell, the meter's running, and I've got a wife who thinks I'm at a prayer group.",
-      "coen": "They're waiting on you. I don't like to be the one to say it. But they have been waiting a while now, and it's the kind of thing that gets noticed."
+      "coen": "They're waiting on you. I don't like to be the one to say it. But they have been waiting a while now, and it's the kind of thing that gets noticed.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "Let's go, big man. The meter's running, and I've got a wife who thinks I'm at a prayer group.",
+      "retiredText": "Come on, Squatch. They're waiting."
     },
     {
       "cue": "vo.sf.opening.1",
@@ -23,18 +26,22 @@
       "tarantino": "You know what I like about your people? Commitment. Genuine, unreasonable commitment. I've got two docks, four routes, and a man in Tacoma who counts for me, and every one of them has been made stupid by sasquatches who will not take a phone call. That's not war. War I understand. That's just bad manners with a body count.",
       "mcdonagh": "Your lot are ruinin' me. Not beatin' me, mind. Ruinin' me. There's a difference and it's mostly paperwork.",
       "houser": "Let me be transparent with you, because I value transparency. Your family is a market inefficiency. You're sitting on distribution you don't understand, running it like a hobby, and I'm the one man in this city willing to professionalize it before somebody less friendly does it for free.",
-      "coen": "Things have been difficult. Business-wise. I don't want to overstate it. But I've had to have conversations I'd rather not have had, and I'd say that's on your family, more or less."
+      "coen": "Things have been difficult. Business-wise. I don't want to overstate it. But I've had to have conversations I'd rather not have had, and I'd say that's on your family, more or less.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.opening.2",
       "character": "player",
-      "current": "You attacked my family.",
+      "current": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
       "why": "Statement of fact with no injury in it. The kid watched his people get shot; this reads like a customer-service complaint.",
       "house": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
       "tarantino": "See, that's a nice word. Difficult. My uncle's got a bag on his side he has to empty himself, and you're sat there saying difficult like the traffic was bad.",
       "mcdonagh": "You shot up my family, you're sat there orderin' veal, and you've the neck to call us difficult.",
       "houser": "You sent men to my family's business with guns and now you're pitching me a partnership. Is there a brochure?",
-      "coen": "You shot my people. That's — I mean, that happened. That's a thing that happened and now we're eating."
+      "coen": "You shot my people. That's — I mean, that happened. That's a thing that happened and now we're eating.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
+      "retiredText": "You attacked my family."
     },
     {
       "cue": "vo.sf.opening.3",
@@ -45,18 +52,22 @@
       "tarantino": "It was a negotiation. Negotiations have positions. Your uncle took his position, I took mine, mine had more men in it. Don't confuse the outcome with the intent — I liked him.",
       "mcdonagh": "It was business. He said no, and he said it loud, and there was a fella from Seattle watchin'. What was I meant to do, send a card?",
       "houser": "That was a restructuring. Nobody enjoys a restructuring. But you don't take it personally, because the alternative is everybody gets restructured, including me.",
-      "coen": "Well. There was a disagreement. It got away from everybody a little. That's how these things tend to go, in my experience."
+      "coen": "Well. There was a disagreement. It got away from everybody a little. That's how these things tend to go, in my experience.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.opening.4",
       "character": "player",
-      "current": "You shot Booski.",
+      "current": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
       "why": "Three words. No image, no weight. The player should make the room look at what was done.",
       "house": "You shot Booski in the gut on a Tuesday and left him crawling to a payphone.",
       "tarantino": "You shot Booski. In the stomach. Which — and I want you to hear this — is the one place you shoot a man when you want him to have time to think about it.",
       "mcdonagh": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
       "houser": "You shot Booski. He's got a colostomy bag and a lawsuit and neither one of them's covered.",
-      "coen": "You shot Booski. He's — he's not doing great, is the thing. It's not the kind of thing that heals up."
+      "coen": "You shot Booski. He's — he's not doing great, is the thing. It's not the kind of thing that heals up.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
+      "retiredText": "You shot Booski."
     },
     {
       "cue": "vo.sf.opening.5",
@@ -67,29 +78,36 @@
       "tarantino": "Booski heard a very good offer, made a face, and walked away mid-sentence. Mid-sentence. Now I've got no problem with no. No is half of business. But you finish the sentence, and then you say it.",
       "mcdonagh": "Booski said no. Fine. Grand. Then he laughed. And that's the bit that got him shot, if we're bein' precise about it, which we should be.",
       "houser": "Booski declined a very generous package. No counter-offer, no conversation, just a hand in my face. And I'm a man who believes in consequences for bad negotiators.",
-      "coen": "He said no. Which is his right. But he said it in a way that — you know, there were people there. And then things went the way they went."
+      "coen": "He said no. Which is his right. But he said it in a way that — you know, there were people there. And then things went the way they went.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.opening.6",
       "character": "mcclawsky",
-      "current": "Your people need to calm down.",
+      "current": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either.",
       "why": "A hall monitor. This is a cop who takes Sal's money — he should be openly bought, openly contemptuous, and enjoying his own leverage.",
       "house": "Your people need to sit down before I start finding things in their cars.",
       "tarantino": "Here's my position, and I'm only in this booth because the food's free. Your people get loud, I get phone calls. I don't like phone calls. So either you take the man's money, or I start being the kind of police officer that ruins a whole family over a taillight.",
       "mcdonagh": "Your lot need to calm the fuck down. I've a stack of unsolveds on my desk with your surname on 'em and a very flexible attitude to who did what.",
       "houser": "Let me frame this from a law-enforcement perspective. Every one of your uncles is one traffic stop from a very long weekend, and I decide what's in the trunk when we open it.",
-      "coen": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either."
+      "coen": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either.",
+      "retiredText": "Your people need to calm down."
     },
     {
       "cue": "vo.sf.opening.7",
       "character": "player",
-      "current": "You hit me.",
+      "current": "You broke my jaw outside a hospital and then filed it as resisting. I've read the report. It's beautiful. You should write books.",
       "why": "Playground. The player is looking at the cop who broke his jaw and this is what comes out.",
       "house": "You broke my jaw on a wet sidewalk while two of your guys held my arms.",
       "tarantino": "You broke my jaw. Outside a hospital. With a flashlight. And then you got back in the car and finished your coffee, which is the part I keep coming back to.",
       "mcdonagh": "You broke my jaw, you fat fuck. I've a plate in it. Sets off the machine at the airport.",
       "houser": "You broke my jaw outside a hospital and then filed it as resisting. I've read the report. It's beautiful. You should write books.",
-      "coen": "You hit me. In the face. With a flashlight. I don't know that anybody's mentioned that yet tonight."
+      "coen": "You hit me. In the face. With a flashlight. I don't know that anybody's mentioned that yet tonight.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "You broke my jaw outside a hospital and then filed it as resisting. I've read the report. It's beautiful. You should write books.",
+      "retiredText": "You hit me."
     },
     {
       "cue": "vo.sf.opening.8",
@@ -100,7 +118,8 @@
       "tarantino": "You were standing in a hospital corridor at two in the morning telling me about my job. In my experience, that's a conversation that ends the same way every time, and this time it ended with a flashlight.",
       "mcdonagh": "You were in my way. And you'd a mouth on you. And I'd had a long day, so between the three of us, somethin' had to give.",
       "houser": "You were obstructing an officer, and I want you to know I have four witnesses who'd swear to it under oath and one of them's a priest.",
-      "coen": "Well, you were being difficult. And I'd had a long shift. I'm not proud of it. But I'd do it again, is the honest truth."
+      "coen": "Well, you were being difficult. And I'd had a long shift. I'm not proud of it. But I'd do it again, is the honest truth.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.opening.9",
@@ -111,7 +130,8 @@
       "tarantino": "Three things. The servers. The skin market. And Wednesdays. That's it. That's the whole list. I'm not asking for the jerky — I don't want the jerky, the jerky is a nightmare, God bless whoever handles the jerky.",
       "mcdonagh": "The servers, the skins, and Wednesdays. And before you say it — no, I don't want the jerky. I've seen where it comes from.",
       "houser": "I want the servers, the skin market, and Wednesday nights. That's infrastructure, retail, and footfall. Everything else you can keep, including the meat, which I want on record I have never eaten.",
-      "coen": "I'd want the servers. The skin market. And the Wednesdays. That's — that's the ask. I've written it down if you want to see it written down."
+      "coen": "I'd want the servers. The skin market. And the Wednesdays. That's — that's the ask. I've written it down if you want to see it written down.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.opening.10",
@@ -122,40 +142,50 @@
       "tarantino": "Wednesday's not a night. Wednesday's the whole thing. Wednesday is why there's a roof on my aunt's place and why nobody in my family has ever had a real job. You're not asking for a night, you're asking for the last forty years.",
       "mcdonagh": "Wednesday's ours. Wednesday's been ours since before you'd a second shoe.",
       "houser": "Wednesday isn't a night, it's a revenue stream, and you know it, which is why you put it last like it was an afterthought.",
-      "coen": "Wednesdays are the family's. That's — that's been the case a long time. Longer than you've been around, and I mean that respectfully."
+      "coen": "Wednesdays are the family's. That's — that's been the case a long time. Longer than you've been around, and I mean that respectfully.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.opening.11",
       "character": "sal",
-      "current": "Everything belongs to someone until it changes hands.",
+      "current": "Belongs. That's a beautiful word. My father used it about a farm in Calabria that has had six owners since he said it. Things don't belong to people. Things sit with people, for a while, until somebody with more men wants them to sit somewhere else.",
       "why": "Fortune cookie. It is trying to be the scene's cold thesis line and instead sounds like a magnet on a fridge.",
       "house": "Everything belongs to somebody right up until somebody stronger wants it. That's not philosophy, kid, that's just Tuesday.",
       "tarantino": "Belongs. That's a beautiful word. My father used it about a farm in Calabria that has had six owners since he said it. Things don't belong to people. Things sit with people, for a while, until somebody with more men wants them to sit somewhere else.",
       "mcdonagh": "Everything belongs to somebody. And then it doesn't. That's the whole of history, that is, and I've not even finished me drink.",
       "houser": "Ownership is a story people agree to tell. And I'm here to tell you the room has stopped agreeing.",
-      "coen": "Well. Things belong to folks until they don't. That's about the size of it. I didn't make the rule."
+      "coen": "Well. Things belong to folks until they don't. That's about the size of it. I didn't make the rule.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "Belongs. That's a beautiful word. My father used it about a farm in Calabria that has had six owners since he said it. Things don't belong to people. Things sit with people, for a while, until somebody with more men wants them to sit somewhere else.",
+      "retiredText": "Everything belongs to someone until it changes hands."
     },
     {
       "cue": "vo.sf.opening.12",
       "character": "sal",
-      "current": "Help me, Prospect. The Sasquatches keep their territory. I get a percentage.",
+      "current": "Help me, kid. Your family keeps the name, keeps the corners, keeps the funerals small. I take a slice off the top and nobody has to bury anybody they like.",
       "why": "The actual pitch, and it has no seduction in it. Sal is asking a kid to betray his father's house; he should make it sound like mercy.",
       "house": "Help me, kid. Your family keeps the name, keeps the corners, keeps the funerals small. I take a slice off the top and nobody has to bury anybody they like.",
       "tarantino": "Here's what I'm actually offering you, and I want you to hear it without your uncle's voice in your ear. Your family keeps everything. The name, the territory, the whole ugly circus. I take a percentage off the top and in exchange, nobody else in your family has to learn what a colostomy bag is. That's not a threat. That's the single most generous thing anybody has said to you this year.",
       "mcdonagh": "Help me out, son. Your lot keep the lot. I take a cut. And the shootin' stops, which I'd have thought was the headline, but nobody ever leads with it.",
       "houser": "I'm offering you a licensing arrangement. You retain the brand, the territory, and all the charming regional character. I take a percentage and provide what I'd call stability, which in your industry means your mother doesn't get a phone call.",
-      "coen": "Help me out here. You folks keep your territory. I take a percentage. Everybody goes home. It's not complicated, and I'd hate for it to become complicated."
+      "coen": "Help me out here. You folks keep your territory. I take a percentage. Everybody goes home. It's not complicated, and I'd hate for it to become complicated.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "Help me, kid. Your family keeps the name, keeps the corners, keeps the funerals small. I take a slice off the top and nobody has to bury anybody they like.",
+      "retiredText": "Help me, Prospect. The Sasquatches keep their territory. I get a percentage."
     },
     {
       "cue": "vo.sf.opening.13",
       "character": "player",
-      "current": "What percentage?",
+      "current": "How big a slice are we calling a percentage?",
       "why": "Fine as a beat but too small a hook for the reply it sets up; the kid can put a little teeth on it.",
       "house": "How big a slice are we calling a percentage?",
       "tarantino": "Percentage. Okay. See, a percentage is a number. So say the number.",
       "mcdonagh": "What percentage? And don't say 'a fair one,' I'll lose me mind.",
       "houser": "Define percentage. Because in my experience that word does a lot of heavy lifting for men with your job.",
-      "coen": "What percentage would that be? Just — ballpark. For my own information."
+      "coen": "What percentage would that be? Just — ballpark. For my own information.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "How big a slice are we calling a percentage?",
+      "retiredText": "What percentage?"
     },
     {
       "cue": "vo.sf.opening.14",
@@ -166,18 +196,22 @@
       "tarantino": "Enough that you'll notice. Not so much you'd die over it. I've done the math on that particular line more times than you've been alive.",
       "mcdonagh": "Enough. Next question.",
       "houser": "A meaningful one. I'll have my accountant walk you through it, and you'll hate him, everybody does.",
-      "coen": "Enough. I'd rather not put a number on it at the table."
+      "coen": "Enough. I'd rather not put a number on it at the table.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.excuse.1",
       "character": "player",
-      "current": "I need to use the bathroom.",
+      "current": "I gotta piss.",
       "why": "Functional, and it telegraphs the mechanic. The Godfather beat works because the excuse is so ordinary it embarrasses the room. Give it a body.",
       "house": "I gotta piss.",
       "tarantino": "I need the bathroom. It's the jaw — they've got me on something for it and it goes straight through me. Two minutes.",
       "mcdonagh": "I need a piss. Sorry. It's the pills for me face, they run through you somethin' shockin'.",
       "houser": "I need the men's room. And before either of you says anything clever about it — yes, it's the nerves, and yes, I'd rather go now than on your upholstery.",
-      "coen": "I need to use the restroom. I'm sorry. It's been a lot of coffee and, you know, a lot of everything."
+      "coen": "I need to use the restroom. I'm sorry. It's been a lot of coffee and, you know, a lot of everything.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "I gotta piss.",
+      "retiredText": "I need to use the bathroom."
     },
     {
       "cue": "vo.sf.excuse.2",
@@ -188,18 +222,22 @@
       "tarantino": "Go ahead. I checked it before you got here — cistern, towel dispenser, that little window nobody fits through. There's nothing in there but a bar of soap and your own reflection, and I'd say the soap's the friendlier of the two.",
       "mcdonagh": "Off you go. I checked it meself. Twice. I'm very thorough, that's me whole personality.",
       "houser": "Be my guest. I swept it personally — that's twenty-two years of policing applied to a toilet, and I want you to appreciate what that cost the taxpayer.",
-      "coen": "Sure, go ahead. We had a look in there already. Nothing to it. Wash your hands, though. That's just — that's just good practice."
+      "coen": "Sure, go ahead. We had a look in there already. Nothing to it. Wash your hands, though. That's just — that's just good practice.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.sitdown.1",
       "character": "mcclawsky",
-      "current": "Sit down, Squatch.",
+      "current": "Sit your ass down, Squatch.",
       "why": "Serviceable but generic. It is the last order he ever gives; make it his.",
       "house": "Sit your ass down, Squatch.",
       "tarantino": "Sit down. You're the tallest thing in the room and it's making the waiter nervous.",
       "mcdonagh": "Sit down, would you. You're loomin'. I hate loomin'.",
       "houser": "Sit. You're standing like a man with a plan and it's ruining my appetizer.",
-      "coen": "Why don't you sit down. You're making everybody look up, and that's — nobody enjoys that."
+      "coen": "Why don't you sit down. You're making everybody look up, and that's — nobody enjoys that.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "Sit your ass down, Squatch.",
+      "retiredText": "Sit down, Squatch."
     },
     {
       "cue": "vo.sf.wrongsearch.1",
@@ -210,7 +248,8 @@
       "tarantino": "It's supposed to be here. Behind the tank, taped, he said behind the tank. So either I'm looking at the wrong tank or somebody's about to find out how fast I can run.",
       "mcdonagh": "Where is it. Where is it. He said behind the jacks. He said it twice. I'll kill him. If I live, I'll kill him.",
       "houser": "It's not here. It's not here. Fantastic. Everybody in this organization can shoot a man in a fruit stand but nobody can tape a pistol to a toilet.",
-      "coen": "It's supposed to be here. He said it'd be here. That's what he said, and now it isn't, and I've got about forty seconds."
+      "coen": "It's supposed to be here. He said it'd be here. That's what he said, and now it isn't, and I've got about forty seconds.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.prodding.1",
@@ -221,7 +260,8 @@
       "tarantino": "Kid. You went somewhere just then. Come back.",
       "mcdonagh": "Are you with us? You've gone very still, and I don't like still.",
       "houser": "You've drifted. And in my experience, when a young man drifts at a table like this, he's either scared or he's counting, and I'd like to know which.",
-      "coen": "Son? You still with us here?"
+      "coen": "Son? You still with us here?",
+      "status": "open"
     },
     {
       "cue": "vo.sf.prodding.2",
@@ -232,29 +272,36 @@
       "tarantino": "Because I'd hate to be doing this twice. I'm not a man who enjoys saying a thing twice — ask anybody who used to work for me.",
       "mcdonagh": "Am I talkin' to meself here? I might as well be talkin' to the fuckin' napkin.",
       "houser": "I'm going to need engagement. This is the biggest conversation of your life and you're looking at the salt.",
-      "coen": "Are you hearing me? Because I've said it now and I'd rather not have said it for nothing."
+      "coen": "Are you hearing me? Because I've said it now and I'd rather not have said it for nothing.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.final.1",
       "character": "sal",
-      "current": "So. Do we have an understanding?",
+      "current": "So. Do we have an understanding, or do I finish my drink and make some calls?",
       "why": "Close to right, but it is the beat before the killing and it should feel like a hand being offered over a table with blood already on it.",
       "house": "So. Do we have an understanding, or do I finish my drink and make some calls?",
       "tarantino": "So. Understanding. That's the word we're using. Do we have one, or do I finish this and go make three phone calls I'd genuinely rather not make?",
       "mcdonagh": "So. Are we grand, or are we not grand? Because I've a table booked elsewhere at ten and one way or the other I'm makin' it.",
       "houser": "So. Are we aligned? And I want a yes or a no, not one of those beautiful family answers where nobody's said anything.",
-      "coen": "So. Do we have an understanding here? Because I'd like to think we do. I'd like to go home thinking we do."
+      "coen": "So. Do we have an understanding here? Because I'd like to think we do. I'd like to go home thinking we do.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "So. Do we have an understanding, or do I finish my drink and make some calls?",
+      "retiredText": "So. Do we have an understanding?"
     },
     {
       "cue": "vo.sf.final.2",
       "character": "player",
-      "current": "I understand.",
+      "current": "We understand each other.",
       "why": "It is meant to be the lie the kid tells with a gun already in his belt. As written there is nothing under it.",
       "house": "We understand each other.",
       "tarantino": "I understand you completely. That's the first true thing anybody's said at this table.",
       "mcdonagh": "I understand you. I do. I understand you perfectly.",
       "houser": "I understand. I understand exactly what's on offer and exactly what it costs.",
-      "coen": "I understand. Yeah. I think I've got the shape of it now."
+      "coen": "I understand. Yeah. I think I've got the shape of it now.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "We understand each other.",
+      "retiredText": "I understand."
     },
     {
       "cue": "vo.sf.final.3",
@@ -265,7 +312,8 @@
       "tarantino": "Good. You keep the name. And don't underrate that — the name's the only thing in this business nobody can take off you with a car and four men.",
       "mcdonagh": "Good man. You keep the name. Everyone loves a name. Sure the name's half the fun of it.",
       "houser": "Excellent. You retain the name, the heritage, the whole beautiful folk mythology. I'm not a barbarian, I'm a partner.",
-      "coen": "Good. Good. You keep the name. That's important to folks, and I respect that. I do."
+      "coen": "Good. Good. You keep the name. That's important to folks, and I respect that. I do.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.final.4",
@@ -276,7 +324,8 @@
       "tarantino": "And everybody walks away happy. Which is rare. In twenty-two years I have been at maybe four tables where everybody walked away happy, and two of those I was lying.",
       "mcdonagh": "And everyone goes home happy. Well. Happy-ish. Happy enough, which is the most anyone gets.",
       "houser": "And everybody walks away happy, and I get to expense the veal. This is what community policing looks like.",
-      "coen": "And everybody walks away happy. That's the goal. That's always been the goal, whatever anybody says about me."
+      "coen": "And everybody walks away happy. That's the goal. That's always been the goal, whatever anybody says about me.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.final.5",
@@ -287,18 +336,22 @@
       "tarantino": "Go home. Tell your people it's settled. And tell your uncle — tell him Sal asked after him. He'll make a face. Let him make the face.",
       "mcdonagh": "Tell your lot it's sorted. And tell your uncle I was askin' for him. He'll not like that, which is why I'm sayin' it.",
       "houser": "Take the good news home. Tell them it's settled, tell them it was amicable, and tell your uncle his health is very much on my mind.",
-      "coen": "You go on and tell your people it's settled. And — you know. Give my best to your uncle. Sincerely."
+      "coen": "You go on and tell your people it's settled. And — you know. Give my best to your uncle. Sincerely.",
+      "status": "open"
     },
     {
       "cue": "vo.sf.final.6",
       "character": "player",
-      "current": "It is.",
+      "current": "Consider it settled.",
       "why": "The trigger line. Two words is right, but 'It is' is limp. It needs to be the last thing Sal hears and sound like a door closing.",
       "house": "It's settled.",
       "tarantino": "Yeah. It's settled.",
       "mcdonagh": "It's sorted.",
       "houser": "Consider it settled.",
-      "coen": "It's settled. Yeah."
+      "coen": "It's settled. Yeah.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "Consider it settled.",
+      "retiredText": "It is."
     }
   ]
 }

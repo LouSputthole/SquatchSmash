@@ -121,7 +121,7 @@ function main() {
       mcdonagh: p.mcdonagh ?? '',
       houser: p.houser ?? '',
       coen: p.coen ?? '',
-      pick: '',
+      pick: p.status ?? '',
       notes: p.why ?? '',
       };
     });

@@ -301,7 +301,7 @@ export const SEQUENCES = Object.freeze({
     // spec
     { speaker: 'PROSPECT', text: 'What’s inside?', cue: cue('office', 'prospect.whatsinside'), hold: 1.6 },
     // spec
-    { speaker: 'LOU', text: 'Eh. You’ll find out soon enough.', cue: cue('office', 'lou.soonenough'), hold: 2.6 },
+    { speaker: 'LOU', text: 'You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.', cue: cue('office', 'lou.soonenough'), hold: 2.6 },
     { speaker: 'HUD', stage: 'case.close', hold: 1.6 },
     // spec
     { speaker: 'LOU', text: 'Go deliver it to Booski. He’s in the basement.', cue: cue('office', 'lou.deliverittobooski'), hold: 3.2 },
@@ -552,7 +552,7 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'AUBBIE', text: 'What is this?', cue: cue('lock', 'aubbie.whatisthis'), hold: 1.8 },
     { speaker: 'HUD', stage: 'booski.silent', hold: 1.8 },
     // spec
-    { speaker: 'BOOSKI', text: 'This guy’s usefulness has expired.', cue: cue('lock', 'booski.usefulnessexpired'), hold: 3.0 },
+    { speaker: 'BOOSKI', text: 'He’s finished. He’s not a scientist any more, he’s a witness with a doctorate.', cue: cue('lock', 'booski.usefulnessexpired'), hold: 3.0 },
     // spec
     { speaker: 'BOOSKI', text: 'Handle it.', cue: cue('lock', 'booski.handleit'), hold: 1.6 },
   ]),
@@ -568,7 +568,7 @@ export const SEQUENCES = Object.freeze({
     // spec
     { speaker: 'AUBBIE', text: 'You do not understand what you have built!', cue: cue('execution', 'aubbie.whatyouhavebuilt'), hold: 3.4 },
     // spec
-    { speaker: 'BOOSKI', text: 'I said handle it.', cue: cue('execution', 'booski.isaidhandleit'), hold: 2.0 },
+    { speaker: 'BOOSKI', text: 'I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.', cue: cue('execution', 'booski.isaidhandleit'), hold: 2.0 },
   ]),
   executionStallAubbie: Object.freeze([
     { speaker: 'AUBBIE', text: 'Boy. Look at me. You do not have to do this.', cue: cue('execution', 'aubbie.lookatme'), hold: 3.6 },
@@ -605,7 +605,7 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'MARCHUK', text: 'There is no ventilation!', cue: cue('reaction', 'marchuk.noventilation'), hold: 2.0, muffled: true }, // spec
     { speaker: 'ORLOVA', text: 'We have families!', cue: cue('reaction', 'orlova.wehavefamilies'), hold: 1.8, muffled: true }, // spec
     { speaker: 'SOKOLOV', text: 'You cannot leave us in here!', cue: cue('reaction', 'sokolov.cannotleaveus'), hold: 2.4, muffled: true }, // spec
-    { speaker: 'VETROV', text: 'We can work for you!', cue: cue('reaction', 'vetrov.canworkforyou'), hold: 2.0, muffled: true }, // spec
+    { speaker: 'VETROV', text: 'We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.', cue: cue('reaction', 'vetrov.canworkforyou'), hold: 2.0, muffled: true }, // spec
     { speaker: 'ORLOVA', text: 'We will tell nobody!', cue: cue('reaction', 'orlova.tellnobody'), hold: 2.0, muffled: true }, // spec
   ]),
   /* One of them takes a metal chair to the glass. The chair bends. The glass
@@ -886,14 +886,14 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'GUARD_BASEMENT', text: 'Nothing down here belongs to you.', cue: cue('guards', 'basement.nothingyours'), hold: 2.6 },
   ]),
   guardBasementIdle: Object.freeze([
-    { speaker: 'GUARD_BASEMENT', text: 'Keep walking.', cue: cue('guards', 'basement.keepwalking'), hold: 1.4 },
+    { speaker: 'GUARD_BASEMENT', text: 'Keep walking. Whatever you heard down here, you heard the boiler.', cue: cue('guards', 'basement.keepwalking'), hold: 1.4 },
   ]),
   /* Eleven inches of steel, standing open, and a man in front of it. */
   guardVaultBark: Object.freeze([
     { speaker: 'GUARD_VAULT', text: 'The door stays open. I stay here. That’s the arrangement.', cue: cue('guards', 'vault.arrangement'), hold: 4.2 },
   ]),
   guardVaultIdle: Object.freeze([
-    { speaker: 'GUARD_VAULT', text: 'Back up.', cue: cue('guards', 'vault.backup'), hold: 1.4 },
+    { speaker: 'GUARD_VAULT', text: 'Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.', cue: cue('guards', 'vault.backup'), hold: 1.4 },
   ]),
 
   /* ---- The bar in the billiard bay. -----------------------------------

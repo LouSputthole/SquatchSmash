@@ -1,0 +1,269 @@
+{
+  "comment": [
+    "Lines whose words changed after they had already been recorded.",
+    "",
+    "`lines` is stamped onto assets/sfx/manifest.json as `needsRerecord` by",
+    "tools/rerecord-queue.mjs, which runs at the end of `npm run vo:sync`. It has",
+    "to live here rather than in the manifest because most of these cues are",
+    "generated -- a scene's *-vo.mjs rewrites its whole block, and a flag written",
+    "into the manifest by hand is silently dropped the next time anybody syncs.",
+    "",
+    "`retired` is the other half of the same pass: cue ids under vo.bing.full.* and",
+    "vo.silver.* embed a hash of the line, so changing the words changes the id and",
+    "therefore the filename. Those need no flag -- the new id has no recording, so it",
+    "surfaces in VOICE-LINES-NEEDED.md on its own. They are listed for provenance,",
+    "and because their old takes were deleted as orphans.",
+    "",
+    "Remove a line from `lines` once its replacement take is indexed."
+  ],
+  "lines": [
+    {
+      "cue": "vo.bj.dealer.bust.3",
+      "retiredText": "That is a bust. Sorry.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.enolasquatch.prospect.release-1.1",
+      "retiredText": "Send them the Fat Squatch.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.enolasquatch.prospect.release-3.1",
+      "retiredText": "Lou sends his regards.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.vetrov.canworkforyou",
+      "retiredText": "We can work for you!",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.silentsquatch.lock.booski.usefulnessexpired",
+      "retiredText": "This guy’s usefulness has expired.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.silentsquatch.execution.booski.isaidhandleit",
+      "retiredText": "I said handle it.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.silentsquatch.guards.basement.keepwalking",
+      "retiredText": "Keep walking.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.silentsquatch.guards.vault.backup",
+      "retiredText": "Back up.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.silentsquatch.office.lou.soonenough",
+      "retiredText": "Eh. You’ll find out soon enough.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.graveyard.snow.done",
+      "retiredText": "That closes the HotDog incident. The Motel does not close this easy.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.door.hint.piss.1",
+      "retiredText": "Stand over it, hold F, and stop overthinking it.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.door.hint.shower.1",
+      "retiredText": "Through the north door. Get in it.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.door.refusal.final_arc_locked.1",
+      "retiredText": "The bank is done. The next call is not here yet.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.photo.1",
+      "retiredText": "Ahh. What a good time.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.margo.comehome.dress.1",
+      "retiredText": "The zip. Come here. That is not a request — I am not sleeping in this dress.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.call.lou.attaboy.3",
+      "retiredText": "Keep doing work like that and there is a bright future for you here.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.call.lou.bada_bing.3",
+      "retiredText": "I have a package for you, and I need it handled tonight.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "radio.ident.uncle",
+      "retiredText": "You're locked in to Uncle Squatch Beats. Ninety eight point eight. Take it easy.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.silver.margo.invitation.polite",
+      "retiredText": "That’s kind.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.golf.h1.eric.you_have_clubs",
+      "retiredText": "You have clubs.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.golf.h1.prospect.did_what_you_asked",
+      "retiredText": "I did what you asked.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.golf.h1.prospect.another_test",
+      "retiredText": "Is this another test?",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.greeting.1",
+      "retiredText": "Come on, Squatch. They're waiting.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.opening.2",
+      "retiredText": "You attacked my family.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.opening.4",
+      "retiredText": "You shot Booski.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.opening.6",
+      "retiredText": "Your people need to calm down.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.opening.7",
+      "retiredText": "You hit me.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.opening.11",
+      "retiredText": "Everything belongs to someone until it changes hands.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.opening.12",
+      "retiredText": "Help me, Prospect. The Sasquatches keep their territory. I get a percentage.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.opening.13",
+      "retiredText": "What percentage?",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.excuse.1",
+      "retiredText": "I need to use the bathroom.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.sitdown.1",
+      "retiredText": "Sit down, Squatch.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.final.1",
+      "retiredText": "So. Do we have an understanding?",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.final.2",
+      "retiredText": "I understand.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.sf.final.6",
+      "retiredText": "It is.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "heist.prospect_order_down",
+      "retiredText": "Down. Face on the floor, hands where I can see them.",
+      "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    }
+  ],
+  "retired": [
+    {
+      "cue": "vo.bing.full.bartender.open.tony.1mgwzff",
+      "replacedBy": "vo.bing.full.bartender.open.tony.1d6a7tv",
+      "retiredText": "What have you got?",
+      "newText": "What’s good back there that isn’t going to kill me?"
+    },
+    {
+      "cue": "vo.bing.full.ape.open.tony.1inst32",
+      "replacedBy": "vo.bing.full.ape.open.tony.1ms948l",
+      "retiredText": "Noted for the record.",
+      "newText": "I’ll write that on my hand."
+    },
+    {
+      "cue": "vo.bing.full.james_blond.firstQuestion.line.vsd0cn",
+      "replacedBy": "vo.bing.full.james_blond.firstQuestion.line.cf4bx8",
+      "retiredText": "Who hired you?",
+      "newText": "Let’s start with money. Not names, money. Who paid you? how, and did it clear?"
+    },
+    {
+      "cue": "vo.bing.full.james_blond.afterTheName.tony.lqrg6p",
+      "replacedBy": "vo.bing.full.james_blond.afterTheName.tony.knrqmb",
+      "retiredText": "Why didn’t you tell us before?",
+      "newText": "That was available the entire time. Every minute of the last hour was elective. I hope you understand that’s a choice you made."
+    },
+    {
+      "cue": "vo.bing.full.licenseToGrillNumbskull.open.tony.o2dhps",
+      "replacedBy": "vo.bing.full.licenseToGrillNumbskull.open.tony.1ygn69",
+      "retiredText": "You holding up, Numbskull?",
+      "newText": "You still with us, Numbskull? Blink if the answer’s no."
+    },
+    {
+      "cue": "vo.bing.full.licenseToGrillNumbskull.open.tony.1knrtgn",
+      "replacedBy": "vo.bing.full.licenseToGrillNumbskull.open.tony.1ef5x4a",
+      "retiredText": "Did you go through it properly?",
+      "newText": "Did you actually go through it, or did you look at it and get bored?"
+    },
+    {
+      "cue": "vo.bing.full.captain_lou_sasole.open.tony.qncolo",
+      "replacedBy": "vo.bing.full.captain_lou_sasole.open.tony.1n6r1j9",
+      "retiredText": "They’re alright.",
+      "newText": "They’re alive, which this week counts."
+    },
+    {
+      "cue": "vo.silver.player.invitation.open.rv6a2j",
+      "replacedBy": "vo.silver.player.invitation.open.1eak4x9",
+      "retiredText": "You want to come back for a drink?",
+      "newText": "Come back with me. There’s a bottle I’ve been saving for a reason I couldn’t name until about an hour ago."
+    },
+    {
+      "cue": "vo.silver.player.invitation.open.1i9c6n4",
+      "replacedBy": "vo.silver.player.invitation.open.10h4bhr",
+      "retiredText": "The night doesn’t have to end here.",
+      "newText": "I’m not ready for this to be over and I’m too old to pretend otherwise."
+    },
+    {
+      "cue": "vo.silver.player.waiter.open.1153o28",
+      "replacedBy": "vo.silver.player.waiter.open.c4no5p",
+      "retiredText": "We’re looked after, thanks.",
+      "newText": "We’re looked after. Go be somewhere else for twenty minutes."
+    },
+    {
+      "cue": "vo.silver.player.waiter.open.1amp4kx",
+      "replacedBy": "vo.silver.player.waiter.open.20a7ar",
+      "retiredText": "Same again, when you get a second.",
+      "newText": "Same again. And I’d like it to arrive before the conversation improves, not after."
+    }
+  ]
+}

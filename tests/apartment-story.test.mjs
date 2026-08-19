@@ -581,9 +581,10 @@ test('Lou rings once to say well done, and it gates nothing', () => {
   assert.equal(DAY_ONE_LOU_ATTABOY_CALL.vo, 'call.lou.attaboy');
   // Its own bank, or the kind words come out in the voice of the job.
   assert.notEqual(DAY_ONE_LOU_ATTABOY_CALL.vo, DAY_ONE_LOU_CALL.vo);
-  // Nowhere in the script does he say what it was.
+  // Nowhere in the script does he say what it was. Whole words only -- an
+  // unanchored `body` also matches "somebody", which is not Lou naming a job.
   for (const line of [...DAY_ONE_LOU_ATTABOY_CALL.lines, ...DAY_ONE_LOU_ATTABOY_CALL.replies]) {
-    assert.doesNotMatch(line, /squatchfather|weapon|gun|body|kill/i, line);
+    assert.doesNotMatch(line, /\b(squatchfather|weapons?|guns?|bodies|body|kill(ed|ing)?)\b/i, line);
   }
 
   /* The door and the bed are exactly where they were: answering it changes

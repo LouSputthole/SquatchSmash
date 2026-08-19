@@ -12,7 +12,8 @@
       "tarantino": "Nobody tells you it's quiet. You think it's going to be loud, and it's this. It's a man breathing through a mask and a woman's shoe squeaking on a floor.",
       "mcdonagh": "It's not like I thought. In me head there was music. There's no music. There's just this fella breathin' on me.",
       "houser": "Turns out the whole thing is admin. Stand here, count that, watch the door. Nobody mentions the admin.",
-      "coen": "Huh. It's a lot slower than you'd think. That's the part nobody mentions."
+      "coen": "Huh. It's a lot slower than you'd think. That's the part nobody mentions.",
+      "status": "open"
     },
     {
       "cue": "heist.shubes_signature_cleanup",
@@ -23,7 +24,8 @@
       "tarantino": "Hey. Sorry. Am I early? Because Snow said four, and it's four, but everybody's got a face on, so I'm getting the sense four was wrong.",
       "mcdonagh": "Howya. Am I interruptin'? I am, amn't I. I'll come back. I'll not come back, I'll just stand here quietly.",
       "houser": "Hey, guys. Big energy in here. Is this a debrief? Should I not be at the debrief? Nobody adds me to things.",
-      "coen": "Hey there. Everything all right? Because it doesn't seem all right, and I'd just as soon come back later."
+      "coen": "Hey there. Everything all right? Because it doesn't seem all right, and I'd just as soon come back later.",
+      "status": "open"
     },
     {
       "cue": "heist.prospect_ready",
@@ -34,18 +36,22 @@
       "tarantino": "I'm ready. I've been ready for about forty minutes, which I'm now realising is a completely different thing from being ready.",
       "mcdonagh": "I'm set. Vest, mags, the whole lot. And I've been sick twice, but I'm set.",
       "houser": "Vest on, mags full, plan understood. And I want it on record I have never done anything like this and I am doing it anyway.",
-      "coen": "I'm ready. Everything's on, everything's full. I heard the plan twice. I'd hear it a third time if there was time."
+      "coen": "I'm ready. Everything's on, everything's full. I heard the plan twice. I'd hear it a third time if there was time.",
+      "status": "open"
     },
     {
       "cue": "heist.prospect_order_down",
       "character": "player",
-      "current": "Down. Face on the floor, hands where I can see them.",
+      "current": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice.",
       "why": "Robbery-command boilerplate. This is the kid's first time raising his voice at civilians — it should be too loud, badly pitched, and frightening because of that.",
       "house": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice.",
       "tarantino": "Everybody down. Face down, hands flat, and look at the carpet. Look at the carpet and count. That's the whole job — you count, I count, we all go home.",
       "mcdonagh": "Down! Get down! Faces down, hands out, and not one of yiz look at me. I mean it. Don't look at me.",
       "houser": "On the floor. Face down, hands out, phones stay in the pocket. This is a robbery, not a live event.",
-      "coen": "Everybody down on the floor, please. Face down. Hands out where I can see them. Please."
+      "coen": "Everybody down on the floor, please. Face down. Hands out where I can see them. Please.",
+      "status": "ACCEPTED 2026-08-19",
+      "picked": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice.",
+      "retiredText": "Down. Face on the floor, hands where I can see them."
     },
     {
       "cue": "heist.prospect_mask_on",
@@ -56,7 +62,8 @@
       "tarantino": "Mask's down. And here's a thing nobody mentions — you can hear yourself. That's all you can hear. Just you, in there, breathing.",
       "mcdonagh": "Mask's on. I can see grand. I can hear me own heart, which is new.",
       "houser": "Mask down. Visibility's fine. Everything else about me is a work in progress.",
-      "coen": "Mask's down. I can see okay. It's warm in here, is all."
+      "coen": "Mask's down. I can see okay. It's warm in here, is all.",
+      "status": "open"
     },
     {
       "cue": "heist.guard_warning",
@@ -67,7 +74,8 @@
       "tarantino": "Stop. Stop right there. I want you to know I'm not supposed to engage. There's a card in my wallet that says I'm not supposed to engage. And here I am.",
       "mcdonagh": "Stop where you are! Hands up! I've a card in me wallet says I'm not to do this, and here I am doin' it.",
       "houser": "Stop. Hands up. I earn eleven dollars an hour and I am about to earn every one of them.",
-      "coen": "Hold it right there. Hands up, please. I'd rather not — let's just, let's not have this go the other way."
+      "coen": "Hold it right there. Hands up, please. I'd rather not — let's just, let's not have this go the other way.",
+      "status": "open"
     },
     {
       "cue": "heist.lou_debrief_people_dirty",
@@ -78,7 +86,8 @@
       "tarantino": "You know what you did. A woman came in on her lunch break to cash a cheque, and she is not going back to work. Now here's the part you're not thinking about. Nobody looks for money. Everybody looks for a body. You didn't rob a bank today. You made a bank into a place where somebody died, and that has a memory on it like nothing else in this business.",
       "mcdonagh": "Some poor woman came in to cash a cheque and went out under a sheet. D'you know what that is? That's twenty years. That's twenty years of every guard in this state havin' a photo of her on a wall and your name under it.",
       "houser": "A customer came in to cash a cheque and left in a bag. Do you understand what you've done to the risk profile of this entire organization? You have converted a property crime into a homicide, and homicide has no statute of limitations and no sense of humour.",
-      "coen": "Somebody came in to cash a cheque. And she didn't go home. That's the thing that stays. The money goes. That stays."
+      "coen": "Somebody came in to cash a cheque. And she didn't go home. That's the thing that stays. The money goes. That stays.",
+      "status": "open"
     },
     {
       "cue": "heist.lou_debrief_verdict_good",
@@ -89,7 +98,8 @@
       "tarantino": "Then it was a good day. Nobody hurt, every number matched, and by Thursday it's a paragraph on page eleven that nobody finishes. You know how rare that is? I've been doing this forty years and I can count the clean ones on one hand. Go home. Sleep badly. That part never stops.",
       "mcdonagh": "Then it was a good day. Nobody hurt, everythin' counted, and by Thursday it's a paragraph no one reads. Good lad. Now go home and don't be gettin' fond of it.",
       "houser": "Then that's a good day. No casualties, full reconciliation, and a media footprint of one paragraph. That's not luck, that's execution. Go home, and don't let anybody buy you a drink for it.",
-      "coen": "Then it was a good day. Nobody hurt. Everything counted. Tomorrow it's a paragraph nobody reads. That's about as good as it gets, in this line."
+      "coen": "Then it was a good day. Nobody hurt. Everything counted. Tomorrow it's a paragraph nobody reads. That's about as good as it gets, in this line.",
+      "status": "open"
     },
     {
       "cue": "heist.prospect_debrief",
@@ -100,7 +110,8 @@
       "tarantino": "First one. I did what Snow said, when Snow said it, and I didn't make anything worse. I keep saying that in my head like it's an achievement. I don't know if it's an achievement.",
       "mcdonagh": "First one. I moved when I was told and I made nothin' worse. That's the whole of me report, so it is.",
       "houser": "First job. I followed Snow, I hit my marks, and I contributed nothing anybody will remember, which I'm told is the ideal outcome.",
-      "coen": "It was my first one. I moved when Snow said move. I didn't make anything worse. I don't know what else you want from me on that."
+      "coen": "It was my first one. I moved when Snow said move. I didn't make anything worse. I don't know what else you want from me on that.",
+      "status": "open"
     },
     {
       "cue": "heist.prospect_home",
@@ -111,7 +122,8 @@
       "tarantino": "We got out. Everybody came home. And I'm sitting in a car outside my own building and I can't make myself open the door.",
       "mcdonagh": "We got out. Everyone's home. And I've not stopped shakin' since the second car.",
       "houser": "We're out, everybody's home, and I've just realised I'm still wearing the vest.",
-      "coen": "We got out. Everybody came home. That's — I keep saying that. I've said it about four times now."
+      "coen": "We got out. Everybody came home. That's — I keep saying that. I've said it about four times now.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.snow.4wspkp.1",
@@ -122,7 +134,8 @@
       "tarantino": "Here's the whole night. You buy the meat. You get in the car. Anything you say in between those two things is a mistake you haven't made yet.",
       "mcdonagh": "Buy the meat. Get in the car. And whatever you're plannin' on sayin' — don't. I can see you plannin' it.",
       "houser": "Transaction, then exit. No conversation, no negotiation, no personality. You're a wallet with legs tonight.",
-      "coen": "You buy the meat and then you leave. That's it. No speeches. People get hurt in the speeches."
+      "coen": "You buy the meat and then you leave. That's it. No speeches. People get hurt in the speeches.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.snow.gqd56p.1",
@@ -133,7 +146,8 @@
       "tarantino": "Buy. Leave. And I've now said it twice, which means I've seen something in you I don't like.",
       "mcdonagh": "Buy. Leave. No speeches. That's twice. There'll not be a third, there'll just be me disappointed in a car.",
       "houser": "Buy. Leave. And I'm repeating myself, which is a thing I do exactly once before I stop bringing somebody places.",
-      "coen": "Buy it. Leave. No speeches. I've said that now. I'd hate to have said it for nothing."
+      "coen": "Buy it. Leave. No speeches. I've said that now. I'd hate to have said it for nothing.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.rico.1l3y0w1.1",
@@ -144,7 +158,8 @@
       "tarantino": "Meat first. Money second. And before you tell me that's backwards — it is backwards. It's backwards on purpose, because the last man who did it the right way round is in a lake.",
       "mcdonagh": "Meat first, money second. That's how it goes. Ask me why and I'll tell you about a fella in a lake.",
       "houser": "Product first, payment second. Non-negotiable. I lost a lot of money learning that order and I'm not paying that tuition twice.",
-      "coen": "Meat first. Then the money. That's how we do it here. It's not how everybody does it. It's how we do it."
+      "coen": "Meat first. Then the money. That's how we do it here. It's not how everybody does it. It's how we do it.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.snow.8x9w8s.1",
@@ -155,7 +170,8 @@
       "tarantino": "Room twelve. He's going to say meat first, money second, like he invented it. He didn't. Everybody says it. Let him have it.",
       "mcdonagh": "Room twelve. He'll give you the meat-first-money-second speech. Nod along. He does love that speech.",
       "houser": "Room twelve. He'll recite his little order-of-operations at you like it's a founding document. Let him finish, it's shorter that way.",
-      "coen": "Room twelve. He'll tell you meat first, money second. Just let him say it. He likes to say it."
+      "coen": "Room twelve. He'll tell you meat first, money second. Just let him say it. He likes to say it.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.prospect.m5c7so.1",
@@ -166,7 +182,8 @@
       "tarantino": "No. I'm motel inspection. County. And before you ask — no, I don't have a clipboard, because the county took the clipboards, which is its own scandal I'm not getting into with you in a doorway.",
       "mcdonagh": "No. Motel inspection. And before you start — I know I don't look like it. Nobody looks like it. That's the whole point of it.",
       "houser": "No. Motel inspection. County health, hospitality division. I'm here about the ice machine, the linens, and whatever is happening in your parking lot, which we'll get to.",
-      "coen": "No. I'm motel inspection. County. It's a — it's a real job. People are always surprised."
+      "coen": "No. I'm motel inspection. County. It's a — it's a real job. People are always surprised.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.prospect.15g7pb6.1",
@@ -177,7 +194,8 @@
       "tarantino": "I'll stand, thanks. An inspector who sits down isn't inspecting, he's visiting. Different form entirely.",
       "mcdonagh": "I'll stand. Inspectors stand. That's the difference between an inspection and a chat.",
       "houser": "I'll remain standing. Seated inspections are a different form and a different fee, and neither of us wants that conversation.",
-      "coen": "I'll stand, if it's all the same. That's how it's done. Standing."
+      "coen": "I'll stand, if it's all the same. That's how it's done. Standing.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.prospect.1sf6znk.1",
@@ -188,7 +206,8 @@
       "tarantino": "That's business. And I know how that sounds coming out of me. I've been in this eleven weeks and I'm quoting people at you. But it's still true.",
       "mcdonagh": "That's business. I'm told. I've only been at it a wet week, but that's what they keep sayin'.",
       "houser": "That's the arrangement. I didn't write it, I just have to stand here in a bad room and enforce it.",
-      "coen": "That's how it works. I didn't come up with it. But that's how it works."
+      "coen": "That's how it works. I didn't come up with it. But that's how it works.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.chino.17xspfp.1",
@@ -199,7 +218,8 @@
       "tarantino": "Stand there. Right there, where the light is. I like to see a man's hands and I like to see his shoes, and I'll tell you why some other time.",
       "mcdonagh": "Stand where I can see you. And keep your hands out of that coat, you're makin' me curious and I'm awful when I'm curious.",
       "houser": "Stand there where the light is. Hands out of the jacket. This is a very simple room and I'd like to keep it that way.",
-      "coen": "Stand right there where I can see you. Hands out. It's easier for everybody."
+      "coen": "Stand right there where I can see you. Hands out. It's easier for everybody.",
+      "status": "open"
     },
     {
       "cue": "vo.motel.rico.11fionc.1",
@@ -210,7 +230,8 @@
       "tarantino": "It's not worth it. Look at me. Look at what we're doing. It's dried meat. We are all going to die in a motel over dried meat.",
       "mcdonagh": "It's not worth it! It's jerky! We're all goin' to be shot over jerky and I'll not have that on me headstone!",
       "houser": "It's not worth it! It's a commodity! It's a low-margin commodity and none of us are insured!",
-      "coen": "It's not worth it. It's really not. It's meat. It's just — it's meat, fellas."
+      "coen": "It's not worth it. It's really not. It's meat. It's just — it's meat, fellas.",
+      "status": "open"
     },
     {
       "cue": "vo.beefrun.prospect.approach.falls-2.1",
@@ -221,7 +242,8 @@
       "tarantino": "Yeah. I'm looking right at it and I still don't believe it.",
       "mcdonagh": "I do, aye. I wish I didn't, but I do.",
       "houser": "Affirmative, and I'd like it noted I saw it and said nothing for a full ten seconds.",
-      "coen": "Yeah. Yeah, I see it. Huh."
+      "coen": "Yeah. Yeah, I see it. Huh.",
+      "status": "open"
     },
     {
       "cue": "vo.beefrun.prospect.cruise.what-1.1",
@@ -232,7 +254,8 @@
       "tarantino": "So what are we picking up. And I want you to answer that without using the word meat, because every time somebody says meat in this outfit it turns out not to be meat.",
       "mcdonagh": "What are we pickin' up? And don't say meat. Every time someone says meat I end up carryin' somethin' I'd rather not.",
       "houser": "What is the actual cargo? And I'd appreciate the real answer, not the customs answer.",
-      "coen": "What are we picking up, exactly? I only ask because it's my name on the flight plan."
+      "coen": "What are we picking up, exactly? I only ask because it's my name on the flight plan.",
+      "status": "open"
     },
     {
       "cue": "vo.beefrun.prospect.cruise.photo-2.1",
@@ -243,7 +266,8 @@
       "tarantino": "Explain to me how a photograph is illegal. Not a gun. Not a body. A photograph.",
       "mcdonagh": "How's a photo illegal? It's a photo. Of what? Of who?",
       "houser": "It's a photograph. What jurisdiction on earth makes a photograph a felony, and how much are we getting paid for it?",
-      "coen": "Why would that be illegal? It's a picture. I don't — okay."
+      "coen": "Why would that be illegal? It's a picture. I don't — okay.",
+      "status": "open"
     },
     {
       "cue": "vo.beefrun.prospect.turb.sick-2.1",
@@ -254,7 +278,8 @@
       "tarantino": "I don't know how. Nobody showed me. There was a whole afternoon where somebody could have shown me and instead we talked about jerky.",
       "mcdonagh": "I don't know how! Nobody showed me! We'd a full afternoon and we spent it talkin' about meat!",
       "houser": "I don't know how. This was not in the onboarding, and I want you to sit with the fact that there was no onboarding.",
-      "coen": "I don't know how to do that. Nobody told me. That's not — I'm not being difficult, I just don't know how."
+      "coen": "I don't know how to do that. Nobody told me. That's not — I'm not being difficult, I just don't know how.",
+      "status": "open"
     },
     {
       "cue": "vo.beefrun.prospect.cecilio.silence-3.1",
@@ -265,7 +290,8 @@
       "tarantino": "Understood. And I want you to know I will never say that word in this vehicle again as long as I live.",
       "mcdonagh": "Understood. I'll never say it again. Not once. Not even in me head.",
       "houser": "Understood. Noted. Internalized. I will die before I use that word incorrectly in front of you again.",
-      "coen": "Understood. I won't bring it up again. That's my mistake."
+      "coen": "Understood. I won't bring it up again. That's my mistake.",
+      "status": "open"
     },
     {
       "cue": "vo.beefrun.prospect.end.crew-3.1",
@@ -276,7 +302,8 @@
       "tarantino": "You want a hand with that? Or is this one of those things where I help and then I know something.",
       "mcdonagh": "D'you want a hand? Or am I better off lookin' at that tree for a bit?",
       "houser": "Do you need help, or would helping make me a participant? Because I'm learning those are different.",
-      "coen": "You want a hand with that? I don't mind. I'd just as soon be useful."
+      "coen": "You want a hand with that? I don't mind. I'd just as soon be useful.",
+      "status": "open"
     }
   ]
 }

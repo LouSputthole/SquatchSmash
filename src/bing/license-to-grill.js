@@ -508,7 +508,7 @@ export function buildLicenseToGrillScript({
     /* ---------------- the first round is on rails ---------------- */
     firstQuestion: {
       who: PROSPECT,
-      line: 'Who hired you?',
+      line: 'Let’s start with money. Not names, money. Who paid you? how, and did it clear?',
       hold: 2.2,
       next: 'persuasive',
     },
@@ -1011,7 +1011,7 @@ export function buildLicenseToGrillScript({
       who: GRATIN,
       line: 'Anything else you want to ask him while he’s being helpful?',
       options: [
-        { tone: 'Ask', text: 'Why didn’t you tell us before?', next: 'whyNot' },
+        { tone: 'Ask', text: 'That was available the entire time. Every minute of the last hour was elective. I hope you understand that’s a choice you made.', next: 'whyNot' },
         { tone: 'Done', text: 'Nothing. We’re finished here.', next: 'endings' },
       ],
     },
@@ -1333,10 +1333,10 @@ export function buildLicenseToGrillScript({
       options: () => {
         const options = [
           { tone: 'Ask', text: 'Anything on there worth anything?', next: 'worth' },
-          { tone: 'Ask', text: 'You holding up, Numbskull?', next: 'holding' },
+          { tone: 'Ask', text: 'You still with us, Numbskull? Blink if the answer’s no.', next: 'holding' },
         ];
         if (!broken()) {
-          options.push({ tone: 'Ask', text: 'Did you go through it properly?', next: 'theBox' });
+          options.push({ tone: 'Ask', text: 'Did you actually go through it, or did you look at it and get bored?', next: 'theBox' });
         }
         options.push({ tone: 'Back', text: 'Later.', next: null });
         return options;

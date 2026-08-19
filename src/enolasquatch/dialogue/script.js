@@ -699,9 +699,9 @@ export const OBJECTIVES = {
  * PROSPECT immediately before the release beat.
  */
 export const RELEASE_LINES = [
-  { key: '1', text: 'Send them the Fat Squatch.' },
+  { key: '1', text: 'Fat Squatch away. God help whoever’s down there.' },
   { key: '2', text: 'Special delivery.' },
-  { key: '3', text: 'Lou sends his regards.' },
+  { key: '3', text: 'That’s from Lou. And I’ll be sayin’ that in my sleep for the rest of me life.' },
   { key: '4', text: 'Hope they’re hungry.' },
   { key: '5', text: '(Say nothing.)', silent: true },
 ];

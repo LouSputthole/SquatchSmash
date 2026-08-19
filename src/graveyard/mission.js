@@ -277,7 +277,7 @@ export class GraveyardMission {
     this.bodyBuried = true;
     this.objectives.find((objective) => objective.id === 'bury').done = true;
     this.hooks.onObjective?.(this.objectives);
-    this.line('That closes the HotDog incident. The Motel does not close this easy.', 'vo.graveyard.snow.done', 'Snow');
+    this.line('That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.', 'vo.graveyard.snow.done', 'Snow');
     this.hooks.onState?.(this.state, this);
     return true;
   }

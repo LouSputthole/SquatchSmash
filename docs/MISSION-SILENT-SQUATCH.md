@@ -62,7 +62,7 @@ and the gold-and-purple glow pours toward Lou — purple rolling across the wall
 gold on his eyes, the cigar smoke, his hands.
 
     PROSPECT   What's inside?
-    LOU        Eh. You'll find out soon enough.
+    LOU        You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.
                [closes the case]
     LOU        Go deliver it to Booski. He's in the basement.
                [slides the case over]
@@ -209,7 +209,7 @@ The scientists keep celebrating, then the older one tries the handle.
     JUNIOR (muffled)   Open door.
     AUBBIE             What is this?
                        [Booski does not respond]
-    BOOSKI   This guy's usefulness has expired.
+    BOOSKI   He’s finished. He’s not a scientist any more, he’s a witness with a doctorate.
     BOOSKI   Handle it.
 
 Objective: **Eliminate Aubbie.**
@@ -219,7 +219,7 @@ Objective: **Eliminate Aubbie.**
     AUBBIE   You need me to maintain the core.
     BOOSKI   We made copies of your notes.
     AUBBIE   You do not understand what you have built!
-    BOOSKI   I said handle it.
+    BOOSKI   I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.
 
 The player kills him **in the observation area, where his body falls in full
 view of the scientists through the glass.**

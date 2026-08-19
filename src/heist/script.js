@@ -264,7 +264,7 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
    * repetitive, and bored on purpose, because a robber who is enjoying it is
    * a robber the room fights. */
   prospect_order_down: line('prospect_order_down', CHARACTER_IDS.PROSPECT,
-    'Down. Face on the floor, hands where I can see them.', P.TACTICAL, null),
+    'DOWN. On the floor, face down, hands out. Nobody makes me say it twice.', P.TACTICAL, null),
   prospect_order_two: line('prospect_order_two', CHARACTER_IDS.PROSPECT,
     'On the floor. All the way down, and stay there.', P.TACTICAL, null),
   prospect_order_three: line('prospect_order_three', CHARACTER_IDS.PROSPECT,

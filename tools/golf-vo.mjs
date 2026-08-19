@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withoutRerecord } from './rerecord-queue.mjs';
 import { CUES } from '../src/golf/script.js';
 import {
   CHAPTER_MESSAGES,
@@ -119,7 +120,10 @@ export function checkGolfManifest(manifest) {
   }
   for (const [name, cue] of expected) {
     if (!actual.has(name)) failures.push(`missing cue ${name}`);
-    else if (JSON.stringify(actual.get(name)) !== JSON.stringify(cue)) failures.push(`drifted cue ${name}`);
+    else if (JSON.stringify(withoutRerecord(actual.get(name))) !== JSON.stringify(cue)) {
+      /* Re-record metadata is stamped on after generation; it is not drift. */
+      failures.push(`drifted cue ${name}`);
+    }
   }
   for (const name of actual.keys()) {
     if (!expected.has(name)) failures.push(`stale cue ${name}`);

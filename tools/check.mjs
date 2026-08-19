@@ -441,6 +441,18 @@ try {
     }
   }
   {
+    /* A generated cue's block is rewritten wholesale by its scene generator, so
+     * a bare `npm run vo:<scene>` drops the re-record marks the booth sheet
+     * relies on. Catch that here rather than discovering it in a session. */
+    const { rerecordDrift } = await import('./rerecord-queue.mjs');
+    const queue = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/rerecord.json'), 'utf8'));
+    const problems = rerecordDrift(sfxManifest, queue);
+    if (problems.length) {
+      fail(`Re-record queue drift: ${problems.length} problem(s) (first: ${problems[0]}). `
+        + 'Run `npm run vo:rerecord`.');
+    }
+  }
+  {
     const { checkGolfManifest } = await import('./golf-vo.mjs');
     const drift = checkGolfManifest(sfxManifest);
     if (drift.length) {

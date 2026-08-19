@@ -20,6 +20,10 @@
  *
  * Flags:
  *   --force            regenerate cues even if the file already exists
+ *
+ * Cues carrying `needsRerecord` (see assets/sfx/rerecord.json) are regenerated
+ * without --force: their words changed after they were recorded, so the take
+ * on disk is stale rather than done.
  *   --only <name,...>  generate just these cues
  *   --cast <voice,...> just the spoken lines of these voice profiles
  *   --voice-only       just the spoken lines
@@ -135,7 +139,9 @@ async function main() {
     if (!isSpoken(cue) && typeof cue.prompt !== 'string') { synthOnly++; continue; }
     const file = cue.file || `${cue.name}.mp3`;
     const dest = path.join(SFX_DIR, file);
-    if (!FORCE && (await exists(dest))) continue;
+    /* A cue marked for re-recording has a take on disk that says the retired
+     * wording, so "the file exists" is exactly the wrong reason to skip it. */
+    if (!FORCE && cue.needsRerecord !== true && (await exists(dest))) continue;
     pending.push({ cue, dest, file });
   }
   if (synthOnly) console.log(`${synthOnly} synth-only cue(s) skipped.\n`);

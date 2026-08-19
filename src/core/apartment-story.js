@@ -47,7 +47,7 @@ const RETRY_GAP = 10;
  */
 export const DEPARTURE_REFUSALS = Object.freeze({
   heist_cleanup: 'Not walking into the Bing wearing the bank. Clean up first.',
-  final_arc_locked: 'The bank is done. The next call is not here yet.',
+  final_arc_locked: 'Bank’s done. Nobody’s called. And when nobody calls, you sit down.',
   initiation_locked: 'Lou said seven. The invitation still has to land.',
   golf_call: 'Lou said he would call about this morning. I am not guessing where.',
   golf_return: 'Three holes done. Whatever comes next, Lou will call for it.',
@@ -282,7 +282,7 @@ export const DAY_ONE_LOU_CALL = Object.freeze({
   lines: Object.freeze([
     'Kid. You awake?',
     'Meet me at the Bada Bing. Back office.',
-    'I have a package for you, and I need it handled tonight.',
+    'I’ve a thing here for you and it needs doin’ tonight. Not tomorrow. Tonight, before it turns into somethin’ worse.',
     'Eat, shower, and put on something clean before you come down. I am serious.',
   ]),
   replies: Object.freeze([
@@ -316,7 +316,7 @@ export const DAY_ONE_LOU_ATTABOY_CALL = Object.freeze({
   lines: Object.freeze([
     'Kid. That thing I asked you to take care of.',
     'Nice work. That is all I am going to say about it, and it is all you are going to say about it.',
-    'Keep doing work like that and there is a bright future for you here.',
+    'Keep doing work like that and you’ll be somebody in this family. Keep doing it too well and you’ll be somebody they talk about.',
     'Get some sleep. Tomorrow is a different day and it has its own thing in it.',
   ]),
   replies: Object.freeze([
@@ -864,7 +864,7 @@ export const SILVER_ROOM_DRESS_ASK = Object.freeze({
   voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
   vo: 'margo.comehome.dress',
   lines: Object.freeze([
-    'The zip. Come here. That is not a request — I am not sleeping in this dress.',
+    'The zip. Come here. That’s not a request, and don’t take all night about it, I’ve been thinking about this since the second course.',
   ]),
   replies: Object.freeze([]),
 });

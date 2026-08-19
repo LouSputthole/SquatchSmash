@@ -241,9 +241,12 @@ export class Radio {
         }
       }
       if (startupOnly) continue;
-      for (const segment of station.commercial ?? []) {
-        if (segment.cue) cues.add(segment.cue);
-        addLine(segment.line);
+      for (const ad of station.commercials ?? []) {
+        if (!ad.live) continue;   // never preload a break that cannot air
+        for (const segment of ad.segments) {
+          if (segment.cue) cues.add(segment.cue);
+          addLine(segment.line);
+        }
       }
       for (const line of station.lines ?? []) addLine(line);
       for (const tape of station.tapes ?? []) {
@@ -647,7 +650,11 @@ export class Radio {
         return;
       }
       if (slot === 'ad') {
-        this._queue.push(...st.commercial, { reaction: 'ad' });
+        /* Round-robin like every other slot, so every live break airs before
+         * any of them repeats, and which one is next survives a save. */
+        const live = (st.commercials ?? []).filter((ad) => ad.live);
+        this._queue.push(...(this._pick(`${st.id}:ad`, live)?.segments ?? []),
+          { reaction: 'ad' });
         this._persist();
         return;
       }

@@ -702,7 +702,9 @@
     {
       "name": "radio.ident.uncle",
       "voice": "uncle",
-      "say": "You're locked in to Uncle Squatch Beats. Ninety eight point eight. Take it easy."
+      "say": "Uncle Squatch Beats. Ninety eight point eight. Nobody here is qualified and nobody here is leaving.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "radio.ident.ksqch",
@@ -2083,7 +2085,9 @@
     {
       "name": "vo.photo.1",
       "voice": "player",
-      "say": "Ahh. What a good time."
+      "say": "Three of them in that photo are dead and one of them owes me forty bucks.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.photo.2",
@@ -2738,7 +2742,9 @@
     {
       "name": "vo.door.hint.piss.1",
       "voice": "player",
-      "say": "Stand over it, hold F, and stop overthinking it."
+      "say": "It’s a toilet. I’ve done this before. I’ve done this thousands of times.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.door.hint.piss.2",
@@ -2758,7 +2764,9 @@
     {
       "name": "vo.door.hint.shower.1",
       "voice": "player",
-      "say": "Through the north door. Get in it."
+      "say": "Shower. I smell like a car. Not my car. Somebody else’s car, which is worse.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.door.hint.dressed.1",
@@ -3085,7 +3093,9 @@
     {
       "name": "vo.call.lou.bada_bing.3",
       "voice": "lou1",
-      "say": "I have a package for you, and I need it handled tonight."
+      "say": "I’ve a thing here for you and it needs doin’ tonight. Not tomorrow. Tonight, before it turns into somethin’ worse.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.call.lou.bada_bing.4",
@@ -3133,8 +3143,10 @@
     {
       "name": "vo.call.lou.attaboy.3",
       "voice": "lou",
-      "say": "Keep doing work like that and there is a bright future for you here.",
-      "duration": 5
+      "say": "Keep doing work like that and you’ll be somebody in this family. Keep doing it too well and you’ll be somebody they talk about.",
+      "duration": 5,
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.call.lou.attaboy.4",
@@ -3563,7 +3575,9 @@
     {
       "name": "vo.bj.dealer.bust.3",
       "voice": "uncle",
-      "say": "That is a bust. Sorry."
+      "say": "That’s a bust. The house doesn’t feel anything about it.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.bj.dealer.payout.1",
@@ -4356,7 +4370,9 @@
     {
       "name": "vo.silver.margo.invitation.polite",
       "voice": "margo",
-      "say": "That’s kind."
+      "say": "That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.silver.margo.invitation.strong",
@@ -4884,9 +4900,9 @@
       "say": "Car’s outside. Come on."
     },
     {
-      "name": "vo.silver.player.invitation.open.1i9c6n4",
+      "name": "vo.silver.player.invitation.open.10h4bhr",
       "voice": "player",
-      "say": "The night doesn’t have to end here."
+      "say": "I’m not ready for this to be over and I’m too old to pretend otherwise."
     },
     {
       "name": "vo.silver.player.invitation.open.1p4sox7",
@@ -4894,9 +4910,9 @@
       "say": "I’ll get you a car. This was good."
     },
     {
-      "name": "vo.silver.player.invitation.open.rv6a2j",
+      "name": "vo.silver.player.invitation.open.1eak4x9",
       "voice": "player",
-      "say": "You want to come back for a drink?"
+      "say": "Come back with me. There’s a bottle I’ve been saving for a reason I couldn’t name until about an hour ago."
     },
     {
       "name": "vo.silver.player.invitation.open.z470kj",
@@ -5189,14 +5205,14 @@
       "say": "Club soda. I’m working."
     },
     {
-      "name": "vo.silver.player.waiter.open.1153o28",
+      "name": "vo.silver.player.waiter.open.c4no5p",
       "voice": "player",
-      "say": "We’re looked after, thanks."
+      "say": "We’re looked after. Go be somewhere else for twenty minutes."
     },
     {
-      "name": "vo.silver.player.waiter.open.1amp4kx",
+      "name": "vo.silver.player.waiter.open.20a7ar",
       "voice": "player",
-      "say": "Same again, when you get a second."
+      "say": "Same again. And I’d like it to arrive before the conversation improves, not after."
     },
     {
       "name": "vo.silver.player.waiter.open.1t5lera",
@@ -7222,7 +7238,9 @@
     {
       "name": "vo.sf.greeting.1",
       "voice": "mcclawsky",
-      "say": "Come on, Squatch. They're waiting."
+      "say": "Let's go, big man. The meter's running, and I've got a wife who thinks I'm at a prayer group.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.1",
@@ -7232,7 +7250,9 @@
     {
       "name": "vo.sf.opening.2",
       "voice": "player",
-      "say": "You attacked my family."
+      "say": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.3",
@@ -7242,7 +7262,9 @@
     {
       "name": "vo.sf.opening.4",
       "voice": "player",
-      "say": "You shot Booski."
+      "say": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.5",
@@ -7252,12 +7274,16 @@
     {
       "name": "vo.sf.opening.6",
       "voice": "mcclawsky",
-      "say": "Your people need to calm down."
+      "say": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.7",
       "voice": "player",
-      "say": "You hit me."
+      "say": "You broke my jaw outside a hospital and then filed it as resisting. I've read the report. It's beautiful. You should write books.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.8",
@@ -7277,17 +7303,23 @@
     {
       "name": "vo.sf.opening.11",
       "voice": "sal",
-      "say": "Everything belongs to someone until it changes hands."
+      "say": "Belongs. That's a beautiful word. My father used it about a farm in Calabria that has had six owners since he said it. Things don't belong to people. Things sit with people, for a while, until somebody with more men wants them to sit somewhere else.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.12",
       "voice": "sal",
-      "say": "Help me, Prospect. The Sasquatches keep their territory. I get a percentage."
+      "say": "Help me, kid. Your family keeps the name, keeps the corners, keeps the funerals small. I take a slice off the top and nobody has to bury anybody they like.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.13",
       "voice": "player",
-      "say": "What percentage?"
+      "say": "How big a slice are we calling a percentage?",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.opening.14",
@@ -7297,7 +7329,9 @@
     {
       "name": "vo.sf.excuse.1",
       "voice": "player",
-      "say": "I need to use the bathroom."
+      "say": "I gotta piss.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.excuse.2",
@@ -7307,7 +7341,9 @@
     {
       "name": "vo.sf.sitdown.1",
       "voice": "mcclawsky",
-      "say": "Sit down, Squatch."
+      "say": "Sit your ass down, Squatch.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.wrongsearch.1",
@@ -7327,12 +7363,16 @@
     {
       "name": "vo.sf.final.1",
       "voice": "sal",
-      "say": "So. Do we have an understanding?"
+      "say": "So. Do we have an understanding, or do I finish my drink and make some calls?",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.final.2",
       "voice": "player",
-      "say": "I understand."
+      "say": "We understand each other.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.sf.final.3",
@@ -7352,7 +7392,9 @@
     {
       "name": "vo.sf.final.6",
       "voice": "player",
-      "say": "It is."
+      "say": "Consider it settled.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.bing.hang.lag.1",
@@ -8099,7 +8141,9 @@
     {
       "name": "vo.margo.comehome.dress.1",
       "voice": "margo",
-      "say": "The zip. Come here. That is not a request — I am not sleeping in this dress."
+      "say": "The zip. Come here. That’s not a request, and don’t take all night about it, I’ve been thinking about this since the second course.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "footstep.concrete",
@@ -9601,7 +9645,9 @@
     {
       "name": "vo.graveyard.snow.done",
       "voice": "snow",
-      "say": "That closes the HotDog incident. The Motel does not close this easy."
+      "say": "That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "heist.crew_snow",
@@ -9962,7 +10008,9 @@
     {
       "name": "heist.prospect_order_down",
       "voice": "player",
-      "say": "Down. Face on the floor, hands where I can see them."
+      "say": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "heist.prospect_demand",
@@ -11502,7 +11550,9 @@
     {
       "name": "vo.enolasquatch.prospect.release-1.1",
       "voice": "player",
-      "say": "Send them the Fat Squatch."
+      "say": "Fat Squatch away. God help whoever’s down there.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.enolasquatch.prospect.release-2.1",
@@ -11512,7 +11562,9 @@
     {
       "name": "vo.enolasquatch.prospect.release-3.1",
       "voice": "player",
-      "say": "Lou sends his regards."
+      "say": "That’s from Lou. And I’ll be sayin’ that in my sleep for the rest of me life.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.enolasquatch.prospect.release-4.1",
@@ -11931,8 +11983,10 @@
     {
       "name": "vo.golf.h1.eric.you_have_clubs",
       "voice": "eric",
-      "say": "You have clubs.",
-      "direction": "The quiet last line. Do not push it."
+      "say": "Those are clubs. Somebody paid a lot for them and it wasn’t you.",
+      "direction": "The quiet last line. Do not push it.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.golf.h1.eric.you_watched_it",
@@ -12424,8 +12478,10 @@
     {
       "name": "vo.golf.h1.prospect.another_test",
       "voice": "player",
-      "say": "Is this another test?",
-      "direction": "Direct and watchful. He has learned what these invitations can mean."
+      "say": "Is this a test? Because everything’s been a test and nobody tells me the results.",
+      "direction": "Direct and watchful. He has learned what these invitations can mean.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.golf.h1.prospect.arrival_better_shoes",
@@ -12448,8 +12504,10 @@
     {
       "name": "vo.golf.h1.prospect.did_what_you_asked",
       "voice": "player",
-      "say": "I did what you asked.",
-      "direction": "Professional and restrained. He is reporting, not fishing for praise."
+      "say": "I did what you asked. All of it. Including the part you didn’t say out loud.",
+      "direction": "Professional and restrained. He is reporting, not fishing for praise.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.golf.h1.prospect.earned_morning_off",
@@ -16160,7 +16218,9 @@
     {
       "name": "vo.silentsquatch.office.lou.soonenough",
       "voice": "lou1",
-      "say": "Eh. You’ll find out soon enough."
+      "say": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.silentsquatch.office.lou.deliverittobooski",
@@ -16585,7 +16645,9 @@
     {
       "name": "vo.silentsquatch.lock.booski.usefulnessexpired",
       "voice": "booski",
-      "say": "This guy’s usefulness has expired."
+      "say": "He’s finished. He’s not a scientist any more, he’s a witness with a doctorate.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.silentsquatch.lock.booski.handleit",
@@ -16620,7 +16682,9 @@
     {
       "name": "vo.silentsquatch.execution.booski.isaidhandleit",
       "voice": "booski",
-      "say": "I said handle it."
+      "say": "I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.silentsquatch.execution.aubbie.lookatme",
@@ -16690,7 +16754,9 @@
     {
       "name": "vo.silentsquatch.reaction.vetrov.canworkforyou",
       "voice": "vetrov",
-      "say": "We can work for you!"
+      "say": "We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.silentsquatch.reaction.orlova.tellnobody",
@@ -17010,7 +17076,9 @@
     {
       "name": "vo.silentsquatch.guards.basement.keepwalking",
       "voice": "mansion-guard-basement",
-      "say": "Keep walking."
+      "say": "Keep walking. Whatever you heard down here, you heard the boiler.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.silentsquatch.guards.vault.arrangement",
@@ -17020,7 +17088,9 @@
     {
       "name": "vo.silentsquatch.guards.vault.backup",
       "voice": "mansion-guard-vault",
-      "say": "Back up."
+      "say": "Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.silentsquatch.bar.bartender.orworking",
@@ -17180,7 +17250,9 @@
     {
       "name": "vo.door.refusal.final_arc_locked.1",
       "voice": "player",
-      "say": "The bank is done. The next call is not here yet."
+      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
     },
     {
       "name": "vo.door.refusal.initiation_locked.1",
@@ -18783,6 +18855,106 @@
       "say": "97.8 THE SQUATCH. \"If it’s on the air… it probably shouldn’t be.\""
     },
     {
+      "name": "radio.vo.announcer.0abcdkw",
+      "voice": "announcer",
+      "say": "A word about LOU’S ORIGINAL JERKY."
+    },
+    {
+      "name": "radio.vo.announcer.1aq9dos",
+      "voice": "announcer",
+      "say": "Three generations. One smokehouse. Same building on Route 9 since nineteen fifty-one, and the same recipe, because nobody has ever been allowed to write it down."
+    },
+    {
+      "name": "radio.vo.announcer.09jz70p",
+      "voice": "announcer",
+      "say": "Big Uncle Lou still comes in at four in the morning to check the racks himself. Ask anybody. They’ll tell you. They’ll tell you quickly."
+    },
+    {
+      "name": "radio.vo.announcer.1l8loyg",
+      "voice": "announcer",
+      "say": "No fillers. No additives. Nothing in it that wasn’t walking around this county a week ago."
+    },
+    {
+      "name": "radio.vo.announcer.154eda9",
+      "voice": "announcer",
+      "say": "LOU’S ORIGINAL JERKY. Available at fine retailers, and at several retailers who have not been asked."
+    },
+    {
+      "name": "radio.vo.announcer.1p4rsex",
+      "voice": "announcer",
+      "say": "Because family is everything."
+    },
+    {
+      "name": "radio.vo.announcer.0xg2y3x",
+      "voice": "announcer",
+      "say": "Have you been hurt? Have you hurt somebody? Either one. Call the number."
+    },
+    {
+      "name": "radio.vo.announcer.12vwbcl",
+      "voice": "announcer",
+      "say": "I’m Vincent Marrow, and for twenty-two years I have stood beside the people of this county at what I would describe as the worst moment of their lives."
+    },
+    {
+      "name": "radio.vo.announcer.1i9iq1a",
+      "voice": "announcer",
+      "say": "Slip and fall. Dog bite. Boating accident with an unclear number of people on the boat when it left and when it came back."
+    },
+    {
+      "name": "radio.vo.announcer.1dts2dr",
+      "voice": "announcer",
+      "say": "I don’t judge. I have never judged. Judging is somebody else’s job in that building and frankly they are not good at it either."
+    },
+    {
+      "name": "radio.vo.announcer.1r4nlag",
+      "voice": "announcer",
+      "say": "No fee unless we win. No questions at all, ever, about anything, at any point in our relationship."
+    },
+    {
+      "name": "radio.vo.announcer.14wolqi",
+      "voice": "announcer",
+      "say": "MARROW AND ASSOCIATES. There are no associates."
+    },
+    {
+      "name": "radio.vo.announcer.1bsyh44",
+      "voice": "announcer",
+      "say": "Do not talk to anyone. Talk to me."
+    },
+    {
+      "name": "radio.vo.announcer.054iw8l",
+      "voice": "announcer",
+      "say": "SUNDAY! SUNDAY! SUNDAY! at BUDDY GRAVES AUTOMOTIVE on the Old Post Road!"
+    },
+    {
+      "name": "radio.vo.announcer.0d1vxsw",
+      "voice": "announcer",
+      "say": "EVERY TRUCK ON THE LOT! EVERY CAR ON THE LOT! EVERY VEHICLE MY WIFE’S BROTHER LEFT ON THE LOT!"
+    },
+    {
+      "name": "radio.vo.announcer.09x693c",
+      "voice": "announcer",
+      "say": "ZERO DOWN! ZERO INTEREST! ZERO CREDIT CHECK! ZERO PAPERWORK OF ANY KIND THAT COULD LATER BE PRODUCED!"
+    },
+    {
+      "name": "radio.vo.announcer.03x8fj5",
+      "voice": "announcer",
+      "say": "WE WILL BEAT ANY PRICE! WE WILL BEAT ANY OFFER! WE HAVE BEATEN OFFERS THAT WERE NEVER MADE!"
+    },
+    {
+      "name": "radio.vo.announcer.1o1ovzn",
+      "voice": "announcer",
+      "say": "IF YOU CAN GET HERE, YOU CAN DRIVE HOME! IF YOU CANNOT GET HERE, WE WILL COME AND GET YOU, AND WE HAVE."
+    },
+    {
+      "name": "radio.vo.announcer.1ehexkx",
+      "voice": "announcer",
+      "say": "BUDDY GRAVES AUTOMOTIVE! OLD POST ROAD! SUNDAY!"
+    },
+    {
+      "name": "radio.vo.announcer.0tgxpfd",
+      "voice": "announcer",
+      "say": "Come down and see me. Please. Anybody. Come down and see me on Sunday."
+    },
+    {
       "name": "radio.vo.announcer.157erj5",
       "voice": "announcer",
       "say": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening."
@@ -19316,9 +19488,9 @@
       "say": "So I keep it on, I have a nice time, and everybody goes home. It is a system and it works."
     },
     {
-      "name": "vo.bing.full.ape.open.tony.1inst32",
+      "name": "vo.bing.full.ape.open.tony.1ms948l",
       "voice": "player",
-      "say": "Noted for the record."
+      "say": "I’ll write that on my hand."
     },
     {
       "name": "vo.bing.full.ape.open.tony.kay3u1",
@@ -19421,9 +19593,9 @@
       "say": "Later."
     },
     {
-      "name": "vo.bing.full.bartender.open.tony.1mgwzff",
+      "name": "vo.bing.full.bartender.open.tony.1d6a7tv",
       "voice": "player",
-      "say": "What have you got?"
+      "say": "What’s good back there that isn’t going to kill me?"
     },
     {
       "name": "vo.bing.full.bartender.open.tony.e38pik",
@@ -19561,9 +19733,9 @@
       "say": "Another time."
     },
     {
-      "name": "vo.bing.full.captain_lou_sasole.open.tony.qncolo",
+      "name": "vo.bing.full.captain_lou_sasole.open.tony.1n6r1j9",
       "voice": "player",
-      "say": "They’re alright."
+      "say": "They’re alive, which this week counts."
     },
     {
       "name": "vo.bing.full.dealer.open.line.10erdw",
@@ -19781,9 +19953,9 @@
       "say": "Nothing. We’re finished here."
     },
     {
-      "name": "vo.bing.full.james_blond.afterTheName.tony.lqrg6p",
+      "name": "vo.bing.full.james_blond.afterTheName.tony.knrqmb",
       "voice": "player",
-      "say": "Why didn’t you tell us before?"
+      "say": "That was available the entire time. Every minute of the last hour was elective. I hope you understand that’s a choice you made."
     },
     {
       "name": "vo.bing.full.james_blond.breaks.line.1ny5y3j",
@@ -19941,9 +20113,9 @@
       "say": "SNOW. We’re gonna need you back here."
     },
     {
-      "name": "vo.bing.full.james_blond.firstQuestion.line.vsd0cn",
+      "name": "vo.bing.full.james_blond.firstQuestion.line.cf4bx8",
       "voice": "player",
-      "say": "Who hired you?"
+      "say": "Let’s start with money. Not names, money. Who paid you? how, and did it clear?"
     },
     {
       "name": "vo.bing.full.james_blond.floor.line.14lf3a1",
@@ -20486,9 +20658,9 @@
       "say": "Later."
     },
     {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1knrtgn",
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1ef5x4a",
       "voice": "player",
-      "say": "Did you go through it properly?"
+      "say": "Did you actually go through it, or did you look at it and get bored?"
     },
     {
       "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1mi8jml",
@@ -20496,9 +20668,9 @@
       "say": "Anything on there worth anything?"
     },
     {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.o2dhps",
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1ygn69",
       "voice": "player",
-      "say": "You holding up, Numbskull?"
+      "say": "You still with us, Numbskull? Blink if the answer’s no."
     },
     {
       "name": "vo.bing.full.licenseToGrillNumbskull.theBox.line.niep5o",

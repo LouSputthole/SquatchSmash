@@ -45,7 +45,7 @@ def punchup_tab(wb, scenes):
     ws = wb.create_sheet("PUNCH-UP")
     ws.append(["Scene", "Cue id", "Character", "CURRENT LINE", "What's wrong with it",
                "House rewrite", "Tarantino", "McDonagh", "Houser (GTA)", "Coen",
-               "PICK", "Your notes"])
+               "PICK", "Status"])
     for scene in scenes:
         row = ws.max_row + 1
         ws.cell(row=row, column=1, value=f"{scene['scene']}  —  {scene['reference']}").font = Font(bold=True, size=12)
@@ -64,7 +64,8 @@ def punchup_tab(wb, scenes):
             ws.append([scene["scene"], line["cue"], line.get("character", ""),
                        line.get("current", ""), line.get("why", ""), line.get("house", ""),
                        line.get("tarantino", ""), line.get("mcdonagh", ""),
-                       line.get("houser", ""), line.get("coen", ""), "", ""])
+                       line.get("houser", ""), line.get("coen", ""),
+                       line.get("picked", ""), line.get("status", "open")])
             r = ws.max_row
             for c in range(1, 13):
                 ws.cell(row=r, column=c).alignment = WRAP
@@ -90,7 +91,7 @@ def all_tab(wb, rows):
     ws = wb.create_sheet("ALL DIALOGUE")
     ws.append(["Row", "Scene", "Character", "Cue id", "Filename", "Recorded", "Direction",
                "CURRENT LINE", "Words", "Flags", "House rewrite", "Tarantino", "McDonagh",
-               "Houser (GTA)", "Coen", "PICK", "Notes"])
+               "Houser (GTA)", "Coen", "Status", "Notes"])
     for r in rows:
         ws.append([r["row"], r["scene"], r["character"], r["cue"], r["file"], r["recorded"],
                    r["direction"], r["current"], r["words"], r["flags"], r["punchUp"],

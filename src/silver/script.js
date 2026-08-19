@@ -1165,9 +1165,9 @@ export function buildScripts(ctx) {
         ? [{ tone: 'Go on', text: '<em>(Leave him to the floor.)</em>', next: null }]
         : flags.drinkOrdered
           ? [
-            { tone: 'Another', text: 'Same again, when you get a second.', next: null },
+            { tone: 'Another', text: 'Same again. And I’d like it to arrive before the conversation improves, not after.', next: null },
             tipOption('Woo.WaiterTipped', 40, '<em>(Take care of him.)</em>', 'thanks'),
-            { tone: 'No', text: 'We’re looked after, thanks.', next: null },
+            { tone: 'No', text: 'We’re looked after. Go be somewhere else for twenty minutes.', next: null },
           ]
           : [
             { tone: 'Remember', text: 'Rye. One ice cube. One.', next: 'rye',
@@ -1671,12 +1671,12 @@ export function buildScripts(ctx) {
         return '<em>(She checks the time on your watch rather than asking.)</em>';
       },
       options: () => [
-        { tone: 'Plain', text: 'You want to come back for a drink?', next: 'judge',
+        { tone: 'Plain', text: 'Come back with me. There’s a bottle I’ve been saving for a reason I couldn’t name until about an hour ago.', next: 'judge',
           effect: () => { flags.invitation = 'plain'; } },
         { tone: 'Callback', text: 'I’ve got a better bottle of the rye at the apartment.', next: 'judge',
           when: () => flags.drinkOrdered === 'rye',
           effect: () => { flags.invitation = 'callback'; fire('Woo.CallbackUsed'); } },
-        { tone: 'Open', text: 'The night doesn’t have to end here.', next: 'judge',
+        { tone: 'Open', text: 'I’m not ready for this to be over and I’m too old to pretend otherwise.', next: 'judge',
           effect: () => { flags.invitation = 'open'; } },
         { tone: 'Self-deprecating', text: 'You should see the place when nobody’s threatening to repossess it.', next: 'judge',
           effect: () => { flags.invitation = 'wry'; fire('Woo.MadeHerLaugh'); } },
@@ -1728,7 +1728,7 @@ export function buildScripts(ctx) {
     },
     polite: {
       who: DATE.name,
-      line: 'That’s kind. <em>(The coat check is already coming across the floor with '
+      line: 'That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice. <em>(The coat check is already coming across the floor with '
         + 'her coat, which means she asked somebody a while ago.)</em>',
       hold: 4.8,
     },
