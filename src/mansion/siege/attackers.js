@@ -3149,5 +3149,14 @@ export function createAttackerPool({
     tracers,
     impactResolver,
     fireControl,
+    /**
+     * The pool's one muzzle-flash light, `visible = false` until a shot.
+     * Exposed so the scene's boot prewarm (src/core/prewarm.js) can draw the
+     * one-more-visible-point-light state the first cartel shot creates while
+     * the menu is still up, instead of compiling every material's new program
+     * mid-firefight. Revealing it warms programs only; play state is owned
+     * here and stays untouched.
+     */
+    muzzleFlash: flash,
   };
 }
