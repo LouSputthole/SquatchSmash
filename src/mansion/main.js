@@ -329,6 +329,45 @@ function exteriorGroundAt(x, z) {
 }
 
 /* ================================================================== */
+/* Room/portal visibility: draw the rooms a sightline could reach        */
+/*                                                                        */
+/* The interior build organises every room's static contents under one    */
+/* group and precomputes, per room, the set of rooms an open doorway,      */
+/* arch, void or stair could carry a sightline into (see the ROOM /        */
+/* PORTAL VISIBILITY section of scenes/MansionInterior.js for the graph,   */
+/* the hop rule and everything that deliberately stays global). This is    */
+/* the per-frame half: resolve which room(s) the player is standing in,    */
+/* OR their precomputed sets together, and write the result to the room    */
+/* groups -- a mask compare and at most twenty-six boolean writes, no      */
+/* allocation, nothing else touched. VISIBILITY ONLY: every system in      */
+/* updateGame below still ticks hidden rooms -- patrols walk, TVs paint,   */
+/* the mission moves its people -- because a room you cannot see is still   */
+/* a room the story is happening in.                                       */
+/*                                                                          */
+/* Kill switch: `?novis=1` boots with the culling off (every group          */
+/* visible, exactly the pre-pass frame), and `mansion.visibility            */
+/* .setEnabled(false)` turns it off live -- for debugging, and for any      */
+/* verifier that wants to photograph a room it is not standing in.          */
+/* ================================================================== */
+const roomVisibility = interior.visibility;
+/* Opt in: the reparenting into room groups happens HERE, not in the builder,
+ * because the geometry gate's allowlists record exact graph paths -- headless
+ * scans and the siege keep the flat graph they always had. */
+roomVisibility.claim();
+let roomVisEnabled = new URLSearchParams(window.location.search).get('novis') !== '1';
+let roomVisMask = roomVisibility.ALL;
+function updateRoomVisibility() {
+  const mask = roomVisEnabled
+    ? roomVisibility.visibleMaskAt(
+      player.position.x, player.position.y - player.eyeHeight, player.position.z,
+    )
+    : roomVisibility.ALL;
+  if (mask === roomVisMask) return;
+  roomVisMask = mask;
+  roomVisibility.apply(mask);
+}
+
+/* ================================================================== */
 /* Light rig: keep a fixed number of the nearest practical lights on     */
 /*                                                                        */
 /* The house is furnished room by room, so between the two modules there  */
@@ -370,6 +409,18 @@ function registerLocalLight(light) {
   _lightRank.push({ light, score: 0 });
 }
 
+/* A light in a room the portal pass has hidden lights nothing anybody can
+ * see, so it must not hold one of the ACTIVE_LIGHTS slots against a light
+ * in a room that is actually on screen -- the armory's lamps are METRES
+ * from a player standing in the foyer, one storey straight down, and they
+ * out-scored the foyer's own sconces on distance alone. The penalty ranks
+ * hidden-room lights below every visible-room light while keeping them in
+ * the pool (the COUNT never changes -- see the note above -- and a light
+ * with no resolvable room, like the grounds' exterior practicals or the
+ * foyer chandelier in the void, is never penalised). */
+const FAR_ROOM_LIGHT_PENALTY = 1e4;
+const _lightWorldPos = new THREE.Vector3();
+
 function updateLightRig(dt) {
   _lightTimer -= dt;
   if (_lightTimer > 0) return;
@@ -380,6 +431,17 @@ function updateLightRig(dt) {
     // Score = how far OUTSIDE its own range the camera is. Negative means the
     // camera is inside the light's falloff, so it genuinely contributes.
     entry.score = l.position.distanceTo(cam) - (l.distance || 0);
+    /* Which room owns the light is a fact about the built house, resolved
+     * once on the entry (after the first render, so matrixWorld is real). */
+    if (entry.roomBits === undefined && framesRendered > 0) {
+      l.getWorldPosition(_lightWorldPos);
+      entry.roomBits = roomVisibility.roomBitsAt(
+        _lightWorldPos.x, _lightWorldPos.y, _lightWorldPos.z,
+      );
+    }
+    if (entry.roomBits && (entry.roomBits & roomVisMask) === 0) {
+      entry.score += FAR_ROOM_LIGHT_PENALTY;
+    }
   }
   _lightRank.sort((a, b) => a.score - b.score);
   for (let i = 0; i < _lightRank.length; i++) {
@@ -2245,6 +2307,9 @@ function updateGame(dt) {
   // The camera position is what Lou's gaze tracks in his office upstairs.
   interior.update(dt, camera.position);
   silent.update(dt);
+  /* Room visibility BEFORE the light rig, so this frame's rig ranks its
+   * lights against this frame's visible rooms, not last frame's. */
+  updateRoomVisibility();
   updateLightRig(dt);
   /* The sets. A television repaints its canvas and re-uploads the texture,
    * which is not free, so a set that is switched off does nothing at all --
@@ -2351,6 +2416,10 @@ function teleport(x, y, z, yawDeg = 0) {
   running = true;
   menuEl.classList.add('hidden');
   player.update(1 / 60);
+  /* A teleport is followed by whatever the caller does next -- often a
+   * one-shot `perf.drawCalls()` render with no updateGame in between -- so
+   * the room-visibility mask must be true for the NEW pose immediately. */
+  updateRoomVisibility();
 }
 
 
@@ -3052,6 +3121,28 @@ window.mansion = {
   get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return sharedPauseMenu.isPaused(); },
+  /**
+   * The room/portal visibility pass, inspectable and switchable. A verifier
+   * that teleports the player photographs whatever that pose could really
+   * see; one that wants to photograph a room from somewhere else calls
+   * `setEnabled(false)` first (or boots with `?novis=1`) and gets the whole
+   * house back, exactly as built.
+   */
+  visibility: {
+    get enabled() { return roomVisEnabled; },
+    setEnabled(on) {
+      roomVisEnabled = !!on;
+      updateRoomVisibility();
+    },
+    get mask() { return roomVisMask; },
+    names: roomVisibility.names,
+    roomCount: roomVisibility.names.length,
+    claimedCount: roomVisibility.claimedCount,
+    /** The rooms the current mask leaves out, by name -- debug reading only. */
+    get hiddenRooms() {
+      return roomVisibility.names.filter((_, i) => (roomVisMask & (1 << i)) === 0);
+    },
+  },
   /**
    * What ./perf.js took off the frame, so tools/verify-mansion.mjs can
    * assert the RULE (nothing indoors casts the moon's shadow; no material

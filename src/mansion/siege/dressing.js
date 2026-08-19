@@ -965,13 +965,23 @@ export function buildSiegeDressing({
   {
     const a = SIEGE_ANCHORS.centrepiece;
     /* (a) Whatever is standing there now. `position` is the child's own local
-     * transform and the interior parents everything flat to its root, so this
-     * is a world sweep in practice; the y floor keeps the compass inlay, its
-     * gold rings and the floor topping -- all of which are decals at or below
-     * GY+0.035 -- out of it, because a wrecked centrepiece does not take the
-     * floor with it. */
+     * transform and the interior parents everything either flat to its root
+     * or one level down in a room-visibility group (an identity transform
+     * directly under the root -- see the ROOM / PORTAL VISIBILITY section of
+     * MansionInterior.js), so this is a world sweep in practice; the y floor
+     * keeps the compass inlay, its gold rings and the floor topping -- all of
+     * which are decals at or below GY+0.035 -- out of it, because a wrecked
+     * centrepiece does not take the floor with it. */
     const standing = [];
+    const sweepTop = [];
     for (const child of interior?.root?.children ?? []) {
+      if (child.isGroup && child.name.startsWith('roomVisibility:')) {
+        sweepTop.push(...child.children);
+      } else {
+        sweepTop.push(child);
+      }
+    }
+    for (const child of sweepTop) {
       if (!child.isMesh) continue;
       const p = child.position;
       if (p.y <= GY + 0.04 || p.y >= GY + 2.9) continue;
