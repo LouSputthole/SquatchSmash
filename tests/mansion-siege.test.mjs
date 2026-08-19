@@ -7,6 +7,7 @@ import { MansionDamageState, DAMAGE_STATES, STATE_LAYERS } from '../src/mansion/
 import {
   WaveDirector, WAVES, ENCOUNTERS, STAGING, ROLES, totalAttackers, COMBAT_BOUNDARY, DEFENCE_POST,
   FRONT_DOOR_STAGING, frontDoorShare, waveById,
+  ASSAULT_ROUTES, FLANK_RELEASE_STAGGER,
 } from '../src/mansion/siege/waves.js';
 import { anchorById } from '../src/mansion/siege/nav.js';
 import {
@@ -296,6 +297,60 @@ test('a fast player pulls the second group forward instead of waiting', () => {
   wave.update(0.1);
   assert.equal(spawns.length, 8, 'attrition should have released 1B');
   assert.equal(spawns.at(-1).trigger, 'attrition');
+});
+
+test('every group is authored on a named route, and stages only on it', () => {
+  /* The encounter-director seam: route choice is data in ASSAULT_ROUTES and
+   * the plan, not constants scattered across the pool and the nav file. The
+   * builder already throws on a group staged off its own route; this holds
+   * the derived facts the rest of the suite leans on. */
+  for (const wave of WAVES) {
+    for (const group of wave.groups) {
+      assert.ok(group.routes.length > 0, `${group.id} has no route`);
+      for (const route of group.routes) {
+        assert.ok(ASSAULT_ROUTES[route], `${group.id} names unknown route ${route}`);
+      }
+      const flankByRoute = group.routes.some((route) => ASSAULT_ROUTES[route].flank);
+      assert.equal(group.flank, flankByRoute,
+        `${group.id}'s flank flag disagrees with its routes`);
+    }
+  }
+  /* The main route IS the front-door funnel: same zones, no drift between
+   * the route table and the share the owner asked for. */
+  assert.deepEqual([...ASSAULT_ROUTES.main.staging].sort(), [...FRONT_DOOR_STAGING].sort());
+});
+
+test('the flank releases into the main push, not after it dies down', () => {
+  /* The service-door lesson, applied to the flank that survived: a long
+   * route released on the frontal groups' 18 s clock arrives at a room the
+   * frontal group already died in. The stagger is short ON PURPOSE -- the
+   * wing walk is the delay -- and 2B must come before the final frontal
+   * push, so the player is pressured from behind DURING the fight. */
+  const two = waveById('two');
+  assert.deepEqual(two.groups.map((g) => g.id), ['2A', '2B', '2C']);
+  const flank = two.groups.find((g) => g.flank);
+  assert.equal(flank.id, '2B');
+  assert.equal(flank.after, FLANK_RELEASE_STAGGER);
+  assert.ok(FLANK_RELEASE_STAGGER <= 8,
+    `a ${FLANK_RELEASE_STAGGER} s stagger plus the wing walk lands after 2A is dead`);
+  assert.ok(flank.after < two.groups.find((g) => g.id === '2C').after,
+    'the flank must be moving before the final frontal group');
+
+  /* And on the director itself: nobody shot, six seconds on the clock, and
+   * the flank is in while all five of 2A are still standing. */
+  const spawns = [];
+  const wave = new WaveDirector({ wave: 'two', onSpawn: (o) => spawns.push(o) });
+  wave.begin();
+  assert.equal(spawns.length, 5);
+  wave.update(FLANK_RELEASE_STAGGER);
+  assert.equal(spawns.length, 9, 'the flank did not release on its stagger');
+  assert.equal(spawns.at(-1).group, '2B');
+  assert.equal(wave.standing.size, 9, 'all of 2A must still be standing at the flank release');
+  /* 2C keeps its own clock, measured from the flank's release. */
+  wave.update(19.9);
+  assert.equal(spawns.length, 9, '2C released early');
+  wave.update(0.2);
+  assert.equal(spawns.length, 14);
 });
 
 test('a wave is not cleared before it has finished arriving', () => {

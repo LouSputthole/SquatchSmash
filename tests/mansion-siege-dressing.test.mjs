@@ -39,6 +39,8 @@ const {
 const { buildSiegeGlass, SIEGE_GLASS } = await import('../src/mansion/siege/glass.js');
 const { buildSiegeNight } = await import('../src/mansion/siege/night.js');
 const { ANCHORS, anchorById, crossingFor } = await import('../src/mansion/siege/nav.js');
+const { APPROACH_CLEAR_WIDTH } = await import('../src/mansion/siege/waves.js');
+const { groundHeightAt } = await import('../src/mansion/siege/attackers.js');
 const { BLOOD_POOL_NAME } = await import('../src/world/blood.js');
 
 /**
@@ -952,6 +954,67 @@ test('the burning and burnt motor-court wrecks clear the fountain stonework mesh
     });
   }
   assert.deepEqual(faults, [], faults.join('; '));
+});
+
+test('the main approach offers an assault frontage, not a file', () => {
+  /* THE FOUNTAIN/WRECK CHANNEL, GATED. The turnaround's old wreck placement
+   * left a 1.15 m file each side between the burning shells and the basin --
+   * every attacker in the mission queued through it and stalled. The shells
+   * are parked against the verges now, and this samples the walked approach
+   * -- the same forecourt anchor chains the nav graph routes the waves down
+   * -- every half metre against the REAL colliders, holding the channel at
+   * `APPROACH_CLEAR_WIDTH` (2.5 m: two men abreast) with the walked line
+   * itself at least a shoulder clear of either edge. Under `under_attack`,
+   * because the wreck hulls are combat truth and the fight is when the
+   * channel matters. */
+  const { damage, colliders } = WORLD;
+  damage.apply('under_attack');
+  /* A box only pinches the channel when it stands proud of the walker's own
+   * floor -- same quarter-metre rule as tools/probe-siege-anchors.mjs, so a
+   * kerb, a scorch mark or a floor inlay is not an obstacle. */
+  const relevant = (box, y) => box?.min && box.max.y > y + 0.25 && box.min.y < y + 1.75;
+  for (const side of ['west', 'east']) {
+    const chain = [
+      'drive_head', `court_gap_${side}`, `court_side_${side}`,
+      `court_north_${side}`, `court_step_turn_${side}`, `steps_${side}`,
+    ].map((id) => {
+      const anchor = anchorById(id);
+      assert.ok(anchor, `the ${side} approach chain lost its ${id} anchor`);
+      return anchor;
+    });
+    for (let leg = 0; leg + 1 < chain.length; leg++) {
+      const a = chain[leg];
+      const b = chain[leg + 1];
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = a.x + (b.x - a.x) * t;
+        const z = a.z + (b.z - a.z) * t;
+        const y = groundHeightAt(x, z);
+        /* The clear x-interval the walked point stands in at this z. */
+        let lo = -14;
+        let hi = 14;
+        for (const box of colliders) {
+          if (!relevant(box, y)) continue;
+          if (z < box.min.z || z > box.max.z) continue;
+          if (box.max.x <= x) lo = Math.max(lo, box.max.x);
+          else if (box.min.x >= x) hi = Math.min(hi, box.min.x);
+          else {
+            assert.fail(`the ${side} approach walks through a collider at `
+              + `(${x.toFixed(2)}, ${z.toFixed(2)})`);
+          }
+        }
+        const width = hi - lo;
+        assert.ok(width >= APPROACH_CLEAR_WIDTH,
+          `the ${side} approach channel is ${width.toFixed(2)} m at `
+          + `(${x.toFixed(2)}, ${z.toFixed(2)}) on ${a.id} -> ${b.id} -- a file, not a frontage`);
+        assert.ok(Math.min(x - lo, hi - x) >= 0.6,
+          `the ${side} approach walks ${Math.min(x - lo, hi - x).toFixed(2)} m off an edge at `
+          + `(${x.toFixed(2)}, ${z.toFixed(2)}) on ${a.id} -> ${b.id}`);
+      }
+    }
+  }
+  damage.apply('clean');
 });
 
 test('the gate-bound abandoned sedan follows the drive without entering its curb or planting', () => {
