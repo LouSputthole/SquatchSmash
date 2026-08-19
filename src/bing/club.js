@@ -1569,9 +1569,11 @@ export function buildClub(scene, { renderer } = {}) {
        * dimension along the tiled wall and the thin one normal to it. */
       const backplate = box({
         /* Local X becomes wall-width after the fixture turns. Local Z is the
-         * wall normal: -9.25cm puts the back face on the tile and the plate's
-         * centre directly behind the bowl rather than 11cm to its right. */
-        size: [0.42, 0.76, 0.085], pos: [0.03, 0.84, -0.0925], mat: porcelain,
+         * wall normal. The fixture origin sits at B.x1 - 0.32 and the east
+         * wall panel's inner face at B.x1 - 0.09 (measured, club-wall-panel),
+         * so the back face lands on the tile at local -0.23: the old -9.25cm
+         * centre left the plate floating 9.5cm out in the room. */
+        size: [0.42, 0.76, 0.085], pos: [0.03, 0.84, -0.1875], mat: porcelain,
       });
       backplate.name = 'urinal-backplate';
       const u = group('urinal',

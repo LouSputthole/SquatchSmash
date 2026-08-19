@@ -1788,7 +1788,13 @@ await page.evaluate(() => {
   if (b.blackjack.state === 'player') b.blackjack.stand();
 });
 await tick(6, 0.2);
-await page.waitForTimeout(200);
+/* Wait on the verdict itself, not on a stopwatch: a natural settles on the
+ * deal and its dealer call rides the same delayed gap as every other hand,
+ * which under a loaded machine drifted past the old fixed 200ms. */
+await page.waitForFunction(
+  () => window.__bing.game.voLog.some((cue) => cue.startsWith('vo.bing.blackjack.dealer.')),
+  null, { timeout: 15000 },
+).catch(() => {});
 const bjVerdict = await page.evaluate(() => {
   const b = window.__bing;
   const out = { kind: b.game.lastHand?.kind ?? null, voLog: [...b.game.voLog] };
@@ -2796,7 +2802,10 @@ const backOfHouse = await page.evaluate(() => {
   const powder = b.club.anchors.powderMesh;
   const powderLine = powder?.getObjectByName('urinal-line');
   const powderCard = powder?.getObjectByName('urinal-line-card');
-  const eastWallFace = B.x1 - 0.125;
+  /* The east wall panel's inner face, measured from the built club
+   * (club-wall-panel min.x = B.x1 - 0.09) — the old 0.125 was a stale
+   * guess that made a plate 6cm off the tile read as nearly flush. */
+  const eastWallFace = B.x1 - 0.09;
   return {
     toilets: toilets.length,
     partitions: partitions.length,
