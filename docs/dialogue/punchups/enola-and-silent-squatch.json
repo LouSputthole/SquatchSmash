@@ -1,0 +1,293 @@
+{
+  "scene": "The Enola Squatch / PROJECT SILENT SQUATCH",
+  "reference": "The war-film bombing raid, and the Manhattan Project. A basement full of borrowed scientists builds a bomb for a jerky cartel, and then the cartel does what cartels do with people who know things.",
+  "diagnosis": "Two failures. The bomb-run lines reach for the shooter one-liner ('Hope they're hungry', 'Lou sends his regards') at the exact moment the scene has earned dread instead. And every scientist dies in stock hostage-movie language — 'We have families!', 'Please!' — after being written with real specificity ten minutes earlier. Men who spent twelve weeks arguing about shielding do not die in a disaster film. They die mid-argument, still trying to be useful, because being useful is the only currency they have ever had.",
+  "lines": [
+    {
+      "cue": "vo.enolasquatch.prospect.release-1.1",
+      "character": "player",
+      "current": "Send them the Fat Squatch.",
+      "why": "Reads like the kid is reading the label off the ordnance. It is the moment he drops it; it should cost him something or reveal something ugly about him.",
+      "house": "Fat Squatch away. God help whoever's down there.",
+      "tarantino": "You know they named it. Somebody in a basement sat down and named this thing. Fat Squatch. Like it's a horse.",
+      "mcdonagh": "Fat Squatch, away. Christ. Somebody named it. Somebody sat down and thought about a name.",
+      "houser": "Fat Squatch is away. Product delivered. Somebody in marketing is going to be very pleased with themselves.",
+      "coen": "There it goes. The Fat Squatch. That's — yeah. That's what they called it."
+    },
+    {
+      "cue": "vo.enolasquatch.prospect.release-2.1",
+      "character": "player",
+      "current": "Special delivery.",
+      "why": "The single most-used one-liner in the history of the medium. It also winks, which the doctrine forbids.",
+      "house": "It's gone. It's out. Turn us the hell around.",
+      "tarantino": "It's away. Don't look. I'm telling you as a friend, do not look down.",
+      "mcdonagh": "It's gone. Don't look at it. I'm serious now, don't look at it.",
+      "houser": "Payload's away. Whatever's down there just became somebody else's paperwork.",
+      "coen": "It's away. Okay. That's — okay. That's done now."
+    },
+    {
+      "cue": "vo.enolasquatch.prospect.release-3.1",
+      "character": "player",
+      "current": "Lou sends his regards.",
+      "why": "Second-hand gangster-movie catchphrase. It also makes a mass casualty event sound like a slap.",
+      "house": "That's from Lou. All of it. Every bit of it is from Lou.",
+      "tarantino": "That's Lou's. I want that on the record. That's Lou's, all the way down.",
+      "mcdonagh": "That's from Lou. And I'll be sayin' that in me sleep for the rest of me life, so I will.",
+      "houser": "Compliments of Big Uncle Lou. Who is, and I want this noted, four hundred miles away eating a sandwich.",
+      "coen": "That one's from Lou. I'd want them to know that, if there was anybody left to tell."
+    },
+    {
+      "cue": "vo.enolasquatch.prospect.release-4.1",
+      "character": "player",
+      "current": "Hope they're hungry.",
+      "why": "A joke at the exact frame the scene must not joke. Wrong on the doctrine and wrong on the character.",
+      "house": "Bay's clear. I'd like to stop being the guy who did this now.",
+      "tarantino": "Bay's clear. And I want you to know I'm going to remember exactly where I was standing.",
+      "mcdonagh": "That's it gone. And I'll be honest with you — I don't feel a thing. Which is worse, I think. That's the bit that'll get me.",
+      "houser": "Payload away, bay's clear, and I have just personally out-produced every drone strike in the Pacific Northwest.",
+      "coen": "That's it out. Huh. I thought I'd feel something. I don't, really."
+    },
+    {
+      "cue": "vo.enolasquatch.lou.arrival-lou-1.1",
+      "character": "lou1",
+      "current": "Did they get the package?",
+      "why": "The euphemism is right in principle — Lou would absolutely call it a package — but it is said so mildly it reads as shipping and receiving instead of a man asking whether a town is still there.",
+      "house": "Did it land where I paid for it to land?",
+      "tarantino": "So. Did they take delivery? And I want the real answer, not the one you rehearsed in the car.",
+      "mcdonagh": "Did they get it? And don't be soft with me now. Did they get it.",
+      "houser": "Did the package arrive? And by arrive I mean is there anybody left down there to have received it.",
+      "coen": "They get the package all right? I only ask because I've heard two versions already and they don't agree."
+    },
+    {
+      "cue": "vo.enolasquatch.prospect.arrival-lou-2.1",
+      "character": "player",
+      "current": "They signed for it.",
+      "why": "A delivery-driver gag on a mass-casualty report. It undercuts, and worse, the kid should not be joking yet — he has not landed emotionally.",
+      "house": "There's nothing down there to sign anything.",
+      "tarantino": "They got it. There's a hole where the road used to bend. I flew over the same ground twice looking for the bend.",
+      "mcdonagh": "They got it, aye. There's a hole in the ground the shape of a town and I'll be seein' it every time I close me eyes.",
+      "houser": "Delivered. Signed for by nobody, because signing requires hands.",
+      "coen": "They got it. There's — there's not a lot down there now. I don't know what else to tell you about it."
+    },
+    {
+      "cue": "vo.enolasquatch.lou.arrival-lou-3.1",
+      "character": "lou1",
+      "current": "Good. Put the plane back where you found it.",
+      "why": "This one is actually close to great — the banality is the joke, and the doctrine likes that. It just needs to be said by somebody who has already moved on, which is what makes it obscene.",
+      "house": "Good. Put the plane back where you found it and wash the smell out of your coat before dinner.",
+      "tarantino": "Good. Now put the plane back exactly where you found it, and I mean exactly, because the man I borrowed it from counts things.",
+      "mcdonagh": "Grand. Put the plane back. And wipe your boots, you've the whole state on 'em.",
+      "houser": "Excellent. Return the aircraft to inventory, and I want it in the condition you took it, because that lease is in my sister's name.",
+      "coen": "Good. Well. Put the plane back where you got it. And, you know — take a shower. You look like something."
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.orlova.wehavefamilies",
+      "character": "orlova",
+      "current": "We have families!",
+      "why": "Textbook disaster-movie plea. She has been the sharpest voice in the basement for twelve weeks and she dies as an extra.",
+      "house": "I have a daughter in Kyiv who thinks I'm dead already. Do not make her right.",
+      "tarantino": "I have a daughter. She is nineteen. She thinks I am dead — I let her think that, because it was safer for her, and I would very much like to be able to correct that at some point.",
+      "mcdonagh": "I've a daughter. She thinks I'm dead. I let her think it. And now you're goin' to make an honest woman of me, is that it?",
+      "houser": "I have a daughter, a mother, and a lease. Any one of those is more paperwork for you than a bullet is.",
+      "coen": "I have a family. I don't know if that matters to you. It probably doesn't. But I wanted it said out loud."
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.orlova.tellnobody",
+      "character": "orlova",
+      "current": "We will tell nobody!",
+      "why": "Nobody in a locked room bargains with a promise. She should bargain with the only thing she owns — what is in her head.",
+      "house": "Who would we tell? Who on this earth would believe one word of it?",
+      "tarantino": "Tell who? Think about what you are afraid of for one second. We would have to explain the sasquatch. Nobody gets past the sasquatch.",
+      "mcdonagh": "Tell who? Who'd believe us? We'd have to start with the fuckin' sasquatch and we'd be in a home by teatime.",
+      "houser": "We have no one to tell. We are undocumented, unpaid, and technically deceased in two countries. You built the perfect workforce and now you're destroying the asset.",
+      "coen": "We wouldn't tell anybody. Who would we tell? Nobody'd believe a word of it, that's the — that's the whole thing."
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.vetrov.canworkforyou",
+      "character": "vetrov",
+      "current": "We can work for you!",
+      "why": "Generic. Vetrov's whole character is that he solves the problem in front of him; his plea should be a proposal, delivered too fast, with numbers in it.",
+      "house": "We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.",
+      "tarantino": "You want another one? We can build you another one. Smaller, cleaner, half the shielding, eight weeks — six, if nobody comes down here to ask me how it's going. That is a better use of me than a hole in the ground.",
+      "mcdonagh": "We'll build you another. A better one. A smaller one. I'll do it in eight weeks and I'll not complain once, which for me is a fuckin' miracle.",
+      "houser": "You have a functioning R&D division standing in front of you and you're about to fire all of it in one go. That's not security, that's a write-off.",
+      "coen": "We could work for you. That's — I mean, we already do. We've been doing that. So."
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.vetrov.please",
+      "character": "vetrov",
+      "current": "Please!",
+      "why": "One word of nothing on a death beat. Even a man out of arguments has one specific last one.",
+      "house": "Please. Please. I did the shielding right. I did the shielding right and nobody even checked.",
+      "tarantino": "Please. I got the shielding right. Nobody checked. Nobody ever came down and checked, and I got it right anyway. That should count. Somewhere, that should count.",
+      "mcdonagh": "Please. Please now. I did it right. I did every bit of it right and not one of yiz ever came down to look.",
+      "houser": "Please. I have been very reasonable about a great many things in this basement and I would like that considered.",
+      "coen": "Please. I'm asking. I don't have anything better than that. I'm just asking."
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.sokolov.everythingyouasked",
+      "character": "sokolov",
+      "current": "We did everything you asked!",
+      "why": "Boilerplate. Sokolov was shouting 'Twelve weeks!' in triumph minutes ago — his plea should be the same pride, souring in real time.",
+      "house": "Twelve weeks. You said impossible and we did it in twelve weeks and this is the room you put us in.",
+      "tarantino": "Twelve weeks. You stood in that doorway and said it could not be done, and we did it in twelve weeks, on your food, with your lights going off every night at ten. And this is the room. This is the room you had picked out the whole time.",
+      "mcdonagh": "Twelve weeks! We did it in twelve fuckin' weeks and you'd the room picked out before we started, didn't you. You'd it picked out.",
+      "houser": "We delivered ahead of schedule, under budget, in a basement, on a diet of jerky, and this is the exit package.",
+      "coen": "We did everything you asked. Twelve weeks. And I guess that was — I guess that was the problem, wasn't it."
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.sokolov.cannotleaveus",
+      "character": "sokolov",
+      "current": "You cannot leave us in here!",
+      "why": "Stage direction. It states the situation instead of reacting to it.",
+      "house": "There is no air in here. You know that. Somebody in this building did that math and it was probably me.",
+      "tarantino": "There's no air in this room. I know because I calculated it. Third week. For fun. That is the joke — I did the math on my own room and I laughed.",
+      "mcdonagh": "There's no air in here! I worked that out meself, weeks ago, for a laugh! For a fuckin' laugh!",
+      "houser": "This room has no ventilation. I flagged that in writing. There is a memo. There is a memo about this exact room.",
+      "coen": "You can't leave us in here. There's no air. I did that math myself, which is — that's a hell of a thing, when you think about it."
+    },
+    {
+      "cue": "vo.silentsquatch.reaction.marchuk.whydidyoukillhim",
+      "character": "marchuk",
+      "current": "Why did you kill him?!",
+      "why": "Expository shock. A man watching his colleague die does not narrate it as a question to the room.",
+      "house": "He was standing right there. He wasn't even — he had a pen in his hand.",
+      "tarantino": "He had a pen in his hand. He was writing something down. Whatever it was, that was the last thing he thought was important, and now nobody will ever know what it was.",
+      "mcdonagh": "He'd a pen in his hand. He was writin' somethin' down. What was he writin'? Somebody tell me what he was writin'.",
+      "houser": "He was mid-sentence. You shot a man mid-sentence. Do you understand how much unfinished work is on that desk?",
+      "coen": "He was just standing there. He had a pen. I don't — why would you do that to a man with a pen?"
+    },
+    {
+      "cue": "vo.silentsquatch.lock.booski.usefulnessexpired",
+      "character": "booski",
+      "current": "This guy's usefulness has expired.",
+      "why": "Off-the-shelf villain speak. Booski is funnier and colder than this everywhere else in the game.",
+      "house": "He's done. There's nothing left in him that Lou paid for.",
+      "tarantino": "Here's the thing about a specialist. The day the thing is built, the specialist becomes a guy who knows how you built it. That's not a demotion. That's a whole different job, and it's one nobody's hiring for.",
+      "mcdonagh": "He's finished. He's not a scientist any more, he's a witness with a doctorate.",
+      "houser": "He's transitioned from an asset to a liability. That happened at approximately four this afternoon and nobody sent him the memo.",
+      "coen": "He's done being useful. That's just where we're at with him now."
+    },
+    {
+      "cue": "vo.silentsquatch.lock.booski.handleit",
+      "character": "booski",
+      "current": "Handle it.",
+      "why": "The most generic order a crime boss can give, and it is then repeated almost verbatim as the actual kill order.",
+      "house": "Lock it. All of it. Both doors.",
+      "tarantino": "Lock the door. Then lock the other door. Then go upstairs and be somewhere else for about an hour.",
+      "mcdonagh": "Lock it. And don't stand there listenin' — that's how fellas get strange.",
+      "houser": "Secure the room. And nobody makes a note of the time, because a time is the kind of detail that ends up in a courtroom.",
+      "coen": "Go ahead and lock it up. Both of them. Then come on upstairs."
+    },
+    {
+      "cue": "vo.silentsquatch.execution.booski.isaidhandleit",
+      "character": "booski",
+      "current": "I said handle it.",
+      "why": "The pivotal beat of the whole scene lands on a repeat of the previous cliché. This is the line that has to make the player's stomach drop.",
+      "house": "I said do it. Don't make me the guy who says it a third time, kid — that guy remembers.",
+      "tarantino": "I said do it. And now I've said it twice, which means from here on it isn't an order any more, it's a test. You understand the difference? Because the difference is your whole life.",
+      "mcdonagh": "I said do it. That's twice now. There isn't a third one, and you'll not like the shape of what comes instead.",
+      "houser": "I gave you an instruction. Now I've given it again, which is already a performance issue, and I'd hate for this to become a conversation about you.",
+      "coen": "I said handle it. That's the second time I've said it. I don't generally get to a third."
+    },
+    {
+      "cue": "vo.silentsquatch.completion.booski.youarecertain",
+      "character": "booski",
+      "current": "You're certain?",
+      "why": "Flat confirmation. Booski has crude color everywhere else and none of it here.",
+      "house": "You're certain. Say it like a man who has to live in the same state as this thing.",
+      "tarantino": "Certain. Not confident, not optimistic — certain. Because I'm going to repeat your answer to a man upstairs, word for word, and he doesn't take confident.",
+      "mcdonagh": "You're certain, are you? Because I'm the fella that has to go up them stairs and say it, and I'd rather not be wrong in front of him.",
+      "houser": "Certain, or certain enough to sign? Because upstairs those are two very different products.",
+      "coen": "You're certain about that. Because I'm going to repeat it upstairs, and I'd rather repeat something true."
+    },
+    {
+      "cue": "vo.silentsquatch.completion.booski.good",
+      "character": "booski",
+      "current": "Good.",
+      "why": "A one-word shrug at the completion of a weapon. The game's biggest reveal deserves a reaction with a body in it.",
+      "house": "Good. Then that's the thing that's under my house now.",
+      "tarantino": "Good. So there it is. Twelve weeks, four Russians and a basement, and now there's a thing under Lou's house that can end a town. And we're all going to go upstairs and eat.",
+      "mcdonagh": "Good. Grand. There's a bomb under the house. And we'll all go up now and have our dinner, will we.",
+      "houser": "Good. So we're now a jerky company with a strategic deterrent. I'd love to see how the accountant files that.",
+      "coen": "Good. Well. That's a hell of a thing to have under a house."
+    },
+    {
+      "cue": "vo.silentsquatch.guards.basement.keepwalking",
+      "character": "mansion-guard-basement",
+      "current": "Keep walking.",
+      "why": "Stock NPC bark. The sibling guard line ('The door stays open. I stay here. That's the arrangement.') proves the scene knows how to write these.",
+      "house": "Keep walking. Whatever you heard down here, you heard the boiler.",
+      "tarantino": "Keep walking. And whatever you think you heard — that's the boiler. It's a very old boiler. It does that.",
+      "mcdonagh": "Keep walkin'. That's the boiler. It's always the boiler. Everythin' down here is the boiler.",
+      "houser": "Keep moving. This corridor is not a place where people stop, and men who stop here become a topic.",
+      "coen": "Keep walking, please. That noise is the boiler. It's an old building."
+    },
+    {
+      "cue": "vo.silentsquatch.guards.vault.backup",
+      "character": "mansion-guard-vault",
+      "current": "Back up.",
+      "why": "Two words with no man attached to them.",
+      "house": "Back up. I don't get told what's in there either, and I've stopped wanting to know.",
+      "tarantino": "Back up. I've stood at this door eleven weeks. I don't know what's behind it, I've stopped guessing, and I'd advise you to arrive at the same place faster than I did.",
+      "mcdonagh": "Back up. I don't know what's in there and I've made me peace with not knowin', which took some doin'.",
+      "houser": "Step back. My clearance ends at this door, my curiosity ended about a month before that.",
+      "coen": "Back up, please. I don't know what's in there. I've decided that's fine."
+    },
+    {
+      "cue": "vo.silentsquatch.office.lou.soonenough",
+      "character": "lou1",
+      "current": "Eh. You'll find out soon enough.",
+      "why": "Stock mysterious-boss filler, sitting next to genuinely great Lou writing ('It's a desk, kid, it's been there longer than you have').",
+      "house": "You'll find out. And then you'll wish you'd enjoyed not knowing more than you did.",
+      "tarantino": "You'll find out. And here's the part nobody warns you about — the not knowing was the good part. Right now, this, standing here annoyed at me. This is the good part.",
+      "mcdonagh": "You'll find out soon enough. And you'll wish to God you were back stood there botherin' me about it.",
+      "houser": "You'll be briefed. And when you are, you'll spend the rest of your life wishing you'd been slightly less curious in my office.",
+      "coen": "You'll find out. And then you'll have found out. That's how that goes."
+    },
+    {
+      "cue": "vo.initiation.party.erican.190z6i5.1",
+      "character": "eric (and four others, verbatim)",
+      "current": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was.",
+      "why": "The line itself is good. The problem is it is copy-pasted across five named characters, which turns a party of individuals into one NPC with five faces. It needs four rewrites, not four tones — so the variants below are per-character, not per-director.",
+      "house": "[eric] Welcome, brother. Mine was worse. Everybody says that. Mine actually was.",
+      "tarantino": "[gratin] Welcome to it. Mine was worse. And before you say everybody says that — everybody does say that, and in my case it's documented.",
+      "mcdonagh": "[snow] Congratulations. Mine was worse. I'll not be describin' it. Not tonight, not ever, not to you.",
+      "houser": "[lou2] Welcome aboard. Mine was worse, and there's no HR here to tell it to, so it just lives in me.",
+      "coen": "[booski] Welcome, brother. Mine was worse. I know everybody says that. But I've got photographs."
+    },
+    {
+      "cue": "vo.initiation.party.erican.0bdemm4.1",
+      "character": "eric (and four others, verbatim)",
+      "current": "To the new blood!",
+      "why": "Same duplication problem, and the toast itself is a stock fantasy-tavern line. Five people raising a glass should raise five different glasses.",
+      "house": "[eric] To the new blood!",
+      "tarantino": "[gratin] To the kid. May he stay useful longer than the last one.",
+      "mcdonagh": "[snow] To the new fella. God love him, he's no idea.",
+      "houser": "[lou2] To the newest member of the organization, and to whoever ends up cleaning up after him.",
+      "coen": "[booski] To the new blood. And to the old blood. There's been a lot of both this year."
+    },
+    {
+      "cue": "vo.initiation.party.erican.0npetxc.1",
+      "character": "eric (and four others, verbatim)",
+      "current": "You alright? You keep looking at Booski. We all love him but you're — you're really looking at him.",
+      "why": "A genuinely ominous piece of foreshadowing, destroyed by being said identically by five people. It should land once, from the one person drunk enough to say it.",
+      "house": "[eric] You alright? You keep looking at Booski. We all love him. But you're really looking at him.",
+      "tarantino": "[gratin] You keep looking at Booski. Not looking at him like a man looks at a friend. Looking at him like a man checks a room for exits.",
+      "mcdonagh": "[snow] You've been eyein' Booski all night. Now, we all love Booski. But that's not lovin', what you're doin'.",
+      "houser": "[lou2] You've had eyes on Booski for an hour. I'm not asking why. I'm telling you that I'm not the only one who noticed.",
+      "coen": "[booski himself, from behind] You keep looking at me. All night. I don't mind. I'm just saying I noticed, is all."
+    },
+    {
+      "cue": "vo.initiation.party.erican.1o3ynaq.1",
+      "character": "eric (and four others, verbatim)",
+      "current": "You made it look easy. It's not easy. Ask the shirt by the truck. …too soon. Have a beer.",
+      "why": "The 'shirt by the truck' runner is the best joke in the party and duplication flattens it. Let each mouth land a different piece of it.",
+      "house": "[eric] You made it look easy. It's not. Ask the shirt by the truck. …Too soon. Have a beer.",
+      "tarantino": "[gratin] You made that look easy. It is not easy. There's a shirt by that truck could tell you how not easy, except a shirt can't talk, which is sort of the point I'm making.",
+      "mcdonagh": "[snow] You made it look easy. It isn't. Ask the shirt by the truck. …Ah. Too soon. Drink that.",
+      "houser": "[lou2] You made it look effortless, which is the worst thing you could have done, because now they'll expect it. Ask the shirt by the truck how expectations went for him.",
+      "coen": "[booski] You made it look easy. It isn't easy. There's a shirt by the truck. I won't say more than that."
+    }
+  ]
+}

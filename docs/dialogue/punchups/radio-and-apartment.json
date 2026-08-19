@@ -1,0 +1,207 @@
+{
+  "scene": "97.8 THE SQUATCH / the apartment",
+  "reference": "The radio is the GTA ad break — traditionally the crudest, most satirical material in a game like this. The apartment is a man alone in a room talking to himself.",
+  "diagnosis": "The radio is the biggest missed opportunity in the game. Ad-break parody is where a satire like this is supposed to be filthiest, and instead the announcer is doing warm, flattering, real-radio copy — 'the only station where every host thinks they're the smartest person in the building… and somehow they are' is a compliment, not a joke. There is no product being sold badly, no lawyer's disclaimer read at four hundred words a minute, no local business run by an obvious criminal. Separately, the apartment has an outright doctrine violation: `vo.door.hint.piss.1` has the character say 'hold F' out loud. The tone doc's own rule is that a character speaks and the screen clarifies afterwards, never the character reading the button. And the one genuinely adult beat in the game — Margo and the zip — is written coy.",
+  "lines": [
+    {
+      "cue": "vo.door.hint.piss.1",
+      "character": "player",
+      "current": "Stand over it, hold F, and stop overthinking it.",
+      "why": "DOCTRINE VIOLATION — the character speaks the keybind. The tone doc names this exact failure: the character speaks first, the HUD clarifies in the onDone. Every variant below leaves the button to the screen.",
+      "house": "It's a toilet. I've done this before. I've done this thousands of times.",
+      "tarantino": "It's a toilet. I have used a toilet every day of my life since I was three years old and somehow this one is a decision.",
+      "mcdonagh": "It's a jacks. I've used a jacks. Why am I stood here thinkin' about it.",
+      "houser": "It's a toilet. I have a mortgage and a criminal record and I am standing here strategising about a toilet.",
+      "coen": "It's a toilet. I know how to do this. I've just — okay. Here we go."
+    },
+    {
+      "cue": "vo.door.hint.dressed.1",
+      "character": "player",
+      "current": "The nightstand. There is a drawer in the nightstand.",
+      "why": "An interactable-object label with a voice on it. Nobody describes their own furniture to themselves.",
+      "house": "Clothes. There were clothes. They were in the nightstand and I was wearing some of them.",
+      "tarantino": "The nightstand. There's a drawer in it. There's been a drawer in it for four years and I have never once opened it sober.",
+      "mcdonagh": "The nightstand. There's a drawer. I know there's a drawer, I've been avoidin' it.",
+      "houser": "Nightstand. There's a drawer. I keep everything in there I'd rather not explain to anyone.",
+      "coen": "The nightstand. There's a drawer there. I put things in it. That's where things go."
+    },
+    {
+      "cue": "vo.door.hint.shower.1",
+      "character": "player",
+      "current": "Through the north door. Get in it.",
+      "why": "'North door' is a map callout. A man in his own apartment does not navigate by compass.",
+      "house": "Shower. I smell like the inside of somebody's car.",
+      "tarantino": "Shower. I smell like a car. Not my car. Somebody else's car, which is worse.",
+      "mcdonagh": "A shower. I smell like the inside of a car that isn't mine.",
+      "houser": "Shower. I currently smell like a rental vehicle and a decision I regret.",
+      "coen": "I should shower. I smell like — yeah. I should shower."
+    },
+    {
+      "cue": "vo.door.refusal.final_arc_locked.1",
+      "character": "player",
+      "current": "The bank is done. The next call is not here yet.",
+      "why": "A system gate message wearing dialogue clothing. He is describing the game's state machine.",
+      "house": "Bank's done. Nobody's called. And when nobody calls, you sit down.",
+      "tarantino": "The bank's done. Nobody's called. And in this business, nobody calling is either the best week of your life or the last one, and you don't find out which until it's over.",
+      "mcdonagh": "The bank's done and nobody's rung. And that's either grand or it's very bad, and there's no way of knowin' till it's too late.",
+      "houser": "Bank's closed out. No follow-up. Which in this organization means either I did it right or somebody's currently deciding about me.",
+      "coen": "The bank's done. Nobody's called. That's either good or it isn't. Hard to say."
+    },
+    {
+      "cue": "vo.door.refusal.initiation_locked.1",
+      "character": "player",
+      "current": "Lou said seven. The invitation still has to land.",
+      "why": "Same gate-check problem — 'has to land' is production language, not his.",
+      "house": "Lou said seven. It's not seven. You don't show up early to a thing like that.",
+      "tarantino": "Lou said seven. It's not seven. And nobody in the history of this family has ever been rewarded for showing up early to something like this.",
+      "mcdonagh": "Lou said seven. It's not seven. You don't turn up early to that kind of thing, you look desperate.",
+      "houser": "Lou said seven. It's not seven. Arriving early to your own initiation reads as eager, and eager is how people get given the bad jobs.",
+      "coen": "Lou said seven. It's not seven yet. So."
+    },
+    {
+      "cue": "vo.photo.1",
+      "character": "player",
+      "current": "Ahh. What a good time.",
+      "why": "Vague nostalgia filler, sitting right next to the excellent 'Everyone in that picture owes me money'.",
+      "house": "Three of them in that photo are dead and one of them owes me forty bucks.",
+      "tarantino": "Look at that. Nobody in that picture knew what was coming. That's what a photograph is, when you get down to it. It's a room full of people who don't know yet.",
+      "mcdonagh": "God, look at that. Half of them are dead and the other half stopped ringin'.",
+      "houser": "Great night. Two of those people are incarcerated and one of them is a witness, so it's really more of a document now.",
+      "coen": "Huh. That was a good time. That was — yeah. That was a while ago now."
+    },
+    {
+      "cue": "vo.photo.4",
+      "character": "player",
+      "current": "Let it be known: that was a great time.",
+      "why": "Could describe any photograph ever taken. No specificity, no crudeness, no personality.",
+      "house": "That was the last good night before everything got complicated.",
+      "tarantino": "That was a great night. That was the last one where nobody at the table had done anything you couldn't come back from.",
+      "mcdonagh": "That was a great night, that was. Last one before it all went sideways, mind.",
+      "houser": "Great night. Everyone in that picture still had a clean record and a functioning liver.",
+      "coen": "That was a great time. That was before all the — well. It was before."
+    },
+    {
+      "cue": "vo.margo.comehome.dress.1",
+      "character": "margo",
+      "current": "The zip. Come here. That is not a request — I am not sleeping in this dress.",
+      "why": "OWNER DECISION NEEDED — this is the game's one adult beat and it is written coy. The line is already good (the 'not a request' is right); what it lacks is that Margo is in complete control and enjoying it. The variants below raise the heat without going graphic — pick a level and I'll match the rest of the scene to it.",
+      "house": "The zip. Come here. That's not a request, and don't take all night about it — I've been thinking about this since the second course.",
+      "tarantino": "The zip. Come here. And I want to be clear about something before you touch it: this is not you getting lucky. This is me deciding, at a table, about two hours ago, and you catching up.",
+      "mcdonagh": "The zip. Come here. That's not a request. And take your time with it, because I've been in this bloody thing since six and I intend to enjoy gettin' out of it.",
+      "houser": "The zip. Come here. That's not a request. I've had a plan since the appetiser and you are currently the only part of it running behind.",
+      "coen": "The zip. Come here. That's not — I'm not asking. I've been in this dress since six and I'm done with it."
+    },
+    {
+      "cue": "vo.call.lou.attaboy.3",
+      "character": "lou",
+      "current": "Keep doing work like that and there is a bright future for you here.",
+      "why": "A middle manager's pep talk from a mob boss, immediately after a violent job. 'Bright future' drains every drop of menace out of the moment.",
+      "house": "Keep doing work like that and you'll be somebody in this family. Keep doing it too well and you'll be somebody they talk about.",
+      "tarantino": "Keep working like that and you'll go a long way here. And I want you to hear both halves of that, because a long way in this family is a long way from where you started, and there's no road back down it.",
+      "mcdonagh": "Keep doin' work like that and you'll do well here. And that's a warnin' as much as anythin', but take it however suits you.",
+      "houser": "Keep performing like that and there's a real path for you in this organization. There's also a shorter one. Both of them are paths.",
+      "coen": "You keep doing work like that, you'll do all right here. That's not nothing. That's about the most anybody gets told."
+    },
+    {
+      "cue": "vo.call.lou.bada_bing.3",
+      "character": "lou1",
+      "current": "I have a package for you, and I need it handled tonight.",
+      "why": "Generic mob-boss phrasing with none of the specific menace of Lou's better lines.",
+      "house": "There's a thing here with your name on it and it stops being useful at midnight.",
+      "tarantino": "I've got something here for you, and it's got a clock on it. Not a metaphor. An actual clock. It stops mattering at midnight and after that it's just a problem I own.",
+      "mcdonagh": "I've a thing here for you and it needs doin' tonight. Not tomorrow. Tonight, before it turns into somethin' worse.",
+      "houser": "I have an item with a very short shelf life and your name attached to it. Tonight, or it becomes a liability with my name attached to it.",
+      "coen": "I've got a package for you. It needs handling tonight. Not tomorrow. That's the part that matters."
+    },
+    {
+      "cue": "vo.call.booski.bignight.1",
+      "character": "booski",
+      "current": "Tonight is the night. Do not make other plans.",
+      "why": "Stock action-movie opener on a major story gate.",
+      "house": "Tonight's the night. Whatever else you had on, you didn't.",
+      "tarantino": "Tonight's the night. Whatever else you had planned — and I know you had nothing planned, but on the off chance — you didn't.",
+      "mcdonagh": "Tonight's the night. Whatever else you'd on, you hadn't.",
+      "houser": "Tonight's the night. Everything else in your calendar has been cancelled by me, on your behalf, without consultation.",
+      "coen": "Tonight's the night. Don't make any other plans. Not that you had any."
+    },
+    {
+      "cue": "vo.call.booski.bignight.3",
+      "character": "booski",
+      "current": "Shower, shave, wear something clean. This one is about you, Tony.",
+      "why": "'This one is about you, Tony' is a sports-movie mentor speech. The instruction half is great; the sentiment half is too tender for this world.",
+      "house": "Shower, shave, wear something clean. Everybody in that room is going to be looking at you and most of them are hoping you screw it up.",
+      "tarantino": "Shower. Shave. Wear something clean. And I mean clean — every man in that room is going to look at you for exactly four seconds and decide something, and you don't get a second four seconds.",
+      "mcdonagh": "Shower, shave, wear somethin' clean. Every fella in that room'll look at you for four seconds and make his mind up forever. That's how it works and it's not fair and there it is.",
+      "houser": "Shower, shave, wear something clean. This is a first impression with a room full of people who make permanent decisions in under five seconds.",
+      "coen": "Shower, shave, put on something clean. This one's about you. That's — that's not always a good thing, but it's about you."
+    },
+    {
+      "cue": "radio.ident.uncle",
+      "character": "uncle",
+      "current": "You're locked in to Uncle Squatch Beats. Ninety eight point eight. Take it easy.",
+      "why": "A stock real-radio sign-off. It is the weakest of the three station idents it sits beside, and station idents are free personality.",
+      "house": "Uncle Squatch Beats. Ninety eight point eight. Nobody here is qualified and nobody here is leaving.",
+      "tarantino": "Uncle Squatch Beats. Ninety eight point eight. Same six records, same guy, same chair. I haven't been outside since March.",
+      "mcdonagh": "Uncle Squatch Beats. Ninety eight point eight. I've been in this room eleven hours and I've stopped noticin' the smell.",
+      "houser": "Uncle Squatch Beats. Ninety eight point eight. Legally distinct from every other station, according to a letter we received.",
+      "coen": "Uncle Squatch Beats. Ninety eight point eight. Take it easy. There's not a lot else to do."
+    },
+    {
+      "cue": "radio.vo.announcer.08sys7m",
+      "character": "announcer",
+      "current": "The only station where every host thinks they're the smartest person in the building… and somehow they are.",
+      "why": "A compliment dressed as a joke. GTA-style station promo works by being proudly, specifically terrible about itself.",
+      "house": "The only station where every host thinks he's the smartest man in the building, and the building is a trailer, and there is one host.",
+      "tarantino": "The only station where every host believes he's the smartest man in the building. There are two of us. The other one is a vending machine.",
+      "mcdonagh": "The only station where every host thinks he's the cleverest fella in the buildin'. There's the one of us. And I'm not sure about him.",
+      "houser": "The only station where every host is convinced he's the smartest man in the building, which is technically true, because we let the other one go in April.",
+      "coen": "The only station where every host thinks he's the smartest guy in the building. And, you know. There's only the one of them."
+    },
+    {
+      "cue": "radio.vo.announcer.1mxeyam",
+      "character": "announcer",
+      "current": "Tired of boring radio stations that care about \"facts\" and \"professionalism\"?",
+      "why": "A generic strawman ad opener. Nothing about it is Squatch, and it names its own joke with scare quotes.",
+      "house": "Tired of radio stations that check things? Stations with lawyers? Stations that stop talking when the phone rings?",
+      "tarantino": "You tired of stations that check things? Stations with a legal department? A station where a man in a suit walks in and says 'we can't say that on air'? We had one of those. He doesn't work here now. Nobody knows where he went.",
+      "mcdonagh": "Are you sick of stations that check their facts? That have a lawyer? That stop talkin' when somethin' bad happens? We've none of that. We've none of any of it.",
+      "houser": "Fed up with radio that fact-checks, apologises, and issues corrections? We have never issued a correction. Not because we're right. We just don't do it.",
+      "coen": "You tired of stations that care about facts? Professionalism? We don't have either one. We had a guy. He left."
+    },
+    {
+      "cue": "radio.vo.announcer.10i0r0m",
+      "character": "announcer",
+      "current": "Then tune your dial to 97.8… THE SQUATCH!",
+      "why": "Boilerplate CTA, interchangeable with any real station.",
+      "house": "Then get on ninety seven point eight. THE SQUATCH. We are legally required to say the number twice and nothing else.",
+      "tarantino": "Then it's ninety seven point eight. THE SQUATCH. Say it out loud. Say it in a room with other people. Watch what happens to their faces.",
+      "mcdonagh": "Then it's ninety seven point eight. THE SQUATCH. There's nowhere else. There's literally nowhere else on the dial out here.",
+      "houser": "Then it's ninety seven point eight. THE SQUATCH. The only station in this valley, which is not a boast, it's a geographical fact and a tragedy.",
+      "coen": "So that's ninety seven point eight. THE SQUATCH. It's the only one that comes in out here, anyway."
+    },
+    {
+      "cue": "radio.vo.announcer.157erj5",
+      "character": "announcer",
+      "current": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.",
+      "why": "A UI objective marker read on air. Story reminders through the radio are a great idea — this one just has no radio in it.",
+      "house": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening. We are not told what it is. We are told to say it.",
+      "tarantino": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening. That's all the information on the card. I've asked. I've asked three times. There's no more card.",
+      "mcdonagh": "The Squatch Meetin' is Wednesday. Tomorrow. Seven in the evenin'. That's all that's on the page and I'll not be takin' questions.",
+      "houser": "The Squatch Meeting is Wednesday. Tomorrow. Seven p.m. This announcement has been paid for in cash by a man who would not give his name and would not sit down.",
+      "coen": "The Squatch Meeting is Wednesday. That's tomorrow. Seven in the evening. That's what it says here."
+    }
+  ],
+  "newMaterial": {
+    "note": "The ad break is the one place the doctrine's 'comedy lives in the world' rule gives you a free hand — nobody in an ad is a character in a scene, so it can be as crude as you like. There are 33 unrecorded announcer lines in the queue; these are pitches for what to put in them, not fixes to existing lines.",
+    "pitches": [
+      "SQUATCH DENTAL — a dental practice for a species with forty teeth and no insurance. 'We are not dentists. We have been told we cannot say we are dentists. We are men with the equipment of dentists.' Closing disclaimer read at four hundred words a minute.",
+      "LOU'S JERKY — a straight, warm, family-business ad for the jerky brand, with one sentence near the end that makes it clear what the jerky is. Played completely straight. The doctrine's whole method, in thirty seconds.",
+      "THE ATTORNEY — a personal injury ad by a lawyer who is visibly a criminal defence attorney pretending to do personal injury. 'Have you been hurt? Have you hurt somebody? Either one. Call the number.'",
+      "THE PUBLIC SERVICE ANNOUNCEMENT — a county safety notice about not feeding the sasquatches, read by an announcer who is plainly a sasquatch and increasingly offended by the copy.",
+      "THE DATING LINE — a phone service, read in the tone of a warm romantic ad, with escalating clarifications about what is and is not covered, ending in a full minute of legal disclaimer about fur.",
+      "THE GYM — 'RESULTS PHYSICAL' — for a species that is already eight feet tall. Entirely about the emotional insecurity of very large men. Nobody in it lifts anything.",
+      "THE CAR DEALERSHIP — a man screaming about financing at a volume that becomes physically alarming, who at the end of the ad, at normal volume, quietly asks the listener to come and see him because he is in trouble.",
+      "THE OVERNIGHT AUTOMATION — the station's unmanned overnight, where the same six pre-recorded links play out of order and slowly reveal that the announcer recorded them under duress."
+    ]
+  }
+}

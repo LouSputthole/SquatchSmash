@@ -1,0 +1,161 @@
+{
+  "scene": "NO WAKE / MANSION UNDER SIEGE / Squatch Graveyard / The Silver Case",
+  "reference": "NO WAKE is the Big Pussy boat episode. The Siege is the Scarface last stand. The Silver Case is Pulp Fiction. The Graveyard is the burial.",
+  "diagnosis": "These four are the strongest writing in the game and mostly do not need help. The Silver Case in particular is the benchmark — 'Does he look like a bitch?', 'Congratulations. You've been promoted to witness.', 'You don't get to want it and not do it.' — that is the register the rest of the game should be measured against. NO WAKE is close behind and its problem is the opposite of everywhere else: it is so clipped that Willy, the man being killed, barely gets to beg. A man who knows he is about to die on a boat gets loud, gets undignified, and brings up things nobody wants brought up. That is the crudest and most human beat available and the scene currently skips it. The Siege drops a straight movie-quote ('Say hello to my little friend') which is the one thing the doctrine forbids — that is the scene pointing at its own reference.",
+  "lines": [
+    {
+      "cue": "vo.siege.prospect.little_friend",
+      "character": "player",
+      "current": "Say hello to my little friend.",
+      "why": "DOCTRINE VIOLATION — a direct, verbatim quote of the film being parodied. The tone doc's rule is that the player supplies the recognition and the scene never points at it. Quoting the line out loud hands the joke to the audience and kills it. The recognition is already fully delivered by the staging: a man on a landing with a mounted weapon and forty men on the lawn.",
+      "house": "[cut — let the gun be the line] All right. All right, come on then.",
+      "tarantino": "Okay. Okay. Everybody come up the stairs at once, then. All of you. Let's get it over with.",
+      "mcdonagh": "Right. Come on. Come on up, the whole fuckin' lot of yiz.",
+      "houser": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
+      "coen": "Okay. All right then. Come on up."
+    },
+    {
+      "cue": "vo.nowake.cabin.willy.dont-remember.1",
+      "character": "willy",
+      "current": "I don't remember every gun from every round.",
+      "why": "This is the moment Willy realises he is dead, and it is a reasonable, calm sentence. It is the last defensible thing he says before the scene turns, and it should be the sound of a man's story coming apart in his own mouth.",
+      "house": "I don't remember every gun from every round. Nobody remembers every — you're doing this over a gun?",
+      "tarantino": "I don't remember every gun from every round. Nobody does. You want me to remember a Negev from four years ago? Ask me what I had for breakfast. Go on. Ask me. I don't know that either, and nobody's ever killed a man over breakfast.",
+      "mcdonagh": "I don't remember every gun from every round! Who does? Who in the name of God remembers that? You don't. You're doin' this over a gun you don't remember either!",
+      "houser": "I don't recall every weapon from every round of a game we played four years ago, and I'd like somebody in this cabin to acknowledge how insane that sentence is.",
+      "coen": "I don't remember every gun. From every round. That's — nobody remembers that. That's not a thing people remember."
+    },
+    {
+      "cue": "vo.nowake.cabin.willy.boosk.1",
+      "character": "willy",
+      "current": "Boosk, come on. You know me.",
+      "why": "Too dignified. This is his one appeal to the only man on the boat who loves him, and it should be undignified — that is what makes it unbearable.",
+      "house": "Boosk. Boosk, look at me. You were at my mother's funeral. You carried her. You carried her.",
+      "tarantino": "Boosk. Look at me. You were at my mother's funeral. You carried the box. You stood in the rain and you carried the box and you didn't complain once, and now you're standing there letting this happen in front of you.",
+      "mcdonagh": "Boosk. Boosk, look at me. You carried me mother's coffin. You did. You stood in the rain and you carried it. And now you'll stand there and watch this?",
+      "houser": "Boosk. You've known me eleven years. You were at my mother's funeral, you were at my wedding, you've slept on my floor. Somebody in this room say something.",
+      "coen": "Boosk. Come on. You know me. You've known me a long time. That's got to count for something. Doesn't it?"
+    },
+    {
+      "cue": "vo.nowake.cabin.willy.take-a-seat.1",
+      "character": "willy",
+      "current": "Can I take a seat?",
+      "why": "The right instinct — a small dignity request. But it plays as polite where it should play as a man's legs going.",
+      "house": "Can I sit? I need to sit down. My legs have gone.",
+      "tarantino": "Can I sit down. I'm not asking for anything. I'm asking to sit down, because my legs have gone and I don't want to go down in front of you.",
+      "mcdonagh": "Can I sit? I need to sit. Me legs are gone and I'll not be goin' down in front of yiz.",
+      "houser": "Can I sit down? That's the whole ask. I'd like to do this sitting down, if that's available.",
+      "coen": "Can I take a seat? I'd — my legs aren't right. I'd rather sit."
+    },
+    {
+      "cue": "vo.nowake.cabin.booski.brother.1",
+      "character": "booski",
+      "current": "You were like a brother to me.",
+      "why": "The one cliché in an otherwise excellent scene. 'Like a brother' is the single most-used line in mob cinema and the past tense does all the work already.",
+      "house": "I had you at my table. My kids know your name.",
+      "tarantino": "You ate at my table. My kids know your name. My wife asks after you. That's what you did with all that. That's what you spent it on.",
+      "mcdonagh": "You sat at my table. Me kids know your name. And you did this anyway. That's the bit I'll never get past.",
+      "houser": "You've eaten at my table. My children know your name. Whatever they paid you, I hope it was more than that's worth.",
+      "coen": "You ate at my table. My kids know your name. I don't know what to do with that now."
+    },
+    {
+      "cue": "vo.nowake.cruise.willy.clean.1",
+      "character": "willy",
+      "current": "Feels like nobody has been talking to me this week.",
+      "why": "Three consecutive Willy lines say the same thing three ways ('nobody has said one word', 'looking at me sideways', 'nobody has been talking to me'). The third should escalate into the thing he actually fears, which makes the boat ride unbearable.",
+      "house": "Nobody's talked to me all week. Am I — is there something I should know? Because I'd rather know.",
+      "tarantino": "Nobody's talked to me all week. And here's the thing about that. I know what it means when nobody talks to you. I've been on the other end of it. I've been the guy not talking.",
+      "mcdonagh": "Nobody's talked to me all week. And I know what that means. I've been the fella not talkin' before now.",
+      "houser": "Nobody's spoken to me in seven days. I've been in this business long enough to know exactly what that is, so somebody say something or turn the boat around.",
+      "coen": "Nobody's talked to me all week. And I know what that usually means. I'd rather somebody just said it."
+    },
+    {
+      "cue": "vo.nowake.body.booski.your-side.1",
+      "character": "booski",
+      "current": "Your side. Fold it over and hold it down.",
+      "why": "Flagged as HUD-speak and it is — but it should stay HUD-shaped, because the horror of this beat is that it is being handled as a job. The only fix needed is one crack in Booski's voice somewhere in the sequence.",
+      "house": "Your side. Fold it over, hold it down. Don't look at the face. I'm telling you now, don't look at the face.",
+      "tarantino": "Your side. Fold it over, hold it down. And don't look at his face. I'm not saying that to be kind. I'm saying it because you'll see it every night for a year and you've got work tomorrow.",
+      "mcdonagh": "Your side. Fold it over, hold it down. And don't look at his face. I'm not bein' soft with you, I'm savin' you a year of not sleepin'.",
+      "houser": "Your side. Fold, hold. Eyes on the tarp, not on him. That's not sentiment, that's just how you stay useful.",
+      "coen": "Your side there. Fold it over and hold it down. Don't look at his face. Just — don't do that."
+    },
+    {
+      "cue": "vo.siege.briefing.prospect.stairs",
+      "character": "player",
+      "current": "The stairs. Got it.",
+      "why": "A confirm button in the middle of the best sequence in the game. Lou has just told him to hold the foyer alone and he answers like he is repeating a lunch order.",
+      "house": "The stairs. Just me on the stairs. Right.",
+      "tarantino": "The stairs. Me, on the stairs, on my own. And everybody else is upstairs. I want to make sure I've understood the shape of this.",
+      "mcdonagh": "The stairs. Me. On me own. On the stairs. Grand. Lovely. That's grand.",
+      "houser": "The stairs. Alone. While everyone with seniority is above me. I want that architecture noted somewhere.",
+      "coen": "The stairs. Just me. Okay. Yeah, okay, I've got it."
+    },
+    {
+      "cue": "vo.siege.aftermath.prospect.sasole",
+      "character": "player",
+      "current": "Sasole. Right.",
+      "why": "Two words after surviving a siege. There is a whole night's worth of adrenaline with nowhere to go.",
+      "house": "Sasole. There's a man in a flight jacket on your landing and you want me to go and talk to him.",
+      "tarantino": "Sasole. Right. There's a man on your landing in a flight jacket. There are forty bodies on your lawn. And the plan is I go and introduce myself.",
+      "mcdonagh": "Sasole. Right so. There's forty of them on the lawn and a fella in a flight jacket on the landin' and I'm to go and say hello to him.",
+      "houser": "Sasole. Of course. There's a man in a flight jacket on the landing of a house that's currently a crime scene, and I'm to network.",
+      "coen": "Sasole. Right. Okay. I'll — yeah. I'll go talk to him."
+    },
+    {
+      "cue": "vo.siege.sasole.sasole.stairs",
+      "character": "lou2",
+      "current": "You are the one who held the stairs. Good. Then you can hold a bomb bay.",
+      "why": "Already good — the flag is a false positive. The only note is that 'Good.' is doing a lot of work; giving Sasole one specific observation makes the recruitment land harder.",
+      "house": "You're the one who held the stairs. On your own, with a rail and a heavy gun. Then you can hold a bomb bay.",
+      "tarantino": "You held those stairs. On your own. I watched the last twenty minutes of it from that window and I didn't help, because I wanted to see what you'd do. A man who can hold a staircase can hold a bomb bay.",
+      "mcdonagh": "You held them stairs. On your own. I watched the last of it from that window and I never lifted a finger, because I wanted to see. You'll do.",
+      "houser": "You held the stairs. Solo. Against a numerically superior force with better cars. That's exactly the skill set required to stand in an open bomb bay at fifteen thousand feet.",
+      "coen": "You're the one held the stairs. That's good. That's real good. Then I'd say you can hold a bomb bay."
+    },
+    {
+      "cue": "vo.graveyard.inspect.colton",
+      "character": "player",
+      "current": "Colton. His grave smells like Asian feet. That is all I have.",
+      "why": "REWRITE — the crudeness is welcome but the target is wrong. It is the one gag in the game that lands on an ethnicity rather than on a character, which makes it the odd one out in a script that is otherwise cruel about people for things they did. Same joke, better aim.",
+      "house": "Colton. His grave smells like his van did. Nobody's saying anything but everybody's noticed.",
+      "tarantino": "Colton. Even the ground smells like his van. Four years underground and he has not managed to become less of a smell.",
+      "mcdonagh": "Colton. The grave smells like his van did. Dead four year and he's still the worst part of any place he's in.",
+      "houser": "Colton. His plot smells exactly like his van, which raises questions about the van that nobody wants answered.",
+      "coen": "Colton. Huh. Smells just like his van did. That's — I don't know what to make of that."
+    },
+    {
+      "cue": "vo.graveyard.snow.done",
+      "character": "snow",
+      "current": "That closes the HotDog incident. The Motel does not close this easy.",
+      "why": "Already strong. One note only: the second half telegraphs the next mission a little cleanly. Variants keep the dread and lose the signposting.",
+      "house": "That closes the HotDog thing. Get in the car. The next one doesn't close with a shovel.",
+      "tarantino": "That's HotDog done. Get in the car. The next one doesn't end with a shovel and a hole, and I'd get comfortable with that on the drive.",
+      "mcdonagh": "That's HotDog closed. Get in the car. The next one doesn't close with a shovel, and you'd want to be thinkin' about that on the way.",
+      "houser": "That concludes the HotDog matter. Get in the car. The next item does not resolve with earthmoving equipment.",
+      "coen": "Well. That closes HotDog. Get in the car. The next one's not going to be like this one."
+    },
+    {
+      "cue": "vo.silvercase.aftermath.ape.badideas",
+      "character": "ape",
+      "current": "Always check the bathroom. That's where bad ideas go to load themselves.",
+      "why": "BENCHMARK — flagged as HUD-speak by the tool and it is not; it is an instruction delivered as a piece of a man's philosophy, which is exactly what the tone doc asks for. Nothing to fix. Listed here as the reference standard the rest of the game should be written up to.",
+      "house": "[keep as written]",
+      "tarantino": "[keep as written]",
+      "mcdonagh": "[keep as written]",
+      "houser": "[keep as written]",
+      "coen": "[keep as written]"
+    },
+    {
+      "cue": "vo.silvercase.lou.ape.lookslikeabitch",
+      "character": "ape",
+      "current": "Does he look like a bitch?",
+      "why": "BENCHMARK — the crudest line in the game and the best-earned, because it is doing three jobs at once: the recognition, the threat, and the character. This is the level the owner is asking for everywhere else. Do not touch it.",
+      "house": "[keep as written]",
+      "tarantino": "[keep as written]",
+      "mcdonagh": "[keep as written]",
+      "houser": "[keep as written]",
+      "coen": "[keep as written]"
+    }
+  ]
+}
