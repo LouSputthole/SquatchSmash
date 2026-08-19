@@ -11595,11 +11595,15 @@ const M_GOLD_BAR = mat({
      * ending at z 52.1 where the dais begins: north of it the aisle is the
      * full 1.36 m to the wall, and beside it the colonnade gap west of the
      * case runs 0.96 m. B keeps the four-trophy width on the west wall. */
-    for (const [caseX, dz, yaw, caseW, label] of [
-      [r.x1 - 0.7, 51.5, -Math.PI / 2, 1.2, 'A'],
-      [r.x0 + 0.55, 51.8, Math.PI / 2, 2.2, 'B'],
+    /* A is also the SHALLOW case: at 0.6 m deep its face reached x -17.0 and
+     * the colonnade slot beside it was 0.96 m — a 0.7 m capsule had a 26 cm
+     * centre window and the walked gate wedged on it. At 0.45 m the slot is
+     * 1.11 m and the window 41 cm. */
+    for (const [caseX, dz, yaw, caseW, caseD, label] of [
+      [r.x1 - 0.625, 51.5, -Math.PI / 2, 1.2, 0.45, 'A'],
+      [r.x0 + 0.55, 51.8, Math.PI / 2, 2.2, 0.6, 'B'],
     ]) {
-      makeDisplayCase(caseX, GY, dz, yaw, caseW, 2.1, 0.6, (g, w, h, d) => {
+      makeDisplayCase(caseX, GY, dz, yaw, caseW, 2.1, caseD, (g, w, h, d) => {
         const shelfHeight = 0.05;
         const shelfY = h * 0.34;
         g.add(box({
