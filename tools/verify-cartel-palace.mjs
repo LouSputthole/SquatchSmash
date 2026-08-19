@@ -282,6 +282,177 @@ try {
     }
   }
 
+  /* The staged finale confrontation (owner's 2026-08-19 direction) gets its
+   * own fresh betrayal document: the begging trio must be present before the
+   * doors open, the real E-hold on the doors must start the scripted beats in
+   * order without activating combat, Tony's verdict must hand the encounter
+   * over, and the player-driven kills must still clear the mission while the
+   * trio screams, dives and curses. The director runs on simulated dt, so the
+   * probes drive its clock directly instead of waiting out real dialogue. */
+  const confrontationHref = `http://localhost:${PORT}/cartel-palace.html?preview=1&checkpoint=betrayal`;
+  await page.goto(confrontationHref, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'menu', null, {
+    timeout: 180000,
+  });
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'active', null, {
+    timeout: 180000,
+  });
+  await page.waitForTimeout(180);
+
+  const trio = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    return {
+      civilians: runtime.cast.civilians.map((entry) => ({
+        id: entry.id,
+        role: entry.role,
+        down: entry.down,
+        height: entry.figure.height,
+        x: entry.root.position.x,
+        z: entry.root.position.z,
+        hitTarget: runtime.cast.hitTargets.includes(entry.root),
+        inCombatCast: runtime.cast.all.includes(entry),
+      })),
+      finale: runtime.finale.report(),
+    };
+  });
+  check('betrayal: the wife and both short men are staged at the table, shootable and non-hostile',
+    trio.civilians.length === 3
+      && trio.civilians.every((civilian) => civilian.role === 'civilian' && !civilian.down
+        && civilian.hitTarget && !civilian.inCombatCast
+        && civilian.z < -34.2 && civilian.z > -49.7 && Math.abs(civilian.x) < 16)
+      && trio.civilians.filter((civilian) => civilian.height <= 1.56).length === 2
+      && trio.finale.phase === 'idle',
+    JSON.stringify(trio));
+
+  await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    /* Off the door centreline on purpose: the double doors meet at x 0 with
+     * a real seam, and a ray down the exact seam slips between the panels. */
+    runtime.player.position.set(0.9, 1.66, -32.4);
+    runtime.player.yaw = 0;
+    runtime.player.pitch = 0;
+    runtime.player.update(0);
+  });
+  await page.waitForFunction(() => {
+    const runtime = window.CARTEL_PALACE;
+    return runtime.interaction.current === runtime.palace.targets.diningDoor;
+  });
+  await page.keyboard.down('e');
+  await page.waitForFunction(() => window.CARTEL_PALACE.snapshot().beat === 'dining_room');
+  await page.keyboard.up('e');
+  await page.waitForTimeout(180);
+
+  const staged = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    const report = runtime.finale.report();
+    return {
+      report,
+      alarm: runtime.security.alarm,
+      markActive: runtime.cast.mark.active,
+      sauceActive: runtime.cast.sauce.active,
+    };
+  });
+  const beatOf = (cue) => cue.replace(/^palace\.finale\.[a-z-]+\./, '').replace(/-\d+$/, '');
+  const stagedBeats = [...staged.report.spoken, ...staged.report.pendingCues].map(beatOf);
+  const beatsInOrder = (beats) => beats.every((beat, index) => index === 0
+    || stagedBeats.indexOf(beat) > stagedBeats.indexOf(beats[index - 1]))
+    && beats.every((beat) => stagedBeats.includes(beat));
+  check('dining_room: the real E-hold stages accusation, admission and both begging beats in order, holding fire',
+    staged.report.phase === 'confrontation'
+      && !staged.report.engaged
+      && !staged.markActive && !staged.sauceActive
+      && beatsInOrder(['accuse', 'accuse.belongings', 'accuse.ledger', 'accuse.still',
+        'admission.cornered', 'mark.cornered', 'begging.wife', 'begging.shorts', 'go']),
+    JSON.stringify(staged));
+
+  const played = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    for (let step = 0; step < 1200 && !runtime.finale.report().engaged; step++) {
+      runtime.finale.update(0.1);
+    }
+    return {
+      report: runtime.finale.report(),
+      alarm: runtime.security.alarm,
+      markActive: runtime.cast.mark.active,
+      sauceActive: runtime.cast.sauce.active,
+    };
+  });
+  const playedBeats = played.report.spoken.map(beatOf);
+  check('dining_room: the wife and the double act deliver the begging beats, then the verdict engages',
+    played.report.engaged
+      && played.report.phase === 'combat'
+      && played.alarm && played.markActive && played.sauceActive
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.wife.begging.wife-'))
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.short-one.begging.shorts-'))
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.short-two.begging.shorts-'))
+      && playedBeats.indexOf('begging.wife') < playedBeats.indexOf('begging.shorts')
+      && playedBeats.indexOf('begging.shorts') < playedBeats.indexOf('go'),
+    JSON.stringify(played));
+
+  const outcome = await page.evaluate(async () => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const runtime = window.CARTEL_PALACE;
+    const kill = (target) => {
+      const anchor = target.figure.parts.head;
+      let object = null;
+      anchor.traverse((node) => { if (!object && node.isMesh) object = node; });
+      target.root.updateMatrixWorld(true);
+      const point = anchor.localToWorld(new THREE.Vector3(0.02, 0.03, 0.01));
+      const origin = point.clone().add(new THREE.Vector3(0, 0, 4));
+      const direction = point.clone().sub(origin).normalize();
+      const result = runtime.combatImpact({
+        object,
+        weapon: runtime.weapons.current,
+        point,
+        normal: direction.clone().negate(),
+        origin,
+        direction,
+        distance: origin.distanceTo(point),
+        damage: 500,
+        penetration: 0,
+      });
+      return { applied: result.applied, fatal: result.fatal };
+    };
+    const markKill = kill(runtime.cast.mark);
+    const sauceKill = kill(runtime.cast.sauce);
+    for (let step = 0; step < 900; step++) runtime.finale.update(0.1);
+    const snapshot = runtime.snapshot();
+    return {
+      markKill,
+      sauceKill,
+      beat: snapshot.beat,
+      markEliminated: snapshot.markEliminated,
+      sauceEliminated: snapshot.sauceEliminated,
+      report: runtime.finale.report(),
+      shorts: runtime.cast.civilians
+        .filter((entry) => entry.id.startsWith('short-'))
+        .map((entry) => ({
+          id: entry.id,
+          pose: entry.figure.pose,
+          x: entry.root.position.x,
+          z: entry.root.position.z,
+        })),
+      wifeDown: runtime.cast.civilians.find((entry) => entry.id === 'wife').down,
+    };
+  });
+  check('dining_room: the player-driven kills still clear the mission over the begging trio',
+    outcome.markKill.applied && outcome.markKill.fatal
+      && outcome.sauceKill.applied && outcome.sauceKill.fatal
+      && outcome.beat === 'clear'
+      && outcome.markEliminated && outcome.sauceEliminated,
+    JSON.stringify(outcome));
+  check('dining_room: the kills trigger the unison dive, the screams and the cursing-out',
+    outcome.report.dived
+      && outcome.report.phase === 'aftermath'
+      && outcome.report.spoken.some((cue) => cue.includes('react.mark-first'))
+      && outcome.report.spoken.some((cue) => cue.includes('react.all-down'))
+      && !outcome.wifeDown
+      && outcome.shorts.length === 2
+      && outcome.shorts.every((entry) => entry.pose === 'prone'
+        && Math.abs(entry.x) <= 4.9 && Math.abs(entry.z + 42.4) <= 1.3),
+    JSON.stringify(outcome));
+
   /* Combat gets one fresh estate document after the authored checkpoint walk.
    * Each probe takes the public JSON-safe combat checkpoint and clears both
    * blood pools before arranging its deterministic sample. Cleanup restores
