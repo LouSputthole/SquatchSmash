@@ -8218,6 +8218,22 @@
       "prompt": "steady rain on a city street at night, even hiss on pavement with occasional drips off an awning, no thunder, no traffic, no voice, no music, continuous"
     },
     {
+      "name": "ambience.palace.interior",
+      "duration": 18,
+      "loop": true,
+      "promptInfluence": 0.45,
+      "prompt": "quiet interior room tone of a grand stucco and stone estate at night, very low air handling hum, faint pressurised stillness, distant muffled rain barely present, no voices, no music, seamless loop",
+      "_note": "NOT YET RECORDED. The Cartel Palace's interior bed — the service wing and halls under the rain (src/cartel-palace/acoustics.js). Always running, gain automated by room; mixed around 0.05. src/core/audio.js has a synthLoop case, so the wing is never silent while this is missing."
+    },
+    {
+      "name": "ambience.palace.dining",
+      "duration": 18,
+      "loop": true,
+      "promptInfluence": 0.45,
+      "prompt": "still, warm room tone of a formal candle-lit dining hall at night, very low and deep, a long room's faint presence, no crowd, no cutlery, no voices, no music, seamless loop",
+      "_note": "NOT YET RECORDED. The dining tone — Mark's table at the Palace finale, authored as a different sound from ambience.palace.interior so the last room reads as an arrival (src/cartel-palace/acoustics.js). Always running, gain automated by room; mixed around 0.046. src/core/audio.js has a synthLoop case standing in."
+    },
+    {
       "name": "ambience.club",
       "duration": 22,
       "loop": true,
