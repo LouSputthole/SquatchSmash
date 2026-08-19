@@ -575,7 +575,9 @@ test('Cartel Palace approach checkpoint composes exact palm and cast assemblies'
   assert.equal(palms.length, 5);
   assert.equal(palms.every((palm) => gate(palm).fixedSupportAnchor === true), true);
   assert.equal(new Set(palms.map((palm) => gate(palm).assemblyId)).size, 5);
-  assert.equal(objectsNamed(root, 'palm-frond').length, 45);
+  /* Fronds are five per-palm InstancedMesh batches now (world.js
+   * `instanced()`, the batching pass) — nine fronds ride each batch. */
+  assert.equal(objectsNamed(root, 'palm-frond').length, 5);
   for (const name of ['carved-arch-crown', 'carved-arch-pillar', 'estate-service-door']) {
     assert.equal(
       objectsNamed(root, name).every((object) => (

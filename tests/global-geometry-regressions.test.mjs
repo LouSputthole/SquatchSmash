@@ -179,22 +179,43 @@ test('every Cartel dining place setting is seated on the table', () => {
   assert.ok(Math.abs(runnerBox.min.y - supportY) <= 1e-4,
     `dining table runner has a ${(runnerBox.min.y - supportY).toFixed(3)} m table-support gap`);
 
-  const candles = meshesNamed(scene, 'dining-candle');
-  assert.equal(candles.length, 7);
-  for (const [index, candle] of candles.entries()) {
-    const gap = boundsOf(candle).min.y - runnerBox.max.y;
+  /* The place settings became InstancedMesh batches (one per part name,
+   * cartel-palace world.js `instanced()`), so each part is now measured per
+   * INSTANCE: geometry bounds carried through each instance matrix. Counts
+   * and seat gaps assert exactly what the per-mesh loops asserted. */
+  const instanceBoxes = (mesh) => {
+    mesh.updateMatrixWorld(true);
+    mesh.geometry.computeBoundingBox();
+    const boxes = [];
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, m);
+      boxes.push(mesh.geometry.boundingBox.clone()
+        .applyMatrix4(m)
+        .applyMatrix4(mesh.matrixWorld));
+    }
+    return boxes;
+  };
+  const batchOf = (name, count) => {
+    const batch = meshesNamed(scene, name);
+    assert.equal(batch.length, 1, `${name} is one instanced batch`);
+    assert.equal(batch[0].count, count, `${name} instance count drifted`);
+    return instanceBoxes(batch[0]);
+  };
+
+  for (const [index, box] of batchOf('dining-candle', 7).entries()) {
+    const gap = box.min.y - runnerBox.max.y;
     assert.ok(Math.abs(gap) <= 1e-4, `dining candle ${index} has a ${gap.toFixed(3)} m runner gap`);
   }
 
+  const plateBoxes = batchOf('dining-plate', 8);
   for (const [name, count] of [
     ['dining-plate', 8],
     ['dining-glass', 8],
     ['dining-napkin', 8],
   ]) {
-    const objects = meshesNamed(scene, name);
-    assert.equal(objects.length, count, `${name} count drifted`);
-    for (const [index, object] of objects.entries()) {
-      const gap = boundsOf(object).min.y - supportY;
+    for (const [index, box] of batchOf(name, count).entries()) {
+      const gap = box.min.y - supportY;
       assert.ok(
         Math.abs(gap) <= 1e-4,
         `${name} ${index} has a ${gap.toFixed(3)} m table-support gap`,
@@ -202,12 +223,10 @@ test('every Cartel dining place setting is seated on the table', () => {
     }
   }
 
-  const rims = meshesNamed(scene, 'dining-plate-rim');
-  assert.equal(rims.length, 8);
-  for (const [index, rim] of rims.entries()) {
-    const plate = rim.parent.children.find((child) => child.name === 'dining-plate');
-    assert.ok(plate, `dining plate ${index} lost its rim support`);
-    const gap = boundsOf(rim).min.y - boundsOf(plate).max.y;
+  for (const [index, rimBox] of batchOf('dining-plate-rim', 8).entries()) {
+    /* Rims and plates are placed in the same authored order, so instance i
+     * of one sits on instance i of the other. */
+    const gap = rimBox.min.y - plateBoxes[index].max.y;
     assert.ok(Math.abs(gap) <= 1e-4, `dining plate rim ${index} has a ${gap.toFixed(3)} m plate gap`);
   }
 });

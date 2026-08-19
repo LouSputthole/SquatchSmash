@@ -141,7 +141,9 @@ test('every Mansion display trophy is one connected object resting on its case s
   const loungeTrophies = descendantsNamed(interior.root, 'lounge-display-trophy');
   const hallTrophies = descendantsNamed(interior.root, 'trophy-hall-display-trophy');
   assert.equal(loungeTrophies.length, 9, 'the three billiard-room cases do not each hold three complete trophies');
-  assert.equal(hallTrophies.length, 8, 'the Great Includer hall cases do not each hold four complete trophies');
+  /* Four in the wide west case, two in the narrow aisle case — case A
+   * slimmed to keep the walked east aisle a body wide. */
+  assert.equal(hallTrophies.length, 6, 'the Great Includer hall cases do not hold their 4+2 complete trophies');
 
   for (const trophy of [...loungeTrophies, ...hallTrophies]) {
     const base = trophy.getObjectByName('display-trophy-base');
