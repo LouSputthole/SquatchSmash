@@ -1042,6 +1042,7 @@ const familyState = await page.evaluate(() => {
       standingClear: npc.job === 'stand' ? b.standingClearAt(x, z) : true,
       navClear: npc._clearOf(b.club.navBlockers, x, z),
       interactive: !!npc.group.userData.interact,
+      x, z,
     };
   });
   return {
@@ -1069,11 +1070,27 @@ const familyState = await page.evaluate(() => {
       ? m.hasFace
       : !m.hasFace && m.eyes === 2 && ledger[m.id] === m.photo)),
     JSON.stringify(familyState.members.map((m) => [m.id, m.hasFace])));
+  /* Gratin and Numbskull are not on the floor on a fresh campaign any more:
+   * the 2026-08-19 playtest moved them into the License to Grill back room
+   * from scene build ("just have them back in that room and then they go
+   * into their spots out in the bing after you complete that room scene" —
+   * `holdCastInBackRoom`). They stand on the room's MARKS, which the floor's
+   * standing-clearance probe was never written for, so they get their own
+   * contract: parked on the mark, upright, still interactive. */
+  const BACK_ROOM_MARKS = { gratin: { x: 8.9, z: -11.35 }, numbskull: { x: 10.9, z: -11.6 } };
+  const [heldPair, floorMembers] = [
+    familyState.members.filter((m) => BACK_ROOM_MARKS[m.id]),
+    familyState.members.filter((m) => !BACK_ROOM_MARKS[m.id]),
+  ];
   check('they are patrons, not patrollers — seated or idling, clear of the stage nav and walls',
-    familyState.members.every((m) => ['sit', 'drink', 'stand', 'lean'].includes(m.job)
+    floorMembers.every((m) => ['sit', 'drink', 'stand', 'lean'].includes(m.job)
       && (m.job === 'stand' ? m.standingClear : m.seated)
       && m.navClear && m.interactive),
-    JSON.stringify(familyState.members.map((m) => [m.id, m.job, m.navClear])));
+    JSON.stringify(floorMembers.map((m) => [m.id, m.job, m.navClear])));
+  check('Gratin and Numbskull wait in the back room on their marks until the chair is dealt with',
+    heldPair.length === 2 && heldPair.every((m) => m.job === 'stand' && m.interactive
+      && Math.hypot(m.x - BACK_ROOM_MARKS[m.id].x, m.z - BACK_ROOM_MARKS[m.id].z) < 0.1),
+    JSON.stringify(heldPair.map((m) => [m.id, m.job, m.x, m.z])));
 }
 
 /* ---- nobody is sitting in a wall ----
@@ -1407,12 +1424,16 @@ check('the belly is a general builder option, not a Willy-only shape — a secon
 
 /* Walk-up talk goes through the club's own dialogue machine: the member's
  * subtitled line carries their cue, a lapsed thread resumes, a finished one
- * replays from the top. */
-await walkTo(2.4, -2.1, Math.PI / 2);
+ * replays from the top. Probed on Lag since the 2026-08-19 playtest: Gratin
+ * starts the evening held in the License to Grill back room, and a walk-up
+ * opened at his empty floor spot ends itself on speaker distance before the
+ * thread can reach its second beat. Lag keeps the same hangout tree shape
+ * (open → more → aside) and stays on the north booth all night. */
+await walkTo(-8.3, 8.3, Math.PI);
 const famResume = await page.evaluate(() => {
   const b = window.__bing;
-  const gratin = b.family.byId.gratin;
-  gratin.group.userData.interact.onUse();
+  const lag = b.family.byId.lag;
+  lag.group.userData.interact.onUse();
   const openNode = b.dialogue.nodeId;
   const openCue = typeof b.dialogue.node.cue === 'function' ? b.dialogue.node.cue() : b.dialogue.node.cue;
   const who = b.dialogue.ui.name.textContent;
@@ -1422,20 +1443,22 @@ const famResume = await page.evaluate(() => {
   }
   const mid = b.dialogue.nodeId;
   b.dialogue.end('walked-away');
-  gratin.group.userData.interact.onUse();
+  lag.group.userData.interact.onUse();
   const resumed = b.dialogue.nodeId;
-  b.dialogue.choose(0);                       // Tony's last word; thread completes
+  /* Lag's 'more' beat is hold-only (no last word), so this choose is a safe
+   * no-op and the update loop runs the hold out; the thread completes. */
+  b.dialogue.choose(0);
   for (let i = 0; i < 40 && b.dialogue.active; i++) {
     b.dialogue.update(0.5, b.player.position);
   }
-  gratin.group.userData.interact.onUse();
+  lag.group.userData.interact.onUse();
   const replayed = b.dialogue.nodeId;
   b.dialogue.end('done');
   return { openNode, openCue, who, mid, resumed, replayed };
 });
 check('a Family walk-up opens with the member’s own subtitled cue',
-  famResume.openNode === 'open' && famResume.openCue === 'vo.bing.hang.gratin.1'
-    && famResume.who === 'GRATIN',
+  famResume.openNode === 'open' && famResume.openCue === 'vo.bing.hang.lag.1'
+    && famResume.who === 'LAG',
   JSON.stringify(famResume));
 check('a lapsed Family thread resumes; a finished one replays',
   famResume.mid === 'more' && famResume.resumed === 'more' && famResume.replayed === 'open',

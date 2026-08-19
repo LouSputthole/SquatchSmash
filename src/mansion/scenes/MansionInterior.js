@@ -177,10 +177,10 @@ export const MANSION_ART_SLOTS = [
    * rowed in the manifest:
    *
    *   booski-portrait.jpg       750x1334 -> mansion.bedroom.booski-death.booski-portrait
-   *   squatch-jesus.png        1121x1402 -> mansion.foyer.savior
+   *   squatch-jesus.jpg        1121x1402 -> mansion.foyer.savior
    *   squatch-heaven-roster.jpg 1743x1980 -> mansion.gallery.heaven
    *   birthday-dog.jpg          3024x4032* -> mansion.office.birthday-dog
-   *   uncle-lou-is-back.png    1122x1402 -> mansion.office.lou-is-back AND
+   *   uncle-lou-is-back.jpg    1122x1402 -> mansion.office.lou-is-back AND
    *                                mansion.suite.lou-is-back (one file, two
    *                                rooms — the casabonita.webp precedent)
    *   lou-vacation-vienna.jpg   3024x4032* -> mansion.office.vacation-vienna

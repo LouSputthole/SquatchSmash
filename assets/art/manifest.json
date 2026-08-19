@@ -891,7 +891,7 @@
     },
     {
       "slot": "mansion.foyer.savior",
-      "file": "squatch-jesus.png",
+      "file": "squatch-jesus.jpg",
       "title": "The good shepherd",
       "caption": "Robes, halo, a bottle of wine and a basket of eggs. High on the foyer's west wall, level with the crest, where the double height finally earns its keep."
     },
@@ -909,13 +909,13 @@
     },
     {
       "slot": "mansion.office.lou-is-back",
-      "file": "uncle-lou-is-back.png",
+      "file": "uncle-lou-is-back.jpg",
       "title": "UNCLE LOU IS BACK",
       "caption": "Purple and chrome, number 69, whiskey and gold. A man hangs his own poster where the meetings happen."
     },
     {
       "slot": "mansion.suite.lou-is-back",
-      "file": "uncle-lou-is-back.png",
+      "file": "uncle-lou-is-back.jpg",
       "title": "UNCLE LOU IS BACK, again",
       "caption": "The same poster, in the bedroom, so it is also the last thing he sees. Nobody said it once."
     },
