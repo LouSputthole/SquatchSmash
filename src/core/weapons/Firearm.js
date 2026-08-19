@@ -5,10 +5,12 @@
  * below can be read and tested without building a scene. `WeaponSystem.js`
  * is what turns these events into a magazine falling on a concrete floor.
  *
- * WHY NOT `core/combat/weapon.js`. That class already exists and stays where
- * it is — it is what THE TAKE's loadout and the enemy AI run on, and it models
- * a reload as one timer and ammunition as a count of whole magazines. This one
- * has to answer two questions that one deliberately does not:
+ * WHY NOT `core/combat/weapon.js`. That class still exists but no production
+ * scene runs on it any more — THE TAKE, its last consumer, now mounts this
+ * class behind the `HeistFirearm` compatibility Adapter in
+ * `src/heist/combat.js`. The old class modelled a reload as one timer and
+ * ammunition as a count of whole magazines. This one has to answer two
+ * questions that one deliberately does not:
  *
  *   1. WHEN does the magazine leave the gun? A reload that ejects at the start
  *      and a reload that ejects at the end look completely different, and the

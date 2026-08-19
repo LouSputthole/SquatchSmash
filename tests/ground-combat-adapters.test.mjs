@@ -334,7 +334,7 @@ test('the gameplay catalog names both production Adapters and bounds migration',
   );
   assert.match(section, /reuse claim is proven for both player\/hostile and hostile\/player paths/);
   assert.match(section, /friendly ensemble additionally proves the shared perception/);
-  assert.match(section, /WeaponController[\s\S]*still used directly by Heist/);
+  assert.match(section, /WeaponController[\s\S]*no production consumer left/);
   assert.doesNotMatch(section, /Mansion Siege[\s\S]{0,180}WeaponController/);
   assert.match(section, /CombatLab\s+is\s+verification\s+only/);
 

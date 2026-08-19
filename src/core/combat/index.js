@@ -27,7 +27,8 @@ export { SuppressionModel } from './suppression.js';
 export { CombatSuppressionField } from './suppression-field.js';
 export { TracerPool } from './tracers.js';
 
-/* Compatibility surface for Heist and existing Siege cast Adapters. New
- * weapon state belongs to core/weapons/Firearm; BurstController remains a
- * useful NPC trigger policy while those Adapters migrate. */
+/* Legacy compatibility surface. No production scene constructs
+ * WeaponController any more — Heist, its last consumer, runs canonical
+ * core/weapons/Firearm behind src/heist/combat.js — and new weapon state
+ * belongs to Firearm. BurstController remains a useful NPC trigger policy. */
 export { BurstController, WeaponController } from './weapon.js';
