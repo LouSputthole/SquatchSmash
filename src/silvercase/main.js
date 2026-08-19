@@ -582,6 +582,12 @@ const pauseMenu = createPauseMenu({
     campaign: silverCaseRecoveryCampaign,
     sceneId: SCENE_IDS.SILVER_CASE,
     location: window.location,
+    /* Deliberately still a rebuild: this recovery can rewind to ANY campaign
+     * checkpoint from ANY beat — mid-dialogue, mid-tween, doors and case in
+     * later states — which is exactly the fast-forward staging a fresh boot
+     * already owns (jumpToPreviewCheckpoint). The hot path — dying at the
+     * bathroom ambush and retrying — restores in memory via
+     * restoreCheckpoint() and never reloads. */
     restartCheckpoint: () => window.location.reload(),
     canRestartCheckpoint: () => Boolean(
       silverCaseRecoveryCampaign.state.missions[MISSION_IDS.SILVER_CASE].checkpoint,
@@ -794,6 +800,31 @@ function updateChoiceHold(dt) {
  */
 const RETRY_SPOT = { x: 9.4, z: 0.55 };
 
+/**
+ * Everything a death retry must roll back that restoreCheckpoint() cannot
+ * derive on its own, captured the moment the checkpoint beat is entered
+ * (see reportSilverCaseBeat):
+ *
+ *   - the decal pools' exact placement (impacts.captureCheckpoint), so the
+ *     failed attempt's plaster holes and blood vanish while pre-checkpoint
+ *     history — Deke's couch wounds — stays put;
+ *   - the relationship flags and the early-draw memory: the chair beat
+ *     REPLAYS on retry, so a fact the failed attempt wrote (Ape finishing
+ *     Chester at the stall timeout, say) must not survive into the replay;
+ *   - Winston's health: he is never revived (he is alive), so a stray
+ *     pre-checkpoint graze has to come back at its checkpoint value rather
+ *     than be healed by the retry or doubled by the replay.
+ */
+let retryBaseline = null;
+function captureRetryBaseline() {
+  impacts.captureCheckpoint();
+  retryBaseline = {
+    flags: { ...flags },
+    earlyDrawCount,
+    winstonHp: cast.winston.hp,
+  };
+}
+
 function restoreCheckpoint() {
   tweens.length = 0;
   reactionWindow.reset();
@@ -808,11 +839,25 @@ function restoreCheckpoint() {
   cast.pruitt.hide();
   // Reviving a man puts his body back; it does not take the blood off it, and
   // the wound decals are parented to his own limbs so they would ride back up
-  // onto a living Chester. Deke's stay exactly where they are: he does not
-  // come back, and neither does what happened to him.
-  impacts.clearActor(cast.chester);
-  impacts.clearActor(cast.pruitt);
-  impacts.clearActor(cast.ape);
+  // onto a living Chester. The pools roll back to their exact checkpoint
+  // placement instead: every attempt-scoped mark — Chester's wounds, a
+  // wrong-man graze on Winston, the failed attempt's plaster holes — vanishes,
+  // while Deke's stay exactly where they are: he does not come back, and
+  // neither does what happened to him. The per-actor clears remain as the
+  // fallback for a retry that somehow never crossed the checkpoint capture.
+  if (!impacts.revertToCheckpoint()) {
+    impacts.clearActor(cast.chester);
+    impacts.clearActor(cast.pruitt);
+    impacts.clearActor(cast.ape);
+    impacts.clearActor(cast.winston);
+  }
+  // Mission facts written after the checkpoint belong to the discarded
+  // attempt; the replayed beats must start from the checkpoint's own ledger.
+  if (retryBaseline) {
+    Object.assign(flags, retryBaseline.flags);
+    earlyDrawCount = retryBaseline.earlyDrawCount;
+    cast.winston.hp = retryBaseline.winstonHp;
+  }
   // Ape is back beside the chair with his gun in his hand, because that is
   // where the checkpoint's own beat put him — revive() alone would return him
   // to his BUILD position, which is now the corridor downstairs.
@@ -840,6 +885,8 @@ function restoreCheckpoint() {
   player.yaw = yawToward(RETRY_SPOT, { x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z });
   player.pitch = 0;
   player.velocity.set(0, 0, 0);
+  /* A key held across the death card must not walk the restored player. */
+  player.clearKeys();
 
   interactions.setPaused(false);
   ui.hud.classList.add('visible');
@@ -1615,6 +1662,11 @@ function showSilverCaseCompletion({ campaignComplete = silverCaseCampaignComplet
 }
 
 function reportSilverCaseBeat(name) {
+  // The retry boundary: entering the mission's one death checkpoint freezes
+  // the decal pools and the mission ledger. Fires again on every retry —
+  // idempotent, since restoreCheckpoint() has already rolled the state back
+  // to exactly what this captures.
+  if (name === CHECKPOINT) captureRetryBaseline();
   const checkpoint = checkpointForSilverCaseBeat(name);
   if (checkpoint) {
     const accepted = silverCaseCampaign.checkpoint(checkpoint, silverCaseCampaignReport({
@@ -1928,6 +1980,9 @@ window.silvercase = {
   }),
   begin: () => beginScene(),
   retry: () => { ui.deathOverlay.classList.add('hidden'); restoreCheckpoint(); },
+  /** Scripted delays still pending — a retry must leave none of the failed
+   * attempt's timers alive, and a verify script can prove it here. */
+  get pendingTweens() { return tweens.length; },
   pressFire: () => { firePressed = true; },
   pressDraw: () => { drawPressed = true; },
   /**
