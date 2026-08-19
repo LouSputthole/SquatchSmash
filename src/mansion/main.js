@@ -54,7 +54,7 @@ import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { createFinalArcLoadout } from '../core/final-arc-loadout.js';
 import { mountSilentSquatch } from './mission/mount.js';
-import { INSTRUCTIONS } from './script.js';
+import { INSTRUCTIONS, SEQUENCES } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import {
   mountMansionCast, MANSION_CAST_CUE_NAMES, theatreSeatAvailable, theatreSeatOccupant,
@@ -1030,6 +1030,19 @@ const secretBookcase = interior.props.masterSuite.secretStair;
  * the interior's array, so the bookcase has to be told about it or it opens on
  * screen and stays shut under your feet. See the note where it is built. */
 secretBookcase?.bindColliders?.(colliders);
+/* Owner playtest, 2026-08-19: "make it so the way to his bedroom upstairs
+ * starts out as open — the bookcase door is open — that way the player can go
+ * up there more likely." So the tour (and any preview) boots with the leaf
+ * already swung out and the way to the third floor readable from the office.
+ * Nothing in the night needs it shut: no script or mission beat ever calls
+ * `setOpen` — the only writers are the player's own E press, the `suite`
+ * preview checkpoint (which stages it open) and the debug handle — so only
+ * the INITIAL state changes, and the same press still swings it shut and open.
+ * Lil Tom Cruze's gate is this door, so he walks his office round from the
+ * first minute instead of holding on his cushion all night. AFTER
+ * `bindColliders`, so the open/shut collider swap lands in the merged list
+ * the player actually walks against. */
+if (mansionVisit !== 'return' || mansionPreview) secretBookcase?.setOpen(true);
 if (secretBookcase?.target) {
   interaction.register(secretBookcase.target, {
     label: () => (secretBookcase.isOpen()
@@ -1410,6 +1423,58 @@ const lab = interior.props.lab
   ?? silent?.lab
   ?? null;
 
+/* ================================================================== */
+/* THE WALL CLOSES BEHIND HIM, NEVER ON HIM                             */
+/*                                                                       */
+/* Beat 11's `wall.close` stage fires off the `cellarTop` threshold —     */
+/* the TOP of the hidden stairwell, still 4.6 m INSIDE the secret         */
+/* doorway — and the panel covers the aperture in ~2.7 s (SilentSquatch's */
+/* `returning` phase). Measured on the live page: a player who does not   */
+/* beeline the doorway is sealed into the landing, and the only opener    */
+/* (the switch under the bust) is on the OTHER side of two tonnes of      */
+/* masonry. That is a softlock in the exact minute the mission tells him  */
+/* to go and see Lou.                                                     */
+/*                                                                        */
+/* The script's own words are "the wall closes behind him" — so the        */
+/* composition root makes the verb mean that: a close ordered while his    */
+/* feet are still west of the doorway plane (the landing, the stairwell,   */
+/* the laboratory) is HELD, and performed the moment he steps through      */
+/* into the wine cellar. The wall still seats, the underworld ambience     */
+/* still cuts, and nobody is ever built into the wall. The doorway plane   */
+/* is read off the published `hiddenWall.rect`, not typed. Wrapped here    */
+/* rather than in the scene or the mission because both are a concurrent   */
+/* pass's files and this is exactly a composition-root concern — the wall  */
+/* is the scene's, the order is the mission's, and where the PLAYER is is  */
+/* this file's.                                                            */
+/* ================================================================== */
+let hiddenWallCloseHeld = false;
+const hiddenWallRealClose = lab?.hiddenWall?.close ?? null;
+function playerInsideHiddenComplex() {
+  if (!lab?.hiddenWall?.rect) return false;
+  const feetY = player.position.y - player.eyeHeight;
+  /* Below the ground floor, west of the doorway plane (+0.45 m so the seat
+   * never starts until he is clear of the panel's whole travel path). The
+   * innocent cellar rooms all live east of x -15.6, so this cannot hold the
+   * wall open for a man merely browsing the wine racks. */
+  return feetY < -1.8 && player.position.x < lab.hiddenWall.rect.x1 + 0.45;
+}
+if (lab?.hiddenWall && typeof hiddenWallRealClose === 'function') {
+  lab.hiddenWall.close = () => {
+    if (playerInsideHiddenComplex()) {
+      hiddenWallCloseHeld = true;
+      return false;
+    }
+    hiddenWallCloseHeld = false;
+    return hiddenWallRealClose();
+  };
+}
+/** Per frame: perform a held close the moment the player is through. */
+function settleHeldHiddenWall() {
+  if (!hiddenWallCloseHeld || playerInsideHiddenComplex()) return;
+  hiddenWallCloseHeld = false;
+  hiddenWallRealClose?.();
+}
+
 /**
  * The campaign seam.
  *
@@ -1514,6 +1579,76 @@ if (lab && night.play) {
      * `jumpToCheckpoint` starts it for a ladder that cannot wait. */
     autoStart: false,
   });
+}
+
+/* ================================================================== */
+/* STATE-GATED ZONES MUST SURVIVE A CROSSING THEIR BEAT REFUSED         */
+/*                                                                       */
+/* Owner playtest, 2026-08-19: "Irish's voice line didn't trigger" and    */
+/* "I'm still not seeing where to end the mansion mission when Booski     */
+/* tells you to return to Lou." Both are the same fault, measured on the  */
+/* live page: `mission.arrive(id)` consumes a trigger volume's one-shot   */
+/* id on the FIRST crossing whatever the handler then does with it, and   */
+/* several handlers only act in one beat. `cellarTop` (the top of the     */
+/* hidden stairwell) only calls `leave()` from EXIT — but every player    */
+/* walks DOWN through that exact cylinder in STAIRWELL on the way in, so  */
+/* the walk back out crossed a spent zone, the state never flipped to     */
+/* BACK_TO_LOU, and Lou's "Report to Lou" press (enabled only in that     */
+/* state) never armed. The night literally could not be finished on foot. */
+/* `corridor` (which summons Irish) only acts from STAIRWELL, and a       */
+/* player who opens the hidden wall early — the bust switch is a house    */
+/* interaction and works in any beat — spends it in ARRIVAL and loses     */
+/* Irish's lines for the whole night. Same class: `observation`, `stairs`,*/
+/* `bust`.                                                                */
+/*                                                                        */
+/* The mission already has the idiom for this — `officeReturn` puts its   */
+/* id straight back when a visit is not beat 11's (see #onZone). These    */
+/* zones live in files a concurrent pass owns, so the composition root    */
+/* applies the same rule from outside: after each mission tick, any of    */
+/* these ids that is spent WITHOUT its effect on record is re-armed. Each */
+/* predicate is the effect itself (a state reached, a bark on the ledger, */
+/* a latch set), so a zone that has genuinely done its job is never       */
+/* re-armed and nothing ever replays.                                     */
+/* ================================================================== */
+const REARMABLE_MISSION_ZONES = [
+  /* The wine-cellar bust hint plays in HIDDEN_ENTRANCE; the sequence's own
+   * first cue is the proof it ran. `wallOpened` covers a switch pressed
+   * before the hint could finish arming. */
+  ['bust', (m) => m.wallOpened
+    || m.dialogue.cueLog.includes(SEQUENCES.cellarBust[0].cue)],
+  /* Irish's corridor: acts only from STAIRWELL, where it enters beat 4. */
+  ['corridor', (m) => m.fsm.history.includes('INTERROGATION')],
+  /* Booski's threshold: acts only from INTERROGATION/STAIRWELL. */
+  ['observation', (m) => m.fsm.history.includes('OBSERVATION')],
+  /* Snow's return bark on the stairwell: EXIT only. */
+  ['stairs', (m) => m.barked.has('snowStairs')],
+  /* The way out: `leave()` fires only from EXIT, and latches `leaving`. */
+  ['cellarTop', (m) => m.leaving === true],
+];
+
+function rearmSilentSquatchZones() {
+  const mission = silentSquatch?.mission;
+  if (!mission?.zonesEntered) return;
+  for (const [id, effectHappened] of REARMABLE_MISSION_ZONES) {
+    if (mission.zonesEntered.has(id) && !effectHappened(mission)) {
+      mission.zonesEntered.delete(id);
+    }
+  }
+}
+
+/* The ending, announced the way this scene announces things. The objective
+ * card flips to "Lou is waiting" on its own; this adds the same full-width
+ * banner `announceCheckpoint` already paints for the return briefing, once,
+ * the moment beat 11's second leg begins — so walking out of the cellar
+ * tells the player where the night ends without inventing any new HUD. */
+let missionStateSeen = null;
+function announceMissionLeg() {
+  const now = silentSquatch?.debug?.state ?? null;
+  if (now === missionStateSeen) return;
+  missionStateSeen = now;
+  if (now === 'BACK_TO_LOU') {
+    announceCheckpoint('REPORT TO LOU — HIS OFFICE, UPSTAIRS');
+  }
 }
 
 function returnLouLabel() {
@@ -2023,6 +2158,12 @@ function updateGame(dt) {
   /* The mission, if the house has a laboratory in it. It moves the beat on,
    * plays the writing, and drives the lab; it never moves the camera. */
   silentSquatch?.update(dt);
+  /* Then put back any state-gated one-shot zone this tick spent without its
+   * effect, and announce beat 11's second leg — see the notes on
+   * REARMABLE_MISSION_ZONES above. */
+  rearmSilentSquatchZones();
+  announceMissionLeg();
+  settleHeldHiddenWall();
   /* The house's own people: patrols walk, posts stand, and the barks fire off
    * proximity to the man who says them. */
   cast?.update(dt);

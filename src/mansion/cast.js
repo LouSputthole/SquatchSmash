@@ -714,10 +714,29 @@ export function mountMansionCast(scene, world = {}, {
       const position = source?.getWorldPosition?.(new THREE.Vector3())
         ?? source?.position
         ?? null;
+      /* THE FALLOFF IS SCALED TO THE DISTANCE HE SPEAKS FROM. This used to be
+       * a flat `ref: 1.2` — a conversation panner — on every cast line, while
+       * the two gate posts deliberately COMMIT from much further away: the
+       * booth man challenges across his own drive (BOOTH_RANGE, 12.5 m) and
+       * the door man stops you before you are on his step (GATE_RANGE, 8 m).
+       * Measured on the live page, "Stop there. Name." dispatched at 10.05 m
+       * and played at 9% of its level; the door man's greeting at 7.99 m
+       * played at 11%. The trigger fired, the subtitle showed, and the walk-in
+       * heard nothing (owner playtest, twice).
+       *
+       * So the panner's ref scales with the post's own bark range: at exactly
+       * the distance a man is authored to open his mouth, his line lands at
+       * ~47% level (inverse model, rolloff 1.4 — src/core/audio.js) instead
+       * of a whisper, for every post uniformly. Conversation-range posts
+       * (BARK_RANGE, 5 m) keep a close-in ref of 2.75 m, so nothing shouts
+       * across the house — the shared speech gate still decides WHO can be
+       * heard; this only makes the line audible at the range that gate and
+       * the post agreed on. */
+      const range = posts.find((entry) => entry.npc === mouth)?.range ?? BARK_RANGE;
       audio.play(cue, position ? {
         position,
-        ref: 1.2,
-        maxDist: 14,
+        ref: Math.max(1.2, range * 0.55),
+        maxDist: Math.max(14, range * 2),
       } : undefined);
     },
   });
@@ -1263,16 +1282,30 @@ export function mountMansionCast(scene, world = {}, {
   /* ---- Rippin, in the pool room ----------------------------------------
    * The spec's `rippin` zone is `loungeCenter`, and the lounge is the room
    * the owner means by "the pool room and bar": billiards at one end, and the
-   * glazed bay with the bar and the stools off the other. He leans on the
-   * billiard table's west rail, which is inside the volume his own line fires
-   * from -- "Whatever's in that thing, I don't want it near my balls." lands
-   * on a man who is standing at the table, rather than on nobody. */
+   * glazed bay with the bar and the stools off the other. He stands at the
+   * FOOT of the billiard table -- "Whatever's in that thing, I don't want it
+   * near my balls." lands on a man who is at the table, rather than on nobody.
+   *
+   * WHERE EXACTLY HE STANDS IS LOAD-BEARING (owner playtest: "Rippin's line
+   * didn't trigger at first"). His arrival bark fires when the player is
+   * inside BOTH circles at once: 3.2 m of the `loungeCenter` anchor (the
+   * mission's zone) and 3.2 m of his real body (the shared speech gate). He
+   * used to lean on the west rail, 2.93 m off the anchor -- the two circles
+   * barely overlapped, so the natural walk down the room's west aisle became
+   * audible to the gate well OUTSIDE the zone, the mission's 18-second idle
+   * rotation spent his voice on "I'm serious. Take it over there." first, and
+   * the authored greeting sat on the gate's 12-second cooldown until the
+   * player had usually left the lens. He now stands ~0.3 m off the anchor, on
+   * its far side from both of the room's entries (the rear-foyer archway and
+   * the kitchen door are both north of him), so on any natural approach the
+   * ZONE is entered a step before the gate can hear him and the arrival line
+   * always wins the frame. Clear of the table's collider (z0 46.2). */
   const lounge = at('loungeCenter', { x: 12.5, y: GROUND_Y, z: 45.5 });
-  const rippinAt = { x: lounge.x - 2.05, y: lounge.y, z: lounge.z + 2.1 };
+  const rippinAt = { x: lounge.x - 0.1, y: lounge.y, z: lounge.z - 0.3 };
   post('rippin', {
     name: 'Rippinflow',
     model: withFace(RIPPINFLOW, FACES.rippinflow),
-    job: 'lean',
+    job: 'stand',
     x: rippinAt.x,
     y: rippinAt.y,
     z: rippinAt.z,
