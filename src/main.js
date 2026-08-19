@@ -16,7 +16,7 @@ import { Player } from './core/player.js';
 import { translateKey, shakeScale } from './core/settings.js';
 import { attachPixelRatio } from './core/pixel-ratio.js';
 import { Radio } from './core/radio.js';
-import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
+import { SPOOKY_RADIO_LINES, newsSegmentsFor, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
 import {
@@ -298,6 +298,12 @@ const radio = new Radio(audio, hud, time, {
     defaultPower: true,
   }),
   canPlayNotice: () => campaign.state.story.chapter === 'day_one',
+  /* The apartment is where the news catches up with him: after each
+   * newsworthy job, the desk's segment about it joins this receiver's
+   * rotation (stations.js gates every segment on the mission's own durable
+   * state, so nothing airs before its event). Read live rather than snapshot,
+   * so a save that advances mid-session is reported on the same evening. */
+  news: () => newsSegmentsFor(campaign.state),
 });
 const DAY_TWO_CALL_AFTER_BULLETIN = 20;
 // Nothing happens in here. Somebody should say so.

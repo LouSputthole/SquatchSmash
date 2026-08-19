@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
+import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
   CHARACTER_IDS,
   MISSION_IDS,
@@ -557,6 +558,15 @@ function applyResolvedAttackPresentation() {
   state.fallen = true;
   cancelWalk(party.byId.ape);
   poseHotDogResolvedAttackGeometry(party);
+  /* The pool keeps spreading under him while the room decides what to do —
+   * on the shared bounded pool system, on the sim clock, beside the authored
+   * cleanup decal rather than replacing it. Anchored to wherever the shared
+   * pose helper left the body, so the two never drift apart. */
+  const hotdog = party.extra.hotdog;
+  _spillAt.set(hotdog.group.position.x + 0.2, 0, hotdog.group.position.z - 0.1);
+  gore.splats.spill(_spillAt, {
+    floorY: 0, size: 0.9, opacity: 0.88, delay: 0.35, seed: 41,
+  });
 }
 
 function resolveAttack() {
@@ -572,6 +582,121 @@ function resolveAttack() {
   return true;
 }
 
+/* ---- the gore layer (2026-08-19 owner note) ----
+ *
+ * "Gorey, I want extra extra gore. Blood splatting into the air."  Three
+ * shared systems from src/world/blood.js, the same module the mansion and the
+ * store room already use, mounted once and updated on the sim clock:
+ *   impacts  attached wounds + secondary spatter on both bodies
+ *   spurts   arterial droplets thrown INTO THE AIR off each strike
+ *   splats   small bounded floor decals where those droplets come down,
+ *            plus the spreading pool once he is on the boards
+ * All working vectors are preallocated — nothing here allocates per frame. */
+const gore = {
+  impacts: new BloodImpactSystem(scene),
+  spurts: new BloodSpurtSystem(scene, { capacity: 56 }),
+  splats: new DeathBloodPool(scene, { capacity: 8, growthSeconds: 0.55 }),
+};
+const _stabPoint = new THREE.Vector3();
+const _stabDir = new THREE.Vector3();
+const _spillAt = new THREE.Vector3();
+/* How many airborne droplets may still become a floor decal. Topped up per
+ * strike, spent by landings, so one burst cannot drain the bounded pool. */
+let splatBudget = 0;
+const splatWhereItLands = (x, z) => {
+  if (splatBudget <= 0) return;
+  splatBudget -= 1;
+  _spillAt.set(x, 0, z);
+  gore.splats.spill(_spillAt, {
+    floorY: 0,
+    size: 0.2 + Math.random() * 0.18,
+    opacity: 0.78,
+  });
+};
+/* The evidence the mop is FOR. The final sweep is the beat where the floor
+ * stops testifying, so the sweep clears the strike decals with it. Wounds on
+ * the two men deliberately stay — nobody has changed clothes. */
+function clearStrikeSplats() {
+  gore.splats.reset();
+}
+
+function goreStrike(hit) {
+  const hotdog = party.extra.hotdog;
+  const ape = party.byId.ape;
+  hotdog.group.updateWorldMatrix(true, true);
+  /* The wound: chest height on the rig, alternating sides per strike, at the
+   * exact point the shared system pins to the body so it follows his fall. */
+  _stabPoint.set(hit % 2 ? 0.09 : -0.07, 1.26 - (hit % 3) * 0.08, 0.16);
+  hotdog.parts.body.localToWorld(_stabPoint);
+  _stabDir.set(
+    hotdog.position.x - ape.position.x,
+    0.3,
+    hotdog.position.z - ape.position.z,
+  ).normalize();
+  gore.impacts.hit({
+    actor: hotdog,
+    anchor: hotdog.parts.body,
+    point: _stabPoint,
+    normal: _stabDir,
+  });
+  /* Arterial spurt: droplets arc INTO THE AIR off the wound, away from the
+   * blade, and each landing may stamp a splatter decal on the boards. */
+  splatBudget = Math.min(splatBudget + 2, 4);
+  gore.spurts.burst(_stabPoint, _stabDir, {
+    count: 8 + hit * 3,
+    speed: 2.1 + hit * 0.4,
+    upward: 2.5 + hit * 0.25,
+    floorY: 0,
+    onLand: splatWhereItLands,
+  });
+  /* Blood on Ape. He is standing in it from the second strike on: a mark on
+   * his own rig, no secondary spatter — it is HotDog's blood, not his. */
+  if (hit >= 2) {
+    ape.group.updateWorldMatrix(true, true);
+    _stabPoint.set(hit % 2 ? 0.07 : -0.05, 1.12 + (hit % 2) * 0.1, 0.17);
+    ape.parts.body.localToWorld(_stabPoint);
+    _stabDir.set(
+      ape.position.x - hotdog.position.x,
+      0.1,
+      ape.position.z - hotdog.position.z,
+    ).normalize();
+    gore.impacts.hit({
+      actor: ape,
+      anchor: ape.parts.body,
+      point: _stabPoint,
+      normal: _stabDir,
+      spatter: false,
+    });
+  }
+}
+
+/* One strike's sound: the recorded body thud carries the weight tonight, and
+ * the authored stab layer sits on top the moment each recording lands —
+ * gated on `hasSample`, the same contract License to Grill's PENDING cues
+ * keep, so an undelivered cue is silence rather than a synth noise. */
+function strikeAudio(hit, final, at) {
+  audio.play(`hotdog.fist.impact.${hit}`, {
+    volume: final ? 0.96 : 0.82,
+    position: at,
+  });
+  if (audio.hasSample?.(`hotdog.stab.flesh.${hit}`)) {
+    audio.play(`hotdog.stab.flesh.${hit}`, { volume: final ? 0.9 : 0.78, position: at });
+  }
+  /* The jacket goes on the first strike; after that the blade is through it. */
+  if (hit === 1 && audio.hasSample?.('hotdog.stab.cloth.tear')) {
+    audio.play('hotdog.stab.cloth.tear', { volume: 0.55, position: at, delay: 0.04 });
+  }
+  /* His grunts going quiet: loud on one, a wheeze by four. The recordings are
+   * performed quieter AND mixed quieter, so the fade survives either. */
+  if (audio.hasSample?.(`hotdog.stab.grunt.${hit}`)) {
+    audio.play(`hotdog.stab.grunt.${hit}`, {
+      volume: [0.9, 0.72, 0.5, 0.34][hit - 1] ?? 0.34,
+      position: at,
+      delay: 0.09,
+    });
+  }
+}
+
 const attack = createHotDogAttack({
   ape: party.byId.ape,
   hotdog: party.extra.hotdog,
@@ -579,10 +704,8 @@ const attack = createHotDogAttack({
   onImpact: ({ hit, final }) => {
     const hotdog = party.extra.hotdog;
     state.cinematic.shake = final ? 0.15 : 0.10;
-    audio.play(`hotdog.fist.impact.${hit}`, {
-      volume: final ? 0.96 : 0.82,
-      position: hotdog.position,
-    });
+    strikeAudio(hit, final, hotdog.position);
+    goreStrike(hit);
     if (final) {
       audio.play('hotdog.body.floor', { volume: 0.94, position: hotdog.position });
       audio.play('glass.wine.fall', { volume: 0.72, position: hotdog.position });
@@ -803,6 +926,7 @@ interaction.register(party.extra.lou.group, {
       state.finalSwept = true;
       completeCleanupTask('final_sweep');
       restoreHotDogCleanupPresentation(party, mission.cleanup);
+      clearStrikeSplats();
       /* The line the owner caught: the HUD used to narrate Lou checking the
        * room and then quote him, with Lou stood in front of the player saying
        * nothing. He says it. */
@@ -924,6 +1048,7 @@ function restoreFromCampaign() {
   state.evidence = new Set(saved.cleanupTasks.includes('missing_evidence') ? ['cufflink', 'lapel'] : []);
   state.finalSwept = saved.cleanupTasks.includes('final_sweep');
   restoreHotDogCleanupPresentation(party, saved.cleanupTasks);
+  if (state.finalSwept) clearStrikeSplats();
   if (saved.bodyWrapped) {
     mission.wrapBody();
     state.wrapped = true;
@@ -986,6 +1111,7 @@ function jumpToPreviewCheckpoint(id) {
   // same three interactions a player fires from Lou/HotDog/the load pad.
   for (const task of SECOND_VISIT_CLEANUP_TASKS) completeCleanupTask(task);
   restoreHotDogCleanupPresentation(party, mission.cleanup);
+  clearStrikeSplats();
   if (!mission.wrapBody()) return;
   state.wrapped = true;
   party.extra.hotdog.group.visible = false;
@@ -1106,6 +1232,7 @@ const runtime = {
   updateDirector,
   applyCinematicCamera,
   attack,
+  gore,
   completeCleanupTask,
   get campaignState() { return campaign.state; },
 };
@@ -1292,6 +1419,12 @@ function animate(now) {
     // Npc.update owns idle motion; the attack controller applies its
     // intentional pose afterward so the four hits cannot be overwritten.
     attack.update(dt);
+    /* After the attack pose, so a droplet launched this frame leaves the
+     * wound where it visibly is. Sim-clock driven; each system is a no-op
+     * once its droplets have landed and its pools have grown. */
+    gore.impacts.update(dt);
+    gore.spurts.update(dt);
+    gore.splats.update(dt);
     applyCinematicCamera(dt);
   }
   if (!state.paused) {

@@ -192,10 +192,14 @@ export function installSystemicPresentation({
     }
     const first = items[0];
     const last = items.at(-1);
-    if (event.shiftKey && (doc.activeElement === first || !activeModal.contains(doc.activeElement))) {
+    /* `doc.activeElement` is not guaranteed to be an Element here — during
+     * headless runs and focus handoffs between documents it can be absent,
+     * and `Node.contains` throws on a non-Node argument. */
+    const active = doc.activeElement instanceof win.Node ? doc.activeElement : null;
+    if (event.shiftKey && (active === first || !active || !activeModal.contains(active))) {
       event.preventDefault();
       last.focus?.({ preventScroll: true });
-    } else if (!event.shiftKey && doc.activeElement === last) {
+    } else if (!event.shiftKey && active === last) {
       event.preventDefault();
       first.focus?.({ preventScroll: true });
     }

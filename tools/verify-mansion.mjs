@@ -849,14 +849,28 @@ try {
     };
   });
   const SUITE_Y = suite.room.floor;
-  /* HIS GATE IS THE DOOR, SO THIS READING HAS TO HAPPEN FIRST. Lil Tom Cruze
-   * holds on his cushion while the bookcase is shut and walks the moment it is
-   * not; taken after the press, "he is on his cushion" measures how fast the
-   * check ran rather than where the dog lives. */
+  /* Lil Tom Cruze's gate is the door. With the leaf open from boot (below) he
+   * has been walking his office round since the tour began, so this reading
+   * proves the body, not a resting spot — the cushion is simply his longest
+   * waypoint now, not a boot state. */
   const dogAtRest = await page.evaluate(() => window.mansion.suite.dog);
 
-  /* ---- 1. The bookcase is a bookcase until you use it. Squared up in the
-   * office alcove, hold W east and be stopped by it. */
+  /* ---- 0. The way up starts OPEN. Owner playtest, 2026-08-19: "make it so
+   * the way to his bedroom upstairs starts out as open — the bookcase door is
+   * open — that way the player can go up there more likely." The old default
+   * (shut until pressed) is exactly what the next two checks used to pin, so
+   * the boot state is asserted here and the shut-leaf mechanics are then
+   * tested from an explicitly staged shut state. */
+  const bootOpen = await page.evaluate(() => window.mansion.suite.stair.open);
+  check('the bookcase to the third floor starts the tour already open',
+    bootOpen === true, String(bootOpen));
+
+  /* ---- 1. Shut, the bookcase is a bookcase. Staged shut through the
+   * published debug verb (the same leaf, colliders and all), then squared up
+   * in the office alcove, hold W east and be stopped by it. The real E press
+   * is still what re-opens it in step 2. */
+  await page.evaluate(() => window.mansion.suite.openBookcase(false));
+  await settle(1.4);
   await teleport(5.2, UPPER_Y, 65.0, EAST);
   await settle(0.4);
   await walk(5);
@@ -1084,9 +1098,13 @@ try {
     const ok = window.mansion.suite.petDog();
     return { ok, state: window.mansion.suite.dog.state, pets: window.mansion.suite.dog.pets };
   });
-  check('Lil Tom Cruze is in the suite, on his cushion, and he is a real dog',
+  /* Not "on his cushion" any more: the bookcase starts the tour open (owner
+   * playtest, 2026-08-19), so his door-gate has been satisfied since boot and
+   * by the time this section runs he is legitimately anywhere on his
+   * cushion -> stair -> office round. The body and its registration are the
+   * boot contract; the route itself is proven by the walk check below. */
+  check('Lil Tom Cruze is mounted with a real petable body',
     dogAtRest && dogAtRest.meshes > 60
-      && Math.hypot(dogAtRest.x - suite.dogCushion.x, dogAtRest.z - suite.dogCushion.z) < 0.4
       && dogAtRest.registered === true,
     JSON.stringify(dogAtRest));
   check('...he walks his route once the bookcase is open, and he sits down to be petted',
@@ -4041,13 +4059,19 @@ try {
       miscast.slice(0, 3).join(' | ') || `${authored.length} lines, every one on its speaker's profile`);
   }
 
-  /* ---- And the wall closes again, which is the exit. */
+  /* ---- And the wall closes again, which is the exit. FROM THE WINE-CELLAR
+   * SIDE: since the 2026-08-19 pass the composition root holds a close
+   * ordered while the player is still inside the hidden complex and seats
+   * the panel the moment he is through the doorway ("the wall closes behind
+   * him, never on him" — see main.js). The tour is standing in the lab from
+   * the checks above, so step out first, exactly like the man the wall is
+   * closing behind. */
+  await teleport(-13.6, BASEMENT_Y, 65.85, WEST);
   const closed = await page.evaluate(async () => {
     window.mansion.lab.hiddenWall.close();
     window.mansion.tick(9);
     return window.mansion.lab.hiddenWall.phase;
   });
-  await teleport(-13.6, BASEMENT_Y, 65.85, WEST);
   await settle(0.4);
   await walk(7);
   await settle(0.5);

@@ -754,19 +754,112 @@ test('Shubes walks in for his one interruption, and leaves when it is over', () 
   assert.equal(shubes.job, 'sit');
 });
 
-test('the room is put back the way it was found, and the cord is kept', () => {
+test('Gratin and Numbskull hold the back room until it is over, then take their floor spots', () => {
+  /* Owner, 2026-08-19 playtest: they are NOT on the Bing floor before the
+   * store-room scene — the man who caught a spy at seven o'clock is in the
+   * back room with him. Their authored floor spots (where the harness seated
+   * them: Gratin -4,3 and Numbskull -3,4) are what `close()` restores, so
+   * they take their usual places only once the room is dealt with. */
   const h = harness();
   const gratin = h.family.byId[CHARACTER_IDS.GRATIN];
-  const home = gratin.group.position.clone();
+  const numbskull = h.family.byId[CHARACTER_IDS.NUMBSKULL];
+  for (const npc of [gratin, numbskull]) {
+    const { x, z } = npc.group.position;
+    assert.ok(x >= 5.6 && x <= 13.6 && z >= -15 && z <= -9.6,
+      'he is out on the floor before the store room has been dealt with');
+    assert.equal(npc.job, 'stand', 'he is sitting at his booth inside the store room');
+  }
+
   walkIn(h);
-  assert.notDeepEqual(gratin.group.position.toArray(), home.toArray(),
-    'Gratin never came off the floor');
   receiveCord(h);
   h.padFor('wristwatch').userData.interact.onUse();
   h.quest.close();
-  assert.deepEqual(gratin.group.position.toArray(), home.toArray(), 'Gratin never went back to his booth');
+  assert.deepEqual(gratin.group.position.toArray(), [-4, 0, 3], 'Gratin never took his booth');
+  assert.equal(gratin.job, 'sit', 'Gratin stands in the middle of the floor forever');
+  assert.deepEqual(numbskull.group.position.toArray(), [-3, 0, 4], 'Numbskull never took his spot');
   assert.equal(h.quest.held, null, 'he walked out holding a dead spy’s watch');
   assert.equal(h.quest.table.get('watch').group.visible, true);
   assert.deepEqual(h.registered, [], 'the store room is still interactive after it is over');
   assert.deepEqual(h.inventory.added, ['cord'], 'Gratin took his cord back');
+});
+
+test('a completed reload never pre-stages the back room: the floor keeps both men', () => {
+  const h = harness({
+    initialPersisted: {
+      completed: true, informant: 'Vincent Mallard', meet: 'x', ending: ENDINGS.SHOT,
+    },
+  });
+  assert.deepEqual(h.family.byId[CHARACTER_IDS.GRATIN].group.position.toArray(), [-4, 0, 3]);
+  assert.deepEqual(h.family.byId[CHARACTER_IDS.NUMBSKULL].group.position.toArray(), [-3, 0, 4]);
+});
+
+test('the only ending is the execution, staged beat by beat on the simulated clock', () => {
+  /* Owner, 2026-08-19 playtest: the spare-him and walk-away options are
+   * gone; Numbskull draws and does it. Beat order pinned here: draw, one
+   * shot with a face mark, the slump, the resume at `endShot`, the call for
+   * Snow, and completion only after the last line has closed itself. */
+  const h = walkIn(harness());
+  const tree = h.quest.script[CHARACTER_IDS.JAMES_BLOND];
+
+  // The choice tree offers ONLY finishing him.
+  const options = (typeof tree.endings.options === 'function'
+    ? tree.endings.options() : tree.endings.options);
+  assert.equal(options.length, 1, 'a spare-him or walk-away option came back');
+  assert.match(options[0].text, /finish the job/i);
+  assert.equal(Object.hasOwn(tree, 'endLeft'), false, 'the leave-him ending is still authored');
+  assert.equal(Object.hasOwn(tree, 'endUntied'), false, 'the mercy ending is still authored');
+  assert.equal(tree.endShot.next, 'endSnowShout', 'the aftermath never calls for Snow');
+  assert.equal(tree.endSnowAnswer.who, 'Snow', 'Snow’s reluctant line is not his');
+  assert.match(tree.endSnowShout.line, /we’re gonna need you back here/i);
+  assert.match(tree.endSnowAnswer.line, /ridiculous/i);
+
+  // Secure the information first, the honest way.
+  h.padFor('wristwatch').userData.interact.onUse();
+  h.dialogue.finish();
+  h.quest.press();
+  h.dialogue.finish();
+
+  // Choosing the only option starts the staged beat.
+  assert.equal(options[0].next(), null, 'the option must close the thread for the beat');
+  assert.equal(h.quest.execution.phase, 'draw');
+
+  // Draw: no shot yet, no mark on him yet.
+  h.quest.update(0.3);
+  const marksBefore = h.quest.blood.impacts.marksOn(h.quest.blond);
+  assert.equal(h.quest.executed, false, 'the shot landed during the draw');
+
+  // Through the shot beat: one mark on the FACE, attached to the head.
+  for (let i = 0; i < 24; i++) h.quest.update(0.1);
+  assert.equal(h.quest.executed, true, 'the shot never fired');
+  assert.equal(h.quest.blood.impacts.marksOn(h.quest.blond), marksBefore + 1,
+    'the shot left no mark on him');
+  const faceMark = h.quest.blood.impacts.marksFor(h.quest.blond)
+    .find((mark) => mark.parent === h.quest.blond.parts.head);
+  assert.ok(faceMark, 'the execution mark is not on his face');
+  assert.ok(h.quest.blond.parts.head.rotation.x > 0.5, 'his head never went down');
+  assert.equal(h.quest.blond.group.userData.dead, true);
+  assert.equal(h.quest.blood.pools.visibleCount, 1, 'the drain got nothing');
+  assert.equal(h.started.at(-1), 'endShot', 'the room never resumed at the aftermath');
+
+  /* The shout for Snow: the harness roster has no Snow, and `bringIn`
+   * shrugging that off (rather than crashing the aftermath) is part of the
+   * contract — his line still plays from the tree either way. */
+  h.dialogue.start(tree, 'endSnowShout', null);
+  assert.equal(h.quest.phase, 'open', 'the scene banked before the aftermath finished');
+
+  // Completion waits for the last line to close itself, then banks the card.
+  h.dialogue.start(tree, 'endSnowDone', null);
+  h.quest.update(0.05);
+  assert.equal(h.quest.phase, 'open', 'completion tore down the room mid-line');
+  h.dialogue.finish();
+  h.quest.update(0.05);
+  assert.equal(h.quest.phase, 'done');
+  assert.equal(h.quest.persisted.ending, ENDINGS.SHOT);
+  assert.equal(h.quest.persisted.card, true);
+  assert.equal(h.quest.persisted.informant, 'Vincent Mallard');
+  // The pistol does not leave the room on Numbskull's arm.
+  assert.equal(h.quest.execution.gun, null, 'Numbskull walked the floor armed');
+  // And the corpse still owns the left mouse button.
+  h.standAt(CHAIR.x, CHAIR.z + 1.1, CHAIR);
+  assert.equal(h.quest.press(), true, 'left mouse interacts through the corpse');
 });

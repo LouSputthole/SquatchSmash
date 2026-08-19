@@ -141,7 +141,12 @@ export const FAMILY = [
     model: WARDROBE.hogmama,
   },
   {
-    id: CHARACTER_IDS.SHUBENATOR, name: 'The Shubenator', slug: 'shubenator', photo: 'shubes.png',
+    /* Face: the owner's pick (2026-08-19) — "the guy in the goggles". The
+     * cropped photo lands at assets/faces/shubenator.png; until it is in the
+     * faces index, `photoFallback` keeps the existing shubes.png portrait on
+     * him rather than dropping back to a drawn face. */
+    id: CHARACTER_IDS.SHUBENATOR, name: 'The Shubenator', slug: 'shubenator', photo: 'shubenator.png',
+    photoFallback: 'shubes.png',
     // Another stage two-top, nine hundred push-ups deep.
     spot: { x: -8.15, z: 3.2, yaw: -1.34, job: 'drink' },
     model: WARDROBE.shubenator,
@@ -249,7 +254,13 @@ export function populateFamily(scene, club, { present = FAMILY, faces = new Set(
   const all = [];
   const byId = {};
   for (const member of present) {
-    const face = faces.has(member.photo) ? `assets/faces/${member.photo}` : null;
+    /* Prefer the member's named photo; `photoFallback` covers a face whose
+     * replacement has been wired but not yet dropped into assets/faces/
+     * (the index only lists files that exist, so a missing drop degrades to
+     * the previous portrait instead of a 404 or a blank). */
+    const photo = faces.has(member.photo) ? member.photo
+      : (member.photoFallback && faces.has(member.photoFallback) ? member.photoFallback : null);
+    const face = photo ? `assets/faces/${photo}` : null;
     const npc = new Npc(scene, {
       name: member.name,
       tier: 'ambient',
