@@ -35,10 +35,11 @@ import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { prewarmAudio, prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { playWeaponCue } from '../core/weapons/audio.js';
-import { WEAPON_IDS, weaponDef } from '../core/weapons/catalog.js';
+import { WEAPON_IDS, weaponCue, weaponDef } from '../core/weapons/catalog.js';
 import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
 import { BallisticImpactSystem } from '../world/impacts.js';
 
@@ -1233,6 +1234,15 @@ startButton.addEventListener('click', async () => {
       'ui.select', 'woo.streak', 'chat.ping', 'switch.click', 'light.dip',
     ],
   });
+  /* loadManifest above was awaited, so the weapon bank is normally already
+   * decoded; this pins the exact cues the FIRST trigger pull reaches for as
+   * decoded-or-reported (src/core/prewarm.js) before combat can start. A cue
+   * that never decoded is reported and plays its synth stand-in rather than
+   * stalling the boot. */
+  window.CARTEL_PALACE.prewarmAudioReport = await prewarmAudio(audio, [
+    ...loadout.items.filter(Boolean).map((id) => weaponCue(id, 'fire')),
+    'heist.bullet.impact',
+  ], { timeout: 500 });
   audio.startLoop('palace-night', { name: 'ambience.rain', volume: 0.052, ambience: true, fade: 1.4 });
   const restored = restoreMissionProgress();
   state.phase = 'active';
@@ -1514,6 +1524,86 @@ window.CARTEL_PALACE = {
   evidence: () => Object.fromEntries(Object.entries(palace.evidence).map(([id, target]) => [id, target.userData.collected === true])),
   geometry: () => ({ ...palace.inspectEnvironment(), drawCalls: renderer.info.render.calls }),
 };
+
+/* ------------------------------------------------------------------ */
+/* Prewarm -- first-shot costs paid behind the menu                    */
+/* ------------------------------------------------------------------ */
+/* Same bug and same cure as the Squatchfather (src/core/prewarm.js): every
+ * hostile muzzle-flash root sits `visible = false` until the first cartel
+ * shot, three.js keys every material's shader program on the visible light
+ * counts, so the frame the first flash appears is the frame the whole estate
+ * needs programs it has never had. The impact decals, blood systems and the
+ * player's own muzzle card are cheaper shapes of the same first-use bill.
+ * Draw those states once, clipped to a single pixel, behind the overlay --
+ * never mid-frame during play. Nothing about the look changes.
+ *
+ * Boot-once by construction: this runs from the module's single
+ * requestAnimationFrame below, and retryFromCheckpoint() restores in memory
+ * without re-entering it -- the compiled programs outlive every retry. */
+
+/** Everything hidden now that the firefight puts on screen later. */
+function palaceFirstShotObjects() {
+  return [
+    ballisticImpacts,        // pooled bullet marks ({ pool } holder)
+    bloodImpacts.wounds,     // entry wounds
+    bloodImpacts.spatter,    // and their secondary marks
+    deathBloodPools.meshes,  // spreading floor pools
+    weapons.flash,           // the player's own muzzle card
+  ];
+}
+
+async function prewarmPalaceCombat() {
+  const effects = palaceFirstShotObjects();
+  /* One flash slot stands in for the pool: every slot shares the same flare
+   * material and light configuration, so warming one warms the programs for
+   * all twelve. Intensity is irrelevant to the program key but is set anyway
+   * so the warm draw is the draw a real shot performs. */
+  const slot = hostileMuzzleFlashes.pool[0];
+  const flashIntensity = slot.light.intensity;
+  slot.light.intensity = slot.peak;
+  try {
+    return await prewarmScene({
+      renderer,
+      scene,
+      camera,
+      // A frame between the passes: the overlay stays clickable while they run.
+      spread: true,
+      /* Gameplay draws through the composer, and three keys programs on the
+       * render target's tone mapping and colour space -- warming the canvas
+       * would warm the WRONG programs (prewarm.js, reason 2). */
+      options: {
+        target: postfx.enabled && postfx.composer ? postfx.composer.readBuffer : null,
+      },
+      passes: [
+        // The estate's own lighting, with every hidden effect object drawn.
+        { name: 'combat effects', reveal: effects },
+        /* And again with one hostile flash lit: one more visible point light
+         * than the estate carries at rest -- the state that used to hitch. */
+        { name: 'muzzle flash', reveal: [...effects, slot.root] },
+      ],
+      /* No pools to fill and no audio wait here: every effect pool above is
+       * built eagerly in its constructor, and the start button already awaits
+       * loadManifest plus prewarmAudio on the first-shot cues before combat
+       * can begin. */
+    });
+  } finally {
+    slot.light.intensity = flashIntensity;
+    slot.root.visible = false;
+  }
+}
+
+/* One frame later -- so the first real render has already put the estate on
+ * the GPU -- buy the firefight its shader programs behind the overlay. */
+requestAnimationFrame(() => {
+  /* Never fatal: a scene that cannot be prewarmed is a scene that hitches
+   * once, not one that fails to boot. */
+  window.CARTEL_PALACE.prewarming = prewarmPalaceCombat()
+    .catch((error) => ({ failed: String(error?.message ?? error) }))
+    .then((report) => {
+      window.CARTEL_PALACE.prewarmReport = report;
+      return report;
+    });
+});
 
 window.__squatchSceneReady?.('CARTEL PALACE ready');
 setTimeout(() => loading.classList.add('out'), 170);

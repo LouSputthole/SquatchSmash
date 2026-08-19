@@ -154,6 +154,7 @@ try {
         extractionVisible: runtime.palace.targets.extractionGate.visible,
         geometry: {
           meshes: environment.meshes,
+          renderedParts: environment.renderedParts,
           groups: environment.groups,
           namedMeshes: environment.namedMeshes,
           colliders: environment.colliders,
@@ -181,7 +182,11 @@ try {
         && state.geometry.colliders >= 20,
       JSON.stringify({ evidence: state.snapshot.evidenceFound, geometry: state.geometry }));
     check(`${checkpoint}: exposes the real refined environment inventory`,
-      state.geometry.meshes >= 750
+      /* Richness is judged on rendered parts: instanced batches (world.js
+       * `instanced`) collapse many authored repeats into one Mesh object, so
+       * the raw Mesh count measures draw calls, not what the player sees. */
+      state.geometry.renderedParts >= 750
+        && state.geometry.meshes >= 400
         && state.geometry.groups >= 90
         && state.geometry.namedMeshes / state.geometry.meshes >= 0.85
         && Object.keys(state.geometry.zones).sort().join(',')
@@ -191,6 +196,7 @@ try {
           === 'courtyard-fountain-collider,reflecting-pool-collider',
       JSON.stringify({
         meshes: state.geometry.meshes,
+        renderedParts: state.geometry.renderedParts,
         groups: state.geometry.groups,
         namedMeshes: state.geometry.namedMeshes,
         zones: Object.fromEntries(Object.entries(state.geometry.zones).map(([name, zone]) => [name, zone.meshes])),

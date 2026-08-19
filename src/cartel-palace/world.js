@@ -84,6 +84,46 @@ function cylinder(radius, height, position, material, name = '', segments = 12) 
   return mesh;
 }
 
+/**
+ * One InstancedMesh for a fixed part the palace repeats at authored
+ * transforms -- roof ridges, palm fronds, gate bars, chair parts, place
+ * settings, drawer faces. Each repeat used to be its own Mesh and therefore
+ * its own draw call; the batch keeps every position, rotation and scale
+ * EXACTLY as authored and collapses only the draw-call structure. Same
+ * doctrine as the mansion's sconce batches
+ * (src/mansion/scenes/MansionInterior.js `buildSconceInstances`).
+ *
+ * Decorative repeats default to `cast = false` deliberately: the moon is
+ * this scene's only shadow-casting light, and these parts are either inside
+ * the roofed estate (where no shadow they cast can reach its map) or thinner
+ * than the 1536 px map resolves (src/mansion/perf.js MIN_TEXELS), so casting
+ * was a shadow-pass bill that never drew a visible shadow.
+ *
+ * @param {THREE.Object3D} parent  transforms are in this object's space
+ * @param {THREE.BufferGeometry} geometry
+ * @param {THREE.Material} material
+ * @param {Array<(part: THREE.Object3D) => void>} placements one function per
+ *   instance, posing a reset stand-in exactly as the old Mesh was posed
+ */
+const _placement = new THREE.Object3D();
+function instanced(parent, geometry, material, placements, name, { cast = false, receive = true } = {}) {
+  const mesh = new THREE.InstancedMesh(geometry, material, placements.length);
+  mesh.name = name;
+  mesh.castShadow = cast;
+  mesh.receiveShadow = receive;
+  for (let index = 0; index < placements.length; index++) {
+    _placement.position.set(0, 0, 0);
+    _placement.rotation.set(0, 0, 0);
+    _placement.scale.set(1, 1, 1);
+    placements[index](_placement);
+    _placement.updateMatrix();
+    mesh.setMatrixAt(index, _placement.matrix);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  parent.add(mesh);
+  return mesh;
+}
+
 function addCollider(colliders, center, size, name = '') {
   const c = new THREE.Vector3(...center);
   const half = new THREE.Vector3(...size).multiplyScalar(0.5);
@@ -150,22 +190,46 @@ function tiledRoof(parent, x, z, width, depth, y = 5.15) {
     roof.rotation.z = side * 0.19;
     parent.add(roof);
   }
-  for (let rz = z - depth / 2; rz <= z + depth / 2; rz += 0.72) {
-    const ridge = cylinder(0.07, width + 0.9, [x, y + 0.13, rz], M.tileDark, 'roof-tile-ridge', 8);
-    ridge.rotation.z = Math.PI / 2;
-    parent.add(ridge);
-  }
+  /* was: one cylinder Mesh per ridge row -- 89 draw calls across the estate
+   * roof. One batch, identical rows; 7 cm trim the moon map cannot resolve,
+   * so the ridges also stop casting into the shadow pass. */
+  const ridgeRows = [];
+  for (let rz = z - depth / 2; rz <= z + depth / 2; rz += 0.72) ridgeRows.push(rz);
+  instanced(
+    parent,
+    new THREE.CylinderGeometry(0.07, 0.07, width + 0.9, 8),
+    M.tileDark,
+    ridgeRows.map((rz) => (ridge) => {
+      ridge.position.set(x, y + 0.13, rz);
+      ridge.rotation.z = Math.PI / 2;
+    }),
+    'roof-tile-ridge',
+  );
 }
 
 function ironGate(width, height, name) {
   const gate = new THREE.Group();
   gate.name = name;
-  for (let x = -width / 2; x <= width / 2; x += 0.34) {
-    gate.add(box([0.055, height, 0.08], [x, height / 2, 0], M.iron, `${name}.bar`));
-    const point = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.24, 4), M.iron);
-    point.position.set(x, height + 0.12, 0);
-    gate.add(point);
-  }
+  /* was: one box and one cone Mesh per bar -- 36 draws for the service gate
+   * alone. Both batches are children of the gate group, so the opened pose
+   * (rotation/translation/visibility) moves every bar exactly as before.
+   * 5.5 cm ironwork is below what the moon map resolves, so it stops casting. */
+  const barOffsets = [];
+  for (let x = -width / 2; x <= width / 2; x += 0.34) barOffsets.push(x);
+  instanced(
+    gate,
+    new THREE.BoxGeometry(0.055, height, 0.08),
+    M.iron,
+    barOffsets.map((x) => (bar) => { bar.position.set(x, height / 2, 0); }),
+    `${name}.bar`,
+  );
+  instanced(
+    gate,
+    new THREE.ConeGeometry(0.09, 0.24, 4),
+    M.iron,
+    barOffsets.map((x) => (point) => { point.position.set(x, height + 0.12, 0); }),
+    `${name}.point`,
+  );
   gate.add(
     box([width + 0.15, 0.11, 0.1], [0, 0.55, 0], M.iron),
     box([width + 0.15, 0.11, 0.1], [0, height - 0.35, 0], M.iron),
@@ -180,13 +244,24 @@ function palm(parent, x, z, scale = 1) {
   const trunk = cylinder(0.18 * scale, 4.8 * scale, [0, 2.4 * scale, 0], M.woodLight, 'date-palm-trunk', 9);
   trunk.rotation.z = (Math.sin(x * 2.1 + z) * 0.05);
   tree.add(trunk);
-  for (let i = 0; i < 9; i++) {
-    const frond = box([0.12 * scale, 0.045, 2.7 * scale], [0, 4.7 * scale, 0], M.leaf, 'palm-frond');
-    frond.rotation.y = (i / 9) * Math.PI * 2;
-    frond.rotation.x = 0.25;
-    frond.translateZ(1.1 * scale);
-    tree.add(frond);
-  }
+  /* was: nine frond Meshes per palm -- 45 draws of vegetation sprigs across
+   * the courtyard. One batch per tree keeps the fronds inside the tree group
+   * (the geometry gate's per-palm assembly), and sprigs stop casting; the
+   * trunk is the palm's readable shadow and keeps its own. */
+  const frondAngles = [];
+  for (let i = 0; i < 9; i++) frondAngles.push((i / 9) * Math.PI * 2);
+  instanced(
+    tree,
+    new THREE.BoxGeometry(0.12 * scale, 0.045, 2.7 * scale),
+    M.leaf,
+    frondAngles.map((angle) => (frond) => {
+      frond.position.set(0, 4.7 * scale, 0);
+      frond.rotation.y = angle;
+      frond.rotation.x = 0.25;
+      frond.translateZ(1.1 * scale);
+    }),
+    'palm-frond',
+  );
   parent.add(tree);
 }
 
@@ -255,35 +330,65 @@ function table(parent, colliders, x, z, width, depth, name = 'table') {
   return g;
 }
 
-function diningChair(parent, colliders, x, z, yaw, index) {
+/* was: seven Meshes per chair -- 42 draws for six identical chairs. The named
+ * group survives as the authored placement (its collider and per-chair name
+ * are unchanged); the parts are recorded here and batched once by
+ * buildDiningChairInstances. Chairs live under the estate roof where no
+ * shadow they cast can reach the moon's map, so the batches stop casting. */
+function diningChair(parent, colliders, chairParts, x, z, yaw, index) {
   const chair = new THREE.Group();
   chair.name = `dining-chair.${index}`;
   chair.position.set(x, 0, z);
   chair.rotation.y = yaw;
-  chair.add(
-    box([0.76, 0.12, 0.76], [0, 0.52, 0], M.woodLight, 'dining-chair-seat'),
-    box([0.76, 0.92, 0.12], [0, 1.0, 0.34], M.wood, 'dining-chair-back'),
-    box([0.62, 0.58, 0.58], [0, 0.62, 0], M.textile, 'dining-chair-upholstery'),
-  );
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    chair.add(box([0.085, 0.5, 0.085], [sx * 0.3, 0.25, sz * 0.3], M.wood, 'dining-chair-leg'));
-  }
   parent.add(chair);
+  const at = (px, py, pz) => (part) => {
+    part.position.set(x, 0, z);
+    part.rotation.y = yaw;
+    part.translateX(px);
+    part.translateY(py);
+    part.translateZ(pz);
+  };
+  chairParts.seats.push(at(0, 0.52, 0));
+  chairParts.backs.push(at(0, 1.0, 0.34));
+  chairParts.cushions.push(at(0, 0.62, 0));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    chairParts.legs.push(at(sx * 0.3, 0.25, sz * 0.3));
+  }
   addCollider(colliders, [x, 0.7, z], [0.9, 1.4, 0.9], chair.name);
   return chair;
 }
 
-function diningPlaceSetting(parent, x, z, index) {
+/** The four fixed parts every dining chair is built from -- see diningChair. */
+function buildDiningChairInstances(parent, chairParts) {
+  instanced(parent, new THREE.BoxGeometry(0.76, 0.12, 0.76), M.woodLight, chairParts.seats, 'dining-chair-seat');
+  instanced(parent, new THREE.BoxGeometry(0.76, 0.92, 0.12), M.wood, chairParts.backs, 'dining-chair-back');
+  instanced(parent, new THREE.BoxGeometry(0.62, 0.58, 0.58), M.textile, chairParts.cushions, 'dining-chair-upholstery');
+  instanced(parent, new THREE.BoxGeometry(0.085, 0.5, 0.085), M.wood, chairParts.legs, 'dining-chair-leg');
+}
+
+/* was: four Meshes per place setting -- 32 draws of tableware. The named
+ * group survives for the authored table rhythm; the pieces are recorded in
+ * the table's own space (exactly where the group used to carry them) and
+ * batched once by buildPlaceSettingInstances. */
+function diningPlaceSetting(parent, settingParts, x, z, index) {
   const setting = new THREE.Group();
   setting.name = `dining-place-setting.${index}`;
   setting.position.set(x, 0.88, z);
-  const plate = cylinder(0.23, 0.026, [0, 0.013, 0], M.white, 'dining-plate', 18);
-  const innerPlate = cylinder(0.15, 0.012, [0, 0.032, 0], M.floorAccent, 'dining-plate-rim', 18);
-  const glass = cylinder(0.055, 0.17, [0.28, 0.085, 0], M.glass, 'dining-glass', 12);
-  const napkin = box([0.19, 0.022, 0.28], [-0.28, 0.011, 0], M.textile, 'dining-napkin');
-  setting.add(plate, innerPlate, glass, napkin);
   parent.add(setting);
+  const at = (px, py, pz) => (piece) => { piece.position.set(x + px, 0.88 + py, z + pz); };
+  settingParts.plates.push(at(0, 0.013, 0));
+  settingParts.rims.push(at(0, 0.032, 0));
+  settingParts.glasses.push(at(0.28, 0.085, 0));
+  settingParts.napkins.push(at(-0.28, 0.011, 0));
   return setting;
+}
+
+/** The four fixed pieces every place setting repeats -- see diningPlaceSetting. */
+function buildPlaceSettingInstances(parent, settingParts) {
+  instanced(parent, new THREE.CylinderGeometry(0.23, 0.23, 0.026, 18), M.white, settingParts.plates, 'dining-plate');
+  instanced(parent, new THREE.CylinderGeometry(0.15, 0.15, 0.012, 18), M.floorAccent, settingParts.rims, 'dining-plate-rim');
+  instanced(parent, new THREE.CylinderGeometry(0.055, 0.055, 0.17, 12), M.glass, settingParts.glasses, 'dining-glass');
+  instanced(parent, new THREE.BoxGeometry(0.19, 0.022, 0.28), M.textile, settingParts.napkins, 'dining-napkin');
 }
 
 function diningChandelier(parent) {
@@ -296,8 +401,9 @@ function diningChandelier(parent) {
   ring.position.y = 3.7;
   ring.rotation.x = Math.PI / 2;
   fixture.add(ring);
-  for (let index = 0; index < 8; index++) {
-    const angle = (index / 8) * Math.PI * 2;
+  const armAngles = [];
+  for (let index = 0; index < 8; index++) armAngles.push((index / 8) * Math.PI * 2);
+  for (const angle of armAngles) {
     const arm = box(
       [1.18, 0.045, 0.045],
       [Math.cos(angle) * 0.62, 3.7, Math.sin(angle) * 0.62],
@@ -306,18 +412,29 @@ function diningChandelier(parent) {
     );
     arm.rotation.y = -angle;
     fixture.add(arm);
-    fixture.add(cylinder(
-      0.13, 0.07,
-      [Math.cos(angle) * 1.24, 3.63, Math.sin(angle) * 1.24],
-      M.brass,
-      'dining-chandelier-cup',
-      10,
-    ));
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 7), M.lampWarm);
-    bulb.name = 'dining-chandelier-bulb';
-    bulb.position.set(Math.cos(angle) * 1.24, 3.58, Math.sin(angle) * 1.24);
-    fixture.add(bulb);
   }
+  /* was: a cup and a bulb Mesh per arm -- 16 draws of identical brass and
+   * lamp glass. The eight arms stay authored meshes (they are the fixture's
+   * readable silhouette); the round repeats batch and, hanging under the
+   * dining ceiling, stop casting into the moon's map. */
+  instanced(
+    fixture,
+    new THREE.CylinderGeometry(0.13, 0.13, 0.07, 10),
+    M.brass,
+    armAngles.map((angle) => (cup) => {
+      cup.position.set(Math.cos(angle) * 1.24, 3.63, Math.sin(angle) * 1.24);
+    }),
+    'dining-chandelier-cup',
+  );
+  instanced(
+    fixture,
+    new THREE.SphereGeometry(0.105, 10, 7),
+    M.lampWarm,
+    armAngles.map((angle) => (bulb) => {
+      bulb.position.set(Math.cos(angle) * 1.24, 3.58, Math.sin(angle) * 1.24);
+    }),
+    'dining-chandelier-bulb',
+  );
   parent.add(fixture);
   return fixture;
 }
@@ -520,19 +637,44 @@ export function buildCartelPalace(scene) {
     box([29.5, 0.26, 0.28], [-3.25, 4.48, 12.36], M.stoneLight, 'estate-facade-cornice'),
     box([2.5, 0.26, 0.28], [16.75, 4.48, 12.36], M.stoneLight, 'estate-facade-cornice'),
   );
-  for (const x of [-15.0, -11.1, -7.2, -3.3, 0.6, 4.5, 8.4, 16.8]) {
+  const bayColumns = [-15.0, -11.1, -7.2, -3.3, 0.6, 4.5, 8.4, 16.8];
+  for (const x of bayColumns) {
     const bay = new THREE.Group();
     bay.name = 'estate-facade-bay';
     bay.position.set(x, 0, 12.43);
-    bay.add(
-      box([1.48, 1.78, 0.06], [0, 2.35, 0], M.window, 'estate-facade-window', { cast: false }),
-      box([1.9, 0.18, 0.22], [0, 1.42, 0.02], M.stoneLight, 'estate-facade-window-sill'),
-      box([1.9, 0.22, 0.22], [0, 3.3, 0.02], M.stoneLight, 'estate-facade-window-header'),
-      box([0.18, 2.05, 0.2], [-0.86, 2.35, 0.01], M.stoneLight, 'estate-facade-window-jamb'),
-      box([0.18, 2.05, 0.2], [0.86, 2.35, 0.01], M.stoneLight, 'estate-facade-window-jamb'),
-    );
+    bay.add(box([1.48, 1.78, 0.06], [0, 2.35, 0], M.window, 'estate-facade-window', { cast: false }));
     courtyardDetails.add(bay);
   }
+  /* was: a sill, a header and two jambs per bay -- 32 draws of one repeated
+   * stone trim set. The batch group carries the bay name so the geometry
+   * gate's facade-assembly annotation still owns every instance, and trim
+   * this thin is below what the moon's map resolves, so it stops casting. */
+  const bayTrim = new THREE.Group();
+  bayTrim.name = 'estate-facade-bay';
+  courtyardDetails.add(bayTrim);
+  instanced(
+    bayTrim,
+    new THREE.BoxGeometry(1.9, 0.18, 0.22),
+    M.stoneLight,
+    bayColumns.map((x) => (sill) => { sill.position.set(x, 1.42, 12.45); }),
+    'estate-facade-window-sill',
+  );
+  instanced(
+    bayTrim,
+    new THREE.BoxGeometry(1.9, 0.22, 0.22),
+    M.stoneLight,
+    bayColumns.map((x) => (header) => { header.position.set(x, 3.3, 12.45); }),
+    'estate-facade-window-header',
+  );
+  instanced(
+    bayTrim,
+    new THREE.BoxGeometry(0.18, 2.05, 0.2),
+    M.stoneLight,
+    bayColumns.flatMap((x) => [x - 0.86, x + 0.86]).map((x) => (jamb) => {
+      jamb.position.set(x, 2.35, 12.44);
+    }),
+    'estate-facade-window-jamb',
+  );
   for (const x of [-13.1, -5.25, 2.55, 10.35]) {
     const lantern = new THREE.Group();
     lantern.name = 'courtyard-wall-lantern';
@@ -648,14 +790,26 @@ export function buildCartelPalace(scene) {
   );
   const officeDrawers = new THREE.Group();
   officeDrawers.name = 'office-detail.file-drawers';
+  /* was: a face and a pull Mesh per drawer -- 30 draws of one repeated
+   * drawer front. Interior joinery under the roof: the batches stop casting. */
+  const drawerSlots = [];
   for (let z = -11.5; z <= -2; z += 2.2) {
-    for (const y of [0.46, 1.08, 1.7]) {
-      officeDrawers.add(
-        box([0.035, 0.48, 1.18], [-16.21, y, z], M.woodLight, 'office-file-drawer-face'),
-        box([0.025, 0.08, 0.32], [-16.18, y, z], M.brass, 'office-file-drawer-pull'),
-      );
-    }
+    for (const y of [0.46, 1.08, 1.7]) drawerSlots.push([y, z]);
   }
+  instanced(
+    officeDrawers,
+    new THREE.BoxGeometry(0.035, 0.48, 1.18),
+    M.woodLight,
+    drawerSlots.map(([y, z]) => (face) => { face.position.set(-16.21, y, z); }),
+    'office-file-drawer-face',
+  );
+  instanced(
+    officeDrawers,
+    new THREE.BoxGeometry(0.025, 0.08, 0.32),
+    M.brass,
+    drawerSlots.map(([y, z]) => (pull) => { pull.position.set(-16.18, y, z); }),
+    'office-file-drawer-pull',
+  );
   officeDetails.add(officeDrawers);
 
   const officeChair = new THREE.Group();
@@ -686,9 +840,14 @@ export function buildCartelPalace(scene) {
 
   const officeCoffers = new THREE.Group();
   officeCoffers.name = 'office-detail.ceiling-beams';
-  for (const z of [-12.5, -9.5, -6.5, -3.5, -0.5]) {
-    officeCoffers.add(box([8.0, 0.14, 0.16], [-13.7, 4.4, z], M.wood, 'office-ceiling-beam', { cast: false }));
-  }
+  // was: five identical beams (already non-casting) -- now one draw.
+  instanced(
+    officeCoffers,
+    new THREE.BoxGeometry(8.0, 0.14, 0.16),
+    M.wood,
+    [-12.5, -9.5, -6.5, -3.5, -0.5].map((z) => (beam) => { beam.position.set(-13.7, 4.4, z); }),
+    'office-ceiling-beam',
+  );
   officeDetails.add(officeCoffers);
 
   solid(estate, colliders, [4.2, 0.68, 2.3], [4.7, 0.34, -11.2], M.wood, 'guest-suite-bed');
@@ -737,9 +896,14 @@ export function buildCartelPalace(scene) {
   guestDetails.add(guestWall);
   const guestCoffers = new THREE.Group();
   guestCoffers.name = 'guest-suite-detail.ceiling-beams';
-  for (const x of [-6.5, -3.3, -0.1, 3.1, 6.3, 9.5]) {
-    guestCoffers.add(box([0.16, 0.14, 15.2], [x, 4.4, -6.75], M.woodLight, 'guest-suite-ceiling-beam', { cast: false }));
-  }
+  // was: six identical beams (already non-casting) -- now one draw.
+  instanced(
+    guestCoffers,
+    new THREE.BoxGeometry(0.16, 0.14, 15.2),
+    M.woodLight,
+    [-6.5, -3.3, -0.1, 3.1, 6.3, 9.5].map((x) => (beam) => { beam.position.set(x, 4.4, -6.75); }),
+    'guest-suite-ceiling-beam',
+  );
   guestDetails.add(guestCoffers);
 
   for (let z = -14; z <= -6; z += 2.1) {
@@ -756,20 +920,40 @@ export function buildCartelPalace(scene) {
   );
   const monitorBank = new THREE.Group();
   monitorBank.name = 'security-detail.monitor-bank';
-  for (const [x, y] of [[13.9, 2.35], [14.9, 2.35], [15.9, 2.35], [14.4, 1.75], [15.4, 1.75]]) {
-    monitorBank.add(box([0.82, 0.5, 0.06], [x, y, -10.48], M.screen, 'security-monitor', { cast: false }));
-  }
+  // was: five monitor Meshes (already non-casting) -- now one draw.
+  instanced(
+    monitorBank,
+    new THREE.BoxGeometry(0.82, 0.5, 0.06),
+    M.screen,
+    [[13.9, 2.35], [14.9, 2.35], [15.9, 2.35], [14.4, 1.75], [15.4, 1.75]]
+      .map(([x, y]) => (monitor) => { monitor.position.set(x, y, -10.48); }),
+    'security-monitor',
+  );
   securityDetails.add(monitorBank);
   const rackFaces = new THREE.Group();
   rackFaces.name = 'security-detail.rack-faces';
   const indicators = new THREE.Group();
   indicators.name = 'security-detail.indicators';
-  for (let z = -14; z <= -6; z += 2.1) {
-    rackFaces.add(box([0.07, 1.95, 0.55], [16.36, 1.2, z], M.stone, 'security-rack-face'));
-    for (const y of [0.65, 1.05, 1.45, 1.85]) {
-      indicators.add(box([0.025, 0.055, 0.055], [16.31, y, z], M.lampCool, 'security-rack-indicator', { cast: false }));
-    }
-  }
+  /* was: a face Mesh per rack and four indicator Meshes per face -- 20 draws
+   * of one repeated rack front. Interior fittings under the roof: the face
+   * batch stops casting (the indicators never cast). */
+  const rackRows = [];
+  for (let z = -14; z <= -6; z += 2.1) rackRows.push(z);
+  instanced(
+    rackFaces,
+    new THREE.BoxGeometry(0.07, 1.95, 0.55),
+    M.stone,
+    rackRows.map((z) => (face) => { face.position.set(16.36, 1.2, z); }),
+    'security-rack-face',
+  );
+  instanced(
+    indicators,
+    new THREE.BoxGeometry(0.025, 0.055, 0.055),
+    M.lampCool,
+    rackRows.flatMap((z) => [0.65, 1.05, 1.45, 1.85].map((y) => [y, z]))
+      .map(([y, z]) => (indicator) => { indicator.position.set(16.31, y, z); }),
+    'security-rack-indicator',
+  );
   securityDetails.add(rackFaces, indicators);
   const cableTray = new THREE.Group();
   cableTray.name = 'security-detail.cable-tray';
@@ -777,9 +961,16 @@ export function buildCartelPalace(scene) {
     box([0.12, 0.12, 10.5], [11.35, 4.23, -11], M.iron, 'security-cable-rail', { cast: false }),
     box([0.12, 0.12, 10.5], [11.85, 4.23, -11], M.iron, 'security-cable-rail', { cast: false }),
   );
-  for (let z = -15.7; z <= -6.3; z += 0.7) {
-    cableTray.add(box([0.62, 0.04, 0.05], [11.6, 4.2, z], M.iron, 'security-cable-rung', { cast: false }));
-  }
+  // was: fourteen rung Meshes (already non-casting) -- now one draw.
+  const rungRows = [];
+  for (let z = -15.7; z <= -6.3; z += 0.7) rungRows.push(z);
+  instanced(
+    cableTray,
+    new THREE.BoxGeometry(0.62, 0.04, 0.05),
+    M.iron,
+    rungRows.map((z) => (rung) => { rung.position.set(11.6, 4.2, z); }),
+    'security-cable-rung',
+  );
   securityDetails.add(cableTray);
   const stool = new THREE.Group();
   stool.name = 'security-detail.operator-stool';
@@ -861,22 +1052,32 @@ export function buildCartelPalace(scene) {
 
   const finalTable = table(diningStage, colliders, 0, -42.4, 9.8, 2.2, 'mark-dining-table');
   finalTable.add(box([8.7, 0.024, 0.54], [0, 0.892, 0], M.floorAccent, 'dining-table-runner', { cast: false }));
-  for (let candleIndex = -3; candleIndex <= 3; candleIndex++) {
-    const x = candleIndex * 1.3;
-    finalTable.add(cylinder(0.045, 0.32, [x, 1.064, 0], M.brass, 'dining-candle', 8));
-  }
+  // was: seven identical brass candles -- one batch along the runner.
+  const candleColumns = [];
+  for (let candleIndex = -3; candleIndex <= 3; candleIndex++) candleColumns.push(candleIndex * 1.3);
+  instanced(
+    finalTable,
+    new THREE.CylinderGeometry(0.045, 0.045, 0.32, 8),
+    M.brass,
+    candleColumns.map((x) => (candle) => { candle.position.set(x, 1.064, 0); }),
+    'dining-candle',
+  );
+  const settingParts = { plates: [], rims: [], glasses: [], napkins: [] };
   let settingIndex = 0;
   for (const z of [-0.62, 0.62]) {
     for (const x of [-3.55, -1.2, 1.2, 3.55]) {
-      diningPlaceSetting(finalTable, x, z, settingIndex++);
+      diningPlaceSetting(finalTable, settingParts, x, z, settingIndex++);
     }
   }
+  buildPlaceSettingInstances(finalTable, settingParts);
+  const chairParts = { seats: [], backs: [], cushions: [], legs: [] };
   let chairIndex = 0;
   for (const [x, z, yaw] of [
     [-3.6, -44.2, Math.PI], [-1.2, -44.2, Math.PI],
     [1.2, -44.2, Math.PI], [3.6, -44.2, Math.PI],
     [-5.55, -42.4, -Math.PI / 2], [5.55, -42.4, Math.PI / 2],
-  ]) diningChair(diningStage, colliders, x, z, yaw, chairIndex++);
+  ]) diningChair(diningStage, colliders, chairParts, x, z, yaw, chairIndex++);
+  buildDiningChairInstances(diningStage, chairParts);
 
   for (const z of [-36.4, -38.8, -41.2, -43.6, -46.0, -48.4]) {
     diningStage.add(box([32.8, 0.12, 0.18], [0, 4.4, z], M.wood, 'dining-coffer-beam', { cast: false }));
@@ -1031,10 +1232,22 @@ export function buildCartelPalace(scene) {
     let meshes = 0;
     let groups = 0;
     let namedMeshes = 0;
+    let instancedMeshes = 0;
+    let renderedParts = 0;
     root.traverse((object) => {
       if (object.isMesh) {
         meshes++;
         if (object.name) namedMeshes++;
+        /* `meshes` counts scene-graph Mesh objects -- the draw-call shape.
+         * `renderedParts` expands every InstancedMesh into its authored
+         * repeats, so a richness check keeps counting what the player SEES
+         * rather than penalising the batching that draws it cheaply. */
+        if (object.isInstancedMesh) {
+          instancedMeshes++;
+          renderedParts += object.count;
+        } else {
+          renderedParts++;
+        }
       }
       if (object.isGroup) groups++;
     });
@@ -1058,6 +1271,8 @@ export function buildCartelPalace(scene) {
       meshes,
       groups,
       namedMeshes,
+      instancedMeshes,
+      renderedParts,
       colliders: colliders.length,
       colliderNames: colliders.map((collider) => collider.name).filter(Boolean).sort(),
       solidWaterworks: colliders
