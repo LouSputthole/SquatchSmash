@@ -11,6 +11,7 @@
 #   - npm run check         static manifests/cues/slots/orphans gate
 #   - npm run check:flight  the Brushrunner flight-model bench, node-only
 #   - npm run verify:campaign-route   fresh-save campaign topology, node-only
+#   - npm run verify:geometry repo-wide headless mesh/collider geometry, node-only
 #   - npm run verify:boot-errors      the ONE curated browser gate
 #
 # Why only boot-errors from the browser set: it is the cheapest verifier per
@@ -29,6 +30,10 @@ name: Verify
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
+  merge_group:
   workflow_dispatch:
 
 permissions:
@@ -52,6 +57,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Repo-wide geometry gate
+        run: npm run verify:geometry
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium

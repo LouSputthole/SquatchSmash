@@ -1,0 +1,25 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "motel",
+  "entries": [],
+  "suppressionPolicy": [
+    {
+      "state": "drive",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "late-cast",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "property",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    }
+  ]
+}

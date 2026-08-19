@@ -58,7 +58,13 @@ export function ensureDomShim() {
   const context = () => new Proxy({}, {
     get: (_t, key) => (key === 'createLinearGradient' || key === 'createRadialGradient'
       ? () => ({ addColorStop() {} })
-      : key === 'getImageData'
+      : key === 'createImageData'
+        ? (width, height) => ({
+            data: new Uint8ClampedArray(width * height * 4),
+            width,
+            height,
+          })
+        : key === 'getImageData'
         ? () => ({ data: new Uint8ClampedArray(4) })
         : key === 'measureText'
           ? () => ({ width: 10 })

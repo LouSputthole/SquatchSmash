@@ -72,7 +72,8 @@ test('Lou office chair has one grounded five-foot swivel load path on the real c
 
   const chair = scene.getObjectByName('lou-chair');
   assert.ok(chair, 'Lou office lost its desk chair');
-  assert.equal(club.colliders.length, 128, 'Lou chair geometry changed the club route collider set');
+  // The fitted service-door lintel is now a real route solid, so the canonical club has 129.
+  assert.equal(club.colliders.length, 129, 'Lou chair geometry changed the club route collider set');
 
   const meshes = [];
   chair.traverse((object) => {

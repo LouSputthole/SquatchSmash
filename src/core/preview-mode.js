@@ -89,7 +89,7 @@ const HEIST_PREVIEW_CHECKPOINTS = Object.freeze([
  * This list deliberately lives beside the preview URL parser rather than the
  * campaign checkpoint list: `preflight` is an on-foot walkaround shortcut and
  * `landing` is the final-approach setup; neither is a new campaign save state. */
-const BEEFRUN_PREVIEW_CHECKPOINTS = Object.freeze([
+export const BEEFRUN_PREVIEW_CHECKPOINTS = Object.freeze([
   'preflight',
   'takeoff',
   'approach',

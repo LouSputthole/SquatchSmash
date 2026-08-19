@@ -1,0 +1,3377 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "nowake",
+  "entries": [
+    {
+      "id": "nowake-body-001",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20back%20%C2%B7%20port%20return#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20coaming%20cap#0",
+      "maxDepthM": 0.041,
+      "reason": "The molded port seat back is keyed 4 cm into its coaming cap so the fixed U-shaped cockpit seating has no visible daylight seam at its bolted side mount.",
+      "source": "src/nowake/world.js:835"
+    },
+    {
+      "id": "nowake-body-002",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20base%20%C2%B7%20forward%20leg#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.031,
+      "reason": "The fixed forward seat base beds 3 cm into the cockpit sole as its molded floor mount; this is the exact seating-to-deck installation joint.",
+      "source": "src/nowake/world.js:840"
+    },
+    {
+      "id": "nowake-body-003",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-body-004",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-body-005",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=closed%20head%20door#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-body-006",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "maxDepthM": 0.061,
+      "reason": "The upper bridge step keys 6 cm into the cabin ceiling edge at the fixed deck-height transition, closing the stairhead seam.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-body-007",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20forward%20face#0",
+      "maxDepthM": 0.061,
+      "reason": "The cabin ceiling panel terminates 6 cm inside the trunk forward face, an exact shell-to-shell joint that closes the forward cabin ceiling.",
+      "source": "src/nowake/cabin.js:126"
+    },
+    {
+      "id": "nowake-body-008",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-body-009",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-body-010",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-body-011",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-body-012",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20port#0/name=companionway%20door%20%C2%B7%20port%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-body-013",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20starboard#0/name=companionway%20door%20%C2%B7%20starboard%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-body-014",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20riser%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.041,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-body-015",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.036,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-body-016",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=companionway%20head#0/name=companionway%20coaming%20starboard#0",
+      "maxDepthM": 0.036,
+      "reason": "The uppermost companionway tread is captured 3.5 cm under the deck-side coaming at the authored solid-hatch transition.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-body-017",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-body-018",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20side%20pod#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-body-020",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%201#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.051,
+      "reason": "The first bridge-deck step beds 5 cm into the forward corner of the fixed helm pedestal, closing the centre-ramp edge without a visible slit.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-body-021",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.051,
+      "reason": "The final bridge-deck step beds 5 cm into the forward bulkhead at the foredeck landing, closing the upper ramp edge.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-body-022",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.131,
+      "reason": "The foredeck roof and forward bulkhead overlap by the roof thickness at their structural T-junction, closing the full-width cabin trunk.",
+      "source": "src/nowake/world.js:755"
+    },
+    {
+      "id": "nowake-body-023",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-body-024",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-body-025",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-body-026",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-body-027",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20cockpit%20coaming#0",
+      "maxDepthM": 0.031,
+      "reason": "The third fender lanyard begins inside the port coaming at its exact through-bolted attachment point before running outside to the now-clear fender.",
+      "source": "src/nowake/world.js:1259"
+    },
+    {
+      "id": "nowake-body-028",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-body-029",
+      "state": "body",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-confrontation-001",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20back%20%C2%B7%20port%20return#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20coaming%20cap#0",
+      "maxDepthM": 0.041,
+      "reason": "The molded port seat back is keyed 4 cm into its coaming cap so the fixed U-shaped cockpit seating has no visible daylight seam at its bolted side mount.",
+      "source": "src/nowake/world.js:835"
+    },
+    {
+      "id": "nowake-confrontation-002",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20base%20%C2%B7%20forward%20leg#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.031,
+      "reason": "The fixed forward seat base beds 3 cm into the cockpit sole as its molded floor mount; this is the exact seating-to-deck installation joint.",
+      "source": "src/nowake/world.js:840"
+    },
+    {
+      "id": "nowake-confrontation-003",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-confrontation-004",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-confrontation-005",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=closed%20head%20door#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-confrontation-006",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "maxDepthM": 0.061,
+      "reason": "The upper bridge step keys 6 cm into the cabin ceiling edge at the fixed deck-height transition, closing the stairhead seam.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-confrontation-007",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20forward%20face#0",
+      "maxDepthM": 0.061,
+      "reason": "The cabin ceiling panel terminates 6 cm inside the trunk forward face, an exact shell-to-shell joint that closes the forward cabin ceiling.",
+      "source": "src/nowake/cabin.js:126"
+    },
+    {
+      "id": "nowake-confrontation-008",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-confrontation-009",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-confrontation-010",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-confrontation-011",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-confrontation-012",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20port#0/name=companionway%20door%20%C2%B7%20port%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-confrontation-013",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20starboard#0/name=companionway%20door%20%C2%B7%20starboard%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-confrontation-014",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20riser%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.041,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-confrontation-015",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.036,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-confrontation-016",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=companionway%20head#0/name=companionway%20coaming%20starboard#0",
+      "maxDepthM": 0.036,
+      "reason": "The uppermost companionway tread is captured 3.5 cm under the deck-side coaming at the authored solid-hatch transition.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-confrontation-017",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-confrontation-018",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20side%20pod#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-confrontation-020",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%201#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.051,
+      "reason": "The first bridge-deck step beds 5 cm into the forward corner of the fixed helm pedestal, closing the centre-ramp edge without a visible slit.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-confrontation-021",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.051,
+      "reason": "The final bridge-deck step beds 5 cm into the forward bulkhead at the foredeck landing, closing the upper ramp edge.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-confrontation-022",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.131,
+      "reason": "The foredeck roof and forward bulkhead overlap by the roof thickness at their structural T-junction, closing the full-width cabin trunk.",
+      "source": "src/nowake/world.js:755"
+    },
+    {
+      "id": "nowake-confrontation-023",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-confrontation-024",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-confrontation-025",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-confrontation-026",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-confrontation-027",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20cockpit%20coaming#0",
+      "maxDepthM": 0.031,
+      "reason": "The third fender lanyard begins inside the port coaming at its exact through-bolted attachment point before running outside to the now-clear fender.",
+      "source": "src/nowake/world.js:1259"
+    },
+    {
+      "id": "nowake-confrontation-028",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-confrontation-029",
+      "state": "confrontation",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-dock-001",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20back%20%C2%B7%20port%20return#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20coaming%20cap#0",
+      "maxDepthM": 0.041,
+      "reason": "The molded port seat back is keyed 4 cm into its coaming cap so the fixed U-shaped cockpit seating has no visible daylight seam at its bolted side mount.",
+      "source": "src/nowake/world.js:835"
+    },
+    {
+      "id": "nowake-dock-002",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20base%20%C2%B7%20forward%20leg#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.031,
+      "reason": "The fixed forward seat base beds 3 cm into the cockpit sole as its molded floor mount; this is the exact seating-to-deck installation joint.",
+      "source": "src/nowake/world.js:840"
+    },
+    {
+      "id": "nowake-dock-003",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-dock-004",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-dock-005",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=closed%20head%20door#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-dock-006",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "maxDepthM": 0.061,
+      "reason": "The upper bridge step keys 6 cm into the cabin ceiling edge at the fixed deck-height transition, closing the stairhead seam.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-dock-007",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20forward%20face#0",
+      "maxDepthM": 0.061,
+      "reason": "The cabin ceiling panel terminates 6 cm inside the trunk forward face, an exact shell-to-shell joint that closes the forward cabin ceiling.",
+      "source": "src/nowake/cabin.js:126"
+    },
+    {
+      "id": "nowake-dock-008",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-dock-009",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-dock-010",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-dock-011",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-dock-012",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20port#0/name=companionway%20door%20%C2%B7%20port%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-dock-013",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20starboard#0/name=companionway%20door%20%C2%B7%20starboard%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-dock-014",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20riser%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.041,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-dock-015",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.036,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-dock-016",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=companionway%20head#0/name=companionway%20coaming%20starboard#0",
+      "maxDepthM": 0.036,
+      "reason": "The uppermost companionway tread is captured 3.5 cm under the deck-side coaming at the authored solid-hatch transition.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-dock-017",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-dock-018",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20side%20pod#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-dock-020",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%201#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.051,
+      "reason": "The first bridge-deck step beds 5 cm into the forward corner of the fixed helm pedestal, closing the centre-ramp edge without a visible slit.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-dock-021",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.051,
+      "reason": "The final bridge-deck step beds 5 cm into the forward bulkhead at the foredeck landing, closing the upper ramp edge.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-dock-022",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.131,
+      "reason": "The foredeck roof and forward bulkhead overlap by the roof thickness at their structural T-junction, closing the full-width cabin trunk.",
+      "source": "src/nowake/world.js:755"
+    },
+    {
+      "id": "nowake-dock-023",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-dock-024",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-dock-025",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-dock-026",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-dock-027",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20cockpit%20coaming#0",
+      "maxDepthM": 0.031,
+      "reason": "The third fender lanyard begins inside the port coaming at its exact through-bolted attachment point before running outside to the now-clear fender.",
+      "source": "src/nowake/world.js:1259"
+    },
+    {
+      "id": "nowake-dock-028",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-dock-029",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-dock-030",
+      "state": "dock",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=visible%20physical%20boarding%20bridge#0/name=boarding%20bridge%20dock%20step#0",
+      "right": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20rubber%20bumper%206#0",
+      "maxDepthM": 0.076,
+      "reason": "The boarding-bridge dock step deliberately seats into the sixth rubber bumper at the dock landing, forming the exact fixed hinge-side landing joint.",
+      "source": "src/nowake/world.js:1275"
+    },
+    {
+      "id": "nowake-inlet-001",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20back%20%C2%B7%20port%20return#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20coaming%20cap#0",
+      "maxDepthM": 0.041,
+      "reason": "The molded port seat back is keyed 4 cm into its coaming cap so the fixed U-shaped cockpit seating has no visible daylight seam at its bolted side mount.",
+      "source": "src/nowake/world.js:835"
+    },
+    {
+      "id": "nowake-inlet-002",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20base%20%C2%B7%20forward%20leg#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.031,
+      "reason": "The fixed forward seat base beds 3 cm into the cockpit sole as its molded floor mount; this is the exact seating-to-deck installation joint.",
+      "source": "src/nowake/world.js:840"
+    },
+    {
+      "id": "nowake-inlet-003",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-inlet-004",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-inlet-005",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=closed%20head%20door#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-inlet-006",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "maxDepthM": 0.061,
+      "reason": "The upper bridge step keys 6 cm into the cabin ceiling edge at the fixed deck-height transition, closing the stairhead seam.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-inlet-007",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20forward%20face#0",
+      "maxDepthM": 0.061,
+      "reason": "The cabin ceiling panel terminates 6 cm inside the trunk forward face, an exact shell-to-shell joint that closes the forward cabin ceiling.",
+      "source": "src/nowake/cabin.js:126"
+    },
+    {
+      "id": "nowake-inlet-008",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-inlet-009",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-inlet-010",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-inlet-011",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-inlet-012",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20port#0/name=companionway%20door%20%C2%B7%20port%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-inlet-013",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20starboard#0/name=companionway%20door%20%C2%B7%20starboard%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-inlet-014",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20riser%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.041,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-inlet-015",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.036,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-inlet-016",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=companionway%20head#0/name=companionway%20coaming%20starboard#0",
+      "maxDepthM": 0.036,
+      "reason": "The uppermost companionway tread is captured 3.5 cm under the deck-side coaming at the authored solid-hatch transition.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-inlet-017",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-inlet-018",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20side%20pod#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-inlet-020",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%201#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.051,
+      "reason": "The first bridge-deck step beds 5 cm into the forward corner of the fixed helm pedestal, closing the centre-ramp edge without a visible slit.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-inlet-021",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.051,
+      "reason": "The final bridge-deck step beds 5 cm into the forward bulkhead at the foredeck landing, closing the upper ramp edge.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-inlet-022",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.131,
+      "reason": "The foredeck roof and forward bulkhead overlap by the roof thickness at their structural T-junction, closing the full-width cabin trunk.",
+      "source": "src/nowake/world.js:755"
+    },
+    {
+      "id": "nowake-inlet-023",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-inlet-024",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-inlet-025",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-inlet-026",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-inlet-027",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20cockpit%20coaming#0",
+      "maxDepthM": 0.031,
+      "reason": "The third fender lanyard begins inside the port coaming at its exact through-bolted attachment point before running outside to the now-clear fender.",
+      "source": "src/nowake/world.js:1259"
+    },
+    {
+      "id": "nowake-inlet-028",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-inlet-029",
+      "state": "inlet",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-return-001",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20back%20%C2%B7%20port%20return#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20coaming%20cap#0",
+      "maxDepthM": 0.041,
+      "reason": "The molded port seat back is keyed 4 cm into its coaming cap so the fixed U-shaped cockpit seating has no visible daylight seam at its bolted side mount.",
+      "source": "src/nowake/world.js:835"
+    },
+    {
+      "id": "nowake-return-002",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20base%20%C2%B7%20forward%20leg#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.031,
+      "reason": "The fixed forward seat base beds 3 cm into the cockpit sole as its molded floor mount; this is the exact seating-to-deck installation joint.",
+      "source": "src/nowake/world.js:840"
+    },
+    {
+      "id": "nowake-return-003",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-return-004",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-return-005",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=closed%20head%20door#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-return-006",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "maxDepthM": 0.061,
+      "reason": "The upper bridge step keys 6 cm into the cabin ceiling edge at the fixed deck-height transition, closing the stairhead seam.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-return-007",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20forward%20face#0",
+      "maxDepthM": 0.061,
+      "reason": "The cabin ceiling panel terminates 6 cm inside the trunk forward face, an exact shell-to-shell joint that closes the forward cabin ceiling.",
+      "source": "src/nowake/cabin.js:126"
+    },
+    {
+      "id": "nowake-return-008",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-return-009",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-return-010",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-return-011",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-return-012",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20port#0/name=companionway%20door%20%C2%B7%20port%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.061,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-return-013",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20starboard#0/name=companionway%20door%20%C2%B7%20starboard%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.061,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-return-014",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20riser%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.041,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-return-015",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.036,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-return-016",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=companionway%20head#0/name=companionway%20coaming%20starboard#0",
+      "maxDepthM": 0.036,
+      "reason": "The uppermost companionway tread is captured 3.5 cm under the deck-side coaming at the authored solid-hatch transition.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-return-017",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-return-018",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20side%20pod#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-return-020",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%201#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.051,
+      "reason": "The first bridge-deck step beds 5 cm into the forward corner of the fixed helm pedestal, closing the centre-ramp edge without a visible slit.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-return-021",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.051,
+      "reason": "The final bridge-deck step beds 5 cm into the forward bulkhead at the foredeck landing, closing the upper ramp edge.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-return-022",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.131,
+      "reason": "The foredeck roof and forward bulkhead overlap by the roof thickness at their structural T-junction, closing the full-width cabin trunk.",
+      "source": "src/nowake/world.js:755"
+    },
+    {
+      "id": "nowake-return-023",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-return-024",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-return-025",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-return-026",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-return-027",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20cockpit%20coaming#0",
+      "maxDepthM": 0.031,
+      "reason": "The third fender lanyard begins inside the port coaming at its exact through-bolted attachment point before running outside to the now-clear fender.",
+      "source": "src/nowake/world.js:1259"
+    },
+    {
+      "id": "nowake-return-028",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-return-029",
+      "state": "return",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-underway-001",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20back%20%C2%B7%20port%20return#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20coaming%20cap#0",
+      "maxDepthM": 0.041,
+      "reason": "The molded port seat back is keyed 4 cm into its coaming cap so the fixed U-shaped cockpit seating has no visible daylight seam at its bolted side mount.",
+      "source": "src/nowake/world.js:835"
+    },
+    {
+      "id": "nowake-underway-002",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20base%20%C2%B7%20forward%20leg#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.031,
+      "reason": "The fixed forward seat base beds 3 cm into the cockpit sole as its molded floor mount; this is the exact seating-to-deck installation joint.",
+      "source": "src/nowake/world.js:840"
+    },
+    {
+      "id": "nowake-underway-003",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-underway-004",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-underway-005",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=closed%20head%20door#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-underway-006",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "maxDepthM": 0.061,
+      "reason": "The upper bridge step keys 6 cm into the cabin ceiling edge at the fixed deck-height transition, closing the stairhead seam.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-underway-007",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20forward%20face#0",
+      "maxDepthM": 0.061,
+      "reason": "The cabin ceiling panel terminates 6 cm inside the trunk forward face, an exact shell-to-shell joint that closes the forward cabin ceiling.",
+      "source": "src/nowake/cabin.js:126"
+    },
+    {
+      "id": "nowake-underway-008",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-underway-009",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-underway-010",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-underway-011",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-underway-012",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20port#0/name=companionway%20door%20%C2%B7%20port%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-underway-013",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20starboard#0/name=companionway%20door%20%C2%B7%20starboard%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-underway-014",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20riser%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.041,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-underway-015",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.036,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-underway-016",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=companionway%20head#0/name=companionway%20coaming%20starboard#0",
+      "maxDepthM": 0.036,
+      "reason": "The uppermost companionway tread is captured 3.5 cm under the deck-side coaming at the authored solid-hatch transition.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-underway-017",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-underway-018",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20side%20pod#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-underway-020",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%201#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.051,
+      "reason": "The first bridge-deck step beds 5 cm into the forward corner of the fixed helm pedestal, closing the centre-ramp edge without a visible slit.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-underway-021",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.051,
+      "reason": "The final bridge-deck step beds 5 cm into the forward bulkhead at the foredeck landing, closing the upper ramp edge.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-underway-022",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.131,
+      "reason": "The foredeck roof and forward bulkhead overlap by the roof thickness at their structural T-junction, closing the full-width cabin trunk.",
+      "source": "src/nowake/world.js:755"
+    },
+    {
+      "id": "nowake-underway-023",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-underway-024",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-underway-025",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-underway-026",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-underway-027",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20cockpit%20coaming#0",
+      "maxDepthM": 0.031,
+      "reason": "The third fender lanyard begins inside the port coaming at its exact through-bolted attachment point before running outside to the now-clear fender.",
+      "source": "src/nowake/world.js:1259"
+    },
+    {
+      "id": "nowake-underway-028",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-underway-029",
+      "state": "underway",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-weighted-001",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20back%20%C2%B7%20port%20return#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20coaming%20cap#0",
+      "maxDepthM": 0.041,
+      "reason": "The molded port seat back is keyed 4 cm into its coaming cap so the fixed U-shaped cockpit seating has no visible daylight seam at its bolted side mount.",
+      "source": "src/nowake/world.js:835"
+    },
+    {
+      "id": "nowake-weighted-002",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=aft%20cockpit%20seating#0/name=cockpit%20seat%20base%20%C2%B7%20forward%20leg#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.031,
+      "reason": "The fixed forward seat base beds 3 cm into the cockpit sole as its molded floor mount; this is the exact seating-to-deck installation joint.",
+      "source": "src/nowake/world.js:840"
+    },
+    {
+      "id": "nowake-weighted-003",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-weighted-004",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=aft%20bulkhead%20panel%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.086,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-weighted-005",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20aft%20bulkhead#0/name=closed%20head%20door#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-weighted-006",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "maxDepthM": 0.061,
+      "reason": "The upper bridge step keys 6 cm into the cabin ceiling edge at the fixed deck-height transition, closing the stairhead seam.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-weighted-007",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20ceiling%20panel#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20forward%20face#0",
+      "maxDepthM": 0.061,
+      "reason": "The cabin ceiling panel terminates 6 cm inside the trunk forward face, an exact shell-to-shell joint that closes the forward cabin ceiling.",
+      "source": "src/nowake/cabin.js:126"
+    },
+    {
+      "id": "nowake-weighted-008",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-weighted-009",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-weighted-010",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "maxDepthM": 0.041,
+      "reason": "The exact cabin side liner is captured 4 cm inside the trunk roof edge so the inner liner and exterior foredeck shell meet without a light leak.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-weighted-011",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20hull%20liner%20%C2%B7%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin side liner rises through the cockpit-sole boundary by the sole thickness, forming the fitted inner-shell/deck joint.",
+      "source": "src/nowake/cabin.js:107"
+    },
+    {
+      "id": "nowake-weighted-012",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20port#0/name=companionway%20door%20%C2%B7%20port%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-weighted-013",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20door%20hinge%20%C2%B7%20starboard#0/name=companionway%20door%20%C2%B7%20starboard%20leaf#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.051,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-weighted-014",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20riser%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.041,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-weighted-015",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.036,
+      "reason": "This exact aft-cabin member terminates inside the cockpit-sole edge at the authored deck/cabin boundary, closing the below-deck opening without a visible crack.",
+      "source": "src/nowake/cabin.js:305"
+    },
+    {
+      "id": "nowake-weighted-016",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=companionway%20head#0/name=companionway%20coaming%20starboard#0",
+      "maxDepthM": 0.036,
+      "reason": "The uppermost companionway tread is captured 3.5 cm under the deck-side coaming at the authored solid-hatch transition.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-weighted-017",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-weighted-018",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=companionway#0/name=companionway%20tread%205#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20side%20pod#0",
+      "maxDepthM": 0.056,
+      "reason": "The uppermost companionway tread terminates 5.5 cm under the fixed helm footing at the authored non-traversable deck transition; the player changes decks through the interaction instead of this sealed joint.",
+      "source": "src/nowake/cabin.js:326"
+    },
+    {
+      "id": "nowake-weighted-020",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%201#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=starboard%20helm%20station#0/name=helm%20console%20pedestal#0",
+      "maxDepthM": 0.051,
+      "reason": "The first bridge-deck step beds 5 cm into the forward corner of the fixed helm pedestal, closing the centre-ramp edge without a visible slit.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-weighted-021",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=bridge%20deck%20step%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.051,
+      "reason": "The final bridge-deck step beds 5 cm into the forward bulkhead at the foredeck landing, closing the upper ramp edge.",
+      "source": "src/nowake/world.js:752"
+    },
+    {
+      "id": "nowake-weighted-022",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20roof%20%C2%B7%20foredeck#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.131,
+      "reason": "The foredeck roof and forward bulkhead overlap by the roof thickness at their structural T-junction, closing the full-width cabin trunk.",
+      "source": "src/nowake/world.js:755"
+    },
+    {
+      "id": "nowake-weighted-023",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-weighted-024",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-weighted-025",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cockpit%20sole#0",
+      "maxDepthM": 0.101,
+      "reason": "The exact cabin-trunk side is keyed through the cockpit-sole edge by the sole thickness, forming a closed deck-to-trunk corner.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-weighted-026",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cabin%20trunk%20side%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=forward%20bulkhead#0",
+      "maxDepthM": 0.081,
+      "reason": "The exact cabin-trunk side keys 8 cm into the forward bulkhead at their structural corner, eliminating a visible shell gap.",
+      "source": "src/nowake/world.js:765"
+    },
+    {
+      "id": "nowake-weighted-027",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=port%20cockpit%20coaming#0",
+      "maxDepthM": 0.031,
+      "reason": "The third fender lanyard begins inside the port coaming at its exact through-bolted attachment point before running outside to the now-clear fender.",
+      "source": "src/nowake/world.js:1259"
+    },
+    {
+      "id": "nowake-weighted-028",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    },
+    {
+      "id": "nowake-weighted-029",
+      "state": "weighted",
+      "kind": "INTERPENETRATION",
+      "left": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20starboard#0",
+      "right": "root:no-wake/name=42-foot%20express%20cruiser#0/name=transom%20face#0",
+      "maxDepthM": 0.101,
+      "reason": "This exact swim-platform bracket passes 10 cm through the transom face as its structural through-bolted mount.",
+      "source": "src/nowake/world.js:776"
+    }
+  ],
+  "suppressionPolicy": [
+    {
+      "state": "body",
+      "overlap": 9,
+      "checkSupport": 24,
+      "sources": [
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20sole#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cream%20fiberglass%20hull#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20piling%20outboard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%201#0/name=channel%20buoy%20body%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2010#0/name=channel%20buoy%20body%2010#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2011#0/name=channel%20buoy%20body%2011#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2012#0/name=channel%20buoy%20body%2012#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2013#0/name=channel%20buoy%20body%2013#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2014#0/name=channel%20buoy%20body%2014#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%202#0/name=channel%20buoy%20body%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%203#0/name=channel%20buoy%20body%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%204#0/name=channel%20buoy%20body%204#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%205#0/name=channel%20buoy%20body%205#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%206#0/name=channel%20buoy%20body%206#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%207#0/name=channel%20buoy%20body%207#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%208#0/name=channel%20buoy%20body%208#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%209#0/name=channel%20buoy%20body%209#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%201#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%202#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=no-wake%20channel%20and%20inlet#0/name=NO%20WAKE%20channel%20marker#0/name=NO%20WAKE%20sign%20piling#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "confrontation",
+      "overlap": 9,
+      "checkSupport": 24,
+      "sources": [
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20sole#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cream%20fiberglass%20hull#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20piling%20outboard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%201#0/name=channel%20buoy%20body%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2010#0/name=channel%20buoy%20body%2010#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2011#0/name=channel%20buoy%20body%2011#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2012#0/name=channel%20buoy%20body%2012#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2013#0/name=channel%20buoy%20body%2013#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2014#0/name=channel%20buoy%20body%2014#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%202#0/name=channel%20buoy%20body%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%203#0/name=channel%20buoy%20body%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%204#0/name=channel%20buoy%20body%204#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%205#0/name=channel%20buoy%20body%205#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%206#0/name=channel%20buoy%20body%206#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%207#0/name=channel%20buoy%20body%207#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%208#0/name=channel%20buoy%20body%208#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%209#0/name=channel%20buoy%20body%209#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%201#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%202#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=no-wake%20channel%20and%20inlet#0/name=NO%20WAKE%20channel%20marker#0/name=NO%20WAKE%20sign%20piling#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "dock",
+      "overlap": 10,
+      "checkSupport": 24,
+      "sources": [
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20sole#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cream%20fiberglass%20hull#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20piling%20outboard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%201#0/name=channel%20buoy%20body%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2010#0/name=channel%20buoy%20body%2010#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2011#0/name=channel%20buoy%20body%2011#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2012#0/name=channel%20buoy%20body%2012#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2013#0/name=channel%20buoy%20body%2013#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2014#0/name=channel%20buoy%20body%2014#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%202#0/name=channel%20buoy%20body%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%203#0/name=channel%20buoy%20body%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%204#0/name=channel%20buoy%20body%204#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%205#0/name=channel%20buoy%20body%205#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%206#0/name=channel%20buoy%20body%206#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%207#0/name=channel%20buoy%20body%207#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%208#0/name=channel%20buoy%20body%208#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%209#0/name=channel%20buoy%20body%209#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%201#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%202#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=dock%20mooring%20rope#0/name=dock%20mooring%20rope%20strand#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=no-wake%20channel%20and%20inlet#0/name=NO%20WAKE%20channel%20marker#0/name=NO%20WAKE%20sign%20piling#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "inlet",
+      "overlap": 9,
+      "checkSupport": 24,
+      "sources": [
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20sole#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cream%20fiberglass%20hull#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20piling%20outboard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%201#0/name=channel%20buoy%20body%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2010#0/name=channel%20buoy%20body%2010#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2011#0/name=channel%20buoy%20body%2011#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2012#0/name=channel%20buoy%20body%2012#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2013#0/name=channel%20buoy%20body%2013#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2014#0/name=channel%20buoy%20body%2014#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%202#0/name=channel%20buoy%20body%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%203#0/name=channel%20buoy%20body%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%204#0/name=channel%20buoy%20body%204#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%205#0/name=channel%20buoy%20body%205#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%206#0/name=channel%20buoy%20body%206#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%207#0/name=channel%20buoy%20body%207#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%208#0/name=channel%20buoy%20body%208#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%209#0/name=channel%20buoy%20body%209#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%201#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%202#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=no-wake%20channel%20and%20inlet#0/name=NO%20WAKE%20channel%20marker#0/name=NO%20WAKE%20sign%20piling#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "return",
+      "overlap": 9,
+      "checkSupport": 24,
+      "sources": [
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20sole#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cream%20fiberglass%20hull#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20piling%20outboard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%201#0/name=channel%20buoy%20body%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2010#0/name=channel%20buoy%20body%2010#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2011#0/name=channel%20buoy%20body%2011#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2012#0/name=channel%20buoy%20body%2012#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2013#0/name=channel%20buoy%20body%2013#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2014#0/name=channel%20buoy%20body%2014#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%202#0/name=channel%20buoy%20body%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%203#0/name=channel%20buoy%20body%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%204#0/name=channel%20buoy%20body%204#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%205#0/name=channel%20buoy%20body%205#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%206#0/name=channel%20buoy%20body%206#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%207#0/name=channel%20buoy%20body%207#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%208#0/name=channel%20buoy%20body%208#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%209#0/name=channel%20buoy%20body%209#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%201#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%202#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=no-wake%20channel%20and%20inlet#0/name=NO%20WAKE%20channel%20marker#0/name=NO%20WAKE%20sign%20piling#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "underway",
+      "overlap": 9,
+      "checkSupport": 24,
+      "sources": [
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20sole#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cream%20fiberglass%20hull#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20piling%20outboard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%201#0/name=channel%20buoy%20body%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2010#0/name=channel%20buoy%20body%2010#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2011#0/name=channel%20buoy%20body%2011#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2012#0/name=channel%20buoy%20body%2012#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2013#0/name=channel%20buoy%20body%2013#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2014#0/name=channel%20buoy%20body%2014#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%202#0/name=channel%20buoy%20body%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%203#0/name=channel%20buoy%20body%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%204#0/name=channel%20buoy%20body%204#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%205#0/name=channel%20buoy%20body%205#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%206#0/name=channel%20buoy%20body%206#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%207#0/name=channel%20buoy%20body%207#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%208#0/name=channel%20buoy%20body%208#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%209#0/name=channel%20buoy%20body%209#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%201#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%202#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=no-wake%20channel%20and%20inlet#0/name=NO%20WAKE%20channel%20marker#0/name=NO%20WAKE%20sign%20piling#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "weighted",
+      "overlap": 9,
+      "checkSupport": 24,
+      "sources": [
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=below-deck%20cabin#0/name=cabin%20sole#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20accent%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=burgundy%20sheer%20stripe%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=cream%20fiberglass%20hull#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=gunwale%20cap%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=hanging%20fender%20lanyard%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20port#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=rub%20strip%20starboard#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:no-wake/name=42-foot%20express%20cruiser#0/name=swim%20platform#0/name=swim%20platform%20bracket%20port#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=South%20Harbor%20%C2%B7%20Gate%20C%20finger#0/name=dock%20piling%20outboard%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%201#0/name=channel%20buoy%20body%201#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2010#0/name=channel%20buoy%20body%2010#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2011#0/name=channel%20buoy%20body%2011#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2012#0/name=channel%20buoy%20body%2012#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2013#0/name=channel%20buoy%20body%2013#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%2014#0/name=channel%20buoy%20body%2014#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%202#0/name=channel%20buoy%20body%202#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%203#0/name=channel%20buoy%20body%203#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%204#0/name=channel%20buoy%20body%204#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%205#0/name=channel%20buoy%20body%205#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%206#0/name=channel%20buoy%20body%206#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%207#0/name=channel%20buoy%20body%207#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%208#0/name=channel%20buoy%20body%208#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=channel%20buoy%209#0/name=channel%20buoy%20body%209#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%201#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=detailed%20neighboring%20marina%20boat%202#0/name=tapered%20neighboring%20hull#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:no-wake/name=no-wake%20channel%20and%20inlet#0/name=NO%20WAKE%20channel%20marker#0/name=NO%20WAKE%20sign%20piling#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    }
+  ]
+}

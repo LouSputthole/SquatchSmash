@@ -402,7 +402,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 16;
+export const CAMPAIGN_VERSION = 17;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1061,6 +1061,14 @@ function initialState() {
     inventory: {
       carried: [],
       concealed: [],
+    },
+    /* The frozen Initiation earns this handoff; the Apartment owns presenting
+     * credits and releasing the same save into post-campaign freeplay. */
+    finale: {
+      status: 'locked',
+      creditsViewed: false,
+      freeplayUnlocked: false,
+      completedAt: null,
     },
     missions: {
       [MISSION_IDS.BADA_BING_ONE]: {
@@ -1812,6 +1820,28 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  16(saved) {
+    /* Schema 17 adds the Apartment-owned ending wrapper without changing the
+     * frozen Initiation runtime. A completed v16 save receives its credits on
+     * the next Apartment load; an unfinished save remains locked. */
+    const complete = saved.missions?.[MISSION_IDS.INITIATION]?.status === 'complete'
+      && uniqueStrings(saved.story?.timeEvents).includes(TIME_EVENT_IDS.COMPLETE_INITIATION);
+    return {
+      ...saved,
+      version: 17,
+      finale: {
+        status: complete ? 'ready' : 'locked',
+        creditsViewed: false,
+        freeplayUnlocked: false,
+        completedAt: complete ? {
+          day: Number.isSafeInteger(saved.story?.day) && saved.story.day > 0
+            ? saved.story.day : 1,
+          timeMinutes: Number.isFinite(saved.story?.timeMinutes)
+            ? saved.story.timeMinutes : 0,
+        } : null,
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -1856,6 +1886,7 @@ function hasCurrentShape(saved) {
     && saved.activities && typeof saved.activities === 'object'
     && saved.radio && typeof saved.radio === 'object'
     && saved.inventory && typeof saved.inventory === 'object'
+    && saved.finale && typeof saved.finale === 'object'
     && saved.missions && typeof saved.missions === 'object'
     && saved.events && typeof saved.events === 'object';
 }
@@ -1950,6 +1981,25 @@ function normalize(saved) {
   const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
+  const finaleEligible = initiationStatus === 'complete'
+    && uniqueStrings(saved.story?.timeEvents).includes(TIME_EVENT_IDS.COMPLETE_INITIATION);
+  const savedFinale = saved.finale && typeof saved.finale === 'object'
+    ? saved.finale : base.finale;
+  const finaleStatus = finaleEligible && savedFinale.status === 'freeplay'
+    ? 'freeplay' : (finaleEligible ? 'ready' : 'locked');
+  const finaleCompletedAt = finaleEligible ? {
+    day: Number.isSafeInteger(savedFinale.completedAt?.day)
+      && savedFinale.completedAt.day > 0
+      ? savedFinale.completedAt.day
+      : (Number.isSafeInteger(saved.story?.day) && saved.story.day > 0 ? saved.story.day : 1),
+    timeMinutes: boundedNumber(
+      savedFinale.completedAt?.timeMinutes,
+      0,
+      MINUTES_PER_DAY - 1,
+      boundedNumber(saved.story?.timeMinutes, 0, MINUTES_PER_DAY - 1, 0, true),
+      true,
+    ),
+  } : null;
   const silentSquatch = saved.missions?.[MISSION_IDS.SILENT_SQUATCH] ?? {};
   const silentSquatchStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(silentSquatch.status)
@@ -2020,6 +2070,12 @@ function normalize(saved) {
     inventory: {
       carried: uniqueStrings(saved.inventory?.carried),
       concealed: uniqueStrings(saved.inventory?.concealed),
+    },
+    finale: {
+      status: finaleStatus,
+      creditsViewed: finaleStatus === 'freeplay',
+      freeplayUnlocked: finaleStatus === 'freeplay',
+      completedAt: finaleCompletedAt,
     },
     missions: {
       [MISSION_IDS.BADA_BING_ONE]: {
@@ -3014,6 +3070,21 @@ function seedApartmentPreviewCampaign(state, variant) {
   state.story.timeMinutes = checkpoint.timeMinutes;
   state.story.timeEvents = completedTimeEvents;
   return checkpoint.spawn;
+}
+
+/**
+ * Build the same normalized temporary campaign state used by an Apartment
+ * preview without consulting browser globals or persistent storage. Headless
+ * verifiers use this to dress each preview variant exactly as runtime does.
+ */
+export function apartmentPreviewCampaignState(variant) {
+  let spawn = null;
+  const campaign = new Campaign(null);
+  const state = campaign.update((candidate) => {
+    spawn = seedApartmentPreviewCampaign(candidate, variant);
+    if (spawn === null) throw new RangeError(`Unknown Apartment preview variant "${variant}"`);
+  });
+  return Object.freeze({ state, spawn });
 }
 
 function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {

@@ -105,7 +105,9 @@ function box(group, size, position, material, name = '') {
 export const ROUTE_ROADS = Object.freeze([
   Object.freeze({ id: 'garage_lane', x: -480, z: 60, w: 24, d: 110, axis: 'z' }),
   Object.freeze({ id: 'warehouse_row', x: -360, z: 95, w: 264, d: 24, axis: 'x' }),
-  Object.freeze({ id: 'market_street', x: -240, z: -78, w: 24, d: 372, axis: 'z' }),
+  // Continue eight metres south so the authored Market South dead-end barrier
+  // actually stands on the road it closes, while keeping the north edge at 108.
+  Object.freeze({ id: 'market_street', x: -240, z: -82, w: 24, d: 380, axis: 'z' }),
   Object.freeze({ id: 'financial_row', x: -104, z: -250, w: 296, d: 24, axis: 'x' }),
   Object.freeze({ id: 'canal_road', x: 20, z: -450, w: 24, d: 444, axis: 'z' }),
 ]);
@@ -177,10 +179,11 @@ export const BARRIERS = Object.freeze([
   Object.freeze({ id: 'block_lane_north', x: -480, z: 113, w: 26, d: 5 }),
   Object.freeze({ id: 'block_warehouse_west', x: -490, z: 95, w: 5, d: 26 }),
   // warehouse_left: straight on east past the junction, and Market northbound.
-  Object.freeze({ id: 'block_warehouse_east', x: -226, z: 95, w: 5, d: 26 }),
+  // Seat the closure on Warehouse Row's authored east edge, not two metres past it.
+  Object.freeze({ id: 'block_warehouse_east', x: -228, z: 95, w: 5, d: 26 }),
   Object.freeze({ id: 'block_market_north', x: -240, z: 106, w: 26, d: 5 }),
   // tower_right: Market southbound past the turn, and the financial row's west stub.
-  Object.freeze({ id: 'block_market_south', x: -240, z: -262, w: 26, d: 5 }),
+  Object.freeze({ id: 'block_market_south', x: -240, z: -268, w: 26, d: 5 }),
   Object.freeze({ id: 'block_financial_west', x: -250, z: -250, w: 5, d: 26 }),
   // canal_turn: the financial row's east stub, and the canal road northbound.
   Object.freeze({ id: 'block_financial_east', x: 42, z: -250, w: 5, d: 26 }),
@@ -209,7 +212,7 @@ const BLOCKS = [
   // Garage lane — low warehouse stock either side.
   [-505, 30, 22, 46, 2], [-455, 24, 22, 40, 2],
   // Pulled south off Warehouse Row: this one had 10 m of itself in the road.
-  [-505, 84, 22, 30, 2], [-455, 64, 22, 30, 3],
+  [-505, 84, 22, 30, 2], [-455, 51, 22, 12, 3],
   // Warehouse row — long sheds and loading bays.
   [-440, 70, 44, 22, 2], [-380, 70, 46, 22, 3], [-318, 70, 44, 22, 2],
   [-440, 120, 44, 22, 3], [-380, 120, 46, 22, 2], [-318, 120, 44, 22, 4],
@@ -227,15 +230,25 @@ const BLOCKS = [
   // Pushed west clear of Canal Road: this ten-storey tower stood 9 m into it.
   [-16, -290, 34, 34, 10], [56, -216, 30, 30, 7],
   // Canal road — industrial, sheds and yards.
-  [-6, -300, 24, 44, 2], [46, -304, 24, 44, 3],
+  [-6, -330, 24, 24, 2], [46, -304, 24, 44, 3],
   [-6, -370, 24, 52, 2], [46, -366, 24, 52, 2],
   [-6, -444, 24, 52, 3], [46, -440, 24, 52, 2],
   [-6, -520, 24, 52, 2], [46, -516, 24, 52, 3],
   [-6, -596, 24, 48, 2], [46, -592, 24, 48, 2],
-  [-6, -664, 24, 40, 2], [46, -660, 24, 40, 2],
+  [-26, -664, 24, 40, 2], [46, -660, 24, 40, 2],
 ];
 
 const STOREY = 3.6;
+
+function ownAddedChildren(group, startIndex, assemblyId, policy = {}) {
+  for (const child of group.children.slice(startIndex)) {
+    child.userData.geometryGate = {
+      ...child.userData.geometryGate,
+      assemblyId,
+      ...policy,
+    };
+  }
+}
 
 function buildFacade(group, [x, z, w, d, storeys], index) {
   // Ten storeys and up is a tower, and a tower in this city is glass — which is
@@ -243,6 +256,16 @@ function buildFacade(group, [x, z, w, d, storeys], index) {
   const glass = storeys >= 10;
   const height = storeys * STOREY;
   const material = glass ? MAT.glassTower : (index % 3 === 0 ? MAT.brick : MAT.stone);
+  // Blocks outside the route slabs still need authored ground. A separate
+  // structural footing supports the collision-visible building envelope.
+  const foundation = box(group, [w, 0.2, d], [x, -0.1, z], MAT.asphalt,
+    `route-building-foundation-${index + 1}`);
+  foundation.userData.geometryGate = {
+    assemblyId: `heist.route-building-foundation.${index + 1}`,
+    structural: true,
+    fixedSupportAnchor: true,
+  };
+  const firstChild = group.children.length;
   const shell = box(group, [w, height, d], [x, height / 2, z], material,
     `route-building-${index + 1}`);
   shell.userData.kind = 'route-building';
@@ -285,6 +308,7 @@ function buildFacade(group, [x, z, w, d, storeys], index) {
       EMISSIVE.signalRed, `route-beacon-${index + 1}`);
     beacon.userData.kind = 'route-beacon';
   }
+  ownAddedChildren(group, firstChild, `heist.route-building.${index + 1}`);
 }
 
 function buildStreetFurniture(group, road, index) {
@@ -295,8 +319,11 @@ function buildStreetFurniture(group, road, index) {
   for (let i = 0; i < count; i++) {
     const t = -length / 2 + (i + 0.5) * (length / count);
     const side = i % 2 ? 1 : -1;
-    const x = along ? road.x + side * (half + 1.4) : road.x + t;
-    const z = along ? road.z + t : road.z + side * (half + 1.4);
+    const x = along ? road.x + side * (half + 0.6) : road.x + t;
+    const z = along ? road.z + t : road.z + side * (half + 0.6);
+    // Keep street furniture out of turning envelopes where perpendicular roads meet.
+    if (ROUTE_NODES.some((node) => Math.hypot(x - node.x, z - node.z) < node.radius + 4)) continue;
+    const firstChild = group.children.length;
 
     // Lamp: post, arm, and a lit head over the carriageway.
     box(group, [0.16, 7.2, 0.16], [x, 3.6, z], MAT.steel, `route-lamp-post-${index}-${i}`);
@@ -322,6 +349,7 @@ function buildStreetFurniture(group, road, index) {
       box(group, [0.12, 2.4, 0.12], [sx, 1.25, sz], MAT.steel);
       box(group, [along ? 0.08 : 1.2, 1.5, along ? 1.2 : 0.08], [sx, 1.6, sz], EMISSIVE.cool);
     }
+    ownAddedChildren(group, firstChild, `heist.route-furniture.${index}.${i}`);
   }
 }
 
@@ -329,6 +357,7 @@ function buildSidewalks(group, road, index) {
   const along = road.axis === 'z';
   const half = (along ? road.w : road.d) / 2;
   for (const side of [-1, 1]) {
+    const firstChild = group.children.length;
     const x = along ? road.x + side * (half + 1.7) : road.x;
     const z = along ? road.z : road.z + side * (half + 1.7);
     const size = along ? [3.4, 0.28, road.d] : [road.w, 0.28, 3.4];
@@ -337,10 +366,14 @@ function buildSidewalks(group, road, index) {
     const kerbX = along ? road.x + side * (half + 0.15) : road.x;
     const kerbZ = along ? road.z : road.z + side * (half + 0.15);
     box(group, kerbSize, [kerbX, 0.17, kerbZ], MAT.kerb);
+    ownAddedChildren(group, firstChild, `heist.route-sidewalk.${index}.${side}`, {
+      overlap: false,
+    });
   }
 }
 
 function buildLaneMarkings(group, road) {
+  const firstChild = group.children.length;
   const along = road.axis === 'z';
   const length = along ? road.d : road.w;
   const start = (along ? road.z : road.x) - length / 2 + 6;
@@ -356,6 +389,7 @@ function buildLaneMarkings(group, road) {
       box(group, along ? [0.14, 0.02, 9] : [9, 0.02, 0.14], pos, MAT.paint);
     }
   }
+  ownAddedChildren(group, firstChild, `heist.route-paint.${road.id}`, { overlap: false });
 }
 
 /**
@@ -380,15 +414,20 @@ function buildParkedCars(group, road, index) {
     const side = i % 2 ? 1 : -1;
     const x = along ? road.x + side * edge : road.x + t;
     const z = along ? road.z + t : road.z + side * edge;
+    // Junction mouths need a clear sight line and turning envelope; cars placed
+    // here also collided with the perpendicular road's kerbside dressing.
+    if (ROUTE_NODES.some((node) => Math.hypot(x - node.x, z - node.z) < node.radius + 12)) continue;
+    const firstChild = group.children.length;
     const body = new THREE.MeshLambertMaterial({ color: colours[(index + i) % colours.length] });
     const long = along ? [1.9, 0.7, 4.2] : [4.2, 0.7, 1.9];
     const cab = along ? [1.7, 0.6, 2.0] : [2.0, 0.6, 1.7];
-    box(group, long, [x, 0.62, z], body, `route-parked-${index}-${i}`);
-    box(group, cab, [x, 1.2, z], body);
-    box(group, along ? [1.98, 0.34, 3.4] : [3.4, 0.34, 1.98], [x, 0.4, z], MAT.darkSteel);
+    box(group, long, [x, 0.39, z], body, `route-parked-${index}-${i}`);
+    box(group, cab, [x, 0.97, z], body);
+    box(group, along ? [1.98, 0.34, 3.4] : [3.4, 0.34, 1.98], [x, 0.2, z], MAT.darkSteel);
     const lampZ = along ? 2.05 : 0;
     const lampX = along ? 0 : 2.05;
-    box(group, [0.1, 0.16, 0.24], [x + lampX, 0.72, z + lampZ], EMISSIVE.signalRed);
+    box(group, [0.1, 0.16, 0.24], [x + lampX, 0.49, z + lampZ], EMISSIVE.signalRed);
+    ownAddedChildren(group, firstChild, `heist.route-parked.${index}.${i}`);
     parked.push({ x, z, w: along ? 2.1 : 4.3, d: along ? 4.3 : 2.1 });
   }
   return parked;
@@ -423,6 +462,9 @@ function buildSignal(group, node) {
   // Turned to face whoever is arriving. See `signalYawForHeading`.
   mast.rotation.y = signalYawForHeading(node.heading);
   mast.userData.kind = 'route-signal';
+  mast.userData.geometryGate = {
+    assemblyId: `heist.route-signal.${node.id}`,
+  };
   mast.userData.heading = node.heading;
 
   /* The pole stands on the kerb of a 24 m road — 11.5 m out, not 9 — and the
@@ -459,6 +501,12 @@ function buildSignal(group, node) {
 function buildBarrier(group, barrier) {
   const g = new THREE.Group();
   g.name = `route-barrier-${barrier.id}`;
+  const linkedJunction = new Set(['block_warehouse_east', 'block_market_north']);
+  g.userData.geometryGate = {
+    assemblyId: linkedJunction.has(barrier.id)
+      ? 'heist.route-barrier.warehouse-market-junction'
+      : `heist.route-barrier.${barrier.id}`,
+  };
   g.position.set(barrier.x, 0, barrier.z);
   const wide = barrier.w > barrier.d;
   const span = wide ? barrier.w : barrier.d;
@@ -507,8 +555,9 @@ export function buildEscapeCity(group, vehicleFactory) {
      * earlier road's surface simply wins. The step is a tenth of the lane
      * paint's thickness and nothing in the drive reads road height: the car
      * runs on a fixed y and `intersectsDrivingObstacle` is flat. */
-    box(group, [road.w, 0.2, road.d], [road.x, -0.1 - index * 0.0012, road.z],
+    const roadMesh = box(group, [road.w, 0.2, road.d], [road.x, -0.1 - index * 0.0012, road.z],
       MAT.asphalt, `route-road-${road.id}`);
+    roadMesh.userData.geometryGate = { overlap: false };
     buildLaneMarkings(group, road);
     buildSidewalks(group, road, index);
     buildStreetFurniture(group, road, index);
@@ -526,6 +575,7 @@ export function buildEscapeCity(group, vehicleFactory) {
     const marker = box(group, [0.44, 5, 0.44], [node.x, 2.5, node.z],
       EMISSIVE.practical, `route-${node.id}`);
     marker.userData.routeNode = node.id;
+    marker.userData.geometryGate = { overlap: false, checkSupport: false };
     marker.visible = false;
   }
 

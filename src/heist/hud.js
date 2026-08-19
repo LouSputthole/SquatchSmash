@@ -1,3 +1,5 @@
+import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
+
 export class HeistHud {
   constructor() {
     this.root = document.getElementById('heist-hud');
@@ -77,7 +79,11 @@ export class HeistHud {
     this.lobby.classList.toggle('losing', state.controlled / Math.max(1, state.total) < 0.4);
   }
 
-  showPrompt(label, key = 'E') { this.promptLabel.innerHTML = label; this.promptKey.textContent = key; this.prompt.classList.remove('hidden'); }
+  showPrompt(label, key = 'E') {
+    this.promptLabel.innerHTML = label;
+    writeGameplayPromptKey(this.promptKey, key);
+    this.prompt.classList.remove('hidden');
+  }
   hidePrompt() { this.prompt.classList.add('hidden'); this.setHold(null); }
   setHold(value) { this.promptBar.style.width = value == null ? '0%' : `${Math.round(value * 100)}%`; }
   say(line, duration = 4) {

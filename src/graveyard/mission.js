@@ -145,6 +145,32 @@ export class GraveyardMission {
     return this;
   }
 
+  restoreBodyCheckpoint(checkpoint) {
+    if (!['arrival', 'carried', 'placed', 'buried'].includes(checkpoint)) {
+      throw new RangeError(`Unknown Graveyard body checkpoint: ${checkpoint}`);
+    }
+    const carried = checkpoint !== 'arrival';
+    const placed = checkpoint === 'placed' || checkpoint === 'buried';
+    const buried = checkpoint === 'buried';
+    this.state = checkpoint;
+    this.bodyCarried = carried;
+    this.bodyPlaced = placed;
+    this.bodyLowered = placed;
+    this.bodyBuried = buried;
+    const objective = this.objectives.find((entry) => entry.id === 'bury');
+    objective.done = buried;
+    objective.text = buried
+      ? 'Bury Billy HotDog in a fresh plot'
+      : placed
+        ? 'Fill Billy HotDog\'s grave'
+        : carried
+          ? 'Carry Billy HotDog to the fresh plot'
+          : 'Bury Billy HotDog in a fresh plot';
+    this.hooks.onObjective?.(this.objectives);
+    this.hooks.onState?.(this.state, this);
+    return this;
+  }
+
   #refreshMemorialObjectives(notify = true) {
     const memorials = this.objectives.find((objective) => objective.id === 'memorials');
     memorials.text = `Check every Family marker · ${this.inspected.size}/${GRAVE_COUNT}`;

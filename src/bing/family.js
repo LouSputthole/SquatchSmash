@@ -45,7 +45,7 @@ export const FAMILY = [
     id: CHARACTER_IDS.BOOSKI, name: 'Booskibro', slug: 'booski', photo: 'booski.png',
     /* AT THE BAR, by the service station — his shot beat happens here. On
      * the stool, not in it: see STOOL_SIT. */
-    spot: { x: -18.7, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     /* Patriarch money, not crew uniform: a midnight-blue open knit with
      * restrained gold ribs, a layered founder chain and a real watch. */
     model: WARDROBE.booski,
@@ -53,7 +53,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.DEATHMEGATRON, name: 'DeathMegatron', slug: 'deathmegatron', photo: 'deathmegatron.png',
     // Two stools down from Booski, with the spritz the world owed her.
-    spot: { x: -18.7, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     /* She is a woman and one of the FIVE, and the figure said neither: she was
      * carrying the roster's default unspecified frame in an off-the-peg grey
      * suit, which is what everybody at the back of the Silver Room wears.
@@ -74,7 +74,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.SEFF, name: 'Seff', slug: 'seff', photo: 'seff.png',
     // The far end of the bar, where a man waits for his situation to clear.
-    spot: { x: -18.7, z: 5.2, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'sit' },
+    spot: { x: -18.3, z: 5.2, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'sit' },
     model: {
       height: 1.76, build: 1.0, dress: 'suit', shirt: 0x3a2a2a,
       hair: 'short', hairColour: 0x14100e, skin: 0xe8c39c,
@@ -188,7 +188,7 @@ export const FAMILY = [
     /* The south end of the bar -- stool zero, the quiet one, furthest from
      * the service station and from anybody who wants a conversation. A man
      * who has come out for one drink and has not taken his coat off. */
-    spot: { x: -18.7, z: -2.6, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: -2.6, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     model: WARDROBE.aubbie,
   },
   {

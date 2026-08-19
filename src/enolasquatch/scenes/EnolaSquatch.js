@@ -31,6 +31,7 @@ import {
   crestPlaceholderTexture, applyCrest, noseArtTexture, noseNamePlaceholderTexture,
 } from '../livery.js';
 import { AC_ENOLA } from '../config.js';
+import { FAT_SQUATCH_MOUNT_HALF_HEIGHT_M } from '../payload/FatSquatch.js';
 
 const SKIN = 0x9aa0ac;          // bare-metal grey, unlike the Brushrunner's cream
 const SKIN_PATCH = 0x7c828e;    // a shade off, for the "suspicious repairs"
@@ -52,6 +53,8 @@ const CREW_DOOR_TOP_Y = 1.52;
 const BAY_Z = 0.4;               // ventral bomb-bay centre, mid-fuselage
 const BAY_LEN = 6.4;
 const BAY_WIDTH = 3.0;
+const BAY_DOOR_THICKNESS = 0.09;
+const PAYLOAD_DOOR_CLEARANCE = 0.012;
 const BELLY_Y = -FUSE_H / 2;
 const ASTRODOME_Z = 3.1;
 const ASTRODOME_OPEN_HALF = 0.38;
@@ -417,16 +420,16 @@ export class EnolaSquatch {
      * for the whole walkaround. Aft of the wing it has the flank to itself. */
     const patch1 = mesh(boxGeo(1.8, 1.5, 0.06), patch, PANEL_X, 0.3, -4.0);
     patch1.rotation.y = Math.PI / 2;
-    g.add(patch1);
+    fuselage.add(patch1);
     patch1.add(rivets());
     const patch2 = mesh(boxGeo(2.2, 1.1, 0.06), patchRough, -PANEL_X, 0.55, -6.6);
     patch2.rotation.y = -Math.PI / 2;
-    g.add(patch2);
+    fuselage.add(patch2);
     patch2.add(rivets());
     // The third one is on the belly, over the bomb bay's forward bulkhead, and
     // it is the one Numbskull is proudest of.
     const patch3 = mesh(boxGeo(1.6, 0.08, 1.4), patchRough, 0.7, BELLY_Y - 0.02, BAY_Z + BAY_LEN / 2 + 1.0);
-    g.add(patch3);
+    fuselage.add(patch3);
     this.parts.patches = [patch1, patch2, patch3];
 
     /* Panel-line seams down both flanks and along the spine. Four thin dark
@@ -435,15 +438,26 @@ export class EnolaSquatch {
     const seam = solid(0x7a808c, { roughness: 0.85, metalness: 0.2 });
     for (const sx of [-1, 1]) {
       for (const z of [-5.4, -1.6, 2.2, 5.6]) {
-        g.add(mesh(boxGeo(0.024, FUSE_H - 0.3, 0.06), seam, sx * SEAM_X, 0, z));
+        const verticalRuns = z === -5.4
+          ? [[-HALF_H + 0.15, waistOpening.y0], [waistOpening.y1, HALF_H - 0.15]]
+          : [[-HALF_H + 0.15, HALF_H - 0.15]];
+        for (const [y0, y1] of verticalRuns) {
+          const panelLine = mesh(
+            boxGeo(0.024, y1 - y0, 0.06), seam,
+            sx * SEAM_X, (y0 + y1) / 2, z,
+          );
+          panelLine.name = 'fuselage-panel-line-'
+            + (sx < 0 ? 'starboard' : 'port') + '-' + z + '-' + y0;
+          fuselage.add(panelLine);
+        }
       }
       const run = rivetRun(metal, 13, 1.05, 'z');
       run.position.set(sx * SEAM_X, FUSE_H / 2 - 0.5, 0);
       run.rotation.z = Math.PI / 2;
-      g.add(run);
+      fuselage.add(run);
     }
     for (const z of [-4.2, 0.4, 4.8]) {
-      g.add(mesh(boxGeo(FUSE_W - 0.2, 0.05, 0.05), seam, 0, FUSE_H / 2 + 0.005, z));
+      fuselage.add(mesh(boxGeo(FUSE_W - 0.2, 0.05, 0.05), seam, 0, FUSE_H / 2 + 0.005, z));
     }
 
     /* Corner chamfers. Owner: "Maybe a bit less square in some areas." The
@@ -451,10 +465,22 @@ export class EnolaSquatch {
      * the whole 15.5 m, which is the single most box-like thing on the model.
      * See `chamfer()` for why one rolled bar per edge is enough. */
     const chamferMat = solid(SKIN, { roughness: 0.62, metalness: 0.36 });
+    const chamferAft = -FUSE_LEN / 2 + 0.1;
+    const chamferForward = FUSE_LEN / 2 - 0.1;
     for (const sx of [-1, 1]) {
       for (const sy of [-1, 1]) {
-        g.add(chamfer(chamferMat, 0.30, FUSE_LEN - 0.2,
-          sx * (FUSE_W / 2 - 0.09), sy * (FUSE_H / 2 - 0.09), 0, Math.PI / 4));
+        // The upper rolled corner used to continue behind the complete top row
+        // of both cockpit side panes. End it at the authored window cut; the
+        // lower corner remains continuous because it never enters an aperture.
+        const forward = sy > 0 ? cockpitOpening.z0 : chamferForward;
+        const bar = chamfer(
+          chamferMat, 0.30, forward - chamferAft,
+          sx * (FUSE_W / 2 - 0.09), sy * (FUSE_H / 2 - 0.09),
+          (chamferAft + forward) / 2, Math.PI / 4,
+        );
+        bar.name = 'fuselage-chamfer-'
+          + (sx < 0 ? 'starboard' : 'port') + '-' + (sy < 0 ? 'lower' : 'upper');
+        fuselage.add(bar);
       }
     }
     // A rounded spine and a rounded keel, so the top and bottom read curved.
@@ -473,7 +499,7 @@ export class EnolaSquatch {
       spine.name = `fuselage-spine-${index + 1}`;
       spine.rotation.x = Math.PI / 2;
       spine.scale.set(2.6, 1, 1);
-      g.add(spine);
+      fuselage.add(spine);
     }
 
     /* Nose cone, tapered, with a glazed bombardier bubble in front of it. The
@@ -509,6 +535,9 @@ export class EnolaSquatch {
       0, 0.1, (NOSE_JOIN + FUSE_LEN / 2 - 0.1) / 2);
     nose.rotation.x = Math.PI / 2;
     nose.name = 'nose-cone';
+    // Open skin with a missing windshield sector: its filled AABB is not a
+    // solid collision volume. Keep auditing every fixture inside it instead.
+    nose.userData.geometryGate = { overlap: false, fixedSupportAnchor: true };
     g.add(nose);
     /* The bubble grew with the volume it now has to hold: a seated man is
      * about 1.3 m from heel to crown, and a 1.05 m sphere could not take one
@@ -516,6 +545,9 @@ export class EnolaSquatch {
     const noseGlass = mesh(sphereGeo(GLASS_R, 16, 12), glassMat, 0, GLASS_Y, GLASS_Z);
     noseGlass.castShadow = false;
     noseGlass.name = 'bombardier-glazing';
+    // A transparent bubble is a surface around the occupied station, not a
+    // solid sphere. Its AABB necessarily contains the seated bombardier.
+    noseGlass.userData.geometryGate = { overlap: false };
     g.add(noseGlass);
     /* Framing on the bombardier glazing, so it reads as a glasshouse rather
      * than a soap bubble.
@@ -540,6 +572,8 @@ export class EnolaSquatch {
       rib.rotation.y = Math.PI / 2;
       rib.rotation.z = ang;
       rib.name = 'nose-glazing-rib';
+      // The torus is an annulus; its filled AABB covers the hollow crew volume.
+      rib.userData.geometryGate = { overlap: false };
       g.add(rib);
     }
     /* The collar where the glazing meets the nose cone is an annulus, not a
@@ -547,18 +581,25 @@ export class EnolaSquatch {
      * from the aeroplane and presented an opaque wall from either side. */
     const noseCollar = mesh(new THREE.TorusGeometry(1.1, 0.05, 8, 32), trim, 0, GLASS_Y, NOSE_JOIN);
     noseCollar.name = 'nose-glazing-collar';
+    noseCollar.userData.geometryGate = { overlap: false };
     g.add(noseCollar);
 
     // Tail boom, tapering back to the fin.
+    const tailStructure = group('tail-structure');
+    tailStructure.userData.geometryGate = { assemblyId: 'enola-aircraft:tail' };
+    g.add(tailStructure);
     const boom = mesh(cylGeo(FUSE_W / 2, 0.62, 5.8, 14), skin, 0, 0.05, -FUSE_LEN / 2 - 2.9);
     boom.rotation.x = Math.PI / 2;
-    g.add(boom);
+    tailStructure.add(boom);
 
     // ---- Wing: shoulder-mounted, four-engine spar ----
+    const wingStructure = group('wing-structure');
+    wingStructure.userData.geometryGate = { assemblyId: 'enola-aircraft:wing' };
+    g.add(wingStructure);
     const halfSpan = AC_ENOLA.span / 2;
     const wing = mesh(boxGeo(AC_ENOLA.span, 0.62, AC_ENOLA.chord), skin, 0, 1.1, 0.3);
     wing.name = 'main-wing';
-    g.add(wing);
+    wingStructure.add(wing);
     this.parts.wing = wing;
     // Outer panels, thinner and swept a touch back — a straight slab of wing is
     // the single most model-kit-looking thing on an aeroplane like this.
@@ -566,33 +607,55 @@ export class EnolaSquatch {
       const tip = mesh(boxGeo(halfSpan * 0.34, 0.42, AC_ENOLA.chord * 0.72), skin,
         sx * (halfSpan * 0.82), 1.14, -0.05);
       tip.rotation.y = -sx * 0.045;
-      g.add(tip);
+      wingStructure.add(tip);
       // Wing fences over the inboard nacelles.
-      g.add(mesh(boxGeo(0.05, 0.34, 1.5), seam, sx * 9.6, 1.5, 0.2));
+      wingStructure.add(mesh(boxGeo(0.05, 0.34, 1.5), seam, sx * 9.6, 1.5, 0.2));
     }
     // Fuel-cap rows and the walkway strip nobody has repainted.
     for (const sx of [-1, 1]) {
       for (const d of [4.4, 8.6, 12.2]) {
-        g.add(mesh(cylGeo(0.19, 0.19, 0.05, 10), metal, sx * d, 1.42, -0.5));
+        wingStructure.add(mesh(cylGeo(0.19, 0.19, 0.05, 10), metal, sx * d, 1.42, -0.5));
       }
       const walk = mesh(boxGeo(2.4, 0.02, AC_ENOLA.chord * 0.5), solid(0x2f3138, { roughness: 1 }), sx * 2.6, 1.42, 0.3);
-      g.add(walk);
+      wingStructure.add(walk);
     }
 
-    // Ailerons, flaps.
+    // Ailerons and flaps. Keep each control surface out of the engine/gear
+    // envelopes instead of drawing one rectangular slab through a nacelle.
     this.parts.aileron = [];
     for (const sx of [-1, 1]) {
-      const pivot = new THREE.Group();
-      pivot.position.set(sx * 14.6, 1.1, -1.8);
-      pivot.add(mesh(boxGeo(5.2, 0.32, 1.0), patch, 0, 0, -0.5));
+      const side = sx > 0 ? 'left' : 'right';
+      const pivot = group(`aileron-${side}`);
+      pivot.userData.geometryGate = { assemblyId: 'enola-aircraft:wing' };
+      pivot.position.set(sx * 15.5, 1.1, -1.8);
+      const surface = mesh(boxGeo(2.2, 0.32, 1.0), patch, 0, 0, -0.5);
+      surface.name = `aileron-${side}-surface`;
+      pivot.add(surface);
       g.add(pivot);
       this.parts.aileron.push(pivot);
     }
     this.parts.flap = [];
     for (const sx of [-1, 1]) {
-      const pivot = new THREE.Group();
+      const side = sx > 0 ? 'left' : 'right';
+      const pivot = group(`flap-${side}`);
+      pivot.userData.geometryGate = { assemblyId: 'enola-aircraft:wing' };
       pivot.position.set(sx * 5.4, 1.08, -1.8);
-      pivot.add(mesh(boxGeo(6.6, 0.3, 1.1), skin, 0, 0, -0.55));
+      const obstructions = [
+        { center: sx * (AC_ENOLA.track / 2 - 5.4), halfWidth: 0.55 },
+        { center: sx * (6.4 - 5.4), halfWidth: 1.05 },
+      ].sort((left, right) => left.center - right.center);
+      const ranges = [];
+      let rangeStart = -3.3;
+      for (const obstruction of obstructions) {
+        ranges.push([rangeStart, obstruction.center - obstruction.halfWidth]);
+        rangeStart = obstruction.center + obstruction.halfWidth;
+      }
+      ranges.push([rangeStart, 3.3]);
+      ranges.forEach(([x0, x1], index) => {
+        const surface = mesh(boxGeo(x1 - x0, 0.3, 1.1), skin, (x0 + x1) / 2, 0, -0.55);
+        surface.name = `flap-${side}-surface-${index + 1}`;
+        pivot.add(surface);
+      });
       g.add(pivot);
       this.parts.flap.push(pivot);
     }
@@ -612,34 +675,44 @@ export class EnolaSquatch {
     this.parts.exhaust = [];
     for (let i = 0; i < 4; i++) {
       const nx = NACELLE_X[i];
+      const nacelleAssembly = group(`nacelle-${i + 1}`);
+      nacelleAssembly.userData.geometryGate = {
+        assemblyId: `enola-aircraft:nacelle-${i + 1}`,
+      };
+      g.add(nacelleAssembly);
       const nacelle = mesh(boxGeo(1.75, 1.6, 5.4), skin, nx, 0.7, 1.0);
-      g.add(nacelle);
+      nacelle.name = `nacelle-core-${i + 1}`;
+      // This is the exact load-bearing core keyed through the wing. The cowl,
+      // exhaust and propeller remain collision-visible within their bounded
+      // nacelle assembly, while support provenance starts at the real mount.
+      nacelle.userData.geometryGate = { fixedSupportAnchor: true };
+      nacelleAssembly.add(nacelle);
       /* Rounded nacelle shoulders — the nacelle was a bare box under a round
        * cowl, which made the join read as a can taped to a brick. Two rolled
        * bars along the top edges and a half-round crown fix it for three
        * meshes. Owner: "Maybe a bit less square in some areas." */
       for (const sx of [-1, 1]) {
-        g.add(chamfer(skin, 0.34, 5.2, nx + sx * 0.72, 1.37, 1.0, Math.PI / 4));
-        g.add(chamfer(skin, 0.28, 5.2, nx + sx * 0.74, 0.05, 1.0, Math.PI / 4));
+        nacelleAssembly.add(chamfer(skin, 0.34, 5.2, nx + sx * 0.72, 1.37, 1.0, Math.PI / 4));
+        nacelleAssembly.add(chamfer(skin, 0.28, 5.2, nx + sx * 0.74, 0.05, 1.0, Math.PI / 4));
       }
       const crown = mesh(cylGeo(0.5, 0.5, 5.2, 12, true), skin, nx, 1.22, 1.0);
       crown.rotation.x = Math.PI / 2;
       crown.scale.set(1.7, 1, 1);
-      g.add(crown);
+      nacelleAssembly.add(crown);
       // Nacelle nose fairing and the ring cowl, in two diameters.
       const cowl = mesh(cylGeo(0.8, 0.9, 1.5, 16), trim, nx, 0.7, 3.9);
       cowl.rotation.x = Math.PI / 2;
-      g.add(cowl);
+      nacelleAssembly.add(cowl);
       const cowlLip = mesh(cylGeo(0.9, 0.86, 0.18, 16), metal, nx, 0.7, 4.62);
       cowlLip.rotation.x = Math.PI / 2;
-      g.add(cowlLip);
+      nacelleAssembly.add(cowlLip);
       // Cooling gills — six little flaps round the back of the cowl.
       for (let k = 0; k < 6; k++) {
         const a = (k / 6) * Math.PI * 2 + 0.4;
         const gill = mesh(boxGeo(0.24, 0.05, 0.34), trim,
           nx + Math.cos(a) * 0.82, 0.7 + Math.sin(a) * 0.82, 3.2);
         gill.rotation.z = a;
-        g.add(gill);
+        nacelleAssembly.add(gill);
       }
 
       /* THE FRONT END, rebuilt. Owner: "Front propeller looks off."
@@ -658,18 +731,18 @@ export class EnolaSquatch {
       // used to be a hole you could see the nacelle box through.
       const gearbox = mesh(cylGeo(0.5, 0.72, 0.5, 16), metal, nx, 0.7, 4.9);
       gearbox.rotation.x = Math.PI / 2;
-      g.add(gearbox);
+      nacelleAssembly.add(gearbox);
       // Back plate: the disc the blade roots come through.
       const backPlate = mesh(cylGeo(0.52, 0.5, 0.1, 18), spinnerMat, nx, 0.7, 5.18);
       backPlate.rotation.x = Math.PI / 2;
-      g.add(backPlate);
+      nacelleAssembly.add(backPlate);
       // The spinner proper: base just forward of the roots, apex forward.
       const spinner = mesh(coneGeo(0.5, 1.15, 20), spinnerMat, nx, 0.7, 5.95);
       spinner.rotation.x = Math.PI / 2;
-      g.add(spinner);
+      nacelleAssembly.add(spinner);
       // Rounded tip on the cone, so it is an ogive and not a dart.
       const spinnerTip = mesh(sphereGeo(0.075, 10, 8), spinnerMat, nx, 0.7, 6.5);
-      g.add(spinnerTip);
+      nacelleAssembly.add(spinnerTip);
 
       const hub = new THREE.Group();
       hub.position.set(nx, 0.7, 5.4);
@@ -679,7 +752,7 @@ export class EnolaSquatch {
         blade.rotation.z = (b / 3) * Math.PI * 2;
         hub.add(blade);
       }
-      g.add(hub);
+      nacelleAssembly.add(hub);
       this.parts.prop.push(hub);
 
       // The blurred disc lives FORWARD of the spinner tip so that, at speed,
@@ -691,7 +764,7 @@ export class EnolaSquatch {
         }),
       );
       disc.position.set(nx, 0.7, 6.6);
-      g.add(disc);
+      nacelleAssembly.add(disc);
       this.parts.propDisc.push(disc);
 
       // Two stacks a side, because a fourteen-cylinder radial has two banks.
@@ -699,31 +772,32 @@ export class EnolaSquatch {
         const stack = mesh(cylGeo(0.14, 0.14, 0.75, 6), solid(0x35353a, { roughness: 0.9 }),
           nx + sx * 0.5, 0.1, 2.4);
         stack.rotation.x = Math.PI / 2.2;
-        g.add(stack);
+        nacelleAssembly.add(stack);
       }
       this.parts.exhaust.push(new THREE.Vector3(nx, -0.1, 2.1));
 
       // Nacelle-to-wing fairing behind the trailing edge.
       const fairing = mesh(cylGeo(0.8, 0.22, 3.0, 12), skin, nx, 0.72, -2.3);
       fairing.rotation.x = Math.PI / 2;
-      g.add(fairing);
+      nacelleAssembly.add(fairing);
 
       // Cowl clamp bands for readable scale.
       for (const z of [2.2, 3.2]) {
-        g.add(mesh(boxGeo(1.8, 1.63, 0.06), metal, nx, 0.7, z));
+        nacelleAssembly.add(mesh(boxGeo(1.8, 1.63, 0.06), metal, nx, 0.7, z));
       }
     }
 
     // ---- Tail: single tall fin, and a broad stabiliser ----
     const fin = mesh(boxGeo(0.28, 5.0, 3.9), skin, 0, 2.8, -FUSE_LEN / 2 - 4.4);
     fin.name = 'vertical-fin';
-    g.add(fin);
+    tailStructure.add(fin);
     // Fin root fillet running forward onto the spine.
     const fillet = mesh(coneGeo(0.7, 4.2, 6), skin, 0, FUSE_H / 2 - 0.2, -FUSE_LEN / 2 - 1.6);
     fillet.rotation.x = -Math.PI / 2;
     fillet.scale.set(0.28, 1, 0.7);
-    g.add(fillet);
-    const rudderPivot = new THREE.Group();
+    tailStructure.add(fillet);
+    const rudderPivot = group('rudder-pivot');
+    rudderPivot.userData.geometryGate = { assemblyId: 'enola-aircraft:tail' };
     rudderPivot.position.set(0, 2.8, -FUSE_LEN / 2 - 6.2);
     rudderPivot.add(mesh(boxGeo(0.26, 4.5, 1.7), patch, 0, 0, -0.85));
     g.add(rudderPivot);
@@ -731,8 +805,9 @@ export class EnolaSquatch {
 
     const stab = mesh(boxGeo(11.6, 0.32, 2.6), skin, 0, 1.0, -FUSE_LEN / 2 - 4.7);
     stab.name = 'horizontal-stabilizer';
-    g.add(stab);
-    const elevPivot = new THREE.Group();
+    tailStructure.add(stab);
+    const elevPivot = group('elevator-pivot');
+    elevPivot.userData.geometryGate = { assemblyId: 'enola-aircraft:tail' };
     elevPivot.position.set(0, 1.0, -FUSE_LEN / 2 - 5.9);
     elevPivot.add(mesh(boxGeo(11.6, 0.26, 1.3), patch, 0, 0, -0.65));
     g.add(elevPivot);
@@ -763,16 +838,16 @@ export class EnolaSquatch {
     for (const sx of [-1, 1]) {
       const brace = strutBetween(metal,
         [sx * 0.15, 3.5, FIN_Z], [sx * 3.6, 1.16, STAB_Z], 0.065, 'tailplane-brace');
-      g.add(brace);
+      tailStructure.add(brace);
       this.parts.tailBrace.push(brace);
       // A shorter jury strut inboard of it, the way a real braced tail has two.
       const jury = strutBetween(metal,
         [sx * 0.15, 2.2, FIN_Z], [sx * 2.0, 1.16, STAB_Z], 0.05, 'tailplane-jury-strut');
-      g.add(jury);
+      tailStructure.add(jury);
       this.parts.tailBrace.push(jury);
       // Fittings, so the struts land on something rather than into the skin.
-      g.add(mesh(boxGeo(0.16, 0.14, 0.3), metal, sx * 3.6, 1.2, STAB_Z));
-      g.add(mesh(boxGeo(0.16, 0.14, 0.3), metal, sx * 2.0, 1.2, STAB_Z));
+      tailStructure.add(mesh(boxGeo(0.16, 0.14, 0.3), metal, sx * 3.6, 1.2, STAB_Z));
+      tailStructure.add(mesh(boxGeo(0.16, 0.14, 0.3), metal, sx * 2.0, 1.2, STAB_Z));
     }
 
     // ---- Bomb bay: two hinged panel groups on the ventral centreline ----
@@ -785,7 +860,11 @@ export class EnolaSquatch {
       const pivot = new THREE.Group();
       pivot.name = `bomb-bay-door-${sx > 0 ? 'port' : 'starboard'}`;   // +X is port — see the frame note at the top
       pivot.position.set(sx * (BAY_WIDTH / 2), BELLY_Y, BAY_Z);
-      const panel = mesh(boxGeo(BAY_WIDTH / 2 + 0.04, 0.09, BAY_LEN), patch, -sx * (BAY_WIDTH / 4 + 0.02), 0, 0);
+      const panel = mesh(boxGeo(BAY_WIDTH / 2 + 0.04, BAY_DOOR_THICKNESS, BAY_LEN), patch, -sx * (BAY_WIDTH / 4 + 0.02), 0, 0);
+      panel.name = `bomb-bay-door-${sx > 0 ? 'port' : 'starboard'}-panel`;
+      // The panel pivots around a hinge built into the fuselage skin. Preserve
+      // that exact fixed mounting without suppressing door-vs-airframe checks.
+      panel.userData.geometryGate = { fixedSupportAnchor: true };
       pivot.add(panel);
       g.add(pivot);
       this.parts.bombBayDoors.push(pivot);
@@ -795,7 +874,11 @@ export class EnolaSquatch {
     // visible part — the payload prop parents itself here.
     const payloadMount = new THREE.Group();
     payloadMount.name = 'payload-mount';
-    payloadMount.position.set(0, BELLY_Y - 0.25, BAY_Z);
+    payloadMount.position.set(
+      0,
+      BELLY_Y + BAY_DOOR_THICKNESS / 2 + FAT_SQUATCH_MOUNT_HALF_HEIGHT_M + PAYLOAD_DOOR_CLEARANCE,
+      BAY_Z,
+    );
     g.add(payloadMount);
     this.anchors.payloadMount = payloadMount;
     this.anchors.bombBayCenter = new THREE.Vector3(0, BELLY_Y, BAY_Z);
@@ -838,14 +921,31 @@ export class EnolaSquatch {
       const gaps = sx < 0
         ? [[-6.2, -4.6], [-4.4, -2.4], [2.6, FUSE_LEN / 2 - 0.7]]
         : [[-6.2, -4.6], [2.6, FUSE_LEN / 2 - 0.7]];
-      for (const [a, b] of runs(gaps)) {
+      runs(gaps).forEach(([a, b], runIndex) => {
         const len = b - a;
-        g.add(mesh(boxGeo(0.036, 0.5, len), purple, sx * LIVERY_X, STRIPE_Y, (a + b) / 2));
-        g.add(mesh(boxGeo(0.036, 0.1, len), purpleLight, sx * LIVERY_X, STRIPE_Y - 0.37, (a + b) / 2));
-      }
+        const side = sx < 0 ? 'starboard' : 'port';
+        const mainStripe = mesh(boxGeo(0.036, 0.5, len), purple, sx * LIVERY_X, STRIPE_Y, (a + b) / 2);
+        mainStripe.name = `livery-stripe-${side}-${runIndex}-main`;
+        mainStripe.userData.geometryGate = { checkSupport: false };
+        g.add(mainStripe);
+        const accentStripe = mesh(boxGeo(0.036, 0.1, len), purpleLight, sx * LIVERY_X, STRIPE_Y - 0.37, (a + b) / 2);
+        accentStripe.name = `livery-stripe-${side}-${runIndex}-accent`;
+        accentStripe.userData.geometryGate = { checkSupport: false };
+        g.add(accentStripe);
+      });
     }
-    // Fin flash, same colour, so the livery reads from behind too.
-    g.add(mesh(boxGeo(0.05, 3.9, 0.6), purple, 0.16, 2.8, -FUSE_LEN / 2 - 4.35));
+    // Fin flash, painted on both faces and clear of the stabiliser below.
+    for (const sx of [-1, 1]) {
+      const finFlash = flatMesh(planeGeo(0.6, 3.5), purple,
+        sx * 0.145, 2.95, -FUSE_LEN / 2 - 4.35);
+      finFlash.name = 'fin-flash';
+      finFlash.rotation.y = sx * Math.PI / 2;
+      finFlash.userData.geometryGate = {
+        assemblyId: 'enola-aircraft:tail',
+        checkSupport: false,
+      };
+      g.add(finFlash);
+    }
 
     /* ---- The nose art: the owner's pin-up and his name plate ----
      *
@@ -928,6 +1028,7 @@ export class EnolaSquatch {
       );
       plate.rotation.y = sx * (Math.PI / 2);
       plate.name = name;
+      plate.userData.geometryGate = { checkSupport: false };
       g.add(plate);
       this.parts.noseArt.push(plate);
       return plate;
@@ -1049,6 +1150,7 @@ export class EnolaSquatch {
       const finBadge = flatMesh(planeGeo(1.5, 1.5), logoMat(), sx * 0.2, 3.1, -FUSE_LEN / 2 - 4.3);
       finBadge.rotation.y = sx * (Math.PI / 2);
       finBadge.name = 'club-crest-fin';
+      finBadge.userData.geometryGate = { checkSupport: false };
       g.add(finBadge);
       this.parts.clubLogo.push(finBadge);
     }
@@ -1057,6 +1159,7 @@ export class EnolaSquatch {
       const noseBadge = flatMesh(planeGeo(1.30, 1.30), logoMat(), sx * DECAL_X, 0.05, 6.75);
       noseBadge.rotation.y = sx * (Math.PI / 2);
       noseBadge.name = 'club-crest-nose';
+      noseBadge.userData.geometryGate = { checkSupport: false };
       g.add(noseBadge);
       this.parts.clubLogo.push(noseBadge);
     }
@@ -1096,6 +1199,10 @@ export class EnolaSquatch {
       { x: AC_ENOLA.track / 2, z: -1.2, r: 1.06, steer: false, attachY: WING_UNDER },
     ];
     legSpecs.forEach((spec, i) => {
+      const gearName = spec.steer ? 'nose' : spec.x > 0 ? 'port' : 'starboard';
+      const gearAssembly = group(`gear-assembly-${gearName}`);
+      gearAssembly.userData.geometryGate = { assemblyId: `enola-aircraft:gear-${gearName}` };
+      g.add(gearAssembly);
       const leg = new THREE.Group();
       leg.name = `gear-leg-${spec.steer ? 'nose' : spec.x > 0 ? 'port' : 'starboard'}`;
       /* The axle sits `gearY - r` below the aeroplane's origin; the strut runs
@@ -1111,8 +1218,11 @@ export class EnolaSquatch {
        * leg group — it does not move when the oleo compresses. */
       const bay = mesh(boxGeo(0.86, 0.4, 1.5), skin, spec.x, spec.attachY - 0.16, spec.z);
       bay.name = `gear-bay-${spec.steer ? 'nose' : spec.x > 0 ? 'port' : 'starboard'}`;
-      g.add(bay);
-      g.add(mesh(cylGeo(0.44, 0.44, 1.5, 12, true), skin, spec.x, spec.attachY - 0.16, spec.z)
+      // Each gear assembly hangs from this fixed airframe fairing. The leg and
+      // braces remain ordinary audited geometry below the exact mount.
+      bay.userData.geometryGate = { fixedSupportAnchor: true };
+      gearAssembly.add(bay);
+      gearAssembly.add(mesh(cylGeo(0.44, 0.44, 1.5, 12, true), skin, spec.x, spec.attachY - 0.16, spec.z)
         .rotateX(Math.PI / 2));
       // The trunnion the leg pivots on, at the mouth of the bay.
       leg.add(mesh(cylGeo(0.13, 0.13, 0.62, 10), metal, 0, 0, 0).rotateZ(Math.PI / 2));
@@ -1150,7 +1260,7 @@ export class EnolaSquatch {
         // The axle beam the pair share.
         leg.add(mesh(cylGeo(0.09, 0.09, 1.1, 8), metal, spec.x > 0 ? 0.26 : -0.26, -strutLen, 0).rotateZ(Math.PI / 2));
       }
-      g.add(leg);
+      gearAssembly.add(leg);
       this.parts.gear.push({ leg, wheel, rest: leg.position.y, base: leg.position.y, steer: !!spec.steer });
     });
 
@@ -1173,6 +1283,7 @@ export class EnolaSquatch {
     ]) {
       const rail = mesh(boxGeo(0.06, 0.07, 1.05), trim, -PANEL_X, y, -3.4);
       rail.name = `crew-door-frame-${name}`;
+      if (name === 'sill') rail.userData.geometryGate = { fixedSupportAnchor: true };
       doorFrame.add(rail);
     }
     for (const [name, z] of [['aft', -3.9], ['forward', -2.9]]) {
@@ -1268,9 +1379,11 @@ export class EnolaSquatch {
     dorsal.position.set(0, FUSE_H / 2 + 0.3, DORSAL_TURRET_Z);
     const dorsalBase = mesh(cylGeo(0.62, 0.68, 0.42, 14, true), trim, 0, 0, 0);
     dorsalBase.name = 'dorsal-turret-ring';
+    dorsalBase.userData.geometryGate = { overlap: false, fixedSupportAnchor: true };
     dorsal.add(dorsalBase);
     const dorsalGlass = mesh(sphereGeo(0.6, 12, 8), glassMat, 0, 0.12, 0);
     dorsalGlass.name = 'dorsal-turret-glazing';
+    dorsalGlass.userData.geometryGate = { overlap: false };
     dorsal.add(dorsalGlass);
     const dorsalGun = mesh(cylGeo(0.045, 0.045, 1.2, 6), metal, 0, 0.16, 0.7);
     dorsalGun.rotation.x = Math.PI / 2 - 0.25;
@@ -1282,13 +1395,19 @@ export class EnolaSquatch {
       blister.scale.set(0.6, 1, 1.1);
       blister.castShadow = false;
       blister.name = `waist-blister-${sx < 0 ? 'starboard' : 'port'}`;
+      blister.userData.geometryGate = { overlap: false, checkSupport: false };
       g.add(blister);
     }
 
     // Aerials, pitot mast and the astrodome over the navigator.
-    const aerialTop = mesh(cylGeo(0.03, 0.03, 1.5, 5), metal, 0, FUSE_H / 2 + 0.75, 3.6);
+    // Route the aerial along the port roof edge so it does not pass through
+    // the centreline astrodome and dorsal turret.
+    const aerialTop = mesh(cylGeo(0.03, 0.03, 1.5, 5), metal, 0.85, FUSE_H / 2 + 0.75, 3.6);
+    aerialTop.name = 'aerial-mast';
+    aerialTop.userData.geometryGate = { assemblyId: 'enola-aircraft:fuselage-shell' };
     g.add(aerialTop);
-    const wire = mesh(cylGeo(0.016, 0.016, 9.4, 4), solid(0x1a1a1c, { roughness: 1 }), 0, FUSE_H / 2 + 1.1, -1.2);
+    const wire = mesh(cylGeo(0.016, 0.016, 9.4, 4), solid(0x1a1a1c, { roughness: 1 }), 0.85, FUSE_H / 2 + 1.1, -1.2);
+    wire.name = 'aerial-wire';
     wire.rotation.x = Math.PI / 2 - 0.22;
     g.add(wire);
     // Moved outboard and aft onto the cone's flank: at its old station it stood
@@ -1296,6 +1415,7 @@ export class EnolaSquatch {
     const pitot = mesh(cylGeo(0.03, 0.03, 0.9, 5), metal, -1.45, -0.75, FUSE_LEN / 2 + 2.0);
     pitot.rotation.x = Math.PI / 2;
     pitot.name = 'pitot-mast';
+    pitot.userData.geometryGate = { checkSupport: false };
     g.add(pitot);
     /* Ahead of the wing's 2.5 m leading edge. At z=2.4 the glass and both
      * roof cuts were real, but the main-wing slab still sealed the opening
@@ -1304,6 +1424,7 @@ export class EnolaSquatch {
     astrodome.scale.y = 0.7;
     astrodome.castShadow = false;
     astrodome.name = 'navigator-astrodome';
+    astrodome.userData.geometryGate = { overlap: false, checkSupport: false };
     g.add(astrodome);
 
     /* Inside the glasshouse now that there is an inside — see the nose-cone
@@ -1314,11 +1435,13 @@ export class EnolaSquatch {
     this.parts.navLights = [];
     for (const [sx, color] of [[-1, 0xff2a1e], [1, 0x37ff6a]]) {
       const lamp = flatMesh(sphereGeo(0.14), unlit(color), sx * (halfSpan - 0.4), 1.14, 0.3);
-      g.add(lamp);
+      lamp.name = `navigation-light-${sx < 0 ? 'starboard' : 'port'}`;
+      wingStructure.add(lamp);
       this.parts.navLights.push(lamp);
     }
     const beacon = flatMesh(sphereGeo(0.15), unlit(0xff4a2a), 0, 5.4, -FUSE_LEN / 2 - 4.4);
-    g.add(beacon);
+    beacon.name = 'tail-beacon';
+    tailStructure.add(beacon);
     this.parts.beacon = beacon;
 
     this.buildRearGun(g, { skin, trim, metal, glassMat });
@@ -1438,11 +1561,14 @@ export class EnolaSquatch {
     const shell = mesh(cylGeo(0.62, 0.9, 1.6, 14), skin, 0, 0, 0.85);
     shell.rotation.x = Math.PI / 2;
     shell.name = 'rear-gun-fairing';
+    // Open fairing around the gunner; the cylinder AABB fills its crew cavity.
+    shell.userData.geometryGate = { overlap: false, fixedSupportAnchor: true };
     station.add(shell);
     // Armour annulus behind the gunner's back. This must be a ring, not the
     // capped horizontal cylinder that used to plate over the firing opening.
     const armourRing = mesh(new THREE.TorusGeometry(0.6, 0.06, 8, 24), trim, 0, 0, 0.1);
     armourRing.name = 'rear-gun-armour-ring';
+    armourRing.userData.geometryGate = { overlap: false };
     station.add(armourRing);
 
     /* The traversing part. `rotation.y` is traverse; the yoke inside it takes
@@ -1455,7 +1581,9 @@ export class EnolaSquatch {
 
     // Glazing: a hemisphere open toward the tail, with framing.
     const dome = mesh(sphereGeo(0.86, 16, 12), glassMat, 0, 0, 0);
+    dome.name = 'rear-gun-glazing';
     dome.castShadow = false;
+    dome.userData.geometryGate = { overlap: false };
     turret.add(dome);
     /* Curved glazing frames hug the bubble. The old pair were straight 1.74 m
      * rods through its centre, and the down-traverse sightline hit one before
@@ -1468,12 +1596,14 @@ export class EnolaSquatch {
     ]) {
       const rib = mesh(new THREE.TorusGeometry(0.88, 0.022, 6, 28), trim, 0, 0, 0);
       rib.name = `rear-gun-frame-${name}`;
+      rib.userData.geometryGate = { overlap: false };
       rib.rotation.x = rotateX;
       rib.rotation.y = rotateY;
       turret.add(rib);
     }
     const glazingRing = mesh(new THREE.TorusGeometry(0.82, 0.05, 8, 28), trim, 0, 0, 0.15);
     glazingRing.name = 'rear-gun-glazing-ring';
+    glazingRing.userData.geometryGate = { overlap: false };
     turret.add(glazingRing);
 
     // The yoke: what the barrels are actually bolted to.
@@ -1539,9 +1669,12 @@ export class EnolaSquatch {
       yoke.add(grip);
     }
     // Brass chute out of the belly of the fairing, and the spent-case bag.
-    const chute = mesh(boxGeo(0.28, 0.1, 0.5), trim, 0, -0.42, 0.3);
+    const chute = mesh(boxGeo(0.28, 0.1, 0.5), trim, 0, -0.42, 1.3);
+    chute.name = 'rear-gun-brass-chute';
     station.add(chute);
-    station.add(mesh(boxGeo(0.34, 0.36, 0.42), solid(0x4a4238, { roughness: 1 }), 0, -0.66, 0.45));
+    const caseBag = mesh(boxGeo(0.34, 0.36, 0.42), solid(0x4a4238, { roughness: 1 }), 0, -0.66, 1.45);
+    caseBag.name = 'rear-gun-case-bag';
+    station.add(caseBag);
 
     // The seat, and the point a seated gunner's hips go.
     const rearSeatMount = group('rear-gun-seat-mount');
@@ -1550,6 +1683,9 @@ export class EnolaSquatch {
     this.parts.rearGunSeatMount = rearSeatMount;
     const rearSeatPan = mesh(boxGeo(0.56, 0.14, 0.46), solid(0x3a3228, { roughness: 0.95 }), 0, 0, 0);
     rearSeatPan.name = 'rear-gun-seat-pan';
+    // The traversing seat is bolted to its mount; keep occupant support split
+    // from collision ownership while anchoring the furniture at the real pan.
+    rearSeatPan.userData.geometryGate = { fixedSupportAnchor: true };
     rearSeatMount.add(rearSeatPan);
     const rearSeatBack = mesh(boxGeo(0.5, 0.52, 0.09), solid(0x3a3228, { roughness: 0.95 }), 0, 0.29, 0.25);
     rearSeatBack.name = 'rear-gun-seat-back';
@@ -1923,8 +2059,12 @@ export class EnolaSquatch {
      * before he talked his way into the tail. */
     const jump = group('jump-seat');
     jump.position.set(IN_X - 0.2, 0.34, 1.5);
-    jump.add(mesh(boxGeo(0.32, 0.07, 0.5), solid(0x3a3228, { roughness: 0.95 }), 0, 0, 0));
-    jump.add(mesh(boxGeo(0.07, 0.55, 0.5), solid(0x3a3228, { roughness: 0.95 }), 0.14, 0.3, 0));
+    const jumpPan = mesh(boxGeo(0.32, 0.07, 0.5), solid(0x3a3228, { roughness: 0.95 }), 0, 0, 0);
+    jumpPan.name = 'jump-seat-pan';
+    jump.add(jumpPan);
+    const jumpBack = mesh(boxGeo(0.07, 0.3, 0.5), solid(0x3a3228, { roughness: 0.95 }), 0.14, 0.15, 0);
+    jumpBack.name = 'jump-seat-back';
+    jump.add(jumpBack);
     jump.add(strutBetween(former, [0.16, -0.02, -0.22], [-0.1, -0.44, -0.22], 0.025, 'jump-seat-leg'));
     jump.add(strutBetween(former, [0.16, -0.02, 0.22], [-0.1, -0.44, 0.22], 0.025, 'jump-seat-leg'));
     c.add(jump);
@@ -2019,6 +2159,7 @@ export class EnolaSquatch {
     for (const sx of [-1, 1]) {
       const side = mesh(boxGeo(0.06, 0.7, 1.5), glassMat, sx * (FUSE_W / 2 - 0.02), 1.15, FUSE_LEN / 2 - 0.6);
       side.name = `cockpit-side-window-${sx < 0 ? 'starboard' : 'port'}`;
+      side.userData.geometryGate = { overlap: false };
       side.castShadow = false;
       g.add(side);
       this.parts.sideWindows.push(side);
@@ -2226,7 +2367,11 @@ export class EnolaSquatch {
     navTable.add(mesh(boxGeo(0.72, 0.05, 0.03), solid(0x3a322a, { roughness: 0.95 }), 0, 0.04, 0.43));
     // Legs down to the deck, and a stay back to the wall liner.
     for (const sz of [-0.36, 0.36]) {
-      navTable.add(mesh(boxGeo(0.05, 0.49, 0.05), solid(0x3a322a, { roughness: 0.95 }), -0.3, -0.28, sz));
+      /* The deck top is CABIN_FLOOR_TOP (-0.09 m). The old 0.49 m legs ended
+       * at -0.125 m, burying them 35 mm through the deck — 5 mm beyond the
+       * gate's fitted-part convention. Keep their top at the underside of the
+       * table and land their feet exactly on the authored deck datum. */
+      navTable.add(mesh(boxGeo(0.05, 0.455, 0.05), solid(0x3a322a, { roughness: 0.95 }), -0.3, -0.2625, sz));
       navTable.add(mesh(boxGeo(0.62, 0.04, 0.04), solid(0x3a322a, { roughness: 0.95 }), 0.32, -0.16, sz));
     }
     // A stowage bin under the table, for the bags of charts nobody filed.

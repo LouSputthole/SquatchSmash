@@ -30,6 +30,12 @@ import { GroundVehicle } from '../core/vehicles/ground-vehicle.js';
 import {
   buildHeistCrew, crewHeadingForPhase, HEIST_CREW_IDS, setCrewMasked, updateCrew,
 } from './cast.js';
+import {
+  applyHeistCheckpointSetpieceGeometry,
+  HEIST_SQUAD_FORMATIONS,
+  heistSquadAnchorIds,
+  poseHeistCrewGeometry,
+} from './preview.js';
 import { BankGuardThreat } from './bank-threat.js';
 import { CheckpointDirector } from './checkpoints.js';
 import {
@@ -275,32 +281,8 @@ for (const actor of crew.values()) {
   item.append(name, role);
   crewStrip.append(item);
 }
-const SQUAD_FORMATIONS = Object.freeze({
-  safehouse: Object.freeze([[-3.4, -1.2], [-1.7, -2.4], [0, -2.6], [1.8, -2.3], [3.5, -1.1]]),
-  // Benched down both sides with the aisle kept clear: the player rides facing
-  // the doors and should be looking at them, not at Numbskull's chest.
-  van: Object.freeze([[-1.15, 1.45], [1.15, 1.2], [-1.15, -0.2], [1.15, -0.55], [-1.15, -1.75]]),
-  /* Off the centre line, in all three of these.
-   *
-   * `InteractionSystem` walks the hit list and stops at the first solid thing
-   * with no descriptor on it — which a crew member standing in the middle of
-   * the lobby is. Five people parked between the player and the room he is
-   * supposed to be working killed the prompt on whoever was behind them. They
-   * cover the room from its edges now, which is also where a crew covering a
-   * room would stand. */
-  bank: Object.freeze([[-8.6, 6.4], [8.6, 6.0], [-8.8, -0.6], [8.8, -1.2], [4.2, 9.4]]),
-  street: Object.freeze([[-6.6, 25], [6.6, 22], [-7, 18], [7, 17], [-6.8, 28]]),
-  garage: Object.freeze([[-6.5, 7], [6.5, 6], [-7, 0], [7, -1], [-6.5, -6]]),
-  driving: Object.freeze([[16, -649], [18, -651], [20, -653], [22, -651], [24, -649]]),
-});
-const squadAnchorPositions = new Map();
-const squadAnchorIds = Object.entries(SQUAD_FORMATIONS).flatMap(([zone, positions]) => (
-  positions.map((position, index) => {
-    const id = `${zone}_${index}`;
-    squadAnchorPositions.set(id, position);
-    return id;
-  })
-));
+const SQUAD_FORMATIONS = HEIST_SQUAD_FORMATIONS;
+const squadAnchorIds = heistSquadAnchorIds();
 const squadGraph = new AuthoredNavigationGraph(Object.entries(SQUAD_FORMATIONS).flatMap(([zone, positions]) => (
   positions.map((position, index) => ({
     id: `${zone}_${index}`,
@@ -1893,18 +1875,18 @@ function phaseIdForState(state) {
 }
 
 function placeCrew(phaseId) {
-  const phase = level.phases[phaseId] ?? level.phases.safehouse;
-  for (const actor of crew.values()) {
-    phase.group.add(actor.group);
-    squad.assign(actor.id, phaseId);
-    const [x, z] = squadAnchorPositions.get(actor.anchor);
-    actor.group.position.set(x, 0, z);
-    actor.heading = crewHeadingForPhase(phaseId, { x, z });
-    actor.group.rotation.y = actor.heading;
-  }
-  window.__heistDebug.squadAnchors = Object.fromEntries(
-    [...crew.values()].map((actor) => [actor.id, actor.anchor]),
-  );
+  const anchors = poseHeistCrewGeometry({
+    level,
+    crew,
+    phase: phaseId,
+    assignAnchor: (actor) => {
+      if (!squad.assign(actor.id, phaseId)) {
+        throw new Error(`No authored Heist ${phaseId} anchor for ${actor.id}`);
+      }
+      return actor.anchor;
+    },
+  });
+  window.__heistDebug.squadAnchors = anchors;
 }
 
 function activatePhase(id, preservePlayer = false) {
@@ -3519,12 +3501,9 @@ function primePreview(checkpoint) {
     preparation.restore({ armorReady: true, loadoutReady: true });
     syncSafehousePresentation();
     loadout.wearMask(true);
-    setCrewMasked(crew, true);
     syncHeistInventory(true);
   }
-  if (checkpoint === 'bank_lobby' || count >= 3) {
-    level.phases.bank.interactables.vault.userData.setOpen?.(count >= 3);
-  }
+  applyHeistCheckpointSetpieceGeometry(checkpoint, { level, crew });
   const startState = PREVIEW_START_STATE[checkpoint] ?? 'SAFEHOUSE_ARRIVAL';
   machine.restore(startState);
   if (checkpoint === 'vehicle_escape') beginDriving();
@@ -3613,6 +3592,7 @@ function setSimulationPaused(value, { force = false } = {}) {
 
 const pauseMenu = createPauseMenu({
   title: 'The Take',
+  assist: true,
   canPause: () => started && !missionCompleted,
   getObjective: () => hud.objective?.textContent?.trim()
     || 'Follow Snow’s current order and keep the crew moving.',

@@ -232,12 +232,27 @@ export function buildAirstrip(scene) {
     root.add(obj);
     return obj;
   };
-  const addCollider = (x, z, halfX, halfZ, top = 4) => {
+  const ownGroundedAssembly = (obj, assemblyId, support = obj.children[0]) => {
+    obj.userData.geometryGate = {
+      ...(obj.userData.geometryGate ?? {}),
+      assemblyId,
+    };
+    if (!support) throw new Error(`Missing support witness for ${assemblyId}`);
+    support.userData.geometryGate = {
+      ...(support.userData.geometryGate ?? {}),
+      // One exact base/foot records that this authored assembly is planted by
+      // terrainHeight(); no scene-scale parent suppression is needed.
+      checkSupport: false,
+    };
+    return obj;
+  };
+  const addCollider = (x, z, halfX, halfZ, top = 4, assemblyId = null) => {
     const y = terrainHeight(x, z);
     const box = new THREE.Box3(
       new THREE.Vector3(x - halfX, y - 1, z - halfZ),
       new THREE.Vector3(x + halfX, y + top, z + halfZ),
     );
+    if (assemblyId) box.userData = { geometryGate: { assemblyId } };
     colliders.push(box);
     return box;
   };
@@ -278,6 +293,11 @@ export function buildAirstrip(scene) {
   }
   strip.position.set(EH.x, stripMidY, stripMidZ);
   strip.receiveShadow = true;
+  strip.name = 'el-hueso-sloped-runway-surface';
+  strip.userData.geometryGate = {
+    overlap: false,
+    checkSupport: false,
+  };
   root.add(strip);
   floorZones.push({
     box: new THREE.Box3(
@@ -289,6 +309,8 @@ export function buildAirstrip(scene) {
 
   // Muddy turnaround at the top (uphill) end, where you stop and swing round.
   const mud = flatMesh(new THREE.CircleGeometry(24, 22), solid(0x4a3a26, { roughness: 1 }), EH.x, 0, EH.zHigh - 20);
+  mud.name = 'el-hueso-turnaround-surface';
+  mud.userData.geometryGate = { checkSupport: false };
   mud.position.y = terrainHeight(EH.x, EH.zHigh - 20) + 0.07;
   mud.rotation.x = -Math.PI / 2;
   root.add(mud);
@@ -299,14 +321,19 @@ export function buildAirstrip(scene) {
     const x = EH.x - 26 - rand() * 8;
     const z = EH.zHigh + 40 + i * 22;
     const rot = rand() * 0.6 - 0.3;
-    const hut = place(makeHut(0x300 + i * 31), x, z, rot);
+    const hutAssembly = `beefrun.el-hueso.hut.${i + 1}`;
+    const hut = place(ownGroundedAssembly(makeHut(0x300 + i * 31), hutAssembly), x, z, rot);
     sinkToGround(hut, x, z, hut.userData.halfX, hut.userData.halfZ, rot);
-    addCollider(x, z, 3.4, 2.8, 3);
+    addCollider(x, z, 3.4, 2.8, 3, hutAssembly);
     camp.push(hut);
   }
 
   const shelterX = EH.x - 22, shelterZ = EH.zHigh + 34, shelterYaw = 0.15;
-  place(makeShelter(shelterX, shelterZ, shelterYaw), shelterX, shelterZ, shelterYaw);
+  const shelterAssembly = 'beefrun.el-hueso.shelter';
+  place(
+    ownGroundedAssembly(makeShelter(shelterX, shelterZ, shelterYaw), shelterAssembly),
+    shelterX, shelterZ, shelterYaw,
+  );
   /* Four posts, not one box. The shelter is open on every side and the men sit
    * under it — a collider on the roof footprint walls the player out of a
    * space they are supposed to be able to walk into, and traps the guards. */
@@ -314,31 +341,49 @@ export function buildAirstrip(scene) {
     const c = Math.cos(shelterYaw), s = Math.sin(shelterYaw);
     for (const sx of [-3.4, 3.4]) {
       for (const sz of [-2.4, 2.4]) {
-        addCollider(shelterX + sx * c + sz * s, shelterZ - sx * s + sz * c, 0.2, 0.2, 2.6);
+        addCollider(
+          shelterX + sx * c + sz * s, shelterZ - sx * s + sz * c, 0.2, 0.2, 2.6,
+          shelterAssembly,
+        );
       }
     }
   }
 
   const antX = EH.x - 40, antZ = EH.zHigh + 20;
   const antBase = terrainHeight(antX, antZ);
-  place(makeAntenna((dx, dz) => terrainHeight(antX + dx, antZ + dz) - antBase), antX, antZ);
+  place(ownGroundedAssembly(
+    makeAntenna((dx, dz) => terrainHeight(antX + dx, antZ + dz) - antBase),
+    'beefrun.el-hueso.antenna',
+  ), antX, antZ);
   const sock = makeShirtSock();
+  ownGroundedAssembly(sock.group, 'beefrun.el-hueso.shirt-sock');
   place(sock.group, EH.x + 16, EH.zHigh + 30);
 
   for (let i = 0; i < 2; i++) {
-    const x = EH.x - 30 + i * 9;
+    // Keep the first lorry west of hut four's real blocker. Their former
+    // colliders overlapped by 20 cm even though the drawn bodies only looked
+    // close, creating an invisible pinch point between camp fixtures.
+    const x = EH.x + [-40, -21][i];
     const z = EH.zHigh + 100 + i * 14;
     const rot = 1.4 + i * 0.4;
-    const lorry = place(makeMilitaryTruck(), x, z, rot);
+    const lorryAssembly = `beefrun.el-hueso.military-truck.${i + 1}`;
+    const lorryModel = makeMilitaryTruck();
+    const lorry = place(
+      ownGroundedAssembly(lorryModel, lorryAssembly, lorryModel.children.at(-1)),
+      x, z, rot,
+    );
     sinkToGround(lorry, x, z, 1.15, 3.2, rot);
-    addCollider(x, z, 2.6, 3.4, 3);
+    addCollider(x, z, 2.6, 3.4, 3, lorryAssembly);
   }
 
   const drums = [];
   for (let i = 0; i < 11; i++) {
     const x = EH.x - 20 + (rand() - 0.5) * 14;
     const z = EH.zHigh + 58 + rand() * 30;
-    const d = place(makeDrum(i % 3 === 0 ? 0x8a4a2a : 0x3f6b46), x, z);
+    const d = place(ownGroundedAssembly(
+      makeDrum(i % 3 === 0 ? 0x8a4a2a : 0x3f6b46),
+      `beefrun.el-hueso.drum.${i + 1}`,
+    ), x, z);
     if (i % 4 === 0) {
       d.rotation.z = 1.55;                          // one on its side, always
       // On its side it rolls onto its rims, and the group origin is no longer
@@ -351,11 +396,15 @@ export function buildAirstrip(scene) {
   // West of the strip edge, not on it: the third stack used to sit at EH.x - 5,
   // which is inside the 8 m half-width and directly under the landing roll.
   for (let i = 0; i < 3; i++) {
-    place(makeCargoStack(0x900 + i * 17), EH.x - 17 - i * 6, EH.zHigh + 46 + rand() * 8, rand());
+    place(
+      ownGroundedAssembly(makeCargoStack(0x900 + i * 17), `beefrun.el-hueso.cargo.${i + 1}`),
+      EH.x - 17 - i * 6, EH.zHigh + 46 + rand() * 8, rand(),
+    );
   }
 
   /* ---- The departure arrow, painted on a barrel ---- */
   const arrowBarrel = makeDrum(0xd8d2c0);
+  ownGroundedAssembly(arrowBarrel, 'beefrun.el-hueso.departure-barrel');
   place(arrowBarrel, EH.x - 13, EH.zHigh + 26);
   const arrowFace = flatMesh(planeGeo(0.8, 0.8), mat({
     map: signTexture(['↓  N  ↓', 'DEPART'], { w: 256, h: 256, bg: '#d8d2c0', fg: '#a8322a', border: null, rough: false }),
@@ -369,6 +418,7 @@ export function buildAirstrip(scene) {
     const x = EH.x + (rand() - 0.5) * 26;
     const z = EH.zHigh + 30 + rand() * 90;
     const c = makeChicken(x, z);
+    ownGroundedAssembly(c.group, `beefrun.el-hueso.chicken.${i + 1}`, c.group.children[4]);
     c.group.position.y = terrainHeight(x, z);
     root.add(c.group);
     chickens.push(c);
@@ -384,6 +434,11 @@ export function buildAirstrip(scene) {
   const guardRow = [-2.6, -1.0, 0.6, 2.2];
   for (let i = 0; i < 4; i++) {
     const g = makeGuard(i);
+    ownGroundedAssembly(
+      g.group,
+      g.group.userData.geometryGate.assemblyId,
+      g.group.getObjectByName(`guard${i}-leg-right-boot`),
+    );
     const x = shelterX + guardRow[i];
     const z = shelterZ + 1.6;
     g.group.position.copy(at(x, z));
@@ -392,6 +447,11 @@ export function buildAirstrip(scene) {
     guards.push(g);
   }
   const cecilio = makeCecilio();
+  ownGroundedAssembly(
+    cecilio.group,
+    cecilio.group.userData.geometryGate.assemblyId,
+    cecilio.group.getObjectByName('cecilio-leg-right-boot'),
+  );
   cecilio.group.position.copy(at(EH.x - 11, EH.zHigh + 44));
   cecilio.group.rotation.y = 1.3;
   root.add(cecilio.group);
@@ -485,10 +545,23 @@ export function buildAirstrip(scene) {
   palmTrunkGeo.translate(0, (PALM_H + PALM_SINK) / 2 - PALM_SINK, 0);   // origin at the ground point
   const frondGeo = new THREE.BoxGeometry(0.62, 0.05, 4.6);
   frondGeo.translate(0, 0, 2.3);                                         // origin at the inner end
+  const palmPrefix = 'beefrun-el-hueso-palm';
   const palmTrunks = new THREE.InstancedMesh(palmTrunkGeo, solid(0x4a3a24, { roughness: 1 }), palmCount);
   palmTrunks.name = 'el-hueso-palm-trunks';
-  const palmFronds = new THREE.InstancedMesh(frondGeo, mat({ color: 0x2f6b34, roughness: 1, side: THREE.DoubleSide }), palmCount * FRONDS);
-  palmFronds.name = 'el-hueso-palm-fronds';
+  palmTrunks.userData.geometryGate = {
+    instanceAssemblyPrefix: palmPrefix,
+    checkSupport: false,
+  };
+  const palmFrondMaterial = mat({ color: 0x2f6b34, roughness: 1, side: THREE.DoubleSide });
+  const palmFronds = Array.from({ length: FRONDS }, (_, index) => {
+    const batch = new THREE.InstancedMesh(frondGeo, palmFrondMaterial, palmCount);
+    batch.name = `el-hueso-palm-frond-fan-${index + 1}`;
+    batch.userData.geometryGate = {
+      instanceAssemblyPrefix: palmPrefix,
+      overlap: false,
+    };
+    return batch;
+  });
   let palmsPlaced = 0;
   for (let i = 0; i < palmCount * 6 && palmsPlaced < palmCount; i++) {
     const side = rand() < 0.5 ? -1 : 1;
@@ -516,18 +589,20 @@ export function buildAirstrip(scene) {
       _qFrond.copy(_qYaw).multiply(_qDroop);
       _scl.set(s * (0.9 + rand() * 0.3), s, s * (0.85 + rand() * 0.4));
       _mFrond.compose(_top, _qFrond, _scl);
-      palmFronds.setMatrixAt(palmsPlaced * FRONDS + f, _mFrond);
+      palmFronds[f].setMatrixAt(palmsPlaced, _mFrond);
     }
     jungleReport.palms.push({ x, z, y, s });
     palmsPlaced++;
   }
   palmTrunks.count = palmsPlaced;
-  palmFronds.count = palmsPlaced * FRONDS;
   palmTrunks.instanceMatrix.needsUpdate = true;
-  palmFronds.instanceMatrix.needsUpdate = true;
   palmTrunks.computeBoundingSphere();
-  palmFronds.computeBoundingSphere();
-  root.add(palmTrunks, palmFronds);
+  for (const batch of palmFronds) {
+    batch.count = palmsPlaced;
+    batch.instanceMatrix.needsUpdate = true;
+    batch.computeBoundingSphere();
+  }
+  root.add(palmTrunks, ...palmFronds);
 
   /* The canopy wall behind the palms: clumps of broad-crowned trees up the
    * valley wall, so El Hueso reads as a strip cut out of a hillside rather
@@ -543,7 +618,16 @@ export function buildAirstrip(scene) {
   const jungleTrunks = new THREE.InstancedMesh(jungleTrunkGeo, solid(0x443522, { roughness: 1 }), jungleCount);
   jungleTrunks.name = 'el-hueso-jungle-trunks';
   const jungleCrowns = new THREE.InstancedMesh(crownGeo, solid(0x245f32, { roughness: 1 }), jungleCount);
-  jungleCrowns.name = 'el-hueso-jungle-canopy';
+  jungleCrowns.name = 'el-hueso-jungle-foliage';
+  const junglePrefix = 'beefrun-el-hueso-jungle';
+  jungleTrunks.userData.geometryGate = {
+    instanceAssemblyPrefix: junglePrefix,
+    checkSupport: false,
+  };
+  jungleCrowns.userData.geometryGate = {
+    instanceAssemblyPrefix: junglePrefix,
+    overlap: false,
+  };
   // Clump centres up and down both flanks, then trees around them.
   const clumps = [];
   for (let c = 0; c < 22; c++) {
@@ -569,8 +653,14 @@ export function buildAirstrip(scene) {
       z = EH.zHigh - 60 + rand() * (stripLen + 45);
     }
     if (Math.abs(x - EH.x) < EH.rwyWidth + 26 || onOperatingSurface(x, z, 8)) continue;
-    const y = plantedGround(x, z);
     const s = 0.62 + Math.pow(rand(), 1.5) * 1.15;                     // most middling, a few giants
+    // The old clump sampler allowed neighbouring trunks to cross. Preserve
+    // clumps visually while reserving enough room for both tilted stems.
+    const clearsExistingTrunks = jungleReport.canopy.every((other) => (
+      Math.hypot(x - other.x, z - other.z) > 2.2 * (s + other.s) + 0.2
+    ));
+    if (!clearsExistingTrunks) continue;
+    const y = plantedGround(x, z);
     slopeTilt(x, z, 0.4, _qTilt);
     _qYaw.setFromAxisAngle(_axisY, rand() * Math.PI * 2);
     _q.copy(_qTilt).multiply(_qYaw);

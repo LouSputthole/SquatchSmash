@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { reducedMotionEnabled } from '../core/settings.js';
 
 /**
  * NO WAKE's authored camera.
@@ -64,6 +65,12 @@ export class NoWakeCameraDirector {
 
   setShot(id, spec, { snap = false } = {}) {
     if (this.shot?.id === id) return;
+    if (reducedMotionEnabled()) {
+      this.seenShots.add(id);
+      this.active = false;
+      this.shot = null;
+      return;
+    }
     if (!this.active) {
       this.position.copy(this.camera.position);
       this.quaternion.copy(this.camera.quaternion);
@@ -89,7 +96,7 @@ export class NoWakeCameraDirector {
   frameWrap() {
     this.setShot('body-wrap-cabin', {
       position: [-0.72, 0.62, -2.78],
-      target: [0.10, -0.30, -3.85],
+      target: [0.10, -0.30, -3.53],
       fov: 60,
       rate: 8,
     }, { snap: true });
@@ -156,6 +163,10 @@ export class NoWakeCameraDirector {
   }
 
   update(dt) {
+    if (reducedMotionEnabled()) {
+      if (this.active) this.clear();
+      return;
+    }
     if (!this.active || !this.shot) return;
     const shot = this.shot;
     this.local.fromArray(shot.position);

@@ -1,0 +1,1982 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "bing",
+  "entries": [
+    {
+      "id": "bing-attack-fitted-join-001",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-13p33-0-m0p87-13p87-0p95-0p47",
+      "right": "root:bing-two-attack/collider:aabb-13p79-0-m1p32-14p01-2p6-2p72",
+      "maxDepthM": 0.081,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-002",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-1p13-0-10p89-5p42-4p5-11p11",
+      "right": "root:bing-two-attack/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-003",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-1p13-0-15p23-4p02-3p5-15p57",
+      "right": "root:bing-two-attack/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-004",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-5p48-0-m9p61-6p22-2p6-m9p39",
+      "right": "root:bing-two-attack/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-005",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "right": "root:bing-two-attack/collider:aabb-7p28-0-m9p61-7p92-2p6-m9p39",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-006",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-007",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-008",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p69-0-3p88-7p91-2p6-4p52",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-009",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-010",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-011",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p69-0-m6p02-7p91-2p6-m4p28",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-012",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p69-0-m9p52-7p91-2p6-m7p98",
+      "right": "root:bing-two-attack/collider:aabb-7p875-0-m9p4-8p555-1p4-m8p8",
+      "maxDepthM": 0.036,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-013",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p73-0-m6p54-7p87-2p05-m5p96",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-014",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p73-0-m8p04-7p87-2p05-m7p56",
+      "right": "root:bing-two-attack/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-015",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-7p88-0-m1p41-13p92-2p6-m1p19",
+      "right": "root:bing-two-attack/collider:aabb-8p18-0-m1p22-11p97-2-0p32",
+      "maxDepthM": 0.031,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-016",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-attack/collider:aabb-9p68-0-m15p22-21p02-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-017",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-attack/collider:aabb-m21p02-0-m15p22-8p42-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-018",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "right": "root:bing-two-attack/collider:aabb-m21p02-0-10p89-m1p13-4p5-11p11",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-019",
+      "state": "attack",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-attack/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "right": "root:bing-two-attack/collider:aabb-m4p02-0-15p23-m1p13-3p5-15p57",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-attack-fitted-join-020",
+      "state": "attack",
+      "kind": "WALL_EMBED",
+      "left": "root:bing-two-attack/type=Group#0/name=club-wall-panel#11",
+      "right": "root:bing-two-attack/type=Group#0/name=door.inner#0/type=Mesh#0",
+      "maxDepthM": 0.061,
+      "reason": "The inner door leaf is hinged flush to its doorway jamb; this exact shallow edge key keeps the closed leaf visually sealed while every other wall penetration remains visible to the gate.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-001",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-13p33-0-m0p87-13p87-0p95-0p47",
+      "right": "root:bing-two-cleanup/collider:aabb-13p79-0-m1p32-14p01-2p6-2p72",
+      "maxDepthM": 0.081,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-002",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-1p13-0-10p89-5p42-4p5-11p11",
+      "right": "root:bing-two-cleanup/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-003",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-1p13-0-15p23-4p02-3p5-15p57",
+      "right": "root:bing-two-cleanup/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-004",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-5p48-0-m9p61-6p22-2p6-m9p39",
+      "right": "root:bing-two-cleanup/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-005",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "right": "root:bing-two-cleanup/collider:aabb-7p28-0-m9p61-7p92-2p6-m9p39",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-006",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-007",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-008",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p69-0-3p88-7p91-2p6-4p52",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-009",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-010",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-011",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p69-0-m6p02-7p91-2p6-m4p28",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-012",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p69-0-m9p52-7p91-2p6-m7p98",
+      "right": "root:bing-two-cleanup/collider:aabb-7p875-0-m9p4-8p555-1p4-m8p8",
+      "maxDepthM": 0.036,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-013",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p73-0-m6p54-7p87-2p05-m5p96",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-014",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p73-0-m8p04-7p87-2p05-m7p56",
+      "right": "root:bing-two-cleanup/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-015",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-7p88-0-m1p41-13p92-2p6-m1p19",
+      "right": "root:bing-two-cleanup/collider:aabb-8p18-0-m1p22-11p97-2-0p32",
+      "maxDepthM": 0.031,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-016",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-cleanup/collider:aabb-9p68-0-m15p22-21p02-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-017",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-cleanup/collider:aabb-m21p02-0-m15p22-8p42-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-018",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "right": "root:bing-two-cleanup/collider:aabb-m21p02-0-10p89-m1p13-4p5-11p11",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-019",
+      "state": "cleanup",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-cleanup/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "right": "root:bing-two-cleanup/collider:aabb-m4p02-0-15p23-m1p13-3p5-15p57",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-cleanup-fitted-join-020",
+      "state": "cleanup",
+      "kind": "WALL_EMBED",
+      "left": "root:bing-two-cleanup/type=Group#0/name=club-wall-panel#11",
+      "right": "root:bing-two-cleanup/type=Group#0/name=door.inner#0/type=Mesh#0",
+      "maxDepthM": 0.061,
+      "reason": "The inner door leaf is hinged flush to its doorway jamb; this exact shallow edge key keeps the closed leaf visually sealed while every other wall penetration remains visible to the gate.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-001",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-13p33-0-m0p87-13p87-0p95-0p47",
+      "right": "root:bing-two-graveyard/collider:aabb-13p79-0-m1p32-14p01-2p6-2p72",
+      "maxDepthM": 0.081,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-002",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-1p13-0-10p89-5p42-4p5-11p11",
+      "right": "root:bing-two-graveyard/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-003",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-1p13-0-15p23-4p02-3p5-15p57",
+      "right": "root:bing-two-graveyard/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-004",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-5p48-0-m9p61-6p22-2p6-m9p39",
+      "right": "root:bing-two-graveyard/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-005",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "right": "root:bing-two-graveyard/collider:aabb-7p28-0-m9p61-7p92-2p6-m9p39",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-006",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-007",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-008",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p69-0-3p88-7p91-2p6-4p52",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-009",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-010",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-011",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p69-0-m6p02-7p91-2p6-m4p28",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-012",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p69-0-m9p52-7p91-2p6-m7p98",
+      "right": "root:bing-two-graveyard/collider:aabb-7p875-0-m9p4-8p555-1p4-m8p8",
+      "maxDepthM": 0.036,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-013",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p73-0-m6p54-7p87-2p05-m5p96",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-014",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p73-0-m8p04-7p87-2p05-m7p56",
+      "right": "root:bing-two-graveyard/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-015",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-7p88-0-m1p41-13p92-2p6-m1p19",
+      "right": "root:bing-two-graveyard/collider:aabb-8p18-0-m1p22-11p97-2-0p32",
+      "maxDepthM": 0.031,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-016",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-graveyard/collider:aabb-9p68-0-m15p22-21p02-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-017",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-graveyard/collider:aabb-m21p02-0-m15p22-8p42-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-018",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "right": "root:bing-two-graveyard/collider:aabb-m21p02-0-10p89-m1p13-4p5-11p11",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-019",
+      "state": "graveyard",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-graveyard/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "right": "root:bing-two-graveyard/collider:aabb-m4p02-0-15p23-m1p13-3p5-15p57",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-graveyard-fitted-join-020",
+      "state": "graveyard",
+      "kind": "WALL_EMBED",
+      "left": "root:bing-two-graveyard/type=Group#0/name=club-wall-panel#11",
+      "right": "root:bing-two-graveyard/type=Group#0/name=door.inner#0/type=Mesh#0",
+      "maxDepthM": 0.061,
+      "reason": "The inner door leaf is hinged flush to its doorway jamb; this exact shallow edge key keeps the closed leaf visually sealed while every other wall penetration remains visible to the gate.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-001",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-13p33-0-m0p87-13p87-0p95-0p47",
+      "right": "root:bing-two-party/collider:aabb-13p79-0-m1p32-14p01-2p6-2p72",
+      "maxDepthM": 0.081,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-002",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-1p13-0-10p89-5p42-4p5-11p11",
+      "right": "root:bing-two-party/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-003",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-1p13-0-15p23-4p02-3p5-15p57",
+      "right": "root:bing-two-party/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-004",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-5p48-0-m9p61-6p22-2p6-m9p39",
+      "right": "root:bing-two-party/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-005",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "right": "root:bing-two-party/collider:aabb-7p28-0-m9p61-7p92-2p6-m9p39",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-006",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-007",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-008",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p69-0-3p88-7p91-2p6-4p52",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-009",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-010",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-011",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p69-0-m6p02-7p91-2p6-m4p28",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-012",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p69-0-m9p52-7p91-2p6-m7p98",
+      "right": "root:bing-two-party/collider:aabb-7p875-0-m9p4-8p555-1p4-m8p8",
+      "maxDepthM": 0.036,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-013",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p73-0-m6p54-7p87-2p05-m5p96",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-014",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p73-0-m8p04-7p87-2p05-m7p56",
+      "right": "root:bing-two-party/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-015",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-7p88-0-m1p41-13p92-2p6-m1p19",
+      "right": "root:bing-two-party/collider:aabb-8p18-0-m1p22-11p97-2-0p32",
+      "maxDepthM": 0.031,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-016",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-party/collider:aabb-9p68-0-m15p22-21p02-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-017",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-two-party/collider:aabb-m21p02-0-m15p22-8p42-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-018",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "right": "root:bing-two-party/collider:aabb-m21p02-0-10p89-m1p13-4p5-11p11",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-019",
+      "state": "party",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-two-party/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "right": "root:bing-two-party/collider:aabb-m4p02-0-15p23-m1p13-3p5-15p57",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-party-fitted-join-020",
+      "state": "party",
+      "kind": "WALL_EMBED",
+      "left": "root:bing-two-party/type=Group#0/name=club-wall-panel#11",
+      "right": "root:bing-two-party/type=Group#0/name=door.inner#0/type=Mesh#0",
+      "maxDepthM": 0.061,
+      "reason": "The inner door leaf is hinged flush to its doorway jamb; this exact shallow edge key keeps the closed leaf visually sealed while every other wall penetration remains visible to the gate.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-001",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-13p33-0-m0p87-13p87-0p95-0p47",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-13p79-0-m1p32-14p01-2p6-2p72",
+      "maxDepthM": 0.081,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-002",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-1p13-0-10p89-5p42-4p5-11p11",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-003",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-1p13-0-15p23-4p02-3p5-15p57",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-004",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-5p48-0-m9p61-6p22-2p6-m9p39",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-005",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p28-0-m9p61-7p92-2p6-m9p39",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-006",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-007",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-008",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p69-0-3p88-7p91-2p6-4p52",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-009",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-010",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-011",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p69-0-m6p02-7p91-2p6-m4p28",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-012",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p69-0-m9p52-7p91-2p6-m7p98",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p875-0-m9p4-8p555-1p4-m8p8",
+      "maxDepthM": 0.036,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-013",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p73-0-m6p54-7p87-2p05-m5p96",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-014",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p73-0-m8p04-7p87-2p05-m7p56",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-015",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-7p88-0-m1p41-13p92-2p6-m1p19",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-8p18-0-m1p22-11p97-2-0p32",
+      "maxDepthM": 0.031,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-016",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-9p68-0-m15p22-21p02-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-017",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-m21p02-0-m15p22-8p42-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-018",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-m21p02-0-10p89-m1p13-4p5-11p11",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-019",
+      "state": "performer-bathroom",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one-performer-bathroom/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "right": "root:bing-one-performer-bathroom/collider:aabb-m4p02-0-15p23-m1p13-3p5-15p57",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-performer-bathroom-fitted-join-020",
+      "state": "performer-bathroom",
+      "kind": "WALL_EMBED",
+      "left": "root:bing-one-performer-bathroom/type=Group#0/name=club-wall-panel#11",
+      "right": "root:bing-one-performer-bathroom/type=Group#0/name=door.inner#0/type=Mesh#0",
+      "maxDepthM": 0.061,
+      "reason": "The inner door leaf is hinged flush to its doorway jamb; this exact shallow edge key keeps the closed leaf visually sealed while every other wall penetration remains visible to the gate.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-001",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-13p33-0-m0p87-13p87-0p95-0p47",
+      "right": "root:bing-one/collider:aabb-13p79-0-m1p32-14p01-2p6-2p72",
+      "maxDepthM": 0.081,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-002",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-1p13-0-10p89-5p42-4p5-11p11",
+      "right": "root:bing-one/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-003",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-1p13-0-15p23-4p02-3p5-15p57",
+      "right": "root:bing-one/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-004",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-5p48-0-m9p61-6p22-2p6-m9p39",
+      "right": "root:bing-one/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-005",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-6p18-0-m9p6-7p32-2p05-m9p4",
+      "right": "root:bing-one/collider:aabb-7p28-0-m9p61-7p92-2p6-m9p39",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-006",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-one/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-007",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p69-0-1p48-7p91-2p6-2p92",
+      "right": "root:bing-one/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-008",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p69-0-3p88-7p91-2p6-4p52",
+      "right": "root:bing-one/collider:aabb-7p8-0-2p88-8-2p05-3p92",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-009",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-one/collider:aabb-7p8-0-m0p12-8-2p05-1p52",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-010",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p69-0-m3p32-7p91-2p6-m0p08",
+      "right": "root:bing-one/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-011",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p69-0-m6p02-7p91-2p6-m4p28",
+      "right": "root:bing-one/collider:aabb-7p8-0-m4p32-8-2p05-m3p28",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-012",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p69-0-m9p52-7p91-2p6-m7p98",
+      "right": "root:bing-one/collider:aabb-7p875-0-m9p4-8p555-1p4-m8p8",
+      "maxDepthM": 0.036,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-013",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p73-0-m6p54-7p87-2p05-m5p96",
+      "right": "root:bing-one/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-014",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p73-0-m8p04-7p87-2p05-m7p56",
+      "right": "root:bing-one/collider:aabb-7p8-0-m7p62-8-2p05-m6p48",
+      "maxDepthM": 0.061,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-015",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-7p88-0-m1p41-13p92-2p6-m1p19",
+      "right": "root:bing-one/collider:aabb-8p18-0-m1p22-11p97-2-0p32",
+      "maxDepthM": 0.031,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-016",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-one/collider:aabb-9p68-0-m15p22-21p02-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-017",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-8p38-0-m15p1-9p72-2p05-m14p9",
+      "right": "root:bing-one/collider:aabb-m21p02-0-m15p22-8p42-6p2-m14p78",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-018",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-m1p17-0-10p9-1p17-2p05-11p1",
+      "right": "root:bing-one/collider:aabb-m21p02-0-10p89-m1p13-4p5-11p11",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-019",
+      "state": "visit-one",
+      "kind": "INTERPENETRATION",
+      "left": "root:bing-one/collider:aabb-m1p17-0-15p3-1p17-2p05-15p5",
+      "right": "root:bing-one/collider:aabb-m4p02-0-15p23-m1p13-3p5-15p57",
+      "maxDepthM": 0.041,
+      "reason": "These exact authored collision solids key a wall run, doorway jamb, or fitted bathroom range into its adjoining face so the club has a sealed structural boundary; the waiver is pair-specific and depth-capped.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    },
+    {
+      "id": "bing-visit-one-fitted-join-020",
+      "state": "visit-one",
+      "kind": "WALL_EMBED",
+      "left": "root:bing-one/type=Group#0/name=club-wall-panel#11",
+      "right": "root:bing-one/type=Group#0/name=door.inner#0/type=Mesh#0",
+      "maxDepthM": 0.061,
+      "reason": "The inner door leaf is hinged flush to its doorway jamb; this exact shallow edge key keeps the closed leaf visually sealed while every other wall penetration remains visible to the gate.",
+      "source": "src/bing/club.js:210",
+      "sourceAnchor": "GEOMETRY_GATE_FITTED_JOIN"
+    }
+  ],
+  "suppressionPolicy": [
+    {
+      "state": "attack",
+      "overlap": 17,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=ceiling#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=ceiling#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=ceiling#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=ceiling#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=ceiling#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=ceiling#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=club-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=entrance-canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=exterior-asphalt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=floor.rug#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=floor.rug#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=floor.rug#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=floor.tile#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=floor.tile#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=floor.tile#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=roadside-grass#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-attack/type=Group#0/name=vestibule-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "cleanup",
+      "overlap": 17,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=ceiling#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=ceiling#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=ceiling#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=ceiling#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=ceiling#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=ceiling#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=club-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=entrance-canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=exterior-asphalt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=floor.rug#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=floor.rug#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=floor.rug#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=floor.tile#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=floor.tile#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=floor.tile#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=roadside-grass#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-cleanup/type=Group#0/name=vestibule-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "graveyard",
+      "overlap": 17,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=ceiling#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=ceiling#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=ceiling#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=ceiling#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=ceiling#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=ceiling#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=club-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=entrance-canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=exterior-asphalt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=floor.rug#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=floor.rug#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=floor.rug#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=floor.tile#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=floor.tile#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=floor.tile#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=roadside-grass#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-graveyard/type=Group#0/name=vestibule-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "party",
+      "overlap": 17,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=ceiling#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=ceiling#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=ceiling#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=ceiling#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=ceiling#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=ceiling#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=club-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=entrance-canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=exterior-asphalt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=floor.rug#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=floor.rug#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=floor.rug#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=floor.tile#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=floor.tile#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=floor.tile#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=roadside-grass#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-two-party/type=Group#0/name=vestibule-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "performer-bathroom",
+      "overlap": 17,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=ceiling#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=ceiling#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=ceiling#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=ceiling#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=ceiling#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=ceiling#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=club-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=entrance-canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=exterior-asphalt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=floor.rug#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=floor.rug#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=floor.rug#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=floor.tile#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=floor.tile#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=floor.tile#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=roadside-grass#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one-performer-bathroom/type=Group#0/name=vestibule-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "visit-one",
+      "overlap": 17,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=ceiling#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=ceiling#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=ceiling#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=ceiling#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=ceiling#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=ceiling#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=club-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=entrance-canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=exterior-asphalt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=floor.rug#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=floor.rug#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=floor.rug#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=floor.tile#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=floor.tile#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=floor.tile#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=roadside-grass#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:bing-one/type=Group#0/name=vestibule-roof#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    }
+  ]
+}

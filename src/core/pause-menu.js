@@ -8,11 +8,48 @@
  *
  * It also renders the shared settings (src/core/settings.js): subtitles,
  * larger subtitles, reduce shake, assist, master volume, mouse sensitivity and
- * the movement keys — so a scene that mounts this menu has them for free.
+ * movement and common gameplay keys — so a scene that mounts this menu has them for free.
  */
 
 import { exportCampaignSave, importCampaignSave } from './campaign.js';
 import * as settings from './settings.js';
+import { setSceneLifecyclePaused } from './scene-lifecycle.js';
+import { installSystemicPolish } from './systemic-polish.js';
+
+/**
+ * Initiation owns a frozen, scene-local AudioContext and EffectComposer rather
+ * than the shared wrappers. Its ordinary hidden-tab path already reaches the
+ * scene pause callbacks, but its complete/failed cards intentionally make
+ * canPause() false. Keep the terminal fallback exact: other scenes' onResume
+ * callbacks re-enable gameplay behind their end cards.
+ */
+export const HIDDEN_ONLY_SCENE_CALLBACK_ENTRYPOINTS = Object.freeze(['initiation.html']);
+
+export function createHiddenOnlySceneLifecycleAdapter({
+  location = globalThis.location,
+  onPause = () => {},
+  onResume = () => {},
+} = {}) {
+  const pathname = String(location?.pathname ?? '').toLowerCase();
+  const entry = pathname.split('/').filter(Boolean).at(-1) ?? '';
+  const enabled = HIDDEN_ONLY_SCENE_CALLBACK_ENTRYPOINTS.includes(entry);
+  let held = false;
+  return Object.freeze({
+    enabled,
+    get held() { return held; },
+    hold() {
+      if (!enabled || held) return false;
+      held = true;
+      onPause();
+      return true;
+    },
+    release() {
+      if (!held) return false;
+      try { onResume(); } finally { held = false; }
+      return true;
+    },
+  });
+}
 
 const STYLE_ID = 'squatch-scene-pause-style';
 
@@ -290,10 +327,9 @@ export function createPauseMenu({
   canRestart = () => true,
   recovery = null,
   actions: extraActions = [],
-  /* Does this scene HAVE an assist? Only The Silver Room's sway reads the
-   * setting, and a switch that does nothing in the other eighteen scenes is
-   * worse than no switch at all, so the checkbox is rendered where the scene
-   * says it means something. */
+  /* Does this scene HAVE an assist? Silver's sway, the Heist guard threat,
+   * and the Silver Case ambush share this setting. Other scenes hide a switch
+   * that would have no effect on their authored beats. */
   assist = false,
 } = {}) {
   installStyle();
@@ -606,9 +642,20 @@ export function createPauseMenu({
       button.title = keymap[action];
     }
   }
-  const unsubscribeSettings = settings.subscribe(() => refreshSettings());
+  const unsubscribeSettings = settings.subscribe(() => {
+    refreshSettings();
+    if (!root.classList.contains('hidden')) queueMicrotask(refresh);
+  });
 
   document.body.appendChild(root);
+  const systemicPolish = installSystemicPolish({ pauseRoot: root, doc: document, win: window });
+  let returnFocus = null;
+  let visibilityOnlyHold = false;
+  const hiddenSceneLifecycle = createHiddenOnlySceneLifecycleAdapter({
+    location: window.location,
+    onPause,
+    onResume,
+  });
   let open = false;
 
   function refresh() {
@@ -635,14 +682,17 @@ export function createPauseMenu({
     const rows = typeof instructions === 'function' ? instructions() : instructions;
     list.replaceChildren(...(Array.isArray(rows) ? rows : []).map((line) => {
       const li = document.createElement('li');
-      li.textContent = String(line);
+      li.textContent = settings.projectGameplayKeysInText(line);
       return li;
     }));
   }
 
   function pause() {
     if (open || !canPause()) return false;
+    const active = document.activeElement;
+    returnFocus = active && active !== document.body ? active : null;
     open = true;
+    setSceneLifecyclePaused(true, { reason: 'pause-menu' });
     refresh();
     onPause();
     root.classList.remove('hidden');
@@ -658,7 +708,15 @@ export function createPauseMenu({
     root.classList.add('hidden');
     importPanel.hidden = true;
     showSaveStatus('');
-    onResume();
+    try {
+      onResume();
+    } finally {
+      setSceneLifecyclePaused(false, { reason: 'pause-menu' });
+    }
+    const focusTarget = returnFocus;
+    returnFocus = null;
+    if (focusTarget?.isConnected && !focusTarget.closest?.('.hidden')) focusTarget.focus?.();
+    else (document.querySelector('canvas') || document.body)?.focus?.();
     return true;
   }
 
@@ -680,8 +738,28 @@ export function createPauseMenu({
     toggle();
   }
 
+  function onVisibilityChange() {
+    if (document.hidden) {
+      if (!pause() && !open) {
+        visibilityOnlyHold = true;
+        setSceneLifecyclePaused(true, { reason: 'hidden-tab' });
+        hiddenSceneLifecycle.hold();
+      }
+      return;
+    }
+    if (visibilityOnlyHold && !open) {
+      try {
+        hiddenSceneLifecycle.release();
+      } finally {
+        setSceneLifecyclePaused(false, { reason: 'hidden-tab' });
+      }
+    }
+    visibilityOnlyHold = false;
+  }
+
   resumeButton.addEventListener('click', resume);
   window.addEventListener('keydown', onKeyDown, true);
+  document.addEventListener('visibilitychange', onVisibilityChange);
 
   const api = {
     root,
@@ -694,6 +772,13 @@ export function createPauseMenu({
       endRebind();
       unsubscribeSettings();
       window.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (open || visibilityOnlyHold) {
+        setSceneLifecyclePaused(false, { reason: 'destroy' });
+      }
+      systemicPolish.presentation.destroy();
+      systemicPolish.start.destroy();
+      systemicPolish.keys.destroy();
       root.remove();
     },
   };

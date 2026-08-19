@@ -47,6 +47,8 @@ export const PREVIEW_START_STATE = Object.freeze({
   safehouse_debrief: 'SAFEHOUSE_RETURN',
 });
 
+export const HEIST_PREVIEW_CHECKPOINTS = Object.freeze(Object.keys(PREVIEW_START_STATE));
+
 export const PHASE_FOR_STATE = Object.freeze(Object.fromEntries(HEIST_STATES.map((state) => {
   if (state.startsWith('APARTMENT') || state === 'MARGO_LEAVES' || state === 'LOU_CALL'
     || state === 'DEPART_APARTMENT' || state === 'RETURN_APARTMENT'

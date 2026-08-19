@@ -46,6 +46,8 @@ export class MirrorReflection {
     overlay.position.copy(mirrorMesh.position);
     overlay.position.x += 0.006;
     overlay.rotation.copy(mirrorMesh.rotation);
+    const fixtureGate = mirrorMesh.parent?.userData?.geometryGate;
+    if (fixtureGate) overlay.userData.geometryGate = { ...fixtureGate };
     overlay.renderOrder = 2;
     scene.add(overlay);
     this.overlay = overlay;

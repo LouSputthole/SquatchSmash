@@ -294,6 +294,38 @@ function memberBetween(a, b, w, d, material) {
 const _up = new THREE.Vector3(0, 1, 0);
 const _dir = new THREE.Vector3();
 
+const AIRCRAFT_ASSEMBLY = Object.freeze({
+  // Only geometry that is bolted and immobile after construction shares this
+  // owner. Control surfaces, props, gear, doors, ramp, seats and cockpit
+  // controls deliberately keep independent owners below.
+  FUSELAGE: 'beefrun.aircraft.fixed-airframe',
+  WING: 'beefrun.aircraft.fixed-airframe',
+  TAIL: 'beefrun.aircraft.fixed-airframe',
+  CARGO_DOOR: 'beefrun.aircraft.cargo-door',
+  CARGO_FLOOR: 'beefrun.aircraft.fixed-airframe',
+  CARGO_RAMP: 'beefrun.aircraft.cargo-ramp',
+  COCKPIT_PANEL: 'beefrun.aircraft.cockpit-panel',
+});
+
+function ownGeometry(object, assemblyId) {
+  object.userData.geometryGate = {
+    ...(object.userData.geometryGate ?? {}),
+    assemblyId,
+  };
+  return object;
+}
+
+function supportWitness(object) {
+  object.userData.geometryGate = {
+    ...(object.userData.geometryGate ?? {}),
+    // The aircraft can be airborne. One direct attachment per bounded
+    // subassembly records that it is carried by the airframe, without a
+    // scene-scale checkSupport=false on the Brushrunner root.
+    checkSupport: false,
+  };
+  return object;
+}
+
 export class Brushrunner {
   constructor({ withCockpit = true } = {}) {
     this.group = group('brushrunner');
@@ -357,9 +389,16 @@ export class Brushrunner {
       0, 0, 0.4,
     );
     body.name = 'fuselage-body';
+    ownGeometry(body, AIRCRAFT_ASSEMBLY.FUSELAGE);
+    supportWitness(body);
+    /* Material groups cut away the cabin sides and roof, but Box3 sees the
+     * original closed box. Exclude only this exact guide mesh from solid AABB
+     * overlap; the explicit side panels, shell, floor and glazing stay live. */
+    body.userData.geometryGate.overlap = false;
     g.add(body);
 
     const sideShell = group('fuselage-side-shell');
+    ownGeometry(sideShell, AIRCRAFT_ASSEMBLY.FUSELAGE);
     const addSidePanel = (sx, section, y0, y1, z0, z1) => {
       const panel = mesh(
         boxGeo(0.08, y1 - y0, z1 - z0), skin,
@@ -392,6 +431,7 @@ export class Brushrunner {
     this.parts.sideShell = sideShell;
 
     const hull = group('fuselage-shell');
+    ownGeometry(hull, AIRCRAFT_ASSEMBLY.FUSELAGE);
     // Four rolled corner sections running the length of the cabin. Each is a
     // long cylinder set into the corner it fills.
     for (const sx of [-1, 1]) {
@@ -426,6 +466,11 @@ export class Brushrunner {
       skin, 0, 0.89, 0.4,
     );
     deckRoll.name = 'fuselage-turtledeck';
+    /* This open half-cylinder is only the curved roof skin. Its Box3 fills the
+     * whole cabin hollow, falsely turning heads, the radio and compass into
+     * solid-volume intersections; the explicit longerons/corners remain
+     * overlap-audited structure. */
+    deckRoll.userData.geometryGate = { overlap: false };
     deckRoll.rotation.x = Math.PI / 2;
     deckRoll.scale.z = 0.5;
     hull.add(deckRoll);
@@ -444,24 +489,32 @@ export class Brushrunner {
      * riveted to. These used to be full-width boxes spanning the cabin. */
     const patchAft = mesh(boxGeo(0.035, 0.62, 1.5), patch, 0.91, 0.34, -1.2);
     patchAft.name = 'fuselage-patch-aft';
+    ownGeometry(patchAft, AIRCRAFT_ASSEMBLY.FUSELAGE);
     g.add(patchAft);
     const patchFwd = mesh(boxGeo(0.035, 0.44, 0.9), patch, -0.91, -0.5, 1.9);
     patchFwd.name = 'fuselage-patch-fwd';
+    ownGeometry(patchFwd, AIRCRAFT_ASSEMBLY.FUSELAGE);
     g.add(patchFwd);
     // Riveted belly strake.
     const strake = mesh(boxGeo(1.5, 0.1, 6.8), metal, 0, -0.99, 0.4);
     strake.name = 'fuselage-belly-strake';
+    ownGeometry(strake, AIRCRAFT_ASSEMBLY.FUSELAGE);
     g.add(strake);
 
     const nose = mesh(cylGeo(0.42, 0.9, 1.5, 14), skin, 0, 0.05, 4.6);
     nose.name = 'nose-cone';
+    ownGeometry(nose, AIRCRAFT_ASSEMBLY.FUSELAGE);
     nose.rotation.x = Math.PI / 2;
     g.add(nose);
-    g.add(mesh(boxGeo(1.62, 1.52, 0.9), skin, 0, 0.05, 3.9));
+    const noseShoulder = mesh(boxGeo(1.62, 1.52, 0.9), skin, 0, 0.05, 3.9);
+    noseShoulder.name = 'nose-shoulder';
+    ownGeometry(noseShoulder, AIRCRAFT_ASSEMBLY.FUSELAGE);
+    g.add(noseShoulder);
     // The shoulder between the nose cone and the cabin, so the join is a
     // fairing rather than a step.
     const noseFairing = mesh(cylGeo(0.9, 1.02, 0.7, 14), skin, 0, 0.05, 3.62);
     noseFairing.name = 'nose-fairing';
+    ownGeometry(noseFairing, AIRCRAFT_ASSEMBLY.FUSELAGE);
     noseFairing.rotation.x = Math.PI / 2;
     g.add(noseFairing);
 
@@ -472,38 +525,53 @@ export class Brushrunner {
      * segment, so it tapers away from the cabin the way a boom should. */
     const boom = mesh(cylGeo(0.28, 0.66, 4.8, 14), skin, 0, 0.16, -4.65);
     boom.name = 'tail-boom';
+    ownGeometry(boom, AIRCRAFT_ASSEMBLY.FUSELAGE);
     boom.rotation.x = Math.PI / 2;
     g.add(boom);
     // Where the boom leaves the cabin, faired rather than butted.
     const boomRoot = mesh(cylGeo(0.66, 0.86, 0.8, 14), skin, 0, 0.16, -2.15);
     boomRoot.name = 'tail-boom-fairing';
+    ownGeometry(boomRoot, AIRCRAFT_ASSEMBLY.FUSELAGE);
     boomRoot.rotation.x = Math.PI / 2;
     g.add(boomRoot);
 
     // ---- Wing: high-mounted, with a slab spar and lift struts ----
     const wing = mesh(boxGeo(AC.span, 0.3, AC.chord), skin, 0, 1.16, 0.5);
+    wing.name = 'main-wing';
+    ownGeometry(wing, AIRCRAFT_ASSEMBLY.WING);
     g.add(wing);
     this.parts.wing = wing;
-    g.add(mesh(boxGeo(AC.span, 0.16, 0.34), trim, 0, 1.3, 0.5));  // spine stripe
+    const wingSpine = mesh(boxGeo(AC.span, 0.16, 0.34), trim, 0, 1.3, 0.5);
+    wingSpine.name = 'main-wing-spine';
+    ownGeometry(wingSpine, AIRCRAFT_ASSEMBLY.WING);
+    g.add(wingSpine);  // spine stripe
     /* Lift struts, wing to fuselage. The old centre-plus-rotation placement
      * had the tilt backwards, so each strut left the wing and arrived at
      * nothing — outboard, below, in clean air. Named endpoints instead: top
      * buried in the wing underside just inboard of the nacelle, bottom in the
      * lower fuselage longeron, both sides. */
     for (const sx of [-1, 1]) {
-      g.add(memberBetween(
+      const strut = memberBetween(
         new THREE.Vector3(sx * 2.45, 1.06, 0.5),
         new THREE.Vector3(sx * 0.9, -0.6, 0.5),
         0.14, 0.4, metal,
-      ));
+      );
+      strut.name = `main-wing-lift-strut-${sx < 0 ? 'starboard' : 'port'}`;
+      ownGeometry(strut, AIRCRAFT_ASSEMBLY.WING);
+      g.add(strut);
     }
 
     // Ailerons and flaps hang off the wing trailing edge.
     this.parts.aileron = [];
     for (const sx of [-1, 1]) {
       const pivot = new THREE.Group();
+      pivot.name = `aileron-${sx < 0 ? 'starboard' : 'port'}`;
+      ownGeometry(pivot, `beefrun.aircraft.control.aileron.${sx < 0 ? 'starboard' : 'port'}`);
       pivot.position.set(sx * 6.4, 1.16, -0.42);
-      const surf = mesh(boxGeo(3.6, 0.16, 0.62), patch, 0, 0, -0.31);
+      // Leave a two-centimetre hinge engagement, not a four-centimetre slab
+      // driven into the wing's trailing edge.
+      const surf = mesh(boxGeo(3.6, 0.16, 0.62), patch, 0, 0, -0.33);
+      supportWitness(surf);
       pivot.add(surf);
       g.add(pivot);
       this.parts.aileron.push(pivot);
@@ -511,9 +579,23 @@ export class Brushrunner {
     this.parts.flap = [];
     for (const sx of [-1, 1]) {
       const pivot = new THREE.Group();
+      pivot.name = `flap-${sx < 0 ? 'starboard' : 'port'}`;
+      ownGeometry(pivot, `beefrun.aircraft.control.flap.${sx < 0 ? 'starboard' : 'port'}`);
       pivot.position.set(sx * 2.6, 1.14, -0.42);
-      const surf = mesh(boxGeo(3.4, 0.15, 0.66), skin, 0, 0, -0.33);
-      pivot.add(surf);
+      /* The engine nacelle occupies the middle of this span. One continuous
+       * flap used to pass straight through it, so cut the moving surface into
+       * the two real panels on either side of the nacelle fairing. */
+      const nacelleLocalX = sx * 0.45;
+      const panelRanges = [
+        [-1.7, nacelleLocalX - 0.66],
+        [nacelleLocalX + 0.66, 1.7],
+      ];
+      panelRanges.forEach(([from, to], index) => {
+        const surf = mesh(boxGeo(to - from, 0.15, 0.66), skin, (from + to) / 2, 0, -0.35);
+        surf.name = `${pivot.name}-panel-${index + 1}`;
+        supportWitness(surf);
+        pivot.add(surf);
+      });
       g.add(pivot);
       this.parts.flap.push(pivot);
     }
@@ -523,8 +605,14 @@ export class Brushrunner {
     for (const sx of [-1, 1]) {
       const pivot = new THREE.Group();
       pivot.name = `air-brake-${sx < 0 ? 'left' : 'right'}`;
-      pivot.position.set(sx * 2.25, 1.33, 0.55);
-      const panel = mesh(boxGeo(2.2, 0.07, 0.52), patch, 0, 0, -0.24);
+      ownGeometry(pivot, `beefrun.aircraft.control.air-brake.${sx < 0 ? 'left' : 'right'}`);
+      // Spoilers live inboard of the engines; the former 2.2 m panels ran
+      // through both nacelle tops.
+      // Keep the closed spoiler aft of the raised wing spine. It still rests
+      // on the wing skin, but no longer passes through the spar cap.
+      pivot.position.set(sx * 1.6, 1.33, 0.14);
+      const panel = mesh(boxGeo(1.4, 0.07, 0.52), patch, 0, 0, -0.24);
+      supportWitness(panel);
       pivot.add(panel);
       g.add(pivot);
       this.parts.airBrake.push(pivot);
@@ -543,17 +631,28 @@ export class Brushrunner {
        * `physics.js` carries the matching moment arm. */
       const sx = i === 0 ? 1 : -1;
       const nx = sx * 3.05;
+      const engineAssembly = AIRCRAFT_ASSEMBLY.WING;
+      const propAssembly = `beefrun.aircraft.propeller.${i === 0 ? 'left' : 'right'}`;
       const nacelle = mesh(boxGeo(1.02, 0.96, 3.3), skin, nx, 1.0, 0.9);
+      nacelle.name = `${i === 0 ? 'left' : 'right'}-engine-nacelle`;
+      ownGeometry(nacelle, engineAssembly);
       g.add(nacelle);
       const cowl = mesh(cylGeo(0.44, 0.5, 0.9, 12), trim, nx, 1.0, 2.55);
+      cowl.name = `${i === 0 ? 'left' : 'right'}-engine-cowl`;
+      ownGeometry(cowl, engineAssembly);
       cowl.rotation.x = Math.PI / 2;
       g.add(cowl);
-      const spinner = mesh(coneGeo(0.26, 0.6, 10), dark, nx, 1.0, 3.14);
+      const spinner = mesh(coneGeo(0.26, 0.6, 10), dark, nx, 1.0, 3.28);
+      spinner.name = `${i === 0 ? 'left' : 'right'}-engine-spinner`;
+      ownGeometry(spinner, propAssembly);
+      supportWitness(spinner);
       spinner.rotation.x = Math.PI / 2;
       g.add(spinner);
 
       const hub = new THREE.Group();
-      hub.position.set(nx, 1.0, 3.06);
+      hub.name = `${i === 0 ? 'left' : 'right'}-engine-propeller`;
+      ownGeometry(hub, propAssembly);
+      hub.position.set(nx, 1.0, 3.1);
       const bladeMat = solid(0x2c2f34, { roughness: 0.55, metalness: 0.4 });
       for (let b = 0; b < 3; b++) {
         const blade = propBlade(bladeMat);
@@ -576,11 +675,15 @@ export class Brushrunner {
         }),
       );
       disc.position.set(nx, 1.0, 3.1);
+      disc.name = `${i === 0 ? 'left' : 'right'}-engine-prop-disc`;
+      ownGeometry(disc, propAssembly);
       g.add(disc);
       this.parts.propDisc.push(disc);
 
       // Exhaust stack, where the smoke comes from.
       const stack = mesh(cylGeo(0.1, 0.1, 0.5, 6), solid(0x3a3a3e, { roughness: 0.9 }), nx + sx * 0.36, 0.62, 1.5);
+      stack.name = `${i === 0 ? 'left' : 'right'}-engine-exhaust`;
+      ownGeometry(stack, engineAssembly);
       stack.rotation.x = Math.PI / 2.2;
       g.add(stack);
       this.parts.exhaust.push(new THREE.Vector3(nx + sx * 0.36, 0.5, 1.2));
@@ -594,24 +697,53 @@ export class Brushrunner {
      * the boom so it grows out of the aeroplane instead of being stuck on it. */
     const fin = mesh(boxGeo(0.13, 2.5, 1.9), skin, 0, 1.6, -6.1);
     fin.name = 'fin';
+    ownGeometry(fin, AIRCRAFT_ASSEMBLY.TAIL);
     g.add(fin);
     const finFillet = mesh(boxGeo(0.12, 0.9, 1.5), skin, 0, 0.6, -5.05);
     finFillet.name = 'fin-dorsal-fillet';
+    ownGeometry(finFillet, AIRCRAFT_ASSEMBLY.TAIL);
     finFillet.rotation.x = -0.42;
     g.add(finFillet);
-    g.add(mesh(boxGeo(0.15, 0.7, 1.0), trim, 0, 2.6, -6.3));
+    const finCap = mesh(boxGeo(0.15, 0.7, 1.0), trim, 0, 2.6, -6.3);
+    finCap.name = 'fin-cap';
+    ownGeometry(finCap, AIRCRAFT_ASSEMBLY.TAIL);
+    g.add(finCap);
     const rudderPivot = new THREE.Group();
+    rudderPivot.name = 'rudder';
+    ownGeometry(rudderPivot, 'beefrun.aircraft.control.rudder');
     rudderPivot.position.set(0, 1.5, -6.9);
-    rudderPivot.add(mesh(boxGeo(0.115, 2.3, 0.9), patch, 0, 0, -0.45));
+    // Two centimetres of hinge engagement keeps the rudder attached without
+    // burying fifteen centimetres of it in the fin and boom.
+    const rudder = mesh(boxGeo(0.115, 2.3, 0.9), patch, 0, 0, -0.58);
+    supportWitness(rudder);
+    rudderPivot.add(rudder);
     g.add(rudderPivot);
     this.parts.rudder = rudderPivot;
 
     const stab = mesh(boxGeo(5.4, 0.12, 1.2), skin, 0, 0.66, -5.9);
     stab.name = 'tailplane';
+    ownGeometry(stab, AIRCRAFT_ASSEMBLY.TAIL);
     g.add(stab);
     const elevPivot = new THREE.Group();
+    elevPivot.name = 'elevator';
+    ownGeometry(elevPivot, 'beefrun.aircraft.control.elevator');
     elevPivot.position.set(0, 0.66, -6.5);
-    elevPivot.add(mesh(boxGeo(5.4, 0.105, 0.7), patch, 0, 0, -0.35));
+    /* Separate elevator halves leave the fin/rudder/boom in the centre. The
+     * former single 5.4 m board crossed all three vertical structures. */
+    // The tapered boom is 1.29 m wide at its broadest audited bounds. Leave
+    // enough daylight for that real structure (and its yawed preview AABB)
+    // instead of merely cutting around the much thinner fin.
+    const elevatorGap = 1.52;
+    const elevatorWidth = (5.4 - elevatorGap) / 2;
+    for (const sx of [-1, 1]) {
+      const elevator = mesh(
+        boxGeo(elevatorWidth, 0.105, 0.7), patch,
+        sx * (elevatorGap / 2 + elevatorWidth / 2), 0, -0.37,
+      );
+      elevator.name = `elevator-${sx < 0 ? 'starboard' : 'port'}-half`;
+      supportWitness(elevator);
+      elevPivot.add(elevator);
+    }
     g.add(elevPivot);
     this.parts.elevator = elevPivot;
 
@@ -621,6 +753,7 @@ export class Brushrunner {
      * a few inches shy of the fuselage. These are visual children only: no
      * collider or flight-model dimensions change. */
     const tailFrame = group('tail-support-frame');
+    ownGeometry(tailFrame, AIRCRAFT_ASSEMBLY.TAIL);
     for (const sx of [-1, 1]) {
       const upper = memberBetween(
         new THREE.Vector3(sx * 2.15, 0.58, -5.72),
@@ -649,6 +782,7 @@ export class Brushrunner {
       for (const z of [1.42, 2.18]) {
         const band = mesh(boxGeo(1.05, 0.99, 0.055), metal, sx * 3.05, 1.0, z);
         band.name = `nacelle-band-${sx < 0 ? 'starboard' : 'port'}-${z < 2 ? 'aft' : 'forward'}`;
+        ownGeometry(band, AIRCRAFT_ASSEMBLY.WING);
         exteriorDetails.add(band);
       }
     }
@@ -658,6 +792,7 @@ export class Brushrunner {
       0.035, 0.035, dark,
     );
     aerial.name = 'vhf-radio-aerial';
+    ownGeometry(aerial, AIRCRAFT_ASSEMBLY.FUSELAGE);
     exteriorDetails.add(aerial);
     g.add(exteriorDetails);
     this.parts.exteriorDetails = exteriorDetails;
@@ -671,6 +806,7 @@ export class Brushrunner {
      * this is silhouette and read only. Kept in its own named group so the
      * exterior checks that count nacelle bands keep counting four. */
     const detail = group('aircraft-hull-detail');
+    ownGeometry(detail, AIRCRAFT_ASSEMBLY.FUSELAGE);
     const rivet = solid(0xb2a88c, { roughness: 0.75, metalness: 0.25 });
     const shadowLine = solid(0xa79b7f, { roughness: 0.9 });
 
@@ -787,12 +923,16 @@ export class Brushrunner {
     // ---- Landing gear: fixed, rugged, and slightly bent ----
     this.parts.gear = [];
     const legSpecs = [
-      { x: 0, z: 2.15, r: 0.34 },
-      { x: -AC.track / 2, z: -0.55, r: 0.46 },
-      { x: AC.track / 2, z: -0.55, r: 0.46 },
+      // A smaller nose tyre clears the keel while keeping the shared ground
+      // datum; both mains move under the wing, clear of the cargo-door bay.
+      { x: 0, z: 2.15, r: 0.18 },
+      { x: -AC.track / 2, z: 0.15, r: 0.46 },
+      { x: AC.track / 2, z: 0.15, r: 0.46 },
     ];
     legSpecs.forEach((spec, i) => {
       const leg = new THREE.Group();
+      leg.name = `landing-gear-${i === 0 ? 'nose' : i === 1 ? 'starboard' : 'port'}`;
+      ownGeometry(leg, `beefrun.aircraft.gear.${i}`);
       /* The wheel hangs 0.7 below the leg origin and then its own radius below
        * that, so the leg has to sit exactly AC.gearY minus both — that is the
        * height the physics holds the CG at, and anything else buries the tyres
@@ -820,6 +960,8 @@ export class Brushrunner {
         ));
       }
       const wheel = mesh(cylGeo(spec.r, spec.r, 0.28, 14), rubber, 0, -0.7 - spec.r * 0.0, 0);
+      wheel.name = `${leg.name}-wheel`;
+      supportWitness(wheel);
       wheel.rotation.z = Math.PI / 2;
       leg.add(wheel);
       const hubCap = mesh(cylGeo(spec.r * 0.4, spec.r * 0.4, 0.3, 8), metal, 0, -0.7, 0);
@@ -831,9 +973,14 @@ export class Brushrunner {
 
     // ---- Cargo door, starboard side aft (-X; the nose is +Z) ----
     const doorPivot = new THREE.Group();
+    doorPivot.name = 'cargo-door';
+    ownGeometry(doorPivot, AIRCRAFT_ASSEMBLY.CARGO_DOOR);
     doorPivot.position.set(-0.93, 0.65, -0.2);
-    const door = mesh(boxGeo(0.08, 1.5, 1.7), patch, 0, -0.75, -0.85);
+    // One centimetre proud of the skin and one centimetre inside each jamb:
+    // a closed leaf, not a slab sharing the opening wall's exact plane.
+    const door = mesh(boxGeo(0.08, 1.5, 1.68), patch, -0.01, -0.75, -0.85);
     door.name = 'cargo-door-leaf';
+    supportWitness(door);
     doorPivot.add(door);
     /* The handle is a fixed mount with a lever inside it. Only the lever turns,
      * because anything that interacts with the handle hangs its reach proxy off
@@ -858,6 +1005,7 @@ export class Brushrunner {
     for (const sx of [-1, 1]) {
       const emblem = flatMesh(new THREE.PlaneGeometry(0.9, 0.9), emblemMat, sx * 0.945, 0.28, 1.28);
       emblem.name = `fuselage-emblem-${sx < 0 ? 'right' : 'left'}`;
+      ownGeometry(emblem, AIRCRAFT_ASSEMBLY.FUSELAGE);
       emblem.rotation.y = sx * Math.PI / 2;
       g.add(emblem);
     }
@@ -865,6 +1013,7 @@ export class Brushrunner {
     // skin rather than a second piece of livery competing with the crest.
     const tally = flatMesh(new THREE.PlaneGeometry(0.78, 0.244), mat({ map: tallyTexture(), roughness: 0.9 }), -0.945, -0.37, 1.32);
     tally.name = 'run-tally';
+    ownGeometry(tally, AIRCRAFT_ASSEMBLY.FUSELAGE);
     tally.rotation.y = -Math.PI / 2;
     g.add(tally);
 
@@ -875,6 +1024,7 @@ export class Brushrunner {
      * his view. */
     const windshield = mesh(boxGeo(1.62, 0.92, 0.1), glassMat, 0, 0.72, 3.42);
     windshield.name = 'windshield';
+    ownGeometry(windshield, AIRCRAFT_ASSEMBLY.FUSELAGE);
     windshield.rotation.x = -0.34;
     windshield.castShadow = false;
     for (const [part, y] of [['sill', -0.46], ['header', 0.46]]) {
@@ -892,10 +1042,12 @@ export class Brushrunner {
     for (const sx of [-1, 1]) {
       const side = mesh(boxGeo(0.06, 0.72, 1.5), glassMat, sx * 0.94, 0.55, 2.5);
       side.name = `cabin-glass-side-${sx < 0 ? 'right' : 'left'}`;
+      ownGeometry(side, AIRCRAFT_ASSEMBLY.FUSELAGE);
       side.castShadow = false;
       g.add(side);
       const port = mesh(boxGeo(0.06, 0.5, 0.6), glassMat, sx * 0.94, 0.45, 0.6);
       port.name = `cabin-glass-quarter-${sx < 0 ? 'right' : 'left'}`;
+      ownGeometry(port, AIRCRAFT_ASSEMBLY.FUSELAGE);
       port.castShadow = false;
       g.add(port);
     }
@@ -904,10 +1056,12 @@ export class Brushrunner {
     this.parts.navLights = [];
     for (const [sx, color] of [[-1, 0xff2a1e], [1, 0x37ff6a]]) {
       const lamp = flatMesh(sphereGeo(0.09), unlit(color), sx * 8.5, 1.16, 0.2);
+      ownGeometry(lamp, AIRCRAFT_ASSEMBLY.WING);
       g.add(lamp);
       this.parts.navLights.push(lamp);
     }
     const beacon = flatMesh(sphereGeo(0.1), unlit(0xff4a2a), 0, 2.9, -6.2);
+    ownGeometry(beacon, AIRCRAFT_ASSEMBLY.TAIL);
     g.add(beacon);
     this.parts.beacon = beacon;
 
@@ -924,20 +1078,28 @@ export class Brushrunner {
 
     this.parts.fuelCap = [];
     for (const sx of [-1, 1]) {
-      g.add(flatMesh(cylGeo(0.30, 0.30, 0.012, 16), placard, sx * 4.4, 1.313, 0.5));
+      const capPlacard = flatMesh(cylGeo(0.30, 0.30, 0.012, 16), placard, sx * 4.4, 1.313, 0.5);
+      ownGeometry(capPlacard, AIRCRAFT_ASSEMBLY.WING);
+      g.add(capPlacard);
       const cap = mesh(cylGeo(0.16, 0.16, 0.07, 10), fuelRed, sx * 4.4, 1.34, 0.5);
+      ownGeometry(cap, AIRCRAFT_ASSEMBLY.WING);
       cap.add(mesh(boxGeo(0.24, 0.022, 0.05), capBar, 0, 0.04, 0));
       g.add(cap);
       this.parts.fuelCap.push(cap);
     }
     for (const sx of [-1, 1]) {
-      g.add(mesh(boxGeo(0.34, 0.06, 0.24), metal, sx * 1.05, -0.55, 1.4));
+      const wingStep = mesh(boxGeo(0.34, 0.06, 0.24), metal, sx * 1.05, -0.55, 1.4);
+      ownGeometry(wingStep, AIRCRAFT_ASSEMBLY.FUSELAGE);
+      g.add(wingStep);
     }
     // Fuel sample drains, under the wing roots.
     this.parts.drain = [];
     for (const sx of [-1, 1]) {
-      g.add(flatMesh(cylGeo(0.15, 0.15, 0.012, 12), placard, sx * 1.4, 1.004, 0.4));
+      const drainPlacard = flatMesh(cylGeo(0.15, 0.15, 0.012, 12), placard, sx * 1.4, 1.004, 0.4);
+      ownGeometry(drainPlacard, AIRCRAFT_ASSEMBLY.WING);
+      g.add(drainPlacard);
       const d = mesh(cylGeo(0.05, 0.05, 0.14, 6), fuelRed, sx * 1.4, 0.99, 0.4);
+      ownGeometry(d, AIRCRAFT_ASSEMBLY.WING);
       g.add(d);
       this.parts.drain.push(d);
     }
@@ -977,6 +1139,7 @@ export class Brushrunner {
     /* The hold floor. The crates already sit at local y -0.86, so this is the
      * surface they have been standing on all along, finally drawn. */
     const floor = group('cargo-floor');
+    ownGeometry(floor, AIRCRAFT_ASSEMBLY.CARGO_FLOOR);
     floor.position.set(0, DECK_Y, 0);
     for (let i = 0; i < 7; i++) {
       const board = mesh(boxGeo(1.66, 0.05, 0.68), i % 2 ? plank : tread, 0, -0.025, HOLD_Z_AFT + 0.34 + i * 0.72);
@@ -993,7 +1156,9 @@ export class Brushrunner {
     // Tie-down rails down each side of the floor, which is what the straps
     // would actually be hooked to.
     for (const sx of [-1, 1]) {
-      const rail = mesh(boxGeo(0.07, 0.05, HOLD_Z_FWD - HOLD_Z_AFT), metal, sx * 0.74, 0.01, (HOLD_Z_FWD + HOLD_Z_AFT) / 2);
+      // Keep the rails outboard of the seat legs and pedal mount instead of
+      // running those fixtures through the tie-down steel.
+      const rail = mesh(boxGeo(0.04, 0.05, HOLD_Z_FWD - HOLD_Z_AFT), metal, sx * 0.8, 0.01, (HOLD_Z_FWD + HOLD_Z_AFT) / 2);
       rail.name = `cargo-tiedown-rail-${sx < 0 ? 'starboard' : 'port'}`;
       floor.add(rail);
     }
@@ -1013,6 +1178,7 @@ export class Brushrunner {
       -0.42, footwellTop - footwellThickness / 2, 2.16,
     );
     footwell.name = 'cockpit-footwell';
+    ownGeometry(footwell, AIRCRAFT_ASSEMBLY.CARGO_FLOOR);
     g.add(footwell);
     const footwellBottom = footwellTop - footwellThickness;
     const footwellLegHeight = footwellBottom - DECK_Y;
@@ -1024,6 +1190,7 @@ export class Brushrunner {
         x, DECK_Y + footwellLegHeight / 2, z,
       );
       leg.name = `cockpit-footwell-leg-${index + 1}`;
+      ownGeometry(leg, AIRCRAFT_ASSEMBLY.CARGO_FLOOR);
       g.add(leg);
     }
     this.parts.cockpitFootwell = footwell;
@@ -1033,15 +1200,18 @@ export class Brushrunner {
      * strip of daylight exactly where a boot crosses the doorway. */
     const threshold = mesh(boxGeo(0.12, 0.07, 1.78), metal, -0.86, DECK_Y, RAMP_Z);
     threshold.name = 'cargo-door-threshold';
+    ownGeometry(threshold, AIRCRAFT_ASSEMBLY.CARGO_FLOOR);
     g.add(threshold);
     this.parts.cargoThreshold = threshold;
 
     /* The ramp. Leaf A hinges on the sill, leaf B on the end of A. */
     const hinge = new THREE.Group();
     hinge.name = 'cargo-ramp';
+    ownGeometry(hinge, AIRCRAFT_ASSEMBLY.CARGO_RAMP);
     hinge.position.set(-0.9, DECK_Y, RAMP_Z);
     const leafA = mesh(boxGeo(RAMP_LEAF, 0.06, 1.34), plank, -RAMP_LEAF / 2, 0, 0);
     leafA.name = 'cargo-ramp-leaf-inner';
+    supportWitness(leafA);
     hinge.add(leafA);
     for (const sx of [-1, 1]) {
       const kerb = mesh(boxGeo(RAMP_LEAF, 0.09, 0.06), metal, -RAMP_LEAF / 2, 0.05, sx * 0.66);
@@ -1329,18 +1499,21 @@ export class Brushrunner {
      * left in the way, which is how it should be. */
     const panel = mesh(boxGeo(1.62, 0.72, 0.1), panelDark, 0, 0.30, 2.86);
     panel.name = 'instrument-panel';
+    ownGeometry(panel, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
+    supportWitness(panel);
     panel.rotation.x = 0.16;
     g.add(panel);
     const panelUnderside = new THREE.Vector3(0, -0.36, 0)
       .applyEuler(panel.rotation)
       .add(panel.position);
     const panelSupportHeight = panelUnderside.y - DECK_Y;
-    for (const [index, x] of [-0.68, 0.68].entries()) {
+    for (const [index, x] of [-0.6, 0.6].entries()) {
       const support = mesh(
         boxGeo(0.07, panelSupportHeight, 0.07), metal,
         x, DECK_Y + panelSupportHeight / 2, panelUnderside.z,
       );
       support.name = `instrument-panel-support-${index + 1}`;
+      ownGeometry(support, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
       g.add(support);
     }
     /* The gauges hang off the panel's own back face, turned to look into the
@@ -1354,6 +1527,7 @@ export class Brushrunner {
     // Glare shield and coaming.
     const coaming = mesh(boxGeo(1.7, 0.1, 0.5), trimMat, 0, 0.70, 2.9);
     coaming.name = 'glare-shield-coaming';
+    ownGeometry(coaming, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     g.add(coaming);
 
     /* A complete radio stack rather than three anonymous green bars: three
@@ -1361,6 +1535,7 @@ export class Brushrunner {
      * switch. It is still decorative, but it now reads as equipment from either
      * seat and the exterior aerial makes the installation make sense. */
     const radio = group('cockpit-radio-stack');
+    ownGeometry(radio, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     /* The raised, shell-clear pilot eye changes the scan angle to this very
      * close panel. Seat the compact stack in the coaming so all three frequency
      * windows remain inside the real 66-degree pilot viewport; the former
@@ -1411,6 +1586,7 @@ export class Brushrunner {
     for (const sx of [-1, 1]) {
       const yokeRoot = new THREE.Group();
       yokeRoot.name = `yoke-${sx === RIGHT ? 'copilot' : 'pilot'}`;
+      ownGeometry(yokeRoot, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
       yokeRoot.position.set(sx * 0.42, 0.3, 2.42);
       const column = mesh(cylGeo(0.045, 0.045, 0.5, 8), metal, 0, 0, 0.2);
       column.rotation.x = Math.PI / 2;
@@ -1431,6 +1607,7 @@ export class Brushrunner {
     for (let i = 0; i < 6; i++) {
       const lever = new THREE.Group();
       lever.name = leverNames[i];
+      ownGeometry(lever, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
       lever.position.set(-0.16 + (i % 2) * 0.09 + Math.floor(i / 2) * 0.14 - 0.06, 0.06, 2.44);
       const shaft = mesh(boxGeo(0.035, 0.24, 0.035), metal, 0, 0.12, 0);
       lever.add(shaft);
@@ -1440,11 +1617,13 @@ export class Brushrunner {
     }
     const engineQuadrant = mesh(boxGeo(0.5, 0.1, 0.5), trimMat, -0.035, 0.02, 2.65);
     engineQuadrant.name = 'engine-control-quadrant';
+    ownGeometry(engineQuadrant, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     g.add(engineQuadrant);
     this.parts.engineQuadrant = engineQuadrant;
     // Flap lever, off to the left of the quadrant.
     const flapLever = new THREE.Group();
     flapLever.name = 'flap-lever';
+    ownGeometry(flapLever, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     flapLever.position.set(-0.34, 0.06, 2.4);
     flapLever.add(mesh(boxGeo(0.04, 0.3, 0.04), metal, 0, 0.15, 0));
     flapLever.add(mesh(boxGeo(0.1, 0.06, 0.1), solid(0xd9d2c4, { roughness: 0.7 }), 0, 0.31, 0));
@@ -1452,6 +1631,7 @@ export class Brushrunner {
     this.parts.flapLever = flapLever;
     const flapQuadrant = mesh(boxGeo(0.14, 0.1, 0.5), trimMat, -0.34, 0.02, 2.65);
     flapQuadrant.name = 'flap-control-quadrant';
+    ownGeometry(flapQuadrant, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     g.add(flapQuadrant);
     this.parts.flapQuadrant = flapQuadrant;
 
@@ -1459,6 +1639,7 @@ export class Brushrunner {
     // Hung just under the cabin roof at 0.97, not through it.
     const compassHousing = mesh(boxGeo(0.16, 0.14, 0.14), panelDark, 0, 0.90, 3.0);
     compassHousing.name = 'compass-housing';
+    ownGeometry(compassHousing, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     g.add(compassHousing);
     const compassCanvas = document.createElement('canvas');
     compassCanvas.width = 256; compassCanvas.height = 64;
@@ -1480,6 +1661,7 @@ export class Brushrunner {
       const pedal = mesh(boxGeo(0.12, 0.04, 0.2), metal, sx * 0.16 + LEFT * 0.42 + PILOT_SEAT_CLEARANCE, -0.42, 2.3);
       const side = sx < 0 ? 'right' : 'left';
       pedal.name = `rudder-pedal-${side}`;
+      ownGeometry(pedal, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
       pedal.rotation.x = 0.5;
       g.add(pedal);
       this.parts.pedal.push(pedal);
@@ -1490,6 +1672,7 @@ export class Brushrunner {
         pedal.position.x, DECK_Y + mountHeight / 2, pedal.position.z,
       );
       mount.name = `rudder-pedal-${side}-mount`;
+      ownGeometry(mount, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
       g.add(mount);
       this.parts.pedalMount.push(mount);
     }
@@ -1509,10 +1692,12 @@ export class Brushrunner {
     const seatRise = 0.39;
     for (const sx of [-1, 1]) {
       const who = sx === RIGHT ? 'copilot' : 'pilot';
+      const seatAssembly = `beefrun.aircraft.cockpit-seat.${who}`;
       const drop = sx === RIGHT ? copilotSeatDrop : 0;
       const clearance = sx === LEFT ? PILOT_SEAT_CLEARANCE : 0;
       const cushion = mesh(boxGeo(0.5, 0.12, 0.5), seatMat, sx * 0.42 + clearance, -0.35 - drop + seatRise, 1.72);
       cushion.name = `${who}-seat-cushion`;
+      ownGeometry(cushion, seatAssembly);
       g.add(cushion);
       /* Four exposed tube legs make the seat's load path visible all the way
        * to the cabin floor. The two rows deliberately straddle adjacent floor
@@ -1527,16 +1712,20 @@ export class Brushrunner {
           cushion.position.x + dx, DECK_Y + legHeight / 2, cushion.position.z + dz,
         );
         leg.name = `${who}-seat-leg-${legIndex + 1}`;
+        ownGeometry(leg, seatAssembly);
+        if (legIndex === 0) supportWitness(leg);
         g.add(leg);
       }
       const back = mesh(boxGeo(0.5, 0.62, 0.12), seatMat, sx * 0.42 + clearance, -0.05 - drop + seatRise, 1.5);
       back.name = `${who}-seat-back`;
+      ownGeometry(back, seatAssembly);
       g.add(back);
     }
 
     // The bobblehead: a sasquatch on a spring, and the honest instrument.
     const bobble = new THREE.Group();
     bobble.name = 'bobblehead';
+    ownGeometry(bobble, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     bobble.position.set(RIGHT * 0.3, 0.70, 2.94);  // stands on the coaming, inboard
     const bobBody = mesh(cylGeo(0.035, 0.045, 0.07, 8), solid(0x6b5a44, { roughness: 1 }), 0, 0.03, 0);
     bobble.add(bobBody);
@@ -1561,6 +1750,7 @@ export class Brushrunner {
       LEFT * 0.63, 0.77, 2.82,
     );
     tammy.name = 'tammy-golden-ak-sticker';
+    ownGeometry(tammy, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     tammy.rotation.y = Math.PI;
     tammy.renderOrder = 2;
     tammy.userData.sourceSlot = 'sticker.fridge';
@@ -1576,6 +1766,7 @@ export class Brushrunner {
         x, y, z,
       );
       m.rotation.x = 0.16;
+      ownGeometry(m, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
       g.add(m);
       return m;
     };
@@ -1585,6 +1776,7 @@ export class Brushrunner {
     // The warning light itself, above its label, over on Sasole's side.
     const concern = flatMesh(boxGeo(0.09, 0.045, 0.02), unlit(0x3a2a10), RIGHT * 0.52, 0.77, 2.82);
     concern.name = 'concern-light';
+    ownGeometry(concern, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     g.add(concern);
     this.parts.concernLight = concern;
 
@@ -1597,11 +1789,13 @@ export class Brushrunner {
       RIGHT * 0.62, 0.2, 2.7,
     );
     map.name = 'nav-map';
+    ownGeometry(map, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     map.rotation.set(0.7, -0.3, 0.12);
     g.add(map);
     for (const [ti, tx] of [-0.14, 0.14].entries()) {
       const tape = flatMesh(new THREE.PlaneGeometry(0.06, 0.05), unlit(0xe8e2c8, { transparent: true, opacity: 0.7 }), RIGHT * 0.62 + tx, 0.29, 2.69);
       tape.name = `nav-map-tape-${ti + 1}`;
+      ownGeometry(tape, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
       tape.rotation.copy(map.rotation);
       g.add(tape);
     }
@@ -1609,6 +1803,7 @@ export class Brushrunner {
     // Cigarette lighter that sometimes has an opinion.
     const lighter = flatMesh(cylGeo(0.02, 0.02, 0.02, 8), unlit(0x2a2a2a), LEFT * 0.6, 0.12, 2.78);
     lighter.name = 'cigarette-lighter';
+    ownGeometry(lighter, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
     lighter.rotation.x = Math.PI / 2 + 0.16;
     g.add(lighter);
     this.parts.lighter = lighter;

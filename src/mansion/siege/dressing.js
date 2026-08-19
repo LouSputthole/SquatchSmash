@@ -167,6 +167,16 @@ export function tippedRestY(floorY, w, h, angle) {
   return floorY + half;
 }
 
+/** Seat an arbitrarily rotated mesh on a horizontal floor using the same
+ * transformed local AABB that the geometry gate audits. */
+function restMeshOnFloor(mesh, floorY) {
+  if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+  mesh.updateMatrix();
+  const bounds = mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix);
+  mesh.position.y += floorY - bounds.min.y;
+  return mesh;
+}
+
 /* ================================================================== */
 /* Palette                                                              */
 /* ================================================================== */
@@ -319,6 +329,7 @@ export function boxCoversXZ(b, x, z, pad = 0) {
 
 /* ================================================================== */
 
+/* GEOMETRY_GATE_SIEGE_DRESSING_JOIN: exact wreck, bag, barricade, worklamp and damage-dressing contacts intentionally meet only their authored paving, rail or support face. */
 export function buildSiegeDressing({
   damage, grounds, interior, smokeSystem = null, registerLight = null,
 } = {}) {
@@ -326,6 +337,10 @@ export function buildSiegeDressing({
 
   const root = new THREE.Group();
   root.name = 'MansionSiegeDressing';
+  function geometryIntent(object, policy) {
+    object.userData.geometryGate = { ...(object.userData.geometryGate ?? {}), ...policy };
+    return object;
+  }
   /** Every Box3 this module builds. Accounting only -- see the file header. */
   const colliders = [];
   /** Fires that need a flicker every frame. */
@@ -385,9 +400,9 @@ export function buildSiegeDressing({
     const puffs = [];
     for (let i = 0; i < count; i++) {
       const material = smokeMaterial(colour, 0);
-      const mesh = named(sphere({
+      const mesh = geometryIntent(named(sphere({
         r: r * 0.55, pos: [0, 0, 0], mat: material, cast: false, receive: false,
-      }), `${name}.puff.${i}`);
+      }), `${name}.puff.${i}`), { overlap: false, checkSupport: false });
       g.add(mesh);
       puffs.push({
         mesh,
@@ -451,13 +466,13 @@ export function buildSiegeDressing({
     ];
     LUMP.forEach((l, i) => {
       const material = flameMaterial(l.c, l.i);
-      const mesh = named(sphere({
+      const mesh = geometryIntent(named(sphere({
         r: l.r * scale,
         pos: [l.x * scale, l.y * scale, l.z * scale],
         mat: material,
         cast: false,
         receive: false,
-      }), `${name}.flame.${i}`);
+      }), `${name}.flame.${i}`), { overlap: false });
       g.add(mesh);
       lumps.push({
         mesh, material, base: l.r * scale, baseIntensity: l.i, seed: i * 2.31,
@@ -561,14 +576,14 @@ export function buildSiegeDressing({
        * hangs its bottom face 13 cm lower, which is how a "bounded" effect
        * ends up in somebody's eyeline. */
       const sy = Math.max(lowest + SLAB_T / 2 + SLAB_DRIFT, y - i * 0.34);
-      const mesh = box({
+      const mesh = geometryIntent(box({
         name: `${name}.layer.${i}`,
         size: [w * (1 - i * 0.16), SLAB_T, d * (1 - i * 0.16)],
         pos: [0, sy - y, 0],
         mat: material,
         cast: false,
         receive: false,
-      });
+      }), { overlap: false, checkSupport: false });
       g.add(mesh);
       slabs.push({ mesh, material, seed: i * 2.9, home: sy - y });
     }
@@ -604,7 +619,7 @@ export function buildSiegeDressing({
   function impacts({
     x, y, z, axis, name, count = 7, spread = 1.1, drop = 0.42, seed = 0,
   }) {
-    const g = group(name);
+    const g = geometryIntent(group(name), { overlap: false });
     for (let i = 0; i < count; i++) {
       const t = (i + 1) / (count + 1);
       const jitter = ((i * 41 + seed * 17) % 100) / 100 - 0.5;
@@ -647,6 +662,8 @@ export function buildSiegeDressing({
 
   /** The turnaround's paved edge, so a spot can be checked against it. */
   const COURT = { x: COURT_CENTRE.x, z: COURT_CENTRE.z, r: COURT_RADIUS };
+  /** Top of the authored driveway pavers; vehicle roots are tyre-contact datums. */
+  const DRIVEWAY_SURFACE_Y = 0.05;
 
   /* Every one of these was measured against the base house's own colliders --
    * the fountain basin, the two cars already parked at (+/-11, 30), the
@@ -723,10 +740,12 @@ export function buildSiegeDressing({
   for (const spot of WRECK_SPOTS) {
     const car = makeCar(spot.kind, spot.colour, { dented: true });
     car.group.name = `siege.wreck.${spot.id}`;
-    car.group.position.set(spot.x, 0, spot.z);
+    car.group.position.set(spot.x, DRIVEWAY_SURFACE_Y, spot.z);
     car.group.rotation.y = spot.yaw;
 
-    const wrap = group(`siege.wreck.${spot.id}.group`);
+    const wrap = geometryIntent(group(`siege.wreck.${spot.id}.group`), {
+      assemblyId: `siege-wreck-${spot.id}`,
+    });
     wrap.add(car.group);
 
     /* Damage passes. Materials are ASSIGNED, never mutated: build.js shares a
@@ -777,13 +796,13 @@ export function buildSiegeDressing({
         }
       }
       /* Scorch on the ground under it, lifted clear of the paving. */
-      wrap.add(box({
+      wrap.add(geometryIntent(box({
         name: `siege.wreck.${spot.id}.scorch`,
         size: [s.L + 2.4, 0.014, s.W + 2.2],
         pos: [spot.x, 0.05, spot.z],
         mat: M_SCORCH,
         cast: false,
-      }));
+      }), { overlap: false }));
     } else {
       /* Abandoned, not wrecked: a door swung open and a bag dropped beside it.
        * The read at thirty metres is "somebody left in a hurry", which is a
@@ -799,13 +818,15 @@ export function buildSiegeDressing({
       wrap.add(box({
         name: `siege.wreck.${spot.id}.bag`,
         size: [0.46, 0.26, 0.3],
-        pos: [spot.x - Math.sin(spot.yaw) * 1.2, 0.13, spot.z - Math.cos(spot.yaw) * 1.2],
+        pos: [spot.x - Math.sin(spot.yaw) * 1.2, DRIVEWAY_SURFACE_Y + 0.13, spot.z - Math.cos(spot.yaw) * 1.2],
         mat: M_FABRIC_BURNT,
         rotY: spot.yaw + 0.4,
       }));
     }
 
     const hullBox = makeVehicleCollider(car);
+    // makeVehicleCollider intentionally derives only X/Z from the car transform.
+    hullBox.translate(new THREE.Vector3(0, DRIVEWAY_SURFACE_Y, 0));
     const entry = {
       id: spot.id,
       spot,
@@ -822,7 +843,7 @@ export function buildSiegeDressing({
       const s = car.shape;
       entry.fire = makeFire({
         x: spot.x + Math.cos(spot.yaw) * 1.1,
-        y: s.wheelR + s.bodyH - 0.1,
+        y: DRIVEWAY_SURFACE_Y + s.wheelR + s.bodyH - 0.1,
         z: spot.z - Math.sin(spot.yaw) * 1.1,
         name: `siege.fire.wreck.${spot.id}`,
         scale: 1.5,
@@ -849,7 +870,9 @@ export function buildSiegeDressing({
   /* base house's own statue at x=5.6 and hard against the x=8.85 partition. */
   /* There is no extinguisher mechanic and it never spreads.                 */
   /* ================================================================== */
-  const foyerFireGroup = group('siege.fire.foyer');
+  const foyerFireGroup = geometryIntent(group('siege.fire.foyer'), {
+    assemblyId: 'siege-fire-foyer',
+  });
   {
     const a = SIEGE_ANCHORS.foyerFire;
     /* The console, on its side, one leg snapped. */
@@ -888,21 +911,21 @@ export function buildSiegeDressing({
       mat: M_FABRIC_BURNT,
       cast: false,
     }));
-    foyerFireGroup.add(box({
+    foyerFireGroup.add(geometryIntent(box({
       name: 'siege.fire.foyer.scorch',
       size: [2.4, 0.012, 2.6],
       pos: [a.x, GY + 0.035, a.z],
       mat: M_SCORCH,
       cast: false,
-    }));
+    }), { overlap: false }));
     /* Soot fanning up the partition above it. */
-    foyerFireGroup.add(box({
+    foyerFireGroup.add(geometryIntent(box({
       name: 'siege.fire.foyer.soot',
       size: [0.012, 2.6, 2.0],
       pos: [FOYER.x1 - 0.012, GY + 2.2, a.z + 0.1],
       mat: M_SOOT,
       cast: false,
-    }));
+    }), { overlap: false }));
     const fire = makeFire({
       x: a.x,
       y: GY + 0.05,
@@ -997,7 +1020,9 @@ export function buildSiegeDressing({
      * the sheared pedestal, the urn on its side, the arrangement spilled
      * across the inlay. Every material is opaque; the only dust left is a
      * knee-high skirt over the debris, where dust actually settles. */
-    const g = group('siege.centrepiece.wreck');
+    const g = geometryIntent(group('siege.centrepiece.wreck'), {
+      assemblyId: 'siege-centrepiece-wreck',
+    });
     /* The pedestal's marble base, still seated on the inlay. */
     g.add(named(cylinder({
       rTop: 0.62, rBottom: 0.78, h: 0.12, pos: [a.x, GY + 0.06, a.z], mat: M_MARBLE_BROKEN,
@@ -1007,26 +1032,29 @@ export function buildSiegeDressing({
       rTop: 0.3, rBottom: 0.42, h: 0.34, pos: [a.x, GY + 0.29, a.z], mat: M_WOOD_SPLIT,
     }), 'siege.centrepiece.stump'));
     /* ...with the rest of it thrown down beside the base. */
-    g.add(named(cylinder({
+    const fallenColumn = named(cylinder({
       rTop: 0.28, rBottom: 0.3, h: 0.42,
       pos: [a.x + 0.62, GY + 0.16, a.z - 0.72], mat: M_WOOD_SPLIT,
       rotZ: Math.PI / 2 - 0.12, rotY: 0.5,
-    }), 'siege.centrepiece.column'));
+    }), 'siege.centrepiece.column');
+    g.add(restMeshOnFloor(fallenColumn, GY));
     /* THE TABLETOP: the 2.7 m marble disc slid off and tipped, one rim on
      * the floor, the other resting across the pedestal's base. It stays
      * inside the crouch-cover line and (near enough) the cover collider's
      * footprint. This is the piece that names the wreck -- one look says
      * "that was the table". */
-    g.add(named(cylinder({
+    const fallenTop = named(cylinder({
       r: 1.35, h: 0.09, pos: [a.x + 0.15, GY + 0.3, a.z + 0.55],
       mat: M_MARBLE_BROKEN, rotZ: 0.26, rotY: 0.3, seg: 28,
-    }), 'siege.centrepiece.top'));
+    }), 'siege.centrepiece.top');
+    g.add(restMeshOnFloor(fallenTop, GY));
     /* The urn, on its side where it rolled, mouth toward the door. */
-    g.add(named(cylinder({
+    const fallenUrn = named(cylinder({
       rTop: 0.34, rBottom: 0.2, h: 0.44,
       pos: [a.x - 1.02, GY + 0.28, a.z - 0.58], mat: M_BRASS,
       rotZ: Math.PI / 2 - 0.08, rotY: 0.35,
-    }), 'siege.centrepiece.urn'));
+    }), 'siege.centrepiece.urn');
+    g.add(restMeshOnFloor(fallenUrn, GY));
     /* The arrangement, spilled out of it: blooms in an arc from the mouth,
      * a few leaves. Deterministic golden-angle scatter, same as it grew. */
     for (let i = 0; i < 12; i++) {
@@ -1145,7 +1173,14 @@ export function buildSiegeDressing({
     const g = group(`siege.architecture.${name}`);
     populate(g);
     let markCount = 0;
-    g.traverse((object) => { if (object.isMesh) markCount += 1; });
+    g.traverse((object) => {
+      if (!object.isMesh) return;
+      markCount += 1;
+      /* Each leaf is a decal-like impact or floor scar authored millimetres
+       * proud of existing architecture. Keep the exemption leaf-local so a
+       * whole route-scale damage overlay can never become gate-invisible. */
+      geometryIntent(object, { checkSupport: false, overlap: false });
+    });
     architecture.group.add(g);
     const zone = { group: g, markCount };
     architecture.zones[name] = zone;
@@ -1247,7 +1282,7 @@ export function buildSiegeDressing({
   };
 
   function defenceStation(name, role, anchor, populate) {
-    const g = group(`siege.station.${name}`);
+    const g = geometryIntent(group(`siege.station.${name}`), { assemblyId: `siege-station-${name}` });
     populate(g);
     nameSubtree(g, `siege.station.${name}`);
     let meshCount = 0;
@@ -1328,35 +1363,37 @@ export function buildSiegeDressing({
     }), 'siege.station.radio.antenna'));
   });
 
-  defenceStation('triage', 'triage', { x: 3.85, y: UY, z: 50.65 }, (g) => {
+  const TRIAGE_X = 4.5;
+  defenceStation('triage', 'triage', { x: TRIAGE_X, y: UY, z: 50.65 }, (g) => {
     /* Gratin's open field case on the east gallery flank, beside his authored
-     * position and outside the firing step. It used to occupy the exact floor
-     * footprint of the +3.4 gallery plant. */
+     * position and outside the firing step. Its 65 cm east offset keeps the
+     * open lid clear of both the wounded man's full prone pose and the +3.4
+     * gallery plant. */
     g.add(box({
       name: 'siege.station.triage.case',
-      size: [1.0, 0.28, 0.56], pos: [3.85, UY + 0.14, 50.65], mat: M_RADIO,
+      size: [1.0, 0.28, 0.56], pos: [TRIAGE_X, UY + 0.14, 50.65], mat: M_RADIO,
     }));
     g.add(box({
       name: 'siege.station.triage.lid',
-      size: [1.0, 0.06, 0.55], pos: [3.85, UY + 0.58, 50.92], mat: M_RADIO, rotX: -0.18,
+      size: [1.0, 0.06, 0.55], pos: [TRIAGE_X, UY + 0.58, 50.92], mat: M_RADIO, rotX: -0.18,
     }));
     g.add(box({
       name: 'siege.station.triage.cross.h',
-      size: [0.34, 0.025, 0.1], pos: [3.85, UY + 0.62, 50.64], mat: M_MARKER_RED, cast: false,
+      size: [0.34, 0.025, 0.1], pos: [TRIAGE_X, UY + 0.62, 50.64], mat: M_MARKER_RED, cast: false,
     }));
     g.add(box({
       name: 'siege.station.triage.cross.v',
-      size: [0.1, 0.025, 0.34], pos: [3.85, UY + 0.62, 50.64], mat: M_MARKER_RED, cast: false,
+      size: [0.1, 0.025, 0.34], pos: [TRIAGE_X, UY + 0.62, 50.64], mat: M_MARKER_RED, cast: false,
     }));
     for (let i = 0; i < 4; i++) {
       g.add(named(cylinder({
-        r: 0.055, h: 0.22, pos: [3.55 + i * 0.2, UY + 0.36, 50.52],
+        r: 0.055, h: 0.22, pos: [TRIAGE_X - 0.3 + i * 0.2, UY + 0.36, 50.52],
         mat: M_MEDICAL, rotZ: Math.PI / 2, cast: false,
       }), `siege.station.triage.bandage.${i}`));
     }
     g.add(box({
       name: 'siege.station.triage.dressing',
-      size: [0.42, 0.07, 0.32], pos: [4.15, UY + 0.34, 50.55], mat: M_MEDICAL, cast: false,
+      size: [0.42, 0.07, 0.32], pos: [TRIAGE_X + 0.3, UY + 0.34, 50.55], mat: M_MEDICAL, cast: false,
     }));
   });
 
@@ -1394,7 +1431,9 @@ export function buildSiegeDressing({
    * figures without changing the room exposure or adding another floor prop.
    * Its battery is the stand: the base sits directly on the already-solid
    * console, so this battle-only layer still owns no navigation collider. */
-  const taskFloodGroup = group('siege.gallery.task-flood');
+  const taskFloodGroup = geometryIntent(group('siege.gallery.task-flood'), {
+    assemblyId: 'siege-gallery-task-flood',
+  });
   taskFloodGroup.add(box({
     name: 'siege.gallery.task-flood.battery',
     size: [0.44, 0.22, 0.26], pos: [0, 0.11, 0], mat: M_RADIO,
@@ -1420,13 +1459,15 @@ export function buildSiegeDressing({
   const taskFloodLight = addLight(new THREE.PointLight(0xffdfaa, 18, 10, 2));
   taskFloodLight.position.set(0, 0.38, -0.14);
   taskFloodGroup.add(taskFloodLight);
-  taskFloodGroup.position.set(5.2, UY + 0.84, 52.44);
+  /* The console's bronze urn occupies x 4.96..5.44. Put the battery on the
+   * same support top, but in the clear west half of the console. */
+  taskFloodGroup.position.set(4.65, UY + 0.84, 52.44);
   nameSubtree(taskFloodGroup, 'siege.gallery.task-flood');
   defenceStations.group.add(taskFloodGroup);
   defenceStations.taskFlood = {
     group: taskFloodGroup,
     light: taskFloodLight,
-    support: Object.freeze({ x: 5.2, y: UY + 0.84, z: 52.44 }),
+    support: Object.freeze({ x: 4.65, y: UY + 0.84, z: 52.44 }),
   };
 
   enrol('siege.stations', defenceStations.group);
@@ -1446,7 +1487,7 @@ export function buildSiegeDressing({
   /* ================================================================== */
   const cellarBody = {};
   {
-    const g = group('siege.body.guard');
+    const g = geometryIntent(group('siege.body.guard'), { assemblyId: 'siege-body-guard-tableau' });
     /* The couch. Back to the wall at z=67.32 (the dado's inner face), seat
      * front at 66.70 -- 0.20 m clear of the walking lane. `siege.cellarBody`
      * is its anchor and the couch is built around it. */
@@ -1525,6 +1566,7 @@ export function buildSiegeDressing({
     resettle(guard, SEAT_Y);
     guard.update(0, { fear: 0 });
     nameSubtree(guard.root, 'siege.body.guard.figure');
+    geometryIntent(guard.root, { assemblyId: 'siege-body-guard-tableau' });
     g.add(guard.root);
 
     /* His weapon, dropped where his hand let go of it. Built LYING DOWN, every
@@ -1623,7 +1665,7 @@ export function buildSiegeDressing({
   const foyerBody = {};
   {
     const a = SIEGE_ANCHORS.foyerBody;
-    const g = group('siege.body.performer');
+    const g = geometryIntent(group('siege.body.performer'), { assemblyId: 'siege-body-performer-tableau' });
     const HER_ROLL = -0.58;
     const her = new HeistFigure({
       name: 'siege.body.performer.figure',
@@ -1655,6 +1697,7 @@ export function buildSiegeDressing({
     her.fallen({ roll: HER_ROLL });
     her.update(0, { fear: 0 });
     nameSubtree(her.root, 'siege.body.performer.figure');
+    geometryIntent(her.root, { assemblyId: 'siege-body-performer-tableau' });
     g.add(her.root);
 
     /* The glass, on its side where it rolled out of her hand. */
@@ -1891,7 +1934,7 @@ export function buildSiegeDressing({
     lamp.add(named(sphere({
       r: 0.045, pos: [1.02, 0.2, 0.1], mat: M_ASH,
     }), 'siege.debris.foyer.lamp.bulb'));
-    lamp.position.set(-7.6, GY, 51.2);
+    lamp.position.set(-8.15, GY, 51.2);
     lamp.rotation.y = 1.9;
     g.add(lamp);
     /* Casings, in the two places the fight actually happens: across the middle
@@ -1923,8 +1966,10 @@ export function buildSiegeDressing({
   /* -- The cellar corridor: casings, a knocked-over bin, ceiling haze. --- */
   {
     const g = group('siege.debris.cellar');
-    g.add(casings('siege.debris.cellar.casings.west', -6.2, 65.9, BY, 26, 2.0));
-    g.add(casings('siege.debris.cellar.casings.east', 7.8, 65.9, BY, 22, 1.8));
+    /* Keep the deterministic scatter inside the 3.1 m corridor. The old
+     * 2.0/1.8 m radii planted four complete cases inside its end walls. */
+    g.add(casings('siege.debris.cellar.casings.west', -6.2, 65.9, BY, 26, 1.45));
+    g.add(casings('siege.debris.cellar.casings.east', 7.8, 65.9, BY, 22, 1.45));
     /* A service bin over on its side against the SOUTH wall, beside the base
      * house's own bench. Nothing here crosses CORRIDOR_NAV. */
     const bin = group('siege.debris.cellar.bin');
@@ -2017,7 +2062,9 @@ export function buildSiegeDressing({
      * one, so it is cover you use rather than a wall you are behind. The
      * 2.7 m gap between them is the bit of rail you actually shoot from. */
     for (const sx of [-1, 1]) {
-      const stack = group('siege.step.sandbags');
+      const stack = geometryIntent(group('siege.step.sandbags'), {
+        assemblyId: `siege-step-sandbags-${sx < 0 ? 'west' : 'east'}`,
+      });
       const rows = [
         [0.00, 5, 0.92], [0.19, 4, 0.80], [0.38, 3, 0.62],
       ];
@@ -2050,7 +2097,7 @@ export function buildSiegeDressing({
     /* -- The ammunition point, at the bay's north-west shoulder. ---------
      * Two crates, one open with belts hanging out of it, one closed and used
      * as a table. It is the thing Gratin has been handing magazines out of. */
-    const ammo = group('siege.step.ammo');
+    const ammo = geometryIntent(group('siege.step.ammo'), { assemblyId: 'siege-step-ammo' });
     ammo.add(box({
       name: 'siege.step.ammo.crate.low',
       size: [0.86, 0.44, 0.58], pos: [0, 0.22, 0], mat: M_WOOD_SPLIT,
@@ -2079,10 +2126,12 @@ export function buildSiegeDressing({
           size: [0.07, 0.05, 0.3], pos: [bx, by, bz], mat: M_BRASS, rotZ: roll, rotY: 0.4, cast: false,
         }));
       });
-    ammo.position.set(-2.25, UY, 46.3);
+    /* North 150 mm from the west sandbag stack: the original crate corners
+     * entered seven bags by as much as 90 mm. */
+    ammo.position.set(-2.25, UY, 46.45);
     ammo.rotation.y = 0.42;
     g.add(ammo);
-    boxes.push(hull(-2.85, UY, 45.9, -1.65, UY + 1.05, 46.75));
+    boxes.push(hull(-2.85, UY, 46.05, -1.65, UY + 1.05, 46.90));
 
     /* -- The work lamp. -------------------------------------------------
      * Warm, and the only warm light on this floor once the alarm is going:
@@ -2090,7 +2139,9 @@ export function buildSiegeDressing({
      * over the place the mission wants you. It is clamped to the gallery
      * rail rather than free-standing, which is both how a work lamp gets
      * onto a balcony and why nothing is under it. */
-    const lampGroup = group('siege.step.worklamp');
+    const lampGroup = geometryIntent(group('siege.step.worklamp'), {
+      assemblyId: 'siege-step-worklamp',
+    });
     lampGroup.add(named(cylinder({
       r: 0.035, h: 1.45, pos: [0, 0.72, 0], mat: M_WORKLAMP_SAFETY,
     }), 'siege.step.worklamp.post'));
@@ -2116,10 +2167,10 @@ export function buildSiegeDressing({
     const worklamp = addLight(new THREE.PointLight(0xffd08a, 24, 16, 2));
     worklamp.position.set(0.22, 1.34, 0);
     lampGroup.add(worklamp);
-    /* Seat the clamp around the east gallery-edge baluster beside the two
-     * LITTLE_FRIEND posts. This keeps the practical on real rail hardware
-     * while putting its inverse-square throw where the tableau actually is. */
-    lampGroup.position.set(5.083, UY, 48);
+    /* Seat the clamp around an interior east gallery-edge baluster beside the
+     * LITTLE_FRIEND posts. The former end bay put the tilted shade through
+     * the east newel finial; one bay in keeps every housing part clear. */
+    lampGroup.position.set(4.726, UY, 48);
     g.add(lampGroup);
 
     /* Casings, so the step reads as somewhere that has been used rather than

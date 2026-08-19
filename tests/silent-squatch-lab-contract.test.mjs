@@ -46,10 +46,12 @@ const {
 } = await import('../src/mansion/scenes/SilentSquatch.js');
 const { BLOOD_MARK_NAME, BLOOD_POOL_NAME } = await import('../src/world/blood.js');
 const { createContractLab } = await import('../src/mansion/mission/contract-lab.js');
-const { createSilentSquatchMission } = await import('../src/mansion/mission/SilentSquatchMission.js');
+const {
+  createSilentSquatchMission, COLLAPSE_ORDER,
+} = await import('../src/mansion/mission/SilentSquatchMission.js');
 const { mountSilentSquatch } = await import('../src/mansion/mission/mount.js');
 const { S } = await import('../src/mansion/mission/SilentSquatchStateMachine.js');
-const { SEQUENCES, gainForVoice } = await import('../src/mansion/script.js');
+const { SEQUENCES, SCIENTIST_INDEX, gainForVoice } = await import('../src/mansion/script.js');
 
 /** Build it once — it is ~200 ms and ~15 MB, and nothing here mutates shared state. */
 function realLab() {
@@ -270,6 +272,136 @@ test('every fatal Mansion laboratory figure leaves exactly one shared floor pool
   assert.ok(built.lab.xxx.fatalMarks.every((mark) => mark.userData.reusableSystem === 'blood'));
 });
 
+test('collapsed laboratory scientists finish on the epoxy instead of below it', () => {
+  const built = buildSilentSquatch();
+  for (const scientist of built.lab.scientists) scientist.collapse();
+  for (let i = 0; i < 120; i++) built.update(1 / 60);
+  built.root.updateMatrixWorld(true);
+
+  for (const scientist of built.lab.scientists) {
+    const bounds = new THREE.Box3().setFromObject(scientist.fig.group);
+    assert.ok(Math.abs(bounds.min.y - built.lab.datums.LAB_FLOOR) <= 1e-5,
+      `scientist ${scientist.index} ends ${bounds.min.y - built.lab.datums.LAB_FLOOR} m off the epoxy`);
+  }
+});
+
+test('panicking laboratory scientists take distinct glass lanes instead of converging', () => {
+  const built = buildSilentSquatch();
+  const trapped = built.lab.scientists.slice(1);
+  for (const scientist of trapped) scientist.panic();
+  for (let i = 0; i < 60 * 15; i++) built.update(1 / 60);
+  built.root.updateMatrixWorld(true);
+
+  for (const scientist of trapped) {
+    assert.ok(Math.abs(scientist.position.x - scientist.lane) <= 0.02,
+      `scientist ${scientist.index} missed his authored glass lane`);
+  }
+  const bounds = trapped.map((scientist) => new THREE.Box3().setFromObject(scientist.object));
+  const faults = [];
+  for (let a = 0; a < bounds.length; a++) {
+    for (let b = a + 1; b < bounds.length; b++) {
+      const depth = Math.min(
+        Math.min(bounds[a].max.x, bounds[b].max.x) - Math.max(bounds[a].min.x, bounds[b].min.x),
+        Math.min(bounds[a].max.y, bounds[b].max.y) - Math.max(bounds[a].min.y, bounds[b].min.y),
+        Math.min(bounds[a].max.z, bounds[b].max.z) - Math.max(bounds[a].min.z, bounds[b].min.z),
+      );
+      if (depth > 0.03) faults.push(`${trapped[a].index}/${trapped[b].index}: ${depth.toFixed(3)} m`);
+    }
+  }
+  assert.deepEqual(faults, [], `panic lanes interpenetrate: ${faults.join('; ')}`);
+});
+
+test('the Silent Night collapse order leaves separate bodies clear of glass-side fixtures', () => {
+  const built = buildSilentSquatch();
+  const trapped = built.lab.scientists.slice(1);
+  for (const scientist of trapped) scientist.panic();
+  for (let i = 0; i < 60 * 15; i++) built.update(1 / 60);
+  built.lab.scientists[SCIENTIST_INDEX.SOKOLOV].chairStrike();
+  for (let i = 0; i < 120; i++) built.update(1 / 60);
+  for (const index of COLLAPSE_ORDER) {
+    built.lab.scientists[index].collapse();
+    for (let i = 0; i < 66; i++) built.update(1 / 60);
+  }
+  for (let i = 0; i < 90; i++) built.update(1 / 60);
+  built.root.updateMatrixWorld(true);
+
+  const meshesOf = (root) => {
+    const meshes = [];
+    root.traverse((object) => { if (object.isMesh && object.visible) meshes.push(object); });
+    return meshes;
+  };
+  const bodyMeshes = trapped.map((scientist) => meshesOf(scientist.object));
+  const fixtureMeshes = [];
+  built.root.traverse((object) => {
+    if (!object.isMesh || !object.visible) return;
+    let cursor = object;
+    let token = '';
+    while (cursor && cursor !== built.root) {
+      token += ` ${cursor.name ?? ''} ${cursor.userData.geometryGate?.assemblyId ?? ''}`;
+      cursor = cursor.parent;
+    }
+    if (/(?:ss-glass-door|ss-door-lock|ss-reinforced-glass|ss-glass-plinth|silent-glass-light-|silent-cable-service-|squatchanium-container|ss-lab-chair)/.test(token)) {
+      fixtureMeshes.push(object);
+    }
+  });
+
+  const depth = (left, right) => {
+    const a = new THREE.Box3().setFromObject(left);
+    const b = new THREE.Box3().setFromObject(right);
+    return Math.min(
+      Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x),
+      Math.min(a.max.y, b.max.y) - Math.max(a.min.y, b.min.y),
+      Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z),
+    );
+  };
+  const faults = [];
+  for (let a = 0; a < bodyMeshes.length; a++) {
+    for (let b = a + 1; b < bodyMeshes.length; b++) {
+      for (const left of bodyMeshes[a]) for (const right of bodyMeshes[b]) {
+        const amount = depth(left, right);
+        if (amount > 0.03) faults.push(`scientists ${trapped[a].index}/${trapped[b].index}: ${amount.toFixed(3)} m`);
+      }
+    }
+    for (const body of bodyMeshes[a]) for (const fixture of fixtureMeshes) {
+      const amount = depth(body, fixture);
+      if (amount > 0.03) faults.push(`scientist ${trapped[a].index}/${fixture.name || 'fixture'}: ${amount.toFixed(3)} m`);
+    }
+  }
+  assert.deepEqual(faults, [], faults.slice(0, 20).join('; '));
+});
+
+test('the glass-strike chair rebounds into the aisle without rotating through the lab floor', () => {
+  const built = buildSilentSquatch();
+  const chair = built.root.getObjectByName('ss-lab-chair');
+  assert.ok(chair, 'the physical lab chair is missing');
+  built.lab.scientists[SCIENTIST_INDEX.SOKOLOV].chairStrike();
+  for (let i = 0; i < 120; i++) built.update(1 / 60);
+  built.root.updateMatrixWorld(true);
+
+  const bounds = new THREE.Box3().setFromObject(chair);
+  assert.ok(built.lab.inventory.chairBent > 0.99, 'the scripted chair strike never reached its bent pose');
+  assert.ok(Math.abs(bounds.min.y - built.lab.datums.LAB_FLOOR) < 0.001,
+    `bent chair foot drifted ${(bounds.min.y - built.lab.datums.LAB_FLOOR).toFixed(4)} m from the lab floor`);
+});
+
+test('laboratory handprints sit on the lab-side face of the glass', () => {
+  const built = buildSilentSquatch();
+  const scientist = built.lab.scientists[0];
+  scientist.handprint();
+  built.root.updateMatrixWorld(true);
+  const handprint = built.root.getObjectByName('ss-handprint');
+  assert.ok(handprint, 'scientist handprint was not mounted');
+  const paneLabFace = (GLASS_WALL.z0 + GLASS_WALL.z1) / 2 - 0.07;
+  assert.ok(Math.abs(handprint.getWorldPosition(new THREE.Vector3()).z - (paneLabFace - 0.001)) <= 1e-6,
+    'handprint is not one millimetre off the lab-side pane face');
+  assert.deepEqual(handprint.userData.geometryGate, {
+    assemblyId: 'silent-handprint-0',
+    checkSupport: false,
+    fixedSupportAnchor: true,
+    checkWallEmbed: false,
+  });
+});
+
 test('xXx proxy hits attach to his moving body and leave only one shared pool', () => {
   const built = buildSilentSquatch();
   built.root.updateMatrixWorld(true);
@@ -325,12 +457,239 @@ test('the top stair camera optical axis points down the flight in world space', 
     `stair camera optical axis misses the flight (dot ${optical.dot(wanted).toFixed(3)})`);
 });
 
+test('the continuous stair service pipe clears the stepped soffit and stays connected', () => {
+  const built = buildSilentSquatch();
+  built.root.updateMatrixWorld(true);
+  const segments = [];
+  const couplings = [];
+  const hangers = [];
+  const stairShell = [];
+  built.root.traverse((object) => {
+    if (/^ss-stair-pipe-\d+$/.test(object.name)) segments.push(object);
+    if (/^ss-stair-pipe-coupling-\d+$/.test(object.name)) couplings.push(object);
+    if (object.name === 'ss-stair-pipe-hanger') hangers.push(object);
+    if (['ss-stair-soffit', 'ss-stair-soffit-riser'].includes(object.name)) stairShell.push(object);
+  });
+  assert.equal(segments.length, 5);
+  assert.equal(couplings.length, 4);
+  assert.equal(hangers.length, 5);
+  for (const object of [...segments, ...couplings, ...hangers]) {
+    assert.equal(object.userData.geometryGate?.assemblyId, 'silent-stair-service-pipe');
+  }
+
+  const byZ = (left, right) => new THREE.Box3().setFromObject(left).min.z
+    - new THREE.Box3().setFromObject(right).min.z;
+  segments.sort(byZ);
+  couplings.sort(byZ);
+  for (let i = 0; i < couplings.length; i++) {
+    const joint = new THREE.Box3().setFromObject(couplings[i]);
+    assert.equal(joint.intersectsBox(new THREE.Box3().setFromObject(segments[i])), true,
+      `pipe coupling ${i} misses its lower segment`);
+    assert.equal(joint.intersectsBox(new THREE.Box3().setFromObject(segments[i + 1])), true,
+      `pipe coupling ${i} misses its upper segment`);
+  }
+
+  const faults = [];
+  for (const pipe of [...segments, ...couplings]) {
+    const a = new THREE.Box3().setFromObject(pipe);
+    for (const shell of stairShell) {
+      const b = new THREE.Box3().setFromObject(shell);
+      const depth = Math.min(
+        Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x),
+        Math.min(a.max.y, b.max.y) - Math.max(a.min.y, b.min.y),
+        Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z),
+      );
+      if (depth > 0.03) faults.push(`${pipe.name} enters ${shell.name} by ${depth.toFixed(3)} m`);
+    }
+  }
+  assert.deepEqual(faults, [], faults.join('; '));
+});
+
+test('cable bundles pass through framed plinth sleeves instead of solid glass', () => {
+  const built = buildSilentSquatch();
+  built.root.updateMatrixWorld(true);
+  const bundles = [];
+  const drops = [];
+  const looseRuns = [];
+  const ducts = [];
+  const glassLightMeshes = [];
+  built.root.traverse((object) => {
+    if (/^ss-cable-bundle-\d+$/.test(object.name)) bundles.push(object);
+    if (/^ss-cable-drop-\d+$/.test(object.name)) drops.push(object);
+    if (/^ss-cable-run-\d+-\d+$/.test(object.name)) looseRuns.push(object);
+    if (/^ss-cable-duct-\d+$/.test(object.name)) ducts.push(object);
+    if (object.isMesh
+      && /^silent-glass-light-\d+$/.test(object.userData.geometryGate?.assemblyId ?? '')) {
+      glassLightMeshes.push(object);
+    }
+  });
+  assert.equal(bundles.length, 4);
+  assert.equal(drops.length, 4);
+  assert.equal(looseRuns.length, 20);
+  assert.equal(ducts.length, 4);
+  for (let i = 0; i < 4; i++) {
+    const assemblyId = `silent-cable-service-${i}`;
+    assert.equal(bundles.find((object) => object.name.endsWith(`-${i}`))
+      ?.userData.geometryGate?.assemblyId, assemblyId);
+    const duct = ducts.find((object) => object.name.endsWith(`-${i}`));
+    assert.equal(duct?.userData.geometryGate?.assemblyId, assemblyId);
+    assert.equal(duct?.userData.geometryGate?.fixedSupportAnchor, true);
+    const bounds = new THREE.Box3().setFromObject(
+      bundles.find((object) => object.name.endsWith(`-${i}`)),
+    );
+    assert.ok(bounds.min.z < GLASS_WALL.z0 - 0.1 && bounds.max.z > GLASS_WALL.z1 + 0.1,
+      `cable bundle ${i} does not visibly pass through the wall sleeve`);
+  }
+
+  const faults = [];
+  for (const cable of [...bundles, ...drops, ...looseRuns]) {
+    const a = new THREE.Box3().setFromObject(cable);
+    for (const glass of glassLightMeshes) {
+      const b = new THREE.Box3().setFromObject(glass);
+      const depth = Math.min(
+        Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x),
+        Math.min(a.max.y, b.max.y) - Math.max(a.min.y, b.min.y),
+        Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z),
+      );
+      if (depth > 0.03) faults.push(`${cable.name} enters glass/plinth by ${depth.toFixed(3)} m`);
+    }
+  }
+  assert.deepEqual(faults, [], faults.join('; '));
+});
+
 test('the sealed lab has no unsupported robotic arms or floating yellow bases', () => {
   const built = buildSilentSquatch();
   const arms = [];
   built.root.traverse((object) => { if (object.name === 'ss-robot-arm') arms.push(object); });
   assert.equal(arms.length, 0);
   assert.equal(built.lab.inventory.roboticArms, 0);
+});
+
+test('the core containment rig clears every laboratory fluorescent at rest', () => {
+  const built = buildSilentSquatch();
+  built.root.updateMatrixWorld(true);
+  const core = built.root.getObjectByName('silent-squatch-core');
+  assert.equal(core.userData.geometryGate?.assemblyId, 'silent-squatch-core');
+  const ringMeshes = [];
+  core.traverse((object) => {
+    if (object.isMesh && object.parent?.name === 'core-ring') ringMeshes.push(object);
+  });
+  const tubes = [];
+  built.root.traverse((object) => {
+    if (object.name === 'ss-fluoro') tubes.push(object);
+  });
+  for (const ring of ringMeshes) {
+    const ringBox = new THREE.Box3().setFromObject(ring);
+    for (const tube of tubes) {
+      assert.equal(ringBox.intersectsBox(new THREE.Box3().setFromObject(tube)), false,
+        'a containment ring enters a fluorescent fitting in the built lab');
+    }
+  }
+});
+
+test('core floor cables are named, floor-seated, and no wider than 30 mm', () => {
+  const built = buildSilentSquatch();
+  built.root.updateMatrixWorld(true);
+  const cables = [];
+  built.root.traverse((object) => {
+    if (/^silent-squatch-core-cable-\d+$/.test(object.name)) cables.push(object);
+  });
+  assert.equal(cables.length, 6);
+  for (const cable of cables) {
+    const bounds = new THREE.Box3().setFromObject(cable);
+    assert.ok(Math.abs(bounds.min.y - built.lab.datums.LAB_Y) <= 0.001,
+      `${cable.name} misses the lab floor by ${(bounds.min.y - built.lab.datums.LAB_Y).toFixed(3)} m`);
+    assert.ok(bounds.max.y - bounds.min.y <= 0.025,
+      `${cable.name} is ${(bounds.max.y - bounds.min.y).toFixed(3)} m thick`);
+    assert.equal(cable.userData.geometryGate?.assemblyId, 'silent-squatch-core');
+  }
+});
+
+test('animated core arcs publish nonphysical VFX geometry semantics', () => {
+  const built = buildSilentSquatch();
+  const arcs = [];
+  built.root.traverse((object) => {
+    if (/^silent-squatch-core-arc-\d+$/.test(object.name)) arcs.push(object);
+  });
+  assert.equal(arcs.length, 8);
+  for (const arc of arcs) {
+    assert.deepEqual(arc.userData.geometryGate, {
+      assemblyId: 'silent-squatch-core',
+      overlap: false,
+      checkSupport: false,
+    });
+  }
+});
+
+test('laboratory stools are parked beside their standing scientists', () => {
+  const built = buildSilentSquatch();
+  built.root.updateMatrixWorld(true);
+  const stoolSeats = [];
+  const figureParts = [];
+  built.root.traverse((object) => {
+    if (/^ss-station-\d+-stool-seat$/.test(object.name)) stoolSeats.push(object);
+  });
+  for (const scientist of built.lab.scientists) {
+    scientist.fig.group.traverse((object) => {
+      if (object.isMesh) figureParts.push(object);
+    });
+  }
+  assert.equal(stoolSeats.length, 6);
+  const faults = [];
+  for (const stool of stoolSeats) {
+    const stoolBox = new THREE.Box3().setFromObject(stool);
+    for (const part of figureParts) {
+      const partBox = new THREE.Box3().setFromObject(part);
+      const x = Math.min(stoolBox.max.x, partBox.max.x) - Math.max(stoolBox.min.x, partBox.min.x);
+      const y = Math.min(stoolBox.max.y, partBox.max.y) - Math.max(stoolBox.min.y, partBox.min.y);
+      const z = Math.min(stoolBox.max.z, partBox.max.z) - Math.max(stoolBox.min.z, partBox.min.z);
+      if (x > 0.03 && y > 0.03 && z > 0.03) faults.push(`${stool.name} enters figure mesh`);
+    }
+  }
+  assert.deepEqual(faults, [], faults.join('; '));
+  const tanks = [];
+  built.root.traverse((object) => {
+    if (/^ss-chemical-tank-\d+$/.test(object.name)) tanks.push(object);
+  });
+  assert.equal(tanks.length, 4);
+  for (const stool of stoolSeats) {
+    const stoolBox = new THREE.Box3().setFromObject(stool);
+    assert.ok(tanks.every((tank) => !stoolBox.intersectsBox(new THREE.Box3().setFromObject(tank))),
+      `${stool.name} enters a chemical tank`);
+  }
+});
+
+test('laboratory workstation colliders clear the west chemical-tank line', () => {
+  const built = buildSilentSquatch();
+  const stations = built.colliders.filter((box) => /^silent-station-\d+-collider$/.test(box.name));
+  const tanks = built.colliders.filter((box) => /^silent-chemical-tank-\d+-collider$/.test(box.name));
+  assert.equal(stations.length, 6);
+  assert.equal(tanks.length, 4);
+  assert.ok(stations.every((box, index) => box.userData.geometryGate?.assemblyId === `silent-station-${index}`));
+  assert.ok(tanks.every((box, index) => box.userData.geometryGate?.assemblyId === `silent-chemical-tank-${index}`));
+  for (const station of stations) {
+    assert.ok(tanks.every((tank) => !station.intersectsBox(tank)),
+      `${station.name} enters a chemical-tank collider`);
+  }
+});
+
+
+test('ceiling-mounted laboratory assemblies opt out of floor support checks', () => {
+  const built = buildSilentSquatch();
+  const mounted = {
+    'ss-camera': 4,
+    'ss-fluoro': 18,
+    'ss-vent': 6,
+  };
+  for (const [name, expected] of Object.entries(mounted)) {
+    const nodes = [];
+    built.root.traverse((object) => { if (object.name === name) nodes.push(object); });
+    assert.equal(nodes.length, expected, `${name} count drifted`);
+    assert.ok(nodes.every((object) => object.userData.geometryGate?.checkSupport === false),
+      `${name} does not publish its architectural mounting`);
+  }
+  assert.equal(built.lab.xxx.group.userData.geometryGate?.checkSupport, false,
+    'the xXx hanging rig is treated as a floor-supported prop');
 });
 
 test('Aubbie clears stale work gestures before walking out and his hand stays outside his chest', () => {

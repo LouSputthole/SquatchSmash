@@ -61,6 +61,7 @@ function runwayTexture() {
 
 function makeHangar() {
   const g = group('hangar');
+  g.userData.geometryGate = { assemblyId: 'beefrun.airfield.hangar' };
   const corrugated = solid(0x8d9298, { roughness: 0.62, metalness: 0.45 });
   const rust = solid(0x7a5a42, { roughness: 0.9, metalness: 0.2 });
   const w = 22, d = 16, h = 7;
@@ -92,11 +93,15 @@ function makeHangar() {
   for (let i = 0; i < 6; i++) {
     g.add(mesh(boxGeo(0.9, 2.6, 0.06), rust, -w / 2 + 2 + i * 3.6, h - 2.2, d / 2 + 0.17));
   }
+  // One exact load-bearing wall establishes procedural-ground support for the
+  // whole explicitly owned hangar without exempting its full subtree.
+  g.children[0].userData.geometryGate = { checkSupport: false };
   return g;
 }
 
 function makeOpsShack() {
   const g = group('ops-shack');
+  g.userData.geometryGate = { assemblyId: 'beefrun.airfield.ops-shack' };
   const board = solid(0x9a8a6a, { roughness: 1 });
   const trim = solid(0x5a4a34, { roughness: 0.95 });
   g.add(mesh(boxGeo(7, 3.2, 5), board, 0, 1.6, 0));
@@ -107,12 +112,14 @@ function makeOpsShack() {
   g.add(mesh(boxGeo(2.2, 1.2, 0.1), mat({ color: 0x9fb4bd, roughness: 0.25, metalness: 0.1 }), 1.2, 1.9, 2.55));
   // Air conditioner in the window, not running.
   g.add(mesh(boxGeo(0.8, 0.5, 0.5), solid(0xb8bcc0, { roughness: 0.6 }), 1.2, 1.4, 2.7));
+  g.children[0].userData.geometryGate = { checkSupport: false };
   return g;
 }
 
 /** A vending machine that does not work, with the plug hanging beside it. */
 function makeVendingMachine() {
   const g = group('vending');
+  g.userData.geometryGate = { assemblyId: 'beefrun.airfield.ops-shack' };
   g.add(mesh(boxGeo(1.0, 2.0, 0.72), solid(0xb42a2a, { roughness: 0.55 }), 0, 1.0, 0));
   const front = flatMesh(planeGeo(0.82, 1.3), mat({
     map: signTexture(['OUT OF', 'ORDER'], { w: 256, h: 384, bg: '#1a1a1f', fg: '#d8d2c0', border: null, rough: false }),
@@ -127,6 +134,7 @@ function makeVendingMachine() {
 
 function makePickup(color = 0x8a2f2f, doorColor = 0x3f5f8a) {
   const g = group('pickup');
+  g.userData.geometryGate = { assemblyId: 'beefrun.airfield.threshold-truck' };
   const body = solid(color, { roughness: 0.62, metalness: 0.25 });
   const door = solid(doorColor, { roughness: 0.7, metalness: 0.2 });
   const glass = mat({ color: 0xbfd8e2, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.55 });
@@ -143,6 +151,10 @@ function makePickup(color = 0x8a2f2f, doorColor = 0x3f5f8a) {
     for (const sz of [-1.7, 1.7]) {
       const w = mesh(cylGeo(0.48, 0.48, 0.32, 12), tyre, sx, 0.5, sz);
       w.rotation.z = Math.PI / 2;
+      if (sx < 0 && sz < 0) {
+        w.name = 'threshold-truck-support-wheel';
+        w.userData.geometryGate = { checkSupport: false };
+      }
       g.add(w);
     }
   }
@@ -167,6 +179,7 @@ function makePickup(color = 0x8a2f2f, doorColor = 0x3f5f8a) {
 function makeWreck(seed) {
   const rand = rng(seed);
   const g = group('wreck');
+  g.userData.geometryGate = { assemblyId: `beefrun.airfield.wreck.${seed}` };
   const bare = solid(0x8f9298, { roughness: 0.72, metalness: 0.55 });
   const oxidised = solid(0x6f6a60, { roughness: 0.95, metalness: 0.3 });
   g.add(mesh(boxGeo(1.3, 1.4, 6.4), oxidised, 0, 1.0, 0));
@@ -181,6 +194,8 @@ function makeWreck(seed) {
   const loose = mesh(boxGeo(8, 0.22, 1.5), bare, 3.4, 4 * Math.sin(lean) + 0.11 * Math.cos(lean), -0.6);
   loose.rotation.z = -lean;
   loose.rotation.y = 0.3;
+  loose.name = 'wreck-grounded-wing';
+  loose.userData.geometryGate = { checkSupport: false };
   g.add(loose);
   g.add(mesh(boxGeo(0.16, 1.8, 1.4), bare, 0, 1.9, -3.0));
   // Weeds through it.
@@ -195,6 +210,7 @@ function makeWreck(seed) {
 
 function makeWindsock() {
   const g = group('windsock');
+  g.userData.geometryGate = { assemblyId: 'beefrun.airfield.windsock' };
   g.add(mesh(cylGeo(0.09, 0.12, 5.5, 8), solid(0xb8bcc0, { roughness: 0.5, metalness: 0.6 }), 0, 2.75, 0));
   const pivot = new THREE.Group();
   pivot.position.y = 5.3;
@@ -208,16 +224,24 @@ function makeWindsock() {
   stripe.position.x = 1.2;
   pivot.add(stripe);
   g.add(pivot);
+  g.children[0].name = 'windsock-support-mast';
+  g.children[0].userData.geometryGate = { checkSupport: false };
   return { group: g, pivot, sock };
 }
 
 function makeFuelTank() {
   const g = group('fuel-tank');
+  g.userData.geometryGate = { assemblyId: 'beefrun.airfield.fuel-tank' };
   const tank = mesh(cylGeo(1.6, 1.6, 6, 14), solid(0x8a7a5a, { roughness: 0.88, metalness: 0.3 }), 0, 2.4, 0);
   tank.rotation.z = Math.PI / 2;
   g.add(tank);
   for (const sx of [-2, 2]) {
-    g.add(mesh(boxGeo(0.4, 1.4, 2.4), solid(0x5a5248, { roughness: 0.9 }), sx, 0.7, 0));
+    const cradle = mesh(boxGeo(0.4, 1.4, 2.4), solid(0x5a5248, { roughness: 0.9 }), sx, 0.7, 0);
+    if (sx < 0) {
+      cradle.name = 'fuel-tank-support-cradle';
+      cradle.userData.geometryGate = { checkSupport: false };
+    }
+    g.add(cradle);
   }
   // Rust streaks and a hand-painted word.
   g.add(mesh(boxGeo(2.2, 0.9, 0.06), mat({
@@ -235,6 +259,7 @@ function makeFuelTank() {
 
 function makeBeacon() {
   const g = group('beacon');
+  g.userData.geometryGate = { assemblyId: 'beefrun.airfield.beacon' };
   g.add(mesh(cylGeo(0.14, 0.2, 8, 8), solid(0x9aa0a6, { roughness: 0.5, metalness: 0.6 }), 0, 4, 0));
   /* Head at the top of the mast, lenses as its children at the head's own
    * origin — they are carried round by head.rotation.y in update(). Adding
@@ -247,6 +272,8 @@ function makeBeacon() {
   head.add(lens);
   const lensB = flatMesh(boxGeo(0.55, 0.34, 0.2), unlit(0x3fe07a), 0, 0, -0.3);
   head.add(lensB);
+  g.children[0].name = 'beacon-support-mast';
+  g.children[0].userData.geometryGate = { checkSupport: false };
   return { group: g, head };
 }
 
@@ -260,11 +287,12 @@ export function buildAirfield(scene, { terrain } = {}) {
   const colliders = [];
   const floorZones = [];
   const rand = rng(0x5eef);
-  const addCollider = (x, z, halfX, halfZ, top = 4) => {
+  const addCollider = (x, z, halfX, halfZ, top = 4, assemblyId = null) => {
     const box = new THREE.Box3(
       new THREE.Vector3(x - halfX, ELEV - 1, z - halfZ),
       new THREE.Vector3(x + halfX, ELEV + top, z + halfZ),
     );
+    if (assemblyId) box.userData = { geometryGate: { assemblyId } };
     colliders.push(box);
     return box;
   };
@@ -272,6 +300,8 @@ export function buildAirfield(scene, { terrain } = {}) {
   /* ---- Runway, taxiway, apron ---- */
   const asphalt = mat({ map: runwayTexture(), roughness: 0.94 });
   const runway = flatMesh(planeGeo(WP.rwyWidth * 2, WP.rwyHalf * 2), asphalt, WP.x, ELEV + 0.04, WP.z);
+  runway.name = 'whispering-pines-runway-surface';
+  runway.userData.geometryGate = { checkSupport: false };
   runway.rotation.x = -Math.PI / 2;
   root.add(runway);
 
@@ -298,9 +328,13 @@ export function buildAirfield(scene, { terrain } = {}) {
 
   const apronMat = solid(0x4a4a4c, { roughness: 0.96 });
   const apron = flatMesh(planeGeo(34, 52), apronMat, -52, ELEV + 0.035, 396);
+  apron.name = 'whispering-pines-apron-surface';
+  apron.userData.geometryGate = { checkSupport: false };
   apron.rotation.x = -Math.PI / 2;
   root.add(apron);
   const taxiway = flatMesh(planeGeo(38, 13), apronMat, -34, ELEV + 0.035, 396);
+  taxiway.name = 'whispering-pines-taxiway-surface';
+  taxiway.userData.geometryGate = { checkSupport: false };
   taxiway.rotation.x = -Math.PI / 2;
   root.add(taxiway);
 
@@ -343,39 +377,39 @@ export function buildAirfield(scene, { terrain } = {}) {
   /* Two piers, not one block: the hangar's door is a 10 m hole in the south
    * wall and a single footprint collider bricks it up, so the player cannot
    * walk into the building the mission sends them into. */
-  addCollider(-68, 404, 3, 8, 7);
-  addCollider(-52, 404, 3, 8, 7);
+  addCollider(-68, 404, 3, 8, 7, 'beefrun.airfield.hangar');
+  addCollider(-52, 404, 3, 8, 7, 'beefrun.airfield.hangar');
   // The piers stop 10 m apart, but the back wall behind the opening is solid —
   // without this band the player walks out through the north wall at z 412.
-  addCollider(-60, 412, 5, 0.3, 7);
+  addCollider(-60, 412, 5, 0.3, 7, 'beefrun.airfield.hangar');
 
   const shack = makeOpsShack();
   shack.position.set(-38, ELEV, 366);
   shack.rotation.y = -0.3;
   root.add(shack);
-  addCollider(-38, 366, 3.6, 2.6, 3.4);
+  addCollider(-38, 366, 3.6, 2.6, 3.4, 'beefrun.airfield.ops-shack');
 
   const vending = makeVendingMachine();
   vending.position.set(-34.6, ELEV, 369.2);
   vending.rotation.y = -0.3;
   root.add(vending);
-  addCollider(-34.6, 369.2, 0.6, 0.5, 2.1);
+  addCollider(-34.6, 369.2, 0.6, 0.5, 2.1, 'beefrun.airfield.ops-shack');
 
   const tank = makeFuelTank();
   tank.position.set(-72, ELEV, 372);
   tank.rotation.y = 0.4;
   root.add(tank);
-  addCollider(-72, 372, 3.6, 2, 4);
+  addCollider(-72, 372, 3.6, 2, 4, 'beefrun.airfield.fuel-tank');
 
   const beacon = makeBeacon();
   beacon.group.position.set(-46, ELEV, 418);
   root.add(beacon.group);
-  addCollider(-46, 418, 0.4, 0.4, 8.6);
+  addCollider(-46, 418, 0.4, 0.4, 8.6, 'beefrun.airfield.beacon');
 
   const windsock = makeWindsock();
   windsock.group.position.set(-18, ELEV, 424);
   root.add(windsock.group);
-  addCollider(-18, 424, 0.3, 0.3, 5.5);
+  addCollider(-18, 424, 0.3, 0.3, 5.5, 'beefrun.airfield.windsock');
 
   const truck = makePickup();
   truck.group.position.set(-44, ELEV, 356);
@@ -383,17 +417,18 @@ export function buildAirfield(scene, { terrain } = {}) {
   root.add(truck.group);
   // Held on to, because the truck is driven away at dusk and the collider has
   // to go with it rather than stay parked on the apron as an invisible wall.
-  const truckCollider = addCollider(-44, 356, 2.6, 2.6, 2.4);
+  const truckCollider = addCollider(-44, 356, 2.6, 2.6, 2.4, 'beefrun.airfield.threshold-truck');
 
   for (let i = 0; i < 2; i++) {
     const wreck = makeWreck(0x1000 + i * 77);
     wreck.position.set(-84 - i * 6, ELEV, 344 - i * 16);
     root.add(wreck);
-    addCollider(-84 - i * 6, 344 - i * 16, 4, 4, 3);
+    addCollider(-84 - i * 6, 344 - i * 16, 4, 4, 3, `beefrun.airfield.wreck.${0x1000 + i * 77}`);
   }
 
   /* ---- The three signs ---- */
   const signPost = group('signs');
+  signPost.userData.geometryGate = { assemblyId: 'beefrun.airfield.signs' };
   const main = signBoard(['WHISPERING PINES', 'MUNICIPAL'], 6.4, 1.8, { w: 640, h: 200, bg: '#c9b78d' });
   main.position.y = 3.2;
   signPost.add(main);
@@ -405,7 +440,12 @@ export function buildAirfield(scene, { terrain } = {}) {
   seriously.rotation.z = -0.06;
   signPost.add(seriously);
   for (const sx of [-3, 3]) {
-    signPost.add(mesh(boxGeo(0.24, 4.2, 0.24), solid(0x6b5432, { roughness: 1 }), sx, 2.1, 0));
+    const post = mesh(boxGeo(0.24, 4.2, 0.24), solid(0x6b5432, { roughness: 1 }), sx, 2.1, 0);
+    if (sx < 0) {
+      post.name = 'whispering-pines-sign-support-post';
+      post.userData.geometryGate = { checkSupport: false };
+    }
+    signPost.add(post);
   }
   signPost.position.set(-96, ELEV, 352);
   signPost.rotation.y = 1.35;
@@ -413,7 +453,10 @@ export function buildAirfield(scene, { terrain } = {}) {
   // One slim collider per post — a box across the whole board would be a wall
   // of air either side of the sign, and the entrance road runs past it.
   for (const sx of [-3, 3]) {
-    addCollider(-96 + sx * Math.cos(1.35), 352 - sx * Math.sin(1.35), 0.3, 0.3, 4.2);
+    addCollider(
+      -96 + sx * Math.cos(1.35), 352 - sx * Math.sin(1.35), 0.3, 0.3, 4.2,
+      'beefrun.airfield.signs',
+    );
   }
 
   /* ---- Ground detail ---- */
@@ -434,6 +477,12 @@ export function buildAirfield(scene, { terrain } = {}) {
     solid(0x5c7a3a, { roughness: 1 }),
     260,
   );
+  tuft.name = 'whispering-pines-runway-tufts';
+  tuft.userData.geometryGate = {
+    // Grass blades are porous and are planted from the airfield elevation.
+    overlap: false,
+    checkSupport: false,
+  };
   tuft.castShadow = false;
   const dummy = new THREE.Object3D();
   for (let i = 0; i < 260; i++) {
@@ -452,11 +501,28 @@ export function buildAirfield(scene, { terrain } = {}) {
 
   // Empty jerky wrappers near the office. Somebody has been at these for years.
   const wrappers = [];
+  const wrapperRescueRand = rng(0x57524150);
+  const outsideOpsShack = (x, z) => {
+    const dx = x - shack.position.x;
+    const dz = z - shack.position.z;
+    // Include the rotated body's world envelope and the wrapper's diagonal.
+    // This leaves the litter visibly near the shack without letting a thin
+    // wrapper hide under the wall box or its conservative collision AABB.
+    return Math.abs(dx) >= 4.30 || Math.abs(dz) >= 3.65;
+  };
   for (let i = 0; i < 11; i++) {
+    let x = -36 + (rand() - 0.5) * 9;
+    let z = 364 + (rand() - 0.5) * 8;
+    let attempts = 0;
+    while (!outsideOpsShack(x, z) && attempts < 32) {
+      x = -36 + (wrapperRescueRand() - 0.5) * 9;
+      z = 364 + (wrapperRescueRand() - 0.5) * 8;
+      attempts++;
+    }
     const w = flatMesh(
       planeGeo(0.22, 0.16),
       mat({ color: [0x8a2f2f, 0x2f4a8a, 0xc0a040][i % 3], roughness: 0.6, metalness: 0.35, side: THREE.DoubleSide }),
-      -36 + (rand() - 0.5) * 9, ELEV + 0.06, 364 + (rand() - 0.5) * 8,
+      x, ELEV + 0.06, z,
     );
     w.rotation.set(-Math.PI / 2 + (rand() - 0.5) * 0.4, rand() * 3, 0);
     root.add(w);
@@ -467,6 +533,9 @@ export function buildAirfield(scene, { terrain } = {}) {
   const tarps = [];
   for (let i = 0; i < 2; i++) {
     const tarp = mesh(boxGeo(3.4, 1.2, 2.6), solid(0x4a5f7a, { roughness: 1 }), -68 + i * 5, ELEV + 0.6, 410 - i * 6);
+    tarp.name = `whispering-pines-tarp-${i + 1}`;
+    tarp.userData.geometryGate = { assemblyId: `beefrun.airfield.tarp.${i + 1}` };
+    tarp.userData.geometryGate.checkSupport = false;
     tarp.rotation.y = rand();
     root.add(tarp);
     const corner = mesh(boxGeo(1.2, 0.06, 0.9), solid(0x4a5f7a, { roughness: 1 }), 1.6, 0.5, 1.0);
@@ -485,12 +554,24 @@ export function buildAirfield(scene, { terrain } = {}) {
     const y = ELEV + hangar.userData.ridgeY
       - (hangar.userData.ridgeY - hangar.userData.eaveY) * t + 0.07;
     const c = makeCrow(x, y, 404 + (rand() - 0.5) * 4);
+    c.group.userData.geometryGate = {
+      assemblyId: `beefrun.airfield.hangar-crow.${i + 1}`,
+    };
+    // The perched body is the exact support witness; the triangular roof's
+    // conservative AABB overclaims the air below but remains overlap-audited.
+    c.group.children[0].userData.geometryGate = { checkSupport: false };
     root.add(c.group);
     crows.push(c);
   }
   // Clear of the fuel tank's collider and of the west cradle it used to be
   // buried 0.32 m inside; still in the shade, which is the whole point of it.
   const dog = makeDog(-67.5, 371);
+  dog.group.userData.geometryGate = { assemblyId: 'beefrun.airfield.dog' };
+  dog.group.children[6].name = 'dog-support-leg';
+  dog.group.children[6].userData.geometryGate = { checkSupport: false };
+  // Match updateDog()'s asleep pose before the first animation frame.
+  dog.group.position.y = ELEV + 0.12;
+  dog.group.rotation.z = 1.45;
   root.add(dog.group);
 
   /* ---- Insects: a haze of specks that only exists near the shack ---- */

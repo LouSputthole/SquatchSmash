@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import {
-  buildSquatchfatherScene,
   PLAYER_START_YAW,
   POS,
 } from './scenes/SquatchfatherScene.js';
@@ -14,13 +13,10 @@ import { WeaponDropInteraction } from './interaction/WeaponDropInteraction.js';
 import { CameraDirector, FOV } from './cinematic/CameraDirector.js';
 import { SeatedCameraController, seatedLookTargets } from './cinematic/SeatedCameraController.js';
 import { SceneTimeline } from './cinematic/SceneTimeline.js';
-import { ProspectController, SPEED } from './characters/ProspectController.js';
-import { SalController } from './characters/SalController.js';
-import { McClawskyController } from './characters/McClawskyController.js';
+import { SPEED } from './characters/ProspectController.js';
 import { RestaurantAmbience } from './audio/RestaurantAmbience.js';
 import { TrainSequence } from './audio/TrainSequence.js';
 import { gunshot } from './audio/GunshotAudio.js';
-import { BulletHoles } from '../world/bullets.js';
 import * as Foley from './audio/Foley.js';
 import * as audio from './audio/core.js';
 import { TrainVibration } from './effects/TrainVibration.js';
@@ -36,8 +32,10 @@ import { createSquatchfatherStory } from '../core/squatchfather-story.js';
 import { prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
 import { lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { buildSquatchfatherRuntimeGeometry } from './runtime-geometry.js';
 
 // ---------------------------------------------------------------- boot
 
@@ -79,6 +77,7 @@ const ui = {
   holdBar: $('holdBar'),
   holdFill: $('holdFill'),
   choice: $('choice'),
+  choiceKey: $('choice').querySelector('.key'),
   drawPrompt: $('drawPrompt'),
   reticle: $('reticle'),
   hint: $('hint'),
@@ -98,12 +97,9 @@ let campaignMissionStarted = false;
 
 // ---------------------------------------------------------------- systems
 
-const sceneState = buildSquatchfatherScene(scene, renderer);
-const impacts = new BulletHoles(scene);
-const blood = new BulletHoles(scene, 'blood');
-const prospect = new ProspectController(scene, camera, sceneState.colliders);
-const sal = new SalController(scene);
-const mcclawsky = new McClawskyController(scene);
+const {
+  sceneState, impacts, blood, prospect, sal, mcclawsky,
+} = buildSquatchfatherRuntimeGeometry(scene, camera, { renderer });
 
 const director = new CameraDirector(camera, ui);
 const seated = new SeatedCameraController(director);
@@ -240,6 +236,7 @@ function setObjective(text) {
 }
 
 function showChoice(on) {
+  writeGameplayPromptKey(ui.choiceKey, 'E');
   ui.choice.classList.toggle('show', on);
 }
 
@@ -353,16 +350,23 @@ function waiterRounds(dt) {
  * fear reads from the player's walk out. */
 const WAITER_CORNER = new THREE.Vector3(-6.2, 0, 10.1);
 let waiterPanic = null;
+let waiterPanicStepClock = 0;
 
 function updateCowering(dt) {
   if (!waiterPanic) return;
   const wf = sceneState.figures.waiter;
   if (waiterPanic === 'run') {
+    waiterPanicStepClock -= dt;
+    if (waiterPanicStepClock <= 0) {
+      Foley.footstep('wood', 0.82);
+      waiterPanicStepClock += 0.27;
+    }
     if (wf.walkTo(WAITER_CORNER.x, WAITER_CORNER.z, dt, 2.9)) {
       // Turned toward the room he is hiding from — and the exit lane.
       wf.group.rotation.y = Math.atan2(0 - WAITER_CORNER.x, 2 - WAITER_CORNER.z);
       wf.startCower();
       waiterPanic = 'down';
+      waiterPanicStepClock = 0;
     }
   }
 }
@@ -401,11 +405,14 @@ function roomReacts() {
     [diner1, new THREE.Vector3(-6.25, 0, 1.85)],
     [diner2, new THREE.Vector3(6.25, 0, 1.5)],
   ]) {
+    Foley.chairScrape();
     fig.startCower();
     const from = fig.group.position.clone();
     animateOver(0.55, (e) => fig.group.position.lerpVectors(from, out, e));
   }
   waiterPanic = 'run';
+  waiterPanicStepClock = 0;
+  Foley.doorOpen();
   animateOver(1.2, (e) => {
     cook.position.z = 11.6 - 0.55 * e;
     sceneState.doors.kitchenDoor.rotation.y = -0.7 * e;
@@ -415,6 +422,7 @@ function roomReacts() {
 function resetRoomReactions() {
   roomPanicked = false;
   waiterPanic = null;
+  waiterPanicStepClock = 0;
   impacts.reset();
   blood.reset();
   const { cook } = sceneState.bystanders;

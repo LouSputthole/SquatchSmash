@@ -1,0 +1,1292 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "graveyard",
+  "entries": [
+    {
+      "id": "graveyard-arrival-body-trunk-001",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.gather.head#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.145,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-002",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.gather.head.tie#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.034,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-003",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.mass#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.306,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-004",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.mass#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#1",
+      "maxDepthM": 0.036,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-005",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.mass#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#6",
+      "maxDepthM": 0.036,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-006",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.mass#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#7",
+      "maxDepthM": 0.119,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-007",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.318,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-008",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#1",
+      "maxDepthM": 0.036,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-009",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#6",
+      "maxDepthM": 0.036,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-010",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#7",
+      "maxDepthM": 0.13,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-011",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet-inner#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.318,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-012",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet-inner#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#1",
+      "maxDepthM": 0.036,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-013",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet-inner#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#6",
+      "maxDepthM": 0.036,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-014",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.sheet-inner#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#7",
+      "maxDepthM": 0.13,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-015",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.stain.0#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.047,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-016",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.stain.1#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.059,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-017",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.stain.2#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.063,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-018",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.tape.chest#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.192,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-019",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.tape.chest#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#7",
+      "maxDepthM": 0.049,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-020",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.tape.neck#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.139,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-021",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.tape.waist#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#0",
+      "maxDepthM": 0.146,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    },
+    {
+      "id": "graveyard-arrival-body-trunk-022",
+      "state": "arrival",
+      "kind": "INTERPENETRATION",
+      "left": "root:graveyard-arrival/name=squatch.graveyard#0/name=hotdog.body#0/name=wrapped-body#0/name=wrapped-body.tape.waist#0",
+      "right": "root:graveyard-arrival/name=squatch.graveyard#0/name=snow.car#0/type=Mesh#7",
+      "maxDepthM": 0.089,
+      "reason": "Billy Hotdog's wrapped body is deliberately loaded and cradled inside Snow's open trunk at arrival; carried, placed, and buried checkpoints remove this exact body-to-car contact.",
+      "source": "src/graveyard/world.js:405",
+      "sourceAnchor": "Open trunk: head inward"
+    }
+  ],
+  "suppressionPolicy": [
+    {
+      "state": "arrival",
+      "overlap": 336,
+      "checkSupport": 72,
+      "sources": [
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=burial.shovel#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=grave.brawny#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=grave.hotdog.fresh#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=grave.sauce.open#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=grave.whiplash#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.1#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.10#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.11#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.12#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.13#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.14#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.15#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.16#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.17#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.18#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.19#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.2#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.20#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.21#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.22#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.23#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.24#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.25#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.26#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.27#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.28#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.29#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.3#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.30#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.31#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.32#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.4#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.5#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.6#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.7#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.8#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.firefly.9#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.moon#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.pine.needles.1#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.pine.needles.2#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.pine.needles.3#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-arrival/name=squatch.graveyard#0/name=graveyard.pine.needles.4#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "buried",
+      "overlap": 336,
+      "checkSupport": 73,
+      "sources": [
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=burial.shovel#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=grave.brawny#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=grave.hotdog.fresh#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=grave.sauce.open#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=grave.whiplash#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.1#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.10#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.11#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.12#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.13#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.14#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.15#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.16#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.17#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.18#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.19#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.2#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.20#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.21#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.22#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.23#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.24#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.25#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.26#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.27#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.28#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.29#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.3#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.30#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.31#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.32#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.4#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.5#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.6#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.7#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.8#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.firefly.9#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.moon#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.pine.needles.1#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.pine.needles.2#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.pine.needles.3#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-buried/name=squatch.graveyard#0/name=graveyard.pine.needles.4#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "carried",
+      "overlap": 336,
+      "checkSupport": 91,
+      "sources": [
+        {
+          "sourceId": "root:graveyard-carried/name=graveyard.geometry-carry-anchor#0/name=hotdog.body#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 19
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=burial.shovel#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=grave.brawny#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=grave.hotdog.fresh#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=grave.sauce.open#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=grave.whiplash#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.1#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.10#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.11#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.12#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.13#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.14#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.15#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.16#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.17#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.18#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.19#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.2#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.20#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.21#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.22#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.23#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.24#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.25#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.26#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.27#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.28#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.29#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.3#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.30#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.31#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.32#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.4#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.5#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.6#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.7#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.8#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.firefly.9#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.moon#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.pine.needles.1#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.pine.needles.2#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.pine.needles.3#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-carried/name=squatch.graveyard#0/name=graveyard.pine.needles.4#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "placed",
+      "overlap": 336,
+      "checkSupport": 72,
+      "sources": [
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=burial.shovel#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=grave.brawny#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=grave.hotdog.fresh#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=grave.sauce.open#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=grave.whiplash#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.1#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.10#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.11#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.12#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.13#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.14#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.15#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.16#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.17#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.18#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.19#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.2#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.20#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.21#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.22#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.23#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.24#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.25#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.26#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.27#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.28#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.29#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.3#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.30#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.31#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.32#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.4#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.5#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.6#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.7#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.8#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.firefly.9#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.moon#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.pine.needles.1#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.pine.needles.2#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.pine.needles.3#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:graveyard-placed/name=squatch.graveyard#0/name=graveyard.pine.needles.4#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        }
+      ]
+    }
+  ]
+}

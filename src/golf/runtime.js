@@ -33,3 +33,10 @@ export function connectGolfFootsteps(
 export function completedRoundAction(locationLike = globalThis.location) {
   return isPreviewMode(locationLike) ? 'replay' : 'return_home';
 }
+
+/** Keep the picked-up bag out of both live and restored later-hole geometry. */
+export function collectGolfBagGeometry(bag) {
+  if (!bag?.isObject3D) throw new TypeError('Silver Pines bag geometry is required');
+  bag.visible = false;
+  return bag;
+}

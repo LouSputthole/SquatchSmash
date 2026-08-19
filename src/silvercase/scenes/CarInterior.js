@@ -42,7 +42,9 @@ export const CAR_ANCHORS = Object.freeze({
   // Driver's seat, to Tony's left. Facing forward at yaw 0, "left" is -x
   // (right = forward × up = +x, so left is the opposite). A full bench-width
   // apart: any closer and turning your head fills the frame with his elbow.
-  driverSeat: Object.freeze({ x: -0.78, y: 0, z: 0.46 }),
+  // Four centimetres inboard keeps Ape's shoulder out of the driver-side
+  // door card while leaving his forearm resting naturally on the armrest.
+  driverSeat: Object.freeze({ x: -0.74, y: 0, z: 0.46 }),
   // The figure rig's own facing convention is different from the camera's:
   // heading 0 faces +z and heading PI faces -z — the same "out the
   // windshield" direction.
@@ -121,6 +123,9 @@ function driverPose(parts) {
 export function buildCarInterior() {
   const root = new THREE.Group();
   root.name = 'carInterior';
+  root.userData.geometryGate = {
+    assemblyId: 'silvercase.car-interior',
+  };
 
   const M = {
     dash: mat({ color: 0x1c1a1e, roughness: 0.7 }),
@@ -136,6 +141,12 @@ export function buildCarInterior() {
   // Floor + headliner, so the rig doesn't read as a dashboard floating in a
   // void when the player looks down or up.
   const floor = plane(2.4, 3.2, M.carpet);
+  floor.name = 'silvercase.car.floor';
+  floor.userData.geometryGate = {
+    structural: true,
+    fixedSupportAnchor: true,
+    supportAssemblyId: 'silvercase.car-floor',
+  };
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, 0, 0.3);
   root.add(floor);

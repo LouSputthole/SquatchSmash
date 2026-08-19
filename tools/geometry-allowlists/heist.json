@@ -1,0 +1,1920 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "heist",
+  "entries": [],
+  "suppressionPolicy": [
+    {
+      "state": "bank-lobby",
+      "overlap": 24,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#22",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#23",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#24",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#25",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#26",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-bank_lobby/type=Mesh#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "mercer-garage",
+      "overlap": 27,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:heist-mercer_garage/name=garage-transfer-zone#0",
+          "scope": "inherited",
+          "overlap": 5,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#24",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#25",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#26",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#27",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#28",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#29",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#30",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#31",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#32",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#33",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#34",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#35",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#36",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#37",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#38",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#39",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#40",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#41",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#42",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#43",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#44",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-mercer_garage/type=Mesh#45",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "safehouse",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "safehouse-debrief",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "street-withdrawal",
+      "overlap": 13,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#92",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#93",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "vault-open",
+      "overlap": 24,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#22",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#23",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#24",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#25",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#26",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vault_open/type=Mesh#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "vehicle-escape",
+      "overlap": 232,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-road-canal_road#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-road-financial_row#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-road-garage_lane#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-road-market_street#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-road-warehouse_row#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-0--1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-0-1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-1--1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-1-1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-2--1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-2-1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-3--1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-3-1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-4--1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=route-sidewalk-4-1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=swap-clean-car-bay#0",
+          "scope": "inherited",
+          "overlap": 3,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/name=swap-sorting-tarp#0",
+          "scope": "inherited",
+          "overlap": 4,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#100",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#101",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#102",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#103",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#104",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#105",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#106",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#107",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#108",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#109",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#110",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#111",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#112",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#113",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#114",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#115",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#116",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#117",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#118",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#119",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#120",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#121",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#122",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#123",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#124",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#125",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#126",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#127",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#128",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#129",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#130",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#131",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#132",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#133",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#134",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#168",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#169",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#170",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#171",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#172",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#173",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#174",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#175",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#176",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#177",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#178",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#179",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#180",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#181",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#182",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#183",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#184",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#185",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#186",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#187",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#188",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#189",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#190",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#191",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#192",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#193",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#194",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#195",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#196",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#197",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#198",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#199",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#200",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#201",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#202",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#203",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#204",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#205",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#206",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#207",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#208",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#209",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#226",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#227",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#228",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#229",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#230",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#231",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#232",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#233",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#234",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#235",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#236",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#237",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#238",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#239",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#24",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#240",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#241",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#242",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#243",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#244",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#245",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#246",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#247",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#248",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#249",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#25",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#250",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#251",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#252",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#253",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#254",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#255",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#256",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#257",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#258",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#259",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#26",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#260",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#261",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#262",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#263",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#264",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#265",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#266",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#267",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#268",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#269",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#27",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#270",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#271",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#272",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#273",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#274",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#275",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#276",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#277",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#278",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#279",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#28",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#280",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#281",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#282",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#283",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#284",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#285",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#286",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#29",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#30",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#31",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#32",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#33",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#34",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#35",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#36",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#37",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#38",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#39",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#40",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#41",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#42",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#43",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#44",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#45",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#46",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#47",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#48",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#49",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#50",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#51",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#52",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#53",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#54",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#55",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#56",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#57",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#58",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#59",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#60",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#82",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#83",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#84",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#85",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#86",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#87",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#88",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#89",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#90",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#91",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#92",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#93",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#94",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#95",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#96",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#97",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#98",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:heist-vehicle_escape/type=Mesh#99",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    }
+  ]
+}

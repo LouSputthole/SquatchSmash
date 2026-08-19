@@ -422,6 +422,9 @@ export const MAZE = Object.freeze({
 export const ROSE_GARDEN = Object.freeze({
   x0: 9.4, x1: 25.0, z0: 100.0, z1: 122.0, wall: 2.3, t: 0.5,
 });
+// The gravel walks are a real 60 mm finish laid over the site datum. Anything
+// founded in the garden starts here rather than being buried through it.
+export const GARDEN_WALK_TOP = 0.06;
 /** The reflecting canal on the garden's axis, and the pavilion that closes it. */
 /* A rill rather than a lake: 3.2 m wide, so the axis walk can run down BOTH
  * sides of it at a proper width instead of the walk having to be notched into
@@ -848,6 +851,11 @@ class FountainSpray {
       toneMapped: false,
     });
     this.jet = new THREE.Mesh(this.jetGeo, this.jetMat);
+    this.jet.name = 'fountain-spray-jet';
+    this.jet.userData.geometryGate = {
+      overlap: false,
+      checkSupport: false,
+    };
     this.jet.position.set(this.origin.x, this.origin.y + jetH / 2, this.origin.z);
     this.jet.frustumCulled = false;
     this.jet.visible = false;
@@ -907,6 +915,8 @@ class FountainSpray {
  *
  * @param {THREE.Scene | null} [scene]
  */
+/* GEOMETRY_GATE_MANSION_SHELL_JOIN: exact wall, roof, floor, podium and matching collider pairs intentionally key into adjoining structural runs to leave one sealed mansion shell. */
+/* GEOMETRY_GATE_MANSION_GROUNDS_FIXTURE_JOIN: exact gate, paving, stair, railing, pool and garden-fixture parts intentionally lap only their authored mating faces. */
 export function buildMansionGrounds(scene = null) {
   const root = new THREE.Group();
   root.name = 'MansionGrounds';
@@ -923,13 +933,25 @@ export function buildMansionGrounds(scene = null) {
     return c;
   }
 
+  function geometryIntent(object, policy) {
+    object.userData ??= {};
+    object.userData.geometryGate = { ...(object.userData.geometryGate ?? {}), ...policy };
+    return object;
+  }
+
   /** A solid box: mesh + matching collider. Used for every exterior wall,
    * pier, lintel, glass pane and basement wall segment. */
   const wallRects = [];
   /* Sight blockers for the look-prompt raycast -- see the matching note in
    * MansionInterior.js. Exterior walls, glazing and the floor slabs. */
   const occluders = [];
-  function ext(x0, x1, y0, y1, z0, z1, tag, material = M_STUCCO, addCollider = true) {
+  function ext(
+    x0, x1, y0, y1, z0, z1, tag,
+    material = M_STUCCO,
+    addCollider = true,
+    assemblyId = `mansion-exterior-segment:${tag}`,
+    segmentIndex = wallRects.length,
+  ) {
     const m = box({
       size: [x1 - x0, y1 - y0, z1 - z0],
       pos: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2],
@@ -937,17 +959,25 @@ export function buildMansionGrounds(scene = null) {
       name: tag,
     });
     root.add(m);
+    m.userData.geometryGate = { wall: true, assemblyId };
     occluders.push(m);
     const combatMaterial = combatMaterialFor(material);
     if (combatMaterial) m.userData.combatMaterial = combatMaterial;
     if (addCollider) {
       const contact = solid(x0, x1, y0, y1, z0, z1);
+      contact.name = `${tag}-collider-${segmentIndex}`;
+      contact.userData = {
+        ...(contact.userData ?? {}),
+        geometryGate: { ...(contact.userData?.geometryGate ?? {}), assemblyId },
+      };
       if (combatMaterial) {
         contact.combatMaterial = combatMaterial;
-        contact.userData = { ...(contact.userData ?? {}), combatMaterial };
+        contact.userData.combatMaterial = combatMaterial;
       }
     }
-    wallRects.push({ tag, x0, x1, y0, y1, z0, z1 });
+    wallRects.push({
+      tag, x0, x1, y0, y1, z0, z1, assemblyId,
+    });
     return m;
   }
 
@@ -1017,16 +1047,24 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   const PILLAR_H = 3.6;
   const gateMedallions = [];
-  function gatePillar(x) {
-    root.add(box({ size: [1.0, PILLAR_H, 1.0], pos: [x, PILLAR_H / 2, 0], mat: M_PILLAR }));
-    root.add(box({ size: [1.2, 0.15, 1.2], pos: [x, PILLAR_H + 0.08, 0], mat: M_GOLD }));
+  function gatePillar(x, side) {
+    const assemblyId = `mansion-front-gate-pillar-${side}`;
+    root.add(geometryIntent(box({
+      size: [1.0, PILLAR_H, 1.0], pos: [x, PILLAR_H / 2, 0], mat: M_PILLAR,
+      name: `mansion-front-gate-pillar-${side}-body`,
+    }), { assemblyId }));
+    root.add(geometryIntent(box({
+      size: [1.2, 0.15, 1.2], pos: [x, PILLAR_H + 0.08, 0], mat: M_GOLD,
+      name: `mansion-front-gate-pillar-${side}-cap`,
+    }), { assemblyId }));
     // Medallion backing disc (bezel) -- this used to be the entire emblem
     // (a flat chrome disc plus 3 tiny chrome boxes), which blended into one
     // dark blob at any real viewing distance. It is now just the bezel:
     // see gateMedallionTexture() for the actual drawn artwork in front of it.
-    root.add(cylinder({
+    root.add(geometryIntent(cylinder({
       r: 0.55, h: 0.08, pos: [x, 2.5, -0.55], mat: M_CHROME, rotX: Math.PI / 2,
-    }));
+      name: `mansion-front-gate-pillar-${side}-crest-bezel`,
+    }), { assemblyId }));
     const medallion = new THREE.Mesh(
       new THREE.CircleGeometry(0.48, 40),
       mat({
@@ -1041,6 +1079,7 @@ export function buildMansionGrounds(scene = null) {
       real: false,
       file: null,
     };
+    geometryIntent(medallion, { assemblyId });
     root.add(medallion);
     gateMedallions.push(medallion);
     // A tight little spotlight square on the medallion -- without it the
@@ -1049,10 +1088,12 @@ export function buildMansionGrounds(scene = null) {
     medallionLight.position.set(x, 3.15, -1.55);
     medallionLight.target.position.set(x, 2.5, -0.62);
     root.add(medallionLight, medallionLight.target);
-    solid(x - 0.5, x + 0.5, 0, PILLAR_H, -0.5, 0.5);
+    const pillarCollider = solid(x - 0.5, x + 0.5, 0, PILLAR_H, -0.5, 0.5);
+    pillarCollider.name = `mansion-front-gate-pillar-${side}-collider`;
+    geometryIntent(pillarCollider, { assemblyId });
   }
-  gatePillar(-4);
-  gatePillar(4);
+  gatePillar(-4, 'west');
+  gatePillar(4, 'east');
 
   /* The canvas footprint remains a fail-safe only. Both faces resolve one
    * approved art slot to the exact crest already used throughout the house,
@@ -1079,6 +1120,8 @@ export function buildMansionGrounds(scene = null) {
   function gateLeaf(hingeX, side) {
     const leafW = 2.0;
     const leafH = 2.2;
+    const leafSide = side < 0 ? 'west' : 'east';
+    const assemblyId = `mansion-front-gate-leaf-${leafSide}`;
     const g = group('gate-leaf',
       box({ size: [0.08, leafH, 0.08], pos: [0, leafH / 2, 0], mat: M_FENCE }),
       box({ size: [leafW, 0.07, 0.07], pos: [side * leafW / 2, leafH - 0.12, 0], mat: M_FENCE }),
@@ -1117,6 +1160,8 @@ export function buildMansionGrounds(scene = null) {
     }));
     g.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
     g.position.set(hingeX, 0, 0);
+    g.name = `mansion-front-gate-leaf-${leafSide}`;
+    geometryIntent(g, { assemblyId });
     root.add(g);
   }
   gateLeaf(-4, -1);
@@ -1130,8 +1175,13 @@ export function buildMansionGrounds(scene = null) {
   // pillar face they actually emerge from is each pillar's street-side
   // (z=-0.5) face.
   for (const hingeX of [-4, 4]) {
+    const leafSide = hingeX < 0 ? 'west' : 'east';
+    const assemblyId = `mansion-front-gate-leaf-${leafSide}`;
     for (const hy of [0.45, 1.85]) {
-      root.add(cylinder({ r: 0.07, h: 0.22, pos: [hingeX, hy, -0.5], mat: M_CHROME }));
+      root.add(geometryIntent(cylinder({
+        r: 0.07, h: 0.22, pos: [hingeX, hy, -0.5], mat: M_CHROME,
+        name: `mansion-front-gate-leaf-${leafSide}-hinge-barrel`,
+      }), { assemblyId }));
     }
   }
 
@@ -1204,10 +1254,12 @@ export function buildMansionGrounds(scene = null) {
     posts.name = 'fence-post';
     posts.castShadow = true;
     posts.receiveShadow = true;
+    posts.userData.geometryGate = { instanceAssemblyPrefix: 'mansion-perimeter-fence-post' };
     const caps = new THREE.InstancedMesh(new THREE.CylinderGeometry(0, 0.09, 0.18, 20), M_FENCE, n);
     caps.name = 'fence-post-cap';
     caps.castShadow = true;
     caps.receiveShadow = true;
+    caps.userData.geometryGate = { instanceAssemblyPrefix: 'mansion-perimeter-fence-post' };
     const m4 = new THREE.Matrix4();
     for (let i = 0; i < n; i++) {
       const p = fencePostPlacements[i];
@@ -1297,20 +1349,26 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   function lampPost(x, z, lit, intensity = 5.5) {
     const postH = 3.2;
-    root.add(cylinder({ r: 0.09, h: postH, pos: [x, postH / 2, z], mat: M_LAMP_POST }));
-    root.add(sphere({
+    const assemblyId = `mansion-driveway-lamp:${x}:${z}`;
+    root.add(geometryIntent(cylinder({
+      r: 0.09, h: postH, pos: [x, postH / 2, z], mat: M_LAMP_POST, name: 'driveway-lamp-post',
+    }), { assemblyId }));
+    root.add(geometryIntent(sphere({
       r: 0.18,
       pos: [x, postH + 0.05, z],
       mat: mat({
         color: 0xffdca0, roughness: 0.4, emissive: lit ? 0xffdca0 : 0x332210, emissiveIntensity: lit ? 1.4 : 0.3,
       }),
-    }));
+      name: 'driveway-lamp-globe',
+    }), { assemblyId }));
     if (lit) {
       const l = new THREE.PointLight(0xffc98a, intensity, 18, 2);
       l.position.set(x, postH + 0.1, z);
       root.add(l);
     }
-    solid(x - 0.12, x + 0.12, 0, postH, z - 0.12, z + 0.12);
+    const lampCollider = solid(x - 0.12, x + 0.12, 0, postH, z - 0.12, z + 0.12);
+    lampCollider.name = 'driveway-lamp-collider';
+    geometryIntent(lampCollider, { assemblyId });
   }
   const LAMP_POSITIONS = [
     [-4.6, 4], [4.6, 4], [-4.6, 10], [4.6, 10], [-4.6, 16], [4.6, 16], [-4.6, 21], [4.6, 21],
@@ -1375,6 +1433,11 @@ export function buildMansionGrounds(scene = null) {
     const rig = new Sasquatch();
     const statue = rig.group;
     statue.name = 'silver-sasquatch-statue';
+    statue.userData.geometryGate = {
+      assemblyId: 'mansion-fountain-pedestal',
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    };
     statue.traverse((o) => {
       if (!o.isMesh) return;
       o.material = o.userData?.palKey === 'bandana' ? M_STATUE_PATINA : M_STATUE;
@@ -1504,6 +1567,10 @@ export function buildMansionGrounds(scene = null) {
           new THREE.Vector3(fx + x0, y0, fz + z0),
           new THREE.Vector3(fx + x1, y1, fz + z1),
         );
+        box.name = `mansion-fountain-${name}-collider-${boxes.length}`;
+        box.userData = {
+          geometryGate: { assemblyId: `mansion-fountain-tier:${name}` },
+        };
         colliders.push(box);
         boxes.push(box);
       };
@@ -1530,6 +1597,10 @@ export function buildMansionGrounds(scene = null) {
     const fountainColliderPedestal = solid(
       fx - 1.3, fx + 1.3, 2.1, 7.4, fz - 1.3, fz + 1.3,
     );
+    fountainColliderPedestal.name = 'mansion-fountain-pedestal-collider';
+    fountainColliderPedestal.userData = {
+      geometryGate: { assemblyId: 'mansion-fountain-pedestal' },
+    };
     fountainColliders.push(fountainColliderPedestal);
 
     return {
@@ -1686,6 +1757,10 @@ export function buildMansionGrounds(scene = null) {
     const w = 2;
     const d = 2;
     const h = 2.2;
+    const boothShellAssemblyId = 'mansion-security-booth-shell';
+    const mountBoothShell = (object) => root.add(geometryIntent(object, {
+      assemblyId: boothShellAssemblyId,
+    }));
     /* Exact world blockers owned by the booth shell. The guard speaks from
      * inside this fixture, so the shared speech gate may ignore these four
      * references for him without weakening line-of-sight through any other
@@ -1719,20 +1794,22 @@ export function buildMansionGrounds(scene = null) {
      * footprint, same roof, same collider. */
     const sill = 1.02;
     const head = 1.98;
-    const shell = box({
-      size: [w, sill, d], pos: [cx, sill / 2, cz], mat: M_BOOTH, name: 'booth-shell',
-    });
-    root.add(shell);
+    const shell = group('booth-shell',
+      box({ size: [0.12, sill, d], pos: [cx - w / 2 + 0.06, sill / 2, cz], mat: M_BOOTH }),
+      box({ size: [0.12, sill, d], pos: [cx + w / 2 - 0.06, sill / 2, cz], mat: M_BOOTH }),
+      box({ size: [w - 0.24, sill, 0.12], pos: [cx, sill / 2, cz - d / 2 + 0.06], mat: M_BOOTH }),
+      box({ size: [w - 0.24, sill, 0.12], pos: [cx, sill / 2, cz + d / 2 - 0.06], mat: M_BOOTH }));
+    mountBoothShell(shell);
     // Corner mullions, and a head rail the roof sits on.
     for (const [mx, mz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      root.add(box({
+      mountBoothShell(box({
         size: [0.12, head - sill, 0.12],
         pos: [cx + mx * (w / 2 - 0.06), (sill + head) / 2, cz + mz * (d / 2 - 0.06)],
         mat: M_BOOTH,
         name: 'booth-mullion',
       }));
     }
-    root.add(box({
+    mountBoothShell(box({
       size: [w, 0.14, d], pos: [cx, head + 0.07, cz], mat: M_BOOTH, name: 'booth-head-rail',
     }));
     /* Glazing on three sides. The fourth (east, away from the drive) is the
@@ -1743,7 +1820,7 @@ export function buildMansionGrounds(scene = null) {
       [0, -(d / 2 - 0.03), w - 0.16, 0.05],
       [0, (d / 2 - 0.03), w - 0.16, 0.05],
     ]) {
-      root.add(box({
+      mountBoothShell(box({
         size: [sx, head - sill - 0.06, sz],
         pos: [cx + gx, (sill + head) / 2, cz + gz],
         mat: M_BOOTH_GLASS,
@@ -1751,14 +1828,22 @@ export function buildMansionGrounds(scene = null) {
         name: 'booth-glass',
       }));
     }
-    root.add(box({ size: [w + 0.3, 0.12, d + 0.3], pos: [cx, h + 0.06, cz], mat: M_BOOTH_ROOF }));
+    mountBoothShell(box({ size: [w + 0.3, 0.12, d + 0.3], pos: [cx, h + 0.06, cz], mat: M_BOOTH_ROOF }));
 
     // The chair he is not sitting in, and the counter he works off.
     const chair = group('booth-chair',
       box({ size: [0.55, 0.08, 0.55], pos: [0, 0.45, 0], mat: M_BOOTH }),
       box({ size: [0.55, 0.6, 0.08], pos: [0, 0.75, -0.24], mat: M_BOOTH }));
-    chair.position.set(cx + 0.52, 0, cz + 0.4);
+    // Back far enough to clear the guard at the counter, but still 5.5 cm
+    // inside the north wall's inner face.
+    chair.position.set(cx + 0.52, 0, cz + 0.55);
     root.add(chair);
+    for (const [lx, lz] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]) {
+      chair.add(box({
+        size: [0.06, 0.41, 0.06], pos: [lx, 0.205, lz], mat: M_BOOTH,
+        name: 'booth-chair-leg',
+      }));
+    }
     root.add(box({
       size: [0.42, 0.05, d - 0.3], pos: [cx - w / 2 + 0.23, 0.98, cz], mat: M_BOOTH_ROOF, cast: false, name: 'booth-counter',
     }));
@@ -1767,14 +1852,20 @@ export function buildMansionGrounds(scene = null) {
      * far kerb for the arm to come down onto. Raised = open. */
     const postX = cx - 1.62;
     const postZ = cz;
-    root.add(cylinder({
+    const barrierAssembly = 'mansion-security-barrier';
+    const barrierPost = cylinder({
       r: 0.09, h: 1.15, pos: [postX, 0.575, postZ], mat: M_BOOTH, name: 'barrier-post',
-    }));
-    root.add(box({
+    });
+    barrierPost.userData.geometryGate = { assemblyId: barrierAssembly };
+    root.add(barrierPost);
+    const barrierHead = box({
       size: [0.34, 0.3, 0.3], pos: [postX, 1.2, postZ], mat: M_BOOTH_ROOF, cast: false, name: 'barrier-head',
-    }));
+    });
+    barrierHead.userData.geometryGate = { assemblyId: barrierAssembly };
+    root.add(barrierHead);
     const armPivot = new THREE.Group();
     armPivot.name = 'barrier-arm';
+    armPivot.userData.geometryGate = { assemblyId: barrierAssembly };
     /* Authored on local -X so it reaches over the DRIVE. Down it would lie at
      * (6.40,1.15) -> (3.00,1.15); up it stands clear of everything. */
     const ARM = 3.4;
@@ -1871,12 +1962,17 @@ export function buildMansionGrounds(scene = null) {
      * (every side is closed at waist height), and nobody standing at the
      * counter is inside anything. */
     const t = 0.14;
-    speechOccluders.push(
+    const boothWallColliders = [
       solid(cx - w / 2, cx - w / 2 + t, 0, h, cz - d / 2, cz + d / 2),
       solid(cx + w / 2 - t, cx + w / 2, 0, h, cz - d / 2, cz + d / 2),
       solid(cx - w / 2, cx + w / 2, 0, h, cz - d / 2, cz - d / 2 + t),
       solid(cx - w / 2, cx + w / 2, 0, h, cz + d / 2 - t, cz + d / 2),
-    );
+    ];
+    for (const [wallIndex, wallCollider] of boothWallColliders.entries()) {
+      wallCollider.name = boothShellAssemblyId + '-collider-' + wallIndex;
+      geometryIntent(wallCollider, { assemblyId: boothShellAssemblyId });
+    }
+    speechOccluders.push(...boothWallColliders);
     solid(postX - 0.11, postX + 0.11, 0, 1.35, postZ - 0.11, postZ + 0.11);
 
     return {
@@ -1898,11 +1994,16 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   /* Palm trees / ornamental plants                                     */
   /* ---------------------------------------------------------------- */
-  function buildPalm(x, z, h) {
-    root.add(cylinder({
+  function buildPalm(x, z, h, index) {
+    const palm = new THREE.Group();
+    palm.name = `mansion-palm-${index}`;
+    palm.userData.geometryGate = { assemblyId: `mansion-palm-${index}` };
+    palm.add(cylinder({
       rTop: 0.16, rBottom: 0.28, h, pos: [x, h / 2, z], mat: M_PALM_TRUNK,
+      name: 'mansion-palm-trunk',
     }));
     const crown = new THREE.Group();
+    crown.name = 'mansion-palm-crown';
     for (let i = 0; i < 7; i++) {
       const leaf = box({ size: [2.6, 0.08, 0.55], pos: [1.3, 0, 0], mat: M_PALM_LEAF });
       const pivot = new THREE.Group();
@@ -1912,7 +2013,8 @@ export function buildMansionGrounds(scene = null) {
       crown.add(pivot);
     }
     crown.position.set(x, h, z);
-    root.add(crown);
+    palm.add(crown);
+    root.add(palm);
     solid(x - 0.4, x + 0.4, 0, h, z - 0.4, z + 0.4);
   }
   /* The pair at (-9,45) and (9,45) were INSIDE the house -- BUILDING is
@@ -1937,11 +2039,13 @@ export function buildMansionGrounds(scene = null) {
    */
   const PALM_SPOTS = [
     /* The first west palm moved out of the grey sedan's gate lay-by. */
-    [-9.4, 3.2], [6, 6], [-6, 14], [6, 16], [16.6, 6],
-    [-13.5, 38.6 - FORECOURT_SHIFT], [13.5, 38.6 - FORECOURT_SHIFT],
+    [-9.4, 3.2], [6, 7], [-6, 14], [6, 16], [16.6, 6],
+    [-19, 38.6 - FORECOURT_SHIFT], [19, 38.6 - FORECOURT_SHIFT],
     [-24, 12], [-27, 17], [-26.5, 38 - FORECOURT_SHIFT],
   ];
-  for (const [x, z] of PALM_SPOTS) buildPalm(x, z, 5.5 + Math.random() * 1.4);
+  for (const [index, [x, z]] of PALM_SPOTS.entries()) {
+    buildPalm(x, z, 5.5 + Math.random() * 1.4, index);
+  }
 
   /* ---------------------------------------------------------------- */
   /* Flowers and landscaping to the front (owner playtest item 1)       */
@@ -1995,25 +2099,29 @@ export function buildMansionGrounds(scene = null) {
   };
 
   /** A rectangular planting bed: recessed soil inside a low stone edge. */
-  function bed(x0, x1, z0, z1, y = 0) {
-    root.add(box({
+  function bed(x0, x1, z0, z1, y = 0, edgeMaterial = M_BED_EDGE, edgeHeight = 0.16, ownerId = null) {
+    const assemblyId = ownerId ?? `mansion-planting-bed:${x0}:${x1}:${z0}:${z1}:${y}`;
+    const soil = geometryIntent(box({
       size: [x1 - x0, 0.1, z1 - z0],
       pos: [(x0 + x1) / 2, y + 0.05, (z0 + z1) / 2],
       mat: M_SOIL,
       cast: false,
-    }));
+      name: 'mansion-planting-soil',
+    }), { assemblyId });
+    geometryIntent(soil, { structural: true });
+    root.add(soil);
     for (const [ex0, ex1, ez0, ez1] of [
       [x0 - 0.16, x1 + 0.16, z0 - 0.16, z0],
       [x0 - 0.16, x1 + 0.16, z1, z1 + 0.16],
       [x0 - 0.16, x0, z0, z1],
       [x1, x1 + 0.16, z0, z1],
     ]) {
-      root.add(box({
-        size: [ex1 - ex0, 0.16, ez1 - ez0],
-        pos: [(ex0 + ex1) / 2, y + 0.08, (ez0 + ez1) / 2],
-        mat: M_BED_EDGE,
+      root.add(geometryIntent(box({
+        size: [ex1 - ex0, edgeHeight, ez1 - ez0],
+        pos: [(ex0 + ex1) / 2, y + edgeHeight / 2, (ez0 + ez1) / 2],
+        mat: edgeMaterial,
         cast: false,
-      }));
+      }), { assemblyId }));
     }
     landscape.beds.push({
       x0, x1, z0, z1,
@@ -2021,18 +2129,19 @@ export function buildMansionGrounds(scene = null) {
   }
 
   /** A clipped box hedge. Real obstacle, so it carries a real collider. */
-  function hedge(x0, x1, z0, z1, h = 0.85, y = 0) {
-    root.add(box({
+  function hedge(x0, x1, z0, z1, h = 0.85, y = 0, assemblyId = null) {
+    const owner = assemblyId ?? `mansion-hedge:${x0}:${x1}:${z0}:${z1}:${h}:${y}`;
+    root.add(geometryIntent(box({
       size: [x1 - x0, h, z1 - z0], pos: [(x0 + x1) / 2, y + h / 2, (z0 + z1) / 2], mat: M_HEDGE,
-    }));
+    }), { assemblyId: owner }));
     // A lighter cap face: new growth catches the light, the flanks do not.
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [(x1 - x0) - 0.06, 0.05, (z1 - z0) - 0.06],
       pos: [(x0 + x1) / 2, y + h, (z0 + z1) / 2],
       mat: M_HEDGE_TOP,
       cast: false,
-    }));
-    solid(x0, x1, y, y + h, z0, z1);
+    }), { assemblyId: owner }));
+    geometryIntent(solid(x0, x1, y, y + h, z0, z1), { assemblyId: owner });
     landscape.hedges.push({
       x0, x1, z0, z1, h,
     });
@@ -2042,6 +2151,7 @@ export function buildMansionGrounds(scene = null) {
   function bloomClump(x, z, y = 0, scale = 1, tint = null, trackFront = false) {
     const paint = tint ?? BLOOM_MATS[(Math.random() * BLOOM_MATS.length) | 0];
     const plant = group(trackFront ? 'mansion-front-flower-clump' : 'mansion-garden-flower-clump');
+    plant.userData.geometryGate = { overlap: false };
     plant.position.set(x, y, z);
     plant.add(sphere({
       r: 0.26 * scale, ry: 0.13 * scale,
@@ -2110,30 +2220,32 @@ export function buildMansionGrounds(scene = null) {
 
   /** A stone urn of trailing colour, for flanking a doorway or a step. */
   function urn(x, z, y = 0) {
-    root.add(cylinder({
+    const assemblyId = `mansion-garden-urn:${x}:${z}:${y}`;
+    const mount = (object) => root.add(geometryIntent(object, { assemblyId }));
+    mount(cylinder({
       rTop: 0.42, rBottom: 0.3, h: 0.16, pos: [x, y + 0.08, z], mat: M_URN,
     }));
-    root.add(cylinder({
+    mount(cylinder({
       rTop: 0.26, rBottom: 0.34, h: 0.5, pos: [x, y + 0.41, z], mat: M_URN,
     }));
-    root.add(cylinder({
+    mount(cylinder({
       rTop: 0.5, rBottom: 0.34, h: 0.44, pos: [x, y + 0.86, z], mat: M_URN,
     }));
-    root.add(sphere({
+    mount(sphere({
       r: 0.44, ry: 0.26, pos: [x, y + 1.12, z], mat: M_FOLIAGE, cast: false,
     }));
     const tint = BLOOM_MATS[(Math.random() * BLOOM_MATS.length) | 0];
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
       const r = 0.16 + Math.random() * 0.24;
-      root.add(sphere({
+      mount(sphere({
         r: 0.08,
         pos: [x + Math.cos(a) * r, y + 1.2 + Math.random() * 0.16, z + Math.sin(a) * r],
         mat: tint,
         cast: false,
       }));
     }
-    solid(x - 0.5, x + 0.5, y, y + 1.1, z - 0.5, z + 0.5);
+    geometryIntent(solid(x - 0.5, x + 0.5, y, y + 1.1, z - 0.5, z + 0.5), { assemblyId });
     landscape.urns.push({ x, z });
   }
 
@@ -2157,16 +2269,16 @@ export function buildMansionGrounds(scene = null) {
         /* Flare the drive before the r=6 fountain apron.  The former hedge
          * end at z21.1 overlapped the stone's z21 edge and made a literal
          * wall across the only route from the drive into the court. */
-        bed(-6.7, -4.35, 10.45, 18.9);
+        bed(-6.7, -4.35, 10.45, 18.9, 0, M_BED_EDGE, 0.16, 'mansion-driveway-border-west-north');
         plantBed(-6.55, -4.5, 10.7, 18.65, 1.5);
-        hedge(-7.0, -6.7, 10.45, 18.9, 0.8);
+        hedge(-7.0, -6.7, 10.45, 18.9, 0.8, 0, 'mansion-driveway-border-west-north');
         continue;
       }
-      bed(side > 0 ? 4.35 : -6.7, side > 0 ? 6.7 : -4.35, 1.5, 18.9);
+      bed(4.35, 6.7, 1.5, 18.9, 0, M_BED_EDGE, 0.16, 'mansion-driveway-border-east');
       plantBed(side > 0 ? 4.5 : -6.55, side > 0 ? 6.55 : -4.5, 1.8, 18.65, 1.5);
       // The hedge starts at z=6, north of the security booth and its barrier
       // arm, rather than running straight through them.
-      hedge(side > 0 ? 6.7 : -7.0, side > 0 ? 7.0 : -6.7, 6, 18.9, 0.8);
+      hedge(6.7, 7.0, 6, 18.9, 0.8, 0, 'mansion-driveway-border-east');
     }
 
     // 2. The two front-lawn parterres either side of the drive: a box-hedge
@@ -2175,20 +2287,21 @@ export function buildMansionGrounds(scene = null) {
       { x0: -18, x1: -8.6, z0: 6, z1: 17 },
       { x0: 8.6, x1: 15, z0: 6, z1: 17 },
     ];
-    for (const p of parterres) {
-      hedge(p.x0, p.x1, p.z0, p.z0 + 0.45, 0.7);
-      hedge(p.x0, p.x1, p.z1 - 0.45, p.z1, 0.7);
-      hedge(p.x0, p.x0 + 0.45, p.z0, p.z1, 0.7);
-      hedge(p.x1 - 0.45, p.x1, p.z0, p.z1, 0.7);
-      bed(p.x0 + 0.45, p.x1 - 0.45, p.z0 + 0.45, p.z1 - 0.45);
+    for (const [parterreIndex, p] of parterres.entries()) {
+      const parterreAssemblyId = `mansion-front-parterre-${parterreIndex}`;
+      hedge(p.x0, p.x1, p.z0, p.z0 + 0.45, 0.7, 0, parterreAssemblyId);
+      hedge(p.x0, p.x1, p.z1 - 0.45, p.z1, 0.7, 0, parterreAssemblyId);
+      hedge(p.x0, p.x0 + 0.45, p.z0, p.z1, 0.7, 0, parterreAssemblyId);
+      hedge(p.x1 - 0.45, p.x1, p.z0, p.z1, 0.7, 0, parterreAssemblyId);
+      bed(p.x0 + 0.45, p.x1 - 0.45, p.z0 + 0.45, p.z1 - 0.45, 0, M_BED_EDGE, 0.16, parterreAssemblyId);
       plantBed(p.x0 + 0.7, p.x1 - 0.7, p.z0 + 0.7, p.z1 - 0.7, 2.0);
       // A clipped cone standing in the middle of the parterre.
       const cx = (p.x0 + p.x1) / 2;
       const cz = (p.z0 + p.z1) / 2;
-      root.add(cylinder({
+      root.add(geometryIntent(cylinder({
         rTop: 0.04, rBottom: 0.66, h: 2.1, pos: [cx, 1.15, cz], mat: M_HEDGE,
-      }));
-      solid(cx - 0.6, cx + 0.6, 0, 2.1, cz - 0.6, cz + 0.6);
+      }), { assemblyId: parterreAssemblyId }));
+      geometryIntent(solid(cx - 0.6, cx + 0.6, 0, 2.1, cz - 0.6, cz + 0.6), { assemblyId: parterreAssemblyId });
     }
 
     // 3. Foundation planting along the facade, either side of the front
@@ -2199,6 +2312,9 @@ export function buildMansionGrounds(scene = null) {
       bed(fx0, fx1, facadeZ0, facadeZ1);
       plantBed(fx0 + 0.3, fx1 - 0.3, facadeZ0 + 0.2, facadeZ1 - 0.2, 1.7);
       for (let sx = fx0 + 1.2; sx < fx1 - 0.8; sx += 2.4) {
+        // Leave the urns flanking the step clear; the former last specimen at
+        // x +/-7.6 occupied the same volume as the urn at x +/-7.1.
+        if (Math.abs(Math.abs(sx) - 7.1) < 1.05) continue;
         root.add(sphere({
           r: 0.55, ry: 0.62, pos: [sx, 0.6, (facadeZ0 + facadeZ1) / 2], mat: M_HEDGE,
         }));
@@ -2427,6 +2543,7 @@ export function buildMansionGrounds(scene = null) {
     /* Two masonry posts and an under-beam make the raised platform visibly
      * load-bearing instead of a slab suspended 1.02 m above the ground. */
     const supportTop = landing.y - 0.18;
+    const landingSupportAssemblyId = 'mansion-service-landing-support-frame';
     const supports = [];
     for (const z of [landing.z0 + 0.3, landing.z1 - 0.3]) {
       const post = box({
@@ -2435,13 +2552,15 @@ export function buildMansionGrounds(scene = null) {
         mat: M_MARBLE_DK,
         name: 'service-landing-support',
       });
-      root.add(post);
+      root.add(geometryIntent(post, { assemblyId: landingSupportAssemblyId }));
       supports.push(post);
-      solid(
+      const supportCollider = solid(
         landing.x1 - 0.4, landing.x1 - 0.16,
         0, supportTop,
         z - 0.12, z + 0.12,
       );
+      supportCollider.name = landingSupportAssemblyId + '-post-collider-' + supports.length;
+      geometryIntent(supportCollider, { assemblyId: landingSupportAssemblyId });
     }
     const underBeam = box({
       size: [0.24, 0.22, landing.z1 - landing.z0 - 0.24],
@@ -2449,7 +2568,7 @@ export function buildMansionGrounds(scene = null) {
       mat: M_MARBLE_DK,
       name: 'service-landing-underbeam',
     });
-    root.add(underBeam);
+    root.add(geometryIntent(underBeam, { assemblyId: landingSupportAssemblyId }));
 
     /* The flight now runs perpendicular to the east-wall doorway: road at
      * x=22, stair head at x=18, then the landing and kitchen threshold. Each
@@ -2562,6 +2681,7 @@ export function buildMansionGrounds(scene = null) {
       id, direction, outerEdge, thresholdInner, z0, z1, exteriorY,
     }) {
       const count = 7;
+      const assemblyId = `mansion-siege-breach-entry-${id}`;
       /* Reach full podium height before a standing rig's leading shoulder
        * enters the podium face.  A longer 400 mm tread left the feet on the
        * penultimate rise while the visible body already occupied the plinth. */
@@ -2576,22 +2696,24 @@ export function buildMansionGrounds(scene = null) {
         const x1 = Math.max(a, b);
         const y = THREE.MathUtils.lerp(exteriorY, topY, (i + 1) / count);
         const name = `siege-breach-${id}-tread-${i}`;
-        root.add(siegeWalkable(box({
+        root.add(siegeWalkable(geometryIntent(box({
           size: [x1 - x0, y - exteriorY, z1 - z0],
           pos: [(x0 + x1) / 2, exteriorY + (y - exteriorY) / 2, (z0 + z1) / 2],
           mat: M_MARBLE,
           name,
-        })));
+        }), { assemblyId })));
         surfaces.push(Object.freeze({ name, x0, x1, z0, z1, y }));
         for (const [cz0, cz1] of [[z0 - curb, z0], [z1, z1 + curb]]) {
           const curbTop = y + 0.14;
-          root.add(box({
+          root.add(geometryIntent(box({
             size: [x1 - x0, curbTop - exteriorY, cz1 - cz0],
             pos: [(x0 + x1) / 2, exteriorY + (curbTop - exteriorY) / 2, (cz0 + cz1) / 2],
             mat: M_MARBLE_DK,
             name: `siege-breach-${id}-curb-${i}`,
-          }));
-          solid(x0, x1, exteriorY, curbTop, cz0, cz1);
+          }), { assemblyId }));
+          const curbCollider = solid(x0, x1, exteriorY, curbTop, cz0, cz1);
+          curbCollider.name = `siege-breach-${id}-curb-${i}-${cz0 === z0 - curb ? 'south' : 'north'}-collider`;
+          geometryIntent(curbCollider, { assemblyId });
         }
       }
 
@@ -2600,12 +2722,12 @@ export function buildMansionGrounds(scene = null) {
       const tx1 = Math.max(thresholdOuter - direction * 0.05, thresholdInner);
       const thresholdY = GROUND_Y + 0.02;
       const thresholdName = `siege-breach-${id}-threshold`;
-      root.add(siegeWalkable(box({
+      root.add(siegeWalkable(geometryIntent(box({
         size: [tx1 - tx0, 0.02, z1 - z0],
         pos: [(tx0 + tx1) / 2, GROUND_Y + 0.01, (z0 + z1) / 2],
         mat: M_MARBLE,
         name: thresholdName,
-      })));
+      }), { assemblyId })));
       surfaces.push(Object.freeze({
         name: thresholdName, x0: tx0, x1: tx1, z0, z1, y: thresholdY,
       }));
@@ -2646,10 +2768,19 @@ export function buildMansionGrounds(scene = null) {
     function panelWall({
       axis, lo, hi, u0, u1, y0, y1, tag, openings = [],
     }) {
+      const assemblyId = [
+        'mansion-exterior-wall', tag, axis, lo, hi, u0, u1, y0, y1,
+      ].join(':');
+      let segmentIndex = 0;
       const seg = (ua, ub, ya, yb, name, material, inset = 0) => {
         if (ub - ua < 1e-4 || yb - ya < 1e-4) return;
-        if (axis === 'z') ext(ua, ub, ya, yb, lo + inset, hi - inset, name, material);
-        else ext(lo + inset, hi - inset, ya, yb, ua, ub, name, material);
+        const index = segmentIndex;
+        segmentIndex += 1;
+        if (axis === 'z') {
+          ext(ua, ub, ya, yb, lo + inset, hi - inset, name, material, true, assemblyId, index);
+        } else {
+          ext(lo + inset, hi - inset, ya, yb, ua, ub, name, material, true, assemblyId, index);
+        }
       };
       const cuts = new Set([u0, u1]);
       for (const o of openings) {
@@ -2814,8 +2945,11 @@ export function buildMansionGrounds(scene = null) {
         {
           id: 'livingWest', u0: 47.6, u1: 50.8, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
         },
+        /* The wing's cross-wall occupies z 55.7..56.0. Keep this second pane
+         * in the remaining living-room bay north of that wall rather than
+         * letting the partition and its door casing pass through the glass. */
         {
-          id: 'livingWestNorth', u0: 54.4, u1: 57.2, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+          id: 'livingWestNorth', u0: 56.15, u1: 57.65, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
         },
         {
           id: 'diningWest', u0: 60.4, u1: 63.8, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
@@ -2918,35 +3052,36 @@ export function buildMansionGrounds(scene = null) {
     });
     // The bay's own podium, so its floor is the lounge's floor and nobody can
     // see in under it from the service road.
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [bayXOuter - LOUNGE_BAY.x0, GROUND_Y, bayZ1 - bayZ0],
       pos: [(LOUNGE_BAY.x0 + bayXOuter) / 2, GROUND_Y / 2, (bayZ0 + bayZ1) / 2],
       mat: M_PODIUM,
       name: 'bay-podium',
-    }));
+    }), { assemblyId: 'mansion-billiard-bay-podium', checkWallEmbed: false }));
     buildSiegeBreachEntry({
       id: 'east', direction: -1, outerEdge: 23.8, thresholdInner: 19.0,
       z0: 42.7, z1: 44.3, exteriorY: 0.05,
     });
     // Flat roof with a deep gilded cornice -- the bay is the one part of the
     // house you see head-on from the service gate.
-    root.add(box({
+    const bayRoofAssemblyId = 'mansion-billiard-bay-roof';
+    root.add(geometryIntent(box({
       size: [bayXOuter - LOUNGE_BAY.x0 + 0.7, BAY_ROOF_Y1 - BAY_ROOF_Y0, bayZ1 - bayZ0 + 0.7],
       pos: [(LOUNGE_BAY.x0 + bayXOuter) / 2, (BAY_ROOF_Y0 + BAY_ROOF_Y1) / 2, (bayZ0 + bayZ1) / 2],
       mat: M_ROOF,
       name: 'bay-roof',
-    }));
+    }), { assemblyId: bayRoofAssemblyId, checkWallEmbed: false }));
     for (const [tx0, tx1, tz0, tz1] of [
       [LOUNGE_BAY.x0, bayXOuter + 0.35, bayZ0 - 0.35, bayZ0 - 0.18],
       [LOUNGE_BAY.x0, bayXOuter + 0.35, bayZ1 + 0.18, bayZ1 + 0.35],
       [bayXOuter + 0.18, bayXOuter + 0.35, bayZ0 - 0.35, bayZ1 + 0.35],
     ]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [tx1 - tx0, 0.16, tz1 - tz0],
         pos: [(tx0 + tx1) / 2, BAY_ROOF_Y1 - 0.02, (tz0 + tz1) / 2],
         mat: M_GOLD,
         cast: false,
-      }));
+      }), { assemblyId: bayRoofAssemblyId, checkWallEmbed: false }));
     }
     // Gilded pilasters on the two piers between the arches, inside and out.
     for (const pz of [45.1, 49.9]) {
@@ -3018,12 +3153,12 @@ export function buildMansionGrounds(scene = null) {
         id: 'winterNorth', u0: -22.4, u1: -17.8, y0: GLASS_SILL - 0.6, y1: GLASS_TOP + 0.4, glass: true,
       }],
     });
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [wingInnerX - wingOuterX, GROUND_Y, WEST_WING.z1 - WEST_WING.z0],
       pos: [(wingOuterX + wingInnerX) / 2, GROUND_Y / 2, (WEST_WING.z0 + WEST_WING.z1) / 2],
       mat: M_PODIUM,
       name: 'wing-podium',
-    }));
+    }), { assemblyId: 'mansion-west-wing-podium', checkWallEmbed: false }));
     buildSiegeBreachEntry({
       id: 'west', direction: 1, outerEdge: -27.4, thresholdInner: -22.3,
       z0: 43.2, z1: 45.6, exteriorY: 0,
@@ -3031,7 +3166,8 @@ export function buildMansionGrounds(scene = null) {
     /* Overhang on three sides only: the east edge stops on the building line.
      * An eave reaching past it at this height would cross the bottom of the
      * upper storey's west windows. */
-    root.add(box({
+    const wingRoofAssemblyId = 'mansion-west-wing-roof';
+    root.add(geometryIntent(box({
       size: [(wingInnerX - wingOuterX) + 0.45, WING_ROOF_Y1 - WING_ROOF_Y0, WEST_WING.z1 - WEST_WING.z0 + 0.9],
       pos: [
         (wingOuterX - 0.45 + wingInnerX) / 2,
@@ -3040,31 +3176,34 @@ export function buildMansionGrounds(scene = null) {
       ],
       mat: M_ROOF,
       name: 'wing-roof',
-    }));
+    }), { assemblyId: wingRoofAssemblyId, checkWallEmbed: false }));
     for (const [tx0, tx1, tz0, tz1] of [
       [wingOuterX - 0.45, wingInnerX, WEST_WING.z0 - 0.45, WEST_WING.z0 - 0.25],
       [wingOuterX - 0.45, wingInnerX, WEST_WING.z1 + 0.25, WEST_WING.z1 + 0.45],
       [wingOuterX - 0.45, wingOuterX - 0.25, WEST_WING.z0 - 0.45, WEST_WING.z1 + 0.45],
     ]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [tx1 - tx0, 0.18, tz1 - tz0],
         pos: [(tx0 + tx1) / 2, WING_ROOF_Y1 - 0.02, (tz0 + tz1) / 2],
         mat: M_GOLD,
         cast: false,
-      }));
+      }), { assemblyId: wingRoofAssemblyId, checkWallEmbed: false }));
     }
     // Pilasters up the outer face, between the windows -- the elevation you
     // see from the whole west lawn, so it gets an order rather than a slab.
     for (const pz of [42.0, 48.4, 55.0, 64.6, 73.0]) {
-      root.add(box({
+      const assemblyId = `mansion-west-wing-pilaster:${pz}`;
+      root.add(geometryIntent(box({
         size: [0.34, WING_ROOF_Y0 - GROUND_Y, 0.9],
         pos: [wingOuterX - 0.12, (GROUND_Y + WING_ROOF_Y0) / 2, pz],
         mat: M_MARBLE_DK,
         cast: false,
-      }));
-      root.add(box({
+        name: 'west-wing-pilaster-body',
+      }), { assemblyId, checkWallEmbed: false }));
+      root.add(geometryIntent(box({
         size: [0.44, 0.22, 1.02], pos: [wingOuterX - 0.12, WING_ROOF_Y0 - 0.1, pz], mat: M_GOLD, cast: false,
-      }));
+        name: 'west-wing-pilaster-cap',
+      }), { assemblyId, checkWallEmbed: false }));
     }
     const wingSpill = new THREE.PointLight(0xffd0a0, 8, 16, 2);
     wingSpill.position.set(wingOuterX - 1.4, 2.8, 48.0);
@@ -3136,10 +3275,19 @@ export function buildMansionGrounds(scene = null) {
       function suiteWall({
         axis, lo, hi, u0, u1, tag, openings = [],
       }) {
+        const assemblyId = [
+          'mansion-suite-wall', tag, axis, lo, hi, u0, u1, WY0, WY1,
+        ].join(':');
+        let segmentIndex = 0;
         const seg = (ua, ub, ya, yb, name, material = M_STUCCO, inset = 0) => {
           if (ub - ua < 1e-4 || yb - ya < 1e-4) return;
-          if (axis === 'z') ext(ua, ub, ya, yb, lo + inset, hi - inset, name, material);
-          else ext(lo + inset, hi - inset, ya, yb, ua, ub, name, material);
+          const index = segmentIndex;
+          segmentIndex += 1;
+          if (axis === 'z') {
+            ext(ua, ub, ya, yb, lo + inset, hi - inset, name, material, true, assemblyId, index);
+          } else {
+            ext(lo + inset, hi - inset, ya, yb, ua, ub, name, material, true, assemblyId, index);
+          }
         };
         if (!openings.length) {
           seg(u0, u1, WY0, WY1, `${tag}-solid`);
@@ -3232,25 +3380,26 @@ export function buildMansionGrounds(scene = null) {
       });
 
       // Roof slab over it, with the same eave and the same gold roofline.
-      root.add(box({
+      const suiteRoofAssemblyId = 'mansion-master-suite-roof';
+      root.add(geometryIntent(box({
         size: [sx1 - sx0 + 0.7, SUITE_ROOF_Y1 - SUITE_ROOF_Y0, sz1 - sz0 + 0.7],
         pos: [(sx0 + sx1) / 2, (SUITE_ROOF_Y0 + SUITE_ROOF_Y1) / 2, (sz0 + sz1) / 2],
         mat: M_ROOF,
         name: 'suite-roof-slab',
-      }));
+      }), { assemblyId: suiteRoofAssemblyId, checkWallEmbed: false }));
       for (const [x0, x1, z0, z1] of [
         [sx0 - 0.32, sx1 + 0.32, sz0 - 0.32, sz0 - 0.2],
         [sx0 - 0.32, sx1 + 0.32, sz1 + 0.2, sz1 + 0.32],
         [sx0 - 0.32, sx0 - 0.2, sz0 - 0.32, sz1 + 0.32],
         [sx1 + 0.2, sx1 + 0.32, sz0 - 0.32, sz1 + 0.32],
       ]) {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [x1 - x0, 0.1, z1 - z0],
           pos: [(x0 + x1) / 2, SUITE_ROOF_Y0 + 0.02, (z0 + z1) / 2],
           mat: M_GOLD,
           cast: false,
           name: 'suite-roof-trim',
-        }));
+        }), { assemblyId: suiteRoofAssemblyId, checkWallEmbed: false }));
       }
       /* A gilded parapet round the flat roof the new storey stands in the
        * middle of. Without it the third floor reads as a shed dropped on a
@@ -3268,27 +3417,28 @@ export function buildMansionGrounds(scene = null) {
        * flanking terraces and stops at the pavilion's own outer wall faces
        * (sx0/sx1); the cope's 70 mm overhang laps into the masonry there,
        * which is how a parapet meets a wall. */
-      for (const [x0, x1, z0, z1] of [
+      for (const [parapetIndex, [x0, x1, z0, z1]] of [
         [BUILDING.x0 + 1.2, BUILDING.x1 - 1.2, BUILDING.z0 + 1.2, BUILDING.z0 + 1.42],
         [BUILDING.x0 + 1.2, sx0, BUILDING.z1 - 1.42, BUILDING.z1 - 1.2],
         [sx1, BUILDING.x1 - 1.2, BUILDING.z1 - 1.42, BUILDING.z1 - 1.2],
         [BUILDING.x0 + 1.2, BUILDING.x0 + 1.42, BUILDING.z0 + 1.2, BUILDING.z1 - 1.2],
         [BUILDING.x1 - 1.42, BUILDING.x1 - 1.2, BUILDING.z0 + 1.2, BUILDING.z1 - 1.2],
-      ]) {
-        root.add(box({
+      ].entries()) {
+        const parapetAssemblyId = `mansion-main-roof-parapet-${parapetIndex}`;
+        root.add(geometryIntent(box({
           size: [x1 - x0, 0.62, z1 - z0],
           pos: [(x0 + x1) / 2, ROOF_Y1 + 0.31, (z0 + z1) / 2],
           mat: M_MARBLE_DK,
           cast: false,
           name: 'roof-parapet',
-        }));
-        root.add(box({
+        }), { assemblyId: parapetAssemblyId, checkWallEmbed: false }));
+        root.add(geometryIntent(box({
           size: [x1 - x0 + 0.14, 0.09, z1 - z0 + 0.14],
           pos: [(x0 + x1) / 2, ROOF_Y1 + 0.66, (z0 + z1) / 2],
           mat: M_GOLD,
           cast: false,
           name: 'roof-parapet-cope',
-        }));
+        }), { assemblyId: parapetAssemblyId, checkWallEmbed: false }));
       }
       /* Uplighters on the roof terrace, washing the suite's own walls. This
        * is what makes the new mass READ at night from the driveway and the
@@ -3334,25 +3484,26 @@ export function buildMansionGrounds(scene = null) {
         x0: SUITE_STAIR_WELL.x0, x1: SUITE_STAIR_WELL.x1, z0: SUITE_STAIR_WELL.z1 - LAP, z1: BUILDING.z1 + 0.4, full: false,
       },
     ];
-    for (const s of roofSegs) {
+    for (const [roofSegmentIndex, s] of roofSegs.entries()) {
       const y0 = s.full ? ROOF_Y0 : ROOF_Y0 + 0.01;
       const y1 = s.full ? ROOF_Y1 : ROOF_Y1 - 0.01;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [s.x1 - s.x0, y1 - y0, s.z1 - s.z0],
         pos: [(s.x0 + s.x1) / 2, (y0 + y1) / 2, (s.z0 + s.z1) / 2],
         mat: M_ROOF,
         name: 'roof-slab',
-      }));
+      }), { assemblyId: `mansion-main-roof-segment-${roofSegmentIndex}`, checkWallEmbed: false }));
     }
-    for (const [x0, x1, z0, z1] of [
+    for (const [trimIndex, [x0, x1, z0, z1]] of [
       [BUILDING.x0 - 0.4, BUILDING.x1 + 0.4, zS0 - 0.05, zS0 + 0.1],
       [BUILDING.x0 - 0.4, BUILDING.x1 + 0.4, zN1 - 0.1, zN1 + 0.05],
       [xW0 - 0.05, xW0 + 0.1, BUILDING.z0 - 0.4, BUILDING.z1 + 0.4],
       [xE1 - 0.1, xE1 + 0.05, BUILDING.z0 - 0.4, BUILDING.z1 + 0.4],
-    ]) {
-      root.add(box({
+    ].entries()) {
+      root.add(geometryIntent(box({
         size: [x1 - x0, 0.1, z1 - z0], pos: [(x0 + x1) / 2, ROOF_Y0 + 0.02, (z0 + z1) / 2], mat: M_GOLD,
-      }));
+        name: `main-roofline-trim-${trimIndex}`,
+      }), { assemblyId: `mansion-main-roofline-trim-${trimIndex}`, checkWallEmbed: false, checkSupport: false, fixedSupportAnchor: true }));
     }
 
     /* -- Floor slabs. --------------------------------------------------
@@ -3367,12 +3518,14 @@ export function buildMansionGrounds(scene = null) {
       { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_SHAFT.x1, z0: BUILDING.z0, z1: BASEMENT_SHAFT.z0 },
       { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_SHAFT.x1, z0: BASEMENT_SHAFT.z1, z1: BUILDING.z1 },
     ];
-    for (const s of podiumSegs) {
+    for (const [podiumSegmentIndex, s] of podiumSegs.entries()) {
       const m = box({
         size: [s.x1 - s.x0, GROUND_Y, s.z1 - s.z0],
         pos: [(s.x0 + s.x1) / 2, GROUND_Y / 2, (s.z0 + s.z1) / 2],
         mat: M_PODIUM,
+        name: `main-podium-segment-${podiumSegmentIndex}`,
       });
+      geometryIntent(m, { assemblyId: `mansion-main-podium-segment-${podiumSegmentIndex}`, checkWallEmbed: false });
       root.add(m);
       occluders.push(m);
     }
@@ -3381,12 +3534,14 @@ export function buildMansionGrounds(scene = null) {
       { x0: FOYER_VOID.x1, x1: BUILDING.x1, z0: BUILDING.z0, z1: BUILDING.z1 },
       { x0: FOYER_VOID.x0, x1: FOYER_VOID.x1, z0: FOYER_VOID.z1, z1: BUILDING.z1 },
     ];
-    for (const s of upperSegs) {
+    for (const [upperSegmentIndex, s] of upperSegs.entries()) {
       const m = box({
         size: [s.x1 - s.x0, 0.28, s.z1 - s.z0],
         pos: [(s.x0 + s.x1) / 2, UPPER_Y - 0.14, (s.z0 + s.z1) / 2],
         mat: M_PODIUM,
+        name: `upper-floor-segment-${upperSegmentIndex}`,
       });
+      geometryIntent(m, { assemblyId: `mansion-upper-floor-segment-${upperSegmentIndex}`, checkWallEmbed: false });
       root.add(m);
       occluders.push(m);
     }
@@ -3545,9 +3700,12 @@ export function buildMansionGrounds(scene = null) {
    * Rebuilt as an actual sun lounger: a welded chrome frame on feet, a
    * slatted deck, a raked back on its own hinge, arms, and a folded towel on
    * the ones nobody is using. The collider now matches the frame. */
-  function buildLoungeChair(x, y, z, yaw, { towel = false } = {}) {
+  function buildLoungeChair(x, y, z, yaw, { towel = false, assemblyId = null } = {}) {
     const g = new THREE.Group();
     g.name = 'pool-lounger';
+    if (assemblyId) {
+      g.userData.geometryGate = { assemblyId };
+    }
     const deckY = 0.42;
     // Frame rails and feet.
     for (const sx of [-0.32, 0.32]) {
@@ -3622,7 +3780,14 @@ export function buildMansionGrounds(scene = null) {
     const sin = Math.abs(Math.sin(yaw));
     const hx = (cos * 0.78 + sin * 1.96) / 2;
     const hz = (sin * 0.78 + cos * 1.96) / 2;
-    solid(x - hx, x + hx, y, y + 0.55, z - hz, z + hz);
+    const contact = solid(x - hx, x + hx, y, y + 0.55, z - hz, z + hz);
+    if (assemblyId) {
+      contact.name = `${assemblyId}-collider`;
+      contact.userData = {
+        ...(contact.userData ?? {}),
+        geometryGate: { ...(contact.userData?.geometryGate ?? {}), assemblyId },
+      };
+    }
     return g;
   }
 
@@ -3678,10 +3843,13 @@ export function buildMansionGrounds(scene = null) {
       [POOL.x0, POOL.x1, POOL.z0 - pad, POOL.z0],
       [POOL.x0, POOL.x1, POOL.z1, POOL.z1 + pad],
     ];
-    for (const [x0, x1, z0, z1] of deckSegs) {
-      root.add(box({
-        size: [x1 - x0, 0.1, z1 - z0], pos: [(x0 + x1) / 2, GROUND_Y - 0.05, (z0 + z1) / 2], mat: M_DECK,
-      }));
+    for (const [deckSegmentIndex, [x0, x1, z0, z1]] of deckSegs.entries()) {
+      root.add(geometryIntent(box({
+        size: [x1 - x0, 0.1, z1 - z0],
+        pos: [(x0 + x1) / 2, GROUND_Y - 0.05, (z0 + z1) / 2],
+        mat: M_DECK,
+        name: `pool-deck-segment-${deckSegmentIndex}`,
+      }), { assemblyId: `mansion-pool-deck-segment-${deckSegmentIndex}`, checkWallEmbed: false }));
     }
     root.add(box({
       size: [POOL.x1 - POOL.x0, 0.1, POOL.z1 - POOL.z0],
@@ -3703,6 +3871,7 @@ export function buildMansionGrounds(scene = null) {
     };
     const entryLevelCount = 6;
     const entryDepth = (entrySteps.z1 - entrySteps.z0) / entryLevelCount;
+    const poolEntryStepsAssemblyId = 'mansion-pool-entry-steps';
     for (let i = 0; i < entryLevelCount; i++) {
       const top = THREE.MathUtils.lerp(GROUND_Y, POOL.y, i / (entryLevelCount - 1));
       const z0 = entrySteps.z0 + i * entryDepth;
@@ -3712,13 +3881,14 @@ export function buildMansionGrounds(scene = null) {
         x0: entrySteps.x0, x1: entrySteps.x1, z0, z1, y: top,
       };
       entrySteps.levels.push(level);
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [entrySteps.x1 - entrySteps.x0, top - base, entryDepth + 0.025],
         pos: [(entrySteps.x0 + entrySteps.x1) / 2, (base + top) / 2, (z0 + z1) / 2],
         mat: M_POOL_LINER,
         name: 'pool-entry-step',
-      }));
+      }), { assemblyId: poolEntryStepsAssemblyId, checkWallEmbed: false }));
     }
+    const poolBasinAssemblyId = 'mansion-pool-basin-shell';
     const wallSegs = [
       [POOL.x0 - pw, POOL.x0, POOL.z0 - pw, POOL.z1 + pw],
       [POOL.x1, POOL.x1 + pw, POOL.z0 - pw, POOL.z1 + pw],
@@ -3726,13 +3896,14 @@ export function buildMansionGrounds(scene = null) {
       [entrySteps.x1, POOL.x1 + pw, POOL.z0 - pw, POOL.z0],
       [POOL.x0 - pw, POOL.x1 + pw, POOL.z1, POOL.z1 + pw],
     ];
-    for (const [x0, x1, z0, z1] of wallSegs) {
-      root.add(box({
+    for (const [wallIndex, [x0, x1, z0, z1]] of wallSegs.entries()) {
+      root.add(geometryIntent(box({
         size: [x1 - x0, GROUND_Y - POOL.y, z1 - z0],
         pos: [(x0 + x1) / 2, (GROUND_Y + POOL.y) / 2, (z0 + z1) / 2],
         mat: M_POOL_WALL,
-      }));
-      solid(x0, x1, POOL.y, GROUND_Y, z0, z1);
+        name: `mansion-pool-basin-wall-${wallIndex}`,
+      }), { assemblyId: poolBasinAssemblyId, checkWallEmbed: false }));
+      geometryIntent(solid(x0, x1, POOL.y, GROUND_Y, z0, z1), { assemblyId: poolBasinAssemblyId, checkWallEmbed: false });
     }
     /* THE GAP (owner playtest 2026-08-04: "Pool needs to be fitted to the
      * area its in (small gap)"). The water plane was built a metre smaller
@@ -3760,13 +3931,13 @@ export function buildMansionGrounds(scene = null) {
       [POOL.x0 - pw, POOL.x0, POOL.z0, POOL.z1],
       [POOL.x1, POOL.x1 + pw, POOL.z0, POOL.z1],
     ]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [cx1 - cx0, 0.05, cz1 - cz0],
         pos: [(cx0 + cx1) / 2, GROUND_Y + 0.045, (cz0 + cz1) / 2],
         mat: M_GOLD,
         cast: false,
         name: 'pool-gold-coping',
-      }));
+      }), { assemblyId: poolBasinAssemblyId, checkWallEmbed: false }));
     }
 
     const poolLight = new THREE.PointLight(0x4ad9ff, 2.6, 30, 2);
@@ -3778,20 +3949,22 @@ export function buildMansionGrounds(scene = null) {
      * clear of the water, and the same FountainSpray the driveway fountain
      * uses -- one class, two fountains, rather than a second particle rig. */
     const featureZ = POOL.z1 - 1.9;
-    root.add(cylinder({
+    const poolFeatureAssemblyId = 'mansion-pool-water-feature';
+    root.add(geometryIntent(cylinder({
       r: 0.85, h: poolWaterY - POOL.y - 0.1, pos: [poolCx, (POOL.y + poolWaterY - 0.1) / 2, featureZ], mat: M_POOL_WALL,
-    }));
-    root.add(cylinder({
+    }), { assemblyId: poolFeatureAssemblyId }));
+    root.add(geometryIntent(cylinder({
       r: 1.05, h: 0.12, pos: [poolCx, poolWaterY + 0.02, featureZ], mat: M_MARBLE_DK,
-    }));
-    root.add(cylinder({
+    }), { assemblyId: poolFeatureAssemblyId }));
+    root.add(geometryIntent(cylinder({
       rTop: 0.42, rBottom: 0.3, h: 0.5, pos: [poolCx, poolWaterY + 0.33, featureZ], mat: M_MARBLE,
-    }));
-    root.add(cylinder({
+    }), { assemblyId: poolFeatureAssemblyId }));
+    root.add(geometryIntent(cylinder({
       r: 0.82, h: 0.1, pos: [poolCx, poolWaterY + 0.62, featureZ], mat: M_GOLD,
-    }));
+    }), { assemblyId: poolFeatureAssemblyId }));
     const featureBowlMat = makeWaterMaterial({ deep: 0x0e4552, shallow: 0x36b6d2 });
     const featureBowl = new THREE.Mesh(new THREE.CircleGeometry(0.74, 28), featureBowlMat);
+    geometryIntent(featureBowl, { assemblyId: poolFeatureAssemblyId });
     featureBowl.rotation.x = -Math.PI / 2;
     featureBowl.position.set(poolCx, poolWaterY + 0.68, featureZ);
     root.add(featureBowl);
@@ -3814,14 +3987,16 @@ export function buildMansionGrounds(scene = null) {
     const featureLight = new THREE.PointLight(0x7fe4ff, 3.2, 9, 2);
     featureLight.position.set(poolCx, poolWaterY + 0.5, featureZ);
     root.add(featureLight);
-    solid(poolCx - 1.1, poolCx + 1.1, POOL.y, GROUND_Y, featureZ - 1.1, featureZ + 1.1);
+    geometryIntent(solid(poolCx - 1.1, poolCx + 1.1, POOL.y, GROUND_Y, featureZ - 1.1, featureZ + 1.1), { assemblyId: poolFeatureAssemblyId });
 
     const chairs = [
       [-10.6, 79.4, Math.PI / 2, true], [-10.6, 82.6, Math.PI / 2, false],
       [-10.6, 85.8, Math.PI / 2, true], [-10.6, 89.0, Math.PI / 2, false],
       [10.6, 79.4, -Math.PI / 2, false], [10.6, 82.6, -Math.PI / 2, true],
       [10.6, 85.8, -Math.PI / 2, false], [10.6, 89.0, -Math.PI / 2, true],
-    ].map(([x, z, yaw, towel]) => buildLoungeChair(x, GROUND_Y, z, yaw, { towel }));
+    ].map(([x, z, yaw, towel], index) => buildLoungeChair(
+      x, GROUND_Y, z, yaw, { towel, assemblyId: `mansion-pool-lounger-${index}` },
+    ));
     for (const [tx, tz] of [[-10.6, 81.0], [-10.6, 87.4], [10.6, 81.0], [10.6, 87.4]]) {
       buildPoolTable(tx, GROUND_Y, tz);
     }
@@ -3865,20 +4040,32 @@ export function buildMansionGrounds(scene = null) {
     /* z 80.6 / 89.4 rather than 79.4 / 90.6: at 79.4 the south-east standard
      * stood 60 cm off the poolside radio console and read, from the kitchen
      * door, as a black bar planted in front of it. */
-    for (const [lx, lz] of [[-8.9, 80.6], [8.9, 80.6], [-8.9, 89.4], [8.9, 89.4]]) {
+    for (const [lampId, lx, lz] of [
+      ['south-west', -8.9, 80.6],
+      ['south-east', 8.9, 80.6],
+      ['north-west', -8.9, 89.4],
+      ['north-east', 8.9, 89.4],
+    ]) {
+      const lampAssemblyId = `mansion-pool-lamp-${lampId}`;
       const l = new THREE.PointLight(0xffd9a8, 24, 20, 2);
       l.position.set(lx, GROUND_Y + 3.0, lz);
       root.add(l);
-      root.add(cylinder({ r: 0.06, h: 3.0, pos: [lx, GROUND_Y + 1.5, lz], mat: M_LAMP_POST }));
-      root.add(cylinder({
+      root.add(geometryIntent(cylinder({
+        r: 0.06, h: 3.0, pos: [lx, GROUND_Y + 1.5, lz], mat: M_LAMP_POST,
+      }), { assemblyId: lampAssemblyId }));
+      root.add(geometryIntent(cylinder({
         rTop: 0.22, rBottom: 0.1, h: 0.2, pos: [lx, GROUND_Y + 3.16, lz], mat: M_LAMP_POST,
-      }));
-      root.add(sphere({
+      }), { assemblyId: lampAssemblyId }));
+      root.add(geometryIntent(sphere({
         r: 0.15,
         pos: [lx, GROUND_Y + 3.02, lz],
         mat: mat({ color: 0xffe6bc, roughness: 0.4, emissive: 0xffdca0, emissiveIntensity: 1.6 }),
-      }));
-      solid(lx - 0.12, lx + 0.12, GROUND_Y, GROUND_Y + 3.0, lz - 0.12, lz + 0.12);
+      }), { assemblyId: lampAssemblyId }));
+      const lampCollider = solid(
+        lx - 0.12, lx + 0.12, GROUND_Y, GROUND_Y + 3.0, lz - 0.12, lz + 0.12,
+      );
+      lampCollider.name = `${lampAssemblyId}-collider`;
+      geometryIntent(lampCollider, { assemblyId: lampAssemblyId });
     }
 
     /* Garden steps up onto the deck.
@@ -3900,17 +4087,18 @@ export function buildMansionGrounds(scene = null) {
     };
     const poolStepCount = 6;
     const poolStepRun = (stepsX1 - stepsX0) / poolStepCount;
+    const poolWestStairAssemblyId = 'mansion-pool-west-entry-stair';
     for (let i = 0; i < poolStepCount; i++) {
       const x0 = stepsX0 + i * poolStepRun;
       const x1 = x0 + poolStepRun;
       const top = GROUND_Y * ((i + 1) / poolStepCount);
       const name = `pool-west-tread-${i}`;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [poolStepRun + 0.05, top, stepsZ1 - stepsZ0],
         pos: [(x0 + x1) / 2, top / 2, (stepsZ0 + stepsZ1) / 2],
         mat: M_DECK,
         name,
-      }));
+      }), { assemblyId: poolWestStairAssemblyId, checkWallEmbed: false, checkSupport: false, fixedSupportAnchor: true }));
       poolSteps.surfaces.push(Object.freeze({
         name,
         x0: x0 - 0.025,
@@ -3923,12 +4111,15 @@ export function buildMansionGrounds(scene = null) {
     poolSteps.surfaces = Object.freeze(poolSteps.surfaces);
     Object.freeze(poolSteps);
     for (const sz of [stepsZ0, stepsZ1]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [stepsX1 - stepsX0, GROUND_Y + 0.5, 0.22],
         pos: [(stepsX0 + stepsX1) / 2, (GROUND_Y + 0.5) / 2 - 0.4, sz],
         mat: M_POOL_WALL,
-      }));
-      solid(stepsX0, stepsX1, 0, GROUND_Y + 0.1, sz - 0.13, sz + 0.13);
+        name: `pool-west-entry-stair-cheek-${sz}`,
+      }), { assemblyId: poolWestStairAssemblyId, checkWallEmbed: false, checkSupport: false, fixedSupportAnchor: true }));
+      const cheekCollider = solid(stepsX0, stepsX1, 0, GROUND_Y + 0.1, sz - 0.13, sz + 0.13);
+      cheekCollider.name = `pool-west-entry-stair-cheek-${sz}-collider`;
+      geometryIntent(cheekCollider, { assemblyId: poolWestStairAssemblyId, checkWallEmbed: false, checkSupport: false, fixedSupportAnchor: true });
     }
 
     /* THE SKIRT (owner playtest 2026-08-04, verbatim):
@@ -3974,18 +4165,20 @@ export function buildMansionGrounds(scene = null) {
     ];
     for (const st of gardenStairs) {
       const treads = 8;
+      const stairAssemblyId = `mansion-pool-garden-stair-${st.id}`;
       const treadRun = (st.z1 - st.z0) / treads;
       for (let i = 0; i < treads; i++) {
         const z0 = st.z0 + i * treadRun;
         const z1 = z0 + treadRun;
         const top = GROUND_Y * ((treads - i) / treads);
         const name = `garden-${st.id}-tread-${i}`;
-        root.add(box({
-          size: [st.x1 - st.x0, top, treadRun + 0.06],
-          pos: [(st.x0 + st.x1) / 2, top / 2, (z0 + z1) / 2],
+        const treadHeight = top - GARDEN_WALK_TOP;
+        root.add(geometryIntent(box({
+          size: [st.x1 - st.x0, treadHeight, treadRun + 0.06],
+          pos: [(st.x0 + st.x1) / 2, GARDEN_WALK_TOP + treadHeight / 2, (z0 + z1) / 2],
           mat: M_DECK,
           name,
-        }));
+        }), { assemblyId: stairAssemblyId }));
         st.surfaces.push(Object.freeze({
           name,
           x0: st.x0,
@@ -4002,16 +4195,27 @@ export function buildMansionGrounds(scene = null) {
           const za = THREE.MathUtils.lerp(st.z0, st.z1, i / 8);
           const zb = THREE.MathUtils.lerp(st.z0, st.z1, (i + 1) / 8);
           const top = THREE.MathUtils.lerp(GROUND_Y, 0, i / 8) + 0.95;
-          root.add(box({
-            size: [0.44, top, zb - za], pos: [cx, top / 2, (za + zb) / 2], mat: brickMaterial(0.5, top),
-          }));
-          root.add(box({
+          const cheekHeight = top - GARDEN_WALK_TOP;
+          root.add(geometryIntent(box({
+            size: [0.44, cheekHeight, zb - za],
+            pos: [cx, GARDEN_WALK_TOP + cheekHeight / 2, (za + zb) / 2],
+            mat: brickMaterial(0.5, cheekHeight),
+          }), { assemblyId: stairAssemblyId }));
+          root.add(geometryIntent(box({
             size: [0.56, 0.12, zb - za], pos: [cx, top + 0.06, (za + zb) / 2], mat: M_COPING, cast: false,
-          }));
-          solid(cx - 0.24, cx + 0.24, 0, top, za, zb);
+          }), { assemblyId: stairAssemblyId }));
+          const cheekCollider = solid(
+            cx - 0.24, cx + 0.24, GARDEN_WALK_TOP, top, za, zb,
+          );
+          cheekCollider.name = `garden-${st.id}-cheek-collider`;
+          geometryIntent(cheekCollider, { assemblyId: stairAssemblyId });
         }
-        root.add(sphere({ r: 0.24, pos: [cx, GROUND_Y + 1.2, st.z0 + 0.2], mat: M_COPING }));
-        root.add(sphere({ r: 0.24, pos: [cx, 1.2, st.z1 - 0.2], mat: M_COPING }));
+        root.add(geometryIntent(sphere({
+          r: 0.24, pos: [cx, GROUND_Y + 1.2, st.z0 + 0.2], mat: M_COPING,
+        }), { assemblyId: stairAssemblyId }));
+        root.add(geometryIntent(sphere({
+          r: 0.24, pos: [cx, 1.2, st.z1 - 0.2], mat: M_COPING,
+        }), { assemblyId: stairAssemblyId }));
       }
     }
 
@@ -4028,33 +4232,38 @@ export function buildMansionGrounds(scene = null) {
       [gardenStairs[0].x1 + 0.44, gardenStairs[1].x0 - 0.44, deckRect.z1 - skirtT, deckRect.z1],
       [gardenStairs[1].x1 + 0.44, deckRect.x1, deckRect.z1 - skirtT, deckRect.z1],
     ];
-    for (const [sx0, sx1, sz0, sz1] of skirtSegs) {
-      root.add(box({
+    for (const [skirtIndex, [sx0, sx1, sz0, sz1]] of skirtSegs.entries()) {
+      const skirtAssemblyId = `mansion-pool-deck-skirt-${skirtIndex}`;
+      root.add(geometryIntent(box({
         size: [sx1 - sx0, GROUND_Y, sz1 - sz0],
         pos: [(sx0 + sx1) / 2, GROUND_Y / 2, (sz0 + sz1) / 2],
         mat: M_DECK_SKIRT,
         name: 'pool-deck-skirt',
-      }));
-      solid(sx0, sx1, 0, GROUND_Y - 0.02, sz0, sz1);
+      }), { assemblyId: skirtAssemblyId, checkWallEmbed: false }));
+      const skirtCollider = solid(sx0, sx1, 0, GROUND_Y - 0.02, sz0, sz1);
+      skirtCollider.name = `pool-deck-skirt-${skirtIndex}-collider`;
+      geometryIntent(skirtCollider, { assemblyId: skirtAssemblyId, checkWallEmbed: false });
       // Projecting coping over the fascia head.
       const outX0 = sx0 === deckRect.x0 ? sx0 - 0.14 : sx0;
       const outX1 = sx1 === deckRect.x1 ? sx1 + 0.14 : sx1;
       const outZ1 = sz1 === deckRect.z1 ? sz1 + 0.14 : sz1;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [outX1 - outX0, 0.1, outZ1 - sz0],
         pos: [(outX0 + outX1) / 2, GROUND_Y - 0.05, (sz0 + outZ1) / 2],
         mat: M_MARBLE_DK,
         cast: false,
-      }));
+      }), { assemblyId: skirtAssemblyId, checkWallEmbed: false }));
     }
     // Cheek walls returning the skirt into the garden steps' own opening.
-    for (const sz of [stepsZ0, stepsZ1]) {
-      root.add(box({
+    for (const [cheekIndex, sz] of [stepsZ0, stepsZ1].entries()) {
+      const assemblyId = `mansion-pool-deck-skirt-west-cheek-${cheekIndex}`;
+      root.add(geometryIntent(box({
         size: [skirtT, GROUND_Y, 0.22],
         pos: [deckRect.x0 + skirtT / 2, GROUND_Y / 2, sz + (sz === stepsZ0 ? -0.11 : 0.11)],
         mat: M_DECK_SKIRT,
         cast: false,
-      }));
+        name: `pool-deck-skirt-west-cheek-${cheekIndex}`,
+      }), { assemblyId, checkWallEmbed: false }));
     }
 
     /* The poolside radio (owner playtest 2026-08-04: "...and one out by the
@@ -4198,38 +4407,55 @@ export function buildMansionGrounds(scene = null) {
      * brick plinth, a stone coping course and a ball finial on every pier --
      * the difference between a garden wall and a retaining wall. */
     const W = GARDEN_WALL;
-    function estateRun(axis, at, from, to) {
+    const estateWallAssemblyId = 'mansion-garden-estate-wall';
+    function estatePier(px, pz, assemblyId) {
+      root.add(geometryIntent(box({
+        size: [0.95, W.h + 0.5, 0.95], pos: [px, (W.h + 0.5) / 2, pz], mat: brickMaterial(1, W.h),
+      }), { assemblyId }));
+      root.add(geometryIntent(box({
+        size: [1.15, 0.16, 1.15], pos: [px, W.h + 0.58, pz], mat: M_COPING, cast: false,
+      }), { assemblyId }));
+      root.add(geometryIntent(sphere({ r: 0.3, pos: [px, W.h + 0.86, pz], mat: M_COPING }), { assemblyId }));
+      const contact = solid(px - 0.5, px + 0.5, 0, W.h + 0.5, pz - 0.5, pz + 0.5);
+      contact.name = `${assemblyId}-pier-collider`;
+      geometryIntent(contact, { assemblyId });
+    }
+    function estateRun(axis, at, from, to, tag) {
       const len = to - from;
       const mid = (from + to) / 2;
+      const assemblyId = estateWallAssemblyId;
       const put = (t, y0, y1, material, cast = true) => {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: axis === 'z' ? [len, y1 - y0, t] : [t, y1 - y0, len],
           pos: axis === 'z' ? [mid, (y0 + y1) / 2, at] : [at, (y0 + y1) / 2, mid],
           mat: material,
           cast,
-        }));
+        }), { assemblyId }));
       };
       put(W.t, 0, W.h, brickMaterial(len, W.h));
       put(W.t + 0.16, 0, 0.42, brickMaterial(len, 0.6), false);   // plinth
       put(W.t + 0.2, W.h, W.h + 0.14, M_COPING, false);           // coping
-      if (axis === 'z') solid(from, to, 0, W.h, at - W.t / 2, at + W.t / 2);
-      else solid(at - W.t / 2, at + W.t / 2, 0, W.h, from, to);
-      for (let p = from; p <= to + 0.01; p += 6) {
+      const runContact = axis === 'z'
+        ? solid(from, to, 0, W.h, at - W.t / 2, at + W.t / 2)
+        : solid(at - W.t / 2, at + W.t / 2, 0, W.h, from, to);
+      runContact.name = `${assemblyId}-collider`;
+      geometryIntent(runContact, { assemblyId });
+      /* Shared north corners are authored once below at the intersection of
+       * the two wall centre-lines. The former endpoint loops emitted two
+       * almost-coincident piers at each corner, offset by 30 cm. */
+      const pierStart = tag === 'north' ? from + 6 : from;
+      const pierEnd = to - 6;
+      for (let p = pierStart; p <= pierEnd + 0.01; p += 6) {
         const px = axis === 'z' ? p : at;
         const pz = axis === 'z' ? at : p;
-        root.add(box({
-          size: [0.95, W.h + 0.5, 0.95], pos: [px, (W.h + 0.5) / 2, pz], mat: brickMaterial(1, W.h),
-        }));
-        root.add(box({
-          size: [1.15, 0.16, 1.15], pos: [px, W.h + 0.58, pz], mat: M_COPING, cast: false,
-        }));
-        root.add(sphere({ r: 0.3, pos: [px, W.h + 0.86, pz], mat: M_COPING }));
-        solid(px - 0.5, px + 0.5, 0, W.h + 0.5, pz - 0.5, pz + 0.5);
+        estatePier(px, pz, assemblyId);
       }
     }
-    estateRun('x', W.x0 + W.t / 2, W.z0, W.z1);
-    estateRun('x', W.x1 - W.t / 2, W.z0, W.z1);
-    estateRun('z', W.z1 - W.t / 2, W.x0, W.x1);
+    estateRun('x', W.x0 + W.t / 2, W.z0, W.z1, 'west');
+    estateRun('x', W.x1 - W.t / 2, W.z0, W.z1, 'east');
+    estateRun('z', W.z1 - W.t / 2, W.x0, W.x1, 'north');
+    estatePier(W.x0 + W.t / 2, W.z1 - W.t / 2, estateWallAssemblyId);
+    estatePier(W.x1 - W.t / 2, W.z1 - W.t / 2, estateWallAssemblyId);
 
     /* ---- 2. Gravel walks. The cross walk runs the width of the garden
      * under the terrace; the axis walk runs from it to the pavilion. Flat
@@ -4247,8 +4473,8 @@ export function buildMansionGrounds(scene = null) {
       [MAZE.x1 + 0.6, ROSE_GARDEN.x0 - 0.6, 122.0, 124.6],
     ]) {
       root.add(box({
-        size: [gx1 - gx0, 0.06, gz1 - gz0],
-        pos: [(gx0 + gx1) / 2, 0.03, (gz0 + gz1) / 2],
+        size: [gx1 - gx0, GARDEN_WALK_TOP, gz1 - gz0],
+        pos: [(gx0 + gx1) / 2, GARDEN_WALK_TOP / 2, (gz0 + gz1) / 2],
         mat: M_GRAVEL,
         cast: false,
       }));
@@ -4351,20 +4577,10 @@ export function buildMansionGrounds(scene = null) {
       const px0 = side < 0 ? -8.2 : 4.6;
       const px1 = side < 0 ? -4.6 : 8.2;
       for (const [bz0, bz1] of [[103.4, 108.4], [109.6, 114.6]]) {
-        for (const [ex0, ex1, ez0, ez1] of [
-          [px0 - 0.24, px1 + 0.24, bz0 - 0.24, bz0],
-          [px0 - 0.24, px1 + 0.24, bz1, bz1 + 0.24],
-          [px0 - 0.24, px0, bz0, bz1],
-          [px1, px1 + 0.24, bz0, bz1],
-        ]) {
-          root.add(box({
-            size: [ex1 - ex0, 0.34, ez1 - ez0],
-            pos: [(ex0 + ex1) / 2, 0.17, (ez0 + ez1) / 2],
-            mat: brickMaterial(Math.max(ex1 - ex0, ez1 - ez0), 0.4),
-            cast: false,
-          }));
-        }
-        bed(px0, px1, bz0, bz1);
+        // The bed owns soil and edging as one installation. The former extra
+        // brick loop duplicated the complete perimeter by 16 cm.
+        const edgeMaterial = brickMaterial(Math.max(px1 - px0, bz1 - bz0), 0.4);
+        bed(px0, px1, bz0, bz1, 0, edgeMaterial, 0.34);
         plantBed(px0 + 0.4, px1 - 0.4, bz0 + 0.4, bz1 - 0.4, 1.3);
         // A clipped cone at each bed's centre, the way a parterre is punctuated.
         const ccx = (px0 + px1) / 2;
@@ -4385,16 +4601,21 @@ export function buildMansionGrounds(scene = null) {
     const GATE_W = 2.76;
     const gateZ = (R.z0 + R.z1) / 2;
     // West wall (facing the axis), broken by a moon-gate arch.
-    for (const [wz0, wz1] of [[R.z0, gateZ - GATE_W / 2], [gateZ + GATE_W / 2, R.z1]]) {
-      root.add(box({
+    for (const [runIndex, [wz0, wz1]] of [[R.z0, gateZ - GATE_W / 2], [gateZ + GATE_W / 2, R.z1]].entries()) {
+      const assemblyId = `mansion-rose-wall-west-${runIndex}`;
+      root.add(geometryIntent(box({
         size: [R.t, R.wall, wz1 - wz0],
         pos: [R.x0, R.wall / 2, (wz0 + wz1) / 2],
         mat: brickMaterial(R.t, R.wall),
-      }));
-      root.add(box({
+        name: `rose-wall-west-${runIndex}-body`,
+      }), { assemblyId }));
+      root.add(geometryIntent(box({
         size: [R.t + 0.18, 0.12, wz1 - wz0], pos: [R.x0, R.wall + 0.06, (wz0 + wz1) / 2], mat: M_COPING, cast: false,
-      }));
-      solid(R.x0 - R.t / 2, R.x0 + R.t / 2, 0, R.wall, wz0, wz1);
+        name: `rose-wall-west-${runIndex}-coping`,
+      }), { assemblyId }));
+      const runCollider = solid(R.x0 - R.t / 2, R.x0 + R.t / 2, 0, R.wall, wz0, wz1);
+      runCollider.name = `rose-wall-west-${runIndex}-collider`;
+      geometryIntent(runCollider, { assemblyId });
     }
     /* The opening is a freestanding half-torus moon gate. A previous repair
      * added a rectangular brick head and a second coping course above it;
@@ -4408,6 +4629,7 @@ export function buildMansionGrounds(scene = null) {
       arch.name = 'rose-garden-entry-arch';
       arch.position.set(R.x0, R.wall - 0.5, gateZ);
       arch.rotation.y = Math.PI / 2;
+      geometryIntent(arch, { assemblyId: 'mansion-rose-garden-entry-arch', checkWallEmbed: false, checkSupport: false, fixedSupportAnchor: true });
       root.add(arch);
       /* The torus is the entrance. The former rectangular head and coping
        * boxed it into another wall above the wall and defeated the moon-gate
@@ -4419,22 +4641,31 @@ export function buildMansionGrounds(scene = null) {
     }
     // South, north and east walls, unbroken except a service gap at the south
     // east corner so the compartment is never a single-exit trap.
-    for (const [wx0, wx1, wz0, wz1] of [
-      [R.x0, R.x1 - 3.2, R.z0 - R.t / 2, R.z0 + R.t / 2],
-      [R.x0, R.x1, R.z1 - R.t / 2, R.z1 + R.t / 2],
+    for (const [runId, wx0, wx1, wz0, wz1] of [
+      ['south', R.x0, R.x1 - 3.2, R.z0 - R.t / 2, R.z0 + R.t / 2],
+      ['north', R.x0, R.x1, R.z1 - R.t / 2, R.z1 + R.t / 2],
     ]) {
-      root.add(box({
+      const assemblyId = `mansion-rose-wall-${runId}`;
+      root.add(geometryIntent(box({
         size: [wx1 - wx0, R.wall, wz1 - wz0], pos: [(wx0 + wx1) / 2, R.wall / 2, (wz0 + wz1) / 2], mat: brickMaterial(wx1 - wx0, R.wall),
-      }));
-      root.add(box({
+        name: `rose-wall-${runId}-body`,
+      }), { assemblyId }));
+      root.add(geometryIntent(box({
         size: [wx1 - wx0, 0.12, wz1 - wz0 + 0.18], pos: [(wx0 + wx1) / 2, R.wall + 0.06, (wz0 + wz1) / 2], mat: M_COPING, cast: false,
-      }));
-      solid(wx0, wx1, 0, R.wall, wz0, wz1);
+        name: `rose-wall-${runId}-coping`,
+      }), { assemblyId }));
+      const runCollider = solid(wx0, wx1, 0, R.wall, wz0, wz1);
+      runCollider.name = `rose-wall-${runId}-collider`;
+      geometryIntent(runCollider, { assemblyId });
     }
-    root.add(box({
+    const eastAssemblyId = 'mansion-rose-wall-east';
+    root.add(geometryIntent(box({
       size: [R.t, R.wall, R.z1 - R.z0], pos: [R.x1, R.wall / 2, (R.z0 + R.z1) / 2], mat: brickMaterial(R.t, R.wall),
-    }));
-    solid(R.x1 - R.t / 2, R.x1 + R.t / 2, 0, R.wall, R.z0, R.z1);
+      name: 'rose-wall-east-body',
+    }), { assemblyId: eastAssemblyId }));
+    const eastCollider = solid(R.x1 - R.t / 2, R.x1 + R.t / 2, 0, R.wall, R.z0, R.z1);
+    eastCollider.name = 'rose-wall-east-collider';
+    geometryIntent(eastCollider, { assemblyId: eastAssemblyId });
     // Inside: a circular rose parterre round a sundial, box edging, an iron
     // arbour over the cross path, and benches on the two long sides.
     const rcx = (R.x0 + R.x1) / 2;
@@ -4465,27 +4696,34 @@ export function buildMansionGrounds(scene = null) {
       const a = Math.PI + WALK_GAP / 2 + ((i + 0.5) * (Math.PI * 2 - WALK_GAP)) / 16;
       const bx = rcx + Math.cos(a) * 4.4;
       const bz = rcz + Math.sin(a) * 4.4;
-      root.add(cylinder({
+      const rosePlanter = cylinder({
         rTop: 0.34, rBottom: 0.28, h: 0.34, pos: [bx, 0.17, bz], mat: brickMaterial(0.8, 0.4), cast: false,
-      }));
-      bloomClump(bx, bz, 0.3, 1.35);
+        name: 'mansion-rose-parterre-planter',
+      });
+      rosePlanter.userData.geometryGate = { fixedSupportAnchor: true };
+      root.add(rosePlanter);
+      bloomClump(bx, bz, 0.34, 1.35);
       /* Standard roses on clear stems, alternating with the low clumps --
        * counted OUTWARD FROM THE WALK on each side rather than off the raw
        * index, so the two halves of the ring mirror each other across the
        * garden's axis instead of running one station out of step. */
       const fromWalk = i < 8 ? i : 15 - i;
       if (fromWalk % 2 === 0) {
-        root.add(cylinder({ r: 0.045, h: 1.2, pos: [bx, 0.94, bz], mat: M_TEAK }));
-        root.add(sphere({ r: 0.42, ry: 0.34, pos: [bx, 1.7, bz], mat: M_FOLIAGE, cast: false }));
+        const standardRose = group('mansion-standard-rose');
+        standardRose.userData.geometryGate = { overlap: false };
+        standardRose.position.set(bx, 0, bz);
+        standardRose.add(cylinder({ r: 0.045, h: 1.2, pos: [0, 0.94, 0], mat: M_TEAK }));
+        standardRose.add(sphere({ r: 0.42, ry: 0.34, pos: [0, 1.7, 0], mat: M_FOLIAGE, cast: false }));
         for (let k = 0; k < 5; k++) {
           const ka = (k / 5) * Math.PI * 2;
-          root.add(sphere({
+          standardRose.add(sphere({
             r: 0.085,
-            pos: [bx + Math.cos(ka) * 0.28, 1.78, bz + Math.sin(ka) * 0.28],
+            pos: [Math.cos(ka) * 0.28, 1.78, Math.sin(ka) * 0.28],
             mat: BLOOM_MATS[(fromWalk + k) % BLOOM_MATS.length],
             cast: false,
           }));
         }
+        root.add(standardRose);
       }
     }
     root.add(cylinder({ r: 1.5, h: 0.28, pos: [rcx, 0.14, rcz], mat: M_COPING, cast: false }));
@@ -4537,26 +4775,40 @@ export function buildMansionGrounds(scene = null) {
       const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
       const cx = P.x + Math.cos(a) * P.r;
       const cz = P.z + Math.sin(a) * P.r;
-      root.add(cylinder({ r: 0.16, h: 3.4, pos: [cx, 2.32, cz], mat: M_MARBLE }));
-      root.add(cylinder({ rTop: 0.28, rBottom: 0.2, h: 0.24, pos: [cx, 4.14, cz], mat: M_MARBLE, cast: false }));
-      root.add(cylinder({ rTop: 0.2, rBottom: 0.28, h: 0.2, pos: [cx, 0.72, cz], mat: M_MARBLE, cast: false }));
-      solid(cx - 0.2, cx + 0.2, 0, 3.4, cz - 0.2, cz + 0.2);
+      const assemblyId = `mansion-garden-pavilion-column-${i}`;
+      root.add(geometryIntent(cylinder({
+        r: 0.16, h: 3.4, pos: [cx, 2.32, cz], mat: M_MARBLE, name: 'garden-pavilion-column-shaft',
+      }), { assemblyId }));
+      root.add(geometryIntent(cylinder({ rTop: 0.28, rBottom: 0.2, h: 0.24, pos: [cx, 4.14, cz], mat: M_MARBLE, cast: false }), { assemblyId }));
+      root.add(geometryIntent(cylinder({ rTop: 0.2, rBottom: 0.28, h: 0.2, pos: [cx, 0.72, cz], mat: M_MARBLE, cast: false }), { assemblyId }));
+      const columnCollider = solid(cx - 0.2, cx + 0.2, 0, 3.4, cz - 0.2, cz + 0.2);
+      columnCollider.name = `garden-pavilion-column-${i}-collider`;
+      geometryIntent(columnCollider, { assemblyId });
     }
     root.add(cylinder({ r: P.r + 0.6, h: 0.34, pos: [P.x, 4.43, P.z], mat: M_MARBLE_DK, cast: false }));
-    root.add(cylinder({ r: P.r + 0.75, h: 0.14, pos: [P.x, 4.66, P.z], mat: M_GOLD, cast: false }));
+    const pavilionRoofAssemblyId = 'mansion-garden-pavilion-roof';
+    root.add(geometryIntent(cylinder({ r: P.r + 0.75, h: 0.14, pos: [P.x, 4.66, P.z], mat: M_GOLD, cast: false }), {
+      assemblyId: pavilionRoofAssemblyId,
+    }));
     {
-      const dome = new THREE.Mesh(
+      const dome = geometryIntent(new THREE.Mesh(
         new THREE.SphereGeometry(P.r + 0.2, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
         M_ROOF,
-      );
+      ), { assemblyId: pavilionRoofAssemblyId });
+      dome.name = 'garden-pavilion-dome';
       dome.position.set(P.x, 4.7, P.z);
       dome.castShadow = true;
       root.add(dome);
-      root.add(cylinder({ r: 0.26, h: 0.7, pos: [P.x, 9.2, P.z], mat: M_GOLD }));
-      root.add(sphere({ r: 0.38, pos: [P.x, 9.75, P.z], mat: M_GOLD }));
+      root.add(geometryIntent(cylinder({ r: 0.26, h: 0.7, pos: [P.x, 9.2, P.z], mat: M_GOLD }), {
+        assemblyId: pavilionRoofAssemblyId,
+      }));
+      root.add(geometryIntent(sphere({ r: 0.38, pos: [P.x, 9.75, P.z], mat: M_GOLD }), {
+        assemblyId: pavilionRoofAssemblyId,
+      }));
     }
     // The bronze under the dome: the family's own mark, at the end of the walk.
-    const bronze = new THREE.Group();
+    const pavilionBronzeAssemblyId = 'mansion-garden-pavilion-bronze';
+    const bronze = geometryIntent(new THREE.Group(), { assemblyId: pavilionBronzeAssemblyId });
     bronze.add(cylinder({ r: 0.95, h: 0.7, pos: [0, 0.35, 0], mat: M_MARBLE_DK }));
     bronze.add(box({ size: [1.7, 0.14, 1.7], pos: [0, 0.77, 0], mat: M_GOLD, cast: false }));
     /* The same rig the fountain's monument uses, cast in bronze instead of
@@ -4580,7 +4832,9 @@ export function buildMansionGrounds(scene = null) {
     bronze.add(bronzeRig.group);
     bronze.position.set(P.x, 0.62, P.z);
     root.add(bronze);
-    solid(P.x - 1.0, P.x + 1.0, 0, 3.2, P.z - 1.0, P.z + 1.0);
+    const bronzeCollider = solid(P.x - 1.0, P.x + 1.0, 0, 3.2, P.z - 1.0, P.z + 1.0);
+    bronzeCollider.name = 'garden-pavilion-bronze-collider';
+    geometryIntent(bronzeCollider, { assemblyId: pavilionBronzeAssemblyId });
     const pavLight = new THREE.PointLight(0xffd9a8, 22, 20, 2);
     pavLight.position.set(P.x, 4.0, P.z);
     root.add(pavLight);
@@ -4605,31 +4859,33 @@ export function buildMansionGrounds(scene = null) {
      * four corner bars and a cap, with the lit globe visible between them. */
     const M_LANTERN_CASE = mat({ color: 0x2a2a2e, roughness: 0.6 });
     function gardenLamp(x, z) {
-      root.add(named(cylinder({ r: 0.09, h: 2.9, pos: [x, 1.45, z], mat: M_IRON }), 'garden-lamp-post'));
+      const assemblyId = `mansion-garden-lamp:${x}:${z}`;
+      const mount = (object) => root.add(geometryIntent(object, { assemblyId }));
+      mount(named(cylinder({ r: 0.09, h: 2.9, pos: [x, 1.45, z], mat: M_IRON }), 'garden-lamp-post'));
       for (const py of [2.895, 3.345]) {
-        root.add(box({
+        mount(box({
           size: [0.44, 0.05, 0.44], pos: [x, py, z], mat: M_LANTERN_CASE, name: 'garden-lamp-case',
         }));
       }
       for (const [bx, bz] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) {
-        root.add(box({
+        mount(box({
           size: [0.04, 0.4, 0.04], pos: [x + bx, 3.12, z + bz], mat: M_LANTERN_CASE, cast: false, name: 'garden-lamp-case',
         }));
       }
-      root.add(named(sphere({
+      mount(named(sphere({
         r: 0.17,
         pos: [x, 3.1, z],
         mat: mat({ color: 0xffe6bc, roughness: 0.4, emissive: 0xffdca0, emissiveIntensity: 1.7 }),
         cast: false,
       }), 'garden-lamp-globe'));
-      root.add(named(cylinder({
+      mount(named(cylinder({
         rTop: 0.02, rBottom: 0.26, h: 0.3, pos: [x, 3.5, z], mat: M_IRON, cast: false,
       }), 'garden-lamp-finial'));
       const l = new THREE.PointLight(0xffd2a0, 16, 15, 2);
       l.position.set(x, 3.1, z);
       root.add(l);
       lanterns.push(l);
-      solid(x - 0.14, x + 0.14, 0, 2.9, z - 0.14, z + 0.14);
+      geometryIntent(solid(x - 0.14, x + 0.14, 0, 2.9, z - 0.14, z + 0.14), { assemblyId });
     }
     // Clear of the maze's mouth (which sits on this walk) and of the rose
     // garden's gate, both of which are approached across it.
@@ -4671,6 +4927,7 @@ export function buildMansionGrounds(scene = null) {
      * bare grass; both are now somewhere you would actually stand. */
     // West: a sunken fire pit in a brick ring, with built-in seating.
     const firePit = { x: -21, z: 84 };
+    const firePitAssemblyId = 'mansion-garden-fire-pit';
     for (let i = 0; i < 20; i++) {
       const a = (i / 20) * Math.PI * 2;
       const bx = firePit.x + Math.cos(a) * 3.4;
@@ -4679,24 +4936,24 @@ export function buildMansionGrounds(scene = null) {
        * a starburst -- the same arithmetic slip the winter garden's lily basin
        * had, and just as obvious once you look at it. */
       const tangent = -(a + Math.PI / 2);
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [1.2, 0.5, 0.7], pos: [bx, 0.25, bz], mat: brickMaterial(1.3, 0.6), rotY: tangent, cast: false,
-      }));
-      root.add(box({
+      }), { assemblyId: firePitAssemblyId }));
+      root.add(geometryIntent(box({
         size: [1.25, 0.08, 0.78], pos: [bx, 0.53, bz], mat: M_COPING, rotY: tangent, cast: false,
-      }));
-      solid(bx - 0.5, bx + 0.5, 0, 0.55, bz - 0.5, bz + 0.5);
+      }), { assemblyId: firePitAssemblyId }));
+      geometryIntent(solid(bx - 0.5, bx + 0.5, 0, 0.55, bz - 0.5, bz + 0.5), { assemblyId: firePitAssemblyId });
     }
-    root.add(cylinder({ r: 1.35, h: 0.62, pos: [firePit.x, 0.31, firePit.z], mat: brickMaterial(4, 0.7) }));
-    root.add(cylinder({ r: 1.5, h: 0.1, pos: [firePit.x, 0.65, firePit.z], mat: M_COPING, cast: false }));
-    root.add(cylinder({
+    root.add(geometryIntent(cylinder({ r: 1.35, h: 0.62, pos: [firePit.x, 0.31, firePit.z], mat: brickMaterial(4, 0.7) }), { assemblyId: firePitAssemblyId }));
+    root.add(geometryIntent(cylinder({ r: 1.5, h: 0.1, pos: [firePit.x, 0.65, firePit.z], mat: M_COPING, cast: false }), { assemblyId: firePitAssemblyId }));
+    root.add(geometryIntent(cylinder({
       r: 1.15,
       h: 0.14,
       pos: [firePit.x, 0.7, firePit.z],
       mat: mat({ color: 0x14100c, roughness: 1 }),
       cast: false,
-    }));
-    const fireFlame = sphere({
+    }), { assemblyId: firePitAssemblyId }));
+    const fireFlame = geometryIntent(sphere({
       r: 0.5,
       ry: 0.72,
       pos: [firePit.x, 1.05, firePit.z],
@@ -4704,7 +4961,7 @@ export function buildMansionGrounds(scene = null) {
         color: 0x000000, emissive: 0xff8a2c, emissiveIntensity: 2.2, roughness: 1, unique: true,
       }),
       cast: false,
-    });
+    }), { assemblyId: firePitAssemblyId });
     root.add(fireFlame);
     const fireLight = new THREE.PointLight(0xff8a3c, 20, 18, 2);
     fireLight.position.set(firePit.x, 1.2, firePit.z);
@@ -4713,7 +4970,7 @@ export function buildMansionGrounds(scene = null) {
     torchFlames.push({
       flame: fireFlame, light: fireLight, baseIntensity: 20, seed: 3.7,
     });
-    solid(firePit.x - 1.5, firePit.x + 1.5, 0, 0.75, firePit.z - 1.5, firePit.z + 1.5);
+    geometryIntent(solid(firePit.x - 1.5, firePit.x + 1.5, 0, 0.75, firePit.z - 1.5, firePit.z + 1.5), { assemblyId: firePitAssemblyId });
 
     /* East: the outdoor kitchen -- a brick counter, a grill, stools, a canopy.
      *
@@ -5004,20 +5261,23 @@ export function buildMansionGrounds(scene = null) {
 
     /* ---- merge and build ---- */
     const walls = [];
+    const assemblyId = 'mansion-hedge-maze-walls';
     function hedgeRun(ax0, ax1, az0, az1) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [ax1 - ax0, H, az1 - az0],
         pos: [(ax0 + ax1) / 2, H / 2, (az0 + az1) / 2],
         mat: M_YEW,
         name: 'maze-hedge',
-      }));
-      root.add(box({
+      }), { assemblyId }));
+      root.add(geometryIntent(box({
         size: [ax1 - ax0 - 0.08, 0.06, az1 - az0 - 0.08],
         pos: [(ax0 + ax1) / 2, H, (az0 + az1) / 2],
         mat: M_YEW_TOP,
         cast: false,
-      }));
-      solid(ax0, ax1, 0, H, az0, az1);
+      }), { assemblyId }));
+      const contact = solid(ax0, ax1, 0, H, az0, az1);
+      contact.name = 'mansion-hedge-maze-wall-collider';
+      geometryIntent(contact, { assemblyId });
       walls.push({
         x0: ax0, x1: ax1, z0: az0, z1: az1,
       });
@@ -5142,12 +5402,14 @@ export function buildMansionGrounds(scene = null) {
    * palm. These compact loops stay in open maintained ground and are published
    * through `anchors`, so moving a bed or tree cannot leave a second, stale
    * map hidden in cast.js. */
+  // The centre loop is on the raised driveway pavers; the lawn loops below
+  // stay at the cast's y=0 fallback.
   const frontGuardRoutes = Object.freeze([
     Object.freeze([
-      Object.freeze({ x: -2.4, z: 18.0 }),
-      Object.freeze({ x: 2.4, z: 18.0 }),
-      Object.freeze({ x: 2.4, z: 7.0 }),
-      Object.freeze({ x: -2.4, z: 7.0 }),
+      Object.freeze({ x: -2.4, y: 0.05, z: 18.0 }),
+      Object.freeze({ x: 2.4, y: 0.05, z: 18.0 }),
+      Object.freeze({ x: 2.4, y: 0.05, z: 7.0 }),
+      Object.freeze({ x: -2.4, y: 0.05, z: 7.0 }),
     ]),
     Object.freeze([
       Object.freeze({ x: -23.0, z: 20.0 }),

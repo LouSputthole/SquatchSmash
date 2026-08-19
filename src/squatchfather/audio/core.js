@@ -1,3 +1,5 @@
+import { registerSceneAudioContext } from '../../core/scene-lifecycle.js';
+
 // Shared WebAudio plumbing for the scene. Almost everything is synthesised;
 // the shipped recordings (dialogue, footsteps, the revolver) are preferred
 // when they load, with the synth kept as the fallback.
@@ -40,6 +42,7 @@ export function init() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   ctx = new AC();
+  registerSceneAudioContext(ctx);
 
   master = ctx.createGain();
   master.gain.value = muted ? 0 : userVolume;

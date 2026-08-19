@@ -459,7 +459,10 @@ export class TargetCity {
     this.parts = {};
     this.buildGround();
     this.buildRiver();
-    const plan = this.planLots(rand);
+    // Fixed civic/industrial silhouettes claim their physical footprints
+    // before procedural lots, lamps and trees are allowed into the city.
+    this.buildLandmarks();
+    const plan = this.clearLandmarkFootprints(this.planLots(rand));
     this.buildBlocks(plan.blocks);
     this.buildHouses(plan.houses);
     this.buildRooftops(rand);
@@ -468,8 +471,32 @@ export class TargetCity {
     this.buildTrees(rand);
     this.buildRailStock(rand);
     this.buildRiverCraft(rand);
-    this.buildLandmarks();
     this.kit.mount(this.group);
+  }
+
+  overlapsLandmarkFootprint(x, z, halfX, halfZ, margin = 0) {
+    return this.landmarks.some(({ bounds }) => (
+      x + halfX + margin > bounds.min.x
+      && x - halfX - margin < bounds.max.x
+      && z + halfZ + margin > bounds.min.z
+      && z - halfZ - margin < bounds.max.z
+    ));
+  }
+
+  clearLandmarkFootprints(plan) {
+    const keep = (lot) => {
+      const angle = lot.rot ?? 0;
+      const c = Math.abs(Math.cos(angle));
+      const s = Math.abs(Math.sin(angle));
+      const halfX = (c * lot.w + s * lot.d) / 2;
+      const halfZ = (s * lot.w + c * lot.d) / 2;
+      return !this.overlapsLandmarkFootprint(lot.x, lot.z, halfX, halfZ, 2);
+    };
+    const blocks = plan.blocks.filter(keep);
+    const houses = plan.houses.filter(keep);
+    const retained = new Set([...blocks, ...houses]);
+    this.lots = this.lots.filter((lot) => retained.has(lot));
+    return { blocks, houses };
   }
 
   /** The ground plate, following the real heightfield rather than sitting on it. */
@@ -520,6 +547,9 @@ export class TargetCity {
       color: 0x16202c, roughness: 0.14, metalness: 0.42, unique: true,
     }));
     river.name = 'squatchbourg-river';
+    // A bent water plane has a city-scale AABB even though its rendered
+    // channel is narrow. It is a structural support surface, not a solid box.
+    river.userData.geometryGate = { structural: true, overlap: false };
     this.group.add(river);
     this.parts.river = river;
   }
@@ -546,7 +576,7 @@ export class TargetCity {
         const r = Math.hypot(bx, bz);
         if (r > cfg.radius) continue;
         const district = this.districtAt(bx, bz);
-        if (district === 'water' || district === 'park') continue;
+        if (district === 'water' || district === 'park' || district === 'rail') continue;
 
         const inner = cfg.blockSize - cfg.streetWidth;
         let div;
@@ -606,6 +636,7 @@ export class TargetCity {
                * a two-storey terrace with a wedding-cake top would read as a
                * mistake, not a variety. */
               if (record.h > cfg.maxHeight * 0.42 && rand() < (district === 'downtown' ? 0.4 : 0.2)) {
+                record.hasStep = true;
                 const step = {
                   x: px, z: pz, y: y + record.h,
                   w: record.w * (0.48 + rand() * 0.22),
@@ -705,6 +736,16 @@ export class TargetCity {
 
     const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), faces, Math.max(records.length, 1));
     im.name = 'squatchbourg-buildings';
+    // Each base record is sampled from groundAt(); stepped tower records are
+    // mounted directly on their authored host. The city-scale terrain AABB is
+    // not a valid local support oracle, especially after the crater hides the
+    // street plate.
+    im.userData.geometryGate = {
+      checkSupport: false,
+      instanceAssemblyIds: records.map((_, index) => (
+        `enola-squatchbourg-block-${index}`
+      )),
+    };
     im.castShadow = false;
     im.receiveShadow = false;
     records.forEach((l, i) => {
@@ -735,11 +776,22 @@ export class TargetCity {
     // A four-sided cone is a pyramid, which is a pitched roof from the air and
     // costs eight triangles.
     const roofs = new THREE.InstancedMesh(
-      new THREE.ConeGeometry(0.72, 1, 4),
+      // ConeGeometry's radius is centre-to-corner. At the authored 45-degree
+      // rotation, 0.36 makes a square roof about 1.02 units wide; the old 0.72
+      // doubled every roof footprint and drove neighbouring roofs through one another.
+      new THREE.ConeGeometry(0.36, 1, 4),
       new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0 }),
       Math.max(records.length, 1),
     );
     roofs.name = 'squatchbourg-roofs';
+    // Body and pitched roof arrays share record order by construction.
+    body.userData.geometryGate = {
+      instanceAssemblyPrefix: 'enola-squatchbourg-house',
+      // Every body starts exactly at groundAt(); the city-scale terrain AABB
+      // cannot prove that local heightfield contact.
+      checkSupport: false,
+    };
+    roofs.userData.geometryGate = { instanceAssemblyPrefix: 'enola-squatchbourg-house' };
 
     records.forEach((l, i) => {
       l.mesh = 'houses';
@@ -773,13 +825,18 @@ export class TargetCity {
 
   /** Water tanks, stair huts and vents, on the flat roofs only. */
   buildRooftops(rand) {
-    const flat = this.lots.filter((l) => l.mesh === 'blocks');
+    // A stepped tower's base roof is already occupied by its upper mass. Only
+    // genuinely open roofs may host tanks, stair huts, and vents.
+    const flat = this.lots.filter((l) => l.mesh === 'blocks' && !l.hasStep);
     const count = Math.min(420, Math.floor(flat.length * 0.55));
     const im = new THREE.InstancedMesh(cylGeo(0.5, 0.5, 1, 7), solid(0x4a4238, { roughness: 0.95 }), Math.max(count, 1));
     im.name = 'squatchbourg-rooftops';
     this.rooftopOwner = [];
+    const available = [...flat];
     for (let i = 0; i < count; i++) {
-      const l = flat[Math.floor(rand() * flat.length)] || flat[0];
+      // One fixture per roof. Sampling hosts with replacement stacked multiple
+      // tanks into the same physical space even though unused roofs remained.
+      const l = available.splice(Math.floor(rand() * available.length), 1)[0];
       if (!l) break;
       const s = 2.4 + rand() * 4.0;
       _dummy.position.set(
@@ -791,9 +848,14 @@ export class TargetCity {
       _dummy.scale.set(s, s, s);
       _dummy.updateMatrix();
       im.setMatrixAt(i, _dummy.matrix);
-      this.rooftopOwner.push({ x: l.x, z: l.z });
+      this.rooftopOwner.push(l);
     }
     im.count = this.rooftopOwner.length;
+    im.userData.geometryGate = {
+      instanceAssemblyIds: this.rooftopOwner.map((host) => (
+        `enola-squatchbourg-block-${host.index}`
+      )),
+    };
     im.instanceMatrix.needsUpdate = true;
     this.group.add(im);
     this.parts.clutter = im;
@@ -801,13 +863,18 @@ export class TargetCity {
 
   /** Chimney pots on the terraces and stacks over the works. */
   buildChimneys(rand) {
-    const hosts = this.lots.filter((l) => l.mesh === 'houses' || l.district === 'industry');
+    const hosts = this.lots.filter((l) => (
+      (l.mesh === 'houses' || l.district === 'industry')
+      && !this.rooftopOwner.includes(l)
+    ));
     const count = Math.min(520, hosts.length);
     const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), solid(0x3a2e26, { roughness: 1 }), Math.max(count, 1));
     im.name = 'squatchbourg-chimneys';
     this.chimneyOwner = [];
+    const available = [...hosts];
     for (let i = 0; i < count; i++) {
-      const l = hosts[Math.floor(rand() * hosts.length)];
+      // Chimneys are host fixtures, not a with-replacement scatter.
+      const l = available.splice(Math.floor(rand() * available.length), 1)[0];
       if (!l) break;
       const industrial = l.district === 'industry';
       const h = industrial ? 16 + rand() * 26 : 2.2 + rand() * 1.6;
@@ -849,6 +916,13 @@ export class TargetCity {
       want,
     );
     poles.name = 'squatchbourg-streetlight-poles';
+    // Lamp head and column are emitted in the same index order.
+    im.userData.geometryGate = { instanceAssemblyPrefix: 'enola-squatchbourg-streetlight' };
+    poles.userData.geometryGate = {
+      instanceAssemblyPrefix: 'enola-squatchbourg-streetlight',
+      // Each pole base is authored from groundAt() before the head is mounted.
+      checkSupport: false,
+    };
     this.lightPos = [];
     let placed = 0;
     for (let guard = 0; guard < want * 8 && placed < want; guard++) {
@@ -863,6 +937,16 @@ export class TargetCity {
       const onX = Math.abs(lx - sx) < Math.abs(lz - sz);
       const px = onX ? sx : lx;
       const pz = onX ? lz : sz;
+      // Snapping can move an avenue candidate into the marshalling yard even
+      // when its original random point was outside it.
+      if (this.districtAt(px, pz) === 'rail') continue;
+      const blockedByLot = this.lots.some((lot) => (
+        Math.abs(px - lot.x) < lot.w * 0.56 + 0.8
+        && Math.abs(pz - lot.z) < lot.d * 0.56 + 0.8
+      ));
+      const blockedByLandmark = this.overlapsLandmarkFootprint(px, pz, 0.5, 0.5, 1.2);
+      const duplicate = this.lightPos.some(({ x, z }) => Math.hypot(px - x, pz - z) < 1.2);
+      if (blockedByLot || blockedByLandmark || duplicate) continue;
       const ground = this.groundAt(px, pz);
       const h = 7.2;
       _dummy.position.set(px, ground + h, pz);
@@ -892,6 +976,10 @@ export class TargetCity {
     const want = 900;
     const im = new THREE.InstancedMesh(coneGeo(3.4, 11, 6), solid(0x243a26, { roughness: 1 }), want);
     im.name = 'squatchbourg-trees';
+    // Every cone is rooted from groundAt(). Keep that exact authored placement
+    // fact local to the batch rather than trusting a kilometre-scale terrain
+    // envelope after the city street plate is hidden by the blast.
+    im.userData.geometryGate = { checkSupport: false };
     this.treePos = [];
     let placed = 0;
     for (let guard = 0; guard < want * 6 && placed < want; guard++) {
@@ -911,14 +999,36 @@ export class TargetCity {
         lz += (rand() - 0.5) * 10;
       }
       const s = 0.7 + rand() * 0.7;
-      _dummy.position.set(lx, this.groundAt(lx, lz) + 5.2 * s, lz);
+      // The gate transforms the cone's local AABB, then compares that world
+      // AABB. Across every yaw, the second AABB's virtual corner can reach the
+      // sum of the local half-extents: about 6.35 m for this hexagonal cone.
+      // Reserve 6.4 m so placement and the repository gate use one footprint.
+      const crownRadius = 6.4 * s;
+      const blockedByLot = this.lots.some((lot) => (
+        Math.abs(lx - lot.x) < lot.w * 0.56 + crownRadius
+        && Math.abs(lz - lot.z) < lot.d * 0.56 + crownRadius
+      ));
+      const blockedByLight = this.lightPos.some(({ x, z }) => (
+        Math.hypot(lx - x, lz - z) < crownRadius + 0.8
+      ));
+      const blockedByTree = this.treePos.some(({ x, z, radius }) => (
+        Math.hypot(lx - x, lz - z) < crownRadius + radius + 0.2
+      ));
+      const blockedByLandmark = this.overlapsLandmarkFootprint(
+        lx, lz, crownRadius, crownRadius, 0.5,
+      );
+      if (blockedByLot || blockedByLight || blockedByTree || blockedByLandmark) continue;
+      const verticalScale = s * (0.8 + rand() * 0.6);
+      // Root the cone after choosing its independent vertical scale. The old
+      // hard-coded 5.2*s centre floated every short tree above grade.
+      _dummy.position.set(lx, this.groundAt(lx, lz) + 11 * verticalScale / 2, lz);
       _dummy.rotation.set(0, rand() * Math.PI, 0);
-      _dummy.scale.set(s, s * (0.8 + rand() * 0.6), s);
+      _dummy.scale.set(s, verticalScale, s);
       _dummy.updateMatrix();
       im.setMatrixAt(placed, _dummy.matrix);
       _colour.setHex(0x243a26).multiplyScalar(0.7 + rand() * 0.6);
       im.setColorAt(placed, _colour);
-      this.treePos.push({ x: lx, z: lz });
+      this.treePos.push({ x: lx, z: lz, radius: crownRadius });
       placed++;
     }
     im.count = placed;
@@ -946,22 +1056,70 @@ export class TargetCity {
         along += len + 2.4;
       }
     }
-    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), solid(0x4a3a2e, { roughness: 0.95 }), Math.max(cars.length, 1));
-    im.name = 'squatchbourg-rolling-stock';
-    this.railPos = [];
-    cars.forEach((c, i) => {
+    const clearCars = [];
+    for (const [sourceIndex, c] of cars.entries()) {
       const lx = ox + c.along * ca - c.across * sa;
       const lz = oz + c.along * sa + c.across * ca;
-      _dummy.position.set(lx, this.groundAt(lx, lz) + 2.6, lz);
+      const halfX = ca * c.len / 2 + sa * 1.6;
+      const halfZ = sa * c.len / 2 + ca * 1.6;
+      const blockedByLot = this.lots.some((lot) => {
+        const lc = Math.abs(Math.cos(lot.rot ?? 0));
+        const ls = Math.abs(Math.sin(lot.rot ?? 0));
+        const lotHalfX = (lc * lot.w + ls * lot.d) / 2;
+        const lotHalfZ = (ls * lot.w + lc * lot.d) / 2;
+        return (
+          Math.abs(lx - lot.x) < halfX + lotHalfX + 0.3
+          && Math.abs(lz - lot.z) < halfZ + lotHalfZ + 0.3
+        );
+      });
+      const blockedByTree = this.treePos.some(({ x, z, radius }) => (
+        Math.abs(lx - x) < halfX + radius
+        && Math.abs(lz - z) < halfZ + radius
+      ));
+      const blockedByLight = this.lightPos.some(({ x, z }) => (
+        Math.abs(lx - x) < halfX + 0.8
+        && Math.abs(lz - z) < halfZ + 0.8
+      ));
+      if (
+        blockedByLot
+        || blockedByTree
+        || blockedByLight
+        || this.overlapsLandmarkFootprint(lx, lz, halfX, halfZ, 0.3)
+      ) continue;
+      clearCars.push({ ...c, sourceIndex, lx, lz, halfX, halfZ });
+    }
+
+    const im = new THREE.InstancedMesh(
+      boxGeo(1, 1, 1),
+      solid(0x4a3a2e, { roughness: 0.95 }),
+      Math.max(clearCars.length, 1),
+    );
+    im.name = 'squatchbourg-rolling-stock';
+    // Wagon bodies are source-grounded below; their simple box proxy has no
+    // separate wheel mesh for the generic support pass to discover.
+    im.userData.geometryGate = { checkSupport: false };
+    this.railPos = [];
+    clearCars.forEach((c, index) => {
+      // The 4.2 m box is the whole wagon body proxy. Centre it at half-height;
+      // the old +2.6 datum left every car visibly half a metre in the air.
+      _dummy.position.set(c.lx, this.groundAt(c.lx, c.lz) + 2.1, c.lz);
       _dummy.rotation.set(0, -0.12, 0);
       _dummy.scale.set(c.len, 4.2, 3.2);
       _dummy.updateMatrix();
-      im.setMatrixAt(i, _dummy.matrix);
-      _colour.setHex(i % 4 === 0 ? 0x5a4030 : i % 4 === 1 ? 0x3a4238 : i % 4 === 2 ? 0x4a4a4e : 0x60503a);
-      im.setColorAt(i, _colour);
-      this.railPos.push({ x: lx, z: lz });
+      im.setMatrixAt(index, _dummy.matrix);
+      _colour.setHex(c.sourceIndex % 4 === 0
+        ? 0x5a4030
+        : c.sourceIndex % 4 === 1
+          ? 0x3a4238
+          : c.sourceIndex % 4 === 2 ? 0x4a4a4e : 0x60503a);
+      im.setColorAt(index, _colour);
+      this.railPos.push({
+        x: c.lx,
+        z: c.lz,
+        radius: Math.hypot(c.halfX, c.halfZ),
+      });
     });
-    im.count = cars.length;
+    im.count = clearCars.length;
     im.instanceMatrix.needsUpdate = true;
     if (im.instanceColor) im.instanceColor.needsUpdate = true;
     this.group.add(im);
@@ -989,6 +1147,9 @@ export class TargetCity {
     }
     const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), solid(0x2e3238, { roughness: 0.8 }), Math.max(craft.length, 1));
     im.name = 'squatchbourg-river-craft';
+    // Each hull is authored against the river surface. The river is hidden
+    // during the crater beat, but surviving craft keep their source placement.
+    im.userData.geometryGate = { checkSupport: false };
     this.craftPos = [];
     craft.forEach((c, i) => {
       _dummy.position.set(c.lx, this.groundAt(c.lx, c.lz) + 11.2, c.lz);
@@ -1012,8 +1173,21 @@ export class TargetCity {
   _landmark(name, lx, lz, build) {
     const first = this.kit.partCount;
     const handles = [];
-    const record = { name, x: lx, z: lz, handles, alive: true };
-    build((h) => { handles.push(h); return h; });
+    const record = {
+      name,
+      x: lx,
+      z: lz,
+      handles,
+      alive: true,
+      // Independent heightfield datum used by the geometry gate. A landmark
+      // may span many PartKit batches, so its combined AABB cannot prove the
+      // local ground contact from which the visible structure was authored.
+      supportPoints: [{ x: lx, y: this.groundAt(lx, lz), z: lz }],
+    };
+    this.kit.withAssembly(`enola-squatchbourg-landmark:${name}`, () => {
+      build((h) => { handles.push(h); return h; });
+    });
+    record.bounds = this.kit.boundsFor(handles);
     record.partsAdded = this.kit.partCount - first;
     this.landmarks.push(record);
     return record;
@@ -1060,9 +1234,9 @@ export class TargetCity {
     });
 
     /* ---- The stadium ---- */
-    this._landmark('stadium', cfg.midRadius * 0.72, -cfg.midRadius * 0.5, (add) => {
-      const x = cfg.midRadius * 0.72;
-      const z = -cfg.midRadius * 0.5;
+    this._landmark('stadium', cfg.midRadius * 0.4, 0, (add) => {
+      const x = cfg.midRadius * 0.4;
+      const z = 0;
       const y = this.groundAt(x, z);
       add(kit.cyl({ x, y: y + 13, z, r: [98, 78], h: 26, colour: 0x6e6a5e }));
       add(kit.cyl({ x, y: y + 15, z, r: [82, 62], h: 26, colour: 0x243a26 }));
@@ -1082,7 +1256,7 @@ export class TargetCity {
 
     /* ---- The gasworks: three holders and their guide frames ---- */
     for (let i = 0; i < 3; i++) {
-      const a = cfg.industryAngle + (i - 1) * 0.14;
+      const a = cfg.industryAngle + (i - 1) * 0.2;
       const r = cfg.midRadius * 1.05;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
@@ -1173,7 +1347,10 @@ export class TargetCity {
       add(kit.box({ x, y: y + 12, z: z - 24, w: 120, h: 24, d: 26, colour: STONE }));
       add(kit.box({ x: x - 46, y: y + 24, z: z - 24, w: 18, h: 48, d: 18, colour: STONE }));
       add(kit.sphere({ x: x - 46, y: y + 50, z: z - 24, r: 5, ry: 5, colour: 0xffe6b0, finish: 'glow' }));
-      add(kit.cyl({ x, y: y + 16, z: z + 14, r: [56, 26], h: 132, rz: Math.PI / 2, colour: 0x5a6068, finish: 'metal' }));
+      // Rotating the cylinder puts its X radius on world Y. The old [56, 26]
+      // axes buried the shed forty metres underground; [26, 56] gives the
+      // intended 52 m arch over a 112 m-wide train shed, rooted at grade.
+      add(kit.cyl({ x, y: y + 26, z: z + 14, r: [26, 56], h: 132, rz: Math.PI / 2, colour: 0x5a6068, finish: 'metal' }));
     });
 
     /* ---- The docks: quay cranes and the transit sheds ---- */
@@ -1211,7 +1388,7 @@ export class TargetCity {
       const along = (i - 1) * 300;
       const x = dirX * along + nX * cfg.riverOffset;
       const z = dirZ * along + nZ * cfg.riverOffset;
-      this._landmark(`bridge ${i + 1}`, x, z, (add) => {
+      const bridge = this._landmark(`bridge ${i + 1}`, x, z, (add) => {
         const y = this.groundAt(x, z);
         add(kit.box({
           x, y: y + 12, z, w: 18, h: 2.6, d: cfg.riverWidth + 90,
@@ -1238,12 +1415,22 @@ export class TargetCity {
           }));
         }
       });
+      // The deck crosses the carved river, so the centre-point terrain sample
+      // is deliberately not a support. Each pier is keyed two metres into its
+      // independently authored foundation datum instead.
+      bridge.supportPoints = [-1, 1].map((side) => ({
+        x: x + nX * side * (cfg.riverWidth / 2 + 6),
+        y: this.groundAt(x, z) - 2,
+        z: z + nZ * side * (cfg.riverWidth / 2 + 6),
+      }));
     }
 
     /* ---- The radio mast, with its red lamp — the thing the bombardier calls ---- */
-    this._landmark('radio mast', -cfg.blockSize * 1.5, -cfg.blockSize * 3.5, (add) => {
+    // Keep its footprint on the dry block behind the quays. The former
+    // placement passed through crane two and a moored lighter.
+    this._landmark('radio mast', -cfg.blockSize * 1.5, -cfg.blockSize * 2.5, (add) => {
       const x = -cfg.blockSize * 1.5;
-      const z = -cfg.blockSize * 3.5;
+      const z = -cfg.blockSize * 2.5;
       const y = this.groundAt(x, z);
       add(kit.cyl({ x, y: y + 62, z, r: 1.6, h: 124, colour: STEEL, finish: 'metal' }));
       for (const ly of [32, 64, 96]) {
@@ -1659,6 +1846,12 @@ export class TargetCity {
       vertexColors: true, roughness: 0.98, metalness: 0,
     }));
     craterMesh.name = 'squatchbourg-crater';
+    // A displaced terrain ring is a support surface, not a solid 810 m AABB.
+    craterMesh.userData.geometryGate = {
+      structural: true,
+      overlap: false,
+      checkSupport: false,
+    };
     craterMesh.position.set(cx, groundY, cz);
     craterMesh.receiveShadow = true;
     this.scene.add(craterMesh);
@@ -1678,6 +1871,8 @@ export class TargetCity {
       color: 0xff6a24, transparent: true, opacity: 0.9,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false,
     }));
+    // Additive heat shimmer intentionally occupies the crater surface.
+    glow.userData.geometryGate = { overlap: false, checkSupport: false };
     glow.position.set(cx, groundY, cz);
     this.scene.add(glow);
 

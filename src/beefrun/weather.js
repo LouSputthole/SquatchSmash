@@ -98,13 +98,24 @@ export class WeatherSystem {
     for (let i = 0; i < CLOUD_COUNT; i++) {
       const puff = new THREE.Group();
       const n = 3 + Math.floor(rand() * 4);
+      const bits = new THREE.InstancedMesh(sphereGeo(1, 8, 6), this.cloudMat, n);
+      bits.name = `cloud-puff-${i + 1}`;
+      bits.userData.geometryGate = {
+        // Cloud lobes are translucent volumes that deliberately blend.
+        overlap: false,
+        checkSupport: false,
+      };
+      const bit = new THREE.Object3D();
       for (let j = 0; j < n; j++) {
         const s = 26 + rand() * 46;
-        const m = new THREE.Mesh(sphereGeo(1, 8, 6), this.cloudMat);
-        m.scale.set(s, s * (0.34 + rand() * 0.2), s * (0.7 + rand() * 0.5));
-        m.position.set((rand() - 0.5) * 90, (rand() - 0.5) * 16, (rand() - 0.5) * 70);
-        puff.add(m);
+        bit.scale.set(s, s * (0.34 + rand() * 0.2), s * (0.7 + rand() * 0.5));
+        bit.position.set((rand() - 0.5) * 90, (rand() - 0.5) * 16, (rand() - 0.5) * 70);
+        bit.updateMatrix();
+        bits.setMatrixAt(j, bit.matrix);
       }
+      bits.instanceMatrix.needsUpdate = true;
+      bits.computeBoundingSphere();
+      puff.add(bits);
       puff.userData.offset = new THREE.Vector3(
         (rand() - 0.5) * 3600,
         620 + rand() * 900,

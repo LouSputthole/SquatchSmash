@@ -620,6 +620,7 @@ function makeJanitorCart() {
  *     private one is built.
  *   - `enabled`      `() => boolean`, the scene's own running gate.
  */
+/* GEOMETRY_GATE_MANSION_CAST_FIXTURE_JOIN: exact seated or reclining cast contacts are limited to the chair, stool, riser or lounger that owns the authored pose. */
 export function mountMansionCast(scene, world = {}, {
   interaction = null,
   camera = null,
@@ -860,8 +861,9 @@ export function mountMansionCast(scene, world = {}, {
   });
 
   /* ---- the perimeter ---------------------------------------------------
-   * Three men, one voice, on three loops. Ground level outside the podium is
-   * flat street grade, so they walk at y 0. */
+   * Three men, one voice, on three loops. The grounds publish each loop's
+   * walking height: lawns are y 0, while the centre drive follows its 5 cm
+   * paver top instead of burying the guards' shoes in it. */
   const PERIMETER_BARKS = [
     SEQUENCES.guardPathBark, SEQUENCES.guardCameraBark, SEQUENCES.guardLapBark,
   ];
@@ -879,7 +881,7 @@ export function mountMansionCast(scene, world = {}, {
       tier: 'ambient',
       job: 'patrol',
       x: route[0].x,
-      y: 0,
+      y: route[0].y ?? 0,
       z: route[0].z,
       yaw: yawToward(route[0].x, route[0].z, route[1].x, route[1].z),
       route: route.map((p) => ({ ...p })),
@@ -1440,8 +1442,10 @@ export function mountMansionCast(scene, world = {}, {
     model: familyModel(CHARACTER_IDS.LAG),
     x: lan.x,
     y: lan.y,
-    z: lan.z + 2.4,
-    yaw: yawToward(lan.x, lan.z + 2.4, lan.x, lan.z),
+    // The north desk row is centred at z 73.5; +2.4 put both thighs inside
+    // its centre desk. The 3 m offset stands him behind it with 10 cm clear.
+    z: lan.z + 3.0,
+    yaw: yawToward(lan.x, lan.z + 3.0, lan.x, lan.z),
     look: () => (theatreEveningStaged
       ? 'Lag, watching the movie half a beat behind everybody else.'
       : 'Lag, standing behind five live machines and blaming the one with the best connection.'),
@@ -1897,7 +1901,11 @@ export function mountMansionCast(scene, world = {}, {
     name: 'the Bada Bing brunette performer',
     tier: 'ambient',
     x: (water.x0 + water.x1) / 2 + 2.2,
-    y: waterY - 1.15,
+    /* The basin's finished floor is waterY-1.1. At -1.15 the standing rig's
+     * soles sat 37 mm through it, and the 44 mm treading bob could drive them
+     * farther. Nine centimetres of lift leaves 9 mm at the lowest authored
+     * bob while her shoulders remain below the waterline. */
+    y: waterY - 1.06,
     z: (water.z0 + water.z1) / 2 + 0.4,
     yaw: yawToward((water.x0 + water.x1) / 2 + 2.2, (water.z0 + water.z1) / 2 + 0.4,
       firstLounger.x, firstLounger.z),

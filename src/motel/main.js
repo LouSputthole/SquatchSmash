@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
-import { buildMotel, makeJerkyCase, BOUNDS } from './level.js';
-import { Actor, CAST, WEAPON_STATS, buildWeaponMesh } from './actors.js';
+import { buildMotel, makeJerkyCase, BOUNDS, MOTEL_DOOR_OPEN_ANGLE } from './level.js';
+import { WEAPON_STATS, buildWeaponMesh } from './actors.js';
 import { Person } from '../core/person.js';
 import { DebrisSystem } from '../../game/src/debris.js';
 import { Effects } from '../../game/src/effects.js';
@@ -47,6 +47,14 @@ import { createPauseMenu } from '../core/pause-menu.js';
 import { shakeScale, lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { selectPointInteraction } from './point-interaction.js';
+import {
+  MOTEL_REINFORCEMENT_STAGES,
+  MOTEL_ROAD_Z,
+  createMotelActor,
+  poseMotelSnowInDriverSeat,
+  stageMotelActor,
+} from './runtime-geometry.js';
+import { buildMotelDriveCar, buildMotelDriveScene } from './drive-geometry.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -60,9 +68,6 @@ const PLAYER_SCALE = 0.85;
 const CAMERA_FOV = 62;
 const ARRIVAL_CAMERA_FOV = 75;
 const PLAYER_SEATED_SCALE = 0.66;
-const SNOW_SEATED_SCALE_FACTOR = 0.74;
-const SNOW_HEAD_GLANCE = Math.PI / 2;
-const SNOW_ARM_PITCH = -1.05;
 const ARRIVAL_SNOW_BLEND = 0.35;
 const PLAYER_R = 0.42;
 const PLAYER_EYE = 1.62;
@@ -72,7 +77,7 @@ const WALK = 4.8;
 const RUN = 7.6;
 const ARRIVAL_SECONDS = 4.4;
 /** The road across the top of the lot — the way out, and the way trouble comes. */
-const ROAD_Z = 34;
+const ROAD_Z = MOTEL_ROAD_Z;
 /* The man in the car is Snow, of the Family: his photo, his voice profile, and
  * two words where anybody else would use ten. One name, one place to change it. */
 const ALLY = 'Snow';
@@ -330,10 +335,14 @@ let lookout = null;
 let watcher = null;
 let clerk = null;
 
-function spawnActor(cfg) {
-  const a = new Actor(scene, cfg);
-  actors.push(a);
-  return a;
+function spawnMotelActor(stageId) {
+  const actor = createMotelActor(scene, stageId, {
+    arrivalCar: refs.manCar,
+    deckY: level.DECK_Y,
+    floorAt: level.floorAt,
+  });
+  actors.push(actor);
+  return actor;
 }
 
 // ---------- Player physics state ----------
@@ -929,20 +938,7 @@ function syncArrivalSeats() {
   const passenger = refs.manCar.passengerPosition();
   pos.set(passenger.x, 0, passenger.z);
   feetY = 0;
-  if (snow && S.snowSeated) {
-    const forward = refs.manCar.forwardYaw();
-    const towardTony = refs.manCar.driverFacingPassengerYaw();
-    const glance = THREE.MathUtils.clamp(
-      Math.atan2(Math.sin(towardTony - forward), Math.cos(towardTony - forward)),
-      -SNOW_HEAD_GLANCE,
-      SNOW_HEAD_GLANCE,
-    );
-    snow.sitAt(refs.manCar.driverActorPosition(), forward, {
-      scaleFactor: SNOW_SEATED_SCALE_FACTOR,
-      headYaw: glance,
-      armPitch: SNOW_ARM_PITCH,
-    });
-  }
+  if (snow && S.snowSeated) poseMotelSnowInDriverSeat(snow, refs.manCar);
 }
 
 /** Mostly windscreen, with Snow retained as a readable three-quarter profile. */
@@ -973,9 +969,10 @@ function finishArrival() {
   sfx.stopEngine();
   sfx.carDoor();
 
-  const outside = refs.manCar.driverExitPosition();
-  outside.y = level.floorAt(outside.x, outside.z, 0);
-  snow?.standAt(outside, Math.PI);
+  if (snow) stageMotelActor(snow, 'snow-exterior', {
+    arrivalCar: refs.manCar,
+    floorAt: level.floorAt,
+  });
   camYaw = refs.manCar.forwardYaw();
   camPitch = -0.06;
   setObjective('reach', 'Parked with Snow outside. [Q] to get out anywhere, or [E] on the passenger door.');
@@ -1051,20 +1048,14 @@ function startScene() {
   // Cast
   /* Everybody is posed at somewhere they have a reason to be looking. The
    * road runs across the top of the lot at z = 34; the motel is at -z. */
-  const snowSeat = refs.manCar.driverActorPosition();
-  snow = spawnActor({ ...CAST.snow(), x: snowSeat.x, z: snowSeat.z, state: 'seated' });
+  snow = spawnMotelActor('snow-arrival');
   syncArrivalSeats();
   refs.manCar.group.getObjectByName('cockpit.seat.driver').userData.occupant = 'snow';
   refs.manCar.group.getObjectByName('cockpit.seat.passenger').userData.occupant = 'tony';
   frameSnowFromPassenger();
-  lookout = spawnActor({ ...CAST.lookout(), x: 21.4, z: -0.6, state: 'idle' });
-  lookout.faceAt(21.4, ROAD_Z);          // watching the road, not the lot
-  watcher = spawnActor({ ...CAST.watcher(), x: 6, z: -1.6, state: 'idle' });
-  watcher.group.position.y = level.DECK_Y;
-  watcher.anchor = { x: 6, z: -1.6 };
-  watcher.faceAt(6, 16);                 // over the railing, down at the lot
-  clerk = spawnActor({ ...CAST.clerk(), x: -44, z: -8.2, state: 'idle' });
-  clerk.faceAt(-44, -4);                 // across his own counter at z = -7
+  lookout = spawnMotelActor('lookout'); // watching the road, not the lot
+  watcher = spawnMotelActor('watcher'); // over the railing, down at the lot
+  clerk = spawnMotelActor('clerk'); // across his own counter at z = -7
 
   /* One delivery of the briefing, not two. It used to be spoken here and then
    * spoken again by the wheel four seconds later, because `snowBrief`'s prompt
@@ -1975,9 +1966,7 @@ function openTheDoor() {
    * until he steps aside, and `refs.roomTwelveThreshold` is his body. */
   openDoor(refs.frontDoor);
   S.doorAnsweredAt = performance.now();
-  rico = spawnActor({ ...CAST.rico(), x: 0, z: -4.9, state: 'deal' });
-  rico.anchor = { x: 0, z: -4.9 };
-  rico.faceAt(0, 16);          // out through his own doorway, at Tony
+  rico = spawnMotelActor('rico-doorway'); // out through his own doorway, at Tony
   rico.say(2);
   return rico;
 }
@@ -2048,17 +2037,9 @@ function enterRoom() {
    * throw on a null `rico` and take the whole scene down with it, so the door
    * opens here too if it has not opened yet. */
   openTheDoor();
-  rico.anchor = { x: 1.2, z: -8.3 };
-  rico.state = 'deal';
-  rico.target = null;
-  rico.afterGoto = null;
-  rico.group.position.set(1.2, 0, -8.3);
-  chino = spawnActor({ ...CAST.chino(), x: -1.2, z: -7.8, state: 'guard' });
-  chino.anchor = { x: -1.2, z: -7.8 };
-  chino.faceAt(0.5, -6.5);     // across the table, at the deal
-  slicer = spawnActor({ ...CAST.slicer(), x: 2.2, z: -13.5, state: 'idle' });
-  slicer.faceAt(0, -8);        // out of the bathroom doorway at the room
-  slicer.group.visible = true;
+  stageMotelActor(rico, 'rico-room');
+  chino = spawnMotelActor('chino-room'); // across the table, at the deal
+  slicer = spawnMotelActor('slicer-room'); // out of the bathroom doorway at the room
 
   // The door closes behind you
   const closeBehind = () => {
@@ -3141,12 +3122,7 @@ function damagePackages(n, reason) {
 
 // ---------- Escape ----------
 function spawnReinforcements() {
-  const spots = [{ x: 26, z: 4 }, { x: -26, z: 6 }, { x: 16, z: 16 }];
-  const weapons = ['hook', 'prod', 'pistol'];
-  spots.forEach((s, i) => {
-    const a = spawnActor({ ...CAST.thug(weapons[i % weapons.length]), x: s.x, z: s.z, state: 'chase' });
-    a.hostile = true;
-  });
+  for (const { id } of MOTEL_REINFORCEMENT_STAGES) spawnMotelActor(id);
   toast('MORE SELLERS', 'warn', 'Cars in the lot. They are coming across the concrete.');
   sfx.siren(true);
   if (lookout) { lookout.state = 'chase'; lookout.hostile = true; }
@@ -3265,7 +3241,7 @@ function boardGetaway() {
 // ---------- Doors ----------
 function openDoor(d) {
   d.open = true;
-  d.targetAngle = -2.2;
+  d.targetAngle = MOTEL_DOOR_OPEN_ANGLE;
   if (d.collider) d.collider.enabled = false;
 }
 function closeDoor(d) {
@@ -3276,7 +3252,7 @@ function closeDoor(d) {
 function updateDoors(dt) {
   for (const d of [refs.frontDoor, refs.bathDoor, refs.door11, refs.officeDoor, refs.officeRearDoor]) {
     if (!d) continue;
-    const t = d.targetAngle ?? (d.open ? -2.2 : 0);
+    const t = d.targetAngle ?? (d.open ? MOTEL_DOOR_OPEN_ANGLE : 0);
     d.angle = (d.angle ?? 0) + (t - (d.angle ?? 0)) * Math.min(1, 8 * dt);
     d.pivot.rotation.y = d.angle;
   }
@@ -3858,202 +3834,11 @@ const drive = {
 };
 
 function buildDriveScene() {
-  const s = new THREE.Scene();
-  s.background = new THREE.Color(0x090c16);
-  s.fog = new THREE.Fog(0x0d1220, 30, 170);
-  /* Night, and dark enough that the headlights are the reason he can see the
-   * road. The street lamps down both shoulders keep it from being a tunnel. */
-  s.add(new THREE.HemisphereLight(0x33405c, 0x0a0a0c, 0.22));
-  const key = new THREE.DirectionalLight(0x9fb4e8, 0.16);
-  key.position.set(-20, 40, -30);
-  s.add(key);
-
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 1200), lambert(0x16241c));
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.z = -400;
-  s.add(ground);
-
-  for (let i = 0; i < 24; i++) {
-    const seg = new THREE.Mesh(new THREE.PlaneGeometry(20, 50), lambert(0x1e1e24));
-    seg.rotation.x = -Math.PI / 2;
-    seg.position.set(0, 0.01, -i * 50);
-    s.add(seg);
-    const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 14), lambert(0xd8c86a, { emissive: 0x6a5a20 }));
-    dash.rotation.x = -Math.PI / 2;
-    dash.position.set(0, 0.03, -i * 50);
-    s.add(dash);
-    const palmL = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 8, 6), lambert(0x5c4a32));
-    palmL.position.set(-14, 4, -i * 50);
-    s.add(palmL);
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.6), lambert(0xffe6a8, { emissive: 0xffb060 }));
-    lamp.position.set(14, 7, -i * 50);
-    s.add(lamp);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 7, 6), lambert(0x4a4a52));
-    pole.position.set(14, 3.5, -i * 50);
-    s.add(pole);
-    // The left side gets the same fixtures as the right, so the street reads
-    // lit on both shoulders instead of dark past the palm trunks.
-    const lampL = lamp.clone();
-    lampL.position.set(-14, 7, -i * 50);
-    s.add(lampL);
-    const poleL = pole.clone();
-    poleL.position.set(-14, 3.5, -i * 50);
-    s.add(poleL);
-    drive.road.push({ seg, dash, palmL, lamp, pole, lampL, poleL, z: -i * 50 });
-  }
-
-  drive.car = buildDriveCar(0x6b2f3a, true);
-  s.add(drive.car);
-  drive.scene = s;
-  return s;
-}
-
-function buildDriveCar(color, player = false) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 4.6), lambert(color));
-  body.position.y = 0.85;
-  g.add(body);
-  if (!player) {
-    // Traffic reads fine as a closed sedan, and it keeps the light budget at
-    // two spotlights total instead of two per spawned car.
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 2.2), lambert(0x121820, { emissive: 0x0a1016 }));
-    cabin.position.set(0, 1.65, -0.2);
-    g.add(cabin);
-    return finishDriveCar(g);
-  }
-  /* Convertible, like the movie car: an open cockpit tub with seats, a dash and
-   * a raked windshield.
-   *
-   * The cockpit is built facing -z, which is the way this car actually travels.
-   * It used to be built facing +z while the road scrolled the other way, so the
-   * driver sat looking out of the back of his own car: the first thing in front
-   * of the camera was the passenger seat back, a metre away, and the road was
-   * never visible at all. */
-  const tub = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 2.2), lambert(0x1a1c22));
-  tub.position.set(0, 1.31, 0.2);
-  g.add(tub);
-  for (const sx of [-0.45, 0.45]) {
-    const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.12, 0.6), lambert(0x5a2c2c));
-    cushion.position.set(sx, 1.4, 0.5);
-    g.add(cushion);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.44, 0.12), lambert(0x5a2c2c));
-    back.position.set(sx, 1.62, 0.86);
-    back.rotation.x = -0.14;
-    back.userData.role = 'seat-back';
-    g.add(back);
-  }
-  const dash = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.18, 0.36), lambert(0x14161c, { emissive: 0x101418 }));
-  dash.position.set(0, 1.44, -0.62);
-  dash.userData.role = 'dash';
-  g.add(dash);
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.03, 6, 14), lambert(0x0e0f13));
-  wheel.position.set(-0.45, 1.56, -0.44);      // left hand drive, travelling -z
-  wheel.rotation.x = -1.15;
-  g.add(wheel);
-  const shield = new THREE.Mesh(
-    new THREE.BoxGeometry(1.8, 0.5, 0.05),
-    lambert(0xbcd2e0, { transparent: true, opacity: 0.18 }),
-  );
-  shield.position.set(0, 1.72, -0.92);
-  shield.rotation.x = 0.3;
-  shield.userData.role = 'windshield';
-  g.add(shield);
-  const shieldFrame = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.05, 0.06), lambert(0x8a8f98));
-  shieldFrame.position.set(0, 1.95, -0.85);
-  shieldFrame.rotation.x = 0.3;
-  g.add(shieldFrame);
-
-  /* Headlights that unmistakably land on the road.
-   *
-   * Two unshadowed spots aimed down the tarmac, strong enough to read against
-   * the night rather than the 2.2 candela they used to carry, which the
-   * hemisphere light alone drowned out. The visible beam is now a slim cone
-   * that is narrow at the lamp and wide down the road -- the way a beam
-   * actually goes -- laid low and told not to write depth, because the old one
-   * was three metres across, apex-first, at eye level, and the player watched
-   * the whole drive through two overlapping sheets of glowing fog. */
-  for (const sx of [-0.65, 0.65]) {
-    /* Aimed down at the tarmac rather than off at the horizon. A lamp 0.9m up
-     * pointed 34m away meets the road at about three degrees, where diffuse
-     * response is almost nothing however bright the bulb -- which is why the
-     * old headlights lit no road at any intensity. Bringing the aim in and the
-     * candela up to something a real low beam would carry puts a pool of light
-     * on the ground where the driver is looking. */
-    const spot = new THREE.SpotLight(0xfff0c8, 1600, 90, 0.5, 0.45, 1);
-    spot.castShadow = false;
-    spot.position.set(sx, 1.0, -2.3);
-    spot.target.position.set(sx * 1.3, 0, -16);
-    spot.userData.role = 'headlight';
-    g.add(spot, spot.target);
-    const beam = new THREE.Mesh(
-      new THREE.ConeGeometry(0.9, 13, 10, 1, true),
-      lambert(0xfff2c8, {
-        emissive: 0xd8be78, transparent: true, opacity: 0.05, depthWrite: false,
-      }),
-    );
-    beam.position.set(sx * 1.15, 0.5, -8.9);
-    beam.rotation.x = Math.PI / 2;   // apex at the lamp, mouth down the road
-    beam.renderOrder = -1;
-    beam.userData.role = 'headlight-beam';
-    g.add(beam);
-  }
-  /* And the pool itself, laid on the tarmac and travelling with the car, so
-   * that "are the headlights on" is never a question the player has to ask. */
-  const pool = new THREE.Mesh(
-    new THREE.PlaneGeometry(15, 30),
-    new THREE.MeshBasicMaterial({
-      map: headlightPoolTexture(),
-      transparent: true,
-      opacity: 0.34,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  pool.rotation.x = -Math.PI / 2;
-  pool.position.set(0, 0.03, -14);
-  pool.renderOrder = -2;
-  pool.userData.role = 'headlight-pool';
-  g.add(pool);
-  return finishDriveCar(g);
-}
-
-/** A soft wedge of light, brightest a few metres out and fading down the road. */
-let _poolTex = null;
-function headlightPoolTexture() {
-  if (_poolTex) return _poolTex;
-  const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 256;
-  const ctx = c.getContext('2d');
-  /* The falloff has to reach zero inside the texture on every side, or the
-   * plane's own edges show up on the tarmac as straight bright lines. */
-  const grad = ctx.createRadialGradient(128, 168, 8, 128, 168, 122);
-  grad.addColorStop(0, 'rgba(255,244,208,0.85)');
-  grad.addColorStop(0.4, 'rgba(255,238,190,0.34)');
-  grad.addColorStop(1, 'rgba(255,232,170,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, c.width, c.height);
-  _poolTex = new THREE.CanvasTexture(c);
-  _poolTex.colorSpace = THREE.SRGBColorSpace;
-  return _poolTex;
-}
-
-/** Wheels and lamp faces, shared by the player car and traffic. */
-function finishDriveCar(g) {
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1.5, 1.5]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 10), lambert(0x14141a));
-      w.rotation.z = Math.PI / 2;
-      w.position.set(sx * 0.95, 0.45, sz);
-      g.add(w);
-    }
-  }
-  for (const sx of [-0.65, 0.65]) {
-    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.24, 0.1), lambert(0xfff0c0, { emissive: 0xffe090 }));
-    hl.position.set(sx, 0.9, -2.32);
-    g.add(hl);
-  }
-  return g;
+  const built = buildMotelDriveScene();
+  drive.scene = built.scene;
+  drive.car = built.car;
+  drive.road = built.road;
+  return drive.scene;
 }
 
 function startDrive() {
@@ -4102,10 +3887,15 @@ function updateDrive(dt) {
   if (drive.spawnT <= 0) {
     drive.spawnT = 1.4 + Math.random() * 1.4;
     const hostile = drive.hostiles.length < 2 && Math.random() < 0.5;
-    const car = buildDriveCar(hostile ? 0x2f3a6b : [0x8a8a92, 0x3f5f3a, 0x6a5a3a][Math.floor(Math.random() * 3)]);
+    const car = buildMotelDriveCar(hostile ? 0x2f3a6b : [0x8a8a92, 0x3f5f3a, 0x6a5a3a][Math.floor(Math.random() * 3)]);
     // Pursuers come up from behind; everyone else is oncoming traffic
     car.position.set((Math.random() - 0.5) * 15, 0, hostile ? 90 : -180);
-    car.userData = { hostile, speed: hostile ? drive.speed + 9 : 12 + Math.random() * 10, hp: 2 };
+    car.userData = {
+      ...car.userData,
+      hostile,
+      speed: hostile ? drive.speed + 9 : 12 + Math.random() * 10,
+      hp: 2,
+    };
     drive.scene.add(car);
     (hostile ? drive.hostiles : drive.traffic).push(car);
   }

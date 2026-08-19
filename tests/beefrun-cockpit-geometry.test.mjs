@@ -889,9 +889,7 @@ test('both yokes remain joined from panel column through bar and hand grips at c
 test('the cargo door swings outward from its fixed top hinge instead of rotating through its centre', () => {
   const aircraft = new Brushrunner();
   const hinge = aircraft.parts.cargoDoor;
-  const leaf = hinge.children.find((child) => child.isMesh
-    && child.geometry?.parameters?.height === 1.5
-    && child.geometry?.parameters?.depth === 1.7);
+  const leaf = hinge.getObjectByName('cargo-door-leaf');
   assert.ok(leaf, 'the cargo-door leaf is missing');
 
   hinge.rotation.z = 0;

@@ -47,7 +47,10 @@ const PINES = ZONES.find((z) => z.id === 'pines');
 /* The field this dresses, in world metres. Wide enough that the treeline is
  * beyond the far end of the runway from the apron, and no wider — everything
  * past it is the route mesh's job. */
-const FIELD = { x0: -900, x1: 900, z0: -700, z1: 1000 };
+export const WHISPERING_PINES_SCENERY_BOUNDS = Object.freeze({
+  x0: -900, x1: 900, z0: -700, z1: 1000,
+});
+const FIELD = WHISPERING_PINES_SCENERY_BOUNDS;
 
 /* Nothing may grow inside these. The first three are lifted verbatim from
  * `TerrainStreamingSystem.build()`'s own scatter (see its comments — a pine
@@ -77,6 +80,7 @@ function inKeepOut(x, z) {
  * than in `airfield.js` because the Beef Run has no reason to pave it. */
 const HARDSTAND = { x: -58, z: 342, halfX: 22, halfZ: 21 };
 const HARDSTAND_LANE = { x0: -64, x1: -44, z0: 360, z1: 392 };
+export const ENOLA_HARDSTAND_SURFACE_OFFSET_M = 0.03;
 
 /** True over anything paved — `airfield.js`'s surfaces plus the hardstand. */
 function isPaved(x, z) {
@@ -161,7 +165,11 @@ export function buildAirfieldScenery(scene, { getHeight = terrainHeight } = {}) 
   );
   pad.name = 'enola-hardstand';
   pad.rotation.x = -Math.PI / 2;
-  pad.position.set(HARDSTAND.x, getHeight(HARDSTAND.x, HARDSTAND.z) + 0.03, HARDSTAND.z);
+  pad.position.set(
+    HARDSTAND.x,
+    getHeight(HARDSTAND.x, HARDSTAND.z) + ENOLA_HARDSTAND_SURFACE_OFFSET_M,
+    HARDSTAND.z,
+  );
   pad.receiveShadow = true;
   root.add(pad);
   const lane = new THREE.Mesh(
@@ -204,8 +212,24 @@ export function buildAirfieldScenery(scene, { getHeight = terrainHeight } = {}) 
   const canopies = new THREE.InstancedMesh(canopyGeo, solid(PINES.tree, { roughness: 1 }), MAX_TREES);
   trunks.name = 'whispering-pines-trunks';
   canopies.name = 'whispering-pines-canopies';
+  /* Each crown and trunk at a given index is one physical pine.  Keep that
+   * exact relationship visible to the repository geometry gate without
+   * treating the whole treeline as one assembly.  Crowns remain non-solid:
+   * neighbouring boughs may overlap while trunks and every foreign object
+   * continue through normal collision checks. */
+  trunks.userData.geometryGate = {
+    instanceAssemblyPrefix: 'enola-airfield-pine',
+    // Every trunk matrix starts at getHeight(); its source placement is the
+    // stronger local support fact than the kilometer-scale terrain AABB.
+    checkSupport: false,
+  };
+  canopies.userData.geometryGate = {
+    instanceAssemblyPrefix: 'enola-airfield-pine',
+    overlap: false,
+  };
   trunks.castShadow = canopies.castShadow = false;
   let trees = 0;
+  const trunkFootprints = [];
   for (let i = 0; i < MAX_TREES * 4 && trees < MAX_TREES; i++) {
     const x = FIELD.x0 + rand() * (FIELD.x1 - FIELD.x0);
     const z = FIELD.z0 + rand() * (FIELD.z1 - FIELD.z0);
@@ -219,12 +243,22 @@ export function buildAirfieldScenery(scene, { getHeight = terrainHeight } = {}) 
     const hz = getHeight(x, z + 8) - getHeight(x, z - 8);
     if (Math.hypot(hx, hz) > 16) continue;    // too steep to root, same as Beef Run
     const s = PINES.treeScale * (0.66 + rand() * 0.8);
+    const yaw = rand() * Math.PI * 2;
+    const verticalScale = s * (0.8 + rand() * 0.5);
+    // A rotated cylinder is audited through its transformed AABB. Reserve its
+    // worst-case horizontal footprint so independently authored trunks cannot
+    // occupy the same patch of ground.
+    const trunkRadius = Math.SQRT2 * 0.8 * s;
+    if (trunkFootprints.some((tree) => (
+      Math.hypot(x - tree.x, z - tree.z) < trunkRadius + tree.radius + 0.05
+    ))) continue;
     _obj.position.set(x, h, z);
-    _obj.rotation.set(0, rand() * Math.PI * 2, 0);
-    _obj.scale.set(s, s * (0.8 + rand() * 0.5), s);
+    _obj.rotation.set(0, yaw, 0);
+    _obj.scale.set(s, verticalScale, s);
     _obj.updateMatrix();
     trunks.setMatrixAt(trees, _obj.matrix);
     canopies.setMatrixAt(trees, _obj.matrix);
+    trunkFootprints.push({ x, z, radius: trunkRadius });
     trees++;
   }
   trunks.count = canopies.count = trees;
@@ -244,6 +278,9 @@ export function buildAirfieldScenery(scene, { getHeight = terrainHeight } = {}) 
     MAX_TUFTS,
   );
   tufts.name = 'whispering-pines-tufts';
+  /* Crossed alpha quads are visual ground dressing, not solid colliders.  The
+   * exact batch is authored from getHeight() two centimetres above grade. */
+  tufts.userData.geometryGate = { overlap: false, checkSupport: false };
   tufts.castShadow = false;
   tufts.receiveShadow = false;
   let tuftCount = 0;

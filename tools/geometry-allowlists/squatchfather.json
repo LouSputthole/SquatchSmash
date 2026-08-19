@@ -1,0 +1,68 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "squatchfather",
+  "entries": [
+    {
+      "id": "squatchfather-default-diner2-hand-table-contact",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:squatchfather-runtime/name=squatchfather-diner2#0/name=sf.root#0/name=sf.pelvis#0/name=sf.torso#0/name=sf.arm.left.shoulder#0/name=sf.arm.left.elbow#0/name=sf.arm.left.hand#0",
+      "right": "root:squatchfather-runtime/name=squatchfather.table.30#0/name=squatchfather.table.top#0",
+      "maxDepthM": 0.045,
+      "reason": "The seated background diner's authored bent-arm pose rests his left hand on the soft table covering; the 4.5 cm AABB contact is the exact hand-to-table surface contact.",
+      "source": "src/squatchfather/scenes/SquatchfatherScene.js:1370",
+      "sourceAnchor": "const diner2Fig = makeFigure(5.71, 1.77"
+    }
+  ],
+  "suppressionPolicy": [
+    {
+      "state": "default",
+      "overlap": 5,
+      "checkSupport": 2,
+      "sources": [
+        {
+          "sourceId": "root:squatchfather-runtime/name=squatchfather.restaurant-shell#0/name=squatchfather.window.13#0/name=squatchfather.restaurant.window-glass#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:squatchfather-runtime/name=squatchfather.restaurant-shell#0/name=squatchfather.window.14#0/name=squatchfather.restaurant.window-glass#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:squatchfather-runtime/name=squatchfather.table.16#0/name=squatchfather.table.cloth-skirt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:squatchfather-runtime/name=squatchfather.table.26#0/name=squatchfather.table.cloth-skirt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:squatchfather-runtime/name=squatchfather.table.30#0/name=squatchfather.table.cloth-skirt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:squatchfather-runtime/name=squatchfather.table.34#0/name=squatchfather.table.cloth-skirt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:squatchfather-runtime/name=squatchfather.table.38#0/name=squatchfather.table.cloth-skirt#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
+    }
+  ]
+}

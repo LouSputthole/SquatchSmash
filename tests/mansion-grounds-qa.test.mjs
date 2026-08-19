@@ -10,7 +10,7 @@ ensureThreeShim();
 ensureDomShim();
 
 const {
-  buildMansionGrounds, BUILDING, COURT_RADIUS, FOUNTAIN_POS, WALL_T,
+  buildMansionGrounds, BUILDING, COURT_RADIUS, FOUNTAIN_POS, GARDEN_WALK_TOP, WALL_T,
 } = await import('../src/mansion/scenes/MansionGrounds.js');
 const { buildMansionInterior } = await import('../src/mansion/scenes/MansionInterior.js');
 const { mountMansionCast } = await import('../src/mansion/cast.js');
@@ -390,10 +390,16 @@ test('tour players ride the exact service, pool, and garden tread tops', () => {
       id: 'service',
       surfaces: grounds.props.serviceRoad.ramp.surfaces,
       groundAt: grounds.props.serviceRoad.groundAt,
+      foundationY: 0,
     },
-    { id: 'pool-west', surfaces: patio.steps.surfaces, groundAt: patio.groundAt },
+    {
+      id: 'pool-west', surfaces: patio.steps.surfaces, groundAt: patio.groundAt, foundationY: 0,
+    },
     ...patio.gardenStairs.map((flight) => ({
-      id: `garden-${flight.id}`, surfaces: flight.surfaces, groundAt: patio.groundAt,
+      id: `garden-${flight.id}`,
+      surfaces: flight.surfaces,
+      groundAt: patio.groundAt,
+      foundationY: GARDEN_WALK_TOP,
     })),
   ];
 
@@ -413,8 +419,8 @@ test('tour players ride the exact service, pool, and garden tread tops', () => {
         && Math.abs(box.min.z - surface.z0) <= 1e-9
         && Math.abs(box.max.z - surface.z1) <= 1e-9,
       `${surface.name} contract omits its rendered nosing footprint`);
-      assert.ok(box.min.y <= 1e-9,
-        `${surface.name} is a floating slab ${box.min.y.toFixed(3)} m above grade`);
+      assert.ok(box.min.y <= flight.foundationY + 1e-9,
+        `${surface.name} is a floating slab ${(box.min.y - flight.foundationY).toFixed(3)} m above its authored foundation`);
       assert.ok(Math.abs(flight.groundAt(x, z) - surface.y) <= 1e-9,
         `${flight.id} player support disagrees with ${surface.name}`);
       for (const edgeX of [surface.x0 + 1e-5, surface.x1 - 1e-5]) {

@@ -117,7 +117,15 @@ export class Preflight {
     this.chocks = [];
     for (const [i, gear] of [[0, ac.parts.gear[1]], [1, ac.parts.gear[2]]]) {
       const g = group(`chock${i}`);
+      g.userData.geometryGate = {
+        // A fitted chock and the wheel it cradles are one startup assembly.
+        // Once pulled, the chock moves clear and the shared owner masks no
+        // independent contact.
+        assemblyId: gear.leg.userData?.geometryGate?.assemblyId
+          ?? `beefrun.aircraft.gear.${i + 1}`,
+      };
       const wedge = mesh(boxGeo(0.34, 0.22, 0.5), solid(CHOCK_COLOUR, { roughness: 1 }), 0, 0.11, 0);
+      wedge.userData.geometryGate = { checkSupport: false };
       wedge.rotation.x = 0.22;
       g.add(wedge);
       const rope = mesh(cylGeo(0.02, 0.02, 0.5, 5), solid(0x8a8470, { roughness: 1 }), 0, 0.05, -0.3);
@@ -202,6 +210,11 @@ export class Preflight {
     for (const piece of [this.markerFoot, this.markerRing, this.markerGem]) {
       // renderOrder is per-object in three.js, so it goes on each of them.
       piece.renderOrder = 6;
+      // This is depth-tested HUD guidance, not solid world geometry.
+      piece.userData.geometryGate = {
+        overlap: false,
+        checkSupport: false,
+      };
       this.marker.add(piece);
     }
     this.marker.visible = false;
