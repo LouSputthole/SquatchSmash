@@ -14,7 +14,6 @@ import {
   CombatStepCadence,
   CombatSuppressionField,
   FACTIONS,
-  GROUND_COMBAT_AUDIO_CUES,
   SuppressionModel,
   TracerPool,
   combatVitals,
@@ -40,9 +39,14 @@ import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { playWeaponCue } from '../core/weapons/audio.js';
 import { WEAPON_IDS, weaponCue, weaponDef } from '../core/weapons/catalog.js';
+import { createResidencyBanks } from '../core/residency-banks.js';
 import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
 import { BallisticImpactSystem } from '../world/impacts.js';
 
+import { createPalaceAcoustics } from './acoustics.js';
+import {
+  PALACE_BACKGROUND_BANK, PALACE_NEXT_BEAT_BANK, PALACE_START_BANK,
+} from './audio-banks.js';
 import { buildPalaceCast } from './cast.js';
 import { PalaceFinaleDirector } from './finale.js';
 import { EVIDENCE_IDS, PALACE_BEATS, CartelPalaceMission } from './mission.js';
@@ -257,6 +261,22 @@ player.pitch = -0.06;
 const interaction = new InteractionSystem(camera, hud);
 interaction.setOccluders([palace.root]);
 const audio = new AudioEngine();
+
+/**
+ * The raid in three residency banks (./audio-banks.js): everything a
+ * firefight can ask for blocks the start button, the finale's speech blocks
+ * the dining door, the city bed rides along behind both. The room-aware mix
+ * (./acoustics.js) automates the three always-running loops off the
+ * player's room; it is started once at boot and only ever re-asserted —
+ * never restarted — by the death retry.
+ */
+const audioBanks = createResidencyBanks({
+  start: () => audio.loadManifest(PALACE_START_BANK),
+  nextBeat: () => audio.loadAdditional(PALACE_NEXT_BEAT_BANK),
+  background: () => audio.loadAdditional(PALACE_BACKGROUND_BANK),
+});
+const acoustics = createPalaceAcoustics(audio);
+
 const campaignAudioFeedback = createCampaignAudioFeedback(audio);
 const combatAudio = new CombatAudio({ audio });
 player.onFootstep = (_surface, intensity) => combatAudio.step({
@@ -940,7 +960,15 @@ interaction.register(palace.targets.diningDoor, {
   label: 'Open Mark\'s <b>dining room</b>',
   hold: 0.72,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.BETRAYAL,
-  onUse: () => {
+  onUse: async () => {
+    /* THE BEAT BOUNDARY. The finale's `vo.palace.` bank was kicked at boot;
+     * this is where it is owed — the door does not swing, and the beat does
+     * not begin, until the confrontation's recordings have settled. Nothing
+     * retries a line's audio; dispatch is the one chance. In practice the
+     * bank settled twenty minutes ago and this await is a microtask; a
+     * double press while it is genuinely pending re-enters below, where
+     * `openDiningRoom()` refuses a door already open. */
+    await audioBanks.whenNextBeat();
     if (!palace.doors.openDiningRoom() || !mission.enterDiningRoom()) return;
     audio.play('door.creak', { volume: 0.7, position: PALACE_ANCHORS.diningRoom });
     ui.boss.classList.remove('hidden');
@@ -1222,19 +1250,13 @@ startButton.addEventListener('click', async () => {
   startButton.disabled = true;
   startButton.textContent = 'Loading final operation…';
   await audio.init();
-  await audio.loadManifest({
-    /* 'vo.palace.' is the finale confrontation bank. Unrecorded cues cost
-     * nothing — the index filter skips absent files — and recorded takes
-     * start playing the day they land, with no code change. */
-    prefixes: ['weapon.', 'footstep.', 'vo.palace.'],
-    names: [
-      ...GROUND_COMBAT_AUDIO_CUES,
-      'ambience.rain', 'ambience.city.night', 'alarm.chirp',
-      'door.creak', 'door.locked', 'heist.bullet.impact',
-      'ui.select', 'woo.streak', 'chat.ping', 'switch.click', 'light.dip',
-    ],
-  });
-  /* loadManifest above was awaited, so the weapon bank is normally already
+  /* The START bank only — the raid's guns, steps, doors and weather. The
+   * finale's `vo.palace.` speech decodes right behind it and is awaited at
+   * the dining door, which is that beat's boundary; twenty minutes of
+   * approach never again waited on a confrontation bank. */
+  await audioBanks.loadStart();
+  audioBanks.kickoff();
+  /* The START bank above was awaited, so the weapon cues are normally already
    * decoded; this pins the exact cues the FIRST trigger pull reaches for as
    * decoded-or-reported (src/core/prewarm.js) before combat can start. A cue
    * that never decoded is reported and plays its synth stand-in rather than
@@ -1243,8 +1265,17 @@ startButton.addEventListener('click', async () => {
     ...loadout.items.filter(Boolean).map((id) => weaponCue(id, 'fire')),
     'heist.bullet.impact',
   ], { timeout: 500 });
-  audio.startLoop('palace-night', { name: 'ambience.rain', volume: 0.052, ambience: true, fade: 1.4 });
   const restored = restoreMissionProgress();
+  /* After the restore, so a mid-estate checkpoint boots hearing its own
+   * room — the loops start at the restored room's gains, not outdoors. */
+  acoustics.start(player.position);
+  /* A resume INTO the dining room (or its aftermath) is already past the
+   * door that would have awaited the finale bank, and the trio's kill
+   * reactions speak from it on the first shot — so the boundary await moves
+   * here for exactly those boots. Every other checkpoint starts without it. */
+  if ([PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR].includes(mission.beat)) {
+    await audioBanks.whenNextBeat();
+  }
   state.phase = 'active';
   interaction.setPaused(false);
   player.enabled = true;
@@ -1274,9 +1305,12 @@ startButton.addEventListener('click', async () => {
  *     starts with clean pools too), hostile flashes, suppression fields,
  *     combat feedback, step cadence and one-shot combat audio.
  *
- * Audio: the 'palace-night' ambience loop simply keeps running (startLoop is
- * idempotent per key and the retry never re-runs the start button), and no
- * other loop exists in this scene, so nothing can stack. The alarm chirp and
+ * Audio: the three room loops — rain, interior bed, dining tone — simply
+ * keep running (startLoop is idempotent per key and the retry never re-runs
+ * the start button), so nothing can stack; what the retry DOES own is their
+ * automation, and `acoustics.refresh()` below re-asserts every gain from
+ * the restored room so a death in the gallery never leaves its hush hanging
+ * over a respawn on the approach. The alarm chirp and
  * body-class come back only if the checkpoint itself holds the alarm — the
  * alarm is DURABLE here (raising it re-persists the checkpoint), matching a
  * reload. Doors never need closing: every door in the palace opens in the
@@ -1302,6 +1336,8 @@ function retryFromCheckpoint() {
   stageWorldForCheckpoint(mission.beat);
   state.lastCheckpoint = mission.beat;
   restoreCombatCheckpoint(snapshot);
+  /* Gains re-asserted from the restored room; the loops never restarted. */
+  acoustics.refresh(player.position);
   /* The body class follows the restored truth: a transient alarm from the
    * dead run (dining-room activation aside) goes dark again, a durable one
    * stays lit without replaying the chirp. */
@@ -1422,6 +1458,9 @@ function animate(now) {
       if (hitConfirmTimer <= 0) delete ui.crosshair.dataset.confirmed;
     }
     player.update(dt);
+    /* Room-aware mix: identity-compares the room singleton and touches
+     * WebAudio only on a doorway crossing — free on every other frame. */
+    acoustics.update(player.position);
     interaction.update(dt);
     finale.update(dt);
     security.update(dt, {
@@ -1462,6 +1501,9 @@ requestAnimationFrame(animate);
 
 window.CARTEL_PALACE = {
   campaignStory,
+  /** The three-bank residency ledger and the room-aware mix, for checks. */
+  audioBanks,
+  acoustics,
   mission,
   player,
   interaction,

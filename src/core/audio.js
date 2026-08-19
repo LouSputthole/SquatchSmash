@@ -2675,6 +2675,29 @@ function synthLoop(engine, name, dest) {
       osc('sine', 84.7, 0.010);
       noise('highpass', 6400, 2.0, 0.006);
       break;
+    /* -------- Mark's estate (src/cartel-palace/acoustics.js) -------- */
+    case 'ambience.palace.interior':
+      /* The service wing's own quiet: plant hum through stucco and a
+       * pressurised stillness. The `mansion.suite.tone` recipe a floor
+       * lower and a shade colder — the beating pair sits at duct pitch and
+       * the hiss corner is higher, because these halls are stone and tile,
+       * not carpet. Stands in until the recording lands (see the manifest
+       * brief); volume automation lives entirely in the room mix. */
+      noise('lowpass', 260, 0.7, 0.034);
+      osc('sine', 92, 0.013);
+      osc('sine', 92.8, 0.009);
+      noise('highpass', 7200, 2.0, 0.005);
+      break;
+    case 'ambience.palace.dining':
+      /* The dining room reads as an ARRIVAL, so its tone is a different
+       * sound from the halls, not a louder one: lower and warmer — the
+       * beating pair drops nearly a fifth — with a narrow mid band for the
+       * long room's own presence and no hiss at all. Candles, not ducts. */
+      noise('lowpass', 180, 0.8, 0.030);
+      osc('sine', 62, 0.015);
+      osc('sine', 62.4, 0.011);
+      noise('bandpass', 420, 2.4, 0.010);
+      break;
     case 'mansion.suite.hottub': {
       /* BUBBLING = FILTERED NOISE, and the LFO is what makes it bubbles
        * rather than a hiss. A hot tub is a broad wet churn with a bright

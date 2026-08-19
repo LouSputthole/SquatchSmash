@@ -167,10 +167,13 @@ try {
       && terrainCoverage.scatter >= 600,
     JSON.stringify(terrainCoverage));
 
-  /* ---- Audio residency: startAudio() fires audio.loadManifest() in the
-   * background rather than awaiting it (see main.js's own comment on why),
-   * so wait for that same promise before reading what actually got decoded. */
+  /* ---- Audio residency: startAudio() decodes in the background rather
+   * than awaiting anything (see main.js's own comment on why), and it now
+   * decodes in three ordered banks — apron, flight, far end — so wait for
+   * the whole chain to settle before reading what actually got decoded. */
   await page.evaluate(async () => {
+    const banks = window.__enolaSquatch.audioBanks;
+    if (banks) await banks.whenAllSettled();
     const engine = window.__enolaSquatch.audio.engine;
     if (engine._manifestLoadPromise) await engine._manifestLoadPromise;
   });
