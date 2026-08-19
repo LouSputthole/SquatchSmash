@@ -113,12 +113,15 @@ function mark(stage) {
 /* A focused verifier must fail with a useful location instead of owning a
  * browser indefinitely. The outer command still has its own ceiling; this
  * one closes Chromium first and reports the last live production stage. */
+/* 300s: the 2026-08-19 playtest added the staged execution beat (draw, shot,
+ * slump, the call for Snow) to BOTH completing routes, and reloads between
+ * routes carry a full teardown — see the goto note in `enterFreshRoom`. */
 const watchdog = setTimeout(() => {
-  console.error(`License to Grill verifier exceeded 180s at: ${currentStage}`);
+  console.error(`License to Grill verifier exceeded 300s at: ${currentStage}`);
   void browser.close().catch(() => {});
   server.close();
   setTimeout(() => process.exit(2), 1500);
-}, 180000);
+}, 300000);
 
 /** Run the same production systems the live frame owns, without SwiftShader wall time. */
 async function step(seconds = 0.1, dt = 0.05) {
@@ -380,7 +383,15 @@ async function walkToWaypoint(x, z, maxSeconds = 1.5) {
  */
 async function enterFreshRoom(route, { proveShout = false } = {}) {
   mark(`${route}: load fresh Bing preview`);
-  await page.goto(`http://localhost:${PORT}/bing.html?preview=1`, { waitUntil: 'load' });
+  /* Explicit generous timeout: the default 20s covers a cold load, but a
+   * RELOAD after a fully played route has a live SwiftShader context and a
+   * decoded audio bank to tear down first, and on the 2026-08-19 runs that
+   * teardown alone was enough to trip the default. The watchdog still owns
+   * the overall ceiling. */
+  await page.goto(`http://localhost:${PORT}/bing.html?preview=1`, {
+    waitUntil: 'load',
+    timeout: 90000,
+  });
   await page.waitForFunction(() => window.__bing?.licenseToGrill && window.__bing?.interaction, null, {
     timeout: 90000,
   });
@@ -438,12 +449,30 @@ async function enterFreshRoom(route, { proveShout = false } = {}) {
       JSON.stringify(objective));
   }
 
+  /* 2026-08-19 playtest: Gratin and Numbskull are pre-staged in the back
+   * room from scene build, so "where the cleanup must return them" is their
+   * authored FLOOR spot (`Npc.homeX/homeZ`, written at roster seat time),
+   * not wherever they are standing when this route starts. Shubenator is
+   * untouched by the pre-stage and keeps the position capture. */
   const originalMarks = await page.evaluate(() => Object.fromEntries(
     ['gratin', 'numbskull', 'shubenator'].map((id) => {
       const npc = window.__bing.family.byId[id];
-      return [id, { x: npc.group.position.x, z: npc.group.position.z }];
+      return [id, id === 'shubenator'
+        ? { x: npc.group.position.x, z: npc.group.position.z }
+        : { x: npc.homeX, z: npc.homeZ }];
     }),
   ));
+  const preStaged = await page.evaluate(() => Object.fromEntries(
+    ['gratin', 'numbskull'].map((id) => {
+      const npc = window.__bing.family.byId[id];
+      return [id, { x: npc.group.position.x, z: npc.group.position.z, job: npc.job }];
+    }),
+  ));
+  routeCheck(`${route}: Gratin and Numbskull hold the back room before the door ever opens`,
+    Object.values(preStaged).every(({ x, z, job }) => (
+      x >= 5.6 && x <= 13.6 && z >= -15 && z <= -9.6 && job === 'stand'
+    )),
+    JSON.stringify(preStaged));
 
   await page.evaluate(() => window.__bing.teleport(6.75, -7.75, 0));
   await step(0.15);
@@ -514,6 +543,80 @@ async function enterFreshRoom(route, { proveShout = false } = {}) {
       && /cord/i.test(cord.handName) && /click/i.test(cord.handHint),
     JSON.stringify(cord));
   return { originalMarks, opened, cord };
+}
+
+/**
+ * Drive the one ending there is (2026-08-19 playtest: the spare-him and
+ * walk-away options are gone). Presses the production number key on the
+ * single `endings` option, then proves the staged beat frame by frame:
+ * Numbskull's visible draw, the single shot with a mark on Blond's FACE and
+ * the head going down, Snow called back for his own line at the door, and
+ * completion only after the aftermath has closed itself.
+ */
+async function finishHim(route) {
+  const endings = await waitForDialogue({ node: 'endings', options: 1 });
+  routeCheck(`${route}: the ending offers only finishing him`,
+    endings.node === 'endings' && endings.options === 1
+      && /finish the job/i.test(await page.evaluate(() => (
+        window.__bing.dialogue.options.map((option) => option.text).join(' | ')
+      ))),
+    JSON.stringify(endings));
+  await pressCode('Digit1');
+  await step(0.25);
+  const drawn = await page.evaluate(() => {
+    const b = window.__bing;
+    const q = b.licenseToGrill;
+    const gun = q.execution.gun;
+    let onNumbskull = false;
+    for (let p = gun?.parent; p; p = p.parent) {
+      if (p === b.family.byId.numbskull.group) { onNumbskull = true; break; }
+    }
+    return {
+      phase: q.execution.phase,
+      executed: q.executed,
+      gunVisible: !!gun?.visible,
+      onNumbskull,
+    };
+  });
+  routeCheck(`${route}: Numbskull visibly draws before the shot lands`,
+    (drawn.phase === 'draw' || drawn.phase === 'aim') && !drawn.executed
+      && drawn.gunVisible && drawn.onNumbskull,
+    JSON.stringify(drawn));
+  await step(2.7, 0.05);
+  const shot = await page.evaluate(() => {
+    const q = window.__bing.licenseToGrill;
+    const blond = q.blond;
+    return {
+      executed: q.executed,
+      faceMark: q.blood.impacts.marksFor(blond)
+        .some((mark) => mark.parent === blond.parts.head),
+      headDown: blond.parts.head.rotation.x > 0.5,
+      deadPose: blond.group.userData.dead === true,
+      poolCount: q.blood.pools.visibleCount,
+    };
+  });
+  routeCheck(`${route}: the single shot marks his face and his head goes limp`,
+    shot.executed && shot.faceMark && shot.headDown && shot.deadPose && shot.poolCount >= 1,
+    JSON.stringify(shot));
+  const snowLine = await waitForDialogue({ node: 'endSnowAnswer' }, 60);
+  const snowAt = await page.evaluate(() => {
+    const b = window.__bing;
+    const npc = b.family.byId.snow;
+    return {
+      x: npc.group.position.x,
+      z: npc.group.position.z,
+      inRoom: b.licenseToGrill.inRoom('snow'),
+    };
+  });
+  routeCheck(`${route}: Snow is called back and answers from the doorway himself`,
+    snowLine.node === 'endSnowAnswer' && snowLine.speaker === 'Snow'
+      && snowAt.inRoom && Math.hypot(snowAt.x - 7.35, snowAt.z + 10.35) < 0.08,
+    JSON.stringify({ snowLine, snowAt }));
+  for (let elapsed = 0; elapsed < 30; elapsed += 0.25) {
+    const now = await facts();
+    if (now.phase === 'done' && !now.active) break;
+    await step(0.25);
+  }
 }
 
 try {
@@ -632,11 +735,11 @@ try {
   const namedLine = await waitForDialogue({ node: 'theName' });
   routeCheck('the successful route audibly delivers Vincent Mallard',
     /Vincent Mallard/i.test(namedLine.line), JSON.stringify(namedLine));
-  const afterName = await waitForDialogue({ node: 'afterTheName', options: 2 });
+  await waitForDialogue({ node: 'afterTheName', options: 2 });
   await pressCode('Digit2');
-  await waitForDialogue({ node: 'endings', options: 3 });
-  await pressCode('Digit1');
-  await step(0.2);
+  /* 2026-08-19 playtest: the endings node now offers ONLY finishing him, and
+   * choosing it runs the staged execution before the scene may complete. */
+  await finishHim('information route');
 
   const informationCleanup = await page.evaluate((marks) => {
     const b = window.__bing;
@@ -808,9 +911,8 @@ try {
   routeCheck('car threat still delivers the informant without killing Blond',
     carNamed.node === 'afterTheName' && !carNamed.dead, JSON.stringify(carNamed));
   await pressCode('Digit2');
-  await waitForDialogue({ node: 'endings', options: 3 });
-  await pressCode('Digit1');
-  await step(0.2);
+  /* Same 2026-08-19 single ending on the car route. */
+  await finishHim('car route');
   const carCleanup = await page.evaluate((marks) => {
     const b = window.__bing;
     return {

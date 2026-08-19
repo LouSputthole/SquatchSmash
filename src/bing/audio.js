@@ -71,6 +71,11 @@ const BING_RUNTIME_CUES = new Set([
   'bing.grill.smash.metal',
   'bing.grill.smash.fabric',
   'bing.grill.table.pickup',
+  /* The execution beat (2026-08-19 playtest): Numbskull's draw, the single
+   * report, and the body going slack. Asked-for like the eight above. */
+  'bing.grill.gun.draw',
+  'bing.grill.gun.shot',
+  'bing.grill.body.slack',
   /* …and the recordings standing in for them tonight. Every one of these is
    * in `assets/sfx/index.json` — a stand-in that has no file is not a
    * stand-in, it is a synthesised noise with a comment over it. */
@@ -81,6 +86,7 @@ const BING_RUNTIME_CUES = new Set([
   'glass.wine.fall',
   'heist.guard.weapon.drop',
   'heist.swap.fabric',
+  'heist.police.gunshot',
 ]);
 
 /** Recorded cues authored specifically for either Bada Bing visit. */

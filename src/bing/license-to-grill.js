@@ -372,6 +372,7 @@ const BLOND = 'Blond';
 const GRATIN = 'Gratin';
 const NUMBSKULL = 'Numbskull';
 const SHUBES = 'The Shubenator';
+const SNOW = 'Snow';
 const PROSPECT = 'Prospect';
 
 /**
@@ -387,6 +388,9 @@ const PROSPECT = 'Prospect';
  *                    walks in, not just where the flag is set
  *   shubesLeaves()   the floor has the room back; he is not in it any more
  *   answerCounter()  respond to his pitch
+ *   execute()        start the staged execution beat — Numbskull draws and
+ *                    fires; the runtime resumes at `endShot` when it is done
+ *   callSnow()       bring Snow to the store-room door for the cleanup call
  *   finish(ending)   end the scene
  *   broken()         has the information route been secured
  *   markNamed()      the spoken name has finished and re-entry may advance
@@ -405,6 +409,8 @@ export function buildLicenseToGrillScript({
   markShubes = () => {},
   shubesLeaves = () => {},
   answerCounter = () => 0,
+  execute = () => {},
+  callSnow = () => {},
   finish = () => {},
   broken = () => false,
   markNamed = () => {},
@@ -464,6 +470,38 @@ export function buildLicenseToGrillScript({
       who: NUMBSKULL,
       line: 'I offered to hold him. Gratin says that’s not the part that isn’t working.',
       hold: 4.0,
+      next: 'numbskullFrogIdea',
+    },
+    /* ---- Numbskull's other idea (owner, 2026-08-19 playtest) ----
+     *
+     * Early in the torture, before the first question, because that is when a
+     * man who has been standing next to a table all evening has had time to
+     * think. Both the Prospect and Gratin react; Gratin is the one who closes
+     * the door on it, and nobody in the room asks the follow-up question,
+     * which is the joke. */
+    numbskullFrogIdea: {
+      who: NUMBSKULL,
+      line: 'What if we crucify him like a frog?',
+      hold: 3.4,
+      direction: 'Offered in the same helpful tone as everything else he says. He has clearly given it thought.',
+      next: 'frogProspect',
+    },
+    frogProspect: {
+      who: PROSPECT,
+      line: '…Like a frog?',
+      hold: 2.2,
+      next: 'frogGratin',
+    },
+    frogGratin: {
+      who: GRATIN,
+      line: 'Well, I’m not going to dive any deeper into that idea at all.',
+      hold: 4.0,
+      next: 'frogBlond',
+    },
+    frogBlond: {
+      who: BLOND,
+      line: 'For what it is worth, I agree with him.',
+      hold: 3.0,
       next: 'firstQuestion',
     },
 
@@ -990,42 +1028,57 @@ export function buildLicenseToGrillScript({
       next: 'endings',
     },
 
-    /* ---------------- how it ends ---------------- */
+    /* ---------------- how it ends ----------------
+     *
+     * One way (owner, 2026-08-19 playtest): the spare-him and walk-away
+     * options are gone. A foreign intelligence officer who has seen every
+     * face in this room does not get untied, and everybody in it has known
+     * that since seven o'clock. Choosing it hands the scene to the runtime's
+     * staged beat — Numbskull draws, one shot, and the room goes quiet — and
+     * the conversation resumes at `endShot` when the body has settled. See
+     * `beginExecution` in license-to-grill-runtime.js for the clock. */
     endings: {
       who: GRATIN,
       line: 'So. What do we do with him.',
+      direction: 'It is not a question. Numbskull is already reaching under his jacket.',
       options: [
-        {
-          tone: 'Leave',
-          text: 'Leave him tied. Lou can decide.',
-          next: () => { finish(ENDINGS.LEFT); return 'endLeft'; },
-        },
-        {
-          tone: 'Mercy',
-          text: 'Untie one hand.',
-          next: () => { finish(ENDINGS.UNTIED); return 'endUntied'; },
-        },
         {
           tone: 'Finish it',
           text: 'Finish the job.',
-          next: () => { finish(ENDINGS.SHOT); return 'endShot'; },
+          next: () => { execute(); return null; },
         },
       ],
-    },
-    endLeft: {
-      who: GRATIN,
-      line: 'Good. He’s Lou’s problem now, and Lou likes problems that can’t stand up.',
-      hold: 4.6,
-    },
-    endUntied: {
-      who: GRATIN,
-      line: 'One hand. ONE. And you’re explaining the plate to Lou, not me.',
-      hold: 4.4,
     },
     endShot: {
       who: GRATIN,
       line: 'Right. Numbskull, the drain’s right there. And somebody find out whose car that is now.',
       hold: 5.2,
+      next: 'endSnowShout',
+    },
+    /* ---- the aftermath: they call for Snow ---- */
+    endSnowShout: {
+      who: NUMBSKULL,
+      line: 'SNOW. We’re gonna need you back here.',
+      hold: 3.2,
+      direction: 'Shouted through the door and down the back hallway, at a volume that assumes the whole building needed to know.',
+      enter: () => { callSnow(); },
+      next: 'endSnowAnswer',
+    },
+    endSnowAnswer: {
+      who: SNOW,
+      line: 'Every time there’s a drain involved, it’s me. I’m not saying no. I’m saying it’s getting ridiculous.',
+      hold: 6.4,
+      direction: 'From the doorway, mop already in hand, looking at the chair the way a man looks at his own evening disappearing.',
+      next: 'endSnowDone',
+    },
+    endSnowDone: {
+      who: GRATIN,
+      line: 'He says that every time too.',
+      hold: 3.0,
+      /* The scene banks here rather than on the choice, so nobody is
+       * teleported back to the floor in the middle of his own line — the
+       * runtime completes once this last exchange has closed itself. */
+      enter: () => { finish(ENDINGS.SHOT); },
     },
 
     /* ---------------- Gratin has another go ---------------- */

@@ -59,6 +59,7 @@ import { tiled, squatchArt, printed } from '../../bing/kit.js';
 import { makeMaterials } from '../../world/materials.js';
 import {
   makeBed, makeNightstand, makePlant, makeFloorLamp, makeFrame,
+  makeStandingFrame,
   makeToilet, makeTub, makeWhiskeyBottle, makeShotGlass,
   makeAshtray, makeBooks, makeWallClock, makeDesk, makeChair, makeBeerCan,
   makePizzaBox, makeZynCan,
@@ -172,6 +173,32 @@ export const MANSION_ART_SLOTS = [
   'mansion.office.estate-map',
   'mansion.theatre.noir',
   'mansion.suite.abstract',
+  /* THE 2026-08-19 OWNER DROP — seven images, landed in assets/art/ and
+   * rowed in the manifest:
+   *
+   *   booski-portrait.jpg       750x1334 -> mansion.bedroom.booski-death.booski-portrait
+   *   squatch-jesus.png        1121x1402 -> mansion.foyer.savior
+   *   squatch-heaven-roster.jpg 1743x1980 -> mansion.gallery.heaven
+   *   birthday-dog.jpg          3024x4032* -> mansion.office.birthday-dog
+   *   uncle-lou-is-back.png    1122x1402 -> mansion.office.lou-is-back AND
+   *                                mansion.suite.lou-is-back (one file, two
+   *                                rooms — the casabonita.webp precedent)
+   *   lou-vacation-vienna.jpg   3024x4032* -> mansion.office.vacation-vienna
+   *   lou-vacation-florence.jpg 3024x4032* -> mansion.suite.vacation-florence
+   *
+   * (*) The three iPhone JPEGs store 4032x3024 pixels with EXIF orientation
+   * 6; the browser applies the rotation before the texture ever sees them,
+   * so their DELIVERED shape — the one `applyResolvedArt` measures — is
+   * 3024x4032 PORTRAIT. Every authored frame below is sized to the delivered
+   * aspect so the resolve-time rebuild is a no-op. */
+  'mansion.bedroom.booski-death.booski-portrait',
+  'mansion.foyer.savior',
+  'mansion.gallery.heaven',
+  'mansion.office.birthday-dog',
+  'mansion.office.lou-is-back',
+  'mansion.suite.lou-is-back',
+  'mansion.office.vacation-vienna',
+  'mansion.suite.vacation-florence',
 ];
 
 /* ================================================================== */
@@ -2254,6 +2281,47 @@ export function buildMansionInterior(shell = null) {
       root.add(sphere({ r: 0.09, pos: [sx, UY - 0.72, CREST_Z - 0.02], mat: M_GOLD, cast: false }));
     }
 
+    /* SQUATCH JESUS, on the double-height west wall.
+     *
+     * The owner's `squatch-jesus.jpg` (a robed white sasquatch with a halo,
+     * wine bottle and basket of eggs, portrait ~4:5) wants "somewhere
+     * prominent", and the entrance hall is the one room every route through
+     * the house crosses. The wall picked is measured, not guessed:
+     *
+     *   - the south wall is two-storey glazing (foyerSouthWest/East up to
+     *     y 8.6), the north side of the void is the balcony front and that
+     *     already carries the crest — the only big blind planes left are the
+     *     flank walls at x = +/-8.85, solid GY..UCY for z 36..48 ("this is
+     *     the stretch the horseshoe's own masonry runs up").
+     *   - z 41.7 centres it between this wall's two sconces (z 39.4 and 44,
+     *     mounted at GY + 2.6). The frame's swept box is z 40.78..42.62 and
+     *     y 4.19..6.45: the west flight's treads start at z 42 but the stair
+     *     is only 1.68 m tall at z 42.62, 2.5 m below the frame's bottom rail
+     *     — a picture over the foot of a stair, not in it.
+     *   - y GY + 4.12 puts its centre on 5.32, which is the crest's own
+     *     picture line across the void (UY - 0.68 = 5.32), so the two big
+     *     devotional objects in this hall hang level with each other.
+     *
+     * `FOYER.x0 + FRAME_REAR` seats the rear bezel on the plaster at -8.85;
+     * rotY PI/2 faces it east into the hall (the sconce convention for this
+     * wall). 1.7 x 2.1261 is the file's own 1121 x 1402, so the resolve-time
+     * aspect rebuild is a no-op. Its picture sconce hangs at 7.05, its
+     * backplate bottom at 6.85 — 0.40 m above the swept top at 6.45. */
+    const savior = wallArt(
+      'mansion.foyer.savior',
+      FOYER.x0 + FRAME_REAR,
+      GY + 4.12,
+      41.7,
+      Math.PI / 2,
+      1.7,
+      // 1121 x 1402
+      2.1261,
+      squatchArt('mansion-foyer-savior', {
+        title: ['THE GOOD', 'SHEPHERD'], footer: 'WINE AND EGGS FOR ALL', ink: '#e8dcae', bg: '#1c1a2b',
+      }),
+    );
+    sconce(-(FOYER.x1 - 0.05), GY + 5.85, 41.7, Math.PI / 2, 1.9);
+
     // ---- The rear hall's ceiling is low (the gallery is above it); light it.
     ceilingLight(-4.5, 51, UY - 0.35, 0xffdca0, 4.6, 14);
     ceilingLight(4.5, 51, UY - 0.35, 0xffdca0, 4.6, 14);
@@ -2264,6 +2332,7 @@ export function buildMansionInterior(shell = null) {
       chandelierLight,
       stairY,
       roofWash,
+      savior,
       /* The three rects the owner's layout brief is actually about, handed
        * out so tools/verify-mansion.mjs can assert the SHAPE of the house and
        * not just that rooms with the right names can be walked into. */
@@ -4506,12 +4575,51 @@ export function buildMansionInterior(shell = null) {
      * visible 20 mm air gap when approached from the east stair. */
     sconce(11.0, UY + 3.05, Z_GALLERY_S + 0.18, 0, 1.9);
 
+    /* THE STAIRWAY TO HEAVEN, on the gallery's east END wall.
+     *
+     * The owner's `squatch-heaven-roster.jpg`: the whole crew photoshopped
+     * onto the stairway to heaven under a giant robed ape in the clouds,
+     * portrait ~5:6. It belongs with the family portraits, and the gallery's
+     * end wall is the run's one unclaimed hero position: the east exterior
+     * wall has no opening anywhere in the gallery's band (the shell glazes
+     * z 42.6..46.4 and 55.6..62.4; the gallery is 48.15..52.85), so the
+     * full 4.7 m plane terminates the corridor and faces every founder
+     * portrait straight down the run — the walk past the family ends at the
+     * family in the clouds.
+     *
+     * `GALLERY.x1 - FRAME_REAR` seats the rear bezel on the wall's interior
+     * face at x 16.0; rotY -PI/2 faces it west, down the run. Centred on
+     * z 50.5, the run's own axis; the nearest openings (the two bedroom
+     * doors at x 13.1..14.9 in the north and south walls) are on different
+     * planes and their 0.34 m verifier reveals stop 1.36 m short of this
+     * box. 1.15 x 1.3064 is the file's own 1743 x 1980, so the aspect
+     * rebuild is a no-op. Sconce over it on the gallery's own fixture
+     * pattern: mount 9.10, backplate bottom 8.90, swept frame top 8.72. */
+    const galleryHeaven = wallArt(
+      'mansion.gallery.heaven',
+      GALLERY.x1 - FRAME_REAR,
+      UY + 2.0,
+      50.5,
+      -Math.PI / 2,
+      1.15,
+      // 1743 x 1980
+      1.3064,
+      squatchArt('mansion-gallery-heaven', {
+        title: ['THE STAIRWAY', 'ROSTER'], footer: 'ALL OF THEM, ASCENDING', ink: '#dfe6f2', bg: '#232c40',
+      }),
+    );
+    sconce(GALLERY.x1 - 0.06, UY + 3.1, 50.5, -Math.PI / 2, 1.9);
+
     const lights = [];
     for (const px of [-12, -4, 4, 12]) {
       lights.push(ceilingLight(px, 50.5, UCY - 0.3, 0xffdca0, 5.2, 15));
     }
     return {
-      lights, pride: galleryPride, roster: galleryRoster, dynasty: dynastyWall,
+      lights,
+      pride: galleryPride,
+      roster: galleryRoster,
+      dynasty: dynastyWall,
+      heaven: galleryHeaven,
     };
   }
   const galleryProps = buildGallery();
@@ -5081,6 +5189,48 @@ export function buildMansionInterior(shell = null) {
         r: 0.006, h: 0.2, pos: [px, UY + 0.98, deskZ - 0.38], mat: M_GOLD, rotZ: pr, cast: false,
       }));
     }
+    /* THE BIRTHDAY DOG, on the desk. Owner: "put the dog in Lou's office" —
+     * `birthday-dog.jpg`, a goldendoodle in a birthday hat. The file is an
+     * iPhone 4032 x 3024 with EXIF orientation 6, so the browser delivers it
+     * 3024 x 4032 — an upright portrait — and the frame is authored 0.16 x
+     * 0.2133 to that 3:4, so the resolve-time rebuild is a no-op (a rebuild
+     * that GREW the plate would matter here: `makeStandingFrame` raises its
+     * panel by the authored h/2, so delivered-vs-authored drift would sink
+     * the photo's bottom edge into the desk).
+     * A personal photo of the dog belongs ON the desk, not on a wall, so it
+     * is the house's first `makeStandingFrame` (the apartment's desk-photo
+     * prop), on the tooled leather panel where Lou can see it.
+     *
+     * WHERE, in desk-local terms (desk origin 0, UY, 71.6; top at UY+0.83,
+     * leather panel top UY+0.840 over x -0.95..0.95, z -0.43..0.43):
+     * (-0.75, +0.30) is the one free pocket on the north-west of the top —
+     * measured against everything already there: telephone x -0.5..-0.2
+     * (0.11 m east of the frame's swept box x -0.86..-0.64), scotch bottle
+     * x -1.11..-0.99 (0.13 m west), desk lamp base z -0.21..0.01 (0.19 m
+     * south), and the writing panel's middle x -0.35..0.35 stays empty for
+     * the mission's silver case (`caseSpot`). rotY 0.7 quarter-turns it
+     * toward Lou's carver at (0, 72.75) — a desk photo faces the man who
+     * sits there, not the room. */
+    const officeDogPhoto = makeStandingFrame(M, {
+      x: -0.75,
+      y: UY + 0.84,
+      z: deskZ + 0.30,
+      rotY: 0.7,
+      w: 0.16,
+      // delivered 3024 x 4032 (EXIF-rotated)
+      h: 0.2133,
+      texture: printed('mansion.office.birthday-dog', ['THE', 'BIRTHDAY GIRL'], {
+        w: 440, h: 330, bg: '#2b1f16', fg: '#e8c268', border: '#8a6a34',
+        font: '900 44px "Trebuchet MS", sans-serif', lineHeight: 60,
+      }),
+      tint: 0x2a1d12,
+    });
+    officeDogPhoto.group.name = 'office-birthday-dog-frame';
+    officeDogPhoto.art.name = 'office-birthday-dog-photo';
+    officeDogPhoto.art.userData.art = {
+      slot: 'mansion.office.birthday-dog', real: false, file: null,
+    };
+    root.add(officeDogPhoto.group);
     // The chair. Not a seat you take without being asked -- and, since the
     // owner wants every chair in the house fancy, a proper carver.
     makeFancyChair(0, UY, deskZ + 1.15, Math.PI, M_LEATHER_RED, { backH: 1.15, tag: 'lou-chair' });
@@ -5656,8 +5806,26 @@ export function buildMansionInterior(shell = null) {
 
     curtains('z', r.z1 - 0.22, -4.0, UY + 0.6, 5.4, 3.4, M_CURTAIN_RED);
     curtains('z', r.z1 - 0.22, 4.0, UY + 0.6, 5.4, 3.4, M_CURTAIN_RED);
-    wallArt('office-lou', -4.6, UY + 2.4, r.z0 + 0.2, 0, 1.2, 1.5,
-      makePortraitTexture('lou-office', 'BIG UNCLE LOU', '#2a1c14'));
+    /* UNCLE LOU IS BACK — the owner's purple-and-chrome poster (a silverback
+     * in a 69 jersey, whiskey and gold, portrait ~4:5). The owner asked for
+     * it "over a placeholder frame" in this office, and this frame was the
+     * office's one remaining procedural filler on a wall (the drawn
+     * "BIG UNCLE LOU" card that hung here since the first pass). Same hook,
+     * near-same frame: 1.2 x 1.4995 is the delivered file's own 1122 x 1402,
+     * so the resolve-time aspect rebuild is a no-op. */
+    const officeLouPoster = wallArt(
+      'mansion.office.lou-is-back',
+      -4.6,
+      UY + 2.4,
+      r.z0 + 0.2,
+      0,
+      1.2,
+      // 1122 x 1402
+      1.4995,
+      squatchArt('mansion-office-lou-is-back', {
+        title: ['UNCLE LOU', 'IS BACK'], footer: "NO. 69 — WHISKEY AND GOLD", ink: '#d9c8ff', bg: '#241335',
+      }),
+    );
     const officeBoss = wallArt(
       'mansion.office.boss',
       /* The resolved owner's photograph is 0.86 m wide. At x -6.9 its
@@ -5749,8 +5917,8 @@ export function buildMansionInterior(shell = null) {
     );
     sconce(-7.5, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
     sconce(7.5, UY + 3.25, r.z1 - 0.06, Math.PI, 1.7);
-    // Lou, again, over his own safe -- the east wall has no opening in it
-    // anywhere, so this one is as far from a doorway as art gets in here.
+    // Over his own safe -- the east wall has no opening in it anywhere, so
+    // this one is as far from a doorway as art gets in here.
     /* 0.18 OFF THE WALL, NOT 0.11 — the same 40 mm of panel bead that had the
      * longcase clock in the plaster.
      *
@@ -5763,9 +5931,41 @@ export function buildMansionInterior(shell = null) {
      *
      * At 0.18 the frame's back face lands exactly on the bead line, which is
      * where a picture hung over panelling actually sits. */
-    wallArt('office-safe-portrait', r.x1 - 0.18, UY + 2.15, safeZ + 0.15, -Math.PI / 2, 0.9, 1.1,
-      makePortraitTexture('lou-safe', 'L. SPUTTHOLE', '#1e1712'));
-    sconce(r.x1 - 0.06, UY + 3.0, safeZ + 0.15, -Math.PI / 2, 1.7);
+    /* VIENNA, over his own safe — the owner's `lou-vacation-vienna.jpg`
+     * (a woman at a palace funfair), taking the hook the procedural
+     * "L. SPUTTHOLE" filler held. A personal photograph over a man's
+     * private safe is exactly the register the owner asked for ("personal
+     * travel photos — small/medium frames"), and the 0.18 datum keeps the
+     * frame's back on the panel-bead line the long note above establishes.
+     * The file is an iPhone 4032 x 3024 carrying EXIF orientation 6, so the
+     * browser DELIVERS it 3024 x 4032 — portrait 3:4 — and the frame is
+     * authored 0.66 x 0.88 to match, so the aspect rebuild is a no-op. The
+     * centre sits at UY + 2.1: the bezel top (UY + 2.575) stays under the
+     * gilt dado band at UY + 2.61 where the old 1.1 m portrait reached
+     * into it.
+     *
+     * AND CENTRED ON THE SAFE, NOT ON safeZ + 0.15. Measured on the built
+     * scene: the old frame's north bezel reached z 64.335, and the concealed
+     * stair hall's south wall (`suite-stair-wall`, built off this same east
+     * wall) starts at z 64.25 — 85 mm of picture frame inside 300 mm of
+     * masonry, an interpenetration the doorway sweep cannot see because that
+     * wall is not an opening. On the safe's own centre (z 63.70, the safe
+     * spans 63.25..64.15) the bezel runs 63.335..64.065: 185 mm clear of the
+     * hall wall and 185 mm clear of the room's south corner. */
+    const officeVienna = wallArt(
+      'mansion.office.vacation-vienna',
+      r.x1 - 0.18,
+      UY + 2.1,
+      safeZ,
+      -Math.PI / 2,
+      0.66,
+      // delivered 3024 x 4032 (EXIF-rotated)
+      0.88,
+      squatchArt('mansion-office-vacation-vienna', {
+        title: ['VIENNA'], footer: 'HER, AT THE PALACE', ink: '#e8d9b0', bg: '#22303a',
+      }),
+    );
+    sconce(r.x1 - 0.06, UY + 3.0, safeZ, -Math.PI / 2, 1.7);
     // The palm moved into the north-west corner: it used to stand at
     // (-5.6, 74.2), which is now the middle of the chesterfield.
     const plant = makePlant(M, { x: -7.9, z: 74.2, scale: 1.8 });
@@ -5837,6 +6037,9 @@ export function buildMansionInterior(shell = null) {
       hogMama: officeHogMama,
       patriarch: officePatriarch,
       estateMap: officeEstateMap,
+      louPoster: officeLouPoster,
+      vienna: officeVienna,
+      dogPhoto: officeDogPhoto,
       /** The desk TOP, for putting things on. See the note at its build. */
       caseSpot,
     };
@@ -7353,6 +7556,61 @@ export function buildMansionInterior(shell = null) {
       }),
     );
     props.abstract = suiteAbstract;
+
+    /* UNCLE LOU IS BACK, in the bedroom too. The owner's poster hangs in two
+     * rooms; up here the one procedural frame (the Lou accent at -5.65) is
+     * contractually pinned as manifest-free by
+     * tests/mansion-interactions.test.mjs and tools/verify-mansion-rooms.mjs
+     * ("the suite accent was wired into the manifest art pipeline" is a
+     * FAILING condition), so the poster gets its own frame in the next
+     * fielded panel west — bay -7.75, the last free bay on the south wall.
+     *
+     * Measured into the panel like the abstract: the bay's clear field is
+     * x -8.345..-7.155 and the frame's outer bezel (0.87 wide) sits at
+     * -8.185..-7.315, 0.16 m off each gilt bead. The house sconce at
+     * x -7.3 mounts at SY + 2.5 (backplate down to SY + 2.3); the frame's
+     * swept top is SY + 2.12, 0.18 m below it. Seated on the panelling's
+     * own face (r.z0 + 0.085) with `+ FRAME_REAR`, the same datum the
+     * abstract documents. 0.8 x 0.9996 is the poster's own 1122 x 1402. */
+    const suiteLouPoster = wallArt(
+      'mansion.suite.lou-is-back',
+      -7.75,
+      SY + 1.55,
+      r.z0 + 0.085 + FRAME_REAR,
+      0,
+      0.8,
+      // 1122 x 1402
+      0.9996,
+      squatchArt('mansion-suite-lou-is-back', {
+        title: ['UNCLE LOU', 'IS BACK'], footer: "NO. 69 — WHISKEY AND GOLD", ink: '#d9c8ff', bg: '#241335',
+      }),
+    );
+    props.louPoster = suiteLouPoster;
+
+    /* FLORENCE, by the dressing run. The owner's `lou-vacation-florence.jpg`
+     * (the city at sunset over a crowd) — a personal travel photo, so it
+     * hangs small in bay 7.73, the fielded panel at the stair arrival: the
+     * first thing Lou passes coming up into his own room. Like Vienna it is
+     * an EXIF-rotated iPhone frame, delivered 3024 x 4032 portrait, so the
+     * frame is authored 0.60 x 0.80 to the delivered 3:4.
+     * Field x 7.135..8.325; outer bezel (0.67 wide) at 7.395..8.065, 0.26 m
+     * off each bead; the cheval's measured extremes stop at x 6.72 and the
+     * house sconce at x 6.9 is 0.42 m west of the swept box (7.36..8.10).
+     * Same panelling-face seating as the abstract. */
+    const suiteFlorence = wallArt(
+      'mansion.suite.vacation-florence',
+      7.73,
+      SY + 1.72,
+      r.z0 + 0.085 + FRAME_REAR,
+      0,
+      0.60,
+      // delivered 3024 x 4032 (EXIF-rotated)
+      0.80,
+      squatchArt('mansion-suite-vacation-florence', {
+        title: ['FLORENCE'], footer: 'THE WHOLE CITY, AT SUNSET', ink: '#f0c98a', bg: '#2b1c22',
+      }),
+    );
+    props.florence = suiteFlorence;
 
     /* One chandelier, hung clear of the tester — the bed's canopy tops out at
      * 12.95 and this hangs at 12.5 over the middle of the floor, which is the
@@ -9261,6 +9519,48 @@ export function buildMansionInterior(shell = null) {
             return portrait;
           });
 
+          /* THE BOOSKI PORTRAIT — the owner's `booski-portrait.jpg` (the man
+           * himself in green face paint and ogre ears, deadpan, 750 x 1334
+           * portrait). This is Booski's room, so his framed portrait leads
+           * the room's portrait rail: the west inner wall is the one wall
+           * with no door, no window and no television, and the run south of
+           * the existing pair (their chrome backers start at z 56.38) is
+           * 3.2 m of clear slab lining. Same chrome-panel treatment as the
+           * pair — backer at innerX + 0.06, art at innerX + 0.1 — but a
+           * size up (0.9 wide against their 0.82) so it reads as the
+           * centrepiece rather than a third catalogue entry.
+           *
+           * Measured: backer z 54.89..55.91 (0.47 m south of the pair's
+           * first backer, 1.7 m clear of the south corner); art plane y
+           * spans UY + 1.20..2.80 against a floor-to-2.3 slab lining, the
+           * exact overlay the audited pair already uses. 0.9 x 1.6008 is
+           * the file's own 750/1334, so the resolve-time aspect rebuild is
+           * a no-op. */
+          root.add(box({
+            size: [0.05, 1.72, 1.02],
+            pos: [innerX + 0.06, UY + 2.0, cz - 4.1],
+            mat: M_CHROME,
+            cast: false,
+          }));
+          const ownerPortrait = flatArt('mansion.bedroom.booski-death.booski-portrait', {
+            x: innerX + 0.1,
+            y: UY + 2.0,
+            z: cz - 4.1,
+            rotY: Math.PI / 2,
+            w: 0.9,
+            // 750 x 1334
+            h: 1.6008,
+            material: mat({
+              map: makePortraitTexture('booski-centrepiece', 'BOOSKI', '#24321f'),
+              roughness: 0.62,
+              unique: true,
+            }),
+          });
+          ownerPortrait.name = 'booski-death-room-booski-centrepiece';
+          ownerPortrait.userData.art = {
+            slot: 'mansion.bedroom.booski-death.booski-portrait', real: false, file: null,
+          };
+
           const plaque = flatArt('booski-death-room-plaque-art', {
             x: r.x1 - 0.44,
             y: UY + 1.78,
@@ -9316,6 +9616,7 @@ export function buildMansionInterior(shell = null) {
             crest,
             portraits,
             accentPortraits,
+            ownerPortrait,
             props: [ledger, securityRadio],
           };
           c.details = [ledger, securityRadio];
@@ -12739,6 +13040,23 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.office.estate-map', mesh: officeProps.estateMap?.art, w: 1.5 },
     { slot: 'mansion.theatre.noir', mesh: theatreProps.noir?.art, w: 0.85 },
     { slot: 'mansion.suite.abstract', mesh: suiteProps.abstract?.art, w: 0.9 },
+    /* The 2026-08-19 owner drop. Every authored frame is already at its
+     * file's own aspect (see each hanging's note), so these rebuilds are
+     * no-ops and the recorded boxes stay the boxes the player sees. The
+     * poster is ONE file on TWO slots — office and suite — the same way
+     * casabonita.webp hangs in both the apartment and the cellar. */
+    { slot: 'mansion.foyer.savior', mesh: foyerProps.savior?.art, w: 1.7 },
+    { slot: 'mansion.gallery.heaven', mesh: galleryProps.heaven?.art, w: 1.15 },
+    {
+      slot: 'mansion.bedroom.booski-death.booski-portrait',
+      mesh: bedrooms.eastRear.identity?.ownerPortrait,
+      w: 0.9,
+    },
+    { slot: 'mansion.office.birthday-dog', mesh: officeProps.dogPhoto?.art, w: 0.16 },
+    { slot: 'mansion.office.lou-is-back', mesh: officeProps.louPoster?.art, w: 1.2 },
+    { slot: 'mansion.suite.lou-is-back', mesh: suiteProps.louPoster?.art, w: 0.8 },
+    { slot: 'mansion.office.vacation-vienna', mesh: officeProps.vienna?.art, w: 0.66 },
+    { slot: 'mansion.suite.vacation-florence', mesh: suiteProps.florence?.art, w: 0.6 },
   ];
   const applyResolvedArt = (gear) => {
     const dressed = [];

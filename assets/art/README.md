@@ -81,11 +81,18 @@ until the day it does not.
 **To land one: drop the image in this folder and add its row to
 `manifest.json`.** That is the whole job; no code changes.
 
-| Slot | The picture | Suggested filename | Frame | Aspect |
+2026-08-19: the owner reassigned the generic office frames to supplied team
+photos. The five files below are wired in `manifest.json` now; four of them
+are placeholder stand-ins (copies of the nearest existing art) until the
+owner's real drops overwrite them at the same filenames.
+
+| Slot | The picture | Filename (owner will overwrite) | Frame | Aspect |
 |---|---|---|---|---|
-| `bing.office.shore` | Sasquatches at the shore | `bing-office-shore.jpg` | 0.44 m wide, on the wall behind the desk | landscape, ~4:3 |
-| `bing.office.bing_1979` | The Bing, 1979 | `bing-office-1979.jpg` | 0.62 m wide, east wall | landscape, ~4:3 |
-| `bing.office.old_place` | The old place (Italy) | `bing-office-old-place.jpg` | 0.34 m wide, door wall | landscape, ~4:3 |
+| `bing.office.the_boys` | BLAST Austin Major — Silver Sasquatches | `silver-sasquatches-austin.jpg` | 0.34 m mount, door wall top row | wide banner |
+| `bing.office.shore` | A friend of ours (film still) | `goodfellas-tommy.jpg` | 0.44 m wide, on the wall behind the desk | square-ish portrait |
+| `bing.office.first_truck` | 5 Years of Stacks badge | `silver-sasquatches-5-years.jpg` | 0.34 m mount, door wall top row | square |
+| `bing.office.old_place` | Denver 2026 team badge | `silver-sasquatches-denver-2026.jpg` | 0.34 m mount, door wall | square |
+| `bing.office.bing_1979` | The jersey fan (hotel room) | `sasquatches-jersey-fan.jpg` | 0.62 m wide, east wall (the safe frame) | portrait |
 | `bing.office.nephews` | The nephews | `bing-office-nephews.jpg` | 0.34 m wide, door wall | landscape, ~4:3 |
 
 ```json
@@ -99,3 +106,25 @@ Filenames are only a suggestion — the slot is what matters, and the frame
 resizes to whatever aspect ratio the file turns out to have. The Bing 1979
 frame is the one the office safe is hidden behind; it hinges off the wall on
 [E], and a real photograph hinges exactly as the drawn one does.
+
+
+## The Mansion's 2026-08-19 drop — landed
+
+Seven owner images, hung in `src/mansion/scenes/MansionInterior.js` and rowed
+in `manifest.json`. `uncle-lou-is-back.png` is one file on two slots (office
+and bedroom), the same way `casabonita.webp` hangs in both the apartment and
+the cellar. The three iPhone JPEGs (`birthday-dog`, the two vacations) store
+4032x3024 pixels with EXIF orientation 6 — the browser delivers them as
+3024x4032 portraits, and the authored frames are sized to that delivered
+shape.
+
+| Slot | The picture | Filename | Frame |
+|---|---|---|---|
+| `mansion.bedroom.booski-death.booski-portrait` | Booski, green paint and ogre ears | `booski-portrait.jpg` | 0.90 m wide chrome panel, west wall of the shared bedroom |
+| `mansion.foyer.savior` | Squatch Jesus — robes, halo, wine and eggs | `squatch-jesus.png` | 1.70 m wide, foyer's double-height west wall |
+| `mansion.gallery.heaven` | The crew on the stairway to heaven | `squatch-heaven-roster.jpg` | 1.15 m wide, gallery's east end wall |
+| `mansion.office.birthday-dog` | The goldendoodle in the birthday hat | `birthday-dog.jpg` | 0.16 m standing frame ON Lou's desk |
+| `mansion.office.lou-is-back` | UNCLE LOU IS BACK poster | `uncle-lou-is-back.png` | 1.20 m wide, office south wall |
+| `mansion.suite.lou-is-back` | UNCLE LOU IS BACK poster, again | `uncle-lou-is-back.png` | 0.80 m wide, suite south wall, bay -7.75 |
+| `mansion.office.vacation-vienna` | Her, at the palace funfair | `lou-vacation-vienna.jpg` | 0.66 m wide, over the office safe |
+| `mansion.suite.vacation-florence` | Florence at sunset, over the crowd | `lou-vacation-florence.jpg` | 0.60 m wide, suite south wall, bay 7.73 |

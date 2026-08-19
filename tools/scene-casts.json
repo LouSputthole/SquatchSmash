@@ -39,7 +39,8 @@
       "id": "silent-squatch",
       "label": "PROJECT SILENT SQUATCH",
       "cuePrefixes": [
-        "vo.silentsquatch."
+        "vo.silentsquatch.",
+        "vo.silentnight."
       ],
       "sourceFiles": [
         "src/mansion/cast.js",
@@ -106,7 +107,8 @@
       "id": "hotdog-incident",
       "label": "The HotDog Incident",
       "cuePrefixes": [
-        "vo.bing2."
+        "vo.bing2.",
+        "hotdog.stab.grunt."
       ],
       "sourceFiles": [
         "src/bing/hotdog-party.js",
