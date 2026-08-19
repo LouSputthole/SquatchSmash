@@ -550,6 +550,20 @@ function resetCombatFeedback() {
   ui.suppression.dataset.pressure = '0.000';
 }
 
+/** The death card: brutal, immediate, and the same whoever fired the round.
+ * Kept as one function so the retry path can be certain everything the death
+ * froze (input, trigger, ADS, pointer lock) has a matching un-freeze. */
+function presentPlayerDeath() {
+  state.phase = 'dead';
+  player.enabled = false;
+  player.clearKeys();
+  interaction.setPaused(true);
+  weapons.setTrigger(false);
+  weapons.setAimed(false);
+  document.exitPointerLock?.();
+  death.classList.remove('hidden');
+}
+
 function showPalaceBlood(located, impact) {
   const { actor, anchor } = located;
   if (!actor || !anchor?.isObject3D) return false;
@@ -755,16 +769,7 @@ security = new PalaceSecurity({
     });
     presentIncomingCombatFeedback(feedback);
     updatePlayerStatus();
-    if (hit.fatal || playerActor.incapacitated) {
-      state.phase = 'dead';
-      player.enabled = false;
-      player.clearKeys();
-      interaction.setPaused(true);
-      weapons.setTrigger(false);
-      weapons.setAimed(false);
-      document.exitPointerLock?.();
-      death.classList.remove('hidden');
-    }
+    if (hit.fatal || playerActor.incapacitated) presentPlayerDeath();
   },
   onTargetDown: (entry, { silent }) => {
     const position = entry.root.position.clone();
@@ -929,13 +934,19 @@ function clearCombatTransients() {
   ui.crosshair.style.transform = 'scale(1)';
 }
 
+/** True for the full v1 combat snapshot shape — the only shape an in-memory
+ * death retry may trust; anything else falls back to the page rebuild. */
+function completeCombatSnapshot(snapshot) {
+  return Boolean(snapshot && typeof snapshot === 'object'
+    && snapshot.player?.actor?.id === playerActor.id
+    && snapshot.loadout && typeof snapshot.loadout === 'object'
+    && snapshot.security && typeof snapshot.security === 'object');
+}
+
 function restoreCombatCheckpoint(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return false;
   const legacySecurity = !snapshot.security && Array.isArray(snapshot.entries);
-  const complete = snapshot.player?.actor?.id === playerActor.id
-    && snapshot.loadout && typeof snapshot.loadout === 'object'
-    && snapshot.security && typeof snapshot.security === 'object';
-  if (!legacySecurity && !complete) return false;
+  if (!legacySecurity && !completeCombatSnapshot(snapshot)) return false;
   clearCombatTransients();
 
   /* Keep the short-lived pre-v16 authoring seam usable: an old raw security
@@ -955,6 +966,12 @@ function restoreCombatCheckpoint(snapshot) {
   weapons.setSuppression(suppression);
   security.restore(snapshot.security);
   restageEliminatedTargets();
+  /* The dining-room checkpoint snapshot is captured by enterDiningRoom()'s
+   * own transition, one call BEFORE activateFinalEncounter() flips Mark and
+   * Sauce live — so restoring into the boss beat must re-assert the
+   * encounter or both targets come back passive. Idempotent: it only sets
+   * active = !down, and raiseAlarm('dining_room') no-ops if already up. */
+  if (mission.beat === PALACE_BEATS.DINING_ROOM) security.activateFinalEncounter();
   syncLoadout();
   updatePlayerStatus();
   updateAmmo();
@@ -1015,6 +1032,11 @@ function restoreMissionProgress() {
     const restoredCheckpoint = mission.beat;
     stageWorldForCheckpoint(restoredCheckpoint);
     state.lastCheckpoint = restoredCheckpoint;
+    /* Give a preview boot the same durable retry seam a campaign resume has:
+     * capture the freshly staged world as the checkpoint snapshot, so an
+     * in-memory death retry never needs the page rebuild. Preview campaign
+     * writes land in PreviewMemoryStorage only. */
+    if (previewCheckpoint) persistCheckpoint(restoredCheckpoint);
     return {
       checkpoint: restoredCheckpoint,
       checkpointSnapshot: previewCheckpoint ? null : progress.checkpointSnapshot,
@@ -1066,6 +1088,10 @@ const pauseMenu = createPauseMenu({
     campaign,
     sceneId: SCENE_IDS.CARTEL_PALACE,
     location,
+    /* Deliberately still a rebuild: pause-menu recovery is the cold escape
+     * hatch (a player bailing out mid-anything, including states the combat
+     * snapshot never covers). The hot path — dying and retrying — restores
+     * in memory via retryFromCheckpoint() below. */
     restartCheckpoint: () => location.reload(),
     canRestartCheckpoint: () => Boolean(campaignStory.mission.checkpoint),
   }),
@@ -1113,7 +1139,67 @@ startButton.addEventListener('click', async () => {
   requestGamePointerLock();
 });
 
-retryButton.addEventListener('click', () => location.reload());
+/**
+ * In-memory death retry — the same restore sequence a page reload boots
+ * through (mission.restore → stageWorldForCheckpoint → restoreCombatCheckpoint),
+ * minus the reload. The persisted checkpoint is the single source of truth,
+ * so what comes back is exactly what a rebuild would have staged:
+ *
+ *   - mission/beat, objective HUD, evidence and boss-bar staging;
+ *   - the security snapshot (guards revive or stay down per the record, the
+ *     shared contact call and live aim are forgotten — security.restore);
+ *   - restageEliminatedTargets() re-asserts the eliminated flags afterward,
+ *     same as the reload path;
+ *   - player health/armor/suppression, loadout, ammo;
+ *   - every attempt-scoped transient via clearCombatTransients(): pending
+ *     tracer impacts, blood decals and death pools (reload parity — a rebuild
+ *     starts with clean pools too), hostile flashes, suppression fields,
+ *     combat feedback, step cadence and one-shot combat audio.
+ *
+ * Audio: the 'palace-night' ambience loop simply keeps running (startLoop is
+ * idempotent per key and the retry never re-runs the start button), and no
+ * other loop exists in this scene, so nothing can stack. The alarm chirp and
+ * body-class come back only if the checkpoint itself holds the alarm — the
+ * alarm is DURABLE here (raising it re-persists the checkpoint), matching a
+ * reload. Doors never need closing: every door in the palace opens in the
+ * same interaction that advances its checkpoint, so door state and
+ * checkpoint state cannot diverge.
+ *
+ * Returns false — and the caller falls back to location.reload() — when the
+ * persisted snapshot is missing or predates the full v1 shape; that is the
+ * one category that genuinely needs the rebuild.
+ */
+function retryFromCheckpoint() {
+  if (state.phase !== 'dead') return false;
+  const progress = campaignStory.mission;
+  const snapshot = progress?.checkpoint ? progress.checkpointSnapshot : null;
+  if (!completeCombatSnapshot(snapshot)) return false;
+  if (!mission.restore({ ...progress, status: 'in_progress' })) return false;
+  death.classList.add('hidden');
+  /* The failed attempt's pending narration and toasts belong to the
+   * discarded timeline; the retry must not let them keep talking. */
+  hud.clearSay();
+  hud.toasts.replaceChildren();
+  state.powerCut = mission.powerCut === true;
+  stageWorldForCheckpoint(mission.beat);
+  state.lastCheckpoint = mission.beat;
+  restoreCombatCheckpoint(snapshot);
+  /* The body class follows the restored truth: a transient alarm from the
+   * dead run (dining-room activation aside) goes dark again, a durable one
+   * stays lit without replaying the chirp. */
+  document.body.classList.toggle('alarm', security.alarm);
+  state.phase = 'active';
+  interaction.setPaused(false);
+  player.enabled = true;
+  requestGamePointerLock();
+  return true;
+}
+
+retryButton.addEventListener('click', () => {
+  /* Instant in-memory restore first; the full page rebuild stays as the
+   * fallback for a missing or pre-v1 checkpoint snapshot. */
+  if (!retryFromCheckpoint()) location.reload();
+});
 addEventListener('pagehide', () => loadout.capture(weapons));
 
 initiationButton.addEventListener('click', () => {
@@ -1283,6 +1369,10 @@ window.CARTEL_PALACE = {
   snapshot: () => mission.snapshot(),
   combatSnapshot: () => captureCombatCheckpoint(mission.beat),
   combatRestore: restoreCombatCheckpoint,
+  /** The death card, exactly as an incoming fatal round presents it. */
+  presentPlayerDeath,
+  /** The in-memory death retry the retry button drives. */
+  retryFromCheckpoint,
   combatImpact: (impact) => {
     const located = security.applyPlayerImpact(impact);
     if (located?.applied) {

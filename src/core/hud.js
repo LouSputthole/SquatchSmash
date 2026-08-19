@@ -66,6 +66,16 @@ export class Hud {
     return performance.now() < (this._sayUntil || 0);
   }
 
+  /** Cut a pending narration line dead. A checkpoint retry calls this so the
+   * failed attempt's subtitle (and its hide timer) cannot play on into the
+   * restored timeline. */
+  clearSay() {
+    clearTimeout(this._subTimer);
+    this._subTimer = null;
+    this._sayUntil = 0;
+    this.subtitle.classList.add('hidden');
+  }
+
   toast(text, kind = '', duration = 2800) {
     const el = document.createElement('div');
     el.className = `toast ${kind}`.trim();

@@ -2144,6 +2144,123 @@ try {
       && headProof.visiblePool,
     JSON.stringify(headProof));
 
+  /* ---- In-memory death retry -------------------------------------------
+   * A fresh estate document first: the combat probes above drive security
+   * directly (bypassing mission persistence), so the campaign's persisted
+   * snapshot no longer matches the scene they restored — a real run never
+   * diverges like that, and the retry contract is defined against real play.
+   *
+   * Then dirty the run for real — a guard shot dead (which raises the alarm
+   * and re-persists the checkpoint snapshot in the same call, with the guard
+   * still alive at capture time), a floor blood pool, a narration line
+   * mid-air — kill the player, and drive the same retryFromCheckpoint() the
+   * retry button uses. The page must NOT reload (sentinel survives), and the
+   * restored run must have no duplicate actors, no leftover blood, no
+   * stacked audio loops and no talking corpse of a subtitle. */
+  await page.goto(combatHref, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'menu', null, {
+    timeout: 180000,
+  });
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'active', null, {
+    timeout: 180000,
+  });
+  await page.waitForTimeout(180);
+
+  const retryProof = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    window.__palaceRetrySentinel = 'no-reload';
+    const audio = runtime.combatAudio.audio;
+    const loopsBefore = [...(audio.loops?.keys?.() ?? [])].sort();
+    const guard = runtime.cast.guards.find((entry) => entry.active && !entry.down);
+    const guardId = guard.id;
+    for (let round = 0; round < 6 && !guard.down; round++) {
+      runtime.security.applyPlayerShot(guard.figure.parts.head, 'carbine');
+    }
+    runtime.deathBloodPools.spill(guard.root.position.clone(), { floorY: 0 });
+    document.getElementById('subtitle')?.classList.remove('hidden');
+    const snapshot = runtime.campaignStory.mission.checkpointSnapshot ?? null;
+    const before = {
+      guardDown: guard.down,
+      alarm: runtime.security.alarm,
+      bodyAlarm: document.body.classList.contains('alarm'),
+      pools: runtime.deathBloodPools.visibleCount,
+      snapshotAlarm: snapshot?.security?.alarm ?? null,
+      snapshotGuardDown: snapshot?.security?.entries
+        ?.find((entry) => entry.id === guardId)?.down ?? null,
+    };
+    runtime.playerActor.health = 0;
+    runtime.playerActor.incapacitated = true;
+    runtime.presentPlayerDeath();
+    const dead = {
+      phase: runtime.phase,
+      overlayShown: !document.getElementById('death').classList.contains('hidden'),
+    };
+    const retried = runtime.retryFromCheckpoint();
+    const restoredGuard = runtime.cast.guards.find((entry) => entry.id === guardId);
+    const after = {
+      retried,
+      phase: runtime.phase,
+      overlayHidden: document.getElementById('death').classList.contains('hidden'),
+      guardDown: restoredGuard.down,
+      guardActive: restoredGuard.active,
+      guardWeaponVisible: restoredGuard.weaponModel?.visible === true,
+      guardHealth: restoredGuard.actor.health,
+      guardMaxHealth: restoredGuard.actor.maxHealth,
+      health: runtime.playerActor.health,
+      maxHealth: runtime.playerActor.maxHealth,
+      incapacitated: runtime.playerActor.incapacitated,
+      pools: runtime.deathBloodPools.visibleCount,
+      bloodMarks: [...runtime.bloodImpacts.wounds.pool, ...runtime.bloodImpacts.spatter.pool]
+        .filter((mesh) => mesh.visible).length,
+      alarm: runtime.security.alarm,
+      bodyAlarm: document.body.classList.contains('alarm'),
+      subtitleHidden: document.getElementById('subtitle')?.classList.contains('hidden') ?? true,
+      loopsAfter: [...(audio.loops?.keys?.() ?? [])].sort(),
+      sentinel: window.__palaceRetrySentinel,
+      checkpoint: runtime.checkpoint,
+      beat: runtime.mission.beat,
+      playerAt: {
+        x: +runtime.player.position.x.toFixed(2),
+        z: +runtime.player.position.z.toFixed(2),
+      },
+    };
+    return { loopsBefore, before, dead, after };
+  });
+  check('dying mid-estate presents the death card with the world genuinely dirty',
+    retryProof.before.guardDown && retryProof.before.alarm && retryProof.before.bodyAlarm
+      && retryProof.before.pools >= 1
+      && retryProof.dead.phase === 'dead' && retryProof.dead.overlayShown
+      && retryProof.before.snapshotAlarm === true
+      && retryProof.before.snapshotGuardDown === false,
+    JSON.stringify({ before: retryProof.before, dead: retryProof.dead }));
+  check('the retry restores the checkpoint in memory — same document, no reload',
+    retryProof.after.retried === true
+      && retryProof.after.sentinel === 'no-reload'
+      && retryProof.after.phase === 'active'
+      && retryProof.after.overlayHidden
+      && retryProof.after.checkpoint === 'estate'
+      && retryProof.after.beat === 'estate'
+      && Math.abs(retryProof.after.playerAt.x - 14.3) < 0.5
+      && Math.abs(retryProof.after.playerAt.z - 5.5) < 0.5,
+    JSON.stringify(retryProof.after));
+  check('the retry resurrects nobody wrongly and leaves nobody wrongly dead',
+    retryProof.after.guardDown === false
+      && retryProof.after.guardActive === true
+      && retryProof.after.guardWeaponVisible === true
+      && retryProof.after.guardHealth === retryProof.after.guardMaxHealth
+      && retryProof.after.health === retryProof.after.maxHealth
+      && retryProof.after.incapacitated === false,
+    JSON.stringify(retryProof.after));
+  check('the retry wipes the attempt\'s blood, cuts its subtitle and stacks no audio loops',
+    retryProof.after.pools === 0
+      && retryProof.after.bloodMarks === 0
+      && retryProof.after.subtitleHidden === true
+      && JSON.stringify(retryProof.after.loopsAfter) === JSON.stringify(retryProof.loopsBefore)
+      && retryProof.after.alarm === true
+      && retryProof.after.bodyAlarm === true,
+    JSON.stringify({ loops: retryProof.loopsBefore, after: retryProof.after }));
+
   const webgl = await page.evaluate(() => {
     const gl = window.CARTEL_PALACE.renderer.getContext();
     return {

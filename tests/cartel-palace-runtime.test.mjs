@@ -43,6 +43,27 @@ test('Cartel Palace is a first-class runtime built on the shared game systems', 
     'locked confrontation voice lines must not be invented in the runtime');
 });
 
+test('Cartel Palace death retry restores in memory, with reload only as the fallback', async () => {
+  const [main, hud] = await Promise.all([
+    readFile(new URL('src/cartel-palace/main.js', ROOT), 'utf8'),
+    readFile(new URL('src/core/hud.js', ROOT), 'utf8'),
+  ]);
+
+  assert.match(main, /function retryFromCheckpoint\(\)/,
+    'the death retry must be an in-memory checkpoint restore');
+  assert.match(main, /retryButton\.addEventListener\('click', \(\) => \{\s*[\s\S]{0,400}?if \(!retryFromCheckpoint\(\)\) location\.reload\(\);/,
+    'reload is the fallback for an unrestorable snapshot, never the primary path');
+  assert.doesNotMatch(main, /retryButton\.addEventListener\('click', \(\) => location\.reload\(\)\)/,
+    'the retry button must not rebuild the page unconditionally');
+  assert.match(main, /function presentPlayerDeath\(\)/,
+    'death presentation is one function so the retry un-freezes everything it froze');
+  assert.match(main, /PALACE_BEATS\.DINING_ROOM\) security\.activateFinalEncounter\(\)/,
+    'a dining-room restore must re-assert the final encounter or the bosses come back passive');
+  assert.match(main, /hud\.clearSay\(\)/,
+    'the failed attempt\'s pending narration must not talk into the restored timeline');
+  assert.match(hud, /clearSay\(\)\s*\{/, 'Hud must expose the narration cut the retry relies on');
+});
+
 test('Cartel Palace has a focused browser verifier registered in package scripts', async () => {
   const [pkg, verifier] = await Promise.all([
     readFile(new URL('package.json', ROOT), 'utf8').then(JSON.parse),
