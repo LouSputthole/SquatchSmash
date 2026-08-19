@@ -1807,15 +1807,19 @@ try {
   const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
   const indexedFiles = new Set(soundIndex.files || []);
   const mansionCueLists = await page.evaluate(async () => {
-    const [weapons, silentSquatch, cast] = await Promise.all([
+    const [weapons, silentSquatch, cast, furniture] = await Promise.all([
       import('/src/core/weapons/audio.js'),
       import('/src/mansion/scenes/SilentSquatch.js'),
       import('/src/mansion/cast.js'),
+      import('/src/mansion/interaction-audio.js'),
     ]);
     return {
       weaponCueNames: weapons.weaponCueNames(),
       silentSquatchCueNames: silentSquatch.silentSquatchCueNames(),
       mansionCastCueNames: [...cast.MANSION_CAST_CUE_NAMES],
+      /* The furniture foley main.js preloads (chair.sit, bed.creak…);
+       * omitting it made four legitimately resident cues read unscoped. */
+      interactionCueNames: [...furniture.MANSION_INTERACTION_CUE_NAMES],
     };
   });
   const MANSION_CAST_CUE_NAMES = mansionCueLists.mansionCastCueNames;
@@ -1827,6 +1831,7 @@ try {
     ...mansionCueLists.weaponCueNames,
     ...mansionCueLists.silentSquatchCueNames,
     ...MANSION_CAST_CUE_NAMES,
+    ...mansionCueLists.interactionCueNames,
     ...mansionFixtureCueNames,
   ]);
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (

@@ -102,7 +102,10 @@ export function gameplayKeyPlan(code, keymap = getKeymap()) {
 
 function isTypingTarget(target, excludedRoot) {
   if (!target) return false;
-  if (excludedRoot?.contains?.(target)) return true;
+  /* Key events can arrive targeted at the window itself (pointer lock,
+   * blurred focus) — Node.contains throws on a non-Node argument. */
+  const node = typeof Node !== 'undefined' && target instanceof Node ? target : null;
+  if (node && excludedRoot?.contains?.(node)) return true;
   const tag = String(target.tagName || '').toUpperCase();
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
     || target.isContentEditable === true;

@@ -11587,17 +11587,19 @@ const M_GOLD_BAR = mat({
     /* Display cases down the long walls: the silverware that is not the point
      * of the room, kept where it can watch the thing that is. */
     /* Case A used to stand directly behind the designated west breach pane,
-     * leaving no body-width path through the glass.  Keep both four-trophy
-     * cases, but put A in the clear east-wall bay between the two living-room
-     * windows; B remains on the west wall. The case is 0.6 m deep, so A's
-     * centre sits 0.3 m off the west face of the house wall at x=-16.4.
-     * The former 0.55 m inset buried its rear frame and collider 0.15 m into
-     * masonry. */
-    for (const [caseX, dz, yaw, label] of [
-      [r.x1 - 0.7, 52.0, -Math.PI / 2, 'A'],
-      [r.x0 + 0.55, 51.8, Math.PI / 2, 'B'],
+     * leaving no body-width path through the glass. Its east-wall bay is
+     * tight in a different way: the dais flank (x -17.78) against a 0.6 m
+     * case leaves 0.78 m — under body width — so a full 2.2 m case at z 52
+     * walled off the hall's east aisle (the continuous-walk gate stuck at
+     * z 50.6 against its south face). A is therefore the NARROW case, 1.2 m,
+     * ending at z 52.1 where the dais begins: north of it the aisle is the
+     * full 1.36 m to the wall, and beside it the colonnade gap west of the
+     * case runs 0.96 m. B keeps the four-trophy width on the west wall. */
+    for (const [caseX, dz, yaw, caseW, label] of [
+      [r.x1 - 0.7, 51.5, -Math.PI / 2, 1.2, 'A'],
+      [r.x0 + 0.55, 51.8, Math.PI / 2, 2.2, 'B'],
     ]) {
-      makeDisplayCase(caseX, GY, dz, yaw, 2.2, 2.1, 0.6, (g, w, h, d) => {
+      makeDisplayCase(caseX, GY, dz, yaw, caseW, 2.1, 0.6, (g, w, h, d) => {
         const shelfHeight = 0.05;
         const shelfY = h * 0.34;
         g.add(box({
@@ -11608,7 +11610,11 @@ const M_GOLD_BAR = mat({
           name: 'display-case-shelf',
         }));
         const shelfTop = shelfY + shelfHeight / 2;
-        for (let i = 0; i < 4; i++) {
+        /* As many trophies as the width actually seats: the wide case takes
+         * four, the narrow aisle case two — a fixed four ran the last pair
+         * through the narrow case's side frame. */
+        const seats = Math.max(2, Math.floor((w - 0.54) / 0.46) + 1);
+        for (let i = 0; i < seats; i++) {
           const sx = -w / 2 + 0.42 + i * 0.46;
           g.add(makeCompleteDisplayTrophy(sx, shelfTop, 0, 'trophy-hall-display-trophy'));
         }
