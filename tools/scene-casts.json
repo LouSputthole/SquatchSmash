@@ -395,6 +395,27 @@
       "notes": "Both principals have dedicated controllers."
     },
     {
+      "id": "cartel-palace",
+      "label": "CARTEL PALACE",
+      "cuePrefixes": [
+        "vo.palace."
+      ],
+      "sourceFiles": [
+        "src/cartel-palace/cast.js",
+        "src/cartel-palace/finale.js",
+        "src/cartel-palace/main.js"
+      ],
+      "staged": [
+        "mark",
+        "sauce",
+        "mark-wife",
+        "short-one",
+        "short-two"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'short-one', 'short-two'); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Tony's lines are voice 'player', globally exempt."
+    },
+    {
       "id": "initiation",
       "label": "Initiation",
       "cuePrefixes": [

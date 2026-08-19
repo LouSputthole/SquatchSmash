@@ -530,6 +530,38 @@
       "stability": 0.5,
       "similarity": 0.8,
       "style": 0.3
+    },
+    "mark": {
+      "id": "<owner to cast>",
+      "_note": "Mark, the cartel boss at the Palace finale -- UNCAST 2026-08-19, added with the staged dining-room confrontation (src/cartel-palace/finale.js). Unhurried, heavy, certain; a man who owns the house and knows it. Needs an id before vo.palace.finale.mark.* can generate.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.55,
+      "similarity": 0.82,
+      "style": 0.28
+    },
+    "mark-wife": {
+      "id": "<owner to cast>",
+      "_note": "Mark's wife at the Palace finale -- UNCAST 2026-08-19. Glamorous cartel money, full volume: desperate begging, then operatic cursing once the shooting starts. Needs an id before vo.palace.finale.wife.* can generate.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.8,
+      "style": 0.45
+    },
+    "short-one": {
+      "id": "<owner to cast>",
+      "_note": "Big Paco, the taller half of the Palace finale's short double act -- UNCAST 2026-08-19. Fast, sincere, professional about murder logistics; finishes his partner's sentences. Needs an id before vo.palace.finale.short-one.* can generate.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.35
+    },
+    "short-two": {
+      "id": "<owner to cast>",
+      "_note": "Little Paco, the shorter half of the Palace finale's double act -- UNCAST 2026-08-19. Two centimetres shorter than Big Paco and precise about it; corrects, itemises, dives on cue. Cast a clearly different throat from short-one -- they are a two-man bit, not one voice twice. Needs an id before vo.palace.finale.short-two.* can generate.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.35
     }
   },
   "sfx": [
@@ -20759,6 +20791,259 @@
       "name": "radio.vo.announcer.0177le3",
       "voice": "announcer",
       "say": "…which is the traffic. Back to Lou."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endings.tony.1ua0yfe",
+      "voice": "player",
+      "say": "Leave him tied. Lou can decide."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endings.tony.2tsfvx",
+      "voice": "player",
+      "say": "Untie one hand."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endLeft.line.d2bhcc",
+      "voice": "gratin",
+      "say": "Good. He’s Lou’s problem now, and Lou likes problems that can’t stand up."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endUntied.line.jzsw4g",
+      "voice": "gratin",
+      "say": "One hand. ONE. And you’re explaining the plate to Lou, not me."
+    },
+    {
+      "name": "vo.siege.sasole.sasole.firstlight",
+      "voice": "lou2",
+      "say": "Get an hour down. We are wheels up at first light, and you are coming with me."
+    },
+    {
+      "name": "vo.palace.finale.mark.arrival.quiet-1.1",
+      "voice": "mark",
+      "say": "Tony. Sit down. We are having the veal — Sauce’s recipe. He was going to tell you. Eventually.",
+      "direction": "Unhurried cartel-boss calm. A man offering dinner to the intruder in his house, certain the house wins."
+    },
+    {
+      "name": "vo.palace.finale.mark.arrival.loud-1.1",
+      "voice": "mark",
+      "say": "You shot your way through my payroll to ruin a Tuesday dinner. Sit down anyway. The veal is getting cold.",
+      "direction": "Dry, annoyed, unafraid — the gunfire outside was an inconvenience to his evening, not a threat to his life."
+    },
+    {
+      "name": "vo.palace.finale.tony.accuse-1.1",
+      "voice": "player",
+      "say": "Six months. Six months I burned this state down looking for you, Sauce.",
+      "direction": "Low and level, the anger already spent. He is not asking a question."
+    },
+    {
+      "name": "vo.palace.finale.tony.accuse.belongings-1.1",
+      "voice": "player",
+      "say": "Your knives are folded in the guest suite next to your passport. Prisoners don’t get turn-down service.",
+      "direction": "Flat prosecutor’s delivery, laying the first exhibit on the table."
+    },
+    {
+      "name": "vo.palace.finale.tony.accuse.ledger-1.1",
+      "voice": "player",
+      "say": "Mark’s ledger pays you every other Friday. Hostages don’t get direct deposit.",
+      "direction": "Second exhibit. Drier than the first — the joke is a scalpel, not a smile."
+    },
+    {
+      "name": "vo.palace.finale.tony.accuse.still-1.1",
+      "voice": "player",
+      "say": "And the cameras caught you waving them goodnight. Nobody has ever chained you to anything.",
+      "direction": "The last exhibit, and the coldest. The sentence ends the argument."
+    },
+    {
+      "name": "vo.palace.finale.sauce.admission.cornered-1.1",
+      "voice": "sauce",
+      "say": "Okay. Yeah. The kidnapping was less of a kidnapping and more of a — Mark, help me with the word.",
+      "direction": "Caught flat and scrambling, hands half-raised, appealing sideways to his boss mid-sentence."
+    },
+    {
+      "name": "vo.palace.finale.mark.admission.cornered-2.1",
+      "voice": "mark",
+      "say": "A rebrand.",
+      "direction": "One bored word. He has said it in meetings before."
+    },
+    {
+      "name": "vo.palace.finale.sauce.admission.cornered-3.1",
+      "voice": "sauce",
+      "say": "A rebrand. The family paid me in exposure and gunfire, Tony. Here I get dental. And a pool.",
+      "direction": "Relieved to have the word, then genuinely, indefensibly sincere about the dental."
+    },
+    {
+      "name": "vo.palace.finale.sauce.admission.pressed-1.1",
+      "voice": "sauce",
+      "say": "Whoa, whoa. ‘Never a prisoner’ is a strong read. I was reluctant. At first. The first week. Day. The drive over.",
+      "direction": "Backpedalling in real time, the timeline collapsing under him word by word."
+    },
+    {
+      "name": "vo.palace.finale.sauce.admission.denial-1.1",
+      "voice": "sauce",
+      "say": "Prisoner! That’s me. Blink twice, right? I’m blinking, Tony. This is me, blinking.",
+      "direction": "Terrible acting, performed with full commitment. He blinks audibly if that is possible."
+    },
+    {
+      "name": "vo.palace.finale.mark.mark.cornered-1.1",
+      "voice": "mark",
+      "say": "He cooks, I pay, and nobody down there missed him until the food got worse. I’d apologize, but look at my house. I’m not sorry about anything.",
+      "direction": "Resigned and expansive. He has seen the ledger on the table and skipped straight past denial to legacy."
+    },
+    {
+      "name": "vo.palace.finale.mark.mark.pressed-1.1",
+      "voice": "mark",
+      "say": "He begged me for this job. Ask the wall he did not climb over.",
+      "direction": "Deflecting with contempt, gesturing at the architecture as his witness."
+    },
+    {
+      "name": "vo.palace.finale.mark.mark.denial-1.1",
+      "voice": "mark",
+      "say": "You broke into my home with a theory and a rifle. One of those is loaded.",
+      "direction": "Amused, superior. He thinks the evidence is thin and he is enjoying saying so."
+    },
+    {
+      "name": "vo.palace.finale.wife.begging.wife-1.1",
+      "voice": "mark-wife",
+      "say": "No, no, no. Baby — whoever you are — not the face. He just had work done. There is a DEPOSIT.",
+      "direction": "Desperate glamorous begging at full volume. “DEPOSIT” lands like a bereavement."
+    },
+    {
+      "name": "vo.palace.finale.wife.begging.wife-2.1",
+      "voice": "mark-wife",
+      "say": "Take the cars. Take Sauce — he over-salts everything anyway—",
+      "direction": "Bargaining fast, throwing the chef overboard without a flicker of hesitation."
+    },
+    {
+      "name": "vo.palace.finale.sauce.begging.wife-3.1",
+      "voice": "sauce",
+      "say": "Hey!",
+      "direction": "Wounded. The over-salting accusation hurts more than the rifle."
+    },
+    {
+      "name": "vo.palace.finale.wife.begging.wife-4.1",
+      "voice": "mark-wife",
+      "say": "—but nobody dies at dinner. This rug is hand-knotted. Blood never comes out of hand-knotted.",
+      "direction": "Pleading for lives and upholstery in the same breath, and she means both equally."
+    },
+    {
+      "name": "vo.palace.finale.short-one.begging.shorts-1.1",
+      "voice": "short-one",
+      "say": "Boss man, listen. Me and him, we have personally witnessed maybe four hundred murders—",
+      "direction": "A short, urgent professional opening a negotiation. Fast, sincere, hands out."
+    },
+    {
+      "name": "vo.palace.finale.short-two.begging.shorts-2.1",
+      "voice": "short-two",
+      "say": "—five hundred—",
+      "direction": "Correcting his partner instantly, like they keep a shared spreadsheet."
+    },
+    {
+      "name": "vo.palace.finale.short-one.begging.shorts-3.1",
+      "voice": "short-one",
+      "say": "—five hundred murders, and not one of them improved the evening.",
+      "direction": "Accepting the correction without pause and finishing the shared sentence."
+    },
+    {
+      "name": "vo.palace.finale.short-two.begging.shorts-4.1",
+      "voice": "short-two",
+      "say": "Kill nobody, and we validate parking. Kill somebody, and we scream, we dive under the table, it becomes a whole thing.",
+      "direction": "Laying out both packages like a waiter reciting specials. Deadly serious about the logistics."
+    },
+    {
+      "name": "vo.palace.finale.short-one.begging.shorts-5.1",
+      "voice": "short-one",
+      "say": "It is rehearsed, but it is a whole thing.",
+      "direction": "Quiet, confidential postscript. He is not proud that it is rehearsed. He is a little proud."
+    },
+    {
+      "name": "vo.palace.finale.mark.go-1.1",
+      "voice": "mark",
+      "say": "Enough. He did not climb my wall to hear the help negotiate.",
+      "direction": "The boss ends the begging. Chair pushed back, evening over, gun within reach."
+    },
+    {
+      "name": "vo.palace.finale.tony.go-2.1",
+      "voice": "player",
+      "say": "The ledger says you bought him. The footage says he sold us. I say dinner’s over.",
+      "direction": "Verdict. Ice-flat, no rise at the end. The safety comes off on the last word."
+    },
+    {
+      "name": "vo.palace.finale.wife.react.mark-first-1.1",
+      "voice": "mark-wife",
+      "say": "MARCO! You shot him in the FACE — the deposit, you ANIMAL, the DEPOSIT!",
+      "direction": "Screamed over a fresh corpse. Grief and cosmetic-surgery accounting at equal volume."
+    },
+    {
+      "name": "vo.palace.finale.short-one.react.mark-first-2.1",
+      "voice": "short-one",
+      "say": "TABLE!",
+      "direction": "One barked syllable, mid-dive."
+    },
+    {
+      "name": "vo.palace.finale.short-two.react.mark-first-3.1",
+      "voice": "short-two",
+      "say": "TABLE!",
+      "direction": "The identical bark a half-beat later. It is rehearsed."
+    },
+    {
+      "name": "vo.palace.finale.wife.react.sauce-first-1.1",
+      "voice": "mark-wife",
+      "say": "The CHEF?! Who garnishes the branzino now, you son of a bitch?!",
+      "direction": "Screamed fury. The catering implications hit her before the mortality does."
+    },
+    {
+      "name": "vo.palace.finale.short-two.react.sauce-first-2.1",
+      "voice": "short-two",
+      "say": "He still owed me forty bucks—",
+      "direction": "Genuine dismay, already crouching."
+    },
+    {
+      "name": "vo.palace.finale.short-one.react.sauce-first-3.1",
+      "voice": "short-one",
+      "say": "—forty bucks, gone. TABLE!",
+      "direction": "Finishes the accounting, then the bark, then the dive."
+    },
+    {
+      "name": "vo.palace.finale.wife.react.all-down-1.1",
+      "voice": "mark-wife",
+      "say": "FINE! Fine. I hope every rug you ever love betrays you. Now get out of my house, you gorgeous psychopath!",
+      "direction": "The full aria: cursing Tony out, vicious and operatic, with one involuntary compliment in the middle."
+    },
+    {
+      "name": "vo.palace.finale.short-one.react.all-down-2.1",
+      "voice": "short-one",
+      "say": "We saw nothing.",
+      "direction": "Muffled, from under the table, instantly cooperative."
+    },
+    {
+      "name": "vo.palace.finale.short-two.react.all-down-3.1",
+      "voice": "short-two",
+      "say": "We are continuing to see nothing.",
+      "direction": "Also from under the table, providing ongoing legal coverage."
+    },
+    {
+      "name": "vo.palace.finale.short-one.react.wife-down-1.1",
+      "voice": "short-one",
+      "say": "He shot the missus! The missus is DOWN!",
+      "direction": "Genuine panic, announced like a ring judge, already moving."
+    },
+    {
+      "name": "vo.palace.finale.short-two.react.wife-down-2.1",
+      "voice": "short-two",
+      "say": "On the RUG! She is ON the rug!",
+      "direction": "Horrified — for her, and on her behalf about the rug, which she loved."
+    },
+    {
+      "name": "vo.palace.finale.short-two.react.short-one-down-1.1",
+      "voice": "short-two",
+      "say": "BIG PACO! He had two centimetres on me, you bastard. Two whole centimetres!",
+      "direction": "Grief measured in the only unit that ever mattered between them."
+    },
+    {
+      "name": "vo.palace.finale.short-one.react.short-two-down-1.1",
+      "voice": "short-one",
+      "say": "LITTLE PACO! You magnificent half-portion — I am not covering your shifts!",
+      "direction": "Bereft and furious about the rota in the same scream."
     }
   ]
 }

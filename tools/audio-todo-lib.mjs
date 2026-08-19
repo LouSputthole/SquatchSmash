@@ -41,6 +41,9 @@ const VOICE_SCENES = [
    * the two Lous are cast separately in each. */
   ['MANSION UNDER SIEGE', (name) => name.startsWith('vo.siege.')],
   ['Squatch Graveyard', (name) => name.startsWith('vo.graveyard.')],
+  /* The finale confrontation at Mark's table — src/cartel-palace/finale.js
+   * mints every cue onto vo.palace.finale.*. */
+  ['CARTEL PALACE', (name) => name.startsWith('vo.palace.')],
   ['Initiation', (name) => name.startsWith('vo.initiation.')],
   ['Radio', (name) => name.startsWith('radio.')],
 ];
