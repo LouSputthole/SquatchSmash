@@ -74,6 +74,7 @@
     "audio:todo": "node tools/audio-todo.mjs",
     "voice:needed": "node tools/voice-needed.mjs",
     "voice:needed:check": "node tools/voice-needed.mjs --check",
+    "record:sheet": "node tools/record-sheet.mjs",
     "dialogue:sheet": "node tools/dialogue-sheet.mjs && python3 tools/dialogue-xlsx.py",
     "dialogue:csv": "node tools/dialogue-sheet.mjs",
     "audio:todo:check": "node tools/audio-todo.mjs --check",
