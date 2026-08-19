@@ -118,6 +118,11 @@ export function createLanGamerMotion(npc, {
       npc.parts.armR.rotation.set(-0.58 + flick * 0.03, -0.12, 0.16 + flick * 0.05);
       npc.parts.foreR.rotation.set(-0.50 + flick * 0.10, 0, 0.05);
     },
+    /* The hunch pitches the body ~0.18 rad, which swings the measured hips
+     * box ~4 cm below its upright height — so the seat correction must run
+     * AGAINST THE HUNCHED POSE and then re-pin this motion's held Y. The
+     * stager poses one update, corrects, and calls this. */
+    rebaseSeatY() { seatY = null; },
     get snapshot() {
       return {
         motion: 'lan-gamer',

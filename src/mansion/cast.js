@@ -1681,6 +1681,16 @@ export function mountMansionCast(scene, world = {}, {
      * the same allowance the hot tub and the loungers carry. */
     npc.inFixture = 'LAN station chair';
     lanGamerMotion = createLanGamerMotion(npc, { phase: 0.4 });
+    /* The gamer hunch is not the upright pose the correction above measured:
+     * pitching the body forward swings the hips box ~4 cm lower, which read
+     * as him sitting inside the pad. Pose the hunch, correct against it, and
+     * re-pin the motion's held Y to the corrected height; the lean's own
+     * sway is ±1 cm, inside the seat gate's 2 cm of upholstery. */
+    lanGamerMotion?.update(0);
+    scene.updateMatrixWorld(true);
+    const hunchedLift = sitOnTheSeat(scene, npc);
+    if (hunchedLift !== null) seatLifts.shubes = +(((lift ?? 0) + hunchedLift)).toFixed(3);
+    lanGamerMotion?.rebaseSeatY?.();
 
     const entry = posts.find((p) => p.id === 'shubes');
     if (entry) {
