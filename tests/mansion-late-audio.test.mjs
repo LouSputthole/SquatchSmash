@@ -18,6 +18,12 @@ const mansionMainSource = readFileSync(
   new URL('../src/mansion/main.js', import.meta.url),
   'utf8',
 );
+/* The preload selector moved out of beginTour() into the residency-bank
+ * module — the furniture cues now ride the START bank there. */
+const mansionBanksSource = readFileSync(
+  new URL('../src/mansion/audio-banks.js', import.meta.url),
+  'utf8',
+);
 const siegeMainSource = readFileSync(
   new URL('../src/mansion/siege/main.js', import.meta.url),
   'utf8',
@@ -62,7 +68,8 @@ test('the Mansion composition root wires and preloads all four furniture placeme
   assert.match(mansionMainSource, /playTheatreStand\(audio, seat\.getWorldPosition/);
   assert.match(mansionMainSource, /playGuestBedSleep\(audio, position\)/);
   assert.match(mansionMainSource, /GUEST_SLEEP_AUDIO_SECONDS \* 1000/);
-  assert.match(mansionMainSource, /\.\.\.MANSION_INTERACTION_CUE_NAMES/);
+  assert.match(mansionBanksSource, /\.\.\.MANSION_INTERACTION_CUE_NAMES/);
+  assert.match(mansionMainSource, /await mansionBanks\.loadStart\(\)/);
 });
 
 test('Siege pane state emits crack and shatter audio only on real transitions', async () => {

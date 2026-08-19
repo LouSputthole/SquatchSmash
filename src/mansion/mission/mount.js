@@ -113,6 +113,21 @@ export function mountSilentSquatch({
    * nobody arriving, which is what it did before.
    */
   onSnowSummoned = () => {},
+  /**
+   * The audio-residency half of the organic zone gate.
+   *
+   * `(zoneId) => boolean` — false HOLDS the zone: its one-shot id is not
+   * consumed, the player's feet are still inside it next tick, and the beat
+   * it would begin simply starts a tick later. The composition root answers
+   * from its residency banks (src/mansion/audio-banks.js): a basement zone
+   * is held only while the basement voice bank is still decoding, so no
+   * beat's first line can ever be asked for before its recording is
+   * resident — the same guarantee `beginTour()` used to buy by awaiting the
+   * whole manifest, kept per beat instead of per page. Direct
+   * `arrive(id)` calls stay explicit stage/debug commands and bypass this,
+   * exactly as they bypass the speech gate below.
+   */
+  zoneAudioResident = null,
 } = {}) {
   if (!lab || !THREE || !scene || !camera) return null;
 
@@ -467,6 +482,9 @@ export function mountSilentSquatch({
     },
     zones: missionZones,
     canEnterZone: (id, position, zone) => {
+      /* Residency first: a held zone is not spent, so the crossing repeats
+       * until the beat's bank has settled. See the option's own comment. */
+      if (zoneAudioResident?.(id) === false) return false;
       if (!speechGate || !ARRIVAL_SPEAKERS.has(id)) return true;
       return speechGate.canSpeak(id, {
         listenerPosition: position,

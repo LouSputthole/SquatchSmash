@@ -33,7 +33,7 @@ import {
   POOL,
 } from './scenes/MansionGrounds.js';
 import { buildMansionInterior } from './scenes/MansionInterior.js';
-import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatch.js';
+import { buildSilentSquatch } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
 import { translateKey, shakeScale } from '../core/settings.js';
 import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
@@ -42,7 +42,8 @@ import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { Highs } from '../core/highs.js';
 import { FocusRush } from '../core/focus-rush.js';
-import { PEE_CUE_NAMES, PeeSystem } from '../core/pee-system.js';
+import { PeeSystem } from '../core/pee-system.js';
+import { createResidencyBanks } from '../core/residency-banks.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
@@ -51,15 +52,15 @@ import {
 } from '../core/tv.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../core/weapons/Armory.js';
-import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { createFinalArcLoadout } from '../core/final-arc-loadout.js';
 import { mountSilentSquatch } from './mission/mount.js';
 import { INSTRUCTIONS, SEQUENCES } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import {
-  mountMansionCast, MANSION_CAST_CUE_NAMES, theatreSeatAvailable, theatreSeatOccupant,
+  mountMansionCast, theatreSeatAvailable, theatreSeatOccupant,
 } from './cast.js';
+import { MANSION_NEXT_BEAT_ZONES, mansionAudioBanks } from './audio-banks.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
 import {
   MANSION_EVENING_BEAT_IDS, MISSION_IDS, SCENE_IDS, createCampaign,
@@ -77,7 +78,6 @@ import {
 import { createNpcSpeechGate } from './npc-speech-gate.js';
 import {
   GUEST_SLEEP_AUDIO_SECONDS,
-  MANSION_INTERACTION_CUE_NAMES,
   playGuestBedSleep,
   playTheatreSit,
   playTheatreStand,
@@ -391,6 +391,23 @@ function updateLightRig(dt) {
 /* Audio                                                                 */
 /* ================================================================== */
 const audio = new AudioEngine();
+
+/**
+ * The house's three residency banks (src/mansion/audio-banks.js): the walk
+ * to Lou's office blocks the start button, the basement decodes behind it
+ * and is awaited at the cellar boundary, the evening dressing rides along
+ * whenever the pipe is free. `loadManifest` is the engine's one immutable
+ * first slice; the other two go through `loadAdditional`, which skips
+ * anything the first slice already decoded.
+ */
+const mansionBankSelections = mansionAudioBanks(mansionVisit);
+const mansionBanks = createResidencyBanks({
+  start: () => audio.loadManifest(mansionBankSelections.start),
+  nextBeat: mansionBankSelections.nextBeat
+    ? () => audio.loadAdditional(mansionBankSelections.nextBeat)
+    : null,
+  background: () => audio.loadAdditional(mansionBankSelections.background),
+});
 
 /**
  * Every cue named below is an existing procedural fallback already built
@@ -1672,6 +1689,14 @@ if (lab && night.play) {
     },
     story: missionStory,
     enabled: () => running,
+    /* The await-at-the-boundary, in gate form: a basement zone holds until
+     * the basement voice bank has settled, so no beat down there can begin
+     * — and therefore no first line can be asked for — while its recordings
+     * are still decoding. Zones outside the set never consult the banks.
+     * A visit with no basement run (the return briefing) has no nextBeat
+     * bank and `settled` is true the moment the chain runs. */
+    zoneAudioResident: (id) => !MANSION_NEXT_BEAT_ZONES.has(id)
+      || mansionBanks.settled('nextBeat'),
     /* NOT at module load. The mount's default `autoStart` dispatched the
      * mission's opening line while the page was still building -- no start
      * click, no AudioContext, no decoded bank -- which is how the first line
@@ -1829,8 +1854,13 @@ const cast = mountMansionCast(scene, world, {
       enabled: () => silentSquatch?.debug?.state === 'BACK_TO_LOU',
       onUse: () => silentSquatch?.debug?.reportToLou?.() === true,
     },
+  /* The background bank carries the evening's own scope, so the dressing
+   * waits for it the same way the basement waits for its bank: the evening
+   * cannot start speaking off cues that are still decoding. A preview boot
+   * skips the gate along with everything else audio. */
   eveningEnabled: () => mansionPreview
-    || mansionCampaign.story?.mission?.status === 'complete',
+    || (mansionCampaign.story?.mission?.status === 'complete'
+      && mansionBanks.settled('background')),
   theatreChannel: () => (theatreTv?.on ? theatreTv.channel?.name ?? '' : ''),
   /* The cast's activities -- the bar, the pool, the dog, Shubes -- report
    * their settling-in beats through the same ledger the theatre uses. */
@@ -2081,18 +2111,19 @@ async function beginTour() {
    * with the load un-awaited, every bark in the first seconds of the walk
    * (the gate man is standing at the spawn) raced the decode for the same
    * silent result. Nothing retries a line's audio; dispatch is the one
-   * chance, so the bank has to be resident before anything can speak. */
-  await audio.loadManifest({
-    names: [
-      ...weaponCueNames(),
-      ...silentSquatchCueNames(),
-      ...MANSION_CAST_CUE_NAMES,
-      ...MANSION_INTERACTION_CUE_NAMES,
-      ...PEE_CUE_NAMES,
-      'bing.line.snort',
-    ],
-    prefixes: ['vo.silentsquatch.'],
-  }).catch(() => {});
+   * chance, so the bank has to be resident before anything can speak.
+   *
+   * WHAT IS AWAITED IS NOW THE START BANK, not the whole page. The
+   * guarantee above holds per beat instead of per manifest: everything
+   * hearable between the gate and Lou's office blocks this click; the
+   * basement decodes right behind it and is awaited at the cellar boundary
+   * (the `zoneAudioResident` gate on the mount, plus the explicit awaits on
+   * the checkpoint-resume paths below); the evening dressing loads whenever
+   * the pipe is free. src/mansion/audio-banks.js owns the split, and
+   * `kickoff()` is fire-and-forget by design — the ONLY thing allowed to
+   * wait on the later banks is a boundary whose beat needs them. */
+  await mansionBanks.loadStart();
+  mansionBanks.kickoff();
   /* PROJECT SILENT SQUATCH begins NOW, with its voice bank decoded -- the
    * mount no longer autostarts it at module load (see `autoStart: false`
    * below). `start()` is idempotent, so a `?checkpoint=` jump that outran
@@ -2106,6 +2137,12 @@ async function beginTour() {
   if (mansionVisit !== 'return'
     && mansionCampaignEntry.resumed
     && CHECKPOINTS[mansionCampaignEntry.checkpoint]) {
+    /* A campaign resume can land in the middle of the basement, past the
+     * cellar boundary the organic walk would have awaited at — so the
+     * boundary await happens HERE instead, before the ladder replays a
+     * single basement verb. This is the same wait a fresh page used to pay
+     * for the whole manifest, now paid only by the resume that needs it. */
+    await mansionBanks.whenNextBeat();
     jumpToCheckpoint(mansionCampaignEntry.checkpoint);
   }
 }
@@ -2555,11 +2592,19 @@ function jumpToCheckpoint(id) {
      * -- jumping the moment the frame fired left `?checkpoint=arrival` (the
      * one jump with no ladder) standing at the gate with no mission, no case
      * and no opening line until the load caught up. */
-    requestAnimationFrame(() => beginTour().then(() => jumpToCheckpoint(wanted)));
+    /* And after the BASEMENT bank too, not just the start bank: every jump
+     * except `arrival` lands past the cellar boundary, and the ladder's
+     * landing beat speaks from that bank. */
+    requestAnimationFrame(() => beginTour()
+      .then(() => mansionBanks.whenNextBeat())
+      .then(() => jumpToCheckpoint(wanted)));
   }
 }
 
 window.mansion = {
+  /** The three-bank residency ledger — which slice of the soundscape has
+   * settled, for the verifier and the console. */
+  audioBanks: mansionBanks,
   campaign: {
     visit: mansionVisit,
     preview: mansionPreview,
