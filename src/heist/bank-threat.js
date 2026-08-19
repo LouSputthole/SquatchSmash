@@ -1,3 +1,5 @@
+import { assistTimingWindow } from '../core/assist-timing.js';
+
 const VALID_STATES = new Set(['idle', 'drawing', 'neutralized', 'fired']);
 
 function seconds(value) {
@@ -7,12 +9,14 @@ function seconds(value) {
 /** Deterministic reaction-window state for the armed lobby guard. */
 export class BankGuardThreat {
   constructor({ windowSeconds = 2.75 } = {}) {
-    this.windowSeconds = Math.max(0.5, Number(windowSeconds) || 2.75);
+    this.baseWindowSeconds = Math.max(0.5, Number(windowSeconds) || 2.75);
+    this.windowSeconds = this.baseWindowSeconds;
     this.reset();
   }
 
   start() {
     if (this.state !== 'idle') return false;
+    this.windowSeconds = assistTimingWindow(this.baseWindowSeconds);
     this.state = 'drawing';
     this.elapsed = 0;
     return true;
@@ -37,12 +41,16 @@ export class BankGuardThreat {
   reset() {
     this.state = 'idle';
     this.elapsed = 0;
+    this.windowSeconds = this.baseWindowSeconds;
   }
 
   capture() { return this.snapshot(); }
 
   restore(snapshot = {}) {
     this.state = VALID_STATES.has(snapshot.state) ? snapshot.state : 'idle';
+    const restoredWindow = Number(snapshot.windowSeconds);
+    this.windowSeconds = Number.isFinite(restoredWindow) && restoredWindow >= 0.5
+      ? restoredWindow : this.baseWindowSeconds;
     this.elapsed = Math.max(0, Math.min(this.windowSeconds, Number(snapshot.elapsed) || 0));
   }
 
@@ -51,6 +59,7 @@ export class BankGuardThreat {
     return {
       state: this.state,
       elapsed: seconds(this.elapsed),
+      windowSeconds: seconds(this.windowSeconds),
       remaining,
       progress: this.state === 'drawing' ? Math.min(1, this.elapsed / this.windowSeconds) : 0,
     };

@@ -767,10 +767,11 @@ test('every fixed and procedural Silver gown explicitly occludes its internal hi
         skirtY.max > hipY.max,
         `${label} hip shell reaches ${(hipY.max - skirtY.max).toFixed(4)}m above skirt`,
       );
-      const authoredHem = 0.23 * npc.parts.heightScale;
+      const seated = job === 'sit' || job === 'drink';
+      const authoredHem = (seated ? 0.42 : 0.23) * npc.parts.heightScale;
       assert.ok(
         Math.abs(skirtY.min - authoredHem) < 1e-6,
-        `${label} hem moved ${(Math.abs(skirtY.min - authoredHem) * 1000).toFixed(2)}mm`,
+        `${label} ${seated ? 'seated' : 'standing'} hem moved ${(Math.abs(skirtY.min - authoredHem) * 1000).toFixed(2)}mm`,
       );
     }
   }

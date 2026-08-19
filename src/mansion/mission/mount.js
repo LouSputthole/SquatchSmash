@@ -121,6 +121,11 @@ export function mountSilentSquatch({
   /* ---------------- the case ---------------- */
   const carried = makeCase({ x: 0, y: 0, z: 0 });
   carried.group.name = 'silentSquatchCarriedCase';
+  carried.group.userData.geometryGate = {
+    assemblyId: 'silent-squatch-carried-case-viewmodel',
+    overlap: false,
+    checkSupport: false,
+  };
   carried.group.scale.setScalar(0.72);
   carried.group.position.set(-0.32, -0.36, -0.64);
   carried.group.rotation.set(0.12, 0.5, 0.28);

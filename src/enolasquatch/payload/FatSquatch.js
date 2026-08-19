@@ -64,7 +64,9 @@ const PURPLE = 0x4a2f8f;
 const PURPLE_LIGHT = 0x8a6fd9;
 
 const BODY_LEN = 2.6;       // half-length scale on the main ellipsoid
-const BODY_R = 0.95;        // half-width/height scale
+const BODY_R = 0.95;        // half-width: this is what keeps the payload "fat"
+const BODY_H = 0.68;        // half-height: the 1.50 m bomb bay cannot hold a 1.90 m circle
+export const FAT_SQUATCH_MOUNT_HALF_HEIGHT_M = BODY_H * 1.02;
 
 /* ------------------------------------------------------------------ */
 /* Where a decal can actually go on this thing.                        */
@@ -125,7 +127,7 @@ const BAND_Z1 = 0.65;
 /**
  * A decal that lies ON the casing.
  *
- * The body is `SphereGeometry(1)` scaled `(BODY_R, BODY_R, BODY_LEN)`, so a
+ * The body is `SphereGeometry(1)` scaled `(BODY_R, BODY_H, BODY_LEN)`, so a
  * patch of that same sphere over a limited phi/theta range, scaled by the same
  * three numbers and a hair more, IS the casing's surface. Sizes are given in
  * metres of skin and converted here, because "0.4 radians of azimuth" is not a
@@ -157,7 +159,7 @@ function casingDecal({ side, angle, z, w, h, material, name = 'casing-decal' }) 
   const alpha = Math.asin(Math.max(-1, Math.min(1, z / reach)));
   const perRadian = reach * Math.cos(alpha);
   const phiLength = w / perRadian;
-  const thetaLength = h / BODY_R;
+  const thetaLength = h / BODY_H;
   // -X is phi = alpha; +X is its reflection through pi. Neither is a mirror of
   // the geometry — they are two different arcs of one sphere.
   const phiCentre = side > 0 ? Math.PI - alpha : alpha;
@@ -169,7 +171,7 @@ function casingDecal({ side, angle, z, w, h, material, name = 'casing-decal' }) 
     angle - thetaLength / 2, thetaLength,
   );
   const m = flatMesh(geo, material, 0, 0, 0);
-  m.scale.set(BODY_R * DECAL_LIFT, BODY_R * DECAL_LIFT, BODY_LEN * DECAL_LIFT);
+  m.scale.set(BODY_R * DECAL_LIFT, BODY_H * DECAL_LIFT, BODY_LEN * DECAL_LIFT);
   m.name = name;
   return m;
 }
@@ -366,7 +368,7 @@ export class FatSquatch {
 
     // ---- Casing: an egg/bomb-shaped body from a scaled sphere ----
     const body = mesh(sphereGeo(1, 20, 16), silver, 0, 0, 0);
-    body.scale.set(BODY_R, BODY_R, BODY_LEN);
+    body.scale.set(BODY_R, BODY_H, BODY_LEN);
     g.add(body);
     this.parts.body = body;
 
@@ -374,21 +376,22 @@ export class FatSquatch {
     // needing a lathe geometry — two scaled spheres read as one tapered egg
     // from any distance a player actually gets to this prop from.
     const nose = mesh(sphereGeo(1, 16, 12), silverDark, 0, 0, BODY_LEN * 0.92);
-    nose.scale.set(BODY_R * 0.62, BODY_R * 0.62, BODY_R * 0.85);
+    nose.scale.set(BODY_R * 0.62, BODY_H * 0.62, BODY_R * 0.85);
     g.add(nose);
 
     // Tail taper and stabiliser fins, so it reads as ordnance and not a
     // beach ball.
     const tail = mesh(sphereGeo(1, 16, 12), silverDark, 0, 0, -BODY_LEN * 0.95);
-    tail.scale.set(BODY_R * 0.55, BODY_R * 0.55, BODY_R * 0.7);
+    tail.scale.set(BODY_R * 0.55, BODY_H * 0.55, BODY_R * 0.7);
     g.add(tail);
     for (let i = 0; i < 4; i++) {
       const ang = (i / 4) * Math.PI * 2;
       const fin = mesh(boxGeo(0.9, 0.05, 0.62), purple, 0, 0, -BODY_LEN * 1.05);
       fin.position.x = Math.sin(ang) * 0.02;
       fin.rotation.z = ang;
-      fin.position.y += Math.cos(ang) * 0.55;
-      fin.position.x += Math.sin(ang) * 0.55;
+      fin.scale.x = BODY_H / BODY_R;
+      fin.position.y += Math.cos(ang) * 0.55 * (BODY_H / BODY_R);
+      fin.position.x += Math.sin(ang) * 0.55 * (BODY_H / BODY_R);
       g.add(fin);
     }
 
@@ -400,16 +403,17 @@ export class FatSquatch {
     const band = mesh(cylGeo(BODY_R * 1.02, BODY_R * 1.02, BAND_Z1 - BAND_Z0, 20), purple,
       0, 0, (BAND_Z0 + BAND_Z1) / 2);
     band.rotation.x = Math.PI / 2;
+    band.scale.z = BODY_H / BODY_R;
     g.add(band);
     const noseTip = mesh(sphereGeo(1, 12, 10), purpleLight, 0, 0, BODY_LEN * 1.02);
-    noseTip.scale.setScalar(BODY_R * 0.28);
+    noseTip.scale.set(BODY_R * 0.28, BODY_H * 0.28, BODY_R * 0.28);
     g.add(noseTip);
 
     // Two carrying lugs on top, where a real bomb's suspension lugs go —
     // also exactly where the restraint straps anchor.
     this.parts.lugs = [];
     for (const z of [0.75, -0.55]) {
-      const lug = mesh(boxGeo(0.18, 0.22, 0.14), solid(0x2a2c30, { roughness: 0.6, metalness: 0.6 }), 0, BODY_R * 0.98, z);
+      const lug = mesh(boxGeo(0.18, 0.22, 0.14), solid(0x2a2c30, { roughness: 0.6, metalness: 0.6 }), 0, BODY_H * 0.98, z);
       g.add(lug);
       this.parts.lugs.push(lug);
     }
@@ -519,12 +523,12 @@ export class FatSquatch {
     for (const spec of strapSpecs) {
       const strap = group('restraint-strap');
       // Tight half: a straight band over the top.
-      const tight = mesh(boxGeo(0.12, 0.04, BODY_R * 2.3), strapMat, 0, BODY_R * 1.02, spec.z);
+      const tight = mesh(boxGeo(0.12, 0.04, BODY_R * 2.3), strapMat, 0, BODY_H * 1.02, spec.z);
       tight.rotation.x = 0;
       strap.add(tight);
       // Slack half: canted, so it visibly is not pulled taut — "barely
       // secured" rather than cargo-strapped.
-      const slack = mesh(boxGeo(0.12, 0.04, BODY_R * 1.6), strapMat, spec.slackSide * 0.35, BODY_R * 0.55, spec.z + spec.slackSide * 0.5);
+      const slack = mesh(boxGeo(0.12, 0.04, BODY_R * 1.6), strapMat, spec.slackSide * 0.35, BODY_H * 0.55, spec.z + spec.slackSide * 0.5);
       slack.rotation.z = spec.slackSide * 0.5;
       strap.add(slack);
       g.add(strap);

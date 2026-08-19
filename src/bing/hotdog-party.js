@@ -55,6 +55,13 @@ function partyBanner() {
   }), 6.9, 0.82, { x: -11.5, y: 3.55, z: 10.595 });
   words.material.transparent = true;
   banner.add(words);
+  // Four short stand-offs terminate on the club wall at z=10.84. The cloth
+  // keeps its authored proud-of-wall silhouette without hanging in open air.
+  for (const x of [-15.2, -7.8]) {
+    for (const y of [3.12, 3.98]) {
+      banner.add(cylinder({ r: 0.015, h: 0.165, pos: [x, y, 10.71875], rotX: Math.PI / 2, mat: mat({ color: 0x27292b, roughness: 0.6, metalness: 0.6 }) }));
+    }
+  }
   return banner;
 }
 
@@ -178,7 +185,8 @@ export function buildHotDogCleanupProps() {
   const g = group('hotdog.cleanup-props');
   const plastic = mat({ color: 0xd7dbe0, roughness: 0.48, transparent: true, opacity: 0.72 });
   const kit = group('aubbie.cleanup-kit');
-  kit.position.set(7.2, 0, -11.2);
+  // The kit sits beyond the service-side wall return, not through its corner.
+  kit.position.set(7.2, 0, -11.35);
   kit.add(
     box({ size: [1.0, 0.44, 0.62], pos: [0, 0.24, 0], mat: mat({ color: 0x30383c, roughness: 0.75, metalness: 0.25 }) }),
     box({ size: [0.78, 0.08, 0.48], pos: [0, 0.5, 0], mat: plastic }),
@@ -266,7 +274,10 @@ export function buildHotDogCleanupProps() {
   g.add(blood);
 
   const brokenStool = group('broken.bar-stool');
-  brokenStool.position.set(-15.5, 0, -1.25);
+  // Rotate about the same authored pivot, then raise the lowest leg to the floor.
+  // Keep the discarded stool beside the confrontation, clear of both the
+  // fallen body and the permanent two-top.
+  brokenStool.position.set(-15.5, 0.192, -2.15);
   brokenStool.rotation.set(0.08, 0.3, 1.18);
   brokenStool.add(
     cylinder({ r: 0.24, h: 0.1, pos: [0, 0.45, 0], mat: mat({ color: 0x6b1f27, roughness: 0.75 }) }),
@@ -504,25 +515,33 @@ export async function buildHotDogParty(scene, club) {
     [CHARACTER_IDS.DEATHMEGATRON]: [-17.4, -2.0, 1.2],
     [CHARACTER_IDS.SEFF]: [4.0, 2.8, -1.2],
     [CHARACTER_IDS.IRISH]: [-6.0, 4.8, -2.45],
-    [CHARACTER_IDS.GRATIN]: [-3.1, 5.4, -2.7],
-    [CHARACTER_IDS.OLD_STOVE]: [3.9, 6.1, -1.7],
-    [CHARACTER_IDS.LAG]: [3.8, 8.5, -2.55],
-    [CHARACTER_IDS.ERIC]: [-8.6, 4.1, -2.7],
+    // Keep standing rigs clear of the permanent chairs, two-tops, and stage
+    // controls. These are small staging offsets, not collision exemptions.
+    [CHARACTER_IDS.GRATIN]: [-2.9, 5.4, -2.7],
+    [CHARACTER_IDS.OLD_STOVE]: [3.55, 6.1, -1.7],
+    [CHARACTER_IDS.LAG]: [3.8, 7.55, -2.55],
+    [CHARACTER_IDS.ERIC]: [-8.4, 4.3, -2.7],
     [CHARACTER_IDS.WILLY]: [-18.3, 5.4, 1.4],
     [CHARACTER_IDS.APE]: [-14.2, 0.2, 1.35],
-    [CHARACTER_IDS.HOG_MAMA]: [-12.0, -3.45, 0],
-    [CHARACTER_IDS.SHUBENATOR]: [-6.0, -7.8, 2.6],
+    [CHARACTER_IDS.HOG_MAMA]: [-12.0, -3.65, 0],
+    [CHARACTER_IDS.SHUBENATOR]: [-6.0, -7.5, 2.6],
     [CHARACTER_IDS.RIPPINFLOW]: [-12.8, 2.8, 2.3],
-    [CHARACTER_IDS.CAPTAIN_LOU_SASOLE]: [-10.2, 3.2, 2.4],
+    [CHARACTER_IDS.CAPTAIN_LOU_SASOLE]: [-10.4, 3.1, 2.4],
     [CHARACTER_IDS.SNOW]: [6.55, -3.2, 2.9],
     [CHARACTER_IDS.NUMBSKULL]: [-9.0, 1.0, 2.1],
   };
+  const partyBarSeats = new Set([CHARACTER_IDS.BOOSKI, CHARACTER_IDS.WILLY]);
   for (const [id, values] of Object.entries(partySpots)) {
     const npc = byId[id];
     if (!npc) continue;
-    npc.job = 'stand';
+    npc.job = partyBarSeats.has(id) ? 'sit' : 'stand';
     npc.baseY = id === CHARACTER_IDS.HOG_MAMA ? STAGE_H : 0;
-    npc.group.position.set(values[0], npc.baseY, values[1]);
+    // These NPCs originate in the ordinary Family seating chart. Changing
+    // the label alone leaves their knees folded while their root is moved to
+    // standing height; force the same pose transition runtime update uses.
+    npc._syncJob(true);
+    npc.group.position.x = values[0];
+    npc.group.position.z = values[1];
     npc.group.rotation.y = values[2];
     npc.homeX = values[0];
     npc.homeZ = values[1];
@@ -545,7 +564,7 @@ export async function buildHotDogParty(scene, club) {
   const apeKnife = attachApeKnife(byId[CHARACTER_IDS.APE]);
   const aubbie = makeNpc(scene, club, {
     name: 'Aubbie', characterId: CHARACTER_IDS.AUBBIE,
-    x: 5.9, z: -1.3, yaw: 2.4, job: 'stand', folded: true,
+    x: 6.1, z: -1.3, yaw: 2.4, job: 'stand', folded: true,
     model: AUBBIE,
   });
   aubbie.folded = true;
@@ -574,9 +593,11 @@ export async function buildHotDogParty(scene, club) {
   const cleanup = buildHotDogCleanupProps();
   scene.add(banner, food.group, stage.group, cleanup.group);
 
+  // Rest the closure card on the felt instead of suspending it over a chair.
   const closedSign = sign(printed('blackjack-closed-party', ['TABLE CLOSED', 'FAMILY PARTY'], {
     w: 512, h: 256, bg: '#211519', fg: '#e3c987', font: '900 48px "Trebuchet MS", sans-serif',
-  }), 1.25, 0.62, { x: -12.8, y: 1.25, z: 8.2 });
+  }), 1.25, 0.62, { x: club.bj.x + 0.7, y: 1.25, z: club.bj.z + 0.6 });
+  closedSign.name = 'blackjack-closed-party-sign';
   closedSign.rotation.y = Math.PI;
   scene.add(closedSign);
 

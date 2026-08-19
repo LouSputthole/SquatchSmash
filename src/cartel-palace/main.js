@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
+import { createCampaignAudioFeedback } from '../core/campaign-audio-feedback.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
@@ -46,6 +47,7 @@ import { EVIDENCE_IDS, PALACE_BEATS, CartelPalaceMission } from './mission.js';
 import {
   previewPalaceCheckpointForLocation,
   previewSnapshotForCheckpoint,
+  stagePalaceCheckpointGeometry,
 } from './preview.js';
 import { PALACE_COMBAT_POSTS, PalaceSecurity } from './security.js';
 import { PALACE_ANCHORS, buildCartelPalace } from './world.js';
@@ -253,6 +255,7 @@ player.pitch = -0.06;
 const interaction = new InteractionSystem(camera, hud);
 interaction.setOccluders([palace.root]);
 const audio = new AudioEngine();
+const campaignAudioFeedback = createCampaignAudioFeedback(audio);
 const combatAudio = new CombatAudio({ audio });
 player.onFootstep = (_surface, intensity) => combatAudio.step({
   surface: palaceSurfaceAt(player.position),
@@ -633,7 +636,8 @@ function captureCombatCheckpoint(name = mission.beat) {
 function persistCheckpoint(id, facts = {}) {
   state.lastCheckpoint = id;
   const checkpointSnapshot = captureCombatCheckpoint(id);
-  campaignStory.checkpoint(id, { ...facts, checkpointSnapshot });
+  const accepted = campaignStory.checkpoint(id, { ...facts, checkpointSnapshot });
+  campaignAudioFeedback.checkpoint(id, accepted);
 }
 
 const mission = new CartelPalaceMission({
@@ -645,10 +649,12 @@ const mission = new CartelPalaceMission({
     hud.toast('Evidence complete · rescue premise disproved', 'good', 3600);
   },
   onComplete: (report) => {
-    if (!campaignStory.complete(report)) {
+    const completed = campaignStory.complete(report);
+    if (!completed) {
       hud.toast('The palace is not clear yet.', 'bad');
       return;
     }
+    campaignAudioFeedback.complete('cartel-palace', completed);
     state.completeReport = report;
     loadout.capture(weapons);
     state.phase = 'complete';
@@ -788,7 +794,13 @@ interaction.register(palace.targets.powerBox, {
   onUse: () => {
     if (!palace.doors.openServiceGate()) return;
     state.powerCut = true;
-    audio.play('door.creak', { volume: 0.56, position: PALACE_ANCHORS.powerBox });
+    audio.play('switch.click', { volume: 0.62, position: PALACE_ANCHORS.powerBox });
+    audio.play('light.dip', {
+      volume: 0.48, delay: 0.1, position: PALACE_ANCHORS.powerBox,
+    });
+    audio.play('door.creak', {
+      volume: 0.56, delay: 0.18, position: PALACE_ANCHORS.powerBox,
+    });
     mission.enterPerimeter({ powerCut: true });
     hud.toast('Exterior cameras dark · service gate open', 'good');
   },
@@ -821,6 +833,7 @@ for (const [id, target] of Object.entries(palace.evidence)) {
         if (node.isMesh && node.material?.emissive) node.material.emissiveIntensity = 0;
       });
       repaintEvidence();
+      audio.play('chat.ping', { volume: 0.38, rate: 1.05 });
       hud.say(`<em>${target.userData.evidenceTitle}</em> · ${target.userData.evidenceDetail}`, 5200);
     },
   });
@@ -844,7 +857,8 @@ interaction.register(palace.targets.extractionGate, {
   hold: 0.82,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.CLEAR,
   onUse: () => {
-    palace.doors.openExtraction();
+    if (!palace.doors.openExtraction()) return;
+    audio.play('door.creak', { volume: 0.68, position: PALACE_ANCHORS.extraction });
     mission.extract();
   },
 });
@@ -952,11 +966,8 @@ function restoreCombatCheckpoint(snapshot) {
 
 function stageWorldForCheckpoint(id) {
   const progress = mission.snapshot();
-  if (id !== 'approach') {
-    palace.doors.openServiceGate();
-    state.powerCut = true;
-  }
-  if (['estate', 'betrayal', 'dining_room', 'clear'].includes(id)) palace.doors.openEstateDoor();
+  const geometry = stagePalaceCheckpointGeometry(id, { palace, cast });
+  state.powerCut = geometry.powerCut;
   for (const [evidenceId, target] of Object.entries(palace.evidence)) {
     if (!progress.evidenceFound.includes(evidenceId)) continue;
     target.userData.collected = true;
@@ -966,7 +977,6 @@ function stageWorldForCheckpoint(id) {
   }
   if (progress.alarmRaised) security.raiseAlarm(progress.alarmReason ?? 'detected');
   if (['dining_room', 'clear'].includes(id)) {
-    palace.doors.openDiningRoom();
     security.activateFinalEncounter();
     ui.boss.classList.remove('hidden');
   }
@@ -1086,6 +1096,7 @@ startButton.addEventListener('click', async () => {
       ...GROUND_COMBAT_AUDIO_CUES,
       'ambience.rain', 'ambience.city.night', 'alarm.chirp',
       'door.creak', 'door.locked', 'heist.bullet.impact',
+      'ui.select', 'woo.streak', 'chat.ping', 'switch.click', 'light.dip',
     ],
   });
   audio.startLoop('palace-night', { name: 'ambience.rain', volume: 0.052, ambience: true, fade: 1.4 });

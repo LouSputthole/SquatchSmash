@@ -25,19 +25,30 @@ export const GOLF_EFFECT_CUES = Object.freeze([
   'golf.land.green', 'golf.land.sand', 'golf.land.path', 'golf.land.grass',
   'golf.splash', 'golf.cup', 'golf.flag', 'golf.tee', 'golf.pickup', 'golf.bag',
   'can.crack', 'can.sip', 'can.crush',
+  'ambience.diners', 'dining.glass.clink',
   'cig.pack', 'cig.light', 'cig.drag', 'cig.exhale', 'cig.stub', 'zyn.tin',
+]);
+
+export const GOLF_GRILLE_EFFECT_CUES = Object.freeze([
+  'ambience.diners', 'dining.glass.clink',
 ]);
 
 /** The playable first-tee slice of the shared sound manifest. */
 export const GOLF_START_AUDIO_SCOPE = Object.freeze({
-  names: Object.freeze([...GOLF_EFFECT_CUES, 'ui.select']),
+  names: Object.freeze([
+    ...GOLF_EFFECT_CUES.filter((cue) => !GOLF_GRILLE_EFFECT_CUES.includes(cue)),
+    'ui.select',
+  ]),
   prefixes: Object.freeze(['vo.golf.h1.', 'footstep.']),
 });
 
 /** Later holes decode after control is already in the player's hands. */
 export const GOLF_LATER_AUDIO_SCOPES = Object.freeze([
   Object.freeze({ prefixes: Object.freeze(['vo.golf.h2.']) }),
-  Object.freeze({ prefixes: Object.freeze(['vo.golf.h3.']) }),
+  Object.freeze({
+    names: GOLF_GRILLE_EFFECT_CUES,
+    prefixes: Object.freeze(['vo.golf.h3.']),
+  }),
 ]);
 
 /** The first decoded take for a stable golf cue, or null while unrecorded. */
@@ -101,6 +112,7 @@ export class CourseAudio {
     this._cartRunning = false;
     this._cartLoop = null;
     this._music = null;
+    this._grilleStarted = false;
   }
 
   start() {
@@ -120,11 +132,29 @@ export class CourseAudio {
   stop() {
     if (!this.started) return;
     this.started = false;
-    for (const key of ['ambience.course', 'mower.distant', 'sprinkler', 'cart.motor']) {
+    for (const key of [
+      'ambience.course', 'mower.distant', 'sprinkler', 'cart.motor', 'golf-grille-diners',
+    ]) {
       this.engine.stopLoop(key, 0.8);
     }
+    this._grilleStarted = false;
     this._cartRunning = false;
     this._cartLoop = null;
+  }
+
+  /** Bring the occupied grille into the mix once the player reaches it. */
+  enterGrille(position = null) {
+    if (this._grilleStarted || !this.engine?.ready) return false;
+    this._grilleStarted = true;
+    const at = position ?? { x: -22, y: 2.4, z: -376 };
+    this.engine.startLoop('golf-grille-diners', {
+      name: 'ambience.diners', volume: 0.18, position: at,
+      ref: 3.5, maxDist: 58, fade: 1.2,
+    });
+    this.engine.play('dining.glass.clink', {
+      volume: 0.32, delay: 0.28, position: at, ref: 2.2, maxDist: 32,
+    });
+    return true;
   }
 
   /* ---------------------------------------------------------------- */
@@ -243,6 +273,7 @@ export class CourseAudio {
     if (!this.engine?.ready) return;
     this.engine.setLoopVolume('ambience.course', on ? 0.5 : 0.85, 0.4);
     this.engine.setLoopVolume('mower.distant', on ? 0.22 : 0.5, 0.4);
+    this.engine.setLoopVolume('golf-grille-diners', on ? 0.08 : 0.18, 0.4);
   }
 
   update(dt) {

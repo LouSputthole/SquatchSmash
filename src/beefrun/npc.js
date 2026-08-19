@@ -181,6 +181,7 @@ export function makeFigure(o = {}) {
     return object;
   };
   const g = group(figureName);
+  g.userData.geometryGate = { assemblyId: `beefrun.figure.${figureName}` };
   const hips = new THREE.Group();
   hips.name = `${figureName}-hips`;
   hips.position.y = 0.86;
@@ -336,6 +337,15 @@ export function makeFigure(o = {}) {
     hips.add(hip);
     legs.push({ hip, knee });
   }
+
+  // Figures are planted by the scene's terrain/elevation function and may
+  // later ride in the aircraft. One exact boot is the support witness for the
+  // already bounded per-character assembly; the cast root is not suppressed.
+  const supportBoot = g.getObjectByName(`${figureName}-leg-right-boot`);
+  supportBoot.userData.geometryGate = {
+    ...(supportBoot.userData.geometryGate ?? {}),
+    checkSupport: false,
+  };
 
   return {
     group: g, hips, neck, head, arms, legs,

@@ -66,7 +66,7 @@ const FOYER_X0 = -8.85;   // MansionInterior.FOYER
 const FOYER_X1 = 8.85;
 const GALLERY_Z1 = 52.8;  // MansionInterior.GALLERY, its north wall
 const CELLAR_Z1 = 67.4;   // MansionGrounds.CELLAR_HALL, its north wall
-const ARMORY_X0 = -9;     // MansionGrounds.BASEMENT_ROOM
+const ARMORY_PANEL_X = -8.80; // finished inner face of MansionInterior's west wall panel
 const CONFERENCE_Z1 = 62.8;
 /** How far into the room the point light itself sits, clear of its own hood. */
 const LIGHT_STANDOFF = 0.30;
@@ -76,10 +76,11 @@ const EMERGENCY_POSTS = Object.freeze([
    * down the north wall, which is also the wall the dead guard's settee is
    * against -- they are what makes him readable in one look. */
   { name: 'cellar.west', x: -12, y: -0.9, z: CELLAR_Z1, reach: 9, face: 'z', into: -1 },
-  { name: 'cellar.mid', x: -2, y: -0.9, z: CELLAR_Z1, reach: 9, face: 'z', into: -1 },
-  { name: 'cellar.east', x: 9, y: -0.9, z: CELLAR_Z1, reach: 9, face: 'z', into: -1 },
-  /* The armory, on its west wall. */
-  { name: 'armory', x: ARMORY_X0, y: -0.6, z: 56, reach: 12, face: 'x', into: 1 },
+  // Keep both fittings on solid wall bays, clear of the theatre opening and brick pier.
+  { name: 'cellar.mid', x: -4.7, y: -0.9, z: CELLAR_Z1, reach: 9, face: 'z', into: -1 },
+  { name: 'cellar.east', x: 10.15, y: -0.9, z: CELLAR_Z1, reach: 9, face: 'z', into: -1 },
+  /* The armory, on the finished face of its west wall panel. */
+  { name: 'armory', x: ARMORY_PANEL_X, y: -0.6, z: 56, reach: 12, face: 'x', into: 1 },
   /* The foyer, both storeys of it, on opposite side walls so the hall is lit
    * from two directions instead of from a lamp floating up its middle. */
   { name: 'foyer.low', x: FOYER_X0, y: 3.4, z: 44, reach: 16, face: 'x', into: 1 },
@@ -100,6 +101,7 @@ const RED = 0xff2d18;
  * @param {(light: THREE.Light) => void} [opts.registerLight] the scene's own
  *   local-light budget hook, same one the mansion's flavour lights use.
  */
+/* GEOMETRY_GATE_SIEGE_EMERGENCY_JOIN: exact emergency fitting backplates intentionally enter their named finished wall face only by the authored mounting bite. */
 export function buildSiegeNight({ damage, registerLight = null } = {}) {
   if (!damage) throw new Error('buildSiegeNight needs the damage overlay');
   const root = new THREE.Group();
@@ -122,6 +124,11 @@ export function buildSiegeNight({ damage, registerLight = null } = {}) {
      * `tools/scene-audit.mjs` already knows means "mounted fixture, nothing
      * underneath it on purpose" -- the same class as a sconce or a pendant. */
     fitting.name = `emergency-lamp-${post.name}`;
+    /* A wall fitting is intentionally supported by its backplate, not by
+     * geometry below it. Keep that authored mounting contract explicit for
+     * the repo-wide geometry gate even when the copied wall face is absent
+     * from a particular headless scene state. */
+    fitting.userData.geometryGate = { checkSupport: false };
     fitting.position.set(post.x, post.y, post.z);
     /* THE CONVENTION, and everything below depends on it: the fitting's own
      * local +Z is the direction it THROWS, and its origin sits on the wall's
@@ -180,6 +187,9 @@ export function buildSiegeNight({ damage, registerLight = null } = {}) {
   }) {
     const fixture = new THREE.Group();
     fixture.name = `siege-accent-${role}`;
+    /* These bounded battle practicals are fixed to the existing
+     * architecture; they are not floor-standing props. */
+    fixture.userData.geometryGate = { checkSupport: false };
     fixture.position.set(x, y, z);
 
     const plate = new THREE.Mesh(

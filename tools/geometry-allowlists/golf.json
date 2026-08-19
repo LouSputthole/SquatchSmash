@@ -1,0 +1,509 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "golf",
+  "entries": [],
+  "suppressionPolicy": [
+    {
+      "state": "grille",
+      "overlap": 1063,
+      "checkSupport": 994,
+      "sources": [
+        {
+          "sourceId": "root:golf-grille/name=golf-ball-eric#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-grille/name=golf-ball-lou#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-grille/name=golf-ball-prospect#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-grille/name=golf-ball-rippinflow#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=course#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=course-side-cooler#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=flag#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-grass-detail#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 620
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-oak-crown-0#0",
+          "scope": "direct",
+          "overlap": 85,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-oak-crown-1#0",
+          "scope": "direct",
+          "overlap": 85,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-oak-crown-2#0",
+          "scope": "direct",
+          "overlap": 85,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-oak-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 85
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-pine-cone-tier-0#0",
+          "scope": "direct",
+          "overlap": 269,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-pine-cone-tier-1#0",
+          "scope": "direct",
+          "overlap": 269,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-pine-cone-tier-2#0",
+          "scope": "direct",
+          "overlap": 269,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=golf-tree-pine-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 269
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=hole-marker#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=tee-marker-left#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-grille/name=hole-3#0/name=tee-marker-right#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "hole-one",
+      "overlap": 1369,
+      "checkSupport": 1106,
+      "sources": [
+        {
+          "sourceId": "root:golf-hole1/name=golf-ball-eric#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole1/name=golf-ball-lou#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole1/name=golf-ball-prospect#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole1/name=golf-ball-rippinflow#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=course#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=course-side-cooler#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=entrance-sign#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=flag#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-grass-detail#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 620
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-oak-crown-0#0",
+          "scope": "direct",
+          "overlap": 122,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-oak-crown-1#0",
+          "scope": "direct",
+          "overlap": 122,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-oak-crown-2#0",
+          "scope": "direct",
+          "overlap": 122,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-oak-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 122
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-pine-cone-tier-0#0",
+          "scope": "direct",
+          "overlap": 334,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-pine-cone-tier-1#0",
+          "scope": "direct",
+          "overlap": 334,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-pine-cone-tier-2#0",
+          "scope": "direct",
+          "overlap": 334,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=golf-tree-pine-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 334
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=hole-marker#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=next-tee-hint#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=tee-marker-left#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole1/name=hole-1#0/name=tee-marker-right#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "hole-three",
+      "overlap": 1063,
+      "checkSupport": 994,
+      "sources": [
+        {
+          "sourceId": "root:golf-hole3/name=golf-ball-eric#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole3/name=golf-ball-lou#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole3/name=golf-ball-prospect#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole3/name=golf-ball-rippinflow#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=course#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=course-side-cooler#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=flag#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-grass-detail#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 620
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-oak-crown-0#0",
+          "scope": "direct",
+          "overlap": 85,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-oak-crown-1#0",
+          "scope": "direct",
+          "overlap": 85,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-oak-crown-2#0",
+          "scope": "direct",
+          "overlap": 85,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-oak-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 85
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-pine-cone-tier-0#0",
+          "scope": "direct",
+          "overlap": 269,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-pine-cone-tier-1#0",
+          "scope": "direct",
+          "overlap": 269,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-pine-cone-tier-2#0",
+          "scope": "direct",
+          "overlap": 269,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=golf-tree-pine-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 269
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=hole-marker#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=tee-marker-left#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole3/name=hole-3#0/name=tee-marker-right#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    },
+    {
+      "state": "hole-two",
+      "overlap": 1831,
+      "checkSupport": 1252,
+      "sources": [
+        {
+          "sourceId": "root:golf-hole2/name=golf-ball-eric#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole2/name=golf-ball-lou#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole2/name=golf-ball-prospect#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole2/name=golf-ball-rippinflow#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=course#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=course-side-cooler#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=flag#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-grass-detail#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 620
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-oak-crown-0#0",
+          "scope": "direct",
+          "overlap": 212,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-oak-crown-1#0",
+          "scope": "direct",
+          "overlap": 212,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-oak-crown-2#0",
+          "scope": "direct",
+          "overlap": 212,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-oak-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 212
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-pine-cone-tier-0#0",
+          "scope": "direct",
+          "overlap": 398,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-pine-cone-tier-1#0",
+          "scope": "direct",
+          "overlap": 398,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-pine-cone-tier-2#0",
+          "scope": "direct",
+          "overlap": 398,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=golf-tree-pine-trunk#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 398
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=hole-marker#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=next-tee-hint#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=tee-marker-left#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:golf-hole2/name=hole-2#0/name=tee-marker-right#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        }
+      ]
+    }
+  ]
+}

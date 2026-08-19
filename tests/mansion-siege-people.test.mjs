@@ -1510,7 +1510,7 @@ test('the LITTLE_FRIEND tableau gives fallen Eric, his blood and the live guard 
     { x: 7.65, y: 6, z: 50.4, lookX: 2.9, lookZ: 48.8 },
     'Eric is still staged against the east partition instead of the clear gallery bay');
   assert.deepEqual(guard.posts.LITTLE_FRIEND,
-    { x: 4.8, y: 6, z: 50.45, lookX: 6.0612, lookZ: 54.246 },
+    { x: 4, y: 6, z: 49, lookX: 4.97948729479092, lookZ: 52.796 },
     'the flinching guard is still swallowed by the stair rail/newel silhouette');
 
   ensemble.stage('LITTLE_FRIEND');
@@ -1532,6 +1532,20 @@ test('the LITTLE_FRIEND tableau gives fallen Eric, his blood and the live guard 
   };
   const ericBody = bodyBox(eric);
   const guardBody = bodyBox(guard);
+  const guardSupportY = interior.floorAt(
+    guard.root.position.x, guard.root.position.z, guard.root.position.y,
+  );
+  assert.ok(Math.abs(guardBody.min.y - guardSupportY) <= 0.005,
+    `the guard's crouched flinch floats ${guardBody.min.y - guardSupportY} m above its runner`);
+  assert.deepEqual({
+    legL: guard.figure.parts.legL.rotation.x,
+    legR: guard.figure.parts.legR.rotation.x,
+    shinL: guard.figure.parts.shinL.rotation.x,
+    shinR: guard.figure.parts.shinR.rotation.x,
+  }, { legL: -0.72, legR: -0.58, shinL: 1.24, shinR: 1.05 },
+  'the impact reaction returned to a full-height lean instead of a grounded crouch');
+  assert.equal(guard.figure.parts.body.position.y, -0.5,
+    'the crouched guard raised his upper body back over straight-leg height');
   const eastPartition = new THREE.Box3().setFromObject(
     interior.root.getObjectByName('east-partition-front-solid'),
   );
@@ -1630,13 +1644,13 @@ test('the authored gallery practicals win the full production light budget throu
   const evidenceSupportY = interior.floorAt(
     authoredView.x, authoredView.z, authoredView.y,
   );
-  assert.equal(evidenceSupportY, 6.02,
-    'the light-budget proof no longer resolves the real gallery finish under the shot');
+  assert.ok(Math.abs(evidenceSupportY - 6.02) <= 1e-9,
+    'the light-budget proof no longer resolves the real gallery parquet under the shot');
   const exactEvidenceEye = new THREE.Vector3(
     authoredView.x, evidenceSupportY + 1.02, authoredView.z,
   );
   const camera = exactEvidenceEye;
-  assert.ok(camera.distanceTo(new THREE.Vector3(7.2276, 7.04, 52.2684)) <= 1e-12,
+  assert.ok(camera.distanceTo(new THREE.Vector3(7, 7.04, 52.2)) <= 1e-12,
     `the authored crouched shot eye drifted to ${camera.toArray()}`);
   const lightPool = [...grounds.lights, ...interior.lights, ...localLights];
   /* 266 = the 256 the fixture pinned on 2026-08-13 plus the nine picture
@@ -1687,11 +1701,11 @@ test('the authored gallery practicals win the full production light budget throu
 
   const lightWorld = worklamp.getWorldPosition(new THREE.Vector3());
   const taskWorld = taskFlood.getWorldPosition(new THREE.Vector3());
-  assert.ok(taskWorld.distanceTo(new THREE.Vector3(5.2, 7.22, 52.3)) <= 1e-12,
+  assert.ok(taskWorld.distanceTo(new THREE.Vector3(4.65, 7.22, 52.3)) <= 1e-12,
     `the supported battery flood moved to ${taskWorld.toArray()}`);
   for (const [name, subject] of [
     ['Eric', new THREE.Vector3(7.641214239265063, 6, 50.18914174236149)],
-    ['guard', new THREE.Vector3(3.801604527355416, 6, 50.37501442511014)],
+    ['guard', new THREE.Vector3(4.209999999999996, 6, 49)],
   ]) {
     const distance = lightWorld.distanceTo(subject);
     assert.ok(distance <= worklamp.distance / 2,
@@ -1753,12 +1767,12 @@ test('the authored worklamp evidence camera is legal and frames every real subje
   eric.actor.health = eric.actor.maxHealth;
   eric.downed = false;
   /* `shot()` teleports to the authored floor datum, then the production
-   * Player snaps to the rendered gallery finish before crouching.  That
-   * finish is 20 mm above the room datum, so the screenshot eye is 7.04,
-   * not the 7.02 shortcut this test used to certify. */
+   * Player snaps to the rendered gallery parquet just north of the runner
+   * before crouching. The parquet is 20 mm above the room datum, so the
+   * screenshot eye is 7.04. */
   const evidenceSupportY = interior.floorAt(x, z, y);
-  assert.equal(evidenceSupportY, 6.02,
-    'the exact production evidence point no longer stands on the gallery finish');
+  assert.ok(Math.abs(evidenceSupportY - 6.02) <= 1e-9,
+    'the exact production evidence point no longer stands on the gallery parquet');
   const evidenceEye = new THREE.Vector3(x, evidenceSupportY + 1.02, z);
   const evidencePlayer = makePlayer(evidenceEye.x, evidenceEye.y, evidenceEye.z);
   const tick = (seconds, step = 1 / 60) => {
@@ -1779,13 +1793,16 @@ test('the authored worklamp evidence camera is legal and frames every real subje
   scene.updateMatrixWorld(true);
 
   const expectedEric = new THREE.Vector3(7.641214239265063, 6, 50.18914174236149);
-  const expectedGuard = new THREE.Vector3(4.772163120392648, 6, 50.24818262284667);
+  const expectedGuard = new THREE.Vector3(4.209999999999996, 6, 49);
   assert.ok(eric.root.position.distanceTo(expectedEric) <= 1e-9,
     `exact restored shot chain settled Eric at ${eric.root.position.toArray()}`);
   assert.ok(guard.root.position.distanceTo(expectedGuard) <= 1e-9,
     `exact restored shot chain settled guard at ${guard.root.position.toArray()}`);
-  assert.ok(guard.root.rotation.y >= 0.30 && guard.root.rotation.y <= 0.34,
-    `the guard's supported carbine is not turned broadside (${guard.root.rotation.y} rad)`);
+  const guardYaw = THREE.MathUtils.euclideanModulo(
+    guard.root.rotation.y + Math.PI, Math.PI * 2,
+  ) - Math.PI;
+  assert.ok(guardYaw >= 0.18 && guardYaw <= 0.22,
+    `the guard's supported carbine is not turned broadside (${guardYaw} rad normalized)`);
   assert.ok(Math.abs(guard.figure.parts.body.rotation.x - 0.64) <= 1e-12,
     `the live guard no longer ducks behind the supported carbine (${guard.figure.parts.body.rotation.x} rad)`);
   assert.ok(eric.figure.parts.legL.rotation.z <= -0.4,
@@ -3238,6 +3255,311 @@ test('no posting blocks the staircase or the balcony bay', () => {
         `${post.id} stands in ${zone.label} on ${post.beat}`);
     }
   }
+});
+test('the wounded guard wave pose clears the east gallery fixtures', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({ colliders: [], state: 'under_attack' });
+  const dressing = buildSiegeDressing({ damage, grounds, interior });
+  scene.add(dressing.root);
+  const ensemble = buildSiegeEnsemble({
+    scene,
+    damage,
+    groundAt: (x, z, y) => interior.floorAt(x, z, y) ?? 0,
+  });
+  ensemble.stage('WAVE_ONE');
+  scene.updateMatrixWorld(true);
+
+  const plantBoxes = [];
+  scene.traverse((object) => {
+    if (object.name !== 'plant') return;
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    if (Math.abs(center.x - 3.4) < 0.2 && Math.abs(center.z - 52.2) < 0.2) {
+      plantBoxes.push(box);
+    }
+  });
+  const triage = scene.getObjectByName('siege.station.triage');
+  assert.ok(triage, 'triage station could not be identified');
+  const triageBox = new THREE.Box3().setFromObject(triage);
+
+  assert.equal(plantBoxes.length, 1, 'east gallery planter could not be identified');
+
+  const wounded = ensemble.members.get('guard_wounded');
+  const woundedBox = new THREE.Box3().setFromObject(wounded.root);
+  assert.equal(
+    plantBoxes[0].intersectsBox(woundedBox),
+    false,
+    'the wounded guard is lying through the east gallery planter',
+  );
+  assert.equal(
+    triageBox.intersectsBox(woundedBox),
+    false,
+    'the wounded guard is lying through the open triage case',
+  );
+});
+
+test('the armed checkpoint tending tableau keeps every Gratin limb clear of the wounded guard', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({ colliders: [], state: 'under_attack' });
+  const ensemble = buildSiegeEnsemble({
+    scene,
+    damage,
+    groundAt: (x, z, y) => interior.floorAt(x, z, y) ?? 0,
+  });
+  ensemble.stage('TO_OFFICE');
+  scene.updateMatrixWorld(true);
+
+  const visibleMeshes = (id) => {
+    const meshes = [];
+    ensemble.members.get(id).root.traverse((object) => {
+      if (!object.isMesh || object.visible === false) return;
+      let ancestor = object.parent;
+      while (ancestor && ancestor !== scene) {
+        if (ancestor.visible === false) return;
+        ancestor = ancestor.parent;
+      }
+      meshes.push({
+        name: object.name || object.type,
+        box: new THREE.Box3().setFromObject(object),
+      });
+    });
+    return meshes;
+  };
+  const violations = [];
+  for (const left of visibleMeshes('gratin')) {
+    for (const right of visibleMeshes('guard_wounded')) {
+      const overlap = {
+        x: Math.min(left.box.max.x, right.box.max.x) - Math.max(left.box.min.x, right.box.min.x),
+        y: Math.min(left.box.max.y, right.box.max.y) - Math.max(left.box.min.y, right.box.min.y),
+        z: Math.min(left.box.max.z, right.box.max.z) - Math.max(left.box.min.z, right.box.min.z),
+      };
+      if (Math.min(overlap.x, overlap.y, overlap.z) > 0.03) {
+        violations.push({ left: left.name, right: right.name, overlap });
+      }
+    }
+  }
+  assert.deepEqual(violations, [],
+    'the armed checkpoint stages Gratin inside the wounded guard instead of tending beside him');
+});
+
+test('the little-friend staging clears the triage case, planter, and neighbouring defenders', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({ colliders: [], state: 'under_attack' });
+  const dressing = buildSiegeDressing({ damage, grounds, interior });
+  scene.add(dressing.root);
+  const ensemble = buildSiegeEnsemble({
+    scene,
+    damage,
+    groundAt: (x, z, y) => interior.floorAt(x, z, y) ?? 0,
+  });
+  ensemble.stage('LITTLE_FRIEND');
+  scene.updateMatrixWorld(true);
+
+  let planterBox = null;
+  interior.root.traverse((object) => {
+    if (object.name !== 'plant') return;
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    if (Math.abs(center.x - 3.4) < 0.2 && Math.abs(center.z - 52.2) < 0.2) planterBox = box;
+  });
+  const triage = scene.getObjectByName('siege.station.triage');
+  const worklamp = scene.getObjectByName('siege.step.worklamp');
+  assert.ok(planterBox, 'east gallery planter could not be identified');
+  assert.ok(triage, 'triage station could not be identified');
+  assert.ok(worklamp, 'firing-step worklamp could not be identified');
+
+  const actorBox = (id) => new THREE.Box3().setFromObject(ensemble.members.get(id).root);
+  const gratin = actorBox('gratin');
+  const wounded = actorBox('guard_wounded');
+  const eastGuard = actorBox('guard_1');
+  const irish = actorBox('irish');
+  const numbskull = actorBox('numbskull');
+  assert.equal(gratin.intersectsBox(planterBox), false,
+    'Gratin occupies the east gallery planter at the little-friend checkpoint');
+  assert.equal(gratin.intersectsBox(wounded), false,
+    'Gratin occupies the wounded guard instead of tending beside him');
+  assert.equal(eastGuard.intersectsBox(new THREE.Box3().setFromObject(triage)), false,
+    'the east guard stands in the open triage case');
+  assert.equal(eastGuard.intersectsBox(new THREE.Box3().setFromObject(worklamp)), false,
+    'the east guard stands through the firing-step worklamp');
+  assert.equal(irish.intersectsBox(numbskull), false,
+    'Irish and Numbskull share body volume on the west landing');
+});
+
+test('the aftermath tableau clears the east planter and separates its three bodies', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({ colliders: [], state: 'damaged' });
+  const ensemble = buildSiegeEnsemble({
+    scene,
+    damage,
+    groundAt: (x, z, y) => interior.floorAt(x, z, y) ?? 0,
+  });
+  ensemble.stage('AFTERMATH');
+  scene.updateMatrixWorld(true);
+
+  let planterBox = null;
+  interior.root.traverse((object) => {
+    if (object.name !== 'plant') return;
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    if (Math.abs(center.x - 3.4) < 0.2 && Math.abs(center.z - 52.2) < 0.2) planterBox = box;
+  });
+  assert.ok(planterBox, 'east gallery planter could not be identified');
+  const tableau = ['captain_lou_sasole', 'gratin', 'guard_wounded']
+    .map((id) => ({ id, box: new THREE.Box3().setFromObject(ensemble.members.get(id).root) }));
+  assert.ok(tableau.every(({ box }) => !box.intersectsBox(planterBox)),
+    'the aftermath tableau still occupies the east gallery foliage');
+  for (let left = 0; left < tableau.length; left += 1) {
+    for (let right = left + 1; right < tableau.length; right += 1) {
+      assert.equal(tableau[left].box.intersectsBox(tableau[right].box), false,
+        `${tableau[left].id} intersects ${tableau[right].id} in the aftermath tableau`);
+    }
+  }
+
+  const shubes = new THREE.Box3().setFromObject(ensemble.members.get('shubenator').root);
+  const galleryNorth = [];
+  interior.root.traverse((object) => {
+    if (object.userData.geometryGate?.assemblyId?.includes(':gallery-north:')) {
+      galleryNorth.push(new THREE.Box3().setFromObject(object));
+    }
+  });
+  assert.ok(galleryNorth.length > 0, 'gallery-north partition could not be identified');
+  assert.ok(galleryNorth.every((box) => !shubes.intersectsBox(box)),
+    'the aftermath Shubenator post backs into the gallery-north partition');
+
+  const booski = new THREE.Box3().setFromObject(ensemble.members.get('booski').root);
+  const guard = new THREE.Box3().setFromObject(ensemble.members.get('guard_1').root);
+  assert.equal(booski.intersectsBox(guard), false,
+    'the east aftermath guard occupies Booski and his weapon');
+
+  const visibleMeshBoxes = (id) => {
+    const boxes = [];
+    ensemble.members.get(id).root.traverse((object) => {
+      if (!object.isMesh || object.visible === false) return;
+      boxes.push({ name: object.name || object.type, box: new THREE.Box3().setFromObject(object) });
+    });
+    return boxes;
+  };
+  const westRailViolations = [];
+  for (const left of visibleMeshBoxes('irish')) {
+    for (const right of visibleMeshBoxes('numbskull')) {
+      const overlap = [
+        Math.min(left.box.max.x, right.box.max.x) - Math.max(left.box.min.x, right.box.min.x),
+        Math.min(left.box.max.y, right.box.max.y) - Math.max(left.box.min.y, right.box.min.y),
+        Math.min(left.box.max.z, right.box.max.z) - Math.max(left.box.min.z, right.box.min.z),
+      ];
+      if (Math.min(...overlap) > 0.03) {
+        westRailViolations.push({ left: left.name, right: right.name, overlap });
+      }
+    }
+  }
+  assert.deepEqual(westRailViolations, [],
+    'Irish and Numbskull clear coarse body boxes but still share posed limb volume');
+});
+
+test('the post-battle turn toward Captain Sasole clears neighbours and the gallery doorway', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({ colliders: [], state: 'post_battle' });
+  const ensemble = buildSiegeEnsemble({
+    scene,
+    damage,
+    groundAt: (x, z, y) => interior.floorAt(x, z, y) ?? 0,
+  });
+  ensemble.stage('TO_SASOLE');
+  scene.updateMatrixWorld(true);
+
+  const visibleMeshes = (root) => {
+    const meshes = [];
+    root.traverse((object) => {
+      if (!object.isMesh) return;
+      let cursor = object;
+      while (cursor) {
+        if (cursor.visible === false) return;
+        if (cursor === root) break;
+        cursor = cursor.parent;
+      }
+      meshes.push({ object, name: object.name || object.type, box: new THREE.Box3().setFromObject(object) });
+    });
+    return meshes;
+  };
+  const overlapDepth = (left, right) => Math.min(
+    Math.min(left.max.x, right.max.x) - Math.max(left.min.x, right.min.x),
+    Math.min(left.max.y, right.max.y) - Math.max(left.min.y, right.min.y),
+    Math.min(left.max.z, right.max.z) - Math.max(left.min.z, right.min.z),
+  );
+  const faults = [];
+  for (const [leftId, rightId] of [
+    ['guard_0', 'rippinflow'],
+    ['irish', 'numbskull'],
+  ]) {
+    for (const left of visibleMeshes(ensemble.members.get(leftId).root)) {
+      for (const right of visibleMeshes(ensemble.members.get(rightId).root)) {
+        const depth = overlapDepth(left.box, right.box);
+        if (depth > 0.03) faults.push(`${leftId}/${left.name} <> ${rightId}/${right.name}: ${depth.toFixed(3)} m`);
+      }
+    }
+  }
+  const hogMama = visibleMeshes(ensemble.members.get('hogmama').root);
+  const interiorMeshes = visibleMeshes(interior.root).filter(({ object }) => (
+    object.name === 'gallery-north-case'
+    || object.userData.geometryGate?.assemblyId === 'mansion-room-finish:-8.85:8.85:53.15:62.85:6'
+  ));
+  assert.ok(interiorMeshes.length > 1, 'gallery doorway jamb/finish geometry could not be identified');
+  for (const actorPart of hogMama) {
+    for (const fixture of interiorMeshes) {
+      const depth = overlapDepth(actorPart.box, fixture.box);
+      if (depth > 0.03) faults.push(`hogmama/${actorPart.name} <> interior/${fixture.name}: ${depth.toFixed(3)} m`);
+    }
+  }
+  assert.deepEqual(faults, [], faults.slice(0, 20).join('; '));
+});
+
+test('the armed checkpoint radio and SAW posts clear their real room fittings', () => {
+  const scene = new THREE.Scene();
+  const grounds = buildMansionGrounds(scene);
+  const interior = buildMansionInterior(grounds.shell);
+  scene.add(grounds.root, interior.root);
+  const damage = new MansionDamageState({ colliders: [], state: 'under_attack' });
+  const ensemble = buildSiegeEnsemble({
+    scene,
+    damage,
+    groundAt: (x, z, y) => interior.floorAt(x, z, y) ?? 0,
+  });
+  ensemble.stage('TO_OFFICE');
+  scene.updateMatrixWorld(true);
+
+  const shubes = new THREE.Box3().setFromObject(ensemble.members.get('shubenator').root);
+  const death = new THREE.Box3().setFromObject(ensemble.members.get('deathmegatron').root);
+  const table = new THREE.Box3().setFromObject(interior.root.getObjectByName('conference-table'));
+  const forbidden = [];
+  interior.root.traverse((object) => {
+    if (object.name === 'suite-stair-wall'
+        || object.name?.startsWith('office-fireside-chair')
+        || object.userData.geometryGate?.assemblyId === 'mansion-office-bookcase-run'
+        || object.userData.geometryGate?.assemblyId === 'mansion-office-drinks-table'
+        || object.userData.geometryGate?.assemblyId === 'mansion-suite-secret-stair') {
+      forbidden.push(new THREE.Box3().setFromObject(object));
+    }
+  });
+  assert.equal(shubes.intersectsBox(table), false, 'Shubenator stands through the conference table');
+  assert.ok(forbidden.length > 0, 'suite-stair/office fittings could not be identified');
+  assert.ok(forbidden.every((box) => !death.intersectsBox(box)),
+    'DeathMegatron or his SAW occupies a suite-stair/office fitting');
 });
 
 test('every posting is inside the house', () => {

@@ -337,7 +337,7 @@ export class Figure {
   }
 
   place(x, z, facing) {
-    this.group.position.set(x, 0, z);
+    this.group.position.set(x, 0.005, z);
     this.group.rotation.y = facing;
   }
 

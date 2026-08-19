@@ -29,20 +29,20 @@ import { SmokeSystem } from '../world/smoke.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
 
-import { buildRoom, ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H, STEP_UP } from './room.js';
-import { populate, makeBand } from './cast.js';
-import { Date_ } from './date.js';
+import { ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H, STEP_UP } from './room.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS, BACK_OF_HOUSE_TOTAL } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
 import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF, WALK_GREETS } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { enqueueVoiceFloor } from './voice-floor.js';
-import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
 import * as prefs from '../core/settings.js';
+import {
+  buildSilverRuntimeDate, buildSilverRuntimeRoom, populateSilverRuntimeEnvironment,
+} from './runtime-geometry.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
  * class gates the evening on the Motel being finished and on Margo having
@@ -242,14 +242,12 @@ const game = {
 };
 
 window.__squatchStage?.('Wetting the pavement…');
-const room = buildRoom(scene, { renderer });
+const room = buildSilverRuntimeRoom(scene, { renderer });
 world.colliders = room.colliders;
 world.floorZones = room.floorZones;
 
 window.__squatchStage?.('Opening for the evening…');
-const cast = populate(scene, room);
-const band = makeBand(scene, room);
-const taxi = makeTaxi(scene, room.anchors.dropOff);
+const { cast, band, taxi } = populateSilverRuntimeEnvironment(scene, room);
 
 /* ------------------------------------------------------------------ */
 /* The score                                                           */
@@ -458,7 +456,7 @@ const dialogue = new Dialogue(ui.dialogue, {
 /* Her                                                                 */
 /* ------------------------------------------------------------------ */
 
-const date = new Date_(scene, room, {
+const date = buildSilverRuntimeDate(scene, room, {
   /* Deferred, not dropped, and subtitle-with-take. She is reacting to
    * something somebody has just said, so she says it when he has finished
    * saying it — which is also what a person does. */

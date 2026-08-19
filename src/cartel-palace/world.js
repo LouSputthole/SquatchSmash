@@ -9,7 +9,7 @@ export const PALACE_ANCHORS = Object.freeze({
   estate: Object.freeze(new THREE.Vector3(12.5, 0, 4)),
   belongings: Object.freeze(new THREE.Vector3(4.7, 0.72, -6.4)),
   paymentLedger: Object.freeze(new THREE.Vector3(-10.6, 0.88, -6.8)),
-  securityStill: Object.freeze(new THREE.Vector3(14.9, 1.22, -10.2)),
+  securityStill: Object.freeze(new THREE.Vector3(14.8, 1.22, -10.2)),
   gallery: Object.freeze(new THREE.Vector3(0, 0, -25)),
   diningRoom: Object.freeze(new THREE.Vector3(0, 0, -42)),
   mark: Object.freeze(new THREE.Vector3(-3.2, 0, -40.8)),
@@ -96,7 +96,13 @@ function addCollider(colliders, center, size, name = '') {
 function solid(parent, colliders, size, position, material, name = '') {
   const mesh = box(size, position, material, name);
   parent.add(mesh);
-  const collider = addCollider(colliders, position, size, name);
+  // Derive collision in world space after parenting. Guard housing is offset
+  // from the compound root; a local Box3 here used to leave an invisible
+  // guardhouse at the estate origin and no collision around the visible one.
+  mesh.updateWorldMatrix(true, false);
+  const collider = new THREE.Box3().setFromObject(mesh);
+  collider.name = name;
+  colliders.push(collider);
   mesh.userData.collider = collider;
   const combatMaterial = combatMaterialFor(material);
   if (combatMaterial) {
@@ -168,16 +174,20 @@ function ironGate(width, height, name) {
 }
 
 function palm(parent, x, z, scale = 1) {
-  const trunk = cylinder(0.18 * scale, 4.8 * scale, [x, 2.4 * scale, z], M.woodLight, 'date-palm', 9);
+  const tree = new THREE.Group();
+  tree.name = 'date-palm';
+  tree.position.set(x, 0, z);
+  const trunk = cylinder(0.18 * scale, 4.8 * scale, [0, 2.4 * scale, 0], M.woodLight, 'date-palm-trunk', 9);
   trunk.rotation.z = (Math.sin(x * 2.1 + z) * 0.05);
-  parent.add(trunk);
+  tree.add(trunk);
   for (let i = 0; i < 9; i++) {
-    const frond = box([0.12 * scale, 0.045, 2.7 * scale], [x, 4.7 * scale, z], M.leaf, 'palm-frond');
+    const frond = box([0.12 * scale, 0.045, 2.7 * scale], [0, 4.7 * scale, 0], M.leaf, 'palm-frond');
     frond.rotation.y = (i / 9) * Math.PI * 2;
     frond.rotation.x = 0.25;
     frond.translateZ(1.1 * scale);
-    parent.add(frond);
+    tree.add(frond);
   }
+  parent.add(tree);
 }
 
 function cypress(parent, x, z, height = 4.2) {
@@ -191,7 +201,8 @@ function cypress(parent, x, z, height = 4.2) {
 function vehicle(parent, x, z, yaw = 0, color = 0x16191e) {
   const car = new THREE.Group();
   car.name = 'cartel-suv';
-  car.position.set(x, 0.42, z);
+  // Wheel radius is .36 around local y=.20, so the vehicle root belongs at .16.
+  car.position.set(x, 0.16, z);
   car.rotation.y = yaw;
   const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.42, metalness: 0.36 });
   car.add(
@@ -418,7 +429,8 @@ export function buildCartelPalace(scene) {
   guardhouse.position.set(15, 0, 48);
   root.add(guardhouse);
   solid(guardhouse, colliders, [9, 3.7, 11], [0, 1.85, 0], M.stucco, 'guardhouse-shell');
-  guardhouse.add(box([8.5, 0.26, 11.6], [0, 4.0, 0], M.tile, 'guardhouse-tile-roof'));
+  // Seat the roof on the 3.7 m shell instead of leaving 17 cm of air.
+  guardhouse.add(box([8.5, 0.26, 11.6], [0, 3.83, 0], M.tile, 'guardhouse-tile-roof'));
   // Door-sized visual recess on the west face.
   guardhouse.add(box([0.1, 2.4, 1.25], [-4.56, 1.2, 1.7], M.wood, 'guardhouse-door'));
   vehicle(root, -15, 50, Math.PI / 2, 0x0f1316);
@@ -451,7 +463,8 @@ export function buildCartelPalace(scene) {
    * They now stand in front of the facade at z = 13.8, and the pair that
    * frames the door sits clear of the 11.5-15.5 lane on either side. */
   for (const [x, z] of [[-18, 54], [-18, 32], [18, 31], [-18, 16], [18, 16]]) palm(root, x, z, 0.9);
-  for (const x of [-16, -12, 10, 17]) cypress(root, x, 13.8, 4.6);
+  // Keep the east cypress crown clear of the neighboring palm's lowest frond.
+  for (const x of [-16, -12, 10, 15]) cypress(root, x, 13.8, 4.6);
 
   const courtyardDetails = new THREE.Group();
   courtyardDetails.name = 'courtyard-refinement';
@@ -525,7 +538,10 @@ export function buildCartelPalace(scene) {
     lantern.name = 'courtyard-wall-lantern';
     lantern.position.set(x, 2.8, 12.68);
     lantern.add(
-      box([0.08, 0.42, 0.22], [0, 0, -0.08], M.brass, 'courtyard-lantern-bracket'),
+      // Reach back to the facade with a two-centimetre keyed contact. The old
+      // 22 cm plate stopped 24 cm short of the wall and the Adapter hid all
+      // three lantern meshes from support checks.
+      box([0.08, 0.42, 0.48], [0, 0, -0.21], M.brass, 'courtyard-lantern-bracket'),
       cylinder(0.16, 0.08, [0, 0.26, 0.06], M.brass, 'courtyard-lantern-cap', 10),
     );
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 7), M.lampWarm);
@@ -906,8 +922,10 @@ export function buildCartelPalace(scene) {
     [5, 2.7, -7, 0xffb66d, 14, 14],
     [15, 2.5, -10, 0x86aeb2, 12, 13],
     [14.5, 2.7, -24, 0x91bcc2, 13, 14],
-    [0, 3.35, -25, 0xffa85a, 11, 16],
-    [0, 2.9, -36.5, 0xffb16b, 18, 15],
+    // Put both source and light between the coffer grid. Their old centreline
+    // coordinates drove the suspension rods through crossing ceiling beams.
+    [3.0, 3.35, -24.0, 0xffa85a, 11, 16],
+    [3.0, 2.9, -37.6, 0xffb16b, 18, 15],
     [0, 3.55, -42.4, 0xff9c51, 14, 20],
     [-3.2, 2.85, -43, 0xffd6a0, 9, 10],
     [3.2, 2.85, -43, 0xb7d3dc, 8, 10],
@@ -920,7 +938,10 @@ export function buildCartelPalace(scene) {
     // The light has a source in the world. Interior fixtures sit against the
     // ceiling; water lights are recessed into the fountain and pool instead
     // of reading as unexplained floating points.
-    if (z <= 12 || z >= 55) {
+    // The dining chandelier is already the authored source at (0, -42.4).
+    // Do not stack the generic ceiling practical through its suspension chain.
+    const hasAuthoredDiningFixture = x === 0 && z === -42.4;
+    if ((z <= 12 || z >= 55) && !hasAuthoredDiningFixture) {
       const fixture = new THREE.Group();
       fixture.name = 'palace-ceiling-practical';
       fixture.position.set(x, 4.18, z);
@@ -930,8 +951,14 @@ export function buildCartelPalace(scene) {
           new THREE.SphereGeometry(0.15, 10, 7),
           color === 0x86aeb2 ? M.lampCool : M.lampWarm,
         ),
+        // Cap top is y=4.24 and the finished ceiling underside is y=4.48.
+        cylinder(0.035, 0.24, [0, 0.18, 0], M.brass, 'practical-suspension', 8),
       );
       fixture.children[1].position.y = -0.14;
+      if (z >= 55) {
+        // Exterior pair hangs from the inside face of the front perimeter wall.
+        fixture.add(box([0.07, 0.07, 0.46], [0, 0.30, 0.23], M.brass, 'practical-wall-bracket'));
+      }
       root.add(fixture);
     }
   }
@@ -945,7 +972,10 @@ export function buildCartelPalace(scene) {
     if (serviceGateOpen) return false;
     serviceGateOpen = true;
     serviceGate.rotation.y = Math.PI / 2;
-    serviceGate.position.x = 11.1;
+    // The leaf is authored around its centre, so the opened pose needs both
+    // centre coordinates moved to keep one edge on the 11.1 m hinge. It swings
+    // outward over the service road so the opposite end clears the guardhouse.
+    serviceGate.position.set(11.1, 0, 61.9);
     removeCollider(colliders, serviceGateCollider);
     powerLight.material = M.blackout;
     for (const light of courtyardPracticalLights) light.intensity = 0;

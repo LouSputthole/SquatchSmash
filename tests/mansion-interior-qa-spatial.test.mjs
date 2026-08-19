@@ -424,6 +424,122 @@ test('Uncle Lou suite has one low bar light and no decorative beam crossing the 
   assert.equal(interior.props.masterSuite.barLight, barLights[0], 'the suite does not publish its single bar light');
   const height = barLights[0].getWorldPosition(new THREE.Vector3()).y - interior.rooms.masterSuite.floor;
   assert.ok(height <= 2.6, `the remaining suite bar light is still too high (${height.toFixed(2)} m)`);
+  const { barBottles } = interior.props.masterSuite;
+  assert.equal(barBottles.length, 27, 'the fitted bar does not publish all three shelves of bottles');
+  const fixtureAnchor = barLights[0].position.clone().add(new THREE.Vector3(-0.16, -0.26, 0));
+  const fixtureBox = new THREE.Box3(
+    fixtureAnchor.clone().add(new THREE.Vector3(-0.04, -0.23, -0.16)),
+    fixtureAnchor.clone().add(new THREE.Vector3(0.17, 0.39, 0.16)),
+  );
+  for (const bottle of barBottles) {
+    assert.equal(fixtureBox.intersectsBox(new THREE.Box3().setFromObject(bottle)), false,
+      `${bottle.name} enters the bar sconce`);
+  }
+});
+
+test('the booth interior and Lou office seating stay clear of their surrounding joinery', () => {
+  const boothShell = grounds.root.getObjectByName('booth-shell');
+  const boothChair = grounds.root.getObjectByName('booth-chair');
+  assert.equal(boothShell.children.length, 4, 'the booth lower shell is not four hollow walls');
+  assert.ok(Math.abs(new THREE.Box3().setFromObject(boothChair).min.y) <= 1e-6,
+    'the booth chair has no physical legs reaching its floor');
+  for (const wall of boothShell.children) {
+    assert.ok(xzClear(wall, boothChair, 0.02), 'the booth chair is buried in its lower wall shell');
+  }
+  const barrierParts = ['barrier-post', 'barrier-head', 'barrier-arm']
+    .map((name) => grounds.root.getObjectByName(name));
+  assert.ok(barrierParts.every((part) => part.userData.geometryGate?.assemblyId === 'mansion-security-barrier'),
+    'the post, pivot head and raised arm do not publish one logical barrier assembly');
+  const barrierBoom = grounds.root.getObjectByName('barrier-arm-boom');
+  const palmCrowns = descendantsNamed(grounds.root, 'mansion-palm-crown');
+  const palmTrunks = descendantsNamed(grounds.root, 'mansion-palm-trunk');
+  assert.equal(palmCrowns.length, 10, 'the grounds do not expose all ten palm crowns');
+  assert.equal(palmTrunks.length, 10, 'the grounds do not expose all ten palm trunks');
+  assert.ok(palmCrowns.every((crown) => !new THREE.Box3().setFromObject(crown)
+    .intersectsBox(new THREE.Box3().setFromObject(barrierBoom))),
+  'the raised security barrier enters a palm crown');
+  for (let index = 0; index < palmCrowns.length; index++) {
+    const palm = grounds.root.getObjectByName(`mansion-palm-${index}`);
+    assert.equal(palm?.userData.geometryGate?.assemblyId, `mansion-palm-${index}`,
+      `palm ${index} does not publish its own compound assembly`);
+    assert.equal(palm.getObjectByName('mansion-palm-crown'), palmCrowns[index],
+      `palm ${index} does not own its crown`);
+    assert.equal(palm.getObjectByName('mansion-palm-trunk'), palmTrunks[index],
+      `palm ${index} does not own its trunk`);
+  }
+  for (const index of [5, 6]) {
+    const crownBox = new THREE.Box3().setFromObject(grounds.root.getObjectByName(`mansion-palm-${index}`)
+      .getObjectByName('mansion-palm-crown'));
+    assert.ok(crownBox.max.x <= -16 || crownBox.min.x >= 16,
+      `facade palm ${index} still enters the mansion's x[-16,16] shell`);
+  }
+
+  const bookcases = descendantsNamed(interior.root, 'office-bookcase');
+  const chairCrests = descendantsNamed(interior.root, 'office-fireside-chair-crest');
+  for (const crest of chairCrests) {
+    for (const bookcase of bookcases) {
+      assert.ok(xzClear(crest, bookcase, 0.01), 'an office chair crest enters the fitted bookcase run');
+    }
+  }
+  const fittedRun = [];
+  interior.root.traverse((object) => {
+    if (object.userData.geometryGate?.assemblyId === 'mansion-office-bookcase-run') fittedRun.push(object);
+  });
+  assert.ok(fittedRun.some((object) => object.name === 'suite-stair-lintel'),
+    'the fitted bookcase assembly omits its door lintel');
+  assert.ok(fittedRun.some((object) => object.name === 'suite-stair-wall'),
+    'the fitted bookcase assembly omits its recessed wall bay');
+  assert.ok(fittedRun.some((object) => object.name === 'office-secret-bookcase'),
+    'the fitted bookcase assembly omits its moving leaf');
+});
+
+
+test('authored mansion supports and mounted fittings publish their support intent', () => {
+  const soils = descendantsNamed(grounds.root, 'mansion-planting-soil');
+  assert.ok(soils.length > 0, 'the raised planting beds expose no support soil');
+  assert.ok(soils.every((soil) => soil.userData.geometryGate?.structural === true),
+    'a raised planting bed does not publish its soil as a fixed support anchor');
+  const rosePlanters = descendantsNamed(grounds.root, 'mansion-rose-parterre-planter');
+  const roseClumps = descendantsNamed(grounds.root, 'mansion-garden-flower-clump');
+  assert.equal(rosePlanters.length, 16, 'the rose parterre does not expose all sixteen brick planters');
+  assert.equal(roseClumps.length, 16, 'the rose parterre does not expose all sixteen flower clumps');
+  assert.ok(rosePlanters.every((planter) => planter.userData.geometryGate?.fixedSupportAnchor === true),
+    'a rose planter does not publish itself as the flower clump support');
+  for (const clump of roseClumps) {
+    const flowerBox = new THREE.Box3().setFromObject(clump);
+    const support = rosePlanters.find((planter) => {
+      const box = new THREE.Box3().setFromObject(planter);
+      return Math.min(flowerBox.max.x, box.max.x) > Math.max(flowerBox.min.x, box.min.x)
+        && Math.min(flowerBox.max.z, box.max.z) > Math.max(flowerBox.min.z, box.min.z);
+    });
+    assert.ok(support, 'a rose clump has no brick planter beneath it');
+    const supportTop = new THREE.Box3().setFromObject(support).max.y;
+    assert.ok(Math.abs(flowerBox.min.y - supportTop) <= 0.001,
+      `a rose clump misses its planter by ${(flowerBox.min.y - supportTop).toFixed(3)} m`);
+  }
+
+  const dressingMirror = interior.root.getObjectByName('modern-dressing-mirror');
+  const suiteAccent = interior.root.getObjectByName('suite-lou-accent-light');
+  assert.equal(dressingMirror.userData.geometryGate?.checkSupport, false,
+    'the wall-mounted dressing mirror is treated as a floor-supported prop');
+  assert.equal(suiteAccent.userData.geometryGate?.checkSupport, false,
+    'the wall-mounted Lou suite accent is treated as a floor-supported prop');
+
+  const desks = descendantsNamed(interior.root, 'desk');
+  assert.deepEqual(
+    desks.map((desk) => desk.userData.geometryGate?.assemblyId).sort(),
+    ['mansion-lan-desk-FIVE', 'mansion-lan-desk-FOUR', 'mansion-lan-desk-ONE', 'mansion-lan-desk-THREE', 'mansion-lan-desk-TWO'],
+    'the LAN desks do not publish five distinct compound assemblies',
+  );
+
+  const barTop = interior.root.getObjectByName('bar-top');
+  const topY = new THREE.Box3().setFromObject(barTop).max.y;
+  assert.equal(interior.props.lounge.drinks.length, 4, 'the lounge bar does not expose all four drinks');
+  for (const drink of interior.props.lounge.drinks) {
+    const bottomY = new THREE.Box3().setFromObject(drink).min.y;
+    assert.ok(Math.abs(bottomY - topY) <= 0.001,
+      `${drink.name} misses the bar top by ${(bottomY - topY).toFixed(3)} m`);
+  }
 });
 
 test('the upper balcony railing is physically continuous from each stair top around the bay', () => {

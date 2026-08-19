@@ -90,7 +90,9 @@ export function populate(scene, room) {
     const dress = pick(['suit', 'gown', 'suit', 'shirt']);
     const inGown = dress === 'gown';
     const qx = 4.2 - i * 1.05 + rand(-0.08, 0.08);
-    const qz = 38.14 + rand(-0.07, 0.07);
+    // Keep the whole body on the road side of the velvet, including a
+    // relaxed forearm; the former 24 cm centre gap put three arms through it.
+    const qz = 38.42 + rand(-0.07, 0.07);
     /* Faces up the line (+x); the head of it faces the man on the door. */
     const yaw = i === 0
       ? Math.atan2(a.doorman.x - qx, a.doorman.z - qz)
@@ -208,7 +210,7 @@ export function populate(scene, room) {
 
   add('coatcheck', new Npc(scene, {
     name: 'coat check', tier: 'hero', job: 'work',
-    x: a.coatCheck.x + 1.98, z: a.coatCheck.z, yaw: -Math.PI / 2,
+    x: a.coatCheck.x + 1.8, z: a.coatCheck.z, yaw: -Math.PI / 2,
     model: { height: 1.67, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
   }));
 
@@ -294,18 +296,19 @@ export function populate(scene, room) {
    * centre, which was almost always the gap between two chairs and read as a
    * room full of people sitting on air next to their own seats.
    */
+  const dinerTarget = 27;
   let diner = 0;
-  for (const t of room.anchors.tableSeats) {
-    if (diner > 26) break;
+  dinerTables: for (const t of room.anchors.tableSeats) {
     if (!t.seats.length) continue;
     const near = t.z > -2 && t.x > -20;
     const opposite = t.seats[Math.floor(t.seats.length / 2)];
     for (const seat of t.seats.length > 1 ? [t.seats[0], opposite] : [t.seats[0]]) {
+      if (diner >= dinerTarget) break dinerTables;
       if (Math.random() < 0.28) continue;
       /* One roll, not three. The dress, the colour and the frame have to agree
        * or the room fills up with gowns in undertaker grey on men's shoulders. */
       const inGown = Math.random() < 0.42;
-      add(`diner${diner}`, new Npc(scene, {
+      const seated = add(`diner${diner}`, new Npc(scene, {
         name: 'a diner', tier: near && diner < 10 ? 'ambient' : 'background',
         job: Math.random() < 0.4 ? 'drink' : 'sit',
         /* `look: false`, not `look: near`.
@@ -327,8 +330,15 @@ export function populate(scene, room) {
           ...(inGown ? { gender: 'female', bodyShape: 'curvy' } : {}),
         },
       }));
+      seated.geometrySeat = seat.chair;
+      seated.geometryTable = seat.table;
+      seated.geometryAssemblyId = seat.geometryAssemblyId;
       diner++;
     }
+  }
+
+  if (diner !== dinerTarget) {
+    throw new Error(`Silver Room populated ${diner}/${dinerTarget} authored diners`);
   }
 
   /* ---- the table by the pillar, who send the champagne ---- */
@@ -354,6 +364,9 @@ export function populate(scene, room) {
       yaw: seat.yaw,
       model,
     }));
+    npc.geometrySeat = seat.chair;
+    npc.geometryTable = seat.table;
+    npc.geometryAssemblyId = seat.geometryAssemblyId;
     if (key === CHARACTER_IDS.APE) identifySilverApe(npc);
   });
   by.ape.homeSeat = { x: by.ape.group.position.x, z: by.ape.group.position.z, yaw: by.ape.group.rotation.y };

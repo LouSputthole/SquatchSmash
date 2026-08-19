@@ -32,7 +32,7 @@ test('the guard fires at the deadline and a checkpoint retry rebuilds the full t
 
   threat.reset();
   assert.deepEqual(threat.snapshot(), {
-    state: 'idle', elapsed: 0, remaining: 2.75, progress: 0,
+    state: 'idle', elapsed: 0, windowSeconds: 2.75, remaining: 2.75, progress: 0,
   });
   assert.equal(threat.start(), true);
 });

@@ -36,6 +36,15 @@ export const SILVERCASE_EFFECT_CUES = Object.freeze([
   'gun.pickup',
   'heist.shubes_case',
   'heist.player.hit',
+  'ui.select',
+  'woo.streak',
+  'car.engine.idle',
+  'car.engine.rev',
+  'car.door.close.heavy',
+  'gun.drop.wood',
+  'footstep.tile',
+  'footstep.wood.a',
+  'footstep.wood.b',
 ]);
 
 const SILVERCASE_EFFECT_SET = new Set(SILVERCASE_EFFECT_CUES);

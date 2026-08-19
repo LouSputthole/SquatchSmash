@@ -203,6 +203,14 @@ function bandRandom(seed) {
 
 const PINE_GREENS = [0x2c4a2c, 0x35573a, 0x2a4432, 0x3b5f3c];
 const OAK_GREENS = [0x4a6b33, 0x55763a, 0x41602f];
+const TREE_COLLIDER_HALF_WIDTH = 0.55;
+// The gate rotates each trunk's local AABB. An oak's 0.46 m cylinder radius
+// therefore reaches 0.46 * sqrt(2) at forty-five degrees, beyond its gameplay
+// collider. Scatter against the larger audit footprint so both remain clean.
+const TREE_PINE_AUDIT_HALF_WIDTH = TREE_COLLIDER_HALF_WIDTH;
+const TREE_OAK_AUDIT_HALF_WIDTH = 0.46 * Math.SQRT2;
+const TREE_GATE_CLEARANCE = 0.04;
+const TREE_PLACEMENT_TRIES_PER_TREE = 80;
 
 /**
  * Instanced trees.
@@ -216,12 +224,17 @@ function buildTrees(scene) {
   const pines = [];
   const oaks = [];
   const colliders = [];
+  const acceptedTrees = [];
 
   for (let b = 0; b < HOLE.treeBands.length; b++) {
     const band = HOLE.treeBands[b];
     const rand = bandRandom(0x5117e2 + b * 7919);
     let placed = 0;
-    for (let tries = 0; tries < band.count * 14 && placed < band.count; tries++) {
+    for (
+      let tries = 0;
+      tries < band.count * TREE_PLACEMENT_TRIES_PER_TREE && placed < band.count;
+      tries++
+    ) {
       /* Square-root radius keeps them from clumping in the middle of the
        * band, which is what makes a planted line look planted. */
       const a = rand() * Math.PI * 2;
@@ -234,16 +247,32 @@ function buildTrees(scene) {
       // Keep the tee's sightline to the green genuinely open.
       if (Math.abs(x - 3) < 26 && z < 6 && z > -160) continue;
 
-      const y = heightAt(x, z);
       const scale = 0.8 + rand() * 0.75;
-      const spin = rand() * Math.PI * 2;
       const kind = band.kind === 'mixed' ? (rand() < 0.55 ? 'pine' : 'oak') : band.kind;
+      const halfWidth = TREE_COLLIDER_HALF_WIDTH * scale;
+      const auditHalfWidth = (
+        kind === 'oak' ? TREE_OAK_AUDIT_HALF_WIDTH : TREE_PINE_AUDIT_HALF_WIDTH
+      ) * scale;
+      const overlapsTree = acceptedTrees.some((tree) => {
+        const separation = auditHalfWidth + tree.auditHalfWidth + TREE_GATE_CLEARANCE;
+        return Math.abs(x - tree.x) < separation && Math.abs(z - tree.z) < separation;
+      });
+      if (overlapsTree) continue;
+
+      const y = heightAt(x, z);
+      const spin = rand() * Math.PI * 2;
       (kind === 'pine' ? pines : oaks).push({ x, y, z, scale, spin, tint: rand() });
+      acceptedTrees.push({ x, z, auditHalfWidth });
       colliders.push(new THREE.Box3(
-        new THREE.Vector3(x - 0.55 * scale, y, z - 0.55 * scale),
-        new THREE.Vector3(x + 0.55 * scale, y + 8 * scale, z + 0.55 * scale),
+        new THREE.Vector3(x - halfWidth, y, z - halfWidth),
+        new THREE.Vector3(x + halfWidth, y + 8 * scale, z + halfWidth),
       ));
       placed++;
+    }
+    if (placed !== band.count) {
+      throw new Error(
+        `Golf tree band ${b} placed ${placed}/${band.count} trees without collider overlap`,
+      );
     }
   }
 
@@ -810,6 +839,15 @@ function buildClubhouse(scene, colliders) {
   buildGrilleBalcony(g);
 
   scene.add(g);
+  // The full-volume blocker keeps the unreachable building unreachable;
+  // this thin authored foundation separately proves that the model is
+  // seated on its heightAt() datum instead of hanging inside that volume.
+  const foundation = new THREE.Box3(
+    new THREE.Vector3(HOLE.clubhouse.x - 13, y - 0.12, HOLE.clubhouse.z - 8),
+    new THREE.Vector3(HOLE.clubhouse.x + 13, y, HOLE.clubhouse.z + 8),
+  );
+  foundation.name = 'golf-clubhouse-foundation';
+  colliders.push(foundation);
   colliders.push(new THREE.Box3(
     new THREE.Vector3(HOLE.clubhouse.x - 13, y, HOLE.clubhouse.z - 8),
     new THREE.Vector3(HOLE.clubhouse.x + 13, y + 11, HOLE.clubhouse.z + 8),

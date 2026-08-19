@@ -617,8 +617,11 @@ export class CartPair {
     this.rolling = false;
     this.lead.stop();
     this.follow.stop();
-    this.lead.distance = 2;
-    this.follow.distance = -6.5;
+    // pathPoint clamps before-path distances to zero. Keep the authored
+    // 8.5 m gap entirely on the path so the follow cart does not collapse
+    // into the lead cart at later-hole checkpoints.
+    this.lead.distance = 8.5;
+    this.follow.distance = 0;
     this.lead._place();
     this.follow._place();
   }

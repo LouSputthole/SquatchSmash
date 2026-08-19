@@ -30,6 +30,7 @@ import { EffectComposer } from '../../vendor/addons/postprocessing/EffectCompose
 import { RenderPass } from '../../vendor/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../vendor/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../../vendor/addons/postprocessing/OutputPass.js';
+import { isSceneLifecyclePaused } from './scene-lifecycle.js';
 
 /* Restrained on purpose. This is a flat at night, not a synthwave album cover:
  * the monitor should glow the way a monitor in a dark room glows, and if the
@@ -164,6 +165,7 @@ export class PostFX {
 
   /** Draw the frame, however it is being drawn. */
   render() {
+    if (isSceneLifecyclePaused()) return;
     if (this.enabled && this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
   }

@@ -29,6 +29,13 @@ import { createHotDogChatter } from './hotdog-chatter.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
 import { buildHotDogParty } from './hotdog-party.js';
 import {
+  HOTDOG_PREVIEW_CHECKPOINTS,
+  poseHotDogAttackGeometry,
+  poseHotDogCleanupRolesGeometry,
+  poseHotDogResolvedAttackGeometry,
+  showHotDogCleanupGuidesGeometry,
+} from './preview.js';
+import {
   HOTDOG_SPEAKERS,
   HOTDOG_STAGED_LINES,
   HOTDOG_WALKUP_LINES,
@@ -95,7 +102,7 @@ assetStatus.textContent = 'Closed party · Hog Mama set · sudden attack · clea
  * leaves the party director running afterward so the real handoff dialogue
  * and the real ending card play out on the next few real frames.
  */
-const HOTDOG_CHECKPOINTS = Object.freeze(['party', 'attack', 'cleanup', 'graveyard']);
+const HOTDOG_CHECKPOINTS = HOTDOG_PREVIEW_CHECKPOINTS;
 const HOTDOG_CHECKPOINT_LABELS = Object.freeze({
   party: 'THE PARTY',
   attack: 'THE ATTACK',
@@ -543,24 +550,13 @@ function walkShubenatorIn() {
  * They used to appear on Ape's last punch, which put two glowing rings in the
  * middle of the shot while the room was still watching a man go down. */
 function revealEvidenceCircles() {
-  for (const marker of Object.values(party.cleanup.evidenceMarkers)) marker.visible = true;
+  showHotDogCleanupGuidesGeometry(party);
 }
 
 function applyResolvedAttackPresentation() {
   state.fallen = true;
-  const hotdog = party.extra.hotdog;
-  const ape = party.byId.ape;
-  cancelWalk(ape);
-  hotdog.job = 'stand';
-  hotdog.route = null;
-  hotdog.group.position.set(-15.8, 0.25, -0.45);
-  hotdog.group.rotation.set(0, 1.3, -1.34);
-  ape.route = null;
-  ape.job = 'stand';
-  ape.group.position.set(-14.9, 0, -0.25);
-  ape.group.rotation.y = -1.6;
-  party.cleanup.blood.visible = true;
-  party.cleanup.brokenStool.visible = true;
+  cancelWalk(party.byId.ape);
+  poseHotDogResolvedAttackGeometry(party);
 }
 
 function resolveAttack() {
@@ -595,46 +591,13 @@ const attack = createHotDogAttack({
   },
 });
 
-/**
- * What the rest of the party does with its head while Ape works.
- *
- * Most of them turn to the noise. Gratin, Old Stove and Lag turn away from it,
- * which is a pose and not a line -- what each of them says is queued behind
- * this and comes out either side of the aftermath beats.
- */
-function turnRoomToTheAttack() {
-  const hotdog = party.extra.hotdog;
-  const ape = party.byId.ape;
-  const lookAway = new Set([
-    party.byId[CHARACTER_IDS.GRATIN],
-    party.byId[CHARACTER_IDS.OLD_STOVE],
-    party.byId[CHARACTER_IDS.LAG],
-  ].filter(Boolean));
-  for (const npc of party.all) {
-    if (npc === ape || npc === hotdog) continue;
-    if (lookAway.has(npc)) {
-      npc.faceToward(npc.position.x * 2 - hotdog.position.x, npc.position.z * 2 - hotdog.position.z);
-    } else {
-      npc.faceToward(hotdog.position.x, hotdog.position.z);
-    }
-  }
-}
-
 function stageAttack() {
   if (state.fallen || attack.active || !mission.startAttack()) return false;
   const hotdog = party.extra.hotdog;
   const ape = party.byId.ape;
   cancelWalk(ape);
-  ape.route = null;
-  ape.job = 'stand';
-  ape.group.position.set(-14.9, 0, -0.25);
-  ape.faceToward(hotdog.position.x, hotdog.position.z, true);
-  hotdog.route = null;
-  hotdog.job = 'stand';
-  hotdog.group.position.set(-15.8, 0, -0.45);
-  hotdog.faceToward(ape.position.x, ape.position.z, true);
+  poseHotDogAttackGeometry(party);
   audio.play('hotdog.knife.draw', { volume: 0.68, position: ape.position });
-  turnRoomToTheAttack();
   chatter.startAttackReactions();
   state.director.waitingForAttack = true;
   return attack.start();
@@ -643,29 +606,7 @@ function stageAttack() {
 function assignCleanupRoles() {
   if (state.cleanupActive) return;
   state.cleanupActive = true;
-  const set = (npc, x, z, job = 'work', yaw = 0) => {
-    if (!npc) return;
-    npc.route = null;
-    npc.job = job;
-    npc.baseY = 0;
-    npc.group.position.set(x, 0, z);
-    npc.group.rotation.y = yaw;
-  };
-  set(party.byId.ape, 4.25, -4.5, 'sit', -Math.PI / 2);
-  set(party.byId.deathmegatron, 3.25, -3.7, 'stand', -Math.PI / 2);
-  party.byId.deathmegatron.folded = true;
-  // Keep the east side of the body and both evidence approaches open for the
-  // player; the helpers work from the bar side instead of becoming blockers.
-  set(party.byId.rippinflow, -16.8, 1.15, 'stand', 2.5);
-  set(party.byId.numbskull, -17.65, -2.15, 'stand', 0.65);
-  set(party.extra.aubbie, -18.25, 0.15, 'work', 1.45);
-  set(party.byId.booski, -18.2, 1.9, 'work', Math.PI / 2);
-  set(party.byId.hogmama, -2.4, 5.8, 'work', -2.8);
-  set(party.byId.gratin, -1.0, 5.8, 'work', 2.8);
-  set(party.byId.shubenator, -5.6, -8.1, 'work', 0);
-  set(party.byId.snow, 6.45, -8.2, 'stand', Math.PI);
-  set(party.extra.sauce, -3.6, 6.2, 'work', -2.6);
-  party.byId.eric.group.visible = false;
+  poseHotDogCleanupRolesGeometry(party);
   /* Lou turns panic into departments, and he does it out loud. Queued rather
    * than spoken now: the aftermath beats are still running, and the chatter
    * only takes the room once the director has finished with it. */

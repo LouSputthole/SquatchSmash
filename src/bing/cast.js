@@ -76,6 +76,12 @@ const BANDANA = 0xd92e2e;
  */
 export const STOOL_SIT = 0.315;
 
+// The dress-shoe sole extends 2.2 cm below the old 0.90 leg root. Folding the
+// same rig onto a chair needs another 3.8 cm of lower-leg lift to keep both
+// soles on the floor without moving the hips off the authored cushion height.
+const STANDING_LEG_ROOT_Y = 0.922;
+const SEATED_LEG_ROOT_Y = 0.960;
+
 /**
  * One person.
  *
@@ -545,7 +551,11 @@ export function makePerson(o = {}) {
     const pivot = group('leg');
     // A little more daylight between the legs than the rounded frame had, or
     // two slabs this close read as one column with a seam down it.
-    pivot.position.set(side * (curvy ? 0.118 : 0.108) * t, 0.90, 0);
+    pivot.position.set(
+      side * (curvy ? 0.118 : 0.108) * t,
+      STANDING_LEG_ROOT_Y,
+      0,
+    );
     /* Plus-fours are cut FULL -- that is the whole point of them, and a
      * knickerbocker on a normal trouser leg is just a trouser leg with a band
      * round the bottom. Widen the thigh rather than adding a second shape. */
@@ -3002,6 +3012,8 @@ export class Npc {
   sit() {
     this._neutralPose();
     this.seated = true;
+    this.parts.legL.position.y = SEATED_LEG_ROOT_Y;
+    this.parts.legR.position.y = SEATED_LEG_ROOT_Y;
     this.parts.legL.rotation.x = -1.45;
     this.parts.legR.rotation.x = -1.45;
     this.parts.shinL.rotation.x = 1.4;
@@ -3030,6 +3042,8 @@ export class Npc {
 
   stand() {
     this._neutralPose();
+    this.parts.legL.position.y = STANDING_LEG_ROOT_Y;
+    this.parts.legR.position.y = STANDING_LEG_ROOT_Y;
     this._splayCurvyArms();
     this.seated = false;
     this.group.position.y = this.baseY;
@@ -3042,25 +3056,22 @@ export class Npc {
     for (const mesh of occlusion.always) mesh.visible = false;
     for (const mesh of occlusion.seated) mesh.visible = !seated;
     for (const mesh of occlusion.visibleBelowHem) mesh.visible = true;
-    /* A gown PERCHED on a bar stool hangs its hem at the footrest, not the
-     * floor. The authored skirt is floor-length (hem 0.23, top 1.16 in figure
-     * space — pinned by tests/outfits.test.mjs on standing AND chair-seated
-     * builds, neither of which this touches): on a dining chair a floor-length
-     * hem still reaches the floor, which is correct fabric. On a stool the
-     * figure sits from a raised base (`STOOL_SIT`) and the same tube hung past
-     * the brass ring nearly to the floor — which is how DeathMegatron's gown
-     * became the lowest geometry on a woman whose feet were correctly on the
-     * footrest. Real fabric on a perched body breaks over the knees and stops
-     * around the ring, so the perched hem stops at the footrest line the way
-     * everyone else's trouser cuffs do (0.36 local puts it level with the
-     * seated shoe soles). Top edge stays put under the bodice. */
+    /* Sitting lowers the entire figure by 0.42 model metres. A standing
+     * skirt left at its 0.23 local hem therefore entered a dining-room floor
+     * by roughly 18cm even while both shoes remained correctly planted. On a
+     * dining chair, shorten the skirt to a 0.42 local hem so it meets the
+     * floor at the same datum as the seated rig. A raised stool uses the
+     * established 0.36 local break over the knees and brass footrest. The top
+     * edge stays registered under the bodice in every pose. */
     const skirt = this.group.getObjectByName('gown.skirt');
     if (skirt) {
       const top = 1.16;
       const standHem = 0.23;
+      const diningHem = 0.42;
       const perchedHem = 0.36;
-      const perched = this.baseY > 0.1;
-      const hem = seated && perched ? perchedHem : standHem;
+      const hem = !seated
+        ? standHem
+        : this.baseY > 0.1 ? perchedHem : diningHem;
       skirt.scale.y = (top - hem) / (top - standHem);
       skirt.position.y = top - (top - standHem) * skirt.scale.y / 2;
     }
@@ -3781,7 +3792,9 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     }));
   });
 
-  const standing = [[-18.4, 0.6], [-18.4, 4.4], [-17.6, 7.4]];
+  // Keep the middle leaner between stools 5 and 6. At z=4.4 their lowered
+  // hand clipped stool 5 even though the performer was visibly standing.
+  const standing = [[-18.4, 0.6], [-18.4, 4.6], [-17.6, 7.4]];
   standing.forEach(([sx, sz], i) => {
     add(`stander${i}`, new Npc(scene, {
       name: 'a regular', tier: i === 0 ? 'ambient' : 'background', job: 'lean',

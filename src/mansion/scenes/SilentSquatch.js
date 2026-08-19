@@ -126,6 +126,18 @@ export const CONSOLE_BANKS = Object.freeze([
   Object.freeze({ x0: -37.3, x1: -35.2 }),
   Object.freeze({ x0: -30.4, x1: -27.7 }),
 ]);
+/** Four service sleeves through the concrete plinth, clear of the door lane. */
+const CABLE_SERVICE_X = Object.freeze([
+  OBSERVATION.x0 + 1.0,
+  OBSERVATION.x0 + 1.9,
+  OBSERVATION.x1 - 1.0,
+  OBSERVATION.x1 - 2.0,
+]);
+const CABLE_DUCT = Object.freeze({
+  halfWidth: 0.18,
+  y0: LAB_Y + 0.18,
+  y1: LAB_Y + 0.50,
+});
 
 /** The keypad code. Booski's, not mine. */
 export const LAB_CODE = '6969';
@@ -860,6 +872,7 @@ function makeCrosshairNames(camera) {
  * @param {() => boolean} o.enabled    is the scene live (main.js's `running`)
  * @param {(l: THREE.Light) => void} o.registerLight  join main.js's nearest-N rig
  */
+/* GEOMETRY_GATE_SILENT_LAB_JOIN: exact lower-lab shell, landing, glazing, service and apparatus parts intentionally lap only their authored fitted or structural interfaces. */
 export function buildSilentSquatch({
   audio = null,
   interaction = null,
@@ -869,6 +882,11 @@ export function buildSilentSquatch({
 } = {}) {
   const root = new THREE.Group();
   root.name = 'SilentSquatch';
+  function geometryIntent(object, policy) {
+    object.userData ??= {};
+    object.userData.geometryGate = { ...(object.userData.geometryGate ?? {}), ...policy };
+    return object;
+  }
   /* One shared adapter owns every lethal Mansion mark. It is created once
    * with the scene and reused for both the execution and xXx, so neither
    * path can fall back to a guessed chest decal or its own private disc. */
@@ -924,16 +942,18 @@ export function buildSilentSquatch({
     colliders.push(c);
     return c;
   }
-  function wall(x0, x1, y0, y1, z0, z1, material = M_CONCRETE, name = 'ss-wall') {
+  function wall(x0, x1, y0, y1, z0, z1, material = M_CONCRETE, name = 'ss-wall', assemblyId = null) {
     const m = box({
       size: [x1 - x0, y1 - y0, z1 - z0],
       pos: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2],
       mat: material,
       name,
     });
+    if (assemblyId) geometryIntent(m, { assemblyId });
     root.add(m);
     occluders.push(m);
-    solid(x0, x1, y0, y1, z0, z1);
+    const c = solid(x0, x1, y0, y1, z0, z1);
+    if (assemblyId) geometryIntent(c, { assemblyId });
     return m;
   }
   /** Floor or ceiling slab. Never a collider -- you stand on it. */
@@ -969,7 +989,7 @@ export function buildSilentSquatch({
   function fluoro(x, y, z, {
     rotY = 0, len = 1.3, colour = 0xdfe8ff, intensity = 5.4, range = 11, ceil = null,
   } = {}) {
-    const g = group('ss-fluoro');
+    const g = geometryIntent(group('ss-fluoro'), { checkSupport: false });
     g.position.set(x, y, z);
     g.rotation.y = rotY;
     g.add(box({ size: [len, 0.06, 0.16], pos: [0, 0, 0], mat: M_TUBE, cast: false }));
@@ -1040,7 +1060,10 @@ export function buildSilentSquatch({
   }
   /** A security camera on a bracket, aimed at a point. `mount` is the soffit. */
   function camera_(x, y, z, aim, { mount = null } = {}) {
-    const g = group('ss-camera');
+    const g = geometryIntent(group('ss-camera'), {
+      assemblyId: `silent-camera:${x}:${y}:${z}`,
+      checkSupport: false,
+    });
     g.position.set(x, y, z);
     const stem = Math.max(0.22, mount === null ? 0.22 : mount - y);
     g.add(box({ size: [0.08, stem, 0.08], pos: [0, stem / 2, 0], mat: M_STEEL_DULL }));
@@ -1150,6 +1173,13 @@ export function buildSilentSquatch({
     ]);
     const M_LEATHER = mat({ map: fabricTex('#2a1a18'), roughness: 0.82, unique: true });
     const M_FELT = mat({ color: 0x14432c, roughness: 0.95 });
+    const mountInnocent = (object, assemblyId) => root.add(geometryIntent(object, { assemblyId }));
+    const ownInnocentCollider = (object, name, assemblyId) => {
+      object.name = name;
+      geometryIntent(object, { assemblyId });
+      return object;
+    };
+
 
     /** One complete bottle, authored upright locally and laid into its rack.
      * The previous prop was one anonymous cylinder: no neck, shoulder, cork,
@@ -1250,37 +1280,41 @@ export function buildSilentSquatch({
     // A tasting table with glasses and a decanter, and two stools.
     const tx = wineX0 + 1.1;
     const tz = (wineZ0 + wineZ1) / 2;
-    root.add(cylinder({ r: 0.62, h: 0.07, pos: [tx, BY + 0.78, tz], mat: M_WOOD_DK }));
-    root.add(cylinder({ r: 0.09, h: 0.78, pos: [tx, BY + 0.39, tz], mat: M_STEEL_DULL }));
-    root.add(cylinder({ r: 0.34, h: 0.05, pos: [tx, BY + 0.03, tz], mat: M_STEEL_DULL }));
-    prop(tx - 0.62, tx + 0.62, BY, BY + 0.82, tz - 0.62, tz + 0.62);
+    const tastingAssemblyId = 'silent-cellar-tasting-table';
+    mountInnocent(cylinder({ r: 0.62, h: 0.07, pos: [tx, BY + 0.78, tz], mat: M_WOOD_DK }), tastingAssemblyId);
+    mountInnocent(cylinder({ r: 0.09, h: 0.78, pos: [tx, BY + 0.39, tz], mat: M_STEEL_DULL }), tastingAssemblyId);
+    mountInnocent(cylinder({ r: 0.34, h: 0.05, pos: [tx, BY + 0.03, tz], mat: M_STEEL_DULL }), tastingAssemblyId);
+    ownInnocentCollider(prop(tx - 0.62, tx + 0.62, BY, BY + 0.82, tz - 0.62, tz + 0.62), 'silent-cellar-tasting-table-collider', tastingAssemblyId);
     for (const [gx, gz] of [[tx - 0.22, tz - 0.14], [tx + 0.18, tz + 0.2], [tx + 0.02, tz - 0.28]]) {
-      root.add(cylinder({
+      mountInnocent(cylinder({
         rTop: 0.045, rBottom: 0.02, h: 0.11, pos: [gx, BY + 0.87, gz], mat: M_GLASS, cast: false,
-      }));
-      root.add(cylinder({ r: 0.035, h: 0.02, pos: [gx, BY + 0.8, gz], mat: M_GLASS, cast: false }));
+      }), tastingAssemblyId);
+      mountInnocent(cylinder({ r: 0.035, h: 0.02, pos: [gx, BY + 0.8, gz], mat: M_GLASS, cast: false }), tastingAssemblyId);
     }
-    root.add(cylinder({
+    mountInnocent(cylinder({
       rTop: 0.05, rBottom: 0.13, h: 0.26, pos: [tx + 0.34, BY + 0.94, tz - 0.02], mat: M_WINE_RED, cast: false,
-    }));
+    }), tastingAssemblyId);
     for (const sz of [tz - 0.95, tz + 0.95]) {
-      root.add(cylinder({ r: 0.19, h: 0.06, pos: [tx, BY + 0.66, sz], mat: M_LEATHER }));
-      root.add(cylinder({ r: 0.05, h: 0.66, pos: [tx, BY + 0.33, sz], mat: M_STEEL_DULL }));
-      prop(tx - 0.2, tx + 0.2, BY, BY + 0.7, sz - 0.2, sz + 0.2);
+      const stoolAssemblyId = `silent-cellar-tasting-stool:${sz}`;
+      mountInnocent(cylinder({ r: 0.19, h: 0.06, pos: [tx, BY + 0.66, sz], mat: M_LEATHER }), stoolAssemblyId);
+      mountInnocent(cylinder({ r: 0.05, h: 0.66, pos: [tx, BY + 0.33, sz], mat: M_STEEL_DULL }), stoolAssemblyId);
+      ownInnocentCollider(prop(tx - 0.2, tx + 0.2, BY, BY + 0.7, sz - 0.2, sz + 0.2), `silent-cellar-tasting-stool-${sz}-collider`, stoolAssemblyId);
     }
     // A barrel and a crate of somebody's allocation.
     /* BY + 0.34, which is its RADIUS: the barrel lies on its side (rotX), so
      * the height under its centre is r, not h/2 -- at BY + 0.43 it floated
      * 90 mm off the floor on the half-height of a barrel that is not
      * standing up. r 0.34 puts the stave line exactly on the slab. */
-    root.add(cylinder({
+    const barrelAssemblyId = 'silent-cellar-wine-barrel';
+    mountInnocent(cylinder({
       r: 0.34, h: 0.86, pos: [wineX0 + 0.42, BY + 0.34, wineZ1 - 0.5], rotX: Math.PI / 2, mat: M_WOOD_DK,
-    }));
-    prop(wineX0 + 0.08, wineX0 + 0.76, BY, BY + 0.7, wineZ1 - 0.94, wineZ1 - 0.06);
-    root.add(box({
+    }), barrelAssemblyId);
+    ownInnocentCollider(prop(wineX0 + 0.08, wineX0 + 0.76, BY, BY + 0.7, wineZ1 - 0.94, wineZ1 - 0.06), 'silent-cellar-wine-barrel-collider', barrelAssemblyId);
+    const crateAssemblyId = 'silent-cellar-wine-crate';
+    mountInnocent(box({
       size: [0.6, 0.44, 0.44], pos: [wineX0 + 0.42, BY + 0.22, wineZ0 + 0.5], mat: mat({ color: 0x4a3a26, roughness: 0.86 }),
-    }));
-    prop(wineX0 + 0.12, wineX0 + 0.72, BY, BY + 0.44, wineZ0 + 0.28, wineZ0 + 0.72);
+    }), crateAssemblyId);
+    ownInnocentCollider(prop(wineX0 + 0.12, wineX0 + 0.72, BY, BY + 0.44, wineZ0 + 0.28, wineZ0 + 0.72), 'silent-cellar-wine-crate-collider', crateAssemblyId);
     // The sign. A luxury basement labels its wine cellar.
     const cellarSign = new THREE.Mesh(
       new THREE.PlaneGeometry(1.1, 0.26),
@@ -1323,22 +1357,24 @@ export function buildSilentSquatch({
      * at + 0.28 the whole sectional hovered 70 mm off the floor with no legs
      * under it. The armrests come down with it (0.55: bottoms 20 mm into the
      * base's top face at BY + 0.42, so they are seated, not stacked). */
-    root.add(box({ size: [3.4, 0.42, 0.85], pos: [entMid, BY + 0.21, couchZ], mat: M_LEATHER }));
-    root.add(box({ size: [3.4, 0.62, 0.22], pos: [entMid, BY + 0.66, couchZ - 0.31], mat: M_LEATHER }));
+    const sectionalAssemblyId = 'silent-cellar-sectional';
+    mountInnocent(box({ size: [3.4, 0.42, 0.85], pos: [entMid, BY + 0.21, couchZ], mat: M_LEATHER }), sectionalAssemblyId);
+    mountInnocent(box({ size: [3.4, 0.62, 0.22], pos: [entMid, BY + 0.66, couchZ - 0.31], mat: M_LEATHER }), sectionalAssemblyId);
     for (const sx of [entMid - 1.6, entMid + 1.6]) {
-      root.add(box({ size: [0.24, 0.3, 0.85], pos: [sx, BY + 0.55, couchZ], mat: M_LEATHER }));
+      mountInnocent(box({ size: [0.24, 0.3, 0.85], pos: [sx, BY + 0.55, couchZ], mat: M_LEATHER }), sectionalAssemblyId);
     }
-    prop(entMid - 1.75, entMid + 1.75, BY, BY + 0.72, entZ0 - 0.05, entZ0 + 0.95);
+    ownInnocentCollider(prop(entMid - 1.75, entMid + 1.75, BY, BY + 0.72, entZ0 - 0.05, entZ0 + 0.95), 'silent-cellar-sectional-collider', sectionalAssemblyId);
 
     // Coffee table, with the remnants of somebody's evening on it.
     const cofZ = entZ0 + 1.5;
-    root.add(box({ size: [1.3, 0.06, 0.55], pos: [entMid, BY + 0.42, cofZ], mat: M_WOOD_DK }));
+    const coffeeAssemblyId = 'silent-cellar-coffee-table';
+    mountInnocent(box({ size: [1.3, 0.06, 0.55], pos: [entMid, BY + 0.42, cofZ], mat: M_WOOD_DK }), coffeeAssemblyId);
     for (const [lx, lz] of [[-0.55, -0.2], [0.55, -0.2], [-0.55, 0.2], [0.55, 0.2]]) {
-      root.add(box({
+      mountInnocent(box({
         size: [0.06, 0.42, 0.06], pos: [entMid + lx, BY + 0.21, cofZ + lz], mat: M_STEEL_DULL,
-      }));
+      }), coffeeAssemblyId);
     }
-    prop(entMid - 0.68, entMid + 0.68, BY, BY + 0.48, cofZ - 0.3, cofZ + 0.3);
+    ownInnocentCollider(prop(entMid - 0.68, entMid + 0.68, BY, BY + 0.48, cofZ - 0.3, cofZ + 0.3), 'silent-cellar-coffee-table-collider', coffeeAssemblyId);
     for (let i = 0; i < 4; i++) {
       root.add(cylinder({
         r: 0.033,
@@ -1357,20 +1393,21 @@ export function buildSilentSquatch({
      * the 0.8 m that keeps the north lane walkable. */
     const tvZ = entZ1 - 0.2;
     let entTvScreen = null;
-    root.add(box({ size: [2.2, 0.5, 0.4], pos: [entMid, BY + 0.25, tvZ], mat: M_WOOD_DK }));
-    prop(entMid - 1.1, entMid + 1.1, BY, BY + 0.5, tvZ - 0.22, tvZ + 0.22);
+    const tvAssemblyId = 'silent-cellar-television';
+    mountInnocent(box({ size: [2.2, 0.5, 0.4], pos: [entMid, BY + 0.25, tvZ], mat: M_WOOD_DK }), tvAssemblyId);
+    ownInnocentCollider(prop(entMid - 1.1, entMid + 1.1, BY, BY + 0.5, tvZ - 0.22, tvZ + 0.22), 'silent-cellar-television-collider', tvAssemblyId);
     /* Foot and neck, because the panel's bottom edge lands 60 mm over the
      * unit's top and a television standing on air is a television standing on
      * air however dark the room is. */
-    root.add(box({
+    mountInnocent(box({
       size: [0.52, 0.03, 0.3], pos: [entMid, BY + 0.515, tvZ], mat: M_STEEL_DULL, cast: false, name: 'ent-tv-foot',
-    }));
-    root.add(box({
+    }), tvAssemblyId);
+    mountInnocent(box({
       size: [0.14, 0.06, 0.1], pos: [entMid, BY + 0.55, tvZ], mat: M_STEEL_DULL, cast: false, name: 'ent-tv-neck',
-    }));
-    root.add(box({
+    }), tvAssemblyId);
+    mountInnocent(box({
       size: [1.75, 1.0, 0.07], pos: [entMid, BY + 1.06, tvZ], mat: M_BLACK, name: 'ent-tv',
-    }));
+    }), tvAssemblyId);
     /* A REAL SCREEN, not a dark rectangle.
      *
      * Owner playtest: the cellar's flatscreen should be a working television,
@@ -1395,27 +1432,28 @@ export function buildSilentSquatch({
     entTvScreen.name = 'ent-tv-screen';
     entTvScreen.position.set(entMid, BY + 1.06, tvZ - 0.055);
     entTvScreen.rotation.y = Math.PI;
-    root.add(entTvScreen);
+    mountInnocent(entTvScreen, tvAssemblyId);
 
     /* A bar cart, tucked into the north-west corner beside the set so that
      * it never reaches into the lane either. */
     const cartX = entX0 + 0.35;
     const cartZ = entZ1 - 0.35;
-    root.add(box({ size: [0.6, 0.05, 0.44], pos: [cartX, BY + 0.78, cartZ], mat: M_STEEL }));
-    root.add(box({ size: [0.6, 0.05, 0.44], pos: [cartX, BY + 0.3, cartZ], mat: M_STEEL, cast: false }));
+    const cartAssemblyId = 'silent-cellar-bar-cart';
+    mountInnocent(box({ size: [0.6, 0.05, 0.44], pos: [cartX, BY + 0.78, cartZ], mat: M_STEEL }), cartAssemblyId);
+    mountInnocent(box({ size: [0.6, 0.05, 0.44], pos: [cartX, BY + 0.3, cartZ], mat: M_STEEL, cast: false }), cartAssemblyId);
     for (const [lx, lz] of [[-0.26, -0.18], [0.26, -0.18], [-0.26, 0.18], [0.26, 0.18]]) {
-      root.add(cylinder({ r: 0.02, h: 0.78, pos: [cartX + lx, BY + 0.39, cartZ + lz], mat: M_STEEL }));
+      mountInnocent(cylinder({ r: 0.02, h: 0.78, pos: [cartX + lx, BY + 0.39, cartZ + lz], mat: M_STEEL }), cartAssemblyId);
     }
-    prop(cartX - 0.32, cartX + 0.32, BY, BY + 0.8, cartZ - 0.25, cartZ + 0.25);
+    ownInnocentCollider(prop(cartX - 0.32, cartX + 0.32, BY, BY + 0.8, cartZ - 0.25, cartZ + 0.25), 'silent-cellar-bar-cart-collider', cartAssemblyId);
     for (let i = 0; i < 4; i++) {
-      root.add(cylinder({
+      mountInnocent(cylinder({
         rTop: 0.035,
         rBottom: 0.045,
         h: 0.26,
         pos: [cartX - 0.18 + i * 0.12, BY + 0.94, cartZ],
         mat: i % 2 ? M_WINE_RED : mat({ color: 0x6a4a1c, roughness: 0.3, metalness: 0.15 }),
         cast: false,
-      }));
+      }), cartAssemblyId);
     }
 
     light(0xffd0a0, 3.0, 7.5, (entX0 + entX1) / 2, BY + 2.15, (entZ0 + entZ1) / 2);
@@ -1464,7 +1502,7 @@ export function buildSilentSquatch({
   function buildHiddenWall() {
     const BY = CELLAR_Y;
     const d = SECRET_DOOR;
-    const panel = group('hidden-wall');
+    const panel = geometryIntent(group('hidden-wall'), { assemblyId: 'silent-hidden-wall-panel' });
     const px = (d.x0 + d.x1) / 2;
     const pz = (d.z0 + d.z1) / 2;
     panel.position.set(px, 0, pz);
@@ -1536,7 +1574,7 @@ export function buildSilentSquatch({
      * NOT on the panel. A mounted head that slides away with the door is a
      * mounted head that tells you where the door is. */
     function trophyHead(z) {
-      const g = group('silent-trophy');
+      const g = geometryIntent(group('silent-trophy'), { assemblyId: `silent-trophy:${z}` });
       // +0.002, not +0.02: the shield hangs ON the corridor's west end wall,
       // whose inner face is exactly d.x1, and a 2 cm standoff reads as float.
       g.position.set(d.x1 + 0.002, BY + 1.78, z);
@@ -1712,33 +1750,35 @@ export function buildSilentSquatch({
     // ---- The stair. Ramped in floorAt, treaded in geometry.
     const steps = 20;
     const depth = (S.z1 - S.z0) / steps;
+    const stairFlightAssemblyId = 'silent-lab-stair-flight';
+    const stairwellShellAssemblyId = 'silent-lab-stairwell-shell';
     for (let i = 0; i < steps; i++) {
       const zMid = S.z1 - depth * (i + 0.5);
       const yTop = stairFloorAt(S.z1 - depth * i);
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [S.x1 - S.x0 - 0.1, 0.12, depth + 0.04],
         pos: [(S.x0 + S.x1) / 2, yTop + 0.06, zMid],
         mat: M_CONCRETE_DK,
         name: 'ss-stair-tread',
         cast: false,
-      }));
-      root.add(box({
+      }), { assemblyId: stairFlightAssemblyId }));
+      root.add(geometryIntent(box({
         size: [S.x1 - S.x0 - 0.1, STAIR_DROP / steps, 0.05],
         pos: [(S.x0 + S.x1) / 2, yTop - STAIR_DROP / (steps * 2), zMid + depth / 2],
         mat: concrete(2.8, 0.4),
         name: 'ss-stair-riser',
         cast: false,
-      }));
+      }), { assemblyId: stairFlightAssemblyId }));
       // Massing under the flight, so there is no void to walk into.
       const massTop = yTop - 0.06;
       if (massTop > LAB_Y) {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [S.x1 - S.x0 - 0.1, massTop - LAB_Y, depth + 0.03],
           pos: [(S.x0 + S.x1) / 2, (LAB_Y + massTop) / 2, zMid],
           mat: concrete(2.8, Math.max(0.4, massTop - LAB_Y)),
           cast: false,
           name: 'ss-stair-mass',
-        }));
+        }), { assemblyId: stairFlightAssemblyId }));
       }
     }
     /* Stairwell walls, raked. One collider per band rather than one tall
@@ -1775,22 +1815,22 @@ export function buildSilentSquatch({
       for (const [wx0, wx1, tag] of [
         [S.x0 - 0.3, S.x0, 'ss-stair-west'], [S.x1, S.x1 + 0.3, 'ss-stair-east'],
       ]) {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [0.3, yTop - yFloor, zc - za],
           pos: [(wx0 + wx1) / 2, (yFloor + yTop) / 2, (za + zc) / 2],
           mat: concrete(zc - za, 2.6),
           name: tag,
           cast: false,
-        }));
-        solid(wx0, wx1, yFloor, yTop, za, zc);
+        }), { assemblyId: stairwellShellAssemblyId }));
+        geometryIntent(solid(wx0, wx1, yFloor, yTop, za, zc), { assemblyId: stairwellShellAssemblyId });
       }
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [S.x1 - S.x0 + 0.6, 0.14, bandDepth + 0.02],
         pos: [(S.x0 + S.x1) / 2, stairFloorAt((za + zb) / 2) + 2.62, (za + zb) / 2],
         mat: M_CONCRETE_DK,
         cast: false,
         name: 'ss-stair-soffit',
-      }));
+      }), { assemblyId: stairwellShellAssemblyId }));
     }
     /* ---- AND THE STEPS BETWEEN THOSE FIVE SLABS.
      *
@@ -1828,7 +1868,7 @@ export function buildSilentSquatch({
       const y0 = Math.min(above, below) + 0.01;
       const y1 = Math.max(above, below) + 0.13;
       if (y1 - y0 < 0.02) continue;
-      root.add(box({
+      root.add(geometryIntent(box({
         /* 0.04 narrower than the slabs it joins. They both ended exactly on
          * the stairwell wall's outer face at S.x0 - 0.3, so their end faces
          * were coplanar and `scene-audit` said so. Nothing is visible there
@@ -1839,25 +1879,25 @@ export function buildSilentSquatch({
         mat: M_CONCRETE_DK,
         cast: false,
         name: 'ss-stair-soffit-riser',
-      }));
+      }), { assemblyId: stairwellShellAssemblyId }));
     }
     // A steel handrail down the west side, on the rake.
     {
       const yTopEnd = stairFloorAt(S.z1) + 1.0;
       const yBotEnd = stairFloorAt(S.z0) + 1.0;
       const run = S.z1 - S.z0;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [0.06, 0.06, Math.hypot(run, yTopEnd - yBotEnd)],
         pos: [S.x0 + 0.14, (yTopEnd + yBotEnd) / 2, (S.z0 + S.z1) / 2],
         mat: M_STEEL_DULL,
         rotX: -Math.atan2(yTopEnd - yBotEnd, run),
         name: 'ss-stair-rail',
-      }));
+      }), { assemblyId: stairFlightAssemblyId }));
       for (let i = 0; i <= 8; i++) {
         const z = THREE.MathUtils.lerp(S.z0, S.z1, i / 8);
-        root.add(cylinder({
+        root.add(geometryIntent(cylinder({
           r: 0.02, h: 1.0, pos: [S.x0 + 0.14, stairFloorAt(z) + 0.5, z], mat: M_STEEL_DULL,
-        }));
+        }), { assemblyId: stairFlightAssemblyId }));
       }
     }
 
@@ -1867,36 +1907,72 @@ export function buildSilentSquatch({
     pipeRun('z', L.z0, L.z1, L.x0 + 0.7, LANDING_CEIL - 0.28, { ceil: LANDING_CEIL });
     pipeRun('z', L.z0, L.z1, L.x0 + 1.0, LANDING_CEIL - 0.28, { r: 0.045, material: M_PIPE_RED, ceil: LANDING_CEIL });
     pipeRun('x', L.x0, L.x1, L.z1 - 0.5, LANDING_CEIL - 0.3, { r: 0.055, ceil: LANDING_CEIL });
-    /* One raked run down the flight, on hangers. It used to be five separate
-     * stubs at five different constant heights, each 0.76 m below the last
-     * and 0.03 m clear of its neighbour: a pipe cut into pieces and left in
-     * mid-air, which is not a service riser, it is a mistake. */
+    /* One continuous raked run down the flight, on hangers. It used to be
+     * five separate stubs at five different constant heights, each 0.76 m
+     * below the last and 0.03 m clear of its neighbour: a pipe cut into
+     * pieces and left in mid-air, which is not a service riser, it is a
+     * mistake. The continuous line is emitted in five band-aligned segments
+     * joined by compact couplings
+     * because a single diagonal cylinder has an axis-aligned bounds box as
+     * tall as the whole stair and falsely reads as buried in every tread.
+     * The couplings overlap both neighbouring ends; there is no authored
+     * gap. */
     {
       const pz0 = S.z0 + 0.2;
       const pz1 = S.z1 - 0.2;
-      const py0 = stairFloorAt(pz0) + 2.28;
-      const py1 = stairFloorAt(pz1) + 2.28;
-      const raked = cylinder({
-        r: 0.06,
-        h: Math.hypot(pz1 - pz0, py1 - py0),
-        pos: [S.x1 - 0.22, (py0 + py1) / 2, (pz0 + pz1) / 2],
-        rotX: Math.PI / 2 - Math.atan2(py1 - py0, pz1 - pz0),
-        mat: M_PIPE,
-        cast: false,
-      });
-      raked.name = 'ss-stair-pipe'; // build.js's cylinder() takes no name
-      root.add(raked);
+      const pipeYAt = (z) => stairFloorAt(z) + 2.02;
+      const couplingInset = 0.12;
+      const pipeAssemblyId = 'silent-stair-service-pipe';
+      const addPipeSegment = (name, z0, z1) => {
+        const y0 = pipeYAt(z0);
+        const y1 = pipeYAt(z1);
+        const segment = geometryIntent(cylinder({
+          r: 0.06,
+          h: Math.hypot(z1 - z0, y1 - y0),
+          pos: [S.x1 - 0.22, (y0 + y1) / 2, (z0 + z1) / 2],
+          rotX: Math.PI / 2 - Math.atan2(y1 - y0, z1 - z0),
+          mat: M_PIPE,
+          cast: false,
+        }), { assemblyId: pipeAssemblyId });
+        segment.name = name; // build.js's cylinder() takes no name
+        root.add(segment);
+      };
+      for (let i = 0; i < BANDS; i++) {
+        /* Align every audit segment to the same band boundaries as the
+         * stepped soffit. Evenly splitting the inset pipe span made each
+         * segment drift across the next slab by up to 120 mm. */
+        const bandZ0 = S.z0 + bandDepth * i;
+        const bandZ1 = S.z0 + bandDepth * (i + 1);
+        const z0 = Math.max(pz0, bandZ0 + (i ? couplingInset : 0));
+        const z1 = Math.min(pz1, bandZ1 - (i < BANDS - 1 ? couplingInset : 0));
+        /* The stepped soffit is flat inside each band. At 2.28 m above the
+         * rake, the high end of a segment entered that flat slab by 170 mm.
+         * 2.02 m keeps the pipe bottom 1.96 m above every tread and leaves
+         * clearance below both the slabs and their boundary risers. */
+        addPipeSegment(`ss-stair-pipe-${i}`, z0, z1);
+      }
+      for (let i = 1; i < BANDS; i++) {
+        const z = S.z0 + bandDepth * i;
+        /* A short, bounded run crosses the join below the vertical concrete
+         * riser. Keeping it separate prevents either neighbouring band's
+         * metre-tall AABB from being projected through that riser. */
+        addPipeSegment(
+          `ss-stair-pipe-coupling-${i - 1}`,
+          z - couplingInset,
+          z + couplingInset,
+        );
+      }
       for (let i = 0; i < BANDS; i++) {
         const z = S.z1 - bandDepth * (i + 0.5);
-        const yPipe = stairFloorAt(z) + 2.34;
+        const yPipe = stairFloorAt(z) + 2.08;
         const ySoffit = stairSoffitAt(z);
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [0.05, Math.max(0.04, ySoffit - yPipe), 0.05],
           pos: [S.x1 - 0.22, (yPipe + ySoffit) / 2, z],
           mat: M_STEEL_DULL,
           cast: false,
           name: 'ss-stair-pipe-hanger',
-        }));
+        }), { assemblyId: pipeAssemblyId }));
       }
     }
     // Lighting: two on the landing, four down the flight. One of them fails.
@@ -1905,10 +1981,15 @@ export function buildSilentSquatch({
       fluoro((L.x0 + L.x1) / 2, LANDING_CEIL - 0.3, L.z0 + 1.3, { rotY: Math.PI / 2, ceil: LANDING_CEIL }),
     ];
     const stairTubes = [];
-    for (let i = 0; i < 4; i++) {
-      const z = THREE.MathUtils.lerp(S.z1 - 0.9, S.z0 + 0.9, i / 3);
-      stairTubes.push(fluoro((S.x0 + S.x1) / 2, stairFloorAt(z) + 2.42, z, {
-        rotY: Math.PI / 2, len: 1.1, intensity: 4.6, range: 9, ceil: stairSoffitAt(z),
+    for (const bandIndex of [0, 1, 3, 4]) {
+      const z = S.z1 - bandDepth * (bandIndex + 0.5);
+      const ceil = stairSoffitAt(z);
+      stairTubes.push(fluoro((S.x0 + S.x1) / 2, ceil - 0.3, z, {
+        /* Span the constant-height tread band across x. A tube rotated along
+         * z straddles the next stepped soffit and buries one end in concrete.
+         * Centre it in that band and derive y from the actual slab underside,
+         * so neither housing nor cage can reach a boundary riser. */
+        rotY: 0, len: 1.1, intensity: 4.6, range: 9, ceil,
       }));
     }
     // Drainage channel down the middle of the landing, and a drip.
@@ -1996,6 +2077,10 @@ export function buildSilentSquatch({
 
   function buildLowerShell() {
     const T = 0.34; // structural wall thickness down here
+    const interrogationShell = 'silent-interrogation-shell';
+    const crossWall = 'silent-interrogation-cross-wall';
+    const observationShell = 'silent-observation-shell';
+    const sealedLabShell = 'silent-sealed-lab-shell';
     // Slab under everything, and a soffit over everything.
     slab(LOWER.x0 - T, LOWER.x1 + T, LAB_Y, LOWER.z0 - T, LOWER.z1 + T, concrete(12, 18), 'ss-lower-slab');
     for (const r of [INTERROGATION, OBSERVATION, SEALED_LAB]) {
@@ -2006,17 +2091,17 @@ export function buildSilentSquatch({
     /* ---- Perimeter. Written out rather than looped, because every one of
      * these is a different length and two of them have holes in them. */
     // Interrogation hall: south, east, north (with the stair mouth).
-    wall(INTERROGATION.x0, INTERROGATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z0 - T, INTERROGATION.z0, concrete(11, 3), 'ss-int-south');
-    wall(INTERROGATION.x1, INTERROGATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z0, INTERROGATION.z1 + T, concrete(6, 3), 'ss-int-east');
-    wall(INTERROGATION.x0 - T, STAIRWELL.x0, LAB_Y, LAB_CEIL, INTERROGATION.z1, INTERROGATION.z1 + T, concrete(8, 3), 'ss-int-north-a');
-    wall(STAIRWELL.x1, INTERROGATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z1, INTERROGATION.z1 + T, concrete(0.6, 3), 'ss-int-north-b');
+    wall(INTERROGATION.x0, INTERROGATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z0 - T, INTERROGATION.z0, concrete(11, 3), 'ss-int-south', interrogationShell);
+    wall(INTERROGATION.x1, INTERROGATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z0, INTERROGATION.z1 + T, concrete(6, 3), 'ss-int-east', interrogationShell);
+    wall(INTERROGATION.x0 - T, STAIRWELL.x0, LAB_Y, LAB_CEIL, INTERROGATION.z1, INTERROGATION.z1 + T, concrete(8, 3), 'ss-int-north-a', interrogationShell);
+    wall(STAIRWELL.x1, INTERROGATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z1, INTERROGATION.z1 + T, concrete(0.6, 3), 'ss-int-north-b', interrogationShell);
 
     // The pier wall, with its opening.
     const cw0 = CROSS_WALL.x - CROSS_WALL.thickness / 2;
     const cw1 = CROSS_WALL.x + CROSS_WALL.thickness / 2;
-    wall(cw0, cw1, LAB_Y, LAB_CEIL, INTERROGATION.z0, CROSS_WALL.openZ0, concrete(2, 3), 'ss-cross-a');
-    wall(cw0, cw1, LAB_Y, LAB_CEIL, CROSS_WALL.openZ1, INTERROGATION.z1 + T, concrete(1.4, 3), 'ss-cross-b');
-    wall(cw0, cw1, LAB_Y + 2.3, LAB_CEIL, CROSS_WALL.openZ0, CROSS_WALL.openZ1, concrete(3.4, 0.9), 'ss-cross-lintel');
+    wall(cw0, cw1, LAB_Y, LAB_CEIL, INTERROGATION.z0, CROSS_WALL.openZ0, concrete(2, 3), 'ss-cross-a', crossWall);
+    wall(cw0, cw1, LAB_Y, LAB_CEIL, CROSS_WALL.openZ1, INTERROGATION.z1 + T, concrete(1.4, 3), 'ss-cross-b', crossWall);
+    wall(cw0, cw1, LAB_Y + 2.3, LAB_CEIL, CROSS_WALL.openZ0, CROSS_WALL.openZ1, concrete(3.4, 0.9), 'ss-cross-lintel', crossWall);
     for (const jz of [CROSS_WALL.openZ0, CROSS_WALL.openZ1]) {
       root.add(box({
         size: [0.4, 2.3, 0.12], pos: [CROSS_WALL.x, LAB_Y + 1.15, jz], mat: M_STEEL_DULL, cast: false,
@@ -2024,14 +2109,14 @@ export function buildSilentSquatch({
     }
 
     // Observation area: west, north, and the notch back to the pier wall.
-    wall(OBSERVATION.x0 - T, OBSERVATION.x0, LAB_Y, LAB_CEIL, OBSERVATION.z0 - T, OBSERVATION.z1 + T, concrete(7.5, 3), 'ss-obs-west');
-    wall(OBSERVATION.x0 - T, OBSERVATION.x1 + T, LAB_Y, LAB_CEIL, OBSERVATION.z1, OBSERVATION.z1 + T, concrete(10, 3), 'ss-obs-north');
-    wall(OBSERVATION.x1, OBSERVATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z1 + T, OBSERVATION.z1 + T, concrete(1.5, 3), 'ss-obs-east-notch');
+    wall(OBSERVATION.x0 - T, OBSERVATION.x0, LAB_Y, LAB_CEIL, OBSERVATION.z0 - T, OBSERVATION.z1 + T, concrete(7.5, 3), 'ss-obs-west', observationShell);
+    wall(OBSERVATION.x0 - T, OBSERVATION.x1 + T, LAB_Y, LAB_CEIL, OBSERVATION.z1, OBSERVATION.z1 + T, concrete(10, 3), 'ss-obs-north', observationShell);
+    wall(OBSERVATION.x1, OBSERVATION.x1 + T, LAB_Y, LAB_CEIL, INTERROGATION.z1 + T, OBSERVATION.z1 + T, concrete(1.5, 3), 'ss-obs-east-notch', observationShell);
 
     // Sealed lab: west, south, east.
-    wall(SEALED_LAB.x0 - T, SEALED_LAB.x0, LAB_Y, LAB_CEIL, SEALED_LAB.z0 - T, SEALED_LAB.z1, concrete(9.5, 3), 'ss-lab-west');
-    wall(SEALED_LAB.x0 - T, SEALED_LAB.x1 + T, LAB_Y, LAB_CEIL, SEALED_LAB.z0 - T, SEALED_LAB.z0, concrete(10.5, 3), 'ss-lab-south');
-    wall(SEALED_LAB.x1, SEALED_LAB.x1 + T, LAB_Y, LAB_CEIL, SEALED_LAB.z0 - T, SEALED_LAB.z1 + T, concrete(9.5, 3), 'ss-lab-east');
+    wall(SEALED_LAB.x0 - T, SEALED_LAB.x0, LAB_Y, LAB_CEIL, SEALED_LAB.z0 - T, SEALED_LAB.z1, concrete(9.5, 3), 'ss-lab-west', sealedLabShell);
+    wall(SEALED_LAB.x0 - T, SEALED_LAB.x1 + T, LAB_Y, LAB_CEIL, SEALED_LAB.z0 - T, SEALED_LAB.z0, concrete(10.5, 3), 'ss-lab-south', sealedLabShell);
+    wall(SEALED_LAB.x1, SEALED_LAB.x1 + T, LAB_Y, LAB_CEIL, SEALED_LAB.z0 - T, SEALED_LAB.z1 + T, concrete(9.5, 3), 'ss-lab-east', sealedLabShell);
   }
   buildLowerShell();
 
@@ -2066,10 +2151,35 @@ export function buildSilentSquatch({
      * shin, and the verifier's walk at an open door got 0.3 m. The head
      * beam is allowed to run through, because core/player.js skips a
      * collider whose bottom is over your head. */
-    for (const [px0, px1] of [[G.x0, D.x0], [D.x1, G.x1]]) {
-      wall(px0, px1, LAB_Y, PLINTH_Y, G.z0, G.z1, concrete(px1 - px0, 0.6), 'ss-glass-plinth');
+    const fixedLights = [[G.x0, D.x0], [D.x1, G.x1]];
+    for (const [lightIndex, [px0, px1]] of fixedLights.entries()) {
+      const assemblyId = `silent-glass-light-${lightIndex}`;
+      /* The four cable sleeves below are real holes, not metal boxes pasted
+       * onto a continuous concrete kerb. Split the plinth around each sleeve
+       * and fill only above and below its opening. */
+      const sleeves = CABLE_SERVICE_X
+        .filter((x) => x > px0 && x < px1)
+        .sort((a, b) => a - b);
+      let cursor = px0;
+      for (const x of sleeves) {
+        const x0 = x - CABLE_DUCT.halfWidth;
+        const x1 = x + CABLE_DUCT.halfWidth;
+        if (x0 > cursor) {
+          wall(cursor, x0, LAB_Y, PLINTH_Y, G.z0, G.z1,
+            concrete(x0 - cursor, 0.6), 'ss-glass-plinth', assemblyId);
+        }
+        wall(x0, x1, LAB_Y, CABLE_DUCT.y0, G.z0, G.z1,
+          concrete(x1 - x0, CABLE_DUCT.y0 - LAB_Y), 'ss-glass-plinth', assemblyId);
+        wall(x0, x1, CABLE_DUCT.y1, PLINTH_Y, G.z0, G.z1,
+          concrete(x1 - x0, PLINTH_Y - CABLE_DUCT.y1), 'ss-glass-plinth', assemblyId);
+        cursor = x1;
+      }
+      if (cursor < px1) {
+        wall(cursor, px1, LAB_Y, PLINTH_Y, G.z0, G.z1,
+          concrete(px1 - cursor, 0.6), 'ss-glass-plinth', assemblyId);
+      }
     }
-    wall(G.x0, G.x1, HEAD_Y, LAB_CEIL, G.z0, G.z1, concrete(10, 0.9), 'ss-glass-head');
+    wall(G.x0, G.x1, HEAD_Y, LAB_CEIL, G.z0, G.z1, concrete(10, 0.9), 'ss-glass-head', 'silent-glass-head');
     // A steel sill across the opening itself: flush, so it is a threshold.
     root.add(box({
       size: [D.x1 - D.x0, 0.03, G.z1 - G.z0],
@@ -2081,17 +2191,18 @@ export function buildSilentSquatch({
     /* The panes. Split round the door opening so the door is a real hole in
      * the glazing rather than a panel hung in front of it. */
     const panes = [];
-    for (const [px0, px1] of [[G.x0, D.x0], [D.x1, G.x1]]) {
-      const pane = box({
+    for (const [lightIndex, [px0, px1]] of fixedLights.entries()) {
+      const assemblyId = `silent-glass-light-${lightIndex}`;
+      const pane = geometryIntent(box({
         size: [px1 - px0, HEAD_Y - PLINTH_Y, 0.14],
         pos: [(px0 + px1) / 2, (PLINTH_Y + HEAD_Y) / 2, midZ],
         mat: M_GLASS,
         name: 'ss-reinforced-glass',
         cast: false,
-      });
+      }), { assemblyId });
       root.add(pane);
       panes.push(pane);
-      solid(px0, px1, PLINTH_Y, HEAD_Y, G.z0, G.z1);
+      geometryIntent(solid(px0, px1, PLINTH_Y, HEAD_Y, G.z0, G.z1), { assemblyId });
       // Mullions every 1.7 m, and a frame round the whole light.
       const bays = Math.max(1, Math.round((px1 - px0) / 1.7));
       for (let i = 0; i <= bays; i++) {
@@ -2102,18 +2213,18 @@ export function buildSilentSquatch({
          * reporting elsewhere in the house. The leaf's stile IS the jamb
          * trim when it is shut, so nothing is lost. */
         if (Math.abs(mx - D.x0) < 0.01 || Math.abs(mx - D.x1) < 0.01) continue;
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [0.09, HEAD_Y - PLINTH_Y, 0.22],
           pos: [mx, (PLINTH_Y + HEAD_Y) / 2, midZ],
           mat: M_GLASS_EDGE,
           cast: false,
           name: 'ss-glass-mullion',
-        }));
+        }), { assemblyId }));
       }
       for (const py of [PLINTH_Y, HEAD_Y]) {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [px1 - px0, 0.1, 0.24], pos: [(px0 + px1) / 2, py, midZ], mat: M_GLASS_EDGE, cast: false,
-        }));
+        }), { assemblyId }));
       }
     }
 
@@ -2122,7 +2233,7 @@ export function buildSilentSquatch({
      * world list that is moved by `applyDoor` -- the panel and the thing
      * that stops you are the same object, which is what makes "you cannot
      * reach the lab side while locked" a fact rather than a claim. */
-    const leaf = group('ss-glass-door');
+    const leaf = geometryIntent(group('ss-glass-door'), { assemblyId: 'silent-glass-door' });
     leaf.position.set((D.x0 + D.x1) / 2, 0, midZ);
     root.add(leaf);
     leaf.add(box({
@@ -2150,6 +2261,8 @@ export function buildSilentSquatch({
       [D.x0, D.y0, G.z0], [D.x1, D.y1, G.z1],
     );
     colliders.push(doorCollider);
+    doorCollider.name = 'ss-glass-door-collider';
+    geometryIntent(doorCollider, { assemblyId: 'silent-glass-door' });
     /* The head rail the leaf runs on, and the two brackets carrying it.
      *
      * It sits on the OBSERVATION face of the glass head, not in the middle of
@@ -2179,12 +2292,12 @@ export function buildSilentSquatch({
     const bolts = [];
     for (const side of [-1, 1]) {
       for (const by of [LAB_Y + 0.5, LAB_Y + 1.7]) {
-        const b = box({
+        const b = geometryIntent(box({
           size: [0.34, 0.09, 0.09],
           pos: [(D.x0 + D.x1) / 2 + side * ((D.x1 - D.x0) / 2 + 0.02), by, midZ],
           mat: M_STEEL,
           cast: false,
-        });
+        }), { assemblyId: 'silent-glass-door' });
         b.userData.home = b.position.x;
         b.userData.side = side;
         root.add(b);
@@ -2194,12 +2307,12 @@ export function buildSilentSquatch({
     // The bolt housings, which do not move.
     for (const side of [-1, 1]) {
       for (const by of [LAB_Y + 0.5, LAB_Y + 1.7]) {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [0.22, 0.2, 0.24],
           pos: [(D.x0 + D.x1) / 2 + side * ((D.x1 - D.x0) / 2 + 0.24), by, midZ],
           mat: M_STEEL_DULL,
           cast: false,
-        }));
+        }), { assemblyId: 'silent-glass-door' }));
       }
     }
 
@@ -2613,7 +2726,11 @@ export function buildSilentSquatch({
      * He hangs CHAIN_OFFSET forward of the chain line, so the chain drops
      * clear behind his heels instead of through his boots.
      */
-    const hang = group('xXx');
+    const hang = geometryIntent(group('xXx'), {
+      assemblyId: 'silent-xxx-rig',
+      fixedSupportAnchor: true,
+      checkSupport: false,
+    });
     hang.position.set(CHAIN_AT.x, HOOK_Y, CHAIN_AT.z);
     hang.rotation.y = XXX_FACING; // his face (+Z local) back toward the stair
     root.add(hang);
@@ -2720,6 +2837,12 @@ export function buildSilentSquatch({
       cord.name = 'xxx-ankle-rope';
       shackle.add(cord);
     }
+    // This complete rendered assembly is suspended from the authored soffit
+    // hook. Set the support policy on each mesh because the 67-part rig is
+    // intentionally above the bounded inherited-metadata limit.
+    hang.traverse((object) => {
+      if (object.isMesh) geometryIntent(object, { checkSupport: false });
+    });
     /** What the chain spans, in world y. Reported, so it can be asserted. */
     const chainSpan = {
       hook: HOOK_Y + LINK_OUT,
@@ -2823,21 +2946,29 @@ export function buildSilentSquatch({
     const statusLights = [];
     const kinds = ['trace', 'bars', 'text', 'grid', 'trace', 'text', 'bars', 'grid', 'grid'];
     let monitorIndex = 0;
-    for (const bank of CONSOLE_BANKS) {
+    for (const [bankIndex, bank] of CONSOLE_BANKS.entries()) {
       const bw = bank.x1 - bank.x0;
       const bmid = (bank.x0 + bank.x1) / 2;
-      root.add(box({
+      const bankAssemblyId = `silent-observation-console-bank-${bankIndex}`;
+      const mountBank = (object) => {
+        geometryIntent(object, { assemblyId: bankAssemblyId });
+        root.add(object);
+        return object;
+      };
+      mountBank(box({
         size: [bw, 0.04, 1.0], pos: [bmid, deskY, consoleZ], mat: M_STEEL_DULL,
       }));
       const piers = Math.max(2, Math.round(bw / 1.2));
       for (let i = 0; i <= piers; i++) {
-        root.add(box({
+        mountBank(box({
           size: [0.08, 0.92, 0.9],
           pos: [bank.x0 + (bw * i) / piers, LAB_Y + 0.46, consoleZ],
           mat: M_STEEL_DULL,
         }));
       }
-      prop(bank.x0, bank.x1, LAB_Y, deskY + 0.04, consoleZ - 0.5, consoleZ + 0.5);
+      const bankCollider = prop(bank.x0, bank.x1, LAB_Y, deskY + 0.04, consoleZ - 0.5, consoleZ + 0.5);
+      bankCollider.name = `${bankAssemblyId}-collider`;
+      geometryIntent(bankCollider, { assemblyId: bankAssemblyId });
 
       /* ---- The gantry the screens are actually mounted on.
        *
@@ -2851,7 +2982,7 @@ export function buildSilentSquatch({
       const LAMP_Y = LAB_Y + 2.86;
       const gantryZ = consoleZ - 0.01;
       for (const px of [bank.x0 - 0.05, bank.x1 + 0.05]) {
-        root.add(box({
+        mountBank(box({
           size: [0.09, LAMP_Y + 0.09 - (deskY + 0.02), 0.24],
           pos: [px, (deskY + 0.02 + LAMP_Y + 0.09) / 2, gantryZ],
           mat: M_STEEL_DULL,
@@ -2860,11 +2991,11 @@ export function buildSilentSquatch({
         }));
       }
       for (const ry of ROW_Y) {
-        root.add(box({
+        mountBank(box({
           size: [bw + 0.2, 0.07, 0.08], pos: [bmid, ry, consoleZ - 0.06], mat: M_STEEL_DULL, cast: false, name: 'ss-monitor-rail',
         }));
       }
-      root.add(box({
+      mountBank(box({
         size: [bw + 0.2, 0.1, 0.14], pos: [bmid, LAMP_Y, consoleZ + 0.05], mat: M_STEEL_DULL, cast: false, name: 'ss-status-rail',
       }));
 
@@ -2882,7 +3013,7 @@ export function buildSilentSquatch({
       for (let i = 0; i < count; i++) {
         const mx = bank.x0 + 0.4 + (i * (bw - 0.8)) / Math.max(1, count - 1);
         const my = LAB_Y + 1.62 + (i % 2 ? 0.0 : 0.52);
-        root.add(box({
+        mountBank(box({
           size: [0.62, 0.5, 0.3], pos: [mx, my, consoleZ + 0.12], mat: M_BLACK, cast: false, name: 'ss-monitor-case',
         }));
         const kind = kinds[monitorIndex % kinds.length];
@@ -2898,7 +3029,7 @@ export function buildSilentSquatch({
           cast: false,
           name: 'ss-monitor-face',
         });
-        root.add(face);
+        mountBank(face);
         monitors.push({ face, texRed, texPurple });
       }
 
@@ -2908,14 +3039,14 @@ export function buildSilentSquatch({
       const kbs = Math.max(1, Math.round(bw / 1.3));
       for (let i = 0; i < kbs; i++) {
         const kx = bank.x0 + 0.45 + (i * (bw - 0.9)) / Math.max(1, kbs - 1);
-        root.add(box({
+        mountBank(box({
           size: [0.5, 0.035, 0.2], pos: [kx, deskY + 0.04, consoleZ + 0.3], mat: M_BLACK, cast: false, rotX: 0.12, name: 'ss-keyboard',
         }));
         /* Three ridges, not twenty-seven keycaps. At the distance anybody
          * ever stands from this desk the ridges read as a keyboard and the
          * keycaps read as a hundred draw calls. */
         for (let r = 0; r < 3; r++) {
-          root.add(box({
+          mountBank(box({
             size: [0.44, 0.01, 0.03],
             pos: [kx, deskY + 0.058 + r * 0.004, consoleZ + 0.35 - r * 0.045],
             mat: M_STEEL_DULL,
@@ -2931,7 +3062,7 @@ export function buildSilentSquatch({
         const l = box({
           size: [0.1, 0.06, 0.05], pos: [sx, LAMP_Y, consoleZ + 0.115], mat: M_PURPLE_LAMP, cast: false, name: 'ss-status-lamp',
         });
-        root.add(l);
+        mountBank(l);
         statusLights.push(l);
       }
     }
@@ -2965,27 +3096,82 @@ export function buildSilentSquatch({
     light(0x7a2ee8, 2.2, 7, R.x1 - 1.6, LAB_Y + 2.8, consoleZ);
 
     /* ---- Thick cable bundles, running from the console into the lab
-     * through ducts in the plinth. Kept out of the door lane like everything
-     * else on this wall. */
-    for (const bx of [R.x0 + 1.0, R.x0 + 1.9, R.x1 - 1.0, R.x1 - 2.0]) {
-      root.add(cylinder({
-        r: 0.11, h: 1.1, pos: [bx, LAB_Y + 0.55, consoleZ - 0.55], rotX: Math.PI / 2.4, mat: M_RUBBER, cast: false,
-      }));
-      /* The duct at the plinth face is where the bundle actually goes; it
-       * used to be 0.25 m under the end of the bundle it was collecting. */
-      root.add(box({
-        size: [0.34, 0.3, 0.14], pos: [bx, LAB_Y + 0.5, G.z1 + 0.05], mat: M_STEEL_DULL, cast: false, name: 'ss-cable-duct',
-      }));
-      // The loose run lies ON the floor rather than 0.21 m above it.
+     * through actual framed sleeves in the plinth. The former diagonal
+     * cylinders went straight through the uncut concrete, the lower glazing,
+     * and one mullion. Kept out of the door lane like everything else on
+     * this wall. */
+    for (const [bundleIndex, bx] of CABLE_SERVICE_X.entries()) {
+      const assemblyId = `silent-cable-service-${bundleIndex}`;
+      const ductY = (CABLE_DUCT.y0 + CABLE_DUCT.y1) / 2;
+      const duct = geometryIntent(group(`ss-cable-duct-${bundleIndex}`), {
+        assemblyId,
+        fixedSupportAnchor: true,
+      });
+      duct.position.set(bx, ductY, (G.z0 + G.z1) / 2);
+      root.add(duct);
+      const ductWidth = CABLE_DUCT.halfWidth * 2;
+      const ductHeight = CABLE_DUCT.y1 - CABLE_DUCT.y0;
+      const frame = 0.04;
+      const ductDepth = G.z1 - G.z0 + 0.04;
+      for (const side of [-1, 1]) {
+        duct.add(box({
+          size: [frame, ductHeight, ductDepth],
+          pos: [side * (ductWidth - frame) / 2, 0, 0],
+          mat: M_STEEL_DULL,
+          cast: false,
+          name: 'ss-cable-duct-side',
+        }));
+      }
+      for (const side of [-1, 1]) {
+        duct.add(box({
+          size: [ductWidth, frame, ductDepth],
+          pos: [0, side * (ductHeight - frame) / 2, 0],
+          mat: M_STEEL_DULL,
+          cast: false,
+          name: 'ss-cable-duct-rail',
+        }));
+      }
+
+      const throughZ0 = G.z0 - 0.24;
+      const throughZ1 = G.z1 + 0.12;
+      root.add(geometryIntent(cylinder({
+        r: 0.11,
+        h: throughZ1 - throughZ0,
+        pos: [bx, ductY, (throughZ0 + throughZ1) / 2],
+        rotX: Math.PI / 2,
+        mat: M_RUBBER,
+        cast: false,
+        name: `ss-cable-bundle-${bundleIndex}`,
+      }), { assemblyId }));
+
+      /* Drop on the observation side, clear of the concrete face, before
+       * the five loose conductors fan out along the floor to the console. */
+      const dropZ0 = G.z1 + 0.10;
+      const dropZ1 = G.z1 + 0.30;
+      const dropY0 = ductY;
+      const dropY1 = LAB_FLOOR + 0.09;
+      root.add(geometryIntent(cylinder({
+        r: 0.08,
+        h: Math.hypot(dropZ1 - dropZ0, dropY1 - dropY0),
+        pos: [bx, (dropY0 + dropY1) / 2, (dropZ0 + dropZ1) / 2],
+        rotX: Math.PI / 2 - Math.atan2(dropY1 - dropY0, dropZ1 - dropZ0),
+        mat: M_RUBBER,
+        cast: false,
+        name: `ss-cable-drop-${bundleIndex}`,
+      }), { assemblyId }));
+      // The loose run lies ON the floor and begins north of the plinth.
+      const looseZ0 = G.z1 + 0.22;
+      const looseZ1 = consoleZ + 0.55;
       for (let j = 0; j < 5; j++) {
-        root.add(cylinder({
+        root.add(geometryIntent(cylinder({
           r: 0.03,
-          h: 1.3,
-          pos: [bx - 0.1 + j * 0.05, LAB_FLOOR + 0.03, consoleZ - 0.1],
+          h: looseZ1 - looseZ0,
+          pos: [bx - 0.1 + j * 0.05, LAB_FLOOR + 0.03, (looseZ0 + looseZ1) / 2],
           rotX: Math.PI / 2,
           mat: j % 2 ? M_RUBBER : M_PIPE_RED,
           cast: false,
-        }));
+          name: `ss-cable-run-${bundleIndex}-${j}`,
+        }), { assemblyId }));
       }
     }
 
@@ -3144,7 +3330,7 @@ export function buildSilentSquatch({
      * face at G.z1 and the tray still runs the full DRAWER_THROW into the
      * lab, which is the only part of it that has to cross the wall. */
     const drawerX = GLASS_DOOR.x0 - 0.55;
-    const drawerFrame = group('ss-transfer-drawer');
+    const drawerFrame = geometryIntent(group('ss-transfer-drawer'), { assemblyId: 'silent-transfer-drawer' });
     drawerFrame.position.set(drawerX, LAB_Y + 0.28, G.z1 + 0.22);
     root.add(drawerFrame);
     drawerFrame.add(box({ size: [0.9, 0.5, 0.42], pos: [0, 0, 0], mat: M_STEEL_DULL }));
@@ -3224,7 +3410,7 @@ export function buildSilentSquatch({
      * player to walk to it. */
     const snX = R.x1 - 1.5;
     const snZ = G.z1 + 2.3;
-    const sn = group('ss-silent-night');
+    const sn = geometryIntent(group('ss-silent-night'), { assemblyId: 'silent-night-control' });
     sn.position.set(snX, LAB_Y, snZ);
     // Turned toward the corner a player actually walks in from (the
     // `silentNight` anchor, north-west of it) rather than away from it.
@@ -3341,20 +3527,22 @@ export function buildSilentSquatch({
     slab(R.x0, R.x1, LAB_Y + 0.02, R.z0, R.z1, epoxy, 'ss-lab-epoxy', 0.02);
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [0.5, 0.004, 0.14],
         pos: [CORE_AT.x + Math.cos(a) * 2.3, LAB_Y + 0.032, CORE_AT.z + Math.sin(a) * 2.3],
         mat: i % 2 ? mat({ color: 0xc8a41a, roughness: 0.7 }) : M_BLACK,
         rotY: -a,
         cast: false,
-      }));
+      }), { overlap: false }));
     }
 
     /* ---- Six workstations. Six, because there are six people, and the
      * mission counts both. */
     const stations = [];
     const layout = [
-      [R.x0 + 1.7, R.z1 - 1.5, Math.PI],
+      /* The west tank line reaches x0+1.16. Match the south bench's proven
+       * x0+2.1 clearance: x0+1.7 left this bench 380 mm inside tank 3. */
+      [R.x0 + 2.1, R.z1 - 1.5, Math.PI],
       [R.x0 + 5.1, R.z1 - 1.5, Math.PI],
       [R.x1 - 1.7, R.z1 - 1.5, Math.PI],
       /* x0 + 2.1, not + 1.5. The chemical tanks stand on the west wall at
@@ -3369,7 +3557,7 @@ export function buildSilentSquatch({
     ];
     for (let i = 0; i < 6; i++) {
       const [sx, sz, rot] = layout[i];
-      const g = group(`ss-station-${i}`);
+      const g = geometryIntent(group(`ss-station-${i}`), { assemblyId: `silent-station-${i}` });
       g.position.set(sx, LAB_Y, sz);
       g.rotation.y = rot;
       root.add(g);
@@ -3378,7 +3566,11 @@ export function buildSilentSquatch({
       for (const [lx, lz] of [[-0.78, -0.3], [0.78, -0.3], [-0.78, 0.3], [0.78, 0.3]]) {
         g.add(box({ size: [0.05, 0.92, 0.05], pos: [lx, 0.46, lz], mat: M_STEEL_DULL }));
       }
-      prop(sx - 0.88, sx + 0.88, LAB_Y, LAB_Y + 0.96, sz - 0.42, sz + 0.42);
+      const stationCollider = prop(
+        sx - 0.88, sx + 0.88, LAB_Y, LAB_Y + 0.96, sz - 0.42, sz + 0.42,
+      );
+      stationCollider.name = `silent-station-${i}-collider`;
+      geometryIntent(stationCollider, { assemblyId: `silent-station-${i}` });
       // A screen, a rack of vials, and a stool.
       const scr = box({
         size: [0.5, 0.36, 0.02],
@@ -3400,8 +3592,13 @@ export function buildSilentSquatch({
           r: 0.022, h: 0.11, pos: [0.3 + v * 0.07, 1.01, -0.1], mat: M_COOLANT, cast: false,
         }));
       }
-      g.add(cylinder({ r: 0.17, h: 0.05, pos: [0, 0.6, 0.72], mat: M_RUBBER }));
-      g.add(cylinder({ r: 0.04, h: 0.6, pos: [0, 0.3, 0.72], mat: M_STEEL_DULL }));
+      const stoolX = i === 0 ? -0.62 : 0.62;
+      g.add(cylinder({
+        name: `ss-station-${i}-stool-seat`, r: 0.17, h: 0.05, pos: [stoolX, 0.6, 0.72], mat: M_RUBBER,
+      }));
+      g.add(cylinder({
+        name: `ss-station-${i}-stool-stem`, r: 0.04, h: 0.6, pos: [stoolX, 0.3, 0.72], mat: M_STEEL_DULL,
+      }));
       stations.push(g);
     }
 
@@ -3414,16 +3611,26 @@ export function buildSilentSquatch({
     const tanks = [];
     for (let i = 0; i < 4; i++) {
       const tz = R.z0 + 2.2 + i * 1.75;
-      const t = cylinder({
+      const assemblyId = `silent-chemical-tank-${i}`;
+      const mountTank = (object) => {
+        geometryIntent(object, { assemblyId });
+        root.add(object);
+        return object;
+      };
+      const t = mountTank(cylinder({
+        name: `ss-chemical-tank-${i}`,
         r: 0.44, h: 2.0, pos: [R.x0 + 0.7, LAB_Y + 1.0, tz], mat: i % 2 ? M_STEEL : M_STEEL_DULL,
-      });
-      root.add(t);
+      }));
       tanks.push(t);
-      prop(R.x0 + 0.24, R.x0 + 1.16, LAB_Y, LAB_Y + 2.0, tz - 0.46, tz + 0.46);
-      root.add(cylinder({ r: 0.47, h: 0.08, pos: [R.x0 + 0.7, LAB_Y + 2.02, tz], mat: M_STEEL_DULL, cast: false }));
-      root.add(cylinder({ r: 0.47, h: 0.08, pos: [R.x0 + 0.7, LAB_Y + 0.06, tz], mat: M_STEEL_DULL, cast: false }));
+      const tankCollider = prop(
+        R.x0 + 0.24, R.x0 + 1.16, LAB_Y, LAB_Y + 2.0, tz - 0.46, tz + 0.46,
+      );
+      tankCollider.name = `${assemblyId}-collider`;
+      geometryIntent(tankCollider, { assemblyId });
+      mountTank(cylinder({ r: 0.47, h: 0.08, pos: [R.x0 + 0.7, LAB_Y + 2.02, tz], mat: M_STEEL_DULL, cast: false }));
+      mountTank(cylinder({ r: 0.47, h: 0.08, pos: [R.x0 + 0.7, LAB_Y + 0.06, tz], mat: M_STEEL_DULL, cast: false }));
       // A sight glass with purple in it.
-      root.add(box({
+      mountTank(box({
         size: [0.1, 1.2, 0.06], pos: [R.x0 + 1.16, LAB_Y + 1.0, tz], mat: M_COOLANT, cast: false,
       }));
       // Radiation placard.
@@ -3432,7 +3639,7 @@ export function buildSilentSquatch({
       }));
       placard.position.set(R.x0 + 1.155, LAB_Y + 1.72, tz);
       placard.rotation.y = Math.PI / 2;
-      root.add(placard);
+      mountTank(placard);
     }
     /* Two more radiation symbols, big, stencilled on the walls. The south
      * one was at R.z0 - 0.02, i.e. two centimetres INSIDE the south wall
@@ -3505,7 +3712,7 @@ export function buildSilentSquatch({
     for (let i = 0; i < 6; i++) {
       const vx = R.x0 + 1.6 + (i % 3) * ((R.x1 - R.x0 - 3.2) / 2);
       const vz = R.z0 + 2.4 + Math.floor(i / 3) * 4.6;
-      const g = group('ss-vent');
+      const g = geometryIntent(group('ss-vent'), { checkSupport: false });
       // Frame flush INTO the soffit; it used to hang 0.08 m clear of it.
       g.position.set(vx, LAB_CEIL - 0.12, vz);
       root.add(g);
@@ -3573,11 +3780,11 @@ export function buildSilentSquatch({
      * 0.04 tube + 0.08 stanchion) pivoting about y -4.88, the sweep is a
      * 1.30 m sphere, and a fixture centred on the axis at y -3.71 (cage ribs
      * down to -3.85) is inside it -- the ring carved through the light every
-     * revolution. At z + 1.2 the fixture's nearest point is 1.07 m from the
-     * axis, which at rib height needs only 0.79. */
+     * revolution. At z + 1.85 the fixture's nearest point clears the ring's
+     * conservative built AABB as well as its animated sweep. */
     for (const [tx, tz] of [
       [cx - 3.0, R.z0 + 2.0], [cx + 3.0, R.z0 + 2.0],
-      [cx - 3.0, R.z1 - 2.0], [cx + 3.0, R.z1 - 2.0], [cx, CORE_AT.z + 1.2],
+      [cx - 3.0, R.z1 - 2.0], [cx + 3.0, R.z1 - 2.0], [cx, CORE_AT.z + 1.85],
     ]) {
       labTubes.push(fluoro(tx, LAB_CEIL - 0.36, tz, {
         len: 1.7, colour: 0xeaf2ff, intensity: 5.6, range: 12, ceil: LAB_CEIL,
@@ -3653,7 +3860,7 @@ export function buildSilentSquatch({
   };
 
   function buildCore() {
-    const g = group('silent-squatch-core');
+    const g = geometryIntent(group('silent-squatch-core'), { assemblyId: 'silent-squatch-core' });
     g.position.set(CORE_AT.x, LAB_Y, CORE_AT.z);
     root.add(g);
 
@@ -3754,22 +3961,25 @@ export function buildSilentSquatch({
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 + 0.3;
       const len = 2.4 + (i % 3) * 0.8;
-      root.add(cylinder({
-        r: 0.075,
+      const cable = geometryIntent(cylinder({
+        name: `silent-squatch-core-cable-${i}`,
+        r: 0.012,
         h: len,
         pos: [
           CORE_AT.x + Math.cos(a) * (1.0 + len / 2),
-          LAB_Y + 0.09,
+          LAB_Y + 0.012,
           CORE_AT.z + Math.sin(a) * (1.0 + len / 2),
         ],
         rotZ: Math.PI / 2,
         rotY: -a,
         mat: M_RUBBER,
         cast: false,
-      }));
-      root.add(box({
+      }), { assemblyId: 'silent-squatch-core' });
+      root.add(cable);
+      root.add(geometryIntent(box({
+        name: `silent-squatch-core-cable-connector-${i}`,
         size: [0.2, 0.2, 0.2], pos: [CORE_AT.x + Math.cos(a) * 1.05, LAB_Y + 0.12, CORE_AT.z + Math.sin(a) * 1.05], mat: M_STEEL_DULL, cast: false,
-      }));
+      }), { assemblyId: 'silent-squatch-core' }));
     }
 
     /* The Fat Squatch emblem, stamped small on the casing. The completed
@@ -3822,11 +4032,16 @@ export function buildSilentSquatch({
     });
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
-      const arc = box({
+      const arc = geometryIntent(box({
+        name: `silent-squatch-core-arc-${i}`,
         size: [0.028, 0.55, 0.028],
         pos: [CORE_AT.x + Math.cos(a) * 0.98, LAB_Y + 1.3, CORE_AT.z + Math.sin(a) * 0.98],
         mat: arcMat,
         cast: false,
+      }), {
+        assemblyId: 'silent-squatch-core',
+        overlap: false,
+        checkSupport: false,
       });
       arc.rotation.z = (i % 2 ? 1 : -1) * 0.35;
       arc.visible = false;
@@ -4037,7 +4252,7 @@ export function buildSilentSquatch({
    */
   const STATION_AT = [
     { x: CORE_AT.x - 2.2, z: CORE_AT.z, face: Math.PI / 2 },
-    { x: SEALED_LAB.x0 + 1.7, z: SEALED_LAB.z1 - 2.4, face: 0 },
+    { x: SEALED_LAB.x0 + 2.1, z: SEALED_LAB.z1 - 2.4, face: 0 },
     { x: SEALED_LAB.x0 + 5.1, z: SEALED_LAB.z1 - 2.4, face: 0 },
     { x: SEALED_LAB.x1 - 1.7, z: SEALED_LAB.z1 - 2.4, face: 0 },
     /* x0 + 2.1, with his bench: station 3 moved east off the chemical tanks
@@ -4071,13 +4286,10 @@ export function buildSilentSquatch({
   /* case a lane cannot cover: a man who went down early, in the open,        */
   /* somewhere another man is still walking through.                          */
   /* ================================================================== */
-  /** Lane spacing. MEASURED, not guessed: a fallen figure's bounding box runs
-   * up to 1.30 m across once it has rolled, so 1.40 m is the smallest pitch at
-   * which two of them cannot touch. */
-  const LANE_PITCH = 1.4;
-  /** How close two bodies on the floor are allowed to be, centre to centre.
-   * The same 1.30 m plus a little, so the backstop agrees with the lanes. */
-  const CORPSE_GAP = 1.35;
+  /** Lane spacing. MEASURED, not guessed: the sideways terminal pose runs up
+   * to 1.68 m along the glass, so 1.75 m is the smallest pitch that preserves
+   * visible concrete between neighbouring bodies. */
+  const LANE_PITCH = 1.85;
   const DOOR_CENTRE_X = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2;
   /**
    * His own piece of the glass, fanned out either side of the door.
@@ -4089,7 +4301,7 @@ export function buildSilentSquatch({
    * a gap where the door is: the picture the beat wants is five people at the
    * window, and five people at the window are not five people in a heap.
    */
-  const LANE_ORDER = [0, -1, 1, -2, 2, 3];
+  const LANE_ORDER = [0, -2, -1, 0, 1, 2];
   function laneX(index) {
     return THREE.MathUtils.clamp(
       DOOR_CENTRE_X + (LANE_ORDER[index] ?? 0) * LANE_PITCH,
@@ -4097,9 +4309,12 @@ export function buildSilentSquatch({
       SEALED_LAB.x1 - 0.9,
     );
   }
-  /** Which way a body rolls as it goes down. Fixed per man, and no two of the
-   * six the same, so the floor never reads as a row of identical falls. */
-  const COLLAPSE_ROLL = [0.34, -0.52, 0.18, -0.28, 0.46, -0.14];
+  /** Which side a body drops toward. Fixed per man, with small pitch offsets,
+   * so the floor never reads as six copies of one animation. More importantly,
+   * the long axis stays ALONG the glass: the old 1.46-radian forward fall put
+   * heads and shoulders through the pane, door lock, ducts and plinth. */
+  const COLLAPSE_ROLL = [1.46, -1.42, -1.5, -1.45, -1.4, -1.48];
+  const COLLAPSE_PITCH = [0.08, -0.1, 0.12, -0.08, 0.1, -0.12];
 
   /**
    * What working at a bench looks like, cycled per man. See the work loop in
@@ -4124,6 +4339,7 @@ export function buildSilentSquatch({
       lidHeavy: !!spec.lidHeavy,
       iris: 0x4a3a28,
     });
+    geometryIntent(fig.group, { assemblyId: `silent-scientist-${spec.id}` });
     const home = STATION_AT[i];
     fig.place(home.x, home.z, home.face); // +Z is his face; see STATION_AT
     fig.group.position.y = LAB_Y;
@@ -4304,11 +4520,11 @@ export function buildSilentSquatch({
         if (!self.alive) return self;
         self.stage = 'panic';
         fig.playGesture('hands', 3.0);
-        self.goTo(
-          THREE.MathUtils.clamp(fig.group.position.x, SEALED_LAB.x0 + 1, SEALED_LAB.x1 - 1),
-          GLASS_INSIDE_Z,
-          1.9,
-        );
+        /* Panic is the first glass-bound beat, so it must establish the same
+         * per-person lane used by `crawl()`. Keeping each man's workstation x
+         * sent the two centre-row scientists to the same point and made the
+         * aubbie-down checkpoint render them inside one another. */
+        self.goTo(laneX(i), GLASS_INSIDE_Z, 1.9);
         return self;
       },
       /** Hands over the mouth. The stage between panic and choking. */
@@ -4329,11 +4545,7 @@ export function buildSilentSquatch({
       pound(times = 1) {
         if (!self.alive) return self;
         self.stage = 'pounding';
-        self.goTo(
-          THREE.MathUtils.clamp(fig.group.position.x, SEALED_LAB.x0 + 1, SEALED_LAB.x1 - 1),
-          GLASS_INSIDE_Z,
-          1.9,
-        );
+        self.goTo(laneX(i), GLASS_INSIDE_Z, 1.9);
         for (let n = 0; n < times; n++) {
           glassAudio.impact('silent.glass.fist', {
             volume: 0.85,
@@ -4397,10 +4609,18 @@ export function buildSilentSquatch({
           THREE.MathUtils.clamp(fig.group.position.x, GLASS_WALL.x0 + 0.4, GLASS_WALL.x1 - 0.4),
           /* Shoulder height on THIS man, not on a two-metre one. */
           LAB_Y + 1.34 * figScale,
-          GLASS_WALL.z0 - 0.09,
+          /* The 140 mm pane is centred in the 300 mm wall band. Its lab-side
+           * face is midZ-70 mm; leave 1 mm for the transparent decal. The
+           * old z0-90 mm position floated 170 mm in front of that face. */
+          (GLASS_WALL.z0 + GLASS_WALL.z1) / 2 - 0.071,
         );
         m.name = 'ss-handprint';
-        root.add(m);
+        root.add(geometryIntent(m, {
+          assemblyId: `silent-handprint-${i}`,
+          checkSupport: false,
+          fixedSupportAnchor: true,
+          checkWallEmbed: false,
+        }));
         handprints.push({ mesh: m, t: 0 });
         return self;
       },
@@ -4409,15 +4629,38 @@ export function buildSilentSquatch({
         self.alive = false;
         self.stage = 'down';
         self.target = null;
+        /* Do not freeze the final panic/pounding frame into the corpse. Figure
+         * stops all living pose relaxation once `down` is true, so without
+         * this reset the outstretched forearms remain inside the glass-side
+         * fixtures for the rest of the scene. */
+        fig.setPose('stand');
+        fig.armL.shoulder.rotation.z = 0;
+        fig.armR.shoulder.rotation.z = 0;
+        fig.torso.rotation.set(0, 0, 0);
+        fig.torso.position.z = 0;
+        fig.neck.rotation.set(0, 0, 0);
         fig.down = true;
         fig.gesture = null;
         fig.gestureT = 0;
         fig.talkT = 0;
+        /* `walkTo` leaves the yaw of the last diagonal step in place. A
+         * sideways local-space fall from that yaw turns back into a diagonal
+         * fall through the pane, so settle every trapped man facing the glass
+         * he was pounding before pivoting him to the floor. */
+        if (self.inside) {
+          /* Figure.lookAt turns only the neck (and returns once `down` is
+           * true); the body yaw is the transform that controls the fall. */
+          fig.group.rotation.y = 0;
+          fig.neck.rotation.y = 0;
+          fig.neckTarget = 0;
+        }
         self._fall = 0;
+        self._fallBaseY = fig.group.position.y;
         /* Fixed per man rather than random: six random rolls will occasionally
          * hand two neighbours the same one, and the whole point of this pass is
          * that the floor after Silent Night reads as six separate people. */
         self._fallYaw = COLLAPSE_ROLL[i % COLLAPSE_ROLL.length];
+        self._fallPitch = COLLAPSE_PITCH[i % COLLAPSE_PITCH.length];
         /* Measured in the pose he is about to end in, and then put back, so
          * the nudge happens before the fall rather than as a jump after it. */
         poseFallen(self, 1);
@@ -4558,19 +4801,33 @@ export function buildSilentSquatch({
    *
    * Extracted from the update loop so `collapse()` can put him in the pose he
    * is ABOUT to end in, measure it, and put him back — see `separateFallen`.
-   * Felled like a tree, pivoting at the feet, with his own roll on the way.
+   * Pivoting at the feet, with his own sideways drop and slight pitch.
    */
+  const _fallenGroundBounds = new THREE.Box3();
   function poseFallen(s, e) {
     const f = s.fig;
-    f.root.rotation.x = e * 1.46;
+    /* Rotation is about Figure.root, above the soles, so the old final pose
+     * drove shins as much as 970 mm below the epoxy. Start every sample from
+     * the same pre-fall datum, then lift only enough to put the rendered body
+     * on the actual finished floor. This also keeps separation measurements
+     * honest because they now measure the pose the player will see. */
+    f.group.position.y = s._fallBaseY ?? LAB_Y;
+    f.root.rotation.x = e * (s._fallPitch ?? 0);
     f.root.rotation.z = e * (s._fallYaw ?? 0);
     f.pelvis.position.y = 0.92 - e * 0.42;
     f.group.updateMatrixWorld(true);
+    _fallenGroundBounds.setFromObject(f.group);
+    if (!_fallenGroundBounds.isEmpty()) {
+      f.group.position.y += LAB_FLOOR - _fallenGroundBounds.min.y;
+      f.group.updateMatrixWorld(true);
+    }
   }
 
   const _corpseA = new THREE.Box3();
-  /** Concrete between two bodies on the floor. */
-  const CORPSE_MARGIN = 0.12;
+  /** Concrete between rendered bodies on the floor. This matches the public
+   * geometry gate's 3 cm physical-contact convention; the lane pitch carries
+   * the meaningful visual separation. */
+  const CORPSE_MARGIN = 0.03;
   const overlapsXZ = (a, b, margin) => a.min.x - margin < b.max.x && a.max.x + margin > b.min.x
     && a.min.z - margin < b.max.z && a.max.z + margin > b.min.z;
 
@@ -4628,9 +4885,11 @@ export function buildSilentSquatch({
       return boxes.every((b) => !overlapsXZ(_corpseA, b, CORPSE_MARGIN));
     };
     if (clear(start)) return 0;
-    /* Out from where he fell, alternating sides, in 200 mm steps. Twenty of
-     * them is 4 m either way, which is wider than this room's free floor. */
-    for (let step = 1; step <= 20; step++) {
+    /* Out from where he fell, alternating sides, in 200 mm steps. Four steps
+     * keep the backstop inside this man's neighboring-lane envelope; the old
+     * four-metre search could move a clear corpse across two authored lanes
+     * and into a different body or the loose lab chair. */
+    for (let step = 1; step <= 4; step++) {
       for (const side of [1, -1]) {
         const x = THREE.MathUtils.clamp(
           start + side * step * 0.2,
@@ -4656,19 +4915,29 @@ export function buildSilentSquatch({
    * and at -0.4 the chair's backrest (z 47.825..47.875) sat 50 mm inside its
    * corner. 150 mm north clears the bench and keeps it an arm's reach from
    * the glass, which is where beat 9 wants it picked up. */
-  labChair.position.set(CORE_AT.x + 2.6, LAB_Y, GLASS_INSIDE_Z - 0.25);
+  const CHAIR_START = Object.freeze({ x: CORE_AT.x + 2.6, z: GLASS_INSIDE_Z - 0.25 });
+  /* After striking the unbroken pane it falls back into the 1.6 m aisle
+   * between station banks 1 and 2, rather than remaining under the five men
+   * moving to the glass. */
+  const CHAIR_REST = Object.freeze({ x: CORE_AT.x + 1.7, z: GLASS_INSIDE_Z - 1.2 });
+  labChair.position.set(CHAIR_START.x, LAB_FLOOR, CHAIR_START.z);
   root.add(labChair);
   labChair.add(box({ size: [0.44, 0.05, 0.44], pos: [0, 0.46, 0], mat: M_STEEL_DULL }));
   const chairBack = box({ size: [0.44, 0.5, 0.05], pos: [0, 0.73, -0.2], mat: M_STEEL_DULL });
   labChair.add(chairBack);
   const chairLegs = [];
+  const CHAIR_FOOT_HALF_SPAN_X = 0.18 + 0.035 / 2;
   for (const [lx, lz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) {
     const leg = box({ size: [0.035, 0.46, 0.035], pos: [lx, 0.23, lz], mat: M_STEEL_DULL });
     labChair.add(leg);
     chairLegs.push(leg);
   }
   let chairBent = 0;
-  function chairBend() { chairBent = Math.min(1, chairBent + 0.55); }
+  let chairImpactT = 0;
+  function chairBend() {
+    chairBent = Math.max(chairBent, 0.01);
+    chairImpactT = Math.max(chairImpactT, 0.001);
+  }
 
   const scientists = SCIENTIST_SPECS.map((_, i) => buildScientist(i));
   let lifeSigns = scientists.length;
@@ -5696,11 +5965,22 @@ export function buildSilentSquatch({
 
     /* ---- the bent chair. */
     if (chairBent > 0) {
+      chairImpactT = Math.min(1, chairImpactT + dt * 1.8);
+      const rebound = THREE.MathUtils.smoothstep(chairImpactT, 0, 1);
+      chairBent = Math.max(chairBent, rebound);
+      labChair.position.x = THREE.MathUtils.lerp(CHAIR_START.x, CHAIR_REST.x, rebound);
+      labChair.position.z = THREE.MathUtils.lerp(CHAIR_START.z, CHAIR_REST.z, rebound);
       chairBack.rotation.x = -chairBent * 0.75;
       chairBack.scale.y = 1 - chairBent * 0.25;
       chairLegs[0].rotation.z = chairBent * 0.6;
       chairLegs[3].rotation.z = -chairBent * 0.45;
-      labChair.rotation.z = chairBent * 0.25;
+      const chairTilt = chairBent * 0.25;
+      labChair.rotation.z = chairTilt;
+      /* The root starts on the floor. Tilting around that root otherwise
+       * rotates the west feet through the slab by almost five centimetres.
+       * Lift by the rotated outside foot span so the bent chair visibly falls
+       * back into the aisle while its lowest foot remains on LAB_Y. */
+      labChair.position.y = LAB_FLOOR + CHAIR_FOOT_HALF_SPAN_X * Math.sin(chairTilt);
     }
 
     /* ---- the gas. */
@@ -6188,4 +6468,3 @@ export function buildSilentSquatch({
     cues: SILENT_SQUATCH_CUES,
   };
 }
-

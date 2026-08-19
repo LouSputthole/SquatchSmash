@@ -1,3 +1,5 @@
+import { assistTimingWindow } from '../../core/assist-timing.js';
+
 const VALID_STATES = new Set(['idle', 'armed', 'neutralized', 'expired']);
 
 function seconds(value) {
@@ -32,7 +34,8 @@ export class ReactionWindow {
   start({ readinessBonus = false } = {}) {
     if (this.state !== 'idle') return false;
     this.readinessBonus = Boolean(readinessBonus);
-    this.windowSeconds = this.baseWindowSeconds + (this.readinessBonus ? 0.3 : 0);
+    const authoredWindow = this.baseWindowSeconds + (this.readinessBonus ? 0.3 : 0);
+    this.windowSeconds = assistTimingWindow(authoredWindow);
     this.state = 'armed';
     this.elapsed = 0;
     return true;

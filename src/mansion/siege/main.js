@@ -42,6 +42,7 @@ import { PostFX } from '../../core/postfx.js';
 import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
 import { translateKey, shakeScale } from '../../core/settings.js';
+import { writeGameplayPromptKey } from '../../core/gameplay-key-adapter.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
@@ -138,7 +139,7 @@ const helpingBarEl = $('helpingBar');
 const tinyHud = {
   showPrompt(label, key = 'E') {
     if (!promptEl) return;
-    promptKeyEl.textContent = key;
+    writeGameplayPromptKey(promptKeyEl, key);
     promptLabelEl.innerHTML = label;
     promptEl.classList.remove('hidden');
   },
@@ -291,14 +292,19 @@ const dressing = buildSiegeDressing({
 });
 scene.add(dressing.root);
 
-const glass = buildSiegeGlass({ damage, grounds, interior });
-scene.add(glass.root);
-
 /* ================================================================== */
 /* Audio                                                                 */
 /* ================================================================== */
 const audio = new AudioEngine();
 const missionAudio = new SiegeMissionAudio(audio);
+const glass = buildSiegeGlass({
+  damage,
+  grounds,
+  interior,
+  onCrack: ({ position }) => missionAudio.glassCracked(position),
+  onShatter: ({ position }) => missionAudio.glassShattered(position),
+});
+scene.add(glass.root);
 const SIEGE_COMBAT_CUES = Object.freeze([...new Set([
   ...GROUND_COMBAT_AUDIO_CUES,
   'heist.player.hit',
@@ -789,6 +795,12 @@ function resolvePlayerWeaponImpact(impact) {
   if (!attackers || !impact?.object) return [];
   const combatant = combatantForObject(impact.object);
   if (!combatant) {
+    const paneId = ancestorData(impact.object, 'siegeGlassPaneId');
+    /* An intact authored pane owns its first-hit presentation: the crack
+     * overlay is the visible mark and its injected callback is the one glass
+     * impact cue. Once cracked, ordinary impacts fall back to the shared
+     * decal/audio path. That prevents the first round sounding twice. */
+    if (paneId && glass.crack(paneId)) return [];
     presentWorldImpact(impact);
     return [];
   }
@@ -1418,7 +1430,6 @@ function shatterNearest({ x, z, opening }) {
       if (entry.window !== opening) continue;
       if (entry.state === 'broken') return null;
       if (glass.shatter(id)) {
-        missionAudio.glassShattered({ x, y: 1.2, z });
         ensemble.noteImpact({ x, y: 1.2, z }, 7);
         return id;
       }
@@ -1440,7 +1451,6 @@ function shatterNearest({ x, z, opening }) {
     if (distance < bestDistance) { bestDistance = distance; best = id; }
   }
   if (best && glass.shatter(best)) {
-    missionAudio.glassShattered({ x, y: 1.2, z });
     ensemble.noteImpact({ x, y: 1.2, z }, 7);
     return best;
   }

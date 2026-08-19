@@ -29,6 +29,8 @@
  * `onChange`.
  */
 
+import { registerSceneRenderer } from './scene-lifecycle.js';
+
 /** Shared cap on `devicePixelRatio`. 1.5x on a 2x display is 56% of the pixels of 2x. */
 export const PIXEL_RATIO_CAP = 1.5;
 /**
@@ -38,6 +40,22 @@ export const PIXEL_RATIO_CAP = 1.5;
  * 1.25 on a 2x display.
  */
 export const PIXEL_RATIO_CAP_HEAVY = 1.25;
+
+export const HEAVY_SCENE_ENTRYPOINTS = Object.freeze([
+  'beefrun.html',
+  'enolasquatch.html',
+  'silver.html',
+  'nowake.html',
+  'mansion.html',
+  'mansion-siege.html',
+]);
+
+export function pixelRatioCapForScene(loc = globalThis.location) {
+  const pathname = String(loc?.pathname ?? '').toLowerCase();
+  const entry = pathname.split('/').filter(Boolean).at(-1) ?? '';
+  return HEAVY_SCENE_ENTRYPOINTS.includes(entry) ? PIXEL_RATIO_CAP_HEAVY : PIXEL_RATIO_CAP;
+}
+
 /** Never render below this many device pixels per CSS pixel. */
 export const PIXEL_RATIO_FLOOR = 0.6;
 
@@ -183,7 +201,9 @@ export function initialPixelRatio(cap = PIXEL_RATIO_CAP, {
  *   handles by re-fitting renderer, camera and post-processing.
  * @returns {{ ratio: number, initial: number, level: number, adaptive: boolean, dispose(): void }}
  */
-export function attachPixelRatio(renderer, { cap = PIXEL_RATIO_CAP, onChange } = {}) {
+export function attachPixelRatio(renderer, { cap = pixelRatioCapForScene(), onChange } = {}) {
+  const unregisterRenderer = registerSceneRenderer(renderer);
+  let disposed = false;
   const initial = initialPixelRatio(cap);
   renderer.setPixelRatio(initial);
   const adaptive = !isDeterministicRun()
@@ -200,7 +220,12 @@ export function attachPixelRatio(renderer, { cap = PIXEL_RATIO_CAP, onChange } =
     adaptive,
     changes: 0,
     policy: null,
-    dispose() { control.adaptive = false; },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      control.adaptive = false;
+      unregisterRenderer();
+    },
   };
   if (!adaptive) {
     globalThis.__pixelRatio = control;

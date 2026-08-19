@@ -85,6 +85,7 @@ export class HeistFigure {
   } = {}) {
     this.root = new THREE.Group();
     this.root.name = name;
+    this.root.userData.geometryGate = { assemblyId: `heist.figure.${name}` };
     this.root.position.set(x, y, z);
     this.root.rotation.y = yaw;
     this.tilt = new THREE.Group();

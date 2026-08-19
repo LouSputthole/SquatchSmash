@@ -19,6 +19,7 @@ import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { FocusRush } from '../core/focus-rush.js';
+import { TimingBar } from '../core/timingbar.js';
 import { Phone } from '../core/phone.js';
 import { Radio } from '../core/radio.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
@@ -51,6 +52,11 @@ import { createLicenseToGrill } from './license-to-grill-runtime.js';
 import { QUEST as LICENSE_TO_GRILL_QUEST } from './license-to-grill.js';
 import { BingAudioEngine } from './audio.js';
 import { populate, makeAssociate } from './cast.js';
+import {
+  BING_PERFORMER_BATHROOM_ACTOR_MARKER,
+  BING_PERFORMER_BATHROOM_CUES,
+  createBingPerformerBathroom,
+} from './performer-bathroom.js';
 import {
   familyPresent,
   loadFaceIndex,
@@ -512,6 +518,21 @@ await club.artReady;
 window.__squatchStage?.('Letting people in…');
 const cast = populate(scene, club, { includeMargo: !isSecondVisit });
 const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders, club.navBlockers);
+const performerBathroom = createBingPerformerBathroom({
+  actor: cast.byName.performer3,
+  door: club.doors.mens,
+  player,
+  interaction,
+  audio,
+  hud,
+  timingBar: TimingBar,
+  onDoorOpen: (door) => audio.play('door.creak', {
+    volume: 0.48,
+    position: door.pivot.position,
+  }),
+  onReady: () => repaintObjectives(),
+  onComplete: () => repaintObjectives(),
+});
 
 /* ---- the Family ----
  * Everyone from the owner's locked table hangs out here between missions,
@@ -1117,6 +1138,12 @@ function optionalObjectives() {
     { id: 'cards', text: 'Play blackjack', optional: true, done: (mission.hands || 0) > 0 },
     { id: 'tip', text: 'Tip the performers', optional: true, done: (game.tips || 0) > 0 },
     { id: 'drink', text: 'Order a drink from the bar', optional: true, done: (mission.drinks || 0) > 0 },
+    ...(!isSecondVisit && (game.tips || 0) >= 3 ? [{
+      id: 'performer-bathroom',
+      text: 'Help the performer in the men’s room',
+      optional: true,
+      done: performerBathroom.complete,
+    }] : []),
   ];
   if (!isSecondVisit) {
     list.push({
@@ -1148,7 +1175,7 @@ function objectivesTick() {
   const sig = `${mission.objectives.map((o) => (o.done ? 1 : 0)).join('')}`
     + `|${mission.objectives.length}|${spokeTo.size}|${mission.spins || 0}|${mission.hands || 0}`
     + `|${mission.drinks || 0}|${game.tips || 0}|${game.songRequested ? 1 : 0}`
-    + `|${licenseToGrill?.phase ?? 'unmounted'}`;
+    + `|${performerBathroom.state}|${licenseToGrill?.phase ?? 'unmounted'}`;
   if (sig === objectiveSig) return;
   objectiveSig = sig;
   repaintObjectives();
@@ -2030,9 +2057,24 @@ const stageTalk = {
   pad.position.set(club.anchors.runway.x, 1.3, club.anchors.runway.z);
   scene.add(pad);
   reg(pad, {
-    label: () => (game.money >= 20 ? 'Tip the <b>performer</b> ($20)' : 'Tip the <b>performer</b> — no cash'),
-    enabled: () => game.money >= 20,
+    label: () => {
+      if (performerBathroom.stageAction(game.tips || 0, isSecondVisit) === 'invite') {
+        return 'Ask the <b>performer</b> to follow you to the men’s room';
+      }
+      return game.money >= 20
+        ? 'Tip the <b>performer</b> ($20)'
+        : 'Tip the <b>performer</b> — no cash';
+    },
+    enabled: () => (
+      performerBathroom.stageAction(game.tips || 0, isSecondVisit) === 'invite'
+      || game.money >= 20
+    ),
     onUse: () => {
+      if (performerBathroom.stageAction(game.tips || 0, isSecondVisit) === 'invite') {
+        performerBathroom.invite(game.tips || 0);
+        repaintObjectives();
+        return;
+      }
       addMoney(-20);
       game.tips = (game.tips || 0) + 1;
       audio.play('chips.place', { volume: 0.4 });
@@ -2041,7 +2083,10 @@ const stageTalk = {
       if (her) dialogue.start(stageTalk, game.tips === 1 ? 'first' : 'again', her);
       hud.say(game.tips === 1
         ? 'Twenty on the edge of the runway. It goes without either of you acknowledging it.'
-        : 'Another twenty. You are going to run out before she does.', 4200);
+        : game.tips === 3
+          ? 'The third twenty disappears. She gives you a look that makes the next question possible.'
+          : 'Another twenty. You are going to run out before she does.', 4200);
+      repaintObjectives();
     },
   });
 }
@@ -2066,6 +2111,27 @@ const stageTalk = {
     label: 'Read the <b>wall</b>',
     onUse: () => hud.say('BOOSKI WAS HERE. APE IS A CHEAT. SHUBES CRIED. Underneath, in different pen: '
       + '<em>he did not cry.</em>', 5200),
+  });
+
+  const performerPad = new THREE.Mesh(
+    new THREE.BoxGeometry(1.15, 1.75, 1.15),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  performerPad.name = 'bing-performer-bathroom-interaction';
+  performerPad.position.set(
+    BING_PERFORMER_BATHROOM_ACTOR_MARKER.x,
+    0.9,
+    BING_PERFORMER_BATHROOM_ACTOR_MARKER.z,
+  );
+  scene.add(performerPad);
+  reg(performerPad, {
+    label: () => (performerBathroom.ready
+      ? 'Help the <b>performer</b> with her strap'
+      : performerBathroom.complete
+        ? 'The <b>performer</b> checks the mirror'
+        : 'The <b>performer</b> is on her way'),
+    enabled: () => performerBathroom.ready,
+    onUse: () => performerBathroom.start(),
   });
 
   for (const stall of club.anchors.stalls) {
@@ -3020,6 +3086,7 @@ const pauseMenu = createPauseMenu({
     'Tab — pause and review the current objective.',
   ],
   onPause: () => {
+    if (performerBathroom.active) performerBathroom.abandon();
     game.paused = true;
     player.enabled = false;
     keys.clear();
@@ -3073,6 +3140,11 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') e.preventDefault();
   keys.add(e.code);
   player.setKey(translateKey(e.code), true);
+
+  if (performerBathroom.active) {
+    if (e.code === 'KeyE') { performerBathroom.press(); e.preventDefault(); return; }
+    if (e.code === 'KeyQ') { performerBathroom.abandon(); e.preventDefault(); return; }
+  }
 
   if (e.code === 'KeyE') {
     /* The phone takes [E] first while it is out. Same rule as the flat: a
@@ -3240,7 +3312,9 @@ startBtn.addEventListener('click', async () => {
   const radioCueNames = carRadio.preloadCueNames({
     hours: [campaign.state.story.timeMinutes / 60],
   });
-  const sfx = await audio.loadManifest({ names: radioCueNames });
+  const sfx = await audio.loadManifest({
+    names: [...radioCueNames, ...BING_PERFORMER_BATHROOM_CUES],
+  });
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
 
   overlay.classList.add('hidden');
@@ -3581,6 +3655,8 @@ function frame() {
 
   licenseToGrill.update(dt);
   for (const npc of cast.all) npc.update(dt, player.position);
+  // Runs after the generic NPC loop so its authored walk/strap poses win the frame.
+  performerBathroom.update(dt);
   if (game.associateWalking) {
     associate.update(dt, player.position);
     const d = Math.hypot(associate.group.position.x - player.position.x, associate.group.position.z - player.position.z);
@@ -3612,7 +3688,7 @@ window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
   interaction, drunk, highs, focusRush, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
   family, familyScripts, faceIndex,
-  licenseToGrill, shubenatorSignature,
+  licenseToGrill, shubenatorSignature, performerBathroom,
   isSecondVisit, secondVisitStory,
   phone, phoneStory, spokeTo, stageTalk, voiceCue,
   updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck, getInCar, getOutOfCar,

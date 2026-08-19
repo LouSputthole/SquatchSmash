@@ -120,8 +120,20 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
     g.add(box({ size: [0.05, top - 0.04, 0.05], pos: [lx, (top - 0.04) / 2, z0 + d - 0.06], mat: M.darkSteel }));
     g.add(box({ size: [0.04, 0.04, d - 0.12], pos: [lx, 0.08, z], mat: M.darkSteel }));
   }
-  // Cable tray + a cable spilling over the back.
-  g.add(box({ size: [w - 0.5, 0.03, 0.10], pos: [x, top - 0.12, z0 + 0.12], mat: M.plasticGrey }));
+  // Cable tray + two visible hangers into the underside of the desktop.  The
+  // old tray stopped 6.5 cm below the desk and therefore read as suspended in
+  // air from the seated view.
+  const trayY = top - 0.12;
+  g.add(box({ size: [w - 0.5, 0.03, 0.10], pos: [x, trayY, z0 + 0.12], mat: M.plasticGrey }));
+  const trayTop = trayY + 0.015;
+  const hangerHeight = (top - 0.04) - trayTop;
+  for (const hangerX of [x - w * 0.31, x + w * 0.31]) {
+    g.add(box({
+      size: [0.035, hangerHeight, 0.08],
+      pos: [hangerX, trayTop + hangerHeight / 2, z0 + 0.12],
+      mat: M.darkSteel,
+    }));
+  }
 
   /* ---- monitor ---- */
   const monX = x - 0.22;
@@ -138,6 +150,10 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
     size: [0.062, 0.32, 0.050], pos: [monX, top + 0.17, monBaseZ - 0.025], mat: M.plasticBlack,
   });
   monitorNeck.name = 'monitor-neck';
+  const primaryMonitorAssembly = 'apartment-desk-monitor-primary';
+  for (const fixture of [monitorBase, monitorNeck]) {
+    fixture.userData.geometryGate = { assemblyId: primaryMonitorAssembly };
+  }
   g.add(monitorNeck);
   // Panel: 16:9, tilted back a touch.
   const panel = group('panel');
@@ -151,6 +167,7 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
   // Power LED.
   const powerLed = box({ size: [0.012, 0.006, 0.004], pos: [0.37, -0.232, 0.004], mat: M.bulbOff });
   panel.add(powerLed);
+  panel.userData.geometryGate = { assemblyId: primaryMonitorAssembly };
   g.add(panel);
 
   /* ---- second monitor, portrait, for the things that are not the game ----
@@ -158,8 +175,13 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
    */
   const sideX = x + 0.62;
   const sideZ = z0 + 0.16;
-  g.add(box({ size: [0.20, 0.016, 0.18], pos: [sideX, top + 0.008, sideZ], mat: M.plasticBlack }));
-  g.add(box({ size: [0.045, 0.26, 0.045], pos: [sideX, top + 0.14, sideZ], mat: M.plasticBlack }));
+  const sideMonitorAssembly = 'apartment-desk-monitor-side';
+  const sideBase = box({ size: [0.20, 0.016, 0.18], pos: [sideX, top + 0.008, sideZ], mat: M.plasticBlack });
+  const sideNeck = box({ size: [0.045, 0.26, 0.045], pos: [sideX, top + 0.14, sideZ], mat: M.plasticBlack });
+  for (const fixture of [sideBase, sideNeck]) {
+    fixture.userData.geometryGate = { assemblyId: sideMonitorAssembly };
+    g.add(fixture);
+  }
   const sidePanel = group('sidepanel');
   /* The panel is turned 24 degrees to face the chair, which means its back
    * plane sweeps diagonally across the neck standing behind it -- one edge
@@ -178,6 +200,7 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
   const sideScreen = plane(0.234, 0.376, M.screenOff.clone());
   sideScreen.position.set(0, 0.008, 0.001);
   sidePanel.add(sideScreen);
+  sidePanel.userData.geometryGate = { assemblyId: sideMonitorAssembly };
   g.add(sidePanel);
   /* Live: messages land on the in-game clock. See src/core/chat.js. */
   const chatScreen = chatScreenTexture();
@@ -598,7 +621,9 @@ export function makeFridge(M, { x, z, w = 0.80, d = 0.72, h = 1.85 }) {
     light,
     beerSlots,
     handlePos: new THREE.Vector3(x0 - 0.02, 1.02, z0 + 0.13),
-    bounds: [[x0, 0, z0], [x0 + d, h, z0 + w]],
+    // Stop the collision volume at the room-side face of the padded wall
+    // collider. The rendered fridge remains fitted against the wall.
+    bounds: [[x0, 0, z0], [x0 + d - 0.04, h, z0 + w]],
     // So the caller can stock the shelves and stand things on the lid.
     interior: { x0: inX0, x1: inX1, z0: inZ0, z1: inZ1, shelfY },
     top: h,
@@ -790,7 +815,9 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     pos: [wallX - upD - 0.012, (mwY + 0.16 + upY1) / 2, mwZ], mat: M.cabinet,
   }));
   pull(wallX - upD - 0.022, mwY + 0.30, mwZ, 0.14);
-  g.add(box({ size: [0.30, 0.05, 0.50], pos: [wallX - 0.20, mwY + 0.175, mwZ], mat: M.darkSteel }));
+  // Thin mounting plate bridging the microwave top to the cabinet. The old
+  // 5 cm slab buried 4 cm of itself inside the cabinet floor.
+  g.add(box({ size: [0.30, 0.012, 0.50], pos: [wallX - 0.20, mwY + 0.156, mwZ], mat: M.darkSteel }));
 
   const mwDoor = plane(0.30, 0.21, new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.25 }));
   mwDoor.position.set(wallX - 0.421, mwY, mwZ - 0.09);
@@ -811,7 +838,9 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   return {
     group: g,
     top,
-    bounds: [[x0 - 0.04, 0, z0], [wallX, top, z1]],
+    // The renderer reaches the wall; the padded collision box stops at the
+    // room-side face of the wall's own padded collider.
+    bounds: [[x0 - 0.04, 0, z0], [wallX - 0.04, top, z1]],
     upperBounds: [[wallX - upD, upY0, z0], [wallX, upY1, z1]],
     sinkPos: new THREE.Vector3(x0, top + 0.1, sinkZ),
     /** Where water leaves the spout, and where it lands in the basin. */
@@ -2977,20 +3006,29 @@ export const CLOSET_RAIL_Y = 1.74;
  * of { texture, colour, w } — a texture makes it a shirt with a print on it,
  * a colour makes it something plain hanging next to it.
  */
-export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = null }) {
+export function makeCloset(M, {
+  x0, x1, z0, z1, h = 2.05, garments = [], back = null,
+  architectureAssembly = null, railAssembly = null,
+}) {
   const g = group('closet');
   const shell = mat({ color: 0xcfc7ba, roughness: 0.95 });
   const W = x1 - x0, D = z1 - z0;
   const cx = (x0 + x1) / 2;
+  const addArchitecture = (mesh) => {
+    if (architectureAssembly) {
+      mesh.userData.geometryGate = { assemblyId: architectureAssembly, structural: true };
+    }
+    g.add(mesh);
+  };
 
   // Its own box, since this is carved out beyond the room's shell.
-  g.add(boxFrom(x0, -0.1, z0, x1, 0, z1, M.floor, { cast: false }));
-  g.add(boxFrom(x0, h, z0, x1, h + 0.1, z1, shell, { cast: false }));
-  g.add(boxFrom(x0 - 0.14, 0, z1, x1 + 0.14, h, z1 + 0.14, shell, { cast: false }));   // back
-  g.add(boxFrom(x0 - 0.14, 0, z0, x0, h, z1, shell, { cast: false }));                 // sides
-  g.add(boxFrom(x1, 0, z0, x1 + 0.14, h, z1, shell, { cast: false }));
+  addArchitecture(boxFrom(x0, -0.1, z0, x1, 0, z1, M.floor, { cast: false }));
+  addArchitecture(boxFrom(x0, h, z0, x1, h + 0.1, z1, shell, { cast: false }));
+  addArchitecture(boxFrom(x0 - 0.14, 0, z1, x1 + 0.14, h, z1 + 0.14, shell, { cast: false }));   // back
+  addArchitecture(boxFrom(x0 - 0.14, 0, z0, x0, h, z1, shell, { cast: false }));                 // sides
+  addArchitecture(boxFrom(x1, 0, z0, x1 + 0.14, h, z1, shell, { cast: false }));
   // Skirting, so it belongs to the same flat.
-  g.add(boxFrom(x0, 0, z1 - 0.02, x1, 0.09, z1, M.trim, { cast: false }));
+  addArchitecture(boxFrom(x0, 0, z1 - 0.02, x1, 0.09, z1, M.trim, { cast: false }));
 
   /* What is on the back wall. Hung high enough that the clothes cover it and
    * low enough that it is at eye height once they are out of the way. */
@@ -3018,7 +3056,10 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
 
   // Rail, and a shelf over it.
   const RAIL_Y = CLOSET_RAIL_Y;
-  g.add(cylinder({ r: 0.016, h: W, pos: [cx, RAIL_Y, z0 + D * 0.5], rotZ: Math.PI / 2, mat: M.chrome }));
+  const rail = cylinder({ r: 0.016, h: W, pos: [cx, RAIL_Y, z0 + D * 0.5], rotZ: Math.PI / 2, mat: M.chrome });
+  rail.name = 'closet-rail';
+  if (railAssembly) rail.userData.geometryGate = { assemblyId: railAssembly };
+  g.add(rail);
   g.add(box({ size: [W, 0.030, D * 0.86], pos: [cx, RAIL_Y + 0.20, z0 + D * 0.5], mat: M.darkWood }));
 
   /* The clothes. One group so they can be shoved as a unit, but each garment
@@ -3026,7 +3067,14 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
   const clothes = new THREE.Group();
   g.add(clothes);
   const hangers = [];
-  const span = W - 0.26;
+  /* Printed shirts are die-cut at 1.55x their nominal width. Base the home
+   * spacing on that widest possible silhouette so neither end garment clips
+   * through the closet jamb; the crowded overlap between shirts is deliberate. */
+  const maxGarmentHalfWidth = garments.reduce(
+    (largest, item) => Math.max(largest, (item.w ?? 0.42) * 0.775),
+    0,
+  );
+  const span = Math.max(0, W - maxGarmentHalfWidth * 2);
   const step = garments.length > 1 ? span / (garments.length - 1) : 0;
   const startX = cx - span / 2;
 
@@ -3124,6 +3172,7 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
     clothes,
     hangers,
     picture,
+    rail,
     railY: RAIL_Y,
     /** Where the player has to be looking to shove them. */
     centre: new THREE.Vector3(cx, 1.35, z0 + D * 0.5),

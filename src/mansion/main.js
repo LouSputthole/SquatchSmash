@@ -36,6 +36,7 @@ import { buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
 import { translateKey, shakeScale } from '../core/settings.js';
+import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
@@ -72,6 +73,13 @@ import {
   MANSION_RETURN_REPORT, mansionReturnObjective, mansionVisitMode,
 } from './campaign.js';
 import { createNpcSpeechGate } from './npc-speech-gate.js';
+import {
+  GUEST_SLEEP_AUDIO_SECONDS,
+  MANSION_INTERACTION_CUE_NAMES,
+  playGuestBedSleep,
+  playTheatreSit,
+  playTheatreStand,
+} from './interaction-audio.js';
 import { StreamSystem } from '../world/stream.js';
 import { SmokeSystem } from '../world/smoke.js';
 import { createBongBehavior, registerInteractiveBong } from '../world/bong.js';
@@ -134,7 +142,7 @@ const tinyHud = {
   showPrompt(label, key = 'E') {
     promptLabelEl.innerHTML = label;
     const passive = key === 'LOOK';
-    promptKeyEl.textContent = passive ? '' : key;
+    writeGameplayPromptKey(promptKeyEl, passive ? '' : key);
     promptKeyEl.classList.toggle('hidden', passive);
     promptEl.classList.remove('hidden');
   },
@@ -933,7 +941,16 @@ if (interior.props.guestRoom.bed) {
     onUse: () => {
       const rested = mansionCampaign.story?.restAtMansion?.();
       if (!rested?.ok) return false;
-      mansionCampaign.navigate(SCENE_IDS.MANSION_SIEGE, { spawn: 'guest_suite' });
+      const position = interior.props.guestRoom.bed.getWorldPosition(new THREE.Vector3());
+      playGuestBedSleep(audio, position);
+      /* Navigation replaces the page and its AudioContext. Hold it for the
+       * two short, scheduled bedding beats instead of cutting the creak off
+       * on the same tick it was requested. The durable rest flag above makes
+       * the target unavailable during this bounded settle. */
+      window.setTimeout(
+        () => mansionCampaign.navigate(SCENE_IDS.MANSION_SIEGE, { spawn: 'guest_suite' }),
+        GUEST_SLEEP_AUDIO_SECONDS * 1000,
+      );
       return true;
     },
   });
@@ -1103,6 +1120,7 @@ function sitInTheatre(seat) {
   })) return false;
   activeTheatreSeat = seat;
   interaction.setPaused(true);
+  playTheatreSit(audio, seat.getWorldPosition(new THREE.Vector3()));
   player.sitAt({
     position: new THREE.Vector3(data.pose.x, data.pose.y, data.pose.z),
     yaw: data.pose.yaw,
@@ -1116,9 +1134,11 @@ function sitInTheatre(seat) {
 }
 
 function standFromTheatre() {
-  const data = activeTheatreSeat?.userData?.theatreSeat;
+  const seat = activeTheatreSeat;
+  const data = seat?.userData?.theatreSeat;
   if (!data) return false;
   interaction.setPaused(true);
+  playTheatreStand(audio, seat.getWorldPosition(new THREE.Vector3()));
   activeTheatreSeat = null;
   /* Player.standFrom assumes the apartment floor is world Y zero. This room
    * is at -2.8, so use this scene's floor-aware teleport instead. */
@@ -1842,6 +1862,7 @@ async function beginTour() {
       ...weaponCueNames(),
       ...silentSquatchCueNames(),
       ...MANSION_CAST_CUE_NAMES,
+      ...MANSION_INTERACTION_CUE_NAMES,
       ...PEE_CUE_NAMES,
       'bing.line.snort',
     ],

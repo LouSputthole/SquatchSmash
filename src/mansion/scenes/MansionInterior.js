@@ -572,6 +572,8 @@ function inRect(r, x, z) {
 /* ================================================================== */
 /* buildMansionInterior(shell)                                          */
 /* ================================================================== */
+/* GEOMETRY_GATE_MANSION_INTERIOR_FINISH_JOIN: exact room finish, millwork, railing, furniture and compound-prop parts intentionally lap only their fitted mating faces. */
+/* GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN: exact room-shell and fixture collider solids intentionally key into adjoining cases, jambs, slabs and wall runs. */
 export function buildMansionInterior(shell = null) {
   const GY = shell?.GROUND_Y ?? GROUND_Y;
   const UY = shell?.UPPER_Y ?? UPPER_Y;
@@ -606,6 +608,21 @@ export function buildMansionInterior(shell = null) {
   function named(mesh, name) {
     mesh.name = name;
     return mesh;
+  }
+
+  function geometryIntent(object, policy) {
+    object.userData ??= {};
+    object.userData.geometryGate = { ...(object.userData.geometryGate ?? {}), ...policy };
+    return object;
+  }
+
+  /** A bounded authored fixture fastened to a wall or soffit. */
+  function fixedFixture(object, assemblyId) {
+    return geometryIntent(object, {
+      assemblyId,
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    });
   }
 
   /** Opt-in support surface for Siege actor grounding. A material/normal
@@ -672,7 +689,9 @@ export function buildMansionInterior(shell = null) {
   }
 
   /** A solid wall segment: mesh + matching collider. */
-  function wallSeg(x0, x1, y0, y1, z0, z1, material = M_WALL, tag = 'wall') {
+  function wallSeg(
+    x0, x1, y0, y1, z0, z1, material, tag, assemblyId, segmentIndex,
+  ) {
     const m = box({
       size: [x1 - x0, y1 - y0, z1 - z0],
       pos: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2],
@@ -680,6 +699,7 @@ export function buildMansionInterior(shell = null) {
       name: tag,
     });
     root.add(m);
+    geometryIntent(m, { wall: true, assemblyId });
     occluders.push(m);
     const combatMaterial = combatMaterialFor(material) ?? 'concrete';
     m.userData.combatMaterial = combatMaterial;
@@ -688,7 +708,12 @@ export function buildMansionInterior(shell = null) {
      * wall across the upper floor. */
     const contact = solid(x0, x1, y0, wallColliderTop(y1), z0, z1);
     contact.combatMaterial = combatMaterial;
-    contact.userData = { ...(contact.userData ?? {}), combatMaterial };
+    contact.name = `${tag}-collider-${segmentIndex}`;
+    contact.userData = {
+      ...(contact.userData ?? {}),
+      combatMaterial,
+      geometryGate: { ...(contact.userData?.geometryGate ?? {}), assemblyId },
+    };
     return contact;
   }
 
@@ -710,10 +735,19 @@ export function buildMansionInterior(shell = null) {
   }) {
     const a0 = at - thickness / 2;
     const a1 = at + thickness / 2;
+    const assemblyId = [
+      'mansion-partition', tag, axis, at, u0, u1, y0, y1,
+    ].join(':');
+    let segmentIndex = 0;
     const seg = (ua, ub, ya, yb, name, mtl = material) => {
       if (ub - ua < 1e-4 || yb - ya < 1e-4) return;
-      if (axis === 'x') wallSeg(a0, a1, ya, yb, ua, ub, mtl, name);
-      else wallSeg(ua, ub, ya, yb, a0, a1, mtl, name);
+      const index = segmentIndex;
+      segmentIndex += 1;
+      if (axis === 'x') {
+        wallSeg(a0, a1, ya, yb, ua, ub, mtl, name, assemblyId, index);
+      } else {
+        wallSeg(ua, ub, ya, yb, a0, a1, mtl, name, assemblyId, index);
+      }
     };
     const cuts = new Set([u0, u1]);
     for (const o of openings) {
@@ -751,19 +785,19 @@ export function buildMansionInterior(shell = null) {
       const t = thickness + 0.06;
       const put = (ua, ub, ya, yb) => {
         if (axis === 'x') {
-          root.add(box({
+          root.add(geometryIntent(box({
             size: [t, yb - ya, ub - ua],
             pos: [at, (ya + yb) / 2, (ua + ub) / 2],
             mat: M_TRIM,
             name: `${tag}-case`,
-          }));
+          }), { assemblyId }));
         } else {
-          root.add(box({
+          root.add(geometryIntent(box({
             size: [ub - ua, yb - ya, t],
             pos: [(ua + ub) / 2, (ya + yb) / 2, at],
             mat: M_TRIM,
             name: `${tag}-case`,
-          }));
+          }), { assemblyId }));
         }
       };
       /* THE LINING LAPS THE REVEAL, IT DOES NOT BUTT ONTO IT.
@@ -864,15 +898,15 @@ export function buildMansionInterior(shell = null) {
    */
   const balusterPlacements = [];
   /** One turned baluster: a shaft with a collar top and bottom. */
-  function baluster(x, yBase, z, height) {
-    balusterPlacements.push({ x, yBase, z, height });
+  function baluster(x, yBase, z, height, assemblyId) {
+    balusterPlacements.push({ x, yBase, z, height, assemblyId });
   }
 
   /** A newel post with a ball finial -- what makes a run read as ending. */
-  function newel(x, yBase, z, height = RAIL_H + 0.22) {
-    const post = box({
+  function newel(x, yBase, z, height = RAIL_H + 0.22, assemblyId) {
+    const post = geometryIntent(box({
       size: [0.16, height, 0.16], pos: [x, yBase + height / 2, z], mat: M_WOOD_DK, name: 'newel',
-    });
+    }), { assemblyId });
     /* The 160 mm hardwood post is a real thin penetrable surface, unlike the
      * marble flights and structural partitions around it. Keep the visible
      * mesh and its slightly wider player-clearance collider on the same
@@ -880,13 +914,17 @@ export function buildMansionInterior(shell = null) {
     const combatMaterial = combatMaterialFor(M_WOOD_DK);
     post.userData.combatMaterial = combatMaterial;
     root.add(post);
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [0.2, 0.06, 0.2], pos: [x, yBase + height - 0.03, z], mat: M_GOLD, cast: false,
-    }));
-    root.add(sphere({ r: 0.1, pos: [x, yBase + height + 0.09, z], mat: M_GOLD }));
+      name: `${assemblyId}-newel-cap`,
+    }), { assemblyId }));
+    root.add(geometryIntent(named(
+      sphere({ r: 0.1, pos: [x, yBase + height + 0.09, z], mat: M_GOLD }), `${assemblyId}-newel-finial`,
+    ), { assemblyId }));
     const contact = solid(x - 0.1, x + 0.1, yBase, yBase + height, z - 0.1, z + 0.1);
     contact.combatMaterial = combatMaterial;
-    contact.userData = { ...(contact.userData ?? {}), combatMaterial };
+    contact.name = `${assemblyId}-newel-collider`;
+    contact.userData = { ...(contact.userData ?? {}), combatMaterial, geometryGate: { assemblyId } };
   }
 
   /**
@@ -894,34 +932,37 @@ export function buildMansionInterior(shell = null) {
    * a newel at each end so consecutive runs visibly join at their corners.
    */
   function railing(x0, x1, z0, z1, y0, tag = 'railing', { newels = true } = {}) {
+    const assemblyId = `mansion-railing:${tag}`;
     const isXRun = (x1 - x0) > (z1 - z0);
     const run = isXRun ? x1 - x0 : z1 - z0;
     const cx = (x0 + x1) / 2;
     const cz = (z0 + z1) / 2;
     // Moulded handrail: a wide cap over a slimmer core, one continuous piece.
-    root.add(box({
+    root.add(geometryIntent(box({
       size: isXRun ? [run, 0.07, 0.14] : [0.14, 0.07, run],
       pos: [cx, y0 + RAIL_H, cz],
       mat: M_GOLD,
       name: `${tag}-rail`,
-    }));
+    }), { assemblyId }));
     /* The core LAPS the cap by 5 mm rather than meeting it exactly. A
      * moulded handrail is two pieces of the same stick; two boxes whose faces
      * are flush over three metres are the flicker, and every balustrade in
      * this house was built from this one function. */
-    root.add(box({
+    root.add(geometryIntent(box({
       size: isXRun ? [run, 0.05, 0.09] : [0.09, 0.05, run],
       pos: [cx, y0 + RAIL_H - 0.055, cz],
       mat: M_WOOD_DK,
       cast: false,
-    }));
+      name: `${tag}-rail-core`,
+    }), { assemblyId }));
     // Shoe rail: the piece that stops the balusters looking like loose sticks.
-    root.add(box({
+    root.add(geometryIntent(box({
       size: isXRun ? [run, 0.06, 0.12] : [0.12, 0.06, run],
       pos: [cx, y0 + 0.05, cz],
       mat: M_GOLD,
       cast: false,
-    }));
+      name: `${tag}-shoe-rail`,
+    }), { assemblyId }));
     const bays = Math.max(2, Math.round(run / 0.34));
     for (let i = 1; i < bays; i++) {
       const t = i / bays;
@@ -929,14 +970,16 @@ export function buildMansionInterior(shell = null) {
         isXRun ? THREE.MathUtils.lerp(x0, x1, t) : cx,
         y0 + 0.08,
         isXRun ? cz : THREE.MathUtils.lerp(z0, z1, t),
-        RAIL_H - 0.16,
+        RAIL_H - 0.16, assemblyId,
       );
     }
     if (newels) {
-      newel(isXRun ? x0 : cx, y0, isXRun ? cz : z0);
-      newel(isXRun ? x1 : cx, y0, isXRun ? cz : z1);
+      newel(isXRun ? x0 : cx, y0, isXRun ? cz : z0, RAIL_H + 0.22, assemblyId);
+      newel(isXRun ? x1 : cx, y0, isXRun ? cz : z1, RAIL_H + 0.22, assemblyId);
     }
-    return solid(x0, x1, y0, y0 + RAIL_H + 0.08, z0, z1);
+    const contact = solid(x0, x1, y0, y0 + RAIL_H + 0.08, z0, z1);
+    contact.name = `${assemblyId}-collider`;
+    return geometryIntent(contact, { assemblyId });
   }
 
   /**
@@ -951,6 +994,9 @@ export function buildMansionInterior(shell = null) {
    * is what the player sees.
    */
   function rakingRail(xAt, z0, z1, yAt, tag) {
+    const assemblyId = tag.startsWith('suite-stair-')
+      ? 'mansion-suite-secret-stair'
+      : `mansion-stair-flight:${tag}`;
     const yBottom = yAt(z0);
     const yTop = yAt(z1);
     const runZ = z1 - z0;
@@ -960,28 +1006,28 @@ export function buildMansionInterior(shell = null) {
     const midZ = (z0 + z1) / 2;
     const midY = (yBottom + yTop) / 2 + RAIL_H;
     // Continuous moulded handrail on the rake.
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [0.14, 0.07, length], pos: [xAt, midY, midZ], mat: M_GOLD, rotX: -pitch, name: `${tag}-rail`,
-    }));
+    }), { assemblyId }));
     // Same 5 mm lap as the level rail above, for the same reason.
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [0.09, 0.05, length], pos: [xAt, midY - 0.055, midZ], mat: M_WOOD_DK, rotX: -pitch, cast: false,
-    }));
+    }), { assemblyId }));
     // Raking shoe rail, on the nosing line.
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [0.12, 0.06, length],
       pos: [xAt, (yBottom + yTop) / 2 + 0.09, midZ],
       mat: M_GOLD,
       rotX: -pitch,
       cast: false,
-    }));
+    }), { assemblyId }));
     const bays = Math.max(4, Math.round(runZ / 0.34));
     for (let i = 1; i < bays; i++) {
       const z = THREE.MathUtils.lerp(z0, z1, i / bays);
-      baluster(xAt, yAt(z) + 0.12, z, RAIL_H - 0.2);
+      baluster(xAt, yAt(z) + 0.12, z, RAIL_H - 0.2, assemblyId);
     }
-    newel(xAt, yBottom, z0, RAIL_H + 0.34);
-    newel(xAt, yTop, z1, RAIL_H + 0.22);
+    newel(xAt, yBottom, z0, RAIL_H + 0.34, assemblyId);
+    newel(xAt, yTop, z1, RAIL_H + 0.22, assemblyId);
     // Collision, stepped: a rotated box is not something the axis-aligned
     // resolver can use, so the guard itself is emitted as short level boxes
     // sitting on the treads they protect.
@@ -990,7 +1036,9 @@ export function buildMansionInterior(shell = null) {
       const za = THREE.MathUtils.lerp(z0, z1, i / steps);
       const zb = THREE.MathUtils.lerp(z0, z1, (i + 1) / steps);
       const ya = yAt(za);
-      solid(xAt - 0.08, xAt + 0.08, ya, ya + RAIL_H + 0.1, za, zb);
+      const contact = solid(xAt - 0.08, xAt + 0.08, ya, ya + RAIL_H + 0.1, za, zb);
+      contact.name = `${assemblyId}-rail-collider`;
+      geometryIntent(contact, { assemblyId });
     }
   }
 
@@ -999,20 +1047,21 @@ export function buildMansionInterior(shell = null) {
    * outer stringer against the wall, and a carpet runner.
    */
   function stairFlight(rect, yBottom, yTop, tag, openSide = 'east') {
+    const assemblyId = `mansion-stair-flight:${tag}`;
     const steps = 24;
     const depth = (rect.z1 - rect.z0) / steps;
     for (let i = 0; i < steps; i++) {
       const t = i / steps;
       const z = rect.z0 + depth * (i + 0.5);
       const y = THREE.MathUtils.lerp(yBottom, yTop, t);
-      root.add(siegeWalkable(box({
+      root.add(siegeWalkable(geometryIntent(box({
         size: [rect.x1 - rect.x0, 0.14, depth + 0.05],
         pos: [(rect.x0 + rect.x1) / 2, y + 0.07, z],
         mat: M_MARBLE,
         name: `${tag}-tread`,
-      })));
+      }), { assemblyId })));
       // Riser: the face you actually see from below, in the darker stone.
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [rect.x1 - rect.x0, Math.abs(yTop - yBottom) / steps, 0.05],
         pos: [
           (rect.x0 + rect.x1) / 2,
@@ -1021,24 +1070,24 @@ export function buildMansionInterior(shell = null) {
         ],
         mat: M_MARBLE_DK,
         name: `${tag}-riser`,
-      }));
+      }), { assemblyId }));
       // Runner, held by a brass stair rod at every third tread.
-      root.add(siegeWalkable(box({
+      root.add(siegeWalkable(geometryIntent(box({
         size: [(rect.x1 - rect.x0) * 0.62, 0.02, depth + 0.05],
         pos: [(rect.x0 + rect.x1) / 2, y + 0.15, z],
         mat: M_CARPET_HALL,
         cast: false,
         name: `${tag}-runner`,
-      })));
+      }), { assemblyId })));
       if (i % 4 === 0) {
-        root.add(cylinder({
+        root.add(geometryIntent(cylinder({
           r: 0.016,
           h: (rect.x1 - rect.x0) * 0.62,
           pos: [(rect.x0 + rect.x1) / 2, y + 0.17, z - depth / 2 + 0.04],
           mat: M_GOLD,
           rotZ: Math.PI / 2,
           cast: false,
-        }));
+        }), { assemblyId }));
       }
     }
     /* Closed-string spandrel: the masonry mass the flight is carried on.
@@ -1064,21 +1113,29 @@ export function buildMansionInterior(shell = null) {
       const za = rect.z0 + depth * i;
       const zb = za + depth;
       const massTop = THREE.MathUtils.lerp(yBottom, yTop, (i + 0.5) / steps) - 0.06;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [rect.x1 - rect.x0, massTop - yBottom, depth + 0.04],
         pos: [(rect.x0 + rect.x1) / 2, (yBottom + massTop) / 2, (za + zb) / 2],
         mat: M_MARBLE_DK,
         cast: false,
         name: `${tag}-spandrel`,
-      }));
+      }), { assemblyId }));
       const flankTop = THREE.MathUtils.lerp(yBottom, yTop, i / steps) - 0.05;
-      if (flankTop > yBottom) solid(flankX0, flankX1, yBottom, flankTop, za, zb);
+      if (flankTop > yBottom) {
+        const contact = solid(flankX0, flankX1, yBottom, flankTop, za, zb);
+        contact.name = `${assemblyId}-flank-collider`;
+        geometryIntent(contact, { assemblyId });
+      }
     }
   }
 
   /** A dining/boardroom chair. */
-  function makeSeat(x, y, z, yaw, seatMat, backH = 0.5) {
+  function makeSeat(x, y, z, yaw, seatMat, backH = 0.5, assemblyId = null) {
     const g = new THREE.Group();
+    if (assemblyId) {
+      g.name = assemblyId;
+      geometryIntent(g, { assemblyId });
+    }
     g.add(box({ size: [0.5, 0.07, 0.5], pos: [0, 0.46, 0], mat: seatMat, name: 'chair-seat' }));
     g.add(box({
       size: [0.46, backH, 0.07], pos: [0, 0.5 + backH / 2, -0.22], mat: seatMat, name: 'chair-back',
@@ -1089,7 +1146,14 @@ export function buildMansionInterior(shell = null) {
     g.position.set(x, y, z);
     g.rotation.y = yaw;
     root.add(g);
-    solid(x - 0.28, x + 0.28, y, y + 0.5, z - 0.28, z + 0.28);
+    const contact = solid(x - 0.28, x + 0.28, y, y + 0.5, z - 0.28, z + 0.28);
+    if (assemblyId) {
+      contact.name = `${assemblyId}-collider`;
+      contact.userData = {
+        ...(contact.userData ?? {}),
+        geometryGate: { ...(contact.userData?.geometryGate ?? {}), assemblyId },
+      };
+    }
     return g;
   }
 
@@ -1173,7 +1237,11 @@ export function buildMansionInterior(shell = null) {
 
   /** A closed, wall-mounted glass display case. */
   function makeDisplayCase(x, y, z, rotY, w, h, d, contents) {
-    const g = new THREE.Group();
+    const assemblyId = [
+      'mansion-display-case', x, y, z, rotY, w, h, d,
+    ].join(':');
+    const g = geometryIntent(new THREE.Group(), { assemblyId });
+    g.name = 'mansion-display-case';
     g.add(box({ size: [w, h, 0.05], pos: [0, h / 2, -d / 2 + 0.025], mat: M_WOOD_DK, name: 'case-back' }));
     g.add(box({ size: [0.06, h, d], pos: [-w / 2 + 0.03, h / 2, 0], mat: M_WOOD_DK }));
     g.add(box({ size: [0.06, h, d], pos: [w / 2 - 0.03, h / 2, 0], mat: M_WOOD_DK }));
@@ -1190,7 +1258,24 @@ export function buildMansionInterior(shell = null) {
     const sin = Math.abs(Math.sin(rotY));
     const hx = (cos * w + sin * d) / 2;
     const hz = (sin * w + cos * d) / 2;
-    solid(x - hx, x + hx, y, y + h, z - hz, z + hz);
+    /* Keep the blocking volume inside the visible timber frame. Scene
+     * colliders receive a 2 cm audit/runtime skin; using the full visual AABB
+     * here made a correctly flush wall case collide 4 cm into the wall after
+     * both skins were applied. */
+    const colliderInset = 0.025;
+    const contact = solid(
+      x - hx + colliderInset,
+      x + hx - colliderInset,
+      y,
+      y + h,
+      z - hz + colliderInset,
+      z + hz - colliderInset,
+    );
+    contact.name = `${assemblyId}-collider`;
+    contact.userData = {
+      ...(contact.userData ?? {}),
+      geometryGate: { ...(contact.userData?.geometryGate ?? {}), assemblyId },
+    };
     return g;
   }
 
@@ -1253,14 +1338,26 @@ export function buildMansionInterior(shell = null) {
 
   /** A flush ceiling fixture plus its light. */
   function ceilingLight(x, z, y, colour = 0xffdca0, intensity = 5, distance = 15) {
-    /* Named, both of them. Neither ever carried a name, so every flush fitting
-     * in this house was an anonymous pair of meshes the audit could only
-     * report as two floating boxes -- a ceiling light IS floating, and a name
-     * is the only way to say so. */
-    root.add(named(cylinder({
+    /* Each fitting is screwed into a specific soffit. Keep the two rendered
+     * pieces as one narrow logical fixture, and publish that authored ceiling
+     * attachment instead of asking the floor-support check to infer it. */
+    const assemblyId = [
+      'mansion-ceiling-light', x, y, z,
+    ].join(':');
+    const fixturePolicy = {
+      assemblyId,
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    };
+    const pan = named(cylinder({
       rTop: 0.22, rBottom: 0.28, h: 0.1, pos: [x, y, z], mat: mat({ color: 0x2a2118, roughness: 0.6 }),
-    }), 'ceiling-light-pan'));
-    root.add(named(sphere({ r: 0.1, pos: [x, y - 0.1, z], mat: M_BULB_WARM, cast: false }), 'ceiling-light-bulb'));
+    }), 'ceiling-light-pan');
+    const bulb = named(
+      sphere({ r: 0.1, pos: [x, y - 0.1, z], mat: M_BULB_WARM, cast: false }),
+      'ceiling-light-bulb',
+    );
+    root.add(geometryIntent(pan, fixturePolicy));
+    root.add(geometryIntent(bulb, fixturePolicy));
     const l = new THREE.PointLight(colour, intensity, distance, 2);
     l.position.set(x, y - 0.2, z);
     root.add(l);
@@ -1380,6 +1477,11 @@ export function buildMansionInterior(shell = null) {
     const X_AXIS = new THREE.Vector3(1, 0, 0);
     for (const part of parts) {
       const im = new THREE.InstancedMesh(part.geo, part.mat, n);
+      geometryIntent(im, {
+        checkWallEmbed: false,
+        checkSupport: false,
+        instanceAssemblyPrefix: 'mansion-sconce',
+      });
       im.castShadow = part.cast !== false;
       im.receiveShadow = true;
       if (part.name) im.name = part.name;
@@ -1400,38 +1502,46 @@ export function buildMansionInterior(shell = null) {
 
   /** The shaft and two collars every baluster is built from -- see `baluster()`. */
   function buildBalusterInstances() {
-    const n = balusterPlacements.length;
-    if (n === 0) return;
-    const shaft = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 20), M_CHROME, n);
-    shaft.name = 'baluster-shaft';
-    shaft.receiveShadow = true;
-    const collarBottom = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.038, 0.09, 20), M_GOLD, n);
-    collarBottom.name = 'baluster-collar-bottom';
-    collarBottom.castShadow = false;
-    collarBottom.receiveShadow = true;
-    const collarTop = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.038, 0.05, 0.09, 20), M_GOLD, n);
-    collarTop.name = 'baluster-collar-top';
-    collarTop.castShadow = false;
-    collarTop.receiveShadow = true;
-    const m4 = new THREE.Matrix4();
-    const identityQuat = new THREE.Quaternion();
-    for (let i = 0; i < n; i++) {
-      const p = balusterPlacements[i];
-      m4.compose(
-        new THREE.Vector3(p.x, p.yBase + p.height / 2, p.z),
-        identityQuat,
-        new THREE.Vector3(0.026, p.height, 0.026),
-      );
-      shaft.setMatrixAt(i, m4);
-      m4.makeTranslation(p.x, p.yBase + 0.06, p.z);
-      collarBottom.setMatrixAt(i, m4);
-      m4.makeTranslation(p.x, p.yBase + p.height - 0.06, p.z);
-      collarTop.setMatrixAt(i, m4);
+    const byAssembly = new Map();
+    for (const placement of balusterPlacements) {
+      if (!placement.assemblyId) throw new Error('Mansion baluster has no authored assembly owner');
+      const placements = byAssembly.get(placement.assemblyId) ?? [];
+      placements.push(placement);
+      byAssembly.set(placement.assemblyId, placements);
     }
-    shaft.instanceMatrix.needsUpdate = true;
-    collarBottom.instanceMatrix.needsUpdate = true;
-    collarTop.instanceMatrix.needsUpdate = true;
-    root.add(shaft, collarBottom, collarTop);
+    for (const [assemblyId, placements] of byAssembly) {
+      const n = placements.length;
+      const shaft = geometryIntent(new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 20), M_CHROME, n), { assemblyId });
+      shaft.name = 'baluster-shaft';
+      shaft.receiveShadow = true;
+      const collarBottom = geometryIntent(new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.038, 0.09, 20), M_GOLD, n), { assemblyId });
+      collarBottom.name = 'baluster-collar-bottom';
+      collarBottom.castShadow = false;
+      collarBottom.receiveShadow = true;
+      const collarTop = geometryIntent(new THREE.InstancedMesh(new THREE.CylinderGeometry(0.038, 0.05, 0.09, 20), M_GOLD, n), { assemblyId });
+      collarTop.name = 'baluster-collar-top';
+      collarTop.castShadow = false;
+      collarTop.receiveShadow = true;
+      const m4 = new THREE.Matrix4();
+      const identityQuat = new THREE.Quaternion();
+      for (let i = 0; i < n; i++) {
+        const p = placements[i];
+        m4.compose(
+          new THREE.Vector3(p.x, p.yBase + p.height / 2, p.z),
+          identityQuat,
+          new THREE.Vector3(0.026, p.height, 0.026),
+        );
+        shaft.setMatrixAt(i, m4);
+        m4.makeTranslation(p.x, p.yBase + 0.06, p.z);
+        collarBottom.setMatrixAt(i, m4);
+        m4.makeTranslation(p.x, p.yBase + p.height - 0.06, p.z);
+        collarTop.setMatrixAt(i, m4);
+      }
+      shaft.instanceMatrix.needsUpdate = true;
+      collarBottom.instanceMatrix.needsUpdate = true;
+      collarTop.instanceMatrix.needsUpdate = true;
+      root.add(shaft, collarBottom, collarTop);
+    }
   }
 
   /* ================================================================== */
@@ -1480,6 +1590,7 @@ export function buildMansionInterior(shell = null) {
     const f = makeFrame(M, {
       x, y, z, rotY, w, h, texture, tint: 0x2a1d12,
     });
+    geometryIntent(f.group, { assemblyId: `mansion-wall-art:${id}`, checkSupport: false, checkWallEmbed: false });
     root.add(f.group);
     recordArt(id, x, y, z, rotY, w + 0.14, h + 0.14);
     f.slotId = id;
@@ -1499,31 +1610,42 @@ export function buildMansionInterior(shell = null) {
     m.position.set(x, y, z);
     m.rotation.y = rotY;
     m.userData.artPiece = id;
+    geometryIntent(m, {
+      assemblyId: `mansion-flat-art:${id}`,
+      checkSupport: false,
+      fixedSupportAnchor: true,
+      checkWallEmbed: false,
+    });
     root.add(m);
     recordArt(id, x, y, z, rotY, w, h, depth);
     return m;
   }
 
+  const roomFinishAssemblyId = (r, floorY) => [
+    'mansion-room-finish', r.x0, r.x1, r.z0, r.z1, floorY,
+  ].join(':');
+
   /** Skirting + picture rail around a rectangular room. */
   function trimRoom(r, floorY, ceilY) {
+    const assemblyId = roomFinishAssemblyId(r, floorY);
     for (const [x0, x1, z0, z1] of [
       [r.x0, r.x1, r.z0, r.z0 + 0.05],
       [r.x0, r.x1, r.z1 - 0.05, r.z1],
       [r.x0, r.x0 + 0.05, r.z0, r.z1],
       [r.x1 - 0.05, r.x1, r.z0, r.z1],
     ]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [x1 - x0, 0.16, z1 - z0],
         pos: [(x0 + x1) / 2, floorY + 0.08, (z0 + z1) / 2],
         mat: M_TRIM,
         cast: false,
-      }));
-      root.add(box({
+      }), { assemblyId, checkWallEmbed: false }));
+      root.add(geometryIntent(box({
         size: [x1 - x0, 0.09, z1 - z0],
         pos: [(x0 + x1) / 2, ceilY - 0.14, (z0 + z1) / 2],
         mat: M_TRIM,
         cast: false,
-      }));
+      }), { assemblyId, checkWallEmbed: false }));
     }
   }
 
@@ -1675,35 +1797,38 @@ export function buildMansionInterior(shell = null) {
 
   /** A curtained window dressing, hung on an interior wall face. */
   function curtains(axis, at, u, y, width, height, material = M_CURTAIN) {
+    const fixturePolicy = {
+      assemblyId: ['mansion-curtains', axis, at, u, y, width, height].join(':'),
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    };
+    const mount = (object) => root.add(geometryIntent(object, fixturePolicy));
     const panelW = width * 0.24;
     for (const side of [-1, 1]) {
       const uu = u + side * (width / 2 - panelW / 2);
       if (axis === 'z') {
-        root.add(box({
+        mount(box({
           size: [panelW, height, 0.1], pos: [uu, y + height / 2, at], mat: material,
         }));
       } else {
-        root.add(box({
+        mount(box({
           size: [0.1, height, panelW], pos: [at, y + height / 2, uu], mat: material,
         }));
       }
     }
-    /* The rod and the pelmet carry names for the same reason the ceiling
-     * fittings above do: a curtain hangs, and the audit's hanging-things
-     * filter reads names. Anonymous, every pelmet in the house was a floating
-     * box. */
+    /* Rod, pelmet, and fabric are one wall-mounted dressing. */
     if (axis === 'z') {
-      root.add(named(cylinder({
+      mount(named(cylinder({
         r: 0.035, h: width + 0.4, pos: [u, y + height + 0.1, at], mat: M_GOLD, rotZ: Math.PI / 2,
       }), 'curtain-rod'));
-      root.add(box({
+      mount(box({
         size: [width + 0.4, 0.28, 0.14], pos: [u, y + height + 0.02, at], mat: material, cast: false, name: 'curtain-pelmet',
       }));
     } else {
-      root.add(named(cylinder({
+      mount(named(cylinder({
         r: 0.035, h: width + 0.4, pos: [at, y + height + 0.1, u], mat: M_GOLD, rotX: Math.PI / 2,
       }), 'curtain-rod'));
-      root.add(box({
+      mount(box({
         size: [0.14, 0.28, width + 0.4], pos: [at, y + height + 0.02, u], mat: material, cast: false, name: 'curtain-pelmet',
       }));
     }
@@ -2004,7 +2129,11 @@ export function buildMansionInterior(shell = null) {
 
     // ---- Chandelier, hanging in the void where both floors can see it.
     const cp = CHANDELIER_POS;
-    const chandelier = new THREE.Group();
+    const chandelier = geometryIntent(new THREE.Group(), {
+      assemblyId: 'mansion-foyer-chandelier',
+      fixedSupportAnchor: true,
+    });
+    chandelier.name = 'mansion-foyer-chandelier';
     chandelier.add(cylinder({ r: 0.05, h: 1.4, pos: [0, 0.7, 0], mat: M_BRONZE }));
     const tiers = [
       { y: 0, r: 1.45, bulbs: 12, arm: 0.2 },
@@ -2026,6 +2155,12 @@ export function buildMansionInterior(shell = null) {
       }
     }
     chandelier.add(sphere({ r: 0.16, pos: [0, -1.0, 0], mat: M_GOLD }));
+    /* The fixture has 77 rendered parts, intentionally above the inherited
+     * suppression ceiling. Publish the same authored ceiling attachment on
+     * each concrete part so the fail-closed scene-scale bound stays useful. */
+    chandelier.traverse((part) => {
+      if (part.isMesh) geometryIntent(part, { checkSupport: false });
+    });
     chandelier.position.set(cp.x, cp.y, cp.z);
     root.add(chandelier);
     const chandelierLight = new THREE.PointLight(0xffd9a0, 9, 26, 2);
@@ -2065,21 +2200,25 @@ export function buildMansionInterior(shell = null) {
      * 1.6 m clear of the foot of either flight -- the two routes the rest of
      * this room's dressing is deliberately kept off. */
     const tableY = GY;
-    root.add(cylinder({
+    const foyerCentrepieceAssemblyId = 'mansion-foyer-centre-table-arrangement';
+    const mountFoyerCentrepiece = (object) => root.add(geometryIntent(object, {
+      assemblyId: foyerCentrepieceAssemblyId,
+    }));
+    mountFoyerCentrepiece(cylinder({
       r: 1.35, h: 0.09, pos: [0, tableY + 0.78, inlayZ], mat: M_MARBLE, name: 'foyer-centre-table',
     }));
-    root.add(cylinder({
+    mountFoyerCentrepiece(cylinder({
       r: 1.4, h: 0.05, pos: [0, tableY + 0.75, inlayZ], mat: M_GOLD, cast: false,
     }));
-    root.add(cylinder({
+    mountFoyerCentrepiece(cylinder({
       rTop: 0.28, rBottom: 0.42, h: 0.72, pos: [0, tableY + 0.36, inlayZ], mat: M_WOOD_DK,
     }));
-    root.add(cylinder({
+    mountFoyerCentrepiece(cylinder({
       rTop: 0.62, rBottom: 0.78, h: 0.12, pos: [0, tableY + 0.06, inlayZ], mat: M_MARBLE_DK,
     }));
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      root.add(box({
+      mountFoyerCentrepiece(box({
         size: [0.5, 0.1, 0.12],
         pos: [Math.cos(a) * 0.5, tableY + 0.1, inlayZ + Math.sin(a) * 0.5],
         mat: M_GOLD,
@@ -2087,7 +2226,9 @@ export function buildMansionInterior(shell = null) {
         cast: false,
       }));
     }
-    solid(-1.4, 1.4, tableY, tableY + 0.86, inlayZ - 1.4, inlayZ + 1.4);
+    const centrepieceCollider = solid(-1.4, 1.4, tableY, tableY + 0.86, inlayZ - 1.4, inlayZ + 1.4);
+    centrepieceCollider.name = 'mansion-foyer-centre-table-collider';
+    geometryIntent(centrepieceCollider, { assemblyId: foyerCentrepieceAssemblyId });
     /* The arrangement: an urn and a dome of blooms.
      *
      * Sized against a person, after a first pass that was not: 26-cm flower
@@ -2096,10 +2237,10 @@ export function buildMansionInterior(shell = null) {
      * cm, the dome is 1.1 m across, and the whole thing tops out at 2.4 m --
      * under a 2.86 m eye line, so it is something you look AT rather than
      * something you look THROUGH. */
-    root.add(cylinder({
+    mountFoyerCentrepiece(cylinder({
       rTop: 0.34, rBottom: 0.2, h: 0.44, pos: [0, tableY + 1.05, inlayZ], mat: M_GOLD,
     }));
-    root.add(cylinder({
+    mountFoyerCentrepiece(cylinder({
       rTop: 0.36, rBottom: 0.3, h: 0.05, pos: [0, tableY + 1.27, inlayZ], mat: M_GOLD, cast: false,
     }));
     const M_FOYER_LEAF = mat({ color: 0x2c5f37, roughness: 0.95 });
@@ -2110,14 +2251,14 @@ export function buildMansionInterior(shell = null) {
       const a = i * 2.399963; // golden angle, so nothing lands in a ring
       const r = 0.55 * Math.sqrt(1 - t * t);
       const hgt = 1.3 + t * 0.62;
-      root.add(sphere({
+      mountFoyerCentrepiece(sphere({
         r: 0.055 + Math.random() * 0.028,
         pos: [Math.cos(a) * r, tableY + hgt, inlayZ + Math.sin(a) * r],
         mat: i % 6 === 0 ? M_FOYER_BLOOM_GOLD : M_FOYER_BLOOM,
         cast: false,
       }));
       if (i % 2 === 0) {
-        root.add(box({
+        mountFoyerCentrepiece(box({
           size: [0.035, 0.2, 0.11],
           pos: [Math.cos(a) * r * 1.05, tableY + hgt - 0.13, inlayZ + Math.sin(a) * r * 1.05],
           mat: M_FOYER_LEAF,
@@ -2283,6 +2424,7 @@ export function buildMansionInterior(shell = null) {
   /* with a collider, never a bare blocker) and railed at floor level.     */
   /* ================================================================== */
   function buildBasementStair() {
+    const assemblyId = 'mansion-basement-stair';
     const z0 = BASEMENT_STAIR.z0;
     const z1 = BASEMENT_STAIR.z1;
     const treadX0 = BASEMENT_STAIR.x0 + 0.15;
@@ -2295,18 +2437,18 @@ export function buildMansionInterior(shell = null) {
     for (let i = 0; i < steps; i++) {
       const z = z0 + depth * (i + 0.5);
       const y = stairY(z0 + depth * i);
-      root.add(siegeWalkable(box({
+      root.add(siegeWalkable(geometryIntent(box({
         size: [treadX1 - treadX0, 0.13, depth + 0.05],
         pos: [(treadX0 + treadX1) / 2, y + 0.065, z],
         mat: M_MARBLE_DK,
         name: 'basement-stair-tread',
-      })));
-      root.add(box({
+      }), { assemblyId })));
+      root.add(geometryIntent(box({
         size: [treadX1 - treadX0, (GY - BY) / steps, 0.05],
         pos: [(treadX0 + treadX1) / 2, y - (GY - BY) / (steps * 2), z - depth / 2],
         mat: concreteMaterial(3, 0.3),
         name: 'basement-stair-riser',
-      }));
+      }), { assemblyId }));
     }
     /* THE GAP BEHIND THE STAIRS (owner playtest 2026-08-04, verbatim):
      *
@@ -2332,13 +2474,13 @@ export function buildMansionInterior(shell = null) {
       const zb = za + depth;
       const massTop = stairY(za + depth * 0.5) - 0.07;
       if (massTop > BY) {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [treadX1 - treadX0, massTop - BY, depth + 0.03],
           pos: [(treadX0 + treadX1) / 2, (BY + massTop) / 2, (za + zb) / 2],
           mat: concreteMaterial(3.3, Math.max(0.3, massTop - BY)),
           cast: false,
           name: 'basement-stair-spandrel',
-        }));
+        }), { assemblyId }));
       }
     }
     /* The wall across the stair's head, closing the way in underneath it.
@@ -2350,13 +2492,15 @@ export function buildMansionInterior(shell = null) {
      * cellar stair for anyone walking into it from the rear hall, which is
      * the exact failure the previous pass spent its time removing. At y=0 it
      * is skipped by anyone upstairs and blocks everyone in the armory. */
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [BASEMENT_STAIR.x1 - BASEMENT_STAIR.x0, -BY, 0.3],
       pos: [(BASEMENT_STAIR.x0 + BASEMENT_STAIR.x1) / 2, BY / 2, z0 - 0.15],
       mat: concreteMaterial(3.6, -BY),
       name: 'basement-stair-headwall',
-    }));
-    solid(BASEMENT_STAIR.x0, BASEMENT_STAIR.x1, BY, 0, z0 - 0.3, z0);
+    }), { assemblyId }));
+    const headwallContact = solid(BASEMENT_STAIR.x0, BASEMENT_STAIR.x1, BY, 0, z0 - 0.3, z0);
+    headwallContact.name = `${assemblyId}-headwall-collider`;
+    geometryIntent(headwallContact, { assemblyId });
 
     // Masonry stringer down the open (west) side, from the armory floor up to
     // the treads: the wall this stair is carried on. Segmented so it follows
@@ -2365,13 +2509,15 @@ export function buildMansionInterior(shell = null) {
       const za = z0 + depth * i;
       const zb = za + depth;
       const top = stairY(za) + 0.06;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [0.3, top - BY, depth + 0.02],
         pos: [BASEMENT_STAIR.x0 + 0.15, (BY + top) / 2, (za + zb) / 2],
         mat: concreteMaterial(1, top - BY),
         name: 'basement-stair-stringer',
-      }));
-      solid(BASEMENT_STAIR.x0, BASEMENT_STAIR.x0 + 0.3, BY, top, za, zb);
+      }), { assemblyId }));
+      const contact = solid(BASEMENT_STAIR.x0, BASEMENT_STAIR.x0 + 0.3, BY, top, za, zb);
+      contact.name = `${assemblyId}-stringer-collider`;
+      geometryIntent(contact, { assemblyId });
     }
     /* One continuous brass handrail on top of the stringer, on the rake.
      *
@@ -2386,19 +2532,19 @@ export function buildMansionInterior(shell = null) {
       const runZ = z1 - z0;
       const pitch = Math.atan2(railTopTop - railTopBottom, runZ);
       const railX = BASEMENT_STAIR.x0 + 0.15;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [0.09, 0.07, Math.hypot(runZ, railTopTop - railTopBottom)],
         pos: [railX, (railTopBottom + railTopTop) / 2, (z0 + z1) / 2],
         mat: M_GOLD,
         rotX: -pitch,
         name: 'basement-stair-handrail',
-      }));
+      }), { assemblyId }));
       for (let i = 0; i <= 9; i++) {
         const z = THREE.MathUtils.lerp(z0, z1, i / 9);
         const top = stairY(z) + 0.06;
-        root.add(cylinder({
+        root.add(geometryIntent(cylinder({
           r: 0.022, h: 0.95, pos: [railX, top + 0.48, z], mat: M_CHROME,
-        }));
+        }), { assemblyId }));
       }
     }
     /* Floor-level guard right round the opening, except the mouth at its
@@ -2414,7 +2560,7 @@ export function buildMansionInterior(shell = null) {
      * post it put there measured at x 5.32..5.48, z 57.92..58.08, entirely
      * inside the masonry. */
     railing(BASEMENT_STAIR.x0 - 0.04, BASEMENT_STAIR.x0 + 0.04, z0, z1, GY, 'basement-hole-west', { newels: false });
-    newel(BASEMENT_STAIR.x0, GY, z0);
+    newel(BASEMENT_STAIR.x0, GY, z0, RAIL_H + 0.22, 'mansion-railing:basement-hole-west');
     /* There is deliberately NO north run any more. The shaft's north edge is
      * z = 58, which is the ground floor's own cross wall (band 57.85..58.15,
      * solid at these x -- the nearest opening in it is `loungeToKitchen` at
@@ -2515,8 +2661,8 @@ export function buildMansionInterior(shell = null) {
     topping(r.x0, r.x1, GY + 0.01, r.z0, r.z1, M_PARQUET, 'living-floor');
     rug(-12.5, 47.5, 6.4, 5.4, GY + 0.01, M_RUG_LIVING, 0, 'living-room-rug');
 
-    function makeCouch(x, z, yaw, len = 2.4) {
-      const g = new THREE.Group();
+    function makeCouch(x, z, yaw, assemblyId, len = 2.4) {
+      const g = geometryIntent(new THREE.Group(), { assemblyId });
       g.add(box({ size: [len, 0.45, 0.95], pos: [0, 0.3, 0], mat: M_FABRIC_COUCH, name: 'couch-base' }));
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
         g.add(box({
@@ -2537,27 +2683,31 @@ export function buildMansionInterior(shell = null) {
       root.add(g);
       const hx = Math.abs(Math.cos(yaw)) * len / 2 + Math.abs(Math.sin(yaw)) * 0.52;
       const hz = Math.abs(Math.sin(yaw)) * len / 2 + Math.abs(Math.cos(yaw)) * 0.52;
-      solid(x - hx, x + hx, GY, GY + 0.95, z - hz, z + hz);
+      const couchCollider = solid(x - hx, x + hx, GY, GY + 0.95, z - hz, z + hz);
+      couchCollider.name = `${assemblyId}-collider`;
+      geometryIntent(couchCollider, { assemblyId });
       return g;
     }
     /* Keep the authored west-flank aisle south of the seating group.  At
      * z45.3 the couch collider reached to44.76 and caught a full rendered
      * shoulder even on the route's clear side; 700 mm north preserves the
      * conversation grouping and opens a real body-width passage. */
-    makeCouch(-12.5, 46.0, 0);
-    makeCouch(-15.1, 47.8, Math.PI / 2, 2.1);
-    makeCouch(-9.9, 47.8, -Math.PI / 2, 2.1);
+    makeCouch(-12.5, 46.0, 0, 'mansion-living-couch-central');
+    makeCouch(-15.1, 47.8, Math.PI / 2, 'mansion-living-couch-west', 2.1);
+    makeCouch(-9.9, 47.8, -Math.PI / 2, 'mansion-living-couch-east', 2.1);
 
     const M_PILLOW_GOLD = mat({ map: fabricTex('#c9a13a'), roughness: 0.85 });
     const M_PILLOW_CREAM = mat({ map: fabricTex('#e8ddc4'), roughness: 0.85 });
-    for (const [px, pz, yaw, pmat] of [
-      [-13.3, 46.2, 0.32, M_PILLOW_GOLD], [-11.7, 46.2, -0.22, M_PILLOW_CREAM],
-      [-15.1, 47.4, Math.PI / 2 + 0.28, M_PILLOW_CREAM], [-9.9, 48.2, -Math.PI / 2 - 0.24, M_PILLOW_GOLD],
-      [-15.1, 48.4, Math.PI / 2 - 0.2, M_PILLOW_GOLD],
+    for (const [px, pz, yaw, pmat, assemblyId] of [
+      [-13.3, 46.2, 0.32, M_PILLOW_GOLD, 'mansion-living-couch-central'],
+      [-11.7, 46.2, -0.22, M_PILLOW_CREAM, 'mansion-living-couch-central'],
+      [-15.1, 47.4, Math.PI / 2 + 0.28, M_PILLOW_CREAM, 'mansion-living-couch-west'],
+      [-9.9, 48.2, -Math.PI / 2 - 0.24, M_PILLOW_GOLD, 'mansion-living-couch-east'],
+      [-15.1, 48.4, Math.PI / 2 - 0.2, M_PILLOW_GOLD, 'mansion-living-couch-west'],
     ]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [0.36, 0.26, 0.36], pos: [px, GY + 0.64, pz], mat: pmat, rotY: yaw, rotX: 0.14, rotZ: 0.1, name: 'living-pillow',
-      }));
+      }), { assemblyId }));
     }
 
     // Coffee table with things actually on it.
@@ -2597,6 +2747,8 @@ export function buildMansionInterior(shell = null) {
     const fireOpZ0 = 51.85;
     const fireOpZ1 = 53.35;
     const fireOpTop = GY + 1.30;
+    const livingFireplaceAssemblyId = 'mansion-living-fireplace';
+    const livingFireplaceStart = root.children.length;
     for (const [pz0, pz1] of [[51.3, fireOpZ0], [fireOpZ1, 53.9]]) {
       root.add(box({
         size: [0.5, 1.30, pz1 - pz0], pos: [fx + 0.25, GY + 0.65, (pz0 + pz1) / 2], mat: M_MARBLE_DK, name: 'fireplace',
@@ -2633,7 +2785,7 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [0.45, 0.08, 2.0], pos: [fx + 0.725, GY + 0.04, 52.6], mat: M_MARBLE_DK, cast: false, name: 'fireplace-hearth',
     }));
-    solid(fx, fx + 0.6, GY, GY + 2.3, 51.2, 54.0);
+    const livingFireplaceCollider = solid(fx, fx + 0.6, GY, GY + 2.3, 51.2, 54.0);
     /* Owner playtest 2026-08-06: "the fireplace fire only becomes visible
      * when you're right next to it". Two things gate a practical light in
      * this house, and this one was short on both.
@@ -2709,6 +2861,11 @@ export function buildMansionInterior(shell = null) {
       root.add(flame);
       flames.push(flame);
     }
+    for (const object of root.children.slice(livingFireplaceStart)) {
+      geometryIntent(object, { assemblyId: livingFireplaceAssemblyId });
+    }
+    livingFireplaceCollider.name = `${livingFireplaceAssemblyId}-collider`;
+    geometryIntent(livingFireplaceCollider, { assemblyId: livingFireplaceAssemblyId });
     let fireTime = 0;
     function updateFire(dt) {
       if (!(dt > 0)) return;
@@ -2722,13 +2879,20 @@ export function buildMansionInterior(shell = null) {
     }
     // Mantelpiece: a clock and two candlesticks.
     const clock = makeWallClock(M, {
-      x: fx + 0.4, y: GY + 2.05, z: 52.6, rotY: Math.PI / 2, r: 0.24,
+      /* The clock face is fixed to the room side of the breast; the former
+       * x=fx+0.4 buried its back 45 mm into solid marble. */
+      x: fx + 0.5, y: GY + 2.05, z: 52.6, rotY: Math.PI / 2, r: 0.24,
     });
-    root.add(clock.group);
-    for (const cz of [51.6, 53.6]) {
-      root.add(cylinder({ r: 0.06, h: 0.1, pos: [fx + 0.36, GY + 1.62, cz], mat: M_GOLD }));
-      root.add(cylinder({ r: 0.028, h: 0.34, pos: [fx + 0.36, GY + 1.84, cz], mat: M_CARD }));
-      root.add(sphere({ r: 0.035, pos: [fx + 0.36, GY + 2.02, cz], mat: M_BULB_WARM, cast: false }));
+    root.add(fixedFixture(clock.group, 'mansion-family-mantel-clock'));
+    for (const [index, cz] of [51.6, 53.6].entries()) {
+      const candleAssemblyId = `mansion-family-mantel-candlestick-${index}`;
+      const mountCandle = (object) => root.add(geometryIntent(object, { assemblyId: candleAssemblyId }));
+      /* Stand the candlestick on the projecting shelf, not inside the
+       * chimney breast behind its room-facing plane. */
+      const candleX = fx + 0.65;
+      mountCandle(cylinder({ r: 0.06, h: 0.1, pos: [candleX, GY + 1.62, cz], mat: M_GOLD }));
+      mountCandle(cylinder({ r: 0.028, h: 0.34, pos: [candleX, GY + 1.84, cz], mat: M_CARD }));
+      mountCandle(sphere({ r: 0.035, pos: [candleX, GY + 2.02, cz], mat: M_BULB_WARM, cast: false }));
     }
 
     /* THE FAMILY PORTRAIT WALL, MOVED OFF THE DOOR.
@@ -2813,7 +2977,11 @@ export function buildMansionInterior(shell = null) {
 
     // Curtains on the south glazing and the west windows.
     curtains('z', r.z0 + 0.2, -12.5, GY + 0.1, 6.4, 3.6);
-    curtains('x', r.x0 + 0.22, 49.5, GY + 0.1, 6.2, 3.6);
+    /* The west opening is 47.6..50.8. A 6.2 m dressing put its north fabric
+     * panel through the fireplace pilaster at 51.3..53.9. Match the authored
+     * 3.2 m opening; the helper's 0.4 m rod overhang then lands exactly at the
+     * fireplace reveal instead of entering it. */
+    curtains('x', r.x0 + 0.22, 49.2, GY + 0.1, 3.2, 3.6);
 
     /* The floor lamp used to stand at (-15.2, 44.4). That is now the middle of
      * the arcade into the trophy hall, and a standard lamp in an archway is
@@ -2864,6 +3032,8 @@ export function buildMansionInterior(shell = null) {
     // against the kitchen end of the room.
     const bx = 12.4;
     const bz = 48.6;
+    const billiardAssemblyId = 'mansion-lounge-billiard-table';
+    const billiardStart = root.children.length;
     root.add(box({ size: [2.4, 0.08, 4.4], pos: [bx, GY + 0.78, bz], mat: M_FELT_GREEN, name: 'billiard-bed' }));
     for (const [ox, oz, sx, sz] of [
       [-1.28, 0, 0.16, 4.7], [1.28, 0, 0.16, 4.7], [0, -2.27, 2.72, 0.16], [0, 2.27, 2.72, 0.16],
@@ -2875,7 +3045,7 @@ export function buildMansionInterior(shell = null) {
     for (const [lx, lz] of [[-1.0, -1.9], [1.0, -1.9], [-1.0, 1.9], [1.0, 1.9]]) {
       root.add(box({ size: [0.28, 0.74, 0.28], pos: [bx + lx, GY + 0.37, bz + lz], mat: M_WOOD_DK }));
     }
-    solid(bx - 1.4, bx + 1.4, GY, GY + 0.9, bz - 2.4, bz + 2.4);
+    const billiardCollider = solid(bx - 1.4, bx + 1.4, GY, GY + 0.9, bz - 2.4, bz + 2.4);
     const ballMats = [
       mat({ color: 0xf4f0e6, roughness: 0.2 }), mat({ color: 0xd8b23a, roughness: 0.2 }),
       mat({ color: 0x1c3d7a, roughness: 0.2 }), mat({ color: 0x8a1a1a, roughness: 0.2 }),
@@ -2892,6 +3062,11 @@ export function buildMansionInterior(shell = null) {
     root.add(cylinder({
       r: 0.02, h: 1.5, pos: [bx + 0.5, GY + 0.9, bz - 0.6], mat: M_WOOD, rotX: Math.PI / 2, rotZ: 0.1,
     }));
+    for (const object of root.children.slice(billiardStart)) {
+      geometryIntent(object, { assemblyId: billiardAssemblyId });
+    }
+    billiardCollider.name = `${billiardAssemblyId}-collider`;
+    geometryIntent(billiardCollider, { assemblyId: billiardAssemblyId });
     // Cue rack on the pier between the middle and north arches, plus a
     // scoreboard and a chalk shelf -- all clear of the three openings.
     root.add(box({ size: [0.12, 1.5, 0.9], pos: [r.x1 - 0.14, GY + 1.4, 49.9], mat: M_WOOD_DK }));
@@ -2909,11 +3084,15 @@ export function buildMansionInterior(shell = null) {
     }
     // Low pendant over the table -- the whole point of a billiard room.
     for (const pz of [bz - 1.2, bz + 1.2]) {
-      root.add(cylinder({ r: 0.02, h: 1.7, pos: [bx, GY + 2.9, pz], mat: M_BRONZE }));
-      root.add(cylinder({
+      const fixtureId = `mansion-billiard-pendant:${pz}`;
+      const mount = (object) => root.add(fixedFixture(object, fixtureId));
+      mount(cylinder({
+        r: 0.02, h: 1.7, pos: [bx, GY + 2.9, pz], mat: M_BRONZE,
+      }));
+      mount(cylinder({
         rTop: 0.1, rBottom: 0.34, h: 0.3, pos: [bx, GY + 1.95, pz], mat: mat({ color: 0x2a2118, roughness: 0.6 }),
       }));
-      root.add(sphere({ r: 0.09, pos: [bx, GY + 1.86, pz], mat: M_BULB_WARM, cast: false }));
+      mount(sphere({ r: 0.09, pos: [bx, GY + 1.86, pz], mat: M_BULB_WARM, cast: false }));
       const l = new THREE.PointLight(0xffe0b0, 4.2, 9, 2);
       l.position.set(bx, GY + 1.8, pz);
       root.add(l);
@@ -3001,15 +3180,21 @@ export function buildMansionInterior(shell = null) {
     trimRoom(bay, GY, GY + 3.9);
     // Coffered ceiling over the bay, in gold.
     topping(bay.x0, bay.x1, GY + 3.98, bay.z0, bay.z1, M_WALL_WARM, 'bay-ceiling', false);
+    const bayCofferAssemblyId = 'mansion-billiard-bay-coffer-grid';
+    const mountBayCoffer = (object) => root.add(geometryIntent(object, {
+      assemblyId: bayCofferAssemblyId,
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    }));
     for (let i = 0; i < 5; i++) {
-      root.add(box({
+      mountBayCoffer(box({
         size: [bay.x1 - bay.x0, 0.12, 0.14],
         pos: [(bay.x0 + bay.x1) / 2, GY + 3.9, bay.z0 + 1.3 + i * 2.6],
         mat: M_GOLD,
         cast: false,
       }));
     }
-    root.add(box({
+    mountBayCoffer(box({
       size: [0.14, 0.12, bay.z1 - bay.z0], pos: [(bay.x0 + bay.x1) / 2, GY + 3.9, (bay.z0 + bay.z1) / 2], mat: M_GOLD, cast: false,
     }));
 
@@ -3017,34 +3202,42 @@ export function buildMansionInterior(shell = null) {
     const barX = bay.x1 - 0.45;
     const barZ0 = 45.0;
     const barZ1 = 51.0;
-    root.add(box({
+    const loungeBarAssemblyId = 'mansion-lounge-fitted-bar';
+    const mountLoungeBar = (object) => root.add(geometryIntent(object, {
+      assemblyId: loungeBarAssemblyId,
+    }));
+    mountLoungeBar(box({
       size: [0.7, 1.06, barZ1 - barZ0], pos: [barX, GY + 0.53, (barZ0 + barZ1) / 2], mat: M_WOOD_DK, name: 'lounge-bar',
     }));
     // Panelled front with a brass foot rail, which is what a bar has.
     for (let i = 0; i < 8; i++) {
-      root.add(box({
+      mountLoungeBar(box({
         size: [0.05, 0.66, 0.6],
         pos: [barX - 0.36, GY + 0.56, barZ0 + 0.38 + i * 0.75],
         mat: M_WOOD,
         cast: false,
       }));
     }
-    root.add(cylinder({
+    mountLoungeBar(cylinder({
       r: 0.035, h: barZ1 - barZ0 - 0.2, pos: [barX - 0.42, GY + 0.16, (barZ0 + barZ1) / 2], mat: M_GOLD, rotX: Math.PI / 2,
     }));
-    root.add(box({
+    mountLoungeBar(box({
       size: [0.92, 0.09, barZ1 - barZ0 + 0.3], pos: [barX - 0.06, GY + 1.1, (barZ0 + barZ1) / 2], mat: M_MARBLE, name: 'bar-top',
     }));
-    root.add(box({
+    mountLoungeBar(box({
       size: [0.98, 0.04, barZ1 - barZ0 + 0.36], pos: [barX - 0.06, GY + 1.03, (barZ0 + barZ1) / 2], mat: M_GOLD, cast: false,
     }));
-    solid(barX - 0.52, barX + 0.4, GY, GY + 1.14, barZ0 - 0.15, barZ1 + 0.15);
+    const loungeBarCollider = solid(
+      barX - 0.52, barX + 0.4, GY, GY + 1.14, barZ0 - 0.15, barZ1 + 0.15,
+    );
+    loungeBarCollider.name = `${loungeBarAssemblyId}-collider`;
+    geometryIntent(loungeBarCollider, { assemblyId: loungeBarAssemblyId });
 
     /* ---- The back bar. "make the bar have jack and daniels" -- so it does:
      * square-shouldered black-label bottles, the same in-world spelling the
      * apartment's own `label.whiskey` art slot uses. */
     const backX = bay.x1 - 0.06;
-    root.add(box({
+    mountLoungeBar(box({
       size: [0.16, 2.5, barZ1 - barZ0 + 0.8], pos: [backX, GY + 1.25, (barZ0 + barZ1) / 2], mat: M_WOOD_DK, name: 'back-bar',
     }));
     /* Shelves with a lit edge. A back bar in a night scene is otherwise a
@@ -3055,13 +3248,13 @@ export function buildMansionInterior(shell = null) {
       color: 0x2a2118, emissive: 0xffcf8a, emissiveIntensity: 1.9, roughness: 0.5,
     });
     for (const shelfY of [GY + 1.28, GY + 1.72, GY + 2.16]) {
-      root.add(box({
+      mountLoungeBar(box({
         size: [0.3, 0.05, barZ1 - barZ0 + 0.6], pos: [backX - 0.16, shelfY, (barZ0 + barZ1) / 2], mat: M_WOOD_DK,
       }));
-      root.add(box({
+      mountLoungeBar(box({
         size: [0.32, 0.02, barZ1 - barZ0 + 0.6], pos: [backX - 0.16, shelfY + 0.035, (barZ0 + barZ1) / 2], mat: M_GOLD, cast: false,
       }));
-      root.add(box({
+      mountLoungeBar(box({
         size: [0.05, 0.03, barZ1 - barZ0 + 0.5], pos: [backX - 0.3, shelfY + 0.42, (barZ0 + barZ1) / 2], mat: M_SHELF_STRIP, cast: false,
       }));
     }
@@ -3114,8 +3307,14 @@ export function buildMansionInterior(shell = null) {
         rTop: 0.038, rBottom: 0.05, h: 0.11, pos: [barX - 0.2, GY + 1.2, barZ0 + 0.45 + i * 1.02], mat: M_GLASS_CASE,
       }));
     }
+    /* The old z=50.5 bucket occupied the final upturned glass at z=50.55.
+     * z=46 is the clear interval between the first two glasses; the beer can
+     * beside it is across the counter and remains more than 100 mm clear. */
     root.add(cylinder({
-      rTop: 0.16, rBottom: 0.12, h: 0.24, pos: [barX - 0.16, GY + 1.27, barZ1 - 0.5], mat: M_SILVER,
+      rTop: 0.16, rBottom: 0.12, h: 0.24,
+      pos: [barX - 0.16, GY + 1.27, 46.0],
+      mat: M_SILVER,
+      name: 'bar-ice-bucket',
     }));
     /* Stock somebody can actually take to the LAN room. Four intact cans on
      * the service side of the bar, between the glass rank rather than inside
@@ -3123,7 +3322,7 @@ export function buildMansionInterior(shell = null) {
     const loungeDrinks = [];
     for (const [i, z] of [45.8, 47.2, 48.6, 50.0].entries()) {
       const drink = makeBeerCan(M, {
-        x: barX + 0.16, y: GY + 1.2, z, crushed: false, rotY: i * 0.37,
+        x: barX + 0.16, y: GY + 1.145, z, crushed: false, rotY: i * 0.37,
       });
       drink.group.name = 'lounge-bar-drink';
       root.add(drink.group);
@@ -3133,26 +3332,40 @@ export function buildMansionInterior(shell = null) {
     /* ---- Stools. Measured clearance: the nearest archway pier is at
      * x=16.4, the stool colliders start at x=18.74. */
     const stoolX = bay.x1 - 1.6;
-    for (const sz of [45.9, 47.4, 48.9, 50.4]) {
-      root.add(cylinder({ r: 0.19, h: 0.05, pos: [stoolX, GY + 0.025, sz], mat: M_CHROME }));
-      root.add(cylinder({ r: 0.045, h: 0.74, pos: [stoolX, GY + 0.4, sz], mat: M_CHROME }));
-      root.add(cylinder({
+    const barStools = [];
+    for (const [index, sz] of [45.9, 47.4, 48.9, 50.4].entries()) {
+      const assemblyId = `mansion-lounge-bar-stool-${index}`;
+      const stool = geometryIntent(new THREE.Group(), { assemblyId });
+      stool.name = assemblyId;
+      stool.add(cylinder({ r: 0.19, h: 0.05, pos: [stoolX, GY + 0.025, sz], mat: M_CHROME }));
+      stool.add(cylinder({ r: 0.045, h: 0.74, pos: [stoolX, GY + 0.4, sz], mat: M_CHROME }));
+      stool.add(cylinder({
         r: 0.17, h: 0.035, pos: [stoolX, GY + 0.24, sz], mat: M_CHROME,
       }));
-      root.add(cylinder({ r: 0.26, h: 0.11, pos: [stoolX, GY + 0.81, sz], mat: M_LEATHER_RED }));
-      root.add(cylinder({ r: 0.24, h: 0.03, pos: [stoolX, GY + 0.87, sz], mat: M_GOLD, cast: false }));
+      stool.add(cylinder({ r: 0.26, h: 0.11, pos: [stoolX, GY + 0.81, sz], mat: M_LEATHER_RED }));
+      stool.add(cylinder({ r: 0.24, h: 0.03, pos: [stoolX, GY + 0.87, sz], mat: M_GOLD, cast: false }));
       // Low buttoned back, so they read as bar stools and not mushrooms.
-      root.add(box({
+      stool.add(box({
         size: [0.06, 0.42, 0.42], pos: [stoolX - 0.22, GY + 1.05, sz], mat: M_LEATHER_RED,
       }));
-      solid(stoolX - 0.28, stoolX + 0.28, GY, GY + 0.9, sz - 0.28, sz + 0.28);
+      root.add(stool);
+      const contact = solid(stoolX - 0.28, stoolX + 0.28, GY, GY + 0.9, sz - 0.28, sz + 0.28);
+      contact.name = `${assemblyId}-collider`;
+      contact.userData = { geometryGate: { assemblyId } };
+      barStools.push(stool);
     }
     // Two high tables in the south end of the bay, out of the bar's way.
-    for (const tz of [42.4, 52.8]) {
-      root.add(cylinder({ r: 0.05, h: 1.02, pos: [bay.x0 + 1.5, GY + 0.51, tz], mat: M_CHROME }));
-      root.add(cylinder({ r: 0.42, h: 0.05, pos: [bay.x0 + 1.5, GY + 1.04, tz], mat: M_MARBLE }));
-      root.add(cylinder({ r: 0.36, h: 0.04, pos: [bay.x0 + 1.5, GY + 0.03, tz], mat: M_CHROME }));
-      solid(bay.x0 + 1.06, bay.x0 + 1.94, GY, GY + 1.06, tz - 0.44, tz + 0.44);
+    for (const [index, tz] of [42.4, 52.8].entries()) {
+      const assemblyId = `mansion-lounge-standing-table-${index}`;
+      const mountTable = (object) => root.add(geometryIntent(object, { assemblyId }));
+      mountTable(cylinder({ r: 0.05, h: 1.02, pos: [bay.x0 + 1.5, GY + 0.51, tz], mat: M_CHROME }));
+      mountTable(cylinder({ r: 0.42, h: 0.05, pos: [bay.x0 + 1.5, GY + 1.04, tz], mat: M_MARBLE }));
+      mountTable(cylinder({ r: 0.36, h: 0.04, pos: [bay.x0 + 1.5, GY + 0.03, tz], mat: M_CHROME }));
+      const contact = solid(
+        bay.x0 + 1.06, bay.x0 + 1.94, GY, GY + 1.06, tz - 0.44, tz + 0.44,
+      );
+      contact.name = `${assemblyId}-collider`;
+      geometryIntent(contact, { assemblyId });
       root.add(cylinder({
         rTop: 0.05, rBottom: 0.036, h: 0.14, pos: [bay.x0 + 1.4, GY + 1.13, tz], mat: M_GLASS_CASE,
       }));
@@ -3160,12 +3373,18 @@ export function buildMansionInterior(shell = null) {
     // The bay's own light: a run of pendants over the counter and two
     // ceiling fittings over the standing end.
     const bayLights = [];
-    for (const pz of [46.4, 48.6, 50.8]) {
-      root.add(cylinder({ r: 0.018, h: 1.3, pos: [barX - 0.06, GY + 3.2, pz], mat: M_GOLD }));
-      root.add(cylinder({
+    for (const [index, pz] of [46.4, 48.6, 50.8].entries()) {
+      const assemblyId = `mansion-lounge-pendant-${index}`;
+      const mountPendant = (object) => root.add(geometryIntent(object, {
+        assemblyId,
+        checkSupport: false,
+        fixedSupportAnchor: true,
+      }));
+      mountPendant(cylinder({ r: 0.018, h: 1.3, pos: [barX - 0.06, GY + 3.2, pz], mat: M_GOLD }));
+      mountPendant(cylinder({
         rTop: 0.06, rBottom: 0.2, h: 0.24, pos: [barX - 0.06, GY + 2.44, pz], mat: M_GOLD,
       }));
-      root.add(sphere({ r: 0.075, pos: [barX - 0.06, GY + 2.36, pz], mat: M_BULB_WARM, cast: false }));
+      mountPendant(sphere({ r: 0.075, pos: [barX - 0.06, GY + 2.36, pz], mat: M_BULB_WARM, cast: false }));
       const bl = new THREE.PointLight(0xffdba8, 5.4, 9, 2);
       bl.position.set(barX - 0.06, GY + 2.3, pz);
       root.add(bl);
@@ -3280,18 +3499,28 @@ export function buildMansionInterior(shell = null) {
     const loungeRadio = makeRadioSet(barX - 0.22, GY + 1.145, 49.05, -Math.PI / 2 + 0.14);
     const loungeTvSet = makeTvSet(11.2, GY, 37.4, 0.55, { w: 1.6, h: 1.05 });
     // Two armchairs and a low table facing it, in the room's new front half.
-    for (const [cx2, cz2, cyaw] of [[10.2, 40.4, 2.5], [12.8, 40.6, -2.5]]) {
-      root.add(box({
+    for (const [index, [cx2, cz2, cyaw]] of [[10.2, 40.4, 2.5], [12.8, 40.6, -2.5]].entries()) {
+      const assemblyId = `mansion-lounge-tv-chair-${index}`;
+      root.add(geometryIntent(box({
         size: [0.95, 0.44, 0.95], pos: [cx2, GY + 0.28, cz2], mat: M_FABRIC_COUCH, rotY: cyaw,
-      }));
-      root.add(box({
+      }), { assemblyId }));
+      root.add(geometryIntent(box({
         size: [0.95, 0.62, 0.2], pos: [cx2 - Math.sin(cyaw) * 0.38, GY + 0.72, cz2 - Math.cos(cyaw) * 0.38], mat: M_FABRIC_COUCH, rotY: cyaw,
-      }));
-      solid(cx2 - 0.55, cx2 + 0.55, GY, GY + 0.9, cz2 - 0.55, cz2 + 0.55);
+      }), { assemblyId }));
+      const contact = solid(cx2 - 0.55, cx2 + 0.55, GY, GY + 0.9, cz2 - 0.55, cz2 + 0.55);
+      contact.name = `${assemblyId}-collider`;
+      geometryIntent(contact, { assemblyId });
     }
-    root.add(cylinder({ r: 0.46, h: 0.06, pos: [11.5, GY + 0.44, 39.7], mat: M_MARBLE }));
-    root.add(cylinder({ r: 0.14, h: 0.42, pos: [11.5, GY + 0.21, 39.7], mat: M_BRONZE }));
-    solid(11.04, 11.96, GY, GY + 0.47, 39.24, 40.16);
+    const loungeTableAssemblyId = 'mansion-lounge-tv-table';
+    root.add(geometryIntent(cylinder({
+      r: 0.46, h: 0.06, pos: [11.5, GY + 0.44, 39.7], mat: M_MARBLE,
+    }), { assemblyId: loungeTableAssemblyId }));
+    root.add(geometryIntent(cylinder({
+      r: 0.14, h: 0.42, pos: [11.5, GY + 0.21, 39.7], mat: M_BRONZE,
+    }), { assemblyId: loungeTableAssemblyId }));
+    const loungeTableCollider = solid(11.04, 11.96, GY, GY + 0.47, 39.24, 40.16);
+    loungeTableCollider.name = `${loungeTableAssemblyId}-collider`;
+    geometryIntent(loungeTableCollider, { assemblyId: loungeTableAssemblyId });
     rug(11.6, 39.6, 4.2, 3.6, GY + 0.01, M_RUG_LIVING, 0, 'lounge-seating-rug');
 
     curtains('z', r.z0 + 0.2, 12.5, GY + 0.1, 6.0, 3.6);
@@ -3310,6 +3539,7 @@ export function buildMansionInterior(shell = null) {
       bay: { ...bay },
       barTop: { x: barX - 0.06, z: (barZ0 + barZ1) / 2 },
       drinks: loungeDrinks,
+      barStools,
     };
   }
   const loungeProps = buildLounge();
@@ -3339,16 +3569,18 @@ export function buildMansionInterior(shell = null) {
 
     // Two chandeliers, smaller siblings of the foyer's.
     for (const cz of [62, 70]) {
-      root.add(cylinder({ r: 0.04, h: 0.9, pos: [0, UY - 0.75, cz], mat: M_BRONZE }));
+      const fixtureId = `mansion-ballroom-chandelier:${cz}`;
+      const mount = (object) => root.add(fixedFixture(object, fixtureId));
+      mount(cylinder({ r: 0.04, h: 0.9, pos: [0, UY - 0.75, cz], mat: M_BRONZE }));
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
-        root.add(box({
+        mount(box({
           size: [1.0, 0.03, 0.03], pos: [Math.cos(a) * 0.5, UY - 1.2, cz + Math.sin(a) * 0.5], mat: M_GOLD, rotY: a,
         }));
-        root.add(sphere({
+        mount(sphere({
           r: 0.09, pos: [Math.cos(a) * 1.0, UY - 1.26, cz + Math.sin(a) * 1.0], mat: M_BULB_WARM, cast: false,
         }));
-        root.add(box({
+        mount(box({
           size: [0.02, 0.26, 0.02], pos: [Math.cos(a) * 0.85, UY - 1.42, cz + Math.sin(a) * 0.85], mat: M_CRYSTAL,
         }));
       }
@@ -3429,22 +3661,23 @@ export function buildMansionInterior(shell = null) {
       }));
     }
     // Lighting bar on two legs, with par cans and their glow.
+    const stageLightingRigAssemblyId = 'mansion-ballroom-stage-lighting-rig';
     for (const sx of [-5.0, 5.0]) {
-      root.add(cylinder({ r: 0.05, h: 3.6, pos: [sx, stageTop + 1.8, stageZ0 + 0.5], mat: M_RACK }));
-      root.add(box({
+      root.add(geometryIntent(cylinder({ r: 0.05, h: 3.6, pos: [sx, stageTop + 1.8, stageZ0 + 0.5], mat: M_RACK }), { assemblyId: stageLightingRigAssemblyId }));
+      root.add(geometryIntent(box({
         size: [0.6, 0.05, 0.6], pos: [sx, stageTop + 0.03, stageZ0 + 0.5], mat: M_RACK, cast: false,
-      }));
+      }), { assemblyId: stageLightingRigAssemblyId }));
     }
-    root.add(cylinder({
+    root.add(geometryIntent(cylinder({
       r: 0.045, h: 10.0, pos: [0, stageTop + 3.5, stageZ0 + 0.5], mat: M_RACK, rotZ: Math.PI / 2,
-    }));
+    }), { assemblyId: stageLightingRigAssemblyId }));
     const parColours = [0xff5a7a, 0x6ab0ff, 0xffd166, 0x8affc0, 0xff8a3c];
     for (let i = 0; i < 7; i++) {
       const px = -4.2 + i * 1.4;
-      root.add(cylinder({
+      root.add(geometryIntent(cylinder({
         rTop: 0.13, rBottom: 0.11, h: 0.34, pos: [px, stageTop + 3.24, stageZ0 + 0.5], mat: M_STOVE_BLACK, rotX: 0.5,
-      }));
-      root.add(cylinder({
+      }), { assemblyId: stageLightingRigAssemblyId }));
+      root.add(geometryIntent(cylinder({
         r: 0.1,
         h: 0.03,
         pos: [px, stageTop + 3.08, stageZ0 + 0.58],
@@ -3452,26 +3685,27 @@ export function buildMansionInterior(shell = null) {
           color: 0x101014, emissive: parColours[i % parColours.length], emissiveIntensity: 1.5, roughness: 0.5,
         }),
         rotX: 0.5,
-      }));
+      }), { assemblyId: stageLightingRigAssemblyId }));
     }
     // Drum riser, with the kit standing on it.
     root.add(box({
       size: [2.6, 0.3, 1.9], pos: [0, stageTop + 0.15, 73.4], mat: M_STOVE_BLACK, name: 'drum-riser',
     }));
     const riserTop = stageTop + 0.3;
-    root.add(cylinder({ r: 0.42, h: 0.5, pos: [0, riserTop + 0.42, 73.1], mat: M_CARD, rotX: Math.PI / 2 }));
-    root.add(cylinder({
+    const drumKitAssemblyId = 'mansion-ballroom-drum-kit';
+    root.add(geometryIntent(cylinder({ r: 0.42, h: 0.5, pos: [0, riserTop + 0.42, 73.1], mat: M_CARD, rotX: Math.PI / 2 }), { assemblyId: drumKitAssemblyId }));
+    root.add(geometryIntent(cylinder({
       r: 0.44, h: 0.03, pos: [0, riserTop + 0.42, 72.84], mat: M_MARBLE, rotX: Math.PI / 2,
-    }));
+    }), { assemblyId: drumKitAssemblyId }));
     for (const [tx, tz, tr] of [[-0.42, 73.5, 0.19], [0.42, 73.5, 0.21]]) {
-      root.add(cylinder({ r: tr, h: 0.3, pos: [tx, riserTop + 0.88, tz], mat: M_CARD }));
+      root.add(geometryIntent(cylinder({ r: tr, h: 0.3, pos: [tx, riserTop + 0.88, tz], mat: M_CARD }), { assemblyId: drumKitAssemblyId }));
     }
-    root.add(cylinder({ r: 0.3, h: 0.36, pos: [0.95, riserTop + 0.5, 73.8], mat: M_CARD }));
+    root.add(geometryIntent(cylinder({ r: 0.3, h: 0.36, pos: [0.95, riserTop + 0.5, 73.8], mat: M_CARD }), { assemblyId: drumKitAssemblyId }));
     for (const [cx2, cz2, cr] of [[-0.95, 73.2, 0.28], [0.95, 73.2, 0.24], [1.15, 73.9, 0.3]]) {
-      root.add(cylinder({ r: 0.02, h: 1.1, pos: [cx2, riserTop + 0.55, cz2], mat: M_CHROME }));
-      root.add(cylinder({
+      root.add(geometryIntent(cylinder({ r: 0.02, h: 1.1, pos: [cx2, riserTop + 0.55, cz2], mat: M_CHROME }), { assemblyId: drumKitAssemblyId }));
+      root.add(geometryIntent(cylinder({
         r: cr, h: 0.012, pos: [cx2, riserTop + 1.12, cz2], mat: M_GOLD, rotX: 0.12,
-      }));
+      }), { assemblyId: drumKitAssemblyId }));
     }
     // Bass rig and a guitar amp, standing up rather than lying about.
     const stageStack = box({
@@ -3655,17 +3889,22 @@ export function buildMansionInterior(shell = null) {
       root.add(box({ size: [0.14, 0.76, 0.14], pos: [tx + ox, GY + 0.38, 66 + oz], mat: M_WOOD_DK }));
     }
     solid(tx - 0.98, tx + 0.98, GY, GY + 0.8, 62.6, 69.4);
+    const chairs = { west: [], east: [], ends: [] };
     for (let i = 0; i < 5; i++) {
       const cz = 63.4 + i * 1.3;
-      makeSeat(tx - 1.5, GY, cz, Math.PI / 2, M_FABRIC_CHAIR, 0.72);
-      makeSeat(tx + 1.5, GY, cz, -Math.PI / 2, M_FABRIC_CHAIR, 0.72);
+      chairs.west.push(makeSeat(
+        tx - 1.5, GY, cz, Math.PI / 2, M_FABRIC_CHAIR, 0.72, `mansion-dining-chair-west-${i}`,
+      ));
+      chairs.east.push(makeSeat(
+        tx + 1.5, GY, cz, -Math.PI / 2, M_FABRIC_CHAIR, 0.72, `mansion-dining-chair-east-${i}`,
+      ));
       for (const sx of [-0.72, 0.72]) {
         root.add(cylinder({ r: 0.13, h: 0.02, pos: [tx + sx, GY + 0.82, cz], mat: M_CARD, cast: false }));
         root.add(box({ size: [0.03, 0.01, 0.16], pos: [tx + sx + 0.19, GY + 0.82, cz], mat: M_SILVER, cast: false }));
       }
     }
-    makeSeat(tx, GY, 62.2, 0, M_LEATHER_RED, 0.85);
-    makeSeat(tx, GY, 69.8, Math.PI, M_LEATHER_RED, 0.85);
+    chairs.ends.push(makeSeat(tx, GY, 62.2, 0, M_LEATHER_RED, 0.85, 'mansion-dining-chair-south'));
+    chairs.ends.push(makeSeat(tx, GY, 69.8, Math.PI, M_LEATHER_RED, 0.85, 'mansion-dining-chair-north'));
 
     /* THE CANDLES (owner playtest 2026-08-04, verbatim):
      *
@@ -3740,7 +3979,7 @@ export function buildMansionInterior(shell = null) {
     curtains('x', r.x0 + 0.22, 65.5, GY + 0.1, 5.6, 3.6, M_CURTAIN_RED);
     ceilingLight(-12.5, 62, UY - 0.4, 0xffdca0, 4.6, 14);
     ceilingLight(-12.5, 70, UY - 0.4, 0xffdca0, 4.6, 14);
-    return { table: { x: tx, z: 66 } };
+    return { table: { x: tx, z: 66 }, chairs };
   }
   const diningProps = buildDining();
 
@@ -3757,33 +3996,50 @@ export function buildMansionInterior(shell = null) {
     topping(r.x0, r.x1, GY + 0.01, r.z0, r.z1, tileMat, 'kitchen-floor');
 
     // Run of counters along the north and east walls.
-    function counterRun(x0, x1, z0, z1) {
-      root.add(box({
+    const eastSinkRunAssemblyId = 'mansion-kitchen-fitted-sink-run';
+    const eastNorthRunAssemblyId = 'mansion-kitchen-fitted-east-north-run';
+    const rangeAssemblyId = 'mansion-kitchen-fitted-range-run';
+    function counterRun(x0, x1, z0, z1, assemblyId = null) {
+      const mount = (object) => root.add(assemblyId ? geometryIntent(object, { assemblyId }) : object);
+      mount(box({
         size: [x1 - x0, 0.88, z1 - z0], pos: [(x0 + x1) / 2, GY + 0.44, (z0 + z1) / 2], mat: M.cabinet,
+        name: assemblyId ? 'range-base-cabinet' : '',
       }));
-      root.add(box({
+      mount(box({
         size: [x1 - x0 + 0.05, 0.06, z1 - z0 + 0.05], pos: [(x0 + x1) / 2, GY + 0.91, (z0 + z1) / 2], mat: M.counter,
+        name: assemblyId ? 'range-worktop' : '',
       }));
-      solid(x0, x1, GY, GY + 0.94, z0, z1);
+      const collider = solid(x0, x1, GY, GY + 0.94, z0, z1);
+      if (assemblyId) {
+        collider.name = 'range-base-collider';
+        geometryIntent(collider, { assemblyId });
+      }
     }
     /* Leave a real opening in both the worktop and cabinet carcass for the
      * sink. The old run was one uninterrupted slab; the two steel "bowls"
      * were built underneath it, so from above there was no sink at all. */
-    counterRun(r.x1 - 0.7, r.x1, 59, sinkZ - 0.7);
-    counterRun(r.x1 - 0.7, r.x1, sinkZ + 0.7, 64.6);
-    counterRun(r.x1 - 0.7, r.x1, 67.6, 71);
+    counterRun(r.x1 - 0.7, r.x1, 59, sinkZ - 0.7, eastSinkRunAssemblyId);
+    counterRun(r.x1 - 0.7, r.x1, sinkZ + 0.7, 64.6, eastSinkRunAssemblyId);
+    counterRun(r.x1 - 0.7, r.x1, 67.6, 71, eastNorthRunAssemblyId);
     /* The north run stops short of x=12.4: the pool door (x:9.6-12.0) goes
      * through this wall, and a counter across it is a doorway you can see
      * through and cannot use. */
-    counterRun(12.4, 15.2, r.z1 - 0.7, r.z1);
+    counterRun(12.4, 15.2, r.z1 - 0.7, r.z1, rangeAssemblyId);
     // Upper cabinets.
-    for (const [cx0, cx1, cz0, cz1] of [
+    for (const [cabinetIndex, [cx0, cx1, cz0, cz1]] of [
       [r.x1 - 0.38, r.x1, 59, 63.4], [12.4, 15.2, r.z1 - 0.38, r.z1],
-    ]) {
-      root.add(box({
+    ].entries()) {
+      const assemblyId = cabinetIndex === 1 ? rangeAssemblyId : null;
+      const cabinet = box({
         size: [cx1 - cx0, 0.9, cz1 - cz0], pos: [(cx0 + cx1) / 2, GY + 2.1, (cz0 + cz1) / 2], mat: M.cabinet,
-      }));
-      solid(cx0, cx1, GY + 1.6, GY + 2.6, cz0, cz1);
+        name: assemblyId ? 'range-upper-cabinet' : '',
+      });
+      root.add(assemblyId ? geometryIntent(cabinet, { assemblyId }) : cabinet);
+      const cabinetCollider = solid(cx0, cx1, GY + 1.6, GY + 2.6, cz0, cz1);
+      if (assemblyId) {
+        cabinetCollider.name = 'range-upper-cabinet-collider';
+        geometryIntent(cabinetCollider, { assemblyId });
+      }
     }
 
     // Island.
@@ -3799,16 +4055,19 @@ export function buildMansionInterior(shell = null) {
     const stove = box({
       size: [1.5, 0.95, 0.75], pos: [stoveX, GY + 0.475, r.z1 - 0.4], mat: M_STOVE_BLACK, name: 'stove',
     });
+    geometryIntent(stove, { assemblyId: rangeAssemblyId });
     root.add(stove);
     for (const [ox, oz] of [[-0.34, -0.2], [0.34, -0.2], [-0.34, 0.16], [0.34, 0.16]]) {
-      root.add(cylinder({
+      root.add(geometryIntent(cylinder({
         r: 0.14, h: 0.02, pos: [stoveX + ox, GY + 0.96, r.z1 - 0.4 + oz], mat: M_STOVE_BLACK,
-      }));
+      }), { assemblyId: rangeAssemblyId }));
     }
-    solid(stoveX - 0.75, stoveX + 0.75, GY, GY + 0.98, r.z1 - 0.8, r.z1);
-    root.add(box({
+    const stoveCollider = solid(stoveX - 0.75, stoveX + 0.75, GY, GY + 0.98, r.z1 - 0.8, r.z1);
+    stoveCollider.name = 'range-stove-collider';
+    geometryIntent(stoveCollider, { assemblyId: rangeAssemblyId });
+    root.add(geometryIntent(box({
       size: [1.7, 0.7, 0.7], pos: [stoveX, GY + 2.2, r.z1 - 0.5], mat: M_STEEL, name: 'extractor',
-    }));
+    }), { assemblyId: rangeAssemblyId }));
 
     /* ================================================================ */
     /* THE SINK, WHICH WORKS (owner playtest 2026-08-04: "kitchen is nice.  */
@@ -3827,20 +4086,22 @@ export function buildMansionInterior(shell = null) {
      * and walls finish below the worktop instead of hiding behind a chrome
      * lid. The named groups are the public geometry contract used by the
      * room verifier. */
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [0.7, 0.7, 1.4],
       pos: [sinkX, GY + 0.35, sinkZ],
       mat: M.cabinet,
       name: 'kitchen-sink-cabinet',
-    }));
-    root.add(box({
+    }), { assemblyId: eastSinkRunAssemblyId }));
+    root.add(geometryIntent(box({
       size: [0.04, 0.58, 1.24],
       pos: [r.x1 - 0.72, GY + 0.38, sinkZ],
       mat: M_WOOD_DK,
       cast: false,
       name: 'kitchen-sink-cabinet-front',
-    }));
-    solid(r.x1 - 0.7, r.x1, GY, GY + 0.94, sinkZ - 0.7, sinkZ + 0.7);
+    }), { assemblyId: eastSinkRunAssemblyId }));
+    const sinkCabinetCollider = solid(r.x1 - 0.7, r.x1, GY, GY + 0.94, sinkZ - 0.7, sinkZ + 0.7);
+    sinkCabinetCollider.name = 'kitchen-sink-cabinet-collider';
+    geometryIntent(sinkCabinetCollider, { assemblyId: eastSinkRunAssemblyId });
 
     const sinkRim = new THREE.Group();
     sinkRim.name = 'kitchen-sink-rim';
@@ -3903,7 +4164,10 @@ export function buildMansionInterior(shell = null) {
     // stand over the SOUTH bowl, not over the divider between the two bowls.
     const waterZ = sinkZ - 0.335;
     const tapBaseY = GY + 0.96;
-    const faucet = new THREE.Group();
+    const faucetAssemblyId = 'mansion-kitchen-sink-faucet';
+    const faucet = geometryIntent(new THREE.Group(), {
+      assemblyId: faucetAssemblyId,
+    });
     faucet.name = 'kitchen-sink-faucet';
     root.add(faucet);
     faucet.add(named(cylinder({
@@ -3926,6 +4190,11 @@ export function buildMansionInterior(shell = null) {
       mat: M_CHROME, rotZ: 0.35, name: 'kitchen-sink-faucet-lever',
     });
     faucet.add(tapLever);
+    faucet.add(named(cylinder({
+      r: 0.03, h: 0.14,
+      pos: [sinkX + 0.22, tapBaseY + 0.14, waterZ - 0.045],
+      mat: M_CHROME, rotX: Math.PI / 2,
+    }), 'kitchen-sink-faucet-lever-pivot'));
     faucet.add(named(cylinder({
       r: 0.028, h: 0.18, pos: [sinkX + 0.2, tapBaseY + 0.09, sinkZ + 0.28],
       mat: M_CHROME,
@@ -4119,12 +4388,13 @@ export function buildMansionInterior(shell = null) {
      * bowl. */
     for (let i = 0; i < 3; i++) {
       const hz = 59.5 + i * 0.6;
-      root.add(cylinder({
+      const herbAssemblyId = `mansion-kitchen-herb-pot-${i}`;
+      root.add(geometryIntent(cylinder({
         rTop: 0.08, rBottom: 0.06, h: 0.14, pos: [r.x1 - 0.22, GY + 1.02, hz], mat: M_BRONZE,
-      }));
-      root.add(sphere({
+      }), { assemblyId: herbAssemblyId }));
+      root.add(geometryIntent(sphere({
         r: 0.11, ry: 0.13, pos: [r.x1 - 0.22, GY + 1.16, hz], mat: mat({ color: 0x2f7038, roughness: 0.95 }), cast: false,
-      }));
+      }), { assemblyId: herbAssemblyId }));
     }
     // Knife block, coffee machine, fruit bowl and a chopping board.
     root.add(box({ size: [0.22, 0.3, 0.18], pos: [12.6, GY + 1.11, 66.1], mat: M_WOOD_DK, rotX: -0.16 }));
@@ -4133,9 +4403,11 @@ export function buildMansionInterior(shell = null) {
         size: [0.02, 0.16, 0.05], pos: [12.5 + i * 0.05, GY + 1.33, 66.06], mat: M_CHROME, rotX: -0.16, cast: false,
       }));
     }
-    root.add(box({ size: [0.42, 0.42, 0.38], pos: [10.9, GY + 1.17, 64.9], mat: M_STOVE_BLACK }));
-    root.add(box({ size: [0.34, 0.06, 0.3], pos: [10.9, GY + 1.02, 65.05], mat: M_CHROME, cast: false }));
-    root.add(cylinder({ r: 0.02, h: 0.14, pos: [10.9, GY + 1.31, 65.06], mat: M_CHROME }));
+    const coffeeMachineAssemblyId = 'mansion-kitchen-coffee-machine';
+    const mountCoffeeMachine = (object) => root.add(geometryIntent(object, { assemblyId: coffeeMachineAssemblyId }));
+    mountCoffeeMachine(box({ size: [0.42, 0.42, 0.38], pos: [10.9, GY + 1.17, 64.9], mat: M_STOVE_BLACK }));
+    mountCoffeeMachine(box({ size: [0.34, 0.06, 0.3], pos: [10.9, GY + 1.02, 65.05], mat: M_CHROME, cast: false }));
+    mountCoffeeMachine(cylinder({ r: 0.02, h: 0.14, pos: [10.9, GY + 1.31, 65.06], mat: M_CHROME }));
     root.add(cylinder({ rTop: 0.2, rBottom: 0.12, h: 0.11, pos: [12.0, GY + 1.02, 64.9], mat: M_SILVER }));
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
@@ -4150,18 +4422,22 @@ export function buildMansionInterior(shell = null) {
       size: [0.5, 0.03, 0.34], pos: [13.1, GY + 1.0, 65.9], mat: M_WOOD, rotY: 0.2, cast: false,
     }));
     // Wine fridge beside the tall fridge, glass-fronted and lit.
-    root.add(box({ size: [0.8, 1.6, 0.68], pos: [9.85, GY + 0.8, 60.7], mat: M_STOVE_BLACK, name: 'wine-fridge' }));
-    root.add(box({
+    const wineFridgeAssemblyId = 'mansion-kitchen-wine-fridge';
+    const mountWineFridge = (object) => root.add(geometryIntent(object, { assemblyId: wineFridgeAssemblyId }));
+    mountWineFridge(box({ size: [0.8, 1.6, 0.68], pos: [9.85, GY + 0.8, 60.7], mat: M_STOVE_BLACK, name: 'wine-fridge' }));
+    mountWineFridge(box({
       size: [0.6, 1.32, 0.03], pos: [9.85, GY + 0.82, 61.03], mat: M_GLASS_CASE, cast: false,
     }));
     for (let s = 0; s < 4; s++) {
       for (let i = 0; i < 4; i++) {
-        root.add(cylinder({
+        mountWineFridge(cylinder({
           r: 0.045, h: 0.26, pos: [9.62 + i * 0.15, GY + 0.34 + s * 0.32, 60.7], mat: mat({ color: 0x1a3a20, roughness: 0.4 }), rotX: Math.PI / 2, cast: false,
         }));
       }
     }
-    solid(9.45, 10.25, GY, GY + 1.6, 60.36, 61.04);
+    const wineFridgeCollider = solid(9.45, 10.25, GY, GY + 1.6, 60.36, 61.04);
+    wineFridgeCollider.name = 'mansion-kitchen-wine-fridge-collider';
+    geometryIntent(wineFridgeCollider, { assemblyId: wineFridgeAssemblyId });
     const wineGlow = new THREE.PointLight(0x8ad0ff, 1.4, 3.2, 2);
     wineGlow.position.set(10.1, GY + 0.9, 60.9);
     root.add(wineGlow);
@@ -4227,23 +4503,33 @@ export function buildMansionInterior(shell = null) {
     /* Three stools on the island's SOUTH face -- not the west one, which is
      * where the ballroom door (z 64..67.5 in the x=9 wall) opens onto and
      * where the tour walks past. */
-    for (const sx of [11.1, 12.0, 12.9]) {
-      root.add(cylinder({ r: 0.18, h: 0.05, pos: [sx, GY + 0.025, 64.0], mat: M_GOLD }));
-      root.add(cylinder({ r: 0.04, h: 0.6, pos: [sx, GY + 0.33, 64.0], mat: M_GOLD }));
-      root.add(cylinder({ r: 0.16, h: 0.03, pos: [sx, GY + 0.22, 64.0], mat: M_GOLD, cast: false }));
-      root.add(named(cylinder({ r: 0.21, h: 0.09, pos: [sx, GY + 0.67, 64.0], mat: M_LEATHER_TAN }), 'kitchen-stool'));
-      root.add(box({
+    const islandStools = [];
+    for (const [index, sx] of [11.1, 12.0, 12.9].entries()) {
+      const assemblyId = `mansion-kitchen-island-stool-${index}`;
+      const stool = geometryIntent(new THREE.Group(), { assemblyId });
+      stool.name = assemblyId;
+      stool.add(cylinder({ r: 0.18, h: 0.05, pos: [sx, GY + 0.025, 64.0], mat: M_GOLD }));
+      stool.add(cylinder({ r: 0.04, h: 0.6, pos: [sx, GY + 0.33, 64.0], mat: M_GOLD }));
+      stool.add(cylinder({ r: 0.16, h: 0.03, pos: [sx, GY + 0.22, 64.0], mat: M_GOLD, cast: false }));
+      stool.add(named(cylinder({ r: 0.21, h: 0.09, pos: [sx, GY + 0.67, 64.0], mat: M_LEATHER_TAN }), 'kitchen-stool'));
+      stool.add(box({
         size: [0.36, 0.34, 0.06], pos: [sx, GY + 0.88, 63.83], mat: M_LEATHER_TAN, rotX: -0.12,
       }));
-      solid(sx - 0.24, sx + 0.24, GY, GY + 0.75, 63.76, 64.24);
+      root.add(stool);
+      const contact = solid(sx - 0.24, sx + 0.24, GY, GY + 0.75, 63.76, 64.24);
+      contact.name = `${assemblyId}-collider`;
+      contact.userData = { geometryGate: { assemblyId } };
+      islandStools.push(stool);
     }
     // Two pendants over the island.
     for (const pz of [64.9, 66.1]) {
-      root.add(cylinder({ r: 0.016, h: 1.1, pos: [12.0, GY + 3.35, pz], mat: M_GOLD }));
-      root.add(named(cylinder({
+      const fixtureId = `mansion-kitchen-pendant:${pz}`;
+      const mount = (object) => root.add(fixedFixture(object, fixtureId));
+      mount(cylinder({ r: 0.016, h: 1.1, pos: [12.0, GY + 3.35, pz], mat: M_GOLD }));
+      mount(named(cylinder({
         rTop: 0.07, rBottom: 0.24, h: 0.3, pos: [12.0, GY + 2.65, pz], mat: M_GOLD,
       }), 'kitchen-pendant'));
-      root.add(sphere({ r: 0.09, pos: [12.0, GY + 2.54, pz], mat: M_BULB_WARM, cast: false }));
+      mount(sphere({ r: 0.09, pos: [12.0, GY + 2.54, pz], mat: M_BULB_WARM, cast: false }));
       const pl = new THREE.PointLight(0xffe0b0, 3.6, 8, 2);
       pl.position.set(12.0, GY + 2.45, pz);
       root.add(pl);
@@ -4253,46 +4539,52 @@ export function buildMansionInterior(shell = null) {
      * box, a marble slab behind it, a pot filler over the hob and a utensil
      * rail. The extractor mesh above stays where it is -- this is built round
      * it, not instead of it. */
-    root.add(box({
+    const mountRange = (object) => root.add(geometryIntent(object, { assemblyId: rangeAssemblyId }));
+    mountRange(box({
       size: [2.0, 0.14, 0.14], pos: [stoveX, GY + 1.86, r.z1 - 0.08], mat: M_GOLD, cast: false, name: 'range-mantel',
     }));
-    root.add(box({
+    mountRange(box({
       size: [2.0, 0.5, 0.8], pos: [stoveX, GY + 2.62, r.z1 - 0.5], mat: M_MARBLE, cast: false, name: 'range-hood',
     }));
-    root.add(box({
+    mountRange(box({
       size: [1.2, 1.1, 0.7], pos: [stoveX, GY + 3.42, r.z1 - 0.45], mat: M_MARBLE, cast: false, name: 'range-chimney',
     }));
-    root.add(box({
+    mountRange(box({
       size: [2.1, 0.09, 0.86], pos: [stoveX, GY + 2.34, r.z1 - 0.5], mat: M_GOLD, cast: false,
     }));
-    root.add(cylinder({
+    mountRange(cylinder({
       r: 0.026, h: 0.5, pos: [stoveX + 0.5, GY + 1.5, r.z1 - 0.06], mat: M_GOLD, rotZ: Math.PI / 2, name: 'pot-filler',
     }));
-    root.add(cylinder({
+    mountRange(cylinder({
       r: 0.022, h: 0.16, pos: [stoveX + 0.26, GY + 1.44, r.z1 - 0.06], mat: M_GOLD,
     }));
-    root.add(cylinder({
+    mountRange(cylinder({
       r: 0.018, h: 1.7, pos: [stoveX, GY + 1.72, r.z1 - 0.1], mat: M_GOLD, rotZ: Math.PI / 2, name: 'utensil-rail',
     }));
     for (let i = 0; i < 5; i++) {
-      root.add(cylinder({
+      mountRange(cylinder({
         r: 0.012, h: 0.22, pos: [stoveX - 0.6 + i * 0.3, GY + 1.6, r.z1 - 0.12], mat: M_STEEL, cast: false,
       }));
-      root.add(box({
+      mountRange(box({
         size: [0.09, 0.14, 0.03], pos: [stoveX - 0.6 + i * 0.3, GY + 1.44, r.z1 - 0.12], mat: M_POT, cast: false,
       }));
     }
     // Brass plinth and cornice on the two counter runs, so the joinery reads
     // as fitted rather than as boxes standing on a floor.
-    for (const [px0, px1, pz0, pz1] of [
+    for (const [runIndex, [px0, px1, pz0, pz1]] of [
       [r.x1 - 0.72, r.x1, 59, 64.6], [r.x1 - 0.72, r.x1, 67.6, 71], [12.4, 15.2, r.z1 - 0.72, r.z1],
-    ]) {
-      root.add(box({
+    ].entries()) {
+      const plinthAssemblyId = [
+        eastSinkRunAssemblyId,
+        eastNorthRunAssemblyId,
+        rangeAssemblyId,
+      ][runIndex];
+      root.add(geometryIntent(box({
         size: [px1 - px0 - 0.06, 0.1, pz1 - pz0 - 0.06], pos: [(px0 + px1) / 2, GY + 0.05, (pz0 + pz1) / 2], mat: M_STOVE_BLACK, cast: false, name: 'counter-plinth',
-      }));
-      root.add(box({
+      }), { assemblyId: plinthAssemblyId }));
+      root.add(geometryIntent(box({
         size: [px1 - px0 - 0.04, 0.03, pz1 - pz0 - 0.04], pos: [(px0 + px1) / 2, GY + 0.11, (pz0 + pz1) / 2], mat: M_GOLD, cast: false,
-      }));
+      }), { assemblyId: plinthAssemblyId }));
     }
     // A butcher's block on legs in the west aisle -- against the ballroom-door
     // wall's own pier, north of the doorway band (z 64..67.5).
@@ -4318,7 +4610,7 @@ export function buildMansionInterior(shell = null) {
       const clock = makeWallClock(M, {
         x: 10.0, y: GY + 2.5, z: r.z0 + 0.1, rotY: 0, r: 0.3,
       });
-      root.add(clock.group);
+      root.add(fixedFixture(clock.group, 'mansion-kitchen-wall-clock'));
       root.add(cylinder({
         r: 0.36, h: 0.05, pos: [10.0, GY + 2.5, r.z0 + 0.06], mat: M_GOLD, rotX: Math.PI / 2, cast: false, name: 'kitchen-clock-surround',
       }));
@@ -4331,6 +4623,7 @@ export function buildMansionInterior(shell = null) {
     }
     return {
       island,
+      islandStools,
       stove,
       ceilingLights: kitchenLights,
       tap: tapSpout,
@@ -4782,8 +5075,10 @@ export function buildMansionInterior(shell = null) {
     }), 'conference-mic-live'));
 
     // Ceiling projector, aimed at the screen.
-    root.add(box({ size: [0.34, 0.16, 0.42], pos: [1.4, UCY - 0.5, 58], mat: M_STOVE_BLACK }));
-    root.add(cylinder({
+    const projectorAssembly = 'mansion-conference-ceiling-projector';
+    const mountProjector = (object) => root.add(fixedFixture(object, projectorAssembly));
+    mountProjector(box({ size: [0.34, 0.16, 0.42], pos: [1.4, UCY - 0.5, 58], mat: M_STOVE_BLACK }));
+    mountProjector(cylinder({
       r: 0.02, h: 0.36, pos: [1.4, UCY - 0.3, 58], mat: M_CHROME,
     }));
 
@@ -4842,38 +5137,48 @@ export function buildMansionInterior(shell = null) {
     /* Coffered ceiling, in gold on the warm plaster: a beam grid over the
      * middle of the room with the two fittings hung inside it. A boardroom
      * with a flat ceiling and two lamps on a stick is a meeting room. */
-    topping(r.x0 + 0.6, r.x1 - 0.6, UCY - 0.16, r.z0 + 0.6, r.z1 - 0.6,
-      M_WALL_WARM, 'conference-ceiling', false);
+    const conferenceCeiling = topping(
+      r.x0 + 0.6, r.x1 - 0.6, UCY - 0.16, r.z0 + 0.6, r.z1 - 0.6,
+      M_WALL_WARM, 'conference-ceiling', false,
+    );
+    geometryIntent(conferenceCeiling, { checkSupport: false, fixedSupportAnchor: true });
+    const conferenceCofferPolicy = {
+      assemblyId: 'mansion-conference-coffer-grid',
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    };
     for (const bx of [-5.4, -1.8, 1.8, 5.4]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [0.16, 0.2, r.z1 - r.z0 - 1.2], pos: [bx, UCY - 0.26, 58], mat: M_GOLD, cast: false, name: 'conference-coffer',
-      }));
+      }), conferenceCofferPolicy));
     }
     for (const bz of [55.0, 58.0, 61.0]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [r.x1 - r.x0 - 1.2, 0.2, 0.16], pos: [0, UCY - 0.26, bz], mat: M_GOLD, cast: false, name: 'conference-coffer',
-      }));
+      }), conferenceCofferPolicy));
     }
 
     /* Lighting: two fittings over the table, hung on ITS long axis now rather
      * than on the axis it used to run down. */
     const lights = [];
-    for (const lx of [-1.7, 1.7]) {
-      root.add(cylinder({ r: 0.03, h: 0.7, pos: [lx, UCY - 0.6, 58], mat: M_GOLD }));
-      root.add(cylinder({
+    for (const [fixtureIndex, lx] of [-1.7, 1.7].entries()) {
+      const fixtureId = `mansion-conference-pendant-${fixtureIndex}`;
+      const mount = (object) => root.add(fixedFixture(object, fixtureId));
+      mount(cylinder({ r: 0.03, h: 0.7, pos: [lx, UCY - 0.6, 58], mat: M_GOLD }));
+      mount(cylinder({
         rTop: 0.26, rBottom: 0.16, h: 0.1, pos: [lx, UCY - 0.95, 58], mat: M_GOLD, cast: false,
       }));
       for (const [ox, oz] of [[-0.7, 0], [0.7, 0], [0, -0.7], [0, 0.7]]) {
-        root.add(box({
+        mount(box({
           size: ox === 0 ? [0.03, 0.03, Math.abs(oz)] : [Math.abs(ox), 0.03, 0.03],
           pos: [lx + ox / 2, UCY - 0.95, 58 + oz / 2],
           mat: M_GOLD,
         }));
         // Each arm carries a candle cup with the shade the right way up.
-        root.add(cylinder({
+        mount(cylinder({
           rTop: 0.11, rBottom: 0.14, h: 0.15, pos: [lx + ox, UCY - 1.02, 58 + oz], mat: M_SHADE_CREAM,
         }));
-        root.add(sphere({ r: 0.075, pos: [lx + ox, UCY - 1.04, 58 + oz], mat: M_BULB_WARM, cast: false }));
+        mount(sphere({ r: 0.075, pos: [lx + ox, UCY - 1.04, 58 + oz], mat: M_BULB_WARM, cast: false }));
       }
       const l = new THREE.PointLight(0xffdba0, 7, 18, 2);
       l.position.set(lx, UCY - 1.15, 58);
@@ -4924,6 +5229,11 @@ export function buildMansionInterior(shell = null) {
   /* ================================================================== */
   function buildOffice() {
     const r = OFFICE;
+    const officeFireZ = 71.0;
+    const officeStairSouthWallZ0 = 64.25;
+    const officeStairSouthWallZ1 = 64.55;
+    const officeStairNorthWallZ0 = 68.85;
+    const officeStairNorthWallZ1 = 69.15;
     trimRoom(r, UY, UCY - 0.3);
     topping(r.x0, r.x1, UY + 0.01, r.z0, r.z1, M_PARQUET, 'office-floor');
     // A dark marble border round the parquet, and two rugs: the big one under
@@ -4932,7 +5242,9 @@ export function buildMansionInterior(shell = null) {
       [r.x0 + 0.6, r.x1 - 0.6, r.z0 + 0.6, r.z0 + 0.85],
       [r.x0 + 0.6, r.x1 - 0.6, r.z1 - 0.85, r.z1 - 0.6],
       [r.x0 + 0.6, r.x0 + 0.85, r.z0 + 0.6, r.z1 - 0.6],
-      [r.x1 - 0.85, r.x1 - 0.6, r.z0 + 0.6, r.z1 - 0.6],
+      [r.x1 - 0.85, r.x1 - 0.6, r.z0 + 0.6, officeStairSouthWallZ0],
+      [r.x1 - 0.85, r.x1 - 0.6, officeStairSouthWallZ1, officeStairNorthWallZ0],
+      [r.x1 - 0.85, r.x1 - 0.6, officeStairNorthWallZ1, r.z1 - 0.6],
     ]) topping(bx0, bx1, UY + 0.02, bz0, bz1, M_MARBLE_DK, 'office-border');
     rug(0, 70.4, 10.5, 7.6, UY + 0.01, M_RUG_LIVING, 0, 'office-main-rug');
     rug(-4.9, 72.6, 4.4, 3.4, UY + 0.01, M_CARPET_HALL, 0, 'office-small-rug');
@@ -4942,33 +5254,68 @@ export function buildMansionInterior(shell = null) {
      * one 1.5 m slab per side standing 0.02 m off the plaster. */
     for (const side of [-1, 1]) {
       const px = side * (r.x1 - 0.035);
+      const panellingAssemblyId = side < 0
+        ? 'mansion-office-panelling-west'
+        : 'mansion-office-panelling-east';
+      const mountPanelling = (object) => root.add(geometryIntent(object, {
+        assemblyId: panellingAssemblyId,
+      }));
       /* Starts at UY + 0.17, ABOVE the skirting `trimRoom` has already run
        * round this room: a 0.07 m panel from the floor swallows the 0.05 m
        * skirting whole, which is a moulding you have paid for and cannot
        * see. */
-      root.add(box({
-        size: [0.07, 2.43, r.z1 - r.z0 - 0.4],
-        pos: [px, UY + 1.385, (r.z0 + r.z1) / 2],
-        mat: M_WOOD_DK,
-        cast: false,
-        name: 'office-panelling',
-      }));
+      /* The east wall's chimneypiece is a real three-metre installation, so
+       * its backing cannot also be an unbroken timber panel. Split that one
+       * wall finish at the fireplace edges. The fitted stair hall also returns
+       * into this wall at z 68.85..69.15, so the east finish stops at both
+       * faces instead of continuing invisibly through the partition. */
+      const panelRuns = side < 0
+        ? [[r.z0 + 0.2, r.z1 - 0.2]]
+        : [
+          [r.z0 + 0.2, officeStairSouthWallZ0],
+          [officeStairSouthWallZ1, officeStairNorthWallZ0],
+          [officeStairNorthWallZ1, officeFireZ - 1.5],
+          [officeFireZ + 1.5, r.z1 - 0.2],
+        ];
+      for (const [z0, z1] of panelRuns) {
+        mountPanelling(box({
+          size: [0.07, 2.43, z1 - z0],
+          pos: [px, UY + 1.385, (z0 + z1) / 2],
+          mat: M_WOOD_DK,
+          cast: false,
+          name: 'office-panelling',
+        }));
+        mountPanelling(box({
+          size: [0.11, 0.14, z1 - z0],
+          pos: [side * (r.x1 - 0.05), UY + 2.68, (z0 + z1) / 2],
+          mat: M_GOLD,
+          cast: false,
+          name: 'office-dado',
+        }));
+        mountPanelling(box({
+          size: [0.13, 0.22, z1 - z0],
+          pos: [side * (r.x1 - 0.06), UCY - 0.42, (z0 + z1) / 2],
+          mat: M_TRIM,
+          cast: false,
+          name: 'office-cornice',
+        }));
+      }
       for (let i = 0; i < 6; i++) {
         const pz = r.z0 + 1.4 + i * 1.72;
+        if (side > 0 && pz + 0.7 > officeFireZ - 1.5 && pz - 0.7 < officeFireZ + 1.5) continue;
+        if (side > 0
+          && (
+            (pz + 0.7 > officeStairSouthWallZ0 && pz - 0.7 < officeStairSouthWallZ1)
+            || (pz + 0.7 > officeStairNorthWallZ0 && pz - 0.7 < officeStairNorthWallZ1)
+          )) continue;
         for (const [oy, oz, sy, sz] of [
           [1.0, 0, 0.05, 1.34], [-1.0, 0, 0.05, 1.34], [0, 0.67, 2.05, 0.05], [0, -0.67, 2.05, 0.05],
         ]) {
-          root.add(box({
+          mountPanelling(box({
             size: [0.05, sy, sz], pos: [side * (r.x1 - 0.08), UY + 1.3 + oy, pz + oz], mat: M_GOLD, cast: false, name: 'office-panel-bead',
           }));
         }
       }
-      root.add(box({
-        size: [0.11, 0.14, r.z1 - r.z0 - 0.3], pos: [side * (r.x1 - 0.05), UY + 2.68, (r.z0 + r.z1) / 2], mat: M_GOLD, cast: false, name: 'office-dado',
-      }));
-      root.add(box({
-        size: [0.13, 0.22, r.z1 - r.z0], pos: [side * (r.x1 - 0.06), UCY - 0.42, (r.z0 + r.z1) / 2], mat: M_TRIM, cast: false, name: 'office-cornice',
-      }));
     }
 
     // The desk, facing the door, with the chair behind it and the window
@@ -5158,6 +5505,8 @@ export function buildMansionInterior(shell = null) {
      * `bookcaseBay()`, below, in THE PRIVATE STAIR section, on the EAST
      * wall -- a different function, different names, a different collider,
      * and nothing in this block touches it. */
+    const officeBookcaseAssembly = 'mansion-office-west-wall-bookcase';
+    const mountOfficeBookcase = (object) => root.add(geometryIntent(object, { assemblyId: officeBookcaseAssembly }));
     for (const bz of [67.6]) {
       const bookCaseD = 0.4;  // depth into the room, along x
       const bookCaseW = 2.2;  // width along the wall, along z
@@ -5165,28 +5514,30 @@ export function buildMansionInterior(shell = null) {
       // The case: a recessed back and two end panels, not one solid slab,
       // and a toe kick so it stands proud of the skirting rather than
       // sitting on the floor like a plinth-less crate.
-      root.add(box({
+      mountOfficeBookcase(box({
         size: [0.06, 2.3, bookCaseW], pos: [bookX - bookCaseD / 2 + 0.03, UY + 1.19, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-back',
       }));
       for (const oz of [-(bookCaseW / 2 - 0.03), bookCaseW / 2 - 0.03]) {
-        root.add(box({
+        mountOfficeBookcase(box({
           size: [bookCaseD - 0.02, 2.3, 0.06], pos: [bookX, UY + 1.19, bz + oz], mat: M_WOOD_DK, name: 'office-bookcase-end',
         }));
       }
-      root.add(box({
+      mountOfficeBookcase(box({
         size: [bookCaseD - 0.04, 0.14, bookCaseW - 0.08], pos: [bookX, UY + 0.11, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-toe',
       }));
-      solid(r.x0, r.x0 + 0.57, UY, UY + 2.4, bz - 1.1, bz + 1.1);
+      const bookcaseCollider = solid(r.x0, r.x0 + 0.57, UY, UY + 2.4, bz - 1.1, bz + 1.1);
+      bookcaseCollider.name = 'mansion-office-west-wall-bookcase-collider';
+      geometryIntent(bookcaseCollider, { assemblyId: officeBookcaseAssembly });
       /* Four shelf boards -- bottom, and under each row above it -- each
        * proud of the end panels by 10 mm with a thin gilt nosing along its
        * own front edge, so a shelf reads as a board with an edge on it
        * rather than a change of colour on the back panel. */
       const shelfYs = [UY + 0.42, UY + 1.12, UY + 1.82, UY + 2.30];
       for (const shelfY of shelfYs) {
-        root.add(box({
+        mountOfficeBookcase(box({
           size: [bookCaseD, 0.045, bookCaseW - 0.06], pos: [bookX, shelfY, bz], mat: M_WOOD_DK, name: 'office-bookcase-shelf',
         }));
-        root.add(box({
+        mountOfficeBookcase(box({
           size: [0.025, 0.05, bookCaseW - 0.06], pos: [bookX + bookCaseD / 2 - 0.01, shelfY + 0.023, bz], mat: M_GOLD, cast: false, name: 'office-bookcase-shelf-nosing',
         }));
       }
@@ -5206,13 +5557,13 @@ export function buildMansionInterior(shell = null) {
         const books = makeBooks(M, {
           x: bookX + 0.05, y: shelfY + 0.045, z: startZ, count, along: 'z',
         });
-        root.add(books.group);
+        mountOfficeBookcase(books.group);
         if (shelfY === shelfYs[0]) row1 = { startZ, extent: books.extent };
       }
       // A pair of brass bookends flanking the bottom row, propping it in --
       // the detail that says the shelf is used rather than dressed.
       for (const ez of [row1.startZ - 0.03, row1.startZ + row1.extent + 0.03]) {
-        root.add(box({
+        mountOfficeBookcase(box({
           size: [bookCaseD - 0.1, 0.16, 0.012], pos: [bookX + 0.03, shelfYs[0] + 0.125, ez], mat: M_BRONZE, cast: false, name: 'office-bookcase-bookend',
         }));
       }
@@ -5220,44 +5571,48 @@ export function buildMansionInterior(shell = null) {
       // crown rather than butting flush on it, the same reason every
       // architrave in this house laps its reveal instead of meeting it edge
       // to edge (see `partition()`'s own note). And the plinth.
-      root.add(box({
+      mountOfficeBookcase(box({
         size: [0.44, 0.1, 2.36], pos: [bookX + 0.02, UY + 2.43, bz], mat: M_WOOD_DK, cast: false, name: 'office-bookcase-cornice',
       }));
-      root.add(box({
+      mountOfficeBookcase(box({
         size: [0.46, 0.05, 2.38], pos: [bookX + 0.025, UY + 2.375, bz], mat: M_GOLD, cast: false, name: 'office-bookcase-cornice-fillet',
       }));
-      root.add(box({
+      mountOfficeBookcase(box({
         size: [0.44, 0.14, 2.3], pos: [bookX + 0.02, UY + 0.07, bz], mat: M_WOOD_DK, cast: false,
       }));
       for (const oz of [-1.08, 1.08]) {
-        root.add(box({
+        mountOfficeBookcase(box({
           size: [0.06, 2.3, 0.06], pos: [bookX + 0.21, UY + 1.25, bz + oz], mat: M_GOLD, cast: false,
         }));
       }
       // Glazed doors over the top shelf.
-      root.add(box({
+      mountOfficeBookcase(box({
         size: [0.03, 0.62, 2.0], pos: [bookX + 0.21, UY + 1.98, bz], mat: M_GLASS_CASE, cast: false,
       }));
     }
-    root.add(named(cylinder({
+    mountOfficeBookcase(named(cylinder({
       r: 0.028, h: 5.2, pos: [bookX + 0.27, UY + 2.3, 66.4], mat: M_GOLD, rotX: Math.PI / 2,
     }), 'library-rail'));
     {
       // The ladder itself, leaning on the rail between the two cases.
       const lz = 66.4;
       const lean = 0.16;
+      const ladderAssembly = 'mansion-office-library-ladder';
+      const mountLadder = (object) => root.add(geometryIntent(object, { assemblyId: ladderAssembly }));
       for (const oz of [-0.24, 0.24]) {
-        root.add(box({
+        mountLadder(box({
           size: [0.06, 2.5, 0.06], pos: [bookX + 0.47, UY + 1.25, lz + oz], mat: M_WOOD_DK, rotZ: lean, name: 'library-ladder',
         }));
       }
       for (let i = 0; i < 6; i++) {
         const ry = UY + 0.32 + i * 0.4;
-        root.add(box({
+        mountLadder(box({
           size: [0.1, 0.05, 0.5], pos: [bookX + 0.47 - (ry - UY - 1.25) * lean, ry, lz], mat: M_WOOD_DK, cast: false,
         }));
       }
-      solid(bookX + 0.25, bookX + 0.7, UY, UY + 2.4, lz - 0.3, lz + 0.3);
+      const ladderCollider = solid(bookX + 0.25, bookX + 0.7, UY, UY + 2.4, lz - 0.3, lz + 0.3);
+      ladderCollider.name = 'mansion-office-library-ladder-collider';
+      geometryIntent(ladderCollider, { assemblyId: ladderAssembly });
     }
 
 
@@ -5277,6 +5632,8 @@ export function buildMansionInterior(shell = null) {
     /* ================================================================ */
     const safeX = r.x1 - 0.5;
     const safeZ = r.z0 + 0.55;
+    const officeSafeAssemblyId = 'mansion-office-safe';
+    const officeSafeStart = root.children.length;
     root.add(box({
       size: [0.9, 0.14, 1.0], pos: [safeX - 0.03, UY + 0.07, safeZ], mat: M_MARBLE_DK, cast: false, name: 'office-safe-plinth',
     }));
@@ -5325,7 +5682,12 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [0.02, 0.09, 0.2], pos: [safeX - 0.48, UY + 1.2, safeZ - 0.12], mat: M_GOLD, cast: false, name: 'office-safe-plate',
     }));
-    solid(safeX - 0.5, safeX + 0.45, UY, UY + 1.3, safeZ - 0.5, safeZ + 0.5);
+    for (const object of root.children.slice(officeSafeStart)) {
+      geometryIntent(object, { assemblyId: officeSafeAssemblyId });
+    }
+    const officeSafeCollider = solid(safeX - 0.5, safeX + 0.45, UY, UY + 1.3, safeZ - 0.5, safeZ + 0.5);
+    officeSafeCollider.name = officeSafeAssemblyId + '-collider';
+    geometryIntent(officeSafeCollider, { assemblyId: officeSafeAssemblyId });
 
     /* ---- The chimneypiece on the east wall. A room this size with no fire
      * in it is a conference room with a desk. Marble surround, a lit grate,
@@ -5351,7 +5713,7 @@ export function buildMansionInterior(shell = null) {
      * one piece. Checked against the room's own north wall (BUILDING.z1 =
      * 75): the north pilaster now reaches fireZ + 1.5 = 72.5, more than 2 m
      * short of it. */
-    const fireZ = 71.0;
+    const fireZ = officeFireZ;
     const fireX = r.x1 - 0.02;
     /* A FIREPLACE IS A VOID WITH A SURROUND ROUND IT, NOT A DARK BOX ON A SLAB.
      *
@@ -5373,6 +5735,8 @@ export function buildMansionInterior(shell = null) {
     const opZ0 = fireZ - 0.75;
     const opZ1 = fireZ + 0.75;
     const opTopY = UY + 1.35;
+    const officeFireplaceAssemblyId = 'mansion-office-fireplace';
+    const officeFireplaceStart = root.children.length;
     /* Pilasters either side of the opening, breast over it, both stopping on
      * the same front plane the old slab had so the mantel still fits. */
     for (const [pz0, pz1] of [[fireZ - 1.5, opZ0], [opZ1, fireZ + 1.5]]) {
@@ -5416,7 +5780,7 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [0.45, 0.1, 2.0], pos: [fireX - 0.825, UY + 0.05, fireZ], mat: M_MARBLE_DK, cast: false, name: 'office-hearth',
     }));
-    solid(fireX - 0.7, fireX, UY, UY + 2.5, fireZ - 1.5, fireZ + 1.5);
+    const officeFireplaceCollider = solid(fireX - 0.7, fireX, UY, UY + 2.5, fireZ - 1.5, fireZ + 1.5);
     /* The fire, standing IN the opening: a cast basket with front bars, logs
      * across it and embers under them.
      *
@@ -5465,25 +5829,37 @@ export function buildMansionInterior(shell = null) {
     const fireGlow = new THREE.PointLight(0xff8a3c, 4.0, 20, 2);
     fireGlow.position.set(fireX - 0.9, UY + 0.55, fireZ);
     root.add(fireGlow);
-    // Overmantel mirror, garniture and the fire irons.
-    root.add(box({
-      size: [0.05, 1.5, 1.7], pos: [fireX - 0.62, UY + 2.5, fireZ], mat: mat({ color: 0xdce6ee, roughness: 0.08, metalness: 0.85 }), name: 'office-overmantel',
-    }));
-    root.add(box({
-      size: [0.05, 1.72, 1.92], pos: [fireX - 0.58, UY + 2.5, fireZ], mat: M_GOLD, cast: false,
-    }));
-    recordArt('office-overmantel', fireX - 0.62, UY + 2.5, fireZ, Math.PI / 2, 1.92, 1.72);
-    for (const oz of [-1.2, 1.2]) {
-      root.add(cylinder({ r: 0.07, h: 0.12, pos: [fireX - 0.4, UY + 1.74, fireZ + oz], mat: M_GOLD }));
-      root.add(cylinder({ r: 0.03, h: 0.36, pos: [fireX - 0.4, UY + 1.98, fireZ + oz], mat: M_CARD }));
-      root.add(sphere({ r: 0.035, pos: [fireX - 0.4, UY + 2.18, fireZ + oz], mat: M_BULB_WARM, cast: false }));
+    for (const object of root.children.slice(officeFireplaceStart)) {
+      geometryIntent(object, { assemblyId: officeFireplaceAssemblyId });
     }
-    root.add(cylinder({
-      r: 0.1, h: 0.06, pos: [fireX - 0.42, UY + 1.71, fireZ], mat: M_BRONZE, cast: false,
-    }));
-    root.add(cylinder({
-      r: 0.16, h: 0.22, pos: [fireX - 0.42, UY + 1.82, fireZ], mat: M_TROPHY_CUP,
-    }));
+    officeFireplaceCollider.name = `${officeFireplaceAssemblyId}-collider`;
+    geometryIntent(officeFireplaceCollider, { assemblyId: officeFireplaceAssemblyId });
+    // Overmantel mirror, garniture and the fire irons.
+    const overmantelAssemblyId = 'mansion-office-overmantel';
+    const overmantelX = fireX - 0.65;
+    root.add(fixedFixture(box({
+      size: [0.05, 1.5, 1.7], pos: [overmantelX - 0.04, UY + 2.5, fireZ], mat: mat({ color: 0xdce6ee, roughness: 0.08, metalness: 0.85 }), name: 'office-overmantel',
+    }), overmantelAssemblyId));
+    root.add(fixedFixture(box({
+      size: [0.05, 1.72, 1.92], pos: [overmantelX, UY + 2.5, fireZ], mat: M_GOLD, cast: false,
+    }), overmantelAssemblyId));
+    recordArt('office-overmantel', overmantelX - 0.04, UY + 2.5, fireZ, Math.PI / 2, 1.92, 1.72);
+    for (const [index, oz] of [-1.2, 1.2].entries()) {
+      const candleAssemblyId = `mansion-office-mantel-candlestick-${index}`;
+      const mountCandle = (object) => root.add(geometryIntent(object, { assemblyId: candleAssemblyId }));
+      const candleX = fireX - 0.72;
+      mountCandle(cylinder({ r: 0.07, h: 0.12, pos: [candleX, UY + 1.74, fireZ + oz], mat: M_GOLD }));
+      mountCandle(cylinder({ r: 0.03, h: 0.36, pos: [candleX, UY + 1.98, fireZ + oz], mat: M_CARD }));
+      mountCandle(sphere({ r: 0.035, pos: [candleX, UY + 2.18, fireZ + oz], mat: M_BULB_WARM, cast: false }));
+    }
+    const trophyAssemblyId = 'mansion-office-mantel-trophy';
+    const trophyX = fireX - 0.76;
+    root.add(geometryIntent(cylinder({
+      r: 0.1, h: 0.06, pos: [trophyX, UY + 1.71, fireZ], mat: M_BRONZE, cast: false,
+    }), { assemblyId: trophyAssemblyId }));
+    root.add(geometryIntent(cylinder({
+      r: 0.16, h: 0.22, pos: [trophyX, UY + 1.82, fireZ], mat: M_TROPHY_CUP,
+    }), { assemblyId: trophyAssemblyId }));
     for (let i = 0; i < 3; i++) {
       root.add(cylinder({
         r: 0.012, h: 0.7, pos: [fireX - 0.75, UY + 0.36, fireZ + 1.28 + i * 0.06], mat: M_RACK, rotZ: 0.08,
@@ -5496,19 +5872,23 @@ export function buildMansionInterior(shell = null) {
     // A drinks table and two chairs by the fire: the part of the office
     // where the conversation gets friendly again -- laid, now, with the
     // decanter set it never had.
-    root.add(cylinder({ r: 0.6, h: 0.06, pos: [4.6, UY + 0.72, 68.6], mat: M_MARBLE, name: 'office-drinks-table' }));
-    root.add(cylinder({ r: 0.16, h: 0.7, pos: [4.6, UY + 0.36, 68.6], mat: M_BRONZE }));
-    root.add(cylinder({ r: 0.34, h: 0.05, pos: [4.6, UY + 0.03, 68.6], mat: M_BRONZE, cast: false }));
-    solid(4.0, 5.2, UY, UY + 0.76, 68.0, 69.2);
-    root.add(cylinder({ r: 0.26, h: 0.03, pos: [4.6, UY + 0.77, 68.6], mat: M_SILVER, cast: false, name: 'office-drinks-tray' }));
-    root.add(box({
+    const drinksTableAssemblyId = 'mansion-office-drinks-table';
+    const mountDrinksTable = (object) => root.add(geometryIntent(object, { assemblyId: drinksTableAssemblyId }));
+    mountDrinksTable(cylinder({ r: 0.6, h: 0.06, pos: [4.6, UY + 0.72, 68.6], mat: M_MARBLE, name: 'office-drinks-table' }));
+    mountDrinksTable(cylinder({ r: 0.16, h: 0.7, pos: [4.6, UY + 0.36, 68.6], mat: M_BRONZE }));
+    mountDrinksTable(cylinder({ r: 0.34, h: 0.05, pos: [4.6, UY + 0.03, 68.6], mat: M_BRONZE, cast: false }));
+    const drinksTableCollider = solid(4.0, 5.2, UY, UY + 0.76, 68.0, 69.2);
+    drinksTableCollider.name = 'mansion-office-drinks-table-collider';
+    geometryIntent(drinksTableCollider, { assemblyId: drinksTableAssemblyId });
+    mountDrinksTable(cylinder({ r: 0.26, h: 0.03, pos: [4.6, UY + 0.77, 68.6], mat: M_SILVER, cast: false, name: 'office-drinks-tray' }));
+    mountDrinksTable(box({
       size: [0.16, 0.24, 0.16], pos: [4.6, UY + 0.9, 68.68], mat: M_GLASS_CASE, name: 'office-decanter',
     }));
-    root.add(cylinder({
+    mountDrinksTable(cylinder({
       rTop: 0.045, rBottom: 0.06, h: 0.09, pos: [4.6, UY + 1.06, 68.68], mat: M_GLASS_CASE, cast: false,
     }));
     for (const [gx, gz] of [[4.4, 68.44], [4.78, 68.46]]) {
-      root.add(cylinder({ r: 0.04, h: 0.1, pos: [gx, UY + 0.83, gz], mat: M_GLASS_CASE }));
+      mountDrinksTable(cylinder({ r: 0.04, h: 0.1, pos: [gx, UY + 0.83, gz], mat: M_GLASS_CASE }));
     }
     /* THE YAWS ARE THE WAY ROUND THEY LOOK, AND THAT IS WHY THEY WERE WRONG.
      *
@@ -5526,7 +5906,7 @@ export function buildMansionInterior(shell = null) {
      * WEST of a table has to turn east to face it. Swapping the two values in
      * each pair turns all four in, which is the whole fix. */
     makeFancyChair(3.4, UY, 67.8, 0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
-    makeFancyChair(5.8, UY, 67.8, -0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
+    makeFancyChair(5.72, UY, 67.8, -0.9, M_LEATHER_TAN, { backH: 0.82, tag: 'office-fireside-chair' });
 
     /* ---- The seating group in the north-west quarter: a buttoned
      * chesterfield, two wing chairs and a marble table on their own rug. Clear
@@ -5534,27 +5914,31 @@ export function buildMansionInterior(shell = null) {
     {
       const sx = -4.9;
       const sz = 74.0;
-      root.add(box({ size: [2.5, 0.42, 0.95], pos: [sx, UY + 0.3, sz], mat: M_LEATHER_DK, name: 'office-chesterfield' }));
-      root.add(box({ size: [2.5, 0.66, 0.22], pos: [sx, UY + 0.74, sz + 0.36], mat: M_LEATHER_DK }));
+      const chesterfieldAssemblyId = 'mansion-office-chesterfield';
+      const mountChesterfield = (object) => root.add(geometryIntent(object, {
+        assemblyId: chesterfieldAssemblyId,
+      }));
+      mountChesterfield(box({ size: [2.5, 0.42, 0.95], pos: [sx, UY + 0.3, sz], mat: M_LEATHER_DK, name: 'office-chesterfield' }));
+      mountChesterfield(box({ size: [2.5, 0.66, 0.22], pos: [sx, UY + 0.74, sz + 0.36], mat: M_LEATHER_DK }));
       for (const ax of [-1.14, 1.14]) {
-        root.add(cylinder({
+        mountChesterfield(cylinder({
           r: 0.22, h: 0.95, pos: [sx + ax, UY + 0.62, sz], mat: M_LEATHER_DK, rotX: Math.PI / 2,
         }));
       }
       for (const cx of [-0.62, 0.62]) {
-        root.add(box({
+        mountChesterfield(box({
           size: [1.16, 0.16, 0.85], pos: [sx + cx, UY + 0.58, sz - 0.02], mat: M_LEATHER_DK, cast: false,
         }));
-        root.add(box({
+        mountChesterfield(box({
           size: [0.34, 0.26, 0.16], pos: [sx + cx, UY + 0.82, sz + 0.2], mat: M_FABRIC_GOLD, rotX: 0.2, cast: false, name: 'office-cushion',
         }));
       }
       for (const [lx, lz] of [[-1.1, -0.4], [1.1, -0.4], [-1.1, 0.4], [1.1, 0.4]]) {
-        root.add(cylinder({
+        mountChesterfield(cylinder({
           rTop: 0.05, rBottom: 0.035, h: 0.16, pos: [sx + lx, UY + 0.08, sz + lz], mat: M_GOLD,
         }));
       }
-      solid(sx - 1.4, sx + 1.4, UY, UY + 0.9, sz - 0.55, sz + 0.55);
+      geometryIntent(solid(sx - 1.4, sx + 1.4, UY, UY + 0.9, sz - 0.55, sz + 0.55), { assemblyId: chesterfieldAssemblyId });
       // Marble table in front of it, with the cigar box and the day's papers.
       root.add(box({ size: [1.5, 0.08, 0.8], pos: [sx, UY + 0.44, sz - 1.5], mat: M_MARBLE, name: 'office-low-table' }));
       for (const [lx, lz] of [[-0.62, -0.3], [0.62, -0.3], [-0.62, 0.3], [0.62, 0.3]]) {
@@ -5579,19 +5963,23 @@ export function buildMansionInterior(shell = null) {
     {
       const gx = -3.2;
       const gz = 68.0;
-      root.add(cylinder({ r: 0.34, h: 0.06, pos: [gx, UY + 0.03, gz], mat: M_WOOD_DK, cast: false }));
+      const globeAssemblyId = 'mansion-office-globe-stand';
+      const mountGlobe = (object) => root.add(geometryIntent(object, {
+        assemblyId: globeAssemblyId,
+      }));
+      mountGlobe(cylinder({ r: 0.34, h: 0.06, pos: [gx, UY + 0.03, gz], mat: M_WOOD_DK, cast: false }));
       for (let i = 0; i < 3; i++) {
         const a = (i / 3) * Math.PI * 2;
-        root.add(cylinder({
+        mountGlobe(cylinder({
           r: 0.03, h: 0.78, pos: [gx + Math.cos(a) * 0.16, UY + 0.4, gz + Math.sin(a) * 0.16], mat: M_WOOD_DK, rotZ: Math.cos(a) * 0.16, rotX: -Math.sin(a) * 0.16,
         }));
       }
-      root.add(cylinder({ r: 0.34, h: 0.05, pos: [gx, UY + 0.8, gz], mat: M_GOLD, cast: false }));
-      root.add(named(sphere({ r: 0.3, pos: [gx, UY + 1.12, gz], mat: mat({ color: 0x2c5f7a, roughness: 0.7 }) }), 'office-globe'));
-      root.add(cylinder({
+      mountGlobe(cylinder({ r: 0.34, h: 0.05, pos: [gx, UY + 0.8, gz], mat: M_GOLD, cast: false }));
+      mountGlobe(named(sphere({ r: 0.3, pos: [gx, UY + 1.12, gz], mat: mat({ color: 0x2c5f7a, roughness: 0.7 }) }), 'office-globe'));
+      mountGlobe(cylinder({
         r: 0.32, h: 0.03, pos: [gx, UY + 1.12, gz], mat: M_GOLD, rotZ: 0.4, cast: false,
       }));
-      solid(gx - 0.36, gx + 0.36, UY, UY + 1.4, gz - 0.36, gz + 0.36);
+      geometryIntent(solid(gx - 0.36, gx + 0.36, UY, UY + 1.4, gz - 0.36, gz + 0.36), { assemblyId: globeAssemblyId });
     }
     {
       /* THE CLOCK WAS IN THE WALL. Owner playtest, verbatim: "Grandfather
@@ -5650,7 +6038,7 @@ export function buildMansionInterior(shell = null) {
       const clock = makeWallClock(M, {
         x: kx, y: UY + 1.92, z: kz + 0.27, rotY: 0, r: 0.22,
       });
-      root.add(clock.group);
+      root.add(fixedFixture(clock.group, 'mansion-office-grandfather-clock-dial'));
       solid(kx - 0.36, kx + 0.36, UY, UY + 2.4, kz - 0.3, kz + 0.3);
     }
 
@@ -5792,40 +6180,47 @@ export function buildMansionInterior(shell = null) {
       [hallX, r.x1 - 0.5, r.z0 + 0.5, hallZ0],
       [hallX, r.x1 - 0.5, hallZ1, r.z1 - 0.5],
     ]) topping(cx0, cx1, UCY - 0.18, cz0, cz1, M_WALL_WARM, 'office-ceiling', false);
+    const officeCofferPolicy = {
+      assemblyId: 'mansion-office-coffer-grid',
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    };
     for (const bx of [-5.6, -1.9, 1.9, 5.6]) {
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [0.18, 0.22, r.z1 - r.z0 - 1.0], pos: [bx, UCY - 0.29, (r.z0 + r.z1) / 2], mat: M_GOLD, cast: false, name: 'office-coffer',
-      }));
+      }), officeCofferPolicy));
     }
     for (const bz of [65.0, 68.4, 71.8, 74.2]) {
       // The two that cross the hall die into its wall instead of through it.
       const bx1 = (bz > hallZ0 && bz < hallZ1) ? hallX : r.x1 - 0.5;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: [bx1 - (r.x0 + 0.5), 0.22, 0.18], pos: [(r.x0 + 0.5 + bx1) / 2, UCY - 0.29, bz], mat: M_GOLD, cast: false, name: 'office-coffer',
-      }));
+      }), officeCofferPolicy));
     }
     {
       // The chandelier: the foyer's, at two thirds scale, hung over the desk.
       const cy = UCY - 1.0;
-      root.add(cylinder({ r: 0.04, h: 0.8, pos: [0, cy + 0.4, 70.2], mat: M_BRONZE }));
+      const fixtureId = 'mansion-office-chandelier';
+      const mount = (object) => root.add(fixedFixture(object, fixtureId));
+      mount(cylinder({ r: 0.04, h: 0.8, pos: [0, cy + 0.4, 70.2], mat: M_BRONZE }));
       for (const [ty, tr, tn] of [[0, 1.0, 8], [-0.32, 0.62, 6]]) {
         for (let i = 0; i < tn; i++) {
           const a = (i / tn) * Math.PI * 2;
           const bx = Math.cos(a) * tr;
           const bz = Math.sin(a) * tr;
-          root.add(box({
+          mount(box({
             size: [tr * 0.9, 0.03, 0.03], pos: [bx / 2, cy + ty, 70.2 + bz / 2], mat: M_GOLD, rotY: a,
           }));
-          root.add(cylinder({
+          mount(cylinder({
             rTop: 0.085, rBottom: 0.11, h: 0.13, pos: [bx, cy + ty + 0.06, 70.2 + bz], mat: M_SHADE_CREAM,
           }));
-          root.add(sphere({ r: 0.06, pos: [bx, cy + ty + 0.04, 70.2 + bz], mat: M_BULB_WARM, cast: false }));
-          root.add(box({
+          mount(sphere({ r: 0.06, pos: [bx, cy + ty + 0.04, 70.2 + bz], mat: M_BULB_WARM, cast: false }));
+          mount(box({
             size: [0.02, 0.24, 0.02], pos: [bx * 0.86, cy + ty - 0.2, 70.2 + bz * 0.86], mat: M_CRYSTAL,
           }));
         }
       }
-      root.add(sphere({ r: 0.13, pos: [0, cy - 0.56, 70.2], mat: M_GOLD }));
+      mount(sphere({ r: 0.13, pos: [0, cy - 0.56, 70.2], mat: M_GOLD }));
     }
     const ceil = new THREE.PointLight(0xffdca0, 6, 18, 2);
     ceil.position.set(0, UCY - 1.3, 70.2);
@@ -5905,6 +6300,7 @@ export function buildMansionInterior(shell = null) {
       occluders.push(m);
       solid(wx0, wx1, UY, WALL_TOP, wz0, wz1);
     }
+    const bookcaseRunAssembly = 'mansion-office-bookcase-run';
     /* The west wall — the bookcase wall — in two pieces, with the door's
      * opening between them. The leaf itself is built below and splices its own
      * collider in and out. */
@@ -5912,22 +6308,22 @@ export function buildMansionInterior(shell = null) {
       const isDoor = wz1 === D.z1 + LAP;
       if (isDoor) {
         // Over the door: the lintel band only, from the door head to the slab.
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [WALL, WALL_TOP - D.y1, wz1 - wz0],
           pos: [H.x0 - WALL / 2, (D.y1 + WALL_TOP) / 2, (wz0 + wz1) / 2],
           mat: M_WALL_DEEP,
           cast: false,
           name: 'suite-stair-lintel',
-        }));
+        }), { assemblyId: bookcaseRunAssembly }));
         solid(H.x0 - WALL, H.x0, D.y1, WALL_TOP, wz0, wz1);
         continue;
       }
-      const m = box({
+      const m = geometryIntent(box({
         size: [WALL, WALL_TOP - UY, wz1 - wz0],
         pos: [H.x0 - WALL / 2, (UY + WALL_TOP) / 2, (wz0 + wz1) / 2],
         mat: M_WALL_DEEP,
         name: 'suite-stair-wall',
-      });
+      }), { assemblyId: bookcaseRunAssembly });
       root.add(m);
       occluders.push(m);
       solid(H.x0 - WALL, H.x0, UY, WALL_TOP, wz0, wz1);
@@ -5978,7 +6374,11 @@ export function buildMansionInterior(shell = null) {
     for (const bay of bays) {
       const width = bay.w;
       if (!bay.door) {
-        const g = group('office-bookcase-alcove');
+        const g = geometryIntent(group('office-bookcase-alcove'), {
+          assemblyId: bookcaseRunAssembly,
+          checkSupport: false,
+          checkWallEmbed: false,
+        });
         g.position.set(H.x0, UY, bay.z);
         bookcaseBay(g, width, 'office-bookcase');
         root.add(g);
@@ -5990,7 +6390,11 @@ export function buildMansionInterior(shell = null) {
        * and nothing has to be re-measured when it moves. Local -z runs along
        * the wall toward the hinge, so the case is built centred half a leaf
        * north of the origin. */
-      const g = group('office-secret-bookcase');
+      const g = geometryIntent(group('office-secret-bookcase'), {
+        assemblyId: bookcaseRunAssembly,
+        checkSupport: false,
+        checkWallEmbed: false,
+      });
       g.position.set(H.x0, UY, D.z0 + 0.02);
       const leaf = group('secret-bookcase-leaf');
       leaf.position.set(0, 0, width / 2);
@@ -6051,42 +6455,43 @@ export function buildMansionInterior(shell = null) {
     const GOING = (SUITE_FLIGHT_A.z1 - SUITE_FLIGHT_A.z0) / 11;
     /** One flight. `dir` is +1 for rising northward, -1 for rising south. */
     function flight(rect, yBase, dir, tag) {
+      const assemblyId = 'mansion-suite-secret-stair';
       const w = rect.x1 - rect.x0;
       const cx = (rect.x0 + rect.x1) / 2;
       for (let k = 1; k <= 11; k++) {
         const top = yBase + k * RISER;
         const near = dir > 0 ? rect.z0 + (k - 1) * GOING : rect.z1 - (k - 1) * GOING;
         const zc = near + dir * GOING / 2;
-        root.add(siegeWalkable(box({
+        root.add(siegeWalkable(geometryIntent(box({
           size: [w, 0.12, GOING + 0.04],
           pos: [cx, top - 0.06, zc],
           mat: M_MARBLE,
           name: `${tag}-tread`,
-        })));
+        }), { assemblyId })));
         /* Bottom of the riser on the tread below it (and, for the first
          * one, on the floor), rather than 60 mm under it in mid-air. */
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [w, RISER, 0.05],
           pos: [cx, top - RISER / 2, near - dir * 0.02],
           mat: M_MARBLE_DK,
           cast: false,
           name: `${tag}-riser`,
-        }));
+        }), { assemblyId }));
         // Gilt nosing and a velvet runner: this is Lou's own stair.
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [w, 0.02, 0.05],
           pos: [cx, top + 0.005, near + dir * (GOING - 0.03)],
           mat: M_GOLD,
           cast: false,
           name: `${tag}-nosing`,
-        }));
-        root.add(siegeWalkable(box({
+        }), { assemblyId }));
+        root.add(siegeWalkable(geometryIntent(box({
           size: [w * 0.66, 0.015, GOING + 0.04],
           pos: [cx, top + 0.012, zc],
           mat: M_SUITE_VELVET,
           cast: false,
           name: `${tag}-runner`,
-        })));
+        }), { assemblyId })));
       }
       /* Two honest sloping stringers, not one flat full-width black box.
        * That old slab was visible between every tread and read as a giant
@@ -6097,14 +6502,14 @@ export function buildMansionInterior(shell = null) {
       const stringLength = Math.hypot(run, rise);
       const pitch = Math.atan2(rise, run);
       for (const stringX of [rect.x0 + 0.12, rect.x1 - 0.12]) {
-        root.add(box({
+        root.add(geometryIntent(box({
           size: [0.14, 0.18, stringLength],
           pos: [stringX, yBase + rise / 2 - 0.13, (rect.z0 + rect.z1) / 2],
           mat: M_WOOD,
           rotX: dir > 0 ? -pitch : pitch,
           cast: false,
           name: `${tag}-stringer`,
-        }));
+        }), { assemblyId }));
       }
     }
     flight(SUITE_FLIGHT_A, UY, 1, 'suite-stair-a');
@@ -6112,20 +6517,22 @@ export function buildMansionInterior(shell = null) {
 
     // The half-landing, and the marble lobby at the foot.
     const L = SUITE_HALF_LANDING;
-    root.add(siegeWalkable(box({
+    const suiteStairAssembly = 'mansion-suite-secret-stair';
+    root.add(siegeWalkable(geometryIntent(box({
       size: [L.x1 - L.x0, 0.16, L.z1 - L.z0 + LAP],
       pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.08, (L.z0 + L.z1) / 2 + LAP / 2],
       mat: M_MARBLE,
       name: 'suite-stair-landing',
-    })));
-    root.add(box({
+    }), { assemblyId: suiteStairAssembly })));
+    root.add(geometryIntent(box({
       size: [L.x1 - L.x0 - 0.14, 0.16, L.z1 - L.z0 + LAP - 0.14],
       pos: [(L.x0 + L.x1) / 2, LANDING_Y - 0.2, (L.z0 + L.z1) / 2 + LAP / 2],
       mat: M_MARBLE_DK,
       cast: false,
       name: 'suite-stair-landing-soffit',
-    }));
-    topping(H.x0, H.x1, UY + 0.032, H.z0, SUITE_FLIGHT_A.z0, M_MARBLE, 'suite-stair-lobby');
+    }), { assemblyId: suiteStairAssembly }));
+    geometryIntent(topping(H.x0, H.x1, UY + 0.032, H.z0, SUITE_FLIGHT_A.z0, M_MARBLE, 'suite-stair-lobby'),
+      { assemblyId: suiteStairAssembly });
 
     /* ---- Balustrades. The raking pair follow the two flights on their open
      * flanks; the level pair guard the well from the suite floor above.
@@ -6148,18 +6555,20 @@ export function buildMansionInterior(shell = null) {
      * a reveal rather than a dark hole in a wall. */
     const lanternY = SUITE_CEILING_Y - 1.1;
     const lanternZ = (SUITE_FLIGHT_A.z0 + SUITE_FLIGHT_A.z1) / 2;
-    root.add(named(cylinder({
+    const suiteStairLanternAssemblyId = 'mansion-suite-stair-lantern';
+    const mountLantern = (object) => root.add(fixedFixture(object, suiteStairLanternAssemblyId));
+    mountLantern(named(cylinder({
       r: 0.02, h: 1.5, pos: [7.7, lanternY + 0.9, lanternZ], mat: M_GOLD,
     }), 'suite-stair-lantern-chain'));
-    root.add(box({
+    mountLantern(box({
       size: [0.42, 0.6, 0.42], pos: [7.7, lanternY, lanternZ], mat: M_GLASS_CASE, name: 'suite-stair-lantern',
     }));
     for (const [ox, oz] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) {
-      root.add(box({
+      mountLantern(box({
         size: [0.05, 0.66, 0.05], pos: [7.7 + ox, lanternY, lanternZ + oz], mat: M_GOLD, cast: false,
       }));
     }
-    root.add(sphere({ r: 0.09, pos: [7.7, lanternY - 0.02, lanternZ], mat: M_BULB_WARM, cast: false }));
+    mountLantern(sphere({ r: 0.09, pos: [7.7, lanternY - 0.02, lanternZ], mat: M_BULB_WARM, cast: false }));
     const lantern = new THREE.PointLight(0xffd2a0, 4.2, 12, 2);
     lantern.position.set(7.7, lanternY - 0.1, lanternZ);
     root.add(lantern);
@@ -6276,6 +6685,8 @@ export function buildMansionInterior(shell = null) {
   /* ================================================================== */
   function buildMasterSuite() {
     const r = MASTER_SUITE;
+    const drX0 = 1.95;
+    const drX1 = 5.95;
     const SY = SUITE_Y;                 // 10.6 — the floor
     const SCY = SUITE_CEILING_Y;        // 13.8 — the ceiling
     const W = SUITE_STAIR_WELL;
@@ -6345,6 +6756,10 @@ export function buildMansionInterior(shell = null) {
     }));
     for (let i = 0; i < 10; i++) {
       const px = r.x0 + 1.1 + i * 1.72;
+      /* The fitted dressing carcass covers this south-wall finish from floor
+       * to pelmet. Do not build decorative beadwork behind it: those hidden
+       * strips otherwise occupy the same physical volume as the wardrobe. */
+      if (px + 0.62 > drX0 && px - 0.62 < drX1) continue;
       for (const [oy, ox, sy, sx] of [
         [1.05, 0, 0.05, 1.24], [-1.05, 0, 0.05, 1.24], [0, 0.62, 2.15, 0.05], [0, -0.62, 2.15, 0.05],
       ]) {
@@ -6453,6 +6868,8 @@ export function buildMansionInterior(shell = null) {
     const bedX = (BED.x0 + BED.x1) / 2;
     const bedZ = (BED.z0 + BED.z1) / 2;
     const TESTER_Y = TESTER.y;
+    const suiteBedAssemblyId = 'mansion-suite-canopy-bed';
+    const suiteBedStart = root.children.length;
     props.bedCentre = { x: bedX, y: SY, z: bedZ };
     props.bed = { mattress: { ...BED }, posts: { ...POSTS }, tester: { ...TESTER } };
 
@@ -6542,7 +6959,12 @@ export function buildMansionInterior(shell = null) {
     /* The collider goes up with the frame: a four-poster is not something you
      * walk through, and a collider that stopped at mattress height would let
      * the camera come out through the tester. */
-    solid(TESTER.x0, TESTER.x1, SY, TESTER_Y + 0.3, TESTER.z0, TESTER.z1);
+    const suiteBedCollider = solid(TESTER.x0, TESTER.x1, SY, TESTER_Y + 0.3, TESTER.z0, TESTER.z1);
+    for (const object of root.children.slice(suiteBedStart)) {
+      geometryIntent(object, { assemblyId: suiteBedAssemblyId });
+    }
+    suiteBedCollider.name = `${suiteBedAssemblyId}-collider`;
+    geometryIntent(suiteBedCollider, { assemblyId: suiteBedAssemblyId });
 
     // Two nightstands with reading lamps, outside the posts and clear of them.
     /* z 64.22, NOT 63.82. Owner geometry audit 2026-08-18: at 63.82 the east
@@ -6661,6 +7083,7 @@ export function buildMansionInterior(shell = null) {
     suiteLouPortrait.group.name = 'suite-lou-accent';
     const suiteLouPortraitLight = new THREE.Group();
     suiteLouPortraitLight.name = 'suite-lou-accent-light';
+    geometryIntent(suiteLouPortraitLight, { checkSupport: false });
     suiteLouPortraitLight.add(box({
       size: [0.72, 0.07, 0.11],
       pos: [-5.65, SY + 2.48, r.z0 + 0.25],
@@ -6702,12 +7125,13 @@ export function buildMansionInterior(shell = null) {
     /* ================================================================ */
     const cushion = { x: 2.85, y: SY, z: 65.9 };
     props.dogCushion = cushion;
-    root.add(box({
+    const dogCushionAssemblyId = 'mansion-suite-dog-cushion';
+    root.add(geometryIntent(box({
       size: [1.3, 0.14, 1.05], pos: [cushion.x, SY + 0.07, cushion.z], mat: M_SUITE_VELVET, name: 'suite-dog-cushion',
-    }));
-    root.add(box({
+    }), { assemblyId: dogCushionAssemblyId }));
+    root.add(geometryIntent(box({
       size: [1.38, 0.06, 1.13], pos: [cushion.x, SY + 0.03, cushion.z], mat: M_GOLD, cast: false, name: 'suite-dog-cushion-piping',
-    }));
+    }), { assemblyId: dogCushionAssemblyId }));
     for (const [bx, bz] of [[cushion.x - 0.92, cushion.z + 0.16], [cushion.x + 0.92, cushion.z + 0.16]]) {
       root.add(named(cylinder({
         r: 0.15, h: 0.1, pos: [bx, SY + 0.05, bz], mat: M_SUITE_ONYX,
@@ -6761,6 +7185,7 @@ export function buildMansionInterior(shell = null) {
     /* ================================================================ */
     const tubX = 5.4;
     const tubZ = 71.7;
+    const TUB_ASSEMBLY_ID = 'mansion-suite-hot-tub';
     const TUB_R = 2.05;                 // outer radius of the marble drum
     const TUB_IN = 1.62;                // inner radius of the tank
     const TUB_FLOOR = SY + 0.16;
@@ -6769,6 +7194,7 @@ export function buildMansionInterior(shell = null) {
     const TUB_RIM = TUB_FLOOR + 0.88;
     props.tub = {
       x: tubX, z: tubZ, r: TUB_R, waterY: TUB_WATER, benchY: TUB_BENCH, floorY: TUB_FLOOR,
+      assemblyId: TUB_ASSEMBLY_ID,
     };
     /* A HOT TUB IS A BOWL, NOT A DRUM WITH A LID ON IT.
      *
@@ -6907,13 +7333,25 @@ export function buildMansionInterior(shell = null) {
     root.add(named(cylinder({
       r: 0.16, h: 0.05, pos: [tubX, TUB_FLOOR + 0.06, tubZ], mat: M_SUITE_TUB_LIGHT, cast: false,
     }), 'suite-tub-underlight'));
+    // Everything with this prefix is part of the one installed tub: shell,
+    // liner, coping, bench, steps, water, jets, steam and underlight.
+    root.traverse((object) => {
+      if (!object.isMesh || !object.name.startsWith('suite-tub-')) return;
+      geometryIntent(object, { assemblyId: TUB_ASSEMBLY_ID });
+    });
     const tubLight = new THREE.PointLight(0x63dfff, 4.6, 9, 2);
     tubLight.position.set(tubX, TUB_WATER - 0.25, tubZ);
     root.add(tubLight);
     props.tubLight = tubLight;
     // Collide the drum as a square: the resolver is axis-aligned, and a box
     // inscribed on the coping is what you actually bump into walking past.
-    solid(tubX - TUB_R, tubX + TUB_R, SY, TUB_RIM, tubZ - TUB_R, tubZ + TUB_R);
+    const tubCollider = solid(
+      tubX - TUB_R, tubX + TUB_R, SY, TUB_RIM, tubZ - TUB_R, tubZ + TUB_R,
+    );
+    tubCollider.name = `${TUB_ASSEMBLY_ID}-collider`;
+    tubCollider.userData = {
+      ...(tubCollider.userData ?? {}), geometryGate: { assemblyId: TUB_ASSEMBLY_ID },
+    };
 
     /* WHERE THE TWO PERFORMERS SIT, AND WHAT `y` MEANS HERE.
      *
@@ -6975,21 +7413,28 @@ export function buildMansionInterior(shell = null) {
     const barZ0 = 68.9;
     const barZ1 = 73.1;
     const barCz = (barZ0 + barZ1) / 2;
+    const backBarAssemblyId = 'mansion-suite-back-bar';
+    const mountBackBar = (object) => root.add(geometryIntent(object, { assemblyId: backBarAssemblyId }));
     // Back bar: mirror, gilt shelves, bottles, and a lit plinth under them.
-    root.add(box({
+    mountBackBar(box({
       size: [0.06, 2.2, barZ1 - barZ0], pos: [r.x0 + 0.06, SY + 1.7, barCz], mat: M_SUITE_MIRROR, cast: false, name: 'suite-bar-mirror',
     }));
-    for (const sy of [1.15, 1.62, 2.09]) {
-      root.add(box({
+    const barBottles = [];
+    for (const [shelfIndex, sy] of [1.15, 1.62, 2.09].entries()) {
+      mountBackBar(box({
         size: [0.3, 0.05, barZ1 - barZ0 - 0.3], pos: [r.x0 + 0.19, SY + sy, barCz], mat: M_GOLD, cast: false, name: 'suite-bar-shelf',
       }));
       for (let i = 0; i < 9; i++) {
-        const bz = barZ0 + 0.4 + i * ((barZ1 - barZ0 - 0.8) / 8);
+        const clearsBarSconce = shelfIndex === 2 && i === 4;
+        const bz = barZ0 + 0.4 + i * ((barZ1 - barZ0 - 0.8) / 8)
+          + (clearsBarSconce ? 0.20 : 0);
         const bottle = makeWhiskeyBottle(M, { x: r.x0 + 0.2, y: SY + sy + 0.025, z: bz });
+        bottle.group.name = `suite-bar-bottle-${shelfIndex}-${i}`;
         root.add(bottle.group);
+        barBottles.push(bottle.group);
       }
       // The strip that lights them from under the shelf above.
-      root.add(box({
+      mountBackBar(box({
         size: [0.24, 0.03, barZ1 - barZ0 - 0.4], pos: [r.x0 + 0.2, SY + sy - 0.032, barCz], mat: M_SUITE_COVE, cast: false, name: 'suite-bar-led',
       }));
     }
@@ -6997,27 +7442,35 @@ export function buildMansionInterior(shell = null) {
     barGlow.position.set(r.x0 + 0.7, SY + 1.7, barCz);
     root.add(barGlow);
     // The counter itself, in onyx with a gold nosing and a marble top.
-    root.add(box({
+    const barCounterAssemblyId = 'mansion-suite-bar-counter';
+    const mountBarCounter = (object) => root.add(geometryIntent(object, { assemblyId: barCounterAssemblyId }));
+    mountBarCounter(box({
       size: [0.72, 1.06, barZ1 - barZ0], pos: [r.x0 + 1.1, SY + 0.53, barCz], mat: M_SUITE_ONYX, name: 'suite-bar-counter',
     }));
-    root.add(box({
+    mountBarCounter(box({
       size: [0.92, 0.08, barZ1 - barZ0 + 0.2], pos: [r.x0 + 1.16, SY + 1.08, barCz], mat: M_SUITE_MARBLE, cast: false, name: 'suite-bar-top',
     }));
-    root.add(box({
+    mountBarCounter(box({
       size: [0.06, 0.9, barZ1 - barZ0], pos: [r.x0 + 1.47, SY + 0.6, barCz], mat: M_GOLD, cast: false, name: 'suite-bar-nosing',
     }));
-    solid(r.x0, r.x0 + 1.5, SY, SY + 1.14, barZ0, barZ1);
-    for (const sz of [barZ0 + 1.0, barCz, barZ1 - 1.0]) {
-      root.add(named(cylinder({
+    const barCounterCollider = solid(r.x0, r.x0 + 1.5, SY, SY + 1.14, barZ0, barZ1);
+    barCounterCollider.name = barCounterAssemblyId + '-collider';
+    geometryIntent(barCounterCollider, { assemblyId: barCounterAssemblyId });
+    for (const [stoolIndex, sz] of [barZ0 + 1.0, barCz, barZ1 - 1.0].entries()) {
+      const stoolAssemblyId = 'mansion-suite-bar-stool-' + stoolIndex;
+      const mountStool = (object) => root.add(geometryIntent(object, { assemblyId: stoolAssemblyId }));
+      mountStool(named(cylinder({
         r: 0.06, h: 0.78, pos: [r.x0 + 2.0, SY + 0.39, sz], mat: M_GOLD,
       }), 'suite-bar-stool-stem'));
-      root.add(named(cylinder({
+      mountStool(named(cylinder({
         r: 0.24, h: 0.1, pos: [r.x0 + 2.0, SY + 0.83, sz], mat: M_SUITE_VELVET,
       }), 'suite-bar-stool-seat'));
-      root.add(named(cylinder({
+      mountStool(named(cylinder({
         r: 0.2, h: 0.04, pos: [r.x0 + 2.0, SY + 0.03, sz], mat: M_GOLD, cast: false,
       }), 'suite-bar-stool-foot'));
-      solid(r.x0 + 1.74, r.x0 + 2.26, SY, SY + 0.88, sz - 0.26, sz + 0.26);
+      const stoolCollider = solid(r.x0 + 1.74, r.x0 + 2.26, SY, SY + 0.88, sz - 0.26, sz + 0.26);
+      stoolCollider.name = stoolAssemblyId + '-collider';
+      geometryIntent(stoolCollider, { assemblyId: stoolAssemblyId });
     }
     for (let i = 0; i < 4; i++) {
       const glass = makeShotGlass(M, { x: r.x0 + 1.1, y: SY + 1.14, z: barZ0 + 0.9 + i * 0.3 });
@@ -7095,25 +7548,28 @@ export function buildMansionInterior(shell = null) {
     /* the bed and the arrival, so you walk past it coming up and it is    */
     /* between the bed and the way out.                                    */
     /* ================================================================ */
-    const drX0 = 1.95;
-    const drX1 = 5.95;
-    root.add(box({
+    const dressingAssemblyId = 'mansion-suite-fitted-dressing-run';
+    const mountDressing = (object) => root.add(geometryIntent(object, {
+      assemblyId: dressingAssemblyId,
+      checkWallEmbed: false,
+    }));
+    mountDressing(box({
       size: [drX1 - drX0, 2.5, 0.62], pos: [(drX0 + drX1) / 2, SY + 1.25, r.z0 + 0.35], mat: M_WOOD_DK, name: 'suite-dressing-carcass',
     }));
-    root.add(box({
+    mountDressing(box({
       size: [drX1 - drX0 - 0.16, 2.2, 0.08], pos: [(drX0 + drX1) / 2, SY + 1.28, r.z0 + 0.1], mat: M_SUITE_MIRROR, cast: false, name: 'suite-dressing-back',
     }));
     for (let i = 0; i < 3; i++) {
       const cx0 = drX0 + 0.1 + i * ((drX1 - drX0 - 0.2) / 3);
       const cx1 = cx0 + (drX1 - drX0 - 0.2) / 3 - 0.1;
       // Hanging rail and the suits on it.
-      root.add(named(cylinder({
+      mountDressing(named(cylinder({
         r: 0.022, h: cx1 - cx0, pos: [(cx0 + cx1) / 2, SY + 1.9, r.z0 + 0.35], mat: M_GOLD, rotZ: Math.PI / 2,
       }), 'suite-dressing-rail'));
       const n = Math.max(4, Math.round((cx1 - cx0) / 0.13));
       for (let j = 0; j < n; j++) {
         const hx = cx0 + 0.06 + j * ((cx1 - cx0 - 0.12) / (n - 1));
-        root.add(box({
+        mountDressing(box({
           size: [0.05, 0.95, 0.42],
           pos: [hx, SY + 1.38, r.z0 + 0.35],
           mat: j % 3 === 0 ? M_SUITE_VELVET_DK : (j % 3 === 1 ? M_WALL_DEEP : M_SUITE_ONYX),
@@ -7122,11 +7578,11 @@ export function buildMansionInterior(shell = null) {
         }));
       }
       // Shelf of shoe boxes under it, and a gilt pelmet over.
-      root.add(box({
+      mountDressing(box({
         size: [cx1 - cx0, 0.05, 0.5], pos: [(cx0 + cx1) / 2, SY + 0.6, r.z0 + 0.35], mat: M_WOOD_DK, cast: false, name: 'suite-dressing-shelf',
       }));
       for (let j = 0; j < 4; j++) {
-        root.add(box({
+        mountDressing(box({
           size: [0.26, 0.14, 0.4],
           pos: [cx0 + 0.18 + j * 0.3, SY + 0.7, r.z0 + 0.35],
           mat: j % 2 ? M_SUITE_ONYX : M_CARD,
@@ -7134,14 +7590,14 @@ export function buildMansionInterior(shell = null) {
           name: 'suite-dressing-box',
         }));
       }
-      root.add(box({
+      mountDressing(box({
         size: [cx1 - cx0 + 0.06, 0.12, 0.06], pos: [(cx0 + cx1) / 2, SY + 2.46, r.z0 + 0.63], mat: M_GOLD, cast: false, name: 'suite-dressing-pelmet',
       }));
-      root.add(box({
+      mountDressing(box({
         size: [cx1 - cx0, 0.03, 0.16], pos: [(cx0 + cx1) / 2, SY + 2.4, r.z0 + 0.5], mat: M_SUITE_COVE, cast: false, name: 'suite-dressing-led',
       }));
     }
-    solid(drX0, drX1, SY, SY + 2.5, r.z0, r.z0 + 0.68);
+    geometryIntent(solid(drX0, drX1, SY, SY + 2.5, r.z0, r.z0 + 0.68), { assemblyId: dressingAssemblyId });
     // A cheval mirror and a velvet bench in front of it.
     /* In the corner at the end of the run, NOT in the middle of the floor:
      * the walk off the stair head runs down this side of the room, and a
@@ -7207,6 +7663,8 @@ export function buildMansionInterior(shell = null) {
     {
       const sx = -4.9;
       const sz = 67.6;
+      const suiteSofaAssemblyId = 'mansion-suite-sofa';
+      const suiteSofaStart = root.children.length;
       root.add(box({
         size: [3.0, 0.44, 1.05], pos: [sx, SY + 0.32, sz], mat: M_SUITE_VELVET, name: 'suite-sofa',
       }));
@@ -7231,7 +7689,12 @@ export function buildMansionInterior(shell = null) {
           rTop: 0.055, rBottom: 0.04, h: 0.18, pos: [sx + lx, SY + 0.09, sz + lz], mat: M_GOLD,
         }), 'suite-sofa-leg'));
       }
-      solid(sx - 1.62, sx + 1.62, SY, SY + 0.95, sz - 0.6, sz + 0.6);
+      const suiteSofaCollider = solid(sx - 1.62, sx + 1.62, SY, SY + 0.95, sz - 0.6, sz + 0.6);
+      for (const object of root.children.slice(suiteSofaStart)) {
+        geometryIntent(object, { assemblyId: suiteSofaAssemblyId });
+      }
+      suiteSofaCollider.name = `${suiteSofaAssemblyId}-collider`;
+      geometryIntent(suiteSofaCollider, { assemblyId: suiteSofaAssemblyId });
       // Low onyx table, an ashtray and a decanter on it.
       root.add(box({
         size: [1.7, 0.08, 0.9], pos: [sx, SY + 0.44, sz + 1.6], mat: M_SUITE_ONYX, name: 'suite-low-table',
@@ -7360,27 +7823,29 @@ export function buildMansionInterior(shell = null) {
     {
       const cy = SCY - 1.25;
       const cz = 70.4;
-      root.add(named(cylinder({ r: 0.035, h: 0.7, pos: [-1.2, cy + 0.5, cz], mat: M_BRONZE }), 'suite-chandelier-stem'));
+      const fixtureId = 'mansion-suite-chandelier';
+      const mount = (object) => root.add(fixedFixture(object, fixtureId));
+      mount(named(cylinder({ r: 0.035, h: 0.7, pos: [-1.2, cy + 0.5, cz], mat: M_BRONZE }), 'suite-chandelier-stem'));
       for (const [ty, tr, tn] of [[0, 0.86, 8], [-0.28, 0.5, 5]]) {
         for (let i = 0; i < tn; i++) {
           const a = (i / tn) * Math.PI * 2;
           const bx = Math.cos(a) * tr;
           const bz = Math.sin(a) * tr;
-          root.add(box({
+          mount(box({
             size: [tr, 0.025, 0.025], pos: [-1.2 + bx / 2, cy + ty, cz + bz / 2], mat: M_GOLD, rotY: -a, name: 'suite-chandelier-arm',
           }));
-          root.add(named(cylinder({
+          mount(named(cylinder({
             rTop: 0.07, rBottom: 0.09, h: 0.11, pos: [-1.2 + bx, cy + ty + 0.05, cz + bz], mat: M_SHADE_CREAM,
           }), 'suite-chandelier-shade'));
-          root.add(named(sphere({
+          mount(named(sphere({
             r: 0.05, pos: [-1.2 + bx, cy + ty + 0.03, cz + bz], mat: M_BULB_WARM, cast: false,
           }), 'suite-chandelier-bulb'));
-          root.add(box({
+          mount(box({
             size: [0.018, 0.2, 0.018], pos: [-1.2 + bx * 0.86, cy + ty - 0.17, cz + bz * 0.86], mat: M_CRYSTAL, cast: false, name: 'suite-chandelier-drop',
           }));
         }
       }
-      root.add(named(sphere({ r: 0.1, pos: [-1.2, cy - 0.48, cz], mat: M_GOLD }), 'suite-chandelier-finial'));
+      mount(named(sphere({ r: 0.1, pos: [-1.2, cy - 0.48, cz], mat: M_GOLD }), 'suite-chandelier-finial'));
     }
 
     /* ================================================================ */
@@ -7432,6 +7897,7 @@ export function buildMansionInterior(shell = null) {
       coveLights,
       barGlow,
       barLight,
+      barBottles,
       update,
     };
   }
@@ -7536,6 +8002,8 @@ export function buildMansionInterior(shell = null) {
 
     // The bed, its head against the named wall.
     const bedZ = headboardWall === 'north' ? r.z1 - 1.6 : r.z0 + 1.6;
+    const bedAssemblyId = `mansion-${name}-bed`;
+    const bedStart = root.children.length;
     const wrap = new THREE.Group();
     wrap.position.y = UY;
     const bed = makeBed(M, {
@@ -7548,7 +8016,7 @@ export function buildMansionInterior(shell = null) {
     }
     wrap.add(bed.group);
     root.add(wrap);
-    solid(bedX - 1.0, bedX + 1.0, UY, UY + 0.75, bedZ - 1.25, bedZ + 1.25);
+    const bedCollider = solid(bedX - 1.0, bedX + 1.0, UY, UY + 0.75, bedZ - 1.25, bedZ + 1.25);
     // Headboard + a bolster, since makeBed's own headboard is apartment-sized.
     const hbZ = headboardWall === 'north' ? r.z1 - 0.3 : r.z0 + 0.3;
     root.add(box({
@@ -7557,6 +8025,11 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [2.4, 0.12, 0.24], pos: [bedX, UY + 1.68, hbZ], mat: M_WOOD_DK, cast: false,
     }));
+    for (const object of root.children.slice(bedStart)) {
+      geometryIntent(object, { assemblyId: bedAssemblyId });
+    }
+    bedCollider.name = `${bedAssemblyId}-collider`;
+    geometryIntent(bedCollider, { assemblyId: bedAssemblyId });
 
     // Nightstands + lamps.
     const nsZ = headboardWall === 'north' ? bedZ + 1.15 : bedZ - 1.15;
@@ -7593,12 +8066,12 @@ export function buildMansionInterior(shell = null) {
     const dresserZ = palette.dresserZ ?? cz - 2.4;
     const mirrorX = dresserSide > 0 ? r.x0 + 0.12 : r.x1 - 0.12;
     caseFurniture(dx, dresserZ, UY, 2.0, 0.6, 0.95, dresserSide > 0 ? Math.PI / 2 : -Math.PI / 2, 3);
-    root.add(box({
+    root.add(fixedFixture(box({
       size: [0.07, 1.5, 1.2],
       pos: [mirrorX, UY + 1.85, dresserZ],
       mat: mat({ color: 0xdce6ee, roughness: 0.08, metalness: 0.85 }),
       name: `${name}-mirror`,
-    }));
+    }), `mansion-${name}-dresser-mirror`));
     recordArt(`${name}-mirror`, mirrorX, UY + 1.85, dresserZ,
       dresserSide > 0 ? Math.PI / 2 : -Math.PI / 2, 1.2, 1.5);
     /* 0.52 off the partition, not 0.4. Owner playtest, verbatim: "dresser in
@@ -7736,6 +8209,7 @@ export function buildMansionInterior(shell = null) {
       inward,
       bedX,
       bedZ,
+      bedAssemblyId,
       hbZ,
       hbDir: headboardWall === 'north' ? -1 : 1,
       nsZ,
@@ -7797,18 +8271,24 @@ export function buildMansionInterior(shell = null) {
    */
   function bedroomBand({
     r, y0, y1, material, t = 0.07, southGaps = [], northGaps = [], westGaps = [], eastGaps = [],
+    assemblyId = null,
   }) {
+    // One call is one continuous fitted finish band. Its four mitred runs
+    // deliberately meet at the room corners and must retain one exact owner.
+    const owner = assemblyId ?? [
+      'mansion-bedroom-band', r.x0, r.x1, r.z0, r.z1, y0, y1, t,
+    ].join(':');
     linedBand({
-      axis: 'x', x0: r.x0, x1: r.x1, y0, y1, z0: r.z0, z1: r.z0 + t, material, gaps: southGaps,
+      axis: 'x', x0: r.x0, x1: r.x1, y0, y1, z0: r.z0, z1: r.z0 + t, material, gaps: southGaps, assemblyId: owner,
     });
     linedBand({
-      axis: 'x', x0: r.x0, x1: r.x1, y0, y1, z0: r.z1 - t, z1: r.z1, material, gaps: northGaps,
+      axis: 'x', x0: r.x0, x1: r.x1, y0, y1, z0: r.z1 - t, z1: r.z1, material, gaps: northGaps, assemblyId: owner,
     });
     linedBand({
-      axis: 'z', x0: r.x0, x1: r.x0 + t, y0, y1, z0: r.z0, z1: r.z1, material, gaps: westGaps,
+      axis: 'z', x0: r.x0, x1: r.x0 + t, y0, y1, z0: r.z0, z1: r.z1, material, gaps: westGaps, assemblyId: owner,
     });
     linedBand({
-      axis: 'z', x0: r.x1 - t, x1: r.x1, y0, y1, z0: r.z0, z1: r.z1, material, gaps: eastGaps,
+      axis: 'z', x0: r.x1 - t, x1: r.x1, y0, y1, z0: r.z0, z1: r.z1, material, gaps: eastGaps, assemblyId: owner,
     });
   }
 
@@ -7875,20 +8355,22 @@ export function buildMansionInterior(shell = null) {
          * into the arcade like an altarpiece. */
         light: ({ cx, cz }) => {
           const hub = UCY - 1.25;
-          root.add(cylinder({ r: 0.03, h: 1.1, pos: [cx, hub + 0.55, cz], mat: M_GOTHIC_IRON }));
-          root.add(named(cylinder({
+          const fixtureId = 'mansion-bedroom-gothic-chandelier';
+          const mount = (object) => root.add(fixedFixture(object, fixtureId));
+          mount(cylinder({ r: 0.03, h: 1.1, pos: [cx, hub + 0.55, cz], mat: M_GOTHIC_IRON }));
+          mount(named(cylinder({
             r: 0.62, h: 0.06, pos: [cx, hub, cz], mat: M_GOTHIC_IRON,
           }), 'gothic-corona'));
-          root.add(cylinder({
+          mount(cylinder({
             r: 0.36, h: 0.05, pos: [cx, hub + 0.18, cz], mat: M_GOTHIC_IRON, cast: false,
           }));
           for (let i = 0; i < 8; i++) {
             const a = (i / 8) * Math.PI * 2;
             const bx = cx + Math.cos(a) * 0.62;
             const bz = cz + Math.sin(a) * 0.62;
-            root.add(box({ size: [0.04, 0.3, 0.04], pos: [bx, hub + 0.18, bz], mat: M_GOTHIC_IRON }));
-            root.add(cylinder({ r: 0.028, h: 0.2, pos: [bx, hub + 0.13, bz], mat: M_CARD }));
-            root.add(sphere({ r: 0.04, pos: [bx, hub + 0.25, bz], mat: M_BULB_WARM, cast: false }));
+            mount(box({ size: [0.04, 0.3, 0.04], pos: [bx, hub + 0.18, bz], mat: M_GOTHIC_IRON }));
+            mount(cylinder({ r: 0.028, h: 0.2, pos: [bx, hub + 0.13, bz], mat: M_CARD }));
+            mount(sphere({ r: 0.04, pos: [bx, hub + 0.25, bz], mat: M_BULB_WARM, cast: false }));
           }
           const l = new THREE.PointLight(0xffc98a, 5, 15, 2);
           l.position.set(cx, hub - 0.2, cz);
@@ -7897,7 +8379,7 @@ export function buildMansionInterior(shell = null) {
         },
         dress: (c) => {
           const {
-            r, cx, cz, bedX, bedZ, hbZ, innerX, outerX,
+            r, cx, cz, bedX, bedZ, bedAssemblyId, hbZ, innerX, outerX,
           } = c;
           // Panelling: a black dado right round, and the arcade on the inner
           // wall (the one with no glazing in it anywhere).
@@ -7944,6 +8426,7 @@ export function buildMansionInterior(shell = null) {
            * the room reads as gothic from the doorway rather than from the
            * pillow. The collider goes up with it, because a four-poster is
            * not something you walk through. */
+          const gothicBedStart = root.children.length;
           for (const px of [bedX - 1.05, bedX + 1.05]) {
             for (const pz of [bedZ - 1.2, bedZ + 1.2]) {
               root.add(box({
@@ -7961,7 +8444,7 @@ export function buildMansionInterior(shell = null) {
           root.add(box({
             size: [2.5, 0.26, 2.8], pos: [bedX, UY + 2.62, bedZ], mat: M_GOTHIC_VELVET, cast: false,
           }));
-          solid(bedX - 1.12, bedX + 1.12, UY, UY + 2.5, bedZ - 1.28, bedZ + 1.28);
+          const gothicBedCollider = solid(bedX - 1.12, bedX + 1.12, UY, UY + 2.5, bedZ - 1.28, bedZ + 1.28);
           // Bedding over the shared duvet: a blood-velvet coverlet and two
           // bolsters against the headboard.
           root.add(box({
@@ -7972,6 +8455,11 @@ export function buildMansionInterior(shell = null) {
               r: 0.13, h: 0.85, pos: [bedX + ox, UY + 0.78, hbZ - 0.36], mat: M_GOTHIC_VELVET, rotZ: Math.PI / 2, cast: false,
             }));
           }
+          for (const object of root.children.slice(gothicBedStart)) {
+            geometryIntent(object, { assemblyId: bedAssemblyId });
+          }
+          gothicBedCollider.name = `${bedAssemblyId}-canopy-collider`;
+          geometryIntent(gothicBedCollider, { assemblyId: bedAssemblyId });
 
           /* Stained glass in the arcade, lit from behind.
            *
@@ -8251,17 +8739,19 @@ export function buildMansionInterior(shell = null) {
          * already knows how to build. */
         light: ({ cx, cz }) => {
           const hub = UCY - 1.15;
-          root.add(cylinder({ r: 0.025, h: 0.9, pos: [cx, hub + 0.45, cz], mat: M_BRASS }));
-          root.add(sphere({ r: 0.16, pos: [cx, hub, cz], mat: M_BRASS }));
+          const fixtureId = 'mansion-bedroom-oldtime-chandelier';
+          const mount = (object) => root.add(fixedFixture(object, fixtureId));
+          mount(cylinder({ r: 0.025, h: 0.9, pos: [cx, hub + 0.45, cz], mat: M_BRASS }));
+          mount(sphere({ r: 0.16, pos: [cx, hub, cz], mat: M_BRASS }));
           for (let i = 0; i < 5; i++) {
             const a = (i / 5) * Math.PI * 2;
             const bx = cx + Math.cos(a) * 0.5;
             const bz = cz + Math.sin(a) * 0.5;
-            root.add(box({ size: [0.5, 0.035, 0.035], pos: [(cx + bx) / 2, hub, (cz + bz) / 2], mat: M_BRASS, rotY: -a }));
-            root.add(named(cylinder({
+            mount(box({ size: [0.5, 0.035, 0.035], pos: [(cx + bx) / 2, hub, (cz + bz) / 2], mat: M_BRASS, rotY: -a }));
+            mount(named(cylinder({
               rTop: 0.115, rBottom: 0.15, h: 0.17, pos: [bx, hub + 0.13, bz], mat: M_SHADE_CREAM,
             }), 'oldtime-shade'));
-            root.add(sphere({ r: 0.06, pos: [bx, hub + 0.11, bz], mat: M_BULB_WARM, cast: false }));
+            mount(sphere({ r: 0.06, pos: [bx, hub + 0.11, bz], mat: M_BULB_WARM, cast: false }));
           }
           const l = new THREE.PointLight(0xffd6a0, 5.2, 15, 2);
           l.position.set(cx, hub - 0.1, cz);
@@ -8270,7 +8760,7 @@ export function buildMansionInterior(shell = null) {
         },
         dress: (c) => {
           const {
-            r, cz, bedX, bedZ, hbZ, innerX, outerX,
+            r, cz, bedX, bedZ, bedAssemblyId, hbZ, innerX, outerX,
           } = c;
           // Wainscot with a capping rail, papered above it, and a picture rail
           // over that. The doorway in the north wall is notched out.
@@ -8303,9 +8793,9 @@ export function buildMansionInterior(shell = null) {
             northGaps: [[13.1, 14.9]],
             eastGaps: [[42.6, 46.4]],
           });
-          root.add(box({
+          root.add(fixedFixture(box({
             size: [0.04, 1.35, r.z1 - r.z0 - 0.2], pos: [innerX - 0.09, UY + 1.8, cz], mat: M_OLD_PAPER, cast: false, name: 'oldtime-paper',
-          }));
+          }), 'mansion-bedroom-oldtime-wallpaper'));
 
           /* The bedstead: turned brass posts with knobs at head and foot, and
            * a patchwork quilt folded across the shared bed.
@@ -8323,29 +8813,30 @@ export function buildMansionInterior(shell = null) {
            * 5 mm clear of the padding, and its posts at x 10.48..10.57 and
            * 12.48..12.57 still miss the mattress at 10.575..12.475. */
           const brassZ = hbZ - 0.14;
+          const mountBedstead = (object) => root.add(geometryIntent(object, { assemblyId: bedAssemblyId }));
           for (const px of [bedX - 1.0, bedX + 1.0]) {
-            root.add(named(cylinder({ r: 0.045, h: 1.5, pos: [px, UY + 0.75, brassZ], mat: M_BRASS }), 'oldtime-bedpost'));
-            root.add(named(sphere({ r: 0.09, pos: [px, UY + 1.54, brassZ], mat: M_BRASS }), 'oldtime-bedpost-knob'));
-            root.add(named(cylinder({ r: 0.04, h: 0.85, pos: [px, UY + 0.42, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost'));
-            root.add(named(sphere({ r: 0.075, pos: [px, UY + 0.88, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost-knob'));
+            mountBedstead(named(cylinder({ r: 0.045, h: 1.5, pos: [px, UY + 0.75, brassZ], mat: M_BRASS }), 'oldtime-bedpost'));
+            mountBedstead(named(sphere({ r: 0.09, pos: [px, UY + 1.54, brassZ], mat: M_BRASS }), 'oldtime-bedpost-knob'));
+            mountBedstead(named(cylinder({ r: 0.04, h: 0.85, pos: [px, UY + 0.42, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost'));
+            mountBedstead(named(sphere({ r: 0.075, pos: [px, UY + 0.88, bedZ - 1.2], mat: M_BRASS }), 'oldtime-footpost-knob'));
           }
           for (const ry of [UY + 1.02, UY + 1.42]) {
-            root.add(named(cylinder({
+            mountBedstead(named(cylinder({
               r: 0.03, h: 2.0, pos: [bedX, ry, brassZ], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
             }), 'oldtime-head-rail'));
           }
           for (let i = 0; i < 7; i++) {
-            root.add(named(cylinder({
+            mountBedstead(named(cylinder({
               r: 0.018, h: 0.4, pos: [bedX - 0.75 + i * 0.25, UY + 1.22, brassZ], mat: M_BRASS, cast: false,
             }), 'oldtime-head-spindle'));
           }
-          root.add(cylinder({
+          mountBedstead(cylinder({
             r: 0.028, h: 2.0, pos: [bedX, UY + 0.86, bedZ - 1.2], mat: M_BRASS, rotZ: Math.PI / 2, cast: false,
           }));
-          root.add(box({
+          mountBedstead(box({
             size: [2.0, 0.1, 1.1], pos: [bedX, UY + 0.76, bedZ - 0.55], mat: M_OLD_QUILT, cast: false, name: 'oldtime-quilt',
           }));
-          root.add(box({
+          mountBedstead(box({
             size: [2.06, 0.16, 0.5], pos: [bedX, UY + 0.8, bedZ - 1.02], mat: M_OLD_QUILT, rotX: 0.1, cast: false,
           }));
 
@@ -8465,7 +8956,7 @@ export function buildMansionInterior(shell = null) {
           const clock = makeWallClock(M, {
             x: innerX + 0.11, y: UY + 2.0, z: 41.2, rotY: Math.PI / 2, r: 0.26,
           });
-          root.add(clock.group);
+          root.add(fixedFixture(clock.group, 'mansion-bedroom-oldtime-wall-clock'));
           root.add(box({
             size: [0.09, 0.7, 0.24], pos: [innerX + 0.09, UY + 1.5, 41.2], mat: M_WOOD_DK, cast: false, name: 'oldtime-clock-case',
           }));
@@ -8604,16 +9095,18 @@ export function buildMansionInterior(shell = null) {
          * the foot of the bed. */
         light: ({ cx, cz }) => {
           const hub = UCY - 1.0;
-          root.add(cylinder({ r: 0.02, h: 0.75, pos: [cx, hub + 0.4, cz], mat: M_CHROME }));
-          root.add(box({ size: [0.34, 0.06, 0.34], pos: [cx, hub + 0.02, cz], mat: M_LAKE_BLUE, cast: false }));
+          const fixtureId = 'mansion-bedroom-lake-lantern';
+          const mount = (object) => root.add(fixedFixture(object, fixtureId));
+          mount(cylinder({ r: 0.02, h: 0.75, pos: [cx, hub + 0.4, cz], mat: M_CHROME }));
+          mount(box({ size: [0.34, 0.06, 0.34], pos: [cx, hub + 0.02, cz], mat: M_LAKE_BLUE, cast: false }));
           for (const [ox, oz] of [[-0.15, -0.15], [0.15, -0.15], [-0.15, 0.15], [0.15, 0.15]]) {
-            root.add(box({ size: [0.03, 0.42, 0.03], pos: [cx + ox, hub - 0.22, cz + oz], mat: M_LAKE_BLUE }));
+            mount(box({ size: [0.03, 0.42, 0.03], pos: [cx + ox, hub - 0.22, cz + oz], mat: M_LAKE_BLUE }));
           }
-          root.add(box({
+          mount(box({
             size: [0.3, 0.4, 0.3], pos: [cx, hub - 0.22, cz], mat: mat({ color: 0xf6f2e4, roughness: 0.5, transparent: true, opacity: 0.5 }), cast: false, name: 'lake-lantern',
           }));
-          root.add(sphere({ r: 0.07, pos: [cx, hub - 0.24, cz], mat: M_BULB_WARM, cast: false }));
-          root.add(cylinder({
+          mount(sphere({ r: 0.07, pos: [cx, hub - 0.24, cz], mat: M_BULB_WARM, cast: false }));
+          mount(cylinder({
             rTop: 0.06, rBottom: 0.2, h: 0.14, pos: [cx, hub - 0.5, cz], mat: M_LAKE_BLUE, cast: false,
           }));
           const l = new THREE.PointLight(0xfff0d4, 5.4, 15, 2);
@@ -8623,7 +9116,7 @@ export function buildMansionInterior(shell = null) {
         },
         dress: (c) => {
           const {
-            r, cz, bedX, bedZ, hbZ, outerX, inward, bedArt,
+            r, cz, bedX, bedZ, bedAssemblyId, hbZ, outerX, inward, bedArt,
           } = c;
           /* Shiplap: horizontal boards to the chair rail, right round the
            * room, notched for BOTH doorways -- the gallery door in the south
@@ -8655,15 +9148,16 @@ export function buildMansionInterior(shell = null) {
 
           // Bedding: a striped blanket over the shared duvet and a folded
           // quilt across the foot.
-          root.add(box({
+          const mountLakeBed = (object) => root.add(geometryIntent(object, { assemblyId: bedAssemblyId }));
+          mountLakeBed(box({
             size: [2.0, 0.09, 1.3], pos: [bedX, UY + 0.75, bedZ + 0.2], mat: M_LAKE_STRIPE, cast: false, name: 'lake-blanket',
           }));
-          root.add(box({
+          mountLakeBed(box({
             size: [2.06, 0.18, 0.55], pos: [bedX, UY + 0.82, bedZ + 0.95], mat: M_LAKE_BLUE, rotX: -0.08, cast: false, name: 'lake-quilt',
           }));
           for (const ox of [-0.55, 0.55]) {
-            root.add(box({
-              size: [0.42, 0.14, 0.34], pos: [bedX + ox, UY + 0.78, hbZ + 0.5], mat: M_LAKE_STRIPE, rotZ: 0.06, cast: false, name: 'lake-cushion',
+            mountLakeBed(box({
+              size: [0.42, 0.14, 0.34], pos: [bedX + ox, UY + 0.68, hbZ + 0.5], mat: M_LAKE_STRIPE, rotZ: 0.06, cast: false, name: 'lake-cushion',
             }));
           }
 
@@ -8787,6 +9281,11 @@ export function buildMansionInterior(shell = null) {
           screen.rotation.y = Math.PI;
           screen.name = 'bed-west-rear-screen';
           root.add(screen);
+          geometryIntent(screen, {
+            assemblyId: 'mansion-bedroom-lake-tv',
+            checkSupport: false,
+            fixedSupportAnchor: true,
+          });
           c.screen = screen;
 
           /* ---- THE ROD, LEANT ON THE WALL AND ACTUALLY BUILT.
@@ -8995,10 +9494,12 @@ export function buildMansionInterior(shell = null) {
          * house that is not in a cabinet, because this is the only room in
          * the house that would not put it in one. */
         light: ({ cx, cz }) => {
-          root.add(box({
+          const fixtureId = 'mansion-bedroom-modern-light';
+          const mount = (object) => root.add(fixedFixture(object, fixtureId));
+          mount(box({
             size: [0.34, 0.1, 3.2], pos: [cx, UCY - 0.4, cz], mat: M_MOD_WALL, cast: false, name: 'modern-light-blade',
           }));
-          root.add(box({
+          mount(box({
             size: [0.26, 0.04, 3.06], pos: [cx, UCY - 0.46, cz], mat: M_MOD_LED, cast: false,
           }));
           const l = new THREE.PointLight(0xeaf2ff, 5.4, 15, 2);
@@ -9018,6 +9519,7 @@ export function buildMansionInterior(shell = null) {
            * bands and the lining reads as two panels either side of the
            * glass, which is what a room like this does anyway. */
           const eastWindow = [[55.6, 62.4]];
+          const modernWallAssemblyId = 'mansion-bedroom-modern-wall-treatment';
           bedroomBand({
             r,
             y0: UY + 0.18,
@@ -9026,6 +9528,7 @@ export function buildMansionInterior(shell = null) {
             southGaps: doors,
             northGaps: doors,
             eastGaps: eastWindow,
+            assemblyId: modernWallAssemblyId,
           });
           bedroomBand({
             r,
@@ -9036,6 +9539,7 @@ export function buildMansionInterior(shell = null) {
             southGaps: doors,
             northGaps: doors,
             eastGaps: eastWindow,
+            assemblyId: modernWallAssemblyId,
           });
           for (const gz of [cz - 3.0, cz + 3.0]) {
             const g = new THREE.PointLight(0x9fc4ff, 1.6, 6, 2);
@@ -9046,13 +9550,13 @@ export function buildMansionInterior(shell = null) {
            * wall, stopping well clear of the doorway at x 13.1..14.9. */
           for (let i = 0; i < 16; i++) {
             const sx = bedX - 1.5 + i * 0.2;
-            root.add(box({
+            root.add(geometryIntent(box({
               size: [0.07, 2.5, 0.09], pos: [sx, UY + 1.4, hbZ - 0.22], mat: M_MOD_SLAT, cast: false, name: 'modern-slat',
-            }));
+            }), { assemblyId: modernWallAssemblyId, checkWallEmbed: false }));
           }
-          root.add(box({
+          root.add(geometryIntent(box({
             size: [3.3, 2.5, 0.05], pos: [bedX, UY + 1.4, hbZ - 0.16], mat: M_STOVE_BLACK, cast: false,
-          }));
+          }), { assemblyId: modernWallAssemblyId, checkWallEmbed: false }));
 
           /* The bed as a platform: a plinth under the shared frame with a
            * shadow gap of LED at its base, and a wide low headboard. */
@@ -9062,23 +9566,24 @@ export function buildMansionInterior(shell = null) {
            * under a 2.5 m platform (which is what this was first), the light
            * is entirely INSIDE the platform and the "shadow gap" is a box
            * nobody can see. */
-          root.add(box({
+          const mountModernBed = (object) => root.add(geometryIntent(object, { assemblyId: c.bedAssemblyId }));
+          mountModernBed(box({
             size: [2.2, 0.06, 2.6], pos: [bedX, UY + 0.03, bedZ], mat: M_STOVE_BLACK, cast: false, name: 'modern-bed-base',
           }));
-          root.add(box({
+          mountModernBed(box({
             size: [2.26, 0.03, 2.66], pos: [bedX, UY + 0.075, bedZ], mat: M_MOD_LED, cast: false, name: 'modern-bed-cove',
           }));
-          root.add(box({
+          mountModernBed(box({
             size: [2.5, 0.07, 2.9], pos: [bedX, UY + 0.125, bedZ], mat: M_MOD_WALL, cast: false, name: 'modern-bed-platform',
           }));
-          root.add(box({
+          mountModernBed(box({
             size: [2.6, 0.12, 0.24], pos: [bedX, UY + 0.9, hbZ + 0.14], mat: M_CHROME, cast: false,
           }));
-          root.add(box({
+          mountModernBed(box({
             size: [2.1, 0.1, 1.6], pos: [bedX, UY + 0.76, bedZ + 0.3], mat: M_MOD_FABRIC, cast: false, name: 'modern-throw',
           }));
           for (const ox of [-0.5, 0.5]) {
-            root.add(box({
+            mountModernBed(box({
               size: [0.4, 0.14, 0.4], pos: [bedX + ox, UY + 0.78, hbZ + 0.62], mat: M_LEATHER_DK, rotY: 0.1, cast: false, name: 'modern-cushion',
             }));
           }
@@ -9109,10 +9614,15 @@ export function buildMansionInterior(shell = null) {
           screen.rotation.y = Math.PI;
           screen.name = 'bed-east-rear-screen';
           root.add(screen);
+          geometryIntent(screen, {
+            assemblyId: 'mansion-bedroom-modern-tv',
+            checkSupport: false,
+            fixedSupportAnchor: true,
+          });
           c.screen = screen;
-          root.add(box({
+          root.add(fixedFixture(box({
             size: [1.4, 0.09, 0.12], pos: [bedX, UY + 0.9, tvZ - 0.1], mat: M_STOVE_BLACK, cast: false, name: 'modern-soundbar',
-          }));
+          }), 'mansion-bedroom-modern-soundbar'));
 
           /* A moulded lounge chair and its ottoman, in place of the shared
            * armchair (`chairKind: 'none'` above), on a chrome base. */
@@ -9358,6 +9868,7 @@ export function buildMansionInterior(shell = null) {
         dressingCluster.add(foldedGarment);
         const dressingMirror = new THREE.Group();
         dressingMirror.name = 'modern-dressing-mirror';
+        geometryIntent(dressingMirror, { checkSupport: false });
         dressingMirror.add(box({
           size: [0.08, 1.96, 1.08],
           pos: [r.x0 + 0.12, UY + 1.35, cz + 3.4],
@@ -9432,17 +9943,18 @@ export function buildMansionInterior(shell = null) {
     const winGap = [[67.6, 71.4]];
     const outerIsWest = inward > 0;
     const tileWall = bathTileMaterial(Math.max(r.x1 - r.x0, r.z1 - r.z0), 2.0);
+    const bathroomLiningAssemblyId = `mansion-bathroom-lining:${name}`;
     linedBand({
-      axis: 'x', x0: r.x0, x1: r.x1, y0: UY, y1: UY + 2.0, z0: r.z0, z1: r.z0 + 0.05, material: tileWall, gaps: [doorGap],
+      axis: 'x', x0: r.x0, x1: r.x1, y0: UY, y1: UY + 2.0, z0: r.z0, z1: r.z0 + 0.05, material: tileWall, gaps: [doorGap], assemblyId: bathroomLiningAssemblyId,
     });
     linedBand({
-      axis: 'x', x0: r.x0, x1: r.x1, y0: UY, y1: UY + 2.0, z0: r.z1 - 0.05, z1: r.z1, material: tileWall,
+      axis: 'x', x0: r.x0, x1: r.x1, y0: UY, y1: UY + 2.0, z0: r.z1 - 0.05, z1: r.z1, material: tileWall, assemblyId: bathroomLiningAssemblyId,
     });
     linedBand({
-      axis: 'z', x0: r.x0, x1: r.x0 + 0.05, y0: UY, y1: UY + 2.0, z0: r.z0, z1: r.z1, material: tileWall, gaps: outerIsWest ? winGap : [],
+      axis: 'z', x0: r.x0, x1: r.x0 + 0.05, y0: UY, y1: UY + 2.0, z0: r.z0, z1: r.z1, material: tileWall, gaps: outerIsWest ? winGap : [], assemblyId: bathroomLiningAssemblyId,
     });
     linedBand({
-      axis: 'z', x0: r.x1 - 0.05, x1: r.x1, y0: UY, y1: UY + 2.0, z0: r.z0, z1: r.z1, material: tileWall, gaps: outerIsWest ? [] : winGap,
+      axis: 'z', x0: r.x1 - 0.05, x1: r.x1, y0: UY, y1: UY + 2.0, z0: r.z0, z1: r.z1, material: tileWall, gaps: outerIsWest ? [] : winGap, assemblyId: bathroomLiningAssemblyId,
     });
     // A marble cap on the tiling, with a gilt band under it, cut round the
     // doorway on the south wall and round the window on the outer one.
@@ -9451,10 +9963,10 @@ export function buildMansionInterior(shell = null) {
       [r.x0, r.x1, r.z1 - 0.07, r.z1, []],
     ]) {
       linedBand({
-        axis: 'x', x0: bx0, x1: bx1, y0: UY + 2.0, y1: UY + 2.09, z0: bz0, z1: bz1, material: M_MARBLE, gaps,
+        axis: 'x', x0: bx0, x1: bx1, y0: UY + 2.0, y1: UY + 2.09, z0: bz0, z1: bz1, material: M_MARBLE, gaps, assemblyId: bathroomLiningAssemblyId,
       });
       linedBand({
-        axis: 'x', x0: bx0, x1: bx1, y0: UY + 1.94, y1: UY + 1.99, z0: bz0 - 0.01, z1: bz1 + 0.01, material: M_GOLD, gaps,
+        axis: 'x', x0: bx0, x1: bx1, y0: UY + 1.94, y1: UY + 1.99, z0: bz0 - 0.01, z1: bz1 + 0.01, material: M_GOLD, gaps, assemblyId: bathroomLiningAssemblyId,
       });
     }
     for (const [bx0, bx1, gaps] of [
@@ -9462,10 +9974,10 @@ export function buildMansionInterior(shell = null) {
       [r.x1 - 0.07, r.x1, outerIsWest ? [] : winGap],
     ]) {
       linedBand({
-        axis: 'z', x0: bx0, x1: bx1, y0: UY + 2.0, y1: UY + 2.09, z0: r.z0, z1: r.z1, material: M_MARBLE, gaps,
+        axis: 'z', x0: bx0, x1: bx1, y0: UY + 2.0, y1: UY + 2.09, z0: r.z0, z1: r.z1, material: M_MARBLE, gaps, assemblyId: bathroomLiningAssemblyId,
       });
       linedBand({
-        axis: 'z', x0: bx0 - 0.01, x1: bx1 + 0.01, y0: UY + 1.94, y1: UY + 1.99, z0: r.z0, z1: r.z1, material: M_GOLD, gaps,
+        axis: 'z', x0: bx0 - 0.01, x1: bx1 + 0.01, y0: UY + 1.94, y1: UY + 1.99, z0: r.z0, z1: r.z1, material: M_GOLD, gaps, assemblyId: bathroomLiningAssemblyId,
       });
     }
     /* Nothing is added inside the reveal itself: `partition` already lines
@@ -9478,8 +9990,12 @@ export function buildMansionInterior(shell = null) {
     const tub = makeTub(M, {
       x0: tubX0, z0: cz + 0.6, x1: tubX0 + 1.8, z1: cz + 3.0,
     });
+    const tubAssemblyId = `mansion-${name}-tub`;
+    geometryIntent(tub.group, { assemblyId: tubAssemblyId });
     wrap.add(tub.group);
-    solid(tubX0, tubX0 + 1.8, UY, UY + 0.56, cz + 0.6, cz + 3.0);
+    const tubCollider = solid(tubX0, tubX0 + 1.8, UY, UY + 0.56, cz + 0.6, cz + 3.0);
+    tubCollider.name = `${tubAssemblyId}-collider`;
+    geometryIntent(tubCollider, { assemblyId: tubAssemblyId });
     /* THE LOO GOES BACK AGAINST ITS DUCT. Owner playtest, verbatim: "toilet
      * away from wall". Measured: the pan stood at 0.8 m off the partition and
      * `makeToilet` puts the cistern's back 0.385 m behind its centre, so the
@@ -9494,8 +10010,15 @@ export function buildMansionInterior(shell = null) {
     const loo = makeToilet(M, {
       x: looX, z: cz + 2.4, rotY: looYaw,
     });
+    const looAssemblyId = `mansion-${name}-toilet`;
+    geometryIntent(loo.group, { assemblyId: looAssemblyId });
     wrap.add(loo.group);
     const looCollider = solid(looX - 0.4, looX + 0.4, UY, UY + 0.84, cz + 2.1, cz + 2.7);
+    looCollider.name = `${looAssemblyId}-collider`;
+    looCollider.userData = {
+      ...(looCollider.userData ?? {}),
+      geometryGate: { ...(looCollider.userData?.geometryGate ?? {}), assemblyId: looAssemblyId },
+    };
     root.add(wrap);
     /* THE OLD SINK IS GONE. Owner, twice -- of this room, "two sinks, get rid
      * of the old sink, fix new sink", and of the modern one, "same thing with
@@ -9548,22 +10071,30 @@ export function buildMansionInterior(shell = null) {
     const ductBack = into(innerX, -0.03);
     const boxFace = (depth) => [Math.min(ductBack, into(innerX, depth)), Math.max(ductBack, into(innerX, depth))];
     const [ductX0, ductX1] = boxFace(0.28);
-    root.add(box({
+    const wcDuctAssemblyId = `mansion-${name}-wc-duct`;
+    const wcDuctPolicy = { assemblyId: wcDuctAssemblyId, checkWallEmbed: false };
+    const mountWcDuct = (object) => root.add(geometryIntent(object, wcDuctPolicy));
+    mountWcDuct(box({
       size: [ductX1 - ductX0, 1.02, 1.02], pos: [(ductX0 + ductX1) / 2, UY + 0.51, cz + 2.4], mat: tileWall, name: `${name}-wc-duct`,
     }));
-    root.add(box({
+    mountWcDuct(box({
       size: [ductX1 - ductX0 + 0.02, 0.05, 1.06], pos: [(ductX0 + ductX1) / 2 - inward * 0.01, UY + 1.045, cz + 2.4], mat: M_MARBLE, cast: false, name: `${name}-wc-duct-cap`,
     }));
+    const wcDuctCollider = solid(ductX0, ductX1, UY, UY + 1.07, cz + 1.89, cz + 2.91);
+    wcDuctCollider.name = `${wcDuctAssemblyId}-body-collider`;
+    geometryIntent(wcDuctCollider, wcDuctPolicy);
     const [pierX0, pierX1] = boxFace(0.86);
-    for (const pz of [cz + 1.95, cz + 2.85]) {
-      root.add(box({
+    for (const [index, pz] of [cz + 1.95, cz + 2.85].entries()) {
+      mountWcDuct(box({
         size: [pierX1 - pierX0, 1.02, 0.12], pos: [(pierX0 + pierX1) / 2, UY + 0.51, pz], mat: tileWall, name: `${name}-wc-pier`,
       }));
-      root.add(box({
+      mountWcDuct(box({
         size: [pierX1 - pierX0 + 0.02, 0.05, 0.16], pos: [(pierX0 + pierX1) / 2 - inward * 0.01, UY + 1.045, pz], mat: M_MARBLE, cast: false, name: `${name}-wc-pier-cap`,
       }));
+      const pierCollider = solid(pierX0, pierX1, UY, UY + 1.07, pz - 0.06, pz + 0.06);
+      pierCollider.name = `${wcDuctAssemblyId}-pier-${index}-collider`;
+      geometryIntent(pierCollider, wcDuctPolicy);
     }
-    solid(pierX0, pierX1, UY, UY + 1.07, cz + 1.89, cz + 2.91);
     /* A brush in the corner between the duct and the south pier. Placed off
      * the pan (which runs cz+2.21..cz+2.59) and off the pier (which ends at
      * cz+2.01) rather than under the roll: the roll falls on the south pier
@@ -9641,22 +10172,23 @@ export function buildMansionInterior(shell = null) {
      * to 0.60 and pushed back so it ends 30 mm INSIDE the tiling, with a
      * flange where it enters. */
     const headX = (shMinX + shMaxX) / 2;
-    root.add(named(cylinder({
+    const showerMount = (object) => root.add(fixedFixture(object, `mansion-${name}-shower-fixture`));
+    showerMount(named(cylinder({
       r: 0.024, h: 0.60, pos: [headX, UY + 2.3, shZ1 - 0.26], mat: M_CHROME, rotZ: Math.PI / 2, rotY: Math.PI / 2,
     }), `${name}-rain-arm`));
-    root.add(named(cylinder({
+    showerMount(named(cylinder({
       r: 0.055, h: 0.02, pos: [headX, UY + 2.3, shZ1 - 0.02], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
     }), `${name}-rain-flange`));
-    root.add(named(cylinder({
+    showerMount(named(cylinder({
       r: 0.16, h: 0.04, pos: [headX, UY + 2.28, shZ1 - 0.58], mat: M_CHROME,
     }), `${name}-rain-head`));
-    root.add(named(cylinder({
+    showerMount(named(cylinder({
       r: 0.018, h: 0.9, pos: [shInner - toIn * 0.25, UY + 1.5, shZ1 - 0.08], mat: M_CHROME,
     }), `${name}-shower-riser`));
-    root.add(named(cylinder({
+    showerMount(named(cylinder({
       r: 0.05, h: 0.12, pos: [shInner - toIn * 0.25, UY + 1.5, shZ1 - 0.14], mat: M_CHROME, rotX: 0.6, cast: false,
     }), `${name}-hand-shower`));
-    root.add(box({
+    showerMount(box({
       size: [0.16, 0.24, 0.06], pos: [shInner - toIn * 0.55, UY + 1.15, shZ1 - 0.08], mat: M_CHROME, cast: false, name: `${name}-shower-mixer`,
     }));
     // Niche in the tiled wall, with the bottles in it, and a marble bench.
@@ -9846,19 +10378,34 @@ export function buildMansionInterior(shell = null) {
      * tub's far edge and the rail in BOTH rooms, and still leaves 90 mm
      * between the pier and the shower tray. */
     const alcFar = outerX + inward * 2.21;
-    const alcX0 = Math.min(outerX, alcFar);
-    const alcX1 = Math.max(outerX, alcFar);
-    root.add(box({
-      size: [alcX1 - alcX0, 2.2, 0.18], pos: [(alcX0 + alcX1) / 2, UY + 1.1, tubZ0 - 0.005], mat: tileWall, name: `${name}-tub-return`,
+    /* The recess is the fitted half of the tub installation, not a second
+     * freestanding object. Its returns deliberately lap the tub rim and shower
+     * rail so the junction is sealed. */
+    const tubAlcoveAssemblyId = tubAssemblyId;
+    /* Stop at the FINISHED faces, not the structural-wall datum. The room's
+     * marble-and-gold lining projects 80 mm inward on both the outer and north
+     * walls; running the pier to the masonry put it through that finish. The
+     * extra millimetre is a hidden construction clearance behind the trim. */
+    const alcWallFace = outerX + inward * 0.081;
+    const alcNorthFace = r.z1 - 0.081;
+    const fittedAlcX0 = Math.min(alcWallFace, alcFar);
+    const fittedAlcX1 = Math.max(alcWallFace, alcFar);
+    const mountTubAlcove = (object) => root.add(geometryIntent(object, { assemblyId: tubAlcoveAssemblyId }));
+    mountTubAlcove(box({
+      size: [fittedAlcX1 - fittedAlcX0, 2.2, 0.18], pos: [(fittedAlcX0 + fittedAlcX1) / 2, UY + 1.1, tubZ0 - 0.005], mat: tileWall, name: `${name}-tub-return`,
     }));
-    solid(alcX0, alcX1, UY, UY + 2.2, tubZ0 - 0.095, tubZ0 + 0.085);
-    root.add(box({
-      size: [alcX1 - alcX0, 2.2, (r.z1 - 0.05) - (tubZ1 - 0.09)],
-      pos: [(alcX0 + alcX1) / 2, UY + 1.1, ((r.z1 - 0.05) + (tubZ1 - 0.09)) / 2],
+    const tubReturnCollider = solid(fittedAlcX0, fittedAlcX1, UY, UY + 2.2, tubZ0 - 0.095, tubZ0 + 0.085);
+    tubReturnCollider.name = `${tubAlcoveAssemblyId}-return-collider`;
+    geometryIntent(tubReturnCollider, { assemblyId: tubAlcoveAssemblyId });
+    mountTubAlcove(box({
+      size: [fittedAlcX1 - fittedAlcX0, 2.2, alcNorthFace - (tubZ1 - 0.09)],
+      pos: [(fittedAlcX0 + fittedAlcX1) / 2, UY + 1.1, (alcNorthFace + (tubZ1 - 0.09)) / 2],
       mat: tileWall,
       name: `${name}-tub-pier`,
     }));
-    solid(alcX0, alcX1, UY, UY + 2.2, tubZ1 - 0.09, r.z1 - 0.05);
+    const tubPierCollider = solid(fittedAlcX0, fittedAlcX1, UY, UY + 2.2, tubZ1 - 0.09, alcNorthFace);
+    tubPierCollider.name = `${tubAlcoveAssemblyId}-pier-collider`;
+    geometryIntent(tubPierCollider, { assemblyId: tubAlcoveAssemblyId });
     /* ---- The tub, dressed: a floor-standing filler with a hand shower, a
      * tray across it, and the mat beside it.
      *
@@ -9912,23 +10459,25 @@ export function buildMansionInterior(shell = null) {
     }
     // A second, heated rail with folded towels on the inner wall, a robe on
     // its hook, a stool and a plant -- the things a bathroom this size has.
-    root.add(cylinder({
+    const heatedRailMount = (object) => root.add(fixedFixture(object, `mansion-${name}-heated-rail`));
+    heatedRailMount(cylinder({
       r: 0.02, h: 0.9, pos: [into(innerX, 0.1), UY + 1.35, cz + 1.1], mat: M_GOLD, rotX: Math.PI / 2,
     }));
     for (let i = 0; i < 4; i++) {
-      root.add(cylinder({
+      heatedRailMount(cylinder({
         r: 0.018, h: 0.62, pos: [into(innerX, 0.16), UY + 0.95 + i * 0.24, cz + 1.1], mat: M_GOLD, rotX: Math.PI / 2, cast: false, name: `${name}-heated-rail`,
       }));
     }
     for (const oy of [0.0, 0.24]) {
-      root.add(box({
+      heatedRailMount(box({
         size: [0.22, 0.2, 0.5], pos: [into(innerX, 0.26), UY + 1.06 + oy, cz + 1.1], mat: M_TOWEL, cast: false,
       }));
     }
-    root.add(box({
+    const robeMount = (object) => root.add(fixedFixture(object, `mansion-${name}-robe-hook`));
+    robeMount(box({
       size: [0.06, 0.1, 0.06], pos: [into(innerX, 0.095), UY + 1.75, cz - 3.5], mat: M_GOLD, cast: false, name: `${name}-robe-hook`,
     }));
-    root.add(box({
+    robeMount(box({
       size: [0.16, 0.95, 0.44], pos: [into(innerX, 0.22), UY + 1.24, cz - 3.5], mat: M_TOWEL, cast: false, name: `${name}-robe`,
     }));
     root.add(cylinder({
@@ -10119,16 +10668,17 @@ export function buildMansionInterior(shell = null) {
     ];
 
     // ---- A caged store at the north end, padlocked.
+    const cagedStoreAssemblyId = 'mansion-basement-caged-store';
     const cageZ0 = 60.5;
     for (let i = 0; i <= 14; i++) {
       const cx = THREE.MathUtils.lerp(r.x0 + 0.3, 2.4, i / 14);
-      root.add(cylinder({ r: 0.02, h: 2.4, pos: [cx, BY + 1.2, cageZ0], mat: M_RACK }));
+      root.add(geometryIntent(cylinder({ r: 0.02, h: 2.4, pos: [cx, BY + 1.2, cageZ0], mat: M_RACK }), { assemblyId: cagedStoreAssemblyId }));
     }
     for (const ry of [BY + 0.2, BY + 1.2, BY + 2.3]) {
-      root.add(box({ size: [2.4 - r.x0 - 0.3, 0.05, 0.05], pos: [(r.x0 + 0.3 + 2.4) / 2, ry, cageZ0], mat: M_RACK }));
+      root.add(geometryIntent(box({ size: [2.4 - r.x0 - 0.3, 0.05, 0.05], pos: [(r.x0 + 0.3 + 2.4) / 2, ry, cageZ0], mat: M_RACK }), { assemblyId: cagedStoreAssemblyId }));
     }
-    solid(r.x0 + 0.3, 2.4, BY, BY + 2.4, cageZ0 - 0.08, cageZ0 + 0.08);
-    root.add(box({ size: [0.14, 0.2, 0.06], pos: [2.3, BY + 1.3, cageZ0 - 0.1], mat: M_GOLD }));
+    geometryIntent(solid(r.x0 + 0.3, 2.4, BY, BY + 2.4, cageZ0 - 0.08, cageZ0 + 0.08), { assemblyId: cagedStoreAssemblyId });
+    root.add(geometryIntent(box({ size: [0.14, 0.2, 0.06], pos: [2.3, BY + 1.3, cageZ0 - 0.1], mat: M_GOLD }), { assemblyId: cagedStoreAssemblyId }));
     // Behind the cage: crates and a wine rack.
     /* The third crate sits at z 61.25, not 61.4: at 61.4 its 0.9 m box
      * (z 60.95..61.85) ran 0.10 m into the crate at (-6.5, 62.2), whose own
@@ -10140,7 +10690,8 @@ export function buildMansionInterior(shell = null) {
       }));
       solid(cx - 0.45, cx + 0.45, BY, BY + 0.7, cz - 0.45, cz + 0.45);
     }
-    const wineRack = new THREE.Group();
+    const wineRackAssemblyId = 'mansion-cellar-wine-rack';
+    const wineRack = geometryIntent(new THREE.Group(), { assemblyId: wineRackAssemblyId });
     wineRack.name = 'cellar-wine-rack';
     wineRack.add(box({ size: [2.2, 0.12, 0.5], pos: [-2.6, BY + 0.06, r.z1 - 0.4], mat: M_WOOD_DK }));
     wineRack.add(box({ size: [2.2, 0.12, 0.5], pos: [-2.6, BY + 1.94, r.z1 - 0.4], mat: M_WOOD_DK }));
@@ -10151,6 +10702,10 @@ export function buildMansionInterior(shell = null) {
       wineRack.add(box({ size: [1.96, 0.07, 0.46], pos: [-2.6, y, r.z1 - 0.4], mat: M_WOOD, cast: false }));
     }
     wineRack.add(box({ size: [1.96, 1.82, 0.04], pos: [-2.6, BY + 1.0, r.z1 - 0.18], mat: M_WOOD_DK, cast: false }));
+    /* The rack was authored on the same z plane as the concrete wall lining:
+     * its 40 mm backboard and the 40 mm panel occupied the identical volume.
+     * Pull the whole fixture 50 mm south so its rear face meets the lining. */
+    wineRack.position.z = -0.05;
     root.add(wineRack);
     const wineBottleMaterial = mat({ color: 0x173a22, roughness: 0.28, metalness: 0.08 });
     const wineLabelMaterial = mat({ color: 0xe1d5b2, roughness: 0.82 });
@@ -10183,10 +10738,12 @@ export function buildMansionInterior(shell = null) {
     }
     for (let i = 0; i < 3; i++) {
       for (let j = 0; j < 6; j++) {
-        makeCellarWineBottle(-3.45 + j * 0.34, BY + 0.4 + i * 0.48, r.z1 - 0.45);
+        makeCellarWineBottle(-3.45 + j * 0.34, BY + 0.4 + i * 0.48, r.z1 - 0.5);
       }
     }
-    solid(-3.7, -1.5, BY, BY + 2.0, r.z1 - 0.65, r.z1 - 0.15);
+    const wineRackCollider = solid(-3.7, -1.5, BY, BY + 2.0, r.z1 - 0.7, r.z1 - 0.2);
+    wineRackCollider.name = wineRackAssemblyId + '-collider';
+    geometryIntent(wineRackCollider, { assemblyId: wineRackAssemblyId });
 
     // ---- Tool bench, ammo stack, boiler, drain.
     function buildToolBench(bx, bz, wallFaceZ) {
@@ -10400,7 +10957,7 @@ const M_GOLD_BAR = mat({
    * non-overlapping -- the doorways in that wall.
    */
   function linedBand({
-    axis, x0, x1, y0, y1, z0, z1, material, gaps = [],
+    axis, x0, x1, y0, y1, z0, z1, material, gaps = [], assemblyId = null,
   }) {
     const u0 = axis === 'x' ? x0 : z0;
     const u1 = axis === 'x' ? x1 : z1;
@@ -10414,14 +10971,14 @@ const M_GOLD_BAR = mat({
       const a = cuts[i];
       const b = cuts[i + 1];
       if (b - a < 1e-3) continue;
-      root.add(box({
+      root.add(geometryIntent(box({
         size: axis === 'x' ? [b - a, y1 - y0, z1 - z0] : [x1 - x0, y1 - y0, b - a],
         pos: axis === 'x'
           ? [(a + b) / 2, (y0 + y1) / 2, (z0 + z1) / 2]
           : [(x0 + x1) / 2, (y0 + y1) / 2, (a + b) / 2],
         mat: material,
         cast: false,
-      }));
+      }), { checkWallEmbed: false, ...(assemblyId ? { assemblyId } : {}) }));
     }
   }
 
@@ -10440,17 +10997,18 @@ const M_GOLD_BAR = mat({
    * skirting and are unchanged.
    */
   function lineRoom(r, height, material, door, t = 0.05) {
+    const assemblyId = roomFinishAssemblyId(r, BY);
     linedBand({
-      axis: 'x', x0: r.x0, x1: r.x1, y0: BY, y1: BY + height, z0: r.z0, z1: r.z0 + t, material, gaps: [door],
+      axis: 'x', x0: r.x0, x1: r.x1, y0: BY, y1: BY + height, z0: r.z0, z1: r.z0 + t, material, gaps: [door], assemblyId,
     });
     linedBand({
-      axis: 'x', x0: r.x0, x1: r.x1, y0: BY, y1: BY + height, z0: r.z1 - t, z1: r.z1, material,
+      axis: 'x', x0: r.x0, x1: r.x1, y0: BY, y1: BY + height, z0: r.z1 - t, z1: r.z1, material, assemblyId,
     });
     linedBand({
-      axis: 'z', x0: r.x0, x1: r.x0 + t, y0: BY, y1: BY + height, z0: r.z0, z1: r.z1, material,
+      axis: 'z', x0: r.x0, x1: r.x0 + t, y0: BY, y1: BY + height, z0: r.z0, z1: r.z1, material, assemblyId,
     });
     linedBand({
-      axis: 'z', x0: r.x1 - t, x1: r.x1, y0: BY, y1: BY + height, z0: r.z0, z1: r.z1, material,
+      axis: 'z', x0: r.x1 - t, x1: r.x1, y0: BY, y1: BY + height, z0: r.z0, z1: r.z1, material, assemblyId,
     });
   }
 
@@ -10469,6 +11027,7 @@ const M_GOLD_BAR = mat({
     const r = TROPHY_HALL;
     const cx = (r.x0 + r.x1) / 2;
     const CEIL = WING_ROOF_Y0;
+    const mountTrophy = (object, assemblyId, policy = {}) => root.add(geometryIntent(object, { assemblyId, ...policy }));
 
     topping(r.x0, r.x1, GY + 0.01, r.z0, r.z1, M_MARBLE, 'trophy-floor');
     topping(r.x0 + 0.5, r.x1 - 0.5, GY + 0.015, r.z0 + 0.5, r.z1 - 0.5, M_MARBLE_DK, 'trophy-floor-field');
@@ -10487,49 +11046,52 @@ const M_GOLD_BAR = mat({
      * which do the same job to the eye and stand on nothing anybody walks. */
     for (const pz of [42.4, 48.4, 54.4]) {
       const px = r.x0 + 0.35;
-      root.add(cylinder({ r: 0.34, h: CEIL - GY - 0.7, pos: [px, GY + (CEIL - GY - 0.7) / 2 + 0.2, pz], mat: M_MARBLE }));
-      root.add(cylinder({ rTop: 0.46, rBottom: 0.36, h: 0.28, pos: [px, CEIL - 0.62, pz], mat: M_GOLD, cast: false }));
-      root.add(cylinder({ rTop: 0.36, rBottom: 0.46, h: 0.2, pos: [px, GY + 0.1, pz], mat: M_MARBLE_DK, cast: false }));
-      solid(px - 0.34, px + 0.34, GY, CEIL, pz - 0.34, pz + 0.34);
+      const assemblyId = `mansion-trophy-column:${pz}`;
+      mountTrophy(cylinder({ r: 0.34, h: CEIL - GY - 0.7, pos: [px, GY + (CEIL - GY - 0.7) / 2 + 0.2, pz], mat: M_MARBLE }), assemblyId);
+      mountTrophy(cylinder({ rTop: 0.46, rBottom: 0.36, h: 0.28, pos: [px, CEIL - 0.62, pz], mat: M_GOLD, cast: false }), assemblyId);
+      mountTrophy(cylinder({ rTop: 0.36, rBottom: 0.46, h: 0.2, pos: [px, GY + 0.1, pz], mat: M_MARBLE_DK, cast: false }), assemblyId);
+      geometryIntent(solid(px - 0.34, px + 0.34, GY, CEIL, pz - 0.34, pz + 0.34), { assemblyId });
     }
     for (const pz of [48.4, 54.4]) {
-      root.add(box({
+      const assemblyId = `mansion-trophy-pilaster:${pz}`;
+      mountTrophy(box({
         size: [0.22, CEIL - GY - 0.5, 0.86], pos: [r.x1 - 0.12, GY + (CEIL - GY - 0.5) / 2 + 0.2, pz], mat: M_MARBLE, cast: false,
-      }));
-      root.add(box({
+      }), assemblyId);
+      mountTrophy(box({
         size: [0.3, 0.24, 1.0], pos: [r.x1 - 0.12, CEIL - 0.62, pz], mat: M_GOLD, cast: false,
-      }));
+      }), assemblyId);
     }
     for (const [ex0, ex1, ez0, ez1] of [
       [r.x0, r.x0 + 0.6, r.z0, r.z1], [r.x1 - 0.6, r.x1, r.z0, r.z1],
       [r.x0, r.x1, r.z0, r.z0 + 0.6], [r.x0, r.x1, r.z1 - 0.6, r.z1],
     ]) {
-      root.add(box({
+      mountTrophy(box({
         size: [ex1 - ex0, 0.34, ez1 - ez0],
         pos: [(ex0 + ex1) / 2, CEIL - 0.34, (ez0 + ez1) / 2],
         mat: M_TRIM,
         cast: false,
-      }));
+      }), 'mansion-trophy-entablature');
     }
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 6; j++) {
         const px = THREE.MathUtils.lerp(r.x0 + 1.4, r.x1 - 1.4, (i + 0.5) / 4);
         const pz = THREE.MathUtils.lerp(r.z0 + 1.4, r.z1 - 1.4, (j + 0.5) / 6);
-        root.add(box({
+        const assemblyId = `mansion-trophy-coffer:${i}:${j}`;
+        mountTrophy(box({
           size: [1.5, 0.14, 2.0], pos: [px, CEIL - 0.09, pz], mat: M_WALL_WARM, cast: false,
-        }));
-        root.add(box({
+        }), assemblyId, { checkSupport: false, fixedSupportAnchor: true });
+        mountTrophy(box({
           size: [1.16, 0.1, 1.66], pos: [px, CEIL - 0.2, pz], mat: M_GOLD, cast: false,
-        }));
+        }), assemblyId, { checkSupport: false, fixedSupportAnchor: true });
       }
     }
 
     /* ---- THE APSE, and the thing standing in it. ---- */
     const apseZ = r.z1 - 0.2;
     const tx = cx;
-    root.add(box({
+    mountTrophy(box({
       size: [4.6, CEIL - GY, 0.5], pos: [tx, (GY + CEIL) / 2, apseZ + 0.05], mat: M_WALL_DEEP, name: 'trophy-apse',
-    }));
+    }), 'mansion-trophy-apse');
     /* A gilded frame round the apse rather than a semi-dome.
      *
      * A half-dome was tried first and rendered as a white sail hanging across
@@ -10539,44 +11101,44 @@ const M_GOLD_BAR = mat({
      * dark panel into a niche) and they stand clear of the object the whole
      * room is pointed at, which is the only thing that actually matters here. */
     for (const px of [tx - 2.05, tx + 2.05]) {
-      root.add(box({
+      mountTrophy(box({
         size: [0.34, 5.0, 0.22], pos: [px, GY + 2.5, apseZ - 0.22], mat: M_GOLD, cast: false,
-      }));
-      root.add(box({
+      }), 'mansion-trophy-apse');
+      mountTrophy(box({
         size: [0.5, 0.24, 0.3], pos: [px, GY + 5.02, apseZ - 0.22], mat: M_GOLD, cast: false,
-      }));
-      root.add(box({
+      }), 'mansion-trophy-apse');
+      mountTrophy(box({
         size: [0.5, 0.2, 0.3], pos: [px, GY + 0.1, apseZ - 0.22], mat: M_MARBLE_DK, cast: false,
-      }));
+      }), 'mansion-trophy-apse');
     }
-    root.add(box({
+    mountTrophy(box({
       size: [4.8, 0.3, 0.28], pos: [tx, GY + 5.28, apseZ - 0.22], mat: M_GOLD, cast: false,
-    }));
-    root.add(box({
+    }), 'mansion-trophy-apse');
+    mountTrophy(box({
       size: [4.4, 0.22, 0.2], pos: [tx, GY + 5.02, apseZ - 0.2], mat: M_MARBLE_DK, cast: false,
-    }));
+    }), 'mansion-trophy-apse');
     // Dais: three marble steps, and a velvet rope round the front of it.
     for (let i = 0; i < 3; i++) {
       const inset = i * 0.32;
-      root.add(box({
+      mountTrophy(box({
         size: [4.6 - inset * 2, 0.2, 3.4 - inset * 1.4],
         pos: [tx, GY + 0.1 + i * 0.2, apseZ - 1.7 + inset * 0.7],
         mat: i === 2 ? M_MARBLE_DK : M_MARBLE,
         name: 'trophy-dais',
-      }));
+      }), 'mansion-trophy-dais');
     }
-    solid(tx - 2.3, tx + 2.3, GY, GY + 0.6, apseZ - 3.4, apseZ);
+    geometryIntent(solid(tx - 2.3, tx + 2.3, GY, GY + 0.6, apseZ - 3.4, apseZ), { assemblyId: 'mansion-trophy-dais' });
     const daisTop = GY + 0.6;
     for (const [rx, rz] of [[tx - 2.0, apseZ - 3.9], [tx, apseZ - 3.9], [tx + 2.0, apseZ - 3.9]]) {
-      root.add(cylinder({ rTop: 0.07, rBottom: 0.1, h: 0.9, pos: [rx, GY + 0.45, rz], mat: M_GOLD }));
-      root.add(sphere({ r: 0.09, pos: [rx, GY + 0.94, rz], mat: M_GOLD }));
-      root.add(cylinder({ r: 0.2, h: 0.05, pos: [rx, GY + 0.02, rz], mat: M_BRONZE, cast: false }));
-      solid(rx - 0.12, rx + 0.12, GY, GY + 0.95, rz - 0.12, rz + 0.12);
+      mountTrophy(cylinder({ rTop: 0.07, rBottom: 0.1, h: 0.9, pos: [rx, GY + 0.45, rz], mat: M_GOLD }), 'mansion-trophy-rope-barrier');
+      mountTrophy(sphere({ r: 0.09, pos: [rx, GY + 0.94, rz], mat: M_GOLD }), 'mansion-trophy-rope-barrier');
+      mountTrophy(cylinder({ r: 0.2, h: 0.05, pos: [rx, GY + 0.02, rz], mat: M_BRONZE, cast: false }), 'mansion-trophy-rope-barrier');
+      geometryIntent(solid(rx - 0.12, rx + 0.12, GY, GY + 0.95, rz - 0.12, rz + 0.12), { assemblyId: 'mansion-trophy-rope-barrier' });
     }
     for (const rx of [tx - 1.0, tx + 1.0]) {
-      root.add(box({
+      mountTrophy(box({
         size: [2.2, 0.07, 0.07], pos: [rx, GY + 0.72, apseZ - 3.9], mat: M_CURTAIN_RED, cast: false,
-      }));
+      }), 'mansion-trophy-rope-barrier');
     }
 
     // The plinth. Black marble, and the name cut into the face of it.
@@ -10585,16 +11147,16 @@ const M_GOLD_BAR = mat({
      * bottom face landed exactly on the dais top, leaving 4.51 m2 of
      * coplanar marble to flicker. The two mouldings overlap their neighbours
     * by the same small amount instead of sharing an exposed plane. */
-    root.add(box({
+    mountTrophy(box({
       size: [2.9, plinthH + 0.02, 1.9], pos: [tx, daisTop + (plinthH - 0.02) / 2, apseZ - 1.9], mat: M_WALL_DEEP, name: 'includer-plinth',
-    }));
-    root.add(box({
+    }), 'mansion-includer-plinth');
+    mountTrophy(box({
       size: [3.2, 0.12, 2.2], pos: [tx, daisTop + plinthH + 0.04, apseZ - 1.9], mat: M_MARBLE_DK, cast: false, name: 'includer-plinth-cap',
-    }));
-    root.add(box({
+    }), 'mansion-includer-plinth');
+    mountTrophy(box({
       size: [3.2, 0.12, 2.2], pos: [tx, daisTop + 0.08, apseZ - 1.9], mat: M_MARBLE_DK, cast: false, name: 'includer-plinth-foot',
-    }));
-    solid(tx - 1.6, tx + 1.6, daisTop, daisTop + plinthH, apseZ - 2.95, apseZ - 0.85);
+    }), 'mansion-includer-plinth');
+    geometryIntent(solid(tx - 1.6, tx + 1.6, daisTop, daisTop + plinthH, apseZ - 2.95, apseZ - 0.85), { assemblyId: 'mansion-includer-plinth' });
     /* The engraving, on the south face -- the face you see coming through the
      * arcade. Registered with the art sweep like everything else with words on
      * it, so a doorway can never be cut across it later without failing. */
@@ -10635,7 +11197,8 @@ const M_GOLD_BAR = mat({
      * the wrong answer. The height is not a guess: verify:mansion reads the
      * trophy's own world box and fails it against the ceiling. */
     const cupY = daisTop + plinthH;
-    const trophy = new THREE.Group();
+    const trophyAssemblyId = 'mansion-great-includer-trophy';
+    const trophy = geometryIntent(new THREE.Group(), { assemblyId: trophyAssemblyId });
     trophy.name = 'great-includer-trophy';
     trophy.add(box({ size: [2.0, 0.22, 1.5], pos: [0, 0.11, 0], mat: M_WOOD_DK }));
     trophy.add(box({ size: [1.7, 0.16, 1.25], pos: [0, 0.3, 0], mat: M_GOLD, cast: false }));
@@ -10670,7 +11233,10 @@ const M_GOLD_BAR = mat({
     trophy.scale.setScalar(0.86);
     trophy.position.set(tx, cupY, apseZ - 1.9);
     root.add(trophy);
-    solid(tx - 1.0, tx + 1.0, cupY, cupY + 3.4, apseZ - 2.55, apseZ - 1.25);
+    geometryIntent(
+      solid(tx - 1.0, tx + 1.0, cupY, cupY + 3.4, apseZ - 2.55, apseZ - 1.25),
+      { assemblyId: trophyAssemblyId },
+    );
 
     // One key light and nothing else in the apse. The former pair of bronze
     // floor cans stood on the monument's own dais and read as intersecting
@@ -10722,9 +11288,12 @@ const M_GOLD_BAR = mat({
     /* Case A used to stand directly behind the designated west breach pane,
      * leaving no body-width path through the glass.  Keep both four-trophy
      * cases, but put A in the clear east-wall bay between the two living-room
-     * windows; B remains on the west wall. */
+     * windows; B remains on the west wall. The case is 0.6 m deep, so A's
+     * centre sits 0.3 m off the west face of the house wall at x=-16.4.
+     * The former 0.55 m inset buried its rear frame and collider 0.15 m into
+     * masonry. */
     for (const [caseX, dz, yaw, label] of [
-      [r.x1 - 0.55, 52.0, -Math.PI / 2, 'A'],
+      [r.x1 - 0.7, 52.0, -Math.PI / 2, 'A'],
       [r.x0 + 0.55, 51.8, Math.PI / 2, 'B'],
     ]) {
       makeDisplayCase(caseX, GY, dz, yaw, 2.2, 2.1, 0.6, (g, w, h, d) => {
@@ -10763,8 +11332,13 @@ const M_GOLD_BAR = mat({
     curtains('x', r.x0 + 0.24, 51.9, GY + 2.0, 4.0, 2.9, M_CURTAIN_RED);
     const chandelierA = ceilingLight(cx, 45.0, CEIL - 0.5, 0xffdca0, 6.5, 15);
     const chandelierB = ceilingLight(cx, 51.0, CEIL - 0.5, 0xffdca0, 6.5, 15);
-    sconce(r.x1 - 0.06, GY + 2.9, 42.2, -Math.PI / 2, 2.2);
-    sconce(r.x1 - 0.06, GY + 2.9, 54.6, -Math.PI / 2, 2.2);
+    /* This room is west of the house's x=-16.4 wall face even though its
+     * logical rect ends at x=-16.0 (the far side of the masonry). Seat these
+     * fittings from the visible room face, not inside the 40 cm wall. */
+    const trophyEastWallFace = r.x1 - 0.4;
+    sconce(trophyEastWallFace - 0.06, GY + 2.9, 42.2, -Math.PI / 2, 2.2);
+    /* Clear of the 54.4 pilaster and the reframed north living-room pane. */
+    sconce(trophyEastWallFace - 0.06, GY + 2.9, 55.2, -Math.PI / 2, 2.2);
 
     return {
       crest: trophyCrest,
@@ -10795,14 +11369,20 @@ const M_GOLD_BAR = mat({
      * so this is a lantern light rather than a real sky -- but at night, with
      * the moon on the outside of the house, a leaded ceiling with a lamp above
      * each bay is what you would actually see anyway. */
+    const winterCeilingAssemblyId = 'mansion-winter-garden-leaded-ceiling';
+    const mountWinterCeiling = (object) => root.add(geometryIntent(object, {
+      assemblyId: winterCeilingAssemblyId,
+      checkSupport: false,
+      fixedSupportAnchor: true,
+    }));
     for (let i = 0; i < 9; i++) {
       const pz = THREE.MathUtils.lerp(r.z0 + 1.0, r.z1 - 1.0, i / 8);
-      root.add(box({
+      mountWinterCeiling(box({
         size: [r.x1 - r.x0 - 1.0, 0.14, 0.16], pos: [cx, CEIL - 0.24, pz], mat: M_TRIM, cast: false,
       }));
     }
     for (const gx of [cx - 1.9, cx, cx + 1.9]) {
-      root.add(box({
+      mountWinterCeiling(box({
         size: [0.14, 0.12, r.z1 - r.z0 - 2.0], pos: [gx, CEIL - 0.24, cz], mat: M_TRIM, cast: false,
       }));
     }
@@ -10818,6 +11398,7 @@ const M_GOLD_BAR = mat({
     // The lily pool: an octagonal basin in the middle, kerbed in stone.
     const poolR = 2.1;
     const fountainStructure = [];
+    const fountainKerbAssemblyId = 'mansion-winter-garden-fountain-kerb-ring';
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
       const px = cx + Math.cos(a) * poolR;
@@ -10829,9 +11410,12 @@ const M_GOLD_BAR = mat({
         size: [1.75, 0.44, 0.4], pos: [px, GY + 0.22, pz], mat: M_MARBLE,
         rotY: -(a + Math.PI / 2), cast: false, name: 'winter-fountain-kerb',
       });
+      geometryIntent(kerb, { assemblyId: fountainKerbAssemblyId });
       root.add(kerb);
       fountainStructure.push(kerb);
-      solid(px - 0.7, px + 0.7, GY, GY + 0.46, pz - 0.7, pz + 0.7);
+      const kerbCollider = solid(px - 0.7, px + 0.7, GY, GY + 0.46, pz - 0.7, pz + 0.7);
+      kerbCollider.name = `winter-fountain-kerb-${i}-collider`;
+      geometryIntent(kerbCollider, { assemblyId: fountainKerbAssemblyId });
     }
     const lily = new THREE.Mesh(
       new THREE.CircleGeometry(poolR - 0.2, 32),
@@ -10871,7 +11455,7 @@ const M_GOLD_BAR = mat({
      * trophy hall's door up to the dining room's is along that wall, and a
      * 1.3 m palm tub on it leaves less than a metre to squeeze through. */
     const plants = [];
-    for (const [px, pz, s] of [
+    for (const [planterIndex, [px, pz, s]] of [
       [r.x0 + 1.5, r.z0 + 2.2, 3.1], [r.x1 - 2.6, r.z0 + 2.2, 2.7],
       [r.x0 + 1.5, r.z1 - 2.2, 3.1], [r.x1 - 2.6, r.z1 - 2.2, 2.7],
       /* One centre-row palm is enough. The former east mate at x1-2.6 was
@@ -10881,9 +11465,10 @@ const M_GOLD_BAR = mat({
        * proxy called it clear; +2.7 m leaves measurable air from the actual
        * kerb meshes while preserving the five-planter composition. */
       [r.x0 + 1.0, cz + 2.7, 2.4],
-    ]) {
+    ].entries()) {
       const planter = new THREE.Group();
       planter.name = 'winter-garden-planter';
+      geometryIntent(planter, { assemblyId: `mansion-winter-garden-planter-${planterIndex}` });
       planter.userData.footprintRadius = 0.68;
       planter.position.set(px, GY, pz);
       planter.add(cylinder({
@@ -11117,14 +11702,15 @@ const M_GOLD_BAR = mat({
      * four rooms on its north side and the armory on its south. */
     const NORTH_DOORS = [[-13.0, -11.2], [-3.85, -1.85], [5.4, 7.4], [12.4, 14.3]];
     const SOUTH_DOORS = [[CELLAR_DOOR.x0, CELLAR_DOOR.x1]];
-    for (const [dz0, dz1, gaps] of [
+    for (const [wallIndex, [dz0, dz1, gaps]] of [
       [r.z0, r.z0 + 0.06, SOUTH_DOORS], [r.z1 - 0.06, r.z1, NORTH_DOORS],
-    ]) {
+    ].entries()) {
+      const assemblyId = `mansion-cellar-hall-lining-${wallIndex}`;
       linedBand({
-        axis: 'x', x0: r.x0, x1: r.x1, y0: BY, y1: BY + 1.05, z0: dz0, z1: dz1, material: M_BRICK_CELLAR, gaps,
+        axis: 'x', x0: r.x0, x1: r.x1, y0: BY, y1: BY + 1.05, z0: dz0, z1: dz1, material: M_BRICK_CELLAR, gaps, assemblyId,
       });
       linedBand({
-        axis: 'x', x0: r.x0, x1: r.x1, y0: BY + 1.035, y1: BY + 1.125, z0: dz0 - 0.025, z1: dz1 + 0.025, material: M_TRIM, gaps,
+        axis: 'x', x0: r.x0, x1: r.x1, y0: BY + 1.035, y1: BY + 1.125, z0: dz0 - 0.025, z1: dz1 + 0.025, material: M_TRIM, gaps, assemblyId,
       });
     }
     /* Brick piers breaking the run. Their x positions are chosen against the
@@ -11132,10 +11718,10 @@ const M_GOLD_BAR = mat({
      * and the armory on its south -- so no pier ever stands in an opening.
      * A pier in a doorway is furniture in a doorway with a different name. */
     for (const px of [-14.8, -8.5, -6.2, 0.6, 3.2, 9.4, 15.0]) {
-      for (const pz of [r.z0 + 0.22, r.z1 - 0.22]) {
-        root.add(box({
+      for (const [wallIndex, pz] of [r.z0 + 0.22, r.z1 - 0.22].entries()) {
+        root.add(geometryIntent(box({
           size: [0.7, -0.24 - BY, 0.44], pos: [px, (BY - 0.24) / 2, pz], mat: M_BRICK_CELLAR, cast: false,
-        }));
+        }), { assemblyId: `mansion-cellar-hall-lining-${wallIndex}` }));
       }
     }
     const lights = [];
@@ -11169,6 +11755,7 @@ const M_GOLD_BAR = mat({
       sign.rotation.y = Math.PI;
       sign.name = text === 'PROSPECT' ? 'prospect-room-sign' : `cellar-${text.toLowerCase()}-sign`;
       if (text === 'PROSPECT') prospectSign = sign;
+      geometryIntent(sign, { checkSupport: false, fixedSupportAnchor: true });
       root.add(sign);
     }
     // Framed photographs of the house being built, between the doors.
@@ -11270,29 +11857,33 @@ const M_GOLD_BAR = mat({
     const bed = makeBed(M, {
       x: bedX, z: bedZ, w: 1.8, len: 2.2,
     });
+    const guestBedAssemblyId = 'mansion-guest-room-bed';
     bed.group.name = 'guest-room-bed';
+    geometryIntent(bed.group, { assemblyId: guestBedAssemblyId });
     bed.group.position.set(bedX * 2, 0, bedZ * 2);
     bed.group.rotation.y = Math.PI;
     wrap.add(bed.group);
     root.add(wrap);
-    solid(bedX - 0.95, bedX + 0.95, BY, BY + 0.75, bedZ - 1.2, bedZ + 1.2);
-    root.add(box({
+    const guestBedCollider = solid(bedX - 0.95, bedX + 0.95, BY, BY + 0.75, bedZ - 1.2, bedZ + 1.2);
+    guestBedCollider.name = `${guestBedAssemblyId}-collider`;
+    geometryIntent(guestBedCollider, { assemblyId: guestBedAssemblyId });
+    root.add(fixedFixture(box({
       size: [2.2, 1.35, 0.16], pos: [bedX, BY + 0.85, r.z1 - 0.28], mat: M_LEATHER_TAN, name: 'guest-headboard',
-    }));
+    }), 'mansion-guest-headboard'));
     /* The shared bed supplied the frame and mattress, but this deeper room
      * still stopped at that apartment-grade layer. Finish it with the same
      * physical bedding hierarchy used upstairs: a full coverlet, a folded
      * foot throw and a pair of raised cushions against the headboard. */
     const guestCoverlet = box({
       size: [1.72, 0.1, 1.5],
-      pos: [bedX, BY + 0.73, bedZ - 0.12],
+      pos: [bedX, BY + 0.65, bedZ - 0.12],
       mat: M_LEATHER_TAN,
       cast: false,
       name: 'guest-bed-coverlet',
     });
     const guestThrow = box({
       size: [1.8, 0.12, 0.5],
-      pos: [bedX, BY + 0.8, bedZ - 0.72],
+      pos: [bedX, BY + 0.72, bedZ - 0.72],
       mat: M_FABRIC_GOLD,
       rotX: -0.06,
       cast: false,
@@ -11300,13 +11891,15 @@ const M_GOLD_BAR = mat({
     });
     const guestCushions = [-0.42, 0.42].map((ox, index) => box({
       size: [0.62, 0.16, 0.4],
-      pos: [bedX + ox, BY + 0.81, bedZ + 0.72],
+      pos: [bedX + ox, BY + 0.73, bedZ + 0.72],
       mat: M_TRIM,
       rotZ: index ? -0.05 : 0.05,
       cast: false,
       name: index ? 'guest-bed-cushion-right' : 'guest-bed-cushion-left',
     }));
-    root.add(guestCoverlet, guestThrow, ...guestCushions);
+    for (const bedding of [guestCoverlet, guestThrow, ...guestCushions]) {
+      root.add(geometryIntent(bedding, { assemblyId: guestBedAssemblyId }));
+    }
     const guestRefinement = {
       bedding: [guestCoverlet, guestThrow, ...guestCushions],
     };
@@ -11339,6 +11932,7 @@ const M_GOLD_BAR = mat({
       mat: mat({ color: 0xdce6ee, roughness: 0.08, metalness: 0.85 }),
       name: 'guest-mirror',
     });
+    fixedFixture(guestMirror, 'mansion-guest-dressing-mirror');
     const guestWardrobe = box({
       size: [0.66, 2.1, 1.9], pos: [r.x1 - 0.4, BY + 1.05, r.z0 + 1.8], mat: M_WOOD_DK, name: 'guest-wardrobe',
     });
@@ -11577,12 +12171,16 @@ const M_GOLD_BAR = mat({
     screen.rotation.y = Math.PI;
     screen.name = 'theatre-screen';
     root.add(screen);
+    const theatreCurtainAssemblyId = 'mansion-theatre-screen-curtains';
+    const mountTheatreCurtain = (object) => root.add(geometryIntent(object, {
+      assemblyId: theatreCurtainAssemblyId,
+    }));
     for (const s of [-1, 1]) {
-      root.add(box({
+      mountTheatreCurtain(box({
         size: [0.55, 3.2, 0.28], pos: [cx + s * 3.5, BY + 1.6, screenZ - 0.16], mat: M_CURTAIN_RED,
       }));
     }
-    root.add(box({
+    mountTheatreCurtain(box({
       size: [7.6, 0.5, 0.3], pos: [cx, BY + 3.32, screenZ - 0.16], mat: M_CURTAIN_RED, cast: false,
     }));
 
@@ -11591,7 +12189,8 @@ const M_GOLD_BAR = mat({
      * back, arms with a cup holder, and a fold-down seat pad. */
     const seats = [];
     function recliner(sx, sz, sy) {
-      const g = new THREE.Group();
+      const assemblyId = `mansion-theatre-recliner-${seats.length}`;
+      const g = geometryIntent(new THREE.Group(), { assemblyId });
       /* The plinth reaches the floor: at the old 0.34 box centred 0.28 every
        * recliner's base started 0.11 m up with nothing but air beneath it,
        * both rows. Same top (0.45), the block just extends down to y 0. */
@@ -11622,7 +12221,12 @@ const M_GOLD_BAR = mat({
         exit: { x: sx, y: sy, z: sz + 0.92, yaw: 180 },
       };
       root.add(g);
-      solid(sx - 0.48, sx + 0.48, sy, sy + 0.9, sz - 0.42, sz + 0.42);
+      const contact = solid(sx - 0.48, sx + 0.48, sy, sy + 0.9, sz - 0.42, sz + 0.42);
+      contact.name = `${assemblyId}-collider`;
+      contact.userData = {
+        ...(contact.userData ?? {}),
+        geometryGate: { ...(contact.userData?.geometryGate ?? {}), assemblyId },
+      };
       seats.push(g);
     }
     /* Six a side, two rows, with a CENTRE AISLE exactly as wide as the door
@@ -11636,15 +12240,16 @@ const M_GOLD_BAR = mat({
     }
 
     // Projector on the ceiling over the back row, with a faint beam.
-    root.add(box({
+    const projectorMount = (object) => root.add(fixedFixture(object, 'mansion-theatre-projector'));
+    projectorMount(box({
       size: [0.62, 0.28, 0.9], pos: [cx, -0.62, 69.4], mat: M_STOVE_BLACK, name: 'theatre-projector',
     }));
-    root.add(cylinder({
+    projectorMount(cylinder({
       r: 0.09, h: 0.14, pos: [cx, -0.66, 69.9], mat: M_CHROME, rotX: Math.PI / 2, cast: false,
     }));
     for (const hz of [69.2, 69.6]) {
-      root.add(cylinder({ r: 0.02, h: 0.36, pos: [cx - 0.24, -0.42, hz], mat: M_CHROME }));
-      root.add(cylinder({ r: 0.02, h: 0.36, pos: [cx + 0.24, -0.42, hz], mat: M_CHROME }));
+      projectorMount(cylinder({ r: 0.02, h: 0.36, pos: [cx - 0.24, -0.42, hz], mat: M_CHROME }));
+      projectorMount(cylinder({ r: 0.02, h: 0.36, pos: [cx + 0.24, -0.42, hz], mat: M_CHROME }));
     }
 
     /* A popcorn cart at the back, behind the rear row and clear of both the
@@ -11784,17 +12389,18 @@ const M_GOLD_BAR = mat({
     const LAN_DOOR = [5.4, 7.4];
     lineRoom(r, 2.3, M_LAN_WALL, LAN_DOOR, 0.04);
     for (const [cy, gaps] of [[BY + 2.14, []], [BY + 0.32, [LAN_DOOR]]]) {
+      const assemblyId = `mansion-lan-cove-${cy}`;
       linedBand({
-        axis: 'x', x0: r.x0, x1: r.x1, y0: cy - 0.035, y1: cy + 0.035, z0: r.z0, z1: r.z0 + 0.08, material: M_LAN_COVE, gaps,
+        axis: 'x', x0: r.x0, x1: r.x1, y0: cy - 0.035, y1: cy + 0.035, z0: r.z0, z1: r.z0 + 0.08, material: M_LAN_COVE, gaps, assemblyId,
       });
       linedBand({
-        axis: 'x', x0: r.x0, x1: r.x1, y0: cy - 0.035, y1: cy + 0.035, z0: r.z1 - 0.08, z1: r.z1, material: M_LAN_COVE,
+        axis: 'x', x0: r.x0, x1: r.x1, y0: cy - 0.035, y1: cy + 0.035, z0: r.z1 - 0.08, z1: r.z1, material: M_LAN_COVE, assemblyId,
       });
       linedBand({
-        axis: 'z', x0: r.x0, x1: r.x0 + 0.08, y0: cy - 0.035, y1: cy + 0.035, z0: r.z0, z1: r.z1, material: M_LAN_COVE,
+        axis: 'z', x0: r.x0, x1: r.x0 + 0.08, y0: cy - 0.035, y1: cy + 0.035, z0: r.z0, z1: r.z1, material: M_LAN_COVE, assemblyId,
       });
       linedBand({
-        axis: 'z', x0: r.x1 - 0.08, x1: r.x1, y0: cy - 0.035, y1: cy + 0.035, z0: r.z0, z1: r.z1, material: M_LAN_COVE,
+        axis: 'z', x0: r.x1 - 0.08, x1: r.x1, y0: cy - 0.035, y1: cy + 0.035, z0: r.z0, z1: r.z1, material: M_LAN_COVE, assemblyId,
       });
     }
     for (const [gx, gz] of [[r.x0 + 0.4, cz], [r.x1 - 0.4, cz]]) {
@@ -11815,6 +12421,7 @@ const M_GOLD_BAR = mat({
     const chairBacks = [];
     function station(px, pz, yaw, seat) {
       const desk = makeDesk(M, { x: 0, z: 0, w: 2.3 });
+      geometryIntent(desk.group, { assemblyId: `mansion-lan-desk-${seat}` });
       desk.group.position.set(px, BY, pz);
       desk.group.rotation.y = yaw;
       root.add(desk.group);
@@ -12100,7 +12707,9 @@ const M_GOLD_BAR = mat({
      * can trap somebody in a steel box under a ballroom. */
     const doorZ = (CELLAR_HALL.z1 + VAULT.z0) / 2;
     const hingeX = 14.3;
-    const leaf = new THREE.Group();
+    const vaultDoorAssemblyId = 'mansion-vault-door-installation';
+    const leaf = geometryIntent(new THREE.Group(), { assemblyId: vaultDoorAssemblyId });
+    leaf.name = 'vault-door-leaf';
     leaf.add(cylinder({
       r: 1.12, h: 0.42, pos: [0, 0, 0], mat: M_VAULT_STEEL, rotX: Math.PI / 2, name: 'vault-door',
     }));
@@ -12130,14 +12739,18 @@ const M_GOLD_BAR = mat({
     leaf.position.set(hingeX, BY + 1.28, doorZ - 1.12);
     leaf.rotation.y = Math.PI / 2;
     root.add(leaf);
-    solid(hingeX - 0.26, hingeX + 0.26, BY, BY + 2.4, doorZ - 2.28, doorZ);
+    const vaultDoorCollider = solid(hingeX - 0.26, hingeX + 0.26, BY, BY + 2.4, doorZ - 2.28, doorZ);
+    vaultDoorCollider.name = `${vaultDoorAssemblyId}-collider`;
+    geometryIntent(vaultDoorCollider, { assemblyId: vaultDoorAssemblyId });
     // Hinge stack on the jamb, and the frame's own bolt sockets.
     for (const hy of [BY + 0.5, BY + 1.28, BY + 2.06]) {
-      root.add(cylinder({ r: 0.13, h: 0.34, pos: [hingeX, hy, doorZ], mat: M_CHROME }));
+      root.add(geometryIntent(cylinder({ r: 0.13, h: 0.34, pos: [hingeX, hy, doorZ], mat: M_CHROME }), {
+        assemblyId: vaultDoorAssemblyId,
+      }));
     }
-    root.add(box({
+    root.add(geometryIntent(box({
       size: [1.9, 0.08, 0.5], pos: [13.35, BY + 0.03, doorZ], mat: M_CHROME, name: 'vault-threshold', cast: false,
-    }));
+    }), { assemblyId: vaultDoorAssemblyId }));
 
     /* ---- "a bunch of treasure and shit." ---- */
     // Gold, on pallets, stacked in courses like it is stock rather than loot.
@@ -12193,18 +12806,19 @@ const M_GOLD_BAR = mat({
         size: [0.6, 0.05, 3.0], pos: [r.x0 + 0.45, sy, cz + 0.2], mat: M_RACK,
       }));
       for (let i = 0; i < 7; i++) {
-        root.add(box({
+        const bundleAssemblyId = `mansion-vault-cash-bundle-${s}-${i}`;
+        root.add(geometryIntent(box({
           size: [0.42, 0.24, 0.3],
           pos: [r.x0 + 0.45, sy + 0.15, cz - 1.1 + i * 0.42],
           mat: M_CASH,
           cast: false,
-        }));
-        root.add(box({
+        }), { assemblyId: bundleAssemblyId }));
+        root.add(geometryIntent(box({
           size: [0.44, 0.06, 0.09],
           pos: [r.x0 + 0.45, sy + 0.15, cz - 1.1 + i * 0.42],
           mat: mat({ color: 0xc8b03a, roughness: 0.7 }),
           cast: false,
-        }));
+        }), { assemblyId: bundleAssemblyId }));
       }
     }
     root.add(box({

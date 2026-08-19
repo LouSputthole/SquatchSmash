@@ -14,6 +14,8 @@
  * happening", which is exactly what the mission is trying not to say.
  */
 
+import { assistTimingWindow } from '../core/assist-timing.js';
+
 /** The set. `duck` is how much of the melody survives a line of dialogue. */
 export const SET = [
   {
@@ -759,7 +761,7 @@ export class Sway {
     /* At 118 BPM these are roughly 437ms with assist and 315ms by default.
      * The old 132ms default belonged in a rhythm game, not an optional date
      * beat after twenty minutes of first-person navigation and conversation. */
-    this.window = assist ? 0.86 : 0.62;
+    this.window = assistTimingWindow(0.62, { assist, assisted: 0.86 });
   }
 
   get beatLength() { return 60 / this.bpm; }

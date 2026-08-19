@@ -1,4 +1,5 @@
 import { renderInventorySlots } from './scene-inventory.js';
+import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
 
 /** Thin wrapper over the DOM overlay so game code never touches elements directly. */
 export class Hud {
@@ -32,7 +33,7 @@ export class Hud {
     this.prompt.classList.remove('hidden');
     this.crosshair.classList.add('active');
     if (this.promptLabel.innerHTML !== label) this.promptLabel.innerHTML = label;
-    if (this.promptKey.textContent !== key) this.promptKey.textContent = key;
+    writeGameplayPromptKey(this.promptKey, key);
   }
 
   hidePrompt() {

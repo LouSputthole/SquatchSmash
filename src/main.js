@@ -19,10 +19,15 @@ import { Radio } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
+import {
+  APARTMENT_MARGO_GEOMETRY_STAGES,
+  stageApartmentMargoGeometry,
+} from './world/apartment-preview-geometry.js';
 import { cashPilesForCampaign, persistentDressingForCampaign } from './world/dressing.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
+import { FocusRush } from './core/focus-rush.js';
 import { Goals, ENDINGS, MEETING, CS_ROUNDS } from './core/goals.js';
 import { Chat } from './core/chat.js';
 import { Spooky } from './core/spooky.js';
@@ -42,6 +47,12 @@ import {
   createCampaignRadioAdapter,
   navigateCampaign,
 } from './core/campaign.js';
+import {
+  buildCampaignCareerRecap,
+  enterCampaignFreeplay,
+  shouldPresentCampaignFinale,
+} from './core/campaign-finale.js';
+import { createCampaignFinaleView } from './core/campaign-finale-view.js';
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
@@ -93,6 +104,8 @@ const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
 const startBtn = document.getElementById('start-btn');
 const assetStatus = document.getElementById('asset-status');
+const campaignFinaleView = createCampaignFinaleView();
+const viewCareerRecapBtn = document.getElementById('view-career-recap-btn');
 const restartCampaignBtn = document.getElementById('restart-campaign-btn');
 const restartCampaignConfirm = document.getElementById('restart-campaign-confirm');
 const restartCampaignConfirmBtn = document.getElementById('restart-campaign-confirm-btn');
@@ -185,6 +198,26 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const time = new DayNight(6 + 4 / 60);
 const campaign = createCampaign();
 const campaignAtLoad = campaign.state;
+const campaignFinaleRecapAtLoad = shouldPresentCampaignFinale(campaignAtLoad)
+  ? buildCampaignCareerRecap(campaignAtLoad) : null;
+campaignFinaleView.setContinueHandler(({ replay }) => {
+  try {
+    if (!replay) {
+      const transition = enterCampaignFreeplay(campaign);
+      if (!transition.applied && transition.reason !== 'already_freeplay') {
+        throw new Error('Campaign completion is not ready for freeplay');
+      }
+    }
+  } catch (error) {
+    campaignFinaleView.showError(
+      error?.message || 'Could not save freeplay. Your completed campaign is still intact.',
+    );
+    return;
+  }
+  campaignFinaleView.hide();
+  startBtn.textContent = replay ? 'Resume' : 'Enter Freeplay';
+  startBtn.click();
+});
 /* A save that had to be recovered is worth saying out loud -- but not here,
  * which is what this used to do. The notice went up 200ms into module scope,
  * behind a full-screen title card he has not clicked through yet, and its
@@ -208,6 +241,7 @@ const returningFromNoWake = returnSource === SCENE_IDS.NO_WAKE;
 const returningFromMotel = returnSource === SCENE_IDS.JERKY_MOTEL;
 const returningFromAirstrip = returnSource === SCENE_IDS.AIRSTRIP_SMUGGLING;
 const returningFromSquatchfather = returnSource === SCENE_IDS.SQUATCHFATHER;
+const returningFromInitiation = returnSource === SCENE_IDS.INITIATION;
 const apartmentGunUnlocked =
   campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
 const wakingOnDayTwo = !returningToApartment
@@ -271,6 +305,8 @@ const narrator = new Narrator(hud, time, audio);
 const drunk = new Drunk();
 // The coffee table's contribution. Neither of these costs you Wednesday.
 const highs = new Highs();
+// The Bada Bing line's exact timing/FOV/movement curve, reused by the flat.
+const focusRush = new FocusRush({ baseFov: camera.fov });
 // The only goal in the game, and it never announces itself.
 const goals = new Goals(time);
 goals.known = campaign.state.story.meetingKnown;
@@ -580,6 +616,8 @@ async function boot() {
     onZyn: takeZyn,
     onBong: hitBong,
     onShrooms: eatShrooms,
+    isFocusActive: () => focusRush.remaining > 0,
+    onWhiteLine: () => focusRush.start(25),
     onShower: takeShower,
     // The drawer names the shirt he settled on, so the toast can say which.
     onDressed: (shirt) => {
@@ -763,7 +801,9 @@ async function boot() {
           ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
           ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
-          : 'Back from the restaurant. The business is settled.';
+          : returningFromInitiation
+            ? 'Home from the Initiation. The campaign is complete.'
+            : 'Back from the restaurant. The business is settled.';
     startBtn.textContent = 'Go Inside';
   } else {
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
@@ -780,13 +820,14 @@ async function boot() {
 
   window.__squatchStage?.('Ready.');
   loading.classList.add('hidden');
+  if (campaignFinaleRecapAtLoad) campaignFinaleView.show(campaignFinaleRecapAtLoad);
 
   // Dev handle: lets you inspect and pose the scene from the console, e.g.
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud, campaign,
     apartmentStory, apartmentReturnSource: returnSource,
-    drunk, highs, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
+    drunk, highs, focusRush, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
@@ -843,7 +884,7 @@ function apartmentStartupCueNames() {
      * Apartment resident load after control opens, instead of holding the
      * post-mission Start card over dozens of later radio exchanges. */
     ...radio.preloadCueNames({ startupOnly: true }),
-    'ambience.city.day', 'ambience.city.night', 'ambience.room',
+    'ambience.city.day', 'ambience.city.night', 'ambience.room', 'bing.line.snort',
   ]);
   for (const cue of exactDefinitionCueNames(apartmentStory.pendingCall())) names.add(cue);
   const news = apartmentStory.news();
@@ -894,7 +935,10 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
     if (returningToApartment) {
-      if (returningFromHeist) {
+      if (returningFromInitiation) {
+        hud.toast('Campaign complete · freeplay unlocked', 'good');
+        hud.say('Home. The week is over. <em>The apartment is yours.</em>', 5200);
+      } else if (returningFromHeist) {
         hud.toast('All six made it home', 'good');
         hud.say('Home. Wash it off, change, and hide the gear. <em>Then the Bing.</em>', 5200);
       } else if (returningFromGolf) {
@@ -1050,13 +1094,26 @@ function pauseGame() {
     ? 'Still at the desk. The meeting is not until tomorrow.'
     : 'The fridge is not going anywhere.';
   startBtn.textContent = 'Resume';
+  viewCareerRecapBtn.classList.toggle(
+    'hidden',
+    campaign.state.finale?.freeplayUnlocked !== true,
+  );
   restartCampaignBtn.classList.remove('hidden');
 }
 
 function hideCampaignRestart() {
+  viewCareerRecapBtn.classList.add('hidden');
   restartCampaignBtn.classList.add('hidden');
   restartCampaignConfirm.classList.add('hidden');
 }
+
+viewCareerRecapBtn.addEventListener('click', () => {
+  const recap = buildCampaignCareerRecap(campaign.state);
+  if (!recap) return;
+  restartCampaignBtn.classList.add('hidden');
+  viewCareerRecapBtn.classList.add('hidden');
+  campaignFinaleView.show(recap, { replay: true });
+});
 
 restartCampaignBtn.addEventListener('click', () => {
   restartCampaignBtn.classList.add('hidden');
@@ -1082,6 +1139,9 @@ restartCampaignConfirmBtn.addEventListener('click', () => {
 });
 
 function apartmentObjective() {
+  if (campaign.state.finale?.freeplayUnlocked === true) {
+    return 'Campaign complete. The apartment is yours; pause to reopen the career recap.';
+  }
   if (game.inBed || player.mode === 'bed') return 'Press E to get out of bed.';
   if (game.onToilet) return 'Press E to stand up from the toilet.';
   if (game.showering !== null) return 'Finish the shower, or step back out when you are ready.';
@@ -3972,16 +4032,10 @@ function startMargoWake() {
     names: [...MARGO_DRESS_IMPACT_CUES, ...DRESS_HELP_CUES],
   })?.catch?.(() => {});
   const margo = apartment.margo;
-  margo.setPose('lying');
   /* Last night off her, both halves of it: the mess AND the fastening. The
-   * glue was already cleared here; the closure was not, so a morning after
-   * the come-home night opened on a dress that was still done up from the
-   * beat she is about to ask for help with again. `startMargoComeHome` clears
-   * both, and these two scenes share one rig -- whichever runs second inherits
-   * whatever the first left on it. */
-  margo.setDressGlue(0);
-  margo.setDressHelpProgress(0);
-  margo.group.visible = true;
+   * shared pure stage is also what the geometry gate uses, so the person seen
+   * in this beat cannot disappear from its headless audit. */
+  stageApartmentMargoGeometry(apartment, APARTMENT_MARGO_GEOMETRY_STAGES.WAKE_LYING);
   interaction.setPaused(true);
   hud.hidePrompt();
   /* A cone wide enough to turn and look at somebody, and a floor low enough to
@@ -4030,7 +4084,6 @@ function startMargoWake() {
  */
 function startMargoComeHome() {
   if (game.margoScene) return false;
-  const margo = apartment.margo;
   game.margoScene = newMargoScene('comeHome');
   game.margoScene.walk = 0;
   game.margoScene.entry = true;
@@ -4038,16 +4091,12 @@ function startMargoComeHome() {
   audio.loadAdditional?.({
     names: [...MARGO_DRESS_IMPACT_CUES, ...DRESS_HELP_CUES],
   })?.catch?.(() => {});
-  margo.setPose('standing');
-  margo.setDressHelpProgress(0);
-  margo.setDressGlue(0);
-  /* The far end of her own exit path is the front door -- close enough to
-   * where `returningToApartment` puts the player that "in together" reads,
-   * without needing a second authored position just for this. */
-  const [doorX, doorZ] = MARGO_PATH[MARGO_PATH.length - 1];
-  margo.group.position.set(doorX, MARGO_STAND_Y, doorZ);
-  margo.group.rotation.y = 0;
-  margo.group.visible = true;
+  /* The pure stage owns the exact far end of her exit path at the front door.
+   * Browser play and the headless geometry gate therefore use one entry pose. */
+  stageApartmentMargoGeometry(
+    apartment,
+    APARTMENT_MARGO_GEOMETRY_STAGES.COME_HOME_ENTRY,
+  );
   return true;
 }
 
@@ -4639,7 +4688,7 @@ const chromaR = document.querySelector('#chroma feOffset');
 const chromaB = document.querySelectorAll('#chroma feOffset')[1];
 function applyDrunkFx() {
   const blur = Math.round(drunk.blur * 20) / 20;
-  const amount = Math.round(drunk.vignette * 50) / 50;
+  const amount = Math.round((drunk.vignette + 0.42 * focusRush.strength) * 50) / 50;
 
   // The other two. Same trick: only touch the DOM when a rounded value moves,
   // because setting a custom property forces a style recalc every time.
@@ -4807,7 +4856,6 @@ function frame() {
         ? 0
         : Math.max(0, (drunk.level - 0.34) / 0.66) * felt;
       arcade.setImpairment?.(drunk.swayStrength);
-      applyDrunkFx();
 
       // Weed rides on top of the drink rather than replacing it.
       player.sway.yaw += highs.sway.yaw;
@@ -4822,6 +4870,9 @@ function frame() {
       }
       player.moveScale = highs.moveScale;
       player.lookDrag = highs.lookDrag;
+      focusRush.update(dt);
+      focusRush.apply(camera, player, { baseMoveScale: player.moveScale });
+      applyDrunkFx();
 
       player.update(dt);
       apartment.update(hdt, elapsed);

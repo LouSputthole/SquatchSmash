@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { loadJson, assetUrl, isBundled } from './assets.js';
 import { loadOnceRetriable, runWorkerPool } from './load-queue.js';
 import { bindAudioVolume } from './settings.js';
+import { registerSceneAudioContext } from './scene-lifecycle.js';
 
 const SFX_DIR = 'assets/sfx/';
 
@@ -93,6 +94,7 @@ export class AudioEngine {
     }
     const Ctx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctx();
+    registerSceneAudioContext(this.ctx);
 
     /* Before the master gain is created below, so it opens at the volume the
      * player chose. The kept handle is both the once-guard and the only way

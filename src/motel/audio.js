@@ -5,6 +5,7 @@
 // weapon system's .45, so its shot, its reload and its dry click come out of
 // `assets/sfx` through `weaponAudio` below rather than out of an oscillator.
 import { WEAPON_IDS, weaponCue, weaponCueSlots } from '../core/weapons/catalog.js';
+import { registerSceneAudioContext } from '../core/scene-lifecycle.js';
 
 let ctx = null;
 let master = null;
@@ -32,6 +33,7 @@ export function init(options = {}) {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
+  registerSceneAudioContext(ctx);
   master = ctx.createGain();
   master.gain.value = muted ? 0 : userVolume;
   master.connect(ctx.destination);

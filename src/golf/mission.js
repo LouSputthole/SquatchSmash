@@ -1057,6 +1057,15 @@ export class Round {
       ));
       if (near) {
         this._galleryTalked = true;
+        const center = HOLE.gallery.reduce((sum, mark) => ({
+          x: sum.x + mark.x,
+          z: sum.z + mark.z,
+        }), { x: 0, z: 0 });
+        this.audio?.enterGrille?.({
+          x: center.x / HOLE.gallery.length,
+          y: 2.4,
+          z: center.z / HOLE.gallery.length,
+        });
         this.cues.playSequence(this.seq('gallery.arrival'));
       }
     }

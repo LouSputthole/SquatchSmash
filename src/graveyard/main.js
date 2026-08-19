@@ -28,6 +28,11 @@ import {
   resolveGraveyardLineHold,
   shouldAutoTriggerEcho,
 } from './mission.js';
+import {
+  GRAVEYARD_PREVIEW_CHECKPOINT_LABELS,
+  previewGraveyardCheckpointForLocation,
+  stageGraveyardCheckpointGeometry,
+} from './preview.js';
 import { buildGraveyard } from './world.js';
 
 const canvas = document.getElementById('scene');
@@ -44,6 +49,7 @@ const peeHint = document.getElementById('pee-hint');
 
 const campaign = createCampaign();
 const story = createGraveyardStory({ campaign });
+const previewCheckpoint = previewGraveyardCheckpointForLocation();
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 attachPixelRatio(renderer);
@@ -139,6 +145,13 @@ const mission = new GraveyardMission({
   },
   onObjective: repaintObjectives,
 });
+
+if (previewCheckpoint) {
+  const label = GRAVEYARD_PREVIEW_CHECKPOINT_LABELS[previewCheckpoint];
+  const tag = overlay.querySelector('.tag');
+  if (tag) tag.textContent = `Demo checkpoint: ${label}. Progress on this page is temporary.`;
+  startButton.textContent = `Start ${label.toLowerCase()}`;
+}
 
 function repaintObjectives() {
   objectivesEl.replaceChildren(...mission.objectives.map((objective) => {
@@ -483,6 +496,7 @@ const runtime = {
   pickupBody: pickUpHotDog,
   placeBody: placeHotDog,
   bodyPresentation: () => graveyard.bodyPresentation(),
+  get previewCheckpoint() { return previewCheckpoint; },
   bury: completeBurial,
 };
 window.GRAVEYARD = runtime;
@@ -515,6 +529,14 @@ startButton.addEventListener('click', async () => {
     campaign.enter(SCENE_IDS.SQUATCH_GRAVEYARD, { spawn: 'headlights' });
   }
   mission.restoreProgress(campaign.state.missions[MISSION_IDS.BADA_BING_TWO]);
+  if (previewCheckpoint) {
+    stageGraveyardCheckpointGeometry(previewCheckpoint, {
+      graveyard,
+      mission,
+      carryAnchor: camera,
+      player,
+    });
+  }
   state.echoTriggered = mission.echoHeard;
   startButton.disabled = true;
   startButton.textContent = 'Loading graveyard audio...';

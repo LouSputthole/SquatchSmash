@@ -6,13 +6,10 @@ const read = (relative) => fs.readFileSync(new URL(relative, import.meta.url), '
 
 test('Silver Case restores durable progress or its completion card only after Start', () => {
   const source = read('../src/silvercase/main.js');
-  const previewParser = source.slice(
-    source.indexOf('function previewCheckpointForLocation'),
-    source.indexOf('const silverCaseCampaign ='),
-  );
+  const previewSource = read('../src/silvercase/preview.js');
   const begin = source.slice(source.indexOf('async function beginScene()'));
 
-  assert.match(previewParser, /if \(!isPreviewMode\(locationLike\)\) return null;/,
+  assert.match(previewSource, /if \(!isPreviewMode\(locationLike\)\) return null;/,
     'a bare checkpoint query bypasses the durable campaign');
   assert.match(begin, /restoreCompletedFinalArcEntry\(campaignEntry,[\s\S]*showSilverCaseCompletion/,
     'an already-complete reload does not restore the established card');

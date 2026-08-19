@@ -632,8 +632,8 @@ try {
        * off-screen vertices rather than readable pixels. The east clear bay
        * stays inside Eric's revive sphere and looks west across Eric, the
        * armed guard, and the clamped worklamp on one unobstructed diagonal. */
-      id: 'worklamp-eric-flinch', x: 7.2276, y: 6, z: 52.2684,
-      target: [5.55, 6.08, 49.85], crouch: true, tick: 0.05, waitMs: 250,
+      id: 'worklamp-eric-flinch', x: 7.0, y: 6, z: 52.2,
+      target: [6.4, 5.95, 49.7], crouch: true, tick: 0.05, waitMs: 250,
       setup: 'eric-flinch',
     },
     { id: 'gallery-operations', x: 0, y: 6, z: 48.7, yaw: 180, pitch: -0.05 },
