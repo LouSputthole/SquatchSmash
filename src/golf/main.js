@@ -330,11 +330,18 @@ const cues = new CueQueue({
     activeVoice?.stop?.();
     activeVoice = playRecordedGolfCue(audio, cue.id, {
       volume: 0.88,
-      position: speaker?.position ?? null,
+      /* Follow the man, not the spot he was standing on when he started. Most
+       * of this round is said on the walk to the green, and a panner fixed at
+       * the first syllable leaves the rest of the sentence behind a player who
+       * has kept moving -- which is what made these read as distant. */
+      follow: speaker ? () => speaker.position : null,
       ref: 2.2,
       /* The balcony is across the green and up a storey, so heckling has to
        * carry further than a man standing next to you reading a putt. */
       maxDist: golfers[cue.speaker] ? 34 : 58,
+      /* Conversation, not scenery: a gentler curve than the engine's default
+       * so a line stays intelligible while the group spreads out over a hole. */
+      rolloff: 0.7,
     });
     /* The mouth goes on AFTER the take has started, because it is driven by
      * the take (src/core/mouth.js) rather than by `secs`. A heckler on the

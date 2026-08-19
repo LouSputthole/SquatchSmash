@@ -34,6 +34,13 @@ const MUSIC_DIR = 'assets/music/';
 
 /** How long a spoken segment sits on screen before the next one. */
 const SEGMENT_TIME = 8.5;
+/* A radio set is a thing you walk away from and a thing that gets driven
+ * across a golf course, and a host's line has to survive both. 0.7 against the
+ * 1.4 the engine gives a footstep roughly halves how fast the level falls off
+ * with distance -- far enough to stay intelligible across a room, still short
+ * of the whole map. */
+const DIALOGUE_ROLLOFF = 0.7;
+
 const SEGMENT_GAP = 1.4;
 
 /* How many blocks a FRESH news segment waits after tune-in. Soon enough that
@@ -775,12 +782,13 @@ export class Radio {
   _playSegmentAudio(s) {
     if (s.reactionCue) {
       this._voice = this.audio.play(s.reactionCue, {
-        position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
+        follow: () => this.position, volume: this._level(1),
+        ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
       });
       this._dwell = this._voice?.buffer?.duration ?? 2.2;
       return;
     }
-    if (s.cue) this.audio.play(s.cue, { position: this.position, volume: this._level(0.5) });
+    if (s.cue) this.audio.play(s.cue, { follow: () => this.position, volume: this._level(0.5) });
 
     // The hosts are recorded now, so hold a line on air for exactly as long as
     // it takes to say. Anything without a clip -- the dynamically composed
@@ -798,7 +806,8 @@ export class Radio {
      * default 1.4m rolloff is a murmur by the time you are at the fridge, so
      * from anywhere but the sideboard the station read as dead air. */
     this._voice = v ? this.audio.play(v.cue, {
-      position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
+      follow: () => this.position, volume: this._level(1),
+      ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
     }) : null;
     this._dwell = this._voice?.buffer
       ? this._voice.buffer.duration
@@ -830,7 +839,8 @@ export class Radio {
     this._line = line;
     this._showOsd();
     this._voice = cue ? this.audio.play(cue, {
-      position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
+      follow: () => this.position, volume: this._level(1),
+      ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
     }) : null;
     this._broadcastT = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP
