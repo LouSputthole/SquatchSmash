@@ -45,10 +45,22 @@ const BARK_COOLDOWN = {
 const GLOBAL_BARK_COOLDOWN = 5;
 
 export class DialogueSystem {
-  constructor(hud, { audio = null, onLine = null } = {}) {
+  constructor(hud, { audio = null, onLine = null, canSpeak = null } = {}) {
     this.hud = hud;
     this.audio = audio;
     this.onLine = onLine;           // (line, speaker) => void — drives the figures/camera
+    /**
+     * The residency gate, `(line) => boolean` — false HOLDS the head of the
+     * queue: nothing is shifted, nothing is played, nothing is subtitled,
+     * and the same line is offered again next tick. Dispatch is a line's
+     * one chance at its recording (`line()` never retries), so this is
+     * where "no first line of any beat may play before its recording is
+     * resident" is enforced for a page that must NOT block its start click
+     * on a decode (see main.js's startAudio comment). The composition root
+     * answers from its residency banks; a page with no audio at all passes
+     * no gate and reads subtitles exactly as before.
+     */
+    this.canSpeak = canSpeak;
     this.queue = [];
     this.current = null;
     this.timer = 0;
@@ -133,6 +145,9 @@ export class DialogueSystem {
       this.current = null;
       return;
     }
+    /* Peek before shifting: a held line stays queued and unplayed, so the
+     * beat it opens simply begins on the first tick its bank is resident. */
+    if (this.canSpeak && !this.canSpeak(this.queue[0])) return;
     const line = this.queue.shift();
     this.current = line;
     const recordedSeconds = this.audio?.line(line) || 0;

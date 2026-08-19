@@ -108,7 +108,8 @@ import {
 } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
 import { createEnolaWorldGeometry, zoneMixX } from './world-geometry.js';
-import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
+import { EnolaAudioEngine, EnolaMissionAudio, enolaBankOfCue } from './audio.js';
+import { createResidencyBanks } from '../core/residency-banks.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import {
   ENOLA_PREVIEW_CHECKPOINT_LABELS as PREVIEW_CHECKPOINT_LABELS,
@@ -283,6 +284,34 @@ function paintDurableCarry() {
 paintDurableCarry();
 
 const audio = new EnolaAudioEngine();
+
+/**
+ * The night in three residency banks (see `enolaBankOfCue` in ./audio.js):
+ * the apron, the flight out, and the far end. `loadStart` is what
+ * `startAudio()` runs inside the start click's gesture; the later banks are
+ * kicked the moment it settles and are never awaited at boot — the
+ * DialogueSystem's `canSpeak` gate below holds each beat's first line at
+ * its own boundary instead, which is the only place a wait is owed.
+ */
+const audioBanks = createResidencyBanks({
+  start: async () => {
+    try {
+      await audio.init();
+      missionAudio.init();
+      const sfx = await audio.loadManifest();
+      console.info(`[sfx] ${sfx.loaded}/${sfx.total} apron samples loaded; later banks follow.`);
+      return sfx;
+    } catch (err) {
+      // A page with no sound is still a playable page. Say so once; the bank
+      // settles regardless, so the dispatch gate opens and subtitles flow.
+      console.warn('[enolasquatch] audio unavailable:', err?.message || err);
+      return null;
+    }
+  },
+  nextBeat: () => audio.loadBank('nextBeat'),
+  background: () => audio.loadBank('background'),
+});
+
 const missionAudio = new EnolaMissionAudio(audio);
 missionAudio.takeoffAnthemFile = 'fortunate-son.mp3';
 missionAudio.takeoffAnthemOptions = { volume: 0.435, cutAt: 150, cutFade: 4 };
@@ -481,6 +510,13 @@ const dialogue = new DialogueSystem(hud, {
   /* `DialogueSystem.update` plays the take and THEN calls this, so the take is
    * already under way and the mouth can run on it rather than on the hold. */
   onLine: (line) => crew.speak(line.who, (line.hold ?? 2) * 0.8, missionAudio.voiceTake()),
+  /* The await-at-the-boundary for a page whose start click must stay
+   * synchronous: a line is held ONLY while the bank it speaks from is still
+   * in flight. Before startAudio() runs (a page with no audio at all) no
+   * bank is pending and everything reads as subtitles, exactly as before;
+   * after a bank settles — loaded or failed — its lines flow and a missing
+   * take degrades to a subtitle the same way it always has. */
+  canSpeak: (line) => !audioBanks.pending(enolaBankOfCue(line.cue)),
 });
 
 const preflight = new EnolaPreflight({
@@ -1328,6 +1364,8 @@ window.__enolaSquatch = {
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
   cameras, input, hud, flightHud, scene, camera, renderer, airfield, postfx,
   player, interaction, preflight, crew, city, eastGround, audio: missionAudio,
+  /** The three-bank residency ledger; the verifier awaits `whenAllSettled`. */
+  audioBanks,
   get defense() { return mission.defense; },
   get targeting() { return mission.targeting; },
   get interceptors() { return mission.interceptors; },
@@ -1629,19 +1667,19 @@ window.__enolaSquatch = {
  * block, and more importantly a player should not watch a black screen while a
  * voice bank decodes. `AudioEngine.init()` still runs inside the user gesture,
  * which is the part browsers actually require.
+ *
+ * So the start bank does not block the click the way the Mansion's does —
+ * it blocks the FIRST LINE instead. `kickoff()` marks the apron bank
+ * pending synchronously, the DialogueSystem's `canSpeak` gate holds any
+ * line whose bank is still in flight, and the later banks decode in order
+ * behind the apron's. Same guarantee, applied at the dispatch boundary the
+ * page actually owns.
  */
 let audioStarted = false;
 function startAudio() {
   if (audioStarted) return;
   audioStarted = true;
-  audio.init().then(async () => {
-    missionAudio.init();
-    const sfx = await audio.loadManifest();
-    console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
-  }).catch((err) => {
-    // A page with no sound is still a playable page. Say so once and move on.
-    console.warn('[enolasquatch] audio unavailable:', err?.message || err);
-  });
+  audioBanks.kickoff();
 }
 
 startBtn.addEventListener('click', () => {

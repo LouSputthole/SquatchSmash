@@ -136,12 +136,99 @@ export const SIREN_CUE = 'enola.siren.airraid';
 /** Beyond this the sirens are not in the mix at all. */
 export const SIREN_RANGE = 9000;
 
+/* ------------------------------------------------------------------ */
+/* Residency banks                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Which residency bank a cue this page may decode belongs to.
+ *
+ * The mission's cue names carry their beat in the third segment —
+ * `vo.enolasquatch.<who>.<beat-with-dashes>-<n>.<take>` — so membership is
+ * the beat's top-level group, not a hand-kept list per line. The split
+ * follows the night's own shape:
+ *
+ *   start      the apron: the call, the hangar reveal, the whole walkaround
+ *              and boarding (call/hangar/preflight/nightfall/taxi, plus the
+ *              walkaround idle barks), and every shared effect the walk can
+ *              trigger — footsteps, ambience, the switch/door/can one-offs.
+ *   nextBeat   the flight out: takeoff through the run-in — climb, cruise,
+ *              nav, detection, flak, fighters, autopilot and the tail gun,
+ *              their bark pools, and the flight's own effect beds (the wind
+ *              bed, the rear gun, the interceptor screams).
+ *   background the far end of the night: the drop, the blast (the owner's
+ *              three delivered clips are big files nobody needs on the
+ *              apron), the escape, emergencies, landing and Lou.
+ *
+ * A group this table has never heard of lands in `background` — decoded
+ * late rather than dropped, and the dialogue dispatch gate in main.js still
+ * holds any line of it until that bank settles.
+ */
+const ENOLA_START_GROUPS = new Set(['call', 'hangar', 'preflight', 'nightfall', 'taxi']);
+const ENOLA_FLIGHT_GROUPS = new Set([
+  'takeoff', 'climb', 'cruise', 'nav', 'detect', 'defense', 'fighters', 'auto', 'gun',
+]);
+const ENOLA_START_BARK_POOLS = new Set(['walkaroundIdle']);
+const ENOLA_FLIGHT_EFFECTS = new Set([
+  'enolasquatch.gun.rear', 'enolasquatch.gun.rear.cabin',
+  'enola.wind.high', 'enola.interceptor.breakup', 'enola.interceptor.scream',
+]);
+
+export function enolaBankOfCue(cue) {
+  const raw = typeof cue === 'string' ? cue : cue?.name;
+  if (!raw) return 'background';
+  const name = raw.startsWith('vo.') ? raw.slice(3) : raw;
+  if (ENOLA_FLIGHT_EFFECTS.has(name)) return 'nextBeat';
+  if (name.startsWith('footstep.') || name.startsWith('ambience.') || ENOLA_SHARED_CUES.has(name)) {
+    return 'start';
+  }
+  if (name.startsWith('enolasquatch.')) {
+    /* vo.enolasquatch.<who>.<beat>-<n>: the beat's top-level group is the
+     * text before the first dash; a bark's pool is the segment after it. */
+    const segment = name.split('.')[2] ?? '';
+    const group = segment.split('-')[0];
+    if (group === 'bark') {
+      return ENOLA_START_BARK_POOLS.has(segment.split('-')[1]) ? 'start' : 'nextBeat';
+    }
+    if (ENOLA_START_GROUPS.has(group)) return 'start';
+    if (ENOLA_FLIGHT_GROUPS.has(group)) return 'nextBeat';
+    return 'background';
+  }
+  /* enola.siren.airraid, enola.bomb.falling, enola.blast.* — the far end. */
+  return 'background';
+}
+
 export class EnolaAudioEngine extends AudioEngine {
+  /**
+   * The START bank only — the apron. `_manifestLoadPromise` keeps its
+   * loadOnceRetriable meaning (a transient failure may be retried, a
+   * success is immutable); the later banks come through `loadBank()` below,
+   * kicked by main.js the moment this settles and awaited by the dialogue
+   * dispatch gate at each beat boundary.
+   */
   loadManifest() {
-    return loadOnceRetriable(this, '_manifestLoadPromise', () => this._loadEnolaManifestOnce());
+    return loadOnceRetriable(this, '_manifestLoadPromise', () => this._loadEnolaBankOnce('start'));
   }
 
-  async _loadEnolaManifestOnce() {
+  /** Decode one later bank, once, after the start bank has had the pipe. */
+  loadBank(bank) {
+    if (bank === 'start') return this.loadManifest();
+    if (!this._enolaBankLoads) this._enolaBankLoads = new Map();
+    if (!this._enolaBankLoads.has(bank)) {
+      const task = this.loadManifest()
+        .catch(() => null)
+        .then(() => this._loadEnolaBankOnce(bank))
+        .catch((error) => {
+          /* A transient failure may be retried, same as loadManifest. */
+          this._enolaBankLoads.delete(bank);
+          throw error;
+        });
+      this._enolaBankLoads.set(bank, task);
+    }
+    return this._enolaBankLoads.get(bank);
+  }
+
+  async _loadEnolaBankOnce(bank) {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
     const cues = this.manifest.sfx || [];
     let availableCues;
@@ -155,8 +242,16 @@ export class EnolaAudioEngine extends AudioEngine {
         ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
         : cues;
     }
-    const wanted = availableCues.filter(isEnolaPreloadCue);
-    this.preloadStats = { manifestTotal: cues.length, selected: wanted.length };
+    const wanted = availableCues.filter((cue) => isEnolaPreloadCue(cue)
+      && enolaBankOfCue(cue.name) === bank
+      && !this.buffers.has(cue.name));
+    /* Accumulated across the banks, so `selected` still reads as "how much
+     * of the manifest this page asked for" once everything has settled —
+     * the number tools/verify-enolasquatch.mjs holds against the scope. */
+    this.preloadStats = {
+      manifestTotal: cues.length,
+      selected: (this.preloadStats?.selected ?? 0) + wanted.length,
+    };
     await this._loadWanted(wanted);
     return { total: wanted.length, loaded: this.loadedCount };
   }
