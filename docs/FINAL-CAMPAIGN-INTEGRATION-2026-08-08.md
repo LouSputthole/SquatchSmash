@@ -237,8 +237,11 @@ scene split contributes three VO pickups to the 137-line queue.
   repaired input/physics brake restore; Mansion **273/273** in **481.7s**, with
   the new pool, gate crests, named bedroom, and grey sedan green; and Enola
   **98/98**, reading the real four owner nose-art plates.
-- Mansion's final measurement reports 27 visible lights, 649 shadow casters,
-  14,657 draw calls from the gate view, and 9,744 from the foyer view.
+- Mansion's final measurement reports 27 visible lights and 649 shadow
+  casters. With the 2026-08-19 room/portal visibility pass on (the default;
+  `?novis=1` disables it), the same recorded poses measure 14,424 draw calls
+  from the gate view and 8,061 from the foyer view, against 15,984 and 10,024
+  with the pass off on the current, larger house.
 - Mansion Siege is **105/106**. All gameplay, mission-audio callsite, and
   checkpoint assertions pass; the sole failure groups the six required Siege
   recordings that are authored and requested but still absent from the index.

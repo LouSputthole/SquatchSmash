@@ -13748,6 +13748,297 @@ const M_GOLD_BAR = mat({
     return dressed;
   }).catch(() => []);
 
+  /* ================================================================== */
+  /* ROOM / PORTAL VISIBILITY                                            */
+  /*                                                                      */
+  /* The house submits every mesh it owns to the GPU every frame, from     */
+  /* every pose -- the theatre's seats are drawn while you stand at the     */
+  /* front gate, the master suite's canopy while you stand in the vault.    */
+  /* Measured before this pass (renderer.info with autoReset off, shadow    */
+  /* pass included): 15,979 draw calls at the gate, 10,024 in the foyer.    */
+  /*                                                                        */
+  /* This section organises VISIBILITY OWNERSHIP over the graph exactly as   */
+  /* built -- it moves no vertex, renames nothing and changes no material.   */
+  /* When a composition root opts in by calling `claim()`, each room of the   */
+  /* `rooms` table gets one THREE.Group under `root`, and every top-level     */
+  /* object whose world box fits entirely inside exactly one room's volume    */
+  /* is reparented into that room's group (an identity transform directly     */
+  /* under `root`, so world positions are bit-identical).                     */
+  /* A caller can then switch whole rooms off with one `.visible` write and   */
+  /* every reference into the subtree -- props, interaction targets, mission  */
+  /* handles -- stays live.                                                   */
+  /*                                                                          */
+  /* WHAT IS NEVER CLAIMED, because visibility is the ONLY thing this may      */
+  /* change:                                                                   */
+  /*   - walls and their colliders' meshes (`geometryGate.wall`): a hidden     */
+  /*     room's walls are exactly what you see INSTEAD of its contents;        */
+  /*   - anything `siegeWalkableSupport`: `buildFloorIndex()` above drops      */
+  /*     invisible supports at index-build time, and the index must be the     */
+  /*     same index whatever the camera was doing when it built -- so stairs,  */
+  /*     treads, rugs and floor toppings stay global;                          */
+  /*   - anything containing a light: main.js's rig keeps the VISIBLE light    */
+  /*     count constant because three.js keys shader programs on it, and a     */
+  /*     light under a hidden group would break that count silently;           */
+  /*   - the instanced sconce/baluster batches, which span rooms by design;    */
+  /*   - anything whose box straddles two rooms (door cases, wall art on a     */
+  /*     partition's face) or fits none. Unclaimed simply stays global, so     */
+  /*     every ambiguity errs toward "drawn", never toward "missing".          */
+  /*                                                                           */
+  /* WHO SEES WHOM is a deterministic room graph, precomputed here: one edge    */
+  /* per authored opening (the `partition` calls above are the source of        */
+  /* truth for every id named below), cost 1 for a doorway or an open arch,     */
+  /* cost 2 for the two enclosed stairs (the basement shaft and the suite's     */
+  /* concealed half-turn -- you can see INTO the room they land in, but not     */
+  /* onward through it). A room's visible set is everything within cost         */
+  /* VIS_HOPS. Three, not two, because real sightlines cross the foyer:         */
+  /* standing at the dining door you can look through the living room, across   */
+  /* the foyer and through the opposite arch into the lounge -- three           */
+  /* openings. Every set contains every room a straight line can reach          */
+  /* through open portals from anywhere in the start room; when in doubt an     */
+  /* edge stayed cheap and the room stays visible.                              */
+  /*                                                                            */
+  /* Nothing here GATES UPDATES. Patrols walk, TVs paint, the tub bubbles and    */
+  /* the mission moves its people through hidden rooms every frame; the only     */
+  /* thing a hidden room skips is the render list. The composition root owns     */
+  /* the per-frame toggle (and its ?novis=1 kill switch); this file only owns    */
+  /* the sets, the graph and the membership lookup, all allocation-free after    */
+  /* construction.                                                              */
+  /* ================================================================== */
+  const VIS_HOPS = 3;
+  /** One row per authored opening; [roomA, roomB, cost]. */
+  const VIS_EDGES = [
+    ['foyer', 'livingRoom', 1], // foyerToLiving grand arch
+    ['foyer', 'lounge', 1], // foyerToLounge grand arch
+    ['foyer', 'ballroom', 1], // foyerToBallroom
+    ['foyer', 'gallery', 1], // the horseshoe + the open void
+    ['foyer', 'basement', 2], // the basement shaft (enclosed stair)
+    ['livingRoom', 'dining', 1], // livingToDining
+    ['livingRoom', 'trophyHall', 1], // the west-wing arcade
+    ['lounge', 'kitchen', 1], // loungeToKitchen
+    ['ballroom', 'dining', 1], // ballroomToDining
+    ['ballroom', 'kitchen', 1], // ballroomToKitchen
+    ['trophyHall', 'winterGarden', 1], // trophyToWinter
+    ['basement', 'cellarHall', 1], // cellarFromArmory
+    ['cellarHall', 'guestRoom', 1], // cellarToGuest
+    ['cellarHall', 'theatre', 1], // cellarToTheatre
+    ['cellarHall', 'lanRoom', 1], // cellarToLan
+    ['cellarHall', 'vault', 1], // cellarToVault
+    ['gallery', 'conference', 1], // galleryToConference
+    ['gallery', 'bedWestFront', 1], // galleryToBedWestFront
+    ['gallery', 'bedEastFront', 1], // galleryToBedEastFront
+    ['gallery', 'bedWestRear', 1], // galleryToBedWestRear
+    ['gallery', 'bedEastRear', 1], // galleryToBedEastRear
+    ['conference', 'office', 1], // conferenceToOffice
+    ['office', 'masterSuite', 2], // officeSecretBookcase + the half-turn stair
+    ['bedWestRear', 'bathWest', 1], // bedWestRearToBath
+    ['bedEastRear', 'bathEast', 1], // bedEastRearToBath
+  ];
+  const visibility = (() => {
+    const names = Object.keys(rooms);
+    const indexOf = new Map(names.map((name, i) => [name, i]));
+    const ALL = (1 << names.length) - 1;
+
+    /* Cheapest cost to every room from every room (26 nodes, unit/2 edges:
+     * a relaxation sweep at boot costs nothing and needs no queue). */
+    const edgeRows = names.map(() => []);
+    for (const [a, b, cost] of VIS_EDGES) {
+      edgeRows[indexOf.get(a)].push([indexOf.get(b), cost]);
+      edgeRows[indexOf.get(b)].push([indexOf.get(a), cost]);
+    }
+    const visibleMask = new Uint32Array(names.length);
+    for (let start = 0; start < names.length; start++) {
+      const dist = names.map(() => Infinity);
+      dist[start] = 0;
+      for (let sweep = 0; sweep < names.length; sweep++) {
+        let changed = false;
+        for (let from = 0; from < names.length; from++) {
+          if (dist[from] === Infinity) continue;
+          for (const [to, cost] of edgeRows[from]) {
+            if (dist[from] + cost < dist[to]) { dist[to] = dist[from] + cost; changed = true; }
+          }
+        }
+        if (!changed) break;
+      }
+      let mask = 0;
+      for (let to = 0; to < names.length; to++) if (dist[to] <= VIS_HOPS) mask |= 1 << to;
+      visibleMask[start] = mask;
+    }
+
+    /* Under the sky every daylight room shows through its own glazing -- the
+     * only rooms with no exterior exposure at all are the six under the
+     * podium, so outdoors hides exactly those. The underground fallback is
+     * for standing somewhere below grade the room table does not claim (the
+     * laboratory, whose rooms deliberately stay out of `rooms`): it sees what
+     * the corridor and the armory between them can see. */
+    let outdoorMask = ALL;
+    for (let i = 0; i < names.length; i++) {
+      if (rooms[names[i]].floor <= BY + 0.1) outdoorMask &= ~(1 << i);
+    }
+    const undergroundMask = visibleMask[indexOf.get('cellarHall')]
+      | visibleMask[indexOf.get('basement')];
+
+    /* Stair volumes belong to BOTH ends while you are on them, so climbing
+     * one unions the two rooms' sets and nothing pops mid-flight. */
+    const zoneRow = (rect, y0, y1, roomNames) => ({
+      x0: rect.x0 - 0.5,
+      x1: rect.x1 + 0.5,
+      z0: rect.z0 - 0.5,
+      z1: rect.z1 + 0.5,
+      y0,
+      y1,
+      mask: roomNames.reduce((m, name) => m | visibleMask[indexOf.get(name)], 0),
+      bits: roomNames.reduce((m, name) => m | (1 << indexOf.get(name)), 0),
+    });
+    const zones = [
+      zoneRow(BASEMENT_STAIR, BY - 1.4, GY + 2.4, ['foyer', 'basement']),
+      zoneRow(STAIR_WEST, GY - 0.7, UY + 2.4, ['foyer', 'gallery']),
+      zoneRow(STAIR_EAST, GY - 0.7, UY + 2.4, ['foyer', 'gallery']),
+      zoneRow(BALCONY, UY - 1.4, UY + 2.4, ['foyer', 'gallery']),
+      zoneRow(SUITE_STAIR_HALL, UY - 1.4, SUITE_Y + 2.4, ['office', 'masterSuite']),
+    ];
+
+    /* Per-room volumes, precomputed once. `member` is the standing-in test
+     * (a band round the room's own floor; expanded half a metre so a doorway
+     * threshold is a member of both rooms). `claim` is the ownership test for
+     * meshes: floor-to-ceiling for that room's storey, and deliberately shy
+     * of the storey above so nothing upstairs is ever claimed from below. */
+    const claimTop = (floor) => {
+      if (floor <= BY + 0.1) return GY - 0.01;
+      if (floor >= SUITE_Y - 0.1) return SUITE_CEILING_Y + 0.2;
+      if (floor >= UY - 0.1) return UCY + 0.01;
+      return UY - 0.01;
+    };
+    const table = names.map((name, i) => {
+      const { rect, floor } = rooms[name];
+      const wing = name === 'trophyHall' || name === 'winterGarden';
+      return {
+        name,
+        bit: 1 << i,
+        mask: visibleMask[i],
+        floor,
+        mx0: rect.x0 - 0.5,
+        mx1: rect.x1 + 0.5,
+        mz0: rect.z0 - 0.5,
+        mz1: rect.z1 + 0.5,
+        cx0: rect.x0 - 0.35,
+        cx1: rect.x1 + 0.35,
+        cz0: rect.z0 - 0.35,
+        cz1: rect.z1 + 0.35,
+        cy0: floor - 0.7,
+        /* The west wing is its own single-storey range under its own roof
+         * (WING_ROOF_Y0), so its rooms own their full 5.4 m -- there is no
+         * storey above them to protect. */
+        cy1: wing ? WING_ROOF_Y0 - 0.01 : claimTop(floor),
+        group: null,
+      };
+    });
+
+    /* The claim pass. Anything listed in the header as never-claimed keeps
+     * `root` as its parent; everything else moves into the single room whose
+     * volume wholly contains its world box.
+     *
+     * DEFERRED, not run at build: the geometry gate's allowlists identify
+     * every object by its exact graph path (`.../type=Mesh#530`), so
+     * reparenting inside the builder would shift thousands of recorded paths
+     * without moving a vertex. Only a composition root that actually drives
+     * the culling calls `claim()` (the walking tour does; the siege and every
+     * headless scan get the graph exactly as always). Idempotent. */
+    const unclaimable = (object) => {
+      let poisoned = false;
+      object.traverse((o) => {
+        if (poisoned) return;
+        if (o.isLight || o.isInstancedMesh
+          || o.userData?.siegeWalkableSupport === true
+          || o.userData?.geometryGate?.wall === true) poisoned = true;
+      });
+      return poisoned;
+    };
+    let claimedCount = 0;
+    let claimDone = false;
+    function claim() {
+      if (claimDone) return claimedCount;
+      claimDone = true;
+      root.updateMatrixWorld(true);
+      const worldBox = new THREE.Box3();
+      const topLevel = root.children.slice();
+      for (const row of table) {
+        row.group = new THREE.Group();
+        row.group.name = `roomVisibility:${row.name}`;
+        root.add(row.group);
+      }
+      for (const child of topLevel) {
+        if (unclaimable(child)) continue;
+        worldBox.setFromObject(child);
+        if (worldBox.isEmpty()) continue;
+        let owner = null;
+        for (const row of table) {
+          if (worldBox.min.x < row.cx0 || worldBox.max.x > row.cx1
+            || worldBox.min.z < row.cz0 || worldBox.max.z > row.cz1
+            || worldBox.min.y < row.cy0 || worldBox.max.y > row.cy1) continue;
+          if (owner) { owner = null; break; } // straddles two rooms: stays global
+          owner = row;
+        }
+        if (!owner) continue;
+        /* Both parents sit at the origin with identity transforms, so `add`
+         * (which keeps the LOCAL transform) keeps the world one too. */
+        owner.group.add(child);
+        claimedCount++;
+      }
+      return claimedCount;
+    }
+
+    return {
+      names,
+      ALL,
+      outdoorMask,
+      claim,
+      get claimedCount() { return claimedCount; },
+      get groups() {
+        return Object.fromEntries(table.map((row) => [row.name, row.group]));
+      },
+      /**
+       * Which rooms' full floor-to-ceiling volumes contain this point -- a
+       * bitmask over `names`, 0 for anywhere the table does not claim
+       * (outdoors, the lab, the foyer void above the ground storey). This is
+       * the LIGHT-placement lookup, so it spans the whole storey: a
+       * chandelier a hand's width under its ceiling is still that room's.
+       */
+      roomBitsAt(x, y, z) {
+        let bits = 0;
+        for (const row of table) {
+          if (y >= row.cy0 && y <= row.cy1
+            && x >= row.cx0 && x <= row.cx1 && z >= row.cz0 && z <= row.cz1) bits |= row.bit;
+        }
+        return bits;
+      },
+      /**
+       * The set of rooms a viewer standing at (x, z) with FEET at y should
+       * see, as a bitmask over `names`. Union over every membership match --
+       * standing in a doorway or on a stair sees both sides' sets.
+       */
+      visibleMaskAt(x, y, z) {
+        let mask = 0;
+        for (const row of table) {
+          if (Math.abs(y - row.floor) <= 1.4
+            && x >= row.mx0 && x <= row.mx1 && z >= row.mz0 && z <= row.mz1) mask |= row.mask;
+        }
+        for (const zone of zones) {
+          if (y >= zone.y0 && y <= zone.y1
+            && x >= zone.x0 && x <= zone.x1 && z >= zone.z0 && z <= zone.z1) mask |= zone.mask;
+        }
+        if (mask !== 0) return mask;
+        return y < BY + 1.6 ? undergroundMask : outdoorMask;
+      },
+      /** Write one mask to the groups. A handful of boolean writes, no
+       * allocation. Before `claim()` there are no groups and every object is
+       * a root child exactly as built, so there is nothing to write. */
+      apply(mask) {
+        if (!claimDone) return;
+        for (const row of table) row.group.visible = (mask & row.bit) !== 0;
+      },
+    };
+  })();
+
   return {
     root,
     colliders,
@@ -13759,6 +14050,10 @@ const M_GOLD_BAR = mat({
     occluders,
     floorAt,
     update,
+    /** Room/portal visibility ownership -- see the section above. The house
+     * builds with every group visible; a composition root that wants the
+     * culling drives `visibleMaskAt`/`apply` itself (the siege does not). */
+    visibility,
     /** Every hung picture's world box -- see the art/doorway sweep above. */
     art: artPieces,
     artSlots: MANSION_ART_SLOTS,
