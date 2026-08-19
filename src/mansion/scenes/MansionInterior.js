@@ -158,6 +158,11 @@ export const MANSION_ART_SLOTS = [
   'mansion.guest.dog',
   'mansion.theatre.lockup',
   'mansion.lan.denver',
+  /* Shubes' monitor (owner note, 2026-08-19): one LAN station runs Old
+   * School RuneScape all evening. NOT dressed by the generic picture loop
+   * below -- a monitor keeps its own 16:9 panel geometry and its unlit
+   * screen material; see `applyRunescapeScreen`. */
+  'mansion.lan.runescape',
   /* The DYNASTY SET: the ten commissioned Mansion paintings recovered
    * 2026-08-13 (assets/art/mansion/), plus Uncle Squatch by the fire.
    * Four on the gallery's own north wall, the rest each in the room it
@@ -12969,6 +12974,13 @@ const M_GOLD_BAR = mat({
     return {
       stations, chairBacks, banner: lanBanner, denver: lanDenver.art, lights,
       fridge, fridgeDrinks, zynTins, bong,
+      /* Shubes' seat (owner note, 2026-08-19). Station FIVE: the south-row
+       * desk by the door, so the man and his monitor are the first thing the
+       * room shows anybody who walks in. Published as one named handle so
+       * the cast (which sits him on this chair) and the art pass (which puts
+       * Old School RuneScape on this screen) cannot drift onto two different
+       * stations. */
+      runescapeStation: stations[4],
     };
   }
   const lanProps = buildLanRoom();
@@ -13696,7 +13708,35 @@ const M_GOLD_BAR = mat({
     }
     return dressed;
   };
-  const artReady = resolveGear(MANSION_ART_SLOTS).then(applyResolvedArt).catch(() => []);
+  /**
+   * Shubes' monitor (owner note, 2026-08-19): Old School RuneScape on the
+   * published RuneScape station, all evening.
+   *
+   * NOT an `artTargets` row on purpose. That loop rebuilds the mesh to the
+   * file's aspect and hangs it in a lit MeshStandardMaterial frame, which is
+   * right for a picture and wrong for a monitor: the panel keeps its own
+   * 16:9 screen plane (the file is 1024x640, drawn full-bleed), and the
+   * material stays unlit and un-tonemapped exactly like every other running
+   * screen this room builds -- so it reads as a CRT glow in the blue cove
+   * light WITHOUT adding a light. The siege light-pool fixture pins the
+   * house's light count; an emissive screen is the whole budget this gets.
+   */
+  const applyRunescapeScreen = (gear) => {
+    const supplied = gear.get('mansion.lan.runescape');
+    const screen = lanProps.runescapeStation?.desk?.screen;
+    if (!supplied?.real || !screen) return false;
+    screen.material = new THREE.MeshBasicMaterial({
+      map: supplied.texture,
+      toneMapped: false,
+    });
+    screen.userData.art = { slot: 'mansion.lan.runescape', real: true, file: supplied.file };
+    return true;
+  };
+  const artReady = resolveGear(MANSION_ART_SLOTS).then((gear) => {
+    const dressed = applyResolvedArt(gear);
+    if (applyRunescapeScreen(gear)) dressed.push('mansion.lan.runescape');
+    return dressed;
+  }).catch(() => []);
 
   return {
     root,

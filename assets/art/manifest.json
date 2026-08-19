@@ -406,7 +406,7 @@
     {
       "slot": "bing.office.the_boys",
       "file": "silver-sasquatches-austin.jpg",
-      "title": "BLAST Austin Major — Silver Sasquatches",
+      "title": "BLAST Austin Major \u2014 Silver Sasquatches",
       "caption": "Top row of the door wall in Lou's office. The whole squad in Austin, back when everybody still had their original knees."
     },
     {
@@ -424,7 +424,7 @@
     {
       "slot": "bing.office.old_place",
       "file": "silver-sasquatches-denver-2026.jpg",
-      "title": "Silver Sasquatches — Denver 2026",
+      "title": "Silver Sasquatches \u2014 Denver 2026",
       "caption": "Door wall of Lou's office. The Denver badge went up before anybody had actually been to Denver."
     },
     {
@@ -792,6 +792,12 @@
       "file": "logo-crest.png",
       "title": "The crest, on both gate pillars",
       "caption": "The approved house crest replaces the temporary footprint on both street-facing medallions."
+    },
+    {
+      "slot": "mansion.lan.runescape",
+      "file": "osrs-screen.png",
+      "title": "Old School RuneScape",
+      "caption": "Shubes' monitor. Eleven years on the account and he still banks after every trip."
     },
     {
       "slot": "mansion.bedroom.booski-death.crest",

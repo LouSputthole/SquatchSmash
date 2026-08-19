@@ -769,6 +769,23 @@ export const SEQUENCES = Object.freeze({
   poolGirlDressHelp: Object.freeze([
     { speaker: 'PERFORMER', text: 'There. See? Useful beats smooth.', cue: cue('evening', 'performer.useful'), hold: 2.8 },
   ]),
+  /* ---- Shubes, in the LAN room, on the account ------------------------
+   * Owner note, 2026-08-19: the quiet evening gained settling-in beats and
+   * Shubes gained a chair -- once the mission gives way to the evening,
+   * `cast.js` sits him at a LAN station with Old School RuneScape on the
+   * monitor, and these are his lines about it. Bark and idle fire off the
+   * post's own proximity gate like every other bark in the house; the chat
+   * pair is the E press, which is also the beat the bed can count. */
+  shubesLanBark: Object.freeze([
+    { speaker: 'SHUBES', text: 'Careful. Forty-two million on this account, and no way to explain where the other kind came from.', cue: cue('evening', 'shubes.fortytwomillion'), hold: 5.6 },
+  ]),
+  shubesLanIdle: Object.freeze([
+    { speaker: 'SHUBES', text: 'Strangled a guy in a parking lot last month. Came home, played three hours of this. Slept great.', cue: cue('evening', 'shubes.sleptgreat'), hold: 5.4 },
+  ]),
+  shubesLanChat: Object.freeze([
+    { speaker: 'SHUBES', text: 'It’s called Old School RuneScape. It’s from 2007. So’s my patience — get out of my light.', cue: cue('evening', 'shubes.oldschool'), hold: 5.2 },
+    { speaker: 'SHUBES', text: 'Some kid called me a noob at the Grand Exchange. If I ever find out where he lives, that’s a him problem.', cue: cue('evening', 'shubes.himproblem'), hold: 5.8 },
+  ]),
 
   /* =================================================================== */
   /* THE HOUSE ITSELF — the people who are in it whether or not the       */

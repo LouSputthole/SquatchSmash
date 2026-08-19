@@ -61,7 +61,9 @@ import {
   mountMansionCast, MANSION_CAST_CUE_NAMES, theatreSeatAvailable, theatreSeatOccupant,
 } from './cast.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
-import { MISSION_IDS, SCENE_IDS, createCampaign } from '../core/campaign.js';
+import {
+  MANSION_EVENING_BEAT_IDS, MISSION_IDS, SCENE_IDS, createCampaign,
+} from '../core/campaign.js';
 import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
 import {
   createCampaignSceneRecovery, createCampaignSceneRestartAdapter,
@@ -923,13 +925,72 @@ flavor(
   interior.props.guestRoom.art,
   'Made up, turned down, and a window that looks out on a light bulb.',
 );
+/* ---- The wind-down ledger (owner note, 2026-08-19) --------------------
+ * The evening's activities were built and the bed was available the moment
+ * Lou said goodnight, so nobody saw them. The bed now wants ANY TWO of the
+ * five settling-in beats first. The campaign story owns the ledger (see
+ * `logEveningBeat` in core/silent-squatch-story.js -- it refuses everything
+ * outside the quiet evening, so every activity below credits itself
+ * unconditionally); this file owns the gate on the bed, the checkpoint
+ * banner when a beat lands, and the pause-menu objective that lists what is
+ * on offer. Preview links have no story and therefore no gate. */
+const EVENING_BEAT_MENU = Object.freeze({
+  theatre: 'A PICTURE IN THE THEATRE',
+  pool: 'THE GIRLS ON THE POOL DECK',
+  bar: 'A DRINK OFF THE BARTENDER',
+  dog: 'THE DOG ON THE THIRD FLOOR',
+  lan: "SHUBES' RUNESCAPE",
+});
+function eveningWindDown() {
+  return mansionCampaign.story?.windDown ?? null;
+}
+function windDownReady() {
+  const state = eveningWindDown();
+  return state ? state.ready : true;
+}
+function creditEveningBeat(id) {
+  if (mansionCampaign.story?.logEveningBeat?.(id) !== true) return false;
+  const state = eveningWindDown();
+  announceCheckpoint(state?.ready
+    ? 'WOUND DOWN — THE GUEST BED WILL TAKE YOU NOW'
+    : `WINDING DOWN ${state?.done.length ?? 1}/${state?.required ?? 2} — ONE MORE THING, THEN BED`);
+  return true;
+}
+/* The pause menu's objective line for the quiet evening: what is left on the
+ * menu, and how far along the night is. Empty outside the evening. */
+function eveningObjective() {
+  const mission = mansionCampaign.story?.mission;
+  if (mission?.status !== 'complete' || mission.sleptAtMansion === true
+    || mansionVisit === 'return') return '';
+  const state = eveningWindDown();
+  if (!state) return '';
+  if (state.ready) {
+    return 'The night is wound down. The guest room is off the cellar hall; sleep when you want to.';
+  }
+  const menu = MANSION_EVENING_BEAT_IDS
+    .filter((id) => !state.done.includes(id))
+    .map((id) => EVENING_BEAT_MENU[id].toLowerCase())
+    .join(', ');
+  return `Wind the night down before bed — ${state.required - state.done.length} more of: ${menu}.`;
+}
+
 /* After PROJECT SILENT SQUATCH, the house does not eject the player through
  * a menu. The quiet evening remains playable until he deliberately sleeps in
  * the real guest bed; that one physical action advances the campaign clock,
- * opens the siege, and performs the registered scene transition. */
+ * opens the siege, and performs the registered scene transition.
+ *
+ * THE BED STAYS VISIBLE WHILE IT REFUSES. Owner note, 2026-08-19: sleep is
+ * gated behind any two settling-in beats, and a gated interaction that goes
+ * quiet is the silent-failure class this project has paid for three times --
+ * so the label says what is missing and the refusal names the menu. */
 if (interior.props.guestRoom.bed) {
   interaction.register(interior.props.guestRoom.bed, {
-    label: 'Sleep in the guest room',
+    label: () => {
+      if (windDownReady()) return 'Sleep in the guest room';
+      return (eveningWindDown()?.done.length ?? 0) > 0
+        ? 'One more thing around the house, then the <b>bed</b>'
+        : 'Wind down first — do <b>2 things</b> around the house tonight';
+    },
     hold: 1.15,
     enabled: () => {
       if (!running || mansionPreview || mansionVisit === 'return') return false;
@@ -939,6 +1000,15 @@ if (interior.props.guestRoom.bed) {
         && mission.sleptAtMansion !== true;
     },
     onUse: () => {
+      if (!windDownReady()) {
+        const state = eveningWindDown();
+        const menu = MANSION_EVENING_BEAT_IDS
+          .filter((id) => !state?.done.includes(id))
+          .map((id) => EVENING_BEAT_MENU[id])
+          .join(' · ');
+        announceCheckpoint(`TOO WIRED TO SLEEP — ${state ? state.required - state.done.length : 2} MORE: ${menu}`);
+        return false;
+      }
       const rested = mansionCampaign.story?.restAtMansion?.();
       if (!rested?.ok) return false;
       const position = interior.props.guestRoom.bed.getWorldPosition(new THREE.Vector3());
@@ -1132,6 +1202,9 @@ function sitInTheatre(seat) {
     playerMode: player.mode,
   })) return false;
   activeTheatreSeat = seat;
+  /* Taking a seat down here is a settling-in beat of the quiet evening; the
+   * story ignores the credit at every other point of the night. */
+  creditEveningBeat('theatre');
   interaction.setPaused(true);
   playTheatreSit(audio, seat.getWorldPosition(new THREE.Vector3()));
   player.sitAt({
@@ -1220,8 +1293,16 @@ function registerTvInteraction({ tv, prop }) {
     onUse: () => {
       if (tv.on) tv.next(); else tv.toggle();
       syncTheatreLights();
+      /* A reel running in the theatre is the other half of the 'theatre'
+       * settling-in beat -- standing at the projector counts the same as
+       * taking a chair under it. Every other set stays a television. */
+      if (tv === theatreTv && tv.on) creditEveningBeat('theatre');
     },
-    onTap: () => { tv.toggle(); syncTheatreLights(); },
+    onTap: () => {
+      tv.toggle();
+      syncTheatreLights();
+      if (tv === theatreTv && tv.on) creditEveningBeat('theatre');
+    },
   });
   return true;
 }
@@ -1725,6 +1806,9 @@ const cast = mountMansionCast(scene, world, {
   suite: interior.props.masterSuite,
   pool: grounds.props.poolPatio,
   theatre: interior.props.theatre,
+  /* The LAN room's published stations -- the cast sits Shubes at the
+   * RuneScape one for the quiet evening. */
+  lan: interior.props.lanRoom,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
   /* Gratin's cord is a thing he is carrying, so it is a slot. Owner
@@ -1748,6 +1832,9 @@ const cast = mountMansionCast(scene, world, {
   eveningEnabled: () => mansionPreview
     || mansionCampaign.story?.mission?.status === 'complete',
   theatreChannel: () => (theatreTv?.on ? theatreTv.channel?.name ?? '' : ''),
+  /* The cast's activities -- the bar, the pool, the dog, Shubes -- report
+   * their settling-in beats through the same ledger the theatre uses. */
+  onEveningBeat: (id) => creditEveningBeat(id),
   /* Scene dressing, not campaign state, so preview return visits get the
    * same morning: the return is the one where the wire says the Cartel took
    * Sauce, and the cast hides him accordingly. */
@@ -1871,6 +1958,9 @@ const sharedPauseMenu = createPauseMenu({
   getObjective: () => mansionVisit === 'return' && !mansionPreview
     ? mansionReturnObjective(mansionCampaign.story?.mission?.status)
     : silentSquatch?.mission.objective
+      /* The quiet evening's own objective: the wind-down checklist, in the
+       * same slot the mission's objectives used. Empty outside the evening. */
+      || eveningObjective()
       || 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, the west wing and the Great Includer, the lower level behind the armory, and the walled garden and hedge maze behind the pool.',
   instructions: [
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
@@ -2476,6 +2566,9 @@ window.mansion = {
     entry: mansionCampaignEntry,
     state: () => mansionCampaign.campaign?.state ?? null,
     rest: () => mansionCampaign.story?.restAtMansion?.() ?? { ok: false, reason: 'preview' },
+    /** The bed's wind-down ledger, for a check that wants to prove the gate. */
+    windDown: () => eveningWindDown(),
+    creditEveningBeat: (id) => creditEveningBeat(id),
     brief: () => useReturnBriefing(),
   },
   /* Handed out so a verifier can do real geometry (Box3 of a mesh, say)

@@ -118,7 +118,9 @@ import { createDressHelpSequence } from '../world/dress-help.js';
 import { createDressHelpFocus } from '../world/dress-help-focus.js';
 import { createDressHelpActorStaging } from '../world/dress-help-staging.js';
 import { mountLilTomCruze } from './dog.js';
-import { createPoolTreadingMotion, createSeatedPerformerMotion } from './performer-motion.js';
+import {
+  createLanGamerMotion, createPoolTreadingMotion, createSeatedPerformerMotion,
+} from './performer-motion.js';
 import { DialogueController } from './mission/DialogueController.js';
 import { createMissionHud } from './mission/hud.js';
 
@@ -635,6 +637,9 @@ export function mountMansionCast(scene, world = {}, {
   pool = null,
   /** `interior.props.theatre` — its real recliners and screen. */
   theatre = null,
+  /** `interior.props.lanRoom` — its stations, and the one with RuneScape on
+   * it (`runescapeStation`), where Shubes sits for the quiet evening. */
+  lan = null,
   hud = null,
   /** Shared real-body distance/floor/wall/cooldown policy from main.js. */
   speechGate = null,
@@ -675,6 +680,15 @@ export function mountMansionCast(scene, world = {}, {
   /** Quiet-evening gate and the reel currently in the theatre projector. */
   eveningEnabled = () => true,
   theatreChannel = () => '',
+  /**
+   * A settling-in beat of the quiet evening happened here (owner note,
+   * 2026-08-19: the guest bed wants any two before sleep). Called with the
+   * beat id -- 'bar', 'pool', 'dog', 'lan' -- from the activity that IS the
+   * beat, unconditionally: the campaign story is the only writer of the
+   * ledger and refuses everything outside the quiet evening, so this module
+   * stays as ignorant of the save as it has always been.
+   */
+  onEveningBeat = () => {},
   /**
    * Which visit this mount dresses: 'mission' (the night of PROJECT SILENT
    * SQUATCH) or 'return' (the morning after the Enola, when the wire has
@@ -1017,7 +1031,13 @@ export function mountMansionCast(scene, world = {}, {
     bark: SEQUENCES.bartenderBark,
     idle: SEQUENCES.bartenderIdle,
     look: 'The same man who works the Bing. Somebody made him wear the waistcoat here too.',
-    onUse: () => { dialogue.interject(SEQUENCES.bartenderJack); return true; },
+    /* The pour is a settling-in beat on the quiet evening; the story ignores
+     * it every other hour of the night. */
+    onUse: () => {
+      dialogue.interject(SEQUENCES.bartenderJack);
+      onEveningBeat('bar');
+      return true;
+    },
   });
 
   /* ---- Snow, and the cart ---------------------------------------------
@@ -1469,16 +1489,18 @@ export function mountMansionCast(scene, world = {}, {
       : 'Seff, monitoring the conference-room phone nobody is meant to call.'),
   });
 
-  const lan = at('lanRoomCenter', { x: 6.4, y: BASEMENT_Y, z: 71.15 });
+  /* `lanCenter`, not `lan`: `lan` is the mount option carrying the room's
+   * published stations (Shubes' seat below). */
+  const lanCenter = at('lanRoomCenter', { x: 6.4, y: BASEMENT_Y, z: 71.15 });
   post('lag', {
     name: 'Lag',
     model: familyModel(CHARACTER_IDS.LAG),
-    x: lan.x,
-    y: lan.y,
+    x: lanCenter.x,
+    y: lanCenter.y,
     // The north desk row is centred at z 73.5; +2.4 put both thighs inside
     // its centre desk. The 3 m offset stands him behind it with 10 cm clear.
-    z: lan.z + 3.0,
-    yaw: yawToward(lan.x, lan.z + 3.0, lan.x, lan.z),
+    z: lanCenter.z + 3.0,
+    yaw: yawToward(lanCenter.x, lanCenter.z + 3.0, lanCenter.x, lanCenter.z),
     look: () => (theatreEveningStaged
       ? 'Lag, watching the movie half a beat behind everybody else.'
       : 'Lag, standing behind five live machines and blaming the one with the best connection.'),
@@ -1601,6 +1623,86 @@ export function mountMansionCast(scene, world = {}, {
       markTheatreSeatOccupied(seat, assignment.id);
     }
     theatreEveningStaged = true;
+    return true;
+  }
+
+  /* ================================================================ */
+  /* SHUBES, IN THE LAN ROOM (owner note, 2026-08-19)                  */
+  /*                                                                    */
+  /* Same transition as the theatre above, same gate: during the        */
+  /* mission he wanders the gallery, where his own arrival lines fire   */
+  /* -- moving that man mid-job would play "Hey guys, what's going       */
+  /* on?" at an empty landing, which is the exact class of bug this     */
+  /* module keeps writing down. Once the evening starts he takes the    */
+  /* chair at the published RuneScape station and stays in it, with a   */
+  /* mouse-hand controller running after Npc.update the way every other */
+  /* fixture pose in this house does.                                   */
+  /*                                                                    */
+  /* His evening lines are the ordinary post bark machinery: the post   */
+  /* was built without a bark (the MISSION owned his mouth), so handing */
+  /* the entry `shubesLanBark`/`shubesLanIdle` now makes the walk-up    */
+  /* fire once off the shared speech gate like everybody else's. The E  */
+  /* press re-registers his body -- `interaction.register` REPLACES a   */
+  /* descriptor, documented at `post()` -- and is a settling-in beat.   */
+  /* ================================================================ */
+  let lanEveningStaged = false;
+  let lanGamerMotion = null;
+  function stageLanEvening() {
+    if (lanEveningStaged || !eveningEnabled()) return lanEveningStaged;
+    const npc = people.shubes;
+    const chair = lan?.runescapeStation?.chair?.group ?? null;
+    const desk = lan?.runescapeStation?.desk?.group ?? null;
+    if (!npc || !chair || !desk) return false;
+    chair.updateWorldMatrix(true, false);
+    const atSeat = chair.getWorldPosition(new THREE.Vector3());
+    const atDesk = desk.getWorldPosition(new THREE.Vector3());
+    npc.route = null;
+    /* 0.53: the gamer chair's own seat top (makeChair pads 0.48 + 0.05),
+     * measured off the built prop the way the theatre uses its recliner's
+     * 0.56. The raycast pass below still owns the final centimetre. */
+    npc.baseY = seatBase(atSeat.y, 0.53);
+    npc.homeX = atSeat.x;
+    npc.homeZ = atSeat.z;
+    npc.homeYaw = yawToward(atSeat.x, atSeat.z, atDesk.x, atDesk.z);
+    npc.group.position.set(npc.homeX, npc.baseY, npc.homeZ);
+    npc.group.rotation.y = npc.homeYaw;
+    npc.job = 'sit';
+    /* Seated after the mount-time seat pass, so: pose now, register the
+     * dynamic sitter once, then the same measured correction every original
+     * sitter received. Exactly the theatre companions' path. */
+    npc.sit();
+    if (!seated.some((entry) => entry.id === 'shubes')) {
+      seated.push({ id: 'shubes', npc });
+    }
+    scene.updateMatrixWorld(true);
+    const lift = sitOnTheSeat(scene, npc);
+    if (lift !== null) seatLifts.shubes = lift;
+    /* The chair has a real collider and he is meant to be on it; the flag is
+     * the same allowance the hot tub and the loungers carry. */
+    npc.inFixture = 'LAN station chair';
+    lanGamerMotion = createLanGamerMotion(npc, { phase: 0.4 });
+
+    const entry = posts.find((p) => p.id === 'shubes');
+    if (entry) {
+      entry.bark = SEQUENCES.shubesLanBark;
+      entry.idle = SEQUENCES.shubesLanIdle;
+      entry.said = false;
+      entry.saidIdle = false;
+    }
+    interaction?.register?.(npc.group, {
+      label: 'Ask <b>Shubes</b> what he is playing',
+      key: 'E',
+      enabled: () => enabled(),
+      onUse: () => {
+        /* Interjected, not queued -- an E press on the man always answers,
+         * the same contract the bartender and Old Stove keep. */
+        dialogue.interject(SEQUENCES.shubesLanChat);
+        /* Sitting with him counts toward the bed. */
+        onEveningBeat('lan');
+        return true;
+      },
+    });
+    lanEveningStaged = true;
     return true;
   }
 
@@ -1746,6 +1848,8 @@ export function mountMansionCast(scene, world = {}, {
           dressStrap.position.y += 0.08;
         }
         dialogue.play(SEQUENCES.poolGirlDressHelp);
+        /* The exchange lands as a settling-in beat only once it is done. */
+        onEveningBeat('pool');
       } else return false;
       return true;
     },
@@ -1909,6 +2013,8 @@ export function mountMansionCast(scene, world = {}, {
       poolEvening.secondPhase = 'done';
       poolEvening.secondDressHelped = true;
       dialogue.play(SEQUENCES.poolGirlDressHelp);
+      /* Either performer's finished strap is the same pool beat. */
+      onEveningBeat('pool');
     },
     onAbandon() {
       poolEvening.secondPhase = 'ready';
@@ -1991,6 +2097,8 @@ export function mountMansionCast(scene, world = {}, {
     /* No cue name is invented. He is a quiet dog until somebody records one;
      * see ENGINE-TRAPS #3 on cues that exist only at a call site. */
     barkCue: null,
+    /* Making a fuss of him is a settling-in beat on the quiet evening. */
+    onPet: () => onEveningBeat('dog'),
   }) : null;
 
   /* ---- Gratin, and the offer -------------------------------------------
@@ -2896,6 +3004,7 @@ export function mountMansionCast(scene, world = {}, {
     update(dt) {
       if (!enabled()) return;
       stageTheatreEvening();
+      stageLanEvening();
       const p = playerPosition();
       for (const key of Object.keys(people)) people[key].update(dt, p);
       /* Npc.update deliberately restores the neutral torso pose every frame;
@@ -2904,6 +3013,9 @@ export function mountMansionCast(scene, world = {}, {
       for (const npc of poolRecliners) posePoolRecliner(npc);
       for (const motion of seatedPerformerMotions) motion.update(dt);
       poolTreadingMotion?.update(dt);
+      /* Shubes' mouse hand, applied after Npc.update's shared pose reset,
+       * the same ordering every fixture motion above relies on. */
+      lanGamerMotion?.update(dt);
       const dressTiming = secondDressSequence.update(dt);
       if (secondDressSequence.active) secondDressActorStaging.apply();
       /* TimingBar deliberately retains its last view after stop so a caller
@@ -3023,6 +3135,15 @@ export function mountMansionCast(scene, world = {}, {
           oldStovePresent: Boolean(people.oldStove),
           theatreChannel: theatreChannel?.() ?? '',
           theatreStaged: theatreEveningStaged,
+          lanStaged: lanEveningStaged,
+          lanShubes: {
+            job: people.shubes?.job ?? '',
+            fixture: people.shubes?.inFixture ?? null,
+            motion: lanGamerMotion?.snapshot ?? null,
+            x: Number(people.shubes?.group?.position?.x?.toFixed?.(2) ?? 0),
+            y: Number(people.shubes?.group?.position?.y?.toFixed?.(2) ?? 0),
+            z: Number(people.shubes?.group?.position?.z?.toFixed?.(2) ?? 0),
+          },
           theatreComposition: THEATRE_COMPANIONS.map(({ id, seat }) => ({
             id,
             name: people[id]?.name ?? '',
@@ -3032,6 +3153,8 @@ export function mountMansionCast(scene, world = {}, {
         };
       },
       stageTheatreEvening: () => stageTheatreEvening(),
+      stageLanEvening: () => stageLanEvening(),
+      useShubes: () => people.shubes?.group?.userData?.interact?.onUse?.() === true,
       usePoolGirl: () => people.poolPerformer0?.group?.userData?.interact?.onUse?.() === true,
       useSecondPoolGirl: () => people.poolPerformer1?.group?.userData?.interact?.onUse?.() === true,
       abandonSecondPoolDress: () => abandonSecondPoolDress(),

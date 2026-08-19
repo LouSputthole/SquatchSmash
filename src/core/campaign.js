@@ -427,6 +427,32 @@ export const SILENT_SQUATCH_CHECKPOINT_IDS = Object.freeze([
   'silent_night',
   'clear',
 ]);
+
+/**
+ * The quiet mansion evening's settling-in beats.
+ *
+ * Owner note, 2026-08-19: the theatre, the pool and the rest of the evening
+ * were built and nobody saw them, because the guest bed was available the
+ * moment Lou said goodnight. The bed now wants ANY TWO of these done first.
+ * Persisted per-id rather than as a counter so a reload mid-evening keeps
+ * credit for the exact things he did, and so a save cannot bank the same
+ * beat twice.
+ *
+ *   theatre  a picture running in the basement theatre, or a seat taken in it
+ *   pool     the pool-deck dress-strap exchange, either performer's
+ *   bar      a Jack And Daniels off the bartender in the billiard bay
+ *   dog      Lil Tom Cruze, petted, on the third floor
+ *   lan      Shubes and his RuneScape account, in the LAN room
+ */
+export const MANSION_EVENING_BEAT_IDS = Object.freeze([
+  'theatre',
+  'pool',
+  'bar',
+  'dog',
+  'lan',
+]);
+/** How many of those the bed asks for. Any two; the list is the menu. */
+export const MANSION_EVENING_BEATS_REQUIRED = 2;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -1241,6 +1267,9 @@ function initialState() {
         conspiracyBoard: false,
         trophyAwarded: false,
         eveningReady: false,
+        /** Which settling-in beats the quiet evening has banked. See
+         * MANSION_EVENING_BEAT_IDS -- the bed wants any two before sleep. */
+        eveningBeats: [],
         sleptAtMansion: false,
       },
     },
@@ -2339,6 +2368,11 @@ function normalize(saved) {
         conspiracyBoard: silentSquatch.conspiracyBoard === true,
         trophyAwarded: silentSquatch.trophyAwarded === true,
         eveningReady: silentSquatch.eveningReady === true,
+        /* Only beats the whitelist knows survive a read, exactly the way
+         * checkpoints are handled -- a beat id the list dropped must not keep
+         * counting toward the bed from an old save. */
+        eveningBeats: uniqueStrings(silentSquatch.eveningBeats)
+          .filter((id) => MANSION_EVENING_BEAT_IDS.includes(id)),
         sleptAtMansion: silentSquatch.sleptAtMansion === true,
       },
     },
@@ -3406,6 +3440,8 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
         conspiracyBoard: true,
         trophyAwarded: true,
         eveningReady: true,
+        /* A canonical slept-through record: the wind-down happened too. */
+        eveningBeats: ['theatre', 'bar'],
         sleptAtMansion: true,
       });
 

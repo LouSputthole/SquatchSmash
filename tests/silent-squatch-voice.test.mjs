@@ -81,7 +81,10 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   gas: 11, // the seven stages
   aftermath: 3, // LIFE SIGNS: 0
   exit: 11, // Snow, the cart, xXx, and Lou ending the night in his office
-  evening: 9, // Old Stove's reel remarks and the pool-deck dress-help exchange
+  /* 13, not 9. Owner note, 2026-08-19: the quiet evening gained settling-in
+   * beats and Shubes gained a LAN-room chair -- a proximity bark, an idle
+   * twin, and the two-line RuneScape chat on his E press. */
+  evening: 13, // Old Stove's reel, the pool-deck dress help, and Shubes' RuneScape
 
   /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
    * mission was written before anybody lived here; these are the lines the

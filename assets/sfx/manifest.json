@@ -18631,6 +18631,26 @@
       "say": "There. See? Useful beats smooth."
     },
     {
+      "name": "vo.silentsquatch.evening.shubes.fortytwomillion",
+      "voice": "shubenator",
+      "say": "Careful. Forty-two million on this account, and no way to explain where the other kind came from."
+    },
+    {
+      "name": "vo.silentsquatch.evening.shubes.sleptgreat",
+      "voice": "shubenator",
+      "say": "Strangled a guy in a parking lot last month. Came home, played three hours of this. Slept great."
+    },
+    {
+      "name": "vo.silentsquatch.evening.shubes.oldschool",
+      "voice": "shubenator",
+      "say": "It’s called Old School RuneScape. It’s from 2007. So’s my patience — get out of my light."
+    },
+    {
+      "name": "vo.silentsquatch.evening.shubes.himproblem",
+      "voice": "shubenator",
+      "say": "Some kid called me a noob at the Grand Exchange. If I ever find out where he lives, that’s a him problem."
+    },
+    {
       "name": "vo.silentsquatch.gate.doorman.farenough",
       "voice": "mansion-gate",
       "say": "That’s far enough. Hands out of the pockets."
