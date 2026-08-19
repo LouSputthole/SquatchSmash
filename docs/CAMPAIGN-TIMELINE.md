@@ -171,6 +171,11 @@ The workbook's **Day 5 night** label for Mansion Under Siege is a narrative
 label for the overnight begun on Day 5. The guest-room sleep crosses midnight,
 so the campaign's calendar clock correctly begins Siege on Day 6 at 4:10 AM.
 
+The 2:00 PM Enola row is the drive and the aircraft prep, matching
+`campaign.js`'s own comment — Sasole's handoff at the end of the siege
+promises the night flight ("We fly tonight"): wheels-up follows the prep, and
+the raid flies in full dark.
+
 **Initiation night — WIP, DO NOT TOUCH.** The protected ceremonial payoff at the Bada
 Bing, not another action sequence: old faces return, the Prospect is praised
 for specific campaign actions, Lou explains what membership means, the oath,

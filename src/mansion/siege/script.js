@@ -211,8 +211,12 @@ export const SEQUENCES = Object.freeze({
   sasole: Object.freeze([
     say('sasole.sasole.stairs', 'sasole',
       'You are the one who held the stairs. Good. Then you can hold a bomb bay.'),
-    say('sasole.sasole.firstlight', 'sasole',
-      'Get an hour down. We are wheels up at first light, and you are coming with me.'),
+    /* The siege ENDS at first light (campaign clock: Day 6, 6:10 AM), and the
+     * Enola raid flies in the dark -- so Sasole promises a NIGHT flight. The
+     * 2:00 PM travel row in docs/CAMPAIGN-TIMELINE.md is the drive and the
+     * aircraft prep; wheels-up follows, in full dark. */
+    say('sasole.sasole.tonight', 'sasole',
+      'Get some sleep. We fly tonight, and you are coming with me.'),
   ]),
 });
 
