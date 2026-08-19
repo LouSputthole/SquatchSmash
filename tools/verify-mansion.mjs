@@ -1355,6 +1355,12 @@ try {
       { at: [-14.6, 44.4], note: 'round the end of the south couch to the wing arcade' },
       { at: [-20.0, 43.9], room: 'trophyHall', note: 'through the middle arch into the Great Includer hall' },
       { at: [-16.9, 50.0], note: 'up the east side of the hall, past the dais' },
+      /* The aisle case (A, z 50.9-52.1 on the east wall) narrows the walk to
+       * the slot between its face and the colonnade — a person sidesteps it,
+       * so the tour does too, through the gap west of the case and back to
+       * the wall once the dais flank opens the full aisle. */
+      { at: [-17.4, 50.6], note: 'sidestep west around the aisle case' },
+      { at: [-17.35, 52.4], note: 'through the slot between case and colonnade' },
       { at: [-16.9, 58.0], room: 'winterGarden', note: 'through the wing door into the winter garden' },
       { at: [-16.7, 70.4], note: 'up the winter garden to the dining doors' },
       { at: [-13.6, 70.8], room: 'dining', note: 'through the French doors into the dining room' },
@@ -1807,15 +1813,19 @@ try {
   const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
   const indexedFiles = new Set(soundIndex.files || []);
   const mansionCueLists = await page.evaluate(async () => {
-    const [weapons, silentSquatch, cast] = await Promise.all([
+    const [weapons, silentSquatch, cast, furniture] = await Promise.all([
       import('/src/core/weapons/audio.js'),
       import('/src/mansion/scenes/SilentSquatch.js'),
       import('/src/mansion/cast.js'),
+      import('/src/mansion/interaction-audio.js'),
     ]);
     return {
       weaponCueNames: weapons.weaponCueNames(),
       silentSquatchCueNames: silentSquatch.silentSquatchCueNames(),
       mansionCastCueNames: [...cast.MANSION_CAST_CUE_NAMES],
+      /* The furniture foley main.js preloads (chair.sit, bed.creak…);
+       * omitting it made four legitimately resident cues read unscoped. */
+      interactionCueNames: [...furniture.MANSION_INTERACTION_CUE_NAMES],
     };
   });
   const MANSION_CAST_CUE_NAMES = mansionCueLists.mansionCastCueNames;
@@ -1827,6 +1837,7 @@ try {
     ...mansionCueLists.weaponCueNames,
     ...mansionCueLists.silentSquatchCueNames,
     ...MANSION_CAST_CUE_NAMES,
+    ...mansionCueLists.interactionCueNames,
     ...mansionFixtureCueNames,
   ]);
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (

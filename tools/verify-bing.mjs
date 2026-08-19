@@ -72,7 +72,11 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 320, height: 200 } });
 
 const problems = [];
-page.on('pageerror', (e) => problems.push(`${e.message}`));
+/* Keep the first stack frame: a bare message like "Failed to execute
+ * 'contains' on 'Node'" names the DOM API but not the caller. */
+page.on('pageerror', (e) => problems.push(
+  `${e.message} @ ${(e.stack || '').split('\n').find((l) => l.includes('/src/'))?.trim() || 'no-src-frame'}`,
+));
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text().slice(0, 240)); });
 
 const results = [];
