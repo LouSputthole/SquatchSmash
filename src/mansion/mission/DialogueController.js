@@ -151,13 +151,28 @@ export class DialogueController {
      * A hundred and seventy-five of these lines are now recorded, and any take
      * longer than its guess was talked over by the next line.
      *
-     * The authored number still wins when it is the longer of the two: some
-     * beats want a beat of silence after the words, and it is the only number
-     * there is for a line nobody has recorded. `playCue` returns the take's
-     * real length through `SilentSquatchMission.#speak`, for the muffled route
-     * behind the glass as well as the dry one. */
+     * AND ONLY FOR THE RECORDING, when there demonstrably is one. Owner
+     * playtest, 2026-08-19: *"he pauses a bit too long"* — Booski's takes run
+     * shorter than their authored guesses ("Good." is 0.8 s against a 1.6 s
+     * hold; "Handle it." 1.2 against 1.6) and `max(authored, real)` kept the
+     * guess, so every short line trailed up to a second of dead air. A take
+     * handed over as an OBJECT (`{ duration, source }` — mount.js builds one
+     * only when `hasSample()` says the recording exists) is measured against
+     * the audio, so it holds for the take plus a breath, floored for subtitle
+     * readability, and the guess is retired. The siege's script.js made the
+     * same call: "the recording's own length beats the authored guess."
+     *
+     * A bare NUMBER from `playCue` still takes `max(authored, real)`: the
+     * scientist-body route reports a guessed 1.7 s for its unrecorded lines,
+     * indistinguishable from a real take, so the authored hold must keep its
+     * vote there. And a line with no take at all keeps the authored hold
+     * outright — it is the only number there is. Deliberate dead air is not
+     * flattened by any of this: the script authors its beats as HUD stage
+     * lines (`booski.pause`, `booski.silent`), which never reach this branch. */
     const real = typeof spoken === 'number' && spoken > 0 ? spoken + 0.35 : 0;
-    this.timer = Math.max(authored, real);
+    this.timer = this._take && real > 0
+      ? Math.max(real, 1.2)
+      : Math.max(authored, real);
   }
 
   update(dt) {

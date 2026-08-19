@@ -69,6 +69,10 @@ import { makeCase } from '../../silvercase/props/case.js';
 /* The pooled arterial decal THE SILVER CASE puts on every man it shoots. Used
  * here for the execution -- see `bleed()`. */
 import { BloodImpactSystem, DeathBloodPool } from '../../world/blood.js';
+/* The shared pooled smoke sprites — the same system the silver kitchen and the
+ * siege use. Down here it is the gas release: every vent jets visible smoke
+ * while the room fills (owner: "smoke coming out of pipes"). */
+import { SmokeSystem } from '../../world/smoke.js';
 import { BASEMENT_Y, SECRET_DOOR } from './MansionGrounds.js';
 
 /* ================================================================== */
@@ -267,6 +271,26 @@ export const SILENT_SQUATCH_CUES = Object.freeze([
   ['silent.mop.floor', 'Loop. A wet mop head worked across concrete in long strokes: the drag of soaked cotton, water spreading and being pushed back, and the handle pivoting in a gloved hand.', 8.0],
   ['silent.gloves.snap', 'A pair of heavy rubber gloves pulled on and snapped at the wrists, twice. Close, dry, and unpleasantly brisk.', 1.6],
   ['silent.bag.liner', 'A heavy-gauge polythene liner shaken open and pulled down over a hoop frame: one loud snap of air and a long rustle.', 2.4],
+
+  /* =================================================================== */
+  /* THE 2026-08-19 OWNER-PLAYTEST PASS                                   */
+  /*                                                                       */
+  /* Three of his notes name sounds: the giant ball in the middle spins    */
+  /* (needs its own sound), smoke out of the pipes at the release, and     */
+  /* "more bad coughing and dying sounds from the scientists". The spin is */
+  /* a bed the phase machine re-pitches (see `update()`); the release adds */
+  /* one hiss PER VENT on top of the room-wide `silent.gas.release`; the   */
+  /* coughs are a small bank of single voices layered OVER the existing    */
+  /* `silent.choking` bed — that bed is deliberately "never a single       */
+  /* voice", so the singles are what put individual people inside it.      */
+  /* =================================================================== */
+  ['silent.core.spin', 'Loop. The core sphere itself turning in its cradle: a broad electromagnetic hum with a slow mechanical whirr riding it, a soft cyclic sweep each time the seam hardware comes round, and a magnetic-bearing whine underneath. Even and enormous — tonnes of mass rotating, nothing straining.', 12.0],
+  ['silent.vent.hiss', 'One ceiling gas vent letting go under pressure: a solenoid clack, its louvres snapping open, then a hard focused jet of gas hissing into the room, tailing off slightly as the line equalises. Close, cold and mean.', 2.8],
+  ['silent.cough.dry', 'One man coughing hard twice into his sleeve: dry, bark-like, with a sharp intake between the two. A working man\'s cough, not a performance.', 1.6],
+  ['silent.cough.fit', 'A ragged coughing fit from one man: six or seven coughs stacking up faster than he can breathe, collapsing into a thin wheeze at the end. Frightened, not theatrical.', 3.2],
+  ['silent.cough.choke', 'A cough that becomes a choke: two coughs, then the airway tightening, a wet strangled gasp, and a half-swallowed attempt at a word that does not make it out.', 2.4],
+  ['silent.choke.last', 'The end of a choke, close and quiet: a thin reedy gasp, one long exhale that never refills, and the small sounds of a body giving up its air. No cry, no drama — it just stops.', 2.6],
+  ['silent.body.crumple', 'A man in a lab coat crumpling onto an epoxy floor from his knees: soft, folding, cloth-first, a forearm slapping down, and the settling of somebody who is not going to move again. No skull knock — this is a slump, not a drop.', 2.0],
 ]);
 
 /** Just the names, for `audio.loadManifest({ names })`. */
@@ -3647,9 +3671,22 @@ export function buildSilentSquatch({
      * accumulator froze with the rings -- while its own build comment says it
      * exists "so something visibly turns even when the rings are locked". */
     collarSpin: 0,
+    /** The sphere's own accumulator (owner, 2026-08-19: "the giant ball in
+     * the middle spins"). Its speed rides `ringSpeed` with a floor, so the
+     * ball idles at a slow turn, races through the build and the climax, and
+     * settles back to the slow turn after the lock — it never stops, which
+     * is the same rule the collar lives by. */
+    ballSpin: 0,
     surge: 0,
     ringSpeed: 0.35,
     glow: 0.55,
+    /* `silent.core.spin`'s live rate/volume, and the small clock that meters
+     * how often the loop params are re-ramped. Riding the phase machine at
+     * every frame would cancel-and-restart the WebAudio ramps sixty times a
+     * second; four times a second is indistinguishable to an ear. */
+    spinAudioT: 0,
+    spinRate: 0,
+    spinVol: 0,
   };
 
   function buildCore() {
@@ -3670,15 +3707,25 @@ export function buildSilentSquatch({
     }
     prop(CORE_AT.x - 1.2, CORE_AT.x + 1.2, LAB_Y, LAB_Y + 2.6, CORE_AT.z - 1.2, CORE_AT.z + 1.2);
 
-    // The sphere: a thick metallic shell in two halves with a seam band.
+    /* The sphere: a thick metallic shell in two halves with a seam band —
+     * and IT TURNS (owner playtest, 2026-08-19: "maybe the giant ball in the
+     * middle spins"). The shell, the seam bolts and the surface hardware all
+     * live in one `ball` group the update loop rotates about y; the seam
+     * band itself stays on the cradle, so the bolts visibly travel through
+     * it, which is what makes a rotating sphere READ — a featureless ball
+     * spinning is a featureless ball. The gold aperture windows share
+     * `goldMat`, so they pulse with the core's own surge. */
     const shellMat = mat({ color: 0x8e959c, roughness: 0.3, metalness: 0.88 });
-    const shell = sphere({ r: 0.86, pos: [0, 1.72, 0], mat: shellMat });
-    g.add(shell);
+    const ball = group('core-ball');
+    ball.position.y = 1.72;
+    g.add(ball);
+    const shell = sphere({ r: 0.86, pos: [0, 0, 0], mat: shellMat });
+    ball.add(shell);
     g.add(cylinder({ r: 0.9, h: 0.14, pos: [0, 1.72, 0], mat: mat({ color: 0x5e646a, roughness: 0.4, metalness: 0.8 }) }));
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
-      g.add(box({
-        size: [0.07, 0.07, 0.07], pos: [Math.cos(a) * 0.9, 1.72, Math.sin(a) * 0.9], mat: M_STEEL, cast: false,
+      ball.add(box({
+        size: [0.07, 0.07, 0.07], pos: [Math.cos(a) * 0.9, 0, Math.sin(a) * 0.9], mat: M_STEEL, cast: false,
       }));
     }
     // Gold energy inside, seen through eight apertures cut in the shell.
@@ -3687,6 +3734,35 @@ export function buildSilentSquatch({
     });
     const goldCore = sphere({ r: 0.62, pos: [0, 1.72, 0], mat: goldMat, cast: false });
     g.add(goldCore);
+    /* Surface features on the shell itself, because texture-less metal shows
+     * no rotation at all: eight gold aperture windows (the "gold energy seen
+     * through apertures" of the brief, finally on the OUTSIDE where a player
+     * can see it) and six raised access hatches, both riding the ball. Each
+     * sits just proud of the shell at its own latitude. */
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.22;
+      const yy = [0.3, -0.3, 0.45, -0.45][i % 4];
+      const rr = Math.sqrt(0.86 * 0.86 - yy * yy) + 0.012;
+      ball.add(box({
+        size: [0.09, 0.17, 0.05],
+        pos: [Math.cos(a) * rr, yy, Math.sin(a) * rr],
+        mat: goldMat,
+        rotY: -a,
+        cast: false,
+      }));
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.75;
+      const yy = i % 2 ? 0.52 : -0.52;
+      const rr = Math.sqrt(0.86 * 0.86 - yy * yy) + 0.02;
+      ball.add(box({
+        size: [0.24, 0.2, 0.05],
+        pos: [Math.cos(a) * rr, yy, Math.sin(a) * rr],
+        mat: M_STEEL_DULL,
+        rotY: -a,
+        cast: false,
+      }));
+    }
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;
       const yy = 1.72 + Math.sin(i * 1.7) * 0.42;
@@ -3788,10 +3864,13 @@ export function buildSilentSquatch({
     );
     /* On the shell, not 0.06 m off it, and raked to the shell's own normal
      * rather than tilted the opposite way: at y 1.255 the sphere's surface is
-     * at radius 0.735 and its normal there is 0.56 rad below the horizontal. */
-    emblem.position.set(0, 1.255, 0.738);
+     * at radius 0.735 and its normal there is 0.56 rad below the horizontal.
+     * A child of `ball`, not of the cradle, since 2026-08-19: the casing
+     * turns now, and a stamp that hangs still while its casing rotates is a
+     * decal floating in the air. Ball-local y: 1.255 - 1.72. */
+    emblem.position.set(0, -0.465, 0.738);
     emblem.rotation.x = 0.56;
-    g.add(emblem);
+    ball.add(emblem);
     /* And a stencilled designation, bolted to the rim of the cradle drum.
      * It used to be at (0, 0.5, 1.02), which is above the drum and inside
      * none of the four legs: a nameplate floating in the air. */
@@ -3835,7 +3914,7 @@ export function buildSilentSquatch({
     }
 
     return {
-      group: g, shell, goldCore, goldMat, ringMat, rings, collar, arcs, arcMat, goldLight, purpleLight, emblem,
+      group: g, shell, ball, goldCore, goldMat, ringMat, rings, collar, arcs, arcMat, goldLight, purpleLight, emblem,
     };
   }
   const core = buildCore();
@@ -4098,8 +4177,42 @@ export function buildSilentSquatch({
     );
   }
   /** Which way a body rolls as it goes down. Fixed per man, and no two of the
-   * six the same, so the floor never reads as a row of identical falls. */
-  const COLLAPSE_ROLL = [0.34, -0.52, 0.18, -0.28, 0.46, -0.14];
+   * six the same, so the floor never reads as a row of identical falls.
+   * SLUMPS, NOT TWISTS (2026-08-19): these ran to 0.52 rad when the fallen
+   * pose was a crumple. Now the limbs settle flat (see `collapse()`), a body
+   * is its full length again, and a 0.5 rad roll on 1.8 m of man is 0.9 m of
+   * diagonal splay — five of those do not fit five lanes. The siege's
+   * fallen.js clamps its corpse roll to 0.12 for the same reason. */
+  const COLLAPSE_ROLL = [0.16, -0.24, 0.09, -0.13, 0.21, -0.07];
+
+  /* ================================================================== */
+  /* WHERE EACH OF THEM STANDS AT THE GLASS                              */
+  /*                                                                      */
+  /* Owner playtest, 2026-08-19: *"when they run to the window they are   */
+  /* standing inside eachother."* The rush kept each man's own bench x —  */
+  /* and two pairs of benches sit 0.2 m and 0.4 m apart in x, so panic     */
+  /* walked those pairs to the same square metre of glass and stood them   */
+  /* in each other for the whole of beats 9 and 10.                        */
+  /*                                                                       */
+  /* Same cure as the crawl lanes, at standing scale: each index has his   */
+  /* own authored slot along the pane, fanned out from the door on the     */
+  /* same LANE_ORDER, at shoulder pitch rather than corpse pitch. The      */
+  /* per-frame nudge in `update()` is the backstop for the walk itself —   */
+  /* two men whose slots are 0.62 m apart still cross paths getting there. */
+  /* ================================================================== */
+  /** Slot pitch at the window. A standing figure is ~0.5 m across the
+   * shoulders, so 0.62 m is elbow room without breaking the crush the beat
+   * wants — five people AT the window, not five people spaced along it. */
+  const WINDOW_PITCH = 0.62;
+  /** How close two standing men may be before the nudge separates them. */
+  const CROWD_GAP = 0.5;
+  function windowX(index) {
+    return THREE.MathUtils.clamp(
+      DOOR_CENTRE_X + (LANE_ORDER[index] ?? 0) * WINDOW_PITCH,
+      SEALED_LAB.x0 + 0.9,
+      SEALED_LAB.x1 - 0.9,
+    );
+  }
 
   /**
    * What working at a bench looks like, cycled per man. See the work loop in
@@ -4107,6 +4220,12 @@ export function buildSilentSquatch({
    * people at six benches reading as six people miming.
    */
   const WORK_GESTURES = Object.freeze(['reach', 'gap', 'point', 'gap', 'hands', 'gap', 'reach', 'gap']);
+
+  /** The single-voice coughs, rotated per man and per fit so neighbours never
+   * play the same one together. `silent.choking` stays the room-wide bed —
+   * its own prompt says "never a single voice" — and these are the singles
+   * layered over it. See the cough clock in `update()`. */
+  const COUGH_CUES = Object.freeze(['silent.cough.dry', 'silent.cough.fit', 'silent.cough.choke']);
 
   function buildScientist(i) {
     const spec = SCIENTIST_SPECS[i];
@@ -4170,6 +4289,9 @@ export function buildSilentSquatch({
       _work: 0.4 + Math.random() * 3.2,
       _workN: 0,
       _cough: 0,
+      /** Coughs this man has had. Drives which single-voice cough cue plays
+       * and thins the layer to every other fit — see the update loop. */
+      _coughN: 0,
       _fall: 0,
       _printed: false,
       /** Set by `stepOut`: where to walk once he is through the doorway. */
@@ -4264,8 +4386,9 @@ export function buildSilentSquatch({
         fig.playGesture('shrug', 2.0);
         /* MINUS 1.2. GLASS_INSIDE_Z is already the inside face of the glass;
          * plus 1.2 walked him to z 49.65, which is through the pane and out
-         * into the observation area with Booski. */
-        self.goTo(fig.group.position.x, GLASS_INSIDE_Z - 1.2, 0.9);
+         * into the observation area with Booski. His own slot in x, not his
+         * bench's — see `windowX`. */
+        self.goTo(windowX(i), GLASS_INSIDE_Z - 1.2, 0.9);
         return self;
       },
       /**
@@ -4304,11 +4427,10 @@ export function buildSilentSquatch({
         if (!self.alive) return self;
         self.stage = 'panic';
         fig.playGesture('hands', 3.0);
-        self.goTo(
-          THREE.MathUtils.clamp(fig.group.position.x, SEALED_LAB.x0 + 1, SEALED_LAB.x1 - 1),
-          GLASS_INSIDE_Z,
-          1.9,
-        );
+        /* His own slot at the glass, not his bench's x clamped — two of the
+         * benches share an x to within 0.4 m, so "everyone keep your own x"
+         * ran two pairs of them into the same spot (owner, 2026-08-19). */
+        self.goTo(windowX(i), GLASS_INSIDE_Z, 1.9);
         return self;
       },
       /** Hands over the mouth. The stage between panic and choking. */
@@ -4329,11 +4451,9 @@ export function buildSilentSquatch({
       pound(times = 1) {
         if (!self.alive) return self;
         self.stage = 'pounding';
-        self.goTo(
-          THREE.MathUtils.clamp(fig.group.position.x, SEALED_LAB.x0 + 1, SEALED_LAB.x1 - 1),
-          GLASS_INSIDE_Z,
-          1.9,
-        );
+        /* His window slot again — the pounding is the same crowd one stage
+         * angrier, and it must not re-stack what panic() spread out. */
+        self.goTo(windowX(i), GLASS_INSIDE_Z, 1.9);
         for (let n = 0; n < times; n++) {
           glassAudio.impact('silent.glass.fist', {
             volume: 0.85,
@@ -4418,11 +4538,79 @@ export function buildSilentSquatch({
          * hand two neighbours the same one, and the whole point of this pass is
          * that the floor after Silent Night reads as six separate people. */
         self._fallYaw = COLLAPSE_ROLL[i % COLLAPSE_ROLL.length];
-        /* Measured in the pose he is about to end in, and then put back, so
-         * the nudge happens before the fall rather than as a jump after it. */
+        /* THE LIMBS GO INTO THE BODY'S PLANE, blended across the fall. A man
+         * gassed mid-crawl kept his kneeling hips and 1.7 rad knees through
+         * the tip-over, so the "lying" body was propped on a folded leg —
+         * measured at 0.5-0.7 m of prop, the siege's plank-on-a-corner fault
+         * (see src/mansion/siege/fallen.js) rebuilt down here. From/to pairs
+         * per joint, lerped by the same `e` as the tip so there is no pop at
+         * either end; small per-man variation so six corpses are not one. */
+        self._limbFrom = [
+          fig.torso.rotation.x,
+          fig.legL.hip.rotation.x, fig.legR.hip.rotation.x,
+          fig.legL.knee.rotation.x, fig.legR.knee.rotation.x,
+          fig.armL.shoulder.rotation.x, fig.armR.shoulder.rotation.x,
+          fig.armL.shoulder.rotation.z, fig.armR.shoulder.rotation.z,
+          fig.armL.elbow.rotation.x, fig.armR.elbow.rotation.x,
+        ];
+        /* Arm PITCH (x) stays a whisper of positive — the body lands face
+         * down, so a forward pitch is an arm through the slab and a corpse
+         * propped on its own hand (fallen.js's measured fault). The spread
+         * lives in shoulder Z, which sweeps the arm ALONG the floor. */
+        self._limbTo = [
+          0.02,
+          -0.05 - (i % 3) * 0.03, 0.03 + (i % 2) * 0.04,
+          0.1 + (i % 2) * 0.08, 0.05 + (i % 3) * 0.04,
+          0.04 + (i % 3) * 0.03, 0.02 + (i % 2) * 0.04,
+          0.3 + (i % 2) * 0.12, -0.24 - (i % 3) * 0.08,
+          -0.04, -0.02,
+        ];
+        /* HE FALLS TOWARD THE GLASS, whatever way the walk left him facing.
+         * The crawl's last leg runs ALONG the pane — from window slot to lane
+         * — so every man arrived facing sideways and fell sideways: 1.8 m of
+         * flat body along an axis with 1.4 m lanes, which no backstop can
+         * separate because five of those do not fit the room. Fallen toward
+         * +z the bodies lie perpendicular, heads at the pane — the image the
+         * beat wants — and each occupies under a metre of his own lane. The
+         * turn is blended over the same `e` as the tip, shortest way round,
+         * so it reads as the fall twisting him rather than as a snap. */
+        self._fallTurnFrom = fig.group.rotation.y;
+        {
+          const wrapped = ((0 - self._fallTurnFrom + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+          self._fallTurnTo = self._fallTurnFrom + wrapped;
+        }
+        /* HOW HIGH HIS OWN BODY LIES (owner playtest, 2026-08-19: "when they
+         * die they are falling into the floor"). The fall pivots at the feet
+         * and rolls, so the DOWNHILL side of the body — a shoulder, the face,
+         * the knees under a dropped pelvis — swung below y 0 and rested inside
+         * the slab. Same cure as the siege's fallen.js: pose him flat, measure
+         * the rendered minimum, and carry the difference as a lift the fall
+         * eases in — measured per man because bulk, roll and scale all move it. */
+        self._fallLift = 0;
+        poseFallen(self, 1);
+        _fallBox.setFromObject(fig.group);
+        self._fallLift = Math.max(0, LAB_FLOOR - _fallBox.min.y);
+        /* Measured in the pose he is about to end in — WITH the lift, so the
+         * separation boxes match what a player will see — and then put back,
+         * so the nudge happens before the fall rather than as a jump after. */
         poseFallen(self, 1);
         separateFallen(self);
         poseFallen(self, 0);
+        /* The dying sound (owner, 2026-08-19: "more bad coughing and dying
+         * sounds"): a last choke and the crumple onto the floor, from THIS
+         * body, through the distant path. Only behind the glass — Aubbie's
+         * execution already owns its own five room sounds via `bleedAtHit`. */
+        if (self.inside) {
+          const at = new THREE.Vector3(
+            fig.group.position.x, LAB_Y + 1.0 * figScale, fig.group.position.z,
+          );
+          glassAudio.distant('silent.choke.last', {
+            volume: 0.5, position: at, ref: 3, maxDist: 26,
+          });
+          glassAudio.distant('silent.body.crumple', {
+            volume: 0.6, delay: 0.7, position: at, ref: 3, maxDist: 26,
+          });
+        }
         if (!self.deathPool) {
           const deathPoint = fig.torso.getWorldPosition(new THREE.Vector3());
           self.deathPool = deathPools.spill(deathPoint, {
@@ -4562,12 +4750,55 @@ export function buildSilentSquatch({
    */
   function poseFallen(s, e) {
     const f = s.fig;
-    f.root.rotation.x = e * 1.46;
+    /* PI/2 minus three degrees, not 1.46 rad (2026-08-19). The old 83.6°
+     * left a 6.4° incline that stood the head end 0.35 m off the slab once
+     * the limbs stopped folding under it — dead men flat on the marble is
+     * the siege's measured number (fallen.js keeps two degrees "for a hint
+     * of weight"), and three keeps that hint at this rig's proportions. */
+    f.root.rotation.x = e * (Math.PI / 2 - 0.05);
     f.root.rotation.z = e * (s._fallYaw ?? 0);
-    f.pelvis.position.y = 0.92 - e * 0.42;
+    /* MINUS 0.06, NOT 0.42 (2026-08-19). The old drop collapsed the pelvis
+     * toward the feet while the crumpled legs folded out of the way; with the
+     * limbs settling flat (see collapse()) it pushed the straight legs 0.4 m
+     * below the pivot plane instead, so the grounded body rested on its toes
+     * with the head end propped 0.35 m in the air — the plank-on-a-corner
+     * fault, feet edition. A body felled like a tree keeps its own length. */
+    f.pelvis.position.y = 0.92 - e * 0.06;
+    /* The limbs settle into the body's plane on the same `e` — see the note
+     * in `collapse()`. Without this a man gassed mid-crawl lay propped on his
+     * own folded knee, half a metre proud of the slab at one end and through
+     * it at the other. Plain indexed lerps; nothing here allocates. */
+    const a = s._limbFrom;
+    const b = s._limbTo;
+    if (a && b) {
+      f.torso.rotation.x = a[0] + (b[0] - a[0]) * e;
+      f.legL.hip.rotation.x = a[1] + (b[1] - a[1]) * e;
+      f.legR.hip.rotation.x = a[2] + (b[2] - a[2]) * e;
+      f.legL.knee.rotation.x = a[3] + (b[3] - a[3]) * e;
+      f.legR.knee.rotation.x = a[4] + (b[4] - a[4]) * e;
+      f.armL.shoulder.rotation.x = a[5] + (b[5] - a[5]) * e;
+      f.armR.shoulder.rotation.x = a[6] + (b[6] - a[6]) * e;
+      f.armL.shoulder.rotation.z = a[7] + (b[7] - a[7]) * e;
+      f.armR.shoulder.rotation.z = a[8] + (b[8] - a[8]) * e;
+      f.armL.elbow.rotation.x = a[9] + (b[9] - a[9]) * e;
+      f.armR.elbow.rotation.x = a[10] + (b[10] - a[10]) * e;
+    }
+    /* And the twist toward the glass — see `collapse()`. Only once a fall has
+     * captured its endpoints; a living pose never touches the walk's facing. */
+    if (s._fallTurnFrom !== undefined) {
+      f.group.rotation.y = s._fallTurnFrom + (s._fallTurnTo - s._fallTurnFrom) * e;
+    }
+    /* ON the floor, never through it. The pivot is at the feet and the roll
+     * dips one whole side of the body below the slab; `_fallLift` is that
+     * side's measured depth, computed once per man in `collapse()` from his
+     * own final pose (the siege's fallen.js approach), and eased in with the
+     * fall so the body settles onto the concrete instead of into it. */
+    f.group.position.y = LAB_Y + e * (s._fallLift ?? 0);
     f.group.updateMatrixWorld(true);
   }
 
+  /** Scratch for `collapse()`'s own lying-height measurement. */
+  const _fallBox = new THREE.Box3();
   const _corpseA = new THREE.Box3();
   /** Concrete between two bodies on the floor. */
   const CORPSE_MARGIN = 0.12;
@@ -4729,6 +4960,19 @@ export function buildSilentSquatch({
   }
   const gas = buildGas();
 
+  /* THE SMOKE AT THE VENTS (owner, 2026-08-19: "smoke coming out of pipes").
+   * The point cloud above is the ROOM filling; this is the release itself —
+   * visible jets at the six authored vent mouths, on the shared pooled
+   * SmokeSystem the rest of the game uses (src/world/smoke.js — the silver
+   * kitchen's steam, the siege's fires). Pooled sprites, so the per-frame
+   * emission below allocates nothing. */
+  const ventSmoke = new SmokeSystem(root);
+  /** Per-vent emission clocks, staggered so six vents never puff in step. */
+  const ventPuffT = new Float32Array(sealed.vents.length);
+  for (let i = 0; i < ventPuffT.length; i++) ventPuffT[i] = i * 0.09;
+  const _ventAt = new THREE.Vector3();
+  const _ventDown = new THREE.Vector3(0, -1, 0);
+
   /* ================================================================== */
   /* SYSTEMS                                                             */
   /* ================================================================== */
@@ -4867,6 +5111,20 @@ export function buildSilentSquatch({
       ambience: true,
       fade: 2.6,
     });
+    /* THE 2026-08-19 PASS: the ball's own voice. Positional at the sphere,
+     * separate from `silent.core.rings` (the rings are three thin hoops; the
+     * ball is tonnes of shell), and the only bed whose rate/volume the update
+     * loop re-drives — the core section rides it through idle, build, climax
+     * and lock. Starts at the idle numbers that section would send. */
+    loop('silent.core.spin', {
+      name: 'silent.core.spin',
+      volume: 0.18,
+      position: new THREE.Vector3(CORE_AT.x, LAB_Y + 1.72, CORE_AT.z),
+      ref: 3.2,
+      maxDist: 28,
+      ambience: true,
+      fade: 2.4,
+    });
     /* At the console bank, on the OBSERVATION side — six CRTs you have to
      * stand next to for the whole of beats 5 to 7. */
     loop('silent.monitors.whine', {
@@ -4889,6 +5147,7 @@ export function buildSilentSquatch({
       /* The 2026-08-06 pass. Every bed this module starts is stopped here:
        * the wall closing is supposed to take the basement's noise with it. */
       'silent.lab.hvac', 'silent.coolant.flow', 'silent.core.rings',
+      'silent.core.spin',
       'silent.monitors.whine', 'silent.cart.wheels', 'silent.mop.floor',
       /* The case's own hum belongs to whoever is carrying it rather than to
        * this room, and by the time the wall seats it has gone through the
@@ -5178,6 +5437,21 @@ export function buildSilentSquatch({
       glassAudio.loop('silent.gas.hiss', {
         name: 'silent.gas.hiss', volume: 0.3, position: at, ref: 5, maxDist: 36, fade: 1.4, path: 'distant',
       });
+      /* ONE HISS PER VENT (owner, 2026-08-19). `silent.gas.release` is the
+       * whole ceiling letting go at once and `silent.gas.hiss` is the room
+       * continuing to fill; this is the six individual mouths, each at its
+       * own authored position, staggered a fifth of a second apart so the
+       * release sweeps across the ceiling instead of arriving as one clap. */
+      for (let i = 0; i < sealed.vents.length; i++) {
+        const vent = sealed.vents[i];
+        glassAudio.distant('silent.vent.hiss', {
+          volume: 0.5,
+          delay: 0.25 + i * 0.22,
+          position: new THREE.Vector3(vent.x, LAB_CEIL - 0.2, vent.z),
+          ref: 3,
+          maxDist: 26,
+        });
+      }
       /* AND THE ROOM COMING APART. `silent.equipment.crash` has been authored
        * with a prompt since the scene was built and was never once played --
        * five people going for a door they cannot open take a trolley of
@@ -5522,6 +5796,32 @@ export function buildSilentSquatch({
      * visibly turns even when the rings are locked" locked with them. */
     cs.collarSpin += dt * (0.45 + cs.ringSpeed * 0.4);
     core.collar.rotation.y = cs.collarSpin;
+    /* The BALL (owner, 2026-08-19). Same floor-speed rule as the collar —
+     * idle is a slow ponderous turn, the build and climax race it, the lock
+     * eases it back to the slow turn rather than to a stop. */
+    cs.ballSpin += dt * (0.22 + cs.ringSpeed * 0.5);
+    core.ball.rotation.y = cs.ballSpin;
+    /* ...and the sound of it: `silent.core.spin` is started with the other
+     * beds in startUnderworldAmbience and its pitch/level ride this same
+     * phase machine — low at idle, rising through the build, loud in the
+     * climax, settling to a steady hum after the lock. Metered to four
+     * updates a second; see `spinAudioT` on coreState. */
+    cs.spinAudioT -= dt;
+    if (ambienceOn && cs.spinAudioT <= 0) {
+      cs.spinAudioT = 0.25;
+      const spinRate = 0.85 + Math.min(2.9, cs.ringSpeed) * 0.32
+        + (cs.phase === 'climax' ? 0.12 : 0);
+      const spinVol = 0.16 + Math.min(1, cs.ringSpeed / 3.55) * 0.2
+        + (cs.phase === 'climax' ? 0.14 : 0);
+      if (Math.abs(spinRate - cs.spinRate) > 0.02) {
+        cs.spinRate = spinRate;
+        audio?.setLoopRate?.('silent.core.spin', spinRate, 0.3);
+      }
+      if (Math.abs(spinVol - cs.spinVol) > 0.01) {
+        cs.spinVol = spinVol;
+        audio?.setLoopVolume?.('silent.core.spin', spinVol, 0.4);
+      }
+    }
     const pulse = cs.glow * (0.86 + Math.sin(time * 2.2) * 0.14 + cs.surge * 0.5);
     core.goldMat.emissiveIntensity = 2.0 * pulse;
     core.ringMat.emissiveIntensity = 1.7 * (0.8 + cs.glow * 0.5);
@@ -5627,6 +5927,23 @@ export function buildSilentSquatch({
           s._cough = 0.7 + Math.random() * 1.2;
           f.torso.rotation.x = 0.55;
           f.playGesture('drink', 1.2);
+          /* THE VOICE OF IT (owner, 2026-08-19: "more bad coughing ... from
+           * the scientists"). One single-voice cough on top of the room-wide
+           * `silent.choking` bed — from THIS man, at his own mouth, through
+           * the distant path. Every OTHER fit, offset by his index, so five
+           * men land staggered rather than as one wall of coughs: a room
+           * dying, not one sample. */
+          s._coughN++;
+          if ((s._coughN + s.index) % 2 === 0) {
+            glassAudio.distant(COUGH_CUES[(s._coughN + s.index) % COUGH_CUES.length], {
+              volume: 0.5,
+              position: new THREE.Vector3(
+                f.group.position.x, LAB_Y + 1.35 * s.figScale, f.group.position.z,
+              ),
+              ref: 3,
+              maxDist: 26,
+            });
+          }
         }
       }
       if (s.stage === 'pounding') {
@@ -5662,6 +5979,34 @@ export function buildSilentSquatch({
           s._work = (lead ? 2.6 : 1.7) + Math.random() * (lead ? 3.4 : 2.6);
           if (move !== 'gap') f.playGesture(move, s._work * 0.62);
         }
+      }
+    }
+
+    /* ---- THE CRUSH AT THE WINDOW (owner, 2026-08-19: "standing inside
+     * eachother"). The authored slots do most of it; this is the backstop
+     * for the walks between them — two living men closer than CROWD_GAP are
+     * eased apart ALONG the glass, the same axis `separateFallen` uses,
+     * because the picture is people at the window and a nudge in z would
+     * push somebody through the pane. Fifteen pairs, no allocation, and a
+     * dt-scaled ease rather than a snap so it reads as jostling. */
+    for (let a = 0; a < scientists.length; a++) {
+      const A = scientists[a];
+      if (!A.alive || !A.inside) continue;
+      for (let b = a + 1; b < scientists.length; b++) {
+        const B = scientists[b];
+        if (!B.alive || !B.inside) continue;
+        const pa = A.fig.group.position;
+        const pb = B.fig.group.position;
+        const dx = pb.x - pa.x;
+        const dz = pb.z - pa.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= CROWD_GAP * CROWD_GAP) continue;
+        const d = Math.sqrt(d2);
+        /* Dead level in x: split them by index so the pair cannot dither. */
+        const nx = d > 1e-4 && Math.abs(dx) > 1e-4 ? Math.sign(dx) : (a % 2 ? 1 : -1);
+        const push = (CROWD_GAP - d) * Math.min(1, dt * 3) * 0.5;
+        pa.x = THREE.MathUtils.clamp(pa.x - nx * push, SEALED_LAB.x0 + 0.9, SEALED_LAB.x1 - 0.9);
+        pb.x = THREE.MathUtils.clamp(pb.x + nx * push, SEALED_LAB.x0 + 0.9, SEALED_LAB.x1 - 0.9);
       }
     }
 
@@ -5740,7 +6085,30 @@ export function buildSilentSquatch({
         for (const lv of v.louvres) lv.rotation.x = Math.min(1.1, gasState.t * 1.6);
       }
       for (const t of sealed.labTubes) t.light.intensity = 5.6 * (1 - d * 0.45);
+      /* ---- and the SMOKE at each vent mouth (owner, 2026-08-19). Hardest
+       * in the first quarter-minute — the line under pressure — then easing
+       * to a steady bleed while the room keeps filling. Pooled sprites,
+       * staggered clocks, downward jets: the gas in this room falls. */
+      const jet = Math.max(0, 1 - gasState.t / 14);
+      for (let i = 0; i < sealed.vents.length; i++) {
+        ventPuffT[i] -= dt;
+        if (ventPuffT[i] > 0) continue;
+        ventPuffT[i] = 0.22 + (i % 3) * 0.05 + Math.random() * 0.1;
+        const vent = sealed.vents[i];
+        _ventAt.set(vent.x, LAB_CEIL - 0.24, vent.z);
+        ventSmoke.emit(_ventAt, _ventDown, {
+          count: 2,
+          speed: 1.4 + jet * 1.3,
+          spread: 0.35,
+          size0: 0.08,
+          size1: 0.8 + jet * 0.25,
+          life: 2.2,
+          peak: 0.15 + jet * 0.1,
+          rise: -0.22,
+        });
+      }
     }
+    ventSmoke.update(dt);
 
     /* ---- the crosshair callout. */
     crosshairNames?.update();
