@@ -62,16 +62,21 @@ test('the selection decides whether there is a trigger at all', () => {
   assert.equal(loadout.activeWeapon, null, 'a bag of money should not fire');
 });
 
-test('the two weapons are genuinely different guns', () => {
+test('the two weapons are genuinely different guns, and they are the catalog guns', () => {
   assert.notEqual(HEIST_WEAPON_DEFS.carbine.name, HEIST_WEAPON_DEFS.sidearm.name);
   assert.ok(HEIST_WEAPON_DEFS.carbine.damage > HEIST_WEAPON_DEFS.sidearm.damage);
   assert.ok(HEIST_WEAPON_DEFS.carbine.magazineSize > HEIST_WEAPON_DEFS.sidearm.magazineSize);
   assert.ok(HEIST_WEAPON_DEFS.carbine.penetration > HEIST_WEAPON_DEFS.sidearm.penetration);
+  /* The numbers are the shared catalog's now — the 30-round armory carbine
+   * and Lou's fifteen-round 9mm — behind the mission's own display names. */
+  assert.equal(HEIST_WEAPON_DEFS.carbine.weaponId, 'carbine');
+  assert.equal(HEIST_WEAPON_DEFS.sidearm.weaponId, 'pistol9');
   const loadout = new HeistLoadout();
   loadout.setSlots({ armed: true });
   loadout.weapons.carbine.fire();
-  assert.equal(loadout.weapons.carbine.magazine, 19);
-  assert.equal(loadout.weapons.sidearm.magazine, 10, 'firing one gun emptied the other');
+  assert.equal(loadout.weapons.carbine.magazine, HEIST_WEAPON_DEFS.carbine.magazineSize - 1);
+  assert.equal(loadout.weapons.sidearm.magazine, HEIST_WEAPON_DEFS.sidearm.magazineSize,
+    'firing one gun emptied the other');
 });
 
 test('the mask slot becomes the zip ties the moment the mask goes on', () => {
@@ -104,8 +109,8 @@ test('a loadout snapshot round-trips, including the mask and both magazines', ()
   assert.equal(restored.selected, 1);
   assert.equal(restored.selectedItem, 'sidearm');
   assert.equal(restored.maskWorn, true);
-  assert.equal(restored.weapons.sidearm.magazine, 8);
-  assert.equal(restored.weapons.carbine.magazine, 20);
+  assert.equal(restored.weapons.sidearm.magazine, HEIST_WEAPON_DEFS.sidearm.magazineSize - 2);
+  assert.equal(restored.weapons.carbine.magazine, HEIST_WEAPON_DEFS.carbine.magazineSize);
 });
 
 test('the view-model shows exactly one thing, and it is the selected thing', () => {

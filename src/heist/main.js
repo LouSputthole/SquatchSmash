@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
 import { CombatActor } from '../core/combat/actors.js';
-import { resolveBallisticHits } from '../core/combat/ballistics.js';
 import { FACTIONS, FactionMatrix } from '../core/combat/factions.js';
 import { SuppressionModel } from '../core/combat/suppression.js';
+import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
   CHARACTER_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS,
   createCampaign, navigateCampaign,
@@ -46,6 +46,7 @@ import { DialogueArbiter } from './dialogue.js';
 import { HeistHud } from './hud.js';
 import { intersectsDrivingObstacle } from './geometry.js';
 import { buildHeistLevel } from './level.js';
+import { HeistCombatAdapter } from './combat.js';
 import { createLobbyHostages, HostageDirector } from './hostages.js';
 import { HEIST_ITEM_CATALOG, HEIST_SLOT_ORDER, HeistLoadout } from './loadout.js';
 import { createHeistBags, LootLedger } from './loot.js';
@@ -166,6 +167,14 @@ const playerActor = new CombatActor({
    * had touched it — see `syncPlayerArmor`. */
   armor: 0,
 });
+/**
+ * The shared-combat seam. See `./combat.js`: shot truth, hostile perception,
+ * visible aim, catalog ammunition and blood presentation are the shared
+ * Modules'; this file keeps only mission consequences and presentation.
+ */
+const combat = new HeistCombatAdapter({ matrix: factionMatrix });
+/** Every combat root answers hits through the resolver, wherever it sits. */
+const combatActorOf = (object, { root }) => root.userData.combatActor;
 const loadout = new HeistLoadout();
 const viewModel = makeHeistViewModel(camera);
 /** Kept as the name the rest of the file reads: whatever is in Tony's hands. */
@@ -215,10 +224,12 @@ const lobbyGuardActor = new CombatActor({
   id: 'bank_lobby_guard', faction: FACTIONS.POLICE, maxHealth: 38, armor: 0,
 });
 level.phases.bank.interactables.guard.userData.combatActor = lobbyGuardActor;
+combat.register(level.phases.bank.interactables.guard, { actor: combatActorOf });
 const rearGuardActor = new CombatActor({
   id: 'bank_rear_guard', faction: FACTIONS.POLICE, maxHealth: 38, armor: 0,
 });
 level.phases.bank.interactables.rearGuard.userData.combatActor = rearGuardActor;
+combat.register(level.phases.bank.interactables.rearGuard, { actor: combatActorOf });
 
 /**
  * Everybody in the lobby is now a thing a bullet can find.
@@ -239,11 +250,16 @@ for (const [index, figureRoot] of level.phases.bank.civilians.entries()) {
   figureRoot.userData.combatActor = actor;
   figureRoot.userData.civilianIndex = index;
   hostageActors.set(hostageId, actor);
+  /* A hostage may only be reached by a round whose honest trace reaches them:
+   * the resolver answers to `resolvePlayerShot`'s first visible hit, so a wall
+   * between the muzzle and this figure is a wall, for every caller. */
+  combat.register(figureRoot, { actor: combatActorOf });
 }
 const managerActor = new CombatActor({
   id: 'bank_manager', faction: FACTIONS.CIVILIAN, maxHealth: 40, armor: 0,
 });
 level.phases.bank.interactables.manager.userData.combatActor = managerActor;
+combat.register(level.phases.bank.interactables.manager, { actor: combatActorOf });
 
 /** Return a scene-owned actor to the state a fresh bank build gives it. */
 function resetLobbyCombatActor(actor) {
@@ -526,6 +542,7 @@ for (const actor of crew.values()) {
     id: `crew_${actor.id}`, faction: FACTIONS.CREW, maxHealth: 100, armor: 40, core: true,
   });
   actor.group.userData.combatActor = actor.combatActor;
+  combat.register(actor.group, { actor: combatActorOf });
 }
 
 /**
@@ -583,8 +600,9 @@ function refreshAmmoReadout() {
       ? (HEIST_ITEM_CATALOG[item]?.name ?? item).toUpperCase() : 'EMPTY HANDS');
     return;
   }
+  /* Reserve is the catalog's loose-round count now, straight off `Firearm`. */
   hud.setAmmo(active.magazine,
-    `/ ${active.reserveMagazines * active.definition.magazineSize}`,
+    `/ ${active.reserveRounds}`,
     active.definition.name ?? 'CONTROLLED');
 }
 
@@ -638,7 +656,6 @@ function cycleSlot(direction) {
   return true;
 }
 let drivingRecovery = false;
-let policeFireClock = 0.8;
 const swapProgress = {
   trunk: false, bags: false, aid: false, masks: false,
   jackets: false, weapons: false, wiped: false,
@@ -651,7 +668,6 @@ let simulationPaused = false;
 const activeEffects = [];
 const clock = new THREE.Clock();
 const raycaster = new THREE.Raycaster();
-const lineOfSightRaycaster = new THREE.Raycaster();
 const pursuitTarget = new THREE.Vector3();
 const muzzle = new THREE.PointLight(0xffc35c, 0, 4, 2);
 camera.add(muzzle);
@@ -676,41 +692,20 @@ const casingPool = Array.from({ length: Math.min(24, PERFORMANCE_BUDGET.maxCasin
   return mesh;
 });
 
-/* Blood, in three pools, all pre-built. See `emitBlood`.
- *
- * Deliberately not the same mesh as `impactPool`: a hit on a person and a hit
- * on marble threw identical sandy dust, which is why shooting a customer
- * looked the same as missing one. */
-const BLOOD_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x5e0d10 });
-const bloodPool = Array.from({ length: 28 }, () => {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.032, 5, 4), BLOOD_MATERIAL);
-  mesh.visible = false;
-  mesh.userData.life = 0;
-  scene.add(mesh);
-  return mesh;
+/* Blood is the SHARED systems from `src/world/blood.js` now — the same
+ * attached wounds, arterial spurts and spreading death pools every other
+ * scene leaves — instead of the scene-local sphere pools that used to stand
+ * in for them (the last blood Locality the reusable-systems doc had on its
+ * books for THE TAKE). All three are bounded at construction; the death pools
+ * keep answering to the scene's decal budget. Every phase floor a body can
+ * fall on in this mission is at y 0, so the pools' explicit floor stays 0. */
+const bloodImpacts = new BloodImpactSystem(scene);
+const bloodSpurts = new BloodSpurtSystem(scene, { capacity: 48 });
+const deathPools = new DeathBloodPool(scene, {
+  capacity: Math.min(24, PERFORMANCE_BUDGET.maxDecals),
 });
-const bloodMistPool = Array.from({ length: 6 }, () => {
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 7, 5),
-    new THREE.MeshBasicMaterial({ color: 0x7d1418, transparent: true, opacity: 0.42 }),
-  );
-  mesh.visible = false;
-  mesh.userData.life = 0;
-  mesh.userData.fade = true;
-  scene.add(mesh);
-  return mesh;
-});
-/** Fatal hits leave a mark on the floor. Bounded by the scene's decal budget. */
-let bloodDecalCursor = 0;
-const bloodDecals = Array.from({ length: Math.min(24, PERFORMANCE_BUDGET.maxDecals) }, () => {
-  const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(0.42, 10),
-    new THREE.MeshBasicMaterial({ color: 0x4a0a0d, transparent: true, opacity: 0.78 }),
-  );
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.visible = false;
-  scene.add(mesh);
-  return mesh;
+combat.attachBlood({
+  impacts: bloodImpacts, spurts: bloodSpurts, pools: deathPools, floorYFor: () => 0,
 });
 
 window.__heistDebug = {
@@ -1012,11 +1007,44 @@ function debugHostageVerb(hostageId, verb) {
   return applyHostageVerb(root, verb);
 }
 
+/**
+ * Mission tooling fires REAL rounds now. The old probe handed 999 damage
+ * straight to the actor, which meant a verifier — or anything else that
+ * reached this hook — could kill a hostage through a wall. It walks the same
+ * honest path as the trigger: stand where the crosshair can only be on this
+ * person (`debugAimAt`), trace the ray, and let the shared resolver decide.
+ * If geometry is in the way, the answer is `blocked`, not a corpse.
+ */
 function debugShootHostage(hostageId) {
+  const aim = debugAimAt(hostageId);
+  if (!aim.ok) return aim;
   const root = level.phases.bank.civilians
     .find((figure) => figure.userData.hostageId === hostageId);
   if (!root) return { ok: false, reason: 'missing' };
-  return { ok: registerActorHit(root, root.userData.combatActor, 999) !== null };
+  /* From the player's real eye toward the figure's actual centre — a hostage
+   * already kneeling or prone is still a legal target, but the ray must still
+   * get there through the same geometry every other round obeys. */
+  camera.updateMatrixWorld(true);
+  const origin = camera.getWorldPosition(new THREE.Vector3());
+  const target = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
+  const impact = combat.resolvePlayerShot({
+    origin,
+    direction: target.sub(origin).normalize(),
+    weapon: 'carbine',
+    damage: 999,
+    penetration: 0.38,
+  });
+  /* Whatever the round honestly reached owns the consequences — even a probe
+   * cannot hurt one person while the ledger pretends it hurt another. */
+  const struck = impact.located?.root ?? null;
+  if (impact.located?.applied) {
+    applyPlayerImpactConsequences(impact.located);
+    presentBlood(impact.located);
+  }
+  if (!struck || struck.userData.hostageId !== hostageId) {
+    return { ok: false, reason: 'blocked', hit: impact.hit?.object?.name ?? null };
+  }
+  return { ok: impact.located.applied === true };
 }
 
 function debugProbeCollision() {
@@ -1698,23 +1726,22 @@ function updateHostageAim(dt) {
 }
 
 /**
- * A round landed on somebody.
+ * The mission's answer to one Located player hit.
  *
- * @returns {object|null} the resolved hit, or null when nothing was there.
+ * Damage truth already happened inside `combat.resolvePlayerShot` — the
+ * shared resolver applied (or refused) the hit against the actor the honest
+ * ray actually reached. This function owns only what stays scene-authored:
+ * discipline scoring, barks, hostage bookkeeping and police heat.
+ *
+ * @param {object} located a `CombatImpactResolver` Located hit
+ * @returns {object} the applied result, or `{ applied: false }`
  */
-function registerActorHit(ownerNode, actor, damage, penetration = 0.3) {
-  if (!actor) return null;
-  const resolved = resolveBallisticHits([{ distance: 1, actor }], {
-    attacker: { faction: FACTIONS.CREW },
-    damage,
-    penetration,
-    matrix: factionMatrix,
-    playerShot: true,
-  });
-  const result = resolved[0]?.result;
-  if (!result?.applied) {
+function applyPlayerImpactConsequences(located) {
+  const actor = located.actor;
+  const result = located.result ?? null;
+  if (!located.applied) {
     // Refused: the matrix protects crew from crew. Still worth saying out loud.
-    if (actor.faction === FACTIONS.CREW) {
+    if (actor?.faction === FACTIONS.CREW) {
       objective.noteFriendlyFire();
       /* SNOW SAYING "MUZZLE OFF ME" ON A LOOP.
        *
@@ -1748,7 +1775,7 @@ function registerActorHit(ownerNode, actor, damage, penetration = 0.3) {
       policeHeat = Math.min(100, policeHeat + 18);
     } else if (result.fatal) {
       objective.civilianCasualties++;
-      ownerNode.userData.figure?.fallen?.();
+      located.root?.userData.figure?.fallen?.();
       say('snow_casualty');
     }
     return result;
@@ -1782,43 +1809,24 @@ function emitImpact(position) {
  * than a missing effect: it is the one moment the mission is scored on
  * (`HeistObjectiveLedger.civilianRoundsFired`) and it had no feedback at all.
  *
- * Three parts, all off the existing pools so nothing is allocated in the
- * frame that fires: spray along the round's line, a mist puff hanging where
- * it went in, and — on a fatal hit only — a pool that spreads on the floor
- * and stays. The floor pool is the reason a lobby the player has shot up
- * looks different from one he has not.
+ * The gore itself is the SHARED systems' now — `combat.presentImpact` puts an
+ * attached wound and spatter at the exact ray point, throws an arterial burst
+ * off it, and on a fatal hit only starts a spreading `DeathBloodPool` under
+ * the body, all bounded by their own pools. The scene keeps its room tone:
+ * the wet-marble body sound and the low impact thud are authored here.
  *
- * @param {THREE.Vector3} position where the round landed
- * @param {THREE.Vector3} direction the round's travel, for the spray cone
- * @param {boolean} fatal
+ * @param {object} located an APPLIED Located hit from `resolvePlayerShot`
  */
-function emitBlood(position, direction, fatal = false) {
-  const spray = fatal ? 7 : 4;
-  for (let i = 0; i < spray; i++) {
-    const velocity = direction.clone().multiplyScalar(1.4 + Math.random() * 1.8);
-    velocity.x += (Math.random() - 0.5) * 1.9;
-    velocity.y += 0.6 + Math.random() * 1.5;
-    velocity.z += (Math.random() - 0.5) * 1.9;
-    emitFromPool(bloodPool, position, 0.42 + Math.random() * 0.3, velocity);
-  }
-  // The mist: slow, barely moving, and gone before the body lands.
-  emitFromPool(bloodMistPool, position, 0.34, new THREE.Vector3(0, 0.22, 0));
+function presentBlood(located) {
+  if (!combat.presentImpact(located)) return;
+  const position = located.point;
+  const fatal = located.fatal === true;
   audio.play('heist.body.marble', {
     position, volume: fatal ? 0.66 : 0.4, rate: fatal ? 0.92 : 1.18, ref: 1.2, maxDist: 24,
   });
   audio.play('heist.bullet.impact', {
     position, volume: 0.34, rate: 0.78, ref: 1.1, maxDist: 20,
   });
-  if (!fatal) return;
-  /* The pool on the floor. It goes at the feet rather than at the wound, it
-   * does not move, and it is not recycled until the decal budget wraps —
-   * `PERFORMANCE_BUDGET.maxDecals` is what bounds it. */
-  const decal = bloodDecals[bloodDecalCursor % bloodDecals.length];
-  bloodDecalCursor++;
-  decal.visible = true;
-  decal.position.set(position.x, 0.012, position.z);
-  decal.rotation.z = Math.random() * Math.PI;
-  decal.scale.setScalar(0.75 + Math.random() * 0.6);
 }
 
 function emitCasing() {
@@ -1846,9 +1854,10 @@ function updateEffectPools(dt) {
   };
   for (const mesh of impactPool) update(mesh);
   for (const mesh of casingPool) update(mesh);
-  // Blood is heavier than dust and it arcs rather than drifting.
-  for (const mesh of bloodPool) update(mesh, 9.2);
-  for (const mesh of bloodMistPool) update(mesh, 0);
+  // Shared blood advances on the same simulated clock as everything else.
+  bloodImpacts.update(dt);
+  bloodSpurts.update(dt);
+  deathPools.update(dt);
 }
 
 let audioZone = null;
@@ -1910,6 +1919,10 @@ function activatePhase(id, preservePlayer = false) {
   }
   window.__heistDebug.phase = id;
   interaction.setOccluders([phase.group]);
+  /* Ballistic truth is the same geometry the player sees: every trace the
+   * shared modules run — player rounds, hostile sight, hostile rounds —
+   * intersects this phase group and nothing else. */
+  combat.setOccluders([phase.group]);
   window.__heistDebug.policeActive = activePoliceMeshes().length;
   setAudioZone(id);
   hud.setLobby(id === 'bank' ? {
@@ -2910,6 +2923,9 @@ function addPoliceFigure({
    * feet rather than building another rig. See `recycleDownedOfficer`. */
   const spare = recycle ? recycleDownedOfficer(phaseId) : null;
   if (spare) {
+    /* The dead man's shared combat pipeline goes with him: the fresh actor on
+     * this body gets fresh perception, aim and a fresh magazine. */
+    combat.dropHostile(spare.actor.id);
     spare.actor = actor;
     spare.root.userData.combatActor = actor;
     spare.root.userData.block = block;
@@ -2938,7 +2954,11 @@ function addPoliceFigure({
   root.add(proxy);
   if (actor.incapacitated) figure.fallen();
   level.phases[phaseId].group.add(root);
-  policeFigures.push({ root, figure, actor });
+  /* One shared-resolver registration per BODY — recycled officers swap the
+   * actor on the same root, and the descriptor reads it live. The unregister
+   * handle travels with the entry so a checkpoint teardown can release it. */
+  const unregister = combat.register(root, { actor: combatActorOf });
+  policeFigures.push({ root, figure, actor, unregister });
   return root;
 }
 
@@ -2988,18 +3008,28 @@ function fireWeapon() {
   muzzle.intensity = sidearm ? 6 : 8;
   camera.rotation.z += (Math.random() - 0.5) * (sidearm ? 0.012 : 0.008);
   if (activePhase === 'bank') hostages.startleAll(sidearm ? 0.5 : 0.65);
+  /* SHOT TRUTH IS THE SHARED SEAM'S. One honest ray into the active phase,
+   * first visible hit wins, and only a registered hierarchy can bleed —
+   * `combat.resolvePlayerShot` owns the trace and the Located damage, this
+   * function owns what the mission does about it. */
   raycaster.setFromCamera(SCREEN_CENTER, camera);
-  const hits = raycaster.intersectObject(level.phases[activePhase].group, true);
-  const hit = hits[0];
-  const owner = hit ? actorFor(hit.object) : null;
-  objective.noteShot({ hitActor: !!owner });
-  if (!hit) return;
+  const impact = combat.resolvePlayerShot({
+    origin: raycaster.ray.origin,
+    direction: raycaster.ray.direction,
+    weapon: active.weaponId,
+    damage: shot.damage,
+    penetration: shot.penetration,
+  });
+  const located = impact.located;
+  const reachedActor = Boolean(located && located.reason !== 'unregistered' && located.actor);
+  objective.noteShot({ hitActor: reachedActor });
+  if (!impact.hit) return;
   // A round into a wall throws dust; a round into a person does not.
-  if (!owner) { emitImpact(hit.point); return; }
-  const actor = owner.userData.combatActor;
-  const result = registerActorHit(owner, actor, shot.damage, shot.penetration);
-  if (!result?.applied) { emitImpact(hit.point); return; }
-  emitBlood(hit.point, camera.getWorldDirection(new THREE.Vector3()), result.fatal);
+  if (!reachedActor) { emitImpact(impact.hit.point); return; }
+  const actor = located.actor;
+  const result = applyPlayerImpactConsequences(located);
+  if (!result?.applied) { emitImpact(impact.hit.point); return; }
+  presentBlood(located);
   if (actor === managerActor && result.fatal) {
     /* The manager is a civilian, not an immortal objective prop. Killing him
      * is allowed to land and read as a real casualty, but the vault sequence
@@ -3026,54 +3056,74 @@ function fireWeapon() {
     return;
   }
   if (actor.faction === FACTIONS.POLICE && result.fatal) {
-    const entry = policeEntryFor(owner);
+    const downedRoot = located.root;
+    const entry = policeEntryFor(downedRoot);
     if (entry) entry.figure.setState('down', { roll: Math.random() > 0.5 ? 0.6 : -0.6 });
     officersDown++;
     objective.noteOfficerDown();
-    police.remove(owner.userData.block);
+    police.remove(downedRoot.userData.block);
     window.__heistDebug.policeActive = activePoliceMeshes().length - 1;
-    owner.userData.down = true;
+    downedRoot.userData.down = true;
     refreshInteractions();
   }
 }
 
+/**
+ * The street's authored difficulty. WHO fights (waves) and HOW HARD each
+ * round presses stay Locality; all the truth underneath — sight, alignment,
+ * ammunition, blockers, hits, near misses — is the shared pipeline in
+ * `combat.updateHostile`. Damage stays the old street's average round; the
+ * per-officer cadence is tuned so five or six live officers put roughly the
+ * same fire on the player the old single global fire clock did — except that
+ * every one of those rounds now leaves a real muzzle, obeys real cover, and
+ * lands somewhere true.
+ */
+const POLICE_COMBAT = Object.freeze({
+  damage: 11,
+  range: 48,
+  cadence: Object.freeze([2.6, 4.6]),
+  accuracyMoving: 0.18,
+  accuracyStill: 0.34,
+});
+const policeAimPoint = new THREE.Vector3();
+
 function updatePoliceCombat(dt) {
   if (!['street', 'garage'].includes(activePhase) || machine.state === 'FAILED') return;
-  const live = activePoliceMeshes();
-  if (!live.length) return;
-  policeFireClock -= dt;
-  if (policeFireClock > 0) return;
-  policeFireClock = 0.55 + Math.random() * 0.75;
-  const shooter = live[Math.floor(Math.random() * live.length)];
-  const distance = shooter.position.distanceTo(player.position);
-  if (distance > 48) return;
-  const origin = shooter.getWorldPosition(new THREE.Vector3());
-  origin.y = 1.35;
-  const target = player.position.clone();
-  target.y = 1.2;
-  const direction = target.sub(origin).normalize();
-  origin.addScaledVector(direction, 0.6);
-  lineOfSightRaycaster.set(origin, direction);
-  lineOfSightRaycaster.far = Math.max(0, distance - 0.8);
-  if (lineOfSightRaycaster.intersectObject(level.phases[activePhase].group, true).length) return;
-  audio.play('heist.police.gunshot', { position: origin, volume: 0.72, ref: 1.6, maxDist: 55 });
-  audio.play('heist.bullet.whiz', { volume: 0.42 });
-  suppression.noteNearMiss(0.16, Math.max(0.2, distance / 48));
-  emitImpact(player.position.clone().add(new THREE.Vector3(
-    (Math.random() - 0.5) * 1.4, -0.6 + Math.random() * 1.4, (Math.random() - 0.5) * 1.4,
-  )));
+  policeAimPoint.set(player.position.x, 1.2, player.position.z);
   const moving = player.velocity.lengthSq() > 2.5;
-  const hitChance = (moving ? 0.18 : 0.34) * (1 - Math.min(0.45, suppression.value * 0.2));
-  if (Math.random() > hitChance) return;
-  const result = playerActor.applyHit({
-    amount: 8 + Math.random() * 7,
-    attacker: { faction: FACTIONS.POLICE },
-    matrix: factionMatrix,
-  });
-  if (!result.applied) return;
-  hud.setHealth((playerActor.health / playerActor.maxHealth) * 100);
-  audio.play('heist.player.hit', { volume: 0.75 });
-  if (result.fatal) failMission('prospect_incapacitated');
+  /* Suppressive pressure still degrades their shooting — same authored curve
+   * as before, now applied to the shared accuracy input. */
+  const accuracy = (moving ? POLICE_COMBAT.accuracyMoving : POLICE_COMBAT.accuracyStill)
+    * (1 - Math.min(0.45, suppression.value * 0.2));
+  for (const entry of policeFigures) {
+    if (!entry.root.visible || entry.actor.incapacitated
+      || entry.root.userData.phaseId !== activePhase) continue;
+    const update = combat.updateHostile(entry, dt, {
+      targetPoint: policeAimPoint,
+      targetActor: playerActor,
+      accuracy,
+      damage: POLICE_COMBAT.damage,
+      range: POLICE_COMBAT.range,
+      cadence: POLICE_COMBAT.cadence,
+    });
+    const shot = update.shot;
+    if (!shot?.fired) continue;
+    audio.play('heist.police.gunshot', {
+      position: shot.origin, volume: 0.72, ref: 1.6, maxDist: 55,
+    });
+    /* The round lands where the shared truth says it landed — on the blocker
+     * that owns it or at the declared miss point — not at a random offset
+     * conjured around the player. */
+    emitImpact(shot.end);
+    if (shot.whiz) audio.play('heist.bullet.whiz', { volume: 0.42 });
+    if (shot.nearMiss) {
+      suppression.noteNearMiss(0.16, Math.max(0.2, shot.distance / POLICE_COMBAT.range));
+    }
+    if (!shot.applied) continue;
+    hud.setHealth((playerActor.health / playerActor.maxHealth) * 100);
+    audio.play('heist.player.hit', { volume: 0.75 });
+    if (shot.fatal) failMission('prospect_incapacitated');
+  }
 }
 
 function updateBankSequence(dt) {
@@ -3211,16 +3261,27 @@ checkpoints.register('police', {
       position: entry.root.position.toArray(),
       visible: entry.root.visible,
       actor: entry.actor.snapshot(),
+      /* The shared pipeline is durable state too: an officer restored with
+       * three rounds left has three rounds left, not a fresh magazine. */
+      combat: combat.hostileSnapshot(entry.actor.id),
     })),
   }),
   reset: () => {
-    for (const entry of policeFigures) entry.figure.dispose();
+    for (const entry of policeFigures) {
+      entry.figure.dispose();
+      entry.unregister?.();
+    }
     policeFigures = [];
+    combat.resetHostiles();
     police.reset();
   },
   restore: (snapshot) => {
     police.restore(snapshot.director);
-    for (const record of snapshot.meshes) addPoliceFigure({ ...record, actorSnapshot: record.actor });
+    for (const record of snapshot.meshes) {
+      const root = addPoliceFigure({ ...record, actorSnapshot: record.actor });
+      const entry = policeEntryFor(root);
+      if (entry && record.combat) combat.restoreHostile(entry, record.combat);
+    }
     window.__heistDebug.policeActive = activePoliceMeshes().length;
     window.__heistDebug.poolUsage.police = policeFigures.length;
   },
@@ -3272,7 +3333,7 @@ checkpoints.register('mission-local', {
       ),
     },
     officersDown, driving, roadblockHit, routeIndex, offroadHitCooldown,
-    driveCollisionCooldown, policeFireClock, swapProgress: { ...swapProgress },
+    driveCollisionCooldown, swapProgress: { ...swapProgress },
     driveInvalidFor, driveStuckFor, drivingRecovery,
     suppression: suppression.value,
   }),
@@ -3294,7 +3355,6 @@ checkpoints.register('mission-local', {
     driveInvalidFor = 0;
     driveStuckFor = 0;
     drivingRecovery = false;
-    policeFireClock = 0.8;
     Object.keys(swapProgress).forEach((key) => { swapProgress[key] = false; });
     suppression.value = 0;
     resetLobbyCombatActor(rearGuardActor);
@@ -3324,7 +3384,6 @@ checkpoints.register('mission-local', {
     driveInvalidFor = snapshot.driveInvalidFor ?? 0;
     driveStuckFor = snapshot.driveStuckFor ?? 0;
     drivingRecovery = snapshot.drivingRecovery === true;
-    policeFireClock = snapshot.policeFireClock ?? 0.8;
     Object.assign(swapProgress, snapshot.swapProgress ?? {});
     suppression.value = snapshot.suppression ?? 0;
     guardThreat.restore(snapshot.guardThreat);
@@ -4088,6 +4147,7 @@ function animate() {
   const now = performance.now() / 1000;
   loadout.update(dt);
   suppression.update(dt);
+  combat.update(dt);
   updateEffectPools(dt);
   hud.setSuppression(suppression.value);
   muzzle.intensity = Math.max(0, muzzle.intensity - dt * 70);

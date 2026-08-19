@@ -1,4 +1,5 @@
-import { WeaponController } from '../core/combat/weapon.js';
+import { weaponDef } from '../core/weapons/catalog.js';
+import { HEIST_WEAPON_BINDINGS, HeistFirearm } from './combat.js';
 
 /**
  * What Tony is carrying on the job, and which of it is in his hands.
@@ -41,27 +42,29 @@ export const HEIST_ITEM_CATALOG = Object.freeze({
 export const HEIST_WEAPON_ITEMS = Object.freeze(['carbine', 'sidearm']);
 
 /**
- * Two guns that are actually different.
+ * Two guns that are actually different — and they are the CATALOG's guns.
  *
  * The scene shipped with one weapon called CONTROLLED, so "switch inventory
- * items" had nothing to switch to. The carbine is the job weapon — twenty
- * rounds, fast, and it goes through a car door. The sidearm is what is on your
- * belt when the carbine is empty or slung: half the magazine, slower, less
- * penetration, and it will not be enough on the street. That difference is the
- * reason to look at the bar.
+ * items" had nothing to switch to. Then it shipped two, with numbers of its
+ * own invention — a private 20-round carbine next to the campaign's canonical
+ * 30-round one, which is the migration debt the reusable-systems doc recorded.
+ * The defs below are now a read-only VIEW of `core/weapons/catalog.js` through
+ * the slot bindings in `./combat.js`: the carbine is the armory's carbine, the
+ * sidearm is Lou's 9mm, and a round from either does exactly what it does in
+ * every other scene.
  */
-export const HEIST_WEAPON_DEFS = Object.freeze({
-  carbine: Object.freeze({
-    name: 'CONTROLLED', magazineSize: 20, reserveMagazines: 4,
-    roundsPerSecond: 8.6, reloadSeconds: 1.9, recoilPerShot: 0.13,
-    damage: 42, penetration: 0.38,
+export const HEIST_WEAPON_DEFS = Object.freeze(Object.fromEntries(
+  Object.entries(HEIST_WEAPON_BINDINGS).map(([slot, binding]) => {
+    const def = weaponDef(binding.weaponId);
+    return [slot, Object.freeze({
+      name: binding.label,
+      weaponId: binding.weaponId,
+      magazineSize: def.capacity,
+      damage: def.damage,
+      penetration: def.penetration,
+    })];
   }),
-  sidearm: Object.freeze({
-    name: 'COMMANDER', magazineSize: 10, reserveMagazines: 3,
-    roundsPerSecond: 4.2, reloadSeconds: 1.5, recoilPerShot: 0.2,
-    damage: 30, penetration: 0.16,
-  }),
-});
+));
 
 export class HeistLoadout {
   constructor({ slots = HEIST_SLOT_ORDER.length } = {}) {
@@ -70,9 +73,11 @@ export class HeistLoadout {
     this.items = new Array(slots).fill(null);
     this.selected = 0;
     this.maskWorn = false;
+    /* Canonical `Firearm` state behind the loadout's old surface — see
+     * `HeistFirearm`. No second ammunition or reload authority exists here. */
     this.weapons = {
-      carbine: new WeaponController(HEIST_WEAPON_DEFS.carbine),
-      sidearm: new WeaponController(HEIST_WEAPON_DEFS.sidearm),
+      carbine: new HeistFirearm('carbine'),
+      sidearm: new HeistFirearm('sidearm'),
     };
   }
 
@@ -119,7 +124,7 @@ export class HeistLoadout {
 
   get selectedIsWeapon() { return HEIST_WEAPON_ITEMS.includes(this.selectedItem); }
 
-  /** The WeaponController the trigger is wired to, or null for empty hands. */
+  /** The HeistFirearm the trigger is wired to, or null for empty hands. */
   get activeWeapon() {
     return this.selectedIsWeapon ? this.weapons[this.selectedItem] : null;
   }
@@ -168,11 +173,6 @@ export class HeistLoadout {
     this.items = new Array(this.slotCount).fill(null);
     this.selected = 0;
     this.maskWorn = false;
-    for (const [key, weapon] of Object.entries(this.weapons)) {
-      weapon.restore({
-        magazine: HEIST_WEAPON_DEFS[key].magazineSize,
-        reserveMagazines: HEIST_WEAPON_DEFS[key].reserveMagazines,
-      });
-    }
+    for (const weapon of Object.values(this.weapons)) weapon.reset();
   }
 }
